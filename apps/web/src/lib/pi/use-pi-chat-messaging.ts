@@ -6,7 +6,6 @@ import { tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session"
 import type { MutableRefObject } from "react"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type {
-  ChatMode,
   ChatModelSelection,
   ChatSessionMetadata,
   ChatStreamEvent,
@@ -44,7 +43,6 @@ type PiChatMessagingSetters = {
 export type UsePiChatMessagingOptions = PiChatMessagingRefs &
   PiChatMessagingSetters & {
     client: ChatClient
-    mode: ChatMode
     model: ChatModelSelection | undefined
     recoverFromForbiddenSession: () => Promise<void>
     refreshSessions: () => Promise<void>
@@ -56,7 +54,6 @@ export function usePiChatMessaging({
   activityLabelRef,
   client,
   messagesRef,
-  mode,
   model,
   planLabelRef,
   queueRef,
@@ -157,7 +154,6 @@ export function usePiChatMessaging({
   const enqueueDuringStream = useCallback(
     async (
       trimmed: string,
-      requestMode: ChatMode,
       streamingBehavior: "steer" | "followUp" = "steer"
     ) => {
       await ensureSession()
@@ -169,7 +165,6 @@ export function usePiChatMessaging({
         {
           message: trimmed,
           model,
-          mode: requestMode,
           sessionFile: sessionMetadataRef.current.sessionFile,
           sessionId: sessionMetadataRef.current.sessionId,
           streamingBehavior,
@@ -213,20 +208,18 @@ export function usePiChatMessaging({
   const sendMessage = useCallback(
     async ({
       text,
-      mode: requestedMode,
       planAction,
       /** Mirror of the Alt/Option modifier at Enter-press time. */
       altKey,
     }: SendMessageInput) => {
       const trimmed = text.trim()
       if (!trimmed || status === "submitted") return
-      const requestMode = requestedMode ?? mode
 
       if (status === "streaming") {
         try {
           // Enter during stream = steer into the current turn.
           // Alt+Enter during stream = queue a follow-up after this turn.
-          await enqueueDuringStream(trimmed, requestMode, altKey ? "followUp" : "steer")
+          await enqueueDuringStream(trimmed, altKey ? "followUp" : "steer")
         } catch (err) {
           const nextError = err instanceof Error ? err : new Error(String(err))
           setError(nextError)
@@ -259,7 +252,6 @@ export function usePiChatMessaging({
           {
             message: trimmed,
             model,
-            mode: requestMode,
             planAction,
             sessionFile: sessionMetadataRef.current.sessionFile,
             sessionId: sessionMetadataRef.current.sessionId,
@@ -300,7 +292,6 @@ export function usePiChatMessaging({
       enqueueDuringStream,
       handleStreamEvent,
       messagesRef,
-      mode,
       model,
       recoverFromForbiddenSession,
       sessionMetadataRef,

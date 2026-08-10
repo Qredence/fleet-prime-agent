@@ -1,27 +1,16 @@
 import { useCallback, useEffect, useState } from "react"
 import { ChatSessionMetadataSchema } from "@prime-agent/web-protocol/chat-protocol.zod"
-import type {
-  ChatMode,
-  ChatSessionMetadata,
-} from "@prime-agent/web-protocol/chat-protocol"
+import type { ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol"
 
 const CHAT_SESSION_STORAGE_KEY = "fleet-pi-chat-session"
-
-// The TUI has no chat "modes" — we keep the underlying storage shape (keyed by
-// chat-mode scope) so previously stored sessions can still be read, but the
-// web port locks every read/write to the "agent" scope.
-const AGENT_SCOPE: ChatMode = "agent"
 
 export function useChatStorage() {
   const [sessionMetadata, setSessionMetadataState] =
     useState<ChatSessionMetadata>(() => readStoredBrowserSessions())
 
-  const setSessionMetadata = useCallback(
-    (metadata: ChatSessionMetadata, _modeOverride?: ChatMode) => {
-      setSessionMetadataState(metadata)
-    },
-    []
-  )
+  const setSessionMetadata = useCallback((metadata: ChatSessionMetadata) => {
+    setSessionMetadataState(metadata)
+  }, [])
 
   useEffect(() => {
     storeBrowserSessions(sessionMetadata)
@@ -30,10 +19,6 @@ export function useChatStorage() {
   return {
     sessionMetadata,
     setSessionMetadata,
-    mode: AGENT_SCOPE,
-    setMode: () => {
-      // No-op: modes are removed.
-    },
   }
 }
 

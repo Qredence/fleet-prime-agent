@@ -17,7 +17,6 @@ import { resolveWorkspacePanelTarget } from "@prime-agent/web-design/lib/workspa
 import { useChatStorage } from "./use-chat-storage"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import type {
-  ChatMode,
   ChatModelsResponse,
   ChatSessionMetadata,
 } from "@prime-agent/web-protocol/chat-protocol"
@@ -37,11 +36,6 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
     [modelsData]
   )
   const [modelKey, setModelKey] = useState<string | undefined>()
-  // The TUI has no chat "modes" (agent/plan/harness). The web port mirrors that:
-  // there is no ModeSelector and no stored mode; the wire ChatMode type stays
-  // (it's persisted for back-compat with sessions stored while modes existed)
-  // but it's locked to "agent" everywhere.
-  const mode = "agent" as const
   const [rightPanel, setRightPanelState] = useState<RightPanel>(null)
   const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<
     string | null
@@ -115,10 +109,6 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
     }
   }, [rightPanel])
 
-  const handleModeChange = useCallback((_nextMode: string) => {
-    // No-op: Modes are removed. ChatMode is locked to "agent" everywhere.
-  }, [])
-
   const handleThemePreferenceChange = useCallback(
     (preference: ThemePreference) => {
       setThemePreference(preference)
@@ -171,8 +161,8 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
   )
 
   const persistSession = useCallback(
-    (metadata: ChatSessionMetadata, _modeOverride?: ChatMode) => {
-      setStoredSessionMetadata(metadata, "agent")
+    (metadata: ChatSessionMetadata) => {
+      setStoredSessionMetadata(metadata)
     },
     [setStoredSessionMetadata]
   )
@@ -185,11 +175,9 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
 
   return {
     commandPaletteOpen,
-    handleModeChange,
     handleResourceCanvasResizeStart,
     handleThemePreferenceChange,
     initialSessionMetadata: storedSessionMetadata,
-    mode,
     modelKey,
     modelSelection,
     models,

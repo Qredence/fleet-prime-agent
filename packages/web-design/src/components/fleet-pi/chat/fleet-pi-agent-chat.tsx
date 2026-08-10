@@ -36,10 +36,23 @@ function StableInputBarSlot(props: InputBarProps) {
   const ctx = useContext(InputBarPropsContext)
   if (!ctx) return null
 
+  const {
+    controlled: _controlledSlot,
+    attachments: _attachmentsSlot,
+    ...agentChatSlotProps
+  } = props
+  const {
+    controlled: _controlledCtx,
+    attachments: _attachmentsCtx,
+    ...inputBarOverrides
+  } = ctx.inputBar
+
   return (
     <FleetPiInputBar
-      {...props}
-      {...ctx.inputBar}
+      {...agentChatSlotProps}
+      {...inputBarOverrides}
+      controlled={ctx.inputBar.controlled ?? props.controlled}
+      attachments={ctx.inputBar.attachments ?? props.attachments}
       status={ctx.status}
       onStop={ctx.onStop}
     />

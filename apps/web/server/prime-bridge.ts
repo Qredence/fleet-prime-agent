@@ -12,6 +12,7 @@
 import type {
 	AgentSession,
 	AgentSessionEvent,
+	SessionEntry,
 	SessionInfo,
 } from "@earendil-works/pi-coding-agent"
 import {
@@ -214,6 +215,20 @@ function asExtensionUIContext(ctx: WebUIContext): unknown {
 	return ctx as unknown
 }
 
+/**
+ * Verbatim port of `extractUserMessageText` from agent-session-runtime.ts —
+ * joins the text parts of a user message's content for fork pre-fill.
+ */
+function extractUserMessageText(content: string | Array<{ type: string; text?: string }>): string {
+	if (typeof content === "string") {
+		return content
+	}
+	return content
+		.filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
+		.map((part) => part.text)
+		.join("")
+}
+
 // ---------------------------------------------------------------------------
 // Bridge types
 // ---------------------------------------------------------------------------
@@ -237,6 +252,23 @@ export type BridgeEventListener = (
 	sessionId: string,
 	frame: ChatStreamEvent,
 ) => void
+
+/**
+ * Structural mirror of prime-agent's `SessionTreeNode` (not re-exported from
+ * the package index). `SessionManager.getTree()` returns this shape.
+ */
+export interface SessionTreeNode {
+	entry: SessionEntry
+	label?: string
+	labelTimestamp?: string
+	children: SessionTreeNode[]
+}
+
+export interface ForkSessionResult {
+	cancelled: boolean
+	selectedText?: string
+	newSessionId: string
+}
 
 export interface PrimeBridgeOptions {
 	readonly kernelTimeoutMs?: number
@@ -368,8 +400,28 @@ export class PrimeBridge {
 		// (anti dangling-session guard for the interactive CLI). For the web bridge
 		// we want the header durable *now*, so we call `flushNow()` instead, which
 		// bypasses that guard intentionally.
-		const sessionFile = session.sessionManager.materializeSessionFile()
+		session.sessionManager.materializeSessionFile()
 		session.sessionManager.flushNow()
+		const bridgeSession = await this.#registerSession(session, options.cwd, session.sessionManager.getSessionFile() ?? "")
+		if (options.model) {
+			await session.setModel(options.model as Parameters<typeof session.setModel>[0])
+		}
+		if (options.thinkingLevel) {
+			await session.setThinkingLevel(options.thinkingLevel)
+		}
+		return bridgeSession
+	}
+
+	/**
+	 * Shared registration path for every session the bridge owns (create, resume,
+	 * fork). Binds the web UI context, forwards session events into the ring
+	 * buffer, and tracks the session in `#sessions`.
+	 */
+	async #registerSession(
+		session: AgentSession,
+		cwd: string,
+		sessionPath: string,
+	): Promise<BridgeSession> {
 		const sessionId = session.sessionManager.getSessionId()
 		const uiContext = new WebUIContext({
 			sessionId,
@@ -383,8 +435,8 @@ export class PrimeBridge {
 		const mapperState = createEventMapperState()
 		const bridgeSession: BridgeSession = {
 			sessionId,
-			cwd: options.cwd,
-			sessionPath: sessionFile,
+			cwd,
+			sessionPath,
 			session,
 			mapperState,
 			uiContext,
@@ -406,13 +458,6 @@ export class PrimeBridge {
 				this.#dispatch(sessionId, frame)
 			}
 		})
-
-		if (options.model) {
-			await session.setModel(options.model as Parameters<typeof session.setModel>[0])
-		}
-		if (options.thinkingLevel) {
-			await session.setThinkingLevel(options.thinkingLevel)
-		}
 
 		this.#sessions.set(sessionId, bridgeSession)
 		this.#ringBufferFor(sessionId) // Pre-create so SSE attaches safely.
@@ -437,32 +482,7 @@ export class PrimeBridge {
 			cwd: sessionManager.getCwd(),
 			sessionManager,
 		})
-		const sessionId = agentSessionResult.session.sessionManager.getSessionId()
-		const uiContext = new WebUIContext({
-			sessionId,
-			emitFrame: (frame) => this.#dispatch(sessionId, frame),
-			dialogs: this.#dialogs,
-		})
-		await agentSessionResult.session.bindExtensions({
-			uiContext: asExtensionUIContext(uiContext) as never,
-		})
-		const mapperState = createEventMapperState()
-		agentSessionResult.session.subscribe((event) => {
-			const frames = mapAgentSessionEvent(mapperState, event as AgentSessionEvent)
-			for (const frame of frames) {
-				this.#dispatch(sessionId, frame)
-			}
-		})
-		const bridgeSession: BridgeSession = {
-			sessionId,
-			cwd: sessionManager.getCwd(),
-			sessionPath,
-			session: agentSessionResult.session,
-			mapperState,
-			uiContext,
-		}
-		this.#sessions.set(sessionId, bridgeSession)
-		return bridgeSession
+		return this.#registerSession(agentSessionResult.session, sessionManager.getCwd(), sessionPath)
 	}
 
 	async resumeSessionById(sessionId: string): Promise<BridgeSession | undefined> {
@@ -637,15 +657,119 @@ export class PrimeBridge {
 		await session.session.navigateTree(targetId, {})
 	}
 
+	/** /tree — the session's entry tree plus the current leaf, for pickers. */
+	getSessionTree(sessionId: string): {
+		tree: SessionTreeNode[]
+		leafId: string | null
+	} {
+		const session = this.#requireSession(sessionId)
+		return {
+			tree: session.session.sessionManager.getTree() as SessionTreeNode[],
+			leafId: session.session.sessionManager.getLeafId(),
+		}
+	}
+
 	/**
-	 * /fork and /clone are exposed in the TUI through `runtimeHost.fork()`, which
-	 * is a *session-runtime* primitive available on the daemon, not on a live
-	 * `AgentSession`. They require the daemon to materialize a new session file
-	 * (re-using the agent's conversation state up to a chosen entry). Until
-	 * `AgentSession` exposes such a helper, the web port marks these as
-	 * unimplemented and routes them through `session-not-implemented` in the
-	 * dispatcher so they never fall through to the LLM.
+	 * /fork and /clone — branch the session at `entryId` into a NEW live session.
+	 *
+	 * Mirrors `AgentSessionRuntime.fork` (agent-session-runtime.ts) minus the
+	 * runtime-specific teardown: the TUI replaces its session in-slot, while the
+	 * bridge keeps the SOURCE session running in `#sessions` and registers the
+	 * fork alongside it under its fresh id.
+	 *
+	 * Safety rail from the runtime trace: `createBranchedSession` mutates its
+	 * manager in place (re-ids it to the fork), so the branch is always computed
+	 * on a SIDE `SessionManager` opened over the same file — never on the live
+	 * `session.sessionManager`.
 	 */
+	async forkSession(
+		sessionId: string,
+		entryId: string,
+		position: "before" | "at" = "before",
+	): Promise<ForkSessionResult> {
+		const bridge = this.#requireSession(sessionId)
+		const sourceManager = bridge.session.sessionManager
+
+		// Entry resolution ported from AgentSessionRuntime.fork (lines 532-545).
+		const selectedEntry = sourceManager.getEntry(entryId)
+		if (!selectedEntry) {
+			throw new Error("Invalid entry ID for forking")
+		}
+		let targetLeafId: string | null
+		let selectedText: string | undefined
+		if (position === "at") {
+			targetLeafId = selectedEntry.id
+		} else {
+			if (selectedEntry.type !== "message" || selectedEntry.message.role !== "user") {
+				throw new Error("Invalid entry ID for forking")
+			}
+			targetLeafId = selectedEntry.parentId
+			selectedText = extractUserMessageText(selectedEntry.message.content)
+		}
+
+		const currentFile = sourceManager.getSessionFile()
+		if (!currentFile) {
+			throw new Error("Cannot fork an unpersisted session")
+		}
+		const sessionDir = sourceManager.getSessionDir()
+
+		// `_persist` holds back pre-assistant entries from disk; flush the source
+		// so the side manager (which re-reads the file) sees the full branch.
+		sourceManager.flushNow()
+
+		let side: SessionManager
+		if (targetLeafId) {
+			// Branch the recorded path root→leaf into a fresh session file. The
+			// call re-ids `side` in place to the forked session.
+			side = SessionManager.open(currentFile, sessionDir)
+			const forkedPath = side.createBranchedSession(targetLeafId)
+			if (!forkedPath) {
+				throw new Error("Failed to create forked session")
+			}
+		} else {
+			// `/fork` on the first user message (position "before"): no recorded
+			// entries to carry over, so start a fresh empty session parented on
+			// the source file — same as runtime.fork's targetLeafId === null path.
+			side = SessionManager.create(bridge.cwd, sessionDir)
+			const sourceRlmDepth = sourceManager.getHeader()?.rlmDepth
+			side.newSession({
+				parentSession: currentFile,
+				// `newSession` derives depth from the parent file on its own when
+				// the key is absent; an explicit `undefined` would suppress that.
+				...(sourceRlmDepth !== undefined ? { rlmDepth: sourceRlmDepth } : {}),
+			})
+		}
+
+		const { session: forked } = await createAgentSession({
+			cwd: bridge.cwd,
+			sessionManager: side,
+		})
+		// Carry the source session's model/thinking/service-tier over so the fork
+		// doesn't silently fall back to defaults (provider/settings may differ).
+		// setModel appends a model_change entry even when unchanged, so skip the
+		// call when session restore already landed on the same model.
+		const sourceModel = bridge.session.model
+		if (
+			sourceModel &&
+			(forked.model?.id !== sourceModel.id || forked.model?.provider !== sourceModel.provider)
+		) {
+			await forked.setModel(sourceModel)
+		}
+		await forked.setThinkingLevel(bridge.session.thinkingLevel)
+		forked.setServiceTier(bridge.session.serviceTier)
+
+		// Persist the fork header now so cold resume (/api/chat/sessions after an
+		// SSR restart) can discover it — bridge durability policy.
+		forked.sessionManager.materializeSessionFile()
+		forked.sessionManager.flushNow()
+
+		await this.#registerSession(forked, bridge.cwd, forked.sessionManager.getSessionFile() ?? "")
+		return {
+			cancelled: false,
+			selectedText,
+			newSessionId: forked.sessionManager.getSessionId(),
+		}
+	}
 
 	// -----------------------------------------------------------------------
 	// Message hydration (for /session eager-load on the client)

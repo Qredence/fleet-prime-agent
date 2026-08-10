@@ -89,11 +89,9 @@ function ChatWorkspaceShell() {
   const discoverModelsMutation = useDiscoverChatModels()
   const {
     commandPaletteOpen,
-    handleModeChange,
     handleResourceCanvasResizeStart,
     handleThemePreferenceChange,
     initialSessionMetadata,
-    mode,
     modelKey,
     modelSelection,
     models,
@@ -169,9 +167,8 @@ function ChatWorkspaceShell() {
     startNewSession,
     status,
     stop,
-  } = usePiChat(modelSelection, mode, {
+  } = usePiChat(modelSelection, {
     initialSessionMetadata,
-    onModeChange: handleModeChange,
     persistSession,
   })
 
@@ -198,7 +195,6 @@ function ChatWorkspaceShell() {
   })
   const suggestions = useChatSuggestions({
     messages,
-    mode,
     resources,
     workspaceTree,
   })
@@ -262,7 +258,6 @@ function ChatWorkspaceShell() {
       isLoadingProviders,
       isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
       loadWorkspaceFile,
-      mode,
       modelKey,
       models,
       modelCatalog,

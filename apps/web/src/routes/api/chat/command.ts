@@ -64,25 +64,33 @@ export const Route = createFileRoute("/api/chat/command")({
 							await bridge.reloadResources(body.sessionId)
 							return Response.json({ ok: true })
 						case "tree": {
+							if (args) {
+								await bridge.navigateTree(body.sessionId, args)
+							}
+							const tree = bridge.getSessionTree(body.sessionId)
+							return Response.json({ ok: true, tree })
+						}
+						case "fork": {
 							if (!args) {
 								return Response.json(
-									{ message: "/tree requires a target entry id in the web port." },
+									{ message: "/fork requires a message entry id in the web port." },
 									{ status: 400 },
 								)
 							}
-							await bridge.navigateTree(body.sessionId, args)
-							return Response.json({ ok: true })
+							const result = await bridge.forkSession(body.sessionId, args, "before")
+							return Response.json({ ok: true, ...result })
 						}
-						case "fork":
-						case "clone":
-							return Response.json(
-								{
-									message:
-										`/${body.command} requires prime-agent's daemon runtime (runtimeHost.fork), ` +
-										"which the web bridge doesn't expose yet. Tracked as a v2 surface.",
-								},
-								{ status: 501 },
-							)
+						case "clone": {
+							const tree = bridge.getSessionTree(body.sessionId)
+							if (!tree.leafId) {
+								return Response.json(
+									{ message: "/clone requires at least one recorded entry to clone at." },
+									{ status: 400 },
+								)
+							}
+							const result = await bridge.forkSession(body.sessionId, tree.leafId, "at")
+							return Response.json({ ok: true, ...result })
+						}
 						default:
 							return Response.json(
 								{ message: `Unknown slash command: /${body.command}` },

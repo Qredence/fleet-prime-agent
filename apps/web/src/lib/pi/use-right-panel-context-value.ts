@@ -5,7 +5,6 @@ import type {
   WorkspaceTreeContextValue,
 } from "@prime-agent/web-design/components/fleet-pi/layout/right-panel-context"
 import type {
-  ChatMode,
   ChatPiSettingsUpdate,
   ChatProviderInfo,
   ChatProviderRemoveRequest,
@@ -31,7 +30,6 @@ type UseRightPanelContextValueArgs = {
   isLoadingProviders?: boolean
   isUpdatingProvider?: boolean
   loadWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>
-  mode: ChatMode
   modelKey?: string
   models: Array<ChatModelOption>
   modelCatalog?: Array<ChatModelOption>
@@ -80,7 +78,6 @@ export function useRightPanelContextValue({
   isLoadingProviders,
   isUpdatingProvider,
   loadWorkspaceFile,
-  mode,
   modelKey,
   models,
   modelCatalog,
@@ -113,7 +110,6 @@ export function useRightPanelContextValue({
   const chatPanelData = useMemo<ChatPanelDataContextValue>(
     () => ({
       activityLabel,
-      mode,
       models,
       planLabel,
       queue,
@@ -128,7 +124,6 @@ export function useRightPanelContextValue({
     }),
     [
       activityLabel,
-      mode,
       models,
       planLabel,
       queue,

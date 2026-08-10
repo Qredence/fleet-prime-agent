@@ -7,7 +7,6 @@ import type { ElementType, ReactNode } from "react"
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils"
 import type {
-  ChatMode,
   ChatPiSettingsUpdate,
   ChatProviderInfo,
   ChatProviderRemoveRequest,
@@ -28,7 +27,6 @@ export type RightPanelContentProps = {
   activityLabel?: string
   isLoadingProviders?: boolean
   isUpdatingProvider?: boolean
-  mode: ChatMode
   models: Array<ChatModelOption>
   /** Full registry catalog for Settings model curation (unfiltered). */
   modelCatalog?: Array<ChatModelOption>

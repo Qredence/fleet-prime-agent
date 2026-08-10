@@ -17,12 +17,6 @@ import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { QuestionBarData } from "./hooks/use-question-bar-navigation"
 import type { RefObject } from "react"
 
-type InputConfig = {
-  inputBarPlaceholder: string
-  attachmentButtonPosition: "left" | "right"
-  attachmentPreviewStyle: "thumbnail" | "chip" | "hidden"
-}
-
 type SuggestionConfig =
   | Array<SuggestionItem>
   | {
@@ -31,11 +25,7 @@ type SuggestionConfig =
       itemClassName?: string
     }
 
-const DEFAULT_INPUT_CONFIG: InputConfig = {
-  inputBarPlaceholder: "Send a message...",
-  attachmentButtonPosition: "left",
-  attachmentPreviewStyle: "thumbnail",
-}
+const DEFAULT_PLACEHOLDER = "Send a message..."
 
 export type AttachedImage = {
   id: string
@@ -48,6 +38,31 @@ export type AttachedFile = {
   id: string
   filename: string
   size?: number
+}
+
+export type InputBarAttachmentsConfig = {
+  onAttach?: () => void
+  images?: Array<AttachedImage>
+  files?: Array<AttachedFile>
+  onRemoveImage?: (id: string) => void
+  onRemoveFile?: (id: string) => void
+  onPaste?: (e: React.ClipboardEvent) => void
+  isDragOver?: boolean
+  /**
+   * When true (default) clicking a staged image attachment opens a
+   * fullscreen lightbox preview. Set to false to render thumbnails as
+   * plain non-interactive previews.
+   */
+  enableImagePreview?: boolean
+  /** Toolbar position of the attachment button. Defaults to "left". */
+  buttonPosition?: "left" | "right"
+  /** How staged attachments render above the input. Defaults to "thumbnail". */
+  previewStyle?: "thumbnail" | "chip" | "hidden"
+}
+
+export type InputBarControlledConfig = {
+  value: string
+  onChange: (value: string) => void
 }
 
 export type InputBarProps = {
@@ -63,14 +78,24 @@ export type InputBarProps = {
   className?: string
 
   // Attachment support
+  attachments?: InputBarAttachmentsConfig
+  /** @deprecated Pass `attachments.onAttach` instead. */
   onAttach?: () => void
+  /** @deprecated Pass `attachments.images` instead. */
   attachedImages?: Array<AttachedImage>
+  /** @deprecated Pass `attachments.files` instead. */
   attachedFiles?: Array<AttachedFile>
+  /** @deprecated Pass `attachments.onRemoveImage` instead. */
   onRemoveImage?: (id: string) => void
+  /** @deprecated Pass `attachments.onRemoveFile` instead. */
   onRemoveFile?: (id: string) => void
+  /** @deprecated Pass `attachments.onPaste` instead. */
   onPaste?: (e: React.ClipboardEvent) => void
+  /** @deprecated Pass `attachments.isDragOver` instead. */
   isDragOver?: boolean
   /**
+   * @deprecated Pass `attachments.enableImagePreview` instead.
+   *
    * When true (default) clicking a staged image attachment opens a
    * fullscreen lightbox preview. Set to false to render thumbnails as
    * plain non-interactive previews.
@@ -78,7 +103,10 @@ export type InputBarProps = {
   enableImagePreview?: boolean
 
   // Controlled mode
+  controlled?: InputBarControlledConfig
+  /** @deprecated Pass `controlled.value` instead. */
   value?: string
+  /** @deprecated Pass `controlled.onChange` instead. */
   onChange?: (value: string) => void
   disabled?: boolean
   autoFocus?: boolean
@@ -109,40 +137,77 @@ export type InputBarProps = {
   rightActions?: React.ReactNode
 }
 
-export const InputBar = memo(function InputBar({
-  onSend,
-  status,
-  onStop,
-  placeholder,
-  className,
-  onAttach,
-  attachedImages = [],
-  attachedFiles = [],
-  onRemoveImage,
-  onRemoveFile,
-  onPaste,
-  isDragOver,
-  enableImagePreview = true,
-  value: controlledValue,
-  onChange: controlledOnChange,
-  disabled,
-  autoFocus,
-  suggestions = [],
-  typingAnimation,
-  infoBar,
-  questionBar,
-  leftActions,
-  rightActions,
-  slashCommands = [],
-  onSlashCommandSelect,
-}: InputBarProps) {
+export const InputBar = memo(function InputBar(props: InputBarProps) {
+  const {
+    onSend,
+    status,
+    onStop,
+    placeholder,
+    className,
+    attachments,
+    // Deprecated flat aliases — mapped into the grouped shapes below.
+    onAttach: legacyOnAttach,
+    attachedImages: legacyAttachedImages,
+    attachedFiles: legacyAttachedFiles,
+    onRemoveImage: legacyOnRemoveImage,
+    onRemoveFile: legacyOnRemoveFile,
+    onPaste: legacyOnPaste,
+    isDragOver: legacyIsDragOver,
+    enableImagePreview: legacyEnableImagePreview,
+    controlled,
+    value: legacyValue,
+    onChange: legacyOnChange,
+    disabled,
+    autoFocus,
+    suggestions = [],
+    typingAnimation,
+    infoBar,
+    questionBar,
+    leftActions,
+    rightActions,
+    slashCommands = [],
+    onSlashCommandSelect,
+  } = props
+
+  if (
+    legacyOnAttach !== undefined ||
+    legacyAttachedImages !== undefined ||
+    legacyAttachedFiles !== undefined ||
+    legacyOnRemoveImage !== undefined ||
+    legacyOnRemoveFile !== undefined ||
+    legacyOnPaste !== undefined ||
+    legacyIsDragOver !== undefined ||
+    legacyEnableImagePreview !== undefined ||
+    legacyValue !== undefined ||
+    legacyOnChange !== undefined
+  ) {
+    console.warn(
+      "[InputBar] The flat props `onAttach`, `attachedImages`, `attachedFiles`, `onRemoveImage`, `onRemoveFile`, `onPaste`, `isDragOver`, `enableImagePreview`, `value` and `onChange` are deprecated. Pass the `attachments` and `controlled` config objects instead."
+    )
+  }
+
+  const onAttach = attachments?.onAttach ?? legacyOnAttach
+  const attachedImages = attachments?.images ?? legacyAttachedImages ?? []
+  const attachedFiles = attachments?.files ?? legacyAttachedFiles ?? []
+  const onRemoveImage = attachments?.onRemoveImage ?? legacyOnRemoveImage
+  const onRemoveFile = attachments?.onRemoveFile ?? legacyOnRemoveFile
+  const onPaste = attachments?.onPaste ?? legacyOnPaste
+  const isDragOver = attachments?.isDragOver ?? legacyIsDragOver
+  const enableImagePreview =
+    attachments?.enableImagePreview ?? legacyEnableImagePreview ?? true
+  const attachRight = (attachments?.buttonPosition ?? "left") === "right"
+  const previewStyle = attachments?.previewStyle ?? "thumbnail"
+
+  const isControlled = controlled !== undefined || legacyValue !== undefined
+  const controlledValue = controlled ? controlled.value : legacyValue
+  const controlledOnChange = controlled ? controlled.onChange : legacyOnChange
+
   const [internalInput, setInternalInput] = useState("")
   const [isInfoBarOpen, setIsInfoBarOpen] = useState(true)
   const [dismissedQuestionId, setDismissedQuestionId] = useState<string | null>(
     null
   )
-  const isControlled = controlledValue !== undefined
-  const input = isControlled ? controlledValue : internalInput
+  const input = isControlled ? (controlledValue ?? "") : internalInput
   const setInput = useCallback(
     (v: string) => {
       if (isControlled) {
@@ -154,7 +219,6 @@ export const InputBar = memo(function InputBar({
     [isControlled, controlledOnChange]
   )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const config = DEFAULT_INPUT_CONFIG
 
   const isStreaming = status === "streaming" || status === "submitted"
   const isTyping = typingAnimation?.isActive ?? false
@@ -166,10 +230,9 @@ export const InputBar = memo(function InputBar({
     typingAnimation?.onComplete ?? (() => {})
   )
 
-  const effectivePlaceholder = placeholder ?? config.inputBarPlaceholder
+  const effectivePlaceholder = placeholder ?? DEFAULT_PLACEHOLDER
 
   const showAttach = Boolean(onAttach)
-  const attachRight = config.attachmentButtonPosition === "right"
 
   // Auto-resize textarea
   useEffect(() => {
@@ -244,10 +307,8 @@ export const InputBar = memo(function InputBar({
 
   const hasInput = input.trim().length > 0
   const hasContextItems = attachedImages.length > 0 || attachedFiles.length > 0
-  const showContextItems =
-    hasContextItems && config.attachmentPreviewStyle !== "hidden"
-  const imageDisplayMode =
-    config.attachmentPreviewStyle === "thumbnail" ? "image-only" : "chip"
+  const showContextItems = hasContextItems && previewStyle !== "hidden"
+  const imageDisplayMode = previewStyle === "thumbnail" ? "image-only" : "chip"
 
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
     if (

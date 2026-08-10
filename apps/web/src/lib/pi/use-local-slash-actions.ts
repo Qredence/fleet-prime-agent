@@ -35,6 +35,64 @@ function formatSessionInfo({
   ].join("\n")
 }
 
+/** Structural mirror of the bridge's session-tree node (only the fields the echo needs). */
+type SessionTreeBranch = {
+  entry: {
+    id: string
+    type: string
+    label?: string
+    timestamp?: string
+    message?: { role?: string; content?: unknown }
+  }
+  label?: string
+  children: SessionTreeBranch[]
+}
+
+function treeEntryPreview(node: SessionTreeBranch): string {
+  const { entry } = node
+  if (entry.type === "message" && entry.message) {
+    const content = entry.message.content
+    let text = ""
+    if (typeof content === "string") {
+      text = content
+    } else if (Array.isArray(content)) {
+      text = content
+        .filter(
+          (part): part is { type: "text"; text: string } =>
+            !!part &&
+            typeof part === "object" &&
+            (part as { type?: string }).type === "text" &&
+            typeof (part as { text?: unknown }).text === "string"
+        )
+        .map((part) => part.text)
+        .join(" ")
+    }
+    const role = entry.message.role ?? "message"
+    const oneLine = text.replace(/\s+/g, " ").trim()
+    return `${role}: ${oneLine.length > 72 ? `${oneLine.slice(0, 72)}…` : oneLine}`
+  }
+  return entry.label ?? node.label ?? entry.type
+}
+
+/** Render the branch listing (TUI parity: `*` marks the current leaf). */
+function formatSessionTree(
+  nodes: SessionTreeBranch[],
+  leafId: string | null,
+  depth = 0
+): string {
+  const lines: string[] = []
+  const walk = (items: SessionTreeBranch[], level: number) => {
+    for (const item of items) {
+      const marker = item.entry.id === leafId ? "*" : " "
+      const indent = "  ".repeat(level)
+      lines.push(`${indent}${marker} ${item.entry.id}  ${treeEntryPreview(item)}`)
+      walk(item.children, level + 1)
+    }
+  }
+  walk(nodes, depth)
+  return lines.length > 0 ? lines.join("\n") : "(empty session tree)"
+}
+
 export function useLocalSlashActions({
   appendLocalMessage,
   models,
@@ -202,21 +260,64 @@ export function useLocalSlashActions({
           })()
           return true
         }
-        case "session-fork":
-          appendLocalMessage(
-            "/fork requires prime-agent's daemon runtime (runtimeHost.fork), which the web bridge doesn't expose yet."
-          )
+        case "session-fork": {
+          if (!action.args) {
+            appendLocalMessage(
+              "Usage: /fork <message-entry-id> — the web port has no fork picker yet; run /tree to list entry ids."
+            )
+            return true
+          }
+          void (async () => {
+            const result = await chatCommand("fork", action.args)
+            if (!result.ok) {
+              appendLocalMessage(`Fork failed: ${result.error}`)
+              return
+            }
+            const parsed = JSON.parse(result.text ?? "{}") as {
+              newSessionId?: string
+              selectedText?: string
+            }
+            appendLocalMessage(
+              `Forked → session ${parsed.newSessionId ?? "?"}. Selected text: ${parsed.selectedText ?? "(none)"}`
+            )
+          })()
           return true
-        case "session-clone":
-          appendLocalMessage(
-            "/clone requires prime-agent's daemon runtime (runtimeHost.fork), which the web bridge doesn't expose yet."
-          )
+        }
+        case "session-clone": {
+          void (async () => {
+            const result = await chatCommand("clone")
+            if (!result.ok) {
+              appendLocalMessage(`Clone failed: ${result.error}`)
+              return
+            }
+            const parsed = JSON.parse(result.text ?? "{}") as {
+              newSessionId?: string
+            }
+            appendLocalMessage(`Cloned → session ${parsed.newSessionId ?? "?"}.`)
+          })()
           return true
-        case "session-tree":
-          appendLocalMessage(
-            "/tree session-tree navigation requires an entry id from the daemon; not yet exposed through the bridge."
-          )
+        }
+        case "session-tree": {
+          void (async () => {
+            const result = action.args
+              ? await chatCommand("tree", action.args)
+              : await chatCommand("tree")
+            if (!result.ok) {
+              appendLocalMessage(`Tree failed: ${result.error}`)
+              return
+            }
+            const parsed = JSON.parse(result.text ?? "{}") as {
+              tree?: { tree?: SessionTreeBranch[]; leafId?: string | null }
+            }
+            const payload = parsed.tree
+            if (!payload || !Array.isArray(payload.tree)) {
+              appendLocalMessage("(no session tree available)")
+              return
+            }
+            appendLocalMessage(formatSessionTree(payload.tree, payload.leafId ?? null))
+          })()
           return true
+        }
         case "session-share":
           appendLocalMessage("/share (Gist) is not yet wired in the web port.")
           return true

@@ -6,7 +6,6 @@ import type { RightPanelContentProps } from "./right-panel-registry"
 export type ChatPanelDataContextValue = Pick<
   RightPanelContentProps,
   | "activityLabel"
-  | "mode"
   | "models"
   | "planLabel"
   | "queue"

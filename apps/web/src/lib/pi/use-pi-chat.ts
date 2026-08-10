@@ -16,7 +16,6 @@ import { resolveChatApiUrl } from "./chat-runtime-url"
 import type { QueueState } from "./chat-fetch"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type {
-  ChatMode,
   ChatModelSelection,
   ChatPlanAction,
   ChatQuestionAnswer,
@@ -28,7 +27,6 @@ import type { ChatClient } from "./chat-client"
 
 export type SendMessageInput = {
   text: string
-  mode?: ChatMode
   planAction?: ChatPlanAction
   /** Mirror of the Alt/Option modifier at Enter-press time. */
   altKey?: boolean
@@ -37,21 +35,15 @@ export type SendMessageInput = {
 export type UsePiChatOptions = {
   client?: ChatClient
   initialSessionMetadata: ChatSessionMetadata
-  onModeChange?: (mode: ChatMode) => void
   persistSession: (metadata: ChatSessionMetadata) => void
 }
 
 export function usePiChat(
   model: ChatModelSelection | undefined,
-  mode: ChatMode,
   options: UsePiChatOptions
 ) {
-  const {
-    client = chatClient,
-    initialSessionMetadata,
-    onModeChange,
-    persistSession,
-  } = options
+  const { client = chatClient, initialSessionMetadata, persistSession } =
+    options
   const [messages, setMessages] = useState<Array<ChatMessage>>([])
   const [status, setStatus] = useState<ChatStatus>("ready")
   const [error, setError] = useState<Error | null>(null)
@@ -62,7 +54,6 @@ export function usePiChat(
   const [activityLabel, setActivityLabel] = useState<string | undefined>()
   const [planLabel, setPlanLabel] = useState<string | undefined>()
   const [queue, setQueue] = useState<QueueState>(EMPTY_QUEUE_STATE)
-  const sessionScope = "normal" as const
   const initialSessionMetadataRef = useRef(initialSessionMetadata)
   const messagesRef = useRef(messages)
   const sessionMetadataRef = useRef(sessionMetadata)
@@ -186,9 +177,6 @@ export function usePiChat(
         answer,
       })
 
-      if (result.mode) {
-        onModeChange?.(result.mode)
-      }
       if (result.ok && isPlanDecisionToolCall(toolCallId)) {
         setMessagesSynced((current) =>
           resolvePlanDecisionMessages(current, toolCallId, answer)
@@ -197,14 +185,13 @@ export function usePiChat(
       if (result.message) {
         await sendMessageRef.current({
           text: result.message,
-          mode: result.mode,
           planAction: result.planAction,
         })
       }
 
       return result
     },
-    [client, onModeChange]
+    [client]
   )
 
   const enhanceMessages = useCallback(
@@ -284,7 +271,6 @@ export function usePiChat(
     }
   }, [
     client,
-    sessionScope,
     setActivityLabelSynced,
     setMessagesSynced,
     setPlanLabelSynced,
@@ -298,7 +284,6 @@ export function usePiChat(
     activityLabelRef,
     client,
     messagesRef,
-    mode,
     model,
     planLabelRef,
     queueRef,

@@ -95,17 +95,22 @@ export function AgentChat({
       onSend={onSend}
       status={status}
       onStop={onStop}
-      value={draft}
-      onChange={setDraft}
+      controlled={{ value: draft, onChange: setDraft }}
       placeholder="Send a message..."
       className={cn(classNames?.inputBar, isCenteredEmptyState && "px-0 pb-0")}
-      onAttach={attachments?.onAttach}
-      attachedImages={attachments?.images}
-      attachedFiles={attachments?.files}
-      onRemoveImage={attachments?.onRemoveImage}
-      onRemoveFile={attachments?.onRemoveFile}
-      onPaste={attachments?.onPaste}
-      isDragOver={attachments?.isDragOver}
+      attachments={
+        attachments
+          ? {
+              onAttach: attachments.onAttach,
+              images: attachments.images,
+              files: attachments.files,
+              onRemoveImage: attachments.onRemoveImage,
+              onRemoveFile: attachments.onRemoveFile,
+              onPaste: attachments.onPaste,
+              isDragOver: attachments.isDragOver,
+            }
+          : undefined
+      }
       suggestions={
         isCenteredEmptyState && showInputSuggestions ? suggestions : []
       }

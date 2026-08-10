@@ -59,9 +59,9 @@ export type LocalSlashAction =
   | { type: "session-system-prompt" }
   | { type: "session-logs" }
   | { type: "session-export"; outputPath: string | undefined }
-  | { type: "session-fork" }
+  | { type: "session-fork"; args: string }
   | { type: "session-clone" }
-  | { type: "session-tree" }
+  | { type: "session-tree"; args: string }
   | { type: "session-share" }
   | { type: "session-import"; path: string }
   | { type: "session-btw"; question: string }
@@ -172,11 +172,11 @@ export function resolveLocalSlashAction(
         outputPath: parseQuotedPathArgument(trimmedArgs),
       }
     case "fork":
-      return { type: "session-fork" }
+      return { type: "session-fork", args: trimmedArgs }
     case "clone":
       return { type: "session-clone" }
     case "tree":
-      return { type: "session-tree" }
+      return { type: "session-tree", args: trimmedArgs }
     case "share":
       return { type: "session-share" }
     case "import":

@@ -6,7 +6,6 @@ import type {
   ChatToolPart,
 } from "@prime-agent/web-protocol/chat-types"
 import type {
-  ChatMode,
   ChatResourcesResponse,
   ChatSessionInfo,
   WorkspaceTreeResponse,
@@ -29,12 +28,10 @@ export function useActiveSessionLabel({
 
 export function useChatSuggestions({
   messages,
-  mode,
   resources,
   workspaceTree,
 }: {
   messages: Array<ChatMessage>
-  mode: ChatMode
   resources: ChatResourcesResponse | null
   workspaceTree: WorkspaceTreeResponse | null
 }) {
@@ -42,22 +39,19 @@ export function useChatSuggestions({
     () =>
       buildContextSuggestions({
         messages,
-        mode,
         resources,
         workspaceTree,
       }),
-    [messages, mode, resources, workspaceTree]
+    [messages, resources, workspaceTree]
   )
 }
 
 function buildContextSuggestions({
   messages,
-  mode,
   resources,
   workspaceTree,
 }: {
   messages: Array<ChatMessage>
-  mode: ChatMode
   resources: ChatResourcesResponse | null
   workspaceTree: WorkspaceTreeResponse | null
 }): Array<SuggestionItem> {
@@ -77,26 +71,6 @@ function buildContextSuggestions({
         JSON.stringify(node).toLowerCase().includes("frontend")
       )
     )
-
-  // Mode-specific suggestions (independent of conversation content)
-  if (mode === "plan") {
-    return [
-      suggestionItem("plan-codebase", "Plan a codebase walkthrough"),
-      suggestionItem("plan-skill", 'Plan around the "frontend" skill'),
-      suggestionItem("plan-tests", "Plan the next validation steps"),
-    ]
-  }
-
-  if (mode === "harness") {
-    return [
-      suggestionItem(
-        "harness-architecture",
-        "Review agent-workspace architecture"
-      ),
-      suggestionItem("harness-memory", "Update project memory architecture"),
-      suggestionItem("harness-pi", "Check Pi resource alignment"),
-    ]
-  }
 
   // No messages — empty state (only used for centered empty suggestions)
   if (messages.length === 0) {
