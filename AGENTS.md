@@ -17,9 +17,9 @@
   `IpythonKernelProvisioner`, `SessionManager` — update
   `../web/server/event-mapper.ts` and/or `../web/server/prime-bridge.ts` in the
   same change.
-- Chat wire contract lives in `../web/packages/protocol/src/chat-protocol.ts`;
+- Chat wire contract lives in `packages/web-protocol/src/chat-protocol.ts`;
   the web side translates `AgentSessionEvent → ChatStreamEvent` in
-  `event-mapper.ts`.
+  `apps/web/server/event-mapper.ts`.
 
 ## Code Quality
 
