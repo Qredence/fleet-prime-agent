@@ -6,17 +6,23 @@ import { build } from "esbuild";
 const outputPath = join(tmpdir(), "pi-browser-smoke.js");
 const errorLogPath = join(tmpdir(), "pi-browser-smoke-errors.log");
 
-try {
-	await build({
-		entryPoints: ["scripts/browser-smoke-entry.ts"],
-		bundle: true,
-		platform: "browser",
-		format: "esm",
-		logLevel: "silent",
-		outfile: outputPath,
-	});
-	process.exit(0);
-} catch (error) {
+	try {
+		await build({
+			entryPoints: ["scripts/browser-smoke-entry.ts"],
+			bundle: true,
+			platform: "browser",
+			format: "esm",
+			// @mistralai/mistralai's ESM build statically imports @opentelemetry/api
+			// but only calls it behind a feature flag; we don't use telemetry in the
+			// browser smoke bundle, so mark the import as external to let esbuild
+			// skip resolving it. This is also how the upstream Mistral SDK is intended
+			// to be bundled for browsers.
+			external: ["@opentelemetry/api"],
+			logLevel: "silent",
+			outfile: outputPath,
+		});
+		process.exit(0);
+	} catch (error) {
 	let detailedErrors = "";
 	if (error && typeof error === "object" && "errors" in error && Array.isArray(error.errors)) {
 		detailedErrors = error.errors

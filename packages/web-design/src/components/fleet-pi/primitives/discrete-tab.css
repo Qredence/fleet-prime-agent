@@ -1,0 +1,29 @@
+.discrete-tab-list {
+  --discrete-tab-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer components {
+  .discrete-tab-label {
+    display: grid;
+    grid-template-columns: 0fr;
+    opacity: 0;
+  }
+
+  .discrete-tab-trigger[data-state="active"] .discrete-tab-label {
+    grid-template-columns: 1fr;
+    opacity: 1;
+  }
+
+  .discrete-tab-label-inner {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .discrete-tab-label {
+    transition:
+      grid-template-columns 220ms var(--discrete-tab-ease),
+      opacity 220ms var(--discrete-tab-ease);
+  }
+}

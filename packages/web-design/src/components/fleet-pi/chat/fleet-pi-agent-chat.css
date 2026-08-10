@@ -1,0 +1,7 @@
+.fleet-pi-agent-chat {
+  --an-input-focus-outline: rgba(59, 130, 246, 0.32);
+}
+
+.dark .fleet-pi-agent-chat {
+  --an-input-focus-outline: rgba(96, 165, 250, 0.32);
+}

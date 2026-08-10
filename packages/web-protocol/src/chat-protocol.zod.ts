@@ -1,0 +1,72 @@
+// Schemas are defined per-domain under ./schemas. `schemas/shared` registers
+// the zod-to-openapi `.openapi()` extension on the shared zod instance before
+// any other fragment module is evaluated, so these re-exports are safe. The
+// patched `z` helper is intentionally not re-exported (it is internal).
+
+export {
+	ChatCommandsResponseSchema,
+	ChatModelInfoSchema,
+	ChatModelsDiscoverRequestSchema,
+	ChatModelsDiscoverResponseSchema,
+	ChatModelsResponseSchema,
+	ChatProviderInfoSchema,
+	ChatProviderRemoveRequestSchema,
+	ChatProviderRemoveResponseSchema,
+	ChatProvidersResponseSchema,
+	ChatProviderUpdateRequestSchema,
+	ChatProviderUpdateResponseSchema,
+	ChatResourceInfoSchema,
+	ChatResourcesResponseSchema,
+	ChatSlashCommandInfoSchema,
+	WorkspaceFileResponseSchema,
+	WorkspaceTreeNodeSchema,
+	WorkspaceTreeResponseSchema,
+} from "./schemas/catalog";
+export {
+	ChatCompactionEndEventSchema,
+	ChatCompactionStartEventSchema,
+	ChatDeltaEventSchema,
+	ChatDoneEventSchema,
+	ChatErrorEventSchema,
+	ChatErrorPartSchema,
+	ChatMessagePartSchema,
+	ChatMessageSchema,
+	ChatModelSelectionSchema,
+	ChatPlanEventSchema,
+	ChatPlanStateSchema,
+	ChatPlanTodoSchema,
+	ChatQuestionAnswerRequestSchema,
+	ChatQuestionAnswerResponseSchema,
+	ChatQuestionAnswerSchema,
+	ChatQueueEventSchema,
+	ChatRequestSchema,
+	ChatRetryEndEventSchema,
+	ChatRetryStartEventSchema,
+	ChatSessionInfoSchema,
+	ChatSessionMetadataSchema,
+	ChatSessionResponseSchema,
+	ChatSessionsResponseSchema,
+	ChatStartEventSchema,
+	ChatStateEventSchema,
+	ChatStateStreamEventSchema,
+	ChatStreamEventSchema,
+	ChatTextPartSchema,
+	ChatThinkingEventSchema,
+	ChatToolEventSchema,
+	ChatToolPartSchema,
+} from "./schemas/chat";
+export { ErrorResponseSchema, HealthResponseSchema } from "./schemas/misc";
+export {
+	ChatPiSettingsSchema,
+	ChatPiSettingsUpdateSchema,
+	ChatSettingsResponseSchema,
+	ChatSettingsUpdateRequestSchema,
+} from "./schemas/settings";
+export {
+	ChatDeliveryModeSchema,
+	ChatModeSchema,
+	ChatPackageSourceSchema,
+	ChatPlanActionSchema,
+	ChatThinkingLevelSchema,
+	ChatTransportSchema,
+} from "./schemas/shared";

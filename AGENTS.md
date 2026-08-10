@@ -7,6 +7,20 @@
 - No emojis in commits, issues, PR comments, or code
 - Technical prose only, be kind but direct (e.g., "Thanks @user" not "Thanks so much @user!")
 
+## Web adapter (`../web/`)
+
+- The prime-agent web frontend lives outside this repo at `../web/`. It drives
+  `@earendil-works/pi-coding-agent` via `createAgentSession()` and
+  `ExtensionUIContext` (see `../web/server/prime-bridge.ts`).
+- When a change in `packages/coding-agent` touches the public surface the web
+  adapter consumes — `createAgentSession`, `AgentSessionEvent`, `ExtensionUIContext`,
+  `IpythonKernelProvisioner`, `SessionManager` — update
+  `../web/server/event-mapper.ts` and/or `../web/server/prime-bridge.ts` in the
+  same change.
+- Chat wire contract lives in `../web/packages/protocol/src/chat-protocol.ts`;
+  the web side translates `AgentSessionEvent → ChatStreamEvent` in
+  `event-mapper.ts`.
+
 ## Code Quality
 
 - Read files in full before making wide-ranging changes, before editing files you have not already fully inspected, and when the user asks you to investigate or audit something. Do not rely only on search snippets for broad changes.

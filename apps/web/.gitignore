@@ -1,0 +1,14 @@
+node_modules
+dist
+.vite
+.turbo
+.output
+.vercel
+coverage
+bundle-report
+playwright/.cache
+test-results
+.DS_Store
+*.log
+.env
+.env.local

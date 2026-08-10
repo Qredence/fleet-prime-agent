@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Prime Agent Works — Interactive Architecture</title>
+<style>
+:root{
+  --bg:#090d0c; --bg2:#0d1312; --panel:#101816; --line:#1f2c27; --line2:#2a3a34;
+  --ink:#e8f4ee; --mut:#8ba89b; --dim:#5f7a6e;
+  --acc:#34d399; --acc-dk:#0f3d2e;
+  --sky:#38bdf8; --amber:#fbbf24; --violet:#a78bfa; --rose:#fb7185; --slate:#94a3b8;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--sans);
+  background-image:radial-gradient(ellipse 80% 60% at 50% -10%,rgba(52,211,153,.07),transparent 60%),
+    linear-gradient(rgba(31,44,39,.35) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,44,39,.35) 1px,transparent 1px);
+  background-size:100% 100%,44px 44px,44px 44px;
+  min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  padding:28px 20px 60px;
+}
+header{max-width:1180px;width:100%;margin-bottom:18px}
+h1{font-size:26px;font-weight:700;letter-spacing:-0.02em}
+h1 .spark{color:var(--acc)}
+.sub{color:var(--mut);font-size:13.5px;margin-top:6px;max-width:760px;line-height:1.5}
+.sub code{font-family:var(--mono);font-size:12px;color:var(--acc);background:var(--acc-dk);padding:1px 5px;border-radius:4px}
+.tabs{display:flex;gap:6px;margin:18px 0 14px;max-width:1180px;width:100%;flex-wrap:wrap}
+.tab{
+  --tc:var(--acc);
+  appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--mut);
+  font:600 12.5px var(--sans);letter-spacing:.02em;padding:8px 14px;border-radius:8px;cursor:pointer;
+  transition:all .18s ease;
+}
+.tab:hover{color:var(--ink);border-color:var(--line2)}
+.tab.on{color:#08110d;background:var(--tc);border-color:var(--tc)}
+.tab .n{opacity:.55;margin-right:6px;font-family:var(--mono);font-size:11px}
+.wrap{display:flex;gap:16px;max-width:1180px;width:100%;align-items:stretch}
+.stagewrap{flex:1 1 auto;min-width:0;background:rgba(13,19,18,.72);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative}
+.stage{position:relative;transform-origin:top left}
+.edges{position:absolute;inset:0;overflow:visible}
+.node{
+  position:absolute;border-radius:10px;border:1px solid var(--line2);background:var(--panel);
+  padding:9px 11px;cursor:default;transition:box-shadow .2s,border-color .2s,transform .2s,opacity .3s;
+}
+.node .t{font-size:12.5px;font-weight:650;line-height:1.25}
+.node .s{font-size:10.5px;color:var(--mut);margin-top:3px;line-height:1.4;font-family:var(--mono)}
+.node.hover{border-color:var(--nc,#34d399);box-shadow:0 0 0 1px var(--nc,#34d399),0 0 24px -6px var(--nc,#34d399)}
+.node.hi{border-color:var(--nc,#34d399);box-shadow:0 0 0 1.5px var(--nc,#34d399),0 0 34px -4px var(--nc,#34d399)}
+.node.dim{opacity:.28}
+.k-client{--nc:#38bdf8}
+.k-bound{--nc:#a78bfa}
+.k-daemon{--nc:#fbbf24}
+.k-sess{--nc:#34d399}
+.k-kernel{--nc:#4ade80}
+.k-ext{--nc:#fb7185}
+.k-store{--nc:#94a3b8}
+.panel-box{position:absolute;border:1.5px dashed var(--line2);border-radius:14px;background:rgba(52,211,153,.03)}
+.panel-box .pl{position:absolute;top:-11px;left:14px;background:var(--bg2);padding:1px 10px;font:600 11px var(--mono);color:var(--mut);border-radius:6px;border:1px solid var(--line)}
+.badge{display:inline-block;font:600 9.5px var(--mono);padding:1.5px 7px;border-radius:20px;background:var(--acc-dk);color:var(--acc);border:1px solid #1c5c44;vertical-align:2px;margin-left:6px}
+.edge{fill:none;stroke:var(--line2);stroke-width:1.6}
+.edge.flowing{stroke:#37544a}
+.edge.hl{stroke:var(--acc);stroke-width:2.4;filter:drop-shadow(0 0 6px rgba(52,211,153,.6))}
+.edge-label{font:600 9.5px var(--mono);fill:var(--dim);text-anchor:middle}
+.edge-label.hl{fill:var(--acc)}
+.dot{fill:var(--acc);filter:drop-shadow(0 0 5px rgba(52,211,153,.9))}
+.detail{flex:0 0 320px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;max-height:680px;overflow:auto}
+.detail h2{font-size:15px;letter-spacing:-0.01em}
+.detail .k{font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.detail p{font-size:12.8px;color:var(--mut);line-height:1.65}
+.detail p b{color:var(--ink);font-weight:600}
+.detail code{font-family:var(--mono);font-size:11.5px;color:var(--acc)}
+.detail pre{font-family:var(--mono);font-size:11px;line-height:1.55;background:#0a100e;border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:#b7d9c8;overflow:auto;white-space:pre}
+.caption{max-width:1180px;width:100%;margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:12.8px;color:var(--mut);line-height:1.6;min-height:44px;display:flex;align-items:center;gap:12px}
+.caption b{color:var(--ink)}
+.caption .stepnum{font:700 11px var(--mono);color:#08110d;background:var(--acc);border-radius:6px;padding:2px 8px;flex:0 0 auto}
+.controls{display:flex;gap:8px;align-items:center}
+.btn{appearance:none;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font:600 12px var(--sans);padding:7px 13px;border-radius:8px;cursor:pointer;transition:all .15s}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#08110d}
+.btn.primary:hover{color:#08110d;filter:brightness(1.1)}
+.btn:disabled{opacity:.35;cursor:default}
+.legend{display:flex;gap:14px;flex-wrap:wrap;max-width:1180px;width:100%;margin-top:14px}
+.lg{display:flex;align-items:center;gap:6px;font:500 11px var(--sans);color:var(--mut)}
+.lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.console{font:12px var(--mono);background:#070b0a;border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:#7ee2b4;line-height:1.7;min-height:30px}
+.console .p{color:var(--dim)}
+.console .c{color:#5f7a6e}
+.chip{position:absolute;border-radius:8px;border:1px solid var(--line2);background:var(--panel);padding:7px 10px;font-size:11.5px;font-weight:600}
+.tl{position:absolute;left:70px;right:70px;top:300px;height:8px;border-radius:6px;background:var(--line);overflow:hidden}
+.tl-seg{position:absolute;top:0;bottom:0;opacity:.32;border-right:1.5px solid var(--bg)}
+.tl-marker{position:absolute;top:282px;width:2.5px;height:44px;background:var(--acc);border-radius:2px;box-shadow:0 0 12px rgba(52,211,153,.8)}
+.tl-lab{position:absolute;top:322px;transform:translateX(-50%);font:600 9.5px var(--mono);color:var(--dim);text-align:center;line-height:1.5}
+.tl-lab.on{color:var(--acc)}
+footer{max-width:1180px;width:100%;margin-top:26px;color:var(--dim);font-size:11.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:14px}
+footer code{font-family:var(--mono);color:var(--mut)}
+.hist-item{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;font:10px var(--mono);line-height:1.45;background:#0a100e;border:1px solid var(--line);border-radius:7px;padding:5px 8px;color:#9fc4b2}
+.hist-item>span:first-child{flex:1 1 auto;min-width:0}
+.hist-item .rb{flex:0 0 auto}
+.hist-item .rb{color:var(--rose);cursor:pointer;font-weight:700}
+.hist-item .rb:hover{text-decoration:underline}
+.node.working{animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 1px var(--nc,#34d399),0 0 18px -4px var(--nc,#34d399)}50%{box-shadow:0 0 0 2px var(--nc,#34d399),0 0 40px 2px var(--nc,#34d399)}}
+@media (max-width:1100px){.wrap{flex-direction:column}.detail{flex:1 1 auto;max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="spark">◆</span> How Prime Agent Works</h1>
+  <div class="sub">An interactive map of the daemon-backed runtime, the model-facing IPython control loop, recursive subagents (<code>rlm</code>), the continual harness, and long-running session machinery. Hover any node for detail; press play on the flow views.</div>
+</header>
+<div class="tabs" id="tabs"></div>
+<div class="wrap">
+  <div class="stagewrap" id="stagewrap">
+    <div class="stage" id="stage">
+      <svg class="edges" id="edges" width="1100" height="660"></svg>
+      <div id="nodes"></div>
+    </div>
+  </div>
+  <aside class="detail" id="detail"></aside>
+</div>
+<div class="caption" id="caption"></div>
+<div class="legend" id="legend"></div>
+<footer>
+  Sources: <code>packages/coding-agent/docs/architecture.md</code> · <code>rlm-runtime.md</code> · <code>rlm.md</code> · <code>long-running-agents.md</code> · <code>daemon.md</code>. Workers and kernels are separate processes for lifecycle and failure containment — <b>not</b> security sandboxes; they run with the user's OS permissions.
+</footer>
+<script>
+
+/* ============ shared helpers ============ */
+const stage = document.getElementById("stage");
+const nodeLayer = document.getElementById("nodes");
+const edgesSvg = document.getElementById("edges");
+const detail = document.getElementById("detail");
+const caption = document.getElementById("caption");
+const legendEl = document.getElementById("legend");
+const tabsEl = document.getElementById("tabs");
+const SVGNS = "http://www.w3.org/2000/svg";
+let raf = null, timers = [];
+
+function clearTimers(){ timers.forEach(t=>{clearTimeout(t);clearInterval(t);}); timers=[]; }
+function later(fn,ms){ const t=setTimeout(fn,ms); timers.push(t); return t; }
+function every(fn,ms){ const t=setInterval(fn,ms); timers.push(t); return t; }
+
+function fitStage(w,h){
+  const wrap = document.getElementById("stagewrap");
+  const s = wrap.clientWidth / w;
+  stage.style.width = w+"px"; stage.style.height = h+"px";
+  stage.style.transform = "scale("+s+")";
+  wrap.style.height = (h*s)+"px";
+  edgesSvg.setAttribute("viewBox","0 0 "+w+" "+h);
+  edgesSvg.setAttribute("width",w); edgesSvg.setAttribute("height",h);
+}
+window.addEventListener("resize",()=>{ if(current) fitStage(current.W,current.H); });
+
+function el(tag,cls,parent,html){
+  const e=document.createElement(tag);
+  if(cls) e.className=cls;
+  if(html!==undefined) e.innerHTML=html;
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function svgEl(tag,attrs,parent){
+  const e=document.createElementNS(SVGNS,tag);
+  for(const k in attrs) e.setAttribute(k,attrs[k]);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function anchorPt(n,side){
+  const x=n.x, y=n.y, w=n.w, h=n.h;
+  if(side==="e") return [x+w,y+h/2];
+  if(side==="w") return [x,y+h/2];
+  if(side==="n") return [x+w/2,y];
+  return [x+w/2,y+h];
+}
+function edgePath(e,nmap){
+  const A=anchorPt(nmap[e.a],e.aa||"e"), B=anchorPt(nmap[e.b],e.ab||"w");
+  const bend = e.bend!==undefined? e.bend : 60;
+  const dirv={e:[1,0],w:[-1,0],n:[0,-1],s:[0,1]};
+  const da=dirv[e.aa||"e"], db=dirv[e.ab||"w"];
+  const c1=[A[0]+da[0]*bend, A[1]+da[1]*bend];
+  const c2=[B[0]+db[0]*bend, B[1]+db[1]*bend];
+  return "M"+A[0]+" "+A[1]+" C"+c1[0]+" "+c1[1]+" "+c2[0]+" "+c2[1]+" "+B[0]+" "+B[1];
+}
+function setDetail(d){
+  detail.innerHTML = "<div class=k>"+d.kicker+"</div><h2>"+d.title+"</h2><p>"+d.body+"</p>"+(d.code?("<pre>"+d.code.replace(/</g,"&lt;")+"</pre>"):"");
+}
+const defaultWriter = (html,stepnum)=>{
+  caption.innerHTML = (stepnum?("<span class=stepnum>"+stepnum+"</span>"):"")+"<div>"+html+"</div>";
+};
+let writeCaption = defaultWriter;
+function setCaption(html,stepnum){ writeCaption(html,stepnum); }
+function resetCaption(){ writeCaption = defaultWriter; }
+
+/* particle engine: dots travel along edges marked flow */
+let particles=[];
+function startParticles(edgeObjs){
+  cancelAnimationFrame(raf);
+  particles=[];
+  edgeObjs.forEach((eo,i)=>{
+    if(!eo.spec.flow) return;
+    const len = eo.path.getTotalLength();
+    const n = eo.spec.dense?3:2;
+    for(let k=0;k<n;k++){
+      const dot = svgEl("circle",{r:2.6,class:"dot"},edgesSvg);
+      const both = eo.spec.flow==="both";
+      const dir = both && k%2===1 ? -1 : 1;
+      particles.push({dot,path:eo.path,len,off:(k/n)+i*0.13,dir,speed:eo.spec.slow?0.00045:0.0009});
+    }
+  });
+  const t0=performance.now();
+  (function tick(now){
+    const t=(now-t0)/1000;
+    for(const p of particles){
+      let u=(p.off + t*p.speed*p.dir)%1; if(u<0)u+=1;
+      const pt=p.path.getPointAtLength(u*p.len);
+      p.dot.setAttribute("cx",pt.x); p.dot.setAttribute("cy",pt.y);
+    }
+    raf=requestAnimationFrame(tick);
+  })(t0);
+}
+
+/* ============ VIEW DATA ============ */
+const SYSTEM = {
+  W:1100,H:660,
+  panels:[{x:608,y:36,w:472,h:330,label:"Session worker · one root session tree"}],
+  nodes:[
+    {id:"tui",x:16,y:60,w:156,h:64,kind:"k-client",t:"Interactive TUI",s:"keyboard · rendering",
+     d:{kicker:"Client",title:"Interactive TUI",body:"The terminal client owns <b>rendering, keyboard input, and local UI preferences</b> — it does not own execution. It attaches to a running session and can detach while the worker keeps executing."}},
+    {id:"web",x:16,y:140,w:156,h:64,kind:"k-client",t:"Web app",s:"apps/web · prime-bridge",
+     d:{kicker:"Client",title:"Web frontend",body:"<b>apps/web</b> drives <code>@earendil-works/pi-coding-agent</code> via <code>createAgentSession()</code> and <code>ExtensionUIContext</code>, translating <code>AgentSessionEvent → ChatStreamEvent</code> in <code>server/event-mapper.ts</code>."}},
+    {id:"head",x:16,y:220,w:156,h:64,kind:"k-client",t:"Headless clients",s:"print · JSON · RPC",
+     d:{kicker:"Client",title:"Headless clients",body:"Print, <b>JSON</b> and <b>RPC</b> modes expose the same daemon protocol for automation and integrations — same execution path as interactive sessions."}},
+    {id:"acp",x:16,y:300,w:156,h:64,kind:"k-client",t:"ACP editors",s:"agent client protocol",
+     d:{kicker:"Client",title:"ACP integrations",body:"Editor integrations speak the local daemon protocol like any other client. All clients are peers; none of them owns the agent loop."}},
+    {id:"conn",x:216,y:170,w:150,h:88,kind:"k-bound",t:"AgentConnection",s:"client-side execution boundary",
+     d:{kicker:"Boundary",title:"AgentConnection",body:"The client-side execution boundary. Handles <b>snapshots, replay, and reconnect</b>: when a client reattaches, it receives a generation-aware event stream or a recovery snapshot, never raw process state."}},
+    {id:"sup",x:420,y:120,w:176,h:110,kind:"k-daemon",t:"Daemon supervisor",s:"routing · attachments · recovery · agent-to-agent delivery",
+     d:{kicker:"Daemon",title:"Supervisor",body:"Owns <b>discovery, routing, attachments, worker health, and cross-agent message delivery</b>. All commands are versioned; wire changes are classified backward-compatible, capability-gated, or incompatible with matching protocol bumps.",code:"DAEMON_PROTOCOL_VERSION  // incompatible changes\nDAEMON_SCHEMA_REVISION    // wire-shape revision\ncompat maps + old/new client-daemon tests"}},
+    {id:"cat",x:420,y:262,w:176,h:60,kind:"k-daemon",t:"Catalog process",s:"saved-session scans",
+     d:{kicker:"Daemon",title:"Catalog",body:"Scans saved sessions so listing and resume stay fast and off the supervisor's hot path."}},
+    {id:"rt",x:636,y:72,w:196,h:58,kind:"k-sess",t:"AgentSessionRuntime",s:"worker entrypoint",
+     d:{kicker:"Worker",title:"AgentSessionRuntime",body:"One worker owns <b>one root session tree</b>: the root runtime, its scheduler, kernels, and all RLM descendants. The same runtime also powers in-process SDK / fallback integrations.",code:"prime-agent sdk   # same runtime, in-process\nprime-agent       # daemon-backed (default)"}},
+    {id:"sch",x:852,y:72,w:200,h:58,kind:"k-sess",t:"Scheduler",s:"cron · heartbeats",
+     d:{kicker:"Worker",title:"Scheduler",body:"Re-enters the session on <b>heartbeats and cron schedules</b>. A scheduled prompt takes the exact same queue → model → tool path as a typed prompt."}},
+    {id:"root",x:636,y:150,w:196,h:84,kind:"k-sess",t:"Root AgentSession",s:"queue · tools · compaction · goals · child lifecycle",
+     d:{kicker:"Worker",title:"Root AgentSession",body:"The heart of the loop: <b>provider calls, prompt queues, tools, compaction, goals, child lifecycles, and transcript writes</b>. Every prompt source — user, heartbeat, schedule, goal continuation, autonomous mode, another agent — converges here.",code:"src/core/agent-session.ts\nsrc/core/tools/ipython.ts\nsrc/core/rlm-runtime.ts"}},
+    {id:"kern",x:852,y:150,w:200,h:84,kind:"k-kernel",t:"Root IPython kernel",s:"persistent namespace · Jupyter/ZMQ",
+     d:{kicker:"Worker",title:"IPython kernel",body:"<b>The model's tool is Python.</b> A lazily-provisioned, persistent IPython kernel holds variables, imports, and helpers across turns. Transport is Jupyter framing over ZeroMQ (shell / iopub / control), HMAC-signed; persistent sessions can snapshot the namespace for revival.",code:"# kernel resolution\n1. PRIME_AGENT_KERNEL_PYTHON\n2. ~/.prime/agent/kernel-venv (uv)\n3. XDG data location"}},
+    {id:"kids",x:636,y:256,w:416,h:88,kind:"k-sess",t:"RLM child runtimes",s:"session + optional kernel · depth-limited · registry survives compaction",
+     d:{kicker:"Worker",title:"RLM children",body:"<code>await rlm(...)</code> spawns real child agents through the same TypeScript machinery — each with its own session, transcript, and optional kernel. The parent-scoped registry survives compaction, kernel restart, and restoration.",code:'handle = await rlm("inspect the API", name="api-reviewer")\n# -> {rlm_child_id, name, session_dir, model}  at admission\nawait agent_message.send(msg, receiver_role="parent")'}},
+    {id:"prov",x:16,y:460,w:290,h:92,kind:"k-ext",t:"Model providers",s:"OpenAI · Anthropic · Google · subscription & API-key",
+     d:{kicker:"External",title:"Model providers",body:"Sessions stream from configured providers. <code>packages/ai</code> normalizes each provider behind one event stream (<code>text · tool_call · thinking · usage · stop</code>), so the agent loop never sees provider-specific wire formats.",code:"stream() -> AssistantMessageEventStream\n  text | tool_call | thinking | usage | stop"}},
+    {id:"store",x:340,y:460,w:300,h:92,kind:"k-store",t:"Session storage",s:"JSONL transcripts · artifacts · ~/.prime",
+     d:{kicker:"Persistence",title:"Session storage",body:"Every turn appends to the <b>session JSONL transcript</b> plus artifacts, with kernel namespace snapshots where enabled. Durable enough for resume, replay, compaction, and artifact hand-off between agents."}},
+    {id:"harness",x:700,y:460,w:380,h:92,kind:"k-bound",t:"Continual harness",s:"prompt notes · memories · skills · subagent specs",
+     d:{kicker:"State",title:"Continual harness",body:"Supplemental prompts, memories, skill descriptions, and reusable subagent specs as <b>durable, refinable state</b> — local to the session by default, global for cross-session lessons. The base system prompt is immutable; every refinement is a recorded, revertable diff. See the Harness tab."}},
+  ],
+  edges:[
+    {a:"tui",b:"conn",aa:"e",ab:"w",flow:"fwd",slow:true},
+    {a:"web",b:"conn",aa:"e",ab:"w",flow:"fwd",slow:true},
+    {a:"head",b:"conn",aa:"e",ab:"w",flow:"fwd",slow:true},
+    {a:"acp",b:"conn",aa:"e",ab:"w",flow:"fwd",slow:true},
+    {a:"conn",b:"sup",flow:"both",label:"local daemon protocol",dense:true},
+    {a:"sup",b:"cat",flow:"both",aa:"s",ab:"n",bend:40,slow:true},
+    {a:"sup",b:"rt",flow:"both",aa:"e",ab:"w",dense:true},
+    {a:"rt",b:"root",aa:"s",ab:"n",bend:36},
+    {a:"sch",b:"root",aa:"w",ab:"e",bend:-46,flow:"fwd",slow:true},
+    {a:"rt",b:"sch",aa:"e",ab:"n",bend:30},
+    {a:"root",b:"kern",flow:"both",label:"Jupyter / ZMQ",dense:true},
+    {a:"root",b:"kids",aa:"s",ab:"n",bend:44},
+    {a:"root",b:"prov",aa:"w",ab:"e",bend:80,flow:"both",label:"model streams",dense:true},
+    {a:"kids",b:"prov",aa:"w",ab:"e",bend:70,flow:"both",dense:true},
+    {a:"root",b:"store",aa:"w",ab:"e",bend:95,flow:"fwd",label:"transcript"},
+    {a:"kids",b:"store",aa:"s",ab:"n",bend:-40,flow:"fwd",slow:true},
+    {a:"root",b:"harness",aa:"s",ab:"n",bend:60,flow:"both",slow:true},
+  ],
+  caption:"<b>System view.</b> Clients render; the daemon routes and recovers; each worker owns one session tree — root session, scheduler, kernel, and all RLM descendants — streaming models and persisting transcripts. Dashed panels are process boundaries (lifecycle isolation, not security sandboxes).",
+  legend:[["k-client","Clients"],["k-bound","Boundary / harness"],["k-daemon","Daemon"],["k-sess","Worker runtime"],["k-kernel","IPython kernel"],["k-ext","Providers"],["k-store","Storage"]],
+};
+
+const LOOP = {
+  W:1100,H:660,
+  nodes:[
+    {id:"src",x:30,y:270,w:180,h:96,kind:"k-client",t:"Prompt sources",s:"user · heartbeat · cron · goal · agent message",
+     d:{kicker:"Step 1",title:"Every source converges",body:"A prompt can come from the <b>user, a heartbeat, a cron schedule, a goal continuation, autonomous mode, or another agent</b>. From the queue onward, all of them take the identical execution and persistence path."}},
+    {id:"queue",x:260,y:282,w:150,h:72,kind:"k-sess",t:"Session queue",s:"ordered · steerable",
+     d:{kicker:"Step 2",title:"Session queue",body:"Prompts, steering input, and follow-ups enter an ordered queue owned by the <b>AgentSession</b>. The worker routes them into the active generation."}},
+    {id:"sess",x:470,y:70,w:230,h:100,kind:"k-sess",t:"AgentSession",s:"assemble context · base prompt + harness state",
+     d:{kicker:"Step 3",title:"Context assembly",body:"The session builds the request: <b>immutable base system prompt</b>, continual-harness supplements (prompt notes, memory summaries, skill metadata, subagent specs), transcript messages, and tool definitions. Compaction keeps this within budget on long runs.",code:"base system prompt   (immutable)\n+ prompt notes · memories · skill metadata\n+ subagent specs · goal state\n+ transcript tail (compacted)"}},
+    {id:"prov2",x:790,y:70,w:210,h:100,kind:"k-ext",t:"Model provider",s:"streamSimple() · SSE",
+     d:{kicker:"Step 4",title:"Streaming call",body:"The request streams through <code>packages/ai</code>, which normalizes every provider into one event shape: <code>text · tool_call · thinking · usage · stop</code>. Cancellation and retries live here too.",code:"stream(session, model, context)\n  -> AssistantMessageEventStream"}},
+    {id:"route",x:830,y:260,w:170,h:80,kind:"k-bound",t:"Response router",s:"text or IPython tool call",
+     d:{kicker:"Step 5",title:"Text or tool call",body:"The model's answer is either <b>final text</b> (rendered to clients) or an <b>IPython tool call</b> — Prime Agent's single, universal tool. Code, shell, file edits, delegation: all of it is Python in the persistent kernel."}},
+    {id:"render",x:830,y:400,w:170,h:70,kind:"k-client",t:"Render to clients",s:"events stream back",
+     d:{kicker:"Finish",title:"Render & persist",body:"Events flow back worker → supervisor → connection → client as a <b>generation-aware stream</b>, while the session appends the turn to the JSONL transcript with artifacts and usage accounting."}},
+    {id:"kman",x:500,y:400,w:250,h:90,kind:"k-kernel",t:"KernelManager → IPython",s:"Jupyter over ZeroMQ · one namespace",
+     d:{kicker:"Step 6",title:"Execute in the kernel",body:"<code>KernelManager.execute()</code> serializes cells into the kernel over shell/iopub/control channels. Variables, imports, and state <b>persist across turns</b>; stdout, results, and errors come back shaped as tool output.",code:'# the model\'s "tool call" is just Python\nresult = subprocess.run(["pytest","-x"], capture_output=True)'}},
+    {id:"host",x:170,y:430,w:240,h:96,kind:"k-daemon",t:"Typed host requests",s:"rlm.run · goal.* · agent_message.* · compact.*",
+     d:{kicker:"Step 7",title:"Host request bridge",body:"When Python needs authoritative state — spawn a subagent, manage a goal, message another agent, compact — the <code>rlm</code> shim opens a Jupyter <b>comm target</b> (<code>host.request</code>) back to the TypeScript host, which validates and executes. Credentials, providers, transcripts, and scheduling never enter Python.",code:'await rlm("inspect the API", name="api-reviewer")\nawait goal.start("ship the release")\nawait agent_message.send(msg, receiver_role="parent")'}},
+    {id:"store2",x:30,y:70,w:250,h:80,kind:"k-store",t:"Transcript + artifacts",s:"session JSONL · replayable",
+     d:{kicker:"Persistence",title:"Transcript",body:"Each turn appends to the session JSONL: messages, tool calls/results, usage, and artifacts. This is what powers <b>resume, replay, reattach snapshots, and compaction</b>."}},
+  ],
+  edges:[
+    {id:"e1",a:"src",b:"queue",flow:"fwd"},
+    {id:"e2",a:"queue",b:"sess",aa:"n",ab:"w",bend:70,flow:"fwd"},
+    {id:"e3",a:"sess",b:"prov2",flow:"fwd",label:"stream request"},
+    {id:"e4",a:"prov2",b:"route",aa:"s",ab:"n",bend:40,flow:"fwd",label:"events"},
+    {id:"e5a",a:"route",b:"render",aa:"s",ab:"n",bend:40,flow:"fwd",label:"text"},
+    {id:"e5b",a:"route",b:"kman",aa:"w",ab:"e",bend:60,flow:"fwd",label:"tool call"},
+    {id:"e6",a:"kman",b:"host",aa:"w",ab:"e",bend:50,flow:"both",label:"comm: host.request"},
+    {id:"e7",a:"host",b:"sess",aa:"n",ab:"s",bend:90,flow:"fwd",label:"typed dispatch + result"},
+    {id:"e8",a:"kman",b:"sess",aa:"n",ab:"s",bend:55,flow:"fwd",label:"tool output"},
+    {id:"e9",a:"sess",b:"store2",flow:"fwd",slow:true,label:"append"},
+    {id:"e10",a:"render",b:"store2",aa:"w",ab:"s",bend:60,flow:"fwd",slow:true},
+  ],
+  steps:[
+    {n:["src"],e:["e1"],cap:"A prompt arrives — typed by the user, fired by a <b>heartbeat or cron schedule</b>, continued by a <b>goal</b>, or sent by <b>another agent</b>. All sources are equal from here.",d:"src"},
+    {n:["queue"],e:["e2"],cap:"The <b>session queue</b> orders prompts, steering, and follow-ups into the active generation.",d:"queue"},
+    {n:["sess"],e:["e3"],cap:"<b>AgentSession</b> assembles context: immutable base prompt + continual-harness supplements + compacted transcript tail.",d:"sess"},
+    {n:["prov2"],e:["e4"],cap:"The model request <b>streams</b>. Provider-specific wire formats are normalized into one event type by <code>packages/ai</code>.",d:"prov2"},
+    {n:["route"],e:["e5a","e5b"],cap:"Branch: <b>final text</b> goes to clients; an <b>IPython tool call</b> goes to the kernel. Prime Agent has exactly one model-facing tool — Python.",d:"route"},
+    {n:["kman"],e:["e6"],cap:"<b>KernelManager</b> executes the cell in the persistent IPython kernel over Jupyter/ZeroMQ. Namespace state outlives the turn.",d:"kman"},
+    {n:["host"],e:["e7"],cap:"Python needing authoritative host state — <code>rlm.run</code>, <code>goal.*</code>, <code>agent_message.*</code> — crosses the <b>comm bridge</b> back to TypeScript.",d:"host"},
+    {n:["sess"],e:["e8"],cap:"Tool output returns to the session and the loop <b>iterates</b>: another streaming request with the new observation appended.",d:"sess"},
+    {n:["render","store2"],e:["e9","e10"],cap:"When the model stops calling tools, the turn is <b>rendered to clients</b> and <b>appended to the transcript</b> with usage accounting.",d:"render"},
+  ],
+  caption:"<b>Agent loop.</b> All prompt sources converge on one loop: queue → assemble → stream → text-or-tool → (kernel ⇄ host bridge) → render/persist. Press play.",
+  legend:[["k-client","Client-side"],["k-sess","Session core"],["k-ext","Provider"],["k-kernel","Kernel"],["k-daemon","Host bridge"],["k-store","Persistence"]],
+};
+
+/* ============ generic node/edge renderer ============ */
+function renderNodes(view){
+  nodeLayer.innerHTML=""; edgesSvg.innerHTML="";
+  (view.panels||[]).forEach(p=>{
+    const pb=el("div","panel-box",nodeLayer);
+    pb.style.cssText=`left:${p.x}px;top:${p.y}px;width:${p.w}px;height:${p.h}px`;
+    el("div","pl",pb,p.label);
+  });
+  const nmap={};
+  view.nodes.forEach(n=>{
+    nmap[n.id]=n;
+    const d=el("div","node "+n.kind,nodeLayer);
+    d.style.cssText=`left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px`;
+    d.id="nd-"+n.id;
+    d.innerHTML=`<div class=t>${n.t}${n.badge||""}</div><div class=s>${n.s}</div>`;
+    d.addEventListener("mouseenter",()=>{d.classList.add("hover"); if(n.d) setDetail(n.d);});
+    d.addEventListener("mouseleave",()=>d.classList.remove("hover"));
+  });
+  const edgeObjs=(view.edges||[]).map(e=>{
+    const path=svgEl("path",{d:edgePath(e,nmap),class:"edge"+(e.flow?" flowing":"")},edgesSvg);
+    let lab=null;
+    if(e.label){
+      const L=path.getTotalLength(), pt=path.getPointAtLength(L/2);
+      lab=svgEl("text",{x:pt.x,y:pt.y-7,class:"edge-label"},edgesSvg); lab.textContent=e.label;
+    }
+    return {spec:e,path,lab,id:e.id};
+  });
+  return {nmap,edgeObjs};
+}
+function legend(items){
+  legendEl.innerHTML = items.map(([k,label])=>{
+    const tmp=document.createElement("div"); tmp.className=k; legendEl.appendChild(tmp);
+    const col=tmp.style.getPropertyValue("--nc"); tmp.remove();
+    return `<span class=lg><i style="background:${col}"></i>${label}</span>`;
+  }).join("");
+}
+
+/* ============ VIEW 1: SYSTEM ============ */
+function showSystem(){
+  const {edgeObjs}=renderNodes(SYSTEM);
+  startParticles(edgeObjs);
+  setDetail({kicker:"Architecture",title:"Separation of concerns",body:"Five boundaries: <b>client</b> (rendering) → <b>connection</b> (client-side execution boundary) → <b>daemon</b> (routing, recovery) → <b>worker</b> (one root session tree) → <b>providers & storage</b>. Hover any node, and watch requests flow."});
+  setCaption(SYSTEM.caption); legend(SYSTEM.legend);
+}
+
+/* ============ VIEW 2: AGENT LOOP ============ */
+function showLoop(){
+  resetCaption();
+  const {edgeObjs}=renderNodes(LOOP);
+  let stepIdx=-1, playing=false;
+  const nEls={}; LOOP.nodes.forEach(n=>nEls[n.id]=document.getElementById("nd-"+n.id));
+  function applyStep(i){
+    stepIdx=i;
+    const st=LOOP.steps[i];
+    LOOP.nodes.forEach(n=>nEls[n.id].classList.toggle("dim",!st.n.includes(n.id)));
+    st.n.forEach(id=>nEls[id].classList.add("hi"));
+    LOOP.nodes.forEach(n=>{ if(!st.n.includes(n.id)) nEls[n.id].classList.remove("hi"); });
+    edgeObjs.forEach(eo=>{
+      const on=(st.e||[]).includes(eo.id);
+      eo.path.classList.toggle("hl",on); if(eo.lab)eo.lab.classList.toggle("hl",on);
+    });
+    setCaption(st.cap,(i+1)+" / "+LOOP.steps.length);
+    setDetail(LOOP.nodes.find(n=>n.id===st.d).d);
+  }
+  function advance(){ applyStep((stepIdx+1)%LOOP.steps.length); }
+  caption.innerHTML="";
+  const bar=el("div","controls",caption);
+  const play=el("button","btn primary",bar,"▶ Play");
+  const next=el("button","btn",bar,"Next step →");
+  const capTxt=el("div","",bar);
+  capTxt.style.flex="1";
+  play.onclick=()=>{
+    playing=!playing;
+    play.textContent=playing?"⏸ Pause":"▶ Play";
+    if(playing){ if(stepIdx<0)advance(); every(advance,1900); }
+    else clearTimers();
+  };
+  next.onclick=()=>{ playing=false; play.textContent="▶ Play"; clearTimers(); advance(); };
+  writeCaption=(h,s)=>{ capTxt.innerHTML=(s?`<span class=stepnum style="margin-right:10px">${s}</span>`:"")+h; };
+  setCaption(LOOP.caption);
+  setDetail({kicker:"Agent loop",title:"One loop, one tool",body:"Nine steps per turn. Press play, or hover nodes. Note the shape: everything the agent <b>does</b> is a Python execution; everything it <b>is allowed to own</b> stays in the TypeScript host behind typed requests."});
+  legend(LOOP.legend);
+  applyStep(0);
+}
+
+/* ============ VIEW 3: RLM RECURSION ============ */
+const RLM_STATIC = {
+  W:1100,H:660,
+  panels:[{x:30,y:50,w:360,h:560,label:"parent worker · depth 0"}],
+  nodes:[
+    {id:"psess",x:70,y:110,w:280,h:92,kind:"k-sess",t:"Parent AgentSession",s:"RLM policy · child registry · usage attribution",
+     d:{kicker:"Parent",title:"Parent AgentSession",body:"Holds the <b>RLM policy</b> (depth limit, model resolution), the <b>child registry</b>, and usage attribution. Child tokens roll up to the parent session while staying distinguishable in context-tree reporting."}},
+    {id:"pkern",x:70,y:238,w:280,h:84,kind:"k-kernel",t:"Parent IPython kernel",s:"rlm · agent_message · skills imported here",
+     d:{kicker:"Parent",title:"Parent kernel",body:"The model calls <code>await rlm(...)</code> in this kernel. The Python <code>rlm</code> package is a <b>shim</b>: it never calls providers or runs an agent loop — it forwards typed requests over a Jupyter comm to the TypeScript host.",code:"handle = await rlm(\n  \"inspect the API\",\n  name=\"api-reviewer\",\n)"}},
+    {id:"preg",x:70,y:356,w:280,h:70,kind:"k-daemon",t:"Child registry",s:"survives compaction · kernel restart · restore",
+     d:{kicker:"State",title:"Child registry",body:"Parent-scoped, durable: survives <b>compaction, kernel restart, and parent restoration</b>. Powers <code>rlm.list_subagents()</code> after recovery.",code:"children = await rlm.list_subagents()\nfor c in children:\n  print(c.session_name, c.status)"}},
+  ],
+  edges:[
+    {a:"psess",b:"pkern",aa:"s",ab:"n",bend:46,flow:"both",label:"shell · iopub · comm"},
+    {a:"pkern",b:"preg",aa:"s",ab:"n",bend:44,flow:"both",slow:true},
+  ],
+};
+const RLM_SLOTS=[[470,90],[790,90],[470,320],[790,320]];
+const RLM_TASKS=[
+  ["api-reviewer","Review the public API surface for breakage"],
+  ["test-auditor","Audit test coverage of the daemon protocol"],
+  ["doc-diver","Cross-check docs against implementation"],
+  ["bench-runner","Run the eval suite and summarize deltas"],
+];
+const RLM_H=168, RLM_W=280;
+function showRLM(){
+  resetCaption();
+  const {edgeObjs}=renderNodes(RLM_STATIC);
+  const nEls={psess:document.getElementById("nd-psess"),pkern:document.getElementById("nd-pkern")};
+  const con=el("div","console",nodeLayer);
+  con.style.cssText="position:absolute;left:70px;top:440px;width:280px;height:150px;overflow:auto;font-size:10.5px";
+  con.innerHTML="<span class=c># host bridge · comm target: host.request</span><br>";
+  const log=h=>{ con.innerHTML+=h+"<br>"; con.scrollTop=con.scrollHeight; };
+  const kids=[]; let taskIdx=0, seq=0;
+  const childEdges={};
+
+  function childEdge(id){
+    const ce=svgEl("path",{class:"edge flowing"},edgesSvg);
+    const lab=svgEl("text",{class:"edge-label"},edgesSvg); lab.textContent="admission · agent_message";
+    childEdges[id]={ce,lab};
+    return childEdges[id];
+  }
+  function layoutChildEdge(id,slot){
+    const [sx,sy]=RLM_SLOTS[slot];
+    const A=[390, 240], B=[sx, sy+RLM_H/2];
+    const mx=(A[0]+B[0])/2;
+    const d=`M${A[0]} ${A[1]} C${mx} ${A[1]} ${mx} ${B[1]} ${B[0]} ${B[1]}`;
+    const o=childEdges[id]; o.ce.setAttribute("d",d);
+    const pt=o.ce.getPointAtLength(o.ce.getTotalLength()/2);
+    o.lab.setAttribute("x",pt.x); o.lab.setAttribute("y",pt.y-8);
+  }
+  function packet(o,fromChild,done){
+    const dot=svgEl("circle",{r:3.4,class:"dot"},edgesSvg);
+    const len=o.ce.getTotalLength(); const t0=performance.now();
+    (function tick(now){
+      let u=(now-t0)/900; if(u>1){dot.remove(); done&&done(); return;}
+      if(fromChild)u=1-u;
+      const pt=o.ce.getPointAtLength(u*len);
+      dot.setAttribute("cx",pt.x); dot.setAttribute("cy",pt.y);
+      requestAnimationFrame(tick);
+    })(t0);
+  }
+  function spawn(){
+    let slot=-1; for(let i=0;i<RLM_SLOTS.length;i++){ if(!kids[i]){ slot=i; break; } }
+    if(slot<0){ log("<span class=c># depth/slot limit — delete a completed child first</span>"); return; }
+    const [name,task]=RLM_TASKS[taskIdx%RLM_TASKS.length]; taskIdx++;
+    const id="c"+(++seq);
+    log(`<span class=p>&gt;&gt;&gt;</span> handle = await rlm("${task}", name="${name}")`);
+    const ce=childEdge(id);
+    const card=el("div","node k-sess",nodeLayer);
+    card.style.cssText=`left:${RLM_SLOTS[slot][0]}px;top:${RLM_SLOTS[slot][1]}px;width:${RLM_W}px;height:${RLM_H}px;opacity:0`;
+    card.innerHTML=`<div class=t>${name} <span class=badge>admitted</span></div>
+      <div class=s>depth 1 · own session + kernel<br>usage attributed to parent</div>
+      <div class=s style="margin-top:8px;color:#b7d9c8">"${task}"</div>`;
+    layoutChildEdge(id,slot);
+    log(`<span class=c># host.request: rlm.run → admit (depth ok, model resolved)</span>`);
+    log(`RLMSpawnHandle(rlm_child_id="${id}", name="${name}", model="inherit")`);
+    packet(ce,false,()=>{
+      card.style.opacity=1;
+      later(()=>{
+        card.classList.add("working");
+        card.querySelector(".badge").textContent="running own loop";
+        log(`<span class=c># ${name}: own agent loop vs provider…</span>`);
+        later(()=>{
+          card.classList.remove("working");
+          card.querySelector(".badge").textContent="replying";
+          packet(ce,true,()=>{
+            card.querySelector(".badge").textContent="completed · addressable";
+            log(`<span class=p>&lt;&lt;&lt;</span> agent_message from <b style="color:#e8f4ee">${name}</b>: "done — findings in session dir"`);
+            log(`<span class=c># rlm() returned at admission — results arrive as messages</span>`);
+          });
+        },3400);
+      },700);
+    });
+    kids[slot]={id,name,card,ce};
+  }
+  function followup(){
+    const k=kids.find(k=>k && !k.card.classList.contains("working") && k.card.querySelector(".badge").textContent.startsWith("completed"));
+    if(!k){ log("<span class=c># no completed child to steer</span>"); return; }
+    log(`<span class=p>&gt;&gt;&gt;</span> agent_message.send("re-check edge cases", receiver_role="child", receiver_name="${k.name}")`);
+    packet(k.ce,false,()=>{
+      k.card.classList.add("working");
+      k.card.querySelector(".badge").textContent="steered · running";
+      later(()=>{
+        k.card.classList.remove("working");
+        k.card.querySelector(".badge").textContent="completed · addressable";
+        packet(k.ce,true,()=>log(`<span class=p>&lt;&lt;&lt;</span> ${k.name}: "edge cases re-checked — 2 new findings"`));
+      },2600);
+    });
+  }
+  function del(){
+    const i=kids.map((k,i)=>[k,i]).filter(([k])=>k && k.card.querySelector(".badge").textContent.startsWith("completed")).map(([,i])=>i).pop();
+    if(i===undefined){ log("<span class=c># nothing deletable</span>"); return; }
+    const k=kids[i];
+    log(`<span class=p>&gt;&gt;&gt;</span> rlm.delete_subagent(${k.name}) <span class=c># frees context; usage stays attributed</span>`);
+    k.card.remove(); k.ce.ce.remove(); k.ce.lab.remove(); kids[i]=null;
+  }
+  caption.innerHTML="";
+  const bar=el("div","controls",caption);
+  const b1=el("button","btn primary",bar,"⚡ await rlm(…) — spawn child");
+  const b2=el("button","btn",bar,"✉ follow-up (steer)");
+  const b3=el("button","btn",bar,"✕ delete_subagent");
+  b1.onclick=spawn; b2.onclick=followup; b3.onclick=del;
+  const capTxt=el("div","",bar); capTxt.style.flex="1";
+  writeCaption=(h)=>{capTxt.innerHTML=h;};
+  setCaption("<b>RLM recursion.</b> Spawning returns a handle <b>at admission</b> — never the answer. Children run their own loops; results arrive only as explicit <code>agent_message</code> replies or files. Max 4 live slots.");
+  setDetail({kicker:"Recursive Language Model",title:"Delegation as a function call",body:"<code>rlm(...)</code> is the model's way to fan out. The call crosses the comm bridge (kernel → KernelManager → AgentSession), passes a depth check, admits the child, updates the registry, and returns a handle — all before the child runtime even starts. Press the button to watch it happen.",code:"# results never come from rlm() itself\nhandle = await rlm(task, name=\"w\")\n# children reply explicitly:\nawait agent_message.send(\n  msg, receiver_role=\"parent\")\n# parent steers retained children:\nawait agent_message.send(\n  msg, receiver_role=\"child\",\n  receiver_name=handle.name)"});
+  legend([["k-sess","Sessions"],["k-kernel","IPython kernel"],["k-daemon","Registry / host"]]);
+}
+
+/* ============ VIEW 4: CONTINUAL HARNESS ============ */
+const HARNESS = {
+  W:1100,H:660,
+  nodes:[
+    {id:"base",x:300,y:240,w:180,h:180,kind:"k-store",t:"Base system prompt",s:"immutable · never rewritten",round:true,
+     d:{kicker:"Core invariant",title:"Immutable base prompt",body:"The base system prompt is <b>immutable</b>. Refinement never rewrites it — all learning lands in <b>supplemental state</b> around it, so nothing the agent learns can silently corrupt its own foundation."}},
+    {id:"hp_prompts",x:280,y:56,w:220,h:80,kind:"k-bound",t:"Prompt notes",s:"narrow behavioral policies",
+     d:{kicker:"Supplemental state",title:"Prompt notes",body:"Narrow behavioral policies added to the prompt — e.g. user corrections that should persist. Smallest possible surface; one note per rule."}},
+    {id:"hp_mem",x:590,y:240,w:230,h:80,kind:"k-bound",t:"Memories",s:"durable facts · local vs global",
+     d:{kicker:"Supplemental state",title:"Memories",body:"Durable facts and lessons. <b>Local</b> by default (this session: progress, blockers, coordination); <b>global</b> only for stable cross-session lessons and durable user preferences."}},
+    {id:"hp_skills",x:280,y:456,w:220,h:80,kind:"k-bound",t:"Skills",s:"SKILL.md metadata in startup prompt",
+     d:{kicker:"Supplemental state",title:"Skill descriptions",body:"Only skill <b>metadata</b> enters the startup prompt. The full SKILL.md loads when the task matches; Python-backed skills install into the kernel and are called by import name.",code:"report = await release_audit(\n  repository=\".\",\n  target_version=\"0.4.0\")"}},
+    {id:"hp_subs",x:36,y:240,w:220,h:80,kind:"k-bound",t:"Subagent specs",s:"reusable delegation roles",
+     d:{kicker:"Supplemental state",title:"Subagent specs",body:"Reusable delegation roles (e.g. a recurring review persona) persisted as specs, spawned through the same <code>rlm(...)</code> machinery."}},
+    {id:"ev",x:880,y:70,w:180,h:64,kind:"k-daemon",t:"Trajectory evidence",s:"repeated failures · patterns",
+     d:{kicker:"Refine · 1",title:"Evidence",body:"Refinement triggers on observed evidence: a <b>repeated failure</b>, a reusable tactic, a recurring delegation role, or a user correction worth persisting."}},
+    {id:"rv",x:880,y:170,w:180,h:64,kind:"k-daemon",t:"/refine review",s:"diagnose → smallest edit",
+     d:{kicker:"Refine · 2",title:"Review",body:"<code>/refine</code> reviews the trajectory and applies the <b>smallest relevant</b> update — create, update, delete, or roll back one entry. Not a wholesale rewrite."}},
+    {id:"df",x:880,y:270,w:180,h:64,kind:"k-daemon",t:"Recorded diff",s:"versioned snapshot",
+     d:{kicker:"Refine · 3",title:"Recorded diff",body:"Every refinement is recorded with evidence and outcome. Snapshots support <b>rollback</b> — the history below is append-only and revertable."}},
+    {id:"hn",x:866,y:370,w:200,h:220,kind:"k-store",t:"Refinement history",s:"append-only · rollback-able",
+     d:{kicker:"Refine · 4",title:"History",body:"Versioned entries land here. Click <b>rollback</b> on the latest entry to revert it and decrement the chip it touched."}},
+  ],
+  edges:[
+    {a:"ev",b:"rv",aa:"s",ab:"n",bend:34,flow:"fwd",slow:true},
+    {a:"rv",b:"df",aa:"s",ab:"n",bend:34,flow:"fwd",slow:true},
+    {a:"df",b:"hn",aa:"s",ab:"n",bend:34,flow:"fwd",slow:true},
+    {a:"df",b:"hp_mem",aa:"w",ab:"e",bend:120,flow:"fwd",label:"apply diff"},
+    {a:"df",b:"hp_prompts",aa:"w",ab:"e",bend:170,dash:true},
+    {a:"df",b:"hp_skills",aa:"w",ab:"e",bend:210,dash:true},
+    {a:"df",b:"hp_subs",aa:"w",ab:"n",bend:230,dash:true},
+  ],
+};
+const REFINE_SAMPLES=[
+  ["hp_mem","memory","AdapterParseError kill-chain","3 repeated parse failures"],
+  ["hp_skills","skill","sidecar test-loop","4-step loop written twice"],
+  ["hp_subs","subagent","api-reviewer role","fan-out in 3 sessions"],
+  ["hp_prompts","note","verify before schema claims","user correction"],
+];
+function showHarness(){
+  resetCaption();
+  const {edgeObjs}=renderNodes(HARNESS);
+  const base=document.getElementById("nd-base");
+  base.style.borderRadius="50%"; base.style.textAlign="center";
+  base.style.display="flex"; base.style.flexDirection="column"; base.style.justifyContent="center";
+  const counts={hp_mem:0,hp_skills:0,hp_subs:0,hp_prompts:0};
+  const histBox=el("div","",document.getElementById("nd-hn"));
+  histBox.style.cssText="display:flex;flex-direction:column;gap:5px;margin-top:8px;overflow:auto;max-height:150px";
+  let v=0, refining=false;
+  function bump(target,delta){
+    counts[target]+=delta;
+    const n=HARNESS.nodes.find(n=>n.id===target);
+    const eln=document.getElementById("nd-"+target);
+    const b=eln.querySelector(".badge");
+    if(counts[target]>0){
+      if(b) b.textContent="v"+counts[target];
+      else eln.querySelector(".t").innerHTML+=`<span class=badge>v${counts[target]}</span>`;
+    } else if(b) b.remove();
+  }
+  function refine(){
+    if(refining) return; refining=true;
+    const s=REFINE_SAMPLES[v%REFINE_SAMPLES.length]; v++;
+    const path=["nd-ev","nd-rv","nd-df"];
+    path.forEach((id,i)=>later(()=>document.getElementById(id).classList.add("hi"),i*450));
+    edgeObjs.forEach(eo=>{ if(["ev","rv","df"].includes(eo.spec.a)) eo.path.classList.add("hl"); });
+    later(()=>{
+      path.forEach(id=>document.getElementById(id).classList.remove("hi"));
+      edgeObjs.forEach(eo=>eo.path.classList.remove("hl"));
+      document.getElementById("nd-"+s[0]).classList.add("hi");
+      bump(s[0],+1);
+      const item=el("div","hist-item",histBox);
+      item.innerHTML=`<span><b style="color:#e8f4ee">+${s[1]}</b> ${s[2]}<br><span style="color:#5f7a6e">evidence: ${s[3]}</span></span><span class=rb>rollback</span>`;
+      histBox.scrollTop=histBox.scrollHeight;
+      item.querySelector(".rb").onclick=()=>{
+        if(item!==histBox.lastElementChild) return;
+        bump(s[0],-1); item.remove();
+        setDetail(HARNESS.nodes.find(n=>n.id==="hn").d);
+      };
+      later(()=>{document.getElementById("nd-"+s[0]).classList.remove("hi"); refining=false;},900);
+    },1500);
+  }
+  caption.innerHTML="";
+  const bar=el("div","controls",caption);
+  const b=el("button","btn primary",bar,"◈ Run /refine");
+  b.onclick=refine;
+  const capTxt=el("div","",bar); capTxt.style.flex="1";
+  writeCaption=(h)=>{capTxt.innerHTML=h;};
+  setCaption("<b>Continual harness.</b> Supplemental state orbits an <b>immutable base prompt</b>. Refinement is a small, evidence-backed, recorded diff — local to the session by default. Run <code>/refine</code> a few times, then roll entries back.");
+  setDetail({kicker:"Continual harness",title:"Learned state, durable but revertable",body:"Four kinds of supplemental state — prompt notes, memories, skill descriptions, subagent specs — are CRUD-managed through the harness and survive the session's turns. The base prompt never changes; mistakes roll back.",code:"rlm.harness.create_memory(...)\nrlm.harness.update_skill(...)\nrlm.harness.record_refinement(...)\nrlm.harness.overview()   # local | global"});
+  legend([["k-store","Immutable / recorded"],["k-bound","Supplemental state"],["k-daemon","Refine pipeline"]]);
+}
+
+/* ============ VIEW 5: LONG-RUNNING ============ */
+const LONG_PHASES=[
+  {a:0,   b:14, col:"#38bdf8", name:"attached",
+   label:"Interactive",
+   d:{kicker:"0–14%",title:"Client attached",body:"The TUI renders a live, generation-aware event stream. Execution already lives in the worker — attachment is just a view."}},
+  {a:14,  b:32, col:"#fbbf24", name:"detached",
+   label:"Detached · keeps running",
+   d:{kicker:"14–32%",title:"Detach",body:"Terminal closes. The <b>daemon worker, IPython kernel, scheduler, and subagents keep running</b>; the transcript keeps appending. Nothing about the loop changes."}},
+  {a:32,  b:46, col:"#34d399", name:"heartbeat",
+   label:"Heartbeat",
+   d:{kicker:"32–46%",title:"Heartbeat re-entry",body:"<code>/heartbeat</code> or <code>rlm_heartbeat</code> re-enters the idle session with a prompt. It takes the same queue → model → kernel path as typed input.",code:"prime-agent schedule \"weekdays 09:00\" \\\n  --prompt \"tri-age CI failures\""}},
+  {a:46,  b:60, col:"#a78bfa", name:"autonomous",
+   label:"Autonomous · budgeted",
+   d:{kicker:"46–60%",title:"Bounded autonomy",body:"<code>/autonomous</code> continues within configured <b>turn, token, and time budgets</b>, optionally running user-defined quality gates. Reaching a limit does not imply task success — a passed gate checks only what it verifies."}},
+  {a:60,  b:74, col:"#fb7185", name:"compaction",
+   label:"Auto-compaction",
+   d:{kicker:"60–74%",title:"Compaction",body:"Older context is summarized while recent messages and <b>kernel state are preserved</b>. The child registry survives compaction, kernel restart, and restoration — delegation state outlives the context window."}},
+  {a:74,  b:86, col:"#34d399", name:"cron",
+   label:"Cron fires",
+   d:{kicker:"74–86%",title:"Scheduled prompt",body:"A cron entry in the worker's scheduler fires a prompt into the queue. Goals, schedules, heartbeats, and messages all share the worker runtime.",code:"prime-agent agents      # browse live sessions\nprime-agent attach <id> # reattach later"}},
+  {a:86,  b:100,col:"#38bdf8", name:"reattached",
+   label:"Reattach",
+   d:{kicker:"86–100%",title:"Reattach",body:"Any client reconnects through the supervisor and receives a <b>replay snapshot</b>: full history, live tail, goal state. The session never noticed you were gone."}},
+];
+function showLongrun(){
+  resetCaption();
+  nodeLayer.innerHTML=""; edgesSvg.innerHTML="";
+  const W=1100,H=560;
+  current.W=W; current.H=H; fitStage(W,H);
+  // status board
+  const chips={};
+  [["client","Client"],["worker","Worker + kernel"],["sched","Scheduler"],["goal","Goal"]].forEach(([id,label],i)=>{
+    const c=el("div","chip k-bound",nodeLayer,`▸ ${label}: <b class=state></b>`);
+    c.style.cssText=`left:${40+i*265}px;top:34px;width:240px;height:46px`; c.style.borderColor="var(--line2)";
+    chips[id]=c.querySelector(".state");
+  });
+  // goal ribbon
+  const ribbon=el("div","",nodeLayer);
+  ribbon.style.cssText="position:absolute;left:70px;right:70px;top:238px;height:10px;border-radius:6px;background:linear-gradient(90deg,#34d399 0%,#34d399 88%,#1f2c27 88%);opacity:.55";
+  const rl=el("div","",nodeLayer,"goal active → completed");
+  rl.style.cssText="position:absolute;left:70px;top:254px;font:600 10px var(--mono);color:var(--dim)";
+  // timeline
+  const tl=el("div","tl",nodeLayer);
+  LONG_PHASES.forEach(p=>{
+    const s=el("div","tl-seg",tl);
+    s.style.cssText=`left:${p.a}%;width:${p.b-p.a}%;background:${p.col}`;
+    const lb=el("div","tl-lab",nodeLayer,p.label);
+    lb.style.left=((p.a+p.b)/2)+"%"; lb.dataset.phase=p.name;
+  });
+  rl.style.top="352px"; rl.style.left="70px";
+  rl.textContent="goal ribbon: active from first prompt until objective completes (88%)";
+  const marker=el("div","tl-marker",nodeLayer);
+  marker.style.left="70px";
+  // agent-to-agent note
+  const note=el("div","node k-daemon",nodeLayer,
+    `<div class=t>Agent-to-agent bus</div><div class=s>running agents discover each other, exchange messages, and steer active work — without routing through the user</div>`);
+  note.style.cssText="left:70px;top:404px;width:500px;height:84px";
+  const note2=el("div","node k-sess",nodeLayer,
+    `<div class=t>Same path for every re-entry</div><div class=s>heartbeat · cron · goal continuation · autonomous turn → all enqueue on the AgentSession and reuse the agent loop</div>`);
+  note2.style.cssText="left:600px;top:404px;width:460px;height:84px";
+  note.addEventListener("mouseenter",()=>setDetail({kicker:"Messaging",title:"Agent-to-agent bus",body:"The supervisor delivers messages between running agents and retained subagents. Orchestration is peer-to-peer; the user is not on the hot path."}));
+  note2.addEventListener("mouseenter",()=>setDetail({kicker:"Convergence",title:"One loop",body:"Every re-entry source converges on the session queue. There is no special 'background mode' — only prompts arriving from different clocks."}));
+
+  let t=0, playing=false, curPhase="";
+  const tlBox=()=>tl.getBoundingClientRect();
+  function render(){
+    const left=70, width=stage.clientWidth-140;
+    marker.style.left=(left+ (t/100)*width)+"px";
+    const p=LONG_PHASES.find(p=>t>=p.a&&t<p.b)||LONG_PHASES.at(-1);
+    if(p.name!==curPhase){
+      curPhase=p.name;
+      document.querySelectorAll(".tl-lab").forEach(l=>l.classList.toggle("on",l.dataset.phase===p.name));
+      setDetail(p.d);
+      const attached=p.name==="attached"||p.name==="reattached";
+      chips.client.textContent=attached?"attached · rendering":"detached (closed)";
+      chips.client.style.color=attached?"#38bdf8":"#fbbf24";
+      chips.worker.textContent="running"; chips.worker.style.color="#34d399";
+      chips.sched.textContent=(p.name==="heartbeat"||p.name==="cron")?"firing":"armed"; chips.sched.style.color="#34d399";
+      chips.goal.textContent=t>=88?"completed ✓":"active"; chips.goal.style.color=t>=88?"#34d399":"#a78bfa";
+      writeCaption(`<b>${p.label}.</b> ${p.d.body.replace(/<[^>]+>/g,"").slice(0,150)}…`);
+    }
+  }
+  function tick(){
+    if(!playing) return;
+    t=(t+0.18)%100; render();
+  }
+  caption.innerHTML="";
+  const bar=el("div","controls",caption);
+  const play=el("button","btn primary",bar,"▶ Play timeline");
+  play.onclick=()=>{ playing=!playing; play.textContent=playing?"⏸ Pause":"▶ Play timeline"; };
+  every(tick,50);
+  const capTxt=el("div","",bar); capTxt.style.flex="1";
+  writeCaption=(h)=>{capTxt.innerHTML=h;};
+  render();
+  legend([["k-client","Client state"],["k-sess","Worker runtime"],["k-daemon","Messaging / scheduling"]]);
+}
+
+/* ============ switcher ============ */
+const TABS=[
+  ["system","System","the five process boundaries"],
+  ["loop","Agent loop","life of a prompt"],
+  ["rlm","RLM recursion","subagents as function calls"],
+  ["harness","Continual harness","state that improves"],
+  ["longrun","Long-running","detach · schedule · survive"],
+];
+const RENDER={system:showSystem,loop:showLoop,rlm:showRLM,harness:showHarness,longrun:showLongrun};
+let current=null;
+function setView(id){
+  clearTimers(); cancelAnimationFrame(raf); resetCaption();
+  current={id,W:id==="longrun"?1100:1100,H:id==="longrun"?560:660};
+  fitStage(current.W,current.H);
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on",t.dataset.id===id));
+  RENDER[id]();
+}
+TABS.forEach(([id,label,sub],i)=>{
+  const b=el("button","tab",tabsEl,`<span class=n>0${i+1}</span>${label}`);
+  b.dataset.id=id; b.title=sub;
+  b.onclick=()=>setView(id);
+});
+setView("system");
+</script>
+</body>
+</html>

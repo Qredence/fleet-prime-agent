@@ -20,6 +20,16 @@
 			"@earendil-works/pi-agent-old/*": ["./packages/agent-old/src/*"]
 		}
 	},
-	"include": ["packages/*/src/**/*", "packages/*/test/**/*", "packages/coding-agent/examples/**/*"],
+	"include": [
+		"packages/agent/src/**/*",
+		"packages/agent/test/**/*",
+		"packages/ai/src/**/*",
+		"packages/ai/test/**/*",
+		"packages/coding-agent/src/**/*",
+		"packages/coding-agent/test/**/*",
+		"packages/coding-agent/examples/**/*",
+		"packages/tui/src/**/*",
+		"packages/tui/test/**/*"
+	],
 	"exclude": ["**/dist/**"]
 }
