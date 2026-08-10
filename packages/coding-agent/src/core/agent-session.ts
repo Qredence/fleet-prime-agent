@@ -128,6 +128,7 @@ import { exportSessionToHtml, type ToolHtmlRenderer } from "./export-html/index.
 import { createToolHtmlRenderer } from "./export-html/tool-renderer.js";
 import {
 	type ContextUsage,
+	type ExtensionBindings,
 	type ExtensionCommandContextActions,
 	type ExtensionErrorListener,
 	ExtensionRunner,
@@ -496,12 +497,13 @@ export interface AgentSessionConfig {
 	initialGoal?: { objective: string; tokenBudget?: number };
 }
 
-export interface ExtensionBindings {
-	uiContext?: ExtensionUIContext;
-	commandContextActions?: ExtensionCommandContextActions;
-	shutdownHandler?: ShutdownHandler;
-	onError?: ExtensionErrorListener;
-}
+/**
+ * Kept as a re-export from core/extensions so existing local/daemon import
+ * sites keep compiling; the canonical definition lives in
+ * core/extensions/types.ts so connection contracts can reference it without
+ * importing the session runtime.
+ */
+export type { ExtensionBindings } from "./extensions/index.js";
 
 export interface AutoRefineReviewRequest {
 	reason: AutoRefineReason;

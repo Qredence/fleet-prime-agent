@@ -35,6 +35,8 @@ export type {
 	AppendEntryHandler,
 	// App keybindings (for custom editors)
 	AppKeybinding,
+	// Re-exported from pi-tui for render surfaces consumed by connection contracts.
+	AutocompleteItem,
 	AutocompleteProviderFactory,
 	// Events - Tool (ToolCallEvent types)
 	BashToolCallEvent,
@@ -62,6 +64,7 @@ export type {
 	ExtensionActions,
 	// API
 	ExtensionAPI,
+	ExtensionBindings,
 	ExtensionCommandContext,
 	ExtensionCommandContextActions,
 	ExtensionContext,

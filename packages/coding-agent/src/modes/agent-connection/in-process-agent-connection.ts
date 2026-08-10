@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { ImageContent, ServiceTier, Transport } from "@earendil-works/pi-ai";
+import type { ImageContent, Message as PiAiMessage, ServiceTier, Transport, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentSessionMessageReceipt, AgentSessionMessageSafetyStatus } from "../../core/agent-messages.js";
 import type { AgentSessionRuntime } from "../../core/agent-session-runtime.js";
 import type { AgentAutonomousStatus } from "../../core/autonomous.js";
@@ -33,6 +33,7 @@ import type {
 	AgentConnectionEvent,
 	AgentConnectionEventListener,
 	AgentConnectionExecuteBashOptions,
+	AgentConnectionExtensions,
 	AgentConnectionExtensionUiResponse,
 	AgentConnectionForkOptions,
 	AgentConnectionHeartbeat,
@@ -45,14 +46,17 @@ import type {
 	AgentConnectionPromptOptions,
 	AgentConnectionQueueMode,
 	AgentConnectionQueueState,
+	AgentConnectionReplacedClientContext,
 	AgentConnectionResourceSnapshot,
 	AgentConnectionSavedSessionInfo,
 	AgentConnectionSavedSessionScope,
 	AgentConnectionScopedModel,
+	AgentConnectionSeedMessage,
 	AgentConnectionSessionContext,
 	AgentConnectionSessionHeader,
 	AgentConnectionSessionListCallbacks,
 	AgentConnectionSessionTreeNode,
+	AgentConnectionSessionView,
 	AgentConnectionSessionWatcher,
 	AgentConnectionSideQuestionTurn,
 	AgentConnectionSlashCommand,
@@ -60,6 +64,7 @@ import type {
 	AgentConnectionState,
 	AgentConnectionSwitchSessionOptions,
 	AgentConnectionToolDefinition,
+	AgentConnectionToolRendererDefinition,
 	AgentConnectionUserMessage,
 } from "./types.js";
 
@@ -68,14 +73,29 @@ export interface InProcessHeadlessExtensionOptions {
 	shutdownHandler?: () => void;
 }
 
+function seedMessageToSessionMessage(seed: AgentConnectionSeedMessage): PiAiMessage {
+	if (seed.role === "user") {
+		return { role: "user", content: seed.text, timestamp: Date.now() } satisfies UserMessage;
+	}
+	return {
+		role: "assistant",
+		content: [{ type: "text", text: seed.text }],
+		stopReason: "stop",
+		timestamp: Date.now(),
+	} as PiAiMessage;
+}
+
 export class InProcessAgentConnection implements AgentConnection {
 	private readonly listeners = new Set<AgentConnectionEventListener>();
 	private readonly beforeSessionInvalidateListeners = new Set<AgentConnectionBeforeSessionInvalidateListener>();
 	private readonly sideQuestionRuns = new Map<string, SideQuestionRun>();
 	private headlessExtensionOptions: InProcessHeadlessExtensionOptions | undefined;
 	private unsubscribeSessionEvents: (() => void) | undefined;
+	readonly extensions: AgentConnectionExtensions;
+	private sessionView: AgentConnectionSessionView | undefined;
 
 	constructor(private readonly runtimeHost: AgentSessionRuntime) {
+		this.extensions = this.createExtensionsSurface();
 		this.bindCurrentSessionEvents();
 		if (typeof this.runtimeHost.setBeforeSessionInvalidate === "function") {
 			this.runtimeHost.setBeforeSessionInvalidate(() => {
@@ -131,6 +151,20 @@ export class InProcessAgentConnection implements AgentConnection {
 
 	async getSessionHeader(): Promise<AgentConnectionSessionHeader | undefined> {
 		return this.session.sessionManager.getHeader() ?? undefined;
+	}
+
+	getAbortSignal(): AbortSignal | undefined {
+		return this.session.agent.signal;
+	}
+
+	getSessionView(): AgentConnectionSessionView {
+		this.sessionView ??= this.createSessionView();
+		return this.sessionView;
+	}
+
+	async setAgentTransport(transport: Transport): Promise<void> {
+		this.session.settingsManager.setTransport(transport);
+		this.session.agent.transport = transport;
 	}
 
 	async getCommands(): Promise<AgentConnectionSlashCommand[]> {
@@ -477,21 +511,39 @@ export class InProcessAgentConnection implements AgentConnection {
 	}
 
 	async newSession(options?: AgentConnectionNewSessionOptions): Promise<{ cancelled: boolean }> {
-		return this.runtimeHost.newSession(options);
+		const seedMessages = options?.seedMessages;
+		return this.runtimeHost.newSession({
+			parentSession: options?.parentSession,
+			setup:
+				seedMessages && seedMessages.length > 0
+					? async (sessionManager) => {
+							for (const message of seedMessages) {
+								sessionManager.appendMessage(seedMessageToSessionMessage(message));
+							}
+						}
+					: undefined,
+			withSession: this.createAfterReplaceHook(options?.afterReplace),
+		});
 	}
 
 	async switchSession(
 		sessionPath: string,
 		options?: AgentConnectionSwitchSessionOptions,
 	): Promise<{ cancelled: boolean }> {
-		return this.runtimeHost.switchSession(sessionPath, options);
+		return this.runtimeHost.switchSession(sessionPath, {
+			cwdOverride: options?.cwdOverride,
+			withSession: this.createAfterReplaceHook(options?.afterReplace),
+		});
 	}
 
 	async fork(
 		entryId: string,
 		options?: AgentConnectionForkOptions,
 	): Promise<{ cancelled: boolean; selectedText?: string }> {
-		return this.runtimeHost.fork(entryId, options);
+		return this.runtimeHost.fork(entryId, {
+			position: options?.position,
+			withSession: this.createAfterReplaceHook(options?.afterReplace),
+		});
 	}
 
 	async navigateTree(
@@ -586,6 +638,98 @@ export class InProcessAgentConnection implements AgentConnection {
 
 	private get session() {
 		return this.runtimeHost.session;
+	}
+
+	/**
+	 * The withSession hook runs after the replacement session is live (runtime
+	 * already rebound events). The ReplacedClientContext is intentionally built
+	 * over the connection's own prompt/subscribe plumbing rather than the
+	 * extension ReplacedSessionContext it receives, so daemon adapters can
+	 * honor the same semantic once the wire protocol grows client callbacks:
+	 * sendUserMessage admits a prompt through this connection; notify/setEditorText
+	 * are delivered to subscribers as client_notice/client_set_editor_text events.
+	 */
+	private createAfterReplaceHook(
+		afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>,
+	): (() => Promise<void>) | undefined {
+		if (!afterReplace) {
+			return undefined;
+		}
+		return async () => {
+			const ctx: AgentConnectionReplacedClientContext = {
+				sendUserMessage: async (text) => {
+					await this.prompt(text);
+				},
+				notify: async (message, level) => {
+					await this.emit({ type: "client_notice", message, level });
+				},
+				setEditorText: async (text) => {
+					await this.emit({ type: "client_set_editor_text", text });
+				},
+			};
+			await afterReplace(ctx);
+		};
+	}
+
+	private createSessionView(): AgentConnectionSessionView {
+		return {
+			getCwd: async () => this.session.sessionManager.getCwd(),
+			getSessionDir: async () => this.session.sessionManager.getSessionDir(),
+			getSessionName: async () => this.session.sessionManager.getSessionName(),
+			getHeader: async () => {
+				const header = this.session.sessionManager.getHeader();
+				if (!header) {
+					throw new Error("Session has no header yet.");
+				}
+				return header;
+			},
+			getFlatTree: async () => this.session.sessionManager.getFlatTree(),
+			getLeafId: async () => this.session.sessionManager.getLeafId(),
+			buildSessionContext: async () => this.session.sessionManager.buildSessionContext(),
+			materializeSessionFile: async () => this.session.sessionManager.materializeSessionFile(),
+		};
+	}
+
+	private createExtensionsSurface(): AgentConnectionExtensions {
+		return {
+			getArgumentCompletions: async (commandName, argumentPrefix) => {
+				const command = this.session.extensionRunner.getCommand(commandName);
+				if (!command?.getArgumentCompletions) {
+					return null;
+				}
+				return command.getArgumentCompletions(argumentPrefix);
+			},
+			getCommandDiagnostics: async () => this.session.extensionRunner.getCommandDiagnostics(),
+			getShortcutDiagnostics: async () => this.session.extensionRunner.getShortcutDiagnostics(),
+			getShortcuts: async () =>
+				this.session.extensionRunner.getRegisteredCommands().map((entry) => ({
+					name: entry.invocationName,
+					registeredName: entry.name,
+					description: entry.description,
+					source: "extension" as const,
+					sourceInfo: entry.sourceInfo,
+				})),
+			getToolRendererDefinition: async (name) => {
+				const definition = this.session.getToolDefinition(name);
+				if (!definition) {
+					return undefined;
+				}
+				const rendererDefinition: AgentConnectionToolRendererDefinition = {};
+				if (definition.renderCall) {
+					rendererDefinition.renderCall = definition.renderCall;
+				}
+				if (definition.renderResult) {
+					rendererDefinition.renderResult = definition.renderResult;
+				}
+				if (definition.renderShell) {
+					rendererDefinition.renderShell = definition.renderShell;
+				}
+				return Object.keys(rendererDefinition).length > 0 ? rendererDefinition : undefined;
+			},
+			bindExtensions: async (bindings) => {
+				await this.session.bindExtensions(bindings);
+			},
+		};
 	}
 
 	private bindCurrentSessionEvents(): void {

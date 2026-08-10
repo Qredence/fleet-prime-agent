@@ -72,6 +72,7 @@ import type {
 export type { ExecOptions, ExecResult } from "../exec.js";
 export type { BuildSystemPromptOptions } from "../system-prompt.js";
 export type { AgentToolResult, AgentToolUpdateCallback, ToolExecutionMode };
+export type { AutocompleteItem } from "@earendil-works/pi-tui";
 export type { AppKeybinding, KeybindingsManager } from "../keybindings.js";
 
 // ============================================================================
@@ -1489,6 +1490,14 @@ export interface ExtensionCommandContextActions {
  * Created by loader with throwing action stubs, completed by runner.initialize().
  */
 export interface ExtensionRuntime extends ExtensionRuntimeState, ExtensionActions {}
+
+/** Bindings a mode provides to host the extension system in-process. */
+export interface ExtensionBindings {
+	uiContext?: ExtensionUIContext;
+	commandContextActions?: ExtensionCommandContextActions;
+	shutdownHandler?: () => void;
+	onError?: (error: ExtensionError) => void;
+}
 
 /** Loaded extension with all registered items. */
 export interface Extension {

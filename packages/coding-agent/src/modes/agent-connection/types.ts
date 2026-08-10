@@ -12,8 +12,13 @@ import type {
 	AgentHeartbeatManagementAction,
 	AgentHeartbeatUpdateAction,
 } from "../../core/cron-jobs.js";
-import type { ReplayBuiltInToolName } from "../../core/extensions/index.js";
-import type { InputSource } from "../../core/extensions/types.js";
+import type {
+	AutocompleteItem,
+	ExtensionBindings,
+	InputSource,
+	ReplayBuiltInToolName,
+	ToolDefinition,
+} from "../../core/extensions/index.js";
 import type { GoalState } from "../../core/goals.js";
 import type { KernelSentAgentMessage } from "../../core/kernel/index.js";
 import type { RefinementResult } from "../../core/refinement/index.js";
@@ -444,6 +449,22 @@ export class AgentConnectionPromptAdmissionError extends Error {
 	}
 }
 
+/**
+ * A connection member exists only on process-local transports: the daemon
+ * wire protocol has no command for it yet. Thrown by daemon-backed adapters
+ * in place of silently returning stale or partial data.
+ */
+export class AgentConnectionUnsupportedError extends Error {
+	constructor(
+		message: string,
+		readonly feature?: string,
+		options?: ErrorOptions,
+	) {
+		super(message, options);
+		this.name = "AgentConnectionUnsupportedError";
+	}
+}
+
 export interface AgentConnectionPromptOptions {
 	images?: ImageContent[];
 	streamingBehavior?: "steer" | "followUp";
@@ -478,16 +499,45 @@ export interface AgentConnectionExecuteBashOptions {
 	runId?: string;
 }
 
+export interface AgentConnectionSeedMessage {
+	role: "user" | "assistant";
+	text: string;
+}
+
+/**
+ * Narrow client-facing surface handed to `afterReplace` hooks once a
+ * newSession/fork/switchSession replacement has landed.
+ *
+ * This is deliberately not the extension ReplacedSessionContext: it carries
+ * only the bits a connected client can drive through AgentConnection itself
+ * (admit a user message, surface a notification as a connection event, and
+ * restore editor text), so daemon/gateway-backed adapters can honor it over
+ * the wire once the protocol supports it.
+ */
+export interface AgentConnectionReplacedClientContext {
+	sendUserMessage(text: string): Promise<void>;
+	notify(message: string, level?: "info" | "warning" | "error"): Promise<void>;
+	setEditorText(text: string): Promise<void>;
+}
+
 export interface AgentConnectionNewSessionOptions {
 	parentSession?: string;
+	/** Transcript messages to append to the fresh SessionManager before the swap resolves. */
+	seedMessages?: AgentConnectionSeedMessage[];
+	/** Called once after the replacement session is live, with the client-bound context above. */
+	afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>;
 }
 
 export interface AgentConnectionForkOptions {
 	position?: "before" | "at";
+	/** Called once after the replacement session is live, with the client-bound context above. */
+	afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>;
 }
 
 export interface AgentConnectionSwitchSessionOptions {
 	cwdOverride?: string;
+	/** Called once after the replacement session is live, with the client-bound context above. */
+	afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>;
 }
 
 export interface AgentConnectionNavigateTreeOptions {
@@ -617,19 +667,83 @@ export type AgentConnectionEvent =
 	| { type: "extension_error"; extensionPath: string; event: string; error: string }
 	| { type: "connection_status"; status: "reconnecting" | "connected"; error?: string }
 	| { type: "heartbeats_changed" }
+	/**
+	 * Client-bound notice emitted by afterReplace hooks (and future wire-level
+	 * client callbacks). InteractiveMode maps it onto its notification surface;
+	 * `setEditorText` restores editor content after a session swap.
+	 */
+	| { type: "client_notice"; message: string; level?: "info" | "warning" | "error" }
+	| { type: "client_set_editor_text"; text: string }
 	| { type: "closed"; error?: string };
 
 export type AgentConnectionEventListener = (event: AgentConnectionEvent) => void | Promise<void>;
 export type AgentConnectionBeforeSessionInvalidateListener = () => void;
 
+/**
+ * Read-only, serializable projection of the live AgentSession.
+ *
+ * Every accessor returns a snapshot value safe to send across a wire-typed
+ * boundary; the view object itself is obtained synchronously so callers can
+ * hold it without a round trip, while each method performs its own fresh
+ * read. Daemon-backed accessors throw AgentConnectionUnsupportedError until
+ * the matching wire commands exist.
+ */
+export interface AgentConnectionSessionView {
+	getCwd(): Promise<string>;
+	getSessionDir(): Promise<string>;
+	getSessionName(): Promise<string | undefined>;
+	getHeader(): Promise<AgentConnectionSessionHeader>;
+	getFlatTree(): Promise<AgentConnectionSessionTreeFlatNode[]>;
+	getLeafId(): Promise<string | null>;
+	buildSessionContext(): Promise<AgentConnectionSessionContext>;
+	materializeSessionFile(): Promise<string>;
+}
+
+/** Renderer callbacks for a tool, patched onto a serializable tool definition by client code. */
+export type AgentConnectionToolRendererDefinition = Pick<ToolDefinition, "renderCall" | "renderResult" | "renderShell">;
+
+/**
+ * Process-local extension surface, grouped under one sub-interface so the
+ * host-replacement work can delete InteractiveModeLocalSessionHost without
+ * growing the top-level AgentConnection method count.
+ *
+ * These members are only meaningful in-process: they expose executable
+ * callbacks (argument completions, tool renderers) and process state
+ * (extension bindings, shortcuts) that cannot cross a network boundary.
+ * Daemon-backed adapters throw AgentConnectionUnsupportedError until a
+ * wire protocol version covers them.
+ */
+export interface AgentConnectionExtensions {
+	getArgumentCompletions(commandName: string, argumentPrefix: string): Promise<AutocompleteItem[] | null>;
+	getCommandDiagnostics(): Promise<AgentConnectionResourceDiagnostic[]>;
+	getShortcutDiagnostics(): Promise<AgentConnectionResourceDiagnostic[]>;
+	/** Resolved extension commands; same shape as getCommands() entries sourced from extensions. */
+	getShortcuts(): Promise<AgentConnectionSlashCommand[]>;
+	getToolRendererDefinition(name: string): Promise<AgentConnectionToolRendererDefinition | undefined>;
+	bindExtensions(bindings: ExtensionBindings): Promise<void>;
+}
+
 export interface AgentConnection {
 	subscribe(listener: AgentConnectionEventListener): () => void;
 	onBeforeSessionInvalidate(listener: AgentConnectionBeforeSessionInvalidateListener): () => void;
 
+	/** Process-local extension surface; daemon adapters report unsupported until the wire catches up. */
+	readonly extensions: AgentConnectionExtensions;
 	getState(): Promise<AgentConnectionState>;
 	getInitialSnapshot(): Promise<AgentConnectionSnapshot>;
 	getMessages(): Promise<AgentMessage[]>;
 	getSessionHeader(): Promise<AgentConnectionSessionHeader | undefined>;
+	/**
+	 * Synchronous handle to the session's abort signal (undefined when no turn is
+	 * in flight). Process-local: daemon adapters throw because an AbortSignal
+	 * cannot cross the wire.
+	 */
+	getAbortSignal(): AbortSignal | undefined;
+	/**
+	 * Synchronous handle to a read-only session projection. The view object is
+	 * free; each accessor performs a fresh async read.
+	 */
+	getSessionView(): AgentConnectionSessionView;
 	getCommands(): Promise<AgentConnectionSlashCommand[]>;
 	getResourceSnapshot(): Promise<AgentConnectionResourceSnapshot>;
 	getModelCatalog(): Promise<AgentConnectionModelCatalog>;
@@ -702,6 +816,12 @@ export interface AgentConnection {
 	setServiceTier(serviceTier: ServiceTier): Promise<void>;
 	cycleThinkingLevel(): Promise<ThinkingLevel | undefined>;
 	setTransport(transport: Transport): Promise<void>;
+	/**
+	 * First-class transport swap: persists via the settings manager and updates
+	 * the live agent, so daemon-mode host code no longer reaches through the
+	 * session for transport writes.
+	 */
+	setAgentTransport(transport: Transport): Promise<void>;
 	setSteeringMode(mode: AgentConnectionQueueMode): Promise<void>;
 	setFollowUpMode(mode: AgentConnectionQueueMode): Promise<void>;
 	setAutoCompactionEnabled(enabled: boolean): Promise<void>;
