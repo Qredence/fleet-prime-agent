@@ -579,6 +579,75 @@ export class PrimeBridge {
 	}
 
 	// -----------------------------------------------------------------------
+	// Slash-command surface (TUI parity)
+	// -----------------------------------------------------------------------
+
+	/** /context — context-window usage for the session's current branch. */
+	getContextUsage(sessionId: string) {
+		const session = this.#requireSession(sessionId)
+		return session.session.getContextUsage()
+	}
+
+	/** /system-prompt — the exact system prompt sent to the model for the active turn. */
+	getSystemPrompt(sessionId: string): string {
+		const session = this.#requireSession(sessionId)
+		return session.session.systemPrompt
+	}
+
+	/** /name — set or show the session display name. */
+	setSessionName(sessionId: string, name: string | undefined): void {
+		const session = this.#requireSession(sessionId)
+		if (!name) return
+		session.session.setSessionName(name)
+	}
+
+	getSessionName(sessionId: string): string | undefined {
+		const session = this.#requireSession(sessionId)
+		return session.session.sessionName
+	}
+
+	/** /export — write the session to HTML (default) or JSONL (path ends with .jsonl). */
+	async exportSession(
+		sessionId: string,
+		outputPath?: string,
+	): Promise<{ path: string; format: "html" | "jsonl" }> {
+		const session = this.#requireSession(sessionId)
+		if (outputPath?.endsWith(".jsonl")) {
+			const path = session.session.exportToJsonl(outputPath)
+			return { path, format: "jsonl" }
+		}
+		const path = await session.session.exportToHtml(outputPath)
+		return { path, format: "html" }
+	}
+
+	/** /reload — re-scan keybindings, extensions, skills, prompts, themes. */
+	async reloadResources(_sessionId?: string): Promise<void> {
+		// The resource loader is per-cwd inside `createAgentSession`, and the TUI's
+		// `/reload` reloads the *current* session's world via `session.reload()`.
+		// For the web port we reload every attached session's loader so new
+		// skills/prompts/themes show up on next prompt.
+		for (const session of this.#sessions.values()) {
+			await session.session.reload()
+		}
+	}
+
+	/** /tree — session-tree navigation via navigateTree (requires entry id). */
+	async navigateTree(sessionId: string, targetId: string): Promise<void> {
+		const session = this.#requireSession(sessionId)
+		await session.session.navigateTree(targetId, {})
+	}
+
+	/**
+	 * /fork and /clone are exposed in the TUI through `runtimeHost.fork()`, which
+	 * is a *session-runtime* primitive available on the daemon, not on a live
+	 * `AgentSession`. They require the daemon to materialize a new session file
+	 * (re-using the agent's conversation state up to a chosen entry). Until
+	 * `AgentSession` exposes such a helper, the web port marks these as
+	 * unimplemented and routes them through `session-not-implemented` in the
+	 * dispatcher so they never fall through to the LLM.
+	 */
+
+	// -----------------------------------------------------------------------
 	// Message hydration (for /session eager-load on the client)
 	// -----------------------------------------------------------------------
 

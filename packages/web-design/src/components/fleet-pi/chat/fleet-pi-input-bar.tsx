@@ -6,7 +6,7 @@ import { SUGGESTION_ITEM_CLASS, SUGGESTION_LIST_CLASS } from "../styles/tokens"
 import { ChatStopControl } from "./chat-stop-control"
 import type { InputBarProps } from "../../agent-elements/input-bar"
 import type { SuggestionItem } from "../../agent-elements/input/suggestions"
-import type { ChatStatus } from "../../agent-elements/chat-types"
+import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { ModelOption } from "../../agent-elements/types"
 
 export const FLEET_PI_SUGGESTION_ITEM_CLASSNAME = SUGGESTION_ITEM_CLASS
@@ -55,8 +55,6 @@ export type FleetPiInputBarProps = Omit<
   /** Imperatively open the model picker (e.g. from `/model`). */
   modelPickerOpen?: boolean
   onModelPickerOpenChange?: (open: boolean) => void
-  /** Alt+Enter: send as a follow-up queued after the current turn. */
-  onFollowUp?: () => void
 }
 
 export function FleetPiInputBar({
@@ -66,7 +64,6 @@ export function FleetPiInputBar({
   infoDescription,
   suggestions,
   onModelChange,
-  onFollowUp,
   onStop,
   onSend,
   onSlashCommandSelect,
@@ -99,13 +96,9 @@ export function FleetPiInputBar({
       altKey?: boolean
     }) => {
       if (onLocalSlashSubmit?.(message.content) === true) return
-      if (message.altKey && onFollowUp) {
-        onFollowUp()
-        return
-      }
       onSend(message)
     },
-    [onFollowUp, onLocalSlashSubmit, onSend]
+    [onLocalSlashSubmit, onSend]
   )
 
   return (

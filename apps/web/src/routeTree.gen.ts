@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiChatAbortRouteImport } from './routes/api/chat/abort'
+import { Route as ApiChatCommandRouteImport } from './routes/api/chat/command'
 import { Route as ApiChatCommandsRouteImport } from './routes/api/chat/commands'
 import { Route as ApiChatEventsRouteImport } from './routes/api/chat/events'
 import { Route as ApiChatModelRouteImport } from './routes/api/chat/model'
@@ -46,6 +47,11 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
 const ApiChatAbortRoute = ApiChatAbortRouteImport.update({
   id: '/abort',
   path: '/abort',
+  getParentRoute: () => ApiChatRoute,
+} as any)
+const ApiChatCommandRoute = ApiChatCommandRouteImport.update({
+  id: '/command',
+  path: '/command',
   getParentRoute: () => ApiChatRoute,
 } as any)
 const ApiChatCommandsRoute = ApiChatCommandsRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/chat/abort': typeof ApiChatAbortRoute
+  '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/model': typeof ApiChatModelRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/chat/abort': typeof ApiChatAbortRoute
+  '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/model': typeof ApiChatModelRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/chat/abort': typeof ApiChatAbortRoute
+  '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/model': typeof ApiChatModelRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/health'
     | '/api/chat/abort'
+    | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
     | '/api/chat/model'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/health'
     | '/api/chat/abort'
+    | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
     | '/api/chat/model'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/health'
     | '/api/chat/abort'
+    | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
     | '/api/chat/model'
@@ -278,6 +290,13 @@ declare module '@tanstack/react-router' {
       path: '/abort'
       fullPath: '/api/chat/abort'
       preLoaderRoute: typeof ApiChatAbortRouteImport
+      parentRoute: typeof ApiChatRoute
+    }
+    '/api/chat/command': {
+      id: '/api/chat/command'
+      path: '/command'
+      fullPath: '/api/chat/command'
+      preLoaderRoute: typeof ApiChatCommandRouteImport
       parentRoute: typeof ApiChatRoute
     }
     '/api/chat/commands': {
@@ -395,6 +414,7 @@ const ApiChatModelsRouteWithChildren = ApiChatModelsRoute._addFileChildren(
 
 interface ApiChatRouteChildren {
   ApiChatAbortRoute: typeof ApiChatAbortRoute
+  ApiChatCommandRoute: typeof ApiChatCommandRoute
   ApiChatCommandsRoute: typeof ApiChatCommandsRoute
   ApiChatEventsRoute: typeof ApiChatEventsRoute
   ApiChatModelRoute: typeof ApiChatModelRoute
@@ -411,6 +431,7 @@ interface ApiChatRouteChildren {
 
 const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatAbortRoute: ApiChatAbortRoute,
+  ApiChatCommandRoute: ApiChatCommandRoute,
   ApiChatCommandsRoute: ApiChatCommandsRoute,
   ApiChatEventsRoute: ApiChatEventsRoute,
   ApiChatModelRoute: ApiChatModelRoute,

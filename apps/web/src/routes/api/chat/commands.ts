@@ -2,54 +2,34 @@ import { createFileRoute } from "@tanstack/react-router"
 import { wrapApiHandler } from "@/lib/api-utils"
 import { getPrimeConfig } from "@/server/prime-config"
 
-// Mirroring prime-agent's `packages/coding-agent/src/core/slash-commands.ts` —
-// `CANONICAL_BUILTIN_SLASH_COMMANDS` is the static catalog of CLI commands
-// like `/model`, `/settings`, `/effort`, etc. The list lives only inside the
-// interactive TUI's closure (not exported via the package's `index.ts`), so we
-// inline it here. Drift risk is low: commands are user-visible API and
-// prime-agent's CHANGELOG announces changes. Keep this list in sync when
-// bumping prime-agent.
+// Slash commands the web port can actually honor. The TUI's full builtin list
+// (~35 entries) lives in `packages/coding-agent/src/core/slash-commands.ts`,
+// but most of them (`/fork`, `/export`, `/mcp`, `/copy`, `/login`, `/reload`,
+// `/update`, `/hotkeys`, `/quit`, ...) are wired only into the TUI's UI
+// context — there is no server-side runner for them in this web port. Showing
+// them in autocomplete would let the user submit them and have them go to the
+// LLM as plain prompt text (bug review H2), so we whitelist just the commands
+// this port routes locally or through `parseSessionCommands`:
+//   - Local-UI: handled by `resolveLocalSlashAction` in `apps/web/src/lib/pi/slash-commands.ts`
+//   - Session:  forwarded via `session.prompt({ parseSessionCommands: true })`.
+// When you add a server-side runner for a builtin (e.g. `/export`), add it here.
 const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 	name: string
 	description: string
 	argumentHint?: string
 }> = [
+	// Local-UI (client-side rewrites; composer never prompts the agent).
 	{ name: "settings", description: "Open settings menu" },
 	{ name: "model", description: "Select model (opens selector UI)", argumentHint: "[search]" },
 	{ name: "effort", description: "Select reasoning/thinking level (opens selector UI)", argumentHint: "[level]" },
-	{ name: "fast", description: "Toggle OpenAI Fast mode" },
 	{ name: "scoped-models", description: "Enable/disable models for Ctrl+P cycling" },
-	{ name: "export", description: "Export session (HTML default, or specify path: .html/.jsonl)", argumentHint: "[path]" },
-	{ name: "import", description: "Import and resume a session from a JSONL file", argumentHint: "<path.jsonl>" },
-	{ name: "share", description: "Share session as a secret GitHub gist" },
-	{ name: "copy", description: "Copy last agent message to clipboard" },
-	{ name: "btw", description: "Ask a side question without adding it to the session", argumentHint: "<question>" },
-	{ name: "name", description: "Set or show the session display name", argumentHint: "[name]" },
 	{ name: "session", description: "Show session info" },
-	{ name: "system-prompt", description: "Show the exact system prompt sent to the model" },
-	{ name: "logs", description: "Show where daemon and client logs are saved" },
-	{ name: "traces", description: "Preview, upload, or configure Prime Agent traces", argumentHint: "[status|on|off|preview|upload|upload-current|upload-all|login]" },
-	{ name: "context", description: "Show token, cost, and context usage for agent and sub-agents" },
-	{ name: "changelog", description: "Show changelog entries" },
-	{ name: "update", description: "Update Prime Agent and installed packages", argumentHint: "[source|--self|--extensions]" },
-	{ name: "hotkeys", description: "Show all keyboard shortcuts" },
-	{ name: "fork", description: "Create a new fork from a previous user message" },
-	{ name: "clone", description: "Duplicate the current session at the current position" },
-	{ name: "tree", description: "Navigate session tree (switch branches)" },
-	{ name: "login", description: "Configure provider authentication" },
-	{ name: "logout", description: "Remove provider authentication" },
-	{ name: "mcp", description: "Open MCP Connections or manage MCP integrations", argumentHint: "[list|login <name>|logout <name>]" },
 	{ name: "new", description: "Start a new session, optionally named and/or with an initial prompt", argumentHint: '[--name "session name" --] [prompt]' },
+	// Session commands forwarded via parseSessionCommands inside session.prompt().
 	{ name: "compact", description: "Compact the session context; optional instructions focus the summary", argumentHint: "[instructions]" },
 	{ name: "refine", description: "Refine continual harness prompt notes, skills, subagents, and memory" },
 	{ name: "goal", description: "Set or view a persistent goal; supports pause, resume, and clear", argumentHint: "[objective]" },
 	{ name: "autonomous", description: "Set or view autonomous mode", argumentHint: "[status|on|off]" },
-	{ name: "rlm-max-depth", description: "Set/view the per-chat persistent RLM max depth", argumentHint: "[<int> [--global]]" },
-	{ name: "heartbeat", description: "Set or view a persistent heartbeat", argumentHint: "[status|pause|resume|stop|[every <duration>] [--steer|--follow-up] <instruction>]" },
-	{ name: "heartbeats", description: "View and manage all user and agent heartbeats" },
-	{ name: "reload", description: "Reload keybindings, extensions, skills, prompts, and themes" },
-	{ name: "fullscreen", description: "Toggle fullscreen (alternate screen) rendering with scrollable transcript", argumentHint: "[on|off]" },
-	{ name: "quit", description: "Quit Prime Agent" },
 ]
 
 // GET /api/chat/commands — enumerate slash commands the chat composer can

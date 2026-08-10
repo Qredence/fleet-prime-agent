@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatMessagePart } from "./chat-types";
+import type { ChatMessage, ChatMessagePart } from "@prime-agent/web-protocol/chat-types";
 
 let assistantMessageSequence = 0;
 

@@ -4,7 +4,7 @@ import { ArtifactsPanelContent } from "../pi/artifacts-panel"
 import { ResourcesPanelContent } from "../pi/resources-panel"
 import { WorkspacePanelContent } from "../pi/workspace-panel"
 import type { ElementType, ReactNode } from "react"
-import type { ChatStatus } from "../../agent-elements/chat-types"
+import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils"
 import type {
   ChatMode,

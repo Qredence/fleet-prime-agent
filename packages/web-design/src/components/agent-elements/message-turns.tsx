@@ -14,7 +14,7 @@ import type {
   ToolRendererProps,
 } from "./utils/chat-message-parts"
 import type { CustomToolRendererProps } from "./types"
-import type { ChatMessage } from "./chat-types"
+import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 
 type UserMessageComponentProps = {
   message: ChatMessage

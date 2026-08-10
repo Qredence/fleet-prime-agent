@@ -12,7 +12,7 @@ import { AssistantTurn, UserTurn } from "./message-turns"
 import { isTextPart, isV5ToolPart } from "./utils/chat-message-parts"
 import type { ToolRendererProps } from "./utils/chat-message-parts"
 import type { CustomToolRendererProps } from "./types"
-import type { ChatMessage, ChatStatus } from "./chat-types"
+import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 
 export type MessageListProps = {
   messages: Array<ChatMessage>

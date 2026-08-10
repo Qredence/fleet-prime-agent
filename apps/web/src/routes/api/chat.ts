@@ -8,38 +8,41 @@ export const Route = createFileRoute("/api/chat")({
 		handlers: {
 			POST: async ({ request }) =>
 				wrapApiHandler(async () => {
-					const raw = await request.json()
-					const body = ChatRequestSchema.parse(raw)
-					const { sessionId, sessionFile, message } = body
-					if (!message || typeof message !== "string") {
-						return Response.json(
-							{ message: "POST /api/chat requires a `message` string." },
-							{ status: 400 },
-						)
-					}
+				const raw = await request.json()
+				const body = ChatRequestSchema.parse(raw)
+				const { sessionId, sessionFile, message, model } = body
+				if (!message || typeof message !== "string") {
+					return Response.json(
+						{ message: "POST /api/chat requires a `message` string." },
+						{ status: 400 },
+					)
+				}
 
-					const bridge = getBridge()
-					const targetSessionId = sessionId ?? sessionFile
-					if (!targetSessionId) {
-						return Response.json(
-							{ message: "POST /api/chat requires a `sessionId` (or `sessionFile`)." },
-							{ status: 400 },
-						)
-					}
-					if (process.env.PRIME_BRIDGE_DEBUG === "1") {
-						process.stderr.write(
-							`[chat] received session=${targetSessionId.slice(0, 8)} bytes=${message.length}\n`,
-						)
-					}
-					const session =
-						bridge.getSession(targetSessionId) ??
-						(await bridge.resumeSessionById(targetSessionId))
-					if (!session) {
-						return Response.json(
-							{ message: `Unknown session: ${targetSessionId}` },
-							{ status: 404 },
-						)
-					}
+				const bridge = getBridge()
+				const targetSessionId = sessionId ?? sessionFile
+				if (!targetSessionId) {
+					return Response.json(
+						{ message: "POST /api/chat requires a `sessionId` (or `sessionFile`)." },
+						{ status: 400 },
+					)
+				}
+				if (process.env.PRIME_BRIDGE_DEBUG === "1") {
+					process.stderr.write(
+						`[chat] received session=${targetSessionId.slice(0, 8)} bytes=${message.length}\n`,
+					)
+				}
+				const session =
+					bridge.getSession(targetSessionId) ??
+					(await bridge.resumeSessionById(targetSessionId))
+				if (!session) {
+					return Response.json(
+						{ message: `Unknown session: ${targetSessionId}` },
+						{ status: 404 },
+					)
+				}
+				if (model !== undefined) {
+					await bridge.setModel(session.sessionId, model)
+				}
 					if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 						process.stderr.write(
 							`[chat] session resolved; prompt len=${session.session.sessionManager.buildSessionContext().messages.length}\n`,

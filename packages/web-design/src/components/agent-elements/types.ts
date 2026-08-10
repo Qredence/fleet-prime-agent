@@ -1,5 +1,5 @@
+import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type React from "react";
-import type { ChatMessage, ChatStatus } from "./chat-types";
 import type { SuggestionItem } from "./input/suggestions";
 import type { QuestionAnswer, QuestionConfig } from "./question/question-prompt";
 

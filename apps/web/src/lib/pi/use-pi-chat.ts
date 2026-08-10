@@ -87,6 +87,27 @@ export function usePiChat(
     []
   )
 
+  // Append an assistant-role message from the web UI itself (never sent to
+  // prime-agent). Used by slash-command handlers (/session /context /logs
+  // /export /reload /fast …) to echo the result into the conversation the
+  // way the TUI's `showStatus`/`showError` does. Not persisted to disk —
+  // these are modal echoes for the user, not transcript entries the agent
+  // should reason over.
+  const appendLocalMessage = useCallback(
+    (text: string) => {
+      setMessagesSynced((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant" as const,
+          createdAt: Date.now(),
+          parts: [{ type: "text" as const, text }],
+        },
+      ])
+    },
+    [setMessagesSynced]
+  )
+
   const setSessionMetadataSynced = useCallback(
     (metadata: ChatSessionMetadata) => {
       if (
@@ -501,6 +522,7 @@ export function usePiChat(
   return {
     activityLabel,
     answerQuestion,
+    appendLocalMessage,
     error,
     messages: enhancedMessages,
     planLabel,

@@ -157,6 +157,7 @@ function ChatWorkspaceShell() {
   const {
     activityLabel,
     answerQuestion,
+    appendLocalMessage,
     error,
     messages,
     planLabel,
@@ -231,6 +232,7 @@ function ChatWorkspaceShell() {
 
   const { handleLocalSlashSubmit, handleSlashCommandSelect } =
     useLocalSlashActions({
+      appendLocalMessage,
       models,
       openSettings,
       sessionId: sessionMetadata.sessionId,

@@ -13,7 +13,7 @@ import { Suggestions } from "./input/suggestions"
 import { useQuestionBarNavigation } from "./hooks/use-question-bar-navigation"
 import type { InputInfoBarData } from "./input/info-bar"
 import type { SuggestionItem } from "./input/suggestions"
-import type { ChatStatus } from "./chat-types"
+import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { QuestionBarData } from "./hooks/use-question-bar-navigation"
 import type { RefObject } from "react"
 

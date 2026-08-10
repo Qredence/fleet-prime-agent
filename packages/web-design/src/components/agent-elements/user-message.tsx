@@ -3,7 +3,7 @@ import { cn } from "./utils/cn"
 import { FileAttachment } from "./input/file-attachment"
 import { ImageLightbox } from "./image-lightbox"
 import { isTextPart } from "./utils/chat-message-parts"
-import type { ChatMessage } from "./chat-types"
+import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 
 export type UserMessageProps = {
   message: ChatMessage

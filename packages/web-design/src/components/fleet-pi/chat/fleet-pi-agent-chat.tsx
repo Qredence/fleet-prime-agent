@@ -9,7 +9,7 @@ import {
   withFleetPiSuggestionStyles,
 } from "./fleet-pi-input-bar"
 import type { AgentChatProps } from "../../agent-elements/types"
-import type { ChatStatus } from "../../agent-elements/chat-types"
+import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar"
 import type { InputBarProps } from "../../agent-elements/input-bar"
 

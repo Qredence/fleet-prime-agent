@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { createTextMessage } from "./chat-message-helpers"
 import { applyChatStreamEvent } from "./chat-stream-state"
@@ -75,15 +75,30 @@ export function usePiChatMessaging({
   // Lazily materialize a prime-agent session the first time the user sends a
   // message without one — previously the composer POSTed with `sessionId:
   // undefined` and the route 400'd. Also used by follow-ups queued mid-turn.
+  // In-flight memo prevents two concurrent sends from both calling createSession
+  // and clobbering one another (race documented in review finding M2).
+  const sessionCreatePromiseRef = useRef<Promise<ChatSessionMetadata> | null>(null)
   const ensureSession = useCallback(
     async (): Promise<ChatSessionMetadata> => {
       const existing = sessionMetadataRef.current
       if (existing.sessionId || existing.sessionFile) return existing
-      const created = await client.createSession()
-      setSessionMetadataSynced(created.session)
-      sessionMetadataRef.current = created.session
-      void refreshSessions()
-      return created.session
+      const inFlight = sessionCreatePromiseRef.current
+      if (inFlight) return inFlight
+      const promise = client
+        .createSession()
+        .then((created) => {
+          setSessionMetadataSynced(created.session)
+          sessionMetadataRef.current = created.session
+          void refreshSessions()
+          return created.session
+        })
+        .finally(() => {
+          if (sessionCreatePromiseRef.current === promise) {
+            sessionCreatePromiseRef.current = null
+          }
+        })
+      sessionCreatePromiseRef.current = promise
+      return promise
     },
     [client, refreshSessions, sessionMetadataRef, setSessionMetadataSynced]
   )
@@ -139,7 +154,7 @@ export function usePiChatMessaging({
     ]
   )
 
-  const queueFollowUp = useCallback(
+  const enqueueDuringStream = useCallback(
     async (
       trimmed: string,
       requestMode: ChatMode,
@@ -174,11 +189,19 @@ export function usePiChatMessaging({
           }
         }
       )
+
+      // The steered message is queued server-side, but the `queue` event only
+      // ever lands on the *main* turn's NDJSON stream (which this POST didn't
+      // open). Refresh the sessions list so the queue badge in the shell
+      // reflects the just-steered item instead of waiting for the current
+      // turn to end. Cheap, one extra round-trip.
+      await refreshSessions()
     },
     [
       client,
       ensureSession,
       model,
+      refreshSessions,
       sessionMetadataRef,
       setActivityLabelSynced,
       setError,
@@ -203,7 +226,7 @@ export function usePiChatMessaging({
         try {
           // Enter during stream = steer into the current turn.
           // Alt+Enter during stream = queue a follow-up after this turn.
-          await queueFollowUp(trimmed, requestMode, altKey ? "followUp" : "steer")
+          await enqueueDuringStream(trimmed, requestMode, altKey ? "followUp" : "steer")
         } catch (err) {
           const nextError = err instanceof Error ? err : new Error(String(err))
           setError(nextError)
@@ -274,11 +297,11 @@ export function usePiChatMessaging({
       abortRef,
       client,
       ensureSession,
+      enqueueDuringStream,
       handleStreamEvent,
       messagesRef,
       mode,
       model,
-      queueFollowUp,
       recoverFromForbiddenSession,
       sessionMetadataRef,
       setActivityLabelSynced,
@@ -289,5 +312,5 @@ export function usePiChatMessaging({
     ]
   )
 
-  return { handleStreamEvent, queueFollowUp, sendMessage }
+  return { enqueueDuringStream, handleStreamEvent, sendMessage }
 }
