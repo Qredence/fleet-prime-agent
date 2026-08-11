@@ -1,5 +1,5 @@
 import { Folder, Library, Package, X } from "lucide-react"
-import { useEffect, useId, useMemo, useRef } from "react"
+import { useEffect, useEffectEvent, useId, useMemo, useRef } from "react"
 import { TabsSubtle, TabsSubtleItem } from "../../tabs-subtle"
 import { DESKTOP_PANEL_ONLY } from "../../../lib/layout-constants"
 import {
@@ -134,11 +134,27 @@ export function MobilePanel({
   open: boolean
   title?: string
 }) {
-  const panelRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDialogElement>(null)
   const panelTitleId = useId()
+
+  // Light dismiss — the full-viewport ::backdrop region maps clicks onto the
+  // dialog element, matching the previous bottom sheet-style backdrop button.
+  const onLightDismiss = useEffectEvent((event: MouseEvent) => {
+    if (panelRef.current && event.target === panelRef.current) onClose?.()
+  })
+
+  useEffect(() => {
+    if (!open) return
+    const dialog = panelRef.current
+    if (!dialog) return
+    const handler = (event: MouseEvent) => onLightDismiss(event)
+    dialog.addEventListener("click", handler)
+    return () => dialog.removeEventListener("click", handler)
+  }, [open])
 
   useEffect(() => {
     if (open) {
+      panelRef.current?.showModal()
       panelRef.current?.focus()
     }
   }, [open])
@@ -146,68 +162,43 @@ export function MobilePanel({
   if (!open) return null
 
   return (
-    <>
-      <button
-        type="button"
-        className={`fixed inset-0 z-40 bg-black/20 ${DESKTOP_PANEL_ONLY}`}
-        onClick={onClose}
-        aria-label="Close panel"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault()
-            onClose?.()
-          }
-        }}
-      />
-      <div
-        className={`fixed top-[var(--chat-chrome-top)] right-3 bottom-3 z-50 flex min-h-0 max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2 ${DESKTOP_PANEL_ONLY}`}
-        data-testid={dataTestid}
-      >
-        <div
-          ref={panelRef}
-          className={PANEL_OVERLAY_CLASS}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={panelTitleId}
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              onClose?.()
-            }
-          }}
-        >
-          <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-            <span id={panelTitleId} className="sr-only">
-              {title ?? "Panel"}
-            </span>
-            {title && (
-              <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3">
-                <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground/80">
-                  {Icon && <Icon className="size-3.5 shrink-0" />}
-                  <span className="truncate">{title}</span>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {headerActions}
-                  {onClose && (
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className={`${HIT_AREA_EXPAND_CLASS} inline-flex h-7 w-7 items-center justify-center rounded-sm text-foreground/40 transition-[background-color,color,transform] duration-150 hover:bg-foreground/6 hover:text-foreground/70 active:scale-[0.96]`}
-                      aria-label="Close panel"
-                      title="Close panel"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
-              {children}
+    <dialog
+      ref={panelRef}
+      data-testid={dataTestid}
+      className={`fixed top-[var(--chat-chrome-top)] right-3 bottom-3 m-0 ${PANEL_OVERLAY_CLASS} backdrop:bg-black/20 ${DESKTOP_PANEL_ONLY}`}
+      aria-labelledby={panelTitleId}
+      onClose={() => onClose?.()}
+    >
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+        <span id={panelTitleId} className="sr-only">
+          {title ?? "Panel"}
+        </span>
+        {title && (
+          <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3">
+            <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground/80">
+              {Icon && <Icon className="size-3.5 shrink-0" />}
+              <span className="truncate">{title}</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              {headerActions}
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={`${HIT_AREA_EXPAND_CLASS} inline-flex h-7 w-7 items-center justify-center rounded-sm text-foreground/40 transition-[background-color,color,transform] duration-150 hover:bg-foreground/6 hover:text-foreground/70 active:scale-[0.96]`}
+                  aria-label="Close panel"
+                  title="Close panel"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
           </div>
+        )}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
+          {children}
         </div>
       </div>
-    </>
+    </dialog>
   )
 }
