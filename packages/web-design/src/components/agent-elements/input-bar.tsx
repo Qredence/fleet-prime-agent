@@ -3,9 +3,7 @@
 import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { cn } from "./utils/cn"
 
-import { SendButton } from "./input/send-button"
-import { AttachmentButton } from "./input/attachment-button"
-import { FileAttachment } from "./input/file-attachment"
+import { InputBarSurface } from "./input/input-bar-surface"
 import { InputInfoBar } from "./input/info-bar"
 import { InputQuestionBar } from "./input/question-bar"
 import { useInputTyping } from "./input/input-typing"
@@ -338,144 +336,41 @@ export const InputBar = memo(function InputBar(props: InputBarProps) {
           suggestions={suggestions}
           textareaRef={textareaRef}
         />
-        <div
-          className={cn(
-            "flex flex-col gap-0",
-            shouldShowInfoBar
-              ? "rounded-an-input-border-radius bg-an-background-tertiary"
-              : null
-          )}
-        >
-          {infoBarPosition === "top" && infoBarNode}
-          {questionBarNode}
-          <div
-            className={cn(
-              "relative cursor-text rounded-an-input-border-radius bg-an-input-background shadow-2xs ring-1 ring-foreground/10",
-              isDragOver && "ring-2 ring-an-primary-color"
-            )}
-            onClick={handleContainerClick}
-            role="presentation"
-          >
-            {/* Context items (attached images/files) */}
-            <div
-              className={cn(
-                "grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 ease-out",
-                showContextItems && "grid-rows-[1fr]"
-              )}
-            >
-              <div className="overflow-hidden">
-                {showContextItems && (
-                  <div className="flex flex-wrap items-center gap-[6px] px-an-context-padding pt-an-context-padding pb-0.5">
-                    {attachedImages.map((img) => (
-                      <FileAttachment
-                        key={img.id}
-                        id={img.id}
-                        filename={img.filename}
-                        size={img.size}
-                        isImage
-                        url={img.url}
-                        display={imageDisplayMode}
-                        enableImagePreview={enableImagePreview}
-                        onRemove={
-                          onRemoveImage
-                            ? () => onRemoveImage(img.id)
-                            : undefined
-                        }
-                      />
-                    ))}
-                    {attachedFiles.map((file) => (
-                      <FileAttachment
-                        key={file.id}
-                        id={file.id}
-                        filename={file.filename}
-                        size={file.size}
-                        onRemove={
-                          onRemoveFile ? () => onRemoveFile(file.id) : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Typing animation image */}
-            {isTyping && typingAnimation?.image && showImage && (
-              <div className="flex flex-wrap gap-2 px-3 pt-3">
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md">
-                  <img
-                    src={typingAnimation.image}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Text input or typing animation text */}
-            <div className="min-h-[44px] pt-3 pr-3 pb-0 pl-3.5">
-              {isTyping ? (
-                <div className="w-full text-[14px] leading-[1.6] text-an-foreground-muted">
-                  <span>{displayedText}</span>
-                  <span className="animate-an-blink ml-px inline-block h-[1em] w-[2px] bg-an-foreground align-text-bottom" />
-                </div>
-              ) : (
-                <>
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onPaste={onPaste}
-                    placeholder={effectivePlaceholder}
-                    disabled={disabled}
-                    rows={1}
-                    className={cn(
-                      "peer w-full resize-none border-0 bg-transparent text-[14px] leading-[1.6] text-an-foreground outline-none placeholder:text-an-input-placeholder-color",
-                      "overflow-hidden",
-                      disabled && "cursor-not-allowed opacity-50"
-                    )}
-                  />
-                  <div className="pointer-events-none absolute inset-0 z-20 rounded-an-input-border-radius opacity-0 outline-2 outline-an-input-focus-outline transition-opacity duration-75 ease-in-out peer-focus:opacity-100 peer-focus-visible:opacity-100" />
-                </>
-              )}
-            </div>
-
-            {/* Toolbar */}
-            <div className="flex items-center justify-between gap-3 px-2 pt-1 pb-2">
-              <div className="flex min-w-0 items-center gap-1">
-                {!attachRight && showAttach && onAttach && (
-                  <AttachmentButton onClick={onAttach} />
-                )}
-                {leftActions}
-              </div>
-              <div className="flex items-center gap-1">
-                {rightActions}
-                {attachRight && showAttach && onAttach && (
-                  <AttachmentButton onClick={onAttach} />
-                )}
-                {/* Send / Stop button */}
-                <SendButton
-                  state={
-                    isStreaming
-                      ? "streaming"
-                      : hasInput && !disabled
-                        ? "typing"
-                        : "idle"
-                  }
-                  onClick={() => {
-                    if (isStreaming) {
-                      onStop()
-                    } else if (hasInput) {
-                      handleSubmit()
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-          {infoBarPosition === "bottom" && infoBarNode}
-        </div>
+        <InputBarSurface
+          attachedFiles={attachedFiles}
+          attachedImages={attachedImages}
+          attachRight={attachRight}
+          disabled={disabled}
+          displayedText={displayedText}
+          effectivePlaceholder={effectivePlaceholder}
+          enableImagePreview={enableImagePreview}
+          hasInput={hasInput}
+          imageDisplayMode={imageDisplayMode}
+          infoBar={infoBarNode}
+          infoBarPosition={infoBarPosition}
+          input={input}
+          isDragOver={isDragOver}
+          isStreaming={isStreaming}
+          isTyping={isTyping}
+          leftActions={leftActions}
+          onAttach={onAttach}
+          onContainerClick={handleContainerClick}
+          onInputChange={setInput}
+          onPaste={onPaste}
+          onRemoveFile={onRemoveFile}
+          onRemoveImage={onRemoveImage}
+          onStop={onStop}
+          onSubmit={handleSubmit}
+          onTextareaKeyDown={handleKeyDown}
+          questionBar={questionBarNode}
+          rightActions={rightActions}
+          showAttach={showAttach}
+          showContextItems={showContextItems}
+          showImage={showImage}
+          showInfoBar={shouldShowInfoBar}
+          textareaRef={textareaRef}
+          typingImage={typingAnimation?.image}
+        />
       </div>
     </div>
   )
