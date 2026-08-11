@@ -49,6 +49,7 @@ import {
   TableRow,
 } from "../table"
 import { cn } from "../../lib/utils"
+import { DonutChartDef, LineChartDef } from "./charts"
 import {
   badgeToneClasses,
   badgeVariantsByTone,
@@ -771,6 +772,8 @@ export const openUILibrary = createLibrary({
     CodeBlockDef,
     TableDef,
     BarChartDef,
+    LineChartDef,
+    DonutChartDef,
     SelectDef,
     SwitchDef,
     ModalDef,
