@@ -5,13 +5,13 @@ authoritative suppression lives in `doctor.config.jsonc` (`ignore.overrides`);
 this file records the evidence so future agent triage runs do not relitigate
 these findings.
 
-## Waiver 1 — `effect-needs-cleanup` @ `apps/web/src/lib/pi/use-pi-chat.ts:379`
+## Waiver 1 — `effect-needs-cleanup` @ `apps/web/src/lib/pi/use-pi-chat.ts:384`
 
 - **Rule:** `react-doctor/effect-needs-cleanup` (severity: error)
 - **Predicate the detector claims:** "`EventSource` creates a connection in
   useEffect without guaranteed cleanup."
 - **Observed evidence (read):** the effect's returned cleanup at
-  `use-pi-chat.ts:485-489` runs `closedByEffect = true`, `source?.close()`
+  `use-pi-chat.ts:490-494` runs `closedByEffect = true`, `source?.close()`
   (the outer `let source` is rebound on every reconnect, so the latest
   connection is the one closed), and `if (reconnectTimer)
   clearTimeout(reconnectTimer)`. Teardown is guaranteed on unmount and on

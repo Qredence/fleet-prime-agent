@@ -181,16 +181,23 @@ export const AssistantTurn = memo(function AssistantTurn({
   )
 })
 
+const TOOL_CALL_KEY_PREFIX = "tool-call:"
+const UNKEYED_TOOL_KEY_PREFIX = "unkeyed-tool:"
+
 /**
- * Keeps tool-call IDs authoritative and assigns append-stable identities to
- * unkeyed protocol fragments of the same tool type.
+ * Keeps tool-call IDs authoritative while using a disjoint render-key namespace
+ * for append-stable identities of unkeyed protocol fragments.
  */
 export function getAssistantToolElementKey(
   messageId: string,
   part: ToolPartBase,
   occurrence: number
 ) {
-  return part.toolCallId ?? `${messageId}:tool:${part.type}:${occurrence}`
+  if (part.toolCallId !== undefined) {
+    return `${TOOL_CALL_KEY_PREFIX}${part.toolCallId}`
+  }
+
+  return `${UNKEYED_TOOL_KEY_PREFIX}${messageId}:${part.type}:${occurrence}`
 }
 
 type BuildAssistantElementsOptions = {

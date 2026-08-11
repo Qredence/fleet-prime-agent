@@ -10,11 +10,11 @@ const noIdTask = { type: "tool-Task" }
 
 assert.equal(
   getAssistantToolElementKey("message-1", noIdTask, 0),
-  "message-1:tool:tool-Task:0"
+  "unkeyed-tool:message-1:tool-Task:0"
 )
 assert.equal(
   getAssistantToolElementKey("message-1", noIdTask, 1),
-  "message-1:tool:tool-Task:1"
+  "unkeyed-tool:message-1:tool-Task:1"
 )
 assert.equal(
   getAssistantToolElementKey(
@@ -22,12 +22,16 @@ assert.equal(
     { type: "tool-Task", toolCallId: "call-42" },
     0
   ),
-  "call-42"
+  "tool-call:call-42"
 )
 
 const renderedElements = buildAssistantElements(
   [
     { type: "tool-Task" },
+    {
+      type: "tool-Read",
+      toolCallId: "unkeyed-tool:message-1:tool-Task:0",
+    },
     { type: "tool-Question" },
     { type: "tool-TaskOutput" },
     { type: "tool-Task", toolCallId: "parent" },
@@ -48,10 +52,11 @@ const renderedElements = buildAssistantElements(
 assert.deepEqual(
   renderedElements.filter(isValidElement).map((element) => element.key),
   [
-    "message-1:tool:tool-Task:0",
-    "parent",
-    "message-1:tool:tool-Task:1",
-    "message-1:tool:tool-Read:0",
+    "unkeyed-tool:message-1:tool-Task:0",
+    "tool-call:unkeyed-tool:message-1:tool-Task:0",
+    "tool-call:parent",
+    "unkeyed-tool:message-1:tool-Task:1",
+    "unkeyed-tool:message-1:tool-Read:0",
   ]
 )
 
