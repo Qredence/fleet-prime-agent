@@ -22,6 +22,16 @@ function expectNoImports(source: string, forbiddenModules: readonly string[]): v
 	}
 }
 
+function expectNoValueImports(source: string, forbiddenModules: readonly string[]): void {
+	for (const modulePath of forbiddenModules) {
+		// Allow `import type { ... } from "..."` — type-only coupling is fine for
+		// the connection contract. Forbid value imports that would pull runtime.
+		expect(source, `unexpected value import from ${modulePath}`).not.toMatch(
+			new RegExp(`import\\s+(?!type\\b)[^;]*from\\s+["']${escapeRegExp(modulePath)}["']`),
+		);
+	}
+}
+
 describe("InteractiveMode execution boundary", () => {
 	it("does not import core runtimes, sessions, session managers, or daemon transports", async () => {
 		const source = await readSource("modes/interactive/interactive-mode.ts");
@@ -39,13 +49,20 @@ describe("InteractiveMode execution boundary", () => {
 		]);
 	});
 
-	it("keeps local runtime/session imports out of the generic connection contract", async () => {
+	it("keeps local runtime/session value imports out of the generic connection contract", async () => {
 		const source = await readSource("modes/agent-connection/types.ts");
 
-		expectNoImports(source, [
+		expectNoValueImports(source, [
 			"../../core/agent-session.js",
 			"../../core/agent-session-runtime.js",
 			"../../core/session-manager.js",
+			"../daemon/daemon-client.js",
+			"../daemon/daemon-protocol.js",
+			"../daemon/daemon-socket.js",
+		]);
+		expectNoImports(source, [
+			"../../core/agent-session.js",
+			"../../core/agent-session-runtime.js",
 			"../daemon/daemon-client.js",
 			"../daemon/daemon-protocol.js",
 			"../daemon/daemon-socket.js",

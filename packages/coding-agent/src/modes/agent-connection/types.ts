@@ -1,5 +1,6 @@
 import type { AgentEvent, AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { Api, ImageContent, Model, ServiceTier, TextContent, Transport, Usage } from "@earendil-works/pi-ai";
+import type { KeybindingsConfig, KeyId } from "@earendil-works/pi-tui";
 import type { AgentSessionMessageReceipt, AgentSessionMessageSafetyStatus } from "../../core/agent-messages.js";
 import type { AuthSourceToken } from "../../core/auth-storage.js";
 import type { AgentAutonomousStatus } from "../../core/autonomous.js";
@@ -15,7 +16,10 @@ import type {
 import type {
 	AutocompleteItem,
 	ExtensionBindings,
+	ExtensionShortcut,
 	InputSource,
+	MessageRenderer,
+	ReplacedSessionContext,
 	ReplayBuiltInToolName,
 	ToolDefinition,
 } from "../../core/extensions/index.js";
@@ -25,6 +29,7 @@ import type { RefinementResult } from "../../core/refinement/index.js";
 import type { RlmMaxDepthStatus, SetRlmMaxDepthResult } from "../../core/rlm-max-depth.js";
 import type { SessionActionSnapshot } from "../../core/session-action-store.js";
 import type { DeleteSessionFileResult } from "../../core/session-file-actions.js";
+import type { ReadonlySessionManager, SessionManager } from "../../core/session-manager.js";
 import type { SessionStats } from "../../core/session-stats.js";
 
 /**
@@ -526,18 +531,33 @@ export interface AgentConnectionNewSessionOptions {
 	seedMessages?: AgentConnectionSeedMessage[];
 	/** Called once after the replacement session is live, with the client-bound context above. */
 	afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>;
+	/**
+	 * Process-local only: runs against the live SessionManager before the swap.
+	 * Daemon adapters throw AgentConnectionUnsupportedError. Prefer seedMessages
+	 * for portable clients.
+	 */
+	setup?: (sessionManager: SessionManager) => Promise<void>;
+	/**
+	 * Process-local only: receives the full ReplacedSessionContext after the swap.
+	 * Daemon adapters throw. Prefer afterReplace for portable clients.
+	 */
+	withSession?: (ctx: ReplacedSessionContext) => Promise<void>;
 }
 
 export interface AgentConnectionForkOptions {
 	position?: "before" | "at";
 	/** Called once after the replacement session is live, with the client-bound context above. */
 	afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>;
+	/** Process-local only; see AgentConnectionNewSessionOptions.withSession. */
+	withSession?: (ctx: ReplacedSessionContext) => Promise<void>;
 }
 
 export interface AgentConnectionSwitchSessionOptions {
 	cwdOverride?: string;
 	/** Called once after the replacement session is live, with the client-bound context above. */
 	afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>;
+	/** Process-local only; see AgentConnectionNewSessionOptions.withSession. */
+	withSession?: (ctx: ReplacedSessionContext) => Promise<void>;
 }
 
 export interface AgentConnectionNavigateTreeOptions {
@@ -717,8 +737,17 @@ export interface AgentConnectionExtensions {
 	getArgumentCompletions(commandName: string, argumentPrefix: string): Promise<AutocompleteItem[] | null>;
 	getCommandDiagnostics(): Promise<AgentConnectionResourceDiagnostic[]>;
 	getShortcutDiagnostics(): Promise<AgentConnectionResourceDiagnostic[]>;
-	/** Resolved extension commands; same shape as getCommands() entries sourced from extensions. */
+	/** Resolved extension slash commands; same shape as getCommands() entries sourced from extensions. */
 	getShortcuts(): Promise<AgentConnectionSlashCommand[]>;
+	/**
+	 * Keyboard shortcuts registered by extensions, resolved against the client's
+	 * effective keybindings. Returns executable handlers — process-local only.
+	 * Synchronous because ExtensionRunner.getShortcuts is sync and the TUI
+	 * shortcut path must stay synchronous.
+	 */
+	getKeyboardShortcuts(resolvedKeybindings: KeybindingsConfig): Map<KeyId, ExtensionShortcut>;
+	/** Custom-message renderer for a given customType; process-local (executable callback). */
+	getMessageRenderer(customType: string): MessageRenderer | undefined;
 	getToolRendererDefinition(name: string): Promise<AgentConnectionToolRendererDefinition | undefined>;
 	bindExtensions(bindings: ExtensionBindings): Promise<void>;
 }
@@ -744,6 +773,18 @@ export interface AgentConnection {
 	 * free; each accessor performs a fresh async read.
 	 */
 	getSessionView(): AgentConnectionSessionView;
+	/**
+	 * Synchronous ReadonlySessionManager for ExtensionContext construction.
+	 * Process-local: daemon adapters throw because the live SessionManager
+	 * cannot cross the wire. Prefer getSessionView() for serializable reads.
+	 */
+	getReadonlySessionManager(): ReadonlySessionManager;
+	/**
+	 * Synchronous system-prompt read for ExtensionContext. Prefer the async
+	 * getSystemPrompt() for connection-backed clients; this sync form exists
+	 * only because ExtensionContext.getSystemPrompt is sync today.
+	 */
+	getSystemPromptSync(): string;
 	getCommands(): Promise<AgentConnectionSlashCommand[]>;
 	getResourceSnapshot(): Promise<AgentConnectionResourceSnapshot>;
 	getModelCatalog(): Promise<AgentConnectionModelCatalog>;

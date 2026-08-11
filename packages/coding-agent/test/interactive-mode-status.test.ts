@@ -1192,7 +1192,6 @@ describe("InteractiveMode connection events", () => {
 		) =>
 			({
 				unsubscribe: undefined,
-				localSessionHost: undefined,
 				toolDefinitionCache: { clear: vi.fn() },
 				applyRuntimeSettings: vi.fn(),
 				bindLocalSessionExtensions: true,

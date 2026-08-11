@@ -17,6 +17,7 @@ import type {
 import type { RefinementResult } from "../../core/refinement/index.js";
 import type { DeleteSessionFileResult } from "../../core/session-file-actions.js";
 import { SessionAlreadyActiveError } from "../../core/session-lease.js";
+import type { ReadonlySessionManager } from "../../core/session-manager.js";
 import type { SessionStats } from "../../core/session-stats.js";
 import {
 	DaemonCapabilityUnavailableError,
@@ -135,6 +136,8 @@ function createUnsupportedExtensionsSurface(): AgentConnectionExtensions {
 		getCommandDiagnostics: () => unsupported("extensions.getCommandDiagnostics"),
 		getShortcutDiagnostics: () => unsupported("extensions.getShortcutDiagnostics"),
 		getShortcuts: () => unsupported("extensions.getShortcuts"),
+		getKeyboardShortcuts: (_resolvedKeybindings) => unsupported("extensions.getKeyboardShortcuts"),
+		getMessageRenderer: (_customType) => unsupported("extensions.getMessageRenderer"),
 		getToolRendererDefinition: (_name) => unsupported("extensions.getToolRendererDefinition"),
 		bindExtensions: (_bindings) => unsupported("extensions.bindExtensions"),
 	};
@@ -473,6 +476,20 @@ export class DaemonAgentConnection implements AgentConnection {
 	getSessionView(): AgentConnectionSessionView {
 		this.sessionView ??= this.createDaemonSessionView();
 		return this.sessionView;
+	}
+
+	getReadonlySessionManager(): ReadonlySessionManager {
+		throw new AgentConnectionUnsupportedError(
+			"getReadonlySessionManager requires DAEMON_PROTOCOL_VERSION >= 8",
+			"getReadonlySessionManager",
+		);
+	}
+
+	getSystemPromptSync(): string {
+		throw new AgentConnectionUnsupportedError(
+			"getSystemPromptSync requires DAEMON_PROTOCOL_VERSION >= 8",
+			"getSystemPromptSync",
+		);
 	}
 
 	async setAgentTransport(transport: Transport): Promise<void> {
@@ -1116,6 +1133,7 @@ export class DaemonAgentConnection implements AgentConnection {
 
 	async newSession(options?: AgentConnectionNewSessionOptions): Promise<{ cancelled: boolean }> {
 		this.assertSeedMessagesSupported(options?.seedMessages, "newSession");
+		this.assertProcessLocalSessionHooks(options, "newSession");
 		const runAfterReplace = this.createAfterReplaceHook(options?.afterReplace);
 		const result = await this.requestData<{ cancelled: boolean }>({
 			type: "new_session",
@@ -1132,6 +1150,7 @@ export class DaemonAgentConnection implements AgentConnection {
 		sessionPath: string,
 		options?: AgentConnectionSwitchSessionOptions,
 	): Promise<{ cancelled: boolean }> {
+		this.assertProcessLocalSessionHooks(options, "switchSession");
 		const sourceActiveSessionId = this.activeSessionId;
 		const runAfterReplace = this.createAfterReplaceHook(options?.afterReplace);
 		try {
@@ -1243,6 +1262,7 @@ export class DaemonAgentConnection implements AgentConnection {
 		entryId: string,
 		options?: AgentConnectionForkOptions,
 	): Promise<{ cancelled: boolean; selectedText?: string }> {
+		this.assertProcessLocalSessionHooks(options, "fork");
 		const runAfterReplace = this.createAfterReplaceHook(options?.afterReplace);
 		const result = await this.requestData<{ cancelled: boolean; selectedText?: string }>({
 			type: "fork",
@@ -2089,6 +2109,24 @@ export class DaemonAgentConnection implements AgentConnection {
 			throw new AgentConnectionUnsupportedError(
 				`${feature} seedMessages requires DAEMON_PROTOCOL_VERSION >= 8`,
 				`${feature}.seedMessages`,
+			);
+		}
+	}
+
+	private assertProcessLocalSessionHooks(
+		options: { setup?: unknown; withSession?: unknown } | undefined,
+		feature: string,
+	): void {
+		if (options?.setup) {
+			throw new AgentConnectionUnsupportedError(
+				`${feature} setup requires an in-process connection`,
+				`${feature}.setup`,
+			);
+		}
+		if (options?.withSession) {
+			throw new AgentConnectionUnsupportedError(
+				`${feature} withSession requires an in-process connection; use afterReplace for portable clients`,
+				`${feature}.withSession`,
 			);
 		}
 	}

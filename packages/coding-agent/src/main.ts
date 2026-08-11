@@ -86,7 +86,7 @@ import {
 	type AgentConnection,
 	type AgentsViewScopeKey,
 	ClientPromptStashStore,
-	createInteractiveModeLocalSessionHost,
+	createInteractiveModeUiServices,
 	createInteractiveModeUiServicesFromServices,
 	DaemonAgentConnection,
 	DaemonCapabilityUnavailableError,
@@ -1655,7 +1655,7 @@ export async function main(args: string[], options?: MainOptions) {
 
 		const interactiveMode = new InteractiveMode({
 			agentConnection: new InProcessAgentConnection(runtime),
-			localSessionHost: createInteractiveModeLocalSessionHost(runtime),
+			uiServices: createInteractiveModeUiServices(runtime.session),
 			promptStashStore: new ClientPromptStashStore(),
 			promptStashSessionId: session.sessionId,
 			bindLocalSessionExtensions: true,
