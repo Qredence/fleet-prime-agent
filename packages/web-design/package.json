@@ -22,6 +22,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "check:openui": "tsx scripts/openui-render-check.tsx",
     "generate:openui-signatures": "tsx scripts/generate-openui-signatures.ts"
   },
   "dependencies": {

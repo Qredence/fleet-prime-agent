@@ -113,7 +113,7 @@ const payload = [
 	'$field = "x"',
 	"$on = true",
 	'$s = "a"',
-	"root = Root([inp, sel, sw, mdl, traffic, share, scores])",
+	"root = Root([inp, sel, sw, mdl, traffic, share, scores, kpis])",
 	'inp = Input("field", $field, "hint")',
 	'sel = Select("s", $s, [{"value": "a", "label": "A"}], "Pick")',
 	'sw = Switch("on", $on, "Toggle")',
@@ -121,6 +121,7 @@ const payload = [
 	'traffic = LineChart("Traffic", "Weekly visits", "week", [{"dataKey":"visits","label":"Visits"}], [{"week":"W1","visits":10},{"week":"W2","visits":24},{"week":"W3","visits":18}])',
 	'share = DonutChart("Share", null, [{"label":"Alpha","value":40},{"label":"Beta","value":60}], "100%")',
 	'scores = DataTable("Scores", [{"key":"name","label":"Name"},{"key":"points","label":"Points","type":"number"}], [{"name":"Ada","points":7},{"name":"Bo","points":12}])',
+	'kpis = MetricGroup([{"label":"Users","value":"12,403","delta":"+4.2%","deltaTone":"up","sparkline":[3,5,4,8,9]},{"label":"Errors","value":"3","delta":"-66%","deltaTone":"down"}])',
 ].join("\n");
 
 let failures = 0;
@@ -221,7 +222,7 @@ if (staticHtml.length === 0) {
 }
 console.log("RENDER OK (static)");
 
-for (const expected of ["Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points"]) {
+for (const expected of ["Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points", "Users", "12,403", "+4.2%", "Errors"]) {
 	assertIncludes(staticHtml, expected);
 }
 
@@ -251,10 +252,15 @@ for (const expected of [
 	"100%",
 	"recharts-line",
 	"recharts-pie",
+	"recharts-area",
 	"Scores",
 	"Ada",
 	"Bo",
 	"Points",
+	"Users",
+	"12,403",
+	"+4.2%",
+	"Errors",
 ]) {
 	assertIncludes(domHtml, expected);
 }

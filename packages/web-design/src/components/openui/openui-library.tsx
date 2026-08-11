@@ -50,7 +50,7 @@ import {
 } from "../table"
 import { cn } from "../../lib/utils"
 import { DonutChartDef, LineChartDef } from "./charts"
-import { DataTableDef } from "./data"
+import { DataTableDef, MetricGroupDef } from "./data"
 import {
   badgeToneClasses,
   badgeVariantsByTone,
@@ -776,6 +776,7 @@ export const openUILibrary = createLibrary({
     LineChartDef,
     DonutChartDef,
     DataTableDef,
+    MetricGroupDef,
     SelectDef,
     SwitchDef,
     ModalDef,

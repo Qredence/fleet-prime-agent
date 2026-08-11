@@ -1,6 +1,7 @@
 import { defineComponent } from "@openuidev/react-lang"
 import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
 import { useState } from "react"
+import { Area, AreaChart } from "recharts"
 import { z } from "zod"
 import { Card, CardContent, CardHeader, CardTitle } from "../card"
 import {
@@ -290,4 +291,103 @@ export const DataTableDef = defineComponent({
       ),
   }),
   component: DataTableComponent,
+})
+
+const deltaToneClasses = {
+  up: "bg-emerald-500/10 text-emerald-500",
+  down: "bg-red-500/10 text-red-500",
+  neutral: "bg-foreground/10 text-foreground/50",
+} as const
+
+const SPARKLINE_COLORS = [1, 2, 3, 4, 5].map((n) => `var(--chart-${n})`)
+
+type MetricGroupItem = {
+  label: string
+  value: string
+  delta?: string
+  deltaTone?: "up" | "down" | "neutral"
+  sparkline?: Array<number>
+}
+
+function MetricGroupComponent({
+  props: { metrics },
+}: {
+  props: { metrics: Array<MetricGroupItem> }
+}) {
+  return (
+    <div className="grid w-full grid-cols-2 gap-2">
+      {metrics.map((metric, index) => (
+        <Card key={metric.label} className="gap-1 py-3">
+          <CardContent className="flex flex-col gap-1 px-3">
+            <span className="text-[11px] font-medium text-foreground/50">
+              {metric.label}
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-semibold text-foreground">
+                {metric.value}
+              </span>
+              {metric.delta ? (
+                <span
+                  className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                    deltaToneClasses[metric.deltaTone ?? "neutral"]
+                  )}
+                >
+                  {metric.delta}
+                </span>
+              ) : null}
+            </div>
+            {metric.sparkline && metric.sparkline.length >= 2 ? (
+              <AreaChart
+                width={48}
+                height={16}
+                data={metric.sparkline.map((point, i) => ({ i, v: point }))}
+                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              >
+                <Area
+                  type="monotone"
+                  dataKey="v"
+                  stroke={SPARKLINE_COLORS[index % SPARKLINE_COLORS.length]}
+                  strokeWidth={1}
+                  fill={SPARKLINE_COLORS[index % SPARKLINE_COLORS.length]}
+                  fillOpacity={0.15}
+                  dot={false}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            ) : null}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+export const MetricGroupDef = defineComponent({
+  name: "MetricGroup",
+  description:
+    "A compact group of KPI cards with optional deltas and trend sparklines.",
+  props: z.object({
+    metrics: z
+      .array(
+        z.object({
+          label: z.string().describe("Short metric label"),
+          value: z.string().describe("Formatted display value"),
+          delta: z
+            .string()
+            .optional()
+            .describe("Optional period-over-period change label"),
+          deltaTone: z
+            .enum(["up", "down", "neutral"])
+            .optional()
+            .describe("Visual tone for the delta"),
+          sparkline: z
+            .array(z.number())
+            .optional()
+            .describe("Optional values for a compact trend sparkline"),
+        })
+      )
+      .describe("Metric cards to display"),
+  }),
+  component: MetricGroupComponent,
 })
