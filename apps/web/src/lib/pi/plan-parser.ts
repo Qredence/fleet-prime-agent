@@ -62,8 +62,9 @@ export function extractDoneSteps(message: string) {
 
 export function markCompletedSteps(text: string, items: Array<TodoItem>) {
   let changed = 0
+  const itemsByStep = new Map(items.map((todo) => [todo.step, todo]))
   for (const step of extractDoneSteps(text)) {
-    const item = items.find((todo) => todo.step === step)
+    const item = itemsByStep.get(step)
     if (item && !item.completed) {
       item.completed = true
       changed += 1

@@ -120,16 +120,14 @@ function buildProviders() {
 		.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-const ProviderUpdateSchema = z
-	.object({
-		providerId: z.string().min(1),
-		apiKey: z.string().max(4096),
-		baseUrl: z.string().max(4096).optional(),
-		modelId: z.string().max(4096).optional(),
-		displayName: z.string().max(256).optional(),
-		createOccInstance: z.boolean().optional(),
-	})
-	.passthrough() // permissive: forward-compat with custom+OCC instance fields the v1 surface doesn't yet know
+const ProviderUpdateSchema = z.looseObject({
+	providerId: z.string().min(1),
+	apiKey: z.string().max(4096),
+	baseUrl: z.string().max(4096).optional(),
+	modelId: z.string().max(4096).optional(),
+	displayName: z.string().max(256).optional(),
+	createOccInstance: z.boolean().optional(),
+}) // permissive: forward-compat with custom+OCC instance fields the v1 surface doesn't yet know
 
 const ProviderRemoveSchema = z.object({
 	providerId: z.string().min(1),
