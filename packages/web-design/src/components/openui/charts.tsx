@@ -17,7 +17,6 @@ import {
   CardTitle,
 } from "../card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "../chart"
-import { cn } from "../../lib/utils"
 
 const CHART_FALLBACK_COLORS = [1, 2, 3, 4, 5].map((n) => `var(--chart-${n})`)
 
@@ -59,7 +58,7 @@ function LineChartComponent({
   const chartConfig = buildChartConfig(series)
 
   return (
-    <Card className={cn("w-full max-w-3xl")}>
+    <Card className="w-full max-w-3xl">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
@@ -156,7 +155,7 @@ function DonutChartComponent({
   )
 
   return (
-    <Card className={cn("w-full max-w-3xl")}>
+    <Card className="w-full max-w-3xl">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
@@ -206,13 +205,13 @@ export const DonutChartDef = defineComponent({
   description: "A donut/pie chart for part-of-whole composition.",
   props: z.object({
     title: z.string().describe("The title of the chart"),
-    description: z.string().optional(),
+    description: z.string().optional().describe("A brief description of the chart"),
     segments: z
       .array(
         z.object({
           label: z.string().describe("Segment name"),
           value: z.number().describe("Segment value (must be positive)"),
-          color: z.string().optional(),
+          color: z.string().optional().describe("Optional CSS color override for this segment"),
         })
       )
       .describe("The segments to plot"),
