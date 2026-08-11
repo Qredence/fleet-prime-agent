@@ -169,9 +169,9 @@ export function ImageLightbox({
       {hasMultipleImages && (
         <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 flex-col items-center gap-3">
           <div className="flex gap-2">
-            {images.map((imageSrc, idx) => (
+            {images.map((image, idx) => (
               <button
-                key={imageSrc}
+                key={image.url}
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation()

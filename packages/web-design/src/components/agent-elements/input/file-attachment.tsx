@@ -99,8 +99,8 @@ export function FileAttachment({
   const isImageOnly = display === "image-only" && isImage && !!url
   const canPreview = Boolean(enableImagePreview && isImage && url)
 
-  const openLightbox = (event: React.MouseEvent) => {
-    event.stopPropagation()
+  const openLightbox = (event?: React.SyntheticEvent) => {
+    event?.stopPropagation()
     setIsLightboxOpen(true)
   }
 
