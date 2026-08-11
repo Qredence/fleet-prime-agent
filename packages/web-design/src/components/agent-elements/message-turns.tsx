@@ -30,26 +30,43 @@ type TextRendererComponentProps = {
   onOpenUIAction?: (message: string) => void
 }
 
+type UserTurnDisplay = {
+  enableImagePreview: boolean
+  showCopyToolbar: boolean
+  isMounted: boolean
+  isCopyVisible: boolean
+}
+
+type AssistantTurnStream = {
+  isLast: boolean
+  isStreaming: boolean
+}
+
+type AssistantTurnCopy = {
+  enabled: boolean
+  isVisible: boolean
+}
+
+type AssistantTurnDisplay = {
+  suppressQuestionTool: boolean
+}
+
 /** One user message bubble plus its hover copy/timestamp toolbar. */
 export const UserTurn = memo(function UserTurn({
   message,
   UserMessageComponent,
   userMessageClassName,
-  enableImagePreview,
-  showCopyToolbar,
-  isMounted,
-  isCopyVisible,
+  display,
   onCopied,
 }: {
   message: ChatMessage
   UserMessageComponent: React.ComponentType<UserMessageComponentProps>
   userMessageClassName?: string
-  enableImagePreview: boolean
-  showCopyToolbar: boolean
-  isMounted: boolean
-  isCopyVisible: boolean
+  display: UserTurnDisplay
   onCopied: (copyKey: string) => void
 }) {
+  const { enableImagePreview, showCopyToolbar, isMounted, isCopyVisible } =
+    display
   const text = getTextFromParts(message.parts ?? [], "")
   const hasParts = (message.parts ?? []).length > 0
   if (!text && !hasParts) return null
@@ -91,30 +108,29 @@ export const UserTurn = memo(function UserTurn({
 export const AssistantTurn = memo(function AssistantTurn({
   assistantMsgs,
   turnKey,
-  isLastTurn,
-  isStreaming,
-  showCopyToolbar,
-  suppressQuestionTool,
+  stream,
+  copy,
+  display,
   ToolRendererComponent,
   TextRendererComponent,
   toolRenderers,
   onOpenUIAction,
-  isCopyVisible,
   onCopied,
 }: {
   assistantMsgs: Array<ChatMessage>
   turnKey: string
-  isLastTurn: boolean
-  isStreaming: boolean
-  showCopyToolbar: boolean
-  suppressQuestionTool: boolean
+  stream: AssistantTurnStream
+  copy: AssistantTurnCopy
+  display: AssistantTurnDisplay
   ToolRendererComponent: React.ComponentType<ToolRendererProps>
   TextRendererComponent: React.ComponentType<TextRendererComponentProps>
   toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
   onOpenUIAction?: (message: string) => void
-  isCopyVisible: boolean
   onCopied: (copyKey: string) => void
 }) {
+  const { isLast: isLastTurn, isStreaming } = stream
+  const { enabled: showCopyToolbar, isVisible: isCopyVisible } = copy
+  const { suppressQuestionTool } = display
   const assistantText = getTextFromParts(
     assistantMsgs.flatMap((msg) => msg.parts ?? []),
     "\n\n"

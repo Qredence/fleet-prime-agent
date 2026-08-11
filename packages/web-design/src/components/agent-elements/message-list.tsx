@@ -243,10 +243,13 @@ export const MessageList = memo(function MessageList({
                     message={turn.userMsg}
                     UserMessageComponent={CustomUserMessage}
                     userMessageClassName={classNames?.userMessage}
-                    enableImagePreview={enableImagePreview}
-                    showCopyToolbar={showCopyToolbar}
-                    isMounted={isMounted}
-                    isCopyVisible={activeCopyId === `user-${turn.userMsg.id}`}
+                    display={{
+                      enableImagePreview,
+                      showCopyToolbar,
+                      isMounted,
+                      isCopyVisible:
+                        activeCopyId === `user-${turn.userMsg.id}`,
+                    }}
                     onCopied={markCopied}
                   />
                 )}
@@ -256,17 +259,17 @@ export const MessageList = memo(function MessageList({
                     <AssistantTurn
                       assistantMsgs={turn.assistantMsgs}
                       turnKey={turnKey}
-                      isLastTurn={isLastTurn}
-                      isStreaming={isStreaming}
-                      showCopyToolbar={showCopyToolbar}
-                      suppressQuestionTool={suppressQuestionTool}
+                      stream={{ isLast: isLastTurn, isStreaming }}
+                      copy={{
+                        enabled: showCopyToolbar,
+                        isVisible:
+                          activeCopyId === `assistant-${turnKey}-all`,
+                      }}
+                      display={{ suppressQuestionTool }}
                       ToolRendererComponent={CustomToolRenderer}
                       TextRendererComponent={CustomTextRenderer}
                       toolRenderers={toolRenderers}
                       onOpenUIAction={onOpenUIAction}
-                      isCopyVisible={
-                        activeCopyId === `assistant-${turnKey}-all`
-                      }
                       onCopied={markCopied}
                     />
                   )}

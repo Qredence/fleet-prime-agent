@@ -41,6 +41,33 @@ import type {
   PiCustomProviderApi,
 } from "@prime-agent/web-protocol/chat-protocol"
 
+type ProviderCredentialForm = {
+  api: PiCustomProviderApi
+  apiKey: string
+  baseUrl: string
+  modelId: string
+  models: string
+  displayName: string
+  showPassword: boolean
+  attemptedSave: boolean
+  canSave: boolean
+}
+
+type ProviderOperationState = {
+  isPending: boolean
+  canRemove: boolean
+}
+
+type ProviderCredentialActions = {
+  onApiKeyChange: (value: string) => void
+  onApiChange: (value: PiCustomProviderApi) => void
+  onBaseUrlChange: (value: string) => void
+  onModelIdChange: (value: string) => void
+  onModelsChange: (value: string) => void
+  onDisplayNameChange: (value: string) => void
+  onTogglePassword: () => void
+}
+
 /**
  * Manages provider credential configuration, including adding, updating, searching, and removing providers.
  *
@@ -111,6 +138,31 @@ export function ProviderCredentialsSection({
     onUpdateProvider,
     providers,
   })
+
+  const form: ProviderCredentialForm = {
+    api,
+    apiKey,
+    baseUrl,
+    modelId,
+    models,
+    displayName,
+    showPassword,
+    attemptedSave,
+    canSave,
+  }
+  const operation: ProviderOperationState = {
+    isPending,
+    canRemove: Boolean(onRemoveProvider),
+  }
+  const actions: ProviderCredentialActions = {
+    onApiKeyChange: setApiKey,
+    onApiChange: setApi,
+    onBaseUrlChange: setBaseUrl,
+    onModelIdChange: setModelId,
+    onModelsChange: setModels,
+    onDisplayNameChange: setDisplayName,
+    onTogglePassword: () => setShowPassword((current) => !current),
+  }
 
   return (
     <SettingsPane
@@ -211,24 +263,9 @@ export function ProviderCredentialsSection({
             <ActiveProviderList
               providers={filteredActiveProviders}
               editingProvider={editingProvider}
-              api={api}
-              apiKey={apiKey}
-              baseUrl={baseUrl}
-              modelId={modelId}
-              models={models}
-              displayName={displayName}
-              showPassword={showPassword}
-              attemptedSave={attemptedSave}
-              isPending={isPending}
-              canSave={canSave}
-              canRemove={!!onRemoveProvider}
-              onApiKeyChange={setApiKey}
-              onApiChange={setApi}
-              onBaseUrlChange={setBaseUrl}
-              onModelIdChange={setModelId}
-              onModelsChange={setModels}
-              onDisplayNameChange={setDisplayName}
-              onTogglePassword={() => setShowPassword((current) => !current)}
+              form={form}
+              operation={operation}
+              actions={actions}
               onEdit={openEditor}
               onCancelEdit={closeEditor}
               onSave={(providerId) => void handleSave(providerId)}
@@ -253,24 +290,9 @@ export function ProviderCredentialsSection({
 function ActiveProviderList({
   providers,
   editingProvider,
-  api,
-  apiKey,
-  baseUrl,
-  modelId,
-  models,
-  displayName,
-  showPassword,
-  attemptedSave,
-  isPending,
-  canSave,
-  canRemove,
-  onApiKeyChange,
-  onApiChange,
-  onBaseUrlChange,
-  onModelIdChange,
-  onModelsChange,
-  onDisplayNameChange,
-  onTogglePassword,
+  form,
+  operation,
+  actions,
   onEdit,
   onCancelEdit,
   onSave,
@@ -278,29 +300,36 @@ function ActiveProviderList({
 }: {
   providers: Array<ChatProviderInfo>
   editingProvider: string | null
-  api: PiCustomProviderApi
-  apiKey: string
-  baseUrl: string
-  modelId: string
-  models: string
-  displayName: string
-  showPassword: boolean
-  attemptedSave: boolean
-  isPending: boolean
-  canSave: boolean
-  canRemove: boolean
-  onApiKeyChange: (value: string) => void
-  onApiChange: (value: PiCustomProviderApi) => void
-  onBaseUrlChange: (value: string) => void
-  onModelIdChange: (value: string) => void
-  onModelsChange: (value: string) => void
-  onDisplayNameChange: (value: string) => void
-  onTogglePassword: () => void
+  form: ProviderCredentialForm
+  operation: ProviderOperationState
+  actions: ProviderCredentialActions
   onEdit: (providerId: string) => void
   onCancelEdit: () => void
   onSave: (providerId: string) => void
   onRemove: (provider: ChatProviderInfo) => void
 }) {
+  const {
+    api,
+    apiKey,
+    baseUrl,
+    modelId,
+    models,
+    displayName,
+    showPassword,
+    attemptedSave,
+    canSave,
+  } = form
+  const { isPending, canRemove } = operation
+  const {
+    onApiKeyChange,
+    onApiChange,
+    onBaseUrlChange,
+    onModelIdChange,
+    onModelsChange,
+    onDisplayNameChange,
+    onTogglePassword,
+  } = actions
+
   return (
     <div className="flex flex-col gap-1.5">
       {providers.map((provider) => {
