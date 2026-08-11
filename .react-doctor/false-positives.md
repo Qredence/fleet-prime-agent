@@ -48,3 +48,18 @@ these findings.
 - **Outcome:** waived with evidence, 2026-08-11. Review condition: re-evaluate
   if a third independent chart family or unrelated UI component is added to
   `charts.tsx`.
+
+## Waiver 4 — `no-loading-flag-reset-outside-finally` @ `packages/web-design/src/components/fleet-pi/pi/workspace-panel.tsx:161`
+
+- **Rule:** `react-doctor/no-loading-flag-reset-outside-finally` (severity:
+  warning).
+- **Predicate the detector claims:** `previewLoading` can remain true when
+  `loadWorkspaceFile` rejects.
+- **Observed evidence (read):** `loadPreview` starts at
+  `workspace-panel.tsx:149`, resets `previewError`, and wraps
+  `await loadWorkspaceFile(selectedPath)` in `try`/`catch`/`finally`. The
+  `finally` at `:161` calls `setPreviewLoading(false)` after both paths,
+  unless the effect has been cancelled by cleanup. This guard prevents a stale
+  request from changing state after its selection changes.
+- **Outcome:** waived with evidence, 2026-08-11. Review condition: re-verify
+  if the reset moves out of `finally` or cancellation semantics change.
