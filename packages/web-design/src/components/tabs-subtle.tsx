@@ -6,11 +6,18 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react"
 import { Tabs } from "@base-ui/react/tabs"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import {
+  AnimatePresence,
+  LazyMotion,
+  domAnimation,
+  m,
+  useReducedMotion,
+} from "motion/react"
 
 import { useProximityHover } from "../hooks/use-proximity-hover"
 import { fontWeights } from "../lib/font-weight"
@@ -73,9 +80,9 @@ function TabsSubtleIndicators({
   const reduceMotion = useReducedMotion()
   const instant = reduceMotion ? { duration: 0 } : undefined
   return (
-    <>
+    <LazyMotion features={domAnimation}>
       {selectedRect ? (
-        <motion.div
+        <m.div
           className={cn(
             "pointer-events-none absolute",
             ACTIVE_PILL_CLASS,
@@ -101,7 +108,7 @@ function TabsSubtleIndicators({
 
       <AnimatePresence>
         {hoverRect && !isHoveringSelected ? (
-          <motion.div
+          <m.div
             className={cn(
               "pointer-events-none absolute",
               ACTIVE_PILL_CLASS,
@@ -129,7 +136,7 @@ function TabsSubtleIndicators({
 
       <AnimatePresence>
         {focusRect ? (
-          <motion.div
+          <m.div
             className={cn(
               "pointer-events-none absolute z-20 border border-ring",
               PILL_RADIUS
@@ -152,7 +159,7 @@ function TabsSubtleIndicators({
           />
         ) : null}
       </AnimatePresence>
-    </>
+    </LazyMotion>
   )
 }
 
@@ -226,18 +233,29 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
     const isHoveringSelected = hoveredIndex === selectedIndex
     const isHovering = hoveredIndex !== null && !isHoveringSelected
 
+    const tabsSubtleContextValue = useMemo(
+      () => ({
+        registerTab,
+        hoveredIndex,
+        selectedIndex,
+        idPrefix,
+        activeLabel,
+        variant,
+        onSelect,
+      }),
+      [
+        registerTab,
+        hoveredIndex,
+        selectedIndex,
+        idPrefix,
+        activeLabel,
+        variant,
+        onSelect,
+      ]
+    )
+
     return (
-      <TabsSubtleContext.Provider
-        value={{
-          registerTab,
-          hoveredIndex,
-          selectedIndex,
-          idPrefix,
-          activeLabel,
-          variant,
-          onSelect,
-        }}
-      >
+      <TabsSubtleContext.Provider value={tabsSubtleContextValue}>
         <Tabs.Root
           value={selectedIndex >= 0 ? selectedIndex : null}
           onValueChange={(value) => {
@@ -424,27 +442,26 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
             ) : null}
           </span>
         ) : null}
-        {collapseLabel ? (
+        {collapseLabel ? null : labelContent}
+        <LazyMotion features={domAnimation}>
           <AnimatePresence initial={false}>
-            {showLabel ? (
-              <motion.span
+            {collapseLabel && showLabel ? (
+              <m.span
                 key="label"
-                className="overflow-hidden"
-                initial={{ width: 0, opacity: 0, marginLeft: 0 }}
-                animate={{ width: "auto", opacity: 1, marginLeft: 8 }}
-                exit={{ width: 0, opacity: 0, marginLeft: 0 }}
+                className="ml-2 overflow-hidden"
+                initial={{ clipPath: "inset(0 100% 0 0)", opacity: 0 }}
+                animate={{ clipPath: "inset(0 0% 0 0)", opacity: 1 }}
+                exit={{ clipPath: "inset(0 100% 0 0)", opacity: 0 }}
                 transition={{
                   ...spring.fast.enter,
                   opacity: { duration: 0.06 },
                 }}
               >
                 {labelContent}
-              </motion.span>
+              </m.span>
             ) : null}
           </AnimatePresence>
-        ) : (
-          labelContent
-        )}
+        </LazyMotion>
       </Tabs.Tab>
     )
   }
