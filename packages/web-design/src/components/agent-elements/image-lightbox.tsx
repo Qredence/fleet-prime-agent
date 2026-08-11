@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useEffectEvent, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react"
 import { cn } from "./utils/cn"
@@ -62,18 +62,16 @@ export function ImageLightbox({
   )
 
   // Esc / arrow-key navigation. Capture phase so we beat any local handlers
-  // (e.g. an Editor that swallows Esc).
+  // (e.g. an Editor that swallows Esc); Esc itself is handled by the native
+  // <dialog> cancel event below.
   const onLightboxKeyDown = useEffectEvent((event: KeyboardEvent) => {
     switch (event.key) {
-      case "Escape":
-        event.preventDefault()
-        event.stopPropagation()
-        onClose()
-        break
       case "ArrowLeft":
+        event.preventDefault()
         if (hasMultipleImages) goToPrevious()
         break
       case "ArrowRight":
+        event.preventDefault()
         if (hasMultipleImages) goToNext()
         break
     }
@@ -96,18 +94,38 @@ export function ImageLightbox({
     }
   }, [open])
 
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  // Light dismiss — click on the dialog's empty chrome (backdrop region).
+  const onLightDismiss = useEffectEvent((event: MouseEvent) => {
+    if (dialogRef.current && event.target === dialogRef.current) onClose()
+  })
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const handler = (event: MouseEvent) => onLightDismiss(event)
+    dialog.addEventListener("click", handler)
+    return () => dialog.removeEventListener("click", handler)
+  }, [])
+
+  // Mount the native modal as soon as the portal attaches (focus trap,
+  // native Esc/cancel handling).
+  useEffect(() => {
+    dialogRef.current?.showModal()
+  }, [])
+
   if (typeof document === "undefined") return null
   if (!open) return null
   const currentImage = images[currentIndex] ?? images[0]
   if (!currentImage?.url) return null
 
   return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      ref={dialogRef}
       aria-label="Image viewer"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
-      onClick={onClose}
+      onClose={() => onClose()}
+      className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center border-0 bg-black/90 p-0 backdrop:bg-transparent"
     >
       <button
         type="button"
@@ -174,7 +192,7 @@ export function ImageLightbox({
           </span>
         </div>
       )}
-    </div>,
+    </dialog>,
     document.body
   )
 }
