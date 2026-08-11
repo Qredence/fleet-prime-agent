@@ -337,39 +337,47 @@ export const InputBar = memo(function InputBar(props: InputBarProps) {
           textareaRef={textareaRef}
         />
         <InputBarSurface
-          attachedFiles={attachedFiles}
-          attachedImages={attachedImages}
-          attachRight={attachRight}
-          disabled={disabled}
-          displayedText={displayedText}
-          effectivePlaceholder={effectivePlaceholder}
-          enableImagePreview={enableImagePreview}
-          hasInput={hasInput}
-          imageDisplayMode={imageDisplayMode}
-          infoBar={infoBarNode}
-          infoBarPosition={infoBarPosition}
-          input={input}
-          isDragOver={isDragOver}
-          isStreaming={isStreaming}
-          isTyping={isTyping}
-          leftActions={leftActions}
-          onAttach={onAttach}
-          onContainerClick={handleContainerClick}
-          onInputChange={setInput}
-          onPaste={onPaste}
-          onRemoveFile={onRemoveFile}
-          onRemoveImage={onRemoveImage}
-          onStop={onStop}
-          onSubmit={handleSubmit}
-          onTextareaKeyDown={handleKeyDown}
-          questionBar={questionBarNode}
-          rightActions={rightActions}
-          showAttach={showAttach}
-          showContextItems={showContextItems}
-          showImage={showImage}
-          showInfoBar={shouldShowInfoBar}
-          textareaRef={textareaRef}
-          typingImage={typingAnimation?.image}
+          attachments={{
+            attachedFiles,
+            attachedImages,
+            enableImagePreview,
+            imageDisplayMode,
+            onRemoveFile,
+            onRemoveImage,
+            showContextItems,
+          }}
+          editor={{
+            disabled,
+            displayedText,
+            effectivePlaceholder,
+            input,
+            isTyping,
+            onInputChange: setInput,
+            onPaste,
+            onTextareaKeyDown: handleKeyDown,
+            showImage,
+            textareaRef,
+            typingImage: typingAnimation?.image,
+          }}
+          layout={{
+            infoBar: infoBarNode,
+            infoBarPosition,
+            isDragOver,
+            onContainerClick: handleContainerClick,
+            questionBar: questionBarNode,
+            showInfoBar: shouldShowInfoBar,
+          }}
+          toolbar={{
+            attachRight,
+            hasInput,
+            isStreaming,
+            leftActions,
+            onAttach,
+            onStop,
+            onSubmit: handleSubmit,
+            rightActions,
+            showAttach,
+          }}
         />
       </div>
     </div>

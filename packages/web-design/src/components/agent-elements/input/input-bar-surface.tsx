@@ -11,77 +11,106 @@ import type {
   RefObject,
 } from "react"
 
-export type InputBarSurfaceProps = {
+type InputBarSurfaceAttachments = {
   attachedFiles: Array<AttachedFile>
   attachedImages: Array<AttachedImage>
-  attachRight: boolean
+  enableImagePreview: boolean
+  imageDisplayMode: "image-only" | "chip"
+  onRemoveFile?: (id: string) => void
+  onRemoveImage?: (id: string) => void
+  showContextItems: boolean
+}
+
+type InputBarSurfaceEditor = {
   disabled?: boolean
   displayedText: string
   effectivePlaceholder: string
-  enableImagePreview: boolean
-  hasInput: boolean
-  imageDisplayMode: "image-only" | "chip"
-  infoBar: ReactNode
-  infoBarPosition: "top" | "bottom"
   input: string
-  isDragOver?: boolean
-  isStreaming: boolean
   isTyping: boolean
-  leftActions?: ReactNode
-  onAttach?: () => void
-  onContainerClick: (event: MouseEvent) => void
   onInputChange: (value: string) => void
   onPaste?: (event: ClipboardEvent<HTMLTextAreaElement>) => void
-  onRemoveFile?: (id: string) => void
-  onRemoveImage?: (id: string) => void
-  onStop: () => void
-  onSubmit: () => void
   onTextareaKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
-  questionBar: ReactNode
-  rightActions?: ReactNode
-  showAttach: boolean
-  showContextItems: boolean
   showImage: boolean
-  showInfoBar: boolean
   textareaRef: RefObject<HTMLTextAreaElement | null>
   typingImage?: string
 }
 
+type InputBarSurfaceLayout = {
+  infoBar: ReactNode
+  infoBarPosition: "top" | "bottom"
+  isDragOver?: boolean
+  onContainerClick: (event: MouseEvent) => void
+  questionBar: ReactNode
+  showInfoBar: boolean
+}
+
+type InputBarSurfaceToolbar = {
+  attachRight: boolean
+  hasInput: boolean
+  isStreaming: boolean
+  leftActions?: ReactNode
+  onAttach?: () => void
+  onStop: () => void
+  onSubmit: () => void
+  rightActions?: ReactNode
+  showAttach: boolean
+}
+
+export type InputBarSurfaceProps = {
+  attachments: InputBarSurfaceAttachments
+  editor: InputBarSurfaceEditor
+  layout: InputBarSurfaceLayout
+  toolbar: InputBarSurfaceToolbar
+}
+
 export function InputBarSurface({
-  attachedFiles,
-  attachedImages,
-  attachRight,
-  disabled,
-  displayedText,
-  effectivePlaceholder,
-  enableImagePreview,
-  hasInput,
-  imageDisplayMode,
-  infoBar,
-  infoBarPosition,
-  input,
-  isDragOver,
-  isStreaming,
-  isTyping,
-  leftActions,
-  onAttach,
-  onContainerClick,
-  onInputChange,
-  onPaste,
-  onRemoveFile,
-  onRemoveImage,
-  onStop,
-  onSubmit,
-  onTextareaKeyDown,
-  questionBar,
-  rightActions,
-  showAttach,
-  showContextItems,
-  showImage,
-  showInfoBar,
-  textareaRef,
-  typingImage,
+  attachments,
+  editor,
+  layout,
+  toolbar,
 }: InputBarSurfaceProps) {
+  const {
+    attachedFiles,
+    attachedImages,
+    enableImagePreview,
+    imageDisplayMode,
+    onRemoveFile,
+    onRemoveImage,
+    showContextItems,
+  } = attachments
+  const {
+    disabled,
+    displayedText,
+    effectivePlaceholder,
+    input,
+    isTyping,
+    onInputChange,
+    onPaste,
+    onTextareaKeyDown,
+    showImage,
+    textareaRef,
+    typingImage,
+  } = editor
+  const {
+    infoBar,
+    infoBarPosition,
+    isDragOver,
+    onContainerClick,
+    questionBar,
+    showInfoBar,
+  } = layout
+  const {
+    attachRight,
+    hasInput,
+    isStreaming,
+    leftActions,
+    onAttach,
+    onStop,
+    onSubmit,
+    rightActions,
+    showAttach,
+  } = toolbar
+
   return (
     <div
       className={cn(
