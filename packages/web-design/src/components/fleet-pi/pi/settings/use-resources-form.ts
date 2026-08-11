@@ -1,5 +1,5 @@
 import type { ChatPiSettings, ChatSettingsResponse } from "@prime-agent/web-protocol/chat-protocol";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
 	formatPackageSourceRows,
 	parsePackageSourceRows,
@@ -20,8 +20,16 @@ export function useResourcesForm({
 	settings: ChatSettingsResponse | null;
 	updateDraft: (updater: (current: ChatPiSettings) => ChatPiSettings) => void;
 }) {
-	const [packageRows, setPackageRows] = useState<Array<string>>([]);
+	// null = untouched; a value = user-edited rows that must survive re-renders.
+	// When untouched, rows derive directly from the settings source of truth.
+	const [editedPackageRows, setEditedPackageRows] = useState<Array<string> | null>(null);
 	const [packageError, setPackageError] = useState<string | undefined>();
+
+	const derivedPackageRows = useMemo(
+		() => formatPackageSourceRows(settings?.effective.packages ?? []),
+		[settings?.effective.packages],
+	);
+	const packageRows = editedPackageRows ?? derivedPackageRows;
 
 	const resourceDirty =
 		!!draft &&
@@ -33,7 +41,7 @@ export function useResourcesForm({
 			));
 
 	const handlePackageRowsChange = (rows: Array<string>) => {
-		setPackageRows(rows);
+		setEditedPackageRows(rows);
 		try {
 			const packages = parsePackageSourceRows(rows);
 			setPackageError(undefined);
@@ -54,24 +62,9 @@ export function useResourcesForm({
 			themes: settings.effective.themes,
 			enableSkillCommands: settings.effective.enableSkillCommands,
 		}));
-		setPackageRows(formatPackageSourceRows(settings.effective.packages));
+		setEditedPackageRows(null);
 		setPackageError(undefined);
 	};
-
-	// Reconcile package rows with the settings source-of-truth whenever it is
-	// NOT carrying user edits. The dialog still owns the draft; this hook owns
-	// the derived rows/error so callers don't orchestrate raw setters.
-	useEffect(() => {
-		if (!settings) return;
-		if (resourceDirty) return;
-
-		const nextPackageRows = formatPackageSourceRows(settings.effective.packages);
-		if (sameJson(packageRows, nextPackageRows) && packageError === undefined) {
-			return;
-		}
-		setPackageRows(nextPackageRows);
-		setPackageError(undefined);
-	}, [packageError, packageRows, resourceDirty, settings]);
 
 	return {
 		packageRows,
