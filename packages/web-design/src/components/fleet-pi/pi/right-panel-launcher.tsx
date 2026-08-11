@@ -1,7 +1,10 @@
 import { Folder, Library, Package, X } from "lucide-react"
 import { useEffect, useEffectEvent, useId, useMemo, useRef } from "react"
 import { TabsSubtle, TabsSubtleItem } from "../../tabs-subtle"
-import { DESKTOP_PANEL_ONLY } from "../../../lib/layout-constants"
+import {
+  CHAT_PANEL_BREAKPOINT_PX,
+  DESKTOP_PANEL_ONLY,
+} from "../../../lib/layout-constants"
 import {
   useChatPanelDataContext,
   useWorkspaceTreeContext,
@@ -136,6 +139,10 @@ export function MobilePanel({
 }) {
   const panelRef = useRef<HTMLDialogElement>(null)
   const panelTitleId = useId()
+  // When the desktop ResizableCanvas owns the panel, we must keep this dialog
+  // out of the browser top layer. Closing it for that reason must not bubble
+  // into the shared `onClose` (which would also dismiss the desktop panel).
+  const suppressCloseRef = useRef(false)
 
   // Light dismiss — the full-viewport ::backdrop region maps clicks onto the
   // dialog element, matching the previous bottom sheet-style backdrop button.
@@ -153,10 +160,43 @@ export function MobilePanel({
   }, [open])
 
   useEffect(() => {
-    if (open) {
-      panelRef.current?.showModal()
-      panelRef.current?.focus()
+    const dialog = panelRef.current
+    if (!dialog) return
+
+    if (!open) {
+      if (dialog.open) {
+        suppressCloseRef.current = true
+        dialog.close()
+        suppressCloseRef.current = false
+      }
+      return
     }
+
+    const media = window.matchMedia(`(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`)
+
+    const syncMode = () => {
+      // Desktop (>=960px): ResizableCanvas renders the panel. A CSS-hidden
+      // showModal() dialog still occupies the top layer and intercepts clicks
+      // on the header tabs / chat chrome — so close it without notifying.
+      if (media.matches) {
+        if (dialog.open) {
+          suppressCloseRef.current = true
+          dialog.close()
+          // HTMLDialogElement.close() fires the `close` event asynchronously
+          // (queued task per the WHATWG spec), so leave the flag set — the
+          // onClose handler consumes it to avoid dismissing the desktop panel.
+        }
+        return
+      }
+      if (!dialog.open) {
+        dialog.showModal()
+        dialog.focus()
+      }
+    }
+
+    syncMode()
+    media.addEventListener("change", syncMode)
+    return () => media.removeEventListener("change", syncMode)
   }, [open])
 
   if (!open) return null
@@ -167,7 +207,13 @@ export function MobilePanel({
       data-testid={dataTestid}
       className={`fixed top-[var(--chat-chrome-top)] right-3 bottom-3 m-0 ${PANEL_OVERLAY_CLASS} backdrop:bg-black/20 ${DESKTOP_PANEL_ONLY}`}
       aria-labelledby={panelTitleId}
-      onClose={() => onClose?.()}
+      onClose={() => {
+        if (suppressCloseRef.current) {
+          suppressCloseRef.current = false
+          return
+        }
+        onClose?.()
+      }}
     >
       <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
         <span id={panelTitleId} className="sr-only">

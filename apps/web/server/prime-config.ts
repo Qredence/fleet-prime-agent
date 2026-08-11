@@ -21,6 +21,8 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent"
 import { getAgentDir } from "@earendil-works/pi-coding-agent"
+import { resolve } from "node:path"
+import { resolveDefaultWorkspaceRoot } from "./workspace-root"
 
 export interface PrimeConfig {
 	readonly authStorage: AuthStorage
@@ -34,30 +36,42 @@ export interface PrimeConfig {
 	/** ResourceLoader bound to a given cwd (reloaded on every call). */
 	resourceLoaderFor(cwd: string): Promise<DefaultResourceLoader>
 
+	/**
+	 * Rebind the process-wide workspace / agent root (`defaultCwd`).
+	 * Used by "Open project folder" — tree, file APIs, and new sessions follow.
+	 */
+	setDefaultCwd(cwd: string): void
+
 	/** Force reload of AuthStorage/ModelRegistry from disk (after a POST/DELETE). */
 	reloadAuth(): void
 }
 
 type PrimeConfigGlobal = { __primeConfig?: PrimeConfig }
 
-function createPrimeConfig(defaultCwd: string): PrimeConfig {
+function createPrimeConfig(initialCwd: string): PrimeConfig {
 	const agentDir = getAgentDir()
 	const authStorage = AuthStorage.create()
 	const modelRegistry = ModelRegistry.create(authStorage)
-	const defaultSettings = SettingsManager.create(defaultCwd)
+
+	let currentDefaultCwd = resolve(initialCwd)
+	let defaultSettings = SettingsManager.create(currentDefaultCwd)
 
 	const settingsByCwd = new Map<string, SettingsManager>()
-	settingsByCwd.set(defaultCwd, defaultSettings)
+	settingsByCwd.set(currentDefaultCwd, defaultSettings)
 
-	return {
+	const config: PrimeConfig = {
 		authStorage,
 		modelRegistry,
-		defaultSettings,
-		defaultCwd,
+		get defaultSettings() {
+			return defaultSettings
+		},
+		get defaultCwd() {
+			return currentDefaultCwd
+		},
 		agentDir,
 
 		settingsFor(cwd: string): SettingsManager {
-			if (cwd === defaultCwd) return defaultSettings
+			if (cwd === currentDefaultCwd) return defaultSettings
 			const existing = settingsByCwd.get(cwd)
 			if (existing) return existing
 			const created = SettingsManager.create(cwd)
@@ -76,19 +90,41 @@ function createPrimeConfig(defaultCwd: string): PrimeConfig {
 			return loader
 		},
 
+		setDefaultCwd(cwd: string): void {
+			const next = resolve(cwd)
+			currentDefaultCwd = next
+			const existing = settingsByCwd.get(next)
+			if (existing) {
+				defaultSettings = existing
+				return
+			}
+			defaultSettings = SettingsManager.create(next)
+			settingsByCwd.set(next, defaultSettings)
+		},
+
 		reloadAuth(): void {
 			this.authStorage.reload()
 			this.modelRegistry.refresh()
 		},
 	}
+
+	return config
 }
 
 export function getPrimeConfig(): PrimeConfig {
 	const globalStore = globalThis as unknown as PrimeConfigGlobal
-	if (!globalStore.__primeConfig) {
-		globalStore.__primeConfig = createPrimeConfig(process.cwd())
+	const existing = globalStore.__primeConfig
+	// Vite HMR can leave a pre-upgrade singleton without newer methods.
+	if (!existing || typeof existing.setDefaultCwd !== "function") {
+		// Prefer git repo root over the Vite package cwd so the workspace tree
+		// and default session cwd match the repository the agent is working in.
+		// A pre-upgrade singleton always carries the stale Vite package cwd, so
+		// the repo-root resolution runs unconditionally on recreate.
+		globalStore.__primeConfig = createPrimeConfig(
+			resolveDefaultWorkspaceRoot(process.cwd()),
+		)
 	}
-	return globalStore.__primeConfig
+	return globalStore.__primeConfig!
 }
 
 export function resetPrimeConfigForTests(): PrimeConfig {
