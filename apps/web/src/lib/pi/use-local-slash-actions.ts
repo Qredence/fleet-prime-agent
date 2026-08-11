@@ -48,38 +48,43 @@ type SessionTreeBranch = {
   children: SessionTreeBranch[]
 }
 
+/** Outcome of a bridge command: `payload` is the parsed response body on success. */
+type ChatCommandResult =
+  | { ok: true; payload: Record<string, unknown> }
+  | { ok: false; error: string }
+
+function messageContentToText(content: unknown): string {
+  if (typeof content === "string") return content
+  if (!Array.isArray(content)) return ""
+  return content
+    .filter(
+      (part): part is { type: "text"; text: string } =>
+        typeof part === "object" &&
+        part !== null &&
+        (part as { type?: unknown }).type === "text" &&
+        typeof (part as { text?: unknown }).text === "string"
+    )
+    .map((part) => part.text)
+    .join(" ")
+}
+
 function treeEntryPreview(node: SessionTreeBranch): string {
   const { entry } = node
   if (entry.type === "message" && entry.message) {
-    const content = entry.message.content
-    let text = ""
-    if (typeof content === "string") {
-      text = content
-    } else if (Array.isArray(content)) {
-      text = content
-        .filter(
-          (part): part is { type: "text"; text: string } =>
-            !!part &&
-            typeof part === "object" &&
-            (part as { type?: string }).type === "text" &&
-            typeof (part as { text?: unknown }).text === "string"
-        )
-        .map((part) => part.text)
-        .join(" ")
-    }
     const role = entry.message.role ?? "message"
-    const oneLine = text.replace(/\s+/g, " ").trim()
-    return `${role}: ${oneLine.length > 72 ? `${oneLine.slice(0, 72)}…` : oneLine}`
+    const oneLine = messageContentToText(entry.message.content)
+      .replace(/\s+/g, " ")
+      .trim()
+    const preview = oneLine.length > 72 ? `${oneLine.slice(0, 72)}…` : oneLine
+    return `${role}: ${preview}`
   }
   return entry.label ?? node.label ?? entry.type
 }
 
-/** Render the branch listing (TUI parity: `*` marks the current leaf). */
-function formatSessionTree(
+function treePreviewLines(
   nodes: SessionTreeBranch[],
-  leafId: string | null,
-  depth = 0
-): string {
+  leafId: string | null
+): Array<string> {
   const lines: string[] = []
   const walk = (items: SessionTreeBranch[], level: number) => {
     for (const item of items) {
@@ -89,7 +94,16 @@ function formatSessionTree(
       walk(item.children, level + 1)
     }
   }
-  walk(nodes, depth)
+  walk(nodes, 0)
+  return lines
+}
+
+/** Render the branch listing (TUI parity: `*` marks the current leaf). */
+function formatSessionTree(
+  nodes: SessionTreeBranch[],
+  leafId: string | null
+): string {
+  const lines = treePreviewLines(nodes, leafId)
   return lines.length > 0 ? lines.join("\n") : "(empty session tree)"
 }
 
@@ -105,10 +119,7 @@ export function useLocalSlashActions({
 }: UseLocalSlashActionsArgs) {
   /** Fire the bridge runner and echo the result into the transcript. */
   const chatCommand = useCallback(
-    async (
-      command: string,
-      args = ""
-    ): Promise<{ ok: boolean; text?: string; error?: string }> => {
+    async (command: string, args = ""): Promise<ChatCommandResult> => {
       if (!sessionId) {
         return {
           ok: false,
@@ -121,17 +132,25 @@ export function useLocalSlashActions({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId, command, args }),
         })
-        const payload = (await response.json()) as Record<string, unknown>
         if (!response.ok) {
+          let message = `HTTP ${response.status}`
+          try {
+            const errorPayload = (await response.json()) as Record<
+              string,
+              unknown
+            >
+            if (typeof errorPayload.message === "string")
+              message = errorPayload.message
+          } catch {
+            // Non-JSON error body — fall back to the HTTP status.
+          }
           return {
             ok: false,
-            error:
-              typeof payload.message === "string"
-                ? payload.message
-                : `HTTP ${response.status}`,
+            error: message,
           }
         }
-        return { ok: true, text: JSON.stringify(payload) }
+        const payload = (await response.json()) as Record<string, unknown>
+        return { ok: true, payload }
       } catch (error) {
         return {
           ok: false,
@@ -140,6 +159,37 @@ export function useLocalSlashActions({
       }
     },
     [sessionId]
+  )
+
+  /**
+   * Shared "run a /fork or /clone, then echo the result" path. Both commands
+   * return `{ newSessionId, selectedText? }`; they differ only in the copy of
+   * the success line.
+   */
+  const echoBranchResult = useCallback(
+    async (
+      pending: Promise<ChatCommandResult>,
+      verb: string,
+      format: (payload: { newSessionId: string; selectedText: string }) => string
+    ): Promise<void> => {
+      const result = await pending
+      if (!result.ok) {
+        appendLocalMessage(`${verb} failed: ${result.error}`)
+        return
+      }
+      const payload = {
+        newSessionId:
+          typeof result.payload.newSessionId === "string"
+            ? result.payload.newSessionId
+            : "?",
+        selectedText:
+          typeof result.payload.selectedText === "string"
+            ? result.payload.selectedText
+            : "(none)",
+      }
+      appendLocalMessage(format(payload))
+    },
+    [appendLocalMessage]
   )
 
   const applyLocalSlashAction = useCallback(
@@ -172,12 +222,11 @@ export function useLocalSlashActions({
               )
               return
             }
-            const parsed = JSON.parse(result.text ?? "{}") as { name?: string | null }
             appendLocalMessage(
               formatSessionInfo({
                 sessionId,
                 sessionFile,
-                name: parsed.name ?? null,
+                name: typeof result.payload.name === "string" ? result.payload.name : null,
               })
             )
           })()
@@ -205,18 +254,16 @@ export function useLocalSlashActions({
               appendLocalMessage(`Couldn't load context: ${result.error}`)
               return
             }
-            const parsed = JSON.parse(result.text ?? "{}") as {
-              usage?: {
-                tokens?: number
-                contextWindow?: number
-                percent?: number
-              } | null
-            }
-            if (!parsed.usage) {
+            const usage = result.payload.usage as {
+              tokens?: number
+              contextWindow?: number
+              percent?: number
+            } | null | undefined
+            if (!usage) {
               appendLocalMessage("Context usage isn't available yet — no model response on this branch.")
               return
             }
-            const { tokens, contextWindow, percent } = parsed.usage
+            const { tokens, contextWindow, percent } = usage
             appendLocalMessage(
               `Context usage: ~${tokens ?? "?"}/${contextWindow ?? "?"} tokens${typeof percent === "number" ? ` (${percent.toFixed(1)}%)` : ""}`
             )
@@ -230,8 +277,11 @@ export function useLocalSlashActions({
               appendLocalMessage(`Couldn't load system prompt: ${result.error}`)
               return
             }
-            const parsed = JSON.parse(result.text ?? "{}") as { systemPrompt?: string }
-            appendLocalMessage(parsed.systemPrompt ?? "(empty)")
+            const systemPrompt =
+              typeof result.payload.systemPrompt === "string"
+                ? result.payload.systemPrompt
+                : "(empty)"
+            appendLocalMessage(systemPrompt)
           })()
           return true
         }
@@ -250,13 +300,13 @@ export function useLocalSlashActions({
               appendLocalMessage(`Export failed: ${result.error}`)
               return
             }
-            const parsed = JSON.parse(result.text ?? "{}") as {
-              path?: string
-              format?: string
-            }
-            appendLocalMessage(
-              `Session exported to ${parsed.path ?? "(unknown path)"} (${parsed.format ?? "html"})`
-            )
+            const path =
+              typeof result.payload.path === "string"
+                ? result.payload.path
+                : "(unknown path)"
+            const format =
+              typeof result.payload.format === "string" ? result.payload.format : "html"
+            appendLocalMessage(`Session exported to ${path} (${format})`)
           })()
           return true
         }
@@ -267,49 +317,32 @@ export function useLocalSlashActions({
             )
             return true
           }
-          void (async () => {
-            const result = await chatCommand("fork", action.args)
-            if (!result.ok) {
-              appendLocalMessage(`Fork failed: ${result.error}`)
-              return
-            }
-            const parsed = JSON.parse(result.text ?? "{}") as {
-              newSessionId?: string
-              selectedText?: string
-            }
-            appendLocalMessage(
-              `Forked → session ${parsed.newSessionId ?? "?"}. Selected text: ${parsed.selectedText ?? "(none)"}`
-            )
-          })()
+          void echoBranchResult(
+            chatCommand("fork", action.args),
+            "Fork",
+            (payload) =>
+              `Forked → session ${payload.newSessionId}. Selected text: ${payload.selectedText}`
+          )
           return true
         }
         case "session-clone": {
-          void (async () => {
-            const result = await chatCommand("clone")
-            if (!result.ok) {
-              appendLocalMessage(`Clone failed: ${result.error}`)
-              return
-            }
-            const parsed = JSON.parse(result.text ?? "{}") as {
-              newSessionId?: string
-            }
-            appendLocalMessage(`Cloned → session ${parsed.newSessionId ?? "?"}.`)
-          })()
+          void echoBranchResult(
+            chatCommand("clone"),
+            "Clone",
+            (payload) => `Cloned → session ${payload.newSessionId}.`
+          )
           return true
         }
         case "session-tree": {
           void (async () => {
-            const result = action.args
-              ? await chatCommand("tree", action.args)
-              : await chatCommand("tree")
+            const result = await chatCommand("tree", action.args ?? "")
             if (!result.ok) {
               appendLocalMessage(`Tree failed: ${result.error}`)
               return
             }
-            const parsed = JSON.parse(result.text ?? "{}") as {
-              tree?: { tree?: SessionTreeBranch[]; leafId?: string | null }
-            }
-            const payload = parsed.tree
+            const payload = result.payload.tree as
+              | { tree?: SessionTreeBranch[]; leafId?: string | null }
+              | undefined
             if (!payload || !Array.isArray(payload.tree)) {
               appendLocalMessage("(no session tree available)")
               return
@@ -417,6 +450,7 @@ export function useLocalSlashActions({
     [
       appendLocalMessage,
       chatCommand,
+      echoBranchResult,
       models,
       openSettings,
       sessionFile,

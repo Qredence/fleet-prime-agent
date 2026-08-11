@@ -269,21 +269,22 @@ export function buildSlashCommands(
   if (!enabled || !resources) return builtins
 
   const resourceCommands = [...resources.skills, ...resources.prompts]
-    .filter(
-      (resource) =>
-        !resource.activationStatus || resource.activationStatus === "active"
-    )
-    .map((resource) => {
+    .flatMap((resource) => {
+      if (
+        resource.activationStatus &&
+        resource.activationStatus !== "active"
+      ) {
+        return []
+      }
       const commandName = normalizeSlashCommandName(resource.name)
-      if (!commandName) return null
-      return {
+      if (!commandName) return []
+      return [{
         id: commandName,
         label: `/${commandName}`,
         value: `/${commandName} `,
         description: resource.description,
-      }
+      }]
     })
-    .filter((item): item is NonNullable<typeof item> => Boolean(item))
 
   return Array.from(
     new Map(

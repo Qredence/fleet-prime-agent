@@ -1,5 +1,12 @@
 import { RefreshCw, X } from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import {
+  AnimatePresence,
+  LazyMotion,
+  domAnimation,
+  m,
+  useReducedMotion,
+} from "motion/react"
+import { useEffect, useRef } from "react"
 import { DESKTOP_PANEL_HIDDEN_FLEX } from "../../../lib/layout-constants"
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "../styles/tokens"
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react"
@@ -30,10 +37,19 @@ export function ResizableCanvas({
   width: number
 }) {
   const reduceMotion = useReducedMotion()
+  const panelRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    panelRef.current?.focus({ preventScroll: true })
+  }, [open])
+
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.aside
+    <LazyMotion features={domAnimation}>
+      <AnimatePresence>
+        {open && (
+          <m.aside
+          ref={panelRef}
           initial={reduceMotion ? false : { x: width, opacity: 0.8 }}
           animate={{ x: 0, opacity: 1 }}
           exit={reduceMotion ? { opacity: 0 } : { x: width, opacity: 0.8 }}
@@ -42,9 +58,19 @@ export function ResizableCanvas({
               ? { duration: 0 }
               : { duration: 0.2, ease: "easeInOut" }
           }
-          className={`relative h-full shrink-0 border-l border-border/70 bg-background/95 ${DESKTOP_PANEL_HIDDEN_FLEX}`}
+          className={`relative h-full shrink-0 border-l border-border/70 bg-background/95 outline-none ${DESKTOP_PANEL_HIDDEN_FLEX}`}
           data-testid={dataTestid}
           style={{ width }}
+          tabIndex={-1}
+          role="dialog"
+          aria-label={title}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault()
+              event.stopPropagation()
+              onClose()
+            }
+          }}
         >
           <button
             type="button"
@@ -86,8 +112,9 @@ export function ResizableCanvas({
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2">{children}</div>
           </div>
-        </motion.aside>
-      )}
-    </AnimatePresence>
+          </m.aside>
+        )}
+      </AnimatePresence>
+    </LazyMotion>
   )
 }

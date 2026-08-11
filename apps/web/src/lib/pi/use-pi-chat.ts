@@ -213,11 +213,16 @@ export function usePiChat(
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     void refreshSessions().catch((err) => {
+      if (cancelled) return
       const nextError = err instanceof Error ? err : new Error(String(err))
       setError(nextError)
       toast.error(nextError.message)
     })
+    return () => {
+      cancelled = true
+    }
   }, [refreshSessions])
 
   useEffect(() => {
