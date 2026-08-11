@@ -34,3 +34,17 @@ these findings.
 - **Outcome:** waived with evidence, 2026-08-11 (authorized by user, decision
   Q6). Review condition: re-verify if the per-index registry or the unmount
   effect is removed.
+
+## Waiver 3 — `no-multi-comp` @ `packages/web-design/src/components/openui/charts.tsx`
+
+- **Rule:** `react-doctor/no-multi-comp` (severity: warning).
+- **Predicate the detector claims:** the two chart components should be split
+  across separate files.
+- **Observed evidence (read):** `LineChartDef` and `DonutChartDef` are the
+  focused chart pair in the approved OpenUI Wave-1 architecture. They share
+  the same Recharts primitives, no-data behavior, and `CHART_FALLBACK_COLORS`
+  convention; the module is dedicated to their definitions rather than being
+  a general component grab-bag.
+- **Outcome:** waived with evidence, 2026-08-11. Review condition: re-evaluate
+  if a third independent chart family or unrelated UI component is added to
+  `charts.tsx`.

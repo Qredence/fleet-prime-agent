@@ -38,6 +38,17 @@ const NUMBER_FAMILY_TYPES: ReadonlyArray<DataColumnType> = [
 
 const textCollator = new Intl.Collator(undefined, { numeric: true })
 
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+})
+
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  maximumFractionDigits: 1,
+})
+
 const alignClasses = {
   left: "text-left",
   right: "text-right",
@@ -45,20 +56,13 @@ const alignClasses = {
 
 /** @internal formatting helper — unit-asserted by scripts/openui-render-check.tsx */
 export function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value)
+  return currencyFormatter.format(value)
 }
 
 /** @internal formatting helper — unit-asserted by scripts/openui-render-check.tsx */
 export function formatPercent(value: number) {
   const normalized = Math.abs(value) >= 1 ? value / 100 : value
-  return new Intl.NumberFormat("en-US", {
-    style: "percent",
-    maximumFractionDigits: 1,
-  }).format(normalized)
+  return percentFormatter.format(normalized)
 }
 
 /** @internal header-click cycle: null → {key, asc} → {key, desc} → null; a new key starts on asc */
