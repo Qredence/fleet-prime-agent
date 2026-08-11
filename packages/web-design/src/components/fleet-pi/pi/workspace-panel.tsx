@@ -123,34 +123,40 @@ export function WorkspacePanelContent({
     }
   }, [scopeLabel, scopePath, workspace])
 
-  useEffect(() => {
-    if (!workspace || !selectedPath) return
+  // Derived selection validity: a stored path can go stale when the
+  // workspace reloads or the scope changes. Readers consume
+  // effectiveSelectedPath so invalid selections never render; the stored
+  // selection is reconciled below (render-phase for the uncontrolled case,
+  // an emit-only effect for the controlled one).
+  const selectionValid = Boolean(
+    workspace &&
+      selectedPath &&
+      (!scopePath || isPathWithinScope(selectedPath, scopePath)) &&
+      findWorkspaceNode(workspace.nodes, selectedPath)?.type === "file"
+  )
+  const effectiveSelectedPath = selectionValid ? selectedPath : null
 
-    if (scopePath && !isPathWithinScope(selectedPath, scopePath)) {
-      setSelectedPath(null)
-      setPreview(null)
-      setPreviewError(null)
-      return
-    }
-
-    if (findWorkspaceNode(workspace.nodes, selectedPath)?.type === "file") {
-      return
-    }
-
-    setSelectedPath(null)
+  if (selectedPath && workspace && !selectionValid) {
+    if (!isControlled) setInternalSelectedPath(null)
     setPreview(null)
     setPreviewError(null)
-  }, [onSelectedPathChange, scopePath, selectedPath, workspace])
+  }
 
   useEffect(() => {
-    if (!selectedPath) return
+    if (isControlled && selectedPath && !selectionValid) {
+      onSelectedPathChange?.(null)
+    }
+  }, [isControlled, onSelectedPathChange, selectedPath, selectionValid])
+
+  useEffect(() => {
+    if (!effectiveSelectedPath) return
 
     let cancelled = false
     async function loadPreview() {
       setPreviewLoading(true)
       setPreviewError(null)
       try {
-        const body = await loadWorkspaceFile(selectedPath ?? "")
+        const body = await loadWorkspaceFile(effectiveSelectedPath ?? "")
         if (!cancelled) setPreview(body)
       } catch (err) {
         if (!cancelled) {
@@ -166,10 +172,10 @@ export function WorkspacePanelContent({
     return () => {
       cancelled = true
     }
-  }, [loadWorkspaceFile, selectedPath, workspace])
+  }, [loadWorkspaceFile, effectiveSelectedPath, workspace])
 
   useEffect(() => {
-    if (!selectedPath || typeof window === "undefined") return
+    if (!effectiveSelectedPath || typeof window === "undefined") return
     if (
       window.matchMedia(`(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`).matches
     ) {
@@ -185,7 +191,7 @@ export function WorkspacePanelContent({
     })
 
     return () => window.cancelAnimationFrame(frame)
-  }, [selectedPath])
+  }, [effectiveSelectedPath])
 
   if (error) {
     if (isDaytonaNotConnectedError(error)) {
@@ -253,7 +259,7 @@ export function WorkspacePanelContent({
                 key={node.path}
                 node={node}
                 onSelect={setSelectedPath}
-                selectedPath={selectedPath}
+                selectedPath={effectiveSelectedPath}
               />
             ))}
           </div>
@@ -286,7 +292,7 @@ export function WorkspacePanelContent({
         loading={previewLoading}
         preview={preview}
         previewRef={previewRef}
-        selectedPath={selectedPath}
+        selectedPath={effectiveSelectedPath}
       />
     </div>
   )
