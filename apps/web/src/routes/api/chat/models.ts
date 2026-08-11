@@ -1,16 +1,53 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { isModelPatternEnabled } from "@prime-agent/web-protocol/model-patterns"
 import { wrapApiHandler } from "@/lib/api-utils"
 import { getPrimeConfig } from "@/server/prime-config"
+
+function toPatternCandidate(model: {
+	id: string
+	name: string
+	provider: string
+}) {
+	return {
+		id: model.id,
+		name: model.name,
+		provider: model.provider,
+		modelId: model.id,
+		key: `${model.provider}/${model.id}`,
+	}
+}
 
 export const Route = createFileRoute("/api/chat/models")({
 	server: {
 		handlers: {
-			GET: async () =>
+			GET: async ({ request }) =>
 				wrapApiHandler(async () => {
 					const config = getPrimeConfig()
-					const settings = config.defaultSettings
+					const cwd = config.defaultCwd
+					const settings = config.settingsFor(cwd)
 					const registry = config.modelRegistry
-					const models = registry.getAll()
+					const url = new URL(request.url)
+					const scope =
+						url.searchParams.get("scope") === "all" ? "all" : "enabled"
+
+					let models = registry.getAll()
+					if (scope === "enabled") {
+						// Match Settings > LLM Models: start from configured providers only.
+						models = models.filter((model) =>
+							registry.hasConfiguredAuth(model),
+						)
+
+						const patterns = settings.getEnabledModels()
+						if (patterns !== undefined) {
+							models = models.filter((model) =>
+								isModelPatternEnabled(
+									toPatternCandidate(model),
+									patterns,
+								),
+							)
+						}
+					}
+
 					const diagnostics: string[] = []
 
 					const defaultProvider = settings.getDefaultProvider()

@@ -23,7 +23,9 @@ import { assistantMessageHasPendingQuestion } from "@/lib/pi/question-pending"
 import { usePiChat } from "@/lib/pi/use-pi-chat"
 import { useOptionalUser } from "@/lib/auth-stub"
 import { identifyAnalyticsUser } from "@/lib/analytics-stub"
+import { useQueryClient } from "@tanstack/react-query"
 import {
+  invalidateWorkspaceScopedQueries,
   useChatCommands,
   useChatModelCatalog,
   useChatModels,
@@ -45,7 +47,8 @@ import {
   useChatSuggestions,
 } from "@/lib/pi/use-chat-view"
 import { usePendingQuestionBar } from "@/lib/pi/use-pending-question-bar"
-import { loadWorkspaceFile } from "@/lib/workspace-stub"
+import { loadWorkspaceFile } from "@/lib/workspace-file"
+import { chatClient } from "@/lib/pi/chat-client"
 
 export const Route = createFileRoute("/")({ component: Chat })
 
@@ -67,6 +70,7 @@ function resolveSavedModelKey(
 
 function ChatWorkspaceShell() {
   const user = useOptionalUser()
+  const queryClient = useQueryClient()
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     SettingsSlashTab | undefined
@@ -151,6 +155,20 @@ function ChatWorkspaceShell() {
   const refreshWorkspace = useCallback(() => {
     void refetchWorkspace()
   }, [refetchWorkspace])
+
+  const browseWorkspace = useCallback(async (path?: string) => {
+    return chatClient.browseWorkspace(path)
+  }, [])
+
+  const setWorkspaceRoot = useCallback(
+    async (path: string) => {
+      await chatClient.setWorkspaceRoot(path)
+      setSelectedWorkspacePath(null)
+      invalidateWorkspaceScopedQueries(queryClient)
+      await refetchWorkspace()
+    },
+    [queryClient, refetchWorkspace, setSelectedWorkspacePath]
+  )
 
   const {
     activityLabel,
@@ -254,6 +272,7 @@ function ChatWorkspaceShell() {
   const { chatPanelData, settingsActions, workspaceTreeContext } =
     useRightPanelContextValue({
       activityLabel,
+      browseWorkspace,
       handleThemePreferenceChange,
       isLoadingProviders,
       isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
@@ -278,6 +297,7 @@ function ChatWorkspaceShell() {
       selectedWorkspacePath,
       setRightPanel,
       setSelectedWorkspacePath,
+      setWorkspaceRoot,
       settings: settingsData ?? null,
       settingsError,
       settingsLoading: settingsLoading || updateSettings.isPending,

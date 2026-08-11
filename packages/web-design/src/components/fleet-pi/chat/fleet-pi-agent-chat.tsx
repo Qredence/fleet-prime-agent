@@ -36,25 +36,19 @@ function StableInputBarSlot(props: InputBarProps) {
   const ctx = useContext(InputBarPropsContext)
   if (!ctx) return null
 
-  const {
-    controlled: _controlledSlot,
-    attachments: _attachmentsSlot,
-    ...agentChatSlotProps
-  } = props
-  const {
-    controlled: _controlledCtx,
-    attachments: _attachmentsCtx,
-    ...inputBarOverrides
-  } = ctx.inputBar
+  // `controlled` and `attachments` are grouped objects — a JSX spread of the
+  // ctx value would clobber the slot's own object even when ctx leaves them
+  // undefined, so merge them field-wise instead of spreading.
+  const { inputBar, status, onStop } = ctx
 
   return (
     <FleetPiInputBar
-      {...agentChatSlotProps}
-      {...inputBarOverrides}
-      controlled={ctx.inputBar.controlled ?? props.controlled}
-      attachments={ctx.inputBar.attachments ?? props.attachments}
-      status={ctx.status}
-      onStop={ctx.onStop}
+      {...props}
+      {...inputBar}
+      controlled={inputBar.controlled ?? props.controlled}
+      attachments={inputBar.attachments ?? props.attachments}
+      status={status}
+      onStop={onStop}
     />
   )
 }

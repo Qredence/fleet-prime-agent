@@ -14,6 +14,7 @@ import type {
   ChatResourcesResponse,
   ChatSettingsResponse,
   QueueState,
+  WorkspaceBrowseResponse,
   WorkspaceFileResponse,
   WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol"
@@ -26,6 +27,7 @@ import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
 
 type UseRightPanelContextValueArgs = {
   activityLabel?: string
+  browseWorkspace: (path?: string) => Promise<WorkspaceBrowseResponse>
   handleThemePreferenceChange: (preference: ThemePreference) => void
   isLoadingProviders?: boolean
   isUpdatingProvider?: boolean
@@ -56,6 +58,7 @@ type UseRightPanelContextValueArgs = {
   selectedWorkspacePath: string | null
   setRightPanel: (panel: RightPanel) => void
   setSelectedWorkspacePath: (path: string | null) => void
+  setWorkspaceRoot: (path: string) => Promise<void>
   settings: ChatSettingsResponse | null
   settingsError: Error | null
   settingsLoading: boolean
@@ -74,6 +77,7 @@ type RightPanelContextSlices = {
 
 export function useRightPanelContextValue({
   activityLabel,
+  browseWorkspace,
   handleThemePreferenceChange,
   isLoadingProviders,
   isUpdatingProvider,
@@ -98,6 +102,7 @@ export function useRightPanelContextValue({
   selectedWorkspacePath,
   setRightPanel,
   setSelectedWorkspacePath,
+  setWorkspaceRoot,
   settings,
   settingsError,
   settingsLoading,
@@ -140,21 +145,25 @@ export function useRightPanelContextValue({
 
   const workspaceTreeContext = useMemo<WorkspaceTreeContextValue>(
     () => ({
+      browseWorkspace,
       loadWorkspaceFile,
       openWorkspacePath,
       refreshWorkspace,
       selectedWorkspacePath,
       setSelectedWorkspacePath,
+      setWorkspaceRoot,
       workspaceError,
       workspaceLoading,
       workspaceTree,
     }),
     [
+      browseWorkspace,
       loadWorkspaceFile,
       openWorkspacePath,
       refreshWorkspace,
       selectedWorkspacePath,
       setSelectedWorkspacePath,
+      setWorkspaceRoot,
       workspaceError,
       workspaceLoading,
       workspaceTree,

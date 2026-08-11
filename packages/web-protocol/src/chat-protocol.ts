@@ -365,6 +365,25 @@ export type WorkspaceFileResponse = {
 	status?: "ok" | "too-large" | "unsupported";
 };
 
+export type WorkspaceBrowseEntry = {
+	name: string;
+	path: string;
+};
+
+export type WorkspaceBrowseResponse = {
+	path: string;
+	parent: string | null;
+	entries: Array<WorkspaceBrowseEntry>;
+};
+
+export type WorkspaceRootRequest = {
+	path: string;
+};
+
+export type WorkspaceRootResponse = {
+	root: string;
+};
+
 export type ChatSlashCommandSource = "builtin" | "extension" | "prompt" | "skill";
 
 export type ChatSlashCommandInfo = {

@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core"
 import { z } from "zod"
-import { getBridge } from "@/server/singleton"
 import { wrapApiHandler } from "@/lib/api-utils"
+import { getPrimeConfig } from "@/server/prime-config"
+import { getBridge } from "@/server/singleton"
 
 // Keep off|minimal|low|medium|high|xhigh|max in sync with pi-ai's
 // ModelThinkingLevel. The bridge store narrows to ThinkingLevel internally by
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/api/chat/new")({
           const body = BodySchema.parse(raw)
           const level: ThinkingLevel | undefined = body.thinkingLevel
           const session = await bridge.createSession({
-            cwd: body.cwd ?? process.cwd(),
+            cwd: body.cwd ?? getPrimeConfig().defaultCwd,
             model: body.model,
             thinkingLevel: level,
           })

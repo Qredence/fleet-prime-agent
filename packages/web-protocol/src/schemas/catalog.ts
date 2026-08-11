@@ -1,4 +1,11 @@
-import type { WorkspaceFileResponse, WorkspaceTreeNode, WorkspaceTreeResponse } from "../chat-protocol";
+import type {
+	WorkspaceBrowseResponse,
+	WorkspaceFileResponse,
+	WorkspaceRootRequest,
+	WorkspaceRootResponse,
+	WorkspaceTreeNode,
+	WorkspaceTreeResponse,
+} from "../chat-protocol";
 import { ChatThinkingLevelSchema, z } from "./shared";
 
 export const ChatModelInfoSchema = z
@@ -93,6 +100,33 @@ export const WorkspaceFileResponseSchema: z.ZodType<WorkspaceFileResponse> = z
 		status: z.enum(["ok", "too-large", "unsupported"]).optional(),
 	})
 	.openapi({ description: "Workspace file preview response" });
+
+export const WorkspaceBrowseEntrySchema = z
+	.object({
+		name: z.string(),
+		path: z.string(),
+	})
+	.openapi({ description: "Directory entry in the project-folder picker" });
+
+export const WorkspaceBrowseResponseSchema: z.ZodType<WorkspaceBrowseResponse> = z
+	.object({
+		path: z.string(),
+		parent: z.string().nullable(),
+		entries: z.array(WorkspaceBrowseEntrySchema),
+	})
+	.openapi({ description: "Workspace directory browse response" });
+
+export const WorkspaceRootRequestSchema: z.ZodType<WorkspaceRootRequest> = z
+	.object({
+		path: z.string().min(1),
+	})
+	.openapi({ description: "Set workspace / agent root request" });
+
+export const WorkspaceRootResponseSchema: z.ZodType<WorkspaceRootResponse> = z
+	.object({
+		root: z.string(),
+	})
+	.openapi({ description: "Set workspace / agent root response" });
 
 export const ChatProviderInfoSchema = z
 	.object({

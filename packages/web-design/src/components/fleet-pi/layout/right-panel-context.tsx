@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo } from "react"
 import type { ReactNode } from "react"
 import type { RightPanel } from "../../../lib/canvas-utils"
 import type { RightPanelContentProps } from "./right-panel-registry"
+import type { WorkspaceBrowseResponse } from "@prime-agent/web-protocol/chat-protocol"
 
 export type ChatPanelDataContextValue = Pick<
   RightPanelContentProps,
@@ -30,7 +31,10 @@ export type WorkspaceTreeContextValue = Pick<
   | "workspaceError"
   | "workspaceLoading"
   | "workspaceTree"
->
+> & {
+  browseWorkspace: (path?: string) => Promise<WorkspaceBrowseResponse>
+  setWorkspaceRoot: (path: string) => Promise<void>
+}
 
 export type SettingsActionsContextValue = Pick<
   RightPanelContentProps,
