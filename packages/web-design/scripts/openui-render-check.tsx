@@ -20,6 +20,13 @@ import { createParser, Renderer } from "@openuidev/react-lang";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import {
+	DataTableDef,
+	buildSortComparator,
+	cycleSortState,
+	formatCurrency,
+	formatPercent,
+} from "../src/components/openui/data";
 import { openUILibrary } from "../src/components/openui/openui-library";
 
 // --- happy-dom window + node globalThis shims ---
@@ -106,13 +113,14 @@ const payload = [
 	'$field = "x"',
 	"$on = true",
 	'$s = "a"',
-	"root = Root([inp, sel, sw, mdl, traffic, share])",
+	"root = Root([inp, sel, sw, mdl, traffic, share, scores])",
 	'inp = Input("field", $field, "hint")',
 	'sel = Select("s", $s, [{"value": "a", "label": "A"}], "Pick")',
 	'sw = Switch("on", $on, "Toggle")',
 	'mdl = Modal("m", $on, "Confirm", "body text")',
 	'traffic = LineChart("Traffic", "Weekly visits", "week", [{"dataKey":"visits","label":"Visits"}], [{"week":"W1","visits":10},{"week":"W2","visits":24},{"week":"W3","visits":18}])',
 	'share = DonutChart("Share", null, [{"label":"Alpha","value":40},{"label":"Beta","value":60}], "100%")',
+	'scores = DataTable("Scores", [{"key":"name","label":"Name"},{"key":"points","label":"Points","type":"number"}], [{"name":"Ada","points":7},{"name":"Bo","points":12}])',
 ].join("\n");
 
 let failures = 0;
@@ -125,6 +133,60 @@ function assertIncludes(html: string, expected: string) {
 		failures += 1;
 	}
 }
+
+function assertEqual(actual: unknown, expected: unknown, label: string) {
+	if (JSON.stringify(actual) === JSON.stringify(expected)) {
+		console.log(`  PASS ${label}`);
+	} else {
+		console.error(`  FAIL ${label} — expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+		failures += 1;
+	}
+}
+
+// --- Unit asserts: data.tsx pure helpers (Task 2 contract) ---
+console.log("UNIT ASSERTS (data.tsx helpers):");
+
+assertEqual(formatCurrency(12000), "$12,000", "formatCurrency(12000)");
+assertEqual(formatPercent(0.124), "12.4%", "formatPercent(0.124)");
+assertEqual(formatPercent(12.4), "12.4%", "formatPercent(12.4)");
+
+assertEqual(cycleSortState("a", null), { key: "a", dir: "asc" }, 'cycleSortState("a", null)');
+assertEqual(
+	cycleSortState("a", { key: "a", dir: "asc" }),
+	{ key: "a", dir: "desc" },
+	'cycleSortState("a", {key:"a",dir:"asc"})'
+);
+assertEqual(cycleSortState("a", { key: "a", dir: "desc" }), null, 'cycleSortState("a", {key:"a",dir:"desc"})');
+assertEqual(
+	cycleSortState("b", { key: "a", dir: "desc" }),
+	{ key: "b", dir: "asc" },
+	'cycleSortState("b", ...) starts the new key on asc'
+);
+
+const numericComparator = buildSortComparator({ key: "points", type: "number" });
+const sortedPoints = [{ points: 12 }, { points: 7 }, { points: "n/a" }].sort(numericComparator);
+assertEqual(
+	sortedPoints.map((row) => row.points),
+	[7, 12, "n/a"],
+	"buildSortComparator(number): ascending, non-numerics last"
+);
+
+// Task 2 finding 2: desc must keep non-numeric rows LAST (was: arg-swap put them first)
+const descNumericComparator = buildSortComparator({ key: "points", type: "number" }, "desc");
+const descSortedPoints = [{ points: 7 }, { points: "n/a" }, { points: 12 }].sort(descNumericComparator);
+assertEqual(
+	descSortedPoints.map((row) => row.points),
+	[12, 7, "n/a"],
+	"buildSortComparator(number, desc): descending, non-numerics last"
+);
+
+// Task 2 finding 1: align zod enum admits exactly left/right (no "center" leak into prompt schema)
+const alignEnum = DataTableDef.props.shape.columns.element.shape.align.unwrap();
+assertEqual(
+	alignEnum.options,
+	["left", "right"],
+	'DataTable align zod enum is exactly ["left","right"]'
+);
 
 // --- Stage 1: parse + validate against the library schema ---
 const parser = createParser(openUILibrary.toJSONSchema(), "Root");
@@ -159,7 +221,7 @@ if (staticHtml.length === 0) {
 }
 console.log("RENDER OK (static)");
 
-for (const expected of ["Traffic", "Weekly visits", "Share", "100%"]) {
+for (const expected of ["Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points"]) {
 	assertIncludes(staticHtml, expected);
 }
 
@@ -182,7 +244,18 @@ try {
 }
 console.log("RENDER OK (dom)");
 
-for (const expected of ["Traffic", "Weekly visits", "Share", "100%", "recharts-line", "recharts-pie"]) {
+for (const expected of [
+	"Traffic",
+	"Weekly visits",
+	"Share",
+	"100%",
+	"recharts-line",
+	"recharts-pie",
+	"Scores",
+	"Ada",
+	"Bo",
+	"Points",
+]) {
 	assertIncludes(domHtml, expected);
 }
 
