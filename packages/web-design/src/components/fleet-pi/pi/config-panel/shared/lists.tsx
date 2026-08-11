@@ -44,19 +44,17 @@ export function CatalogValueList({
 }) {
   const [custom, setCustom] = useState("")
 
-  const options = catalog
-    .map((item) => {
-      const value = resourceOptionValue(item)
-      return {
-        value,
-        label: item.name || value,
-      }
+  const seenValues = new Set<string>()
+  const options: Array<{ value: string; label: string }> = []
+  for (const item of catalog) {
+    const value = resourceOptionValue(item)
+    if (value.length === 0 || seenValues.has(value)) continue
+    seenValues.add(value)
+    options.push({
+      value,
+      label: item.name || value,
     })
-    .filter(
-      (option, index, all) =>
-        option.value.length > 0 &&
-        all.findIndex((entry) => entry.value === option.value) === index
-    )
+  }
 
   const labelByValue = new Map(
     options.map((option) => [option.value, option.label])

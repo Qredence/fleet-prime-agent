@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
+import { Suspense, lazy, useCallback, useRef, useState, useSyncExternalStore } from "react"
 import { useTheme } from "next-themes"
 import { cn } from "./utils/cn"
 import { spiralFastData, spiralSlowData } from "./spiral-loader-data"
@@ -26,16 +26,18 @@ export type SpiralLoaderProps = {
 }
 
 export function SpiralLoader({ size = 16, className }: SpiralLoaderProps) {
-  const [isMounted, setIsMounted] = useState(false)
+  // Hydration-safe mount flag (see message-list): lottie is client-only, so
+  // defer its first paint to post-hydration without a post-paint setState.
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
   const [phase, setPhase] = useState<"fast" | "slow">("fast")
   const repeatCountRef = useRef(0)
   const fastRef = useRef<LottieRefCurrentProps | null>(null)
   const slowRef = useRef<LottieRefCurrentProps | null>(null)
   const { resolvedTheme } = useTheme()
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
 
   const startFastPhase = useCallback(() => {
     repeatCountRef.current = 0

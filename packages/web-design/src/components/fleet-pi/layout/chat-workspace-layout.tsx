@@ -7,6 +7,12 @@ import { cn } from "../../../lib/utils"
 import { CHAT_HEADER_LAYER_CLASS } from "../styles/tokens"
 import type { CSSProperties, ReactNode } from "react"
 
+const layoutStyle = {
+  "--chat-chrome-top": `${CHAT_CHROME_TOP_PX}px`,
+  "--chat-header-height": `${CHAT_HEADER_HEIGHT_PX}px`,
+  "--chat-header-top": `${CHAT_HEADER_OFFSET_PX}px`,
+} as CSSProperties
+
 export function ChatWorkspaceLayout({
   children,
   headerCenter,
@@ -20,12 +26,6 @@ export function ChatWorkspaceLayout({
   headerRight?: ReactNode
   panel: ReactNode
 }) {
-  const layoutStyle = {
-    "--chat-chrome-top": `${CHAT_CHROME_TOP_PX}px`,
-    "--chat-header-height": `${CHAT_HEADER_HEIGHT_PX}px`,
-    "--chat-header-top": `${CHAT_HEADER_OFFSET_PX}px`,
-  } as CSSProperties
-
   return (
     <div
       className="grid h-svh min-w-0 grid-rows-[auto_1fr] overflow-hidden"

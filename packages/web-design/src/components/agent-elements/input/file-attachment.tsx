@@ -123,6 +123,19 @@ export function FileAttachment({
             canPreview && "cursor-pointer"
           )}
           onClick={canPreview ? openLightbox : undefined}
+          role={canPreview ? "button" : undefined}
+          tabIndex={canPreview ? 0 : undefined}
+          aria-label={canPreview ? `Preview ${filename}` : undefined}
+          onKeyDown={
+            canPreview
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault()
+                    openLightbox()
+                  }
+                }
+              : undefined
+          }
         >
           <img
             src={url}
@@ -139,6 +152,19 @@ export function FileAttachment({
                 canPreview && "cursor-pointer"
               )}
               onClick={canPreview ? openLightbox : undefined}
+              role={canPreview ? "button" : undefined}
+              tabIndex={canPreview ? 0 : undefined}
+              aria-label={canPreview ? `Preview ${filename}` : undefined}
+              onKeyDown={
+                canPreview
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        openLightbox()
+                      }
+                    }
+                  : undefined
+              }
             >
               <img
                 src={url}
@@ -174,6 +200,7 @@ export function FileAttachment({
             e.stopPropagation()
             onRemove()
           }}
+          aria-label={`Remove ${filename}`}
           className={`absolute -top-1.5 -right-1.5 z-10 flex size-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground active:scale-[0.97] ${isHovered ? "opacity-100" : "opacity-0"}`}
           type="button"
         >

@@ -37,8 +37,9 @@ export function isV5ToolPart(part: unknown): part is ToolPartBase {
 }
 
 export function getTextFromParts(parts: Array<unknown>, joiner: string): string {
-	return parts
-		.filter(isTextPart)
-		.map((part) => part.text)
-		.join(joiner);
+	const texts: Array<string> = [];
+	for (const part of parts) {
+		if (isTextPart(part)) texts.push(part.text);
+	}
+	return texts.join(joiner);
 }

@@ -72,19 +72,26 @@ export function formatPackageSourceRows(values: Array<ChatPackageSource>) {
 }
 
 export function parsePackageSourceRows(rows: Array<string>): Array<ChatPackageSource> {
-	return rows
-		.map((line) => line.trim())
-		.filter(Boolean)
-		.map((line) => {
-			if (!line.startsWith("{")) return line;
-			const parsed = JSON.parse(line) as unknown;
-			if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-				throw new Error("Package JSON entries must be objects.");
-			}
-			return parsed as Record<string, unknown>;
-		});
+	const parsedRows: Array<ChatPackageSource> = [];
+	for (const line of rows) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		if (!trimmed.startsWith("{")) {
+			parsedRows.push(trimmed);
+			continue;
+		}
+		const parsed = JSON.parse(trimmed) as unknown;
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+			throw new Error("Package JSON entries must be objects.");
+		}
+		parsedRows.push(parsed as Record<string, unknown>);
+	}
+	return parsedRows;
 }
 
 export function sanitizeStringList(values: Array<string>) {
-	return values.map((item) => item.trim()).filter(Boolean);
+	return values.flatMap((item) => {
+		const trimmed = item.trim();
+		return trimmed ? [trimmed] : [];
+	});
 }
