@@ -5,7 +5,7 @@ import type {
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { Dispatch, SetStateAction } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ChatModelOption } from "../../../../lib/pi/chat-helpers";
 import { customModelKey, nextEnabledModelPatterns } from "../config-panel/shared/model-patterns";
@@ -99,9 +99,9 @@ export function useModelDefaultsForm({
 
 	const modelDirty = !!draft && !!modelBaseline && !sameJson(comparableModelSettings(draft), modelBaseline);
 
-	const resetCommittedModelBaseline = () => {
+	const resetCommittedModelBaseline = useCallback(() => {
 		lastCommittedModelSettings.current = null;
-	};
+	}, []);
 
 	const commitModelSettings = async (nextDraft: ChatPiSettings, options?: { silent?: boolean }): Promise<boolean> => {
 		setDraft(nextDraft);

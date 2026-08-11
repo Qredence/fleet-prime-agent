@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
   Cpu,
@@ -120,7 +120,6 @@ function useSettingsForm() {
 
   const [draft, setDraft] = useState<ChatPiSettings | null>(null)
   const [savingSection, setSavingSection] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<SettingsSectionId>("appearance")
 
   const resourceSummary = summarizeResources(resources)
 
@@ -238,8 +237,6 @@ function useSettingsForm() {
     packageError,
     modelFilter,
     setModelFilter,
-    activeTab,
-    setActiveTab,
     resourceSummary,
     modelOptions,
     modelDirty,
@@ -280,6 +277,8 @@ function SidebarNavItem({
   )
 }
 
+type SettingsForm = ReturnType<typeof useSettingsForm>
+
 export function SettingsDialog({
   open,
   onOpenChange,
@@ -289,6 +288,31 @@ export function SettingsDialog({
   onOpenChange: (open: boolean) => void
   /** When provided, selects this nav tab each time the dialog opens. */
   initialTab?: SettingsSectionId
+}) {
+  const form = useSettingsForm()
+
+  if (!open) return null
+
+  return (
+    <SettingsDialogSession
+      form={form}
+      initialTab={initialTab}
+      onOpenChange={onOpenChange}
+      open={open}
+    />
+  )
+}
+
+function SettingsDialogSession({
+  form,
+  initialTab,
+  onOpenChange,
+  open,
+}: {
+  form: SettingsForm
+  initialTab?: SettingsSectionId
+  onOpenChange: (open: boolean) => void
+  open: boolean
 }) {
   const {
     isLoadingProviders,
@@ -306,8 +330,6 @@ export function SettingsDialog({
     packageError,
     modelFilter,
     setModelFilter,
-    activeTab,
-    setActiveTab,
     resourceSummary,
     modelOptions,
     modelDirty,
@@ -324,7 +346,11 @@ export function SettingsDialog({
     saveSection,
     requestCloseSettings,
     resetCommittedModelBaseline,
-  } = useSettingsForm()
+  } = form
+
+  const [activeTab, setActiveTab] = useState<SettingsSectionId>(
+    () => initialTab ?? "appearance"
+  )
 
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
   const [discardReason, setDiscardReason] = useState<"resource" | "model">(
@@ -366,14 +392,9 @@ export function SettingsDialog({
     onOpenChange(false)
   }
 
-  const wasOpenRef = useRef(false)
   useEffect(() => {
-    if (open && !wasOpenRef.current) {
-      resetCommittedModelBaseline()
-      if (initialTab) setActiveTab(initialTab)
-    }
-    wasOpenRef.current = open
-  }, [initialTab, open, resetCommittedModelBaseline, setActiveTab])
+    resetCommittedModelBaseline()
+  }, [resetCommittedModelBaseline])
 
   const resourcesPane = (scope: "skills" | "harness") => (
     <ResourcesSection
