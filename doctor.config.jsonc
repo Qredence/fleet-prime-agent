@@ -48,6 +48,45 @@
 				// then clears the entire registry (:175-186).
 				"files": ["src/hooks/use-proximity-hover.ts"],
 				"rules": ["react-doctor/effect-needs-cleanup"]
+			},
+			{
+				// Waived with evidence — the filtered expression is a string
+				// substring search, not repeated array membership; see waiver 5.
+				"files": ["src/components/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx"],
+				"rules": ["react-doctor/js-set-map-lookups"]
+			},
+			{
+				// Intentional architecture exception; see
+				// .react-doctor/intentional-exceptions.md §1. WorkspacePanel's
+				// controlled/uncontrolled selection owner needs a joint parent redesign.
+				"files": ["src/components/fleet-pi/pi/workspace-panel.tsx"],
+				"rules": [
+					"react-doctor/no-adjust-state-on-prop-change",
+					"react-doctor/exhaustive-deps"
+				]
+			},
+			{
+				// Intentional static-render compatibility boundary; see
+				// .react-doctor/intentional-exceptions.md §2. React.lazy would
+				// suspend the OpenUI static render harness.
+				"files": [
+					"src/components/chart.tsx",
+					"src/components/openui/charts.tsx",
+					"src/components/openui/data.tsx",
+					"src/components/openui/openui-library.tsx"
+				],
+				"rules": ["react-doctor/prefer-dynamic-import"]
+			},
+			{
+				// Intentional retained future UI surface; see
+				// .react-doctor/intentional-exceptions.md §3.
+				"files": [
+					"src/components/agent-elements/input/mode-selector.tsx",
+					"src/components/fleet-pi/auth/login-page.tsx",
+					"src/components/fleet-pi/icons/google-icon.tsx",
+					"src/components/fleet-pi/primitives/centered-loader.tsx"
+				],
+				"rules": ["deslop/unused-file"]
 			}
 		]
 	}

@@ -63,3 +63,16 @@ these findings.
   request from changing state after its selection changes.
 - **Outcome:** waived with evidence, 2026-08-11. Review condition: re-verify
   if the reset moves out of `finally` or cancellation semantics change.
+
+## Waiver 5 — `js-set-map-lookups` @ `packages/web-design/src/components/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx:59`
+
+- **Rule:** `react-doctor/js-set-map-lookups` (severity: warning).
+- **Predicate the detector claims:** an `includes()` call inside candidate-model
+  filtering should become a constant-time `Set` lookup.
+- **Observed evidence (read):** the expression at `add-models-dialog.tsx:59`
+  calls `String.prototype.includes()` on the normalized concatenation of a
+  model's display fields. It performs user-entered substring search, not exact
+  array membership, so replacing it with a `Set` would change matching
+  semantics. Model enablement separately preserves wildcard-pattern matching.
+- **Outcome:** waived with evidence, 2026-08-11. Review condition: re-evaluate
+  if filtering changes from substring search to exact, normalized token lookup.
