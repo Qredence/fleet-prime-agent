@@ -51,20 +51,55 @@ type AssistantTurnDisplay = {
   suppressQuestionTool: boolean
 }
 
-/** One user message bubble plus its hover copy/timestamp toolbar. */
-export const UserTurn = memo(function UserTurn({
-  message,
-  UserMessageComponent,
-  userMessageClassName,
-  display,
-  onCopied,
-}: {
+type UserTurnSharedProps = {
   message: ChatMessage
   UserMessageComponent: React.ComponentType<UserMessageComponentProps>
   userMessageClassName?: string
-  display: UserTurnDisplay
   onCopied: (copyKey: string) => void
-}) {
+}
+
+type UserTurnProps =
+  | (UserTurnSharedProps & { display: UserTurnDisplay })
+  | (UserTurnSharedProps & UserTurnDisplay)
+
+type AssistantTurnSharedProps = {
+  assistantMsgs: Array<ChatMessage>
+  turnKey: string
+  ToolRendererComponent: React.ComponentType<ToolRendererProps>
+  TextRendererComponent: React.ComponentType<TextRendererComponentProps>
+  toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
+  onOpenUIAction?: (message: string) => void
+  onCopied: (copyKey: string) => void
+}
+
+type AssistantTurnLegacyState = {
+  isLastTurn: boolean
+  isStreaming: boolean
+  showCopyToolbar: boolean
+  isCopyVisible: boolean
+  suppressQuestionTool: boolean
+}
+
+type AssistantTurnProps =
+  | (AssistantTurnSharedProps & {
+      stream: AssistantTurnStream
+      copy: AssistantTurnCopy
+      display: AssistantTurnDisplay
+    })
+  | (AssistantTurnSharedProps & AssistantTurnLegacyState)
+
+/** One user message bubble plus its hover copy/timestamp toolbar. */
+export const UserTurn = memo(function UserTurn(props: UserTurnProps) {
+  const { message, UserMessageComponent, userMessageClassName, onCopied } = props
+  const display =
+    "display" in props
+      ? props.display
+      : {
+          enableImagePreview: props.enableImagePreview,
+          showCopyToolbar: props.showCopyToolbar,
+          isMounted: props.isMounted,
+          isCopyVisible: props.isCopyVisible,
+        }
   const { enableImagePreview, showCopyToolbar, isMounted, isCopyVisible } =
     display
   const text = getTextFromParts(message.parts ?? [], "")
@@ -105,29 +140,28 @@ export const UserTurn = memo(function UserTurn({
 })
 
 /** All assistant messages of a turn plus the single shared copy toolbar. */
-export const AssistantTurn = memo(function AssistantTurn({
-  assistantMsgs,
-  turnKey,
-  stream,
-  copy,
-  display,
-  ToolRendererComponent,
-  TextRendererComponent,
-  toolRenderers,
-  onOpenUIAction,
-  onCopied,
-}: {
-  assistantMsgs: Array<ChatMessage>
-  turnKey: string
-  stream: AssistantTurnStream
-  copy: AssistantTurnCopy
-  display: AssistantTurnDisplay
-  ToolRendererComponent: React.ComponentType<ToolRendererProps>
-  TextRendererComponent: React.ComponentType<TextRendererComponentProps>
-  toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
-  onOpenUIAction?: (message: string) => void
-  onCopied: (copyKey: string) => void
-}) {
+export const AssistantTurn = memo(function AssistantTurn(props: AssistantTurnProps) {
+  const {
+    assistantMsgs,
+    turnKey,
+    ToolRendererComponent,
+    TextRendererComponent,
+    toolRenderers,
+    onOpenUIAction,
+    onCopied,
+  } = props
+  const stream =
+    "stream" in props
+      ? props.stream
+      : { isLast: props.isLastTurn, isStreaming: props.isStreaming }
+  const copy =
+    "copy" in props
+      ? props.copy
+      : { enabled: props.showCopyToolbar, isVisible: props.isCopyVisible }
+  const display =
+    "display" in props
+      ? props.display
+      : { suppressQuestionTool: props.suppressQuestionTool }
   const { isLast: isLastTurn, isStreaming } = stream
   const { enabled: showCopyToolbar, isVisible: isCopyVisible } = copy
   const { suppressQuestionTool } = display

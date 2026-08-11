@@ -2,11 +2,43 @@ import assert from "node:assert/strict"
 
 import { isValidElement } from "react"
 import {
+  AssistantTurn,
   buildAssistantElements,
   getAssistantToolElementKey,
+  UserTurn,
 } from "../src/components/agent-elements/message-turns"
+import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 
 const noIdTask = { type: "tool-Task" }
+const compatibilityMessage = { id: "compatibility-message" } as ChatMessage
+
+// These flat prop shapes were public before the grouped internal contract.
+// Keep them type-checked so package consumers do not lose source compatibility.
+void (
+  <UserTurn
+    message={compatibilityMessage}
+    UserMessageComponent={() => null}
+    enableImagePreview
+    showCopyToolbar
+    isMounted
+    isCopyVisible={false}
+    onCopied={() => {}}
+  />
+)
+void (
+  <AssistantTurn
+    assistantMsgs={[compatibilityMessage]}
+    turnKey="compatibility-turn"
+    isLastTurn
+    isStreaming={false}
+    showCopyToolbar
+    suppressQuestionTool={false}
+    ToolRendererComponent={() => null}
+    TextRendererComponent={() => null}
+    isCopyVisible={false}
+    onCopied={() => {}}
+  />
+)
 
 assert.equal(
   getAssistantToolElementKey("message-1", noIdTask, 0),
@@ -49,8 +81,18 @@ const renderedElements = buildAssistantElements(
   }
 )
 
+const renderedElementKeys = renderedElements
+  .filter(isValidElement)
+  .map((element) => element.key)
+
+assert.equal(
+  new Set(renderedElementKeys).size,
+  renderedElementKeys.length,
+  "Rendered assistant elements must have unique React keys."
+)
+
 assert.deepEqual(
-  renderedElements.filter(isValidElement).map((element) => element.key),
+  renderedElementKeys,
   [
     "unkeyed-tool:message-1:tool-Task:0",
     "tool-call:unkeyed-tool:message-1:tool-Task:0",

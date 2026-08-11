@@ -1,7 +1,11 @@
 export type OpenUIContentSegment = {
 	content: string;
-	id: string;
+	id?: string;
 	type: "markdown" | "openui";
+};
+
+type IdentifiedOpenUIContentSegment = OpenUIContentSegment & {
+	id: string;
 };
 
 type OpenUIContentSegmentType = OpenUIContentSegment["type"];
@@ -9,7 +13,7 @@ type OpenUIContentSegmentType = OpenUIContentSegment["type"];
 const OPENUI_FENCE_PATTERN = /```(?:openui|openui-lang)(?:[ \t]*\r?\n|[ \t]+)([\s\S]*?)```/gi;
 
 function appendSegment(
-	segments: Array<OpenUIContentSegment>,
+	segments: Array<IdentifiedOpenUIContentSegment>,
 	ordinals: Record<OpenUIContentSegmentType, number>,
 	type: OpenUIContentSegmentType,
 	content: string,
@@ -35,8 +39,8 @@ export function isOpenUIProgram(content: string) {
 	return stripOpenUIWrapper(content).startsWith("root =");
 }
 
-export function segmentOpenUIContent(content: string): Array<OpenUIContentSegment> {
-	const segments: Array<OpenUIContentSegment> = [];
+export function segmentOpenUIContent(content: string): Array<IdentifiedOpenUIContentSegment> {
+	const segments: Array<IdentifiedOpenUIContentSegment> = [];
 	const ordinals = { markdown: 0, openui: 0 };
 	const stripped = stripOpenUIWrapper(content);
 	if (stripped.startsWith("root =")) {

@@ -51,3 +51,17 @@ is expanded alongside the current chat interface:
 
 **Re-evaluate:** when that integration either imports these modules or removes
 the future surface intentionally.
+
+## 4. Legacy message-turn component props
+
+`UserTurn` and `AssistantTurn` remain exported through the package wildcard, so
+existing consumers may still provide their former flat boolean props. The
+components also accept the grouped `display`, `stream`, and `copy` objects used
+by `MessageList`; both shapes normalize at the boundary before rendering.
+
+This retains source compatibility without undoing the grouped internal contract.
+The scanner warning is intentionally waived only for this compatibility adapter,
+rather than silently breaking external TypeScript consumers in a minor release.
+
+**Re-evaluate:** at the next documented major-version migration, when flat props
+can be deprecated and removed with a published replacement guide.

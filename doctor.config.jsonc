@@ -78,6 +78,14 @@
 				"rules": ["react-doctor/prefer-dynamic-import"]
 			},
 			{
+				// Intentional public API compatibility adapter; see
+				// .react-doctor/intentional-exceptions.md §4. The exported message
+				// turn components accept their legacy flat props alongside grouped
+				// internal state until a documented major-version migration.
+				"files": ["src/components/agent-elements/message-turns.tsx"],
+				"rules": ["react-doctor/no-many-boolean-props"]
+			},
+			{
 				// Intentional retained future UI surface; see
 				// .react-doctor/intentional-exceptions.md §3.
 				"files": [

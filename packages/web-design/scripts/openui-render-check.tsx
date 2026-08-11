@@ -32,6 +32,7 @@ import {
 	segmentOpenUIContent,
 	stripOpenUIWrapper,
 } from "../src/components/openui/openui-utils";
+import type { OpenUIContentSegment } from "../src/components/openui/openui-utils";
 
 // --- happy-dom window + node globalThis shims ---
 const win = new Window();
@@ -159,6 +160,16 @@ const appendedResponse = [
 	"root = Root([])",
 	"```",
 ].join("\n");
+const legacySegment: OpenUIContentSegment = {
+	type: "markdown",
+	content: "legacy source-compatible segment",
+};
+assertEqual(
+	legacySegment.id,
+	undefined,
+	"legacy OpenUI segment literals do not require an id",
+);
+
 const completedPrefixSegments = segmentOpenUIContent(completedPrefix);
 const appendedSegments = segmentOpenUIContent(appendedResponse);
 
