@@ -245,7 +245,7 @@ export function buildAssistantElements(
     if (isErrorPart(part)) {
       elems.push(
         <ErrorMessage
-          key={`${messageId}-error-${i}`}
+          key={`${messageId}-error-${part.title}-${part.message}`}
           title={part.title}
           message={part.message}
         />

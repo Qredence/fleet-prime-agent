@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 import {
   Folder,
   History,
@@ -52,21 +52,27 @@ export function ChatCommandPalette({
 }: CommandPaletteProps) {
   const [search, setSearch] = useState("")
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
-        event.preventDefault()
-        onOpenChange(!open)
-      }
+  const onGlobalKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === "k") {
+      event.preventDefault()
+      onOpenChange(!open)
     }
+  })
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => onGlobalKeyDown(event)
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [open, onOpenChange])
+  }, [])
 
-  useEffect(() => {
+  // Reset the query when the palette opens — prev-prop tracking during
+  // render, same committed state as the old open-gated effect.
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (open) setSearch("")
-  }, [open])
+  }
 
   const handleSelect = (callback: () => void) => {
     callback()

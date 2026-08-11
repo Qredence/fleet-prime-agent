@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   IconChevronDown,
   IconChevronUp,
@@ -57,16 +57,25 @@ export function QuestionTool({ part }: QuestionToolProps) {
     Record<number, QuestionAnswer>
   >({})
 
-  useEffect(() => {
+  // Prev-prop tracking adjusted during render (react.dev "adjusting state
+  // during rendering") — same committed outcome as the old sync effects,
+  // without painting stale values first.
+  const [prevQuestionIndex, setPrevQuestionIndex] = useState(
+    part.input?.questionIndex
+  )
+  if (part.input?.questionIndex !== prevQuestionIndex) {
+    setPrevQuestionIndex(part.input?.questionIndex)
     if (typeof part.input?.questionIndex === "number") {
       setLocalIndex(part.input.questionIndex)
     }
-  }, [part.input?.questionIndex])
+  }
 
-  useEffect(() => {
+  const [prevToolCallId, setPrevToolCallId] = useState(part.toolCallId)
+  if (part.toolCallId !== prevToolCallId) {
+    setPrevToolCallId(part.toolCallId)
     setLocalAnswers({})
     setLocalIndex(part.input?.questionIndex ?? 1)
-  }, [part.toolCallId])
+  }
 
   const outputAnswer = part.output?.answer
   const answeredCount = Object.keys(localAnswers).length

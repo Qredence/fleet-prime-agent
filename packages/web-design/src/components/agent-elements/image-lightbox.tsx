@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useState } from "react"
 import { createPortal } from "react-dom"
 import { IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react"
 import { cn } from "./utils/cn"
@@ -63,26 +63,28 @@ export function ImageLightbox({
 
   // Esc / arrow-key navigation. Capture phase so we beat any local handlers
   // (e.g. an Editor that swallows Esc).
+  const onLightboxKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    switch (event.key) {
+      case "Escape":
+        event.preventDefault()
+        event.stopPropagation()
+        onClose()
+        break
+      case "ArrowLeft":
+        if (hasMultipleImages) goToPrevious()
+        break
+      case "ArrowRight":
+        if (hasMultipleImages) goToNext()
+        break
+    }
+  })
+
   useEffect(() => {
     if (!open) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      switch (event.key) {
-        case "Escape":
-          event.preventDefault()
-          event.stopPropagation()
-          onClose()
-          break
-        case "ArrowLeft":
-          if (hasMultipleImages) goToPrevious()
-          break
-        case "ArrowRight":
-          if (hasMultipleImages) goToNext()
-          break
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown, true)
-    return () => window.removeEventListener("keydown", handleKeyDown, true)
-  }, [open, hasMultipleImages, onClose, goToPrevious, goToNext])
+    const handler = (event: KeyboardEvent) => onLightboxKeyDown(event)
+    window.addEventListener("keydown", handler, true)
+    return () => window.removeEventListener("keydown", handler, true)
+  }, [open])
 
   // Lock body scroll while open so the page underneath doesn't move.
   useEffect(() => {
@@ -103,6 +105,7 @@ export function ImageLightbox({
     <div
       role="dialog"
       aria-modal="true"
+      aria-label="Image viewer"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
       onClick={onClose}
     >
@@ -148,9 +151,9 @@ export function ImageLightbox({
       {hasMultipleImages && (
         <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 flex-col items-center gap-3">
           <div className="flex gap-2">
-            {images.map((_, idx) => (
+            {images.map((imageSrc, idx) => (
               <button
-                key={idx}
+                key={imageSrc}
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation()

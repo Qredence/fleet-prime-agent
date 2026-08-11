@@ -66,9 +66,9 @@ function SearchGroupRich({
           </div>
           <div className="max-h-[200px] overflow-y-auto bg-background">
             <div className="flex flex-col gap-1 p-1">
-              {results.map((result, i) => (
+              {results.map((result) => (
                 <div
-                  key={i}
+                  key={`${result.title}-${result.source}-${result.date}`}
                   className={cn(
                     "flex cursor-default items-center gap-2 rounded-[calc(var(--an-tool-border-radius)-4px)] px-2 py-1",
                     "hover:bg-muted/50"

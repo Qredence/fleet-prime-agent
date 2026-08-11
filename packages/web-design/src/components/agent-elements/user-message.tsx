@@ -112,12 +112,24 @@ export const UserMessage = memo(function UserMessage({
       {images.length > 0 &&
         images.map((url, i) => (
           <div
-            key={i}
+            key={url}
             className={cn(
               "max-w-[200px] rounded-an-message bg-an-foreground/4 p-1.5",
               enableImagePreview && "cursor-pointer"
             )}
             onClick={enableImagePreview ? () => setLightboxIndex(i) : undefined}
+            role={enableImagePreview ? "button" : undefined}
+            tabIndex={enableImagePreview ? 0 : undefined}
+            onKeyDown={
+              enableImagePreview
+                ? (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      setLightboxIndex(i)
+                    }
+                  }
+                : undefined
+            }
           >
             <img
               src={url}
@@ -138,7 +150,7 @@ export const UserMessage = memo(function UserMessage({
         <div className="flex flex-col items-end gap-2">
           {files.map((file, i) => (
             <FileAttachment
-              key={`${file.filename}-${i}`}
+              key={`${file.filename}-${file.size}`}
               id={`${file.filename}-${i}`}
               filename={file.filename}
               size={file.size}
