@@ -219,7 +219,7 @@ const TOOL_CALL_KEY_PREFIX = "tool-call:"
 const UNKEYED_TOOL_KEY_PREFIX = "unkeyed-tool:"
 
 /**
- * Keeps tool-call IDs authoritative while using a disjoint render-key namespace
+ * Keeps non-empty tool-call IDs authoritative while using a disjoint render-key namespace
  * for append-stable identities of unkeyed protocol fragments.
  */
 export function getAssistantToolElementKey(
@@ -227,7 +227,7 @@ export function getAssistantToolElementKey(
   part: ToolPartBase,
   occurrence: number
 ) {
-  if (part.toolCallId !== undefined) {
+  if (part.toolCallId) {
     return `${TOOL_CALL_KEY_PREFIX}${part.toolCallId}`
   }
 
@@ -348,7 +348,7 @@ export function buildAssistantElements(
         unkeyedToolOccurrences.set(part.type, occurrence + 1)
       }
 
-      // toolCallId remains authoritative. Unkeyed fallback keys assume the
+      // Non-empty toolCallId values remain authoritative. Unkeyed fallback keys assume the
       // protocol only appends fragments; reordering unkeyed fragments is unsupported.
       elems.push(
         <ToolRendererComponent

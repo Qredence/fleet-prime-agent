@@ -51,6 +51,14 @@ assert.equal(
 assert.equal(
   getAssistantToolElementKey(
     "message-1",
+    { type: "tool-Task", toolCallId: "" },
+    0
+  ),
+  "unkeyed-tool:message-1:tool-Task:0"
+)
+assert.equal(
+  getAssistantToolElementKey(
+    "message-1",
     { type: "tool-Task", toolCallId: "call-42" },
     0
   ),
@@ -70,6 +78,8 @@ const renderedElements = buildAssistantElements(
     { type: "tool-Read", toolCallId: "parent:child" },
     { type: "tool-Task" },
     { type: "tool-Read" },
+    { type: "tool-Task", toolCallId: "" },
+    { type: "tool-Task", toolCallId: "" },
   ],
   {
     messageId: "message-1",
@@ -99,6 +109,8 @@ assert.deepEqual(
     "tool-call:parent",
     "unkeyed-tool:message-1:tool-Task:1",
     "unkeyed-tool:message-1:tool-Read:0",
+    "unkeyed-tool:message-1:tool-Task:2",
+    "unkeyed-tool:message-1:tool-Task:3",
   ]
 )
 
