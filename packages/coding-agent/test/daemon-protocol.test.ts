@@ -45,8 +45,9 @@ describe("daemon protocol helpers", () => {
 	});
 
 	it("requires compatibility metadata for the heartbeat protocol surface", () => {
-		expect(DAEMON_PROTOCOL_VERSION).toBe(7);
+		expect(DAEMON_PROTOCOL_VERSION).toBe(8);
 		expect(DAEMON_SCHEMA_ID).toContain(`protocol-${DAEMON_PROTOCOL_VERSION}`);
+		expect(DAEMON_SCHEMA_REVISION).toBe(15);
 		expect(DAEMON_COMMAND_COMPATIBILITY.heartbeats_list).toEqual({
 			minProtocol: 7,
 			capability: "heartbeat_catalog",
@@ -110,6 +111,25 @@ describe("daemon protocol helpers", () => {
 				telemetryDisabled: true,
 			}),
 		).toEqual([{ minProtocol: 7, minSchemaRevision: 14 }, { minProtocol: 7 }]);
+	});
+
+	it("version-gates new_session seedMessages while keeping bare new_session on protocol 7", () => {
+		expect(DAEMON_COMMAND_COMPATIBILITY.new_session).toEqual({ minProtocol: 7 });
+		expect(getDaemonCommandCompatibilities({ type: "new_session", activeSessionId: "active-1" })).toEqual([
+			{ minProtocol: 7 },
+		]);
+		expect(
+			getDaemonCommandCompatibilities({
+				type: "new_session",
+				activeSessionId: "active-1",
+				seedMessages: [{ role: "user", text: "seed" }],
+			}),
+		).toEqual([{ minProtocol: 8, minSchemaRevision: 15 }, { minProtocol: 7 }]);
+		const oldClientNewSession: DaemonCommand = {
+			type: "new_session",
+			activeSessionId: "active-1",
+		};
+		expect(oldClientNewSession).not.toHaveProperty("seedMessages");
 	});
 
 	it("version- and capability-gates prompt admission cancellation", () => {

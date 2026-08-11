@@ -106,10 +106,8 @@ export {
 	type InteractiveModeRunResult,
 } from "./interactive/interactive-mode.js";
 export {
-	createInteractiveModeLocalSessionHost,
 	createInteractiveModeUiServices,
 	createInteractiveModeUiServicesFromServices,
-	type InteractiveModeLocalSessionHost,
 	type InteractiveModeUiServices,
 } from "./interactive/interactive-mode-services.js";
 export {

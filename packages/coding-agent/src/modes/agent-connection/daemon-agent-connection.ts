@@ -125,11 +125,14 @@ function formatErrorSentence(error: unknown): string {
 
 /**
  * Process-local extension surface on daemon transports: every member throws
- * until the wire protocol grows the matching commands.
+ * AgentConnectionUnsupportedError (executable callbacks cannot cross the wire).
  */
 function createUnsupportedExtensionsSurface(): AgentConnectionExtensions {
 	const unsupported = (feature: string): never => {
-		throw new AgentConnectionUnsupportedError(`${feature} requires DAEMON_PROTOCOL_VERSION >= 8`, feature);
+		throw new AgentConnectionUnsupportedError(
+			`${feature} is process-local; daemon adapters throw AgentConnectionUnsupportedError`,
+			feature,
+		);
 	};
 	return {
 		getArgumentCompletions: (_commandName, _argumentPrefix) => unsupported("extensions.getArgumentCompletions"),
@@ -468,7 +471,7 @@ export class DaemonAgentConnection implements AgentConnection {
 	getAbortSignal(): AbortSignal | undefined {
 		// AbortSignals cannot cross the daemon socket; abort via abort() instead.
 		throw new AgentConnectionUnsupportedError(
-			"getAbortSignal requires DAEMON_PROTOCOL_VERSION >= 8",
+			"getAbortSignal is process-local; daemon adapters throw AgentConnectionUnsupportedError",
 			"getAbortSignal",
 		);
 	}
@@ -480,14 +483,14 @@ export class DaemonAgentConnection implements AgentConnection {
 
 	getReadonlySessionManager(): ReadonlySessionManager {
 		throw new AgentConnectionUnsupportedError(
-			"getReadonlySessionManager requires DAEMON_PROTOCOL_VERSION >= 8",
+			"getReadonlySessionManager is process-local; daemon adapters throw AgentConnectionUnsupportedError",
 			"getReadonlySessionManager",
 		);
 	}
 
 	getSystemPromptSync(): string {
 		throw new AgentConnectionUnsupportedError(
-			"getSystemPromptSync requires DAEMON_PROTOCOL_VERSION >= 8",
+			"getSystemPromptSync is process-local; daemon adapters throw AgentConnectionUnsupportedError",
 			"getSystemPromptSync",
 		);
 	}
@@ -1135,11 +1138,15 @@ export class DaemonAgentConnection implements AgentConnection {
 		this.assertSeedMessagesSupported(options?.seedMessages, "newSession");
 		this.assertProcessLocalSessionHooks(options, "newSession");
 		const runAfterReplace = this.createAfterReplaceHook(options?.afterReplace);
-		const result = await this.requestData<{ cancelled: boolean }>({
+		const command: Extract<DaemonCommand, { type: "new_session" }> = {
 			type: "new_session",
 			activeSessionId: this.activeSessionId,
 			parentSession: options?.parentSession,
-		});
+		};
+		if (options?.seedMessages && options.seedMessages.length > 0) {
+			command.seedMessages = options.seedMessages;
+		}
+		const result = await this.requestData<{ cancelled: boolean }>(command);
 		if (!result.cancelled) {
 			await runAfterReplace?.();
 		}
@@ -2055,7 +2062,7 @@ export class DaemonAgentConnection implements AgentConnection {
 				const state = await this.getState();
 				if (!state.sessionDir) {
 					throw new AgentConnectionUnsupportedError(
-						"sessionView.getSessionDir requires DAEMON_PROTOCOL_VERSION >= 8",
+						"sessionView.getSessionDir is unavailable: connection state has no sessionDir",
 						"sessionView.getSessionDir",
 					);
 				}
@@ -2100,12 +2107,15 @@ export class DaemonAgentConnection implements AgentConnection {
 	}
 
 	/**
-	 * seedMessages mutate the fresh SessionManager before the swap resolves;
-	 * that write has no wire command yet, so fail fast rather than silently
-	 * starting an unseeded session.
+	 * seedMessages requires protocol >= 8. Older daemons would ignore the field
+	 * and start an unseeded session, so fail fast with UnsupportedError.
 	 */
 	private assertSeedMessagesSupported(seedMessages: AgentConnectionSeedMessage[] | undefined, feature: string): void {
-		if (seedMessages && seedMessages.length > 0) {
+		if (!seedMessages || seedMessages.length === 0) {
+			return;
+		}
+		const protocolVersion = this.client.hello?.protocol.version ?? 0;
+		if (protocolVersion < 8) {
 			throw new AgentConnectionUnsupportedError(
 				`${feature} seedMessages requires DAEMON_PROTOCOL_VERSION >= 8`,
 				`${feature}.seedMessages`,

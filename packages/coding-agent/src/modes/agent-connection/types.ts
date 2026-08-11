@@ -43,8 +43,8 @@ import type { SessionStats } from "../../core/session-stats.js";
  * Keep runtime ownership details out of this contract. InteractiveMode must not
  * receive AgentSessionRuntime, AgentSession, SessionManager, daemon socket
  * clients, in-process event emitters, or executable callbacks through
- * AgentConnection. Local-only compatibility hooks belong in adapter/service
- * layers such as InteractiveModeLocalSessionHost.
+ * AgentConnection. Process-local extension surface lives on
+ * `AgentConnection.extensions` (daemon adapters throw AgentConnectionUnsupportedError).
  *
  * Transitional note: AgentEvent and AgentMessage are still reused below so this
  * PR can move the TUI behind a boundary without rewriting the transcript
@@ -723,15 +723,13 @@ export interface AgentConnectionSessionView {
 export type AgentConnectionToolRendererDefinition = Pick<ToolDefinition, "renderCall" | "renderResult" | "renderShell">;
 
 /**
- * Process-local extension surface, grouped under one sub-interface so the
- * host-replacement work can delete InteractiveModeLocalSessionHost without
- * growing the top-level AgentConnection method count.
+ * Process-local extension surface, grouped under one sub-interface so callers
+ * keep executable callbacks off the top-level AgentConnection method count.
  *
- * These members are only meaningful in-process: they expose executable
- * callbacks (argument completions, tool renderers) and process state
- * (extension bindings, shortcuts) that cannot cross a network boundary.
- * Daemon-backed adapters throw AgentConnectionUnsupportedError until a
- * wire protocol version covers them.
+ * These members are permanently process-local: they expose executable
+ * callbacks (argument completions, tool renderers, keyboard shortcut handlers)
+ * and process state (extension bindings) that cannot cross a network boundary.
+ * Daemon-backed adapters throw AgentConnectionUnsupportedError.
  */
 export interface AgentConnectionExtensions {
 	getArgumentCompletions(commandName: string, argumentPrefix: string): Promise<AutocompleteItem[] | null>;
@@ -756,7 +754,7 @@ export interface AgentConnection {
 	subscribe(listener: AgentConnectionEventListener): () => void;
 	onBeforeSessionInvalidate(listener: AgentConnectionBeforeSessionInvalidateListener): () => void;
 
-	/** Process-local extension surface; daemon adapters report unsupported until the wire catches up. */
+	/** Process-local extension surface; daemon adapters throw AgentConnectionUnsupportedError. */
 	readonly extensions: AgentConnectionExtensions;
 	getState(): Promise<AgentConnectionState>;
 	getInitialSnapshot(): Promise<AgentConnectionSnapshot>;

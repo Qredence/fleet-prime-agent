@@ -11,8 +11,8 @@ The single client-side seam between any front end (terminal, RPC, web) and the a
 _Avoid_: host, bridge (except historical), direct session access
 
 **extensions** (sub-interface on AgentConnection):
-The narrow projection of extension-runtime surface (argument completions, diagnostics, shortcuts, message renderers, `bindExtensions`) exposed to clients. Process-local by nature; kept behind its own group on `AgentConnection` so the top-level seam stays small.
-_Avoid_: ExtensionRunner (the runtime-internal implementation name), "host" API
+The narrow projection of extension-runtime surface (argument completions, diagnostics, shortcuts with handlers, message/tool renderers, `bindExtensions`) exposed to clients. Permanently process-local; daemon adapters throw `AgentConnectionUnsupportedError`. Related process-local top-level members: `getAbortSignal`, `getReadonlySessionManager`, `getSystemPromptSync`, `setup`, `withSession`.
+_Avoid_: ExtensionRunner (the runtime-internal implementation name), "host" API, inventing wire shapes for executable callbacks
 
 **SessionView**:
 Read-only, serializable projection of `AgentSession` — cwd, session dir, header, context-tree walks, and session-file materialization. Deliberately excludes mutation and anything that needs the live `SessionManager` or `ExtensionRunner`.
@@ -27,7 +27,7 @@ The single supported shape for client-side work that must run immediately after 
 _Avoid_: withSession (legacy), setup, seed hook
 
 **seedMessages**:
-The supported way to populate a freshly-created session with initial user/assistant messages without a raw session handle. Passed to `newSession` as part of the client-visible options bag.
+The supported way to populate a freshly-created session with initial user/assistant messages without a raw session handle. Passed to `newSession` as part of the client-visible options bag; daemon `new_session` carries them on protocol >= 8.
 _Avoid_: setup, bootstrap, new-session script
 
 ### Anti-terms (removed from the language)

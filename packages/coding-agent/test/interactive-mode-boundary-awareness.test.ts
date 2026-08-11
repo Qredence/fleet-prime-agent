@@ -1,6 +1,6 @@
 /**
  * Behavioral boundary awareness: InteractiveMode must reach extension /
- * session reads through AgentConnection, not InteractiveModeLocalSessionHost.
+ * session reads through AgentConnection, not a deleted local session host.
  *
  * Complements interactive-mode-boundary.test.ts (import lint) with a throwing
  * fake that fails loudly if a migrated path still touches a host-only shape.
@@ -75,7 +75,7 @@ describe("interactive-mode boundary awareness", () => {
 
 	test("daemon-shaped unsupported errors are distinguishable", () => {
 		const error = new AgentConnectionUnsupportedError(
-			"extensions.bindExtensions requires DAEMON_PROTOCOL_VERSION >= 8",
+			"extensions.bindExtensions is process-local; daemon adapters throw AgentConnectionUnsupportedError",
 			"extensions.bindExtensions",
 		);
 		expect(error).toBeInstanceOf(AgentConnectionUnsupportedError);

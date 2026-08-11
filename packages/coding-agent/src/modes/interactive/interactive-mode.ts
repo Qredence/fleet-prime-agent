@@ -961,7 +961,8 @@ export class InteractiveMode {
 	 * Async-fetched extension command+shortcut diagnostics. The extension surface
 	 * reads are async (connection boundary), so they are refreshed ahead of render
 	 * and cached here; diagnostic rendering stays synchronous. Daemon transports
-	 * leave this empty (their surface throws Unsupported until PR3).
+	 * leave this empty (extensions are process-local; daemon adapters throw
+	 * AgentConnectionUnsupportedError).
 	 */
 	private extensionRuntimeDiagnostics: AgentConnectionResourceDiagnostic[] = [];
 	/**
@@ -1036,9 +1037,9 @@ export class InteractiveMode {
 
 	/**
 	 * Wrap a synchronous extension-surface read so daemon/gateway-backed
-	 * connections (whose `extensions` members throw AgentConnectionUnsupportedError
-	 * until the wire protocol covers them) degrade to the fallback instead of
-	 * blowing up the interactive UI. PR3 removes this dual-shape entirely.
+	 * connections (whose `extensions` members throw AgentConnectionUnsupportedError —
+	 * process-local; daemon adapters throw AgentConnectionUnsupportedError)
+	 * degrade to the fallback instead of blowing up the interactive UI.
 	 */
 	private tryExtensionSurface<T>(read: () => T, fallback: T): T {
 		try {
@@ -1328,7 +1329,7 @@ export class InteractiveMode {
 				sourceTag: this.getAutocompleteSourceLabel(cmd.sourceInfo),
 				// Argument completions resolve through the connection's extension surface
 				// (invocation-name lookup); daemon transports degrade to no completions
-				// until the wire protocol covers them (PR3).
+				// (process-local; daemon adapters throw AgentConnectionUnsupportedError).
 				getArgumentCompletions: this.bindLocalSessionExtensions
 					? (argumentPrefix: string) =>
 							this.tryExtensionSurfaceAsync(

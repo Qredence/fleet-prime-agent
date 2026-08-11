@@ -118,6 +118,7 @@ import { resolveSessionPath } from "../../core/session-resolver.js";
 import type { SessionStats } from "../../core/session-stats.js";
 import { type SideQuestionRun, startSideQuestion } from "../../core/side-question.js";
 import { killTrackedDetachedChildren } from "../../utils/shell.js";
+import { seedMessageToSessionMessage } from "../agent-connection/seed-messages.js";
 import {
 	createAgentConnectionCommands,
 	createAgentConnectionResourceSnapshot,
@@ -4385,7 +4386,22 @@ export class AgentDaemon {
 
 			case "new_session": {
 				const state = this.getSessionState(command.activeSessionId);
-				const options = command.parentSession ? { parentSession: command.parentSession } : undefined;
+				const seedMessages = command.seedMessages;
+				const setup =
+					seedMessages && seedMessages.length > 0
+						? async (sessionManager: SessionManager) => {
+								for (const message of seedMessages) {
+									sessionManager.appendMessage(seedMessageToSessionMessage(message));
+								}
+							}
+						: undefined;
+				const options =
+					command.parentSession || setup
+						? {
+								...(command.parentSession ? { parentSession: command.parentSession } : {}),
+								...(setup ? { setup } : {}),
+							}
+						: undefined;
 				const result = await state.runtime.newSession(options);
 				this.rebindCronJobsToState(state);
 				return success(command.id, "new_session", result);

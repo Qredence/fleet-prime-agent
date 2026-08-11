@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { ImageContent, Message as PiAiMessage, ServiceTier, Transport, UserMessage } from "@earendil-works/pi-ai";
+import type { ImageContent, ServiceTier, Transport } from "@earendil-works/pi-ai";
 import type { AgentSessionMessageReceipt, AgentSessionMessageSafetyStatus } from "../../core/agent-messages.js";
 import type { AgentSessionRuntime } from "../../core/agent-session-runtime.js";
 import type { AgentAutonomousStatus } from "../../core/autonomous.js";
@@ -20,6 +20,7 @@ import { type ReadonlySessionManager, SessionManager } from "../../core/session-
 import type { SessionStats } from "../../core/session-stats.js";
 import { type SideQuestionRun, startSideQuestion } from "../../core/side-question.js";
 import { waitForHeadlessCompletion } from "../headless-completion.js";
+import { seedMessageToSessionMessage } from "./seed-messages.js";
 import {
 	createAgentConnectionCommands,
 	createAgentConnectionResourceSnapshot,
@@ -51,7 +52,6 @@ import type {
 	AgentConnectionSavedSessionInfo,
 	AgentConnectionSavedSessionScope,
 	AgentConnectionScopedModel,
-	AgentConnectionSeedMessage,
 	AgentConnectionSessionContext,
 	AgentConnectionSessionHeader,
 	AgentConnectionSessionListCallbacks,
@@ -71,18 +71,6 @@ import type {
 export interface InProcessHeadlessExtensionOptions {
 	uiContext?: ExtensionUIContext;
 	shutdownHandler?: () => void;
-}
-
-function seedMessageToSessionMessage(seed: AgentConnectionSeedMessage): PiAiMessage {
-	if (seed.role === "user") {
-		return { role: "user", content: seed.text, timestamp: Date.now() } satisfies UserMessage;
-	}
-	return {
-		role: "assistant",
-		content: [{ type: "text", text: seed.text }],
-		stopReason: "stop",
-		timestamp: Date.now(),
-	} as PiAiMessage;
 }
 
 export class InProcessAgentConnection implements AgentConnection {
