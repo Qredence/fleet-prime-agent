@@ -181,6 +181,18 @@ export const AssistantTurn = memo(function AssistantTurn({
   )
 })
 
+/**
+ * Keeps tool-call IDs authoritative and assigns append-stable identities to
+ * unkeyed protocol fragments of the same tool type.
+ */
+export function getAssistantToolElementKey(
+  messageId: string,
+  part: ToolPartBase,
+  occurrence: number
+) {
+  return part.toolCallId ?? `${messageId}:tool:${part.type}:${occurrence}`
+}
+
 type BuildAssistantElementsOptions = {
   messageId: string
   isLast: boolean
@@ -228,6 +240,7 @@ export function buildAssistantElements(
   )
   const nestedToolsMap = new Map<string, Array<ToolPartBase>>()
   const nestedToolIds = new Set<string>()
+  const unkeyedToolOccurrences = new Map<string, number>()
 
   for (const part of parts) {
     if (!isV5ToolPart(part)) continue
@@ -287,9 +300,18 @@ export function buildAssistantElements(
         (part.type === "tool-Task" || part.type === "tool-Agent") && toolCallId
           ? nestedToolsMap.get(toolCallId) || []
           : undefined
+      const occurrence = part.toolCallId
+        ? 0
+        : (unkeyedToolOccurrences.get(part.type) ?? 0)
+      if (!part.toolCallId) {
+        unkeyedToolOccurrences.set(part.type, occurrence + 1)
+      }
+
+      // toolCallId remains authoritative. Unkeyed fallback keys assume the
+      // protocol only appends fragments; reordering unkeyed fragments is unsupported.
       elems.push(
         <ToolRendererComponent
-          key={part.toolCallId ?? `${messageId}-tool-${i}`}
+          key={getAssistantToolElementKey(messageId, part, occurrence)}
           part={part}
           nestedTools={nestedTools}
           chatStatus={chatStreamingStatus}

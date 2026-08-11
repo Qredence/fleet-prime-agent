@@ -22,6 +22,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "check:message-identities": "tsx scripts/message-turn-identity-check.tsx",
     "check:openui": "tsx scripts/openui-render-check.tsx",
     "generate:openui-signatures": "tsx scripts/generate-openui-signatures.ts"
   },

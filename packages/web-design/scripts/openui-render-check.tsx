@@ -28,6 +28,7 @@ import {
 	formatPercent,
 } from "../src/components/openui/data";
 import { openUILibrary } from "../src/components/openui/openui-library";
+import { segmentOpenUIContent } from "../src/components/openui/openui-utils";
 
 // --- happy-dom window + node globalThis shims ---
 const win = new Window();
@@ -144,8 +145,34 @@ function assertEqual(actual: unknown, expected: unknown, label: string) {
 	}
 }
 
-// --- Unit asserts: data.tsx pure helpers (Task 2 contract) ---
-console.log("UNIT ASSERTS (data.tsx helpers):");
+// --- Unit asserts: segment identity invariants + data.tsx pure helpers ---
+console.log("UNIT ASSERTS (OpenUI segment identities + data.tsx helpers):");
+
+assertEqual(
+	segmentOpenUIContent("Intro\n```openui\nroot = Root([])\n```\nOutro").map(({ id, type }) => ({ id, type })),
+	[
+		{ id: "markdown-0", type: "markdown" },
+		{ id: "openui-0", type: "openui" },
+		{ id: "markdown-1", type: "markdown" },
+	],
+	"fenced OpenUI segments receive stable type-ordinal IDs",
+);
+assertEqual(
+	segmentOpenUIContent("```openui\nroot = Root([])\n```\n```openui\nroot = Root([])\n```").map(({ id, type }) => ({
+		id,
+		type,
+	})),
+	[
+		{ id: "openui-0", type: "openui" },
+		{ id: "openui-1", type: "openui" },
+	],
+	"completed OpenUI blocks retain sequential identities",
+);
+assertEqual(
+	segmentOpenUIContent("root = Root([])").map(({ id, type }) => ({ id, type })),
+	[{ id: "openui-0", type: "openui" }],
+	"raw OpenUI programs receive the first OpenUI identity",
+);
 
 assertEqual(formatCurrency(12000), "$12,000", "formatCurrency(12000)");
 assertEqual(formatPercent(0.124), "12.4%", "formatPercent(0.124)");
