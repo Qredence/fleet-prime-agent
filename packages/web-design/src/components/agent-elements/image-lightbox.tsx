@@ -101,19 +101,20 @@ export function ImageLightbox({
     if (dialogRef.current && event.target === dialogRef.current) onClose()
   })
 
+  // The dialog is not in the tree while `open` is false, so these must rerun
+  // when it mounts: empty-deps effects see a null ref on the first render.
   useEffect(() => {
+    if (!open) return
     const dialog = dialogRef.current
     if (!dialog) return
+    if (!dialog.open) dialog.showModal()
     const handler = (event: MouseEvent) => onLightDismiss(event)
     dialog.addEventListener("click", handler)
-    return () => dialog.removeEventListener("click", handler)
-  }, [])
-
-  // Mount the native modal as soon as the portal attaches (focus trap,
-  // native Esc/cancel handling).
-  useEffect(() => {
-    dialogRef.current?.showModal()
-  }, [])
+    return () => {
+      dialog.removeEventListener("click", handler)
+      if (dialog.open) dialog.close()
+    }
+  }, [open])
 
   if (typeof document === "undefined") return null
   if (!open) return null
