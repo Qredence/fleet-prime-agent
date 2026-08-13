@@ -1,0 +1,12 @@
+{
+	"name": "@prime-agent/web-workspace",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@11.15.1",
+	"scripts": {
+		"dev": "pnpm --filter @prime-agent/web dev",
+		"typecheck": "pnpm -r --if-present typecheck",
+		"test": "pnpm --filter @prime-agent/web-server test",
+		"check:rendering": "pnpm --filter @prime-agent/web-design run check:message-identities && pnpm --filter @prime-agent/web-design run check:openui"
+	}
+}

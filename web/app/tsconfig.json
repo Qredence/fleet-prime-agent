@@ -1,0 +1,40 @@
+{
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "playwright/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/routeTree.gen.ts"
+  ],
+  "compilerOptions": {
+    "target": "ES2022",
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "node"],
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "allowJs": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@prime-agent/web-design/*": ["../design/src/*"],
+      "@prime-agent/web-protocol/*": ["../protocol/src/*"],
+      "@prime-agent/web-server": ["../server/src/index.ts"]
+    }
+  }
+}
