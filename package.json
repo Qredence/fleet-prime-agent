@@ -20,6 +20,7 @@
 		"dev:web": "pnpm --dir web --filter @prime-agent/web dev",
 		"check:rendering": "pnpm --dir web --filter @prime-agent/web-design run check:message-identities && pnpm --dir web --filter @prime-agent/web-design run check:openui",
 		"check:web": "pnpm --dir web run typecheck",
+		"test:web": "pnpm --dir web test",
 		"profile:tui": "node scripts/profile-coding-agent-node.mjs --mode tui",
 		"profile:rpc": "node scripts/profile-coding-agent-node.mjs --mode rpc",
 		"test": "npm run test --workspaces --if-present",
