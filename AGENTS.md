@@ -7,19 +7,35 @@
 - No emojis in commits, issues, PR comments, or code
 - Technical prose only, be kind but direct (e.g., "Thanks @user" not "Thanks so much @user!")
 
-## Web adapter (`../web/`)
+## Web interface (`web/`)
 
-- The prime-agent web frontend lives outside this repo at `../web/`. It drives
-  `@earendil-works/pi-coding-agent` via `createAgentSession()` and
-  `ExtensionUIContext` (see `../web/server/prime-bridge.ts`).
-- When a change in `packages/coding-agent` touches the public surface the web
-  adapter consumes — `createAgentSession`, `AgentSessionEvent`, `ExtensionUIContext`,
-  `IpythonKernelProvisioner`, `SessionManager` — update
-  `../web/server/event-mapper.ts` and/or `../web/server/prime-bridge.ts` in the
-  same change.
-- Chat wire contract lives in `../web/packages/protocol/src/chat-protocol.ts`;
-  the web side translates `AgentSessionEvent → ChatStreamEvent` in
-  `event-mapper.ts`.
+This repo's web UI is a standalone Qredence product. It is not merged into
+upstream `PrimeIntellect-ai/prime-agent`. In-tree `packages/coding-agent` is the
+backend; the web stack is the interface.
+
+- Interface: `web/app` (TanStack Start) + `web/design`
+- Adapter: `web/server` (`prime-bridge.ts`, `event-mapper.ts`, HTTP handlers)
+- Contract: `web/protocol/src/chat-protocol.ts`
+- Browser code talks HTTP (NDJSON + SSE) only. Do not import `@earendil-works/*`
+  from `web/app/src` or `web/design`.
+- When a change in `packages/coding-agent` touches the public surface the adapter
+  consumes — `createAgentSession`, `AgentSessionEvent`, `ExtensionUIContext`,
+  `IpythonKernelProvisioner`, `SessionManager` — update `web/server`
+  in the same change. Do not add web-specific exports to coding-agent.
+
+Prime Agent lives under `packages/` (npm workspaces). The Qredence UI lives
+under `web/` (pnpm workspace). Merge `PrimeIntellect-ai/prime-agent` into
+`packages/{ai,agent,tui,coding-agent}` only — never into `web/`.
+
+Install: `npm install` at the repo root, then `pnpm install` in `web/`. Never
+`npm install` inside `web/`, and never `pnpm install` at the repo root.
+pnpm 11 settings live in `web/pnpm-workspace.yaml` (not `.npmrc`).
+
+`web/server` links `@earendil-works/*` with pnpm `link:` (not `file:`) so
+nested agent deps resolve through the root npm tree. Do not add
+`packages/{ai,agent,tui,coding-agent}` to `web/pnpm-workspace.yaml`.
+
+Dev: `pnpm --dir web --filter @prime-agent/web dev` (or `npm run dev:web`).
 
 ## Code Quality
 
