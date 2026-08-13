@@ -19,6 +19,120 @@ import type { ToolRendererProps } from "./utils/chat-message-parts"
 import type { CustomToolRendererProps } from "./types"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 
+type UserMessageComponent = React.ComponentType<{
+  message: ChatMessage
+  className?: string
+  enableImagePreview?: boolean
+}>
+
+type TextRendererComponent = React.ComponentType<{
+  content: string
+  className?: string
+  isStreaming?: boolean
+  messageId?: string
+  onOpenUIAction?: (message: string) => void
+}>
+
+type UserTurnDisplayChrome = {
+  enableImagePreview: boolean
+  showCopyToolbar: boolean
+  isMounted: boolean
+}
+
+type AssistantTurnChrome = {
+  isStreaming: boolean
+  copyEnabled: boolean
+  suppressQuestionTool: boolean
+}
+
+const MemoUserTurn = memo(function MemoUserTurn({
+  message,
+  UserMessageComponent,
+  userMessageClassName,
+  displayChrome,
+  copyKey,
+  activeCopyId,
+  onCopied,
+}: {
+  message: ChatMessage
+  UserMessageComponent: UserMessageComponent
+  userMessageClassName?: string
+  displayChrome: UserTurnDisplayChrome
+  copyKey: string
+  activeCopyId: string | null
+  onCopied: (id: string) => void
+}) {
+  const isCopyVisible = activeCopyId === copyKey
+  const display = useMemo(
+    () => ({ ...displayChrome, isCopyVisible }),
+    [displayChrome, isCopyVisible]
+  )
+  return (
+    <UserTurn
+      message={message}
+      UserMessageComponent={UserMessageComponent}
+      userMessageClassName={userMessageClassName}
+      display={display}
+      onCopied={onCopied}
+    />
+  )
+})
+
+const MemoAssistantTurn = memo(function MemoAssistantTurn({
+  assistantMsgs,
+  turnKey,
+  isLast,
+  chrome,
+  copyKey,
+  activeCopyId,
+  ToolRendererComponent,
+  TextRendererComponent,
+  toolRenderers,
+  onOpenUIAction,
+  onCopied,
+}: {
+  assistantMsgs: Array<ChatMessage>
+  turnKey: string
+  isLast: boolean
+  chrome: AssistantTurnChrome
+  copyKey: string
+  activeCopyId: string | null
+  ToolRendererComponent: React.ComponentType<ToolRendererProps>
+  TextRendererComponent: TextRendererComponent
+  toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
+  onOpenUIAction?: (message: string) => void
+  onCopied: (id: string) => void
+}) {
+  const { isStreaming, copyEnabled, suppressQuestionTool } = chrome
+  const isCopyVisible = activeCopyId === copyKey
+  const stream = useMemo(
+    () => ({ isLast, isStreaming }),
+    [isLast, isStreaming]
+  )
+  const copy = useMemo(
+    () => ({ enabled: copyEnabled, isVisible: isCopyVisible }),
+    [copyEnabled, isCopyVisible]
+  )
+  const display = useMemo(
+    () => ({ suppressQuestionTool }),
+    [suppressQuestionTool]
+  )
+  return (
+    <AssistantTurn
+      assistantMsgs={assistantMsgs}
+      turnKey={turnKey}
+      stream={stream}
+      copy={copy}
+      display={display}
+      ToolRendererComponent={ToolRendererComponent}
+      TextRendererComponent={TextRendererComponent}
+      toolRenderers={toolRenderers}
+      onOpenUIAction={onOpenUIAction}
+      onCopied={onCopied}
+    />
+  )
+})
+
 export type MessageListProps = {
   messages: Array<ChatMessage>
   status: ChatStatus
@@ -203,6 +317,18 @@ export const MessageList = memo(function MessageList({
   })
 
   const planningLabel = "Processing..."
+  const userDisplayChrome = useMemo(
+    () => ({ enableImagePreview, showCopyToolbar, isMounted }),
+    [enableImagePreview, showCopyToolbar, isMounted]
+  )
+  const assistantChrome = useMemo(
+    () => ({
+      isStreaming,
+      copyEnabled: showCopyToolbar,
+      suppressQuestionTool,
+    }),
+    [isStreaming, showCopyToolbar, suppressQuestionTool]
+  )
   const isNewAssistantMessage =
     lastMessageRole === "assistant" &&
     Boolean(lastMessageId) &&
@@ -239,33 +365,26 @@ export const MessageList = memo(function MessageList({
                 }
               >
                 {turn.userMsg && (
-                  <UserTurn
+                  <MemoUserTurn
                     message={turn.userMsg}
                     UserMessageComponent={CustomUserMessage}
                     userMessageClassName={classNames?.userMessage}
-                    display={{
-                      enableImagePreview,
-                      showCopyToolbar,
-                      isMounted,
-                      isCopyVisible:
-                        activeCopyId === `user-${turn.userMsg.id}`,
-                    }}
+                    displayChrome={userDisplayChrome}
+                    copyKey={`user-${turn.userMsg.id}`}
+                    activeCopyId={activeCopyId}
                     onCopied={markCopied}
                   />
                 )}
 
                 {turn.assistantMsgs.length > 0 &&
                   !(isLastTurn && showPlanning) && (
-                    <AssistantTurn
+                    <MemoAssistantTurn
                       assistantMsgs={turn.assistantMsgs}
                       turnKey={turnKey}
-                      stream={{ isLast: isLastTurn, isStreaming }}
-                      copy={{
-                        enabled: showCopyToolbar,
-                        isVisible:
-                          activeCopyId === `assistant-${turnKey}-all`,
-                      }}
-                      display={{ suppressQuestionTool }}
+                      isLast={isLastTurn}
+                      chrome={assistantChrome}
+                      copyKey={`assistant-${turnKey}-all`}
+                      activeCopyId={activeCopyId}
                       ToolRendererComponent={CustomToolRenderer}
                       TextRendererComponent={CustomTextRenderer}
                       toolRenderers={toolRenderers}

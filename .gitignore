@@ -21,6 +21,7 @@ packages/*/dist-firefox/
 *.swo
 *~
 
+.agents/skills
 # Package specific
 .npm/
 coverage/

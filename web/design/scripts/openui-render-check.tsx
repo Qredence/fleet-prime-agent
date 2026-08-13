@@ -33,6 +33,7 @@ import {
 	stripOpenUIWrapper,
 } from "../src/components/openui/openui-utils";
 import type { OpenUIContentSegment } from "../src/components/openui/openui-utils";
+import { sanitizeChartColor } from "../src/components/chart";
 
 // --- happy-dom window + node globalThis shims ---
 const win = new Window();
@@ -123,7 +124,7 @@ const payload = [
 	'sel = Select("s", $s, [{"value": "a", "label": "A"}], "Pick")',
 	'sw = Switch("on", $on, "Toggle")',
 	'mdl = Modal("m", $on, "Confirm", "body text")',
-	'traffic = LineChart("Traffic", "Weekly visits", "week", [{"dataKey":"visits","label":"Visits"}], [{"week":"W1","visits":10},{"week":"W2","visits":24},{"week":"W3","visits":18}])',
+	'traffic = LineChart("Traffic", "Weekly visits", "week", [{"dataKey":"visits","label":"Visits","color":"red;}</style><img src=x onerror=alert(1)>"},{"dataKey":"views","label":"Views","color":"var(--chart-1)"}], [{"week":"W1","visits":10,"views":5},{"week":"W2","visits":24,"views":8},{"week":"W3","visits":18,"views":6}])',
 	'share = DonutChart("Share", null, [{"label":"Alpha","value":40},{"label":"Beta","value":60}], "100%")',
 	'scores = DataTable("Scores", [{"key":"name","label":"Name"},{"key":"points","label":"Points","type":"number"}], [{"name":"Ada","points":7},{"name":"Bo","points":12}])',
 	'kpis = MetricGroup([{"label":"Users","value":"12,403","delta":"+4.2%","deltaTone":"up","sparkline":[3,5,4,8,9]},{"label":"Errors","value":"3","delta":"-66%","deltaTone":"down"}])',
@@ -137,6 +138,21 @@ function assertIncludes(html: string, expected: string) {
 	} else {
 		console.error(`  FAIL html missing "${expected}"`);
 		failures += 1;
+	}
+}
+
+function styleTagContents(html: string): string {
+	return [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)]
+		.map((match) => match[1] ?? "")
+		.join("\n");
+}
+
+function assertExcludes(html: string, unexpected: string, label: string) {
+	if (html.includes(unexpected)) {
+		console.error(`  FAIL ${label} — html contains ${JSON.stringify(unexpected)}`);
+		failures += 1;
+	} else {
+		console.log(`  PASS ${label}`);
 	}
 }
 
@@ -211,6 +227,14 @@ assertEqual(formatCurrency(12000), "$12,000", "formatCurrency(12000)");
 assertEqual(formatPercent(0.124), "12.4%", "formatPercent(0.124)");
 assertEqual(formatPercent(12.4), "12.4%", "formatPercent(12.4)");
 
+assertEqual(sanitizeChartColor("#3b82f6"), "#3b82f6", "sanitizeChartColor hex");
+assertEqual(sanitizeChartColor("var(--chart-1)"), "var(--chart-1)", "sanitizeChartColor CSS variable");
+assertEqual(
+	sanitizeChartColor("red;}</style><img src=x onerror=alert(1)>"),
+	undefined,
+	"sanitizeChartColor rejects style breakout",
+);
+
 assertEqual(cycleSortState("a", null), { key: "a", dir: "asc" }, 'cycleSortState("a", null)');
 assertEqual(
 	cycleSortState("a", { key: "a", dir: "asc" }),
@@ -282,9 +306,14 @@ if (staticHtml.length === 0) {
 }
 console.log("RENDER OK (static)");
 
-for (const expected of ["Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points", "Users", "12,403", "+4.2%", "Errors"]) {
+for (const expected of ["Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points", "Users", "12,403", "+4.2%", "Errors", "var(--chart-1)"]) {
 	assertIncludes(staticHtml, expected);
 }
+assertExcludes(
+	styleTagContents(staticHtml),
+	"</style><img",
+	"malicious chart color does not break out of <style>",
+);
 
 // --- Stage 3: DOM render in happy-dom (flushes effects; recharts SVG paints) ---
 let domHtml = "";
@@ -321,9 +350,15 @@ for (const expected of [
 	"12,403",
 	"+4.2%",
 	"Errors",
+	"var(--chart-1)",
 ]) {
 	assertIncludes(domHtml, expected);
 }
+assertExcludes(
+	styleTagContents(domHtml),
+	"</style><img",
+	"malicious chart color does not break out of <style> (dom)",
+);
 
 if (failures > 0) {
 	console.error(`${failures} assertion(s) failed`);

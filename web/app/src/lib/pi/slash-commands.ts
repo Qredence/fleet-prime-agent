@@ -201,12 +201,6 @@ export function resolveLocalSlashAction(command: string, args = ""): LocalSlashA
 	}
 }
 
-const WEB_BUILTIN_COMMAND_NAMES = new Set(WEB_BUILTIN_SLASH_COMMANDS.map((command) => command.name));
-
-export function isWebBuiltinSlashCommand(commandName: string) {
-	return WEB_BUILTIN_COMMAND_NAMES.has(commandName);
-}
-
 export type SlashCommandSuggestion = {
 	id: string;
 	label: string;

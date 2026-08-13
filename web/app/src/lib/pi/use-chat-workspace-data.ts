@@ -1,3 +1,5 @@
+import type { QuestionAnswer } from "@prime-agent/web-design/components/agent-elements/question/question-prompt";
+import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ChatPiSettingsUpdate, ChatSettingsResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { useQueryClient } from "@tanstack/react-query";
@@ -172,11 +174,18 @@ export function useChatWorkspaceData() {
 	});
 
 	const infoDescription = queueLabel(queue) ?? activityLabel ?? planLabel;
+	const handleQuestionAnswer = useCallback(
+		({ toolCallId, answer }: { toolCallId?: string; answer: QuestionAnswer }) => {
+			void answerQuestion({ toolCallId, answer }).catch((err) => {
+				const message = err instanceof Error ? err.message : String(err);
+				notify.error(message);
+			});
+		},
+		[answerQuestion],
+	);
 	const pendingQuestionBar = usePendingQuestionBar({
 		messages,
-		answerQuestion: ({ toolCallId, answer }) => {
-			void answerQuestion({ toolCallId, answer }).catch(() => undefined);
-		},
+		answerQuestion: handleQuestionAnswer,
 	});
 	const activeSessionLabel = useActiveSessionLabel({
 		activeSessionId: sessionMetadata.sessionId,
@@ -288,6 +297,7 @@ export function useChatWorkspaceData() {
 		commandPaletteOpen,
 		error,
 		handleLocalSlashSubmit,
+		handleQuestionAnswer,
 		handleResourceCanvasResizeStart,
 		handleSlashCommandSelect,
 		handleThemePreferenceChange,

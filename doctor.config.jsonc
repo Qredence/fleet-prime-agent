@@ -94,6 +94,13 @@
 					"src/components/fleet-pi/primitives/centered-loader.tsx"
 				],
 				"rules": ["deslop/unused-file"]
+			},
+			{
+				// Intentional reserved client plan-mode state machine; see
+				// .react-doctor/intentional-exceptions.md §5. Live callers only
+				// import isPlanDecisionToolCall; the rest stays until wired.
+				"files": ["src/lib/pi/plan-state.ts"],
+				"rules": ["deslop/unused-export"]
 			}
 		]
 	}

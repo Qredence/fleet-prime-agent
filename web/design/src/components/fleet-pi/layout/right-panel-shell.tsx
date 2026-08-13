@@ -86,6 +86,7 @@ export function RightPanelShell({
       <OpenProjectFolderDialog
         browseWorkspace={browseWorkspace}
         initialPath={workspaceTree?.root ?? ""}
+        key={openFolderDialog ? (workspaceTree?.root ?? "") : "closed"}
         onOpenChange={setOpenFolderDialog}
         onSelectRoot={setWorkspaceRoot}
         open={openFolderDialog}

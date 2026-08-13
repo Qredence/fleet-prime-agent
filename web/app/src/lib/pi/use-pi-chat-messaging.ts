@@ -145,34 +145,44 @@ export function usePiChatMessaging({
 			setMessagesSynced((current) => [...current, userMessage]);
 			setError(null);
 
-			await client.streamMessage(
-				{
-					message: trimmed,
-					model,
-					sessionFile: sessionMetadataRef.current.sessionFile,
-					sessionId: sessionMetadataRef.current.sessionId,
-					streamingBehavior,
-				},
-				(event) => {
-					if (event.type === "queue") {
-						setQueueSynced({
-							steering: event.steering,
-							followUp: event.followUp,
-						});
-						setActivityLabelSynced(streamingBehavior === "steer" ? "Steered" : "Follow-up queued");
-					}
-					if (event.type === "error") {
-						throw new Error(event.message);
-					}
-				},
-			);
+			try {
+				await client.streamMessage(
+					{
+						message: trimmed,
+						model,
+						sessionFile: sessionMetadataRef.current.sessionFile,
+						sessionId: sessionMetadataRef.current.sessionId,
+						streamingBehavior,
+					},
+					(event) => {
+						if (event.type === "queue") {
+							setQueueSynced({
+								steering: event.steering,
+								followUp: event.followUp,
+							});
+							setActivityLabelSynced(streamingBehavior === "steer" ? "Steered" : "Follow-up queued");
+						}
+						if (event.type === "error") {
+							throw new Error(event.message);
+						}
+					},
+				);
+			} catch (err) {
+				setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
+				throw err;
+			}
 
 			// The steered message is queued server-side, but the `queue` event only
 			// ever lands on the *main* turn's NDJSON stream (which this POST didn't
 			// open). Refresh the sessions list so the queue badge in the shell
 			// reflects the just-steered item instead of waiting for the current
-			// turn to end. Cheap, one extra round-trip.
-			await refreshSessions();
+			// turn to end. Best-effort: a refresh failure must not roll back the
+			// optimistic message after streamMessage already succeeded.
+			try {
+				await refreshSessions();
+			} catch {
+				// Ignore — the queue submission already landed server-side.
+			}
 		},
 		[
 			client,

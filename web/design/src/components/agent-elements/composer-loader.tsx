@@ -40,8 +40,6 @@ export function ComposerLoader({
 
   return (
     <div
-      aria-live="polite"
-      aria-atomic="true"
       className={cn(
         "flex items-center gap-2 px-an-context-padding py-1 text-xs text-foreground/70",
         className
@@ -53,8 +51,18 @@ export function ComposerLoader({
       >
         {LOADER_DOTS[tick % LOADER_DOTS.length]}
       </span>
-      <span className="truncate">{label}</span>
-      <span className="tabular-nums text-foreground/50">{elapsed}s</span>
+      <span className="sr-only" aria-live="polite">
+        {label}
+      </span>
+      <span aria-hidden="true" className="truncate">
+        {label}
+      </span>
+      <span
+        aria-hidden="true"
+        className="tabular-nums text-foreground/50"
+      >
+        {elapsed}s
+      </span>
     </div>
   )
 }

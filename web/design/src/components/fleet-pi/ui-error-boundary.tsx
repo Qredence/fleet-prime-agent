@@ -22,15 +22,18 @@ export function UiErrorBoundary({
   children,
   fallback,
   onReset,
+  resetKeys,
 }: {
   children: React.ReactNode
   fallback?: React.ReactNode
   onReset?: () => void
+  resetKeys?: Array<unknown>
 }) {
   return (
     <ErrorBoundary
       FallbackComponent={fallback ? () => fallback : DefaultFallback}
       onReset={onReset}
+      resetKeys={resetKeys}
     >
       {children}
     </ErrorBoundary>

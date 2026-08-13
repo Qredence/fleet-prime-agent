@@ -78,39 +78,6 @@ export function createThinkingToolPart({
 	};
 }
 
-export function upsertThinkingPart(
-	parts: Array<ChatMessagePart>,
-	messageId: string,
-	thought: string,
-	options?: {
-		index?: number;
-		state?: string;
-	},
-) {
-	return upsertToolPart(
-		parts,
-		createThinkingToolPart({
-			messageId,
-			thought,
-			index: options?.index,
-			state: options?.state,
-		}),
-	);
-}
-
-export function finalizeThinkingToolParts(parts: Array<ChatMessagePart>) {
-	return parts.map((part) => {
-		if (part.type !== "tool-Thinking" || part.state !== "input-streaming") {
-			return part;
-		}
-
-		return {
-			...part,
-			state: "output-available",
-		};
-	});
-}
-
 export function appendAssistantDelta(messages: Array<ChatMessage>, assistantId: string, delta: string) {
 	return messages.map((message) => {
 		if (message.id !== assistantId) return message;

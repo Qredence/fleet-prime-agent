@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState, type MutableRefObject } from "react"
 import { toast } from "sonner"
 
 import {
@@ -246,7 +246,7 @@ function SidebarNavItem({
   )
 }
 
-type SettingsForm = ReturnType<typeof useSettingsForm>
+type CloseAttemptDetails = { cancel: () => void }
 
 export function SettingsDialog({
   open,
@@ -258,13 +258,8 @@ export function SettingsDialog({
   /** When provided, selects this nav tab each time the dialog opens. */
   initialTab?: SettingsSectionId
 }) {
-  const form = useSettingsForm()
-
-  if (!open) return null
-
   return (
     <SettingsDialogSession
-      form={form}
       initialTab={initialTab}
       onOpenChange={onOpenChange}
       open={open}
@@ -273,16 +268,54 @@ export function SettingsDialog({
 }
 
 function SettingsDialogSession({
-  form,
   initialTab,
   onOpenChange,
   open,
 }: {
-  form: SettingsForm
   initialTab?: SettingsSectionId
   onOpenChange: (open: boolean) => void
   open: boolean
 }) {
+  const onCloseAttemptRef = useRef<(eventDetails?: CloseAttemptDetails) => void>(
+    () => {
+      onOpenChange(false)
+    }
+  )
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (nextOpen) {
+          onOpenChange(true)
+          return
+        }
+        onCloseAttemptRef.current(eventDetails)
+      }}
+    >
+      {open ? (
+        <SettingsDialogBody
+          initialTab={initialTab}
+          onCloseAttemptRef={onCloseAttemptRef}
+          onOpenChange={onOpenChange}
+        />
+      ) : null}
+    </Dialog>
+  )
+}
+
+function SettingsDialogBody({
+  initialTab,
+  onCloseAttemptRef,
+  onOpenChange,
+}: {
+  initialTab?: SettingsSectionId
+  onCloseAttemptRef: MutableRefObject<
+    (eventDetails?: CloseAttemptDetails) => void
+  >
+  onOpenChange: (open: boolean) => void
+}) {
+  const form = useSettingsForm()
   const {
     isLoadingProviders,
     isUpdatingProvider,
@@ -352,6 +385,10 @@ function SettingsDialogSession({
       setDiscardReason(resourceDirty ? "resource" : "model")
       setDiscardDialogOpen(true)
     })()
+  }
+
+  onCloseAttemptRef.current = (eventDetails) => {
+    handleOpenChange(false, eventDetails)
   }
 
   const handleDiscardChanges = () => {
@@ -458,12 +495,7 @@ function SettingsDialogSession({
   return (
     // Nest AlertDialog under Dialog.Root so Base UI tracks nested open
     // dialogs (Esc / isTopmost). Sibling roots fight Esc and re-prompt.
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen, eventDetails) =>
-        handleOpenChange(nextOpen, eventDetails)
-      }
-    >
+    <>
       <DialogContent className="w-full max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-w-[650px] md:h-[650px] md:max-h-[85vh] md:max-w-[760px] lg:max-w-[860px]">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
@@ -567,6 +599,6 @@ function SettingsDialogSession({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Dialog>
+    </>
   )
 }
