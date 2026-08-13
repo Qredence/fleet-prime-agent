@@ -125,4 +125,20 @@ describe("readWorkspaceTree", () => {
 		const link = findNode(nodes, "dangling")
 		expect(link?.type).toBe("file")
 	})
+
+	it("does not recurse a directory symlink that escapes the workspace root", async () => {
+		const outside = join(root, "..", `prime-workspace-outside-${Date.now()}`)
+		await mkdir(outside, { recursive: true })
+		await writeFile(join(outside, "secret.txt"), "x", "utf8")
+		await symlink(outside, join(root, "escape-dir"))
+
+		try {
+			const { nodes } = await readWorkspaceTree(root)
+			const link = findNode(nodes, "escape-dir")
+			expect(link?.type).toBe("directory")
+			expect(link?.children).toBeUndefined()
+		} finally {
+			await rm(outside, { recursive: true, force: true })
+		}
+	})
 })

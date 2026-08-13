@@ -315,6 +315,7 @@ export function usePiChat(
   }, [client, setActivityLabelSynced, setQueueSynced])
 
   const startNewSession = useCallback(async () => {
+    stop()
     const result = await client.createSession()
     setSessionMetadataSynced(result.session)
     setMessagesSynced([])
@@ -331,11 +332,13 @@ export function usePiChat(
     setPlanLabelSynced,
     setQueueSynced,
     setSessionMetadataSynced,
+    stop,
   ])
 
   const resumeSession = useCallback(
     async (metadata: ChatSessionMetadata) => {
       try {
+        stop()
         const result = await client.resumeSession(metadata)
         setSessionMetadataSynced(result.session)
         setMessagesSynced(result.messages)
@@ -370,6 +373,7 @@ export function usePiChat(
       setPlanLabelSynced,
       setQueueSynced,
       setSessionMetadataSynced,
+      stop,
     ]
   )
 

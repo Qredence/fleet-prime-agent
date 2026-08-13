@@ -1,6 +1,7 @@
 import { readdir, stat } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import type { WorkspaceTreeNode } from "@prime-agent/web-protocol/chat-protocol"
+import { canonicalizePath, getCwdRelativePath } from "./workspace-paths"
 
 // Directory names never worth surfacing in the workspace tree.
 const IGNORED = new Set([
@@ -42,6 +43,7 @@ async function readDirNodes(
 	relativeDir: string,
 	depth: number,
 	diagnostics: Array<string>,
+	canonicalRoot: string,
 ): Promise<Array<WorkspaceTreeNode>> {
 	let entries
 	try {
@@ -87,12 +89,17 @@ async function readDirNodes(
 					type: "directory",
 				}
 				if (depth < MAX_DEPTH) {
-					node.children = await readDirNodes(
-						join(absoluteDir, entry.name),
-						relativePath,
-						depth + 1,
-						diagnostics,
-					)
+					const childAbs = join(absoluteDir, entry.name)
+					const canonicalChild = canonicalizePath(childAbs)
+					if (getCwdRelativePath(canonicalChild, canonicalRoot) !== undefined) {
+						node.children = await readDirNodes(
+							childAbs,
+							relativePath,
+							depth + 1,
+							diagnostics,
+							canonicalRoot,
+						)
+					}
 				}
 				return node
 			}
@@ -109,6 +116,6 @@ export async function readWorkspaceTree(
 	root: string,
 ): Promise<{ nodes: WorkspaceTreeNode[]; diagnostics: string[] }> {
 	const diagnostics: Array<string> = []
-	const nodes = await readDirNodes(root, "", 1, diagnostics)
+	const nodes = await readDirNodes(root, "", 1, diagnostics, canonicalizePath(root))
 	return { nodes, diagnostics }
 }
