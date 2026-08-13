@@ -167,16 +167,21 @@ export function usePiChatMessaging({
 						}
 					},
 				);
-
-				// The steered message is queued server-side, but the `queue` event only
-				// ever lands on the *main* turn's NDJSON stream (which this POST didn't
-				// open). Refresh the sessions list so the queue badge in the shell
-				// reflects the just-steered item instead of waiting for the current
-				// turn to end. Cheap, one extra round-trip.
-				await refreshSessions();
 			} catch (err) {
 				setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
 				throw err;
+			}
+
+			// The steered message is queued server-side, but the `queue` event only
+			// ever lands on the *main* turn's NDJSON stream (which this POST didn't
+			// open). Refresh the sessions list so the queue badge in the shell
+			// reflects the just-steered item instead of waiting for the current
+			// turn to end. Best-effort: a refresh failure must not roll back the
+			// optimistic message after streamMessage already succeeded.
+			try {
+				await refreshSessions();
+			} catch {
+				// Ignore — the queue submission already landed server-side.
 			}
 		},
 		[

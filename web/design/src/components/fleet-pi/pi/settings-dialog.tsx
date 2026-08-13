@@ -299,14 +299,7 @@ function SettingsDialogSession({
           onCloseAttemptRef={onCloseAttemptRef}
           onOpenChange={onOpenChange}
         />
-      ) : (
-        <>
-          <DialogTitle className="sr-only">Settings</DialogTitle>
-          <DialogDescription className="sr-only">
-            Customize your settings here.
-          </DialogDescription>
-        </>
-      )}
+      ) : null}
     </Dialog>
   )
 }
