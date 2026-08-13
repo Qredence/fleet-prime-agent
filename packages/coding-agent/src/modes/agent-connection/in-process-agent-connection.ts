@@ -13,13 +13,14 @@ import type {
 	AgentHeartbeatManagementAction,
 	AgentHeartbeatUpdateAction,
 } from "../../core/cron-jobs.js";
-import type { ExtensionUIContext } from "../../core/extensions/types.js";
+import type { ExtensionUIContext, ReplacedSessionContext } from "../../core/extensions/types.js";
 import type { RefinementResult } from "../../core/refinement/index.js";
 import { type DeleteSessionFileResult, deleteSessionFile } from "../../core/session-file-actions.js";
-import { SessionManager } from "../../core/session-manager.js";
+import { type ReadonlySessionManager, SessionManager } from "../../core/session-manager.js";
 import type { SessionStats } from "../../core/session-stats.js";
 import { type SideQuestionRun, startSideQuestion } from "../../core/side-question.js";
 import { waitForHeadlessCompletion } from "../headless-completion.js";
+import { seedMessageToSessionMessage } from "./seed-messages.js";
 import {
 	createAgentConnectionCommands,
 	createAgentConnectionResourceSnapshot,
@@ -33,6 +34,7 @@ import type {
 	AgentConnectionEvent,
 	AgentConnectionEventListener,
 	AgentConnectionExecuteBashOptions,
+	AgentConnectionExtensions,
 	AgentConnectionExtensionUiResponse,
 	AgentConnectionForkOptions,
 	AgentConnectionHeartbeat,
@@ -45,6 +47,7 @@ import type {
 	AgentConnectionPromptOptions,
 	AgentConnectionQueueMode,
 	AgentConnectionQueueState,
+	AgentConnectionReplacedClientContext,
 	AgentConnectionResourceSnapshot,
 	AgentConnectionSavedSessionInfo,
 	AgentConnectionSavedSessionScope,
@@ -53,6 +56,7 @@ import type {
 	AgentConnectionSessionHeader,
 	AgentConnectionSessionListCallbacks,
 	AgentConnectionSessionTreeNode,
+	AgentConnectionSessionView,
 	AgentConnectionSessionWatcher,
 	AgentConnectionSideQuestionTurn,
 	AgentConnectionSlashCommand,
@@ -60,6 +64,7 @@ import type {
 	AgentConnectionState,
 	AgentConnectionSwitchSessionOptions,
 	AgentConnectionToolDefinition,
+	AgentConnectionToolRendererDefinition,
 	AgentConnectionUserMessage,
 } from "./types.js";
 
@@ -74,8 +79,11 @@ export class InProcessAgentConnection implements AgentConnection {
 	private readonly sideQuestionRuns = new Map<string, SideQuestionRun>();
 	private headlessExtensionOptions: InProcessHeadlessExtensionOptions | undefined;
 	private unsubscribeSessionEvents: (() => void) | undefined;
+	readonly extensions: AgentConnectionExtensions;
+	private sessionView: AgentConnectionSessionView | undefined;
 
 	constructor(private readonly runtimeHost: AgentSessionRuntime) {
+		this.extensions = this.createExtensionsSurface();
 		this.bindCurrentSessionEvents();
 		if (typeof this.runtimeHost.setBeforeSessionInvalidate === "function") {
 			this.runtimeHost.setBeforeSessionInvalidate(() => {
@@ -131,6 +139,28 @@ export class InProcessAgentConnection implements AgentConnection {
 
 	async getSessionHeader(): Promise<AgentConnectionSessionHeader | undefined> {
 		return this.session.sessionManager.getHeader() ?? undefined;
+	}
+
+	getAbortSignal(): AbortSignal | undefined {
+		return this.session.agent.signal;
+	}
+
+	getSessionView(): AgentConnectionSessionView {
+		this.sessionView ??= this.createSessionView();
+		return this.sessionView;
+	}
+
+	getReadonlySessionManager(): ReadonlySessionManager {
+		return this.session.sessionManager;
+	}
+
+	getSystemPromptSync(): string {
+		return this.session.systemPrompt;
+	}
+
+	async setAgentTransport(transport: Transport): Promise<void> {
+		this.session.settingsManager.setTransport(transport);
+		this.session.agent.transport = transport;
 	}
 
 	async getCommands(): Promise<AgentConnectionSlashCommand[]> {
@@ -477,21 +507,67 @@ export class InProcessAgentConnection implements AgentConnection {
 	}
 
 	async newSession(options?: AgentConnectionNewSessionOptions): Promise<{ cancelled: boolean }> {
-		return this.runtimeHost.newSession(options);
+		const seedMessages = options?.seedMessages;
+		const seedSetup =
+			seedMessages && seedMessages.length > 0
+				? async (sessionManager: SessionManager) => {
+						for (const message of seedMessages) {
+							sessionManager.appendMessage(seedMessageToSessionMessage(message, this.session.model));
+						}
+					}
+				: undefined;
+		const setup = options?.setup
+			? async (sessionManager: SessionManager) => {
+					await seedSetup?.(sessionManager);
+					await options.setup?.(sessionManager);
+				}
+			: seedSetup;
+		const afterReplaceHook = this.createAfterReplaceHook(options?.afterReplace);
+		const withSession = options?.withSession
+			? async (ctx: ReplacedSessionContext) => {
+					await options.withSession?.(ctx);
+					await afterReplaceHook?.();
+				}
+			: afterReplaceHook;
+		return this.runtimeHost.newSession({
+			parentSession: options?.parentSession,
+			setup,
+			withSession,
+		});
 	}
 
 	async switchSession(
 		sessionPath: string,
 		options?: AgentConnectionSwitchSessionOptions,
 	): Promise<{ cancelled: boolean }> {
-		return this.runtimeHost.switchSession(sessionPath, options);
+		const afterReplaceHook = this.createAfterReplaceHook(options?.afterReplace);
+		const withSession = options?.withSession
+			? async (ctx: ReplacedSessionContext) => {
+					await options.withSession?.(ctx);
+					await afterReplaceHook?.();
+				}
+			: afterReplaceHook;
+		return this.runtimeHost.switchSession(sessionPath, {
+			cwdOverride: options?.cwdOverride,
+			withSession,
+		});
 	}
 
 	async fork(
 		entryId: string,
 		options?: AgentConnectionForkOptions,
 	): Promise<{ cancelled: boolean; selectedText?: string }> {
-		return this.runtimeHost.fork(entryId, options);
+		const afterReplaceHook = this.createAfterReplaceHook(options?.afterReplace);
+		const withSession = options?.withSession
+			? async (ctx: ReplacedSessionContext) => {
+					await options.withSession?.(ctx);
+					await afterReplaceHook?.();
+				}
+			: afterReplaceHook;
+		return this.runtimeHost.fork(entryId, {
+			position: options?.position,
+			withSession,
+		});
 	}
 
 	async navigateTree(
@@ -586,6 +662,100 @@ export class InProcessAgentConnection implements AgentConnection {
 
 	private get session() {
 		return this.runtimeHost.session;
+	}
+
+	/**
+	 * The withSession hook runs after the replacement session is live (runtime
+	 * already rebound events). The ReplacedClientContext is intentionally built
+	 * over the connection's own prompt/subscribe plumbing rather than the
+	 * extension ReplacedSessionContext it receives, so daemon adapters can
+	 * honor the same semantic once the wire protocol grows client callbacks:
+	 * sendUserMessage admits a prompt through this connection; notify/setEditorText
+	 * are delivered to subscribers as client_notice/client_set_editor_text events.
+	 */
+	private createAfterReplaceHook(
+		afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>,
+	): (() => Promise<void>) | undefined {
+		if (!afterReplace) {
+			return undefined;
+		}
+		return async () => {
+			const ctx: AgentConnectionReplacedClientContext = {
+				sendUserMessage: async (text) => {
+					await this.prompt(text);
+				},
+				notify: async (message, level) => {
+					await this.emit({ type: "client_notice", message, level });
+				},
+				setEditorText: async (text) => {
+					await this.emit({ type: "client_set_editor_text", text });
+				},
+			};
+			await afterReplace(ctx);
+		};
+	}
+
+	private createSessionView(): AgentConnectionSessionView {
+		return {
+			getCwd: async () => this.session.sessionManager.getCwd(),
+			getSessionDir: async () => this.session.sessionManager.getSessionDir(),
+			getSessionName: async () => this.session.sessionManager.getSessionName(),
+			getHeader: async () => {
+				const header = this.session.sessionManager.getHeader();
+				if (!header) {
+					throw new Error("Session has no header yet.");
+				}
+				return header;
+			},
+			getFlatTree: async () => this.session.sessionManager.getFlatTree(),
+			getLeafId: async () => this.session.sessionManager.getLeafId(),
+			buildSessionContext: async () => this.session.sessionManager.buildSessionContext(),
+			materializeSessionFile: async () => this.session.sessionManager.materializeSessionFile(),
+		};
+	}
+
+	private createExtensionsSurface(): AgentConnectionExtensions {
+		return {
+			getArgumentCompletions: async (commandName, argumentPrefix) => {
+				const command = this.session.extensionRunner.getCommand(commandName);
+				if (!command?.getArgumentCompletions) {
+					return null;
+				}
+				return command.getArgumentCompletions(argumentPrefix);
+			},
+			getCommandDiagnostics: async () => this.session.extensionRunner.getCommandDiagnostics(),
+			getShortcutDiagnostics: async () => this.session.extensionRunner.getShortcutDiagnostics(),
+			getShortcuts: async () =>
+				this.session.extensionRunner.getRegisteredCommands().map((entry) => ({
+					name: entry.invocationName,
+					registeredName: entry.name,
+					description: entry.description,
+					source: "extension" as const,
+					sourceInfo: entry.sourceInfo,
+				})),
+			getKeyboardShortcuts: (resolvedKeybindings) => this.session.extensionRunner.getShortcuts(resolvedKeybindings),
+			getMessageRenderer: (customType) => this.session.extensionRunner.getMessageRenderer(customType),
+			getToolRendererDefinition: async (name) => {
+				const definition = this.session.getToolDefinition(name);
+				if (!definition) {
+					return undefined;
+				}
+				const rendererDefinition: AgentConnectionToolRendererDefinition = {};
+				if (definition.renderCall) {
+					rendererDefinition.renderCall = definition.renderCall;
+				}
+				if (definition.renderResult) {
+					rendererDefinition.renderResult = definition.renderResult;
+				}
+				if (definition.renderShell) {
+					rendererDefinition.renderShell = definition.renderShell;
+				}
+				return Object.keys(rendererDefinition).length > 0 ? rendererDefinition : undefined;
+			},
+			bindExtensions: async (bindings) => {
+				await this.session.bindExtensions(bindings);
+			},
+		};
 	}
 
 	private bindCurrentSessionEvents(): void {

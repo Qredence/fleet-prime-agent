@@ -161,8 +161,8 @@ export const TodoTool = memo(function TodoTool({
   if (changes.type === "single") {
     return (
       <div className="flex flex-col gap-2 text-sm leading-relaxed text-an-foreground/80">
-        {newTodos.map((todo, idx) => (
-          <TodoListItem key={idx} todo={todo} isPending={isPending} />
+        {newTodos.map((todo) => (
+          <TodoListItem key={todo.content} todo={todo} isPending={isPending} />
         ))}
       </div>
     )
@@ -172,8 +172,8 @@ export const TodoTool = memo(function TodoTool({
   if (changes.type === "multiple") {
     return (
       <div className="flex flex-col gap-2 text-sm leading-relaxed text-an-foreground/80">
-        {newTodos.map((todo, idx) => (
-          <TodoListItem key={idx} todo={todo} isPending={isPending} />
+        {newTodos.map((todo) => (
+          <TodoListItem key={todo.content} todo={todo} isPending={isPending} />
         ))}
       </div>
     )
@@ -182,8 +182,8 @@ export const TodoTool = memo(function TodoTool({
   const displayTodos = newTodos
   return (
     <div className="flex flex-col gap-2 text-sm leading-relaxed text-an-foreground/80">
-      {displayTodos.map((todo, idx) => (
-        <TodoListItem key={idx} todo={todo} isPending={isPending} />
+      {displayTodos.map((todo) => (
+        <TodoListItem key={todo.content} todo={todo} isPending={isPending} />
       ))}
     </div>
   )

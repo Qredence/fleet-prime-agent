@@ -5,6 +5,7 @@ import {
   useStateField,
   useTriggerAction,
 } from "@openuidev/react-lang"
+import type { ComponentRenderProps, StateField } from "@openuidev/react-lang"
 import {
   Bar,
   CartesianGrid,
@@ -48,6 +49,8 @@ import {
   TableRow,
 } from "../table"
 import { cn } from "../../lib/utils"
+import { DonutChartDef, LineChartDef } from "./charts"
+import { DataTableDef, MetricGroupDef } from "./data"
 import {
   badgeToneClasses,
   badgeVariantsByTone,
@@ -82,6 +85,37 @@ const childrenProp = z
   .optional()
   .describe("Child component, array of child components, or plain content")
 
+function ButtonComponent({
+  props: { label, action, variant },
+}: {
+  props: {
+    label: string
+    action?: unknown
+    variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+  }
+}) {
+  const triggerAction = useTriggerAction()
+
+  const handleClick = () => {
+    if (!action) {
+      void triggerAction(label)
+      return
+    }
+
+    if (typeof action === "string") {
+      void triggerAction(action)
+    } else {
+      void triggerAction(label, undefined, action)
+    }
+  }
+
+  return (
+    <Button type="button" variant={variant} onClick={handleClick}>
+      {label}
+    </Button>
+  )
+}
+
 export const ButtonDef = defineComponent({
   name: "Button",
   description:
@@ -100,28 +134,7 @@ export const ButtonDef = defineComponent({
       .default("default")
       .describe("Visual style"),
   }),
-  component: ({ props: { label, action, variant } }) => {
-    const triggerAction = useTriggerAction()
-
-    const handleClick = () => {
-      if (!action) {
-        void triggerAction(label)
-        return
-      }
-
-      if (typeof action === "string") {
-        void triggerAction(action)
-      } else {
-        void triggerAction(label, undefined, action)
-      }
-    }
-
-    return (
-      <Button type="button" variant={variant} onClick={handleClick}>
-        {label}
-      </Button>
-    )
-  },
+  component: ButtonComponent,
 })
 
 export const TextDef = defineComponent({
@@ -179,6 +192,37 @@ export const BadgeDef = defineComponent({
   },
 })
 
+function InputComponent({
+  props: { name, value, placeholder, type, disabled },
+}: {
+  props: {
+    name: string
+    value: StateField<string>
+    placeholder?: string
+    type?: "text" | "email" | "number" | "password" | "search"
+    disabled?: boolean
+  }
+}) {
+  const field = useStateField(name, value)
+  const controlId = useId()
+
+  return (
+    <Field orientation="vertical" className="gap-1.5">
+      <FieldLabel htmlFor={controlId} className="sr-only">
+        {name}
+      </FieldLabel>
+      <Input
+        id={controlId}
+        value={field.value}
+        onChange={(e) => field.setValue(e.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        type={type}
+      />
+    </Field>
+  )
+}
+
 export const InputDef = defineComponent({
   name: "Input",
   description: "An interactive, state-bound text input.",
@@ -189,26 +233,7 @@ export const InputDef = defineComponent({
     type: z.enum(["text", "email", "number", "password", "search"]).optional(),
     disabled: z.boolean().optional().default(false),
   }),
-  component: ({ props: { name, value, placeholder, type, disabled } }) => {
-    const field = useStateField(name, value)
-    const controlId = useId()
-
-    return (
-      <Field orientation="vertical" className="gap-1.5">
-        <FieldLabel htmlFor={controlId} className="sr-only">
-          {name}
-        </FieldLabel>
-        <Input
-          id={controlId}
-          value={field.value}
-          onChange={(e) => field.setValue(e.target.value)}
-          disabled={disabled}
-          placeholder={placeholder}
-          type={type}
-        />
-      </Field>
-    )
-  },
+  component: InputComponent,
 })
 
 export const CardDef = defineComponent({
@@ -592,6 +617,35 @@ export const GridDef = defineComponent({
   },
 })
 
+function SelectComponent({
+  props: { name, value, options, placeholder },
+}: {
+  props: {
+    name: string
+    value: StateField<string>
+    options: Array<{ value: string; label: string; disabled?: boolean }>
+    placeholder?: string
+  }
+}) {
+  const field = useStateField(name, value)
+  const controlId = useId()
+
+  return (
+    <Field orientation="vertical" className="gap-1.5">
+      <FieldLabel htmlFor={controlId} className="sr-only">
+        {name}
+      </FieldLabel>
+      <Select
+        options={options}
+        triggerId={controlId}
+        value={field.value}
+        onValueChange={(nextValue) => field.setValue(nextValue)}
+        placeholder={placeholder}
+      />
+    </Field>
+  )
+}
+
 export const SelectDef = defineComponent({
   name: "Select",
   description: "An interactive dropdown selector with reactive state binding.",
@@ -612,26 +666,36 @@ export const SelectDef = defineComponent({
       .optional()
       .describe("Placeholder when no value selected"),
   }),
-  component: ({ props: { name, value, options, placeholder } }) => {
-    const field = useStateField(name, value)
-    const controlId = useId()
-
-    return (
-      <Field orientation="vertical" className="gap-1.5">
-        <FieldLabel htmlFor={controlId} className="sr-only">
-          {name}
-        </FieldLabel>
-        <Select
-          options={options}
-          triggerId={controlId}
-          value={field.value}
-          onValueChange={(nextValue) => field.setValue(nextValue)}
-          placeholder={placeholder}
-        />
-      </Field>
-    )
-  },
+  component: SelectComponent,
 })
+
+function SwitchComponent({
+  props: { name, checked, label, disabled },
+}: {
+  props: {
+    name: string
+    checked: StateField<boolean>
+    label?: string
+    disabled?: boolean
+  }
+}) {
+  const field = useStateField(name, checked)
+  const isChecked = Boolean(field.value)
+  const controlId = useId()
+
+  return (
+    <Field orientation="horizontal" className="items-center gap-2">
+      <Switch
+        id={controlId}
+        checked={isChecked}
+        onCheckedChange={(nextChecked) => field.setValue(nextChecked)}
+        disabled={disabled}
+        aria-label={label ? undefined : name}
+      />
+      {label ? <FieldLabel htmlFor={controlId}>{label}</FieldLabel> : null}
+    </Field>
+  )
+}
 
 export const SwitchDef = defineComponent({
   name: "Switch",
@@ -642,25 +706,35 @@ export const SwitchDef = defineComponent({
     label: z.string().optional().describe("Label shown next to the switch"),
     disabled: z.boolean().optional().default(false),
   }),
-  component: ({ props: { name, checked, label, disabled } }) => {
-    const field = useStateField(name, checked)
-    const isChecked = Boolean(field.value)
-    const controlId = useId()
-
-    return (
-      <Field orientation="horizontal" className="items-center gap-2">
-        <Switch
-          id={controlId}
-          checked={isChecked}
-          onCheckedChange={(nextChecked) => field.setValue(nextChecked)}
-          disabled={disabled}
-          aria-label={label ? undefined : name}
-        />
-        {label ? <FieldLabel htmlFor={controlId}>{label}</FieldLabel> : null}
-      </Field>
-    )
-  },
+  component: SwitchComponent,
 })
+
+function ModalComponent({
+  props: { name, open, title, content },
+  renderNode,
+}: ComponentRenderProps<{
+  name: string
+  open: StateField<boolean>
+  title: string
+  content?: unknown
+}>) {
+  const field = useStateField(name, open)
+  const isOpen = Boolean(field.value)
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => field.setValue(nextOpen)}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="py-2">{renderNode(content)}</div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export const ModalDef = defineComponent({
   name: "Modal",
@@ -675,24 +749,7 @@ export const ModalDef = defineComponent({
     title: z.string().describe("Modal header title"),
     content: childrenProp.describe("Modal body content"),
   }),
-  component: ({ props: { name, open, title, content }, renderNode }) => {
-    const field = useStateField(name, open)
-    const isOpen = Boolean(field.value)
-
-    return (
-      <Dialog
-        open={isOpen}
-        onOpenChange={(nextOpen) => field.setValue(nextOpen)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-          </DialogHeader>
-          <div className="py-2">{renderNode(content)}</div>
-        </DialogContent>
-      </Dialog>
-    )
-  },
+  component: ModalComponent,
 })
 
 export const openUILibrary = createLibrary({
@@ -716,6 +773,10 @@ export const openUILibrary = createLibrary({
     CodeBlockDef,
     TableDef,
     BarChartDef,
+    LineChartDef,
+    DonutChartDef,
+    DataTableDef,
+    MetricGroupDef,
     SelectDef,
     SwitchDef,
     ModalDef,

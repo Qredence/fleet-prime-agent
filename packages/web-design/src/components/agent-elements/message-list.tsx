@@ -1,5 +1,10 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from "react"
-import { motion, useReducedMotion } from "motion/react"
+import React, { memo, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import {
+  LazyMotion,
+  domAnimation,
+  m,
+  useReducedMotion,
+} from "motion/react"
 import { cn } from "./utils/cn"
 
 import { UserMessage } from "./user-message"
@@ -131,7 +136,13 @@ export const MessageList = memo(function MessageList({
   trailing,
 }: MessageListProps) {
   const [activeCopyId, setActiveCopyId] = useState<string | null>(null)
-  const [isMounted, setIsMounted] = useState(false)
+  // Hydration-safe mount flag: false during SSR/hydration, true after —
+  // same two-phase outcome as the old isMounted effect, without a post-paint setState.
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
   const reduceMotion = useReducedMotion()
 
   const CustomUserMessage = slots?.UserMessage || UserMessage
@@ -140,10 +151,6 @@ export const MessageList = memo(function MessageList({
 
   const markCopied = useCallback((id: string) => {
     setActiveCopyId(id)
-  }, [])
-
-  useEffect(() => {
-    setIsMounted(true)
   }, [])
 
   useEffect(() => {
@@ -213,13 +220,14 @@ export const MessageList = memo(function MessageList({
       )}
     >
       <div ref={contentWrapperRef} className="mx-auto max-w-an px-4 py-6">
-        <div className="flex flex-col gap-2">
+        <LazyMotion features={domAnimation}>
+          <div className="flex flex-col gap-2">
           {turns.map((turn, turnIndex) => {
             const isLastTurn = turnIndex === turns.length - 1
             const turnKey = turn.userMsg?.id ?? `turn-${turnIndex}`
 
             return (
-              <motion.div
+              <m.div
                 key={turnKey}
                 className="relative flex flex-col gap-2"
                 initial={reduceMotion ? false : { opacity: 0, y: 8 }}
@@ -235,10 +243,13 @@ export const MessageList = memo(function MessageList({
                     message={turn.userMsg}
                     UserMessageComponent={CustomUserMessage}
                     userMessageClassName={classNames?.userMessage}
-                    enableImagePreview={enableImagePreview}
-                    showCopyToolbar={showCopyToolbar}
-                    isMounted={isMounted}
-                    isCopyVisible={activeCopyId === `user-${turn.userMsg.id}`}
+                    display={{
+                      enableImagePreview,
+                      showCopyToolbar,
+                      isMounted,
+                      isCopyVisible:
+                        activeCopyId === `user-${turn.userMsg.id}`,
+                    }}
                     onCopied={markCopied}
                   />
                 )}
@@ -248,17 +259,17 @@ export const MessageList = memo(function MessageList({
                     <AssistantTurn
                       assistantMsgs={turn.assistantMsgs}
                       turnKey={turnKey}
-                      isLastTurn={isLastTurn}
-                      isStreaming={isStreaming}
-                      showCopyToolbar={showCopyToolbar}
-                      suppressQuestionTool={suppressQuestionTool}
+                      stream={{ isLast: isLastTurn, isStreaming }}
+                      copy={{
+                        enabled: showCopyToolbar,
+                        isVisible:
+                          activeCopyId === `assistant-${turnKey}-all`,
+                      }}
+                      display={{ suppressQuestionTool }}
                       ToolRendererComponent={CustomToolRenderer}
                       TextRendererComponent={CustomTextRenderer}
                       toolRenderers={toolRenderers}
                       onOpenUIAction={onOpenUIAction}
-                      isCopyVisible={
-                        activeCopyId === `assistant-${turnKey}-all`
-                      }
                       onCopied={markCopied}
                     />
                   )}
@@ -271,10 +282,11 @@ export const MessageList = memo(function MessageList({
                     isAnimating={true}
                   />
                 )}
-              </motion.div>
+              </m.div>
             )
           })}
-        </div>
+          </div>
+        </LazyMotion>
         {trailing}
         {showAssistantBreathingSpace && (
           <div

@@ -26,6 +26,9 @@ import { Route as ApiChatResumeRouteImport } from './routes/api/chat/resume'
 import { Route as ApiChatSessionRouteImport } from './routes/api/chat/session'
 import { Route as ApiChatSessionsRouteImport } from './routes/api/chat/sessions'
 import { Route as ApiChatSettingsRouteImport } from './routes/api/chat/settings'
+import { Route as ApiWorkspaceBrowseRouteImport } from './routes/api/workspace/browse'
+import { Route as ApiWorkspaceFileRouteImport } from './routes/api/workspace/file'
+import { Route as ApiWorkspaceRootRouteImport } from './routes/api/workspace/root'
 import { Route as ApiWorkspaceTreeRouteImport } from './routes/api/workspace/tree'
 import { Route as ApiChatModelsDiscoverRouteImport } from './routes/api/chat/models/discover'
 
@@ -114,6 +117,21 @@ const ApiChatSettingsRoute = ApiChatSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => ApiChatRoute,
 } as any)
+const ApiWorkspaceBrowseRoute = ApiWorkspaceBrowseRouteImport.update({
+  id: '/api/workspace/browse',
+  path: '/api/workspace/browse',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkspaceFileRoute = ApiWorkspaceFileRouteImport.update({
+  id: '/api/workspace/file',
+  path: '/api/workspace/file',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkspaceRootRoute = ApiWorkspaceRootRouteImport.update({
+  id: '/api/workspace/root',
+  path: '/api/workspace/root',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWorkspaceTreeRoute = ApiWorkspaceTreeRouteImport.update({
   id: '/api/workspace/tree',
   path: '/api/workspace/tree',
@@ -143,6 +161,9 @@ export interface FileRoutesByFullPath {
   '/api/chat/session': typeof ApiChatSessionRoute
   '/api/chat/sessions': typeof ApiChatSessionsRoute
   '/api/chat/settings': typeof ApiChatSettingsRoute
+  '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
+  '/api/workspace/file': typeof ApiWorkspaceFileRoute
+  '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
 }
@@ -164,6 +185,9 @@ export interface FileRoutesByTo {
   '/api/chat/session': typeof ApiChatSessionRoute
   '/api/chat/sessions': typeof ApiChatSessionsRoute
   '/api/chat/settings': typeof ApiChatSettingsRoute
+  '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
+  '/api/workspace/file': typeof ApiWorkspaceFileRoute
+  '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
 }
@@ -186,6 +210,9 @@ export interface FileRoutesById {
   '/api/chat/session': typeof ApiChatSessionRoute
   '/api/chat/sessions': typeof ApiChatSessionsRoute
   '/api/chat/settings': typeof ApiChatSettingsRoute
+  '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
+  '/api/workspace/file': typeof ApiWorkspaceFileRoute
+  '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
 }
@@ -209,6 +236,9 @@ export interface FileRouteTypes {
     | '/api/chat/session'
     | '/api/chat/sessions'
     | '/api/chat/settings'
+    | '/api/workspace/browse'
+    | '/api/workspace/file'
+    | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/models/discover'
   fileRoutesByTo: FileRoutesByTo
@@ -230,6 +260,9 @@ export interface FileRouteTypes {
     | '/api/chat/session'
     | '/api/chat/sessions'
     | '/api/chat/settings'
+    | '/api/workspace/browse'
+    | '/api/workspace/file'
+    | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/models/discover'
   id:
@@ -251,6 +284,9 @@ export interface FileRouteTypes {
     | '/api/chat/session'
     | '/api/chat/sessions'
     | '/api/chat/settings'
+    | '/api/workspace/browse'
+    | '/api/workspace/file'
+    | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/models/discover'
   fileRoutesById: FileRoutesById
@@ -259,6 +295,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiChatRoute: typeof ApiChatRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiWorkspaceBrowseRoute: typeof ApiWorkspaceBrowseRoute
+  ApiWorkspaceFileRoute: typeof ApiWorkspaceFileRoute
+  ApiWorkspaceRootRoute: typeof ApiWorkspaceRootRoute
   ApiWorkspaceTreeRoute: typeof ApiWorkspaceTreeRoute
 }
 
@@ -383,6 +422,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatSettingsRouteImport
       parentRoute: typeof ApiChatRoute
     }
+    '/api/workspace/browse': {
+      id: '/api/workspace/browse'
+      path: '/api/workspace/browse'
+      fullPath: '/api/workspace/browse'
+      preLoaderRoute: typeof ApiWorkspaceBrowseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workspace/file': {
+      id: '/api/workspace/file'
+      path: '/api/workspace/file'
+      fullPath: '/api/workspace/file'
+      preLoaderRoute: typeof ApiWorkspaceFileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workspace/root': {
+      id: '/api/workspace/root'
+      path: '/api/workspace/root'
+      fullPath: '/api/workspace/root'
+      preLoaderRoute: typeof ApiWorkspaceRootRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/workspace/tree': {
       id: '/api/workspace/tree'
       path: '/api/workspace/tree'
@@ -453,6 +513,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiChatRoute: ApiChatRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
+  ApiWorkspaceBrowseRoute: ApiWorkspaceBrowseRoute,
+  ApiWorkspaceFileRoute: ApiWorkspaceFileRoute,
+  ApiWorkspaceRootRoute: ApiWorkspaceRootRoute,
   ApiWorkspaceTreeRoute: ApiWorkspaceTreeRoute,
 }
 export const routeTree = rootRouteImport

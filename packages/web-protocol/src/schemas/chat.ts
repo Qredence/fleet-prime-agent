@@ -17,6 +17,7 @@ export const ChatSessionMetadataSchema = z
 	.object({
 		sessionFile: z.string().optional().openapi({ description: "Session file path" }),
 		sessionId: z.string().optional().openapi({ description: "Session ID" }),
+		cwd: z.string().optional().openapi({ description: "Session working directory" }),
 	})
 	.openapi({ description: "Chat session metadata" });
 

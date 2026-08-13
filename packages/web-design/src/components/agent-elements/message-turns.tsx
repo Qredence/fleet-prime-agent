@@ -30,26 +30,78 @@ type TextRendererComponentProps = {
   onOpenUIAction?: (message: string) => void
 }
 
-/** One user message bubble plus its hover copy/timestamp toolbar. */
-export const UserTurn = memo(function UserTurn({
-  message,
-  UserMessageComponent,
-  userMessageClassName,
-  enableImagePreview,
-  showCopyToolbar,
-  isMounted,
-  isCopyVisible,
-  onCopied,
-}: {
-  message: ChatMessage
-  UserMessageComponent: React.ComponentType<UserMessageComponentProps>
-  userMessageClassName?: string
+type UserTurnDisplay = {
   enableImagePreview: boolean
   showCopyToolbar: boolean
   isMounted: boolean
   isCopyVisible: boolean
+}
+
+type AssistantTurnStream = {
+  isLast: boolean
+  isStreaming: boolean
+}
+
+type AssistantTurnCopy = {
+  enabled: boolean
+  isVisible: boolean
+}
+
+type AssistantTurnDisplay = {
+  suppressQuestionTool: boolean
+}
+
+type UserTurnSharedProps = {
+  message: ChatMessage
+  UserMessageComponent: React.ComponentType<UserMessageComponentProps>
+  userMessageClassName?: string
   onCopied: (copyKey: string) => void
-}) {
+}
+
+type UserTurnProps =
+  | (UserTurnSharedProps & { display: UserTurnDisplay })
+  | (UserTurnSharedProps & UserTurnDisplay)
+
+type AssistantTurnSharedProps = {
+  assistantMsgs: Array<ChatMessage>
+  turnKey: string
+  ToolRendererComponent: React.ComponentType<ToolRendererProps>
+  TextRendererComponent: React.ComponentType<TextRendererComponentProps>
+  toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
+  onOpenUIAction?: (message: string) => void
+  onCopied: (copyKey: string) => void
+}
+
+type AssistantTurnLegacyState = {
+  isLastTurn: boolean
+  isStreaming: boolean
+  showCopyToolbar: boolean
+  isCopyVisible: boolean
+  suppressQuestionTool: boolean
+}
+
+type AssistantTurnProps =
+  | (AssistantTurnSharedProps & {
+      stream: AssistantTurnStream
+      copy: AssistantTurnCopy
+      display: AssistantTurnDisplay
+    })
+  | (AssistantTurnSharedProps & AssistantTurnLegacyState)
+
+/** One user message bubble plus its hover copy/timestamp toolbar. */
+export const UserTurn = memo(function UserTurn(props: UserTurnProps) {
+  const { message, UserMessageComponent, userMessageClassName, onCopied } = props
+  const display =
+    "display" in props
+      ? props.display
+      : {
+          enableImagePreview: props.enableImagePreview,
+          showCopyToolbar: props.showCopyToolbar,
+          isMounted: props.isMounted,
+          isCopyVisible: props.isCopyVisible,
+        }
+  const { enableImagePreview, showCopyToolbar, isMounted, isCopyVisible } =
+    display
   const text = getTextFromParts(message.parts ?? [], "")
   const hasParts = (message.parts ?? []).length > 0
   if (!text && !hasParts) return null
@@ -88,33 +140,31 @@ export const UserTurn = memo(function UserTurn({
 })
 
 /** All assistant messages of a turn plus the single shared copy toolbar. */
-export const AssistantTurn = memo(function AssistantTurn({
-  assistantMsgs,
-  turnKey,
-  isLastTurn,
-  isStreaming,
-  showCopyToolbar,
-  suppressQuestionTool,
-  ToolRendererComponent,
-  TextRendererComponent,
-  toolRenderers,
-  onOpenUIAction,
-  isCopyVisible,
-  onCopied,
-}: {
-  assistantMsgs: Array<ChatMessage>
-  turnKey: string
-  isLastTurn: boolean
-  isStreaming: boolean
-  showCopyToolbar: boolean
-  suppressQuestionTool: boolean
-  ToolRendererComponent: React.ComponentType<ToolRendererProps>
-  TextRendererComponent: React.ComponentType<TextRendererComponentProps>
-  toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
-  onOpenUIAction?: (message: string) => void
-  isCopyVisible: boolean
-  onCopied: (copyKey: string) => void
-}) {
+export const AssistantTurn = memo(function AssistantTurn(props: AssistantTurnProps) {
+  const {
+    assistantMsgs,
+    turnKey,
+    ToolRendererComponent,
+    TextRendererComponent,
+    toolRenderers,
+    onOpenUIAction,
+    onCopied,
+  } = props
+  const stream =
+    "stream" in props
+      ? props.stream
+      : { isLast: props.isLastTurn, isStreaming: props.isStreaming }
+  const copy =
+    "copy" in props
+      ? props.copy
+      : { enabled: props.showCopyToolbar, isVisible: props.isCopyVisible }
+  const display =
+    "display" in props
+      ? props.display
+      : { suppressQuestionTool: props.suppressQuestionTool }
+  const { isLast: isLastTurn, isStreaming } = stream
+  const { enabled: showCopyToolbar, isVisible: isCopyVisible } = copy
+  const { suppressQuestionTool } = display
   const assistantText = getTextFromParts(
     assistantMsgs.flatMap((msg) => msg.parts ?? []),
     "\n\n"
@@ -165,6 +215,25 @@ export const AssistantTurn = memo(function AssistantTurn({
   )
 })
 
+const TOOL_CALL_KEY_PREFIX = "tool-call:"
+const UNKEYED_TOOL_KEY_PREFIX = "unkeyed-tool:"
+
+/**
+ * Keeps non-empty tool-call IDs authoritative while using a disjoint render-key namespace
+ * for append-stable identities of unkeyed protocol fragments.
+ */
+export function getAssistantToolElementKey(
+  messageId: string,
+  part: ToolPartBase,
+  occurrence: number
+) {
+  if (part.toolCallId) {
+    return `${TOOL_CALL_KEY_PREFIX}${part.toolCallId}`
+  }
+
+  return `${UNKEYED_TOOL_KEY_PREFIX}${messageId}:${part.type}:${occurrence}`
+}
+
 type BuildAssistantElementsOptions = {
   messageId: string
   isLast: boolean
@@ -212,6 +281,7 @@ export function buildAssistantElements(
   )
   const nestedToolsMap = new Map<string, Array<ToolPartBase>>()
   const nestedToolIds = new Set<string>()
+  const unkeyedToolOccurrences = new Map<string, number>()
 
   for (const part of parts) {
     if (!isV5ToolPart(part)) continue
@@ -245,7 +315,7 @@ export function buildAssistantElements(
     if (isErrorPart(part)) {
       elems.push(
         <ErrorMessage
-          key={`${messageId}-error-${i}`}
+          key={`${messageId}-error-${part.title}-${part.message}`}
           title={part.title}
           message={part.message}
         />
@@ -271,9 +341,18 @@ export function buildAssistantElements(
         (part.type === "tool-Task" || part.type === "tool-Agent") && toolCallId
           ? nestedToolsMap.get(toolCallId) || []
           : undefined
+      const occurrence = part.toolCallId
+        ? 0
+        : (unkeyedToolOccurrences.get(part.type) ?? 0)
+      if (!part.toolCallId) {
+        unkeyedToolOccurrences.set(part.type, occurrence + 1)
+      }
+
+      // Non-empty toolCallId values remain authoritative. Unkeyed fallback keys assume the
+      // protocol only appends fragments; reordering unkeyed fragments is unsupported.
       elems.push(
         <ToolRendererComponent
-          key={part.toolCallId ?? `${messageId}-tool-${i}`}
+          key={getAssistantToolElementKey(messageId, part, occurrence)}
           part={part}
           nestedTools={nestedTools}
           chatStatus={chatStreamingStatus}

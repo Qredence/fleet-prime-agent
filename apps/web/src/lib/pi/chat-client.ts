@@ -13,6 +13,10 @@ import {
   ChatSessionsResponseSchema,
   ChatSettingsResponseSchema,
   ChatSettingsUpdateRequestSchema,
+  WorkspaceBrowseResponseSchema,
+  WorkspaceFileResponseSchema,
+  WorkspaceRootRequestSchema,
+  WorkspaceRootResponseSchema,
   WorkspaceTreeResponseSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod"
 import {
@@ -43,6 +47,9 @@ import type {
   ChatSettingsResponse,
   ChatSettingsUpdateRequest,
   ChatStreamEvent,
+  WorkspaceBrowseResponse,
+  WorkspaceFileResponse,
+  WorkspaceRootResponse,
   WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol"
 import {
@@ -55,6 +62,7 @@ export type ChatClient = {
   answerQuestion: (
     request: ChatQuestionAnswerRequest
   ) => Promise<ChatQuestionAnswerResponse>
+  browseWorkspace: (path?: string) => Promise<WorkspaceBrowseResponse>
   createSession: () => Promise<ChatSessionResponse>
   getModels: (options?: {
     scope?: "enabled" | "all"
@@ -66,9 +74,11 @@ export type ChatClient = {
   getCommands: () => Promise<ChatCommandsResponse>
   getSettings: () => Promise<ChatSettingsResponse>
   getWorkspaceTree: () => Promise<WorkspaceTreeResponse>
+  getWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>
   listSessions: () => Promise<Array<ChatSessionInfo>>
   loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>
   resumeSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>
+  setWorkspaceRoot: (path: string) => Promise<WorkspaceRootResponse>
   updateSettings: (
     request: ChatSettingsUpdateRequest
   ) => Promise<ChatSettingsResponse>
@@ -104,6 +114,18 @@ export const chatClient: ChatClient = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
       }
+    )
+  },
+
+  async browseWorkspace(path) {
+    const params = new URLSearchParams()
+    if (path && path.trim().length > 0) {
+      params.set("path", path)
+    }
+    const query = params.toString()
+    return fetchValidatedJson(
+      `/api/workspace/browse${query ? `?${query}` : ""}`,
+      WorkspaceBrowseResponseSchema
     )
   },
 
@@ -155,6 +177,14 @@ export const chatClient: ChatClient = {
     )
   },
 
+  async getWorkspaceFile(path) {
+    const params = new URLSearchParams({ path })
+    return fetchValidatedJson(
+      `/api/workspace/file?${params}`,
+      WorkspaceFileResponseSchema
+    )
+  },
+
   async listSessions() {
     const result = await fetchValidatedJson(
       "/api/chat/sessions",
@@ -176,6 +206,19 @@ export const chatClient: ChatClient = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(metadata),
     })
+  },
+
+  async setWorkspaceRoot(path) {
+    const body = WorkspaceRootRequestSchema.parse({ path })
+    return fetchValidatedJson(
+      "/api/workspace/root",
+      WorkspaceRootResponseSchema,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    )
   },
 
   async updateSettings(request) {

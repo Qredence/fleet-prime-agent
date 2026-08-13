@@ -58,19 +58,13 @@ function buildContextSuggestions({
   const hasAgentsFile = Boolean(
     resources?.agentsFiles.some((file) => file.name === "AGENTS.md")
   )
-  const hasFrontendSkill =
-    Boolean(
-      resources?.skills.some((skill) =>
-        `${skill.name} ${skill.description ?? ""}`
-          .toLowerCase()
-          .includes("frontend")
-      )
+  const mentionsFrontend = (text: string) => text.toLowerCase().includes("frontend")
+  const hasFrontendSkill = Boolean(
+    resources?.skills.some((skill) =>
+      mentionsFrontend(`${skill.name} ${skill.description ?? ""}`)
     ) ||
-    Boolean(
-      workspaceTree?.nodes.some((node) =>
-        JSON.stringify(node).toLowerCase().includes("frontend")
-      )
-    )
+    workspaceTree?.nodes.some((node) => mentionsFrontend(JSON.stringify(node)))
+  )
 
   // No messages — empty state (only used for centered empty suggestions)
   if (messages.length === 0) {

@@ -40,7 +40,16 @@ await build({
 	platform: "node",
 	// Native or interop-sensitive packages stay external; they resolve from
 	// node_modules at runtime (and are loaded via createRequire/lazily anyway).
-	external: ["zeromq", "koffi", "undici", "@silvia-odwyer/photon-node", "@mariozechner/clipboard"],
+	// @mistralai/mistralai statically imports optional @opentelemetry/api; leave
+	// it unresolved in the bundle the same way scripts/check-browser-smoke.mjs does.
+	external: [
+		"zeromq",
+		"koffi",
+		"undici",
+		"@silvia-odwyer/photon-node",
+		"@mariozechner/clipboard",
+		"@opentelemetry/api",
+	],
 	define: { __PI_BUNDLED__: "true", __PI_BUILD_ID__: JSON.stringify(buildId) },
 	banner: {
 		js: "import { createRequire as __piBundleCreateRequire } from 'node:module'; const require = __piBundleCreateRequire(import.meta.url);",

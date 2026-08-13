@@ -157,7 +157,8 @@ export async function readChatStream(
   for (;;) {
     const { value, done } = await reader.read()
     if (done) break
-    buffer += decoder.decode(value, { stream: true })
+    const chunk = decoder.decode(value, { stream: true })
+    buffer += chunk
 
     let newlineIndex = buffer.indexOf("\n")
     while (newlineIndex >= 0) {

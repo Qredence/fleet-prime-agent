@@ -1,11 +1,9 @@
 "use client"
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { cn } from "./utils/cn"
 
-import { SendButton } from "./input/send-button"
-import { AttachmentButton } from "./input/attachment-button"
-import { FileAttachment } from "./input/file-attachment"
+import { InputBarSurface } from "./input/input-bar-surface"
 import { InputInfoBar } from "./input/info-bar"
 import { InputQuestionBar } from "./input/question-bar"
 import { useInputTyping } from "./input/input-typing"
@@ -26,6 +24,28 @@ type SuggestionConfig =
     }
 
 const DEFAULT_PLACEHOLDER = "Send a message..."
+
+const LEGACY_FLAT_PROP_KEYS = [
+  "onAttach",
+  "attachedImages",
+  "attachedFiles",
+  "onRemoveImage",
+  "onRemoveFile",
+  "onPaste",
+  "isDragOver",
+  "enableImagePreview",
+  "value",
+  "onChange",
+] as const
+
+/** Dev-time nudge: the flat attachment/controlled aliases are deprecated in favor of the grouped configs. */
+function warnOnLegacyFlatProps(props: InputBarProps): void {
+  if (LEGACY_FLAT_PROP_KEYS.some((key) => props[key] !== undefined)) {
+    console.warn(
+      "[InputBar] The flat props `onAttach`, `attachedImages`, `attachedFiles`, `onRemoveImage`, `onRemoveFile`, `onPaste`, `isDragOver`, `enableImagePreview`, `value` and `onChange` are deprecated. Pass the `attachments` and `controlled` config objects instead."
+    )
+  }
+}
 
 export type AttachedImage = {
   id: string
@@ -145,18 +165,7 @@ export const InputBar = memo(function InputBar(props: InputBarProps) {
     placeholder,
     className,
     attachments,
-    // Deprecated flat aliases — mapped into the grouped shapes below.
-    onAttach: legacyOnAttach,
-    attachedImages: legacyAttachedImages,
-    attachedFiles: legacyAttachedFiles,
-    onRemoveImage: legacyOnRemoveImage,
-    onRemoveFile: legacyOnRemoveFile,
-    onPaste: legacyOnPaste,
-    isDragOver: legacyIsDragOver,
-    enableImagePreview: legacyEnableImagePreview,
     controlled,
-    value: legacyValue,
-    onChange: legacyOnChange,
     disabled,
     autoFocus,
     suggestions = [],
@@ -169,38 +178,33 @@ export const InputBar = memo(function InputBar(props: InputBarProps) {
     onSlashCommandSelect,
   } = props
 
-  if (
-    legacyOnAttach !== undefined ||
-    legacyAttachedImages !== undefined ||
-    legacyAttachedFiles !== undefined ||
-    legacyOnRemoveImage !== undefined ||
-    legacyOnRemoveFile !== undefined ||
-    legacyOnPaste !== undefined ||
-    legacyIsDragOver !== undefined ||
-    legacyEnableImagePreview !== undefined ||
-    legacyValue !== undefined ||
-    legacyOnChange !== undefined
-  ) {
-    console.warn(
-      "[InputBar] The flat props `onAttach`, `attachedImages`, `attachedFiles`, `onRemoveImage`, `onRemoveFile`, `onPaste`, `isDragOver`, `enableImagePreview`, `value` and `onChange` are deprecated. Pass the `attachments` and `controlled` config objects instead."
-    )
-  }
+  warnOnLegacyFlatProps(props)
 
-  const onAttach = attachments?.onAttach ?? legacyOnAttach
-  const attachedImages = attachments?.images ?? legacyAttachedImages ?? []
-  const attachedFiles = attachments?.files ?? legacyAttachedFiles ?? []
-  const onRemoveImage = attachments?.onRemoveImage ?? legacyOnRemoveImage
-  const onRemoveFile = attachments?.onRemoveFile ?? legacyOnRemoveFile
-  const onPaste = attachments?.onPaste ?? legacyOnPaste
-  const isDragOver = attachments?.isDragOver ?? legacyIsDragOver
+  const onAttach = attachments?.onAttach ?? props.onAttach
+  const attachedImages = attachments?.images ?? props.attachedImages ?? []
+  const attachedFiles = attachments?.files ?? props.attachedFiles ?? []
+  const onRemoveImage = attachments?.onRemoveImage ?? props.onRemoveImage
+  const onRemoveFile = attachments?.onRemoveFile ?? props.onRemoveFile
+  const onPaste = attachments?.onPaste ?? props.onPaste
+  const isDragOver = attachments?.isDragOver ?? props.isDragOver
   const enableImagePreview =
-    attachments?.enableImagePreview ?? legacyEnableImagePreview ?? true
-  const attachRight = (attachments?.buttonPosition ?? "left") === "right"
+    attachments?.enableImagePreview ?? props.enableImagePreview ?? true
+  const attachRight = attachments?.buttonPosition === "right"
   const previewStyle = attachments?.previewStyle ?? "thumbnail"
 
-  const isControlled = controlled !== undefined || legacyValue !== undefined
-  const controlledValue = controlled ? controlled.value : legacyValue
-  const controlledOnChange = controlled ? controlled.onChange : legacyOnChange
+  // Back-compat: the flat `value`/`onChange` pair maps onto the grouped
+  // `controlled` config. `controlled` wins when both are passed. `onChange`
+  // may be absent (read-only controlled input), mirroring the legacy pair.
+  const resolvedControlled:
+    | { value: string; onChange?: (value: string) => void }
+    | undefined =
+    controlled ??
+    (props.value !== undefined
+      ? { value: props.value, onChange: props.onChange }
+      : undefined)
+  const isControlled = resolvedControlled !== undefined
+  const controlledValue = resolvedControlled?.value
+  const controlledOnChange = resolvedControlled?.onChange
 
   const [internalInput, setInternalInput] = useState("")
   const [isInfoBarOpen, setIsInfoBarOpen] = useState(true)
@@ -332,143 +336,49 @@ export const InputBar = memo(function InputBar(props: InputBarProps) {
           suggestions={suggestions}
           textareaRef={textareaRef}
         />
-        <div
-          className={cn(
-            "flex flex-col gap-0",
-            shouldShowInfoBar
-              ? "rounded-an-input-border-radius bg-an-background-tertiary"
-              : null
-          )}
-        >
-          {infoBarPosition === "top" && infoBarNode}
-          {questionBarNode}
-          <div
-            className={cn(
-              "relative cursor-text rounded-an-input-border-radius bg-an-input-background shadow-2xs ring-1 ring-foreground/10",
-              isDragOver && "ring-2 ring-an-primary-color"
-            )}
-            onClick={handleContainerClick}
-          >
-            {/* Context items (attached images/files) */}
-            <div
-              className={cn(
-                "grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 ease-out",
-                showContextItems && "grid-rows-[1fr]"
-              )}
-            >
-              <div className="overflow-hidden">
-                {showContextItems && (
-                  <div className="flex flex-wrap items-center gap-[6px] px-an-context-padding pt-an-context-padding pb-0.5">
-                    {attachedImages.map((img) => (
-                      <FileAttachment
-                        key={img.id}
-                        id={img.id}
-                        filename={img.filename}
-                        size={img.size}
-                        isImage
-                        url={img.url}
-                        display={imageDisplayMode}
-                        enableImagePreview={enableImagePreview}
-                        onRemove={
-                          onRemoveImage
-                            ? () => onRemoveImage(img.id)
-                            : undefined
-                        }
-                      />
-                    ))}
-                    {attachedFiles.map((file) => (
-                      <FileAttachment
-                        key={file.id}
-                        id={file.id}
-                        filename={file.filename}
-                        size={file.size}
-                        onRemove={
-                          onRemoveFile ? () => onRemoveFile(file.id) : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Typing animation image */}
-            {isTyping && typingAnimation?.image && showImage && (
-              <div className="flex flex-wrap gap-2 px-3 pt-3">
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md">
-                  <img
-                    src={typingAnimation.image}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Text input or typing animation text */}
-            <div className="min-h-[44px] pt-3 pr-3 pb-0 pl-3.5">
-              {isTyping ? (
-                <div className="w-full text-[14px] leading-[1.6] text-an-foreground-muted">
-                  <span>{displayedText}</span>
-                  <span className="animate-an-blink ml-px inline-block h-[1em] w-[2px] bg-an-foreground align-text-bottom" />
-                </div>
-              ) : (
-                <>
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onPaste={onPaste}
-                    placeholder={effectivePlaceholder}
-                    disabled={disabled}
-                    rows={1}
-                    className={cn(
-                      "peer w-full resize-none border-0 bg-transparent text-[14px] leading-[1.6] text-an-foreground outline-none placeholder:text-an-input-placeholder-color",
-                      "overflow-hidden",
-                      disabled && "cursor-not-allowed opacity-50"
-                    )}
-                  />
-                  <div className="pointer-events-none absolute inset-0 z-20 rounded-an-input-border-radius opacity-0 outline-2 outline-an-input-focus-outline transition-opacity duration-75 ease-in-out peer-focus:opacity-100 peer-focus-visible:opacity-100" />
-                </>
-              )}
-            </div>
-
-            {/* Toolbar */}
-            <div className="flex items-center justify-between gap-3 px-2 pt-1 pb-2">
-              <div className="flex min-w-0 items-center gap-1">
-                {!attachRight && showAttach && onAttach && (
-                  <AttachmentButton onClick={onAttach} />
-                )}
-                {leftActions}
-              </div>
-              <div className="flex items-center gap-1">
-                {rightActions}
-                {attachRight && showAttach && onAttach && (
-                  <AttachmentButton onClick={onAttach} />
-                )}
-                {/* Send / Stop button */}
-                <SendButton
-                  state={
-                    isStreaming
-                      ? "streaming"
-                      : hasInput && !disabled
-                        ? "typing"
-                        : "idle"
-                  }
-                  onClick={() => {
-                    if (isStreaming) {
-                      onStop()
-                    } else if (hasInput) {
-                      handleSubmit()
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-          {infoBarPosition === "bottom" && infoBarNode}
-        </div>
+        <InputBarSurface
+          attachments={{
+            attachedFiles,
+            attachedImages,
+            enableImagePreview,
+            imageDisplayMode,
+            onRemoveFile,
+            onRemoveImage,
+            showContextItems,
+          }}
+          editor={{
+            disabled,
+            displayedText,
+            effectivePlaceholder,
+            input,
+            isTyping,
+            onInputChange: setInput,
+            onPaste,
+            onTextareaKeyDown: handleKeyDown,
+            showImage,
+            textareaRef,
+            typingImage: typingAnimation?.image,
+          }}
+          layout={{
+            infoBar: infoBarNode,
+            infoBarPosition,
+            isDragOver,
+            onContainerClick: handleContainerClick,
+            questionBar: questionBarNode,
+            showInfoBar: shouldShowInfoBar,
+          }}
+          toolbar={{
+            attachRight,
+            hasInput,
+            isStreaming,
+            leftActions,
+            onAttach,
+            onStop,
+            onSubmit: handleSubmit,
+            rightActions,
+            showAttach,
+          }}
+        />
       </div>
     </div>
   )
@@ -510,13 +420,21 @@ function InputSuggestionsOverlay({
   const showSlashCommands =
     filteredSlashCommands.length > 0 && !interactionsDisabled && !slashDismissed
 
-  useEffect(() => {
+  // Reset derived slash-menu state when the query / filtered list changes —
+  // prev-tracking during render, same committed state as the old effects.
+  const [prevSlashQuery, setPrevSlashQuery] = useState(slashQuery)
+  if (slashQuery !== prevSlashQuery) {
+    setPrevSlashQuery(slashQuery)
     setSlashDismissed(false)
-  }, [slashQuery])
-
-  useEffect(() => {
     setActiveIndex(0)
-  }, [slashQuery, filteredSlashCommands.length])
+  }
+  const [prevSlashCount, setPrevSlashCount] = useState(
+    filteredSlashCommands.length
+  )
+  if (filteredSlashCommands.length !== prevSlashCount) {
+    setPrevSlashCount(filteredSlashCommands.length)
+    setActiveIndex(0)
+  }
 
   const focusEnd = useCallback(() => {
     requestAnimationFrame(() => {
@@ -552,53 +470,48 @@ function InputSuggestionsOverlay({
     [focusEnd, interactionsDisabled, onSlashCommandSelect, setInput]
   )
 
+  const onSlashKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    const count = filteredSlashCommands.length
+    if (count === 0) return
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault()
+      event.stopPropagation()
+      setActiveIndex((prev) => (prev + 1) % count)
+      return
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault()
+      event.stopPropagation()
+      setActiveIndex((prev) => (prev - 1 + count) % count)
+      return
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault()
+      event.stopPropagation()
+      setSlashDismissed(true)
+      return
+    }
+
+    if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+      const item = filteredSlashCommands[activeIndex]
+      if (!item) return
+      event.preventDefault()
+      event.stopPropagation()
+      handleSlashCommandSelect(item)
+    }
+  })
+
   useEffect(() => {
     const el = textareaRef.current
     if (!el || !showSlashCommands) return
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      const count = filteredSlashCommands.length
-      if (count === 0) return
-
-      if (event.key === "ArrowDown") {
-        event.preventDefault()
-        event.stopPropagation()
-        setActiveIndex((prev) => (prev + 1) % count)
-        return
-      }
-
-      if (event.key === "ArrowUp") {
-        event.preventDefault()
-        event.stopPropagation()
-        setActiveIndex((prev) => (prev - 1 + count) % count)
-        return
-      }
-
-      if (event.key === "Escape") {
-        event.preventDefault()
-        event.stopPropagation()
-        setSlashDismissed(true)
-        return
-      }
-
-      if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
-        const item = filteredSlashCommands[activeIndex]
-        if (!item) return
-        event.preventDefault()
-        event.stopPropagation()
-        handleSlashCommandSelect(item)
-      }
-    }
-
-    el.addEventListener("keydown", onKeyDown, true)
-    return () => el.removeEventListener("keydown", onKeyDown, true)
-  }, [
-    activeIndex,
-    filteredSlashCommands,
-    handleSlashCommandSelect,
-    showSlashCommands,
-    textareaRef,
-  ])
+    const handler = (event: KeyboardEvent) => onSlashKeyDown(event)
+    el.addEventListener("keydown", handler, true)
+    return () => el.removeEventListener("keydown", handler, true)
+  }, [showSlashCommands, textareaRef])
 
   if (showSlashCommands) {
     return (

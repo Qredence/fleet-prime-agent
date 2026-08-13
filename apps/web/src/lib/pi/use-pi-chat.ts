@@ -36,13 +36,14 @@ export type UsePiChatOptions = {
   client?: ChatClient
   initialSessionMetadata: ChatSessionMetadata
   persistSession: (metadata: ChatSessionMetadata) => void
+  onWorkspaceCwd?: (cwd: string) => Promise<void>
 }
 
 export function usePiChat(
   model: ChatModelSelection | undefined,
   options: UsePiChatOptions
 ) {
-  const { client = chatClient, initialSessionMetadata, persistSession } =
+  const { client = chatClient, initialSessionMetadata, persistSession, onWorkspaceCwd } =
     options
   const [messages, setMessages] = useState<Array<ChatMessage>>([])
   const [status, setStatus] = useState<ChatStatus>("ready")
@@ -213,11 +214,16 @@ export function usePiChat(
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     void refreshSessions().catch((err) => {
+      if (cancelled) return
       const nextError = err instanceof Error ? err : new Error(String(err))
       setError(nextError)
       toast.error(nextError.message)
     })
+    return () => {
+      cancelled = true
+    }
   }, [refreshSessions])
 
   useEffect(() => {
@@ -310,6 +316,7 @@ export function usePiChat(
   }, [client, setActivityLabelSynced, setQueueSynced])
 
   const startNewSession = useCallback(async () => {
+    stop()
     const result = await client.createSession()
     setSessionMetadataSynced(result.session)
     setMessagesSynced([])
@@ -326,11 +333,13 @@ export function usePiChat(
     setPlanLabelSynced,
     setQueueSynced,
     setSessionMetadataSynced,
+    stop,
   ])
 
   const resumeSession = useCallback(
     async (metadata: ChatSessionMetadata) => {
       try {
+        stop()
         const result = await client.resumeSession(metadata)
         setSessionMetadataSynced(result.session)
         setMessagesSynced(result.messages)
@@ -341,6 +350,9 @@ export function usePiChat(
         setPlanLabelSynced(undefined)
         toast.success("Session resumed")
         await refreshSessions()
+        if (result.session.cwd) {
+          await onWorkspaceCwd?.(result.session.cwd)
+        }
       } catch (err) {
         if (
           await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
@@ -358,6 +370,7 @@ export function usePiChat(
     },
     [
       client,
+      onWorkspaceCwd,
       recoverFromForbiddenSession,
       refreshSessions,
       setActivityLabelSynced,
@@ -365,6 +378,7 @@ export function usePiChat(
       setPlanLabelSynced,
       setQueueSynced,
       setSessionMetadataSynced,
+      stop,
     ]
   )
 
@@ -459,8 +473,10 @@ export function usePiChat(
     const connect = () => {
       const params = new URLSearchParams({ sessionId })
       if (lastEventId > 0) {
-        // EventSource auto-sends Last-Event-ID for its own reconnects; we
-        // only need to seed the first connection.
+        // EventSource only sends Last-Event-ID on native reconnect of the same
+        // instance. Closing it (below) starts a new connection, so pass the
+        // stored cursor as a query param the server also accepts.
+        params.set("lastEventId", String(lastEventId))
       }
       const url = resolveChatApiUrl(`/api/chat/events?${params}`)
       source = new EventSource(url)

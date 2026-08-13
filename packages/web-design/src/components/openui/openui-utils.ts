@@ -1,14 +1,35 @@
-export type OpenUIContentSegment = { content: string; type: "markdown" } | { content: string; type: "openui" };
+export type OpenUIContentSegment = {
+	content: string;
+	id?: string;
+	type: "markdown" | "openui";
+};
+
+type IdentifiedOpenUIContentSegment = OpenUIContentSegment & {
+	id: string;
+};
+
+type OpenUIContentSegmentType = OpenUIContentSegment["type"];
 
 const OPENUI_FENCE_PATTERN = /```(?:openui|openui-lang)(?:[ \t]*\r?\n|[ \t]+)([\s\S]*?)```/gi;
-const OPENUI_WRAPPER_PATTERN = /^```(?:openui|openui-lang)(?:[ \t]*\r?\n|[ \t]+)([\s\S]*?)```$/i;
+
+function appendSegment(
+	segments: Array<IdentifiedOpenUIContentSegment>,
+	ordinals: Record<OpenUIContentSegmentType, number>,
+	type: OpenUIContentSegmentType,
+	content: string,
+) {
+	const ordinal = ordinals[type];
+	ordinals[type] += 1;
+	segments.push({ content, id: `${type}-${ordinal}`, type });
+}
 
 export function stripOpenUIWrapper(content: string) {
 	const cleaned = content.trim();
-	const openUIFenceMatch = cleaned.match(OPENUI_WRAPPER_PATTERN);
+	const fences = Array.from(cleaned.matchAll(OPENUI_FENCE_PATTERN));
+	const onlyFence = fences[0];
 
-	if (openUIFenceMatch) {
-		return openUIFenceMatch[1].trim();
+	if (fences.length === 1 && onlyFence?.index === 0 && onlyFence[0].length === cleaned.length) {
+		return onlyFence[1].trim();
 	}
 
 	return cleaned;
@@ -18,34 +39,38 @@ export function isOpenUIProgram(content: string) {
 	return stripOpenUIWrapper(content).startsWith("root =");
 }
 
-export function segmentOpenUIContent(content: string): Array<OpenUIContentSegment> {
+export function segmentOpenUIContent(content: string): Array<IdentifiedOpenUIContentSegment> {
+	const segments: Array<IdentifiedOpenUIContentSegment> = [];
+	const ordinals = { markdown: 0, openui: 0 };
 	const stripped = stripOpenUIWrapper(content);
 	if (stripped.startsWith("root =")) {
-		return [{ type: "openui", content: stripped }];
+		appendSegment(segments, ordinals, "openui", stripped);
+		return segments;
 	}
 
-	const segments: Array<OpenUIContentSegment> = [];
 	let lastIndex = 0;
 
 	for (const match of content.matchAll(OPENUI_FENCE_PATTERN)) {
 		const index = match.index;
 		const markdown = content.slice(lastIndex, index);
 		if (markdown.trim()) {
-			segments.push({ type: "markdown", content: markdown });
+			appendSegment(segments, ordinals, "markdown", markdown);
 		}
 
 		const openUI = match[1].trim();
-		segments.push(
-			isOpenUIProgram(openUI) ? { type: "openui", content: openUI } : { type: "markdown", content: match[0] },
-		);
+		const isOpenUI = isOpenUIProgram(openUI);
+		appendSegment(segments, ordinals, isOpenUI ? "openui" : "markdown", isOpenUI ? openUI : match[0]);
 
 		lastIndex = index + match[0].length;
 	}
 
 	const trailingMarkdown = content.slice(lastIndex);
 	if (trailingMarkdown.trim()) {
-		segments.push({ type: "markdown", content: trailingMarkdown });
+		appendSegment(segments, ordinals, "markdown", trailingMarkdown);
 	}
 
-	return segments.length > 0 ? segments : [{ type: "markdown", content }];
+	if (segments.length > 0) return segments;
+
+	appendSegment(segments, ordinals, "markdown", content);
+	return segments;
 }

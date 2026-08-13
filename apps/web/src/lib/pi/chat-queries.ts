@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import type { QueryClient } from "@tanstack/react-query"
 import { chatClient } from "./chat-client"
 import type {
   ChatProviderRemoveRequest,
@@ -8,7 +9,7 @@ import type {
   ChatSettingsUpdateRequest,
 } from "@prime-agent/web-protocol/chat-protocol"
 
-const keys = {
+export const chatQueryKeys = {
   models: ["chat", "models"] as const,
   modelCatalog: ["chat", "models", "catalog"] as const,
   providers: ["chat", "providers"] as const,
@@ -17,6 +18,18 @@ const keys = {
   settings: ["chat", "settings"] as const,
   workspace: ["workspace", "tree"] as const,
 } as const
+
+const keys = chatQueryKeys
+
+/** Invalidate cwd-scoped queries after the workspace root changes. */
+export function invalidateWorkspaceScopedQueries(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: keys.workspace })
+  void queryClient.invalidateQueries({ queryKey: keys.models })
+  void queryClient.invalidateQueries({ queryKey: keys.modelCatalog })
+  void queryClient.invalidateQueries({ queryKey: keys.settings })
+  void queryClient.invalidateQueries({ queryKey: keys.resources })
+  void queryClient.invalidateQueries({ queryKey: keys.commands })
+}
 
 export function useChatModels() {
   return useQuery({

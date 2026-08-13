@@ -287,7 +287,6 @@ export {
 // Run modes for programmatic SDK usage
 export {
 	ClientPromptStashStore,
-	createInteractiveModeLocalSessionHost,
 	createInteractiveModeUiServices,
 	createInteractiveModeUiServicesFromServices,
 	DAEMON_PROTOCOL_INFO,
@@ -319,7 +318,6 @@ export {
 	defaultDaemonSocketPath,
 	type InteractiveInitialPrompt,
 	InteractiveMode,
-	type InteractiveModeLocalSessionHost,
 	type InteractiveModeOptions,
 	type InteractiveModeUiServices,
 	type ModelInfo,

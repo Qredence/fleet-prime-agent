@@ -17,6 +17,7 @@ import type {
 import type { RefinementResult } from "../../core/refinement/index.js";
 import type { DeleteSessionFileResult } from "../../core/session-file-actions.js";
 import { SessionAlreadyActiveError } from "../../core/session-lease.js";
+import type { ReadonlySessionManager } from "../../core/session-manager.js";
 import type { SessionStats } from "../../core/session-stats.js";
 import {
 	DaemonCapabilityUnavailableError,
@@ -49,6 +50,7 @@ import type {
 	AgentConnectionEvent,
 	AgentConnectionEventListener,
 	AgentConnectionExecuteBashOptions,
+	AgentConnectionExtensions,
 	AgentConnectionExtensionUiResponse,
 	AgentConnectionForkOptions,
 	AgentConnectionHeartbeat,
@@ -61,15 +63,18 @@ import type {
 	AgentConnectionPromptOptions,
 	AgentConnectionQueueMode,
 	AgentConnectionQueueState,
+	AgentConnectionReplacedClientContext,
 	AgentConnectionResourceSnapshot,
 	AgentConnectionSavedSessionInfo,
 	AgentConnectionSavedSessionScope,
 	AgentConnectionScopedModel,
+	AgentConnectionSeedMessage,
 	AgentConnectionSessionContext,
 	AgentConnectionSessionHeader,
 	AgentConnectionSessionListCallbacks,
 	AgentConnectionSessionTreeFlatNode,
 	AgentConnectionSessionTreeNode,
+	AgentConnectionSessionView,
 	AgentConnectionSessionWatcher,
 	AgentConnectionSideQuestionEvent,
 	AgentConnectionSideQuestionTurn,
@@ -80,7 +85,7 @@ import type {
 	AgentConnectionToolDefinition,
 	AgentConnectionUserMessage,
 } from "./types.js";
-import { AgentConnectionPromptAdmissionError } from "./types.js";
+import { AgentConnectionPromptAdmissionError, AgentConnectionUnsupportedError } from "./types.js";
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 type DaemonCommandBody = DistributiveOmit<DaemonCommand, "id">;
@@ -116,6 +121,29 @@ function formatErrorSentence(error: unknown): string {
 		return "Unknown daemon error.";
 	}
 	return /[.!?]$/.test(message) ? message : `${message}.`;
+}
+
+/**
+ * Process-local extension surface on daemon transports: every member throws
+ * AgentConnectionUnsupportedError (executable callbacks cannot cross the wire).
+ */
+function createUnsupportedExtensionsSurface(): AgentConnectionExtensions {
+	const unsupported = (feature: string): never => {
+		throw new AgentConnectionUnsupportedError(
+			`${feature} is process-local; daemon adapters throw AgentConnectionUnsupportedError`,
+			feature,
+		);
+	};
+	return {
+		getArgumentCompletions: (_commandName, _argumentPrefix) => unsupported("extensions.getArgumentCompletions"),
+		getCommandDiagnostics: () => unsupported("extensions.getCommandDiagnostics"),
+		getShortcutDiagnostics: () => unsupported("extensions.getShortcutDiagnostics"),
+		getShortcuts: () => unsupported("extensions.getShortcuts"),
+		getKeyboardShortcuts: (_resolvedKeybindings) => unsupported("extensions.getKeyboardShortcuts"),
+		getMessageRenderer: (_customType) => unsupported("extensions.getMessageRenderer"),
+		getToolRendererDefinition: (_name) => unsupported("extensions.getToolRendererDefinition"),
+		bindExtensions: (_bindings) => unsupported("extensions.bindExtensions"),
+	};
 }
 
 function reconnectDaemonTransportAfterUpdate(client: DaemonClient): Promise<void> {
@@ -207,6 +235,8 @@ export class DaemonAgentConnection implements AgentConnection {
 	private readonly unsubscribeDaemonMessages: () => void;
 	private readonly unsubscribeDaemonClose: () => void;
 	private readonly clientId = `daemon-agent-connection:${randomUUID()}`;
+	readonly extensions: AgentConnectionExtensions = createUnsupportedExtensionsSurface();
+	private sessionView: AgentConnectionSessionView | undefined;
 	private ownedSessionPromotionTail = Promise.resolve();
 	private lastEventCursor: DaemonEventCursor | undefined;
 	private readonly retiredEventGenerations = new Set<string>();
@@ -436,6 +466,39 @@ export class DaemonAgentConnection implements AgentConnection {
 			activeSessionId: this.activeSessionId,
 		});
 		return data.header ?? undefined;
+	}
+
+	getAbortSignal(): AbortSignal | undefined {
+		// AbortSignals cannot cross the daemon socket; abort via abort() instead.
+		throw new AgentConnectionUnsupportedError(
+			"getAbortSignal is process-local; daemon adapters throw AgentConnectionUnsupportedError",
+			"getAbortSignal",
+		);
+	}
+
+	getSessionView(): AgentConnectionSessionView {
+		this.sessionView ??= this.createDaemonSessionView();
+		return this.sessionView;
+	}
+
+	getReadonlySessionManager(): ReadonlySessionManager {
+		throw new AgentConnectionUnsupportedError(
+			"getReadonlySessionManager is process-local; daemon adapters throw AgentConnectionUnsupportedError",
+			"getReadonlySessionManager",
+		);
+	}
+
+	getSystemPromptSync(): string {
+		throw new AgentConnectionUnsupportedError(
+			"getSystemPromptSync is process-local; daemon adapters throw AgentConnectionUnsupportedError",
+			"getSystemPromptSync",
+		);
+	}
+
+	async setAgentTransport(transport: Transport): Promise<void> {
+		// set_transport already persists through the daemon's settings manager and
+		// updates the live agent, so it carries the full setAgentTransport semantic.
+		await this.requestOk({ type: "set_transport", activeSessionId: this.activeSessionId, transport });
 	}
 
 	async getCommands(): Promise<AgentConnectionSlashCommand[]> {
@@ -1072,25 +1135,42 @@ export class DaemonAgentConnection implements AgentConnection {
 	}
 
 	async newSession(options?: AgentConnectionNewSessionOptions): Promise<{ cancelled: boolean }> {
-		return this.requestData<{ cancelled: boolean }>({
+		this.assertSeedMessagesSupported(options?.seedMessages, "newSession");
+		this.assertProcessLocalSessionHooks(options, "newSession");
+		const runAfterReplace = this.createAfterReplaceHook(options?.afterReplace);
+		const command: Extract<DaemonCommand, { type: "new_session" }> = {
 			type: "new_session",
 			activeSessionId: this.activeSessionId,
 			parentSession: options?.parentSession,
-		});
+		};
+		if (options?.seedMessages && options.seedMessages.length > 0) {
+			command.seedMessages = options.seedMessages;
+		}
+		const result = await this.requestData<{ cancelled: boolean }>(command);
+		if (!result.cancelled) {
+			await runAfterReplace?.();
+		}
+		return result;
 	}
 
 	async switchSession(
 		sessionPath: string,
 		options?: AgentConnectionSwitchSessionOptions,
 	): Promise<{ cancelled: boolean }> {
+		this.assertProcessLocalSessionHooks(options, "switchSession");
 		const sourceActiveSessionId = this.activeSessionId;
+		const runAfterReplace = this.createAfterReplaceHook(options?.afterReplace);
 		try {
-			return await this.requestData<{ cancelled: boolean }>({
+			const result = await this.requestData<{ cancelled: boolean }>({
 				type: "switch_session",
 				activeSessionId: sourceActiveSessionId,
 				sessionPath,
 				cwdOverride: options?.cwdOverride,
 			});
+			if (!result.cancelled) {
+				await runAfterReplace?.();
+			}
+			return result;
 		} catch (error) {
 			if (!(error instanceof SessionAlreadyActiveError) || !error.activeSessionId) {
 				throw error;
@@ -1101,7 +1181,9 @@ export class DaemonAgentConnection implements AgentConnection {
 			if (error.activeSessionId === sourceActiveSessionId) {
 				return { cancelled: false };
 			}
-			return this.reattachSession(sourceActiveSessionId, error.activeSessionId);
+			const reattachResult = await this.reattachSession(sourceActiveSessionId, error.activeSessionId);
+			await runAfterReplace?.();
+			return reattachResult;
 		}
 	}
 
@@ -1187,12 +1269,18 @@ export class DaemonAgentConnection implements AgentConnection {
 		entryId: string,
 		options?: AgentConnectionForkOptions,
 	): Promise<{ cancelled: boolean; selectedText?: string }> {
-		return this.requestData<{ cancelled: boolean; selectedText?: string }>({
+		this.assertProcessLocalSessionHooks(options, "fork");
+		const runAfterReplace = this.createAfterReplaceHook(options?.afterReplace);
+		const result = await this.requestData<{ cancelled: boolean; selectedText?: string }>({
 			type: "fork",
 			activeSessionId: this.activeSessionId,
 			entryId,
 			position: options?.position,
 		});
+		if (!result.cancelled) {
+			await runAfterReplace?.();
+		}
+		return result;
 	}
 
 	async navigateTree(
@@ -1957,6 +2045,128 @@ export class DaemonAgentConnection implements AgentConnection {
 		if (!current || current.generation !== cursor.generation || cursor.sequence > current.sequence) {
 			this.lastEventCursor = cursor;
 		}
+	}
+
+	/**
+	 * Most accessors ride existing wire commands. `materializeSessionFile`
+	 * stays desktop-only for PR1 — the daemon writes the session file eagerly,
+	 * so clients never need to materialize one remotely.
+	 */
+	private createDaemonSessionView(): AgentConnectionSessionView {
+		return {
+			getCwd: async () => {
+				const state = await this.getState();
+				return state.cwd;
+			},
+			getSessionDir: async () => {
+				const state = await this.getState();
+				if (!state.sessionDir) {
+					throw new AgentConnectionUnsupportedError(
+						"sessionView.getSessionDir is unavailable: connection state has no sessionDir",
+						"sessionView.getSessionDir",
+					);
+				}
+				return state.sessionDir;
+			},
+			getSessionName: async () => {
+				const state = await this.getState();
+				return state.sessionName;
+			},
+			getHeader: async () => {
+				const data = await this.requestData<{ header?: AgentConnectionSessionHeader | null }>({
+					type: "get_session_header",
+					activeSessionId: this.activeSessionId,
+				});
+				if (!data.header) {
+					throw new Error("Session has no header yet.");
+				}
+				return data.header;
+			},
+			getFlatTree: async () => {
+				const data = await this.requestData<{
+					flatNodes: AgentConnectionSessionTreeFlatNode[];
+					leafId: string | null;
+				}>({
+					type: "get_session_tree",
+					activeSessionId: this.activeSessionId,
+				});
+				return data.flatNodes;
+			},
+			getLeafId: async () => {
+				const state = await this.getState();
+				return state.leafId;
+			},
+			buildSessionContext: async () => this.getSessionContext(),
+			materializeSessionFile: async () => {
+				throw new AgentConnectionUnsupportedError(
+					"sessionView.materializeSessionFile is desktop-only; daemon sessions are materialized server-side",
+					"sessionView.materializeSessionFile",
+				);
+			},
+		};
+	}
+
+	/**
+	 * seedMessages requires protocol >= 8 and the seed_messages server capability.
+	 * Older daemons would ignore the field and start an unseeded session, so fail
+	 * fast with UnsupportedError.
+	 */
+	private assertSeedMessagesSupported(seedMessages: AgentConnectionSeedMessage[] | undefined, feature: string): void {
+		if (!seedMessages || seedMessages.length === 0) {
+			return;
+		}
+		const protocolVersion = this.client.hello?.protocol.version ?? 0;
+		if (protocolVersion < 8 || !this.client.supportsServerCapability("seed_messages")) {
+			throw new AgentConnectionUnsupportedError(
+				`${feature} seedMessages requires a daemon that advertises the seed_messages capability`,
+				`${feature}.seedMessages`,
+			);
+		}
+	}
+
+	private assertProcessLocalSessionHooks(
+		options: { setup?: unknown; withSession?: unknown } | undefined,
+		feature: string,
+	): void {
+		if (options?.setup) {
+			throw new AgentConnectionUnsupportedError(
+				`${feature} setup requires an in-process connection`,
+				`${feature}.setup`,
+			);
+		}
+		if (options?.withSession) {
+			throw new AgentConnectionUnsupportedError(
+				`${feature} withSession requires an in-process connection; use afterReplace for portable clients`,
+				`${feature}.withSession`,
+			);
+		}
+	}
+
+	/**
+	 * afterReplace runs client-side after the daemon completes the swap and
+	 * this adapter has applied the replacement snapshot, so subscribers see
+	 * client_notice/client_set_editor_text in event order after session_replaced.
+	 */
+	private createAfterReplaceHook(
+		afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>,
+	): (() => Promise<void>) | undefined {
+		if (!afterReplace) {
+			return undefined;
+		}
+		return async () => {
+			const ctx: AgentConnectionReplacedClientContext = {
+				sendUserMessage: async (text) => {
+					await this.prompt(text);
+				},
+				notify: async (message, level) => {
+					await this.emit({ type: "client_notice", message, level });
+				},
+				setEditorText: async (text) => {
+					await this.emit({ type: "client_set_editor_text", text });
+				},
+			};
+			await afterReplace(ctx);
+		};
 	}
 
 	private async emit(event: AgentConnectionEvent): Promise<void> {

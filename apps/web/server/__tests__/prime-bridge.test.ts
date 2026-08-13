@@ -9,6 +9,19 @@ import { join } from "node:path"
 const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR"
 const SESSION_DIR_ENVS = ["PRIME_AGENT_SESSION_DIR", "PRIME_AGENT_CODING_AGENT_SESSION_DIR"]
 
+/** Snapshot `name`, unset it, and return a restore function. */
+function unsetEnv(name: string): () => void {
+	const previous = process.env[name]
+	delete process.env[name]
+	return () => {
+		if (previous === undefined) {
+			delete process.env[name]
+		} else {
+			process.env[name] = previous
+		}
+	}
+}
+
 describe("PrimeBridge", () => {
 	beforeEach(() => {
 		resetBridgeForTests()
@@ -66,21 +79,16 @@ describe("PrimeBridge", () => {
 describe("PrimeBridge.forkSession", () => {
 	let workDir: string
 	let agentDir: string
-	let previousAgentDir: string | undefined
-	let previousSessionDirEnvs: Array<string | undefined> = []
+	let restoreEnvs: Array<() => void> = []
 
 	beforeEach(() => {
 		resetBridgeForTests()
 		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-fork-test-"))
 		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-agent-dir-"))
-		previousAgentDir = process.env[AGENT_DIR_ENV]
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV)]
 		process.env[AGENT_DIR_ENV] = agentDir
 		// Session-dir env overrides would route writes outside the hermetic tmpdir.
-		previousSessionDirEnvs = SESSION_DIR_ENVS.map((name) => {
-			const value = process.env[name]
-			delete process.env[name]
-			return value
-		})
+		restoreEnvs.push(...SESSION_DIR_ENVS.map(unsetEnv))
 		return () => {
 			rmSync(workDir, { recursive: true, force: true })
 			rmSync(agentDir, { recursive: true, force: true })
@@ -88,27 +96,22 @@ describe("PrimeBridge.forkSession", () => {
 	})
 
 	afterEach(() => {
-		if (previousAgentDir === undefined) {
-			delete process.env[AGENT_DIR_ENV]
-		} else {
-			process.env[AGENT_DIR_ENV] = previousAgentDir
-		}
-		SESSION_DIR_ENVS.forEach((name, i) => {
-			const value = previousSessionDirEnvs[i]
-			if (value === undefined) {
-				delete process.env[name]
-			} else {
-				process.env[name] = value
-			}
-		})
+		for (const restore of restoreEnvs) restore()
+		restoreEnvs = []
 		vi.restoreAllMocks()
 	})
 
 	/** Real hermetic session: tmp agent dir, kernel prewarm stubbed out. */
-	async function createTestSession(bridge: PrimeBridge) {
+	function createTestSession(bridge: PrimeBridge) {
 		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined)
-		const created = await bridge.createSession({ cwd: workDir })
-		return created
+		return bridge.createSession({ cwd: workDir })
+	}
+
+	/** The forked session must be live in the bridge's registry after forkSession. */
+	function requireLiveSession(bridge: PrimeBridge, sessionId: string) {
+		const session = bridge.getSession(sessionId)
+		if (!session) throw new Error(`session ${sessionId} not live`)
+		return session
 	}
 
 	function appendTurn(
@@ -159,9 +162,8 @@ describe("PrimeBridge.forkSession", () => {
 		expect(result.selectedText).toBe("second question")
 		expect(result.newSessionId).not.toBe(created.sessionId)
 		// The fork carries everything up to (but excluding) the forked user message.
-		const forked = bridge.getSession(result.newSessionId)
-		expect(forked).toBeDefined()
-		const messages = forked!.session.sessionManager.buildSessionContext().messages
+		const forked = requireLiveSession(bridge, result.newSessionId)
+		const messages = forked.session.sessionManager.buildSessionContext().messages
 		expect(messages.map((m) => (m as { role: string }).role)).toEqual(["user", "assistant"])
 		expect((messages[0] as { content: string }).content).toBe("first question")
 	})
@@ -175,17 +177,16 @@ describe("PrimeBridge.forkSession", () => {
 
 		expect(result.cancelled).toBe(false)
 		expect(result.selectedText).toBeUndefined()
-		const forked = bridge.getSession(result.newSessionId)
-		expect(forked).toBeDefined()
+		const forked = requireLiveSession(bridge, result.newSessionId)
 		// The forked branch walks root→leaf through the fork target. AgentSession
 		// init may append bookkeeping entries (model_change…) after it, so assert
 		// the target is on the branch rather than the terminal leaf.
-		expect(forked!.session.sessionManager.getEntry(assistantEntryId)).toBeDefined()
-		const branchIds = forked!.session.sessionManager.getBranch().map((e) => e.id)
+		expect(forked.session.sessionManager.getEntry(assistantEntryId)).toBeDefined()
+		const branchIds = forked.session.sessionManager.getBranch().map((e) => e.id)
 		expect(branchIds).toContain(userEntryId)
 		expect(branchIds).toContain(assistantEntryId)
 		expect(branchIds.indexOf(userEntryId)).toBeLessThan(branchIds.indexOf(assistantEntryId))
-		const messages = forked!.session.sessionManager.buildSessionContext().messages
+		const messages = forked.session.sessionManager.buildSessionContext().messages
 		expect(messages).toHaveLength(2)
 	})
 
@@ -196,9 +197,9 @@ describe("PrimeBridge.forkSession", () => {
 
 		const result = await bridge.forkSession(created.sessionId, userEntryId, "at")
 
-		const forked = bridge.getSession(result.newSessionId)
-		expect(forked!.session.sessionManager.getEntry(userEntryId)).toBeDefined()
-		const messages = forked!.session.sessionManager.buildSessionContext().messages
+		const forked = requireLiveSession(bridge, result.newSessionId)
+		expect(forked.session.sessionManager.getEntry(userEntryId)).toBeDefined()
+		const messages = forked.session.sessionManager.buildSessionContext().messages
 		expect(messages).toHaveLength(1)
 	})
 
@@ -211,10 +212,9 @@ describe("PrimeBridge.forkSession", () => {
 
 		expect(result.cancelled).toBe(false)
 		expect(result.selectedText).toBe("first question")
-		const forked = bridge.getSession(result.newSessionId)
-		expect(forked).toBeDefined()
-		expect(forked!.session.sessionManager.buildSessionContext().messages).toHaveLength(0)
-		expect(forked!.session.sessionManager.getHeader()?.parentSession).toBe(
+		const forked = requireLiveSession(bridge, result.newSessionId)
+		expect(forked.session.sessionManager.buildSessionContext().messages).toHaveLength(0)
+		expect(forked.session.sessionManager.getHeader()?.parentSession).toBe(
 			created.session.sessionManager.getSessionFile(),
 		)
 	})
@@ -245,12 +245,12 @@ describe("PrimeBridge.forkSession", () => {
 
 		const result = await bridge.forkSession(created.sessionId, assistantEntryId, "at")
 
-		const forked = bridge.getSession(result.newSessionId)
-		expect(forked!.session.thinkingLevel).toBe(sourceThinking)
+		const forked = requireLiveSession(bridge, result.newSessionId)
+		expect(forked.session.thinkingLevel).toBe(sourceThinking)
 		// Whatever model the source resolved (undefined when the runner has no
 		// provider auth) is carried over to the fork.
-		expect(forked!.session.model?.id).toBe(created.session.model?.id)
-		expect(forked!.session.serviceTier).toBe(created.session.serviceTier)
+		expect(forked.session.model?.id).toBe(created.session.model?.id)
+		expect(forked.session.serviceTier).toBe(created.session.serviceTier)
 	})
 
 	it("flushNow persists the forked session file so it is discoverable cold", async () => {
@@ -260,7 +260,7 @@ describe("PrimeBridge.forkSession", () => {
 
 		const result = await bridge.forkSession(created.sessionId, userEntryId, "at")
 
-		const forked = bridge.getSession(result.newSessionId)!
+		const forked = requireLiveSession(bridge, result.newSessionId)
 		const forkedFile = forked.session.sessionManager.getSessionFile()
 		expect(typeof forkedFile).toBe("string")
 		expect(existsSync(forkedFile!)).toBe(true)

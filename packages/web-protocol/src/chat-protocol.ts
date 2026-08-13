@@ -92,6 +92,7 @@ export type ChatModelSelection =
 export type ChatSessionMetadata = {
 	sessionFile?: string;
 	sessionId?: string;
+	cwd?: string;
 };
 
 /**
@@ -363,6 +364,25 @@ export type WorkspaceFileResponse = {
 	mediaType: "text/markdown" | "text/plain" | "application/octet-stream";
 	size?: number;
 	status?: "ok" | "too-large" | "unsupported";
+};
+
+export type WorkspaceBrowseEntry = {
+	name: string;
+	path: string;
+};
+
+export type WorkspaceBrowseResponse = {
+	path: string;
+	parent: string | null;
+	entries: Array<WorkspaceBrowseEntry>;
+};
+
+export type WorkspaceRootRequest = {
+	path: string;
+};
+
+export type WorkspaceRootResponse = {
+	root: string;
 };
 
 export type ChatSlashCommandSource = "builtin" | "extension" | "prompt" | "skill";

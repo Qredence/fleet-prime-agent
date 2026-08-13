@@ -37,6 +37,7 @@ import type {
 import { createEventMapperState, mapAgentSessionEvent } from "./event-mapper"
 import { RingBuffer } from "./ring-buffer"
 import { PendingDialogRegistry } from "./pending-dialogs"
+import { getPrimeConfig } from "./prime-config"
 
 // ---------------------------------------------------------------------------
 // Local structural types — these match prime-agent's ExtensionUIContext but
@@ -402,7 +403,11 @@ export class PrimeBridge {
 		// bypasses that guard intentionally.
 		session.sessionManager.materializeSessionFile()
 		session.sessionManager.flushNow()
-		const bridgeSession = await this.#registerSession(session, options.cwd, session.sessionManager.getSessionFile() ?? "")
+		const bridgeSession = await this.#registerSession(
+			session,
+			options.cwd,
+			session.sessionManager.getSessionFile() ?? "",
+		)
 		if (options.model) {
 			await session.setModel(options.model as Parameters<typeof session.setModel>[0])
 		}
@@ -552,7 +557,37 @@ export class PrimeBridge {
 
 	async setModel(sessionId: string, model: unknown): Promise<void> {
 		const session = this.#requireSession(sessionId)
-		await session.session.setModel(model as Parameters<typeof session.session.setModel>[0])
+		// Hydrate the model against the registry so `api` (and any other canonical
+		// field the client omits) is always present. The web client sends a
+		// `{provider, id}` pair; the ModelRegistry is the single source of truth
+		// for the resolved `Model` the kernel needs to stream with.
+		let resolved = model as Parameters<typeof session.session.setModel>[0]
+		if (
+			model &&
+			typeof model === "object" &&
+			!Array.isArray(model) &&
+			"provider" in model &&
+			"id" in model
+		) {
+			const { provider, id, ...rest } = model as {
+				provider: string
+				id: string
+			}
+			try {
+				const config = getPrimeConfig()
+				const found = config.modelRegistry.find(provider, id) as
+					| Record<string, unknown>
+					| undefined
+				if (found) {
+					resolved = { ...found, ...rest } as Parameters<
+						typeof session.session.setModel
+					>[0]
+				}
+			} catch {
+				/* fall through with raw model */
+			}
+		}
+		await session.session.setModel(resolved)
 	}
 
 	async setThinkingLevel(level: ThinkingLevel): Promise<void> {

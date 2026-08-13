@@ -101,18 +101,18 @@ export function getWorkspaceSkillResources(
   )
   if (!skillsRoot?.children?.length) return []
 
-  return skillsRoot.children
-    .filter((node) => node.type === "directory")
-    .flatMap((node) => {
-      const skillFile =
-        node.children?.find(
-          (child) =>
-            child.type === "file" && child.name.toLowerCase() === "skill.md"
-        ) ?? null
+  return skillsRoot.children.flatMap((node) => {
+    if (node.type !== "directory") return []
 
-      if (!skillFile) return []
+    const skillFile =
+      node.children?.find(
+        (child) =>
+          child.type === "file" && child.name.toLowerCase() === "skill.md"
+      ) ?? null
 
-      return [
+    if (!skillFile) return []
+
+    return [
         {
           name: node.name,
           path: skillFile.path,
@@ -193,15 +193,14 @@ export function ResourceChipSection({
           {items.length}
         </span>
       </div>
-      <div
+      <ul
         className="flex min-w-0 flex-col items-stretch gap-1.5"
-        role="list"
         data-testid={`resource-chip-section-${label.toLowerCase()}`}
       >
         {items.length === 0 ? (
-          <span className="inline-flex h-7.5 items-center rounded-lg border border-border/60 bg-background px-3 text-body leading-5 text-foreground/35 shadow-[0_1px_4px_-1px_rgba(0,0,0,0.06)]">
+          <li className="inline-flex h-7.5 items-center rounded-lg border border-border/60 bg-background px-3 text-body leading-5 text-foreground/35 shadow-[0_1px_4px_-1px_rgba(0,0,0,0.06)]">
             Empty
-          </span>
+          </li>
         ) : (
           items.map((item) => (
             <ResourceChip
@@ -212,7 +211,7 @@ export function ResourceChipSection({
             />
           ))
         )}
-      </div>
+      </ul>
     </section>
   )
 }
@@ -229,8 +228,7 @@ function ResourceChip({
   const title = getResourceChipTitle(item)
 
   return (
-    <div
-      role="listitem"
+    <li
       className={`max-w-full rounded-lg border border-border/70 bg-background px-2.5 text-body leading-5 text-foreground/80 shadow-[0_1px_4px_-1px_rgba(0,0,0,0.06)] ${
         stacked
           ? "flex min-h-9 w-full min-w-0 items-center gap-2 py-1.5"
@@ -254,7 +252,7 @@ function ResourceChip({
           {item.activationStatus}
         </span>
       )}
-    </div>
+    </li>
   )
 }
 

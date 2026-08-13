@@ -18,7 +18,11 @@ export {
 	ChatResourceInfoSchema,
 	ChatResourcesResponseSchema,
 	ChatSlashCommandInfoSchema,
+	WorkspaceBrowseEntrySchema,
+	WorkspaceBrowseResponseSchema,
 	WorkspaceFileResponseSchema,
+	WorkspaceRootRequestSchema,
+	WorkspaceRootResponseSchema,
 	WorkspaceTreeNodeSchema,
 	WorkspaceTreeResponseSchema,
 } from "./schemas/catalog";

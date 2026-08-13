@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { cn } from "../utils/cn"
 
 export type QuestionOption = {
@@ -33,6 +33,32 @@ const QUESTION_CUSTOM_ID = "__custom__"
 
 function optionBadge(idx: number) {
   return String.fromCharCode(65 + idx)
+}
+
+/**
+ * Derive the initial form state from an already-given answer. The host
+ * key-resets this component per question (see QuestionTool), so seeding once
+ * at mount is behavior-identical to the previous post-mount sync effect.
+ */
+function seedPromptState(
+  initialAnswer: QuestionAnswer | undefined,
+  questionKind: QuestionConfig["kind"] | undefined,
+  customEnabled: boolean
+): { selectedIds: Array<string>; customText: string; textValue: string } {
+  if (!initialAnswer || initialAnswer.kind === "skip") {
+    return { selectedIds: [], customText: "", textValue: "" }
+  }
+
+  if (questionKind === "text") {
+    return { selectedIds: [], customText: "", textValue: initialAnswer.text ?? "" }
+  }
+
+  const nextSelected = new Set(initialAnswer.selectedIds ?? [])
+  const nextCustomText = initialAnswer.text ?? ""
+  if (customEnabled && nextCustomText.trim().length > 0) {
+    nextSelected.add(QUESTION_CUSTOM_ID)
+  }
+  return { selectedIds: Array.from(nextSelected), customText: nextCustomText, textValue: "" }
 }
 
 export type QuestionPromptProps = {
@@ -70,51 +96,26 @@ export function QuestionPrompt({
   onSkip,
   className,
 }: QuestionPromptProps) {
-  const [selectedIds, setSelectedIds] = useState<Array<string>>([])
-  const [customText, setCustomText] = useState("")
-  const [textValue, setTextValue] = useState("")
   const resolvedTotal = totalQuestions ?? questions.length
   const clampedIndex = Math.max(1, Math.min(questionIndex, resolvedTotal))
   const activeQuestion = questions[clampedIndex - 1]
   const customEnabled = activeQuestion?.allowCustom ?? false
+  const [selectedIds, setSelectedIds] = useState<Array<string>>(
+    () => seedPromptState(initialAnswer, activeQuestion?.kind, customEnabled).selectedIds
+  )
+  const [customText, setCustomText] = useState(
+    () => seedPromptState(initialAnswer, activeQuestion?.kind, customEnabled).customText
+  )
+  const [textValue, setTextValue] = useState(
+    () => seedPromptState(initialAnswer, activeQuestion?.kind, customEnabled).textValue
+  )
   const showNav =
     resolvedTotal > 1 && (!!onPreviousQuestion || !!onNextQuestion)
   const canGoPrev = clampedIndex > 1
   const canGoNext = clampedIndex < resolvedTotal
   const isLastQuestion = clampedIndex >= resolvedTotal
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
   const primaryLabel = isLastQuestion ? submitLabel : nextLabel
-
-  useEffect(() => {
-    if (!initialAnswer || initialAnswer.kind === "skip") {
-      setSelectedIds([])
-      setCustomText("")
-      setTextValue("")
-      return
-    }
-
-    if (activeQuestion?.kind === "text") {
-      setSelectedIds([])
-      setCustomText("")
-      setTextValue(initialAnswer.text ?? "")
-      return
-    }
-
-    const nextSelected = new Set(initialAnswer.selectedIds ?? [])
-    const nextCustomText = initialAnswer.text ?? ""
-    if (customEnabled && nextCustomText.trim().length > 0) {
-      nextSelected.add(QUESTION_CUSTOM_ID)
-    }
-    setSelectedIds(Array.from(nextSelected))
-    setCustomText(nextCustomText)
-    setTextValue("")
-  }, [
-    activeQuestion?.kind,
-    clampedIndex,
-    customEnabled,
-    initialAnswer?.kind,
-    initialAnswer?.text,
-    initialAnswer?.selectedIds?.join("|"),
-  ])
 
   const canSubmit = useMemo(() => {
     if (activeQuestion?.kind === "text") return textValue.trim().length > 0
@@ -223,7 +224,7 @@ export function QuestionPrompt({
           <div className="flex flex-col gap-px">
             {activeQuestion.options!.map((option, idx) => {
               const optionId = option.id ?? option.value ?? option.label
-              const checked = selectedIds.includes(optionId)
+              const checked = selectedIdSet.has(optionId)
               return (
                 <button
                   key={optionId}

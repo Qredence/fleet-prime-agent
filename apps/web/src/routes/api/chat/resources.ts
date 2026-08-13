@@ -21,8 +21,7 @@ function packageSourceToString(
 	return {
 		name: source.source,
 		description: Object.entries(source)
-			.filter(([k]) => k !== "source")
-			.map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+			.flatMap(([k, v]) => (k === "source" ? [] : [`${k}=${JSON.stringify(v)}`]))
 			.join(" "),
 	}
 }

@@ -88,7 +88,7 @@ import type {
 	EditorFactory,
 	ExtensionCommandContext,
 	ExtensionContext,
-	ExtensionRunner,
+	ExtensionShortcut,
 	ExtensionUIContext,
 	ExtensionUIDialogOptions,
 	ExtensionWidgetOptions,
@@ -160,8 +160,9 @@ import type {
 	AgentConnectionSourceInfo,
 	AgentConnectionState,
 	AgentConnectionToolDefinition,
+	AgentConnectionToolRendererDefinition,
 } from "../agent-connection/index.js";
-import { AgentConnectionPromptAdmissionError } from "../agent-connection/index.js";
+import { AgentConnectionPromptAdmissionError, AgentConnectionUnsupportedError } from "../agent-connection/index.js";
 import { getModelArgumentCompletions } from "../model-autocomplete.js";
 import {
 	checkForPackageUpdates,
@@ -232,11 +233,7 @@ import {
 	imageMarkerIds,
 	remapImageMarkers,
 } from "./image-markers.js";
-import type {
-	InteractiveModeLocalSessionHost,
-	InteractiveModeLocalToolRendererDefinition,
-	InteractiveModeUiServices,
-} from "./interactive-mode-services.js";
+import type { InteractiveModeUiServices } from "./interactive-mode-services.js";
 import {
 	isOnboardingModelReady,
 	type OnboardingStartupState,
@@ -772,13 +769,12 @@ export interface InteractiveModeOptions {
 	/** Exact daemon socket to preserve across an interactive self-update restart. */
 	daemonSocketPath?: string;
 	/**
-	 * Local-only host for in-process extension binding and callback-bearing session operations.
-	 * This must remain optional adapter glue, not a generic execution dependency.
+	 * Bind extension handlers through the connection's process-local extension
+	 * surface (AgentConnection.extensions). Disabled for daemon/gateway-backed
+	 * clients whose wire transport cannot carry executable extension callbacks.
 	 */
-	localSessionHost?: InteractiveModeLocalSessionHost;
-	/** Bind extension handlers in the local session host. Disabled for daemon/gateway-backed clients. */
 	bindLocalSessionExtensions?: boolean;
-	/** UI-local services used for settings, auth, resources, and rendering. Defaults to services from localSessionHost. */
+	/** UI-local services used for settings, auth, resources, and rendering. */
 	uiServices?: InteractiveModeUiServices;
 	/** Extra cleanup for externally-owned UI service hosts. Runs after the connection is disposed and before process exit. */
 	onShutdown?: () => void | Promise<void>;
@@ -818,7 +814,6 @@ export class InteractiveMode {
 
 	private uiServices: InteractiveModeUiServices;
 	private agentConnection: AgentConnection;
-	private localSessionHost: InteractiveModeLocalSessionHost | undefined;
 	private bindLocalSessionExtensions: boolean;
 	private ui: TUI;
 	private chatContainer: Container;
@@ -962,6 +957,20 @@ export class InteractiveMode {
 	private connectionModelsRefreshInFlight: { version: number; promise: Promise<AgentConnectionModel[]> } | undefined;
 	private connectionState: AgentConnectionState | undefined;
 	private connectionResourceSnapshot: AgentConnectionResourceSnapshot | undefined;
+	/**
+	 * Async-fetched extension command+shortcut diagnostics. The extension surface
+	 * reads are async (connection boundary), so they are refreshed ahead of render
+	 * and cached here; diagnostic rendering stays synchronous. Daemon transports
+	 * leave this empty (extensions are process-local; daemon adapters throw
+	 * AgentConnectionUnsupportedError).
+	 */
+	private extensionRuntimeDiagnostics: AgentConnectionResourceDiagnostic[] = [];
+	/**
+	 * Cached keyboard shortcuts from the extension surface. Refresh via
+	 * refreshExtensionKeyboardShortcuts(); setupExtensionShortcuts and the
+	 * shortcut guide read this cache so they stay synchronous.
+	 */
+	private extensionKeyboardShortcuts: Map<KeyId, ExtensionShortcut> = new Map();
 	private sessionHasMessages = false;
 	private heartbeatCatalog: AgentConnectionHeartbeat[] = [];
 	private heartbeats: AgentConnectionHeartbeat[] = [];
@@ -1026,12 +1035,34 @@ export class InteractiveMode {
 	// Custom header from extension (undefined = use built-in header)
 	private customHeader: (Component & { dispose?(): void }) | undefined = undefined;
 
-	private getLocalSessionHost(): InteractiveModeLocalSessionHost {
-		if (!this.localSessionHost) {
-			throw new Error("Local session host is not available in connection-backed interactive mode");
+	/**
+	 * Wrap a synchronous extension-surface read so daemon/gateway-backed
+	 * connections (whose `extensions` members throw AgentConnectionUnsupportedError —
+	 * process-local; daemon adapters throw AgentConnectionUnsupportedError)
+	 * degrade to the fallback instead of blowing up the interactive UI.
+	 */
+	private tryExtensionSurface<T>(read: () => T, fallback: T): T {
+		try {
+			return read();
+		} catch (error: unknown) {
+			if (error instanceof AgentConnectionUnsupportedError) {
+				return fallback;
+			}
+			throw error;
 		}
-		return this.localSessionHost;
 	}
+
+	private async tryExtensionSurfaceAsync<T>(read: () => Promise<T>, fallback: T): Promise<T> {
+		try {
+			return await read();
+		} catch (error: unknown) {
+			if (error instanceof AgentConnectionUnsupportedError) {
+				return fallback;
+			}
+			throw error;
+		}
+	}
+
 	private get settingsManager() {
 		return this.uiServices.settingsManager;
 	}
@@ -1040,9 +1071,9 @@ export class InteractiveMode {
 	}
 
 	constructor(private options: InteractiveModeOptions) {
-		const uiServices = options.uiServices ?? options.localSessionHost?.createUiServices();
+		const uiServices = options.uiServices;
 		if (!uiServices) {
-			throw new Error("InteractiveMode requires uiServices when no localSessionHost is supplied");
+			throw new Error("InteractiveMode requires uiServices");
 		}
 		this.uiServices = uiServices;
 		this.agentConnection = options.agentConnection;
@@ -1053,11 +1084,10 @@ export class InteractiveMode {
 				? this.promptStashStore.forSession(this.promptStashSessionId)
 				: {};
 		this.hydratePromptStash();
-		this.localSessionHost = options.localSessionHost;
-		this.bindLocalSessionExtensions = options.bindLocalSessionExtensions ?? options.localSessionHost !== undefined;
-		if (this.bindLocalSessionExtensions && !options.localSessionHost) {
-			throw new Error("Local extension binding requires localSessionHost");
-		}
+		// Extension binding now goes through AgentConnection.extensions; default to
+		// enabled because the in-process connection supplies a working surface, while
+		// daemon-backed callers opt out explicitly (their surface throws Unsupported).
+		this.bindLocalSessionExtensions = options.bindLocalSessionExtensions ?? true;
 		this.agentConnection.onBeforeSessionInvalidate(() => {
 			this.resetExtensionUI();
 			this.resetSideQuestion();
@@ -1297,8 +1327,15 @@ export class InteractiveMode {
 				name: cmd.name,
 				description: cmd.description,
 				sourceTag: this.getAutocompleteSourceLabel(cmd.sourceInfo),
+				// Argument completions resolve through the connection's extension surface
+				// (invocation-name lookup); daemon transports degrade to no completions
+				// (process-local; daemon adapters throw AgentConnectionUnsupportedError).
 				getArgumentCompletions: this.bindLocalSessionExtensions
-					? this.getLocalSessionHost().getExtensionRunner().getCommand(cmd.name)?.getArgumentCompletions
+					? (argumentPrefix: string) =>
+							this.tryExtensionSurfaceAsync(
+								() => this.agentConnection.extensions.getArgumentCompletions(cmd.name, argumentPrefix),
+								null,
+							)
 					: undefined,
 			}));
 
@@ -2371,16 +2408,12 @@ export class InteractiveMode {
 				...(resourceSnapshot?.diagnostics.extensions ?? []),
 			];
 
+			// Command/shortcut diagnostics come from the cached extension-surface read
+			// (refreshExtensionRuntimeDiagnostics), keeping this render path synchronous.
 			if (this.bindLocalSessionExtensions) {
-				const commandDiagnostics = this.getLocalSessionHost().getExtensionRunner().getCommandDiagnostics();
-				extensionDiagnostics.push(...commandDiagnostics);
+				extensionDiagnostics.push(...this.extensionRuntimeDiagnostics);
 			}
 			extensionDiagnostics.push(...this.getBuiltInCommandConflictDiagnostics(this.connectionCommands));
-
-			if (this.bindLocalSessionExtensions) {
-				const shortcutDiagnostics = this.getLocalSessionHost().getExtensionRunner().getShortcutDiagnostics();
-				extensionDiagnostics.push(...shortcutDiagnostics);
-			}
 
 			if (extensionDiagnostics.length > 0) {
 				const warningLines = this.formatDiagnostics(extensionDiagnostics, sourceInfos);
@@ -2413,21 +2446,19 @@ export class InteractiveMode {
 	 * Initialize the extension system with TUI-based UI context.
 	 */
 	private async bindCurrentSessionExtensions(): Promise<void> {
-		const localSessionHost = this.getLocalSessionHost();
 		const uiContext = this.createExtensionUIContext();
-		await localSessionHost.bindExtensions({
+		await this.agentConnection.extensions.bindExtensions({
 			uiContext,
 			commandContextActions: {
 				waitForIdle: () => this.agentConnection.waitForIdle(),
 				newSession: async (options) => {
 					this.stopWorkingLoader();
 					try {
-						const result =
-							options?.setup || options?.withSession
-								? await localSessionHost.newSession(options)
-								: await this.agentConnection.newSession(
-										options?.parentSession ? { parentSession: options.parentSession } : undefined,
-									);
+						const result = await this.agentConnection.newSession({
+							parentSession: options?.parentSession,
+							setup: options?.setup,
+							withSession: options?.withSession,
+						});
 						if (!result.cancelled) {
 							await this.renderCurrentSessionState();
 							this.ui.requestRender();
@@ -2439,9 +2470,10 @@ export class InteractiveMode {
 				},
 				fork: async (entryId, options) => {
 					try {
-						const result = options?.withSession
-							? await localSessionHost.fork(entryId, options)
-							: await this.agentConnection.fork(entryId, { position: options?.position });
+						const result = await this.agentConnection.fork(entryId, {
+							position: options?.position,
+							withSession: options?.withSession,
+						});
 						if (!result.cancelled) {
 							await this.renderCurrentSessionState();
 							this.editor.setText("selectedText" in result ? (result.selectedText ?? "") : "");
@@ -2488,8 +2520,9 @@ export class InteractiveMode {
 		await this.refreshConnectionCatalog();
 		this.setupAutocompleteProvider();
 
-		const extensionRunner = localSessionHost.getExtensionRunner();
-		this.setupExtensionShortcuts(extensionRunner);
+		await this.refreshExtensionKeyboardShortcuts();
+		this.setupExtensionShortcuts();
+		await this.refreshExtensionRuntimeDiagnostics();
 		this.showLoadedResources({ force: false, showDiagnosticsWhenQuiet: true });
 	}
 
@@ -2529,6 +2562,23 @@ export class InteractiveMode {
 		this.applyConnectionModelCatalog(modelCatalog);
 		this.connectionModelsFetchedAt = Date.now();
 		this.connectionResourceSnapshot = resources;
+	}
+
+	/**
+	 * Refresh cached extension command+shortcut diagnostics from the connection's
+	 * extension surface. Daemon transports degrade to an empty list because their
+	 * surface members throw AgentConnectionUnsupportedError (PR3 covers the wire).
+	 */
+	private async refreshExtensionRuntimeDiagnostics(): Promise<void> {
+		if (!this.bindLocalSessionExtensions) {
+			this.extensionRuntimeDiagnostics = [];
+			return;
+		}
+		const [commandDiagnostics, shortcutDiagnostics] = await Promise.all([
+			this.tryExtensionSurfaceAsync(() => this.agentConnection.extensions.getCommandDiagnostics(), []),
+			this.tryExtensionSurfaceAsync(() => this.agentConnection.extensions.getShortcutDiagnostics(), []),
+		]);
+		this.extensionRuntimeDiagnostics = [...commandDiagnostics, ...shortcutDiagnostics];
 	}
 
 	private refreshHeartbeatCatalog(): Promise<void> {
@@ -2777,9 +2827,6 @@ export class InteractiveMode {
 	private async rebindCurrentSession(): Promise<void> {
 		this.unsubscribe?.();
 		this.unsubscribe = undefined;
-		if (this.localSessionHost) {
-			this.uiServices = this.localSessionHost.createUiServices();
-		}
 		this.toolDefinitionCache.clear();
 		this.applyRuntimeSettings();
 		if (this.bindLocalSessionExtensions) {
@@ -2927,10 +2974,14 @@ export class InteractiveMode {
 		if (this.toolDefinitionCache.has(toolName)) {
 			return this.toolDefinitionCache.get(toolName);
 		}
+		const rendererDefinition = await this.tryExtensionSurfaceAsync(
+			() => this.agentConnection.extensions.getToolRendererDefinition(toolName),
+			undefined,
+		);
 		const definition = this.createToolExecutionDefinition(
 			toolName,
 			await this.agentConnection.getToolDefinition(toolName),
-			this.localSessionHost?.getToolRendererDefinition(toolName),
+			rendererDefinition,
 		);
 		this.toolDefinitionCache.set(toolName, definition);
 		return definition;
@@ -3007,7 +3058,7 @@ export class InteractiveMode {
 	private createToolExecutionDefinition(
 		toolName: string,
 		connectionDefinition: AgentConnectionToolDefinition | undefined,
-		localRendererDefinition: InteractiveModeLocalToolRendererDefinition | undefined,
+		localRendererDefinition: AgentConnectionToolRendererDefinition | undefined,
 	): ToolExecutionDefinition | undefined {
 		if (!connectionDefinition && !localRendererDefinition) {
 			return undefined;
@@ -3042,10 +3093,14 @@ export class InteractiveMode {
 		}
 		await Promise.all(
 			missingToolNames.map(async (toolName) => {
+				const rendererDefinition = await this.tryExtensionSurfaceAsync(
+					() => this.agentConnection.extensions.getToolRendererDefinition(toolName),
+					undefined,
+				);
 				const definition = this.createToolExecutionDefinition(
 					toolName,
 					await this.agentConnection.getToolDefinition(toolName),
-					this.localSessionHost?.getToolRendererDefinition(toolName),
+					rendererDefinition,
 				);
 				this.toolDefinitionCache.set(toolName, definition);
 			}),
@@ -3055,21 +3110,22 @@ export class InteractiveMode {
 	/**
 	 * Set up keyboard shortcuts registered by extensions.
 	 */
-	private setupExtensionShortcuts(extensionRunner: ExtensionRunner): void {
-		const shortcuts = extensionRunner.getShortcuts(this.keybindings.getEffectiveConfig());
-		if (shortcuts.size === 0) return;
+	private setupExtensionShortcuts(): void {
+		const shortcuts = this.extensionKeyboardShortcuts;
+		if (shortcuts.size === 0) {
+			this.defaultEditor.onExtensionShortcut = undefined;
+			return;
+		}
 
-		// Create a context for shortcut handlers
-		const localSessionHost = this.getLocalSessionHost();
 		const createContext = (): ExtensionContext => ({
 			ui: this.createExtensionUIContext(),
 			hasUI: true,
 			cwd: this.getCurrentCwd(),
-			sessionManager: localSessionHost.getSessionManager(),
+			sessionManager: this.agentConnection.getReadonlySessionManager(),
 			modelRegistry: this.modelRegistry,
 			model: this.getCurrentModel(),
 			isIdle: () => !this.isAgentStreaming(),
-			signal: localSessionHost.getAbortSignal(),
+			signal: this.agentConnection.getAbortSignal(),
 			abort: () => this.agentConnection.abort(),
 			hasPendingMessages: () => this.getQueuedActionCount() > 0,
 			shutdown: () => {
@@ -3087,15 +3143,12 @@ export class InteractiveMode {
 					}
 				})();
 			},
-			getSystemPrompt: () => localSessionHost.getSystemPrompt(),
+			getSystemPrompt: () => this.agentConnection.getSystemPromptSync(),
 		});
 
-		// Set up the extension shortcut handler on the default editor
 		this.defaultEditor.onExtensionShortcut = (data: string) => {
 			for (const [shortcutStr, shortcut] of shortcuts) {
-				// Cast to KeyId - extension shortcuts use the same format
 				if (matchesKey(data, shortcutStr as KeyId)) {
-					// Run handler async, don't block input
 					Promise.resolve(shortcut.handler(createContext())).catch((err) => {
 						this.showError(`Shortcut handler error: ${err instanceof Error ? err.message : String(err)}`);
 					});
@@ -3104,6 +3157,17 @@ export class InteractiveMode {
 			}
 			return false;
 		};
+	}
+
+	private async refreshExtensionKeyboardShortcuts(): Promise<void> {
+		if (!this.bindLocalSessionExtensions) {
+			this.extensionKeyboardShortcuts = new Map();
+			return;
+		}
+		this.extensionKeyboardShortcuts = this.tryExtensionSurface(
+			() => this.agentConnection.extensions.getKeyboardShortcuts(this.keybindings.getEffectiveConfig()),
+			new Map(),
+		);
 	}
 
 	/**
@@ -5086,6 +5150,14 @@ export class InteractiveMode {
 					}
 				} else if (event.type === "heartbeats_changed") {
 					await this.refreshHeartbeatCatalog();
+				} else if (event.type === "client_notice") {
+					if (event.level === "error") {
+						this.showError(event.message);
+					} else {
+						this.showStatus(event.message, event.level === "warning" ? "warning" : "dim");
+					}
+				} else if (event.type === "client_set_editor_text") {
+					this.editor.setText(event.text);
 				} else if (event.type === "closed") {
 					this.showError(event.error ?? "Agent connection closed");
 				}
@@ -6241,9 +6313,13 @@ export class InteractiveMode {
 												: new CustomMessageComponent(
 														message,
 														this.bindLocalSessionExtensions
-															? this.getLocalSessionHost()
-																	.getExtensionRunner()
-																	.getMessageRenderer(message.customType)
+															? this.tryExtensionSurface(
+																	() =>
+																		this.agentConnection.extensions.getMessageRenderer(
+																			message.customType,
+																		),
+																	undefined,
+																)
 															: undefined,
 														this.getMarkdownThemeWithSettings(),
 													);
@@ -8193,11 +8269,9 @@ export class InteractiveMode {
 	): Promise<{ cancelled: boolean }> {
 		this.stopWorkingLoader();
 		try {
-			const result = options?.withSession
-				? await this.getLocalSessionHost().switchSession(sessionPath, {
-						withSession: options.withSession,
-					})
-				: await this.agentConnection.switchSession(sessionPath);
+			const result = await this.agentConnection.switchSession(sessionPath, {
+				withSession: options?.withSession,
+			});
 			if (result.cancelled) {
 				return result;
 			}
@@ -8211,12 +8285,10 @@ export class InteractiveMode {
 					this.showStatus("Resume cancelled");
 					return { cancelled: true };
 				}
-				const result = options?.withSession
-					? await this.getLocalSessionHost().switchSession(sessionPath, {
-							cwdOverride: selectedCwd,
-							withSession: options.withSession,
-						})
-					: await this.agentConnection.switchSession(sessionPath, { cwdOverride: selectedCwd });
+				const result = await this.agentConnection.switchSession(sessionPath, {
+					cwdOverride: selectedCwd,
+					withSession: options?.withSession,
+				});
 				if (result.cancelled) {
 					return result;
 				}
@@ -8589,8 +8661,8 @@ export class InteractiveMode {
 			await this.refreshConnectionCatalog();
 			this.setupAutocompleteProvider();
 			if (this.bindLocalSessionExtensions) {
-				const runner = this.getLocalSessionHost().getExtensionRunner();
-				this.setupExtensionShortcuts(runner);
+				await this.refreshExtensionKeyboardShortcuts();
+				this.setupExtensionShortcuts();
 			}
 			await this.rebuildChatFromMessages();
 			dismissReloadBox(this.editor as Component);
@@ -9558,9 +9630,7 @@ ${interrupt ? `| \`${interrupt}\` | Interrupt current operation |\n` : ""}${shor
 | mouse drag | Select and copy text |
 `;
 
-		const shortcuts = this.bindLocalSessionExtensions
-			? this.getLocalSessionHost().getExtensionRunner().getShortcuts(this.keybindings.getEffectiveConfig())
-			: undefined;
+		const shortcuts = this.bindLocalSessionExtensions ? this.extensionKeyboardShortcuts : undefined;
 		if (shortcuts && shortcuts.size > 0) {
 			hotkeys += `
 **Extensions**

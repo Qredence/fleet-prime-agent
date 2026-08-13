@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { IconChevronLeft, IconChevronRight, IconX } from "@tabler/icons-react"
 import { cn } from "./utils/cn"
@@ -62,27 +62,27 @@ export function ImageLightbox({
   )
 
   // Esc / arrow-key navigation. Capture phase so we beat any local handlers
-  // (e.g. an Editor that swallows Esc).
+  // (e.g. an Editor that swallows Esc); Esc itself is handled by the native
+  // <dialog> cancel event below.
+  const onLightboxKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    switch (event.key) {
+      case "ArrowLeft":
+        event.preventDefault()
+        if (hasMultipleImages) goToPrevious()
+        break
+      case "ArrowRight":
+        event.preventDefault()
+        if (hasMultipleImages) goToNext()
+        break
+    }
+  })
+
   useEffect(() => {
     if (!open) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      switch (event.key) {
-        case "Escape":
-          event.preventDefault()
-          event.stopPropagation()
-          onClose()
-          break
-        case "ArrowLeft":
-          if (hasMultipleImages) goToPrevious()
-          break
-        case "ArrowRight":
-          if (hasMultipleImages) goToNext()
-          break
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown, true)
-    return () => window.removeEventListener("keydown", handleKeyDown, true)
-  }, [open, hasMultipleImages, onClose, goToPrevious, goToNext])
+    const handler = (event: KeyboardEvent) => onLightboxKeyDown(event)
+    window.addEventListener("keydown", handler, true)
+    return () => window.removeEventListener("keydown", handler, true)
+  }, [open])
 
   // Lock body scroll while open so the page underneath doesn't move.
   useEffect(() => {
@@ -94,17 +94,39 @@ export function ImageLightbox({
     }
   }, [open])
 
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  // Light dismiss — click on the dialog's empty chrome (backdrop region).
+  const onLightDismiss = useEffectEvent((event: MouseEvent) => {
+    if (dialogRef.current && event.target === dialogRef.current) onClose()
+  })
+
+  // The dialog is not in the tree while `open` is false, so these must rerun
+  // when it mounts: empty-deps effects see a null ref on the first render.
+  useEffect(() => {
+    if (!open) return
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (!dialog.open) dialog.showModal()
+    const handler = (event: MouseEvent) => onLightDismiss(event)
+    dialog.addEventListener("click", handler)
+    return () => {
+      dialog.removeEventListener("click", handler)
+      if (dialog.open) dialog.close()
+    }
+  }, [open])
+
   if (typeof document === "undefined") return null
   if (!open) return null
   const currentImage = images[currentIndex] ?? images[0]
   if (!currentImage?.url) return null
 
   return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
-      onClick={onClose}
+    <dialog
+      ref={dialogRef}
+      aria-label="Image viewer"
+      onClose={() => onClose()}
+      className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center border-0 bg-black/90 p-0 backdrop:bg-transparent"
     >
       <button
         type="button"
@@ -148,9 +170,9 @@ export function ImageLightbox({
       {hasMultipleImages && (
         <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 flex-col items-center gap-3">
           <div className="flex gap-2">
-            {images.map((_, idx) => (
+            {images.map((image, idx) => (
               <button
-                key={idx}
+                key={image.url}
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation()
@@ -171,7 +193,7 @@ export function ImageLightbox({
           </span>
         </div>
       )}
-    </div>,
+    </dialog>,
     document.body
   )
 }

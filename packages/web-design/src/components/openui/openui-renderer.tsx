@@ -174,18 +174,18 @@ export function GenerativeTextRenderer({
 
   return (
     <div className={`flex w-full flex-col gap-3 ${className ?? ""}`}>
-      {segments.map((segment, index) => {
+      {segments.map((segment) => {
         if (segment.type === "markdown") {
           return (
             <Markdown
-              key={`${index}-markdown`}
+              key={segment.id}
               content={segment.content}
               className="leading-relaxed [&_p]:leading-relaxed"
             />
           )
         }
 
-        const blockId = `${messageId ?? "message"}:${index}`
+        const blockId = `${messageId ?? "message"}:${segment.id}`
 
         return (
           <OpenUIBlock

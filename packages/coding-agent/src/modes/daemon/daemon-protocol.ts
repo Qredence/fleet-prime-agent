@@ -49,7 +49,7 @@ import type { SessionSummary } from "./daemon-session-list.js";
  */
 
 export const DAEMON_PROTOCOL_NAME = "prime-agent.daemon";
-export const DAEMON_PROTOCOL_VERSION = 7;
+export const DAEMON_PROTOCOL_VERSION = 8;
 export const DAEMON_COMMAND_ENVELOPE_MIN_PROTOCOL_VERSION = 7;
 // Revision 9 publishes persisted RLM spawn depth on passive session rows.
 // Revision 10 publishes persisted RLM spawn depth on all session catalog rows.
@@ -57,8 +57,9 @@ export const DAEMON_COMMAND_ENVELOPE_MIN_PROTOCOL_VERSION = 7;
 // Revision 12 publishes idle-residency metadata on session summary rows.
 // Revision 13 narrows agent-origin reach and roster wire shapes to the nuclear family.
 // Revision 14 carries the client's monotonic telemetry opt-out on attach and reattach.
-export const DAEMON_SCHEMA_REVISION = 14;
-export const DAEMON_SCHEMA_ID = "protocol-7-schema-14-816309b1cd50";
+// Revision 15 adds optional seedMessages on new_session (protocol 8).
+export const DAEMON_SCHEMA_REVISION = 15;
+export const DAEMON_SCHEMA_ID = "protocol-8-schema-15-d28eaade1789";
 
 export type DaemonProtocolName = typeof DAEMON_PROTOCOL_NAME;
 export type DaemonProtocolVersion = number;
@@ -96,7 +97,8 @@ export type DaemonServerCapability =
 	// identity). Clients must check before sending.
 	| "transient_bash"
 	| "session_input_admission"
-	| "prompt_admission_cancellation";
+	| "prompt_admission_cancellation"
+	| "seed_messages";
 
 export type DaemonReplayStatus = "complete" | "partial" | "unavailable";
 
@@ -134,6 +136,7 @@ export const DAEMON_DEFAULT_SERVER_CAPABILITIES: readonly DaemonServerCapability
 	"transient_bash",
 	"session_input_admission",
 	"prompt_admission_cancellation",
+	"seed_messages",
 ];
 
 export interface DaemonRuntimeIdentity {
@@ -564,7 +567,19 @@ export type DaemonCommand =
 	| { id?: string; type: "abort_retry"; activeSessionId: string }
 	| { id?: string; type: "execute_bash_and_wait"; activeSessionId: string; command: string }
 	| { id?: string; type: "reload"; activeSessionId: string }
-	| { id?: string; type: "new_session"; activeSessionId: string; parentSession?: string }
+	| {
+			id?: string;
+			type: "new_session";
+			activeSessionId: string;
+			parentSession?: string;
+			/**
+			 * Transcript messages appended to the fresh SessionManager before the
+			 * swap resolves. Requires protocol >= 8 (schema revision >= 15);
+			 * older daemons ignore unknown fields, so clients must not send this
+			 * unless the negotiated hello meets that floor.
+			 */
+			seedMessages?: Array<{ role: "user" | "assistant"; text: string }>;
+	  }
 	| { id?: string; type: "switch_session"; activeSessionId: string; sessionPath: string; cwdOverride?: string }
 	| { id?: string; type: "fork"; activeSessionId: string; entryId: string; position?: "before" | "at" }
 	| {
@@ -635,6 +650,11 @@ const DELETE_RLM_SUBAGENT_COMMAND = {
 } as const;
 const FLAT_SESSION_TREE_COMMAND = { minProtocol: 7 } as const;
 const TELEMETRY_POLICY_COMMAND = { minProtocol: 7, minSchemaRevision: 14 } as const;
+const NEW_SESSION_SEED_MESSAGES_COMMAND = {
+	minProtocol: 8,
+	minSchemaRevision: 15,
+	capability: "seed_messages",
+} as const;
 
 export const DAEMON_COMMAND_COMPATIBILITY = {
 	ack_result: LEGACY_DAEMON_COMMAND,
@@ -746,6 +766,9 @@ export function getDaemonCommandCompatibilities(command: DaemonCommand): readonl
 	}
 	if ((command.type === "prompt" || command.type === "prompt_and_wait") && command.admissionId !== undefined) {
 		return [PROMPT_ADMISSION_CANCELLATION_COMMAND, compatibility];
+	}
+	if (command.type === "new_session" && command.seedMessages !== undefined && command.seedMessages.length > 0) {
+		return [NEW_SESSION_SEED_MESSAGES_COMMAND, compatibility];
 	}
 	return [compatibility];
 }

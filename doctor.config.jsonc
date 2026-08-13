@@ -1,0 +1,101 @@
+{
+	"$schema": "https://react.doctor/schema/config.json",
+	"ignore": {
+		// Globs match per-project, relative to each scanned project root
+		// (diagnostic paths are relativized to the project before matching).
+		// Demo/marketing page at the app root, not shipped app code.
+		// Excluded from scanning entirely (decision Q7, 2026-08-11; 7 diags).
+		"files": ["prime-agent-visualization.html"],
+		"overrides": [
+			{
+				// Waived 2026-08-11 — library file by design. openui-library.tsx is
+				// a defined-component registry (defineComponent DSL); multiple
+				// named components per file is the file's entire purpose, so the
+				// one-component-per-file intent of no-multi-comp does not apply.
+				"files": ["src/components/openui/openui-library.tsx"],
+				"rules": ["react-doctor/no-multi-comp"]
+			},
+			{
+				// Waived 2026-08-11 — charts.tsx intentionally co-locates the
+				// LineChart and DonutChart definitions, which share the same chart
+				// primitives and fallback-color convention. Splitting this focused
+				// component-pair would add indirection without improving ownership.
+				"files": ["src/components/openui/charts.tsx"],
+				"rules": ["react-doctor/no-multi-comp"]
+			},
+			{
+				// Waived 2026-08-11 — false positive. loadPreview's try/catch at
+				// workspace-panel.tsx:149-160 always reaches the finally branch at
+				// :161, which clears previewLoading unless the effect has already
+				// been cancelled during cleanup.
+				"files": ["src/components/fleet-pi/pi/workspace-panel.tsx"],
+				"rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+			},
+			{
+				// Waived with evidence (decision Q6, 2026-08-11) — false positive.
+				// The effect's returned cleanup at
+				// apps/web/src/lib/pi/use-pi-chat.ts:490-494 sets `closedByEffect`,
+				// closes the latest EventSource, and clears the pending reconnect
+				// timer, so teardown is guaranteed on unmount and re-run.
+				"files": ["src/lib/pi/use-pi-chat.ts"],
+				"rules": ["react-doctor/effect-needs-cleanup"]
+			},
+			{
+				// Waived with evidence (decision Q6, 2026-08-11) — false positive.
+				// ResizeObserver handles are registry-managed: re-registration
+				// disconnects the previous observer (packages/web-design/src/hooks/
+				// use-proximity-hover.ts:81-84) and the unmount effect disconnects
+				// then clears the entire registry (:175-186).
+				"files": ["src/hooks/use-proximity-hover.ts"],
+				"rules": ["react-doctor/effect-needs-cleanup"]
+			},
+			{
+				// Waived with evidence — the filtered expression is a string
+				// substring search, not repeated array membership; see waiver 5.
+				"files": ["src/components/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx"],
+				"rules": ["react-doctor/js-set-map-lookups"]
+			},
+			{
+				// Intentional architecture exception; see
+				// .react-doctor/intentional-exceptions.md §1. WorkspacePanel's
+				// controlled/uncontrolled selection owner needs a joint parent redesign.
+				"files": ["src/components/fleet-pi/pi/workspace-panel.tsx"],
+				"rules": [
+					"react-doctor/no-adjust-state-on-prop-change",
+					"react-doctor/exhaustive-deps"
+				]
+			},
+			{
+				// Intentional static-render compatibility boundary; see
+				// .react-doctor/intentional-exceptions.md §2. React.lazy would
+				// suspend the OpenUI static render harness.
+				"files": [
+					"src/components/chart.tsx",
+					"src/components/openui/charts.tsx",
+					"src/components/openui/data.tsx",
+					"src/components/openui/openui-library.tsx"
+				],
+				"rules": ["react-doctor/prefer-dynamic-import"]
+			},
+			{
+				// Intentional public API compatibility adapter; see
+				// .react-doctor/intentional-exceptions.md §4. The exported message
+				// turn components accept their legacy flat props alongside grouped
+				// internal state until a documented major-version migration.
+				"files": ["src/components/agent-elements/message-turns.tsx"],
+				"rules": ["react-doctor/no-many-boolean-props"]
+			},
+			{
+				// Intentional retained future UI surface; see
+				// .react-doctor/intentional-exceptions.md §3.
+				"files": [
+					"src/components/agent-elements/input/mode-selector.tsx",
+					"src/components/fleet-pi/auth/login-page.tsx",
+					"src/components/fleet-pi/icons/google-icon.tsx",
+					"src/components/fleet-pi/primitives/centered-loader.tsx"
+				],
+				"rules": ["deslop/unused-file"]
+			}
+		]
+	}
+}

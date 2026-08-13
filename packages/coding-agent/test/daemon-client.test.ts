@@ -254,7 +254,8 @@ describe("DaemonClient", () => {
 		const socket = netMock.sockets[0]!;
 		socket.emit("connect");
 		await connect;
-		emitHello(socket, DAEMON_PROTOCOL_VERSION - 1);
+		// get_state requires protocol >= 7; VERSION-1 is still 7 after the v8 bump.
+		emitHello(socket, 6);
 
 		await expect(client.request({ type: "get_state", activeSessionId: "active-1" })).rejects.toThrow(
 			"does not support get_state",

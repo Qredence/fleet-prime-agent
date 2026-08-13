@@ -68,26 +68,35 @@ export const Route = createFileRoute("/api/chat")({
 								}
 							}
 
-							removeListener = bridge.addEventListener((sid, frame) => {
-								if (sid !== session.sessionId) return
-								write(frame)
-								if (frame.type === "done" || frame.type === "error") {
-									removeListener?.()
-									try {
-										controller.close()
-									} catch {
-										/* already closed */
-									}
+						removeListener = bridge.addEventListener((sid, frame) => {
+							if (sid !== session.sessionId) return
+							write(frame)
+							if (frame.type === "done" || frame.type === "error") {
+								removeListener?.()
+								try {
+									controller.close()
+								} catch {
+									/* already closed */
 								}
-							})
+							}
+						})
 
-							write({
-								type: "start",
-								id: crypto.randomUUID(),
-								runId: session.mapperState.runId || "pending",
-								sessionId: session.sessionId,
-								sessionFile: session.sessionPath,
-							})
+						// Prefer the mapper's stable assistant id only when a run is
+						// already open; otherwise open a fresh placeholder the client
+						// reconciles on the first frame that carries `messageId`.
+						const startId = session.mapperState.inRun
+							? (session.mapperState.currentMessageId ??
+								crypto.randomUUID())
+							: crypto.randomUUID()
+						write({
+							type: "start",
+							id: startId,
+							runId: session.mapperState.inRun
+								? session.mapperState.runId
+								: "pending",
+							sessionId: session.sessionId,
+							sessionFile: session.sessionPath,
+						})
 							if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 								process.stderr.write(`[chat] wrote start; firing prompt\n`)
 							}

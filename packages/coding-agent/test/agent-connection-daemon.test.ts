@@ -461,6 +461,13 @@ class FakeDaemonClient {
 						filePath: "/tmp/not-found.jsonl",
 					},
 				};
+			case "new_session":
+				return {
+					type: "response",
+					command: command.type,
+					success: true,
+					data: { cancelled: false },
+				};
 			default:
 				throw new Error(`Unexpected command: ${command.type}`);
 		}
@@ -957,6 +964,68 @@ describe("DaemonAgentConnection", () => {
 			(command): command is Extract<DaemonCommand, { type: "execute_bash" }> => command.type === "execute_bash",
 		);
 		expect(sent).toMatchObject({ command: "ls", excludeFromContext: true, transient: true, runId: "side-run-1" });
+	});
+
+	it("gates new_session seedMessages on protocol version 8", async () => {
+		const oldDaemonClient = new FakeDaemonClient();
+		oldDaemonClient.hello = {
+			type: "daemon_hello",
+			socketPath: "/tmp/fake.sock",
+			protocol: { name: "prime-agent.daemon", version: 7 },
+			schemaRevision: 14,
+			clientId: "fake-client",
+			serverCapabilities: ["prompt_admission_cancellation", "session_input_admission"],
+		};
+		const oldConnection = new DaemonAgentConnection(asDaemonClient(oldDaemonClient), "active-original");
+
+		await expect(
+			oldConnection.newSession({ seedMessages: [{ role: "user", text: "bootstrap" }] }),
+		).rejects.toMatchObject({
+			name: "AgentConnectionUnsupportedError",
+			feature: "newSession.seedMessages",
+		});
+		expect(oldDaemonClient.requests).toEqual([]);
+
+		const capabilityMissingClient = new FakeDaemonClient();
+		const capabilityMissingConnection = new DaemonAgentConnection(
+			asDaemonClient(capabilityMissingClient),
+			"active-original",
+		);
+		await expect(
+			capabilityMissingConnection.newSession({ seedMessages: [{ role: "user", text: "bootstrap" }] }),
+		).rejects.toMatchObject({
+			name: "AgentConnectionUnsupportedError",
+			feature: "newSession.seedMessages",
+		});
+		expect(capabilityMissingClient.requests).toEqual([]);
+
+		const newDaemonClient = new FakeDaemonClient();
+		newDaemonClient.serverCapabilities.add("seed_messages");
+		const newConnection = new DaemonAgentConnection(asDaemonClient(newDaemonClient), "active-original");
+		await expect(
+			newConnection.newSession({
+				seedMessages: [
+					{ role: "user", text: "hello" },
+					{ role: "assistant", text: "hi" },
+				],
+			}),
+		).resolves.toEqual({ cancelled: false });
+		const seeded = newDaemonClient.requests.find(
+			(command): command is Extract<DaemonCommand, { type: "new_session" }> => command.type === "new_session",
+		);
+		expect(seeded?.seedMessages).toEqual([
+			{ role: "user", text: "hello" },
+			{ role: "assistant", text: "hi" },
+		]);
+
+		const bareClient = new FakeDaemonClient();
+		const bareConnection = new DaemonAgentConnection(asDaemonClient(bareClient), "active-original");
+		await expect(bareConnection.newSession()).resolves.toEqual({ cancelled: false });
+		const bare = bareClient.requests.find(
+			(command): command is Extract<DaemonCommand, { type: "new_session" }> => command.type === "new_session",
+		);
+		expect(bare).toEqual({ type: "new_session", activeSessionId: "active-original" });
+		expect(bare).not.toHaveProperty("seedMessages");
 	});
 
 	it("degrades an unavailable heartbeat catalog without sending an unsupported command", async () => {
