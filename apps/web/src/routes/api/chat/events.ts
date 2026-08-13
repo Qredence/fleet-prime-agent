@@ -95,8 +95,8 @@ export const Route = createFileRoute("/api/chat/events")({
 										},
 									})
 								}
-								flush()
 							}
+							flush()
 
 							// Keep-alive heartbeat every 15s so proxies don't kill the stream.
 							heartbeat = setInterval(() => {
