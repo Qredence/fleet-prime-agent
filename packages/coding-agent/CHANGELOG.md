@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Fixed the CLI bundle failing when `@mistralai/mistralai` imported optional `@opentelemetry/api`.
 - Removed `InteractiveModeLocalSessionHost`; InteractiveMode reaches session and extension reads only through `AgentConnection`.
 - Added optional `seedMessages` on daemon `new_session` (protocol 8, schema revision 15); older daemons reject seeded requests cleanly while bare `new_session` remains compatible.
 - Added privacy-safe pseudonymous product analytics for onboarding, command use, execution modes, run outcomes, TTFT, latency, usage, tools, retries, and compactions, with disclosure and opt-out controls ([ENG-4682](https://linear.app/primeintellect/issue/ENG-4682/add-privacy-safe-posthog-analytics-to-prime-agent)).
