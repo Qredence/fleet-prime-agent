@@ -5,7 +5,7 @@ authoritative suppression lives in `doctor.config.jsonc` (`ignore.overrides`);
 this file records the evidence so future agent triage runs do not relitigate
 these findings.
 
-## Waiver 1 — `effect-needs-cleanup` @ `apps/web/src/lib/pi/use-pi-chat.ts:384`
+## Waiver 1 — `effect-needs-cleanup` @ `web/app/src/lib/pi/use-pi-chat.ts:384`
 
 - **Rule:** `react-doctor/effect-needs-cleanup` (severity: error)
 - **Predicate the detector claims:** "`EventSource` creates a connection in
@@ -20,7 +20,7 @@ these findings.
   Q6). Review condition: re-verify if the reconnect logic moves outside the
   effect or `source` stops being the closure's latest binding.
 
-## Waiver 2 — `effect-needs-cleanup` @ `packages/web-design/src/hooks/use-proximity-hover.ts:90`
+## Waiver 2 — `effect-needs-cleanup` @ `web/design/src/hooks/use-proximity-hover.ts:90`
 
 - **Rule:** `react-doctor/effect-needs-cleanup` (severity: error)
 - **Predicate the detector claims:** "`observe` creates a subscription in a
@@ -35,7 +35,7 @@ these findings.
   Q6). Review condition: re-verify if the per-index registry or the unmount
   effect is removed.
 
-## Waiver 3 — `no-multi-comp` @ `packages/web-design/src/components/openui/charts.tsx`
+## Waiver 3 — `no-multi-comp` @ `web/design/src/components/openui/charts.tsx`
 
 - **Rule:** `react-doctor/no-multi-comp` (severity: warning).
 - **Predicate the detector claims:** the two chart components should be split
@@ -49,7 +49,7 @@ these findings.
   if a third independent chart family or unrelated UI component is added to
   `charts.tsx`.
 
-## Waiver 4 — `no-loading-flag-reset-outside-finally` @ `packages/web-design/src/components/fleet-pi/pi/workspace-panel.tsx:161`
+## Waiver 4 — `no-loading-flag-reset-outside-finally` @ `web/design/src/components/fleet-pi/pi/workspace-panel.tsx:161`
 
 - **Rule:** `react-doctor/no-loading-flag-reset-outside-finally` (severity:
   warning).
@@ -64,7 +64,7 @@ these findings.
 - **Outcome:** waived with evidence, 2026-08-11. Review condition: re-verify
   if the reset moves out of `finally` or cancellation semantics change.
 
-## Waiver 5 — `js-set-map-lookups` @ `packages/web-design/src/components/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx:59`
+## Waiver 5 — `js-set-map-lookups` @ `web/design/src/components/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx:59`
 
 - **Rule:** `react-doctor/js-set-map-lookups` (severity: warning).
 - **Predicate the detector claims:** an `includes()` call inside candidate-model

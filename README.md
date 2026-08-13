@@ -2,22 +2,22 @@
 
 A self-improving RLM (Recursive Language Model) coding and research agent. It ships as a web chat interface, a terminal UI, and a headless daemon — all three drive the same core session runtime (`@earendil-works/pi-coding-agent`) through a single typed connection seam.
 
-The **web chat interface** is the primary surface: a React 19 chat application (`apps/web`) that streams agent turns over NDJSON, pushes out-of-turn events over SSE, and renders every model action — IPython cells, shell commands, file edits, plans, subagent runs, and interactive questions — as dedicated UI cards.
+The **web chat interface** is the primary surface: a React 19 chat application (`web/app`) that streams agent turns over NDJSON, pushes out-of-turn events over SSE, and renders every model action — IPython cells, shell commands, file edits, plans, subagent runs, and interactive questions — as dedicated UI cards.
 
 ## Web chat interface
 
 Run it with a single command:
 
 ```bash
-npm run dev -w @prime-agent/web
+pnpm --dir web --filter @prime-agent/web dev
 ```
 
-Open http://127.0.0.1:3000. The browser talks to a single-process Node dev server (TanStack Start + Vite) which drives the coding-agent runtime through `PrimeBridge` (`apps/web/server/prime-bridge.ts`): one bridge per process, one `AgentSession` per chat session, with the IPython kernel provisioned per working directory.
+Open http://127.0.0.1:3000. The browser talks to a single-process Node dev server (TanStack Start + Vite) which drives the coding-agent runtime through `PrimeBridge` (`web/server/src/prime-bridge.ts`): one bridge per process, one `AgentSession` per chat session, with the IPython kernel provisioned per working directory.
 
 ### Conversation
 
 - **Turn-based timeline** — messages are grouped into user→assistant turns; the latest turn streams in place with a "Processing…" shimmer placeholder and a breathing space that keeps the input bar in view while the agent works.
-- **Streaming markdown** — assistant text renders through the generative text renderer (`packages/web-design/src/components/openui/`) with syntax-highlighted code.
+- **Streaming markdown** — assistant text renders through the generative text renderer (`web/design/src/components/openui/`) with syntax-highlighted code.
 - **Live activity line** — a composer loader above the input shows the current activity ("Running cell…", plan progress, queue state for steering/follow-up turns).
 - **Copy toolbars** — hover-copy for user messages and whole assistant turns, with timestamps.
 - **Auto-scroll** — pinned to the latest message, with reduced-motion support.
@@ -33,7 +33,7 @@ Open http://127.0.0.1:3000. The browser talks to a single-process Node dev serve
 
 ### Tool cards
 
-Every tool call the agent makes lands as a card with a lifecycle (`input-streaming → output-available | output-error`), rendered by `packages/web-design/src/components/agent-elements/tools/`:
+Every tool call the agent makes lands as a card with a lifecycle (`input-streaming → output-available | output-error`), rendered by `web/design/src/components/agent-elements/tools/`:
 
 | Tool | Card |
 | --- | --- |
@@ -65,7 +65,7 @@ Every tool call the agent makes lands as a card with a lifecycle (`input-streami
 
 ## Repository layout
 
-npm-workspace monorepo (all packages share one version):
+npm-workspace for Prime Agent (`packages/*`); pnpm workspace for the Qredence UI (`web/`):
 
 | Path | Package | Purpose |
 | --- | --- | --- |
@@ -73,17 +73,19 @@ npm-workspace monorepo (all packages share one version):
 | `packages/agent` | `@earendil-works/pi-agent-core` | Core agent session runtime |
 | `packages/coding-agent` | `@earendil-works/pi-coding-agent` | Coding agent CLI, SDK entry point, and daemon |
 | `packages/tui` | `@earendil-works/pi-tui` | Terminal UI |
-| `packages/web-protocol` | `@prime-agent/web-protocol` | Web wire contract (`ChatStreamEvent`, zod schemas, provider catalog) |
-| `packages/web-design` | `@prime-agent/web-design` | Shared web chat components and tool renderers |
-| `apps/web` | `@prime-agent/web` | Web chat frontend plus Node server (PrimeBridge) |
+| `web/protocol` | `@prime-agent/web-protocol` | Web wire contract (`ChatStreamEvent`, zod schemas, provider catalog) |
+| `web/design` | `@prime-agent/web-design` | Shared web chat components and tool renderers |
+| `web/server` | `@prime-agent/web-server` | HTTP adapter (`PrimeBridge`, event mapper, handlers) |
+| `web/app` | `@prime-agent/web` | Web chat frontend (TanStack Start host) |
 | `prime-agent-runtime` | — | Python IPython kernel shim (requires Python >= 3.10) |
 
-The web frontend (`apps/web`) and its shared UI kit (`packages/web-design`) import chat components from `packages/web-protocol` (types + zod schemas); the `fleet-pi` chat shell in `web-design` composes the reusable `agent-elements` layer (message list, input bar, tool renderers) and the openui text renderer.
+The web frontend (`web/app`) and its UI kit (`web/design`) import the wire contract from `web/protocol`; `web/server` is the only web package that imports `@earendil-works/*`. Install Prime Agent with npm at the repo root, then the UI with `pnpm install` in `web/`.
 
 ## Requirements
 
 - Node.js >= 22.8.0
-- npm >= 11.10 (enforces the 7-day minimum release age for dependency updates; older npm silently ignores it)
+- npm >= 11.10 (enforces the 7-day minimum release age for Prime Agent dependency updates; older npm silently ignores it)
+- pnpm >= 11 (Qredence UI under `web/`; `minimumReleaseAge: 10080` in `web/pnpm-workspace.yaml`)
 - Python >= 3.10 (only needed for the IPython runtime — `prime-agent-runtime`)
 
 ## Getting started
@@ -92,12 +94,13 @@ Install workspace dependencies:
 
 ```bash
 npm ci
+pnpm install --dir web
 ```
 
 ### Web chat
 
 ```bash
-npm run dev -w @prime-agent/web
+pnpm --dir web --filter @prime-agent/web dev
 ```
 
 Open http://127.0.0.1:3000. Install the Python runtime shim for full kernel functionality:
@@ -178,9 +181,9 @@ API surface:
 | POST | `/api/workspace/root` | Set the workspace root |
 | GET | `/api/health` | Liveness + kernel readiness |
 
-The event mapper (`apps/web/server/event-mapper.ts`) is a pure function `AgentSessionEvent → ChatStreamEvent[]`; tool names pass through `toPascalCase` (`tool-IPython`, `tool-Bash`, `tool-Edit`, `tool-Thinking`, …). Tool renderers live in `packages/web-design/src/components/agent-elements/tools/` and dispatch on `part.type`.
+The event mapper (`web/server/src/event-mapper.ts`) is a pure function `AgentSessionEvent → ChatStreamEvent[]`; tool names pass through `toPascalCase` (`tool-IPython`, `tool-Bash`, `tool-Edit`, `tool-Thinking`, …). Tool renderers live in `web/design/src/components/agent-elements/tools/` and dispatch on `part.type`.
 
-Current limitations (v2): no daemon-backed attach (in-process connection), no multi-user auth (binds to `127.0.0.1` with no tokens), partial workspace tree/reads, and some settings endpoints are stubs. See `apps/web/ARCHITECTURE.md` for details.
+Current limitations: no daemon-backed attach (in-process connection), no multi-user auth (binds to `127.0.0.1` with no tokens), and pending dialogs are not persisted across restart. See `web/app/ARCHITECTURE.md` for details.
 
 ## Documentation
 
@@ -188,13 +191,14 @@ Current limitations (v2): no daemon-backed attach (in-process connection), no mu
 - `packages/coding-agent/docs/quickstart.md` — install, authenticate, run a first session
 - `packages/coding-agent/docs/rlm.md` — RLM programming model, IPython, subagents, skills, trust model
 - `packages/coding-agent/docs/development.md` — build and run from source
-- `apps/web/ARCHITECTURE.md` — web chat architecture
+- `web/app/ARCHITECTURE.md` — web chat architecture
 - `AGENTS.md` — contribution rules and required validation
 
 ## Development
 
 ```bash
-npm ci                  # Install workspace dependencies
+npm ci                  # Install Prime Agent (packages/*)
+pnpm install --dir web  # Install Qredence UI
 npm run check           # Format, lint, type-check, installer/browser-smoke/rendering checks (does not run tests)
 ```
 

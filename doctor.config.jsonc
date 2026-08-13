@@ -34,7 +34,7 @@
 			{
 				// Waived with evidence (decision Q6, 2026-08-11) — false positive.
 				// The effect's returned cleanup at
-				// apps/web/src/lib/pi/use-pi-chat.ts:490-494 sets `closedByEffect`,
+				// web/app/src/lib/pi/use-pi-chat.ts:490-494 sets `closedByEffect`,
 				// closes the latest EventSource, and clears the pending reconnect
 				// timer, so teardown is guaranteed on unmount and re-run.
 				"files": ["src/lib/pi/use-pi-chat.ts"],
@@ -43,7 +43,7 @@
 			{
 				// Waived with evidence (decision Q6, 2026-08-11) — false positive.
 				// ResizeObserver handles are registry-managed: re-registration
-				// disconnects the previous observer (packages/web-design/src/hooks/
+				// disconnects the previous observer (web/design/src/hooks/
 				// use-proximity-hover.ts:81-84) and the unmount effect disconnects
 				// then clears the entire registry (:175-186).
 				"files": ["src/hooks/use-proximity-hover.ts"],
@@ -90,7 +90,6 @@
 				// .react-doctor/intentional-exceptions.md §3.
 				"files": [
 					"src/components/agent-elements/input/mode-selector.tsx",
-					"src/components/fleet-pi/auth/login-page.tsx",
 					"src/components/fleet-pi/icons/google-icon.tsx",
 					"src/components/fleet-pi/primitives/centered-loader.tsx"
 				],

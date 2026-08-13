@@ -7,7 +7,7 @@ corresponding narrow scanner overrides are in `doctor.config.jsonc`.
 ## 1. WorkspacePanel selected-path reconciliation
 
 `WorkspacePanelContent` intentionally supports both controlled and uncontrolled
-selection. In controlled mode, `apps/web` owns the selected path so assistant
+selection. In controlled mode, `web/app` owns the selected path so assistant
 and file-navigation actions can coordinate the workspace and artifacts panels.
 After a workspace refresh, the selection effect clears a path that is no longer
 present or falls outside the active scope, together with its preview and preview
@@ -16,7 +16,7 @@ error.
 This is not a detector false positive. Moving this ownership requires a
 purposeful parent-state redesign that changes the workspace tree source and its
 selection owner together. That work would also touch the currently user-modified
-`apps/web/src/routes/index.tsx`, so it is deliberately deferred.
+`web/app/src/routes/index.tsx`, so it is deliberately deferred.
 
 **Re-evaluate:** when the selection owner and workspace tree source are
 redesigned together.
@@ -44,10 +44,9 @@ The following side-effect-free modules form a coherent future authentication and
 mode-selection surface and are retained by explicit user direction while OpenUI
 is expanded alongside the current chat interface:
 
-- `packages/web-design/src/components/agent-elements/input/mode-selector.tsx`
-- `packages/web-design/src/components/fleet-pi/auth/login-page.tsx`
-- `packages/web-design/src/components/fleet-pi/icons/google-icon.tsx`
-- `packages/web-design/src/components/fleet-pi/primitives/centered-loader.tsx`
+- `web/design/src/components/agent-elements/input/mode-selector.tsx`
+- `web/design/src/components/fleet-pi/icons/google-icon.tsx`
+- `web/design/src/components/fleet-pi/primitives/centered-loader.tsx`
 
 **Re-evaluate:** when that integration either imports these modules or removes
 the future surface intentionally.

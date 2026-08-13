@@ -1,0 +1,29 @@
+packages:
+  - app
+  - design
+  - protocol
+  - server
+
+# 7 days in minutes. Matches root npm min-release-age.
+minimumReleaseAge: 10080
+confirmModulesPurge: false
+
+allowBuilds:
+  esbuild: true
+  "@openuidev/lang-core": true
+
+publicHoistPattern:
+  - "*vite*"
+  - "*@tanstack*"
+  - "*tailwindcss*"
+
+# Keep nested @earendil-works deps on the in-tree npm packages.
+# Do not add packages/{ai,agent,tui,coding-agent} to `packages:` above.
+overrides:
+  "@earendil-works/pi-ai": "link:../packages/ai"
+  "@earendil-works/pi-agent-core": "link:../packages/agent"
+  "@earendil-works/pi-coding-agent": "link:../packages/coding-agent"
+  "@earendil-works/pi-tui": "link:../packages/tui"
+  # Unify highlighter types: streamdown's published .d.ts imports `shiki`
+  # while @streamdown/code pins 3.x and @pierre/diffs pins 4.x.
+  shiki: 4.4.2
