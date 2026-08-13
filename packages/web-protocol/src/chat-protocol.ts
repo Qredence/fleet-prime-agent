@@ -92,6 +92,7 @@ export type ChatModelSelection =
 export type ChatSessionMetadata = {
 	sessionFile?: string;
 	sessionId?: string;
+	cwd?: string;
 };
 
 /**

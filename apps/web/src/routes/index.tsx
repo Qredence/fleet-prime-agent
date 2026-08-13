@@ -160,6 +160,16 @@ function ChatWorkspaceShell() {
     return chatClient.browseWorkspace(path)
   }, [])
 
+  const applyWorkspaceRoot = useCallback(
+    async (path: string) => {
+      await chatClient.setWorkspaceRoot(path)
+      setSelectedWorkspacePath(null)
+      invalidateWorkspaceScopedQueries(queryClient)
+      await refetchWorkspace()
+    },
+    [queryClient, refetchWorkspace, setSelectedWorkspacePath]
+  )
+
   const {
     activityLabel,
     answerQuestion,
@@ -178,19 +188,17 @@ function ChatWorkspaceShell() {
   } = usePiChat(modelSelection, {
     initialSessionMetadata,
     persistSession,
+    onWorkspaceCwd: applyWorkspaceRoot,
   })
 
   const setWorkspaceRoot = useCallback(
     async (path: string) => {
-      await chatClient.setWorkspaceRoot(path)
-      setSelectedWorkspacePath(null)
-      invalidateWorkspaceScopedQueries(queryClient)
-      await refetchWorkspace()
+      await applyWorkspaceRoot(path)
       // New sessions follow defaultCwd; switch the visible chat so the next
       // prompt cannot still execute in the previous project.
       await startNewSession()
     },
-    [queryClient, refetchWorkspace, setSelectedWorkspacePath, startNewSession]
+    [applyWorkspaceRoot, startNewSession]
   )
 
   useResourceInstallRefresh({

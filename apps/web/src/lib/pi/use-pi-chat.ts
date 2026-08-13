@@ -36,13 +36,14 @@ export type UsePiChatOptions = {
   client?: ChatClient
   initialSessionMetadata: ChatSessionMetadata
   persistSession: (metadata: ChatSessionMetadata) => void
+  onWorkspaceCwd?: (cwd: string) => Promise<void>
 }
 
 export function usePiChat(
   model: ChatModelSelection | undefined,
   options: UsePiChatOptions
 ) {
-  const { client = chatClient, initialSessionMetadata, persistSession } =
+  const { client = chatClient, initialSessionMetadata, persistSession, onWorkspaceCwd } =
     options
   const [messages, setMessages] = useState<Array<ChatMessage>>([])
   const [status, setStatus] = useState<ChatStatus>("ready")
@@ -349,6 +350,9 @@ export function usePiChat(
         setPlanLabelSynced(undefined)
         toast.success("Session resumed")
         await refreshSessions()
+        if (result.session.cwd) {
+          await onWorkspaceCwd?.(result.session.cwd)
+        }
       } catch (err) {
         if (
           await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
@@ -366,6 +370,7 @@ export function usePiChat(
     },
     [
       client,
+      onWorkspaceCwd,
       recoverFromForbiddenSession,
       refreshSessions,
       setActivityLabelSynced,

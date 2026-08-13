@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { getBridge } from "@/server/singleton"
 import { wrapApiHandler } from "@/lib/api-utils"
+import { shouldReplaySseEvent } from "@/server/sse-replay"
 
 export const Route = createFileRoute("/api/chat/events")({
 	server: {
@@ -65,12 +66,24 @@ export const Route = createFileRoute("/api/chat/events")({
 							// replay closes the gap where a frame could land in the ring
 							// with no callback to drain it.
 							let liveCursor = lastEventId
+							let pendingQuestionIds: ReadonlySet<string> | null =
+								lastEventId === 0
+									? new Set(
+											bridge
+												.pendingDialogsFor(sessionId)
+												.map((dialog) => dialog.toolCallId),
+										)
+									: null
 							const flush = () => {
 								const { replayed } = bridge.replaySince(sessionId, liveCursor)
 								for (const entry of replayed) {
 									liveCursor = entry.seq
+									if (!shouldReplaySseEvent(entry.event, pendingQuestionIds)) {
+										continue
+									}
 									write({ id: entry.seq, data: entry.event })
 								}
+								pendingQuestionIds = null
 							}
 							removeListener = bridge.addEventListener((sid) => {
 								if (sid !== sessionId) return
