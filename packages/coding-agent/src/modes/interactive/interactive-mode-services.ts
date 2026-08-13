@@ -20,13 +20,17 @@ export interface InteractiveModeUiServices {
 	getThemes(): Theme[];
 }
 
-export function createInteractiveModeUiServices(session: AgentSession): InteractiveModeUiServices {
+export function createInteractiveModeUiServices(getSession: () => AgentSession): InteractiveModeUiServices {
 	return {
-		settingsManager: session.settingsManager,
-		modelRegistry: session.modelRegistry,
-		getInitialCwd: () => session.sessionManager.getCwd(),
-		getInitialSessionName: () => session.sessionManager.getSessionName(),
-		getThemes: () => session.resourceLoader.getThemes().themes,
+		get settingsManager() {
+			return getSession().settingsManager;
+		},
+		get modelRegistry() {
+			return getSession().modelRegistry;
+		},
+		getInitialCwd: () => getSession().sessionManager.getCwd(),
+		getInitialSessionName: () => getSession().sessionManager.getSessionName(),
+		getThemes: () => getSession().resourceLoader.getThemes().themes,
 	};
 }
 

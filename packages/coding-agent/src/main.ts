@@ -1655,7 +1655,7 @@ export async function main(args: string[], options?: MainOptions) {
 
 		const interactiveMode = new InteractiveMode({
 			agentConnection: new InProcessAgentConnection(runtime),
-			uiServices: createInteractiveModeUiServices(runtime.session),
+			uiServices: createInteractiveModeUiServices(() => runtime.session),
 			promptStashStore: new ClientPromptStashStore(),
 			promptStashSessionId: session.sessionId,
 			bindLocalSessionExtensions: true,

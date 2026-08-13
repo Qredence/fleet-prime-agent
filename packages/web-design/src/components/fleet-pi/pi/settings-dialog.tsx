@@ -386,6 +386,7 @@ function SettingsDialogSession({
   }
 
   const handleDiscardChanges = () => {
+    revertResourceDraft()
     resetDraft()
     resetCommittedModelBaseline()
     setDiscardDialogOpen(false)

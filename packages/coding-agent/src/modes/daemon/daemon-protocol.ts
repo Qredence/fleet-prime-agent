@@ -97,7 +97,8 @@ export type DaemonServerCapability =
 	// identity). Clients must check before sending.
 	| "transient_bash"
 	| "session_input_admission"
-	| "prompt_admission_cancellation";
+	| "prompt_admission_cancellation"
+	| "seed_messages";
 
 export type DaemonReplayStatus = "complete" | "partial" | "unavailable";
 
@@ -135,6 +136,7 @@ export const DAEMON_DEFAULT_SERVER_CAPABILITIES: readonly DaemonServerCapability
 	"transient_bash",
 	"session_input_admission",
 	"prompt_admission_cancellation",
+	"seed_messages",
 ];
 
 export interface DaemonRuntimeIdentity {
@@ -648,7 +650,11 @@ const DELETE_RLM_SUBAGENT_COMMAND = {
 } as const;
 const FLAT_SESSION_TREE_COMMAND = { minProtocol: 7 } as const;
 const TELEMETRY_POLICY_COMMAND = { minProtocol: 7, minSchemaRevision: 14 } as const;
-const NEW_SESSION_SEED_MESSAGES_COMMAND = { minProtocol: 8, minSchemaRevision: 15 } as const;
+const NEW_SESSION_SEED_MESSAGES_COMMAND = {
+	minProtocol: 8,
+	minSchemaRevision: 15,
+	capability: "seed_messages",
+} as const;
 
 export const DAEMON_COMMAND_COMPATIBILITY = {
 	ack_result: LEGACY_DAEMON_COMMAND,

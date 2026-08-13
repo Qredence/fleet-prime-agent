@@ -160,16 +160,6 @@ function ChatWorkspaceShell() {
     return chatClient.browseWorkspace(path)
   }, [])
 
-  const setWorkspaceRoot = useCallback(
-    async (path: string) => {
-      await chatClient.setWorkspaceRoot(path)
-      setSelectedWorkspacePath(null)
-      invalidateWorkspaceScopedQueries(queryClient)
-      await refetchWorkspace()
-    },
-    [queryClient, refetchWorkspace, setSelectedWorkspacePath]
-  )
-
   const {
     activityLabel,
     answerQuestion,
@@ -189,6 +179,19 @@ function ChatWorkspaceShell() {
     initialSessionMetadata,
     persistSession,
   })
+
+  const setWorkspaceRoot = useCallback(
+    async (path: string) => {
+      await chatClient.setWorkspaceRoot(path)
+      setSelectedWorkspacePath(null)
+      invalidateWorkspaceScopedQueries(queryClient)
+      await refetchWorkspace()
+      // New sessions follow defaultCwd; switch the visible chat so the next
+      // prompt cannot still execute in the previous project.
+      await startNewSession()
+    },
+    [queryClient, refetchWorkspace, setSelectedWorkspacePath, startNewSession]
+  )
 
   useResourceInstallRefresh({
     messages,

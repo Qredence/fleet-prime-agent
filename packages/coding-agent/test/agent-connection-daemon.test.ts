@@ -986,7 +986,21 @@ describe("DaemonAgentConnection", () => {
 		});
 		expect(oldDaemonClient.requests).toEqual([]);
 
+		const capabilityMissingClient = new FakeDaemonClient();
+		const capabilityMissingConnection = new DaemonAgentConnection(
+			asDaemonClient(capabilityMissingClient),
+			"active-original",
+		);
+		await expect(
+			capabilityMissingConnection.newSession({ seedMessages: [{ role: "user", text: "bootstrap" }] }),
+		).rejects.toMatchObject({
+			name: "AgentConnectionUnsupportedError",
+			feature: "newSession.seedMessages",
+		});
+		expect(capabilityMissingClient.requests).toEqual([]);
+
 		const newDaemonClient = new FakeDaemonClient();
+		newDaemonClient.serverCapabilities.add("seed_messages");
 		const newConnection = new DaemonAgentConnection(asDaemonClient(newDaemonClient), "active-original");
 		await expect(
 			newConnection.newSession({

@@ -5,7 +5,9 @@ import { getPrimeConfig } from "@/server/prime-config"
 import { resolveWorkspaceRootPath } from "@/server/workspace-root"
 
 // POST /api/workspace/root — rebind prime-agent defaultCwd to the selected
-// project folder. Tree / file APIs and new sessions follow this root.
+// project folder. Tree / file APIs and new sessions follow this root. The
+// web client starts a new chat after this call so the active session cwd
+// matches the visible workspace.
 export const Route = createFileRoute("/api/workspace/root")({
 	server: {
 		handlers: {

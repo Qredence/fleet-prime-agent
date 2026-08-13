@@ -4391,7 +4391,9 @@ export class AgentDaemon {
 					seedMessages && seedMessages.length > 0
 						? async (sessionManager: SessionManager) => {
 								for (const message of seedMessages) {
-									sessionManager.appendMessage(seedMessageToSessionMessage(message));
+									sessionManager.appendMessage(
+										seedMessageToSessionMessage(message, state.runtime.session.model),
+									);
 								}
 							}
 						: undefined;

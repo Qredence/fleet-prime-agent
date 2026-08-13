@@ -2107,17 +2107,18 @@ export class DaemonAgentConnection implements AgentConnection {
 	}
 
 	/**
-	 * seedMessages requires protocol >= 8. Older daemons would ignore the field
-	 * and start an unseeded session, so fail fast with UnsupportedError.
+	 * seedMessages requires protocol >= 8 and the seed_messages server capability.
+	 * Older daemons would ignore the field and start an unseeded session, so fail
+	 * fast with UnsupportedError.
 	 */
 	private assertSeedMessagesSupported(seedMessages: AgentConnectionSeedMessage[] | undefined, feature: string): void {
 		if (!seedMessages || seedMessages.length === 0) {
 			return;
 		}
 		const protocolVersion = this.client.hello?.protocol.version ?? 0;
-		if (protocolVersion < 8) {
+		if (protocolVersion < 8 || !this.client.supportsServerCapability("seed_messages")) {
 			throw new AgentConnectionUnsupportedError(
-				`${feature} seedMessages requires DAEMON_PROTOCOL_VERSION >= 8`,
+				`${feature} seedMessages requires a daemon that advertises the seed_messages capability`,
 				`${feature}.seedMessages`,
 			);
 		}

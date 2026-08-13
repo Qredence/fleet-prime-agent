@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Added a `seed_messages` daemon capability so clients negotiate seeded `new_session` independently of protocol version.
+- Fixed seeded assistant messages omitting required `api`, `provider`, `model`, and `usage` fields.
+- Fixed InteractiveMode UI services remaining bound to the original session after a cwd switch.
 - Fixed the CLI bundle failing when `@mistralai/mistralai` imported optional `@opentelemetry/api`.
 - Removed `InteractiveModeLocalSessionHost`; InteractiveMode reaches session and extension reads only through `AgentConnection`.
 - Added optional `seedMessages` on daemon `new_session` (protocol 8, schema revision 15); older daemons reject seeded requests cleanly while bare `new_session` remains compatible.

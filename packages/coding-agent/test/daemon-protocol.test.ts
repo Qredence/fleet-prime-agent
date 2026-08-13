@@ -124,7 +124,8 @@ describe("daemon protocol helpers", () => {
 				activeSessionId: "active-1",
 				seedMessages: [{ role: "user", text: "seed" }],
 			}),
-		).toEqual([{ minProtocol: 8, minSchemaRevision: 15 }, { minProtocol: 7 }]);
+		).toEqual([{ minProtocol: 8, minSchemaRevision: 15, capability: "seed_messages" }, { minProtocol: 7 }]);
+		expect(DAEMON_DEFAULT_SERVER_CAPABILITIES).toContain("seed_messages");
 		const oldClientNewSession: DaemonCommand = {
 			type: "new_session",
 			activeSessionId: "active-1",
