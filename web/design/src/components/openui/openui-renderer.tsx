@@ -128,7 +128,7 @@ function OpenUIBlock({
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <UiErrorBoundary>
+      <UiErrorBoundary resetKeys={[content]}>
         <Renderer
           initialState={initialState}
           isStreaming={isStreaming}
