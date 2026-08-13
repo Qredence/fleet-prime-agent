@@ -1,4 +1,4 @@
-import { mkdir, writeFile, symlink } from "node:fs/promises"
+import { mkdir, rm, writeFile, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
@@ -21,7 +21,6 @@ describe("readWorkspaceFile", () => {
 	afterEach(async () => {
 		// Best-effort cleanup; tmpdir GC is fine if this fails.
 		try {
-			const { rm } = await import("node:fs/promises")
 			await rm(root, { recursive: true, force: true })
 		} catch {
 			// ignore
@@ -118,7 +117,6 @@ describe("readWorkspaceFile", () => {
 		if (result.kind === "error") {
 			expect(result.status).toBe(403)
 		}
-		const { rm } = await import("node:fs/promises")
 		await rm(outside, { force: true })
 	})
 })

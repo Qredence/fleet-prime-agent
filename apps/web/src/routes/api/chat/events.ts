@@ -15,10 +15,16 @@ export const Route = createFileRoute("/api/chat/events")({
 							{ status: 400 },
 						)
 					}
-					const lastEventIdHeader = request.headers.get("last-event-id")
-					const lastEventId = lastEventIdHeader
-						? Number.parseInt(lastEventIdHeader, 10)
+					const lastEventIdRaw =
+						request.headers.get("last-event-id") ??
+						url.searchParams.get("lastEventId")
+					const parsedLastEventId = lastEventIdRaw
+						? Number.parseInt(lastEventIdRaw, 10)
 						: 0
+					const lastEventId =
+						Number.isFinite(parsedLastEventId) && parsedLastEventId > 0
+							? parsedLastEventId
+							: 0
 
 					const bridge = getBridge()
 					const encoder = new TextEncoder()
@@ -54,12 +60,25 @@ export const Route = createFileRoute("/api/chat/events")({
 							// Initial connection status.
 							write({ data: { type: "connected", sessionId } })
 
-							// Replay buffered frames if the client passed Last-Event-ID.
-							// Track the highest seq we emitted so the live tail continues
-							// without duplicating frames.
+							// Live tail first, then replay. The bridge pushes to the buffer
+							// before invoking subscribers; registering the listener before
+							// replay closes the gap where a frame could land in the ring
+							// with no callback to drain it.
 							let liveCursor = lastEventId
+							const flush = () => {
+								const { replayed } = bridge.replaySince(sessionId, liveCursor)
+								for (const entry of replayed) {
+									liveCursor = entry.seq
+									write({ id: entry.seq, data: entry.event })
+								}
+							}
+							removeListener = bridge.addEventListener((sid) => {
+								if (sid !== sessionId) return
+								flush()
+							})
+
 							if (lastEventId > 0) {
-								const { replayed, overflowed } = bridge.replaySince(
+								const { overflowed } = bridge.replaySince(
 									sessionId,
 									lastEventId,
 								)
@@ -76,23 +95,8 @@ export const Route = createFileRoute("/api/chat/events")({
 										},
 									})
 								}
-								for (const entry of replayed) {
-									liveCursor = entry.seq
-									write({ id: entry.seq, data: entry.event })
-								}
+								flush()
 							}
-
-							// Live tail. The bridge pushes to the *buffer* before invoking
-							// subscribers, so when a new frame arrives for this session we
-							// pull any tail frames we haven't yet written and flush them.
-							removeListener = bridge.addEventListener((sid) => {
-								if (sid !== sessionId) return
-								const { replayed } = bridge.replaySince(sid, liveCursor)
-								for (const e of replayed) {
-									liveCursor = e.seq
-									write({ id: e.seq, data: e.event })
-								}
-							})
 
 							// Keep-alive heartbeat every 15s so proxies don't kill the stream.
 							heartbeat = setInterval(() => {

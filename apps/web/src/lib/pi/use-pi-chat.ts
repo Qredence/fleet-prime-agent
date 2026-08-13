@@ -464,8 +464,10 @@ export function usePiChat(
     const connect = () => {
       const params = new URLSearchParams({ sessionId })
       if (lastEventId > 0) {
-        // EventSource auto-sends Last-Event-ID for its own reconnects; we
-        // only need to seed the first connection.
+        // EventSource only sends Last-Event-ID on native reconnect of the same
+        // instance. Closing it (below) starts a new connection, so pass the
+        // stored cursor as a query param the server also accepts.
+        params.set("lastEventId", String(lastEventId))
       }
       const url = resolveChatApiUrl(`/api/chat/events?${params}`)
       source = new EventSource(url)
