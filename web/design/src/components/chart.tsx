@@ -14,6 +14,19 @@ export function sanitizeChartToken(value: string) {
   return value.replace(CHART_TOKEN_PATTERN, "_")
 }
 
+export function sanitizeChartColor(value: string): string | undefined {
+  const color = value.trim()
+  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(color)) return color
+  if (/^var\(--[a-z0-9-]+\)$/i.test(color)) return color
+  if (
+    /^(?:rgb|rgba|hsl|hsla)\([^;{}<>]+\)$/i.test(color) &&
+    !/[;{}<>]/.test(color)
+  ) {
+    return color
+  }
+  return undefined
+}
+
 export function getChartColorVarName(key: string) {
   return `--color-${sanitizeChartToken(key)}`
 }
@@ -112,7 +125,9 @@ ${colorConfig
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ??
       itemConfig.color
-    return color ? `  ${getChartColorVarName(key)}: ${color};` : null
+    const safeColor =
+      typeof color === "string" ? sanitizeChartColor(color) : undefined
+    return safeColor ? `  ${getChartColorVarName(key)}: ${safeColor};` : null
   })
   .join("\n")}
 }

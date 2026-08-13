@@ -5,6 +5,7 @@ import { RightPanelShell } from "@prime-agent/web-design/components/fleet-pi/lay
 import { RightPanelProvider } from "@prime-agent/web-design/components/fleet-pi/layout/right-panel-context"
 import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/fleet-pi/layout/chat-workspace-layout"
 import { SettingsDialog } from "@prime-agent/web-design/components/fleet-pi/pi/settings-dialog"
+import { useCallback } from "react"
 import { ChatPanel } from "@/lib/pi/chat-panel"
 import { useChatWorkspaceData } from "@/lib/pi/use-chat-workspace-data"
 
@@ -12,11 +13,11 @@ export const Route = createFileRoute("/")({ component: Chat })
 
 function ChatWorkspaceShell() {
   const {
-    answerQuestion,
     chatPanelData,
     commandPaletteOpen,
     error,
     handleLocalSlashSubmit,
+    handleQuestionAnswer,
     handleResourceCanvasResizeStart,
     handleSlashCommandSelect,
     handleThemePreferenceChange,
@@ -48,6 +49,26 @@ function ChatWorkspaceShell() {
     themePreference,
     workspaceTreeContext,
   } = useChatWorkspaceData()
+
+  const handleSend = useCallback(
+    (text: string, altKey?: boolean) => {
+      void sendMessage({ text, altKey })
+    },
+    [sendMessage],
+  )
+  const handleOpenUIAction = useCallback(
+    (message: string) => {
+      void sendMessage({ text: message, altKey: false })
+    },
+    [sendMessage],
+  )
+  const handleSettingsOpenChange = useCallback(
+    (open: boolean) => {
+      setSettingsDialogOpen(open)
+      if (!open) setSettingsInitialTab(undefined)
+    },
+    [setSettingsDialogOpen, setSettingsInitialTab],
+  )
 
   return (
     <>
@@ -106,22 +127,15 @@ function ChatWorkspaceShell() {
               modelPickerOpen,
               onModelPickerOpenChange: setModelPickerOpen,
             }}
-            onSend={(text, altKey) => sendMessage({ text, altKey })}
-            onOpenUIAction={(message) =>
-              sendMessage({ text: message, altKey: false })
-            }
+            onSend={handleSend}
+            onOpenUIAction={handleOpenUIAction}
             onStop={stop}
-            onQuestionAnswer={({ toolCallId, answer }) => {
-              void answerQuestion({ toolCallId, answer }).catch(() => undefined)
-            }}
+            onQuestionAnswer={handleQuestionAnswer}
           />
         </ChatWorkspaceLayout>
         <SettingsDialog
           open={settingsDialogOpen}
-          onOpenChange={(open) => {
-            setSettingsDialogOpen(open)
-            if (!open) setSettingsInitialTab(undefined)
-          }}
+          onOpenChange={handleSettingsOpenChange}
           initialTab={settingsInitialTab}
         />
       </RightPanelProvider>

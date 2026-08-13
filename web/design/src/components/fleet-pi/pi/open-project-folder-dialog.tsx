@@ -57,10 +57,6 @@ export function OpenProjectFolderDialog({
 
   useEffect(() => {
     if (!open) return
-    setPathInput(initialPath)
-    setSelectedPath(initialPath)
-    setBrowse(null)
-    setError(null)
     void loadPath(initialPath)
   }, [initialPath, loadPath, open])
 

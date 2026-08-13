@@ -50,6 +50,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const planLabelRef = useRef(planLabel);
 	const queueRef = useRef(queue);
 	const abortRef = useRef<AbortController | null>(null);
+	const statusRef = useRef(status);
 	const sendMessageRef = useRef<(input: SendMessageInput) => Promise<void>>(() => Promise.resolve());
 	const setMessagesSynced = useCallback(
 		(updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => {
@@ -175,6 +176,10 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	}, [sessionMetadata]);
 
 	useEffect(() => {
+		statusRef.current = status;
+	}, [status]);
+
+	useEffect(() => {
 		initialSessionMetadataRef.current = initialSessionMetadata;
 	}, [initialSessionMetadata]);
 
@@ -196,50 +201,47 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	}, [refreshSessions]);
 
 	useEffect(() => {
-		let cancelled = false;
-		const loadActiveSession = async () => {
-			abortRef.current?.abort();
-			abortRef.current = null;
-			setStatus("ready");
-			setError(null);
-			setQueueSynced(EMPTY_QUEUE_STATE);
-			setActivityLabelSynced(undefined);
-			setPlanLabelSynced(undefined);
-			setMessagesSynced([]);
+		const controller = new AbortController();
+		abortRef.current?.abort();
+		abortRef.current = null;
+		setStatus("ready");
+		setError(null);
+		setQueueSynced(EMPTY_QUEUE_STATE);
+		setActivityLabelSynced(undefined);
+		setPlanLabelSynced(undefined);
+		setMessagesSynced([]);
 
-			const storedSession = initialSessionMetadataRef.current;
-			const hasStoredSession = storedSession.sessionFile || storedSession.sessionId;
-			if (!hasStoredSession) {
-				setSessionMetadataSynced({});
-				return;
-			}
+		const storedSession = initialSessionMetadataRef.current;
+		const hasStoredSession = storedSession.sessionFile || storedSession.sessionId;
+		if (!hasStoredSession) {
+			setSessionMetadataSynced({});
+			return () => controller.abort();
+		}
 
-			const result = await client.loadSession(storedSession);
-			if (cancelled) return;
-			setSessionMetadataSynced(result.session);
-			setMessagesSynced(result.messages);
-			setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
-		};
-
-		void loadActiveSession().catch(async (err) => {
-			if (cancelled) return;
-			if (
-				await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
+		void client
+			.loadSession(storedSession)
+			.then((result) => {
+				if (controller.signal.aborted) return;
+				setSessionMetadataSynced(result.session);
+				setMessagesSynced(result.messages);
+				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
+			})
+			.catch((err) => {
+				if (controller.signal.aborted) return;
+				return tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
 					setError,
 					setStatus,
-				})
-			) {
-				return;
-			}
-
-			const nextError = err instanceof Error ? err : new Error(String(err));
-			setError(nextError);
-			setStatus("error");
-			notify.error(nextError.message);
-		});
+				}).then((recovered) => {
+					if (recovered || controller.signal.aborted) return;
+					const nextError = err instanceof Error ? err : new Error(String(err));
+					setError(nextError);
+					setStatus("error");
+					notify.error(nextError.message);
+				});
+			});
 
 		return () => {
-			cancelled = true;
+			controller.abort();
 		};
 	}, [
 		client,
@@ -374,7 +376,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				return;
 			}
 			// In-flight NDJSON stream is authoritative; only act on out-of-turn pushes.
-			const currentStatus = status;
+			const currentStatus = statusRef.current;
 			if (currentStatus === "streaming" || currentStatus === "submitted") return;
 			if (frame.type === "tool" && frame.part?.type === "tool-Question") {
 				setMessagesSynced((current) => {
@@ -406,9 +408,11 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				if (frame.state?.name === "agent_settled") {
 					// Server asked us to resync — refetch the session transcript and
 					// rebuild the UI state without spinning up a new turn.
+					const settledSessionId = sessionId;
 					void client
-						.loadSession({ sessionId })
+						.loadSession({ sessionId: settledSessionId })
 						.then((result) => {
+							if (sessionMetadataRef.current.sessionId !== settledSessionId) return;
 							setMessagesSynced(result.messages);
 							setSessionMetadataSynced(result.session);
 							setQueueSynced(EMPTY_QUEUE_STATE);
@@ -432,6 +436,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				params.set("lastEventId", String(lastEventId));
 			}
 			const url = resolveChatApiUrl(`/api/chat/events?${params}`);
+			source?.close();
 			source = new EventSource(url);
 			source.onmessage = (event) => {
 				const seq = Number.parseInt(event.lastEventId ?? "", 10);
@@ -446,6 +451,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				if (closedByEffect) return;
 				// Exponential-ish backoff, capped. EventSource does its own reconnect,
 				// but a manual retry makes timing deterministic for the dialog flow.
+				if (reconnectTimer) clearTimeout(reconnectTimer);
 				reconnectTimer = setTimeout(connect, 2_000);
 			};
 		};
@@ -459,7 +465,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	}, [
 		client,
 		sessionMetadata.sessionId,
-		status,
 		setActivityLabelSynced,
 		setMessagesSynced,
 		setQueueSynced,

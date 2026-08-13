@@ -64,3 +64,19 @@ rather than silently breaking external TypeScript consumers in a minor release.
 
 **Re-evaluate:** at the next documented major-version migration, when flat props
 can be deprecated and removed with a published replacement guide.
+
+## 5. Reserved client plan-mode state machine
+
+`web/app/src/lib/pi/plan-state.ts` still exports the client-side plan-mode
+helpers (`restorePlanState`, `applyPlanModeSelection`,
+`updatePlanStateFromAssistantText`, `updatePlanExecutionProgress`,
+`createPlanEvent`, `createPlanToolPart`, `bindPendingPlanDecisionToolCallId`,
+`resolvePlanDecision`). Live callers currently import only
+`isPlanDecisionToolCall`. The rest is retained as the reserved state machine
+for wiring plan mode in the web UI.
+
+This is not a detector false positive. Deleting the unused exports would remove
+the plan-mode client model before that integration lands.
+
+**Re-evaluate:** when the helpers are imported by the chat session owner, or
+when plan mode is removed from the web client on purpose.

@@ -1,6 +1,7 @@
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang"
 import { useCallback, useMemo, useState } from "react"
 import { Markdown } from "../agent-elements/markdown"
+import { UiErrorBoundary } from "../fleet-pi/ui-error-boundary"
 
 import { openUILibrary } from "./openui-library"
 import { segmentOpenUIContent } from "./openui-utils"
@@ -127,16 +128,18 @@ function OpenUIBlock({
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <Renderer
-        initialState={initialState}
-        isStreaming={isStreaming}
-        library={openUILibrary}
-        response={content}
-        onAction={handleAction}
-        onError={handleError}
-        onParseResult={setParseResult}
-        onStateUpdate={(state) => onStateUpdate(blockId, state)}
-      />
+      <UiErrorBoundary>
+        <Renderer
+          initialState={initialState}
+          isStreaming={isStreaming}
+          library={openUILibrary}
+          response={content}
+          onAction={handleAction}
+          onError={handleError}
+          onParseResult={setParseResult}
+          onStateUpdate={(state) => onStateUpdate(blockId, state)}
+        />
+      </UiErrorBoundary>
       <OpenUIDiagnostics
         errors={[...runtimeErrors, ...finalErrors]}
         raw={content}

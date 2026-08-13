@@ -6,18 +6,6 @@ export type AuthUser = {
 	email: string;
 };
 
-export function useAuth(): {
-	user: AuthUser | null;
-	isLoading: boolean;
-	isAuthenticated: boolean;
-} {
-	return {
-		user: null,
-		isLoading: false,
-		isAuthenticated: true,
-	};
-}
-
 export function useOptionalUser(): AuthUser | null {
 	return null;
 }
@@ -27,7 +15,5 @@ export function getChatAuthBearerToken(): string | null {
 }
 
 export function clearChatAuthBearerTokenCache(): void {}
-
-export async function signIn(_credentials?: unknown): Promise<void> {}
 
 export async function signOut(): Promise<void> {}

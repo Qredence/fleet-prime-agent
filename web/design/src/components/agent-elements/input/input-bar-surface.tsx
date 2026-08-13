@@ -3,12 +3,13 @@ import { FileAttachment } from "./file-attachment"
 import { SendButton } from "./send-button"
 import { cn } from "../utils/cn"
 import type { AttachedFile, AttachedImage } from "../input-bar"
-import type {
-  ClipboardEvent,
-  KeyboardEvent,
-  MouseEvent,
-  ReactNode,
-  RefObject,
+import {
+  useId,
+  type ClipboardEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
 } from "react"
 
 type InputBarSurfaceAttachments = {
@@ -110,6 +111,7 @@ export function InputBarSurface({
     rightActions,
     showAttach,
   } = toolbar
+  const composerInputId = useId()
 
   return (
     <div
@@ -186,7 +188,11 @@ export function InputBarSurface({
             </div>
           ) : (
             <>
+              <label className="sr-only" htmlFor={composerInputId}>
+                Message
+              </label>
               <textarea
+                id={composerInputId}
                 ref={textareaRef}
                 value={input}
                 onChange={(event) => onInputChange(event.target.value)}
