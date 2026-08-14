@@ -198,17 +198,25 @@ function extractMessageText(message: ChatMessage | undefined) {
 		.join(" ");
 }
 
-function getActiveSessionLabel(
+export function getActiveSessionLabel(
 	activeSessionId: string | undefined,
 	sessions: Array<ChatSessionInfo>,
 	messages: Array<ChatMessage>,
 ) {
 	const activeSession = sessions.find((session) => session.id === activeSessionId);
+	if (activeSession?.name?.trim()) {
+		return normalizeSessionLabel(activeSession.name);
+	}
+
+	const lastUserMessage = [...messages]
+		.reverse()
+		.find((message) => message.role === "user" && message.source !== "local");
+	const fromTranscript = normalizeSessionLabel(extractMessageText(lastUserMessage).trim());
+	if (fromTranscript) return fromTranscript;
+
 	if (activeSession) {
 		return normalizeSessionLabel(activeSession.name || activeSession.firstMessage || activeSession.id.slice(0, 8));
 	}
 
-	const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
-	const label = extractMessageText(lastUserMessage).trim();
-	return normalizeSessionLabel(label) || "Session";
+	return "Session";
 }

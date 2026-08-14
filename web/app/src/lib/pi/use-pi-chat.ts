@@ -1,5 +1,6 @@
 import { notify } from "@prime-agent/web-design/lib/notify";
 import type {
+	ChatMode,
 	ChatModelSelection,
 	ChatPlanAction,
 	ChatQuestionAnswer,
@@ -13,7 +14,7 @@ import type { ChatClient } from "./chat-client";
 import { chatClient } from "./chat-client";
 import type { QueueState } from "./chat-fetch";
 import { resolveChatApiUrl } from "./chat-runtime-url";
-import { EMPTY_QUEUE_STATE } from "./chat-stream-state";
+import { EMPTY_QUEUE_STATE, normalizeSessionMetadata } from "./chat-stream-state";
 import { isPlanDecisionToolCall } from "./plan-state";
 import { runForbiddenSessionRecovery, tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
 import { usePiChatMessaging } from "./use-pi-chat-messaging";
@@ -22,6 +23,7 @@ import { enhancePlanDecisionMessages, resolvePlanDecisionMessages } from "./use-
 export type SendMessageInput = {
 	text: string;
 	planAction?: ChatPlanAction;
+	mode?: ChatMode;
 	/** Mirror of the Alt/Option modifier at Enter-press time. */
 	altKey?: boolean;
 };
@@ -74,6 +76,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				{
 					id: crypto.randomUUID(),
 					role: "assistant" as const,
+					source: "local",
 					createdAt: Date.now(),
 					parts: [{ type: "text" as const, text }],
 				},
@@ -84,16 +87,19 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 	const setSessionMetadataSynced = useCallback(
 		(metadata: ChatSessionMetadata) => {
+			const current = sessionMetadataRef.current;
+			const next = normalizeSessionMetadata(metadata);
 			if (
-				sessionMetadataRef.current.sessionFile === metadata.sessionFile &&
-				sessionMetadataRef.current.sessionId === metadata.sessionId
+				current.sessionFile === next.sessionFile &&
+				current.sessionId === next.sessionId &&
+				current.cwd === next.cwd
 			) {
 				return;
 			}
 
-			sessionMetadataRef.current = metadata;
-			setSessionMetadata(metadata);
-			persistSession(metadata);
+			sessionMetadataRef.current = next;
+			setSessionMetadata(next);
+			persistSession(next);
 		},
 		[persistSession],
 	);
@@ -275,7 +281,10 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	});
 
 	const stop = useCallback(() => {
-		void client.abortSession(sessionMetadataRef.current).catch(() => undefined);
+		const metadata = sessionMetadataRef.current;
+		if (metadata.sessionId || metadata.sessionFile) {
+			void client.abortSession(metadata).catch(() => undefined);
+		}
 		abortRef.current?.abort();
 		abortRef.current = null;
 		setStatus("ready");
@@ -475,11 +484,16 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 	const answerQuestion = submitQuestionAnswer;
 
+	const getSessionMetadata = useCallback(() => sessionMetadataRef.current, []);
+	const getMessages = useCallback(() => messagesRef.current, []);
+
 	return {
 		activityLabel,
 		answerQuestion,
 		appendLocalMessage,
 		error,
+		getMessages,
+		getSessionMetadata,
 		messages: enhancedMessages,
 		planLabel,
 		queue,

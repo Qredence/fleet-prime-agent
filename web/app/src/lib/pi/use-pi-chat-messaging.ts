@@ -201,6 +201,7 @@ export function usePiChatMessaging({
 		async ({
 			text,
 			planAction,
+			mode,
 			/** Mirror of the Alt/Option modifier at Enter-press time. */
 			altKey,
 		}: SendMessageInput) => {
@@ -245,6 +246,7 @@ export function usePiChatMessaging({
 						message: trimmed,
 						model,
 						planAction,
+						mode,
 						sessionFile: sessionMetadataRef.current.sessionFile,
 						sessionId: sessionMetadataRef.current.sessionId,
 					},
