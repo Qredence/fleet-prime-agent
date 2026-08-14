@@ -1,4 +1,5 @@
 import type { QuestionAnswer } from "@prime-agent/web-design/components/agent-elements/question/question-prompt";
+import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ChatMode, ChatPiSettingsUpdate, ChatSettingsResponse } from "@prime-agent/web-protocol/chat-protocol";
@@ -50,6 +51,7 @@ export function useChatWorkspaceData() {
 	const [modelPickerOpen, setModelPickerOpen] = useState(false);
 	const [effortPickerOpen, setEffortPickerOpen] = useState(false);
 	const [chatMode, setChatMode] = useState<ChatMode>("agent");
+	const [forkPickerEntries, setForkPickerEntries] = useState<Array<ForkPickerEntry> | null>(null);
 
 	useEffect(() => {
 		if (user) identifyAnalyticsUser(user);
@@ -142,6 +144,8 @@ export function useChatWorkspaceData() {
 		answerQuestion,
 		appendLocalMessage,
 		error,
+		getMessages,
+		getSessionMetadata,
 		messages,
 		planLabel,
 		queue,
@@ -224,13 +228,16 @@ export function useChatWorkspaceData() {
 		setSettingsDialogOpen(true);
 	}, []);
 
-	const { handleLocalSlashSubmit, handleSlashCommandSelect } = useLocalSlashActions({
+	const { forkFromEntry, handleLocalSlashSubmit, handleSlashCommandSelect } = useLocalSlashActions({
 		appendLocalMessage,
+		getMessages,
+		getSessionMetadata,
 		modelKey,
 		models,
+		onForkPicker: setForkPickerEntries,
 		openSettings,
-		sessionId: sessionMetadata.sessionId,
-		sessionFile: sessionMetadata.sessionFile,
+		resumeSession,
+		sessions,
 		setEffortPickerOpen,
 		setModelKey,
 		setModelPickerOpen,
@@ -304,6 +311,8 @@ export function useChatWorkspaceData() {
 		chatPanelData,
 		commandPaletteOpen,
 		error,
+		forkFromEntry,
+		forkPickerEntries,
 		handleLocalSlashSubmit,
 		handleQuestionAnswer,
 		handleResourceCanvasResizeStart,
@@ -322,6 +331,7 @@ export function useChatWorkspaceData() {
 		resumeSession,
 		sendMessage,
 		sessions,
+		setForkPickerEntries,
 		setChatMode,
 		setCommandPaletteOpen,
 		setEffortPickerOpen,

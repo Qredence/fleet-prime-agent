@@ -1,4 +1,5 @@
 const RUNTIME_API_PREFIXES = [
+	"/api/health",
 	"/api/chat",
 	"/api/chat/abort",
 	"/api/chat/question",
