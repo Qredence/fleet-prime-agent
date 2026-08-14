@@ -14,7 +14,7 @@ import {
 } from "@prime-agent/web-protocol/provider-catalog";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { isOAuthProvider } from "./provider-credentials-types";
+import { isOAuthProvider, supportsOAuth } from "./provider-credentials-types";
 
 export type UseProviderCredentialsControllerArgs = {
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
@@ -311,8 +311,10 @@ export function useProviderCredentialsController({
 
 function providerMatchesQuery(provider: ChatProviderInfo, query: string) {
 	if (!query) return true;
-	const keywords = isOAuthProvider(provider)
-		? "oauth sign-in login"
+	const keywords = supportsOAuth(provider)
+		? isOAuthProvider(provider)
+			? "oauth sign-in login"
+			: "api key oauth sign-in login"
 		: provider.id === CUSTOM_PROVIDER_PICKER_ID || isCustomProviderId(provider.id)
 			? "custom provider endpoint openai anthropic google compatible"
 			: isOccProviderId(provider.id)

@@ -178,6 +178,8 @@ export function ProviderCredentialsSection({
           onTogglePassword={() => setShowPassword((current) => !current)}
           onBack={openAddPicker}
           onCancel={closeEditor}
+          onConfigured={closeEditor}
+          onOAuthLogin={onOAuthLogin}
           onSave={() => {
             if (editingProvider) void handleSave(editingProvider)
           }}

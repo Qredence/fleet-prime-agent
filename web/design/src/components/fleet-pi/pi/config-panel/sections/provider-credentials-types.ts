@@ -4,6 +4,10 @@ export function isOAuthProvider(provider: ChatProviderInfo): boolean {
 	return provider.authType === "oauth";
 }
 
+export function supportsOAuth(provider: ChatProviderInfo): boolean {
+	return provider.supportsOAuth === true;
+}
+
 export type ProviderCredentialForm = {
 	api: PiCustomProviderApi;
 	apiKey: string;

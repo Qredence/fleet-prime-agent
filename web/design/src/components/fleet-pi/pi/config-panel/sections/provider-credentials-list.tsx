@@ -23,6 +23,7 @@ import {
   type ProviderCredentialActions,
   type ProviderCredentialForm,
   type ProviderOperationState,
+  supportsOAuth,
 } from "./provider-credentials-types"
 import { ProviderOAuthSignIn } from "./provider-oauth-sign-in"
 
@@ -84,6 +85,8 @@ export function ActiveProviderList({
           PROVIDER_METADATA[provider.id] ??
           PROVIDER_METADATA[isCustom ? "custom" : "openai-chat-completions"]
         const openAiChat = isOccProviderId(provider.id)
+        const oauthOnly = isOAuthProvider(provider)
+        const oauthAvailable = supportsOAuth(provider)
 
         return (
           <div key={provider.id} className="flex flex-col">
@@ -98,8 +101,10 @@ export function ActiveProviderList({
               }
               title={provider.name}
               subtitle={
-                isOAuthProvider(provider)
+                oauthOnly
                   ? "OAuth sign-in"
+                  : oauthAvailable
+                    ? "API key or OAuth"
                   : isCustom
                     ? "Custom provider · API key + base URL + models"
                     : openAiChat
@@ -152,7 +157,7 @@ export function ActiveProviderList({
                 padding="md"
                 className="flex flex-col gap-2 border-t border-border/30"
               >
-                {isOAuthProvider(provider) ? (
+                {oauthOnly ? (
                   <ProviderOAuthSignIn
                     key={provider.id}
                     provider={provider}
@@ -204,6 +209,14 @@ export function ActiveProviderList({
                         Save
                       </Button>
                     </div>
+                    {oauthAvailable ? (
+                      <ProviderOAuthSignIn
+                        key={`${provider.id}-oauth`}
+                        provider={provider}
+                        onConfigured={onConfigured}
+                        onOAuthLogin={onOAuthLogin}
+                      />
+                    ) : null}
                   </>
                 )}
               </RowSurface>

@@ -42,10 +42,11 @@ export function ProviderOAuthSignIn({
   const userCode = waiting ? login?.userCode : undefined
   const instructions = waiting ? login?.instructions : undefined
   const prompt = waiting ? login?.prompt : undefined
+  const oauthOnly = provider.authType === "oauth"
 
   return (
     <div className="flex flex-col gap-3">
-      {provider.isConfigured && !waiting ? (
+      {provider.isConfigured && oauthOnly && !waiting ? (
         <div className="flex items-center gap-2 text-sm">
           <Check className="size-3.5 text-muted-foreground" />
           <span>Connected</span>
@@ -136,9 +137,11 @@ export function ProviderOAuthSignIn({
             </Alert>
           ) : (
             <p className="text-xs text-pretty text-muted-foreground">
-              {provider.isConfigured
+              {oauthOnly && provider.isConfigured
                 ? `Sign in again with ${provider.name} to refresh OAuth credentials.`
-                : `Sign in with ${provider.name}. No API key is stored; credentials are saved to auth.json.`}
+                : oauthOnly
+                  ? `Sign in with ${provider.name}. No API key is stored; credentials are saved to auth.json.`
+                  : `Sign in with ${provider.name} to use OAuth credentials; API-key editing remains available above.`}
             </p>
           )}
           <div className="flex justify-end">
