@@ -14,6 +14,7 @@ import { ChatThinkingLevelSchema } from "@prime-agent/web-protocol/chat-protocol
  * surface because nothing falls through to the LLM.
  */
 export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
+	{ name: "settings", description: "Open Settings", source: "builtin" },
 	{
 		name: "model",
 		description: "Open the model picker",
@@ -26,21 +27,104 @@ export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
 		argumentHint: "[level]",
 		source: "builtin",
 	},
+	{ name: "fast", description: "Toggle OpenAI Fast mode", source: "builtin" },
 	{
-		name: "settings",
-		description: "Open Settings",
+		name: "scoped-models",
+		description: "Enable/disable models for cycling",
 		source: "builtin",
 	},
 	{
-		name: "new",
-		description: "Start a new chat session",
+		name: "export",
+		description: "Export session (HTML default, or .html/.jsonl path)",
+		argumentHint: "[path]",
 		source: "builtin",
 	},
 	{
-		name: "session",
-		description: "Show current session metadata",
+		name: "import",
+		description: "Import and resume a session from a JSONL file",
+		argumentHint: "<path.jsonl>",
 		source: "builtin",
 	},
+	{ name: "share", description: "Copy the transcript (Gist upload is TUI-only)", source: "builtin" },
+	{ name: "copy", description: "Copy last agent message to clipboard", source: "builtin" },
+	{
+		name: "btw",
+		description: "Ask a side question without adding it to the session",
+		argumentHint: "<question>",
+		source: "builtin",
+	},
+	{
+		name: "name",
+		description: "Set or show the session display name",
+		argumentHint: "[name]",
+		source: "builtin",
+	},
+	{ name: "session", description: "Show current session metadata", source: "builtin" },
+	{ name: "system-prompt", description: "Show the exact system prompt sent to the model", source: "builtin" },
+	{ name: "logs", description: "Show where daemon and client logs are saved", source: "builtin" },
+	{
+		name: "traces",
+		description: "Preview, upload, or configure Prime Agent traces",
+		argumentHint: "[status|on|off|preview|upload]",
+		source: "builtin",
+	},
+	{ name: "context", description: "Show token and context usage", source: "builtin" },
+	{ name: "changelog", description: "Show changelog entries", source: "builtin" },
+	{ name: "hotkeys", description: "Show keyboard shortcuts", source: "builtin" },
+	{
+		name: "fork",
+		description: "Create a new fork from a previous user message",
+		argumentHint: "[message-entry-id]",
+		source: "builtin",
+	},
+	{ name: "clone", description: "Duplicate the current session at the current position", source: "builtin" },
+	{ name: "tree", description: "Show the session tree (switch branches)", source: "builtin" },
+	{ name: "agents", description: "List saved sessions (web stand-in for the TUI agent tray)", source: "builtin" },
+	{ name: "login", description: "Configure provider authentication", source: "builtin" },
+	{ name: "logout", description: "Remove provider authentication", source: "builtin" },
+	{
+		name: "mcp",
+		description: "Open MCP connections in Settings",
+		argumentHint: "[list|login <name>|logout <name>]",
+		source: "builtin",
+	},
+	{ name: "new", description: "Start a new chat session", source: "builtin" },
+	{
+		name: "compact",
+		description: "Compact the session context",
+		argumentHint: "[instructions]",
+		source: "builtin",
+	},
+	{ name: "refine", description: "Refine continual harness prompt notes, skills, and memory", source: "builtin" },
+	{
+		name: "goal",
+		description: "Set or view a persistent goal",
+		argumentHint: "[objective]",
+		source: "builtin",
+	},
+	{
+		name: "autonomous",
+		description: "Set or view autonomous mode",
+		argumentHint: "[status|on|off]",
+		source: "builtin",
+	},
+	{
+		name: "rlm-max-depth",
+		description: "Set or view per-chat RLM max depth",
+		argumentHint: "[<int> [--global]]",
+		source: "builtin",
+	},
+	{
+		name: "heartbeat",
+		description: "Set or view a persistent heartbeat",
+		argumentHint: "[status|pause|resume|stop]",
+		source: "builtin",
+	},
+	{ name: "heartbeats", description: "View user and agent heartbeats", source: "builtin" },
+	{ name: "reload", description: "Reload keybindings, extensions, skills, prompts, and themes", source: "builtin" },
+	{ name: "update", description: "Update Prime Agent (TUI-only)", source: "builtin" },
+	{ name: "fullscreen", description: "Toggle fullscreen (TUI-only)", source: "builtin" },
+	{ name: "quit", description: "Quit (TUI-only; close this tab instead)", source: "builtin" },
 ];
 
 export type SettingsSlashTab = "appearance" | "sandbox" | "providers" | "llm-models" | "skills" | "pi-harness";
@@ -75,8 +159,11 @@ export type LocalSlashAction =
 	| { type: "rlm-max-depth"; args: string } // /rlm-max-depth
 	| { type: "heartbeat-list" } // /heartbeats
 	| { type: "heartbeat-manage"; args: string } // /heartbeat
+	| { type: "session-traces" } // /traces
+	| { type: "session-agents" } // /agents
 	| { type: "toggle-fullscreen" } // /fullscreen — TUI only, toast
-	| { type: "quit-app" }; // /quit — TUI only, toast
+	| { type: "quit-app" } // /quit — TUI only, toast
+	| { type: "echo"; text: string }; // advertised builtin with no web wiring yet
 
 /**
  * Aliases are resolved **server-side** by `resolveBuiltinSlashCommandName` in
@@ -179,11 +266,12 @@ export function resolveLocalSlashAction(command: string, args = ""): LocalSlashA
 		case "share":
 			return { type: "session-share" };
 		case "import":
-			return trimmedArgs
-				? { type: "session-import", path: parseQuotedPathArgument(trimmedArgs) ?? trimmedArgs }
-				: null;
+			return {
+				type: "session-import",
+				path: trimmedArgs ? (parseQuotedPathArgument(trimmedArgs) ?? trimmedArgs) : "",
+			};
 		case "btw":
-			return trimmedArgs ? { type: "session-btw", question: trimmedArgs } : null;
+			return { type: "session-btw", question: trimmedArgs };
 		case "fast":
 			return { type: "fast-toggle" };
 		case "reload":
@@ -196,6 +284,20 @@ export function resolveLocalSlashAction(command: string, args = ""): LocalSlashA
 			return { type: "heartbeat-manage", args: trimmedArgs };
 		case "heartbeats":
 			return { type: "heartbeat-list" };
+		case "traces":
+			return { type: "session-traces" };
+		case "agents":
+			return { type: "session-agents" };
+		case "compact":
+		case "refine":
+		case "goal":
+		case "autonomous":
+			return {
+				type: "echo",
+				text: trimmedArgs
+					? `/${canonical} is not wired in the web port. Arguments were not applied:\n${trimmedArgs}`
+					: `/${canonical} is not wired in the web port.`,
+			};
 		// --- TUI-only; show explicit "not available in web" toast -----------
 		case "changelog":
 			return { type: "show-changelog" };
@@ -226,9 +328,23 @@ function normalizeSlashCommandName(name: string) {
 	return /^[\w.-]+$/.test(normalized) ? normalized : "";
 }
 
+function toSlashSuggestion(command: {
+	name: string;
+	description?: string;
+	argumentHint?: string;
+}): SlashCommandSuggestion {
+	return {
+		id: command.name,
+		label: `/${command.name}`,
+		value: `/${command.name}${command.argumentHint ? ` ${command.argumentHint}` : ""} `,
+		description: command.description,
+	};
+}
+
 /**
- * Prefer API command catalog when present; otherwise fall back to builtins
- * (and optional skill/prompt slash commands when enabled).
+ * Merge client dispatcher builtins with the API catalog and optional
+ * skill/prompt commands. API results must not replace builtins — the server
+ * catalog is a short session-command subset.
  */
 export function buildSlashCommands(
 	resources: ChatResourcesResponse | null,
@@ -241,39 +357,27 @@ export function buildSlashCommands(
 		}>;
 	},
 ): Array<SlashCommandSuggestion> {
-	if (commandsData && commandsData.commands.length > 0) {
-		return commandsData.commands.map((command) => ({
-			id: command.name,
-			label: `/${command.name}`,
-			value: `/${command.name}${command.argumentHint ? ` ${command.argumentHint}` : ""} `,
-			description: command.description,
-		}));
+	const byId = new Map<string, SlashCommandSuggestion>();
+	for (const command of WEB_BUILTIN_SLASH_COMMANDS) {
+		byId.set(command.name, toSlashSuggestion(command));
+	}
+	for (const command of commandsData?.commands ?? []) {
+		if (!byId.has(command.name)) byId.set(command.name, toSlashSuggestion(command));
 	}
 
-	const builtins = WEB_BUILTIN_SLASH_COMMANDS.map((command) => ({
-		id: command.name,
-		label: `/${command.name}`,
-		value: `/${command.name}${command.argumentHint ? ` ${command.argumentHint}` : ""} `,
-		description: command.description,
-	}));
+	if (!enabled || !resources) return Array.from(byId.values());
 
-	if (!enabled || !resources) return builtins;
-
-	const resourceCommands = [...resources.skills, ...resources.prompts].flatMap((resource) => {
-		if (resource.activationStatus && resource.activationStatus !== "active") {
-			return [];
-		}
+	for (const resource of [...resources.skills, ...resources.prompts]) {
+		if (resource.activationStatus && resource.activationStatus !== "active") continue;
 		const commandName = normalizeSlashCommandName(resource.name);
-		if (!commandName) return [];
-		return [
-			{
-				id: commandName,
-				label: `/${commandName}`,
-				value: `/${commandName} `,
-				description: resource.description,
-			},
-		];
-	});
+		if (!commandName || byId.has(commandName)) continue;
+		byId.set(commandName, {
+			id: commandName,
+			label: `/${commandName}`,
+			value: `/${commandName} `,
+			description: resource.description,
+		});
+	}
 
-	return Array.from(new Map([...builtins, ...resourceCommands].map((item) => [item.id, item])).values());
+	return Array.from(byId.values());
 }

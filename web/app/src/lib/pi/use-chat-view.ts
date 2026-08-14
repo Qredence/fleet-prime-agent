@@ -203,12 +203,16 @@ function getActiveSessionLabel(
 	sessions: Array<ChatSessionInfo>,
 	messages: Array<ChatMessage>,
 ) {
+	const lastUserMessage = [...messages]
+		.reverse()
+		.find((message) => message.role === "user" && message.source !== "local");
+	const fromTranscript = normalizeSessionLabel(extractMessageText(lastUserMessage).trim());
+	if (fromTranscript) return fromTranscript;
+
 	const activeSession = sessions.find((session) => session.id === activeSessionId);
 	if (activeSession) {
 		return normalizeSessionLabel(activeSession.name || activeSession.firstMessage || activeSession.id.slice(0, 8));
 	}
 
-	const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
-	const label = extractMessageText(lastUserMessage).trim();
-	return normalizeSessionLabel(label) || "Session";
+	return "Session";
 }

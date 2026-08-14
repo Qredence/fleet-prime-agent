@@ -4,6 +4,8 @@ import type {
 	ChatModelsDiscoverResponse,
 	ChatModelsResponse,
 	ChatProviderInfo,
+	ChatProviderOAuthLoginRequest,
+	ChatProviderOAuthLoginResponse,
 	ChatProviderRemoveRequest,
 	ChatProviderRemoveResponse,
 	ChatProviderUpdateRequest,
@@ -28,6 +30,8 @@ import {
 	ChatModelsDiscoverRequestSchema,
 	ChatModelsDiscoverResponseSchema,
 	ChatModelsResponseSchema,
+	ChatProviderOAuthLoginRequestSchema,
+	ChatProviderOAuthLoginResponseSchema,
 	ChatProviderRemoveRequestSchema,
 	ChatProvidersResponseSchema,
 	ChatProviderUpdateRequestSchema,
@@ -71,6 +75,7 @@ export type ChatClient = {
 		signal?: AbortSignal,
 	) => Promise<void>;
 	getProviders: () => Promise<{ providers: Array<ChatProviderInfo> }>;
+	oauthLoginProvider: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	updateProvider: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
 	removeProvider: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
 };
@@ -209,6 +214,15 @@ export const chatClient: ChatClient = {
 
 	async getProviders() {
 		return fetchValidatedJson("/api/chat/providers", ChatProvidersResponseSchema);
+	},
+
+	async oauthLoginProvider(request) {
+		const body = ChatProviderOAuthLoginRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/providers/oauth", ChatProviderOAuthLoginResponseSchema, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
 	},
 
 	async updateProvider(request) {

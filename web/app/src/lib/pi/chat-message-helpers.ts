@@ -92,13 +92,60 @@ export function upsertAssistantToolPart(messages: Array<ChatMessage>, assistantI
 	});
 }
 
+export function thinkingTextFromPart(part: ChatMessagePart): string {
+	if (part.type !== "tool-Thinking") return "";
+	if (part.input && typeof part.input === "object") {
+		const rec = part.input as Record<string, unknown>;
+		if (typeof rec.thought === "string") return rec.thought;
+		if (typeof rec.text === "string") return rec.text;
+	}
+	if (typeof part.output === "string") return part.output;
+	if (part.output && typeof part.output === "object") {
+		const rec = part.output as Record<string, unknown>;
+		if (typeof rec.thought === "string") return rec.thought;
+		if (typeof rec.text === "string") return rec.text;
+	}
+	return "";
+}
+
+export function assistantTextFromMessage(message: ChatMessage): string {
+	return message.parts
+		.filter((part): part is Extract<ChatMessagePart, { type: "text" }> => part.type === "text")
+		.map((part) => part.text)
+		.join("");
+}
+
+/**
+ * Models that emit only `thinking_delta` (no `text_delta`) would otherwise
+ * leave the user with a Thought fold and no assistant bubble. Promote that
+ * thinking into a text part when the turn has no visible answer.
+ */
+export function promoteThinkingToAssistantText(message: ChatMessage): ChatMessage {
+	if (message.role !== "assistant") return message;
+	if (assistantTextFromMessage(message).trim()) return message;
+	const thinking = message.parts.map(thinkingTextFromPart).join("");
+	if (!thinking.trim()) return message;
+	const tools = message.parts.filter((part) => part.type !== "text" && part.type !== "tool-Thinking");
+	return {
+		...message,
+		parts: [{ type: "text", text: thinking }, ...tools],
+	};
+}
+
 export function upsertAssistantThinkingPart(messages: Array<ChatMessage>, assistantId: string, thought: string) {
-	return upsertAssistantToolPart(
-		messages,
-		assistantId,
-		createThinkingToolPart({
-			messageId: assistantId,
-			thought,
-		}),
-	);
+	return messages.map((message) => {
+		if (message.id !== assistantId) return message;
+		const existing = message.parts.find((part) => part.type === "tool-Thinking");
+		const previous = existing ? thinkingTextFromPart(existing) : "";
+		return {
+			...message,
+			parts: upsertToolPart(
+				message.parts,
+				createThinkingToolPart({
+					messageId: assistantId,
+					thought: `${previous}${thought}`,
+				}),
+			),
+		};
+	});
 }

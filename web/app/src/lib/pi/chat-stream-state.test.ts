@@ -7,6 +7,7 @@ import {
 	type ChatStreamSnapshot,
 	type ChatStreamTransition,
 	EMPTY_QUEUE_STATE,
+	normalizeSessionMetadata,
 } from "./chat-stream-state";
 
 function baseTransition(): ChatStreamTransition {
@@ -126,5 +127,52 @@ describe("applyChatStreamEvent", () => {
 			type: "text",
 			text: "orphan",
 		});
+	});
+
+	it("accumulates thinking deltas and promotes thinking-only turns to assistant text on done", () => {
+		const id = "run-1-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id));
+		t = applyChatStreamEvent(t, { type: "thinking", text: "fleet-", messageId: id });
+		t = applyChatStreamEvent(t, { type: "thinking", text: "web-ok", messageId: id });
+		const streamed = assistantMessages(t)[0];
+		const thought = streamed.parts.find((part) => part.type === "tool-Thinking");
+		expect(thought && "output" in thought ? thought.output : undefined).toBe("fleet-web-ok");
+
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-1",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [
+				{
+					type: "tool-Thinking",
+					state: "output-available",
+					input: { thought: "fleet-web-ok" },
+					output: "fleet-web-ok",
+				},
+			]),
+		});
+		expect(t.assistantId).toBeNull();
+		const doneParts = assistantMessages(t)[0].parts;
+		expect(doneParts).toEqual([{ type: "text", text: "fleet-web-ok" }]);
+	});
+
+	it("normalizeSessionMetadata drops blank fields so {} is a real clear", () => {
+		expect(normalizeSessionMetadata({})).toEqual({});
+		expect(normalizeSessionMetadata({ sessionId: "  ", sessionFile: " /tmp/s.jsonl ", cwd: "" })).toEqual({
+			sessionFile: "/tmp/s.jsonl",
+		});
+	});
+
+	it("does not clear live session metadata when done omits sessionId", () => {
+		const id = "run-1-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id));
+		expect(t.snapshot.sessionMetadata.sessionId).toBe("session-1");
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-1",
+			sessionId: "",
+			message: toChatMessage(id, "assistant", [{ type: "text", text: "ok" }]),
+		});
+		expect(t.snapshot.sessionMetadata.sessionId).toBe("session-1");
 	});
 });

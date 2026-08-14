@@ -5,6 +5,7 @@ import { labelForState } from "./chat-fetch";
 import {
 	appendAssistantDelta,
 	createTextMessage,
+	promoteThinkingToAssistantText,
 	upsertAssistantThinkingPart,
 	upsertAssistantToolPart,
 } from "./chat-message-helpers";
@@ -26,6 +27,31 @@ export const EMPTY_QUEUE_STATE: QueueState = {
 	steering: [],
 	followUp: [],
 };
+
+/** Drop blank session fields so `{}` is a real clear, not a keep-if-empty merge. */
+export function normalizeSessionMetadata(metadata: ChatSessionMetadata): ChatSessionMetadata {
+	const sessionId = metadata.sessionId?.trim() || undefined;
+	const sessionFile = metadata.sessionFile?.trim() || undefined;
+	const cwd = metadata.cwd?.trim() || undefined;
+	return {
+		...(sessionId ? { sessionId } : {}),
+		...(sessionFile ? { sessionFile } : {}),
+		...(cwd ? { cwd } : {}),
+	};
+}
+
+function mergeSessionMetadata(
+	current: ChatSessionMetadata,
+	incoming: { sessionId?: string; sessionFile?: string },
+): ChatSessionMetadata {
+	const sessionId = incoming.sessionId?.trim() || current.sessionId;
+	const sessionFile = incoming.sessionFile?.trim() || current.sessionFile;
+	return {
+		...current,
+		...(sessionId ? { sessionId } : {}),
+		...(sessionFile ? { sessionFile } : {}),
+	};
+}
 
 function hasRenderableParts(message: ChatMessage): boolean {
 	return (message.parts ?? []).some((part) => {
@@ -122,10 +148,10 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 				messages: alreadyPresent
 					? transition.snapshot.messages
 					: [...transition.snapshot.messages, createTextMessage("assistant", "", event.id)],
-				sessionMetadata: {
+				sessionMetadata: mergeSessionMetadata(transition.snapshot.sessionMetadata, {
 					sessionFile: event.sessionFile,
 					sessionId: event.sessionId,
-				},
+				}),
 			},
 		};
 	}
@@ -222,17 +248,22 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 	}
 
 	if (event.type === "done") {
+		const merged = replaceOrAppendInFlight(snapshot.messages, event.message, assistantId);
 		return {
 			assistantId: null,
 			snapshot: {
 				...snapshot,
 				activityLabel: undefined,
-				messages: replaceOrAppendInFlight(snapshot.messages, event.message, assistantId),
+				messages: merged.map((message) =>
+					message.role === "assistant" && (message.id === event.message.id || message.id === assistantId)
+						? promoteThinkingToAssistantText(message)
+						: message,
+				),
 				queue: EMPTY_QUEUE_STATE,
-				sessionMetadata: {
+				sessionMetadata: mergeSessionMetadata(snapshot.sessionMetadata, {
 					sessionFile: event.sessionFile,
 					sessionId: event.sessionId,
-				},
+				}),
 			},
 		};
 	}

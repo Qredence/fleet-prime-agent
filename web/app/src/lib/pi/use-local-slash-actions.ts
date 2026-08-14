@@ -1,30 +1,43 @@
 import type { SuggestionItem } from "@prime-agent/web-design/components/agent-elements/input/suggestions";
+import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import {
 	availableThinkingLevels,
 	type ChatModelOption,
 	thinkingLevelLabel,
 } from "@prime-agent/web-design/lib/pi/chat-helpers";
-import type { ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatSessionInfo, ChatSessionMetadata, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { useCallback } from "react";
+import { assistantTextFromMessage, thinkingTextFromPart } from "./chat-message-helpers";
 import type { LocalSlashAction, SettingsSlashTab } from "./slash-commands";
 import { parseSlashInput, resolveLocalSlashAction } from "./slash-commands";
 
 const CHAT_COMMAND_URL = "/api/chat/command";
 
+export type { ForkPickerEntry };
+
 type UseLocalSlashActionsArgs = {
 	appendLocalMessage: (text: string) => void;
+	getMessages: () => Array<ChatMessage>;
+	getSessionMetadata: () => ChatSessionMetadata;
 	modelKey: string | undefined;
 	models: Array<ChatModelOption>;
+	onForkPicker: (entries: Array<ForkPickerEntry>) => void;
 	openSettings: (tab?: SettingsSlashTab) => void;
-	sessionId: string | undefined;
-	sessionFile: string | null | undefined;
+	resumeSession: (metadata: ChatSessionMetadata) => Promise<void>;
+	sessions: Array<ChatSessionInfo>;
 	setEffortPickerOpen: (open: boolean) => void;
 	setModelKey: (key: string | undefined) => void;
 	setModelPickerOpen: (open: boolean) => void;
 	setThinkingLevel: (level: ChatThinkingLevel) => void;
 	startNewSession: () => void;
 };
+
+function liveSessionId(metadata: ChatSessionMetadata): string | undefined {
+	const id = metadata.sessionId?.trim();
+	return id ? id : undefined;
+}
 
 /** Format a payload for the conversation echo the TUI would have shown. */
 function formatSessionInfo({
@@ -36,11 +49,9 @@ function formatSessionInfo({
 	sessionFile: string | null | undefined;
 	name: string | null;
 }) {
-	return [
-		name ? `Session: ${name}` : "Session",
-		`  id:   ${sessionId}`,
-		`  file: ${sessionFile ?? "(not yet persisted)"}`,
-	].join("\n");
+	const id = sessionId.trim() || "none";
+	const file = sessionFile?.trim() || "(not yet persisted)";
+	return [name ? `Session: ${name}` : "Session", `  id:   ${id}`, `  file: ${file}`].join("\n");
 }
 
 /** Structural mirror of the bridge's session-tree node (only the fields the echo needs). */
@@ -105,13 +116,57 @@ function formatSessionTree(nodes: SessionTreeBranch[], leafId: string | null): s
 	return lines.length > 0 ? lines.join("\n") : "(empty session tree)";
 }
 
+function flattenForkCandidates(nodes: SessionTreeBranch[]): Array<ForkPickerEntry> {
+	const all: Array<ForkPickerEntry> = [];
+	const users: Array<ForkPickerEntry> = [];
+	const walk = (items: SessionTreeBranch[]) => {
+		for (const item of items) {
+			if (item.entry.type === "message") {
+				const entry = { id: item.entry.id, preview: treeEntryPreview(item) };
+				all.push(entry);
+				if (item.entry.message?.role === "user") users.push(entry);
+			}
+			walk(item.children);
+		}
+	};
+	walk(nodes);
+	return users.length > 0 ? users : all;
+}
+
+function lastAssistantCopyText(messages: Array<ChatMessage>): string | undefined {
+	for (let i = messages.length - 1; i >= 0; i -= 1) {
+		const message = messages[i];
+		if (!message || message.role !== "assistant" || message.source === "local") continue;
+		const text = assistantTextFromMessage(message).trim();
+		if (text) return text;
+		const thinking = message.parts.map(thinkingTextFromPart).join("").trim();
+		if (thinking) return thinking;
+	}
+	return undefined;
+}
+
+function transcriptMarkdown(messages: Array<ChatMessage>): string {
+	return messages
+		.filter((message) => message.source !== "local")
+		.map((message) => {
+			const text =
+				assistantTextFromMessage(message).trim() || message.parts.map(thinkingTextFromPart).join("").trim();
+			return `**${message.role}**\n\n${text}`;
+		})
+		.filter((block) => block.trim().length > 0)
+		.join("\n\n---\n\n");
+}
+
 export function useLocalSlashActions({
 	appendLocalMessage,
+	getMessages,
+	getSessionMetadata,
 	modelKey,
 	models,
+	onForkPicker,
 	openSettings,
-	sessionId,
-	sessionFile,
+	resumeSession,
+	sessions,
 	setEffortPickerOpen,
 	setModelKey,
 	setModelPickerOpen,
@@ -121,6 +176,7 @@ export function useLocalSlashActions({
 	/** Fire the bridge runner and echo the result into the transcript. */
 	const chatCommand = useCallback(
 		async (command: string, args = ""): Promise<ChatCommandResult> => {
+			const sessionId = liveSessionId(getSessionMetadata());
 			if (!sessionId) {
 				return {
 					ok: false,
@@ -155,7 +211,7 @@ export function useLocalSlashActions({
 				};
 			}
 		},
-		[sessionId],
+		[getSessionMetadata],
 	);
 
 	/**
@@ -178,9 +234,14 @@ export function useLocalSlashActions({
 				newSessionId: typeof result.payload.newSessionId === "string" ? result.payload.newSessionId : "?",
 				selectedText: typeof result.payload.selectedText === "string" ? result.payload.selectedText : "(none)",
 			};
+			notify.success(format(payload));
+			if (payload.newSessionId !== "?") {
+				await resumeSession({ sessionId: payload.newSessionId });
+				return;
+			}
 			appendLocalMessage(format(payload));
 		},
-		[appendLocalMessage],
+		[appendLocalMessage, resumeSession],
 	);
 
 	const applyLocalSlashAction = useCallback(
@@ -225,15 +286,23 @@ export function useLocalSlashActions({
 					return true;
 				case "session-info": {
 					void (async () => {
+						const metadata = getSessionMetadata();
+						const sessionId = liveSessionId(metadata);
 						const result = await chatCommand("session");
 						if (!result.ok || !sessionId) {
-							appendLocalMessage(formatSessionInfo({ sessionId: sessionId ?? "none", sessionFile, name: null }));
+							appendLocalMessage(
+								formatSessionInfo({
+									sessionId: sessionId ?? "none",
+									sessionFile: metadata.sessionFile,
+									name: null,
+								}),
+							);
 							return;
 						}
 						appendLocalMessage(
 							formatSessionInfo({
 								sessionId,
-								sessionFile,
+								sessionFile: metadata.sessionFile,
 								name: typeof result.payload.name === "string" ? result.payload.name : null,
 							}),
 						);
@@ -311,17 +380,30 @@ export function useLocalSlashActions({
 					return true;
 				}
 				case "session-fork": {
-					if (!action.args) {
-						appendLocalMessage(
-							"Usage: /fork <message-entry-id> — the web port has no fork picker yet; run /tree to list entry ids.",
+					if (action.args) {
+						void echoBranchResult(
+							chatCommand("fork", action.args),
+							"Fork",
+							(payload) => `Forked → session ${payload.newSessionId}. Selected text: ${payload.selectedText}`,
 						);
 						return true;
 					}
-					void echoBranchResult(
-						chatCommand("fork", action.args),
-						"Fork",
-						(payload) => `Forked → session ${payload.newSessionId}. Selected text: ${payload.selectedText}`,
-					);
+					void (async () => {
+						const result = await chatCommand("tree");
+						if (!result.ok) {
+							appendLocalMessage(`Fork picker failed: ${result.error}`);
+							return;
+						}
+						const payload = result.payload.tree as
+							| { tree?: SessionTreeBranch[]; leafId?: string | null }
+							| undefined;
+						const candidates = Array.isArray(payload?.tree) ? flattenForkCandidates(payload.tree) : [];
+						if (candidates.length === 0) {
+							appendLocalMessage("No fork points yet — send a user message first, then run /fork.");
+							return;
+						}
+						onForkPicker(candidates);
+					})();
 					return true;
 				}
 				case "session-clone": {
@@ -350,15 +432,56 @@ export function useLocalSlashActions({
 					})();
 					return true;
 				}
-				case "session-share":
-					appendLocalMessage("/share (Gist) is not yet wired in the web port.");
+				case "session-share": {
+					void (async () => {
+						const markdown = transcriptMarkdown(getMessages());
+						if (!markdown.trim()) {
+							appendLocalMessage("Nothing to share yet.");
+							return;
+						}
+						await navigator.clipboard.writeText(markdown);
+						notify.success("Transcript copied");
+						appendLocalMessage(
+							"Copied the transcript to the clipboard. GitHub Gist upload is TUI-only in this port.",
+						);
+					})().catch((error) => {
+						notify.error(`Share failed: ${error instanceof Error ? error.message : String(error)}`);
+					});
 					return true;
+				}
 				case "session-import":
-					appendLocalMessage("/import [path] is not yet wired in the web port.");
+					appendLocalMessage(
+						action.path
+							? `/import ${action.path} is not wired in the web port. Resume a saved conversation from the session picker instead.`
+							: "Usage: /import <path.jsonl> — JSONL import is not wired in the web port. Use the session picker to resume.",
+					);
 					return true;
 				case "session-btw":
-					appendLocalMessage("/btw side-questions are not yet wired in the web port.");
+					appendLocalMessage(
+						action.question
+							? `/btw is not wired in the web port. Side question was not sent:\n${action.question}`
+							: "Usage: /btw <question> — side questions are not wired in the web port.",
+					);
 					return true;
+				case "session-traces":
+					appendLocalMessage(
+						"Prime Agent traces (preview / upload / login) are TUI-only. The web port does not upload traces.",
+					);
+					return true;
+				case "session-agents": {
+					if (sessions.length === 0) {
+						appendLocalMessage(
+							"No saved sessions. The web port has no daemon agent tray — use the conversation picker in the header.",
+						);
+						return true;
+					}
+					const lines = sessions.map((session) => {
+						const label = session.name || session.firstMessage || "(unnamed)";
+						return `${session.id}  ${label}`;
+					});
+					appendLocalMessage(`Saved sessions (web stand-in for /agents):\n${lines.join("\n")}`);
+					return true;
+				}
 				case "open-providers":
 					openSettings("providers");
 					return true;
@@ -405,8 +528,12 @@ export function useLocalSlashActions({
 					return true;
 				case "copy-last-reply": {
 					void (async () => {
-						// Pull from the React state, mirror what the user sees (last assistant turn).
-						await navigator.clipboard.writeText("(grabbed from chat UI)");
+						const text = lastAssistantCopyText(getMessages());
+						if (!text) {
+							notify.error("No assistant message to copy");
+							return;
+						}
+						await navigator.clipboard.writeText(text);
 						notify.success("Last assistant message copied");
 					})().catch((error) => {
 						notify.error(`Copy failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -431,7 +558,12 @@ export function useLocalSlashActions({
 					return true;
 				case "heartbeat-manage":
 				case "heartbeat-list":
-					appendLocalMessage("/heartbeat(s) are not yet wired in the web port.");
+					appendLocalMessage(
+						"/heartbeat(s) are not wired in the web port. Persistent heartbeats remain TUI/session-cron.",
+					);
+					return true;
+				case "echo":
+					appendLocalMessage(action.text);
 					return true;
 				default: {
 					const exhaustiveCheck: never = action;
@@ -444,11 +576,13 @@ export function useLocalSlashActions({
 			appendLocalMessage,
 			chatCommand,
 			echoBranchResult,
+			getMessages,
+			getSessionMetadata,
 			modelKey,
 			models,
+			onForkPicker,
 			openSettings,
-			sessionFile,
-			sessionId,
+			sessions,
 			setEffortPickerOpen,
 			setModelKey,
 			setModelPickerOpen,
@@ -477,8 +611,20 @@ export function useLocalSlashActions({
 		[applyLocalSlashAction],
 	);
 
+	const forkFromEntry = useCallback(
+		(entryId: string) => {
+			void echoBranchResult(
+				chatCommand("fork", entryId),
+				"Fork",
+				(payload) => `Forked → session ${payload.newSessionId}. Selected text: ${payload.selectedText}`,
+			);
+		},
+		[chatCommand, echoBranchResult],
+	);
+
 	return {
 		applyLocalSlashAction,
+		forkFromEntry,
 		handleLocalSlashSubmit,
 		handleSlashCommandSelect,
 	};
