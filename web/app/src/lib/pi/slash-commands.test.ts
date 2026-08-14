@@ -44,29 +44,22 @@ describe("resolveLocalSlashAction", () => {
 		});
 	});
 
-	it("every advertised builtin resolves to a local action", () => {
+	it("every advertised local builtin resolves to a local action", () => {
+		const backendSessionCommands = new Set(["compact", "refine", "goal", "autonomous"]);
 		const unresolved = WEB_BUILTIN_SLASH_COMMANDS.filter(
-			(command) => resolveLocalSlashAction(command.name) === null,
+			(command) => !backendSessionCommands.has(command.name) && resolveLocalSlashAction(command.name) === null,
 		).map((command) => command.name);
 		expect(unresolved).toEqual([]);
 	});
 
-	it("routes compact, refine, goal, and autonomous to local echo stubs", () => {
-		expect(resolveLocalSlashAction("compact")).toEqual({
-			type: "echo",
-			text: "/compact is not wired in the web port.",
-		});
-		expect(resolveLocalSlashAction("refine", "tighten memory")).toEqual({
-			type: "echo",
-			text: "/refine is not wired in the web port. Arguments were not applied:\ntighten memory",
-		});
-		expect(resolveLocalSlashAction("goal")).toEqual({
-			type: "echo",
-			text: "/goal is not wired in the web port.",
-		});
-		expect(resolveLocalSlashAction("autonomous", "on")).toEqual({
-			type: "echo",
-			text: "/autonomous is not wired in the web port. Arguments were not applied:\non",
-		});
+	it("leaves session commands for the backend chat transport", () => {
+		for (const [command, args] of [
+			["compact", "keep the latest context"],
+			["refine", "tighten memory"],
+			["goal", "ship the web stack"],
+			["autonomous", "on"],
+		] as const) {
+			expect(resolveLocalSlashAction(command, args)).toBeNull();
+		}
 	});
 });

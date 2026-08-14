@@ -562,9 +562,6 @@ export function useLocalSlashActions({
 						"/heartbeat(s) are not wired in the web port. Persistent heartbeats remain TUI/session-cron.",
 					);
 					return true;
-				case "echo":
-					appendLocalMessage(action.text);
-					return true;
 				default: {
 					const exhaustiveCheck: never = action;
 					void exhaustiveCheck;

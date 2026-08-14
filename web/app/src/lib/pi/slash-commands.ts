@@ -8,10 +8,10 @@ import { ChatThinkingLevelSchema } from "@prime-agent/web-protocol/chat-protocol
 /**
  * Web port of prime-agent's builtin slash-command dispatcher
  * (`packages/coding-agent/src/core/slash-commands.ts` + the handler chain in
- * `packages/coding-agent/src/modes/interactive/interactive-mode.ts`). Every
- * canonical name (and the `clear`/`usage`/`thinking`/`rename`/`side` aliases)
- * resolves to a route HERE — autocomplete can freely advertise the full
- * surface because nothing falls through to the LLM.
+ * `packages/coding-agent/src/modes/interactive/interactive-mode.ts`). Local
+ * commands (and the `clear`/`usage`/`thinking`/`rename`/`side` aliases) resolve
+ * here; session commands stay in the normal chat transport so the server can
+ * hand them to AgentSession's command executor.
  */
 export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
 	{ name: "settings", description: "Open Settings", source: "builtin" },
@@ -162,8 +162,7 @@ export type LocalSlashAction =
 	| { type: "session-traces" } // /traces
 	| { type: "session-agents" } // /agents
 	| { type: "toggle-fullscreen" } // /fullscreen — TUI only, toast
-	| { type: "quit-app" } // /quit — TUI only, toast
-	| { type: "echo"; text: string }; // advertised builtin with no web wiring yet
+	| { type: "quit-app" }; // /quit — TUI only, toast
 
 /**
  * Aliases are resolved **server-side** by `resolveBuiltinSlashCommandName` in
@@ -208,9 +207,10 @@ export function parseQuotedPathArgument(args: string): string | undefined {
 }
 
 /**
- * Map a slash command (+ optional args) to a client-side action. Every action
- * above `// Serverwork` either calls a bridge endpoint directly or opens a
- * settings surface — nothing returns null for a canonical builtin.
+ * Map a slash command (+ optional args) to a client-side action. Session
+ * commands that the backend executes (`compact`, `refine`, `goal`, and
+ * `autonomous`) intentionally return null so the composer sends the original
+ * slash command through `POST /api/chat`.
  */
 export function resolveLocalSlashAction(command: string, args = ""): LocalSlashAction | null {
 	const canonical = resolveSlashCommandAlias(command);
@@ -288,16 +288,6 @@ export function resolveLocalSlashAction(command: string, args = ""): LocalSlashA
 			return { type: "session-traces" };
 		case "agents":
 			return { type: "session-agents" };
-		case "compact":
-		case "refine":
-		case "goal":
-		case "autonomous":
-			return {
-				type: "echo",
-				text: trimmedArgs
-					? `/${canonical} is not wired in the web port. Arguments were not applied:\n${trimmedArgs}`
-					: `/${canonical} is not wired in the web port.`,
-			};
 		// --- TUI-only; show explicit "not available in web" toast -----------
 		case "changelog":
 			return { type: "show-changelog" };
