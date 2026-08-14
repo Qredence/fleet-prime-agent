@@ -42,6 +42,7 @@ export type SettingsActionsContextValue = Pick<
   | "isUpdatingProvider"
   | "modelCatalog"
   | "onDiscoverModels"
+  | "onOAuthLogin"
   | "onRemoveProvider"
   | "onThemePreferenceChange"
   | "onUpdateProvider"

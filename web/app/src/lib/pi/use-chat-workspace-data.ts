@@ -17,6 +17,7 @@ import {
 	useChatResources,
 	useChatSettings,
 	useDiscoverChatModels,
+	useOAuthLoginProvider,
 	useRemoveChatProvider,
 	useUpdateChatProvider,
 	useUpdateChatSettings,
@@ -58,6 +59,7 @@ export function useChatWorkspaceData() {
 	}, [user]);
 	const { data: providersData, isLoading: isLoadingProviders } = useChatProviders();
 	const { mutateAsync: onUpdateProvider, isPending: isUpdatingProvider } = useUpdateChatProvider();
+	const { mutateAsync: onOAuthLogin } = useOAuthLoginProvider();
 	const { mutateAsync: onRemoveProvider, isPending: isRemovingProvider } = useRemoveChatProvider();
 	const { data: modelsData } = useChatModels();
 	const { data: modelCatalogData } = useChatModelCatalog({
@@ -269,6 +271,7 @@ export function useChatWorkspaceData() {
 		models,
 		modelCatalog,
 		onDiscoverModels,
+		onOAuthLogin,
 		onRemoveProvider,
 		onUpdateProvider,
 		openWorkspacePath,

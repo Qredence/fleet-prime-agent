@@ -47,6 +47,7 @@ import { ResourcesSection } from "./config-panel/sections/resources-section"
 import { SandboxProviderSection } from "./config-panel/sections/sandbox-provider-section"
 
 import {
+  harnessSettings,
   modelSettings,
   resourceSettings,
   sameJson,
@@ -76,6 +77,7 @@ function useSettingsForm() {
     isUpdatingProvider,
     modelCatalog,
     onDiscoverModels,
+    onOAuthLogin,
     onRemoveProvider,
     onThemePreferenceChange,
     onUpdateProvider,
@@ -194,6 +196,7 @@ function useSettingsForm() {
     isLoadingProviders,
     isUpdatingProvider,
     onThemePreferenceChange,
+    onOAuthLogin,
     onRemoveProvider,
     onUpdateProvider,
     providers,
@@ -320,6 +323,7 @@ function SettingsDialogBody({
     isLoadingProviders,
     isUpdatingProvider,
     onThemePreferenceChange,
+    onOAuthLogin,
     onRemoveProvider,
     onUpdateProvider,
     providers,
@@ -407,6 +411,7 @@ function SettingsDialogBody({
     <ResourcesSection
       scope={scope}
       draft={draft}
+      updateDraft={updateDraft}
       onEnableSkillCommandsChange={(enableSkillCommands) =>
         updateDraft((current) => ({
           ...current,
@@ -421,7 +426,13 @@ function SettingsDialogBody({
         updateDraft((current) => ({ ...current, prompts }))
       }
       onRevert={revertResourceDraft}
-      onSave={() => draft && saveSection("resources", resourceSettings(draft))}
+      onSave={() =>
+        draft &&
+        saveSection("resources", {
+          ...resourceSettings(draft),
+          ...(scope === "harness" ? harnessSettings(draft) : {}),
+        })
+      }
       onSkillsChange={(skills) =>
         updateDraft((current) => ({ ...current, skills }))
       }
@@ -466,6 +477,7 @@ function SettingsDialogBody({
         isLoading={isLoadingProviders ?? false}
         isPending={isUpdatingProvider ?? false}
         providers={providers}
+        onOAuthLogin={onOAuthLogin}
         onRemoveProvider={onRemoveProvider}
         onUpdateProvider={onUpdateProvider}
       />

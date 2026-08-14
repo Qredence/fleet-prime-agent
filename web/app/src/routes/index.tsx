@@ -5,6 +5,7 @@ import { RightPanelShell } from "@prime-agent/web-design/components/fleet-pi/lay
 import { RightPanelProvider } from "@prime-agent/web-design/components/fleet-pi/layout/right-panel-context"
 import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/fleet-pi/layout/chat-workspace-layout"
 import { SettingsDialog } from "@prime-agent/web-design/components/fleet-pi/pi/settings-dialog"
+import { ForkPickerDialog } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog"
 import { useCallback } from "react"
 import { ChatPanel } from "@/lib/pi/chat-panel"
 import { useChatWorkspaceData } from "@/lib/pi/use-chat-workspace-data"
@@ -17,6 +18,8 @@ function ChatWorkspaceShell() {
     chatPanelData,
     commandPaletteOpen,
     error,
+    forkFromEntry,
+    forkPickerEntries,
     handleLocalSlashSubmit,
     handleQuestionAnswer,
     handleResourceCanvasResizeStart,
@@ -38,6 +41,7 @@ function ChatWorkspaceShell() {
     setChatMode,
     setCommandPaletteOpen,
     setEffortPickerOpen,
+    setForkPickerEntries,
     setModelKey,
     setModelPickerOpen,
     setRightPanel,
@@ -55,18 +59,17 @@ function ChatWorkspaceShell() {
     thinkingLevel,
     workspaceTreeContext,
   } = useChatWorkspaceData()
-
   const handleSend = useCallback(
     (text: string, altKey?: boolean) => {
-      void sendMessage({ text, altKey })
+      void sendMessage({ text, altKey, mode: chatMode })
     },
-    [sendMessage],
+    [chatMode, sendMessage],
   )
   const handleOpenUIAction = useCallback(
     (message: string) => {
-      void sendMessage({ text: message, altKey: false })
+      void sendMessage({ text: message, altKey: false, mode: chatMode })
     },
-    [sendMessage],
+    [chatMode, sendMessage],
   )
   const handleSettingsOpenChange = useCallback(
     (open: boolean) => {
@@ -75,7 +78,6 @@ function ChatWorkspaceShell() {
     },
     [setSettingsDialogOpen, setSettingsInitialTab],
   )
-
   return (
     <>
       <ChatCommandPalette
@@ -149,6 +151,13 @@ function ChatWorkspaceShell() {
           open={settingsDialogOpen}
           onOpenChange={handleSettingsOpenChange}
           initialTab={settingsInitialTab}
+        />
+        <ForkPickerDialog
+          entries={forkPickerEntries}
+          onOpenChange={(open) => {
+            if (!open) setForkPickerEntries(null)
+          }}
+          onPick={forkFromEntry}
         />
       </RightPanelProvider>
     </>

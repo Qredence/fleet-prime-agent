@@ -7,7 +7,6 @@ import type {
 	PiCustomProviderApi,
 } from "@prime-agent/web-protocol/chat-protocol";
 import {
-	CREDENTIAL_UI_PROVIDERS,
 	isCustomProviderId,
 	isNamedOccInstanceId,
 	isOccProviderId,
@@ -15,6 +14,7 @@ import {
 } from "@prime-agent/web-protocol/provider-catalog";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { isOAuthProvider } from "./provider-credentials-types";
 
 export type UseProviderCredentialsControllerArgs = {
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
@@ -66,8 +66,6 @@ export function useProviderCredentialsController({
 	const [addPickerQuery, setAddPickerQuery] = useState("");
 	const [confirmRemoveProvider, setConfirmRemoveProvider] = useState<ChatProviderInfo | null>(null);
 
-	const credentialProviderIds = useMemo(() => new Set(CREDENTIAL_UI_PROVIDERS.map((provider) => provider.id)), []);
-
 	// Named OCC instances (`openai-chat-completions+…`), general custom
 	// providers (`custom+…`), the custom-provider template row, AND every
 	// provider prime-agent's ModelRegistry reports (including built-ins and
@@ -76,24 +74,9 @@ export function useProviderCredentialsController({
 	// prime-agent-driven — anything it emits is a valid prime provider, so we
 	// trust it wholesale rather than intersecting with a static catalog.
 	const credentialProviders = useMemo(() => {
-		const rows = providers.filter(
-			(provider) =>
-				// Already known to the legacy fleet-pi catalog (subset that always
-				// shows in the credential UI), or
-				credentialProviderIds.has(provider.id) ||
-				// fleet-pi-style OCC/custom provider instances, or
-				isOccProviderId(provider.id) ||
-				isCustomProviderId(provider.id) ||
-				// Trust the server: every id that prime-agent's /api/chat/providers
-				// emits came from getProviders() (built-ins) ∪ models.json (custom).
-				// Both are user-credentialable — built-ins via env/auth.json and
-				// customs via their apiKey env var. We filter out only OAuth-only
-				// providers (those are configured via a login flow, not a pasted
-				// key) and the synthetic picker row itself.
-				(provider.id !== CUSTOM_PROVIDER_PICKER_ROW.id && provider.authType !== "oauth"),
-		);
+		const rows = providers.filter((provider) => provider.id !== CUSTOM_PROVIDER_PICKER_ROW.id);
 		return [...rows, CUSTOM_PROVIDER_PICKER_ROW];
-	}, [credentialProviderIds, providers]);
+	}, [providers]);
 
 	const activeProviders = useMemo(
 		() => credentialProviders.filter((provider) => provider.isConfigured),
@@ -116,9 +99,7 @@ export function useProviderCredentialsController({
 	const filteredActiveProviders = useMemo(() => {
 		const query = searchQuery.trim().toLowerCase();
 		if (!query) return activeProviders;
-		return activeProviders.filter(
-			(provider) => provider.name.toLowerCase().includes(query) || provider.envVarName.toLowerCase().includes(query),
-		);
+		return activeProviders.filter((provider) => providerMatchesQuery(provider, query));
 	}, [activeProviders, searchQuery]);
 
 	const filteredPickerAvailable = useMemo(() => {
@@ -330,8 +311,9 @@ export function useProviderCredentialsController({
 
 function providerMatchesQuery(provider: ChatProviderInfo, query: string) {
 	if (!query) return true;
-	const keywords =
-		provider.id === CUSTOM_PROVIDER_PICKER_ID || isCustomProviderId(provider.id)
+	const keywords = isOAuthProvider(provider)
+		? "oauth sign-in login"
+		: provider.id === CUSTOM_PROVIDER_PICKER_ID || isCustomProviderId(provider.id)
 			? "custom provider endpoint openai anthropic google compatible"
 			: isOccProviderId(provider.id)
 				? "api key base url model name chat completions"

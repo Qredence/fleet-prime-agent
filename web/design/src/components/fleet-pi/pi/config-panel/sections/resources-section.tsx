@@ -1,3 +1,4 @@
+import { HarnessRuntimeSection } from "./harness-runtime-section"
 import { Switch } from "../../../../switch"
 import { ItemRow } from "../../../primitives/item-row"
 import {
@@ -31,6 +32,7 @@ export function ResourcesSection({
   saving,
   scope = "harness",
   settingsLoading,
+  updateDraft,
 }: {
   draft: ChatPiSettings | null
   onEnableSkillCommandsChange: (enabled: boolean) => void
@@ -52,6 +54,7 @@ export function ResourcesSection({
   saving: boolean
   scope?: ResourcesSectionScope
   settingsLoading: boolean
+  updateDraft: (updater: (current: ChatPiSettings) => ChatPiSettings) => void
 }) {
   const disabled = !draft || settingsLoading || !!packageError
   const catalogSubtitle =
@@ -65,7 +68,7 @@ export function ResourcesSection({
   const description =
     scope === "skills"
       ? "Pick detected workspace skills and slash-command discovery."
-      : "Manage packages, extensions, prompts, and themes."
+      : "Runtime (compaction, retry, transport) plus packages, extensions, prompts, and themes."
 
   return (
     <SettingsPane
@@ -106,6 +109,7 @@ export function ResourcesSection({
         </>
       ) : (
         <>
+          <HarnessRuntimeSection draft={draft} updateDraft={updateDraft} />
           <ItemRow
             interactive={false}
             title="Catalog"

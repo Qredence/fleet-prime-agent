@@ -42,6 +42,24 @@ export function resourceSettings(settings: ChatPiSettings): ChatPiSettingsUpdate
 	};
 }
 
+export function harnessSettings(settings: ChatPiSettings): ChatPiSettingsUpdate {
+	return {
+		compaction: {
+			enabled: settings.compaction.enabled,
+			reserveTokens: settings.compaction.reserveTokens,
+			keepRecentTokens: settings.compaction.keepRecentTokens,
+		},
+		retry: {
+			enabled: settings.retry.enabled,
+			maxRetries: settings.retry.maxRetries,
+			baseDelayMs: settings.retry.baseDelayMs,
+		},
+		transport: settings.transport,
+		steeringMode: settings.steeringMode,
+		followUpMode: settings.followUpMode,
+	};
+}
+
 export function sameJson(left: unknown, right: unknown) {
 	return JSON.stringify(left) === JSON.stringify(right);
 }

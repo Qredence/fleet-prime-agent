@@ -25,8 +25,12 @@ import {
 import { ProviderBrandIcon } from "../shared/provider-brand-icon"
 import { ProviderCredentialFields } from "../shared/provider-credential-fields"
 import { CUSTOM_PROVIDER_PICKER_ID } from "./use-provider-credentials-controller"
+import { isOAuthProvider } from "./provider-credentials-types"
+import { ProviderOAuthSignIn } from "./provider-oauth-sign-in"
 import type {
   ChatProviderInfo,
+  ChatProviderOAuthLoginRequest,
+  ChatProviderOAuthLoginResponse,
   PiCustomProviderApi,
 } from "@prime-agent/web-protocol/chat-protocol"
 
@@ -124,6 +128,48 @@ export function AddProviderPickerPanel({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+export function AddProviderOAuthPanel({
+  onBack,
+  onConfigured,
+  onOAuthLogin,
+  provider,
+}: {
+  onBack: () => void
+  onConfigured?: () => void
+  onOAuthLogin?: (
+    request: ChatProviderOAuthLoginRequest
+  ) => Promise<ChatProviderOAuthLoginResponse>
+  provider: ChatProviderInfo
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Back to provider list"
+          onClick={onBack}
+        >
+          <ArrowLeft />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Configure {provider.name}</p>
+          <p className="text-xs text-pretty text-muted-foreground">
+            OAuth sign-in. Credentials are stored in auth.json for this account.
+          </p>
+        </div>
+      </div>
+      <ProviderOAuthSignIn
+        key={provider.id}
+        provider={provider}
+        onConfigured={onConfigured}
+        onOAuthLogin={onOAuthLogin}
+      />
     </div>
   )
 }
@@ -332,11 +378,13 @@ function ProviderPickerRow({
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{provider.name}</div>
         <div className="truncate text-xs text-muted-foreground">
-          {isCustomTemplate
-            ? "API family + key + https base URL + models"
-            : openAiChat
-              ? "API key + base URL + model name"
-              : provider.envVarName}
+          {isOAuthProvider(provider)
+            ? "OAuth sign-in"
+            : isCustomTemplate
+              ? "API family + key + https base URL + models"
+              : openAiChat
+                ? "API key + base URL + model name"
+                : provider.envVarName}
           {configured ? " · Update" : ""}
         </div>
       </div>
