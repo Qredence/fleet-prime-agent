@@ -1,3 +1,5 @@
+import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
+import type { ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { isModelPatternEnabled } from "@prime-agent/web-protocol/model-patterns";
 import { getPrimeConfig } from "../prime-config";
 import { wrapApiHandler } from "../wrap-api-handler";
@@ -39,18 +41,23 @@ export function handleChatModelsGet(request: Request): Promise<Response> {
 		const selectedModelKey = defaultProvider && defaultModel ? `${defaultProvider}/${defaultModel}` : undefined;
 
 		return Response.json({
-			models: models.map((m) => ({
-				key: `${m.provider}/${m.id}`,
-				provider: m.provider,
-				id: m.id,
-				name: m.name,
-				reasoning: m.reasoning,
-				input: m.input,
-				contextWindow: m.contextWindow,
-				maxTokens: m.maxTokens,
-				available: registry.hasConfiguredAuth(m),
-				defaultThinkingLevel: m.reasoning ? "medium" : "off",
-			})),
+			models: models.map((m) => {
+				const thinkingLevels = getSupportedThinkingLevels(m) as Array<ChatThinkingLevel>;
+				const fallback: ChatThinkingLevel = m.reasoning ? "medium" : "off";
+				return {
+					key: `${m.provider}/${m.id}`,
+					provider: m.provider,
+					id: m.id,
+					name: m.name,
+					reasoning: m.reasoning,
+					input: m.input,
+					contextWindow: m.contextWindow,
+					maxTokens: m.maxTokens,
+					available: registry.hasConfiguredAuth(m),
+					thinkingLevels,
+					defaultThinkingLevel: thinkingLevels.includes(fallback) ? fallback : (thinkingLevels[0] ?? "off"),
+				};
+			}),
 			...(selectedModelKey ? { selectedModelKey } : {}),
 			...(defaultProvider ? { defaultProvider } : {}),
 			...(defaultModel ? { defaultModel } : {}),

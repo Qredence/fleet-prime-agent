@@ -1,4 +1,9 @@
-import type { ChatResourcesResponse, ChatSlashCommandInfo } from "@prime-agent/web-protocol/chat-protocol";
+import type {
+	ChatResourcesResponse,
+	ChatSlashCommandInfo,
+	ChatThinkingLevel,
+} from "@prime-agent/web-protocol/chat-protocol";
+import { ChatThinkingLevelSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 
 /**
  * Web port of prime-agent's builtin slash-command dispatcher
@@ -42,6 +47,8 @@ export type SettingsSlashTab = "appearance" | "sandbox" | "providers" | "llm-mod
 
 export type LocalSlashAction =
 	| { type: "open-model-picker"; modelKey?: string }
+	| { type: "open-effort-picker"; unknownLevel?: string }
+	| { type: "set-thinking-level"; level: ChatThinkingLevel }
 	| { type: "open-settings"; tab: SettingsSlashTab }
 	| { type: "new-session" }
 	| { type: "session-info" }
@@ -83,6 +90,11 @@ const SLASH_COMMAND_ALIASES: Record<string, string> = {
 	side: "btw",
 };
 
+function parseThinkingLevelArg(args: string): ChatThinkingLevel | undefined {
+	const parsed = ChatThinkingLevelSchema.safeParse(args.trim().toLowerCase());
+	return parsed.success ? parsed.data : undefined;
+}
+
 export function resolveSlashCommandAlias(command: string): string {
 	return SLASH_COMMAND_ALIASES[command] ?? command;
 }
@@ -123,11 +135,12 @@ export function resolveLocalSlashAction(command: string, args = ""): LocalSlashA
 			const modelKey = trimmedArgs ? trimmedArgs.replace(/:[\w.-]+$/, "") : undefined;
 			return { type: "open-model-picker", modelKey };
 		}
-		case "effort":
-			// TUI parity: /effort opens the same model settings surface where the
-			// thinking-level drop-down lives (the model picker doesn't currently
-			// expose per-provider thinking levels on the wire).
-			return { type: "open-settings", tab: "llm-models" };
+		case "effort": {
+			if (!trimmedArgs) return { type: "open-effort-picker" };
+			const level = parseThinkingLevelArg(trimmedArgs);
+			if (level) return { type: "set-thinking-level", level };
+			return { type: "open-effort-picker", unknownLevel: trimmedArgs };
+		}
 		case "models":
 		case "scoped-models":
 			return { type: "open-settings", tab: "llm-models" };

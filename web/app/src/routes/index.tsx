@@ -13,6 +13,7 @@ export const Route = createFileRoute("/")({ component: Chat })
 
 function ChatWorkspaceShell() {
   const {
+    chatMode,
     chatPanelData,
     commandPaletteOpen,
     error,
@@ -25,6 +26,7 @@ function ChatWorkspaceShell() {
     infoDescription,
     inputSuggestionItems,
     messages,
+    effortPickerOpen,
     modelKey,
     modelPickerOpen,
     models,
@@ -33,12 +35,15 @@ function ChatWorkspaceShell() {
     resumeSession,
     sendMessage,
     sessions,
+    setChatMode,
     setCommandPaletteOpen,
+    setEffortPickerOpen,
     setModelKey,
     setModelPickerOpen,
     setRightPanel,
     setSettingsDialogOpen,
     setSettingsInitialTab,
+    setThinkingLevel,
     settingsActions,
     settingsDialogOpen,
     settingsInitialTab,
@@ -47,6 +52,7 @@ function ChatWorkspaceShell() {
     status,
     stop,
     themePreference,
+    thinkingLevel,
     workspaceTreeContext,
   } = useChatWorkspaceData()
 
@@ -121,11 +127,17 @@ function ChatWorkspaceShell() {
               infoDescription,
               slashCommands,
               questionBar: pendingQuestionBar,
+              chatMode,
+              onChatModeChange: setChatMode,
               onModelChange: setModelKey,
+              thinkingLevel,
+              onThinkingLevelChange: setThinkingLevel,
               onSlashCommandSelect: handleSlashCommandSelect,
               onLocalSlashSubmit: handleLocalSlashSubmit,
               modelPickerOpen,
               onModelPickerOpenChange: setModelPickerOpen,
+              effortPickerOpen,
+              onEffortPickerOpenChange: setEffortPickerOpen,
             }}
             onSend={handleSend}
             onOpenUIAction={handleOpenUIAction}

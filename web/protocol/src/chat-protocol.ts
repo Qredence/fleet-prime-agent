@@ -233,6 +233,7 @@ export type ChatModelInfo = {
 	maxTokens?: number;
 	available: boolean;
 	defaultThinkingLevel?: ChatThinkingLevel;
+	thinkingLevels?: Array<ChatThinkingLevel>;
 };
 
 export type ChatModelsResponse = {

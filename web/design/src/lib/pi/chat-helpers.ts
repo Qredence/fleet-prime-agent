@@ -1,4 +1,4 @@
-import type { ChatModelInfo, ChatModelSelection } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatModelInfo, ChatModelSelection, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { Bot, ClipboardList, Hammer } from "lucide-react";
 import type { ModelOption } from "../../components/agent-elements/types";
 
@@ -8,7 +8,61 @@ export type ChatModelOption = ModelOption & {
 	available?: boolean;
 	reasoning?: boolean;
 	thinkingLevel?: ChatModelInfo["defaultThinkingLevel"];
+	thinkingLevels?: Array<ChatThinkingLevel>;
 };
+
+export const ALL_THINKING_LEVELS: Array<ChatThinkingLevel> = [
+	"off",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max",
+];
+
+export const THINKING_LEVEL_LABELS: Record<ChatThinkingLevel, string> = {
+	off: "Off",
+	minimal: "Minimal",
+	low: "Low",
+	medium: "Medium",
+	high: "High",
+	xhigh: "Extra high",
+	max: "Max",
+};
+
+export const THINKING_LEVEL_DESCRIPTIONS: Record<ChatThinkingLevel, string> = {
+	off: "No reasoning",
+	minimal: "Very brief reasoning",
+	low: "Light reasoning",
+	medium: "Moderate reasoning",
+	high: "Deep reasoning",
+	xhigh: "Very deep reasoning",
+	max: "Maximum reasoning",
+};
+
+export function thinkingLevelLabel(level: ChatThinkingLevel): string {
+	return THINKING_LEVEL_LABELS[level];
+}
+
+export function availableThinkingLevels(
+	model: Pick<ChatModelOption, "thinkingLevels" | "reasoning"> | undefined,
+): Array<ChatThinkingLevel> {
+	if (model?.thinkingLevels && model.thinkingLevels.length > 0) {
+		return model.thinkingLevels;
+	}
+	if (model?.reasoning) return ALL_THINKING_LEVELS;
+	return ["off"];
+}
+
+export function clampThinkingLevel(
+	level: ChatThinkingLevel | undefined,
+	available: Array<ChatThinkingLevel>,
+): ChatThinkingLevel {
+	if (level && available.includes(level)) return level;
+	if (available.includes("medium")) return "medium";
+	return available[0] ?? "off";
+}
 
 export const CHAT_MODES = [
 	{
@@ -40,15 +94,19 @@ export function toModelOption(model: ChatModelInfo): ChatModelOption {
 		available: model.available,
 		reasoning: model.reasoning,
 		thinkingLevel: model.defaultThinkingLevel,
+		thinkingLevels: model.thinkingLevels,
 	};
 }
 
-export function toModelSelection(model: ChatModelOption | undefined): ChatModelSelection | undefined {
+export function toModelSelection(
+	model: ChatModelOption | undefined,
+	thinkingLevel?: ChatThinkingLevel,
+): ChatModelSelection | undefined {
 	if (!model) return undefined;
 	return {
 		provider: model.provider,
 		id: model.modelId,
-		thinkingLevel: model.thinkingLevel,
+		thinkingLevel: thinkingLevel ?? model.thinkingLevel,
 	};
 }
 

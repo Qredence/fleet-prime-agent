@@ -21,6 +21,7 @@ export const ChatModelInfoSchema = z
 		maxTokens: z.number().optional(),
 		available: z.boolean(),
 		defaultThinkingLevel: ChatThinkingLevelSchema.optional(),
+		thinkingLevels: z.array(ChatThinkingLevelSchema).optional(),
 	})
 	.openapi({ description: "Chat model info" });
 
