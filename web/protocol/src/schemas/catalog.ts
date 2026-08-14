@@ -21,6 +21,7 @@ export const ChatModelInfoSchema = z
 		maxTokens: z.number().optional(),
 		available: z.boolean(),
 		defaultThinkingLevel: ChatThinkingLevelSchema.optional(),
+		thinkingLevels: z.array(ChatThinkingLevelSchema).optional(),
 	})
 	.openapi({ description: "Chat model info" });
 
@@ -178,6 +179,40 @@ export const ChatProviderRemoveRequestSchema = z
 export const ChatProviderRemoveResponseSchema = ChatProviderUpdateResponseSchema.openapi({
 	description: "Chat provider remove response",
 });
+
+export const ChatProviderOAuthLoginStatusSchema = z
+	.enum(["waiting", "success", "error"])
+	.openapi({ description: "OAuth login status" });
+
+export const ChatProviderOAuthPromptSchema = z
+	.object({
+		message: z.string(),
+		placeholder: z.string().optional(),
+		allowEmpty: z.boolean().optional(),
+	})
+	.openapi({ description: "Interactive OAuth prompt" });
+
+export const ChatProviderOAuthLoginRequestSchema = z
+	.object({
+		providerId: z.string().min(1),
+		loginId: z.string().min(1).optional(),
+		promptAnswer: z.string().max(8192).optional(),
+		cancel: z.boolean().optional(),
+	})
+	.openapi({ description: "Chat provider OAuth login request" });
+
+export const ChatProviderOAuthLoginResponseSchema = z
+	.object({
+		status: ChatProviderOAuthLoginStatusSchema,
+		loginId: z.string().optional(),
+		authUrl: z.string().optional(),
+		userCode: z.string().optional(),
+		instructions: z.string().optional(),
+		prompt: ChatProviderOAuthPromptSchema.optional(),
+		error: z.string().optional(),
+		providers: z.array(ChatProviderInfoSchema).optional(),
+	})
+	.openapi({ description: "Chat provider OAuth login response" });
 
 export const ChatSlashCommandInfoSchema = z
 	.object({

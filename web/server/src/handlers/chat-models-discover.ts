@@ -52,6 +52,7 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 				input: ["text"] as Array<"text" | "image">,
 				available: true,
 				defaultThinkingLevel: "off" as const,
+				thinkingLevels: ["off"] as const,
 			}));
 			return Response.json({ providerId: provider, models });
 		} catch {

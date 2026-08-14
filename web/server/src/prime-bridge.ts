@@ -523,9 +523,15 @@ export class PrimeBridge {
 		// for the resolved `Model` the kernel needs to stream with.
 		let resolved = model as Parameters<typeof session.session.setModel>[0];
 		if (model && typeof model === "object" && !Array.isArray(model) && "provider" in model && "id" in model) {
-			const { provider, id, ...rest } = model as {
+			const {
+				provider,
+				id,
+				thinkingLevel: _thinkingLevel,
+				...rest
+			} = model as {
 				provider: string;
 				id: string;
+				thinkingLevel?: unknown;
 			};
 			try {
 				const config = getPrimeConfig();

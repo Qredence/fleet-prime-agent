@@ -1,6 +1,11 @@
 import type { SuggestionItem } from "@prime-agent/web-design/components/agent-elements/input/suggestions";
 import { notify } from "@prime-agent/web-design/lib/notify";
-import type { ChatModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
+import {
+	availableThinkingLevels,
+	type ChatModelOption,
+	thinkingLevelLabel,
+} from "@prime-agent/web-design/lib/pi/chat-helpers";
+import type { ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { useCallback } from "react";
 import type { LocalSlashAction, SettingsSlashTab } from "./slash-commands";
 import { parseSlashInput, resolveLocalSlashAction } from "./slash-commands";
@@ -9,12 +14,15 @@ const CHAT_COMMAND_URL = "/api/chat/command";
 
 type UseLocalSlashActionsArgs = {
 	appendLocalMessage: (text: string) => void;
+	modelKey: string | undefined;
 	models: Array<ChatModelOption>;
 	openSettings: (tab?: SettingsSlashTab) => void;
 	sessionId: string | undefined;
 	sessionFile: string | null | undefined;
+	setEffortPickerOpen: (open: boolean) => void;
 	setModelKey: (key: string | undefined) => void;
 	setModelPickerOpen: (open: boolean) => void;
+	setThinkingLevel: (level: ChatThinkingLevel) => void;
 	startNewSession: () => void;
 };
 
@@ -99,12 +107,15 @@ function formatSessionTree(nodes: SessionTreeBranch[], leafId: string | null): s
 
 export function useLocalSlashActions({
 	appendLocalMessage,
+	modelKey,
 	models,
 	openSettings,
 	sessionId,
 	sessionFile,
+	setEffortPickerOpen,
 	setModelKey,
 	setModelPickerOpen,
+	setThinkingLevel,
 	startNewSession,
 }: UseLocalSlashActionsArgs) {
 	/** Fire the bridge runner and echo the result into the transcript. */
@@ -181,7 +192,29 @@ export function useLocalSlashActions({
 						notify.success(`Model set to ${action.modelKey}`);
 						return true;
 					}
+					setEffortPickerOpen(false);
 					setModelPickerOpen(true);
+					return true;
+				}
+				case "open-effort-picker": {
+					if (action.unknownLevel) {
+						notify.error(`Unknown thinking level '${action.unknownLevel}'.`);
+					}
+					setModelPickerOpen(false);
+					setEffortPickerOpen(true);
+					return true;
+				}
+				case "set-thinking-level": {
+					const selected = models.find((model) => model.id === modelKey);
+					const available = availableThinkingLevels(selected);
+					if (!available.includes(action.level)) {
+						notify.error(`Unknown thinking level '${action.level}'. Available: ${available.join(", ")}`);
+						setModelPickerOpen(false);
+						setEffortPickerOpen(true);
+						return true;
+					}
+					setThinkingLevel(action.level);
+					notify.success(`Effort set to ${thinkingLevelLabel(action.level)}`);
 					return true;
 				}
 				case "open-settings":
@@ -411,12 +444,15 @@ export function useLocalSlashActions({
 			appendLocalMessage,
 			chatCommand,
 			echoBranchResult,
+			modelKey,
 			models,
 			openSettings,
 			sessionFile,
 			sessionId,
+			setEffortPickerOpen,
 			setModelKey,
 			setModelPickerOpen,
+			setThinkingLevel,
 			startNewSession,
 		],
 	);

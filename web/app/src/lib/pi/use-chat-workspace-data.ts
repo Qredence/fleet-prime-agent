@@ -1,7 +1,7 @@
 import type { QuestionAnswer } from "@prime-agent/web-design/components/agent-elements/question/question-prompt";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
-import type { ChatPiSettingsUpdate, ChatSettingsResponse } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatMode, ChatPiSettingsUpdate, ChatSettingsResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { identifyAnalyticsUser } from "@/lib/analytics-stub";
@@ -48,6 +48,8 @@ export function useChatWorkspaceData() {
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSlashTab | undefined>(undefined);
 	const [modelPickerOpen, setModelPickerOpen] = useState(false);
+	const [effortPickerOpen, setEffortPickerOpen] = useState(false);
+	const [chatMode, setChatMode] = useState<ChatMode>("agent");
 
 	useEffect(() => {
 		if (user) identifyAnalyticsUser(user);
@@ -77,7 +79,9 @@ export function useChatWorkspaceData() {
 		setModelKey,
 		setRightPanel,
 		setSelectedWorkspacePath,
+		setThinkingLevel,
 		themePreference,
+		thinkingLevel,
 	} = useChatShellState(modelsData);
 
 	const {
@@ -222,12 +226,15 @@ export function useChatWorkspaceData() {
 
 	const { handleLocalSlashSubmit, handleSlashCommandSelect } = useLocalSlashActions({
 		appendLocalMessage,
+		modelKey,
 		models,
 		openSettings,
 		sessionId: sessionMetadata.sessionId,
 		sessionFile: sessionMetadata.sessionFile,
+		setEffortPickerOpen,
 		setModelKey,
 		setModelPickerOpen,
+		setThinkingLevel,
 		startNewSession,
 	});
 
@@ -293,6 +300,7 @@ export function useChatWorkspaceData() {
 
 	return {
 		answerQuestion,
+		chatMode,
 		chatPanelData,
 		commandPaletteOpen,
 		error,
@@ -305,6 +313,7 @@ export function useChatWorkspaceData() {
 		infoDescription,
 		inputSuggestionItems,
 		messages,
+		effortPickerOpen,
 		modelKey,
 		modelPickerOpen,
 		models,
@@ -313,12 +322,15 @@ export function useChatWorkspaceData() {
 		resumeSession,
 		sendMessage,
 		sessions,
+		setChatMode,
 		setCommandPaletteOpen,
+		setEffortPickerOpen,
 		setModelKey,
 		setModelPickerOpen,
 		setRightPanel,
 		setSettingsDialogOpen,
 		setSettingsInitialTab,
+		setThinkingLevel,
 		settingsActions,
 		settingsDialogOpen,
 		settingsInitialTab,
@@ -327,6 +339,7 @@ export function useChatWorkspaceData() {
 		status,
 		stop,
 		themePreference,
+		thinkingLevel,
 		workspaceTreeContext,
 	};
 }

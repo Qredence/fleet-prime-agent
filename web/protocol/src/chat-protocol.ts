@@ -233,6 +233,7 @@ export type ChatModelInfo = {
 	maxTokens?: number;
 	available: boolean;
 	defaultThinkingLevel?: ChatThinkingLevel;
+	thinkingLevels?: Array<ChatThinkingLevel>;
 };
 
 export type ChatModelsResponse = {
@@ -305,6 +306,38 @@ export type ChatProviderRemoveRequest = {
 };
 
 export type ChatProviderRemoveResponse = ChatProviderUpdateResponse;
+
+export type ChatProviderOAuthLoginStatus = "waiting" | "success" | "error";
+
+export type ChatProviderOAuthPrompt = {
+	message: string;
+	placeholder?: string;
+	allowEmpty?: boolean;
+};
+
+/**
+ * Start, poll, continue, or cancel an interactive OAuth login.
+ * Device-code providers (GitHub Copilot) return `authUrl` + `userCode` and poll
+ * until the user completes the flow. Callback providers (Anthropic, Codex)
+ * return `authUrl` and optionally accept a pasted redirect via `promptAnswer`.
+ */
+export type ChatProviderOAuthLoginRequest = {
+	providerId: string;
+	loginId?: string;
+	promptAnswer?: string;
+	cancel?: boolean;
+};
+
+export type ChatProviderOAuthLoginResponse = {
+	status: ChatProviderOAuthLoginStatus;
+	loginId?: string;
+	authUrl?: string;
+	userCode?: string;
+	instructions?: string;
+	prompt?: ChatProviderOAuthPrompt;
+	error?: string;
+	providers?: Array<ChatProviderInfo>;
+};
 
 export type ChatSessionResponse = {
 	session: ChatSessionMetadata;

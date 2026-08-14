@@ -9,9 +9,18 @@ import {
 	storeThemePreference,
 } from "@prime-agent/web-design/lib/canvas-utils";
 import { startHorizontalResize } from "@prime-agent/web-design/lib/horizontal-resize";
-import { toModelOption, toModelSelection } from "@prime-agent/web-design/lib/pi/chat-helpers";
+import {
+	availableThinkingLevels,
+	clampThinkingLevel,
+	toModelOption,
+	toModelSelection,
+} from "@prime-agent/web-design/lib/pi/chat-helpers";
 import { resolveWorkspacePanelTarget } from "@prime-agent/web-design/lib/workspace-path-nav";
-import type { ChatModelsResponse, ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
+import type {
+	ChatModelsResponse,
+	ChatSessionMetadata,
+	ChatThinkingLevel,
+} from "@prime-agent/web-protocol/chat-protocol";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChatStorage } from "./use-chat-storage";
@@ -21,6 +30,7 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
 
 	const models = useMemo(() => modelsData?.models.map(toModelOption) ?? [], [modelsData]);
 	const [modelKey, setModelKey] = useState<string | undefined>();
+	const [thinkingLevel, setThinkingLevelState] = useState<ChatThinkingLevel | undefined>();
 	const [rightPanel, setRightPanelState] = useState<RightPanel>(null);
 	const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string | null>(null);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -42,6 +52,13 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
 			setModelKey(preferredKey);
 		}
 	}, [models, modelKey, modelsData]);
+
+	useEffect(() => {
+		const selected = models.find((model) => model.id === modelKey);
+		if (!selected) return;
+		const available = availableThinkingLevels(selected);
+		setThinkingLevelState((current) => clampThinkingLevel(current ?? modelsData?.defaultThinkingLevel, available));
+	}, [models, modelKey, modelsData?.defaultThinkingLevel]);
 
 	useEffect(() => {
 		applyThemePreference(themePreference);
@@ -143,7 +160,21 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
 	);
 
 	const selectedModel = models.find((model) => model.id === modelKey);
-	const modelSelection = useMemo(() => toModelSelection(selectedModel), [selectedModel]);
+	const resolvedThinkingLevel = clampThinkingLevel(
+		thinkingLevel ?? modelsData?.defaultThinkingLevel,
+		availableThinkingLevels(selectedModel),
+	);
+	const setThinkingLevel = useCallback(
+		(level: ChatThinkingLevel) => {
+			const selected = models.find((model) => model.id === modelKey);
+			setThinkingLevelState(clampThinkingLevel(level, availableThinkingLevels(selected)));
+		},
+		[modelKey, models],
+	);
+	const modelSelection = useMemo(
+		() => toModelSelection(selectedModel, resolvedThinkingLevel),
+		[resolvedThinkingLevel, selectedModel],
+	);
 
 	return {
 		commandPaletteOpen,
@@ -162,6 +193,8 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
 		setModelKey,
 		setRightPanel,
 		setSelectedWorkspacePath,
+		setThinkingLevel,
 		themePreference,
+		thinkingLevel: resolvedThinkingLevel,
 	};
 }

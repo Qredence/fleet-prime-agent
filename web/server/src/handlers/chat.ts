@@ -28,6 +28,9 @@ export function handleChatPost(request: Request): Promise<Response> {
 		}
 		if (model !== undefined) {
 			await bridge.setModel(session.sessionId, model);
+			if (typeof model === "object" && typeof model.thinkingLevel === "string") {
+				session.session.setThinkingLevel(model.thinkingLevel);
+			}
 		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			process.stderr.write(
