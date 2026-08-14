@@ -10,6 +10,8 @@ export {
 	ChatModelsDiscoverResponseSchema,
 	ChatModelsResponseSchema,
 	ChatProviderInfoSchema,
+	ChatProviderOAuthLoginRequestSchema,
+	ChatProviderOAuthLoginResponseSchema,
 	ChatProviderRemoveRequestSchema,
 	ChatProviderRemoveResponseSchema,
 	ChatProvidersResponseSchema,

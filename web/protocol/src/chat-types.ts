@@ -30,6 +30,8 @@ export type ChatMessage = {
 	role: ChatMessageRole;
 	parts: Array<ChatMessagePart>;
 	createdAt?: Date | string | number;
+	/** Web-only echo from slash handlers; never persisted or sent to the agent. */
+	source?: "local";
 	experimental_attachments?: Array<{
 		contentType?: string;
 		url?: string;
