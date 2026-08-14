@@ -5,6 +5,7 @@ import {
 	ChatProviderRemoveRequestSchema,
 	ChatProviderUpdateRequestSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { KNOWN_PROVIDERS } from "@prime-agent/web-protocol/provider-catalog";
 import { getPrimeConfig } from "../prime-config";
 import { PRIME_PROVIDER_ENV_MAP } from "../prime-provider-env-map";
 import { wrapApiHandler } from "../wrap-api-handler";
@@ -54,6 +55,23 @@ type CustomProviderEntry = {
 
 type CustomProvidersMap = Record<string, CustomProviderEntry>;
 
+const KNOWN_PROVIDER_BY_ID = new Map(KNOWN_PROVIDERS.map((provider) => [provider.id, provider]));
+
+export function resolveProviderAuthFields(
+	providerId: string,
+	envVarName: string,
+	oauthProviderIds: ReadonlySet<string>,
+): { authType?: "apiKey" | "oauth"; supportsOAuth?: boolean } {
+	if (!oauthProviderIds.has(providerId)) return {};
+
+	const knownProvider = KNOWN_PROVIDER_BY_ID.get(providerId);
+	const oauthOnly = knownProvider?.authType === "oauth" || (knownProvider === undefined && !envVarName);
+	return {
+		authType: oauthOnly ? "oauth" : "apiKey",
+		supportsOAuth: true,
+	};
+}
+
 function readCustomProviders(modelsJsonPath: string): CustomProvidersMap {
 	try {
 		if (!existsSync(modelsJsonPath)) return {};
@@ -80,11 +98,12 @@ function buildProviders() {
 			const status = config.modelRegistry.getProviderAuthStatus(id);
 			const name = isCustom ? (customEntry?.name ?? id) : (BUILT_IN_PROVIDER_DISPLAY_NAMES[id] ?? id);
 			const envVarName = isCustom ? (customEntry?.apiKey ?? "") : (PRIME_PROVIDER_ENV_MAP[id] ?? "");
+			const authFields = resolveProviderAuthFields(id, envVarName, oauthIds);
 			return {
 				id,
 				name,
 				envVarName,
-				...(oauthIds.has(id) ? { authType: "oauth" as const } : {}),
+				...authFields,
 				isConfigured: status.configured,
 			};
 		})

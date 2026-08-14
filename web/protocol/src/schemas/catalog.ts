@@ -136,6 +136,7 @@ export const ChatProviderInfoSchema = z
 		isConfigured: z.boolean(),
 		envVarName: z.string(),
 		authType: z.enum(["apiKey", "oauth"]).optional(),
+		supportsOAuth: z.boolean().optional(),
 		providerFamily: z.string().optional(),
 		displayName: z.string().optional(),
 		api: z.enum(["openai-completions", "openai-responses", "anthropic-messages", "google-genai"]).optional(),
