@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { resolveChatApiUrl } from "./chat-runtime-url";
 
 export type KernelHealth = {
 	ok: boolean;
@@ -12,7 +13,7 @@ export function useKernelHealth(pollMs = 15_000) {
 		let cancelled = false;
 		const tick = async () => {
 			try {
-				const response = await fetch("/api/health");
+				const response = await fetch(resolveChatApiUrl("/api/health"));
 				const body = (await response.json()) as { kernel?: KernelHealth };
 				if (!cancelled && body.kernel) setKernel(body.kernel);
 			} catch {
