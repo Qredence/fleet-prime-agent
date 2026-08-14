@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
+import { IpythonKernelProvisioner } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrimeBridge } from "../prime-bridge";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
@@ -27,6 +28,10 @@ describe("PrimeBridge", () => {
 		resetBridgeForTests();
 	});
 
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it("listSessions is empty by default until the agent boots", async () => {
 		const bridge = new PrimeBridge();
 		setBridgeForTests(bridge);
@@ -34,15 +39,35 @@ describe("PrimeBridge", () => {
 		expect(Array.isArray(sessions)).toBe(true);
 	});
 
-	it("kernelReadyState initialises to pending without boot-time kernel probe", async () => {
+	it("kernelReadyState is not-started until ensureKernelReady", () => {
 		const bridge = new PrimeBridge();
-		// .kernelReadyState() may be ok or not depending on whether the singleton
-		// has been warm-booted; we just verify it returns a {ok, reason?} shape.
-		const state = bridge.kernelReadyState();
-		expect(typeof state.ok).toBe("boolean");
-		if (!state.ok) {
-			expect(typeof state.reason).toBe("string");
-		}
+		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "not-started" });
+	});
+
+	it("kernelReadyState moves from pending to settled after ensureKernelReady", async () => {
+		let settle!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			settle = resolve;
+		});
+		vi.spyOn(IpythonKernelProvisioner.prototype, "ensure").mockReturnValue(gate as never);
+
+		const bridge = new PrimeBridge({ kernelTimeoutMs: 30_000 });
+		const boot = bridge.ensureKernelReady();
+		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "pending" });
+
+		settle();
+		await boot;
+		expect(bridge.kernelReadyState()).toEqual({ ok: true });
+	});
+
+	it("kernelReadyState records ensure failure", async () => {
+		vi.spyOn(IpythonKernelProvisioner.prototype, "ensure").mockRejectedValue(new Error("no kernel"));
+
+		const bridge = new PrimeBridge({ kernelTimeoutMs: 30_000 });
+		const boot = bridge.ensureKernelReady();
+		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "pending" });
+		await expect(boot).rejects.toThrow("no kernel");
+		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "no kernel" });
 	});
 
 	it("answerDialog returns false for unknown toolCallId", () => {

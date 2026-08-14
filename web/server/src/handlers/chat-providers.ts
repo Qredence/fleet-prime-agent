@@ -42,6 +42,7 @@ const BUILT_IN_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	"xiaomi-token-plan-cn": "Xiaomi MiMo Token Plan (China)",
 	"xiaomi-token-plan-ams": "Xiaomi MiMo Token Plan (Amsterdam)",
 	"xiaomi-token-plan-sgp": "Xiaomi MiMo Token Plan (Singapore)",
+	"github-copilot": "GitHub Copilot",
 };
 
 type CustomProviderEntry = {
@@ -88,6 +89,10 @@ function buildProviders() {
 			};
 		})
 		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function listChatProviders() {
+	return buildProviders();
 }
 
 export function handleChatProvidersGet(_request: Request): Promise<Response> {
