@@ -6,6 +6,10 @@ export type KernelHealth = {
 	reason?: string;
 };
 
+function isKernelHealth(value: unknown): value is KernelHealth {
+	return typeof value === "object" && value !== null && typeof (value as { ok?: unknown }).ok === "boolean";
+}
+
 export function useKernelHealth(pollMs = 15_000) {
 	const [kernel, setKernel] = useState<KernelHealth | null>(null);
 
@@ -14,10 +18,17 @@ export function useKernelHealth(pollMs = 15_000) {
 		const tick = async () => {
 			try {
 				const response = await fetch(resolveChatApiUrl("/api/health"));
-				const body = (await response.json()) as { kernel?: KernelHealth };
-				if (!cancelled && body.kernel) setKernel(body.kernel);
-			} catch {
-				if (!cancelled) setKernel({ ok: false, reason: "unreachable" });
+				if (!response.ok) throw new Error(`http-${response.status}`);
+				const body = (await response.json()) as { kernel?: unknown };
+				if (!isKernelHealth(body.kernel)) throw new Error("invalid-response");
+				if (!cancelled) setKernel(body.kernel);
+			} catch (error) {
+				if (!cancelled) {
+					setKernel({
+						ok: false,
+						reason: error instanceof Error ? error.message : "unreachable",
+					});
+				}
 			}
 		};
 		void tick();
