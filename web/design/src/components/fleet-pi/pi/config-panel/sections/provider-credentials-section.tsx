@@ -9,18 +9,22 @@ import { Spinner } from "../../../../spinner"
 import { SettingsPane } from "../../../primitives/settings-pane"
 import {
   AddProviderEditorPanel,
+  AddProviderOAuthPanel,
   AddProviderPickerPanel,
   RemoveProviderConfirmDialog,
 } from "./provider-credentials-editor"
 import { ActiveProviderList } from "./provider-credentials-list"
-import type {
-  ProviderCredentialActions,
-  ProviderCredentialForm,
-  ProviderOperationState,
+import {
+  isOAuthProvider,
+  type ProviderCredentialActions,
+  type ProviderCredentialForm,
+  type ProviderOperationState,
 } from "./provider-credentials-types"
 import { useProviderCredentialsController } from "./use-provider-credentials-controller"
 import type {
   ChatProviderInfo,
+  ChatProviderOAuthLoginRequest,
+  ChatProviderOAuthLoginResponse,
   ChatProviderRemoveRequest,
   ChatProviderRemoveResponse,
   ChatProviderUpdateRequest,
@@ -39,12 +43,16 @@ import type {
 export function ProviderCredentialsSection({
   isLoading,
   isPending,
+  onOAuthLogin,
   onRemoveProvider,
   onUpdateProvider,
   providers,
 }: {
   isLoading: boolean
   isPending: boolean
+  onOAuthLogin?: (
+    request: ChatProviderOAuthLoginRequest
+  ) => Promise<ChatProviderOAuthLoginResponse>
   onRemoveProvider?: (
     request: ChatProviderRemoveRequest
   ) => Promise<ChatProviderRemoveResponse>
@@ -139,6 +147,15 @@ export function ProviderCredentialsSection({
           onQueryChange={setAddPickerQuery}
           onSelect={selectProviderFromPicker}
         />
+      ) : editingUnconfiguredProvider &&
+        isOAuthProvider(editingUnconfiguredProvider) ? (
+        <AddProviderOAuthPanel
+          key={editingUnconfiguredProvider.id}
+          provider={editingUnconfiguredProvider}
+          onBack={openAddPicker}
+          onConfigured={closeEditor}
+          onOAuthLogin={onOAuthLogin}
+        />
       ) : editingUnconfiguredProvider ? (
         <AddProviderEditorPanel
           provider={editingUnconfiguredProvider}
@@ -161,6 +178,8 @@ export function ProviderCredentialsSection({
           onTogglePassword={() => setShowPassword((current) => !current)}
           onBack={openAddPicker}
           onCancel={closeEditor}
+          onConfigured={closeEditor}
+          onOAuthLogin={onOAuthLogin}
           onSave={() => {
             if (editingProvider) void handleSave(editingProvider)
           }}
@@ -229,6 +248,8 @@ export function ProviderCredentialsSection({
               onCancelEdit={closeEditor}
               onSave={(providerId) => void handleSave(providerId)}
               onRemove={setConfirmRemoveProvider}
+              onOAuthLogin={onOAuthLogin}
+              onConfigured={closeEditor}
             />
           )}
         </div>

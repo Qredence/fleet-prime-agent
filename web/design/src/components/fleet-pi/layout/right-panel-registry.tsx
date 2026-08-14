@@ -9,6 +9,8 @@ import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils"
 import type {
   ChatPiSettingsUpdate,
   ChatProviderInfo,
+  ChatProviderOAuthLoginRequest,
+  ChatProviderOAuthLoginResponse,
   ChatProviderRemoveRequest,
   ChatProviderRemoveResponse,
   ChatProviderUpdateRequest,
@@ -31,6 +33,9 @@ export type RightPanelContentProps = {
   /** Full registry catalog for Settings model curation (unfiltered). */
   modelCatalog?: Array<ChatModelOption>
   onDiscoverModels?: (providerId: string) => Promise<Array<ChatModelOption>>
+  onOAuthLogin?: (
+    request: ChatProviderOAuthLoginRequest
+  ) => Promise<ChatProviderOAuthLoginResponse>
   onThemePreferenceChange: (preference: ThemePreference) => void
   onRemoveProvider?: (
     request: ChatProviderRemoveRequest

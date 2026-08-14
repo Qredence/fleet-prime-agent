@@ -2,6 +2,7 @@ import type { ChatPiSettings, ChatSettingsResponse } from "@prime-agent/web-prot
 import { useMemo, useState } from "react";
 import {
 	formatPackageSourceRows,
+	harnessSettings,
 	parsePackageSourceRows,
 	resourceSettings,
 	sameJson,
@@ -35,6 +36,7 @@ export function useResourcesForm({
 		!!draft &&
 		!!settings &&
 		(!sameJson(resourceSettings(draft), resourceSettings(settings.effective)) ||
+			!sameJson(harnessSettings(draft), harnessSettings(settings.effective)) ||
 			!sameJson(
 				packageRows.filter((row) => row.trim()),
 				formatPackageSourceRows(settings.effective.packages),
@@ -61,6 +63,11 @@ export function useResourcesForm({
 			prompts: settings.effective.prompts,
 			themes: settings.effective.themes,
 			enableSkillCommands: settings.effective.enableSkillCommands,
+			compaction: settings.effective.compaction,
+			retry: settings.effective.retry,
+			transport: settings.effective.transport,
+			steeringMode: settings.effective.steeringMode,
+			followUpMode: settings.effective.followUpMode,
 		}));
 		setEditedPackageRows(null);
 		setPackageError(undefined);

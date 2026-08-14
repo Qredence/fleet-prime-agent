@@ -2,7 +2,6 @@ import {
   BookOpenText,
   ChevronDown,
   History,
-  LogIn,
   LogOut,
   Plus,
   Settings,
@@ -47,12 +46,10 @@ export type AccountMenuUser = {
 export function AccountMenu({
   user,
   onSignOut,
-  onSignIn,
   onOpenSettings,
 }: {
   user: AccountMenuUser | null
   onSignOut: () => Promise<void> | void
-  onSignIn: () => void
   onOpenSettings?: () => void
 }) {
   const menuItemClass =
@@ -112,10 +109,6 @@ export function AccountMenu({
           </>
         ) : (
           <>
-            <button type="button" className={menuItemClass} onClick={onSignIn}>
-              <LogIn className="size-3.5 shrink-0 text-foreground/50" />
-              <span className="truncate">Sign in</span>
-            </button>
             <a
               href={DOCUMENTATION_URL}
               target="_blank"
@@ -211,5 +204,30 @@ export function SessionControls({
         <Plus className="size-3.5 shrink-0" />
       </ChromePillButton>
     </>
+  )
+}
+
+export function KernelStatusChip({
+  ok,
+  reason,
+}: {
+  ok: boolean | null
+  reason?: string
+}) {
+  if (ok === null) return null
+  const label = ok
+    ? "Kernel ready"
+    : reason === "not-started"
+      ? "Kernel off"
+      : reason
+        ? `Kernel: ${reason}`
+        : "Kernel error"
+  return (
+    <ChromePillButton ariaLabel={label} className="hidden sm:inline-flex">
+      <span
+        className={`size-1.5 shrink-0 rounded-full ${ok ? "bg-emerald-500" : "bg-foreground/35"}`}
+      />
+      <span className="text-[12px] whitespace-nowrap">{label}</span>
+    </ChromePillButton>
   )
 }

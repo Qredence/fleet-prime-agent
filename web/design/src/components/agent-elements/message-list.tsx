@@ -227,8 +227,13 @@ function groupMessagesIntoTurns(messages: Array<ChatMessage>) {
       if (current) turns.push(current)
       current = { userMsg: msg, assistantMsgs: [] }
     } else if (msg.role === "assistant") {
-      if (!current) current = { assistantMsgs: [] }
-      current.assistantMsgs.push(msg)
+      const isLocal = msg.source === "local"
+      if (!current || isLocal) {
+        if (current) turns.push(current)
+        current = { assistantMsgs: [msg] }
+      } else {
+        current.assistantMsgs.push(msg)
+      }
     }
   }
   if (current) turns.push(current)

@@ -66,7 +66,12 @@ export const PROVIDER_METADATA: Record<string, PiProviderUiMetadata> = {
 	"github-copilot": {
 		icon: Bot,
 		placeholder: "OAuth subscription",
-		help: "GitHub Copilot uses subscription OAuth rather than a static API key in Fleet Pi settings.",
+		help: "GitHub Copilot uses device-code OAuth. Sign in from Settings; credentials are stored in auth.json.",
+	},
+	"openai-codex": {
+		icon: Sparkles,
+		placeholder: "OAuth subscription",
+		help: "OpenAI Codex uses ChatGPT OAuth. Sign in from Settings; credentials are stored in auth.json.",
 	},
 	ollama: {
 		icon: Cpu,

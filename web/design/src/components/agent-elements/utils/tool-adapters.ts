@@ -158,8 +158,17 @@ export function mapToolInvocationToStep(
 	}
 
 	if (toolName.toLowerCase() === "thinking" || toolName.toLowerCase() === "reasoning") {
-		step.thoughtContent =
-			typeof args?.thought === "string" ? args.thought : typeof result === "string" ? result : undefined;
+		const fromArgs =
+			typeof args?.thought === "string" ? args.thought : typeof args?.text === "string" ? args.text : undefined;
+		const fromResult =
+			typeof result === "string"
+				? result
+				: result && typeof result === "object" && typeof (result as { text?: unknown }).text === "string"
+					? (result as { text: string }).text
+					: typeof result === "object" && result && typeof (result as { thought?: unknown }).thought === "string"
+						? (result as { thought: string }).thought
+						: undefined;
+		step.thoughtContent = fromArgs ?? fromResult;
 	}
 
 	return step;

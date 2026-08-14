@@ -25,8 +25,12 @@ import {
 import { ProviderBrandIcon } from "../shared/provider-brand-icon"
 import { ProviderCredentialFields } from "../shared/provider-credential-fields"
 import { CUSTOM_PROVIDER_PICKER_ID } from "./use-provider-credentials-controller"
+import { isOAuthProvider, supportsOAuth } from "./provider-credentials-types"
+import { ProviderOAuthSignIn } from "./provider-oauth-sign-in"
 import type {
   ChatProviderInfo,
+  ChatProviderOAuthLoginRequest,
+  ChatProviderOAuthLoginResponse,
   PiCustomProviderApi,
 } from "@prime-agent/web-protocol/chat-protocol"
 
@@ -128,6 +132,48 @@ export function AddProviderPickerPanel({
   )
 }
 
+export function AddProviderOAuthPanel({
+  onBack,
+  onConfigured,
+  onOAuthLogin,
+  provider,
+}: {
+  onBack: () => void
+  onConfigured?: () => void
+  onOAuthLogin?: (
+    request: ChatProviderOAuthLoginRequest
+  ) => Promise<ChatProviderOAuthLoginResponse>
+  provider: ChatProviderInfo
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Back to provider list"
+          onClick={onBack}
+        >
+          <ArrowLeft />
+        </Button>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">Configure {provider.name}</p>
+          <p className="text-xs text-pretty text-muted-foreground">
+            OAuth sign-in. Credentials are stored in auth.json for this account.
+          </p>
+        </div>
+      </div>
+      <ProviderOAuthSignIn
+        key={provider.id}
+        provider={provider}
+        onConfigured={onConfigured}
+        onOAuthLogin={onOAuthLogin}
+      />
+    </div>
+  )
+}
+
 export function AddProviderEditorPanel({
   provider,
   api,
@@ -149,6 +195,8 @@ export function AddProviderEditorPanel({
   onTogglePassword,
   onBack,
   onCancel,
+  onConfigured,
+  onOAuthLogin,
   onSave,
 }: {
   provider: ChatProviderInfo
@@ -171,6 +219,10 @@ export function AddProviderEditorPanel({
   onTogglePassword: () => void
   onBack: () => void
   onCancel: () => void
+  onConfigured?: () => void
+  onOAuthLogin?: (
+    request: ChatProviderOAuthLoginRequest
+  ) => Promise<ChatProviderOAuthLoginResponse>
   onSave: () => void
 }) {
   const isCustomTemplate =
@@ -184,6 +236,7 @@ export function AddProviderEditorPanel({
           help: "Stored securely in your local environment overrides.",
         })
   const openAiChat = isOccProviderId(provider.id) && !isCustomTemplate
+  const oauthAvailable = supportsOAuth(provider)
 
   return (
     <div className="flex flex-col gap-3">
@@ -251,6 +304,14 @@ export function AddProviderEditorPanel({
           Save
         </Button>
       </div>
+      {oauthAvailable ? (
+        <ProviderOAuthSignIn
+          key={`${provider.id}-oauth`}
+          provider={provider}
+          onConfigured={onConfigured ?? onCancel}
+          onOAuthLogin={onOAuthLogin}
+        />
+      ) : null}
     </div>
   )
 }
@@ -312,6 +373,8 @@ function ProviderPickerRow({
   const openAiChat = isOccProviderId(provider.id)
   const isCustomTemplate =
     provider.id === CUSTOM_PROVIDER_PICKER_ID || isCustomProviderId(provider.id)
+  const oauthOnly = isOAuthProvider(provider)
+  const oauthAvailable = supportsOAuth(provider)
 
   return (
     <button
@@ -332,11 +395,15 @@ function ProviderPickerRow({
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{provider.name}</div>
         <div className="truncate text-xs text-muted-foreground">
-          {isCustomTemplate
-            ? "API family + key + https base URL + models"
-            : openAiChat
-              ? "API key + base URL + model name"
-              : provider.envVarName}
+          {oauthOnly
+            ? "OAuth sign-in"
+            : oauthAvailable
+              ? "API key or OAuth"
+            : isCustomTemplate
+              ? "API family + key + https base URL + models"
+              : openAiChat
+                ? "API key + base URL + model name"
+                : provider.envVarName}
           {configured ? " · Update" : ""}
         </div>
       </div>

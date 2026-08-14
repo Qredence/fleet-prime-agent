@@ -1,4 +1,12 @@
-import type { PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatProviderInfo, PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
+
+export function isOAuthProvider(provider: ChatProviderInfo): boolean {
+	return provider.authType === "oauth";
+}
+
+export function supportsOAuth(provider: ChatProviderInfo): boolean {
+	return provider.supportsOAuth === true;
+}
 
 export type ProviderCredentialForm = {
 	api: PiCustomProviderApi;

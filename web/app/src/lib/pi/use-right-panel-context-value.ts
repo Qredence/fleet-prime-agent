@@ -8,6 +8,8 @@ import type { ChatModelOption } from "@prime-agent/web-design/lib/pi/chat-helper
 import type {
 	ChatPiSettingsUpdate,
 	ChatProviderInfo,
+	ChatProviderOAuthLoginRequest,
+	ChatProviderOAuthLoginResponse,
 	ChatProviderRemoveRequest,
 	ChatProviderRemoveResponse,
 	ChatProviderUpdateRequest,
@@ -33,6 +35,7 @@ type UseRightPanelContextValueArgs = {
 	models: Array<ChatModelOption>;
 	modelCatalog?: Array<ChatModelOption>;
 	onDiscoverModels?: (providerId: string) => Promise<Array<ChatModelOption>>;
+	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
 	onUpdateProvider?: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
 	openWorkspacePath: (rawPath: string) => void;
@@ -77,6 +80,7 @@ export function useRightPanelContextValue({
 	models,
 	modelCatalog,
 	onDiscoverModels,
+	onOAuthLogin,
 	onRemoveProvider,
 	onUpdateProvider,
 	openWorkspacePath,
@@ -167,6 +171,7 @@ export function useRightPanelContextValue({
 			isUpdatingProvider,
 			modelCatalog,
 			onDiscoverModels,
+			onOAuthLogin,
 			onRemoveProvider,
 			onThemePreferenceChange: handleThemePreferenceChange,
 			onUpdateProvider,
@@ -183,6 +188,7 @@ export function useRightPanelContextValue({
 			isUpdatingProvider,
 			modelCatalog,
 			onDiscoverModels,
+			onOAuthLogin,
 			onRemoveProvider,
 			onUpdateProvider,
 			providers,

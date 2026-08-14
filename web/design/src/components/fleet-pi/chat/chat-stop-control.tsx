@@ -9,7 +9,7 @@ export type ChatStopControlProps = {
 }
 
 export function ChatStopControl({ status, onStop }: ChatStopControlProps) {
-  const isBusy = status === "streaming" || status === "submitted"
+  const isBusy = status === "submitted" || status === "streaming"
 
   if (!isBusy) return null
 

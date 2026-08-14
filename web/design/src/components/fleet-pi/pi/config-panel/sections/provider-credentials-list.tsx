@@ -13,12 +13,19 @@ import {
 } from "@prime-agent/web-protocol/provider-catalog"
 import { ProviderBrandIcon } from "../shared/provider-brand-icon"
 import { ProviderCredentialFields } from "../shared/provider-credential-fields"
-import type { ChatProviderInfo } from "@prime-agent/web-protocol/chat-protocol"
 import type {
-  ProviderCredentialActions,
-  ProviderCredentialForm,
-  ProviderOperationState,
+  ChatProviderInfo,
+  ChatProviderOAuthLoginRequest,
+  ChatProviderOAuthLoginResponse,
+} from "@prime-agent/web-protocol/chat-protocol"
+import {
+  isOAuthProvider,
+  type ProviderCredentialActions,
+  type ProviderCredentialForm,
+  type ProviderOperationState,
+  supportsOAuth,
 } from "./provider-credentials-types"
+import { ProviderOAuthSignIn } from "./provider-oauth-sign-in"
 
 export function ActiveProviderList({
   providers,
@@ -30,6 +37,8 @@ export function ActiveProviderList({
   onCancelEdit,
   onSave,
   onRemove,
+  onOAuthLogin,
+  onConfigured,
 }: {
   providers: Array<ChatProviderInfo>
   editingProvider: string | null
@@ -40,6 +49,10 @@ export function ActiveProviderList({
   onCancelEdit: () => void
   onSave: (providerId: string) => void
   onRemove: (provider: ChatProviderInfo) => void
+  onOAuthLogin?: (
+    request: ChatProviderOAuthLoginRequest
+  ) => Promise<ChatProviderOAuthLoginResponse>
+  onConfigured?: () => void
 }) {
   const {
     api,
@@ -72,6 +85,8 @@ export function ActiveProviderList({
           PROVIDER_METADATA[provider.id] ??
           PROVIDER_METADATA[isCustom ? "custom" : "openai-chat-completions"]
         const openAiChat = isOccProviderId(provider.id)
+        const oauthOnly = isOAuthProvider(provider)
+        const oauthAvailable = supportsOAuth(provider)
 
         return (
           <div key={provider.id} className="flex flex-col">
@@ -86,11 +101,15 @@ export function ActiveProviderList({
               }
               title={provider.name}
               subtitle={
-                isCustom
-                  ? "Custom provider · API key + base URL + models"
-                  : openAiChat
-                    ? "OpenAI-compatible · API key + base URL + model name"
-                    : provider.envVarName
+                oauthOnly
+                  ? "OAuth sign-in"
+                  : oauthAvailable
+                    ? "API key or OAuth"
+                  : isCustom
+                    ? "Custom provider · API key + base URL + models"
+                    : openAiChat
+                      ? "OpenAI-compatible · API key + base URL + model name"
+                      : provider.envVarName
               }
               trailing={
                 <div className="flex items-center gap-0.5">
@@ -138,49 +157,68 @@ export function ActiveProviderList({
                 padding="md"
                 className="flex flex-col gap-2 border-t border-border/30"
               >
-                <ProviderCredentialFields
-                  attemptedSave={attemptedSave}
-                  api={provider.api ?? api}
-                  apiKey={apiKey}
-                  baseUrl={baseUrl}
-                  modelId={modelId}
-                  models={models}
-                  displayName={displayName}
-                  isCustom={isCustom}
-                  openAiChat={openAiChat}
-                  placeholder={meta.placeholder}
-                  showPassword={showPassword}
-                  onApiKeyChange={onApiKeyChange}
-                  onApiChange={onApiChange}
-                  onBaseUrlChange={onBaseUrlChange}
-                  onModelIdChange={onModelIdChange}
-                  onModelsChange={onModelsChange}
-                  onDisplayNameChange={
-                    isCustom || provider.providerFamily !== undefined
-                      ? onDisplayNameChange
-                      : undefined
-                  }
-                  onTogglePassword={onTogglePassword}
-                />
+                {oauthOnly ? (
+                  <ProviderOAuthSignIn
+                    key={provider.id}
+                    provider={provider}
+                    onConfigured={onConfigured}
+                    onOAuthLogin={onOAuthLogin}
+                  />
+                ) : (
+                  <>
+                    <ProviderCredentialFields
+                      attemptedSave={attemptedSave}
+                      api={provider.api ?? api}
+                      apiKey={apiKey}
+                      baseUrl={baseUrl}
+                      modelId={modelId}
+                      models={models}
+                      displayName={displayName}
+                      isCustom={isCustom}
+                      openAiChat={openAiChat}
+                      placeholder={meta.placeholder}
+                      showPassword={showPassword}
+                      onApiKeyChange={onApiKeyChange}
+                      onApiChange={onApiChange}
+                      onBaseUrlChange={onBaseUrlChange}
+                      onModelIdChange={onModelIdChange}
+                      onModelsChange={onModelsChange}
+                      onDisplayNameChange={
+                        isCustom || provider.providerFamily !== undefined
+                          ? onDisplayNameChange
+                          : undefined
+                      }
+                      onTogglePassword={onTogglePassword}
+                    />
 
-                <Alert className="px-3 py-2">
-                  <Info />
-                  <AlertDescription className="text-xs text-pretty">
-                    {meta.help}
-                  </AlertDescription>
-                </Alert>
+                    <Alert className="px-3 py-2">
+                      <Info />
+                      <AlertDescription className="text-xs text-pretty">
+                        {meta.help}
+                      </AlertDescription>
+                    </Alert>
 
-                <div className="flex items-center justify-end">
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={isPending || !canSave}
-                    onClick={() => onSave(provider.id)}
-                  >
-                    {isPending ? <Spinner data-icon="inline-start" /> : null}
-                    Save
-                  </Button>
-                </div>
+                    <div className="flex items-center justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={isPending || !canSave}
+                        onClick={() => onSave(provider.id)}
+                      >
+                        {isPending ? <Spinner data-icon="inline-start" /> : null}
+                        Save
+                      </Button>
+                    </div>
+                    {oauthAvailable ? (
+                      <ProviderOAuthSignIn
+                        key={`${provider.id}-oauth`}
+                        provider={provider}
+                        onConfigured={onConfigured}
+                        onOAuthLogin={onOAuthLogin}
+                      />
+                    ) : null}
+                  </>
+                )}
               </RowSurface>
             ) : null}
           </div>
