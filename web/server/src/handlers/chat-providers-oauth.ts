@@ -95,11 +95,7 @@ function waitForInput(session: OAuthLoginSession): Promise<string> {
 }
 
 function finishIfTerminal(session: OAuthLoginSession): ChatProviderOAuthLoginResponse {
-	const result = snapshot(session);
-	if (session.status === "success" || session.status === "error") {
-		dropSession(session.id);
-	}
-	return result;
+	return snapshot(session);
 }
 
 function setPrompt(session: OAuthLoginSession, prompt: OAuthPromptState): void {

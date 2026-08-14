@@ -205,7 +205,8 @@ describe("startOAuthLogin", () => {
 		expect(completed.status).toBe("success");
 		expect(completed.providers).toEqual(providers);
 		expect(reloaded).toBe(true);
-		expect(pollOAuthLogin(result.loginId ?? "").error).toBe("Unknown or expired OAuth login");
+		expect(pollOAuthLogin(result.loginId ?? "")).toEqual(completed);
+		expect(pollOAuthLogin(result.loginId ?? "")).toEqual(completed);
 	});
 
 	it("cancels an in-flight login before onAuth", () => {
