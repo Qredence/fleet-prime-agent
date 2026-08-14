@@ -11,12 +11,17 @@
  */
 
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { AssistantMessage, ImageContent, TextContent, UserMessage } from "@earendil-works/pi-ai";
+import type { AssistantMessage, ImageContent, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentSession, AgentSessionEvent, SessionEntry, SessionInfo } from "@earendil-works/pi-coding-agent";
 import { createAgentSession, IpythonKernelProvisioner, SessionManager } from "@earendil-works/pi-coding-agent";
 import type { ChatMessage, ChatQuestionAnswer, ChatStreamEvent } from "@prime-agent/web-protocol";
 
-import { createEventMapperState, mapAgentSessionEvent } from "./event-mapper";
+import {
+	createEventMapperState,
+	mapAgentSessionEvent,
+	toChatMessageFromAssistant,
+	toChatMessageFromUser,
+} from "./event-mapper";
 import { PendingDialogRegistry } from "./pending-dialogs";
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
@@ -244,6 +249,8 @@ export interface PrimeBridgeOptions {
 	readonly dialogTimeoutMs?: number;
 }
 
+type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
+
 export class PrimeBridge {
 	readonly #sessions = new Map<string, BridgeSession>();
 	readonly #listeners = new Set<BridgeEventListener>();
@@ -252,6 +259,7 @@ export class PrimeBridge {
 	readonly #kernelTimeoutMs: number;
 	readonly #ringBufferCapacity: number;
 	#kernelReady: Promise<void> | null = null;
+	#kernelState: KernelReadySnapshot = { ok: false, reason: "not-started" };
 
 	constructor(options: PrimeBridgeOptions = {}) {
 		this.#kernelTimeoutMs = options.kernelTimeoutMs ?? 30_000;
@@ -265,6 +273,7 @@ export class PrimeBridge {
 	/** Late-boot kernel readiness gate. Boot-time callers await this; failures cause `/api/chat/new` to 503. */
 	async ensureKernelReady(cwd?: string): Promise<void> {
 		if (!this.#kernelReady) {
+			this.#kernelState = { ok: false, reason: "pending" };
 			this.#kernelReady = (async () => {
 				// IpythonKernelProvisioner takes the session's cwd; for the boot-time
 				// readiness gate we use the server's working directory as a probe.
@@ -274,30 +283,23 @@ export class PrimeBridge {
 				);
 				await Promise.race([provisioner.ensure(), timeout]);
 			})();
+			void this.#kernelReady.then(
+				() => {
+					this.#kernelState = { ok: true };
+				},
+				(error: unknown) => {
+					this.#kernelState = {
+						ok: false,
+						reason: error instanceof Error ? error.message : String(error),
+					};
+				},
+			);
 		}
 		return this.#kernelReady;
 	}
 
 	kernelReadyState(): { ok: boolean; reason?: string } {
-		if (this.#kernelReady === null) return { ok: false, reason: "not-started" };
-		let done = false;
-		let error: unknown;
-		this.#kernelReady
-			.then(() => {
-				done = true;
-			})
-			.catch((err) => {
-				done = true;
-				error = err;
-			});
-		if (!done) return { ok: false, reason: "pending" };
-		if (error) {
-			return {
-				ok: false,
-				reason: error instanceof Error ? error.message : String(error),
-			};
-		}
-		return { ok: true };
+		return this.#kernelState;
 	}
 
 	addEventListener(listener: BridgeEventListener): () => void {
@@ -307,12 +309,13 @@ export class PrimeBridge {
 
 	/** Emit a frame to ring buffer (SSE replay) and all live listeners. */
 	#dispatch(sessionId: string, frame: ChatStreamEvent): void {
+		const next = frame.type === "done" && !(frame.sessionId ?? "").trim() ? { ...frame, sessionId } : frame;
 		const buffer = this.#ringBuffers.get(sessionId);
 		if (buffer) {
-			buffer.push({ sessionId, frame });
+			buffer.push({ sessionId, frame: next });
 		}
 		for (const listener of this.#listeners) {
-			listener(sessionId, frame);
+			listener(sessionId, next);
 		}
 	}
 
@@ -340,6 +343,7 @@ export class PrimeBridge {
 		this.#listeners.clear();
 		this.#ringBuffers.clear();
 		this.#kernelReady = null;
+		this.#kernelState = { ok: false, reason: "not-started" };
 	}
 
 	// -----------------------------------------------------------------------
@@ -397,7 +401,7 @@ export class PrimeBridge {
 			uiContext: asExtensionUIContext(uiContext) as never,
 		});
 
-		const mapperState = createEventMapperState();
+		const mapperState = createEventMapperState({ sessionId });
 		const bridgeSession: BridgeSession = {
 			sessionId,
 			cwd,
@@ -777,47 +781,11 @@ export class PrimeBridge {
 	#toChatMessage(sessionId: string, msg: AgentMessage, index: number): ChatMessage {
 		const id = `${sessionId}-m${index}`;
 		if (msg.role === "assistant") {
-			const assistantMsg = msg as AssistantMessage;
-			const parts: ChatMessage["parts"] = [];
-			for (const block of assistantMsg.content) {
-				if (block.type === "text") {
-					parts.push({ type: "text", text: block.text });
-				} else if (block.type === "thinking") {
-					parts.push({
-						type: "tool-Thinking",
-						state: "output-available",
-						input: { text: block.thinking },
-						output: { text: block.thinking },
-					} as const);
-				} else if (block.type === "toolCall") {
-					parts.push({
-						type: `tool-${block.name.charAt(0).toUpperCase()}${block.name.slice(1)}`,
-						toolCallId: block.id,
-						state: "output-available",
-						input: block.arguments,
-					} as const);
-				}
-			}
-			return { id, role: "assistant", parts };
+			return toChatMessageFromAssistant(msg as AssistantMessage, id);
 		}
 		if (msg.role === "user") {
-			const user = msg as UserMessage;
-			const parts: ChatMessage["parts"] = [];
-			if (typeof user.content === "string") {
-				parts.push({ type: "text", text: user.content });
-			} else if (Array.isArray(user.content)) {
-				for (const block of user.content) {
-					if (block && typeof block === "object" && "type" in block && block.type === "text") {
-						parts.push({
-							type: "text",
-							text: (block as TextContent).text,
-						});
-					}
-				}
-			}
-			return { id, role: "user", parts };
+			return toChatMessageFromUser(msg as UserMessage, id);
 		}
-		// toolResult / custom — drop for v1.
 		return { id, role: "assistant", parts: [] };
 	}
 

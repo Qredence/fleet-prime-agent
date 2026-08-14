@@ -5,6 +5,7 @@ import {
 	ChatProviderRemoveRequestSchema,
 	ChatProviderUpdateRequestSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { KNOWN_PROVIDERS } from "@prime-agent/web-protocol/provider-catalog";
 import { getPrimeConfig } from "../prime-config";
 import { PRIME_PROVIDER_ENV_MAP } from "../prime-provider-env-map";
 import { wrapApiHandler } from "../wrap-api-handler";
@@ -42,6 +43,7 @@ const BUILT_IN_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	"xiaomi-token-plan-cn": "Xiaomi MiMo Token Plan (China)",
 	"xiaomi-token-plan-ams": "Xiaomi MiMo Token Plan (Amsterdam)",
 	"xiaomi-token-plan-sgp": "Xiaomi MiMo Token Plan (Singapore)",
+	"github-copilot": "GitHub Copilot",
 };
 
 type CustomProviderEntry = {
@@ -52,6 +54,23 @@ type CustomProviderEntry = {
 };
 
 type CustomProvidersMap = Record<string, CustomProviderEntry>;
+
+const KNOWN_PROVIDER_BY_ID = new Map(KNOWN_PROVIDERS.map((provider) => [provider.id, provider]));
+
+export function resolveProviderAuthFields(
+	providerId: string,
+	envVarName: string,
+	oauthProviderIds: ReadonlySet<string>,
+): { authType?: "apiKey" | "oauth"; supportsOAuth?: boolean } {
+	if (!oauthProviderIds.has(providerId)) return {};
+
+	const knownProvider = KNOWN_PROVIDER_BY_ID.get(providerId);
+	const oauthOnly = knownProvider?.authType === "oauth" || (knownProvider === undefined && !envVarName);
+	return {
+		authType: oauthOnly ? "oauth" : "apiKey",
+		supportsOAuth: true,
+	};
+}
 
 function readCustomProviders(modelsJsonPath: string): CustomProvidersMap {
 	try {
@@ -79,15 +98,20 @@ function buildProviders() {
 			const status = config.modelRegistry.getProviderAuthStatus(id);
 			const name = isCustom ? (customEntry?.name ?? id) : (BUILT_IN_PROVIDER_DISPLAY_NAMES[id] ?? id);
 			const envVarName = isCustom ? (customEntry?.apiKey ?? "") : (PRIME_PROVIDER_ENV_MAP[id] ?? "");
+			const authFields = resolveProviderAuthFields(id, envVarName, oauthIds);
 			return {
 				id,
 				name,
 				envVarName,
-				...(oauthIds.has(id) ? { authType: "oauth" as const } : {}),
+				...authFields,
 				isConfigured: status.configured,
 			};
 		})
 		.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function listChatProviders() {
+	return buildProviders();
 }
 
 export function handleChatProvidersGet(_request: Request): Promise<Response> {

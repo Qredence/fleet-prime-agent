@@ -263,6 +263,8 @@ export type ChatProviderInfo = {
 	isConfigured: boolean;
 	envVarName: string;
 	authType?: "apiKey" | "oauth";
+	/** Whether this provider also exposes an interactive OAuth login. */
+	supportsOAuth?: boolean;
 	/** OCC family only: the named instance this row belongs to. */
 	providerFamily?: string;
 	/** OCC family only: user-supplied display label for the instance. */

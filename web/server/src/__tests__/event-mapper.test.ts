@@ -161,6 +161,38 @@ describe("event-mapper", () => {
 		).toEqual([{ type: "retry", phase: "end", attempt: 1, success: true }]);
 	});
 
+	it("promotes thinking-only assistant output to text on agent_end", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: {
+				type: "thinking_delta",
+				contentIndex: 0,
+				delta: "fleet-web-ok",
+				partial: mkAssistant(),
+			},
+		} as unknown as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((f) => f.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		expect(done.message.parts).toEqual([{ type: "text", text: "fleet-web-ok" }]);
+	});
+
+	it("stamps agent_end done frames with the mapper session id", () => {
+		const state = createEventMapperState({ sessionId: "019ffc49-live" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((f) => f.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		expect(done.sessionId).toBe("019ffc49-live");
+	});
+
 	it("emits agent_end with a done frame carrying the finished message", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);

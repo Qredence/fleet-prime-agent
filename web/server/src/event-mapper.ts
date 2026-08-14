@@ -47,8 +47,8 @@ function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMess
 			parts.push({
 				type: "tool-Thinking",
 				state: "output-available",
-				input: { text: block.thinking },
-				output: { text: block.thinking },
+				input: { thought: block.thinking },
+				output: block.thinking,
 			} satisfies ChatToolPart);
 		} else if (block.type === "toolCall") {
 			parts.push({
@@ -59,7 +59,12 @@ function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMess
 			} satisfies ChatToolPart);
 		}
 	}
-	return { id, role: "assistant", parts, createdAt: getTimestamp(msg) };
+	return promoteThinkingToAssistantText({
+		id,
+		role: "assistant",
+		parts,
+		createdAt: getTimestamp(msg),
+	});
 }
 
 function toChatMessageFromUser(msg: UserMessage, id: string): ChatMessage {
@@ -91,6 +96,7 @@ export { toChatMessageFromAssistant, toChatMessageFromUser };
 
 export interface EventMapperState {
 	runId: string;
+	sessionId: string;
 	messageSeq: number;
 	currentMessageId: string | undefined;
 	currentText: string;
@@ -100,9 +106,10 @@ export interface EventMapperState {
 	inRun: boolean;
 }
 
-export function createEventMapperState(): EventMapperState {
+export function createEventMapperState(init?: { sessionId?: string }): EventMapperState {
 	return {
 		runId: "",
+		sessionId: init?.sessionId ?? "",
 		messageSeq: 0,
 		currentMessageId: undefined,
 		currentText: "",
@@ -143,7 +150,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 					type: "done",
 					runId: state.runId,
 					message: finalMessage,
-					sessionId: "",
+					sessionId: state.sessionId,
 					sessionFile: undefined,
 				},
 			];
@@ -337,6 +344,38 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 // Finalization
 // ---------------------------------------------------------------------------
 
+function thinkingTextFromPart(part: ChatMessage["parts"][number]): string {
+	if (part.type !== "tool-Thinking") return "";
+	if (part.input && typeof part.input === "object") {
+		const rec = part.input as Record<string, unknown>;
+		if (typeof rec.thought === "string") return rec.thought;
+		if (typeof rec.text === "string") return rec.text;
+	}
+	if (typeof part.output === "string") return part.output;
+	if (part.output && typeof part.output === "object") {
+		const rec = part.output as Record<string, unknown>;
+		if (typeof rec.thought === "string") return rec.thought;
+		if (typeof rec.text === "string") return rec.text;
+	}
+	return "";
+}
+
+function promoteThinkingToAssistantText(message: ChatMessage): ChatMessage {
+	if (message.role !== "assistant") return message;
+	const text = message.parts
+		.filter((part): part is Extract<ChatMessage["parts"][number], { type: "text" }> => part.type === "text")
+		.map((part) => part.text)
+		.join("");
+	if (text.trim()) return message;
+	const thinking = message.parts.map(thinkingTextFromPart).join("");
+	if (!thinking.trim()) return message;
+	const tools = message.parts.filter((part) => part.type !== "text" && part.type !== "tool-Thinking");
+	return {
+		...message,
+		parts: [{ type: "text", text: thinking }, ...tools],
+	};
+}
+
 function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
 	if (state.currentText.length > 0) {
@@ -346,18 +385,18 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 		parts.push({
 			type: "tool-Thinking",
 			state: "output-available",
-			input: { text: state.currentThinking },
-			output: { text: state.currentThinking },
+			input: { thought: state.currentThinking },
+			output: state.currentThinking,
 		} satisfies ChatToolPart);
 	}
 	for (const part of state.currentToolParts) {
 		parts.push(part);
 	}
-	return {
+	return promoteThinkingToAssistantText({
 		id: state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
 		role: "assistant",
 		parts,
-	};
+	});
 }
 
 // ---------------------------------------------------------------------------
