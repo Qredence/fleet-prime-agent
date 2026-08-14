@@ -31,6 +31,7 @@ import { Route as ApiWorkspaceFileRouteImport } from './routes/api/workspace/fil
 import { Route as ApiWorkspaceRootRouteImport } from './routes/api/workspace/root'
 import { Route as ApiWorkspaceTreeRouteImport } from './routes/api/workspace/tree'
 import { Route as ApiChatModelsDiscoverRouteImport } from './routes/api/chat/models/discover'
+import { Route as ApiChatProvidersOauthRouteImport } from './routes/api/chat/providers/oauth'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -142,6 +143,11 @@ const ApiChatModelsDiscoverRoute = ApiChatModelsDiscoverRouteImport.update({
   path: '/discover',
   getParentRoute: () => ApiChatModelsRoute,
 } as any)
+const ApiChatProvidersOauthRoute = ApiChatProvidersOauthRouteImport.update({
+  id: '/oauth',
+  path: '/oauth',
+  getParentRoute: () => ApiChatProvidersRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -154,7 +160,7 @@ export interface FileRoutesByFullPath {
   '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
-  '/api/chat/providers': typeof ApiChatProvidersRoute
+  '/api/chat/providers': typeof ApiChatProvidersRouteWithChildren
   '/api/chat/question': typeof ApiChatQuestionRoute
   '/api/chat/resources': typeof ApiChatResourcesRoute
   '/api/chat/resume': typeof ApiChatResumeRoute
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -178,7 +185,7 @@ export interface FileRoutesByTo {
   '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
-  '/api/chat/providers': typeof ApiChatProvidersRoute
+  '/api/chat/providers': typeof ApiChatProvidersRouteWithChildren
   '/api/chat/question': typeof ApiChatQuestionRoute
   '/api/chat/resources': typeof ApiChatResourcesRoute
   '/api/chat/resume': typeof ApiChatResumeRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -203,7 +211,7 @@ export interface FileRoutesById {
   '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
-  '/api/chat/providers': typeof ApiChatProvidersRoute
+  '/api/chat/providers': typeof ApiChatProvidersRouteWithChildren
   '/api/chat/question': typeof ApiChatQuestionRoute
   '/api/chat/resources': typeof ApiChatResourcesRoute
   '/api/chat/resume': typeof ApiChatResumeRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -241,6 +250,7 @@ export interface FileRouteTypes {
     | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/models/discover'
+    | '/api/chat/providers/oauth'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/models/discover'
+    | '/api/chat/providers/oauth'
   id:
     | '__root__'
     | '/'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/models/discover'
+    | '/api/chat/providers/oauth'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -457,6 +469,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatModelsDiscoverRouteImport
       parentRoute: typeof ApiChatModelsRoute
     }
+    '/api/chat/providers/oauth': {
+      id: '/api/chat/providers/oauth'
+      path: '/oauth'
+      fullPath: '/api/chat/providers/oauth'
+      preLoaderRoute: typeof ApiChatProvidersOauthRouteImport
+      parentRoute: typeof ApiChatProvidersRoute
+    }
   }
 }
 
@@ -472,6 +491,17 @@ const ApiChatModelsRouteWithChildren = ApiChatModelsRoute._addFileChildren(
   ApiChatModelsRouteChildren,
 )
 
+interface ApiChatProvidersRouteChildren {
+  ApiChatProvidersOauthRoute: typeof ApiChatProvidersOauthRoute
+}
+
+const ApiChatProvidersRouteChildren: ApiChatProvidersRouteChildren = {
+  ApiChatProvidersOauthRoute: ApiChatProvidersOauthRoute,
+}
+
+const ApiChatProvidersRouteWithChildren =
+  ApiChatProvidersRoute._addFileChildren(ApiChatProvidersRouteChildren)
+
 interface ApiChatRouteChildren {
   ApiChatAbortRoute: typeof ApiChatAbortRoute
   ApiChatCommandRoute: typeof ApiChatCommandRoute
@@ -480,7 +510,7 @@ interface ApiChatRouteChildren {
   ApiChatModelRoute: typeof ApiChatModelRoute
   ApiChatModelsRoute: typeof ApiChatModelsRouteWithChildren
   ApiChatNewRoute: typeof ApiChatNewRoute
-  ApiChatProvidersRoute: typeof ApiChatProvidersRoute
+  ApiChatProvidersRoute: typeof ApiChatProvidersRouteWithChildren
   ApiChatQuestionRoute: typeof ApiChatQuestionRoute
   ApiChatResourcesRoute: typeof ApiChatResourcesRoute
   ApiChatResumeRoute: typeof ApiChatResumeRoute
@@ -497,7 +527,7 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatModelRoute: ApiChatModelRoute,
   ApiChatModelsRoute: ApiChatModelsRouteWithChildren,
   ApiChatNewRoute: ApiChatNewRoute,
-  ApiChatProvidersRoute: ApiChatProvidersRoute,
+  ApiChatProvidersRoute: ApiChatProvidersRouteWithChildren,
   ApiChatQuestionRoute: ApiChatQuestionRoute,
   ApiChatResourcesRoute: ApiChatResourcesRoute,
   ApiChatResumeRoute: ApiChatResumeRoute,
