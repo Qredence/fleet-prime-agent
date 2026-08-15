@@ -45,7 +45,7 @@ function checkStaticInstaller() {
 		"--frozen-lockfile",
 		"npm run build",
 		"scripts/build-web-release.mjs",
-		"npm link ./packages/coding-agent",
+		"npm link --force ./packages/coding-agent",
 	]) {
 		if (!source.includes(marker)) {
 			throw new Error(`install.sh is missing required source-install step: ${marker}`);
