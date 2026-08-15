@@ -60,6 +60,7 @@ describe("package commands", () => {
 		process.exitCode = undefined;
 		process.env[ENV_AGENT_DIR] = agentDir;
 		process.env.TMPDIR = tempDir;
+		process.env.PRIME_AGENT_DOWNLOAD_BASE_URL = "https://downloads.example.test/prime-agent";
 		process.chdir(projectDir);
 	});
 

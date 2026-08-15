@@ -93,6 +93,19 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
 		options: ["--force  Skip confirmation and kill unresponsive processes", "--json   Print JSON"],
 	},
 	{
+		path: ["web"],
+		usage: "web [--host <host>] [--port <port>] [--cwd <directory>]",
+		summary: "Run the packaged web interface",
+		description:
+			"Starts the Qredence web frontend and backend from the installed release package. The default workspace is the current directory.",
+		options: [
+			"--host <host>       Bind the web server (default: 127.0.0.1)",
+			"--port <port>       Bind the web server port (default: 3000)",
+			"--cwd <directory>   Use a specific workspace directory",
+		],
+		examples: ["web", "web --port 3100 --cwd ~/src/project"],
+	},
+	{
 		path: ["package"],
 		usage: "package <install|remove|list|update>",
 		summary: "Manage capability packages",

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Added `prime-agent web` to launch the packaged Qredence frontend and backend.
+- Changed the public installer to build the Qredence repository in place and link the `prime-agent` command globally.
 - Added a `seed_messages` daemon capability so clients negotiate seeded `new_session` independently of protocol version.
 - Fixed seeded assistant messages omitting required `api`, `provider`, `model`, and `usage` fields.
 - Fixed InteractiveMode UI services remaining bound to the original session after a cwd switch.

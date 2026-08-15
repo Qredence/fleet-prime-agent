@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// TODO: Remove this R2 tarball packer once prime-agent and its internal workspace
-// dependencies are published through a real npm release flow.
+// Qredence-owned release packer for the public prime-agent artifact and its
+// private workspace dependency tarballs.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -198,6 +198,15 @@ function createReleasePackageJson(sourcePackage, packageName, releaseVersion, in
 			name: publicCommandName,
 			configDir: ".prime/agent",
 		};
+		packageJson.repository = {
+			type: "git",
+			url: "git+https://github.com/Qredence/fleet-prime-agent.git",
+			directory: "packages/coding-agent",
+		};
+		packageJson.homepage = "https://github.com/Qredence/fleet-prime-agent";
+		packageJson.bugs = {
+			url: "https://github.com/Qredence/fleet-prime-agent/issues",
+		};
 	}
 
 	return packageJson;
@@ -249,6 +258,12 @@ function main() {
 	for (const releasePackage of releasePackages) {
 		requireBuiltPackage(releasePackage.packageDir);
 	}
+	const webRuntimeRoot = join(packagePath("coding-agent"), "dist", "web");
+	for (const requiredPath of [join(webRuntimeRoot, "launcher.mjs"), join(webRuntimeRoot, "client")]) {
+		if (!existsSync(requiredPath)) {
+			throw new Error(`Missing packaged web runtime at ${requiredPath}. Run npm run build:web:release before packing.`);
+		}
+	}
 
 	// Dependency keys stay on the source package names so existing compiled imports
 	// keep resolving, while release package names and artifact filenames are branded.
@@ -257,7 +272,8 @@ function main() {
 	const artifactFiles = new Map();
 	for (const releasePackage of releasePackages) {
 		const sourcePackage = sourcePackages.get(releasePackage.packageDir);
-		const packageName = releasePackage.publicName || releasePackage.artifactName || sourcePackage.name;
+		const packageName =
+			releasePackage.publicName || (releasePackage.packageDir === "coding-agent" ? publicPackageName : sourcePackage.name);
 		sourcePackageNames.set(releasePackage.packageDir, sourcePackage.name);
 		packageNames.set(releasePackage.packageDir, packageName);
 		artifactFiles.set(

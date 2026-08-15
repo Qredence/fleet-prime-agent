@@ -8,7 +8,8 @@
 		"configDir": ".prime/agent"
 	},
 	"bin": {
-		"pi": "dist/bundle/cli.js"
+		"pi": "dist/bundle/cli.js",
+		"prime-agent": "dist/bundle/cli.js"
 	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -54,6 +55,7 @@
 		"@silvia-odwyer/photon-node": "^0.3.4",
 		"chalk": "^5.5.0",
 		"cli-highlight": "^2.1.11",
+		"debug": "^4.4.3",
 		"diff": "^9.0.0",
 		"extract-zip": "^2.0.1",
 		"file-type": "^21.1.1",
@@ -64,9 +66,12 @@
 		"marked": "^15.0.12",
 		"minimatch": "^10.2.3",
 		"proper-lockfile": "^4.1.2",
+		"react": "^19.2.7",
+		"react-dom": "^19.2.7",
 		"strip-ansi": "^7.1.0",
 		"typebox": "^1.1.24",
 		"undici": "^7.28.0",
+		"use-sync-external-store": "^1.6.0",
 		"uuid": "^14.0.0",
 		"yaml": "^2.9.0",
 		"zeromq": "^6.1.2"
@@ -103,7 +108,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/PrimeIntellect-ai/prime-agent.git",
+		"url": "git+https://github.com/Qredence/fleet-prime-agent.git",
 		"directory": "packages/coding-agent"
 	},
 	"engines": {

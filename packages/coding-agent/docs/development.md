@@ -7,24 +7,28 @@ See the repository [AGENTS.md](../../../AGENTS.md) for the current contribution 
 Prime Agent requires Node.js 22.8.0 or newer.
 
 ```bash
-git clone https://github.com/PrimeIntellect-ai/prime-agent
-cd prime-agent
+git clone https://github.com/Qredence/fleet-prime-agent
+cd fleet-prime-agent
 npm ci
+pnpm install --dir web --frozen-lockfile
 ```
 
 Run from source:
 
 ```bash
-/path/to/prime-agent/prime-agent.sh
+npm run build
+pnpm --dir web --filter @prime-agent/web build
+node scripts/build-web-release.mjs
+npm link ./packages/coding-agent
 ```
 
-The script can be called from any directory and preserves the caller's working directory. Use that behavior to run a source checkout against a separate test project.
+Then run `prime-agent web` from any project directory. The command preserves the caller's working directory and uses it as the default workspace. The public `install.sh` runs this same source setup flow in an empty current directory; it does not pull, reset, or overwrite an existing matching checkout.
 
 ## Product and Source Names
 
 Prime Agent is the product, public CLI, release artifact, and repository name. The monorepo still retains inherited `@earendil-works/pi-*` npm workspace names, a source-package `pi` bin entry, the `pi` package manifest key, and some `PI_*` compatibility environment variables. These names are source and compatibility details, not a signal that contributors should install or develop against pi-mono.
 
-Public releases are currently versioned tarball artifacts installed by the stable and beta installer scripts. `scripts/pack-prime-agent-release.mjs` rewrites the coding-agent package name, executable, config metadata, and internal dependency URLs for that distribution. Do not document the inherited npm workspace package as the public Prime Agent install path.
+The public repository is the canonical install path. `scripts/pack-prime-agent-release.mjs` and the release workflow are optional internal packaging tools; source installation does not depend on R2 artifacts, release tags, or the upstream PrimeIntellect repository.
 
 ## Local Configuration
 

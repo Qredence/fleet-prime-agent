@@ -432,6 +432,7 @@ describe("renderRichDiff syntax highlighting", () => {
 	it("preserves themed syntax and the diff background across wrapped rows", () => {
 		const source = `const values: number[] = [${Array.from({ length: 20 }, (_, index) => index).join(", ")}];`;
 		for (const themeName of ["dark", "light"] as const) {
+			// biome-ignore lint/correctness/useHookAtTopLevel: this test intentionally switches the global theme between fixtures.
 			useTruecolor(themeName);
 			const keyword = fgAnsi("syntaxKeyword");
 			const background = bgAnsi("toolDiffAddedBg");

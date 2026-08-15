@@ -51,8 +51,9 @@ export function assertNodeVersion(io: NodeVersionGuardIO): boolean {
 	io.log(`prime-agent requires Node ${MIN_NODE_VERSION} or newer, but the active Node is v${io.version}.`);
 	io.log("");
 	io.log(`  1. Install Node ${MIN_NODE_VERSION}+ (e.g. "nvm install 22 && nvm use 22", or from https://nodejs.org)`);
-	io.log("  2. Reinstall prime-agent under that Node so the command resolves to it:");
-	io.log("     https://github.com/PrimeIntellect-ai/prime-agent/releases/latest");
+	io.log("  2. Reinstall prime-agent under that Node from the public Qredence repository:");
+	io.log("     mkdir -p fleet-prime-agent && cd fleet-prime-agent &&");
+	io.log("     curl -fsSL https://raw.githubusercontent.com/Qredence/fleet-prime-agent/main/install.sh | sh");
 	io.exit(1);
 	return false;
 }
