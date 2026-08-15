@@ -122,7 +122,7 @@ npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts
 
 ## Contributing
 
-Contributions are welcome. Fork the repository, work on a feature branch, and open a pull request into `main`; maintainers review and merge. Add `pkg:*` labels (`pkg:agent`, `pkg:ai`, `pkg:coding-agent`, `pkg:tui`) to issues so it is clear which package they affect. Read `AGENTS.md` before contributing; it defines the rules every pull request must follow. See the wiki's how-to-contribute page for a longer walkthrough.
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the process and `AGENTS.md` for the repository rules every pull request must follow. Fork the repository, work on a feature branch, and open a pull request into `main`; maintainers review and merge. Add `pkg:*` labels (`pkg:agent`, `pkg:ai`, `pkg:coding-agent`, `pkg:tui`) to issues so it is clear which package they affect. All participants must follow the [Code of Conduct](CODE_OF_CONDUCT.md). Questions go to GitHub Discussions; see [SUPPORT.md](SUPPORT.md).
 
 ## Security note
 

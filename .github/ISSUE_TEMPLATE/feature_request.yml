@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose an improvement to Prime Agent
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Clear problem statements get implemented fastest.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package does this affect?
+      options:
+        - web (web chat UI)
+        - coding-agent
+        - tui
+        - agent
+        - ai
+        - installer
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this solve, and who has it?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How could Prime Agent solve it? Include examples or sketches if useful.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds or other approaches you have already tried.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and found no duplicate
+          required: true

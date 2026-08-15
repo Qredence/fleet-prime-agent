@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a bug in Prime Agent
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. The more detail you include, the faster we can reproduce and fix it.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package is affected?
+      description: Pick the closest match if you are unsure.
+      options:
+        - web (web chat UI)
+        - coding-agent
+        - tui
+        - agent
+        - ai
+        - installer
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected and what happened instead.
+      placeholder: "I expected X, but Y happened."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps that trigger the bug.
+      placeholder: |
+        1. Run ...
+        2. Type ...
+        3. See the error
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node version, npm/pnpm version, and how Prime Agent was installed.
+      placeholder: |
+        - OS: macOS 15
+        - Node: v22.14.0
+        - npm: 11.x, pnpm: 11.x
+        - Installed via install.sh / from source
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and output
+      description: Paste relevant logs or error output in a code block.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and found no duplicate
+          required: true
+        - label: I reproduced this on the latest main branch
+          required: true
