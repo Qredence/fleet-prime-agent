@@ -23,10 +23,10 @@ prime-agent
 To start the packaged frontend and backend instead:
 
 ```bash
-prime-agent web
+fleet-prime
 ```
 
-The web command uses the current directory as the workspace and binds to `127.0.0.1:3000`. Use `prime-agent web --host <host> --port <port> --cwd <directory>` to override the defaults.
+The web launcher uses the current directory as the workspace and binds to `127.0.0.1:3000`. Use `fleet-prime --host <host> --port <port> --cwd <directory>` to override the defaults. `prime-agent web` remains available as an alias.
 
 To install manually from a source checkout instead, use Node.js 22.8.0 or newer:
 
@@ -41,7 +41,7 @@ node scripts/build-web-release.mjs
 npm link ./packages/coding-agent
 ```
 
-The source installer performs these steps for you. The linked command preserves the directory from which it is invoked, so run `prime-agent web` from the project you want to use as the workspace.
+The source installer performs these steps for you. The linked command preserves the directory from which it is invoked, so run `fleet-prime` from the project you want to use as the workspace.
 
 ## Authenticate
 

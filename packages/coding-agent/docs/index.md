@@ -21,7 +21,7 @@ prime-agent
 Run the packaged web frontend and backend with:
 
 ```bash
-prime-agent web
+fleet-prime
 ```
 
 The installer clones or reuses `Qredence/fleet-prime-agent` in the current directory, builds the web runtime, and links `prime-agent` globally. The source Prime Agent packages remain at their repository version; no upstream PrimeIntellect account, release, or repository access is required.

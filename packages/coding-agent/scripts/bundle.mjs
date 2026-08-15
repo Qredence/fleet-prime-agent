@@ -32,7 +32,7 @@ try {
 rmSync(outdir, { recursive: true, force: true });
 
 await build({
-	entryPoints: [join(packageDir, "dist", "cli.js")],
+	entryPoints: [join(packageDir, "dist", "cli.js"), join(packageDir, "dist", "fleet-prime.js")],
 	outdir,
 	bundle: true,
 	splitting: true,
@@ -58,4 +58,5 @@ await build({
 });
 
 chmodSync(join(outdir, "cli.js"), 0o755);
-console.log("bundled dist/cli.js -> dist/bundle/");
+chmodSync(join(outdir, "fleet-prime.js"), 0o755);
+console.log("bundled dist/cli.js and dist/fleet-prime.js -> dist/bundle/");

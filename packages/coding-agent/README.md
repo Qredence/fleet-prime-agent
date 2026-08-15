@@ -65,10 +65,10 @@ Run the built Qredence web interface from the project directory:
 
 ```bash
 cd /path/to/project
-prime-agent web
+fleet-prime
 ```
 
-The web command defaults to `127.0.0.1:3000`. Override the bind address or workspace with `--host`, `--port`, and `--cwd`. The installer builds the web runtime in the checkout, so starting it does not invoke pnpm, Vite, or a separate web artifact.
+The web launcher defaults to `127.0.0.1:3000`. Override the bind address or workspace with `--host`, `--port`, and `--cwd`. The installer builds the web runtime in the checkout, so starting it does not invoke pnpm, Vite, or a separate web artifact. `prime-agent web` remains available as an alias.
 
 Then just talk to Prime Agent. By default, Prime Agent gives the model one tool: `ipython`. The model uses the persistent kernel to read files, run commands, edit code, and inspect data. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [Prime Agent packages](#prime-agent-packages).
 

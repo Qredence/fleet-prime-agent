@@ -117,6 +117,10 @@ async function checkInstallerSmoke() {
 
 		const executable = join(globalPrefix, "bin", "prime-agent");
 		if (!existsSync(executable)) throw new Error(`Global prime-agent link was not created at ${executable}`);
+		const fleetPrimeExecutable = join(globalPrefix, "bin", "fleet-prime");
+		if (!existsSync(fleetPrimeExecutable)) {
+			throw new Error(`Global fleet-prime link was not created at ${fleetPrimeExecutable}`);
+		}
 
 		const runtimeEnvironment = {
 			...process.env,

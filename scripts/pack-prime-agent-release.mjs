@@ -192,6 +192,7 @@ function createReleasePackageJson(sourcePackage, packageName, releaseVersion, in
 	if (packageName === publicPackageName) {
 		packageJson.bin = {
 			[publicCommandName]: "dist/bundle/cli.js",
+			"fleet-prime": "dist/bundle/fleet-prime.js",
 		};
 		packageJson.piConfig = {
 			...(packageJson.piConfig || {}),

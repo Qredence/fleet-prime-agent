@@ -22,7 +22,7 @@ node scripts/build-web-release.mjs
 npm link ./packages/coding-agent
 ```
 
-Then run `prime-agent web` from any project directory. The command preserves the caller's working directory and uses it as the default workspace. The public `install.sh` runs this same source setup flow in an empty current directory; it does not pull, reset, or overwrite an existing matching checkout.
+Then run `fleet-prime` from any project directory. The command preserves the caller's working directory and uses it as the default workspace. The public `install.sh` runs this same source setup flow in an empty current directory; it does not pull, reset, or overwrite an existing matching checkout.
 
 ## Product and Source Names
 

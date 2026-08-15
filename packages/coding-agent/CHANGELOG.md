@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Added the `fleet-prime` command to launch the packaged Qredence web interface directly; `prime-agent web` remains available as an alias.
+
 - Fixed extension installs cloning git sources into predictable temp paths; temporary sources now use per-process `mkdtemp` directories and repo URLs can no longer be parsed as git options.
 - Fixed API-key fingerprinting in the model registry using fast hashes; persisted fingerprints now use scrypt and in-memory cache fingerprints use a per-process keyed HMAC.
 - Fixed multiple check-then-use file races in auth storage, settings, session persistence, log rotation, migrations, git path discovery, and agent traces by reading and writing through a single file handle or exclusive creation.
