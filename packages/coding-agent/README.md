@@ -68,7 +68,7 @@ cd /path/to/project
 fleet-prime
 ```
 
-The web launcher defaults to `127.0.0.1:3000`. Override the bind address or workspace with `--host`, `--port`, and `--cwd`. The installer builds the web runtime in the checkout, so starting it does not invoke pnpm, Vite, or a separate web artifact. `prime-agent web` remains available as an alias.
+The web launcher defaults to `127.0.0.1:3000`. Override the bind address with `--host` and `--port`. In a source checkout, `./fleet-prime.sh` runs the Vite dev server (same as `npm run dev:web`); the installed command starts the prebuilt web runtime, so it does not invoke pnpm or Vite. `prime-agent web` remains available as an alias.
 
 Then just talk to Prime Agent. By default, Prime Agent gives the model one tool: `ipython`. The model uses the persistent kernel to read files, run commands, edit code, and inspect data. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [Prime Agent packages](#prime-agent-packages).
 
