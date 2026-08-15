@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -19,7 +19,7 @@ const BUCKETS = [0, 50, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, Num
 
 function parseArgs(): { sessionsDir: string; output: string } {
 	let sessionsDir = join(homedir(), ".pi", "agent", "sessions");
-	let output = join(tmpdir(), "pi-tool-stats.html");
+	let output = join(mkdtempSync(join(tmpdir(), "pi-tool-stats-")), "report.html");
 	const args = process.argv.slice(2);
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];

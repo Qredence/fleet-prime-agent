@@ -8,7 +8,7 @@
  * - Edge cases and integration between parsing and substitution
  */
 
-import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterAll, describe, expect, test } from "vitest";
@@ -402,7 +402,7 @@ describe("parseCommandArgs + substituteArgs integration", () => {
 // ============================================================================
 
 describe("loadPromptTemplates - argument-hint", () => {
-	const testDir = join(tmpdir(), `pi-test-prompts-${Date.now()}`);
+	const testDir = mkdtempSync(join(tmpdir(), "pi-test-prompts-"));
 
 	function writeTemplate(name: string, content: string) {
 		mkdirSync(testDir, { recursive: true });

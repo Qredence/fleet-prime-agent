@@ -1,4 +1,4 @@
-import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -8,8 +8,7 @@ describe("readWorkspaceFile", () => {
 	let root: string;
 
 	beforeEach(async () => {
-		root = join(tmpdir(), `prime-workspace-file-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-		await mkdir(root, { recursive: true });
+		root = await mkdtemp(join(tmpdir(), "prime-workspace-file-"));
 	});
 
 	afterEach(async () => {
@@ -100,10 +99,8 @@ describe("readWorkspaceFile", () => {
 	});
 
 	it("rejects symlink escape outside the workspace", async () => {
-		const outside = join(
-			tmpdir(),
-			`prime-workspace-outside-${Date.now()}-${Math.random().toString(16).slice(2)}.txt`,
-		);
+		const outsideDir = await mkdtemp(join(tmpdir(), "prime-workspace-outside-"));
+		const outside = join(outsideDir, "outside.txt");
 		await writeFile(outside, "secret\n", "utf8");
 		await symlink(outside, join(root, "link.txt"));
 		const result = await readWorkspaceFile(root, "link.txt");
@@ -111,6 +108,6 @@ describe("readWorkspaceFile", () => {
 		if (result.kind === "error") {
 			expect(result.status).toBe(403);
 		}
-		await rm(outside, { force: true });
+		await rm(outsideDir, { recursive: true, force: true });
 	});
 });

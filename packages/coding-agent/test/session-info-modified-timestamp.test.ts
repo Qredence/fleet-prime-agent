@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -47,7 +47,8 @@ describe("SessionInfo.modified", () => {
 	});
 
 	it("uses last user/assistant message timestamp instead of file mtime", async () => {
-		const filePath = join(tmpdir(), `pi-session-${Date.now()}-modified.jsonl`);
+		const dir = mkdtempSync(join(tmpdir(), "pi-session-modified-"));
+		const filePath = join(dir, "session.jsonl");
 		createSessionFile(filePath);
 
 		const before = await stat(filePath);

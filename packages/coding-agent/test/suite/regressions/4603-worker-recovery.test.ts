@@ -4,6 +4,7 @@ import {
 	existsSync,
 	linkSync,
 	mkdirSync,
+	mkdtempSync,
 	readdirSync,
 	readFileSync,
 	renameSync,
@@ -127,7 +128,8 @@ async function createPaths(): Promise<TestPaths> {
 	harnesses.push(harness);
 	const executablePath = join(harness.tempDir, APP_NAME);
 	linkSync(process.execPath, executablePath);
-	const socketTmpDir = `/tmp/eng-4603-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	// Unix socket paths are limited to ~104 chars; use the short /tmp prefix, not tmpdir().
+	const socketTmpDir = mkdtempSync("/tmp/eng-4603-");
 	mkdirSync(socketTmpDir, { recursive: true, mode: 0o700 });
 	socketTempDirs.add(socketTmpDir);
 	fixtureDescriptorDirs.add(join(harness.tempDir, "workers"));

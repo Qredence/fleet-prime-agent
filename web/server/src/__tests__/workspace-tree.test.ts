@@ -1,4 +1,4 @@
-import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WorkspaceTreeNode } from "@prime-agent/web-protocol/chat-protocol";
@@ -15,8 +15,7 @@ describe("readWorkspaceTree", () => {
 	let root: string;
 
 	beforeEach(async () => {
-		root = join(tmpdir(), `prime-workspace-tree-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-		await mkdir(root, { recursive: true });
+		root = await mkdtemp(join(tmpdir(), "prime-workspace-tree-"));
 	});
 
 	afterEach(async () => {
@@ -119,8 +118,7 @@ describe("readWorkspaceTree", () => {
 	});
 
 	it("does not recurse a directory symlink that escapes the workspace root", async () => {
-		const outside = join(root, "..", `prime-workspace-outside-${Date.now()}`);
-		await mkdir(outside, { recursive: true });
+		const outside = await mkdtemp(join(tmpdir(), "prime-workspace-outside-"));
 		await writeFile(join(outside, "secret.txt"), "x", "utf8");
 		await symlink(outside, join(root, "escape-dir"));
 

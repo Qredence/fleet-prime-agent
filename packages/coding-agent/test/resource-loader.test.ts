@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -18,7 +18,7 @@ describe("DefaultResourceLoader", () => {
 	let previousSerperApiKey: string | undefined;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `rl-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "rl-test-"));
 		agentDir = join(tempDir, "agent");
 		cwd = join(tempDir, "project");
 		previousSerperApiKey = process.env.SERPER_API_KEY;

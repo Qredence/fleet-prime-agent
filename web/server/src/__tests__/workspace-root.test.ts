@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -8,8 +8,7 @@ describe("resolveDefaultWorkspaceRoot", () => {
 	let root: string;
 
 	beforeEach(async () => {
-		root = join(tmpdir(), `prime-workspace-root-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-		await mkdir(root, { recursive: true });
+		root = await mkdtemp(join(tmpdir(), "prime-workspace-root-"));
 	});
 
 	afterEach(async () => {

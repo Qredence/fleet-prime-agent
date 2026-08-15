@@ -1,10 +1,11 @@
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build } from "esbuild";
 
-const outputPath = join(tmpdir(), "pi-browser-smoke.js");
-const errorLogPath = join(tmpdir(), "pi-browser-smoke-errors.log");
+const outputDir = mkdtempSync(join(tmpdir(), "pi-browser-smoke-"));
+const outputPath = join(outputDir, "bundle.js");
+const errorLogPath = join(outputDir, "errors.log");
 
 	try {
 		await build({
