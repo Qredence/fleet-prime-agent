@@ -56,8 +56,7 @@
 				"rules": ["react-doctor/js-set-map-lookups"]
 			},
 			{
-				// Intentional architecture exception; see
-				// .react-doctor/intentional-exceptions.md §1. WorkspacePanel's
+				// Intentional architecture exception. WorkspacePanel's
 				// controlled/uncontrolled selection owner needs a joint parent redesign.
 				"files": ["src/components/fleet-pi/pi/workspace-panel.tsx"],
 				"rules": [
@@ -66,8 +65,7 @@
 				]
 			},
 			{
-				// Intentional static-render compatibility boundary; see
-				// .react-doctor/intentional-exceptions.md §2. React.lazy would
+				// Intentional static-render compatibility boundary. React.lazy would
 				// suspend the OpenUI static render harness.
 				"files": [
 					"src/components/chart.tsx",
@@ -78,16 +76,14 @@
 				"rules": ["react-doctor/prefer-dynamic-import"]
 			},
 			{
-				// Intentional public API compatibility adapter; see
-				// .react-doctor/intentional-exceptions.md §4. The exported message
+				// Intentional public API compatibility adapter. The exported message
 				// turn components accept their legacy flat props alongside grouped
 				// internal state until a documented major-version migration.
 				"files": ["src/components/agent-elements/message-turns.tsx"],
 				"rules": ["react-doctor/no-many-boolean-props"]
 			},
 			{
-				// Intentional retained future UI surface; see
-				// .react-doctor/intentional-exceptions.md §3.
+				// Intentional retained future UI surface.
 				"files": [
 					"src/components/agent-elements/input/mode-selector.tsx",
 					"src/components/fleet-pi/icons/google-icon.tsx",
@@ -96,8 +92,7 @@
 				"rules": ["deslop/unused-file"]
 			},
 			{
-				// Intentional reserved client plan-mode state machine; see
-				// .react-doctor/intentional-exceptions.md §5. Live callers only
+				// Intentional reserved client plan-mode state machine. Live callers only
 				// import isPlanDecisionToolCall; the rest stays until wired.
 				"files": ["src/lib/pi/plan-state.ts"],
 				"rules": ["deslop/unused-export"]
