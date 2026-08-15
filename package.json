@@ -1,6 +1,12 @@
 {
 	"name": "prime-agent",
 	"private": true,
+	"description": "A self-improving recursive language model coding and research agent with a web chat, terminal UI, and headless daemon.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Qredence/fleet-prime-agent.git"
+	},
 	"type": "module",
 	"workspaces": [
 		"packages/*",

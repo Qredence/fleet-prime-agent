@@ -45,3 +45,12 @@ collect.sh
 
 __pycache__/
 *.pyc
+
+# Factory agent workspace + generated wiki
+.factory/
+droid-wiki/
+
+# Local agent state
+.remember/
+.superpowers/
+.agents/

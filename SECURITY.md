@@ -2,20 +2,27 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Only the latest release line receives security updates. Patch releases for
+vulnerabilities affecting it are published as soon as fixes are ready.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| Version | Supported |
+| ------- | --------- |
+| 0.7.x   | Yes       |
+| < 0.7   | No        |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Report vulnerabilities privately through GitHub private vulnerability
+reporting on the repository's Security tab. Do not open a public issue for a
+security vulnerability.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Include a minimal reproduction, the affected version, and a description of the
+impact. You can expect an acknowledgment within 5 business days and a status
+update on the fix timeline.
+
+## Scope
+
+Prime Agent executes model-generated Python and project commands with your
+user permissions. Worker and kernel processes improve lifecycle isolation and
+recovery; they are not a security sandbox. Review changes and use trusted
+repositories, instructions, skills, and extensions only.
