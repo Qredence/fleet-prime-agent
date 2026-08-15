@@ -11,10 +11,15 @@ while [ -h "$SOURCE" ]; do
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
 
-# Source-checkout launcher for the Qredence web interface. Runs the Vite dev
-# server (same as `npm run dev:web`) from web/app, serving on 127.0.0.1:3000
-# by default. Supports --host and --port overrides, e.g.
-# `./fleet-prime.sh --port 3001` or `./fleet-prime.sh --host 0.0.0.0`.
+# `fleet-prime install` runs the source installer (deps, build, global CLI link).
+if [[ "${1:-}" == "install" ]]; then
+	shift
+	exec "$SCRIPT_DIR/install.sh" "$@"
+fi
+
+# Otherwise run the Qredence web dev server (same as `npm run dev:web`) from
+# web/app, serving on 127.0.0.1:3000 by default. Supports --host and --port
+# overrides, e.g. `fleet-prime --port 3001` or `fleet-prime --host 0.0.0.0`.
 HOST="127.0.0.1"
 PORT=3000
 while [[ $# -gt 0 ]]; do
@@ -24,7 +29,9 @@ while [[ $# -gt 0 ]]; do
 		--port=*) PORT="${1#--port=}" ;;
 		--port) PORT="$2"; shift ;;
 		--help)
-			echo "Usage: fleet-prime [--host <host>] [--port <port>]"
+			echo "Usage:"
+			echo "  fleet-prime [--host <host>] [--port <port>]   Run the web dev server"
+			echo "  fleet-prime install [--help]                  Run install.sh (deps, build, global CLI link)"
 			exit 0
 			;;
 		*) echo "Unknown option: $1" >&2; exit 1 ;;
