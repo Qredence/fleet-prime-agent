@@ -1,4 +1,5 @@
 import type { ServiceTier, Transport } from "@earendil-works/pi-ai";
+import { randomUUID } from "crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { dirname, join } from "path";
@@ -274,7 +275,7 @@ export class FileSettingsStorage implements SettingsStorage {
 				}
 				// Write to a temp file in the same directory and rename atomically so a
 				// concurrent reader never observes a partially written settings file.
-				const tmpPath = `${path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+				const tmpPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
 				writeFileSync(tmpPath, next, "utf-8");
 				renameSync(tmpPath, path);
 			}
