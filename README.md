@@ -89,6 +89,8 @@ npm ci                  # Prime Agent packages (npm workspace)
 pnpm install --dir web  # Qredence UI (pnpm workspace)
 ```
 
+Run pnpm only with `--dir web`. A plain `pnpm install` at the repo root rewrites `node_modules` to a pnpm layout, swaps the in-tree `@earendil-works/*` links for registry builds, and drops a stray `pnpm-workspace.yaml` and `pnpm-lock.yaml`; if that happens, delete the two files and re-run `npm ci`.
+
 Run the web chat in development:
 
 ```bash

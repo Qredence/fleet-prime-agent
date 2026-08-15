@@ -31,6 +31,13 @@ Install: `npm install` at the repo root, then `pnpm install` in `web/`. Never
 `npm install` inside `web/`, and never `pnpm install` at the repo root.
 pnpm 11 settings live in `web/pnpm-workspace.yaml` (not `.npmrc`).
 
+Running pnpm at the repo root (instead of `--dir web`) rewrites the root
+`node_modules` to a pnpm layout, replaces the npm workspace links for
+`@earendil-works/*` with registry-published builds, and drops a stray
+`pnpm-workspace.yaml` (with placeholder `allowBuilds` values) and
+`pnpm-lock.yaml` at the root. If this happens, delete those two files and
+re-run `npm install` at the root. Never commit them.
+
 `web/server` links `@earendil-works/*` with pnpm `link:` (not `file:`) so
 nested agent deps resolve through the root npm tree. Do not add
 `packages/{ai,agent,tui,coding-agent}` to `web/pnpm-workspace.yaml`.
