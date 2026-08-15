@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -47,7 +47,7 @@ describe("ACP mode over a real IPython kernel", () => {
 	let provisioner: IpythonKernelProvisioner | undefined;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-acp-kernel-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-acp-kernel-"));
 		mkdirSync(tempDir, { recursive: true });
 	});
 

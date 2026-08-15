@@ -155,8 +155,16 @@ export const streamSimpleAzureOpenAIResponses: StreamFunction<"azure-openai-resp
 	} satisfies AzureOpenAIResponsesOptions);
 };
 
+function stripTrailingSlashes(value: string): string {
+	let end = value.length;
+	while (end > 0 && value[end - 1] === "/") {
+		end--;
+	}
+	return value.slice(0, end);
+}
+
 function normalizeAzureBaseUrl(baseUrl: string): string {
-	const trimmed = baseUrl.trim().replace(/\/+$/, "");
+	const trimmed = stripTrailingSlashes(baseUrl.trim());
 	let url: URL;
 	try {
 		url = new URL(trimmed);
@@ -166,7 +174,7 @@ function normalizeAzureBaseUrl(baseUrl: string): string {
 
 	const isAzureHost =
 		url.hostname.endsWith(".openai.azure.com") || url.hostname.endsWith(".cognitiveservices.azure.com");
-	const normalizedPath = url.pathname.replace(/\/+$/, "");
+	const normalizedPath = stripTrailingSlashes(url.pathname);
 
 	// Ensure Azure hosts have /openai/v1 as base path so the AzureOpenAI SDK
 	// can append /deployments/<model>/... and ?api-version=v1 correctly.

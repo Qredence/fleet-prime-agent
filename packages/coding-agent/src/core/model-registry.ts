@@ -3,7 +3,7 @@
  */
 
 import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
+import { createHash, createHmac, randomBytes, scryptSync } from "node:crypto";
 import {
 	type AnthropicMessagesCompat,
 	type Api,
@@ -372,8 +372,16 @@ function readOpenAICodexAccountId(token: string): string | undefined {
 	}
 }
 
+function stripTrailingSlashes(value: string): string {
+	let end = value.length;
+	while (end > 0 && value[end - 1] === "/") {
+		end--;
+	}
+	return value.slice(0, end);
+}
+
 function openAICodexModelsUrl(baseUrl: string): string {
-	const normalized = baseUrl.replace(/\/+$/, "");
+	const normalized = stripTrailingSlashes(baseUrl);
 	let path: string;
 	if (normalized.endsWith("/codex/responses")) {
 		path = `${normalized.slice(0, -"/responses".length)}/models`;
@@ -411,8 +419,12 @@ interface PrivatePrimeAuthorizationCache {
 	refreshedAt: number;
 }
 
+// scrypt (not a fast hash) so a low-entropy credential can't be brute-forced from the
+// persisted cache. The salt is fixed because the fingerprint must be stable across restarts.
+const PRIVATE_PRIME_AUTHORIZATION_FINGERPRINT_SALT = Buffer.from("prime-agent-private-prime-authorization-v1");
+
 function privatePrimeAuthorizationFingerprint(apiKey: string, teamId: string): string {
-	return createHash("sha256").update(apiKey).update("\0").update(teamId).digest("hex");
+	return scryptSync(`${apiKey}\0${teamId}`, PRIVATE_PRIME_AUTHORIZATION_FINGERPRINT_SALT, 32).toString("hex");
 }
 
 function isOfflineModeEnabled(): boolean {
@@ -424,6 +436,10 @@ function isOfflineModeEnabled(): boolean {
 /**
  * Model registry - loads and manages models, resolves API keys via AuthStorage.
  */
+// In-memory codex model cache fingerprint; a per-process key is fine because the
+// cache never outlives the process.
+const CODEX_MODEL_CACHE_FINGERPRINT_KEY = randomBytes(32);
+
 export class ModelRegistry {
 	private models: Model<Api>[] = [];
 	private providerRequestConfigs: Map<string, ProviderRequestConfig> = new Map();
@@ -977,9 +993,13 @@ export class ModelRegistry {
 		if (!auth.ok || !auth.apiKey) {
 			return availableModels.filter((model) => model.provider !== "openai-codex");
 		}
-		const authFingerprint = createHash("sha256").update(auth.apiKey).digest("hex");
+		const authFingerprint = createHmac("sha256", CODEX_MODEL_CACHE_FINGERPRINT_KEY).update(auth.apiKey).digest("hex");
 		const cached = this.openAICodexModelsCache;
-		if (cached?.authFingerprint === authFingerprint && Date.now() - cached.refreshedAt < 300_000) {
+		if (
+			cached !== undefined &&
+			cached.authFingerprint === authFingerprint &&
+			Date.now() - cached.refreshedAt < 300_000
+		) {
 			return availableModels.filter((model) => model.provider !== "openai-codex" || cached.modelIds.has(model.id));
 		}
 
@@ -988,6 +1008,8 @@ export class ModelRegistry {
 			return availableModels.filter((model) => model.provider !== "openai-codex");
 		}
 		try {
+			// codeql[js/file-access-to-http] Stored provider credentials are sent to the
+			// provider's own configured API endpoint; this is the intended auth flow.
 			const response = await fetch(openAICodexModelsUrl(codexModels[0]!.baseUrl), {
 				headers: {
 					...auth.headers,
@@ -1004,7 +1026,11 @@ export class ModelRegistry {
 			this.openAICodexModelsCache = { authFingerprint, modelIds, refreshedAt: Date.now() };
 			return availableModels.filter((model) => model.provider !== "openai-codex" || modelIds.has(model.id));
 		} catch {
-			if (cached?.authFingerprint === authFingerprint && Date.now() - cached.refreshedAt < 300_000) {
+			if (
+				cached !== undefined &&
+				cached.authFingerprint === authFingerprint &&
+				Date.now() - cached.refreshedAt < 300_000
+			) {
 				return availableModels.filter(
 					(model) => model.provider !== "openai-codex" || cached.modelIds.has(model.id),
 				);

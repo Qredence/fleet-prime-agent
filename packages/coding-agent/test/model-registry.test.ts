@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AnthropicMessagesCompat, Api, Context, Model, OpenAICompletionsCompat } from "@earendil-works/pi-ai";
@@ -14,7 +14,7 @@ describe("ModelRegistry", () => {
 	let authStorage: AuthStorage;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-test-model-registry-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-test-model-registry-"));
 		mkdirSync(tempDir, { recursive: true });
 		modelsJsonPath = join(tempDir, "models.json");
 		authStorage = AuthStorage.create(join(tempDir, "auth.json"));
@@ -58,7 +58,7 @@ describe("ModelRegistry", () => {
 	}
 
 	function toShPath(value: string): string {
-		return value.replace(/\\/g, "/").replace(/"/g, '\\"');
+		return value.replace(/[\\"]/g, (char) => (char === "\\" ? "/" : '\\"'));
 	}
 
 	/** Create a baseUrl-only override (no custom models) */

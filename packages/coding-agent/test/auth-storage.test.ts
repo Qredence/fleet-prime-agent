@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerOAuthProvider } from "@earendil-works/pi-ai/oauth";
@@ -13,7 +13,7 @@ describe("AuthStorage", () => {
 	let authStorage: AuthStorage;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-test-auth-storage-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-test-auth-storage-"));
 		mkdirSync(tempDir, { recursive: true });
 		authJsonPath = join(tempDir, "auth.json");
 	});
@@ -31,7 +31,7 @@ describe("AuthStorage", () => {
 	}
 
 	function toShPath(value: string): string {
-		return value.replace(/\\/g, "/").replace(/"/g, '\\"');
+		return value.replace(/[\\"]/g, (char) => (char === "\\" ? "/" : '\\"'));
 	}
 
 	describe("API key resolution", () => {

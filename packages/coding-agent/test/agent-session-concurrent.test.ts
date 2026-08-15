@@ -2,7 +2,7 @@
  * Tests for AgentSession concurrent prompt guard.
  */
 
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Agent } from "@earendil-works/pi-agent-core";
@@ -63,7 +63,7 @@ describe("AgentSession concurrent prompt guard", () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-concurrent-test-${Date.now()}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-concurrent-test-"));
 		mkdirSync(tempDir, { recursive: true });
 	});
 

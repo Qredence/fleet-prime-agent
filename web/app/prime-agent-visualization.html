@@ -718,7 +718,8 @@ function showLongrun(){
       chips.worker.textContent="running"; chips.worker.style.color="#34d399";
       chips.sched.textContent=(p.name==="heartbeat"||p.name==="cron")?"firing":"armed"; chips.sched.style.color="#34d399";
       chips.goal.textContent=t>=88?"completed ✓":"active"; chips.goal.style.color=t>=88?"#34d399":"#a78bfa";
-      writeCaption(`<b>${p.label}.</b> ${p.d.body.replace(/<[^>]+>/g,"").slice(0,150)}…`);
+      const captionText = p.d.body.replace(/<[^>]+>/g,"").replace(/&/g,"&amp;").replace(/</g,"&lt;").slice(0,150);
+      writeCaption(`<b>${p.label}.</b> ${captionText}…`);
     }
   }
   function tick(){

@@ -3,14 +3,17 @@ import { createHash } from "crypto";
 import {
 	accessSync,
 	appendFileSync,
+	closeSync,
 	constants,
 	existsSync,
+	fstatSync,
 	mkdirSync,
+	openSync,
 	readFileSync,
 	realpathSync,
 	renameSync,
 	rmSync,
-	statSync,
+	writeSync,
 } from "fs";
 import { homedir } from "os";
 import { basename, dirname, join, resolve, sep, win32 } from "path";
@@ -574,16 +577,48 @@ const MAX_LOG_BYTES = 5 * 1024 * 1024;
 export function appendRotatingLog(logPath: string, message: string, maxBytes: number = MAX_LOG_BYTES): void {
 	try {
 		mkdirSync(dirname(logPath), { recursive: true });
+		let handle: number | undefined;
 		try {
-			if (existsSync(logPath) && statSync(logPath).size > maxBytes) {
+			handle = openSync(logPath, "a");
+			// fstat on the open descriptor: size and append share the same file view.
+			if (fstatSync(handle).size > maxBytes) {
+				closeSync(handle);
+				handle = undefined;
 				// Drop any prior .old first: renameSync fails on Windows if it exists.
 				rmSync(`${logPath}.old`, { force: true });
 				renameSync(logPath, `${logPath}.old`);
+				// codeql[js/http-to-file-access] Best-effort diagnostics log: the path is fixed
+				// and only the message content (which may come from a network response) is recorded.
+				appendFileSync(logPath, `${message}\n`);
+			} else {
+				const data = `${message}\n`;
+				let remaining = data;
+				while (remaining.length > 0) {
+					const written = writeSync(handle, remaining, null, "utf-8");
+					if (written <= 0) {
+						break;
+					}
+					remaining = remaining.slice(written);
+				}
 			}
 		} catch {
 			// Keep appending rather than dropping the log on a rotation failure.
+			if (handle !== undefined) {
+				try {
+					closeSync(handle);
+				} catch {
+					// Ignore close failures on the error path.
+				}
+			}
+		} finally {
+			if (handle !== undefined) {
+				try {
+					closeSync(handle);
+				} catch {
+					// Ignore close failures.
+				}
+			}
 		}
-		appendFileSync(logPath, `${message}\n`);
 	} catch {
 		// A read-only or missing log dir must never break the caller.
 	}

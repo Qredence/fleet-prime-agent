@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { Dirent } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { open, readdir, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { appendRotatingLog, getAgentTracesLogPath, getSessionsDir, VERSION } from "../config.js";
 import { readFirstLineSync } from "../utils/file-lines.js";
@@ -210,17 +210,79 @@ function isSessionHeader(value: unknown): value is SessionHeader {
 	);
 }
 
-function readSessionHeader(sessionFile: string): SessionHeader | undefined {
+function parseSessionHeader(firstLine: string | undefined): SessionHeader | undefined {
+	if (!firstLine?.trim()) {
+		return undefined;
+	}
 	try {
-		const firstLine = readFirstLineSync(sessionFile);
-		if (!firstLine?.trim()) {
-			return undefined;
-		}
 		const parsed = JSON.parse(firstLine) as unknown;
 		return isSessionHeader(parsed) ? parsed : undefined;
 	} catch {
 		return undefined;
 	}
+}
+
+function readSessionHeader(sessionFile: string): SessionHeader | undefined {
+	try {
+		return parseSessionHeader(readFirstLineSync(sessionFile));
+	} catch {
+		return undefined;
+	}
+}
+
+type SessionFileRead =
+	| { status: "ok"; body: string; size: number; header: SessionHeader; tooLarge: false }
+	| { status: "ok"; body: undefined; size: number; header: SessionHeader; tooLarge: true }
+	| { status: "no_session_file" }
+	| { status: "empty_session" }
+	| { status: "invalid_session"; message: string }
+	| { status: "failed"; message: string };
+
+const SESSION_HEADER_SNIFF_BYTES = 64 * 1024;
+
+/** Read a session file once: stat, header, and body share a single file handle. */
+async function readSessionFileOnce(sessionFile: string): Promise<SessionFileRead> {
+	let handle: Awaited<ReturnType<typeof open>>;
+	try {
+		handle = await open(sessionFile, "r");
+	} catch {
+		return { status: "no_session_file" };
+	}
+	try {
+		const stats = await handle.stat();
+		if (!stats.isFile()) {
+			return { status: "no_session_file" };
+		}
+		if (stats.size === 0) {
+			return { status: "empty_session" };
+		}
+		const tooLarge = stats.size > MAX_TRACE_BYTES;
+		const headerLine = await readFirstLineFromHandle(handle);
+		const header = parseSessionHeader(headerLine);
+		if (!header) {
+			return { status: "invalid_session", message: "Session file is missing a valid session header" };
+		}
+		if (tooLarge) {
+			return { status: "ok", body: undefined, size: stats.size, header, tooLarge };
+		}
+		const body = await handle.readFile("utf8");
+		if (!body.trim()) {
+			return { status: "empty_session" };
+		}
+		return { status: "ok", body, size: stats.size, header, tooLarge };
+	} catch (error) {
+		return { status: "failed", message: describeError(error) };
+	} finally {
+		await handle.close().catch(() => undefined);
+	}
+}
+
+async function readFirstLineFromHandle(handle: Awaited<ReturnType<typeof open>>): Promise<string | undefined> {
+	const buffer = Buffer.alloc(SESSION_HEADER_SNIFF_BYTES);
+	const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+	const text = buffer.subarray(0, bytesRead).toString("utf8");
+	const newline = text.indexOf("\n");
+	return newline === -1 ? text : text.slice(0, newline);
 }
 
 /** Active-branch git for the indexing headers: walk leaf to root, not the last git_state in
@@ -464,36 +526,11 @@ export async function previewAgentTraceFile(options: AgentTracePreviewOptions): 
 		return { status: "no_session_file" };
 	}
 
-	let fileSize: number;
-	try {
-		const stats = await stat(options.sessionFile);
-		if (!stats.isFile()) {
-			return { status: "no_session_file" };
-		}
-		fileSize = stats.size;
-	} catch {
-		return { status: "no_session_file" };
+	const read = await readSessionFileOnce(options.sessionFile);
+	if (read.status !== "ok") {
+		return read;
 	}
-	if (fileSize === 0) {
-		return { status: "empty_session" };
-	}
-
-	const header = readSessionHeader(options.sessionFile);
-	if (!header) {
-		return { status: "invalid_session", message: "Session file is missing a valid session header" };
-	}
-
-	let body = "";
-	if (fileSize <= MAX_TRACE_BYTES) {
-		try {
-			body = await readFile(options.sessionFile, "utf8");
-		} catch (error) {
-			return { status: "failed", message: describeError(error) };
-		}
-		if (!body.trim()) {
-			return { status: "empty_session" };
-		}
-	}
+	const { body, size, header } = read;
 
 	const traceContext = resolveTraceContext(options.sessionFile, header);
 	const baseUrl = resolvePrimeAgentTracesBaseUrl(options.baseUrl);
@@ -508,9 +545,9 @@ export async function previewAgentTraceFile(options: AgentTracePreviewOptions): 
 		traceId: traceContext.traceId,
 		parentSessionId: traceContext.parentSessionId,
 		cwd: header.cwd,
-		size: fileSize,
+		size,
 		maxBytes: MAX_TRACE_BYTES,
-		uploadable: fileSize <= MAX_TRACE_BYTES,
+		uploadable: !read.tooLarge,
 		endpoint: `${baseUrl}/api/v1/agent-traces/sessions/${encodeURIComponent(header.id)}`,
 		gitRepo: git?.repoUrl,
 		gitCommit: git?.commit,
@@ -730,27 +767,14 @@ async function performAgentTraceUpload(
 		return { status: "no_session_file" };
 	}
 
-	let fileSize: number;
-	try {
-		const stats = await stat(options.sessionFile);
-		if (!stats.isFile()) {
-			return { status: "no_session_file" };
-		}
-		fileSize = stats.size;
-	} catch {
-		return { status: "no_session_file" };
+	const read = await readSessionFileOnce(options.sessionFile);
+	if (read.status !== "ok") {
+		return read;
 	}
-	if (fileSize === 0) {
-		return { status: "empty_session" };
+	if (read.tooLarge) {
+		return { status: "too_large", size: read.size, maxBytes: MAX_TRACE_BYTES };
 	}
-	if (fileSize > MAX_TRACE_BYTES) {
-		return { status: "too_large", size: fileSize, maxBytes: MAX_TRACE_BYTES };
-	}
-
-	const header = readSessionHeader(options.sessionFile);
-	if (!header) {
-		return { status: "invalid_session", message: "Session file is missing a valid session header" };
-	}
+	const { body, header } = read;
 
 	const credential = await getPrimeAgentTraceCredential(options.authStorage, {
 		configPath: options.configPath,
@@ -762,16 +786,6 @@ async function performAgentTraceUpload(
 
 	if (requireEnabled && !(await getAgentTracesEnabled(options))) {
 		return { status: "disabled" };
-	}
-
-	let body: string;
-	try {
-		body = await readFile(options.sessionFile, "utf8");
-	} catch (error) {
-		return { status: "failed", message: describeError(error) };
-	}
-	if (!body.trim()) {
-		return { status: "empty_session" };
 	}
 
 	const traceContext = resolveTraceContext(options.sessionFile, header);

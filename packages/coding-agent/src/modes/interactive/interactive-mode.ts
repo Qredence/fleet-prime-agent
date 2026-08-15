@@ -7096,7 +7096,8 @@ export class InteractiveMode {
 		}
 
 		const currentText = this.editor.getExpandedText?.() ?? this.editor.getText();
-		const tmpFile = path.join(os.tmpdir(), `pi-editor-${Date.now()}.pi.md`);
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-editor-"));
+		const tmpFile = path.join(tmpDir, "content.pipe.md");
 
 		try {
 			// Write current content to temp file

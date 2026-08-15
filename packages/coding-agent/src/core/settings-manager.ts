@@ -1,5 +1,5 @@
 import type { ServiceTier, Transport } from "@earendil-works/pi-ai";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { dirname, join } from "path";
 import lockfile from "proper-lockfile";
@@ -268,13 +268,15 @@ export class FileSettingsStorage implements SettingsStorage {
 			const next = fn(current);
 			if (next !== undefined) {
 				// Only create directory when we actually need to write
-				if (!existsSync(dir)) {
-					mkdirSync(dir, { recursive: true });
-				}
+				mkdirSync(dir, { recursive: true });
 				if (!release) {
 					release = this.acquireLockSyncWithRetry(path);
 				}
-				writeFileSync(path, next, "utf-8");
+				// Write to a temp file in the same directory and rename atomically so a
+				// concurrent reader never observes a partially written settings file.
+				const tmpPath = `${path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+				writeFileSync(tmpPath, next, "utf-8");
+				renameSync(tmpPath, path);
 			}
 		} finally {
 			if (release) {

@@ -1,7 +1,7 @@
 import type { ImageContent, TextContent, UserMessage } from "@earendil-works/pi-ai";
 import chalk from "chalk";
 import { spawn } from "child_process";
-import { readFileSync, rmSync, statSync } from "fs";
+import { closeSync, fstatSync, openSync, readFileSync, rmSync } from "fs";
 import { resolve, sep } from "path";
 import { selectConfig } from "./cli/config-selector.js";
 import {
@@ -784,17 +784,22 @@ function readPreparedDaemonUpdateRestartManifest(
 		getDaemonUpdateRestartManifestPath(socketPath, agentDir),
 		getLegacyDaemonUpdateRestartManifestPath(agentDir),
 	]) {
-		let modifiedAt: number;
+		let handle: number;
 		try {
-			modifiedAt = statSync(manifestPath).mtimeMs;
+			handle = openSync(manifestPath, "r");
 		} catch {
 			continue;
 		}
-		if (notBeforeMs !== undefined && modifiedAt < notBeforeMs - 1000) {
-			continue;
+		try {
+			const modifiedAt = fstatSync(handle).mtimeMs;
+			if (notBeforeMs !== undefined && modifiedAt < notBeforeMs - 1000) {
+				continue;
+			}
+			const parsed = JSON.parse(readFileSync(handle, "utf-8")) as unknown;
+			return parseDaemonUpdateRestartManifest(parsed);
+		} finally {
+			closeSync(handle);
 		}
-		const parsed = JSON.parse(readFileSync(manifestPath, "utf-8")) as unknown;
-		return parseDaemonUpdateRestartManifest(parsed);
 	}
 	return undefined;
 }

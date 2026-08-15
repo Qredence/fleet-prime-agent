@@ -1,5 +1,4 @@
-import type { Stats } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { basename, extname } from "node:path";
 import type { WorkspaceFileResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { resolveContainedWorkspacePath } from "./workspace-paths";
@@ -43,9 +42,10 @@ export async function readWorkspaceFile(root: string, requestedPath: string): Pr
 	const { absolute, relative } = resolved;
 	const name = basename(absolute);
 
-	let fileStat: Stats;
+	// Stat and read share a single handle so the size check and the content match.
+	let handle: Awaited<ReturnType<typeof open>>;
 	try {
-		fileStat = await stat(absolute);
+		handle = await open(absolute, "r");
 	} catch {
 		return {
 			kind: "error",
@@ -54,38 +54,35 @@ export async function readWorkspaceFile(root: string, requestedPath: string): Pr
 		};
 	}
 
-	if (!fileStat.isFile()) {
-		return {
-			kind: "error",
-			status: 400,
-			message: `Not a file: ${relative}`,
-		};
-	}
-
-	const size = fileStat.size;
-	if (size > WORKSPACE_FILE_MAX_BYTES) {
-		return {
-			kind: "ok",
-			body: {
-				path: relative,
-				name,
-				content: "",
-				mediaType: "application/octet-stream",
-				size,
-				status: "too-large",
-			},
-		};
-	}
-
+	let size: number;
 	let buffer: Buffer;
 	try {
-		buffer = await readFile(absolute);
-	} catch {
-		return {
-			kind: "error",
-			status: 404,
-			message: `File not found: ${relative}`,
-		};
+		const fileStat = await handle.stat();
+		if (!fileStat.isFile()) {
+			return {
+				kind: "error",
+				status: 400,
+				message: `Not a file: ${relative}`,
+			};
+		}
+
+		size = fileStat.size;
+		if (size > WORKSPACE_FILE_MAX_BYTES) {
+			return {
+				kind: "ok",
+				body: {
+					path: relative,
+					name,
+					content: "",
+					mediaType: "application/octet-stream",
+					size,
+					status: "too-large",
+				},
+			};
+		}
+		buffer = await handle.readFile();
+	} finally {
+		await handle.close();
 	}
 
 	if (isBinaryBuffer(buffer)) {

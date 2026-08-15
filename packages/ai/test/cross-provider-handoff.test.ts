@@ -22,7 +22,9 @@
  * Fixtures are generated fresh on each run.
  */
 
-import { writeFileSync } from "fs";
+import { mkdtempSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { Type } from "typebox";
 import { beforeAll, describe, expect, it } from "vitest";
 import { getModel } from "../src/models.js";
@@ -184,7 +186,8 @@ function hasAnyApiKey(): boolean {
 }
 
 function dumpFailurePayload(params: { label: string; error: string; payload?: unknown; messages: Message[] }): void {
-	const filename = `/tmp/pi-handoff-${params.label}-${Date.now()}.json`;
+	const dumpDir = mkdtempSync(join(tmpdir(), "pi-handoff-"));
+	const filename = join(dumpDir, `${params.label}-${Date.now()}.json`);
 	const body = {
 		label: params.label,
 		error: params.error,

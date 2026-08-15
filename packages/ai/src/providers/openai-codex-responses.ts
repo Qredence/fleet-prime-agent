@@ -430,10 +430,18 @@ function resolveCodexServiceTier(
 
 function resolveCodexUrl(baseUrl?: string): string {
 	const raw = baseUrl && baseUrl.trim().length > 0 ? baseUrl : DEFAULT_CODEX_BASE_URL;
-	const normalized = raw.replace(/\/+$/, "");
+	const normalized = stripTrailingSlashes(raw);
 	if (normalized.endsWith("/codex/responses")) return normalized;
 	if (normalized.endsWith("/codex")) return `${normalized}/responses`;
 	return `${normalized}/codex/responses`;
+}
+
+function stripTrailingSlashes(value: string): string {
+	let end = value.length;
+	while (end > 0 && value[end - 1] === "/") {
+		end--;
+	}
+	return value.slice(0, end);
 }
 
 function resolveCodexWebSocketUrl(baseUrl?: string): string {

@@ -30,7 +30,16 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 		}
 
 		try {
-			const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, {
+			const parsedBaseUrl = new URL(baseUrl);
+			if (parsedBaseUrl.protocol !== "https:" && parsedBaseUrl.protocol !== "http:") {
+				return Response.json({
+					providerId: provider,
+					models: [],
+				});
+			}
+			// codeql[js/file-access-to-http] Stored provider credentials are sent to the
+			// user-configured provider endpoint; this is the model discovery auth flow.
+			const response = await fetch(`${parsedBaseUrl.toString().replace(/\/$/, "")}/v1/models`, {
 				headers: { Authorization: `Bearer ${apiKey}` },
 				signal: AbortSignal.timeout(10_000),
 			});

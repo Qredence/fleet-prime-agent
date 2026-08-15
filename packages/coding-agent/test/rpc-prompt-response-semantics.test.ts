@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Agent } from "@earendil-works/pi-agent-core";
@@ -98,7 +98,7 @@ function createRuntimeHost(options: { withAuth: boolean; responseDelayMs: number
 	session: AgentSession;
 	cleanup: () => Promise<void>;
 } {
-	const tempDir = join(tmpdir(), `pi-rpc-prompt-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	const tempDir = mkdtempSync(join(tmpdir(), "pi-rpc-prompt-"));
 	mkdirSync(tempDir, { recursive: true });
 
 	const model = options.model ?? getModel("anthropic", "claude-sonnet-4-5");

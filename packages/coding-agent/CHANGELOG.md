@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- Fixed extension installs cloning git sources into predictable temp paths; temporary sources now use per-process `mkdtemp` directories and repo URLs can no longer be parsed as git options.
+- Fixed API-key fingerprinting in the model registry using fast hashes; persisted fingerprints now use scrypt and in-memory cache fingerprints use a per-process keyed HMAC.
+- Fixed multiple check-then-use file races in auth storage, settings, session persistence, log rotation, migrations, git path discovery, and agent traces by reading and writing through a single file handle or exclusive creation.
+- Fixed ReDoS-prone regexes in skill-block parsing, diff line parsing, the login dialog, npm spec parsing, and workspace path normalization.
+- Fixed the Python kernel bootstrap passing module names to `python -c` via string interpolation and accepting arbitrary executable paths from `PRIME_AGENT_KERNEL_PYTHON`; module names now travel as argv and the override is validated.
+- Fixed the version check and tool installer interpolating unvalidated file-derived values into URLs; versions and GitHub repo names are now validated before use.
+- Fixed the web launcher exposing internal error messages and stack traces to browser clients.
+
 - Added `prime-agent web` to launch the packaged Qredence frontend and backend.
 - Changed the public installer to build the Qredence repository in place and link the `prime-agent` command globally.
 - Added a `seed_messages` daemon capability so clients negotiate seeded `new_session` independently of protocol version.

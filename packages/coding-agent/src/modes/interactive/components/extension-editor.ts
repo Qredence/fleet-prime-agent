@@ -117,7 +117,8 @@ export class ExtensionEditorComponent extends Container implements Focusable {
 		}
 
 		const currentText = this.editor.getText();
-		const tmpFile = path.join(os.tmpdir(), `pi-extension-editor-${Date.now()}.md`);
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-extension-editor-"));
+		const tmpFile = path.join(tmpDir, "content.md");
 
 		try {
 			fs.writeFileSync(tmpFile, currentText, "utf-8");

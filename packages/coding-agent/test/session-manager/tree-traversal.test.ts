@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync } from "fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
@@ -477,7 +477,7 @@ describe("createBranchedSession", () => {
 	});
 
 	it("does not duplicate entries when forking from first user message", () => {
-		const tempDir = join(tmpdir(), `session-fork-dedup-${Date.now()}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "session-fork-dedup-"));
 		mkdirSync(tempDir, { recursive: true });
 
 		try {
@@ -521,7 +521,7 @@ describe("createBranchedSession", () => {
 	});
 
 	it("writes file immediately when forking from a point with assistant messages", () => {
-		const tempDir = join(tmpdir(), `session-fork-with-assistant-${Date.now()}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "session-fork-with-assistant-"));
 		mkdirSync(tempDir, { recursive: true });
 
 		try {

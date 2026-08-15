@@ -302,11 +302,14 @@ export class LoginDialogComponent extends Container implements Focusable {
 	}
 
 	private addInstructions(instructions: string): void {
-		const codeMatch = /^(?:Code|Enter code):\s*(.+)$/i.exec(instructions.trim());
-		if (codeMatch?.[1]) {
-			this.addLabel("Verification code");
-			this.contentContainer.addChild(new Text(theme.bold(theme.fg("text", codeMatch[1])), 0, 0));
-			return;
+		const prefixMatch = /^(?:Code|Enter code):/i.exec(instructions.trim());
+		if (prefixMatch) {
+			const code = instructions.trim().slice(prefixMatch[0].length).replace(/^\s+/, "");
+			if (code.length > 0) {
+				this.addLabel("Verification code");
+				this.contentContainer.addChild(new Text(theme.bold(theme.fg("text", code)), 0, 0));
+				return;
+			}
 		}
 		this.addLabel("Next step");
 		this.contentContainer.addChild(new Text(theme.fg("text", instructions), 0, 0));

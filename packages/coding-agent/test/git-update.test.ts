@@ -7,8 +7,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -65,7 +64,7 @@ describe("DefaultPackageManager git update", () => {
 	const gitSource = "git:github.com/test/extension";
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `git-update-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "git-update-test-"));
 		mkdirSync(tempDir, { recursive: true });
 		remoteDir = join(tempDir, "remote");
 		agentDir = join(tempDir, "agent");
@@ -311,11 +310,13 @@ describe("DefaultPackageManager git update", () => {
 	});
 
 	describe("temporary git sources", () => {
+		const tempCacheDirFor = (): string =>
+			(
+				packageManager as unknown as { getTemporaryDir: (prefix: string, suffix?: string) => string }
+			).getTemporaryDir("git-github.com", "test/extension");
+
 		it("should refresh cached temporary git sources when resolving", async () => {
-			const gitHost = "github.com";
-			const gitPath = "test/extension";
-			const hash = createHash("sha256").update(`git-${gitHost}-${gitPath}`).digest("hex").slice(0, 8);
-			const cachedDir = join(tmpdir(), "pi-extensions", `git-${gitHost}`, hash, gitPath);
+			const cachedDir = tempCacheDirFor();
 			const extensionFile = join(cachedDir, "pi-extensions", "session-breakdown.ts");
 
 			rmSync(cachedDir, { recursive: true, force: true });
@@ -359,10 +360,7 @@ describe("DefaultPackageManager git update", () => {
 		});
 
 		it("should not refresh pinned temporary git sources", async () => {
-			const gitHost = "github.com";
-			const gitPath = "test/extension";
-			const hash = createHash("sha256").update(`git-${gitHost}-${gitPath}`).digest("hex").slice(0, 8);
-			const cachedDir = join(tmpdir(), "pi-extensions", `git-${gitHost}`, hash, gitPath);
+			const cachedDir = tempCacheDirFor();
 			const extensionFile = join(cachedDir, "pi-extensions", "session-breakdown.ts");
 
 			rmSync(cachedDir, { recursive: true, force: true });

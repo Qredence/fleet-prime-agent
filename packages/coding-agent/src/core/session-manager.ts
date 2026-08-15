@@ -15,7 +15,7 @@ import {
 	statSync,
 	writeFileSync,
 } from "fs";
-import { readdir, readFile, stat } from "fs/promises";
+import { open, readdir, stat } from "fs/promises";
 import { basename, dirname, join, resolve } from "path";
 import { v7 as uuidv7 } from "uuid";
 import { getAgentDir as getDefaultAgentDir, getSessionsDir } from "../config.js";
@@ -672,10 +672,19 @@ export async function loadEntriesFromFileAsync(
 	filePath: string,
 	options: { streamThresholdBytes?: number } = {},
 ): Promise<FileEntry[]> {
-	if (!existsSync(filePath)) return [];
 	const streamThresholdBytes = options.streamThresholdBytes ?? SESSION_STREAMING_LOAD_THRESHOLD_BYTES;
-	if ((await stat(filePath)).size < streamThresholdBytes) {
-		return finalizeLoadedEntries(await parseEntriesFromBufferAsync(await readFile(filePath)));
+	let handle: Awaited<ReturnType<typeof open>>;
+	try {
+		handle = await open(filePath, "r");
+	} catch {
+		return [];
+	}
+	try {
+		if ((await handle.stat()).size < streamThresholdBytes) {
+			return finalizeLoadedEntries(await parseEntriesFromBufferAsync(await handle.readFile()));
+		}
+	} finally {
+		await handle.close();
 	}
 
 	const entries: FileEntry[] = [];
@@ -1464,12 +1473,20 @@ export class SessionManager {
 			return;
 		}
 
-		if (!this.flushed || !existsSync(this.sessionFile)) {
+		if (!this.flushed) {
 			this._rewriteFile();
 			this.flushed = true;
 		} else {
 			mkdirSync(dirname(this.sessionFile), { recursive: true });
-			appendFileSync(this.sessionFile, `${JSON.stringify(entry)}\n`);
+			try {
+				appendFileSync(this.sessionFile, `${JSON.stringify(entry)}\n`);
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+					throw error;
+				}
+				// Session file was removed externally; rewrite the full state.
+				this._rewriteFile();
+			}
 			this._notifyPersistListeners();
 		}
 	}

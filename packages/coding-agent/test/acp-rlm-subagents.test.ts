@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as acp from "@agentclientprotocol/sdk";
@@ -86,7 +86,7 @@ describe("ACP mode surfaces RLM subagents", () => {
 	let session: AgentSession | undefined;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-acp-rlm-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-acp-rlm-"));
 		mkdirSync(tempDir, { recursive: true });
 	});
 

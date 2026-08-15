@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@earendil-works/pi-ai";
@@ -25,7 +25,7 @@ describe("AgentSessionRuntime session lifecycle events", () => {
 	});
 
 	async function createRuntimeHost(extensionFactory: ExtensionFactory) {
-		const tempDir = join(tmpdir(), `pi-runtime-events-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "pi-runtime-events-"));
 		mkdirSync(tempDir, { recursive: true });
 
 		const faux = registerFauxProvider();

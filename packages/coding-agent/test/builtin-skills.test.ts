@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -29,7 +29,7 @@ describe("builtin skills", () => {
 	let settingsManager: SettingsManager;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `builtin-skills-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "builtin-skills-test-"));
 		agentDir = join(tempDir, "agent");
 		cwd = join(tempDir, "project");
 		bundledDir = join(tempDir, "bundled-skills");

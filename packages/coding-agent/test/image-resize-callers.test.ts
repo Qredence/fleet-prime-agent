@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,7 +18,7 @@ describe("image resize callers", () => {
 	let testDir: string;
 
 	beforeEach(() => {
-		testDir = join(tmpdir(), `image-resize-callers-${Date.now()}`);
+		testDir = mkdtempSync(join(tmpdir(), "image-resize-callers-"));
 		mkdirSync(testDir, { recursive: true });
 		vi.mocked(resizeImage).mockReset();
 		vi.mocked(resizeImage).mockResolvedValue(null);

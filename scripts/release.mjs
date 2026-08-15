@@ -84,6 +84,12 @@ function bumpOrSetVersion(target) {
 		return getVersion();
 	}
 
+	// Re-validate before the value reaches a shell command.
+	if (!SEMVER_RE.test(target)) {
+		console.error(`Invalid release target: ${target}`);
+		process.exit(1);
+	}
+
 	if (compareVersions(target, currentVersion) <= 0) {
 		console.error(`Error: explicit version ${target} must be greater than current version ${currentVersion}.`);
 		process.exit(1);

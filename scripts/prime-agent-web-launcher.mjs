@@ -93,7 +93,7 @@ async function handleRequest(request, response) {
 		}
 		response.statusCode = 500;
 		response.setHeader("content-type", "text/plain; charset=utf-8");
-		response.end(error instanceof Error ? error.message : String(error));
+		response.end("Internal server error");
 		console.error(`Web request failed: ${error instanceof Error ? error.stack || error.message : String(error)}`);
 	}
 }

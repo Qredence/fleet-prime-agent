@@ -415,14 +415,14 @@ describe("session paths", () => {
 	});
 
 	test("uses the session root env var when computing sessions dir", () => {
-		const sessionRoot = join(tmpdir(), `pi-session-root-${Date.now()}`);
+		const sessionRoot = mkdtempSync(join(tmpdir(), "pi-session-root-"));
 		process.env[ENV_SESSION_DIR] = sessionRoot;
 
 		expect(getSessionsDir("/agent")).toBe(sessionRoot);
 	});
 
 	test("uses the legacy coding agent session root env var when the new env var is unset", () => {
-		const sessionRoot = join(tmpdir(), `pi-legacy-session-root-${Date.now()}`);
+		const sessionRoot = mkdtempSync(join(tmpdir(), "pi-legacy-session-root-"));
 		delete process.env[ENV_SESSION_DIR];
 		process.env[ENV_LEGACY_SESSION_DIR] = sessionRoot;
 

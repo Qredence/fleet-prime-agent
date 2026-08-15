@@ -1,6 +1,14 @@
 import { type ChildProcess, type ChildProcessByStdio, spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 
 function getEnv(): NodeJS.ProcessEnv {
@@ -1662,13 +1670,21 @@ export class DefaultPackageManager implements PackageManager {
 	}
 
 	private parseNpmSpec(spec: string): { name: string; version?: string } {
-		const match = spec.match(/^(@?[^@]+(?:\/[^@]+)?)(?:@(.+))?$/);
-		if (!match) {
+		if (spec.startsWith("@")) {
+			const versionSeparator = spec.lastIndexOf("@");
+			if (versionSeparator > 0) {
+				const version = spec.slice(versionSeparator + 1);
+				if (version.length > 0) {
+					return { name: spec.slice(0, versionSeparator), version };
+				}
+			}
 			return { name: spec };
 		}
-		const name = match[1] ?? spec;
-		const version = match[2];
-		return { name, version };
+		const versionSeparator = spec.indexOf("@");
+		if (versionSeparator !== -1) {
+			return { name: spec.slice(0, versionSeparator), version: spec.slice(versionSeparator + 1) };
+		}
+		return { name: spec };
 	}
 
 	private getNpmCommand(): { command: string; args: string[] } {
@@ -1734,7 +1750,11 @@ export class DefaultPackageManager implements PackageManager {
 		}
 		mkdirSync(dirname(targetDir), { recursive: true });
 
-		await this.runCommand("git", ["clone", source.repo, targetDir]);
+		// A repo starting with "-" would be parsed as a git option; `--` terminates options.
+		if (source.repo.startsWith("-")) {
+			throw new Error(`Invalid git repository: ${source.repo}`);
+		}
+		await this.runCommand("git", ["clone", "--", source.repo, targetDir]);
 		if (source.ref) {
 			await this.runCommand("git", ["checkout", source.ref], { cwd: targetDir });
 		}
@@ -1827,9 +1847,15 @@ export class DefaultPackageManager implements PackageManager {
 		}
 		this.ensureGitIgnore(installRoot);
 		const packageJsonPath = join(installRoot, "package.json");
-		if (!existsSync(packageJsonPath)) {
-			const pkgJson = { name: "pi-extensions", private: true };
-			writeFileSync(packageJsonPath, JSON.stringify(pkgJson, null, 2), "utf-8");
+		try {
+			writeFileSync(packageJsonPath, JSON.stringify({ name: "pi-extensions", private: true }, null, 2), {
+				encoding: "utf-8",
+				flag: "wx",
+			});
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+				throw error;
+			}
 		}
 	}
 
@@ -1838,8 +1864,12 @@ export class DefaultPackageManager implements PackageManager {
 			mkdirSync(dir, { recursive: true });
 		}
 		const ignorePath = join(dir, ".gitignore");
-		if (!existsSync(ignorePath)) {
-			writeFileSync(ignorePath, "*\n!.gitignore\n", "utf-8");
+		try {
+			writeFileSync(ignorePath, "*\n!.gitignore\n", { encoding: "utf-8", flag: "wx" });
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+				throw error;
+			}
 		}
 	}
 
@@ -1900,12 +1930,16 @@ export class DefaultPackageManager implements PackageManager {
 		return join(this.agentDir, "git");
 	}
 
+	private temporaryDirs = new Map<string, string>();
+
 	private getTemporaryDir(prefix: string, suffix?: string): string {
-		const hash = createHash("sha256")
-			.update(`${prefix}-${suffix ?? ""}`)
-			.digest("hex")
-			.slice(0, 8);
-		return join(tmpdir(), "pi-extensions", prefix, hash, suffix ?? "");
+		const key = `${prefix}\0${suffix ?? ""}`;
+		let dir = this.temporaryDirs.get(key);
+		if (!dir) {
+			dir = mkdtempSync(join(tmpdir(), "pi-extensions-"));
+			this.temporaryDirs.set(key, dir);
+		}
+		return dir;
 	}
 
 	private getBaseDirForScope(scope: SourceScope): string {

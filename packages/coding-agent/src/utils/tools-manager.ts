@@ -131,6 +131,10 @@ export function getToolPath(tool: ManagedTool): string | null {
 
 // Fetch latest release version from GitHub
 async function getLatestVersion(repo: string): Promise<string> {
+	// The repo is interpolated into the API URL; only allow owner/name shapes.
+	if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
+		throw new Error(`Invalid GitHub repository: ${repo}`);
+	}
 	const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
 		headers: { "User-Agent": `${APP_NAME}-coding-agent` },
 		signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),

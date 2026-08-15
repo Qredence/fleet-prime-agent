@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -73,7 +73,7 @@ describe.skipIf(process.platform !== "win32")("Windows child-process close handl
 	let testDir: string;
 
 	beforeEach(() => {
-		testDir = join(tmpdir(), `coding-agent-bash-close-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		testDir = mkdtempSync(join(tmpdir(), "coding-agent-bash-close-test-"));
 		mkdirSync(testDir, { recursive: true });
 	});
 

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Fixed provider detection comparing base URLs with substring checks; hostnames are now parsed and matched exactly, so lookalike hosts are no longer treated as the provider.
+- Fixed pathologically slow regexes in base-URL normalization (trailing-slash stripping) and OpenAI-completions host detection.
+
 ## [0.7.1] - 2026-08-07
 
 ## [0.7.0] - 2026-08-05

@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -21,7 +21,7 @@ describe("goal skill over the kernel host bridge", { tags: ["kernel-heavy"] }, (
 	let provisioner: IpythonKernelProvisioner | undefined;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-goal-skill-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-goal-skill-"));
 		mkdirSync(tempDir, { recursive: true });
 	});
 

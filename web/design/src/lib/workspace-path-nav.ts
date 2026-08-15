@@ -32,8 +32,15 @@ export function stripSandboxPrefixes(filePath: string): string {
 		if (filePath.startsWith(prefix)) return filePath.slice(prefix.length);
 	}
 
-	const worktreeMatch = filePath.match(/\.21st\/worktrees\/[^/]+\/[^/]+\/(.+)$/);
-	if (worktreeMatch?.[1]) return worktreeMatch[1];
+	const worktreeMarker = ".21st/worktrees/";
+	const markerIndex = filePath.indexOf(worktreeMarker);
+	if (markerIndex !== -1) {
+		const rest = filePath.slice(markerIndex + worktreeMarker.length);
+		const segments = rest.split("/");
+		if (segments.length >= 3 && segments[0] && segments[1]) {
+			return segments.slice(2).join("/");
+		}
+	}
 
 	return filePath;
 }

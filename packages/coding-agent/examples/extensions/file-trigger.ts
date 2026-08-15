@@ -27,6 +27,8 @@ export default function (pi: ExtensionAPI) {
 						},
 						{ triggerTurn: true }, // triggerTurn - get LLM to respond
 					);
+					// codeql[js/insecure-temporary-file] The fixed /tmp mailbox path is the documented
+					// cross-process interface of this example extension; it is opt-in and local.
 					fs.writeFileSync(triggerFile, ""); // Clear after reading
 				}
 			} catch {

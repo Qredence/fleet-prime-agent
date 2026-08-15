@@ -116,10 +116,14 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 	}
 
 	private ensureFileExists(): void {
-		if (!existsSync(this.authPath)) {
-			writeFileSync(this.authPath, "{}", "utf-8");
-			chmodSync(this.authPath, 0o600);
+		try {
+			writeFileSync(this.authPath, "{}", { encoding: "utf-8", flag: "wx", mode: 0o600 });
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+				throw error;
+			}
 		}
+		chmodSync(this.authPath, 0o600);
 	}
 
 	private acquireLockSyncWithRetry(path: string): () => void {
@@ -156,7 +160,7 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 		let release: (() => void) | undefined;
 		try {
 			release = this.acquireLockSyncWithRetry(this.authPath);
-			const current = existsSync(this.authPath) ? readFileSync(this.authPath, "utf-8") : undefined;
+			const current = this.readCurrentUnlocked();
 			const { result, next } = fn(current);
 			if (next !== undefined) {
 				writeFileSync(this.authPath, next, "utf-8");
@@ -167,6 +171,17 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 			if (release) {
 				release();
 			}
+		}
+	}
+
+	private readCurrentUnlocked(): string | undefined {
+		try {
+			return readFileSync(this.authPath, "utf-8");
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+				return undefined;
+			}
+			throw error;
 		}
 	}
 
@@ -200,7 +215,7 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 			});
 
 			throwIfCompromised();
-			const current = existsSync(this.authPath) ? readFileSync(this.authPath, "utf-8") : undefined;
+			const current = this.readCurrentUnlocked();
 			const { result, next } = await fn(current);
 			throwIfCompromised();
 			if (next !== undefined) {

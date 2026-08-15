@@ -896,7 +896,14 @@ export class AgentDaemon {
 		}
 		try {
 			mkdirSync(dirname(path), { recursive: true });
-			const existing = existsSync(path) ? readFileSync(path, "utf8") : "";
+			let existing = "";
+			try {
+				existing = readFileSync(path, "utf8");
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+					throw error;
+				}
+			}
 			const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
 			const handle = openSync(path, "a");
 			try {

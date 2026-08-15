@@ -2,7 +2,7 @@
  * Process @file CLI arguments into text content and image attachments
  */
 
-import { access, readFile, stat } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import chalk from "chalk";
 import { resolve } from "path";
@@ -38,9 +38,15 @@ export async function processFileArguments(fileArgs: string[], options?: Process
 			process.exit(1);
 		}
 
-		// Check if file is empty
-		const stats = await stat(absolutePath);
-		if (stats.size === 0) {
+		// Read the file once; empty files are skipped below.
+		let content: Buffer;
+		try {
+			content = await readFile(absolutePath);
+		} catch {
+			console.error(chalk.red(`Error: Could not read file ${absolutePath}`));
+			process.exit(1);
+		}
+		if (content.length === 0) {
 			// Skip empty files
 			continue;
 		}
@@ -49,7 +55,6 @@ export async function processFileArguments(fileArgs: string[], options?: Process
 
 		if (mimeType) {
 			// Handle image file
-			const content = await readFile(absolutePath);
 			const base64Content = content.toString("base64");
 
 			let attachment: ImageContent;
@@ -85,14 +90,7 @@ export async function processFileArguments(fileArgs: string[], options?: Process
 			}
 		} else {
 			// Handle text file
-			try {
-				const content = await readFile(absolutePath, "utf-8");
-				text += `<file name="${absolutePath}">\n${content}\n</file>\n`;
-			} catch (error: unknown) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(chalk.red(`Error: Could not read file ${absolutePath}: ${message}`));
-				process.exit(1);
-			}
+			text += `<file name="${absolutePath}">\n${content.toString("utf-8")}\n</file>\n`;
 		}
 	}
 

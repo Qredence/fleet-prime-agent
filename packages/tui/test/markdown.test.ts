@@ -8,6 +8,11 @@ import { type Component, TUI } from "../src/tui.js";
 import { defaultMarkdownTheme } from "./test-themes.js";
 import { VirtualTerminal } from "./virtual-terminal.js";
 
+/** Match a rendered line that contains the full URL as a literal. */
+function urlPattern(url: string): RegExp {
+	return new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+}
+
 // Force full color in CI so ANSI assertions are deterministic
 const chalk = new Chalk({ level: 3 });
 
@@ -359,7 +364,7 @@ describe("Markdown component", () => {
 			// even if it was split across multiple wrapped lines.
 			const extracted = plainLines.join("").replace(/[│├┤─\s]/g, "");
 			assert.ok(extracted.includes("prefix"), "Should preserve 'prefix'");
-			assert.ok(extracted.includes(url), "Should preserve URL");
+			assert.ok(urlPattern(url).test(extracted), "Should preserve URL");
 		});
 
 		it("should expose wrapped table cell boundaries without changing rendered text", () => {

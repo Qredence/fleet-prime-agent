@@ -391,7 +391,15 @@ function run(command: string, args: string[], options: { stdio?: "ignore" | "inh
 
 async function pythonImports(python: string, moduleName: string): Promise<boolean> {
 	try {
-		await run(python, ["-c", `import ${moduleName}`], { stdio: "ignore" });
+		await run(
+			python,
+			[
+				"-c",
+				"import importlib.util, sys; sys.exit(0 if importlib.util.find_spec(sys.argv[1]) is not None else 1)",
+				moduleName,
+			],
+			{ stdio: "ignore" },
+		);
 		return true;
 	} catch {
 		return false;
@@ -858,6 +866,9 @@ async function ensureKernelPythonUncached(
 ): Promise<string> {
 	const override = process.env.PRIME_AGENT_KERNEL_PYTHON;
 	if (override) {
+		if (!/^[A-Za-z0-9_./~-]+$/.test(override)) {
+			throw new Error("PRIME_AGENT_KERNEL_PYTHON contains invalid characters; expected a plain executable path");
+		}
 		const python = path.resolve(expandHome(override));
 		const missing: string[] = [];
 		if (!(await hasIpykernel(python))) missing.push("ipykernel");

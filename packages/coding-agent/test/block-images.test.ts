@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -45,7 +45,7 @@ describe("blockImages setting", () => {
 		let testDir: string;
 
 		beforeEach(() => {
-			testDir = join(tmpdir(), `block-images-process-test-${Date.now()}`);
+			testDir = mkdtempSync(join(tmpdir(), "block-images-process-test-"));
 			mkdirSync(testDir, { recursive: true });
 		});
 

@@ -93,9 +93,8 @@ function normalizeReleaseVersion(version: string): string {
 	return version.trim().replace(/^v/, "");
 }
 
-function getReleaseManifestPath(currentVersion: string): string {
-	const prerelease = parsePackageVersion(currentVersion)?.prerelease;
-	return prerelease?.match(/^beta(?:\.|$)/) ? BETA_VERSION_MANIFEST_PATH : STABLE_VERSION_MANIFEST_PATH;
+function getReleaseManifestPath(parsed: ParsedVersion): string {
+	return parsed.prerelease?.match(/^beta(?:\.|$)/) ? BETA_VERSION_MANIFEST_PATH : STABLE_VERSION_MANIFEST_PATH;
 }
 
 function resolveReleaseUrl(baseUrl: string, pathOrUrl: string): string | undefined {
@@ -116,7 +115,11 @@ export async function getLatestPiRelease(
 
 	const baseUrl = getPrimeAgentDownloadBaseUrl();
 	if (!baseUrl) return undefined;
-	const response = await fetch(`${baseUrl}/${getReleaseManifestPath(currentVersion)}`, {
+	// Validate the version before it influences the request; package.json versions are
+	// trusted but must stay out of the URL and headers unvalidated.
+	const parsedVersion = parsePackageVersion(currentVersion);
+	if (!parsedVersion) return undefined;
+	const response = await fetch(`${baseUrl}/${getReleaseManifestPath(parsedVersion)}`, {
 		headers: {
 			"User-Agent": getPiUserAgent(currentVersion),
 			accept: "application/json",

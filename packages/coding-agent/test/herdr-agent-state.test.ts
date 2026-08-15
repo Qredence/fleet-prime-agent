@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -155,7 +155,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("defers only to a file-based integration that actually loaded", () => {
-		const tempDir = join(tmpdir(), `pi-herdr-defer-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "pi-herdr-defer-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 
@@ -180,7 +180,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("ignores events from sessions other than the one it bound to", async () => {
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -219,7 +219,7 @@ describe("herdrAgentStateExtension", () => {
 
 	it("reports lifecycle state to the herdr socket", async () => {
 		// Unix socket paths must stay under ~104 chars; use a short base dir.
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -278,7 +278,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("unsubscribes the shared-bus herdr:blocked listener on shutdown", async () => {
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -302,7 +302,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("reports working when the session starts mid-turn (reload)", async () => {
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -334,7 +334,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("settles the retry hold when a blocked event interrupts it", async () => {
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -377,7 +377,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("holds working through any error end until the retry grace settles", async () => {
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -416,7 +416,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("sends no reports after quit release", async () => {
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -449,7 +449,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("silences a replaced instance without releasing the pane", async () => {
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -480,7 +480,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("keeps seq monotonically increasing across extension instances", async () => {
-		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");

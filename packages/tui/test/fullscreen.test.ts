@@ -17,6 +17,11 @@ class TestComponent implements Component {
 	invalidate(): void {}
 }
 
+/** Match a rendered line that contains the full URL as a literal. */
+function urlPattern(url: string): RegExp {
+	return new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+}
+
 class InputComponent extends TestComponent {
 	inputs: string[] = [];
 	handleInput(data: string): void {
@@ -445,7 +450,7 @@ describe("TUI fullscreen mode", () => {
 		await terminal.waitForRender();
 
 		const viewport = terminal.getViewport();
-		const row = viewport.findIndex((line) => line.includes(url));
+		const row = viewport.findIndex((line) => urlPattern(url).test(line));
 		assert.notStrictEqual(row, -1, "URL is visible in the focused overlay");
 		const col = viewport[row]!.indexOf(url);
 		const startX = col + 1;
@@ -501,7 +506,7 @@ describe("TUI fullscreen mode", () => {
 		await terminal.waitForRender();
 
 		const viewport = terminal.getViewport();
-		const row = viewport.findIndex((line) => line.includes(url));
+		const row = viewport.findIndex((line) => urlPattern(url).test(line));
 		assert.notStrictEqual(row, -1, "URL is visible after the over-tall frame is sliced");
 		const col = viewport[row]!.indexOf(url);
 		const startX = col + 1;
@@ -532,7 +537,7 @@ describe("TUI fullscreen mode", () => {
 		await terminal.waitForRender();
 
 		const viewport = terminal.getViewport();
-		const row = viewport.findIndex((line) => line.includes(url));
+		const row = viewport.findIndex((line) => urlPattern(url).test(line));
 		assert.notStrictEqual(row, -1, "URL is visible in the focused overlay");
 		const col = viewport[row]!.indexOf(url);
 		const startX = col + 1;
@@ -566,7 +571,7 @@ describe("TUI fullscreen mode", () => {
 		await terminal.waitForRender();
 
 		const viewport = terminal.getViewport();
-		const row = viewport.findIndex((line) => line.includes(url));
+		const row = viewport.findIndex((line) => urlPattern(url).test(line));
 		assert.notStrictEqual(row, -1, "URL is visible in the focused overlay");
 		const outsideRow = viewport.findIndex((line, index) => index !== row && line.includes("Line "));
 		assert.notStrictEqual(outsideRow, -1, "transcript row is visible outside the overlay");
@@ -662,7 +667,7 @@ describe("TUI fullscreen mode", () => {
 		tui.showOverlay(upper, { anchor: "top-right", width: 24 });
 		await terminal.waitForRender();
 
-		const row = terminal.getViewport().findIndex((line) => line.includes(lowerUrl));
+		const row = terminal.getViewport().findIndex((line) => urlPattern(lowerUrl).test(line));
 		assert.notStrictEqual(row, -1, "unfocused lower overlay is visible");
 		const col = terminal.getViewport()[row]!.indexOf(lowerUrl);
 		const startX = col + 1;

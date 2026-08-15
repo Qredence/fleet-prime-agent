@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -24,7 +24,7 @@ describe("attach-image skill over the kernel host bridge", () => {
 	let provisioner: IpythonKernelProvisioner | undefined;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-attach-image-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-attach-image-"));
 		mkdirSync(tempDir, { recursive: true });
 	});
 

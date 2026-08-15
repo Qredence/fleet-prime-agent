@@ -43,6 +43,8 @@ export async function ensureWadFile(): Promise<string | null> {
 			throw new Error(`HTTP ${response.status}`);
 		}
 		const buffer = await response.arrayBuffer();
+		// codeql[js/http-to-file-access] The WAD is downloaded to a fixed bundled path
+		// next to the extension; the destination is never derived from the response.
 		writeFileSync(BUNDLED_WAD, Buffer.from(buffer));
 		return BUNDLED_WAD;
 	} catch {

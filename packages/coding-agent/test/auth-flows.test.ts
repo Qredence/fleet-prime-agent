@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Component, OverlayHandle, TUI } from "@earendil-works/pi-tui";
@@ -84,7 +84,7 @@ describe("ProviderAuthFlows", () => {
 	});
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-auth-flows-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-auth-flows-"));
 		mkdirSync(tempDir, { recursive: true });
 		authJsonPath = join(tempDir, "auth.json");
 		primeConfigPath = join(tempDir, "prime-config.json");

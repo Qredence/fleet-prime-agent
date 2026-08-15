@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -236,7 +236,7 @@ describe("AgentSession rlm recursion", () => {
 	let session: AgentSession | undefined;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-rlm-recursion-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-rlm-recursion-"));
 		mkdirSync(tempDir, { recursive: true });
 	});
 
@@ -3191,7 +3191,7 @@ describe("AgentSession RLM session dir", () => {
 	let session: AgentSession | undefined;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `pi-rlm-dir-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		tempDir = mkdtempSync(join(tmpdir(), "pi-rlm-dir-"));
 		mkdirSync(tempDir, { recursive: true });
 	});
 

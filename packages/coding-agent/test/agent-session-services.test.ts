@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerFauxProvider } from "@earendil-works/pi-ai";
@@ -30,7 +30,7 @@ describe("createAgentSessionFromServices", () => {
 
 	it("shows the telemetry disclosure independently of the Herdr reporter", async () => {
 		vi.stubEnv("PRIME_AGENT_TELEMETRY", "1");
-		const tempDir = join(tmpdir(), `pi-session-telemetry-notice-${Date.now()}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "pi-session-telemetry-notice-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const settingsManager = SettingsManager.inMemory();
@@ -51,7 +51,7 @@ describe("createAgentSessionFromServices", () => {
 
 	it("honors an explicit daemon-carried telemetry opt-out", async () => {
 		vi.stubEnv("PRIME_AGENT_TELEMETRY", "1");
-		const tempDir = join(tmpdir(), `pi-session-daemon-telemetry-opt-out-${Date.now()}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "pi-session-daemon-telemetry-opt-out-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const settingsManager = SettingsManager.inMemory();
@@ -82,7 +82,7 @@ describe("createAgentSessionFromServices", () => {
 
 	it("does not install top-level telemetry for a resumed child session", async () => {
 		vi.stubEnv("PRIME_AGENT_TELEMETRY", "1");
-		const tempDir = join(tmpdir(), `pi-session-child-telemetry-${Date.now()}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "pi-session-child-telemetry-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const services = await createAgentSessionServices({
@@ -104,7 +104,7 @@ describe("createAgentSessionFromServices", () => {
 	});
 
 	it("forwards daemon-backed agent message controllers into AgentSession", async () => {
-		const tempDir = join(tmpdir(), `pi-session-services-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "pi-session-services-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 
@@ -191,7 +191,7 @@ describe("createAgentSessionFromServices", () => {
 	});
 
 	it("hides daemon-backed orchestration skills unless their host bridges are available", async () => {
-		const tempDir = join(tmpdir(), `pi-session-skills-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const tempDir = mkdtempSync(join(tmpdir(), "pi-session-skills-"));
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 
