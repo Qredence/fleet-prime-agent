@@ -15,6 +15,7 @@
 - Fixed Homebrew installs attempting to self-update their versioned Cellar keg instead of directing users to `brew upgrade prime-agent` ([#844](https://github.com/PrimeIntellect-ai/prime-agent/issues/844))
 - Removed the `/arminsayshi`, `/dementedelves`, and daxnuts easter eggs from interactive mode.
 - Fixed `npm run build` failing because the removed easter-egg image was still referenced by the asset copy steps.
+- Replaced the unpatched `extract-zip` dependency with an internal zip extractor that rejects symlink and path-traversal entries.
 
 ## [0.7.1] - 2026-08-07
 

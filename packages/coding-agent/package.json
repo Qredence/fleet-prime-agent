@@ -57,7 +57,6 @@
 		"cli-highlight": "^2.1.11",
 		"debug": "^4.4.3",
 		"diff": "^9.0.0",
-		"extract-zip": "^2.0.1",
 		"file-type": "^21.1.1",
 		"glob": "^13.0.1",
 		"hosted-git-info": "^9.0.2",
@@ -74,6 +73,7 @@
 		"use-sync-external-store": "^1.6.0",
 		"uuid": "^14.0.0",
 		"yaml": "^2.9.0",
+		"yauzl": "^2.10.0",
 		"zeromq": "^6.1.2"
 	},
 	"overrides": {
@@ -91,6 +91,7 @@
 		"@types/ms": "^2.1.0",
 		"@types/node": "^24.3.0",
 		"@types/proper-lockfile": "^4.1.4",
+		"@types/yauzl": "^3.4.0",
 		"esbuild": "^0.28.1",
 		"shx": "^0.4.0",
 		"typescript": "^5.7.3",

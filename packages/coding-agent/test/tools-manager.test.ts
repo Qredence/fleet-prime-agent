@@ -19,8 +19,8 @@ vi.mock("os", () => ({
 	platform: () => toolState.platform,
 }));
 
-vi.mock("extract-zip", () => ({
-	default: (source: string, options: { dir: string }) => toolState.extractZip(source, options),
+vi.mock("../src/utils/zip-extract.js", () => ({
+	extractZipSafe: (source: string, destDir: string) => toolState.extractZip(source, { dir: destDir }),
 }));
 
 import {
