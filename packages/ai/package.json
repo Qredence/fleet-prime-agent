@@ -98,7 +98,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/PrimeIntellect-ai/prime-agent.git",
+		"url": "git+https://github.com/Qredence/fleet-prime-agent.git",
 		"directory": "packages/ai"
 	},
 	"engines": {

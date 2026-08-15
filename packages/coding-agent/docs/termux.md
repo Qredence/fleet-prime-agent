@@ -17,7 +17,7 @@ pkg update && pkg upgrade
 pkg install nodejs termux-api git ripgrep
 
 # Clone and install Prime Agent from source
-git clone https://github.com/PrimeIntellect-ai/prime-agent.git
+git clone https://github.com/Qredence/fleet-prime-agent.git
 cd prime-agent
 npm ci
 

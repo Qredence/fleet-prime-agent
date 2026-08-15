@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	checkForNewPiVersion,
 	comparePackageVersions,
@@ -25,6 +25,10 @@ afterEach(() => {
 	restoreEnv("PI_SKIP_VERSION_CHECK", originalSkipVersionCheck);
 	restoreEnv("PI_OFFLINE", originalOffline);
 	restoreEnv("PRIME_AGENT_DOWNLOAD_BASE_URL", originalPrimeAgentDownloadBaseUrl);
+});
+
+beforeEach(() => {
+	process.env.PRIME_AGENT_DOWNLOAD_BASE_URL = defaultPrimeAgentDownloadBaseUrl;
 });
 
 describe("version checks", () => {
@@ -88,6 +92,15 @@ describe("version checks", () => {
 
 	it("skips api calls when version checks are disabled", async () => {
 		process.env.PI_SKIP_VERSION_CHECK = "1";
+		const fetchMock = vi.fn();
+		vi.stubGlobal("fetch", fetchMock);
+
+		await expect(getLatestPiVersion("1.2.3")).resolves.toBeUndefined();
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("does not contact a release host for an unconfigured source checkout", async () => {
+		delete process.env.PRIME_AGENT_DOWNLOAD_BASE_URL;
 		const fetchMock = vi.fn();
 		vi.stubGlobal("fetch", fetchMock);
 

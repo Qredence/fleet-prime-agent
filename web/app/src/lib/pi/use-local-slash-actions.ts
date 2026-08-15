@@ -518,7 +518,7 @@ export function useLocalSlashActions({
 				}
 				case "show-changelog":
 					appendLocalMessage(
-						"Changelog lives at https://github.com/PrimeIntellect-ai/prime-agent/blob/main/CHANGELOG.md",
+						"Changelog lives at https://github.com/Qredence/fleet-prime-agent/blob/main/CHANGELOG.md",
 					);
 					return true;
 				case "show-hotkeys":

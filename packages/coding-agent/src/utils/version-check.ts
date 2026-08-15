@@ -1,6 +1,5 @@
 import { getPiUserAgent } from "./pi-user-agent.js";
 
-const DEFAULT_PRIME_AGENT_DOWNLOAD_BASE_URL = "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev";
 const STABLE_VERSION_MANIFEST_PATH = "latest.json";
 const BETA_VERSION_MANIFEST_PATH = "beta.json";
 const DEFAULT_VERSION_CHECK_TIMEOUT_MS = 10000;
@@ -85,11 +84,9 @@ export function isNewerPackageVersion(candidateVersion: string, currentVersion: 
 	return candidateVersion.trim() !== currentVersion.trim();
 }
 
-function getPrimeAgentDownloadBaseUrl(): string {
-	return (process.env.PRIME_AGENT_DOWNLOAD_BASE_URL?.trim() || DEFAULT_PRIME_AGENT_DOWNLOAD_BASE_URL).replace(
-		/\/+$/,
-		"",
-	);
+function getPrimeAgentDownloadBaseUrl(): string | undefined {
+	const configuredBaseUrl = process.env.PRIME_AGENT_DOWNLOAD_BASE_URL?.trim();
+	return configuredBaseUrl ? configuredBaseUrl.replace(/\/+$/, "") : undefined;
 }
 
 function normalizeReleaseVersion(version: string): string {
@@ -118,6 +115,7 @@ export async function getLatestPiRelease(
 	if (process.env.PI_SKIP_VERSION_CHECK || process.env.PI_OFFLINE) return undefined;
 
 	const baseUrl = getPrimeAgentDownloadBaseUrl();
+	if (!baseUrl) return undefined;
 	const response = await fetch(`${baseUrl}/${getReleaseManifestPath(currentVersion)}`, {
 		headers: {
 			"User-Agent": getPiUserAgent(currentVersion),

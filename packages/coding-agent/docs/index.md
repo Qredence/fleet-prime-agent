@@ -4,10 +4,11 @@ Prime Agent is an RLM-native coding and research harness built around a persiste
 
 ## Quick Start
 
-Install the latest stable release on Linux or macOS:
+Install from the public Qredence repository on Linux or macOS:
 
 ```bash
-curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh
+mkdir -p fleet-prime-agent && cd fleet-prime-agent && \
+curl -fsSL https://raw.githubusercontent.com/Qredence/fleet-prime-agent/main/install.sh | sh
 ```
 
 Then run it in a project directory:
@@ -17,9 +18,17 @@ cd /path/to/project
 prime-agent
 ```
 
+Run the packaged web frontend and backend with:
+
+```bash
+prime-agent web
+```
+
+The installer clones or reuses `Qredence/fleet-prime-agent` in the current directory, builds the web runtime, and links `prime-agent` globally. The source Prime Agent packages remain at their repository version; no upstream PrimeIntellect account, release, or repository access is required.
+
 Authenticate with `/login` for subscription or stored API-key providers, or set an environment variable such as `ANTHROPIC_API_KEY` before launch. See the [Quickstart](quickstart.md) for the complete first-run flow.
 
-Public releases are currently installed from versioned release artifacts. The inherited npm workspace names in the source tree are implementation details, not the public install path.
+The public repository is the canonical install source. The inherited npm workspace names in the source tree are implementation details, while the linked user-facing command is `prime-agent`.
 
 ## Start Here
 

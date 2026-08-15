@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	psCalls: [] as boolean[],
 	reapCalls: [] as Array<[boolean, boolean]>,
 	shutdownCalls: [] as Array<[boolean, boolean]>,
+	webCalls: [] as string[][],
 }));
 
 vi.mock("../src/cli/daemon-command.js", () => ({
@@ -36,6 +37,12 @@ vi.mock("../src/cli/daemon-ps.js", () => ({
 	},
 }));
 
+vi.mock("../src/cli/web-command.js", () => ({
+	runWebCommand: async (args: string[]) => {
+		mocks.webCalls.push(args);
+	},
+}));
+
 import { INTERNAL_RUNTIME_COMMAND_MARKER } from "../src/cli/args.js";
 import { formatTopLevelHelp } from "../src/cli/command-registry.js";
 import { DAEMON_UPDATE_RESTART_COORDINATOR_FLAG } from "../src/cli/daemon-update-restart.js";
@@ -48,6 +55,7 @@ describe("public command routing", () => {
 		mocks.psCalls.length = 0;
 		mocks.reapCalls.length = 0;
 		mocks.shutdownCalls.length = 0;
+		mocks.webCalls.length = 0;
 		process.exitCode = undefined;
 		vi.spyOn(console, "log").mockImplementation(() => {});
 		vi.spyOn(console, "error").mockImplementation(() => {});
@@ -101,6 +109,13 @@ describe("public command routing", () => {
 	it("routes agent operations through the internal protocol adapter", async () => {
 		await expect(handlePublicCommand(["list", "--all", "--json"])).resolves.toMatchObject({ handled: true });
 		expect(mocks.daemonCommands).toEqual([["daemon", "list", "--all", "--json"]]);
+	});
+
+	it("dispatches the packaged web command without forwarding it to the interactive runtime", async () => {
+		await expect(handlePublicCommand(["web", "--port", "3100", "--cwd", process.cwd()])).resolves.toMatchObject({
+			handled: true,
+		});
+		expect(mocks.webCalls).toEqual([["--port", "3100", "--cwd", process.cwd()]]);
 	});
 
 	it("forwards a custom daemon socket when stopping an agent", async () => {
@@ -268,6 +283,11 @@ describe("public command routing", () => {
 		}
 		expect(process.exitCode).toBe(1);
 		expect(console.log).not.toHaveBeenCalled();
+	});
+
+	it("keeps the removed top-level install command unavailable", async () => {
+		await expect(handlePublicCommand(["install"])).resolves.toMatchObject({ handled: true });
+		expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Use "prime-agent package install"'));
 	});
 
 	it("suggests close nested commands without executing them", async () => {

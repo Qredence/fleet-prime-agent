@@ -14,6 +14,26 @@ pnpm --dir web --filter @prime-agent/web dev
 
 Open http://127.0.0.1:3000. The browser talks to a single-process Node dev server (TanStack Start + Vite) which drives the coding-agent runtime through `PrimeBridge` (`web/server/src/prime-bridge.ts`): one bridge per process, one `AgentSession` per chat session, with the IPython kernel provisioned per working directory.
 
+## Install from the public repository
+
+Make an empty directory, then run the repository-owned installer. The repository must be public before this raw GitHub URL can be used:
+
+```bash
+mkdir -p fleet-prime-agent && cd fleet-prime-agent && \
+curl -fsSL https://raw.githubusercontent.com/Qredence/fleet-prime-agent/main/install.sh | sh
+```
+
+The installer clones or reuses the checkout in the current directory, installs the root npm workspace and the `web/` pnpm workspace, builds the production web runtime, and links the `prime-agent` command globally. It does not require a PrimeIntellect account or repository access.
+
+Run the built web frontend and backend from any project directory:
+
+```bash
+cd /path/to/project
+prime-agent web
+```
+
+`prime-agent web` uses the current directory as its workspace and binds to `127.0.0.1:3000` by default. Use `prime-agent web --host <host> --port <port> --cwd <directory>` to override those values. The built command runs the packaged Node web runtime; pnpm and Vite are only needed when installing or developing the checkout.
+
 ### Conversation
 
 - **Turn-based timeline** — messages are grouped into user→assistant turns; the latest turn streams in place with a "Processing…" shimmer placeholder and a breathing space that keeps the input bar in view while the agent works.
@@ -86,6 +106,7 @@ The web frontend (`web/app`) and its UI kit (`web/design`) import the wire contr
 - Node.js >= 22.8.0
 - npm >= 11.10 (enforces the 7-day minimum release age for Prime Agent dependency updates; older npm silently ignores it)
 - pnpm >= 11 (Qredence UI under `web/`; `minimumReleaseAge: 10080` in `web/pnpm-workspace.yaml`)
+- Git (required by the public-repository installer)
 - Python >= 3.10 (only needed for the IPython runtime — `prime-agent-runtime`)
 
 ## Getting started
