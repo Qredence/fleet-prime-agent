@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #
 # Build pi binaries for all platforms locally.
-# Mirrors .github/workflows/build-binaries.yml
 #
 # Usage:
 #   ./scripts/build-binaries.sh [--skip-deps] [--platform <platform>]
