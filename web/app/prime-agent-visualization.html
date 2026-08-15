@@ -156,6 +156,15 @@ function fitStage(w,h){
 }
 window.addEventListener("resize",()=>{ if(current) fitStage(current.W,current.H); });
 
+function stripHtmlTags(value){
+  let out="", inTag=false;
+  for(const ch of value){
+    if(ch==="<") inTag=true;
+    else if(ch===">") inTag=false;
+    else if(!inTag) out+=ch;
+  }
+  return out;
+}
 function el(tag,cls,parent,html){
   const e=document.createElement(tag);
   if(cls) e.className=cls;
@@ -718,7 +727,7 @@ function showLongrun(){
       chips.worker.textContent="running"; chips.worker.style.color="#34d399";
       chips.sched.textContent=(p.name==="heartbeat"||p.name==="cron")?"firing":"armed"; chips.sched.style.color="#34d399";
       chips.goal.textContent=t>=88?"completed ✓":"active"; chips.goal.style.color=t>=88?"#34d399":"#a78bfa";
-      const captionText = p.d.body.replace(/<[^>]+>/g,"").slice(0,150);
+      const captionText = stripHtmlTags(p.d.body).slice(0,150);
       capTxt.replaceChildren();
       const captionLabel=document.createElement("b");
       captionLabel.textContent=p.label+".";
