@@ -24,10 +24,10 @@ Run the built web frontend and backend from any project directory:
 
 ```bash
 cd /path/to/project
-prime-agent web
+fleet-prime
 ```
 
-`prime-agent web` uses the current directory as its workspace and binds to `127.0.0.1:3000`. Override with `prime-agent web --host <host> --port <port> --cwd <directory>`.
+`fleet-prime` uses the current directory as its workspace and binds to `127.0.0.1:3000`. Override with `fleet-prime --host <host> --port <port> --cwd <directory>`.
 
 ## Interfaces
 

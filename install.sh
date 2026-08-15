@@ -137,17 +137,17 @@ link_cli() {
 		printf '\nPrime Agent is ready.\n'
 		printf '  Checkout: %s\n' "$prime_agent_checkout_dir"
 		printf '  Command:  %s\n' "$(command -v prime-agent)"
-		printf '\nRun from a project directory:\n  prime-agent web\n'
+		printf '\nRun from a project directory:\n  fleet-prime\n'
 		return
 	fi
 
 	global_prefix=$(npm prefix -g 2>/dev/null || true)
 	if [ -n "$global_prefix" ]; then
 		printf '\nPrime Agent was linked, but %s/bin is not on PATH.\n' "$global_prefix" >&2
-		printf 'Add %s/bin to your shell PATH, then run: prime-agent web\n' "$global_prefix" >&2
+		printf 'Add %s/bin to your shell PATH, then run: fleet-prime\n' "$global_prefix" >&2
 	else
 		printf '\nPrime Agent was linked, but the global npm bin directory is not on PATH.\n' >&2
-		printf "Add npm's global bin directory to PATH, then run: prime-agent web\n" >&2
+		printf "Add npm's global bin directory to PATH, then run: fleet-prime\n" >&2
 	fi
 }
 

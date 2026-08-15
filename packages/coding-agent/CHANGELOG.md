@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Added the `fleet-prime` command to launch the Qredence web interface: the installed command starts the prebuilt web runtime, and `./fleet-prime.sh` in a source checkout runs the Vite dev server; `prime-agent web` remains available as an alias.
+- Added `--help`/`-h` to the `fleet-prime` launcher and made `./fleet-prime` run the same web dev server as `./fleet-prime.sh`.
 
 - Fixed extension installs cloning git sources into predictable temp paths; temporary sources now use per-process `mkdtemp` directories and repo URLs can no longer be parsed as git options.
 - Fixed API-key fingerprinting in the model registry using fast hashes; persisted fingerprints now use scrypt and in-memory cache fingerprints use a per-process keyed HMAC.
