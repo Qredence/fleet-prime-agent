@@ -376,10 +376,18 @@ export function getPackageDir(): string {
 		// Bun binary: process.execPath points to the compiled executable
 		return dirname(process.execPath);
 	}
-	// Node.js: walk up from __dirname until we find package.json
+	// Node.js: walk up from __dirname until we find the package root.
+	// copy-binary-assets places a package.json inside dist/ to make it a
+	// self-contained artifact for binary builds; when the parent directory
+	// also has a package.json, that copy must not shadow the real root or
+	// dist-relative assets (web launcher, skills) resolve to dist/dist/.
 	let dir = __dirname;
 	while (dir !== dirname(dir)) {
 		if (existsSync(join(dir, "package.json"))) {
+			if (basename(dir) === "dist" && existsSync(join(dirname(dir), "package.json"))) {
+				dir = dirname(dir);
+				continue;
+			}
 			return dir;
 		}
 		dir = dirname(dir);
