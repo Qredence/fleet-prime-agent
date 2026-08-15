@@ -2002,7 +2002,6 @@ describe("InteractiveMode model selection persistence", () => {
 		completeModelSelection(model: AgentConnectionModel): Promise<void>;
 		findExactModelMatch(searchTerm: string): Promise<AgentConnectionModel | undefined>;
 		maybeWarnAboutAnthropicSubscriptionAuth(model: AgentConnectionModel): Promise<void>;
-		checkDaxnutsEasterEgg(model: AgentConnectionModel): void;
 		applySelectedModel(model: AgentConnectionModel): Promise<void>;
 		handleModelCommand(searchTerm?: string): Promise<void>;
 		setupAutocompleteProvider(): void;
@@ -2058,7 +2057,6 @@ describe("InteractiveMode model selection persistence", () => {
 			initialSearchInput?: string,
 		): Promise<void>;
 		maybeWarnAboutAnthropicSubscriptionAuth(model: AgentConnectionModel): Promise<void>;
-		checkDaxnutsEasterEgg(model: AgentConnectionModel): void;
 		setupAutocompleteProvider(): void;
 	};
 
@@ -2168,7 +2166,6 @@ describe("InteractiveMode model selection persistence", () => {
 		});
 		fakeThis.showConfigurationMenu = overlayPrototype.showConfigurationMenu;
 		fakeThis.maybeWarnAboutAnthropicSubscriptionAuth = vi.fn(async () => {});
-		fakeThis.checkDaxnutsEasterEgg = vi.fn();
 		fakeThis.setupAutocompleteProvider = vi.fn();
 
 		return {
@@ -2284,7 +2281,6 @@ describe("InteractiveMode model selection persistence", () => {
 		fakeThis.completeModelSelection = overlayPrototype.completeModelSelection;
 		fakeThis.findExactModelMatch = vi.fn(async () => model);
 		fakeThis.maybeWarnAboutAnthropicSubscriptionAuth = vi.fn(async () => {});
-		fakeThis.checkDaxnutsEasterEgg = vi.fn();
 		fakeThis.setupAutocompleteProvider = vi.fn();
 
 		await fakeThis.handleModelCommand("gpt-5.5");
@@ -2961,7 +2957,6 @@ describe("InteractiveMode Prime CLI onboarding", () => {
 		showError?: (message: string) => void;
 		patchConnectionState?: (patch: Partial<AgentConnectionState>) => void;
 		maybeWarnAboutAnthropicSubscriptionAuth?: (model?: AgentConnectionModel) => void;
-		checkDaxnutsEasterEgg?: (model: { provider: string; id: string }) => void;
 		findExactModelMatch?: (searchTerm: string) => Promise<AgentConnectionModel | undefined>;
 		showOnboardingSplash?: (continueActionLabel?: string) => Promise<OnboardingSplashHandle | undefined>;
 		createAuthFlows?: () => { runPrimeInferenceLogin(): Promise<AuthenticationResult> };
