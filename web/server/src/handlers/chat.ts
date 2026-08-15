@@ -6,7 +6,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const raw = await request.json();
 		const body = ChatRequestSchema.parse(raw);
-		const { sessionId, sessionFile, message, model } = body;
+		const { sessionId, sessionFile, message, model, mode, planAction } = body;
 		if (!message || typeof message !== "string") {
 			return Response.json({ message: "POST /api/chat requires a `message` string." }, { status: 400 });
 		}
@@ -81,6 +81,8 @@ export function handleChatPost(request: Request): Promise<Response> {
 				void bridge
 					.prompt(session.sessionId, message, {
 						streamingBehavior: body.streamingBehavior,
+						mode,
+						planAction,
 					})
 					.catch((error) => {
 						process.stderr.write(

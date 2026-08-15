@@ -1,5 +1,10 @@
 import { notify } from "@prime-agent/web-design/lib/notify";
-import type { ChatModelSelection, ChatSessionMetadata, ChatStreamEvent } from "@prime-agent/web-protocol/chat-protocol";
+import type {
+	ChatMode,
+	ChatModelSelection,
+	ChatSessionMetadata,
+	ChatStreamEvent,
+} from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { MutableRefObject } from "react";
 import { useCallback, useRef } from "react";
@@ -139,7 +144,7 @@ export function usePiChatMessaging({
 	);
 
 	const enqueueDuringStream = useCallback(
-		async (trimmed: string, streamingBehavior: "steer" | "followUp" = "steer") => {
+		async (trimmed: string, streamingBehavior: "steer" | "followUp" = "steer", mode?: ChatMode) => {
 			await ensureSession();
 			const userMessage = createTextMessage("user", trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
@@ -150,6 +155,7 @@ export function usePiChatMessaging({
 					{
 						message: trimmed,
 						model,
+						mode,
 						sessionFile: sessionMetadataRef.current.sessionFile,
 						sessionId: sessionMetadataRef.current.sessionId,
 						streamingBehavior,
@@ -212,7 +218,7 @@ export function usePiChatMessaging({
 				try {
 					// Enter during stream = steer into the current turn.
 					// Alt+Enter during stream = queue a follow-up after this turn.
-					await enqueueDuringStream(trimmed, altKey ? "followUp" : "steer");
+					await enqueueDuringStream(trimmed, altKey ? "followUp" : "steer", mode);
 				} catch (err) {
 					const nextError = err instanceof Error ? err : new Error(String(err));
 					setError(nextError);
