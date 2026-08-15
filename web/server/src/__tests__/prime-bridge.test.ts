@@ -173,6 +173,24 @@ describe("PrimeBridge.forkSession", () => {
 		return { userEntryId, assistantEntryId };
 	}
 
+	it("injects OpenUI guidance and updates it when the chat mode changes", async () => {
+		const bridge = new PrimeBridge();
+		const created = await bridge.createSession({ cwd: workDir, mode: "plan" });
+
+		const planPrompt = bridge.getSystemPrompt(created.sessionId);
+		expect(planPrompt).toContain("Every OpenUI block must start with `root = Root(...)` as its first line.");
+		expect(planPrompt).toContain("Do not use OpenUI actions in Plan mode.");
+
+		const prompt = vi.spyOn(created.session, "prompt").mockResolvedValue(undefined);
+		await bridge.prompt(created.sessionId, "show a compact status summary", { mode: "agent" });
+
+		expect(bridge.getSystemPrompt(created.sessionId)).toContain(
+			"Use OpenUI for dashboards, structured comparisons, progress/status summaries, result cards, metrics, and interactive forms.",
+		);
+		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Do not use OpenUI actions in Plan mode.");
+		expect(prompt).toHaveBeenCalledOnce();
+	});
+
 	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {
 		const bridge = new PrimeBridge();
 		const created = await createTestSession(bridge);

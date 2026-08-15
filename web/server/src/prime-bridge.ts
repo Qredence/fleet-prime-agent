@@ -13,8 +13,22 @@
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, ImageContent, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentSession, AgentSessionEvent, SessionEntry, SessionInfo } from "@earendil-works/pi-coding-agent";
-import { createAgentSession, IpythonKernelProvisioner, SessionManager } from "@earendil-works/pi-coding-agent";
-import type { ChatMessage, ChatQuestionAnswer, ChatStreamEvent } from "@prime-agent/web-protocol";
+import {
+	AuthStorage,
+	createAgentSessionFromServices,
+	createAgentSessionServices,
+	IpythonKernelProvisioner,
+	SessionManager,
+} from "@earendil-works/pi-coding-agent";
+import {
+	buildOpenUIPrompt,
+	type ChatMessage,
+	type ChatMode,
+	type ChatPlanAction,
+	type ChatQuestionAnswer,
+	type ChatStreamEvent,
+	type OpenUIPromptMode,
+} from "@prime-agent/web-protocol";
 
 import {
 	createEventMapperState,
@@ -214,6 +228,7 @@ export interface BridgeSession {
 	readonly cwd: string;
 	readonly sessionPath: string;
 	readonly session: AgentSession;
+	readonly openUIPrompt: OpenUIPromptSessionState;
 	readonly mapperState: ReturnType<typeof createEventMapperState>;
 	readonly uiContext: WebUIContext;
 }
@@ -222,6 +237,7 @@ export interface CreateSessionOptions {
 	readonly cwd: string;
 	readonly model?: unknown;
 	readonly thinkingLevel?: ThinkingLevel;
+	readonly mode?: ChatMode;
 }
 
 export type BridgeEventListener = (sessionId: string, frame: ChatStreamEvent) => void;
@@ -250,6 +266,46 @@ export interface PrimeBridgeOptions {
 }
 
 type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
+
+type OpenUIPromptSessionState = {
+	mode: OpenUIPromptMode;
+	prompt: string;
+};
+
+function createOpenUIPromptSessionState(mode: OpenUIPromptMode = "agent"): OpenUIPromptSessionState {
+	return { mode, prompt: buildOpenUIPrompt(mode) };
+}
+
+function resolveOpenUIPromptMode(mode?: ChatMode, planAction?: ChatPlanAction): OpenUIPromptMode {
+	if (planAction === "execute") return "plan-execution";
+	if (planAction === "refine") return "plan";
+	return mode ?? "agent";
+}
+
+async function createWebAgentSession(options: {
+	cwd: string;
+	sessionManager?: SessionManager;
+	openUIPrompt: OpenUIPromptSessionState;
+}) {
+	const authStorage = AuthStorage.create();
+	const services = await createAgentSessionServices({
+		cwd: options.cwd,
+		authStorage,
+		// The web bridge historically used the bare SDK path. Keep its telemetry
+		// and built-in Herdr behavior unchanged while adding the web-only prompt.
+		noBuiltinHerdrReporter: true,
+		telemetryDisabled: true,
+		resourceLoaderOptions: {
+			appendSystemPromptOverride: (base) => [...base, options.openUIPrompt.prompt],
+		},
+	});
+	const result = await createAgentSessionFromServices({
+		services,
+		sessionManager: options.sessionManager ?? SessionManager.create(options.cwd),
+		telemetryDisabled: true,
+	});
+	return { ...result, openUIPrompt: options.openUIPrompt };
+}
 
 export class PrimeBridge {
 	readonly #sessions = new Map<string, BridgeSession>();
@@ -359,8 +415,13 @@ export class PrimeBridge {
 		void this.ensureKernelReady().catch(() => {
 			/* backgrounded; failures surface on first tool use */
 		});
-		const { session, extensionsResult: _ext } = await createAgentSession({
+		const {
+			session,
+			extensionsResult: _ext,
+			openUIPrompt,
+		} = await createWebAgentSession({
 			cwd: options.cwd,
+			openUIPrompt: createOpenUIPromptSessionState(resolveOpenUIPromptMode(options.mode)),
 		});
 		// Force-flush the session header to disk eagerly so /api/chat/sessions and
 		// future `resumeSessionById` calls (across Vite SSR restarts) can find it.
@@ -375,6 +436,7 @@ export class PrimeBridge {
 			session,
 			options.cwd,
 			session.sessionManager.getSessionFile() ?? "",
+			openUIPrompt,
 		);
 		if (options.model) {
 			await session.setModel(options.model as Parameters<typeof session.setModel>[0]);
@@ -390,7 +452,12 @@ export class PrimeBridge {
 	 * fork). Binds the web UI context, forwards session events into the ring
 	 * buffer, and tracks the session in `#sessions`.
 	 */
-	async #registerSession(session: AgentSession, cwd: string, sessionPath: string): Promise<BridgeSession> {
+	async #registerSession(
+		session: AgentSession,
+		cwd: string,
+		sessionPath: string,
+		openUIPrompt: OpenUIPromptSessionState,
+	): Promise<BridgeSession> {
 		const sessionId = session.sessionManager.getSessionId();
 		const uiContext = new WebUIContext({
 			sessionId,
@@ -407,6 +474,7 @@ export class PrimeBridge {
 			cwd,
 			sessionPath,
 			session,
+			openUIPrompt,
 			mapperState,
 			uiContext,
 		};
@@ -447,11 +515,17 @@ export class PrimeBridge {
 			}
 		}
 		const sessionManager = await SessionManager.openAsync(sessionPath);
-		const agentSessionResult = await createAgentSession({
+		const agentSessionResult = await createWebAgentSession({
 			cwd: sessionManager.getCwd(),
 			sessionManager,
+			openUIPrompt: createOpenUIPromptSessionState(),
 		});
-		return this.#registerSession(agentSessionResult.session, sessionManager.getCwd(), sessionPath);
+		return this.#registerSession(
+			agentSessionResult.session,
+			sessionManager.getCwd(),
+			sessionPath,
+			agentSessionResult.openUIPrompt,
+		);
 	}
 
 	async resumeSessionById(sessionId: string): Promise<BridgeSession | undefined> {
@@ -489,9 +563,12 @@ export class PrimeBridge {
 		options?: {
 			images?: ImageContent[];
 			streamingBehavior?: "steer" | "followUp";
+			mode?: ChatMode;
+			planAction?: ChatPlanAction;
 		},
 	): Promise<void> {
 		const session = this.#requireSession(sessionId);
+		this.#setOpenUIPromptMode(session, resolveOpenUIPromptMode(options?.mode, options?.planAction));
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			process.stderr.write(
 				`[bridge:${sessionId.slice(0, 8)}] prompt model=${session.session.agent?.state?.model?.provider ?? "?"}/${session.session.agent?.state?.model?.id ?? "?"} thinkingLevel=${session.session.agent?.state?.thinkingLevel ?? "?"}\n`,
@@ -501,6 +578,23 @@ export class PrimeBridge {
 			images: options?.images,
 			streamingBehavior: options?.streamingBehavior,
 		});
+	}
+
+	#setOpenUIPromptMode(session: BridgeSession, mode: OpenUIPromptMode): void {
+		if (session.openUIPrompt.mode === mode) return;
+
+		const nextPrompt = buildOpenUIPrompt(mode);
+		const appendSystemPrompt = session.session.resourceLoader.getAppendSystemPrompt();
+		const currentPromptIndex = appendSystemPrompt.lastIndexOf(session.openUIPrompt.prompt);
+		if (currentPromptIndex >= 0) {
+			appendSystemPrompt[currentPromptIndex] = nextPrompt;
+		} else {
+			appendSystemPrompt.push(nextPrompt);
+		}
+
+		session.openUIPrompt.mode = mode;
+		session.openUIPrompt.prompt = nextPrompt;
+		session.session.setActiveToolsByName(session.session.getActiveToolNames());
 	}
 
 	async steer(sessionId: string, text: string): Promise<void> {
@@ -728,9 +822,10 @@ export class PrimeBridge {
 			});
 		}
 
-		const { session: forked } = await createAgentSession({
+		const { session: forked, openUIPrompt } = await createWebAgentSession({
 			cwd: bridge.cwd,
 			sessionManager: side,
+			openUIPrompt: createOpenUIPromptSessionState(bridge.openUIPrompt.mode),
 		});
 		// Carry the source session's model/thinking/service-tier over so the fork
 		// doesn't silently fall back to defaults (provider/settings may differ).
@@ -748,7 +843,7 @@ export class PrimeBridge {
 		forked.sessionManager.materializeSessionFile();
 		forked.sessionManager.flushNow();
 
-		await this.#registerSession(forked, bridge.cwd, forked.sessionManager.getSessionFile() ?? "");
+		await this.#registerSession(forked, bridge.cwd, forked.sessionManager.getSessionFile() ?? "", openUIPrompt);
 		return {
 			cancelled: false,
 			selectedText,
