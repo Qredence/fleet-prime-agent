@@ -632,9 +632,10 @@ async function fetchPrimeInferenceModels(): Promise<Model<"openai-completions">[
 
 	try {
 		console.log("Fetching models from Prime Inference API...");
-		// codeql[js/file-access-to-http] Stored credentials are sent to the fixed Prime
-	// Inference endpoint; this is the intended model-catalog fetch.
-	const response = await fetch(`${PRIME_INFERENCE_BASE_URL}/models`, {
+		// Stored credentials are sent to the fixed Prime Inference endpoint; this is the
+		// intended model-catalog fetch.
+		// codeql[js/file-access-to-http]
+		const response = await fetch(`${PRIME_INFERENCE_BASE_URL}/models`, {
 			headers: getPrimeInferenceHeaders(apiKey, teamId),
 		});
 		catalog = parsePrimeInferenceCatalog(await response.json());

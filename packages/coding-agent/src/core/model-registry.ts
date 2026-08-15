@@ -1008,8 +1008,9 @@ export class ModelRegistry {
 			return availableModels.filter((model) => model.provider !== "openai-codex");
 		}
 		try {
-			// codeql[js/file-access-to-http] Stored provider credentials are sent to the
-			// provider's own configured API endpoint; this is the intended auth flow.
+			// Stored provider credentials are sent to the provider's own configured API
+			// endpoint; this is the intended auth flow.
+			// codeql[js/file-access-to-http]
 			const response = await fetch(openAICodexModelsUrl(codexModels[0]!.baseUrl), {
 				headers: {
 					...auth.headers,

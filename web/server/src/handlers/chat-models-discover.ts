@@ -37,8 +37,9 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 					models: [],
 				});
 			}
-			// codeql[js/file-access-to-http] Stored provider credentials are sent to the
-			// user-configured provider endpoint; this is the model discovery auth flow.
+			// Stored provider credentials are sent to the user-configured provider
+			// endpoint; this is the model discovery auth flow.
+			// codeql[js/file-access-to-http]
 			const response = await fetch(`${parsedBaseUrl.toString().replace(/\/$/, "")}/v1/models`, {
 				headers: { Authorization: `Bearer ${apiKey}` },
 				signal: AbortSignal.timeout(10_000),

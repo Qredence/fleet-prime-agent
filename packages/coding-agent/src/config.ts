@@ -587,8 +587,9 @@ export function appendRotatingLog(logPath: string, message: string, maxBytes: nu
 				// Drop any prior .old first: renameSync fails on Windows if it exists.
 				rmSync(`${logPath}.old`, { force: true });
 				renameSync(logPath, `${logPath}.old`);
-				// codeql[js/http-to-file-access] Best-effort diagnostics log: the path is fixed
-				// and only the message content (which may come from a network response) is recorded.
+				// Best-effort diagnostics log: the path is fixed and only the message content
+				// (which may come from a network response) is recorded.
+				// codeql[js/http-to-file-access]
 				appendFileSync(logPath, `${message}\n`);
 			} else {
 				const data = `${message}\n`;

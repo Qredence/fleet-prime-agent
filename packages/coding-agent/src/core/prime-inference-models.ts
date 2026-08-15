@@ -46,8 +46,9 @@ export async function fetchAuthorizedPrivatePrimeInferenceModelIds(
 		return new Set();
 	}
 
-	// codeql[js/file-access-to-http] Stored credentials are sent to the fixed Prime
-	// Inference endpoint; this is the intended authorization flow.
+	// Stored credentials are sent to the fixed Prime Inference endpoint; this is the
+	// intended authorization flow.
+	// codeql[js/file-access-to-http]
 	const response = await fetchFn(`${PRIME_INFERENCE_BASE_URL}/models`, {
 		headers: {
 			Authorization: `Bearer ${apiKey}`,
