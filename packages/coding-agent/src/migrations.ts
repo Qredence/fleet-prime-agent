@@ -35,14 +35,12 @@ export function migrateAuthToAuthJson(): string[] {
 	const oauthPath = join(agentDir, "oauth.json");
 	const settingsPath = join(agentDir, "settings.json");
 
-	// Skip if auth.json already exists
-	if (existsSync(authPath)) return [];
-
 	const migrated: Record<string, unknown> = {};
 	const providers: string[] = [];
+	const oauthExists = existsSync(oauthPath);
 
 	// Migrate oauth.json
-	if (existsSync(oauthPath)) {
+	if (oauthExists) {
 		try {
 			const oauth = JSON.parse(readFileSync(oauthPath, "utf-8"));
 			for (const [provider, cred] of Object.entries(oauth)) {
@@ -78,9 +76,17 @@ export function migrateAuthToAuthJson(): string[] {
 		try {
 			writeFileSync(authPath, JSON.stringify(migrated, null, 2), { mode: 0o600, flag: "wx" });
 		} catch (error) {
-			// Another process migrated concurrently; leave its auth file untouched.
 			if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
 				throw error;
+			}
+			// Another process (or a previous run) already wrote auth.json; restore any
+			// oauth credentials we renamed so they are not lost.
+			if (oauthExists && existsSync(`${oauthPath}.migrated`)) {
+				try {
+					renameSync(`${oauthPath}.migrated`, oauthPath);
+				} catch {
+					// Leave the .migrated copy in place if the restore fails.
+				}
 			}
 		}
 	}

@@ -3,7 +3,7 @@
  */
 
 import { Buffer } from "node:buffer";
-import { createHash, createHmac, randomBytes, scryptSync } from "node:crypto";
+import { createHash, randomBytes, scryptSync } from "node:crypto";
 import {
 	type AnthropicMessagesCompat,
 	type Api,
@@ -440,6 +440,10 @@ function isOfflineModeEnabled(): boolean {
 // cache never outlives the process.
 const CODEX_MODEL_CACHE_FINGERPRINT_KEY = randomBytes(32);
 
+function codexModelCacheFingerprint(apiKey: string): string {
+	return scryptSync(apiKey, CODEX_MODEL_CACHE_FINGERPRINT_KEY, 32).toString("hex");
+}
+
 export class ModelRegistry {
 	private models: Model<Api>[] = [];
 	private providerRequestConfigs: Map<string, ProviderRequestConfig> = new Map();
@@ -451,6 +455,16 @@ export class ModelRegistry {
 	private authorizedPrivatePrimeInferenceTeamId: string | undefined;
 	private explicitPrivatePrimeInferenceModelIds = new Set<string>();
 	private openAICodexModelsCache: { authFingerprint: string; modelIds: Set<string>; refreshedAt: number } | undefined;
+	private codexModelCacheFingerprints = new Map<string, string>();
+
+	private fingerprintCodexApiKey(apiKey: string): string {
+		let fingerprint = this.codexModelCacheFingerprints.get(apiKey);
+		if (!fingerprint) {
+			fingerprint = codexModelCacheFingerprint(apiKey);
+			this.codexModelCacheFingerprints.set(apiKey, fingerprint);
+		}
+		return fingerprint;
+	}
 	private backgroundPrivatePrimeAuthorization: { fingerprint: string; promise: Promise<void> } | undefined;
 	private loadError: string | undefined = undefined;
 
@@ -993,7 +1007,7 @@ export class ModelRegistry {
 		if (!auth.ok || !auth.apiKey) {
 			return availableModels.filter((model) => model.provider !== "openai-codex");
 		}
-		const authFingerprint = createHmac("sha256", CODEX_MODEL_CACHE_FINGERPRINT_KEY).update(auth.apiKey).digest("hex");
+		const authFingerprint = this.fingerprintCodexApiKey(auth.apiKey);
 		const cached = this.openAICodexModelsCache;
 		if (
 			cached !== undefined &&

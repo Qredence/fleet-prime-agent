@@ -229,11 +229,10 @@ const html = `<!doctype html>
 mkdirSync(resolve(output, ".."), { recursive: true });
 writeFileSync(output, html);
 console.log(`Wrote ${output}`);
-if (existsSync(output)) {
-	const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
-	const args =
-		process.platform === "win32"
-			? ["/c", "start", "", `"${output}"`]
-			: [output];
-	spawn(opener, args, { detached: true, stdio: "ignore" }).unref();
+// Only open the report when it exists and the path is a plain .html file; the path
+// is passed to a launcher, so keep it out of any shell interpretation.
+if (/^[^\0]+\.[hH][tT][mM][lL]$/.test(output) && existsSync(output)) {
+	const opener =
+		process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+	spawn(opener, [output], { detached: true, stdio: "ignore" }).unref();
 }

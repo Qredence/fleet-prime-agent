@@ -276,7 +276,7 @@ export class FileSettingsStorage implements SettingsStorage {
 				// Write to a temp file in the same directory and rename atomically so a
 				// concurrent reader never observes a partially written settings file.
 				const tmpPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
-				writeFileSync(tmpPath, next, "utf-8");
+				writeFileSync(tmpPath, next, { encoding: "utf-8", flag: "wx" });
 				renameSync(tmpPath, path);
 			}
 		} finally {

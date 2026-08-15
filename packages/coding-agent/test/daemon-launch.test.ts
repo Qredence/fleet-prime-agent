@@ -165,7 +165,9 @@ describe("probeRunningDaemonSessions", () => {
 	});
 
 	it("reports unreachable when no daemon is running", async () => {
-		const result = await probeRunningDaemonSessions(join(tmpdir(), "pa-launch-missing.sock"));
+		const result = await probeRunningDaemonSessions(
+			join(mkdtempSync(join(tmpdir(), "pa-launch-missing-")), "daemon.sock"),
+		);
 		expect(result).toEqual({ reachable: false });
 	});
 
@@ -410,7 +412,9 @@ describe("shutdownDaemonAndWait", () => {
 	});
 
 	it("returns true immediately when no daemon is running", async () => {
-		expect(await shutdownDaemonAndWait(join(tmpdir(), "pa-launch-missing2.sock"))).toBe(true);
+		expect(await shutdownDaemonAndWait(join(mkdtempSync(join(tmpdir(), "pa-launch-missing-")), "daemon2.sock"))).toBe(
+			true,
+		);
 	});
 
 	it("stops a running daemon and returns true", async () => {

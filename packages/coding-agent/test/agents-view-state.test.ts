@@ -781,7 +781,7 @@ describe("agents view state", () => {
 	});
 
 	test("falls back to the launch cwd and explains it when the stored cwd is gone", () => {
-		const missing = join(tmpdir(), "agents-view-missing-worktree-does-not-exist");
+		const missing = join(mkdtempSync(join(tmpdir(), "agents-view-missing-")), "worktree-does-not-exist");
 		const { overrideCwd, notice } = resolveAgentsViewOpenCwd(makeSummary({ cwd: missing }), "/tmp/launch");
 		expect(overrideCwd).toBe("/tmp/launch");
 		expect(notice).toContain(missing);
@@ -789,7 +789,7 @@ describe("agents view state", () => {
 	});
 
 	test("does not override when there is no fallback cwd to use", () => {
-		const missing = join(tmpdir(), "agents-view-missing-worktree-does-not-exist");
+		const missing = join(mkdtempSync(join(tmpdir(), "agents-view-missing-")), "worktree-does-not-exist");
 		expect(resolveAgentsViewOpenCwd(makeSummary({ cwd: missing }), undefined)).toEqual({});
 	});
 

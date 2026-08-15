@@ -8773,7 +8773,8 @@ export class InteractiveMode {
 		}
 
 		// Export to a temp file
-		const tmpFile = path.join(os.tmpdir(), "session.html");
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-gist-export-"));
+		const tmpFile = path.join(tmpDir, "session.html");
 		try {
 			await this.agentConnection.exportToHtml(tmpFile);
 		} catch (error: unknown) {

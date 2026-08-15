@@ -2,7 +2,7 @@
  * Process @file CLI arguments into text content and image attachments
  */
 
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import chalk from "chalk";
 import { resolve } from "path";
@@ -30,20 +30,12 @@ export async function processFileArguments(fileArgs: string[], options?: Process
 		// Expand and resolve path (handles ~ expansion and macOS screenshot Unicode spaces)
 		const absolutePath = resolve(resolveReadPath(fileArg, process.cwd()));
 
-		// Check if file exists
-		try {
-			await access(absolutePath);
-		} catch {
-			console.error(chalk.red(`Error: File not found: ${absolutePath}`));
-			process.exit(1);
-		}
-
-		// Read the file once; empty files are skipped below.
+		// Read the file once; missing files and empty files are handled below.
 		let content: Buffer;
 		try {
 			content = await readFile(absolutePath);
 		} catch {
-			console.error(chalk.red(`Error: Could not read file ${absolutePath}`));
+			console.error(chalk.red(`Error: File not found: ${absolutePath}`));
 			process.exit(1);
 		}
 		if (content.length === 0) {

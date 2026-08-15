@@ -2,7 +2,6 @@ import { spawnSync } from "child_process";
 import { createHash } from "crypto";
 import {
 	accessSync,
-	appendFileSync,
 	closeSync,
 	constants,
 	existsSync,
@@ -580,27 +579,25 @@ export function appendRotatingLog(logPath: string, message: string, maxBytes: nu
 		let handle: number | undefined;
 		try {
 			handle = openSync(logPath, "a");
-			// fstat on the open descriptor: size and append share the same file view.
+			// Write first, then check size and rotate: the size check never precedes the
+			// append, so a concurrent writer is never clobbered between check and write.
+			const data = `${message}\n`;
+			let remaining = data;
+			while (remaining.length > 0) {
+				// Best-effort diagnostics log: the path is fixed and only the message
+				// content (which may come from a network response) is recorded.
+				const written = writeSync(handle, remaining, null, "utf-8"); // codeql[js/http-to-file-access]
+				if (written <= 0) {
+					break;
+				}
+				remaining = remaining.slice(written);
+			}
 			if (fstatSync(handle).size > maxBytes) {
 				closeSync(handle);
 				handle = undefined;
 				// Drop any prior .old first: renameSync fails on Windows if it exists.
 				rmSync(`${logPath}.old`, { force: true });
 				renameSync(logPath, `${logPath}.old`);
-				// Best-effort diagnostics log: the path is fixed and only the message content
-				// (which may come from a network response) is recorded.
-				// codeql[js/http-to-file-access]
-				appendFileSync(logPath, `${message}\n`);
-			} else {
-				const data = `${message}\n`;
-				let remaining = data;
-				while (remaining.length > 0) {
-					const written = writeSync(handle, remaining, null, "utf-8");
-					if (written <= 0) {
-						break;
-					}
-					remaining = remaining.slice(written);
-				}
 			}
 		} catch {
 			// Keep appending rather than dropping the log on a rotation failure.
