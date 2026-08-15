@@ -7,6 +7,14 @@ A self-improving RLM (Recursive Language Model) coding and research agent. Use i
 
 ## What is Prime Agent
 
+
+
+https://github.com/user-attachments/assets/0e74d3cd-d3b4-49a9-a01e-7ac2a1427309
+
+
+
+
+
 Prime Agent is a self-improving RLM coding and research agent. Its primary surface is a React 19 web chat (`web/app`) that streams agent turns, renders every model action (IPython cells, shell commands, file edits, plans, subagents, interactive questions) as dedicated cards, and keeps sessions alive even when you close the tab.
 
 ## Quick start
