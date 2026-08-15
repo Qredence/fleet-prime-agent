@@ -14,6 +14,7 @@
 - Changed sent agent messages in the IPython cell UI to show only the message text with a `╰─` gutter when expanded, matching received messages, and hid the raw `agent_message.send` receipt dictionary.
 - Fixed Homebrew installs attempting to self-update their versioned Cellar keg instead of directing users to `brew upgrade prime-agent` ([#844](https://github.com/PrimeIntellect-ai/prime-agent/issues/844))
 - Removed the `/arminsayshi`, `/dementedelves`, and daxnuts easter eggs from interactive mode.
+- Fixed `npm run build` failing because the removed easter-egg image was still referenced by the asset copy steps.
 
 ## [0.7.1] - 2026-08-07
 
