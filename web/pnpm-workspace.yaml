@@ -27,3 +27,5 @@ overrides:
   # Unify highlighter types: streamdown's published .d.ts imports `shiki`
   # while @streamdown/code pins 3.x and @pierre/diffs pins 4.x.
   shiki: 4.4.2
+  # GHSA-2v37-7h3g-55p8: nanoid < 3.3.18 can loop indefinitely (via postcss).
+  nanoid: ^3.3.18
