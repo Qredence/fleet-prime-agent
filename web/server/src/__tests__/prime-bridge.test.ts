@@ -173,22 +173,28 @@ describe("PrimeBridge.forkSession", () => {
 		return { userEntryId, assistantEntryId };
 	}
 
-	it("injects OpenUI guidance and updates it when the chat mode changes", async () => {
+	it("keeps OpenUI off by default and updates explicit OpenUI guidance by mode", async () => {
 		const bridge = new PrimeBridge();
 		const created = await bridge.createSession({ cwd: workDir, mode: "plan" });
 
+		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
+
+		const prompt = vi.spyOn(created.session, "prompt").mockResolvedValue(undefined);
+		await bridge.prompt(created.sessionId, "show a plan summary", { mode: "plan", openUI: true });
 		const planPrompt = bridge.getSystemPrompt(created.sessionId);
 		expect(planPrompt).toContain("Every OpenUI block must start with `root = Root(...)` as its first line.");
 		expect(planPrompt).toContain("Do not use OpenUI actions in Plan mode.");
 
-		const prompt = vi.spyOn(created.session, "prompt").mockResolvedValue(undefined);
-		await bridge.prompt(created.sessionId, "show a compact status summary", { mode: "agent" });
+		await bridge.prompt(created.sessionId, "show a compact status summary", { mode: "agent", openUI: true });
 
 		expect(bridge.getSystemPrompt(created.sessionId)).toContain(
 			"Use OpenUI for dashboards, structured comparisons, progress/status summaries, result cards, metrics, and interactive forms.",
 		);
 		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Do not use OpenUI actions in Plan mode.");
-		expect(prompt).toHaveBeenCalledOnce();
+
+		await bridge.prompt(created.sessionId, "plain markdown only", { mode: "agent", openUI: false });
+		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
+		expect(prompt).toHaveBeenCalledTimes(3);
 	});
 
 	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {

@@ -1,4 +1,5 @@
 import { getPrimeConfig } from "../prime-config";
+import { cwdForRequest } from "../project-request";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 function packageSourceToString(source: string | { source: string; [key: string]: unknown }): {
@@ -16,8 +17,7 @@ function packageSourceToString(source: string | { source: string; [key: string]:
 
 export function handleChatResourcesGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		const url = new URL(request.url);
-		const cwd = url.searchParams.get("cwd") ?? getPrimeConfig().defaultCwd;
+		const cwd = await cwdForRequest(request);
 		const config = getPrimeConfig();
 		const settings = config.settingsFor(cwd);
 		const loader = await config.resourceLoaderFor(cwd);

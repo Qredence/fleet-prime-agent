@@ -131,6 +131,29 @@ function resetRun(state: EventMapperState): void {
 	state.inRun = true;
 }
 
+function upsertCurrentToolPart(state: EventMapperState, nextPart: ChatToolPart): ChatToolPart {
+	const toolCallId = nextPart.toolCallId;
+	if (typeof toolCallId !== "string" || toolCallId.length === 0) {
+		state.currentToolParts.push(nextPart);
+		return nextPart;
+	}
+
+	const existingIndex = state.currentToolParts.findIndex((part) => part.toolCallId === toolCallId);
+	if (existingIndex < 0) {
+		state.currentToolParts.push(nextPart);
+		return nextPart;
+	}
+
+	const existing = state.currentToolParts[existingIndex]!;
+	const merged: ChatToolPart = {
+		...existing,
+		...nextPart,
+		...(existing.input !== undefined ? { input: existing.input } : {}),
+	};
+	state.currentToolParts[existingIndex] = merged;
+	return merged;
+}
+
 // ---------------------------------------------------------------------------
 // Core agent-loop events
 // ---------------------------------------------------------------------------
@@ -151,7 +174,6 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 					runId: state.runId,
 					message: finalMessage,
 					sessionId: state.sessionId,
-					sessionFile: undefined,
 				},
 			];
 		}
@@ -173,33 +195,32 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		case "message_end":
 			return [];
 		case "tool_execution_start": {
-			const part: ChatToolPart = {
+			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
 				input: event.args,
-			};
-			state.currentToolParts.push(part);
+			});
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_update": {
-			const part: ChatToolPart = {
+			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
 				input: event.args,
 				result: event.partialResult,
-			};
+			});
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_end": {
-			const part: ChatToolPart = {
+			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
 				toolCallId: event.toolCallId,
 				state: event.isError ? "output-error" : "output-available",
 				output: event.result,
 				result: event.result,
-			};
+			});
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		default:

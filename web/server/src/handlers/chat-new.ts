@@ -1,15 +1,9 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
-import { z } from "zod";
+import { ChatNewRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { getPrimeConfig } from "../prime-config";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
-
-const BodySchema = z.object({
-	cwd: z.string().min(1).optional(),
-	model: z.unknown().optional(),
-	thinkingLevel: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"]).optional(),
-});
 
 function toThinkingLevel(level: ChatThinkingLevel | undefined): ThinkingLevel | undefined {
 	return level;
@@ -18,22 +12,35 @@ function toThinkingLevel(level: ChatThinkingLevel | undefined): ThinkingLevel | 
 export function handleChatNewPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const bridge = getBridge();
-		void bridge.ensureKernelReady().catch(() => {
+		const registry = getPrimeConfig().projectRegistry;
+		const raw = await request.json().catch(() => ({}));
+		const body = ChatNewRequestSchema.parse(raw);
+		const projectId =
+			body.projectId ??
+			(await registry.projectIdForCwd(getPrimeConfig().defaultCwd)) ??
+			(await registry.register(getPrimeConfig().defaultCwd)).projectId;
+		const project = await registry.get(projectId);
+		void bridge.ensureKernelReady(project.canonicalPath).catch(() => {
 			/* backgrounded; failures surface when ipython is invoked */
 		});
 
-		const raw = await request.json().catch(() => ({}));
-		const body = BodySchema.parse(raw);
 		const session = await bridge.createSession({
-			cwd: body.cwd ?? getPrimeConfig().defaultCwd,
-			model: body.model,
+			cwd: project.canonicalPath,
+			projectId,
 			thinkingLevel: toThinkingLevel(body.thinkingLevel),
+			mode: body.mode,
 		});
+		if (body.model) {
+			await bridge.setModel(session.sessionId, body.model);
+			const thinking = body.model.thinkingLevel ?? body.thinkingLevel;
+			if (thinking) {
+				session.session.setThinkingLevel(toThinkingLevel(thinking)!);
+			}
+		}
 		return Response.json({
 			session: {
 				sessionId: session.sessionId,
-				sessionFile: session.sessionPath,
-				cwd: session.cwd,
+				projectId,
 			},
 			messages: [],
 		});

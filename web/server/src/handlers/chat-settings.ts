@@ -1,5 +1,7 @@
 import { ChatSettingsUpdateRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { getPrimeConfig } from "../prime-config";
+import { safePathLabel } from "../project-registry";
+import { cwdForRequest } from "../project-request";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 type PrimeSettings = ReturnType<ReturnType<typeof getPrimeConfig>["defaultSettings"]["getGlobalSettings"]>;
@@ -62,7 +64,7 @@ function buildResponse(cwd: string) {
 			transport: manager.getTransport(),
 		},
 		project: toProjectShape(projectSettings),
-		projectPath: cwd,
+		projectPath: safePathLabel(cwd),
 		updateImpact: {
 			newSessionRecommended: false,
 			resourceReloadRequired: false,
@@ -72,16 +74,14 @@ function buildResponse(cwd: string) {
 
 export function handleChatSettingsGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		const url = new URL(request.url);
-		const cwd = url.searchParams.get("cwd") ?? getPrimeConfig().defaultCwd;
+		const cwd = await cwdForRequest(request);
 		return Response.json(buildResponse(cwd));
 	});
 }
 
 export function handleChatSettingsPatch(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		const url = new URL(request.url);
-		const cwd = url.searchParams.get("cwd") ?? getPrimeConfig().defaultCwd;
+		const cwd = await cwdForRequest(request);
 		const raw = await request.json().catch(() => ({}));
 		const body = ChatSettingsUpdateRequestSchema.parse(raw);
 		const config = getPrimeConfig();

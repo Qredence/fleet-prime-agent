@@ -4,7 +4,7 @@ import { wrapApiHandler } from "../wrap-api-handler";
 export function handleChatSessionGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const url = new URL(request.url);
-		const sessionId = url.searchParams.get("sessionId") ?? url.searchParams.get("sessionFile");
+		const sessionId = url.searchParams.get("sessionId");
 		if (!sessionId) {
 			return Response.json({ message: "GET /api/chat/session requires ?sessionId=" }, { status: 400 });
 		}
@@ -16,8 +16,7 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 		return Response.json({
 			session: {
 				sessionId: existing.sessionId,
-				sessionFile: existing.sessionPath,
-				cwd: existing.cwd,
+				projectId: existing.projectId,
 			},
 			messages: await bridge.getMessages(existing.sessionId),
 		});
