@@ -40,12 +40,18 @@ describe("web command", () => {
 		});
 	});
 
-	it("parses host, port, and explicit workspace overrides", () => {
+	it("parses loopback host, port, and explicit workspace overrides", () => {
 		expect(
-			parseWebCommandOptions(["--host", "0.0.0.0", "--port=3100", "--cwd", process.cwd()], {
+			parseWebCommandOptions(["--host", "localhost", "--port=3100", "--cwd", process.cwd()], {
 				PRIME_AGENT_WORKSPACE_ROOT: "/does/not/exist",
 			}),
-		).toEqual({ host: "0.0.0.0", port: 3100, workspaceRoot: process.cwd() });
+		).toEqual({ host: "localhost", port: 3100, workspaceRoot: process.cwd() });
+	});
+
+	it.each(["0.0.0.0", "192.168.1.10", "example.com"])("rejects non-loopback host %s", (host) => {
+		expect(() => parseWebCommandOptions(["--host", host], { PRIME_AGENT_WORKSPACE_ROOT: process.cwd() })).toThrow(
+			"loopback hosts only",
+		);
 	});
 
 	it.each(["--unknown", "--port", "--port=abc", "--port=65536", "--cwd"])(

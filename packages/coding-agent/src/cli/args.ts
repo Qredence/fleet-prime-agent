@@ -160,8 +160,11 @@ export function parseArgs(args: string[]): Args {
 				.filter((name) => name.length > 0);
 			const removedTools = result.tools.filter((name) => REMOVED_BUILTIN_TOOL_NAMES.has(name));
 			if (removedTools.length > 0) {
+				// Removed names are no longer built-ins, but they may still be
+				// provided by extensions (see regression #4428), so treat this as
+				// a warning rather than a hard error.
 				result.diagnostics.push({
-					type: "error",
+					type: "warning",
 					message: `Unknown built-in tool(s): ${removedTools.join(", ")}. Available built-in tools: ${BUILTIN_TOOL_NAMES.join(", ")}`,
 				});
 			}

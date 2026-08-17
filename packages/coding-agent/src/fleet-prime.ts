@@ -20,7 +20,7 @@ Usage:
   fleet-prime [--host <host>] [--port <port>] [--cwd <directory>]
 
 Options:
-  --host <host>       Bind the web server (default: 127.0.0.1)
+  --host <host>       Loopback bind: 127.0.0.1, localhost, or ::1 (default: 127.0.0.1)
   --port <port>       Bind the web server port (default: 3000)
   --cwd <directory>   Use a specific workspace directory`);
 		process.exit(0);
