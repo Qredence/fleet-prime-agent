@@ -1,6 +1,10 @@
-# Prime Agent
+# Fleet Prime Agent
 
-A self-improving RLM (Recursive Language Model) coding and research agent. Use it from a web chat, a terminal UI, or a headless daemon. All three interfaces drive the same core session runtime (`@earendil-works/pi-coding-agent`) through one typed connection seam.
+A self-improving RLM agent + multi-project workspace web UI. It delivers persistent agent sessions (IPython, subagents, daemon-backed runs) and a design-system-aligned workspace surface — session sidebar, project registry, managed attachments, protocol schemas (`project`, `attachment`, `OpenUI`).
+
+Value proposition:
+- **Agent runtime** — persistent IPython, recursive subagents (`rlm`), self-improving harness (`/refine`), skills as packages, daemon-backed sessions.
+- **Workspace layer** — multi-project workspace, session sidebar, design tokens (`web/design`), wire contracts (`web/protocol`), HTTP adapter (`web/server`), React 19 chat (`web/app`).
 
 [![CI](https://github.com/Qredence/fleet-prime-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Qredence/fleet-prime-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -19,23 +23,23 @@ Prime Agent is a self-improving RLM coding and research agent. Its primary surfa
 
 ## Quick start
 
-Make an empty directory and run the repository-owned installer:
-
 ```bash
-mkdir -p fleet-prime-agent && cd fleet-prime-agent
-curl -fsSL https://raw.githubusercontent.com/Qredence/fleet-prime-agent/main/install.sh | sh
+./install.sh        # Full setup + build + link
+./fleet-cli.sh cli  # Terminal agent
+./fleet-cli.sh web  # Web dev server
 ```
 
-The installer clones the repository, installs the npm and pnpm workspaces, builds the production web runtime, and links the `prime-agent` command globally. No PrimeIntellect account or repository access is required.
+The workspace delivers:
+- `web/app` — React 19 web chat with session sidebar, attachments, multi-project registry.
+- `web/design` — design tokens and component library (BEUI renderer).
+- `web/protocol` — `project`, `attachment`, `OpenUI` zod schemas.
+- `packages/*` — agent core, AI abstraction, coding agent CLI, TUI.
 
-Run the built web frontend and backend from any project directory:
+Run the workspace surface from any directory:
 
 ```bash
-cd /path/to/project
-fleet-prime
+./fleet-cli.sh web
 ```
-
-`fleet-prime` uses the current directory as its workspace and binds to `127.0.0.1:3000`. Override with `fleet-prime --host <host> --port <port> --cwd <directory>`.
 
 ## Interfaces
 
@@ -105,11 +109,10 @@ Run the web chat in development:
 pnpm --dir web --filter @prime-agent/web dev
 ```
 
-Open http://127.0.0.1:3000. For full IPython kernel functionality, install the Python runtime shim:
-
-```bash
-pip install -e prime-agent-runtime
-```
+Open http://127.0.0.1:3000. For full IPython kernel functionality, Prime
+Agent provisions its managed Python runtime lazily on first use. To use an
+existing Python environment instead, set `PRIME_AGENT_KERNEL_PYTHON` to an
+environment that already has `ipykernel` and `prime-agent-runtime` installed.
 
 On first launch, open Settings → Providers (or run `/login`) to add an API key, then pick a model in the composer.
 
