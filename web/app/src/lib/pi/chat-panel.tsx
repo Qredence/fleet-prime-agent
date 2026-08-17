@@ -9,6 +9,7 @@ type ChatPanelProps = {
 	messages: Array<ChatMessage>
 	status: ChatStatus
 	error: Error | undefined
+	workspaceName?: string
 	inputSuggestionItems: FleetPiAgentChatProps["suggestions"]
 	suppressQuestionTool: boolean
 	inputBar: FleetPiAgentChatProps["inputBar"]
@@ -25,6 +26,7 @@ export function ChatPanel({
 	messages,
 	status,
 	error,
+	workspaceName,
 	inputSuggestionItems,
 	suppressQuestionTool,
 	inputBar,
@@ -61,6 +63,7 @@ export function ChatPanel({
 	)
 
 	return (
+		<div className="contents" data-fleet-chat-focus>
 		<UiErrorBoundary>
 			<FleetPiAgentChat
 				messages={messages}
@@ -68,6 +71,7 @@ export function ChatPanel({
 				onSend={handleSend}
 				onOpenUIAction={handleOpenUIAction}
 				onStop={onStop}
+				workspaceName={workspaceName}
 				questionTool={questionTool}
 				suppressQuestionTool={suppressQuestionTool}
 				error={error ?? undefined}
@@ -76,5 +80,6 @@ export function ChatPanel({
 				inputBar={inputBar}
 			/>
 		</UiErrorBoundary>
+		</div>
 	)
 }

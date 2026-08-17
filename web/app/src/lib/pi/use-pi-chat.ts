@@ -9,6 +9,7 @@ import type {
 	ChatStreamEvent,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatClient } from "./chat-client";
 import { chatClient } from "./chat-client";
@@ -22,6 +23,8 @@ import { enhancePlanDecisionMessages, resolvePlanDecisionMessages } from "./use-
 
 export type SendMessageInput = {
 	text: string;
+	attachments?: Array<ChatAttachment>;
+	openUI?: boolean;
 	planAction?: ChatPlanAction;
 	mode?: ChatMode;
 	/** Mirror of the Alt/Option modifier at Enter-press time. */
@@ -31,12 +34,12 @@ export type SendMessageInput = {
 export type UsePiChatOptions = {
 	client?: ChatClient;
 	initialSessionMetadata: ChatSessionMetadata;
+	projectId?: string;
 	persistSession: (metadata: ChatSessionMetadata) => void;
-	onWorkspaceCwd?: (cwd: string) => Promise<void>;
 };
 
 export function usePiChat(model: ChatModelSelection | undefined, options: UsePiChatOptions) {
-	const { client = chatClient, initialSessionMetadata, persistSession, onWorkspaceCwd } = options;
+	const { client = chatClient, initialSessionMetadata, persistSession, projectId } = options;
 	const [messages, setMessages] = useState<Array<ChatMessage>>([]);
 	const [status, setStatus] = useState<ChatStatus>("ready");
 	const [error, setError] = useState<Error | null>(null);
@@ -51,8 +54,10 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const activityLabelRef = useRef(activityLabel);
 	const planLabelRef = useRef(planLabel);
 	const queueRef = useRef(queue);
-	const abortRef = useRef<AbortController | null>(null);
+	const pendingSendControllerRef = useRef<AbortController | null>(null);
+	const streamControllersRef = useRef(new Map<string, AbortController>());
 	const statusRef = useRef(status);
+	const initializedRef = useRef(false);
 	const sendMessageRef = useRef<(input: SendMessageInput) => Promise<void>>(() => Promise.resolve());
 	const setMessagesSynced = useCallback(
 		(updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => {
@@ -89,11 +94,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		(metadata: ChatSessionMetadata) => {
 			const current = sessionMetadataRef.current;
 			const next = normalizeSessionMetadata(metadata);
-			if (
-				current.sessionFile === next.sessionFile &&
-				current.sessionId === next.sessionId &&
-				current.cwd === next.cwd
-			) {
+			if (current.sessionId === next.sessionId && current.projectId === next.projectId) {
 				return;
 			}
 
@@ -128,6 +129,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		() =>
 			runForbiddenSessionRecovery({
 				client,
+				projectId,
 				refreshSessions,
 				setActivityLabelSynced,
 				setError,
@@ -139,6 +141,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			}),
 		[
 			client,
+			projectId,
 			refreshSessions,
 			setActivityLabelSynced,
 			setMessagesSynced,
@@ -151,7 +154,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const submitQuestionAnswer = useCallback(
 		async ({ toolCallId, answer }: { toolCallId?: string; answer: ChatQuestionAnswer }) => {
 			const result = await client.answerQuestion({
-				sessionFile: sessionMetadataRef.current.sessionFile,
 				sessionId: sessionMetadataRef.current.sessionId,
 				toolCallId,
 				answer,
@@ -190,7 +192,13 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	}, [initialSessionMetadata]);
 
 	useEffect(() => {
-		return () => abortRef.current?.abort();
+		const controllers = streamControllersRef.current;
+		return () => {
+			pendingSendControllerRef.current?.abort();
+			pendingSendControllerRef.current = null;
+			for (const controller of controllers.values()) controller.abort();
+			controllers.clear();
+		};
 	}, []);
 
 	useEffect(() => {
@@ -207,9 +215,9 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	}, [refreshSessions]);
 
 	useEffect(() => {
+		if (initializedRef.current) return;
+		initializedRef.current = true;
 		const controller = new AbortController();
-		abortRef.current?.abort();
-		abortRef.current = null;
 		setStatus("ready");
 		setError(null);
 		setQueueSynced(EMPTY_QUEUE_STATE);
@@ -218,7 +226,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setMessagesSynced([]);
 
 		const storedSession = initialSessionMetadataRef.current;
-		const hasStoredSession = storedSession.sessionFile || storedSession.sessionId;
+		const hasStoredSession = storedSession.sessionId;
 		if (!hasStoredSession) {
 			setSessionMetadataSynced({});
 			return () => controller.abort();
@@ -260,11 +268,12 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	]);
 
 	const { sendMessage } = usePiChatMessaging({
-		abortRef,
 		activityLabelRef,
 		client,
 		messagesRef,
 		model,
+		pendingSendControllerRef,
+		projectId,
 		planLabelRef,
 		queueRef,
 		recoverFromForbiddenSession,
@@ -277,57 +286,66 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setQueueSynced,
 		setSessionMetadataSynced,
 		setStatus,
+		streamControllersRef,
 		status,
 	});
 
 	const stop = useCallback(() => {
+		pendingSendControllerRef.current?.abort();
+		pendingSendControllerRef.current = null;
 		const metadata = sessionMetadataRef.current;
-		if (metadata.sessionId || metadata.sessionFile) {
+		if (metadata.sessionId) {
 			void client.abortSession(metadata).catch(() => undefined);
 		}
-		abortRef.current?.abort();
-		abortRef.current = null;
+		if (metadata.sessionId) {
+			streamControllersRef.current.get(metadata.sessionId)?.abort();
+			streamControllersRef.current.delete(metadata.sessionId);
+		}
 		setStatus("ready");
 		setQueueSynced(EMPTY_QUEUE_STATE);
 		setActivityLabelSynced(undefined);
 	}, [client, setActivityLabelSynced, setQueueSynced]);
 
-	const startNewSession = useCallback(async () => {
-		stop();
-		const result = await client.createSession();
-		setSessionMetadataSynced(result.session);
-		setMessagesSynced([]);
-		setQueueSynced(EMPTY_QUEUE_STATE);
-		setActivityLabelSynced(undefined);
-		setPlanLabelSynced(undefined);
-		notify.success("New session started");
-		await refreshSessions();
-	}, [
-		client,
-		refreshSessions,
-		setActivityLabelSynced,
-		setMessagesSynced,
-		setPlanLabelSynced,
-		setQueueSynced,
-		setSessionMetadataSynced,
-		stop,
-	]);
+	const startNewSession = useCallback(
+		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
+			if (options?.preserveRunning === false) stop();
+			else setStatus("ready");
+			const result = await client.createSession(options?.projectId ?? projectId);
+			setSessionMetadataSynced(result.session);
+			setMessagesSynced([]);
+			setQueueSynced(EMPTY_QUEUE_STATE);
+			setActivityLabelSynced(undefined);
+			setPlanLabelSynced(undefined);
+			notify.success("New session started");
+			await refreshSessions();
+		},
+		[
+			client,
+			refreshSessions,
+			setActivityLabelSynced,
+			setMessagesSynced,
+			setPlanLabelSynced,
+			setQueueSynced,
+			setSessionMetadataSynced,
+			stop,
+			projectId,
+		],
+	);
 
 	const resumeSession = useCallback(
-		async (metadata: ChatSessionMetadata) => {
+		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
 			try {
-				stop();
+				if (options?.preserveRunning === false) stop();
 				const result = await client.resumeSession(metadata);
 				setSessionMetadataSynced(result.session);
 				setMessagesSynced(result.messages);
 				setQueueSynced(EMPTY_QUEUE_STATE);
 				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 				setPlanLabelSynced(undefined);
+				setStatus(streamControllersRef.current.has(result.session.sessionId ?? "") ? "streaming" : "ready");
 				notify.success("Session resumed");
 				await refreshSessions();
-				if (result.session.cwd) {
-					await onWorkspaceCwd?.(result.session.cwd);
-				}
+				return true;
 			} catch (err) {
 				if (
 					await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
@@ -335,17 +353,17 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 						setStatus,
 					})
 				) {
-					return;
+					return false;
 				}
 				const nextError = err instanceof Error ? err : new Error(String(err));
 				setError(nextError);
 				setStatus("error");
 				notify.error(nextError.message);
+				return false;
 			}
 		},
 		[
 			client,
-			onWorkspaceCwd,
 			recoverFromForbiddenSession,
 			refreshSessions,
 			setActivityLabelSynced,
@@ -354,6 +372,29 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setQueueSynced,
 			setSessionMetadataSynced,
 			stop,
+		],
+	);
+
+	const switchProject = useCallback(
+		async (nextProjectId: string, nextSessionId?: string) => {
+			if (nextSessionId) {
+				return resumeSession({ sessionId: nextSessionId, projectId: nextProjectId }, { preserveRunning: true });
+			}
+			setSessionMetadataSynced({ projectId: nextProjectId });
+			setMessagesSynced([]);
+			setQueueSynced(EMPTY_QUEUE_STATE);
+			setActivityLabelSynced(undefined);
+			setPlanLabelSynced(undefined);
+			setStatus("ready");
+			return true;
+		},
+		[
+			resumeSession,
+			setActivityLabelSynced,
+			setMessagesSynced,
+			setPlanLabelSynced,
+			setQueueSynced,
+			setSessionMetadataSynced,
 		],
 	);
 
@@ -481,6 +522,26 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	]);
 
 	const enhancedMessages = useMemo(() => enhanceMessages(messages), [messages, enhanceMessages]);
+	const renameSession = useCallback(
+		async (sessionId: string, title: string) => {
+			await client.renameSession(sessionId, title);
+			await refreshSessions();
+		},
+		[client, refreshSessions],
+	);
+	const deleteSession = useCallback(
+		async (sessionId: string) => {
+			const deletingActive = sessionMetadataRef.current.sessionId === sessionId;
+			if (deletingActive) stop();
+			await client.deleteSession(sessionId);
+			if (deletingActive) {
+				setSessionMetadataSynced({});
+				setMessagesSynced([]);
+			}
+			await refreshSessions();
+		},
+		[client, refreshSessions, setMessagesSynced, setSessionMetadataSynced, stop],
+	);
 
 	const answerQuestion = submitQuestionAnswer;
 
@@ -491,12 +552,14 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		activityLabel,
 		answerQuestion,
 		appendLocalMessage,
+		deleteSession,
 		error,
 		getMessages,
 		getSessionMetadata,
 		messages: enhancedMessages,
 		planLabel,
 		queue,
+		renameSession,
 		refreshSessions,
 		resumeSession,
 		sendMessage,
@@ -506,5 +569,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		startNewSession,
 		status,
 		stop,
+		switchProject,
 	};
 }

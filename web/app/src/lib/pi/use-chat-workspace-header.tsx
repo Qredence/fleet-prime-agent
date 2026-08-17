@@ -5,6 +5,7 @@ import {
   SessionControls,
 } from "@prime-agent/web-design/components/fleet-pi/layout/chat-header"
 import { RightPanelLauncherFromContext } from "@prime-agent/web-design/components/fleet-pi/pi/right-panel-launcher"
+import { AnimatedSidebarTrigger } from "@prime-agent/web-design/components/motion/animated-sidebar"
 import type {
   ChatSessionInfo,
   ChatSessionMetadata,
@@ -37,7 +38,20 @@ export function useChatWorkspaceHeader({
 
   return {
     left: (
+      <AnimatedSidebarTrigger
+        aria-label="Toggle conversations"
+        className="size-9 rounded-[10px] border bg-background shadow-sm hover:bg-muted"
+      >
+        <span
+          aria-hidden="true"
+          className="block h-3.5 w-4 rounded-[3px] border border-current before:block before:h-full before:w-1 before:border-r before:border-current"
+        />
+      </AnimatedSidebarTrigger>
+    ),
+    accountMenu: (
       <AccountMenu
+        className="w-full"
+        label="Qredence"
         user={user}
         onSignOut={async () => {
           clearBrowserChatSessions()

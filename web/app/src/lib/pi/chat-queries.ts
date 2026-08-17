@@ -1,3 +1,4 @@
+import type { ProjectId } from "@prime-agent/web-protocol";
 import type {
 	ChatProviderOAuthLoginRequest,
 	ChatProviderOAuthLoginResponse,
@@ -12,38 +13,46 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { chatClient } from "./chat-client";
 
 export const chatQueryKeys = {
-	models: ["chat", "models"] as const,
-	modelCatalog: ["chat", "models", "catalog"] as const,
+	models: (projectId?: ProjectId) => ["chat", "models", projectId ?? "default"] as const,
+	modelCatalog: (projectId?: ProjectId) => ["chat", "models", "catalog", projectId ?? "default"] as const,
 	providers: ["chat", "providers"] as const,
-	resources: ["chat", "resources"] as const,
-	commands: ["chat", "commands"] as const,
-	settings: ["chat", "settings"] as const,
-	workspace: ["workspace", "tree"] as const,
+	resources: (projectId?: ProjectId) => ["chat", "resources", projectId ?? "default"] as const,
+	commands: (projectId?: ProjectId) => ["chat", "commands", projectId ?? "default"] as const,
+	settings: (projectId?: ProjectId) => ["chat", "settings", projectId ?? "default"] as const,
+	workspace: (projectId?: ProjectId) => ["workspace", "tree", projectId ?? "default"] as const,
+	projects: ["projects"] as const,
 } as const;
 
 const keys = chatQueryKeys;
 
 /** Invalidate cwd-scoped queries after the workspace root changes. */
 export function invalidateWorkspaceScopedQueries(queryClient: QueryClient) {
-	void queryClient.invalidateQueries({ queryKey: keys.workspace });
-	void queryClient.invalidateQueries({ queryKey: keys.models });
-	void queryClient.invalidateQueries({ queryKey: keys.modelCatalog });
-	void queryClient.invalidateQueries({ queryKey: keys.settings });
-	void queryClient.invalidateQueries({ queryKey: keys.resources });
-	void queryClient.invalidateQueries({ queryKey: keys.commands });
+	void queryClient.invalidateQueries({ queryKey: ["workspace", "tree"] });
+	void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
+	void queryClient.invalidateQueries({ queryKey: ["chat", "settings"] });
+	void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
+	void queryClient.invalidateQueries({ queryKey: ["chat", "commands"] });
 }
 
-export function useChatModels() {
+export function useChatModels(projectId?: ProjectId) {
 	return useQuery({
-		queryKey: keys.models,
-		queryFn: () => chatClient.getModels(),
+		queryKey: keys.models(projectId),
+		queryFn: () => chatClient.getModels({ projectId }),
 	});
 }
 
-export function useChatModelCatalog(options?: { enabled?: boolean }) {
+export function useChatProjects() {
 	return useQuery({
-		queryKey: keys.modelCatalog,
-		queryFn: () => chatClient.getModels({ scope: "all" }),
+		queryKey: keys.projects,
+		queryFn: () => chatClient.listProjects(),
+		staleTime: 5_000,
+	});
+}
+
+export function useChatModelCatalog(options?: { enabled?: boolean; projectId?: ProjectId }) {
+	return useQuery({
+		queryKey: keys.modelCatalog(options?.projectId),
+		queryFn: () => chatClient.getModels({ scope: "all", projectId: options?.projectId }),
 		enabled: options?.enabled,
 	});
 }
@@ -54,30 +63,29 @@ export function useDiscoverChatModels() {
 	return useMutation({
 		mutationFn: (providerId: string) => chatClient.discoverModels({ providerId }),
 		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: keys.modelCatalog });
-			void queryClient.invalidateQueries({ queryKey: keys.models });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
 		},
 	});
 }
 
-export function useChatResources() {
+export function useChatResources(projectId?: ProjectId) {
 	return useQuery({
-		queryKey: keys.resources,
-		queryFn: () => chatClient.getResources(),
+		queryKey: keys.resources(projectId),
+		queryFn: () => chatClient.getResources(projectId),
 	});
 }
 
-export function useChatCommands() {
+export function useChatCommands(projectId?: ProjectId) {
 	return useQuery({
-		queryKey: keys.commands,
-		queryFn: () => chatClient.getCommands(),
+		queryKey: keys.commands(projectId),
+		queryFn: () => chatClient.getCommands(projectId),
 	});
 }
 
-export function useChatSettings() {
+export function useChatSettings(projectId?: ProjectId) {
 	return useQuery({
-		queryKey: keys.settings,
-		queryFn: () => chatClient.getSettings(),
+		queryKey: keys.settings(projectId),
+		queryFn: () => chatClient.getSettings(projectId),
 	});
 }
 
@@ -85,21 +93,21 @@ export function useUpdateChatSettings() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: (request: ChatSettingsUpdateRequest) => chatClient.updateSettings(request),
-		onSuccess: (settings) => {
-			queryClient.setQueryData(keys.settings, settings);
-			void queryClient.invalidateQueries({ queryKey: keys.models });
-			void queryClient.invalidateQueries({ queryKey: keys.modelCatalog });
-			void queryClient.invalidateQueries({ queryKey: keys.resources });
-			void queryClient.invalidateQueries({ queryKey: keys.commands });
+		mutationFn: (input: { request: ChatSettingsUpdateRequest; projectId?: ProjectId }) =>
+			chatClient.updateSettings(input.request, input.projectId),
+		onSuccess: (settings, input) => {
+			queryClient.setQueryData(keys.settings(input.projectId), settings);
+			void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "commands"] });
 		},
 	});
 }
 
-export function useWorkspaceTree(options?: { enabled?: boolean }) {
+export function useWorkspaceTree(projectId?: ProjectId, options?: { enabled?: boolean }) {
 	return useQuery({
-		queryKey: keys.workspace,
-		queryFn: () => chatClient.getWorkspaceTree(),
+		queryKey: keys.workspace(projectId),
+		queryFn: () => chatClient.getWorkspaceTree(projectId),
 		enabled: options?.enabled,
 	});
 }
@@ -118,9 +126,8 @@ export function useUpdateChatProvider() {
 		mutationFn: (request) => chatClient.updateProvider(request),
 		onSuccess: (data) => {
 			queryClient.setQueryData(keys.providers, { providers: data.providers });
-			void queryClient.invalidateQueries({ queryKey: keys.models });
-			void queryClient.invalidateQueries({ queryKey: keys.modelCatalog });
-			void queryClient.invalidateQueries({ queryKey: keys.settings });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "settings"] });
 		},
 	});
 }
@@ -133,9 +140,8 @@ export function useOAuthLoginProvider() {
 		onSuccess: (data) => {
 			if (data.status !== "success" || !data.providers) return;
 			queryClient.setQueryData(keys.providers, { providers: data.providers });
-			void queryClient.invalidateQueries({ queryKey: keys.models });
-			void queryClient.invalidateQueries({ queryKey: keys.modelCatalog });
-			void queryClient.invalidateQueries({ queryKey: keys.settings });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "settings"] });
 		},
 	});
 }
@@ -147,9 +153,8 @@ export function useRemoveChatProvider() {
 		mutationFn: (request) => chatClient.removeProvider(request),
 		onSuccess: (data) => {
 			queryClient.setQueryData(keys.providers, { providers: data.providers });
-			void queryClient.invalidateQueries({ queryKey: keys.models });
-			void queryClient.invalidateQueries({ queryKey: keys.modelCatalog });
-			void queryClient.invalidateQueries({ queryKey: keys.settings });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "settings"] });
 		},
 	});
 }

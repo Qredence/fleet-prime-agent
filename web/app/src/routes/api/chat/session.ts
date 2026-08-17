@@ -1,10 +1,14 @@
-import { handleChatSessionGet } from "@prime-agent/web-server";
+import { handleChatAttachmentGet, handleChatAttachmentsPost, handleChatSessionGet } from "@prime-agent/web-server";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/api/chat/session")({
 	server: {
 		handlers: {
-			GET: ({ request }) => handleChatSessionGet(request),
+			GET: ({ request }) =>
+				new URL(request.url).searchParams.has("attachmentId")
+					? handleChatAttachmentGet(request)
+					: handleChatSessionGet(request),
+			POST: ({ request }) => handleChatAttachmentsPost(request),
 		},
 	},
 });

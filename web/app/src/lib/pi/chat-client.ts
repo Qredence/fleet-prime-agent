@@ -1,4 +1,11 @@
 import type {
+	ProjectDirectoryBrowseResponse,
+	ProjectForkResponse,
+	ProjectId,
+	ProjectListResponse,
+	ProjectSummary,
+} from "@prime-agent/web-protocol";
+import type {
 	ChatCommandsResponse,
 	ChatModelsDiscoverRequest,
 	ChatModelsDiscoverResponse,
@@ -22,7 +29,6 @@ import type {
 	ChatStreamEvent,
 	WorkspaceBrowseResponse,
 	WorkspaceFileResponse,
-	WorkspaceRootResponse,
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import {
@@ -42,33 +48,50 @@ import {
 	ChatSessionsResponseSchema,
 	ChatSettingsResponseSchema,
 	ChatSettingsUpdateRequestSchema,
+	ProjectCreateRequestSchema,
+	ProjectDirectoryBrowseResponseSchema,
+	ProjectForkRequestSchema,
+	ProjectForkResponseSchema,
+	ProjectListResponseSchema,
+	ProjectRenameRequestSchema,
+	ProjectSummarySchema,
 	WorkspaceBrowseResponseSchema,
 	WorkspaceFileResponseSchema,
-	WorkspaceRootRequestSchema,
-	WorkspaceRootResponseSchema,
 	WorkspaceTreeResponseSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { type UploadedAttachment, UploadedAttachmentSchema } from "@prime-agent/web-protocol/fleet-contract";
+import { z } from "zod/v4";
 import { clearChatAuthBearerTokenCache, getChatAuthBearerToken } from "@/lib/auth-stub";
 import { ChatRequestError, fetchJson, fetchValidatedJson, metadataUrl, readChatStream } from "./chat-fetch";
 import { resolveChatApiUrl } from "./chat-runtime-url";
 
+const ProjectResponseSchema = z.object({ project: ProjectSummarySchema });
+
 export type ChatClient = {
 	abortSession: (metadata: ChatSessionMetadata) => Promise<void>;
 	answerQuestion: (request: ChatQuestionAnswerRequest) => Promise<ChatQuestionAnswerResponse>;
-	browseWorkspace: (path?: string) => Promise<WorkspaceBrowseResponse>;
-	createSession: () => Promise<ChatSessionResponse>;
-	getModels: (options?: { scope?: "enabled" | "all" }) => Promise<ChatModelsResponse>;
+	browseWorkspace: (path?: string, projectId?: ProjectId) => Promise<WorkspaceBrowseResponse>;
+	createSession: (projectId?: ProjectId, signal?: AbortSignal) => Promise<ChatSessionResponse>;
+	listProjects: () => Promise<ProjectListResponse>;
+	createProject: (request: { path?: string; directoryToken?: string; name?: string }) => Promise<ProjectSummary>;
+	renameProject: (projectId: ProjectId, name: string) => Promise<ProjectSummary>;
+	unregisterProject: (projectId: ProjectId) => Promise<ProjectSummary>;
+	browseProjectDirectories: (options?: { path?: string; token?: string }) => Promise<ProjectDirectoryBrowseResponse>;
+	forkSessionIntoProject: (sessionId: string, targetProjectId: ProjectId) => Promise<ProjectForkResponse>;
+	getModels: (options?: { scope?: "enabled" | "all"; projectId?: ProjectId }) => Promise<ChatModelsResponse>;
 	discoverModels: (request: ChatModelsDiscoverRequest) => Promise<ChatModelsDiscoverResponse>;
-	getResources: () => Promise<ChatResourcesResponse>;
-	getCommands: () => Promise<ChatCommandsResponse>;
-	getSettings: () => Promise<ChatSettingsResponse>;
-	getWorkspaceTree: () => Promise<WorkspaceTreeResponse>;
-	getWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>;
-	listSessions: () => Promise<Array<ChatSessionInfo>>;
+	getResources: (projectId?: ProjectId) => Promise<ChatResourcesResponse>;
+	getCommands: (projectId?: ProjectId) => Promise<ChatCommandsResponse>;
+	getSettings: (projectId?: ProjectId) => Promise<ChatSettingsResponse>;
+	getWorkspaceTree: (projectId?: ProjectId) => Promise<WorkspaceTreeResponse>;
+	getWorkspaceFile: (path: string, projectId?: ProjectId) => Promise<WorkspaceFileResponse>;
+	listSessions: (projectId?: ProjectId) => Promise<Array<ChatSessionInfo>>;
+	renameSession: (sessionId: string, title: string) => Promise<void>;
+	deleteSession: (sessionId: string) => Promise<void>;
+	uploadAttachments: (sessionId: string, files: Array<File>) => Promise<Array<UploadedAttachment>>;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	resumeSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
-	setWorkspaceRoot: (path: string) => Promise<WorkspaceRootResponse>;
-	updateSettings: (request: ChatSettingsUpdateRequest) => Promise<ChatSettingsResponse>;
+	updateSettings: (request: ChatSettingsUpdateRequest, projectId?: ProjectId) => Promise<ChatSettingsResponse>;
 	streamMessage: (
 		request: ChatRequest,
 		onEvent: (event: ChatStreamEvent) => void,
@@ -97,8 +120,9 @@ export const chatClient: ChatClient = {
 		});
 	},
 
-	async browseWorkspace(path) {
+	async browseWorkspace(path, projectId) {
 		const params = new URLSearchParams();
+		if (projectId) params.set("projectId", projectId);
 		if (path && path.trim().length > 0) {
 			params.set("path", path);
 		}
@@ -106,15 +130,80 @@ export const chatClient: ChatClient = {
 		return fetchValidatedJson(`/api/workspace/browse${query ? `?${query}` : ""}`, WorkspaceBrowseResponseSchema);
 	},
 
-	async createSession() {
+	async createSession(projectId, signal) {
 		return fetchValidatedJson("/api/chat/new", ChatSessionResponseSchema, {
 			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(projectId ? { projectId } : {}),
+			signal,
+		});
+	},
+
+	async listProjects() {
+		return fetchValidatedJson("/api/projects", ProjectListResponseSchema);
+	},
+
+	async createProject(request) {
+		const body = ProjectCreateRequestSchema.parse(request);
+		const response = await fetchValidatedJson("/api/projects", ProjectResponseSchema, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		return response.project;
+	},
+
+	async renameProject(projectId, name) {
+		const body = ProjectRenameRequestSchema.parse({ name });
+		const response = await fetchValidatedJson(
+			`/api/projects?projectId=${encodeURIComponent(projectId)}`,
+			ProjectResponseSchema,
+			{
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			},
+		);
+		return response.project;
+	},
+
+	async unregisterProject(projectId) {
+		const response = await fetchValidatedJson(
+			`/api/projects?projectId=${encodeURIComponent(projectId)}`,
+			ProjectResponseSchema,
+			{
+				method: "DELETE",
+			},
+		);
+		return response.project;
+	},
+
+	async browseProjectDirectories(options) {
+		const params = new URLSearchParams();
+		if (options?.path) params.set("path", options.path);
+		if (options?.token) params.set("token", options.token);
+		const query = params.toString();
+		return fetchValidatedJson(
+			`/api/projects/browse${query ? `?${query}` : ""}`,
+			ProjectDirectoryBrowseResponseSchema,
+		);
+	},
+
+	async forkSessionIntoProject(sessionId, targetProjectId) {
+		const body = ProjectForkRequestSchema.parse({ sessionId, targetProjectId });
+		return fetchValidatedJson("/api/projects/fork", ProjectForkResponseSchema, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
 		});
 	},
 
 	async getModels(options) {
-		const params = options?.scope === "all" ? "?scope=all" : "";
-		return fetchValidatedJson(`/api/chat/models${params}`, ChatModelsResponseSchema);
+		const params = new URLSearchParams();
+		if (options?.scope === "all") params.set("scope", "all");
+		if (options?.projectId) params.set("projectId", options.projectId);
+		const query = params.toString();
+		return fetchValidatedJson(`/api/chat/models${query ? `?${query}` : ""}`, ChatModelsResponseSchema);
 	},
 
 	async discoverModels(request) {
@@ -125,30 +214,64 @@ export const chatClient: ChatClient = {
 		});
 	},
 
-	async getResources() {
-		return fetchValidatedJson("/api/chat/resources", ChatResourcesResponseSchema);
+	async getResources(projectId) {
+		const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+		return fetchValidatedJson(`/api/chat/resources${query}`, ChatResourcesResponseSchema);
 	},
 
-	async getCommands() {
-		return fetchValidatedJson("/api/chat/commands", ChatCommandsResponseSchema);
+	async getCommands(projectId) {
+		const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+		return fetchValidatedJson(`/api/chat/commands${query}`, ChatCommandsResponseSchema);
 	},
 
-	async getSettings() {
-		return fetchValidatedJson("/api/chat/settings", ChatSettingsResponseSchema);
+	async getSettings(projectId) {
+		const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+		return fetchValidatedJson(`/api/chat/settings${query}`, ChatSettingsResponseSchema);
 	},
 
-	async getWorkspaceTree() {
-		return fetchValidatedJson("/api/workspace/tree", WorkspaceTreeResponseSchema);
+	async getWorkspaceTree(projectId) {
+		const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+		return fetchValidatedJson(`/api/workspace/tree${query}`, WorkspaceTreeResponseSchema);
 	},
 
-	async getWorkspaceFile(path) {
+	async getWorkspaceFile(path, projectId) {
 		const params = new URLSearchParams({ path });
+		if (projectId) params.set("projectId", projectId);
 		return fetchValidatedJson(`/api/workspace/file?${params}`, WorkspaceFileResponseSchema);
 	},
 
-	async listSessions() {
-		const result = await fetchValidatedJson("/api/chat/sessions", ChatSessionsResponseSchema);
+	async listSessions(projectId) {
+		const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+		const result = await fetchValidatedJson(`/api/chat/sessions${query}`, ChatSessionsResponseSchema);
 		return result.sessions;
+	},
+
+	async renameSession(sessionId, title) {
+		await fetchJson("/api/chat/sessions", {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ sessionId, title }),
+		});
+	},
+
+	async deleteSession(sessionId) {
+		await fetchJson("/api/chat/sessions", {
+			method: "DELETE",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ sessionId }),
+		});
+	},
+
+	async uploadAttachments(sessionId, files) {
+		const form = new FormData();
+		form.set("sessionId", sessionId);
+		for (const file of files) form.append("files", file);
+		const response = await fetch(resolveChatApiUrl("/api/chat/session"), {
+			method: "POST",
+			body: form,
+		});
+		if (!response.ok) throw new ChatRequestError(response.status, await response.text());
+		return z.object({ attachments: z.array(UploadedAttachmentSchema) }).parse(await response.json()).attachments;
 	},
 
 	async loadSession(metadata) {
@@ -163,18 +286,10 @@ export const chatClient: ChatClient = {
 		});
 	},
 
-	async setWorkspaceRoot(path) {
-		const body = WorkspaceRootRequestSchema.parse({ path });
-		return fetchValidatedJson("/api/workspace/root", WorkspaceRootResponseSchema, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(body),
-		});
-	},
-
-	async updateSettings(request) {
+	async updateSettings(request, projectId) {
 		const body = ChatSettingsUpdateRequestSchema.parse(request);
-		return fetchValidatedJson("/api/chat/settings", ChatSettingsResponseSchema, {
+		const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+		return fetchValidatedJson(`/api/chat/settings${query}`, ChatSettingsResponseSchema, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(body),

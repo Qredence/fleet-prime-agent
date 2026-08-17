@@ -6,6 +6,7 @@ import type {
 	ChatStreamEvent,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import type { MutableRefObject } from "react";
 import { useCallback, useRef } from "react";
 import { captureChatSessionStarted, captureConversationSaved } from "@/lib/analytics-stub";
@@ -17,12 +18,13 @@ import type { SendMessageInput } from "./use-pi-chat";
 import { tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
 
 type PiChatMessagingRefs = {
-	abortRef: MutableRefObject<AbortController | null>;
 	activityLabelRef: MutableRefObject<string | undefined>;
 	messagesRef: MutableRefObject<Array<ChatMessage>>;
 	planLabelRef: MutableRefObject<string | undefined>;
 	queueRef: MutableRefObject<QueueState>;
 	sessionMetadataRef: MutableRefObject<ChatSessionMetadata>;
+	pendingSendControllerRef: MutableRefObject<AbortController | null>;
+	streamControllersRef: MutableRefObject<Map<string, AbortController>>;
 };
 
 type PiChatMessagingSetters = {
@@ -39,22 +41,25 @@ export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 	PiChatMessagingSetters & {
 		client: ChatClient;
 		model: ChatModelSelection | undefined;
+		projectId?: ProjectId;
 		recoverFromForbiddenSession: () => Promise<void>;
 		refreshSessions: () => Promise<void>;
 		status: ChatStatus;
 	};
 
 export function usePiChatMessaging({
-	abortRef,
 	activityLabelRef,
 	client,
 	messagesRef,
 	model,
+	pendingSendControllerRef,
+	projectId,
 	planLabelRef,
 	queueRef,
 	recoverFromForbiddenSession,
 	refreshSessions,
 	sessionMetadataRef,
+	streamControllersRef,
 	setActivityLabelSynced,
 	setError,
 	setMessagesSynced,
@@ -70,31 +75,43 @@ export function usePiChatMessaging({
 	// In-flight memo prevents two concurrent sends from both calling createSession
 	// and clobbering one another (race documented in review finding M2).
 	const sessionCreatePromiseRef = useRef<Promise<ChatSessionMetadata> | null>(null);
-	const ensureSession = useCallback(async (): Promise<ChatSessionMetadata> => {
-		const existing = sessionMetadataRef.current;
-		if (existing.sessionId || existing.sessionFile) return existing;
-		const inFlight = sessionCreatePromiseRef.current;
-		if (inFlight) return inFlight;
-		const promise = client
-			.createSession()
-			.then((created) => {
-				setSessionMetadataSynced(created.session);
-				sessionMetadataRef.current = created.session;
-				void refreshSessions();
-				return created.session;
-			})
-			.finally(() => {
-				if (sessionCreatePromiseRef.current === promise) {
-					sessionCreatePromiseRef.current = null;
-				}
-			});
-		sessionCreatePromiseRef.current = promise;
-		return promise;
-	}, [client, refreshSessions, sessionMetadataRef, setSessionMetadataSynced]);
+	const ensureSession = useCallback(
+		async (signal?: AbortSignal): Promise<ChatSessionMetadata> => {
+			if (signal?.aborted) throw new Error("Session creation was aborted");
+			const existing = sessionMetadataRef.current;
+			if (existing.sessionId) return existing;
+			const inFlight = sessionCreatePromiseRef.current;
+			if (inFlight) return inFlight;
+			const promise = client
+				.createSession(projectId, signal)
+				.then((created) => {
+					if (signal?.aborted) throw new Error("Session creation was aborted");
+					setSessionMetadataSynced(created.session);
+					sessionMetadataRef.current = created.session;
+					void refreshSessions();
+					return created.session;
+				})
+				.finally(() => {
+					if (sessionCreatePromiseRef.current === promise) {
+						sessionCreatePromiseRef.current = null;
+					}
+				});
+			sessionCreatePromiseRef.current = promise;
+			return promise;
+		},
+		[client, projectId, refreshSessions, sessionMetadataRef, setSessionMetadataSynced],
+	);
 	const handleStreamEvent = useCallback(
-		(event: ChatStreamEvent, assistantIdRef: { current: string | null }) => {
+		(event: ChatStreamEvent, assistantIdRef: { current: string | null }, streamSessionId: string) => {
 			if (event.type === "error") {
 				throw new Error(event.message);
+			}
+			const streamIsVisible = streamSessionId === sessionMetadataRef.current.sessionId;
+			if (!streamIsVisible) {
+				if (event.type === "done") {
+					void refreshSessions();
+				}
+				return;
 			}
 
 			const next = applyChatStreamEvent(
@@ -156,7 +173,6 @@ export function usePiChatMessaging({
 						message: trimmed,
 						model,
 						mode,
-						sessionFile: sessionMetadataRef.current.sessionFile,
 						sessionId: sessionMetadataRef.current.sessionId,
 						streamingBehavior,
 					},
@@ -206,6 +222,8 @@ export function usePiChatMessaging({
 	const sendMessage = useCallback(
 		async ({
 			text,
+			attachments,
+			openUI,
 			planAction,
 			mode,
 			/** Mirror of the Alt/Option modifier at Enter-press time. */
@@ -227,9 +245,6 @@ export function usePiChatMessaging({
 				return;
 			}
 
-			const controller = new AbortController();
-			abortRef.current?.abort();
-			abortRef.current = controller;
 			setError(null);
 			setActivityLabelSynced(undefined);
 			setStatus("submitted");
@@ -244,29 +259,44 @@ export function usePiChatMessaging({
 			const userMessage = createTextMessage("user", trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
 			const assistantIdRef = { current: null as string | null };
+			const controller = new AbortController();
+			pendingSendControllerRef.current = controller;
+			let streamSessionId: string | undefined;
 
 			try {
-				await ensureSession();
+				const ensuredSession = await ensureSession(controller.signal);
+				if (controller.signal.aborted) return;
+				const ensuredStreamSessionId = ensuredSession.sessionId;
+				if (!ensuredStreamSessionId) throw new Error("Unable to start a session stream");
+				streamSessionId = ensuredStreamSessionId;
+				streamControllersRef.current.set(ensuredStreamSessionId, controller);
 				await client.streamMessage(
 					{
 						message: trimmed,
+						attachments,
+						openUI,
 						model,
 						planAction,
 						mode,
-						sessionFile: sessionMetadataRef.current.sessionFile,
-						sessionId: sessionMetadataRef.current.sessionId,
+						sessionId: ensuredStreamSessionId,
 					},
-					(event) => handleStreamEvent(event, assistantIdRef),
+					(event) => handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId),
 					controller.signal,
 				);
 
-				setStatus("ready");
+				if (sessionMetadataRef.current.sessionId === ensuredStreamSessionId) {
+					setStatus("ready");
+				}
 				captureConversationSaved({
 					messageCount: messagesRef.current.length,
-					sessionId: sessionMetadataRef.current.sessionId,
+					sessionId: ensuredStreamSessionId,
 				});
 			} catch (err) {
 				if (controller.signal.aborted) return;
+				if (streamSessionId && sessionMetadataRef.current.sessionId !== streamSessionId) {
+					void refreshSessions();
+					return;
+				}
 				if (
 					await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
 						setError,
@@ -280,25 +310,30 @@ export function usePiChatMessaging({
 				setStatus("error");
 				notify.error(nextError.message);
 			} finally {
-				if (abortRef.current === controller) {
-					abortRef.current = null;
+				if (pendingSendControllerRef.current === controller) {
+					pendingSendControllerRef.current = null;
+				}
+				if (streamSessionId && controller && streamControllersRef.current.get(streamSessionId) === controller) {
+					streamControllersRef.current.delete(streamSessionId);
 				}
 			}
 		},
 		[
-			abortRef,
 			client,
 			ensureSession,
 			enqueueDuringStream,
 			handleStreamEvent,
 			messagesRef,
 			model,
+			pendingSendControllerRef,
+			refreshSessions,
 			recoverFromForbiddenSession,
 			sessionMetadataRef,
 			setActivityLabelSynced,
 			setError,
 			setMessagesSynced,
 			setStatus,
+			streamControllersRef,
 			status,
 		],
 	);
