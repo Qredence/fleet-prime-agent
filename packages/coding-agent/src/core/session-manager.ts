@@ -1473,20 +1473,12 @@ export class SessionManager {
 			return;
 		}
 
-		if (!this.flushed) {
+		if (!this.flushed || !existsSync(this.sessionFile)) {
 			this._rewriteFile();
 			this.flushed = true;
 		} else {
 			mkdirSync(dirname(this.sessionFile), { recursive: true });
-			try {
-				appendFileSync(this.sessionFile, `${JSON.stringify(entry)}\n`);
-			} catch (error) {
-				if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-					throw error;
-				}
-				// Session file was removed externally; rewrite the full state.
-				this._rewriteFile();
-			}
+			appendFileSync(this.sessionFile, `${JSON.stringify(entry)}\n`);
 			this._notifyPersistListeners();
 		}
 	}
