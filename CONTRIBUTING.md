@@ -21,6 +21,12 @@ All participants must follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 5. Run focused tests from the package root, e.g. `cd packages/coding-agent && npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
 6. Push the branch and open a pull request into `main`
 
+The root `justfile` is the primary command surface for local development. Run
+`just --list` to see the setup, CLI, web, and validation recipes; the Codex
+local environment exposes the same commands. The direct npm and pnpm commands
+above remain supported when `just` is unavailable, and `just` is not required
+for the end-user installation.
+
 ## Pull requests
 
 - One logical change per PR, containing only related files
