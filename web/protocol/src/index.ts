@@ -1,5 +1,57 @@
 export * from "./chat-protocol";
 export * from "./chat-types";
+export type {
+	AttachmentUploadMetadata,
+	ChatAttachment,
+	ChatEvent,
+	ChatToolPart as FleetChatToolPart,
+	OpenPanelAction,
+	OpenUIAction,
+	ProjectCreateRequest,
+	ProjectDirectoryBrowseResponse,
+	ProjectDirectoryEntry,
+	ProjectForkRequest,
+	ProjectForkResponse,
+	ProjectId,
+	ProjectListResponse,
+	ProjectRenameRequest,
+	ProjectStatus,
+	ProjectSummary,
+	RightPanelId,
+	RightPanelState,
+	SessionRef,
+	SessionSummary,
+	UploadedAttachment,
+	WorkspaceAttachment,
+} from "./fleet-contract";
+export {
+	AttachmentUploadMetadataSchema,
+	ChatAttachmentSchema,
+	ChatEventSchema,
+	ChatToolPartSchema,
+	MAX_ATTACHMENT_BYTES,
+	MAX_TURN_ATTACHMENT_BYTES,
+	OpenPanelActionSchema,
+	OpenUIActionSchema,
+	ProjectCreateRequestSchema,
+	ProjectDirectoryBrowseResponseSchema,
+	ProjectDirectoryEntrySchema,
+	ProjectForkRequestSchema,
+	ProjectForkResponseSchema,
+	ProjectIdSchema,
+	ProjectListResponseSchema,
+	ProjectRenameRequestSchema,
+	ProjectStatusSchema,
+	ProjectSummarySchema,
+	RightPanelIdSchema,
+	SessionIdSchema,
+	SessionRefSchema,
+	SessionSummarySchema,
+	UploadedAttachmentSchema,
+	WorkspaceAttachmentSchema,
+	WorkspaceRelativePathSchema,
+} from "./fleet-contract";
 export * from "./model-patterns";
 export { buildOpenUIPrompt, type OpenUIPromptMode } from "./openui-prompt";
 export * from "./provider-catalog";
+export { ChatNewRequestSchema } from "./schemas/chat";

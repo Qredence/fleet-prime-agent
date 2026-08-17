@@ -1,39 +1,57 @@
+import { ChatAttachmentSchema, MAX_TURN_ATTACHMENT_BYTES, ProjectIdSchema, SessionIdSchema } from "../fleet-contract";
 import { ChatModeSchema, ChatPlanActionSchema, ChatThinkingLevelSchema, z } from "./shared";
 
 export const ChatModelSelectionSchema = z
-	.union([
-		z.string().openapi({ description: "Model key string" }),
-		z
-			.object({
-				provider: z.string(),
-				id: z.string(),
-				thinkingLevel: ChatThinkingLevelSchema.optional(),
-			})
-			.openapi({ description: "Model selection object" }),
-	])
+	.object({
+		provider: z.string(),
+		id: z.string(),
+		thinkingLevel: ChatThinkingLevelSchema.optional(),
+	})
 	.openapi({ description: "Selected model" });
 
 export const ChatSessionMetadataSchema = z
 	.object({
-		sessionFile: z.string().optional().openapi({ description: "Session file path" }),
-		sessionId: z.string().optional().openapi({ description: "Session ID" }),
-		cwd: z.string().optional().openapi({ description: "Session working directory" }),
+		sessionId: SessionIdSchema.optional().openapi({ description: "Session ID" }),
+		projectId: ProjectIdSchema.nullable().optional().openapi({ description: "Opaque project ID" }),
 	})
 	.openapi({ description: "Chat session metadata" });
 
 export const ChatRequestSchema = z
 	.object({
-		sessionFile: z.string().optional(),
-		sessionId: z.string().optional(),
+		sessionId: SessionIdSchema.optional(),
 		message: z.string().optional().openapi({ description: "User message" }),
 		model: ChatModelSelectionSchema.optional(),
 		mode: ChatModeSchema.optional(),
+		openUI: z.boolean().optional(),
+		attachments: z.array(ChatAttachmentSchema).max(16).optional(),
 		planAction: ChatPlanActionSchema.optional(),
 		streamingBehavior: z.enum(["steer", "followUp"]).optional().openapi({ description: "Streaming behavior" }),
 		userId: z.string().optional().openapi({ description: "Authenticated user ID (server-injected)" }),
 		userEmail: z.string().optional().openapi({ description: "Authenticated user email (server-injected)" }),
 	})
+	.superRefine((request, context) => {
+		const uploadBytes = (request.attachments ?? []).reduce(
+			(total, attachment) => total + (attachment.kind === "upload" ? attachment.size : 0),
+			0,
+		);
+		if (uploadBytes > MAX_TURN_ATTACHMENT_BYTES) {
+			context.addIssue({
+				code: "custom",
+				path: ["attachments"],
+				message: "Attachments exceed the 100 MiB per-turn limit",
+			});
+		}
+	})
 	.openapi({ description: "Chat request body" });
+
+export const ChatNewRequestSchema = z
+	.object({
+		projectId: ProjectIdSchema.optional(),
+		thinkingLevel: ChatThinkingLevelSchema.optional(),
+		mode: ChatModeSchema.optional(),
+		model: ChatModelSelectionSchema.optional(),
+	})
+	.openapi({ description: "Create a project-scoped chat session" });
 
 export const ChatQuestionAnswerSchema = z
 	.object({
@@ -46,8 +64,7 @@ export const ChatQuestionAnswerSchema = z
 
 export const ChatQuestionAnswerRequestSchema = z
 	.object({
-		sessionFile: z.string().optional(),
-		sessionId: z.string().optional(),
+		sessionId: SessionIdSchema.optional(),
 		toolCallId: z.string().optional(),
 		answer: ChatQuestionAnswerSchema,
 	})
@@ -151,8 +168,7 @@ export const ChatStartEventSchema = z
 		type: z.literal("start"),
 		id: z.string(),
 		runId: z.string(),
-		sessionFile: z.string().optional(),
-		sessionId: z.string(),
+		sessionId: SessionIdSchema,
 		sessionReset: z.boolean().optional(),
 		diagnostics: z.array(z.string()).optional(),
 	})
@@ -254,8 +270,7 @@ export const ChatDoneEventSchema = z
 		type: z.literal("done"),
 		runId: z.string(),
 		message: ChatMessageSchema,
-		sessionFile: z.string().optional(),
-		sessionId: z.string(),
+		sessionId: SessionIdSchema,
 		sessionReset: z.boolean().optional(),
 	})
 	.openapi({ description: "Stream done event" });
@@ -296,12 +311,12 @@ export const ChatSessionResponseSchema = z
 
 export const ChatSessionInfoSchema = z
 	.object({
-		path: z.string(),
-		id: z.string(),
-		cwd: z.string(),
-		name: z.string().optional(),
-		created: z.string(),
-		modified: z.string(),
+		sessionId: SessionIdSchema,
+		projectId: ProjectIdSchema.nullable().optional(),
+		title: z.string(),
+		createdAt: z.string(),
+		updatedAt: z.string(),
+		status: z.enum(["idle", "running", "interrupted", "failed"]),
 		messageCount: z.number(),
 		firstMessage: z.string(),
 	})
