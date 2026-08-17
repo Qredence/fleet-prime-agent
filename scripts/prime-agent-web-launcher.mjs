@@ -48,6 +48,12 @@ process.once("SIGTERM", () => shutdown("SIGTERM"));
 
 async function handleRequest(request, response) {
 	try {
+		if (!isAllowedRequest(request)) {
+			response.statusCode = 403;
+			response.setHeader("content-type", "text/plain; charset=utf-8");
+			response.end("Loopback requests only");
+			return;
+		}
 		const requestUrl = new URL(request.url || "/", `http://${request.headers.host || `${options.host}:${options.port}`}`);
 		const staticPath = resolveStaticPath(requestUrl.pathname);
 		if (staticPath) {
@@ -179,7 +185,34 @@ function parseArgs(args) {
 function parseHost(value) {
 	const host = value.trim();
 	if (!host) throw new Error("--host requires a non-empty value");
+	if (!isLoopbackHostname(host)) {
+		throw new Error(`Invalid web host: ${host}. Prime Agent web accepts loopback hosts only.`);
+	}
 	return host;
+}
+
+function isLoopbackHostname(hostname) {
+	return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
+}
+
+function isAllowedRequest(request) {
+	const hostHeader = request.headers.host;
+	if (!hostHeader) return false;
+	let host;
+	try {
+		host = new URL(`http://${hostHeader}`).hostname.replace(/^\[|\]$/g, "");
+	} catch {
+		return false;
+	}
+	if (!isLoopbackHostname(host)) return false;
+
+	const origin = request.headers.origin;
+	if (!origin) return true;
+	try {
+		return isLoopbackHostname(new URL(origin).hostname.replace(/^\[|\]$/g, ""));
+	} catch {
+		return false;
+	}
 }
 
 function parsePort(value) {

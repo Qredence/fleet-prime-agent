@@ -89,6 +89,9 @@ export async function runWebCommand(args: readonly string[]): Promise<void> {
 function parseHost(value: string): string {
 	const host = value.trim();
 	if (!host) throw new Error("--host requires a non-empty value");
+	if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1") {
+		throw new Error(`Invalid web host: ${host}. Prime Agent web accepts loopback hosts only.`);
+	}
 	return host;
 }
 

@@ -99,7 +99,7 @@ export const COMMAND_SPECS: readonly CommandSpec[] = [
 		description:
 			"Starts the Qredence web frontend and backend from the installed release package. The default workspace is the current directory.",
 		options: [
-			"--host <host>       Bind the web server (default: 127.0.0.1)",
+			"--host <host>       Loopback bind: 127.0.0.1, localhost, or ::1 (default: 127.0.0.1)",
 			"--port <port>       Bind the web server port (default: 3000)",
 			"--cwd <directory>   Use a specific workspace directory",
 		],
