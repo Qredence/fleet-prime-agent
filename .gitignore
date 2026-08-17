@@ -51,6 +51,9 @@ __pycache__/
 droid-wiki/
 
 # Local agent state
+.codex-tmp
 .remember/
 .superpowers/
 .agents/
+.chunk/
+skills-lock.json
