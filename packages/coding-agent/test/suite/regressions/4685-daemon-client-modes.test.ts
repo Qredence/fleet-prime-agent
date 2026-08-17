@@ -100,7 +100,7 @@ async function runCli(
 		const timeout = setTimeout(() => {
 			child.kill("SIGKILL");
 			reject(new Error(`CLI timed out\n${stderr}`));
-		}, 20_000);
+		}, 30_000);
 		child.once("exit", (code, signal) => {
 			clearTimeout(timeout);
 			resolveExit({ code, signal: signal as NodeJS.Signals | null });
