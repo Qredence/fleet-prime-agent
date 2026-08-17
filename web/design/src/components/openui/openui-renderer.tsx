@@ -2,6 +2,9 @@ import { BuiltinActionType, Renderer } from "@openuidev/react-lang"
 import { useCallback, useMemo, useState } from "react"
 import { Markdown } from "../agent-elements/markdown"
 import { UiErrorBoundary } from "../fleet-pi/ui-error-boundary"
+import { Alert, AlertDescription, AlertTitle } from "../alert"
+import { Button } from "../button"
+import { OpenPanelActionSchema, type OpenPanelAction } from "@prime-agent/web-protocol/fleet-contract"
 
 import { openUILibrary } from "./openui-library"
 import { segmentOpenUIContent } from "./openui-utils"
@@ -13,8 +16,24 @@ import type {
 
 type OpenUIStateByBlock = Record<string, Record<string, unknown>>
 
+const OPEN_PANEL_ACTION_PREFIX = "fleet-prime:open-panel:"
+
+export function decodeOpenPanelActionMessage(message: string): OpenPanelAction | undefined {
+  if (!message.startsWith(OPEN_PANEL_ACTION_PREFIX)) return undefined
+  try {
+    return OpenPanelActionSchema.parse(JSON.parse(message.slice(OPEN_PANEL_ACTION_PREFIX.length)))
+  } catch {
+    return undefined
+  }
+}
+
 function getActionMessage(event: ActionEvent) {
   if (event.type === BuiltinActionType.OpenUrl) return null
+
+  if (event.type === "fleet.open_panel") {
+    const action = OpenPanelActionSchema.safeParse(event.params)
+    return action.success ? `${OPEN_PANEL_ACTION_PREFIX}${JSON.stringify(action.data)}` : null
+  }
 
   if (event.type === BuiltinActionType.ContinueConversation) {
     const message = event.params.message
@@ -38,9 +57,11 @@ function getFinalErrors(result: ParseResult | null, isStreaming?: boolean) {
 
 function OpenUIDiagnostics({
   errors,
+  onRepair,
   raw,
 }: {
   errors: Array<unknown>
+  onRepair?: () => void
   raw: string
 }) {
   if (errors.length === 0) return null
@@ -63,12 +84,13 @@ function OpenUIDiagnostics({
   const summary = messages[0] ?? "OpenUI output could not be rendered."
 
   return (
-    <div className="mt-4 w-full overflow-x-auto rounded-md border border-red-500/50 bg-red-500/10 p-4 text-xs text-red-500">
-      <h4 className="mb-2 font-bold">OpenUI Render Error</h4>
+    <Alert variant="destructive" className="mt-4 w-full">
+      <AlertTitle>OpenUI could not be rendered</AlertTitle>
+      <AlertDescription>
       <p className="mb-3 leading-relaxed">
         The generated UI could not be rendered. {summary}
       </p>
-      <details className="border-t border-red-500/30 pt-3">
+      <details className="border-t border-destructive/30 pt-3">
         <summary className="cursor-pointer font-semibold">
           Technical details
         </summary>
@@ -80,7 +102,19 @@ function OpenUIDiagnostics({
           <pre className="font-mono whitespace-pre-wrap">{raw}</pre>
         </div>
       </details>
-    </div>
+      {onRepair ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="mt-3"
+          onClick={onRepair}
+        >
+          Repair UI
+        </Button>
+      ) : null}
+      </AlertDescription>
+    </Alert>
   )
 }
 
@@ -142,6 +176,14 @@ function OpenUIBlock({
       </UiErrorBoundary>
       <OpenUIDiagnostics
         errors={[...runtimeErrors, ...finalErrors]}
+        onRepair={
+          onAction
+            ? () =>
+                onAction(
+                  "Repair the invalid OpenUI in your previous response and return a corrected OpenUI block.",
+                )
+            : undefined
+        }
         raw={content}
       />
     </div>

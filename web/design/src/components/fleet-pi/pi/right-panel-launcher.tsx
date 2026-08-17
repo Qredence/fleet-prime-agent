@@ -68,8 +68,8 @@ export function RightPanelLauncher({
     () => [
       {
         id: "resources" as const,
-        title: "Pi Resources",
-        ariaLabel: "Pi Resources",
+        title: "Resources",
+        ariaLabel: "Resources",
         badge: totalResources,
         icon: Library,
       },
@@ -98,6 +98,7 @@ export function RightPanelLauncher({
       variant="pill"
       className="flex items-center"
       data-testid="right-panel-inline-launcher"
+      data-active-panel={activePanel ?? "closed"}
       idPrefix="right-panel"
       selectedIndex={selectedIndex}
       onSelect={(index) => {

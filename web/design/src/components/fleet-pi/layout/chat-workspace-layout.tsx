@@ -40,7 +40,7 @@ export function ChatWorkspaceLayout({
         data-testid="chat-header"
       >
         <div className="justify-self-start">{headerLeft}</div>
-        <div className="flex min-w-0 items-center justify-center gap-2 justify-self-center">
+        <div className="flex min-w-0 items-center justify-start gap-2 justify-self-start">
           {headerCenter}
         </div>
         <div className="justify-self-end">{headerRight}</div>

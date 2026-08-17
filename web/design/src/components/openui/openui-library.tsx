@@ -14,7 +14,8 @@ import {
   YAxis,
 } from "recharts"
 import { useId } from "react"
-import { z } from "zod"
+import { z } from "zod/v4"
+import { RightPanelIdSchema, WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract"
 import { Alert, AlertDescription, AlertTitle } from "../alert"
 import { Badge } from "../badge"
 import { Button } from "../button"
@@ -49,6 +50,7 @@ import {
   TableRow,
 } from "../table"
 import { cn } from "../../lib/utils"
+import { isSafeExternalUrl } from "../../lib/safe-external-url"
 import { DonutChartDef, LineChartDef } from "./charts"
 import { DataTableDef, MetricGroupDef } from "./data"
 import {
@@ -137,6 +139,46 @@ export const ButtonDef = defineComponent({
   component: ButtonComponent,
 })
 
+function PanelActionComponent({
+  props: { focus, label, panel, relativePath },
+}: {
+  props: {
+    focus?: boolean
+    label: string
+    panel: "resources" | "workspace" | "artifacts"
+    relativePath?: string
+  }
+}) {
+  const triggerAction = useTriggerAction()
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() =>
+        void triggerAction(label, undefined, {
+          type: "fleet.open_panel",
+          params: { panel, relativePath, focus },
+        })
+      }
+    >
+      {label}
+    </Button>
+  )
+}
+
+export const PanelActionDef = defineComponent({
+  name: "PanelAction",
+  description:
+    "A trusted local action that opens Resources, Workspace, or Artifacts and may select a contained workspace-relative path.",
+  props: z.object({
+    label: z.string().describe("Visible action label"),
+    panel: RightPanelIdSchema,
+    relativePath: WorkspaceRelativePathSchema.optional(),
+    focus: z.boolean().optional().default(true),
+  }),
+  component: PanelActionComponent,
+})
+
 export const TextDef = defineComponent({
   name: "Text",
   description: "Short body text for cards, captions, and summaries.",
@@ -213,7 +255,7 @@ function InputComponent({
       </FieldLabel>
       <Input
         id={controlId}
-        value={field.value}
+		value={field.value ?? ""}
         onChange={(e) => field.setValue(e.target.value)}
         disabled={disabled}
         placeholder={placeholder}
@@ -638,7 +680,7 @@ function SelectComponent({
       <Select
         options={options}
         triggerId={controlId}
-        value={field.value}
+		value={field.value ?? ""}
         onValueChange={(nextValue) => field.setValue(nextValue)}
         placeholder={placeholder}
       />
@@ -752,6 +794,104 @@ export const ModalDef = defineComponent({
   component: ModalComponent,
 })
 
+export const DisclosureDef = defineComponent({
+  name: "Disclosure",
+  description: "A compact progressive-disclosure section for optional details.",
+  props: z.object({
+    title: z.string().describe("Visible disclosure title"),
+    content: childrenProp.describe("Content revealed when expanded"),
+    open: z.boolean().optional().default(false),
+  }),
+  component: ({ props: { title, content, open }, renderNode }) => (
+    <details open={open} className="w-full rounded-lg border px-3 py-2">
+      <summary className="cursor-pointer text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {title}
+      </summary>
+      <div className="pt-3 text-sm">{renderNode(content)}</div>
+    </details>
+  ),
+})
+
+export const TodoDef = defineComponent({
+  name: "Todo",
+  description: "A read-only progress list for plans and task status.",
+  props: z.object({
+    title: z.string().optional(),
+    items: z.array(
+      z.object({
+        label: z.string(),
+        status: z.enum(["pending", "in-progress", "completed", "cancelled"]).optional().default("pending"),
+        detail: z.string().optional(),
+      }),
+    ),
+  }),
+  component: ({ props: { title, items } }) => (
+    <div className="w-full rounded-lg border p-3">
+      {title ? <h3 className="mb-2 text-sm font-semibold">{title}</h3> : null}
+      <ul className="flex flex-col gap-2">
+        {items.map((item, index) => {
+          const complete = item.status === "completed"
+          const active = item.status === "in-progress"
+          return (
+            <li key={`${item.label}-${index}`} className="flex items-start gap-2 text-sm">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "mt-1 size-2 shrink-0 rounded-full border",
+                  complete && "border-emerald-500 bg-emerald-500",
+                  active && "border-primary bg-primary/30",
+                  !complete && !active && "border-muted-foreground/50",
+                )}
+              />
+              <span className="min-w-0 flex-1">
+                <span className={cn(complete && "text-muted-foreground line-through")}>{item.label}</span>
+                {item.detail ? <span className="mt-0.5 block text-xs text-muted-foreground">{item.detail}</span> : null}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  ),
+})
+
+export const CitationDef = defineComponent({
+  name: "Citation",
+  description: "A safe external source citation rendered as a link.",
+  props: z.object({
+    title: z.string().describe("Source title"),
+    url: z
+      .string()
+      .url()
+      .regex(/^https?:\/\//i, "Citation URL must use http or https")
+      .refine(isSafeExternalUrl, "Citation URL must use http or https")
+      .describe("HTTPS or external source URL"),
+    domain: z.string().optional().describe("Optional source domain label"),
+  }),
+  component: ({ props: { title, url, domain } }) => {
+    const content = (
+      <>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{title}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{domain ?? url}</span>
+        </span>
+        <span aria-hidden="true" className="text-muted-foreground">↗</span>
+      </>
+    )
+    const className = "flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-sm outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+
+    if (!isSafeExternalUrl(url)) {
+      return <div className={className}>{content}</div>
+    }
+
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className={className}>
+        {content}
+      </a>
+    )
+  },
+})
+
 export const openUILibrary = createLibrary({
   components: [
     RootDef,
@@ -762,6 +902,7 @@ export const openUILibrary = createLibrary({
     HeadingDef,
     TextDef,
     ButtonDef,
+    PanelActionDef,
     InputDef,
     CardDef,
     BadgeDef,
@@ -780,5 +921,8 @@ export const openUILibrary = createLibrary({
     SelectDef,
     SwitchDef,
     ModalDef,
+    DisclosureDef,
+    TodoDef,
+    CitationDef,
   ],
 })

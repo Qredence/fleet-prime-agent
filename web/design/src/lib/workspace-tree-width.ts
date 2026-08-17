@@ -1,6 +1,6 @@
 import { readStoredWidth, storeStoredWidth } from "./stored-width";
 
-const WORKSPACE_TREE_WIDTH_STORAGE_KEY = "fleet-pi-workspace-tree-width";
+const WORKSPACE_TREE_WIDTH_STORAGE_KEY = "fleet-prime:v1:workspace-tree-width";
 const WORKSPACE_TREE_MIN_WIDTH = 120;
 const WORKSPACE_TREE_DEFAULT_WIDTH = 200;
 const WORKSPACE_PREVIEW_MIN_WIDTH = 160;

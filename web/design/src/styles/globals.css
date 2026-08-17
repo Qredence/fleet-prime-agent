@@ -5,6 +5,7 @@
 @import "../components/agent-elements/agent-ui.css";
 @import "../components/fleet-pi/chat/fleet-pi-agent-chat.css";
 @import "../components/fleet-pi/primitives/discrete-tab.css";
+@import "tw-shimmer";
 
 @custom-variant dark (&:is(.dark *));
 @source "../../../app/**/*.{ts,tsx}";

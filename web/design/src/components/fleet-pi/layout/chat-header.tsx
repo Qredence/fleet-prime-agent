@@ -8,14 +8,15 @@ import {
 } from "lucide-react"
 import { Popover } from "../../agent-elements/input/popover"
 import { ChromePillButton } from "../primitives/chrome-pill"
+import { cn } from "../../../lib/utils"
 import type {
   ChatSessionInfo,
   ChatSessionMetadata,
 } from "@prime-agent/web-protocol/chat-protocol"
 
-const DOCUMENTATION_URL = "https://docs.qredence.ai"
+export const DOCUMENTATION_URL = "https://docs.qredence.ai"
 
-function QredenceLogo({ className }: { className?: string }) {
+export function QredenceLogo({ className }: { className?: string }) {
   return (
     <svg
       width="97"
@@ -47,24 +48,42 @@ export function AccountMenu({
   user,
   onSignOut,
   onOpenSettings,
+  compact = false,
+  label = "Fleet Prime Agent",
+  className,
 }: {
   user: AccountMenuUser | null
   onSignOut: () => Promise<void> | void
   onOpenSettings?: () => void
+  compact?: boolean
+  label?: string
+  className?: string
 }) {
   const menuItemClass =
     "flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label leading-4 text-foreground transition-colors hover:bg-foreground/6"
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={cn("flex min-w-0 items-center gap-2", className)}>
       <Popover
         side="bottom"
         align="start"
         trigger={
-          <ChromePillButton ariaLabel="Open account menu">
+          <ChromePillButton
+            ariaLabel="Open account menu"
+            className={cn(
+              "min-w-0",
+              compact ? "size-8 justify-center px-2" : "w-full justify-start",
+            )}
+          >
             <QredenceLogo className="size-3.5 shrink-0" />
-            <span className="text-[13px] font-medium tracking-[-0.01em] whitespace-nowrap">
-              Fleet Prime Agent
+            <span
+              className={
+                compact
+                  ? "sr-only"
+                  : "text-[13px] font-medium tracking-[-0.01em] whitespace-nowrap"
+              }
+            >
+              {label}
             </span>
             <ChevronDown className="size-3.5 shrink-0 text-foreground/35" />
           </ChromePillButton>
@@ -176,18 +195,14 @@ export function SessionControls({
           </div>
         ) : (
           sessions.map((session) => {
-            const label =
-              session.name || session.firstMessage || session.id.slice(0, 8)
-            const active = session.id === activeSessionId
+            const label = session.title
+            const active = session.sessionId === activeSessionId
             return (
               <button
-                key={session.id}
+                key={session.sessionId}
                 type="button"
                 onClick={() =>
-                  onResumeSession({
-                    sessionFile: session.path,
-                    sessionId: session.id,
-                  })
+                  onResumeSession({ sessionId: session.sessionId })
                 }
                 className={`flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label leading-4 transition-colors hover:bg-foreground/6 ${
                   active ? "bg-foreground/6 text-foreground" : "text-foreground"

@@ -84,7 +84,7 @@ export const RIGHT_PANEL_REGISTRY: Record<
   RightPanelDefinition
 > = {
   resources: {
-    title: "Pi Resources",
+    title: "Resources",
     icon: Library,
     dataTestid: "pi-resources-canvas",
     mobileDataTestid: "pi-resources-mobile-panel",

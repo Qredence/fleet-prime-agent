@@ -59,6 +59,7 @@ export function ResizableCanvas({
               : { duration: 0.2, ease: "easeInOut" }
           }
           className={`relative h-full shrink-0 border-l border-border/70 bg-background/95 outline-none ${DESKTOP_PANEL_HIDDEN_FLEX}`}
+          data-fleet-panel-focus
           data-testid={dataTestid}
           style={{ width }}
           tabIndex={-1}
