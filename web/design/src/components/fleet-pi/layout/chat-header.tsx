@@ -229,20 +229,6 @@ export function KernelStatusChip({
   ok: boolean | null
   reason?: string
 }) {
-  if (ok === null) return null
-  const label = ok
-    ? "Kernel ready"
-    : reason === "not-started"
-      ? "Kernel off"
-      : reason
-        ? `Kernel: ${reason}`
-        : "Kernel error"
-  return (
-    <ChromePillButton ariaLabel={label} className="hidden sm:inline-flex">
-      <span
-        className={`size-1.5 shrink-0 rounded-full ${ok ? "bg-emerald-500" : "bg-foreground/35"}`}
-      />
-      <span className="text-[12px] whitespace-nowrap">{label}</span>
-    </ChromePillButton>
-  )
+  // Hidden — removed from UI per user request
+  return null
 }
