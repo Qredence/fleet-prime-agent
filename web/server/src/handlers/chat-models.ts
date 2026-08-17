@@ -2,6 +2,7 @@ import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import type { ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { isModelPatternEnabled } from "@prime-agent/web-protocol/model-patterns";
 import { getPrimeConfig } from "../prime-config";
+import { cwdForRequest } from "../project-request";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 function toPatternCandidate(model: { id: string; name: string; provider: string }) {
@@ -17,7 +18,7 @@ function toPatternCandidate(model: { id: string; name: string; provider: string 
 export function handleChatModelsGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const config = getPrimeConfig();
-		const cwd = config.defaultCwd;
+		const cwd = await cwdForRequest(request);
 		const settings = config.settingsFor(cwd);
 		const registry = config.modelRegistry;
 		const url = new URL(request.url);

@@ -1,23 +1,36 @@
+import type { ImageContent } from "@earendil-works/pi-ai";
 import { ChatRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
+import { readInspectedManagedAttachment, validateManagedAttachments } from "../managed-attachments";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+
+export function chooseChatStartId(
+	mapperState: { inRun: boolean; currentMessageId: string | undefined },
+	streamingBehavior?: "steer" | "followUp",
+): string {
+	// Only a queued steer/follow-up may continue the active assistant bubble.
+	// A normal send must get a fresh id even if an interrupted run left the
+	// mapper marked in-flight; otherwise its deltas can replace an older turn.
+	if (streamingBehavior && mapperState.inRun && mapperState.currentMessageId) {
+		return mapperState.currentMessageId;
+	}
+	return crypto.randomUUID();
+}
 
 export function handleChatPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const raw = await request.json();
 		const body = ChatRequestSchema.parse(raw);
-		const { sessionId, sessionFile, message, model, mode, planAction } = body;
+		const { sessionId, message, model, mode, openUI, planAction } = body;
 		if (!message || typeof message !== "string") {
 			return Response.json({ message: "POST /api/chat requires a `message` string." }, { status: 400 });
 		}
 
 		const bridge = getBridge();
-		const targetSessionId = sessionId ?? sessionFile;
+		const targetSessionId = sessionId;
 		if (!targetSessionId) {
-			return Response.json(
-				{ message: "POST /api/chat requires a `sessionId` (or `sessionFile`)." },
-				{ status: 400 },
-			);
+			return Response.json({ message: "POST /api/chat requires a `sessionId`." }, { status: 400 });
 		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			process.stderr.write(`[chat] received session=${targetSessionId.slice(0, 8)} bytes=${message.length}\n`);
@@ -26,6 +39,41 @@ export function handleChatPost(request: Request): Promise<Response> {
 		if (!session) {
 			return Response.json({ message: `Unknown session: ${targetSessionId}` }, { status: 404 });
 		}
+		const uploadAttachments = (body.attachments ?? []).filter(
+			(attachment): attachment is Extract<ChatAttachment, { kind: "upload" }> => attachment.kind === "upload",
+		);
+		let uploadInspections: Awaited<ReturnType<typeof validateManagedAttachments>>;
+		try {
+			uploadInspections = await validateManagedAttachments(session, uploadAttachments);
+		} catch (error) {
+			if (error instanceof Error && "status" in error && (error.status === 400 || error.status === 413)) {
+				return Response.json({ message: error.message }, { status: error.status });
+			}
+			throw error;
+		}
+		const images: Array<ImageContent> = [];
+		const attachmentContext: string[] = [];
+		for (const attachment of body.attachments ?? []) {
+			if (attachment.kind === "workspace") {
+				attachmentContext.push(`[Workspace attachment: ${attachment.relativePath}]`);
+				continue;
+			}
+			const inspected = uploadInspections.get(attachment.attachmentId);
+			const managed = inspected ? await readInspectedManagedAttachment(inspected).catch(() => undefined) : undefined;
+			if (!managed) {
+				return Response.json({ message: `Unknown attachment: ${attachment.attachmentId}` }, { status: 400 });
+			}
+			if (managed.metadata.mimeType.startsWith("image/")) {
+				images.push({ type: "image", data: managed.data.toString("base64"), mimeType: managed.metadata.mimeType });
+			} else if (managed.metadata.mimeType.startsWith("text/") || managed.metadata.mimeType === "application/json") {
+				attachmentContext.push(
+					`<attachment name="${managed.metadata.name}">\n${managed.data.toString("utf8")}\n</attachment>`,
+				);
+			} else {
+				attachmentContext.push(`[Attached file: ${managed.metadata.name} (${managed.metadata.mimeType})]`);
+			}
+		}
+		const promptMessage = attachmentContext.length > 0 ? `${message}\n\n${attachmentContext.join("\n\n")}` : message;
 		if (model !== undefined) {
 			await bridge.setModel(session.sessionId, model);
 			if (typeof model === "object" && typeof model.thinkingLevel === "string") {
@@ -64,24 +112,23 @@ export function handleChatPost(request: Request): Promise<Response> {
 					}
 				});
 
-				const startId = session.mapperState.inRun
-					? (session.mapperState.currentMessageId ?? crypto.randomUUID())
-					: crypto.randomUUID();
+				const startId = chooseChatStartId(session.mapperState, body.streamingBehavior);
 				write({
 					type: "start",
 					id: startId,
 					runId: session.mapperState.inRun ? session.mapperState.runId : "pending",
 					sessionId: session.sessionId,
-					sessionFile: session.sessionPath,
 				});
 				if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 					process.stderr.write(`[chat] wrote start; firing prompt\n`);
 				}
 
 				void bridge
-					.prompt(session.sessionId, message, {
+					.prompt(session.sessionId, promptMessage, {
+						images,
 						streamingBehavior: body.streamingBehavior,
 						mode,
+						openUI,
 						planAction,
 					})
 					.catch((error) => {

@@ -23,6 +23,7 @@ import {
 	ModelRegistry,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { ProjectRegistry } from "./project-registry";
 import { resolveDefaultWorkspaceRoot } from "./workspace-root";
 
 export interface PrimeConfig {
@@ -31,6 +32,7 @@ export interface PrimeConfig {
 	readonly defaultSettings: SettingsManager;
 	readonly defaultCwd: string;
 	readonly agentDir: string;
+	readonly projectRegistry: ProjectRegistry;
 
 	/** SettingsManager bound to a given cwd (one per unique cwd). */
 	settingsFor(cwd: string): SettingsManager;
@@ -53,6 +55,7 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 	const agentDir = getAgentDir();
 	const authStorage = AuthStorage.create();
 	const modelRegistry = ModelRegistry.create(authStorage);
+	const projectRegistry = new ProjectRegistry(agentDir, initialCwd);
 
 	let currentDefaultCwd = resolve(initialCwd);
 	let defaultSettings = SettingsManager.create(currentDefaultCwd);
@@ -70,6 +73,7 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 			return currentDefaultCwd;
 		},
 		agentDir,
+		projectRegistry,
 
 		settingsFor(cwd: string): SettingsManager {
 			if (cwd === currentDefaultCwd) return defaultSettings;
@@ -116,7 +120,7 @@ export function getPrimeConfig(): PrimeConfig {
 	const globalStore = globalThis as unknown as PrimeConfigGlobal;
 	const existing = globalStore.__primeConfig;
 	// Vite HMR can leave a pre-upgrade singleton without newer methods.
-	if (!existing || typeof existing.setDefaultCwd !== "function") {
+	if (!existing || typeof existing.setDefaultCwd !== "function" || !existing.projectRegistry) {
 		// Prefer git repo root over the Vite package cwd so the workspace tree
 		// and default session cwd match the repository the agent is working in.
 		// A pre-upgrade singleton always carries the stale Vite package cwd, so

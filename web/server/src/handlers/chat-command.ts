@@ -1,9 +1,10 @@
+import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { z } from "zod";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 const BodySchema = z.object({
-	sessionId: z.string(),
+	sessionId: SessionIdSchema,
 	command: z.string(),
 	args: z.string().optional(),
 });

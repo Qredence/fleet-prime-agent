@@ -6,7 +6,7 @@ export function handleChatQuestionPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const raw = await request.json();
 		const body = ChatQuestionAnswerRequestSchema.parse(raw);
-		const sessionId = body.sessionId ?? body.sessionFile;
+		const sessionId = body.sessionId;
 		const toolCallId = body.toolCallId;
 		if (!sessionId || !toolCallId) {
 			return Response.json({ ok: false, message: "answer requires sessionId and toolCallId" }, { status: 400 });

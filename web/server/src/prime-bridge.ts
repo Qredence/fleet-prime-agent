@@ -10,9 +10,20 @@
  * No HTTP, no React — pure TypeScript. The route layer calls into this only.
  */
 
+import { rm } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, ImageContent, UserMessage } from "@earendil-works/pi-ai";
-import type { AgentSession, AgentSessionEvent, SessionEntry, SessionInfo } from "@earendil-works/pi-coding-agent";
+import type {
+	AgentSession,
+	ExtensionUIContext,
+	ExtensionUIDialogOptions,
+	SessionEntry,
+	SessionInfo,
+	TerminalInputHandler,
+	Theme,
+	WorkingIndicatorOptions,
+} from "@earendil-works/pi-coding-agent";
 import {
 	AuthStorage,
 	createAgentSessionFromServices,
@@ -20,6 +31,7 @@ import {
 	IpythonKernelProvisioner,
 	SessionManager,
 } from "@earendil-works/pi-coding-agent";
+import type { ProjectId } from "@prime-agent/web-protocol";
 import {
 	buildOpenUIPrompt,
 	type ChatMessage,
@@ -36,15 +48,10 @@ import {
 	toChatMessageFromAssistant,
 	toChatMessageFromUser,
 } from "./event-mapper";
+import { deleteManagedAttachmentsForSession } from "./managed-attachments";
 import { PendingDialogRegistry } from "./pending-dialogs";
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
-
-// ---------------------------------------------------------------------------
-// Local structural types — these match prime-agent's ExtensionUIContext but
-// are re-declared here so we don't need runtime imports that might ride
-// along beyond what the route layer actually triggers.
-// ---------------------------------------------------------------------------
 
 type UIContextCtorArgs = {
 	sessionId: string;
@@ -52,14 +59,7 @@ type UIContextCtorArgs = {
 	dialogs: PendingDialogRegistry;
 };
 
-type UIConfirmOptions = { timeout?: number };
-type UISelectOptions = { timeout?: number };
-type UIInputOptions = { timeout?: number };
-
-// A `ChatStreamEvent`-aware `ExtensionUIContext` — narrow structural type
-// covering the methods prime-agent actually invokes. We don't import the
-// full class to keep this file free of runtime imports (helps vitest).
-class WebUIContext {
+class WebUIContext implements ExtensionUIContext {
 	readonly #sessionId: string;
 	readonly #emit: (frame: ChatStreamEvent) => void;
 	readonly #dialogs: PendingDialogRegistry;
@@ -70,7 +70,7 @@ class WebUIContext {
 		this.#dialogs = dialogs;
 	}
 
-	async select(title: string, options: readonly string[], _opts?: UISelectOptions): Promise<string | undefined> {
+	async select(title: string, options: string[], _opts?: ExtensionUIDialogOptions): Promise<string | undefined> {
 		const toolCallId = crypto.randomUUID();
 		const dialog = await this.#dialogs.open<{ choice: string } | undefined>({
 			sessionId: this.#sessionId,
@@ -93,7 +93,7 @@ class WebUIContext {
 		return (dialog as { choice: string } | undefined)?.choice;
 	}
 
-	async confirm(title: string, message: string, _opts?: UIConfirmOptions): Promise<boolean> {
+	async confirm(title: string, message: string, _opts?: ExtensionUIDialogOptions): Promise<boolean> {
 		const toolCallId = crypto.randomUUID();
 		const dialog = await this.#dialogs.open<boolean>({
 			sessionId: this.#sessionId,
@@ -115,7 +115,7 @@ class WebUIContext {
 		return Boolean(dialog);
 	}
 
-	async input(title: string, placeholder?: string, _opts?: UIInputOptions): Promise<string | undefined> {
+	async input(title: string, placeholder?: string, _opts?: ExtensionUIDialogOptions): Promise<string | undefined> {
 		const toolCallId = crypto.randomUUID();
 		const dialog = await this.#dialogs.open<{ text: string } | undefined>({
 			sessionId: this.#sessionId,
@@ -146,7 +146,7 @@ class WebUIContext {
 		});
 	}
 
-	onTerminalInput(_handler: unknown): () => void {
+	onTerminalInput(_handler: TerminalInputHandler): () => void {
 		return () => {};
 	}
 
@@ -159,15 +159,15 @@ class WebUIContext {
 
 	setWorkingMessage(_message?: string): void {}
 	setWorkingVisible(_visible: boolean): void {}
-	setWorkingIndicator(_options?: unknown): void {}
+	setWorkingIndicator(_options?: WorkingIndicatorOptions): void {}
 	setHiddenThinkingLabel(_label?: string): void {}
-	setWidget(_key: string, _content?: unknown, _options?: unknown): void {}
-	setFooter(_factory?: unknown): void {}
-	setHeader(_factory?: unknown): void {}
+	setWidget: ExtensionUIContext["setWidget"] = () => {};
+	setFooter: ExtensionUIContext["setFooter"] = () => {};
+	setHeader: ExtensionUIContext["setHeader"] = () => {};
 	setTitle(_title: string): void {}
-	custom<T>(_factory: unknown, _options?: unknown): Promise<T> {
-		return Promise.resolve(undefined as unknown as T);
-	}
+	custom: ExtensionUIContext["custom"] = async () => {
+		throw new Error("Custom terminal UI components are not available in the web interface");
+	};
 	pasteToEditor(_text: string): void {}
 	setEditorText(_text: string): void {}
 	getEditorText(): string {
@@ -176,33 +176,25 @@ class WebUIContext {
 	editor(_title: string, _prefill?: string): Promise<string | undefined> {
 		return Promise.resolve(undefined);
 	}
-	addAutocompleteProvider(_factory: unknown): void {}
-	setEditorComponent(_factory: unknown): void {}
-	getEditorComponent(): unknown {
-		return undefined;
+	addAutocompleteProvider: ExtensionUIContext["addAutocompleteProvider"] = () => {};
+	setEditorComponent: ExtensionUIContext["setEditorComponent"] = () => {};
+	getEditorComponent: ExtensionUIContext["getEditorComponent"] = () => undefined;
+	get theme(): Theme {
+		throw new Error("Terminal themes are not available in the web interface");
 	}
-	readonly theme = {} as never;
 	getAllThemes(): { name: string; path: string | undefined }[] {
 		return [];
 	}
-	getTheme(_name: string): unknown {
+	getTheme(_name: string): Theme | undefined {
 		return undefined;
 	}
-	setTheme(_theme: string | unknown): { success: boolean; error?: string } {
+	setTheme(_theme: string | Theme): { success: boolean; error?: string } {
 		return { success: false, error: "not in browser" };
 	}
 	getToolsExpanded(): boolean {
 		return true;
 	}
 	setToolsExpanded(_expanded: boolean): void {}
-}
-
-// Cast our class to the broader ExtensionUIContext type so AgentSession
-// accepts it. The structural missing members would only matter if
-// prime-agent's runtime *accessed* them — ExtensionUIContext is otherwise an
-// interface prime-agent calls through, not constructs.
-function asExtensionUIContext(ctx: WebUIContext): unknown {
-	return ctx as unknown;
 }
 
 /**
@@ -225,17 +217,19 @@ function extractUserMessageText(content: string | Array<{ type: string; text?: s
 
 export interface BridgeSession {
 	readonly sessionId: string;
+	readonly projectId: ProjectId | null;
 	readonly cwd: string;
 	readonly sessionPath: string;
 	readonly session: AgentSession;
 	readonly openUIPrompt: OpenUIPromptSessionState;
 	readonly mapperState: ReturnType<typeof createEventMapperState>;
 	readonly uiContext: WebUIContext;
+	readonly unsubscribe: () => void;
 }
 
 export interface CreateSessionOptions {
 	readonly cwd: string;
-	readonly model?: unknown;
+	readonly projectId?: ProjectId | null;
 	readonly thinkingLevel?: ThinkingLevel;
 	readonly mode?: ChatMode;
 }
@@ -268,12 +262,13 @@ export interface PrimeBridgeOptions {
 type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
 
 type OpenUIPromptSessionState = {
+	enabled: boolean;
 	mode: OpenUIPromptMode;
 	prompt: string;
 };
 
-function createOpenUIPromptSessionState(mode: OpenUIPromptMode = "agent"): OpenUIPromptSessionState {
-	return { mode, prompt: buildOpenUIPrompt(mode) };
+function createOpenUIPromptSessionState(mode: OpenUIPromptMode = "agent", enabled = false): OpenUIPromptSessionState {
+	return { enabled, mode, prompt: buildOpenUIPrompt(mode) };
 }
 
 function resolveOpenUIPromptMode(mode?: ChatMode, planAction?: ChatPlanAction): OpenUIPromptMode {
@@ -296,7 +291,8 @@ async function createWebAgentSession(options: {
 		noBuiltinHerdrReporter: true,
 		telemetryDisabled: true,
 		resourceLoaderOptions: {
-			appendSystemPromptOverride: (base) => [...base, options.openUIPrompt.prompt],
+			appendSystemPromptOverride: (base) =>
+				options.openUIPrompt.enabled ? [...base, options.openUIPrompt.prompt] : base,
 		},
 	});
 	const result = await createAgentSessionFromServices({
@@ -314,8 +310,8 @@ export class PrimeBridge {
 	readonly #dialogs: PendingDialogRegistry;
 	readonly #kernelTimeoutMs: number;
 	readonly #ringBufferCapacity: number;
-	#kernelReady: Promise<void> | null = null;
-	#kernelState: KernelReadySnapshot = { ok: false, reason: "not-started" };
+	#kernelReadyByCwd = new Map<string, Promise<void>>();
+	#kernelStateByCwd = new Map<string, KernelReadySnapshot>();
 
 	constructor(options: PrimeBridgeOptions = {}) {
 		this.#kernelTimeoutMs = options.kernelTimeoutMs ?? 30_000;
@@ -328,34 +324,36 @@ export class PrimeBridge {
 
 	/** Late-boot kernel readiness gate. Boot-time callers await this; failures cause `/api/chat/new` to 503. */
 	async ensureKernelReady(cwd?: string): Promise<void> {
-		if (!this.#kernelReady) {
-			this.#kernelState = { ok: false, reason: "pending" };
-			this.#kernelReady = (async () => {
-				// IpythonKernelProvisioner takes the session's cwd; for the boot-time
-				// readiness gate we use the server's working directory as a probe.
-				const provisioner = new IpythonKernelProvisioner(cwd ?? process.cwd());
-				const timeout = new Promise<never>((_r, reject) =>
-					setTimeout(() => reject(new Error("IPython kernel bootstrap timeout")), this.#kernelTimeoutMs),
-				);
-				await Promise.race([provisioner.ensure(), timeout]);
-			})();
-			void this.#kernelReady.then(
-				() => {
-					this.#kernelState = { ok: true };
-				},
-				(error: unknown) => {
-					this.#kernelState = {
-						ok: false,
-						reason: error instanceof Error ? error.message : String(error),
-					};
-				},
+		const key = resolve(cwd ?? process.cwd());
+		const existing = this.#kernelReadyByCwd.get(key);
+		if (existing) return existing;
+		this.#kernelStateByCwd.set(key, { ok: false, reason: "pending" });
+		const ready = (async () => {
+			// IpythonKernelProvisioner takes the session's cwd; for the boot-time
+			// readiness gate we use the server's working directory as a probe.
+			const provisioner = new IpythonKernelProvisioner(key);
+			const timeout = new Promise<never>((_r, reject) =>
+				setTimeout(() => reject(new Error("IPython kernel bootstrap timeout")), this.#kernelTimeoutMs),
 			);
-		}
-		return this.#kernelReady;
+			await Promise.race([provisioner.ensure(), timeout]);
+		})();
+		this.#kernelReadyByCwd.set(key, ready);
+		void ready.then(
+			() => {
+				this.#kernelStateByCwd.set(key, { ok: true });
+			},
+			(error: unknown) => {
+				this.#kernelStateByCwd.set(key, {
+					ok: false,
+					reason: error instanceof Error ? error.message : String(error),
+				});
+			},
+		);
+		return ready;
 	}
 
-	kernelReadyState(): { ok: boolean; reason?: string } {
-		return this.#kernelState;
+	kernelReadyState(cwd?: string): { ok: boolean; reason?: string } {
+		return this.#kernelStateByCwd.get(resolve(cwd ?? process.cwd())) ?? { ok: false, reason: "not-started" };
 	}
 
 	addEventListener(listener: BridgeEventListener): () => void {
@@ -395,11 +393,12 @@ export class PrimeBridge {
 
 	/** Test-only: reset state. */
 	resetForTests(): void {
+		for (const session of this.#sessions.values()) session.unsubscribe();
 		this.#sessions.clear();
 		this.#listeners.clear();
 		this.#ringBuffers.clear();
-		this.#kernelReady = null;
-		this.#kernelState = { ok: false, reason: "not-started" };
+		this.#kernelReadyByCwd.clear();
+		this.#kernelStateByCwd.clear();
 	}
 
 	// -----------------------------------------------------------------------
@@ -412,7 +411,7 @@ export class PrimeBridge {
 		// Booting kernel takes ~30s on a cold venv and the user shouldn't wait
 		// behind a UI dialog for it. Fire-and-forget the prewarm so the kernel is
 		// warm by the time the agent emits its first tool call.
-		void this.ensureKernelReady().catch(() => {
+		void this.ensureKernelReady(options.cwd).catch(() => {
 			/* backgrounded; failures surface on first tool use */
 		});
 		const {
@@ -437,10 +436,8 @@ export class PrimeBridge {
 			options.cwd,
 			session.sessionManager.getSessionFile() ?? "",
 			openUIPrompt,
+			options.projectId ?? (await getPrimeConfig().projectRegistry.projectIdForCwd(options.cwd)),
 		);
-		if (options.model) {
-			await session.setModel(options.model as Parameters<typeof session.setModel>[0]);
-		}
 		if (options.thinkingLevel) {
 			await session.setThinkingLevel(options.thinkingLevel);
 		}
@@ -457,30 +454,23 @@ export class PrimeBridge {
 		cwd: string,
 		sessionPath: string,
 		openUIPrompt: OpenUIPromptSessionState,
+		projectId: ProjectId | null,
 	): Promise<BridgeSession> {
 		const sessionId = session.sessionManager.getSessionId();
+		const resolvedProjectId =
+			projectId ?? (await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, cwd));
+		await getPrimeConfig().projectRegistry.assignSession(sessionId, resolvedProjectId);
 		const uiContext = new WebUIContext({
 			sessionId,
 			emitFrame: (frame) => this.#dispatch(sessionId, frame),
 			dialogs: this.#dialogs,
 		});
 		await session.bindExtensions({
-			uiContext: asExtensionUIContext(uiContext) as never,
+			uiContext,
 		});
 
 		const mapperState = createEventMapperState({ sessionId });
-		const bridgeSession: BridgeSession = {
-			sessionId,
-			cwd,
-			sessionPath,
-			session,
-			openUIPrompt,
-			mapperState,
-			uiContext,
-		};
-
-		// Subscribe session events → mapper → ring buffer.
-		session.subscribe((event) => {
+		const unsubscribe = session.subscribe((event) => {
 			if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 				try {
 					process.stderr.write(
@@ -490,11 +480,22 @@ export class PrimeBridge {
 					/* ignore */
 				}
 			}
-			const frames = mapAgentSessionEvent(mapperState, event as AgentSessionEvent);
+			const frames = mapAgentSessionEvent(mapperState, event);
 			for (const frame of frames) {
 				this.#dispatch(sessionId, frame);
 			}
 		});
+		const bridgeSession: BridgeSession = {
+			sessionId,
+			projectId: resolvedProjectId,
+			cwd,
+			sessionPath,
+			session,
+			openUIPrompt,
+			mapperState,
+			uiContext,
+			unsubscribe,
+		};
 
 		this.#sessions.set(sessionId, bridgeSession);
 		this.#ringBufferFor(sessionId); // Pre-create so SSE attaches safely.
@@ -525,6 +526,10 @@ export class PrimeBridge {
 			sessionManager.getCwd(),
 			sessionPath,
 			agentSessionResult.openUIPrompt,
+			await getPrimeConfig().projectRegistry.projectIdForSession(
+				sessionManager.getSessionId(),
+				sessionManager.getCwd(),
+			),
 		);
 	}
 
@@ -546,10 +551,21 @@ export class PrimeBridge {
 
 	async deleteSession(sessionId: string): Promise<boolean> {
 		const existing = this.#sessions.get(sessionId);
-		if (!existing) return false;
-		this.#dialogs.cancelAll(sessionId, "server-shutdown");
-		this.#sessions.delete(sessionId);
-		this.#ringBuffers.delete(sessionId);
+		const sessions = existing ? undefined : await SessionManager.listAll();
+		const sessionPath = existing?.sessionPath ?? sessions?.find((session) => session.id === sessionId)?.path;
+		if (!sessionPath) return false;
+		if (existing) {
+			this.#dialogs.cancelAll(sessionId, "server-shutdown");
+			existing.unsubscribe();
+			await existing.session.abort().catch(() => undefined);
+			this.#sessions.delete(sessionId);
+			this.#ringBuffers.delete(sessionId);
+		}
+		await deleteManagedAttachmentsForSession(sessionId, sessionPath);
+		await rm(sessionPath, { force: true });
+		const artifactDir = join(dirname(dirname(sessionPath)), "session-artifacts", basename(sessionPath, ".jsonl"));
+		await rm(artifactDir, { recursive: true, force: true });
+		await getPrimeConfig().projectRegistry.assignSession(sessionId, null);
 		return true;
 	}
 
@@ -564,11 +580,16 @@ export class PrimeBridge {
 			images?: ImageContent[];
 			streamingBehavior?: "steer" | "followUp";
 			mode?: ChatMode;
+			openUI?: boolean;
 			planAction?: ChatPlanAction;
 		},
 	): Promise<void> {
 		const session = this.#requireSession(sessionId);
-		this.#setOpenUIPromptMode(session, resolveOpenUIPromptMode(options?.mode, options?.planAction));
+		this.#setOpenUIPromptState(
+			session,
+			options?.openUI === true,
+			resolveOpenUIPromptMode(options?.mode, options?.planAction),
+		);
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			process.stderr.write(
 				`[bridge:${sessionId.slice(0, 8)}] prompt model=${session.session.agent?.state?.model?.provider ?? "?"}/${session.session.agent?.state?.model?.id ?? "?"} thinkingLevel=${session.session.agent?.state?.thinkingLevel ?? "?"}\n`,
@@ -580,18 +601,21 @@ export class PrimeBridge {
 		});
 	}
 
-	#setOpenUIPromptMode(session: BridgeSession, mode: OpenUIPromptMode): void {
-		if (session.openUIPrompt.mode === mode) return;
+	#setOpenUIPromptState(session: BridgeSession, enabled: boolean, mode: OpenUIPromptMode): void {
+		if (session.openUIPrompt.enabled === enabled && session.openUIPrompt.mode === mode) return;
 
 		const nextPrompt = buildOpenUIPrompt(mode);
 		const appendSystemPrompt = session.session.resourceLoader.getAppendSystemPrompt();
 		const currentPromptIndex = appendSystemPrompt.lastIndexOf(session.openUIPrompt.prompt);
-		if (currentPromptIndex >= 0) {
+		if (!enabled && currentPromptIndex >= 0) {
+			appendSystemPrompt.splice(currentPromptIndex, 1);
+		} else if (enabled && currentPromptIndex >= 0) {
 			appendSystemPrompt[currentPromptIndex] = nextPrompt;
-		} else {
+		} else if (enabled) {
 			appendSystemPrompt.push(nextPrompt);
 		}
 
+		session.openUIPrompt.enabled = enabled;
 		session.openUIPrompt.mode = mode;
 		session.openUIPrompt.prompt = nextPrompt;
 		session.session.setActiveToolsByName(session.session.getActiveToolNames());
@@ -613,34 +637,10 @@ export class PrimeBridge {
 		await session.session.abort();
 	}
 
-	async setModel(sessionId: string, model: unknown): Promise<void> {
+	async setModel(sessionId: string, model: { provider: string; id: string }): Promise<void> {
 		const session = this.#requireSession(sessionId);
-		// Hydrate the model against the registry so `api` (and any other canonical
-		// field the client omits) is always present. The web client sends a
-		// `{provider, id}` pair; the ModelRegistry is the single source of truth
-		// for the resolved `Model` the kernel needs to stream with.
-		let resolved = model as Parameters<typeof session.session.setModel>[0];
-		if (model && typeof model === "object" && !Array.isArray(model) && "provider" in model && "id" in model) {
-			const {
-				provider,
-				id,
-				thinkingLevel: _thinkingLevel,
-				...rest
-			} = model as {
-				provider: string;
-				id: string;
-				thinkingLevel?: unknown;
-			};
-			try {
-				const config = getPrimeConfig();
-				const found = config.modelRegistry.find(provider, id) as Record<string, unknown> | undefined;
-				if (found) {
-					resolved = { ...found, ...rest } as Parameters<typeof session.session.setModel>[0];
-				}
-			} catch {
-				/* fall through with raw model */
-			}
-		}
+		const resolved = getPrimeConfig().modelRegistry.find(model.provider, model.id);
+		if (!resolved) throw new Error(`Unknown model: ${model.provider}/${model.id}`);
 		await session.session.setModel(resolved);
 	}
 
@@ -825,7 +825,7 @@ export class PrimeBridge {
 		const { session: forked, openUIPrompt } = await createWebAgentSession({
 			cwd: bridge.cwd,
 			sessionManager: side,
-			openUIPrompt: createOpenUIPromptSessionState(bridge.openUIPrompt.mode),
+			openUIPrompt: createOpenUIPromptSessionState(bridge.openUIPrompt.mode, bridge.openUIPrompt.enabled),
 		});
 		// Carry the source session's model/thinking/service-tier over so the fork
 		// doesn't silently fall back to defaults (provider/settings may differ).
@@ -843,12 +843,52 @@ export class PrimeBridge {
 		forked.sessionManager.materializeSessionFile();
 		forked.sessionManager.flushNow();
 
-		await this.#registerSession(forked, bridge.cwd, forked.sessionManager.getSessionFile() ?? "", openUIPrompt);
+		await this.#registerSession(
+			forked,
+			bridge.cwd,
+			forked.sessionManager.getSessionFile() ?? "",
+			openUIPrompt,
+			bridge.projectId,
+		);
 		return {
 			cancelled: false,
 			selectedText,
 			newSessionId: forked.sessionManager.getSessionId(),
 		};
+	}
+
+	/** Fork the complete persisted history into another registered project. */
+	async forkSessionIntoProject(sessionId: string, targetProjectId: ProjectId): Promise<string> {
+		const source = this.#sessions.get(sessionId) ?? (await this.resumeSessionById(sessionId));
+		if (!source) throw new Error(`Unknown session: ${sessionId}`);
+		const targetCwd = await getPrimeConfig().projectRegistry.cwdForProject(targetProjectId);
+		const sourcePath = source.session.sessionManager.getSessionFile();
+		if (!sourcePath) throw new Error("Cannot fork an unpersisted session");
+		const manager = SessionManager.forkFrom(sourcePath, targetCwd);
+		const result = await createWebAgentSession({
+			cwd: targetCwd,
+			sessionManager: manager,
+			openUIPrompt: createOpenUIPromptSessionState(source.openUIPrompt.mode, source.openUIPrompt.enabled),
+		});
+		if (
+			source.session.model &&
+			(result.session.model?.id !== source.session.model.id ||
+				result.session.model?.provider !== source.session.model.provider)
+		) {
+			await result.session.setModel(source.session.model);
+		}
+		await result.session.setThinkingLevel(source.session.thinkingLevel);
+		result.session.setServiceTier(source.session.serviceTier);
+		manager.materializeSessionFile();
+		manager.flushNow();
+		const forked = await this.#registerSession(
+			result.session,
+			targetCwd,
+			manager.getSessionFile() ?? "",
+			result.openUIPrompt,
+			targetProjectId,
+		);
+		return forked.sessionId;
 	}
 
 	// -----------------------------------------------------------------------

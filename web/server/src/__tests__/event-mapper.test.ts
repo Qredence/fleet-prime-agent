@@ -91,6 +91,90 @@ describe("event-mapper", () => {
 		expect(part.type).toBe("tool-IPython");
 	});
 
+	it("merges one tool call through start, update, and terminal events", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvents(state, [
+			{
+				type: "tool_execution_start",
+				toolCallId: "ipython-1",
+				toolName: "ipython",
+				args: { code: "1 + 1" },
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_update",
+				toolCallId: "ipython-1",
+				toolName: "ipython",
+				args: undefined,
+				partialResult: { details: { stdout: "2" } },
+			} as unknown as AgentSessionEvent,
+			{
+				type: "tool_execution_end",
+				toolCallId: "ipython-1",
+				toolName: "ipython",
+				result: { details: { stdout: "2", durationMs: 8 } },
+				isError: false,
+			} as AgentSessionEvent,
+		]);
+
+		const toolFrames = frames.filter((frame) => frame.type === "tool");
+		expect(toolFrames).toHaveLength(3);
+		expect(state.currentToolParts).toHaveLength(1);
+		expect(state.currentToolParts[0]).toMatchObject({
+			toolCallId: "ipython-1",
+			state: "output-available",
+			input: { code: "1 + 1" },
+			output: { details: { stdout: "2", durationMs: 8 } },
+		});
+		expect(state.currentToolParts.some((part) => part.state === "input-streaming")).toBe(false);
+	});
+
+	it("keeps concurrent tool calls distinct when their updates interleave", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvents(state, [
+			{
+				type: "tool_execution_start",
+				toolCallId: "a",
+				toolName: "bash",
+				args: { command: "pwd" },
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_start",
+				toolCallId: "b",
+				toolName: "ipython",
+				args: { code: "2 + 2" },
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_update",
+				toolCallId: "a",
+				toolName: "bash",
+				args: undefined,
+				partialResult: { stdout: "/workspace" },
+			} as unknown as AgentSessionEvent,
+			{
+				type: "tool_execution_end",
+				toolCallId: "b",
+				toolName: "ipython",
+				result: { result: 4 },
+				isError: false,
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_end",
+				toolCallId: "a",
+				toolName: "bash",
+				result: { stdout: "/workspace" },
+				isError: false,
+			} as AgentSessionEvent,
+		]);
+
+		expect(state.currentToolParts).toHaveLength(2);
+		expect(state.currentToolParts.map((part) => part.toolCallId)).toEqual(["a", "b"]);
+		expect(state.currentToolParts.map((part) => part.state)).toEqual(["output-available", "output-available"]);
+		expect(state.currentToolParts[0]?.input).toEqual({ command: "pwd" });
+		expect(state.currentToolParts[1]?.input).toEqual({ code: "2 + 2" });
+	});
+
 	it("translates tool_execution_end with error into output-error state", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
@@ -104,6 +188,31 @@ describe("event-mapper", () => {
 		expect(frames[0].type).toBe("tool");
 		const part = (frames[0] as { part: { state: string } }).part;
 		expect(part.state).toBe("output-error");
+	});
+
+	it("appends an end-without-start and carries terminal parts into done", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "tool_execution_end",
+			toolCallId: "missing-start",
+			toolName: "bash",
+			result: { stdout: "done" },
+			isError: false,
+		} as AgentSessionEvent);
+
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		const toolPart = done.message.parts.find((part) => "toolCallId" in part && part.toolCallId === "missing-start");
+
+		expect(toolPart).toMatchObject({
+			state: "output-available",
+			output: { stdout: "done" },
+		});
+		expect(done.message.parts.some((part) => "state" in part && part.state === "input-streaming")).toBe(false);
 	});
 
 	it("translates compaction_start/end into compaction frames", () => {

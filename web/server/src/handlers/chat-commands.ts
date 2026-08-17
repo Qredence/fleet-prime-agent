@@ -1,4 +1,5 @@
 import { getPrimeConfig } from "../prime-config";
+import { cwdForRequest } from "../project-request";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
@@ -63,8 +64,7 @@ const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 
 export function handleChatCommandsGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		const url = new URL(request.url);
-		const cwd = url.searchParams.get("cwd") ?? getPrimeConfig().defaultCwd;
+		const cwd = await cwdForRequest(request);
 		const config = getPrimeConfig();
 		const loader = await config.resourceLoaderFor(cwd);
 
