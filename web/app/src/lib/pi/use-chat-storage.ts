@@ -2,7 +2,7 @@ import type { ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protoco
 import { ChatSessionMetadataSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { useCallback, useEffect, useState } from "react";
 
-const CHAT_SESSION_STORAGE_KEY = "fleet-pi-chat-session";
+const CHAT_SESSION_STORAGE_KEY = "fleet-prime:v1:chat-session";
 
 export function useChatStorage() {
 	const [sessionMetadata, setSessionMetadataState] = useState<ChatSessionMetadata>(() => readStoredBrowserSessions());
@@ -38,7 +38,7 @@ function readStoredBrowserSessions(): ChatSessionMetadata {
 function readLegacyScopeStorage(): ChatSessionMetadata {
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 	if (typeof window === "undefined" || !window.localStorage) return {};
-	const raw = window.localStorage.getItem("fleet-pi-chat-sessions");
+	const raw = window.localStorage.getItem("fleet-prime:v1:chat-sessions");
 	if (!raw) return {};
 	try {
 		const parsed = JSON.parse(raw) as { normal?: unknown } | null;
@@ -58,17 +58,17 @@ export function clearBrowserChatSessions() {
 	if (typeof window === "undefined" || !window.localStorage) return;
 
 	window.localStorage.removeItem(CHAT_SESSION_STORAGE_KEY);
-	window.localStorage.removeItem("fleet-pi-chat-sessions");
-	window.localStorage.removeItem("fleet-pi-chat-mode");
+	window.localStorage.removeItem("fleet-prime:v1:chat-sessions");
+	window.localStorage.removeItem("fleet-prime:v1:chat-mode");
 }
 
 function storeBrowserSessions(metadata: ChatSessionMetadata) {
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 	if (typeof window === "undefined" || !window.localStorage) return;
 
-	if (!metadata.sessionFile && !metadata.sessionId) {
+	if (!metadata.sessionId && !metadata.projectId) {
 		window.localStorage.removeItem(CHAT_SESSION_STORAGE_KEY);
-		window.localStorage.removeItem("fleet-pi-chat-sessions");
+		window.localStorage.removeItem("fleet-prime:v1:chat-sessions");
 		return;
 	}
 

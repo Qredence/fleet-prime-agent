@@ -21,12 +21,17 @@ import type {
 	ChatSessionMetadata,
 	ChatThinkingLevel,
 } from "@prime-agent/web-protocol/chat-protocol";
+import type { OpenPanelAction } from "@prime-agent/web-protocol/fleet-contract";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useChatStorage } from "./use-chat-storage";
 
-export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
-	const { sessionMetadata: storedSessionMetadata, setSessionMetadata: setStoredSessionMetadata } = useChatStorage();
+export type ChatShellStorage = {
+	sessionMetadata: ChatSessionMetadata;
+	setSessionMetadata: (metadata: ChatSessionMetadata) => void;
+};
+
+export function useChatShellState(modelsData: ChatModelsResponse | undefined, storage: ChatShellStorage) {
+	const { sessionMetadata: storedSessionMetadata, setSessionMetadata: setStoredSessionMetadata } = storage;
 
 	const models = useMemo(() => modelsData?.models.map(toModelOption) ?? [], [modelsData]);
 	const [modelKey, setModelKey] = useState<string | undefined>();
@@ -152,6 +157,19 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
 		[setRightPanel],
 	);
 
+	const openPanelAction = useCallback(
+		(action: OpenPanelAction) => {
+			setRightPanel(action.panel);
+			setSelectedWorkspacePath(action.relativePath ?? null);
+			if (action.focus) {
+				window.requestAnimationFrame(() => {
+					document.querySelector<HTMLElement>("[data-fleet-panel-focus]")?.focus({ preventScroll: true });
+				});
+			}
+		},
+		[setRightPanel],
+	);
+
 	const persistSession = useCallback(
 		(metadata: ChatSessionMetadata) => {
 			setStoredSessionMetadata(metadata);
@@ -185,6 +203,7 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined) {
 		modelSelection,
 		models,
 		openWorkspacePath,
+		openPanelAction,
 		persistSession,
 		resourceCanvasWidth,
 		rightPanel,

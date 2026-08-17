@@ -40,18 +40,9 @@ function liveSessionId(metadata: ChatSessionMetadata): string | undefined {
 }
 
 /** Format a payload for the conversation echo the TUI would have shown. */
-function formatSessionInfo({
-	sessionId,
-	sessionFile,
-	name,
-}: {
-	sessionId: string;
-	sessionFile: string | null | undefined;
-	name: string | null;
-}) {
+function formatSessionInfo({ sessionId, name }: { sessionId: string; name: string | null }) {
 	const id = sessionId.trim() || "none";
-	const file = sessionFile?.trim() || "(not yet persisted)";
-	return [name ? `Session: ${name}` : "Session", `  id:   ${id}`, `  file: ${file}`].join("\n");
+	return [name ? `Session: ${name}` : "Session", `  id: ${id}`].join("\n");
 }
 
 /** Structural mirror of the bridge's session-tree node (only the fields the echo needs). */
@@ -293,7 +284,6 @@ export function useLocalSlashActions({
 							appendLocalMessage(
 								formatSessionInfo({
 									sessionId: sessionId ?? "none",
-									sessionFile: metadata.sessionFile,
 									name: null,
 								}),
 							);
@@ -302,7 +292,6 @@ export function useLocalSlashActions({
 						appendLocalMessage(
 							formatSessionInfo({
 								sessionId,
-								sessionFile: metadata.sessionFile,
 								name: typeof result.payload.name === "string" ? result.payload.name : null,
 							}),
 						);
@@ -476,8 +465,7 @@ export function useLocalSlashActions({
 						return true;
 					}
 					const lines = sessions.map((session) => {
-						const label = session.name || session.firstMessage || "(unnamed)";
-						return `${session.id}  ${label}`;
+						return `${session.sessionId}  ${session.title}`;
 					});
 					appendLocalMessage(`Saved sessions (web stand-in for /agents):\n${lines.join("\n")}`);
 					return true;
@@ -486,15 +474,12 @@ export function useLocalSlashActions({
 					openSettings("providers");
 					return true;
 				case "open-logout":
-					openSettings("providers");
-					appendLocalMessage(
-						"Provider sign-out: pick a provider in Settings > Providers to remove its stored auth.",
-					);
+					appendLocalMessage("Provider sign-out is managed by Prime Agent CLI commands.");
 					return true;
 				case "open-mcp":
-					openSettings("pi-harness");
+					openSettings("chat");
 					if (action.args) {
-						appendLocalMessage(`MCP: ${action.args} (manage connections in Settings > Pi Harness)`);
+						appendLocalMessage(`MCP: ${action.args}. Manage MCP connections with Prime Agent CLI configuration.`);
 					}
 					return true;
 				case "fast-toggle": {

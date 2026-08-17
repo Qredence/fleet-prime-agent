@@ -127,7 +127,16 @@ export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
 	{ name: "quit", description: "Quit (TUI-only; close this tab instead)", source: "builtin" },
 ];
 
-export type SettingsSlashTab = "appearance" | "sandbox" | "providers" | "llm-models" | "skills" | "pi-harness";
+export type SettingsSlashTab =
+	| "appearance"
+	| "chat"
+	| "sandbox"
+	| "providers"
+	| "llm-models"
+	| "skills"
+	| "pi-harness"
+	| "keybindings"
+	| "sessions";
 
 export type LocalSlashAction =
 	| { type: "open-model-picker"; modelKey?: string }
@@ -230,11 +239,11 @@ export function resolveLocalSlashAction(command: string, args = ""): LocalSlashA
 		}
 		case "models":
 		case "scoped-models":
-			return { type: "open-settings", tab: "llm-models" };
+			return { type: "open-model-picker" };
 		case "settings":
 			return { type: "open-settings", tab: "appearance" };
 		case "config":
-			return { type: "open-settings", tab: "pi-harness" };
+			return { type: "open-settings", tab: "chat" };
 		case "new":
 			return { type: "new-session" };
 		case "login":
@@ -311,6 +320,7 @@ export type SlashCommandSuggestion = {
 	label: string;
 	value: string;
 	description?: string;
+	category?: "builtin" | "extension" | "prompt" | "skill";
 };
 
 function normalizeSlashCommandName(name: string) {
@@ -322,12 +332,14 @@ function toSlashSuggestion(command: {
 	name: string;
 	description?: string;
 	argumentHint?: string;
+	category?: SlashCommandSuggestion["category"];
 }): SlashCommandSuggestion {
 	return {
 		id: command.name,
 		label: `/${command.name}`,
 		value: `/${command.name}${command.argumentHint ? ` ${command.argumentHint}` : ""} `,
 		description: command.description,
+		category: command.category ?? "builtin",
 	};
 }
 
@@ -352,21 +364,27 @@ export function buildSlashCommands(
 		byId.set(command.name, toSlashSuggestion(command));
 	}
 	for (const command of commandsData?.commands ?? []) {
-		if (!byId.has(command.name)) byId.set(command.name, toSlashSuggestion(command));
+		if (!byId.has(command.name)) byId.set(command.name, toSlashSuggestion({ ...command, category: "extension" }));
 	}
 
 	if (!enabled || !resources) return Array.from(byId.values());
 
-	for (const resource of [...resources.skills, ...resources.prompts]) {
-		if (resource.activationStatus && resource.activationStatus !== "active") continue;
-		const commandName = normalizeSlashCommandName(resource.name);
-		if (!commandName || byId.has(commandName)) continue;
-		byId.set(commandName, {
-			id: commandName,
-			label: `/${commandName}`,
-			value: `/${commandName} `,
-			description: resource.description,
-		});
+	for (const [category, resourceList] of [
+		["skill", resources.skills],
+		["prompt", resources.prompts],
+	] as const) {
+		for (const resource of resourceList) {
+			if (resource.activationStatus && resource.activationStatus !== "active") continue;
+			const commandName = normalizeSlashCommandName(resource.name);
+			if (!commandName || byId.has(commandName)) continue;
+			byId.set(commandName, {
+				id: commandName,
+				label: `/${commandName}`,
+				value: `/${commandName} `,
+				description: resource.description,
+				category,
+			});
+		}
 	}
 
 	return Array.from(byId.values());

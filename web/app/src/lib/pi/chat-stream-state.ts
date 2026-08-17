@@ -31,25 +31,19 @@ export const EMPTY_QUEUE_STATE: QueueState = {
 /** Drop blank session fields so `{}` is a real clear, not a keep-if-empty merge. */
 export function normalizeSessionMetadata(metadata: ChatSessionMetadata): ChatSessionMetadata {
 	const sessionId = metadata.sessionId?.trim() || undefined;
-	const sessionFile = metadata.sessionFile?.trim() || undefined;
-	const cwd = metadata.cwd?.trim() || undefined;
-	return {
-		...(sessionId ? { sessionId } : {}),
-		...(sessionFile ? { sessionFile } : {}),
-		...(cwd ? { cwd } : {}),
-	};
+	const projectId = metadata.projectId?.trim() || undefined;
+	return sessionId || projectId ? { ...(sessionId ? { sessionId } : {}), ...(projectId ? { projectId } : {}) } : {};
 }
 
 function mergeSessionMetadata(
 	current: ChatSessionMetadata,
-	incoming: { sessionId?: string; sessionFile?: string },
+	incoming: { sessionId?: string; projectId?: string | null },
 ): ChatSessionMetadata {
 	const sessionId = incoming.sessionId?.trim() || current.sessionId;
-	const sessionFile = incoming.sessionFile?.trim() || current.sessionFile;
+	const projectId = incoming.projectId?.trim() || current.projectId;
 	return {
-		...current,
 		...(sessionId ? { sessionId } : {}),
-		...(sessionFile ? { sessionFile } : {}),
+		...(projectId ? { projectId } : {}),
 	};
 }
 
@@ -149,7 +143,6 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 					? transition.snapshot.messages
 					: [...transition.snapshot.messages, createTextMessage("assistant", "", event.id)],
 				sessionMetadata: mergeSessionMetadata(transition.snapshot.sessionMetadata, {
-					sessionFile: event.sessionFile,
 					sessionId: event.sessionId,
 				}),
 			},
@@ -261,7 +254,6 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 				),
 				queue: EMPTY_QUEUE_STATE,
 				sessionMetadata: mergeSessionMetadata(snapshot.sessionMetadata, {
-					sessionFile: event.sessionFile,
 					sessionId: event.sessionId,
 				}),
 			},

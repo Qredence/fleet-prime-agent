@@ -203,9 +203,9 @@ export function getActiveSessionLabel(
 	sessions: Array<ChatSessionInfo>,
 	messages: Array<ChatMessage>,
 ) {
-	const activeSession = sessions.find((session) => session.id === activeSessionId);
-	if (activeSession?.name?.trim()) {
-		return normalizeSessionLabel(activeSession.name);
+	const activeSession = sessions.find((session) => session.sessionId === activeSessionId);
+	if (activeSession?.title.trim()) {
+		return normalizeSessionLabel(activeSession.title);
 	}
 
 	const lastUserMessage = [...messages]
@@ -215,7 +215,9 @@ export function getActiveSessionLabel(
 	if (fromTranscript) return fromTranscript;
 
 	if (activeSession) {
-		return normalizeSessionLabel(activeSession.name || activeSession.firstMessage || activeSession.id.slice(0, 8));
+		return normalizeSessionLabel(
+			activeSession.title || activeSession.firstMessage || activeSession.sessionId.slice(0, 8),
+		);
 	}
 
 	return "Session";

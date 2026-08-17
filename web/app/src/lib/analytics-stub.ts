@@ -10,16 +10,9 @@ export function captureChatSessionStarted(_input: {
 	promptLength?: number;
 	messageLength?: number;
 	sessionId?: string;
-	sessionFile?: string;
-	cwd?: string;
 	mode?: string;
 	model?: string;
 	hasImage?: boolean;
 }): void {}
 
-export function captureConversationSaved(_input: {
-	sessionId?: string;
-	sessionFile?: string;
-	cwd?: string;
-	messageCount?: number;
-}): void {}
+export function captureConversationSaved(_input: { sessionId?: string; messageCount?: number }): void {}

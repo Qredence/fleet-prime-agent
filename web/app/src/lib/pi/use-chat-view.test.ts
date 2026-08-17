@@ -4,14 +4,13 @@ import { describe, expect, it } from "vitest";
 import { getActiveSessionLabel } from "./use-chat-view";
 
 const session: ChatSessionInfo = {
-	path: "/tmp/session.jsonl",
-	id: "session-1",
-	cwd: "/tmp",
-	created: "2026-08-15T00:00:00.000Z",
-	modified: "2026-08-15T00:00:00.000Z",
+	sessionId: "session-1",
+	title: "Saved session name",
+	createdAt: "2026-08-15T00:00:00.000Z",
+	updatedAt: "2026-08-15T00:00:00.000Z",
+	status: "idle",
 	messageCount: 1,
 	firstMessage: "Transcript title",
-	name: "Saved session name",
 };
 
 const messages: Array<ChatMessage> = [
@@ -27,8 +26,7 @@ describe("getActiveSessionLabel", () => {
 		expect(getActiveSessionLabel("session-1", [session], messages)).toBe("Saved session name");
 	});
 
-	it("falls back to the transcript when no explicit name is saved", () => {
-		const unnamed = { ...session, name: undefined };
-		expect(getActiveSessionLabel("session-1", [unnamed], messages)).toBe("Transcript title");
+	it("falls back to the transcript when the active session is not listed", () => {
+		expect(getActiveSessionLabel("session-2", [session], messages)).toBe("Transcript title");
 	});
 });

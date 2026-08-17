@@ -1,15 +1,4 @@
-const RUNTIME_API_PREFIXES = [
-	"/api/health",
-	"/api/chat",
-	"/api/chat/abort",
-	"/api/chat/question",
-	"/api/chat/resume",
-	"/api/chat/new",
-	"/api/chat/sessions",
-	"/api/chat/session",
-	"/api/chat/runs",
-	"/api/chat/run",
-] as const;
+const RUNTIME_API_PREFIXES = ["/api/health", "/api/chat", "/api/projects", "/api/workspace"] as const;
 
 export function resolveChatRuntimeBaseUrl() {
 	const fromVite = import.meta.env.VITE_FLEET_PI_CHAT_RUNTIME_URL;
@@ -20,7 +9,9 @@ export function resolveChatRuntimeBaseUrl() {
 }
 
 export function isChatRuntimePath(path: string) {
-	return RUNTIME_API_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}?`));
+	return RUNTIME_API_PREFIXES.some(
+		(prefix) => path === prefix || path.startsWith(`${prefix}?`) || path.startsWith(`${prefix}/`),
+	);
 }
 
 export function resolveChatApiUrl(path: string) {

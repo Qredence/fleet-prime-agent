@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiProjectsRouteImport } from './routes/api/projects'
 import { Route as ApiChatAbortRouteImport } from './routes/api/chat/abort'
 import { Route as ApiChatCommandRouteImport } from './routes/api/chat/command'
 import { Route as ApiChatCommandsRouteImport } from './routes/api/chat/commands'
@@ -26,6 +27,8 @@ import { Route as ApiChatResumeRouteImport } from './routes/api/chat/resume'
 import { Route as ApiChatSessionRouteImport } from './routes/api/chat/session'
 import { Route as ApiChatSessionsRouteImport } from './routes/api/chat/sessions'
 import { Route as ApiChatSettingsRouteImport } from './routes/api/chat/settings'
+import { Route as ApiProjectsBrowseRouteImport } from './routes/api/projects/browse'
+import { Route as ApiProjectsForkRouteImport } from './routes/api/projects/fork'
 import { Route as ApiWorkspaceBrowseRouteImport } from './routes/api/workspace/browse'
 import { Route as ApiWorkspaceFileRouteImport } from './routes/api/workspace/file'
 import { Route as ApiWorkspaceRootRouteImport } from './routes/api/workspace/root'
@@ -46,6 +49,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProjectsRoute = ApiProjectsRouteImport.update({
+  id: '/api/projects',
+  path: '/api/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatAbortRoute = ApiChatAbortRouteImport.update({
@@ -118,6 +126,16 @@ const ApiChatSettingsRoute = ApiChatSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => ApiChatRoute,
 } as any)
+const ApiProjectsBrowseRoute = ApiProjectsBrowseRouteImport.update({
+  id: '/browse',
+  path: '/browse',
+  getParentRoute: () => ApiProjectsRoute,
+} as any)
+const ApiProjectsForkRoute = ApiProjectsForkRouteImport.update({
+  id: '/fork',
+  path: '/fork',
+  getParentRoute: () => ApiProjectsRoute,
+} as any)
 const ApiWorkspaceBrowseRoute = ApiWorkspaceBrowseRouteImport.update({
   id: '/api/workspace/browse',
   path: '/api/workspace/browse',
@@ -153,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
+  '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/chat/abort': typeof ApiChatAbortRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
@@ -167,6 +186,8 @@ export interface FileRoutesByFullPath {
   '/api/chat/session': typeof ApiChatSessionRoute
   '/api/chat/sessions': typeof ApiChatSessionsRoute
   '/api/chat/settings': typeof ApiChatSettingsRoute
+  '/api/projects/browse': typeof ApiProjectsBrowseRoute
+  '/api/projects/fork': typeof ApiProjectsForkRoute
   '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
@@ -178,6 +199,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
+  '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/chat/abort': typeof ApiChatAbortRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
@@ -192,6 +214,8 @@ export interface FileRoutesByTo {
   '/api/chat/session': typeof ApiChatSessionRoute
   '/api/chat/sessions': typeof ApiChatSessionsRoute
   '/api/chat/settings': typeof ApiChatSettingsRoute
+  '/api/projects/browse': typeof ApiProjectsBrowseRoute
+  '/api/projects/fork': typeof ApiProjectsForkRoute
   '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
@@ -204,6 +228,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
+  '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/chat/abort': typeof ApiChatAbortRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
@@ -218,6 +243,8 @@ export interface FileRoutesById {
   '/api/chat/session': typeof ApiChatSessionRoute
   '/api/chat/sessions': typeof ApiChatSessionsRoute
   '/api/chat/settings': typeof ApiChatSettingsRoute
+  '/api/projects/browse': typeof ApiProjectsBrowseRoute
+  '/api/projects/fork': typeof ApiProjectsForkRoute
   '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
@@ -231,6 +258,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/chat'
     | '/api/health'
+    | '/api/projects'
     | '/api/chat/abort'
     | '/api/chat/command'
     | '/api/chat/commands'
@@ -245,6 +273,8 @@ export interface FileRouteTypes {
     | '/api/chat/session'
     | '/api/chat/sessions'
     | '/api/chat/settings'
+    | '/api/projects/browse'
+    | '/api/projects/fork'
     | '/api/workspace/browse'
     | '/api/workspace/file'
     | '/api/workspace/root'
@@ -256,6 +286,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/chat'
     | '/api/health'
+    | '/api/projects'
     | '/api/chat/abort'
     | '/api/chat/command'
     | '/api/chat/commands'
@@ -270,6 +301,8 @@ export interface FileRouteTypes {
     | '/api/chat/session'
     | '/api/chat/sessions'
     | '/api/chat/settings'
+    | '/api/projects/browse'
+    | '/api/projects/fork'
     | '/api/workspace/browse'
     | '/api/workspace/file'
     | '/api/workspace/root'
@@ -281,6 +314,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/chat'
     | '/api/health'
+    | '/api/projects'
     | '/api/chat/abort'
     | '/api/chat/command'
     | '/api/chat/commands'
@@ -295,6 +329,8 @@ export interface FileRouteTypes {
     | '/api/chat/session'
     | '/api/chat/sessions'
     | '/api/chat/settings'
+    | '/api/projects/browse'
+    | '/api/projects/fork'
     | '/api/workspace/browse'
     | '/api/workspace/file'
     | '/api/workspace/root'
@@ -307,6 +343,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiChatRoute: typeof ApiChatRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiProjectsRoute: typeof ApiProjectsRouteWithChildren
   ApiWorkspaceBrowseRoute: typeof ApiWorkspaceBrowseRoute
   ApiWorkspaceFileRoute: typeof ApiWorkspaceFileRoute
   ApiWorkspaceRootRoute: typeof ApiWorkspaceRootRoute
@@ -334,6 +371,13 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/projects': {
+      id: '/api/projects'
+      path: '/api/projects'
+      fullPath: '/api/projects'
+      preLoaderRoute: typeof ApiProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat/abort': {
@@ -433,6 +477,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/chat/settings'
       preLoaderRoute: typeof ApiChatSettingsRouteImport
       parentRoute: typeof ApiChatRoute
+    }
+    '/api/projects/browse': {
+      id: '/api/projects/browse'
+      path: '/browse'
+      fullPath: '/api/projects/browse'
+      preLoaderRoute: typeof ApiProjectsBrowseRouteImport
+      parentRoute: typeof ApiProjectsRoute
+    }
+    '/api/projects/fork': {
+      id: '/api/projects/fork'
+      path: '/fork'
+      fullPath: '/api/projects/fork'
+      preLoaderRoute: typeof ApiProjectsForkRouteImport
+      parentRoute: typeof ApiProjectsRoute
     }
     '/api/workspace/browse': {
       id: '/api/workspace/browse'
@@ -539,10 +597,25 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
 const ApiChatRouteWithChildren =
   ApiChatRoute._addFileChildren(ApiChatRouteChildren)
 
+interface ApiProjectsRouteChildren {
+  ApiProjectsBrowseRoute: typeof ApiProjectsBrowseRoute
+  ApiProjectsForkRoute: typeof ApiProjectsForkRoute
+}
+
+const ApiProjectsRouteChildren: ApiProjectsRouteChildren = {
+  ApiProjectsBrowseRoute: ApiProjectsBrowseRoute,
+  ApiProjectsForkRoute: ApiProjectsForkRoute,
+}
+
+const ApiProjectsRouteWithChildren = ApiProjectsRoute._addFileChildren(
+  ApiProjectsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiChatRoute: ApiChatRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
+  ApiProjectsRoute: ApiProjectsRouteWithChildren,
   ApiWorkspaceBrowseRoute: ApiWorkspaceBrowseRoute,
   ApiWorkspaceFileRoute: ApiWorkspaceFileRoute,
   ApiWorkspaceRootRoute: ApiWorkspaceRootRoute,

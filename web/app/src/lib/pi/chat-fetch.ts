@@ -170,8 +170,8 @@ export function parseWithSchema<T>(schema: ZodType<T>, data: unknown, label: str
 
 export function metadataUrl(metadata: ChatSessionMetadata) {
 	const params = new URLSearchParams();
-	if (metadata.sessionFile) params.set("sessionFile", metadata.sessionFile);
 	if (metadata.sessionId) params.set("sessionId", metadata.sessionId);
+	if (metadata.projectId) params.set("projectId", metadata.projectId);
 	return params.toString();
 }
 

@@ -156,11 +156,60 @@ describe("applyChatStreamEvent", () => {
 		expect(doneParts).toEqual([{ type: "text", text: "fleet-web-ok" }]);
 	});
 
+	it("keeps terminal tool parts when done reconciles the streamed assistant bubble", () => {
+		const id = "run-1-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id));
+		t = applyChatStreamEvent(t, {
+			type: "tool",
+			messageId: id,
+			part: {
+				type: "tool-IPython",
+				toolCallId: "python-1",
+				state: "input-streaming",
+				input: { code: "1 + 1" },
+			},
+		});
+		t = applyChatStreamEvent(t, {
+			type: "tool",
+			messageId: id,
+			part: {
+				type: "tool-IPython",
+				toolCallId: "python-1",
+				state: "input-streaming",
+				result: { details: { stdout: "2" } },
+			},
+		});
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-1",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [
+				{
+					type: "tool-IPython",
+					toolCallId: "python-1",
+					state: "output-available",
+					input: { code: "1 + 1" },
+					output: { details: { stdout: "2" } },
+				},
+			]),
+		});
+
+		const toolPart = assistantMessages(t)[0].parts.find(
+			(part) => "toolCallId" in part && part.toolCallId === "python-1",
+		);
+		expect(toolPart).toMatchObject({
+			state: "output-available",
+			output: { details: { stdout: "2" } },
+		});
+		expect(assistantMessages(t)[0].parts.some((part) => "state" in part && part.state === "input-streaming")).toBe(
+			false,
+		);
+	});
+
 	it("normalizeSessionMetadata drops blank fields so {} is a real clear", () => {
 		expect(normalizeSessionMetadata({})).toEqual({});
-		expect(normalizeSessionMetadata({ sessionId: "  ", sessionFile: " /tmp/s.jsonl ", cwd: "" })).toEqual({
-			sessionFile: "/tmp/s.jsonl",
-		});
+		expect(normalizeSessionMetadata({ sessionId: "  " })).toEqual({});
+		expect(normalizeSessionMetadata({ sessionId: " session-1 " })).toEqual({ sessionId: "session-1" });
 	});
 
 	it("does not clear live session metadata when done omits sessionId", () => {
