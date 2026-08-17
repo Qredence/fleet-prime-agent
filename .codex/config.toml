@@ -1,0 +1,10 @@
+# Project-scoped Codex defaults.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+model_verbosity = "low"
+
+[features]
+multi_agent = true
+
+[sandbox_workspace_write]
+network_access = true
