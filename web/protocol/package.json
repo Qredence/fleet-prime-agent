@@ -9,6 +9,7 @@
     "./chat-types": "./src/chat-types.ts",
     "./chat-protocol": "./src/chat-protocol.ts",
     "./chat-protocol.zod": "./src/chat-protocol.zod.ts",
+    "./fleet-contract": "./src/fleet-contract.ts",
     "./model-patterns": "./src/model-patterns.ts",
     "./provider-catalog": "./src/provider-catalog.ts",
     "./schemas/*": "./src/schemas/*"

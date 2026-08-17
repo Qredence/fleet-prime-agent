@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatToolPart } from "./chat-types";
+import type { ChatAttachment, ProjectId } from "./fleet-contract";
 
 export type QueueState = {
 	steering: Array<string>;
@@ -76,23 +77,15 @@ export type ChatSettingsResponse = {
 	};
 };
 
-export type ChatModelSelection =
-	| string
-	| {
-			provider: string;
-			id: string;
-			thinkingLevel?: ChatThinkingLevel;
-	  };
+export type ChatModelSelection = {
+	provider: string;
+	id: string;
+	thinkingLevel?: ChatThinkingLevel;
+};
 
-/**
- * Identifies the chat session a request targets. At least one of
- * `sessionFile`/`sessionId` is typically provided to continue an existing
- * session; omitting both starts a new one.
- */
 export type ChatSessionMetadata = {
-	sessionFile?: string;
 	sessionId?: string;
-	cwd?: string;
+	projectId?: ProjectId | null;
 };
 
 /**
@@ -107,6 +100,8 @@ export type ChatRequest = ChatSessionMetadata & {
 	message?: string;
 	model?: ChatModelSelection;
 	mode?: ChatMode;
+	openUI?: boolean;
+	attachments?: Array<ChatAttachment>;
 	planAction?: ChatPlanAction;
 	streamingBehavior?: "steer" | "followUp";
 	userId?: string;
@@ -152,7 +147,6 @@ type ChatStartEvent = {
 	type: "start";
 	id: string;
 	runId: string;
-	sessionFile?: string;
 	sessionId: string;
 	sessionReset?: boolean;
 	diagnostics?: Array<string>;
@@ -210,7 +204,6 @@ export type ChatStreamEvent =
 			type: "done";
 			runId: string;
 			message: ChatMessage;
-			sessionFile?: string;
 			sessionId: string;
 			sessionReset?: boolean;
 	  }
@@ -347,13 +340,20 @@ export type ChatSessionResponse = {
 	sessionReset?: boolean;
 };
 
+export type ChatNewRequest = {
+	projectId?: ProjectId;
+	thinkingLevel?: ChatThinkingLevel;
+	mode?: ChatMode;
+	model?: ChatModelSelection;
+};
+
 export type ChatSessionInfo = {
-	path: string;
-	id: string;
-	cwd: string;
-	name?: string;
-	created: string;
-	modified: string;
+	sessionId: string;
+	projectId?: ProjectId | null;
+	title: string;
+	createdAt: string;
+	updatedAt: string;
+	status: "idle" | "running" | "interrupted" | "failed";
 	messageCount: number;
 	firstMessage: string;
 };
@@ -410,14 +410,6 @@ export type WorkspaceBrowseResponse = {
 	path: string;
 	parent: string | null;
 	entries: Array<WorkspaceBrowseEntry>;
-};
-
-export type WorkspaceRootRequest = {
-	path: string;
-};
-
-export type WorkspaceRootResponse = {
-	root: string;
 };
 
 export type ChatSlashCommandSource = "builtin" | "extension" | "prompt" | "skill";

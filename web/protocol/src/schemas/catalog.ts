@@ -1,8 +1,6 @@
 import type {
 	WorkspaceBrowseResponse,
 	WorkspaceFileResponse,
-	WorkspaceRootRequest,
-	WorkspaceRootResponse,
 	WorkspaceTreeNode,
 	WorkspaceTreeResponse,
 } from "../chat-protocol";
@@ -116,18 +114,6 @@ export const WorkspaceBrowseResponseSchema: z.ZodType<WorkspaceBrowseResponse> =
 		entries: z.array(WorkspaceBrowseEntrySchema),
 	})
 	.openapi({ description: "Workspace directory browse response" });
-
-export const WorkspaceRootRequestSchema: z.ZodType<WorkspaceRootRequest> = z
-	.object({
-		path: z.string().min(1),
-	})
-	.openapi({ description: "Set workspace / agent root request" });
-
-export const WorkspaceRootResponseSchema: z.ZodType<WorkspaceRootResponse> = z
-	.object({
-		root: z.string(),
-	})
-	.openapi({ description: "Set workspace / agent root response" });
 
 export const ChatProviderInfoSchema = z
 	.object({

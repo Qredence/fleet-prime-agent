@@ -4,6 +4,18 @@
 // patched `z` helper is intentionally not re-exported (it is internal).
 
 export {
+	ProjectCreateRequestSchema,
+	ProjectDirectoryBrowseResponseSchema,
+	ProjectDirectoryEntrySchema,
+	ProjectForkRequestSchema,
+	ProjectForkResponseSchema,
+	ProjectIdSchema,
+	ProjectListResponseSchema,
+	ProjectRenameRequestSchema,
+	ProjectStatusSchema,
+	ProjectSummarySchema,
+} from "./fleet-contract";
+export {
 	ChatCommandsResponseSchema,
 	ChatModelInfoSchema,
 	ChatModelsDiscoverRequestSchema,
@@ -23,8 +35,6 @@ export {
 	WorkspaceBrowseEntrySchema,
 	WorkspaceBrowseResponseSchema,
 	WorkspaceFileResponseSchema,
-	WorkspaceRootRequestSchema,
-	WorkspaceRootResponseSchema,
 	WorkspaceTreeNodeSchema,
 	WorkspaceTreeResponseSchema,
 } from "./schemas/catalog";
@@ -38,6 +48,7 @@ export {
 	ChatMessagePartSchema,
 	ChatMessageSchema,
 	ChatModelSelectionSchema,
+	ChatNewRequestSchema,
 	ChatPlanEventSchema,
 	ChatPlanStateSchema,
 	ChatPlanTodoSchema,
