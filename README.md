@@ -7,6 +7,7 @@ Value proposition:
 - **Workspace layer** — multi-project workspace, session sidebar, design tokens (`web/design`), wire contracts (`web/protocol`), HTTP adapter (`web/server`), React 19 chat (`web/app`).
 
 [![CI](https://github.com/Qredence/fleet-prime-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Qredence/fleet-prime-agent/actions/workflows/ci.yml)
+[![badge](https://shieldcn.dev/discord/1316199667142496307.svg?statusDot=true)](https://discord.gg/ebgy7gtZHK)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## What is Prime Agent
