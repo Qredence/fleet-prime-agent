@@ -27,13 +27,14 @@ import {
 	formatCurrency,
 	formatPercent,
 } from "../src/components/openui/data";
-import { openUILibrary } from "../src/components/openui/openui-library";
+import { CitationDef, openUILibrary } from "../src/components/openui/openui-library";
 import {
 	segmentOpenUIContent,
 	stripOpenUIWrapper,
 } from "../src/components/openui/openui-utils";
 import type { OpenUIContentSegment } from "../src/components/openui/openui-utils";
 import { sanitizeChartColor } from "../src/components/chart";
+import { isSafeExternalUrl } from "../src/lib/safe-external-url";
 
 // --- happy-dom window + node globalThis shims ---
 const win = new Window();
@@ -119,11 +120,12 @@ const payload = [
 	'$field = "x"',
 	"$on = true",
 	'$s = "a"',
-	"root = Root([inp, sel, sw, mdl, traffic, share, scores, kpis])",
+	"root = Root([inp, sel, sw, mdl, panel, traffic, share, scores, kpis])",
 	'inp = Input("field", $field, "hint")',
 	'sel = Select("s", $s, [{"value": "a", "label": "A"}], "Pick")',
 	'sw = Switch("on", $on, "Toggle")',
 	'mdl = Modal("m", $on, "Confirm", "body text")',
+	'panel = PanelAction("Open workspace", "workspace", "README.md", true)',
 	'traffic = LineChart("Traffic", "Weekly visits", "week", [{"dataKey":"visits","label":"Visits","color":"red;}</style><img src=x onerror=alert(1)>"},{"dataKey":"views","label":"Views","color":"var(--chart-1)"}], [{"week":"W1","visits":10,"views":5},{"week":"W2","visits":24,"views":8},{"week":"W3","visits":18,"views":6}])',
 	'share = DonutChart("Share", null, [{"label":"Alpha","value":40},{"label":"Beta","value":60}], "100%")',
 	'scores = DataTable("Scores", [{"key":"name","label":"Name"},{"key":"points","label":"Points","type":"number"}], [{"name":"Ada","points":7},{"name":"Bo","points":12}])',
@@ -272,6 +274,16 @@ assertEqual(
 	["left", "right"],
 	'DataTable align zod enum is exactly ["left","right"]'
 );
+assertEqual(isSafeExternalUrl("https://example.com/source"), true, "Citation accepts HTTPS URLs");
+assertEqual(isSafeExternalUrl("http://example.com/source"), true, "Citation accepts HTTP URLs");
+for (const unsafeUrl of ["javascript:alert(1)", "data:text/html,unsafe", "file:///etc/passwd"]) {
+	assertEqual(isSafeExternalUrl(unsafeUrl), false, `Citation rejects ${unsafeUrl.split(":", 1)[0]} URLs`);
+}
+assertEqual(
+	CitationDef.props.safeParse({ title: "Source", url: "javascript:alert(1)" }).success,
+	false,
+	"Citation schema rejects unsafe URL schemes",
+);
 
 // --- Stage 1: parse + validate against the library schema ---
 const parser = createParser(openUILibrary.toJSONSchema(), "Root");
@@ -306,7 +318,12 @@ if (staticHtml.length === 0) {
 }
 console.log("RENDER OK (static)");
 
-for (const expected of ["Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points", "Users", "12,403", "+4.2%", "Errors", "var(--chart-1)"]) {
+const unsafeCitationHtml = renderToStaticMarkup(
+	<Renderer response={'root = Citation("Source", "javascript:alert(1)")'} library={openUILibrary} />,
+);
+assertExcludes(unsafeCitationHtml, "<a ", "unsafe Citation URLs never render an anchor");
+
+for (const expected of ["Open workspace", "Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points", "Users", "12,403", "+4.2%", "Errors", "var(--chart-1)"]) {
 	assertIncludes(staticHtml, expected);
 }
 assertExcludes(
@@ -336,6 +353,7 @@ console.log("RENDER OK (dom)");
 
 for (const expected of [
 	"Traffic",
+	"Open workspace",
 	"Weekly visits",
 	"Share",
 	"100%",

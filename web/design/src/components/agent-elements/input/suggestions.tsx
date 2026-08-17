@@ -7,6 +7,11 @@ export type SuggestionItem = {
   label: string
   value?: string
   icon?: ReactNode
+  description?: string
+  category?: string
+  keywords?: readonly string[]
+  disabled?: boolean
+  metadata?: Record<string, string | undefined>
   className?: string
 }
 
@@ -63,7 +68,7 @@ export function Suggestions({
             type="button"
             role={isKeyboardNavigable ? "option" : undefined}
             aria-selected={isKeyboardNavigable ? isActive : undefined}
-            disabled={disabled}
+            disabled={disabled || item.disabled}
             onMouseEnter={() => onActiveIndexChange?.(index)}
             onClick={() => onSelect(item)}
             className={cn(

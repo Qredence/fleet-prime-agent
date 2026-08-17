@@ -3,12 +3,17 @@ import {
   IconChevronUp,
   IconMessageCircleQuestion,
 } from "@tabler/icons-react"
+import { ApprovalCard } from "../../agents/approval-card"
 import { cn } from "../utils/cn"
-import { QuestionPrompt } from "../question/question-prompt"
+import type {
+  ApprovalCardAnswers,
+  ApprovalCardQuestion,
+} from "../../agents/approval-card"
 import type {
   QuestionBarData,
   QuestionBarNavigation,
 } from "../hooks/use-question-bar-navigation"
+import type { QuestionAnswer } from "../question/question-prompt"
 
 export type InputQuestionBarProps = {
   questionBar: QuestionBarData
@@ -26,7 +31,6 @@ export function InputQuestionBar({
   onDismiss,
 }: InputQuestionBarProps) {
   const {
-    questionSet,
     totalQuestions,
     clampedQuestionIndex,
     activeQuestion,
@@ -39,6 +43,57 @@ export function InputQuestionBar({
   } = navigation
 
   if (!activeQuestion) return null
+
+  const approvalQuestion: ApprovalCardQuestion = {
+    id: activeQuestion.id ?? `question-${clampedQuestionIndex}`,
+    title: activeQuestion.title,
+    description: activeQuestion.description,
+    multiple: activeQuestion.kind === "multi",
+    allowCustom: activeQuestion.kind === "text" || activeQuestion.allowCustom,
+    customPlaceholder:
+      activeQuestion.customPlaceholder ?? activeQuestion.placeholder,
+    options: activeQuestion.options?.map((option) => ({
+      value: option.id ?? option.value ?? option.label,
+      label: option.label,
+    })),
+  }
+
+  const handleApprovalSubmit = (answers: ApprovalCardAnswers) => {
+    const answer = answers[approvalQuestion.id]
+    if (!answer) return
+
+    const custom = answer.custom?.trim() || undefined
+    const selectedIds = answer.selected.filter((id) => id !== "__custom__")
+    const questionAnswer: QuestionAnswer =
+      activeQuestion.kind === "text"
+        ? {
+            kind: "text",
+            questionId: activeQuestion.id,
+            text: custom,
+          }
+        : {
+            kind: activeQuestion.kind,
+            questionId: activeQuestion.id,
+            selectedIds,
+            text: custom,
+          }
+
+    questionBar.onSubmit(questionAnswer)
+    if (clampedQuestionIndex >= totalQuestions) {
+      onDismiss(questionBar.id)
+    } else {
+      advanceQuestionIndex()
+    }
+  }
+
+  const handleSkip = () => {
+    questionBar.onSkip?.()
+    questionBar.onSubmit({
+      kind: "skip",
+      questionId: activeQuestion.id,
+    })
+    onDismiss(questionBar.id)
+  }
 
   return (
     <div
@@ -78,26 +133,26 @@ export function InputQuestionBar({
           </div>
         )}
       </div>
-      <QuestionPrompt
-        key={`${clampedQuestionIndex}-${activeQuestion?.title ?? "question"}`}
-        questions={questionSet}
-        questionIndex={clampedQuestionIndex}
-        totalQuestions={totalQuestions}
-        submitLabel={questionBar.submitLabel}
-        skipLabel={questionBar.skipLabel}
-        allowSkip={questionBar.allowSkip}
-        onSubmit={(answer) => {
-          questionBar.onSubmit(answer)
-          if (clampedQuestionIndex >= totalQuestions) {
-            onDismiss(questionBar.id)
-          } else {
-            advanceQuestionIndex()
-          }
-        }}
-        onSkip={() => {
-          questionBar.onSkip?.()
-        }}
+      <ApprovalCard
+        key={`${clampedQuestionIndex}-${activeQuestion.title}`}
+        title="Prime Agent question"
+        questions={[approvalQuestion]}
+        submitLabel={questionBar.submitLabel ?? "Continue"}
+        status="pending"
+        onSubmit={handleApprovalSubmit}
+        className="rounded-none bg-background p-0"
       />
+      {questionBar.allowSkip ? (
+        <div className="border-t border-border bg-background px-3 py-2">
+          <button
+            type="button"
+            onClick={handleSkip}
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {questionBar.skipLabel ?? "Skip"}
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

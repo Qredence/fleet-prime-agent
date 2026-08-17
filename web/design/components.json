@@ -1,0 +1,25 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-nova",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/styles/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "aliases": {
+    "components": "@prime-agent/web-design/components",
+    "utils": "@prime-agent/web-design/lib/utils",
+    "ui": "@prime-agent/web-design/components",
+    "lib": "@prime-agent/web-design/lib",
+    "hooks": "@prime-agent/web-design/hooks"
+  },
+  "registries": {
+    "@beui": "https://beui.dev/r/{name}.json",
+    "@assistant-ui": "https://r.assistant-ui.com/{name}.json"
+  }
+}

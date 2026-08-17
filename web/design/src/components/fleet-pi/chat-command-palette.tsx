@@ -114,7 +114,7 @@ export function ChatCommandPalette({
             keywords={["resources", "skills", "panels"]}
           >
             <Library className="mr-2 size-4" />
-            <span>Open Pi Resources</span>
+            <span>Open Resources</span>
           </CommandItem>
           <CommandItem
             onSelect={() => handleSelect(() => onSetRightPanel("workspace"))}
@@ -137,11 +137,10 @@ export function ChatCommandPalette({
             <CommandSeparator />
             <CommandGroup heading="Sessions">
               {sessions.map((session) => {
-                const label =
-                  session.name || session.firstMessage || session.id.slice(0, 8)
+                const label = session.title
                 return (
                   <CommandItem
-                    key={session.id}
+                    key={session.sessionId}
                     onSelect={() =>
                       handleSelect(() => onResumeSession(session))
                     }

@@ -17,6 +17,9 @@ import {
   AlertDialogTitle,
 } from "../../alert-dialog"
 import { ScrollArea } from "../../scroll-area"
+import { Field, FieldDescription, FieldLabel } from "../../field"
+import { Select } from "../../select"
+import { Switch } from "../../switch"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -66,6 +69,34 @@ import {
   type SettingsSectionId,
 } from "./settings-sections"
 import type { LucideIcon } from "lucide-react"
+import {
+  readUiPreferences,
+  UI_PREFERENCES_KEY,
+  type UiPreferences,
+} from "../../../lib/ui-preferences"
+
+function PreferenceRow({
+  children,
+  description,
+  label,
+}: {
+  children: ReactNode
+  description: string
+  label: string
+}) {
+  return (
+    <Field
+      orientation="horizontal"
+      className="items-center justify-between gap-6 rounded-xl border p-4"
+    >
+      <div className="min-w-0">
+        <FieldLabel>{label}</FieldLabel>
+        <FieldDescription>{description}</FieldDescription>
+      </div>
+      <div className="shrink-0">{children}</div>
+    </Field>
+  )
+}
 
 /**
  * Thin composer over the per-section form hooks; keeps the dialog-level
@@ -261,6 +292,15 @@ export function SettingsDialog({
   /** When provided, selects this nav tab each time the dialog opens. */
   initialTab?: SettingsSectionId
 }) {
+  useEffect(() => {
+    const preferences = readUiPreferences()
+    document.documentElement.dataset.density = preferences.density
+    document.documentElement.classList.toggle(
+      "reduce-motion",
+      preferences.motion === "reduced"
+    )
+  }, [])
+
   return (
     <SettingsDialogSession
       initialTab={initialTab}
@@ -357,6 +397,23 @@ function SettingsDialogBody({
   const [activeTab, setActiveTab] = useState<SettingsSectionId>(
     () => initialTab ?? "appearance"
   )
+  const [preferences, setPreferences] = useState(readUiPreferences)
+
+  useEffect(() => {
+    window.localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(preferences))
+    document.documentElement.dataset.density = preferences.density
+    document.documentElement.classList.toggle(
+      "reduce-motion",
+      preferences.motion === "reduced"
+    )
+  }, [preferences])
+
+  const updatePreference = <Key extends keyof UiPreferences>(
+    key: Key,
+    value: UiPreferences[Key]
+  ) => {
+    setPreferences((current) => ({ ...current, [key]: value }))
+  }
 
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
   const [discardReason, setDiscardReason] = useState<"resource" | "model">(
@@ -451,7 +508,7 @@ function SettingsDialogBody({
 
   const panes: Record<SettingsSectionId, () => ReactNode> = {
     appearance: () => (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <div>
           <h3 className="text-lg font-medium">Appearance</h3>
           <p className="text-sm text-muted-foreground">
@@ -462,6 +519,58 @@ function SettingsDialogBody({
           onThemePreferenceChange={onThemePreferenceChange}
           themePreference={themePreference}
         />
+        <PreferenceRow label="Density" description="Adjust spacing across chat and panels.">
+          <Select
+            value={preferences.density}
+            onValueChange={(value) =>
+              updatePreference("density", value as UiPreferences["density"])
+            }
+            options={[
+              { label: "Comfortable", value: "comfortable" },
+              { label: "Compact", value: "compact" },
+            ]}
+          />
+        </PreferenceRow>
+        <PreferenceRow
+          label="Motion"
+          description="Respect the system setting or reduce UI motion."
+        >
+          <Select
+            value={preferences.motion}
+            onValueChange={(value) =>
+              updatePreference("motion", value as UiPreferences["motion"])
+            }
+            options={[
+              { label: "System", value: "system" },
+              { label: "Reduced", value: "reduced" },
+            ]}
+          />
+        </PreferenceRow>
+      </div>
+    ),
+    chat: () => (
+      <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="text-lg font-medium">Chat</h3>
+          <p className="text-sm text-muted-foreground">
+            Control transcript behavior.
+          </p>
+        </div>
+        <PreferenceRow
+          label="Streaming transcript"
+          description="Follow new output or preserve the reading position."
+        >
+          <Select
+            value={preferences.transcript}
+            onValueChange={(value) =>
+              updatePreference("transcript", value as UiPreferences["transcript"])
+            }
+            options={[
+              { label: "Follow output", value: "follow" },
+              { label: "Manual", value: "manual" },
+            ]}
+          />
+        </PreferenceRow>
       </div>
     ),
     sandbox: () => (
@@ -502,6 +611,51 @@ function SettingsDialogBody({
     ),
     skills: () => resourcesPane("skills"),
     "pi-harness": () => resourcesPane("harness"),
+    keybindings: () => (
+      <div className="flex flex-col gap-4 text-sm">
+        <div>
+          <h3 className="text-lg font-medium">Keybindings</h3>
+          <p className="text-sm text-muted-foreground">
+            Every shortcut also has a visible control in the header, panel, or composer.
+          </p>
+        </div>
+        <div className="rounded-xl border p-4 font-mono text-xs leading-7">
+          <div>Command palette: Ctrl/Command K</div>
+          <div>Conversation sidebar: Ctrl/Command B</div>
+          <div>Toggle Resources: Ctrl/Command Shift 1</div>
+          <div>Toggle Workspace: Ctrl/Command Shift 2</div>
+          <div>Toggle Artifacts: Ctrl/Command Shift 3</div>
+          <div>Focus active panel: Ctrl/Command Shift P</div>
+          <div>Return focus to chat: Ctrl/Command Shift C</div>
+          <div>Close active panel: Escape</div>
+        </div>
+      </div>
+    ),
+    sessions: () => (
+      <div className="flex flex-col gap-4">
+        <div>
+          <h3 className="text-lg font-medium">Sessions</h3>
+          <p className="text-sm text-muted-foreground">
+            Set local conversation preferences. Provider and workspace configuration remains Prime Agent-owned.
+          </p>
+        </div>
+        <PreferenceRow
+          label="Confirm session deletion"
+          description="Require confirmation before deleting a saved conversation."
+        >
+          <Switch
+            checked={preferences.confirmSessionDelete}
+            onCheckedChange={(checked) =>
+              updatePreference("confirmSessionDelete", checked)
+            }
+            aria-label="Confirm session deletion"
+          />
+        </PreferenceRow>
+        <p className="text-xs text-muted-foreground">
+          Provider credentials, OAuth, models, sandbox configuration, and workspace selection are managed by Prime Agent and its CLI.
+        </p>
+      </div>
+    ),
   }
 
   return (

@@ -1,13 +1,14 @@
+import type { RightPanelState } from "@prime-agent/web-protocol/fleet-contract";
 import { RESOURCE_CANVAS_VIEWPORT_RATIO } from "./layout-constants";
 import { readStoredWidth, storeStoredWidth } from "./stored-width";
 
-const RESOURCE_CANVAS_WIDTH_STORAGE_KEY = "fleet-pi-resource-canvas-width";
-const THEME_PREFERENCE_STORAGE_KEY = "fleet-pi-theme-preference";
+const RESOURCE_CANVAS_WIDTH_STORAGE_KEY = "fleet-prime:v1:right-panel-width";
+const THEME_PREFERENCE_STORAGE_KEY = "fleet-prime:v1:theme-preference";
 const RESOURCE_CANVAS_MIN_WIDTH = 320;
 
 export type ThemePreference = "light" | "dark" | "system";
 
-export type RightPanel = "resources" | "workspace" | "artifacts" | null;
+export type RightPanel = RightPanelState;
 
 export function getResourceCanvasInitialWidth() {
 	if (typeof window === "undefined") return RESOURCE_CANVAS_MIN_WIDTH;
