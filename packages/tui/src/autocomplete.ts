@@ -199,16 +199,25 @@ async function walkDirectoryWithFd(
 			const results: Array<{ path: string; isDirectory: boolean }> = [];
 
 			for (const line of lines) {
-				const displayLine = toDisplayPath(line);
-				const hasTrailingSeparator = displayLine.endsWith("/");
-				const normalizedPath = hasTrailingSeparator ? displayLine.slice(0, -1) : displayLine;
+				const rawDisplayPath = toDisplayPath(line);
+				const pathWithoutLeadingDot = rawDisplayPath.replace(/^\.\//, "");
+				const normalizedPath = pathWithoutLeadingDot.endsWith("/")
+					? pathWithoutLeadingDot.slice(0, -1)
+					: pathWithoutLeadingDot;
 				if (normalizedPath === ".git" || normalizedPath.startsWith(".git/") || normalizedPath.includes("/.git/")) {
 					continue;
 				}
 
+				let isDirectory = pathWithoutLeadingDot.endsWith("/");
+				try {
+					isDirectory = statSync(join(baseDir, normalizedPath)).isDirectory();
+				} catch {
+					// Keep the fd-provided type when the path disappears during the scan.
+				}
+
 				results.push({
-					path: displayLine,
-					isDirectory: hasTrailingSeparator,
+					path: isDirectory ? `${normalizedPath}/` : normalizedPath,
+					isDirectory,
 				});
 			}
 
