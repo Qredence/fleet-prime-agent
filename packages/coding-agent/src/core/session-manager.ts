@@ -5,8 +5,11 @@ import {
 	appendFileSync,
 	chmodSync,
 	chownSync,
+	closeSync,
+	constants,
 	existsSync,
 	mkdirSync,
+	openSync,
 	readdirSync,
 	readFileSync,
 	realpathSync,
@@ -1457,7 +1460,6 @@ export class SessionManager {
 	 */
 	flushNow(): void {
 		if (!this.persist || !this.sessionFile) return;
-		if (this.flushed && existsSync(this.sessionFile)) return;
 		this._rewriteFile();
 		this.flushed = true;
 	}
@@ -1473,13 +1475,27 @@ export class SessionManager {
 			return;
 		}
 
-		if (!this.flushed || !existsSync(this.sessionFile)) {
+		if (!this.flushed) {
 			this._rewriteFile();
 			this.flushed = true;
-		} else {
-			mkdirSync(dirname(this.sessionFile), { recursive: true });
-			appendFileSync(this.sessionFile, `${JSON.stringify(entry)}\n`);
+			return;
+		}
+
+		mkdirSync(dirname(this.sessionFile), { recursive: true });
+		try {
+			const fd = openSync(this.sessionFile, constants.O_WRONLY | constants.O_APPEND);
+			try {
+				appendFileSync(fd, `${JSON.stringify(entry)}\n`);
+			} finally {
+				closeSync(fd);
+			}
 			this._notifyPersistListeners();
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+				this._rewriteFile();
+				return;
+			}
+			throw error;
 		}
 	}
 
