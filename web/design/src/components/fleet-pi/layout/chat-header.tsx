@@ -222,10 +222,7 @@ export function SessionControls({
   )
 }
 
-export function KernelStatusChip({
-  ok,
-  reason,
-}: {
+export function KernelStatusChip(_props: {
   ok: boolean | null
   reason?: string
 }) {

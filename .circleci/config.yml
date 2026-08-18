@@ -1,0 +1,283 @@
+version: 2.1
+
+executors:
+  node:
+    docker:
+      - image: cimg/node:22.15.0
+    working_directory: ~/prime-agent
+
+commands:
+  install-system-dependencies:
+    steps:
+      - run:
+          name: Install system dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y \
+              libcairo2-dev \
+              libgif-dev \
+              libjpeg-dev \
+              libpango1.0-dev \
+              librsvg2-dev \
+              fd-find \
+              python3-pip \
+              ripgrep
+            if ! command -v fd >/dev/null 2>&1; then
+              sudo ln -s "$(command -v fdfind)" /usr/local/bin/fd
+            fi
+
+  install-pnpm:
+    steps:
+      - run:
+          name: Install pnpm
+          command: |
+            sudo npm install --global pnpm@11.15.1
+            pnpm config set store-dir ~/.cache/pnpm
+            pnpm --version
+
+  install-root-dependencies:
+    steps:
+      - restore_cache:
+          keys:
+            - v1-node22-npm-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install npm dependencies
+          command: npm ci
+      - save_cache:
+          key: v1-node22-npm-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.npm
+
+  install-web-dependencies:
+    steps:
+      - restore_cache:
+          keys:
+            - v1-node22-pnpm-{{ checksum "web/pnpm-lock.yaml" }}
+      - run:
+          name: Install web dependencies
+          command: pnpm install --dir web --frozen-lockfile
+      - save_cache:
+          key: v1-node22-pnpm-{{ checksum "web/pnpm-lock.yaml" }}
+          paths:
+            - ~/.cache/pnpm
+
+  install-uv:
+    steps:
+      - run:
+          name: Install uv
+          command: |
+            python3 -m pip install --user uv
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+            source "$BASH_ENV"
+            uv --version
+
+jobs:
+  build-check:
+    executor: node
+    steps:
+      - checkout
+      - install-system-dependencies
+      - install-pnpm
+      - install-root-dependencies
+      - install-web-dependencies
+      - run:
+          name: Build
+          command: npm run build
+      - run:
+          name: Check
+          command: npm run check
+
+  test:
+    parameters:
+      lane:
+        type: string
+      package:
+        type: string
+      command:
+        type: string
+      install_uv:
+        type: boolean
+        default: false
+    executor: node
+    steps:
+      - checkout
+      - install-system-dependencies
+      - install-root-dependencies
+      - run:
+          name: Build packages
+          command: npm run build
+      - when:
+          condition: << parameters.install_uv >>
+          steps:
+            - install-uv
+      - run:
+          name: Prepare test results
+          command: mkdir -p << parameters.package >>/test-results
+      - run:
+          name: Run << parameters.lane >> tests
+          working_directory: << parameters.package >>
+          command: << parameters.command >>
+      - store_test_results:
+          path: << parameters.package >>/test-results
+      - store_artifacts:
+          path: << parameters.package >>/test-results
+          destination: test-results/<< parameters.lane >>
+
+  test-web:
+    executor: node
+    steps:
+      - checkout
+      - install-pnpm
+      - install-root-dependencies
+      - install-web-dependencies
+      - run:
+          name: Build packages
+          command: npm run build
+      - run:
+          name: Prepare test results
+          command: mkdir -p test-results
+      - run:
+          name: Test web app
+          command: >-
+            pnpm --dir web --filter @prime-agent/web run test
+            --reporter=default --reporter=junit
+            --outputFile="$PWD/test-results/web-app.xml"
+      - run:
+          name: Test web server
+          command: >-
+            pnpm --dir web --filter @prime-agent/web-server run test
+            --reporter=default --reporter=junit
+            --outputFile="$PWD/test-results/web-server.xml"
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+          destination: test-results/web
+
+  process-stress:
+    executor: node
+    steps:
+      - checkout
+      - install-system-dependencies
+      - install-root-dependencies
+      - run:
+          name: Build packages
+          command: npm run build
+      - install-uv
+      - run:
+          name: Prepare test results
+          command: mkdir -p packages/coding-agent/test-results
+      - run:
+          name: Run process stress tests
+          working_directory: packages/coding-agent
+          environment:
+            PRIME_AGENT_STRESS_WORKERS: "10"
+          command: >-
+            npm run test:process-stress --
+            --reporter=default --reporter=junit
+            --outputFile=test-results/process-stress.xml
+      - store_test_results:
+          path: packages/coding-agent/test-results
+      - store_artifacts:
+          path: packages/coding-agent/test-results
+          destination: test-results/process-stress
+
+  ci-success:
+    executor: node
+    steps:
+      - run:
+          name: Confirm all CI jobs passed
+          command: echo "All CircleCI validation jobs passed."
+
+workflows:
+  ci:
+    jobs:
+      - build-check
+      - test:
+          name: test-agent-core
+          lane: agent-core
+          package: packages/agent
+          command: >-
+            npm test -- --reporter=default --reporter=junit
+            --outputFile=test-results/junit.xml
+      - test:
+          name: test-ai
+          lane: ai
+          package: packages/ai
+          command: >-
+            npm test -- --reporter=default --reporter=junit
+            --outputFile=test-results/junit.xml
+      - test:
+          name: test-tui
+          lane: tui
+          package: packages/tui
+          command: >-
+            node --test --import tsx --test-reporter=junit
+            --test-reporter-destination=test-results/junit.xml test/*.test.ts
+      - test:
+          name: test-coding-agent-1-3
+          lane: coding-agent-1-3
+          package: packages/coding-agent
+          install_uv: true
+          command: >-
+            npm run test:ci -- --reporter=default --reporter=junit
+            --outputFile=test-results/junit.xml
+            --shard=1/3
+      - test:
+          name: test-coding-agent-2-3
+          lane: coding-agent-2-3
+          package: packages/coding-agent
+          install_uv: true
+          command: >-
+            npm run test:ci -- --reporter=default --reporter=junit
+            --outputFile=test-results/junit.xml
+            --shard=2/3
+      - test:
+          name: test-coding-agent-3-3
+          lane: coding-agent-3-3
+          package: packages/coding-agent
+          install_uv: true
+          command: >-
+            npm run test:ci -- --reporter=default --reporter=junit
+            --outputFile=test-results/junit.xml
+            --shard=3/3
+      - test:
+          name: test-coding-agent-process
+          lane: coding-agent-process
+          package: packages/coding-agent
+          install_uv: true
+          command: >-
+            npm run test:process -- --reporter=default --reporter=junit
+            --outputFile=test-results/junit.xml
+      - test:
+          name: test-coding-agent-kernel
+          lane: coding-agent-kernel
+          package: packages/coding-agent
+          install_uv: true
+          command: >-
+            npm run test:kernel -- --reporter=default --reporter=junit
+            --outputFile=test-results/junit.xml
+      - test-web
+      - ci-success:
+          requires:
+            - build-check
+            - test-agent-core
+            - test-ai
+            - test-tui
+            - test-coding-agent-1-3
+            - test-coding-agent-2-3
+            - test-coding-agent-3-3
+            - test-coding-agent-process
+            - test-coding-agent-kernel
+            - test-web
+
+  nightly-process-stress:
+    triggers:
+      - schedule:
+          cron: "0 9 * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - process-stress
