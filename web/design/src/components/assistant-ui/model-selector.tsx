@@ -1,7 +1,7 @@
 "use client"
 
 import { Check, ChevronDown, Gauge } from "lucide-react"
-import { memo, useMemo, useState, type ReactNode } from "react"
+import { memo, useId, useMemo, useState, type ReactNode } from "react"
 import {
   Command,
   CommandEmpty,
@@ -73,6 +73,7 @@ export const ModelSelector = memo(function ModelSelector({
   contentClassName,
 }: ModelSelectorProps) {
   const [internalOpen, setInternalOpen] = useState(false)
+  const popupId = useId()
   const open = controlledOpen ?? internalOpen
   const handleOpenChange = (next: boolean) => {
     if (controlledOpen === undefined) setInternalOpen(next)
@@ -88,6 +89,7 @@ export const ModelSelector = memo(function ModelSelector({
       type="button"
       role="combobox"
       aria-expanded={open}
+      aria-controls={popupId}
       aria-haspopup="dialog"
       aria-label="Select model and reasoning effort"
       className={cn(
@@ -106,6 +108,7 @@ export const ModelSelector = memo(function ModelSelector({
 
   return (
     <Popover
+      contentId={popupId}
       open={open}
       onOpenChange={handleOpenChange}
       side="top"

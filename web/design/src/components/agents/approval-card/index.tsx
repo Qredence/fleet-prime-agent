@@ -10,7 +10,7 @@ import {
   MessageSquareText,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AgentDisclosure } from "@prime-agent/web-design/components/agents/agent-disclosure";
 import { ActionSwapRollText } from "@prime-agent/web-design/components/motion/action-swap-roll";
@@ -90,6 +90,7 @@ function QuestionOptions({
   onSingleSelect?: () => void;
 }) {
   const custom = answer.custom ?? "";
+  const selectedValues = new Set(answer.selected);
 
   return (
     <div className="mt-3">
@@ -99,7 +100,7 @@ function QuestionOptions({
             {question.options.map((option) => (
               <Checkbox
                 key={option.value}
-                checked={answer.selected.includes(option.value)}
+                checked={selectedValues.has(option.value)}
                 disabled={disabled || option.disabled}
                 label={option.label}
                 onCheckedChange={(checked) =>
@@ -166,7 +167,7 @@ function ProgressDots({ current, ids }: { current: number; ids: string[] }) {
         Question {current + 1} of {ids.length}
       </span>
       {ids.map((id, index) => (
-        <motion.span
+        <m.span
           key={id}
           aria-hidden="true"
           initial={{
@@ -347,9 +348,9 @@ export function ApprovalCard({
           </div>
 
           <AgentDisclosure open={interactive}>
-            {questionMode && question ? (
-              <AnimatePresence initial={false} mode="wait">
-                <motion.div
+            <AnimatePresence initial={false} mode="wait">
+              {questionMode && question ? (
+                <m.div
                   key={question.id}
                   initial={reduce ? { opacity: 1 } : { opacity: 0, x: 8 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -368,18 +369,18 @@ export function ApprovalCard({
                     onChange={updateCurrentAnswer}
                     onSingleSelect={queueAutoAdvance}
                   />
-                </motion.div>
-              </AnimatePresence>
-            ) : (
-              <div>
+                </m.div>
+              ) : (
+                <m.div key="description" initial={false}>
                 {description ? (
                   <p className="mt-1 leading-5 text-muted-foreground">
                     {description}
                   </p>
                 ) : null}
                 {children ? <div className="mt-3">{children}</div> : null}
-              </div>
-            )}
+                </m.div>
+              )}
+            </AnimatePresence>
 
             {questionMode ? (
               <div className="mt-4 flex items-center gap-3">

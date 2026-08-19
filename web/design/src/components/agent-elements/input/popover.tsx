@@ -1,5 +1,5 @@
 import { Popover as BasePopover } from "@base-ui/react/popover"
-import { cloneElement, isValidElement } from "react"
+import { cloneElement, isValidElement, useId } from "react"
 import { cn } from "../utils/cn"
 import type { ReactNode } from "react"
 import type { PopoverPositionerProps } from "@base-ui/react/popover"
@@ -10,6 +10,7 @@ export type PopoverAlign = "start" | "center" | "end"
 export type PopoverProps = {
   trigger: ReactNode
   children: ReactNode
+  contentId?: string
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
@@ -25,6 +26,7 @@ export type PopoverProps = {
 export function Popover({
   trigger,
   children,
+  contentId,
   open,
   defaultOpen,
   onOpenChange,
@@ -40,6 +42,9 @@ export function Popover({
   className,
   overlay = false,
 }: PopoverProps) {
+  const generatedPopupId = useId()
+  const popupId = contentId ?? generatedPopupId
+
   return (
     <BasePopover.Root
       open={open}
@@ -48,9 +53,10 @@ export function Popover({
     >
       <BasePopover.Trigger
         render={(props) => {
-          if (isValidElement<{ className?: string }>(trigger)) {
+          if (isValidElement<{ className?: string; "aria-controls"?: string }>(trigger)) {
             return cloneElement(trigger, {
               ...props,
+              "aria-controls": popupId,
               className: cn(
                 "inline-flex",
                 trigger.props.className,
@@ -63,6 +69,7 @@ export function Popover({
             <button
               {...props}
               type="button"
+              aria-controls={popupId}
               className={cn("inline-flex", props.className)}
             >
               {trigger}
@@ -83,6 +90,7 @@ export function Popover({
           className="z-[99]"
         >
           <BasePopover.Popup
+            id={popupId}
             className={cn(
               "max-h-[min(320px,var(--available-height,320px))] max-w-[calc(100vw-16px)] min-w-[180px] overflow-y-auto overscroll-contain rounded-[10px] border border-an-border-color bg-an-background p-1 shadow-lg outline-none",
               "text-an-foreground",

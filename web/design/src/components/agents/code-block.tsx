@@ -2,7 +2,7 @@
 // beui.dev/components/agents/chat-app
 
 import { Check, Copy, FileCode2, LoaderCircle } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -19,6 +19,8 @@ import {
 } from "@prime-agent/web-design/components/agents/agent-code";
 import { SPRING_PRESS } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
+
+const EMPTY_HIGHLIGHT_LINES: number[] = [];
 
 export type CodeBlockStatus = "streaming" | "complete";
 
@@ -42,7 +44,7 @@ export function CodeBlock({
   filename,
   status = "complete",
   showLineNumbers = true,
-  highlightLines = [],
+  highlightLines = EMPTY_HIGHLIGHT_LINES,
   maxHeight = 280,
   wrap = false,
   copyable = true,
@@ -138,7 +140,7 @@ export function CodeBlock({
           {streaming ? "Writing" : "Ready"}
         </span>
         {copyable || onCopy ? (
-          <motion.button
+          <m.button
             type="button"
             aria-label={copied ? "Copied" : "Copy code"}
             title={copied ? "Copied" : "Copy code"}
@@ -152,7 +154,7 @@ export function CodeBlock({
             ) : (
               <Copy className="size-3.5" />
             )}
-          </motion.button>
+          </m.button>
         ) : null}
       </div>
 

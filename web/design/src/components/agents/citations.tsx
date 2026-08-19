@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpenText, ChevronDown, ExternalLink, Globe2 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -200,7 +200,7 @@ export function CitationList({
     <div className={cn("grid gap-0.5", className)}>
       <AnimatePresence mode="popLayout">
         {citations.map((citation, index) => (
-          <motion.div
+          <m.div
             layout="position"
             key={citation.id}
             initial={reduce ? { opacity: 1 } : { opacity: 0, y: 6 }}
@@ -221,7 +221,7 @@ export function CitationList({
               index={index + 1}
               idPrefix={resolvedPrefix}
             />
-          </motion.div>
+          </m.div>
         ))}
       </AnimatePresence>
     </div>
@@ -266,14 +266,14 @@ export function Citations({
         <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold tabular-nums">
           {citations.length}
         </span>
-        <motion.span
+        <m.span
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
           className="text-muted-foreground/60"
         >
           <ChevronDown className="size-3.5" />
-        </motion.span>
+        </m.span>
       </button>
 
       <AgentDisclosure

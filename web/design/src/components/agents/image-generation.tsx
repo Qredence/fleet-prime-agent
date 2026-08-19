@@ -2,7 +2,7 @@
 // beui.dev/components/agents/chat-app
 
 import { Check, CircleAlert, RotateCcw } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { EASE_IN_OUT, EASE_OUT, SPRING_PRESS } from "@prime-agent/web-design/lib/ease";
@@ -83,7 +83,7 @@ function DitherMark({
   }
 
   return (
-    <motion.span
+    <m.span
       aria-hidden="true"
       animate={reduce ? undefined : { rotate: 360 }}
       transition={{
@@ -97,7 +97,7 @@ function DitherMark({
       <span className="size-1 rounded-[1px] bg-current opacity-55" />
       <span className="size-1 rounded-[1px] bg-current opacity-55" />
       <span className="size-1 rounded-[1px] bg-current" />
-    </motion.span>
+    </m.span>
   );
 }
 
@@ -228,7 +228,7 @@ function DitherField({
   }, [canHover, interactive, reduce]);
 
   return (
-    <motion.div
+    <m.div
       aria-hidden="true"
       initial={false}
       animate={{ opacity: OVERLAY_OPACITY[status] }}
@@ -239,7 +239,7 @@ function DitherField({
         ref={canvasRef}
         className="absolute inset-0 size-full text-foreground"
       />
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -286,7 +286,7 @@ export function ImageGeneration({
           style={{ aspectRatio }}
           className="relative isolate w-full overflow-hidden rounded-xl bg-muted"
         >
-          <motion.div
+          <m.div
             aria-hidden={children ? undefined : true}
             initial={false}
             animate={
@@ -307,11 +307,11 @@ export function ImageGeneration({
             )}
           >
             {children}
-          </motion.div>
+          </m.div>
 
           <AnimatePresence initial={false}>
             {active ? (
-              <motion.div
+              <m.div
                 key="dither-field"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -324,7 +324,7 @@ export function ImageGeneration({
                   reduce={reduce}
                   status={status}
                 />
-              </motion.div>
+              </m.div>
             ) : null}
           </AnimatePresence>
 
@@ -335,44 +335,47 @@ export function ImageGeneration({
           ) : null}
         </div>
 
-        {showStatus || prompt ? (
-          <div className="mt-3 text-left">
-            {showStatus ? (
+        <AnimatePresence initial={false}>
+          {showStatus || prompt ? (
+            <m.div key="status-block" initial={false} className="mt-3 text-left">
               <div
                 aria-live="polite"
                 className={cn(
-                  "flex min-h-5 items-center gap-2 text-sm font-medium text-foreground",
+                  showStatus ? "flex min-h-5 items-center gap-2" : "contents",
+                  "text-sm font-medium text-foreground",
                   status === "error" && "text-destructive",
                   statusClassName,
                 )}
               >
-                <DitherMark status={status} reduce={reduce} />
+                {showStatus ? <DitherMark status={status} reduce={reduce} /> : null}
                 <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.span
-                    key={resolvedStatusText}
-                    initial={reduce ? false : { opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={reduce ? undefined : { opacity: 0, y: -4 }}
-                    transition={{
-                      duration: reduce ? 0 : 0.15,
-                      ease: EASE_OUT,
-                    }}
-                  >
-                    {resolvedStatusText}
-                  </motion.span>
+                  {showStatus ? (
+                    <m.span
+                      key={resolvedStatusText}
+                      initial={reduce ? false : { opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reduce ? undefined : { opacity: 0, y: -4 }}
+                      transition={{
+                        duration: reduce ? 0 : 0.15,
+                        ease: EASE_OUT,
+                      }}
+                    >
+                      {resolvedStatusText}
+                    </m.span>
+                  ) : null}
                 </AnimatePresence>
               </div>
-            ) : null}
-            {prompt ? (
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                “{prompt}”
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+              {prompt ? (
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  “{prompt}”
+                </p>
+              ) : null}
+            </m.div>
+          ) : null}
+        </AnimatePresence>
 
         {status === "error" && onRetry ? (
-          <motion.button
+          <m.button
             type="button"
             onClick={onRetry}
             whileTap={reduce ? undefined : { scale: 0.96 }}
@@ -381,7 +384,7 @@ export function ImageGeneration({
           >
             <RotateCcw aria-hidden="true" className="size-4" />
             Try again
-          </motion.button>
+          </m.button>
         ) : null}
       </div>
     </div>

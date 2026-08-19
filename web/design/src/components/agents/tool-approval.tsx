@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -200,13 +200,13 @@ export function ToolApproval({
               className="mt-2 inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
               View details
-              <motion.span
+              <m.span
                 aria-hidden="true"
                 animate={{ rotate: currentOpen ? 180 : 0 }}
                 transition={reduce ? { duration: 0 } : SPRING_SWAP}
               >
                 <ChevronDown className="size-3.5" />
-              </motion.span>
+              </m.span>
             </button>
           ) : null}
         </div>
@@ -233,14 +233,14 @@ export function ToolApproval({
 
       <AnimatePresence initial={false}>
         {pending ? (
-          <motion.div
+          <m.div
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduce ? 0.12 : 0.22, ease: EASE_OUT }}
             className="flex flex-wrap items-center gap-2 border-t border-border/60 px-4 py-3"
           >
-            <motion.button
+            <m.button
               type="button"
               onClick={onApprove}
               whileTap={reduce ? undefined : { scale: 0.97 }}
@@ -248,9 +248,9 @@ export function ToolApproval({
               className="rounded-xl bg-foreground px-3 py-1.5 text-xs font-medium text-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               Allow once
-            </motion.button>
+            </m.button>
             {onAlwaysAllow ? (
-              <motion.button
+              <m.button
                 type="button"
                 onClick={onAlwaysAllow}
                 whileTap={reduce ? undefined : { scale: 0.97 }}
@@ -258,7 +258,7 @@ export function ToolApproval({
                 className="rounded-xl border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Always allow
-              </motion.button>
+              </m.button>
             ) : null}
             <button
               type="button"
@@ -267,7 +267,7 @@ export function ToolApproval({
             >
               Deny
             </button>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </div>

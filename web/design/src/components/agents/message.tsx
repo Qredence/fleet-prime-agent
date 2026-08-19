@@ -1,12 +1,13 @@
 "use client";
 // beui.dev/components/agents/chat-app
 
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import {
   type ComponentPropsWithRef,
   createContext,
   type ReactNode,
   useContext,
+  useMemo,
 } from "react";
 import { EASE_OUT } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
@@ -32,7 +33,7 @@ const MessageContext = createContext<MessageContextValue>({
 });
 
 export interface MessageProps
-  extends Omit<ComponentPropsWithRef<typeof motion.article>, "children"> {
+  extends Omit<ComponentPropsWithRef<typeof m.article>, "children"> {
   from: MessageFrom;
   /** Plays a trailing-edge pop-up once when this message row mounts. */
   animateIn?: boolean;
@@ -79,11 +80,12 @@ export function Message({
   ...props
 }: MessageProps) {
   const reduce = useReducedMotion() ?? false;
+  const messageContextValue = useMemo(() => ({ from }), [from]);
 
   return (
     <MessageSideContext.Provider value={from === "user" ? "end" : "start"}>
-      <MessageContext.Provider value={{ from }}>
-        <motion.article
+      <MessageContext.Provider value={messageContextValue}>
+        <m.article
           data-slot="message"
           data-from={from}
           aria-label={props["aria-label"] ?? `${from} message`}
@@ -129,7 +131,7 @@ export function Message({
           {...props}
         >
           {children}
-        </motion.article>
+        </m.article>
       </MessageContext.Provider>
     </MessageSideContext.Provider>
   );
@@ -251,7 +253,7 @@ export function MessageTyping({
     >
       <span className="sr-only">{label}</span>
       {[0, 1, 2].map((index) => (
-        <motion.span
+        <m.span
           key={index}
           aria-hidden="true"
           className="size-1 rounded-full bg-current"
