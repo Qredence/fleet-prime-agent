@@ -1,16 +1,16 @@
 "use client";
 
-import { motion, type Transition } from "motion/react";
+import { m, type Transition } from "motion/react";
 import {
   type CSSProperties,
   type ReactNode,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import { usePopoverPortalPosition } from "@prime-agent/web-design/components/motion/popover-position";
+import { useHydrated } from "@prime-agent/web-design/lib/hooks/use-hydrated";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { useComboboxContext } from "./context";
 
@@ -45,7 +45,7 @@ export function ComboboxContent({
 }: ComboboxContentProps) {
   const context = useComboboxContext("ComboboxContent");
   const measureRef = useRef<HTMLDivElement>(null);
-  const [portalReady, setPortalReady] = useState(false);
+  const portalReady = useHydrated();
   const [actualSide, setActualSide] = useState<Side>(side);
   const [morphReady, setMorphReady] = useState(false);
   const layout = usePopoverPortalPosition(
@@ -54,7 +54,6 @@ export function ComboboxContent({
     portalReady,
   );
 
-  useEffect(() => setPortalReady(true), []);
   useLayoutEffect(() => {
     if (!portalReady) return;
     const readyFrame = requestAnimationFrame(() => setMorphReady(true));
@@ -105,7 +104,7 @@ export function ComboboxContent({
   const surfaceHeight = layout?.content.height ?? 0;
 
   return createPortal(
-    <motion.div
+    <m.div
       ref={context.contentRef}
       data-combobox-content=""
       data-side={actualSide}
@@ -113,7 +112,6 @@ export function ComboboxContent({
       inert={!context.open}
       initial={false}
       animate={{
-        height: context.open ? surfaceHeight : 0,
         opacity: context.open ? 1 : 0,
         y: context.open
           ? actualSide === "bottom"
@@ -124,8 +122,10 @@ export function ComboboxContent({
       transition={
         context.reduce || !morphReady ? { duration: 0 } : COMBOBOX_MORPH
       }
+      layout="size"
       style={
         {
+          height: context.open ? surfaceHeight : 0,
           left,
           top:
             actualSide === "bottom" && layout
@@ -147,7 +147,7 @@ export function ComboboxContent({
         className,
       )}
     >
-      <motion.div
+      <m.div
         ref={measureRef}
         initial={false}
         animate={{ opacity: context.open ? 1 : 0 }}
@@ -156,8 +156,8 @@ export function ComboboxContent({
         }
       >
         {children}
-      </motion.div>
-    </motion.div>,
+      </m.div>
+    </m.div>,
     document.body,
   );
 }

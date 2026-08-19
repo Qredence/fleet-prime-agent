@@ -3,7 +3,7 @@
 import {
   AnimatePresence,
   animate,
-  motion,
+  m,
   useReducedMotion,
 } from "motion/react";
 import {
@@ -175,7 +175,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         />
 
         {success ? (
-          <motion.svg
+          <m.svg
             viewBox="0 0 24 24"
             fill="none"
             className={cn(
@@ -183,7 +183,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
               classNames?.successIcon,
             )}
           >
-            <motion.path
+            <m.path
               d="M5 12.5l4.5 4.5L19 7.5"
               stroke="currentColor"
               strokeWidth={2.5}
@@ -193,7 +193,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
               animate={{ pathLength: 1 }}
               transition={{ duration: 0.35, ease: "easeOut" }}
             />
-          </motion.svg>
+          </m.svg>
         ) : rightSlot ? (
           <span
             className={cn(
@@ -208,7 +208,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 
       <AnimatePresence initial={false}>
         {errorMessage ? (
-          <motion.p
+          <m.p
             id={`${id}-error`}
             role="alert"
             initial={
@@ -229,7 +229,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             )}
           >
             {errorMessage}
-          </motion.p>
+          </m.p>
         ) : null}
       </AnimatePresence>
     </div>

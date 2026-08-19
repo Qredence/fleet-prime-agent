@@ -9,6 +9,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useEffectEvent,
   useId,
   useMemo,
   useRef,
@@ -164,6 +165,7 @@ export function Combobox({
     },
     [disabled, onOpenChange, openControlled, updateQuery],
   );
+  const updateOpenEvent = useEffectEvent(updateOpen);
 
   const registerItem = useCallback((item: RegisteredItem) => {
     setItems((current) => {
@@ -289,15 +291,15 @@ export function Combobox({
     const isInside = (target: Node) =>
       rootRef.current?.contains(target) || contentRef.current?.contains(target);
     const onPointerDown = (event: PointerEvent) => {
-      if (!isInside(event.target as Node)) updateOpen(false);
+      if (!isInside(event.target as Node)) updateOpenEvent(false);
     };
     const onFocusIn = (event: FocusEvent) => {
-      if (!isInside(event.target as Node)) updateOpen(false);
+      if (!isInside(event.target as Node)) updateOpenEvent(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      updateOpen(false, true);
+      updateOpenEvent(false, true);
     };
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("focusin", onFocusIn);
@@ -307,7 +309,7 @@ export function Combobox({
       window.removeEventListener("focusin", onFocusIn);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, updateOpen]);
+  }, [open]);
 
   const activeItem = activeValue ? items.get(activeValue) : undefined;
   const context = useMemo<ComboboxContextValue>(

@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   cloneElement,
   createContext,
@@ -11,6 +11,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useEffectEvent,
   useId,
   useMemo,
   useRef,
@@ -19,6 +20,7 @@ import {
 import { createPortal } from "react-dom";
 import { usePopoverPortalPosition } from "@prime-agent/web-design/components/motion/popover-position";
 import { EASE_OUT, SPRING_PANEL } from "@prime-agent/web-design/lib/ease";
+import { useHydrated } from "@prime-agent/web-design/lib/hooks/use-hydrated";
 import { cn } from "@prime-agent/web-design/lib/utils";
 
 type Side = "top" | "bottom";
@@ -80,10 +82,11 @@ export function MorphPopover({
     [controlled, onOpenChange],
   );
   const toggle = useCallback(() => setOpen(!open), [setOpen, open]);
+  const setOpenEvent = useEffectEvent(setOpen);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpenEvent(false);
     const onPointer = (e: PointerEvent) => {
       const target = e.target as Node;
       if (
@@ -91,7 +94,7 @@ export function MorphPopover({
         !rootRef.current.contains(target) &&
         !contentRef.current?.contains(target)
       )
-        setOpen(false);
+        setOpenEvent(false);
     };
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", onPointer);
@@ -99,7 +102,7 @@ export function MorphPopover({
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointerdown", onPointer);
     };
-  }, [open, setOpen]);
+  }, [open]);
 
   const ctx = useMemo<MorphContextValue>(
     () => ({
@@ -202,14 +205,13 @@ export function MorphPopoverContent({
 }: MorphPopoverContentProps) {
   const ctx = useMorphContext("MorphPopoverContent");
   const reduce = useReducedMotion() ?? false;
-  const [portalReady, setPortalReady] = useState(false);
+  const portalReady = useHydrated();
   const layout = usePopoverPortalPosition(
     ctx.triggerRef,
     ctx.contentRef,
     portalReady && ctx.open,
   );
 
-  useEffect(() => setPortalReady(true), []);
   const left = layout
     ? align === "end"
       ? layout.trigger.left + layout.trigger.width - layout.content.width
@@ -248,7 +250,7 @@ export function MorphPopoverContent({
   return createPortal(
     <AnimatePresence>
       {ctx.open ? (
-        <motion.div
+        <m.div
           data-morph-popover-portal=""
           // Wrapper carries the shadow as a drop-shadow filter, which hugs the
           // clipped shape below (box-shadow would just get clipped away).
@@ -265,7 +267,7 @@ export function MorphPopoverContent({
           }}
           className="fixed z-[9999] [filter:drop-shadow(0_10px_18px_rgba(0,0,0,0.14))]"
         >
-          <motion.div
+          <m.div
             ref={ctx.contentRef}
             id={ctx.contentId}
             role="dialog"
@@ -278,8 +280,8 @@ export function MorphPopoverContent({
             )}
           >
             {children}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       ) : null}
     </AnimatePresence>,
     document.body,

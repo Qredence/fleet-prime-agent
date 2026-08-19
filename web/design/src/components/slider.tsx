@@ -1,7 +1,7 @@
 "use client"
 
 import { useId, useMemo, useState, type HTMLAttributes, type KeyboardEvent } from "react"
-import { motion } from "motion/react"
+import { m } from "motion/react"
 
 import { SPRING_GLIDE } from "../lib/ease"
 import { cn } from "../lib/utils"
@@ -105,7 +105,7 @@ export function Slider({
           style={{WebkitMaskImage: pipMask, maskImage: pipMask}}
         >
           {pipValues.map((pipValue) => (
-            <motion.span
+            <m.span
               key={pipValue}
               className="relative flex size-[5px] items-center justify-center rounded-full"
               animate={{
@@ -116,22 +116,25 @@ export function Slider({
             />
           ))}
         </div>
-        <motion.div
+        <m.div
           aria-hidden="true"
           className="absolute inset-y-0 left-0 z-[3] pointer-events-none bg-foreground/[0.08]"
-          animate={{width: fillWidth}}
+          layout="size"
+          style={{width: fillWidth}}
           transition={SPRING_GLIDE}
         />
-        <motion.div
+        <m.div
           aria-hidden="true"
           className={cn(
             "absolute z-[3] w-0.5 rounded-full pointer-events-none",
           )}
-          style={{left: handleLeft}}
-          animate={{
+          layout
+          style={{
             left: handleLeft,
             top: hovered || focused ? 7 : 8,
             bottom: hovered || focused ? 7 : 8,
+          }}
+          animate={{
             backgroundColor: focused
               ? "var(--foreground)"
               : hovered
@@ -155,22 +158,22 @@ export function Slider({
         </div>
         <div className="pointer-events-none absolute inset-0 z-[4] flex items-center px-2 text-[13px]">
           {label ? (
-            <motion.span
+            <m.span
               className="px-2"
               animate={{color: hovered || focused ? "var(--foreground)" : "var(--muted-foreground)"}}
               transition={SPRING_GLIDE}
             >
               {label}
-            </motion.span>
+            </m.span>
           ) : null}
-          <motion.span
+          <m.span
             className="ml-auto px-2 tabular-nums"
             style={{minWidth: `${maxValueText.length}ch`, textAlign: "right"}}
             animate={{color: hovered || focused ? "var(--foreground)" : "var(--muted-foreground)"}}
             transition={SPRING_GLIDE}
           >
             {valueText}
-          </motion.span>
+          </m.span>
         </div>
         <input
           id={inputId}

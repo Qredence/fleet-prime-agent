@@ -3,7 +3,7 @@
 import {
   AnimatePresence,
   type HTMLMotionProps,
-  motion,
+  m,
   useReducedMotion,
   type Variants,
 } from "motion/react";
@@ -67,16 +67,16 @@ export const SharedLayoutBg = forwardRef<HTMLElement, SharedLayoutBgProps>(
   const uid = useId();
   const reduce = useReducedMotion();
 
-    const renderedChildren = Children.toArray(children)
-      .filter(isValidElement)
-      .map((child, index) => {
+    const renderedChildren = Children.toArray(children).reduce<ReactNode[]>(
+      (result, child, index) => {
+        if (!isValidElement(child)) return result;
         const el = child as ReactElement<{
           className?: string;
           onMouseEnter?: () => void;
           children?: ReactNode;
         }>;
         const childKey = el.key ? String(el.key) : `item-${index}`;
-        return cloneElement(
+        result.push(cloneElement(
           el,
           {
             key: childKey,
@@ -89,7 +89,7 @@ export const SharedLayoutBg = forwardRef<HTMLElement, SharedLayoutBgProps>(
           <>
             <AnimatePresence custom={activeId !== null}>
               {activeId !== null ? (
-                <motion.div
+                <m.div
                   variants={reduce ? reducedVariants : variants}
                   initial="initial"
                   animate="animate"
@@ -102,7 +102,7 @@ export const SharedLayoutBg = forwardRef<HTMLElement, SharedLayoutBgProps>(
                   style={{ left: -inset, right: -inset }}
                 >
                   {activeId === childKey ? (
-                    <motion.div
+                    <m.div
                       layoutId={`shared-bg-${uid}`}
                       transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
                       className={cn(
@@ -111,13 +111,16 @@ export const SharedLayoutBg = forwardRef<HTMLElement, SharedLayoutBgProps>(
                       )}
                     />
                   ) : null}
-                </motion.div>
+                </m.div>
               ) : null}
             </AnimatePresence>
             <div className="relative z-10">{el.props.children}</div>
           </>,
-        );
-      });
+        ));
+        return result;
+      },
+      [],
+    );
 
     const handleMouseLeave = (event: MouseEvent<HTMLElement>) => {
       setActiveId(null);
@@ -127,7 +130,7 @@ export const SharedLayoutBg = forwardRef<HTMLElement, SharedLayoutBgProps>(
     // layoutRoot scopes the pill's layout projection to this list, so fixed or
     // scrolled ancestors can't smear scroll offsets into its movement.
     return as === "ul" ? (
-      <motion.ul
+      <m.ul
         {...(props as HTMLMotionProps<"ul">)}
         ref={forwardedRef as Ref<HTMLUListElement>}
         layoutRoot
@@ -135,9 +138,9 @@ export const SharedLayoutBg = forwardRef<HTMLElement, SharedLayoutBgProps>(
         className={cn("flex w-full flex-col", className)}
       >
         {renderedChildren}
-      </motion.ul>
+      </m.ul>
     ) : (
-      <motion.div
+      <m.div
         {...(props as HTMLMotionProps<"div">)}
         ref={forwardedRef as Ref<HTMLDivElement>}
         layoutRoot
@@ -145,7 +148,7 @@ export const SharedLayoutBg = forwardRef<HTMLElement, SharedLayoutBgProps>(
         className={cn("flex w-full flex-col", className)}
       >
         {renderedChildren}
-      </motion.div>
+      </m.div>
     );
   },
 );

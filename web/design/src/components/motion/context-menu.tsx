@@ -4,7 +4,7 @@
 import { Check } from "lucide-react";
 import {
   AnimatePresence,
-  motion,
+  m,
   useReducedMotion,
 } from "motion/react";
 import {
@@ -20,6 +20,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useEffectEvent,
   useId,
   useLayoutEffect,
   useMemo,
@@ -146,14 +147,15 @@ export function ContextMenu({
     },
     [setOpen],
   );
+  const setOpenEvent = useEffectEvent(setOpen);
 
   useEffect(() => {
     if (!open) return;
 
     const onPointerDown = (event: PointerEvent) => {
-      if (!contentRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!contentRef.current?.contains(event.target as Node)) setOpenEvent(false);
     };
-    const onWindowChange = () => setOpen(false);
+    const onWindowChange = () => setOpenEvent(false);
 
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("resize", onWindowChange);
@@ -163,7 +165,7 @@ export function ContextMenu({
       window.removeEventListener("resize", onWindowChange);
       window.removeEventListener("scroll", onWindowChange);
     };
-  }, [open, setOpen]);
+  }, [open]);
 
   const value = useMemo<ContextMenuContextValue>(
     () => ({
@@ -465,7 +467,7 @@ export function ContextMenuContent({
         context.open ? "pointer-events-auto" : "pointer-events-none",
       )}
     >
-      <motion.div
+      <m.div
         ref={context.contentRef}
         id={context.menuId}
         role="menu"
@@ -504,7 +506,7 @@ export function ContextMenuContent({
         )}
       >
         {children}
-      </motion.div>
+      </m.div>
     </div>,
     document.body,
   );
@@ -574,7 +576,7 @@ function ContextMenuItemBase({
       )}
     >
       {active ? (
-        <motion.span
+        <m.span
           layoutId={`${context.menuId}-active`}
           className={cn(
             "absolute inset-0 -z-10 rounded-lg",
@@ -617,7 +619,7 @@ export function ContextMenuCheckboxItem({
       <span className="flex h-4 w-4 shrink-0 items-center justify-center">
         <AnimatePresence initial={false}>
           {checked ? (
-            <motion.span
+            <m.span
               key="check"
               initial={context.reduce ? false : { opacity: 0, scale: 0.75 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -625,7 +627,7 @@ export function ContextMenuCheckboxItem({
               transition={context.reduce ? { duration: 0.08 } : SPRING_PANEL}
             >
               <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.4} />
-            </motion.span>
+            </m.span>
           ) : null}
         </AnimatePresence>
       </span>

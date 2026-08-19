@@ -5,21 +5,24 @@ import { X } from "lucide-react";
 import {
   AnimatePresence,
   LayoutGroup,
-  motion,
+  m,
   useReducedMotion,
   type Transition,
 } from "motion/react";
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useId,
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import { SPRING_LAYOUT, SPRING_PRESS } from "@prime-agent/web-design/lib/ease";
 import { useHoverCapable } from "@prime-agent/web-design/lib/hooks/use-hover-capable";
+import { useHydrated } from "@prime-agent/web-design/lib/hooks/use-hydrated";
 import { cn } from "@prime-agent/web-design/lib/utils";
 
 export type ProjectFolderPreview = {
@@ -70,6 +73,113 @@ function getPreviewTransform(index: number, count: number) {
   };
 }
 
+interface ProjectFolderOverlayProps {
+  title: string;
+  countText: string;
+  dialogTitleId: string;
+  previewItems: ProjectFolderPreview[];
+  isExpanded: boolean;
+  isClosing: boolean;
+  reduce: boolean;
+  transition: Transition;
+  dialogRef: RefObject<HTMLDivElement | null>;
+  closeButtonRef: RefObject<HTMLButtonElement | null>;
+  closeOverlay: () => void;
+}
+
+function ProjectFolderOverlay({
+  title,
+  countText,
+  dialogTitleId,
+  previewItems,
+  isExpanded,
+  isClosing,
+  reduce,
+  transition,
+  dialogRef,
+  closeButtonRef,
+  closeOverlay,
+}: ProjectFolderOverlayProps) {
+  if (!isExpanded && !isClosing) return null;
+
+  return (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={dialogTitleId}
+      aria-hidden={isExpanded ? undefined : "true"}
+      className={cn(
+        "fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center",
+        isClosing && "pointer-events-none",
+      )}
+    >
+      <AnimatePresence initial={false}>
+        {isExpanded ? (
+          <m.button
+            key="project-files-backdrop"
+            type="button"
+            tabIndex={-1}
+            aria-label="Close file overlay"
+            onClick={closeOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={reduce ? { duration: 0 } : { duration: 0.18 }}
+            className="absolute inset-0 cursor-default bg-background/80 backdrop-blur-xl"
+          />
+        ) : null}
+      </AnimatePresence>
+
+      <div className="relative z-10 w-full max-w-5xl px-6 py-8">
+        <AnimatePresence initial={false}>
+          {isExpanded ? (
+            <m.div
+              key="project-files-header"
+              initial={{ opacity: 0, y: reduce ? 0 : 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: reduce ? 0 : -8 }}
+              transition={reduce ? { duration: 0 } : { duration: 0.18 }}
+              className="mb-6 flex items-center justify-between gap-4"
+            >
+              <div>
+                <h2 id={dialogTitleId} className="text-xl font-medium text-foreground">
+                  {title}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">{countText}</p>
+              </div>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                onClick={closeOverlay}
+                aria-label={`Close ${title}`}
+                className="flex size-10 items-center justify-center rounded-full border border-foreground/10 bg-background/50 text-muted-foreground backdrop-blur-xl transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </m.div>
+          ) : null}
+        </AnimatePresence>
+
+        <div className="grid grid-cols-2 place-items-center gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {isExpanded
+            ? previewItems.map((preview) => (
+                <m.div
+                  key={preview.id}
+                  layoutId={`file-${preview.id}`}
+                  transition={transition}
+                  className="aspect-[3/4] w-full max-w-40 overflow-hidden rounded-xl border border-foreground/10 bg-background/50 backdrop-blur-xl"
+                >
+                  {preview.content}
+                </m.div>
+              ))
+            : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProjectFolder({
   title,
   description = "Updated recently",
@@ -97,7 +207,7 @@ export function ProjectFolder({
   const folderButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
   const [isClosing, setIsClosing] = useState(false);
@@ -138,8 +248,7 @@ export function ProjectFolder({
     setOpen(false);
     setExpanded(false);
   }, [setExpanded, setOpen]);
-
-  useEffect(() => setMounted(true), []);
+  const closeOverlayEvent = useEffectEvent(closeOverlay);
 
   useEffect(() => {
     if (reduce && isClosing) finishClose();
@@ -156,7 +265,7 @@ export function ProjectFolder({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        closeOverlay();
+        closeOverlayEvent();
         return;
       }
       if (event.key !== "Tab" || !dialogRef.current) return;
@@ -183,7 +292,7 @@ export function ProjectFolder({
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeOverlay, isExpanded]);
+  }, [isExpanded]);
 
   const handleFolderClick = () => {
     setIsClosing(false);
@@ -192,86 +301,25 @@ export function ProjectFolder({
     onClick?.();
   };
 
-  const overlay = isExpanded || isClosing ? (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={dialogTitleId}
-      aria-hidden={isExpanded ? undefined : "true"}
-      className={cn(
-        "fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center",
-        isClosing && "pointer-events-none",
-      )}
-    >
-      <AnimatePresence initial={false}>
-        {isExpanded ? (
-          <motion.button
-            key="project-files-backdrop"
-            type="button"
-            tabIndex={-1}
-            aria-label="Close file overlay"
-            onClick={closeOverlay}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={reduce ? { duration: 0 } : { duration: 0.18 }}
-            className="absolute inset-0 cursor-default bg-background/80 backdrop-blur-xl"
-          />
-        ) : null}
-      </AnimatePresence>
-
-      <div className="relative z-10 w-full max-w-5xl px-6 py-8">
-        <AnimatePresence initial={false}>
-          {isExpanded ? (
-            <motion.div
-              key="project-files-header"
-              initial={{ opacity: 0, y: reduce ? 0 : 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: reduce ? 0 : -8 }}
-              transition={reduce ? { duration: 0 } : { duration: 0.18 }}
-              className="mb-6 flex items-center justify-between gap-4"
-            >
-              <div>
-                <h2 id={dialogTitleId} className="text-xl font-medium text-foreground">
-                  {title}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">{countText}</p>
-              </div>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                onClick={closeOverlay}
-                aria-label={`Close ${title}`}
-                className="flex size-10 items-center justify-center rounded-full border border-foreground/10 bg-background/50 text-muted-foreground backdrop-blur-xl transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </button>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        <div className="grid grid-cols-2 place-items-center gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {isExpanded
-            ? previewItems.map((preview) => (
-                <motion.div
-                  key={preview.id}
-                  layoutId={`file-${preview.id}`}
-                  transition={transition}
-                  className="aspect-[3/4] w-full max-w-40 overflow-hidden rounded-xl border border-foreground/10 bg-background/50 backdrop-blur-xl"
-                >
-                  {preview.content}
-                </motion.div>
-              ))
-            : null}
-        </div>
-      </div>
-    </div>
-  ) : null;
+  const overlay = (
+    <ProjectFolderOverlay
+      title={title}
+      countText={countText}
+      dialogTitleId={dialogTitleId}
+      previewItems={previewItems}
+      isExpanded={isExpanded}
+      isClosing={isClosing}
+      reduce={reduce ?? false}
+      transition={transition}
+      dialogRef={dialogRef}
+      closeButtonRef={closeButtonRef}
+      closeOverlay={closeOverlay}
+    />
+  );
 
   return (
     <LayoutGroup id={layoutGroupId}>
-      <motion.button
+      <m.button
         ref={folderButtonRef}
         type="button"
         disabled={disabled}
@@ -312,7 +360,7 @@ export function ProjectFolder({
           className,
         )}
       >
-        <motion.span
+        <m.span
           aria-hidden="true"
           animate={{ rotateX: isOpen && !reduce ? 15 : 0 }}
           transition={transition}
@@ -332,7 +380,7 @@ export function ProjectFolder({
                       previewItems.length,
                     );
                     return (
-                      <motion.span
+                      <m.span
                         key={preview.id}
                         layoutId={`file-${preview.id}`}
                         initial={false}
@@ -361,7 +409,7 @@ export function ProjectFolder({
                         style={{ zIndex: opened.zIndex }}
                       >
                         {preview.content}
-                      </motion.span>
+                      </m.span>
                     );
                   })
                 : null}
@@ -369,7 +417,7 @@ export function ProjectFolder({
           </span>
         </span>
 
-        <motion.span
+        <m.span
           initial={false}
           animate={{ rotateX: isOpen && !reduce ? -25 : 0 }}
           transition={transition}
@@ -388,8 +436,8 @@ export function ProjectFolder({
               {description}
             </span>
           </span>
-        </motion.span>
-      </motion.button>
+        </m.span>
+      </m.button>
 
       {mounted ? createPortal(overlay, document.body) : null}
     </LayoutGroup>

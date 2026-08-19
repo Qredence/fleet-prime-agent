@@ -2,7 +2,7 @@
 
 import { Check, ChevronDown } from "lucide-react";
 import {
-  motion,
+  m,
   type Transition,
   useReducedMotion,
   type Variants,
@@ -184,7 +184,7 @@ export function SelectTrigger({ className, children }: SelectTriggerProps) {
       ? { duration: 0.6, times: [0, 0.4, 1], ease: EASE_OUT }
       : { duration: 0.42, times: [0, 0.5, 1], ease: EASE_OUT };
   return (
-    <motion.button
+    <m.button
       type="button"
       id={ctx.triggerId}
       disabled={ctx.disabled}
@@ -215,15 +215,15 @@ export function SelectTrigger({ className, children }: SelectTriggerProps) {
       )}
     >
       {children}
-      <motion.span
+      <m.span
         aria-hidden
         animate={{ rotate: ctx.open ? 180 : 0 }}
         transition={ctx.reduce ? { duration: 0 } : CHEVRON_TRANSITION}
         className="text-muted-foreground"
       >
         <ChevronDown className="h-4 w-4" />
-      </motion.span>
-    </motion.button>
+      </m.span>
+    </m.button>
   );
 }
 
@@ -298,7 +298,7 @@ export function SelectContent({ className, children }: SelectContentProps) {
   // registration persists — otherwise the trigger would fall back to the
   // placeholder the moment the panel closes.
   return (
-    <motion.div
+    <m.div
       id={ctx.listId}
       role="listbox"
       aria-labelledby={ctx.triggerId}
@@ -352,7 +352,7 @@ export function SelectContent({ className, children }: SelectContentProps) {
         className,
       )}
     >
-      <motion.div
+      <m.div
         ref={innerRef}
         variants={ctx.reduce ? undefined : LIST_VARIANTS}
         initial={false}
@@ -360,8 +360,8 @@ export function SelectContent({ className, children }: SelectContentProps) {
         className="p-1"
       >
         {children}
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -388,7 +388,7 @@ export function SelectItem({
   }, [ctx.register, ctx.unregister, value, label]);
 
   return (
-    <motion.li variants={ctx.reduce ? undefined : ITEM_VARIANTS}>
+    <m.li variants={ctx.reduce ? undefined : ITEM_VARIANTS}>
       <button
         type="button"
         role="option"
@@ -407,6 +407,6 @@ export function SelectItem({
         {children}
         {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
       </button>
-    </motion.li>
+    </m.li>
   );
 }
