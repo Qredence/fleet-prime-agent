@@ -144,7 +144,7 @@ export type WorkspaceAttachment = z.infer<typeof WorkspaceAttachmentSchema>;
 
 export const UploadedAttachmentSchema = z.object({
 	kind: z.literal("upload"),
-	attachmentId: z.string().uuid(),
+	attachmentId: z.uuid(),
 	name: z.string().min(1).max(512),
 	mimeType: z.string().min(1).max(255),
 	size: z.number().int().nonnegative().max(MAX_ATTACHMENT_BYTES),

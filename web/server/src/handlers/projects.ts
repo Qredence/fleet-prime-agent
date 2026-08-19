@@ -19,16 +19,17 @@ export function sessionStatus(info: Pick<SessionInfo, "state">, live: BridgeSess
 async function sessionProjectIds() {
 	const bridge = getBridge();
 	const sessions = await bridge.listSessions();
-	const assignments = new Map<string, string | null>();
-	for (const session of sessions) {
-		assignments.set(
-			session.id,
-			await getPrimeConfig().projectRegistry.projectIdForSession(
-				session.id,
-				bridge.getSession(session.id)?.cwd ?? session.cwd,
-			),
-		);
-	}
+	const registry = getPrimeConfig().projectRegistry;
+	const assignmentEntries = await Promise.all(
+		sessions.map(
+			async (session) =>
+				[
+					session.id,
+					await registry.projectIdForSession(session.id, bridge.getSession(session.id)?.cwd ?? session.cwd),
+				] as const,
+		),
+	);
+	const assignments = new Map(assignmentEntries);
 	return { bridge, sessions, assignments };
 }
 
