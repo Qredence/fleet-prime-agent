@@ -2,7 +2,7 @@
 // beui.dev/components/agents/chat-app
 
 import { ArrowUp, Plus, Square } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -205,13 +205,13 @@ export function PromptInput({
                 aria-label="Add to prompt"
                 className="size-8 rounded-full"
               >
-                <motion.span
+                <m.span
                   aria-hidden="true"
                   animate={{ rotate: actionsOpen ? 45 : 0 }}
                   transition={reduce ? { duration: 0 } : SPRING_SWAP}
                 >
                   <Plus className="size-4" />
-                </motion.span>
+                </m.span>
               </Button>
             </MorphPopoverTrigger>
 
@@ -306,7 +306,7 @@ export function PromptInput({
           className="ml-auto size-8 rounded-full"
         >
           <AnimatePresence initial={false} mode="popLayout">
-            <motion.span
+            <m.span
               key={loading ? "stop" : "send"}
               initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -319,7 +319,7 @@ export function PromptInput({
               ) : (
                 <ArrowUp className="size-4" />
               )}
-            </motion.span>
+            </m.span>
           </AnimatePresence>
         </Button>
       </div>

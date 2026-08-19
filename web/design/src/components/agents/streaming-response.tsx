@@ -9,7 +9,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -29,6 +29,7 @@ import { cn } from "@prime-agent/web-design/lib/utils";
 
 export type StreamingResponseStatus = "streaming" | "complete" | "error";
 export type StreamingResponseFeedback = "up" | "down" | null;
+const EMPTY_CITATIONS: CitationItem[] = [];
 
 export interface StreamingResponseProps {
   /** Rendered response content. Pass plain text or the output of a Markdown renderer. */
@@ -71,7 +72,7 @@ function ResponseAction({
   const reduce = useReducedMotion() ?? false;
 
   return (
-    <motion.button
+    <m.button
       type="button"
       aria-label={label}
       title={label}
@@ -85,7 +86,7 @@ function ResponseAction({
       )}
     >
       {children}
-    </motion.button>
+    </m.button>
   );
 }
 
@@ -95,7 +96,7 @@ export function StreamingResponse({
   copyText,
   onCopy,
   onRetry,
-  sources = [],
+  sources = EMPTY_CITATIONS,
   sourcesOpen,
   defaultSourcesOpen = false,
   onSourcesOpenChange,
@@ -177,7 +178,7 @@ export function StreamingResponse({
 
       <AnimatePresence initial={false}>
         {shouldShowActions ? (
-          <motion.div
+          <m.div
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -232,14 +233,14 @@ export function StreamingResponse({
                   <span className="tabular-nums">
                     {sources.length} {sources.length === 1 ? "source" : "sources"}
                   </span>
-                  <motion.span
+                  <m.span
                     aria-hidden="true"
                     animate={{ rotate: currentSourcesOpen ? 180 : 0 }}
                     transition={reduce ? { duration: 0 } : SPRING_SWAP}
                     className="text-muted-foreground/50 group-hover:text-muted-foreground"
                   >
                     <ChevronDown className="size-3" />
-                  </motion.span>
+                  </m.span>
                 </button>
               ) : null}
             </div>
@@ -256,7 +257,7 @@ export function StreamingResponse({
                 />
               </AgentDisclosure>
             ) : null}
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </div>

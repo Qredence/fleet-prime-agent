@@ -2,7 +2,7 @@
 // beui.dev/components/agents/chat-app
 
 import { ChevronDown, ListTodo } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -63,7 +63,7 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
     >
       <AnimatePresence initial={false} mode="popLayout">
         {complete ? (
-          <motion.svg
+          <m.svg
             key="complete"
             viewBox="0 0 24 24"
             initial={reduce ? { opacity: 1 } : { opacity: 0, scale: 0.72 }}
@@ -73,7 +73,7 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
             className="absolute size-5.5 overflow-visible text-emerald-500"
           >
             <circle cx="12" cy="12" r="9" fill="currentColor" />
-            <motion.path
+            <m.path
               d="M7.5 12.25 10.5 15.25 16.75 8.75"
               fill="none"
               stroke="white"
@@ -86,9 +86,9 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
                 reduce ? { duration: 0 } : { duration: 0.24, ease: EASE_OUT }
               }
             />
-          </motion.svg>
+          </m.svg>
         ) : (
-          <motion.span
+          <m.span
             key="todo"
             initial={reduce ? { opacity: 1 } : { opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -97,7 +97,7 @@ function TodoHeaderIcon({ complete }: { complete: boolean }) {
             className="absolute grid place-items-center text-muted-foreground"
           >
             <ListTodo className="size-4" />
-          </motion.span>
+          </m.span>
         )}
       </AnimatePresence>
     </span>
@@ -116,7 +116,7 @@ function TodoStatusIcon({
     progress === undefined ? 0.68 : Math.min(100, Math.max(0, progress)) / 100;
 
   return (
-    <motion.svg
+    <m.svg
       aria-hidden="true"
       viewBox="0 0 24 24"
       initial={false}
@@ -126,7 +126,7 @@ function TodoStatusIcon({
         status === "cancelled" && "text-rose-600 dark:text-rose-400",
       )}
     >
-      <motion.circle
+      <m.circle
         cx="12"
         cy="12"
         r="9"
@@ -140,7 +140,7 @@ function TodoStatusIcon({
         transition={reduce ? { duration: 0 } : { duration: 0.18, ease: EASE_OUT }}
         className={cn(status === "in-progress" && "opacity-20")}
       />
-      <motion.circle
+      <m.circle
         cx="12"
         cy="12"
         r="9"
@@ -167,7 +167,7 @@ function TodoStatusIcon({
         }
         style={{ transformOrigin: "12px 12px" }}
       />
-      <motion.path
+      <m.path
         d="M7.5 12.25 10.5 15.25 16.75 8.75"
         fill="none"
         stroke="currentColor"
@@ -181,7 +181,7 @@ function TodoStatusIcon({
         }}
         transition={reduce ? { duration: 0 } : { duration: 0.24, ease: EASE_OUT }}
       />
-      <motion.path
+      <m.path
         d="M8.5 8.5 15.5 15.5M15.5 8.5 8.5 15.5"
         fill="none"
         stroke="currentColor"
@@ -194,7 +194,7 @@ function TodoStatusIcon({
         }}
         transition={reduce ? { duration: 0 } : { duration: 0.2, ease: EASE_OUT }}
       />
-    </motion.svg>
+    </m.svg>
   );
 }
 
@@ -293,14 +293,14 @@ export function TodoList({
             <span>{items.length}</span>
           </span>
         </span>
-        <motion.span
+        <m.span
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
           className="text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
         >
           <ChevronDown className="size-3.5" />
-        </motion.span>
+        </m.span>
       </button>
 
       <AgentDisclosure
@@ -314,69 +314,68 @@ export function TodoList({
           className="scrollbar-hide overflow-y-auto px-2 pb-2"
           style={{ maxHeight }}
         >
-          {items.length ? (
-            <ol aria-live="polite" className="space-y-0">
+          <ol aria-live="polite" className="space-y-0">
             <AnimatePresence initial={false} mode="popLayout">
               {items.map((item) => {
-                const status = item.status ?? "pending";
-                return (
-                  <motion.li
-                    layout="position"
-                    key={item.id}
-                    initial={reduce ? { opacity: 1 } : { opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
-                    transition={
-                      reduce
-                        ? { duration: 0 }
-                        : {
-                            opacity: { duration: 0.18, ease: EASE_OUT },
-                            y: SPRING_LAYOUT,
-                            layout: SPRING_LAYOUT,
-                          }
-                    }
-                    className="flex min-h-9 items-center gap-2.5 rounded-xl px-1.5 py-1"
-                  >
-                    <TodoStatusIcon status={status} progress={item.progress} />
-                    <span className="sr-only">{statusLabel(status)}: </span>
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate text-sm leading-5",
-                        status === "pending" && "text-muted-foreground/65",
-                        status === "in-progress" && "text-foreground",
-                        status === "completed" && "text-muted-foreground/60",
-                        status === "cancelled" && "text-muted-foreground/55",
-                      )}
+                  const status = item.status ?? "pending";
+                  return (
+                    <m.li
+                      layout="position"
+                      key={item.id}
+                      initial={reduce ? { opacity: 1 } : { opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
+                      transition={
+                        reduce
+                          ? { duration: 0 }
+                          : {
+                              opacity: { duration: 0.18, ease: EASE_OUT },
+                              y: SPRING_LAYOUT,
+                              layout: SPRING_LAYOUT,
+                            }
+                      }
+                      className="flex min-h-9 items-center gap-2.5 rounded-xl px-1.5 py-1"
                     >
-                      <span className="relative inline-block max-w-full">
-                        {item.title}
-                        <motion.span
-                          aria-hidden="true"
-                          initial={false}
-                          animate={{
-                            scaleX: status === "completed" ? 1 : 0,
-                            opacity: status === "completed" ? 1 : 0,
-                          }}
-                          transition={
-                            reduce
-                              ? { duration: 0 }
-                              : { duration: 0.28, ease: EASE_OUT, delay: 0.06 }
-                          }
-                          className="absolute inset-x-0 top-1/2 h-px origin-left bg-current"
-                        />
+                      <TodoStatusIcon status={status} progress={item.progress} />
+                      <span className="sr-only">{statusLabel(status)}: </span>
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 truncate text-sm leading-5",
+                          status === "pending" && "text-muted-foreground/65",
+                          status === "in-progress" && "text-foreground",
+                          status === "completed" && "text-muted-foreground/60",
+                          status === "cancelled" && "text-muted-foreground/55",
+                        )}
+                      >
+                        <span className="relative inline-block max-w-full">
+                          {item.title}
+                          <m.span
+                            aria-hidden="true"
+                            initial={false}
+                            animate={{
+                              scaleX: status === "completed" ? 1 : 0,
+                              opacity: status === "completed" ? 1 : 0,
+                            }}
+                            transition={
+                              reduce
+                                ? { duration: 0 }
+                                : { duration: 0.28, ease: EASE_OUT, delay: 0.06 }
+                            }
+                            className="absolute inset-x-0 top-1/2 h-px origin-left bg-current"
+                          />
+                        </span>
                       </span>
-                    </span>
-                    {item.detail ? (
-                      <span className="shrink-0 text-sm text-muted-foreground/55">
-                        {item.detail}
-                      </span>
-                    ) : null}
-                  </motion.li>
-                );
+                      {item.detail ? (
+                        <span className="shrink-0 text-sm text-muted-foreground/55">
+                          {item.detail}
+                        </span>
+                      ) : null}
+                    </m.li>
+                  );
               })}
             </AnimatePresence>
-            </ol>
-          ) : (
+          </ol>
+          {!items.length && (
             <p className="px-1.5 py-2 text-sm text-muted-foreground">
               No tasks yet
             </p>

@@ -11,7 +11,7 @@ import {
   SquareTerminal,
   Wrench,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { EASE_OUT, SPRING_LAYOUT } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { isSafeExternalUrl } from "../../../lib/safe-external-url";
@@ -24,6 +24,8 @@ import type {
   AgentActivityTrace,
   AgentSearchResult,
 } from "./types";
+
+const SEARCH_RESULT_VISIBLE = { opacity: 1, y: 0 };
 
 function StepRow({ item }: { item: AgentActivityStep }) {
   const state = item.status ?? "complete";
@@ -38,7 +40,7 @@ function StepRow({ item }: { item: AgentActivityStep }) {
           <Check className="size-4" strokeWidth={1.8} />
         ) : state === "active" ? (
           <span className="relative grid size-3 place-items-center">
-            <motion.span
+            <m.span
               className="absolute inset-0 rounded-full bg-foreground/10"
               animate={{ opacity: [0.35, 0.8, 0.35] }}
               transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
@@ -115,7 +117,6 @@ function SearchResultRow({
 function SearchRow({ item }: { item: AgentActivitySearch }) {
   const reduce = useReducedMotion() ?? false;
   const enter = reduce ? { opacity: 1 } : { opacity: 0, y: 6 };
-  const visible = { opacity: 1, y: 0 };
   const exit = reduce ? { opacity: 0 } : { opacity: 0, y: -3 };
   const transition = reduce
     ? { duration: 0 }
@@ -131,36 +132,34 @@ function SearchRow({ item }: { item: AgentActivitySearch }) {
         <Search aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.7} />
         <span className="min-w-0 truncate">{item.query}</span>
       </div>
-      {item.results?.length ? (
-        <div className="space-y-0.5 pl-4">
-          <AnimatePresence initial mode="popLayout">
-            {item.results.map((result) => (
-              <motion.div
-                layout="position"
-                key={result.id}
-                initial={enter}
-                animate={visible}
-                exit={exit}
-                transition={transition}
-              >
-                <SearchResultRow result={result} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      ) : null}
+      <div className="space-y-0.5 pl-4">
+        <AnimatePresence initial mode="popLayout">
+          {item.results?.map((result) => (
+            <m.div
+              layout="position"
+              key={result.id}
+              initial={enter}
+                animate={SEARCH_RESULT_VISIBLE}
+              exit={exit}
+              transition={transition}
+            >
+              <SearchResultRow result={result} />
+            </m.div>
+          ))}
+        </AnimatePresence>
+      </div>
       <AnimatePresence initial>
         {item.moreCount ? (
-          <motion.div
+          <m.div
             key="more-results"
             initial={enter}
-            animate={visible}
+            animate={SEARCH_RESULT_VISIBLE}
             exit={exit}
             transition={transition}
             className="px-1.5 py-1 pl-8 text-muted-foreground/55"
           >
             +{item.moreCount} more
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </div>

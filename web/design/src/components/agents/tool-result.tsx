@@ -14,7 +14,7 @@ import {
   SquareTerminal,
   Wrench,
 } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -121,7 +121,7 @@ function ToolResultAction({
   const reduce = useReducedMotion() ?? false;
 
   return (
-    <motion.button
+    <m.button
       type="button"
       aria-label={label}
       title={label}
@@ -131,7 +131,7 @@ function ToolResultAction({
       className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}
-    </motion.button>
+    </m.button>
   );
 }
 
@@ -291,14 +291,14 @@ export function ToolResult({
           <StatusIcon status={status} reduce={reduce} />
           <ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
         </span>
-        <motion.span
+        <m.span
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
           className="shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
         >
           <ChevronDown className="size-3.5" />
-        </motion.span>
+        </m.span>
       </button>
 
       <AgentDisclosure
