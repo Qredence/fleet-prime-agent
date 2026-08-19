@@ -1,4 +1,4 @@
-import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
+import { SessionIdSchema, type UploadedAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { z } from "zod/v4";
 import {
 	deleteManagedAttachment,
@@ -10,6 +10,7 @@ import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 const AttachmentIdSchema = z.uuid();
+const ATTACHMENT_WRITE_CONCURRENCY = 8;
 
 async function resolveSession(sessionId: string) {
 	const bridge = getBridge();
@@ -27,7 +28,11 @@ export function handleChatAttachmentsPost(request: Request): Promise<Response> {
 		}
 		const session = await resolveSession(sessionId);
 		if (!session) return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
-		const settled = await Promise.allSettled(files.map((file) => storeManagedAttachment(session, file)));
+		const settled: PromiseSettledResult<UploadedAttachment>[] = [];
+		for (let index = 0; index < files.length; index += ATTACHMENT_WRITE_CONCURRENCY) {
+			const chunk = files.slice(index, index + ATTACHMENT_WRITE_CONCURRENCY);
+			settled.push(...(await Promise.allSettled(chunk.map((file) => storeManagedAttachment(session, file)))));
+		}
 		const failure = settled.find((result) => result.status === "rejected");
 		if (failure) {
 			// The client receives no ids on failure, so sibling writes would be
