@@ -1,6 +1,11 @@
 import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { z } from "zod/v4";
-import { MAX_TURN_ATTACHMENT_BYTES, readManagedAttachment, storeManagedAttachment } from "../managed-attachments";
+import {
+	deleteManagedAttachment,
+	MAX_TURN_ATTACHMENT_BYTES,
+	readManagedAttachment,
+	storeManagedAttachment,
+} from "../managed-attachments";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
@@ -22,7 +27,19 @@ export function handleChatAttachmentsPost(request: Request): Promise<Response> {
 		}
 		const session = await resolveSession(sessionId);
 		if (!session) return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
-		const attachments = await Promise.all(files.map((file) => storeManagedAttachment(session, file)));
+		const settled = await Promise.allSettled(files.map((file) => storeManagedAttachment(session, file)));
+		const failure = settled.find((result) => result.status === "rejected");
+		if (failure) {
+			// The client receives no ids on failure, so sibling writes would be
+			// unreachable. Roll them back instead of leaving orphans behind.
+			await Promise.all(
+				settled.flatMap((result) =>
+					result.status === "fulfilled" ? [deleteManagedAttachment(session, result.value.attachmentId)] : [],
+				),
+			);
+			throw failure.reason;
+		}
+		const attachments = settled.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
 		return Response.json({ attachments });
 	});
 }

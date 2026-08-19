@@ -145,6 +145,14 @@ export async function readManagedAttachment(session: BridgeSession, attachmentId
 	return inspected ? readInspectedManagedAttachment(inspected) : undefined;
 }
 
+export async function deleteManagedAttachment(session: BridgeSession, attachmentId: string): Promise<void> {
+	const root = attachmentRoot(session);
+	const inspected = await inspectManagedAttachment(session, attachmentId).catch(() => undefined);
+	const metadataPath = join(root, `${attachmentId}.json`);
+	if (inspected && contained(root, inspected.dataPath)) await rm(inspected.dataPath, { force: true });
+	if (contained(root, metadataPath)) await rm(metadataPath, { force: true });
+}
+
 export async function deleteManagedAttachments(session: BridgeSession) {
 	await rm(attachmentRoot(session), { recursive: true, force: true });
 }

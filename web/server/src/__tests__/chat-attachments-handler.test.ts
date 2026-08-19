@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -46,5 +46,27 @@ describe("chat attachment upload ordering", () => {
 
 		expect(response.status).toBe(200);
 		expect(body.attachments.map((attachment) => attachment.name)).toEqual(["first.txt", "second.txt"]);
+	});
+
+	it("rolls back sibling writes when one upload fails validation", async () => {
+		const form = new FormData();
+		form.append("sessionId", session.sessionId);
+		form.append("files", new File(["valid"], "valid.txt", { type: "text/plain" }));
+		form.append(
+			"files",
+			new File([new Uint8Array(26 * 1024 * 1024)], "oversize.bin", { type: "application/octet-stream" }),
+		);
+
+		const response = await handleChatAttachmentsPost(
+			new Request("http://localhost/api/chat/attachments", {
+				method: "POST",
+				body: form,
+			}),
+		);
+
+		expect(response.status).toBe(500);
+		const storageRoot = join(root, "session-attachments", session.sessionId);
+		const leftovers = await readdir(storageRoot).catch(() => [] as string[]);
+		expect(leftovers).toEqual([]);
 	});
 });
