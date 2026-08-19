@@ -20,6 +20,7 @@ import { createParser, Renderer } from "@openuidev/react-lang";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { MotionRuntime } from "../src/components/motion/runtime";
 import {
 	DataTableDef,
 	buildSortComparator,
@@ -306,7 +307,11 @@ if (!result.root) {
 // --- Stage 2: static render ---
 let staticHtml = "";
 try {
-	staticHtml = renderToStaticMarkup(<Renderer response={payload} library={openUILibrary} />);
+	staticHtml = renderToStaticMarkup(
+		<MotionRuntime>
+			<Renderer response={payload} library={openUILibrary} />
+		</MotionRuntime>,
+	);
 } catch (error) {
 	console.error("RENDER THREW (static):", error);
 	process.exit(1);
@@ -319,7 +324,9 @@ if (staticHtml.length === 0) {
 console.log("RENDER OK (static)");
 
 const unsafeCitationHtml = renderToStaticMarkup(
-	<Renderer response={'root = Citation("Source", "javascript:alert(1)")'} library={openUILibrary} />,
+	<MotionRuntime>
+		<Renderer response={'root = Citation("Source", "javascript:alert(1)")'} library={openUILibrary} />
+	</MotionRuntime>,
 );
 assertExcludes(unsafeCitationHtml, "<a ", "unsafe Citation URLs never render an anchor");
 
@@ -339,7 +346,11 @@ try {
 	win.document.body.appendChild(container);
 	const root = createRoot(container as unknown as Element);
 	await act(async () => {
-		root.render(<Renderer response={payload} library={openUILibrary} />);
+		root.render(
+			<MotionRuntime>
+				<Renderer response={payload} library={openUILibrary} />
+			</MotionRuntime>,
+		);
 	});
 	domHtml = win.document.body.innerHTML;
 	await act(async () => {
