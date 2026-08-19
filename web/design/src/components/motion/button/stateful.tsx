@@ -132,31 +132,29 @@ function TextSlot({
           : children}
       </span>
 
+      {cascade ? <span className="sr-only">{label}</span> : null}
       <AnimatePresence initial={false}>
         {cascade ? (
-          <>
-            <span className="sr-only">{label}</span>
-            <m.span
-              key={`cascade-${value}`}
-              aria-hidden
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="absolute left-0 top-0 inline-block whitespace-pre"
-            >
-              {label.split("").map((char, index) => (
-                <m.span
-                  // biome-ignore lint/suspicious/noArrayIndexKey: position is the slot identity.
-                  key={index}
-                  custom={index * CASCADE_STAGGER}
-                  variants={CASCADE_LETTER_VARIANTS}
-                  className="inline-block whitespace-pre"
-                >
-                  {char}
-                </m.span>
-              ))}
-            </m.span>
-          </>
+          <m.span
+            key={`cascade-${value}`}
+            aria-hidden
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="absolute left-0 top-0 inline-block whitespace-pre"
+          >
+            {label.split("").map((char, index) => (
+              <m.span
+                // biome-ignore lint/suspicious/noArrayIndexKey: position is the slot identity.
+                key={index}
+                custom={index * CASCADE_STAGGER}
+                variants={CASCADE_LETTER_VARIANTS}
+                className="inline-block whitespace-pre"
+              >
+                {char}
+              </m.span>
+            ))}
+          </m.span>
         ) : (
           <m.span
             key={`text-${value}`}
