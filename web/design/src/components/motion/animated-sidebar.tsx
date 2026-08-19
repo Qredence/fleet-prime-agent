@@ -372,7 +372,7 @@ function MobileSidebar({
       window.scrollTo(0, scrollY);
       trigger?.focus({ preventScroll: true });
     };
-  }, [context.openMobile, context.triggerRef]);
+  }, [context.openMobile, context.triggerRef, mounted]);
 
   if (!mounted) return null;
 
