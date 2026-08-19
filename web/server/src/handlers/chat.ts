@@ -63,9 +63,10 @@ export function handleChatPost(request: Request): Promise<Response> {
 			if (!managed) {
 				return Response.json({ message: `Unknown attachment: ${attachment.attachmentId}` }, { status: 400 });
 			}
-			if (managed.metadata.mimeType.startsWith("image/")) {
-				images.push({ type: "image", data: managed.data.toString("base64"), mimeType: managed.metadata.mimeType });
-			} else if (managed.metadata.mimeType.startsWith("text/") || managed.metadata.mimeType === "application/json") {
+			const mimeType = managed.metadata.mimeType;
+			if (mimeType.startsWith("image/")) {
+				images.push({ type: "image", data: managed.data.toString("base64"), mimeType });
+			} else if (mimeType.startsWith("text/") || mimeType === "application/json") {
 				attachmentContext.push(
 					`<attachment name="${managed.metadata.name}">\n${managed.data.toString("utf8")}\n</attachment>`,
 				);

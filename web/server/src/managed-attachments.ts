@@ -100,12 +100,21 @@ export async function validateManagedAttachments(
 	attachments: ReadonlyArray<Pick<UploadedAttachment, "attachmentId">>,
 ): Promise<Map<string, ManagedAttachmentInspection>> {
 	const inspections = new Map<string, ManagedAttachmentInspection>();
-	let totalBytes = 0;
+	const attachmentIds = new Set<string>();
 	for (const attachment of attachments) {
-		if (inspections.has(attachment.attachmentId)) {
+		if (attachmentIds.has(attachment.attachmentId)) {
 			throw new ManagedAttachmentValidationError(`Duplicate attachment: ${attachment.attachmentId}`, 400);
 		}
-		const inspected = await inspectManagedAttachment(session, attachment.attachmentId).catch(() => undefined);
+		attachmentIds.add(attachment.attachmentId);
+	}
+	const inspectedAttachments = await Promise.all(
+		attachments.map((attachment) =>
+			inspectManagedAttachment(session, attachment.attachmentId).catch(() => undefined),
+		),
+	);
+	let totalBytes = 0;
+	for (const [index, attachment] of attachments.entries()) {
+		const inspected = inspectedAttachments[index];
 		if (!inspected) {
 			throw new ManagedAttachmentValidationError(`Unknown attachment: ${attachment.attachmentId}`, 400);
 		}

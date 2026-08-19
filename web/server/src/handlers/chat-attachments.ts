@@ -4,7 +4,7 @@ import { MAX_TURN_ATTACHMENT_BYTES, readManagedAttachment, storeManagedAttachmen
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
-const AttachmentIdSchema = z.string().uuid();
+const AttachmentIdSchema = z.uuid();
 
 async function resolveSession(sessionId: string) {
 	const bridge = getBridge();
@@ -22,8 +22,7 @@ export function handleChatAttachmentsPost(request: Request): Promise<Response> {
 		}
 		const session = await resolveSession(sessionId);
 		if (!session) return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
-		const attachments = [];
-		for (const file of files) attachments.push(await storeManagedAttachment(session, file));
+		const attachments = await Promise.all(files.map((file) => storeManagedAttachment(session, file)));
 		return Response.json({ attachments });
 	});
 }

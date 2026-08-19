@@ -81,8 +81,7 @@ export function handleChatSettingsGet(request: Request): Promise<Response> {
 
 export function handleChatSettingsPatch(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		const cwd = await cwdForRequest(request);
-		const raw = await request.json().catch(() => ({}));
+		const [cwd, raw] = await Promise.all([cwdForRequest(request), request.json().catch(() => ({}))]);
 		const body = ChatSettingsUpdateRequestSchema.parse(raw);
 		const config = getPrimeConfig();
 		const manager = config.settingsFor(cwd);

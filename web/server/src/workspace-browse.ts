@@ -64,15 +64,15 @@ export async function browseWorkspaceDirectories(rawPath: string): Promise<Works
 		};
 	}
 
-	const directories: Array<WorkspaceBrowseEntry> = [];
-	for (const entry of entries) {
-		if (entry.name.startsWith(".")) continue;
-		if (!(await isDirectoryEntry(path, entry))) continue;
-		directories.push({
-			name: entry.name,
-			path: resolve(path, entry.name),
-		});
-	}
+	const directories = (
+		await Promise.all(
+			entries.map(async (entry) => {
+				if (entry.name.startsWith(".")) return undefined;
+				if (!(await isDirectoryEntry(path, entry))) return undefined;
+				return { name: entry.name, path: resolve(path, entry.name) } satisfies WorkspaceBrowseEntry;
+			}),
+		)
+	).filter((entry): entry is WorkspaceBrowseEntry => entry !== undefined);
 	directories.sort((a, b) => a.name.localeCompare(b.name));
 
 	const parent = dirname(path);

@@ -163,7 +163,7 @@ export class ProjectRegistry {
 	async get(projectId: ProjectId): Promise<ProjectRecord> {
 		await this.#ensureLoaded();
 		const project = this.#projects.get(projectId);
-		if (!project || project.status !== "active") throw new Error("Unknown project");
+		if (project?.status !== "active") throw new Error("Unknown project");
 		return project;
 	}
 

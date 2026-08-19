@@ -645,9 +645,7 @@ export class PrimeBridge {
 	}
 
 	async setThinkingLevel(level: ThinkingLevel): Promise<void> {
-		for (const session of this.#sessions.values()) {
-			await session.session.setThinkingLevel(level);
-		}
+		await Promise.all([...this.#sessions.values()].map((session) => session.session.setThinkingLevel(level)));
 	}
 
 	// -----------------------------------------------------------------------
@@ -728,9 +726,7 @@ export class PrimeBridge {
 		// `/reload` reloads the *current* session's world via `session.reload()`.
 		// For the web port we reload every attached session's loader so new
 		// skills/prompts/themes show up on next prompt.
-		for (const session of this.#sessions.values()) {
-			await session.session.reload();
-		}
+		await Promise.all([...this.#sessions.values()].map((session) => session.session.reload()));
 	}
 
 	/** /tree — session-tree navigation via navigateTree (requires entry id). */

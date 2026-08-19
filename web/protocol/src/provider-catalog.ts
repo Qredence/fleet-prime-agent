@@ -309,9 +309,9 @@ export const KNOWN_PROVIDERS: Array<PiProviderCredentialEntry> = PI_PROVIDER_CAT
 );
 
 /** Pi LLM providers whose env vars are scrubbed on Vercel (excludes infra). */
-export const LLM_PROVIDER_ENV_SCRUB_IDS = KNOWN_PROVIDERS.filter(
-	(provider) => !INFRA_PROVIDER_IDS.includes(provider.id as (typeof INFRA_PROVIDER_IDS)[number]),
-).map((provider) => provider.id);
+export const LLM_PROVIDER_ENV_SCRUB_IDS = KNOWN_PROVIDERS.flatMap((provider) =>
+	INFRA_PROVIDER_IDS.includes(provider.id as (typeof INFRA_PROVIDER_IDS)[number]) ? [] : [provider.id],
+);
 
 /**
  * Full Pi provider ids that can pick up org env / auth.json credentials.
@@ -379,12 +379,13 @@ export const CREDENTIAL_UI_PROVIDERS = KNOWN_PROVIDERS.filter(
  */
 export const PROVIDER_ENV_SCRUB_VAR_NAMES = Array.from(
 	new Set([
-		...KNOWN_PROVIDERS.filter(
-			(provider) =>
-				LLM_PROVIDER_ENV_SCRUB_IDS.includes(provider.id) ||
-				provider.id === OPENAI_CHAT_COMPLETIONS_BASE_URL_PROVIDER_ID ||
-				provider.id === OPENAI_CHAT_COMPLETIONS_MODEL_PROVIDER_ID,
-		).map((provider) => provider.envVarName),
+		...KNOWN_PROVIDERS.flatMap((provider) =>
+			LLM_PROVIDER_ENV_SCRUB_IDS.includes(provider.id) ||
+			provider.id === OPENAI_CHAT_COMPLETIONS_BASE_URL_PROVIDER_ID ||
+			provider.id === OPENAI_CHAT_COMPLETIONS_MODEL_PROVIDER_ID
+				? [provider.envVarName]
+				: [],
+		),
 		// Pi built-ins beyond Fleet's Settings catalog
 		"HF_TOKEN",
 		"ANT_LING_API_KEY",
