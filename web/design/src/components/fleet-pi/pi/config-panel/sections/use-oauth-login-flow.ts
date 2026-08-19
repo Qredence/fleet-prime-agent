@@ -28,11 +28,14 @@ export function useOAuthLoginFlow({ onConfigured, onOAuthLogin, providerId }: Us
 	const generationRef = useRef(0);
 	const startingRef = useRef(false);
 	const onOAuthLoginRef = useRef(onOAuthLogin);
-	onOAuthLoginRef.current = onOAuthLogin;
 	const onConfiguredRef = useRef(onConfigured);
-	onConfiguredRef.current = onConfigured;
 	const providerIdRef = useRef(providerId);
-	providerIdRef.current = providerId;
+
+	useEffect(() => {
+		onOAuthLoginRef.current = onOAuthLogin;
+		onConfiguredRef.current = onConfigured;
+		providerIdRef.current = providerId;
+	}, [onConfigured, onOAuthLogin, providerId]);
 
 	const cancelLoginId = useCallback(async (loginId: string | null) => {
 		if (!loginId || !onOAuthLoginRef.current) return;
@@ -178,7 +181,7 @@ export function useOAuthLoginFlow({ onConfigured, onOAuthLogin, providerId }: Us
 						providerId: providerIdRef.current,
 						loginId,
 					});
-					if (stopped) return;
+					if (stopped || generation !== generationRef.current) return;
 					applyResult(result, generation);
 					if (result.status !== "waiting") return;
 				} catch (error) {

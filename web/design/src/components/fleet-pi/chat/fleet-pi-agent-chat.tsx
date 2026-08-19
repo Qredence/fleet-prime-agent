@@ -192,7 +192,12 @@ function AssistantMessage({
       toolRenderers,
     ],
   )
-  const copyText = messages.map(textFromMessage).filter(Boolean).join("\n\n")
+  const copyText = messages
+    .flatMap((message) => {
+      const text = textFromMessage(message)
+      return text ? [text] : []
+    })
+    .join("\n\n")
   const activityItems = useMemo(() => buildActivityItems(messages), [messages])
 
   return (
