@@ -4,7 +4,7 @@ import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol/fleet-
 export const INITIAL_SESSION_COUNT = 5;
 
 export function sortSessions(entries: Array<ChatSessionInfo>) {
-	return [...entries].sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
+	return entries.toSorted((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
 }
 
 export function visibleProjectSessions(
@@ -30,7 +30,7 @@ export function sortProjectsByActivity(entries: Array<ProjectSummary>, sessions:
 		const timestamp = Date.parse(session.updatedAt);
 		latestByProject.set(session.projectId, Math.max(latestByProject.get(session.projectId) ?? 0, timestamp));
 	}
-	return [...entries].sort((left, right) => {
+	return entries.toSorted((left, right) => {
 		const leftUpdated = latestByProject.get(left.projectId) ?? 0;
 		const rightUpdated = latestByProject.get(right.projectId) ?? 0;
 		if (leftUpdated !== rightUpdated) return rightUpdated - leftUpdated;

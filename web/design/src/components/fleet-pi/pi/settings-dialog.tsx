@@ -347,18 +347,23 @@ function SettingsDialogSession({
   )
 }
 
-function SettingsDialogBody({
-  initialTab,
-  onCloseAttemptRef,
-  onOpenChange,
+type SettingsForm = ReturnType<typeof useSettingsForm>
+type UpdatePreference = <Key extends keyof UiPreferences>(
+  key: Key,
+  value: UiPreferences[Key],
+) => void
+
+function SettingsDialogPaneContent({
+  activeTab,
+  form,
+  preferences,
+  updatePreference,
 }: {
-  initialTab?: SettingsSectionId
-  onCloseAttemptRef: MutableRefObject<
-    (eventDetails?: CloseAttemptDetails) => void
-  >
-  onOpenChange: (open: boolean) => void
+  activeTab: SettingsSectionId
+  form: SettingsForm
+  preferences: UiPreferences
+  updatePreference: UpdatePreference
 }) {
-  const form = useSettingsForm()
   const {
     isLoadingProviders,
     isUpdatingProvider,
@@ -382,7 +387,6 @@ function SettingsDialogBody({
     resourceDirty,
     revertResourceDraft,
     revertModelDraft,
-    resetDraft,
     updateDraft,
     handlePackageRowsChange,
     addModels,
@@ -390,79 +394,7 @@ function SettingsDialogBody({
     discoverProvider,
     discoveringProviderId,
     saveSection,
-    requestCloseSettings,
-    resetCommittedModelBaseline,
   } = form
-
-  const [activeTab, setActiveTab] = useState<SettingsSectionId>(
-    () => initialTab ?? "appearance"
-  )
-  const [preferences, setPreferences] = useState(readUiPreferences)
-
-  useEffect(() => {
-    window.localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(preferences))
-    document.documentElement.dataset.density = preferences.density
-    document.documentElement.classList.toggle(
-      "reduce-motion",
-      preferences.motion === "reduced"
-    )
-  }, [preferences])
-
-  const updatePreference = <Key extends keyof UiPreferences>(
-    key: Key,
-    value: UiPreferences[Key]
-  ) => {
-    setPreferences((current) => ({ ...current, [key]: value }))
-  }
-
-  const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
-  const [discardReason, setDiscardReason] = useState<"resource" | "model">(
-    "resource"
-  )
-  const activeSection =
-    SETTINGS_SECTIONS.find((section) => section.id === activeTab) ??
-    SETTINGS_SECTIONS[0]
-
-  const handleOpenChange = (
-    nextOpen: boolean,
-    eventDetails?: { cancel: () => void }
-  ) => {
-    if (nextOpen) {
-      onOpenChange(true)
-      return
-    }
-
-    eventDetails?.cancel()
-    void (async () => {
-      const result = await requestCloseSettings()
-      if (result === "close") {
-        onOpenChange(false)
-        return
-      }
-      if (result === "wait") {
-        toast.message("Saving model list…")
-        return
-      }
-      setDiscardReason(resourceDirty ? "resource" : "model")
-      setDiscardDialogOpen(true)
-    })()
-  }
-
-  onCloseAttemptRef.current = (eventDetails) => {
-    handleOpenChange(false, eventDetails)
-  }
-
-  const handleDiscardChanges = () => {
-    revertResourceDraft()
-    resetDraft()
-    resetCommittedModelBaseline()
-    setDiscardDialogOpen(false)
-    onOpenChange(false)
-  }
-
-  useEffect(() => {
-    resetCommittedModelBaseline()
-  }, [resetCommittedModelBaseline])
 
   const resourcesPane = (scope: "skills" | "harness") => (
     <ResourcesSection
@@ -470,18 +402,13 @@ function SettingsDialogBody({
       draft={draft}
       updateDraft={updateDraft}
       onEnableSkillCommandsChange={(enableSkillCommands) =>
-        updateDraft((current) => ({
-          ...current,
-          enableSkillCommands,
-        }))
+        updateDraft((current) => ({ ...current, enableSkillCommands }))
       }
       onExtensionsChange={(extensions) =>
         updateDraft((current) => ({ ...current, extensions }))
       }
       onPackageRowsChange={handlePackageRowsChange}
-      onPromptsChange={(prompts) =>
-        updateDraft((current) => ({ ...current, prompts }))
-      }
+      onPromptsChange={(prompts) => updateDraft((current) => ({ ...current, prompts }))}
       onRevert={revertResourceDraft}
       onSave={() =>
         draft &&
@@ -490,12 +417,8 @@ function SettingsDialogBody({
           ...(scope === "harness" ? harnessSettings(draft) : {}),
         })
       }
-      onSkillsChange={(skills) =>
-        updateDraft((current) => ({ ...current, skills }))
-      }
-      onThemesChange={(themes) =>
-        updateDraft((current) => ({ ...current, themes }))
-      }
+      onSkillsChange={(skills) => updateDraft((current) => ({ ...current, skills }))}
+      onThemesChange={(themes) => updateDraft((current) => ({ ...current, themes }))}
       packageError={packageError}
       packageRows={packageRows}
       resourceDirty={resourceDirty}
@@ -531,10 +454,7 @@ function SettingsDialogBody({
             ]}
           />
         </PreferenceRow>
-        <PreferenceRow
-          label="Motion"
-          description="Respect the system setting or reduce UI motion."
-        >
+        <PreferenceRow label="Motion" description="Respect the system setting or reduce UI motion.">
           <Select
             value={preferences.motion}
             onValueChange={(value) =>
@@ -552,9 +472,7 @@ function SettingsDialogBody({
       <div className="flex flex-col gap-4">
         <div>
           <h3 className="text-lg font-medium">Chat</h3>
-          <p className="text-sm text-muted-foreground">
-            Control transcript behavior.
-          </p>
+          <p className="text-sm text-muted-foreground">Control transcript behavior.</p>
         </div>
         <PreferenceRow
           label="Streaming transcript"
@@ -645,9 +563,7 @@ function SettingsDialogBody({
         >
           <Switch
             checked={preferences.confirmSessionDelete}
-            onCheckedChange={(checked) =>
-              updatePreference("confirmSessionDelete", checked)
-            }
+            onCheckedChange={(checked) => updatePreference("confirmSessionDelete", checked)}
             aria-label="Confirm session deletion"
           />
         </PreferenceRow>
@@ -658,6 +574,107 @@ function SettingsDialogBody({
     ),
   }
 
+  return panes[activeTab]()
+}
+
+function SettingsDialogBody({
+  initialTab,
+  onCloseAttemptRef,
+  onOpenChange,
+}: {
+  initialTab?: SettingsSectionId
+  onCloseAttemptRef: MutableRefObject<
+    (eventDetails?: CloseAttemptDetails) => void
+  >
+  onOpenChange: (open: boolean) => void
+}) {
+  const form = useSettingsForm()
+  const {
+    resourceDirty,
+    revertResourceDraft,
+    resetDraft,
+    requestCloseSettings,
+    resetCommittedModelBaseline,
+  } = form
+
+  const [activeTab, setActiveTab] = useState<SettingsSectionId>(
+    () => initialTab ?? "appearance"
+  )
+  const [preferences, setPreferences] = useState(readUiPreferences)
+
+  useEffect(() => {
+    window.localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(preferences))
+    document.documentElement.dataset.density = preferences.density
+    document.documentElement.classList.toggle(
+      "reduce-motion",
+      preferences.motion === "reduced"
+    )
+  }, [preferences])
+
+  const updatePreference = <Key extends keyof UiPreferences>(
+    key: Key,
+    value: UiPreferences[Key]
+  ) => {
+    setPreferences((current) => ({ ...current, [key]: value }))
+  }
+
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false)
+  const [discardReason, setDiscardReason] = useState<"resource" | "model">(
+    "resource"
+  )
+  const activeSection =
+    SETTINGS_SECTIONS.find((section) => section.id === activeTab) ??
+    SETTINGS_SECTIONS[0]
+
+  const handleOpenChange = (
+    nextOpen: boolean,
+    eventDetails?: { cancel: () => void }
+  ) => {
+    if (nextOpen) {
+      onOpenChange(true)
+      return
+    }
+
+    eventDetails?.cancel()
+    void (async () => {
+      const result = await requestCloseSettings()
+      if (result === "close") {
+        onOpenChange(false)
+        return
+      }
+      if (result === "wait") {
+        toast.message("Saving model list…")
+        return
+      }
+      setDiscardReason(resourceDirty ? "resource" : "model")
+      setDiscardDialogOpen(true)
+    })()
+  }
+
+  onCloseAttemptRef.current = (eventDetails) => {
+    handleOpenChange(false, eventDetails)
+  }
+
+  const handleDiscardChanges = () => {
+    revertResourceDraft()
+    resetDraft()
+    resetCommittedModelBaseline()
+    setDiscardDialogOpen(false)
+    onOpenChange(false)
+  }
+
+  useEffect(() => {
+    resetCommittedModelBaseline()
+  }, [resetCommittedModelBaseline])
+
+  const paneContent = (
+    <SettingsDialogPaneContent
+      activeTab={activeTab}
+      form={form}
+      preferences={preferences}
+      updatePreference={updatePreference}
+    />
+  )
   return (
     // Nest AlertDialog under Dialog.Root so Base UI tracks nested open
     // dialogs (Esc / isTopmost). Sibling roots fight Esc and re-prompt.
@@ -740,7 +757,7 @@ function SettingsDialogBody({
                 tabIndex={0}
                 className="p-6 outline-none"
               >
-                {panes[activeTab]()}
+                {paneContent}
               </div>
             </ScrollArea>
           </main>

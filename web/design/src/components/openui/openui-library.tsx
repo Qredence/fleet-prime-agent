@@ -829,11 +829,11 @@ export const TodoDef = defineComponent({
     <div className="w-full rounded-lg border p-3">
       {title ? <h3 className="mb-2 text-sm font-semibold">{title}</h3> : null}
       <ul className="flex flex-col gap-2">
-        {items.map((item, index) => {
+        {items.map((item) => {
           const complete = item.status === "completed"
           const active = item.status === "in-progress"
           return (
-            <li key={`${item.label}-${index}`} className="flex items-start gap-2 text-sm">
+            <li key={`${item.label}-${item.status ?? "pending"}`} className="flex items-start gap-2 text-sm">
               <span
                 aria-hidden="true"
                 className={cn(
@@ -861,7 +861,6 @@ export const CitationDef = defineComponent({
   props: z.object({
     title: z.string().describe("Source title"),
     url: z
-      .string()
       .url()
       .regex(/^https?:\/\//i, "Citation URL must use http or https")
       .refine(isSafeExternalUrl, "Citation URL must use http or https")
