@@ -31,7 +31,7 @@ const address = httpServer.address();
 if (!address || typeof address === "string") {
 	throw new Error("Web server did not report a TCP address");
 }
-console.log(`Prime Agent web interface: http://${formatHost(address.address)}:${address.port}`);
+console.log(`Fleet Prime interface: http://${formatHost(address.address)}:${address.port}`);
 
 const shutdown = (signal) => {
 	if (shuttingDown) return;
@@ -174,7 +174,7 @@ function parseArgs(args) {
 			continue;
 		}
 		if (arg === "--help" || arg === "-h") {
-			console.log("Usage: prime-agent web [--host <host>] [--port <port>]");
+			console.log("Usage: fleet-prime [--host <host>] [--port <port>]");
 			process.exit(0);
 		}
 		throw new Error(`Unknown web launcher option: ${arg}`);
@@ -186,7 +186,7 @@ function parseHost(value) {
 	const host = value.trim();
 	if (!host) throw new Error("--host requires a non-empty value");
 	if (!isLoopbackHostname(host)) {
-		throw new Error(`Invalid web host: ${host}. Prime Agent web accepts loopback hosts only.`);
+		throw new Error(`Invalid Fleet Prime host: ${host}. Fleet Prime accepts loopback hosts only.`);
 	}
 	return host;
 }

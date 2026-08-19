@@ -120,7 +120,7 @@ build_checkout() {
 	printf '\nInstalling web workspace dependencies...\n'
 	run_pnpm install --dir web --frozen-lockfile
 
-	printf '\nBuilding Prime Agent packages...\n'
+	printf '\nBuilding Fleet Prime packages...\n'
 	npm run build
 
 	printf '\nBuilding the production web runtime...\n'
@@ -134,7 +134,7 @@ link_cli() {
 	hash -r 2>/dev/null || true
 
 	if command -v prime-agent >/dev/null 2>&1; then
-		printf '\nPrime Agent is ready.\n'
+		printf '\nFleet Prime is ready.\n'
 		printf '  Checkout: %s\n' "$prime_agent_checkout_dir"
 		printf '  Command:  %s\n' "$(command -v prime-agent)"
 		printf '\nRun from a project directory:\n  fleet-prime\n'
@@ -143,10 +143,10 @@ link_cli() {
 
 	global_prefix=$(npm prefix -g 2>/dev/null || true)
 	if [ -n "$global_prefix" ]; then
-		printf '\nPrime Agent was linked, but %s/bin is not on PATH.\n' "$global_prefix" >&2
+		printf '\nFleet Prime was linked, but %s/bin is not on PATH.\n' "$global_prefix" >&2
 		printf 'Add %s/bin to your shell PATH, then run: fleet-prime\n' "$global_prefix" >&2
 	else
-		printf '\nPrime Agent was linked, but the global npm bin directory is not on PATH.\n' >&2
+		printf '\nFleet Prime was linked, but the global npm bin directory is not on PATH.\n' >&2
 		printf "Add npm's global bin directory to PATH, then run: fleet-prime\n" >&2
 	fi
 }

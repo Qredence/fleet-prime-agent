@@ -454,7 +454,7 @@ export function useLocalSlashActions({
 					return true;
 				case "session-traces":
 					appendLocalMessage(
-						"Prime Agent traces (preview / upload / login) are TUI-only. The web port does not upload traces.",
+						"Fleet Prime traces (preview / upload / login) are TUI-only. The web port does not upload traces.",
 					);
 					return true;
 				case "session-agents": {
@@ -474,12 +474,12 @@ export function useLocalSlashActions({
 					openSettings("providers");
 					return true;
 				case "open-logout":
-					appendLocalMessage("Provider sign-out is managed by Prime Agent CLI commands.");
+					appendLocalMessage("Provider sign-out is managed by Fleet Prime CLI commands.");
 					return true;
 				case "open-mcp":
 					openSettings("chat");
 					if (action.args) {
-						appendLocalMessage(`MCP: ${action.args}. Manage MCP connections with Prime Agent CLI configuration.`);
+						appendLocalMessage(`MCP: ${action.args}. Manage MCP connections with Fleet Prime CLI configuration.`);
 					}
 					return true;
 				case "fast-toggle": {
@@ -527,7 +527,7 @@ export function useLocalSlashActions({
 				}
 				case "update-check":
 					appendLocalMessage(
-						"/update is TUI-only (pulls latest Prime Agent release). Use npm/pnpm in your shell to upgrade.",
+						"/update is TUI-only (pulls the latest Fleet Prime release). Use npm/pnpm in your shell to upgrade.",
 					);
 					return true;
 				case "toggle-fullscreen":

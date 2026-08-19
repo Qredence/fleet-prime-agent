@@ -17,7 +17,7 @@ if [[ "${1:-}" == "install" ]]; then
 	exec "$SCRIPT_DIR/install.sh" "$@"
 fi
 
-# Otherwise run the Qredence web dev server (same as `npm run dev:web`) from
+# Otherwise run the Fleet Prime web dev server (same as `npm run dev:web`) from
 # web/app, serving on 127.0.0.1:3000 by default. Supports --host and --port
 # overrides, e.g. `fleet-prime --port 3001` or `fleet-prime --host 0.0.0.0`.
 HOST="127.0.0.1"
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
 		--port) PORT="$2"; shift ;;
 		--help)
 			echo "Usage:"
-			echo "  fleet-prime [--host <host>] [--port <port>]   Run the web dev server"
+			echo "  fleet-prime [--host <host>] [--port <port>]   Run the Fleet Prime web dev server"
 			echo "  fleet-prime install [--help]                  Run install.sh (deps, build, global CLI link)"
 			exit 0
 			;;

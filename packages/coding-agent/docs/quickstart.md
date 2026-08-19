@@ -26,7 +26,7 @@ To start the packaged frontend and backend instead:
 fleet-prime
 ```
 
-The web launcher uses the current directory as the workspace and binds to `127.0.0.1:3000`. Use `fleet-prime --host <host> --port <port> --cwd <directory>` to override the defaults. `prime-agent web` remains available as an alias.
+The Fleet Prime launcher uses the current directory as the workspace and binds to `127.0.0.1:3000`. Use `fleet-prime --host <host> --port <port> --cwd <directory>` to override the defaults.
 
 To install manually from a source checkout instead, use Node.js 22.8.0 or newer:
 

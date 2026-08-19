@@ -898,7 +898,7 @@ function FleetSessionSidebarProjectList({
             <div className="px-2 py-4">
               <ProjectFolder
                 title="Add a project"
-                description="Choose a local directory for Prime Agent."
+                description="Choose a local directory for Fleet Prime."
                 count={0}
                 itemLabel="session"
                 previews={[
@@ -1284,7 +1284,7 @@ function FleetSessionSidebarCreateDialog({
           <DialogHeader>
             <DialogTitle>Add project</DialogTitle>
             <DialogDescription>
-              Register a local directory. Prime Agent keeps the canonical path on the server.
+              Register a local directory. Fleet Prime keeps the canonical path on the server.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1446,7 +1446,7 @@ function FleetSessionSidebarActionDialogs({
         <AlertDialogContent>
           <AlertDialogTitle>Rename session</AlertDialogTitle>
           <AlertDialogDescription>
-            Choose a local display title for this Prime Agent session.
+            Choose a local display title for this Fleet Prime session.
           </AlertDialogDescription>
           <Input
             value={renameTitle}
@@ -1513,7 +1513,7 @@ function FleetSessionSidebarActionDialogs({
         <AlertDialogContent>
           <AlertDialogTitle>Delete session?</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes the Prime Agent session and its managed session artifacts. This cannot be undone.
+            This removes the Fleet Prime session and its managed session artifacts. This cannot be undone.
           </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -1562,7 +1562,7 @@ function FleetSessionSidebarActionDialogs({
           <DialogHeader>
             <DialogTitle>Fork session into project</DialogTitle>
             <DialogDescription>
-              Create a new Prime Agent session in another registered project.
+              Create a new Fleet Prime session in another registered project.
             </DialogDescription>
           </DialogHeader>
           <select

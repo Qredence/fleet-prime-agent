@@ -13,7 +13,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, dirname, join, relative, sep, resolve } from "node:path";
+import { basename, delimiter, dirname, join, relative, sep, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -127,7 +127,7 @@ async function checkInstallerSmoke() {
 			PATH: [join(globalPrefix, "bin"), runtimeBin, "/usr/bin", "/bin"].join(delimiter),
 			PRIME_AGENT_CODING_AGENT_DIR: join(tempRoot, "agent-config"),
 		};
-		await checkWebRuntime(executable, workspace, checkout, runtimeEnvironment);
+		await checkWebRuntime(fleetPrimeExecutable, workspace, checkout, runtimeEnvironment);
 
 		const occupied = join(tempRoot, "occupied");
 		mkdirSync(occupied, { recursive: true });
@@ -187,7 +187,7 @@ async function checkWebRuntime(executable, workspace, checkout, environment) {
 	const asset = findFirstJavaScriptAsset(clientRoot);
 	if (!asset) throw new Error("Source installer produced no client JavaScript asset");
 
-	const child = spawn(executable, ["web", "--host", "127.0.0.1", "--port", "0", "--cwd", workspace], {
+	const child = spawn(executable, ["--host", "127.0.0.1", "--port", "0", "--cwd", workspace], {
 		cwd: workspace,
 		env: environment,
 		stdio: ["ignore", "pipe", "pipe"],
@@ -210,7 +210,11 @@ async function checkWebRuntime(executable, workspace, checkout, environment) {
 		}
 
 		const workspaceResponse = await fetchJson(`${url}/api/workspace/tree`);
-		if (workspaceResponse.status !== 200 || workspaceResponse.body.root !== workspace) {
+		const workspaceLabelSuffix = `${basename(dirname(workspace))}${sep}${basename(workspace)}`;
+		const workspaceMatches =
+			typeof workspaceResponse.body.root === "string" &&
+			(workspaceResponse.body.root === workspace || workspaceResponse.body.root.endsWith(workspaceLabelSuffix));
+		if (workspaceResponse.status !== 200 || !workspaceMatches) {
 			throw new Error(`Workspace check failed: expected ${workspace}, got ${JSON.stringify(workspaceResponse.body)}`);
 		}
 
@@ -246,7 +250,7 @@ function findFirstJavaScriptAsset(directory) {
 async function waitForUrl(child, getOutput) {
 	const deadline = Date.now() + 30_000;
 	while (Date.now() < deadline) {
-		const match = getOutput().match(/Prime Agent web interface: (http:\/\/[^\s]+)/);
+		const match = getOutput().match(/Fleet Prime interface: (http:\/\/[^\s]+)/);
 		if (match) return match[1];
 		if (child.exitCode !== null || child.signalCode !== null) break;
 		await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));

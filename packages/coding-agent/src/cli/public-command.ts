@@ -15,7 +15,6 @@ import {
 import { handleDaemonCommand } from "./daemon-command.js";
 import { runPs, runReap, runShutdownAll } from "./daemon-ps.js";
 import { DAEMON_UPDATE_RESTART_COORDINATOR_FLAG } from "./daemon-update-restart.js";
-import { runWebCommand } from "./web-command.js";
 
 export interface PublicCommandResult {
 	handled: boolean;
@@ -108,9 +107,6 @@ async function runPublicCommand(args: string[]): Promise<PublicCommandResult> {
 			return runDoctor(args.slice(1));
 		case "shutdown":
 			return runShutdown(args.slice(1));
-		case "web":
-			await runWebCommand(args.slice(1));
-			return HANDLED;
 		case "package":
 			return runPackage(args.slice(1));
 		case "update": {
@@ -212,6 +208,8 @@ function rejectRemovedCommand(args: string[]): PublicCommandResult {
 		replacement = 'Use "prime-agent package remove".';
 	} else if (command === "manage") {
 		replacement = 'Use "prime-agent agents".';
+	} else if (command === "web") {
+		replacement = 'Use "fleet-prime".';
 	}
 	return fail(`Unknown command: ${args.slice(0, 2).join(" ")}`, replacement);
 }

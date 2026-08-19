@@ -14,7 +14,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -28,7 +28,7 @@ if (!existsSync(join(packageDir, "package.json"))) throw new Error(`Missing rele
 if (!existsSync(artifactsDir)) throw new Error(`Missing release artifacts: ${artifactsDir}`);
 verifyArtifactChecksums(artifactsDir);
 
-const tempRoot = mkdtempSync(join(tmpdir(), "prime-agent-web-release-"));
+const tempRoot = mkdtempSync(join(tmpdir(), "fleet-prime-web-release-"));
 const packageCopy = join(tempRoot, "package");
 const installRoot = join(tempRoot, "install");
 const localArtifactsDir = join(tempRoot, "local-artifacts");
@@ -71,10 +71,10 @@ try {
 		{ cwd: root, stdio: "inherit" },
 	);
 
-	const executable = [join(installRoot, "bin", "prime-agent"), join(installRoot, "node_modules", ".bin", "prime-agent")].find(
+	const executable = [join(installRoot, "bin", "fleet-prime"), join(installRoot, "node_modules", ".bin", "fleet-prime")].find(
 		(path) => existsSync(path),
 	);
-	if (!executable) throw new Error(`Installed CLI was not linked under ${installRoot}`);
+	if (!executable) throw new Error(`Installed Fleet Prime launcher was not linked under ${installRoot}`);
 	const installedPackageDir = [
 		join(installRoot, "lib", "node_modules", "prime-agent"),
 		join(installRoot, "node_modules", "prime-agent"),
@@ -88,7 +88,7 @@ try {
 
 	const child = spawn(
 		executable,
-		["web", "--host", "127.0.0.1", "--port", "0", "--cwd", workspaceRoot],
+		["--host", "127.0.0.1", "--port", "0", "--cwd", workspaceRoot],
 		{
 			cwd: workspaceRoot,
 			env: { ...process.env, PRIME_AGENT_CODING_AGENT_DIR: agentDir },
@@ -105,7 +105,11 @@ try {
 			throw new Error(`Health check failed: HTTP ${health.status} ${JSON.stringify(health.body)}`);
 		}
 		const workspace = await fetchJson(`${url}/api/workspace/tree`);
-		if (workspace.status !== 200 || workspace.body.root !== workspaceRoot) {
+		const workspaceLabelSuffix = `${basename(dirname(workspaceRoot))}${sep}${basename(workspaceRoot)}`;
+		const workspaceMatches =
+			typeof workspace.body.root === "string" &&
+			(workspace.body.root === workspaceRoot || workspace.body.root.endsWith(workspaceLabelSuffix));
+		if (workspace.status !== 200 || !workspaceMatches) {
 			throw new Error(`Workspace check failed: expected ${workspaceRoot}, got ${JSON.stringify(workspace.body)}`);
 		}
 		const assetPath = relative(join(packageCopy, "dist", "web", "client"), asset).split(sep).join("/");
@@ -235,7 +239,7 @@ function collectOutput(child) {
 async function waitForUrl(output) {
 	const deadline = Date.now() + 30_000;
 	while (Date.now() < deadline) {
-		const match = output.stdout.match(/Prime Agent web interface: (http:\/\/[^\s]+)/);
+		const match = output.stdout.match(/Fleet Prime interface: (http:\/\/[^\s]+)/);
 		if (match) return match[1];
 		await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
 	}
