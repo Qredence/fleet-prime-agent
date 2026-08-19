@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 
 /**
- * Playwright smoke for the prime-agent web frontend.
+ * Playwright smoke for the Fleet Prime web frontend.
  *
  * Runs a single Chromium project against the dev server. The webServer block
  * boots `vite dev` if it isn't already running.

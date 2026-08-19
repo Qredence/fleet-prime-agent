@@ -64,7 +64,7 @@ export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
 	{ name: "logs", description: "Show where daemon and client logs are saved", source: "builtin" },
 	{
 		name: "traces",
-		description: "Preview, upload, or configure Prime Agent traces",
+		description: "Preview, upload, or configure Fleet Prime traces",
 		argumentHint: "[status|on|off|preview|upload]",
 		source: "builtin",
 	},
@@ -122,7 +122,7 @@ export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
 	},
 	{ name: "heartbeats", description: "View user and agent heartbeats", source: "builtin" },
 	{ name: "reload", description: "Reload keybindings, extensions, skills, prompts, and themes", source: "builtin" },
-	{ name: "update", description: "Update Prime Agent (TUI-only)", source: "builtin" },
+	{ name: "update", description: "Update Fleet Prime (TUI-only)", source: "builtin" },
 	{ name: "fullscreen", description: "Toggle fullscreen (TUI-only)", source: "builtin" },
 	{ name: "quit", description: "Quit (TUI-only; close this tab instead)", source: "builtin" },
 ];

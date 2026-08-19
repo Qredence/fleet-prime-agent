@@ -12,7 +12,7 @@ import { test, expect } from "@playwright/test"
 test.describe("chat shell", () => {
 	test("home page loads with chat input", async ({ page }) => {
 		await page.goto("/")
-		await expect(page).toHaveTitle(/fleet prime|prime agent|prime-agent|chat/i, { timeout: 15_000 })
+		await expect(page).toHaveTitle(/fleet prime|chat/i, { timeout: 15_000 })
 		// The chat surface renders a composer. We accept any plausible
 		// textarea/contenteditable that holds a placeholder.
 		const composer = page.locator(
@@ -42,7 +42,7 @@ test.describe("chat shell", () => {
 			element.classList.contains("dark") ? "dark" : "light",
 		)
 		await expect(visibleLogo).toHaveAttribute("src", new RegExp(`logo-qredence-${logoVariant}-1\\.svg$`))
-		await expect(page.getByText(/Explore the codebase, make changes, and run Prime Agent tools/)).toHaveCount(0)
+		await expect(page.getByText(/Explore the codebase, make changes, and run Fleet Prime tools/)).toHaveCount(0)
 		await expect(page.getByRole("heading", { name: "Welcome to your workspace", exact: true })).toHaveCount(0)
 
 		for (const label of ["Explore codebase", "Review changes", "Fix an issue", "Plan a feature"]) {
@@ -359,7 +359,7 @@ test.describe("chat shell", () => {
 		expect(body.status).toBe("ok")
 		expect(body.mediaType).toBe("text/markdown")
 		expect(body.name).toBe("ARCHITECTURE.md")
-		expect(body.content).toMatch(/Prime-Agent Web Architecture/i)
+		expect(body.content).toMatch(/Fleet Prime Web Architecture/i)
 	})
 
 	test("BEUI chat preserves the desktop panel tabs and toggle behavior", async ({ page }) => {

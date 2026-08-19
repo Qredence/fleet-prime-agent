@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-// Standalone launcher for the Qredence web interface: equivalent to
-// `prime-agent web`. The Node 22+ module graph fails at link time on older
-// Node, so it must load behind the dynamic import, after the dependency-free
-// guard runs (same as cli.ts).
+// Standalone Fleet Prime web launcher. The Node 22+ module graph fails at link
+// time on older Node, so it must load behind the dynamic import, after the
+// dependency-free guard runs (same as cli.ts).
 import { assertNodeVersion } from "./cli/node-version-check.js";
 
 const supported = assertNodeVersion({
@@ -14,7 +13,7 @@ const supported = assertNodeVersion({
 if (supported) {
 	const args = process.argv.slice(2);
 	if (args.includes("--help") || args.includes("-h")) {
-		console.log(`Launch the Qredence web interface (frontend and backend).
+		console.log(`Launch the Fleet Prime web interface (frontend and backend).
 
 Usage:
   fleet-prime [--host <host>] [--port <port>] [--cwd <directory>]
@@ -25,8 +24,8 @@ Options:
   --cwd <directory>   Use a specific workspace directory`);
 		process.exit(0);
 	}
-	const { runWebCommand } = await import("./cli/web-command.js");
-	await runWebCommand(args).catch((error) => {
+	const { runFleetPrimeCommand } = await import("./cli/web-command.js");
+	await runFleetPrimeCommand(args).catch((error) => {
 		console.error(error instanceof Error ? error.message : String(error));
 		process.exit(1);
 	});

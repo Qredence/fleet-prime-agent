@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 
-- Added the `fleet-prime` command to launch the Qredence web interface: the installed command starts the prebuilt web runtime, and `./fleet-prime.sh` in a source checkout runs the Vite dev server; `prime-agent web` remains available as an alias.
+- Added the `fleet-prime` command to launch the Fleet Prime web interface: the installed command starts the prebuilt web runtime, and `./fleet-prime.sh` in a source checkout runs the Vite dev server.
 - Added `--help`/`-h` to the `fleet-prime` launcher and made `./fleet-prime` run the same web dev server as `./fleet-prime.sh`.
-- Fixed `prime-agent web` and `fleet-prime` failing to locate the packaged web runtime when a copied `dist/package.json` shadows the package root.
+- Fixed `fleet-prime` failing to locate the packaged web runtime when a copied `dist/package.json` shadows the package root.
 
 - Fixed extension installs cloning git sources into predictable temp paths; temporary sources now use per-process `mkdtemp` directories and repo URLs can no longer be parsed as git options.
 - Fixed API-key fingerprinting in the model registry using fast hashes; persisted fingerprints now use scrypt and in-memory cache fingerprints use a per-process keyed HMAC.
@@ -14,7 +14,7 @@
 - Fixed the version check and tool installer interpolating unvalidated file-derived values into URLs; versions and GitHub repo names are now validated before use.
 - Fixed the web launcher exposing internal error messages and stack traces to browser clients.
 
-- Added `prime-agent web` to launch the packaged Qredence frontend and backend.
+- Added the packaged Fleet Prime frontend and backend to the `fleet-prime` launcher.
 - Changed the public installer to build the Qredence repository in place and link the `prime-agent` command globally.
 - Added a `seed_messages` daemon capability so clients negotiate seeded `new_session` independently of protocol version.
 - Fixed seeded assistant messages omitting required `api`, `provider`, `model`, and `usage` fields.

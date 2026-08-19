@@ -1,9 +1,11 @@
-# Prime-Agent Web Architecture
+# Fleet Prime Web Architecture
 
-Standalone Qredence web UI for in-tree Prime Agent (`packages/coding-agent`).
+Standalone Qredence web UI for the Fleet Prime product, backed by the in-tree
+coding-agent package (`packages/coding-agent`).
 The UI is not merged into `PrimeIntellect-ai/prime-agent`. `web/app` is the
 TanStack Start host; `web/server` is the only web package that imports
-`@earendil-works/*`. Install the UI with pnpm (`web/`); Prime Agent stays on npm.
+`@earendil-works/*`. Install the UI with pnpm (`web/`); the inherited CLI
+package stays on npm.
 
 ## Process boundary
 

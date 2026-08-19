@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How Prime Agent Works — Interactive Architecture</title>
+<title>How Fleet Prime Works — Interactive Architecture</title>
 <style>
 :root{
   --bg:#090d0c; --bg2:#0d1312; --panel:#101816; --line:#1f2c27; --line2:#2a3a34;
@@ -110,7 +110,7 @@ footer code{font-family:var(--mono);color:var(--mut)}
 </head>
 <body>
 <header>
-  <h1><span class="spark">◆</span> How Prime Agent Works</h1>
+  <h1><span class="spark">◆</span> How Fleet Prime Works</h1>
   <div class="sub">An interactive map of the daemon-backed runtime, the model-facing IPython control loop, recursive subagents (<code>rlm</code>), the continual harness, and long-running session machinery. Hover any node for detail; press play on the flow views.</div>
 </header>
 <div class="tabs" id="tabs"></div>
@@ -303,7 +303,7 @@ const LOOP = {
     {id:"prov2",x:790,y:70,w:210,h:100,kind:"k-ext",t:"Model provider",s:"streamSimple() · SSE",
      d:{kicker:"Step 4",title:"Streaming call",body:"The request streams through <code>packages/ai</code>, which normalizes every provider into one event shape: <code>text · tool_call · thinking · usage · stop</code>. Cancellation and retries live here too.",code:"stream(session, model, context)\n  -> AssistantMessageEventStream"}},
     {id:"route",x:830,y:260,w:170,h:80,kind:"k-bound",t:"Response router",s:"text or IPython tool call",
-     d:{kicker:"Step 5",title:"Text or tool call",body:"The model's answer is either <b>final text</b> (rendered to clients) or an <b>IPython tool call</b> — Prime Agent's single, universal tool. Code, shell, file edits, delegation: all of it is Python in the persistent kernel."}},
+     d:{kicker:"Step 5",title:"Text or tool call",body:"The model's answer is either <b>final text</b> (rendered to clients) or an <b>IPython tool call</b> — Fleet Prime's single, universal tool. Code, shell, file edits, delegation: all of it is Python in the persistent kernel."}},
     {id:"render",x:830,y:400,w:170,h:70,kind:"k-client",t:"Render to clients",s:"events stream back",
      d:{kicker:"Finish",title:"Render & persist",body:"Events flow back worker → supervisor → connection → client as a <b>generation-aware stream</b>, while the session appends the turn to the JSONL transcript with artifacts and usage accounting."}},
     {id:"kman",x:500,y:400,w:250,h:90,kind:"k-kernel",t:"KernelManager → IPython",s:"Jupyter over ZeroMQ · one namespace",
@@ -331,7 +331,7 @@ const LOOP = {
     {n:["queue"],e:["e2"],cap:"The <b>session queue</b> orders prompts, steering, and follow-ups into the active generation.",d:"queue"},
     {n:["sess"],e:["e3"],cap:"<b>AgentSession</b> assembles context: immutable base prompt + continual-harness supplements + compacted transcript tail.",d:"sess"},
     {n:["prov2"],e:["e4"],cap:"The model request <b>streams</b>. Provider-specific wire formats are normalized into one event type by <code>packages/ai</code>.",d:"prov2"},
-    {n:["route"],e:["e5a","e5b"],cap:"Branch: <b>final text</b> goes to clients; an <b>IPython tool call</b> goes to the kernel. Prime Agent has exactly one model-facing tool — Python.",d:"route"},
+    {n:["route"],e:["e5a","e5b"],cap:"Branch: <b>final text</b> goes to clients; an <b>IPython tool call</b> goes to the kernel. Fleet Prime has exactly one model-facing tool — Python.",d:"route"},
     {n:["kman"],e:["e6"],cap:"<b>KernelManager</b> executes the cell in the persistent IPython kernel over Jupyter/ZeroMQ. Namespace state outlives the turn.",d:"kman"},
     {n:["host"],e:["e7"],cap:"Python needing authoritative host state — <code>rlm.run</code>, <code>goal.*</code>, <code>agent_message.*</code> — crosses the <b>comm bridge</b> back to TypeScript.",d:"host"},
     {n:["sess"],e:["e8"],cap:"Tool output returns to the session and the loop <b>iterates</b>: another streaming request with the new observation appended.",d:"sess"},

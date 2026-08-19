@@ -135,7 +135,7 @@ export function InputQuestionBar({
       </div>
       <ApprovalCard
         key={`${clampedQuestionIndex}-${activeQuestion.title}`}
-        title="Prime Agent question"
+        title="Fleet Prime question"
         questions={[approvalQuestion]}
         submitLabel={questionBar.submitLabel ?? "Continue"}
         status="pending"

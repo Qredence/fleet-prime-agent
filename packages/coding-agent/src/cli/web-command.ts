@@ -8,13 +8,16 @@ const DEFAULT_PORT = 3000;
 const MAX_PORT = 65535;
 const WORKSPACE_ROOT_ENV = "PRIME_AGENT_WORKSPACE_ROOT";
 
-export interface WebCommandOptions {
+export interface FleetPrimeCommandOptions {
 	host: string;
 	port: number;
 	workspaceRoot: string;
 }
 
-export function parseWebCommandOptions(args: readonly string[], environment = process.env): WebCommandOptions {
+export function parseFleetPrimeCommandOptions(
+	args: readonly string[],
+	environment = process.env,
+): FleetPrimeCommandOptions {
 	let host = DEFAULT_HOST;
 	let port = DEFAULT_PORT;
 	let workspaceRoot: string | undefined;
@@ -47,7 +50,7 @@ export function parseWebCommandOptions(args: readonly string[], environment = pr
 			continue;
 		}
 
-		throw new Error(`Unknown option for web: ${arg}`);
+		throw new Error(`Unknown option for fleet-prime: ${arg}`);
 	}
 
 	const configuredRoot = workspaceRoot ?? environment[WORKSPACE_ROOT_ENV] ?? process.cwd();
@@ -62,13 +65,13 @@ export function parseWebCommandOptions(args: readonly string[], environment = pr
 	return { host, port, workspaceRoot: resolvedRoot };
 }
 
-export async function runWebCommand(args: readonly string[]): Promise<void> {
-	let options: WebCommandOptions;
+export async function runFleetPrimeCommand(args: readonly string[]): Promise<void> {
+	let options: FleetPrimeCommandOptions;
 	try {
-		options = parseWebCommandOptions(args);
+		options = parseFleetPrimeCommandOptions(args);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		throw new Error(`${message}\nRun "prime-agent help web" for usage.`);
+		throw new Error(`${message}\nRun "fleet-prime --help" for usage.`);
 	}
 	const launcherPath = join(getPackageDir(), "dist", "web", "launcher.mjs");
 	if (!existsSync(launcherPath)) {
@@ -83,14 +86,14 @@ export async function runWebCommand(args: readonly string[]): Promise<void> {
 		stdio: "inherit",
 	});
 
-	await waitForWebProcess(child);
+	await waitForFleetPrimeProcess(child);
 }
 
 function parseHost(value: string): string {
 	const host = value.trim();
 	if (!host) throw new Error("--host requires a non-empty value");
 	if (host !== "127.0.0.1" && host !== "localhost" && host !== "::1") {
-		throw new Error(`Invalid web host: ${host}. Prime Agent web accepts loopback hosts only.`);
+		throw new Error(`Invalid Fleet Prime host: ${host}. Fleet Prime accepts loopback hosts only.`);
 	}
 	return host;
 }
@@ -106,7 +109,7 @@ function parsePort(value: string): number {
 	return port;
 }
 
-export function waitForWebProcess(child: ChildProcess): Promise<void> {
+export function waitForFleetPrimeProcess(child: ChildProcess): Promise<void> {
 	return new Promise((resolvePromise, reject) => {
 		let settled = false;
 		const forwardSignal = (signal: NodeJS.Signals) => {

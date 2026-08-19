@@ -3,7 +3,7 @@ import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.z
 import type { ZodType } from "zod";
 import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url";
 
-// v1 (prime-agent web): no auth — local tool bound to 127.0.0.1.
+// v1 (Fleet Prime web): no auth — local tool bound to 127.0.0.1.
 function getChatAuthBearerToken(): string | null {
 	return null;
 }

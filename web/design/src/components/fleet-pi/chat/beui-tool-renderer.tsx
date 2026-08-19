@@ -41,8 +41,8 @@ function Approval({
   return (
     <ToolApproval
       tool={name}
-      title="Prime Agent permission"
-      description="This tool reported a permission decision from Prime Agent."
+      title="Fleet Prime permission"
+      description="This tool reported a permission decision from Fleet Prime."
       parameters={parameters}
       status={approvalStatus}
     />

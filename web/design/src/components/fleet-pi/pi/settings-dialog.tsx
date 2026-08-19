@@ -554,7 +554,7 @@ function SettingsDialogPaneContent({
         <div>
           <h3 className="text-lg font-medium">Sessions</h3>
           <p className="text-sm text-muted-foreground">
-            Set local conversation preferences. Provider and workspace configuration remains Prime Agent-owned.
+            Set local conversation preferences. Provider and workspace configuration remains Fleet Prime-owned.
           </p>
         </div>
         <PreferenceRow
@@ -568,7 +568,7 @@ function SettingsDialogPaneContent({
           />
         </PreferenceRow>
         <p className="text-xs text-muted-foreground">
-          Provider credentials, OAuth, models, sandbox configuration, and workspace selection are managed by Prime Agent and its CLI.
+          Provider credentials, OAuth, models, sandbox configuration, and workspace selection are managed by Fleet Prime and its CLI.
         </p>
       </div>
     ),
