@@ -171,7 +171,7 @@ function DataTableComponent({
     const activeColumn =
       columns.find((column) => column.key === sort.key) ?? { key: sort.key }
     const comparator = buildSortComparator(activeColumn, sort.dir)
-    sortedRows = rows.toSorted(comparator)
+    sortedRows = [...rows].sort(comparator)
   }
 
   return (

@@ -71,7 +71,7 @@ export function AddModelsDialog({
   }, [candidateModels])
 
   const discoverableProviders = useMemo(() => {
-    return Array.from(configuredProviderIds).toSorted((a, b) =>
+    return Array.from(configuredProviderIds).sort((a, b) =>
       formatProviderLabel(a).localeCompare(formatProviderLabel(b))
     )
   }, [configuredProviderIds])

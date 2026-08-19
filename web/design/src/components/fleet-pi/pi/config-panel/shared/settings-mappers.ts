@@ -21,7 +21,7 @@ export function comparableModelSettings(
 ): ChatPiSettingsUpdate {
 	const enabledRaw = settings.enabledModels;
 	const enabledModels =
-		enabledRaw === undefined || enabledRaw === null ? null : sanitizeStringList(enabledRaw).toSorted();
+		enabledRaw === undefined || enabledRaw === null ? null : [...sanitizeStringList(enabledRaw)].sort();
 
 	return {
 		defaultProvider: settings.defaultProvider,
