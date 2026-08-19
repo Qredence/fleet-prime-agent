@@ -58,7 +58,7 @@
 		"cli-highlight": "^2.1.11",
 		"debug": "^4.4.3",
 		"diff": "^9.0.0",
-		"file-type": "^21.1.1",
+		"file-type": "^22.0.1",
 		"glob": "^13.0.1",
 		"hosted-git-info": "^9.0.2",
 		"ignore": "^7.0.5",
