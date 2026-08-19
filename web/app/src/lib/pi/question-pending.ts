@@ -28,7 +28,7 @@ export function isQuestionToolPartPending(part: ToolQuestionPart): boolean {
 }
 
 export function assistantMessageHasPendingQuestion(message: ChatMessageLike | undefined): boolean {
-	if (!message || message.role !== "assistant" || !Array.isArray(message.parts)) {
+	if (message?.role !== "assistant" || !Array.isArray(message.parts)) {
 		return false;
 	}
 

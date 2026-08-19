@@ -127,7 +127,7 @@ function flattenForkCandidates(nodes: SessionTreeBranch[]): Array<ForkPickerEntr
 function lastAssistantCopyText(messages: Array<ChatMessage>): string | undefined {
 	for (let i = messages.length - 1; i >= 0; i -= 1) {
 		const message = messages[i];
-		if (!message || message.role !== "assistant" || message.source === "local") continue;
+		if (message?.role !== "assistant" || message.source === "local") continue;
 		const text = assistantTextFromMessage(message).trim();
 		if (text) return text;
 		const thinking = message.parts.map(thinkingTextFromPart).join("").trim();
@@ -138,13 +138,13 @@ function lastAssistantCopyText(messages: Array<ChatMessage>): string | undefined
 
 function transcriptMarkdown(messages: Array<ChatMessage>): string {
 	return messages
-		.filter((message) => message.source !== "local")
-		.map((message) => {
+		.flatMap((message) => {
+			if (message.source === "local") return [];
 			const text =
 				assistantTextFromMessage(message).trim() || message.parts.map(thinkingTextFromPart).join("").trim();
-			return `**${message.role}**\n\n${text}`;
+			const block = `**${message.role}**\n\n${text}`;
+			return block.trim().length > 0 ? [block] : [];
 		})
-		.filter((block) => block.trim().length > 0)
 		.join("\n\n---\n\n");
 }
 

@@ -8,7 +8,6 @@ import type {
 	ChatProviderUpdateResponse,
 	ChatSettingsUpdateRequest,
 } from "@prime-agent/web-protocol/chat-protocol";
-import type { QueryClient } from "@tanstack/react-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { chatClient } from "./chat-client";
 
@@ -24,15 +23,6 @@ export const chatQueryKeys = {
 } as const;
 
 const keys = chatQueryKeys;
-
-/** Invalidate cwd-scoped queries after the workspace root changes. */
-export function invalidateWorkspaceScopedQueries(queryClient: QueryClient) {
-	void queryClient.invalidateQueries({ queryKey: ["workspace", "tree"] });
-	void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
-	void queryClient.invalidateQueries({ queryKey: ["chat", "settings"] });
-	void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
-	void queryClient.invalidateQueries({ queryKey: ["chat", "commands"] });
-}
 
 export function useChatModels(projectId?: ProjectId) {
 	return useQuery({

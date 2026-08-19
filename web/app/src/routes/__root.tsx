@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { QueryClientProvider } from "@tanstack/react-query"
+import { MotionRuntime } from "@prime-agent/web-design/components/motion/runtime"
 import { Toaster } from "@prime-agent/web-design/components/sonner"
 import { NotFoundPage } from "@prime-agent/web-design/components/fleet-pi/not-found-page"
 
@@ -55,9 +56,11 @@ function RootComponent() {
   }, [])
 
   return (
-    <QueryClientProvider client={getQueryClient()}>
-      <Outlet />
-    </QueryClientProvider>
+    <MotionRuntime>
+      <QueryClientProvider client={getQueryClient()}>
+        <Outlet />
+      </QueryClientProvider>
+    </MotionRuntime>
   )
 }
 

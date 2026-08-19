@@ -208,23 +208,31 @@ function ChatWorkspaceShell() {
                   onThinkingLevelChange: setThinkingLevel,
                   attachments: {
                     onAttach: handleAttach,
-                    images: uploadedAttachments
-                      .filter((attachment) => attachment.mimeType.startsWith("image/"))
-                      .map((attachment) => ({
-                        id: attachment.attachmentId,
-                        filename: attachment.name,
-                        size: attachment.size,
-                        url: resolveChatApiUrl(
-                          `/api/chat/session?sessionId=${encodeURIComponent(activeSessionId ?? "")}&attachmentId=${encodeURIComponent(attachment.attachmentId)}`,
-                        ),
-                      })),
-                    files: uploadedAttachments
-                      .filter((attachment) => !attachment.mimeType.startsWith("image/"))
-                      .map((attachment) => ({
-                        id: attachment.attachmentId,
-                        filename: attachment.name,
-                        size: attachment.size,
-                      })),
+                    images: uploadedAttachments.flatMap((attachment) =>
+                      attachment.mimeType.startsWith("image/")
+                        ? [
+                            {
+                              id: attachment.attachmentId,
+                              filename: attachment.name,
+                              size: attachment.size,
+                              url: resolveChatApiUrl(
+                                `/api/chat/session?sessionId=${encodeURIComponent(activeSessionId ?? "")}&attachmentId=${encodeURIComponent(attachment.attachmentId)}`,
+                              ),
+                            },
+                          ]
+                        : [],
+                    ),
+                    files: uploadedAttachments.flatMap((attachment) =>
+                      attachment.mimeType.startsWith("image/")
+                        ? []
+                        : [
+                            {
+                              id: attachment.attachmentId,
+                              filename: attachment.name,
+                              size: attachment.size,
+                            },
+                          ],
+                    ),
                     onRemoveImage: removeUploadedAttachment,
                     onRemoveFile: removeUploadedAttachment,
                   },
