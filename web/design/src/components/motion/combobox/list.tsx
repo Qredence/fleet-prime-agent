@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import {
   type ReactNode,
   useContext,
@@ -163,7 +163,7 @@ export function ComboboxItem({
         className,
       )}>
       {active ? (
-        <motion.span
+        <m.span
           aria-hidden
           layoutId={context.activeLayoutId}
           className="absolute inset-0 -z-10 rounded-lg bg-muted"
@@ -171,7 +171,7 @@ export function ComboboxItem({
         />
       ) : null}
       <span className="min-w-0 flex-1">{children}</span>
-      <motion.span
+      <m.span
         aria-hidden
         initial={false}
         animate={{
@@ -183,7 +183,7 @@ export function ComboboxItem({
         }
         className="grid size-5 shrink-0 place-items-center text-foreground">
         <Check className="size-4" />
-      </motion.span>
+      </m.span>
     </button>
   );
 }

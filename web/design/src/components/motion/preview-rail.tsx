@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useId, useState, type ReactNode } from "react";
 import { EASE_OUT, SPRING_LAYOUT } from "@prime-agent/web-design/lib/ease";
 import { useHoverCapable } from "@prime-agent/web-design/lib/hooks/use-hover-capable";
@@ -106,7 +106,7 @@ export function PreviewRail({
   };
 
   return (
-    <motion.div
+    <m.div
       layoutRoot
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -152,7 +152,7 @@ export function PreviewRail({
 
           const itemContent = (
             <>
-              <motion.span
+              <m.span
                 data-slot="preview-rail-tick"
                 aria-hidden="true"
                 animate={isHorizontal ? { scaleY: scale } : { scaleX: scale }}
@@ -262,63 +262,50 @@ export function PreviewRail({
                 isHorizontal ? "justify-center" : undefined,
               )}
             >
-              {item.id === displayedId ? (
-                <div
-                  className={cn(
-                    isHorizontal
-                      ? "absolute bottom-12 left-1/2 w-72 -translate-x-1/2"
-                      : cn(
-                          "w-full max-w-sm",
-                          previewSide === "before" && "ml-auto",
-                        ),
-                    previewClassName,
-                  )}
-                >
-                  <motion.div
-                    layoutId={`preview-rail-card-${uid}`}
-                    transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
+              <AnimatePresence mode="wait" initial={false}>
+                {item.id === displayedId ? (
+                  <m.div
+                    key={item.id}
+                    initial={
+                      reduce
+                        ? { opacity: 0 }
+                        : { opacity: 0, y: 4, filter: "blur(6px)" }
+                    }
+                    animate={
+                      reduce
+                        ? { opacity: 1 }
+                        : { opacity: 1, y: 0, filter: "blur(0px)" }
+                    }
+                    exit={
+                      reduce
+                        ? { opacity: 0 }
+                        : {
+                            opacity: 0,
+                            y: -2,
+                            filter: "blur(4px)",
+                            transition: { duration: 0.12, ease: EASE_OUT },
+                          }
+                    }
+                    transition={{ duration: reduce ? 0 : 0.18, ease: EASE_OUT }}
+                    className={cn(
+                      isHorizontal
+                        ? "absolute bottom-12 left-1/2 w-72 -translate-x-1/2"
+                        : cn(
+                            "w-full max-w-sm",
+                            previewSide === "before" && "ml-auto",
+                          ),
+                      previewClassName,
+                    )}
                   >
-                    <AnimatePresence mode="wait" initial={false}>
-                      <motion.div
-                        key={item.id}
-                        initial={
-                          reduce
-                            ? { opacity: 0 }
-                            : { opacity: 0, y: 4, filter: "blur(6px)" }
-                        }
-                        animate={
-                          reduce
-                            ? { opacity: 1 }
-                            : { opacity: 1, y: 0, filter: "blur(0px)" }
-                        }
-                        exit={
-                          reduce
-                            ? { opacity: 0 }
-                            : {
-                                opacity: 0,
-                                y: -2,
-                                filter: "blur(4px)",
-                                transition: {
-                                  duration: 0.12,
-                                  ease: EASE_OUT,
-                                },
-                              }
-                        }
-                        transition={{
-                          duration: reduce ? 0 : 0.18,
-                          ease: EASE_OUT,
-                        }}
-                      >
-                        {renderPreview ? (
-                          renderPreview(item)
-                        ) : (
-                          <DefaultPreview item={item} />
-                        )}
-                      </motion.div>
-                    </AnimatePresence>
-                  </motion.div>
-                </div>
-              ) : null}
+                    <m.div
+                      layoutId={`preview-rail-card-${uid}`}
+                      transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
+                    >
+                      {renderPreview ? renderPreview(item) : <DefaultPreview item={item} />}
+                    </m.div>
+                  </m.div>
+                ) : null}
+              </AnimatePresence>
             </div>
           ))}
         </div>
@@ -327,6 +314,6 @@ export function PreviewRail({
       {children ? (
         <div className="min-h-0 min-w-0 flex-1">{children}</div>
       ) : null}
-    </motion.div>
+    </m.div>
   );
 }

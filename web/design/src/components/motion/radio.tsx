@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, MotionConfig, useReducedMotion } from "motion/react";
+import { m, MotionConfig, useReducedMotion } from "motion/react";
 import {
   createContext,
   useCallback,
@@ -111,7 +111,7 @@ export function RadioGroupItem({
         className,
       )}
     >
-      <motion.button
+      <m.button
         id={id}
         type="button"
         role="radio"
@@ -131,13 +131,13 @@ export function RadioGroupItem({
         )}
       >
         {selected ? (
-          <motion.span
+          <m.span
             layoutId={layoutId}
             className="absolute inset-1 rounded-full bg-primary"
             transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
           />
         ) : null}
-      </motion.button>
+      </m.button>
       {label ? (
         <span className={cn("select-none text-sm text-foreground", disabled && "opacity-60")}>
           {label}

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
+import { m, useMotionValue, useReducedMotion, useSpring } from "motion/react";
 import { useRef, type ReactNode } from "react";
 import { SPRING_MOUSE } from "@prime-agent/web-design/lib/ease";
 import { useHoverCapable } from "@prime-agent/web-design/lib/hooks/use-hover-capable";
@@ -37,7 +37,7 @@ export function Magnetic({ children, strength = 0.35, className }: MagneticProps
   };
 
   return (
-    <motion.div
+    <m.div
       ref={ref}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
@@ -45,6 +45,6 @@ export function Magnetic({ children, strength = 0.35, className }: MagneticProps
       className={cn("inline-block", className)}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

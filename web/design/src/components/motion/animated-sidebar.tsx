@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import {
   AnimatePresence,
   type HTMLMotionProps,
-  motion,
+  m,
   useReducedMotion,
   type Variants,
 } from "motion/react";
@@ -19,6 +19,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -250,6 +251,31 @@ export function AnimatedSidebarProvider({
     else setOpen(!desktopOpen);
   }, [desktopOpen, isMobile, mobileOpen, setOpen, setOpenMobile]);
 
+  const sidebarContextValue: AnimatedSidebarContextValue = useMemo(
+    () => ({
+      isMobile,
+      layoutId: `${generatedId}-active`,
+      open: desktopOpen,
+      openMobile: mobileOpen,
+      reduce,
+      setOpen,
+      setOpenMobile,
+      state: desktopOpen ? "expanded" : "collapsed",
+      toggleSidebar,
+      triggerRef,
+    }),
+    [
+      desktopOpen,
+      generatedId,
+      isMobile,
+      mobileOpen,
+      reduce,
+      setOpen,
+      setOpenMobile,
+      toggleSidebar,
+    ],
+  );
+
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if (
@@ -266,20 +292,7 @@ export function AnimatedSidebarProvider({
   }, [toggleSidebar]);
 
   return (
-    <AnimatedSidebarContext.Provider
-      value={{
-        isMobile,
-        layoutId: `${generatedId}-active`,
-        open: desktopOpen,
-        openMobile: mobileOpen,
-        reduce,
-        setOpen,
-        setOpenMobile,
-        state: desktopOpen ? "expanded" : "collapsed",
-        toggleSidebar,
-        triggerRef,
-      }}
-    >
+    <AnimatedSidebarContext.Provider value={sidebarContextValue}>
       <div
         {...props}
         data-slot="sidebar-wrapper"
@@ -315,12 +328,19 @@ function MobileSidebar({
   const context = useAnimatedSidebar();
   const panelRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const mobilePanelContextValue = useMemo(
+    () => ({ collapsed: false, collapsible: "none" as const, side }),
+    [side],
+  );
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!context.openMobile) return;
 
+    const panel = panelRef.current;
+    if (!panel) return;
+    const trigger = context.triggerRef.current;
     const body = document.body;
     const scrollY = window.scrollY;
     const previousBodyStyles = {
@@ -338,9 +358,8 @@ function MobileSidebar({
     body.style.overflow = "hidden";
 
     const focusFrame = requestAnimationFrame(() => {
-      const firstFocusable =
-        panelRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-      (firstFocusable ?? panelRef.current)?.focus({ preventScroll: true });
+      const firstFocusable = panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+      (firstFocusable ?? panel).focus({ preventScroll: true });
     });
 
     return () => {
@@ -351,9 +370,9 @@ function MobileSidebar({
       body.style.right = previousBodyStyles.right;
       body.style.overflow = previousBodyStyles.overflow;
       window.scrollTo(0, scrollY);
-      context.triggerRef.current?.focus({ preventScroll: true });
+      trigger?.focus({ preventScroll: true });
     };
-  }, [context.openMobile, context.triggerRef]);
+  }, [context.openMobile, context.triggerRef, mounted]);
 
   if (!mounted) return null;
 
@@ -364,7 +383,7 @@ function MobileSidebar({
         context.openMobile ? "visible" : "invisible",
       )}
     >
-      <motion.button
+      <m.button
         type="button"
         aria-label="Close sidebar"
         tabIndex={context.openMobile ? 0 : -1}
@@ -382,7 +401,7 @@ function MobileSidebar({
         )}
       />
 
-      <motion.div
+      <m.div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
@@ -451,12 +470,10 @@ function MobileSidebar({
           className,
         )}
       >
-        <AnimatedSidebarPanelContext.Provider
-          value={{ collapsed: false, collapsible: "none", side }}
-        >
+        <AnimatedSidebarPanelContext.Provider value={mobilePanelContextValue}>
           {children}
         </AnimatedSidebarPanelContext.Provider>
-      </motion.div>
+      </m.div>
     </div>,
     document.body,
   );
@@ -490,6 +507,10 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(
     const context = useAnimatedSidebar();
     const collapsed = collapsible !== "none" && !context.open;
     const offcanvas = collapsed && collapsible === "offcanvas";
+    const panelContextValue = useMemo(
+      () => ({ collapsed, collapsible, side }),
+      [collapsed, collapsible, side],
+    );
     const width = offcanvas
       ? "0px"
       : collapsed
@@ -509,7 +530,7 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(
     }
 
     return (
-      <motion.aside
+      <m.aside
         {...props}
         ref={forwardedRef}
         initial={false}
@@ -519,19 +540,19 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(
         data-collapsible={collapsible}
         data-variant={variant}
         data-side={side}
-        animate={{ width }}
         transition={
           context.reduce ? { duration: 0 } : SIDEBAR_MORPH_TRANSITION
         }
-        style={style}
+        layout="size"
+        style={{ ...style, width }}
         className={cn(
-          "group/sidebar relative hidden h-auto shrink-0 md:block will-change-[width]",
+          "group/sidebar relative hidden h-auto shrink-0 md:block will-change-transform",
           "peer",
           side === "right" && "order-last",
           className,
         )}
       >
-        <motion.div
+        <m.div
           initial={false}
           animate={{
             opacity: offcanvas ? 0 : 1,
@@ -551,13 +572,11 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(
             panelClassName,
           )}
         >
-          <AnimatedSidebarPanelContext.Provider
-            value={{ collapsed, collapsible, side }}
-          >
+          <AnimatedSidebarPanelContext.Provider value={panelContextValue}>
             {children}
           </AnimatedSidebarPanelContext.Provider>
-        </motion.div>
-      </motion.aside>
+        </m.div>
+      </m.aside>
     );
   },
 );
@@ -678,7 +697,7 @@ export const AnimatedSidebarInset = forwardRef<
   AnimatedSidebarInsetProps
 >(function AnimatedSidebarInset({ className, ...props }, forwardedRef) {
   return (
-    <motion.main
+    <m.main
       {...props}
       ref={forwardedRef}
       data-slot="sidebar-inset"
@@ -824,7 +843,7 @@ export const AnimatedSidebarMenuItem = forwardRef<
   HTMLMotionProps<"li">
 >(function AnimatedSidebarMenuItem({ className, ...props }, forwardedRef) {
   return (
-    <motion.li
+    <m.li
       {...props}
       ref={forwardedRef}
       layout="position"
@@ -854,7 +873,7 @@ export const AnimatedSidebarMenuSub = forwardRef<
   return (
     <AnimatePresence initial={false} mode="popLayout">
       {open && !panel.collapsed ? (
-        <motion.ul
+        <m.ul
           {...props}
           ref={forwardedRef}
           key="sidebar-submenu"
@@ -870,7 +889,7 @@ export const AnimatedSidebarMenuSub = forwardRef<
           )}
         >
           {children}
-        </motion.ul>
+        </m.ul>
       ) : null}
     </AnimatePresence>
   );
@@ -884,7 +903,7 @@ export const AnimatedSidebarMenuSubItem = forwardRef<
   forwardedRef,
 ) {
   return (
-    <motion.li
+    <m.li
       {...props}
       ref={forwardedRef}
       variants={SUBMENU_ITEM_VARIANTS}
@@ -954,7 +973,7 @@ export function AnimatedSidebarMenuSubButton({
   );
 
   return href ? (
-    <motion.a
+    <m.a
       href={href}
       target={target}
       rel={
@@ -970,9 +989,9 @@ export function AnimatedSidebarMenuSubButton({
       className={interactiveClassName}
     >
       {content}
-    </motion.a>
+    </m.a>
   ) : (
-    <motion.button
+    <m.button
       type="button"
       disabled={disabled}
       aria-current={isActive ? "page" : undefined}
@@ -982,7 +1001,7 @@ export function AnimatedSidebarMenuSubButton({
       className={interactiveClassName}
     >
       {content}
-    </motion.button>
+    </m.button>
   );
 }
 
@@ -1037,7 +1056,7 @@ export function AnimatedSidebarMenuButton({
   const content = (
     <>
       {isActive ? (
-        <motion.span
+        <m.span
           layoutId={context.layoutId}
           transition={context.reduce ? { duration: 0 } : SPRING_LAYOUT}
           className="absolute inset-0 rounded-xl bg-muted"
@@ -1051,7 +1070,7 @@ export function AnimatedSidebarMenuButton({
           {icon}
         </span>
       ) : null}
-      <motion.span
+      <m.span
         initial={false}
         animate={{
           opacity: panel.collapsed ? 0 : 1,
@@ -1071,14 +1090,14 @@ export function AnimatedSidebarMenuButton({
         )}
       >
         {children}
-      </motion.span>
+      </m.span>
       {badge && !panel.collapsed ? (
         <span className="relative z-10 shrink-0 text-xs text-muted-foreground">
           {badge}
         </span>
       ) : null}
       {ariaExpanded !== undefined ? (
-        <motion.span
+        <m.span
           aria-hidden="true"
           initial={false}
           animate={{
@@ -1090,7 +1109,7 @@ export function AnimatedSidebarMenuButton({
           className="relative z-10 grid size-4 shrink-0 place-items-center text-muted-foreground"
         >
           <ChevronRight className="size-3.5" />
-        </motion.span>
+        </m.span>
       ) : null}
     </>
   );
@@ -1105,7 +1124,7 @@ export function AnimatedSidebarMenuButton({
   );
 
   return href ? (
-    <motion.a
+    <m.a
       href={href}
       target={target}
       rel={
@@ -1124,9 +1143,9 @@ export function AnimatedSidebarMenuButton({
       className={interactiveClassName}
     >
       {content}
-    </motion.a>
+    </m.a>
   ) : (
-    <motion.button
+    <m.button
       type="button"
       disabled={disabled}
       aria-current={isActive ? "page" : undefined}
@@ -1139,6 +1158,6 @@ export function AnimatedSidebarMenuButton({
       className={interactiveClassName}
     >
       {content}
-    </motion.button>
+    </m.button>
   );
 }

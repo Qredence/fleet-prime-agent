@@ -3,7 +3,7 @@
 import { Check, Loader2, X } from "lucide-react";
 import {
   AnimatePresence,
-  motion,
+  m,
   useReducedMotion,
   type Variants,
 } from "motion/react";
@@ -70,7 +70,7 @@ const ICON_VARIANTS: Variants = {
 function IconSlot({ keyId, children }: { keyId: string; children: ReactNode }) {
   const reduce = useReducedMotion();
   return (
-    <motion.span
+    <m.span
       key={keyId}
       variants={ICON_VARIANTS}
       initial={reduce ? { opacity: 0 } : "initial"}
@@ -80,7 +80,7 @@ function IconSlot({ keyId, children }: { keyId: string; children: ReactNode }) {
       className="inline-grid shrink-0 place-items-center overflow-hidden"
     >
       {children}
-    </motion.span>
+    </m.span>
   );
 }
 
@@ -107,9 +107,10 @@ function TextSlot({
   });
 
   return (
-    <motion.span
+    <m.span
       initial={false}
-      animate={{ width }}
+      layout="size"
+      style={{ width }}
       transition={reduce ? { duration: 0 } : SPRING_SWAP}
       className="relative inline-block overflow-hidden whitespace-nowrap align-bottom"
     >
@@ -131,47 +132,43 @@ function TextSlot({
           : children}
       </span>
 
-      {cascade ? (
-        <>
-          <span className="sr-only">{label}</span>
-          <AnimatePresence initial={false}>
-            <motion.span
-              key={`cascade-${value}`}
-              aria-hidden
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="absolute left-0 top-0 inline-block whitespace-pre"
-            >
-              {label.split("").map((char, index) => (
-                <motion.span
-                  // biome-ignore lint/suspicious/noArrayIndexKey: position is the slot identity.
-                  key={index}
-                  custom={index * CASCADE_STAGGER}
-                  variants={CASCADE_LETTER_VARIANTS}
-                  className="inline-block whitespace-pre will-change-[opacity,filter,transform]"
-                >
-                  {char}
-                </motion.span>
-              ))}
-            </motion.span>
-          </AnimatePresence>
-        </>
-      ) : (
-        <AnimatePresence initial={false}>
-          <motion.span
+      {cascade ? <span className="sr-only">{label}</span> : null}
+      <AnimatePresence initial={false}>
+        {cascade ? (
+          <m.span
+            key={`cascade-${value}`}
+            aria-hidden
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="absolute left-0 top-0 inline-block whitespace-pre"
+          >
+            {label.split("").map((char, index) => (
+              <m.span
+                // biome-ignore lint/suspicious/noArrayIndexKey: position is the slot identity.
+                key={index}
+                custom={index * CASCADE_STAGGER}
+                variants={CASCADE_LETTER_VARIANTS}
+                className="inline-block whitespace-pre"
+              >
+                {char}
+              </m.span>
+            ))}
+          </m.span>
+        ) : (
+          <m.span
             key={`text-${value}`}
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14, filter: ROLL_BLUR }}
             animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -14, filter: ROLL_BLUR }}
             transition={reduce ? { duration: 0.15 } : SPRING_SWAP}
-            className="absolute left-0 top-0 inline-block will-change-[opacity,filter,transform]"
+            className="absolute left-0 top-0 inline-block"
           >
             {children}
-          </motion.span>
-        </AnimatePresence>
-      )}
-    </motion.span>
+          </m.span>
+        )}
+      </AnimatePresence>
+    </m.span>
   );
 }
 
