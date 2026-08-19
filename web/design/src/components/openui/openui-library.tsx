@@ -829,11 +829,12 @@ export const TodoDef = defineComponent({
     <div className="w-full rounded-lg border p-3">
       {title ? <h3 className="mb-2 text-sm font-semibold">{title}</h3> : null}
       <ul className="flex flex-col gap-2">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const complete = item.status === "completed"
           const active = item.status === "in-progress"
           return (
-            <li key={`${item.label}-${item.status ?? "pending"}`} className="flex items-start gap-2 text-sm">
+            // biome-ignore lint/suspicious/noArrayIndexKey: duplicate labels and statuses are schema-valid, position disambiguates.
+            <li key={`${item.label}-${item.status ?? "pending"}-${index}`} className="flex items-start gap-2 text-sm">
               <span
                 aria-hidden="true"
                 className={cn(
