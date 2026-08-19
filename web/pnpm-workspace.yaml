@@ -6,6 +6,13 @@ packages:
 
 # 7 days in minutes. Matches root npm min-release-age.
 minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+# Excluded: existing lockfile entries with a trust downgrade. @pierre/theme@2.0.0
+# (via @pierre/diffs@1.3.4) and semver@6.3.1 have no provenance where earlier
+# versions did. Revisit after upstream restores provenance or entries are bumped.
+trustPolicyExclude:
+  - '@pierre/theme@2.0.0'
+  - semver@6.3.1
 confirmModulesPurge: false
 
 allowBuilds:
