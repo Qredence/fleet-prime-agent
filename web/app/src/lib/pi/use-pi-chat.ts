@@ -7,6 +7,7 @@ import type {
 	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatStreamEvent,
+	FleetAdapterCapabilities,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
@@ -14,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatClient } from "./chat-client";
 import { chatClient } from "./chat-client";
 import type { QueueState } from "./chat-fetch";
+import { upsertAssistantReasoningPresentation } from "./chat-message-helpers";
 import { resolveChatApiUrl } from "./chat-runtime-url";
 import { EMPTY_QUEUE_STATE, normalizeSessionMetadata } from "./chat-stream-state";
 import { hydratePlanPresentationMessages, planPresentationForToolCall } from "./plan-presentation";
@@ -173,6 +175,20 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 						mode: "agent",
 						planAction: "execute",
 					});
+					// The run settled; drop the persisted "executing" state so reloads
+					// do not show a stale in-flight plan card.
+					const settledPresentation = planPresentationForToolCall(messagesRef.current, toolCallId);
+					if (settledPresentation && sessionMetadataRef.current.sessionId) {
+						await client
+							.upsertPlanPresentation({
+								sessionId: sessionMetadataRef.current.sessionId,
+								presentation: {
+									...settledPresentation,
+									state: { ...settledPresentation.state, executing: false },
+								},
+							})
+							.catch(() => undefined);
+					}
 				} else if (selected === "refine" || answer.text?.trim()) {
 					await sendMessageRef.current({
 						text: answer.text?.trim() || "Refine the plan.",
@@ -293,7 +309,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		recoverFromForbiddenSession,
 	]);
 
-	const { sendMessage } = usePiChatMessaging({
+	const { sendMessage, setAdapterCapabilities } = usePiChatMessaging({
 		activityLabelRef,
 		client,
 		messagesRef,
@@ -437,6 +453,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		if (!sessionId || typeof window === "undefined") return;
 
 		const lastEventIdKey = `pi:sse:last-event-id:${sessionId}`;
+		const sseCapabilitiesRef = { current: undefined as FleetAdapterCapabilities | undefined };
 		let lastEventId = Number.parseInt(window.sessionStorage.getItem(lastEventIdKey) ?? "0", 10);
 		if (Number.isNaN(lastEventId)) lastEventId = 0;
 
@@ -454,6 +471,25 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			// In-flight NDJSON stream is authoritative; only act on out-of-turn pushes.
 			const currentStatus = statusRef.current;
 			if (currentStatus === "streaming" || currentStatus === "submitted") return;
+			const connected = frame as unknown as {
+				type?: string;
+				adapterCapabilities?: FleetAdapterCapabilities;
+			};
+			if (connected.type === "connected") {
+				const caps = connected.adapterCapabilities;
+				sseCapabilitiesRef.current = caps;
+				setAdapterCapabilities(caps);
+				return;
+			}
+			if (frame.type === "reasoning") {
+				const capabilities = sseCapabilitiesRef.current;
+				const messageId = frame.messageId;
+				if (!capabilities?.features.includes("reasoning-summary-v1") || !messageId) return;
+				setMessagesSynced((current) =>
+					upsertAssistantReasoningPresentation(current, messageId, frame.presentation),
+				);
+				return;
+			}
 			if (frame.type === "tool" && frame.part?.type === "tool-Question") {
 				setMessagesSynced((current) => {
 					const toolCallId = frame.part.toolCallId ?? "";
@@ -545,6 +581,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setMessagesSynced,
 		setQueueSynced,
 		setSessionMetadataSynced,
+		setAdapterCapabilities,
 	]);
 
 	const enhancedMessages = useMemo(() => enhanceMessages(messages), [messages, enhanceMessages]);

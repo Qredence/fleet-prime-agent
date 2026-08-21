@@ -29,11 +29,11 @@ Fleet browser code consumes only `web/protocol` contracts over the existing NDJS
 | Fleet adapter protocol version | `1` |
 | Schema revision | `1` |
 | Upstream identity | `PrimeIntellect-ai/prime-agent` plus the Fleet workspace’s pinned package/repository revision. |
-| Feature negotiation | Optional features are advertised in the existing initial `start` frame as `adapterCapabilities`; the field is absent for older adapters. |
+| Feature negotiation | Optional features are advertised as `adapterCapabilities` in the initial `start` frame of `POST /api/chat` and in the `connected` frame of the SSE channel; the field is absent for older adapters. |
 | Evolution rule | New behavior is optional/capability-gated. Existing transport and event frames remain valid. |
 | Client fallback | Missing or malformed optional capability data disables only the corresponding enhancement. |
 
-The current `POST /api/chat` stream already has an initial `start` frame, so that frame is the compatibility handshake for v1. A separate endpoint is unnecessary for the first capability because browser clients receive it before any live agent events.[2]
+The current `POST /api/chat` stream already has an initial `start` frame, so that frame is the compatibility handshake for v1 and the SSE `connected` frame re-advertises it on reconnect (the POST `start` frame is never ring-buffered). A separate endpoint is unnecessary for the first capability because browser clients receive it before any live agent events.[2]
 
 ## Current event mapping ledger
 
@@ -110,7 +110,7 @@ The initial controlled vocabulary is **Preparing run**, **Reviewing workspace co
 
 ## Durable Plan presentation: `plan-presentation-v1`
 
-Fleet now persists a browser-safe Plan presentation record in a Fleet-managed sidecar associated with the Prime session, rather than altering upstream transcript history. The record is created **only** by the completed Plan-mode bridge and contains the canonical hydrated assistant message ID plus the existing typed `ChatPlanState`: ordered visible todos, completion state, execution state, and pending-decision state. It is never inferred from arbitrary numbered assistant prose.
+Fleet now persists a browser-safe Plan presentation record in a Fleet-managed sidecar associated with the Prime session, rather than altering upstream transcript history. The record is created **only** on completion of a Plan-mode turn and contains the canonical hydrated assistant message ID plus the existing typed `ChatPlanState`: ordered visible todos, completion state, execution state, and pending-decision state. That snapshot is derived from the final plan-mode assistant message via the plan-state parser — a bounded heuristic over that single message (numbered, titled, or plain-line checklists). Output from any other turn, however plan-like, can never create a record.
 
 On session load and resume, Fleet validates the record, reconstructs exactly one typed `tool-PlanWrite` part for the associated assistant message, and retains the normal text transcript as a legacy fallback. Execute and Refine update the same controlled presentation snapshot before their existing local Fleet transition runs. Session deletion removes the sidecar.
 
@@ -120,7 +120,7 @@ A future `plan-hierarchy-v1` contract would require explicit stable item IDs, op
 
 | Requirement | Enforcement |
 |---|---|
-| Provenance | Only the Plan-mode completion path writes a record; plain Agent-mode text cannot create one. |
+| Provenance | Only the completed plan-mode turn writes a record, derived from its final assistant message; plain Agent-mode text cannot create one. |
 | Browser safety | The record contains controlled plan fields only; it cannot contain raw reasoning or provider diagnostics. |
 | Hydration identity | The server canonicalizes the message ID against the session’s hydrated assistant messages. |
 | Decision continuity | Local Execute/Stay/Refine actions update the typed PlanWrite presentation and persist the changed pending/execution state. |

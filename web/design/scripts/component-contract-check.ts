@@ -29,7 +29,7 @@ const NAME_CONVENTIONS = new Set(["index", "types", "utils", "cn", "index.test"]
 // doctor.config.jsonc waiver files (JSONC -> JSON with a comment-aware stripper)
 // ---------------------------------------------------------------------------
 
-function stripJsonComments(source: string): string {
+function stripJsonc(source: string): string {
 	let out = "";
 	let inString = false;
 	let escaped = false;
@@ -63,6 +63,12 @@ function stripJsonComments(source: string): string {
 			index += 1;
 			continue;
 		}
+		// trailing commas are legal in JSONC: drop one followed only by a close
+		if (char === ",") {
+			let lookahead = index + 1;
+			while (lookahead < source.length && /\s/.test(source[lookahead] ?? "")) lookahead += 1;
+			if (source[lookahead] === "}" || source[lookahead] === "]") continue;
+		}
 		out += char;
 	}
 	return out;
@@ -73,7 +79,7 @@ function loadWaivedPaths(): Set<string> {
 	const configPath = join(REPO_ROOT, "doctor.config.jsonc");
 	if (!existsSync(configPath)) return waived;
 	try {
-		const config = JSON.parse(stripJsonComments(readFileSync(configPath, "utf8"))) as unknown;
+		const config = JSON.parse(stripJsonc(readFileSync(configPath, "utf8"))) as unknown;
 		const overrides = (config as { ignore?: { overrides?: Array<{ files?: unknown }> } })?.ignore?.overrides ?? [];
 		if (!Array.isArray(overrides)) return waived;
 		for (const block of overrides) {

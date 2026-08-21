@@ -85,6 +85,9 @@ export function usePiChatMessaging({
 	// and clobbering one another (race documented in review finding M2).
 	const sessionCreatePromiseRef = useRef<Promise<ChatSessionMetadata> | null>(null);
 	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
+	const setAdapterCapabilities = useCallback((next: FleetAdapterCapabilities | undefined) => {
+		adapterCapabilitiesRef.current = next;
+	}, []);
 	const ensureSession = useCallback(
 		async (signal?: AbortSignal): Promise<ChatSessionMetadata> => {
 			if (signal?.aborted) throw new Error("Session creation was aborted");
@@ -378,5 +381,5 @@ export function usePiChatMessaging({
 		],
 	);
 
-	return { enqueueDuringStream, handleStreamEvent, sendMessage };
+	return { enqueueDuringStream, handleStreamEvent, sendMessage, setAdapterCapabilities };
 }

@@ -198,6 +198,13 @@ type ChatStartEvent = {
 	adapterCapabilities?: FleetAdapterCapabilities;
 };
 
+/** First frame of the SSE replay channel; carries optional adapter capabilities. */
+export type ChatConnectedFrame = {
+	type: "connected";
+	sessionId: string;
+	adapterCapabilities?: FleetAdapterCapabilities;
+};
+
 /**
  * A single NDJSON frame emitted on the chat turn stream (`POST /api/chat`).
  *

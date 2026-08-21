@@ -1,3 +1,4 @@
+import { FLEET_ADAPTER_CAPABILITIES } from "@prime-agent/web-protocol/chat-protocol";
 import { getBridge } from "../singleton";
 import { shouldReplaySseEvent } from "../sse-replay";
 import { wrapApiHandler } from "../wrap-api-handler";
@@ -39,7 +40,10 @@ export function handleChatEventsGet(request: Request): Promise<Response> {
 					enqueue(lines.join(""));
 				};
 
-				write({ data: { type: "connected", sessionId } });
+				// Advertise capabilities on the SSE channel as well as the POST turn
+				// stream: the latter's `start` frame is never ring-buffered, so a
+				// reconnecting client would otherwise lose the reasoning gate input.
+				write({ data: { type: "connected", sessionId, adapterCapabilities: FLEET_ADAPTER_CAPABILITIES } });
 
 				let liveCursor = lastEventId;
 				let pendingQuestionIds: ReadonlySet<string> | null =
