@@ -19,7 +19,7 @@
     "./lib/notify": "./src/lib/notify.ts",
     "./lib/utils": "./src/lib/utils.ts",
     "./lib/springs": "./src/lib/springs.ts",
-    "./lib/text-shimmer": "./src/lib/text-shimmer.ts",
+    "./lib/shimmer-styles": "./src/lib/shimmer-styles.ts",
     "./lib/ui-preferences": "./src/lib/ui-preferences.ts",
     "./lib/pi/chat-helpers": "./src/lib/pi/chat-helpers.ts",
     "./lib/pi/*": "./src/lib/pi/*",
@@ -31,7 +31,8 @@
     "check:openui-contract": "tsx scripts/generate-openui-contract.ts --check",
     "check:message-identities": "tsx scripts/message-turn-identity-check.tsx",
     "check:openui": "pnpm run check:openui-contract && tsx scripts/openui-render-check.tsx",
-    "check:agent-plan-contract": "tsx scripts/agent-plan-contract-check.ts"
+    "check:agent-plan-contract": "tsx scripts/agent-plan-contract-check.ts",
+    "check:components": "tsx scripts/component-contract-check.ts"
   },
   "dependencies": {
     "@assistant-ui/react": "0.15.12",
