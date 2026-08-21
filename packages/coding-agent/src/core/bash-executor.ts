@@ -75,6 +75,30 @@ export async function executeBashWithOperations(
 
 	const decoder = new TextDecoder();
 
+	// Flush the stream before returning so `fullOutputPath` is durable when
+	// advertised: the file exists the moment the stream opens, so callers that
+	// only check existence would otherwise race the async flush.
+	const closeTempFile = (): Promise<void> => {
+		if (!tempFileStream) {
+			return Promise.resolve();
+		}
+		const stream = tempFileStream;
+		tempFileStream = undefined;
+		return new Promise<void>((resolve, reject) => {
+			const onError = (error: Error) => {
+				stream.off("finish", onFinish);
+				reject(error);
+			};
+			const onFinish = () => {
+				stream.off("error", onError);
+				resolve();
+			};
+			stream.once("error", onError);
+			stream.once("finish", onFinish);
+			stream.end();
+		});
+	};
+
 	const onData = (data: Buffer) => {
 		totalBytes += data.length;
 
@@ -115,9 +139,7 @@ export async function executeBashWithOperations(
 		if (truncationResult.truncated) {
 			ensureTempFile();
 		}
-		if (tempFileStream) {
-			tempFileStream.end();
-		}
+		await closeTempFile();
 		const cancelled = options?.signal?.aborted ?? false;
 
 		return {
@@ -135,9 +157,7 @@ export async function executeBashWithOperations(
 			if (truncationResult.truncated) {
 				ensureTempFile();
 			}
-			if (tempFileStream) {
-				tempFileStream.end();
-			}
+			await closeTempFile();
 			return {
 				output: truncationResult.truncated ? truncationResult.content : fullOutput,
 				exitCode: undefined,
@@ -147,9 +167,7 @@ export async function executeBashWithOperations(
 			};
 		}
 
-		if (tempFileStream) {
-			tempFileStream.end();
-		}
+		await closeTempFile();
 
 		throw err;
 	}
