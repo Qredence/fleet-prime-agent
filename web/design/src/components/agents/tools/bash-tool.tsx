@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { TextShimmer } from "../text-shimmer"
+import { ToolTextShimmer } from "../tool-text-shimmer"
 import { useToolComplete } from "../hooks/use-tool-complete"
 import { adaptToolPart } from "../utils/tool-adapters"
 import { ToolApprovalFooter } from "./tool-approval-footer"
@@ -38,13 +38,13 @@ function BashToolTerminalCard({
       <div className="flex h-7 items-center justify-between pr-2 pl-2.5">
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
           {isPending ? (
-            <TextShimmer
+            <ToolTextShimmer
               as="span"
               duration={1.2}
               className="m-0 inline-flex h-full items-center truncate text-xs leading-none"
             >
               Running command: {summary}
-            </TextShimmer>
+            </ToolTextShimmer>
           ) : (
             <span className="truncate text-xs text-muted-foreground">
               Ran command: {summary}

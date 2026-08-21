@@ -8,21 +8,26 @@ import {
 } from "../../agents/message"
 import { MessageScroller } from "../../agents/message-scroller"
 import { StreamingResponse } from "../../agents/streaming-response"
-import { AgentActivity, type AgentActivityItem } from "../../agents/agent-activity"
-import { Suggestions } from "../../agent-elements/input/suggestions"
-import { buildAssistantElements } from "../../agent-elements/message-turns"
-import { UserMessage } from "../../agent-elements/user-message"
-import { normalizeAssistantToolParts } from "../../agent-elements/utils/tool-part-normalizer"
+import { type AgentActivityItem } from "../../agents/agent-activity"
+import { PromptSuggestions } from "../../elements/prompt-suggestions"
+import { buildAssistantElements } from "../../agents/message-turns"
+import { UserMessage } from "../../agents/user-message"
+import { normalizeAssistantToolParts } from "../../agents/utils/tool-part-normalizer"
 import { cn } from "../../../lib/utils"
 import { GenerativeTextRenderer } from "../../openui/inline-renderer"
 import { PI_TOOL_RENDERERS } from "../pi/tool-renderers"
 import { FleetPiToolRenderer } from "./fleet-pi-tool-renderer"
+import { FleetReasoningPanel } from "../../elements/fleet-reasoning-panel"
+import { FleetTurnStatus } from "./fleet-turn-status"
+import { ToolTimeline, type TimelineStep } from "../../elements/tool-timeline"
+import { FilePenLine, FileSearch, Search, Terminal, Wrench, type LucideIcon } from "lucide-react"
 import {
   FleetPiInputBar,
   withFleetPiSuggestionStyles,
 } from "./fleet-pi-input-bar"
-import type { AgentChatProps } from "../../agent-elements/types"
-import type { SuggestionItem } from "../../agent-elements/input/suggestions"
+import type { AgentChatProps } from "../../agents/types"
+import type { SuggestionItem } from "../../agents/input/suggestions"
+import type { ChatReasoningPresentation } from "@prime-agent/web-protocol/chat-protocol"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar"
 
@@ -34,6 +39,7 @@ export type FleetPiAgentChatProps = Omit<
   suggestions?: AgentChatProps["suggestions"]
   className?: string
   workspaceName?: string
+  activityLabel?: string
   inputBar: Omit<
     FleetPiInputBarProps,
     "onSend" | "onStop" | "status" | "suggestions"
@@ -101,6 +107,31 @@ function stringValue(value: unknown, ...keys: string[]) {
   return undefined
 }
 
+function reasoningPresentationFromMessages(
+  messages: Array<ChatMessage>,
+): ChatReasoningPresentation | undefined {
+  for (const message of [...messages].reverse()) {
+    for (const part of [...(message.parts ?? [])].reverse()) {
+      const source = record(part)
+      if (source?.type !== "tool-FleetReasoning") continue
+      const presentation = record(source.input)
+      if (
+        typeof presentation?.runId !== "string" ||
+        typeof presentation.phase !== "string" ||
+        !Array.isArray(presentation.steps) ||
+        typeof presentation.visibleSteps !== "number" ||
+        typeof presentation.streaming !== "boolean" ||
+        typeof presentation.startedAt !== "number" ||
+        typeof presentation.restingLabel !== "string"
+      ) {
+        continue
+      }
+      return presentation as unknown as ChatReasoningPresentation
+    }
+  }
+  return undefined
+}
+
 function buildActivityItems(messages: Array<ChatMessage>): AgentActivityItem[] {
   const items = new Map<string, AgentActivityItem>()
   for (const message of messages) {
@@ -110,20 +141,12 @@ function buildActivityItems(messages: Array<ChatMessage>): AgentActivityItem[] {
       if (typeof type !== "string" || !type.startsWith("tool-")) continue
       const source = partRecord ?? {}
       const name = type.slice(5)
+      if (name === "FleetReasoning") continue
       const id = String(source.toolCallId ?? source.id ?? `${message.id}-${items.size}`)
       const input = record(source.input) ?? record(source.args)
-      if (name === "Thinking") {
-        items.set(id, {
-          id,
-          type: "trace",
-          kind: "thinking",
-          label: "Thinking",
-          detail:
-            stringValue(source.output, "text", "content", "result") ??
-            stringValue(input, "thought", "text"),
-        })
-        continue
-      }
+      // Legacy detailed-thinking parts are intentionally never rendered in the
+      // standard Fleet transcript. Safe progress uses FleetReasoningPanel.
+      if (name === "Thinking") continue
       if (name === "WebSearch" || name === "Grep" || name === "Glob") {
         items.set(id, {
           id,
@@ -150,6 +173,45 @@ function buildActivityItems(messages: Array<ChatMessage>): AgentActivityItem[] {
   return Array.from(items.values())
 }
 
+function activityText(value: ReactNode, fallback: string) {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback
+}
+function timelineChip(value: ReactNode, fallback: string) {
+  const source = activityText(value, fallback).replace(/\s+/g, " ").trim()
+  return source.length > 56 ? source.slice(0, 53).trimEnd() + "…" : source
+}
+function toolIcon(action: string): LucideIcon {
+  switch (action) {
+    case "read":
+      return FileSearch
+    case "edit":
+      return FilePenLine
+    case "run":
+      return Terminal
+    default:
+      return Wrench
+  }
+}
+function toolTimelineSteps(items: AgentActivityItem[]): TimelineStep[] {
+  return items.flatMap((item) => {
+    if (item.type === "search") {
+      return [{
+        verb: "Searching",
+        chip: timelineChip(item.query, "workspace"),
+        icon: Search,
+      }]
+    }
+    if (item.type === "tool") {
+      return [{
+        verb: item.action === "read" ? "Reading" : item.action === "edit" ? "Editing" : "Running",
+        chip: timelineChip(item.target, "tool task"),
+        icon: toolIcon(item.action),
+      }]
+    }
+    return []
+  })
+}
+
 function AssistantMessage({
   messages,
   isLast,
@@ -157,6 +219,7 @@ function AssistantMessage({
   suppressQuestionTool,
   toolRenderers,
   onOpenUIAction,
+  activityLabel,
 }: {
   messages: Array<ChatMessage>
   isLast: boolean
@@ -164,18 +227,22 @@ function AssistantMessage({
   suppressQuestionTool: boolean
   toolRenderers: NonNullable<AgentChatProps["toolRenderers"]>
   onOpenUIAction?: (message: string) => void
+  activityLabel?: string
 }) {
   const turnStreaming = isLast && isStreaming
   const elements = useMemo(
     () =>
       messages.flatMap((message, index) =>
         buildAssistantElements(
-          normalizeAssistantToolParts(message.parts ?? []),
+          normalizeAssistantToolParts(
+            (message.parts ?? []).filter((part) => part.type !== "tool-FleetReasoning"),
+          ),
           {
             messageId: message.id,
             isLast: isLast && index === messages.length - 1,
             isStreaming: turnStreaming,
             suppressQuestionTool,
+            suppressTextWhenPlanWrite: true,
             ToolRendererComponent: FleetPiToolRenderer,
             TextRendererComponent: GenerativeTextRenderer,
             toolRenderers,
@@ -199,21 +266,43 @@ function AssistantMessage({
     })
     .join("\n\n")
   const activityItems = useMemo(() => buildActivityItems(messages), [messages])
+  const reasoningPresentation = useMemo(
+    () => reasoningPresentationFromMessages(messages),
+    [messages],
+  )
+  const toolTimeline = useMemo(() => toolTimelineSteps(activityItems), [activityItems])
+  const [toolTimelineOpen, setToolTimelineOpen] = useState(turnStreaming)
+  const [prevTurnStreaming, setPrevTurnStreaming] = useState(turnStreaming)
+  if (prevTurnStreaming !== turnStreaming) {
+    setPrevTurnStreaming(turnStreaming)
+    setToolTimelineOpen(turnStreaming)
+  }
 
   return (
     <Message from="assistant" animateIn={!turnStreaming}>
       <MessageContent>
         <MessageBubble variant="ghost">
           <MessageBubbleContent>
-            {activityItems.length > 0 ? (
-              <AgentActivity
-                items={activityItems}
-                status={turnStreaming ? "working" : "complete"}
-                defaultOpen={turnStreaming}
-                collapseOnComplete
-                activeLabel="Working through it…"
-                maxHeight={208}
+            {reasoningPresentation ? (
+              <FleetReasoningPanel
+                presentation={reasoningPresentation}
                 className="mb-2"
+              />
+            ) : null}
+            {isLast && isLifecycleNotice(activityLabel) ? (
+              <FleetTurnStatus label={activityLabel} className="mb-2" />
+            ) : null}
+            {toolTimeline.length > 0 ? (
+              <ToolTimeline
+                steps={toolTimeline}
+                visibleSteps={toolTimeline.length}
+                streaming={turnStreaming}
+                open={toolTimelineOpen}
+                onOpenChange={setToolTimelineOpen}
+                activeLabel={activityLabelFor(activityItems)}
+                restingLabel={activitySummary(activityItems)}
+                stats={[]}
+                className="mb-2 max-w-none"
               />
             ) : null}
             <StreamingResponse
@@ -229,6 +318,27 @@ function AssistantMessage({
       </MessageContent>
     </Message>
   )
+}
+
+function isLifecycleNotice(label: string | undefined) {
+  if (!label) return false
+  return /queued|steered|retry|compact|reset|recover|sign in/i.test(label)
+}
+
+function activityLabelFor(items: AgentActivityItem[]) {
+  if (items.length === 1) {
+    const item = items[0]
+    if (item?.type === "search") return "Checking a source…"
+    if (item?.type === "tool") return "Working with " + item.action + "…"
+  }
+  if (items.length > 1) return "Coordinating " + items.length + " active actions…"
+  return "Working through the run…"
+}
+
+function activitySummary(items: AgentActivityItem[]) {
+  const count = items.length
+  if (count === 1) return "Completed 1 tracked action"
+  return "Completed " + count + " tracked actions"
 }
 
 function resolveSuggestions(suggestions: FleetPiAgentChatProps["suggestions"]) {
@@ -337,11 +447,23 @@ export function FleetPiAgentChat({
   suppressQuestionTool = false,
   onOpenUIAction,
   workspaceName,
+  activityLabel,
 }: FleetPiAgentChatProps) {
   const [draft, setDraft] = useState("")
   const turns = useMemo(() => groupMessages(messages), [messages])
   const styledSuggestions = withFleetPiSuggestionStyles(suggestions)
   const suggestionItems = resolveSuggestions(styledSuggestions)
+  const suggestionTexts = useMemo(
+    () => suggestionItems.flatMap((item) => (item.disabled ? [] : [item.value ?? item.label])),
+    [suggestionItems],
+  )
+  const suggestionCycle = suggestionTexts.join("\u0000")
+  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null)
+  const [prevSuggestionCycle, setPrevSuggestionCycle] = useState(suggestionCycle)
+  if (prevSuggestionCycle !== suggestionCycle) {
+    setPrevSuggestionCycle(suggestionCycle)
+    setSelectedSuggestion(null)
+  }
   const isStreaming = status === "streaming" || status === "submitted"
   const isEmpty = turns.length === 0 && !error
   const inputBarNode = (
@@ -407,6 +529,7 @@ export function FleetPiAgentChat({
                   suppressQuestionTool={suppressQuestionTool}
                   toolRenderers={toolRenderers}
                   onOpenUIAction={onOpenUIAction}
+                  activityLabel={activityLabel}
                 />
               ) : null}
             </div>
@@ -424,11 +547,15 @@ export function FleetPiAgentChat({
             </div>
           </div>
         ) : null}
-        {turns.length > 0 && suggestionItems.length > 0 ? (
-          <Suggestions
-            items={suggestionItems}
-            onSelect={(item) => setDraft(item.value ?? item.label)}
-            disabled={isStreaming}
+        {turns.length > 0 && suggestionTexts.length > 0 && !isStreaming ? (
+          <PromptSuggestions
+            suggestions={suggestionTexts}
+            selectedSuggestion={selectedSuggestion}
+            cycle={turns.length}
+            onSuggestion={(suggestion) => {
+              setSelectedSuggestion(suggestion)
+              setDraft(suggestion)
+            }}
             className="px-0"
           />
         ) : null}

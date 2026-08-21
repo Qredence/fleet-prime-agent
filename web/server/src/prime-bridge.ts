@@ -49,6 +49,10 @@ import {
 	toChatMessageFromUser,
 } from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
+import {
+	copyManagedPlanPresentationsForFork,
+	deleteManagedPlanPresentationsForSession,
+} from "./managed-plan-presentations";
 import { PendingDialogRegistry } from "./pending-dialogs";
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
@@ -471,6 +475,12 @@ export class PrimeBridge {
 
 		const mapperState = createEventMapperState({ sessionId });
 		const unsubscribe = session.subscribe((event) => {
+			if (event.type === "compaction_end") {
+				// Compaction rewrites the transcript prefix, shifting the positional
+				// `${sessionId}-mN` ids the plan sidecar keys on. Invalidate records
+				// rather than let them rebind to unrelated messages.
+				void deleteManagedPlanPresentationsForSession(sessionId, sessionPath).catch(() => undefined);
+			}
 			if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 				try {
 					process.stderr.write(
@@ -562,6 +572,7 @@ export class PrimeBridge {
 			this.#ringBuffers.delete(sessionId);
 		}
 		await deleteManagedAttachmentsForSession(sessionId, sessionPath);
+		await deleteManagedPlanPresentationsForSession(sessionId, sessionPath);
 		await rm(sessionPath, { force: true });
 		const artifactDir = join(dirname(dirname(sessionPath)), "session-artifacts", basename(sessionPath, ".jsonl"));
 		await rm(artifactDir, { recursive: true, force: true });
@@ -733,6 +744,10 @@ export class PrimeBridge {
 	async navigateTree(sessionId: string, targetId: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
 		await session.session.navigateTree(targetId, {});
+		// Hydrated message ids are positional (${sessionId}-mN): branch navigation
+		// rewrites the transcript branch, so any existing plan records now point at
+		// unrelated messages. Invalidate instead of rendering the wrong card.
+		await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
 	}
 
 	/** /tree — the session's entry tree plus the current leaf, for pickers. */
@@ -839,13 +854,15 @@ export class PrimeBridge {
 		forked.sessionManager.materializeSessionFile();
 		forked.sessionManager.flushNow();
 
-		await this.#registerSession(
+		const forkedBridge = await this.#registerSession(
 			forked,
 			bridge.cwd,
 			forked.sessionManager.getSessionFile() ?? "",
 			openUIPrompt,
 			bridge.projectId,
 		);
+		const forkedMessages = await this.getMessages(forkedBridge.sessionId);
+		await copyManagedPlanPresentationsForFork(bridge, forkedBridge, forkedMessages.length);
 		return {
 			cancelled: false,
 			selectedText,
@@ -884,6 +901,8 @@ export class PrimeBridge {
 			result.openUIPrompt,
 			targetProjectId,
 		);
+		const forkedMessages = await this.getMessages(forked.sessionId);
+		await copyManagedPlanPresentationsForFork(source, forked, forkedMessages.length);
 		return forked.sessionId;
 	}
 

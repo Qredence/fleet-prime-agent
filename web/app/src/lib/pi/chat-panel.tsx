@@ -2,7 +2,7 @@ import { UiErrorBoundary } from "@prime-agent/web-design/components/fleet-pi/ui-
 import { FleetPiAgentChat } from "@prime-agent/web-design/components/fleet-pi/chat/fleet-pi-agent-chat"
 import type { FleetPiAgentChatProps } from "@prime-agent/web-design/components/fleet-pi/chat/fleet-pi-agent-chat"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
-import type { QuestionAnswer } from "@prime-agent/web-design/components/agent-elements/question/question-prompt"
+import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt"
 import { useCallback, useMemo } from "react"
 
 type ChatPanelProps = {
@@ -10,6 +10,7 @@ type ChatPanelProps = {
 	status: ChatStatus
 	error: Error | undefined
 	workspaceName?: string
+	activityLabel?: string
 	inputSuggestionItems: FleetPiAgentChatProps["suggestions"]
 	suppressQuestionTool: boolean
 	inputBar: FleetPiAgentChatProps["inputBar"]
@@ -27,6 +28,7 @@ export function ChatPanel({
 	status,
 	error,
 	workspaceName,
+	activityLabel,
 	inputSuggestionItems,
 	suppressQuestionTool,
 	inputBar,
@@ -72,6 +74,7 @@ export function ChatPanel({
 				onOpenUIAction={handleOpenUIAction}
 				onStop={onStop}
 				workspaceName={workspaceName}
+				activityLabel={activityLabel}
 				questionTool={questionTool}
 				suppressQuestionTool={suppressQuestionTool}
 				error={error ?? undefined}

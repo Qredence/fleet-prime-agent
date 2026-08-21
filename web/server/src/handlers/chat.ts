@@ -1,4 +1,5 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
+import { FLEET_ADAPTER_CAPABILITIES } from "@prime-agent/web-protocol/chat-protocol";
 import { ChatRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { readInspectedManagedAttachment, validateManagedAttachments } from "../managed-attachments";
@@ -119,6 +120,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 					id: startId,
 					runId: session.mapperState.inRun ? session.mapperState.runId : "pending",
 					sessionId: session.sessionId,
+					adapterCapabilities: FLEET_ADAPTER_CAPABILITIES,
 				});
 				if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 					process.stderr.write(`[chat] wrote start; firing prompt\n`);

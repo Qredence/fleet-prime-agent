@@ -1,3 +1,4 @@
+import { loadManagedPlanPresentations } from "../managed-plan-presentations";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
@@ -19,6 +20,7 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 				projectId: existing.projectId,
 			},
 			messages: await bridge.getMessages(existing.sessionId),
+			planPresentations: await loadManagedPlanPresentations(existing),
 		});
 	});
 }

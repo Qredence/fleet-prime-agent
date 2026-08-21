@@ -1,7 +1,7 @@
 import React from "react"
 import { cn } from "./utils/cn"
 
-export type TextShimmerProps = {
+export type ToolTextShimmerProps = {
   children: React.ReactNode
   as?: React.ElementType
   className?: string
@@ -10,14 +10,14 @@ export type TextShimmerProps = {
   delay?: number
 }
 
-function TextShimmerComponent({
+function ToolTextShimmerComponent({
   children,
   as: Component = "p",
   className,
   duration = 2,
   spread = 100,
   delay = 0,
-}: TextShimmerProps) {
+}: ToolTextShimmerProps) {
   const style = {
     "--an-shimmer-duration": `${duration}s`,
     "--an-shimmer-spread": `${spread}px`,
@@ -37,4 +37,4 @@ function TextShimmerComponent({
   )
 }
 
-export const TextShimmer = React.memo(TextShimmerComponent)
+export const ToolTextShimmer = React.memo(ToolTextShimmerComponent)

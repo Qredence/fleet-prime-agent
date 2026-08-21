@@ -1,4 +1,4 @@
-import type { QuestionAnswer } from "@prime-agent/web-design/components/agent-elements/question/question-prompt";
+import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt";
 import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
@@ -506,6 +506,7 @@ export function useChatWorkspaceData() {
 
 	return {
 		activeSessionId: sessionMetadata.sessionId,
+		activityLabel,
 		activeProjectId,
 		answerQuestion,
 		chatMode,

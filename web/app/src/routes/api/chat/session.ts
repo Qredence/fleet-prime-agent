@@ -1,4 +1,9 @@
-import { handleChatAttachmentGet, handleChatAttachmentsPost, handleChatSessionGet } from "@prime-agent/web-server";
+import {
+	handleChatAttachmentGet,
+	handleChatAttachmentsPost,
+	handleChatPlanPresentationPut,
+	handleChatSessionGet,
+} from "@prime-agent/web-server";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/api/chat/session")({
@@ -9,6 +14,7 @@ export const Route = createFileRoute("/api/chat/session")({
 					? handleChatAttachmentGet(request)
 					: handleChatSessionGet(request),
 			POST: ({ request }) => handleChatAttachmentsPost(request),
+			PUT: ({ request }) => handleChatPlanPresentationPut(request),
 		},
 	},
 });

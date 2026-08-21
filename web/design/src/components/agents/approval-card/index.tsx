@@ -16,7 +16,7 @@ import { AgentDisclosure } from "@prime-agent/web-design/components/agents/agent
 import { ActionSwapRollText } from "@prime-agent/web-design/components/motion/action-swap-roll";
 import { Button } from "@prime-agent/web-design/components/motion/button";
 import { Checkbox } from "@prime-agent/web-design/components/motion/checkbox";
-import { Input } from "@prime-agent/web-design/components/motion/input";
+import { ValidatedInput } from "@prime-agent/web-design/components/motion/validated-input";
 import { RadioGroup, RadioGroupItem } from "@prime-agent/web-design/components/motion/radio";
 import { EASE_OUT, SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
@@ -138,7 +138,7 @@ function QuestionOptions({
       ) : null}
 
       {question.allowCustom ? (
-        <Input
+        <ValidatedInput
           value={custom}
           disabled={disabled}
           placeholder={question.customPlaceholder ?? "Add another response…"}

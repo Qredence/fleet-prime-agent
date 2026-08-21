@@ -1,6 +1,6 @@
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang"
 import { useCallback, useMemo, useState } from "react"
-import { Markdown } from "../agent-elements/markdown"
+import { Markdown } from "../agents/markdown"
 import { UiErrorBoundary } from "../fleet-pi/ui-error-boundary"
 import { Alert, AlertDescription, AlertTitle } from "../alert"
 import { Button } from "../button"

@@ -50,12 +50,17 @@ export {
 	ChatModelSelectionSchema,
 	ChatNewRequestSchema,
 	ChatPlanEventSchema,
+	ChatPlanPresentationSchema,
+	ChatPlanPresentationUpsertRequestSchema,
 	ChatPlanStateSchema,
 	ChatPlanTodoSchema,
 	ChatQuestionAnswerRequestSchema,
 	ChatQuestionAnswerResponseSchema,
 	ChatQuestionAnswerSchema,
 	ChatQueueEventSchema,
+	ChatReasoningEventSchema,
+	ChatReasoningPresentationSchema,
+	ChatReasoningStepSchema,
 	ChatRequestSchema,
 	ChatRetryEndEventSchema,
 	ChatRetryStartEventSchema,
@@ -71,6 +76,8 @@ export {
 	ChatThinkingEventSchema,
 	ChatToolEventSchema,
 	ChatToolPartSchema,
+	FleetAdapterCapabilitiesSchema,
+	FleetAdapterFeatureSchema,
 } from "./schemas/chat";
 export { ErrorResponseSchema, HealthResponseSchema } from "./schemas/misc";
 export {

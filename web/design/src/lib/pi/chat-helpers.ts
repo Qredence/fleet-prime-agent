@@ -1,6 +1,6 @@
 import type { ChatModelInfo, ChatModelSelection, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { Bot, ClipboardList, Hammer } from "lucide-react";
-import type { ModelOption } from "../../components/agent-elements/types";
+import type { ModelOption } from "../../components/agents/types";
 
 export type ChatModelOption = ModelOption & {
 	provider: string;

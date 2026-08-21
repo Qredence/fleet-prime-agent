@@ -1,7 +1,7 @@
 import { Square } from "lucide-react"
 
 import { Button } from "../../button"
-import { SpiralLoader } from "../../agent-elements/spiral-loader"
+import { SpiralLoader } from "../../agents/spiral-loader"
 
 export type ChatStopControlProps = {
   status: "ready" | "submitted" | "streaming" | "error"

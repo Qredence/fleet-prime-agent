@@ -7,7 +7,7 @@ import {
   HardDrive,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Markdown } from "../../agent-elements/markdown"
+import { Markdown } from "../../agents/markdown"
 import { Button } from "../../button"
 import {
   Collapsible,

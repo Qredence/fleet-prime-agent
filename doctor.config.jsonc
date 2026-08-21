@@ -79,13 +79,13 @@
 				// Intentional public API compatibility adapter. The exported message
 				// turn components accept their legacy flat props alongside grouped
 				// internal state until a documented major-version migration.
-				"files": ["design/src/components/agent-elements/message-turns.tsx"],
+				"files": ["design/src/components/agents/message-turns.tsx"],
 				"rules": ["react-doctor/no-many-boolean-props"]
 			},
 			{
 				// Intentional retained future UI surface.
 				"files": [
-					"design/src/components/agent-elements/input/mode-selector.tsx",
+					"design/src/components/agents/input/mode-selector.tsx",
 					"design/src/components/fleet-pi/icons/google-icon.tsx",
 					"design/src/components/fleet-pi/primitives/centered-loader.tsx"
 				],
@@ -112,7 +112,7 @@
 				// provide without changing AISidebar's and FleetSessionSidebar's API.
 				"files": [
 					"design/src/components/agents/ai-sidebar.tsx",
-					"design/src/components/fleet/session-sidebar.tsx"
+					"design/src/components/fleet-pi/session-sidebar.tsx"
 				],
 				"rules": ["react-doctor/no-render-prop-children"]
 			},
@@ -140,7 +140,7 @@
 				// Directory loading and active-project expansion are lifecycle-owned
 				// sidebar effects; their setters update the local reducer, not an
 				// external parent data contract.
-				"files": ["design/src/components/fleet/session-sidebar.tsx"],
+				"files": ["design/src/components/fleet-pi/session-sidebar.tsx"],
 				"rules": [
 					"react-doctor/no-pass-live-state-to-parent",
 					"react-doctor/no-pass-data-to-parent"
@@ -194,7 +194,8 @@
 					"design/src/components/motion/animated-sidebar.tsx",
 					"design/src/components/motion/combobox/list.tsx",
 					"design/src/components/motion/combobox/trigger.tsx",
-					"design/src/components/motion/select.tsx",
+					"design/src/components/motion/animated-select.tsx",
+					"design/src/components/agents/agent-activity/index.tsx",
 					"design/src/lib/range.ts",
 					"design/src/lib/surfaces.tsx"
 				],
@@ -204,13 +205,38 @@
 				// Reserved/future UI files remain package-addressable and are not safe
 				// to delete merely because the current app route does not import them.
 				"files": [
-					"design/src/components/agent-elements/input/effort-picker.tsx",
-					"design/src/components/agent-elements/input/model-picker.tsx",
+					"design/src/components/agents/input/effort-picker.tsx",
+					"design/src/components/agents/input/model-picker.tsx",
 					"design/src/components/fleet-pi/chat/chat-stop-control.tsx",
 					"design/src/components/fleet-pi/pi/open-project-folder-dialog.tsx",
 					"design/src/components/motion/context-menu.tsx"
 				],
 				"rules": ["deslop/unused-file"]
+			},
+			{
+				// False positives — the OAuth busy flag is generation-guarded: clearing
+				// it unconditionally in the older attempt's finally would clobber a newer
+				// attempt that re-armed it. Same evidence class as workspace-panel.tsx.
+				"files": ["design/src/components/fleet-pi/pi/config-panel/sections/use-oauth-login-flow.ts"],
+				"rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+			},
+			{
+				// False positives — same pattern as the composer.tsx waiver: animate-in
+				// keyframe utilities animate only opacity/transform; no transition-all or
+				// layout-property animation is authored here.
+				"files": [
+					"design/src/components/elements/reasoning-panel.tsx",
+					"design/src/components/elements/thinking-indicator.tsx",
+					"design/src/components/elements/tool-timeline.tsx"
+				],
+				"rules": ["react-doctor/no-transition-all"]
+			},
+			{
+				// Intentional composite key — OpenUI list items legitimately duplicate
+				// label+status (schema-valid), so position disambiguates them. Matches the
+				// inline biome-ignore rationale on the same element.
+				"files": ["design/src/components/openui/openui-library.tsx"],
+				"rules": ["react-doctor/no-array-index-as-key"]
 			}
 		]
 	}

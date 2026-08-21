@@ -10,7 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from "../command"
-import { Popover } from "../agent-elements/input/popover"
+import { Popover } from "../agents/input/popover"
 import { Slider } from "../slider"
 import { cn } from "../../lib/utils"
 

@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react"
 import { CheckIcon, IconArrowRight } from "../icons"
-import { TextShimmer } from "../text-shimmer"
+import { ToolTextShimmer } from "../tool-text-shimmer"
 import { areToolPropsEqual, getToolStatus } from "../utils/format-tool"
 import { cn } from "../utils/cn"
 
@@ -145,13 +145,13 @@ export const TodoTool = memo(function TodoTool({
     return (
       <div className="flex flex-col gap-2 text-sm leading-relaxed text-an-foreground/80">
         <div className="text-an-foreground/60">
-          <TextShimmer
+          <ToolTextShimmer
             as="span"
             duration={1.2}
             className="m-0 inline-flex h-4 items-center text-sm leading-none"
           >
             {isCreation ? "Creating to-do list..." : "Updating to-dos..."}
-          </TextShimmer>
+          </ToolTextShimmer>
         </div>
       </div>
     )

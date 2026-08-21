@@ -2,7 +2,7 @@ import type {
 	QuestionAnswer,
 	QuestionConfig,
 	QuestionOption,
-} from "@prime-agent/web-design/components/agent-elements/question/question-prompt";
+} from "@prime-agent/web-design/components/agents/question/question-prompt";
 import { useMemo } from "react";
 import { isQuestionToolPartPending } from "./question-pending";
 

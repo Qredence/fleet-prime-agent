@@ -1,5 +1,6 @@
 import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { z } from "zod";
+import { loadManagedPlanPresentations } from "../managed-plan-presentations";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
@@ -24,6 +25,7 @@ export function handleChatResumePost(request: Request): Promise<Response> {
 					projectId: session.projectId,
 				},
 				messages: await bridge.getMessages(session.sessionId),
+				planPresentations: await loadManagedPlanPresentations(session),
 			});
 		}
 		return Response.json({ message: "resume requires sessionId" }, { status: 400 });

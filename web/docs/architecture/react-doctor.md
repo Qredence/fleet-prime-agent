@@ -43,6 +43,28 @@ in the repository's `doctor.config.jsonc`; no error-level diagnostic is waived.
 - Removed only the confirmed private app query export; package-addressable
   design exports and reserved UI files remain intact.
 
+## Refresh (post reorganization)
+
+After the capability-contract feature and the `components/` reorganization (dead
+code removal, namespace merges, the component-contract gate), a full re-scan
+first reported 24 diagnostics: 1 error, 23 warnings. The error was a genuine
+`rules-of-hooks` violation (hook after early return in `fleet-turn-status.tsx`) —
+fixed in code. The remaining feature-era diagnostics were fixed in code
+(render-time prev-tracking replacing sync effects, explicit user-override
+fallback for disclosure state, `toSorted()`, combined iterations, `m` under the
+shared lazy Motion runtime). Four documented false positives were added as
+waivers in `doctor.config.jsonc` (generation-guarded OAuth busy flag,
+transition-utility entries matching the composer precedent, the schema-valid
+OpenUI composite key). Both scans again report zero diagnostics, 100/100:
+
+```sh
+npx -y react-doctor@0.9.11 --project web --json
+npx -y react-doctor@0.9.11 --project web --scope files --base HEAD --include-untracked --json
+```
+
+The scan must run from the repository root with `--project web`; running the
+tool from inside `web/` misses the root waiver configuration.
+
 ## Evidence-backed exceptions
 
 The config documents the exact file/rule pairs for:
