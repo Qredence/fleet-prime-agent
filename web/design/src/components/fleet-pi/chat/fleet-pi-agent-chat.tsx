@@ -554,7 +554,7 @@ export function FleetPiAgentChat({
             cycle={turns.length}
             onSuggestion={(suggestion) => {
               setSelectedSuggestion(suggestion)
-              onSend({ role: "user", content: suggestion })
+              setDraft(suggestion)
             }}
             className="px-0"
           />

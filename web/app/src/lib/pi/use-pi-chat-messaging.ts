@@ -124,6 +124,32 @@ export function usePiChatMessaging({
 			if (event.type === "error") {
 				throw new Error(event.message);
 			}
+			if (event.type === "done" && mode === "plan") {
+				const initialPlanState = applyPlanModeSelection(createEmptyPlanState(), mode);
+				const parsedPlan = updatePlanStateFromAssistantText(
+					initialPlanState,
+					assistantTextFromMessage(event.message),
+				);
+				const planState = bindPendingPlanDecisionToolCallId(parsedPlan.state, event.message.id);
+				const planPart = parsedPlan.changed ? createPlanToolPart(event.message.id, planState) : undefined;
+				if (planPart) {
+					// Persistence must run even when this session is not the visible one:
+					// the sidecar belongs to the streaming session, not the active view.
+					if (streamSessionId === sessionMetadataRef.current.sessionId) {
+						setMessagesSynced((current) => upsertAssistantToolPart(current, event.message.id, planPart));
+					}
+					void client
+						.upsertPlanPresentation({
+							sessionId: streamSessionId,
+							presentation: {
+								assistantMessageId: event.message.id,
+								state: toChatPlanState(planState),
+							},
+						})
+						.catch(() => undefined);
+				}
+			}
+
 			const streamIsVisible = streamSessionId === sessionMetadataRef.current.sessionId;
 			if (!streamIsVisible) {
 				if (event.type === "done") {
@@ -154,28 +180,6 @@ export function usePiChatMessaging({
 			setQueueSynced(next.snapshot.queue);
 			setActivityLabelSynced(next.snapshot.activityLabel);
 			setPlanLabelSynced(next.snapshot.planLabel);
-
-			if (event.type === "done" && mode === "plan") {
-				const initialPlanState = applyPlanModeSelection(createEmptyPlanState(), mode);
-				const parsedPlan = updatePlanStateFromAssistantText(
-					initialPlanState,
-					assistantTextFromMessage(event.message),
-				);
-				const planState = bindPendingPlanDecisionToolCallId(parsedPlan.state, event.message.id);
-				const planPart = parsedPlan.changed ? createPlanToolPart(event.message.id, planState) : undefined;
-				if (planPart) {
-					setMessagesSynced((current) => upsertAssistantToolPart(current, event.message.id, planPart));
-					void client
-						.upsertPlanPresentation({
-							sessionId: streamSessionId,
-							presentation: {
-								assistantMessageId: event.message.id,
-								state: toChatPlanState(planState),
-							},
-						})
-						.catch(() => undefined);
-				}
-			}
 
 			if (event.type === "start") {
 				setStatus("streaming");
