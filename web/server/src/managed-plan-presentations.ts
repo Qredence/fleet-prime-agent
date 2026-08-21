@@ -38,3 +38,27 @@ export async function deleteManagedPlanPresentationsForSession(sessionId: string
 		force: true,
 	});
 }
+
+/**
+ * Forks/duplicates carry the transcript (and its `${sessionId}-mN` indices) with
+ * them; rewrite each record's canonical id for the forked session and drop
+ * records whose message index no longer exists after slicing.
+ */
+export async function copyManagedPlanPresentationsForFork(
+	source: BridgeSession,
+	forked: BridgeSession,
+	forkedMessageCount: number,
+): Promise<void> {
+	const records = await loadManagedPlanPresentations(source);
+	if (records.length === 0) return;
+	const sourceMarker = `${source.sessionId}-m`;
+	const copied = records.flatMap((record) => {
+		if (!record.assistantMessageId.startsWith(sourceMarker)) return [record];
+		const index = Number.parseInt(record.assistantMessageId.slice(sourceMarker.length), 10);
+		if (!Number.isInteger(index) || index >= forkedMessageCount) return [];
+		return [{ ...record, assistantMessageId: `${forked.sessionId}-m${index}` }];
+	});
+	if (copied.length === 0) return;
+	await mkdir(root(forked), { recursive: true });
+	await writeFile(file(forked), JSON.stringify(copied));
+}

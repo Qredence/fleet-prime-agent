@@ -102,6 +102,7 @@ export const ChatPlanStateSchema = z
 export const ChatPlanPresentationSchema = z
 	.object({
 		assistantMessageId: z.string().min(1),
+		clientMessageId: z.string().min(1).optional(),
 		state: ChatPlanStateSchema,
 	})
 	.openapi({ description: "Durable Fleet Plan presentation" });

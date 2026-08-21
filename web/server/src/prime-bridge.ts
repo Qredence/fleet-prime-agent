@@ -49,7 +49,10 @@ import {
 	toChatMessageFromUser,
 } from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
-import { deleteManagedPlanPresentationsForSession } from "./managed-plan-presentations";
+import {
+	copyManagedPlanPresentationsForFork,
+	deleteManagedPlanPresentationsForSession,
+} from "./managed-plan-presentations";
 import { PendingDialogRegistry } from "./pending-dialogs";
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
@@ -841,13 +844,15 @@ export class PrimeBridge {
 		forked.sessionManager.materializeSessionFile();
 		forked.sessionManager.flushNow();
 
-		await this.#registerSession(
+		const forkedBridge = await this.#registerSession(
 			forked,
 			bridge.cwd,
 			forked.sessionManager.getSessionFile() ?? "",
 			openUIPrompt,
 			bridge.projectId,
 		);
+		const forkedMessages = await this.getMessages(forkedBridge.sessionId);
+		await copyManagedPlanPresentationsForFork(bridge, forkedBridge, forkedMessages.length);
 		return {
 			cancelled: false,
 			selectedText,
@@ -886,6 +891,8 @@ export class PrimeBridge {
 			result.openUIPrompt,
 			targetProjectId,
 		);
+		const forkedMessages = await this.getMessages(forked.sessionId);
+		await copyManagedPlanPresentationsForFork(source, forked, forkedMessages.length);
 		return forked.sessionId;
 	}
 

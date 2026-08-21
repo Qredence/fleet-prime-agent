@@ -289,9 +289,13 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			// Some providers expose their final assistant content only on the
 			// authoritative message_end lifecycle event. Keep only text blocks;
 			// detailed reasoning remains excluded from the Fleet browser stream.
+			// The terminal text must also preserve earlier messages in this run:
+			// append rather than replace, skipping the delta-equivalent suffix.
 			if (isAssistantMessage(event.message)) {
 				const finalText = textFromAssistantMessage(event.message);
-				if (finalText) state.currentText = finalText;
+				if (finalText && !state.currentText.endsWith(finalText)) {
+					state.currentText += finalText;
+				}
 			}
 			return [];
 		}
@@ -372,8 +376,12 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			// Some providers deliver visible answer text only in the terminal message
 			// rather than emitting text_delta events. The terminal AssistantMessage is
 			// authoritative, but only text blocks may enter Fleet's standard transcript.
+			// Append (skip the delta-equivalent suffix) so earlier messages in this
+			// run are preserved instead of being replaced by the latest one.
 			const finalText = textFromAssistantMessage(event.message);
-			if (finalText) state.currentText = finalText;
+			if (finalText && !state.currentText.endsWith(finalText)) {
+				state.currentText += finalText;
+			}
 			return [];
 		}
 		default:

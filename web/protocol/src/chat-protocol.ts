@@ -146,6 +146,8 @@ export type ChatPlanState = {
 /** Durable Fleet-owned presentation record for an explicitly Plan-mode response. */
 export type ChatPlanPresentation = {
 	assistantMessageId: string;
+	/** Original client-side (run-scoped) message id, kept so in-flight upserts resolve to this record. */
+	clientMessageId?: string;
 	state: ChatPlanState;
 };
 export type ChatPlanPresentationUpsertRequest = {
