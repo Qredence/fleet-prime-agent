@@ -124,6 +124,7 @@ export function usePiChatMessaging({
 			if (event.type === "error") {
 				throw new Error(event.message);
 			}
+			let planPart: ReturnType<typeof createPlanToolPart>;
 			if (event.type === "done" && mode === "plan") {
 				const initialPlanState = applyPlanModeSelection(createEmptyPlanState(), mode);
 				const parsedPlan = updatePlanStateFromAssistantText(
@@ -131,13 +132,10 @@ export function usePiChatMessaging({
 					assistantTextFromMessage(event.message),
 				);
 				const planState = bindPendingPlanDecisionToolCallId(parsedPlan.state, event.message.id);
-				const planPart = parsedPlan.changed ? createPlanToolPart(event.message.id, planState) : undefined;
+				planPart = parsedPlan.changed ? createPlanToolPart(event.message.id, planState) : undefined;
 				if (planPart) {
 					// Persistence must run even when this session is not the visible one:
 					// the sidecar belongs to the streaming session, not the active view.
-					if (streamSessionId === sessionMetadataRef.current.sessionId) {
-						setMessagesSynced((current) => upsertAssistantToolPart(current, event.message.id, planPart));
-					}
 					void client
 						.upsertPlanPresentation({
 							sessionId: streamSessionId,
@@ -180,6 +178,12 @@ export function usePiChatMessaging({
 			setQueueSynced(next.snapshot.queue);
 			setActivityLabelSynced(next.snapshot.activityLabel);
 			setPlanLabelSynced(next.snapshot.planLabel);
+
+			// Insert after the done merge: applyChatStreamEvent replaces the in-flight
+			// message with event.message, so inserting earlier would drop the card.
+			if (planPart && event.type === "done") {
+				setMessagesSynced((current) => upsertAssistantToolPart(current, event.message.id, planPart));
+			}
 
 			if (event.type === "start") {
 				setStatus("streaming");

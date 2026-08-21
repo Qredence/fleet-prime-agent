@@ -100,8 +100,13 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
 
   if (detail.kind === "todo") {
     const planItems = toFleetPlanItems(detail.items)
+    const pendingDecision = Boolean(
+      (part.input as { pendingDecision?: unknown } | undefined)?.pendingDecision,
+    )
+    // A plan awaiting an Execute/Stay/Refine decision must keep its controls:
+    // only swap in the FleetAgentPlan progress card for settled presentations.
     const planPresentation =
-      normalized.lowerName === "planwrite"
+      normalized.lowerName === "planwrite" && !pendingDecision
         ? fleetAgentPlanPresentation(planItems)
         : undefined
 

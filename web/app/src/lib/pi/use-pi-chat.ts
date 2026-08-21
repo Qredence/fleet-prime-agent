@@ -189,6 +189,35 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 							})
 							.catch(() => undefined);
 					}
+					if (settledPresentation) {
+						// Keep the visible card in sync with the settled record: without
+						// this the in-memory presentation keeps showing "executing".
+						setMessagesSynced((current) =>
+							current.map((message) => {
+								if (message.role !== "assistant") return message;
+								return {
+									...message,
+									parts: message.parts.map((part) => {
+										if (
+											part.type !== "tool-PlanWrite" ||
+											part.toolCallId !== toolCallId ||
+											!part.input ||
+											typeof part.input !== "object"
+										) {
+											return part;
+										}
+										const input = part.input as Record<string, unknown>;
+										const presentation = input.presentation;
+										if (!presentation || typeof presentation !== "object") return part;
+										return {
+											...part,
+											input: { ...input, presentation: { ...presentation, executing: false } },
+										};
+									}),
+								};
+							}),
+						);
+					}
 				} else if (selected === "refine" || answer.text?.trim()) {
 					await sendMessageRef.current({
 						text: answer.text?.trim() || "Refine the plan.",
