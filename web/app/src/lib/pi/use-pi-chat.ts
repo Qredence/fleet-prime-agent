@@ -174,6 +174,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 						text: "Execute the approved plan.",
 						mode: "agent",
 						planAction: "execute",
+						openUI: true,
 					});
 					// The run settled; drop the persisted "executing" state so reloads
 					// do not show a stale in-flight plan card.
@@ -223,6 +224,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 						text: answer.text?.trim() || "Refine the plan.",
 						mode: "plan",
 						planAction: "refine",
+						openUI: true,
 					});
 				}
 				return { ok: true };

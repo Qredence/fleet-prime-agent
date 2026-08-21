@@ -1041,6 +1041,9 @@ function FleetSessionSidebarNavigation({
         title: sessionLabel(session),
         preview: sessionDiscoveryMeta(session, projectById),
         group: sessionSearchGroup(session.updatedAt),
+        // Keep the initial prompt searchable; a renamed session no longer
+        // matches its own first message otherwise (combobox keyword parity).
+        keywords: session.firstMessage ? [session.firstMessage] : [],
       })),
     [projectById, projectSessions],
   )

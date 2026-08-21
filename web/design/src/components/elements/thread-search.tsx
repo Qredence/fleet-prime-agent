@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 import { PinIcon, SearchIcon } from "lucide-react";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { field, mono, paper } from "../../lib/surfaces";
@@ -10,6 +10,8 @@ export interface SearchableThread {
   title: string;
   group: string;
   preview: string;
+  /** Search-only tokens; not shown in the preview. */
+  keywords?: readonly string[];
   pinned?: boolean;
 }
 
@@ -32,7 +34,7 @@ export function ThreadSearch({
   onSelect?: (id: string) => void;
 }) {
   const matches = threads.filter((thread) =>
-    `${thread.title} ${thread.preview}`
+    `${thread.title} ${thread.preview} ${(thread.keywords ?? []).join(" ")}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
@@ -48,13 +50,17 @@ export function ThreadSearch({
     ),
   ];
 
+  const [focusId, setFocusId] = useState<string | null>(null);
+
+  // Arrow keys only move the highlight; selection stays on Enter/click so a
+  // single arrow press never opens (or abandons) a session.
   const move = (delta: number) => {
     if (ordered.length === 0) return;
-    const at = ordered.findIndex((thread) => thread.id === activeId);
-    // activeId can be filtered out by the query; start from the edge the key implies
+    const at = ordered.findIndex((thread) => thread.id === focusId);
+    // Focus can be filtered out by the query; start from the edge the key implies
     const from = at === -1 ? (delta > 0 ? -1 : 0) : at;
     const next = ordered[(from + delta + ordered.length) % ordered.length];
-    if (next) onSelect?.(next.id);
+    setFocusId(next ? next.id : null);
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -65,6 +71,11 @@ export function ThreadSearch({
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       move(-1);
+    } else if (event.key === "Enter") {
+      if (focusId) {
+        event.preventDefault();
+        onSelect?.(focusId);
+      }
     }
   };
 
@@ -72,12 +83,17 @@ export function ThreadSearch({
     <button
       key={thread.id}
       type="button"
-      onClick={() => onSelect?.(thread.id)}
+      onClick={() => {
+        setFocusId(thread.id);
+        onSelect?.(thread.id);
+      }}
       className={cn(
         "flex flex-col gap-0.5 rounded-xl px-2 py-1 text-start transition-colors",
-        thread.id === activeId
+        thread.id === focusId
           ? "bg-foreground/[0.05]"
-          : "hover:bg-foreground/[0.03]",
+          : thread.id === activeId
+            ? "bg-foreground/[0.02] hover:bg-foreground/[0.03]"
+            : "hover:bg-foreground/[0.03]",
       )}
     >
       <span className="flex items-center gap-1.5">
@@ -114,7 +130,10 @@ export function ThreadSearch({
         <SearchIcon className="text-foreground/30 size-3.5 shrink-0" />
         <input
           value={query}
-          onChange={(event) => onQueryChange?.(event.target.value)}
+          onChange={(event) => {
+            setFocusId(null);
+            onQueryChange?.(event.target.value);
+          }}
           onKeyDown={onKeyDown}
           placeholder="Search threads"
           aria-label="Search threads"

@@ -104,9 +104,12 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
       (part.input as { pendingDecision?: unknown } | undefined)?.pendingDecision,
     )
     // A plan awaiting an Execute/Stay/Refine decision must keep its controls:
-    // only swap in the FleetAgentPlan progress card for settled presentations.
+    // the fallback PlanWrite renderer owns them, so never swap it out.
+    if (normalized.lowerName === "planwrite" && pendingDecision) {
+      return fallback ?? null
+    }
     const planPresentation =
-      normalized.lowerName === "planwrite" && !pendingDecision
+      normalized.lowerName === "planwrite"
         ? fleetAgentPlanPresentation(planItems)
         : undefined
 
