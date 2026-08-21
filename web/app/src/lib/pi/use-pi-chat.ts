@@ -212,7 +212,11 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 										if (!presentation || typeof presentation !== "object") return part;
 										return {
 											...part,
-											input: { ...input, presentation: { ...presentation, executing: false } },
+											input: {
+												...input,
+												executing: false,
+												presentation: { ...presentation, executing: false },
+											},
 										};
 									}),
 								};

@@ -46,6 +46,9 @@ export function resolvePlanDecisionMessages(
 					...(part.input as Record<string, unknown>),
 					approved: answer.selectedIds?.[0] === "execute" || answer.selectedIds?.[0] === "stay",
 					pendingDecision: false,
+					// Keep the top-level field in sync with the nested presentation:
+					// renderers gate on input.executing directly.
+					executing: answer.selectedIds?.[0] === "execute",
 					presentation: presentationAfterDecision(part.input, answer),
 				},
 			};
