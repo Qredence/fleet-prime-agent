@@ -7,7 +7,7 @@ import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/fleet-pi
 import { SettingsDialog } from "@prime-agent/web-design/components/fleet-pi/pi/settings-dialog"
 import { ForkPickerDialog } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog"
 import { ChatApp } from "@prime-agent/web-design/components/agents/chat-app"
-import { FleetSessionSidebar } from "@prime-agent/web-design/components/fleet/session-sidebar"
+import { FleetSessionSidebar } from "@prime-agent/web-design/components/fleet-pi/session-sidebar"
 import { AnimatedSidebarInset } from "@prime-agent/web-design/components/motion/animated-sidebar"
 import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components/openui/openui-renderer"
 import { useCallback } from "react"

@@ -112,7 +112,7 @@
 				// provide without changing AISidebar's and FleetSessionSidebar's API.
 				"files": [
 					"design/src/components/agents/ai-sidebar.tsx",
-					"design/src/components/fleet/session-sidebar.tsx"
+					"design/src/components/fleet-pi/session-sidebar.tsx"
 				],
 				"rules": ["react-doctor/no-render-prop-children"]
 			},
@@ -140,7 +140,7 @@
 				// Directory loading and active-project expansion are lifecycle-owned
 				// sidebar effects; their setters update the local reducer, not an
 				// external parent data contract.
-				"files": ["design/src/components/fleet/session-sidebar.tsx"],
+				"files": ["design/src/components/fleet-pi/session-sidebar.tsx"],
 				"rules": [
 					"react-doctor/no-pass-live-state-to-parent",
 					"react-doctor/no-pass-data-to-parent"

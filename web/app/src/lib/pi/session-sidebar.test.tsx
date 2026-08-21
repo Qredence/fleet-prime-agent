@@ -1,7 +1,7 @@
 import { fireEvent, render } from "@testing-library/react"
 import type { ChatSessionInfo, ProjectSummary } from "@prime-agent/web-protocol"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { FleetSessionSidebar } from "@prime-agent/web-design/components/fleet/session-sidebar"
+import { FleetSessionSidebar } from "@prime-agent/web-design/components/fleet-pi/session-sidebar"
 import { AnimatedSidebarProvider } from "@prime-agent/web-design/components/motion/animated-sidebar"
 
 function project(projectId: string): ProjectSummary {
