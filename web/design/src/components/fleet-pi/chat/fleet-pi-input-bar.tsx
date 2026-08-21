@@ -7,8 +7,8 @@ import { ModeSelector } from "../../agent-elements/input/mode-selector"
 import {
   ComposerTriggerPopover,
   type ComposerTriggerItem,
-} from "../../assistant-ui/composer-trigger-popover"
-import { ModelSelector } from "../../assistant-ui/model-selector"
+} from "../../elements/composer-trigger-popover"
+import { ModelSelector } from "../../elements/model-selector"
 import { cn } from "../../../lib/utils"
 import { useFleetPiInputBarState } from "./fleet-pi-input-bar-state"
 import type { InputBarProps } from "../../agent-elements/input-bar"

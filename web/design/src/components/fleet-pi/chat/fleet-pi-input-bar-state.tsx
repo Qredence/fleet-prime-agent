@@ -6,7 +6,7 @@ import {
   type ComposerCommand,
   type ComposerPerson,
 } from "../../elements/composer"
-import type { ComposerTriggerGroup } from "../../assistant-ui/composer-trigger-popover"
+import type { ComposerTriggerGroup } from "../../elements/composer-trigger-popover"
 import { useQuestionBarNavigation } from "../../agent-elements/hooks/use-question-bar-navigation"
 import type { SuggestionItem } from "../../agent-elements/input/suggestions"
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract"

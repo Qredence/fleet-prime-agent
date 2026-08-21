@@ -1,6 +1,6 @@
 "use client"
 
-import { AgentPlan } from "../elements/agent-plan"
+import { AgentPlan } from "./agent-plan"
 
 export type FleetPlanItemState = "pending" | "in_progress" | "completed" | "cancelled"
 

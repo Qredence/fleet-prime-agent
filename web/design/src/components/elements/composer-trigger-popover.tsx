@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Command as CommandIcon, File, Folder, Sparkles } from "lucide-react"
 import { memo, useMemo, type ReactNode } from "react"
-import { ComposerMenu, ComposerMenuItem } from "../elements/composer"
+import { ComposerMenu, ComposerMenuItem } from "./composer"
 import { cn } from "../../lib/utils"
 
 export type ComposerTriggerKind = "slash" | "mention"
