@@ -1,4 +1,4 @@
-import type { SuggestionItem } from "@prime-agent/web-design/components/agent-elements/input/suggestions";
+import type { SuggestionItem } from "@prime-agent/web-design/components/agents/input/suggestions";
 import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import {

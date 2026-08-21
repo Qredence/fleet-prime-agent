@@ -79,13 +79,13 @@
 				// Intentional public API compatibility adapter. The exported message
 				// turn components accept their legacy flat props alongside grouped
 				// internal state until a documented major-version migration.
-				"files": ["design/src/components/agent-elements/message-turns.tsx"],
+				"files": ["design/src/components/agents/message-turns.tsx"],
 				"rules": ["react-doctor/no-many-boolean-props"]
 			},
 			{
 				// Intentional retained future UI surface.
 				"files": [
-					"design/src/components/agent-elements/input/mode-selector.tsx",
+					"design/src/components/agents/input/mode-selector.tsx",
 					"design/src/components/fleet-pi/icons/google-icon.tsx",
 					"design/src/components/fleet-pi/primitives/centered-loader.tsx"
 				],
@@ -204,8 +204,8 @@
 				// Reserved/future UI files remain package-addressable and are not safe
 				// to delete merely because the current app route does not import them.
 				"files": [
-					"design/src/components/agent-elements/input/effort-picker.tsx",
-					"design/src/components/agent-elements/input/model-picker.tsx",
+					"design/src/components/agents/input/effort-picker.tsx",
+					"design/src/components/agents/input/model-picker.tsx",
 					"design/src/components/fleet-pi/chat/chat-stop-control.tsx",
 					"design/src/components/fleet-pi/pi/open-project-folder-dialog.tsx",
 					"design/src/components/motion/context-menu.tsx"

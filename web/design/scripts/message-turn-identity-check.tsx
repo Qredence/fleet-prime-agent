@@ -6,7 +6,7 @@ import {
   buildAssistantElements,
   getAssistantToolElementKey,
   UserTurn,
-} from "../src/components/agent-elements/message-turns"
+} from "../src/components/agents/message-turns"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 
 const noIdTask = { type: "tool-Task" }

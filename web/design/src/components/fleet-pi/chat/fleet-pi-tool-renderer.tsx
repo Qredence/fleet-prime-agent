@@ -1,7 +1,7 @@
 import { memo } from "react"
-import { ToolRenderer } from "../../agent-elements/tools/tool-renderer"
+import { ToolRenderer } from "../../agents/tools/tool-renderer"
 import { PI_TOOL_RENDERERS } from "../pi/tool-renderers"
-import type { ToolRendererProps } from "../../agent-elements/tools/tool-renderer"
+import type { ToolRendererProps } from "../../agents/tools/tool-renderer"
 import { BeuiToolRenderer } from "./beui-tool-renderer"
 
 function hasVisibleToolOutput(value: unknown): boolean {

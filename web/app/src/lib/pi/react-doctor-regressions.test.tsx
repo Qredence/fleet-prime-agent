@@ -1,7 +1,7 @@
 import { render, renderHook, act } from "@testing-library/react"
 import { useRef } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { Popover } from "@prime-agent/web-design/components/agent-elements/input/popover"
+import { Popover } from "@prime-agent/web-design/components/agents/input/popover"
 import { useProximityHover } from "@prime-agent/web-design/hooks/use-proximity-hover"
 import type { ChatProviderOAuthLoginRequest, ChatProviderOAuthLoginResponse, ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol"
 import type { ChatClient } from "./chat-client"

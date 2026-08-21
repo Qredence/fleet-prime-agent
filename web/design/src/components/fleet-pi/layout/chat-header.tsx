@@ -6,7 +6,7 @@ import {
   Plus,
   Settings,
 } from "lucide-react"
-import { Popover } from "../../agent-elements/input/popover"
+import { Popover } from "../../agents/input/popover"
 import { ChromePillButton } from "../primitives/chrome-pill"
 import { cn } from "../../../lib/utils"
 import type {

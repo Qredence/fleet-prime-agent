@@ -6,7 +6,7 @@
   "exports": {
     "./globals.css": "./src/styles/globals.css",
     "./components/fleet-pi/*": "./src/components/fleet-pi/*",
-    "./components/agent-elements/*": "./src/components/agent-elements/*",
+    "./components/agents/*": "./src/components/agents/*",
     "./components/openui/*": "./src/components/openui/*",
     "./components/*": "./src/components/*",
     "./lib/canvas-utils": "./src/lib/canvas-utils.ts",

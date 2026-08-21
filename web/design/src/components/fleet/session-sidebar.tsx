@@ -54,7 +54,7 @@ import {
 } from "../motion/combobox"
 import { ProjectFolder } from "../motion/project-folder"
 import { ThreadSearch, type SearchableThread } from "../elements/thread-search"
-import { Popover } from "../agent-elements/input/popover"
+import { Popover } from "../agents/input/popover"
 import {
   AlertDialog,
   AlertDialogAction,

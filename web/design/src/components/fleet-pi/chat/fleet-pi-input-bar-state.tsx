@@ -7,8 +7,8 @@ import {
   type ComposerPerson,
 } from "../../elements/composer"
 import type { ComposerTriggerGroup } from "../../elements/composer-trigger-popover"
-import { useQuestionBarNavigation } from "../../agent-elements/hooks/use-question-bar-navigation"
-import type { SuggestionItem } from "../../agent-elements/input/suggestions"
+import { useQuestionBarNavigation } from "../../agents/hooks/use-question-bar-navigation"
+import type { SuggestionItem } from "../../agents/input/suggestions"
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract"
 import {
   availableThinkingLevels,

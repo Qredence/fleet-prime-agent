@@ -10,7 +10,7 @@ import { TodoList, type TodoItem } from "../../agents/todo-list"
 import { FleetAgentPlan, fleetAgentPlanPresentation, type FleetPlanItem } from "../../elements/fleet-agent-plan"
 import { ToolApproval } from "../../agents/tool-approval"
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../agents/tool-result"
-import type { ToolRendererProps } from "../../agent-elements/tools/tool-renderer"
+import type { ToolRendererProps } from "../../agents/tools/tool-renderer"
 import {
   normalizeFleetToolPart,
   type FleetToolRecord,

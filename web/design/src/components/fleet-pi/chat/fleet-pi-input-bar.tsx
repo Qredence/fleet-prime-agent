@@ -1,9 +1,9 @@
 import { Bot, FileCode2, FilePlus2, ListTodo, Settings2, X } from "lucide-react"
 import { PromptInput } from "../../agents/prompt-input"
-import { ComposerLoader } from "../../agent-elements/composer-loader"
-import { FileAttachment } from "../../agent-elements/input/file-attachment"
-import { InputQuestionBar } from "../../agent-elements/input/question-bar"
-import { ModeSelector } from "../../agent-elements/input/mode-selector"
+import { ComposerLoader } from "../../agents/composer-loader"
+import { FileAttachment } from "../../agents/input/file-attachment"
+import { InputQuestionBar } from "../../agents/input/question-bar"
+import { ModeSelector } from "../../agents/input/mode-selector"
 import {
   ComposerTriggerPopover,
   type ComposerTriggerItem,
@@ -11,8 +11,8 @@ import {
 import { ModelSelector } from "../../elements/model-selector"
 import { cn } from "../../../lib/utils"
 import { useFleetPiInputBarState } from "./fleet-pi-input-bar-state"
-import type { InputBarProps } from "../../agent-elements/input-bar"
-import type { SuggestionItem } from "../../agent-elements/input/suggestions"
+import type { InputBarProps } from "../../agents/input-bar"
+import type { SuggestionItem } from "../../agents/input/suggestions"
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract"
 import type {
