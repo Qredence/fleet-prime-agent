@@ -18,15 +18,16 @@ export function cleanStepText(text: string) {
 	if (cleaned.length > 0) {
 		cleaned = `${cleaned.charAt(0).toUpperCase()}${cleaned.slice(1)}`;
 	}
-	return cleaned.length > 50 ? `${cleaned.slice(0, 47)}...` : cleaned;
+	return cleaned;
 }
 
 export function extractTodoItems(message: string) {
 	const items: Array<TodoItem> = [];
 	const headerMatch = message.match(/\*{0,2}Plan:\*{0,2}\s*\n/i);
-	if (!headerMatch) return items;
-
-	const planSection = message.slice(message.indexOf(headerMatch[0]) + headerMatch[0].length);
+	// Plan-mode responses are already a controlled, user-visible contract. Some
+	// providers return a concise numbered checklist without repeating "Plan:".
+	// Accept that form only when it contains at least two valid numbered steps.
+	const planSection = headerMatch ? message.slice(message.indexOf(headerMatch[0]) + headerMatch[0].length) : message;
 	const numberedPattern = /^\s*(\d+)[.)]\s+\*{0,2}([^*\n]+)/gm;
 
 	for (const match of planSection.matchAll(numberedPattern)) {
@@ -40,6 +41,22 @@ export function extractTodoItems(message: string) {
 				items.push({ step: items.length + 1, text: cleaned, completed: false });
 			}
 		}
+	}
+	if (!headerMatch && items.length < 2) {
+		const titledSteps = Array.from(message.matchAll(/^\s*([A-Z][^:\n]{4,72}):\s+[^\n]+/gm))
+			.map((match) => cleanStepText(match[1] ?? ""))
+			.filter((text) => text.length > 3)
+			.map((text, index) => ({ step: index + 1, text, completed: false }));
+		if (titledSteps.length >= 2) return titledSteps;
+		const plainSteps = message
+			.split(/\n+/)
+			.map((line) => line.trim())
+			.filter((line) => line.length > 5 && !["#", ">", "*", "-"].includes(line.charAt(0)))
+			.map((line) => cleanStepText(line))
+			.filter((text, index, all) => text.length > 3 && all.indexOf(text) === index)
+			.slice(0, 12)
+			.map((text, index) => ({ step: index + 1, text, completed: false }));
+		return plainSteps.length >= 2 ? plainSteps : [];
 	}
 	return items;
 }

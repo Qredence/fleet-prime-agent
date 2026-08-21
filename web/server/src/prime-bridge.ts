@@ -49,6 +49,7 @@ import {
 	toChatMessageFromUser,
 } from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
+import { deleteManagedPlanPresentationsForSession } from "./managed-plan-presentations";
 import { PendingDialogRegistry } from "./pending-dialogs";
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
@@ -562,6 +563,7 @@ export class PrimeBridge {
 			this.#ringBuffers.delete(sessionId);
 		}
 		await deleteManagedAttachmentsForSession(sessionId, sessionPath);
+		await deleteManagedPlanPresentationsForSession(sessionId, sessionPath);
 		await rm(sessionPath, { force: true });
 		const artifactDir = join(dirname(dirname(sessionPath)), "session-artifacts", basename(sessionPath, ".jsonl"));
 		await rm(artifactDir, { recursive: true, force: true });

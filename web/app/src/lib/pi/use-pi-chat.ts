@@ -16,6 +16,7 @@ import { chatClient } from "./chat-client";
 import type { QueueState } from "./chat-fetch";
 import { resolveChatApiUrl } from "./chat-runtime-url";
 import { EMPTY_QUEUE_STATE, normalizeSessionMetadata } from "./chat-stream-state";
+import { hydratePlanPresentationMessages, planPresentationForToolCall } from "./plan-presentation";
 import { isPlanDecisionToolCall } from "./plan-state";
 import { runForbiddenSessionRecovery, tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
 import { usePiChatMessaging } from "./use-pi-chat-messaging";
@@ -153,15 +154,40 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 	const submitQuestionAnswer = useCallback(
 		async ({ toolCallId, answer }: { toolCallId?: string; answer: ChatQuestionAnswer }) => {
+			if (isPlanDecisionToolCall(toolCallId)) {
+				const nextMessages = resolvePlanDecisionMessages(messagesRef.current, toolCallId, answer);
+				setMessagesSynced(nextMessages);
+				const presentation = planPresentationForToolCall(nextMessages, toolCallId);
+				if (presentation && sessionMetadataRef.current.sessionId) {
+					await client
+						.upsertPlanPresentation({
+							sessionId: sessionMetadataRef.current.sessionId,
+							presentation,
+						})
+						.catch(() => undefined);
+				}
+				const selected = answer.selectedIds?.[0];
+				if (selected === "execute") {
+					await sendMessageRef.current({
+						text: "Execute the approved plan.",
+						mode: "agent",
+						planAction: "execute",
+					});
+				} else if (selected === "refine" || answer.text?.trim()) {
+					await sendMessageRef.current({
+						text: answer.text?.trim() || "Refine the plan.",
+						mode: "plan",
+						planAction: "refine",
+					});
+				}
+				return { ok: true };
+			}
 			const result = await client.answerQuestion({
 				sessionId: sessionMetadataRef.current.sessionId,
 				toolCallId,
 				answer,
 			});
 
-			if (result.ok && isPlanDecisionToolCall(toolCallId)) {
-				setMessagesSynced((current) => resolvePlanDecisionMessages(current, toolCallId, answer));
-			}
 			if (result.message) {
 				await sendMessageRef.current({
 					text: result.message,
@@ -237,7 +263,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			.then((result) => {
 				if (controller.signal.aborted) return;
 				setSessionMetadataSynced(result.session);
-				setMessagesSynced(result.messages);
+				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
 				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 			})
 			.catch((err) => {
@@ -338,7 +364,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				if (options?.preserveRunning === false) stop();
 				const result = await client.resumeSession(metadata);
 				setSessionMetadataSynced(result.session);
-				setMessagesSynced(result.messages);
+				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
 				setQueueSynced(EMPTY_QUEUE_STATE);
 				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 				setPlanLabelSynced(undefined);
@@ -463,7 +489,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 						.loadSession({ sessionId: settledSessionId })
 						.then((result) => {
 							if (sessionMetadataRef.current.sessionId !== settledSessionId) return;
-							setMessagesSynced(result.messages);
+							setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
 							setSessionMetadataSynced(result.session);
 							setQueueSynced(EMPTY_QUEUE_STATE);
 						})

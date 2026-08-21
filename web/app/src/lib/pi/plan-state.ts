@@ -108,11 +108,25 @@ export function createPlanEvent(state: PlanModeState) {
 		executing: snapshot.executing,
 		completed: snapshot.completed,
 		total: snapshot.total,
+		presentation: snapshot,
 		message: snapshot.message,
 		state: snapshot,
 	};
 }
 
+export function planStateFromChatPlanState(state: ChatPlanState, assistantId: string): PlanModeState {
+	return {
+		enabled: state.mode === "plan",
+		executing: state.executing,
+		todos: state.todos.map((todo) => ({ ...todo })),
+		pendingDecision: state.pendingDecision,
+		pendingDecisionToolCallId: state.pendingDecision ? `${PLAN_DECISION_TOOL_PREFIX}-${assistantId}` : undefined,
+	};
+}
+
+export function createPlanToolPartFromChatPlanState(assistantId: string, state: ChatPlanState) {
+	return createPlanToolPart(assistantId, planStateFromChatPlanState(state, assistantId));
+}
 export function createPlanToolPart(assistantId: string, state: PlanModeState): ChatToolPart | undefined {
 	if (state.todos.length === 0) return undefined;
 
@@ -133,6 +147,7 @@ export function createPlanToolPart(assistantId: string, state: PlanModeState): C
 			executing: state.executing,
 			completed: snapshot.completed,
 			total: snapshot.total,
+			presentation: snapshot,
 			plan: {
 				id: assistantId,
 				title: snapshot.executing ? "Executing plan" : "Execution plan",

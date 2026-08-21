@@ -6,7 +6,8 @@ import { CodeBlock } from "../../agents/code-block"
 import { Citations } from "../../agents/citations"
 import { FileDiff } from "../../agents/file-diff"
 import { ImageGeneration } from "../../agents/image-generation"
-import { TodoList } from "../../agents/todo-list"
+import { TodoList, type TodoItem } from "../../agents/todo-list"
+import { FleetAgentPlan, fleetAgentPlanPresentation, type FleetPlanItem } from "../../assistant-ui/fleet-agent-plan"
 import { ToolApproval } from "../../agents/tool-approval"
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../agents/tool-result"
 import type { ToolRendererProps } from "../../agent-elements/tools/tool-renderer"
@@ -14,6 +15,22 @@ import {
   normalizeFleetToolPart,
   type FleetToolRecord,
 } from "./beui-tool-normalizer"
+
+/** Map todo-list items (hyphen status) into the Agent-Plan item model (underscore status). */
+function toFleetPlanItems(items: readonly TodoItem[]): FleetPlanItem[] {
+  return items.map((item) => ({
+    id: String(item.id),
+    title: typeof item.title === "string" ? item.title : "",
+    status:
+      item.status === "in-progress"
+        ? "in_progress"
+        : item.status === "completed"
+          ? "completed"
+          : item.status === "cancelled"
+            ? "cancelled"
+            : "pending",
+  }))
+}
 
 function statusIcon(status: ToolResultStatus, name: string) {
   if (name.toLowerCase().includes("bash") || name.toLowerCase().includes("shell")) {
@@ -82,6 +99,16 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
   if (!detail) return fallback ?? null
 
   if (detail.kind === "todo") {
+    const planItems = toFleetPlanItems(detail.items)
+    const planPresentation =
+      normalized.lowerName === "planwrite"
+        ? fleetAgentPlanPresentation(planItems)
+        : undefined
+
+    if (planPresentation) {
+      return <FleetAgentPlan presentation={planPresentation} className="mb-2" />
+    }
+
     return (
       <TodoList
         items={detail.items}

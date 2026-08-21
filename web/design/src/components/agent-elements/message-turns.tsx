@@ -239,6 +239,7 @@ type BuildAssistantElementsOptions = {
   isLast: boolean
   isStreaming: boolean
   suppressQuestionTool: boolean
+  suppressTextWhenPlanWrite?: boolean
   ToolRendererComponent: React.ComponentType<ToolRendererProps>
   TextRendererComponent: React.ComponentType<TextRendererComponentProps>
   toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
@@ -261,6 +262,7 @@ export function buildAssistantElements(
     isLast,
     isStreaming,
     suppressQuestionTool,
+    suppressTextWhenPlanWrite = false,
     ToolRendererComponent,
     TextRendererComponent,
     toolRenderers,
@@ -269,6 +271,8 @@ export function buildAssistantElements(
 
   const elems: Array<React.ReactNode> = []
   const textChunks: Array<string> = []
+  const hasPlanWritePresentation =
+    suppressTextWhenPlanWrite && parts.some((part) => isV5ToolPart(part) && part.type === "tool-PlanWrite")
   const taskPartIds = new Set(
     parts
       .filter(
@@ -307,7 +311,7 @@ export function buildAssistantElements(
 
     if (isTextPart(part)) {
       const text = part.text
-      if (text) textChunks.push(text)
+      if (text && !hasPlanWritePresentation) textChunks.push(text)
       i++
       continue
     }

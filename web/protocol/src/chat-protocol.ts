@@ -143,6 +143,51 @@ export type ChatPlanState = {
 	message?: string;
 };
 
+/** Durable Fleet-owned presentation record for an explicitly Plan-mode response. */
+export type ChatPlanPresentation = {
+	assistantMessageId: string;
+	state: ChatPlanState;
+};
+export type ChatPlanPresentationUpsertRequest = {
+	sessionId: string;
+	presentation: ChatPlanPresentation;
+};
+/** Optional, capability-gated browser enhancements owned by Fleet Prime. */
+export type FleetAdapterFeature = "reasoning-summary-v1";
+
+export type FleetAdapterCapabilities = {
+	protocolVersion: 1;
+	schemaRevision: 1;
+	features: Array<FleetAdapterFeature>;
+};
+
+/**
+ * Browser-safe progress presentation for an agent turn. `steps` are controlled
+ * Fleet labels; they must never contain raw detailed model reasoning.
+ */
+export type ChatReasoningStep = {
+	id: string;
+	title: string;
+	body: string;
+};
+
+export type ChatReasoningPresentation = {
+	runId: string;
+	phase: "waiting" | "context" | "planning" | "executing" | "responding" | "recovering" | "complete" | "error";
+	steps: Array<ChatReasoningStep>;
+	visibleSteps: number;
+	streaming: boolean;
+	startedAt: number;
+	elapsedMs?: number;
+	restingLabel: string;
+};
+
+export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
+	protocolVersion: 1,
+	schemaRevision: 1,
+	features: ["reasoning-summary-v1"],
+};
+
 type ChatStartEvent = {
 	type: "start";
 	id: string;
@@ -150,6 +195,7 @@ type ChatStartEvent = {
 	sessionId: string;
 	sessionReset?: boolean;
 	diagnostics?: Array<string>;
+	adapterCapabilities?: FleetAdapterCapabilities;
 };
 
 /**
@@ -175,7 +221,9 @@ export type ChatStreamEvent =
 	  }
 	| { type: "state"; state: ChatStateEvent }
 	| { type: "queue"; steering: Array<string>; followUp: Array<string> }
+	/** Legacy raw-thinking frame. New Fleet adapters must not emit it. */
 	| { type: "thinking"; text: string; messageId?: string }
+	| { type: "reasoning"; presentation: ChatReasoningPresentation; messageId?: string }
 	| { type: "compaction"; phase: "start"; reason: string }
 	| {
 			type: "compaction";
@@ -337,6 +385,7 @@ export type ChatProviderOAuthLoginResponse = {
 export type ChatSessionResponse = {
 	session: ChatSessionMetadata;
 	messages: Array<ChatMessage>;
+	planPresentations: Array<ChatPlanPresentation>;
 	sessionReset?: boolean;
 };
 

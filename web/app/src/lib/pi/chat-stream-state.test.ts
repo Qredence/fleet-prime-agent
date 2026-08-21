@@ -25,6 +25,11 @@ function start(id: string, runId = "run-1"): ChatStreamEvent {
 		id,
 		runId,
 		sessionId: "session-1",
+		adapterCapabilities: {
+			protocolVersion: 1,
+			schemaRevision: 1,
+			features: ["reasoning-summary-v1"],
+		},
 	};
 }
 
@@ -129,14 +134,26 @@ describe("applyChatStreamEvent", () => {
 		});
 	});
 
-	it("accumulates thinking deltas and promotes thinking-only turns to assistant text on done", () => {
+	it("stores only capability-gated safe reasoning and removes legacy raw thinking on completion", () => {
 		const id = "run-1-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id));
-		t = applyChatStreamEvent(t, { type: "thinking", text: "fleet-", messageId: id });
-		t = applyChatStreamEvent(t, { type: "thinking", text: "web-ok", messageId: id });
+		t = applyChatStreamEvent(t, {
+			type: "reasoning",
+			messageId: id,
+			presentation: {
+				runId: "run-1",
+				phase: "planning",
+				steps: [{ id: "step-1", title: "Planning next step", body: "Choosing the next safe action." }],
+				visibleSteps: 1,
+				streaming: true,
+				startedAt: 0,
+				restingLabel: "Prepared next step",
+			},
+		});
+		t = applyChatStreamEvent(t, { type: "thinking", text: "fleet-web-ok", messageId: id });
 		const streamed = assistantMessages(t)[0];
-		const thought = streamed.parts.find((part) => part.type === "tool-Thinking");
-		expect(thought && "output" in thought ? thought.output : undefined).toBe("fleet-web-ok");
+		expect(streamed.parts.some((part) => part.type === "tool-FleetReasoning")).toBe(true);
+		expect(JSON.stringify(streamed.parts)).not.toContain("fleet-web-ok");
 
 		t = applyChatStreamEvent(t, {
 			type: "done",
@@ -153,7 +170,32 @@ describe("applyChatStreamEvent", () => {
 		});
 		expect(t.assistantId).toBeNull();
 		const doneParts = assistantMessages(t)[0].parts;
-		expect(doneParts).toEqual([{ type: "text", text: "fleet-web-ok" }]);
+		expect(doneParts.some((part) => part.type === "tool-FleetReasoning")).toBe(true);
+		expect(JSON.stringify(doneParts)).not.toContain("fleet-web-ok");
+	});
+
+	it("ignores a reasoning presentation when an older adapter omits the capability", () => {
+		const id = "run-legacy-a0";
+		let t = applyChatStreamEvent(baseTransition(), {
+			type: "start",
+			id,
+			runId: "run-legacy",
+			sessionId: "session-1",
+		});
+		t = applyChatStreamEvent(t, {
+			type: "reasoning",
+			messageId: id,
+			presentation: {
+				runId: "run-legacy",
+				phase: "planning",
+				steps: [{ id: "step-1", title: "Planning next step", body: "Choosing the next safe action." }],
+				visibleSteps: 1,
+				streaming: true,
+				startedAt: 0,
+				restingLabel: "Prepared next step",
+			},
+		});
+		expect(assistantMessages(t)[0]?.parts.some((part) => part.type === "tool-FleetReasoning")).toBe(false);
 	});
 
 	it("keeps terminal tool parts when done reconciles the streamed assistant bubble", () => {

@@ -8,6 +8,7 @@ export { handleChatModelPost } from "./handlers/chat-model";
 export { handleChatModelsGet } from "./handlers/chat-models";
 export { handleChatModelsDiscoverPost } from "./handlers/chat-models-discover";
 export { handleChatNewPost } from "./handlers/chat-new";
+export { handleChatPlanPresentationPut } from "./handlers/chat-plan-presentation";
 export {
 	handleChatProvidersDelete,
 	handleChatProvidersGet,

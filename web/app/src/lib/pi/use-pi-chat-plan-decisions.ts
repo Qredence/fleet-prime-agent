@@ -4,6 +4,24 @@ import { isPlanDecisionToolCall } from "./plan-state";
 
 type QuestionAnswerHandler = (input: { toolCallId?: string; answer: ChatQuestionAnswer }) => Promise<unknown>;
 
+function presentationAfterDecision(input: unknown, answer: ChatQuestionAnswer): unknown {
+	if (!input || typeof input !== "object") return undefined;
+	const current = (input as { presentation?: unknown }).presentation;
+	if (!current || typeof current !== "object") return current;
+	const selected = answer.selectedIds?.[0];
+	const snapshot = current as Record<string, unknown>;
+	const todos = Array.isArray(snapshot.todos) ? snapshot.todos : [];
+	const hasIncomplete = todos.some((todo) =>
+		Boolean(todo && typeof todo === "object" && !(todo as { completed?: unknown }).completed),
+	);
+	return {
+		...snapshot,
+		pendingDecision: false,
+		mode: selected === "execute" ? "agent" : "plan",
+		executing: selected === "execute" ? hasIncomplete : false,
+	};
+}
+
 export function resolvePlanDecisionMessages(
 	currentMessages: Array<ChatMessage>,
 	toolCallId: string | undefined,
@@ -28,6 +46,7 @@ export function resolvePlanDecisionMessages(
 					...(part.input as Record<string, unknown>),
 					approved: answer.selectedIds?.[0] === "execute" || answer.selectedIds?.[0] === "stay",
 					pendingDecision: false,
+					presentation: presentationAfterDecision(part.input, answer),
 				},
 			};
 		});

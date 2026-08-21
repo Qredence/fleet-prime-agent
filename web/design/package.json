@@ -30,7 +30,8 @@
     "generate:openui-contract": "tsx scripts/generate-openui-contract.ts",
     "check:openui-contract": "tsx scripts/generate-openui-contract.ts --check",
     "check:message-identities": "tsx scripts/message-turn-identity-check.tsx",
-    "check:openui": "pnpm run check:openui-contract && tsx scripts/openui-render-check.tsx"
+    "check:openui": "pnpm run check:openui-contract && tsx scripts/openui-render-check.tsx",
+    "check:agent-plan-contract": "tsx scripts/agent-plan-contract-check.ts"
   },
   "dependencies": {
     "@assistant-ui/react": "0.15.12",

@@ -126,6 +126,7 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 			eventType === "state" ||
 			eventType === "tool" ||
 			eventType === "queue" ||
+			eventType === "reasoning" ||
 			eventType === "compaction" ||
 			eventType === "retry"
 		) {

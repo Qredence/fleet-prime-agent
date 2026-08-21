@@ -53,6 +53,7 @@ import {
   ComboboxTrigger,
 } from "../motion/combobox"
 import { ProjectFolder } from "../motion/project-folder"
+import { ThreadSearch, type SearchableThread } from "../elements/thread-search"
 import { Popover } from "../agent-elements/input/popover"
 import {
   AlertDialog,
@@ -124,6 +125,29 @@ function sessionLabel(session: ChatSessionInfo) {
   return session.title || session.firstMessage || session.sessionId.slice(0, 8)
 }
 
+function sessionDiscoveryMeta(
+  session: ChatSessionInfo,
+  projectById: Map<ProjectId, ProjectSummary>,
+) {
+  const project = session.projectId
+    ? (projectById.get(session.projectId)?.name ?? "Unassigned")
+    : "Unassigned"
+  const status = session.status === "idle" ? "Ready" : session.status
+  const messages = String(session.messageCount) + " " + (session.messageCount === 1 ? "message" : "messages")
+  return project + " · " + status + " · " + messages
+}
+
+function sessionSearchGroup(updatedAt: string) {
+  const timestamp = Date.parse(updatedAt)
+  if (!Number.isFinite(timestamp)) return "Earlier"
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const day = 86_400_000
+  const difference = Math.floor((today - new Date(timestamp).setHours(0, 0, 0, 0)) / day)
+  if (difference <= 0) return "Today"
+  if (difference === 1) return "Yesterday"
+  return "Earlier"
+}
 function projectResourceId(projectId: ProjectId) {
   return `project:${projectId}`
 }
@@ -1010,6 +1034,23 @@ function FleetSessionSidebarNavigation({
   selectSearchResult,
   renderMenu,
 }: SidebarNavigationProps) {
+  const searchThreads = useMemo<Array<SearchableThread>>(
+    () =>
+      sortSessions(projectSessions).map((session) => ({
+        id: session.sessionId,
+        title: sessionLabel(session),
+        preview: sessionDiscoveryMeta(session, projectById),
+        group: sessionSearchGroup(session.updatedAt),
+      })),
+    [projectById, projectSessions],
+  )
+  const matchingProjects = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return sortedProjects
+    return sortedProjects.filter((project) =>
+      (project.name + " " + project.pathLabel).toLowerCase().includes(needle),
+    )
+  }, [query, sortedProjects])
   return (
       <AnimatedSidebar
         ariaLabel="Fleet projects and sessions"
@@ -1086,64 +1127,40 @@ function FleetSessionSidebarNavigation({
                 </button>
               }
             >
-              <Combobox
-                open
-                query={query}
-                onQueryChange={setQuery}
-                onValueChange={selectSearchResult}
-              >
-                <ComboboxTrigger
-                  showIndicator={false}
-                  className="h-9 min-w-0 rounded-none border-0 border-b bg-transparent px-2 shadow-none"
-                >
-                  <ComboboxInput
-                    aria-label="Search projects and sessions"
-                    placeholder="Search projects and sessions"
-                    wrapperClassName="gap-2"
-                    className="h-8 text-xs"
-                  />
-                </ComboboxTrigger>
-                <ComboboxList ariaLabel="Project and session search">
-                  <ComboboxGroup>
-                    <ComboboxLabel>Projects</ComboboxLabel>
-                    {sortedProjects.map((project) => (
-                      <ComboboxItem
+              <div className="max-h-[min(32rem,calc(100vh-5rem))] overflow-y-auto">
+                <ThreadSearch
+                  threads={searchThreads}
+                  query={query}
+                  activeId={activeSessionId ?? ""}
+                  onQueryChange={setQuery}
+                  onSelect={(sessionId) => selectSearchResult(`search-session:${sessionId}`)}
+                  className="max-w-none rounded-none border-0 bg-transparent p-2 shadow-none"
+                />
+                <div className="border-t border-border/60 px-2 pb-2 pt-1.5">
+                  <span className="px-2 pb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/60">
+                    Projects
+                  </span>
+                  <div className="mt-1 flex flex-col gap-0.5">
+                    {matchingProjects.map((project) => (
+                      <button
                         key={project.projectId}
-                        value={`search-project:${project.projectId}`}
-                        textValue={project.name}
-                        keywords={[project.pathLabel]}
+                        type="button"
+                        onClick={() => selectSearchResult(`search-project:${project.projectId}`)}
+                        className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <Folder className="size-4 shrink-0" />
-                        <span className="flex min-w-0 flex-col">
-                          <span className="truncate">{project.name}</span>
-                          <span className="truncate text-[11px] text-muted-foreground">
-                            {project.pathLabel}
-                          </span>
-                        </span>
-                      </ComboboxItem>
+                        <Folder className="size-3.5 shrink-0 text-muted-foreground/60" />
+                        <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                        <span className="max-w-24 truncate text-[10px] text-muted-foreground/55">{project.pathLabel}</span>
+                      </button>
                     ))}
-                  </ComboboxGroup>
-                  <ComboboxGroup>
-                    <ComboboxLabel>Sessions</ComboboxLabel>
-                    {sortSessions(projectSessions).map((session) => (
-                      <ComboboxItem
-                        key={session.sessionId}
-                        value={`search-session:${session.sessionId}`}
-                        textValue={sessionLabel(session)}
-                        keywords={[
-                          session.firstMessage,
-                          session.projectId
-                            ? (projectById.get(session.projectId)?.name ?? "")
-                            : "Unassigned",
-                        ]}
-                      >
-                        <span className="min-w-0 truncate">{sessionLabel(session)}</span>
-                      </ComboboxItem>
-                    ))}
-                  </ComboboxGroup>
-                  <ComboboxEmpty>No matching projects or sessions.</ComboboxEmpty>
-                </ComboboxList>
-              </Combobox>
+                    {matchingProjects.length === 0 ? (
+                      <span className="px-2 py-2 text-center text-[11px] text-muted-foreground/60">
+                        No project matches “{query}”
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
             </Popover>
           </div>
           <button

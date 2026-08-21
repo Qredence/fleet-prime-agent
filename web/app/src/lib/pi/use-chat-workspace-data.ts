@@ -506,6 +506,7 @@ export function useChatWorkspaceData() {
 
 	return {
 		activeSessionId: sessionMetadata.sessionId,
+		activityLabel,
 		activeProjectId,
 		answerQuestion,
 		chatMode,

@@ -1,7 +1,13 @@
 import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, AssistantMessageEvent, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import type { ChatMessage, ChatStreamEvent, ChatToolPart } from "@prime-agent/web-protocol";
+import type {
+	ChatMessage,
+	ChatReasoningPresentation,
+	ChatReasoningStep,
+	ChatStreamEvent,
+	ChatToolPart,
+} from "@prime-agent/web-protocol";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,6 +39,14 @@ function isUserMessage(msg: AgentMessage): msg is UserMessage {
 	return (msg as { role?: unknown }).role === "user";
 }
 
+function textFromAssistantMessage(msg: AssistantMessage): string {
+	let text = "";
+	for (const block of msg.content) {
+		if (block.type === "text") text += block.text;
+	}
+	return text;
+}
+
 function getTimestamp(msg: AgentMessage): number | undefined {
 	const t = (msg as { timestamp?: unknown }).timestamp;
 	return typeof t === "number" ? t : undefined;
@@ -44,12 +58,6 @@ function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMess
 		if (block.type === "text") {
 			parts.push({ type: "text", text: block.text });
 		} else if (block.type === "thinking") {
-			parts.push({
-				type: "tool-Thinking",
-				state: "output-available",
-				input: { thought: block.thinking },
-				output: block.thinking,
-			} satisfies ChatToolPart);
 		} else if (block.type === "toolCall") {
 			parts.push({
 				type: makeToolType(block.name),
@@ -59,12 +67,12 @@ function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMess
 			} satisfies ChatToolPart);
 		}
 	}
-	return promoteThinkingToAssistantText({
+	return {
 		id,
 		role: "assistant",
 		parts,
 		createdAt: getTimestamp(msg),
-	});
+	};
 }
 
 function toChatMessageFromUser(msg: UserMessage, id: string): ChatMessage {
@@ -100,7 +108,9 @@ export interface EventMapperState {
 	messageSeq: number;
 	currentMessageId: string | undefined;
 	currentText: string;
-	currentThinking: string;
+	reasoningStartedAt: number | undefined;
+	reasoningSteps: ChatReasoningStep[];
+	reasoningPhase: ChatReasoningPresentation["phase"] | undefined;
 	currentToolParts: ChatToolPart[];
 	userMessages: ChatMessage[];
 	inRun: boolean;
@@ -113,7 +123,9 @@ export function createEventMapperState(init?: { sessionId?: string }): EventMapp
 		messageSeq: 0,
 		currentMessageId: undefined,
 		currentText: "",
-		currentThinking: "",
+		reasoningStartedAt: undefined,
+		reasoningSteps: [],
+		reasoningPhase: undefined,
 		currentToolParts: [],
 		userMessages: [],
 		inRun: false,
@@ -125,10 +137,90 @@ function resetRun(state: EventMapperState): void {
 	state.messageSeq = 0;
 	state.currentMessageId = undefined;
 	state.currentText = "";
-	state.currentThinking = "";
+	state.reasoningStartedAt = undefined;
+	state.reasoningSteps = [];
+	state.reasoningPhase = undefined;
 	state.currentToolParts = [];
 	state.userMessages = [];
 	state.inRun = true;
+}
+
+type SafeReasoningPhase = ChatReasoningPresentation["phase"];
+
+const REASONING_COPY: Record<SafeReasoningPhase, { title: string; body: string; restingLabel: string }> = {
+	waiting: {
+		title: "Preparing run",
+		body: "Setting up the requested task.",
+		restingLabel: "Prepared run",
+	},
+	context: {
+		title: "Reviewing workspace context",
+		body: "Reviewing the available conversation and project context.",
+		restingLabel: "Reviewed context",
+	},
+	planning: {
+		title: "Planning next step",
+		body: "Choosing the next safe action.",
+		restingLabel: "Prepared next step",
+	},
+	executing: {
+		title: "Running selected tools",
+		body: "Executing the selected agent actions.",
+		restingLabel: "Completed selected actions",
+	},
+	responding: {
+		title: "Writing response",
+		body: "Preparing the response.",
+		restingLabel: "Response prepared",
+	},
+	recovering: {
+		title: "Recovering after retry",
+		body: "Recovering the current request.",
+		restingLabel: "Recovery completed",
+	},
+	complete: {
+		title: "Completed",
+		body: "Finished the current run.",
+		restingLabel: "Completed",
+	},
+	error: {
+		title: "Run needs attention",
+		body: "The current run could not continue normally.",
+		restingLabel: "Run needs attention",
+	},
+};
+
+function reasoningFrame(
+	state: EventMapperState,
+	phase: SafeReasoningPhase,
+	streaming: boolean,
+): Extract<ChatStreamEvent, { type: "reasoning" }> {
+	const now = Date.now();
+	const startedAt = state.reasoningStartedAt ?? now;
+	state.reasoningStartedAt = startedAt;
+	const copy = REASONING_COPY[phase];
+	if (state.reasoningPhase !== phase) {
+		state.reasoningPhase = phase;
+		state.reasoningSteps.push({
+			id: `${state.runId}-reasoning-${state.reasoningSteps.length}`,
+			title: copy.title,
+			body: copy.body,
+		});
+	}
+	return {
+		type: "reasoning",
+		...(state.currentMessageId ? { messageId: state.currentMessageId } : {}),
+		presentation: {
+			runId: state.runId,
+			phase,
+			steps: [...state.reasoningSteps],
+			visibleSteps: state.reasoningSteps.length,
+			streaming,
+			startedAt,
+			elapsedMs: Math.max(0, now - startedAt),
+			restingLabel: copy.restingLabel,
+		},
+	};
 }
 
 function upsertCurrentToolPart(state: EventMapperState, nextPart: ChatToolPart): ChatToolPart {
@@ -162,12 +254,13 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 	switch (event.type) {
 		case "agent_start": {
 			resetRun(state);
-			return [{ type: "state", state: { name: "agent_start" } }];
+			return [{ type: "state", state: { name: "agent_start" } }, reasoningFrame(state, "waiting", true)];
 		}
 		case "agent_end": {
 			const finalMessage = finalizeAssistantMessage(state);
 			state.inRun = false;
 			return [
+				reasoningFrame(state, "complete", false),
 				{ type: "state", state: { name: "agent_settled" } },
 				{
 					type: "done",
@@ -178,7 +271,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			];
 		}
 		case "turn_start":
-			return [{ type: "state", state: { name: "turn_start" } }];
+			return [{ type: "state", state: { name: "turn_start" } }, reasoningFrame(state, "context", true)];
 		case "turn_end":
 			return [{ type: "state", state: { name: "turn_end" } }];
 		case "message_start": {
@@ -192,8 +285,16 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			if (!isAssistantMessage(event.message)) return [];
 			return mapAssistantStreamEvent(state, event.assistantMessageEvent);
 		}
-		case "message_end":
+		case "message_end": {
+			// Some providers expose their final assistant content only on the
+			// authoritative message_end lifecycle event. Keep only text blocks;
+			// detailed reasoning remains excluded from the Fleet browser stream.
+			if (isAssistantMessage(event.message)) {
+				const finalText = textFromAssistantMessage(event.message);
+				if (finalText) state.currentText = finalText;
+			}
 			return [];
+		}
 		case "tool_execution_start": {
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
@@ -201,7 +302,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				state: "input-streaming",
 				input: event.args,
 			});
-			return [{ type: "tool", part, messageId: state.currentMessageId }];
+			return [reasoningFrame(state, "executing", true), { type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_update": {
 			const part = upsertCurrentToolPart(state, {
@@ -242,6 +343,7 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			}
 			state.currentText += event.delta;
 			return [
+				reasoningFrame(state, "responding", true),
 				{
 					type: "delta",
 					text: event.delta,
@@ -253,14 +355,9 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
-			state.currentThinking += event.delta;
-			return [
-				{
-					type: "thinking",
-					text: event.delta,
-					messageId: state.currentMessageId,
-				},
-			];
+			// The browser receives a controlled planning state, never the upstream
+			// detailed reasoning delta.
+			return [reasoningFrame(state, "planning", true)];
 		}
 		case "text_start":
 		case "text_end":
@@ -269,9 +366,16 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 		case "toolcall_start":
 		case "toolcall_delta":
 		case "toolcall_end":
-		case "done":
 		case "error":
 			return [];
+		case "done": {
+			// Some providers deliver visible answer text only in the terminal message
+			// rather than emitting text_delta events. The terminal AssistantMessage is
+			// authoritative, but only text blocks may enter Fleet's standard transcript.
+			const finalText = textFromAssistantMessage(event.message);
+			if (finalText) state.currentText = finalText;
+			return [];
+		}
 		default:
 			return [];
 	}
@@ -299,7 +403,10 @@ const KNOWN_IGNORED = new Set([
 function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEvent): ChatStreamEvent[] {
 	switch (event.type) {
 		case "compaction_start":
-			return [{ type: "compaction", phase: "start", reason: event.reason }];
+			return [
+				reasoningFrame(_state, "recovering", true),
+				{ type: "compaction", phase: "start", reason: event.reason },
+			];
 		case "compaction_end":
 			return [
 				{
@@ -313,6 +420,7 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 			];
 		case "auto_retry_start":
 			return [
+				reasoningFrame(_state, "recovering", true),
 				{
 					type: "retry",
 					phase: "start",
@@ -340,6 +448,7 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 		}
 		case "auth_stale":
 			return [
+				reasoningFrame(_state, "error", false),
 				{
 					type: "error",
 					message: `Authentication for ${event.provider} is stale. Sign in again to continue.`,
@@ -365,59 +474,22 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 // Finalization
 // ---------------------------------------------------------------------------
 
-function thinkingTextFromPart(part: ChatMessage["parts"][number]): string {
-	if (part.type !== "tool-Thinking") return "";
-	if (part.input && typeof part.input === "object") {
-		const rec = part.input as Record<string, unknown>;
-		if (typeof rec.thought === "string") return rec.thought;
-		if (typeof rec.text === "string") return rec.text;
-	}
-	if (typeof part.output === "string") return part.output;
-	if (part.output && typeof part.output === "object") {
-		const rec = part.output as Record<string, unknown>;
-		if (typeof rec.thought === "string") return rec.thought;
-		if (typeof rec.text === "string") return rec.text;
-	}
-	return "";
-}
-
-function promoteThinkingToAssistantText(message: ChatMessage): ChatMessage {
-	if (message.role !== "assistant") return message;
-	const text = message.parts
-		.filter((part): part is Extract<ChatMessage["parts"][number], { type: "text" }> => part.type === "text")
-		.map((part) => part.text)
-		.join("");
-	if (text.trim()) return message;
-	const thinking = message.parts.map(thinkingTextFromPart).join("");
-	if (!thinking.trim()) return message;
-	const tools = message.parts.filter((part) => part.type !== "text" && part.type !== "tool-Thinking");
-	return {
-		...message,
-		parts: [{ type: "text", text: thinking }, ...tools],
-	};
-}
+/* Legacy raw-thinking helpers intentionally removed: standard Fleet transcript
+ * messages never carry detailed model thinking. */
 
 function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
 	if (state.currentText.length > 0) {
 		parts.push({ type: "text", text: state.currentText });
 	}
-	if (state.currentThinking.length > 0) {
-		parts.push({
-			type: "tool-Thinking",
-			state: "output-available",
-			input: { thought: state.currentThinking },
-			output: state.currentThinking,
-		} satisfies ChatToolPart);
-	}
 	for (const part of state.currentToolParts) {
 		parts.push(part);
 	}
-	return promoteThinkingToAssistantText({
+	return {
 		id: state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
 		role: "assistant",
 		parts,
-	});
+	};
 }
 
 // ---------------------------------------------------------------------------

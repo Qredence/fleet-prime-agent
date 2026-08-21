@@ -99,6 +99,20 @@ export const ChatPlanStateSchema = z
 	})
 	.openapi({ description: "Structured plan state" });
 
+export const ChatPlanPresentationSchema = z
+	.object({
+		assistantMessageId: z.string().min(1),
+		state: ChatPlanStateSchema,
+	})
+	.openapi({ description: "Durable Fleet Plan presentation" });
+
+export const ChatPlanPresentationUpsertRequestSchema = z
+	.object({
+		sessionId: SessionIdSchema,
+		presentation: ChatPlanPresentationSchema,
+	})
+	.openapi({ description: "Upsert a durable Fleet Plan presentation" });
+
 export const ChatTextPartSchema = z
 	.object({
 		type: z.literal("text"),
@@ -148,6 +162,37 @@ export const ChatMessageSchema = z
 	.passthrough()
 	.openapi({ description: "Chat message" });
 
+export const FleetAdapterFeatureSchema = z.enum(["reasoning-summary-v1"]);
+
+export const FleetAdapterCapabilitiesSchema = z
+	.object({
+		protocolVersion: z.literal(1),
+		schemaRevision: z.literal(1),
+		features: z.array(FleetAdapterFeatureSchema),
+	})
+	.openapi({ description: "Optional Fleet adapter capabilities" });
+
+export const ChatReasoningStepSchema = z
+	.object({
+		id: z.string(),
+		title: z.string(),
+		body: z.string(),
+	})
+	.openapi({ description: "Safe Fleet reasoning progress step" });
+
+export const ChatReasoningPresentationSchema = z
+	.object({
+		runId: z.string(),
+		phase: z.enum(["waiting", "context", "planning", "executing", "responding", "recovering", "complete", "error"]),
+		steps: z.array(ChatReasoningStepSchema),
+		visibleSteps: z.number().int().nonnegative(),
+		streaming: z.boolean(),
+		startedAt: z.number(),
+		elapsedMs: z.number().nonnegative().optional(),
+		restingLabel: z.string(),
+	})
+	.openapi({ description: "Browser-safe Fleet reasoning presentation" });
+
 export const ChatStateEventSchema = z
 	.object({
 		name: z.enum([
@@ -171,6 +216,7 @@ export const ChatStartEventSchema = z
 		sessionId: SessionIdSchema,
 		sessionReset: z.boolean().optional(),
 		diagnostics: z.array(z.string()).optional(),
+		adapterCapabilities: FleetAdapterCapabilitiesSchema.optional(),
 	})
 	.openapi({ description: "Stream start event" });
 
@@ -223,7 +269,15 @@ export const ChatThinkingEventSchema = z
 		text: z.string(),
 		messageId: z.string().optional(),
 	})
-	.openapi({ description: "Stream thinking event" });
+	.openapi({ description: "Legacy raw-thinking event" });
+
+export const ChatReasoningEventSchema = z
+	.object({
+		type: z.literal("reasoning"),
+		presentation: ChatReasoningPresentationSchema,
+		messageId: z.string().optional(),
+	})
+	.openapi({ description: "Safe reasoning-summary event" });
 
 export const ChatCompactionStartEventSchema = z
 	.object({
@@ -292,6 +346,7 @@ export const ChatStreamEventSchema = z
 		ChatStateStreamEventSchema,
 		ChatQueueEventSchema,
 		ChatThinkingEventSchema,
+		ChatReasoningEventSchema,
 		ChatCompactionStartEventSchema,
 		ChatCompactionEndEventSchema,
 		ChatRetryStartEventSchema,
@@ -305,6 +360,7 @@ export const ChatSessionResponseSchema = z
 	.object({
 		session: ChatSessionMetadataSchema,
 		messages: z.array(ChatMessageSchema),
+		planPresentations: z.array(ChatPlanPresentationSchema).default([]),
 		sessionReset: z.boolean().optional(),
 	})
 	.openapi({ description: "Chat session response" });

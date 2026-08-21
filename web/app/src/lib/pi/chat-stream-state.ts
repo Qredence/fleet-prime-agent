@@ -1,16 +1,21 @@
-import type { ChatSessionMetadata, ChatStreamEvent } from "@prime-agent/web-protocol/chat-protocol";
+import type {
+	ChatSessionMetadata,
+	ChatStreamEvent,
+	FleetAdapterCapabilities,
+} from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { QueueState } from "./chat-fetch";
 import { labelForState } from "./chat-fetch";
 import {
 	appendAssistantDelta,
 	createTextMessage,
-	promoteThinkingToAssistantText,
-	upsertAssistantThinkingPart,
+	stripLegacyThinkingParts,
+	upsertAssistantReasoningPresentation,
 	upsertAssistantToolPart,
 } from "./chat-message-helpers";
 
 export type ChatStreamSnapshot = {
+	adapterCapabilities?: FleetAdapterCapabilities;
 	activityLabel?: string;
 	messages: Array<ChatMessage>;
 	planLabel?: string;
@@ -97,6 +102,24 @@ function replaceOrAppendMessage(messages: Array<ChatMessage>, nextMessage: ChatM
  * body, keep renderable parts already streamed into this turn's bubble
  * (matched by `assistantId` / `nextMessage.id` only — never a prior turn).
  */
+function carryForwardReasoningPresentation(
+	messages: Array<ChatMessage>,
+	nextMessage: ChatMessage,
+	assistantId: string | null,
+): ChatMessage {
+	const candidates = [
+		assistantId ? messages.find((message) => message.id === assistantId && message.role === "assistant") : undefined,
+		messages.find((message) => message.id === nextMessage.id && message.role === "assistant"),
+	].filter(Boolean) as Array<ChatMessage>;
+	const presentation = candidates
+		.flatMap((message) => message.parts)
+		.filter((part) => part.type === "tool-FleetReasoning");
+	if (presentation.length === 0 || nextMessage.parts.some((part) => part.type === "tool-FleetReasoning")) {
+		return nextMessage;
+	}
+	return { ...nextMessage, parts: [...presentation, ...nextMessage.parts] };
+}
+
 function replaceOrAppendInFlight(
 	messages: Array<ChatMessage>,
 	nextMessage: ChatMessage,
@@ -138,6 +161,7 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 			assistantId: event.id,
 			snapshot: {
 				...transition.snapshot,
+				adapterCapabilities: event.adapterCapabilities,
 				activityLabel: event.sessionReset ? "Started a fresh Pi session" : event.diagnostics?.[0],
 				messages: alreadyPresent
 					? transition.snapshot.messages
@@ -150,7 +174,7 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 	}
 
 	const reconciled =
-		event.type === "delta" || event.type === "thinking" || event.type === "tool"
+		event.type === "delta" || event.type === "thinking" || event.type === "reasoning" || event.type === "tool"
 			? reconcileAssistantId(transition, event.messageId)
 			: transition;
 	const { assistantId, snapshot } = reconciled;
@@ -165,12 +189,22 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 		};
 	}
 
-	if (event.type === "thinking" && assistantId) {
+	if (event.type === "thinking") {
+		// Legacy adapters may still emit raw detailed thinking. It is intentionally
+		// ignored in the standard Fleet transcript.
+		return reconciled;
+	}
+
+	if (
+		event.type === "reasoning" &&
+		assistantId &&
+		snapshot.adapterCapabilities?.features.includes("reasoning-summary-v1")
+	) {
 		return {
 			assistantId,
 			snapshot: {
 				...snapshot,
-				messages: upsertAssistantThinkingPart(snapshot.messages, assistantId, event.text),
+				messages: upsertAssistantReasoningPresentation(snapshot.messages, assistantId, event.presentation),
 			},
 		};
 	}
@@ -241,17 +275,15 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 	}
 
 	if (event.type === "done") {
-		const merged = replaceOrAppendInFlight(snapshot.messages, event.message, assistantId);
+		const sanitized = stripLegacyThinkingParts(event.message);
+		const completed = carryForwardReasoningPresentation(snapshot.messages, sanitized, assistantId);
+		const merged = replaceOrAppendInFlight(snapshot.messages, completed, assistantId);
 		return {
 			assistantId: null,
 			snapshot: {
 				...snapshot,
 				activityLabel: undefined,
-				messages: merged.map((message) =>
-					message.role === "assistant" && (message.id === event.message.id || message.id === assistantId)
-						? promoteThinkingToAssistantText(message)
-						: message,
-				),
+				messages: merged.map((message) => stripLegacyThinkingParts(message)),
 				queue: EMPTY_QUEUE_STATE,
 				sessionMetadata: mergeSessionMetadata(snapshot.sessionMetadata, {
 					sessionId: event.sessionId,

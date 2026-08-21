@@ -10,6 +10,7 @@ type ChatPanelProps = {
 	status: ChatStatus
 	error: Error | undefined
 	workspaceName?: string
+	activityLabel?: string
 	inputSuggestionItems: FleetPiAgentChatProps["suggestions"]
 	suppressQuestionTool: boolean
 	inputBar: FleetPiAgentChatProps["inputBar"]
@@ -27,6 +28,7 @@ export function ChatPanel({
 	status,
 	error,
 	workspaceName,
+	activityLabel,
 	inputSuggestionItems,
 	suppressQuestionTool,
 	inputBar,
@@ -72,6 +74,7 @@ export function ChatPanel({
 				onOpenUIAction={handleOpenUIAction}
 				onStop={onStop}
 				workspaceName={workspaceName}
+				activityLabel={activityLabel}
 				questionTool={questionTool}
 				suppressQuestionTool={suppressQuestionTool}
 				error={error ?? undefined}

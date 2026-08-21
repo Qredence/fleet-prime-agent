@@ -9,7 +9,7 @@ import {
 import type { ChatSessionInfo, ChatSessionMetadata, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { useCallback } from "react";
-import { assistantTextFromMessage, thinkingTextFromPart } from "./chat-message-helpers";
+import { assistantTextFromMessage } from "./chat-message-helpers";
 import type { LocalSlashAction, SettingsSlashTab } from "./slash-commands";
 import { parseSlashInput, resolveLocalSlashAction } from "./slash-commands";
 
@@ -130,8 +130,7 @@ function lastAssistantCopyText(messages: Array<ChatMessage>): string | undefined
 		if (message?.role !== "assistant" || message.source === "local") continue;
 		const text = assistantTextFromMessage(message).trim();
 		if (text) return text;
-		const thinking = message.parts.map(thinkingTextFromPart).join("").trim();
-		if (thinking) return thinking;
+		// Detailed model thinking is intentionally never copied from the standard transcript.
 	}
 	return undefined;
 }
@@ -140,8 +139,7 @@ function transcriptMarkdown(messages: Array<ChatMessage>): string {
 	return messages
 		.flatMap((message) => {
 			if (message.source === "local") return [];
-			const text =
-				assistantTextFromMessage(message).trim() || message.parts.map(thinkingTextFromPart).join("").trim();
+			const text = assistantTextFromMessage(message).trim();
 			const block = `**${message.role}**\n\n${text}`;
 			return block.trim().length > 0 ? [block] : [];
 		})

@@ -55,6 +55,7 @@ function ChatWorkspaceShell() {
     removeWorkspaceAttachment,
     pendingQuestionBar,
     activeProjectId,
+    activityLabel,
     projects,
     projectSessions,
     resourceCanvasWidth,
@@ -193,6 +194,7 @@ function ChatWorkspaceShell() {
                 status={status}
                 error={error ?? undefined}
                 workspaceName={activeProjectName}
+                activityLabel={activityLabel}
                 inputSuggestionItems={inputSuggestionItems}
                 suppressQuestionTool={!!pendingQuestionBar}
                 inputBar={{

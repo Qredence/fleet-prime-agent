@@ -10,6 +10,8 @@ import type {
 	ChatModelsDiscoverRequest,
 	ChatModelsDiscoverResponse,
 	ChatModelsResponse,
+	ChatPlanPresentation,
+	ChatPlanPresentationUpsertRequest,
 	ChatProviderInfo,
 	ChatProviderOAuthLoginRequest,
 	ChatProviderOAuthLoginResponse,
@@ -36,6 +38,8 @@ import {
 	ChatModelsDiscoverRequestSchema,
 	ChatModelsDiscoverResponseSchema,
 	ChatModelsResponseSchema,
+	ChatPlanPresentationSchema,
+	ChatPlanPresentationUpsertRequestSchema,
 	ChatProviderOAuthLoginRequestSchema,
 	ChatProviderOAuthLoginResponseSchema,
 	ChatProviderRemoveRequestSchema,
@@ -90,6 +94,7 @@ export type ChatClient = {
 	deleteSession: (sessionId: string) => Promise<void>;
 	uploadAttachments: (sessionId: string, files: Array<File>) => Promise<Array<UploadedAttachment>>;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
+	upsertPlanPresentation: (request: ChatPlanPresentationUpsertRequest) => Promise<ChatPlanPresentation>;
 	resumeSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	updateSettings: (request: ChatSettingsUpdateRequest, projectId?: ProjectId) => Promise<ChatSettingsResponse>;
 	streamMessage: (
@@ -278,6 +283,14 @@ export const chatClient: ChatClient = {
 		return fetchValidatedJson(`/api/chat/session?${metadataUrl(metadata)}`, ChatSessionResponseSchema);
 	},
 
+	async upsertPlanPresentation(request) {
+		const body = ChatPlanPresentationUpsertRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/session", z.object({ presentation: ChatPlanPresentationSchema }), {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		}).then((result) => result.presentation);
+	},
 	async resumeSession(metadata) {
 		return fetchValidatedJson("/api/chat/resume", ChatSessionResponseSchema, {
 			method: "POST",

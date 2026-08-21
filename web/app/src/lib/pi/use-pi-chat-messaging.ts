@@ -4,6 +4,7 @@ import type {
 	ChatModelSelection,
 	ChatSessionMetadata,
 	ChatStreamEvent,
+	FleetAdapterCapabilities,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
@@ -12,8 +13,16 @@ import { useCallback, useRef } from "react";
 import { captureChatSessionStarted, captureConversationSaved } from "@/lib/analytics-stub";
 import type { ChatClient } from "./chat-client";
 import type { QueueState } from "./chat-fetch";
-import { createTextMessage } from "./chat-message-helpers";
+import { assistantTextFromMessage, createTextMessage, upsertAssistantToolPart } from "./chat-message-helpers";
 import { applyChatStreamEvent } from "./chat-stream-state";
+import {
+	applyPlanModeSelection,
+	bindPendingPlanDecisionToolCallId,
+	createEmptyPlanState,
+	createPlanToolPart,
+	toChatPlanState,
+	updatePlanStateFromAssistantText,
+} from "./plan-state";
 import type { SendMessageInput } from "./use-pi-chat";
 import { tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
 
@@ -75,6 +84,7 @@ export function usePiChatMessaging({
 	// In-flight memo prevents two concurrent sends from both calling createSession
 	// and clobbering one another (race documented in review finding M2).
 	const sessionCreatePromiseRef = useRef<Promise<ChatSessionMetadata> | null>(null);
+	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
 	const ensureSession = useCallback(
 		async (signal?: AbortSignal): Promise<ChatSessionMetadata> => {
 			if (signal?.aborted) throw new Error("Session creation was aborted");
@@ -102,7 +112,12 @@ export function usePiChatMessaging({
 		[client, projectId, refreshSessions, sessionMetadataRef, setSessionMetadataSynced],
 	);
 	const handleStreamEvent = useCallback(
-		(event: ChatStreamEvent, assistantIdRef: { current: string | null }, streamSessionId: string) => {
+		(
+			event: ChatStreamEvent,
+			assistantIdRef: { current: string | null },
+			streamSessionId: string,
+			mode?: ChatMode,
+		) => {
 			if (event.type === "error") {
 				throw new Error(event.message);
 			}
@@ -118,6 +133,7 @@ export function usePiChatMessaging({
 				{
 					assistantId: assistantIdRef.current,
 					snapshot: {
+						adapterCapabilities: adapterCapabilitiesRef.current,
 						activityLabel: activityLabelRef.current,
 						messages: messagesRef.current,
 						planLabel: planLabelRef.current,
@@ -129,11 +145,34 @@ export function usePiChatMessaging({
 			);
 
 			assistantIdRef.current = next.assistantId;
+			adapterCapabilitiesRef.current = next.snapshot.adapterCapabilities;
 			setMessagesSynced(next.snapshot.messages);
 			setSessionMetadataSynced(next.snapshot.sessionMetadata);
 			setQueueSynced(next.snapshot.queue);
 			setActivityLabelSynced(next.snapshot.activityLabel);
 			setPlanLabelSynced(next.snapshot.planLabel);
+
+			if (event.type === "done" && mode === "plan") {
+				const initialPlanState = applyPlanModeSelection(createEmptyPlanState(), mode);
+				const parsedPlan = updatePlanStateFromAssistantText(
+					initialPlanState,
+					assistantTextFromMessage(event.message),
+				);
+				const planState = bindPendingPlanDecisionToolCallId(parsedPlan.state, event.message.id);
+				const planPart = parsedPlan.changed ? createPlanToolPart(event.message.id, planState) : undefined;
+				if (planPart) {
+					setMessagesSynced((current) => upsertAssistantToolPart(current, event.message.id, planPart));
+					void client
+						.upsertPlanPresentation({
+							sessionId: streamSessionId,
+							presentation: {
+								assistantMessageId: event.message.id,
+								state: toChatPlanState(planState),
+							},
+						})
+						.catch(() => undefined);
+				}
+			}
 
 			if (event.type === "start") {
 				setStatus("streaming");
@@ -146,6 +185,7 @@ export function usePiChatMessaging({
 		},
 		[
 			activityLabelRef,
+			client,
 			messagesRef,
 			planLabelRef,
 			queueRef,
@@ -280,7 +320,7 @@ export function usePiChatMessaging({
 						mode,
 						sessionId: ensuredStreamSessionId,
 					},
-					(event) => handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId),
+					(event) => handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId, mode),
 					controller.signal,
 				);
 
