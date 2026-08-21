@@ -738,6 +738,10 @@ export class PrimeBridge {
 	async navigateTree(sessionId: string, targetId: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
 		await session.session.navigateTree(targetId, {});
+		// Hydrated message ids are positional (${sessionId}-mN): branch navigation
+		// rewrites the transcript branch, so any existing plan records now point at
+		// unrelated messages. Invalidate instead of rendering the wrong card.
+		await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
 	}
 
 	/** /tree — the session's entry tree plus the current leaf, for pickers. */

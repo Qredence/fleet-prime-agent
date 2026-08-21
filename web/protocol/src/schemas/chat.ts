@@ -167,9 +167,9 @@ export const FleetAdapterFeatureSchema = z.enum(["reasoning-summary-v1"]);
 
 export const FleetAdapterCapabilitiesSchema = z
 	.object({
-		protocolVersion: z.literal(1),
-		schemaRevision: z.literal(1),
-		features: z.array(FleetAdapterFeatureSchema),
+		protocolVersion: z.number().int().positive(),
+		schemaRevision: z.number().int().positive(),
+		features: z.array(z.string()),
 	})
 	.openapi({ description: "Optional Fleet adapter capabilities" });
 

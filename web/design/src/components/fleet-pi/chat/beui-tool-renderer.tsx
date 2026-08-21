@@ -109,7 +109,7 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
       return fallback ?? null
     }
     const planPresentation =
-      normalized.lowerName === "planwrite"
+      normalized.lowerName === "planwrite" && Boolean((part.input as { executing?: unknown } | undefined)?.executing)
         ? fleetAgentPlanPresentation(planItems)
         : undefined
 

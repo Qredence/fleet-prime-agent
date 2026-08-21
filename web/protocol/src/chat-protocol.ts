@@ -158,9 +158,11 @@ export type ChatPlanPresentationUpsertRequest = {
 export type FleetAdapterFeature = "reasoning-summary-v1";
 
 export type FleetAdapterCapabilities = {
-	protocolVersion: 1;
-	schemaRevision: 1;
-	features: Array<FleetAdapterFeature>;
+	// Forward-tolerant wire shape: a newer adapter may advance either revision
+	// or append unknown features; consumers only gate on values they know.
+	protocolVersion: number;
+	schemaRevision: number;
+	features: Array<FleetAdapterFeature | string>;
 };
 
 /**
