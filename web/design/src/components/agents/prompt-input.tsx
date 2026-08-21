@@ -21,11 +21,11 @@ import {
   MorphPopoverTrigger,
 } from "@prime-agent/web-design/components/motion/popover-morph";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@prime-agent/web-design/components/motion/select";
+  AnimatedSelect,
+  AnimatedSelectContent,
+  AnimatedSelectItem,
+  AnimatedSelectTrigger,
+} from "@prime-agent/web-design/components/motion/animated-select";
 import { SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 
@@ -255,13 +255,13 @@ export function PromptInput({
         ) : null}
         {leadingAction}
         {models.length ? (
-          <Select
+          <AnimatedSelect
             value={currentModelValue}
             onValueChange={setModel}
             disabled={disabled || loading}
             className="min-w-0"
           >
-            <SelectTrigger className="h-8 w-auto max-w-52 rounded-xl border-0 bg-transparent px-2 py-0 text-xs hover:bg-muted focus-visible:ring-2">
+            <AnimatedSelectTrigger className="h-8 w-auto max-w-52 rounded-xl border-0 bg-transparent px-2 py-0 text-xs hover:bg-muted focus-visible:ring-2">
               <span className="flex min-w-0 items-center gap-1.5">
                 {currentModel?.icon ? (
                   <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-3.5">
@@ -272,10 +272,10 @@ export function PromptInput({
                   {currentModel?.label ?? "Choose model"}
                 </span>
               </span>
-            </SelectTrigger>
-            <SelectContent className="right-auto w-52 shadow-none">
+            </AnimatedSelectTrigger>
+            <AnimatedSelectContent className="right-auto w-52 shadow-none">
               {models.map((option) => (
-                <SelectItem
+                <AnimatedSelectItem
                   key={option.value}
                   value={option.value}
                   disabled={option.disabled}
@@ -291,10 +291,10 @@ export function PromptInput({
                       {option.label}
                     </span>
                   </span>
-                </SelectItem>
+                </AnimatedSelectItem>
               ))}
-            </SelectContent>
-          </Select>
+            </AnimatedSelectContent>
+          </AnimatedSelect>
         ) : null}
 
         <Button

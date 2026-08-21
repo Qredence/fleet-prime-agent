@@ -25,7 +25,7 @@ import { cn } from "@prime-agent/web-design/lib/utils";
 const INSTANT_TRANSITION: Transition = { duration: 0 };
 
 // Spring with bounce powers the unfold/separation; per-property timings in the
-// content choreograph it (see SelectContent). Mirrors bouncy-accordion's feel.
+// content choreograph it (see AnimatedSelectContent). Mirrors bouncy-accordion's feel.
 const CHEVRON_TRANSITION: Transition = { type: "spring", duration: 0.4, bounce: 0.3 };
 
 const LIST_VARIANTS: Variants = {
@@ -39,7 +39,7 @@ const ITEM_VARIANTS: Variants = {
 
 type Placement = "bottom" | "top";
 
-interface SelectContextValue {
+interface AnimatedSelectContextValue {
   value: string | undefined;
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -55,15 +55,15 @@ interface SelectContextValue {
   setPlacement: (p: Placement) => void;
 }
 
-const SelectContext = createContext<SelectContextValue | null>(null);
+const AnimatedSelectContext = createContext<AnimatedSelectContextValue | null>(null);
 
-function useSelectContext(component: string) {
-  const ctx = useContext(SelectContext);
-  if (!ctx) throw new Error(`${component} must be used within <Select>`);
+function useAnimatedSelectContext(component: string) {
+  const ctx = useContext(AnimatedSelectContext);
+  if (!ctx) throw new Error(`${component} must be used within <AnimatedSelect>`);
   return ctx;
 }
 
-export interface SelectProps {
+export interface AnimatedSelectProps {
   value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
@@ -72,14 +72,14 @@ export interface SelectProps {
   children: ReactNode;
 }
 
-export function Select({
+export function AnimatedSelect({
   value,
   defaultValue,
   onValueChange,
   disabled = false,
   className,
   children,
-}: SelectProps) {
+}: AnimatedSelectProps) {
   const reduce = useReducedMotion() ?? false;
   const baseId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -128,7 +128,7 @@ export function Select({
     };
   }, [open]);
 
-  const ctx = useMemo<SelectContextValue>(
+  const ctx = useMemo<AnimatedSelectContextValue>(
     () => ({
       value: current,
       open,
@@ -159,21 +159,21 @@ export function Select({
   );
 
   return (
-    <SelectContext.Provider value={ctx}>
+    <AnimatedSelectContext.Provider value={ctx}>
       <div ref={rootRef} className={cn("relative", className)}>
         {children}
       </div>
-    </SelectContext.Provider>
+    </AnimatedSelectContext.Provider>
   );
 }
 
-export interface SelectTriggerProps {
+export interface AnimatedSelectTriggerProps {
   className?: string;
   children: ReactNode;
 }
 
-export function SelectTrigger({ className, children }: SelectTriggerProps) {
-  const ctx = useSelectContext("SelectTrigger");
+export function AnimatedSelectTrigger({ className, children }: AnimatedSelectTriggerProps) {
+  const ctx = useAnimatedSelectContext("AnimatedSelectTrigger");
   const isTop = ctx.placement === "top";
   // edge facing the panel flattens then rounds; the far edge stays rounded.
   // All four corners are specified so none gets stranded when placement flips.
@@ -227,13 +227,13 @@ export function SelectTrigger({ className, children }: SelectTriggerProps) {
   );
 }
 
-export interface SelectValueProps {
+export interface AnimatedSelectValueProps {
   placeholder?: string;
   className?: string;
 }
 
-export function SelectValue({ placeholder, className }: SelectValueProps) {
-  const ctx = useSelectContext("SelectValue");
+export function AnimatedSelectValue({ placeholder, className }: AnimatedSelectValueProps) {
+  const ctx = useAnimatedSelectContext("AnimatedSelectValue");
   const label = ctx.labelFor(ctx.value);
   return (
     <span
@@ -244,13 +244,13 @@ export function SelectValue({ placeholder, className }: SelectValueProps) {
   );
 }
 
-export interface SelectContentProps {
+export interface AnimatedSelectContentProps {
   className?: string;
   children: ReactNode;
 }
 
-export function SelectContent({ className, children }: SelectContentProps) {
-  const ctx = useSelectContext("SelectContent");
+export function AnimatedSelectContent({ className, children }: AnimatedSelectContentProps) {
+  const ctx = useAnimatedSelectContext("AnimatedSelectContent");
   const innerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
   const open = ctx.open;
@@ -365,20 +365,20 @@ export function SelectContent({ className, children }: SelectContentProps) {
   );
 }
 
-export interface SelectItemProps {
+export interface AnimatedSelectItemProps {
   value: string;
   disabled?: boolean;
   className?: string;
   children: ReactNode;
 }
 
-export function SelectItem({
+export function AnimatedSelectItem({
   value,
   disabled = false,
   className,
   children,
-}: SelectItemProps) {
-  const ctx = useSelectContext("SelectItem");
+}: AnimatedSelectItemProps) {
+  const ctx = useAnimatedSelectContext("AnimatedSelectItem");
   const selected = ctx.value === value;
   const label = typeof children === "string" ? children : value;
 

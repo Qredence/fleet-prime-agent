@@ -2,7 +2,7 @@ import React, { memo } from "react"
 import { MultiFileDiff } from "@pierre/diffs/react"
 import { IconChevronDown } from "@tabler/icons-react"
 import { useToolComplete } from "../hooks/use-tool-complete"
-import { TextShimmer } from "../text-shimmer"
+import { ToolTextShimmer } from "../tool-text-shimmer"
 import { FileExtIcon } from "../icons/file-ext-icon"
 import { adaptToolPart } from "../utils/tool-adapters"
 import { ToolApprovalFooter } from "./tool-approval-footer"
@@ -158,13 +158,13 @@ function EditToolDiffCard({
             <FileExtIcon filename={fileName} className="h-3 w-3 shrink-0" />
           )}
           {isPending && !diffFiles ? (
-            <TextShimmer as="span" duration={1.2} className="text-xs">
+            <ToolTextShimmer as="span" duration={1.2} className="text-xs">
               Generating...
-            </TextShimmer>
+            </ToolTextShimmer>
           ) : isPending ? (
-            <TextShimmer as="span" duration={1.2} className="text-xs">
+            <ToolTextShimmer as="span" duration={1.2} className="text-xs">
               {isWrite ? "Creating" : "Editing"} {fileName}
-            </TextShimmer>
+            </ToolTextShimmer>
           ) : (
             <span className="truncate text-xs text-an-tool-color-muted">
               {isWrite ? "Created" : "Edited"}{" "}

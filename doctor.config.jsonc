@@ -194,7 +194,7 @@
 					"design/src/components/motion/animated-sidebar.tsx",
 					"design/src/components/motion/combobox/list.tsx",
 					"design/src/components/motion/combobox/trigger.tsx",
-					"design/src/components/motion/select.tsx",
+					"design/src/components/motion/animated-select.tsx",
 					"design/src/lib/range.ts",
 					"design/src/lib/surfaces.tsx"
 				],

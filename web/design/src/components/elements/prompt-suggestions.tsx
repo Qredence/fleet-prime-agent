@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { paper } from "../../lib/surfaces";
 
-export interface SuggestionsProps extends Omit<
+export interface PromptSuggestionsProps extends Omit<
   ComponentProps<"div">,
   "children"
 > {
@@ -15,7 +15,7 @@ export interface SuggestionsProps extends Omit<
   variant?: "pills" | "list";
 }
 
-export function Suggestions({
+export function PromptSuggestions({
   suggestions,
   selectedSuggestion,
   cycle,
@@ -23,7 +23,7 @@ export function Suggestions({
   variant = "pills",
   className,
   ...props
-}: SuggestionsProps) {
+}: PromptSuggestionsProps) {
   const list = variant === "list";
 
   return (

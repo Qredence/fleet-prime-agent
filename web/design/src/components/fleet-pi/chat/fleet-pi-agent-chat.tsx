@@ -9,7 +9,7 @@ import {
 import { MessageScroller } from "../../agents/message-scroller"
 import { StreamingResponse } from "../../agents/streaming-response"
 import { type AgentActivityItem } from "../../agents/agent-activity"
-import { Suggestions as AssistantSuggestions } from "../../elements/suggestions"
+import { PromptSuggestions } from "../../elements/prompt-suggestions"
 import { buildAssistantElements } from "../../agent-elements/message-turns"
 import { UserMessage } from "../../agent-elements/user-message"
 import { normalizeAssistantToolParts } from "../../agent-elements/utils/tool-part-normalizer"
@@ -548,7 +548,7 @@ export function FleetPiAgentChat({
           </div>
         ) : null}
         {turns.length > 0 && suggestionTexts.length > 0 && !isStreaming ? (
-          <AssistantSuggestions
+          <PromptSuggestions
             suggestions={suggestionTexts}
             selectedSuggestion={selectedSuggestion}
             cycle={turns.length}

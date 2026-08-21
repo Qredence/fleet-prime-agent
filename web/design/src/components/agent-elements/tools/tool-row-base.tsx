@@ -1,6 +1,6 @@
 import { Collapsible } from "@base-ui/react/collapsible"
 import { IconChevronRight } from "@tabler/icons-react"
-import { TextShimmer } from "../text-shimmer"
+import { ToolTextShimmer } from "../tool-text-shimmer"
 import { cn } from "../utils/cn"
 import type { ReactNode } from "react"
 
@@ -52,13 +52,13 @@ export function ToolRowBase({
         )}
         <span className="shrink-0 font-[450] whitespace-nowrap">
           {isAnimating && shimmerLabel ? (
-            <TextShimmer
+            <ToolTextShimmer
               as="span"
               duration={1.2}
               className="m-0 inline-flex h-4 items-center leading-none"
             >
               {shimmerLabel}
-            </TextShimmer>
+            </ToolTextShimmer>
           ) : (
             completeLabel
           )}

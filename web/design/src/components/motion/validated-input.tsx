@@ -17,7 +17,7 @@ import {
 } from "react";
 import { cn } from "@prime-agent/web-design/lib/utils";
 
-export type InputClassNames = {
+export type ValidatedInputClassNames = {
   root?: string;
   label?: string;
   field?: string;
@@ -28,7 +28,7 @@ export type InputClassNames = {
   errorMessage?: string;
 };
 
-export interface InputProps extends Omit<
+export interface ValidatedInputProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
   "value" | "defaultValue" | "onChange"
 > {
@@ -42,10 +42,10 @@ export interface InputProps extends Omit<
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
   className?: string;
-  classNames?: InputClassNames;
+  classNames?: ValidatedInputClassNames;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+export const ValidatedInput = forwardRef<HTMLInputElement, ValidatedInputProps>(function ValidatedInput(
   {
     label,
     value: valueProp,

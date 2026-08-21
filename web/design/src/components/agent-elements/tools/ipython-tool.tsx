@@ -1,6 +1,6 @@
 import { memo } from "react"
 import { IconCodeCircle } from "@tabler/icons-react"
-import { TextShimmer } from "../text-shimmer"
+import { ToolTextShimmer } from "../tool-text-shimmer"
 import { useToolComplete } from "../hooks/use-tool-complete"
 import { adaptToolPart } from "../utils/tool-adapters"
 import { ToolApprovalFooter } from "./tool-approval-footer"
@@ -80,13 +80,13 @@ function IpythonCellCard({
             {isBashCell ? "shell" : "python"}
           </span>
           {isPending ? (
-            <TextShimmer
+            <ToolTextShimmer
               as="span"
               duration={1.2}
               className="m-0 inline-flex h-full items-center truncate text-xs leading-none"
             >
               Running cell
-            </TextShimmer>
+            </ToolTextShimmer>
           ) : (
             <span className="truncate text-xs text-muted-foreground">
               {hasError ? "Cell failed" : "Ran cell"}
