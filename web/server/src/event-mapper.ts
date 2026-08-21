@@ -417,6 +417,7 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 			];
 		case "compaction_end":
 			return [
+				reasoningFrame(_state, "recovering", false),
 				{
 					type: "compaction",
 					phase: "end",
@@ -440,6 +441,7 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 			];
 		case "auto_retry_end":
 			return [
+				reasoningFrame(_state, event.success ? "recovering" : "error", false),
 				{
 					type: "retry",
 					phase: "end",

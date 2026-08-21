@@ -289,22 +289,25 @@ describe("event-mapper", () => {
 		} as unknown as AgentSessionEvent);
 		expect(start).toContainEqual({ type: "compaction", phase: "start", reason: "tokens" });
 		expect(start).toContainEqual(expect.objectContaining({ type: "reasoning" }));
-		expect(
-			mapAgentSessionEvent(state, {
-				type: "compaction_end",
-				reason: "tokens",
-				aborted: false,
-				willRetry: false,
-			} as unknown as AgentSessionEvent),
-		).toEqual([
-			{
-				type: "compaction",
-				phase: "end",
-				reason: "tokens",
-				aborted: false,
-				willRetry: false,
-			},
-		]);
+		const compactionEnd = mapAgentSessionEvent(state, {
+			type: "compaction_end",
+			reason: "tokens",
+			aborted: false,
+			willRetry: false,
+		} as unknown as AgentSessionEvent);
+		expect(compactionEnd).toContainEqual({
+			type: "compaction",
+			phase: "end",
+			reason: "tokens",
+			aborted: false,
+			willRetry: false,
+		});
+		expect(compactionEnd).toContainEqual(
+			expect.objectContaining({
+				type: "reasoning",
+				presentation: expect.objectContaining({ phase: "recovering", streaming: false }),
+			}),
+		);
 	});
 
 	it("translates auto_retry_start/end into retry frames", () => {
@@ -325,13 +328,18 @@ describe("event-mapper", () => {
 			errorMessage: "boom",
 		});
 		expect(retryStart).toContainEqual(expect.objectContaining({ type: "reasoning" }));
-		expect(
-			mapAgentSessionEvent(state, {
-				type: "auto_retry_end",
-				attempt: 1,
-				success: true,
-			} as unknown as AgentSessionEvent),
-		).toEqual([{ type: "retry", phase: "end", attempt: 1, success: true }]);
+		const retryEnd = mapAgentSessionEvent(state, {
+			type: "auto_retry_end",
+			attempt: 1,
+			success: true,
+		} as unknown as AgentSessionEvent);
+		expect(retryEnd).toContainEqual({ type: "retry", phase: "end", attempt: 1, success: true });
+		expect(retryEnd).toContainEqual(
+			expect.objectContaining({
+				type: "reasoning",
+				presentation: expect.objectContaining({ phase: "recovering", streaming: false }),
+			}),
+		);
 	});
 
 	it("never promotes thinking-only assistant output into the standard transcript", () => {

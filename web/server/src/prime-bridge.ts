@@ -475,6 +475,12 @@ export class PrimeBridge {
 
 		const mapperState = createEventMapperState({ sessionId });
 		const unsubscribe = session.subscribe((event) => {
+			if (event.type === "compaction_end") {
+				// Compaction rewrites the transcript prefix, shifting the positional
+				// `${sessionId}-mN` ids the plan sidecar keys on. Invalidate records
+				// rather than let them rebind to unrelated messages.
+				void deleteManagedPlanPresentationsForSession(sessionId, sessionPath).catch(() => undefined);
+			}
 			if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 				try {
 					process.stderr.write(
