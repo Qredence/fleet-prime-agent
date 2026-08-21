@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { ChatReasoningPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { GenerationLoader } from "@prime-agent/web-design/components/elements/loading-state";
@@ -20,7 +20,8 @@ export function FleetReasoningPanel({
   presentation: ChatReasoningPresentation;
   className?: string;
 }) {
-  const [open, setOpen] = useState(presentation.streaming);
+  const [userOpen, setUserOpen] = useState<boolean | undefined>(undefined);
+  const open = userOpen ?? presentation.streaming;
   const steps = useMemo(
     () => presentation.steps.map((step) => ({ title: step.title, body: step.body })),
     [presentation.steps],
@@ -29,10 +30,6 @@ export function FleetReasoningPanel({
   const activeStep = steps.at(visibleSteps - 1);
   const activeLabel = activeStep?.title ?? phaseLabel(presentation.phase);
   const elapsed = formatElapsed(presentation.elapsedMs);
-
-  useEffect(() => {
-    if (presentation.streaming) setOpen(true);
-  }, [presentation.streaming, presentation.visibleSteps]);
 
   return (
     <section
@@ -68,7 +65,7 @@ export function FleetReasoningPanel({
         streaming={presentation.streaming}
         streamingLabel="Preparing response"
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={setUserOpen}
         restingLabel={presentation.restingLabel}
         elapsed={elapsed}
         className="max-w-none"

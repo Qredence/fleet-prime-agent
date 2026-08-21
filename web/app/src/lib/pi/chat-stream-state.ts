@@ -111,9 +111,9 @@ function carryForwardReasoningPresentation(
 		assistantId ? messages.find((message) => message.id === assistantId && message.role === "assistant") : undefined,
 		messages.find((message) => message.id === nextMessage.id && message.role === "assistant"),
 	].filter(Boolean) as Array<ChatMessage>;
-	const presentation = candidates
-		.flatMap((message) => message.parts)
-		.filter((part) => part.type === "tool-FleetReasoning");
+	const presentation = candidates.flatMap((message) =>
+		message.parts.filter((part) => part.type === "tool-FleetReasoning"),
+	);
 	if (presentation.length === 0 || nextMessage.parts.some((part) => part.type === "tool-FleetReasoning")) {
 		return nextMessage;
 	}

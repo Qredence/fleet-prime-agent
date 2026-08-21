@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircle, Clock3, Gauge, ListRestart, RotateCcw } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 
 import { AgentProgress } from "@prime-agent/web-design/components/agents/loading-states/agent-progress";
 import { cn } from "@prime-agent/web-design/lib/utils";
@@ -21,14 +21,14 @@ export function FleetTurnStatus({
   label?: string;
   className?: string;
 }) {
+  const reduceMotion = useReducedMotion();
   if (!label?.trim()) return null;
   const { kind, title, detail } = describeTurnStatus(label);
-  const reduceMotion = useReducedMotion();
   const Icon = iconFor(kind);
   const liveProgress = kind === "queue" || kind === "retry" || kind === "compaction";
 
   return (
-    <motion.div
+    <m.div
       initial={reduceMotion ? false : { opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
@@ -49,7 +49,7 @@ export function FleetTurnStatus({
         </>
       )}
       {detail ? <span className="min-w-0 leading-relaxed">{detail}</span> : null}
-    </motion.div>
+    </m.div>
   );
 }
 

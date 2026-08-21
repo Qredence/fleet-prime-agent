@@ -1,7 +1,7 @@
 "use client";
 // beui.dev/components/agents/loading-states
 
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { EASE_IN_OUT } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
@@ -74,7 +74,7 @@ export function AgentProgress({
         className="grid size-5 shrink-0 grid-cols-3 gap-[2px]"
       >
         {GRID_CELLS.map(({ id, delay }) => (
-          <motion.span
+          <m.span
             key={id}
             className="rounded-[1px] bg-current"
             animate={

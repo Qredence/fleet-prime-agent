@@ -1,5 +1,5 @@
 import { AlertCircle } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import {
   Message,
   MessageBubble,
@@ -272,15 +272,11 @@ function AssistantMessage({
   )
   const toolTimeline = useMemo(() => toolTimelineSteps(activityItems), [activityItems])
   const [toolTimelineOpen, setToolTimelineOpen] = useState(turnStreaming)
-  const wasToolTimelineStreaming = useRef(turnStreaming)
-  useEffect(() => {
-    if (turnStreaming) {
-      setToolTimelineOpen(true)
-    } else if (wasToolTimelineStreaming.current) {
-      setToolTimelineOpen(false)
-    }
-    wasToolTimelineStreaming.current = turnStreaming
-  }, [turnStreaming])
+  const [prevTurnStreaming, setPrevTurnStreaming] = useState(turnStreaming)
+  if (prevTurnStreaming !== turnStreaming) {
+    setPrevTurnStreaming(turnStreaming)
+    setToolTimelineOpen(turnStreaming)
+  }
 
   return (
     <Message from="assistant" animateIn={!turnStreaming}>
@@ -458,12 +454,16 @@ export function FleetPiAgentChat({
   const styledSuggestions = withFleetPiSuggestionStyles(suggestions)
   const suggestionItems = resolveSuggestions(styledSuggestions)
   const suggestionTexts = useMemo(
-    () => suggestionItems.filter((item) => !item.disabled).map((item) => item.value ?? item.label),
+    () => suggestionItems.flatMap((item) => (item.disabled ? [] : [item.value ?? item.label])),
     [suggestionItems],
   )
   const suggestionCycle = suggestionTexts.join("\u0000")
   const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null)
-  useEffect(() => setSelectedSuggestion(null), [suggestionCycle])
+  const [prevSuggestionCycle, setPrevSuggestionCycle] = useState(suggestionCycle)
+  if (prevSuggestionCycle !== suggestionCycle) {
+    setPrevSuggestionCycle(suggestionCycle)
+    setSelectedSuggestion(null)
+  }
   const isStreaming = status === "streaming" || status === "submitted"
   const isEmpty = turns.length === 0 && !error
   const inputBarNode = (

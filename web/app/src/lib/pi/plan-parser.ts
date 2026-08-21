@@ -43,17 +43,24 @@ export function extractTodoItems(message: string) {
 		}
 	}
 	if (!headerMatch && items.length < 2) {
-		const titledSteps = Array.from(message.matchAll(/^\s*([A-Z][^:\n]{4,72}):\s+[^\n]+/gm))
-			.map((match) => cleanStepText(match[1] ?? ""))
-			.filter((text) => text.length > 3)
-			.map((text, index) => ({ step: index + 1, text, completed: false }));
+		let stepNumber = 0;
+		const titledSteps = Array.from(message.matchAll(/^\s*([A-Z][^:\n]{4,72}):\s+[^\n]+/gm)).flatMap((match) => {
+			const text = cleanStepText(match[1] ?? "");
+			if (text.length <= 3) return [];
+			stepNumber += 1;
+			return [{ step: stepNumber, text, completed: false }];
+		});
 		if (titledSteps.length >= 2) return titledSteps;
-		const plainSteps = message
-			.split(/\n+/)
-			.map((line) => line.trim())
-			.filter((line) => line.length > 5 && !["#", ">", "*", "-"].includes(line.charAt(0)))
-			.map((line) => cleanStepText(line))
-			.filter((text, index, all) => text.length > 3 && all.indexOf(text) === index)
+		const plainSteps = [
+			...new Set(
+				message.split(/\n+/).flatMap((line) => {
+					const trimmed = line.trim();
+					if (trimmed.length <= 5 || ["#", ">", "*", "-"].includes(trimmed.charAt(0))) return [];
+					const text = cleanStepText(trimmed);
+					return text.length > 3 ? [text] : [];
+				}),
+			),
+		]
 			.slice(0, 12)
 			.map((text, index) => ({ step: index + 1, text, completed: false }));
 		return plainSteps.length >= 2 ? plainSteps : [];

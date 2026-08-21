@@ -38,7 +38,7 @@ export function ThreadSearch({
   );
   const pinned = matches.filter((thread) => thread.pinned);
   const groups = [
-    ...new Set(matches.filter((t) => !t.pinned).map((t) => t.group)),
+    ...new Set(matches.flatMap((t) => (t.pinned ? [] : [t.group]))),
   ];
 
   const ordered = [
@@ -136,9 +136,9 @@ export function ThreadSearch({
           <span className={cn(mono, "text-foreground/25 px-2 pb-1")}>
             {group}
           </span>
-          {matches
-            .filter((thread) => !thread.pinned && thread.group === group)
-            .map(row)}
+          {matches.flatMap((thread) =>
+            !thread.pinned && thread.group === group ? [row(thread)] : [],
+          )}
         </div>
       ))}
 

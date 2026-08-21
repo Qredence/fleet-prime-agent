@@ -26,7 +26,10 @@ export function fleetAgentPlanPresentation(
 ): FleetAgentPlanPresentation | undefined {
   if (items.length === 0) return undefined
 
-  const steps = items.map((item) => item.title.trim()).filter(Boolean)
+  const steps = items.flatMap((item) => {
+    const title = item.title.trim();
+    return title ? [title] : [];
+  });
   if (steps.length !== items.length) return undefined
 
   let activeIndex = 0

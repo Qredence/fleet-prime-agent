@@ -195,6 +195,7 @@
 					"design/src/components/motion/combobox/list.tsx",
 					"design/src/components/motion/combobox/trigger.tsx",
 					"design/src/components/motion/animated-select.tsx",
+					"design/src/components/agents/agent-activity/index.tsx",
 					"design/src/lib/range.ts",
 					"design/src/lib/surfaces.tsx"
 				],
@@ -211,6 +212,31 @@
 					"design/src/components/motion/context-menu.tsx"
 				],
 				"rules": ["deslop/unused-file"]
+			},
+			{
+				// False positives — the OAuth busy flag is generation-guarded: clearing
+				// it unconditionally in the older attempt's finally would clobber a newer
+				// attempt that re-armed it. Same evidence class as workspace-panel.tsx.
+				"files": ["design/src/components/fleet-pi/pi/config-panel/sections/use-oauth-login-flow.ts"],
+				"rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+			},
+			{
+				// False positives — same pattern as the composer.tsx waiver: animate-in
+				// keyframe utilities animate only opacity/transform; no transition-all or
+				// layout-property animation is authored here.
+				"files": [
+					"design/src/components/elements/reasoning-panel.tsx",
+					"design/src/components/elements/thinking-indicator.tsx",
+					"design/src/components/elements/tool-timeline.tsx"
+				],
+				"rules": ["react-doctor/no-transition-all"]
+			},
+			{
+				// Intentional composite key — OpenUI list items legitimately duplicate
+				// label+status (schema-valid), so position disambiguates them. Matches the
+				// inline biome-ignore rationale on the same element.
+				"files": ["design/src/components/openui/openui-library.tsx"],
+				"rules": ["react-doctor/no-array-index-as-key"]
 			}
 		]
 	}
