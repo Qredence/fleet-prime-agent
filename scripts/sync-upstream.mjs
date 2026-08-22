@@ -37,15 +37,29 @@ function readManifest() {
 	}
 }
 
+/** Fetch the tag from repoUrl; returns null on success, otherwise git's stderr. */
+function fetchTag(manifest, tag, extraArgs = []) {
+	try {
+		git([...extraArgs, "fetch", "--quiet", "--no-tags", manifest.repoUrl, "tag", tag]);
+		return null;
+	} catch (error) {
+		return error.stderr ? String(error.stderr).trim() : String(error);
+	}
+}
+
 /** Make sure the tag commit object exists locally; fetch it from repoUrl if not. */
 function ensureTag(manifest, tag) {
 	try {
 		git(["rev-parse", "--verify", `${tag}^{commit}`]);
 	} catch {
-		try {
-			git(["fetch", "--quiet", "--no-tags", manifest.repoUrl, `tag ${tag}`]);
-		} catch (error) {
-			fail(`tag ${tag} is not available locally and fetching it failed: ${error.message}`);
+		// CI runners may inject credentials (http.extraheader / credential
+		// helper); retry with both disabled, the upstream repo is public.
+		let stderr = fetchTag(manifest, tag);
+		if (stderr) {
+			stderr = fetchTag(manifest, tag, ["-c", "http.extraheader=", "-c", "credential.helper="]);
+		}
+		if (stderr) {
+			fail(`tag ${tag} is not available locally and fetching it failed:\n${stderr}`);
 		}
 	}
 	return git(["rev-parse", `${tag}^{commit}`]);
