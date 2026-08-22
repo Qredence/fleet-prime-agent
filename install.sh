@@ -129,8 +129,8 @@ build_checkout() {
 }
 
 link_cli() {
-	printf '\nLinking the prime-agent command globally...\n'
-	npm link --force ./packages/coding-agent
+	printf '\nLinking the prime-agent and fleet-prime commands globally...\n'
+	npm link --force .
 	hash -r 2>/dev/null || true
 
 	if command -v prime-agent >/dev/null 2>&1; then

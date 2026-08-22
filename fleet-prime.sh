@@ -39,5 +39,12 @@ while [[ $# -gt 0 ]]; do
 	shift
 done
 
+# Prefer the packaged web runtime (built by scripts/build-web-release.mjs via
+# install.sh); fall back to the dev server when no release build exists.
+LAUNCHER="$SCRIPT_DIR/packages/coding-agent/dist/web/launcher.mjs"
+if [[ -f "$LAUNCHER" ]]; then
+	exec node "$LAUNCHER" --host "$HOST" --port "$PORT"
+fi
+
 cd "$SCRIPT_DIR/web/app"
 exec ../node_modules/.bin/vite dev --host "$HOST" --port "$PORT"
