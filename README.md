@@ -131,7 +131,7 @@ MIT — see [LICENSE](LICENSE).
 
 ## Upstream and Fleet version
 
-- **Upstream:** `PrimeIntellect-ai/prime-agent` release pinned in the root `UPSTREAM` manifest (currently `v0.8.0`). `packages/*` and `prime-agent-runtime/` are verbatim copies: sync them with `node scripts/sync-upstream.mjs --apply <tag>` — the scheduled `upstream-sync` workflow opens those PRs nightly — and never edit vendored files.
+- **Upstream:** `PrimeIntellect-ai/prime-agent` release pinned in the root `UPSTREAM` manifest (currently `v0.8.0`). `packages/*` and `prime-agent-runtime/` are verbatim copies: sync them with `node scripts/sync-upstream.mjs --apply <tag>` — the scheduled `upstream-sync` workflow opens those PRs nightly — and never edit vendored files. Build-regenerated files listed in `generatedPaths` (currently `packages/ai/src/models.generated.ts`) are exempt from drift checks and reset to tag contents on each sync.
 - **Fleet adapter:** v1 contract at `web/docs/architecture/fleet-adapter-contract-v1.md` — 0.8.0 baseline includes endpoint-bound MCP OAuth (one-time `/mcp login <server>` re-auth), removal of catalog-name overrides (`mcpServers` shadowing a built-in now disables it), and graceful hydration of new `refinement_outcome` transcript messages.
 - **Verification:** build/tsgo/biome clean; agent 70/70, coding-agent 4438/4438 (clean env), web 138/138 + 62/62; S4 release smoke and manual UI smoke remain recommended release gates.
 

@@ -86,6 +86,14 @@ function verify(manifest) {
 		fail(`tag ${manifest.tag} resolves to ${tagSha}, but UPSTREAM pins ${manifest.sha}; is this the same release?`);
 	}
 	const drift = vendoredDrift(manifest, manifest.tag);
+	// Build-regenerated files (e.g. CI runs packages/ai generate-models before
+	// checks) drift legitimately; they are reset to tag bytes on every --apply.
+	const generated = new Set(manifest.generatedPaths ?? []);
+	const regenerated = drift.changed.filter((path) => generated.has(path));
+	drift.changed = drift.changed.filter((path) => !generated.has(path));
+	if (regenerated.length > 0) {
+		for (const path of regenerated) console.log(`  ignored (build-regenerated): ${path}`);
+	}
 	if (drift.changed.length === 0 && drift.untracked.length === 0) {
 		console.log(`Vendored engine matches upstream ${manifest.tag}.`);
 		return;

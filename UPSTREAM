@@ -9,5 +9,6 @@
 		"packages/tui",
 		"packages/coding-agent",
 		"prime-agent-runtime"
-	]
+	],
+	"generatedPaths": ["packages/ai/src/models.generated.ts"]
 }
