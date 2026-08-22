@@ -95,12 +95,34 @@ function toChatMessageFromUser(msg: UserMessage, id: string): ChatMessage {
 	return { id, role: "user", parts, createdAt: getTimestamp(msg) };
 }
 
-// Re-export so server code can use it when hydrating from a transcript.
-export { toChatMessageFromAssistant, toChatMessageFromUser };
+/**
+ * Fallback hydration for transcript messages Fleet does not model — custom or
+ * future runtime message types (e.g. 0.8.0's `refinement_outcome`) hydrate as
+ * empty assistant messages instead of throwing or leaking unmodeled content.
+ */
+function toChatMessageFromUnknownRole(id: string): ChatMessage {
+	return { id, role: "assistant", parts: [] };
+}
+
+// Re-export so server code can use them when hydrating from a transcript.
+export { toChatMessageFromAssistant, toChatMessageFromUnknownRole, toChatMessageFromUser };
 
 // ---------------------------------------------------------------------------
 // Per-session mapper state
 // ---------------------------------------------------------------------------
+
+/**
+ * Upstream 0.8.0 made generic MCP OAuth credentials endpoint-bound; stored
+ * credentials from before the upgrade fail with a raw binding error. Detect
+ * that message and give Fleet users the actual recovery step instead.
+ */
+const OAUTH_BINDING_ERROR = /^Stored OAuth credentials are not bound to \S+; re-run \/mcp login (.+)$/;
+
+export function withOAuthBindingGuidance(message: string): string {
+	const match = OAUTH_BINDING_ERROR.exec(message);
+	if (!match) return message;
+	return `The MCP connection "${match[1]}" must be signed in again (one-time re-login after the runtime upgrade; stored logins are now tied to the server URL). Run \`/mcp login ${match[1]}\` in the Prime Agent CLI, then retry.`;
+}
 
 export interface EventMapperState {
 	runId: string;
@@ -424,7 +446,9 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 					reason: event.reason,
 					aborted: event.aborted,
 					willRetry: event.willRetry,
-					...(event.errorMessage !== undefined ? { errorMessage: event.errorMessage } : {}),
+					...(event.errorMessage !== undefined
+						? { errorMessage: withOAuthBindingGuidance(event.errorMessage) }
+						: {}),
 				},
 			];
 		case "auto_retry_start":
@@ -436,7 +460,9 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 					attempt: event.attempt,
 					maxAttempts: event.maxAttempts,
 					delayMs: event.delayMs,
-					errorMessage: event.errorMessage,
+					...(event.errorMessage !== undefined
+						? { errorMessage: withOAuthBindingGuidance(event.errorMessage) }
+						: {}),
 				},
 			];
 		case "auto_retry_end":
@@ -447,7 +473,7 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 					phase: "end",
 					success: event.success,
 					attempt: event.attempt,
-					...(event.finalError !== undefined ? { finalError: event.finalError } : {}),
+					...(event.finalError !== undefined ? { finalError: withOAuthBindingGuidance(event.finalError) } : {}),
 				},
 			];
 		case "session_action_update": {

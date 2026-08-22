@@ -46,6 +46,7 @@ import {
 	createEventMapperState,
 	mapAgentSessionEvent,
 	toChatMessageFromAssistant,
+	toChatMessageFromUnknownRole,
 	toChatMessageFromUser,
 } from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
@@ -936,7 +937,7 @@ export class PrimeBridge {
 		if (msg.role === "user") {
 			return toChatMessageFromUser(msg as UserMessage, id);
 		}
-		return { id, role: "assistant", parts: [] };
+		return toChatMessageFromUnknownRole(id);
 	}
 
 	#requireSession(sessionId: string): BridgeSession {

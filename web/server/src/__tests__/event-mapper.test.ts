@@ -7,6 +7,8 @@ import {
 	mapAgentSessionEvent,
 	mapAgentSessionEvents,
 	toChatMessageFromAssistant,
+	toChatMessageFromUnknownRole,
+	withOAuthBindingGuidance,
 } from "../event-mapper";
 
 function mkAssistant(partial: Partial<AssistantMessage> = {}): AssistantMessage {
@@ -443,5 +445,42 @@ describe("event-mapper", () => {
 		expect(kinds[0]).toBe("state");
 		expect(kinds).toContain("delta");
 		expect(kinds[kinds.length - 1]).toBe("done");
+	});
+
+	it("hydrates unknown runtime message types as empty assistant messages", () => {
+		// 0.8.0 added transcript message types Fleet does not model (e.g.
+		// `refinement_outcome` custom messages). They must hydrate without
+		// throwing and without carrying unmodeled content into the browser.
+		const hydrated = toChatMessageFromUnknownRole("session-1-m7");
+		expect(hydrated).toEqual({ id: "session-1-m7", role: "assistant", parts: [] });
+		expect(JSON.stringify(hydrated)).not.toContain("refinement_outcome");
+	});
+
+	it("rewrites the 0.8.0 MCP OAuth binding error into re-login guidance", () => {
+		const guided = withOAuthBindingGuidance(
+			"Stored OAuth credentials are not bound to https://mcp.example.com; re-run /mcp login slack",
+		);
+		expect(guided).toContain('"slack"');
+		expect(guided).toContain("/mcp login slack");
+		expect(guided).not.toContain("not bound to");
+
+		const passthrough = withOAuthBindingGuidance("boom");
+		expect(passthrough).toBe("boom");
+	});
+
+	it("applies OAuth binding guidance to retry error surfaces", () => {
+		const state = createEventMapperState();
+		const frames = mapAgentSessionEvent(state, {
+			type: "auto_retry_start",
+			attempt: 1,
+			maxAttempts: 3,
+			delayMs: 500,
+			errorMessage: "Stored OAuth credentials are not bound to https://mcp.example.com; re-run /mcp login slack",
+		} as unknown as AgentSessionEvent);
+		const retry = frames.find(
+			(frame): frame is Extract<ChatStreamEvent, { type: "retry"; phase: "start" }> =>
+				frame.type === "retry" && frame.phase === "start",
+		);
+		expect(retry?.errorMessage).toContain("must be signed in again");
 	});
 });

@@ -306,7 +306,7 @@ export const ChatRetryStartEventSchema = z
 		attempt: z.number(),
 		maxAttempts: z.number(),
 		delayMs: z.number(),
-		errorMessage: z.string(),
+		errorMessage: z.string().optional(),
 	})
 	.openapi({ description: "Retry start event" });
 
