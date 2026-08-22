@@ -1,0 +1,83 @@
+name: Upstream sync
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-sync
+
+jobs:
+  watch:
+    name: Watch upstream releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Detect newer upstream tag
+        id: detect
+        run: |
+          set -euo pipefail
+          node - >> "$GITHUB_OUTPUT" <<'EOF'
+          const { execFileSync } = require("node:child_process");
+          const { readFileSync } = require("node:fs");
+          const manifest = JSON.parse(readFileSync("UPSTREAM", "utf8"));
+          const out = execFileSync("git", ["ls-remote", "--tags", manifest.repoUrl], { encoding: "utf8" });
+          const tags = [];
+          for (const line of out.split("\n")) {
+            const tagRefs = line.match(/refs\/tags\/(v(\d+)\.(\d+)\.(\d+))$/);
+            if (tagRefs) tags.push({ name: tagRefs[1], major: +tagRefs[2], minor: +tagRefs[3], patch: +tagRefs[4] });
+          }
+          tags.sort((a, b) => a.major - b.major || a.minor - b.minor || a.patch - b.patch);
+          const latest = tags.at(-1);
+          if (!latest) throw new Error("no upstream tags found");
+          console.log(`current=${manifest.tag}`);
+          console.log(`latest=${latest.name}`);
+          console.log(`update=${latest.name !== manifest.tag}`);
+          EOF
+
+      - name: Sync, commit, and open PR
+        if: steps.detect.outputs.update == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_TAG: ${{ steps.detect.outputs.latest }}
+        run: |
+          set -euo pipefail
+          branch="chore/upstream-sync-${NEW_TAG}"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "branch $branch already exists; leaving it alone"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          node scripts/sync-upstream.mjs --apply "$NEW_TAG"
+          npm install --no-audit --no-fund
+          node scripts/sync-upstream.mjs --report "$NEW_TAG" > /tmp/upstream-report.txt || true
+          git add UPSTREAM packages prime-agent-runtime package-lock.json
+          git commit -m "chore: sync vendored engine to upstream ${NEW_TAG}"
+          git push origin "$branch"
+          {
+            echo "## Vendored engine sync: ${NEW_TAG}"
+            echo
+            echo "Automated by the upstream-sync workflow. Before merging, review the"
+            echo "adapter contract (web/docs/architecture/fleet-adapter-contract-v1.md)"
+            echo "against the report below and make sure CI is green."
+            echo
+            echo '```'
+            head -c 12000 /tmp/upstream-report.txt
+            echo '```'
+          } > /tmp/pr-body.md
+          gh pr create --base main --title "chore: sync vendored engine to upstream ${NEW_TAG}" --body-file /tmp/pr-body.md
