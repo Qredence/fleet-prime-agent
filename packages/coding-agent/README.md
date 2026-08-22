@@ -1,8 +1,8 @@
 <p align="center">
-  <a href="https://github.com/Qredence/fleet-prime-agent">
+  <a href="https://primeintellect.ai">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="../../assets/brand/prime-butterfly.svg">
-      <img alt="Prime Agent mark" src="../../assets/brand/prime-butterfly-black.svg" width="96">
+      <img alt="Prime Intellect butterfly mark" src="../../assets/brand/prime-butterfly-black.svg" width="96">
     </picture>
   </a>
 </p>
@@ -13,7 +13,7 @@
   RLM-native terminal coding and research harness.
 </p>
 
-Prime Agent began as a hard fork of [pi-mono](https://github.com/badlogic/pi-mono), but it is now developed independently in the public [Qredence/fleet-prime-agent](https://github.com/Qredence/fleet-prime-agent) repository. This workspace retains inherited `@earendil-works/pi-*` source package identifiers, the `pi` package manifest key, and a source-package `pi` bin entry for internal compatibility. The repository installer also exposes the `prime-agent` command; no upstream PrimeIntellect account, release, or repository access is required.
+Prime Agent began as a hard fork of [pi-mono](https://github.com/badlogic/pi-mono), but it is now developed and distributed independently. This workspace retains inherited `@earendil-works/pi-*` source package identifiers, the `pi` package manifest key, and a source-package `pi` bin entry for internal compatibility. Public releases are currently versioned tarball artifacts installed by the scripts below; release packaging rewrites the application package and command to `prime-agent`. Do not use the inherited npm package as the Prime Agent install path.
 
 ## Table of Contents
 
@@ -43,8 +43,13 @@ Prime Agent began as a hard fork of [pi-mono](https://github.com/badlogic/pi-mon
 ## Quick Start
 
 ```bash
-mkdir -p fleet-prime-agent && cd fleet-prime-agent && \
-curl -fsSL https://raw.githubusercontent.com/Qredence/fleet-prime-agent/main/install.sh | sh
+curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh
+```
+
+To install the beta built from the latest commit on `main`:
+
+```bash
+curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh -s -- beta
 ```
 
 Authenticate with an API key:
@@ -60,15 +65,6 @@ Or use your existing subscription:
 prime-agent
 /login  # Then select provider
 ```
-
-Run the built Qredence web interface from the project directory:
-
-```bash
-cd /path/to/project
-fleet-prime
-```
-
-The Fleet Prime launcher defaults to `127.0.0.1:3000`. Override the bind address with `--host` and `--port`. In a source checkout, `./fleet-prime.sh` runs the Fleet Prime Vite dev server (same as `npm run dev:web`); the installed command starts the prebuilt web runtime, so it does not invoke pnpm or Vite. Run `fleet-prime install` from a source checkout (or an empty directory) to install dependencies, build, and link the CLI globally.
 
 Then just talk to Prime Agent. By default, Prime Agent gives the model one tool: `ipython`. The model uses the persistent kernel to read files, run commands, edit code, and inspect data. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [Prime Agent packages](#prime-agent-packages).
 
@@ -154,7 +150,7 @@ Type `/` in the editor to trigger commands. [Extensions](#extensions) can regist
 | `/effort` | Set reasoning/thinking level |
 | `/scoped-models` | Enable/disable models for Ctrl+P cycling |
 | `/settings` | Thinking level, theme, message delivery, transport |
-| `/resume` | Open the searchable session view |
+| `/resume [id\|path]` | Open the agents view, or resume a session directly |
 | `/new`, `/clear` | Start a new session |
 | `/name <name>` | Set session display name |
 | `/session` | Show session info (file, ID, messages) |
@@ -196,9 +192,11 @@ Submit messages while the agent is working:
 
 - **Enter** queues a *steering* message, delivered after the current assistant turn finishes executing its tool calls
 - **Alt+Enter** queues a *follow-up* message, delivered only after the agent finishes all work
-- **Ctrl+C** interrupts active work and restores queued messages to the editor
+- **Ctrl+C** interrupts active work; queued messages are kept and resume after your next submit or edit
 - **Escape** clears the input without interrupting active work
-- **Alt+Up** retrieves queued messages back to editor
+- **Alt+Up / Alt+Down** browse queued messages individually and return to the editor draft
+- While browsing, **Enter** applies the edit as steering input and **Alt+Enter** applies it as a follow-up; submitting an empty edit deletes the item
+- **Ctrl+Alt+Up / Ctrl+Alt+Down** move the selected item earlier or later within its queue
 
 On Windows Terminal, `Alt+Enter` is fullscreen by default. Remap it in [docs/terminal-setup.md](docs/terminal-setup.md) so Prime Agent can receive the follow-up shortcut.
 
@@ -260,7 +258,7 @@ See [docs/settings.md](docs/settings.md) for all options.
 
 ### Update checks
 
-Source checkouts do not contact a release host by default. Set `PRIME_AGENT_DOWNLOAD_BASE_URL` only when using an internal release manifest. Disable version checks with `PI_SKIP_VERSION_CHECK=1`.
+Prime Agent stable builds fetch `https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/latest.json` to check whether a newer version exists. Beta builds fetch `beta.json` and remain on the beta channel. Override the base URL with `PRIME_AGENT_DOWNLOAD_BASE_URL`. Disable version checks with `PI_SKIP_VERSION_CHECK=1`.
 
 Use `--offline` or `PI_OFFLINE=1` to disable startup network operations, including update checks and package update checks.
 
@@ -681,7 +679,7 @@ prime-agent --thinking high "Solve this complex problem"
 | `PRIME_AGENT_TELEMETRY` | Override pseudonymous aggregate usage analytics with `1`/`true`/`yes` or `0`/`false`/`no` |
 | `PRIME_AGENT_TELEMETRY_ENDPOINT` | Override the aggregate analytics ingestion endpoint |
 | `DO_NOT_TRACK` | Disable aggregate usage analytics when set to `1`/`true`/`yes` |
-| `PRIME_AGENT_DOWNLOAD_BASE_URL` | Optional internal release manifest and tarball base URL; unset for source installs |
+| `PRIME_AGENT_DOWNLOAD_BASE_URL` | Override the Prime Agent release manifest and tarball base URL |
 | `PI_CACHE_RETENTION` | Set to `long` for extended prompt cache (Anthropic: 1h, OpenAI: 24h) |
 | `PRIME_API_KEY` | Prime Inference API key; also used for trace sharing if it has `agent_traces` scope |
 | `PRIME_AGENT_TRACES_API_KEY` | Prime API key used only for opt-in trace sharing |

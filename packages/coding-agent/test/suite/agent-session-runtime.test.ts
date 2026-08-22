@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, registerFauxProvider } from "@earendil-works/pi-ai";
@@ -57,7 +57,8 @@ describe("AgentSessionRuntime characterization", () => {
 			onCreateRuntime?: (options: Parameters<CreateAgentSessionRuntimeFactory>[0]) => void;
 		},
 	) {
-		const tempDir = options?.cwd ?? mkdtempSync(join(tmpdir(), "pi-runtime-suite-"));
+		const tempDir =
+			options?.cwd ?? join(tmpdir(), `pi-runtime-suite-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(tempDir, { recursive: true });
 
 		const faux = registerFauxProvider({
@@ -199,7 +200,7 @@ describe("AgentSessionRuntime characterization", () => {
 	});
 
 	it("uses effective runtime depth for a parented new session from a legacy header", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "pi-runtime-legacy-new-"));
+		const tempDir = join(tmpdir(), `pi-runtime-legacy-new-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		const sessionManager = SessionManager.create(tempDir, join(tempDir, "sessions"));
 		sessionManager.newSession({ rlmDepth: undefined });
 		const parentSession = sessionManager.getSessionFile();
@@ -218,7 +219,7 @@ describe("AgentSessionRuntime characterization", () => {
 	it.each([false, true])(
 		"uses the effective runtime depth when forking a legacy session before its first entry (inMemory=%s)",
 		async (inMemory) => {
-			const tempDir = mkdtempSync(join(tmpdir(), "pi-runtime-legacy-fork-"));
+			const tempDir = join(tmpdir(), `pi-runtime-legacy-fork-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 			const sessionManager = inMemory
 				? SessionManager.inMemory(tempDir)
 				: SessionManager.create(tempDir, join(tempDir, "sessions"));
@@ -542,7 +543,7 @@ describe("AgentSessionRuntime characterization", () => {
 		expect(runtime.session.sessionFile).toBe(originalSessionFile);
 
 		events.length = 0;
-		const otherDir = mkdtempSync(join(tmpdir(), "pi-runtime-other-"));
+		const otherDir = join(tmpdir(), `pi-runtime-other-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(otherDir, { recursive: true });
 		const otherSession = SessionManager.create(otherDir, join(otherDir, "sessions"));
 		otherSession.appendMessage({ role: "user", content: [{ type: "text", text: "other" }], timestamp: Date.now() });
@@ -725,8 +726,8 @@ describe("AgentSessionRuntime characterization", () => {
 	});
 
 	it("updates the runtime session cwd on cross-cwd session replacement", async () => {
-		const firstDir = mkdtempSync(join(tmpdir(), "pi-runtime-cwd-a-"));
-		const secondDir = mkdtempSync(join(tmpdir(), "pi-runtime-cwd-b-"));
+		const firstDir = join(tmpdir(), `pi-runtime-cwd-a-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		const secondDir = join(tmpdir(), `pi-runtime-cwd-b-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(firstDir, { recursive: true });
 		mkdirSync(secondDir, { recursive: true });
 		const { runtime, faux, tempDir } = await createRuntimeForTest(() => {}, { cwd: firstDir });

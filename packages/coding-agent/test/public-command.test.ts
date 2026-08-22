@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 	psCalls: [] as boolean[],
 	reapCalls: [] as Array<[boolean, boolean]>,
 	shutdownCalls: [] as Array<[boolean, boolean]>,
+	mcpCommands: [] as string[][],
 }));
 
 vi.mock("../src/cli/daemon-command.js", () => ({
@@ -24,6 +25,19 @@ vi.mock("../src/package-manager-cli.js", () => ({
 	isSelfUpdateSource: (source: string) => source === "self" || source === "pi" || source === "prime-agent",
 }));
 
+vi.mock("../src/core/mcp/mcp-command.js", () => ({
+	runMcpManagementCommand: async (args: string[]) => {
+		mocks.mcpCommands.push(args);
+		return { action: args[0], message: "managed", changed: false };
+	},
+}));
+
+vi.mock("../src/core/settings-manager.js", () => ({
+	SettingsManager: {
+		create: () => ({ flush: async () => {}, drainErrors: () => [], getGlobalMcpServers: () => undefined }),
+	},
+}));
+
 vi.mock("../src/cli/daemon-ps.js", () => ({
 	runPs: async (json: boolean) => {
 		mocks.psCalls.push(json);
@@ -37,7 +51,7 @@ vi.mock("../src/cli/daemon-ps.js", () => ({
 }));
 
 import { INTERNAL_RUNTIME_COMMAND_MARKER } from "../src/cli/args.js";
-import { formatTopLevelHelp, getCommandSpec } from "../src/cli/command-registry.js";
+import { formatTopLevelHelp } from "../src/cli/command-registry.js";
 import { DAEMON_UPDATE_RESTART_COORDINATOR_FLAG } from "../src/cli/daemon-update-restart.js";
 import { handlePublicCommand } from "../src/cli/public-command.js";
 
@@ -48,6 +62,7 @@ describe("public command routing", () => {
 		mocks.psCalls.length = 0;
 		mocks.reapCalls.length = 0;
 		mocks.shutdownCalls.length = 0;
+		mocks.mcpCommands.length = 0;
 		process.exitCode = undefined;
 		vi.spyOn(console, "log").mockImplementation(() => {});
 		vi.spyOn(console, "error").mockImplementation(() => {});
@@ -98,15 +113,16 @@ describe("public command routing", () => {
 		});
 	});
 
+	it("routes MCP management without entering agent startup", async () => {
+		await expect(
+			handlePublicCommand(["mcp", "add", "local", "--", "node", "server file.js", "--stdio"]),
+		).resolves.toMatchObject({ handled: true });
+		expect(mocks.mcpCommands).toEqual([["add", "local", "--", "node", "server file.js", "--stdio"]]);
+	});
+
 	it("routes agent operations through the internal protocol adapter", async () => {
 		await expect(handlePublicCommand(["list", "--all", "--json"])).resolves.toMatchObject({ handled: true });
 		expect(mocks.daemonCommands).toEqual([["daemon", "list", "--all", "--json"]]);
-	});
-
-	it("rejects the removed web subcommand with Fleet Prime guidance", async () => {
-		await expect(handlePublicCommand(["web", "--port", "3100"])).resolves.toMatchObject({ handled: true });
-		expect(process.exitCode).toBe(1);
-		expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Use "fleet-prime".'));
 	});
 
 	it("forwards a custom daemon socket when stopping an agent", async () => {
@@ -276,11 +292,6 @@ describe("public command routing", () => {
 		expect(console.log).not.toHaveBeenCalled();
 	});
 
-	it("keeps the removed top-level install command unavailable", async () => {
-		await expect(handlePublicCommand(["install"])).resolves.toMatchObject({ handled: true });
-		expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Use "prime-agent package install"'));
-	});
-
 	it("suggests close nested commands without executing them", async () => {
 		await handlePublicCommand(["schedule", "cancell", "job-1"]);
 		expect(mocks.daemonCommands).toEqual([]);
@@ -354,8 +365,6 @@ describe("public command routing", () => {
 		expect(help).toContain("default: 1800000");
 		expect(help).toContain("Commands:");
 		expect(help).toContain("shutdown");
-		expect(help).not.toMatch(/\n\s+web\s/);
-		expect(getCommandSpec(["web"])).toBeUndefined();
 		expect(help).not.toContain("Environment Variables:");
 		expect(help).not.toContain("Examples:");
 		expect(help).not.toContain("Built-in Tool Names:");

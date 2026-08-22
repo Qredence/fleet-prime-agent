@@ -18,14 +18,17 @@ backend; the web stack is the interface.
 - Contract: `web/protocol/src/chat-protocol.ts`
 - Browser code talks HTTP (NDJSON + SSE) only. Do not import `@earendil-works/*`
   from `web/app/src` or `web/design`.
-- When a change in `packages/coding-agent` touches the public surface the adapter
+- When an upstream sync touches the public surface the adapter
   consumes — `createAgentSession`, `AgentSessionEvent`, `ExtensionUIContext`,
   `IpythonKernelProvisioner`, `SessionManager` — update `web/server`
-  in the same change. Do not add web-specific exports to coding-agent.
+  in the same sync PR. Do not add web-specific exports to coding-agent; engine
+  changes belong upstream.
 
-Prime Agent lives under `packages/` (npm workspaces). The Qredence UI lives
-under `web/` (pnpm workspace). Merge `PrimeIntellect-ai/prime-agent` into
-`packages/{ai,agent,tui,coding-agent}` only — never into `web/`.
+Prime Agent lives under `packages/` (npm workspaces) as a VERBATIM copy of
+upstream `PrimeIntellect-ai/prime-agent`, pinned by the root `UPSTREAM`
+manifest. The Qredence UI lives under `web/` (pnpm workspace). Never edit
+`packages/` or `prime-agent-runtime/` locally — sync them with
+`node scripts/sync-upstream.mjs --apply <tag>` (see "Upstream engine sync").
 
 Install: `npm install` at the repo root, then `pnpm install` in `web/`. Never
 `npm install` inside `web/`, and never `pnpm install` at the repo root.
@@ -55,11 +58,24 @@ Dev: `pnpm --dir web --filter @prime-agent/web dev` (or `npm run dev:web`).
 - Always ask before removing functionality or code that appears to be intentional
 - Do not preserve backward compatibility unless the user explicitly asks for it
 - Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)
-- NEVER modify `packages/ai/src/models.generated.ts` directly. Update `packages/ai/scripts/generate-models.ts` instead.
+- NEVER edit anything under `packages/` or `prime-agent-runtime/`: those are vendored verbatim from upstream and `check:upstream` fails on any drift. Change `web/`, `scripts/`, or root files, or change the code upstream.
+
+## Upstream engine sync
+
+`packages/{ai,agent,tui,coding-agent}` and `prime-agent-runtime/` are a verbatim
+copy of the upstream release pinned in the root `UPSTREAM` manifest. All fleet
+code lives in `web/`, `scripts/`, and root files.
+
+- `node scripts/sync-upstream.mjs --verify` — fails if vendored dirs differ from the pinned tag (runs first in `npm run check` and in CI).
+- `node scripts/sync-upstream.mjs --report <tag>` — shows what a sync would change, including the adapter-consumed exports and daemon protocol constants.
+- `node scripts/sync-upstream.mjs --apply <tag>` — replaces vendored dirs with `<tag>` and updates `UPSTREAM`. Follow with `npm install`, `npm run check`, and an adapter-contract review.
+- The scheduled `upstream-sync` workflow watches upstream nightly and opens the sync PR automatically.
+- If an emergency engine patch is ever unavoidable, do it on a dedicated branch, never on main, and treat it as a temporary exception until upstream ships an equivalent fix.
 
 ## Commands
 
 - After code changes (not documentation changes): `npm run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
+- `check:upstream` runs first inside `npm run check` and fails if vendored dirs (`packages/`, `prime-agent-runtime/`) differ from the pinned `UPSTREAM` tag.
 - Note: `npm run check` does not run tests.
 - NEVER run: `npm run dev`, `npm run build`, `npm test`
 - Only run specific tests if user instructs: `npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
@@ -71,12 +87,11 @@ Dev: `pnpm --dir web --filter @prime-agent/web dev` (or `npm run dev:web`).
 
 ## Daemon Protocol Changes
 
-- Classify every daemon command, event, and response-shape change as backward-compatible, capability-gated, or incompatible.
-- Add optional features behind a negotiated server capability. Clients must check the capability before sending the command or depending on the event.
-- Bump `DAEMON_PROTOCOL_VERSION` for incompatible changes or when startup begins requiring behavior an older daemon cannot provide.
-- Update `DAEMON_SCHEMA_REVISION`, the command/event compatibility maps, and both new-client/old-daemon and old-client/new-daemon tests for every wire change.
-- Optional daemon metadata and UI features must degrade locally. They must not prevent the agent, session attachment, or interactive startup from working.
-- Never make a new daemon command part of startup without a protocol or capability gate.
+The daemon protocol is upstream-owned (vendored); fleet does not develop it.
+`DAEMON_PROTOCOL_VERSION` / `DAEMON_SCHEMA_REVISION` change only through
+`sync-upstream.mjs --apply`. When a sync raises either constant, review
+`web/docs/architecture/fleet-adapter-contract-v1.md` and update `web/server` in
+the same PR.
 
 ## Dependencies
 
@@ -141,107 +156,28 @@ You, yourself, are often running into a tmux session, so be careful when killing
 
 ## Changelog
 
-Location: `packages/*/CHANGELOG.md` (each package has its own)
-
-### Format
-
-A flat list of plain bullets under `## [Unreleased]`. No `### Added` / `### Changed` / `### Fixed` / `### Removed` subsections — just one bullet per change, written as a short sentence starting with a past-tense verb (Added, Changed, Fixed, Removed). Keep each bullet to one line; describe the user-visible change, not the implementation.
-
-Example of a well-formed `[Unreleased]` section:
-
-```markdown
-## [Unreleased]
-
-- Added `/effort` to set the reasoning level, with autocomplete for the levels the current model supports.
-- Changed `prime-agent` to open a new chat by default instead of resuming the previous session.
-- Fixed onboarding showing no models after entering a provider key.
-- Removed the interactive `!` / `!!` bash shortcuts; use IPython instead.
-```
-
-### Rules
-
-- Read the full `[Unreleased]` section first so you don't duplicate an existing bullet
-- New entries ALWAYS go under `## [Unreleased]`
-- NEVER modify already-released version sections (e.g., `## [0.2.1]`) — each is immutable once released
-
-### Attribution
-
-- **Internal changes (from issues)**: `Fixed foo bar ([#123](https://github.com/PrimeIntellect-ai/prime-agent/issues/123))`
-- **External contributions**: `Added feature X ([#456](https://github.com/PrimeIntellect-ai/prime-agent/pull/456) by [@username](https://github.com/username))`
+Engine `CHANGELOG.md` files under `packages/` belong to upstream — never edit
+them and never add `.changes/` fragments inside vendored directories. Web/root
+changes are summarized in this repository's PRs and release notes (no fragment
+pipeline).
 
 ## Adding a New LLM Provider (packages/ai)
 
-Adding a new provider requires changes across multiple files:
-
-### 1. Core Types (`packages/ai/src/types.ts`)
-
-- Add API identifier to `Api` type union (e.g., `"bedrock-converse-stream"`)
-- Create options interface extending `StreamOptions`
-- Add mapping to `ApiOptionsMap`
-- Add provider name to `KnownProvider` type union
-
-### 2. Provider Implementation (`packages/ai/src/providers/`)
-
-Create provider file exporting:
-
-- `stream<Provider>()` function returning `AssistantMessageEventStream`
-- `streamSimple<Provider>()` for `SimpleStreamOptions` mapping
-- Provider-specific options interface
-- Message/tool conversion functions
-- Response parsing emitting standardized events (`text`, `tool_call`, `thinking`, `usage`, `stop`)
-
-### 3. Provider Exports and Lazy Registration
-
-- Add a package subpath export in `packages/ai/package.json` pointing at `./dist/providers/<provider>.js`
-- Add `export type` re-exports in `packages/ai/src/index.ts` for provider option types that should remain available from the root entry
-- Register the provider in `packages/ai/src/providers/register-builtins.ts` via lazy loader wrappers, do not statically import provider implementation modules there
-- Add credential detection in `packages/ai/src/env-api-keys.ts`
-
-### 4. Model Generation (`packages/ai/scripts/generate-models.ts`)
-
-- Add logic to fetch/parse models from provider source
-- Map to standardized `Model` interface
-
-### 5. Tests (`packages/ai/test/`)
-
-- Always add the provider to `stream.test.ts` with at least one representative model, even if it reuses an existing API implementation such as `openai-completions`.
-- Add the provider to the broader provider matrix where applicable: `tokens.test.ts`, `abort.test.ts`, `empty.test.ts`, `context-overflow.test.ts`, `image-limits.test.ts`, `unicode-surrogate.test.ts`, `tool-call-without-result.test.ts`, `image-tool-result.test.ts`, `total-tokens.test.ts`, `cross-provider-handoff.test.ts`.
-- For `cross-provider-handoff.test.ts`, add at least one provider/model pair. If the provider exposes multiple model families (for example GPT and Claude), add at least one pair per family.
-- For non-standard auth, create utility (e.g., `bedrock-utils.ts`) with credential detection.
-
-### 6. Coding Agent (`packages/coding-agent/`)
-
-- `src/core/model-resolver.ts`: Add default model ID to `defaultModelPerProvider`
-- `src/core/provider-display-names.ts`: Add API-key login display name so `/login` and related UI show the provider for built-in API-key auth.
-- `src/cli/args.ts`: Add env var documentation
-- `README.md`: Add provider setup instructions
-- `docs/providers.md`: Add setup instructions, env var, and `auth.json` key
-
-### 7. Documentation
-
-- `packages/ai/README.md`: Add to providers table, document options/auth, add env vars
-- `packages/ai/CHANGELOG.md`: Add entry under `## [Unreleased]`
+Engine features (providers, models, daemon protocol, CLI behavior) are developed
+in `PrimeIntellect-ai/prime-agent`, not here. Contribute there, then consume the
+release through an upstream sync. Upstream's contributor guide for a new provider
+starts at `packages/ai/src/providers/`; a sync brings it in unchanged.
 
 ## Releasing
 
-**Lockstep versioning**: All packages always share the same version number. Every release updates all packages together.
+The vendored engine version is pinned by the root `UPSTREAM` manifest and is
+never bumped locally; fleet code has no independent version pipeline.
 
-**Version semantics** (no major releases):
+Fleet release (web product + packed CLI artifact):
 
-- `patch`: Bug fixes and new features
-- `minor`: API breaking changes
-
-### Steps
-
-1. **Update CHANGELOGs**: Ensure all changes since last release are documented in the `[Unreleased]` section of each affected package's CHANGELOG.md
-
-2. **Run release script**:
-   ```bash
-   npm run release:patch    # Fixes and additions
-   npm run release:minor    # API breaking changes
-   ```
-
-The script handles: version bump, CHANGELOG finalization, commit, tag, publish, and adding new `[Unreleased]` sections.
+1. Sync the engine if needed: `node scripts/sync-upstream.mjs --apply vX.Y.Z`, then `npm install` + `npm run check`.
+2. Build and pack: `npm run build && npm run build:web:release && npm run release:pack`.
+3. Tag this repository; never `npm publish` the vendored `@earendil-works/*` packages (upstream owns that scope).
 
 ## **CRITICAL** Git Rules for Parallel Agents **CRITICAL**
 
@@ -276,7 +212,7 @@ git status
 
 # 2. Add ONLY your specific files
 git add packages/ai/src/providers/transform-messages.ts
-git add packages/ai/CHANGELOG.md
+git add packages/ai/.changes/eng-1234-fix-resize.md
 
 # 3. Commit
 git commit -m "fix(ai): description"

@@ -54,7 +54,7 @@ describe("assertNodeVersion", () => {
 		const text = logs.join("\n");
 		expect(text).toContain(`Node ${MIN_NODE_VERSION}`);
 		expect(text).toContain("20.18.1");
-		expect(text).toContain("raw.githubusercontent.com/Qredence/fleet-prime-agent/main/install.sh");
+		expect(text).toContain("github.com/PrimeIntellect-ai/prime-agent/releases/latest");
 	});
 
 	test("accepts the v prefix used by process.version", () => {

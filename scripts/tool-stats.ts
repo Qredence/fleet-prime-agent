@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -19,7 +19,7 @@ const BUCKETS = [0, 50, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000, Num
 
 function parseArgs(): { sessionsDir: string; output: string } {
 	let sessionsDir = join(homedir(), ".pi", "agent", "sessions");
-	let output = join(mkdtempSync(join(tmpdir(), "pi-tool-stats-")), "report.html");
+	let output = join(tmpdir(), "pi-tool-stats.html");
 	const args = process.argv.slice(2);
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
@@ -229,10 +229,4 @@ const html = `<!doctype html>
 mkdirSync(resolve(output, ".."), { recursive: true });
 writeFileSync(output, html);
 console.log(`Wrote ${output}`);
-// Only open the report when it exists and the path is a plain .html file; the path
-// is passed to a launcher, so keep it out of any shell interpretation.
-if (/^[^\0]+\.[hH][tT][mM][lL]$/.test(output) && existsSync(output)) {
-	const opener =
-		process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
-	spawn(opener, [output], { detached: true, stdio: "ignore" }).unref();
-}
+spawn(process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open", process.platform === "win32" ? ["/c", "start", output] : [output], { detached: true, stdio: "ignore" }).unref();

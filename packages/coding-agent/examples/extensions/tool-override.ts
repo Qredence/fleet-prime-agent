@@ -18,8 +18,8 @@
 
 import type { TextContent } from "@earendil-works/pi-ai";
 import { type ExtensionAPI, getAgentDir, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
-import { readFileSync } from "fs";
-import { appendFile, readFile } from "fs/promises";
+import { constants, readFileSync } from "fs";
+import { access, appendFile, readFile } from "fs/promises";
 import { join, resolve } from "path";
 import { Type } from "typebox";
 
@@ -92,6 +92,7 @@ export default function (pi: ExtensionAPI) {
 
 			// Perform the actual read (simplified implementation)
 			try {
+				await access(absolutePath, constants.R_OK);
 				const content = await readFile(absolutePath, "utf-8");
 				const lines = content.split("\n");
 

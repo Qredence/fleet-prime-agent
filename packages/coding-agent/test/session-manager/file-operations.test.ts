@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,7 +15,7 @@ describe("loadEntriesFromFile", () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "session-test-"));
+		tempDir = join(tmpdir(), `session-test-${Date.now()}`);
 		mkdirSync(tempDir, { recursive: true });
 	});
 
@@ -159,7 +159,7 @@ describe("loadEntriesFromFile", () => {
 
 describe("session tree metadata", () => {
 	it.each(["2.5", "2oops", "9007199254740993"])("rejects invalid RLM_DEPTH value %s", (value) => {
-		const tempDir = mkdtempSync(join(tmpdir(), "invalid-root-depth-test-"));
+		const tempDir = join(tmpdir(), `invalid-root-depth-test-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		vi.stubEnv("RLM_DEPTH", value);
 		try {
@@ -171,7 +171,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("does not persist an unsafe derived depth", () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "max-parent-depth-test-"));
+		const tempDir = join(tmpdir(), `max-parent-depth-test-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		try {
 			const parent = SessionManager.create(tempDir, tempDir);
@@ -190,7 +190,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("persists a derived depth and exposes parent linkage from the header", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "session-tree-test-"));
+		const tempDir = join(tmpdir(), `session-tree-test-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		try {
 			const parent = SessionManager.create(tempDir, tempDir);
@@ -217,7 +217,7 @@ describe("session tree metadata", () => {
 	});
 
 	it.each([0, 2])("copies source depth %i across branch and fork reference edges", (depth) => {
-		const tempDir = mkdtempSync(join(tmpdir(), `session-reference-depth-test-${depth}-`));
+		const tempDir = join(tmpdir(), `session-reference-depth-test-${depth}-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		try {
 			const source = SessionManager.create(tempDir, tempDir);
@@ -239,7 +239,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("resolves legacy root depth across branch and fork reference edges", () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "legacy-session-reference-depth-test-"));
+		const tempDir = join(tmpdir(), `legacy-session-reference-depth-test-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		try {
 			const source = SessionManager.create(tempDir, tempDir);
@@ -259,7 +259,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("leaves derived child depth unknown when a legacy parent has no depth", () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "legacy-parent-depth-test-"));
+		const tempDir = join(tmpdir(), `legacy-parent-depth-test-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		try {
 			const parentFile = join(tempDir, "legacy-parent.jsonl");
@@ -277,7 +277,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("infers root depth when materializing a legacy fork", () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "materialized-legacy-depth-test-"));
+		const tempDir = join(tmpdir(), `materialized-legacy-depth-test-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		try {
 			const parentFile = join(tempDir, "legacy-parent.jsonl");
@@ -294,7 +294,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("infers and backfills legacy child depth from nested subagent directories on open", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "legacy-session-tree-test-"));
+		const tempDir = join(tmpdir(), `legacy-session-tree-test-${Date.now()}-${Math.random()}`);
 		const parentFile = join(tempDir, "parent.jsonl");
 		const childDir = join(tempDir, "session-artifacts", "root", "sub-1234abcd", "sub-deadbeef");
 		const childFile = join(childDir, "child.jsonl");
@@ -321,7 +321,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("copies and backfills a readable source depth for a legacy fork", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "legacy-fork-source-depth-test-"));
+		const tempDir = join(tmpdir(), `legacy-fork-source-depth-test-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		try {
 			const sourceFile = join(tempDir, "source.jsonl");
@@ -362,7 +362,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("treats a legacy fork in the sessions directory as a root", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "legacy-fork-depth-test-"));
+		const tempDir = join(tmpdir(), `legacy-fork-depth-test-${Date.now()}-${Math.random()}`);
 		mkdirSync(tempDir, { recursive: true });
 		try {
 			const forkFile = join(tempDir, "fork.jsonl");
@@ -384,17 +384,12 @@ describe("session tree metadata", () => {
 	});
 
 	it("does not count a matching segment outside the trailing subagent path", () => {
-		const sessionFile = join(
-			mkdtempSync(join(tmpdir(), "rlm-depth-test-")),
-			"sub-deadbeef",
-			"sessions",
-			"child.jsonl",
-		);
+		const sessionFile = join(tmpdir(), "sub-deadbeef", "sessions", "child.jsonl");
 		expect(resolveSessionRlmDepth({ parentSession: "/missing-parent.jsonl" }, sessionFile)).toBe(0);
 	});
 
 	it("prefers the parent header depth over path inference", () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "parent-header-depth-test-"));
+		const tempDir = join(tmpdir(), `parent-header-depth-test-${Date.now()}-${Math.random()}`);
 		const parentFile = join(tempDir, "parent.jsonl");
 		const childFile = join(tempDir, "sub-1234abcd", "sub-deadbeef", "child.jsonl");
 		mkdirSync(tempDir, { recursive: true });
@@ -418,7 +413,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("resolves relative parent paths from each legacy session directory", () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "relative-parent-depth-test-"));
+		const tempDir = join(tmpdir(), `relative-parent-depth-test-${Date.now()}-${Math.random()}`);
 		const grandparentFile = join(tempDir, "grandparent.jsonl");
 		const parentFile = join(tempDir, "parent.jsonl");
 		const childDir = join(tempDir, "sub-1234abcd");
@@ -455,12 +450,7 @@ describe("session tree metadata", () => {
 	});
 
 	it("prefers a valid persisted depth over path inference", () => {
-		const sessionFile = join(
-			mkdtempSync(join(tmpdir(), "rlm-depth-test-")),
-			"sub-1234abcd",
-			"sub-deadbeef",
-			"session.jsonl",
-		);
+		const sessionFile = join(tmpdir(), "sub-1234abcd", "sub-deadbeef", "session.jsonl");
 		expect(resolveSessionRlmDepth({ parentSession: "/parent.jsonl", rlmDepth: 7 }, sessionFile)).toBe(7);
 	});
 });
@@ -469,7 +459,7 @@ describe("findMostRecentSession", () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "session-test-"));
+		tempDir = join(tmpdir(), `session-test-${Date.now()}`);
 		mkdirSync(tempDir, { recursive: true });
 	});
 
@@ -507,7 +497,6 @@ describe("findMostRecentSession", () => {
 		const file2 = join(tempDir, "newer.jsonl");
 
 		writeFileSync(file1, '{"type":"session","id":"old","timestamp":"2025-01-01T00:00:00Z","cwd":"/tmp"}\n');
-		// Small delay to ensure different mtime
 		await new Promise((r) => setTimeout(r, 10));
 		writeFileSync(file2, '{"type":"session","id":"new","timestamp":"2025-01-01T00:00:00Z","cwd":"/tmp"}\n');
 
@@ -530,7 +519,7 @@ describe("SessionManager.setSessionFile with corrupted files", () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "session-test-"));
+		tempDir = join(tmpdir(), `session-test-${Date.now()}`);
 		mkdirSync(tempDir, { recursive: true });
 	});
 
@@ -544,12 +533,10 @@ describe("SessionManager.setSessionFile with corrupted files", () => {
 
 		const sm = SessionManager.open(emptyFile, tempDir);
 
-		// Should have created a new session with valid header
 		expect(sm.getSessionId()).toBeTruthy();
 		expect(sm.getHeader()).toBeTruthy();
 		expect(sm.getHeader()?.type).toBe("session");
 
-		// File should now contain a valid header
 		const content = readFileSync(emptyFile, "utf-8");
 		const lines = content.trim().split("\n").filter(Boolean);
 		expect(lines.length).toBe(1);
@@ -560,7 +547,6 @@ describe("SessionManager.setSessionFile with corrupted files", () => {
 
 	it("truncates and rewrites file without valid header", () => {
 		const noHeaderFile = join(tempDir, "no-header.jsonl");
-		// File with messages but no session header (corrupted state)
 		writeFileSync(
 			noHeaderFile,
 			'{"type":"message","id":"abc","parentId":"orphaned","timestamp":"2025-01-01T00:00:00Z","message":{"role":"assistant","content":"test"}}\n',
@@ -568,12 +554,10 @@ describe("SessionManager.setSessionFile with corrupted files", () => {
 
 		const sm = SessionManager.open(noHeaderFile, tempDir);
 
-		// Should have created a new session with valid header
 		expect(sm.getSessionId()).toBeTruthy();
 		expect(sm.getHeader()).toBeTruthy();
 		expect(sm.getHeader()?.type).toBe("session");
 
-		// File should now contain only a valid header (old content truncated)
 		const content = readFileSync(noHeaderFile, "utf-8");
 		const lines = content.trim().split("\n").filter(Boolean);
 		expect(lines.length).toBe(1);
@@ -588,7 +572,6 @@ describe("SessionManager.setSessionFile with corrupted files", () => {
 
 		const sm = SessionManager.open(explicitPath, tempDir);
 
-		// The session file path should be preserved
 		expect(sm.getSessionFile()).toBe(explicitPath);
 	});
 
@@ -596,11 +579,9 @@ describe("SessionManager.setSessionFile with corrupted files", () => {
 		const corruptedFile = join(tempDir, "corrupted.jsonl");
 		writeFileSync(corruptedFile, "garbage content\n");
 
-		// First open recovers the file
 		const sm1 = SessionManager.open(corruptedFile, tempDir);
 		const sessionId = sm1.getSessionId();
 
-		// Second open should load the recovered file successfully
 		const sm2 = SessionManager.open(corruptedFile, tempDir);
 		expect(sm2.getSessionId()).toBe(sessionId);
 		expect(sm2.getHeader()?.type).toBe("session");

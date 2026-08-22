@@ -12,6 +12,7 @@ import {
 	renameSync,
 	rmdirSync,
 	rmSync,
+	statSync,
 	writeFileSync,
 } from "fs";
 import { basename, dirname, join } from "path";
@@ -35,12 +36,14 @@ export function migrateAuthToAuthJson(): string[] {
 	const oauthPath = join(agentDir, "oauth.json");
 	const settingsPath = join(agentDir, "settings.json");
 
+	// Skip if auth.json already exists
+	if (existsSync(authPath)) return [];
+
 	const migrated: Record<string, unknown> = {};
 	const providers: string[] = [];
-	const oauthExists = existsSync(oauthPath);
 
 	// Migrate oauth.json
-	if (oauthExists) {
+	if (existsSync(oauthPath)) {
 		try {
 			const oauth = JSON.parse(readFileSync(oauthPath, "utf-8"));
 			for (const [provider, cred] of Object.entries(oauth)) {
@@ -54,41 +57,28 @@ export function migrateAuthToAuthJson(): string[] {
 	}
 
 	// Migrate settings.json apiKeys
-	try {
-		const content = readFileSync(settingsPath, "utf-8");
-		const settings = JSON.parse(content);
-		if (settings.apiKeys && typeof settings.apiKeys === "object") {
-			for (const [provider, key] of Object.entries(settings.apiKeys)) {
-				if (!migrated[provider] && typeof key === "string") {
-					migrated[provider] = { type: "api_key", key };
-					providers.push(provider);
+	if (existsSync(settingsPath)) {
+		try {
+			const content = readFileSync(settingsPath, "utf-8");
+			const settings = JSON.parse(content);
+			if (settings.apiKeys && typeof settings.apiKeys === "object") {
+				for (const [provider, key] of Object.entries(settings.apiKeys)) {
+					if (!migrated[provider] && typeof key === "string") {
+						migrated[provider] = { type: "api_key", key };
+						providers.push(provider);
+					}
 				}
+				delete settings.apiKeys;
+				writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 			}
-			delete settings.apiKeys;
-			writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+		} catch {
+			// Skip on error
 		}
-	} catch {
-		// Skip on error (missing or unreadable settings file)
 	}
 
 	if (Object.keys(migrated).length > 0) {
 		mkdirSync(dirname(authPath), { recursive: true });
-		try {
-			writeFileSync(authPath, JSON.stringify(migrated, null, 2), { mode: 0o600, flag: "wx" });
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-				throw error;
-			}
-			// Another process (or a previous run) already wrote auth.json; restore any
-			// oauth credentials we renamed so they are not lost.
-			if (oauthExists && existsSync(`${oauthPath}.migrated`)) {
-				try {
-					renameSync(`${oauthPath}.migrated`, oauthPath);
-				} catch {
-					// Leave the .migrated copy in place if the restore fails.
-				}
-			}
-		}
+		writeFileSync(authPath, JSON.stringify(migrated, null, 2), { mode: 0o600 });
 	}
 
 	return providers;
@@ -228,9 +218,10 @@ export function migrateLegacySessionDirsToSessionRoot(): void {
 
 function filesHaveSameContent(a: string, b: string): boolean {
 	try {
-		const aContent = readFileSync(a);
-		const bContent = readFileSync(b);
-		return aContent.length === bContent.length && aContent.equals(bContent);
+		if (statSync(a).size !== statSync(b).size) {
+			return false;
+		}
+		return readFileSync(a, "utf-8") === readFileSync(b, "utf-8");
 	} catch {
 		return false;
 	}
@@ -272,6 +263,7 @@ function migrateCommandsToPrompts(baseDir: string, label: string): boolean {
 
 function migrateKeybindingsConfigFile(): void {
 	const configPath = join(getAgentDir(), "keybindings.json");
+	if (!existsSync(configPath)) return;
 
 	try {
 		const parsed = JSON.parse(readFileSync(configPath, "utf-8")) as unknown;
@@ -282,7 +274,7 @@ function migrateKeybindingsConfigFile(): void {
 		if (!migrated) return;
 		writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
 	} catch {
-		// Ignore missing or malformed files during migration
+		// Ignore malformed files during migration
 	}
 }
 

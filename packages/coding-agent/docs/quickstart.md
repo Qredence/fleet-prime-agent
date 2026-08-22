@@ -4,14 +4,19 @@ This page gets you from install to a useful first Prime Agent session.
 
 ## Install
 
-Install the public Qredence checkout on Linux or macOS:
+Install the latest stable release on Linux or macOS:
 
 ```bash
-mkdir -p fleet-prime-agent && cd fleet-prime-agent && \
-curl -fsSL https://raw.githubusercontent.com/Qredence/fleet-prime-agent/main/install.sh | sh
+curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh
 ```
 
-The installer clones or reuses the public repository in the current directory, installs both workspaces, builds the production web runtime, and links the `prime-agent` command globally. No upstream PrimeIntellect account or repository access is required.
+To try the latest beta built from `main`:
+
+```bash
+curl -fsSL https://app.primeintellect.ai/prime-agent/install.sh | sh -s -- beta
+```
+
+Both commands fetch versioned Prime Agent release artifacts and install the `prime-agent` command. The inherited npm workspace identifiers in the source tree are not the public install path.
 
 Then start Prime Agent in the project directory you want it to work on:
 
@@ -20,28 +25,16 @@ cd /path/to/project
 prime-agent
 ```
 
-To start the packaged frontend and backend instead:
+To run a source checkout instead, use Node.js 22.8.0 or newer:
 
 ```bash
-fleet-prime
-```
-
-The Fleet Prime launcher uses the current directory as the workspace and binds to `127.0.0.1:3000`. Use `fleet-prime --host <host> --port <port> --cwd <directory>` to override the defaults.
-
-To install manually from a source checkout instead, use Node.js 22.8.0 or newer:
-
-```bash
-git clone https://github.com/Qredence/fleet-prime-agent
-cd fleet-prime-agent
+git clone https://github.com/PrimeIntellect-ai/prime-agent
+cd prime-agent
 npm ci
-pnpm install --dir web --frozen-lockfile
-npm run build
-pnpm --dir web --filter @prime-agent/web build
-node scripts/build-web-release.mjs
-npm link ./packages/coding-agent
+./prime-agent.sh
 ```
 
-The source installer performs these steps for you. The linked command preserves the directory from which it is invoked, so run `fleet-prime` from the project you want to use as the workspace.
+The source runner preserves the directory from which it is invoked, so you can also call `/path/to/prime-agent/prime-agent.sh` from another project.
 
 ## Authenticate
 

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerFauxProvider } from "@earendil-works/pi-ai";
@@ -22,7 +22,7 @@ describe("issue #2753 reload stale resource settings", () => {
 	});
 
 	it("applies updated top-level prompt settings on reload after startup", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "pi-2753-"));
+		const tempDir = join(tmpdir(), `pi-2753-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		const agentDir = join(tempDir, "agent");
 		const promptsDir = join(agentDir, "prompts");
 		mkdirSync(promptsDir, { recursive: true });

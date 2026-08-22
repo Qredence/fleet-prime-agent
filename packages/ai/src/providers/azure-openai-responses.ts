@@ -45,7 +45,6 @@ function resolveDeploymentName(model: Model<"azure-openai-responses">, options?:
 	return mappedDeployment || model.id;
 }
 
-// Azure OpenAI Responses-specific options
 export interface AzureOpenAIResponsesOptions extends StreamOptions {
 	reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 	reasoningSummary?: "auto" | "detailed" | "concise" | null;
@@ -55,9 +54,6 @@ export interface AzureOpenAIResponsesOptions extends StreamOptions {
 	azureDeploymentName?: string;
 }
 
-/**
- * Generate function for Azure OpenAI Responses API
- */
 export const streamAzureOpenAIResponses: StreamFunction<"azure-openai-responses", AzureOpenAIResponsesOptions> = (
 	model: Model<"azure-openai-responses">,
 	context: Context,
@@ -65,7 +61,6 @@ export const streamAzureOpenAIResponses: StreamFunction<"azure-openai-responses"
 ): AssistantMessageEventStream => {
 	const stream = new AssistantMessageEventStream();
 
-	// Start async processing
 	(async () => {
 		const deploymentName = resolveDeploymentName(model, options);
 
@@ -88,7 +83,6 @@ export const streamAzureOpenAIResponses: StreamFunction<"azure-openai-responses"
 		};
 
 		try {
-			// Create Azure OpenAI client
 			const apiKey = options?.apiKey || getEnvApiKey(model.provider) || "";
 			const client = createClient(model, apiKey, options);
 			let params = buildParams(model, context, options, deploymentName);
@@ -155,16 +149,8 @@ export const streamSimpleAzureOpenAIResponses: StreamFunction<"azure-openai-resp
 	} satisfies AzureOpenAIResponsesOptions);
 };
 
-function stripTrailingSlashes(value: string): string {
-	let end = value.length;
-	while (end > 0 && value[end - 1] === "/") {
-		end--;
-	}
-	return value.slice(0, end);
-}
-
 function normalizeAzureBaseUrl(baseUrl: string): string {
-	const trimmed = stripTrailingSlashes(baseUrl.trim());
+	const trimmed = baseUrl.trim().replace(/\/+$/, "");
 	let url: URL;
 	try {
 		url = new URL(trimmed);
@@ -174,7 +160,7 @@ function normalizeAzureBaseUrl(baseUrl: string): string {
 
 	const isAzureHost =
 		url.hostname.endsWith(".openai.azure.com") || url.hostname.endsWith(".cognitiveservices.azure.com");
-	const normalizedPath = stripTrailingSlashes(url.pathname);
+	const normalizedPath = url.pathname.replace(/\/+$/, "");
 
 	// Ensure Azure hosts have /openai/v1 as base path so the AzureOpenAI SDK
 	// can append /deployments/<model>/... and ?api-version=v1 correctly.

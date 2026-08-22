@@ -1,6 +1,7 @@
 // UI Components for extensions
 
 export { AgentMessageComponent } from "./agent-message.js";
+export { ArminComponent } from "./armin.js";
 export { AssistantMessageComponent } from "./assistant-message.js";
 export { BashExecutionComponent } from "./bash-execution.js";
 export { BorderedLoader } from "./bordered-loader.js";
@@ -16,6 +17,7 @@ export {
 } from "./configuration-menu.js";
 export { CustomEditor } from "./custom-editor.js";
 export { CustomMessageComponent } from "./custom-message.js";
+export { DaxnutsComponent } from "./daxnuts.js";
 export { type RenderDiffOptions, renderDiff } from "./diff.js";
 export { DynamicBorder } from "./dynamic-border.js";
 export { ExtensionEditorComponent } from "./extension-editor.js";

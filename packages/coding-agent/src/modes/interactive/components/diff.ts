@@ -7,22 +7,9 @@ import { highlightCode, theme } from "../theme/theme.js";
  * Format: "+123 content" or "-123 content" or " 123 content" or "     ..."
  */
 function parseDiffLine(line: string): { prefix: string; lineNum: string; content: string } | null {
-	const prefix = line[0];
-	if (prefix !== "+" && prefix !== "-" && prefix !== " " && prefix !== "\t") {
-		return null;
-	}
-	let i = 1;
-	while (i < line.length && (line[i] === " " || line[i] === "\t")) {
-		i++;
-	}
-	const lineNumStart = i;
-	while (i < line.length && line[i] >= "0" && line[i] <= "9") {
-		i++;
-	}
-	if (i >= line.length || (line[i] !== " " && line[i] !== "\t")) {
-		return null;
-	}
-	return { prefix, lineNum: line.slice(lineNumStart, i), content: line.slice(i + 1) };
+	const match = line.match(/^([+-\s])(\s*\d*)\s(.*)$/);
+	if (!match) return null;
+	return { prefix: match[1], lineNum: match[2], content: match[3] };
 }
 
 /**

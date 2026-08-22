@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -13,11 +13,10 @@ describe("createAgentSession skills option", () => {
 	let skillsDir: string;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "pi-sdk-test-"));
+		tempDir = join(tmpdir(), `pi-sdk-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		skillsDir = join(tempDir, "skills", "test-skill");
 		mkdirSync(skillsDir, { recursive: true });
 
-		// Create a test skill in the pi skills directory
 		writeFileSync(
 			join(skillsDir, "SKILL.md"),
 			`---
@@ -45,7 +44,6 @@ This is a test skill.
 			sessionManager: SessionManager.inMemory(),
 		});
 
-		// Skills should be discovered and exposed on the session
 		expect(session.resourceLoader.getSkills().skills.length).toBeGreaterThan(0);
 		expect(session.resourceLoader.getSkills().skills.some((s) => s.name === "test-skill")).toBe(true);
 	});

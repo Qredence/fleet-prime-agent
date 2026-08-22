@@ -35,6 +35,15 @@ Fleet browser code consumes only `web/protocol` contracts over the existing NDJS
 
 The current `POST /api/chat` stream already has an initial `start` frame, so that frame is the compatibility handshake for v1 and the SSE `connected` frame re-advertises it on reconnect (the POST `start` frame is never ring-buffered). A separate endpoint is unnecessary for the first capability because browser clients receive it before any live agent events.[2]
 
+### Runtime baseline: upstream 0.8.0
+
+Fleet Prime tracks upstream `PrimeIntellect-ai/prime-agent` at **v0.8.0** (daemon protocol 8, schema revision 23 including the fork-only `seed_messages` capability). Notes for adapter behavior at this baseline:
+
+- Sessions attach in-process (`createAgentSessionFromServices`), so daemon wire revisions do not constrain `web/server`; the fork's `seed_messages` daemon capability is exercised only by CLI/daemon clients.
+- Unknown upstream session events remain silently ignored by the mapper with a compile-time exhaustiveness tripwire; 0.8.0 added refinement transcript messages (`refinement_outcome` custom type), which hydrate as generic assistant messages until a dedicated presentation is specified.
+- Upstream 0.8.0 made generic MCP OAuth credentials endpoint-bound: credentials stored before the upgrade require one re-login (`/mcp login <server>`). The mapper rewrites the runtime's binding error into re-login guidance on the surfaces that carry it (retry start/end and compaction-end error messages); `auth_stale` keeps its fixed re-login prompt.
+- MCP catalog-name overrides were removed upstream: an `mcpServers` entry named after a built-in integration now disables that built-in instead of repointing it.
+
 ## Current event mapping ledger
 
 | Upstream/runtime event | Current Fleet frame | Browser-visible behavior | v1 disposition |

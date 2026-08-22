@@ -60,7 +60,7 @@ Key files:
 
 `InProcessAgentConnection` wraps an `AgentSessionRuntime` for SDK compatibility and explicit local fallbacks. It may access runtime and session objects because it is an adapter; the UI may not.
 
-Process-local extension surface (`AgentConnection.extensions`, abort/system-prompt sync handles, `setup`/`withSession`) stays in-process. Daemon adapters throw `AgentConnectionUnsupportedError` for those members. JavaScript functions and render callbacks never cross the generic connection boundary. Portable new-session seeding uses `seedMessages` (daemon protocol >= 8).
+In-process startup can also provide `InteractiveModeLocalSessionHost` for local callback-bearing extension behavior. JavaScript functions and render callbacks never cross the generic connection boundary.
 
 Key files:
 

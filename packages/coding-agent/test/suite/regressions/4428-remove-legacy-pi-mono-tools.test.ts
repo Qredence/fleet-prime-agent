@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getModel } from "@earendil-works/pi-ai";
@@ -9,14 +9,14 @@ import { DefaultResourceLoader } from "../../../src/core/resource-loader.js";
 import { createAgentSession } from "../../../src/core/sdk.js";
 import { SessionManager } from "../../../src/core/session-manager.js";
 import { SettingsManager } from "../../../src/core/settings-manager.js";
-import { allToolNames, createAllToolDefinitions } from "../../../src/core/tools/index.js";
+import { createAllToolDefinitions } from "../../../src/core/tools/index.js";
 
 describe("regression #4428: remove legacy pi-mono built-in tools", () => {
 	let tempDir: string;
 	let agentDir: string;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "pi-remove-legacy-tools-"));
+		tempDir = join(tmpdir(), `pi-remove-legacy-tools-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		agentDir = join(tempDir, "agent");
 		mkdirSync(agentDir, { recursive: true });
 	});
@@ -28,7 +28,6 @@ describe("regression #4428: remove legacy pi-mono built-in tools", () => {
 	});
 
 	it("registers only ipython as a built-in tool", () => {
-		expect([...allToolNames]).toEqual(["ipython"]);
 		expect(Object.keys(createAllToolDefinitions(process.cwd()))).toEqual(["ipython"]);
 	});
 

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import hostedGitInfo from "hosted-git-info";
 
@@ -208,34 +208,28 @@ export function findGitPaths(cwd: string): GitPaths | null {
 	let dir = cwd;
 	while (true) {
 		const gitPath = join(dir, ".git");
-		let content: string | undefined;
-		try {
-			// Read .git as a file first; a directory throws EISDIR/EPERM, a missing
-			// path ENOENT. One operation decides the .git kind, no check-then-read.
-			content = readFileSync(gitPath, "utf8").trim();
-		} catch (error) {
-			const code = (error as NodeJS.ErrnoException).code;
-			if (code !== "ENOENT" && code !== "EISDIR" && code !== "EACCES" && code !== "EPERM") {
+		if (existsSync(gitPath)) {
+			try {
+				const stat = statSync(gitPath);
+				if (stat.isFile()) {
+					const content = readFileSync(gitPath, "utf8").trim();
+					if (content.startsWith("gitdir: ")) {
+						const gitDir = resolve(dir, content.slice(8).trim());
+						const headPath = join(gitDir, "HEAD");
+						if (!existsSync(headPath)) return null;
+						const commonDirPath = join(gitDir, "commondir");
+						const commonGitDir = existsSync(commonDirPath)
+							? resolve(gitDir, readFileSync(commonDirPath, "utf8").trim())
+							: gitDir;
+						return { repoDir: dir, commonGitDir, headPath };
+					}
+				} else if (stat.isDirectory()) {
+					const headPath = join(gitPath, "HEAD");
+					if (!existsSync(headPath)) return null;
+					return { repoDir: dir, commonGitDir: gitPath, headPath };
+				}
+			} catch {
 				return null;
-			}
-		}
-		if (content !== undefined) {
-			if (content.startsWith("gitdir: ")) {
-				const gitDir = resolve(dir, content.slice(8).trim());
-				const headPath = join(gitDir, "HEAD");
-				if (!existsSync(headPath)) return null;
-				const commonDirPath = join(gitDir, "commondir");
-				const commonGitDir = existsSync(commonDirPath)
-					? resolve(gitDir, readFileSync(commonDirPath, "utf8").trim())
-					: gitDir;
-				return { repoDir: dir, commonGitDir, headPath };
-			}
-			// A regular file that is not a gitdir pointer: keep walking up.
-		} else {
-			// .git is a directory (regular repository).
-			const headPath = join(gitPath, "HEAD");
-			if (existsSync(headPath)) {
-				return { repoDir: dir, commonGitDir: gitPath, headPath };
 			}
 		}
 		const parent = dirname(dir);

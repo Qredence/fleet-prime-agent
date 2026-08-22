@@ -8,7 +8,7 @@
  * - Edge cases and integration between parsing and substitution
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterAll, describe, expect, test } from "vitest";
@@ -335,9 +335,13 @@ describe("parseCommandArgs", () => {
 		}
 	});
 
-	test("should handle quoted empty string", () => {
-		// Note: Empty quotes are skipped by current implementation
-		expect(parseCommandArgs('"" " "')).toEqual([" "]);
+	test("should preserve explicitly quoted empty strings", () => {
+		// An intentionally quoted "" is an argument (e.g. /mcp add ... -- cmd "").
+		expect(parseCommandArgs('"" " "')).toEqual(["", " "]);
+	});
+
+	test("keeps a quoted empty stdio argv element in slash-command parsing", () => {
+		expect(parseCommandArgs('add local -- command ""')).toEqual(["add", "local", "--", "command", ""]);
 	});
 
 	test("should handle arguments with special characters", () => {
@@ -402,7 +406,7 @@ describe("parseCommandArgs + substituteArgs integration", () => {
 // ============================================================================
 
 describe("loadPromptTemplates - argument-hint", () => {
-	const testDir = mkdtempSync(join(tmpdir(), "pi-test-prompts-"));
+	const testDir = join(tmpdir(), `pi-test-prompts-${Date.now()}`);
 
 	function writeTemplate(name: string, content: string) {
 		mkdirSync(testDir, { recursive: true });

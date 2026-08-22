@@ -256,6 +256,27 @@ function writeTelemetryStateAtomically(path: string, state: TelemetryState): voi
 
 export function getOrCreateTelemetryInstallationId(agentDir: string, randomId: () => string = randomUUID): string {
 	const path = join(agentDir, TELEMETRY_STATE_FILE);
+	let replaceInvalidState = false;
+	try {
+		const stats = lstatSync(path);
+		if (!stats.isFile()) {
+			throw new Error("Telemetry state path must be a regular file");
+		}
+		const existing = readInstallationId(path);
+		if (existing) {
+			return existing;
+		}
+		replaceInvalidState = true;
+	} catch (error) {
+		const code =
+			typeof error === "object" && error !== null && "code" in error
+				? String((error as { code?: unknown }).code)
+				: undefined;
+		if (code !== "ENOENT") {
+			throw error;
+		}
+	}
+
 	const installationId = randomId();
 	if (!isInstallationId(installationId)) {
 		throw new Error("Telemetry installation ID generator returned an invalid UUID");
@@ -266,11 +287,15 @@ export function getOrCreateTelemetryInstallationId(agentDir: string, randomId: (
 		installationId,
 	};
 	try {
-		writeFileSync(path, JSON.stringify(state, null, 2), {
-			encoding: "utf8",
-			flag: "wx",
-			mode: 0o600,
-		});
+		if (replaceInvalidState) {
+			writeTelemetryStateAtomically(path, state);
+		} else {
+			writeFileSync(path, JSON.stringify(state, null, 2), {
+				encoding: "utf8",
+				flag: "wx",
+				mode: 0o600,
+			});
+		}
 		return installationId;
 	} catch (error) {
 		const code =
@@ -280,18 +305,7 @@ export function getOrCreateTelemetryInstallationId(agentDir: string, randomId: (
 		if (code !== "EEXIST") {
 			throw error;
 		}
-		// A concurrent process created the file first; validate and reuse it.
-		const stats = lstatSync(path);
-		if (!stats.isFile()) {
-			throw new Error("Telemetry state path must be a regular file");
-		}
-		const existing = readInstallationId(path);
-		if (existing) {
-			return existing;
-		}
-		// The existing file is invalid; replace it atomically.
-		writeTelemetryStateAtomically(path, state);
-		return installationId;
+		return readInstallationId(path) ?? installationId;
 	}
 }
 

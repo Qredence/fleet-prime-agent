@@ -28,6 +28,7 @@ export type {
 	AgentConnectionNewSessionOptions,
 	AgentConnectionParentMetadata,
 	AgentConnectionPromptOptions,
+	AgentConnectionQueuedMessageMutationStatus,
 	AgentConnectionQueueMode,
 	AgentConnectionQueueState,
 	AgentConnectionReplayInfo,
@@ -71,7 +72,6 @@ export type {
 	AgentConnectionSwitchSessionOptions,
 	AgentConnectionThinkingLevelChangeEntry,
 	AgentConnectionToolDefinition,
-	AgentConnectionToolRendererDefinition,
 	AgentConnectionUserMessage,
 } from "./types.js";
-export { AgentConnectionPromptAdmissionError, AgentConnectionUnsupportedError } from "./types.js";
+export { AgentConnectionPromptAdmissionError } from "./types.js";

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -397,7 +397,6 @@ describe("self-update daemon restart", () => {
 	let packageDir: string;
 	let originalAgentDir: string | undefined;
 	let originalPiPackageDir: string | undefined;
-	let originalPrimeAgentDownloadBaseUrl: string | undefined;
 	let originalCwd: string;
 	let originalExecPath: string;
 	let originalExitCode: typeof process.exitCode;
@@ -469,7 +468,7 @@ describe("self-update daemon restart", () => {
 	}
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "pi-self-update-daemon-"));
+		tempDir = join(tmpdir(), `pi-self-update-daemon-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		agentDir = join(tempDir, "agent");
 		projectDir = join(tempDir, "project");
 		packageDir = join(tempDir, "global-prefix", "lib", "node_modules", PACKAGE_NAME);
@@ -509,14 +508,12 @@ describe("self-update daemon restart", () => {
 
 		originalAgentDir = process.env[ENV_AGENT_DIR];
 		originalPiPackageDir = process.env.PI_PACKAGE_DIR;
-		originalPrimeAgentDownloadBaseUrl = process.env.PRIME_AGENT_DOWNLOAD_BASE_URL;
 		originalCwd = process.cwd();
 		originalExecPath = process.execPath;
 		originalExitCode = process.exitCode;
 		process.exitCode = undefined;
 		process.env[ENV_AGENT_DIR] = agentDir;
 		process.env.PI_PACKAGE_DIR = packageDir;
-		process.env.PRIME_AGENT_DOWNLOAD_BASE_URL = "https://downloads.example.test/prime-agent";
 		process.chdir(projectDir);
 		Object.defineProperty(process, "execPath", {
 			value: join(packageDir, "dist", "cli.js"),
@@ -542,11 +539,6 @@ describe("self-update daemon restart", () => {
 			delete process.env.PI_PACKAGE_DIR;
 		} else {
 			process.env.PI_PACKAGE_DIR = originalPiPackageDir;
-		}
-		if (originalPrimeAgentDownloadBaseUrl === undefined) {
-			delete process.env.PRIME_AGENT_DOWNLOAD_BASE_URL;
-		} else {
-			process.env.PRIME_AGENT_DOWNLOAD_BASE_URL = originalPrimeAgentDownloadBaseUrl;
 		}
 		delete process.env[SELF_UPDATE_INTERACTIVE_CHILD_ENV];
 		Object.defineProperty(process, "execPath", { value: originalExecPath, configurable: true });

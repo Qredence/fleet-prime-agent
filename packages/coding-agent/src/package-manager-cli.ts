@@ -1,7 +1,7 @@
 import type { ImageContent, TextContent, UserMessage } from "@earendil-works/pi-ai";
 import chalk from "chalk";
 import { spawn } from "child_process";
-import { closeSync, fstatSync, openSync, readFileSync, rmSync } from "fs";
+import { readFileSync, rmSync, statSync } from "fs";
 import { resolve, sep } from "path";
 import { selectConfig } from "./cli/config-selector.js";
 import {
@@ -57,7 +57,7 @@ import {
 	type DaemonUpdateRestartSession,
 	isUnknownDaemonCommandError,
 } from "./modes/daemon/daemon-protocol.js";
-import { defaultDaemonSocketPath } from "./modes/daemon/daemon-socket.js";
+import { defaultDaemonSocketPath, normalizeSocketPath } from "./modes/daemon/daemon-socket.js";
 import {
 	acquireDaemonShutdownAdmission,
 	persistDaemonStartupFenceFromOwner,
@@ -268,7 +268,7 @@ function parsePackageCommand(args: string[]): PackageCommandOptions | undefined 
 				conflictingOptions = conflictingOptions ?? "--daemon-socket can only be provided once";
 				index++;
 			} else {
-				daemonSocketPath = value;
+				daemonSocketPath = normalizeSocketPath(value);
 				index++;
 			}
 			continue;
@@ -392,7 +392,9 @@ function updateTargetIncludesExtensions(target: UpdateTarget): boolean {
 }
 
 export function resolveUpdateDaemonSocketPath(explicitSocketPath?: string): string {
-	return explicitSocketPath ?? process.env[DAEMON_WORKER_SUPERVISOR_SOCKET_ENV] ?? defaultDaemonSocketPath();
+	return normalizeSocketPath(
+		explicitSocketPath ?? process.env[DAEMON_WORKER_SUPERVISOR_SOCKET_ENV] ?? defaultDaemonSocketPath(),
+	);
 }
 
 function reportDaemonUpdateRestartStatus(status: DaemonUpdateRestartStatus): void {
@@ -784,22 +786,17 @@ function readPreparedDaemonUpdateRestartManifest(
 		getDaemonUpdateRestartManifestPath(socketPath, agentDir),
 		getLegacyDaemonUpdateRestartManifestPath(agentDir),
 	]) {
-		let handle: number;
+		let modifiedAt: number;
 		try {
-			handle = openSync(manifestPath, "r");
+			modifiedAt = statSync(manifestPath).mtimeMs;
 		} catch {
 			continue;
 		}
-		try {
-			const modifiedAt = fstatSync(handle).mtimeMs;
-			if (notBeforeMs !== undefined && modifiedAt < notBeforeMs - 1000) {
-				continue;
-			}
-			const parsed = JSON.parse(readFileSync(handle, "utf-8")) as unknown;
-			return parseDaemonUpdateRestartManifest(parsed);
-		} finally {
-			closeSync(handle);
+		if (notBeforeMs !== undefined && modifiedAt < notBeforeMs - 1000) {
+			continue;
 		}
+		const parsed = JSON.parse(readFileSync(manifestPath, "utf-8")) as unknown;
+		return parseDaemonUpdateRestartManifest(parsed);
 	}
 	return undefined;
 }
@@ -1181,10 +1178,6 @@ function processIdentityFromDaemonHello(
 	};
 }
 
-function normalizedSocketPath(socketPath: string): string {
-	return process.platform === "win32" ? socketPath.toLowerCase() : resolve(socketPath);
-}
-
 function validateReplacementDaemon(
 	socketPath: string,
 	hello: DaemonHello,
@@ -1202,7 +1195,7 @@ function validateReplacementDaemon(
 	}
 	if (
 		!hello.supervisorSocketPath ||
-		normalizedSocketPath(hello.supervisorSocketPath) !== normalizedSocketPath(socketPath)
+		normalizeSocketPath(hello.supervisorSocketPath) !== normalizeSocketPath(socketPath)
 	) {
 		throw new Error(`Replacement daemon identity does not match ${socketPath}`);
 	}

@@ -79,8 +79,7 @@ dependencies = ["${dependencyName}"]
 }
 
 function writeFakePython(filePath: string, importableModules: readonly string[]): void {
-	const specCases = importableModules.map((moduleName) => `        "${moduleName}") exit 0 ;;`).join("\n");
-	const importCases = importableModules.map((moduleName) => `    "import ${moduleName}") exit 0 ;;`).join("\n");
+	const cases = importableModules.map((moduleName) => `    "import ${moduleName}") exit 0 ;;`).join("\n");
 	const runtimeCase = importableModules.includes("rlm") ? '    *"_harness_methods"*) exit 0 ;;' : "";
 	writeExecutable(
 		filePath,
@@ -88,13 +87,7 @@ function writeFakePython(filePath: string, importableModules: readonly string[])
 			"#!/bin/sh",
 			'if [ "$1" = "-c" ]; then',
 			'  case "$2" in',
-			'    *"find_spec"*)',
-			'      case "$3" in',
-			specCases,
-			"        *) exit 1 ;;",
-			"      esac",
-			"      ;;",
-			importCases,
+			cases,
 			runtimeCase,
 			"    *) exit 1 ;;",
 			"  esac",
@@ -109,7 +102,6 @@ function installFakeUv(): string {
 	const binDir = join(tempDir, "bin");
 	mkdirSync(binDir, { recursive: true });
 	const logPath = join(tempDir, "uv.log");
-	const extraSpecCases = DEFAULT_RLM_EXTRA_IMPORT_NAMES.map((moduleName) => `        "${moduleName}") exit 0 ;;`);
 	const extraImportCases = DEFAULT_RLM_EXTRA_IMPORT_NAMES.map((moduleName) => `    "import ${moduleName}") exit 0 ;;`);
 	process.env.UV_LOG = logPath;
 	process.env.PATH = `${binDir}${process.env.PATH ? `:${process.env.PATH}` : ""}`;
@@ -129,17 +121,6 @@ function installFakeUv(): string {
 			"#!/bin/sh",
 			'if [ "$1" = "-c" ]; then',
 			'  case "$2" in',
-			'    *"find_spec"*)',
-			'      case "$3" in',
-			'        "ipykernel"|"rlm")',
-			"          exit 0",
-			"          ;;",
-			...extraSpecCases,
-			"        *)",
-			"          exit 1",
-			"          ;;",
-			"      esac",
-			"      ;;",
 			'    "import ipykernel"|"import rlm") exit 0 ;;',
 			...extraImportCases,
 			'    *"_harness_methods"*) exit 0 ;;',

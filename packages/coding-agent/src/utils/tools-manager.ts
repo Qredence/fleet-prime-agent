@@ -1,12 +1,12 @@
 import chalk from "chalk";
 import { spawnSync } from "child_process";
+import extractZip from "extract-zip";
 import { chmodSync, createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "fs";
 import { arch, platform } from "os";
 import { join } from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { APP_NAME, getBinDir } from "../config.js";
-import { extractZipSafe } from "./zip-extract.js";
 
 const TOOLS_DIR = getBinDir();
 const NETWORK_TIMEOUT_MS = 10_000;
@@ -131,10 +131,6 @@ export function getToolPath(tool: ManagedTool): string | null {
 
 // Fetch latest release version from GitHub
 async function getLatestVersion(repo: string): Promise<string> {
-	// The repo is interpolated into the API URL; only allow owner/name shapes.
-	if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
-		throw new Error(`Invalid GitHub repository: ${repo}`);
-	}
 	const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
 		headers: { "User-Agent": `${APP_NAME}-coding-agent` },
 		signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
@@ -234,7 +230,7 @@ async function downloadTool(tool: ManagedTool): Promise<string> {
 				throw new Error(`Failed to extract ${assetName}: ${errMsg}`);
 			}
 		} else if (assetName.endsWith(".zip")) {
-			await extractZipSafe(archivePath, extractDir);
+			await extractZip(archivePath, { dir: extractDir });
 		} else {
 			throw new Error(`Unsupported archive format: ${assetName}`);
 		}

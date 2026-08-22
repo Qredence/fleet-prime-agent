@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -18,7 +18,7 @@ describe("DefaultResourceLoader", () => {
 	let previousSerperApiKey: string | undefined;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "rl-test-"));
+		tempDir = join(tmpdir(), `rl-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		agentDir = join(tempDir, "agent");
 		cwd = join(tempDir, "project");
 		previousSerperApiKey = process.env.SERPER_API_KEY;
@@ -599,7 +599,6 @@ Explicit override.`,
 
 	describe("extension conflict detection", () => {
 		it("should detect tool conflicts between extensions", async () => {
-			// Create two extensions that register the same tool
 			const ext1Dir = join(agentDir, "extensions", "ext1");
 			const ext2Dir = join(agentDir, "extensions", "ext2");
 			mkdirSync(ext1Dir, { recursive: true });

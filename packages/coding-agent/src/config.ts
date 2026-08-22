@@ -2,22 +2,21 @@ import { spawnSync } from "child_process";
 import { createHash } from "crypto";
 import {
 	accessSync,
-	closeSync,
+	appendFileSync,
 	constants,
 	existsSync,
-	fstatSync,
 	mkdirSync,
-	openSync,
 	readFileSync,
 	realpathSync,
 	renameSync,
 	rmSync,
-	writeSync,
+	statSync,
 } from "fs";
 import { homedir } from "os";
 import { basename, dirname, join, resolve, sep, win32 } from "path";
 import { fileURLToPath } from "url";
 import { shouldUseWindowsShell } from "./utils/child-process.js";
+import { normalizeSocketPath } from "./utils/daemon-socket-path.js";
 
 // =============================================================================
 // Package Detection
@@ -329,7 +328,7 @@ export function getSelfUpdateUnavailableInstruction(
 ): string {
 	const method = detectInstallMethod();
 	if (method === "bun-binary") {
-		return `Download from: https://github.com/Qredence/fleet-prime-agent/releases/latest`;
+		return `Download from: https://github.com/PrimeIntellect-ai/prime-agent/releases/latest`;
 	}
 	if (method === "homebrew") {
 		return `Update with: brew upgrade ${APP_NAME}`;
@@ -376,18 +375,10 @@ export function getPackageDir(): string {
 		// Bun binary: process.execPath points to the compiled executable
 		return dirname(process.execPath);
 	}
-	// Node.js: walk up from __dirname until we find the package root.
-	// copy-binary-assets places a package.json inside dist/ to make it a
-	// self-contained artifact for binary builds; when the parent directory
-	// also has a package.json, that copy must not shadow the real root or
-	// dist-relative assets (web launcher, skills) resolve to dist/dist/.
+	// Node.js: walk up from __dirname until we find package.json
 	let dir = __dirname;
 	while (dir !== dirname(dir)) {
 		if (existsSync(join(dir, "package.json"))) {
-			if (basename(dir) === "dist" && existsSync(join(dirname(dir), "package.json"))) {
-				dir = dirname(dir);
-				continue;
-			}
 			return dir;
 		}
 		dir = dirname(dir);
@@ -432,24 +423,34 @@ export function getPackageJsonPath(): string {
 	return join(getPackageDir(), "package.json");
 }
 
-/** Get path to README.md */
-export function getReadmePath(): string {
-	return resolve(join(getPackageDir(), "README.md"));
-}
-
 /** Get path to docs directory */
 export function getDocsPath(): string {
 	return resolve(join(getPackageDir(), "docs"));
 }
 
-/** Get path to examples directory */
-export function getExamplesPath(): string {
-	return resolve(join(getPackageDir(), "examples"));
-}
-
 /** Get path to CHANGELOG.md */
 export function getChangelogPath(): string {
 	return resolve(join(getPackageDir(), "CHANGELOG.md"));
+}
+
+/**
+ * Get path to built-in interactive assets directory.
+ * - For Bun binary: assets/ next to executable
+ * - For Node.js (dist/): dist/modes/interactive/assets/
+ * - For tsx (src/): src/modes/interactive/assets/
+ */
+export function getInteractiveAssetsDir(): string {
+	if (isBunBinary) {
+		return join(getPackageDir(), "assets");
+	}
+	const packageDir = getPackageDir();
+	const srcOrDist = existsSync(join(packageDir, "src")) ? "src" : "dist";
+	return join(packageDir, srcOrDist, "modes", "interactive", "assets");
+}
+
+/** Get path to a bundled interactive asset */
+export function getBundledInteractiveAssetPath(name: string): string {
+	return join(getInteractiveAssetsDir(), name);
 }
 
 /**
@@ -559,12 +560,13 @@ export function getAgentLogPath(): string {
  * daemon.sock in different dirs) don't interleave into one file.
  */
 export function getDaemonLogPath(socketPath: string): string {
-	const hash = createHash("sha256").update(socketPath).digest("hex").slice(0, 8);
-	return join(getLogsDir(), `${basename(socketPath)}.${hash}.log`);
+	const normalized = normalizeSocketPath(socketPath);
+	const hash = createHash("sha256").update(normalized).digest("hex").slice(0, 8);
+	return join(getLogsDir(), `${basename(normalized)}.${hash}.log`);
 }
 
 export function getDaemonUpdateRestartManifestPath(socketPath: string, agentDir: string = getAgentDir()): string {
-	const normalizedSocketPath = process.platform === "win32" ? socketPath.toLowerCase() : resolve(socketPath);
+	const normalizedSocketPath = normalizeSocketPath(socketPath);
 	const socketHash = createHash("sha256").update(normalizedSocketPath).digest("hex");
 	return join(agentDir, "daemon-update-restarts", `${socketHash}.json`);
 }
@@ -584,55 +586,19 @@ const MAX_LOG_BYTES = 5 * 1024 * 1024;
 export function appendRotatingLog(logPath: string, message: string, maxBytes: number = MAX_LOG_BYTES): void {
 	try {
 		mkdirSync(dirname(logPath), { recursive: true });
-		let handle: number | undefined;
 		try {
-			handle = openSync(logPath, "a");
-			// Write first, then check size and rotate: the size check never precedes the
-			// append, so a concurrent writer is never clobbered between check and write.
-			const data = `${message}\n`;
-			let remaining = data;
-			while (remaining.length > 0) {
-				// Best-effort diagnostics log: the path is fixed and only the message
-				// content (which may come from a network response) is recorded.
-				const written = writeSync(handle, remaining, null, "utf-8"); // codeql[js/http-to-file-access]
-				if (written <= 0) {
-					break;
-				}
-				remaining = remaining.slice(written);
-			}
-			if (fstatSync(handle).size > maxBytes) {
-				closeSync(handle);
-				handle = undefined;
+			if (existsSync(logPath) && statSync(logPath).size > maxBytes) {
 				// Drop any prior .old first: renameSync fails on Windows if it exists.
 				rmSync(`${logPath}.old`, { force: true });
 				renameSync(logPath, `${logPath}.old`);
 			}
 		} catch {
 			// Keep appending rather than dropping the log on a rotation failure.
-			if (handle !== undefined) {
-				try {
-					closeSync(handle);
-				} catch {
-					// Ignore close failures on the error path.
-				}
-			}
-		} finally {
-			if (handle !== undefined) {
-				try {
-					closeSync(handle);
-				} catch {
-					// Ignore close failures.
-				}
-			}
 		}
+		appendFileSync(logPath, `${message}\n`);
 	} catch {
 		// A read-only or missing log dir must never break the caller.
 	}
-}
-
-/** Get path to models.json */
-export function getModelsPath(): string {
-	return join(getAgentDir(), "models.json");
 }
 
 /** Get path to auth.json */
@@ -640,29 +606,14 @@ export function getAuthPath(): string {
 	return join(getAgentDir(), "auth.json");
 }
 
-/** Get path to settings.json */
-export function getSettingsPath(): string {
-	return join(getAgentDir(), "settings.json");
-}
-
 /** Get path to cron jobs store */
 export function getCronJobsPath(agentDir: string = getAgentDir()): string {
 	return join(agentDir, "cron-jobs.json");
 }
 
-/** Get path to tools directory */
-export function getToolsDir(): string {
-	return join(getAgentDir(), "tools");
-}
-
 /** Get path to managed binaries directory (fd, rg) */
 export function getBinDir(): string {
 	return join(getAgentDir(), "bin");
-}
-
-/** Get path to prompt templates directory */
-export function getPromptsDir(): string {
-	return join(getAgentDir(), "prompts");
 }
 
 /** Get path to sessions directory */

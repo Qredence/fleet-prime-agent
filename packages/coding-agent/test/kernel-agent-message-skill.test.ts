@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -30,7 +30,7 @@ describe("agent-message skill over the kernel host bridge", () => {
 	let provisioner: IpythonKernelProvisioner | undefined;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "pi-agent-message-skill-"));
+		tempDir = join(tmpdir(), `pi-agent-message-skill-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(tempDir, { recursive: true });
 	});
 

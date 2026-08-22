@@ -7,7 +7,7 @@
  * assistant usage so cache-read monotonicity can be inspected inside a tool loop.
  */
 
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
@@ -69,7 +69,7 @@ const DEFAULT_MAX_TOKENS = 64;
 
 function parseArgs(argv: string[]): Args {
 	let turns = DEFAULT_TURNS;
-	let sessionPath = join(mkdtempSync(join(tmpdir(), "pi-sdk-codex-cache-probe-tool-loop-")), "session.jsonl");
+	let sessionPath = resolve(join(tmpdir(), `pi-sdk-codex-cache-probe-tool-loop-${Date.now()}.jsonl`));
 	let transport: Transport = "sse";
 	let maxTokens = DEFAULT_MAX_TOKENS;
 
