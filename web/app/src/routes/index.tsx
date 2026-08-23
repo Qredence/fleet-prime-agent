@@ -146,6 +146,7 @@ function ChatWorkspaceShell() {
       />
       <RightPanelProvider
         chatPanelData={chatPanelData}
+        onOpenUIAction={handleOpenUIAction}
         settingsActions={settingsActions}
         workspaceTree={workspaceTreeContext}
       >

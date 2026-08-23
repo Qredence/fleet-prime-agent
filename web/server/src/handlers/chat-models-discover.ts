@@ -1,6 +1,20 @@
 import { ChatModelsDiscoverRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { isOccFamilyApi } from "@prime-agent/web-protocol/provider-catalog";
+import { addCustomProviderModelIds, listCustomProviders, uiApiForCustomProvider } from "../custom-provider-store";
 import { getPrimeConfig } from "../prime-config";
 import { wrapApiHandler } from "../wrap-api-handler";
+
+export function openAiModelsUrl(baseUrl: string): URL {
+	const parsed = new URL(baseUrl);
+	if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+		throw new Error("model discovery requires an http(s) URL");
+	}
+	const path = parsed.pathname.replace(/\/+$/, "");
+	parsed.pathname = path.endsWith("/v1") ? `${path}/models` : `${path}/v1/models`;
+	parsed.search = "";
+	parsed.hash = "";
+	return parsed;
+}
 
 export function handleChatModelsDiscoverPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
@@ -16,12 +30,16 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 		}
 
 		const provider = body.providerId;
-		const customProviders = (
-			config.modelRegistry as unknown as {
-				customProviderModels?: Record<string, { baseUrl?: string; models?: Array<string> }>;
-			}
-		).customProviderModels;
-		const baseUrl = customProviders?.[provider]?.baseUrl;
+		const custom = listCustomProviders(`${config.agentDir}/models.json`);
+		const entry = custom[provider];
+		const api = uiApiForCustomProvider(entry?.api);
+		if ((entry?.api && !api) || (api && !isOccFamilyApi(api))) {
+			return Response.json({
+				providerId: provider,
+				models: [],
+			});
+		}
+		const baseUrl = entry?.baseUrl;
 		if (!baseUrl) {
 			return Response.json({
 				providerId: provider,
@@ -30,17 +48,11 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 		}
 
 		try {
-			const parsedBaseUrl = new URL(baseUrl);
-			if (parsedBaseUrl.protocol !== "https:" && parsedBaseUrl.protocol !== "http:") {
-				return Response.json({
-					providerId: provider,
-					models: [],
-				});
-			}
+			const modelsUrl = openAiModelsUrl(baseUrl);
 			// Stored provider credentials are sent to the user-configured provider
 			// endpoint; this is the model discovery auth flow.
 			// codeql[js/file-access-to-http]
-			const response = await fetch(`${parsedBaseUrl.toString().replace(/\/$/, "")}/v1/models`, {
+			const response = await fetch(modelsUrl, {
 				headers: { Authorization: `Bearer ${apiKey}` },
 				signal: AbortSignal.timeout(10_000),
 			});
@@ -64,6 +76,14 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 				defaultThinkingLevel: "off" as const,
 				thinkingLevels: ["off"] as const,
 			}));
+			if (models.length > 0) {
+				addCustomProviderModelIds(
+					`${config.agentDir}/models.json`,
+					provider,
+					models.map((model) => model.id),
+				);
+				config.reloadAuth();
+			}
 			return Response.json({ providerId: provider, models });
 		} catch {
 			return Response.json({ providerId: provider, models: [] });

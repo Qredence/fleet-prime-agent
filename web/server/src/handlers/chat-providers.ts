@@ -1,11 +1,31 @@
-import { existsSync, readFileSync } from "node:fs";
 import { getProviders } from "@earendil-works/pi-ai";
 import { getOAuthProviders } from "@earendil-works/pi-ai/oauth";
+import type { ChatProviderInfo } from "@prime-agent/web-protocol/chat-protocol";
 import {
 	ChatProviderRemoveRequestSchema,
 	ChatProviderUpdateRequestSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
-import { KNOWN_PROVIDERS } from "@prime-agent/web-protocol/provider-catalog";
+import {
+	allocateProviderId,
+	isCustomProviderId,
+	isNamedOccInstanceId,
+	isOccProviderId,
+	isPiCustomProviderApi,
+	KNOWN_PROVIDERS,
+	normalizeCustomProviderInstance,
+	OPENAI_CHAT_COMPLETIONS_PROVIDER_ID,
+	toCustomProviderId,
+	toInstanceSlug,
+	toOccInstanceId,
+} from "@prime-agent/web-protocol/provider-catalog";
+import {
+	envVarNameForManagedProvider,
+	isDiscoverableEntry,
+	listCustomProviders,
+	removeCustomProvider,
+	uiApiForCustomProvider,
+	upsertCustomProvider,
+} from "../custom-provider-store";
 import { getPrimeConfig } from "../prime-config";
 import { PRIME_PROVIDER_ENV_MAP } from "../prime-provider-env-map";
 import { wrapApiHandler } from "../wrap-api-handler";
@@ -46,16 +66,27 @@ const BUILT_IN_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	"github-copilot": "GitHub Copilot",
 };
 
-type CustomProviderEntry = {
-	name?: string;
-	baseUrl?: string;
-	apiKey?: string;
-	models?: Array<{ id: string }>;
+const KNOWN_PROVIDER_BY_ID = new Map(KNOWN_PROVIDERS.map((provider) => [provider.id, provider]));
+
+/**
+ * Builtin credential env-var hints that live outside pi-ai's `envMap` mirror:
+ * anthropic's key is special-cased in `packages/ai/src/env-api-keys.ts`
+ * (after `ANTHROPIC_OAUTH_TOKEN`), and Bedrock accepts a static bearer token.
+ * These extend the mirror, they do not fork it — see `PRIME_PROVIDER_ENV_MAP`.
+ */
+const EXTRA_BUILTIN_ENV_HINTS: Record<string, string> = {
+	anthropic: "ANTHROPIC_API_KEY",
+	"amazon-bedrock": "AWS_BEARER_TOKEN_BEDROCK",
 };
 
-type CustomProvidersMap = Record<string, CustomProviderEntry>;
+/** Env-var hint shown next to the credential field for a builtin provider. */
+function envHintForBuiltin(providerId: string): string {
+	return PRIME_PROVIDER_ENV_MAP[providerId] ?? EXTRA_BUILTIN_ENV_HINTS[providerId] ?? "";
+}
 
-const KNOWN_PROVIDER_BY_ID = new Map(KNOWN_PROVIDERS.map((provider) => [provider.id, provider]));
+function badRequest(message: string): never {
+	throw Object.assign(new Error(message), { status: 400 });
+}
 
 export function resolveProviderAuthFields(
 	providerId: string,
@@ -72,45 +103,54 @@ export function resolveProviderAuthFields(
 	};
 }
 
-function readCustomProviders(modelsJsonPath: string): CustomProvidersMap {
-	try {
-		if (!existsSync(modelsJsonPath)) return {};
-		const raw = readFileSync(modelsJsonPath, "utf-8");
-		const parsed = JSON.parse(raw) as { providers?: CustomProvidersMap };
-		return parsed.providers ?? {};
-	} catch {
-		return {};
-	}
-}
-
-function buildProviders() {
+function buildProviders(): Array<ChatProviderInfo> {
 	const config = getPrimeConfig();
 	const oauthIds = new Set(getOAuthProviders().map((p) => p.id));
 
-	const custom = readCustomProviders(`${config.agentDir}/models.json`);
+	const custom = listCustomProviders(`${config.agentDir}/models.json`);
 	const builtinIds = new Set<string>(getProviders());
 	const allIds = new Set<string>([...builtinIds, ...Object.keys(custom)]);
+	// The generic OpenAI Chat Completions slot is always offered, even before a
+	// models.json entry exists, so its "add named instance" flow stays visible.
+	allIds.add(OPENAI_CHAT_COMPLETIONS_PROVIDER_ID);
 
-	return Array.from(allIds)
+	return [...allIds]
 		.map((id) => {
 			const isCustom = !builtinIds.has(id);
-			const customEntry = custom[id];
+			const customEntry = isCustom ? custom[id] : undefined;
 			const status = config.modelRegistry.getProviderAuthStatus(id);
-			const name = isCustom ? (customEntry?.name ?? id) : (BUILT_IN_PROVIDER_DISPLAY_NAMES[id] ?? id);
-			const envVarName = isCustom ? (customEntry?.apiKey ?? "") : (PRIME_PROVIDER_ENV_MAP[id] ?? "");
+			const catalogEntry = KNOWN_PROVIDER_BY_ID.get(id);
+			const name = isCustom
+				? (customEntry?.name ?? catalogEntry?.name ?? id)
+				: (BUILT_IN_PROVIDER_DISPLAY_NAMES[id] ?? catalogEntry?.name ?? id);
+			const envVarName = isCustom ? (customEntry?.apiKey ?? catalogEntry?.envVarName ?? "") : envHintForBuiltin(id);
 			const authFields = resolveProviderAuthFields(id, envVarName, oauthIds);
-			return {
+
+			const row: ChatProviderInfo = {
 				id,
 				name,
 				envVarName,
 				...authFields,
 				isConfigured: status.configured,
 			};
+
+			if (isOccProviderId(id) || isCustomProviderId(id)) {
+				row.providerFamily = isOccProviderId(id) ? OPENAI_CHAT_COMPLETIONS_PROVIDER_ID : "custom";
+				if (customEntry?.name && (isNamedOccInstanceId(id) || isCustomProviderId(id))) {
+					row.displayName = customEntry.name;
+				}
+				const customApi = uiApiForCustomProvider(customEntry?.api);
+				if (customApi) row.api = customApi;
+				if (customEntry?.baseUrl) row.baseUrl = customEntry.baseUrl;
+				row.modelIds = (customEntry?.models ?? []).map((model) => model.id);
+				row.discoverable = isDiscoverableEntry(customEntry);
+			}
+			return row;
 		})
 		.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function listChatProviders() {
+export function listChatProviders(): Array<ChatProviderInfo> {
 	return buildProviders();
 }
 
@@ -120,12 +160,97 @@ export function handleChatProvidersGet(_request: Request): Promise<Response> {
 	});
 }
 
+function requireBaseUrl(baseUrl: string | undefined, providerId: string): string {
+	const trimmed = baseUrl?.trim() ?? "";
+	if (!trimmed) {
+		badRequest(`baseUrl is required for ${providerId}`);
+	}
+	try {
+		const parsed = new URL(trimmed);
+		if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+			badRequest(`baseUrl must be an http(s) URL for ${providerId}`);
+		}
+	} catch (error) {
+		if (error && typeof error === "object" && "status" in error) throw error;
+		badRequest(`baseUrl must be an http(s) URL for ${providerId}`);
+	}
+	return trimmed;
+}
+
 export function handleChatProvidersPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const raw = await request.json().catch(() => ({}));
 		const body = ChatProviderUpdateRequestSchema.parse(raw);
 		const config = getPrimeConfig();
-		config.authStorage.set(body.providerId, {
+		const modelsJsonPath = `${config.agentDir}/models.json`;
+
+		const isNewCustom = body.providerId === "custom";
+		const isNewOccInstance =
+			body.providerId === OPENAI_CHAT_COMPLETIONS_PROVIDER_ID && body.createOccInstance === true;
+		const isManagedProvider = isNewCustom || isCustomProviderId(body.providerId) || isOccProviderId(body.providerId);
+		const isDefaultOccSlot = body.providerId === OPENAI_CHAT_COMPLETIONS_PROVIDER_ID && !isNewOccInstance;
+
+		if (!isManagedProvider) {
+			// Plain catalog provider: credentials only, no models.json involvement.
+			config.authStorage.set(body.providerId, {
+				type: "api_key",
+				key: body.apiKey,
+			});
+			config.reloadAuth();
+			return Response.json({
+				success: true,
+				providers: buildProviders(),
+			});
+		}
+
+		// Custom provider / OCC family: register (or update) the provider in
+		// prime-agent's models.json, then store the key under the final id.
+		let providerId = body.providerId;
+		if (isNewCustom || isNewOccInstance) {
+			const displayName = body.displayName?.trim() ?? "";
+			if (!displayName) {
+				badRequest("displayName is required when creating a new provider instance");
+			}
+			const existingIds = new Set<string>([...getProviders(), ...Object.keys(listCustomProviders(modelsJsonPath))]);
+			providerId = allocateProviderId(
+				toInstanceSlug(displayName),
+				existingIds,
+				isNewCustom ? toCustomProviderId : toOccInstanceId,
+			);
+		}
+
+		const existingEntry = listCustomProviders(modelsJsonPath)[providerId];
+		const api =
+			body.api ??
+			(uiApiForCustomProvider(existingEntry?.api)
+				? uiApiForCustomProvider(existingEntry?.api)
+				: "openai-completions");
+		if (!isPiCustomProviderApi(api)) {
+			badRequest(`unsupported api "${api}" for ${providerId}`);
+		}
+		const baseUrl = requireBaseUrl(body.baseUrl?.trim() || existingEntry?.baseUrl, providerId);
+		const { modelIds } = normalizeCustomProviderInstance({
+			modelId: body.modelId ?? existingEntry?.models?.[0]?.id,
+			api,
+			modelIds: body.models ?? existingEntry?.models?.map((model) => model.id),
+		});
+		if (modelIds.length === 0) {
+			badRequest(
+				isDefaultOccSlot
+					? `modelId is required for ${providerId}`
+					: `at least one model id is required for ${providerId}`,
+			);
+		}
+
+		const displayName = body.displayName?.trim() || existingEntry?.name;
+		upsertCustomProvider(modelsJsonPath, providerId, {
+			...(displayName ? { name: displayName } : {}),
+			baseUrl,
+			api,
+			apiKey: envVarNameForManagedProvider(providerId),
+			models: modelIds.map((id) => ({ id })),
+		});
+		config.authStorage.set(providerId, {
 			type: "api_key",
 			key: body.apiKey,
 		});
@@ -142,6 +267,13 @@ export function handleChatProvidersDelete(request: Request): Promise<Response> {
 		const raw = await request.json().catch(() => ({}));
 		const body = ChatProviderRemoveRequestSchema.parse(raw);
 		const config = getPrimeConfig();
+
+		if (isCustomProviderId(body.providerId) || isOccProviderId(body.providerId)) {
+			// Removing the registration for a UI-managed provider must not leave a
+			// stale models.json entry behind (the default OCC slot stays listed via
+			// the synthesized row even after removal).
+			removeCustomProvider(`${config.agentDir}/models.json`, body.providerId);
+		}
 		config.authStorage.remove(body.providerId);
 		config.reloadAuth();
 		return Response.json({

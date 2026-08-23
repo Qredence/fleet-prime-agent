@@ -464,6 +464,7 @@ export function useChatWorkspaceData() {
 		isLoadingProviders,
 		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
 		loadWorkspaceFile: loadProjectWorkspaceFile,
+		messages,
 		modelKey,
 		models,
 		modelCatalog,

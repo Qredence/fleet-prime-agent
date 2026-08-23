@@ -321,10 +321,14 @@ export type ChatProviderInfo = {
 	providerFamily?: string;
 	/** OCC family only: user-supplied display label for the instance. */
 	displayName?: string;
-	/** Native Pi API family for a custom provider (absent for catalog rows). */
+	/** Custom provider only: native Pi API family for a custom provider (absent for catalog rows). */
 	api?: PiCustomProviderApi;
+	/** Custom provider/OCC only: non-secret base URL used by the Settings editor. */
+	baseUrl?: string;
 	/** Custom provider only: model ids registered for this provider. */
 	modelIds?: Array<string>;
+	/** Custom provider/OCC only: models can be discovered from the recorded base URL. */
+	discoverable?: boolean;
 };
 
 export type ChatProviderUpdateRequest = {

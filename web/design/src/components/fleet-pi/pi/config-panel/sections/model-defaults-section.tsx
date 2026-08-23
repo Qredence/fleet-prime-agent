@@ -1,4 +1,4 @@
-import { Plus, Search, Trash2 } from "lucide-react"
+import { Plus, Search, Star, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Button } from "../../../../button"
 import {
@@ -32,6 +32,7 @@ export function ModelDefaultsSection({
   onDiscoverProvider,
   onModelFilterChange,
   onRemoveModel,
+  onSetDefaultModel,
   onRevert,
   onSave,
   providers,
@@ -47,9 +48,10 @@ export function ModelDefaultsSection({
   onDiscoverProvider: (providerId: string) => Promise<void>
   onModelFilterChange: (value: string) => void
   onRemoveModel: (model: ConfigModelInfo) => void
+  onSetDefaultModel?: (model: ConfigModelInfo) => void
   onRevert: () => void
   onSave: () => void
-  providers: Array<{ id: string; isConfigured: boolean }>
+  providers: Array<{ id: string; isConfigured: boolean; discoverable?: boolean; name?: string; displayName?: string }>
   saving: boolean
   settingsLoading: boolean
 }) {
@@ -75,6 +77,35 @@ export function ModelDefaultsSection({
     }
     return ids
   }, [draft?.enabledModels, modelOptions, providers])
+
+  const discoverableProviderIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const provider of providers) {
+      if (provider.discoverable === true && configuredProviderIds.has(provider.id)) {
+        ids.add(provider.id)
+      }
+    }
+    return ids
+  }, [configuredProviderIds, providers])
+
+  const isDefaultModel = useMemo(() => {
+    return (model: ConfigModelInfo) =>
+      !!draft?.defaultProvider &&
+      !!draft?.defaultModel &&
+      model.provider === draft.defaultProvider &&
+      model.modelId === draft.defaultModel
+  }, [draft?.defaultModel, draft?.defaultProvider])
+
+  /** Preferred labels for custom/OCC instances, falling back to the catalog. */
+  const providerLabel = useMemo(() => {
+    const labels = new Map<string, string>()
+    for (const provider of providers) {
+      if (provider.displayName || provider.name) {
+        labels.set(provider.id, provider.displayName ?? provider.name ?? provider.id)
+      }
+    }
+    return (providerId: string) => labels.get(providerId) ?? formatProviderLabel(providerId)
+  }, [providers])
 
   const listedModels = useMemo(() => {
     return modelOptions.filter((model) => {
@@ -191,30 +222,53 @@ export function ModelDefaultsSection({
           groupedListed.map(([provider, models]) => (
             <div key={provider} className="flex flex-col gap-1.5">
               <div className="px-1 text-xs font-medium text-muted-foreground">
-                {formatProviderLabel(provider)}
+                {providerLabel(provider)}
               </div>
               {models.map((model) => (
                 <ItemRow
                   key={model.id}
                   icon={<ProviderBrandIcon provider={model.provider} />}
                   title={model.name}
-                  subtitle={`${formatProviderLabel(model.provider)} · ${model.modelId}`}
+                  subtitle={`${providerLabel(model.provider)} · ${model.modelId}`}
                   trailing={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        HIT_AREA_EXPAND_DENSE_CLASS,
-                        "h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-destructive active:scale-[0.96]"
-                      )}
-                      disabled={disabled}
-                      aria-label={`Remove ${model.name}`}
-                      onClick={() => onRemoveModel(model)}
-                    >
-                      <Trash2 data-icon="inline-start" />
-                      Remove
-                    </Button>
+                    <div className="flex items-center">
+                      {isDefaultModel(model) ? (
+                        <span className="px-2 text-xs font-medium text-muted-foreground">
+                          Default
+                        </span>
+                      ) : onSetDefaultModel ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            HIT_AREA_EXPAND_DENSE_CLASS,
+                            "h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 active:scale-[0.96]"
+                          )}
+                          disabled={disabled}
+                          aria-label={`Set ${model.name} as default`}
+                          onClick={() => onSetDefaultModel(model)}
+                        >
+                          <Star data-icon="inline-start" />
+                          Set default
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          HIT_AREA_EXPAND_DENSE_CLASS,
+                          "h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-destructive active:scale-[0.96]"
+                        )}
+                        disabled={disabled}
+                        aria-label={`Remove ${model.name}`}
+                        onClick={() => onRemoveModel(model)}
+                      >
+                        <Trash2 data-icon="inline-start" />
+                        Remove
+                      </Button>
+                    </div>
                   }
                 />
               ))}
@@ -226,12 +280,14 @@ export function ModelDefaultsSection({
       {addOpen ? (
         <AddModelsDialog
           configuredProviderIds={configuredProviderIds}
+          discoverableProviderIds={discoverableProviderIds}
           discoveringProviderId={discoveringProviderId}
           enabledModels={draft?.enabledModels}
           modelOptions={modelOptions}
           onAddModels={onAddModels}
           onDiscoverProvider={onDiscoverProvider}
           onOpenChange={setAddOpen}
+          providerLabel={providerLabel}
         />
       ) : null}
     </SettingsPane>

@@ -148,6 +148,7 @@ function useSettingsForm() {
     modelDirty,
     addModels,
     removeModel,
+    setDefaultModel,
     discoverProvider,
     discoveringProviderId,
     commitModelSettings,
@@ -251,6 +252,7 @@ function useSettingsForm() {
     handlePackageRowsChange,
     addModels,
     removeModel,
+    setDefaultModel,
     discoverProvider,
     discoveringProviderId,
     saveSection,
@@ -391,6 +393,7 @@ function SettingsDialogPaneContent({
     handlePackageRowsChange,
     addModels,
     removeModel,
+    setDefaultModel,
     discoverProvider,
     discoveringProviderId,
     saveSection,
@@ -520,6 +523,7 @@ function SettingsDialogPaneContent({
         onDiscoverProvider={discoverProvider}
         onModelFilterChange={setModelFilter}
         onRemoveModel={removeModel}
+        onSetDefaultModel={setDefaultModel}
         providers={providers}
         onRevert={revertModelDraft}
         onSave={() => draft && saveSection("models", modelSettings(draft))}

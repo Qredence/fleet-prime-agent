@@ -143,7 +143,8 @@ export function useProviderCredentialsController({
 		setEditingIsNewOccInstance(opts?.newOccInstance === true);
 		resetEditor();
 		const existing = providers.find((provider) => provider.id === providerId);
-		setDisplayName(existing?.displayName ?? "");
+		setBaseUrl(existing?.baseUrl ?? "");
+		setDisplayName(existing?.displayName ?? (isCustomProviderId(providerId) ? (existing?.name ?? "") : ""));
 		setApi(existing?.api ?? "openai-completions");
 		setModels((existing?.modelIds ?? []).join(", "));
 		setModelId(existing?.modelIds?.[0] ?? "");
