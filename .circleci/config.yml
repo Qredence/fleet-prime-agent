@@ -25,7 +25,35 @@ commands:
             if command -v fdfind >/dev/null 2>&1; then
               sudo tee /usr/local/bin/fd >/dev/null \<<'EOF'
             #!/usr/bin/env bash
-            exec fdfind --strip-cwd-prefix=always "$@"
+            set -euo pipefail
+
+            base_dir="."
+            args=("$@")
+            for ((index = 0; index < ${#args[@]}; index += 1)); do
+              case "${args[index]}" in
+                --base-directory)
+                  if ((index + 1 < ${#args[@]})); then
+                    base_dir="${args[index + 1]}"
+                  fi
+                  ;;
+                --base-directory=*)
+                  base_dir="${args[index]#--base-directory=}"
+                  ;;
+              esac
+            done
+
+            output="$(fdfind --strip-cwd-prefix=always "$@")" || exit $?
+            if [[ -z "$output" ]]; then
+              exit 1
+            fi
+
+            while IFS= read -r path; do
+              path="${path#./}"
+              if [[ "$path" != */ && ( -d "$path" || -d "$base_dir/$path" ) ]]; then
+                path="$path/"
+              fi
+              printf '%s\n' "$path"
+            done \<<< "$output"
             EOF
               sudo chmod +x /usr/local/bin/fd
             elif ! command -v fd >/dev/null 2>&1; then
