@@ -97,7 +97,7 @@ export {
 } from "./daemon/daemon-protocol.js";
 export type { SessionActivity, SessionLifecycle, SessionSummary } from "./daemon/daemon-session-list.js";
 export { resolveAttachModelFallbackMessage } from "./daemon/daemon-session-list.js";
-export { defaultDaemonSocketPath } from "./daemon/daemon-socket.js";
+export { defaultDaemonSocketPath, normalizeSocketPath } from "./daemon/daemon-socket.js";
 export { runDaemonSupervisorMode } from "./daemon/daemon-supervisor.js";
 export {
 	type InteractiveInitialPrompt,
@@ -106,8 +106,10 @@ export {
 	type InteractiveModeRunResult,
 } from "./interactive/interactive-mode.js";
 export {
+	createInteractiveModeLocalSessionHost,
 	createInteractiveModeUiServices,
 	createInteractiveModeUiServicesFromServices,
+	type InteractiveModeLocalSessionHost,
 	type InteractiveModeUiServices,
 } from "./interactive/interactive-mode-services.js";
 export {

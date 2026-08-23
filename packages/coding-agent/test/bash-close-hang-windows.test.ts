@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -35,7 +35,7 @@ function cleanupDetachedChild(pidFile: string): void {
 		try {
 			execFileSync("taskkill", ["/F", "/T", "/PID", String(pid)], { stdio: "ignore" });
 		} catch {
-			// Process may have already exited.
+			// The detached Windows child may already have exited.
 		}
 	}
 }
@@ -73,7 +73,7 @@ describe.skipIf(process.platform !== "win32")("Windows child-process close handl
 	let testDir: string;
 
 	beforeEach(() => {
-		testDir = mkdtempSync(join(tmpdir(), "coding-agent-bash-close-test-"));
+		testDir = join(tmpdir(), `coding-agent-bash-close-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(testDir, { recursive: true });
 	});
 

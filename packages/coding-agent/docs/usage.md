@@ -42,7 +42,7 @@ Type `/` in the editor to open command completion. Extensions can register custo
 | `/effort` | Set the reasoning/thinking level |
 | `/scoped-models` | Enable/disable models for Ctrl+P cycling |
 | `/settings` | Thinking level, theme, message delivery, transport |
-| `/resume` | Pick from previous sessions |
+| `/resume [id\|path]` | Open the agents view, or resume a session directly |
 | `/new` | Start a new session |
 | `/name <name>` | Set session display name |
 | `/session` | Show session file, ID, and message counts |
@@ -68,9 +68,11 @@ You can submit messages while the agent is still working:
 
 - **Enter** queues a steering message, delivered after the current assistant turn finishes executing its tool calls.
 - **Alt+Enter** queues a follow-up message, delivered after the agent finishes all work.
-- **Ctrl+C** interrupts the current operation and briefly shows the exit hint; press it again while the hint is visible to exit.
+- **Ctrl+C** interrupts the current operation and briefly shows the exit hint; press it again while the hint is visible to exit. Queued messages are kept and resume after your next submit or edit.
 - **Escape** clears the input bar without interrupting the agent.
-- **Alt+Up** retrieves queued messages back to the editor.
+- **Alt+Up / Alt+Down** browse queued messages one at a time and return to the untouched draft.
+- While browsing, **Enter** applies the edit as steering input and **Alt+Enter** applies it as a follow-up; submitting an empty edit deletes the item.
+- **Ctrl+Option+Up / Ctrl+Option+Down** move the selected item earlier or later within its queue.
 
 On Windows Terminal, Alt+Enter is fullscreen by default. Remap it as described in [Terminal setup](terminal-setup.md) if you want Prime Agent to receive the shortcut.
 
@@ -355,7 +357,7 @@ prime-agent --tools ipython -p "Review the code"
 | `PI_PACKAGE_DIR` | Override package directory, useful for Nix/Guix store paths |
 | `PI_OFFLINE` | Disable startup network operations, including update checks and package update checks |
 | `PI_SKIP_VERSION_CHECK` | Skip the Prime Agent version update check at startup. This prevents the release manifest request |
-| `PRIME_AGENT_DOWNLOAD_BASE_URL` | Optional internal release manifest and tarball base URL; unset for source installs |
+| `PRIME_AGENT_DOWNLOAD_BASE_URL` | Override the Prime Agent release manifest and tarball base URL |
 | `PI_CACHE_RETENTION` | Set to `long` for extended prompt cache where supported |
 | `PRIME_API_KEY` | Prime Inference API key; also used for trace sharing when it has `agent_traces` scope |
 | `PRIME_AGENT_TRACES_API_KEY` | Prime API key used only for opt-in trace sharing |

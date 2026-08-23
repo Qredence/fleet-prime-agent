@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -155,7 +155,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("defers only to a file-based integration that actually loaded", () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "pi-herdr-defer-"));
+		const tempDir = join(tmpdir(), `pi-herdr-defer-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 
@@ -180,7 +180,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("ignores events from sessions other than the one it bound to", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -218,8 +218,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("reports lifecycle state to the herdr socket", async () => {
-		// Unix socket paths must stay under ~104 chars; use a short base dir.
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -231,7 +230,6 @@ describe("herdrAgentStateExtension", () => {
 		process.env.HERDR_SOCKET_PATH = socketPath;
 		process.env.HERDR_PANE_ID = "w1:p1";
 		process.env.HERDR_PI_IDLE_DEBOUNCE_MS = "10";
-		// Isolate from any real agent dir that may contain the file-based integration.
 		process.env.PRIME_AGENT_CODING_AGENT_DIR = tempDir;
 
 		const { pi, handlers } = createMockPi();
@@ -265,8 +263,6 @@ describe("herdrAgentStateExtension", () => {
 		await waitForRequests(3);
 		expect(requests[2]?.params.state).toBe("idle");
 
-		// Session replacement must not release: the successor session re-reports,
-		// and a racing release could clear the successor's fresh report.
 		await handlers.get("session_shutdown")?.[0]?.({ type: "session_shutdown", reason: "new" }, ctx);
 		await new Promise((resolve) => setTimeout(resolve, 50));
 		expect(requests).toHaveLength(3);
@@ -278,7 +274,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("unsubscribes the shared-bus herdr:blocked listener on shutdown", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -295,14 +291,12 @@ describe("herdrAgentStateExtension", () => {
 		expect(busHandlers.get("herdr:blocked")).toHaveLength(1);
 
 		const ctx = { sessionManager: { getSessionFile: () => undefined, getSessionId: () => "s" } };
-		// Replacement shutdowns must also unsubscribe, or every /reload and /new
-		// stacks another live listener on the shared bus.
 		await handlers.get("session_shutdown")?.[0]?.({ type: "session_shutdown", reason: "new" }, ctx);
 		expect(busHandlers.get("herdr:blocked")).toHaveLength(0);
 	});
 
 	it("reports working when the session starts mid-turn (reload)", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -318,7 +312,6 @@ describe("herdrAgentStateExtension", () => {
 		const { pi, handlers } = createMockPi();
 		herdrAgentStateExtension(pi);
 
-		// Reload mid-turn: the fresh reporter's session_start sees a busy session.
 		const ctx = {
 			sessionManager: { getSessionFile: () => undefined, getSessionId: () => "s" },
 			isIdle: () => false,
@@ -327,14 +320,13 @@ describe("herdrAgentStateExtension", () => {
 		await waitForRequests(1);
 		expect(requests[0]?.params.state).toBe("working");
 
-		// The turn's real end must still be honored (agentActive was seeded).
 		handlers.get("agent_end")?.[0]?.({ type: "agent_end", messages: [] }, ctx);
 		await waitForRequests(2);
 		expect(requests[1]?.params.state).toBe("idle");
 	});
 
 	it("settles the retry hold when a blocked event interrupts it", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -353,7 +345,6 @@ describe("herdrAgentStateExtension", () => {
 		const ctx = { sessionManager: { getSessionFile: () => undefined, getSessionId: () => "s" } };
 		handlers.get("session_start")?.[0]?.({ type: "session_start", reason: "startup" }, ctx);
 		handlers.get("agent_start")?.[0]?.({ type: "agent_start" }, ctx);
-		// End with a retryable provider error: enters the retry hold (working).
 		handlers.get("agent_end")?.[0]?.(
 			{
 				type: "agent_end",
@@ -377,7 +368,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("holds working through any error end until the retry grace settles", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -397,9 +388,6 @@ describe("herdrAgentStateExtension", () => {
 		const ctx = { sessionManager: { getSessionFile: () => undefined, getSessionId: () => "s" } };
 		handlers.get("session_start")?.[0]?.({ type: "session_start", reason: "startup" }, ctx);
 		handlers.get("agent_start")?.[0]?.({ type: "agent_start" }, ctx);
-		// The agent's auto-retry classifies almost every provider error as
-		// retryable, so an error the old pattern list missed must still hold
-		// working (not flip idle) while a retry may be pending.
 		handlers.get("agent_end")?.[0]?.(
 			{
 				type: "agent_end",
@@ -408,15 +396,13 @@ describe("herdrAgentStateExtension", () => {
 			ctx,
 		);
 
-		// No retry arrives: after the grace window the pane settles to blocked
-		// with the error message, never reporting idle in between.
 		await waitForRequests(3);
 		expect(requests.map((r) => r.params.state)).toEqual(["idle", "working", "blocked"]);
 		expect(requests.at(-1)?.params.message).toContain("unexpected provider failure");
 	});
 
 	it("sends no reports after quit release", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -434,8 +420,6 @@ describe("herdrAgentStateExtension", () => {
 		const ctx = { sessionManager: { getSessionFile: () => undefined, getSessionId: () => "s" } };
 		handlers.get("session_start")?.[0]?.({ type: "session_start", reason: "startup" }, ctx);
 		handlers.get("agent_start")?.[0]?.({ type: "agent_start" }, ctx);
-		// Quit while the working report may still be in flight; the release must
-		// be the final write, with no report reclaiming the pane afterwards.
 		await handlers.get("session_shutdown")?.[0]?.({ type: "session_shutdown", reason: "quit" }, ctx);
 		handlers.get("agent_start")?.[0]?.({ type: "agent_start" }, ctx);
 
@@ -449,7 +433,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("silences a replaced instance without releasing the pane", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");
@@ -468,9 +452,6 @@ describe("herdrAgentStateExtension", () => {
 		handlers.get("session_start")?.[0]?.({ type: "session_start", reason: "startup" }, ctx);
 		await waitForRequests(1);
 
-		// Replacement shutdown: no release (the successor re-reports), and the
-		// old instance must go quiet - a late report with its process-wide seq
-		// would outrank and stomp the successor's state.
 		await handlers.get("session_shutdown")?.[0]?.({ type: "session_shutdown", reason: "new" }, ctx);
 		handlers.get("agent_start")?.[0]?.({ type: "agent_start" }, ctx);
 		await new Promise((resolve) => setTimeout(resolve, 100));
@@ -480,7 +461,7 @@ describe("herdrAgentStateExtension", () => {
 	});
 
 	it("keeps seq monotonically increasing across extension instances", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "hrd-"));
+		const tempDir = join(tmpdir(), `hrd-${Math.random().toString(36).slice(2, 8)}`);
 		mkdirSync(tempDir, { recursive: true });
 		cleanupPaths.push(tempDir);
 		const socketPath = join(tempDir, "h.sock");

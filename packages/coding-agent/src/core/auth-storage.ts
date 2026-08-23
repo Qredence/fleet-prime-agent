@@ -116,14 +116,10 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 	}
 
 	private ensureFileExists(): void {
-		try {
-			writeFileSync(this.authPath, "{}", { encoding: "utf-8", flag: "wx", mode: 0o600 });
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-				throw error;
-			}
+		if (!existsSync(this.authPath)) {
+			writeFileSync(this.authPath, "{}", "utf-8");
+			chmodSync(this.authPath, 0o600);
 		}
-		chmodSync(this.authPath, 0o600);
 	}
 
 	private acquireLockSyncWithRetry(path: string): () => void {
@@ -160,7 +156,7 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 		let release: (() => void) | undefined;
 		try {
 			release = this.acquireLockSyncWithRetry(this.authPath);
-			const current = this.readCurrentUnlocked();
+			const current = existsSync(this.authPath) ? readFileSync(this.authPath, "utf-8") : undefined;
 			const { result, next } = fn(current);
 			if (next !== undefined) {
 				writeFileSync(this.authPath, next, "utf-8");
@@ -171,17 +167,6 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 			if (release) {
 				release();
 			}
-		}
-	}
-
-	private readCurrentUnlocked(): string | undefined {
-		try {
-			return readFileSync(this.authPath, "utf-8");
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-				return undefined;
-			}
-			throw error;
 		}
 	}
 
@@ -215,7 +200,7 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 			});
 
 			throwIfCompromised();
-			const current = this.readCurrentUnlocked();
+			const current = existsSync(this.authPath) ? readFileSync(this.authPath, "utf-8") : undefined;
 			const { result, next } = await fn(current);
 			throwIfCompromised();
 			if (next !== undefined) {
@@ -702,6 +687,25 @@ export class AuthStorage {
 	}
 
 	/**
+	 * Remove a provider's credential with the disk write verified: throws on any
+	 * load or write failure instead of recording it, so callers can refuse to
+	 * proceed while the credential may still exist on disk. Disk-authoritative
+	 * and idempotent — in-memory state is only updated after the write succeeds.
+	 */
+	removeVerified(provider: string): void {
+		this.storage.withLock((current) => {
+			const currentData = this.parseStorageData(current);
+			if (!(provider in currentData)) return { result: undefined };
+			const merged: AuthStorageData = { ...currentData };
+			delete merged[provider];
+			return { result: undefined, next: JSON.stringify(merged, null, 2) };
+		});
+		delete this.data[provider];
+		// Post-success only: a failed removal must not make a stale-marked credential selectable again.
+		this.clearStaleAuthSource(provider, "stored");
+	}
+
+	/**
 	 * List all providers with credentials.
 	 */
 	list(): string[] {
@@ -834,7 +838,7 @@ export class AuthStorage {
 		providerId: string,
 		options?: { includeFallback?: boolean },
 	): Promise<AuthApiKeyResult> {
-		// Runtime override takes highest priority
+		// Runtime overrides take precedence over stored credentials and environment keys.
 		const runtimeCandidate = this.getRuntimeAuthCandidate(providerId);
 		const runtimeKey = this.runtimeOverrides.get(providerId);
 		if (runtimeKey && runtimeCandidate && !this.isAuthSourceStale(providerId, runtimeCandidate)) {
@@ -898,15 +902,12 @@ export class AuthStorage {
 			if (storedCandidate && !this.isAuthSourceStale(providerId, storedCandidate)) {
 				const provider = getOAuthProvider(providerId);
 				if (!provider) {
-					// Unknown OAuth provider, can't get API key
 					return {};
 				}
-
-				// Check if token needs refresh
+				// Lock refreshes so concurrent instances cannot race on the credential file.
 				const needsRefresh = Date.now() >= cred.expires;
 
 				if (needsRefresh) {
-					// Use locked refresh to prevent race conditions
 					try {
 						const result = await this.refreshOAuthTokenWithLock(providerId);
 						if (result) {
@@ -920,12 +921,11 @@ export class AuthStorage {
 						}
 					} catch (error) {
 						this.recordError(error);
-						// Refresh failed - re-read file to check if another instance succeeded
+						// A peer may have refreshed successfully; reload before treating this refresh as failed.
 						this.reload();
 						const updatedCred = this.data[providerId];
 
 						if (updatedCred?.type === "oauth" && Date.now() < updatedCred.expires) {
-							// Another instance refreshed successfully, use those credentials
 							const updatedCandidate = this.getStoredAuthCandidate(providerId);
 							return {
 								apiKey: provider.getApiKey(updatedCred),
@@ -935,12 +935,10 @@ export class AuthStorage {
 							};
 						}
 
-						// Refresh truly failed - return undefined so model discovery skips this provider
-						// User can /login to re-authenticate (credentials preserved for retry)
+						// Preserve credentials for a later /login retry while discovery skips this provider.
 						return {};
 					}
 				} else {
-					// Token not expired, use current access token
 					return {
 						apiKey: provider.getApiKey(cred),
 						sourceToken: this.getAuthSourceTokenForCandidate(providerId, storedCandidate),
@@ -948,8 +946,7 @@ export class AuthStorage {
 				}
 			}
 		}
-
-		// Other providers preserve auth.json priority over environment variables.
+		// Stored auth wins over environment variables for non-Prime-Inference providers.
 		if (
 			providerId !== PRIME_INFERENCE_PROVIDER_ID &&
 			envKey &&
@@ -961,8 +958,6 @@ export class AuthStorage {
 				sourceToken: this.getAuthSourceTokenForCandidate(providerId, envCandidate),
 			};
 		}
-
-		// Fall back to custom resolver (e.g., models.json custom providers)
 		if (options?.includeFallback !== false) {
 			const fallbackCandidate = this.getFallbackAuthCandidate(providerId);
 			if (fallbackCandidate && !this.isAuthSourceStale(providerId, fallbackCandidate)) {

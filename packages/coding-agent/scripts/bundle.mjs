@@ -32,7 +32,7 @@ try {
 rmSync(outdir, { recursive: true, force: true });
 
 await build({
-	entryPoints: [join(packageDir, "dist", "cli.js"), join(packageDir, "dist", "fleet-prime.js")],
+	entryPoints: [join(packageDir, "dist", "cli.js")],
 	outdir,
 	bundle: true,
 	splitting: true,
@@ -40,16 +40,7 @@ await build({
 	platform: "node",
 	// Native or interop-sensitive packages stay external; they resolve from
 	// node_modules at runtime (and are loaded via createRequire/lazily anyway).
-	// @mistralai/mistralai statically imports optional @opentelemetry/api; leave
-	// it unresolved in the bundle the same way scripts/check-browser-smoke.mjs does.
-	external: [
-		"zeromq",
-		"koffi",
-		"undici",
-		"@silvia-odwyer/photon-node",
-		"@mariozechner/clipboard",
-		"@opentelemetry/api",
-	],
+	external: ["zeromq", "koffi", "undici", "@silvia-odwyer/photon-node", "@mariozechner/clipboard"],
 	define: { __PI_BUNDLED__: "true", __PI_BUILD_ID__: JSON.stringify(buildId) },
 	banner: {
 		js: "import { createRequire as __piBundleCreateRequire } from 'node:module'; const require = __piBundleCreateRequire(import.meta.url);",
@@ -58,5 +49,4 @@ await build({
 });
 
 chmodSync(join(outdir, "cli.js"), 0o755);
-chmodSync(join(outdir, "fleet-prime.js"), 0o755);
-console.log("bundled dist/cli.js and dist/fleet-prime.js -> dist/bundle/");
+console.log("bundled dist/cli.js -> dist/bundle/");

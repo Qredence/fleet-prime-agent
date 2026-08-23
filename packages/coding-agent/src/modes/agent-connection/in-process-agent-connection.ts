@@ -13,14 +13,14 @@ import type {
 	AgentHeartbeatManagementAction,
 	AgentHeartbeatUpdateAction,
 } from "../../core/cron-jobs.js";
-import type { ExtensionUIContext, ReplacedSessionContext } from "../../core/extensions/types.js";
+import type { ExtensionUIContext } from "../../core/extensions/types.js";
+import type { AcpMcpServerConfig } from "../../core/mcp/acp-mcp-types.js";
 import type { RefinementResult } from "../../core/refinement/index.js";
 import { type DeleteSessionFileResult, deleteSessionFile } from "../../core/session-file-actions.js";
-import { type ReadonlySessionManager, SessionManager } from "../../core/session-manager.js";
+import { SessionManager } from "../../core/session-manager.js";
 import type { SessionStats } from "../../core/session-stats.js";
 import { type SideQuestionRun, startSideQuestion } from "../../core/side-question.js";
 import { waitForHeadlessCompletion } from "../headless-completion.js";
-import { seedMessageToSessionMessage } from "./seed-messages.js";
 import {
 	createAgentConnectionCommands,
 	createAgentConnectionResourceSnapshot,
@@ -34,9 +34,9 @@ import type {
 	AgentConnectionEvent,
 	AgentConnectionEventListener,
 	AgentConnectionExecuteBashOptions,
-	AgentConnectionExtensions,
 	AgentConnectionExtensionUiResponse,
 	AgentConnectionForkOptions,
+	AgentConnectionHeadlessCompletionOptions,
 	AgentConnectionHeartbeat,
 	AgentConnectionModel,
 	AgentConnectionModelCatalog,
@@ -45,18 +45,21 @@ import type {
 	AgentConnectionNavigateTreeResult,
 	AgentConnectionNewSessionOptions,
 	AgentConnectionPromptOptions,
+	AgentConnectionQueuedMessageLane,
+	AgentConnectionQueuedMessageMutation,
+	AgentConnectionQueuedMessageMutationStatus,
 	AgentConnectionQueueMode,
 	AgentConnectionQueueState,
-	AgentConnectionReplacedClientContext,
 	AgentConnectionResourceSnapshot,
+	AgentConnectionRlmChildAgentSnapshot,
 	AgentConnectionSavedSessionInfo,
 	AgentConnectionSavedSessionScope,
 	AgentConnectionScopedModel,
 	AgentConnectionSessionContext,
 	AgentConnectionSessionHeader,
+	AgentConnectionSessionInputPause,
 	AgentConnectionSessionListCallbacks,
 	AgentConnectionSessionTreeNode,
-	AgentConnectionSessionView,
 	AgentConnectionSessionWatcher,
 	AgentConnectionSideQuestionTurn,
 	AgentConnectionSlashCommand,
@@ -64,7 +67,6 @@ import type {
 	AgentConnectionState,
 	AgentConnectionSwitchSessionOptions,
 	AgentConnectionToolDefinition,
-	AgentConnectionToolRendererDefinition,
 	AgentConnectionUserMessage,
 } from "./types.js";
 
@@ -77,13 +79,11 @@ export class InProcessAgentConnection implements AgentConnection {
 	private readonly listeners = new Set<AgentConnectionEventListener>();
 	private readonly beforeSessionInvalidateListeners = new Set<AgentConnectionBeforeSessionInvalidateListener>();
 	private readonly sideQuestionRuns = new Map<string, SideQuestionRun>();
+	private readonly sessionInputPauses = new Map<string, AgentConnectionSessionInputPause>();
 	private headlessExtensionOptions: InProcessHeadlessExtensionOptions | undefined;
 	private unsubscribeSessionEvents: (() => void) | undefined;
-	readonly extensions: AgentConnectionExtensions;
-	private sessionView: AgentConnectionSessionView | undefined;
 
 	constructor(private readonly runtimeHost: AgentSessionRuntime) {
-		this.extensions = this.createExtensionsSurface();
 		this.bindCurrentSessionEvents();
 		if (typeof this.runtimeHost.setBeforeSessionInvalidate === "function") {
 			this.runtimeHost.setBeforeSessionInvalidate(() => {
@@ -111,6 +111,18 @@ export class InProcessAgentConnection implements AgentConnection {
 		await this.bindCurrentSessionExtensions();
 	}
 
+	supportsAcpMcpServers(): boolean {
+		return true;
+	}
+
+	async replaceAcpMcpServers(servers: readonly AcpMcpServerConfig[], ownerId: string): Promise<void> {
+		this.runtimeHost.session.replaceAcpMcpServers(servers, ownerId);
+	}
+
+	async releaseAcpMcpServers(ownerId: string, serverNames: readonly string[]): Promise<void> {
+		await this.runtimeHost.session.releaseAcpMcpServers(ownerId, serverNames);
+	}
+
 	subscribe(listener: AgentConnectionEventListener): () => void {
 		this.listeners.add(listener);
 		return () => {
@@ -133,34 +145,16 @@ export class InProcessAgentConnection implements AgentConnection {
 		return createAgentConnectionSnapshot(this.runtimeHost);
 	}
 
+	async getRlmChildSnapshots(): Promise<AgentConnectionRlmChildAgentSnapshot[]> {
+		return this.session.getRlmChildSnapshots();
+	}
+
 	async getMessages(): Promise<AgentMessage[]> {
 		return this.session.state.messages;
 	}
 
 	async getSessionHeader(): Promise<AgentConnectionSessionHeader | undefined> {
 		return this.session.sessionManager.getHeader() ?? undefined;
-	}
-
-	getAbortSignal(): AbortSignal | undefined {
-		return this.session.agent.signal;
-	}
-
-	getSessionView(): AgentConnectionSessionView {
-		this.sessionView ??= this.createSessionView();
-		return this.sessionView;
-	}
-
-	getReadonlySessionManager(): ReadonlySessionManager {
-		return this.session.sessionManager;
-	}
-
-	getSystemPromptSync(): string {
-		return this.session.systemPrompt;
-	}
-
-	async setAgentTransport(transport: Transport): Promise<void> {
-		this.session.settingsManager.setTransport(transport);
-		this.session.agent.transport = transport;
 	}
 
 	async getCommands(): Promise<AgentConnectionSlashCommand[]> {
@@ -218,6 +212,15 @@ export class InProcessAgentConnection implements AgentConnection {
 		};
 	}
 
+	async mutateQueuedMessage(
+		lane: AgentConnectionQueuedMessageLane,
+		index: number,
+		expectedText: string,
+		mutation: AgentConnectionQueuedMessageMutation,
+	): Promise<AgentConnectionQueuedMessageMutationStatus> {
+		return this.session.mutateQueuedMessage(lane, index, expectedText, mutation);
+	}
+
 	async clearQueue(): Promise<AgentConnectionQueueState> {
 		return this.session.clearQueue();
 	}
@@ -226,6 +229,23 @@ export class InProcessAgentConnection implements AgentConnection {
 		const queue = this.session.clearQueue();
 		this.session.requestAbort();
 		return queue;
+	}
+
+	async acquireSessionInputPause(leaseKey: string): Promise<AgentConnectionSessionInputPause> {
+		const existing = this.sessionInputPauses.get(leaseKey);
+		if (existing) return existing;
+		const pause = this.session.acquireSessionInputPause();
+		let released = false;
+		const lease: AgentConnectionSessionInputPause = {
+			release: async () => {
+				if (released) return;
+				pause.release();
+				released = true;
+				if (this.sessionInputPauses.get(leaseKey) === lease) this.sessionInputPauses.delete(leaseKey);
+			},
+		};
+		this.sessionInputPauses.set(leaseKey, lease);
+		return lease;
 	}
 
 	async listCronJobs(_options: { includeInactive?: boolean } = {}): Promise<AgentCronJob[]> {
@@ -409,8 +429,8 @@ export class InProcessAgentConnection implements AgentConnection {
 		await this.session.waitForIdle();
 	}
 
-	async waitForHeadlessCompletion(): Promise<AgentAutonomousStatus> {
-		return waitForHeadlessCompletion(this.session);
+	async waitForHeadlessCompletion(options?: AgentConnectionHeadlessCompletionOptions): Promise<AgentAutonomousStatus> {
+		return waitForHeadlessCompletion(this.session, options);
 	}
 
 	async executeBash(command: string, options?: AgentConnectionExecuteBashOptions): Promise<void> {
@@ -507,67 +527,21 @@ export class InProcessAgentConnection implements AgentConnection {
 	}
 
 	async newSession(options?: AgentConnectionNewSessionOptions): Promise<{ cancelled: boolean }> {
-		const seedMessages = options?.seedMessages;
-		const seedSetup =
-			seedMessages && seedMessages.length > 0
-				? async (sessionManager: SessionManager) => {
-						for (const message of seedMessages) {
-							sessionManager.appendMessage(seedMessageToSessionMessage(message, this.session.model));
-						}
-					}
-				: undefined;
-		const setup = options?.setup
-			? async (sessionManager: SessionManager) => {
-					await seedSetup?.(sessionManager);
-					await options.setup?.(sessionManager);
-				}
-			: seedSetup;
-		const afterReplaceHook = this.createAfterReplaceHook(options?.afterReplace);
-		const withSession = options?.withSession
-			? async (ctx: ReplacedSessionContext) => {
-					await options.withSession?.(ctx);
-					await afterReplaceHook?.();
-				}
-			: afterReplaceHook;
-		return this.runtimeHost.newSession({
-			parentSession: options?.parentSession,
-			setup,
-			withSession,
-		});
+		return this.runtimeHost.newSession(options);
 	}
 
 	async switchSession(
 		sessionPath: string,
 		options?: AgentConnectionSwitchSessionOptions,
 	): Promise<{ cancelled: boolean }> {
-		const afterReplaceHook = this.createAfterReplaceHook(options?.afterReplace);
-		const withSession = options?.withSession
-			? async (ctx: ReplacedSessionContext) => {
-					await options.withSession?.(ctx);
-					await afterReplaceHook?.();
-				}
-			: afterReplaceHook;
-		return this.runtimeHost.switchSession(sessionPath, {
-			cwdOverride: options?.cwdOverride,
-			withSession,
-		});
+		return this.runtimeHost.switchSession(sessionPath, options);
 	}
 
 	async fork(
 		entryId: string,
 		options?: AgentConnectionForkOptions,
 	): Promise<{ cancelled: boolean; selectedText?: string }> {
-		const afterReplaceHook = this.createAfterReplaceHook(options?.afterReplace);
-		const withSession = options?.withSession
-			? async (ctx: ReplacedSessionContext) => {
-					await options.withSession?.(ctx);
-					await afterReplaceHook?.();
-				}
-			: afterReplaceHook;
-		return this.runtimeHost.fork(entryId, {
-			position: options?.position,
-			withSession,
-		});
+		return this.runtimeHost.fork(entryId, options);
 	}
 
 	async navigateTree(
@@ -651,6 +625,8 @@ export class InProcessAgentConnection implements AgentConnection {
 
 	async dispose(): Promise<void> {
 		this.abortAllSideQuestions();
+		await Promise.allSettled([...this.sessionInputPauses.values()].map((pause) => pause.release()));
+		this.sessionInputPauses.clear();
 		this.unsubscribeSessionEvents?.();
 		this.unsubscribeSessionEvents = undefined;
 		if (typeof this.runtimeHost.setBeforeSessionInvalidate === "function") {
@@ -662,100 +638,6 @@ export class InProcessAgentConnection implements AgentConnection {
 
 	private get session() {
 		return this.runtimeHost.session;
-	}
-
-	/**
-	 * The withSession hook runs after the replacement session is live (runtime
-	 * already rebound events). The ReplacedClientContext is intentionally built
-	 * over the connection's own prompt/subscribe plumbing rather than the
-	 * extension ReplacedSessionContext it receives, so daemon adapters can
-	 * honor the same semantic once the wire protocol grows client callbacks:
-	 * sendUserMessage admits a prompt through this connection; notify/setEditorText
-	 * are delivered to subscribers as client_notice/client_set_editor_text events.
-	 */
-	private createAfterReplaceHook(
-		afterReplace?: (ctx: AgentConnectionReplacedClientContext) => void | Promise<void>,
-	): (() => Promise<void>) | undefined {
-		if (!afterReplace) {
-			return undefined;
-		}
-		return async () => {
-			const ctx: AgentConnectionReplacedClientContext = {
-				sendUserMessage: async (text) => {
-					await this.prompt(text);
-				},
-				notify: async (message, level) => {
-					await this.emit({ type: "client_notice", message, level });
-				},
-				setEditorText: async (text) => {
-					await this.emit({ type: "client_set_editor_text", text });
-				},
-			};
-			await afterReplace(ctx);
-		};
-	}
-
-	private createSessionView(): AgentConnectionSessionView {
-		return {
-			getCwd: async () => this.session.sessionManager.getCwd(),
-			getSessionDir: async () => this.session.sessionManager.getSessionDir(),
-			getSessionName: async () => this.session.sessionManager.getSessionName(),
-			getHeader: async () => {
-				const header = this.session.sessionManager.getHeader();
-				if (!header) {
-					throw new Error("Session has no header yet.");
-				}
-				return header;
-			},
-			getFlatTree: async () => this.session.sessionManager.getFlatTree(),
-			getLeafId: async () => this.session.sessionManager.getLeafId(),
-			buildSessionContext: async () => this.session.sessionManager.buildSessionContext(),
-			materializeSessionFile: async () => this.session.sessionManager.materializeSessionFile(),
-		};
-	}
-
-	private createExtensionsSurface(): AgentConnectionExtensions {
-		return {
-			getArgumentCompletions: async (commandName, argumentPrefix) => {
-				const command = this.session.extensionRunner.getCommand(commandName);
-				if (!command?.getArgumentCompletions) {
-					return null;
-				}
-				return command.getArgumentCompletions(argumentPrefix);
-			},
-			getCommandDiagnostics: async () => this.session.extensionRunner.getCommandDiagnostics(),
-			getShortcutDiagnostics: async () => this.session.extensionRunner.getShortcutDiagnostics(),
-			getShortcuts: async () =>
-				this.session.extensionRunner.getRegisteredCommands().map((entry) => ({
-					name: entry.invocationName,
-					registeredName: entry.name,
-					description: entry.description,
-					source: "extension" as const,
-					sourceInfo: entry.sourceInfo,
-				})),
-			getKeyboardShortcuts: (resolvedKeybindings) => this.session.extensionRunner.getShortcuts(resolvedKeybindings),
-			getMessageRenderer: (customType) => this.session.extensionRunner.getMessageRenderer(customType),
-			getToolRendererDefinition: async (name) => {
-				const definition = this.session.getToolDefinition(name);
-				if (!definition) {
-					return undefined;
-				}
-				const rendererDefinition: AgentConnectionToolRendererDefinition = {};
-				if (definition.renderCall) {
-					rendererDefinition.renderCall = definition.renderCall;
-				}
-				if (definition.renderResult) {
-					rendererDefinition.renderResult = definition.renderResult;
-				}
-				if (definition.renderShell) {
-					rendererDefinition.renderShell = definition.renderShell;
-				}
-				return Object.keys(rendererDefinition).length > 0 ? rendererDefinition : undefined;
-			},
-			bindExtensions: async (bindings) => {
-				await this.session.bindExtensions(bindings);
-			},
-		};
 	}
 
 	private bindCurrentSessionEvents(): void {

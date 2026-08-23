@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,7 +42,7 @@ describe("package commands", () => {
 	}
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "pi-package-commands-"));
+		tempDir = join(tmpdir(), `pi-package-commands-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		agentDir = join(tempDir, "agent");
 		projectDir = join(tempDir, "project");
 		packageDir = join(tempDir, "local-package");
@@ -60,7 +60,6 @@ describe("package commands", () => {
 		process.exitCode = undefined;
 		process.env[ENV_AGENT_DIR] = agentDir;
 		process.env.TMPDIR = tempDir;
-		process.env.PRIME_AGENT_DOWNLOAD_BASE_URL = "https://downloads.example.test/prime-agent";
 		process.chdir(projectDir);
 	});
 
@@ -332,8 +331,7 @@ else {
 		const fakeNpmPath = join(tempDir, "fake-npm.cjs");
 		const recordPath = join(tempDir, "self-update.json");
 		const baseUrl = "https://downloads.example.test/prime-agent";
-		const newerVersion = getNewerPatchVersion();
-		const tarballPath = `releases/v${newerVersion}/prime-agent-${newerVersion}.tgz`;
+		const tarballPath = "releases/v0.73.0/prime-agent-0.73.0.tgz";
 		mkdirSync(selfPackageDir, { recursive: true });
 		writeFileSync(
 			fakeNpmPath,
@@ -358,7 +356,7 @@ else {
 		});
 		vi.stubGlobal(
 			"fetch",
-			vi.fn(async () => Response.json({ package: "prime-agent", tarball: tarballPath, version: newerVersion })),
+			vi.fn(async () => Response.json({ package: "prime-agent", tarball: tarballPath, version: "0.73.0" })),
 		);
 
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});

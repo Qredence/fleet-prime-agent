@@ -3,7 +3,7 @@
 A self-improving RLM agent + multi-project workspace web UI. It delivers persistent agent sessions (IPython, subagents, daemon-backed runs) and a design-system-aligned workspace surface — session sidebar, project registry, managed attachments, protocol schemas (`project`, `attachment`, `OpenUI`).
 
 Value proposition:
-- **Agent runtime** — persistent IPython, recursive subagents (`rlm`), self-improving harness (`/refine`), skills as packages, daemon-backed sessions.
+- **Agent runtime** — persistent IPython, recursive subagents (`rlm`), self-improving harness (`/refine`), skills as executable packages.
 - **Workspace layer** — multi-project workspace, session sidebar, design tokens (`web/design`), wire contracts (`web/protocol`), HTTP adapter (`web/server`), React 19 chat (`web/app`).
 
 [![CI](https://github.com/Qredence/fleet-prime-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Qredence/fleet-prime-agent/actions/workflows/ci.yml)
@@ -34,7 +34,7 @@ The workspace delivers:
 - `web/app` — React 19 web chat with session sidebar, attachments, multi-project registry.
 - `web/design` — design tokens and component library (BEUI renderer).
 - `web/protocol` — `project`, `attachment`, `OpenUI` zod schemas.
-- `packages/*` — agent core, AI abstraction, coding agent CLI, TUI.
+- `packages/ai`, `packages/agent`, `packages/coding-agent`, `packages/tui` — agent core, AI provider abstraction, coding-agent CLI/daemon, TUI.
 
 Run the workspace surface from any directory:
 
@@ -45,20 +45,6 @@ Run the workspace surface from any directory:
 ## Interfaces
 
 - **Web chat** — the primary surface. Streams agent turns over NDJSON, pushes out-of-turn events over SSE, and renders tool calls, plans, and questions as UI cards. For development, run `pnpm --dir web --filter @prime-agent/web dev` and open http://127.0.0.1:3000.
-- **Terminal UI** — a full interactive terminal agent. Run `./prime-agent.sh` from anywhere; it preserves your working directory.
-- **Daemon** — agents keep running when your terminal disconnects. Reattach later, schedule work, and let agents message each other without routing through the user.
-
-Common terminal commands:
-
-```bash
-prime-agent agents              # Browse running, idle, and saved sessions
-prime-agent attach <agent>      # Reattach to a running session
-prime-agent --resume <path|id>  # Resume a saved session
-prime-agent status              # Inspect background service state
-prime-agent doctor [--fix]      # Inspect or repair background services
-prime-agent update [--force]    # Update Prime Agent
-prime-agent shutdown [--force]  # Stop every agent, worker, and background service
-```
 
 ## What it can do
 
@@ -66,7 +52,6 @@ prime-agent shutdown [--force]  # Stop every agent, worker, and background servi
 - **Recursive subagents** — `rlm(...)` spawns real child agents for parallel or background work and returns their results programmatically.
 - **Self-improving harness** — `/refine` reviews the current trajectory and applies small, evidence-backed updates to supplemental harness state. It never rewrites the immutable base system prompt, and recorded snapshots support rollback.
 - **Skills are executable** — skills are importable Python packages; a built-in skill creator turns recurring workflows into project or personal skills.
-- **Daemon-backed sessions** — agents keep running when the terminal disconnects and can be reattached later; heartbeats, schedules, and autonomous mode preserve progress across turns.
 - **Agent-to-agent communication** — running agents can exchange messages and orchestrate one another.
 
 ## Requirements
@@ -75,7 +60,7 @@ prime-agent shutdown [--force]  # Stop every agent, worker, and background servi
 - npm >= 11.10 (enforces the 7-day minimum release age for Prime Agent dependency updates; older npm silently ignores it)
 - pnpm >= 11 (Qredence UI under `web/`)
 - Git (required by the installer)
-- Python >= 3.10 (only needed for the IPython runtime, `prime-agent-runtime`)
+- Python >= 3.10 (only if using the managed IPython kernel)
 
 ## Repository layout
 
@@ -86,14 +71,12 @@ An npm workspace for Prime Agent (`packages/*`) and a pnpm workspace for the Qre
 | `packages/ai` | `@earendil-works/pi-ai` | LLM provider abstraction and model registry |
 | `packages/agent` | `@earendil-works/pi-agent-core` | Core agent session runtime |
 | `packages/coding-agent` | `@earendil-works/pi-coding-agent` | Coding agent CLI, SDK entry point, and daemon |
-| `packages/tui` | `@earendil-works/pi-tui` | Terminal UI |
 | `web/protocol` | `@prime-agent/web-protocol` | Web wire contract (`ChatStreamEvent`, zod schemas, provider catalog) |
 | `web/design` | `@prime-agent/web-design` | Shared web chat components and tool renderers |
 | `web/server` | `@prime-agent/web-server` | HTTP adapter (`PrimeBridge`, event mapper, handlers) |
 | `web/app` | `@prime-agent/web` | Web chat frontend (TanStack Start host) |
-| `prime-agent-runtime` | — | Python IPython kernel shim (requires Python >= 3.10) |
 
-`web/server` is the only web package that imports `@earendil-works/*`. Install Prime Agent with npm at the repo root, then the UI with `pnpm install` in `web/`.
+`web/server` is the only web package that imports `@earendil-works/*`. Install Prime Agent with npm at the repo root, then the UI with `pnpm install` in `web/`. The `packages/*` engine and `prime-agent-runtime/` are vendored verbatim from upstream — synced, never merged (see "Upstream and Fleet version" below).
 
 ## Getting started from source
 
@@ -113,7 +96,7 @@ pnpm --dir web --filter @prime-agent/web dev
 Open http://127.0.0.1:3000. For full IPython kernel functionality, Prime
 Agent provisions its managed Python runtime lazily on first use. To use an
 existing Python environment instead, set `PRIME_AGENT_KERNEL_PYTHON` to an
-environment that already has `ipykernel` and `prime-agent-runtime` installed.
+environment with `ipykernel` installed (Python >= 3.10, managed via uv/pyenv)
 
 On first launch, open Settings → Providers (or run `/login`) to add an API key, then pick a model in the composer.
 
@@ -145,6 +128,12 @@ Prime Agent executes model-generated Python and project commands with your user 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Upstream and Fleet version
+
+- **Upstream:** `PrimeIntellect-ai/prime-agent` release pinned in the root `UPSTREAM` manifest (currently `v0.8.0`). `packages/*` and `prime-agent-runtime/` are verbatim copies: sync them with `node scripts/sync-upstream.mjs --apply <tag>` — the scheduled `upstream-sync` workflow opens those PRs nightly — and never edit vendored files. Build-regenerated files listed in `generatedPaths` (currently `packages/ai/src/models.generated.ts`) are exempt from drift checks and reset to tag contents on each sync.
+- **Fleet adapter:** v1 contract at `web/docs/architecture/fleet-adapter-contract-v1.md` — 0.8.0 baseline includes endpoint-bound MCP OAuth (one-time `/mcp login <server>` re-auth), removal of catalog-name overrides (`mcpServers` shadowing a built-in now disables it), and graceful hydration of new `refinement_outcome` transcript messages.
+- **Verification:** build/tsgo/biome clean; agent 70/70, coding-agent 4438/4438 (clean env), web 138/138 + 62/62; S4 release smoke and manual UI smoke remain recommended release gates.
 
 ## Acknowledgments
 

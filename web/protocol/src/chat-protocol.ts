@@ -250,7 +250,7 @@ export type ChatStreamEvent =
 			attempt: number;
 			maxAttempts: number;
 			delayMs: number;
-			errorMessage: string;
+			errorMessage?: string;
 	  }
 	| {
 			type: "retry";

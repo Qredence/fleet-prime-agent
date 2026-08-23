@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { getProcessStartId } from "../src/core/session-lease.js";
 import type { DaemonSocketClient } from "../src/modes/daemon/active-session-state.js";
 import { CommandRecoveryJournal } from "../src/modes/daemon/command-recovery-journal.js";
 import { DaemonCatalogClient } from "../src/modes/daemon/daemon-catalog-process.js";
@@ -27,6 +28,7 @@ import {
 import { MutationDrainLatch } from "../src/modes/daemon/mutation-drain-latch.js";
 import { WorkerRecoveryJournal } from "../src/modes/daemon/worker-recovery-journal.js";
 import type { PrivateFrame } from "../src/modes/session-worker/private-framing.js";
+import * as childProcessModule from "../src/utils/child-process.js";
 import { createDeferred } from "./suite/scheduling.js";
 
 const workerLaunchTestState = vi.hoisted(() => ({
@@ -188,6 +190,7 @@ function createExistingLaunchWorker(root: string, descriptorDir: string) {
 			version: 1 as const,
 			workerId,
 			pid: 999_999,
+			processStartId: undefined as string | undefined,
 			socketPath: join(root, `${workerId}.sock`),
 			recoveryJournalPath: join(descriptorDir, `${workerId}.recovery.jsonl`),
 			orphanProcessJournalPath: join(descriptorDir, `${workerId}.orphans.jsonl`),
@@ -217,6 +220,7 @@ function createExistingLaunchWorker(root: string, descriptorDir: string) {
 function createSupervisorSnapshotState() {
 	return {
 		clients: new Set<object>(),
+		sessionInputPauses: new Map(),
 		pendingReplacementSnapshots: new WeakMap<object, Map<string, unknown>>(),
 	};
 }
@@ -898,6 +902,11 @@ describe("daemon worker supervisor monitoring", () => {
 			);
 		await rollbackStarted;
 		supervisor.shuttingDown = true;
+		workerLaunchTestState.forceMissingProcessStartId = false;
+		existing.descriptor.processStartId = getProcessStartId(existing.descriptor.pid);
+		if (existing.descriptor.processStartId === undefined) {
+			throw new Error("Could not identify launched worker before shutdown");
+		}
 		await supervisor.stopWorker(existing, true, true);
 		releaseRollback();
 
@@ -952,6 +961,73 @@ describe("daemon worker supervisor monitoring", () => {
 			expect(exit).toHaveBeenCalledWith(42);
 		} finally {
 			exit.mockRestore();
+		}
+	});
+
+	it("completes shutdown without awaiting an unsignalable worker finalizer", async () => {
+		vi.useFakeTimers();
+		const root = mkdtempSync(join(tmpdir(), "prime-supervisor-shutdown-finalization-test-"));
+		supervisorRegistryDirs.add(root);
+		const worker = {
+			descriptor: {
+				workerId: "worker-shutdown-finalization",
+				pid: 111_123,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+				archiveOnStop: true,
+			},
+			client: undefined,
+			summaries: new Map(),
+			snapshotCache: new Map(),
+			transcriptCaches: new Map(),
+			snapshotGenerations: new Map(),
+			snapshotLoads: new Map(),
+			intentionalStop: true,
+			stopRevision: 1,
+			stopFinalization: new Promise<void>(() => {}),
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const exit = vi.spyOn(process, "exit").mockImplementation(((code?: string | number | null) => {
+			throw new Error(`exit ${code}`);
+		}) as typeof process.exit);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation(() => {});
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(true);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		const catalogStop = vi.fn(async () => undefined);
+		const log = vi.fn();
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			shuttingDown: false,
+			signalCleanupHandlers: [],
+			workers,
+			clients: new Set(),
+			persistWorkerStopTombstone: vi.fn(),
+			hasPersistedWorkerDescriptors: vi.fn(() => true),
+			catalog: { stop: catalogStop },
+			cleanupSocket: vi.fn(),
+			snapshotCacheRoot: join(root, "cache"),
+			log,
+		}) as {
+			shutdown(exitCode: number, stopWorkers: boolean, relaunch?: boolean, forceWorkers?: boolean): Promise<never>;
+		};
+
+		try {
+			const shutdown = supervisor.shutdown(0, true, false, true).then(
+				() => undefined,
+				(error: unknown) => error,
+			);
+			await vi.advanceTimersByTimeAsync(2000);
+			await expect(shutdown).resolves.toEqual(new Error("exit 0"));
+
+			expect(workers.has(worker.descriptor.workerId)).toBe(true);
+			expect(killSpy).not.toHaveBeenCalled();
+			expect(catalogStop).toHaveBeenCalledOnce();
+			expect(log).toHaveBeenCalledWith(expect.stringContaining("remains tombstoned for recovery"));
+			expect(exit).toHaveBeenCalledWith(0);
+		} finally {
+			exit.mockRestore();
+			killSpy.mockRestore();
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
 		}
 	});
 
@@ -1311,6 +1387,151 @@ describe("daemon worker supervisor monitoring", () => {
 		expect(persistWorker.mock.invocationCallOrder[0]).toBeLessThan(recoverWorker.mock.invocationCallOrder[0]!);
 	});
 
+	it("rejects retry while the worker is actively stopping", async () => {
+		type RetryWorker = {
+			descriptor: {
+				workerId: string;
+				rootActiveSessionId: string;
+				rootSessionId: string;
+				lifecycle: "ready";
+				consecutiveFailures: number;
+				stopRequestedAt: string;
+				archiveOnStop: boolean;
+			};
+			intentionalStop: boolean;
+			summaries: Map<string, SessionSummary>;
+		};
+		type RetryHarness = {
+			stopWorker(worker: RetryWorker, removeDescriptor: boolean): Promise<void>;
+			handleCommand(
+				client: DaemonSocketClient,
+				command: { type: "retry_worker"; activeSessionId: string },
+			): Promise<unknown>;
+		};
+		const worker: RetryWorker = {
+			descriptor: {
+				workerId: "worker-stopping",
+				rootActiveSessionId: "active-stopping",
+				rootSessionId: "session-stopping",
+				lifecycle: "ready",
+				consecutiveFailures: 2,
+				stopRequestedAt: new Date().toISOString(),
+				archiveOnStop: true,
+			},
+			intentionalStop: true,
+			summaries: new Map(),
+		};
+		const stopStarted = createDeferred<void>();
+		const releaseStop = createDeferred<void>();
+		const persistWorker = vi.fn();
+		const recoverWorker = vi.fn();
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			workerStopCounts: new Map(),
+			stopWorkerUntracked: vi.fn(async () => {
+				stopStarted.resolve();
+				await releaseStop.promise;
+			}),
+			persistWorker,
+			recoverWorker,
+			assertWorkerAccessibleToClient: vi.fn(),
+		}) as RetryHarness;
+
+		const stopping = supervisor.stopWorker(worker, true);
+		await stopStarted.promise;
+		await expect(
+			supervisor.handleCommand({} as DaemonSocketClient, {
+				type: "retry_worker",
+				activeSessionId: worker.descriptor.rootSessionId,
+			}),
+		).rejects.toThrow("Session worker is stopping; retry after it finishes");
+
+		expect(worker.intentionalStop).toBe(true);
+		expect(worker.descriptor.stopRequestedAt).toBeDefined();
+		expect(worker.descriptor.archiveOnStop).toBe(true);
+		expect(persistWorker).not.toHaveBeenCalled();
+		expect(recoverWorker).not.toHaveBeenCalled();
+		releaseStop.resolve();
+		await stopping;
+	});
+
+	it("keeps a root kill registration through a synchronous shutdown event until exact cleanup", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-root-kill",
+				pid: 123_456,
+				processStartId: "proc:entry",
+				rootActiveSessionId: "root-active",
+				lifecycle: "ready" as const,
+			},
+			summaries: new Map<string, SessionSummary>([
+				[
+					"root-active",
+					{ id: "root-active", sessionId: "root-session", activeSessionId: "root-active" } as SessionSummary,
+				],
+			]),
+			snapshotCache: new Map(),
+			transcriptCaches: new Map(),
+			snapshotGenerations: new Map(),
+			snapshotLoads: new Map(),
+			intentionalStop: false,
+			stopRevision: 0,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const deleteWorkerDescriptor = vi.fn();
+		const stopWorkerUntracked = vi.fn(async (target: typeof worker, removeDescriptor: boolean) => {
+			// The root-kill ownership and this exact stop are both active here.
+			expect(supervisor.workerStopCounts.get(target)).toBe(2);
+			expect(workers.get(target.descriptor.workerId)).toBe(target);
+			workers.delete(target.descriptor.workerId);
+			if (removeDescriptor) deleteWorkerDescriptor(target);
+		});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			workerStopCounts: new Map(),
+			clients: new Set(),
+			shuttingDown: false,
+			streamReconstructor: { observe: vi.fn() },
+			invalidateWorkerSnapshot: vi.fn(),
+			refreshWorkerSummaries: vi.fn(async () => undefined),
+			syncAgentPeers: vi.fn(async () => undefined),
+			persistWorkerStopTombstone: vi.fn(),
+			deleteWorkerDescriptor,
+			broadcastHeartbeatsChanged: vi.fn(),
+			findWorkerForClient: vi.fn(async () => ({
+				worker,
+				summary: worker.summaries.get("root-active"),
+			})),
+			forwardToWorker: vi.fn(async () => {
+				supervisor.handleWorkerFrame(worker, {
+					header: { kind: "outbound", outboundType: "session_closed", activeSessionId: "root-active" },
+					payload: Buffer.from(JSON.stringify({ type: "session_closed", reason: "shutdown" })),
+				});
+				// The event arrives before the forwarded kill resolves.
+				expect(workers.get(worker.descriptor.workerId)).toBe(worker);
+				expect(deleteWorkerDescriptor).not.toHaveBeenCalled();
+				return success(undefined, "kill");
+			}),
+			stopWorkerUntracked,
+		}) as {
+			workers: typeof workers;
+			workerStopCounts: Map<typeof worker, number>;
+			handleCommand(
+				client: DaemonSocketClient,
+				command: { type: "kill"; activeSessionId: string },
+			): Promise<unknown>;
+			handleWorkerFrame(target: typeof worker, frame: PrivateFrame<DaemonWorkerFrameHeader>): void;
+		};
+
+		await expect(
+			supervisor.handleCommand({} as DaemonSocketClient, { type: "kill", activeSessionId: "root-active" }),
+		).resolves.toEqual(success(undefined, "kill"));
+		expect(stopWorkerUntracked).toHaveBeenCalledWith(worker, true, false, true, false, undefined);
+		expect(workers.has(worker.descriptor.workerId)).toBe(false);
+		expect(deleteWorkerDescriptor).toHaveBeenCalledWith(worker);
+		expect(supervisor.workerStopCounts.has(worker)).toBe(false);
+	});
+
 	it("cancels an in-flight recovery after an intentional stop tombstone", async () => {
 		vi.useFakeTimers();
 		type RecoveryWorker = {
@@ -1346,7 +1567,7 @@ describe("daemon worker supervisor monitoring", () => {
 		expect(worker.recovery).toBeUndefined();
 	});
 
-	it("relaunches a worker instead of reconnecting to a reused pid", async () => {
+	it("fails closed after pid reuse without fresh runtime context", async () => {
 		vi.useFakeTimers();
 		type RecoveryWorker = {
 			descriptor: {
@@ -1354,7 +1575,10 @@ describe("daemon worker supervisor monitoring", () => {
 				pid: number;
 				processStartId: string;
 				rootActiveSessionId: string;
-				createCommand: { type: "create" };
+				ownerClientId?: string;
+				lifecycle?: string;
+				consecutiveFailures: number;
+				lastError?: string;
 			};
 			intentionalStop: boolean;
 			stopRevision: number;
@@ -1366,6 +1590,8 @@ describe("daemon worker supervisor monitoring", () => {
 			connectWorker: ReturnType<typeof vi.fn>;
 			recoverUncertainWorkerOperations: ReturnType<typeof vi.fn>;
 			launchWorker: ReturnType<typeof vi.fn>;
+			persistWorker: ReturnType<typeof vi.fn>;
+			syncAgentPeers: ReturnType<typeof vi.fn>;
 			assertRecoveryAllowed: ReturnType<typeof vi.fn>;
 			recoverWorker(worker: RecoveryWorker): Promise<void>;
 		};
@@ -1375,7 +1601,7 @@ describe("daemon worker supervisor monitoring", () => {
 				pid: process.pid,
 				processStartId: "different-process-start",
 				rootActiveSessionId: "active-1",
-				createCommand: { type: "create" },
+				consecutiveFailures: 0,
 			},
 			intentionalStop: false,
 			stopRevision: 0,
@@ -1386,6 +1612,8 @@ describe("daemon worker supervisor monitoring", () => {
 			connectWorker: vi.fn(),
 			recoverUncertainWorkerOperations: vi.fn(async () => {}),
 			launchWorker: vi.fn(async () => worker),
+			persistWorker: vi.fn(),
+			syncAgentPeers: vi.fn(async () => {}),
 			assertRecoveryAllowed: vi.fn(async () => {}),
 		}) as RecoveryHarness;
 
@@ -1395,7 +1623,103 @@ describe("daemon worker supervisor monitoring", () => {
 
 		expect(supervisor.connectWorker).not.toHaveBeenCalled();
 		expect(supervisor.recoverUncertainWorkerOperations).toHaveBeenCalledWith(worker, false);
-		expect(supervisor.launchWorker).toHaveBeenCalledWith(worker.descriptor.createCommand, worker);
+		expect(supervisor.launchWorker).not.toHaveBeenCalled();
+		expect(worker.descriptor.lifecycle).toBe("failed");
+		expect(supervisor.persistWorker).toHaveBeenCalledWith(worker);
+	});
+
+	it("rejects create reuse when a failed worker cannot be safely reclaimed", () => {
+		const worker = {
+			descriptor: {
+				workerId: "failed-unreclaimed",
+				rootActiveSessionId: "active-failed",
+				lifecycle: "failed",
+			},
+		};
+		const supervisor = Object.create(DaemonSupervisor.prototype) as {
+			reuseWorkerForCreate(target: typeof worker, ownerClientId: undefined, sessionPath: string): typeof worker;
+		};
+
+		expect(() => supervisor.reuseWorkerForCreate(worker, undefined, "/tmp/failed.jsonl")).toThrow(/failed worker/);
+	});
+
+	it("ignores conflicting paths on workers unrelated to a session lookup", () => {
+		const unrelated = {
+			descriptor: {
+				workerId: "unrelated",
+				sessionFile: "/tmp/unrelated-a.jsonl",
+				createCommand: { type: "create" as const, sessionPath: "/tmp/unrelated-b.jsonl" },
+			},
+			summaries: new Map(),
+		};
+		const target = {
+			descriptor: {
+				workerId: "target",
+				sessionFile: "/tmp/target.jsonl",
+				createCommand: { type: "create" as const, sessionPath: "/tmp/target.jsonl" },
+			},
+			summaries: new Map(),
+		};
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([
+				[unrelated.descriptor.workerId, unrelated],
+				[target.descriptor.workerId, target],
+			]),
+		}) as {
+			findWorkerBySessionFile(sessionFile: string): typeof target | undefined;
+		};
+
+		expect(supervisor.findWorkerBySessionFile("/tmp/target.jsonl")).toBe(target);
+	});
+
+	it("reclaims a dead failed resident so a fresh create can reopen its session", async () => {
+		const worker = {
+			descriptor: { workerId: "failed-resident", pid: 42, lifecycle: "failed" as const },
+			intentionalStop: false,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const recoverUncertainWorkerOperations = vi.fn(async () => {});
+		const deleteWorkerDescriptor = vi.fn();
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			sessionInputPauses: new Map(),
+			processIdentity: vi.fn(() => "gone"),
+			recoverUncertainWorkerOperations,
+			deleteWorkerDescriptor,
+			syncAgentPeers: vi.fn(async () => {}),
+		}) as {
+			reclaimStaleWorkerRegistration(target: typeof worker): Promise<boolean>;
+		};
+
+		await expect(supervisor.reclaimStaleWorkerRegistration(worker)).resolves.toBe(true);
+		expect(recoverUncertainWorkerOperations).toHaveBeenCalledWith(worker, false);
+		expect(deleteWorkerDescriptor).toHaveBeenCalledWith(worker);
+		expect(workers.has(worker.descriptor.workerId)).toBe(false);
+	});
+
+	it("stops only an identity-verified failed resident when a fresh create arrives", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "failed-live-resident",
+				pid: 42,
+				processStartId: "verified-start",
+				lifecycle: "failed" as const,
+			},
+			intentionalStop: false,
+		};
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			processIdentity: vi.fn(() => "current"),
+			stopWorker,
+		}) as {
+			reclaimStaleWorkerRegistration(target: typeof worker, freshCreate?: boolean): Promise<boolean>;
+		};
+
+		await expect(supervisor.reclaimStaleWorkerRegistration(worker)).resolves.toBe(false);
+		expect(stopWorker).not.toHaveBeenCalled();
+		await expect(supervisor.reclaimStaleWorkerRegistration(worker, true)).resolves.toBe(true);
+		expect(stopWorker).toHaveBeenCalledWith(worker, true, true);
 	});
 
 	it("does not relaunch a live worker whose process identity is unknown", async () => {
@@ -1533,6 +1857,1135 @@ describe("daemon worker supervisor monitoring", () => {
 		expect(worker.descriptor.consecutiveFailures).toBe(0);
 	});
 
+	it("reports a stop-tombstoned worker as stopping, not ready", () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-tombstoned",
+				pid: process.pid,
+				lifecycle: "ready" as const,
+				stopRequestedAt: new Date().toISOString(),
+			},
+			client: {},
+			intentionalStop: false,
+		};
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {}) as {
+			effectiveWorkerState(target: object): string;
+		};
+
+		expect(supervisor.effectiveWorkerState(worker)).toBe("stopping");
+	});
+
+	it("never reports a disconnected worker as ready", () => {
+		const worker = {
+			descriptor: { workerId: "worker-disconnected", pid: process.pid, lifecycle: "ready" as const },
+			client: undefined,
+			intentionalStop: false,
+		};
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {}) as {
+			effectiveWorkerState(target: object): string;
+		};
+
+		expect(supervisor.effectiveWorkerState(worker)).toBe("recovering");
+	});
+
+	it("reports a connected ready worker as ready", () => {
+		const worker = {
+			descriptor: { workerId: "worker-live", pid: process.pid, lifecycle: "ready" as const },
+			client: {},
+			intentionalStop: false,
+		};
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {}) as {
+			effectiveWorkerState(target: object): string;
+		};
+
+		expect(supervisor.effectiveWorkerState(worker)).toBe("ready");
+	});
+
+	it("keeps stopping workers listed with an honest state for busy-daemon checks", async () => {
+		const makeWorker = (workerId: string, stopRequestedAt?: string) => ({
+			descriptor: {
+				workerId,
+				pid: process.pid,
+				rootActiveSessionId: `${workerId}-active`,
+				lifecycle: "ready" as const,
+				...(stopRequestedAt ? { stopRequestedAt } : {}),
+			},
+			client: {},
+			intentionalStop: false,
+			summaries: new Map([
+				[
+					`${workerId}-active`,
+					{
+						id: `${workerId}-active`,
+						activeSessionId: `${workerId}-active`,
+						sessionId: `${workerId}-session`,
+						cwd: "/tmp",
+					} as unknown as SessionSummary,
+				],
+			]),
+		});
+		const liveWorker = makeWorker("worker-live");
+		const stoppingWorker = makeWorker("worker-stopping", new Date().toISOString());
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([
+				[liveWorker.descriptor.workerId, liveWorker],
+				[stoppingWorker.descriptor.workerId, stoppingWorker],
+			]),
+			clients: new Set(),
+			refreshWorkerSummaries: vi.fn(async () => {}),
+			syncAgentPeers: vi.fn(async () => {}),
+			log: vi.fn(),
+		}) as {
+			handleList(
+				client: object,
+				command: { id: string; type: "list" },
+			): Promise<{
+				success: boolean;
+				data?: { sessions: Array<{ activeSessionId?: string; id: string; workerState?: string }> };
+			}>;
+		};
+
+		const response = await supervisor.handleList({}, { id: "list-1", type: "list" });
+
+		expect(response.success).toBe(true);
+		const sessions = response.data?.sessions ?? [];
+		expect(sessions.map((session) => [session.activeSessionId ?? session.id, session.workerState]).sort()).toEqual([
+			["worker-live-active", "ready"],
+			["worker-stopping-active", "stopping"],
+		]);
+	});
+
+	it("adopts a tombstoned worker through identity-aware stop handling", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-adopted-stop",
+				pid: 111_123,
+				processStartId: "proc:original",
+				stopRequestedAt: new Date().toISOString(),
+				archiveOnStop: true,
+			},
+		};
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			assertRecoveryAllowed: vi.fn(async () => undefined),
+			stopWorker,
+			log: vi.fn(),
+		}) as {
+			adoptOrRecoverWorker(target: object): Promise<void>;
+		};
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation(() => {});
+		try {
+			await supervisor.adoptOrRecoverWorker(worker);
+
+			expect(killSpy).not.toHaveBeenCalled();
+			expect(stopWorker).toHaveBeenCalledWith(worker, true, true, true);
+		} finally {
+			killSpy.mockRestore();
+		}
+	});
+
+	it("captures the live process identity before an adoption stop when the descriptor has none", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-adopted-legacy",
+				pid: process.pid,
+				stopRequestedAt: new Date().toISOString(),
+				archiveOnStop: false,
+			} as { processStartId?: string },
+		};
+		const stopOrder: string[] = [];
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			assertRecoveryAllowed: vi.fn(async () => undefined),
+			connectWorker: vi.fn(async () => {
+				stopOrder.push("connect");
+			}),
+			persistWorker: vi.fn(() => {
+				stopOrder.push("persist");
+			}),
+			stopWorker: vi.fn(async () => {
+				stopOrder.push("stop");
+			}),
+			log: vi.fn(),
+		}) as {
+			adoptOrRecoverWorker(target: object): Promise<void>;
+		};
+
+		await supervisor.adoptOrRecoverWorker(worker);
+
+		// Identity is captured and persisted before the stop runs, so stopWorker
+		// and its finalizer can signal the live process instead of waiting forever.
+		expect(worker.descriptor.processStartId).toBe(getProcessStartId(process.pid));
+		expect(stopOrder).toEqual(["connect", "persist", "stop"]);
+	});
+
+	it("keeps an unverifiable identity untrusted when the adoption connect fails", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-adopted-unverified",
+				pid: process.pid,
+				stopRequestedAt: new Date().toISOString(),
+				archiveOnStop: false,
+			} as { processStartId?: string },
+		};
+		const persistWorker = vi.fn();
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			assertRecoveryAllowed: vi.fn(async () => undefined),
+			connectWorker: vi.fn(async () => {
+				throw new Error("connect refused");
+			}),
+			persistWorker,
+			stopWorker,
+			log: vi.fn(),
+		}) as {
+			adoptOrRecoverWorker(target: object): Promise<void>;
+		};
+
+		await supervisor.adoptOrRecoverWorker(worker);
+
+		// The pid could belong to anything; never adopt an identity the socket
+		// handshake did not confirm.
+		expect(worker.descriptor.processStartId).toBeUndefined();
+		expect(persistWorker).not.toHaveBeenCalled();
+		expect(stopWorker).toHaveBeenCalledWith(worker, true, true, false);
+	});
+
+	it("finalizes a timed-out stop once the worker process dies", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-timed-out-stop",
+				pid: process.pid,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		let alive = true;
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockImplementation(() => alive);
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+			const finalization = worker.stopFinalization;
+			expect(finalization).toBeDefined();
+
+			await vi.advanceTimersByTimeAsync(500);
+			expect(stopWorker).not.toHaveBeenCalled();
+
+			alive = false;
+			await vi.advanceTimersByTimeAsync(500);
+			await finalization;
+
+			expect(stopWorker).toHaveBeenCalledWith(worker, true, true, false);
+			expect(worker.stopFinalization).toBeUndefined();
+		} finally {
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("escalates a stuck stop to SIGKILL before finalizing", async () => {
+		vi.useFakeTimers();
+		const processStartId = getProcessStartId(process.pid);
+		if (processStartId === undefined) {
+			throw new Error("Could not identify test process");
+		}
+		const worker = {
+			descriptor: {
+				workerId: "worker-stuck-stop",
+				pid: process.pid,
+				processStartId,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+				archiveOnStop: true,
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		let alive = true;
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockImplementation(() => alive);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation((_pid, signal) => {
+			if (signal === "SIGKILL") {
+				alive = false;
+			}
+		});
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+			const finalization = worker.stopFinalization;
+
+			await vi.advanceTimersByTimeAsync(10_000);
+			await finalization;
+
+			expect(killSpy).toHaveBeenCalledWith(worker.descriptor.pid, "SIGKILL");
+			expect(stopWorker).toHaveBeenCalledWith(worker, true, true, true);
+		} finally {
+			aliveSpy.mockRestore();
+			killSpy.mockRestore();
+		}
+	});
+
+	it("never follows a relaunched worker pid after a retry rescinds the stop", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-relaunched",
+				pid: 111_111,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString() as string | undefined,
+			},
+			intentionalStop: true,
+			stopRevision: 3,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(true);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation(() => {});
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+			const finalization = worker.stopFinalization;
+
+			// An explicit retry rescinds the stop and relaunches with a new pid
+			// while the old process is still wedged.
+			await vi.advanceTimersByTimeAsync(1000);
+			worker.descriptor.stopRequestedAt = undefined;
+			worker.intentionalStop = false;
+			worker.stopRevision = 4;
+			worker.descriptor.pid = 222_222;
+
+			await vi.advanceTimersByTimeAsync(20_000);
+			await finalization;
+
+			// The healthy relaunched worker must never be signalled or stopped.
+			expect(killSpy).not.toHaveBeenCalledWith(222_222, "SIGKILL");
+			expect(killSpy).not.toHaveBeenCalled();
+			expect(stopWorker).not.toHaveBeenCalled();
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+			killSpy.mockRestore();
+		}
+	});
+
+	it("treats a recycled pid as gone instead of killing its new owner", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-recycled-pid",
+				pid: 111_112,
+				processStartId: "proc:original",
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const sessionLeaseModule = await import("../src/core/session-lease.js");
+		// The pid is alive, but it now belongs to an unrelated process.
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(true);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation(() => {});
+		const startIdSpy = vi.spyOn(sessionLeaseModule, "getProcessStartId").mockReturnValue("proc:recycled");
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+			const finalization = worker.stopFinalization;
+
+			await vi.advanceTimersByTimeAsync(20_000);
+			await finalization;
+
+			// The original worker is gone, so the stop is finalized without ever
+			// signalling the unrelated pid owner.
+			expect(killSpy).not.toHaveBeenCalled();
+			expect(stopWorker).toHaveBeenCalledWith(worker, true, true, false);
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+			killSpy.mockRestore();
+			startIdSpy.mockRestore();
+		}
+	});
+
+	it("aborts stale stop cleanup when the worker was relaunched during an await", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-relaunched-during-stop",
+				pid: 111_115,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString() as string | undefined,
+				archiveOnStop: true,
+			},
+			client: undefined,
+			summaries: new Map(),
+			snapshotCache: new Map(),
+			transcriptCaches: new Map(),
+			snapshotGenerations: new Map(),
+			snapshotLoads: new Map(),
+			intentionalStop: true,
+			stopRevision: 0,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			shuttingDown: false,
+			persistWorker: vi.fn(),
+			persistWorkerStopTombstone: vi.fn(),
+			reclaimStoppedWorkerCronLock: vi.fn(),
+			// Archival yields, and a retry relaunches the worker meanwhile.
+			finalizeArchivedWorkerStop: vi.fn(async () => {
+				worker.descriptor.pid = 222_222;
+				worker.descriptor.stopRequestedAt = undefined;
+			}),
+			deleteWorkerDescriptor: vi.fn(),
+			syncAgentPeers: vi.fn(async () => {}),
+			broadcastHeartbeatsChanged: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as unknown as {
+			stopWorker(
+				target: object,
+				removeDescriptor: boolean,
+				force?: boolean,
+				archiveSession?: boolean,
+			): Promise<void>;
+			deleteWorkerDescriptor: ReturnType<typeof vi.fn>;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(false);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(false);
+		try {
+			await expect(supervisor.stopWorker(worker, true, true, true)).rejects.toThrow("was relaunched during stop");
+
+			// The relaunched worker's registration and descriptor must survive.
+			expect(workers.has(worker.descriptor.workerId)).toBe(true);
+			expect(supervisor.deleteWorkerDescriptor).not.toHaveBeenCalled();
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("aborts stale stop cleanup when the stop is rescinded before the relaunch lands", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-rescinded-during-stop",
+				pid: 111_120,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString() as string | undefined,
+				archiveOnStop: true,
+			},
+			client: undefined,
+			summaries: new Map(),
+			snapshotCache: new Map(),
+			transcriptCaches: new Map(),
+			snapshotGenerations: new Map(),
+			snapshotLoads: new Map(),
+			intentionalStop: true,
+			stopRevision: 0,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			shuttingDown: false,
+			persistWorker: vi.fn(),
+			persistWorkerStopTombstone: vi.fn(),
+			reclaimStoppedWorkerCronLock: vi.fn(),
+			// A retry rescinds the tombstone while archival yields, before
+			// recoverWorker has assigned the successor pid.
+			finalizeArchivedWorkerStop: vi.fn(async () => {
+				worker.descriptor.stopRequestedAt = undefined;
+			}),
+			deleteWorkerDescriptor: vi.fn(),
+			syncAgentPeers: vi.fn(async () => {}),
+			broadcastHeartbeatsChanged: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as unknown as {
+			stopWorker(
+				target: object,
+				removeDescriptor: boolean,
+				force?: boolean,
+				archiveSession?: boolean,
+			): Promise<void>;
+			deleteWorkerDescriptor: ReturnType<typeof vi.fn>;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(false);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(false);
+		try {
+			await expect(supervisor.stopWorker(worker, true, true, true)).rejects.toThrow("was relaunched during stop");
+
+			// The revived registration and descriptor must survive for recovery.
+			expect(workers.has(worker.descriptor.workerId)).toBe(true);
+			expect(supervisor.deleteWorkerDescriptor).not.toHaveBeenCalled();
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("never signals an identity-less worker pid during a forced stop", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-force-missing-identity",
+				pid: 111_122,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			client: undefined,
+			summaries: new Map(),
+			snapshotCache: new Map(),
+			transcriptCaches: new Map(),
+			snapshotGenerations: new Map(),
+			snapshotLoads: new Map(),
+			intentionalStop: true,
+			stopRevision: 0,
+		};
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			persistWorker: vi.fn(),
+			persistWorkerStopTombstone: vi.fn(),
+			scheduleWorkerStopFinalization: vi.fn(),
+			syncAgentPeers: vi.fn(async () => {}),
+			broadcastHeartbeatsChanged: vi.fn(),
+		}) as unknown as {
+			stopWorker(target: object, removeDescriptor: boolean, force?: boolean): Promise<void>;
+			scheduleWorkerStopFinalization: ReturnType<typeof vi.fn>;
+		};
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(true);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation(() => {});
+		try {
+			const stopping = supervisor.stopWorker(worker, true, true).then(
+				() => undefined,
+				(error: unknown) => error,
+			);
+			await vi.advanceTimersByTimeAsync(2000);
+
+			const error = await stopping;
+			expect(error).toBeInstanceOf(Error);
+			expect((error as Error).message).toBe("Session worker worker-force-missing-identity did not stop");
+			expect(killSpy).not.toHaveBeenCalled();
+			expect(supervisor.scheduleWorkerStopFinalization).toHaveBeenCalledWith(worker);
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+			killSpy.mockRestore();
+		}
+	});
+
+	it("re-verifies identity at SIGKILL time even within the throttle window", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-kill-window-recycle",
+				pid: 111_118,
+				processStartId: "proc:original",
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const stopWorker = vi.fn(async () => {
+			workers.delete(worker.descriptor.workerId);
+		});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const sessionLeaseModule = await import("../src/core/session-lease.js");
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(true);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation(() => {});
+		// The worker is current on the throttled polls, but the pid is recycled
+		// by the time the SIGKILL deadline arrives.
+		const startIdSpy = vi.spyOn(sessionLeaseModule, "getProcessStartId").mockReturnValue("proc:original");
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+			await vi.advanceTimersByTimeAsync(4900);
+			startIdSpy.mockReturnValue("proc:recycled");
+			await vi.advanceTimersByTimeAsync(2000);
+
+			// The fresh check at signal time sees the recycled pid and holds fire.
+			expect(killSpy).not.toHaveBeenCalled();
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+			killSpy.mockRestore();
+			startIdSpy.mockRestore();
+		}
+	});
+
+	it("retries SIGKILL after a transient identity outage at the deadline", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-kill-retry",
+				pid: 111_119,
+				processStartId: "proc:original",
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const stopWorker = vi.fn(async () => {
+			workers.delete(worker.descriptor.workerId);
+		});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const sessionLeaseModule = await import("../src/core/session-lease.js");
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(true);
+		let alive = true;
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockImplementation(() => alive);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation((_pid, signal) => {
+			if (signal === "SIGKILL") {
+				alive = false;
+			}
+		});
+		// Identity observation is down when the SIGKILL deadline passes...
+		const startIdSpy = vi.spyOn(sessionLeaseModule, "getProcessStartId").mockReturnValue(undefined);
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+			const finalization = worker.stopFinalization;
+
+			await vi.advanceTimersByTimeAsync(8000);
+			expect(killSpy).not.toHaveBeenCalled();
+
+			// ...but once identity is observable again, escalation still fires.
+			startIdSpy.mockReturnValue("proc:original");
+			await vi.advanceTimersByTimeAsync(5000);
+			await finalization;
+			expect(killSpy).toHaveBeenCalledWith(worker.descriptor.pid, "SIGKILL");
+			expect(stopWorker).toHaveBeenCalled();
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+			killSpy.mockRestore();
+			startIdSpy.mockRestore();
+		}
+	});
+
+	it("keeps waiting when process identity is transiently unobservable", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-unknown-identity-stop",
+				pid: 111_114,
+				processStartId: "proc:original",
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const sessionLeaseModule = await import("../src/core/session-lease.js");
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(true);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation(() => {});
+		// Identity observation fails transiently (e.g. ps unavailable).
+		const startIdSpy = vi.spyOn(sessionLeaseModule, "getProcessStartId").mockReturnValue(undefined);
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+
+			await vi.advanceTimersByTimeAsync(20_000);
+
+			// The possibly-live worker is neither signalled nor cleaned up.
+			expect(killSpy).not.toHaveBeenCalled();
+			expect(stopWorker).not.toHaveBeenCalled();
+			expect(worker.stopFinalization).toBeDefined();
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+			killSpy.mockRestore();
+			startIdSpy.mockRestore();
+		}
+	});
+
+	it("never SIGKILLs an identity-less worker pid", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-missing-identity",
+				pid: 111_121,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const sessionLeaseModule = await import("../src/core/session-lease.js");
+		const existsSpy = vi.spyOn(childProcessModule, "processIdExists").mockReturnValue(true);
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		const killSpy = vi.spyOn(childProcessModule, "signalProcessGroupOrProcess").mockImplementation(() => {});
+		const startIdSpy = vi.spyOn(sessionLeaseModule, "getProcessStartId").mockReturnValue("proc:unrelated");
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+
+			await vi.advanceTimersByTimeAsync(20_000);
+
+			expect(killSpy).not.toHaveBeenCalled();
+			expect(stopWorker).not.toHaveBeenCalled();
+			expect(worker.stopFinalization).toBeDefined();
+		} finally {
+			existsSpy.mockRestore();
+			aliveSpy.mockRestore();
+			killSpy.mockRestore();
+			startIdSpy.mockRestore();
+		}
+	});
+
+	it("retries finalization after a transient cleanup failure", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-transient-cleanup",
+				pid: process.pid,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const stopWorker = vi
+			.fn(async () => {
+				workers.delete(worker.descriptor.workerId);
+			})
+			.mockImplementationOnce(async () => {
+				throw new Error("archive temporarily unavailable");
+			});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(false);
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+			const finalization = worker.stopFinalization;
+
+			await vi.advanceTimersByTimeAsync(20_000);
+			await finalization;
+
+			// The first attempt failed transiently; the registration is still
+			// cleaned up by a retry instead of being stranded forever.
+			expect(stopWorker).toHaveBeenCalledTimes(2);
+			expect(workers.size).toBe(0);
+		} finally {
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("leaves a rescinded stop to the retry flow instead of finalizing it", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-rescinded-stop",
+				pid: process.pid,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString() as string | undefined,
+			},
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		let alive = true;
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			scheduleWorkerStopFinalization(target: object): void;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockImplementation(() => alive);
+		try {
+			supervisor.scheduleWorkerStopFinalization(worker);
+			const finalization = worker.stopFinalization;
+
+			// An explicit retry revives the worker while its process is exiting.
+			worker.descriptor.stopRequestedAt = undefined;
+			worker.intentionalStop = false;
+			alive = false;
+			await vi.advanceTimersByTimeAsync(500);
+			await finalization;
+
+			expect(stopWorker).not.toHaveBeenCalled();
+		} finally {
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("reclaims a stale tombstoned registration whose process is gone", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-stale-registration",
+				pid: process.pid,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			client: undefined,
+			recovery: undefined,
+			intentionalStop: true,
+			stopRevision: 0,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const stopWorker = vi.fn(async () => {
+			workers.delete(worker.descriptor.workerId);
+		});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			stopWorker,
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			reclaimStaleWorkerRegistration(target: object): Promise<boolean>;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(false);
+		try {
+			await expect(supervisor.reclaimStaleWorkerRegistration(worker)).resolves.toBe(true);
+			expect(stopWorker).toHaveBeenCalledWith(worker, true, true, false);
+		} finally {
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("reclaims a stale registration whose pid was recycled by another process", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-recycled-registration",
+				pid: 111_113,
+				processStartId: "proc:original",
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			client: undefined,
+			recovery: undefined,
+			intentionalStop: true,
+			stopRevision: 0,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const stopWorker = vi.fn(async () => {
+			workers.delete(worker.descriptor.workerId);
+		});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			stopWorker,
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			reclaimStaleWorkerRegistration(target: object): Promise<boolean>;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const sessionLeaseModule = await import("../src/core/session-lease.js");
+		// The pid is alive, but it belongs to an unrelated process now.
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		const startIdSpy = vi.spyOn(sessionLeaseModule, "getProcessStartId").mockReturnValue("proc:recycled");
+		try {
+			await expect(supervisor.reclaimStaleWorkerRegistration(worker)).resolves.toBe(true);
+			expect(stopWorker).toHaveBeenCalledWith(worker, true, true, false);
+		} finally {
+			aliveSpy.mockRestore();
+			startIdSpy.mockRestore();
+		}
+	});
+
+	it("waits for an in-flight stop finalization instead of stopping twice", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-finalizing",
+				pid: process.pid,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			client: undefined,
+			recovery: undefined,
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		let releaseFinalization!: () => void;
+		worker.stopFinalization = new Promise<void>((resolveFinalization) => {
+			releaseFinalization = () => {
+				workers.delete(worker.descriptor.workerId);
+				resolveFinalization();
+			};
+		});
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			stopWorker,
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			reclaimStaleWorkerRegistration(target: object): Promise<boolean>;
+		};
+
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(false);
+		try {
+			const reclaim = supervisor.reclaimStaleWorkerRegistration(worker);
+			releaseFinalization();
+
+			// The reclaim defers to the finalizer's cleanup instead of duplicating it.
+			await expect(reclaim).resolves.toBe(true);
+			expect(stopWorker).not.toHaveBeenCalled();
+		} finally {
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("fails resume honestly when confirmed-dead cleanup outlasts the bounded wait", async () => {
+		vi.useFakeTimers();
+		const worker = {
+			descriptor: {
+				workerId: "worker-slow-cleanup",
+				pid: 111_117,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			client: undefined,
+			recovery: undefined,
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			shuttingDown: false,
+			// Cleanup hangs past the bounded reclaim wait.
+			stopWorker: vi.fn(() => new Promise<void>(() => {})),
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			reclaimStaleWorkerRegistration(target: object): Promise<boolean>;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(false);
+		try {
+			const reclaim = supervisor.reclaimStaleWorkerRegistration(worker);
+			const outcome = reclaim.then(
+				() => "reused",
+				() => "failed",
+			);
+			await vi.advanceTimersByTimeAsync(60_000);
+
+			// The dead registration is never handed back to the resume path.
+			await expect(outcome).resolves.toBe("failed");
+		} finally {
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("shares one stop between concurrent resume reclaims", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-concurrent-reclaim",
+				pid: 111_116,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			client: undefined,
+			recovery: undefined,
+			intentionalStop: true,
+			stopRevision: 0,
+			stopFinalization: undefined as Promise<void> | undefined,
+		};
+		const workers = new Map([[worker.descriptor.workerId, worker]]);
+		const stopWorker = vi.fn(async () => {
+			workers.delete(worker.descriptor.workerId);
+		});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers,
+			shuttingDown: false,
+			stopWorker,
+			persistWorker: vi.fn(),
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			reclaimStaleWorkerRegistration(target: object): Promise<boolean>;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(false);
+		try {
+			const results = await Promise.all([
+				supervisor.reclaimStaleWorkerRegistration(worker),
+				supervisor.reclaimStaleWorkerRegistration(worker),
+			]);
+
+			expect(results).toEqual([true, true]);
+			// Both concurrent resumes share the single-flighted finalizer stop.
+			expect(stopWorker).toHaveBeenCalledTimes(1);
+		} finally {
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("does not reclaim a stopping worker whose process is still alive", async () => {
+		const worker = {
+			descriptor: {
+				workerId: "worker-still-alive",
+				pid: process.pid,
+				rootActiveSessionId: "active-1",
+				stopRequestedAt: new Date().toISOString(),
+			},
+			client: undefined,
+			recovery: undefined,
+			intentionalStop: true,
+			stopRevision: 0,
+		};
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			stopWorker,
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			reclaimStaleWorkerRegistration(target: object): Promise<boolean>;
+		};
+		const childProcessModule = await import("../src/utils/child-process.js");
+		const aliveSpy = vi.spyOn(childProcessModule, "isProcessAlive").mockReturnValue(true);
+		try {
+			await expect(supervisor.reclaimStaleWorkerRegistration(worker)).resolves.toBe(false);
+			expect(stopWorker).not.toHaveBeenCalled();
+		} finally {
+			aliveSpy.mockRestore();
+		}
+	});
+
+	it("does not reclaim a healthy connected worker", async () => {
+		const worker = {
+			descriptor: { workerId: "worker-healthy", pid: process.pid, rootActiveSessionId: "active-1" },
+			client: {},
+			recovery: undefined,
+			intentionalStop: false,
+			stopRevision: 0,
+		};
+		const stopWorker = vi.fn(async () => {});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			stopWorker,
+			log: vi.fn(),
+			reportCleanupFailure: vi.fn(),
+		}) as {
+			reclaimStaleWorkerRegistration(target: object): Promise<boolean>;
+		};
+
+		await expect(supervisor.reclaimStaleWorkerRegistration(worker)).resolves.toBe(false);
+		expect(stopWorker).not.toHaveBeenCalled();
+	});
+
 	it("ignores malformed persisted worker descriptors", () => {
 		const descriptorDir = mkdtempSync(join(tmpdir(), "prime-supervisor-descriptor-test-"));
 		try {
@@ -1560,6 +3013,204 @@ describe("daemon worker supervisor monitoring", () => {
 			expect(supervisor.workers.size).toBe(0);
 		} finally {
 			rmSync(descriptorDir, { recursive: true, force: true });
+		}
+	});
+
+	it("merges persisted host settings into fresh runtime defaults", () => {
+		const root = mkdtempSync(join(tmpdir(), "prime-supervisor-config-merge-"));
+		const descriptorDir = join(root, "workers");
+		const socketPath = join(root, "supervisor.sock");
+		const agentDir = join(root, "agent");
+		mkdirSync(descriptorDir, { recursive: true });
+		writeFileSync(
+			join(descriptorDir, "supervisor-config"),
+			JSON.stringify({
+				version: 1,
+				socketPath: `${root}//supervisor.sock`,
+				defaultSessionConfig: { agentDir, cwd: "/persisted/cwd", telemetryDisabled: true },
+			}),
+		);
+
+		try {
+			const supervisor = new DaemonSupervisor(socketPath, {
+				descriptorDir,
+				defaultSessionConfig: {
+					agentDir,
+					cwd: "/fresh/cwd",
+					provider: "fresh-provider",
+					model: "fresh-model",
+					apiKey: "fresh-key",
+				},
+			});
+			const config = (supervisor as unknown as { defaultSessionConfig: Record<string, unknown> })
+				.defaultSessionConfig;
+
+			expect(config).toMatchObject({
+				agentDir,
+				cwd: "/persisted/cwd",
+				telemetryDisabled: true,
+				provider: "fresh-provider",
+				model: "fresh-model",
+				apiKey: "fresh-key",
+			});
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it("migrates v1 descriptors by lifting only safe host policy fields", () => {
+		const descriptorDir = mkdtempSync(join(tmpdir(), "prime-supervisor-v1-migration-"));
+		const descriptorPath = join(descriptorDir, "worker-v1.json");
+		try {
+			writeFileSync(
+				descriptorPath,
+				`${JSON.stringify({
+					version: 1,
+					workerId: "worker-v1",
+					pid: 42,
+					socketPath: "/tmp/worker-v1.sock",
+					recoveryJournalPath: join(descriptorDir, "worker-v1.recovery.jsonl"),
+					supervisorSocketPath: "/tmp/supervisor.sock",
+					authenticationToken: "local-token",
+					rootActiveSessionId: "active-v1",
+					createdAt: "2026-01-01T00:00:00.000Z",
+					updatedAt: "2026-01-01T00:00:00.000Z",
+					lifecycle: "ready",
+					createCommand: {
+						type: "create",
+						config: {
+							sessionDir: "/safe/sessions",
+							telemetryDisabled: true,
+							apiKey: "secret-api-key",
+							extensionFlagValues: { providerSecretKey: "secret-provider-key" },
+						},
+						launchEnv: { PROVIDER_TOKEN: "secret-env" },
+					},
+					launchEnv: { PROVIDER_TOKEN: "secret-top-level-env" },
+					consecutiveFailures: 0,
+				})}\n`,
+			);
+			const workers = new Map<string, { descriptor: Record<string, unknown> }>();
+			const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+				descriptorDir,
+				socketPath: "/tmp/supervisor.sock",
+				workers,
+				log: vi.fn(),
+			}) as {
+				loadWorkerDescriptors(): void;
+				persistWorker(target: unknown): void;
+			};
+
+			supervisor.loadWorkerDescriptors();
+
+			const migrated = JSON.parse(readFileSync(descriptorPath, "utf8"));
+			expect(migrated).toMatchObject({
+				version: 2,
+				sessionDir: "/safe/sessions",
+				telemetryDisabled: true,
+				createCommand: { type: "create" },
+			});
+			expect(JSON.stringify(migrated)).not.toContain("secret-");
+			const runtimeWorker = workers.get("worker-v1");
+			expect(runtimeWorker?.descriptor).toMatchObject({
+				sessionDir: "/safe/sessions",
+				telemetryDisabled: true,
+			});
+			if (!runtimeWorker) throw new Error("missing migrated worker");
+			runtimeWorker.descriptor.lifecycle = "failed";
+			runtimeWorker.descriptor.lastError = "secret-runtime-diagnostic";
+			supervisor.persistWorker(runtimeWorker);
+			expect(runtimeWorker.descriptor.lastError).toBe("secret-runtime-diagnostic");
+			expect(JSON.parse(readFileSync(descriptorPath, "utf8"))).toMatchObject({
+				lastError: "Waiting for a client with fresh runtime context",
+			});
+			expect(readFileSync(descriptorPath, "utf8")).not.toContain("secret-runtime-diagnostic");
+		} finally {
+			rmSync(descriptorDir, { recursive: true, force: true });
+		}
+	});
+
+	it("adopts persisted worker descriptors recorded with a non-canonical supervisor socket path", () => {
+		if (process.platform === "win32") {
+			return;
+		}
+		const descriptorDir = mkdtempSync(join(tmpdir(), "prime-supervisor-descriptor-heal-"));
+		try {
+			const now = new Date().toISOString();
+			writeFileSync(
+				join(descriptorDir, "worker-1.json"),
+				`${JSON.stringify({
+					version: 2,
+					workerId: "worker-1",
+					pid: 999_999,
+					socketPath: join(descriptorDir, "worker-1.sock"),
+					supervisorSocketPath: "/tmp//supervisor.sock",
+					authenticationToken: "token-1",
+					rootActiveSessionId: "active-1",
+					createdAt: now,
+					updatedAt: now,
+					lifecycle: "running",
+					sessionDir: "/safe/sessions",
+					telemetryDisabled: true,
+					createCommand: {
+						type: "create",
+						config: { cwd: descriptorDir, agentDir: descriptorDir, apiKey: "secret-api-key" },
+						launchEnv: { PROVIDER_TOKEN: "secret-command-env" },
+					},
+					launchEnv: { PROVIDER_TOKEN: "secret-worker-env" },
+					consecutiveFailures: 0,
+				})}\n`,
+			);
+			const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+				descriptorDir,
+				socketPath: "/tmp/supervisor.sock",
+				workers: new Map(),
+				log: vi.fn(),
+			}) as {
+				workers: Map<string, unknown>;
+				loadWorkerDescriptors(): void;
+			};
+
+			supervisor.loadWorkerDescriptors();
+
+			expect(supervisor.workers.size).toBe(1);
+			const loaded = supervisor.workers.get("worker-1") as {
+				descriptor: Record<string, unknown>;
+			};
+			expect(loaded.descriptor).toMatchObject({
+				version: 2,
+				supervisorSocketPath: "/tmp/supervisor.sock",
+				sessionDir: "/safe/sessions",
+				telemetryDisabled: true,
+			});
+			expect(JSON.stringify(loaded.descriptor)).not.toContain("secret-");
+			const persisted = readFileSync(join(descriptorDir, "worker-1.json"), "utf8");
+			expect(persisted).not.toContain("secret-");
+			expect(JSON.parse(persisted)).toMatchObject({
+				version: 2,
+				supervisorSocketPath: "/tmp/supervisor.sock",
+			});
+		} finally {
+			rmSync(descriptorDir, { recursive: true, force: true });
+		}
+	});
+
+	it("derives the same worker descriptor namespace for equivalent socket path spellings", () => {
+		if (process.platform === "win32") {
+			return;
+		}
+		const root = mkdtempSync(join(tmpdir(), "prime-supervisor-namespace-"));
+		try {
+			const canonical = new DaemonSupervisor(join(root, "supervisor.sock"), {
+				defaultSessionConfig: { cwd: root, agentDir: root },
+			}) as unknown as { descriptorDir: string };
+			const doubled = new DaemonSupervisor(`${root}//supervisor.sock`, {
+				defaultSessionConfig: { cwd: root, agentDir: root },
+			}) as unknown as { descriptorDir: string };
+
+			expect(doubled.descriptorDir).toBe(canonical.descriptorDir);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
 		}
 	});
 
@@ -1605,6 +3256,7 @@ describe("daemon worker supervisor monitoring", () => {
 		} as unknown as DaemonAttachResult;
 		const worker = {
 			descriptor: { workerId: "worker-1", lifecycle: "ready", pid: 1234 },
+			client: {},
 			summaries: new Map([[activeSessionId, summary]]),
 			snapshotCache: new Map([[activeSessionId, result]]),
 			snapshotTransferFrames: new Map(),
@@ -1637,6 +3289,73 @@ describe("daemon worker supervisor monitoring", () => {
 		await supervisor.attachClient(client, { type: "attach", activeSessionId });
 
 		expect(seed).toHaveBeenCalledWith(activeSessionId, streamingMessage);
+	});
+
+	it("reconstructs a client-owned recovery command from fresh attach context", async () => {
+		const activeSessionId = "active-owned-recovery";
+		const worker = {
+			descriptor: {
+				workerId: "worker-owned-recovery",
+				ownerClientId: "client-1",
+				rootActiveSessionId: activeSessionId,
+				lifecycle: "failed",
+				consecutiveFailures: 1,
+				telemetryDisabled: true,
+				createCommand: { type: "create" as const, sessionPath: "/tmp/session.jsonl" },
+			},
+			summaries: new Map(),
+			intentionalStop: false,
+			stopRevision: 0,
+			launchEnv: undefined as Record<string, string> | undefined,
+			transientCreateCommand: undefined as Record<string, unknown> | undefined,
+		};
+		const client = {
+			id: "client-1",
+			capabilities: new Set<string>(),
+			supportsExtensionUi: false,
+			attachedActiveSessionIds: new Set<string>(),
+		};
+		const recoverWorker = vi.fn(async () => {
+			throw new Error("stop after reconstruction");
+		});
+		const supervisor = Object.assign(Object.create(DaemonSupervisor.prototype), {
+			workers: new Map([[worker.descriptor.workerId, worker]]),
+			clients: new Set([client]),
+			protocolClientIds: new WeakMap(),
+			persistWorker: vi.fn(),
+			recoverWorker,
+		}) as {
+			attachClient(
+				attachClient: typeof client,
+				command: {
+					type: "attach";
+					activeSessionId: string;
+					recoveryConfig: { cwd: string };
+					launchEnv: Record<string, string>;
+					env: Record<string, string>;
+				},
+			): Promise<unknown>;
+		};
+
+		await expect(
+			supervisor.attachClient(client, {
+				type: "attach",
+				activeSessionId,
+				recoveryConfig: { cwd: "/tmp/fresh-owner" },
+				launchEnv: { OWNER_SECRET: "fresh" },
+				env: { HERDR_PANE_ID: "pane-1" },
+			}),
+		).rejects.toThrow("stop after reconstruction");
+		expect(worker.transientCreateCommand).toEqual({
+			type: "create",
+			sessionPath: "/tmp/session.jsonl",
+			config: { cwd: "/tmp/fresh-owner", telemetryDisabled: true },
+			env: { HERDR_PANE_ID: "pane-1" },
+			launchEnv: { OWNER_SECRET: "fresh" },
+			lifecycle: "client_owned",
+		});
+		expect(worker.launchEnv).toEqual({ OWNER_SECRET: "fresh" });
+		expect(recoverWorker).toHaveBeenCalledWith(worker);
 	});
 
 	it("rejects an opted-out attach to a telemetry-enabled worker", async () => {

@@ -49,6 +49,7 @@ import type { ReadonlyFooterDataProvider } from "../footer-data-provider.js";
 import type { KeybindingsManager } from "../keybindings.js";
 import type { CustomMessage } from "../messages.js";
 import type { ModelRegistry } from "../model-registry.js";
+import type { HarnessState, RefinementProposal, RefinementResult } from "../refinement/index.js";
 import type {
 	BranchSummaryEntry,
 	CompactionEntry,
@@ -70,15 +71,9 @@ import type {
 } from "../tools/index.js";
 
 export type { ExecOptions, ExecResult } from "../exec.js";
+export type { AppKeybinding, KeybindingsManager } from "../keybindings.js";
 export type { BuildSystemPromptOptions } from "../system-prompt.js";
 export type { AgentToolResult, AgentToolUpdateCallback, ToolExecutionMode };
-export type { AutocompleteItem } from "@earendil-works/pi-tui";
-export type { AppKeybinding, KeybindingsManager } from "../keybindings.js";
-
-// ============================================================================
-// UI Context
-// ============================================================================
-
 /** Options for extension UI dialogs. */
 export interface ExtensionUIDialogOptions {
 	/** AbortSignal to programmatically dismiss the dialog. */
@@ -267,11 +262,6 @@ export interface ExtensionUIContext {
 	/** Set tool output expansion state. */
 	setToolsExpanded(expanded: boolean): void;
 }
-
-// ============================================================================
-// Extension Context
-// ============================================================================
-
 export interface ContextUsage {
 	/** Estimated context tokens, or null if unknown (e.g. right after compaction, before next LLM response). */
 	tokens: number | null;
@@ -373,11 +363,6 @@ export interface ReplacedSessionContext extends ExtensionCommandContext {
 		options?: { deliverAs?: "steer" | "followUp" },
 	): Promise<void>;
 }
-
-// ============================================================================
-// Tool Types
-// ============================================================================
-
 /** Rendering options for tool results */
 export interface ToolRenderResultOptions {
 	/** Whether the result view is expanded */
@@ -488,11 +473,6 @@ export function defineTool<TParams extends TSchema, TDetails = unknown, TState =
 ): ToolDefinition<TParams, TDetails, TState> & AnyToolDefinition {
 	return tool as ToolDefinition<TParams, TDetails, TState> & AnyToolDefinition;
 }
-
-// ============================================================================
-// Resource Events
-// ============================================================================
-
 /** Fired after session_start to allow extensions to provide additional resource paths. */
 export interface ResourcesDiscoverEvent {
 	type: "resources_discover";
@@ -506,11 +486,6 @@ export interface ResourcesDiscoverResult {
 	promptPaths?: string[];
 	themePaths?: string[];
 }
-
-// ============================================================================
-// Session Events
-// ============================================================================
-
 /** Fired when a session is started, loaded, or reloaded */
 export interface SessionStartEvent {
 	type: "session_start";
@@ -541,6 +516,36 @@ export interface SessionBeforeCompactEvent {
 	branchEntries: SessionEntry[];
 	customInstructions?: string;
 	signal: AbortSignal;
+}
+
+/** Planning inputs for a refinement round. */
+export interface RefinePreparation {
+	/** Whether refinement was requested explicitly (/refine) or by auto-refine. */
+	trigger: "manual" | "auto";
+	/** Instructions passed to /refine or derived from the auto-refine review. */
+	instructions?: string;
+	/** Whether the round targets the global or the session-local harness. */
+	scope: "global" | "local";
+	/** Harness state the planner would see (global overlaid with local for local scope). */
+	planningState: HarnessState;
+	/** Prior refinement results, newest last. */
+	history: RefinementResult[];
+	/** Serialized conversation text the built-in planner would consume. */
+	conversationText: string;
+}
+
+/** Fired before refinement planning (can be skipped or replaced). Rollbacks bypass this event. */
+export interface SessionBeforeRefineEvent {
+	type: "session_before_refine";
+	preparation: RefinePreparation;
+	signal: AbortSignal;
+}
+
+export interface SessionBeforeRefineResult {
+	/** Skip this refinement round entirely. */
+	skip?: boolean;
+	/** Replace the built-in planner. Edits are still validated at apply time. */
+	proposal?: RefinementProposal;
 }
 
 /** Fired after context compaction */
@@ -595,14 +600,10 @@ export type SessionEvent =
 	| SessionBeforeForkEvent
 	| SessionBeforeCompactEvent
 	| SessionCompactEvent
+	| SessionBeforeRefineEvent
 	| SessionShutdownEvent
 	| SessionBeforeTreeEvent
 	| SessionTreeEvent;
-
-// ============================================================================
-// Agent Events
-// ============================================================================
-
 /** Fired before each LLM call. Can modify messages. */
 export interface ContextEvent {
 	type: "context";
@@ -718,11 +719,6 @@ export interface ToolExecutionEndEvent {
 	result: any;
 	isError: boolean;
 }
-
-// ============================================================================
-// Model Events
-// ============================================================================
-
 export type ModelSelectSource = "set" | "cycle" | "restore";
 
 /** Fired when a new model is selected */
@@ -739,11 +735,6 @@ export interface ThinkingLevelSelectEvent {
 	level: ThinkingLevel;
 	previousLevel: ThinkingLevel;
 }
-
-// ============================================================================
-// User Bash Events
-// ============================================================================
-
 /** Fired when user executes a bash command via ! or !! prefix */
 export interface UserBashEvent {
 	type: "user_bash";
@@ -754,11 +745,6 @@ export interface UserBashEvent {
 	/** Current working directory */
 	cwd: string;
 }
-
-// ============================================================================
-// Input Events
-// ============================================================================
-
 /** Source of user input */
 export type InputSource = "interactive" | "rpc" | "extension";
 
@@ -778,11 +764,6 @@ export type InputEventResult =
 	| { action: "continue" }
 	| { action: "transform"; text: string; images?: ImageContent[] }
 	| { action: "handled" };
-
-// ============================================================================
-// Tool Events
-// ============================================================================
-
 interface ToolCallEventBase {
 	type: "tool_call";
 	toolCallId: string;
@@ -851,7 +832,6 @@ export type ToolResultEvent =
 	| IpythonToolResultEvent
 	| CustomToolResultEvent;
 
-// Type guards for ToolResultEvent
 export function isBashToolResult(e: ToolResultEvent): e is BashToolResultEvent {
 	return e.toolName === "bash";
 }
@@ -918,11 +898,6 @@ export type ExtensionEvent =
 	| ToolCallEvent
 	| ToolResultEvent
 	| RefineCompleteEvent;
-
-// ============================================================================
-// Event Results
-// ============================================================================
-
 export interface ContextEventResult {
 	messages?: AgentMessage[];
 }
@@ -987,11 +962,6 @@ export interface SessionBeforeTreeResult {
 	/** Override label to attach to the branch summary entry */
 	label?: string;
 }
-
-// ============================================================================
-// Message Rendering
-// ============================================================================
-
 export interface MessageRenderOptions {
 	expanded: boolean;
 }
@@ -1001,11 +971,6 @@ export type MessageRenderer<T = unknown> = (
 	options: MessageRenderOptions,
 	theme: Theme,
 ) => Component | undefined;
-
-// ============================================================================
-// Command Registration
-// ============================================================================
-
 export interface RegisteredCommand {
 	name: string;
 	sourceInfo: SourceInfo;
@@ -1017,11 +982,6 @@ export interface RegisteredCommand {
 export interface ResolvedCommand extends RegisteredCommand {
 	invocationName: string;
 }
-
-// ============================================================================
-// Extension API
-// ============================================================================
-
 /** Handler function type for events */
 // biome-ignore lint/suspicious/noConfusingVoidType: void allows bare return statements
 export type ExtensionHandler<E, R = undefined> = (event: E, ctx: ExtensionContext) => Promise<R | void> | R | void;
@@ -1030,10 +990,6 @@ export type ExtensionHandler<E, R = undefined> = (event: E, ctx: ExtensionContex
  * ExtensionAPI passed to extension factory functions.
  */
 export interface ExtensionAPI {
-	// =========================================================================
-	// Event Subscription
-	// =========================================================================
-
 	on(event: "resources_discover", handler: ExtensionHandler<ResourcesDiscoverEvent, ResourcesDiscoverResult>): void;
 	on(event: "session_start", handler: ExtensionHandler<SessionStartEvent>): void;
 	on(
@@ -1046,6 +1002,10 @@ export interface ExtensionAPI {
 		handler: ExtensionHandler<SessionBeforeCompactEvent, SessionBeforeCompactResult>,
 	): void;
 	on(event: "session_compact", handler: ExtensionHandler<SessionCompactEvent>): void;
+	on(
+		event: "session_before_refine",
+		handler: ExtensionHandler<SessionBeforeRefineEvent, SessionBeforeRefineResult>,
+	): void;
 	on(event: "session_shutdown", handler: ExtensionHandler<SessionShutdownEvent>): void;
 	on(event: "session_before_tree", handler: ExtensionHandler<SessionBeforeTreeEvent, SessionBeforeTreeResult>): void;
 	on(event: "session_tree", handler: ExtensionHandler<SessionTreeEvent>): void;
@@ -1073,20 +1033,10 @@ export interface ExtensionAPI {
 	on(event: "user_bash", handler: ExtensionHandler<UserBashEvent, UserBashEventResult>): void;
 	on(event: "input", handler: ExtensionHandler<InputEvent, InputEventResult>): void;
 	on(event: "refine_complete", handler: ExtensionHandler<RefineCompleteEvent>): void;
-
-	// =========================================================================
-	// Tool Registration
-	// =========================================================================
-
 	/** Register a tool that the LLM can call. */
 	registerTool<TParams extends TSchema = TSchema, TDetails = unknown, TState = any>(
 		tool: ToolDefinition<TParams, TDetails, TState>,
 	): void;
-
-	// =========================================================================
-	// Command, Shortcut, Flag Registration
-	// =========================================================================
-
 	/** Register a custom command. */
 	registerCommand(name: string, options: Omit<RegisteredCommand, "name" | "sourceInfo">): void;
 
@@ -1111,18 +1061,8 @@ export interface ExtensionAPI {
 
 	/** Get the value of a registered CLI flag. */
 	getFlag(name: string): boolean | string | undefined;
-
-	// =========================================================================
-	// Message Rendering
-	// =========================================================================
-
 	/** Register a custom renderer for CustomMessageEntry. */
 	registerMessageRenderer<T = unknown>(customType: string, renderer: MessageRenderer<T>): void;
-
-	// =========================================================================
-	// Actions
-	// =========================================================================
-
 	/** Send a custom message to the session. */
 	sendMessage<T = unknown>(
 		message: Pick<CustomMessage<T>, "customType" | "content" | "display" | "details">,
@@ -1140,11 +1080,6 @@ export interface ExtensionAPI {
 
 	/** Append a custom entry to the session for state persistence (not sent to LLM). */
 	appendEntry<T = unknown>(customType: string, data?: T): void;
-
-	// =========================================================================
-	// Session Metadata
-	// =========================================================================
-
 	/** Set the session display name (shown in session selector). */
 	setSessionName(name: string): void | Promise<void>;
 
@@ -1168,11 +1103,6 @@ export interface ExtensionAPI {
 
 	/** Get available slash commands in the current session. */
 	getCommands(): SlashCommandInfo[];
-
-	// =========================================================================
-	// Model and Thinking Level
-	// =========================================================================
-
 	/** Set the current model. Returns false if no API key available. */
 	setModel(model: Model<any>): Promise<boolean>;
 
@@ -1181,11 +1111,6 @@ export interface ExtensionAPI {
 
 	/** Set thinking level (clamped to model capabilities). */
 	setThinkingLevel(level: ThinkingLevel): void;
-
-	// =========================================================================
-	// Provider Registration
-	// =========================================================================
-
 	/**
 	 * Register or override a model provider.
 	 *
@@ -1258,11 +1183,6 @@ export interface ExtensionAPI {
 	/** Shared event bus for extension communication. */
 	events: EventBus;
 }
-
-// ============================================================================
-// Provider Registration Types
-// ============================================================================
-
 /** Configuration for registering a provider via pi.registerProvider(). */
 export interface ProviderConfig {
 	/** Display name for the provider in UI. */
@@ -1326,11 +1246,6 @@ export interface ProviderModelConfig {
 
 /** Extension factory function type. Supports both sync and async initialization. */
 export type ExtensionFactory = (pi: ExtensionAPI) => void | Promise<void>;
-
-// ============================================================================
-// Loaded Extension Types
-// ============================================================================
-
 export interface RegisteredTool {
 	definition: ToolDefinition;
 	sourceInfo: SourceInfo;
@@ -1491,14 +1406,6 @@ export interface ExtensionCommandContextActions {
  */
 export interface ExtensionRuntime extends ExtensionRuntimeState, ExtensionActions {}
 
-/** Bindings a mode provides to host the extension system in-process. */
-export interface ExtensionBindings {
-	uiContext?: ExtensionUIContext;
-	commandContextActions?: ExtensionCommandContextActions;
-	shutdownHandler?: () => void;
-	onError?: (error: ExtensionError) => void;
-}
-
 /** Loaded extension with all registered items. */
 export interface Extension {
 	path: string;
@@ -1519,11 +1426,6 @@ export interface LoadExtensionsResult {
 	/** Shared runtime - actions are throwing stubs until runner.initialize() */
 	runtime: ExtensionRuntime;
 }
-
-// ============================================================================
-// Extension Error
-// ============================================================================
-
 export interface ExtensionError {
 	extensionPath: string;
 	event: string;

@@ -1,9 +1,20 @@
 # Changelog
 
-## [Unreleased]
+## [0.8.0] - 2026-08-21
 
-- Fixed provider detection comparing base URLs with substring checks; hostnames are now parsed and matched exactly, so lookalike hosts are no longer treated as the provider.
-- Fixed pathologically slow regexes in base-URL normalization (trailing-slash stripping) and OpenAI-completions host detection.
+- Added endpoint binding to MCP OAuth credentials: tokens record the URL they were issued for, and refreshes carry the original binding forward without ever inferring one for unbound legacy credentials.
+- Added Fast mode (service_tier `priority`) support for OpenAI API-key models GPT-5.4/GPT-5.5/GPT-5.6, and corrected the GPT-5.6 fast-pricing multiplier from 2.5x to 2x per OpenAI's pricing table ([#1595](https://github.com/PrimeIntellect-ai/prime-agent/discussions/1595)).
+- Fixed path-scoped protected-resource discovery and resource-bound refresh for MCP OAuth servers.
+
+## [0.7.4] - 2026-08-19
+
+## [0.7.3] - 2026-08-17
+
+- Added provider-derived reasoning levels for OpenRouter and Prime Inference models, including sparse, mandatory, toggle-only, and explicit-off capabilities.
+- Added Qwen 3.8 Max to the featured Prime Inference catalog ([#1247](https://github.com/PrimeIntellect-ai/prime-agent/pull/1247) by [@eliebak](https://github.com/eliebak)).
+- Refreshed generated provider catalogs, removed retired routes, and aligned provider defaults and cross-provider handoff fixtures with models currently served.
+
+## [0.7.2] - 2026-08-11
 
 ## [0.7.1] - 2026-08-07
 

@@ -499,11 +499,11 @@ describe("parseArgs", () => {
 			expect(result.tools).toEqual(["ipython", "dynamic_tool"]);
 		});
 
-		test("warns on removed built-in tools without failing", () => {
+		test("rejects removed built-in tools", () => {
 			const result = parseArgs(["--tools", "read,bash,edit"]);
 			expect(result.tools).toEqual(["read", "bash", "edit"]);
 			expect(result.diagnostics).toContainEqual({
-				type: "warning",
+				type: "error",
 				message: "Unknown built-in tool(s): read. Available built-in tools: ipython",
 			});
 		});

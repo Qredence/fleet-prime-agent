@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # Build pi binaries for all platforms locally.
+# Mirrors .github/workflows/build-binaries.yml
 #
 # Usage:
 #   ./scripts/build-binaries.sh [--skip-deps] [--platform <platform>]
@@ -122,6 +123,8 @@ for platform in "${PLATFORMS[@]}"; do
     cp ../../node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm binaries/$platform/
     mkdir -p binaries/$platform/theme
     cp dist/modes/interactive/theme/*.json binaries/$platform/theme/
+    mkdir -p binaries/$platform/assets
+    cp dist/modes/interactive/assets/* binaries/$platform/assets/
     cp -r dist/core/export-html binaries/$platform/
     cp -r docs binaries/$platform/
     cp -r examples binaries/$platform/

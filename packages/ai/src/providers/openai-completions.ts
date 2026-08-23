@@ -78,6 +78,8 @@ function isImageContentBlock(block: { type: string }): block is ImageContent {
 export interface OpenAICompletionsOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "required" | { type: "function"; function: { name: string } };
 	reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+	/** Explicit reasoning toggle. undefined preserves the provider/model default. */
+	reasoningEnabled?: boolean;
 }
 
 interface OpenAICompatCacheControl {
@@ -430,13 +432,16 @@ export const streamSimpleOpenAICompletions: StreamFunction<"openai-completions",
 	}
 
 	const base = buildBaseOptions(model, options, apiKey);
-	const clampedReasoning = options?.reasoning ? clampThinkingLevel(model, options.reasoning) : undefined;
+	const requestedReasoning = options?.reasoning;
+	const reasoningSpecified = requestedReasoning !== undefined;
+	const clampedReasoning = reasoningSpecified ? clampThinkingLevel(model, requestedReasoning) : undefined;
 	const reasoningEffort = clampedReasoning === "off" ? undefined : clampedReasoning;
 	const toolChoice = (options as OpenAICompletionsOptions | undefined)?.toolChoice;
 
 	return streamOpenAICompletions(model, context, {
 		...base,
 		reasoningEffort,
+		reasoningEnabled: reasoningSpecified ? clampedReasoning !== "off" : undefined,
 		toolChoice,
 	} satisfies OpenAICompletionsOptions);
 };
@@ -479,7 +484,6 @@ function createClient(
 		headers["x-session-affinity"] = sessionId;
 	}
 
-	// Merge options headers last so they can override defaults
 	if (optionsHeaders) {
 		Object.assign(headers, optionsHeaders);
 	}
@@ -516,7 +520,7 @@ function buildParams(
 		messages,
 		stream: true,
 		prompt_cache_key:
-			(urlHostIs(model.baseUrl, "api.openai.com") && cacheRetention !== "none") ||
+			(model.baseUrl.includes("api.openai.com") && cacheRetention !== "none") ||
 			(cacheRetention === "long" && compat.supportsLongCacheRetention)
 				? options?.sessionId
 				: undefined,
@@ -577,32 +581,34 @@ function buildParams(
 				model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
 		}
 	} else if (compat.thinkingFormat === "openrouter" && model.reasoning) {
-		// OpenRouter normalizes reasoning across providers via a nested reasoning object.
-		const openRouterParams = params as typeof params & { reasoning?: { effort?: string } };
-		if (options?.reasoningEffort) {
+		// OpenRouter distinguishes an omitted reasoning preference (use the model
+		// default), an explicit toggle, and an explicit effort selection.
+		const openRouterParams = params as typeof params & { reasoning?: { enabled?: boolean; effort?: string } };
+		if (options?.reasoningEffort && compat.supportsReasoningEffort) {
 			openRouterParams.reasoning = {
 				effort: model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort,
 			};
-		} else if (model.thinkingLevelMap?.off !== null) {
-			openRouterParams.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
+		} else if (options?.reasoningEnabled === true) {
+			openRouterParams.reasoning = { enabled: true };
+		} else if (options?.reasoningEnabled === false && model.thinkingLevelMap?.off !== null) {
+			openRouterParams.reasoning = compat.supportsReasoningEffort
+				? { effort: model.thinkingLevelMap?.off ?? "none" }
+				: { enabled: false };
 		}
 	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
-		// OpenAI-style reasoning_effort
 		(params as any).reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
-	} else if (!options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
+	} else if (options?.reasoningEnabled === false && model.reasoning && compat.supportsReasoningEffort) {
 		const offValue = model.thinkingLevelMap?.off;
-		if (typeof offValue === "string") {
-			(params as any).reasoning_effort = offValue;
+		if (offValue !== null) {
+			(params as any).reasoning_effort = offValue ?? "none";
 		}
 	}
 
-	// OpenRouter provider routing preferences
-	if (urlHostEndsWith(model.baseUrl, "openrouter.ai") && model.compat?.openRouterRouting) {
+	if (model.baseUrl.includes("openrouter.ai") && model.compat?.openRouterRouting) {
 		(params as any).provider = model.compat.openRouterRouting;
 	}
 
-	// Vercel AI Gateway provider routing preferences
-	if (urlHostEndsWith(model.baseUrl, "ai-gateway.vercel.sh") && model.compat?.vercelGatewayRouting) {
+	if (model.baseUrl.includes("ai-gateway.vercel.sh") && model.compat?.vercelGatewayRouting) {
 		const routing = model.compat.vercelGatewayRouting;
 		if (routing.only || routing.order) {
 			const gatewayOptions: Record<string, string[]> = {};
@@ -919,7 +925,6 @@ export function convertMessages(
 			for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
 				const toolMsg = transformedMessages[j] as ToolResultMessage;
 
-				// Extract text and image content
 				const textResult = toolMsg.content
 					.filter(isTextContentBlock)
 					.map((block) => block.text)
@@ -928,7 +933,6 @@ export function convertMessages(
 
 				// Always send tool result with text (or placeholder if only images)
 				const hasText = textResult.length > 0;
-				// Some providers require the 'name' field in tool results
 				const toolResultMsg: ChatCompletionToolMessageParam = {
 					role: "tool",
 					content: sanitizeSurrogates(hasText ? textResult : hasImages ? "(see attached image)" : ""),
@@ -1070,64 +1074,35 @@ function mapStopReason(reason: ChatCompletionChunk.Choice["finish_reason"] | str
  * Provider takes precedence over URL-based detection since it's explicitly configured.
  * Returns a fully resolved OpenAICompletionsCompat object with all fields set.
  */
-/** True when baseUrl's hostname is `host` or a subdomain of it. */
-function urlHostIs(baseUrl: string, host: string): boolean {
-	try {
-		const hostname = new URL(baseUrl).hostname.toLowerCase();
-		return hostname === host || hostname.endsWith(`.${host}`);
-	} catch {
-		return false;
-	}
-}
-
-function urlHostStartsWith(baseUrl: string, prefix: string): boolean {
-	try {
-		return new URL(baseUrl).hostname.toLowerCase().startsWith(prefix);
-	} catch {
-		return false;
-	}
-}
-
-function urlHostEndsWith(baseUrl: string, suffix: string): boolean {
-	try {
-		return new URL(baseUrl).hostname.toLowerCase().endsWith(suffix);
-	} catch {
-		return false;
-	}
-}
-
 function detectCompat(model: Model<"openai-completions">): ResolvedOpenAICompletionsCompat {
 	const provider = model.provider;
 	const baseUrl = model.baseUrl;
 
-	const isZai = provider === "zai" || urlHostIs(baseUrl, "api.z.ai");
-	const isMoonshot =
-		provider === "moonshotai" || provider === "moonshotai-cn" || urlHostStartsWith(baseUrl, "api.moonshot.");
-	const isCloudflareWorkersAI = provider === "cloudflare-workers-ai" || urlHostIs(baseUrl, "api.cloudflare.com");
-	const isCloudflareAiGateway =
-		provider === "cloudflare-ai-gateway" || urlHostIs(baseUrl, "gateway.ai.cloudflare.com");
-	const isPrimeInference = provider === "prime-inference" || urlHostIs(baseUrl, "api.pinference.ai");
+	const isZai = provider === "zai" || baseUrl.includes("api.z.ai");
+	const isMoonshot = provider === "moonshotai" || provider === "moonshotai-cn" || baseUrl.includes("api.moonshot.");
+	const isCloudflareWorkersAI = provider === "cloudflare-workers-ai" || baseUrl.includes("api.cloudflare.com");
+	const isCloudflareAiGateway = provider === "cloudflare-ai-gateway" || baseUrl.includes("gateway.ai.cloudflare.com");
+	const isPrimeInference = provider === "prime-inference" || baseUrl.includes("api.pinference.ai");
 
 	const isNonStandard =
 		provider === "cerebras" ||
-		urlHostEndsWith(baseUrl, "cerebras.ai") ||
+		baseUrl.includes("cerebras.ai") ||
 		provider === "xai" ||
-		urlHostIs(baseUrl, "api.x.ai") ||
-		urlHostEndsWith(baseUrl, "chutes.ai") ||
-		urlHostEndsWith(baseUrl, "deepseek.com") ||
+		baseUrl.includes("api.x.ai") ||
+		baseUrl.includes("chutes.ai") ||
+		baseUrl.includes("deepseek.com") ||
 		isZai ||
 		isMoonshot ||
 		provider === "opencode" ||
-		urlHostEndsWith(baseUrl, "opencode.ai") ||
+		baseUrl.includes("opencode.ai") ||
 		isCloudflareWorkersAI ||
 		isCloudflareAiGateway ||
 		isPrimeInference;
 
-	const useMaxTokens =
-		urlHostEndsWith(baseUrl, "chutes.ai") || isMoonshot || isCloudflareAiGateway || isPrimeInference;
+	const useMaxTokens = baseUrl.includes("chutes.ai") || isMoonshot || isCloudflareAiGateway || isPrimeInference;
 
-	const isGrok = provider === "xai" || urlHostIs(baseUrl, "api.x.ai");
-	const isDeepSeek = provider === "deepseek" || urlHostEndsWith(baseUrl, "deepseek.com");
+	const isGrok = provider === "xai" || baseUrl.includes("api.x.ai");
+	const isDeepSeek = provider === "deepseek" || baseUrl.includes("deepseek.com");
 	const isAnthropicModel = model.id.startsWith("anthropic/");
 	const cacheControlFormat =
 		isAnthropicModel && (provider === "openrouter" || isPrimeInference) ? "anthropic" : undefined;
@@ -1146,7 +1121,7 @@ function detectCompat(model: Model<"openai-completions">): ResolvedOpenAIComplet
 			? "deepseek"
 			: isZai
 				? "zai"
-				: provider === "openrouter" || urlHostEndsWith(baseUrl, "openrouter.ai")
+				: provider === "openrouter" || baseUrl.includes("openrouter.ai")
 					? "openrouter"
 					: "openai",
 		openRouterRouting: {},

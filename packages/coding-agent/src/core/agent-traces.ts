@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { Dirent } from "node:fs";
-import { open, readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { appendRotatingLog, getAgentTracesLogPath, getSessionsDir, VERSION } from "../config.js";
 import { readFirstLineSync } from "../utils/file-lines.js";
@@ -11,7 +11,7 @@ import {
 	PRIME_INFERENCE_PROVIDER_ID,
 	resolvePrimeAgentTracesBaseUrl,
 } from "./prime-inference-auth.js";
-import type { SessionHeader, SessionManager } from "./session-manager.js";
+import { getSessionArtifactsRoot, type SessionHeader, type SessionManager } from "./session-manager.js";
 import type { SettingsManager } from "./settings-manager.js";
 
 const MAX_TRACE_BYTES = 20 * 1024 * 1024;
@@ -210,79 +210,17 @@ function isSessionHeader(value: unknown): value is SessionHeader {
 	);
 }
 
-function parseSessionHeader(firstLine: string | undefined): SessionHeader | undefined {
-	if (!firstLine?.trim()) {
-		return undefined;
-	}
+function readSessionHeader(sessionFile: string): SessionHeader | undefined {
 	try {
+		const firstLine = readFirstLineSync(sessionFile);
+		if (!firstLine?.trim()) {
+			return undefined;
+		}
 		const parsed = JSON.parse(firstLine) as unknown;
 		return isSessionHeader(parsed) ? parsed : undefined;
 	} catch {
 		return undefined;
 	}
-}
-
-function readSessionHeader(sessionFile: string): SessionHeader | undefined {
-	try {
-		return parseSessionHeader(readFirstLineSync(sessionFile));
-	} catch {
-		return undefined;
-	}
-}
-
-type SessionFileRead =
-	| { status: "ok"; body: string; size: number; header: SessionHeader; tooLarge: false }
-	| { status: "ok"; body: undefined; size: number; header: SessionHeader; tooLarge: true }
-	| { status: "no_session_file" }
-	| { status: "empty_session" }
-	| { status: "invalid_session"; message: string }
-	| { status: "failed"; message: string };
-
-const SESSION_HEADER_SNIFF_BYTES = 64 * 1024;
-
-/** Read a session file once: stat, header, and body share a single file handle. */
-async function readSessionFileOnce(sessionFile: string): Promise<SessionFileRead> {
-	let handle: Awaited<ReturnType<typeof open>>;
-	try {
-		handle = await open(sessionFile, "r");
-	} catch {
-		return { status: "no_session_file" };
-	}
-	try {
-		const stats = await handle.stat();
-		if (!stats.isFile()) {
-			return { status: "no_session_file" };
-		}
-		if (stats.size === 0) {
-			return { status: "empty_session" };
-		}
-		const tooLarge = stats.size > MAX_TRACE_BYTES;
-		const headerLine = await readFirstLineFromHandle(handle);
-		const header = parseSessionHeader(headerLine);
-		if (!header) {
-			return { status: "invalid_session", message: "Session file is missing a valid session header" };
-		}
-		if (tooLarge) {
-			return { status: "ok", body: undefined, size: stats.size, header, tooLarge };
-		}
-		const body = await handle.readFile("utf8");
-		if (!body.trim()) {
-			return { status: "empty_session" };
-		}
-		return { status: "ok", body, size: stats.size, header, tooLarge };
-	} catch (error) {
-		return { status: "failed", message: describeError(error) };
-	} finally {
-		await handle.close().catch(() => undefined);
-	}
-}
-
-async function readFirstLineFromHandle(handle: Awaited<ReturnType<typeof open>>): Promise<string | undefined> {
-	const buffer = Buffer.alloc(SESSION_HEADER_SNIFF_BYTES);
-	const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-	const text = buffer.subarray(0, bytesRead).toString("utf8");
-	const newline = text.indexOf("\n");
-	return newline === -1 ? text : text.slice(0, newline);
 }
 
 /** Active-branch git for the indexing headers: walk leaf to root, not the last git_state in
@@ -526,11 +464,36 @@ export async function previewAgentTraceFile(options: AgentTracePreviewOptions): 
 		return { status: "no_session_file" };
 	}
 
-	const read = await readSessionFileOnce(options.sessionFile);
-	if (read.status !== "ok") {
-		return read;
+	let fileSize: number;
+	try {
+		const stats = await stat(options.sessionFile);
+		if (!stats.isFile()) {
+			return { status: "no_session_file" };
+		}
+		fileSize = stats.size;
+	} catch {
+		return { status: "no_session_file" };
 	}
-	const { body, size, header } = read;
+	if (fileSize === 0) {
+		return { status: "empty_session" };
+	}
+
+	const header = readSessionHeader(options.sessionFile);
+	if (!header) {
+		return { status: "invalid_session", message: "Session file is missing a valid session header" };
+	}
+
+	let body = "";
+	if (fileSize <= MAX_TRACE_BYTES) {
+		try {
+			body = await readFile(options.sessionFile, "utf8");
+		} catch (error) {
+			return { status: "failed", message: describeError(error) };
+		}
+		if (!body.trim()) {
+			return { status: "empty_session" };
+		}
+	}
 
 	const traceContext = resolveTraceContext(options.sessionFile, header);
 	const baseUrl = resolvePrimeAgentTracesBaseUrl(options.baseUrl);
@@ -545,9 +508,9 @@ export async function previewAgentTraceFile(options: AgentTracePreviewOptions): 
 		traceId: traceContext.traceId,
 		parentSessionId: traceContext.parentSessionId,
 		cwd: header.cwd,
-		size,
+		size: fileSize,
 		maxBytes: MAX_TRACE_BYTES,
-		uploadable: !read.tooLarge,
+		uploadable: fileSize <= MAX_TRACE_BYTES,
 		endpoint: `${baseUrl}/api/v1/agent-traces/sessions/${encodeURIComponent(header.id)}`,
 		gitRepo: git?.repoUrl,
 		gitCommit: git?.commit,
@@ -578,7 +541,7 @@ async function findSessionFilesUnder(root: string, files: Set<string>): Promise<
 
 export async function findAgentTraceFiles(sessionDir: string = getSessionsDir()): Promise<string[]> {
 	const files = new Set<string>();
-	const roots = new Set([resolve(sessionDir), resolve(dirname(sessionDir), "session-artifacts")]);
+	const roots = new Set([resolve(sessionDir), resolve(getSessionArtifactsRoot(sessionDir))]);
 	await Promise.all([...roots].map((root) => findSessionFilesUnder(root, files)));
 	return [...files].sort();
 }
@@ -767,14 +730,27 @@ async function performAgentTraceUpload(
 		return { status: "no_session_file" };
 	}
 
-	const read = await readSessionFileOnce(options.sessionFile);
-	if (read.status !== "ok") {
-		return read;
+	let fileSize: number;
+	try {
+		const stats = await stat(options.sessionFile);
+		if (!stats.isFile()) {
+			return { status: "no_session_file" };
+		}
+		fileSize = stats.size;
+	} catch {
+		return { status: "no_session_file" };
 	}
-	if (read.tooLarge) {
-		return { status: "too_large", size: read.size, maxBytes: MAX_TRACE_BYTES };
+	if (fileSize === 0) {
+		return { status: "empty_session" };
 	}
-	const { body, header } = read;
+	if (fileSize > MAX_TRACE_BYTES) {
+		return { status: "too_large", size: fileSize, maxBytes: MAX_TRACE_BYTES };
+	}
+
+	const header = readSessionHeader(options.sessionFile);
+	if (!header) {
+		return { status: "invalid_session", message: "Session file is missing a valid session header" };
+	}
 
 	const credential = await getPrimeAgentTraceCredential(options.authStorage, {
 		configPath: options.configPath,
@@ -786,6 +762,16 @@ async function performAgentTraceUpload(
 
 	if (requireEnabled && !(await getAgentTracesEnabled(options))) {
 		return { status: "disabled" };
+	}
+
+	let body: string;
+	try {
+		body = await readFile(options.sessionFile, "utf8");
+	} catch (error) {
+		return { status: "failed", message: describeError(error) };
+	}
+	if (!body.trim()) {
+		return { status: "empty_session" };
 	}
 
 	const traceContext = resolveTraceContext(options.sessionFile, header);

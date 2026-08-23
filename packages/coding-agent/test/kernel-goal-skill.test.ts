@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -21,7 +21,7 @@ describe("goal skill over the kernel host bridge", { tags: ["kernel-heavy"] }, (
 	let provisioner: IpythonKernelProvisioner | undefined;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "pi-goal-skill-"));
+		tempDir = join(tmpdir(), `pi-goal-skill-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(tempDir, { recursive: true });
 	});
 
@@ -113,7 +113,6 @@ except RuntimeError as error:
 			'RuntimeError: host request type "goal.get" is not available in this session',
 		);
 
-		// A "type" key smuggled into the payload must not reroute the request.
 		const reroute = await manager.execute(`
 import rlm as _rlm
 try:

@@ -1,5 +1,6 @@
 import { getPiUserAgent } from "./pi-user-agent.js";
 
+const DEFAULT_PRIME_AGENT_DOWNLOAD_BASE_URL = "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev";
 const STABLE_VERSION_MANIFEST_PATH = "latest.json";
 const BETA_VERSION_MANIFEST_PATH = "beta.json";
 const DEFAULT_VERSION_CHECK_TIMEOUT_MS = 10000;
@@ -84,17 +85,20 @@ export function isNewerPackageVersion(candidateVersion: string, currentVersion: 
 	return candidateVersion.trim() !== currentVersion.trim();
 }
 
-function getPrimeAgentDownloadBaseUrl(): string | undefined {
-	const configuredBaseUrl = process.env.PRIME_AGENT_DOWNLOAD_BASE_URL?.trim();
-	return configuredBaseUrl ? configuredBaseUrl.replace(/\/+$/, "") : undefined;
+function getPrimeAgentDownloadBaseUrl(): string {
+	return (process.env.PRIME_AGENT_DOWNLOAD_BASE_URL?.trim() || DEFAULT_PRIME_AGENT_DOWNLOAD_BASE_URL).replace(
+		/\/+$/,
+		"",
+	);
 }
 
 function normalizeReleaseVersion(version: string): string {
 	return version.trim().replace(/^v/, "");
 }
 
-function getReleaseManifestPath(parsed: ParsedVersion): string {
-	return parsed.prerelease?.match(/^beta(?:\.|$)/) ? BETA_VERSION_MANIFEST_PATH : STABLE_VERSION_MANIFEST_PATH;
+function getReleaseManifestPath(currentVersion: string): string {
+	const prerelease = parsePackageVersion(currentVersion)?.prerelease;
+	return prerelease?.match(/^beta(?:\.|$)/) ? BETA_VERSION_MANIFEST_PATH : STABLE_VERSION_MANIFEST_PATH;
 }
 
 function resolveReleaseUrl(baseUrl: string, pathOrUrl: string): string | undefined {
@@ -114,12 +118,7 @@ export async function getLatestPiRelease(
 	if (process.env.PI_SKIP_VERSION_CHECK || process.env.PI_OFFLINE) return undefined;
 
 	const baseUrl = getPrimeAgentDownloadBaseUrl();
-	if (!baseUrl) return undefined;
-	// Validate the version before it influences the request; package.json versions are
-	// trusted but must stay out of the URL and headers unvalidated.
-	const parsedVersion = parsePackageVersion(currentVersion);
-	if (!parsedVersion) return undefined;
-	const response = await fetch(`${baseUrl}/${getReleaseManifestPath(parsedVersion)}`, {
+	const response = await fetch(`${baseUrl}/${getReleaseManifestPath(currentVersion)}`, {
 		headers: {
 			"User-Agent": getPiUserAgent(currentVersion),
 			accept: "application/json",

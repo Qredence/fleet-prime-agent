@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -42,7 +42,7 @@ describe("ENG-3885 subagent runtime host", () => {
 	});
 
 	it("creates explicitly modeled RLM children as tracked AgentSessionRuntime instances", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "pi-3885-subagent-runtime-"));
+		const tempDir = join(tmpdir(), `pi-3885-subagent-runtime-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(tempDir, { recursive: true });
 		vi.stubEnv(SESSION_LEASES_ENABLED_ENV, "1");
 		vi.stubEnv(SESSION_LEASE_OWNER_ID_ENV, "test-parent");
@@ -178,7 +178,7 @@ describe("ENG-3885 subagent runtime host", () => {
 	});
 
 	it("preserves initial model and thinking entries for inline RLM children", async () => {
-		const tempDir = mkdtempSync(join(tmpdir(), "pi-3885-inline-subagent-"));
+		const tempDir = join(tmpdir(), `pi-3885-inline-subagent-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(tempDir, { recursive: true });
 
 		const faux = registerFauxProvider({

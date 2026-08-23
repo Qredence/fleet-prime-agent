@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { constants, publicEncrypt } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,7 +68,7 @@ describe("Prime Inference auth", () => {
 	let originalTraceBaseUrl: string | undefined;
 
 	beforeEach(() => {
-		tempDir = mkdtempSync(join(tmpdir(), "pi-prime-auth-"));
+		tempDir = join(tmpdir(), `pi-prime-auth-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 		mkdirSync(tempDir, { recursive: true });
 		configPath = join(tempDir, "config.json");
 		originalTraceBaseUrl = process.env.PRIME_AGENT_TRACES_BASE_URL;

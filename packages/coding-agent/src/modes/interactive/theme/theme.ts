@@ -118,14 +118,9 @@ let validateThemeJson: Validator<TProperties, typeof ThemeJsonSchema> | undefine
 let themeValidatorPromise: Promise<void> | undefined;
 
 export function preloadThemeValidator(): Promise<void> {
-	themeValidatorPromise ??= import("typebox/compile")
-		.then(({ Compile }) => {
-			validateThemeJson = Compile(ThemeJsonSchema);
-		})
-		// Same teardown race as preloadCodeHighlighter: swallow and retry.
-		.catch(() => {
-			themeValidatorPromise = undefined;
-		});
+	themeValidatorPromise ??= import("typebox/compile").then(({ Compile }) => {
+		validateThemeJson = Compile(ThemeJsonSchema);
+	});
 	return themeValidatorPromise;
 }
 
@@ -887,18 +882,9 @@ let codeHighlighterPromise: Promise<void> | undefined;
  * before the first render to guarantee highlighted code blocks.
  */
 export function preloadCodeHighlighter(): Promise<void> {
-	codeHighlighterPromise ??= import("./code-highlighter.js")
-		.then((module) => {
-			codeHighlighter = module;
-		})
-		// Fire-and-forget from initTheme(): when the load races a vitest
-		// environment teardown it rejects with EnvironmentTeardownError, which
-		// would otherwise surface as an unhandled rejection and fail the run.
-		// highlightCode already falls back to plain output until the load lands,
-		// so reset the promise and let the next preload retry.
-		.catch(() => {
-			codeHighlighterPromise = undefined;
-		});
+	codeHighlighterPromise ??= import("./code-highlighter.js").then((module) => {
+		codeHighlighter = module;
+	});
 	return codeHighlighterPromise;
 }
 
