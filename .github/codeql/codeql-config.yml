@@ -2,7 +2,10 @@ name: Fleet Prime CodeQL
 
 # The engine directories are a verbatim upstream checkout pinned by UPSTREAM.
 # Their findings are owned and remediated in PrimeIntellect-ai/prime-agent;
-# Fleet-owned code remains covered by the repository's default setup.
+# Fleet-owned code remains covered by this repository's CodeQL workflow.
+queries:
+  - uses: security-extended
+
 paths-ignore:
   - packages/ai/**
   - packages/agent/**
