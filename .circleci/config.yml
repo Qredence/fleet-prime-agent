@@ -42,7 +42,7 @@ commands:
               esac
             done
 
-            output="$(fdfind --strip-cwd-prefix=always "$@")" || exit $?
+            output="$(fdfind --strip-cwd-prefix "$@")" || exit $?
             if [[ -z "$output" ]]; then
               exit 1
             fi
@@ -101,7 +101,7 @@ commands:
       - run:
           name: Install uv
           command: |
-            python3 -m pip install --user uv
+            python3 -m pip install --user --break-system-packages uv
             echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
             source "$BASH_ENV"
             uv --version
