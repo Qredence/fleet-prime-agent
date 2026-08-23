@@ -56,7 +56,7 @@
 		"cli-highlight": "^2.1.11",
 		"diff": "^9.0.0",
 		"extract-zip": "^2.0.1",
-		"file-type": "^21.1.1",
+		"file-type": "^22.0.2",
 		"glob": "^13.0.1",
 		"hosted-git-info": "^9.0.2",
 		"ignore": "^7.0.5",
