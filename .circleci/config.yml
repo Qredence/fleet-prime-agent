@@ -3,7 +3,7 @@ version: 2.1
 executors:
   node:
     docker:
-      - image: cimg/node:22.15.0
+      - image: cimg/node:22.23.2
     working_directory: ~/prime-agent
 
 commands:
