@@ -22,8 +22,15 @@ commands:
               fd-find \
               python3-pip \
               ripgrep
-            if ! command -v fd >/dev/null 2>&1; then
-              sudo ln -s "$(command -v fdfind)" /usr/local/bin/fd
+            if command -v fdfind >/dev/null 2>&1; then
+              sudo tee /usr/local/bin/fd >/dev/null \<<'EOF'
+            #!/usr/bin/env bash
+            exec fdfind --strip-cwd-prefix=always "$@"
+            EOF
+              sudo chmod +x /usr/local/bin/fd
+            elif ! command -v fd >/dev/null 2>&1; then
+              echo "fd is not available after installing fd-find" >&2
+              exit 1
             fi
 
   install-pnpm:
