@@ -17,6 +17,15 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    ignore:
+      # Engine-managed dependencies: declared in vendored packages/* manifests,
+      # resolved through the root lockfile, updated only via sync-upstream.mjs.
+      # Root-level version PRs for them fail check:upstream by design.
+      - dependency-name: "@anthropic-ai/sdk"
+      - dependency-name: "@google/genai"
+      - dependency-name: "@mistralai/mistralai"
+      - dependency-name: "chalk"
+      - dependency-name: "esbuild"
 
   - package-ecosystem: npm
     directory: /web
