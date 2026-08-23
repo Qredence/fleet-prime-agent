@@ -170,6 +170,16 @@ export function useModelDefaultsForm({
 		setModelEnabled(model, false);
 	};
 
+	/** Promote an enabled model to the session default (engine settings.json). */
+	const setDefaultModel = (model: ConfigModelInfo) => {
+		if (!draft) return;
+		void commitModelSettings({
+			...draft,
+			defaultProvider: model.provider,
+			defaultModel: model.modelId,
+		});
+	};
+
 	const discoverProvider = async (providerId: string) => {
 		if (!onDiscoverModels) return;
 		setDiscoveringProviderId(providerId);
@@ -205,6 +215,7 @@ export function useModelDefaultsForm({
 		modelDirty,
 		addModels,
 		removeModel,
+		setDefaultModel,
 		discoverProvider,
 		discoveringProviderId,
 		commitModelSettings,

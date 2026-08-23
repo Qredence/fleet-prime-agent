@@ -168,7 +168,7 @@ export function PromptInput({
     <form
       onSubmit={submit}
       className={cn(
-        "relative w-full rounded-[14px] border border-border/70 bg-background p-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-foreground/25 focus-within:ring-1 focus-within:ring-ring/20",
+        "relative w-full rounded-[14px] border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-foreground/25 focus-within:ring-1 focus-within:ring-ring/20",
         disabled && "opacity-60",
         className,
       )}
@@ -190,7 +190,7 @@ export function PromptInput({
         {...textareaProps}
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={handleKeyDown}
-        className="scrollbar-hide block w-full resize-none overflow-y-auto bg-transparent px-2 pt-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground/55"
+        className="scrollbar-hide block w-full resize-none overflow-y-auto bg-transparent px-2 pt-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-foreground/55"
       />
 
       <div className="mt-1 flex min-h-8 items-center gap-1">
@@ -203,7 +203,7 @@ export function PromptInput({
                 size="icon"
                 disabled={disabled || loading}
                 aria-label="Add to prompt"
-                className="size-8 rounded-full"
+                className="size-8 rounded-full text-foreground/70 hover:text-foreground"
               >
                 <m.span
                   aria-hidden="true"
@@ -234,7 +234,7 @@ export function PromptInput({
                   className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-50"
                 >
                   {action.icon ? (
-                    <span className="mt-0.5 grid size-5 shrink-0 place-items-center text-muted-foreground [&_svg]:size-4">
+                    <span className="mt-0.5 grid size-5 shrink-0 place-items-center text-foreground/70 [&_svg]:size-4">
                       {action.icon}
                     </span>
                   ) : null}
@@ -243,7 +243,7 @@ export function PromptInput({
                       {action.label}
                     </span>
                     {action.description ? (
-                      <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
+                      <span className="mt-0.5 block text-xs leading-4 text-foreground/60">
                         {action.description}
                       </span>
                     ) : null}
@@ -264,11 +264,11 @@ export function PromptInput({
             <AnimatedSelectTrigger className="h-8 w-auto max-w-52 rounded-xl border-0 bg-transparent px-2 py-0 text-xs hover:bg-muted focus-visible:ring-2">
               <span className="flex min-w-0 items-center gap-1.5">
                 {currentModel?.icon ? (
-                  <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-3.5">
+                  <span className="grid size-4 shrink-0 place-items-center text-foreground/70 [&_svg]:size-3.5">
                     {currentModel.icon}
                   </span>
                 ) : null}
-                <span className="truncate text-muted-foreground">
+                <span className="truncate text-foreground/70">
                   {currentModel?.label ?? "Choose model"}
                 </span>
               </span>

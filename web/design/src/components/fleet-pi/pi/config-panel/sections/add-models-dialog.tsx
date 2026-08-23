@@ -25,12 +25,16 @@ import type { ConfigModelInfo } from "../shared/types"
 
 export type AddModelsDialogProps = {
   configuredProviderIds: ReadonlySet<string>
+  /** Providers whose models.json base URL allows live model discovery. */
+  discoverableProviderIds?: ReadonlySet<string>
   discoveringProviderId: string | null
   enabledModels: ChatPiSettings["enabledModels"] | undefined
   modelOptions: Array<ConfigModelInfo>
   onAddModels: (models: Array<ConfigModelInfo>) => void
   onDiscoverProvider: (providerId: string) => Promise<void>
   onOpenChange: (open: boolean) => void
+  /** Preferred labels for custom/OCC instance ids (display names). */
+  providerLabel?: (providerId: string) => string
 }
 
 function searchableModelText(model: ConfigModelInfo) {
@@ -41,12 +45,14 @@ function searchableModelText(model: ConfigModelInfo) {
 
 export function AddModelsDialog({
   configuredProviderIds,
+  discoverableProviderIds,
   discoveringProviderId,
   enabledModels,
   modelOptions,
   onAddModels,
   onDiscoverProvider,
   onOpenChange,
+  providerLabel = formatProviderLabel,
 }: AddModelsDialogProps) {
   const [filter, setFilter] = useState("")
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
@@ -71,10 +77,24 @@ export function AddModelsDialog({
   }, [candidateModels])
 
   const discoverableProviders = useMemo(() => {
-    return Array.from(configuredProviderIds).sort((a, b) =>
-      formatProviderLabel(a).localeCompare(formatProviderLabel(b))
-    )
-  }, [configuredProviderIds])
+    // Only providers with a recorded base URL can serve GET {baseUrl}/models;
+    // built-ins come from the engine's static registry instead.
+    const ids = discoverableProviderIds ?? configuredProviderIds
+    return Array.from(ids)
+      .filter((id) => configuredProviderIds.has(id))
+      .sort((a, b) => providerLabel(a).localeCompare(providerLabel(b)))
+  }, [configuredProviderIds, discoverableProviderIds])
+
+  /** Enabled-model count per provider, for the "N active" group labels. */
+  const activeCountByProvider = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const model of modelOptions) {
+      if (isModelEnabled(model, enabledModels)) {
+        counts.set(model.provider, (counts.get(model.provider) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [enabledModels, modelOptions])
 
   const toggleSelected = (model: ConfigModelInfo) => {
     setSelectedKeys((current) => {
@@ -106,6 +126,7 @@ export function AddModelsDialog({
         <div className="flex flex-wrap gap-1.5">
           {discoverableProviders.map((providerId) => {
             const discovering = discoveringProviderId === providerId
+            const activeCount = activeCountByProvider.get(providerId) ?? 0
             return (
               <Button
                 key={providerId}
@@ -122,7 +143,12 @@ export function AddModelsDialog({
                 ) : (
                   <RefreshCw data-icon="inline-start" />
                 )}
-                {formatProviderLabel(providerId)}
+                {providerLabel(providerId)}
+                {activeCount > 0 ? (
+                  <span className="tabular-nums text-muted-foreground">
+                    · {activeCount} active
+                  </span>
+                ) : null}
               </Button>
             )
           })}
@@ -152,7 +178,12 @@ export function AddModelsDialog({
               {groupedCandidates.map(([provider, models]) => (
                 <div key={provider} className="flex flex-col gap-1">
                   <div className="px-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                    {formatProviderLabel(provider)}
+                    {providerLabel(provider)}
+                    {(activeCountByProvider.get(provider) ?? 0) > 0 ? (
+                      <span className="ml-1 font-normal normal-case tabular-nums">
+                        · {activeCountByProvider.get(provider)} active
+                      </span>
+                    ) : null}
                   </div>
                   {models.map((model) => {
                     const checked = selectedKeys.has(model.id)

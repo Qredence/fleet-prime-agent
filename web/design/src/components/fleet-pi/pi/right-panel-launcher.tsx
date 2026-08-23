@@ -10,7 +10,7 @@ import {
   useWorkspaceTreeContext,
 } from "../layout/right-panel-context"
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "../styles/tokens"
-import { getArtifactsScopePath } from "./artifacts-utils"
+import { collectSessionOpenUIBlocks, getArtifactsScopePath } from "./artifacts-utils"
 import {
   countWorkspaceFiles,
   findWorkspaceNode,
@@ -24,7 +24,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol"
 /** Reads panel state from RightPanelProvider — no prop threading from route. */
 export function RightPanelLauncherFromContext() {
-  const { rightPanel, setRightPanel, resources } = useChatPanelDataContext()
+  const { messages, rightPanel, setRightPanel, resources } = useChatPanelDataContext()
   const { workspaceTree } = useWorkspaceTreeContext()
 
   return (
@@ -32,6 +32,7 @@ export function RightPanelLauncherFromContext() {
       activePanel={rightPanel}
       onPanelChange={setRightPanel}
       resources={resources}
+      sessionBlocks={collectSessionOpenUIBlocks(messages).length}
       workspace={workspaceTree}
     />
   )
@@ -41,11 +42,14 @@ export function RightPanelLauncher({
   activePanel,
   onPanelChange,
   resources,
+  sessionBlocks = 0,
   workspace,
 }: {
   activePanel: RightPanel
   onPanelChange: (panel: RightPanel) => void
   resources: ChatResourcesResponse | null
+  /** Generative-UI blocks in the current session — counted alongside workspace files. */
+  sessionBlocks?: number
   workspace: WorkspaceTreeResponse | null
 }) {
   const totalResources = getResourceGroups(resources, workspace).reduce(
@@ -53,16 +57,21 @@ export function RightPanelLauncher({
     0
   )
   const totalArtifacts = useMemo(() => {
-    if (!workspace) return undefined
+    const files = (() => {
+      if (!workspace) return 0
 
-    const artifactsRoot = findWorkspaceNode(
-      workspace.nodes,
-      getArtifactsScopePath(workspace.root)
-    )
-    if (!artifactsRoot?.children?.length) return undefined
+      const artifactsRoot = findWorkspaceNode(
+        workspace.nodes,
+        getArtifactsScopePath(workspace.root)
+      )
+      if (!artifactsRoot?.children?.length) return 0
 
-    return countWorkspaceFiles(artifactsRoot.children)
-  }, [workspace])
+      return countWorkspaceFiles(artifactsRoot.children)
+    })()
+
+    const total = files + sessionBlocks
+    return total > 0 ? total : undefined
+  }, [sessionBlocks, workspace])
 
   const tabs = useMemo(
     () => [

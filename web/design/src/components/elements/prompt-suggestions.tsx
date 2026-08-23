@@ -33,7 +33,7 @@ export function PromptSuggestions({
       className={cn(
         list
           ? "flex w-full max-w-sm flex-col gap-2"
-          : "flex max-w-md flex-wrap justify-center gap-2",
+          : "flex w-full max-w-xl flex-wrap justify-center gap-1",
         className,
       )}
 

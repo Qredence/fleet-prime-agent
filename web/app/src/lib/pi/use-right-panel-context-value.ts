@@ -20,7 +20,7 @@ import type {
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useMemo } from "react";
 
 type UseRightPanelContextValueArgs = {
@@ -29,6 +29,7 @@ type UseRightPanelContextValueArgs = {
 	isLoadingProviders?: boolean;
 	isUpdatingProvider?: boolean;
 	loadWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>;
+	messages: Array<ChatMessage>;
 	modelKey?: string;
 	models: Array<ChatModelOption>;
 	modelCatalog?: Array<ChatModelOption>;
@@ -72,6 +73,7 @@ export function useRightPanelContextValue({
 	isLoadingProviders,
 	isUpdatingProvider,
 	loadWorkspaceFile,
+	messages,
 	modelKey,
 	models,
 	modelCatalog,
@@ -105,6 +107,7 @@ export function useRightPanelContextValue({
 	const chatPanelData = useMemo<ChatPanelDataContextValue>(
 		() => ({
 			activityLabel,
+			messages,
 			models,
 			planLabel,
 			queue,
@@ -119,6 +122,7 @@ export function useRightPanelContextValue({
 		}),
 		[
 			activityLabel,
+			messages,
 			models,
 			planLabel,
 			queue,

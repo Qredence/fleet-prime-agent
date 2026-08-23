@@ -16,16 +16,24 @@ import { cn } from "@prime-agent/web-design/lib/utils";
 export function FleetReasoningPanel({
   presentation,
   className,
+  streamingOverride,
 }: {
   presentation: ChatReasoningPresentation;
   className?: string;
+  /** Live turn state from the caller; corrects parts reconciled before trailing `streaming:false` frames arrive. */
+  streamingOverride?: boolean;
 }) {
   const [userOpen, setUserOpen] = useState<boolean | undefined>(undefined);
-  const open = userOpen ?? presentation.streaming;
+  const streaming = streamingOverride ?? presentation.streaming;
+  const open = userOpen ?? streaming;
   const steps = useMemo(
     () => presentation.steps.map((step) => ({ title: step.title, body: step.body })),
     [presentation.steps],
   );
+  /* Nothing to display once the run settles and no steps were produced —
+   * an empty "Completed" card is worse than no card. While streaming the
+   * step-agnostic loader keeps the section meaningful. */
+  if (!streaming && steps.length === 0) return null;
   const visibleSteps = Math.min(Math.max(0, presentation.visibleSteps), steps.length);
   const activeStep = steps.at(visibleSteps - 1);
   const activeLabel = activeStep?.title ?? phaseLabel(presentation.phase);
@@ -40,7 +48,7 @@ export function FleetReasoningPanel({
         className,
       )}
     >
-      {presentation.streaming ? (
+      {streaming ? (
         <div className="mb-1.5 flex flex-col gap-1.5 border-b border-border/45 pb-2.5">
           {activeStep?.body ? (
             <>
@@ -62,7 +70,7 @@ export function FleetReasoningPanel({
       <ReasoningPanel
         steps={steps}
         visibleSteps={visibleSteps}
-        streaming={presentation.streaming}
+        streaming={streaming}
         streamingLabel="Preparing response"
         open={open}
         onOpenChange={setUserOpen}

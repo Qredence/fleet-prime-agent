@@ -4,7 +4,7 @@ import { ArtifactsPanelContent } from "../pi/artifacts-panel"
 import { ResourcesPanelContent } from "../pi/resources-panel"
 import { WorkspacePanelContent } from "../pi/workspace-panel"
 import type { ElementType, ReactNode } from "react"
-import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
+import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils"
 import type {
   ChatPiSettingsUpdate,
@@ -26,9 +26,12 @@ import type { ChatModelOption } from "../../../lib/pi/chat-helpers"
 export type ActiveRightPanel = Exclude<RightPanel, null>
 
 export type RightPanelContentProps = {
-  activityLabel?: string
-  isLoadingProviders?: boolean
-  isUpdatingProvider?: boolean
+	activityLabel?: string
+	isLoadingProviders?: boolean
+	isUpdatingProvider?: boolean
+	onOpenUIAction?: (message: string) => void
+	/** Current session messages — the artifacts panel derives generative-UI entries from them. */
+  messages: Array<ChatMessage>
   models: Array<ChatModelOption>
   /** Full registry catalog for Settings model curation (unfiltered). */
   modelCatalog?: Array<ChatModelOption>
@@ -129,8 +132,11 @@ export const RIGHT_PANEL_REGISTRY: Record<
         error={props.workspaceError}
         loadWorkspaceFile={props.loadWorkspaceFile}
         loading={props.workspaceLoading}
+        messages={props.messages}
+        onOpenUIAction={props.onOpenUIAction}
         onSelectedPathChange={props.setSelectedWorkspacePath}
         selectedPath={props.selectedWorkspacePath}
+        status={props.status}
         workspace={props.workspaceTree}
       />
     ),

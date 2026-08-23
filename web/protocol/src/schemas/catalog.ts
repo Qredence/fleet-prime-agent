@@ -126,7 +126,9 @@ export const ChatProviderInfoSchema = z
 		providerFamily: z.string().optional(),
 		displayName: z.string().optional(),
 		api: z.enum(["openai-completions", "openai-responses", "anthropic-messages", "google-genai"]).optional(),
+		baseUrl: z.string().optional(),
 		modelIds: z.array(z.string().max(4096)).max(64).optional(),
+		discoverable: z.boolean().optional(),
 	})
 	.openapi({ description: "Chat provider info" });
 

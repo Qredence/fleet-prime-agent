@@ -264,7 +264,7 @@ export function AddProviderEditorPanel({
 
       <ProviderCredentialFields
         attemptedSave={attemptedSave}
-        api={provider.api ?? api}
+        api={api}
         apiKey={apiKey}
         baseUrl={baseUrl}
         modelId={modelId}

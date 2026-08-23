@@ -286,6 +286,7 @@ function AssistantMessage({
             {reasoningPresentation ? (
               <FleetReasoningPanel
                 presentation={reasoningPresentation}
+                streamingOverride={turnStreaming}
                 className="mb-2"
               />
             ) : null}

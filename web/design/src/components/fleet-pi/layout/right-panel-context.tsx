@@ -6,7 +6,9 @@ import type { RightPanelContentProps } from "./right-panel-registry"
 export type ChatPanelDataContextValue = Pick<
   RightPanelContentProps,
   | "activityLabel"
+  | "messages"
   | "models"
+  | "onOpenUIAction"
   | "planLabel"
   | "queue"
   | "refreshResources"
@@ -66,18 +68,20 @@ const SettingsActionsContext =
 export function RightPanelProvider({
   chatPanelData,
   children,
+  onOpenUIAction,
   settingsActions,
   workspaceTree,
 }: {
   chatPanelData: ChatPanelDataContextValue
   children: ReactNode
+  onOpenUIAction?: (message: string) => void
   settingsActions: SettingsActionsContextValue
   workspaceTree: WorkspaceTreeContextValue
 }) {
   return (
     <SettingsActionsContext.Provider value={settingsActions}>
       <WorkspaceTreeContext.Provider value={workspaceTree}>
-        <ChatPanelDataContext.Provider value={chatPanelData}>
+        <ChatPanelDataContext.Provider value={{ ...chatPanelData, onOpenUIAction }}>
           {children}
         </ChatPanelDataContext.Provider>
       </WorkspaceTreeContext.Provider>
