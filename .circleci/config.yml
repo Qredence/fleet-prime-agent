@@ -230,6 +230,9 @@ jobs:
 
 workflows:
   ci:
+    when:
+      not:
+        equal: [schedule, << pipeline.trigger.type >>]
     jobs:
       - build-check
       - test:
@@ -316,12 +319,7 @@ workflows:
             - test-web
 
   nightly-process-stress:
-    triggers:
-      - schedule:
-          cron: "0 9 * * *"
-          filters:
-            branches:
-              only:
-                - main
+    when:
+      equal: [schedule, << pipeline.trigger.type >>]
     jobs:
       - process-stress
