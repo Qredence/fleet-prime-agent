@@ -50,6 +50,7 @@ type UseRightPanelContextValueArgs = {
 	resourcesLoading: boolean;
 	rightPanel: RightPanel;
 	saveSettings: (settings: ChatPiSettingsUpdate) => Promise<ChatSettingsResponse>;
+	selectedArtifactId?: string | null;
 	selectedWorkspacePath: string | null;
 	setRightPanel: (panel: RightPanel) => void;
 	setSelectedWorkspacePath: (path: string | null) => void;
@@ -95,6 +96,7 @@ export function useRightPanelContextValue({
 	resourcesLoading,
 	rightPanel,
 	saveSettings,
+	selectedArtifactId,
 	selectedWorkspacePath,
 	setRightPanel,
 	setSelectedWorkspacePath,
@@ -121,6 +123,7 @@ export function useRightPanelContextValue({
 			resourcesLoading,
 			rightPanel,
 			selectedModelKey: modelKey,
+			selectedArtifactId,
 			setRightPanel,
 			status,
 		}),
@@ -137,6 +140,7 @@ export function useRightPanelContextValue({
 			resourcesLoading,
 			rightPanel,
 			modelKey,
+			selectedArtifactId,
 			setRightPanel,
 			status,
 		],

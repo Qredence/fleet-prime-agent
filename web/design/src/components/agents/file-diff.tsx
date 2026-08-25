@@ -2,9 +2,11 @@
 // beui.dev/components/agents/chat-app
 
 import {
+  Ban,
   Check,
   ChevronDown,
   Copy,
+  CircleX,
   FileCode2,
   LoaderCircle,
 } from "lucide-react";
@@ -27,7 +29,7 @@ import { AgentDisclosure } from "@prime-agent/web-design/components/agents/agent
 import { SPRING_PRESS, SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 
-export type FileDiffStatus = "streaming" | "complete";
+export type FileDiffStatus = "streaming" | "complete" | "error" | "cancelled";
 export type FileDiffLineType = "added" | "removed" | "context";
 
 export interface FileDiffLine {
@@ -115,7 +117,7 @@ export function FileDiff({
     }
     if (
       previousStatus.current === "streaming" &&
-      status === "complete" &&
+      status !== "streaming" &&
       collapseOnComplete
     ) {
       setOpen(false);
@@ -188,6 +190,10 @@ export function FileDiff({
               aria-label="Applying changes"
               className={cn("size-3.5", !reduce && "animate-spin")}
             />
+          ) : status === "error" ? (
+            <CircleX aria-label="Changes failed" className="size-3.5" />
+          ) : status === "cancelled" ? (
+            <Ban aria-label="Changes cancelled" className="size-3.5" />
           ) : (
             <Check aria-label="Changes applied" className="size-3.5" />
           )}

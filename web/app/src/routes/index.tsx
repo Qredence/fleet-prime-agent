@@ -50,6 +50,7 @@ function ChatWorkspaceShell() {
     modelPickerOpen,
     models,
     openPanelAction,
+	openArtifact,
     uploadedAttachments,
     workspaceAttachments,
     addWorkspaceAttachment,
@@ -200,6 +201,7 @@ function ChatWorkspaceShell() {
 					activityLabel={activityLabel}
 					presentation={presentation}
 					artifactRuns={artifactRuns}
+					onOpenArtifact={openArtifact}
                 inputSuggestionItems={inputSuggestionItems}
                 suppressQuestionTool={!!pendingQuestionBar}
                 inputBar={{

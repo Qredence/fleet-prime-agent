@@ -11,7 +11,7 @@ import { WorkspacePanelContent } from "./workspace-panel"
 import { collectSessionOpenUIBlocks, getArtifactsScopePath } from "./artifacts-utils"
 import { findWorkspaceNode } from "./shared"
 import { CodeBlock } from "../../agents/code-block"
-import { FileDiff } from "../../agents/file-diff"
+import { FileDiff, type FileDiffStatus } from "../../agents/file-diff"
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../agents/tool-result"
 import type { SessionOpenUIBlock } from "./artifacts-utils"
 import type { WorkspacePanelContentProps } from "./workspace-panel"
@@ -35,6 +35,10 @@ type ArtifactsPanelContentProps = Pick<
 
 function artifactStatus(status: PrimeAgentArtifact["status"]): ToolResultStatus {
 	return status === "running" ? "running" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "success"
+}
+
+function artifactDiffStatus(status: PrimeAgentArtifact["status"]): FileDiffStatus {
+	return status === "running" ? "streaming" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "complete"
 }
 
 function textValue(value: unknown): string {
@@ -106,14 +110,21 @@ function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifac
 			className="rounded-md border border-border/60 bg-background px-2.5 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
 		>
 			{diff ? (
-				<FileDiff
-					file={diff.file}
-					lines={diff.lines}
-					status={artifact.status === "running" ? "streaming" : "complete"}
-					defaultOpen={initiallyOpen}
-					copyText={diff.copyText}
-					maxHeight={240}
-				/>
+				<>
+					<FileDiff
+						file={diff.file}
+						lines={diff.lines}
+						status={artifactDiffStatus(artifact.status)}
+						defaultOpen={initiallyOpen}
+						copyText={diff.copyText}
+						maxHeight={240}
+					/>
+					{sections.map((section) => (
+						<ToolResultOutput key={section.label} label={section.label} language="text">
+							{section.text}
+						</ToolResultOutput>
+					))}
+				</>
 			) : null}
 			{diff ? null : <ToolResult
 				tool={artifact.kind}

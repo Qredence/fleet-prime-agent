@@ -37,6 +37,7 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	const [modelKey, setModelKey] = useState<string | undefined>();
 	const [thinkingLevel, setThinkingLevelState] = useState<ChatThinkingLevel | undefined>();
 	const [rightPanel, setRightPanelState] = useState<RightPanel>(null);
+	const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
 	const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string | null>(null);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 	const [themePreference, setThemePreference] = useState<ThemePreference>(() => readStoredThemePreference());
@@ -136,7 +137,10 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	const setRightPanel = useCallback((panel: RightPanel) => {
 		setRightPanelState(panel);
 
-		if (panel === null) return;
+		if (panel === null) {
+			setSelectedArtifactId(null);
+			return;
+		}
 
 		setSelectedWorkspacePath((current) => {
 			if (!current) return current;
@@ -145,6 +149,14 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 			return null;
 		});
 	}, []);
+
+	const openArtifact = useCallback(
+		(artifactId: string) => {
+			setSelectedArtifactId(artifactId);
+			setRightPanel("artifacts");
+		},
+		[setRightPanel],
+	);
 
 	const openWorkspacePath = useCallback(
 		(rawPath: string) => {
@@ -207,10 +219,12 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 		persistSession,
 		resourceCanvasWidth,
 		rightPanel,
+		selectedArtifactId,
 		selectedWorkspacePath,
 		setCommandPaletteOpen,
 		setModelKey,
 		setRightPanel,
+		openArtifact,
 		setSelectedWorkspacePath,
 		setThinkingLevel,
 		themePreference,

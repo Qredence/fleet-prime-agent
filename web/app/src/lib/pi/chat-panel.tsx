@@ -14,6 +14,7 @@ type ChatPanelProps = {
 	activityLabel?: string
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
+	onOpenArtifact?: (artifactId: string) => void
 	inputSuggestionItems: FleetPiAgentChatProps["suggestions"]
 	suppressQuestionTool: boolean
 	inputBar: FleetPiAgentChatProps["inputBar"]
@@ -34,6 +35,7 @@ export function ChatPanel({
 	activityLabel,
 	presentation,
 	artifactRuns,
+	onOpenArtifact,
 	inputSuggestionItems,
 	suppressQuestionTool,
 	inputBar,
@@ -82,6 +84,7 @@ export function ChatPanel({
 					activityLabel={activityLabel}
 					presentation={presentation}
 					artifactRuns={artifactRuns}
+					onOpenArtifact={onOpenArtifact}
 				questionTool={questionTool}
 				suppressQuestionTool={suppressQuestionTool}
 				error={error ?? undefined}
