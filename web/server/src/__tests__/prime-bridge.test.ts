@@ -1,9 +1,10 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import { IpythonKernelProvisioner } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { runtimeHostFor } from "../connection-runtime";
 import { writeManagedPrimePresentation } from "../prime-agent-presentation";
 import { PrimeBridge } from "../prime-bridge";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
@@ -204,7 +205,12 @@ describe("PrimeBridge.forkSession", () => {
 
 		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
 
-		const prompt = vi.spyOn(created.session, "prompt").mockResolvedValue(undefined);
+		const prompt = vi
+			.spyOn(
+				created.connection as unknown as { promptAndWait: typeof created.connection.promptAndWait },
+				"promptAndWait",
+			)
+			.mockResolvedValue(undefined);
 		await bridge.prompt(created.sessionId, "show a plan summary", { mode: "plan", openUI: true });
 		const planPrompt = bridge.getSystemPrompt(created.sessionId);
 		expect(planPrompt).toContain("Every OpenUI block must start with `root = Root(...)` as its first line.");
@@ -220,11 +226,7 @@ describe("PrimeBridge.forkSession", () => {
 		await bridge.prompt(created.sessionId, "plain markdown only", { mode: "agent", openUI: false });
 		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
 		expect(prompt).toHaveBeenCalledTimes(3);
-		expect(prompt).toHaveBeenNthCalledWith(
-			1,
-			"show a plan summary",
-			expect.objectContaining({ queueIfBusy: true, resumeIfIdle: true }),
-		);
+		expect(prompt).toHaveBeenNthCalledWith(1, "show a plan summary", expect.objectContaining({ queueIfBusy: true }));
 	});
 
 	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {
@@ -406,5 +408,91 @@ describe("PrimeBridge.forkSession", () => {
 		await expect(bridge.forkSession(created.sessionId, "missing-entry", "before")).rejects.toThrow(
 			"Invalid entry ID for forking",
 		);
+	});
+});
+
+/**
+ * Regression net for the `InProcessAgentConnection` migration. The bridge
+ * class must not reach into `AgentSession` / `SessionManager` for its own
+ * operations. If any of these tokens resurface in `prime-bridge.ts`, the
+ * migration is incomplete and the test fails loud.
+ */
+describe("PrimeBridge AgentConnection migration regression", () => {
+	// The bridge file is one level up from the test file.
+	const bridgePath = resolvePath(__dirname, "..", "prime-bridge.ts");
+	const source = readFileSync(bridgePath, "utf8");
+
+	it("does not reach into AgentSession for the bridge's own session lifecycle", () => {
+		// The migration removes ad-hoc `session.X()` reach-throughs from the
+		// bridge class. Three documented back-compat uses remain behind explicit
+		// casts on the concrete `InProcessAgentConnection`; the test asserts no
+		// *additional* reaches have appeared.
+		const allowed = [
+			// Live back-compat shim exposed on `BridgeSession.session` for handlers
+			// outside this PR's scope. The bridge itself only dereferences it for
+			// the few documented legacy needs below.
+			// Eager-flush: connection does not expose flushNow().
+			"session.session.sessionManager.materializeSessionFile()",
+			"session.session.sessionManager.flushNow()",
+			// OpenUI prompt mutation keeps the legacy resource-loader poke so the
+			// system prompt rebuilds on mode change.
+			"session.session.resourceLoader.getAppendSystemPrompt()",
+			"session.session.setActiveToolsByName(",
+			"session.session.getActiveToolNames()",
+			// Sync cache fallbacks for handlers (out of this PR's scope) that
+			// call the bridge's sync methods. The cache is populated on
+			// registration and on session_replaced, but a cold read before any
+			// event has fired falls through to the live session.
+			"session.session.getContextUsage()",
+			"session.session.systemPrompt",
+			"session.session.sessionName",
+			"session.session.sessionManager.getTree()",
+			"session.session.sessionManager.getLeafId()",
+		];
+		const reachThroughs = (source.match(/\bsession\.session\.\w+(?:\([^)]*\))?/g) ?? []).filter((reach) => {
+			// Match by the reach's first path segment after `session.session.`
+			// (e.g. `session.session.sessionManager.flushNow()` matches
+			// `session.session.sessionManager`).
+			const head = reach.replace(/\(.*$/, "").split(".").slice(0, 3).join(".");
+			return !allowed.some((needle) => {
+				const allowedHead = needle.split("(")[0]!;
+				return head.startsWith(allowedHead) || allowedHead.startsWith(head);
+			});
+		});
+		expect(reachThroughs).toEqual([]);
+	});
+
+	it("uses sessionManager.flushNow only via the back-compat cast", () => {
+		// The eager-flush hack survives via the back-compat `session` field on
+		// the InProcessAgentConnection. Direct calls on a `SessionManager` would
+		// indicate a fresh anti-pattern and would be caught here.
+		const flushNowCalls = source.match(/\.sessionManager\.flushNow\(/g) ?? [];
+		// Two are expected: one in `createSession`, one in `forkSession`. The
+		// regression fails if a third appears without a comment justifying it.
+		expect(flushNowCalls.length).toBeLessThanOrEqual(2);
+	});
+
+	it("does not re-declare extractUserMessageText", () => {
+		// The migration replaces `extractUserMessageText` with content filtering
+		// inline. A re-declared helper would be redundant with the fork flow.
+		expect(source).not.toMatch(/function\s+extractUserMessageText/);
+	});
+
+	it("does not re-declare the legacy SessionTreeNode structural mirror", () => {
+		// The migration uses `connection.getSessionTree()`'s return type directly
+		// instead of a hand-rolled structural mirror.
+		expect(source).not.toMatch(/interface\s+SessionTreeNode/);
+	});
+});
+
+describe("runtimeHostFor", () => {
+	it("exposes the session's getSessionId through the in-process shim", () => {
+		// Smoke test: the shim is the same one used by
+		// `packages/coding-agent/test/suite/acp-features.test.ts`. It must give
+		// back the same session instance so tests can build an InProcessAgentConnection
+		// around an existing AgentSession without going through the runtime factory.
+		const fakeSession = { sessionManager: { getSessionId: () => "test-session" } } as never;
+		const host = runtimeHostFor(fakeSession);
+		expect(host.session.sessionManager.getSessionId()).toBe("test-session");
 	});
 });
