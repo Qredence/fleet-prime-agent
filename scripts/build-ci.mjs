@@ -9,11 +9,11 @@ const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const tsgo = join(root, "node_modules", ".bin", process.platform === "win32" ? "tsgo.cmd" : "tsgo");
 
 function run(command, args, cwd) {
-	execFileSync(command, args, {
-		cwd,
-		env: process.env,
-		stdio: "inherit",
-	});
+  execFileSync(command, args, {
+    cwd,
+    env: process.env,
+    stdio: "inherit",
+  });
 }
 
 // CI validates the checked-in generated catalog. The regular root build
