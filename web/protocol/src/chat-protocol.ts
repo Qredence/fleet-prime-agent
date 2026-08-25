@@ -88,6 +88,121 @@ export type ChatSessionMetadata = {
 	projectId?: ProjectId | null;
 };
 
+export type ChatServiceTier = "auto" | "default" | "flex" | "scale" | "priority" | null;
+
+export type PrimeAgentArtifactKind = "bash" | "ipython" | "mcp" | "generic" | "diff" | "rlm" | "recap" | "refinement";
+
+export type PrimeAgentArtifactStatus = "running" | "success" | "error" | "cancelled";
+
+export type PrimeAgentArtifact = {
+	id: string;
+	runId: string;
+	sourceMessageId?: string;
+	sourceToolCallId?: string;
+	kind: PrimeAgentArtifactKind;
+	title: string;
+	status: PrimeAgentArtifactStatus;
+	input?: unknown;
+	output?: unknown;
+	timestamp: number;
+};
+
+export type PrimeAgentArtifactRun = {
+	id: string;
+	runId: string;
+	artifacts: Array<PrimeAgentArtifact>;
+	startedAt?: number;
+	endedAt?: number;
+};
+
+export type PrimeAgentUserBash = {
+	id: string;
+	runId: string;
+	command: string;
+	output: string;
+	status: PrimeAgentArtifactStatus;
+	exitCode?: number;
+	cancelled: boolean;
+	truncated: boolean;
+	excludeFromContext: boolean;
+	errorMessage?: string;
+	startedAt: number;
+	endedAt?: number;
+};
+
+export type PrimeAgentRlmChild = {
+	id: string;
+	parentId?: string;
+	activeSessionId?: string;
+	sessionName?: string;
+	model?: string;
+	label: string;
+	status: "queued" | "running" | "done" | "error" | "cancelled";
+	durationMs?: number;
+	answerPreview?: string;
+	toolUseCount?: number;
+	tokenCount?: number;
+	recap?: string;
+	activity?: { kind: "waiting" | "writing" | "executing"; toolName?: string };
+	repliedSinceTask?: boolean;
+	error?: string;
+	timestamp: number;
+};
+
+export type PrimeAgentGoal = {
+	active: boolean;
+	status: "idle" | "active" | "paused" | "budget_limited" | "complete" | "error";
+	goalId?: string;
+	objective?: string;
+	tokenBudget?: number;
+	tokensUsed: number;
+	timeUsedSeconds: number;
+	continuationsUsed: number;
+	createdAt?: number;
+	updatedAt?: number;
+	lastReason?: string;
+	lastError?: string;
+};
+
+export type PrimeAgentRefinementEdit = {
+	action: "create" | "update" | "delete";
+	kind: string;
+	id: string;
+	title?: string;
+	content?: string;
+	reason?: string;
+	before?: string;
+	after?: string;
+	applied: boolean;
+	error?: string;
+};
+
+export type PrimeAgentRefinement = {
+	id: string;
+	summary: string;
+	rationale: string;
+	expectedOutcome: string;
+	scope?: "local" | "global";
+	rollbackOf?: string;
+	edits: Array<PrimeAgentRefinementEdit>;
+	status: "success" | "error";
+	error?: string;
+	timestamp: number;
+};
+
+export type PrimeAgentSessionPresentation = {
+	revision: number;
+	sessionName?: string;
+	thinkingLevel?: ChatThinkingLevel;
+	serviceTier?: ChatServiceTier;
+	goal?: PrimeAgentGoal;
+	recap?: string;
+	userBash: Array<PrimeAgentUserBash>;
+	rlmChildren: Array<PrimeAgentRlmChild>;
+	refinements: Array<PrimeAgentRefinement>;
+	artifactRuns: Array<PrimeAgentArtifactRun>;
+};
+
 /**
  * Body of a `POST /api/chat` turn request.
  *
@@ -186,6 +301,33 @@ export type ChatReasoningPresentation = {
 	restingLabel: string;
 };
 
+export type ChatThinkingPhase = "start" | "delta" | "end";
+
+/**
+ * Legacy live provider thinking frame accepted for older adapters. Current
+ * adapters never emit it, and browser reducers must ignore it.
+ */
+export type ChatThinkingEvent = {
+	type: "thinking";
+	phase: ChatThinkingPhase;
+	text: string;
+	messageId?: string;
+};
+
+/** Request-specific completion metadata for non-turn chat requests. */
+export type ChatStreamRequestKind = "session-command";
+
+export type ChatPresentationEvent = {
+	type: "presentation";
+	sessionId: string;
+	presentation: PrimeAgentSessionPresentation;
+};
+
+export type ChatMessageEvent = {
+	type: "message";
+	message: ChatMessage;
+};
+
 export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
 	protocolVersion: 1,
 	schemaRevision: 1,
@@ -213,8 +355,10 @@ export type ChatConnectedFrame = {
  * A single NDJSON frame emitted on the chat turn stream (`POST /api/chat`).
  *
  * Discriminated by `type`. A turn begins with `start`, then a mix of `delta` /
- * `tool` / `thinking` content, `plan` / `state` / `queue` lifecycle signals,
+ * `tool` content, `plan` / `state` / `queue` lifecycle signals,
  * `compaction` / `retry` progress, and ends with `done` (success) or `error`.
+ * Legacy `thinking` frames may still be received from older adapters but are
+ * ignored by the browser.
  * Validated by `ChatStreamEventSchema` in `chat-protocol.zod`.
  */
 export type ChatStreamEvent =
@@ -232,8 +376,9 @@ export type ChatStreamEvent =
 	  }
 	| { type: "state"; state: ChatStateEvent }
 	| { type: "queue"; steering: Array<string>; followUp: Array<string> }
-	/** Legacy raw-thinking frame. New Fleet adapters must not emit it. */
-	| { type: "thinking"; text: string; messageId?: string }
+	| ChatThinkingEvent
+	| ChatPresentationEvent
+	| ChatMessageEvent
 	| { type: "reasoning"; presentation: ChatReasoningPresentation; messageId?: string }
 	| { type: "compaction"; phase: "start"; reason: string }
 	| {
@@ -264,6 +409,7 @@ export type ChatStreamEvent =
 			runId: string;
 			message: ChatMessage;
 			sessionId: string;
+			requestKind?: ChatStreamRequestKind;
 			sessionReset?: boolean;
 	  }
 	| { type: "error"; message: string; runId?: string };
@@ -401,6 +547,7 @@ export type ChatSessionResponse = {
 	session: ChatSessionMetadata;
 	messages: Array<ChatMessage>;
 	planPresentations: Array<ChatPlanPresentation>;
+	presentation: PrimeAgentSessionPresentation;
 	sessionReset?: boolean;
 };
 

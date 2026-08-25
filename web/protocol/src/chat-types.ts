@@ -13,6 +13,13 @@ export type ChatErrorPart = {
 	message: string;
 };
 
+export type ChatImagePart = {
+	type: "image";
+	url: string;
+	mimeType?: string;
+	alt?: string;
+};
+
 export type ChatToolPart = {
 	type: string;
 	toolCallId?: string;
@@ -23,7 +30,7 @@ export type ChatToolPart = {
 	[key: string]: unknown;
 };
 
-export type ChatMessagePart = ChatTextPart | ChatErrorPart | ChatToolPart;
+export type ChatMessagePart = ChatTextPart | ChatErrorPart | ChatImagePart | ChatToolPart;
 
 export type ChatMessage = {
 	id: string;

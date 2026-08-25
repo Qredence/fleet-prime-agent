@@ -45,6 +45,8 @@ export {
 	ChatDoneEventSchema,
 	ChatErrorEventSchema,
 	ChatErrorPartSchema,
+	ChatImagePartSchema,
+	ChatMessageEventSchema,
 	ChatMessagePartSchema,
 	ChatMessageSchema,
 	ChatModelSelectionSchema,
@@ -54,6 +56,7 @@ export {
 	ChatPlanPresentationUpsertRequestSchema,
 	ChatPlanStateSchema,
 	ChatPlanTodoSchema,
+	ChatPresentationEventSchema,
 	ChatQuestionAnswerRequestSchema,
 	ChatQuestionAnswerResponseSchema,
 	ChatQuestionAnswerSchema,
@@ -78,6 +81,14 @@ export {
 	ChatToolPartSchema,
 	FleetAdapterCapabilitiesSchema,
 	FleetAdapterFeatureSchema,
+	PrimeAgentArtifactRunSchema,
+	PrimeAgentArtifactSchema,
+	PrimeAgentGoalSchema,
+	PrimeAgentRefinementEditSchema,
+	PrimeAgentRefinementSchema,
+	PrimeAgentRlmChildSchema,
+	PrimeAgentSessionPresentationSchema,
+	PrimeAgentUserBashSchema,
 } from "./schemas/chat";
 export { ErrorResponseSchema, HealthResponseSchema } from "./schemas/misc";
 export {

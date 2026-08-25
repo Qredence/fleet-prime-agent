@@ -55,3 +55,4 @@ export * from "./model-patterns";
 export { buildOpenUIPrompt, type OpenUIPromptMode } from "./openui-prompt";
 export * from "./provider-catalog";
 export { ChatNewRequestSchema } from "./schemas/chat";
+export { redactSessionLabelSecrets } from "./session-label";
