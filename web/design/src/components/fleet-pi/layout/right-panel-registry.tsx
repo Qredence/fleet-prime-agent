@@ -20,6 +20,7 @@ import type {
   QueueState,
   WorkspaceFileResponse,
   WorkspaceTreeResponse,
+  PrimeAgentArtifactRun,
 } from "@prime-agent/web-protocol/chat-protocol"
 import type { ChatModelOption } from "../../../lib/pi/chat-helpers"
 
@@ -27,6 +28,7 @@ export type ActiveRightPanel = Exclude<RightPanel, null>
 
 export type RightPanelContentProps = {
 	activityLabel?: string
+	artifactRuns: Array<PrimeAgentArtifactRun>
 	isLoadingProviders?: boolean
 	isUpdatingProvider?: boolean
 	onOpenUIAction?: (message: string) => void
@@ -61,7 +63,8 @@ export type RightPanelContentProps = {
   settings: ChatSettingsResponse | null
   settingsError: Error | null
   settingsLoading: boolean
-  status: ChatStatus
+	status: ChatStatus
+	selectedArtifactId?: string | null
   themePreference: ThemePreference
   workspaceError: Error | null
   workspaceLoading: boolean
@@ -133,10 +136,12 @@ export const RIGHT_PANEL_REGISTRY: Record<
         loadWorkspaceFile={props.loadWorkspaceFile}
         loading={props.workspaceLoading}
         messages={props.messages}
+        artifactRuns={props.artifactRuns}
         onOpenUIAction={props.onOpenUIAction}
         onSelectedPathChange={props.setSelectedWorkspacePath}
         selectedPath={props.selectedWorkspacePath}
         status={props.status}
+        selectedArtifactId={props.selectedArtifactId}
         workspace={props.workspaceTree}
       />
     ),

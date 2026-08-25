@@ -40,6 +40,7 @@ export interface AgentActivityTool {
 	target: ReactNode;
 	additions?: number;
 	deletions?: number;
+	openAction?: { label: string; ariaLabel?: string; onClick: () => void };
 }
 
 export type AgentTraceKind = "thinking" | "message" | "write" | "run" | "read" | (string & {});
@@ -51,6 +52,7 @@ export interface AgentActivityTrace {
 	label: ReactNode;
 	detail?: ReactNode;
 	icon?: ReactNode;
+	action?: { label: string; ariaLabel?: string; onClick: () => void };
 }
 
 export type AgentActivityItem =

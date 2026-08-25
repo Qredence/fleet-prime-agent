@@ -244,6 +244,7 @@ function FleetPiInputBarContent({
           onValueChange={setValue}
           onSubmit={(content) => send(content)}
           loading={isStreaming}
+          submitWhileLoading
           onStop={onStop}
           disabled={disabled}
           autoFocus={autoFocus}
@@ -289,6 +290,7 @@ function FleetPiInputBarContent({
                 open={combinedPickerOpen}
                 onOpenChange={handleCombinedPickerOpenChange}
                 placeholder="Model"
+                className="rounded-full"
               />
             </>
           }

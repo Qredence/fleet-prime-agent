@@ -10,12 +10,13 @@ import { createHighlighter, type Highlighter } from "shiki";
 import { cn } from "@prime-agent/web-design/lib/utils";
 
 export type AgentCodeLanguage =
-  | "bash"
-  | "diff"
-  | "json"
-  | "text"
-  | "tsx"
-  | "typescript";
+	| "bash"
+	| "diff"
+	| "json"
+	| "python"
+	| "text"
+	| "tsx"
+	| "typescript";
 
 export interface AgentCodeToken {
   content: string;
@@ -47,7 +48,7 @@ function getAgentCodeHighlighter() {
   if (!agentCodeHighlighter) {
     agentCodeHighlighter = createHighlighter({
       themes: [LIGHT_THEME, DARK_THEME],
-      langs: ["bash", "diff", "json", "tsx", "typescript"],
+		langs: ["bash", "diff", "json", "python", "tsx", "typescript"],
     });
   }
   return agentCodeHighlighter;

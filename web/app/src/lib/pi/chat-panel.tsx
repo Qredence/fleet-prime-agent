@@ -2,6 +2,7 @@ import { UiErrorBoundary } from "@prime-agent/web-design/components/fleet-pi/ui-
 import { FleetPiAgentChat } from "@prime-agent/web-design/components/fleet-pi/chat/fleet-pi-agent-chat"
 import type { FleetPiAgentChatProps } from "@prime-agent/web-design/components/fleet-pi/chat/fleet-pi-agent-chat"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
+import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol"
 import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt"
 import { useCallback, useMemo } from "react"
 
@@ -11,6 +12,9 @@ type ChatPanelProps = {
 	error: Error | undefined
 	workspaceName?: string
 	activityLabel?: string
+	presentation?: PrimeAgentSessionPresentation
+	artifactRuns?: Array<PrimeAgentArtifactRun>
+	onOpenArtifact?: (artifactId: string) => void
 	inputSuggestionItems: FleetPiAgentChatProps["suggestions"]
 	suppressQuestionTool: boolean
 	inputBar: FleetPiAgentChatProps["inputBar"]
@@ -29,6 +33,9 @@ export function ChatPanel({
 	error,
 	workspaceName,
 	activityLabel,
+	presentation,
+	artifactRuns,
+	onOpenArtifact,
 	inputSuggestionItems,
 	suppressQuestionTool,
 	inputBar,
@@ -73,8 +80,11 @@ export function ChatPanel({
 				onSend={handleSend}
 				onOpenUIAction={handleOpenUIAction}
 				onStop={onStop}
-				workspaceName={workspaceName}
-				activityLabel={activityLabel}
+					workspaceName={workspaceName}
+					activityLabel={activityLabel}
+					presentation={presentation}
+					artifactRuns={artifactRuns}
+					onOpenArtifact={onOpenArtifact}
 				questionTool={questionTool}
 				suppressQuestionTool={suppressQuestionTool}
 				error={error ?? undefined}

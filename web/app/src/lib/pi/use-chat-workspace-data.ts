@@ -1,5 +1,6 @@
 import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt";
 import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
+import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/fleet-pi/pi/prime-agent-artifacts";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ProjectId } from "@prime-agent/web-protocol";
@@ -10,7 +11,7 @@ import type {
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { UploadedAttachment, WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { identifyAnalyticsUser } from "@/lib/analytics-stub";
 import { useOptionalUser } from "@/lib/auth-stub";
 import { chatClient } from "@/lib/pi/chat-client";
@@ -93,11 +94,13 @@ export function useChatWorkspaceData() {
 		modelKey,
 		modelSelection,
 		models,
+		openArtifact,
 		openWorkspacePath,
 		openPanelAction,
 		persistSession,
 		resourceCanvasWidth,
 		rightPanel,
+		selectedArtifactId,
 		selectedWorkspacePath,
 		setCommandPaletteOpen,
 		setModelKey,
@@ -167,6 +170,7 @@ export function useChatWorkspaceData() {
 		getSessionMetadata,
 		messages,
 		planLabel,
+		presentation,
 		queue,
 		renameSession,
 		resumeSession,
@@ -182,6 +186,18 @@ export function useChatWorkspaceData() {
 		projectId: activeProjectId,
 		persistSession,
 	});
+	const artifactRuns = useMemo(
+		() => derivePrimeAgentArtifactRuns(messages, presentation, status),
+		[messages, presentation, status],
+	);
+	const appliedPresentationThinkingKeyRef = useRef<string | undefined>(undefined);
+	useEffect(() => {
+		if (!presentation.thinkingLevel) return;
+		const key = `${sessionMetadata.sessionId}:${presentation.thinkingLevel}`;
+		if (appliedPresentationThinkingKeyRef.current === key) return;
+		appliedPresentationThinkingKeyRef.current = key;
+		setThinkingLevel(presentation.thinkingLevel);
+	}, [presentation.thinkingLevel, sessionMetadata.sessionId, setThinkingLevel]);
 	const clearPendingAttachments = useCallback(() => {
 		setUploadedAttachments([]);
 		setWorkspaceAttachments([]);
@@ -380,6 +396,7 @@ export function useChatWorkspaceData() {
 	const activeSessionLabel = useActiveSessionLabel({
 		activeSessionId: sessionMetadata.sessionId,
 		messages,
+		presentation,
 		sessions,
 	});
 	const suggestions = useChatSuggestions({
@@ -457,9 +474,9 @@ export function useChatWorkspaceData() {
 		},
 		[discoverModelsMutation],
 	);
-
 	const { chatPanelData, settingsActions, workspaceTreeContext } = useRightPanelContextValue({
 		activityLabel,
+		artifactRuns,
 		handleThemePreferenceChange,
 		isLoadingProviders,
 		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
@@ -483,6 +500,7 @@ export function useChatWorkspaceData() {
 		resourcesLoading,
 		rightPanel,
 		saveSettings,
+		selectedArtifactId,
 		selectedWorkspacePath,
 		setRightPanel,
 		setSelectedWorkspacePath,
@@ -509,6 +527,8 @@ export function useChatWorkspaceData() {
 		activeSessionId: sessionMetadata.sessionId,
 		activityLabel,
 		activeProjectId,
+		artifactRuns,
+		openArtifact,
 		answerQuestion,
 		chatMode,
 		chatPanelData,
@@ -549,6 +569,7 @@ export function useChatWorkspaceData() {
 		unregisterProject,
 		clearUploadedAttachments,
 		pendingQuestionBar,
+		presentation,
 		resourceCanvasWidth,
 		rightPanel,
 		renameSession,

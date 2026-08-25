@@ -6,6 +6,7 @@ import type { RightPanelContentProps } from "./right-panel-registry"
 export type ChatPanelDataContextValue = Pick<
   RightPanelContentProps,
   | "activityLabel"
+  | "artifactRuns"
   | "messages"
   | "models"
   | "onOpenUIAction"
@@ -17,6 +18,7 @@ export type ChatPanelDataContextValue = Pick<
   | "resourcesLoading"
   | "selectedModelKey"
   | "status"
+  | "selectedArtifactId"
 > & {
   rightPanel: RightPanel
   setRightPanel: (panel: RightPanel) => void

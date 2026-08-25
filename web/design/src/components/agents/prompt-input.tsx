@@ -59,6 +59,8 @@ export interface PromptInputProps extends Omit<
   onAction?: (action: string) => void;
   onSubmit?: (value: string, model?: string) => void | Promise<void>;
   loading?: boolean;
+  /** Keep prompt submission available while loading; Stop remains a separate action. */
+  submitWhileLoading?: boolean;
   onStop?: () => void;
   minRows?: number;
   maxRows?: number;
@@ -78,6 +80,7 @@ export function PromptInput({
   onAction,
   onSubmit,
   loading = false,
+  submitWhileLoading = false,
   onStop,
   minRows = 2,
   maxRows = 8,
@@ -102,7 +105,7 @@ export function PromptInput({
   const currentModel = models.find(
     (option) => option.value === currentModelValue,
   );
-  const canSubmit = Boolean(currentValue.trim()) && !disabled && !loading;
+  const canSubmit = Boolean(currentValue.trim()) && !disabled && (!loading || submitWhileLoading);
 
   const resizeTextarea = useCallback(() => {
     const textarea = textareaRef.current;
@@ -143,7 +146,7 @@ export function PromptInput({
   const submit = (event?: FormEvent) => {
     event?.preventDefault();
     const prompt = currentValue.trim();
-    if (!prompt || disabled || loading) return;
+    if (!prompt || disabled || (loading && !submitWhileLoading)) return;
 
     onSubmit?.(prompt, currentModelValue);
     if (value === undefined) setInternalValue("");
@@ -168,7 +171,7 @@ export function PromptInput({
     <form
       onSubmit={submit}
       className={cn(
-        "relative w-full rounded-[14px] border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-foreground/25 focus-within:ring-1 focus-within:ring-ring/20",
+        "relative w-full rounded-[24px] border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-foreground/25 focus-within:ring-1 focus-within:ring-ring/20",
         disabled && "opacity-60",
         className,
       )}
@@ -297,31 +300,39 @@ export function PromptInput({
           </AnimatedSelect>
         ) : null}
 
-        <Button
-          type={loading ? "button" : "submit"}
-          size="icon"
-          disabled={loading ? !onStop : !canSubmit}
-          aria-label={loading ? "Stop generating" : "Send prompt"}
-          onClick={loading ? onStop : undefined}
-          className="ml-auto size-8 rounded-full"
-        >
-          <AnimatePresence initial={false} mode="popLayout">
-            <m.span
-              key={loading ? "stop" : "send"}
-              initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
-              transition={reduce ? { duration: 0 } : SPRING_SWAP}
-              className="grid place-items-center"
-            >
-              {loading ? (
-                <Square className="size-3 fill-current" />
-              ) : (
+        {loading && onStop ? (
+          <Button
+            type="button"
+            size="icon"
+            aria-label="Stop generating"
+            onClick={onStop}
+            className="ml-auto size-8 rounded-full"
+          >
+            <Square className="size-3 fill-current" />
+          </Button>
+        ) : null}
+        {!loading || canSubmit ? (
+          <Button
+            type="submit"
+            size="icon"
+            disabled={!canSubmit}
+            aria-label={loading ? "Steer current run" : "Send prompt"}
+            className={cn("size-8 rounded-full", !loading && "ml-auto")}
+          >
+            <AnimatePresence initial={false} mode="popLayout">
+              <m.span
+                key="send"
+                initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
+                transition={reduce ? { duration: 0 } : SPRING_SWAP}
+                className="grid place-items-center"
+              >
                 <ArrowUp className="size-4" />
-              )}
-            </m.span>
-          </AnimatePresence>
-        </Button>
+              </m.span>
+            </AnimatePresence>
+          </Button>
+        ) : null}
       </div>
     </form>
   );

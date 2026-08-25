@@ -43,18 +43,21 @@ function ChatWorkspaceShell() {
     infoDescription,
     inputSuggestionItems,
     workspaceReferenceSuggestions,
-    messages,
-    effortPickerOpen,
+		messages,
+		artifactRuns,
+		effortPickerOpen,
     modelKey,
     modelPickerOpen,
     models,
     openPanelAction,
+	openArtifact,
     uploadedAttachments,
     workspaceAttachments,
     addWorkspaceAttachment,
     removeWorkspaceAttachment,
-    pendingQuestionBar,
-    activeProjectId,
+		pendingQuestionBar,
+		presentation,
+		activeProjectId,
     activityLabel,
     projects,
     projectSessions,
@@ -195,7 +198,10 @@ function ChatWorkspaceShell() {
                 status={status}
                 error={error ?? undefined}
                 workspaceName={activeProjectName}
-                activityLabel={activityLabel}
+					activityLabel={activityLabel}
+					presentation={presentation}
+					artifactRuns={artifactRuns}
+					onOpenArtifact={openArtifact}
                 inputSuggestionItems={inputSuggestionItems}
                 suppressQuestionTool={!!pendingQuestionBar}
                 inputBar={{

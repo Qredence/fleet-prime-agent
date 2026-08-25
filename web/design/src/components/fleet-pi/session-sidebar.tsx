@@ -1,10 +1,12 @@
 import {
+  ArrowUp,
   BookOpenText,
   ChevronDown,
   CircleHelp,
   CircleStop,
   Folder,
   FolderPlus,
+  FolderOpen,
   FolderTree,
   Library,
   LoaderCircle,
@@ -20,7 +22,7 @@ import {
   Trash2,
   Unplug,
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useReducer } from "react"
+import { useCallback, useEffect, useId, useMemo, useReducer, useRef } from "react"
 import type { ReactNode } from "react"
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol"
 import type {
@@ -64,6 +66,7 @@ import {
   AlertDialogFooter,
   AlertDialogTitle,
 } from "../alert-dialog"
+import { Button } from "../button"
 import {
   Dialog,
   DialogContent,
@@ -73,6 +76,8 @@ import {
   DialogTitle,
 } from "../dialog"
 import { Input } from "../input"
+import { Spinner } from "../spinner"
+import { normalizeSessionLabel } from "../../lib/pi/chat-helpers"
 import {
   AnimatedSidebar,
   AnimatedSidebarContent,
@@ -122,7 +127,9 @@ const EXPANDED_PROJECTS_STORAGE_KEY =
 const EMPTY_PROJECTS: Array<ProjectSummary> = []
 
 function sessionLabel(session: ChatSessionInfo) {
-  return session.title || session.firstMessage || session.sessionId.slice(0, 8)
+  return normalizeSessionLabel(
+    session.title || session.firstMessage || session.sessionId.slice(0, 8),
+  )
 }
 
 function sessionDiscoveryMeta(
@@ -164,6 +171,10 @@ function pathEntryLabel(entry: ProjectDirectoryEntry) {
   return entry.hasChildren ? `${entry.name}/` : entry.name
 }
 
+function directoryErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim() ? error.message : fallback
+}
+
 function readExpandedProjects(activeProjectId: ProjectId | undefined) {
   if (typeof window === "undefined") {
     return activeProjectId ? [projectResourceId(activeProjectId)] : []
@@ -198,6 +209,10 @@ type SidebarState = {
   createName: string
   directoryToken: string | undefined
   directoryBrowser: ProjectDirectoryBrowseResponse | null
+  directoryBrowseLoading: boolean
+  directoryBrowseError: string | null
+  createSubmitting: boolean
+  createSubmitError: string | null
   forkTarget: ChatSessionInfo | null
   forkProjectId: ProjectId | undefined
 }
@@ -237,6 +252,10 @@ function useFleetSessionSidebarState(activeProjectId: ProjectId | undefined) {
       createName: "",
       directoryToken: undefined,
       directoryBrowser: null,
+      directoryBrowseLoading: false,
+      directoryBrowseError: null,
+      createSubmitting: false,
+      createSubmitError: null,
       forkTarget: null,
       forkProjectId: undefined,
     }),
@@ -312,6 +331,22 @@ function useFleetSessionSidebarState(activeProjectId: ProjectId | undefined) {
     (value: ProjectDirectoryBrowseResponse | null) => setField("directoryBrowser", value),
     [setField],
   )
+  const setDirectoryBrowseLoading = useCallback(
+    (value: boolean) => setField("directoryBrowseLoading", value),
+    [setField],
+  )
+  const setDirectoryBrowseError = useCallback(
+    (value: string | null) => setField("directoryBrowseError", value),
+    [setField],
+  )
+  const setCreateSubmitting = useCallback(
+    (value: boolean) => setField("createSubmitting", value),
+    [setField],
+  )
+  const setCreateSubmitError = useCallback(
+    (value: string | null) => setField("createSubmitError", value),
+    [setField],
+  )
   const setForkTarget = useCallback(
     (value: ChatSessionInfo | null) => setField("forkTarget", value),
     [setField],
@@ -340,6 +375,10 @@ function useFleetSessionSidebarState(activeProjectId: ProjectId | undefined) {
     setCreateName,
     setDirectoryToken,
     setDirectoryBrowser,
+    setDirectoryBrowseLoading,
+    setDirectoryBrowseError,
+    setCreateSubmitting,
+    setCreateSubmitError,
     setForkTarget,
     setForkProjectId,
   }
@@ -349,13 +388,14 @@ type SidebarStateView = ReturnType<typeof useFleetSessionSidebarState>
 type SidebarViewModelState = Pick<
   SidebarStateView,
   | "createOpen"
-  | "directoryBrowser"
   | "expandedProjectIds"
   | "revealedProjectIds"
   | "setExpandedProjectIds"
   | "setRevealedProjectIds"
   | "setSearchOpen"
   | "setDirectoryBrowser"
+  | "setDirectoryBrowseLoading"
+  | "setDirectoryBrowseError"
   | "setDirectoryToken"
   | "setCreatePath"
   | "setRenameTarget"
@@ -371,6 +411,8 @@ type SidebarViewModelState = Pick<
   | "createName"
   | "setCreateName"
   | "setCreateOpen"
+  | "setCreateSubmitError"
+  | "setCreateSubmitting"
 >
 
 type SidebarViewModelOptions =
@@ -403,13 +445,14 @@ function useFleetSessionSidebarViewModel({
   onOpenPanelAction,
   onBrowseDirectories,
   createOpen,
-  directoryBrowser,
   expandedProjectIds,
   revealedProjectIds,
   setExpandedProjectIds,
   setRevealedProjectIds,
   setSearchOpen,
   setDirectoryBrowser,
+  setDirectoryBrowseLoading,
+  setDirectoryBrowseError,
   setDirectoryToken,
   setCreatePath,
   setRenameTarget,
@@ -425,22 +468,46 @@ function useFleetSessionSidebarViewModel({
   createName,
   setCreateName,
   setCreateOpen,
+  setCreateSubmitError,
+  setCreateSubmitting,
 }: SidebarViewModelOptions) {
+  const createOpenRef = useRef(false)
   const loadDirectories = useCallback(
     async (input: { path?: string; token?: string }) => {
-      if (!onBrowseDirectories) return
-      const response = await onBrowseDirectories(input)
-      setDirectoryBrowser(response)
-      setDirectoryToken(response.directoryToken)
-      setCreatePath(response.pathLabel)
+      if (!onBrowseDirectories) return false
+      setDirectoryBrowseLoading(true)
+      setDirectoryBrowseError(null)
+      try {
+        const response = await onBrowseDirectories(input)
+        setDirectoryBrowser(response)
+        setDirectoryToken(response.directoryToken)
+        setCreatePath(response.pathLabel)
+        return true
+      } catch (error) {
+        setDirectoryBrowseError(
+          directoryErrorMessage(error, "Could not browse this directory."),
+        )
+        return false
+      } finally {
+        setDirectoryBrowseLoading(false)
+      }
     },
-    [onBrowseDirectories, setCreatePath, setDirectoryBrowser, setDirectoryToken],
+    [
+      onBrowseDirectories,
+      setCreatePath,
+      setDirectoryBrowseError,
+      setDirectoryBrowseLoading,
+      setDirectoryBrowser,
+      setDirectoryToken,
+    ],
   )
 
   useEffect(() => {
-    if (!createOpen || !onBrowseDirectories || directoryBrowser) return
-    void loadDirectories({}).catch(() => undefined)
-  }, [createOpen, directoryBrowser, loadDirectories, onBrowseDirectories])
+    const opened = createOpen && !createOpenRef.current
+    createOpenRef.current = createOpen
+    if (!opened || !onBrowseDirectories) return
+    void loadDirectories({})
+  }, [createOpen, loadDirectories, onBrowseDirectories])
 
   const projectById = useMemo(
     () => new Map(projects.map((project) => [project.projectId, project])),
@@ -749,22 +816,30 @@ function useFleetSessionSidebarViewModel({
     ],
   )
 
-  const submitCreate = () => {
+  const submitCreate = async () => {
     const path = createPath.trim()
     if (!onCreateProject || (!path && !directoryToken)) return
-    void Promise.resolve(
-      onCreateProject({
+    setCreateSubmitting(true)
+    setCreateSubmitError(null)
+    try {
+      await onCreateProject({
         path: directoryToken ? undefined : path,
         directoryToken,
         name: createName.trim() || undefined,
-      }),
-    ).then(() => {
+      })
       setCreateOpen(false)
       setCreatePath("")
       setCreateName("")
       setDirectoryToken(undefined)
       setDirectoryBrowser(null)
-    })
+      setDirectoryBrowseError(null)
+    } catch (error) {
+      setCreateSubmitError(
+        directoryErrorMessage(error, "Could not add this project."),
+      )
+    } finally {
+      setCreateSubmitting(false)
+    }
   }
 
   return {
@@ -1043,7 +1118,7 @@ function FleetSessionSidebarNavigation({
         group: sessionSearchGroup(session.updatedAt),
         // Keep the initial prompt searchable; a renamed session no longer
         // matches its own first message otherwise (combobox keyword parity).
-        keywords: session.firstMessage ? [session.firstMessage] : [],
+        keywords: session.firstMessage ? [normalizeSessionLabel(session.firstMessage)] : [],
       })),
     [projectById, projectSessions],
   )
@@ -1223,6 +1298,7 @@ type SidebarDialogsProps =
     | "onRenameProject"
     | "onUnregisterProject"
     | "onForkSessionIntoProject"
+    | "onBrowseDirectories"
   > &
   { projects: Array<ProjectSummary> } &
   Pick<
@@ -1231,6 +1307,9 @@ type SidebarDialogsProps =
     | "setCreateOpen"
     | "directoryBrowser"
     | "setDirectoryBrowser"
+    | "directoryBrowseLoading"
+    | "directoryBrowseError"
+    | "setDirectoryBrowseError"
     | "directoryToken"
     | "setDirectoryToken"
     | "createName"
@@ -1253,9 +1332,12 @@ type SidebarDialogsProps =
     | "setForkTarget"
     | "forkProjectId"
     | "setForkProjectId"
+    | "createSubmitting"
+    | "createSubmitError"
+    | "setCreateSubmitError"
   > & {
-    loadDirectories: (input: { path?: string; token?: string }) => Promise<void>
-    submitCreate: () => void
+    loadDirectories: (input: { path?: string; token?: string }) => Promise<boolean>
+    submitCreate: () => Promise<void>
   }
 
 type SidebarCreateDialogProps = Pick<
@@ -1264,6 +1346,10 @@ type SidebarCreateDialogProps = Pick<
   | "setCreateOpen"
   | "directoryBrowser"
   | "setDirectoryBrowser"
+  | "directoryBrowseLoading"
+  | "directoryBrowseError"
+  | "setDirectoryBrowseError"
+  | "onBrowseDirectories"
   | "directoryToken"
   | "setDirectoryToken"
   | "createName"
@@ -1271,6 +1357,9 @@ type SidebarCreateDialogProps = Pick<
   | "createPath"
   | "setCreatePath"
   | "loadDirectories"
+  | "createSubmitting"
+  | "createSubmitError"
+  | "setCreateSubmitError"
   | "submitCreate"
 >
 
@@ -1279,6 +1368,10 @@ function FleetSessionSidebarCreateDialog({
   setCreateOpen,
   directoryBrowser,
   setDirectoryBrowser,
+  directoryBrowseLoading,
+  directoryBrowseError,
+  setDirectoryBrowseError,
+  onBrowseDirectories,
   directoryToken,
   setDirectoryToken,
   createName,
@@ -1286,120 +1379,294 @@ function FleetSessionSidebarCreateDialog({
   createPath,
   setCreatePath,
   loadDirectories,
+  createSubmitting,
+  createSubmitError,
+  setCreateSubmitError,
   submitCreate,
 }: SidebarCreateDialogProps) {
+  const projectNameId = useId()
+  const directoryId = useId()
+  const directoryHelpId = useId()
+  const selectedDirectoryPath = directoryBrowser?.pathLabel ?? createPath
+  const canSubmit = Boolean(directoryToken || createPath.trim().startsWith("/"))
+
+  const resetDirectoryChoice = () => {
+    setDirectoryBrowser(null)
+    setDirectoryToken(undefined)
+    setCreatePath("")
+    setDirectoryBrowseError(null)
+  }
+
+  const closeDialog = () => {
+    if (createSubmitting) return
+    resetDirectoryChoice()
+    setCreateName("")
+    setCreateSubmitError(null)
+    setCreateOpen(false)
+  }
+
   return (
     <>
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
-          setCreateOpen(open)
-          if (!open) {
-            setDirectoryBrowser(null)
-            setDirectoryToken(undefined)
-          }
+          if (open) setCreateOpen(true)
+          else closeDialog()
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Add project</DialogTitle>
             <DialogDescription>
-              Register a local directory. Fleet Prime keeps the canonical path on the server.
+              Choose the local directory that owns this project&apos;s sessions. Browse the server
+              filesystem or paste an absolute path.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              value={createName}
-              onChange={(event) => setCreateName(event.target.value)}
-              placeholder="Project name (optional)"
-              aria-label="Project name"
-            />
-            <Input
-              value={createPath}
-              onChange={(event) => {
-                setCreatePath(event.target.value)
-                setDirectoryToken(undefined)
-              }}
-              placeholder="/path/to/project"
-              aria-label="Project directory"
-            />
-            {directoryBrowser ? (
-              <div className="rounded-xl border bg-muted/20 p-2">
-                {(() => {
-                  const parentToken = directoryBrowser.parentToken
-                  return (
-                <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="truncate">{directoryBrowser.pathLabel}</span>
-                  {parentToken ? (
-                    <button
-                      type="button"
-                      onClick={() => void loadDirectories({ token: parentToken })}
-                      className="rounded-md px-2 py-1 hover:bg-muted hover:text-foreground"
-                    >
-                      Up
-                    </button>
-                  ) : null}
-                </div>
-                  )
-                })()}
-                <Combobox
-                  value={directoryToken}
-                  onValueChange={(token) => {
-                    const entry = directoryBrowser.entries.find(
-                      (candidate) => candidate.directoryToken === token,
-                    )
-                    if (!entry) return
-                    void loadDirectories({ token }).catch(() => undefined)
-                  }}
-                >
-                  <ComboboxTrigger className="h-9 bg-background">
-                    <ComboboxInput
-                      aria-label="Search directories"
-                      placeholder="Browse directories"
-                      className="text-xs"
-                    />
-                  </ComboboxTrigger>
-                  <ComboboxContent className="w-[min(28rem,calc(100vw-3rem))]">
-                    <ComboboxList ariaLabel="Directories">
-                      <ComboboxGroup>
-                        <ComboboxLabel>Directories</ComboboxLabel>
-                        {directoryBrowser.entries.map((entry) => (
-                          <ComboboxItem
-                            key={entry.directoryToken}
-                            value={entry.directoryToken}
-                            textValue={`${entry.name} ${entry.pathLabel}`}
-                            keywords={[entry.pathLabel]}
-                          >
-                            <span className="flex items-center gap-2">
-                              <FolderTree className="size-4" />
-                              <span className="truncate">{pathEntryLabel(entry)}</span>
-                            </span>
-                          </ComboboxItem>
-                        ))}
-                      </ComboboxGroup>
-                      <ComboboxEmpty>No directories found.</ComboboxEmpty>
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium" htmlFor={projectNameId}>
+                  Project name
+                </label>
+                <span className="text-xs text-muted-foreground">Optional</span>
               </div>
+              <Input
+                id={projectNameId}
+                value={createName}
+                onChange={(event) => setCreateName(event.target.value)}
+                placeholder="e.g. Fleet Prime"
+                aria-label="Project name"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium" htmlFor={directoryId}>
+                  Local directory
+                </label>
+                <span className="text-xs text-muted-foreground">Required</span>
+              </div>
+              <Input
+                id={directoryId}
+                value={createPath}
+                onChange={(event) => {
+                  setCreatePath(event.target.value)
+                  setDirectoryToken(undefined)
+                  setDirectoryBrowser(null)
+                  setDirectoryBrowseError(null)
+                  setCreateSubmitError(null)
+                }}
+                placeholder="/absolute/path/to/project"
+                aria-label="Project directory"
+                aria-describedby={directoryHelpId}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                className="h-10 font-mono text-xs"
+              />
+              <p id={directoryHelpId} className="text-xs text-muted-foreground">
+                Browse to select a directory, or paste an absolute path. The server validates the
+                final choice before registering it.
+              </p>
+            </div>
+
+            {directoryBrowseLoading && !directoryBrowser ? (
+              <div
+                className="flex items-center gap-2 rounded-xl border border-dashed px-3 py-4 text-sm text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                <Spinner className="size-4" />
+                Loading directories…
+              </div>
+            ) : null}
+
+            {directoryBrowser ? (
+              <div
+                className="overflow-hidden rounded-xl border bg-muted/20"
+                data-testid="project-directory-browser"
+              >
+                <div className="flex items-start gap-3 p-3">
+                  <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                    <FolderOpen className="size-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      Selected directory
+                    </p>
+                    <p
+                      className="mt-1 break-all font-mono text-xs text-foreground"
+                      title={selectedDirectoryPath}
+                    >
+                      {selectedDirectoryPath}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+                    Selected
+                  </span>
+                </div>
+
+                <div className="space-y-2 border-t px-3 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium">Browse child directories</p>
+                      <p className="text-xs text-muted-foreground">
+                        Open a folder to make it the selected directory.
+                      </p>
+                    </div>
+                    {directoryBrowser.parentToken ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={directoryBrowseLoading}
+                        onClick={() =>
+                          void loadDirectories({ token: directoryBrowser.parentToken ?? undefined })
+                        }
+                        aria-label="Go up one directory"
+                        title="Go up one directory"
+                      >
+                        <ArrowUp className="size-3.5" />
+                        Up
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  {directoryBrowseLoading ? (
+                    <div
+                      className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <Spinner className="size-4" />
+                      Loading directories…
+                    </div>
+                  ) : directoryBrowser.entries.length === 0 ? (
+                    <p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                      No child directories here.
+                    </p>
+                  ) : (
+                    <Combobox
+                      value={directoryToken}
+                      onValueChange={(token) => {
+                        const entry = directoryBrowser.entries.find(
+                          (candidate) => candidate.directoryToken === token,
+                        )
+                        if (!entry) return
+                        void loadDirectories({ token })
+                      }}
+                    >
+                      <ComboboxTrigger className="h-10 bg-background">
+                        <ComboboxInput
+                          aria-label="Search child directories"
+                          placeholder="Choose a child directory…"
+                          className="text-xs"
+                        />
+                      </ComboboxTrigger>
+                      <ComboboxContent className="w-[min(32rem,calc(100vw-3rem))]">
+                        <ComboboxList ariaLabel="Child directories">
+                          <ComboboxGroup>
+                            <ComboboxLabel>Child directories</ComboboxLabel>
+                            {directoryBrowser.entries.map((entry) => (
+                              <ComboboxItem
+                                key={entry.directoryToken}
+                                value={entry.directoryToken}
+                                textValue={`${entry.name} ${entry.pathLabel}`}
+                                keywords={[entry.pathLabel]}
+                              >
+                                <span className="flex min-w-0 items-start gap-2">
+                                  <FolderTree className="mt-0.5 size-4 shrink-0" />
+                                  <span className="min-w-0">
+                                    <span className="block truncate font-medium text-foreground">
+                                      {pathEntryLabel(entry)}
+                                    </span>
+                                    <span
+                                      className="block truncate text-[11px] text-muted-foreground"
+                                      title={entry.pathLabel}
+                                    >
+                                      {entry.pathLabel}
+                                    </span>
+                                  </span>
+                                </span>
+                              </ComboboxItem>
+                            ))}
+                          </ComboboxGroup>
+                          <ComboboxEmpty>No matching directories.</ComboboxEmpty>
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                  )}
+                </div>
+              </div>
+            ) : onBrowseDirectories ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={directoryBrowseLoading}
+                onClick={() => void loadDirectories({})}
+                className="w-full justify-start"
+              >
+                <FolderOpen className="size-4" />
+                Browse directories
+              </Button>
+            ) : null}
+
+            {directoryBrowseError ? (
+              <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
+                <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p>{directoryBrowseError}</p>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="xs"
+                    className="mt-1 h-auto p-0 text-destructive"
+                    onClick={() =>
+                      void loadDirectories(
+                        directoryBrowser
+                          ? { token: directoryBrowser.directoryToken }
+                          : {},
+                      )
+                    }
+                  >
+                    Try again
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {createSubmitError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {createSubmitError}
+              </p>
             ) : null}
           </div>
           <DialogFooter>
-            <button
+            <Button
               type="button"
-              onClick={() => setCreateOpen(false)}
-              className="h-9 rounded-lg border px-3 text-sm hover:bg-muted"
+              variant="outline"
+              disabled={createSubmitting}
+              onClick={closeDialog}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              disabled={!directoryToken && !createPath.trim().startsWith("/")}
-              onClick={submitCreate}
-              className="h-9 rounded-lg bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50"
+              disabled={!canSubmit || createSubmitting}
+              onClick={() => void submitCreate()}
             >
-              Add project
-            </button>
+              {createSubmitting ? (
+                <>
+                  <Spinner className="size-3.5" />
+                  Adding project…
+                </>
+              ) : (
+                <>
+                  <FolderPlus className="size-3.5" />
+                  Add project
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1674,6 +1941,10 @@ export function FleetSessionSidebar({
     createName,
     directoryToken,
     directoryBrowser,
+    directoryBrowseLoading,
+    directoryBrowseError,
+    createSubmitting,
+    createSubmitError,
     forkTarget,
     forkProjectId,
     setBrandMenuOpen,
@@ -1693,6 +1964,10 @@ export function FleetSessionSidebar({
     setCreateName,
     setDirectoryToken,
     setDirectoryBrowser,
+    setDirectoryBrowseLoading,
+    setDirectoryBrowseError,
+    setCreateSubmitting,
+    setCreateSubmitError,
     setForkTarget,
     setForkProjectId,
   } = useFleetSessionSidebarState(activeProjectId)
@@ -1720,13 +1995,14 @@ export function FleetSessionSidebar({
     onOpenPanelAction,
     onBrowseDirectories,
     createOpen,
-    directoryBrowser,
     expandedProjectIds,
     revealedProjectIds,
     setExpandedProjectIds,
     setRevealedProjectIds,
     setSearchOpen,
     setDirectoryBrowser,
+    setDirectoryBrowseLoading,
+    setDirectoryBrowseError,
     setDirectoryToken,
     setCreatePath,
     setRenameTarget,
@@ -1742,6 +2018,8 @@ export function FleetSessionSidebar({
     createName,
     setCreateName,
     setCreateOpen,
+    setCreateSubmitError,
+    setCreateSubmitting,
   })
 
   return (
@@ -1785,10 +2063,14 @@ export function FleetSessionSidebar({
         onRenameProject={onRenameProject}
         onUnregisterProject={onUnregisterProject}
         onForkSessionIntoProject={onForkSessionIntoProject}
+        onBrowseDirectories={onBrowseDirectories}
         createOpen={createOpen}
         setCreateOpen={setCreateOpen}
         directoryBrowser={directoryBrowser}
         setDirectoryBrowser={setDirectoryBrowser}
+        directoryBrowseLoading={directoryBrowseLoading}
+        directoryBrowseError={directoryBrowseError}
+        setDirectoryBrowseError={setDirectoryBrowseError}
         directoryToken={directoryToken}
         setDirectoryToken={setDirectoryToken}
         createName={createName}
@@ -1811,6 +2093,9 @@ export function FleetSessionSidebar({
         setForkTarget={setForkTarget}
         forkProjectId={forkProjectId}
         setForkProjectId={setForkProjectId}
+        createSubmitting={createSubmitting}
+        createSubmitError={createSubmitError}
+        setCreateSubmitError={setCreateSubmitError}
         loadDirectories={loadDirectories}
         submitCreate={submitCreate}
       />

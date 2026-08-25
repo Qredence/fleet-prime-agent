@@ -1,4 +1,5 @@
 import { notify } from "@prime-agent/web-design/lib/notify";
+import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import type { ChatClient } from "./chat-client";
@@ -14,6 +15,7 @@ export type ForbiddenSessionRecoveryDeps = {
 	setError: (error: Error | null) => void;
 	setMessagesSynced: (updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => void;
 	setPlanLabelSynced: (label: string | undefined) => void;
+	setPresentationSynced: (presentation: PrimeAgentSessionPresentation) => void;
 	setQueueSynced: (queue: QueueState) => void;
 	setSessionMetadataSynced: (metadata: { sessionId?: string; projectId?: ProjectId | null }) => void;
 	setStatus: (status: ChatStatus) => void;
@@ -25,12 +27,14 @@ export async function runForbiddenSessionRecovery(deps: ForbiddenSessionRecovery
 	deps.setQueueSynced(EMPTY_QUEUE_STATE);
 	deps.setActivityLabelSynced(undefined);
 	deps.setPlanLabelSynced(undefined);
+	deps.setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
 	deps.setError(null);
 	deps.setStatus("ready");
 
 	const result = await deps.client.createSession(deps.projectId);
 	deps.setSessionMetadataSynced(result.session);
 	deps.setMessagesSynced(result.messages);
+	deps.setPresentationSynced(result.presentation);
 	deps.setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 	notify.message("Started a fresh session");
 	await deps.refreshSessions();

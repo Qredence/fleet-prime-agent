@@ -24,7 +24,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol"
 /** Reads panel state from RightPanelProvider — no prop threading from route. */
 export function RightPanelLauncherFromContext() {
-  const { messages, rightPanel, setRightPanel, resources } = useChatPanelDataContext()
+  const { artifactRuns, messages, rightPanel, setRightPanel, resources } = useChatPanelDataContext()
   const { workspaceTree } = useWorkspaceTreeContext()
 
   return (
@@ -33,6 +33,7 @@ export function RightPanelLauncherFromContext() {
       onPanelChange={setRightPanel}
       resources={resources}
       sessionBlocks={collectSessionOpenUIBlocks(messages).length}
+      technicalArtifacts={artifactRuns.flatMap((run) => run.artifacts).length}
       workspace={workspaceTree}
     />
   )
@@ -43,6 +44,7 @@ export function RightPanelLauncher({
   onPanelChange,
   resources,
   sessionBlocks = 0,
+  technicalArtifacts = 0,
   workspace,
 }: {
   activePanel: RightPanel
@@ -50,6 +52,7 @@ export function RightPanelLauncher({
   resources: ChatResourcesResponse | null
   /** Generative-UI blocks in the current session — counted alongside workspace files. */
   sessionBlocks?: number
+  technicalArtifacts?: number
   workspace: WorkspaceTreeResponse | null
 }) {
   const totalResources = getResourceGroups(resources, workspace).reduce(
@@ -69,9 +72,9 @@ export function RightPanelLauncher({
       return countWorkspaceFiles(artifactsRoot.children)
     })()
 
-    const total = files + sessionBlocks
+    const total = files + sessionBlocks + technicalArtifacts
     return total > 0 ? total : undefined
-  }, [sessionBlocks, workspace])
+  }, [sessionBlocks, technicalArtifacts, workspace])
 
   const tabs = useMemo(
     () => [

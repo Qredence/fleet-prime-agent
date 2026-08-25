@@ -16,6 +16,7 @@ import type {
 	ChatProviderUpdateResponse,
 	ChatResourcesResponse,
 	ChatSettingsResponse,
+	PrimeAgentArtifactRun,
 	QueueState,
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
@@ -25,6 +26,7 @@ import { useMemo } from "react";
 
 type UseRightPanelContextValueArgs = {
 	activityLabel?: string;
+	artifactRuns: Array<PrimeAgentArtifactRun>;
 	handleThemePreferenceChange: (preference: ThemePreference) => void;
 	isLoadingProviders?: boolean;
 	isUpdatingProvider?: boolean;
@@ -48,6 +50,7 @@ type UseRightPanelContextValueArgs = {
 	resourcesLoading: boolean;
 	rightPanel: RightPanel;
 	saveSettings: (settings: ChatPiSettingsUpdate) => Promise<ChatSettingsResponse>;
+	selectedArtifactId?: string | null;
 	selectedWorkspacePath: string | null;
 	setRightPanel: (panel: RightPanel) => void;
 	setSelectedWorkspacePath: (path: string | null) => void;
@@ -69,6 +72,7 @@ type RightPanelContextSlices = {
 
 export function useRightPanelContextValue({
 	activityLabel,
+	artifactRuns,
 	handleThemePreferenceChange,
 	isLoadingProviders,
 	isUpdatingProvider,
@@ -92,6 +96,7 @@ export function useRightPanelContextValue({
 	resourcesLoading,
 	rightPanel,
 	saveSettings,
+	selectedArtifactId,
 	selectedWorkspacePath,
 	setRightPanel,
 	setSelectedWorkspacePath,
@@ -107,6 +112,7 @@ export function useRightPanelContextValue({
 	const chatPanelData = useMemo<ChatPanelDataContextValue>(
 		() => ({
 			activityLabel,
+			artifactRuns,
 			messages,
 			models,
 			planLabel,
@@ -117,11 +123,13 @@ export function useRightPanelContextValue({
 			resourcesLoading,
 			rightPanel,
 			selectedModelKey: modelKey,
+			selectedArtifactId,
 			setRightPanel,
 			status,
 		}),
 		[
 			activityLabel,
+			artifactRuns,
 			messages,
 			models,
 			planLabel,
@@ -132,6 +140,7 @@ export function useRightPanelContextValue({
 			resourcesLoading,
 			rightPanel,
 			modelKey,
+			selectedArtifactId,
 			setRightPanel,
 			status,
 		],

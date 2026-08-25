@@ -1,5 +1,6 @@
 import { fireEvent, render } from "@testing-library/react";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
+import type { PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
 import { ArtifactsPanelContent } from "@prime-agent/web-design/components/fleet-pi/pi/artifacts-panel";
 import { FleetPiAgentChat } from "@prime-agent/web-design/components/fleet-pi/chat/fleet-pi-agent-chat";
@@ -81,5 +82,48 @@ describe("review regressions", () => {
 		fireEvent.click(getByRole("button", { name: /Card/ }));
 		fireEvent.click(getByRole("button", { name: "Trigger OpenUI action" }));
 		 expect(onOpenUIAction).toHaveBeenCalledWith("continue_conversation");
+	});
+
+	it("preserves failed diff status and output in artifacts", () => {
+		const artifactRuns: Array<PrimeAgentArtifactRun> = [
+			{
+				id: "run-1",
+				runId: "run-1",
+				artifacts: [
+					{
+						id: "artifact-1",
+						runId: "run-1",
+						kind: "diff",
+						title: "Edit",
+						status: "error",
+						input: {
+							path: "src/example.ts",
+							edits: [{ oldText: "before", newText: "after" }],
+						},
+						output: { error: "permission denied" },
+						timestamp: 1,
+					},
+				],
+				startedAt: 1,
+			},
+		];
+
+		const { getByLabelText, getByText, queryByLabelText } = render(
+			<ArtifactsPanelContent
+				error={null}
+				loadWorkspaceFile={vi.fn()}
+				loading={false}
+				messages={[]}
+				onSelectedPathChange={vi.fn()}
+				selectedPath={null}
+				status="ready"
+				artifactRuns={artifactRuns}
+				workspace={null}
+			/>,
+		);
+
+		expect(getByLabelText("Changes failed")).toBeTruthy();
+		expect(queryByLabelText("Changes applied")).toBeNull();
+		expect(getByText("permission denied")).toBeTruthy();
 	});
 });

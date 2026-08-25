@@ -8,6 +8,7 @@ import type {
 	ChatSessionMetadata,
 	ChatStreamEvent,
 	FleetAdapterCapabilities,
+	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
@@ -51,12 +52,20 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const [activityLabel, setActivityLabel] = useState<string | undefined>();
 	const [planLabel, setPlanLabel] = useState<string | undefined>();
 	const [queue, setQueue] = useState<QueueState>(EMPTY_QUEUE_STATE);
+	const [presentation, setPresentation] = useState<PrimeAgentSessionPresentation>(() => ({
+		revision: 0,
+		userBash: [],
+		rlmChildren: [],
+		refinements: [],
+		artifactRuns: [],
+	}));
 	const initialSessionMetadataRef = useRef(initialSessionMetadata);
 	const messagesRef = useRef(messages);
 	const sessionMetadataRef = useRef(sessionMetadata);
 	const activityLabelRef = useRef(activityLabel);
 	const planLabelRef = useRef(planLabel);
 	const queueRef = useRef(queue);
+	const presentationRef = useRef(presentation);
 	const pendingSendControllerRef = useRef<AbortController | null>(null);
 	const streamControllersRef = useRef(new Map<string, AbortController>());
 	const statusRef = useRef(status);
@@ -123,6 +132,11 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setQueue(nextQueue);
 	}, []);
 
+	const setPresentationSynced = useCallback((nextPresentation: PrimeAgentSessionPresentation) => {
+		presentationRef.current = nextPresentation;
+		setPresentation(nextPresentation);
+	}, []);
+
 	const refreshSessions = useCallback(async () => {
 		const nextSessions = await client.listSessions();
 		setSessions(nextSessions);
@@ -138,6 +152,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				setError,
 				setMessagesSynced,
 				setPlanLabelSynced,
+				setPresentationSynced,
 				setQueueSynced,
 				setSessionMetadataSynced,
 				setStatus,
@@ -149,6 +164,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setActivityLabelSynced,
 			setMessagesSynced,
 			setPlanLabelSynced,
+			setPresentationSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,
 		],
@@ -315,6 +331,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				if (controller.signal.aborted) return;
 				setSessionMetadataSynced(result.session);
 				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
+				setPresentationSynced(result.presentation);
 				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 			})
 			.catch((err) => {
@@ -339,6 +356,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setActivityLabelSynced,
 		setMessagesSynced,
 		setPlanLabelSynced,
+		setPresentationSynced,
 		setQueueSynced,
 		setSessionMetadataSynced,
 		recoverFromForbiddenSession,
@@ -348,6 +366,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		activityLabelRef,
 		client,
 		messagesRef,
+		presentationRef,
 		model,
 		pendingSendControllerRef,
 		projectId,
@@ -359,6 +378,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setActivityLabelSynced,
 		setError,
 		setMessagesSynced,
+		setPresentationSynced,
 		setPlanLabelSynced,
 		setQueueSynced,
 		setSessionMetadataSynced,
@@ -390,6 +410,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			const result = await client.createSession(options?.projectId ?? projectId);
 			setSessionMetadataSynced(result.session);
 			setMessagesSynced([]);
+			setPresentationSynced(result.presentation);
 			setQueueSynced(EMPTY_QUEUE_STATE);
 			setActivityLabelSynced(undefined);
 			setPlanLabelSynced(undefined);
@@ -401,6 +422,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			refreshSessions,
 			setActivityLabelSynced,
 			setMessagesSynced,
+			setPresentationSynced,
 			setPlanLabelSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,
@@ -416,6 +438,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				const result = await client.resumeSession(metadata);
 				setSessionMetadataSynced(result.session);
 				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
+				setPresentationSynced(result.presentation);
 				setQueueSynced(EMPTY_QUEUE_STATE);
 				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 				setPlanLabelSynced(undefined);
@@ -445,6 +468,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			refreshSessions,
 			setActivityLabelSynced,
 			setMessagesSynced,
+			setPresentationSynced,
 			setPlanLabelSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,
@@ -459,6 +483,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			}
 			setSessionMetadataSynced({ projectId: nextProjectId });
 			setMessagesSynced([]);
+			setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
 			setQueueSynced(EMPTY_QUEUE_STATE);
 			setActivityLabelSynced(undefined);
 			setPlanLabelSynced(undefined);
@@ -470,6 +495,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setActivityLabelSynced,
 			setMessagesSynced,
 			setPlanLabelSynced,
+			setPresentationSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,
 		],
@@ -501,6 +527,12 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			try {
 				frame = JSON.parse(raw.data) as ChatStreamEvent;
 			} catch {
+				return;
+			}
+			if (frame.type === "presentation") {
+				if (frame.presentation.revision > (presentationRef.current?.revision ?? -1)) {
+					setPresentationSynced(frame.presentation);
+				}
 				return;
 			}
 			// In-flight NDJSON stream is authoritative; only act on out-of-turn pushes.
@@ -561,6 +593,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 						.then((result) => {
 							if (sessionMetadataRef.current.sessionId !== settledSessionId) return;
 							setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
+							setPresentationSynced(result.presentation);
 							setSessionMetadataSynced(result.session);
 							setQueueSynced(EMPTY_QUEUE_STATE);
 						})
@@ -616,6 +649,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setMessagesSynced,
 		setQueueSynced,
 		setSessionMetadataSynced,
+		setPresentationSynced,
 		setAdapterCapabilities,
 	]);
 
@@ -635,10 +669,11 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (deletingActive) {
 				setSessionMetadataSynced({});
 				setMessagesSynced([]);
+				setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
 			}
 			await refreshSessions();
 		},
-		[client, refreshSessions, setMessagesSynced, setSessionMetadataSynced, stop],
+		[client, refreshSessions, setMessagesSynced, setPresentationSynced, setSessionMetadataSynced, stop],
 	);
 
 	const answerQuestion = submitQuestionAnswer;
@@ -656,6 +691,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		getSessionMetadata,
 		messages: enhancedMessages,
 		planLabel,
+		presentation,
 		queue,
 		renameSession,
 		refreshSessions,

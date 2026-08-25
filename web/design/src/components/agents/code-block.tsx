@@ -25,11 +25,13 @@ const EMPTY_HIGHLIGHT_LINES: number[] = [];
 export type CodeBlockStatus = "streaming" | "complete";
 
 export interface CodeBlockProps {
-  code: string;
-  language?: AgentCodeLanguage;
-  filename?: ReactNode;
-  status?: CodeBlockStatus;
-  showLineNumbers?: boolean;
+	code: string;
+	language?: AgentCodeLanguage;
+	languageLabel?: ReactNode;
+	filename?: ReactNode;
+	status?: CodeBlockStatus;
+	showStatus?: boolean;
+	showLineNumbers?: boolean;
   highlightLines?: number[];
   maxHeight?: number;
   wrap?: boolean;
@@ -39,11 +41,13 @@ export interface CodeBlockProps {
 }
 
 export function CodeBlock({
-  code,
-  language = "typescript",
-  filename,
-  status = "complete",
-  showLineNumbers = true,
+	code,
+	language = "typescript",
+	languageLabel,
+	filename,
+	status = "complete",
+	showStatus = true,
+	showLineNumbers = true,
   highlightLines = EMPTY_HIGHLIGHT_LINES,
   maxHeight = 280,
   wrap = false,
@@ -62,11 +66,22 @@ export function CodeBlock({
     [highlightLines],
   );
   let offset = 0;
-  const lines = code.split("\n").map((content) => {
+	const lines = code.split("\n").map((content) => {
     const line = { content, offset };
     offset += content.length + 1;
     return line;
-  });
+	});
+	const resolvedLanguageLabel =
+		languageLabel ??
+		({
+			bash: "Bash",
+			diff: "Diff",
+			json: "JSON",
+			python: "Python",
+			text: "Text",
+			tsx: "TSX",
+			typescript: "TypeScript",
+		} satisfies Record<AgentCodeLanguage, string>)[language];
 
   useEffect(
     () => () => {
@@ -116,38 +131,43 @@ export function CodeBlock({
           aria-hidden="true"
           className="size-3.5 shrink-0 text-muted-foreground/70"
         />
-        {filename ? (
+		{filename ? (
           <span className="min-w-0 truncate font-mono text-xs text-foreground/80">
             {filename}
           </span>
-        ) : null}
-        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/55">
-          {language}
-        </span>
-        <span
-          className={cn(
-            "ml-auto inline-flex shrink-0 items-center gap-1 text-[10px] font-medium",
-            streaming
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-emerald-600 dark:text-emerald-400",
-          )}
-        >
-          {streaming ? (
-            <LoaderCircle className={cn("size-3", !reduce && "animate-spin")} />
-          ) : (
-            <Check className="size-3" />
-          )}
-          {streaming ? "Writing" : "Ready"}
-        </span>
-        {copyable || onCopy ? (
-          <m.button
+		) : null}
+		<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/55">
+			{resolvedLanguageLabel}
+		</span>
+		{showStatus ? (
+			<span
+				className={cn(
+					"ml-auto inline-flex shrink-0 items-center gap-1 text-[10px] font-medium",
+					streaming
+						? "text-blue-600 dark:text-blue-400"
+						: "text-emerald-600 dark:text-emerald-400",
+				)}
+			>
+				{streaming ? (
+					<LoaderCircle className={cn("size-3", !reduce && "animate-spin")} />
+				) : (
+					<Check className="size-3" />
+				)}
+				{streaming ? "Writing" : "Ready"}
+			</span>
+		) : null}
+		{copyable || onCopy ? (
+			<m.button
             type="button"
             aria-label={copied ? "Copied" : "Copy code"}
             title={copied ? "Copied" : "Copy code"}
             onClick={handleCopy}
             whileTap={reduce ? undefined : { scale: 0.9 }}
             transition={SPRING_PRESS}
-            className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+				className={cn(
+					"grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+					!showStatus && "ml-auto",
+				)}
           >
             {copied ? (
               <Check className="size-3.5" />
@@ -162,7 +182,7 @@ export function CodeBlock({
         ref={viewportRef}
         role={streaming ? "log" : undefined}
         aria-live={streaming ? "polite" : undefined}
-        className="scrollbar-hide overflow-auto border-t border-foreground/[0.06] py-2"
+        className="overflow-auto border-t border-foreground/[0.06] py-2 [scrollbar-color:color-mix(in_oklab,var(--muted-foreground)_35%,transparent)_transparent] [scrollbar-width:thin]"
         style={{ maxHeight }}
       >
         <pre className="m-0 min-w-max font-mono text-xs leading-5 text-foreground/85">

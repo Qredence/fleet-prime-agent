@@ -5,6 +5,7 @@ import type {
 	ChatSessionMetadata,
 	ChatStreamEvent,
 	FleetAdapterCapabilities,
+	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
@@ -29,6 +30,7 @@ import { tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
 type PiChatMessagingRefs = {
 	activityLabelRef: MutableRefObject<string | undefined>;
 	messagesRef: MutableRefObject<Array<ChatMessage>>;
+	presentationRef: MutableRefObject<PrimeAgentSessionPresentation>;
 	planLabelRef: MutableRefObject<string | undefined>;
 	queueRef: MutableRefObject<QueueState>;
 	sessionMetadataRef: MutableRefObject<ChatSessionMetadata>;
@@ -40,6 +42,7 @@ type PiChatMessagingSetters = {
 	setActivityLabelSynced: (label: string | undefined) => void;
 	setError: (error: Error | null) => void;
 	setMessagesSynced: (updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => void;
+	setPresentationSynced: (presentation: PrimeAgentSessionPresentation) => void;
 	setPlanLabelSynced: (label: string | undefined) => void;
 	setQueueSynced: (queue: QueueState) => void;
 	setSessionMetadataSynced: (metadata: ChatSessionMetadata) => void;
@@ -60,6 +63,7 @@ export function usePiChatMessaging({
 	activityLabelRef,
 	client,
 	messagesRef,
+	presentationRef,
 	model,
 	pendingSendControllerRef,
 	projectId,
@@ -72,6 +76,7 @@ export function usePiChatMessaging({
 	setActivityLabelSynced,
 	setError,
 	setMessagesSynced,
+	setPresentationSynced,
 	setPlanLabelSynced,
 	setQueueSynced,
 	setSessionMetadataSynced,
@@ -100,6 +105,7 @@ export function usePiChatMessaging({
 				.then((created) => {
 					if (signal?.aborted) throw new Error("Session creation was aborted");
 					setSessionMetadataSynced(created.session);
+					setPresentationSynced(created.presentation);
 					sessionMetadataRef.current = created.session;
 					void refreshSessions();
 					return created.session;
@@ -112,7 +118,7 @@ export function usePiChatMessaging({
 			sessionCreatePromiseRef.current = promise;
 			return promise;
 		},
-		[client, projectId, refreshSessions, sessionMetadataRef, setSessionMetadataSynced],
+		[client, projectId, refreshSessions, sessionMetadataRef, setPresentationSynced, setSessionMetadataSynced],
 	);
 	const handleStreamEvent = useCallback(
 		(
@@ -163,6 +169,7 @@ export function usePiChatMessaging({
 						adapterCapabilities: adapterCapabilitiesRef.current,
 						activityLabel: activityLabelRef.current,
 						messages: messagesRef.current,
+						presentation: presentationRef.current,
 						planLabel: planLabelRef.current,
 						queue: queueRef.current,
 						sessionMetadata: sessionMetadataRef.current,
@@ -174,6 +181,7 @@ export function usePiChatMessaging({
 			assistantIdRef.current = next.assistantId;
 			adapterCapabilitiesRef.current = next.snapshot.adapterCapabilities;
 			setMessagesSynced(next.snapshot.messages);
+			if (next.snapshot.presentation) setPresentationSynced(next.snapshot.presentation);
 			setSessionMetadataSynced(next.snapshot.sessionMetadata);
 			setQueueSynced(next.snapshot.queue);
 			setActivityLabelSynced(next.snapshot.activityLabel);
@@ -198,12 +206,14 @@ export function usePiChatMessaging({
 			activityLabelRef,
 			client,
 			messagesRef,
+			presentationRef,
 			planLabelRef,
 			queueRef,
 			refreshSessions,
 			sessionMetadataRef,
 			setActivityLabelSynced,
 			setMessagesSynced,
+			setPresentationSynced,
 			setPlanLabelSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,

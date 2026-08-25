@@ -1,4 +1,5 @@
 import type { ChatModelInfo, ChatModelSelection, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
+import { redactSessionLabelSecrets } from "@prime-agent/web-protocol/session-label";
 import { Bot, ClipboardList, Hammer } from "lucide-react";
 import type { ModelOption } from "../../components/agents/types";
 
@@ -124,7 +125,7 @@ export function queueLabel(queue: { steering: Array<string>; followUp: Array<str
  * half-string duplication (e.g. "abcabc" → "abc").
  */
 export function normalizeSessionLabel(label: string): string {
-	const trimmed = label.trim();
+	const trimmed = redactSessionLabelSecrets(label).trim();
 	if (trimmed.length === 0) return trimmed;
 	const half = Math.floor(trimmed.length / 2);
 	if (half > 0 && trimmed.slice(0, half) === trimmed.slice(half)) {

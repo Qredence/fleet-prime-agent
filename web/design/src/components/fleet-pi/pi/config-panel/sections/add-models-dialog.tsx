@@ -83,7 +83,7 @@ export function AddModelsDialog({
     return Array.from(ids)
       .filter((id) => configuredProviderIds.has(id))
       .sort((a, b) => providerLabel(a).localeCompare(providerLabel(b)))
-  }, [configuredProviderIds, discoverableProviderIds])
+  }, [configuredProviderIds, discoverableProviderIds, providerLabel])
 
   /** Enabled-model count per provider, for the "N active" group labels. */
   const activeCountByProvider = useMemo(() => {
