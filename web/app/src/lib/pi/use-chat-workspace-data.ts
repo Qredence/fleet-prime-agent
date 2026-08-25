@@ -11,7 +11,7 @@ import type {
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { UploadedAttachment, WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { identifyAnalyticsUser } from "@/lib/analytics-stub";
 import { useOptionalUser } from "@/lib/auth-stub";
 import { chatClient } from "@/lib/pi/chat-client";
@@ -168,6 +168,7 @@ export function useChatWorkspaceData() {
 		getSessionMetadata,
 		messages,
 		planLabel,
+		presentation,
 		queue,
 		renameSession,
 		resumeSession,
@@ -183,6 +184,18 @@ export function useChatWorkspaceData() {
 		projectId: activeProjectId,
 		persistSession,
 	});
+	const artifactRuns = useMemo(
+		() => derivePrimeAgentArtifactRuns(messages, presentation, status),
+		[messages, presentation, status],
+	);
+	const appliedPresentationThinkingKeyRef = useRef<string | undefined>(undefined);
+	useEffect(() => {
+		if (!presentation.thinkingLevel) return;
+		const key = `${sessionMetadata.sessionId}:${presentation.thinkingLevel}`;
+		if (appliedPresentationThinkingKeyRef.current === key) return;
+		appliedPresentationThinkingKeyRef.current = key;
+		setThinkingLevel(presentation.thinkingLevel);
+	}, [presentation.thinkingLevel, sessionMetadata.sessionId, setThinkingLevel]);
 	const clearPendingAttachments = useCallback(() => {
 		setUploadedAttachments([]);
 		setWorkspaceAttachments([]);
@@ -381,6 +394,7 @@ export function useChatWorkspaceData() {
 	const activeSessionLabel = useActiveSessionLabel({
 		activeSessionId: sessionMetadata.sessionId,
 		messages,
+		presentation,
 		sessions,
 	});
 	const suggestions = useChatSuggestions({
@@ -458,8 +472,6 @@ export function useChatWorkspaceData() {
 		},
 		[discoverModelsMutation],
 	);
-	const artifactRuns = useMemo(() => derivePrimeAgentArtifactRuns(messages, undefined, status), [messages, status]);
-
 	const { chatPanelData, settingsActions, workspaceTreeContext } = useRightPanelContextValue({
 		activityLabel,
 		artifactRuns,
@@ -512,6 +524,7 @@ export function useChatWorkspaceData() {
 		activeSessionId: sessionMetadata.sessionId,
 		activityLabel,
 		activeProjectId,
+		artifactRuns,
 		answerQuestion,
 		chatMode,
 		chatPanelData,
@@ -552,6 +565,7 @@ export function useChatWorkspaceData() {
 		unregisterProject,
 		clearUploadedAttachments,
 		pendingQuestionBar,
+		presentation,
 		resourceCanvasWidth,
 		rightPanel,
 		renameSession,

@@ -134,6 +134,32 @@ describe("applyChatStreamEvent", () => {
 		});
 	});
 
+	it("accepts only newer session presentation revisions", () => {
+		const first = {
+			type: "presentation" as const,
+			sessionId: "session-1",
+			presentation: { revision: 1, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] },
+		};
+		const second = {
+			type: "presentation" as const,
+			sessionId: "session-1",
+			presentation: {
+				revision: 2,
+				sessionName: "Current session",
+				userBash: [],
+				rlmChildren: [],
+				refinements: [],
+				artifactRuns: [],
+			},
+		};
+		let t = applyChatStreamEvent(baseTransition(), first);
+		t = applyChatStreamEvent(t, second);
+		const current = t;
+
+		expect(current.snapshot.presentation?.sessionName).toBe("Current session");
+		expect(applyChatStreamEvent(current, first)).toBe(current);
+	});
+
 	it("stores only capability-gated safe reasoning and removes legacy raw thinking on completion", () => {
 		const id = "run-1-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id));

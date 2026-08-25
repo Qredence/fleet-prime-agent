@@ -2,6 +2,7 @@ import type {
 	ChatSessionMetadata,
 	ChatStreamEvent,
 	FleetAdapterCapabilities,
+	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { QueueState } from "./chat-fetch";
@@ -19,6 +20,7 @@ export type ChatStreamSnapshot = {
 	activityLabel?: string;
 	messages: Array<ChatMessage>;
 	planLabel?: string;
+	presentation?: PrimeAgentSessionPresentation;
 	queue: QueueState;
 	sessionMetadata: ChatSessionMetadata;
 };
@@ -153,6 +155,18 @@ function replaceOrAppendInFlight(
 }
 
 export function applyChatStreamEvent(transition: ChatStreamTransition, event: ChatStreamEvent): ChatStreamTransition {
+	if (event.type === "presentation") {
+		const currentRevision = transition.snapshot.presentation?.revision ?? -1;
+		if (event.presentation.revision <= currentRevision) return transition;
+		return {
+			...transition,
+			snapshot: {
+				...transition.snapshot,
+				presentation: event.presentation,
+			},
+		};
+	}
+
 	if (event.type === "start") {
 		const alreadyPresent = transition.snapshot.messages.some(
 			(message) => message.id === event.id && message.role === "assistant",
