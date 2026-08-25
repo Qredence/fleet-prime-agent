@@ -1,6 +1,6 @@
 import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, AssistantMessageEvent, ImageContent, UserMessage } from "@earendil-works/pi-ai";
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import type { AgentConnectionEvent, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { truncateTail } from "@earendil-works/pi-coding-agent";
 import type {
 	ChatImagePart,
@@ -928,15 +928,123 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Connection-level event mapping (AgentConnection seam)
 // ---------------------------------------------------------------------------
 
 /**
- * Translate one AgentSessionEvent into zero-or-more ChatStreamEvent frames.
+ * Translate one `AgentConnectionEvent` into zero-or-more `ChatStreamEvent` frames.
+ *
+ * The connection surface wraps the engine-internal `AgentSessionEvent` union
+ * inside a `session_event` envelope and adds four new event kinds the
+ * AgentSession surface never had:
+ *
+ *   - `session_replaced`: runtime rebuilt (new/switch/fork/import). We surface
+ *     a synthetic done frame and reset the per-run mapper state so the next
+ *     turn starts cleanly.
+ *   - `session_resynced`: snapshot reattached after daemon recovery. Same
+ *     treatment as a session_replaced for mapper state.
+ *   - `extension_ui_request`: a serialized request from an extension that
+ *     needs a user dialog. We surface it as a `tool-Question` frame so the
+ *     web client renders the dialog and the bridge routes the answer back
+ *     through `PendingDialogRegistry`.
+ *   - `connection_status`, `heartbeats_changed`, `closed`, `extension_error`,
+ *     `side_question_event`, `session_status`: bookkeeping we deliberately
+ *     suppress at the wire level (the presentation layer already has
+ *     equivalent signals from session events, or they are out of scope for
+ *     the web UI).
  *
  * Pure: no I/O. All session-local state lives in `state`. Returns `[]` for
- * events we deliberately suppress (either because the UI doesn't render them
- * or because the underlying field is already conveyed by a sibling event).
+ * events we deliberately suppress.
+ */
+export function mapAgentConnectionEvent(state: EventMapperState, event: AgentConnectionEvent): ChatStreamEvent[] {
+	switch (event.type) {
+		case "session_event":
+			return mapAgentSessionEvent(state, event.event);
+		case "session_replaced":
+		case "session_resynced": {
+			// Runtime rebuilt (new/switch/fork/import) or daemon reattached.
+			// Reset the per-run mapper so the next prompt starts cleanly, and
+			// surface a synthetic done frame so any live SSE stream closes.
+			// The empty assistant message satisfies the wire shape; SSE consumers
+			// that filter on `frame.message.parts.length === 0` are the intended
+			// audience. `sessionReset: true` marks the terminal as a rewind
+			// rather than a real run completion.
+			resetRun(state);
+			const resetMessage: ChatMessage = {
+				id: state.currentMessageId ?? `${state.runId}-reset`,
+				role: "assistant",
+				parts: [],
+				createdAt: Date.now(),
+			};
+			return [
+				{ type: "state", state: { name: "agent_settled" } },
+				{
+					type: "done",
+					runId: state.runId,
+					sessionId: state.sessionId,
+					message: resetMessage,
+					sessionReset: true,
+				},
+			];
+		}
+		case "extension_ui_request": {
+			// Forward a serializable UI request to the web client as a tool
+			// frame. The bridge's dialog registry maps the `toolCallId` to a
+			// PendingDialog, and `answerDialog` resolves it from the answer.
+			// The `kind: "extension"` discriminator inside the part's `input`
+			// is the bridge-private contract — the client renders the same
+			// tool-Question card and the answer is delivered as usual.
+			const request = event.request;
+			return [
+				{
+					type: "tool",
+					part: {
+						type: "tool-Question",
+						toolCallId: request.id,
+						state: "input-streaming",
+						input: {
+							kind: "extension",
+							method: request.method,
+							payload: request.payload,
+						},
+					},
+				},
+			];
+		}
+		case "side_question_event":
+		case "connection_status":
+		case "heartbeats_changed":
+		case "closed":
+		case "extension_error":
+		case "session_status":
+			return [];
+		default: {
+			// Future-proof: ignore unknown connection events silently.
+			return [];
+		}
+	}
+}
+
+export function mapAgentConnectionEvents(
+	state: EventMapperState,
+	events: readonly AgentConnectionEvent[],
+): ChatStreamEvent[] {
+	const out: ChatStreamEvent[] = [];
+	for (const evt of events) {
+		out.push(...mapAgentConnectionEvent(state, evt));
+	}
+	return out;
+}
+
+// ---------------------------------------------------------------------------
+// Legacy AgentSessionEvent entry points (kept for test back-compat)
+// ---------------------------------------------------------------------------
+
+/**
+ * Translate one `AgentSessionEvent` (the engine-internal union) into
+ * `ChatStreamEvent` frames. The bridge itself subscribes to
+ * `AgentConnectionEvent`; this entry point exists so existing mapper tests
+ * and the presentation-rebuild path can keep using the inner union.
  */
 export function mapAgentSessionEvent(state: EventMapperState, event: AgentSessionEvent): ChatStreamEvent[] {
 	const asCore = mapCoreAgentEvent(state, event as AgentEvent);
