@@ -309,7 +309,7 @@ export type ChatThinkingPhase = "start" | "delta" | "end";
  */
 export type ChatThinkingEvent = {
 	type: "thinking";
-	phase: ChatThinkingPhase;
+	phase?: ChatThinkingPhase;
 	text: string;
 	messageId?: string;
 };

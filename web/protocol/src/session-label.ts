@@ -6,7 +6,7 @@ const SECRET_VALUE_PATTERNS = [
 ];
 
 const NAMED_SECRET_PATTERN =
-	/\b(api[ _-]?key|access[ _-]?token|auth[ _-]?token|bearer|password|secret)\s*([:=])\s*(["']?)([^\s,;"']+)(["']?)/gi;
+	/\b(api[ _-]?key|access[ _-]?token|auth[ _-]?token|bearer|password|secret)\s*([:=])\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi;
 
 /** Removes credential-shaped values before a transcript-derived label reaches browser chrome. */
 export function redactSessionLabelSecrets(label: string): string {

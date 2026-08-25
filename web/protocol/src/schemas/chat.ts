@@ -276,7 +276,7 @@ export const ChatQueueEventSchema = z
 export const ChatThinkingEventSchema = z
 	.object({
 		type: z.literal("thinking"),
-		phase: z.enum(["start", "delta", "end"]),
+		phase: z.enum(["start", "delta", "end"]).optional(),
 		text: z.string(),
 		messageId: z.string().optional(),
 	})
