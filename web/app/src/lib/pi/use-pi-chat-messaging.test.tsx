@@ -35,12 +35,13 @@ function sessionResponse(session: ChatSessionMetadata): ChatSessionResponse {
 	};
 }
 
-function startEvent(sessionId: string): ChatStreamEvent {
+function startEvent(sessionId: string, requestKind?: "session-command"): ChatStreamEvent {
 	return {
 		type: "start",
 		id: `${sessionId}-assistant`,
 		runId: `${sessionId}-run`,
 		sessionId,
+		requestKind,
 	};
 }
 
@@ -292,6 +293,48 @@ describe("usePiChat stream admission", () => {
 		streams[0].resolve();
 		await act(async () => {
 			await Promise.all([primary, command]);
+		});
+	});
+
+	it("releases later queued sends when a session command is admitted", async () => {
+		const { result, streams } = createHarness();
+		await act(async () => flush());
+
+		let primary!: Promise<void>;
+		await act(async () => {
+			primary = result.current.sendMessage({ text: "primary" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			await flush();
+		});
+
+		let command!: Promise<void>;
+		await act(async () => {
+			command = result.current.sendMessage({ text: "/goal status" });
+			await flush();
+		});
+		expect(streams).toHaveLength(2);
+
+		await act(async () => {
+			streams[1].onEvent(startEvent("session-a", "session-command"));
+			await flush();
+		});
+
+		let next!: Promise<void>;
+		await act(async () => {
+			next = result.current.sendMessage({ text: "after command" });
+			await flush();
+		});
+		expect(streams).toHaveLength(3);
+		expect(streams[2].request).toMatchObject({ message: "after command", sessionId: "session-a" });
+
+		streams[1].resolve();
+		streams[2].resolve();
+		streams[0].resolve();
+		await act(async () => {
+			await Promise.all([primary, command, next]);
 		});
 	});
 

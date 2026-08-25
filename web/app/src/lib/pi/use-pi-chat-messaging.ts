@@ -316,6 +316,9 @@ export function usePiChatMessaging({
 								streamingBehavior,
 							},
 							(event) => {
+								if (event.type === "start" && event.requestKind === "session-command") {
+									acceptance.resolve();
+								}
 								if (event.type === "done" && event.requestKind === "session-command") {
 									if (sessionMetadataRef.current.sessionId !== originatingSessionId) return;
 									// The command POST owns this local completion. Do not feed it

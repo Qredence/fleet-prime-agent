@@ -157,8 +157,16 @@ describe("handleChatPost attachment validation", () => {
 		const frames = (await response.text())
 			.trim()
 			.split("\n")
-			.map((line) => JSON.parse(line) as { type: string; message?: { parts: Array<{ text?: string }> } });
+			.map(
+				(line) =>
+					JSON.parse(line) as {
+						type: string;
+						requestKind?: string;
+						message?: { parts: Array<{ text?: string }> };
+					},
+			);
 		expect(frames.map((frame) => frame.type)).toEqual(["start", "done"]);
+		expect(frames[0]?.requestKind).toBe("session-command");
 		expect(frames[1]?.message?.parts[0]?.text).toBe(
 			sessionCommandResultText({ name: "refine", args: "", text: "/refine" }, presentation, 0),
 		);
@@ -227,6 +235,7 @@ describe("handleChatPost attachment validation", () => {
 					},
 			);
 		expect(frames.map((frame) => frame.type)).toEqual(["start", "done"]);
+		expect(frames[0]?.requestKind).toBe("session-command");
 		expect(frames[1]?.requestKind).toBe("session-command");
 		expect(JSON.stringify(frames)).not.toContain("active turn result");
 	});

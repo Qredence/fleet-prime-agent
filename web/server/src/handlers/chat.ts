@@ -141,6 +141,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 					id: startId,
 					runId: startRunId,
 					sessionId: session.sessionId,
+					requestKind: backendSessionCommand ? "session-command" : undefined,
 					adapterCapabilities: FLEET_ADAPTER_CAPABILITIES,
 				});
 				if (process.env.PRIME_BRIDGE_DEBUG === "1") {
