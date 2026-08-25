@@ -8,7 +8,13 @@ Fleet Prime Agent is Qredence's persistent local workspace for coding and resear
 
 
 
-https://github.com/user-attachments/assets/0e74d3cd-d3b4-49a9-a01e-7ac2a1427309
+
+
+
+https://github.com/user-attachments/assets/7df3d0ea-8c73-40a4-9bd3-f1c0445a9ea8
+
+
+
 
 
 
