@@ -173,7 +173,7 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 			const optimisticIndex =
 				existingIndex >= 0
 					? existingIndex
-					: transition.snapshot.messages.findLastIndex(
+					: transition.snapshot.messages.findIndex(
 							(message) => message.role === "user" && message.optimistic === true,
 						);
 			const message =

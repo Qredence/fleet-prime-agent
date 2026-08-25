@@ -49,6 +49,37 @@ type PiChatMessagingSetters = {
 	setStatus: (status: ChatStatus) => void;
 };
 
+type StreamAdmission = {
+	promise: Promise<void>;
+	resolve: () => void;
+	reject: (reason?: unknown) => void;
+};
+
+function createStreamAdmission(): StreamAdmission {
+	let resolvePromise!: () => void;
+	let rejectPromise!: (reason?: unknown) => void;
+	let settled = false;
+	const promise = new Promise<void>((resolve, reject) => {
+		resolvePromise = resolve;
+		rejectPromise = reject;
+	});
+	// A stream can fail before any queued submission starts waiting on it.
+	promise.catch(() => undefined);
+	return {
+		promise,
+		resolve: () => {
+			if (settled) return;
+			settled = true;
+			resolvePromise();
+		},
+		reject: (reason) => {
+			if (settled) return;
+			settled = true;
+			rejectPromise(reason);
+		},
+	};
+}
+
 export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 	PiChatMessagingSetters & {
 		client: ChatClient;
@@ -89,6 +120,8 @@ export function usePiChatMessaging({
 	// In-flight memo prevents two concurrent sends from both calling createSession
 	// and clobbering one another (race documented in review finding M2).
 	const sessionCreatePromiseRef = useRef<Promise<ChatSessionMetadata> | null>(null);
+	const activeStreamAdmissionRef = useRef<StreamAdmission | null>(null);
+	const queuedSubmissionTailRef = useRef(Promise.resolve());
 	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
 	const setAdapterCapabilities = useCallback((next: FleetAdapterCapabilities | undefined) => {
 		adapterCapabilitiesRef.current = next;
@@ -194,6 +227,11 @@ export function usePiChatMessaging({
 			}
 
 			if (event.type === "start") {
+				const admission = activeStreamAdmissionRef.current;
+				if (admission) {
+					activeStreamAdmissionRef.current = null;
+					admission.resolve();
+				}
 				setStatus("streaming");
 			}
 
@@ -227,63 +265,72 @@ export function usePiChatMessaging({
 			streamingBehavior: "steer" | "followUp" = "steer",
 			options?: Pick<SendMessageInput, "attachments" | "mode" | "openUI" | "planAction">,
 		) => {
-			await ensureSession();
 			const userMessage = createOptimisticUserMessage(trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
 			setError(null);
 
-			try {
-				await client.streamMessage(
-					{
-						message: trimmed,
-						attachments: options?.attachments,
-						openUI: options?.openUI,
-						model,
-						planAction: options?.planAction,
-						mode: options?.mode,
-						sessionId: sessionMetadataRef.current.sessionId,
-						streamingBehavior,
-					},
-					(event) => {
-						if (event.type === "done" && event.requestKind === "session-command") {
-							// The command POST owns this local completion. Do not feed it
-							// through the active turn reducer, which would settle or replace
-							// the assistant message belonging to the main stream.
-							setMessagesSynced((current) =>
-								current.some((message) => message.id === event.message.id)
-									? current
-									: [...current, event.message],
-							);
-							return;
-						}
-						if (event.type === "queue") {
-							setQueueSynced({
-								steering: event.steering,
-								followUp: event.followUp,
-							});
-							setActivityLabelSynced(streamingBehavior === "steer" ? "Steered" : "Follow-up queued");
-						}
-						if (event.type === "error") {
-							throw new Error(event.message);
-						}
-					},
-				);
-			} catch (err) {
-				setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
-				throw err;
-			}
+			const previousSubmission = queuedSubmissionTailRef.current;
+			const submission = previousSubmission
+				.catch(() => undefined)
+				.then(async () => {
+					try {
+						await ensureSession();
+						const admission = activeStreamAdmissionRef.current;
+						await admission?.promise;
+						await client.streamMessage(
+							{
+								message: trimmed,
+								attachments: options?.attachments,
+								openUI: options?.openUI,
+								model,
+								planAction: options?.planAction,
+								mode: options?.mode,
+								sessionId: sessionMetadataRef.current.sessionId,
+								streamingBehavior,
+							},
+							(event) => {
+								if (event.type === "done" && event.requestKind === "session-command") {
+									// The command POST owns this local completion. Do not feed it
+									// through the active turn reducer, which would settle or replace
+									// the assistant message belonging to the main stream.
+									setMessagesSynced((current) =>
+										current.some((message) => message.id === event.message.id)
+											? current
+											: [...current, event.message],
+									);
+									return;
+								}
+								if (event.type === "queue") {
+									setQueueSynced({
+										steering: event.steering,
+										followUp: event.followUp,
+									});
+									setActivityLabelSynced(streamingBehavior === "steer" ? "Steered" : "Follow-up queued");
+								}
+								if (event.type === "error") {
+									throw new Error(event.message);
+								}
+							},
+						);
+					} catch (err) {
+						setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
+						throw err;
+					}
 
-			// The steered message is queued server-side, but the `queue` event only
-			// ever lands on the *main* turn's NDJSON stream (which this POST didn't
-			// open). Refresh the sessions list so the queue badge in the shell
-			// reflects the just-steered item instead of waiting for the current
-			// turn to end. Best-effort: a refresh failure must not roll back the
-			// optimistic message after streamMessage already succeeded.
-			try {
-				await refreshSessions();
-			} catch {
-				// Ignore — the queue submission already landed server-side.
-			}
+					// The steered message is queued server-side, but the `queue` event only
+					// ever lands on the *main* turn's NDJSON stream (which this POST didn't
+					// open). Refresh the sessions list so the queue badge in the shell
+					// reflects the just-steered item instead of waiting for the current
+					// turn to end. Best-effort: a refresh failure must not roll back the
+					// optimistic message after streamMessage already succeeded.
+					try {
+						await refreshSessions();
+					} catch {
+						// Ignore — the queue submission already landed server-side.
+					}
+				});
+			queuedSubmissionTailRef.current = submission.catch(() => undefined);
+			await submission;
 		},
 		[
 			client,
@@ -311,7 +358,7 @@ export function usePiChatMessaging({
 			const trimmed = text.trim();
 			if (!trimmed) return;
 
-			if (status === "submitted" || status === "streaming") {
+			if (status === "submitted" || status === "streaming" || activeStreamAdmissionRef.current !== null) {
 				try {
 					// Enter during stream = steer into the current turn.
 					// Alt+Enter during stream = queue a follow-up after this turn.
@@ -343,6 +390,8 @@ export function usePiChatMessaging({
 			const userMessage = createOptimisticUserMessage(trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
 			const assistantIdRef = { current: null as string | null };
+			const streamAdmission = createStreamAdmission();
+			activeStreamAdmissionRef.current = streamAdmission;
 			const controller = new AbortController();
 			pendingSendControllerRef.current = controller;
 			let streamSessionId: string | undefined;
@@ -377,6 +426,10 @@ export function usePiChatMessaging({
 					sessionId: ensuredStreamSessionId,
 				});
 			} catch (err) {
+				if (activeStreamAdmissionRef.current === streamAdmission) {
+					activeStreamAdmissionRef.current = null;
+					streamAdmission.reject(err);
+				}
 				if (controller.signal.aborted) return;
 				if (streamSessionId && sessionMetadataRef.current.sessionId !== streamSessionId) {
 					void refreshSessions();
@@ -395,6 +448,10 @@ export function usePiChatMessaging({
 				setStatus("error");
 				notify.error(nextError.message);
 			} finally {
+				if (activeStreamAdmissionRef.current === streamAdmission) {
+					activeStreamAdmissionRef.current = null;
+					streamAdmission.reject(new Error("Chat stream ended before admission"));
+				}
 				if (pendingSendControllerRef.current === controller) {
 					pendingSendControllerRef.current = null;
 				}

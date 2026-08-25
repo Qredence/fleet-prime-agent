@@ -262,6 +262,35 @@ describe("applyChatStreamEvent", () => {
 		expect(t.snapshot.messages[0]).not.toHaveProperty("optimistic");
 	});
 
+	it("reconciles multiple optimistic user messages in FIFO order", () => {
+		const first = {
+			...toChatMessage("optimistic-1", "user", [{ type: "text", text: "First" }]),
+			optimistic: true,
+		};
+		const second = {
+			...toChatMessage("optimistic-2", "user", [{ type: "text", text: "Second" }]),
+			optimistic: true,
+		};
+		let t: ChatStreamTransition = {
+			assistantId: null,
+			snapshot: { ...baseTransition().snapshot, messages: [first, second] },
+		};
+
+		t = applyChatStreamEvent(t, {
+			type: "message",
+			message: toChatMessage("server-user-1", "user", [{ type: "text", text: "First (canonical)" }]),
+		});
+		t = applyChatStreamEvent(t, {
+			type: "message",
+			message: toChatMessage("server-user-2", "user", [{ type: "text", text: "Second (canonical)" }]),
+		});
+
+		expect(t.snapshot.messages).toMatchObject([
+			{ id: "optimistic-1", parts: [{ type: "text", text: "First (canonical)" }] },
+			{ id: "optimistic-2", parts: [{ type: "text", text: "Second (canonical)" }] },
+		]);
+	});
+
 	it("ignores a reasoning presentation when an older adapter omits the capability", () => {
 		const id = "run-legacy-a0";
 		let t = applyChatStreamEvent(baseTransition(), {

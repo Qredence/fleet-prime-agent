@@ -99,16 +99,17 @@ function ChatWorkspaceShell() {
   )?.name
   const handleSend = useCallback(
     (text: string, altKey?: boolean) => {
+      const attachments = [...workspaceAttachments, ...uploadedAttachments]
+      clearUploadedAttachments()
+      clearWorkspaceAttachments()
       void (async () => {
         await sendMessage({
           text,
           altKey,
           mode: chatMode,
           openUI: true,
-          attachments: [...workspaceAttachments, ...uploadedAttachments],
+          attachments,
         })
-        clearUploadedAttachments()
-        clearWorkspaceAttachments()
       })()
     },
     [chatMode, clearUploadedAttachments, clearWorkspaceAttachments, sendMessage, uploadedAttachments, workspaceAttachments],
