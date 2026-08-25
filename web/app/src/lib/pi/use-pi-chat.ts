@@ -154,7 +154,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				setPlanLabelSynced,
 				setPresentationSynced,
 				setQueueSynced,
-				setPresentationSynced,
 				setSessionMetadataSynced,
 				setStatus,
 			}),
@@ -167,7 +166,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setPlanLabelSynced,
 			setPresentationSynced,
 			setQueueSynced,
-			setPresentationSynced,
 			setSessionMetadataSynced,
 		],
 	);
@@ -360,7 +358,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setPlanLabelSynced,
 		setPresentationSynced,
 		setQueueSynced,
-		setPresentationSynced,
 		setSessionMetadataSynced,
 		recoverFromForbiddenSession,
 	]);
@@ -384,7 +381,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setPresentationSynced,
 		setPlanLabelSynced,
 		setQueueSynced,
-		setPresentationSynced,
 		setSessionMetadataSynced,
 		setStatus,
 		streamControllersRef,
@@ -416,7 +412,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setMessagesSynced([]);
 			setPresentationSynced(result.presentation);
 			setQueueSynced(EMPTY_QUEUE_STATE);
-			setPresentationSynced(result.presentation);
 			setActivityLabelSynced(undefined);
 			setPlanLabelSynced(undefined);
 			notify.success("New session started");
@@ -475,7 +470,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setPresentationSynced,
 			setPlanLabelSynced,
 			setQueueSynced,
-			setPresentationSynced,
 			setSessionMetadataSynced,
 			stop,
 		],
@@ -502,7 +496,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setPlanLabelSynced,
 			setPresentationSynced,
 			setQueueSynced,
-			setPresentationSynced,
 			setSessionMetadataSynced,
 		],
 	);
@@ -561,12 +554,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				setMessagesSynced((current) =>
 					upsertAssistantReasoningPresentation(current, messageId, frame.presentation),
 				);
-				return;
-			}
-			if (frame.type === "presentation") {
-				if (frame.presentation.revision > (presentationRef.current?.revision ?? -1)) {
-					setPresentationSynced(frame.presentation);
-				}
 				return;
 			}
 			if (frame.type === "tool" && frame.part?.type === "tool-Question") {
@@ -662,7 +649,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setQueueSynced,
 		setPresentationSynced,
 		setSessionMetadataSynced,
-		setPresentationSynced,
 		setAdapterCapabilities,
 	]);
 

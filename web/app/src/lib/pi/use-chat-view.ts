@@ -19,7 +19,6 @@ export function useActiveSessionLabel({
 	messages: Array<ChatMessage>;
 	presentation?: PrimeAgentSessionPresentation;
 	sessions: Array<ChatSessionInfo>;
-	presentation?: PrimeAgentSessionPresentation;
 }) {
 	return useMemo(
 		() => getActiveSessionLabel(activeSessionId, sessions, messages, presentation),
