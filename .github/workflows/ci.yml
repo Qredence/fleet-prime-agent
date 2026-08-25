@@ -60,7 +60,7 @@ jobs:
         run: pnpm install --dir web --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: npm run build:ci
 
       - name: Check
         run: npm run check
@@ -131,7 +131,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: npm run build:ci
 
       - name: Install uv
         if: matrix.install_uv
@@ -181,7 +181,7 @@ jobs:
         run: pnpm install --dir web --frozen-lockfile
 
       - name: Build
-        run: npm run build
+        run: npm run build:ci
 
       - name: Test
         run: npm run test:web

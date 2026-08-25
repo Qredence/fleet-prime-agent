@@ -12,6 +12,7 @@
     "./fleet-contract": "./src/fleet-contract.ts",
     "./model-patterns": "./src/model-patterns.ts",
     "./provider-catalog": "./src/provider-catalog.ts",
+    "./session-label": "./src/session-label.ts",
     "./schemas/*": "./src/schemas/*"
   },
   "scripts": {

@@ -129,6 +129,15 @@ export const ChatErrorPartSchema = z
 	})
 	.openapi({ description: "Error message part" });
 
+export const ChatImagePartSchema = z
+	.object({
+		type: z.literal("image"),
+		url: z.string().min(1),
+		mimeType: z.string().optional(),
+		alt: z.string().optional(),
+	})
+	.openapi({ description: "Image message part" });
+
 export const ChatToolPartSchema = z
 	.object({
 		type: z.string(),
@@ -142,7 +151,7 @@ export const ChatToolPartSchema = z
 	.openapi({ description: "Tool message part" });
 
 export const ChatMessagePartSchema = z
-	.union([ChatTextPartSchema, ChatErrorPartSchema, ChatToolPartSchema])
+	.union([ChatTextPartSchema, ChatErrorPartSchema, ChatImagePartSchema, ChatToolPartSchema])
 	.openapi({ description: "Message part" });
 
 export const ChatMessageSchema = z
@@ -267,10 +276,163 @@ export const ChatQueueEventSchema = z
 export const ChatThinkingEventSchema = z
 	.object({
 		type: z.literal("thinking"),
+		phase: z.enum(["start", "delta", "end"]).optional(),
 		text: z.string(),
 		messageId: z.string().optional(),
 	})
-	.openapi({ description: "Legacy raw-thinking event" });
+	.openapi({ description: "Live provider thinking event; never persisted" });
+
+const PrimeAgentArtifactStatusSchema = z.enum(["running", "success", "error", "cancelled"]);
+const PrimeAgentArtifactKindSchema = z.enum([
+	"bash",
+	"ipython",
+	"mcp",
+	"generic",
+	"diff",
+	"rlm",
+	"recap",
+	"refinement",
+]);
+
+export const PrimeAgentArtifactSchema = z
+	.object({
+		id: z.string().min(1),
+		runId: z.string().min(1),
+		sourceMessageId: z.string().optional(),
+		sourceToolCallId: z.string().optional(),
+		kind: PrimeAgentArtifactKindSchema,
+		title: z.string(),
+		status: PrimeAgentArtifactStatusSchema,
+		input: z.unknown().optional(),
+		output: z.unknown().optional(),
+		timestamp: z.number().finite(),
+	})
+	.openapi({ description: "Browser-safe Prime Agent technical artifact" });
+
+export const PrimeAgentArtifactRunSchema = z
+	.object({
+		id: z.string().min(1),
+		runId: z.string().min(1),
+		artifacts: z.array(PrimeAgentArtifactSchema),
+		startedAt: z.number().finite().optional(),
+		endedAt: z.number().finite().optional(),
+	})
+	.openapi({ description: "Grouped Prime Agent technical artifacts" });
+
+export const PrimeAgentUserBashSchema = z
+	.object({
+		id: z.string().min(1),
+		runId: z.string().min(1),
+		command: z.string(),
+		output: z.string(),
+		status: PrimeAgentArtifactStatusSchema,
+		exitCode: z.number().int().optional(),
+		cancelled: z.boolean(),
+		truncated: z.boolean(),
+		excludeFromContext: z.boolean(),
+		errorMessage: z.string().optional(),
+		startedAt: z.number().finite(),
+		endedAt: z.number().finite().optional(),
+	})
+	.openapi({ description: "Normalized user Bash execution" });
+
+export const PrimeAgentRlmChildSchema = z
+	.object({
+		id: z.string().min(1),
+		parentId: z.string().optional(),
+		activeSessionId: z.string().optional(),
+		sessionName: z.string().optional(),
+		model: z.string().optional(),
+		label: z.string(),
+		status: z.enum(["queued", "running", "done", "error", "cancelled"]),
+		durationMs: z.number().finite().optional(),
+		answerPreview: z.string().optional(),
+		toolUseCount: z.number().int().nonnegative().optional(),
+		tokenCount: z.number().int().nonnegative().optional(),
+		recap: z.string().optional(),
+		activity: z
+			.object({ kind: z.enum(["waiting", "writing", "executing"]), toolName: z.string().optional() })
+			.optional(),
+		repliedSinceTask: z.boolean().optional(),
+		error: z.string().optional(),
+		timestamp: z.number().finite(),
+	})
+	.openapi({ description: "Browser-safe RLM child status" });
+
+export const PrimeAgentGoalSchema = z
+	.object({
+		active: z.boolean(),
+		status: z.enum(["idle", "active", "paused", "budget_limited", "complete", "error"]),
+		goalId: z.string().optional(),
+		objective: z.string().optional(),
+		tokenBudget: z.number().int().positive().optional(),
+		tokensUsed: z.number().int().nonnegative(),
+		timeUsedSeconds: z.number().nonnegative(),
+		continuationsUsed: z.number().int().nonnegative(),
+		createdAt: z.number().finite().optional(),
+		updatedAt: z.number().finite().optional(),
+		lastReason: z.string().optional(),
+		lastError: z.string().optional(),
+	})
+	.openapi({ description: "Browser-safe Prime Agent goal state" });
+
+export const PrimeAgentRefinementEditSchema = z.object({
+	action: z.enum(["create", "update", "delete"]),
+	kind: z.string(),
+	id: z.string(),
+	title: z.string().optional(),
+	content: z.string().optional(),
+	reason: z.string().optional(),
+	before: z.string().optional(),
+	after: z.string().optional(),
+	applied: z.boolean(),
+	error: z.string().optional(),
+});
+
+export const PrimeAgentRefinementSchema = z
+	.object({
+		id: z.string().min(1),
+		summary: z.string(),
+		rationale: z.string(),
+		expectedOutcome: z.string(),
+		scope: z.enum(["local", "global"]).optional(),
+		rollbackOf: z.string().optional(),
+		edits: z.array(PrimeAgentRefinementEditSchema),
+		status: z.enum(["success", "error"]),
+		error: z.string().optional(),
+		timestamp: z.number().finite(),
+	})
+	.openapi({ description: "Browser-safe refinement result" });
+
+export const PrimeAgentSessionPresentationSchema = z
+	.object({
+		revision: z.number().int().nonnegative(),
+		sessionName: z.string().optional(),
+		thinkingLevel: ChatThinkingLevelSchema.optional(),
+		serviceTier: z.enum(["auto", "default", "flex", "scale", "priority"]).nullable().optional(),
+		goal: PrimeAgentGoalSchema.optional(),
+		recap: z.string().optional(),
+		userBash: z.array(PrimeAgentUserBashSchema),
+		rlmChildren: z.array(PrimeAgentRlmChildSchema),
+		refinements: z.array(PrimeAgentRefinementSchema),
+		artifactRuns: z.array(PrimeAgentArtifactRunSchema),
+	})
+	.openapi({ description: "Durable browser-visible Prime Agent presentation state" });
+
+export const ChatPresentationEventSchema = z
+	.object({
+		type: z.literal("presentation"),
+		sessionId: SessionIdSchema,
+		presentation: PrimeAgentSessionPresentationSchema,
+	})
+	.openapi({ description: "Immutable Prime Agent presentation snapshot" });
+
+export const ChatMessageEventSchema = z
+	.object({
+		type: z.literal("message"),
+		message: ChatMessageSchema,
+	})
+	.openapi({ description: "Browser-visible user or image-bearing message" });
 
 export const ChatReasoningEventSchema = z
 	.object({
@@ -326,6 +488,7 @@ export const ChatDoneEventSchema = z
 		runId: z.string(),
 		message: ChatMessageSchema,
 		sessionId: SessionIdSchema,
+		requestKind: z.literal("session-command").optional(),
 		sessionReset: z.boolean().optional(),
 	})
 	.openapi({ description: "Stream done event" });
@@ -347,6 +510,8 @@ export const ChatStreamEventSchema = z
 		ChatStateStreamEventSchema,
 		ChatQueueEventSchema,
 		ChatThinkingEventSchema,
+		ChatPresentationEventSchema,
+		ChatMessageEventSchema,
 		ChatReasoningEventSchema,
 		ChatCompactionStartEventSchema,
 		ChatCompactionEndEventSchema,
@@ -362,6 +527,13 @@ export const ChatSessionResponseSchema = z
 		session: ChatSessionMetadataSchema,
 		messages: z.array(ChatMessageSchema),
 		planPresentations: z.array(ChatPlanPresentationSchema).default([]),
+		presentation: PrimeAgentSessionPresentationSchema.default({
+			revision: 0,
+			userBash: [],
+			rlmChildren: [],
+			refinements: [],
+			artifactRuns: [],
+		}),
 		sessionReset: z.boolean().optional(),
 	})
 	.openapi({ description: "Chat session response" });
