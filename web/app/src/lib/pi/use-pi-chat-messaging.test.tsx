@@ -8,6 +8,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "./chat-client";
+import { toChatMessage } from "./chat-message-helpers";
 import { usePiChat } from "./use-pi-chat";
 
 const presentation: PrimeAgentSessionPresentation = {
@@ -45,6 +46,18 @@ function startEvent(sessionId: string): ChatStreamEvent {
 
 function queueEvent(): ChatStreamEvent {
 	return { type: "queue", steering: ["queued"], followUp: [] };
+}
+
+function sessionCommandDoneEvent(sessionId: string): ChatStreamEvent {
+	return {
+		type: "done",
+		runId: `${sessionId}-command-run`,
+		sessionId,
+		requestKind: "session-command",
+		message: toChatMessage(`${sessionId}-command-result`, "assistant", [
+			{ type: "text", text: "Session command completed" },
+		]),
+	};
 }
 
 async function flush() {
@@ -221,6 +234,67 @@ describe("usePiChat stream admission", () => {
 		});
 	});
 
+	it("settles an idle session command without leaving its optimistic user message", async () => {
+		const { result, streams } = createHarness();
+		await act(async () => flush());
+
+		let command!: Promise<void>;
+		await act(async () => {
+			command = result.current.sendMessage({ text: "/goal status" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent(sessionCommandDoneEvent("session-a"));
+			await flush();
+		});
+
+		const userMessage = result.current.messages.find((message) => message.role === "user");
+		expect(userMessage).toBeDefined();
+		expect(userMessage).not.toHaveProperty("optimistic");
+
+		streams[0].resolve();
+		await act(async () => {
+			await command;
+		});
+	});
+
+	it("does not append a hidden session-command result to the newly visible session", async () => {
+		const { result, streams } = createHarness();
+		await act(async () => flush());
+
+		let primary!: Promise<void>;
+		await act(async () => {
+			primary = result.current.sendMessage({ text: "primary" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			await flush();
+		});
+
+		let command!: Promise<void>;
+		await act(async () => {
+			command = result.current.sendMessage({ text: "/goal status" });
+			await flush();
+		});
+		expect(streams).toHaveLength(2);
+
+		await act(async () => {
+			await result.current.resumeSession({ sessionId: "session-b" }, { preserveRunning: true });
+			streams[1].onEvent(sessionCommandDoneEvent("session-a"));
+			await flush();
+		});
+
+		expect(result.current.messages.some((message) => message.id === "session-a-command-result")).toBe(false);
+
+		streams[1].resolve();
+		streams[0].resolve();
+		await act(async () => {
+			await Promise.all([primary, command]);
+		});
+	});
+
 	it("resets admission synchronously when stopping so the next send is not blocked", async () => {
 		const { client, result, streams } = createHarness();
 		await act(async () => flush());
@@ -247,6 +321,40 @@ describe("usePiChat stream admission", () => {
 		streams[1].resolve();
 		await act(async () => {
 			await Promise.all([stopped, next]);
+		});
+	});
+
+	it("preserves a canonicalized user message when stopping an active stream", async () => {
+		const { result, streams } = createHarness();
+		await act(async () => flush());
+
+		let primary!: Promise<void>;
+		await act(async () => {
+			primary = result.current.sendMessage({ text: "accepted prompt" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({
+				type: "message",
+				message: toChatMessage("server-user", "user", [{ type: "text", text: "accepted prompt" }]),
+			});
+			await flush();
+		});
+
+		await act(async () => {
+			result.current.stop();
+			await flush();
+		});
+
+		expect(result.current.messages).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ role: "user", parts: [{ type: "text", text: "accepted prompt" }] }),
+			]),
+		);
+
+		await act(async () => {
+			await primary;
 		});
 	});
 });

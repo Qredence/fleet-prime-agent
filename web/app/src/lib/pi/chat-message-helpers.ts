@@ -18,6 +18,19 @@ export function createOptimisticUserMessage(text: string): ChatMessage {
 	return { ...createTextMessage("user", text), optimistic: true };
 }
 
+export function removeOptimisticUserMessage(messages: Array<ChatMessage>, messageId: string): Array<ChatMessage> {
+	return messages.filter((message) => message.id !== messageId || message.optimistic !== true);
+}
+
+export function settleOptimisticUserMessage(messages: Array<ChatMessage>, messageId: string): Array<ChatMessage> {
+	return messages.map((message) => {
+		if (message.id !== messageId || message.optimistic !== true) return message;
+		const settled = { ...message };
+		delete settled.optimistic;
+		return settled;
+	});
+}
+
 export function toChatMessage(
 	id: string,
 	role: ChatMessage["role"],

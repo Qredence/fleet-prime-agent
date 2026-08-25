@@ -14,7 +14,13 @@ import { useCallback, useRef } from "react";
 import { captureChatSessionStarted, captureConversationSaved } from "@/lib/analytics-stub";
 import type { ChatClient } from "./chat-client";
 import type { QueueState } from "./chat-fetch";
-import { assistantTextFromMessage, createOptimisticUserMessage, upsertAssistantToolPart } from "./chat-message-helpers";
+import {
+	assistantTextFromMessage,
+	createOptimisticUserMessage,
+	removeOptimisticUserMessage,
+	settleOptimisticUserMessage,
+	upsertAssistantToolPart,
+} from "./chat-message-helpers";
 import { applyChatStreamEvent } from "./chat-stream-state";
 import {
 	applyPlanModeSelection,
@@ -311,13 +317,17 @@ export function usePiChatMessaging({
 							},
 							(event) => {
 								if (event.type === "done" && event.requestKind === "session-command") {
+									if (sessionMetadataRef.current.sessionId !== originatingSessionId) return;
 									// The command POST owns this local completion. Do not feed it
 									// through the active turn reducer, which would settle or replace
 									// the assistant message belonging to the main stream.
 									setMessagesSynced((current) =>
-										current.some((message) => message.id === event.message.id)
-											? current
-											: [...current, event.message],
+										settleOptimisticUserMessage(
+											current.some((message) => message.id === event.message.id)
+												? current
+												: [...current, event.message],
+											userMessage.id,
+										),
 									);
 									return;
 								}
@@ -337,7 +347,7 @@ export function usePiChatMessaging({
 						acceptance.resolve();
 					} catch (err) {
 						acceptance.reject(err);
-						setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
+						setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
 						throw err;
 					}
 
@@ -445,7 +455,16 @@ export function usePiChatMessaging({
 						sessionId: ensuredStreamSessionId,
 						streamingBehavior: altKey ? "followUp" : "steer",
 					},
-					(event) => handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId, mode),
+					(event) => {
+						handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId, mode);
+						if (
+							event.type === "done" &&
+							event.requestKind === "session-command" &&
+							sessionMetadataRef.current.sessionId === ensuredStreamSessionId
+						) {
+							setMessagesSynced((current) => settleOptimisticUserMessage(current, userMessage.id));
+						}
+					},
 					controller.signal,
 				);
 
@@ -460,7 +479,7 @@ export function usePiChatMessaging({
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(err);
 				}
-				setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
+				setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
 				if (controller.signal.aborted) return;
 				if (streamSessionId && sessionMetadataRef.current.sessionId !== streamSessionId) {
 					void refreshSessions();
@@ -483,7 +502,7 @@ export function usePiChatMessaging({
 					streamAdmission.reject(new Error("Chat stream ended before admission"));
 				}
 				if (controller.signal.aborted) {
-					setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
+					setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
 				}
 				if (pendingSendControllerRef.current === controller) {
 					pendingSendControllerRef.current = null;
