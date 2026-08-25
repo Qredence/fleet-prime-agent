@@ -50,6 +50,7 @@ type PiChatMessagingSetters = {
 };
 
 type StreamAdmission = {
+	sessionId?: string;
 	promise: Promise<void>;
 	resolve: () => void;
 	reject: (reason?: unknown) => void;
@@ -120,9 +121,22 @@ export function usePiChatMessaging({
 	// In-flight memo prevents two concurrent sends from both calling createSession
 	// and clobbering one another (race documented in review finding M2).
 	const sessionCreatePromiseRef = useRef<Promise<ChatSessionMetadata> | null>(null);
-	const activeStreamAdmissionRef = useRef<StreamAdmission | null>(null);
+	const streamAdmissionsRef = useRef(new Set<StreamAdmission>());
 	const queuedSubmissionTailRef = useRef(Promise.resolve());
 	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
+	const findStreamAdmission = useCallback((sessionId?: string) => {
+		for (const admission of streamAdmissionsRef.current) {
+			if (admission.sessionId === sessionId) return admission;
+		}
+		return undefined;
+	}, []);
+	const resetStreamAdmission = useCallback((sessionId?: string) => {
+		for (const admission of [...streamAdmissionsRef.current]) {
+			if (admission.sessionId !== sessionId) continue;
+			streamAdmissionsRef.current.delete(admission);
+			admission.reject(new Error("Chat stream stopped before admission"));
+		}
+	}, []);
 	const setAdapterCapabilities = useCallback((next: FleetAdapterCapabilities | undefined) => {
 		adapterCapabilitiesRef.current = next;
 	}, []);
@@ -187,6 +201,14 @@ export function usePiChatMessaging({
 				}
 			}
 
+			if (event.type === "start") {
+				const admission = findStreamAdmission(streamSessionId);
+				if (admission) {
+					streamAdmissionsRef.current.delete(admission);
+					admission.resolve();
+				}
+			}
+
 			const streamIsVisible = streamSessionId === sessionMetadataRef.current.sessionId;
 			if (!streamIsVisible) {
 				if (event.type === "done") {
@@ -227,11 +249,6 @@ export function usePiChatMessaging({
 			}
 
 			if (event.type === "start") {
-				const admission = activeStreamAdmissionRef.current;
-				if (admission) {
-					activeStreamAdmissionRef.current = null;
-					admission.resolve();
-				}
 				setStatus("streaming");
 			}
 
@@ -243,6 +260,7 @@ export function usePiChatMessaging({
 		[
 			activityLabelRef,
 			client,
+			findStreamAdmission,
 			messagesRef,
 			presentationRef,
 			planLabelRef,
@@ -265,17 +283,20 @@ export function usePiChatMessaging({
 			streamingBehavior: "steer" | "followUp" = "steer",
 			options?: Pick<SendMessageInput, "attachments" | "mode" | "openUI" | "planAction">,
 		) => {
+			const originatingSessionId = sessionMetadataRef.current.sessionId ?? (await ensureSession()).sessionId;
+			if (!originatingSessionId) throw new Error("Unable to queue a message without a session");
+
 			const userMessage = createOptimisticUserMessage(trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
 			setError(null);
 
-			const previousSubmission = queuedSubmissionTailRef.current;
-			const submission = previousSubmission
+			const previousAcceptance = queuedSubmissionTailRef.current;
+			const acceptance = createStreamAdmission();
+			const submission = previousAcceptance
 				.catch(() => undefined)
 				.then(async () => {
 					try {
-						await ensureSession();
-						const admission = activeStreamAdmissionRef.current;
+						const admission = findStreamAdmission(originatingSessionId);
 						await admission?.promise;
 						await client.streamMessage(
 							{
@@ -285,7 +306,7 @@ export function usePiChatMessaging({
 								model,
 								planAction: options?.planAction,
 								mode: options?.mode,
-								sessionId: sessionMetadataRef.current.sessionId,
+								sessionId: originatingSessionId,
 								streamingBehavior,
 							},
 							(event) => {
@@ -301,6 +322,7 @@ export function usePiChatMessaging({
 									return;
 								}
 								if (event.type === "queue") {
+									acceptance.resolve();
 									setQueueSynced({
 										steering: event.steering,
 										followUp: event.followUp,
@@ -312,7 +334,9 @@ export function usePiChatMessaging({
 								}
 							},
 						);
+						acceptance.resolve();
 					} catch (err) {
+						acceptance.reject(err);
 						setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
 						throw err;
 					}
@@ -329,12 +353,13 @@ export function usePiChatMessaging({
 						// Ignore — the queue submission already landed server-side.
 					}
 				});
-			queuedSubmissionTailRef.current = submission.catch(() => undefined);
+			queuedSubmissionTailRef.current = acceptance.promise.catch(() => undefined);
 			await submission;
 		},
 		[
 			client,
 			ensureSession,
+			findStreamAdmission,
 			model,
 			refreshSessions,
 			sessionMetadataRef,
@@ -358,7 +383,11 @@ export function usePiChatMessaging({
 			const trimmed = text.trim();
 			if (!trimmed) return;
 
-			if (status === "submitted" || status === "streaming" || activeStreamAdmissionRef.current !== null) {
+			if (
+				status === "submitted" ||
+				status === "streaming" ||
+				findStreamAdmission(sessionMetadataRef.current.sessionId) !== undefined
+			) {
 				try {
 					// Enter during stream = steer into the current turn.
 					// Alt+Enter during stream = queue a follow-up after this turn.
@@ -391,7 +420,8 @@ export function usePiChatMessaging({
 			setMessagesSynced((current) => [...current, userMessage]);
 			const assistantIdRef = { current: null as string | null };
 			const streamAdmission = createStreamAdmission();
-			activeStreamAdmissionRef.current = streamAdmission;
+			streamAdmission.sessionId = sessionMetadataRef.current.sessionId;
+			streamAdmissionsRef.current.add(streamAdmission);
 			const controller = new AbortController();
 			pendingSendControllerRef.current = controller;
 			let streamSessionId: string | undefined;
@@ -402,6 +432,7 @@ export function usePiChatMessaging({
 				const ensuredStreamSessionId = ensuredSession.sessionId;
 				if (!ensuredStreamSessionId) throw new Error("Unable to start a session stream");
 				streamSessionId = ensuredStreamSessionId;
+				streamAdmission.sessionId = ensuredStreamSessionId;
 				streamControllersRef.current.set(ensuredStreamSessionId, controller);
 				await client.streamMessage(
 					{
@@ -426,10 +457,10 @@ export function usePiChatMessaging({
 					sessionId: ensuredStreamSessionId,
 				});
 			} catch (err) {
-				if (activeStreamAdmissionRef.current === streamAdmission) {
-					activeStreamAdmissionRef.current = null;
+				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(err);
 				}
+				setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
 				if (controller.signal.aborted) return;
 				if (streamSessionId && sessionMetadataRef.current.sessionId !== streamSessionId) {
 					void refreshSessions();
@@ -448,9 +479,11 @@ export function usePiChatMessaging({
 				setStatus("error");
 				notify.error(nextError.message);
 			} finally {
-				if (activeStreamAdmissionRef.current === streamAdmission) {
-					activeStreamAdmissionRef.current = null;
+				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(new Error("Chat stream ended before admission"));
+				}
+				if (controller.signal.aborted) {
+					setMessagesSynced((current) => current.filter((message) => message.id !== userMessage.id));
 				}
 				if (pendingSendControllerRef.current === controller) {
 					pendingSendControllerRef.current = null;
@@ -464,6 +497,7 @@ export function usePiChatMessaging({
 			client,
 			ensureSession,
 			enqueueDuringStream,
+			findStreamAdmission,
 			handleStreamEvent,
 			messagesRef,
 			model,
@@ -480,5 +514,5 @@ export function usePiChatMessaging({
 		],
 	);
 
-	return { enqueueDuringStream, handleStreamEvent, sendMessage, setAdapterCapabilities };
+	return { enqueueDuringStream, handleStreamEvent, resetStreamAdmission, sendMessage, setAdapterCapabilities };
 }

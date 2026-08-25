@@ -362,7 +362,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		recoverFromForbiddenSession,
 	]);
 
-	const { sendMessage, setAdapterCapabilities } = usePiChatMessaging({
+	const { resetStreamAdmission, sendMessage, setAdapterCapabilities } = usePiChatMessaging({
 		activityLabelRef,
 		client,
 		messagesRef,
@@ -388,9 +388,10 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	});
 
 	const stop = useCallback(() => {
+		const metadata = sessionMetadataRef.current;
+		resetStreamAdmission(metadata.sessionId);
 		pendingSendControllerRef.current?.abort();
 		pendingSendControllerRef.current = null;
-		const metadata = sessionMetadataRef.current;
 		if (metadata.sessionId) {
 			void client.abortSession(metadata).catch(() => undefined);
 		}
@@ -401,7 +402,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setStatus("ready");
 		setQueueSynced(EMPTY_QUEUE_STATE);
 		setActivityLabelSynced(undefined);
-	}, [client, setActivityLabelSynced, setQueueSynced]);
+	}, [client, resetStreamAdmission, setActivityLabelSynced, setQueueSynced]);
 
 	const startNewSession = useCallback(
 		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
