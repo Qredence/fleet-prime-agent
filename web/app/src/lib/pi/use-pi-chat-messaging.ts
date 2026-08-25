@@ -14,7 +14,7 @@ import { useCallback, useRef } from "react";
 import { captureChatSessionStarted, captureConversationSaved } from "@/lib/analytics-stub";
 import type { ChatClient } from "./chat-client";
 import type { QueueState } from "./chat-fetch";
-import { assistantTextFromMessage, createTextMessage, upsertAssistantToolPart } from "./chat-message-helpers";
+import { assistantTextFromMessage, createOptimisticUserMessage, upsertAssistantToolPart } from "./chat-message-helpers";
 import { applyChatStreamEvent } from "./chat-stream-state";
 import {
 	applyPlanModeSelection,
@@ -228,7 +228,7 @@ export function usePiChatMessaging({
 			options?: Pick<SendMessageInput, "attachments" | "mode" | "openUI" | "planAction">,
 		) => {
 			await ensureSession();
-			const userMessage = createTextMessage("user", trimmed);
+			const userMessage = createOptimisticUserMessage(trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
 			setError(null);
 
@@ -340,7 +340,7 @@ export function usePiChatMessaging({
 				});
 			}
 
-			const userMessage = createTextMessage("user", trimmed);
+			const userMessage = createOptimisticUserMessage(trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
 			const assistantIdRef = { current: null as string | null };
 			const controller = new AbortController();

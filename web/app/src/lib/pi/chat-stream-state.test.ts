@@ -212,7 +212,10 @@ describe("applyChatStreamEvent", () => {
 	});
 
 	it("replaces the optimistic user message when the live stream supplies image parts", () => {
-		const optimistic = toChatMessage("optimistic", "user", [{ type: "text", text: "Inspect this" }]);
+		const optimistic = {
+			...toChatMessage("optimistic", "user", [{ type: "text", text: "Inspect this" }]),
+			optimistic: true,
+		};
 		let t: ChatStreamTransition = {
 			assistantId: null,
 			snapshot: { ...baseTransition().snapshot, messages: [optimistic] },
@@ -231,6 +234,32 @@ describe("applyChatStreamEvent", () => {
 		expect(t.snapshot.messages).toHaveLength(1);
 		expect(t.snapshot.messages[0]).toMatchObject({ id: "optimistic", role: "user" });
 		expect(t.snapshot.messages[0]?.parts).toContainEqual(expect.objectContaining({ type: "image" }));
+	});
+
+	it("reconciles attachment-enriched user text with the optimistic turn", () => {
+		const optimistic = {
+			...toChatMessage("optimistic", "user", [{ type: "text", text: "Inspect this" }]),
+			optimistic: true,
+		};
+		let t: ChatStreamTransition = {
+			assistantId: null,
+			snapshot: { ...baseTransition().snapshot, messages: [optimistic] },
+		};
+
+		t = applyChatStreamEvent(t, {
+			type: "message",
+			message: toChatMessage("server-user-1", "user", [
+				{ type: "text", text: "Inspect this\n\n[Workspace attachment: README.md]" },
+			]),
+		});
+
+		expect(t.snapshot.messages).toHaveLength(1);
+		expect(t.snapshot.messages[0]).toMatchObject({
+			id: "optimistic",
+			role: "user",
+			parts: [{ type: "text", text: "Inspect this\n\n[Workspace attachment: README.md]" }],
+		});
+		expect(t.snapshot.messages[0]).not.toHaveProperty("optimistic");
 	});
 
 	it("ignores a reasoning presentation when an older adapter omits the capability", () => {

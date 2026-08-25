@@ -14,6 +14,10 @@ export function createTextMessage(
 	};
 }
 
+export function createOptimisticUserMessage(text: string): ChatMessage {
+	return { ...createTextMessage("user", text), optimistic: true };
+}
+
 export function toChatMessage(
 	id: string,
 	role: ChatMessage["role"],

@@ -63,13 +63,6 @@ function hasRenderableParts(message: ChatMessage): boolean {
 	});
 }
 
-function messageText(message: ChatMessage): string {
-	return message.parts
-		.filter((part): part is Extract<(typeof message.parts)[number], { type: "text" }> => part.type === "text")
-		.map((part) => part.text)
-		.join("");
-}
-
 /**
  * Reconcile the in-flight assistant bubble id with a streamed `messageId`.
  * The `start` frame may open a placeholder id before the mapper assigns
@@ -176,13 +169,12 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 
 	if (event.type === "message") {
 		if (event.message.role === "user") {
-			const incomingText = messageText(event.message);
 			const existingIndex = transition.snapshot.messages.findIndex((message) => message.id === event.message.id);
 			const optimisticIndex =
 				existingIndex >= 0
 					? existingIndex
 					: transition.snapshot.messages.findLastIndex(
-							(message) => message.role === "user" && messageText(message) === incomingText,
+							(message) => message.role === "user" && message.optimistic === true,
 						);
 			const message =
 				optimisticIndex >= 0
