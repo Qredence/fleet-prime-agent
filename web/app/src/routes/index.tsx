@@ -50,7 +50,7 @@ function ChatWorkspaceShell() {
     modelPickerOpen,
     models,
     openPanelAction,
-	openArtifact,
+    openArtifact,
     uploadedAttachments,
     workspaceAttachments,
     addWorkspaceAttachment,
@@ -58,7 +58,7 @@ function ChatWorkspaceShell() {
 		pendingQuestionBar,
 		presentation,
 		activeProjectId,
-    activityLabel,
+	    activityLabel,
     projects,
     projectSessions,
     resourceCanvasWidth,
@@ -99,16 +99,17 @@ function ChatWorkspaceShell() {
   )?.name
   const handleSend = useCallback(
     (text: string, altKey?: boolean) => {
+      const attachments = [...workspaceAttachments, ...uploadedAttachments]
+      clearUploadedAttachments()
+      clearWorkspaceAttachments()
       void (async () => {
         await sendMessage({
           text,
           altKey,
           mode: chatMode,
           openUI: true,
-          attachments: [...workspaceAttachments, ...uploadedAttachments],
+          attachments,
         })
-        clearUploadedAttachments()
-        clearWorkspaceAttachments()
       })()
     },
     [chatMode, clearUploadedAttachments, clearWorkspaceAttachments, sendMessage, uploadedAttachments, workspaceAttachments],
@@ -198,10 +199,10 @@ function ChatWorkspaceShell() {
                 status={status}
                 error={error ?? undefined}
                 workspaceName={activeProjectName}
-					activityLabel={activityLabel}
-					presentation={presentation}
-					artifactRuns={artifactRuns}
-					onOpenArtifact={openArtifact}
+                activityLabel={activityLabel}
+                presentation={presentation}
+                artifactRuns={artifactRuns}
+                onOpenArtifact={openArtifact}
                 inputSuggestionItems={inputSuggestionItems}
                 suppressQuestionTool={!!pendingQuestionBar}
                 inputBar={{

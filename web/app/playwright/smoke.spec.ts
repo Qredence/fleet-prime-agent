@@ -29,19 +29,10 @@ test.describe("chat shell", () => {
 		const welcome = page.locator('section[aria-labelledby="fleet-welcome-title"]')
 		await expect(prompt).toBeVisible({ timeout: 15_000 })
 		await expect(page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })).toBeVisible()
-		const eyebrow = welcome.getByText("Qredence", { exact: true })
-		await expect(eyebrow).toBeVisible()
-		expect(await eyebrow.evaluate((element) => getComputedStyle(element).textTransform)).toBe("none")
-		const workspaceLabel = welcome.getByText("fleet-rlm", { exact: true })
-		await expect(workspaceLabel).toBeVisible()
+		await expect(welcome.getByText("Qredence", { exact: true })).toHaveCount(0)
+		await expect(welcome.getByText("fleet-rlm", { exact: true })).toHaveCount(0)
 		await expect(welcome.getByText("Working in fleet-rlm", { exact: true })).toHaveCount(0)
-		expect(await workspaceLabel.evaluate((element) => getComputedStyle(element).fontSize)).toBe("18px")
-		const visibleLogo = welcome.locator("img:visible")
-		await expect(visibleLogo).toHaveCount(1)
-		const logoVariant = await page.locator("html").evaluate((element) =>
-			element.classList.contains("dark") ? "dark" : "light",
-		)
-		await expect(visibleLogo).toHaveAttribute("src", new RegExp(`logo-qredence-${logoVariant}-1\\.svg$`))
+		await expect(welcome.locator("img")).toHaveCount(0)
 		await expect(page.getByText(/Explore the codebase, make changes, and run Fleet Prime tools/)).toHaveCount(0)
 		await expect(page.getByRole("heading", { name: "Welcome to your workspace", exact: true })).toHaveCount(0)
 
@@ -59,10 +50,30 @@ test.describe("chat shell", () => {
 		await expect(prompt).toHaveCount(1)
 		await expect(page.getByRole("button", { name: "Add to prompt" })).toBeVisible()
 		await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible()
-		await expect(page.getByRole("combobox", { name: "Select model and reasoning effort" })).toBeVisible()
+		const modelSelector = page.getByRole("combobox", { name: "Select model and reasoning effort" })
+		await expect(modelSelector).toBeVisible()
 		await expect(page.getByRole("button", { name: /Enable OpenUI|Disable OpenUI/ })).toHaveCount(0)
 		await expect(page.getByRole("button", { name: "Send prompt" })).toBeVisible()
 		await page.waitForLoadState("networkidle")
+		await modelSelector.click()
+		const effortSlider = page.getByRole("slider", { name: "Reasoning effort" })
+		await expect(effortSlider).toBeVisible()
+		await effortSlider.focus()
+		await effortSlider.press("Home")
+		await expect(effortSlider).toHaveValue("0")
+		await effortSlider.press("ArrowRight")
+		await expect(effortSlider).toHaveValue("1")
+		const effortLabel = await effortSlider.getAttribute("aria-valuetext")
+		expect(effortLabel).toBeTruthy()
+		await expect(modelSelector).toContainText(effortLabel ?? "")
+		await effortSlider.press("Escape")
+		await expect(effortSlider).toHaveCount(0)
+		expect(
+			await page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })
+				.evaluate((element) => getComputedStyle(element).fontWeight),
+		).toBe("400")
+		expect(await welcome.locator("form").evaluate((element) => getComputedStyle(element).borderRadius)).toBe("24px")
+		expect(await page.getByRole("log").evaluate((element) => getComputedStyle(element).justifyContent)).toBe("center")
 
 		const chatColumn = page.getByTestId("chat-column")
 		const welcomeBox = await welcome.boundingBox()
@@ -75,11 +86,11 @@ test.describe("chat shell", () => {
 		expect(formBox).not.toBeNull()
 		if (welcomeBox && chatColumnBox && headingBox && formBox) {
 			expect(Math.abs(welcomeBox.x + welcomeBox.width / 2 - (chatColumnBox.x + chatColumnBox.width / 2))).toBeLessThanOrEqual(2)
-			expect(Math.abs(headingBox.x - formBox.x)).toBeLessThanOrEqual(2)
+			expect(Math.abs(headingBox.x + headingBox.width / 2 - (formBox.x + formBox.width / 2))).toBeLessThanOrEqual(2)
 			expect(welcomeBox.x).toBeGreaterThanOrEqual(chatColumnBox.x - 1)
 			expect(welcomeBox.x + welcomeBox.width).toBeLessThanOrEqual(chatColumnBox.x + chatColumnBox.width + 1)
 		}
-		expect(await welcome.evaluate((element) => getComputedStyle(element).textAlign)).toBe("left")
+		expect(await welcome.evaluate((element) => getComputedStyle(element).textAlign)).toBe("center")
 
 		let chatPostCount = 0
 		page.on("request", (request) => {
@@ -92,7 +103,7 @@ test.describe("chat shell", () => {
 		expect(chatPostCount).toBe(0)
 	})
 
-	test("empty welcome state uses one column on a narrow viewport", async ({ page }) => {
+	test("empty welcome state wraps prompt pills on a narrow viewport", async ({ page }) => {
 		await page.setViewportSize({ width: 700, height: 850 })
 		await page.goto("/")
 
@@ -102,9 +113,8 @@ test.describe("chat shell", () => {
 		const chatColumn = page.getByTestId("chat-column")
 		const actionButtons = actions.getByRole("button")
 		await expect(actionButtons).toHaveCount(4)
-		expect(
-			await actions.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length),
-		).toBe(1)
+		expect(await actions.evaluate((element) => getComputedStyle(element).display)).toBe("flex")
+		expect(await actions.evaluate((element) => getComputedStyle(element).flexWrap)).toBe("wrap")
 
 		const welcomeBox = await welcome.boundingBox()
 		const chatColumnBox = await chatColumn.boundingBox()
@@ -249,7 +259,9 @@ test.describe("chat shell", () => {
 			const messageId = "trace-run-a0"
 			const stream = [
 				{ type: "start", id: messageId, runId: "trace-run", sessionId: "trace-smoke-session" },
-				{ type: "thinking", text: "Preparing trace", messageId },
+				{ type: "thinking", phase: "start", text: "", messageId },
+				{ type: "thinking", phase: "delta", text: "Preparing trace", messageId },
+				{ type: "thinking", phase: "end", text: "", messageId },
 				{ type: "tool", messageId, part: ipythonStart },
 				{ type: "tool", messageId, part: ipythonUpdate },
 				{ type: "tool", messageId, part: ipythonEnd },
@@ -263,6 +275,19 @@ test.describe("chat shell", () => {
 						role: "assistant",
 						parts: [
 							{ type: "text", text: "Trace complete" },
+							{
+								type: "tool-FleetReasoning",
+								state: "output-available",
+								input: {
+									runId: "trace-run",
+									phase: "complete",
+									steps: [{ title: "Writing response", body: "Preparing the response." }],
+									visibleSteps: 1,
+									streaming: false,
+									startedAt: 0,
+									restingLabel: "Completed",
+								},
+							},
 							{ type: "tool-Thinking", toolCallId: `${messageId}-thinking-0`, state: "output-available", input: { thought: "Preparing trace" }, output: "Preparing trace" },
 							...terminalPartsWithRichDetails,
 						],
@@ -288,7 +313,9 @@ test.describe("chat shell", () => {
 		await expect(page.getByText("Trace complete", { exact: true })).toBeVisible({ timeout: 15_000 })
 		await expect(page.getByPlaceholder("Send a message…")).toBeVisible()
 		await expect(page.locator('[data-state="running"]')).toHaveCount(0)
-		await expect(page.locator('[data-state="success"]')).toHaveCount(14)
+		await expect(page.locator('[data-state="success"]')).toHaveCount(13)
+		await expect(page.getByText("Preparing trace", { exact: true })).toHaveCount(0)
+		await expect(page.getByLabel("Safe reasoning progress")).toHaveCount(0)
 
 		const activity = page.locator('[data-content="mixed"]').first()
 		await expect(activity).toHaveAttribute("data-state", "closed")

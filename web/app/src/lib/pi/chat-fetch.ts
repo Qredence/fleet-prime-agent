@@ -98,7 +98,7 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 		expectedSequenceNumbers.set(`${sessionId}:${eventType}`, seq);
 	}
 
-	// Fast path: JSON.parse without Zod for high-frequency delta/thinking events
+	// Fast path: JSON.parse without Zod for high-frequency delta events
 	const handleLine = (line: string) => {
 		const trimmed = line.trim();
 		if (!trimmed) return;
@@ -139,7 +139,7 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 
 			onEvent(validatedEvent);
 		} else {
-			// Fast path: assume delta/thinking are well-formed NDJSON from server
+			// Fast path: assume delta and legacy compatibility events are well-formed NDJSON
 			onEvent(data as ChatStreamEvent);
 		}
 	};

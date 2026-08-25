@@ -362,7 +362,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		recoverFromForbiddenSession,
 	]);
 
-	const { sendMessage, setAdapterCapabilities } = usePiChatMessaging({
+	const { resetStreamAdmission, sendMessage, setAdapterCapabilities } = usePiChatMessaging({
 		activityLabelRef,
 		client,
 		messagesRef,
@@ -388,9 +388,10 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	});
 
 	const stop = useCallback(() => {
+		const metadata = sessionMetadataRef.current;
+		resetStreamAdmission(metadata.sessionId);
 		pendingSendControllerRef.current?.abort();
 		pendingSendControllerRef.current = null;
-		const metadata = sessionMetadataRef.current;
 		if (metadata.sessionId) {
 			void client.abortSession(metadata).catch(() => undefined);
 		}
@@ -401,7 +402,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setStatus("ready");
 		setQueueSynced(EMPTY_QUEUE_STATE);
 		setActivityLabelSynced(undefined);
-	}, [client, setActivityLabelSynced, setQueueSynced]);
+	}, [client, resetStreamAdmission, setActivityLabelSynced, setQueueSynced]);
 
 	const startNewSession = useCallback(
 		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
@@ -443,7 +444,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 				setPlanLabelSynced(undefined);
 				setStatus(streamControllersRef.current.has(result.session.sessionId ?? "") ? "streaming" : "ready");
-				notify.success("Session resumed");
 				await refreshSessions();
 				return true;
 			} catch (err) {
@@ -648,8 +648,8 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setActivityLabelSynced,
 		setMessagesSynced,
 		setQueueSynced,
-		setSessionMetadataSynced,
 		setPresentationSynced,
+		setSessionMetadataSynced,
 		setAdapterCapabilities,
 	]);
 

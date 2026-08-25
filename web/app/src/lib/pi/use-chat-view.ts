@@ -46,7 +46,7 @@ export function useChatSuggestions({
 	);
 }
 
-function buildContextSuggestions({
+export function buildContextSuggestions({
 	messages,
 	resources,
 	workspaceTree,
@@ -140,12 +140,9 @@ function buildContextSuggestions({
 		];
 	}
 
-	// Suggestions based on user/assistant text content
-	if (
-		lastAssistantText.includes("error") ||
-		lastAssistantText.includes("failed") ||
-		lastAssistantText.includes("issue")
-	) {
+	// Only structured failures should produce recovery actions. Ordinary review
+	// prose frequently discusses errors and issues without the turn failing.
+	if (hasStructuredFailure(lastAssistant)) {
 		return [
 			suggestionItem("fix-error", "Fix the error"),
 			suggestionItem("explain-error", "Explain what went wrong"),
@@ -183,6 +180,19 @@ function buildContextSuggestions({
 		suggestionItem("workspace", "Show workspace files"),
 		suggestionItem("docs", hasAgentsFile ? "Read AGENTS.md" : "Tell me about this project"),
 	];
+}
+
+function hasStructuredFailure(message: ChatMessage | undefined) {
+	if (!message) return false;
+	return message.parts.some((part) => {
+		if (part.type === "error") return true;
+		if (!part.type.startsWith("tool-") || typeof part !== "object" || part === null) return false;
+		const tool = part as Record<string, unknown>;
+		if (tool.state === "output-error" || tool.state === "error" || tool.state === "failed") return true;
+		const output =
+			typeof tool.output === "object" && tool.output !== null ? (tool.output as Record<string, unknown>) : undefined;
+		return Boolean(tool.error || output?.error);
+	});
 }
 
 function suggestionItem(id: string, label: string): SuggestionItem {

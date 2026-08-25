@@ -224,6 +224,7 @@ export const ChatStartEventSchema = z
 		id: z.string(),
 		runId: z.string(),
 		sessionId: SessionIdSchema,
+		requestKind: z.literal("session-command").optional(),
 		sessionReset: z.boolean().optional(),
 		diagnostics: z.array(z.string()).optional(),
 		adapterCapabilities: FleetAdapterCapabilitiesSchema.optional(),

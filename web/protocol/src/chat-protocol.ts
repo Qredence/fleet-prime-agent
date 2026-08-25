@@ -339,6 +339,7 @@ type ChatStartEvent = {
 	id: string;
 	runId: string;
 	sessionId: string;
+	requestKind?: ChatStreamRequestKind;
 	sessionReset?: boolean;
 	diagnostics?: Array<string>;
 	adapterCapabilities?: FleetAdapterCapabilities;
