@@ -3,17 +3,23 @@ import { FLEET_ADAPTER_CAPABILITIES } from "@prime-agent/web-protocol/chat-proto
 import { ChatRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { readInspectedManagedAttachment, validateManagedAttachments } from "../managed-attachments";
+import { parseBackendSessionCommand, sessionCommandResultText } from "../session-commands";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+
+export function resolveChatStreamingBehavior(streamingBehavior?: "steer" | "followUp"): "steer" | "followUp" {
+	return streamingBehavior ?? "steer";
+}
 
 export function chooseChatStartId(
 	mapperState: { inRun: boolean; currentMessageId: string | undefined },
 	streamingBehavior?: "steer" | "followUp",
+	sessionIsStreaming = false,
 ): string {
 	// Only a queued steer/follow-up may continue the active assistant bubble.
 	// A normal send must get a fresh id even if an interrupted run left the
 	// mapper marked in-flight; otherwise its deltas can replace an older turn.
-	if (streamingBehavior && mapperState.inRun && mapperState.currentMessageId) {
+	if (sessionIsStreaming && streamingBehavior && mapperState.inRun && mapperState.currentMessageId) {
 		return mapperState.currentMessageId;
 	}
 	return crypto.randomUUID();
@@ -76,6 +82,8 @@ export function handleChatPost(request: Request): Promise<Response> {
 			}
 		}
 		const promptMessage = attachmentContext.length > 0 ? `${message}\n\n${attachmentContext.join("\n\n")}` : message;
+		const backendSessionCommand = parseBackendSessionCommand(promptMessage);
+		const initialRefinementCount = session.mapperState.presentation.refinements.length;
 		if (model !== undefined) {
 			await bridge.setModel(session.sessionId, model);
 			if (typeof model === "object" && typeof model.thinkingLevel === "string") {
@@ -93,7 +101,19 @@ export function handleChatPost(request: Request): Promise<Response> {
 		let removeListener: (() => void) | undefined;
 		const stream = new ReadableStream<Uint8Array>({
 			async start(controller) {
+				let closed = false;
+				const close = () => {
+					if (closed) return;
+					closed = true;
+					removeListener?.();
+					try {
+						controller.close();
+					} catch {
+						/* already closed */
+					}
+				};
 				const write = (frame: unknown) => {
+					if (closed) return;
 					try {
 						controller.enqueue(encoder.encode(`${JSON.stringify(frame)}\n`));
 					} catch {
@@ -103,22 +123,23 @@ export function handleChatPost(request: Request): Promise<Response> {
 
 				removeListener = bridge.addEventListener((sid, frame) => {
 					if (sid !== session.sessionId) return;
+					// Session commands share the session-wide event stream with the
+					// active turn. Their POST response only needs the request-scoped
+					// synthetic completion below; the SSE stream owns live turn frames.
+					if (backendSessionCommand) return;
 					write(frame);
-					if (frame.type === "done" || frame.type === "error") {
-						removeListener?.();
-						try {
-							controller.close();
-						} catch {
-							/* already closed */
-						}
+					if (frame.type === "error" || frame.type === "done") {
+						close();
 					}
 				});
 
-				const startId = chooseChatStartId(session.mapperState, body.streamingBehavior);
+				const streamingBehavior = resolveChatStreamingBehavior(body.streamingBehavior);
+				const startId = chooseChatStartId(session.mapperState, streamingBehavior, session.session.isStreaming);
+				const startRunId = session.mapperState.inRun ? session.mapperState.runId : "pending";
 				write({
 					type: "start",
 					id: startId,
-					runId: session.mapperState.inRun ? session.mapperState.runId : "pending",
+					runId: startRunId,
 					sessionId: session.sessionId,
 					adapterCapabilities: FLEET_ADAPTER_CAPABILITIES,
 				});
@@ -129,10 +150,36 @@ export function handleChatPost(request: Request): Promise<Response> {
 				void bridge
 					.prompt(session.sessionId, promptMessage, {
 						images,
-						streamingBehavior: body.streamingBehavior,
+						streamingBehavior,
 						mode,
 						openUI,
 						planAction,
+					})
+					.then(() => {
+						if (!backendSessionCommand) return;
+						write({
+							type: "done",
+							runId: startRunId,
+							sessionId: session.sessionId,
+							message: {
+								id: crypto.randomUUID(),
+								role: "assistant",
+								source: "local",
+								createdAt: Date.now(),
+								parts: [
+									{
+										type: "text",
+										text: sessionCommandResultText(
+											backendSessionCommand,
+											bridge.getPresentation(session.sessionId),
+											initialRefinementCount,
+										),
+									},
+								],
+							},
+							requestKind: "session-command",
+						});
+						close();
 					})
 					.catch((error) => {
 						process.stderr.write(
@@ -142,12 +189,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 							type: "error",
 							message: error instanceof Error ? error.message : String(error),
 						});
-						removeListener?.();
-						try {
-							controller.close();
-						} catch {
-							/* already closed */
-						}
+						close();
 					});
 			},
 			cancel() {

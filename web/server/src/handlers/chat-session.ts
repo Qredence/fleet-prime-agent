@@ -21,6 +21,7 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 			},
 			messages: await bridge.getMessages(existing.sessionId),
 			planPresentations: await loadManagedPlanPresentations(existing),
+			presentation: bridge.getPresentation(existing.sessionId),
 		});
 	});
 }

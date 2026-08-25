@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import { IpythonKernelProvisioner } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { writeManagedPrimePresentation } from "../prime-agent-presentation";
 import { PrimeBridge } from "../prime-bridge";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
 
@@ -137,6 +138,30 @@ describe("PrimeBridge.forkSession", () => {
 		return session;
 	}
 
+	it("waits for pending presentation writes before deleting a session", async () => {
+		let releaseWrite!: () => void;
+		const writeGate = new Promise<void>((resolve) => {
+			releaseWrite = resolve;
+		});
+		const writer = vi.fn(async (...args: Parameters<typeof writeManagedPrimePresentation>) => {
+			await writeGate;
+			await writeManagedPrimePresentation(...args);
+		});
+		const bridge = new PrimeBridge({ writePresentation: writer });
+		const created = await createTestSession(bridge);
+
+		await vi.waitFor(() => expect(writer).toHaveBeenCalled());
+		const artifactDir = created.session.sessionManager.getSessionArtifactDir();
+		expect(artifactDir).toBeTruthy();
+		const presentationPath = join(artifactDir!, "presentation.json");
+		const deletion = bridge.deleteSession(created.sessionId);
+		await Promise.resolve();
+		releaseWrite();
+		await deletion;
+
+		expect(existsSync(presentationPath)).toBe(false);
+	});
+
 	function appendTurn(
 		bridge: PrimeBridge,
 		sessionId: string,
@@ -195,6 +220,11 @@ describe("PrimeBridge.forkSession", () => {
 		await bridge.prompt(created.sessionId, "plain markdown only", { mode: "agent", openUI: false });
 		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
 		expect(prompt).toHaveBeenCalledTimes(3);
+		expect(prompt).toHaveBeenNthCalledWith(
+			1,
+			"show a plan summary",
+			expect.objectContaining({ queueIfBusy: true, resumeIfIdle: true }),
+		);
 	});
 
 	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {
@@ -213,6 +243,62 @@ describe("PrimeBridge.forkSession", () => {
 		const messages = forked.session.sessionManager.buildSessionContext().messages;
 		expect(messages.map((m) => (m as { role: string }).role)).toEqual(["user", "assistant"]);
 		expect((messages[0] as { content: string }).content).toBe("first question");
+	});
+
+	it("rebuilds presentation from the selected branch instead of copying later source activity", async () => {
+		const bridge = new PrimeBridge();
+		const created = await createTestSession(bridge);
+		appendTurn(bridge, created.sessionId, "first question", "first answer");
+		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
+		const source = requireLiveSession(bridge, created.sessionId);
+		const timestamp = Date.now();
+		source.mapperState.presentation = {
+			...source.mapperState.presentation,
+			revision: source.mapperState.presentation.revision + 1,
+			userBash: [
+				{
+					id: "source-bash",
+					runId: "source-bash-run",
+					command: "git status",
+					output: "clean\n",
+					status: "success",
+					exitCode: 0,
+					cancelled: false,
+					truncated: false,
+					excludeFromContext: false,
+					startedAt: timestamp,
+					endedAt: timestamp,
+				},
+			],
+			artifactRuns: [
+				{
+					id: "source-artifact-run",
+					runId: "source-bash-run",
+					startedAt: timestamp,
+					endedAt: timestamp,
+					artifacts: [
+						{
+							id: "source-artifact",
+							runId: "source-bash-run",
+							sourceToolCallId: "source-bash-run",
+							kind: "bash",
+							title: "git status",
+							status: "success",
+							input: { command: "git status" },
+							output: { stdout: "clean\n" },
+							timestamp,
+						},
+					],
+				},
+			],
+		};
+
+		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
+		const forkedPresentation = bridge.getPresentation(result.newSessionId);
+
+		expect(forkedPresentation.userBash).toEqual([]);
+		expect(forkedPresentation.artifactRuns).toEqual([]);
+		expect(bridge.getPresentation(created.sessionId).userBash).toHaveLength(1);
 	});
 
 	it("position 'at' on an arbitrary entry forks at that entry id directly", async () => {

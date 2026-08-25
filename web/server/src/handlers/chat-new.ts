@@ -43,6 +43,8 @@ export function handleChatNewPost(request: Request): Promise<Response> {
 				projectId,
 			},
 			messages: [],
+			planPresentations: [],
+			presentation: bridge.getPresentation(session.sessionId),
 		});
 	});
 }

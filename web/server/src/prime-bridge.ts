@@ -13,7 +13,7 @@
 import { rm } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { AssistantMessage, ImageContent, UserMessage } from "@earendil-works/pi-ai";
+import type { ImageContent } from "@earendil-works/pi-ai";
 import type {
 	AgentSession,
 	ExtensionUIContext,
@@ -39,24 +39,33 @@ import {
 	type ChatPlanAction,
 	type ChatQuestionAnswer,
 	type ChatStreamEvent,
+	type ChatThinkingLevel,
 	type OpenUIPromptMode,
+	type PrimeAgentArtifact,
+	type PrimeAgentRefinement,
+	type PrimeAgentRefinementEdit,
+	type PrimeAgentRlmChild,
+	type PrimeAgentSessionPresentation,
+	type PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
 
-import {
-	createEventMapperState,
-	mapAgentSessionEvent,
-	toChatMessageFromAssistant,
-	toChatMessageFromUnknownRole,
-	toChatMessageFromUser,
-} from "./event-mapper";
+import { createEventMapperState, mapAgentSessionEvent, toChatMessagesFromAgentMessages } from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
 import {
 	copyManagedPlanPresentationsForFork,
 	deleteManagedPlanPresentationsForSession,
 } from "./managed-plan-presentations";
 import { PendingDialogRegistry } from "./pending-dialogs";
+import {
+	createEmptyPrimeAgentSessionPresentation,
+	loadManagedPrimePresentation,
+	stablePresentationId,
+	upsertArtifact,
+	writeManagedPrimePresentation,
+} from "./prime-agent-presentation";
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
+import { parseBackendSessionCommand } from "./session-commands";
 
 type UIContextCtorArgs = {
 	sessionId: string;
@@ -262,6 +271,7 @@ export interface PrimeBridgeOptions {
 	readonly kernelTimeoutMs?: number;
 	readonly ringBufferCapacity?: number;
 	readonly dialogTimeoutMs?: number;
+	readonly writePresentation?: typeof writeManagedPrimePresentation;
 }
 
 type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
@@ -280,6 +290,165 @@ function resolveOpenUIPromptMode(mode?: ChatMode, planAction?: ChatPlanAction): 
 	if (planAction === "execute") return "plan-execution";
 	if (planAction === "refine") return "plan";
 	return mode ?? "agent";
+}
+
+function persistedBashStatus(message: Record<string, unknown>): PrimeAgentUserBash["status"] {
+	if (message.cancelled === true) return "cancelled";
+	if (message.errorMessage || (typeof message.exitCode === "number" && message.exitCode !== 0)) return "error";
+	return "success";
+}
+
+function stringField(value: Record<string, unknown>, key: string): string | undefined {
+	return typeof value[key] === "string" && value[key] ? (value[key] as string) : undefined;
+}
+
+function persistedRefinement(value: Record<string, unknown>, timestamp: number): PrimeAgentRefinement | undefined {
+	const refinementId = stringField(value, "refinementId");
+	const summary = stringField(value, "summary");
+	if (!refinementId || !summary || !Array.isArray(value.edits)) return undefined;
+	const edits: PrimeAgentRefinementEdit[] = value.edits.flatMap((raw, index) => {
+		if (typeof raw !== "object" || raw === null) return [];
+		const edit = raw as Record<string, unknown>;
+		const action =
+			edit.action === "create" || edit.action === "update" || edit.action === "delete" ? edit.action : "update";
+		const kind = stringField(edit, "kind") ?? "edit";
+		const id = stringField(edit, "id") ?? `${refinementId}-${index}`;
+		return [
+			{
+				action,
+				kind,
+				id,
+				...(stringField(edit, "title") ? { title: stringField(edit, "title") } : {}),
+				...(stringField(edit, "content") ? { content: stringField(edit, "content") } : {}),
+				...(typeof edit.before === "string" ? { before: edit.before } : {}),
+				...(typeof edit.after === "string" ? { after: edit.after } : {}),
+				...(stringField(edit, "reason") ? { reason: stringField(edit, "reason") } : {}),
+				applied: edit.applied === true,
+				...(stringField(edit, "error") ? { error: stringField(edit, "error") } : {}),
+			} satisfies PrimeAgentRefinementEdit,
+		];
+	});
+	return {
+		id: refinementId,
+		summary,
+		rationale: stringField(value, "rationale") ?? "",
+		expectedOutcome: stringField(value, "expectedOutcome") ?? "",
+		...(value.scope === "local" || value.scope === "global" ? { scope: value.scope } : {}),
+		...(stringField(value, "rollbackOf") ? { rollbackOf: stringField(value, "rollbackOf") } : {}),
+		edits,
+		status: "success",
+		timestamp,
+	};
+}
+
+function initialPresentationForSession(
+	session: AgentSession,
+	sessionId: string,
+	base?: PrimeAgentSessionPresentation,
+): PrimeAgentSessionPresentation {
+	if (base) return base;
+	const presentation = createEmptyPrimeAgentSessionPresentation({
+		...(session.sessionName ? { sessionName: session.sessionName } : {}),
+		thinkingLevel: session.thinkingLevel as ChatThinkingLevel,
+		serviceTier: session.serviceTier,
+		goal: session.goalState,
+		...(session.getCurrentRecap() ? { recap: session.getCurrentRecap() } : {}),
+	});
+	const messages = session.sessionManager.buildSessionContext().messages;
+	let bashIndex = 0;
+	for (const message of messages) {
+		const value = message as unknown as Record<string, unknown>;
+		if (value.role === "custom") {
+			const details =
+				typeof value.details === "object" && value.details !== null
+					? (value.details as Record<string, unknown>)
+					: undefined;
+			const timestamp = typeof value.timestamp === "number" ? value.timestamp : Date.now();
+			if (value.customType === "refinement_outcome" && details) {
+				const refinement = persistedRefinement(details, timestamp);
+				if (refinement) {
+					presentation.refinements.push(refinement);
+					presentation.artifactRuns = upsertArtifact(presentation, {
+						id: stablePresentationId(`${sessionId}:${refinement.id}:refinement`),
+						runId: sessionId,
+						sourceToolCallId: refinement.id,
+						kind: "refinement",
+						title: refinement.summary,
+						status: "success",
+						output: refinement,
+						timestamp,
+					}).artifactRuns;
+				}
+				continue;
+			}
+			if (value.customType === "rlm_child_failure" || value.customType === "rlm_child_terminal_notice") {
+				const childId = details && stringField(details, "childId");
+				const label = details && stringField(details, "sessionName");
+				if (childId && label) {
+					const status: PrimeAgentRlmChild["status"] =
+						value.customType === "rlm_child_failure"
+							? "error"
+							: details?.kind === "cancelled"
+								? "cancelled"
+								: "done";
+					const child: PrimeAgentRlmChild = {
+						id: childId,
+						label,
+						status,
+						...(details?.error && typeof details.error === "string" ? { error: details.error } : {}),
+						...(details?.lastAssistantTextPreview && typeof details.lastAssistantTextPreview === "string"
+							? { answerPreview: details.lastAssistantTextPreview }
+							: {}),
+						timestamp,
+					};
+					presentation.rlmChildren = [...presentation.rlmChildren.filter((entry) => entry.id !== childId), child];
+					presentation.artifactRuns = upsertArtifact(presentation, {
+						id: stablePresentationId(`${sessionId}:${childId}:rlm`),
+						runId: sessionId,
+						sourceToolCallId: childId,
+						kind: "rlm",
+						title: label,
+						status: status === "error" ? "error" : status === "cancelled" ? "cancelled" : "success",
+						output: child,
+						timestamp,
+					}).artifactRuns;
+				}
+			}
+			continue;
+		}
+		if (value.role !== "bashExecution") continue;
+		const command = typeof value.command === "string" ? value.command : "";
+		const output = typeof value.output === "string" ? value.output : "";
+		const timestamp = typeof value.timestamp === "number" ? value.timestamp : Date.now();
+		const runId = stablePresentationId(`persisted-bash:${sessionId}:${bashIndex++}:${timestamp}:${command}`);
+		const entry: PrimeAgentUserBash = {
+			id: stablePresentationId(`user-bash:${runId}`),
+			runId,
+			command,
+			output,
+			status: persistedBashStatus(value),
+			...(typeof value.exitCode === "number" ? { exitCode: value.exitCode } : {}),
+			cancelled: value.cancelled === true,
+			truncated: value.truncated === true,
+			excludeFromContext: value.excludeFromContext === true,
+			startedAt: timestamp,
+			endedAt: timestamp,
+		};
+		presentation.userBash.push(entry);
+		const artifact: PrimeAgentArtifact = {
+			id: stablePresentationId(`${runId}:bash`),
+			runId,
+			sourceToolCallId: runId,
+			kind: "bash",
+			title: command || "Bash",
+			status: entry.status,
+			input: { command, excludeFromContext: entry.excludeFromContext },
+			output: { stdout: output, ...(entry.exitCode !== undefined ? { exitCode: entry.exitCode } : {}) },
+			timestamp,
+		};
+		presentation.artifactRuns = upsertArtifact(presentation, artifact).artifactRuns;
+	}
+	return presentation;
 }
 
 async function createWebAgentSession(options: {
@@ -315,12 +484,16 @@ export class PrimeBridge {
 	readonly #dialogs: PendingDialogRegistry;
 	readonly #kernelTimeoutMs: number;
 	readonly #ringBufferCapacity: number;
+	readonly #presentationWrites = new Map<string, Promise<void>>();
+	readonly #presentationGenerations = new Map<string, number>();
+	readonly #writePresentation: typeof writeManagedPrimePresentation;
 	#kernelReadyByCwd = new Map<string, Promise<void>>();
 	#kernelStateByCwd = new Map<string, KernelReadySnapshot>();
 
 	constructor(options: PrimeBridgeOptions = {}) {
 		this.#kernelTimeoutMs = options.kernelTimeoutMs ?? 30_000;
 		this.#ringBufferCapacity = options.ringBufferCapacity ?? 500;
+		this.#writePresentation = options.writePresentation ?? writeManagedPrimePresentation;
 		this.#dialogs = new PendingDialogRegistry({
 			defaultTimeoutMs: options.dialogTimeoutMs ?? 60_000,
 			emitFrame: (sessionId, frame) => this.#dispatch(sessionId, frame),
@@ -402,6 +575,8 @@ export class PrimeBridge {
 		this.#sessions.clear();
 		this.#listeners.clear();
 		this.#ringBuffers.clear();
+		this.#presentationWrites.clear();
+		this.#presentationGenerations.clear();
 		this.#kernelReadyByCwd.clear();
 		this.#kernelStateByCwd.clear();
 	}
@@ -474,7 +649,11 @@ export class PrimeBridge {
 			uiContext,
 		});
 
-		const mapperState = createEventMapperState({ sessionId });
+		const persistedPresentation = await loadManagedPrimePresentation({ session, sessionPath });
+		const mapperState = createEventMapperState({
+			sessionId,
+			presentation: initialPresentationForSession(session, sessionId, persistedPresentation),
+		});
 		const unsubscribe = session.subscribe((event) => {
 			if (event.type === "compaction_end") {
 				// Compaction rewrites the transcript prefix, shifting the positional
@@ -493,6 +672,8 @@ export class PrimeBridge {
 			}
 			const frames = mapAgentSessionEvent(mapperState, event);
 			for (const frame of frames) {
+				if (frame.type === "presentation")
+					this.#persistPresentation(sessionId, session, sessionPath, frame.presentation);
 				this.#dispatch(sessionId, frame);
 			}
 		});
@@ -510,7 +691,32 @@ export class PrimeBridge {
 
 		this.#sessions.set(sessionId, bridgeSession);
 		this.#ringBufferFor(sessionId); // Pre-create so SSE attaches safely.
+		this.#persistPresentation(sessionId, session, sessionPath, mapperState.presentation);
 		return bridgeSession;
+	}
+
+	#persistPresentation(
+		sessionId: string,
+		session: AgentSession,
+		sessionPath: string,
+		presentation: PrimeAgentSessionPresentation,
+	): void {
+		const generation = this.#presentationGenerations.get(sessionId) ?? 0;
+		const previous = this.#presentationWrites.get(sessionId) ?? Promise.resolve();
+		const next = previous
+			.catch(() => undefined)
+			.then(() => {
+				const live = this.#sessions.get(sessionId);
+				if (live?.session !== session || (this.#presentationGenerations.get(sessionId) ?? 0) !== generation) {
+					return;
+				}
+				return this.#writePresentation({ session, sessionPath }, presentation);
+			})
+			.catch(() => undefined);
+		this.#presentationWrites.set(sessionId, next);
+		void next.finally(() => {
+			if (this.#presentationWrites.get(sessionId) === next) this.#presentationWrites.delete(sessionId);
+		});
 	}
 
 	/** Hot-lookup by id; reuse the live session if we already have one loaded. */
@@ -572,6 +778,12 @@ export class PrimeBridge {
 			this.#sessions.delete(sessionId);
 			this.#ringBuffers.delete(sessionId);
 		}
+		this.#presentationGenerations.set(sessionId, (this.#presentationGenerations.get(sessionId) ?? 0) + 1);
+		const pendingPresentationWrite = this.#presentationWrites.get(sessionId);
+		await pendingPresentationWrite?.catch(() => undefined);
+		if (this.#presentationWrites.get(sessionId) === pendingPresentationWrite) {
+			this.#presentationWrites.delete(sessionId);
+		}
 		await deleteManagedAttachmentsForSession(sessionId, sessionPath);
 		await deleteManagedPlanPresentationsForSession(sessionId, sessionPath);
 		await rm(sessionPath, { force: true });
@@ -597,6 +809,7 @@ export class PrimeBridge {
 		},
 	): Promise<void> {
 		const session = this.#requireSession(sessionId);
+		const backendSessionCommand = parseBackendSessionCommand(text);
 		this.#setOpenUIPromptState(
 			session,
 			options?.openUI === true,
@@ -610,7 +823,13 @@ export class PrimeBridge {
 		await session.session.prompt(text, {
 			images: options?.images,
 			streamingBehavior: options?.streamingBehavior,
+			queueIfBusy: true,
+			resumeIfIdle: true,
 		});
+		// AgentSession returns early when a session command is queued behind an
+		// active turn. Wait for the command itself so the HTTP stream can emit its
+		// terminal frame after refinement/compaction/goal work has actually run.
+		if (backendSessionCommand) await session.session.waitForSessionInputIdle();
 	}
 
 	#setOpenUIPromptState(session: BridgeSession, enabled: boolean, mode: OpenUIPromptMode): void {
@@ -904,6 +1123,8 @@ export class PrimeBridge {
 		);
 		const forkedMessages = await this.getMessages(forked.sessionId);
 		await copyManagedPlanPresentationsForFork(source, forked, forkedMessages.length);
+		forked.mapperState.presentation = source.mapperState.presentation;
+		this.#persistPresentation(forked.sessionId, forked.session, forked.sessionPath, forked.mapperState.presentation);
 		return forked.sessionId;
 	}
 
@@ -917,7 +1138,11 @@ export class PrimeBridge {
 		const messages: readonly AgentMessage[] = live
 			? live.session.sessionManager.buildSessionContext().messages
 			: await this.#loadColdMessages(sessionId);
-		return messages.map((msg, idx) => this.#toChatMessage(sessionId, msg, idx));
+		return toChatMessagesFromAgentMessages(messages, sessionId);
+	}
+
+	getPresentation(sessionId: string): PrimeAgentSessionPresentation {
+		return this.#sessions.get(sessionId)?.mapperState.presentation ?? createEmptyPrimeAgentSessionPresentation();
 	}
 
 	async #loadColdMessages(sessionId: string): Promise<readonly AgentMessage[]> {
@@ -927,17 +1152,6 @@ export class PrimeBridge {
 		const sessionManager = await SessionManager.openAsync(match.path);
 		const context = sessionManager.buildSessionContext();
 		return context.messages;
-	}
-
-	#toChatMessage(sessionId: string, msg: AgentMessage, index: number): ChatMessage {
-		const id = `${sessionId}-m${index}`;
-		if (msg.role === "assistant") {
-			return toChatMessageFromAssistant(msg as AssistantMessage, id);
-		}
-		if (msg.role === "user") {
-			return toChatMessageFromUser(msg as UserMessage, id);
-		}
-		return toChatMessageFromUnknownRole(id);
 	}
 
 	#requireSession(sessionId: string): BridgeSession {

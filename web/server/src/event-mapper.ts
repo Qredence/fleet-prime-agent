@@ -1,13 +1,26 @@
 import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
-import type { AssistantMessage, AssistantMessageEvent, UserMessage } from "@earendil-works/pi-ai";
+import type { AssistantMessage, AssistantMessageEvent, ImageContent, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import { truncateTail } from "@earendil-works/pi-coding-agent";
 import type {
+	ChatImagePart,
 	ChatMessage,
 	ChatReasoningPresentation,
 	ChatReasoningStep,
 	ChatStreamEvent,
 	ChatToolPart,
+	PrimeAgentArtifact,
+	PrimeAgentGoal,
+	PrimeAgentRefinement,
+	PrimeAgentRefinementEdit,
+	PrimeAgentSessionPresentation,
+	PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
+import {
+	createEmptyPrimeAgentSessionPresentation,
+	stablePresentationId,
+	upsertArtifact,
+} from "./prime-agent-presentation";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -52,18 +65,61 @@ function getTimestamp(msg: AgentMessage): number | undefined {
 	return typeof t === "number" ? t : undefined;
 }
 
+function imageToChatPart(image: ImageContent): ChatImagePart {
+	return {
+		type: "image",
+		url: `data:${image.mimeType};base64,${image.data}`,
+		mimeType: image.mimeType,
+	};
+}
+
+function contentToChatParts(content: unknown): ChatMessage["parts"] {
+	const blocks = typeof content === "string" ? [content] : Array.isArray(content) ? content : [];
+	const parts: ChatMessage["parts"] = [];
+	for (const block of blocks) {
+		if (typeof block === "string") {
+			parts.push({ type: "text", text: block });
+			continue;
+		}
+		if (!block || typeof block !== "object") continue;
+		const value = block as { type?: unknown; text?: unknown; data?: unknown; mimeType?: unknown };
+		if (value.type === "text" && typeof value.text === "string") {
+			parts.push({ type: "text", text: value.text });
+		} else if (value.type === "image" && typeof value.data === "string" && typeof value.mimeType === "string") {
+			parts.push(
+				imageToChatPart({
+					type: "image",
+					data: value.data,
+					mimeType: value.mimeType,
+				}),
+			);
+		}
+	}
+	return parts;
+}
+
 function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
 	for (const block of msg.content) {
-		if (block.type === "text") {
-			parts.push({ type: "text", text: block.text });
-		} else if (block.type === "thinking") {
-		} else if (block.type === "toolCall") {
+		const value = block as {
+			type: string;
+			text?: string;
+			data?: string;
+			mimeType?: string;
+			id?: string;
+			name?: string;
+			arguments?: unknown;
+		};
+		if (value.type === "text" && typeof value.text === "string") {
+			parts.push({ type: "text", text: value.text });
+		} else if (value.type === "image" && value.data && value.mimeType) {
+			parts.push(imageToChatPart({ type: "image", data: value.data, mimeType: value.mimeType }));
+		} else if (value.type === "toolCall" && value.id && value.name) {
 			parts.push({
-				type: makeToolType(block.name),
-				toolCallId: block.id,
+				type: makeToolType(value.name),
+				toolCallId: value.id,
 				state: "output-available",
-				input: block.arguments,
+				input: value.arguments,
 			} satisfies ChatToolPart);
 		}
 	}
@@ -76,23 +132,81 @@ function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMess
 }
 
 function toChatMessageFromUser(msg: UserMessage, id: string): ChatMessage {
-	const parts: ChatMessage["parts"] = [];
-	const content = msg.content;
-	if (typeof content === "string") {
-		parts.push({ type: "text", text: content });
-	} else if (Array.isArray(content)) {
-		for (const block of content) {
-			if (typeof block === "string") {
-				parts.push({ type: "text", text: block });
-			} else if (block && typeof block === "object" && "type" in block) {
-				const b = block as { type: string; text?: string };
-				if (b.type === "text" && typeof b.text === "string") {
-					parts.push({ type: "text", text: b.text });
-				}
+	return { id, role: "user", parts: contentToChatParts(msg.content), createdAt: getTimestamp(msg) };
+}
+
+function toolResultOutput(msg: Record<string, unknown>): Record<string, unknown> {
+	const content = contentToChatParts(msg.content);
+	return {
+		content,
+		...(msg.details !== undefined ? { details: msg.details } : {}),
+		isError: msg.isError === true,
+	};
+}
+
+/** Hydrate the canonical conversation while joining persisted tool results to calls. */
+export function toChatMessagesFromAgentMessages(
+	messages: readonly AgentMessage[],
+	sessionId: string,
+): Array<ChatMessage> {
+	const output: Array<ChatMessage> = [];
+	for (const [index, message] of messages.entries()) {
+		const role = (message as { role?: unknown }).role;
+		const id = `${sessionId}-m${index}`;
+		if (role === "assistant") {
+			output.push(toChatMessageFromAssistant(message as AssistantMessage, id));
+			continue;
+		}
+		if (role === "user") {
+			output.push(toChatMessageFromUser(message as UserMessage, id));
+			continue;
+		}
+		if (role !== "toolResult") continue;
+
+		const result = message as unknown as Record<string, unknown>;
+		const toolCallId = typeof result.toolCallId === "string" ? result.toolCallId : undefined;
+		const toolName = typeof result.toolName === "string" ? result.toolName : "tool";
+		let attached = false;
+		if (toolCallId) {
+			for (let messageIndex = output.length - 1; messageIndex >= 0 && !attached; messageIndex -= 1) {
+				const candidate = output[messageIndex]!;
+				const partIndex = candidate.parts.findIndex(
+					(part) => part.type.startsWith("tool-") && (part as ChatToolPart).toolCallId === toolCallId,
+				);
+				if (partIndex < 0) continue;
+				const part = candidate.parts[partIndex]!;
+				if (!part.type.startsWith("tool-")) continue;
+				const nextPart: ChatToolPart = {
+					...part,
+					state: result.isError === true ? "output-error" : "output-available",
+					output: toolResultOutput(result),
+					result: toolResultOutput(result),
+				};
+				output[messageIndex] = {
+					...candidate,
+					parts: candidate.parts.map((item, itemIndex) => (itemIndex === partIndex ? nextPart : item)),
+				};
+				attached = true;
 			}
 		}
+		if (!attached) {
+			output.push({
+				id,
+				role: "assistant",
+				createdAt: typeof result.timestamp === "number" ? result.timestamp : undefined,
+				parts: [
+					{
+						type: makeToolType(toolName),
+						...(toolCallId ? { toolCallId } : {}),
+						state: result.isError === true ? "output-error" : "output-available",
+						output: toolResultOutput(result),
+						result: toolResultOutput(result),
+					},
+				],
+			});
+		}
 	}
-	return { id, role: "user", parts, createdAt: getTimestamp(msg) };
+	return output;
 }
 
 /**
@@ -130,27 +244,38 @@ export interface EventMapperState {
 	messageSeq: number;
 	currentMessageId: string | undefined;
 	currentText: string;
+	currentAssistantImages: ChatImagePart[];
 	reasoningStartedAt: number | undefined;
 	reasoningSteps: ChatReasoningStep[];
 	reasoningPhase: ChatReasoningPresentation["phase"] | undefined;
 	currentToolParts: ChatToolPart[];
 	userMessages: ChatMessage[];
 	inRun: boolean;
+	presentation: PrimeAgentSessionPresentation;
+	activeUserBashId: string | undefined;
+	userBashSequence: number;
 }
 
-export function createEventMapperState(init?: { sessionId?: string }): EventMapperState {
+export function createEventMapperState(init?: {
+	sessionId?: string;
+	presentation?: PrimeAgentSessionPresentation;
+}): EventMapperState {
 	return {
 		runId: "",
 		sessionId: init?.sessionId ?? "",
 		messageSeq: 0,
 		currentMessageId: undefined,
 		currentText: "",
+		currentAssistantImages: [],
 		reasoningStartedAt: undefined,
 		reasoningSteps: [],
 		reasoningPhase: undefined,
 		currentToolParts: [],
 		userMessages: [],
 		inRun: false,
+		presentation: init?.presentation ?? createEmptyPrimeAgentSessionPresentation(),
+		activeUserBashId: undefined,
+		userBashSequence: 0,
 	};
 }
 
@@ -159,12 +284,143 @@ function resetRun(state: EventMapperState): void {
 	state.messageSeq = 0;
 	state.currentMessageId = undefined;
 	state.currentText = "";
+	state.currentAssistantImages = [];
 	state.reasoningStartedAt = undefined;
 	state.reasoningSteps = [];
 	state.reasoningPhase = undefined;
 	state.currentToolParts = [];
 	state.userMessages = [];
+	state.activeUserBashId = undefined;
 	state.inRun = true;
+}
+
+function emitPresentation(
+	state: EventMapperState,
+	presentation: PrimeAgentSessionPresentation,
+): Extract<ChatStreamEvent, { type: "presentation" }> {
+	state.presentation = { ...presentation, revision: state.presentation.revision + 1 };
+	return {
+		type: "presentation",
+		sessionId: state.sessionId,
+		presentation: state.presentation,
+	};
+}
+
+function presentationRunId(state: EventMapperState): string {
+	return state.runId || state.sessionId || "session";
+}
+
+function bashStatus(input: {
+	exitCode?: number;
+	cancelled: boolean;
+	errorMessage?: string;
+}): PrimeAgentUserBash["status"] {
+	if (input.cancelled) return "cancelled";
+	if (input.errorMessage || (input.exitCode !== undefined && input.exitCode !== 0)) return "error";
+	return "success";
+}
+
+function upsertUserBash(state: EventMapperState, next: PrimeAgentUserBash): PrimeAgentSessionPresentation {
+	const userBash = [...state.presentation.userBash];
+	const existingIndex = userBash.findIndex((entry) => entry.id === next.id);
+	if (existingIndex < 0) userBash.push(next);
+	else userBash[existingIndex] = next;
+	return { ...state.presentation, userBash };
+}
+
+function userBashArtifact(entry: PrimeAgentUserBash, timestamp = Date.now()): PrimeAgentArtifact {
+	return {
+		id: stablePresentationId(`${entry.runId}:bash`),
+		runId: entry.runId,
+		sourceToolCallId: entry.runId,
+		kind: "bash",
+		title: entry.command || "Bash",
+		status: entry.status,
+		input: { command: entry.command, excludeFromContext: entry.excludeFromContext },
+		output: {
+			stdout: entry.output,
+			...(entry.errorMessage ? { error: entry.errorMessage } : {}),
+			...(entry.exitCode !== undefined ? { exitCode: entry.exitCode } : {}),
+			cancelled: entry.cancelled,
+			truncated: entry.truncated,
+		},
+		timestamp,
+	};
+}
+
+function safeRlmChild(
+	child: Extract<AgentSessionEvent, { type: "rlm_child_update" }>["child"],
+): PrimeAgentSessionPresentation["rlmChildren"][number] {
+	return {
+		id: child.id,
+		...(child.parentId ? { parentId: child.parentId } : {}),
+		...(child.activeSessionId ? { activeSessionId: child.activeSessionId } : {}),
+		...(child.sessionName ? { sessionName: child.sessionName } : {}),
+		...(child.model ? { model: child.model } : {}),
+		label: child.label,
+		status: child.status,
+		...(child.durationMs !== undefined ? { durationMs: child.durationMs } : {}),
+		...(child.answerPreview ? { answerPreview: child.answerPreview } : {}),
+		...(child.toolUseCount !== undefined ? { toolUseCount: child.toolUseCount } : {}),
+		...(child.tokenCount !== undefined ? { tokenCount: child.tokenCount } : {}),
+		...(child.recap ? { recap: child.recap } : {}),
+		...(child.activity ? { activity: child.activity } : {}),
+		...(child.repliedSinceTask !== undefined ? { repliedSinceTask: child.repliedSinceTask } : {}),
+		...(child.error ? { error: child.error } : {}),
+		timestamp: Date.now(),
+	};
+}
+
+function safeGoal(goal: Extract<AgentSessionEvent, { type: "goal_update" }>["goal"]): PrimeAgentGoal {
+	return {
+		active: goal.active,
+		status: goal.status,
+		...(goal.goalId ? { goalId: goal.goalId } : {}),
+		...(goal.objective ? { objective: goal.objective } : {}),
+		...(goal.tokenBudget !== undefined ? { tokenBudget: goal.tokenBudget } : {}),
+		tokensUsed: goal.tokensUsed,
+		timeUsedSeconds: goal.timeUsedSeconds,
+		continuationsUsed: goal.continuationsUsed,
+		...(goal.createdAt !== undefined ? { createdAt: goal.createdAt } : {}),
+		...(goal.updatedAt !== undefined ? { updatedAt: goal.updatedAt } : {}),
+		...(goal.lastReason ? { lastReason: goal.lastReason } : {}),
+		...(goal.lastError ? { lastError: goal.lastError } : {}),
+	};
+}
+
+function refinementContent(value: unknown): string | undefined {
+	if (typeof value === "string") return value;
+	if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+	const content = (value as { content?: unknown }).content;
+	return typeof content === "string" ? content : undefined;
+}
+
+function safeRefinement(
+	result: Extract<AgentSessionEvent, { type: "refine_complete" }>["result"],
+): PrimeAgentRefinement {
+	const edits: PrimeAgentRefinementEdit[] = result.appliedEdits.map((edit) => ({
+		action: edit.action,
+		kind: edit.kind,
+		id: edit.id,
+		...(edit.title ? { title: edit.title } : {}),
+		...(edit.content ? { content: edit.content } : {}),
+		...(edit.reason ? { reason: edit.reason } : {}),
+		...(refinementContent(edit.before) ? { before: refinementContent(edit.before) } : {}),
+		...(refinementContent(edit.after) ? { after: refinementContent(edit.after) } : {}),
+		applied: edit.applied,
+		...(edit.error ? { error: edit.error } : {}),
+	}));
+	return {
+		id: result.id,
+		summary: result.summary,
+		rationale: result.rationale,
+		expectedOutcome: result.expectedOutcome,
+		...(result.scope === "local" || result.scope === "global" ? { scope: result.scope } : {}),
+		...(result.rollbackOf ? { rollbackOf: result.rollbackOf } : {}),
+		edits,
+		status: "success",
+		timestamp: Date.now(),
+	};
 }
 
 type SafeReasoningPhase = ChatReasoningPresentation["phase"];
@@ -299,7 +555,9 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		case "message_start": {
 			if (isUserMessage(event.message)) {
 				const id = `${state.runId}-u${state.userMessages.length}`;
-				state.userMessages.push(toChatMessageFromUser(event.message, id));
+				const message = toChatMessageFromUser(event.message, id);
+				state.userMessages.push(message);
+				return [{ type: "message", message }];
 			}
 			return [];
 		}
@@ -318,6 +576,12 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				if (finalText && !state.currentText.endsWith(finalText)) {
 					state.currentText += finalText;
 				}
+				const message = toChatMessageFromAssistant(
+					event.message,
+					state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
+				);
+				state.currentAssistantImages = message.parts.filter((part): part is ChatImagePart => part.type === "image");
+				if (state.currentAssistantImages.length > 0) return [{ type: "message", message }];
 			}
 			return [];
 		}
@@ -381,18 +645,22 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
-			// The browser receives a controlled planning state, never the upstream
-			// detailed reasoning delta.
 			return [reasoningFrame(state, "planning", true)];
 		}
 		case "text_start":
 		case "text_end":
-		case "thinking_start":
-		case "thinking_end":
 		case "toolcall_start":
 		case "toolcall_delta":
 		case "toolcall_end":
 		case "error":
+			return [];
+		case "thinking_start": {
+			if (!state.currentMessageId) {
+				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
+			}
+			return [reasoningFrame(state, "planning", true)];
+		}
+		case "thinking_end":
 			return [];
 		case "done": {
 			// Some providers deliver visible answer text only in the terminal message
@@ -404,6 +672,11 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			if (finalText && !state.currentText.endsWith(finalText)) {
 				state.currentText += finalText;
 			}
+			const message = toChatMessageFromAssistant(
+				event.message,
+				state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
+			);
+			state.currentAssistantImages = message.parts.filter((part): part is ChatImagePart => part.type === "image");
 			return [];
 		}
 		default:
@@ -415,31 +688,16 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 // Session-specific events (AgentSessionEvent extends AgentEvent)
 // ---------------------------------------------------------------------------
 
-/** Events we know about but map to nothing (RLM children, bash streams, etc.). */
-const KNOWN_IGNORED = new Set([
-	"rlm_child_update",
-	"recap_update",
-	"goal_update",
-	"bash_start",
-	"bash_output",
-	"bash_end",
-	"refine_complete",
-	"refine_failed",
-	"session_info_changed",
-	"thinking_level_changed",
-	"service_tier_changed",
-]);
-
-function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEvent): ChatStreamEvent[] {
+function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEvent): ChatStreamEvent[] {
 	switch (event.type) {
 		case "compaction_start":
 			return [
-				reasoningFrame(_state, "recovering", true),
+				reasoningFrame(state, "recovering", true),
 				{ type: "compaction", phase: "start", reason: event.reason },
 			];
 		case "compaction_end":
 			return [
-				reasoningFrame(_state, "recovering", false),
+				reasoningFrame(state, "recovering", false),
 				{
 					type: "compaction",
 					phase: "end",
@@ -453,7 +711,7 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 			];
 		case "auto_retry_start":
 			return [
-				reasoningFrame(_state, "recovering", true),
+				reasoningFrame(state, "recovering", true),
 				{
 					type: "retry",
 					phase: "start",
@@ -467,7 +725,7 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 			];
 		case "auto_retry_end":
 			return [
-				reasoningFrame(_state, event.success ? "recovering" : "error", false),
+				reasoningFrame(state, event.success ? "recovering" : "error", false),
 				{
 					type: "retry",
 					phase: "end",
@@ -484,7 +742,7 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 		}
 		case "auth_stale":
 			return [
-				reasoningFrame(_state, "error", false),
+				reasoningFrame(state, "error", false),
 				{
 					type: "error",
 					message: `Authentication for ${event.provider} is stale. Sign in again to continue.`,
@@ -497,8 +755,148 @@ function mapSessionSpecificEvent(_state: EventMapperState, event: AgentSessionEv
 					state: { name: "agent_start", message: "Subagent message received" },
 				},
 			];
+		case "session_info_changed":
+			return [emitPresentation(state, { ...state.presentation, sessionName: event.name })];
+		case "thinking_level_changed":
+			return [emitPresentation(state, { ...state.presentation, thinkingLevel: event.level })];
+		case "service_tier_changed":
+			return [emitPresentation(state, { ...state.presentation, serviceTier: event.serviceTier })];
+		case "rlm_child_update": {
+			const child = safeRlmChild(event.child);
+			const rlmChildren = state.presentation.rlmChildren.filter((entry) => entry.id !== child.id);
+			rlmChildren.push(child);
+			const presentation = { ...state.presentation, rlmChildren };
+			const artifact: PrimeAgentArtifact = {
+				id: stablePresentationId(`${presentationRunId(state)}:${child.id}:rlm`),
+				runId: presentationRunId(state),
+				sourceToolCallId: child.id,
+				kind: "rlm",
+				title: child.label,
+				status:
+					child.status === "cancelled"
+						? "cancelled"
+						: child.status === "error"
+							? "error"
+							: child.status === "done"
+								? "success"
+								: "running",
+				output: child,
+				timestamp: child.timestamp,
+			};
+			return [emitPresentation(state, upsertArtifact(presentation, artifact))];
+		}
+		case "recap_update": {
+			const presentation = { ...state.presentation, recap: event.recap };
+			if (!event.recap) return [emitPresentation(state, presentation)];
+			const artifact: PrimeAgentArtifact = {
+				id: stablePresentationId(`${presentationRunId(state)}:recap`),
+				runId: presentationRunId(state),
+				kind: "recap",
+				title: "Recap",
+				status: "success",
+				output: { text: event.recap },
+				timestamp: Date.now(),
+			};
+			return [emitPresentation(state, upsertArtifact(presentation, artifact))];
+		}
+		case "goal_update":
+			return [emitPresentation(state, { ...state.presentation, goal: safeGoal(event.goal) })];
+		case "bash_start": {
+			const runId =
+				event.runId ?? stablePresentationId(`bash:${state.sessionId}:${state.userBashSequence++}:${event.command}`);
+			const id = stablePresentationId(`user-bash:${runId}`);
+			state.activeUserBashId = id;
+			const entry: PrimeAgentUserBash = {
+				id,
+				runId,
+				command: event.command,
+				output: "",
+				status: "running",
+				cancelled: false,
+				truncated: false,
+				excludeFromContext: event.excludeFromContext,
+				startedAt: Date.now(),
+			};
+			const presentation = upsertUserBash(state, entry);
+			return [emitPresentation(state, upsertArtifact(presentation, userBashArtifact(entry, entry.startedAt)))];
+		}
+		case "bash_output": {
+			const active = state.presentation.userBash.find((entry) => entry.id === state.activeUserBashId);
+			if (!active) return [];
+			const entry = { ...active, output: truncateTail(active.output + event.chunk).content };
+			return [emitPresentation(state, upsertArtifact(upsertUserBash(state, entry), userBashArtifact(entry)))];
+		}
+		case "bash_end": {
+			const active = state.presentation.userBash.find(
+				(entry) =>
+					entry.id === state.activeUserBashId || (event.runId !== undefined && entry.runId === event.runId),
+			);
+			if (!active) return [];
+			const entry: PrimeAgentUserBash = {
+				...active,
+				status: bashStatus(event),
+				...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
+				cancelled: event.cancelled,
+				truncated: event.truncated,
+				...(event.errorMessage ? { errorMessage: event.errorMessage } : {}),
+				endedAt: Date.now(),
+			};
+			state.activeUserBashId = undefined;
+			return [
+				emitPresentation(
+					state,
+					upsertArtifact(upsertUserBash(state, entry), userBashArtifact(entry, entry.endedAt)),
+				),
+			];
+		}
+		case "refine_complete": {
+			const refinement = safeRefinement(event.result);
+			const refinements = [
+				...state.presentation.refinements.filter((entry) => entry.id !== refinement.id),
+				refinement,
+			];
+			const presentation = { ...state.presentation, refinements };
+			const artifact: PrimeAgentArtifact = {
+				id: stablePresentationId(`${presentationRunId(state)}:${refinement.id}:refinement`),
+				runId: presentationRunId(state),
+				sourceToolCallId: refinement.id,
+				kind: "refinement",
+				title: refinement.summary || "Refinement",
+				status: "success",
+				output: refinement,
+				timestamp: refinement.timestamp,
+			};
+			return [emitPresentation(state, upsertArtifact(presentation, artifact))];
+		}
+		case "refine_failed": {
+			const id = stablePresentationId(
+				`${presentationRunId(state)}:refinement:${state.presentation.refinements.length}`,
+			);
+			const timestamp = Date.now();
+			const refinement: PrimeAgentRefinement = {
+				id,
+				summary: "Refinement failed",
+				rationale: "",
+				expectedOutcome: "",
+				edits: [],
+				status: "error",
+				error: event.error,
+				timestamp,
+			};
+			const presentation = { ...state.presentation, refinements: [...state.presentation.refinements, refinement] };
+			const artifact: PrimeAgentArtifact = {
+				id: stablePresentationId(`${presentationRunId(state)}:${id}:refinement`),
+				runId: presentationRunId(state),
+				sourceToolCallId: id,
+				kind: "refinement",
+				title: refinement.summary,
+				status: "error",
+				output: { error: event.error },
+				timestamp,
+			};
+			return [emitPresentation(state, upsertArtifact(presentation, artifact))];
+		}
 		default: {
-			if (KNOWN_IGNORED.has(event.type)) return [];
 			// Future prime-agent events: ignore silently. Compile-time exhaustiveness
 			// is enforced by the caller's `never` check on AgentSessionEvent's union.
 			return [];
@@ -521,6 +919,7 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 	for (const part of state.currentToolParts) {
 		parts.push(part);
 	}
+	parts.push(...state.currentAssistantImages);
 	return {
 		id: state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
 		role: "assistant",

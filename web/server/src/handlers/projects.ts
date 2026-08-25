@@ -4,6 +4,7 @@ import {
 	ProjectForkRequestSchema,
 	ProjectIdSchema,
 	ProjectRenameRequestSchema,
+	redactSessionLabelSecrets,
 } from "@prime-agent/web-protocol";
 import type { BridgeSession } from "../prime-bridge";
 import { getPrimeConfig } from "../prime-config";
@@ -45,12 +46,12 @@ export function handleProjectsGet(_request: Request): Promise<Response> {
 			sessions: sessions.map((session) => ({
 				sessionId: session.id,
 				projectId: assignments.get(session.id) ?? null,
-				title: session.name || session.firstMessage || session.id.slice(0, 8),
+				title: redactSessionLabelSecrets(session.name || session.firstMessage || session.id.slice(0, 8)),
 				createdAt: session.created.toISOString(),
 				updatedAt: session.modified.toISOString(),
 				status: sessionStatus(session, getBridge().getSession(session.id)),
 				messageCount: session.messageCount,
-				firstMessage: session.firstMessage,
+				firstMessage: session.firstMessage ? redactSessionLabelSecrets(session.firstMessage) : session.firstMessage,
 			})),
 		});
 	});

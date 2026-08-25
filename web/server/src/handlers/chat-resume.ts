@@ -26,6 +26,7 @@ export function handleChatResumePost(request: Request): Promise<Response> {
 				},
 				messages: await bridge.getMessages(session.sessionId),
 				planPresentations: await loadManagedPlanPresentations(session),
+				presentation: bridge.getPresentation(session.sessionId),
 			});
 		}
 		return Response.json({ message: "resume requires sessionId" }, { status: 400 });
