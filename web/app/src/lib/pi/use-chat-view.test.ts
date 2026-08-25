@@ -1,7 +1,7 @@
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { describe, expect, it } from "vitest";
-import { getActiveSessionLabel } from "./use-chat-view";
+import { buildContextSuggestions, getActiveSessionLabel } from "./use-chat-view";
 
 const session: ChatSessionInfo = {
 	sessionId: "session-1",
@@ -28,5 +28,49 @@ describe("getActiveSessionLabel", () => {
 
 	it("falls back to the transcript when the active session is not listed", () => {
 		expect(getActiveSessionLabel("session-2", [session], messages)).toBe("Transcript title");
+	});
+});
+
+describe("buildContextSuggestions", () => {
+	it("does not mistake review prose for a failed turn", () => {
+		const suggestions = buildContextSuggestions({
+			messages: [
+				messages[0]!,
+				{
+					id: "assistant-review",
+					role: "assistant",
+					parts: [{ type: "text", text: "I found two issues and one error-handling improvement." }],
+				},
+			],
+			resources: null,
+			workspaceTree: null,
+		});
+
+		expect(suggestions.map((item) => item.label)).toEqual([
+			"Go deeper on this",
+			"What should I do next?",
+			"Show workspace files",
+		]);
+	});
+
+	it("offers recovery actions for a structured error", () => {
+		const suggestions = buildContextSuggestions({
+			messages: [
+				messages[0]!,
+				{
+					id: "assistant-error",
+					role: "assistant",
+					parts: [{ type: "error", message: "Command failed" }],
+				},
+			],
+			resources: null,
+			workspaceTree: null,
+		});
+
+		expect(suggestions.map((item) => item.label)).toEqual([
+			"Fix the error",
+			"Explain what went wrong",
+			"Suggest an alternative approach",
+		]);
 	});
 });

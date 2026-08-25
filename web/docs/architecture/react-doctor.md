@@ -63,7 +63,13 @@ npx -y react-doctor@0.9.11 --project web --scope files --base HEAD --include-unt
 ```
 
 The scan must run from the repository root with `--project web`; running the
-tool from inside `web/` misses the root waiver configuration.
+tool from inside `web/` misses the root waiver configuration. A positional
+directory argument (`react-doctor web`) bypasses root-config discovery the same
+way, so waivers silently stop applying while diagnostics keep their
+project-relative paths. Waiver rule IDs are pinned per scanner release: 0.9.11
+knows `react-doctor/no-multi-comp`, newer releases renamed it to
+`react-doctor/no-multi-component-file`, so the affected overrides list both IDs
+until the pinned release moves.
 
 ## Evidence-backed exceptions
 

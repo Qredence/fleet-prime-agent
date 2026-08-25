@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { normalizeFleetToolPart } from "../../../../design/src/components/fleet-pi/chat/beui-tool-normalizer";
 import { BeuiToolRenderer } from "../../../../design/src/components/fleet-pi/chat/beui-tool-renderer";
+import { FleetPiToolRenderer } from "../../../../design/src/components/fleet-pi/chat/fleet-pi-tool-renderer";
 
 describe("normalizeFleetToolPart", () => {
 	it("extracts nested IPython details and keeps an active unresolved call running", () => {
@@ -11,7 +12,7 @@ describe("normalizeFleetToolPart", () => {
 				type: "tool-IPython",
 				toolCallId: "python-1",
 				state: "input-streaming",
-				input: { code: "print('ok')" },
+				input: { code: "%%bash\nls -la" },
 				output: {
 					details: {
 						durationMs: 22,
@@ -33,8 +34,19 @@ describe("normalizeFleetToolPart", () => {
 			kind: "output",
 			content: "stdout\nok",
 			structured: false,
-			sourceCode: "print('ok')",
+			sourceCode: "%%bash\nls -la",
+			sourceLanguage: "bash",
+			sourceLabel: "IPython",
+			sections: [{ label: "stdout", content: "ok", language: "text" }],
 		});
+
+		const python = normalizeFleetToolPart({
+			type: "tool-IPython",
+			state: "output-available",
+			input: { code: "value = 1" },
+			output: { details: { stdout: "1" } },
+		});
+		expect(python?.detail).toMatchObject({ sourceLanguage: "python", sourceLabel: "IPython" });
 	});
 
 	it("gives terminal states precedence over the global streaming status", () => {
@@ -52,6 +64,14 @@ describe("normalizeFleetToolPart", () => {
 		expect(normalizeFleetToolPart({ type: "tool-Bash", state: "input-streaming" }, "streaming")?.status).toBe(
 			"running",
 		);
+		expect(
+			normalizeFleetToolPart({
+				type: "tool-Bash",
+				state: "output-error",
+				output: { error: "command failed" },
+			})?.status,
+		).toBe("error");
+		expect(normalizeFleetToolPart({ type: "tool-Bash", state: "aborted" })?.status).toBe("cancelled");
 	});
 
 	it("maps structured results, diffs, todos, approvals, images, and citations", () => {
@@ -132,6 +152,21 @@ describe("normalizeFleetToolPart", () => {
 		expect(ipythonMarkup).toContain("Running");
 		expect(ipythonMarkup).not.toContain("Running IPython");
 		expect(ipythonMarkup).toContain("max-height:160px");
+		expect(ipythonMarkup).not.toContain("Ready");
+
+		const outputMarkup = renderToStaticMarkup(
+			createElement(BeuiToolRenderer, {
+				part: {
+					type: "tool-Bash",
+					toolCallId: "bash-1",
+					state: "output-available",
+					input: { command: "git status" },
+					output: { stdout: "clean", stderr: "warning" },
+				},
+			}),
+		);
+		expect(outputMarkup).toContain(">stdout<");
+		expect(outputMarkup).toContain(">stderr<");
 
 		const citationMarkup = renderToStaticMarkup(
 			createElement(BeuiToolRenderer, {
@@ -149,5 +184,21 @@ describe("normalizeFleetToolPart", () => {
 		);
 		expect(citationMarkup).toContain('href="https://example.com"');
 		expect(citationMarkup).not.toContain("javascript:");
+	});
+
+	it("suppresses raw thinking before the Fleet tool fallback renders it", () => {
+		const markup = renderToStaticMarkup(
+			createElement(FleetPiToolRenderer, {
+				part: {
+					type: "tool-Thinking",
+					toolCallId: "thinking-1",
+					state: "output-available",
+					input: { thought: "private reasoning" },
+					output: "private reasoning",
+				},
+			}),
+		);
+
+		expect(markup).toBe("");
 	});
 });

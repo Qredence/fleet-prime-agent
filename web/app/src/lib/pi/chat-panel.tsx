@@ -78,8 +78,8 @@ export function ChatPanel({
 				messages={messages}
 				status={status}
 				onSend={handleSend}
-				onOpenUIAction={handleOpenUIAction}
-				onStop={onStop}
+					onOpenUIAction={handleOpenUIAction}
+					onStop={onStop}
 					workspaceName={workspaceName}
 					activityLabel={activityLabel}
 					presentation={presentation}

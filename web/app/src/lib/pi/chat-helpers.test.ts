@@ -1,6 +1,7 @@
 import {
 	availableThinkingLevels,
 	clampThinkingLevel,
+	normalizeSessionLabel,
 	thinkingLevelLabel,
 } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import { describe, expect, it } from "vitest";
@@ -30,5 +31,14 @@ describe("thinkingLevelLabel", () => {
 	it("uses short display names for the picker trigger", () => {
 		expect(thinkingLevelLabel("max")).toBe("Max");
 		expect(thinkingLevelLabel("xhigh")).toBe("Extra high");
+	});
+});
+
+describe("normalizeSessionLabel", () => {
+	it("redacts credential-shaped values from transcript-derived labels", () => {
+		expect(normalizeSessionLabel("add provider api key: sk-example-secret-value123")).toBe(
+			"add provider api key: [redacted]",
+		);
+		expect(normalizeSessionLabel("use github_pat_example_secret_value")).toBe("use [redacted]");
 	});
 });

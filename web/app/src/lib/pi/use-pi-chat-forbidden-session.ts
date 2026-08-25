@@ -17,6 +17,7 @@ export type ForbiddenSessionRecoveryDeps = {
 	setPlanLabelSynced: (label: string | undefined) => void;
 	setPresentationSynced: (presentation: PrimeAgentSessionPresentation) => void;
 	setQueueSynced: (queue: QueueState) => void;
+	setPresentationSynced: (presentation: PrimeAgentSessionPresentation) => void;
 	setSessionMetadataSynced: (metadata: { sessionId?: string; projectId?: ProjectId | null }) => void;
 	setStatus: (status: ChatStatus) => void;
 };

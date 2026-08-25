@@ -222,7 +222,11 @@ export function usePiChatMessaging({
 	);
 
 	const enqueueDuringStream = useCallback(
-		async (trimmed: string, streamingBehavior: "steer" | "followUp" = "steer", mode?: ChatMode) => {
+		async (
+			trimmed: string,
+			streamingBehavior: "steer" | "followUp" = "steer",
+			options?: Pick<SendMessageInput, "attachments" | "mode" | "openUI" | "planAction">,
+		) => {
 			await ensureSession();
 			const userMessage = createTextMessage("user", trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
@@ -232,12 +236,26 @@ export function usePiChatMessaging({
 				await client.streamMessage(
 					{
 						message: trimmed,
+						attachments: options?.attachments,
+						openUI: options?.openUI,
 						model,
-						mode,
+						planAction: options?.planAction,
+						mode: options?.mode,
 						sessionId: sessionMetadataRef.current.sessionId,
 						streamingBehavior,
 					},
 					(event) => {
+						if (event.type === "done" && event.requestKind === "session-command") {
+							// The command POST owns this local completion. Do not feed it
+							// through the active turn reducer, which would settle or replace
+							// the assistant message belonging to the main stream.
+							setMessagesSynced((current) =>
+								current.some((message) => message.id === event.message.id)
+									? current
+									: [...current, event.message],
+							);
+							return;
+						}
 						if (event.type === "queue") {
 							setQueueSynced({
 								steering: event.steering,
@@ -291,13 +309,18 @@ export function usePiChatMessaging({
 			altKey,
 		}: SendMessageInput) => {
 			const trimmed = text.trim();
-			if (!trimmed || status === "submitted") return;
+			if (!trimmed) return;
 
-			if (status === "streaming") {
+			if (status === "submitted" || status === "streaming") {
 				try {
 					// Enter during stream = steer into the current turn.
 					// Alt+Enter during stream = queue a follow-up after this turn.
-					await enqueueDuringStream(trimmed, altKey ? "followUp" : "steer", mode);
+					await enqueueDuringStream(trimmed, altKey ? "followUp" : "steer", {
+						attachments,
+						mode,
+						openUI,
+						planAction,
+					});
 				} catch (err) {
 					const nextError = err instanceof Error ? err : new Error(String(err));
 					setError(nextError);
@@ -340,6 +363,7 @@ export function usePiChatMessaging({
 						planAction,
 						mode,
 						sessionId: ensuredStreamSessionId,
+						streamingBehavior: altKey ? "followUp" : "steer",
 					},
 					(event) => handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId, mode),
 					controller.signal,

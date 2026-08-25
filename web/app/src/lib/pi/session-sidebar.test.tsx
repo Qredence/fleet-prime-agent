@@ -1,5 +1,9 @@
-import { fireEvent, render } from "@testing-library/react"
-import type { ChatSessionInfo, ProjectSummary } from "@prime-agent/web-protocol"
+import { fireEvent, render, waitFor, within } from "@testing-library/react"
+import type {
+  ChatSessionInfo,
+  ProjectDirectoryBrowseResponse,
+  ProjectSummary,
+} from "@prime-agent/web-protocol"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { FleetSessionSidebar } from "@prime-agent/web-design/components/fleet-pi/session-sidebar"
 import { AnimatedSidebarProvider } from "@prime-agent/web-design/components/motion/animated-sidebar"
@@ -64,5 +68,148 @@ describe("FleetSessionSidebar project rows", () => {
     expect(onNewSession.mock.calls.length).toBe(0)
     expect(onNewSessionInProject.mock.calls.length).toBe(0)
     expect(onProjectSelect.mock.calls.length).toBe(0)
+  })
+
+  it("redacts credentials from session labels and accessible names", () => {
+    const exposedSecret = "sk-examplecredential123456789"
+    const sensitiveSession = session("sensitive-session", "alpha")
+    sensitiveSession.title = `Configure API key ${exposedSecret}`
+    sensitiveSession.firstMessage = sensitiveSession.title
+
+    const { container, getByRole } = render(
+      <AnimatedSidebarProvider>
+        <FleetSessionSidebar
+          sessions={[sensitiveSession]}
+          projects={[project("alpha")]}
+          projectSessions={[sensitiveSession]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    expect(container.textContent).not.toContain(exposedSecret)
+    expect(container.innerHTML).not.toContain(exposedSecret)
+    expect(getByRole("treeitem", { name: /Configure API key \[redacted\]/i })).toBeTruthy()
+  })
+
+  it("makes the selected directory and child paths explicit", async () => {
+    const root: ProjectDirectoryBrowseResponse = {
+      pathLabel: "~/workspace",
+      directoryToken: "root-token",
+      parentToken: null,
+      entries: [
+        {
+          directoryToken: "child-token",
+          name: "prime-agent",
+          pathLabel: "~/workspace/prime-agent",
+          hasChildren: true,
+        },
+      ],
+    }
+    const child: ProjectDirectoryBrowseResponse = {
+      pathLabel: "~/workspace/prime-agent",
+      directoryToken: "child-token",
+      parentToken: "root-token",
+      entries: [],
+    }
+    const browseDirectories = vi.fn(async (input: { token?: string }) =>
+      input.token ? child : root,
+    )
+
+    const { getByRole, getByText } = render(
+      <AnimatedSidebarProvider>
+        <FleetSessionSidebar
+          sessions={[]}
+          projects={[project("alpha")]}
+          projectSessions={[]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+          onCreateProject={vi.fn()}
+          onBrowseDirectories={browseDirectories}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    fireEvent.click(getByRole("button", { name: /^Add project$/ }))
+    await waitFor(() => expect(browseDirectories).toHaveBeenCalledWith({}))
+    expect(getByText("Selected directory")).toBeTruthy()
+    expect(getByText("~/workspace", { exact: true })).toBeTruthy()
+
+    fireEvent.click(getByRole("combobox", { name: "Search child directories" }))
+    fireEvent.click(getByRole("option", { name: /prime-agent/ }))
+    await waitFor(() =>
+      expect(browseDirectories).toHaveBeenLastCalledWith({ token: "child-token" }),
+    )
+    expect(getByText("~/workspace/prime-agent", { exact: true })).toBeTruthy()
+  })
+
+  it("keeps browse failures visible and offers a retry", async () => {
+    const browseDirectories = vi
+      .fn()
+      .mockRejectedValue(new Error("Directory service unavailable"))
+
+    const { getByRole, getByText } = render(
+      <AnimatedSidebarProvider>
+        <FleetSessionSidebar
+          sessions={[]}
+          projects={[project("alpha")]}
+          projectSessions={[]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+          onCreateProject={vi.fn()}
+          onBrowseDirectories={browseDirectories}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    fireEvent.click(getByRole("button", { name: /^Add project$/ }))
+    await waitFor(() => expect(getByText("Directory service unavailable")).toBeTruthy())
+    expect(getByRole("button", { name: "Try again" })).toBeTruthy()
+
+    fireEvent.click(getByRole("button", { name: "Try again" }))
+    await waitFor(() => expect(browseDirectories).toHaveBeenCalledTimes(2))
+  })
+
+  it("keeps the dialog open when project registration fails", async () => {
+    const createProject = vi
+      .fn()
+      .mockRejectedValue(new Error("Project is already registered"))
+
+    const { getByRole, getByText } = render(
+      <AnimatedSidebarProvider>
+        <FleetSessionSidebar
+          sessions={[]}
+          projects={[project("alpha")]}
+          projectSessions={[]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+          onCreateProject={createProject}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    fireEvent.click(getByRole("button", { name: /^Add project$/ }))
+    fireEvent.change(getByRole("textbox", { name: "Project directory" }), {
+      target: { value: "/workspace/alpha" },
+    })
+    const dialog = getByRole("dialog", { name: "Add project" })
+    fireEvent.click(within(dialog).getByRole("button", { name: /^Add project$/ }))
+
+    await waitFor(() => expect(getByText("Project is already registered")).toBeTruthy())
+    expect(getByRole("dialog", { name: "Add project" })).toBeTruthy()
+    expect(createProject).toHaveBeenCalledTimes(1)
   })
 })

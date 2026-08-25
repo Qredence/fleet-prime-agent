@@ -134,30 +134,13 @@ describe("applyChatStreamEvent", () => {
 		});
 	});
 
-	it("accepts only newer session presentation revisions", () => {
-		const first = {
-			type: "presentation" as const,
-			sessionId: "session-1",
-			presentation: { revision: 1, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] },
-		};
-		const second = {
-			type: "presentation" as const,
-			sessionId: "session-1",
-			presentation: {
-				revision: 2,
-				sessionName: "Current session",
-				userBash: [],
-				rlmChildren: [],
-				refinements: [],
-				artifactRuns: [],
-			},
-		};
-		let t = applyChatStreamEvent(baseTransition(), first);
-		t = applyChatStreamEvent(t, second);
-		const current = t;
-
-		expect(current.snapshot.presentation?.sessionName).toBe("Current session");
-		expect(applyChatStreamEvent(current, first)).toBe(current);
+	it("ignores legacy raw thinking frames", () => {
+		const id = "run-error-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id));
+		const before = t;
+		t = applyChatStreamEvent(t, { type: "thinking", phase: "delta", text: "private", messageId: id });
+		expect(t).toBe(before);
+		expect(JSON.stringify(t.snapshot)).not.toContain("private");
 	});
 
 	it("stores only capability-gated safe reasoning and removes legacy raw thinking on completion", () => {
@@ -198,6 +181,56 @@ describe("applyChatStreamEvent", () => {
 		const doneParts = assistantMessages(t)[0].parts;
 		expect(doneParts.some((part) => part.type === "tool-FleetReasoning")).toBe(true);
 		expect(JSON.stringify(doneParts)).not.toContain("fleet-web-ok");
+	});
+
+	it("accepts only newer presentation revisions and keeps the last snapshot after done", () => {
+		const id = "run-presentation-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id));
+		const presentation = (revision: number) => ({
+			type: "presentation" as const,
+			sessionId: "session-1",
+			presentation: {
+				revision,
+				sessionName: `session-${revision}`,
+				userBash: [],
+				rlmChildren: [],
+				refinements: [],
+				artifactRuns: [],
+			},
+		});
+
+		t = applyChatStreamEvent(t, presentation(2));
+		const replay = applyChatStreamEvent(t, presentation(2));
+		expect(replay).toBe(t);
+		expect(applyChatStreamEvent(t, presentation(1))).toBe(t);
+		t = applyChatStreamEvent(t, presentation(3));
+		expect(t.snapshot.presentation?.sessionName).toBe("session-3");
+
+		t = applyChatStreamEvent(t, done(id, "finished"));
+		expect(t.snapshot.presentation?.revision).toBe(3);
+		expect(t.snapshot.presentation?.sessionName).toBe("session-3");
+	});
+
+	it("replaces the optimistic user message when the live stream supplies image parts", () => {
+		const optimistic = toChatMessage("optimistic", "user", [{ type: "text", text: "Inspect this" }]);
+		let t: ChatStreamTransition = {
+			assistantId: null,
+			snapshot: { ...baseTransition().snapshot, messages: [optimistic] },
+		};
+		t = applyChatStreamEvent(t, {
+			type: "message",
+			message: {
+				id: "server-user-1",
+				role: "user",
+				parts: [
+					{ type: "text", text: "Inspect this" },
+					{ type: "image", url: "data:image/png;base64,aW1hZ2U=", mimeType: "image/png" },
+				],
+			},
+		});
+		expect(t.snapshot.messages).toHaveLength(1);
+		expect(t.snapshot.messages[0]).toMatchObject({ id: "optimistic", role: "user" });
+		expect(t.snapshot.messages[0]?.parts).toContainEqual(expect.objectContaining({ type: "image" }));
 	});
 
 	it("ignores a reasoning presentation when an older adapter omits the capability", () => {

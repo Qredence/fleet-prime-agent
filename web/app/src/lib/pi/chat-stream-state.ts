@@ -63,6 +63,13 @@ function hasRenderableParts(message: ChatMessage): boolean {
 	});
 }
 
+function messageText(message: ChatMessage): string {
+	return message.parts
+		.filter((part): part is Extract<(typeof message.parts)[number], { type: "text" }> => part.type === "text")
+		.map((part) => part.text)
+		.join("");
+}
+
 /**
  * Reconcile the in-flight assistant bubble id with a streamed `messageId`.
  * The `start` frame may open a placeholder id before the mapper assigns
@@ -167,6 +174,47 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 		};
 	}
 
+	if (event.type === "message") {
+		if (event.message.role === "user") {
+			const incomingText = messageText(event.message);
+			const existingIndex = transition.snapshot.messages.findIndex((message) => message.id === event.message.id);
+			const optimisticIndex =
+				existingIndex >= 0
+					? existingIndex
+					: transition.snapshot.messages.findLastIndex(
+							(message) => message.role === "user" && messageText(message) === incomingText,
+						);
+			const message =
+				optimisticIndex >= 0
+					? { ...event.message, id: transition.snapshot.messages[optimisticIndex]!.id }
+					: event.message;
+			return {
+				...transition,
+				snapshot: {
+					...transition.snapshot,
+					messages:
+						optimisticIndex >= 0
+							? transition.snapshot.messages.map((current, index) =>
+									index === optimisticIndex ? message : current,
+								)
+							: [...transition.snapshot.messages, message],
+				},
+			};
+		}
+		const reconciledMessage = reconcileAssistantId(transition, event.message.id);
+		return {
+			assistantId: reconciledMessage.assistantId,
+			snapshot: {
+				...reconciledMessage.snapshot,
+				messages: replaceOrAppendInFlight(
+					reconciledMessage.snapshot.messages,
+					event.message,
+					reconciledMessage.assistantId,
+				),
+			},
+		};
+	}
+
 	if (event.type === "start") {
 		const alreadyPresent = transition.snapshot.messages.some(
 			(message) => message.id === event.id && message.role === "assistant",
@@ -187,8 +235,12 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 		};
 	}
 
+	// Older adapters may still send raw thinking frames. They are intentionally
+	// ignored so detailed provider reasoning never reaches the transcript or UI.
+	if (event.type === "thinking") return transition;
+
 	const reconciled =
-		event.type === "delta" || event.type === "thinking" || event.type === "reasoning" || event.type === "tool"
+		event.type === "delta" || event.type === "reasoning" || event.type === "tool"
 			? reconcileAssistantId(transition, event.messageId)
 			: transition;
 	const { assistantId, snapshot } = reconciled;
@@ -203,9 +255,7 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 		};
 	}
 
-	if (event.type === "thinking") {
-		// Legacy adapters may still emit raw detailed thinking. It is intentionally
-		// ignored in the standard Fleet transcript.
+	if (event.type === "error") {
 		return reconciled;
 	}
 

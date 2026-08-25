@@ -13,7 +13,7 @@
 				// named components per file is the file's entire purpose, so the
 				// one-component-per-file intent of no-multi-comp does not apply.
 				"files": ["design/src/components/openui/openui-library.tsx"],
-				"rules": ["react-doctor/no-multi-comp"]
+				"rules": ["react-doctor/no-multi-component-file", "react-doctor/no-multi-comp"]
 			},
 			{
 				// Waived 2026-08-11 — charts.tsx intentionally co-locates the
@@ -21,7 +21,7 @@
 				// primitives and fallback-color convention. Splitting this focused
 				// component-pair would add indirection without improving ownership.
 				"files": ["design/src/components/openui/charts.tsx"],
-				"rules": ["react-doctor/no-multi-comp"]
+				"rules": ["react-doctor/no-multi-component-file", "react-doctor/no-multi-comp"]
 			},
 			{
 				// Waived 2026-08-11 — false positive. loadPreview's try/catch at
@@ -207,6 +207,7 @@
 				"files": [
 					"design/src/components/agents/input/effort-picker.tsx",
 					"design/src/components/agents/input/model-picker.tsx",
+					"design/src/components/elements/fleet-reasoning-panel.tsx",
 					"design/src/components/fleet-pi/chat/chat-stop-control.tsx",
 					"design/src/components/fleet-pi/pi/open-project-folder-dialog.tsx",
 					"design/src/components/motion/context-menu.tsx"

@@ -551,6 +551,7 @@ export function useChatWorkspaceData() {
 		inputSuggestionItems,
 		workspaceReferenceSuggestions,
 		messages,
+		openArtifact,
 		effortPickerOpen,
 		modelKey,
 		modelPickerOpen,
