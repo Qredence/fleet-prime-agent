@@ -25,8 +25,13 @@ import {
 import type { AgentChatProps } from "../../agents/types"
 import type { SuggestionItem } from "../../agents/input/suggestions"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
-import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol"
+import type {
+  ChatReasoningPresentation,
+  PrimeAgentArtifactRun,
+  PrimeAgentSessionPresentation,
+} from "@prime-agent/web-protocol/chat-protocol"
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar"
+import { FleetReasoningPanel } from "../../elements/fleet-reasoning-panel"
 
 export type FleetPiAgentChatProps = Omit<
   AgentChatProps,
@@ -103,6 +108,31 @@ function stringValue(value: unknown, ...keys: string[]) {
   for (const key of keys) {
     const candidate = source?.[key]
     if (typeof candidate === "string" && candidate.trim()) return candidate
+  }
+  return undefined
+}
+
+function reasoningPresentationFromMessages(
+  messages: Array<ChatMessage>,
+): ChatReasoningPresentation | undefined {
+  for (const message of [...messages].reverse()) {
+    for (const part of [...(message.parts ?? [])].reverse()) {
+      const source = record(part)
+      if (source?.type !== "tool-FleetReasoning") continue
+      const presentation = record(source.input)
+      if (
+        typeof presentation?.runId !== "string" ||
+        typeof presentation.phase !== "string" ||
+        !Array.isArray(presentation.steps) ||
+        typeof presentation.visibleSteps !== "number" ||
+        typeof presentation.streaming !== "boolean" ||
+        typeof presentation.startedAt !== "number" ||
+        typeof presentation.restingLabel !== "string"
+      ) {
+        continue
+      }
+      return presentation as unknown as ChatReasoningPresentation
+    }
   }
   return undefined
 }
@@ -268,10 +298,11 @@ function AssistantMessage({
       return text ? [text] : []
     })
     .join("\n\n")
-	const activityItems = useMemo(
+  const activityItems = useMemo(
 		() => buildActivityItems(messages, presentation, artifactRuns, onOpenArtifact),
 		[artifactRuns, messages, onOpenArtifact, presentation],
   )
+  const reasoningPresentation = useMemo(() => reasoningPresentationFromMessages(messages), [messages])
   const [activityOpen, setActivityOpen] = useState(turnStreaming)
   const [prevTurnStreaming, setPrevTurnStreaming] = useState(turnStreaming)
   if (prevTurnStreaming !== turnStreaming) {
@@ -284,6 +315,9 @@ function AssistantMessage({
       <MessageContent>
         <MessageBubble variant="ghost">
           <MessageBubbleContent>
+			{reasoningPresentation ? (
+				<FleetReasoningPanel presentation={reasoningPresentation} className="mb-2" />
+			) : null}
             {isLast && isLifecycleNotice(activityLabel) ? (
               <FleetTurnStatus label={activityLabel} className="mb-2" />
             ) : null}

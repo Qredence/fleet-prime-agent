@@ -1,5 +1,6 @@
 import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt";
 import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
+import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/fleet-pi/pi/prime-agent-artifacts";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ProjectId } from "@prime-agent/web-protocol";
@@ -457,9 +458,11 @@ export function useChatWorkspaceData() {
 		},
 		[discoverModelsMutation],
 	);
+	const artifactRuns = useMemo(() => derivePrimeAgentArtifactRuns(messages, undefined, status), [messages, status]);
 
 	const { chatPanelData, settingsActions, workspaceTreeContext } = useRightPanelContextValue({
 		activityLabel,
+		artifactRuns,
 		handleThemePreferenceChange,
 		isLoadingProviders,
 		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
