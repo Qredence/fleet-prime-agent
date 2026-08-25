@@ -24,6 +24,14 @@ const defaultBaseUrl = process.env.PRIME_AGENT_DOWNLOAD_BASE_URL;
 const publicPackageName = process.env.PRIME_AGENT_PACKAGE_NAME || "prime-agent";
 const publicCommandName = process.env.PRIME_AGENT_CMD || "prime-agent";
 const releaseChannels = new Set(["stable", "beta"]);
+const rootPackage = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+const webRuntimeDependencies = Object.fromEntries(
+	["react", "react-dom", "use-sync-external-store"].map((name) => {
+		const version = rootPackage.dependencies?.[name];
+		if (typeof version !== "string") throw new Error(`Missing root web runtime dependency: ${name}`);
+		return [name, version];
+	}),
+);
 
 const releasePackages = [
 	{ packageDir: "ai", publicName: undefined, artifactName: "prime-agent-ai" },
@@ -180,7 +188,10 @@ function createReleasePackageJson(sourcePackage, packageName, releaseVersion, in
 		...sourcePackage,
 		name: packageName,
 		version: releaseVersion,
-		dependencies: rewriteInternalDependencies(sourcePackage.dependencies, internalPackageUrls),
+		dependencies: {
+			...rewriteInternalDependencies(sourcePackage.dependencies, internalPackageUrls),
+			...(packageName === publicPackageName ? webRuntimeDependencies : {}),
+		},
 		optionalDependencies: rewriteInternalDependencies(sourcePackage.optionalDependencies, internalPackageUrls),
 		scripts: releaseScripts(sourcePackage.scripts),
 	};

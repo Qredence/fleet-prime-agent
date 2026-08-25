@@ -88,7 +88,7 @@ try {
 
 	const child = spawn(
 		executable,
-		["--host", "127.0.0.1", "--port", "0", "--cwd", workspaceRoot],
+		["--host", "127.0.0.1", "--port", "0"],
 		{
 			cwd: workspaceRoot,
 			env: { ...process.env, PRIME_AGENT_CODING_AGENT_DIR: agentDir },

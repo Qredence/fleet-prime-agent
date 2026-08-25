@@ -187,7 +187,7 @@ async function checkWebRuntime(executable, workspace, checkout, environment) {
 	const asset = findFirstJavaScriptAsset(clientRoot);
 	if (!asset) throw new Error("Source installer produced no client JavaScript asset");
 
-	const child = spawn(executable, ["--host", "127.0.0.1", "--port", "0", "--cwd", workspace], {
+	const child = spawn(executable, ["--host", "127.0.0.1", "--port", "0"], {
 		cwd: workspace,
 		env: environment,
 		stdio: ["ignore", "pipe", "pipe"],
