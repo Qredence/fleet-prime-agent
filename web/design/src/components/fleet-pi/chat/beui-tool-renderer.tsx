@@ -10,6 +10,7 @@ import { TodoList, type TodoItem } from "../../agents/todo-list"
 import { FleetAgentPlan, fleetAgentPlanPresentation, type FleetPlanItem } from "../../elements/fleet-agent-plan"
 import { ToolApproval } from "../../agents/tool-approval"
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../agents/tool-result"
+import type { AgentCodeLanguage } from "../../agents/agent-code"
 import type { ToolRendererProps } from "../../agents/tools/tool-renderer"
 import {
   normalizeFleetToolPart,
@@ -67,20 +68,24 @@ function Approval({
 }
 
 function SourceBlock({
-  code,
-  language,
-  status,
+	code,
+	language,
+	languageLabel,
+	status,
 }: {
-  code: string
-  language: "bash" | "json" | "text" | "tsx" | "typescript"
-  status: ToolResultStatus
+	code: string
+	language: AgentCodeLanguage
+	languageLabel?: string
+	status: ToolResultStatus
 }) {
-  return (
-    <CodeBlock
-      code={code}
-      language={language}
-      status={status === "running" ? "streaming" : "complete"}
-      maxHeight={160}
+	return (
+		<CodeBlock
+			code={code}
+			language={language}
+			languageLabel={languageLabel}
+			status={status === "running" ? "streaming" : "complete"}
+			showStatus={false}
+			maxHeight={160}
       showLineNumbers={false}
       wrap
     />
@@ -178,24 +183,16 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
       {detail.sourceCode ? (
         <SourceBlock
           code={detail.sourceCode}
-          language={detail.sourceLanguage === "bash" ? "bash" : "text"}
+          language={detail.sourceLanguage ?? "text"}
+          languageLabel={detail.sourceLabel}
           status={status}
         />
       ) : null}
-      {detail.content ? (
-        detail.structured ? (
-          <CodeBlock
-            code={detail.content}
-            language="json"
-            status={status === "running" ? "streaming" : "complete"}
-            maxHeight={220}
-            showLineNumbers={false}
-            wrap
-          />
-        ) : (
-          <ToolResultOutput language={detail.language}>{detail.content}</ToolResultOutput>
-        )
-      ) : null}
+      {detail.sections.map((section) => (
+        <ToolResultOutput key={section.label} language={section.language} label={section.label}>
+          {section.content}
+        </ToolResultOutput>
+      ))}
       <Approval approval={normalized.approval} name={normalized.name} status={status} />
     </ToolResult>
   )

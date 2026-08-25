@@ -19,14 +19,22 @@ export interface FleetToolOutputSummary {
 	structured: boolean;
 }
 
+export type FleetToolOutputSection = {
+	label: "stdout" | "stderr" | "result" | "error" | "output";
+	content: string;
+	language: AgentCodeLanguage;
+};
+
 export type FleetToolDetail =
 	| {
 			kind: "output";
 			content: string;
 			language: AgentCodeLanguage;
 			structured: boolean;
+			sections: FleetToolOutputSection[];
 			sourceCode?: string;
 			sourceLanguage?: AgentCodeLanguage;
+			sourceLabel?: string;
 	  }
 	| {
 			kind: "diff";
@@ -170,22 +178,38 @@ function summarizeOutput(output: unknown): FleetToolOutputSummary {
 	};
 }
 
-function getOutputContent(summary: FleetToolOutputSummary, output: unknown): string {
-	const sections: string[] = [];
-	if (summary.stdout) sections.push(`stdout\n${summary.stdout}`);
-	if (summary.stderr) sections.push(`stderr\n${summary.stderr}`);
-	if (summary.result !== undefined) sections.push(`result\n${stringifyToolValue(summary.result)}`);
-	if (summary.error) sections.push(`error\n${summary.error}`);
-	if (sections.length > 0) return sections.join("\n\n");
+function getOutputSections(summary: FleetToolOutputSummary, output: unknown): FleetToolOutputSection[] {
+	const sections: FleetToolOutputSection[] = [];
+	if (summary.stdout) sections.push({ label: "stdout", content: summary.stdout, language: "text" });
+	if (summary.stderr) sections.push({ label: "stderr", content: summary.stderr, language: "text" });
+	if (summary.result !== undefined) {
+		sections.push({
+			label: "result",
+			content: stringifyToolValue(summary.result),
+			language: typeof summary.result === "object" && summary.result !== null ? "json" : "text",
+		});
+	}
+	if (summary.error) sections.push({ label: "error", content: summary.error, language: "text" });
+	if (sections.length > 0) return sections;
 
 	const record = summary.details ?? summary.record;
 	if (record) {
 		const withoutEnvelope = { ...record };
 		delete withoutEnvelope.details;
 		delete withoutEnvelope.isError;
-		if (Object.keys(withoutEnvelope).length > 0) return stringifyToolValue(withoutEnvelope);
+		if (Object.keys(withoutEnvelope).length > 0) {
+			return [{ label: "result", content: stringifyToolValue(withoutEnvelope), language: "json" }];
+		}
 	}
-	return stringifyToolValue(output);
+
+	const fallback = stringifyToolValue(output);
+	return fallback.trim() ? [{ label: "output", content: fallback, language: "text" }] : [];
+}
+
+function getOutputContent(summary: FleetToolOutputSummary, output: unknown): string {
+	return getOutputSections(summary, output)
+		.map((section) => `${section.label}\n${section.content}`)
+		.join("\n\n");
 }
 
 function getInput(part: FleetToolRecord): FleetToolRecord | undefined {
@@ -303,7 +327,27 @@ function resultStatus(part: FleetToolRecord, chatStatus?: string): ToolResultSta
 function languageFor(name: string, structured: boolean): AgentCodeLanguage {
 	if (structured || name.toLowerCase().includes("json")) return "json";
 	if (name.toLowerCase().includes("bash") || name.toLowerCase().includes("shell")) return "bash";
+	if (name.toLowerCase().includes("python")) return "python";
 	return "text";
+}
+
+function sourceLanguageFor(name: string, command: string | undefined): AgentCodeLanguage | undefined {
+	if (!command) return undefined;
+	const lowerName = name.toLowerCase();
+	if (lowerName.includes("bash") || lowerName.includes("shell")) return "bash";
+	if (lowerName.includes("python")) return /^\s*%%bash(?:\s|$)/im.test(command) ? "bash" : "python";
+	return "text";
+}
+
+function sourceLabelFor(name: string, language: AgentCodeLanguage | undefined): string | undefined {
+	if (!language) return undefined;
+	const lowerName = name.toLowerCase();
+	if (lowerName.includes("ipython")) return "IPython";
+	if (lowerName.includes("bash") || lowerName.includes("shell")) return "Bash";
+	if (lowerName.includes("python")) return "Python";
+	if (language === "json") return "JSON";
+	if (language === "text") return "Text";
+	return language.toUpperCase();
 }
 
 export function normalizeFleetToolPart(part: unknown, chatStatus?: string): NormalizedFleetToolPart | undefined {
@@ -316,6 +360,7 @@ export function normalizeFleetToolPart(part: unknown, chatStatus?: string): Norm
 	const outputSummary = summarizeOutput(output);
 	const status = resultStatus(source, chatStatus);
 	const command = getString(input, "command", "cmd", "code", "script");
+	const sourceLanguage = sourceLanguageFor(name, command);
 	const thought = getString(input, "thought", "text");
 	const metadata: string[] = [];
 	if (outputSummary.durationMs !== undefined) metadata.push(`${outputSummary.durationMs}ms`);
@@ -357,8 +402,10 @@ export function normalizeFleetToolPart(part: unknown, chatStatus?: string): Norm
 			content,
 			language: languageFor(name, outputSummary.structured),
 			structured: outputSummary.structured,
+			sections: getOutputSections(outputSummary, output),
 			sourceCode: command,
-			sourceLanguage: command && (lowerName.includes("bash") || lowerName.includes("shell")) ? "bash" : "text",
+			sourceLanguage,
+			sourceLabel: sourceLabelFor(name, sourceLanguage),
 		};
 	}
 

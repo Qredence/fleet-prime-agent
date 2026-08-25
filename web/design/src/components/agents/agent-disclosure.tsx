@@ -1,6 +1,6 @@
 "use client";
 
-import { m, type HTMLMotionProps, useReducedMotion } from "motion/react";
+import { motion, type HTMLMotionProps, useReducedMotion } from "motion/react";
 import type { CSSProperties } from "react";
 import { EASE_OUT } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
@@ -23,7 +23,7 @@ export function AgentDisclosure({
   const reduce = useReducedMotion() ?? false;
 
   return (
-    <m.div
+    <motion.div
       {...props}
       aria-hidden={!open}
       inert={!open}

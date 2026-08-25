@@ -11,7 +11,7 @@ import {
   SquareTerminal,
   Wrench,
 } from "lucide-react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { EASE_OUT, SPRING_LAYOUT } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { isSafeExternalUrl } from "../../../lib/safe-external-url";
@@ -24,8 +24,6 @@ import type {
   AgentActivityTrace,
   AgentSearchResult,
 } from "./types";
-
-const SEARCH_RESULT_VISIBLE = { opacity: 1, y: 0 };
 
 function StepRow({ item }: { item: AgentActivityStep }) {
   const state = item.status ?? "complete";
@@ -40,7 +38,7 @@ function StepRow({ item }: { item: AgentActivityStep }) {
           <Check className="size-4" strokeWidth={1.8} />
         ) : state === "active" ? (
           <span className="relative grid size-3 place-items-center">
-            <m.span
+            <motion.span
               className="absolute inset-0 rounded-full bg-foreground/10"
               animate={{ opacity: [0.35, 0.8, 0.35] }}
               transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
@@ -117,6 +115,7 @@ function SearchResultRow({
 function SearchRow({ item }: { item: AgentActivitySearch }) {
   const reduce = useReducedMotion() ?? false;
   const enter = reduce ? { opacity: 1 } : { opacity: 0, y: 6 };
+  const visible = { opacity: 1, y: 0 };
   const exit = reduce ? { opacity: 0 } : { opacity: 0, y: -3 };
   const transition = reduce
     ? { duration: 0 }
@@ -132,34 +131,36 @@ function SearchRow({ item }: { item: AgentActivitySearch }) {
         <Search aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.7} />
         <span className="min-w-0 truncate">{item.query}</span>
       </div>
-      <div className="space-y-0.5 pl-4">
-        <AnimatePresence initial mode="popLayout">
-          {item.results?.map((result) => (
-            <m.div
-              layout="position"
-              key={result.id}
-              initial={enter}
-                animate={SEARCH_RESULT_VISIBLE}
-              exit={exit}
-              transition={transition}
-            >
-              <SearchResultRow result={result} />
-            </m.div>
-          ))}
-        </AnimatePresence>
-      </div>
+      {item.results?.length ? (
+        <div className="space-y-0.5 pl-4">
+          <AnimatePresence initial mode="popLayout">
+            {item.results.map((result) => (
+              <motion.div
+                layout="position"
+                key={result.id}
+                initial={enter}
+                animate={visible}
+                exit={exit}
+                transition={transition}
+              >
+                <SearchResultRow result={result} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      ) : null}
       <AnimatePresence initial>
         {item.moreCount ? (
-          <m.div
+          <motion.div
             key="more-results"
             initial={enter}
-            animate={SEARCH_RESULT_VISIBLE}
+            animate={visible}
             exit={exit}
             transition={transition}
             className="px-1.5 py-1 pl-8 text-muted-foreground/55"
           >
             +{item.moreCount} more
-          </m.div>
+          </motion.div>
         ) : null}
       </AnimatePresence>
     </div>
@@ -175,11 +176,30 @@ function ActionIcon({ action }: { action: string }) {
   return <Wrench className="size-4" />;
 }
 
+function ActivityAction({
+  action,
+}: {
+  action: { label: string; ariaLabel?: string; onClick: () => void };
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={action.ariaLabel ?? action.label}
+      onClick={action.onClick}
+      className="shrink-0 rounded-md px-1.5 py-1 text-[10px] font-medium text-primary outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {action.label}
+    </button>
+  );
+}
+
 function ToolRow({ item }: { item: AgentActivityTool }) {
   const action = item.action.charAt(0).toUpperCase() + item.action.slice(1);
+  const hasChanges =
+    typeof item.additions === "number" || typeof item.deletions === "number";
 
   return (
-    <div className="flex min-h-8 min-w-0 items-center gap-2.5 rounded-md px-1.5 py-0.5 leading-5">
+    <div className="grid min-h-8 min-w-0 grid-cols-[1rem_auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md px-1.5 py-0.5 leading-5">
       <span
         aria-hidden="true"
         className="grid size-4 shrink-0 place-items-center text-muted-foreground/70"
@@ -190,15 +210,20 @@ function ToolRow({ item }: { item: AgentActivityTool }) {
       <span className="min-w-0 flex-1 truncate rounded-lg bg-muted/80 px-2.5 py-1 font-mono text-xs text-muted-foreground/70">
         {item.target}
       </span>
-      {typeof item.additions === "number" || typeof item.deletions === "number" ? (
-        <span className="flex shrink-0 items-center gap-2 font-mono tabular-nums">
-          {typeof item.additions === "number" ? (
-            <span className="text-emerald-500">+{item.additions}</span>
+      {hasChanges || item.openAction ? (
+        <div className="flex shrink-0 items-center gap-2">
+          {hasChanges ? (
+            <span className="flex items-center gap-2 font-mono tabular-nums">
+              {typeof item.additions === "number" ? (
+                <span className="text-emerald-500">+{item.additions}</span>
+              ) : null}
+              {typeof item.deletions === "number" ? (
+                <span className="text-rose-500">−{item.deletions}</span>
+              ) : null}
+            </span>
           ) : null}
-          {typeof item.deletions === "number" ? (
-            <span className="text-rose-500">−{item.deletions}</span>
-          ) : null}
-        </span>
+          {item.openAction ? <ActivityAction action={item.openAction} /> : null}
+        </div>
       ) : null}
     </div>
   );
@@ -214,24 +239,39 @@ function TraceIcon({ kind }: { kind: AgentActivityTrace["kind"] }) {
 }
 
 function TraceRow({ item }: { item: AgentActivityTrace }) {
-  return (
-    <div className="grid min-h-8 grid-cols-[1rem_auto_minmax(0,1fr)] items-center gap-2.5 rounded-md px-1.5 py-0.5">
+	const thinking = item.kind === "thinking";
+
+	return (
+		<div
+			className={cn(
+				"grid min-h-8 grid-cols-[1rem_auto_minmax(0,1fr)_auto] gap-2.5 rounded-md px-1.5 py-0.5",
+				thinking ? "items-start" : "items-center",
+			)}
+		>
       <span
         aria-hidden="true"
         className="grid size-4 place-items-center text-muted-foreground/70"
       >
         {item.icon ?? <TraceIcon kind={item.kind} />}
       </span>
-      <span className="font-medium text-foreground/90">{item.label}</span>
-      {item.detail ? (
-        <span className="min-w-0 truncate rounded-lg bg-muted/80 px-2.5 py-1 font-mono text-xs text-muted-foreground/70">
-          {item.detail}
-        </span>
-      ) : (
-        <span />
-      )}
-    </div>
-  );
+			<span className="min-w-0 truncate font-medium text-foreground/90">{item.label}</span>
+			{item.detail ? (
+				<span
+					className={cn(
+						"min-w-0 rounded-lg bg-muted/80 px-2.5 py-1 font-mono text-xs text-muted-foreground/70",
+						thinking
+							? "max-h-40 overflow-y-auto whitespace-pre-wrap break-words"
+							: "truncate",
+					)}
+				>
+					{item.detail}
+				</span>
+			) : (
+				<span />
+			)}
+			{item.action ? <ActivityAction action={item.action} /> : null}
+		</div>
+	);
 }
 
 export function ActivityRow({ item }: { item: AgentActivityItem }) {

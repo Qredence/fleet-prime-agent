@@ -1,6 +1,7 @@
-import { ChevronRight, LayoutTemplate } from "lucide-react"
-import { useMemo, useState } from "react"
+import { ChevronRight, LayoutTemplate, Package } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
+import type { PrimeAgentArtifact, PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol"
 
 import { GenerativeTextRenderer } from "../../openui/inline-renderer"
 import { Button } from "../../button"
@@ -9,8 +10,12 @@ import { UiErrorBoundary } from "../ui-error-boundary"
 import { WorkspacePanelContent } from "./workspace-panel"
 import { collectSessionOpenUIBlocks, getArtifactsScopePath } from "./artifacts-utils"
 import { findWorkspaceNode } from "./shared"
+import { CodeBlock } from "../../agents/code-block"
+import { FileDiff } from "../../agents/file-diff"
+import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../agents/tool-result"
 import type { SessionOpenUIBlock } from "./artifacts-utils"
 import type { WorkspacePanelContentProps } from "./workspace-panel"
+import { primeAgentArtifactDiff } from "./prime-agent-artifacts"
 
 type ArtifactsPanelContentProps = Pick<
 	WorkspacePanelContentProps,
@@ -24,6 +29,121 @@ type ArtifactsPanelContentProps = Pick<
 	messages: Array<ChatMessage>
 	onOpenUIAction?: (message: string) => void
 	status: ChatStatus
+	artifactRuns?: Array<PrimeAgentArtifactRun>
+	selectedArtifactId?: string | null
+}
+
+function artifactStatus(status: PrimeAgentArtifact["status"]): ToolResultStatus {
+	return status === "running" ? "running" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "success"
+}
+
+function textValue(value: unknown): string {
+	if (typeof value === "string") return value
+	if (value === undefined || value === null) return ""
+	try {
+		return JSON.stringify(value, null, 2)
+	} catch {
+		return String(value)
+	}
+}
+
+function outputSections(value: unknown): Array<{ label: string; text: string }> {
+	const source = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined
+	if (!source) return value === undefined ? [] : [{ label: "result", text: textValue(value) }]
+	const sections: Array<{ label: string; text: string }> = []
+	for (const label of ["stdout", "stderr", "result", "error"] as const) {
+		if (source[label] === undefined || source[label] === "") continue
+		sections.push({ label, text: textValue(source[label]) })
+	}
+	const nested = source.details ?? source.output ?? source.result
+	if (sections.length === 0 && nested !== value) {
+		sections.push(...outputSections(nested))
+	}
+	if (sections.length === 0 && Array.isArray(source.content)) {
+		const text = source.content
+			.flatMap((part) => {
+				if (typeof part === "string") return [part]
+				if (typeof part === "object" && part !== null && "text" in part && typeof part.text === "string") return [part.text]
+				return []
+			})
+			.join("")
+		if (text) sections.push({ label: source.isError === true ? "error" : "stdout", text })
+	}
+	if (sections.length > 0) return sections
+	return [{ label: "result", text: textValue(value) }]
+}
+
+function artifactSource(artifact: PrimeAgentArtifact): { code: string; language: "bash" | "python" | "json" | "text"; label: string } | undefined {
+	const input = typeof artifact.input === "object" && artifact.input !== null ? (artifact.input as Record<string, unknown>) : undefined
+	const code = input?.command ?? input?.code ?? input?.script
+	if (typeof code !== "string" || !code) return undefined
+	if (artifact.kind === "bash") return { code, language: "bash", label: "Bash" }
+	if (artifact.kind === "ipython") return { code, language: /^\s*%%bash(?:\s|$)/im.test(code) ? "bash" : "python", label: "IPython" }
+	if (artifact.kind === "diff") return { code, language: "text", label: "Text" }
+	return { code, language: "json", label: "JSON" }
+}
+
+function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
+	const cardRef = useRef<HTMLElement>(null)
+	const initiallyOpen = selected || artifact.status === "running"
+	const [open, setOpen] = useState(initiallyOpen)
+	useEffect(() => {
+		if (!selected) return
+		setOpen(true)
+		requestAnimationFrame(() => {
+			cardRef.current?.focus({ preventScroll: true })
+			cardRef.current?.scrollIntoView({ block: "nearest" })
+		})
+	}, [selected])
+	const source = artifactSource(artifact)
+	const sections = outputSections(artifact.output)
+	const diff = artifact.kind === "diff" || artifact.kind === "refinement" ? primeAgentArtifactDiff(artifact) : undefined
+	return (
+		<article
+			ref={cardRef}
+			data-artifact-id={artifact.id}
+			tabIndex={-1}
+			className="rounded-md border border-border/60 bg-background px-2.5 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+		>
+			{diff ? (
+				<FileDiff
+					file={diff.file}
+					lines={diff.lines}
+					status={artifact.status === "running" ? "streaming" : "complete"}
+					defaultOpen={initiallyOpen}
+					copyText={diff.copyText}
+					maxHeight={240}
+				/>
+			) : null}
+			{diff ? null : <ToolResult
+				tool={artifact.kind}
+				title={artifact.title}
+					status={artifactStatus(artifact.status)}
+					open={open}
+					onOpenChange={setOpen}
+					defaultOpen={initiallyOpen}
+				kind={artifact.kind === "bash" || artifact.kind === "ipython" ? "terminal" : "custom"}
+			>
+				<div className="space-y-3">
+					{source ? (
+						<CodeBlock
+							code={source.code}
+							language={source.language}
+							languageLabel={source.label}
+							showStatus={false}
+							showLineNumbers={false}
+							wrap
+						/>
+					) : null}
+					{sections.map((section) => (
+						<ToolResultOutput key={section.label} label={section.label} language="text">
+							{section.text}
+						</ToolResultOutput>
+					))}
+				</div>
+			</ToolResult>}
+		</article>
+	)
 }
 
 function GenerativeUiBlockRow({
@@ -82,6 +202,8 @@ export function ArtifactsPanelContent({
 	onSelectedPathChange,
 	selectedPath,
 	status,
+	artifactRuns = [],
+	selectedArtifactId,
 	workspace,
 }: ArtifactsPanelContentProps) {
 	const scopePath = workspace ? getArtifactsScopePath(workspace.root) : undefined
@@ -93,9 +215,27 @@ export function ArtifactsPanelContent({
 	}, [scopePath, workspace])
 	const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null)
 	const latestStreaming = status === "streaming" ? blocks.at(-1)?.blockId : undefined
+	const technicalArtifacts = useMemo(
+		() => artifactRuns.flatMap((run) => run.artifacts),
+		[artifactRuns],
+	)
 
 	return (
 		<div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+			{technicalArtifacts.length > 0 ? (
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
+						<Package className="size-3.5 shrink-0 text-foreground/45" />
+						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Technical artifacts</span>
+						<span className="shrink-0 text-[10px] text-foreground/40">{technicalArtifacts.length}</span>
+					</div>
+					<div className="space-y-1">
+						{technicalArtifacts.map((artifact) => (
+							<TechnicalArtifact key={artifact.id} artifact={artifact} selected={artifact.id === selectedArtifactId} />
+						))}
+					</div>
+				</div>
+			) : null}
 			<div className="flex min-h-0 flex-col">
 				<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 					<LayoutTemplate className="size-3.5 shrink-0 text-foreground/45" />

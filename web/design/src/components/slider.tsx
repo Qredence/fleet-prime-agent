@@ -64,6 +64,7 @@ export function Slider({
     return clamp(min + Math.round((nextValue - min) / safeStep) * safeStep, min, safeMax)
   }
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    let handled = true
     const direction = event.key === "ArrowRight" || event.key === "ArrowUp"
       ? 1
       : event.key === "ArrowLeft" || event.key === "ArrowDown"
@@ -78,8 +79,10 @@ export function Slider({
     } else if (event.key === "End") {
       event.preventDefault()
       onChange(safeMax)
+    } else {
+      handled = false
     }
-    event.stopPropagation()
+    if (handled) event.stopPropagation()
   }
 
   return (

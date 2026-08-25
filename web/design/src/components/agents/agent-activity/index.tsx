@@ -1,8 +1,8 @@
 "use client";
-// beui.dev/components/agents/chat-app
+// beui.dev/components/agents/agent-activity
 
 import { ChevronDown } from "lucide-react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -223,14 +223,14 @@ export function AgentActivity({
               ? renderCompletedStatus({ summary: completedSummary, duration })
               : completedSummary}
           </span>
-          <m.span
+          <motion.span
             aria-hidden="true"
             animate={{ rotate: expanded ? 180 : 0 }}
             transition={reduce ? { duration: 0 } : SPRING_SWAP}
             className="inline-flex shrink-0 text-muted-foreground/70 group-hover:text-foreground"
           >
             <ChevronDown className="size-3.5" />
-          </m.span>
+          </motion.span>
         </button>
       )}
 
@@ -249,7 +249,7 @@ export function AgentActivity({
           )}
           style={{ height: viewportHeight, maskImage, WebkitMaskImage: maskImage }}
         >
-          <m.div
+          <motion.div
             ref={contentRef}
             role="list"
             initial={false}
@@ -259,7 +259,7 @@ export function AgentActivity({
           >
             <AnimatePresence mode="popLayout">
               {items.map((item) => (
-                <m.div
+                <motion.div
                   layout="position"
                   key={item.id}
                   role="listitem"
@@ -277,10 +277,10 @@ export function AgentActivity({
                   }
                 >
                   <ActivityRow item={item} />
-                </m.div>
+                </motion.div>
               ))}
             </AnimatePresence>
-          </m.div>
+          </motion.div>
         </div>
       </AgentDisclosure>
     </div>

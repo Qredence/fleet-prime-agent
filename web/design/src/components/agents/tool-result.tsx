@@ -1,5 +1,5 @@
 "use client";
-// beui.dev/components/agents/chat-app
+// beui.dev/components/agents/tool-result
 
 import {
   Ban,
@@ -14,7 +14,7 @@ import {
   SquareTerminal,
   Wrench,
 } from "lucide-react";
-import { m, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   type ReactNode,
   useCallback,
@@ -24,10 +24,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  AgentCode,
-  type AgentCodeLanguage,
-} from "@prime-agent/web-design/components/agents/agent-code";
+import type { AgentCodeLanguage } from "@prime-agent/web-design/components/agents/agent-code";
 import { ActionSwapRollText } from "@prime-agent/web-design/components/motion/action-swap-roll";
 import { AgentDisclosure } from "@prime-agent/web-design/components/agents/agent-disclosure";
 import { SPRING_PRESS, SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
@@ -57,9 +54,10 @@ export interface ToolResultProps {
 }
 
 export interface ToolResultOutputProps {
-  children: string;
-  language?: AgentCodeLanguage;
-  className?: string;
+	children: string;
+	language?: AgentCodeLanguage;
+	label?: ReactNode;
+	className?: string;
 }
 
 function getStatusLabel(status: ToolResultStatus) {
@@ -121,7 +119,7 @@ function ToolResultAction({
   const reduce = useReducedMotion() ?? false;
 
   return (
-    <m.button
+    <motion.button
       type="button"
       aria-label={label}
       title={label}
@@ -131,25 +129,33 @@ function ToolResultAction({
       className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}
-    </m.button>
+    </motion.button>
   );
 }
 
 export function ToolResultOutput({
-  children,
-  language = "bash",
-  className,
+	children,
+	language: _language = "bash",
+	label,
+	className,
 }: ToolResultOutputProps) {
-  return (
-    <AgentCode
-      code={children}
-      language={language}
-      className={cn(
-        "whitespace-pre-wrap break-words text-foreground/80",
-        className,
-      )}
-    />
-  );
+	return (
+		<div className="space-y-1.5">
+			{label ? (
+				<div className="px-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/60">
+					{label}
+				</div>
+			) : null}
+			<pre
+				className={cn(
+					"m-0 whitespace-pre-wrap break-words font-mono text-xs leading-5 text-foreground/80",
+					className,
+				)}
+			>
+				<code>{children}</code>
+			</pre>
+		</div>
+	);
 }
 
 export function ToolResult({
@@ -291,14 +297,14 @@ export function ToolResult({
           <StatusIcon status={status} reduce={reduce} />
           <ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
         </span>
-        <m.span
+        <motion.span
           aria-hidden="true"
           animate={{ rotate: currentOpen ? 180 : 0 }}
           transition={reduce ? { duration: 0 } : SPRING_SWAP}
           className="shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
         >
           <ChevronDown className="size-3.5" />
-        </m.span>
+        </motion.span>
       </button>
 
       <AgentDisclosure

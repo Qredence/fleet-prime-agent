@@ -224,7 +224,7 @@ export function useFleetPiInputBarState({
       if (event.key === "Enter" && event.altKey && !event.shiftKey) {
         event.preventDefault()
         const content = value.trim()
-        if (content && !isStreaming && !disabled) send(content, true)
+        if (content && !disabled) send(content, true)
       }
     },
     [
