@@ -54,8 +54,8 @@ function presentation(
 }
 
 describe("review regressions", () => {
-	it("keeps generic completed reasoning out of the conversation", () => {
-		const { queryByLabelText } = render(
+	it("keeps completed reasoning presentation visible", () => {
+		const { getByLabelText } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={[settledReasoningMessage()]}
@@ -65,7 +65,7 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		expect(queryByLabelText("Safe reasoning progress")).toBeNull();
+		expect(getByLabelText("Safe reasoning progress")).toBeTruthy();
 	});
 
 	it("does not render legacy raw thinking parts", () => {

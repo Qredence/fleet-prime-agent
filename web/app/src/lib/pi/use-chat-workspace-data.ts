@@ -528,7 +528,6 @@ export function useChatWorkspaceData() {
 		activityLabel,
 		activeProjectId,
 		artifactRuns,
-		openArtifact,
 		answerQuestion,
 		chatMode,
 		chatPanelData,
