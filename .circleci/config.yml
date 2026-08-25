@@ -117,7 +117,7 @@ jobs:
       - install-web-dependencies
       - run:
           name: Build
-          command: npm run build
+          command: npm run build:ci
       - run:
           name: Check
           command: npm run check
@@ -144,7 +144,7 @@ jobs:
       - install-root-dependencies
       - run:
           name: Build packages
-          command: npm run build
+          command: npm run build:ci
       - when:
           condition: << parameters.install_uv >>
           steps:
@@ -171,7 +171,7 @@ jobs:
       - install-web-dependencies
       - run:
           name: Build packages
-          command: npm run build
+          command: npm run build:ci
       - run:
           name: Prepare test results
           command: mkdir -p test-results
@@ -201,7 +201,7 @@ jobs:
       - install-root-dependencies
       - run:
           name: Build packages
-          command: npm run build
+          command: npm run build:ci
       - install-uv
       - run:
           name: Prepare test results
