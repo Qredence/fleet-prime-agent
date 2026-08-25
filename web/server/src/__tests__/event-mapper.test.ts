@@ -1,3 +1,4 @@
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { ChatStreamEvent } from "@prime-agent/web-protocol";
@@ -8,6 +9,7 @@ import {
 	mapAgentSessionEvents,
 	toChatMessageFromAssistant,
 	toChatMessageFromUnknownRole,
+	toChatMessagesFromAgentMessages,
 	withOAuthBindingGuidance,
 } from "../event-mapper";
 
@@ -72,9 +74,21 @@ describe("event-mapper", () => {
 		expect(frames[1]).toEqual({ type: "delta", text: "hello", messageId: `${state.runId}-a0` });
 	});
 
-	it("translates thinking_delta into a controlled reasoning presentation without raw thought", () => {
+	it("suppresses raw thinking while preserving controlled reasoning", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const startFrames = mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: {
+				type: "thinking_start",
+				contentIndex: 0,
+				partial: mkAssistant(),
+			},
+		} as unknown as AgentSessionEvent);
+		expect(startFrames).toHaveLength(1);
+		expect(startFrames[0]).toMatchObject({ type: "reasoning", presentation: { phase: "planning" } });
+
 		const frames = mapAgentSessionEvent(state, {
 			type: "message_update",
 			message: mkAssistant(),
@@ -92,6 +106,17 @@ describe("event-mapper", () => {
 			presentation: { phase: "planning", streaming: true },
 		});
 		expect(JSON.stringify(frames)).not.toContain("…");
+
+		const endFrames = mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: {
+				type: "thinking_end",
+				contentIndex: 0,
+				partial: mkAssistant(),
+			},
+		} as unknown as AgentSessionEvent);
+		expect(endFrames).toEqual([]);
 	});
 
 	it("recovers terminal-only assistant text without exposing terminal thinking", () => {
@@ -482,5 +507,200 @@ describe("event-mapper", () => {
 				frame.type === "retry" && frame.phase === "start",
 		);
 		expect(retry?.errorMessage).toContain("must be signed in again");
+	});
+
+	it("maps the missing session presentation events into revisioned safe snapshots", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		const frames = mapAgentSessionEvents(state, [
+			{ type: "session_info_changed", name: "Renamed session" },
+			{ type: "thinking_level_changed", level: "high" },
+			{ type: "service_tier_changed", serviceTier: "flex" },
+			{
+				type: "rlm_child_update",
+				child: {
+					id: "child-1",
+					label: "Research child",
+					status: "running",
+					sessionDir: "/private/child-session",
+					activity: { kind: "executing", toolName: "search" },
+				},
+			},
+			{ type: "recap_update", recap: "Child completed the repository scan." },
+			{
+				type: "goal_update",
+				goal: {
+					active: true,
+					status: "active",
+					goalId: "goal-1",
+					objective: "Ship the browser path",
+					tokensUsed: 3,
+					timeUsedSeconds: 2,
+					continuationsUsed: 0,
+				},
+			},
+			{ type: "refine_failed", error: "No safe edit was available" },
+		] as unknown as AgentSessionEvent[]);
+
+		const presentation = frames.filter(
+			(frame): frame is Extract<ChatStreamEvent, { type: "presentation" }> => frame.type === "presentation",
+		);
+		expect(presentation.map((frame) => frame.presentation.revision)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+		expect(state.presentation.sessionName).toBe("Renamed session");
+		expect(state.presentation.thinkingLevel).toBe("high");
+		expect(state.presentation.serviceTier).toBe("flex");
+		expect(state.presentation.rlmChildren[0]).toMatchObject({ id: "child-1", status: "running" });
+		expect(state.presentation.goal?.objective).toBe("Ship the browser path");
+		expect(state.presentation.refinements[0]).toMatchObject({ status: "error", error: "No safe edit was available" });
+		expect(JSON.stringify(state.presentation)).not.toContain("sessionDir");
+		expect(JSON.stringify(state.presentation)).not.toContain("/private/child-session");
+	});
+
+	it("sanitizes refinement edits while preserving diff content for artifact rendering", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, {
+			type: "refine_complete",
+			result: {
+				id: "refine-1",
+				summary: "Improve the prompt",
+				rationale: "The run showed a repeatable gap.",
+				expectedOutcome: "The next run is more reliable.",
+				appliedEdits: [
+					{
+						action: "update",
+						kind: "prompt",
+						id: "prompt-1",
+						title: "Prompt note",
+						before: {
+							path: "/private/harness/prompt-1",
+							content: "old guidance",
+							reference: { secret: "do-not-send" },
+						},
+						after: {
+							path: "/private/harness/prompt-1",
+							content: "new guidance",
+						},
+						metadata: { secret: "do-not-send" },
+						applied: true,
+					},
+				],
+				harnessStatePath: "/private/harness/state.json",
+			},
+		} as unknown as AgentSessionEvent);
+
+		const edit = state.presentation.refinements[0]?.edits[0];
+		expect(edit).toMatchObject({ before: "old guidance", after: "new guidance" });
+		expect(edit).not.toHaveProperty("reference");
+		expect(edit).not.toHaveProperty("metadata");
+		expect(JSON.stringify(state.presentation)).not.toContain("/private/harness");
+		expect(JSON.stringify(state.presentation)).not.toContain("do-not-send");
+		expect(state.presentation.artifactRuns[0]?.artifacts[0]?.output).toMatchObject({
+			edits: [{ before: "old guidance", after: "new guidance" }],
+		});
+	});
+
+	it("joins user Bash chunks into one stable completed artifact", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, {
+			type: "bash_start",
+			command: "git status",
+			excludeFromContext: true,
+			runId: "bash-1",
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, { type: "bash_output", chunk: "clean\n" } as unknown as AgentSessionEvent);
+		const end = mapAgentSessionEvent(state, {
+			type: "bash_end",
+			exitCode: 0,
+			cancelled: false,
+			truncated: false,
+			runId: "bash-1",
+		} as unknown as AgentSessionEvent);
+
+		const entry = state.presentation.userBash[0];
+		expect(entry).toMatchObject({ runId: "bash-1", output: "clean\n", status: "success", excludeFromContext: true });
+		expect(state.presentation.artifactRuns.flatMap((run) => run.artifacts)).toEqual([
+			expect.objectContaining({
+				runId: "bash-1",
+				kind: "bash",
+				status: "success",
+				output: expect.objectContaining({ stdout: "clean\n" }),
+			}),
+		]);
+		expect(end).toHaveLength(1);
+	});
+
+	it("keeps streamed Bash presentation output within the runtime preview limits", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, {
+			type: "bash_start",
+			command: "generate logs",
+			excludeFromContext: true,
+			runId: "bash-large",
+		} as unknown as AgentSessionEvent);
+
+		mapAgentSessionEvent(state, {
+			type: "bash_output",
+			chunk: Array.from({ length: 2_500 }, (_, index) => `line-${index}`).join("\n"),
+		} as unknown as AgentSessionEvent);
+		const lineBoundOutput = state.presentation.userBash[0]?.output ?? "";
+		expect(lineBoundOutput.split("\n")).toHaveLength(2_000);
+		expect(lineBoundOutput).not.toContain("line-0");
+		expect(lineBoundOutput).toContain("line-2499");
+
+		mapAgentSessionEvent(state, {
+			type: "bash_output",
+			chunk: "x".repeat(60 * 1024),
+		} as unknown as AgentSessionEvent);
+		const byteBoundOutput = state.presentation.userBash[0]?.output ?? "";
+		expect(Buffer.byteLength(byteBoundOutput, "utf8")).toBeLessThanOrEqual(50 * 1024);
+	});
+
+	it("hydrates images and joins persisted tool results to their call", () => {
+		const assistant = mkAssistant({
+			content: [
+				{ type: "toolCall", id: "tool-1", name: "bash", arguments: { command: "pwd" } },
+				{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" },
+			] as AssistantMessage["content"],
+		});
+		const hydrated = toChatMessagesFromAgentMessages(
+			[
+				assistant as unknown as AgentMessage,
+				{
+					role: "toolResult",
+					toolCallId: "tool-1",
+					toolName: "bash",
+					content: [{ type: "text", text: "clean" }],
+					isError: false,
+				} as unknown as AgentMessage,
+			],
+			"session-1",
+		);
+		const parts = hydrated[0]?.parts ?? [];
+		expect(parts).toContainEqual(expect.objectContaining({ type: "image", url: "data:image/png;base64,aW1hZ2U=" }));
+		expect(parts).toContainEqual(
+			expect.objectContaining({
+				toolCallId: "tool-1",
+				state: "output-available",
+				output: expect.objectContaining({ content: [{ type: "text", text: "clean" }] }),
+			}),
+		);
+	});
+
+	it("emits image-bearing user messages on the live stream", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "message_start",
+			message: {
+				role: "user",
+				content: [
+					{ type: "text", text: "Inspect this" },
+					{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" },
+				],
+			},
+		} as unknown as AgentSessionEvent);
+		const message = frames.find(
+			(frame): frame is Extract<ChatStreamEvent, { type: "message" }> => frame.type === "message",
+		);
+		expect(message?.message.parts).toContainEqual(expect.objectContaining({ type: "image", mimeType: "image/png" }));
 	});
 });

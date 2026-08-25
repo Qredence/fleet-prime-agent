@@ -6,6 +6,7 @@ import { handleChatPost } from "../handlers/chat";
 import { handleChatNewPost } from "../handlers/chat-new";
 import { sessionStatus } from "../handlers/projects";
 import type { BridgeSession, PrimeBridge } from "../prime-bridge";
+import { sessionCommandResultText } from "../session-commands";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
 
 describe("handleChatPost attachment validation", () => {
@@ -97,6 +98,138 @@ describe("handleChatPost attachment validation", () => {
 		expect(response.status).toBe(413);
 		expect(prompt).not.toHaveBeenCalled();
 	});
+
+	it("closes a session-command stream with a visible refinement result", async () => {
+		const presentation = {
+			revision: 1,
+			userBash: [],
+			rlmChildren: [],
+			refinements: [
+				{
+					id: "refinement-1",
+					summary: "Applied a refinement",
+					rationale: "Keep the harness useful",
+					expectedOutcome: "Better future turns",
+					edits: [
+						{
+							action: "update" as const,
+							kind: "memory",
+							id: "memory-1",
+							applied: true,
+						},
+					],
+					status: "success" as const,
+					timestamp: Date.now(),
+				},
+			],
+			artifactRuns: [],
+		};
+		const streamSession = {
+			...session,
+			mapperState: {
+				inRun: false,
+				currentMessageId: undefined,
+				runId: "",
+				presentation: { revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] },
+			},
+			session: { isStreaming: false },
+		} as unknown as BridgeSession;
+		let listener: ((sessionId: string, frame: unknown) => void) | undefined;
+		setBridgeForTests({
+			getSession: vi.fn(() => streamSession),
+			addEventListener: vi.fn((next) => {
+				listener = next;
+				return () => undefined;
+			}),
+			getPresentation: vi.fn(() => presentation),
+			prompt: vi.fn(async () => undefined),
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatPost(
+			new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId: streamSession.sessionId, message: "/refine" }),
+			}),
+		);
+
+		const frames = (await response.text())
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as { type: string; message?: { parts: Array<{ text?: string }> } });
+		expect(frames.map((frame) => frame.type)).toEqual(["start", "done"]);
+		expect(frames[1]?.message?.parts[0]?.text).toBe(
+			sessionCommandResultText({ name: "refine", args: "", text: "/refine" }, presentation, 0),
+		);
+		expect(listener).toBeDefined();
+	});
+
+	it("keeps a queued session-command response scoped away from the active turn", async () => {
+		const streamSession = {
+			...session,
+			mapperState: {
+				inRun: true,
+				currentMessageId: "active-run-a0",
+				runId: "active-run",
+				presentation: { revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] },
+			},
+			session: { isStreaming: true },
+		} as unknown as BridgeSession;
+		let listener: ((sessionId: string, frame: unknown) => void) | undefined;
+		let finishPrompt!: () => void;
+		prompt = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finishPrompt = resolve;
+				}),
+		);
+		setBridgeForTests({
+			getSession: vi.fn(() => streamSession),
+			addEventListener: vi.fn((next) => {
+				listener = next;
+				return () => undefined;
+			}),
+			getPresentation: vi.fn(() => streamSession.mapperState.presentation),
+			prompt,
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatPost(
+			new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId: streamSession.sessionId, message: "/refine" }),
+			}),
+		);
+		expect(listener).toBeDefined();
+		listener?.(streamSession.sessionId, {
+			type: "done",
+			runId: "active-run",
+			sessionId: streamSession.sessionId,
+			message: {
+				id: "active-result",
+				role: "assistant",
+				parts: [{ type: "text", text: "active turn result" }],
+			},
+		});
+		finishPrompt();
+
+		const frames = (await response.text())
+			.trim()
+			.split("\n")
+			.map(
+				(line) =>
+					JSON.parse(line) as {
+						type: string;
+						requestKind?: string;
+						message?: { parts: Array<{ text?: string }> };
+					},
+			);
+		expect(frames.map((frame) => frame.type)).toEqual(["start", "done"]);
+		expect(frames[1]?.requestKind).toBe("session-command");
+		expect(JSON.stringify(frames)).not.toContain("active turn result");
+	});
 });
 
 describe("handleChatNewPost", () => {
@@ -112,6 +245,13 @@ describe("handleChatNewPost", () => {
 			ensureKernelReady: vi.fn(async () => {}),
 			createSession: vi.fn(async () => session),
 			setModel,
+			getPresentation: vi.fn(() => ({
+				revision: 0,
+				userBash: [],
+				rlmChildren: [],
+				refinements: [],
+				artifactRuns: [],
+			})),
 			resetForTests: vi.fn(),
 		} as unknown as PrimeBridge);
 
