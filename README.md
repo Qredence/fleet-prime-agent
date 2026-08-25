@@ -43,6 +43,10 @@ Use the terminal interface instead when you prefer a TUI:
 prime-agent
 ```
 
+## Coexistence with an existing `prime-agent` install
+
+If you already have `prime-agent` installed, `fleet-prime install` adds the web UI alongside it without modifying your existing `prime-agent` binary. The installer drops a small `fleet-prime` shim into `~/.local/bin/` and never invokes `npm link`, so a working `prime-agent` v0.8.0 from the upstream tarball stays reachable on `PATH` exactly as it was. Both commands share `~/.prime/agent/` (settings, kernel venv, logs) but use independent in-process state.
+
 ## What it does
 
 - Keeps project sessions, attachments, and workspace navigation in a local web interface.

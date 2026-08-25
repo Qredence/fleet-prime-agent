@@ -128,27 +128,64 @@ build_checkout() {
 	node scripts/build-web-release.mjs
 }
 
-link_cli() {
-	printf '\nLinking the prime-agent and fleet-prime commands globally...\n'
-	npm link --force .
-	hash -r 2>/dev/null || true
+install_fleet_prime_shim() {
+	printf '\nInstalling the fleet-prime launcher shim...\n'
 
-	if command -v prime-agent >/dev/null 2>&1; then
-		printf '\nFleet Prime is ready.\n'
-		printf '  Checkout: %s\n' "$prime_agent_checkout_dir"
-		printf '  Command:  %s\n' "$(command -v prime-agent)"
-		printf '\nRun from a project directory:\n  fleet-prime\n'
-		return
+	existing_prime_agent=$(command -v prime-agent 2>/dev/null || true)
+	if [ -n "$existing_prime_agent" ]; then
+		printf 'Detected existing prime-agent at %s \xe2\x80\x94 leaving it untouched.\n' "$existing_prime_agent"
 	fi
 
-	global_prefix=$(npm prefix -g 2>/dev/null || true)
-	if [ -n "$global_prefix" ]; then
-		printf '\nFleet Prime was linked, but %s/bin is not on PATH.\n' "$global_prefix" >&2
-		printf 'Add %s/bin to your shell PATH, then run: fleet-prime\n' "$global_prefix" >&2
+	# Pick an install location. Prefer $HOME/.local/bin (XDG-friendly, writable
+	# without sudo on every mainstream Unix); fall back to a per-user tmpdir
+	# if $HOME is not writable so the installer never dies here.
+	shim_dir=
+	if [ -n "${HOME:-}" ] && [ -d "$HOME" ] && [ -w "$HOME" ]; then
+		shim_dir="$HOME/.local/bin"
+	elif [ -n "${TMPDIR:-}" ] && [ -d "$TMPDIR" ] && [ -w "$TMPDIR" ]; then
+		shim_dir="$TMPDIR/fleet-prime-shim-$EUID-$$"
 	else
-		printf '\nFleet Prime was linked, but the global npm bin directory is not on PATH.\n' >&2
-		printf "Add npm's global bin directory to PATH, then run: fleet-prime\n" >&2
+		shim_dir="/tmp/fleet-prime-shim-$EUID-$$"
 	fi
+
+	if ! mkdir -p "$shim_dir" 2>/dev/null; then
+		die "could not create shim directory: $shim_dir"
+	fi
+
+	shim_path="$shim_dir/fleet-prime"
+	installed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf '%s' "$(date -u)")
+
+	# Write the shim. The launcher script in the checkout already handles
+	# `fleet-prime install`, the dev server fallback, and symlink resolution,
+	# so the shim is just a tiny exec wrapper. The here-doc keeps the literal
+	# "$@" in the output so all arguments are forwarded.
+	{
+		cat <<SHIM_EOF
+#!/bin/sh
+# Fleet Prime launcher installed by fleet-prime-agent on $installed_at
+# Source checkout: $prime_agent_checkout_dir
+exec "$prime_agent_checkout_dir/fleet-prime.sh" "\$@"
+SHIM_EOF
+	} > "$shim_path" || die "could not write shim: $shim_path"
+
+	chmod +x "$shim_path" || die "could not chmod +x $shim_path"
+
+	if command -v fleet-prime >/dev/null 2>&1; then
+		resolved=$(command -v fleet-prime)
+		# Only celebrate when the freshly-installed shim is the one on PATH.
+		# A stale fleet-prime from a previous run elsewhere is not a success
+		# for THIS install.
+		if [ "$resolved" = "$shim_path" ]; then
+			printf '\nFleet Prime is ready.\n'
+			printf '  Checkout: %s\n' "$prime_agent_checkout_dir"
+			printf '  Command:  %s\n' "$resolved"
+			printf '\nRun from a project directory:\n  fleet-prime\n'
+			return
+		fi
+	fi
+
+	printf '\nFleet Prime shim was installed at %s\n' "$shim_path" >&2
+	printf 'Add %s to your shell PATH, then run: fleet-prime\n' "$shim_dir" >&2
 }
 
 main() {
@@ -175,7 +212,7 @@ main() {
 	prepare_checkout
 	select_pnpm
 	build_checkout
-	link_cli
+	install_fleet_prime_shim
 }
 
 main "$@"
