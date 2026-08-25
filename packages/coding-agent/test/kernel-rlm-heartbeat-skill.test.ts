@@ -126,7 +126,7 @@ print(json.dumps({
 		expect(requests[1].payload).toMatchObject({ type: "rlm_heartbeat.list", include_inactive: true });
 		expect(requests[2].payload).toMatchObject({ type: "rlm_heartbeat.update", id: "job-1", status: "pause" });
 		expect(requests[3].payload).toMatchObject({ type: "rlm_heartbeat.delete", id: "job-1" });
-	}, 60000);
+	});
 
 	it("surfaces missing host handlers as Python exceptions", async () => {
 		provisioner = new IpythonKernelProvisioner(tempDir, {
