@@ -90,7 +90,11 @@ export function createFleetErrorEnvelope(
 	const message = typeof err === "string" ? err : err instanceof Error ? err.message : fallbackMessage;
 	const lower = message.toLowerCase();
 
-	if (lower.includes("token") && (lower.includes("expired") || lower.includes("invalid") || lower.includes("auth"))) {
+	if (
+		lower.includes("auth") ||
+		lower.includes("stale") ||
+		(lower.includes("token") && (lower.includes("expired") || lower.includes("invalid")))
+	) {
 		return {
 			code: "AUTH_CREDENTIAL_EXPIRED",
 			message,
@@ -874,8 +878,13 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 				reasoningFrame(state, "recovering", true),
 				{ type: "compaction", phase: "start", reason: event.reason },
 			];
-		case "compaction_end":
-			return [
+		case "compaction_end": {
+			const summary = event.result?.summary;
+			const tokensBefore = event.result?.tokensBefore;
+			const firstKeptEntryId = event.result?.firstKeptEntryId;
+			const errorMsg = event.errorMessage ? withOAuthBindingGuidance(event.errorMessage) : undefined;
+			const error = errorMsg ? createFleetErrorEnvelope(errorMsg) : undefined;
+			const frames: ChatStreamEvent[] = [
 				reasoningFrame(state, "recovering", false),
 				{
 					type: "compaction",
@@ -883,12 +892,35 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 					reason: event.reason,
 					aborted: event.aborted,
 					willRetry: event.willRetry,
-					...(event.errorMessage !== undefined
-						? { errorMessage: withOAuthBindingGuidance(event.errorMessage) }
-						: {}),
+					...(summary !== undefined ? { summary } : {}),
+					...(tokensBefore !== undefined ? { tokensBefore } : {}),
+					...(firstKeptEntryId !== undefined ? { firstKeptEntryId } : {}),
+					...(errorMsg !== undefined ? { errorMessage: errorMsg } : {}),
+					...(error !== undefined ? { error } : {}),
 				},
 			];
-		case "auto_retry_start":
+			if (event.result) {
+				const artifact: PrimeAgentArtifact = {
+					id: stablePresentationId(`${presentationRunId(state)}:compaction:${Date.now()}`),
+					runId: presentationRunId(state),
+					kind: "compaction",
+					title: `Compacted (${event.reason})`,
+					status: event.aborted ? "cancelled" : errorMsg ? "error" : "success",
+					output: {
+						reason: event.reason,
+						summary: event.result.summary,
+						tokensBefore: event.result.tokensBefore,
+						firstKeptEntryId: event.result.firstKeptEntryId,
+					},
+					timestamp: Date.now(),
+				};
+				frames.unshift(emitPresentation(state, upsertArtifact(state.presentation, artifact)));
+			}
+			return frames;
+		}
+		case "auto_retry_start": {
+			const errorMsg = event.errorMessage ? withOAuthBindingGuidance(event.errorMessage) : undefined;
+			const error = errorMsg ? createFleetErrorEnvelope(errorMsg) : undefined;
 			return [
 				reasoningFrame(state, "recovering", true),
 				{
@@ -897,12 +929,14 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 					attempt: event.attempt,
 					maxAttempts: event.maxAttempts,
 					delayMs: event.delayMs,
-					...(event.errorMessage !== undefined
-						? { errorMessage: withOAuthBindingGuidance(event.errorMessage) }
-						: {}),
+					...(errorMsg !== undefined ? { errorMessage: errorMsg } : {}),
+					...(error !== undefined ? { error } : {}),
 				},
 			];
-		case "auto_retry_end":
+		}
+		case "auto_retry_end": {
+			const finalErrorMsg = event.finalError ? withOAuthBindingGuidance(event.finalError) : undefined;
+			const error = finalErrorMsg ? createFleetErrorEnvelope(finalErrorMsg) : undefined;
 			return [
 				reasoningFrame(state, event.success ? "recovering" : "error", false),
 				{
@@ -910,23 +944,28 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 					phase: "end",
 					success: event.success,
 					attempt: event.attempt,
-					...(event.finalError !== undefined ? { finalError: withOAuthBindingGuidance(event.finalError) } : {}),
+					...(finalErrorMsg !== undefined ? { finalError: finalErrorMsg } : {}),
+					...(error !== undefined ? { error } : {}),
 				},
 			];
+		}
 		case "session_action_update": {
 			const actions = event.actions as { steering?: readonly string[]; followUps?: readonly string[] } | undefined;
 			const steering = Array.from(actions?.steering ?? []) as string[];
 			const followUp = Array.from(actions?.followUps ?? []) as string[];
 			return [{ type: "queue", steering, followUp }];
 		}
-		case "auth_stale":
+		case "auth_stale": {
+			const message = `Authentication for ${event.provider} is stale. Sign in again to continue.`;
 			return [
 				reasoningFrame(state, "error", false),
 				{
 					type: "error",
-					message: `Authentication for ${event.provider} is stale. Sign in again to continue.`,
+					message,
+					error: createFleetErrorEnvelope(message),
 				},
 			];
+		}
 		case "ipython_sent_agent_message":
 			return [
 				{

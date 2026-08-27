@@ -39,6 +39,8 @@ export type FleetErrorEnvelope = {
 	remediation?: FleetErrorRemediation;
 };
 
+export type ChatErrorEnvelope = FleetErrorEnvelope;
+
 export type ChatErrorStreamEvent = {
 	type: "error";
 	message: string;
@@ -136,7 +138,16 @@ export type ChatSessionMetadata = {
 
 export type ChatServiceTier = "auto" | "default" | "flex" | "scale" | "priority" | null;
 
-export type PrimeAgentArtifactKind = "bash" | "ipython" | "mcp" | "generic" | "diff" | "rlm" | "recap" | "refinement";
+export type PrimeAgentArtifactKind =
+	| "bash"
+	| "ipython"
+	| "mcp"
+	| "generic"
+	| "diff"
+	| "rlm"
+	| "recap"
+	| "refinement"
+	| "compaction";
 
 export type PrimeAgentArtifactStatus = "running" | "success" | "error" | "cancelled";
 
@@ -491,7 +502,11 @@ export type ChatStreamEvent =
 			reason: string;
 			aborted: boolean;
 			willRetry: boolean;
+			summary?: string;
+			tokensBefore?: number;
+			firstKeptEntryId?: string;
 			errorMessage?: string;
+			error?: ChatErrorEnvelope;
 	  }
 	| {
 			type: "retry";
@@ -500,6 +515,7 @@ export type ChatStreamEvent =
 			maxAttempts: number;
 			delayMs: number;
 			errorMessage?: string;
+			error?: ChatErrorEnvelope;
 	  }
 	| {
 			type: "retry";
@@ -507,6 +523,7 @@ export type ChatStreamEvent =
 			success: boolean;
 			attempt: number;
 			finalError?: string;
+			error?: ChatErrorEnvelope;
 	  }
 	| {
 			type: "done";
