@@ -155,6 +155,11 @@ function replaceOrAppendInFlight(
 }
 
 export function applyChatStreamEvent(transition: ChatStreamTransition, event: ChatStreamEvent): ChatStreamTransition {
+	// Runtime reattachment uses a synthetic done frame to mark the old
+	// connection state as reset. The user turn is still in flight, so preserve
+	// the current assistant bubble until the real terminal done arrives.
+	if (event.type === "done" && event.sessionReset) return transition;
+
 	if (event.type === "presentation") {
 		const currentRevision = transition.snapshot.presentation?.revision ?? -1;
 		if (event.presentation.revision <= currentRevision) return transition;

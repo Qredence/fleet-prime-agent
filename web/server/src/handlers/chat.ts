@@ -128,7 +128,10 @@ export function handleChatPost(request: Request): Promise<Response> {
 					// synthetic completion below; the SSE stream owns live turn frames.
 					if (backendSessionCommand) return;
 					write(frame);
-					if (frame.type === "error" || frame.type === "done") {
+					// Reattachment emits a synthetic done frame to reset presentation
+					// state. It is not completion of this POST's turn; closing here
+					// drops the real answer frames that follow the re-sync.
+					if (frame.type === "error" || (frame.type === "done" && !frame.sessionReset)) {
 						close();
 					}
 				});

@@ -11,6 +11,7 @@ import { collapsePanel, mono, ShimmerLabel, SwapLabel } from "../../lib/surfaces
 import { take } from "../../lib/range";
 
 export interface ReasoningStep {
+  id?: string;
   title: string;
   body: string;
 }
@@ -73,7 +74,7 @@ export function ReasoningPanel({
             const active = streaming && i === shown.length - 1;
             return (
               <li
-                key={step.title}
+                key={step.id ?? `${step.title}-${i}`}
                 className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex gap-3 duration-300"
               >
                 <span

@@ -240,6 +240,60 @@ describe("handleChatPost attachment validation", () => {
 		expect(frames[1]?.requestKind).toBe("session-command");
 		expect(JSON.stringify(frames)).not.toContain("active turn result");
 	});
+
+	it("keeps the live turn stream open across a non-terminal session reset", async () => {
+		const streamSession = {
+			...session,
+			mapperState: {
+				inRun: true,
+				currentMessageId: "active-run-a0",
+				runId: "active-run",
+				presentation: { revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] },
+			},
+		} as unknown as BridgeSession;
+		let listener: ((sessionId: string, frame: unknown) => void) | undefined;
+		setBridgeForTests({
+			getSession: vi.fn(() => streamSession),
+			addEventListener: vi.fn((next) => {
+				listener = next;
+				return () => undefined;
+			}),
+			prompt: vi.fn(async () => undefined),
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatPost(
+			new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId: streamSession.sessionId, message: "primary" }),
+			}),
+		);
+		expect(listener).toBeDefined();
+
+		listener?.(streamSession.sessionId, {
+			type: "done",
+			runId: "reset-run",
+			sessionId: streamSession.sessionId,
+			sessionReset: true,
+			message: { id: "reset-message", role: "assistant", parts: [] },
+		});
+		listener?.(streamSession.sessionId, { type: "delta", text: "continued" });
+		listener?.(streamSession.sessionId, {
+			type: "done",
+			runId: "active-run",
+			sessionId: streamSession.sessionId,
+			message: { id: "active-run-a0", role: "assistant", parts: [{ type: "text", text: "continued" }] },
+		});
+
+		const frames = (await response.text())
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as { type: string; sessionReset?: boolean; text?: string });
+		expect(frames.map((frame) => frame.type)).toEqual(["start", "done", "delta", "done"]);
+		expect(frames[1]?.sessionReset).toBe(true);
+		expect(frames[2]?.text).toBe("continued");
+	});
 });
 
 describe("handleChatNewPost", () => {

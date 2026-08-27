@@ -77,6 +77,35 @@ describe("applyChatStreamEvent", () => {
 		expect(text).toBe("Hello world");
 	});
 
+	it("preserves an in-flight assistant across a non-terminal session reset", () => {
+		const firstId = "run-1-a0";
+		const resumedId = "run-2-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(firstId));
+		t = applyChatStreamEvent(t, delta(firstId, "partial"));
+		const beforeReset = t;
+
+		const afterReset = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "reset-run",
+			sessionId: "session-1",
+			sessionReset: true,
+			message: toChatMessage("reset-message", "assistant", []),
+		});
+		expect(afterReset).toBe(beforeReset);
+
+		t = applyChatStreamEvent(afterReset, delta(resumedId, " answer"));
+		expect(assistantMessages(t)).toHaveLength(1);
+		expect(assistantMessages(t)[0]).toMatchObject({
+			id: resumedId,
+			parts: [{ type: "text", text: "partial answer" }],
+		});
+
+		t = applyChatStreamEvent(t, done(resumedId, "partial answer", "run-2"));
+		expect(t.assistantId).toBeNull();
+		expect(assistantMessages(t)).toHaveLength(1);
+		expect(assistantMessages(t)[0]?.parts).toEqual([{ type: "text", text: "partial answer" }]);
+	});
+
 	it("two sequential turns with distinct ids produce two assistant messages", () => {
 		const s1 = "run-1-a0";
 		const s2 = "run-2-a0";

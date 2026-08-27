@@ -183,6 +183,13 @@ export function usePiChatMessaging({
 			if (event.type === "error") {
 				throw new Error(event.message);
 			}
+			if (event.type === "done" && event.sessionReset) {
+				// A reconnect/reset is not completion of the active POST stream.
+				// Keep status and assistantId intact so subsequent frames continue
+				// the visible answer instead of replacing it with an empty message.
+				if (streamSessionId !== sessionMetadataRef.current.sessionId) void refreshSessions();
+				return;
+			}
 			let planPart: ReturnType<typeof createPlanToolPart>;
 			if (event.type === "done" && mode === "plan") {
 				const initialPlanState = applyPlanModeSelection(createEmptyPlanState(), mode);

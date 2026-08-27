@@ -1,6 +1,6 @@
 import { FLEET_ADAPTER_CAPABILITIES } from "@prime-agent/web-protocol/chat-protocol";
 import { getBridge } from "../singleton";
-import { shouldReplaySseEvent } from "../sse-replay";
+import { normalizeSseReplayEvent, shouldReplaySseEvent } from "../sse-replay";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 export function handleChatEventsGet(request: Request): Promise<Response> {
@@ -54,10 +54,11 @@ export function handleChatEventsGet(request: Request): Promise<Response> {
 					const { replayed } = bridge.replaySince(sessionId, liveCursor);
 					for (const entry of replayed) {
 						liveCursor = entry.seq;
-						if (!shouldReplaySseEvent(entry.event, pendingQuestionIds)) {
+						const event = normalizeSseReplayEvent(entry.event);
+						if (!shouldReplaySseEvent(event, pendingQuestionIds)) {
 							continue;
 						}
-						write({ id: entry.seq, data: entry.event });
+						write({ id: entry.seq, data: event });
 					}
 					pendingQuestionIds = null;
 				};
