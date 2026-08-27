@@ -1221,10 +1221,11 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 			// Forward a serializable UI request to the web client as a tool
 			// frame. The bridge's dialog registry maps the `toolCallId` to a
 			// PendingDialog, and `answerDialog` resolves it from the answer.
-			// The `kind: "extension"` discriminator inside the part's `input`
-			// is the bridge-private contract — the client renders the same
-			// tool-Question card and the answer is delivered as usual.
 			const request = event.request;
+			const payload = (request.payload && typeof request.payload === "object" ? request.payload : {}) as Record<
+				string,
+				unknown
+			>;
 			return [
 				{
 					type: "tool",
@@ -1237,6 +1238,11 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 						input: {
 							kind: "extension",
 							method: request.method,
+							title: typeof payload.title === "string" ? payload.title : undefined,
+							message: typeof payload.message === "string" ? payload.message : undefined,
+							options: Array.isArray(payload.options) ? payload.options : undefined,
+							questions: Array.isArray(payload.questions) ? payload.questions : undefined,
+							placeholder: typeof payload.placeholder === "string" ? payload.placeholder : undefined,
 							payload: request.payload,
 						},
 					},

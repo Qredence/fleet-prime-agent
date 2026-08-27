@@ -938,4 +938,59 @@ describe("event-mapper", () => {
 			});
 		});
 	});
+
+	describe("Phase 3: Interactive Clarification Questions & Extension Dialog Protocol", () => {
+		it("maps extension_ui_request with structured questions array to tool-Question part", () => {
+			const state = createEventMapperState({ sessionId: "test-session" });
+
+			const questions = [
+				{
+					id: "opt-1",
+					question: "Which database do you prefer?",
+					options: ["PostgreSQL", "SQLite"],
+					isMultiSelect: false,
+				},
+				{
+					id: "opt-2",
+					question: "Include documentation?",
+					options: ["Yes", "No"],
+					isMultiSelect: false,
+				},
+			];
+
+			const frames = mapAgentConnectionEvent(state, {
+				type: "extension_ui_request",
+				request: {
+					id: "dialog-req-1",
+					method: "questions",
+					payload: {
+						title: "Architecture Choices",
+						message: "Please choose from the options below:",
+						questions,
+						options: ["PostgreSQL", "SQLite"],
+						placeholder: "Type custom option...",
+					},
+				},
+			} as unknown as AgentConnectionEvent);
+
+			expect(frames).toHaveLength(1);
+			expect(frames[0].type).toBe("tool");
+
+			const toolFrame = frames[0] as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(toolFrame.part.type).toBe("tool-Question");
+			expect(toolFrame.part.category).toBe("question");
+			expect(toolFrame.part.toolName).toBe("ask_question");
+			expect(toolFrame.part.toolCallId).toBe("dialog-req-1");
+			expect(toolFrame.part.state).toBe("input-streaming");
+			expect(toolFrame.part.input).toMatchObject({
+				kind: "extension",
+				method: "questions",
+				title: "Architecture Choices",
+				message: "Please choose from the options below:",
+				questions,
+				options: ["PostgreSQL", "SQLite"],
+				placeholder: "Type custom option...",
+			});
+		});
+	});
 });
