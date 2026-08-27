@@ -336,6 +336,7 @@ const PrimeAgentArtifactKindSchema = z.enum([
 	"rlm",
 	"recap",
 	"refinement",
+	"compaction",
 ]);
 
 export const PrimeAgentArtifactSchema = z
@@ -521,57 +522,6 @@ export const ChatReasoningEventSchema = z
 	})
 	.openapi({ description: "Safe reasoning-summary event" });
 
-export const ChatCompactionStartEventSchema = z
-	.object({
-		type: z.literal("compaction"),
-		phase: z.literal("start"),
-		reason: z.string(),
-	})
-	.openapi({ description: "Compaction start event" });
-
-export const ChatCompactionEndEventSchema = z
-	.object({
-		type: z.literal("compaction"),
-		phase: z.literal("end"),
-		reason: z.string(),
-		aborted: z.boolean(),
-		willRetry: z.boolean(),
-		errorMessage: z.string().optional(),
-	})
-	.openapi({ description: "Compaction end event" });
-
-export const ChatRetryStartEventSchema = z
-	.object({
-		type: z.literal("retry"),
-		phase: z.literal("start"),
-		attempt: z.number(),
-		maxAttempts: z.number(),
-		delayMs: z.number(),
-		errorMessage: z.string().optional(),
-	})
-	.openapi({ description: "Retry start event" });
-
-export const ChatRetryEndEventSchema = z
-	.object({
-		type: z.literal("retry"),
-		phase: z.literal("end"),
-		success: z.boolean(),
-		attempt: z.number(),
-		finalError: z.string().optional(),
-	})
-	.openapi({ description: "Retry end event" });
-
-export const ChatDoneEventSchema = z
-	.object({
-		type: z.literal("done"),
-		runId: z.string(),
-		message: ChatMessageSchema,
-		sessionId: SessionIdSchema,
-		requestKind: z.literal("session-command").optional(),
-		sessionReset: z.boolean().optional(),
-	})
-	.openapi({ description: "Stream done event" });
-
 export const FleetErrorCodeSchema = z
 	.enum([
 		"AUTH_CREDENTIAL_EXPIRED",
@@ -610,6 +560,65 @@ export const FleetErrorEnvelopeSchema = z
 		remediation: FleetErrorRemediationSchema.optional(),
 	})
 	.openapi({ description: "Standardized Fleet error envelope" });
+
+export const ChatErrorEnvelopeSchema = FleetErrorEnvelopeSchema;
+
+export const ChatCompactionStartEventSchema = z
+	.object({
+		type: z.literal("compaction"),
+		phase: z.literal("start"),
+		reason: z.string(),
+	})
+	.openapi({ description: "Compaction start event" });
+
+export const ChatCompactionEndEventSchema = z
+	.object({
+		type: z.literal("compaction"),
+		phase: z.literal("end"),
+		reason: z.string(),
+		aborted: z.boolean(),
+		willRetry: z.boolean(),
+		summary: z.string().optional(),
+		tokensBefore: z.number().optional(),
+		firstKeptEntryId: z.string().optional(),
+		errorMessage: z.string().optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
+	})
+	.openapi({ description: "Compaction end event" });
+
+export const ChatRetryStartEventSchema = z
+	.object({
+		type: z.literal("retry"),
+		phase: z.literal("start"),
+		attempt: z.number(),
+		maxAttempts: z.number(),
+		delayMs: z.number(),
+		errorMessage: z.string().optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
+	})
+	.openapi({ description: "Retry start event" });
+
+export const ChatRetryEndEventSchema = z
+	.object({
+		type: z.literal("retry"),
+		phase: z.literal("end"),
+		success: z.boolean(),
+		attempt: z.number(),
+		finalError: z.string().optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
+	})
+	.openapi({ description: "Retry end event" });
+
+export const ChatDoneEventSchema = z
+	.object({
+		type: z.literal("done"),
+		runId: z.string(),
+		message: ChatMessageSchema,
+		sessionId: SessionIdSchema,
+		requestKind: z.literal("session-command").optional(),
+		sessionReset: z.boolean().optional(),
+	})
+	.openapi({ description: "Stream done event" });
 
 export const ChatErrorEventSchema = z
 	.object({
