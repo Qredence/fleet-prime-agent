@@ -6,6 +6,7 @@ import type {
 import type { RightPanel, ThemePreference } from "@prime-agent/web-design/lib/canvas-utils";
 import type { ChatModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type {
+	ChatMode,
 	ChatPiSettingsUpdate,
 	ChatProviderInfo,
 	ChatProviderOAuthLoginRequest,
@@ -16,7 +17,9 @@ import type {
 	ChatProviderUpdateResponse,
 	ChatResourcesResponse,
 	ChatSettingsResponse,
+	ChatThinkingLevel,
 	PrimeAgentArtifactRun,
+	PrimeAgentSessionPresentation,
 	QueueState,
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
@@ -27,6 +30,7 @@ import { useMemo } from "react";
 type UseRightPanelContextValueArgs = {
 	activityLabel?: string;
 	artifactRuns: Array<PrimeAgentArtifactRun>;
+	chatMode: ChatMode;
 	handleThemePreferenceChange: (preference: ThemePreference) => void;
 	isLoadingProviders?: boolean;
 	isUpdatingProvider?: boolean;
@@ -41,6 +45,7 @@ type UseRightPanelContextValueArgs = {
 	onUpdateProvider?: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
 	openWorkspacePath: (rawPath: string) => void;
 	planLabel?: string;
+	presentation: PrimeAgentSessionPresentation;
 	providers?: Array<ChatProviderInfo>;
 	queue: QueueState;
 	refreshResources: () => void;
@@ -51,6 +56,7 @@ type UseRightPanelContextValueArgs = {
 	rightPanel: RightPanel;
 	saveSettings: (settings: ChatPiSettingsUpdate) => Promise<ChatSettingsResponse>;
 	selectedArtifactId?: string | null;
+	sessionId?: string;
 	selectedWorkspacePath: string | null;
 	setRightPanel: (panel: RightPanel) => void;
 	setSelectedWorkspacePath: (path: string | null) => void;
@@ -58,6 +64,7 @@ type UseRightPanelContextValueArgs = {
 	settingsError: Error | null;
 	settingsLoading: boolean;
 	status: ChatStatus;
+	thinkingLevel?: ChatThinkingLevel;
 	themePreference: ThemePreference;
 	workspaceError: Error | null;
 	workspaceLoading: boolean;
@@ -73,6 +80,7 @@ type RightPanelContextSlices = {
 export function useRightPanelContextValue({
 	activityLabel,
 	artifactRuns,
+	chatMode,
 	handleThemePreferenceChange,
 	isLoadingProviders,
 	isUpdatingProvider,
@@ -87,6 +95,7 @@ export function useRightPanelContextValue({
 	onUpdateProvider,
 	openWorkspacePath,
 	planLabel,
+	presentation,
 	providers,
 	queue,
 	refreshResources,
@@ -97,6 +106,7 @@ export function useRightPanelContextValue({
 	rightPanel,
 	saveSettings,
 	selectedArtifactId,
+	sessionId,
 	selectedWorkspacePath,
 	setRightPanel,
 	setSelectedWorkspacePath,
@@ -104,6 +114,7 @@ export function useRightPanelContextValue({
 	settingsError,
 	settingsLoading,
 	status,
+	thinkingLevel,
 	themePreference,
 	workspaceError,
 	workspaceLoading,
@@ -113,9 +124,11 @@ export function useRightPanelContextValue({
 		() => ({
 			activityLabel,
 			artifactRuns,
+			chatMode,
 			messages,
 			models,
 			planLabel,
+			presentation,
 			queue,
 			refreshResources,
 			resources,
@@ -124,15 +137,19 @@ export function useRightPanelContextValue({
 			rightPanel,
 			selectedModelKey: modelKey,
 			selectedArtifactId,
+			sessionId,
 			setRightPanel,
 			status,
+			thinkingLevel,
 		}),
 		[
 			activityLabel,
 			artifactRuns,
+			chatMode,
 			messages,
 			models,
 			planLabel,
+			presentation,
 			queue,
 			refreshResources,
 			resources,
@@ -141,8 +158,10 @@ export function useRightPanelContextValue({
 			rightPanel,
 			modelKey,
 			selectedArtifactId,
+			sessionId,
 			setRightPanel,
 			status,
+			thinkingLevel,
 		],
 	);
 

@@ -145,7 +145,7 @@ function PanelActionComponent({
   props: {
     focus?: boolean
     label: string
-    panel: "resources" | "workspace" | "artifacts"
+    panel: "resources" | "workspace" | "artifacts" | "session-insights"
     relativePath?: string
   }
 }) {
@@ -169,7 +169,7 @@ function PanelActionComponent({
 export const PanelActionDef = defineComponent({
   name: "PanelAction",
   description:
-    "A trusted local action that opens Resources, Workspace, or Artifacts and may select a contained workspace-relative path.",
+    "A trusted local action that opens Resources, Workspace, Artifacts, or Session insights and may select a contained workspace-relative path.",
   props: z.object({
     label: z.string().describe("Visible action label"),
     panel: RightPanelIdSchema,
