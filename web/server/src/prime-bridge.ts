@@ -23,6 +23,7 @@ import {
 	buildOpenUIPrompt,
 	type ChatMessage,
 	type ChatMode,
+	type ChatPendingDialog,
 	type ChatPlanAction,
 	type ChatQuestionAnswer,
 	type ChatServiceTier,
@@ -563,7 +564,35 @@ export class PrimeBridge {
 			});
 			return true;
 		}
+
+		const rawQuestions = Array.isArray(request.payload.questions) ? request.payload.questions : undefined;
+		const questions = rawQuestions?.map((q) => {
+			const item = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
+			return {
+				id: typeof item.id === "string" ? item.id : undefined,
+				question:
+					typeof item.question === "string" ? item.question : typeof item.title === "string" ? item.title : "",
+				options: Array.isArray(item.options)
+					? item.options.filter((o): o is string => typeof o === "string")
+					: undefined,
+				isMultiSelect:
+					typeof item.isMultiSelect === "boolean"
+						? item.isMultiSelect
+						: typeof item.is_multi_select === "boolean"
+							? item.is_multi_select
+							: undefined,
+				defaultOption: typeof item.defaultOption === "string" ? item.defaultOption : undefined,
+				allowWriteIn: typeof item.allowWriteIn === "boolean" ? item.allowWriteIn : undefined,
+			};
+		});
+
+		const hasQuestions =
+			request.method === "questions" ||
+			request.method === "ask_question" ||
+			Boolean(questions && questions.length > 0);
+
 		if (
+			!hasQuestions &&
 			request.method !== "select" &&
 			request.method !== "confirm" &&
 			request.method !== "input" &&
@@ -572,7 +601,13 @@ export class PrimeBridge {
 			return false;
 		}
 
-		const kind = request.method === "select" ? "select" : request.method === "confirm" ? "confirm" : "input";
+		const kind = hasQuestions
+			? "questions"
+			: request.method === "select"
+				? "select"
+				: request.method === "confirm"
+					? "confirm"
+					: "input";
 		this.#daemonDialogs.set(request.id, { connection, method: request.method });
 		const pending = this.#dialogs.open<unknown>({
 			sessionId,
@@ -581,6 +616,7 @@ export class PrimeBridge {
 			title,
 			message,
 			...(options ? { options } : {}),
+			...(questions ? { questions } : {}),
 			...(placeholder ? { placeholder } : {}),
 			...(timeoutMs !== undefined ? { timeoutMs } : {}),
 			signalFrame: {
@@ -588,10 +624,17 @@ export class PrimeBridge {
 				toolCallId: request.id,
 				state: "input-streaming",
 				input: {
-					kind: request.method === "select" ? "select" : request.method === "confirm" ? "confirm" : "text",
+					kind: hasQuestions
+						? "questions"
+						: request.method === "select"
+							? "select"
+							: request.method === "confirm"
+								? "confirm"
+								: "text",
 					title,
 					...(message ? { message } : {}),
 					...(options ? { options } : {}),
+					...(questions ? { questions } : {}),
 					...(placeholder ? { placeholder } : {}),
 					method: request.method,
 				},
@@ -602,13 +645,27 @@ export class PrimeBridge {
 				if (request.method === "confirm") {
 					return connection.respondToExtensionUiRequest(request.id, { confirmed: Boolean(value) });
 				}
+				if (hasQuestions) {
+					if (value && typeof value === "object") {
+						return connection.respondToExtensionUiRequest(request.id, {
+							value: JSON.stringify(value),
+						});
+					}
+					return connection.respondToExtensionUiRequest(request.id, {
+						value: typeof value === "string" ? value : "",
+					});
+				}
 				const text =
 					value && typeof value === "object" && "choice" in value
 						? (value as { choice?: unknown }).choice
-						: value && typeof value === "object" && "text" in value
-							? (value as { text?: unknown }).text
-							: undefined;
-				return connection.respondToExtensionUiRequest(request.id, { value: typeof text === "string" ? text : "" });
+						: value && typeof value === "object" && "choices" in value
+							? (value as { choices?: unknown }).choices
+							: value && typeof value === "object" && "text" in value
+								? (value as { text?: unknown }).text
+								: undefined;
+				return connection.respondToExtensionUiRequest(request.id, {
+					value: typeof text === "string" ? text : Array.isArray(text) ? text.join(",") : "",
+				});
 			})
 			.catch(() => connection.respondToExtensionUiRequest(request.id, { cancelled: true }).catch(() => undefined))
 			.finally(() => this.#daemonDialogs.delete(request.id));
@@ -962,6 +1019,11 @@ export class PrimeBridge {
 		if (answer.kind === "skip") {
 			return this.#dialogs.cancel(sessionId, toolCallId, "user-abort");
 		}
+		if (answer.kind === "questions" && answer.answers) {
+			return this.#dialogs.answer(sessionId, toolCallId, {
+				answers: answer.answers,
+			});
+		}
 		if (answer.kind === "single" && answer.selectedIds && answer.selectedIds.length > 0) {
 			return this.#dialogs.answer(sessionId, toolCallId, {
 				choice: answer.selectedIds[0],
@@ -969,6 +1031,7 @@ export class PrimeBridge {
 		}
 		if (answer.kind === "multi" && answer.selectedIds && answer.selectedIds.length > 0) {
 			return this.#dialogs.answer(sessionId, toolCallId, {
+				choices: answer.selectedIds,
 				choice: answer.selectedIds[0],
 			});
 		}
@@ -979,8 +1042,8 @@ export class PrimeBridge {
 		return this.#dialogs.cancel(sessionId, toolCallId, "user-abort");
 	}
 
-	pendingDialogsFor(sessionId: string) {
-		return this.#dialogs.list(sessionId);
+	pendingDialogsFor(sessionId: string): readonly ChatPendingDialog[] {
+		return this.#dialogs.snapshot(sessionId);
 	}
 
 	// -----------------------------------------------------------------------

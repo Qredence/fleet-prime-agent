@@ -39,6 +39,7 @@ export {
 	WorkspaceTreeResponseSchema,
 } from "./schemas/catalog";
 export {
+	ChatClarificationQuestionSchema,
 	ChatCompactionEndEventSchema,
 	ChatCompactionStartEventSchema,
 	ChatDeltaEventSchema,
@@ -51,6 +52,8 @@ export {
 	ChatMessageSchema,
 	ChatModelSelectionSchema,
 	ChatNewRequestSchema,
+	ChatPendingDialogSchema,
+	ChatPendingDialogsResponseSchema,
 	ChatPlanEventSchema,
 	ChatPlanPresentationSchema,
 	ChatPlanPresentationUpsertRequestSchema,

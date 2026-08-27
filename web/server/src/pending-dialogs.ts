@@ -12,17 +12,24 @@
  * `tool-Question` frame with `state: "output-error"` so connected UIs clear
  * the card.
  */
-import type { ChatStreamEvent, ChatToolPart } from "@prime-agent/web-protocol";
+import type {
+	ChatClarificationQuestion,
+	ChatPendingDialog,
+	ChatStreamEvent,
+	ChatToolPart,
+} from "@prime-agent/web-protocol";
 
 export interface PendingDialog {
 	readonly sessionId: string;
 	readonly toolCallId: string;
-	readonly kind: "confirm" | "select" | "input";
+	readonly kind: "confirm" | "select" | "input" | "questions";
 	readonly title: string;
 	readonly message: string;
 	readonly options?: readonly string[];
+	readonly questions?: readonly ChatClarificationQuestion[];
 	readonly placeholder?: string;
 	readonly createdAt: number;
+	readonly timeoutMs?: number;
 	resolve: (value: unknown) => void;
 	reject: (err: Error) => void;
 	timer: NodeJS.Timeout;
@@ -56,6 +63,21 @@ export class PendingDialogRegistry {
 		return map ? [...map.values()] : [];
 	}
 
+	snapshot(sessionId: string): readonly ChatPendingDialog[] {
+		return this.list(sessionId).map((d) => ({
+			sessionId: d.sessionId,
+			toolCallId: d.toolCallId,
+			kind: d.kind,
+			title: d.title,
+			...(d.message ? { message: d.message } : {}),
+			...(d.options ? { options: [...d.options] } : {}),
+			...(d.questions ? { questions: [...d.questions] } : {}),
+			...(d.placeholder ? { placeholder: d.placeholder } : {}),
+			createdAt: d.createdAt,
+			...(d.timeoutMs !== undefined ? { timeoutMs: d.timeoutMs } : {}),
+		}));
+	}
+
 	async open<T>(args: {
 		sessionId: string;
 		toolCallId: string;
@@ -63,11 +85,13 @@ export class PendingDialogRegistry {
 		title: string;
 		message: string;
 		options?: readonly string[];
+		questions?: readonly ChatClarificationQuestion[];
 		placeholder?: string;
 		timeoutMs?: number;
 		signalFrame: ChatToolPart;
 	}): Promise<T> {
 		const map = this.forSession(args.sessionId);
+		const timeoutDuration = args.timeoutMs ?? this.defaultTimeoutMs;
 		return await new Promise<T>((resolve, reject) => {
 			let settled = false;
 			const dialog: PendingDialog = {
@@ -77,8 +101,10 @@ export class PendingDialogRegistry {
 				title: args.title,
 				message: args.message,
 				options: args.options,
+				questions: args.questions,
 				placeholder: args.placeholder,
 				createdAt: Date.now(),
+				timeoutMs: timeoutDuration,
 				resolve: (value: unknown) => {
 					if (settled) return;
 					settled = true;
@@ -93,7 +119,7 @@ export class PendingDialogRegistry {
 					if (settled) return;
 					// Auto-cancel after timeout: the agent loop sees a clear reject reason.
 					this.cancel(args.sessionId, args.toolCallId, "timeout");
-				}, args.timeoutMs ?? this.defaultTimeoutMs),
+				}, timeoutDuration),
 			};
 			map.set(args.toolCallId, dialog);
 			this.emitFrame(args.sessionId, { type: "tool", part: args.signalFrame });

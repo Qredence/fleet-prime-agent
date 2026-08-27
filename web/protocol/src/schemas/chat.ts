@@ -53,14 +53,47 @@ export const ChatNewRequestSchema = z
 	})
 	.openapi({ description: "Create a project-scoped chat session" });
 
+export const ChatClarificationQuestionSchema = z
+	.object({
+		id: z.string().optional(),
+		question: z.string(),
+		options: z.array(z.string()).optional(),
+		isMultiSelect: z.boolean().optional(),
+		defaultOption: z.string().optional(),
+		allowWriteIn: z.boolean().optional(),
+	})
+	.openapi({ description: "Interactive clarification question" });
+
 export const ChatQuestionAnswerSchema = z
 	.object({
-		kind: z.enum(["single", "multi", "text", "skip"]),
+		kind: z.enum(["single", "multi", "text", "skip", "questions"]),
 		questionId: z.string().optional(),
 		selectedIds: z.array(z.string()).optional(),
 		text: z.string().optional(),
+		answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])).optional(),
 	})
 	.openapi({ description: "Question answer" });
+
+export const ChatPendingDialogSchema = z
+	.object({
+		sessionId: SessionIdSchema,
+		toolCallId: z.string(),
+		kind: z.enum(["confirm", "select", "input", "questions"]),
+		title: z.string(),
+		message: z.string().optional(),
+		options: z.array(z.string()).optional(),
+		questions: z.array(ChatClarificationQuestionSchema).optional(),
+		placeholder: z.string().optional(),
+		createdAt: z.number(),
+		timeoutMs: z.number().optional(),
+	})
+	.openapi({ description: "Pending interactive dialog" });
+
+export const ChatPendingDialogsResponseSchema = z
+	.object({
+		dialogs: z.array(ChatPendingDialogSchema),
+	})
+	.openapi({ description: "List of pending dialogs for a session" });
 
 export const ChatQuestionAnswerRequestSchema = z
 	.object({

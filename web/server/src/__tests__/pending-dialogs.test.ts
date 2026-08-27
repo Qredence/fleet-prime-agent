@@ -123,4 +123,57 @@ describe("PendingDialogRegistry", () => {
 			expect(frame.part.state).toBe("output-error");
 		}
 	});
+
+	it("handles interactive multi-question clarification dialogs and snapshot serialization", async () => {
+		const questions = [
+			{
+				id: "q1",
+				question: "Select database engine",
+				options: ["PostgreSQL", "SQLite", "DuckDB"],
+				isMultiSelect: false,
+			},
+			{
+				id: "q2",
+				question: "Select features to enable",
+				options: ["Auth", "Telemetry", "Backups"],
+				isMultiSelect: true,
+			},
+		];
+
+		const promise = registry.open<{ answers: Record<string, unknown> }>({
+			sessionId: "s1",
+			toolCallId: "tool-q-1",
+			kind: "questions",
+			title: "Database Configuration",
+			message: "Please specify database and optional components",
+			questions,
+			signalFrame: {
+				type: "tool-Question",
+				toolCallId: "tool-q-1",
+				state: "input-streaming",
+			},
+		});
+
+		const snap = registry.snapshot("s1");
+		expect(snap).toHaveLength(1);
+		expect(snap[0]).toMatchObject({
+			sessionId: "s1",
+			toolCallId: "tool-q-1",
+			kind: "questions",
+			title: "Database Configuration",
+			questions,
+		});
+
+		const answerPayload = {
+			answers: {
+				q1: "PostgreSQL",
+				q2: ["Auth", "Backups"],
+			},
+		};
+
+		const answered = registry.answer("s1", "tool-q-1", answerPayload);
+		expect(answered).toBe(true);
+		await expect(promise).resolves.toEqual(answerPayload);
+		expect(registry.snapshot("s1")).toHaveLength(0);
+	});
 });
