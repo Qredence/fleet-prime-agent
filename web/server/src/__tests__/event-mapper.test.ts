@@ -5,6 +5,7 @@ import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
 	categorizeTool,
+	computeRlmExecutionTree,
 	createEventMapperState,
 	createFleetErrorEnvelope,
 	mapAgentConnectionEvent,
@@ -781,6 +782,159 @@ describe("event-mapper", () => {
 					code: "EXTENSION_ERROR",
 					message: "Extension error in /plugins/my-ext.js: Module failed to load",
 				},
+			});
+		});
+	});
+
+	describe("Phase 2: Hierarchical RLM Tree & Subagent State", () => {
+		it("computes recursive tree hierarchy, depths, and child mappings correctly", () => {
+			const children = [
+				{
+					id: "sub-1",
+					parentId: "root-session",
+					label: "Researcher",
+					status: "done" as const,
+					timestamp: 1000,
+				},
+				{
+					id: "sub-2",
+					parentId: "sub-1",
+					label: "Nested Planner",
+					status: "running" as const,
+					timestamp: 2000,
+				},
+				{
+					id: "sub-3",
+					parentId: "sub-1",
+					label: "Nested Verifier",
+					status: "queued" as const,
+					timestamp: 2500,
+				},
+				{
+					id: "sub-4",
+					parentId: "sub-2",
+					label: "Deep Coder",
+					status: "running" as const,
+					timestamp: 3000,
+				},
+				{
+					id: "sub-5",
+					parentId: "root-session",
+					label: "Independent Subagent",
+					status: "done" as const,
+					timestamp: 3500,
+				},
+			];
+
+			const tree = computeRlmExecutionTree("root-session", children, "sub-4");
+
+			expect(tree.rootSessionId).toBe("root-session");
+			expect(tree.activeNodeId).toBe("sub-4");
+			expect(tree.rootChildrenIds).toEqual(["sub-1", "sub-5"]);
+
+			// Level 1 depths
+			expect(tree.nodes["sub-1"].depth).toBe(1);
+			expect(tree.nodes["sub-1"].childrenIds).toEqual(["sub-2", "sub-3"]);
+			expect(tree.nodes["sub-5"].depth).toBe(1);
+			expect(tree.nodes["sub-5"].childrenIds).toEqual([]);
+
+			// Level 2 depths
+			expect(tree.nodes["sub-2"].depth).toBe(2);
+			expect(tree.nodes["sub-2"].childrenIds).toEqual(["sub-4"]);
+			expect(tree.nodes["sub-3"].depth).toBe(2);
+			expect(tree.nodes["sub-3"].childrenIds).toEqual([]);
+
+			// Level 3 depth
+			expect(tree.nodes["sub-4"].depth).toBe(3);
+			expect(tree.nodes["sub-4"].childrenIds).toEqual([]);
+		});
+
+		it("emits discrete rlm stream event alongside presentation on rlm_child_update", () => {
+			const state = createEventMapperState({ sessionId: "root-session" });
+
+			const frames1 = mapAgentSessionEvent(state, {
+				type: "rlm_child_update",
+				child: {
+					id: "child-a",
+					label: "Worker A",
+					status: "running",
+					sessionDir: "/hidden/path",
+				},
+			} as unknown as AgentSessionEvent);
+
+			expect(frames1).toHaveLength(2);
+			expect(frames1[0].type).toBe("presentation");
+			expect(frames1[1].type).toBe("rlm");
+
+			const rlmEvent1 = frames1[1] as Extract<ChatStreamEvent, { type: "rlm" }>;
+			expect(rlmEvent1.child).toMatchObject({
+				id: "child-a",
+				label: "Worker A",
+				status: "running",
+				depth: 1,
+			});
+			expect(rlmEvent1.tree?.rootChildrenIds).toEqual(["child-a"]);
+
+			// Nested child update
+			const frames2 = mapAgentSessionEvent(state, {
+				type: "rlm_child_update",
+				child: {
+					id: "child-b",
+					parentId: "child-a",
+					label: "Worker B (nested under A)",
+					status: "running",
+					sessionDir: "/hidden/path/b",
+				},
+			} as unknown as AgentSessionEvent);
+
+			const rlmEvent2 = frames2[1] as Extract<ChatStreamEvent, { type: "rlm" }>;
+			expect(rlmEvent2.child).toMatchObject({
+				id: "child-b",
+				parentId: "child-a",
+				depth: 2,
+			});
+			expect(rlmEvent2.tree?.nodes["child-a"].childrenIds).toEqual(["child-b"]);
+			expect(state.presentation.rlmTree?.nodes["child-b"].depth).toBe(2);
+		});
+
+		it("resyncs parent session metadata and computes RLM tree on session_resynced", () => {
+			const state = createEventMapperState({ sessionId: "child-session" });
+
+			const frames = mapAgentConnectionEvent(state, {
+				type: "session_resynced",
+				snapshot: {
+					parent: {
+						activeSessionId: "parent-active-1",
+						sessionId: "parent-session-1",
+						nodeId: "node-1",
+						childId: "child-session",
+					},
+					children: [
+						{
+							id: "sub-child-1",
+							parentId: "child-session",
+							label: "Sub worker",
+							status: "done",
+							sessionDir: "/tmp/sub",
+						},
+					],
+				},
+			} as unknown as AgentConnectionEvent);
+
+			expect(frames.length).toBeGreaterThanOrEqual(3);
+			const presFrame = frames.find(
+				(f): f is Extract<ChatStreamEvent, { type: "presentation" }> => f.type === "presentation",
+			);
+			expect(presFrame).toBeDefined();
+			expect(presFrame?.presentation.parent).toMatchObject({
+				activeSessionId: "parent-active-1",
+				sessionId: "parent-session-1",
+				childId: "child-session",
+			});
+			expect(presFrame?.presentation.rlmChildren).toHaveLength(1);
+			expect(presFrame?.presentation.rlmTree?.nodes["sub-child-1"]).toMatchObject({
+				id: "sub-child-1",
+				depth: 1,
 			});
 		});
 	});

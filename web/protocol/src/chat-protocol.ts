@@ -192,7 +192,28 @@ export type PrimeAgentRlmChild = {
 	activity?: { kind: "waiting" | "writing" | "executing"; toolName?: string };
 	repliedSinceTask?: boolean;
 	error?: string;
+	depth?: number;
+	childrenIds?: Array<string>;
 	timestamp: number;
+};
+
+export type PrimeAgentRlmNode = PrimeAgentRlmChild & {
+	depth: number;
+	childrenIds: Array<string>;
+};
+
+export type PrimeAgentRlmTree = {
+	rootSessionId: string;
+	nodes: Record<string, PrimeAgentRlmNode>;
+	rootChildrenIds: Array<string>;
+	activeNodeId?: string;
+};
+
+export type PrimeAgentParentSession = {
+	activeSessionId?: string;
+	sessionId?: string;
+	nodeId?: string;
+	childId?: string;
 };
 
 export type PrimeAgentGoal = {
@@ -243,6 +264,8 @@ export type PrimeAgentSessionPresentation = {
 	serviceTier?: ChatServiceTier;
 	goal?: PrimeAgentGoal;
 	recap?: string;
+	parent?: PrimeAgentParentSession;
+	rlmTree?: PrimeAgentRlmTree;
 	userBash: Array<PrimeAgentUserBash>;
 	rlmChildren: Array<PrimeAgentRlmChild>;
 	refinements: Array<PrimeAgentRefinement>;
@@ -374,6 +397,12 @@ export type ChatMessageEvent = {
 	message: ChatMessage;
 };
 
+export type ChatRlmStreamEvent = {
+	type: "rlm";
+	child: PrimeAgentRlmChild;
+	tree?: PrimeAgentRlmTree;
+};
+
 export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
 	protocolVersion: 1,
 	schemaRevision: 1,
@@ -412,6 +441,7 @@ export type ChatStreamEvent =
 	| ChatStartEvent
 	| { type: "delta"; text: string; messageId?: string }
 	| { type: "tool"; part: ChatToolPart; messageId?: string }
+	| ChatRlmStreamEvent
 	| {
 			type: "plan";
 			mode: ChatMode;
