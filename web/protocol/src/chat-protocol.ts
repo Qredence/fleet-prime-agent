@@ -292,11 +292,38 @@ export type ChatRequest = ChatSessionMetadata & {
 	userEmail?: string;
 };
 
+export interface ChatClarificationQuestion {
+	id?: string;
+	question: string;
+	options?: Array<string>;
+	isMultiSelect?: boolean;
+	defaultOption?: string;
+	allowWriteIn?: boolean;
+}
+
 export type ChatQuestionAnswer = {
-	kind: "single" | "multi" | "text" | "skip";
+	kind: "single" | "multi" | "text" | "skip" | "questions";
 	questionId?: string;
 	selectedIds?: Array<string>;
 	text?: string;
+	answers?: Record<string, string | Array<string>>;
+};
+
+export type ChatPendingDialog = {
+	sessionId: string;
+	toolCallId: string;
+	kind: "confirm" | "select" | "input" | "questions";
+	title: string;
+	message?: string;
+	options?: Array<string>;
+	questions?: Array<ChatClarificationQuestion>;
+	placeholder?: string;
+	createdAt: number;
+	timeoutMs?: number;
+};
+
+export type ChatPendingDialogsResponse = {
+	dialogs: Array<ChatPendingDialog>;
 };
 
 export type ChatQuestionAnswerRequest = ChatSessionMetadata & {
