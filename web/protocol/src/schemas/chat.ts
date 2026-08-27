@@ -173,6 +173,47 @@ export const ChatImagePartSchema = z
 	})
 	.openapi({ description: "Image message part" });
 
+export const FleetErrorCodeSchema = z
+	.enum([
+		"AUTH_CREDENTIAL_EXPIRED",
+		"AUTH_MISSING",
+		"KERNEL_CRASH",
+		"KERNEL_TIMEOUT",
+		"CONTEXT_OVERFLOW",
+		"BUDGET_EXCEEDED",
+		"TOOL_TIMEOUT",
+		"RATE_LIMIT",
+		"NETWORK_DISCONNECTED",
+		"EXTENSION_ERROR",
+		"SESSION_ABORTED",
+		"UNKNOWN_ERROR",
+	])
+	.openapi({ description: "Machine-readable Fleet error code" });
+
+export const FleetErrorRemediationActionSchema = z
+	.enum(["open_settings_tab", "restart_kernel", "retry_turn", "compact_context", "expand_budget", "reconnect"])
+	.openapi({ description: "Remediation action trigger" });
+
+export const FleetErrorRemediationSchema = z
+	.object({
+		action: FleetErrorRemediationActionSchema,
+		target: z.string().optional(),
+		label: z.string(),
+	})
+	.openapi({ description: "Structured error remediation hint" });
+
+export const FleetErrorEnvelopeSchema = z
+	.object({
+		code: FleetErrorCodeSchema,
+		message: z.string(),
+		provider: z.string().optional(),
+		isTerminal: z.boolean().optional(),
+		remediation: FleetErrorRemediationSchema.optional(),
+	})
+	.openapi({ description: "Standardized Fleet error envelope" });
+
+export const ChatErrorEnvelopeSchema = FleetErrorEnvelopeSchema;
+
 export const ChatToolCategorySchema = z
 	.enum(["kernel", "system", "mcp", "rlm", "plan", "question", "custom"])
 	.openapi({ description: "Normalized tool category" });
@@ -189,6 +230,7 @@ export const ChatToolPartSchema = z
 		output: z.unknown().optional(),
 		result: z.unknown().optional(),
 		durationMs: z.number().optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
 	})
 	.passthrough()
 	.openapi({ description: "Tool message part" });
@@ -521,47 +563,6 @@ export const ChatReasoningEventSchema = z
 		messageId: z.string().optional(),
 	})
 	.openapi({ description: "Safe reasoning-summary event" });
-
-export const FleetErrorCodeSchema = z
-	.enum([
-		"AUTH_CREDENTIAL_EXPIRED",
-		"AUTH_MISSING",
-		"KERNEL_CRASH",
-		"KERNEL_TIMEOUT",
-		"CONTEXT_OVERFLOW",
-		"BUDGET_EXCEEDED",
-		"TOOL_TIMEOUT",
-		"RATE_LIMIT",
-		"NETWORK_DISCONNECTED",
-		"EXTENSION_ERROR",
-		"SESSION_ABORTED",
-		"UNKNOWN_ERROR",
-	])
-	.openapi({ description: "Machine-readable Fleet error code" });
-
-export const FleetErrorRemediationActionSchema = z
-	.enum(["open_settings_tab", "restart_kernel", "retry_turn", "compact_context", "expand_budget", "reconnect"])
-	.openapi({ description: "Remediation action trigger" });
-
-export const FleetErrorRemediationSchema = z
-	.object({
-		action: FleetErrorRemediationActionSchema,
-		target: z.string().optional(),
-		label: z.string(),
-	})
-	.openapi({ description: "Structured error remediation hint" });
-
-export const FleetErrorEnvelopeSchema = z
-	.object({
-		code: FleetErrorCodeSchema,
-		message: z.string(),
-		provider: z.string().optional(),
-		isTerminal: z.boolean().optional(),
-		remediation: FleetErrorRemediationSchema.optional(),
-	})
-	.openapi({ description: "Standardized Fleet error envelope" });
-
-export const ChatErrorEnvelopeSchema = FleetErrorEnvelopeSchema;
 
 export const ChatCompactionStartEventSchema = z
 	.object({

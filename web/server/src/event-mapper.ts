@@ -266,6 +266,26 @@ function toolResultOutput(msg: Record<string, unknown>): Record<string, unknown>
 	};
 }
 
+function extractToolErrorText(result: unknown): string {
+	if (!result) return "Tool execution failed";
+	if (typeof result === "string") return result;
+	if (result instanceof Error) return result.message;
+	if (typeof result === "object") {
+		const rec = result as Record<string, unknown>;
+		if (typeof rec.error === "string") return rec.error;
+		if (rec.error instanceof Error) return rec.error.message;
+		if (typeof rec.stderr === "string") return rec.stderr;
+		if (typeof rec.message === "string") return rec.message;
+		if (rec.details && typeof rec.details === "object") {
+			const det = rec.details as Record<string, unknown>;
+			if (typeof det.stderr === "string") return det.stderr;
+			if (typeof det.error === "string") return det.error;
+			if (typeof det.message === "string") return det.message;
+		}
+	}
+	return "Tool execution failed";
+}
+
 /** Hydrate the canonical conversation while joining persisted tool results to calls. */
 export function toChatMessagesFromAgentMessages(
 	messages: readonly AgentMessage[],
@@ -288,6 +308,16 @@ export function toChatMessagesFromAgentMessages(
 		const result = message as unknown as Record<string, unknown>;
 		const toolCallId = typeof result.toolCallId === "string" ? result.toolCallId : undefined;
 		const toolName = typeof result.toolName === "string" ? result.toolName : "tool";
+		const isError = result.isError === true;
+		const errorText = isError ? extractToolErrorText(result) : undefined;
+		const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
+		const durationMs =
+			typeof result.durationMs === "number"
+				? result.durationMs
+				: typeof (result.details as { durationMs?: number })?.durationMs === "number"
+					? (result.details as { durationMs: number }).durationMs
+					: undefined;
+
 		let attached = false;
 		if (toolCallId) {
 			for (let messageIndex = output.length - 1; messageIndex >= 0 && !attached; messageIndex -= 1) {
@@ -300,9 +330,11 @@ export function toChatMessagesFromAgentMessages(
 				if (!part.type.startsWith("tool-")) continue;
 				const nextPart: ChatToolPart = {
 					...part,
-					state: result.isError === true ? "output-error" : "output-available",
+					state: isError ? "output-error" : "output-available",
 					output: toolResultOutput(result),
 					result: toolResultOutput(result),
+					...(durationMs !== undefined ? { durationMs } : {}),
+					...(errorEnvelope ? { error: errorEnvelope } : {}),
 				};
 				output[messageIndex] = {
 					...candidate,
@@ -320,9 +352,11 @@ export function toChatMessagesFromAgentMessages(
 					{
 						type: makeToolType(toolName),
 						...(toolCallId ? { toolCallId } : {}),
-						state: result.isError === true ? "output-error" : "output-available",
+						state: isError ? "output-error" : "output-available",
 						output: toolResultOutput(result),
 						result: toolResultOutput(result),
+						...(durationMs !== undefined ? { durationMs } : {}),
+						...(errorEnvelope ? { error: errorEnvelope } : {}),
 					},
 				],
 			});
@@ -785,6 +819,15 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		}
 		case "tool_execution_end": {
 			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const errorText = event.isError ? extractToolErrorText(event.result) : undefined;
+			const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
+			const durationMs =
+				typeof (event.result as { durationMs?: number })?.durationMs === "number"
+					? (event.result as { durationMs: number }).durationMs
+					: typeof (event.result as { details?: { durationMs?: number } })?.details?.durationMs === "number"
+						? (event.result as { details: { durationMs: number } }).details.durationMs
+						: undefined;
+
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
 				category,
@@ -794,6 +837,8 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				state: event.isError ? "output-error" : "output-available",
 				output: event.result,
 				result: event.result,
+				...(durationMs !== undefined ? { durationMs } : {}),
+				...(errorEnvelope ? { error: errorEnvelope } : {}),
 			});
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
