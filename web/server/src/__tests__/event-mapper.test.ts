@@ -1,6 +1,6 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { ChatStreamEvent } from "@prime-agent/web-protocol";
+import type { ChatStreamEvent, ChatToolPart } from "@prime-agent/web-protocol";
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
@@ -1168,6 +1168,104 @@ describe("event-mapper", () => {
 				status: "success",
 				output: {
 					text: "Completed database setup and schema migrations.",
+				},
+			});
+		});
+
+		it("attaches durationMs and structured error envelopes during tool streaming and hydration", () => {
+			const state = createEventMapperState({ sessionId: "test-session-5" });
+
+			// Tool execution start
+			const startFrames = mapAgentSessionEvent(state, {
+				type: "tool_execution_start",
+				toolName: "bash",
+				toolCallId: "call-1",
+				args: { command: "pytest -v" },
+			} as unknown as AgentSessionEvent);
+
+			expect(startFrames).toHaveLength(2);
+			const startTool = startFrames[1] as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(startTool.part).toMatchObject({
+				type: "tool-Bash",
+				category: "system",
+				toolName: "bash",
+				toolCallId: "call-1",
+				state: "input-streaming",
+			});
+
+			// Tool execution update
+			const updateFrames = mapAgentSessionEvent(state, {
+				type: "tool_execution_update",
+				toolName: "bash",
+				toolCallId: "call-1",
+				args: { command: "pytest -v" },
+				partialResult: { stdout: "running tests...\n" },
+			} as unknown as AgentSessionEvent);
+
+			expect(updateFrames).toHaveLength(1);
+			const updateTool = updateFrames[0] as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(updateTool.part.result).toEqual({ stdout: "running tests...\n" });
+
+			// Tool execution end with failure and duration
+			const endFrames = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolName: "bash",
+				toolCallId: "call-1",
+				isError: true,
+				result: {
+					stderr: "Command timeout after 30000ms",
+					durationMs: 30042,
+				},
+			} as unknown as AgentSessionEvent);
+
+			expect(endFrames).toHaveLength(1);
+			const endTool = endFrames[0] as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(endTool.part).toMatchObject({
+				type: "tool-Bash",
+				state: "output-error",
+				durationMs: 30042,
+				error: {
+					code: "TOOL_TIMEOUT",
+					message: "Command timeout after 30000ms",
+				},
+			});
+
+			// Hydration from agent messages preserves durationMs and error envelope
+			const hydrated = toChatMessagesFromAgentMessages(
+				[
+					{
+						role: "assistant",
+						content: [
+							{
+								type: "toolCall",
+								id: "call-1",
+								name: "bash",
+								arguments: { command: "pytest -v" },
+							},
+						],
+					} as unknown as AgentMessage,
+					{
+						role: "toolResult",
+						toolCallId: "call-1",
+						toolName: "bash",
+						isError: true,
+						content: [{ type: "text", text: "Command timeout after 30000ms" }],
+						details: { durationMs: 30042, stderr: "Command timeout after 30000ms" },
+					} as unknown as AgentMessage,
+				],
+				"test-session-5",
+			);
+
+			expect(hydrated).toHaveLength(1);
+			const toolPart = hydrated[0].parts[0] as ChatToolPart;
+			expect(toolPart).toMatchObject({
+				type: "tool-Bash",
+				toolCallId: "call-1",
+				state: "output-error",
+				durationMs: 30042,
+				error: {
+					code: "TOOL_TIMEOUT",
+					message: "Command timeout after 30000ms",
 				},
 			});
 		});
