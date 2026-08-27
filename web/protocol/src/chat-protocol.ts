@@ -1,5 +1,51 @@
-import type { ChatMessage, ChatToolPart } from "./chat-types";
+import type { ChatMessage, ChatToolCategory, ChatToolPart } from "./chat-types";
 import type { ChatAttachment, ProjectId } from "./fleet-contract";
+
+export type { ChatToolCategory };
+
+export type FleetErrorCode =
+	| "AUTH_CREDENTIAL_EXPIRED"
+	| "AUTH_MISSING"
+	| "KERNEL_CRASH"
+	| "KERNEL_TIMEOUT"
+	| "CONTEXT_OVERFLOW"
+	| "BUDGET_EXCEEDED"
+	| "TOOL_TIMEOUT"
+	| "RATE_LIMIT"
+	| "NETWORK_DISCONNECTED"
+	| "EXTENSION_ERROR"
+	| "SESSION_ABORTED"
+	| "UNKNOWN_ERROR";
+
+export type FleetErrorRemediationAction =
+	| "open_settings_tab"
+	| "restart_kernel"
+	| "retry_turn"
+	| "compact_context"
+	| "expand_budget"
+	| "reconnect";
+
+export type FleetErrorRemediation = {
+	action: FleetErrorRemediationAction;
+	target?: string;
+	label: string;
+};
+
+export type FleetErrorEnvelope = {
+	code: FleetErrorCode;
+	message: string;
+	provider?: string;
+	isTerminal?: boolean;
+	remediation?: FleetErrorRemediation;
+};
+
+export type ChatErrorStreamEvent = {
+	type: "error";
+	message: string;
+	runId?: string;
+	code?: FleetErrorCode;
+	error?: FleetErrorEnvelope;
+};
 
 export type QueueState = {
 	steering: Array<string>;
@@ -413,7 +459,7 @@ export type ChatStreamEvent =
 			requestKind?: ChatStreamRequestKind;
 			sessionReset?: boolean;
 	  }
-	| { type: "error"; message: string; runId?: string };
+	| ChatErrorStreamEvent;
 
 type ChatStateEvent = {
 	name: "agent_start" | "agent_end" | "agent_settled" | "turn_start" | "turn_end" | "message_start" | "message_end";

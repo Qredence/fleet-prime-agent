@@ -20,13 +20,19 @@ export type ChatImagePart = {
 	alt?: string;
 };
 
+export type ChatToolCategory = "kernel" | "system" | "mcp" | "rlm" | "plan" | "question" | "custom";
+
 export type ChatToolPart = {
 	type: string;
+	category?: ChatToolCategory;
+	toolName?: string;
+	serverName?: string;
 	toolCallId?: string;
 	state?: string;
 	input?: unknown;
 	output?: unknown;
 	result?: unknown;
+	durationMs?: number;
 	[key: string]: unknown;
 };
 
