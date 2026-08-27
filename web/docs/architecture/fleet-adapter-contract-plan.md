@@ -1,5 +1,9 @@
 # Fleet Prime ↔ Prime Agent Adapter Contract Plan
 
+> Historical planning document. The implemented contract and current runtime
+> baseline are maintained in
+> [`fleet-adapter-contract-v1.md`](./fleet-adapter-contract-v1.md).
+
 ## Goal
 
 Define and implement a **Fleet-owned, versioned adapter contract** between the externally maintained, TUI-first Prime Agent runtime and Fleet Prime’s browser product. The contract will convert upstream runtime behavior into stable, browser-safe, user-meaningful presentation events without making Fleet Prime dependent on Prime Agent internals or requiring changes to Prime Agent’s UI.

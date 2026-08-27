@@ -5,7 +5,7 @@ import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { readInspectedManagedAttachment, validateManagedAttachments } from "../managed-attachments";
 import { parseBackendSessionCommand, sessionCommandResultText } from "../session-commands";
 import { getBridge } from "../singleton";
-import { wrapApiHandler } from "../wrap-api-handler";
+import { safeErrorMessage, wrapApiHandler } from "../wrap-api-handler";
 
 export function resolveChatStreamingBehavior(streamingBehavior?: "steer" | "followUp"): "steer" | "followUp" {
 	return streamingBehavior ?? "steer";
@@ -87,13 +87,12 @@ export function handleChatPost(request: Request): Promise<Response> {
 		if (model !== undefined) {
 			await bridge.setModel(session.sessionId, model);
 			if (typeof model === "object" && typeof model.thinkingLevel === "string") {
-				session.session.setThinkingLevel(model.thinkingLevel);
+				await session.connection.setThinkingLevel(model.thinkingLevel);
 			}
 		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
-			process.stderr.write(
-				`[chat] session resolved; prompt len=${session.session.sessionManager.buildSessionContext().messages.length}\n`,
-			);
+			const state = await session.connection.getState();
+			process.stderr.write(`[chat] session resolved; prompt len=${state.messageCount}\n`);
 		}
 
 		const encoder = new TextEncoder();
@@ -134,7 +133,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 				});
 
 				const streamingBehavior = resolveChatStreamingBehavior(body.streamingBehavior);
-				const startId = chooseChatStartId(session.mapperState, streamingBehavior, session.session.isStreaming);
+				const startId = chooseChatStartId(session.mapperState, streamingBehavior, session.isStreaming);
 				const startRunId = session.mapperState.inRun ? session.mapperState.runId : "pending";
 				write({
 					type: "start",
@@ -188,7 +187,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 						);
 						write({
 							type: "error",
-							message: error instanceof Error ? error.message : String(error),
+							message: safeErrorMessage(error),
 						});
 						close();
 					});

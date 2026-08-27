@@ -1,10 +1,57 @@
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rename, rm, stat, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ProjectRegistry } from "../project-registry";
+import { safeErrorMessage, wrapApiHandler } from "../wrap-api-handler";
 
 const temporaryDirectories: string[] = [];
+
+function createPersistenceHarness() {
+	const writePaths: string[] = [];
+	let nextWriteError: Error | undefined;
+	let nextRenameError: Error | undefined;
+
+	return {
+		writePaths,
+		failNextWrite(error: Error) {
+			nextWriteError = error;
+		},
+		failNextRename(error: Error) {
+			nextRenameError = error;
+		},
+		persistence: {
+			mkdir: (path: string, options: { recursive: true }) => mkdir(path, options),
+			writeFile: async (path: string, data: string, encoding: "utf8") => {
+				writePaths.push(path);
+				if (nextWriteError) {
+					const error = nextWriteError;
+					nextWriteError = undefined;
+					throw error;
+				}
+				await writeFile(path, data, encoding);
+			},
+			rename: async (oldPath: string, newPath: string) => {
+				if (nextRenameError) {
+					const error = nextRenameError;
+					nextRenameError = undefined;
+					throw error;
+				}
+				await rename(oldPath, newPath);
+			},
+			unlink: (path: string) => unlink(path),
+		},
+	};
+}
+
+async function pathExists(path: string): Promise<boolean> {
+	try {
+		await stat(path);
+		return true;
+	} catch {
+		return false;
+	}
+}
 
 afterEach(async () => {
 	await Promise.all(
@@ -106,5 +153,93 @@ describe("ProjectRegistry", () => {
 		const otherDir = join(root, "other");
 		await mkdir(otherDir);
 		expect(await registry.projectIdForSession("session-1", otherDir)).toBeNull();
+	});
+
+	it("does not rewrite an unchanged session assignment", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
+		temporaryDirectories.push(root);
+		const harness = createPersistenceHarness();
+		const registry = new ProjectRegistry(join(root, ".prime-agent"), root, harness.persistence);
+		const project = (await registry.list())[0]!;
+		const writesBeforeAssignment = harness.writePaths.length;
+
+		await registry.assignSession("session-1", project.projectId);
+		await registry.assignSession("session-1", project.projectId);
+
+		expect(harness.writePaths).toHaveLength(writesBeforeAssignment + 1);
+	});
+
+	it("reports a safe assignment error, cleans the temporary file, and retries later", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
+		temporaryDirectories.push(root);
+		const harness = createPersistenceHarness();
+		const registry = new ProjectRegistry(join(root, ".prime-agent"), root, harness.persistence);
+		const project = (await registry.list())[0]!;
+		const failure = new Error(`EPERM: operation not permitted, open '${join(root, "fleet-projects.json.123.tmp")}'`);
+		harness.failNextWrite(failure);
+
+		const response = await wrapApiHandler(async () => {
+			await registry.assignSession("session-1", project.projectId);
+			return Response.json({ ok: true });
+		});
+		const failedTemporaryPath = harness.writePaths.at(-1)!;
+
+		expect(response.status).toBe(500);
+		const body = (await response.json()) as { message: string };
+		expect(body.message).toBe("Could not save the session's project assignment. Please try again.");
+		expect(body.message).not.toContain(root);
+		expect(await pathExists(failedTemporaryPath)).toBe(false);
+
+		await expect(registry.assignSession("session-1", project.projectId)).resolves.toBeUndefined();
+		expect(await registry.projectIdForSession("session-1", root)).toBe(project.projectId);
+	});
+
+	it("retries an inferred assignment after a failed persistence", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
+		temporaryDirectories.push(root);
+		const harness = createPersistenceHarness();
+		const registry = new ProjectRegistry(join(root, ".prime-agent"), root, harness.persistence);
+		const project = (await registry.list())[0]!;
+		const writesBeforeAssignment = harness.writePaths.length;
+		harness.failNextWrite(new Error("write failed"));
+
+		await expect(registry.projectIdForSession("session-1", root)).rejects.toThrow(
+			"Could not save the session's project assignment. Please try again.",
+		);
+		await expect(registry.projectIdForSession("session-1", root)).resolves.toBe(project.projectId);
+		expect(harness.writePaths).toHaveLength(writesBeforeAssignment + 2);
+	});
+
+	it("uses unique temporary paths and removes a temporary file when rename fails", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
+		temporaryDirectories.push(root);
+		const harness = createPersistenceHarness();
+		const registry = new ProjectRegistry(join(root, ".prime-agent"), root, harness.persistence);
+		const project = (await registry.list())[0]!;
+		const writesBeforeAssignments = harness.writePaths.length;
+		const renameFailure = new Error("rename failed");
+		harness.failNextRename(renameFailure);
+
+		const response = await wrapApiHandler(async () => {
+			await registry.assignSession("session-1", project.projectId);
+			return Response.json({ ok: true });
+		});
+		const failedTemporaryPath = harness.writePaths.at(-1)!;
+		await expect(registry.assignSession("session-1", project.projectId)).resolves.toBeUndefined();
+
+		expect(response.status).toBe(500);
+		const body = (await response.json()) as { message: string };
+		expect(body.message).toBe("Could not save the session's project assignment. Please try again.");
+		expect(await pathExists(failedTemporaryPath)).toBe(false);
+		const assignmentTemporaryPaths = harness.writePaths.slice(writesBeforeAssignments);
+		expect(assignmentTemporaryPaths).toHaveLength(2);
+		expect(new Set(assignmentTemporaryPaths).size).toBe(2);
+	});
+
+	it("redacts quoted filesystem paths that contain spaces", () => {
+		const message = safeErrorMessage(new Error("open '/Users/zocho/Prime Agent/fleet-projects.json.tmp'"));
+
+		expect(message).toBe("open '[local path]'");
+		expect(message).not.toContain("/Users/zocho");
 	});
 });

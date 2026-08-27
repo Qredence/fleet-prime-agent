@@ -5,6 +5,7 @@ set -eu
 prime_agent_repository_url="${PRIME_AGENT_REPOSITORY_URL:-https://github.com/Qredence/fleet-prime-agent.git}"
 prime_agent_repository_ref="${PRIME_AGENT_REPOSITORY_REF:-main}"
 prime_agent_pnpm_version="${PRIME_AGENT_PNPM_VERSION:-11.15.1}"
+prime_agent_shim_dir_override="${PRIME_AGENT_SHIM_DIR:-}"
 prime_agent_checkout_dir=$(pwd)
 prime_agent_pnpm_mode=
 
@@ -18,7 +19,7 @@ usage() {
 Usage: install.sh
 
 Install Qredence/fleet-prime-agent into the current directory, build the
-production web runtime, and link the prime-agent command globally.
+production web runtime, and install the fleet-agent launcher shim.
 
 The current directory must be empty or an existing checkout of:
   https://github.com/Qredence/fleet-prime-agent.git
@@ -27,6 +28,7 @@ Environment overrides for testing or pinned source installs:
   PRIME_AGENT_REPOSITORY_URL   Repository URL (default: Qredence/fleet-prime-agent)
   PRIME_AGENT_REPOSITORY_REF   Branch or tag to clone (default: main)
   PRIME_AGENT_PNPM_VERSION     Ephemeral pnpm version (default: 11.15.1)
+  PRIME_AGENT_SHIM_DIR         Directory for the fleet-agent shim (default: ~/.local/bin)
 EOF
 }
 
@@ -128,8 +130,8 @@ build_checkout() {
 	node scripts/build-web-release.mjs
 }
 
-install_fleet_prime_shim() {
-	printf '\nInstalling the fleet-prime launcher shim...\n'
+install_fleet_agent_shim() {
+	printf '\nInstalling the fleet-agent launcher shim...\n'
 
 	existing_prime_agent=$(command -v prime-agent 2>/dev/null || true)
 	if [ -n "$existing_prime_agent" ]; then
@@ -140,7 +142,9 @@ install_fleet_prime_shim() {
 	# without sudo on every mainstream Unix); fall back to a per-user tmpdir
 	# if $HOME is not writable so the installer never dies here.
 	shim_dir=
-	if [ -n "${HOME:-}" ] && [ -d "$HOME" ] && [ -w "$HOME" ]; then
+	if [ -n "$prime_agent_shim_dir_override" ]; then
+		shim_dir="$prime_agent_shim_dir_override"
+	elif [ -n "${HOME:-}" ] && [ -d "$HOME" ] && [ -w "$HOME" ]; then
 		shim_dir="$HOME/.local/bin"
 	elif [ -n "${TMPDIR:-}" ] && [ -d "$TMPDIR" ] && [ -w "$TMPDIR" ]; then
 		shim_dir="$TMPDIR/fleet-prime-shim-$EUID-$$"
@@ -152,17 +156,17 @@ install_fleet_prime_shim() {
 		die "could not create shim directory: $shim_dir"
 	fi
 
-	shim_path="$shim_dir/fleet-prime"
+	shim_path="$shim_dir/fleet-agent"
 	installed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf '%s' "$(date -u)")
 
 	# Write the shim. The launcher script in the checkout already handles
-	# `fleet-prime install`, the dev server fallback, and symlink resolution,
+	# the dev server fallback, and symlink resolution,
 	# so the shim is just a tiny exec wrapper. The here-doc keeps the literal
 	# "$@" in the output so all arguments are forwarded.
 	{
 		cat <<SHIM_EOF
 #!/bin/sh
-# Fleet Prime launcher installed by fleet-prime-agent on $installed_at
+# Fleet Agent launcher installed by fleet-prime-agent on $installed_at
 # Source checkout: $prime_agent_checkout_dir
 exec "$prime_agent_checkout_dir/fleet-prime.sh" "\$@"
 SHIM_EOF
@@ -170,22 +174,22 @@ SHIM_EOF
 
 	chmod +x "$shim_path" || die "could not chmod +x $shim_path"
 
-	if command -v fleet-prime >/dev/null 2>&1; then
-		resolved=$(command -v fleet-prime)
+	if command -v fleet-agent >/dev/null 2>&1; then
+		resolved=$(command -v fleet-agent)
 		# Only celebrate when the freshly-installed shim is the one on PATH.
-		# A stale fleet-prime from a previous run elsewhere is not a success
+		# A stale fleet-agent from a previous run elsewhere is not a success
 		# for THIS install.
 		if [ "$resolved" = "$shim_path" ]; then
-			printf '\nFleet Prime is ready.\n'
+			printf '\nFleet Agent is ready.\n'
 			printf '  Checkout: %s\n' "$prime_agent_checkout_dir"
 			printf '  Command:  %s\n' "$resolved"
-			printf '\nRun from a project directory:\n  fleet-prime\n'
+			printf '\nRun from a project directory:\n  fleet-agent\n'
 			return
 		fi
 	fi
 
-	printf '\nFleet Prime shim was installed at %s\n' "$shim_path" >&2
-	printf 'Add %s to your shell PATH, then run: fleet-prime\n' "$shim_dir" >&2
+	printf '\nFleet Agent shim was installed at %s\n' "$shim_path" >&2
+	printf 'Add %s to your shell PATH, then run: fleet-agent\n' "$shim_dir" >&2
 }
 
 main() {
@@ -212,7 +216,7 @@ main() {
 	prepare_checkout
 	select_pnpm
 	build_checkout
-	install_fleet_prime_shim
+	install_fleet_agent_shim
 }
 
 main "$@"

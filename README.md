@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/0e74d3cd-d3b4-49a9-a01e-7ac2a1427309
 
 ## Install
 
-Clone the repository and run the Fleet Prime installer command. It installs the root and web dependencies, builds Fleet Prime, and links the `fleet-prime` and `prime-agent` commands.
+Clone the repository and run the Fleet Prime installer command. It installs the pinned upstream Prime Agent runtime, the web dependencies, builds Fleet Prime, and links `fleet-agent`.
 
 ```bash
 git clone https://github.com/Qredence/fleet-prime-agent.git
@@ -32,7 +32,7 @@ Run Fleet Prime from the project directory you want the agent to work in:
 
 ```bash
 cd /path/to/your/project
-fleet-prime
+fleet-agent
 ```
 
 Open the local URL printed by the launcher. On first use, add a provider in **Settings → Providers** (or run `/login`) and choose a model in the composer.
@@ -45,7 +45,7 @@ prime-agent
 
 ## Coexistence with an existing `prime-agent` install
 
-If you already have `prime-agent` installed, `fleet-prime install` adds the web UI alongside it without modifying your existing `prime-agent` binary. The installer drops a small `fleet-prime` shim into `~/.local/bin/` and never invokes `npm link`, so a working `prime-agent` v0.8.0 from the upstream tarball stays reachable on `PATH` exactly as it was. Both commands share `~/.prime/agent/` (settings, kernel venv, logs) but use independent in-process state.
+Fleet installs as `fleet-agent`; it does not replace or shadow an existing `prime-agent` binary. Both commands share `~/.prime/agent/` settings, kernel venv, and logs.
 
 ## What it does
 
@@ -63,7 +63,8 @@ If you already have `prime-agent` installed, `fleet-prime install` adds the web 
 
 ## Develop from source
 
-The upstream engine uses the root npm workspace; Fleet's web product uses the isolated pnpm workspace in `web/`.
+Fleet's launcher and pinned upstream runtime use the root npm workspace; the
+web product uses the isolated pnpm workspace in `web/`.
 
 ```bash
 npm ci
@@ -71,24 +72,26 @@ pnpm install --dir web
 pnpm --dir web --filter @prime-agent/web dev
 ```
 
-Always run pnpm with `--dir web`. Running pnpm at the repository root rewrites the root dependency layout, replaces in-tree workspace links, and is unsupported.
+Always run pnpm with `--dir web`. Running pnpm at the repository root rewrites
+the root dependency layout and is unsupported.
 
 For validation, run `npm run check`. Run focused tests from the relevant package root, for example:
 
 ```bash
-cd packages/coding-agent
-npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts
+cd web/server
+pnpm exec vitest run src/__tests__/specific.test.ts
 ```
 
 ## Documentation and contribution
 
 - [Wiki](https://github.com/Qredence/fleet-prime-agent/wiki) — browsable documentation
-- `packages/coding-agent/docs/index.md` — engine documentation index
+- [Prime Agent documentation](https://github.com/PrimeIntellect-ai/prime-agent#readme) — engine documentation
 - `web/app/ARCHITECTURE.md` — web application architecture and HTTP API
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contribution process
 - [SUPPORT.md](SUPPORT.md) — support and community channels
 
-Read `AGENTS.md` before opening a pull request. It defines development, validation, and upstream-sync rules.
+Read `AGENTS.md` before opening a pull request. It defines development,
+validation, and pinned-runtime upgrade rules.
 
 ## Security
 
@@ -96,7 +99,7 @@ Fleet Prime executes model-generated Python and project commands with your user 
 
 ## Upstream engine
 
-`packages/*` and `prime-agent-runtime/` are verbatim copies of the Prime Agent release pinned in [UPSTREAM](UPSTREAM). Do not edit them locally. Maintainers update the engine with `node scripts/sync-upstream.mjs --apply <tag>` and review the Fleet adapter in the same change.
+Fleet does not vendor the Prime Agent engine. [PRIME_AGENT_RUNTIME.json](PRIME_AGENT_RUNTIME.json) pins the upstream release tarball and SHA-256; upgrades update that manifest and must pass the web-server parity tests.
 
 ## License
 

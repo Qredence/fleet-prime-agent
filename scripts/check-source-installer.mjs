@@ -45,7 +45,8 @@ function checkStaticInstaller() {
 		"--frozen-lockfile",
 		"npm run build",
 		"scripts/build-web-release.mjs",
-		"npm link --force .",
+		"install_fleet_agent_shim",
+		"fleet-prime.sh",
 	]) {
 		if (!source.includes(marker)) {
 			throw new Error(`install.sh is missing required source-install step: ${marker}`);
@@ -58,6 +59,7 @@ function checkStaticInstaller() {
 		"R2_PUBLIC_BASE_URL",
 		"install-beta.sh",
 		"npm install -g --no-fund",
+		"npm link",
 	]) {
 		if (source.includes(forbidden)) {
 			throw new Error(`install.sh still contains release-only behavior: ${forbidden}`);
@@ -70,34 +72,42 @@ async function checkInstallerSmoke() {
 	const sourceMirror = join(tempRoot, "source");
 	const checkout = join(tempRoot, "checkout");
 	const globalPrefix = join(tempRoot, "npm-global");
+	const shimDir = join(tempRoot, "shim-bin");
 	const workspace = join(tempRoot, "workspace");
 	const runtimeBin = join(tempRoot, "runtime-bin");
-
 	try {
 		copyWorkingTree(sourceMirror);
 		initializeGitMirror(sourceMirror);
 		mkdirSync(checkout, { recursive: true });
 		mkdirSync(globalPrefix, { recursive: true });
 		mkdirSync(join(globalPrefix, "lib"), { recursive: true });
+		mkdirSync(shimDir, { recursive: true });
 		mkdirSync(workspace, { recursive: true });
 		mkdirSync(runtimeBin, { recursive: true });
 		symlinkSync(process.execPath, join(runtimeBin, "node"));
+
+		// A fake user-installed prime-agent that the installer must not clobber.
+		const sentinelPrimeAgent = join(globalPrefix, "bin", "prime-agent");
+		mkdirSync(dirname(sentinelPrimeAgent), { recursive: true });
+		const sentinelContent = "#!/bin/sh\necho user-prime-agent\n";
+		writeFileSync(sentinelPrimeAgent, sentinelContent);
 
 		const repositoryUrl = pathToFileURL(sourceMirror).href;
 		const installerEnvironment = {
 			...process.env,
 			NPM_CONFIG_PREFIX: globalPrefix,
 			npm_config_prefix: globalPrefix,
-			PATH: [join(globalPrefix, "bin"), process.env.PATH].filter(Boolean).join(delimiter),
+			PATH: [shimDir, join(globalPrefix, "bin"), process.env.PATH].filter(Boolean).join(delimiter),
 			PRIME_AGENT_REPOSITORY_URL: repositoryUrl,
 			PRIME_AGENT_REPOSITORY_REF: "main",
 			PRIME_AGENT_PNPM_VERSION: "11.15.1",
+			PRIME_AGENT_SHIM_DIR: shimDir,
 		};
 
 		const firstInstallOutput = runInstaller(checkout, sourceMirror, installerEnvironment);
 		if (!firstInstallOutput.includes("Cloning ")) throw new Error("Installer did not exercise the clone path");
 		if (!existsSync(join(checkout, ".git"))) throw new Error("Installer did not create a Git checkout");
-		if (!existsSync(join(checkout, "packages", "coding-agent", "dist", "web", "launcher.mjs"))) {
+		if (!existsSync(join(checkout, "packages", "fleet-prime", "dist", "web", "launcher.mjs"))) {
 			throw new Error("Installer did not build the packaged web launcher");
 		}
 
@@ -115,19 +125,22 @@ async function checkInstallerSmoke() {
 		}
 		if (reuseOutput.includes("Cloning ")) throw new Error("Installer cloned over the existing checkout");
 
-		const executable = join(globalPrefix, "bin", "prime-agent");
-		if (!existsSync(executable)) throw new Error(`Global prime-agent link was not created at ${executable}`);
-		const fleetPrimeExecutable = join(globalPrefix, "bin", "fleet-prime");
-		if (!existsSync(fleetPrimeExecutable)) {
-			throw new Error(`Global fleet-prime link was not created at ${fleetPrimeExecutable}`);
+		// The installer ships a fleet-agent shim and must not touch the global
+		// npm prefix, so a pre-existing user prime-agent survives untouched.
+		const fleetAgentExecutable = join(shimDir, "fleet-agent");
+		if (!existsSync(fleetAgentExecutable)) {
+			throw new Error(`fleet-agent shim was not created at ${fleetAgentExecutable}`);
+		}
+		if (!existsSync(sentinelPrimeAgent) || readFileSync(sentinelPrimeAgent, "utf8") !== sentinelContent) {
+			throw new Error("Installer clobbered the user's existing prime-agent binary");
 		}
 
 		const runtimeEnvironment = {
 			...process.env,
-			PATH: [join(globalPrefix, "bin"), runtimeBin, "/usr/bin", "/bin"].join(delimiter),
+			PATH: [shimDir, runtimeBin, "/usr/bin", "/bin"].join(delimiter),
 			PRIME_AGENT_CODING_AGENT_DIR: join(tempRoot, "agent-config"),
 		};
-		await checkWebRuntime(fleetPrimeExecutable, workspace, checkout, runtimeEnvironment);
+		await checkWebRuntime(fleetAgentExecutable, workspace, checkout, runtimeEnvironment);
 
 		const occupied = join(tempRoot, "occupied");
 		mkdirSync(occupied, { recursive: true });
@@ -183,7 +196,7 @@ function runInstaller(checkout, sourceMirror, environment) {
 }
 
 async function checkWebRuntime(executable, workspace, checkout, environment) {
-	const clientRoot = join(checkout, "packages", "coding-agent", "dist", "web", "client");
+	const clientRoot = join(checkout, "packages", "fleet-prime", "dist", "web", "client");
 	const asset = findFirstJavaScriptAsset(clientRoot);
 	if (!asset) throw new Error("Source installer produced no client JavaScript asset");
 
@@ -218,7 +231,7 @@ async function checkWebRuntime(executable, workspace, checkout, environment) {
 			throw new Error(`Workspace check failed: expected ${workspace}, got ${JSON.stringify(workspaceResponse.body)}`);
 		}
 
-		const assetPath = relative(join(checkout, "packages", "coding-agent", "dist", "web", "client"), asset)
+		const assetPath = relative(join(checkout, "packages", "fleet-prime", "dist", "web", "client"), asset)
 			.split(sep)
 			.join("/");
 		await assertStatus(`${url}/${assetPath}`, 200, "client asset");

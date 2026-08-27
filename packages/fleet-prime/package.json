@@ -1,27 +1,22 @@
 {
-  "name": "@prime-agent/web-server",
-  "version": "0.0.0",
+  "name": "@qredence/fleet-prime",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "exports": {
-    ".": "./src/index.ts"
+  "bin": {
+    "fleet-agent": "./bin/fleet-prime.mjs",
+    "fleet-prime": "./bin/fleet-prime.mjs"
   },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
+  "files": [
+    "bin",
+    "dist"
+  ],
   "dependencies": {
     "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-core-0.8.1.tgz",
     "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-ai-0.8.1.tgz",
-    "@prime-agent/web-protocol": "workspace:*",
     "prime-agent": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-0.8.1.tgz",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "@types/node": "^25.8.0",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "use-sync-external-store": "1.6.0"
   }
 }
