@@ -11,8 +11,12 @@ import type {
 	FleetErrorEnvelope,
 	PrimeAgentArtifact,
 	PrimeAgentGoal,
+	PrimeAgentParentSession,
 	PrimeAgentRefinement,
 	PrimeAgentRefinementEdit,
+	PrimeAgentRlmChild,
+	PrimeAgentRlmNode,
+	PrimeAgentRlmTree,
 	PrimeAgentSessionPresentation,
 	PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
@@ -462,9 +466,58 @@ function userBashArtifact(entry: PrimeAgentUserBash, timestamp = Date.now()): Pr
 	};
 }
 
-function safeRlmChild(
+export function computeRlmExecutionTree(
+	rootSessionId: string,
+	children: readonly PrimeAgentRlmChild[],
+	activeNodeId?: string,
+): PrimeAgentRlmTree {
+	const nodes: Record<string, PrimeAgentRlmNode> = {};
+	const rootChildrenIds: string[] = [];
+
+	for (const child of children) {
+		nodes[child.id] = {
+			...child,
+			depth: 1,
+			childrenIds: [],
+		};
+	}
+
+	for (const child of children) {
+		if (child.parentId && child.parentId !== rootSessionId && nodes[child.parentId]) {
+			nodes[child.parentId].childrenIds.push(child.id);
+		} else {
+			rootChildrenIds.push(child.id);
+		}
+	}
+
+	const queue: Array<{ id: string; depth: number }> = rootChildrenIds.map((id) => ({ id, depth: 1 }));
+	const visited = new Set<string>();
+
+	while (queue.length > 0) {
+		const item = queue.shift();
+		if (!item || visited.has(item.id)) continue;
+		visited.add(item.id);
+
+		const node = nodes[item.id];
+		if (node) {
+			node.depth = item.depth;
+			for (const childId of node.childrenIds) {
+				queue.push({ id: childId, depth: item.depth + 1 });
+			}
+		}
+	}
+
+	return {
+		rootSessionId,
+		nodes,
+		rootChildrenIds,
+		...(activeNodeId ? { activeNodeId } : {}),
+	};
+}
+
+export function safeRlmChild(
 	child: Extract<AgentSessionEvent, { type: "rlm_child_update" }>["child"],
-): PrimeAgentSessionPresentation["rlmChildren"][number] {
+): PrimeAgentRlmChild {
 	return {
 		id: child.id,
 		...(child.parentId ? { parentId: child.parentId } : {}),
@@ -889,9 +942,18 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 			return [emitPresentation(state, { ...state.presentation, serviceTier: event.serviceTier })];
 		case "rlm_child_update": {
 			const child = safeRlmChild(event.child);
-			const rlmChildren = state.presentation.rlmChildren.filter((entry) => entry.id !== child.id);
-			rlmChildren.push(child);
-			const presentation = { ...state.presentation, rlmChildren };
+			const rawRlmChildren = state.presentation.rlmChildren.filter((entry) => entry.id !== child.id);
+			rawRlmChildren.push(child);
+			const rlmTree = computeRlmExecutionTree(state.sessionId, rawRlmChildren, child.id);
+			const rlmChildren = rawRlmChildren.map((c) => {
+				const treeNode = rlmTree.nodes[c.id];
+				return treeNode ? { ...c, depth: treeNode.depth, childrenIds: treeNode.childrenIds } : c;
+			});
+			const presentation: PrimeAgentSessionPresentation = {
+				...state.presentation,
+				rlmChildren,
+				rlmTree,
+			};
 			const artifact: PrimeAgentArtifact = {
 				id: stablePresentationId(`${presentationRunId(state)}:${child.id}:rlm`),
 				runId: presentationRunId(state),
@@ -909,7 +971,11 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 				output: child,
 				timestamp: child.timestamp,
 			};
-			return [emitPresentation(state, upsertArtifact(presentation, artifact))];
+			const updatedChild = rlmTree.nodes[child.id] ?? child;
+			return [
+				emitPresentation(state, upsertArtifact(presentation, artifact)),
+				{ type: "rlm", child: updatedChild, tree: rlmTree },
+			];
 		}
 		case "recap_update": {
 			const presentation = { ...state.presentation, recap: event.recap };
@@ -1086,15 +1152,7 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 	switch (event.type) {
 		case "session_event":
 			return mapAgentSessionEvent(state, event.event);
-		case "session_replaced":
-		case "session_resynced": {
-			// Runtime rebuilt (new/switch/fork/import) or daemon reattached.
-			// Reset the per-run mapper so the next prompt starts cleanly, and
-			// surface a synthetic done frame so any live SSE stream closes.
-			// The empty assistant message satisfies the wire shape; SSE consumers
-			// that filter on `frame.message.parts.length === 0` are the intended
-			// audience. `sessionReset: true` marks the terminal as a rewind
-			// rather than a real run completion.
+		case "session_replaced": {
 			resetRun(state);
 			const resetMessage: ChatMessage = {
 				id: state.currentMessageId ?? `${state.runId}-reset`,
@@ -1112,6 +1170,52 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 					sessionReset: true,
 				},
 			];
+		}
+		case "session_resynced": {
+			resetRun(state);
+			const events: ChatStreamEvent[] = [];
+			if (event.snapshot.parent || event.snapshot.children) {
+				const rawRlmChildren = (event.snapshot.children ?? []).map(safeRlmChild);
+				const rlmTree = computeRlmExecutionTree(state.sessionId, rawRlmChildren);
+				const rlmChildren = rawRlmChildren.map((c) => {
+					const treeNode = rlmTree.nodes[c.id];
+					return treeNode ? { ...c, depth: treeNode.depth, childrenIds: treeNode.childrenIds } : c;
+				});
+				const parent: PrimeAgentParentSession | undefined = event.snapshot.parent
+					? {
+							...(event.snapshot.parent.activeSessionId
+								? { activeSessionId: event.snapshot.parent.activeSessionId }
+								: {}),
+							...(event.snapshot.parent.sessionId ? { sessionId: event.snapshot.parent.sessionId } : {}),
+							...(event.snapshot.parent.nodeId ? { nodeId: event.snapshot.parent.nodeId } : {}),
+							...(event.snapshot.parent.childId ? { childId: event.snapshot.parent.childId } : {}),
+						}
+					: state.presentation.parent;
+				const presentation: PrimeAgentSessionPresentation = {
+					...state.presentation,
+					...(parent ? { parent } : {}),
+					rlmChildren,
+					rlmTree,
+				};
+				events.push(emitPresentation(state, presentation));
+			}
+			const resetMessage: ChatMessage = {
+				id: state.currentMessageId ?? `${state.runId}-reset`,
+				role: "assistant",
+				parts: [],
+				createdAt: Date.now(),
+			};
+			events.push(
+				{ type: "state", state: { name: "agent_settled" } },
+				{
+					type: "done",
+					runId: state.runId,
+					sessionId: state.sessionId,
+					message: resetMessage,
+					sessionReset: true,
+				},
+			);
+			return events;
 		}
 		case "extension_ui_request": {
 			// Forward a serializable UI request to the web client as a tool

@@ -366,9 +366,34 @@ export const PrimeAgentRlmChildSchema = z
 			.optional(),
 		repliedSinceTask: z.boolean().optional(),
 		error: z.string().optional(),
+		depth: z.number().int().positive().optional(),
+		childrenIds: z.array(z.string()).optional(),
 		timestamp: z.number().finite(),
 	})
 	.openapi({ description: "Browser-safe RLM child status" });
+
+export const PrimeAgentRlmNodeSchema = PrimeAgentRlmChildSchema.extend({
+	depth: z.number().int().positive(),
+	childrenIds: z.array(z.string()),
+}).openapi({ description: "Hierarchical RLM execution tree node" });
+
+export const PrimeAgentRlmTreeSchema = z
+	.object({
+		rootSessionId: z.string().min(1),
+		nodes: z.record(z.string(), PrimeAgentRlmNodeSchema),
+		rootChildrenIds: z.array(z.string()),
+		activeNodeId: z.string().optional(),
+	})
+	.openapi({ description: "Hierarchical RLM execution tree" });
+
+export const PrimeAgentParentSessionSchema = z
+	.object({
+		activeSessionId: z.string().optional(),
+		sessionId: z.string().optional(),
+		nodeId: z.string().optional(),
+		childId: z.string().optional(),
+	})
+	.openapi({ description: "Parent session metadata for subagent branches" });
 
 export const PrimeAgentGoalSchema = z
 	.object({
@@ -423,6 +448,8 @@ export const PrimeAgentSessionPresentationSchema = z
 		serviceTier: z.enum(["auto", "default", "flex", "scale", "priority"]).nullable().optional(),
 		goal: PrimeAgentGoalSchema.optional(),
 		recap: z.string().optional(),
+		parent: PrimeAgentParentSessionSchema.optional(),
+		rlmTree: PrimeAgentRlmTreeSchema.optional(),
 		userBash: z.array(PrimeAgentUserBashSchema),
 		rlmChildren: z.array(PrimeAgentRlmChildSchema),
 		refinements: z.array(PrimeAgentRefinementSchema),
@@ -437,6 +464,14 @@ export const ChatPresentationEventSchema = z
 		presentation: PrimeAgentSessionPresentationSchema,
 	})
 	.openapi({ description: "Immutable Prime Agent presentation snapshot" });
+
+export const ChatRlmStreamEventSchema = z
+	.object({
+		type: z.literal("rlm"),
+		child: PrimeAgentRlmChildSchema,
+		tree: PrimeAgentRlmTreeSchema.optional(),
+	})
+	.openapi({ description: "Discrete RLM execution event" });
 
 export const ChatMessageEventSchema = z
 	.object({
@@ -558,6 +593,7 @@ export const ChatStreamEventSchema = z
 		ChatStartEventSchema,
 		ChatDeltaEventSchema,
 		ChatToolEventSchema,
+		ChatRlmStreamEventSchema,
 		ChatPlanEventSchema,
 		ChatStateStreamEventSchema,
 		ChatQueueEventSchema,
