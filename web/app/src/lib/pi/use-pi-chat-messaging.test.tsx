@@ -1,6 +1,7 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type {
 	ChatRequest,
+	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatSessionResponse,
 	ChatStreamEvent,
@@ -67,7 +68,21 @@ async function flush() {
 	await Promise.resolve();
 }
 
-function createHarness(sessionId = "session-a") {
+function createHarness(sessionId = "session-a", availableSessions: Array<ChatSessionInfo> = []) {
+	const discoveredSessions =
+		availableSessions.length > 0
+			? availableSessions
+			: [
+					{
+						sessionId,
+						title: "Test session",
+						createdAt: "2026-08-27T00:00:00.000Z",
+						updatedAt: "2026-08-27T00:00:00.000Z",
+						status: "idle" as const,
+						messageCount: 0,
+						firstMessage: "Test session",
+					},
+				];
 	class TestEventSource {
 		onerror: (() => void) | null = null;
 		onmessage: ((event: MessageEvent<string>) => void) | null = null;
@@ -78,10 +93,11 @@ function createHarness(sessionId = "session-a") {
 	vi.stubGlobal("EventSource", TestEventSource);
 
 	const streams: Array<StreamCall> = [];
+	const persistSession = vi.fn();
 	const client = {
 		abortSession: vi.fn().mockResolvedValue(undefined),
-		listSessions: vi.fn().mockResolvedValue([]),
-		loadSession: vi.fn().mockResolvedValue(sessionResponse({ sessionId })),
+		listSessions: vi.fn().mockResolvedValue(discoveredSessions),
+		loadSession: vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata)),
 		resumeSession: vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata)),
 		streamMessage: vi.fn(
 			(
@@ -109,7 +125,7 @@ function createHarness(sessionId = "session-a") {
 		usePiChat(undefined, {
 			client,
 			initialSessionMetadata: { sessionId },
-			persistSession: vi.fn(),
+			persistSession,
 		}),
 	);
 
@@ -166,6 +182,32 @@ describe("usePiChat stream admission", () => {
 		streams[0].resolve();
 		await act(async () => {
 			await Promise.all([primary, firstQueued, secondQueued]);
+		});
+	});
+
+	it("uses the newest discovered session when the stored selection is unavailable", async () => {
+		const discovered: ChatSessionInfo = {
+			sessionId: "newest-session",
+			projectId: "project-a",
+			title: "Newest session",
+			createdAt: "2026-08-27T00:00:00.000Z",
+			updatedAt: "2026-08-27T01:00:00.000Z",
+			status: "idle",
+			messageCount: 2,
+			firstMessage: "Continue this work",
+		};
+		const { client, result } = createHarness("missing-session", [discovered]);
+
+		await waitFor(() =>
+			expect(client.loadSession).toHaveBeenCalledWith({
+				sessionId: discovered.sessionId,
+				projectId: discovered.projectId,
+			}),
+		);
+
+		expect(result.current.sessionMetadata).toEqual({
+			sessionId: discovered.sessionId,
+			projectId: discovered.projectId,
 		});
 	});
 

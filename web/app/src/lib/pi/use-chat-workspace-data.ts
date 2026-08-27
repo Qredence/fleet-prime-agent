@@ -218,13 +218,17 @@ export function useChatWorkspaceData() {
 	);
 	const resumeSessionForWorkspaceWithResult = useCallback(
 		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
+			const targetMetadata =
+				metadata.projectId === undefined && activeProjectId
+					? { ...metadata, projectId: activeProjectId }
+					: metadata;
 			const currentMetadata = getSessionMetadata();
-			const shouldClear = shouldClearPendingAttachments(currentMetadata, metadata);
-			const resumed = await resumeSession(metadata, options);
+			const shouldClear = shouldClearPendingAttachments(currentMetadata, targetMetadata);
+			const resumed = await resumeSession(targetMetadata, options);
 			if (resumed && shouldClear) clearPendingAttachments();
 			return resumed;
 		},
-		[clearPendingAttachments, getSessionMetadata, resumeSession],
+		[activeProjectId, clearPendingAttachments, getSessionMetadata, resumeSession],
 	);
 	const resumeSessionForWorkspace = useCallback(
 		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
@@ -477,6 +481,7 @@ export function useChatWorkspaceData() {
 	const { chatPanelData, settingsActions, workspaceTreeContext } = useRightPanelContextValue({
 		activityLabel,
 		artifactRuns,
+		chatMode,
 		handleThemePreferenceChange,
 		isLoadingProviders,
 		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
@@ -491,6 +496,7 @@ export function useChatWorkspaceData() {
 		onUpdateProvider,
 		openWorkspacePath,
 		planLabel,
+		presentation,
 		providers: providersData?.providers ?? [],
 		queue,
 		refreshResources,
@@ -501,6 +507,7 @@ export function useChatWorkspaceData() {
 		rightPanel,
 		saveSettings,
 		selectedArtifactId,
+		sessionId: sessionMetadata.sessionId,
 		selectedWorkspacePath,
 		setRightPanel,
 		setSelectedWorkspacePath,
@@ -508,6 +515,7 @@ export function useChatWorkspaceData() {
 		settingsError,
 		settingsLoading: settingsLoading || updateSettings.isPending,
 		status,
+		thinkingLevel,
 		themePreference,
 		workspaceError,
 		workspaceLoading,

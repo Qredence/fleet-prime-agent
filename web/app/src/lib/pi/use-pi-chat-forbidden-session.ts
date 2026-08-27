@@ -10,7 +10,7 @@ import { EMPTY_QUEUE_STATE } from "./chat-stream-state";
 export type ForbiddenSessionRecoveryDeps = {
 	client: ChatClient;
 	projectId?: ProjectId;
-	refreshSessions: () => Promise<void>;
+	refreshSessions: () => Promise<unknown>;
 	setActivityLabelSynced: (label: string | undefined) => void;
 	setError: (error: Error | null) => void;
 	setMessagesSynced: (updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => void;

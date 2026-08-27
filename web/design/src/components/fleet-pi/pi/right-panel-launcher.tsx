@@ -1,4 +1,4 @@
-import { Folder, Library, Package, X } from "lucide-react"
+import { Activity, Folder, Library, Package, X } from "lucide-react"
 import { useEffect, useEffectEvent, useId, useMemo, useRef } from "react"
 import { TabsSubtle, TabsSubtleItem } from "../../tabs-subtle"
 import {
@@ -97,6 +97,12 @@ export function RightPanelLauncher({
         ariaLabel: "Workspace artifacts",
         badge: totalArtifacts,
         icon: Package,
+      },
+      {
+        id: "session-insights" as const,
+        title: "Session insights",
+        ariaLabel: "Session insights",
+        icon: Activity,
       },
     ],
     [totalArtifacts, totalResources]

@@ -93,7 +93,7 @@ export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 		model: ChatModelSelection | undefined;
 		projectId?: ProjectId;
 		recoverFromForbiddenSession: () => Promise<void>;
-		refreshSessions: () => Promise<void>;
+		refreshSessions: () => Promise<unknown>;
 		status: ChatStatus;
 	};
 
