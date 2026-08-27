@@ -11,40 +11,12 @@ while [ -h "$SOURCE" ]; do
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
 
-# `fleet-prime install` runs the source installer (deps, build, global CLI link).
+# `fleet-prime install` runs the source installer (deps, build, launcher shim).
 if [[ "${1:-}" == "install" ]]; then
 	shift
 	exec "$SCRIPT_DIR/install.sh" "$@"
 fi
 
-# Otherwise run the Fleet Prime web dev server (same as `npm run dev:web`) from
-# web/app, serving on 127.0.0.1:3000 by default. Supports --host and --port
-# overrides, e.g. `fleet-prime --port 3001` or `fleet-prime --host 0.0.0.0`.
-HOST="127.0.0.1"
-PORT=3000
-while [[ $# -gt 0 ]]; do
-	case "$1" in
-		--host=*) HOST="${1#--host=}" ;;
-		--host) HOST="$2"; shift ;;
-		--port=*) PORT="${1#--port=}" ;;
-		--port) PORT="$2"; shift ;;
-		--help)
-			echo "Usage:"
-			echo "  fleet-prime [--host <host>] [--port <port>]   Run the Fleet Prime web dev server"
-			echo "  fleet-prime install [--help]                  Run install.sh (deps, build, global CLI link)"
-			exit 0
-			;;
-		*) echo "Unknown option: $1" >&2; exit 1 ;;
-	esac
-	shift
-done
-
-# Prefer the packaged web runtime (built by scripts/build-web-release.mjs via
-# install.sh); fall back to the dev server when no release build exists.
-LAUNCHER="$SCRIPT_DIR/packages/coding-agent/dist/web/launcher.mjs"
-if [[ -f "$LAUNCHER" ]]; then
-	exec node "$LAUNCHER" --host "$HOST" --port "$PORT"
-fi
-
-cd "$SCRIPT_DIR/web/app"
-exec ../node_modules/.bin/vite dev --host "$HOST" --port "$PORT"
+# The wrapper resolves the pinned stock Prime Agent release from node_modules
+# and starts the production Fleet web bundle.
+exec node "$SCRIPT_DIR/packages/fleet-prime/bin/fleet-prime.mjs" "$@"

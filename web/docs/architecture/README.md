@@ -1,8 +1,8 @@
 # Fleet Prime architecture notes
 
-The web workspace (`web/`) is a standalone product layer over the in-tree
-prime-agent runtime. Long-form design documents live here rather than at the
-repository root.
+The web workspace (`web/`) is a standalone product layer over the checksum-
+pinned stock `prime-agent` runtime. Long-form design documents live here rather
+than at the repository root.
 
 - [`fleet-adapter-contract-v1.md`](./fleet-adapter-contract-v1.md) — the
   audited adapter contract: transport frames, capability negotiation

@@ -1,7 +1,8 @@
 {
-	"name": "prime-agent",
+	"name": "fleet-prime",
+	"version": "0.1.0",
 	"private": true,
-	"description": "A self-improving recursive language model coding and research agent with a web chat, terminal UI, and headless daemon.",
+	"description": "Fleet Prime workspace UI for a pinned upstream Prime Agent runtime.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -9,24 +10,16 @@
 	},
 	"type": "module",
 	"bin": {
-		"prime-agent": "./packages/coding-agent/dist/bundle/cli.js",
-		"fleet-prime": "./fleet-prime.sh"
+		"fleet-agent": "./packages/fleet-prime/bin/fleet-prime.mjs",
+		"fleet-prime": "./packages/fleet-prime/bin/fleet-prime.mjs"
 	},
 	"workspaces": [
-		"packages/*",
-		"packages/coding-agent/examples/extensions/with-deps",
-		"packages/coding-agent/examples/extensions/custom-provider-anthropic",
-		"packages/coding-agent/examples/extensions/custom-provider-gitlab-duo",
-		"packages/coding-agent/examples/extensions/sandbox"
+		"packages/fleet-prime"
 	],
 	"scripts": {
-		"clean": "npm run clean --workspaces",
-		"build": "cd packages/tui && npm run build && cd ../ai && npm run build && cd ../agent && npm run build && cd ../coding-agent && npm run build",
-		"build:ci": "node scripts/build-ci.mjs",
-		"dev": "concurrently --names \"ai,agent,coding-agent,tui\" --prefix-colors \"cyan,yellow,red,magenta\" \"cd packages/ai && npm run dev\" \"cd packages/agent && npm run dev\" \"cd packages/coding-agent && npm run dev\" \"cd packages/tui && npm run dev\"",
-		"dev:tsc": "cd packages/ai && npm run dev:tsc",
-		"check": "npm run check:upstream && biome check --write --error-on-warnings . && tsgo --noEmit && npm run check:installer && npm run check:browser-smoke && npm run check:rendering && npm run check:web",
-		"check:upstream": "node scripts/sync-upstream.mjs --verify",
+		"build": "npm run build:web:release",
+		"check": "npm run check:runtime && biome check --write --error-on-warnings . && npm run check:installer && npm run check:rendering && npm run check:web",
+		"check:runtime": "node scripts/check-prime-agent-runtime.mjs",
 		"check:installer": "node scripts/check-source-installer.mjs --static",
 		"test:source-installer": "node scripts/check-source-installer.mjs --smoke",
 		"check:browser-smoke": "node scripts/check-browser-smoke.mjs",
@@ -36,18 +29,15 @@
 		"check:web": "pnpm --dir web run typecheck",
 		"check:web:release": "node scripts/check-web-release.mjs",
 		"test:web": "pnpm --dir web test",
-		"profile:tui": "node scripts/profile-coding-agent-node.mjs --mode tui",
-		"profile:rpc": "node scripts/profile-coding-agent-node.mjs --mode rpc",
-		"test": "npm run test --workspaces --if-present",
-		"release:pack": "node scripts/pack-prime-agent-release.mjs",
+		"test": "pnpm --dir web test",
+		"release:pack": "npm pack packages/fleet-prime",
 		"prepare": "husky"
 	},
 	"devDependencies": {
-		"@anthropic-ai/sandbox-runtime": "^0.0.55",
 		"@biomejs/biome": "2.5.5",
 		"@types/node": "^22.10.5",
 		"@typescript/native-preview": "7.0.0-dev.20260120.1",
-		"concurrently": "^9.2.4",
+		"esbuild": "0.28.1",
 		"husky": "^9.1.7",
 		"jiti": "^2.7.0",
 		"shx": "^0.4.0",
@@ -57,14 +47,7 @@
 	"engines": {
 		"node": ">=22.8.0"
 	},
-	"version": "0.8.0",
-	"dependencies": {
-		"@earendil-works/pi-coding-agent": "^0.8.0",
-		"get-east-asian-width": "^1.6.0",
-		"react": "19.2.8",
-		"react-dom": "19.2.8",
-		"use-sync-external-store": "1.6.0"
-	},
+	"dependencies": {},
 	"overrides": {
 		"rimraf": "6.1.2",
 		"gaxios": {

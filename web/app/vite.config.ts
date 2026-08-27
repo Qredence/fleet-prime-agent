@@ -30,8 +30,8 @@ const config = defineConfig({
     external: [
       "@earendil-works/pi-agent-core",
       "@earendil-works/pi-ai",
-      "@earendil-works/pi-coding-agent",
       "@earendil-works/pi-tui",
+      "prime-agent",
     ],
   },
   plugins: [tailwindcss(), tanstackStart(), viteReact()],

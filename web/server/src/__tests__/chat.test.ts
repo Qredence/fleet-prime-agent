@@ -132,7 +132,7 @@ describe("handleChatPost attachment validation", () => {
 				runId: "",
 				presentation: { revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] },
 			},
-			session: { isStreaming: false },
+			isStreaming: false,
 		} as unknown as BridgeSession;
 		let listener: ((sessionId: string, frame: unknown) => void) | undefined;
 		setBridgeForTests({
@@ -182,7 +182,7 @@ describe("handleChatPost attachment validation", () => {
 				runId: "active-run",
 				presentation: { revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] },
 			},
-			session: { isStreaming: true },
+			isStreaming: true,
 		} as unknown as BridgeSession;
 		let listener: ((sessionId: string, frame: unknown) => void) | undefined;
 		let finishPrompt!: () => void;
@@ -247,7 +247,7 @@ describe("handleChatNewPost", () => {
 		const setModel = vi.fn();
 		const session = {
 			sessionId: "session-new",
-			session: { setThinkingLevel },
+			connection: { setThinkingLevel },
 		} as unknown as BridgeSession;
 
 		setBridgeForTests({
@@ -290,8 +290,8 @@ describe("handleChatNewPost", () => {
 
 describe("sessionStatus", () => {
 	it("identifies running, failed, idle, and interrupted sessions consistently", () => {
-		const liveRunning = { session: { isStreaming: true } } as unknown as BridgeSession;
-		const liveIdle = { session: { isStreaming: false } } as unknown as BridgeSession;
+		const liveRunning = { isStreaming: true } as unknown as BridgeSession;
+		const liveIdle = { isStreaming: false } as unknown as BridgeSession;
 
 		expect(sessionStatus({ state: { status: "active" } }, liveRunning)).toBe("running");
 		expect(sessionStatus({ state: { status: "active" } }, liveIdle)).toBe("idle");

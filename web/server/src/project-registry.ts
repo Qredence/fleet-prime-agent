@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import type {
@@ -24,6 +24,20 @@ type PersistedProjects = {
 	sessionAssignments: Record<string, ProjectId>;
 };
 
+type RegistryPersistence = {
+	mkdir(path: string, options: { recursive: true }): Promise<string | undefined>;
+	writeFile(path: string, data: string, encoding: "utf8"): Promise<void>;
+	rename(oldPath: string, newPath: string): Promise<void>;
+	unlink(path: string): Promise<void>;
+};
+
+const defaultPersistence: RegistryPersistence = {
+	mkdir: (path, options) => mkdir(path, options),
+	writeFile: (path, data, encoding) => writeFile(path, data, encoding),
+	rename: (oldPath, newPath) => rename(oldPath, newPath),
+	unlink: (path) => unlink(path),
+};
+
 type DirectoryToken = {
 	path: string;
 	expiresAt: number;
@@ -31,6 +45,13 @@ type DirectoryToken = {
 
 const TOKEN_TTL_MS = 10 * 60 * 1000;
 const MAX_DIRECTORY_ENTRIES = 200;
+
+class ProjectRegistryPersistenceError extends Error {
+	constructor(operation: string, cause: unknown) {
+		super(`Could not ${operation}. Please try again.`, { cause });
+		this.name = "ProjectRegistryPersistenceError";
+	}
+}
 
 function safePathLabel(path: string): string {
 	const home = homedir();
@@ -47,15 +68,17 @@ function now(): string {
 export class ProjectRegistry {
 	readonly #filePath: string;
 	readonly #initialPath: string;
+	readonly #persistence: RegistryPersistence;
 	readonly #directoryTokens = new Map<string, DirectoryToken>();
 	#loading: Promise<void> | undefined;
 	#projects = new Map<ProjectId, ProjectRecord>();
 	#sessionAssignments = new Map<string, ProjectId>();
 	#writeChain: Promise<void> = Promise.resolve();
 
-	constructor(agentDir: string, initialCwd: string) {
+	constructor(agentDir: string, initialCwd: string, persistence: RegistryPersistence = defaultPersistence) {
 		this.#filePath = join(agentDir, "fleet-projects.json");
 		this.#initialPath = resolve(initialCwd);
+		this.#persistence = persistence;
 	}
 
 	async #ensureLoaded(): Promise<void> {
@@ -108,23 +131,34 @@ export class ProjectRegistry {
 				status: "active",
 			};
 			this.#projects.set(project.projectId, project);
-			await this.#persist();
+			await this.#persist("initialize the project registry");
 		}
 	}
 
-	async #persist(): Promise<void> {
+	async #persist(operation: string): Promise<void> {
 		const snapshot: PersistedProjects = {
 			version: 1,
 			projects: [...this.#projects.values()],
 			sessionAssignments: Object.fromEntries(this.#sessionAssignments),
 		};
-		this.#writeChain = this.#writeChain.then(async () => {
-			await mkdir(dirname(this.#filePath), { recursive: true });
-			const temporary = `${this.#filePath}.${process.pid}.tmp`;
-			await writeFile(temporary, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
-			await rename(temporary, this.#filePath);
-		});
-		await this.#writeChain;
+		const write = this.#writeChain
+			.catch(() => undefined)
+			.then(async () => {
+				await this.#persistence.mkdir(dirname(this.#filePath), { recursive: true });
+				const temporary = `${this.#filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
+				try {
+					await this.#persistence.writeFile(temporary, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+					await this.#persistence.rename(temporary, this.#filePath);
+				} finally {
+					await this.#persistence.unlink(temporary).catch(() => undefined);
+				}
+			});
+		this.#writeChain = write;
+		try {
+			await write;
+		} catch (error) {
+			throw new ProjectRegistryPersistenceError(operation, error);
+		}
 	}
 
 	async #canonicalDirectory(rawPath: string): Promise<string> {
@@ -180,7 +214,7 @@ export class ProjectRegistry {
 			existing.status = "active";
 			if (requestedName?.trim()) existing.name = requestedName.trim();
 			existing.updatedAt = now();
-			await this.#persist();
+			await this.#persist("save the project registration");
 			return this.#summary(existing, this.#countSessions(existing.projectId));
 		}
 		const timestamp = now();
@@ -193,7 +227,7 @@ export class ProjectRegistry {
 			status: "active",
 		};
 		this.#projects.set(project.projectId, project);
-		await this.#persist();
+		await this.#persist("save the project registration");
 		return this.#summary(project, 0);
 	}
 
@@ -202,7 +236,7 @@ export class ProjectRegistry {
 		const project = await this.get(projectId);
 		project.name = name.trim();
 		project.updatedAt = now();
-		await this.#persist();
+		await this.#persist("save the project name");
 		return this.#summary(project, this.#countSessions(project.projectId));
 	}
 
@@ -211,7 +245,7 @@ export class ProjectRegistry {
 		const project = await this.get(projectId);
 		project.status = "unregistered";
 		project.updatedAt = now();
-		await this.#persist();
+		await this.#persist("save the project status");
 		return this.#summary(project, this.#countSessions(project.projectId));
 	}
 
@@ -230,21 +264,35 @@ export class ProjectRegistry {
 		if (assigned && this.#projects.get(assigned)?.status === "active") return assigned;
 		const projectId = await this.projectIdForCwd(cwd);
 		if (projectId) {
+			const previousProjectId = this.#sessionAssignments.get(sessionId);
 			this.#sessionAssignments.set(sessionId, projectId);
-			await this.#persist();
+			try {
+				await this.#persist("save the session's project assignment");
+			} catch (error) {
+				if (previousProjectId === undefined) this.#sessionAssignments.delete(sessionId);
+				else this.#sessionAssignments.set(sessionId, previousProjectId);
+				throw error;
+			}
 		}
 		return projectId;
 	}
 
 	async assignSession(sessionId: string, projectId: ProjectId | null): Promise<void> {
 		await this.#ensureLoaded();
-		if (projectId) {
-			await this.get(projectId);
-			this.#sessionAssignments.set(sessionId, projectId);
-		} else {
-			this.#sessionAssignments.delete(sessionId);
+		if (projectId) await this.get(projectId);
+		const previousProjectId = this.#sessionAssignments.get(sessionId);
+		if (previousProjectId === projectId) return;
+
+		if (projectId) this.#sessionAssignments.set(sessionId, projectId);
+		else this.#sessionAssignments.delete(sessionId);
+
+		try {
+			await this.#persist("save the session's project assignment");
+		} catch (error) {
+			if (previousProjectId === undefined) this.#sessionAssignments.delete(sessionId);
+			else this.#sessionAssignments.set(sessionId, previousProjectId);
+			throw error;
 		}
-		await this.#persist();
 	}
 
 	#countSessions(projectId: ProjectId): number {

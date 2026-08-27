@@ -16,8 +16,17 @@ function getErrorMessage(error: unknown): string {
 	}
 }
 
+/** Keep local filesystem details out of API errors rendered by the browser. */
+export function safeErrorMessage(error: unknown): string {
+	const message = getErrorMessage(error);
+	return message
+		.replace(/(['"])(\/(?!\/)[^'"\n]*|[A-Za-z]:\\[^'"\n]*)\1/g, "$1[local path]$1")
+		.replace(/(^|[\s'"(])\/(?!\/)[^'"\s)]+/g, "$1[local path]")
+		.replace(/[A-Za-z]:\\[^'"\s)]+/g, "[local path]");
+}
+
 export function wrapApiHandler(handler: () => Promise<Response>): Promise<Response> {
 	return handler().catch((error) => {
-		return Response.json({ message: getErrorMessage(error) }, { status: getResponseStatus(error) });
+		return Response.json({ message: safeErrorMessage(error) }, { status: getResponseStatus(error) });
 	});
 }

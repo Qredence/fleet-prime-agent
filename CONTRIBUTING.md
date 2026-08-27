@@ -1,4 +1,4 @@
-# Contributing to Prime Agent
+# Contributing to Fleet Prime Agent
 
 Thanks for contributing. This file covers the process; `AGENTS.md` contains the repository's technical rules (development commands, changelog format, dependency policy, daemon protocol). Read both before opening a pull request.
 
@@ -18,7 +18,7 @@ All participants must follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 2. Install dependencies: `npm ci`, then `pnpm install --dir web`
 3. Create a branch and make your changes
 4. Run `npm run check` (format, lint, type-check; does not run tests)
-5. Run focused tests from the package root, e.g. `cd packages/coding-agent && npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
+5. Run focused web tests from the relevant package root, e.g. `cd web/server && pnpm exec vitest run src/__tests__/prime-bridge.test.ts`
 6. Push the branch and open a pull request into `main`
 
 Use the direct npm and pnpm commands above for local development. Always run
@@ -34,17 +34,17 @@ dependency layout and is unsupported.
 ## Issues
 
 - Use the bug report or feature request template
-- Add `pkg:*` labels to show which package the issue affects: `pkg:agent`, `pkg:ai`, `pkg:coding-agent`, `pkg:tui`
+- Add the existing package labels that best describe the affected Fleet surface
 - Bug reports need reproduction steps and environment details
 
 ## Changelog
 
-Each package has its own `CHANGELOG.md`. Add one line per change under `## [Unreleased]`, starting with a past-tense verb (Added, Changed, Fixed, Removed). See `AGENTS.md` for the exact format.
+Summarize Fleet changes in the pull request and release notes. Prime Agent
+release notes are maintained upstream.
 
 ## Documentation
 
 - [Wiki](https://github.com/Qredence/fleet-prime-agent/wiki) — browsable documentation
-- `packages/coding-agent/docs/development.md` — build and run from source
 - `web/app/ARCHITECTURE.md` — web chat architecture
 
 ## Security

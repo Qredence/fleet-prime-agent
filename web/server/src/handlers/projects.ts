@@ -1,4 +1,3 @@
-import type { SessionInfo } from "@earendil-works/pi-coding-agent";
 import {
 	ProjectCreateRequestSchema,
 	ProjectForkRequestSchema,
@@ -6,15 +5,24 @@ import {
 	ProjectRenameRequestSchema,
 	redactSessionLabelSecrets,
 } from "@prime-agent/web-protocol";
+import type { SessionSummary } from "prime-agent";
 import type { BridgeSession } from "../prime-bridge";
 import { getPrimeConfig } from "../prime-config";
+import { normalizeSessionListRow } from "../session-list";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
-export function sessionStatus(info: Pick<SessionInfo, "state">, live: BridgeSession | undefined) {
-	if (live?.session.isStreaming) return "running" as const;
+export function sessionStatus(
+	info: Partial<Pick<SessionSummary, "activity" | "isSessionActive" | "isStreaming">> & {
+		state?: { status?: string };
+	},
+	live: BridgeSession | undefined,
+) {
+	if (live?.isStreaming || live?.session?.isStreaming || info.isStreaming || info.activity === "working") {
+		return "running" as const;
+	}
 	if (info.state?.status === "crash") return "failed" as const;
-	return live ? ("idle" as const) : ("interrupted" as const);
+	return live || info.isSessionActive ? ("idle" as const) : ("interrupted" as const);
 }
 
 async function sessionProjectIds() {
@@ -22,13 +30,16 @@ async function sessionProjectIds() {
 	const sessions = await bridge.listSessions();
 	const registry = getPrimeConfig().projectRegistry;
 	const assignmentEntries = await Promise.all(
-		sessions.map(
-			async (session) =>
-				[
-					session.id,
-					await registry.projectIdForSession(session.id, bridge.getSession(session.id)?.cwd ?? session.cwd),
-				] as const,
-		),
+		sessions.map(async (source) => {
+			const session = normalizeSessionListRow(source);
+			return [
+				session.sessionId,
+				await registry.projectIdForSession(
+					session.sessionId,
+					bridge.getSession(session.sessionId)?.cwd ?? session.cwd,
+				),
+			] as const;
+		}),
 	);
 	const assignments = new Map(assignmentEntries);
 	return { bridge, sessions, assignments };
@@ -43,16 +54,19 @@ export function handleProjectsGet(_request: Request): Promise<Response> {
 		}
 		return Response.json({
 			projects: await getPrimeConfig().projectRegistry.list(counts),
-			sessions: sessions.map((session) => ({
-				sessionId: session.id,
-				projectId: assignments.get(session.id) ?? null,
-				title: redactSessionLabelSecrets(session.name || session.firstMessage || session.id.slice(0, 8)),
-				createdAt: session.created.toISOString(),
-				updatedAt: session.modified.toISOString(),
-				status: sessionStatus(session, getBridge().getSession(session.id)),
-				messageCount: session.messageCount,
-				firstMessage: session.firstMessage ? redactSessionLabelSecrets(session.firstMessage) : session.firstMessage,
-			})),
+			sessions: sessions.map((source) => {
+				const session = normalizeSessionListRow(source);
+				return {
+					sessionId: session.sessionId,
+					projectId: assignments.get(session.sessionId) ?? null,
+					title: redactSessionLabelSecrets(session.title || session.firstMessage || session.sessionId.slice(0, 8)),
+					createdAt: session.createdAt,
+					updatedAt: session.updatedAt,
+					status: sessionStatus(session.source, getBridge().getSession(session.sessionId)),
+					messageCount: session.messageCount,
+					firstMessage: session.firstMessage ? redactSessionLabelSecrets(session.firstMessage) : "",
+				};
+			}),
 		});
 	});
 }

@@ -1,11 +1,11 @@
 # Fleet Prime Web Architecture
 
-Standalone Qredence web UI for the Fleet Prime product, backed by the in-tree
-coding-agent package (`packages/coding-agent`).
+Standalone Qredence web UI for the Fleet Prime product, backed by the pinned
+stock `prime-agent` runtime installed from its upstream release tarball.
 The UI is not merged into `PrimeIntellect-ai/prime-agent`. `web/app` is the
 TanStack Start host; `web/server` is the only web package that imports
-`@earendil-works/*`. Install the UI with pnpm (`web/`); the inherited CLI
-package stays on npm.
+`prime-agent`. Install the UI with pnpm (`web/`); the Fleet launcher and stock
+runtime are installed through npm.
 
 ## Process boundary
 
@@ -17,18 +17,18 @@ browser ─ EventSource/fetch ─▶ TanStack Start (web/app /api routes)
                                    │
                                    ▼
                               PrimeBridge
-                                   │  (1 instance per Node process — singleton.ts)
+                                   │  daemon client and Fleet session registry
                                    ├─ sessions: Map<sessionId, BridgeSession>
                                    ├─ ringBuffers: Map<sessionId, RingBuffer>   (500 frames)
                                    ├─ pendingDialogs: PendingDialogRegistry     (60s timeout)
                                    └─ kernelReady: Promise<void>                (IpythonKernelProvisioner.ensure)
                                              │
                                              ▼
-                              packages/coding-agent
+                              prime-agent daemon/runtime
                                    │
-                                   ├─ createAgentSession({cwd}) ─▶ AgentSession
-                                   ├─ SessionManager.list/openAsync ─▶ JSONL transcripts
-                                   └─ IpythonKernelProvisioner ─▶ Jupyter kernel readiness
+                                   ├─ daemon session create/resume ─▶ AgentSession
+                                   ├─ daemon session catalog ─▶ JSONL transcripts
+                                   └─ managed IPython kernel ─▶ Jupyter readiness
 ```
 
 The bridge binds an `ExtensionUIContext` per session. `confirm/select/input`
@@ -109,7 +109,5 @@ replay (delivers frames emitted while the tab was closed).
 
 ## Gaps
 
-- No daemon-backed attach (`AgentConnection`). Web uses in-process
-  `createAgentSession` via the HTTP adapter.
 - Pending dialogs are not persisted across server restart.
 - No multi-user auth (binds to `127.0.0.1`, no tokens).

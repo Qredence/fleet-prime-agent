@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { SessionManager } from "prime-agent";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("SessionManager", () => {

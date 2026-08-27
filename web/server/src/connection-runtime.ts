@@ -10,7 +10,7 @@
  *
  * Mirrors `packages/coding-agent/test/suite/acp-features.test.ts:54-62`.
  */
-import type { AgentSession, AgentSessionRuntime } from "@earendil-works/pi-coding-agent";
+import type { AgentSession, AgentSessionRuntime } from "prime-agent";
 
 /**
  * Build a minimal `AgentSessionRuntime` host around an existing `AgentSession`.

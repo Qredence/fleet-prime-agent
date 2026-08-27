@@ -9,41 +9,36 @@
 
 ## Web interface (`web/`)
 
-This repo's web UI is a standalone Qredence product. It is not merged into
-upstream `PrimeIntellect-ai/prime-agent`. In-tree `packages/coding-agent` is the
-backend; the web stack is the interface.
+This repo's web UI is the standalone Qredence product. It is not merged into
+upstream `PrimeIntellect-ai/prime-agent`. The stock upstream `prime-agent`
+package is the execution runtime; the web stack is the interface.
 
 - Interface: `web/app` (TanStack Start) + `web/design`
 - Adapter: `web/server` (`prime-bridge.ts`, `event-mapper.ts`, HTTP handlers)
 - Contract: `web/protocol/src/chat-protocol.ts`
-- Browser code talks HTTP (NDJSON + SSE) only. Do not import `@earendil-works/*`
+- Browser code talks HTTP (NDJSON + SSE) only. Do not import `prime-agent`
   from `web/app/src` or `web/design`.
-- When an upstream sync touches the public surface the adapter
-  consumes — `createAgentSession`, `AgentSessionEvent`, `ExtensionUIContext`,
-  `IpythonKernelProvisioner`, `SessionManager` — update `web/server`
-  in the same sync PR. Do not add web-specific exports to coding-agent; engine
-  changes belong upstream.
+- `web/server` is the only adapter layer that imports `prime-agent`; it owns
+  the daemon connection, event mapping, and runtime compatibility.
 
-Prime Agent lives under `packages/` (npm workspaces) as a VERBATIM copy of
-upstream `PrimeIntellect-ai/prime-agent`, pinned by the root `UPSTREAM`
-manifest. The Qredence UI lives under `web/` (pnpm workspace). Never edit
-`packages/` or `prime-agent-runtime/` locally — sync them with
-`node scripts/sync-upstream.mjs --apply <tag>` (see "Upstream engine sync").
+`PRIME_AGENT_RUNTIME.json` pins the stock upstream tarball and SHA-256.
+`packages/fleet-prime` is Fleet's thin launcher package; it is not an upstream
+source checkout. Do not add copies of upstream source under `packages/` or
+`prime-agent-runtime/`.
 
 Install: `npm install` at the repo root, then `pnpm install` in `web/`. Never
 `npm install` inside `web/`, and never `pnpm install` at the repo root.
 pnpm 11 settings live in `web/pnpm-workspace.yaml` (not `.npmrc`).
 
 Running pnpm at the repo root (instead of `--dir web`) rewrites the root
-`node_modules` to a pnpm layout, replaces the npm workspace links for
-`@earendil-works/*` with registry-published builds, and drops a stray
+`node_modules` to a pnpm layout and drops a stray
 `pnpm-workspace.yaml` (with placeholder `allowBuilds` values) and
 `pnpm-lock.yaml` at the root. If this happens, delete those two files and
 re-run `npm install` at the root. Never commit them.
 
-`web/server` links `@earendil-works/*` with pnpm `link:` (not `file:`) so
-nested agent deps resolve through the root npm tree. Do not add
-`packages/{ai,agent,tui,coding-agent}` to `web/pnpm-workspace.yaml`.
+The web server consumes the same pinned `prime-agent` package as the Fleet
+launcher. Keep its tarball URL and version aligned with
+`PRIME_AGENT_RUNTIME.json`.
 
 Dev: `pnpm --dir web --filter @prime-agent/web dev` (or `npm run dev:web`).
 
@@ -58,40 +53,39 @@ Dev: `pnpm --dir web --filter @prime-agent/web dev` (or `npm run dev:web`).
 - Always ask before removing functionality or code that appears to be intentional
 - Do not preserve backward compatibility unless the user explicitly asks for it
 - Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)
-- NEVER edit anything under `packages/` or `prime-agent-runtime/`: those are vendored verbatim from upstream and `check:upstream` fails on any drift. Change `web/`, `scripts/`, or root files, or change the code upstream.
+- Do not add or restore vendored Prime Agent source trees. Engine behavior,
+  providers, models, and daemon protocol changes belong upstream.
 
-## Upstream engine sync
+## Upstream runtime upgrades
 
-`packages/{ai,agent,tui,coding-agent}` and `prime-agent-runtime/` are a verbatim
-copy of the upstream release pinned in the root `UPSTREAM` manifest. All fleet
-code lives in `web/`, `scripts/`, and root files.
-
-- `node scripts/sync-upstream.mjs --verify` — fails if vendored dirs differ from the pinned tag (runs first in `npm run check` and in CI).
-- `node scripts/sync-upstream.mjs --report <tag>` — shows what a sync would change, including the adapter-consumed exports and daemon protocol constants.
-- `node scripts/sync-upstream.mjs --apply <tag>` — replaces vendored dirs with `<tag>` and updates `UPSTREAM`. Follow with `npm install`, `npm run check`, and an adapter-contract review.
-- The scheduled `upstream-sync` workflow watches upstream nightly and opens the sync PR automatically.
-- If an emergency engine patch is ever unavoidable, do it on a dedicated branch, never on main, and treat it as a temporary exception until upstream ships an equivalent fix.
+Prime Agent is consumed as a stock, checksum-pinned release tarball rather than
+vendored source. To upgrade it, update `PRIME_AGENT_RUNTIME.json` and the
+matching dependency URLs, run `npm install` plus `pnpm --dir web install`, then
+run `node scripts/check-prime-agent-runtime.mjs`, web-server type checks, and
+the adapter parity tests. Review changes to the public runtime APIs consumed by
+`web/server` and the daemon protocol before merging. Do not patch upstream code
+inside this repository.
 
 ## Commands
 
 - After code changes (not documentation changes): `npm run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
-- `check:upstream` runs first inside `npm run check` and fails if vendored dirs (`packages/`, `prime-agent-runtime/`) differ from the pinned `UPSTREAM` tag.
+- `check:runtime` runs first inside `npm run check` and verifies the pinned
+  runtime manifest.
 - Note: `npm run check` does not run tests.
 - NEVER run: `npm run dev`, `npm run build`, `npm test`
 - Only run specific tests if user instructs: `npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
 - Run tests from the package root, not the repo root.
 - If you create or modify a test file, you MUST run that test file and iterate until it passes.
 - When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
-- For `packages/coding-agent/test/suite/`, use `test/suite/harness.ts` plus the faux provider. Do not use real provider APIs, real API keys, or paid tokens.
-- Put issue-specific regressions under `packages/coding-agent/test/suite/regressions/` and name them `<issue-number>-<short-slug>.test.ts`.
+- Use the web-server's deterministic test doubles for adapter tests. Do not use
+  real provider APIs, real API keys, or paid tokens.
 
 ## Daemon Protocol Changes
 
-The daemon protocol is upstream-owned (vendored); fleet does not develop it.
-`DAEMON_PROTOCOL_VERSION` / `DAEMON_SCHEMA_REVISION` change only through
-`sync-upstream.mjs --apply`. When a sync raises either constant, review
-`web/docs/architecture/fleet-adapter-contract-v1.md` and update `web/server` in
-the same PR.
+The daemon protocol is upstream-owned. When a pinned runtime upgrade changes
+the protocol or schema revision, review
+`web/docs/architecture/fleet-adapter-contract-v1.md`, update `web/server`, and
+run the daemon-runtime and bridge parity tests in the same PR.
 
 ## Dependencies
 
@@ -103,9 +97,8 @@ the same PR.
 
 When creating issues:
 
-- Add `pkg:*` labels to indicate which package(s) the issue affects
-  - Available labels: `pkg:agent`, `pkg:ai`, `pkg:coding-agent`, `pkg:tui`
-- If an issue spans multiple packages, add all relevant labels
+- Add the existing labels that best describe the affected Fleet surface.
+- If an issue spans multiple surfaces, add all relevant labels.
 
 When posting issue/PR comments:
 
@@ -135,8 +128,8 @@ To test Prime Agent's TUI in a controlled terminal environment:
 # Create tmux session with specific dimensions
 tmux new-session -d -s prime-agent-test -x 80 -y 24
 
-# Start Prime Agent from source
-tmux send-keys -t prime-agent-test "cd /path/to/prime-agent && npx tsx packages/coding-agent/src/cli.ts" Enter
+# Start the stock upstream Prime Agent CLI
+tmux send-keys -t prime-agent-test "prime-agent" Enter
 
 # Wait for startup, then capture output
 sleep 3 && tmux capture-pane -t prime-agent-test -p
@@ -156,28 +149,25 @@ You, yourself, are often running into a tmux session, so be careful when killing
 
 ## Changelog
 
-Engine `CHANGELOG.md` files under `packages/` belong to upstream — never edit
-them and never add `.changes/` fragments inside vendored directories. Web/root
-changes are summarized in this repository's PRs and release notes (no fragment
-pipeline).
+Fleet changes are summarized in this repository's PRs and release notes. Do
+not add a changelog or change fragment to a copied upstream directory.
 
-## Adding a New LLM Provider (packages/ai)
+## Adding a New LLM Provider
 
 Engine features (providers, models, daemon protocol, CLI behavior) are developed
-in `PrimeIntellect-ai/prime-agent`, not here. Contribute there, then consume the
-release through an upstream sync. Upstream's contributor guide for a new provider
-starts at `packages/ai/src/providers/`; a sync brings it in unchanged.
+in `PrimeIntellect-ai/prime-agent`, not here. Contribute there, then update the
+pinned stock runtime release and Fleet adapter compatibility checks.
 
 ## Releasing
 
-The vendored engine version is pinned by the root `UPSTREAM` manifest and is
-never bumped locally; fleet code has no independent version pipeline.
+The upstream engine version is pinned in `PRIME_AGENT_RUNTIME.json`; upgrades
+are explicit dependency updates with checksum and adapter verification.
 
 Fleet release (web product + packed CLI artifact):
 
-1. Sync the engine if needed: `node scripts/sync-upstream.mjs --apply vX.Y.Z`, then `npm install` + `npm run check`.
+1. Upgrade the runtime pin if needed, then run `npm install`, `pnpm --dir web install`, and `npm run check`.
 2. Build and pack: `npm run build && npm run build:web:release && npm run release:pack`.
-3. Tag this repository; never `npm publish` the vendored `@earendil-works/*` packages (upstream owns that scope).
+3. Tag this repository; do not publish Prime Agent itself from Fleet.
 
 ## **CRITICAL** Git Rules for Parallel Agents **CRITICAL**
 
@@ -191,7 +181,6 @@ Multiple agents may work on different files in the same worktree simultaneously.
 - ALWAYS use `git add <specific-file-paths>` listing only files you modified
 - Before committing, run `git status` and verify you are only staging YOUR files
 - Track which files you created/modified/deleted during the session
-- It is always fine to include `packages/ai/src/models.generated.ts` in a commit alongside the actual files you want to commit
 
 ### Forbidden Git Operations
 
@@ -211,11 +200,11 @@ These commands can destroy other agents' work:
 git status
 
 # 2. Add ONLY your specific files
-git add packages/ai/src/providers/transform-messages.ts
-git add packages/ai/.changes/eng-1234-fix-resize.md
+git add web/server/src/prime-bridge.ts
+git add web/server/src/__tests__/prime-bridge.test.ts
 
 # 3. Commit
-git commit -m "fix(ai): description"
+git commit -m "fix(web): description"
 
 # 4. Push (pull --rebase if needed, but NEVER reset/checkout)
 git pull --rebase && git push

@@ -1,7 +1,5 @@
 import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, AssistantMessageEvent, ImageContent, UserMessage } from "@earendil-works/pi-ai";
-import type { AgentConnectionEvent, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import { truncateTail } from "@earendil-works/pi-coding-agent";
 import type {
 	ChatImagePart,
 	ChatMessage,
@@ -16,6 +14,8 @@ import type {
 	PrimeAgentSessionPresentation,
 	PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
+import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
+import { truncateTail } from "prime-agent";
 import {
 	createEmptyPrimeAgentSessionPresentation,
 	stablePresentationId,

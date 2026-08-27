@@ -1,7 +1,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { ChatStreamEvent } from "@prime-agent/web-protocol";
+import type { AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
 	createEventMapperState,
