@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldReplaySseEvent } from "../sse-replay";
+import { normalizeSseReplayEvent, shouldReplaySseEvent } from "../sse-replay";
 
 describe("shouldReplaySseEvent", () => {
 	it("replays every event when not an initial-client filter", () => {
@@ -20,5 +20,11 @@ describe("shouldReplaySseEvent", () => {
 		expect(
 			shouldReplaySseEvent({ type: "tool", part: { type: "tool-Question", toolCallId: "answered" } }, pending),
 		).toBe(false);
+	});
+
+	it("unwraps legacy bridge envelopes during hot-reload replay", () => {
+		const frame = { type: "delta", text: "continued" };
+		expect(normalizeSseReplayEvent({ sessionId: "session-1", frame })).toEqual(frame);
+		expect(normalizeSseReplayEvent(frame)).toBe(frame);
 	});
 });

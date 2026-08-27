@@ -27,7 +27,7 @@ export function FleetReasoningPanel({
   const streaming = streamingOverride ?? presentation.streaming;
   const open = userOpen ?? streaming;
   const steps = useMemo(
-    () => presentation.steps.map((step) => ({ title: step.title, body: step.body })),
+    () => presentation.steps.map((step) => ({ id: step.id, title: step.title, body: step.body })),
     [presentation.steps],
   );
   /* Nothing to display once the run settles and no steps were produced —

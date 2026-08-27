@@ -62,6 +62,16 @@ function sessionCommandDoneEvent(sessionId: string): ChatStreamEvent {
 	};
 }
 
+function sessionResetDoneEvent(sessionId: string): ChatStreamEvent {
+	return {
+		type: "done",
+		runId: `${sessionId}-reset-run`,
+		sessionId,
+		sessionReset: true,
+		message: toChatMessage(`${sessionId}-reset-message`, "assistant", []),
+	};
+}
+
 async function flush() {
 	await Promise.resolve();
 	await Promise.resolve();
@@ -300,6 +310,44 @@ describe("usePiChat stream admission", () => {
 		await act(async () => {
 			await command;
 		});
+	});
+
+	it("keeps the primary answer visible when a runtime reset arrives before completion", async () => {
+		const { result, streams } = createHarness();
+		await act(async () => flush());
+
+		let turn!: Promise<void>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "primary" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-assistant", text: "partial" });
+			streams[0].onEvent(sessionResetDoneEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-resumed-assistant", text: " answer" });
+			streams[0].onEvent({
+				type: "done",
+				runId: "session-a-resumed-run",
+				sessionId: "session-a",
+				message: toChatMessage("session-a-resumed-assistant", "assistant", [
+					{ type: "text", text: "partial answer" },
+				]),
+			});
+			await flush();
+		});
+
+		streams[0].resolve();
+		await act(async () => {
+			await turn;
+		});
+
+		expect(result.current.status).toBe("ready");
+		expect(result.current.messages).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ role: "assistant", parts: [{ type: "text", text: "partial answer" }] }),
+			]),
+		);
 	});
 
 	it("does not append a hidden session-command result to the newly visible session", async () => {

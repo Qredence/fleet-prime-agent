@@ -457,7 +457,7 @@ export class PrimeBridge {
 		const next = frame.type === "done" && !(frame.sessionId ?? "").trim() ? { ...frame, sessionId } : frame;
 		const buffer = this.#ringBuffers.get(sessionId);
 		if (buffer) {
-			buffer.push({ sessionId, frame: next });
+			buffer.push(next);
 		}
 		for (const listener of this.#listeners) {
 			listener(sessionId, next);
