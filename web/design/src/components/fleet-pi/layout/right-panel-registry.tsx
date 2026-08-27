@@ -1,13 +1,15 @@
-import { Folder, Library, Package } from "lucide-react"
+import { Activity, Folder, Library, Package } from "lucide-react"
 import { ArtifactsPanelContent } from "../pi/artifacts-panel"
 
 import { ResourcesPanelContent } from "../pi/resources-panel"
+import { SessionInsightsPanel } from "../pi/session-insights-panel"
 import { WorkspacePanelContent } from "../pi/workspace-panel"
 import type { ElementType, ReactNode } from "react"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils"
 import type {
-  ChatPiSettingsUpdate,
+	ChatPiSettingsUpdate,
+	ChatMode,
   ChatProviderInfo,
   ChatProviderOAuthLoginRequest,
   ChatProviderOAuthLoginResponse,
@@ -15,8 +17,10 @@ import type {
   ChatProviderRemoveResponse,
   ChatProviderUpdateRequest,
   ChatProviderUpdateResponse,
-  ChatResourcesResponse,
-  ChatSettingsResponse,
+	ChatResourcesResponse,
+	ChatSettingsResponse,
+	ChatThinkingLevel,
+	PrimeAgentSessionPresentation,
   QueueState,
   WorkspaceFileResponse,
   WorkspaceTreeResponse,
@@ -29,6 +33,7 @@ export type ActiveRightPanel = Exclude<RightPanel, null>
 export type RightPanelContentProps = {
 	activityLabel?: string
 	artifactRuns: Array<PrimeAgentArtifactRun>
+	chatMode: ChatMode
 	isLoadingProviders?: boolean
 	isUpdatingProvider?: boolean
 	onOpenUIAction?: (message: string) => void
@@ -49,6 +54,7 @@ export type RightPanelContentProps = {
     request: ChatProviderUpdateRequest
   ) => Promise<ChatProviderUpdateResponse>
   planLabel?: string
+  presentation: PrimeAgentSessionPresentation
   providers?: Array<ChatProviderInfo>
   queue: QueueState
   refreshResources: () => void
@@ -60,11 +66,13 @@ export type RightPanelContentProps = {
     settings: ChatPiSettingsUpdate
   ) => Promise<ChatSettingsResponse>
   selectedModelKey?: string
+	sessionId?: string
   settings: ChatSettingsResponse | null
   settingsError: Error | null
   settingsLoading: boolean
 	status: ChatStatus
 	selectedArtifactId?: string | null
+	thinkingLevel?: ChatThinkingLevel
   themePreference: ThemePreference
   workspaceError: Error | null
   workspaceLoading: boolean
@@ -89,6 +97,29 @@ export const RIGHT_PANEL_REGISTRY: Record<
   ActiveRightPanel,
   RightPanelDefinition
 > = {
+  "session-insights": {
+    title: "Session insights",
+    icon: Activity,
+    dataTestid: "pi-session-insights-canvas",
+    mobileDataTestid: "pi-session-insights-mobile-panel",
+    getLoading: () => false,
+    getOnRefresh: () => undefined,
+    render: (props) => (
+      <SessionInsightsPanel
+        activityLabel={props.activityLabel}
+        artifactRuns={props.artifactRuns}
+        chatMode={props.chatMode}
+        messages={props.messages}
+        planLabel={props.planLabel}
+        presentation={props.presentation}
+        queue={props.queue}
+        selectedModelKey={props.selectedModelKey}
+        sessionId={props.sessionId}
+        status={props.status}
+        thinkingLevel={props.thinkingLevel}
+      />
+    ),
+  },
   resources: {
     title: "Resources",
     icon: Library,

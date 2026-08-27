@@ -447,4 +447,22 @@ describe("review regressions", () => {
 		expect(queryByLabelText("Changes applied")).toBeNull();
 		expect(getByText("permission denied")).toBeTruthy();
 	});
+
+	it("renders a safe project-persistence error without an absolute path", () => {
+		const safeMessage = "Could not save the session's project assignment. Please try again.";
+		const { getByRole } = render(
+			<FleetPiAgentChat
+				error={new Error(safeMessage)}
+				inputBar={inputBar}
+				messages={[]}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="error"
+			/>,
+		);
+
+		const alert = getByRole("alert");
+		expect(alert.textContent).toContain(safeMessage);
+		expect(alert.textContent).not.toContain("/Users/zocho/.prime/agent/");
+	});
 });

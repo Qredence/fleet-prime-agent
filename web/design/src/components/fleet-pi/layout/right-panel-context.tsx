@@ -7,18 +7,22 @@ export type ChatPanelDataContextValue = Pick<
   RightPanelContentProps,
   | "activityLabel"
   | "artifactRuns"
+  | "chatMode"
   | "messages"
   | "models"
   | "onOpenUIAction"
   | "planLabel"
+  | "presentation"
   | "queue"
   | "refreshResources"
   | "resources"
   | "resourcesError"
   | "resourcesLoading"
   | "selectedModelKey"
+  | "sessionId"
   | "status"
   | "selectedArtifactId"
+  | "thinkingLevel"
 > & {
   rightPanel: RightPanel
   setRightPanel: (panel: RightPanel) => void

@@ -317,7 +317,8 @@
 					"enum": [
 						"resources",
 						"workspace",
-						"artifacts"
+						"artifacts",
+						"session-insights"
 					]
 				},
 				"relativePath": {
@@ -334,7 +335,7 @@
 				"focus"
 			],
 			"additionalProperties": false,
-			"description": "A trusted local action that opens Resources, Workspace, or Artifacts and may select a contained workspace-relative path."
+			"description": "A trusted local action that opens Resources, Workspace, Artifacts, or Session insights and may select a contained workspace-relative path."
 		},
 		"Input": {
 			"type": "object",

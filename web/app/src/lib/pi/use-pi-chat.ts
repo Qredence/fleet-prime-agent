@@ -140,6 +140,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const refreshSessions = useCallback(async () => {
 		const nextSessions = await client.listSessions();
 		setSessions(nextSessions);
+		return nextSessions;
 	}, [client]);
 
 	const recoverFromForbiddenSession = useCallback(
@@ -319,16 +320,24 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setMessagesSynced([]);
 
 		const storedSession = initialSessionMetadataRef.current;
-		const hasStoredSession = storedSession.sessionId;
-		if (!hasStoredSession) {
-			setSessionMetadataSynced({});
-			return () => controller.abort();
-		}
-
-		void client
-			.loadSession(storedSession)
+		void refreshSessions()
+			.then((availableSessions) => {
+				if (controller.signal.aborted) return undefined;
+				const selected = storedSession.sessionId
+					? availableSessions.find((candidate) => candidate.sessionId === storedSession.sessionId)
+					: undefined;
+				const fallback = selected ?? availableSessions[0];
+				if (!fallback) {
+					setSessionMetadataSynced(storedSession.projectId ? { projectId: storedSession.projectId } : {});
+					return undefined;
+				}
+				const metadata = selected
+					? storedSession
+					: { sessionId: fallback.sessionId, projectId: fallback.projectId };
+				return client.loadSession(metadata);
+			})
 			.then((result) => {
-				if (controller.signal.aborted) return;
+				if (!result || controller.signal.aborted) return;
 				setSessionMetadataSynced(result.session);
 				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
 				setPresentationSynced(result.presentation);
@@ -359,6 +368,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setPresentationSynced,
 		setQueueSynced,
 		setSessionMetadataSynced,
+		refreshSessions,
 		recoverFromForbiddenSession,
 	]);
 
