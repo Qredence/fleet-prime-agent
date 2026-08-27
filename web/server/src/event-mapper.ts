@@ -6,7 +6,9 @@ import type {
 	ChatReasoningPresentation,
 	ChatReasoningStep,
 	ChatStreamEvent,
+	ChatToolCategory,
 	ChatToolPart,
+	FleetErrorEnvelope,
 	PrimeAgentArtifact,
 	PrimeAgentGoal,
 	PrimeAgentRefinement,
@@ -37,6 +39,114 @@ function toPascalCase(name: string): string {
 			return w.charAt(0).toUpperCase() + w.slice(1);
 		})
 		.join("");
+}
+
+export function categorizeTool(rawName: string): { category: ChatToolCategory; toolName: string; serverName?: string } {
+	const lower = rawName.toLowerCase();
+	if (lower === "ipython" || lower === "jupyter") {
+		return { category: "kernel", toolName: "ipython" };
+	}
+	if (lower === "bash" || lower === "sh" || lower === "terminal") {
+		return { category: "system", toolName: "bash" };
+	}
+	if (
+		lower === "edit" ||
+		lower === "edit_file" ||
+		lower === "write" ||
+		lower === "write_file" ||
+		lower === "read" ||
+		lower === "read_file" ||
+		lower === "glob" ||
+		lower === "grep"
+	) {
+		return { category: "system", toolName: rawName };
+	}
+	if (lower.startsWith("tool-question") || lower === "question" || lower === "ask_question") {
+		return { category: "question", toolName: "ask_question" };
+	}
+	if (lower.startsWith("plan") || lower.startsWith("todo")) {
+		return { category: "plan", toolName: rawName };
+	}
+	if (lower === "task" || lower === "agent" || lower === "rlm" || lower.startsWith("subagent")) {
+		return { category: "rlm", toolName: rawName };
+	}
+	if (rawName.startsWith("mcp__") || rawName.includes("/")) {
+		const parts = rawName.replace(/^mcp__/, "").split(/[_/]/);
+		const serverName = parts[0];
+		const toolName = parts.slice(1).join("_") || rawName;
+		return { category: "mcp", toolName, serverName };
+	}
+	return { category: "custom", toolName: rawName };
+}
+
+export function createFleetErrorEnvelope(
+	err: unknown,
+	fallbackMessage = "An unexpected error occurred",
+): FleetErrorEnvelope {
+	const message = typeof err === "string" ? err : err instanceof Error ? err.message : fallbackMessage;
+	const lower = message.toLowerCase();
+
+	if (lower.includes("token") && (lower.includes("expired") || lower.includes("invalid") || lower.includes("auth"))) {
+		return {
+			code: "AUTH_CREDENTIAL_EXPIRED",
+			message,
+			isTerminal: true,
+			remediation: {
+				action: "open_settings_tab",
+				label: "Re-authenticate in Settings",
+			},
+		};
+	}
+	if (lower.includes("rate limit") || lower.includes("429") || lower.includes("quota")) {
+		return {
+			code: "RATE_LIMIT",
+			message,
+			isTerminal: false,
+			remediation: {
+				action: "retry_turn",
+				label: "Retry in a moment",
+			},
+		};
+	}
+	if (lower.includes("context length") || lower.includes("maximum context") || lower.includes("overflow")) {
+		return {
+			code: "CONTEXT_OVERFLOW",
+			message,
+			isTerminal: false,
+			remediation: {
+				action: "compact_context",
+				label: "Compact Context",
+			},
+		};
+	}
+	if (lower.includes("kernel") && (lower.includes("died") || lower.includes("crashed") || lower.includes("restart"))) {
+		return {
+			code: "KERNEL_CRASH",
+			message,
+			isTerminal: false,
+			remediation: {
+				action: "restart_kernel",
+				label: "Restart IPython Kernel",
+			},
+		};
+	}
+	if (lower.includes("timeout") || lower.includes("timed out")) {
+		return {
+			code: "TOOL_TIMEOUT",
+			message,
+			isTerminal: false,
+			remediation: {
+				action: "retry_turn",
+				label: "Retry with longer timeout",
+			},
+		};
+	}
+
+	return {
+		code: "UNKNOWN_ERROR",
+		message,
+		isTerminal: false,
+	};
 }
 
 function makeToolType(toolName: string): string {
@@ -115,8 +225,12 @@ function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMess
 		} else if (value.type === "image" && value.data && value.mimeType) {
 			parts.push(imageToChatPart({ type: "image", data: value.data, mimeType: value.mimeType }));
 		} else if (value.type === "toolCall" && value.id && value.name) {
+			const { category, toolName, serverName } = categorizeTool(value.name);
 			parts.push({
 				type: makeToolType(value.name),
+				category,
+				toolName,
+				serverName,
 				toolCallId: value.id,
 				state: "output-available",
 				input: value.arguments,
@@ -586,8 +700,12 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [];
 		}
 		case "tool_execution_start": {
+			const { category, toolName, serverName } = categorizeTool(event.toolName);
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
+				category,
+				toolName,
+				serverName,
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
 				input: event.args,
@@ -595,8 +713,12 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [reasoningFrame(state, "executing", true), { type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_update": {
+			const { category, toolName, serverName } = categorizeTool(event.toolName);
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
+				category,
+				toolName,
+				serverName,
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
 				input: event.args,
@@ -605,8 +727,12 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_end": {
+			const { category, toolName, serverName } = categorizeTool(event.toolName);
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
+				category,
+				toolName,
+				serverName,
 				toolCallId: event.toolCallId,
 				state: event.isError ? "output-error" : "output-available",
 				output: event.result,
@@ -1000,6 +1126,8 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 					type: "tool",
 					part: {
 						type: "tool-Question",
+						category: "question",
+						toolName: "ask_question",
 						toolCallId: request.id,
 						state: "input-streaming",
 						input: {
@@ -1011,11 +1139,40 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 				},
 			];
 		}
+		case "extension_error": {
+			const envelope: FleetErrorEnvelope = {
+				code: "EXTENSION_ERROR",
+				message: `Extension error in ${event.extensionPath}: ${event.error}`,
+				isTerminal: false,
+			};
+			return [
+				{
+					type: "error",
+					message: envelope.message,
+					runId: state.runId,
+					code: envelope.code,
+					error: envelope,
+				},
+			];
+		}
+		case "closed": {
+			if (event.error) {
+				const envelope = createFleetErrorEnvelope(event.error, "Connection closed with error");
+				return [
+					{
+						type: "error",
+						message: envelope.message,
+						runId: state.runId,
+						code: envelope.code,
+						error: envelope,
+					},
+				];
+			}
+			return [];
+		}
 		case "side_question_event":
 		case "connection_status":
 		case "heartbeats_changed":
-		case "closed":
-		case "extension_error":
 		case "session_status":
 			return [];
 		default: {

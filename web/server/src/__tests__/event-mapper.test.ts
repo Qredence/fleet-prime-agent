@@ -1,10 +1,13 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ChatStreamEvent } from "@prime-agent/web-protocol";
-import type { AgentSessionEvent } from "prime-agent";
+import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
+	categorizeTool,
 	createEventMapperState,
+	createFleetErrorEnvelope,
+	mapAgentConnectionEvent,
 	mapAgentSessionEvent,
 	mapAgentSessionEvents,
 	toChatMessageFromAssistant,
@@ -702,5 +705,83 @@ describe("event-mapper", () => {
 			(frame): frame is Extract<ChatStreamEvent, { type: "message" }> => frame.type === "message",
 		);
 		expect(message?.message.parts).toContainEqual(expect.objectContaining({ type: "image", mimeType: "image/png" }));
+	});
+
+	describe("Phase 1: Normalized Tool Categories & Actionable Errors", () => {
+		it("categorizes kernel, system, mcp, question, and plan tools correctly", () => {
+			expect(categorizeTool("ipython")).toEqual({ category: "kernel", toolName: "ipython" });
+			expect(categorizeTool("jupyter")).toEqual({ category: "kernel", toolName: "ipython" });
+			expect(categorizeTool("bash")).toEqual({ category: "system", toolName: "bash" });
+			expect(categorizeTool("edit_file")).toEqual({ category: "system", toolName: "edit_file" });
+			expect(categorizeTool("read_file")).toEqual({ category: "system", toolName: "read_file" });
+			expect(categorizeTool("ask_question")).toEqual({ category: "question", toolName: "ask_question" });
+			expect(categorizeTool("plan_write")).toEqual({ category: "plan", toolName: "plan_write" });
+			expect(categorizeTool("mcp__github_create_issue")).toEqual({
+				category: "mcp",
+				toolName: "create_issue",
+				serverName: "github",
+			});
+			expect(categorizeTool("unknown_custom")).toEqual({ category: "custom", toolName: "unknown_custom" });
+		});
+
+		it("creates actionable remediation hints for known error categories", () => {
+			const authErr = createFleetErrorEnvelope("Token expired for provider");
+			expect(authErr.code).toBe("AUTH_CREDENTIAL_EXPIRED");
+			expect(authErr.remediation?.action).toBe("open_settings_tab");
+
+			const rateErr = createFleetErrorEnvelope("Rate limit exceeded (429)");
+			expect(rateErr.code).toBe("RATE_LIMIT");
+			expect(rateErr.remediation?.action).toBe("retry_turn");
+
+			const contextErr = createFleetErrorEnvelope("Maximum context length overflow");
+			expect(contextErr.code).toBe("CONTEXT_OVERFLOW");
+			expect(contextErr.remediation?.action).toBe("compact_context");
+
+			const kernelErr = createFleetErrorEnvelope("Jupyter kernel died unexpectedly");
+			expect(kernelErr.code).toBe("KERNEL_CRASH");
+			expect(kernelErr.remediation?.action).toBe("restart_kernel");
+		});
+
+		it("emits normalized category, toolName, and serverName on tool execution events", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			const frames = mapAgentSessionEvent(state, {
+				type: "tool_execution_start",
+				toolCallId: "call-1",
+				toolName: "mcp__github_search",
+				args: { query: "fleet" },
+			} as AgentSessionEvent);
+
+			const toolFrame = frames.find((f) => f.type === "tool");
+			expect(toolFrame).toBeDefined();
+			expect((toolFrame as any).part).toMatchObject({
+				type: "tool-MCPGithubSearch",
+				category: "mcp",
+				toolName: "search",
+				serverName: "github",
+				toolCallId: "call-1",
+				state: "input-streaming",
+			});
+		});
+
+		it("maps extension_error and closed errors to structured FleetErrorEnvelopes", () => {
+			const state = createEventMapperState({ sessionId: "test-session" });
+			const extFrames = mapAgentConnectionEvent(state, {
+				type: "extension_error",
+				extensionPath: "/plugins/my-ext.js",
+				event: "onTurn",
+				error: "Module failed to load",
+			} as AgentConnectionEvent);
+
+			expect(extFrames).toHaveLength(1);
+			expect(extFrames[0]).toMatchObject({
+				type: "error",
+				code: "EXTENSION_ERROR",
+				error: {
+					code: "EXTENSION_ERROR",
+					message: "Extension error in /plugins/my-ext.js: Module failed to load",
+				},
+			});
+		});
 	});
 });
