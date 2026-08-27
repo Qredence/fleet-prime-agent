@@ -350,14 +350,16 @@ describe("event-mapper", () => {
 			delayMs: 500,
 			errorMessage: "boom",
 		} as unknown as AgentSessionEvent);
-		expect(retryStart).toContainEqual({
-			type: "retry",
-			phase: "start",
-			attempt: 1,
-			maxAttempts: 3,
-			delayMs: 500,
-			errorMessage: "boom",
-		});
+		expect(retryStart).toContainEqual(
+			expect.objectContaining({
+				type: "retry",
+				phase: "start",
+				attempt: 1,
+				maxAttempts: 3,
+				delayMs: 500,
+				errorMessage: "boom",
+			}),
+		);
 		expect(retryStart).toContainEqual(expect.objectContaining({ type: "reasoning" }));
 		const retryEnd = mapAgentSessionEvent(state, {
 			type: "auto_retry_end",
@@ -990,6 +992,183 @@ describe("event-mapper", () => {
 				questions,
 				options: ["PostgreSQL", "SQLite"],
 				placeholder: "Type custom option...",
+			});
+		});
+	});
+
+	describe("Phase 4: Streaming Compaction, Auto-Retry Envelopes & Presentation Sync", () => {
+		it("maps compaction_start and compaction_end with result metrics and artifact emission", () => {
+			const state = createEventMapperState({ sessionId: "session-compact" });
+
+			const startFrames = mapAgentSessionEvent(state, {
+				type: "compaction_start",
+				reason: "threshold",
+			} as unknown as AgentSessionEvent);
+
+			expect(startFrames).toHaveLength(2);
+			expect(startFrames[1]).toEqual({
+				type: "compaction",
+				phase: "start",
+				reason: "threshold",
+			});
+
+			const endFrames = mapAgentSessionEvent(state, {
+				type: "compaction_end",
+				reason: "threshold",
+				aborted: false,
+				willRetry: false,
+				result: {
+					summary: "Compacted 15 turns of conversation context.",
+					tokensBefore: 120000,
+					firstKeptEntryId: "entry-16",
+				},
+			} as unknown as AgentSessionEvent);
+
+			expect(endFrames).toHaveLength(3);
+			const presFrame = endFrames.find((f) => f.type === "presentation") as Extract<
+				ChatStreamEvent,
+				{ type: "presentation" }
+			>;
+			expect(presFrame).toBeDefined();
+			expect(presFrame.presentation.artifactRuns).toHaveLength(1);
+			expect(presFrame.presentation.artifactRuns[0].artifacts[0]).toMatchObject({
+				kind: "compaction",
+				status: "success",
+				title: "Compacted (threshold)",
+				output: {
+					reason: "threshold",
+					summary: "Compacted 15 turns of conversation context.",
+					tokensBefore: 120000,
+					firstKeptEntryId: "entry-16",
+				},
+			});
+
+			const compactFrame = endFrames.find(
+				(f) => f.type === "compaction" && (f as { phase?: string }).phase === "end",
+			) as Extract<ChatStreamEvent, { type: "compaction"; phase: "end" }>;
+			expect(compactFrame).toMatchObject({
+				type: "compaction",
+				phase: "end",
+				reason: "threshold",
+				aborted: false,
+				willRetry: false,
+				summary: "Compacted 15 turns of conversation context.",
+				tokensBefore: 120000,
+				firstKeptEntryId: "entry-16",
+			});
+		});
+
+		it("maps auto_retry_start and auto_retry_end with structured error envelopes", () => {
+			const state = createEventMapperState({ sessionId: "session-retry" });
+
+			const startFrames = mapAgentSessionEvent(state, {
+				type: "auto_retry_start",
+				attempt: 1,
+				maxAttempts: 3,
+				delayMs: 2000,
+				errorMessage: "Rate limit reached (429)",
+			} as unknown as AgentSessionEvent);
+
+			expect(startFrames).toHaveLength(2);
+			const retryStart = startFrames[1] as Extract<ChatStreamEvent, { type: "retry"; phase: "start" }>;
+			expect(retryStart).toMatchObject({
+				type: "retry",
+				phase: "start",
+				attempt: 1,
+				maxAttempts: 3,
+				delayMs: 2000,
+				errorMessage: "Rate limit reached (429)",
+				error: {
+					code: "RATE_LIMIT",
+					remediation: {
+						action: "retry_turn",
+					},
+				},
+			});
+
+			const endFrames = mapAgentSessionEvent(state, {
+				type: "auto_retry_end",
+				success: false,
+				attempt: 3,
+				finalError: "Context length overflow",
+			} as unknown as AgentSessionEvent);
+
+			expect(endFrames).toHaveLength(2);
+			const retryEnd = endFrames[1] as Extract<ChatStreamEvent, { type: "retry"; phase: "end" }>;
+			expect(retryEnd).toMatchObject({
+				type: "retry",
+				phase: "end",
+				success: false,
+				attempt: 3,
+				finalError: "Context length overflow",
+				error: {
+					code: "CONTEXT_OVERFLOW",
+					remediation: {
+						action: "compact_context",
+					},
+				},
+			});
+		});
+
+		it("maps auth_stale event to error frame with re-auth remediation", () => {
+			const state = createEventMapperState({ sessionId: "session-auth" });
+
+			const frames = mapAgentSessionEvent(state, {
+				type: "auth_stale",
+				provider: "anthropic",
+			} as unknown as AgentSessionEvent);
+
+			expect(frames).toHaveLength(2);
+			const errorFrame = frames[1] as Extract<ChatStreamEvent, { type: "error" }>;
+			expect(errorFrame.type).toBe("error");
+			expect(errorFrame.message).toBe("Authentication for anthropic is stale. Sign in again to continue.");
+			expect(errorFrame.error).toMatchObject({
+				code: "AUTH_CREDENTIAL_EXPIRED",
+				isTerminal: true,
+				remediation: {
+					action: "open_settings_tab",
+				},
+			});
+		});
+
+		it("maps goal_update and recap_update presentation changes", () => {
+			const state = createEventMapperState({ sessionId: "session-goals" });
+
+			const goalFrames = mapAgentSessionEvent(state, {
+				type: "goal_update",
+				goal: {
+					active: true,
+					status: "active",
+					objective: "Deploy fleet stack",
+					tokensUsed: 4500,
+					timeUsedSeconds: 30,
+					continuationsUsed: 1,
+				},
+			} as unknown as AgentSessionEvent);
+
+			expect(goalFrames).toHaveLength(1);
+			const goalPres = goalFrames[0] as Extract<ChatStreamEvent, { type: "presentation" }>;
+			expect(goalPres.presentation.goal).toMatchObject({
+				active: true,
+				status: "active",
+				objective: "Deploy fleet stack",
+				tokensUsed: 4500,
+			});
+
+			const recapFrames = mapAgentSessionEvent(state, {
+				type: "recap_update",
+				recap: "Completed database setup and schema migrations.",
+			} as unknown as AgentSessionEvent);
+
+			expect(recapFrames).toHaveLength(1);
+			const recapPres = recapFrames[0] as Extract<ChatStreamEvent, { type: "presentation" }>;
+			expect(recapPres.presentation.recap).toBe("Completed database setup and schema migrations.");
+			expect(recapPres.presentation.artifactRuns[0].artifacts[0]).toMatchObject({
+				kind: "recap",
+				status: "success",
+				output: {
+					text: "Completed database setup and schema migrations.",
+				},
 			});
 		});
 	});
