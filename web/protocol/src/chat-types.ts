@@ -33,6 +33,7 @@ export type ChatToolPart = {
 	output?: unknown;
 	result?: unknown;
 	durationMs?: number;
+	error?: unknown;
 	[key: string]: unknown;
 };
 
