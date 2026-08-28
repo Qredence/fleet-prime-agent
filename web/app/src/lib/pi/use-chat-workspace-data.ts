@@ -170,6 +170,7 @@ export function useChatWorkspaceData() {
 		getSessionMetadata,
 		messages,
 		planLabel,
+		persistOpenUIArtifact,
 		presentation,
 		queue,
 		renameSession,
@@ -444,6 +445,29 @@ export function useChatWorkspaceData() {
 		setSettingsInitialTab(tab);
 		setSettingsDialogOpen(true);
 	}, []);
+	const handleOpenUIRequest = useCallback(
+		(request: string) => {
+			const attachments = [...workspaceAttachments, ...uploadedAttachments];
+			clearUploadedAttachments();
+			clearWorkspaceAttachments();
+			return sendMessage({
+				text: request,
+				altKey: false,
+				mode: chatMode,
+				openUI: true,
+				openUIArtifact: true,
+				attachments,
+			});
+		},
+		[
+			chatMode,
+			clearUploadedAttachments,
+			clearWorkspaceAttachments,
+			sendMessage,
+			uploadedAttachments,
+			workspaceAttachments,
+		],
+	);
 
 	const { forkFromEntry, handleLocalSlashSubmit, handleSlashCommandSelect } = useLocalSlashActions({
 		appendLocalMessage,
@@ -452,6 +476,7 @@ export function useChatWorkspaceData() {
 		modelKey,
 		models,
 		onForkPicker: setForkPickerEntries,
+		onOpenUIRequest: handleOpenUIRequest,
 		openSettings,
 		resumeSession: resumeSessionForWorkspace,
 		sessions,
@@ -559,6 +584,7 @@ export function useChatWorkspaceData() {
 		workspaceReferenceSuggestions,
 		messages,
 		openArtifact,
+		persistOpenUIArtifact,
 		effortPickerOpen,
 		modelKey,
 		modelPickerOpen,

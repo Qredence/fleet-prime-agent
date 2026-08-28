@@ -15,6 +15,7 @@ import { UserMessage } from "../../agents/user-message"
 import { normalizeAssistantToolParts } from "../../agents/utils/tool-part-normalizer"
 import { cn } from "../../../lib/utils"
 import { GenerativeTextRenderer } from "../../openui/inline-renderer"
+import type { OpenUIArtifactCandidate } from "../../openui/html-artifact"
 import { PI_TOOL_RENDERERS } from "../pi/tool-renderers"
 import { FleetPiToolRenderer } from "./fleet-pi-tool-renderer"
 import { FleetTurnStatus } from "./fleet-turn-status"
@@ -45,6 +46,7 @@ export type FleetPiAgentChatProps = Omit<
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
 	onOpenArtifact?: (artifactId: string) => void
+	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 	inputBar: Omit<
     FleetPiInputBarProps,
     "onSend" | "onStop" | "status" | "suggestions"
@@ -248,6 +250,7 @@ function AssistantMessage({
 	presentation,
 	artifactRuns,
 	onOpenArtifact,
+	onOpenUIArtifactReady,
 }: {
   messages: Array<ChatMessage>
   isLast: boolean
@@ -259,6 +262,7 @@ function AssistantMessage({
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
 	onOpenArtifact?: (artifactId: string) => void
+	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 }) {
   const turnStreaming = isLast && isStreaming
   const elements = useMemo(
@@ -278,17 +282,20 @@ function AssistantMessage({
             suppressTextWhenPlanWrite: true,
             ToolRendererComponent: FleetPiToolRenderer,
             TextRendererComponent: GenerativeTextRenderer,
-            toolRenderers,
-            onOpenUIAction,
-          },
+					toolRenderers,
+					onOpenUIAction,
+					onOpenUIArtifactReady,
+					onOpenArtifact,
+				},
         ),
       ),
     [
       isLast,
       turnStreaming,
       messages,
-      onOpenUIAction,
-      suppressQuestionTool,
+		onOpenUIAction,
+		onOpenUIArtifactReady,
+		suppressQuestionTool,
       toolRenderers,
     ],
   )
@@ -458,6 +465,7 @@ export function FleetPiAgentChat({
 	presentation,
 	artifactRuns,
 	onOpenArtifact,
+	onOpenUIArtifactReady,
 }: FleetPiAgentChatProps) {
   const [draft, setDraft] = useState("")
   const turns = useMemo(() => groupMessages(messages), [messages])
@@ -538,12 +546,13 @@ export function FleetPiAgentChat({
                   isStreaming={isStreaming}
                   suppressQuestionTool={suppressQuestionTool}
 					toolRenderers={toolRenderers}
-					onOpenUIAction={onOpenUIAction}
+						onOpenUIAction={onOpenUIAction}
+						onOpenUIArtifactReady={onOpenUIArtifactReady}
+						onOpenArtifact={onOpenArtifact}
 					activityLabel={activityLabel}
 					presentation={isLast ? presentation : undefined}
 					artifactRuns={isLast ? artifactRuns : undefined}
-					onOpenArtifact={onOpenArtifact}
-				/>
+					/>
               ) : null}
             </div>
           )

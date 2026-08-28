@@ -35,6 +35,13 @@ const AGENT_RULES = [
 	"Buttons may trigger conversational messages or complex action compositions; do not use them for destructive actions.",
 ];
 
+const ARTIFACT_RULES = [
+	"This is an OpenUI artifact request. Use the available tools as needed, then return exactly one fenced `openui` program and no prose before or after it.",
+	'The program must have `root = Root([...])` and exactly one `HtmlArtifact("title", "document")` component under that root.',
+	"The HtmlArtifact document must be a complete, self-contained HTML visualization with inline CSS and inline JavaScript only. Do not use Mermaid, Markdown text blocks, external URLs, network APIs, forms, popups, downloads, event-handler attributes, external scripts, styles, frames, or images.",
+	"Encode the HTML as a valid OpenUI string argument. Prefer HTML/SVG/CSS for architecture diagrams and keep the title short.",
+];
+
 const EXAMPLES = [
 	`A compact status summary:
 \`\`\`openui
@@ -63,8 +70,10 @@ submit = Button("Apply Filters", Action([@Set($searchQuery, ""), @ToAssistant("A
 \`\`\``,
 ];
 
-export function buildOpenUIPrompt(mode: OpenUIPromptMode) {
-	const additionalRules = [...BASE_RULES, ...(mode === "plan" ? PLAN_RULES : AGENT_RULES)];
+export function buildOpenUIPrompt(mode: OpenUIPromptMode, options?: { artifact?: boolean }) {
+	const additionalRules = options?.artifact
+		? [...BASE_RULES, ...ARTIFACT_RULES]
+		: [...BASE_RULES, ...(mode === "plan" ? PLAN_RULES : AGENT_RULES)];
 
 	return generatePrompt({
 		...openUIPromptSpec,
@@ -72,7 +81,7 @@ export function buildOpenUIPrompt(mode: OpenUIPromptMode) {
 		additionalRules,
 		examples: EXAMPLES,
 		bindings: true,
-		toolCalls: mode === "agent" || mode === "plan-execution",
+		toolCalls: options?.artifact || mode === "agent" || mode === "plan-execution",
 		editMode: false,
 	});
 }

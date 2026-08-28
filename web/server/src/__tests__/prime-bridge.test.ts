@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runtimeHostFor } from "../connection-runtime";
 import type { listDaemonSessions } from "../daemon-runtime";
 import { createInProcessTestAgentConnection } from "../in-process-test-connection";
-import { writeManagedPrimePresentation } from "../prime-agent-presentation";
+import { loadManagedPrimePresentation, writeManagedPrimePresentation } from "../prime-agent-presentation";
 import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
 import { getPrimeConfig, resetPrimeConfigForTests } from "../prime-config";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
@@ -300,6 +300,129 @@ describe("PrimeBridge.forkSession", () => {
 
 		const writes = stderrWrite.mock.calls.map(([chunk]) => String(chunk));
 		expect(writes.some((chunk) => chunk.includes("cannot update prompts after creation"))).toBe(true);
+	});
+
+	it.each(["steer", "followUp"] as const)(
+		"admits an active %s prompt before reconfiguring OpenUI",
+		async (streamingBehavior) => {
+			const bridge = createTestBridge();
+			const created = await createTestSession(bridge);
+			const setOpenUIPrompt = created.setOpenUIPrompt;
+			if (!setOpenUIPrompt) throw new Error("test adapter must expose setOpenUIPrompt");
+			const mutable = created as unknown as {
+				setOpenUIPrompt: NonNullable<typeof created.setOpenUIPrompt>;
+			};
+			const order: string[] = [];
+			mutable.setOpenUIPrompt = async (next) => {
+				order.push("reconfigure");
+				await setOpenUIPrompt(next);
+			};
+			created.isStreaming = true;
+			const prompt = vi.spyOn(created.connection, "promptAndWait").mockImplementation(async () => {
+				order.push("prompt");
+			});
+
+			await bridge.prompt(created.sessionId, "update the active turn", {
+				openUI: true,
+				streamingBehavior,
+			});
+
+			expect(order).toEqual(["prompt", "reconfigure"]);
+			expect(prompt).toHaveBeenCalledWith(
+				"update the active turn",
+				expect.objectContaining({ streamingBehavior, queueIfBusy: true }),
+			);
+		},
+	);
+
+	it("serializes idle OpenUI transitions before admitting later prompts", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const setOpenUIPrompt = created.setOpenUIPrompt;
+		if (!setOpenUIPrompt) throw new Error("test adapter must expose setOpenUIPrompt");
+		const mutable = created as unknown as {
+			setOpenUIPrompt: NonNullable<typeof created.setOpenUIPrompt>;
+		};
+		const transitionStates: boolean[] = [];
+		let releaseFirstTransition!: () => void;
+		const firstTransition = new Promise<void>((resolve) => {
+			releaseFirstTransition = resolve;
+		});
+		let isFirstTransition = true;
+		mutable.setOpenUIPrompt = async (next) => {
+			transitionStates.push(next.enabled);
+			if (isFirstTransition) {
+				isFirstTransition = false;
+				await firstTransition;
+			}
+			await setOpenUIPrompt(next);
+		};
+		const prompt = vi.spyOn(created.connection, "promptAndWait").mockResolvedValue(undefined);
+
+		const firstPrompt = bridge.prompt(created.sessionId, "enable OpenUI", { openUI: true });
+		await vi.waitFor(() => expect(transitionStates).toEqual([true]));
+		const secondPrompt = bridge.prompt(created.sessionId, "disable OpenUI", { openUI: false });
+		await vi.waitFor(() => expect(transitionStates).toEqual([true]));
+		expect(prompt).not.toHaveBeenCalled();
+
+		releaseFirstTransition();
+		await Promise.all([firstPrompt, secondPrompt]);
+
+		expect(transitionStates).toEqual([true, false]);
+		expect(prompt).toHaveBeenNthCalledWith(1, "enable OpenUI", expect.anything());
+		expect(prompt).toHaveBeenNthCalledWith(2, "disable OpenUI", expect.anything());
+	});
+
+	it("keeps the committed OpenUI state when reconfiguration fails and retries next time", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const setOpenUIPrompt = created.setOpenUIPrompt;
+		if (!setOpenUIPrompt) throw new Error("test adapter must expose setOpenUIPrompt");
+		const mutable = created as unknown as {
+			setOpenUIPrompt: NonNullable<typeof created.setOpenUIPrompt>;
+		};
+		let attempts = 0;
+		mutable.setOpenUIPrompt = async (next) => {
+			attempts += 1;
+			if (attempts === 1) throw new Error("reconfiguration failed");
+			await setOpenUIPrompt(next);
+		};
+		vi.spyOn(created.connection, "promptAndWait").mockResolvedValue(undefined);
+
+		await expect(bridge.prompt(created.sessionId, "first attempt", { openUI: true })).rejects.toThrow(
+			"reconfiguration failed",
+		);
+		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
+
+		await bridge.prompt(created.sessionId, "retry", { openUI: true });
+
+		expect(attempts).toBe(2);
+		expect(bridge.getSystemPrompt(created.sessionId)).toContain("Every OpenUI block");
+	});
+
+	it("upserts the same OpenUI artifact idempotently and persists the presentation", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const artifact = {
+			id: "openui-artifact-1",
+			runId: "openui-run-1",
+			sourceMessageId: "assistant-1",
+			kind: "openui-html" as const,
+			title: "Fleet Agent",
+			status: "success" as const,
+			input: { artifactIndex: 0 },
+			output: { title: "Fleet Agent", document: "<!doctype html><html><body>ready</body></html>" },
+			timestamp: Date.now(),
+		} satisfies Parameters<PrimeBridge["upsertPresentationArtifact"]>[1];
+
+		const first = await bridge.upsertPresentationArtifact(created.sessionId, artifact);
+		const second = await bridge.upsertPresentationArtifact(created.sessionId, artifact);
+
+		expect(second).toBe(first);
+		expect(second.revision).toBe(1);
+		expect(second.artifactRuns.flatMap((run) => run.artifacts)).toHaveLength(1);
+		const loaded = await loadManagedPrimePresentation({ sessionPath: created.sessionPath });
+		expect(loaded?.artifactRuns[0]?.artifacts[0]?.id).toBe("openui-artifact-1");
 	});
 
 	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {

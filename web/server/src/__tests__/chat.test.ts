@@ -252,13 +252,20 @@ describe("handleChatPost attachment validation", () => {
 			},
 		} as unknown as BridgeSession;
 		let listener: ((sessionId: string, frame: unknown) => void) | undefined;
+		let finishPrompt!: () => void;
 		setBridgeForTests({
 			getSession: vi.fn(() => streamSession),
 			addEventListener: vi.fn((next) => {
 				listener = next;
 				return () => undefined;
 			}),
-			prompt: vi.fn(async () => undefined),
+			getPresentation: vi.fn(() => streamSession.mapperState.presentation),
+			prompt: vi.fn(
+				() =>
+					new Promise<void>((resolve) => {
+						finishPrompt = resolve;
+					}),
+			),
 			resetForTests: vi.fn(),
 		} as unknown as PrimeBridge);
 
@@ -285,6 +292,7 @@ describe("handleChatPost attachment validation", () => {
 			sessionId: streamSession.sessionId,
 			message: { id: "active-run-a0", role: "assistant", parts: [{ type: "text", text: "continued" }] },
 		});
+		finishPrompt();
 
 		const frames = (await response.text())
 			.trim()
@@ -293,6 +301,48 @@ describe("handleChatPost attachment validation", () => {
 		expect(frames.map((frame) => frame.type)).toEqual(["start", "done", "delta", "done"]);
 		expect(frames[1]?.sessionReset).toBe(true);
 		expect(frames[2]?.text).toBe("continued");
+	});
+
+	it("closes a normal stream with the persisted answer when its terminal event is missed", async () => {
+		const streamSession = {
+			...session,
+			mapperState: {
+				inRun: true,
+				currentMessageId: "active-run-a0",
+				runId: "active-run",
+				presentation: { revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] },
+			},
+		} as unknown as BridgeSession;
+		const persistedMessage = {
+			id: "persisted-answer",
+			role: "assistant" as const,
+			parts: [{ type: "text" as const, text: "completed answer" }],
+		};
+		const getMessages = vi.fn(async () => [persistedMessage]);
+		setBridgeForTests({
+			getSession: vi.fn(() => streamSession),
+			addEventListener: vi.fn(() => () => undefined),
+			getPresentation: vi.fn(() => streamSession.mapperState.presentation),
+			getMessages,
+			prompt: vi.fn(async () => undefined),
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatPost(
+			new Request("http://localhost/api/chat", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId: streamSession.sessionId, message: "primary" }),
+			}),
+		);
+
+		const frames = (await response.text())
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line) as { type: string; message?: { id?: string } });
+		expect(getMessages).toHaveBeenCalledWith(streamSession.sessionId);
+		expect(frames.map((frame) => frame.type)).toEqual(["start", "done"]);
+		expect(frames[1]?.message?.id).toBe("persisted-answer");
 	});
 });
 

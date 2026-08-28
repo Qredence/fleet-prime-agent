@@ -4,6 +4,7 @@ import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-typ
 import type { PrimeAgentArtifact, PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol"
 
 import { GenerativeTextRenderer } from "../../openui/inline-renderer"
+import { OpenUIHtmlArtifactView } from "../../openui/html-artifact"
 import { Button } from "../../button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../collapsible"
 import { UiErrorBoundary } from "../ui-error-boundary"
@@ -16,6 +17,7 @@ import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../agent
 import type { SessionOpenUIBlock } from "./artifacts-utils"
 import type { WorkspacePanelContentProps } from "./workspace-panel"
 import { primeAgentArtifactDiff } from "./prime-agent-artifacts"
+import type { OpenUIHtmlArtifactPayload } from "@prime-agent/web-protocol/openui-artifact"
 
 type ArtifactsPanelContentProps = Pick<
 	WorkspacePanelContentProps,
@@ -85,6 +87,53 @@ function artifactSource(artifact: PrimeAgentArtifact): { code: string; language:
 	if (artifact.kind === "ipython") return { code, language: /^\s*%%bash(?:\s|$)/im.test(code) ? "bash" : "python", label: "IPython" }
 	if (artifact.kind === "diff") return { code, language: "text", label: "Text" }
 	return { code, language: "json", label: "JSON" }
+}
+
+function openUIArtifactPayload(artifact: PrimeAgentArtifact): OpenUIHtmlArtifactPayload | undefined {
+	if (artifact.kind !== "openui-html") return undefined
+	const output = typeof artifact.output === "object" && artifact.output !== null
+		? artifact.output as Record<string, unknown>
+		: undefined
+	if (typeof output?.title !== "string" || typeof output.document !== "string") return undefined
+	return { title: output.title, document: output.document }
+}
+
+function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
+	const cardRef = useRef<HTMLElement>(null)
+	useEffect(() => {
+		if (!selected) return
+		requestAnimationFrame(() => {
+			cardRef.current?.focus({ preventScroll: true })
+			cardRef.current?.scrollIntoView({ block: "nearest" })
+		})
+	}, [selected])
+	const payload = openUIArtifactPayload(artifact)
+	return (
+		<article
+			ref={cardRef}
+			data-artifact-id={artifact.id}
+			tabIndex={-1}
+			className="min-w-0 rounded-md border border-border/60 bg-background p-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+		>
+			<div className="mb-2 flex min-w-0 items-center gap-2">
+				<LayoutTemplate className="size-3.5 shrink-0 text-foreground/45" />
+				<span className="min-w-0 flex-1 truncate text-xs font-medium" title={artifact.title}>
+					{artifact.title || "OpenUI artifact"}
+				</span>
+				<span className="shrink-0 text-[10px] text-foreground/40">{artifact.status}</span>
+			</div>
+			{payload ? (
+				<OpenUIHtmlArtifactView artifact={payload} />
+			) : (
+				<div role="alert" className="space-y-2 text-xs text-destructive">
+					<p>OpenUI artifact data is unavailable.</p>
+					<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-foreground/5 p-2 text-foreground/70">
+						{textValue(artifact.output)}
+					</pre>
+				</div>
+			)}
+		</article>
+	)
 }
 
 function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
@@ -230,18 +279,40 @@ export function ArtifactsPanelContent({
 		() => artifactRuns.flatMap((run) => run.artifacts),
 		[artifactRuns],
 	)
+	const openUIArtifacts = useMemo(
+		() => technicalArtifacts.filter((artifact) => artifact.kind === "openui-html"),
+		[technicalArtifacts],
+	)
+	const nonOpenUIArtifacts = useMemo(
+		() => technicalArtifacts.filter((artifact) => artifact.kind !== "openui-html"),
+		[technicalArtifacts],
+	)
 
 	return (
 		<div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
-			{technicalArtifacts.length > 0 ? (
+			{openUIArtifacts.length > 0 ? (
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
+						<LayoutTemplate className="size-3.5 shrink-0 text-foreground/45" />
+						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">OpenUI artifacts</span>
+						<span className="shrink-0 text-[10px] text-foreground/40">{openUIArtifacts.length}</span>
+					</div>
+					<div className="space-y-1">
+						{openUIArtifacts.map((artifact) => (
+							<OpenUIArtifact key={artifact.id} artifact={artifact} selected={artifact.id === selectedArtifactId} />
+						))}
+					</div>
+				</div>
+			) : null}
+			{nonOpenUIArtifacts.length > 0 ? (
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 						<Package className="size-3.5 shrink-0 text-foreground/45" />
 						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Technical artifacts</span>
-						<span className="shrink-0 text-[10px] text-foreground/40">{technicalArtifacts.length}</span>
+						<span className="shrink-0 text-[10px] text-foreground/40">{nonOpenUIArtifacts.length}</span>
 					</div>
 					<div className="space-y-1">
-						{technicalArtifacts.map((artifact) => (
+						{nonOpenUIArtifacts.map((artifact) => (
 							<TechnicalArtifact key={artifact.id} artifact={artifact} selected={artifact.id === selectedArtifactId} />
 						))}
 					</div>

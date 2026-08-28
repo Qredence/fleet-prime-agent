@@ -257,7 +257,8 @@ const TabsSubtle = forwardRef<HTMLDivElement, TabsSubtleProps>(
         <Tabs.Root
           value={selectedIndex >= 0 ? selectedIndex : null}
           onValueChange={(value) => {
-            if (typeof value === "number") onSelect(value)
+            const index = typeof value === "number" ? value : Number(value)
+            if (Number.isInteger(index)) onSelect(index)
           }}
           render={
             <Tabs.List

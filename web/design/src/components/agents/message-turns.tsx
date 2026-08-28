@@ -1,11 +1,13 @@
 import React, { memo, useMemo } from "react"
 
 import { ErrorMessage } from "./error-message"
+import { PayloadPart } from "./payload-part"
 import { normalizeAssistantToolParts } from "./utils/tool-part-normalizer"
 import { MessageToolbar, formatTimestamp } from "./message-toolbar"
 import {
   getTextFromParts,
   isErrorPart,
+  isPayloadPart,
   isTextPart,
   isV5ToolPart,
 } from "./utils/chat-message-parts"
@@ -15,6 +17,7 @@ import type {
 } from "./utils/chat-message-parts"
 import type { CustomToolRendererProps } from "./types"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
+import type { OpenUIArtifactCandidate } from "../openui/html-artifact"
 
 type UserMessageComponentProps = {
   message: ChatMessage
@@ -28,6 +31,8 @@ type TextRendererComponentProps = {
   isStreaming?: boolean
   messageId?: string
   onOpenUIAction?: (message: string) => void
+  onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
+  onOpenArtifact?: (artifactId: string) => void
 }
 
 type UserTurnDisplay = {
@@ -69,6 +74,8 @@ type AssistantTurnSharedProps = {
   TextRendererComponent: React.ComponentType<TextRendererComponentProps>
   toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
   onOpenUIAction?: (message: string) => void
+  onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
+  onOpenArtifact?: (artifactId: string) => void
   onCopied: (copyKey: string) => void
 }
 
@@ -148,6 +155,8 @@ export const AssistantTurn = memo(function AssistantTurn(props: AssistantTurnPro
     TextRendererComponent,
     toolRenderers,
     onOpenUIAction,
+    onOpenUIArtifactReady,
+    onOpenArtifact,
     onCopied,
   } = props
   const stream =
@@ -197,6 +206,8 @@ export const AssistantTurn = memo(function AssistantTurn(props: AssistantTurnPro
               TextRendererComponent={TextRendererComponent}
               toolRenderers={toolRenderers}
               onOpenUIAction={onOpenUIAction}
+              onOpenUIArtifactReady={onOpenUIArtifactReady}
+              onOpenArtifact={onOpenArtifact}
             />
           )
         })}
@@ -244,6 +255,8 @@ type BuildAssistantElementsOptions = {
   TextRendererComponent: React.ComponentType<TextRendererComponentProps>
   toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
   onOpenUIAction?: (message: string) => void
+  onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
+  onOpenArtifact?: (artifactId: string) => void
 }
 
 /**
@@ -267,6 +280,8 @@ export function buildAssistantElements(
     TextRendererComponent,
     toolRenderers,
     onOpenUIAction,
+    onOpenUIArtifactReady,
+    onOpenArtifact,
   } = opts
 
   const elems: Array<React.ReactNode> = []
@@ -328,6 +343,12 @@ export function buildAssistantElements(
       continue
     }
 
+    if (isPayloadPart(part)) {
+      elems.push(<PayloadPart key={`${messageId}-payload-${i}`} part={part} />)
+      i++
+      continue
+    }
+
     if (isV5ToolPart(part)) {
       if (suppressQuestionTool && part.type === "tool-Question") {
         i++
@@ -382,6 +403,8 @@ export function buildAssistantElements(
           isStreaming={isStreaming}
           messageId={messageId}
           onOpenUIAction={onOpenUIAction}
+          onOpenUIArtifactReady={onOpenUIArtifactReady}
+          onOpenArtifact={onOpenArtifact}
           className="leading-relaxed [&_p]:leading-relaxed"
         />
       </div>
@@ -400,6 +423,8 @@ function AssistantParts({
   TextRendererComponent,
   toolRenderers,
   onOpenUIAction,
+  onOpenUIArtifactReady,
+  onOpenArtifact,
 }: {
   msg: ChatMessage
   isLast: boolean
@@ -409,6 +434,8 @@ function AssistantParts({
   TextRendererComponent: React.ComponentType<TextRendererComponentProps>
   toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>
   onOpenUIAction?: (message: string) => void
+  onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
+  onOpenArtifact?: (artifactId: string) => void
 }) {
   const parts = useMemo(
     () => normalizeAssistantToolParts(msg.parts ?? []),
@@ -426,6 +453,8 @@ function AssistantParts({
         TextRendererComponent,
         toolRenderers,
         onOpenUIAction,
+        onOpenUIArtifactReady,
+        onOpenArtifact,
       }),
     [
       parts,
@@ -437,6 +466,8 @@ function AssistantParts({
       TextRendererComponent,
       toolRenderers,
       onOpenUIAction,
+      onOpenUIArtifactReady,
+      onOpenArtifact,
     ]
   )
 

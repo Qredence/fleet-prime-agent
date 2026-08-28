@@ -4,6 +4,7 @@ import type { FleetPiAgentChatProps } from "@prime-agent/web-design/components/f
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol"
 import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt"
+import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact"
 import { useCallback, useMemo } from "react"
 
 type ChatPanelProps = {
@@ -15,6 +16,7 @@ type ChatPanelProps = {
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
 	onOpenArtifact?: (artifactId: string) => void
+	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 	inputSuggestionItems: FleetPiAgentChatProps["suggestions"]
 	suppressQuestionTool: boolean
 	inputBar: FleetPiAgentChatProps["inputBar"]
@@ -36,6 +38,7 @@ export function ChatPanel({
 	presentation,
 	artifactRuns,
 	onOpenArtifact,
+	onOpenUIArtifactReady,
 	inputSuggestionItems,
 	suppressQuestionTool,
 	inputBar,
@@ -85,6 +88,7 @@ export function ChatPanel({
 					presentation={presentation}
 					artifactRuns={artifactRuns}
 					onOpenArtifact={onOpenArtifact}
+					onOpenUIArtifactReady={onOpenUIArtifactReady}
 				questionTool={questionTool}
 				suppressQuestionTool={suppressQuestionTool}
 				error={error ?? undefined}
