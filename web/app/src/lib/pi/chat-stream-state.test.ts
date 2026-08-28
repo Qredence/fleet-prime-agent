@@ -212,6 +212,31 @@ describe("applyChatStreamEvent", () => {
 		expect(JSON.stringify(doneParts)).not.toContain("fleet-web-ok");
 	});
 
+	it("preserves multiple runtime payload parts when the terminal message replaces the bubble", () => {
+		const id = "run-payload-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id, "run-payload"));
+		t = applyChatStreamEvent(t, {
+			type: "payload",
+			messageId: id,
+			part: { type: "payload", id: "payload-1", kind: "custom-one", title: "[custom-one]", text: "one" },
+		});
+		t = applyChatStreamEvent(t, {
+			type: "payload",
+			messageId: id,
+			part: { type: "payload", id: "payload-2", kind: "custom-two", title: "[custom-two]", text: "two" },
+		});
+
+		t = applyChatStreamEvent(t, done(id, "final answer", "run-payload"));
+		const assistant = assistantMessages(t)[0]!;
+		expect(assistant.parts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "payload", id: "payload-1", text: "one" }),
+				expect.objectContaining({ type: "payload", id: "payload-2", text: "two" }),
+				expect.objectContaining({ type: "text", text: "final answer" }),
+			]),
+		);
+	});
+
 	it("accepts only newer presentation revisions and keeps the last snapshot after done", () => {
 		const id = "run-presentation-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id));
@@ -238,6 +263,39 @@ describe("applyChatStreamEvent", () => {
 		t = applyChatStreamEvent(t, done(id, "finished"));
 		expect(t.snapshot.presentation?.revision).toBe(3);
 		expect(t.snapshot.presentation?.sessionName).toBe("session-3");
+	});
+
+	it("merges the terminal assistant and presentation instead of replacing the conversation", () => {
+		const id = "run-terminal-snapshot-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id, "run-terminal-snapshot"));
+		t = applyChatStreamEvent(t, delta(id, "streamed answer"));
+		const terminalPresentation = {
+			revision: 7,
+			sessionName: "completed session",
+			userBash: [],
+			rlmChildren: [],
+			refinements: [],
+			artifactRuns: [
+				{
+					id: "openui-run",
+					runId: "openui-run",
+					artifacts: [],
+				},
+			],
+		};
+
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-terminal-snapshot",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [{ type: "text", text: "completed answer" }]),
+			presentation: terminalPresentation,
+		});
+
+		expect(t.snapshot.messages).toHaveLength(1);
+		expect(t.snapshot.messages[0]).toMatchObject({ id, parts: [{ type: "text", text: "completed answer" }] });
+		expect(t.snapshot.presentation).toEqual(terminalPresentation);
+		expect(t.assistantId).toBeNull();
 	});
 
 	it("replaces the optimistic user message when the live stream supplies image parts", () => {

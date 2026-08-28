@@ -23,6 +23,7 @@ export const ChatRequestSchema = z
 		model: ChatModelSelectionSchema.optional(),
 		mode: ChatModeSchema.optional(),
 		openUI: z.boolean().optional(),
+		openUIArtifact: z.boolean().optional(),
 		attachments: z.array(ChatAttachmentSchema).max(16).optional(),
 		planAction: ChatPlanActionSchema.optional(),
 		streamingBehavior: z.enum(["steer", "followUp"]).optional().openapi({ description: "Streaming behavior" }),
@@ -171,6 +172,18 @@ export const ChatImagePartSchema = z
 	})
 	.openapi({ description: "Image message part" });
 
+export const ChatPayloadPartSchema = z
+	.object({
+		type: z.literal("payload"),
+		id: z.string().min(1).optional(),
+		kind: z.string().min(1),
+		title: z.string().min(1),
+		text: z.string().optional(),
+		payload: z.unknown().optional(),
+	})
+	.passthrough()
+	.openapi({ description: "Browser-visible Prime Agent runtime payload" });
+
 export const FleetErrorCodeSchema = z
 	.enum([
 		"AUTH_CREDENTIAL_EXPIRED",
@@ -234,7 +247,7 @@ export const ChatToolPartSchema = z
 	.openapi({ description: "Tool message part" });
 
 export const ChatMessagePartSchema = z
-	.union([ChatTextPartSchema, ChatErrorPartSchema, ChatImagePartSchema, ChatToolPartSchema])
+	.union([ChatTextPartSchema, ChatErrorPartSchema, ChatImagePartSchema, ChatPayloadPartSchema, ChatToolPartSchema])
 	.openapi({ description: "Message part" });
 
 export const ChatMessageSchema = z
@@ -377,6 +390,7 @@ const PrimeAgentArtifactKindSchema = z.enum([
 	"recap",
 	"refinement",
 	"compaction",
+	"openui-html",
 ]);
 
 export const PrimeAgentArtifactSchema = z
@@ -531,6 +545,29 @@ export const PrimeAgentSessionPresentationSchema = z
 	})
 	.openapi({ description: "Durable browser-visible Prime Agent presentation state" });
 
+export const ChatOpenUIArtifactPayloadSchema = z
+	.object({
+		title: z.string().min(1),
+		document: z.string().min(1),
+	})
+	.openapi({ description: "Validated OpenUI HTML artifact payload" });
+
+export const ChatOpenUIArtifactUpsertRequestSchema = z
+	.object({
+		sessionId: SessionIdSchema,
+		assistantMessageId: z.string().min(1),
+		artifactIndex: z.number().int().nonnegative(),
+		artifact: ChatOpenUIArtifactPayloadSchema,
+	})
+	.openapi({ description: "Upsert a durable OpenUI HTML artifact" });
+
+export const ChatOpenUIArtifactUpsertResponseSchema = z
+	.object({
+		artifact: PrimeAgentArtifactSchema,
+		presentation: PrimeAgentSessionPresentationSchema,
+	})
+	.openapi({ description: "Durable OpenUI HTML artifact and presentation" });
+
 export const ChatPresentationEventSchema = z
 	.object({
 		type: z.literal("presentation"),
@@ -553,6 +590,14 @@ export const ChatMessageEventSchema = z
 		message: ChatMessageSchema,
 	})
 	.openapi({ description: "Browser-visible user or image-bearing message" });
+
+export const ChatPayloadEventSchema = z
+	.object({
+		type: z.literal("payload"),
+		part: ChatPayloadPartSchema,
+		messageId: z.string().optional(),
+	})
+	.openapi({ description: "Discrete Prime Agent runtime payload" });
 
 export const ChatReasoningEventSchema = z
 	.object({
@@ -616,6 +661,7 @@ export const ChatDoneEventSchema = z
 		sessionId: SessionIdSchema,
 		requestKind: z.literal("session-command").optional(),
 		sessionReset: z.boolean().optional(),
+		presentation: PrimeAgentSessionPresentationSchema.optional(),
 	})
 	.openapi({ description: "Stream done event" });
 
@@ -641,6 +687,7 @@ export const ChatStreamEventSchema = z
 		ChatThinkingEventSchema,
 		ChatPresentationEventSchema,
 		ChatMessageEventSchema,
+		ChatPayloadEventSchema,
 		ChatReasoningEventSchema,
 		ChatCompactionStartEventSchema,
 		ChatCompactionEndEventSchema,

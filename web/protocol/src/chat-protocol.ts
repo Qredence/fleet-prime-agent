@@ -1,5 +1,8 @@
-import type { ChatMessage, ChatToolCategory, ChatToolPart } from "./chat-types";
+import type { ChatMessage, ChatPayloadPart, ChatToolCategory, ChatToolPart } from "./chat-types";
 import type { ChatAttachment, ProjectId } from "./fleet-contract";
+import type { OpenUIHtmlArtifactPayload } from "./openui-artifact";
+
+export type { OpenUIHtmlArtifactPayload } from "./openui-artifact";
 
 export type { ChatToolCategory };
 
@@ -147,7 +150,8 @@ export type PrimeAgentArtifactKind =
 	| "rlm"
 	| "recap"
 	| "refinement"
-	| "compaction";
+	| "compaction"
+	| "openui-html";
 
 export type PrimeAgentArtifactStatus = "running" | "success" | "error" | "cancelled";
 
@@ -296,6 +300,7 @@ export type ChatRequest = ChatSessionMetadata & {
 	model?: ChatModelSelection;
 	mode?: ChatMode;
 	openUI?: boolean;
+	openUIArtifact?: boolean;
 	attachments?: Array<ChatAttachment>;
 	planAction?: ChatPlanAction;
 	streamingBehavior?: "steer" | "followUp";
@@ -376,6 +381,18 @@ export type ChatPlanPresentationUpsertRequest = {
 	sessionId: string;
 	presentation: ChatPlanPresentation;
 };
+
+export type ChatOpenUIArtifactUpsertRequest = {
+	sessionId: string;
+	assistantMessageId: string;
+	artifactIndex: number;
+	artifact: OpenUIHtmlArtifactPayload;
+};
+
+export type ChatOpenUIArtifactUpsertResponse = {
+	artifact: PrimeAgentArtifact;
+	presentation: PrimeAgentSessionPresentation;
+};
 /** Optional, capability-gated browser enhancements owned by Fleet Prime. */
 export type FleetAdapterFeature = "reasoning-summary-v1";
 
@@ -433,6 +450,12 @@ export type ChatPresentationEvent = {
 export type ChatMessageEvent = {
 	type: "message";
 	message: ChatMessage;
+};
+
+export type ChatPayloadEvent = {
+	type: "payload";
+	part: ChatPayloadPart;
+	messageId?: string;
 };
 
 export type ChatRlmStreamEvent = {
@@ -494,6 +517,7 @@ export type ChatStreamEvent =
 	| ChatThinkingEvent
 	| ChatPresentationEvent
 	| ChatMessageEvent
+	| ChatPayloadEvent
 	| { type: "reasoning"; presentation: ChatReasoningPresentation; messageId?: string }
 	| { type: "compaction"; phase: "start"; reason: string }
 	| {
@@ -532,6 +556,7 @@ export type ChatStreamEvent =
 			sessionId: string;
 			requestKind?: ChatStreamRequestKind;
 			sessionReset?: boolean;
+			presentation?: PrimeAgentSessionPresentation;
 	  }
 	| ChatErrorStreamEvent;
 

@@ -30,6 +30,7 @@ export type WebAgentConnectionOptions = {
 		enabled: boolean;
 		mode: OpenUIPromptMode;
 		prompt: string;
+		artifact?: boolean;
 	};
 };
 
@@ -40,8 +41,8 @@ export type WebAgentConnection = {
 	session?: AgentSession;
 	/** Bind a test-only UI implementation; daemon connections use daemon events. */
 	bindUiContext?: (uiContext: ExtensionUIContext) => Promise<void>;
-	/** Test-only prompt mutation hook; daemon prompt configuration is fixed at open. */
-	setOpenUIPrompt?: (state: WebAgentConnectionOptions["openUIPrompt"]) => void;
+	/** Reconfigure the daemon worker with the one-shot prompt state. */
+	setOpenUIPrompt?: (state: WebAgentConnectionOptions["openUIPrompt"]) => void | Promise<void>;
 	/** Kill a daemon worker before deleting its persisted session file. */
 	terminate?: () => Promise<void>;
 	/** Delete a persisted session through the daemon catalog, without an active-session context. */
@@ -167,7 +168,13 @@ function runtimeConfig(
 	};
 }
 
-export async function createDaemonWebAgentConnection(options: WebAgentConnectionOptions): Promise<WebAgentConnection> {
+type OpenedDaemonConnection = {
+	connection: AgentConnection;
+	activeSessionId: string;
+	sessionPath?: string;
+};
+
+async function openDaemonConnection(options: WebAgentConnectionOptions): Promise<OpenedDaemonConnection> {
 	const { client, socketPath } = await connectFleetDaemon(options.cwd);
 	try {
 		const response = await client.request({
@@ -186,26 +193,161 @@ export async function createDaemonWebAgentConnection(options: WebAgentConnection
 			sendClientEnv: false,
 			supportsExtensionUi: true,
 		});
-		const deleteSessionFile: WebAgentConnection["deleteSessionFile"] = async (sessionPath) => {
-			const deleteResponse = await client.request({ type: "delete_saved_session", sessionPath });
-			if (!deleteResponse.success) throw new Error(deleteResponse.error);
-			return deleteResponse.data as Awaited<ReturnType<AgentConnection["deleteSavedSession"]>>;
-		};
 		return {
 			connection,
-			openUIPrompt: options.openUIPrompt,
-			terminate: async () => {
-				const currentState = await connection.getState();
-				const currentActiveSessionId = currentState.activeSessionId ?? activeSessionId;
-				const killResponse = await client.request({ type: "kill", activeSessionId: currentActiveSessionId });
-				if (!killResponse.success) throw new Error(killResponse.error);
-			},
-			deleteSessionFile,
+			activeSessionId,
+			...(response.data.sessionFile || options.sessionPath
+				? { sessionPath: response.data.sessionFile ?? options.sessionPath }
+				: {}),
 		};
 	} catch (error) {
 		client.close();
 		throw error;
 	}
+}
+
+async function killDaemonSession(cwd: string, activeSessionId: string): Promise<void> {
+	const { client } = await connectFleetDaemon(cwd);
+	try {
+		const response = await client.request({ type: "kill", activeSessionId });
+		if (!response.success) throw new Error(response.error);
+	} finally {
+		client.close();
+	}
+}
+
+type ConnectionEventListener = Parameters<AgentConnection["subscribe"]>[0];
+type SessionInvalidationListener = Parameters<AgentConnection["onBeforeSessionInvalidate"]>[0];
+
+/**
+ * The daemon protocol fixes appendSystemPrompt when a worker is created. Fleet
+ * toggles that prompt per request, so this wrapper reopens the same persisted
+ * session between turns and keeps the bridge's subscriptions attached.
+ */
+function createReconfigurableConnection(
+	options: WebAgentConnectionOptions,
+	initial: OpenedDaemonConnection,
+): {
+	connection: AgentConnection;
+	setOpenUIPrompt: (state: WebAgentConnectionOptions["openUIPrompt"]) => Promise<void>;
+	terminate: () => Promise<void>;
+	deleteSessionFile: NonNullable<WebAgentConnection["deleteSessionFile"]>;
+} {
+	let current = initial.connection;
+	let activeSessionId = initial.activeSessionId;
+	let sessionPath = initial.sessionPath;
+	let disposed = false;
+	let reconfigureTail = Promise.resolve();
+	const subscriptions: Array<{ listener: ConnectionEventListener; unsubscribe: () => void }> = [];
+	const invalidationListeners: Array<{ listener: SessionInvalidationListener; unsubscribe: () => void }> = [];
+
+	const resubscribe = () => {
+		for (const subscription of subscriptions) {
+			subscription.unsubscribe();
+			subscription.unsubscribe = current.subscribe(subscription.listener);
+		}
+		for (const subscription of invalidationListeners) {
+			subscription.unsubscribe();
+			subscription.unsubscribe = current.onBeforeSessionInvalidate(subscription.listener);
+		}
+	};
+
+	const scheduleReconfiguration = (next: WebAgentConnectionOptions["openUIPrompt"]): Promise<void> => {
+		const previous = reconfigureTail;
+		const operation = previous.then(async () => {
+			if (disposed) throw new Error("The Prime Agent connection is disposed");
+			await current.waitForIdle();
+			const currentState = await current.getState();
+			const nextSessionPath = currentState.sessionFile ?? sessionPath;
+			if (!nextSessionPath) throw new Error("Cannot reconfigure an unpersisted Prime Agent session");
+			const previousActiveSessionId = currentState.activeSessionId ?? activeSessionId;
+
+			await current.dispose();
+			await killDaemonSession(options.cwd, previousActiveSessionId);
+			const reopened = await openDaemonConnection({
+				...options,
+				sessionPath: nextSessionPath,
+				...(currentState.thinkingLevel ? { thinkingLevel: currentState.thinkingLevel } : {}),
+				openUIPrompt: next,
+			});
+			current = reopened.connection;
+			activeSessionId = reopened.activeSessionId;
+			sessionPath = reopened.sessionPath ?? nextSessionPath;
+			resubscribe();
+		});
+		reconfigureTail = operation.catch(() => undefined);
+		return operation;
+	};
+
+	const connection = new Proxy({} as AgentConnection, {
+		get(_target, property) {
+			if (property === "subscribe") {
+				return (listener: ConnectionEventListener) => {
+					const subscription = { listener, unsubscribe: current.subscribe(listener) };
+					subscriptions.push(subscription);
+					return () => {
+						const index = subscriptions.indexOf(subscription);
+						if (index < 0) return;
+						subscription.unsubscribe();
+						subscriptions.splice(index, 1);
+					};
+				};
+			}
+			if (property === "onBeforeSessionInvalidate") {
+				return (listener: SessionInvalidationListener) => {
+					const subscription = { listener, unsubscribe: current.onBeforeSessionInvalidate(listener) };
+					invalidationListeners.push(subscription);
+					return () => {
+						const index = invalidationListeners.indexOf(subscription);
+						if (index < 0) return;
+						subscription.unsubscribe();
+						invalidationListeners.splice(index, 1);
+					};
+				};
+			}
+			if (property === "dispose") {
+				return async () => {
+					disposed = true;
+					await reconfigureTail.catch(() => undefined);
+					await current.dispose();
+				};
+			}
+			const value = Reflect.get(current, property);
+			if (typeof value !== "function") return value;
+			return (...args: readonly unknown[]) => Reflect.apply(value, current, args);
+		},
+	});
+
+	return {
+		connection,
+		setOpenUIPrompt: scheduleReconfiguration,
+		terminate: async () => {
+			const currentState = await current.getState();
+			await killDaemonSession(options.cwd, currentState.activeSessionId ?? activeSessionId);
+		},
+		deleteSessionFile: async (savedSessionPath) => {
+			const { client } = await connectFleetDaemon(options.cwd);
+			try {
+				const response = await client.request({ type: "delete_saved_session", sessionPath: savedSessionPath });
+				if (!response.success) throw new Error(response.error);
+				return response.data as Awaited<ReturnType<AgentConnection["deleteSavedSession"]>>;
+			} finally {
+				client.close();
+			}
+		},
+	};
+}
+
+export async function createDaemonWebAgentConnection(options: WebAgentConnectionOptions): Promise<WebAgentConnection> {
+	const initial = await openDaemonConnection(options);
+	const reconfigurable = createReconfigurableConnection(options, initial);
+	return {
+		connection: reconfigurable.connection,
+		openUIPrompt: options.openUIPrompt,
+		setOpenUIPrompt: reconfigurable.setOpenUIPrompt,
+		terminate: reconfigurable.terminate,
+		deleteSessionFile: reconfigurable.deleteSessionFile,
+	};
 }
 
 /** List the sessions in the configured Prime store through the shared daemon. */

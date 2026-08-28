@@ -12,12 +12,11 @@ import {
 	mapAgentSessionEvent,
 	mapAgentSessionEvents,
 	toChatMessageFromAssistant,
-	toChatMessageFromUnknownRole,
 	toChatMessagesFromAgentMessages,
 	withOAuthBindingGuidance,
 } from "../event-mapper";
 
-function mkAssistant(partial: Partial<AssistantMessage> = {}): AssistantMessage {
+function mkAssistant(partial: Partial<AssistantMessage> & { errorMessage?: string } = {}): AssistantMessage {
 	return {
 		role: "assistant",
 		content: [],
@@ -170,6 +169,27 @@ describe("event-mapper", () => {
 		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
 		expect(done.message.parts).toEqual([{ type: "text", text: "Message-end final answer." }]);
 		expect(JSON.stringify(done.message)).not.toContain("still-never-render-this");
+	});
+
+	it.each([
+		["error", "Assistant error"],
+		["aborted", "Operation aborted"],
+	] as const)("preserves %s assistant errors in the terminal done message", (stopReason, title) => {
+		const state = createEventMapperState();
+		const completed = mkAssistant({ stopReason, errorMessage: "The assistant did not finish." });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_end",
+			message: completed,
+		} as unknown as AgentSessionEvent);
+
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+
+		expect(done.message.parts).toEqual([{ type: "error", title, message: "The assistant did not finish." }]);
 	});
 
 	it("translates tool_execution_start into a tool part with PascalCase tool type", () => {
@@ -478,13 +498,110 @@ describe("event-mapper", () => {
 		expect(kinds[kinds.length - 1]).toBe("done");
 	});
 
-	it("hydrates unknown runtime message types as empty assistant messages", () => {
-		// 0.8.0 added transcript message types Fleet does not model (e.g.
-		// `refinement_outcome` custom messages). They must hydrate without
-		// throwing and without carrying unmodeled content into the browser.
-		const hydrated = toChatMessageFromUnknownRole("session-1-m7");
-		expect(hydrated).toEqual({ id: "session-1-m7", role: "assistant", parts: [] });
-		expect(JSON.stringify(hydrated)).not.toContain("refinement_outcome");
+	it("hydrates TUI-visible runtime message types as browser payload parts", () => {
+		const hydrated = toChatMessagesFromAgentMessages(
+			[
+				{
+					role: "bashExecution",
+					command: "git status --short",
+					output: "clean",
+					exitCode: 0,
+					cancelled: false,
+					truncated: false,
+					excludeFromContext: false,
+					fullOutputPath: "/private/full-output.txt",
+				} as unknown as AgentMessage,
+				{
+					role: "custom",
+					customType: "refinement_outcome",
+					display: true,
+					content: "Refinement completed",
+					details: { summary: "safe", secret: "do-not-send" },
+				} as unknown as AgentMessage,
+				{
+					role: "custom",
+					customType: "hidden_internal",
+					display: false,
+					content: "must stay hidden",
+				} as unknown as AgentMessage,
+				{
+					role: "branchSummary",
+					fromId: "branch-1",
+					summary: "Branch context",
+				} as unknown as AgentMessage,
+				{
+					role: "compactionSummary",
+					summary: "Compacted context",
+					tokensBefore: 1200,
+					retainedMessageCount: 4,
+				} as unknown as AgentMessage,
+			],
+			"session-1",
+		);
+
+		expect(hydrated).toHaveLength(4);
+		expect(hydrated[0]?.parts[0]).toMatchObject({ type: "payload", kind: "bashExecution", title: "Bash" });
+		expect(hydrated[1]?.parts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "text", text: "Refinement completed" }),
+				expect.objectContaining({ type: "payload", kind: "refinement_outcome" }),
+			]),
+		);
+		expect(hydrated[2]?.parts[0]).toMatchObject({ type: "payload", kind: "branchSummary" });
+		expect(hydrated[3]?.parts[0]).toMatchObject({ type: "payload", kind: "compactionSummary" });
+		expect(JSON.stringify(hydrated)).not.toContain("do-not-send");
+		expect(JSON.stringify(hydrated)).not.toContain("full-output.txt");
+		expect(JSON.stringify(hydrated)).not.toContain("must stay hidden");
+	});
+
+	it("emits every visible runtime payload before the terminal done frame", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [
+				{
+					role: "custom",
+					customType: "first",
+					display: true,
+					content: "first payload",
+				} as unknown as AgentMessage,
+				{
+					role: "custom",
+					customType: "second",
+					display: true,
+					content: "second payload",
+				} as unknown as AgentMessage,
+			],
+		} as unknown as AgentSessionEvent);
+
+		const payloads = frames.filter(
+			(frame): frame is Extract<ChatStreamEvent, { type: "payload" }> => frame.type === "payload",
+		);
+		expect(payloads).toHaveLength(2);
+		expect(payloads.map((frame) => frame.part.kind)).toEqual(["first", "second"]);
+		expect(new Set(payloads.map((frame) => frame.part.id)).size).toBe(2);
+		expect(frames.at(-1)?.type).toBe("done");
+	});
+
+	it("keeps late IPython agent messages attached to the tool payload", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "ipython_sent_agent_message",
+			toolCallId: "ipython-1",
+			message: {
+				id: "sent-1",
+				message: "child result",
+				deliveryStatus: "delivered",
+				target: { activeSessionId: "active-1", sessionId: "session-1" },
+			},
+		} as unknown as AgentSessionEvent);
+
+		const tool = frames.find((frame): frame is Extract<ChatStreamEvent, { type: "tool" }> => frame.type === "tool");
+		expect(tool?.part.result).toMatchObject({
+			details: { sentAgentMessages: [{ id: "sent-1", message: "child result" }] },
+		});
 	});
 
 	it("rewrites the 0.8.0 MCP OAuth binding error into re-login guidance", () => {

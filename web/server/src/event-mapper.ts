@@ -1,8 +1,10 @@
 import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, AssistantMessageEvent, ImageContent, UserMessage } from "@earendil-works/pi-ai";
 import type {
+	ChatErrorPart,
 	ChatImagePart,
 	ChatMessage,
+	ChatPayloadPart,
 	ChatReasoningPresentation,
 	ChatReasoningStep,
 	ChatStreamEvent,
@@ -216,6 +218,192 @@ function contentToChatParts(content: unknown): ChatMessage["parts"] {
 	return parts;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const PRIVATE_PAYLOAD_KEY =
+	/(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|authorization|sessionDir|fullOutputPath|harnessStatePath)/i;
+
+function browserSafePayload(value: unknown, key?: string): unknown {
+	if (key && PRIVATE_PAYLOAD_KEY.test(key)) return "[redacted]";
+	if (Array.isArray(value)) return value.map((item) => browserSafePayload(item));
+	if (isRecord(value)) {
+		return Object.fromEntries(
+			Object.entries(value).map(([entryKey, entryValue]) => [entryKey, browserSafePayload(entryValue, entryKey)]),
+		);
+	}
+	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null) {
+		return value;
+	}
+	return undefined;
+}
+
+function stringifyPayload(value: unknown): string {
+	if (typeof value === "string") return value;
+	if (value === undefined) return "";
+	try {
+		return JSON.stringify(value, null, 2) ?? "";
+	} catch {
+		return String(value);
+	}
+}
+
+function createPayloadPart(kind: string, title: string, payload: unknown, text?: string, id?: string): ChatPayloadPart {
+	const safePayload = browserSafePayload(payload);
+	return {
+		type: "payload",
+		...(id ? { id } : {}),
+		kind,
+		title,
+		...(text ? { text } : {}),
+		...(safePayload !== undefined ? { payload: safePayload } : {}),
+	};
+}
+
+function textFromChatParts(parts: ChatMessage["parts"]): string {
+	return parts
+		.filter((part): part is Extract<ChatMessage["parts"][number], { type: "text" }> => part.type === "text")
+		.map((part) => part.text)
+		.join("\n");
+}
+
+function toChatMessageFromRuntimeMessage(message: AgentMessage, id: string): ChatMessage | undefined {
+	const value = message as unknown as Record<string, unknown>;
+	const role = typeof value.role === "string" ? value.role : "runtime";
+	const timestamp = getTimestamp(message);
+
+	if (role === "bashExecution") {
+		const command = typeof value.command === "string" ? value.command : "";
+		const output = typeof value.output === "string" ? value.output : "";
+		const exitCode = typeof value.exitCode === "number" ? value.exitCode : undefined;
+		const cancelled = value.cancelled === true;
+		const truncated = value.truncated === true;
+		const status = cancelled
+			? "cancelled"
+			: exitCode !== undefined && exitCode !== 0
+				? `exit ${exitCode}`
+				: "completed";
+		const text = [
+			`$ ${command}`,
+			output,
+			truncated ? "Output truncated." : undefined,
+			cancelled ? "(cancelled)" : status,
+		]
+			.filter((part): part is string => Boolean(part))
+			.join("\n");
+		return {
+			id,
+			role: "assistant",
+			parts: [
+				createPayloadPart(
+					"bashExecution",
+					"Bash",
+					{
+						command,
+						output,
+						exitCode,
+						cancelled,
+						truncated,
+						excludeFromContext: value.excludeFromContext === true,
+					},
+					text,
+					id,
+				),
+			],
+			createdAt: timestamp,
+		};
+	}
+
+	if (role === "custom" && value.display === false) return undefined;
+
+	if (role === "custom") {
+		const customType = typeof value.customType === "string" && value.customType ? value.customType : "custom";
+		const contentParts = contentToChatParts(value.content);
+		const details = browserSafePayload(value.details);
+		const payload = {
+			customType,
+			...(details !== undefined ? { details } : {}),
+		};
+		return {
+			id,
+			role: "assistant",
+			parts: [
+				...contentParts,
+				createPayloadPart(
+					customType,
+					`[${customType}]`,
+					payload,
+					textFromChatParts(contentParts) ? undefined : stringifyPayload(details),
+					id,
+				),
+			],
+			createdAt: timestamp,
+		};
+	}
+
+	if (role === "branchSummary") {
+		const summary = typeof value.summary === "string" ? value.summary : "";
+		return {
+			id,
+			role: "assistant",
+			parts: [
+				createPayloadPart(
+					"branchSummary",
+					"Branch summary",
+					{ fromId: value.fromId, summary },
+					`Branch Summary\n\n${summary}`,
+					id,
+				),
+			],
+			createdAt: timestamp,
+		};
+	}
+
+	if (role === "compactionSummary") {
+		const summary = typeof value.summary === "string" ? value.summary : "";
+		const tokensBefore = typeof value.tokensBefore === "number" ? value.tokensBefore : undefined;
+		const customInstructions = typeof value.customInstructions === "string" ? value.customInstructions : undefined;
+		const tokenLabel = tokensBefore === undefined ? "" : `Compacted from ${tokensBefore.toLocaleString()} tokens`;
+		return {
+			id,
+			role: "assistant",
+			parts: [
+				createPayloadPart(
+					"compactionSummary",
+					"Compaction summary",
+					{ summary, tokensBefore, customInstructions, retainedMessageCount: value.retainedMessageCount },
+					[tokenLabel, customInstructions ? `Focus: ${customInstructions}` : undefined, summary]
+						.filter((part): part is string => Boolean(part))
+						.join("\n\n"),
+					id,
+				),
+			],
+			createdAt: timestamp,
+		};
+	}
+
+	if (role === "user" || role === "assistant" || role === "toolResult") return undefined;
+
+	const contentParts = contentToChatParts(value.content);
+	const payload = browserSafePayload(Object.fromEntries(Object.entries(value).filter(([key]) => key !== "content")));
+	return {
+		id,
+		role: "assistant",
+		parts: [
+			...contentParts,
+			createPayloadPart(
+				role,
+				`[${role}]`,
+				payload,
+				textFromChatParts(contentParts) ? undefined : stringifyPayload(payload),
+				id,
+			),
+		],
+		createdAt: timestamp,
+	};
+}
+
 function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
 	for (const block of msg.content) {
@@ -244,6 +432,15 @@ function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMess
 				input: value.arguments,
 			} satisfies ChatToolPart);
 		}
+	}
+	const errorMessage = (msg as { errorMessage?: unknown }).errorMessage;
+	const stopReason = (msg as { stopReason?: unknown }).stopReason;
+	if ((stopReason === "error" || stopReason === "aborted") && typeof errorMessage === "string" && errorMessage) {
+		parts.push({
+			type: "error",
+			title: stopReason === "aborted" ? "Operation aborted" : "Assistant error",
+			message: errorMessage,
+		});
 	}
 	return {
 		id,
@@ -301,6 +498,11 @@ export function toChatMessagesFromAgentMessages(
 		}
 		if (role === "user") {
 			output.push(toChatMessageFromUser(message as UserMessage, id));
+			continue;
+		}
+		const runtimeMessage = toChatMessageFromRuntimeMessage(message, id);
+		if (runtimeMessage) {
+			output.push(runtimeMessage);
 			continue;
 		}
 		if (role !== "toolResult") continue;
@@ -365,17 +567,8 @@ export function toChatMessagesFromAgentMessages(
 	return output;
 }
 
-/**
- * Fallback hydration for transcript messages Fleet does not model — custom or
- * future runtime message types (e.g. 0.8.0's `refinement_outcome`) hydrate as
- * empty assistant messages instead of throwing or leaking unmodeled content.
- */
-function toChatMessageFromUnknownRole(id: string): ChatMessage {
-	return { id, role: "assistant", parts: [] };
-}
-
 // Re-export so server code can use them when hydrating from a transcript.
-export { toChatMessageFromAssistant, toChatMessageFromUnknownRole, toChatMessageFromUser };
+export { toChatMessageFromAssistant, toChatMessageFromRuntimeMessage, toChatMessageFromUser };
 
 // ---------------------------------------------------------------------------
 // Per-session mapper state
@@ -400,11 +593,14 @@ export interface EventMapperState {
 	messageSeq: number;
 	currentMessageId: string | undefined;
 	currentText: string;
+	currentAssistantMessage: AssistantMessage | undefined;
 	currentAssistantImages: ChatImagePart[];
+	currentAssistantErrors: ChatErrorPart[];
 	reasoningStartedAt: number | undefined;
 	reasoningSteps: ChatReasoningStep[];
 	reasoningPhase: ChatReasoningPresentation["phase"] | undefined;
 	currentToolParts: ChatToolPart[];
+	currentToolSentAgentMessages: Record<string, Array<unknown>>;
 	userMessages: ChatMessage[];
 	inRun: boolean;
 	presentation: PrimeAgentSessionPresentation;
@@ -422,11 +618,14 @@ export function createEventMapperState(init?: {
 		messageSeq: 0,
 		currentMessageId: undefined,
 		currentText: "",
+		currentAssistantMessage: undefined,
 		currentAssistantImages: [],
+		currentAssistantErrors: [],
 		reasoningStartedAt: undefined,
 		reasoningSteps: [],
 		reasoningPhase: undefined,
 		currentToolParts: [],
+		currentToolSentAgentMessages: {},
 		userMessages: [],
 		inRun: false,
 		presentation: init?.presentation ?? createEmptyPrimeAgentSessionPresentation(),
@@ -440,11 +639,14 @@ function resetRun(state: EventMapperState): void {
 	state.messageSeq = 0;
 	state.currentMessageId = undefined;
 	state.currentText = "";
+	state.currentAssistantMessage = undefined;
 	state.currentAssistantImages = [];
+	state.currentAssistantErrors = [];
 	state.reasoningStartedAt = undefined;
 	state.reasoningSteps = [];
 	state.reasoningPhase = undefined;
 	state.currentToolParts = [];
+	state.currentToolSentAgentMessages = {};
 	state.userMessages = [];
 	state.activeUserBashId = undefined;
 	state.inRun = true;
@@ -706,27 +908,88 @@ function reasoningFrame(
 	};
 }
 
+function sentAgentMessageId(value: unknown): string | undefined {
+	const record = isRecord(value) ? value : undefined;
+	return typeof record?.id === "string" ? record.id : undefined;
+}
+
+function rememberSentAgentMessage(state: EventMapperState, toolCallId: string, message: unknown): void {
+	const safeMessage = browserSafePayload(message);
+	if (safeMessage === undefined) return;
+	const messages = state.currentToolSentAgentMessages[toolCallId] ?? [];
+	const id = sentAgentMessageId(safeMessage);
+	if (id && messages.some((entry) => sentAgentMessageId(entry) === id)) return;
+	state.currentToolSentAgentMessages[toolCallId] = [...messages, safeMessage];
+}
+
+function withSentAgentMessages(state: EventMapperState, toolCallId: string | undefined, value: unknown): unknown {
+	if (!toolCallId) return value;
+	const sentAgentMessages = state.currentToolSentAgentMessages[toolCallId];
+	if (!sentAgentMessages || sentAgentMessages.length === 0) return value;
+	const base = isRecord(value) ? value : {};
+	const details = isRecord(base.details) ? base.details : {};
+	return { ...base, details: { ...details, sentAgentMessages } };
+}
+
 function upsertCurrentToolPart(state: EventMapperState, nextPart: ChatToolPart): ChatToolPart {
 	const toolCallId = nextPart.toolCallId;
+	const enrichedPart: ChatToolPart =
+		typeof toolCallId === "string"
+			? {
+					...nextPart,
+					...(nextPart.output !== undefined
+						? { output: withSentAgentMessages(state, toolCallId, nextPart.output) }
+						: {}),
+					...(nextPart.result !== undefined
+						? { result: withSentAgentMessages(state, toolCallId, nextPart.result) }
+						: {}),
+				}
+			: nextPart;
 	if (typeof toolCallId !== "string" || toolCallId.length === 0) {
-		state.currentToolParts.push(nextPart);
-		return nextPart;
+		state.currentToolParts.push(enrichedPart);
+		return enrichedPart;
 	}
 
 	const existingIndex = state.currentToolParts.findIndex((part) => part.toolCallId === toolCallId);
 	if (existingIndex < 0) {
-		state.currentToolParts.push(nextPart);
-		return nextPart;
+		state.currentToolParts.push(enrichedPart);
+		return enrichedPart;
 	}
 
 	const existing = state.currentToolParts[existingIndex]!;
 	const merged: ChatToolPart = {
 		...existing,
-		...nextPart,
+		...enrichedPart,
 		...(existing.input !== undefined ? { input: existing.input } : {}),
 	};
 	state.currentToolParts[existingIndex] = merged;
 	return merged;
+}
+
+function isChatToolPart(part: ChatMessage["parts"][number]): part is ChatToolPart {
+	return part.type.startsWith("tool-");
+}
+
+function appendFinalAssistantText(state: EventMapperState, finalText: string): void {
+	if (!finalText || state.currentText.endsWith(finalText)) return;
+	if (finalText.startsWith(state.currentText)) {
+		state.currentText = finalText;
+		return;
+	}
+	state.currentText += finalText;
+}
+
+function rememberAssistantMessage(state: EventMapperState, message: AssistantMessage): ChatMessage {
+	state.currentAssistantMessage = message;
+	if (!state.currentMessageId) state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
+	const chatMessage = toChatMessageFromAssistant(message, state.currentMessageId);
+	appendFinalAssistantText(state, textFromAssistantMessage(message));
+	for (const part of chatMessage.parts) {
+		if (isChatToolPart(part)) upsertCurrentToolPart(state, part);
+	}
+	state.currentAssistantImages = chatMessage.parts.filter((part): part is ChatImagePart => part.type === "image");
+	state.currentAssistantErrors = chatMessage.parts.filter((part): part is ChatErrorPart => part.type === "error");
+	return chatMessage;
 }
 
 // ---------------------------------------------------------------------------
@@ -740,9 +1003,26 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [{ type: "state", state: { name: "agent_start" } }, reasoningFrame(state, "waiting", true)];
 		}
 		case "agent_end": {
+			const finalAssistant = [...event.messages].reverse().find(isAssistantMessage);
+			if (finalAssistant) rememberAssistantMessage(state, finalAssistant);
+			const payloadFrames = event.messages.flatMap((message, index) => {
+				const role = (message as { role?: unknown }).role;
+				if (role === "assistant" || role === "user" || role === "toolResult") return [];
+				const payloadMessage = toChatMessageFromRuntimeMessage(message, `${state.runId}-runtime-${index}`);
+				if (!payloadMessage) return [];
+				const contentText = textFromChatParts(payloadMessage.parts);
+				return payloadMessage.parts
+					.filter((part): part is ChatPayloadPart => part.type === "payload")
+					.map((part) => ({
+						type: "payload" as const,
+						part: part.text || !contentText ? part : { ...part, text: contentText },
+						...(state.currentMessageId ? { messageId: state.currentMessageId } : {}),
+					}));
+			});
 			const finalMessage = finalizeAssistantMessage(state);
 			state.inRun = false;
 			return [
+				...payloadFrames,
 				reasoningFrame(state, "complete", false),
 				{ type: "state", state: { name: "agent_settled" } },
 				{
@@ -764,29 +1044,28 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				state.userMessages.push(message);
 				return [{ type: "message", message }];
 			}
+			if (isAssistantMessage(event.message)) {
+				state.currentAssistantMessage = event.message;
+				if (!state.currentMessageId) state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
+			}
 			return [];
 		}
 		case "message_update": {
 			if (!isAssistantMessage(event.message)) return [];
+			state.currentAssistantMessage = event.message;
 			return mapAssistantStreamEvent(state, event.assistantMessageEvent);
 		}
 		case "message_end": {
 			// Some providers expose their final assistant content only on the
-			// authoritative message_end lifecycle event. Keep only text blocks;
-			// detailed reasoning remains excluded from the Fleet browser stream.
+			// authoritative message_end lifecycle event. Keep visible assistant
+			// metadata and tool calls while detailed reasoning remains excluded.
 			// The terminal text must also preserve earlier messages in this run:
 			// append rather than replace, skipping the delta-equivalent suffix.
 			if (isAssistantMessage(event.message)) {
-				const finalText = textFromAssistantMessage(event.message);
-				if (finalText && !state.currentText.endsWith(finalText)) {
-					state.currentText += finalText;
+				const message = rememberAssistantMessage(state, event.message);
+				if (message.parts.some((part) => part.type === "image" || part.type === "error")) {
+					return [{ type: "message", message }];
 				}
-				const message = toChatMessageFromAssistant(
-					event.message,
-					state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
-				);
-				state.currentAssistantImages = message.parts.filter((part): part is ChatImagePart => part.type === "image");
-				if (state.currentAssistantImages.length > 0) return [{ type: "message", message }];
 			}
 			return [];
 		}
@@ -896,15 +1175,7 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			// authoritative, but only text blocks may enter Fleet's standard transcript.
 			// Append (skip the delta-equivalent suffix) so earlier messages in this
 			// run are preserved instead of being replaced by the latest one.
-			const finalText = textFromAssistantMessage(event.message);
-			if (finalText && !state.currentText.endsWith(finalText)) {
-				state.currentText += finalText;
-			}
-			const message = toChatMessageFromAssistant(
-				event.message,
-				state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
-			);
-			state.currentAssistantImages = message.parts.filter((part): part is ChatImagePart => part.type === "image");
+			rememberAssistantMessage(state, event.message);
 			return [];
 		}
 		default:
@@ -1012,12 +1283,26 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 			];
 		}
 		case "ipython_sent_agent_message":
-			return [
-				{
-					type: "state",
-					state: { name: "agent_start", message: "Subagent message received" },
-				},
-			];
+			rememberSentAgentMessage(state, event.toolCallId, event.message);
+			{
+				const existing = state.currentToolParts.find((part) => part.toolCallId === event.toolCallId);
+				const result = withSentAgentMessages(state, event.toolCallId, existing?.result ?? existing?.output);
+				const part = upsertCurrentToolPart(state, {
+					type: "tool-IPython",
+					category: "kernel",
+					toolName: "ipython",
+					toolCallId: event.toolCallId,
+					state: existing?.state ?? "input-streaming",
+					...(result !== undefined ? { output: result, result } : {}),
+				});
+				return [
+					{ type: "tool", part, ...(state.currentMessageId ? { messageId: state.currentMessageId } : {}) },
+					{
+						type: "state",
+						state: { name: "agent_start", message: "Subagent message received" },
+					},
+				];
+			}
 		case "session_info_changed":
 			return [emitPresentation(state, { ...state.presentation, sessionName: event.name })];
 		case "thinking_level_changed":
@@ -1196,6 +1481,7 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 		parts.push(part);
 	}
 	parts.push(...state.currentAssistantImages);
+	parts.push(...state.currentAssistantErrors);
 	return {
 		id: state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
 		role: "assistant",
@@ -1223,11 +1509,10 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
  *     needs a user dialog. We surface it as a `tool-Question` frame so the
  *     web client renders the dialog and the bridge routes the answer back
  *     through `PendingDialogRegistry`.
- *   - `connection_status`, `heartbeats_changed`, `closed`, `extension_error`,
- *     `side_question_event`, `session_status`: bookkeeping we deliberately
- *     suppress at the wire level (the presentation layer already has
- *     equivalent signals from session events, or they are out of scope for
- *     the web UI).
+ *   - `side_question_event`: a TUI-visible side conversation, forwarded as a
+ *     browser-safe payload part.
+ *   - `session_status`: forwarded into the session presentation when it has a
+ *     recap; connection heartbeats and clean closes remain bookkeeping.
  *
  * Pure: no I/O. All session-local state lives in `state`. Returns `[]` for
  * events we deliberately suppress.
@@ -1364,11 +1649,24 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 			}
 			return [];
 		}
-		case "side_question_event":
 		case "connection_status":
 		case "heartbeats_changed":
-		case "session_status":
 			return [];
+		case "side_question_event": {
+			const text = [
+				`Question: ${event.event.question}`,
+				event.event.answer ? `Answer: ${event.event.answer}` : `Status: ${event.event.status}`,
+			].join("\n\n");
+			return [
+				{
+					type: "payload",
+					part: createPayloadPart("sideQuestion", "Side question", event.event, text, event.event.id),
+					...(state.currentMessageId ? { messageId: state.currentMessageId } : {}),
+				},
+			];
+		}
+		case "session_status":
+			return event.recap ? [emitPresentation(state, { ...state.presentation, recap: event.recap })] : [];
 		default: {
 			// Future-proof: ignore unknown connection events silently.
 			return [];

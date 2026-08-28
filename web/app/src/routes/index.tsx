@@ -10,6 +10,8 @@ import { ChatApp } from "@prime-agent/web-design/components/agents/chat-app"
 import { FleetSessionSidebar } from "@prime-agent/web-design/components/fleet-pi/session-sidebar"
 import { AnimatedSidebarInset } from "@prime-agent/web-design/components/motion/animated-sidebar"
 import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components/openui/openui-renderer"
+import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact"
+import { notify } from "@prime-agent/web-design/lib/notify"
 import { useCallback } from "react"
 import { ChatPanel } from "@/lib/pi/chat-panel"
 import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url"
@@ -59,6 +61,7 @@ function ChatWorkspaceShell() {
 		presentation,
 		activeProjectId,
 	    activityLabel,
+	persistOpenUIArtifact,
     projects,
     projectSessions,
     resourceCanvasWidth,
@@ -114,7 +117,7 @@ function ChatWorkspaceShell() {
     },
     [chatMode, clearUploadedAttachments, clearWorkspaceAttachments, sendMessage, uploadedAttachments, workspaceAttachments],
   )
-  const handleOpenUIAction = useCallback(
+	const handleOpenUIAction = useCallback(
     (message: string) => {
       const panelAction = decodeOpenPanelActionMessage(message)
       if (panelAction) {
@@ -124,7 +127,18 @@ function ChatWorkspaceShell() {
       void sendMessage({ text: message, altKey: false, mode: chatMode, openUI: true })
     },
     [chatMode, openPanelAction, sendMessage],
-  )
+	)
+	const handleOpenUIArtifactReady = useCallback(
+		async (candidate: OpenUIArtifactCandidate) => {
+			try {
+				return await persistOpenUIArtifact(candidate)
+			} catch (error) {
+				notify.error(`Artifact persistence failed: ${error instanceof Error ? error.message : String(error)}`)
+				return undefined
+			}
+		},
+		[persistOpenUIArtifact],
+	)
   const handleSettingsOpenChange = useCallback(
     (open: boolean) => {
       setSettingsDialogOpen(open)
@@ -202,7 +216,8 @@ function ChatWorkspaceShell() {
                 activityLabel={activityLabel}
                 presentation={presentation}
                 artifactRuns={artifactRuns}
-                onOpenArtifact={openArtifact}
+				onOpenArtifact={openArtifact}
+				onOpenUIArtifactReady={handleOpenUIArtifactReady}
                 inputSuggestionItems={inputSuggestionItems}
                 suppressQuestionTool={!!pendingQuestionBar}
                 inputBar={{

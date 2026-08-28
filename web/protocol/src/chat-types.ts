@@ -20,6 +20,16 @@ export type ChatImagePart = {
 	alt?: string;
 };
 
+/** Browser-safe representation of a payload the Prime Agent TUI renders inline. */
+export type ChatPayloadPart = {
+	type: "payload";
+	id?: string;
+	kind: string;
+	title: string;
+	text?: string;
+	payload?: unknown;
+};
+
 export type ChatToolCategory = "kernel" | "system" | "mcp" | "rlm" | "plan" | "question" | "custom";
 
 export type ChatToolPart = {
@@ -37,7 +47,7 @@ export type ChatToolPart = {
 	[key: string]: unknown;
 };
 
-export type ChatMessagePart = ChatTextPart | ChatErrorPart | ChatImagePart | ChatToolPart;
+export type ChatMessagePart = ChatTextPart | ChatErrorPart | ChatImagePart | ChatPayloadPart | ChatToolPart;
 
 export type ChatMessage = {
 	id: string;

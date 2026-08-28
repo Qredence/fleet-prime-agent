@@ -97,6 +97,12 @@ export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
 	},
 	{ name: "refine", description: "Refine continual harness prompt notes, skills, and memory", source: "builtin" },
 	{
+		name: "openui",
+		description: "Generate a durable OpenUI HTML artifact",
+		argumentHint: "<request>",
+		source: "builtin",
+	},
+	{
 		name: "goal",
 		description: "Set or view a persistent goal",
 		argumentHint: "[objective]",
@@ -144,6 +150,7 @@ export type LocalSlashAction =
 	| { type: "set-thinking-level"; level: ChatThinkingLevel }
 	| { type: "open-settings"; tab: SettingsSlashTab }
 	| { type: "new-session" }
+	| { type: "openui-request"; request: string }
 	| { type: "session-info" }
 	| { type: "session-rename"; name: string | undefined }
 	| { type: "session-context" }
@@ -246,6 +253,8 @@ export function resolveLocalSlashAction(command: string, args = ""): LocalSlashA
 			return { type: "open-settings", tab: "chat" };
 		case "new":
 			return { type: "new-session" };
+		case "openui":
+			return { type: "openui-request", request: trimmedArgs };
 		case "login":
 			return { type: "open-providers" };
 		case "logout":

@@ -30,6 +30,7 @@ import {
 	type ChatStreamEvent,
 	type ChatThinkingLevel,
 	type OpenUIPromptMode,
+	type PrimeAgentArtifact,
 	type PrimeAgentSessionPresentation,
 	type PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
@@ -226,10 +227,15 @@ export type OpenUIPromptSessionState = {
 	enabled: boolean;
 	mode: OpenUIPromptMode;
 	prompt: string;
+	artifact?: boolean;
 };
 
-function createOpenUIPromptSessionState(mode: OpenUIPromptMode = "agent", enabled = false): OpenUIPromptSessionState {
-	return { enabled, mode, prompt: buildOpenUIPrompt(mode) };
+function createOpenUIPromptSessionState(
+	mode: OpenUIPromptMode = "agent",
+	enabled = false,
+	artifact = false,
+): OpenUIPromptSessionState {
+	return { enabled, mode, artifact, prompt: buildOpenUIPrompt(mode, { artifact }) };
 }
 
 function resolveOpenUIPromptMode(mode?: ChatMode, planAction?: ChatPlanAction): OpenUIPromptMode {
@@ -242,6 +248,19 @@ function persistedBashStatus(message: Record<string, unknown>): PrimeAgentUserBa
 	if (message.cancelled === true) return "cancelled";
 	if (message.errorMessage || (typeof message.exitCode === "number" && message.exitCode !== 0)) return "error";
 	return "success";
+}
+
+function presentationArtifactsEqual(left: PrimeAgentArtifact, right: PrimeAgentArtifact): boolean {
+	return (
+		left.id === right.id &&
+		left.runId === right.runId &&
+		left.sourceMessageId === right.sourceMessageId &&
+		left.kind === right.kind &&
+		left.title === right.title &&
+		left.status === right.status &&
+		JSON.stringify(left.input) === JSON.stringify(right.input) &&
+		JSON.stringify(left.output) === JSON.stringify(right.output)
+	);
 }
 
 function initialPresentationForSession(
@@ -396,6 +415,7 @@ export class PrimeBridge {
 	readonly #connectionFactory: WebAgentConnectionFactory;
 	readonly #sessionLister: typeof listDaemonSessions;
 	readonly #caches = new Map<string, BridgeSessionCache>();
+	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
 	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
 	readonly #auxiliaryWarnings = new Set<string>();
 	#kernelReadyByCwd = new Map<string, Promise<void>>();
@@ -494,6 +514,7 @@ export class PrimeBridge {
 		this.#presentationWrites.clear();
 		this.#presentationGenerations.clear();
 		this.#caches.clear();
+		this.#openUIPromptTransitions.clear();
 		this.#daemonDialogs.clear();
 		this.#auxiliaryWarnings.clear();
 		this.#kernelReadyByCwd.clear();
@@ -782,7 +803,11 @@ export class PrimeBridge {
 		return bridgeSession;
 	}
 
-	#persistPresentation(sessionId: string, sessionPath: string, presentation: PrimeAgentSessionPresentation): void {
+	#persistPresentation(
+		sessionId: string,
+		sessionPath: string,
+		presentation: PrimeAgentSessionPresentation,
+	): Promise<void> {
 		const generation = this.#presentationGenerations.get(sessionId) ?? 0;
 		const previous = this.#presentationWrites.get(sessionId) ?? Promise.resolve();
 		const next = previous
@@ -813,6 +838,7 @@ export class PrimeBridge {
 		void next.finally(() => {
 			if (this.#presentationWrites.get(sessionId) === next) this.#presentationWrites.delete(sessionId);
 		});
+		return next;
 	}
 
 	/** Hot-lookup by id; reuse the live session if we already have one loaded. */
@@ -900,6 +926,7 @@ export class PrimeBridge {
 		this.#dialogs.cancelAll(existing.sessionId, "server-shutdown");
 		existing.unsubscribe();
 		await existing.connection.abort().catch(() => undefined);
+		await this.#openUIPromptTransitions.get(existing.sessionId)?.catch(() => undefined);
 		try {
 			await existing.terminate?.();
 			const result = await (existing.deleteSessionFile?.(sessionPath) ??
@@ -910,6 +937,7 @@ export class PrimeBridge {
 			this.#sessions.delete(existing.sessionId);
 			this.#ringBuffers.delete(existing.sessionId);
 			this.#caches.delete(existing.sessionId);
+			this.#openUIPromptTransitions.delete(existing.sessionId);
 		}
 		await deleteManagedAttachmentsForSession(existing.sessionId, sessionPath);
 		await deleteManagedPlanPresentationsForSession(existing.sessionId, sessionPath);
@@ -929,16 +957,33 @@ export class PrimeBridge {
 			streamingBehavior?: "steer" | "followUp";
 			mode?: ChatMode;
 			openUI?: boolean;
+			openUIArtifact?: boolean;
 			planAction?: ChatPlanAction;
 		},
 	): Promise<void> {
 		const session = this.#requireSession(sessionId);
 		const backendSessionCommand = parseBackendSessionCommand(text);
-		this.#setOpenUIPromptState(
-			session,
-			options?.openUI === true,
-			resolveOpenUIPromptMode(options?.mode, options?.planAction),
-		);
+		const openUIEnabled = options?.openUI === true;
+		const openUIMode = resolveOpenUIPromptMode(options?.mode, options?.planAction);
+		const openUIArtifact = options?.openUIArtifact === true;
+		const openUIStateChanged =
+			session.openUIPrompt.enabled !== openUIEnabled ||
+			session.openUIPrompt.mode !== openUIMode ||
+			(session.openUIPrompt.artifact ?? false) !== openUIArtifact;
+		const hasPendingOpenUITransition = this.#openUIPromptTransitions.has(sessionId);
+		const wasStreaming = session.isStreaming;
+		const promptOptions = {
+			images: options?.images,
+			streamingBehavior: options?.streamingBehavior,
+			queueIfBusy: true,
+		};
+
+		if (!wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
+			// Preserve the idle ordering: commit the prompt state before admitting
+			// the next prompt. The transition queue also waits for an earlier active
+			// prompt's safe-boundary reconfiguration.
+			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact);
+		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			void (async () => {
 				const state = await session.connection.getState().catch(() => undefined);
@@ -950,27 +995,65 @@ export class PrimeBridge {
 		// `promptAndWait` mirrors the legacy `session.prompt(...)` semantics:
 		// resolves when the turn settles (including any queued session commands).
 		// The `queueIfBusy` flag keeps steer/followUp admission behavior
-		// identical to the previous bridge.
-		await session.connection.promptAndWait(text, {
-			images: options?.images,
-			streamingBehavior: options?.streamingBehavior,
-			queueIfBusy: true,
-		});
-		// For a session command (e.g. /refine) queued behind an active turn, wait
-		// until input is idle so the HTTP stream can emit its terminal frame
-		// after the command has actually run.
-		if (backendSessionCommand) await session.connection.waitForIdle();
+		// identical to the previous bridge. When a prompt is already streaming,
+		// admit it before waiting for the OpenUI transition; the transition then
+		// runs at the next safe idle boundary.
+		let promptError: unknown;
+		let promptFailed = false;
+		try {
+			await session.connection.promptAndWait(text, promptOptions);
+			// For a session command (e.g. /refine) queued behind an active turn, wait
+			// until input is idle so the HTTP stream can emit its terminal frame
+			// after the command has actually run.
+			if (backendSessionCommand) await session.connection.waitForIdle();
+		} catch (error) {
+			promptFailed = true;
+			promptError = error;
+		}
+		if (wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
+			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact);
+		}
+		if (promptFailed) throw promptError;
 	}
 
-	#setOpenUIPromptState(session: BridgeSession, enabled: boolean, mode: OpenUIPromptMode): void {
-		if (session.openUIPrompt.enabled === enabled && session.openUIPrompt.mode === mode) return;
+	#scheduleOpenUIPromptState(
+		session: BridgeSession,
+		enabled: boolean,
+		mode: OpenUIPromptMode,
+		artifact: boolean,
+	): Promise<void> {
+		const previous = this.#openUIPromptTransitions.get(session.sessionId) ?? Promise.resolve();
+		const transition = previous
+			.catch(() => undefined)
+			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact));
+		this.#openUIPromptTransitions.set(session.sessionId, transition);
+		void transition
+			.finally(() => {
+				if (this.#openUIPromptTransitions.get(session.sessionId) === transition) {
+					this.#openUIPromptTransitions.delete(session.sessionId);
+				}
+			})
+			.catch(() => undefined);
+		return transition;
+	}
+
+	async #setOpenUIPromptState(
+		session: BridgeSession,
+		enabled: boolean,
+		mode: OpenUIPromptMode,
+		artifact = false,
+	): Promise<void> {
+		if (
+			session.openUIPrompt.enabled === enabled &&
+			session.openUIPrompt.mode === mode &&
+			(session.openUIPrompt.artifact ?? false) === artifact
+		)
+			return;
 		const previousPrompt = session.openUIPrompt.prompt;
-		const nextPrompt = buildOpenUIPrompt(mode);
-		session.openUIPrompt.enabled = enabled;
-		session.openUIPrompt.mode = mode;
-		session.openUIPrompt.prompt = nextPrompt;
+		const nextPrompt = buildOpenUIPrompt(mode, { artifact });
+		const nextState: OpenUIPromptSessionState = { enabled, mode, artifact, prompt: nextPrompt };
 		if (session.setOpenUIPrompt) {
-			session.setOpenUIPrompt(session.openUIPrompt);
+			await session.setOpenUIPrompt(nextState);
 			const cache = this.#caches.get(session.sessionId) ?? emptyCache();
 			const withoutPreviousPrompt = cache.systemPrompt.replace(previousPrompt, "").trim();
 			cache.systemPrompt = enabled
@@ -978,6 +1061,10 @@ export class PrimeBridge {
 				: withoutPreviousPrompt;
 			this.#caches.set(session.sessionId, cache);
 		}
+		session.openUIPrompt.enabled = enabled;
+		session.openUIPrompt.mode = mode;
+		session.openUIPrompt.artifact = artifact;
+		session.openUIPrompt.prompt = nextPrompt;
 	}
 
 	async steer(sessionId: string, text: string): Promise<void> {
@@ -1189,7 +1276,11 @@ export class PrimeBridge {
 			cwd: bridge.cwd,
 			sessionPath: forkedPath,
 			thinkingLevel: sourceState.thinkingLevel,
-			openUIPrompt: createOpenUIPromptSessionState(bridge.openUIPrompt.mode, bridge.openUIPrompt.enabled),
+			openUIPrompt: createOpenUIPromptSessionState(
+				bridge.openUIPrompt.mode,
+				bridge.openUIPrompt.enabled,
+				bridge.openUIPrompt.artifact ?? false,
+			),
 		});
 		// Carry the source session's model/thinking/service-tier over so the fork
 		// doesn't silently fall back to defaults (provider/settings may differ).
@@ -1226,7 +1317,11 @@ export class PrimeBridge {
 			cwd: targetCwd,
 			sessionPath: forkedPath,
 			thinkingLevel: sourceState.thinkingLevel,
-			openUIPrompt: createOpenUIPromptSessionState(source.openUIPrompt.mode, source.openUIPrompt.enabled),
+			openUIPrompt: createOpenUIPromptSessionState(
+				source.openUIPrompt.mode,
+				source.openUIPrompt.enabled,
+				source.openUIPrompt.artifact ?? false,
+			),
 		});
 		if (sourceState.model) {
 			await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
@@ -1256,6 +1351,31 @@ export class PrimeBridge {
 
 	getPresentation(sessionId: string): PrimeAgentSessionPresentation {
 		return this.#sessions.get(sessionId)?.mapperState.presentation ?? createEmptyPrimeAgentSessionPresentation();
+	}
+
+	/**
+	 * Add or replace one durable presentation artifact. The deterministic id is
+	 * supplied by the handler, so retries of the same artifact are idempotent.
+	 */
+	async upsertPresentationArtifact(
+		sessionId: string,
+		artifact: PrimeAgentArtifact,
+	): Promise<PrimeAgentSessionPresentation> {
+		const session = this.#requireSession(sessionId);
+		const current = session.mapperState.presentation;
+		const existing = current.artifactRuns
+			.flatMap((run) => run.artifacts)
+			.find((candidate) => candidate.id === artifact.id);
+		if (existing && presentationArtifactsEqual(existing, artifact)) return current;
+
+		const next = {
+			...upsertArtifact(current, artifact),
+			revision: current.revision + 1,
+		};
+		session.mapperState.presentation = next;
+		await this.#persistPresentation(sessionId, session.sessionPath, next);
+		this.#dispatch(sessionId, { type: "presentation", sessionId, presentation: next });
+		return next;
 	}
 
 	async #loadColdMessages(sessionId: string): Promise<readonly AgentMessage[]> {

@@ -29,7 +29,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const raw = await request.json();
 		const body = ChatRequestSchema.parse(raw);
-		const { sessionId, message, model, mode, openUI, planAction } = body;
+		const { sessionId, message, model, mode, openUI, openUIArtifact, planAction } = body;
 		if (!message || typeof message !== "string") {
 			return Response.json({ message: "POST /api/chat requires a `message` string." }, { status: 400 });
 		}
@@ -101,6 +101,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 		const stream = new ReadableStream<Uint8Array>({
 			async start(controller) {
 				let closed = false;
+				let terminalDoneSent = false;
 				const close = () => {
 					if (closed) return;
 					closed = true;
@@ -126,11 +127,16 @@ export function handleChatPost(request: Request): Promise<Response> {
 					// active turn. Their POST response only needs the request-scoped
 					// synthetic completion below; the SSE stream owns live turn frames.
 					if (backendSessionCommand) return;
-					write(frame);
+					const nextFrame =
+						frame.type === "done" && !frame.sessionReset
+							? { ...frame, presentation: bridge.getPresentation(session.sessionId) }
+							: frame;
+					write(nextFrame);
+					if (nextFrame.type === "done" && !nextFrame.sessionReset) terminalDoneSent = true;
 					// Reattachment emits a synthetic done frame to reset presentation
 					// state. It is not completion of this POST's turn; closing here
 					// drops the real answer frames that follow the re-sync.
-					if (frame.type === "error" || (frame.type === "done" && !frame.sessionReset)) {
+					if (nextFrame.type === "error" || (nextFrame.type === "done" && !nextFrame.sessionReset)) {
 						close();
 					}
 				});
@@ -156,32 +162,57 @@ export function handleChatPost(request: Request): Promise<Response> {
 						streamingBehavior,
 						mode,
 						openUI,
+						openUIArtifact,
 						planAction,
 					})
-					.then(() => {
-						if (!backendSessionCommand) return;
-						write({
-							type: "done",
-							runId: startRunId,
-							sessionId: session.sessionId,
-							message: {
-								id: crypto.randomUUID(),
-								role: "assistant",
-								source: "local",
-								createdAt: Date.now(),
-								parts: [
-									{
-										type: "text",
-										text: sessionCommandResultText(
-											backendSessionCommand,
-											bridge.getPresentation(session.sessionId),
-											initialRefinementCount,
-										),
-									},
-								],
-							},
-							requestKind: "session-command",
-						});
+					.then(async () => {
+						if (backendSessionCommand) {
+							write({
+								type: "done",
+								runId: startRunId,
+								sessionId: session.sessionId,
+								message: {
+									id: crypto.randomUUID(),
+									role: "assistant",
+									source: "local",
+									createdAt: Date.now(),
+									parts: [
+										{
+											type: "text",
+											text: sessionCommandResultText(
+												backendSessionCommand,
+												bridge.getPresentation(session.sessionId),
+												initialRefinementCount,
+											),
+										},
+									],
+								},
+								requestKind: "session-command",
+								presentation: bridge.getPresentation(session.sessionId),
+							});
+							close();
+							return;
+						}
+
+						// The route normally closes when the subscribed mapper emits its
+						// terminal frame. If the listener was lost during HMR or a
+						// reconnect, promptAndWait can still settle while this response
+						// remains open. Complete it from the canonical transcript instead
+						// of leaving the browser in a permanent streaming state.
+						if (!terminalDoneSent) {
+							const messages =
+								typeof bridge.getMessages === "function" ? await bridge.getMessages(session.sessionId) : [];
+							const message = [...messages].reverse().find((candidate) => candidate.role === "assistant");
+							if (message) {
+								write({
+									type: "done",
+									runId: session.mapperState.runId || startRunId,
+									sessionId: session.sessionId,
+									message,
+									presentation: bridge.getPresentation(session.sessionId),
+								});
+							}
+						}
 						close();
 					})
 					.catch((error) => {

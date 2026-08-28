@@ -38,6 +38,7 @@
     "@assistant-ui/react": "0.15.12",
     "@base-ui/react": "^1.6.0",
     "@fontsource-variable/inter": "^5.2.8",
+    "@openuidev/react-ui": "^0.13.6",
     "@openuidev/react-lang": "^0.2.11",
     "@pierre/diffs": "^1.2.11",
     "@prime-agent/web-protocol": "workspace:*",

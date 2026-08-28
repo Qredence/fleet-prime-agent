@@ -2,12 +2,14 @@ import { notify } from "@prime-agent/web-design/lib/notify";
 import type {
 	ChatMode,
 	ChatModelSelection,
+	ChatOpenUIArtifactUpsertRequest,
 	ChatPlanAction,
 	ChatQuestionAnswer,
 	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatStreamEvent,
 	FleetAdapterCapabilities,
+	OpenUIHtmlArtifactPayload,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
@@ -29,10 +31,15 @@ export type SendMessageInput = {
 	text: string;
 	attachments?: Array<ChatAttachment>;
 	openUI?: boolean;
+	openUIArtifact?: boolean;
 	planAction?: ChatPlanAction;
 	mode?: ChatMode;
 	/** Mirror of the Alt/Option modifier at Enter-press time. */
 	altKey?: boolean;
+};
+
+export type OpenUIArtifactCandidate = Pick<ChatOpenUIArtifactUpsertRequest, "assistantMessageId" | "artifactIndex"> & {
+	artifact: OpenUIHtmlArtifactPayload;
 };
 
 export type UsePiChatOptions = {
@@ -136,6 +143,17 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		presentationRef.current = nextPresentation;
 		setPresentation(nextPresentation);
 	}, []);
+
+	const persistOpenUIArtifact = useCallback(
+		async (candidate: OpenUIArtifactCandidate): Promise<string | undefined> => {
+			const sessionId = sessionMetadataRef.current.sessionId;
+			if (!sessionId) return undefined;
+			const result = await client.upsertOpenUIArtifact({ sessionId, ...candidate });
+			if (sessionMetadataRef.current.sessionId === sessionId) setPresentationSynced(result.presentation);
+			return result.artifact.id;
+		},
+		[client, setPresentationSynced],
+	);
 
 	const refreshSessions = useCallback(async () => {
 		const nextSessions = await client.listSessions();
@@ -702,6 +720,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		messages: enhancedMessages,
 		planLabel,
 		presentation,
+		persistOpenUIArtifact,
 		queue,
 		renameSession,
 		refreshSessions,

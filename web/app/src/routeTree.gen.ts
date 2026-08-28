@@ -14,6 +14,7 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiProjectsRouteImport } from './routes/api/projects'
 import { Route as ApiChatAbortRouteImport } from './routes/api/chat/abort'
+import { Route as ApiChatArtifactsRouteImport } from './routes/api/chat/artifacts'
 import { Route as ApiChatCommandRouteImport } from './routes/api/chat/command'
 import { Route as ApiChatCommandsRouteImport } from './routes/api/chat/commands'
 import { Route as ApiChatEventsRouteImport } from './routes/api/chat/events'
@@ -59,6 +60,11 @@ const ApiProjectsRoute = ApiProjectsRouteImport.update({
 const ApiChatAbortRoute = ApiChatAbortRouteImport.update({
   id: '/abort',
   path: '/abort',
+  getParentRoute: () => ApiChatRoute,
+} as any)
+const ApiChatArtifactsRoute = ApiChatArtifactsRouteImport.update({
+  id: '/artifacts',
+  path: '/artifacts',
   getParentRoute: () => ApiChatRoute,
 } as any)
 const ApiChatCommandRoute = ApiChatCommandRouteImport.update({
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/chat/abort': typeof ApiChatAbortRoute
+  '/api/chat/artifacts': typeof ApiChatArtifactsRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/chat/abort': typeof ApiChatAbortRoute
+  '/api/chat/artifacts': typeof ApiChatArtifactsRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
@@ -230,6 +238,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
   '/api/chat/abort': typeof ApiChatAbortRoute
+  '/api/chat/artifacts': typeof ApiChatArtifactsRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
@@ -260,6 +269,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/projects'
     | '/api/chat/abort'
+    | '/api/chat/artifacts'
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
@@ -288,6 +298,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/projects'
     | '/api/chat/abort'
+    | '/api/chat/artifacts'
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/projects'
     | '/api/chat/abort'
+    | '/api/chat/artifacts'
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
@@ -385,6 +397,13 @@ declare module '@tanstack/react-router' {
       path: '/abort'
       fullPath: '/api/chat/abort'
       preLoaderRoute: typeof ApiChatAbortRouteImport
+      parentRoute: typeof ApiChatRoute
+    }
+    '/api/chat/artifacts': {
+      id: '/api/chat/artifacts'
+      path: '/artifacts'
+      fullPath: '/api/chat/artifacts'
+      preLoaderRoute: typeof ApiChatArtifactsRouteImport
       parentRoute: typeof ApiChatRoute
     }
     '/api/chat/command': {
@@ -562,6 +581,7 @@ const ApiChatProvidersRouteWithChildren =
 
 interface ApiChatRouteChildren {
   ApiChatAbortRoute: typeof ApiChatAbortRoute
+  ApiChatArtifactsRoute: typeof ApiChatArtifactsRoute
   ApiChatCommandRoute: typeof ApiChatCommandRoute
   ApiChatCommandsRoute: typeof ApiChatCommandsRoute
   ApiChatEventsRoute: typeof ApiChatEventsRoute
@@ -579,6 +599,7 @@ interface ApiChatRouteChildren {
 
 const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatAbortRoute: ApiChatAbortRoute,
+  ApiChatArtifactsRoute: ApiChatArtifactsRoute,
   ApiChatCommandRoute: ApiChatCommandRoute,
   ApiChatCommandsRoute: ApiChatCommandsRoute,
   ApiChatEventsRoute: ApiChatEventsRoute,

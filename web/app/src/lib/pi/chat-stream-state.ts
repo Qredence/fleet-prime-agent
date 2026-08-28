@@ -11,6 +11,7 @@ import {
 	appendAssistantDelta,
 	createTextMessage,
 	stripLegacyThinkingParts,
+	upsertAssistantPayloadPart,
 	upsertAssistantReasoningPresentation,
 	upsertAssistantToolPart,
 } from "./chat-message-helpers";
@@ -113,13 +114,16 @@ function carryForwardReasoningPresentation(
 		assistantId ? messages.find((message) => message.id === assistantId && message.role === "assistant") : undefined,
 		messages.find((message) => message.id === nextMessage.id && message.role === "assistant"),
 	].filter(Boolean) as Array<ChatMessage>;
-	const presentation = candidates.flatMap((message) =>
-		message.parts.filter((part) => part.type === "tool-FleetReasoning"),
+	const preserved = candidates.flatMap((message) =>
+		message.parts.filter((part) => part.type === "tool-FleetReasoning" || part.type === "payload"),
 	);
-	if (presentation.length === 0 || nextMessage.parts.some((part) => part.type === "tool-FleetReasoning")) {
+	if (
+		preserved.length === 0 ||
+		nextMessage.parts.some((part) => part.type === "tool-FleetReasoning" || part.type === "payload")
+	) {
 		return nextMessage;
 	}
-	return { ...nextMessage, parts: [...presentation, ...nextMessage.parts] };
+	return { ...nextMessage, parts: [...preserved, ...nextMessage.parts] };
 }
 
 function replaceOrAppendInFlight(
@@ -237,7 +241,7 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 	if (event.type === "thinking") return transition;
 
 	const reconciled =
-		event.type === "delta" || event.type === "reasoning" || event.type === "tool"
+		event.type === "delta" || event.type === "reasoning" || event.type === "tool" || event.type === "payload"
 			? reconcileAssistantId(transition, event.messageId)
 			: transition;
 	const { assistantId, snapshot } = reconciled;
@@ -276,6 +280,16 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 			snapshot: {
 				...snapshot,
 				messages: upsertAssistantToolPart(snapshot.messages, assistantId, event.part),
+			},
+		};
+	}
+
+	if (event.type === "payload" && assistantId) {
+		return {
+			assistantId,
+			snapshot: {
+				...snapshot,
+				messages: upsertAssistantPayloadPart(snapshot.messages, assistantId, event.part),
 			},
 		};
 	}
@@ -339,6 +353,10 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 		const sanitized = stripLegacyThinkingParts(event.message);
 		const completed = carryForwardReasoningPresentation(snapshot.messages, sanitized, assistantId);
 		const merged = replaceOrAppendInFlight(snapshot.messages, completed, assistantId);
+		const terminalPresentation =
+			event.presentation && event.presentation.revision > (snapshot.presentation?.revision ?? -1)
+				? event.presentation
+				: snapshot.presentation;
 		return {
 			assistantId: null,
 			snapshot: {
@@ -346,6 +364,7 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 				activityLabel: undefined,
 				messages: merged.map((message) => stripLegacyThinkingParts(message)),
 				queue: EMPTY_QUEUE_STATE,
+				presentation: terminalPresentation,
 				sessionMetadata: mergeSessionMetadata(snapshot.sessionMetadata, {
 					sessionId: event.sessionId,
 				}),

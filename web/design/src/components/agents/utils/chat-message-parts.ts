@@ -30,6 +30,12 @@ export function isErrorPart(part: unknown): part is { type: "error"; title?: str
 	return isRecord(part) && part.type === "error" && typeof part.message === "string";
 }
 
+export function isPayloadPart(
+	part: unknown,
+): part is { type: "payload"; kind: string; title: string; text?: string; payload?: unknown } {
+	return isRecord(part) && part.type === "payload" && typeof part.kind === "string" && typeof part.title === "string";
+}
+
 export function isV5ToolPart(part: unknown): part is ToolPartBase {
 	if (!isRecord(part)) return false;
 	const partType = part.type;

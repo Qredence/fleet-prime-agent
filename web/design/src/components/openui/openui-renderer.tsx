@@ -8,6 +8,10 @@ import { OpenPanelActionSchema, type OpenPanelAction } from "@prime-agent/web-pr
 
 import { openUILibrary } from "./openui-library"
 import { segmentOpenUIContent } from "./openui-utils"
+import {
+  OpenUIArtifactProvider,
+  type OpenUIArtifactCandidate,
+} from "./html-artifact"
 import type {
   ActionEvent,
   OpenUIError,
@@ -123,14 +127,20 @@ function OpenUIBlock({
   content,
   initialState,
   isStreaming,
+  messageId,
   onAction,
+  onArtifactReady,
+  onOpenArtifact,
   onStateUpdate,
 }: {
   blockId: string
+  messageId?: string
   content: string
   initialState?: Record<string, unknown>
   isStreaming?: boolean
   onAction?: (message: string) => void
+  onArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
+  onOpenArtifact?: (artifactId: string) => void
   onStateUpdate: (blockId: string, state: Record<string, unknown>) => void
 }) {
   const [runtimeErrors, setRuntimeErrors] = useState<Array<OpenUIError>>([])
@@ -163,16 +173,25 @@ function OpenUIBlock({
   return (
     <div className="flex w-full flex-col gap-2">
       <UiErrorBoundary resetKeys={[content]}>
-        <Renderer
-          initialState={initialState}
-          isStreaming={isStreaming}
-          library={openUILibrary}
-          response={content}
-          onAction={handleAction}
-          onError={handleError}
-          onParseResult={setParseResult}
-          onStateUpdate={(state) => onStateUpdate(blockId, state)}
-        />
+        <OpenUIArtifactProvider
+          value={{
+            messageId,
+            artifactIndex: 0,
+            onArtifactReady,
+            onOpenArtifact,
+          }}
+        >
+          <Renderer
+            initialState={initialState}
+            isStreaming={isStreaming}
+            library={openUILibrary}
+            response={content}
+            onAction={handleAction}
+            onError={handleError}
+            onParseResult={setParseResult}
+            onStateUpdate={(state) => onStateUpdate(blockId, state)}
+          />
+        </OpenUIArtifactProvider>
       </UiErrorBoundary>
       <OpenUIDiagnostics
         errors={[...runtimeErrors, ...finalErrors]}
@@ -196,12 +215,16 @@ export function GenerativeTextRenderer({
   isStreaming,
   messageId,
   onOpenUIAction,
+  onOpenUIArtifactReady,
+  onOpenArtifact,
 }: {
   content: string
   className?: string
   isStreaming?: boolean
   messageId?: string
   onOpenUIAction?: (message: string) => void
+  onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
+  onOpenArtifact?: (artifactId: string) => void
 }) {
   const [stateByBlock, setStateByBlock] = useState<OpenUIStateByBlock>({})
   const segments = useMemo(() => segmentOpenUIContent(content), [content])
@@ -236,10 +259,13 @@ export function GenerativeTextRenderer({
           <OpenUIBlock
             key={blockId}
             blockId={blockId}
+            messageId={messageId}
             content={segment.content}
             initialState={stateByBlock[blockId]}
             isStreaming={isStreaming}
             onAction={onOpenUIAction}
+            onArtifactReady={onOpenUIArtifactReady}
+            onOpenArtifact={onOpenArtifact}
             onStateUpdate={updateBlockState}
           />
         )

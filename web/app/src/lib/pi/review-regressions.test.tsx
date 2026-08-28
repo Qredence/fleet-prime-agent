@@ -171,7 +171,7 @@ describe("review regressions", () => {
 				],
 			},
 		];
-		const { getByRole, queryByRole } = render(
+		const { getByRole, getByText } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -185,7 +185,7 @@ describe("review regressions", () => {
 
 		expect(answer.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
 		expect(activity.getAttribute("aria-expanded")).toBe("false");
-		expect(queryByRole("button", { name: /IPython.*Completed/ })).toBeNull();
+		expect(getByText("done", { exact: true })).toBeTruthy();
 	});
 
 	it("does not repeat completed session presentation records in later turns", () => {

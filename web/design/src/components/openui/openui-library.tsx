@@ -53,6 +53,7 @@ import { cn } from "../../lib/utils"
 import { isSafeExternalUrl } from "../../lib/safe-external-url"
 import { DonutChartDef, LineChartDef } from "./charts"
 import { DataTableDef, MetricGroupDef } from "./data"
+import { HtmlArtifactDef } from "./html-artifact"
 import {
   badgeToneClasses,
   badgeVariantsByTone,
@@ -924,5 +925,6 @@ export const openUILibrary = createLibrary({
     DisclosureDef,
     TodoDef,
     CitationDef,
+    HtmlArtifactDef,
   ],
 })

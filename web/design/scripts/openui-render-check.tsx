@@ -29,6 +29,7 @@ import {
 	formatPercent,
 } from "../src/components/openui/data";
 import { CitationDef, openUILibrary } from "../src/components/openui/openui-library";
+import { validateAndNormalizeOpenUIHtmlArtifact } from "@prime-agent/web-protocol/openui-artifact";
 import {
 	segmentOpenUIContent,
 	stripOpenUIWrapper,
@@ -288,6 +289,25 @@ assertEqual(
 
 // --- Stage 1: parse + validate against the library schema ---
 const parser = createParser(openUILibrary.toJSONSchema(), "Root");
+const artifactProgram = [
+	"root = Root([artifact])",
+	`artifact = HtmlArtifact(${JSON.stringify("Fleet Agent architecture")}, ${JSON.stringify("<!doctype html><html><body><h1>Fleet Agent</h1></body></html>")})`,
+].join("\n");
+const artifactParse = parser.parse(artifactProgram);
+assertEqual(artifactParse.meta.errors.length, 0, "HtmlArtifact program parses without contract errors");
+
+const malformedArtifactParse = parser.parse("root = Root([missing])");
+assertEqual(
+	malformedArtifactParse.meta.errors.length > 0 || malformedArtifactParse.meta.unresolved.length > 0,
+	true,
+	"malformed OpenUI reports parser errors",
+);
+
+const unsafeArtifactValidation = validateAndNormalizeOpenUIHtmlArtifact({
+	title: "Unsafe",
+	document: '<script src="https://example.com/app.js"></script>',
+});
+assertEqual(unsafeArtifactValidation.ok, false, "unsafe HtmlArtifact documents fail validation");
 const result = parser.parse(payload);
 
 if (result.meta.errors.length > 0) {
@@ -322,6 +342,34 @@ if (staticHtml.length === 0) {
 	process.exit(1);
 }
 console.log("RENDER OK (static)");
+
+const artifactStaticHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer response={artifactProgram} library={openUILibrary} />
+	</MotionRuntime>,
+);
+assertIncludes(artifactStaticHtml, "Fleet Agent architecture");
+assertIncludes(artifactStaticHtml, "sandbox=\"allow-scripts\"");
+assertIncludes(artifactStaticHtml, "srcDoc");
+assertExcludes(artifactStaticHtml, "https://example.com/app.js", "valid HtmlArtifact preview has no external script");
+
+const streamingArtifactHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer response={artifactProgram} library={openUILibrary} isStreaming />
+	</MotionRuntime>,
+);
+assertIncludes(streamingArtifactHtml, "Generating artifact");
+
+const unsafeArtifactHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer
+			response={`root = Root([artifact])\nartifact = HtmlArtifact(${JSON.stringify("Unsafe")}, ${JSON.stringify('<script src="https://example.com/app.js"></script>')})`}
+			library={openUILibrary}
+		/>
+	</MotionRuntime>,
+);
+assertIncludes(unsafeArtifactHtml, "OpenUI artifact was not rendered");
+assertExcludes(unsafeArtifactHtml, "sandbox=\"allow-scripts\"", "unsafe HtmlArtifact never renders an iframe");
 
 const unsafeCitationHtml = renderToStaticMarkup(
 	<MotionRuntime>

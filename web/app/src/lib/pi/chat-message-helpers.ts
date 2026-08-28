@@ -1,5 +1,5 @@
 import type { ChatReasoningPresentation } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatMessage, ChatMessagePart, ChatToolPart } from "@prime-agent/web-protocol/chat-types";
+import type { ChatMessage, ChatMessagePart, ChatPayloadPart, ChatToolPart } from "@prime-agent/web-protocol/chat-types";
 
 export function createTextMessage(
 	role: ChatMessage["role"],
@@ -72,6 +72,20 @@ export function upsertToolPart(parts: Array<ChatMessagePart>, part: ChatToolPart
 	return next;
 }
 
+export function upsertPayloadPart(parts: Array<ChatMessagePart>, part: ChatPayloadPart) {
+	const index = parts.findIndex(
+		(current) =>
+			current.type === "payload" &&
+			(current.id && part.id ? current.id === part.id : current.kind === part.kind && current.title === part.title),
+	);
+
+	if (index === -1) return [...parts, part];
+
+	const next = [...parts];
+	next[index] = { ...next[index], ...part };
+	return next;
+}
+
 export function createFleetReasoningPart({
 	messageId,
 	presentation,
@@ -98,6 +112,17 @@ export function upsertAssistantToolPart(messages: Array<ChatMessage>, assistantI
 	return messages.map((message) => {
 		if (message.id !== assistantId) return message;
 		return { ...message, parts: upsertToolPart(message.parts, toolPart) };
+	});
+}
+
+export function upsertAssistantPayloadPart(
+	messages: Array<ChatMessage>,
+	assistantId: string,
+	payloadPart: ChatPayloadPart,
+) {
+	return messages.map((message) => {
+		if (message.id !== assistantId) return message;
+		return { ...message, parts: upsertPayloadPart(message.parts, payloadPart) };
 	});
 }
 

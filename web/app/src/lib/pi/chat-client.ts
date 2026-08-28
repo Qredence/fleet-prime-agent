@@ -10,6 +10,8 @@ import type {
 	ChatModelsDiscoverRequest,
 	ChatModelsDiscoverResponse,
 	ChatModelsResponse,
+	ChatOpenUIArtifactUpsertRequest,
+	ChatOpenUIArtifactUpsertResponse,
 	ChatPlanPresentation,
 	ChatPlanPresentationUpsertRequest,
 	ChatProviderInfo,
@@ -38,6 +40,8 @@ import {
 	ChatModelsDiscoverRequestSchema,
 	ChatModelsDiscoverResponseSchema,
 	ChatModelsResponseSchema,
+	ChatOpenUIArtifactUpsertRequestSchema,
+	ChatOpenUIArtifactUpsertResponseSchema,
 	ChatPlanPresentationSchema,
 	ChatPlanPresentationUpsertRequestSchema,
 	ChatProviderOAuthLoginRequestSchema,
@@ -95,6 +99,7 @@ export type ChatClient = {
 	uploadAttachments: (sessionId: string, files: Array<File>) => Promise<Array<UploadedAttachment>>;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	upsertPlanPresentation: (request: ChatPlanPresentationUpsertRequest) => Promise<ChatPlanPresentation>;
+	upsertOpenUIArtifact: (request: ChatOpenUIArtifactUpsertRequest) => Promise<ChatOpenUIArtifactUpsertResponse>;
 	resumeSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	updateSettings: (request: ChatSettingsUpdateRequest, projectId?: ProjectId) => Promise<ChatSettingsResponse>;
 	streamMessage: (
@@ -290,6 +295,15 @@ export const chatClient: ChatClient = {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(body),
 		}).then((result) => result.presentation);
+	},
+
+	async upsertOpenUIArtifact(request) {
+		const body = ChatOpenUIArtifactUpsertRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/artifacts", ChatOpenUIArtifactUpsertResponseSchema, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
 	},
 	async resumeSession(metadata) {
 		return fetchValidatedJson("/api/chat/resume", ChatSessionResponseSchema, {
