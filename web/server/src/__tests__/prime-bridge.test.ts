@@ -6,6 +6,7 @@ import type { AgentSession } from "prime-agent";
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runtimeHostFor } from "../connection-runtime";
+import type { listDaemonSessions } from "../daemon-runtime";
 import { createInProcessTestAgentConnection } from "../in-process-test-connection";
 import { writeManagedPrimePresentation } from "../prime-agent-presentation";
 import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
@@ -247,6 +248,58 @@ describe("PrimeBridge.forkSession", () => {
 		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
 		expect(prompt).toHaveBeenCalledTimes(3);
 		expect(prompt).toHaveBeenNthCalledWith(1, "show a plan summary", expect.objectContaining({ queueIfBusy: true }));
+	});
+
+	it("enables OpenUI guidance at session creation when openUI is requested", async () => {
+		const bridge = createTestBridge();
+		const created = await bridge.createSession({ cwd: workDir, mode: "agent", openUI: true });
+
+		expect(created.openUIPrompt.enabled).toBe(true);
+		expect(bridge.getSystemPrompt(created.sessionId)).toContain("Every OpenUI block");
+	});
+
+	it("applies OpenUI guidance when resuming a persisted session with openUI enabled", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		expect(created.openUIPrompt.enabled).toBe(false);
+		created.session.sessionManager.flushNow();
+		const resumer = createTestBridge({
+			sessionLister: (async () => [
+				{
+					id: created.sessionId,
+					sessionId: created.sessionId,
+					cwd: created.cwd,
+					sessionFile: created.sessionPath,
+				},
+			]) as unknown as typeof listDaemonSessions,
+		});
+
+		const resumed = await resumer.resumeSessionById(created.sessionId, undefined, { openUI: true });
+
+		expect(resumed).toBeDefined();
+		expect(resumed?.openUIPrompt.enabled).toBe(true);
+		expect(resumer.getSystemPrompt(created.sessionId)).toContain("Every OpenUI block");
+	});
+
+	it("emits a gated diagnostic when OpenUI state changes on a connection without a prompt hook", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		vi.spyOn(
+			created.connection as unknown as { promptAndWait: typeof created.connection.promptAndWait },
+			"promptAndWait",
+		).mockResolvedValue(undefined);
+		const live = bridge.getSession(created.sessionId);
+		expect(live).toBeDefined();
+		(live as unknown as { setOpenUIPrompt?: unknown }).setOpenUIPrompt = undefined;
+
+		restoreEnvs.push(unsetEnv("PRIME_BRIDGE_DEBUG"));
+		process.env.PRIME_BRIDGE_DEBUG = "1";
+		const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+		await bridge.prompt(created.sessionId, "hi", { openUI: true });
+
+		const writes = stderrWrite.mock.calls.map(([chunk]) => String(chunk));
+		expect(writes.some((chunk) => chunk.includes("cannot update prompts after creation"))).toBe(true);
 	});
 
 	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {

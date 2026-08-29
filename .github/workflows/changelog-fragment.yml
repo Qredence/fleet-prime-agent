@@ -46,7 +46,7 @@ jobs:
               if (!srcChanged) {
                 continue;
               }
-              // Fragments must be direct children of .changes/ — release.mjs ignores nested paths.
+              // Fragments must be direct children of .changes/ — release tooling ignores nested paths.
               const fragmentRe = new RegExp(`^packages/${pkg}/\\.changes/[^/]+\\.md$`);
               const hasFragment = files.some(
                 (f) =>

@@ -173,6 +173,7 @@ export function metadataUrl(metadata: ChatSessionMetadata) {
 	const params = new URLSearchParams();
 	if (metadata.sessionId) params.set("sessionId", metadata.sessionId);
 	if (metadata.projectId) params.set("projectId", metadata.projectId);
+	if (metadata.openUI) params.set("openUI", "true");
 	return params.toString();
 }
 

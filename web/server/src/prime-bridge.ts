@@ -199,6 +199,7 @@ export interface CreateSessionOptions {
 	readonly projectId?: ProjectId | null;
 	readonly thinkingLevel?: ThinkingLevel;
 	readonly mode?: ChatMode;
+	readonly openUI?: boolean;
 }
 
 export type BridgeEventListener = (sessionId: string, frame: ChatStreamEvent) => void;
@@ -525,7 +526,7 @@ export class PrimeBridge {
 		});
 		const webAgent = await this.#connectionFactory({
 			cwd: options.cwd,
-			openUIPrompt: createOpenUIPromptSessionState(resolveOpenUIPromptMode(options.mode)),
+			openUIPrompt: createOpenUIPromptSessionState(resolveOpenUIPromptMode(options.mode), options.openUI === true),
 			...(options.thinkingLevel ? { thinkingLevel: options.thinkingLevel } : {}),
 		});
 		return this.#registerConnection(
@@ -775,7 +776,7 @@ export class PrimeBridge {
 	}
 
 	/** Resume a persisted prime-agent session from its JSONL transcript. */
-	async resumeSessionByPath(sessionPath: string): Promise<BridgeSession> {
+	async resumeSessionByPath(sessionPath: string, options?: { readonly openUI?: boolean }): Promise<BridgeSession> {
 		const resolvedSessionPath = resolve(sessionPath);
 		// If a live session already owns this path, reuse it.
 		for (const [sessionId, session] of this.#sessions) {
@@ -793,7 +794,7 @@ export class PrimeBridge {
 		const webAgent = await this.#connectionFactory({
 			cwd: sessionCwd,
 			sessionPath: resolvedSessionPath,
-			openUIPrompt: createOpenUIPromptSessionState(),
+			openUIPrompt: createOpenUIPromptSessionState("agent", options?.openUI === true),
 		});
 		return this.#registerConnection(
 			webAgent,
@@ -806,6 +807,7 @@ export class PrimeBridge {
 	async resumeSessionById(
 		sessionId: string,
 		requestedProjectId?: ProjectId | null,
+		options?: { readonly openUI?: boolean },
 	): Promise<BridgeSession | undefined> {
 		const live = this.#sessions.get(sessionId);
 		if (live) {
@@ -819,7 +821,7 @@ export class PrimeBridge {
 		const match = all.find((info) => info.sessionId === sessionId || info.id === sessionId);
 		if (!match) return undefined;
 		if (!match.sessionFile) return undefined;
-		const resumed = await this.resumeSessionByPath(match.sessionFile);
+		const resumed = await this.resumeSessionByPath(match.sessionFile, options);
 		if (requestedProjectId && resumed.projectId !== requestedProjectId) {
 			const forkedId = await this.forkSessionIntoProject(resumed.sessionId, requestedProjectId);
 			return this.#requireSession(forkedId);
@@ -931,6 +933,10 @@ export class PrimeBridge {
 				? `${withoutPreviousPrompt}${withoutPreviousPrompt ? "\n\n" : ""}${nextPrompt}`
 				: withoutPreviousPrompt;
 			this.#caches.set(session.sessionId, cache);
+		} else if (process.env.PRIME_BRIDGE_DEBUG === "1") {
+			process.stderr.write(
+				`[bridge:${session.sessionId.slice(0, 8)}] OpenUI prompt state changed but this connection cannot update prompts after creation; recreate the session to apply it\n`,
+			);
 		}
 	}
 

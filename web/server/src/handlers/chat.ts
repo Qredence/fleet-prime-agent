@@ -42,7 +42,8 @@ export function handleChatPost(request: Request): Promise<Response> {
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			process.stderr.write(`[chat] received session=${targetSessionId.slice(0, 8)} bytes=${message.length}\n`);
 		}
-		const session = bridge.getSession(targetSessionId) ?? (await bridge.resumeSessionById(targetSessionId));
+		const session =
+			bridge.getSession(targetSessionId) ?? (await bridge.resumeSessionById(targetSessionId, undefined, { openUI }));
 		if (!session) {
 			return Response.json({ message: `Unknown session: ${targetSessionId}` }, { status: 404 });
 		}

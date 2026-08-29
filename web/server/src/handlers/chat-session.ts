@@ -8,14 +8,15 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		const sessionId = url.searchParams.get("sessionId");
 		const requestedProjectId = url.searchParams.get("projectId");
+		const openUI = url.searchParams.get("openUI") === "true";
 		if (!sessionId) {
 			return Response.json({ message: "GET /api/chat/session requires ?sessionId=" }, { status: 400 });
 		}
 		const bridge = getBridge();
 		const projectId = requestedProjectId ? ProjectIdSchema.parse(requestedProjectId) : undefined;
 		const existing = projectId
-			? await bridge.resumeSessionById(sessionId, projectId)
-			: (bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId)));
+			? await bridge.resumeSessionById(sessionId, projectId, { openUI })
+			: (bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId, undefined, { openUI })));
 		if (!existing) {
 			return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		}

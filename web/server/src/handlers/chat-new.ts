@@ -29,6 +29,7 @@ export function handleChatNewPost(request: Request): Promise<Response> {
 			projectId,
 			thinkingLevel: toThinkingLevel(body.thinkingLevel),
 			mode: body.mode,
+			openUI: body.openUI,
 		});
 		if (body.model) {
 			await bridge.setModel(session.sessionId, body.model);

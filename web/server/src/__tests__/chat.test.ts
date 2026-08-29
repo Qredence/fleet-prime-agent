@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleChatPost } from "../handlers/chat";
 import { handleChatNewPost } from "../handlers/chat-new";
+import { handleChatSessionGet } from "../handlers/chat-session";
 import { sessionStatus } from "../handlers/projects";
 import type { BridgeSession, PrimeBridge } from "../prime-bridge";
 import { sessionCommandResultText } from "../session-commands";
@@ -285,6 +286,70 @@ describe("handleChatNewPost", () => {
 			thinkingLevel: "high",
 		});
 		expect(setThinkingLevel).toHaveBeenCalledWith("high");
+	});
+
+	it("forwards the openUI flag from the request body to createSession", async () => {
+		const createSession = vi.fn(
+			async () =>
+				({
+					sessionId: "session-new",
+					connection: {},
+				}) as unknown as BridgeSession,
+		);
+		setBridgeForTests({
+			ensureKernelReady: vi.fn(async () => {}),
+			createSession,
+			setModel: vi.fn(),
+			getPresentation: vi.fn(() => ({
+				revision: 0,
+				userBash: [],
+				rlmChildren: [],
+				refinements: [],
+				artifactRuns: [],
+			})),
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatNewPost(
+			new Request("http://localhost/api/chat/new", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ openUI: true }),
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(createSession).toHaveBeenCalledWith(expect.objectContaining({ openUI: true }));
+	});
+
+	it("passes the openUI query flag when resuming a session by id", async () => {
+		const resumeSessionById = vi.fn(
+			async () =>
+				({
+					sessionId: "session-1",
+					sessionPath: "/tmp/session-1.jsonl",
+				}) as unknown as BridgeSession,
+		);
+		setBridgeForTests({
+			getSession: vi.fn(() => undefined),
+			resumeSessionById,
+			getMessages: vi.fn(async () => []),
+			getPresentation: vi.fn(() => ({
+				revision: 0,
+				userBash: [],
+				rlmChildren: [],
+				refinements: [],
+				artifactRuns: [],
+			})),
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatSessionGet(
+			new Request("http://localhost/api/chat/session?sessionId=session-1&openUI=true"),
+		);
+
+		expect(response.status).toBe(200);
+		expect(resumeSessionById).toHaveBeenCalledWith("session-1", undefined, { openUI: true });
 	});
 });
 

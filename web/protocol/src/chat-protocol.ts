@@ -86,6 +86,7 @@ export type ChatModelSelection = {
 export type ChatSessionMetadata = {
 	sessionId?: string;
 	projectId?: ProjectId | null;
+	openUI?: boolean;
 };
 
 export type ChatServiceTier = "auto" | "default" | "flex" | "scale" | "priority" | null;
@@ -215,7 +216,6 @@ export type ChatRequest = ChatSessionMetadata & {
 	message?: string;
 	model?: ChatModelSelection;
 	mode?: ChatMode;
-	openUI?: boolean;
 	attachments?: Array<ChatAttachment>;
 	planAction?: ChatPlanAction;
 	streamingBehavior?: "steer" | "followUp";
@@ -557,6 +557,7 @@ export type ChatNewRequest = {
 	thinkingLevel?: ChatThinkingLevel;
 	mode?: ChatMode;
 	model?: ChatModelSelection;
+	openUI?: boolean;
 };
 
 export type ChatSessionInfo = {

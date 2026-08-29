@@ -13,6 +13,7 @@ export const ChatSessionMetadataSchema = z
 	.object({
 		sessionId: SessionIdSchema.optional().openapi({ description: "Session ID" }),
 		projectId: ProjectIdSchema.nullable().optional().openapi({ description: "Opaque project ID" }),
+		openUI: z.boolean().optional().openapi({ description: "OpenUI instruction enablement for the session" }),
 	})
 	.openapi({ description: "Chat session metadata" });
 
@@ -50,6 +51,7 @@ export const ChatNewRequestSchema = z
 		thinkingLevel: ChatThinkingLevelSchema.optional(),
 		mode: ChatModeSchema.optional(),
 		model: ChatModelSelectionSchema.optional(),
+		openUI: z.boolean().optional(),
 	})
 	.openapi({ description: "Create a project-scoped chat session" });
 

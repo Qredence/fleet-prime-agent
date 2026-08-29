@@ -139,7 +139,7 @@ export const chatClient: ChatClient = {
 		return fetchValidatedJson("/api/chat/new", ChatSessionResponseSchema, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(projectId ? { projectId } : {}),
+			body: JSON.stringify({ openUI: true, ...(projectId ? { projectId } : {}) }),
 			signal,
 		});
 	},
@@ -280,7 +280,10 @@ export const chatClient: ChatClient = {
 	},
 
 	async loadSession(metadata) {
-		return fetchValidatedJson(`/api/chat/session?${metadataUrl(metadata)}`, ChatSessionResponseSchema);
+		return fetchValidatedJson(
+			`/api/chat/session?${metadataUrl({ ...metadata, openUI: true })}`,
+			ChatSessionResponseSchema,
+		);
 	},
 
 	async upsertPlanPresentation(request) {
@@ -295,7 +298,7 @@ export const chatClient: ChatClient = {
 		return fetchValidatedJson("/api/chat/resume", ChatSessionResponseSchema, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(metadata),
+			body: JSON.stringify({ ...metadata, openUI: true }),
 		});
 	},
 

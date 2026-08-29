@@ -13,7 +13,7 @@ export function handleChatResumePost(request: Request): Promise<Response> {
 		const bridge = getBridge();
 
 		if (body.sessionId) {
-			const session = await bridge.resumeSessionById(body.sessionId, body.projectId);
+			const session = await bridge.resumeSessionById(body.sessionId, body.projectId, { openUI: body.openUI });
 			if (!session) {
 				return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
 			}

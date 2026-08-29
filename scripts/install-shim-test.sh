@@ -1,8 +1,8 @@
 #!/bin/sh
-# install-shim-test.sh — smoke test for the fleet-prime shim installer.
+# install-shim-test.sh — smoke test for the fleet-agent shim installer.
 # Asserts: (1) the existing prime-agent is preserved on PATH, (2) the
-# shim file is written under $HOME/.local/bin, (3) the shim exec line
-# points at the checkout's fleet-prime.sh.
+# fleet-agent shim file is written under $HOME/.local/bin, (3) the shim
+# exec line points at the checkout's fleet-prime.sh.
 set -e
 
 REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -18,22 +18,22 @@ chmod +x "$FAKE"
 
 # Run the shim function in a subshell where $SANDBOX/bin is the only
 # path that contains prime-agent. The real system PATH (which may have
-# a stale fleet-prime from a previous install) is kept so the installer
+# a stale fleet-agent from a previous install) is kept so the installer
 # sees a realistic environment, but the fake prime-agent is found first.
 export PATH="$SANDBOX/bin:$PATH"
 prime_agent_checkout_dir=$(pwd)
 [ "$prime_agent_checkout_dir" = "$REPO_ROOT" ] || { echo "run from repo root" >&2; exit 1; }
-sed -n '/^install_fleet_prime_shim() {/,/^}$/p' "$REPO_ROOT/install.sh" > "$SANDBOX/func.sh"
+sed -n '/^install_fleet_agent_shim() {/,/^}$/p' "$REPO_ROOT/install.sh" > "$SANDBOX/func.sh"
 (	die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 	. "$SANDBOX/func.sh"
-	install_fleet_prime_shim )
+	install_fleet_agent_shim )
 
 # (1) Fake prime-agent must still be the one on PATH.
 after=$(command -v prime-agent || true)
 [ "$after" = "$FAKE" ] || { echo "FAIL: prime-agent clobbered ($after)" >&2; exit 1; }
 
 # (2) Shim file must exist at the expected location and be executable.
-shim="$HOME/.local/bin/fleet-prime"
+shim="$HOME/.local/bin/fleet-agent"
 [ -x "$shim" ] || { echo "FAIL: shim not installed at $shim" >&2; exit 1; }
 
 # (3) Shim exec line must point at the checkout's fleet-prime.sh.
@@ -44,6 +44,6 @@ case "$exec_line" in
 esac
 
 echo "OK: prime-agent preserved at $after"
-echo "OK: fleet-prime shim installed at $shim"
+echo "OK: fleet-agent shim installed at $shim"
 echo "OK: shim forwards to $REPO_ROOT/fleet-prime.sh"
 exit 0

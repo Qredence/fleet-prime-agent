@@ -8,6 +8,7 @@ import {
 	type AgentConnection,
 	type AgentSession,
 	type AgentSessionRuntimeConfig,
+	DAEMON_PROTOCOL_NAME,
 	DAEMON_PROTOCOL_VERSION,
 	DaemonAgentConnection,
 	DaemonClient,
@@ -86,21 +87,48 @@ function daemonCliEntrypoint(): string {
 	return resolve(dirname(runtimeEntry), "bundle", "cli.js");
 }
 
-async function probeDaemon(socketPath: string): Promise<boolean> {
+type DaemonHello = Awaited<ReturnType<DaemonClient["waitForHello"]>>;
+
+/**
+ * The default daemon socket can already be owned by a daemon started outside
+ * Fleet. Accept only the exact protocol identity pinned by this runtime so a
+ * newer or unrelated daemon is never mistaken for the pinned one.
+ */
+function matchesPinnedDaemon(hello: DaemonHello): boolean {
+	return hello.protocol.name === DAEMON_PROTOCOL_NAME && hello.protocol.version === DAEMON_PROTOCOL_VERSION;
+}
+
+type DaemonProbeResult =
+	| { status: "compatible" }
+	| { status: "incompatible"; detail: string }
+	| { status: "unreachable" };
+
+async function probeDaemon(socketPath: string): Promise<DaemonProbeResult> {
 	const client = new DaemonClient(socketPath);
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
-		return hello.protocol.version >= DAEMON_PROTOCOL_VERSION;
+		if (matchesPinnedDaemon(hello)) return { status: "compatible" };
+		return {
+			status: "incompatible",
+			detail: `found ${hello.protocol.name}@${hello.protocol.version}, expected ${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}`,
+		};
 	} catch {
-		return false;
+		return { status: "unreachable" };
 	} finally {
 		client.close();
 	}
 }
 
 async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> {
-	if (await probeDaemon(socketPath)) return;
+	const initialProbe = await probeDaemon(socketPath);
+	if (initialProbe.status === "compatible") return;
+	if (initialProbe.status === "incompatible") {
+		throw new Error(
+			`The Prime Agent daemon socket at ${socketPath} is owned by a non-pinned daemon (${initialProbe.detail}). ` +
+				"Stop that daemon or configure a different daemon socket path.",
+		);
+	}
 
 	const child = spawn(process.execPath, [daemonCliEntrypoint(), "--mode", "daemon", "--daemon-socket", socketPath], {
 		cwd: spawnCwd,
@@ -112,7 +140,14 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 
 	const deadline = Date.now() + DAEMON_STARTUP_TIMEOUT_MS;
 	while (Date.now() < deadline) {
-		if (await probeDaemon(socketPath)) return;
+		const probe = await probeDaemon(socketPath);
+		if (probe.status === "compatible") return;
+		if (probe.status === "incompatible") {
+			throw new Error(
+				`The Prime Agent daemon socket at ${socketPath} was claimed by a non-pinned daemon (${probe.detail}). ` +
+					"Stop that daemon or configure a different daemon socket path.",
+			);
+		}
 		await delay(DAEMON_POLL_DELAY_MS);
 	}
 	throw new Error("The Prime Agent daemon did not become ready");
@@ -135,7 +170,13 @@ async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonClient; 
 	const client = new DaemonClient(socketPath);
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
-		await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
+		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
+		if (!matchesPinnedDaemon(hello)) {
+			throw new Error(
+				`Refusing to attach to the Prime Agent daemon at ${socketPath}: expected protocol ` +
+					`${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}, found ${hello.protocol.name}@${hello.protocol.version}`,
+			);
+		}
 		return { client, socketPath };
 	} catch (error) {
 		client.close();
