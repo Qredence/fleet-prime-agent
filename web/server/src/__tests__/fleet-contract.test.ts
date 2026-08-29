@@ -68,6 +68,17 @@ describe("Fleet browser contracts", () => {
 		).toBe(false);
 	});
 
+	it("enforces relativePath only for workspace and artifacts panels", () => {
+		expect(OpenPanelActionSchema.safeParse({ panel: "workspace", relativePath: "src/app.ts" }).success).toBe(true);
+		expect(OpenPanelActionSchema.safeParse({ panel: "artifacts", relativePath: "report.md" }).success).toBe(true);
+		expect(OpenPanelActionSchema.safeParse({ panel: "resources" }).success).toBe(true);
+		expect(OpenPanelActionSchema.safeParse({ panel: "session-insights" }).success).toBe(true);
+		expect(OpenPanelActionSchema.safeParse({ panel: "resources", relativePath: "src/app.ts" }).success).toBe(false);
+		expect(OpenPanelActionSchema.safeParse({ panel: "session-insights", relativePath: "src/app.ts" }).success).toBe(
+			false,
+		);
+	});
+
 	it("rejects malformed managed attachment metadata", () => {
 		expect(
 			UploadedAttachmentSchema.safeParse({

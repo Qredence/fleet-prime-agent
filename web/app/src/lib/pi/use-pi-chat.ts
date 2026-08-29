@@ -326,7 +326,11 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				const selected = storedSession.sessionId
 					? availableSessions.find((candidate) => candidate.sessionId === storedSession.sessionId)
 					: undefined;
-				const fallback = selected ?? availableSessions[0];
+				const fallback =
+					selected ??
+					(storedSession.projectId
+						? availableSessions.find((candidate) => candidate.projectId === storedSession.projectId)
+						: availableSessions[0]);
 				if (!fallback) {
 					setSessionMetadataSynced(storedSession.projectId ? { projectId: storedSession.projectId } : {});
 					return undefined;

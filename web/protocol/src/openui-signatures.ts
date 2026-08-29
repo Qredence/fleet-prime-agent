@@ -42,7 +42,7 @@ export const openUIPromptSpec = {
 			signature:
 				'PanelAction(label: string, panel: "resources" | "workspace" | "artifacts" | "session-insights", relativePath?: any, focus?: boolean)',
 			description:
-				"A trusted local action that opens Resources, Workspace, Artifacts, or Session insights and may select a contained workspace-relative path.",
+				"A trusted local action that opens Resources, Workspace, Artifacts, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 		},
 		Input: {
 			signature:
@@ -417,7 +417,7 @@ export const openUIPromptSpec = {
 				required: ["label", "panel", "focus"],
 				additionalProperties: false,
 				description:
-					"A trusted local action that opens Resources, Workspace, Artifacts, or Session insights and may select a contained workspace-relative path.",
+					"A trusted local action that opens Resources, Workspace, Artifacts, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 			},
 			Input: {
 				type: "object",

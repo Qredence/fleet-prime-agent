@@ -126,12 +126,22 @@ export const SessionSummarySchema = z.object({
 });
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 
-export const OpenPanelActionSchema = z.object({
-	panel: RightPanelIdSchema,
-	projectId: ProjectIdSchema.optional(),
-	relativePath: WorkspaceRelativePathSchema.optional(),
-	focus: z.boolean().optional(),
-});
+export const OpenPanelActionSchema = z
+	.object({
+		panel: RightPanelIdSchema,
+		projectId: ProjectIdSchema.optional(),
+		relativePath: WorkspaceRelativePathSchema.optional(),
+		focus: z.boolean().optional(),
+	})
+	.superRefine((action, ctx) => {
+		if (action.relativePath !== undefined && action.panel !== "workspace" && action.panel !== "artifacts") {
+			ctx.addIssue({
+				code: "custom",
+				path: ["relativePath"],
+				message: "relativePath is only valid for workspace and artifacts panels",
+			});
+		}
+	});
 export type OpenPanelAction = z.infer<typeof OpenPanelActionSchema>;
 
 export const WorkspaceAttachmentSchema = z.object({
