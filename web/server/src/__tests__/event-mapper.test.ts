@@ -1,6 +1,6 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { ChatStreamEvent, ChatToolPart } from "@prime-agent/web-protocol";
+import type { ChatStreamEvent, ChatToolPart, FleetErrorEnvelope } from "@prime-agent/web-protocol";
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
@@ -11,6 +11,9 @@ import {
 	mapAgentConnectionEvent,
 	mapAgentSessionEvent,
 	mapAgentSessionEvents,
+	normalizeDaemonQuestions,
+	normalizedQuestionsToClarification,
+	normalizedQuestionsToWire,
 	toChatMessageFromAssistant,
 	toChatMessageFromUnknownRole,
 	toChatMessagesFromAgentMessages,
@@ -989,10 +992,198 @@ describe("event-mapper", () => {
 				method: "questions",
 				title: "Architecture Choices",
 				message: "Please choose from the options below:",
-				questions,
+				questions: [
+					{
+						id: "opt-1",
+						question: "Which database do you prefer?",
+						prompt: "Which database do you prefer?",
+						title: "Which database do you prefer?",
+						kind: "single",
+						options: [
+							{ value: "PostgreSQL", label: "PostgreSQL" },
+							{ value: "SQLite", label: "SQLite" },
+						],
+					},
+					{
+						id: "opt-2",
+						question: "Include documentation?",
+						prompt: "Include documentation?",
+						title: "Include documentation?",
+						kind: "single",
+						options: [
+							{ value: "Yes", label: "Yes" },
+							{ value: "No", label: "No" },
+						],
+					},
+				],
 				options: ["PostgreSQL", "SQLite"],
 				placeholder: "Type custom option...",
 			});
+		});
+	});
+
+	describe("normalizeDaemonQuestions helpers", () => {
+		it("normalizes camelCase and snake_case daemon shapes with fallback ids", () => {
+			const raw = [
+				{
+					prompt: "Pick a color",
+					options: ["red", { id: "g-1", label: "Green", description: "A calm color" }, { value: "blue" }],
+					is_multi_select: true,
+					allow_write_in: true,
+					defaultOption: "red",
+				},
+				{ title: "Your name?" },
+				{},
+			];
+
+			const normalized = normalizeDaemonQuestions(raw);
+			expect(normalized).toEqual([
+				{
+					id: "question-1",
+					question: "Pick a color",
+					options: [
+						{ value: "red", label: "red" },
+						{ value: "g-1", label: "Green", description: "A calm color" },
+						{ value: "blue", label: "blue" },
+					],
+					isMultiSelect: true,
+					defaultOption: "red",
+					allowWriteIn: true,
+				},
+				{
+					id: "question-2",
+					question: "Your name?",
+					options: [],
+					isMultiSelect: false,
+					allowWriteIn: false,
+				},
+				{
+					id: "question-3",
+					question: "",
+					options: [],
+					isMultiSelect: false,
+					allowWriteIn: false,
+				},
+			]);
+		});
+
+		it("returns undefined for non-array or empty input", () => {
+			expect(normalizeDaemonQuestions(undefined)).toBeUndefined();
+			expect(normalizeDaemonQuestions("nope")).toBeUndefined();
+			expect(normalizeDaemonQuestions({})).toBeUndefined();
+			expect(normalizeDaemonQuestions([])).toBeUndefined();
+		});
+
+		it("projects normalized questions to the clarification registry shape", () => {
+			const normalized = normalizeDaemonQuestions([
+				{
+					id: "q-1",
+					question: "Choose a plan",
+					options: ["A", "B"],
+					isMultiSelect: true,
+					allowOther: true,
+					defaultOption: "A",
+				},
+				{ question: "Any notes?" },
+			]);
+
+			expect(normalizedQuestionsToClarification(normalized)).toEqual([
+				{
+					id: "q-1",
+					question: "Choose a plan",
+					options: ["A", "B"],
+					isMultiSelect: true,
+					defaultOption: "A",
+					allowWriteIn: true,
+				},
+				{ id: "question-2", question: "Any notes?" },
+			]);
+			expect(normalizedQuestionsToClarification(undefined)).toBeUndefined();
+		});
+
+		it("projects normalized questions to the browser wire shape", () => {
+			const normalized = normalizeDaemonQuestions([
+				{ question: "Multi?", options: ["x", "y"], isMultiSelect: true },
+				{ question: "Single?", options: ["a"] },
+				{ question: "Open text?", allowCustom: true },
+			]);
+
+			expect(normalizedQuestionsToWire(normalized)).toEqual([
+				{
+					id: "question-1",
+					question: "Multi?",
+					prompt: "Multi?",
+					title: "Multi?",
+					kind: "multi",
+					options: [
+						{ value: "x", label: "x" },
+						{ value: "y", label: "y" },
+					],
+				},
+				{
+					id: "question-2",
+					question: "Single?",
+					prompt: "Single?",
+					title: "Single?",
+					kind: "single",
+					options: [{ value: "a", label: "a" }],
+				},
+				{
+					id: "question-3",
+					question: "Open text?",
+					prompt: "Open text?",
+					title: "Open text?",
+					kind: "text",
+					allowOther: true,
+					allowCustom: true,
+				},
+			]);
+			expect(normalizedQuestionsToWire(undefined)).toBeUndefined();
+			expect(normalizedQuestionsToWire([])).toBeUndefined();
+		});
+	});
+
+	describe("extractToolErrorText content extraction", () => {
+		it("extracts error text from content blocks in a live tool_execution_end", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			const frames = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolCallId: "content-err",
+				toolName: "bash",
+				result: { content: [{ type: "text", text: "boom" }] },
+				isError: true,
+			} as AgentSessionEvent);
+
+			expect(frames[0].type).toBe("tool");
+			const part = (frames[0] as { part: { state: string; error?: { message: string } } }).part;
+			expect(part.state).toBe("output-error");
+			expect(part.error?.message).toContain("boom");
+		});
+
+		it("extracts error text from content blocks during hydration", () => {
+			const hydrated = toChatMessagesFromAgentMessages(
+				[
+					{
+						role: "assistant",
+						content: [{ type: "toolCall", id: "call-err", name: "bash", arguments: { command: "false" } }],
+					} as unknown as AgentMessage,
+					{
+						role: "toolResult",
+						toolCallId: "call-err",
+						toolName: "bash",
+						isError: true,
+						content: [{ type: "text", text: "fatal: nothing to commit" }],
+					} as unknown as AgentMessage,
+				],
+				"session-err",
+			);
+
+			const toolPart = hydrated[0].parts.find((part) => part.type.startsWith("tool-")) as
+				| (ChatToolPart & { error?: FleetErrorEnvelope })
+				| undefined;
+			expect(toolPart?.state).toBe("output-error");
+			expect(toolPart?.error?.message).toContain("fatal: nothing to commit");
 		});
 	});
 

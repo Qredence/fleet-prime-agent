@@ -1,4 +1,3 @@
-import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt";
 import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
 import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/fleet-pi/pi/prime-agent-artifacts";
 import { notify } from "@prime-agent/web-design/lib/notify";
@@ -7,6 +6,7 @@ import type { ProjectId } from "@prime-agent/web-protocol";
 import type {
 	ChatMode,
 	ChatPiSettingsUpdate,
+	ChatQuestionAnswer,
 	ChatSessionMetadata,
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -385,7 +385,7 @@ export function useChatWorkspaceData() {
 		setWorkspaceAttachments((current) => current.filter((attachment) => attachment.relativePath !== relativePath));
 	}, []);
 	const handleQuestionAnswer = useCallback(
-		({ toolCallId, answer }: { toolCallId?: string; answer: QuestionAnswer }) => {
+		({ toolCallId, answer }: { toolCallId?: string; answer: ChatQuestionAnswer }) => {
 			void answerQuestion({ toolCallId, answer }).catch((err) => {
 				const message = err instanceof Error ? err.message : String(err);
 				notify.error(message);

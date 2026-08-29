@@ -49,7 +49,14 @@ import {
 	type WebAgentConnection,
 	type WebAgentConnectionFactory,
 } from "./daemon-runtime";
-import { createEventMapperState, mapAgentConnectionEvent, toChatMessagesFromAgentMessages } from "./event-mapper";
+import {
+	createEventMapperState,
+	mapAgentConnectionEvent,
+	normalizeDaemonQuestions,
+	normalizedQuestionsToClarification,
+	normalizedQuestionsToWire,
+	toChatMessagesFromAgentMessages,
+} from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
 import {
 	copyManagedPlanPresentationsForFork,
@@ -577,31 +584,14 @@ export class PrimeBridge {
 			return true;
 		}
 
-		const rawQuestions = Array.isArray(request.payload.questions) ? request.payload.questions : undefined;
-		const questions = rawQuestions?.map((q) => {
-			const item = q && typeof q === "object" ? (q as Record<string, unknown>) : {};
-			return {
-				id: typeof item.id === "string" ? item.id : undefined,
-				question:
-					typeof item.question === "string" ? item.question : typeof item.title === "string" ? item.title : "",
-				options: Array.isArray(item.options)
-					? item.options.filter((o): o is string => typeof o === "string")
-					: undefined,
-				isMultiSelect:
-					typeof item.isMultiSelect === "boolean"
-						? item.isMultiSelect
-						: typeof item.is_multi_select === "boolean"
-							? item.is_multi_select
-							: undefined,
-				defaultOption: typeof item.defaultOption === "string" ? item.defaultOption : undefined,
-				allowWriteIn: typeof item.allowWriteIn === "boolean" ? item.allowWriteIn : undefined,
-			};
-		});
+		const normalizedQuestions = normalizeDaemonQuestions(request.payload.questions);
+		const registryQuestions = normalizedQuestionsToClarification(normalizedQuestions);
+		const wireQuestions = normalizedQuestionsToWire(normalizedQuestions);
 
 		const hasQuestions =
 			request.method === "questions" ||
 			request.method === "ask_question" ||
-			Boolean(questions && questions.length > 0);
+			Boolean(registryQuestions && registryQuestions.length > 0);
 
 		if (
 			!hasQuestions &&
@@ -628,7 +618,7 @@ export class PrimeBridge {
 			title,
 			message,
 			...(options ? { options } : {}),
-			...(questions ? { questions } : {}),
+			...(registryQuestions ? { questions: registryQuestions } : {}),
 			...(placeholder ? { placeholder } : {}),
 			...(timeoutMs !== undefined ? { timeoutMs } : {}),
 			signalFrame: {
@@ -646,7 +636,7 @@ export class PrimeBridge {
 					title,
 					...(message ? { message } : {}),
 					...(options ? { options } : {}),
-					...(questions ? { questions } : {}),
+					...(wireQuestions ? { questions: wireQuestions } : {}),
 					...(placeholder ? { placeholder } : {}),
 					method: request.method,
 				},
