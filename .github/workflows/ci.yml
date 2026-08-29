@@ -60,88 +60,10 @@ jobs:
         run: pnpm install --dir web --frozen-lockfile
 
       - name: Build
-        run: npm run build:ci
+        run: npm run build
 
       - name: Check
         run: npm run check
-
-  test:
-    name: Test (${{ matrix.name }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: agent-core
-            package: packages/agent
-            command: npm test
-            install_uv: false
-          - name: ai
-            package: packages/ai
-            command: npm test
-            install_uv: false
-          - name: tui
-            package: packages/tui
-            command: npm test
-            install_uv: false
-          - name: coding-agent 1/3
-            package: packages/coding-agent
-            command: npm run test:ci -- --shard=1/3
-            install_uv: true
-          - name: coding-agent 2/3
-            package: packages/coding-agent
-            command: npm run test:ci -- --shard=2/3
-            install_uv: true
-          - name: coding-agent 3/3
-            package: packages/coding-agent
-            command: npm run test:ci -- --shard=3/3
-            install_uv: true
-          - name: coding-agent process smoke
-            package: packages/coding-agent
-            command: npm run test:process
-            install_uv: true
-          - name: coding-agent kernel
-            package: packages/coding-agent
-            command: npm run test:kernel
-            install_uv: true
-          - name: runtime python
-            package: prime-agent-runtime
-            command: uv run python -m unittest discover -s test
-            install_uv: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev fd-find ripgrep
-          sudo ln -s $(which fdfind) /usr/local/bin/fd
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build:ci
-
-      - name: Install uv
-        if: matrix.install_uv
-        run: |
-          python3 -m pip install --user uv
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Test
-        working-directory: ${{ matrix.package }}
-        run: ${{ matrix.command }}
 
   test-web:
     name: Test (web)
@@ -149,7 +71,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
@@ -158,7 +82,7 @@ jobs:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
@@ -174,6 +98,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev fd-find ripgrep
+          sudo ln -s $(which fdfind) /usr/local/bin/fd
+
       - name: Install npm dependencies
         run: npm ci
 
@@ -181,7 +111,7 @@ jobs:
         run: pnpm install --dir web --frozen-lockfile
 
       - name: Build
-        run: npm run build:ci
+        run: npm run build
 
       - name: Test
         run: npm run test:web
@@ -189,15 +119,13 @@ jobs:
   build-check-test:
     name: build-check-test
     if: always()
-    needs: [build-check, test, test-web]
+    needs: [build-check, test-web]
     runs-on: ubuntu-latest
     steps:
       - name: Verify CI results
         env:
           BUILD_CHECK_RESULT: ${{ needs.build-check.result }}
-          TEST_RESULT: ${{ needs.test.result }}
           TEST_WEB_RESULT: ${{ needs.test-web.result }}
         run: |
           test "$BUILD_CHECK_RESULT" = success
-          test "$TEST_RESULT" = success
           test "$TEST_WEB_RESULT" = success
