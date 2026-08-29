@@ -6,9 +6,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readWorkspaceTree } from "../workspace-tree";
 
 const MAX_ENTRIES_PER_DIR = 100;
+const MAX_DEPTH = 10;
 
 function findNode(nodes: Array<WorkspaceTreeNode>, path: string): WorkspaceTreeNode | undefined {
-	return nodes.find((node) => node.path === path);
+	for (const node of nodes) {
+		if (node.path === path) return node;
+		const child = node.children ? findNode(node.children, path) : undefined;
+		if (child) return child;
+	}
+	return undefined;
 }
 
 describe("readWorkspaceTree", () => {
@@ -69,23 +75,25 @@ describe("readWorkspaceTree", () => {
 		expect(diagnostics).toContain(`Showing first ${MAX_ENTRIES_PER_DIR} of ${total} entries in .`);
 	});
 
-	it("recurses children at depth 1 but stops beyond MAX_DEPTH", async () => {
-		// MAX_DEPTH = 3; root call is depth 1, children recurse while depth < 3.
-		await mkdir(join(root, "a", "b", "c"), { recursive: true });
-		await writeFile(join(root, "a", "b", "c", "deep.txt"), "x", "utf8");
+	it("includes nested folder files while retaining the depth bound", async () => {
+		// The root call is depth 1, and child directories recurse while depth < MAX_DEPTH.
+		await mkdir(join(root, "apps", "api", "app", "scripts"), { recursive: true });
+		await writeFile(join(root, "apps", "api", "app", "scripts", "run.py"), "x", "utf8");
+		const maxDepthPath = Array.from({ length: MAX_DEPTH }, (_, index) => `level-${index}`).join("/");
+		await mkdir(join(root, maxDepthPath), { recursive: true });
+		await writeFile(join(root, maxDepthPath, "too-deep.txt"), "x", "utf8");
 
 		const { nodes } = await readWorkspaceTree(root);
-		const a = findNode(nodes, "a");
-		expect(a?.type).toBe("directory");
-		expect(a?.children?.some((child) => child.path === "a/b")).toBe(true);
+		const apps = findNode(nodes, "apps");
+		const api = findNode(apps?.children ?? [], "apps/api");
+		const app = findNode(api?.children ?? [], "apps/api/app");
+		const scripts = findNode(app?.children ?? [], "apps/api/app/scripts");
+		expect(scripts?.type).toBe("directory");
+		expect(scripts?.children?.some((child) => child.path === "apps/api/app/scripts/run.py")).toBe(true);
 
-		const b = findNode(a?.children ?? [], "a/b");
-		expect(b?.type).toBe("directory");
-		expect(b?.children?.some((child) => child.path === "a/b/c")).toBe(true);
-
-		const c = findNode(b?.children ?? [], "a/b/c");
-		expect(c?.type).toBe("directory");
-		expect(c?.children).toBeUndefined();
+		const maxDepthNode = findNode(nodes, maxDepthPath);
+		expect(maxDepthNode?.type).toBe("directory");
+		expect(maxDepthNode?.children).toBeUndefined();
 	});
 
 	it("reports symlink-to-directory as directory and recurses into it", async () => {
