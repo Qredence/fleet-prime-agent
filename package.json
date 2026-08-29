@@ -30,7 +30,7 @@
 		"check:web:release": "node scripts/check-web-release.mjs",
 		"test:web": "pnpm --dir web test",
 		"test": "pnpm --dir web test",
-		"release:pack": "npm pack packages/fleet-prime",
+		"release:pack": "npm pack ./packages/fleet-prime",
 		"prepare": "husky"
 	},
 	"devDependencies": {

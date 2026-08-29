@@ -113,7 +113,7 @@ jobs:
       - name: Pack release artifact
         run: |
           mkdir -p dist-release
-          npm pack packages/fleet-prime --pack-destination dist-release
+          npm pack ./packages/fleet-prime --pack-destination dist-release
           test -f "dist-release/qredence-fleet-prime-${RELEASE_VERSION}.tgz"
 
       - name: Smoke test packed artifact
