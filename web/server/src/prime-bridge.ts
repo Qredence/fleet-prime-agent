@@ -35,6 +35,7 @@ import {
 import type {
 	AgentConnection,
 	AgentConnectionExtensionUiRequest,
+	AgentConnectionModel,
 	AgentSession,
 	ExtensionUIContext,
 	ExtensionUIDialogOptions,
@@ -376,6 +377,16 @@ function selectedTextFromSessionEntry(entry: SessionTreeEntry): string | undefin
 		.filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
 		.map((part) => part.text)
 		.join("");
+}
+
+/**
+ * prime-agent falls back to an `unknown/unknown` placeholder model when no
+ * real model can be resolved (e.g. no provider auth configured). Attempting
+ * to carry that placeholder over to a forked session makes `setModel` throw
+ * "Model not found"; skip it so the fork resolves its own default.
+ */
+function isUnresolvedPlaceholderModel(model: AgentConnectionModel | undefined): boolean {
+	return model?.provider === "unknown" && model?.id === "unknown";
 }
 
 // ---------------------------------------------------------------------------
@@ -1130,7 +1141,7 @@ export class PrimeBridge {
 		});
 		// Carry the source session's model/thinking/service-tier over so the fork
 		// doesn't silently fall back to defaults (provider/settings may differ).
-		if (sourceState.model) {
+		if (sourceState.model && !isUnresolvedPlaceholderModel(sourceState.model)) {
 			await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
 		}
 		await webAgent.connection.setThinkingLevel(sourceState.thinkingLevel);
@@ -1165,7 +1176,7 @@ export class PrimeBridge {
 			thinkingLevel: sourceState.thinkingLevel,
 			openUIPrompt: createOpenUIPromptSessionState(source.openUIPrompt.mode, source.openUIPrompt.enabled),
 		});
-		if (sourceState.model) {
+		if (sourceState.model && !isUnresolvedPlaceholderModel(sourceState.model)) {
 			await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
 		}
 		await webAgent.connection.setThinkingLevel(sourceState.thinkingLevel);
