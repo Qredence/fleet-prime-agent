@@ -13,6 +13,7 @@ export const ChatSessionMetadataSchema = z
 	.object({
 		sessionId: SessionIdSchema.optional().openapi({ description: "Session ID" }),
 		projectId: ProjectIdSchema.nullable().optional().openapi({ description: "Opaque project ID" }),
+		openUI: z.boolean().optional().openapi({ description: "OpenUI instruction enablement for the session" }),
 	})
 	.openapi({ description: "Chat session metadata" });
 
@@ -23,6 +24,7 @@ export const ChatRequestSchema = z
 		model: ChatModelSelectionSchema.optional(),
 		mode: ChatModeSchema.optional(),
 		openUI: z.boolean().optional(),
+		openUIArtifact: z.boolean().optional(),
 		attachments: z.array(ChatAttachmentSchema).max(16).optional(),
 		planAction: ChatPlanActionSchema.optional(),
 		streamingBehavior: z.enum(["steer", "followUp"]).optional().openapi({ description: "Streaming behavior" }),
@@ -50,17 +52,51 @@ export const ChatNewRequestSchema = z
 		thinkingLevel: ChatThinkingLevelSchema.optional(),
 		mode: ChatModeSchema.optional(),
 		model: ChatModelSelectionSchema.optional(),
+		openUI: z.boolean().optional(),
 	})
 	.openapi({ description: "Create a project-scoped chat session" });
 
+export const ChatClarificationQuestionSchema = z
+	.object({
+		id: z.string().optional(),
+		question: z.string(),
+		options: z.array(z.string()).optional(),
+		isMultiSelect: z.boolean().optional(),
+		defaultOption: z.string().optional(),
+		allowWriteIn: z.boolean().optional(),
+	})
+	.openapi({ description: "Interactive clarification question" });
+
 export const ChatQuestionAnswerSchema = z
 	.object({
-		kind: z.enum(["single", "multi", "text", "skip"]),
+		kind: z.enum(["single", "multi", "text", "skip", "questions"]),
 		questionId: z.string().optional(),
 		selectedIds: z.array(z.string()).optional(),
 		text: z.string().optional(),
+		answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])).optional(),
 	})
 	.openapi({ description: "Question answer" });
+
+export const ChatPendingDialogSchema = z
+	.object({
+		sessionId: SessionIdSchema,
+		toolCallId: z.string(),
+		kind: z.enum(["confirm", "select", "input", "questions"]),
+		title: z.string(),
+		message: z.string().optional(),
+		options: z.array(z.string()).optional(),
+		questions: z.array(ChatClarificationQuestionSchema).optional(),
+		placeholder: z.string().optional(),
+		createdAt: z.number(),
+		timeoutMs: z.number().optional(),
+	})
+	.openapi({ description: "Pending interactive dialog" });
+
+export const ChatPendingDialogsResponseSchema = z
+	.object({
+		dialogs: z.array(ChatPendingDialogSchema),
+	})
+	.openapi({ description: "List of pending dialogs for a session" });
 
 export const ChatQuestionAnswerRequestSchema = z
 	.object({
@@ -138,20 +174,82 @@ export const ChatImagePartSchema = z
 	})
 	.openapi({ description: "Image message part" });
 
+export const ChatPayloadPartSchema = z
+	.object({
+		type: z.literal("payload"),
+		id: z.string().min(1).optional(),
+		kind: z.string().min(1),
+		title: z.string().min(1),
+		text: z.string().optional(),
+		payload: z.unknown().optional(),
+	})
+	.passthrough()
+	.openapi({ description: "Browser-visible Prime Agent runtime payload" });
+
+export const FleetErrorCodeSchema = z
+	.enum([
+		"AUTH_CREDENTIAL_EXPIRED",
+		"AUTH_MISSING",
+		"KERNEL_CRASH",
+		"KERNEL_TIMEOUT",
+		"CONTEXT_OVERFLOW",
+		"BUDGET_EXCEEDED",
+		"TOOL_TIMEOUT",
+		"RATE_LIMIT",
+		"NETWORK_DISCONNECTED",
+		"EXTENSION_ERROR",
+		"SESSION_ABORTED",
+		"UNKNOWN_ERROR",
+	])
+	.openapi({ description: "Machine-readable Fleet error code" });
+
+export const FleetErrorRemediationActionSchema = z
+	.enum(["open_settings_tab", "restart_kernel", "retry_turn", "compact_context", "expand_budget", "reconnect"])
+	.openapi({ description: "Remediation action trigger" });
+
+export const FleetErrorRemediationSchema = z
+	.object({
+		action: FleetErrorRemediationActionSchema,
+		target: z.string().optional(),
+		label: z.string(),
+	})
+	.openapi({ description: "Structured error remediation hint" });
+
+export const FleetErrorEnvelopeSchema = z
+	.object({
+		code: FleetErrorCodeSchema,
+		message: z.string(),
+		provider: z.string().optional(),
+		isTerminal: z.boolean().optional(),
+		remediation: FleetErrorRemediationSchema.optional(),
+	})
+	.openapi({ description: "Standardized Fleet error envelope" });
+
+export const ChatErrorEnvelopeSchema = FleetErrorEnvelopeSchema;
+
+export const ChatToolCategorySchema = z
+	.enum(["kernel", "system", "mcp", "rlm", "plan", "question", "custom"])
+	.openapi({ description: "Normalized tool category" });
+
 export const ChatToolPartSchema = z
 	.object({
 		type: z.string(),
+		category: ChatToolCategorySchema.optional(),
+		toolName: z.string().optional(),
+		serverName: z.string().optional(),
 		toolCallId: z.string().optional(),
 		state: z.string().optional(),
 		input: z.unknown().optional(),
 		output: z.unknown().optional(),
 		result: z.unknown().optional(),
+		durationMs: z.number().optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
 	})
 	.passthrough()
 	.openapi({ description: "Tool message part" });
 
 export const ChatMessagePartSchema = z
-	.union([ChatTextPartSchema, ChatErrorPartSchema, ChatImagePartSchema, ChatToolPartSchema])
+	.union([ChatTextPartSchema, ChatErrorPartSchema, ChatImagePartSchema, ChatPayloadPartSchema, ChatToolPartSchema])
 	.openapi({ description: "Message part" });
 
 export const ChatMessageSchema = z
@@ -293,6 +391,8 @@ const PrimeAgentArtifactKindSchema = z.enum([
 	"rlm",
 	"recap",
 	"refinement",
+	"compaction",
+	"openui-html",
 ]);
 
 export const PrimeAgentArtifactSchema = z
@@ -356,9 +456,34 @@ export const PrimeAgentRlmChildSchema = z
 			.optional(),
 		repliedSinceTask: z.boolean().optional(),
 		error: z.string().optional(),
+		depth: z.number().int().positive().optional(),
+		childrenIds: z.array(z.string()).optional(),
 		timestamp: z.number().finite(),
 	})
 	.openapi({ description: "Browser-safe RLM child status" });
+
+export const PrimeAgentRlmNodeSchema = PrimeAgentRlmChildSchema.extend({
+	depth: z.number().int().positive(),
+	childrenIds: z.array(z.string()),
+}).openapi({ description: "Hierarchical RLM execution tree node" });
+
+export const PrimeAgentRlmTreeSchema = z
+	.object({
+		rootSessionId: z.string().min(1),
+		nodes: z.record(z.string(), PrimeAgentRlmNodeSchema),
+		rootChildrenIds: z.array(z.string()),
+		activeNodeId: z.string().optional(),
+	})
+	.openapi({ description: "Hierarchical RLM execution tree" });
+
+export const PrimeAgentParentSessionSchema = z
+	.object({
+		activeSessionId: z.string().optional(),
+		sessionId: z.string().optional(),
+		nodeId: z.string().optional(),
+		childId: z.string().optional(),
+	})
+	.openapi({ description: "Parent session metadata for subagent branches" });
 
 export const PrimeAgentGoalSchema = z
 	.object({
@@ -413,12 +538,37 @@ export const PrimeAgentSessionPresentationSchema = z
 		serviceTier: z.enum(["auto", "default", "flex", "scale", "priority"]).nullable().optional(),
 		goal: PrimeAgentGoalSchema.optional(),
 		recap: z.string().optional(),
+		parent: PrimeAgentParentSessionSchema.optional(),
+		rlmTree: PrimeAgentRlmTreeSchema.optional(),
 		userBash: z.array(PrimeAgentUserBashSchema),
 		rlmChildren: z.array(PrimeAgentRlmChildSchema),
 		refinements: z.array(PrimeAgentRefinementSchema),
 		artifactRuns: z.array(PrimeAgentArtifactRunSchema),
 	})
 	.openapi({ description: "Durable browser-visible Prime Agent presentation state" });
+
+export const ChatOpenUIArtifactPayloadSchema = z
+	.object({
+		title: z.string().min(1),
+		document: z.string().min(1),
+	})
+	.openapi({ description: "Validated OpenUI HTML artifact payload" });
+
+export const ChatOpenUIArtifactUpsertRequestSchema = z
+	.object({
+		sessionId: SessionIdSchema,
+		assistantMessageId: z.string().min(1),
+		artifactIndex: z.number().int().nonnegative(),
+		artifact: ChatOpenUIArtifactPayloadSchema,
+	})
+	.openapi({ description: "Upsert a durable OpenUI HTML artifact" });
+
+export const ChatOpenUIArtifactUpsertResponseSchema = z
+	.object({
+		artifact: PrimeAgentArtifactSchema,
+		presentation: PrimeAgentSessionPresentationSchema,
+	})
+	.openapi({ description: "Durable OpenUI HTML artifact and presentation" });
 
 export const ChatPresentationEventSchema = z
 	.object({
@@ -428,12 +578,28 @@ export const ChatPresentationEventSchema = z
 	})
 	.openapi({ description: "Immutable Prime Agent presentation snapshot" });
 
+export const ChatRlmStreamEventSchema = z
+	.object({
+		type: z.literal("rlm"),
+		child: PrimeAgentRlmChildSchema,
+		tree: PrimeAgentRlmTreeSchema.optional(),
+	})
+	.openapi({ description: "Discrete RLM execution event" });
+
 export const ChatMessageEventSchema = z
 	.object({
 		type: z.literal("message"),
 		message: ChatMessageSchema,
 	})
 	.openapi({ description: "Browser-visible user or image-bearing message" });
+
+export const ChatPayloadEventSchema = z
+	.object({
+		type: z.literal("payload"),
+		part: ChatPayloadPartSchema,
+		messageId: z.string().optional(),
+	})
+	.openapi({ description: "Discrete Prime Agent runtime payload" });
 
 export const ChatReasoningEventSchema = z
 	.object({
@@ -458,7 +624,11 @@ export const ChatCompactionEndEventSchema = z
 		reason: z.string(),
 		aborted: z.boolean(),
 		willRetry: z.boolean(),
+		summary: z.string().optional(),
+		tokensBefore: z.number().optional(),
+		firstKeptEntryId: z.string().optional(),
 		errorMessage: z.string().optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
 	})
 	.openapi({ description: "Compaction end event" });
 
@@ -470,6 +640,7 @@ export const ChatRetryStartEventSchema = z
 		maxAttempts: z.number(),
 		delayMs: z.number(),
 		errorMessage: z.string().optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
 	})
 	.openapi({ description: "Retry start event" });
 
@@ -480,6 +651,7 @@ export const ChatRetryEndEventSchema = z
 		success: z.boolean(),
 		attempt: z.number(),
 		finalError: z.string().optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
 	})
 	.openapi({ description: "Retry end event" });
 
@@ -491,6 +663,7 @@ export const ChatDoneEventSchema = z
 		sessionId: SessionIdSchema,
 		requestKind: z.literal("session-command").optional(),
 		sessionReset: z.boolean().optional(),
+		presentation: PrimeAgentSessionPresentationSchema.optional(),
 	})
 	.openapi({ description: "Stream done event" });
 
@@ -499,6 +672,8 @@ export const ChatErrorEventSchema = z
 		type: z.literal("error"),
 		message: z.string(),
 		runId: z.string().optional(),
+		code: FleetErrorCodeSchema.optional(),
+		error: FleetErrorEnvelopeSchema.optional(),
 	})
 	.openapi({ description: "Stream error event" });
 
@@ -507,12 +682,14 @@ export const ChatStreamEventSchema = z
 		ChatStartEventSchema,
 		ChatDeltaEventSchema,
 		ChatToolEventSchema,
+		ChatRlmStreamEventSchema,
 		ChatPlanEventSchema,
 		ChatStateStreamEventSchema,
 		ChatQueueEventSchema,
 		ChatThinkingEventSchema,
 		ChatPresentationEventSchema,
 		ChatMessageEventSchema,
+		ChatPayloadEventSchema,
 		ChatReasoningEventSchema,
 		ChatCompactionStartEventSchema,
 		ChatCompactionEndEventSchema,

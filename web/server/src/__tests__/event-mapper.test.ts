@@ -1,19 +1,25 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import type { ChatStreamEvent } from "@prime-agent/web-protocol";
+import type { ChatStreamEvent, ChatToolPart, FleetErrorEnvelope } from "@prime-agent/web-protocol";
+import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
+	categorizeTool,
+	computeRlmExecutionTree,
 	createEventMapperState,
+	createFleetErrorEnvelope,
+	mapAgentConnectionEvent,
 	mapAgentSessionEvent,
 	mapAgentSessionEvents,
+	normalizeDaemonQuestions,
+	normalizedQuestionsToClarification,
+	normalizedQuestionsToWire,
 	toChatMessageFromAssistant,
-	toChatMessageFromUnknownRole,
 	toChatMessagesFromAgentMessages,
 	withOAuthBindingGuidance,
 } from "../event-mapper";
 
-function mkAssistant(partial: Partial<AssistantMessage> = {}): AssistantMessage {
+function mkAssistant(partial: Partial<AssistantMessage> & { errorMessage?: string } = {}): AssistantMessage {
 	return {
 		role: "assistant",
 		content: [],
@@ -166,6 +172,27 @@ describe("event-mapper", () => {
 		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
 		expect(done.message.parts).toEqual([{ type: "text", text: "Message-end final answer." }]);
 		expect(JSON.stringify(done.message)).not.toContain("still-never-render-this");
+	});
+
+	it.each([
+		["error", "Assistant error"],
+		["aborted", "Operation aborted"],
+	] as const)("preserves %s assistant errors in the terminal done message", (stopReason, title) => {
+		const state = createEventMapperState();
+		const completed = mkAssistant({ stopReason, errorMessage: "The assistant did not finish." });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_end",
+			message: completed,
+		} as unknown as AgentSessionEvent);
+
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+
+		expect(done.message.parts).toEqual([{ type: "error", title, message: "The assistant did not finish." }]);
 	});
 
 	it("translates tool_execution_start into a tool part with PascalCase tool type", () => {
@@ -346,14 +373,16 @@ describe("event-mapper", () => {
 			delayMs: 500,
 			errorMessage: "boom",
 		} as unknown as AgentSessionEvent);
-		expect(retryStart).toContainEqual({
-			type: "retry",
-			phase: "start",
-			attempt: 1,
-			maxAttempts: 3,
-			delayMs: 500,
-			errorMessage: "boom",
-		});
+		expect(retryStart).toContainEqual(
+			expect.objectContaining({
+				type: "retry",
+				phase: "start",
+				attempt: 1,
+				maxAttempts: 3,
+				delayMs: 500,
+				errorMessage: "boom",
+			}),
+		);
 		expect(retryStart).toContainEqual(expect.objectContaining({ type: "reasoning" }));
 		const retryEnd = mapAgentSessionEvent(state, {
 			type: "auto_retry_end",
@@ -472,13 +501,110 @@ describe("event-mapper", () => {
 		expect(kinds[kinds.length - 1]).toBe("done");
 	});
 
-	it("hydrates unknown runtime message types as empty assistant messages", () => {
-		// 0.8.0 added transcript message types Fleet does not model (e.g.
-		// `refinement_outcome` custom messages). They must hydrate without
-		// throwing and without carrying unmodeled content into the browser.
-		const hydrated = toChatMessageFromUnknownRole("session-1-m7");
-		expect(hydrated).toEqual({ id: "session-1-m7", role: "assistant", parts: [] });
-		expect(JSON.stringify(hydrated)).not.toContain("refinement_outcome");
+	it("hydrates TUI-visible runtime message types as browser payload parts", () => {
+		const hydrated = toChatMessagesFromAgentMessages(
+			[
+				{
+					role: "bashExecution",
+					command: "git status --short",
+					output: "clean",
+					exitCode: 0,
+					cancelled: false,
+					truncated: false,
+					excludeFromContext: false,
+					fullOutputPath: "/private/full-output.txt",
+				} as unknown as AgentMessage,
+				{
+					role: "custom",
+					customType: "refinement_outcome",
+					display: true,
+					content: "Refinement completed",
+					details: { summary: "safe", secret: "do-not-send" },
+				} as unknown as AgentMessage,
+				{
+					role: "custom",
+					customType: "hidden_internal",
+					display: false,
+					content: "must stay hidden",
+				} as unknown as AgentMessage,
+				{
+					role: "branchSummary",
+					fromId: "branch-1",
+					summary: "Branch context",
+				} as unknown as AgentMessage,
+				{
+					role: "compactionSummary",
+					summary: "Compacted context",
+					tokensBefore: 1200,
+					retainedMessageCount: 4,
+				} as unknown as AgentMessage,
+			],
+			"session-1",
+		);
+
+		expect(hydrated).toHaveLength(4);
+		expect(hydrated[0]?.parts[0]).toMatchObject({ type: "payload", kind: "bashExecution", title: "Bash" });
+		expect(hydrated[1]?.parts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "text", text: "Refinement completed" }),
+				expect.objectContaining({ type: "payload", kind: "refinement_outcome" }),
+			]),
+		);
+		expect(hydrated[2]?.parts[0]).toMatchObject({ type: "payload", kind: "branchSummary" });
+		expect(hydrated[3]?.parts[0]).toMatchObject({ type: "payload", kind: "compactionSummary" });
+		expect(JSON.stringify(hydrated)).not.toContain("do-not-send");
+		expect(JSON.stringify(hydrated)).not.toContain("full-output.txt");
+		expect(JSON.stringify(hydrated)).not.toContain("must stay hidden");
+	});
+
+	it("emits every visible runtime payload before the terminal done frame", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [
+				{
+					role: "custom",
+					customType: "first",
+					display: true,
+					content: "first payload",
+				} as unknown as AgentMessage,
+				{
+					role: "custom",
+					customType: "second",
+					display: true,
+					content: "second payload",
+				} as unknown as AgentMessage,
+			],
+		} as unknown as AgentSessionEvent);
+
+		const payloads = frames.filter(
+			(frame): frame is Extract<ChatStreamEvent, { type: "payload" }> => frame.type === "payload",
+		);
+		expect(payloads).toHaveLength(2);
+		expect(payloads.map((frame) => frame.part.kind)).toEqual(["first", "second"]);
+		expect(new Set(payloads.map((frame) => frame.part.id)).size).toBe(2);
+		expect(frames.at(-1)?.type).toBe("done");
+	});
+
+	it("keeps late IPython agent messages attached to the tool payload", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "ipython_sent_agent_message",
+			toolCallId: "ipython-1",
+			message: {
+				id: "sent-1",
+				message: "child result",
+				deliveryStatus: "delivered",
+				target: { activeSessionId: "active-1", sessionId: "session-1" },
+			},
+		} as unknown as AgentSessionEvent);
+
+		const tool = frames.find((frame): frame is Extract<ChatStreamEvent, { type: "tool" }> => frame.type === "tool");
+		expect(tool?.part.result).toMatchObject({
+			details: { sentAgentMessages: [{ id: "sent-1", message: "child result" }] },
+		});
 	});
 
 	it("rewrites the 0.8.0 MCP OAuth binding error into re-login guidance", () => {
@@ -702,5 +828,754 @@ describe("event-mapper", () => {
 			(frame): frame is Extract<ChatStreamEvent, { type: "message" }> => frame.type === "message",
 		);
 		expect(message?.message.parts).toContainEqual(expect.objectContaining({ type: "image", mimeType: "image/png" }));
+	});
+
+	describe("Phase 1: Normalized Tool Categories & Actionable Errors", () => {
+		it("categorizes kernel, system, mcp, question, and plan tools correctly", () => {
+			expect(categorizeTool("ipython")).toEqual({ category: "kernel", toolName: "ipython" });
+			expect(categorizeTool("jupyter")).toEqual({ category: "kernel", toolName: "ipython" });
+			expect(categorizeTool("bash")).toEqual({ category: "system", toolName: "bash" });
+			expect(categorizeTool("edit_file")).toEqual({ category: "system", toolName: "edit_file" });
+			expect(categorizeTool("read_file")).toEqual({ category: "system", toolName: "read_file" });
+			expect(categorizeTool("ask_question")).toEqual({ category: "question", toolName: "ask_question" });
+			expect(categorizeTool("plan_write")).toEqual({ category: "plan", toolName: "plan_write" });
+			expect(categorizeTool("mcp__github_create_issue")).toEqual({
+				category: "mcp",
+				toolName: "create_issue",
+				serverName: "github",
+			});
+			expect(categorizeTool("unknown_custom")).toEqual({ category: "custom", toolName: "unknown_custom" });
+		});
+
+		it("creates actionable remediation hints for known error categories", () => {
+			const authErr = createFleetErrorEnvelope("Token expired for provider");
+			expect(authErr.code).toBe("AUTH_CREDENTIAL_EXPIRED");
+			expect(authErr.remediation?.action).toBe("open_settings_tab");
+
+			const rateErr = createFleetErrorEnvelope("Rate limit exceeded (429)");
+			expect(rateErr.code).toBe("RATE_LIMIT");
+			expect(rateErr.remediation?.action).toBe("retry_turn");
+
+			const contextErr = createFleetErrorEnvelope("Maximum context length overflow");
+			expect(contextErr.code).toBe("CONTEXT_OVERFLOW");
+			expect(contextErr.remediation?.action).toBe("compact_context");
+
+			const kernelErr = createFleetErrorEnvelope("Jupyter kernel died unexpectedly");
+			expect(kernelErr.code).toBe("KERNEL_CRASH");
+			expect(kernelErr.remediation?.action).toBe("restart_kernel");
+		});
+
+		it("emits normalized category, toolName, and serverName on tool execution events", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			const frames = mapAgentSessionEvent(state, {
+				type: "tool_execution_start",
+				toolCallId: "call-1",
+				toolName: "mcp__github_search",
+				args: { query: "fleet" },
+			} as AgentSessionEvent);
+
+			const toolFrame = frames.find((f) => f.type === "tool");
+			expect(toolFrame).toBeDefined();
+			expect((toolFrame as any).part).toMatchObject({
+				type: "tool-MCPGithubSearch",
+				category: "mcp",
+				toolName: "search",
+				serverName: "github",
+				toolCallId: "call-1",
+				state: "input-streaming",
+			});
+		});
+
+		it("maps extension_error and closed errors to structured FleetErrorEnvelopes", () => {
+			const state = createEventMapperState({ sessionId: "test-session" });
+			const extFrames = mapAgentConnectionEvent(state, {
+				type: "extension_error",
+				extensionPath: "/plugins/my-ext.js",
+				event: "onTurn",
+				error: "Module failed to load",
+			} as AgentConnectionEvent);
+
+			expect(extFrames).toHaveLength(1);
+			expect(extFrames[0]).toMatchObject({
+				type: "error",
+				code: "EXTENSION_ERROR",
+				error: {
+					code: "EXTENSION_ERROR",
+					message: "Extension error in /plugins/my-ext.js: Module failed to load",
+				},
+			});
+		});
+	});
+
+	describe("Phase 2: Hierarchical RLM Tree & Subagent State", () => {
+		it("computes recursive tree hierarchy, depths, and child mappings correctly", () => {
+			const children = [
+				{
+					id: "sub-1",
+					parentId: "root-session",
+					label: "Researcher",
+					status: "done" as const,
+					timestamp: 1000,
+				},
+				{
+					id: "sub-2",
+					parentId: "sub-1",
+					label: "Nested Planner",
+					status: "running" as const,
+					timestamp: 2000,
+				},
+				{
+					id: "sub-3",
+					parentId: "sub-1",
+					label: "Nested Verifier",
+					status: "queued" as const,
+					timestamp: 2500,
+				},
+				{
+					id: "sub-4",
+					parentId: "sub-2",
+					label: "Deep Coder",
+					status: "running" as const,
+					timestamp: 3000,
+				},
+				{
+					id: "sub-5",
+					parentId: "root-session",
+					label: "Independent Subagent",
+					status: "done" as const,
+					timestamp: 3500,
+				},
+			];
+
+			const tree = computeRlmExecutionTree("root-session", children, "sub-4");
+
+			expect(tree.rootSessionId).toBe("root-session");
+			expect(tree.activeNodeId).toBe("sub-4");
+			expect(tree.rootChildrenIds).toEqual(["sub-1", "sub-5"]);
+
+			// Level 1 depths
+			expect(tree.nodes["sub-1"].depth).toBe(1);
+			expect(tree.nodes["sub-1"].childrenIds).toEqual(["sub-2", "sub-3"]);
+			expect(tree.nodes["sub-5"].depth).toBe(1);
+			expect(tree.nodes["sub-5"].childrenIds).toEqual([]);
+
+			// Level 2 depths
+			expect(tree.nodes["sub-2"].depth).toBe(2);
+			expect(tree.nodes["sub-2"].childrenIds).toEqual(["sub-4"]);
+			expect(tree.nodes["sub-3"].depth).toBe(2);
+			expect(tree.nodes["sub-3"].childrenIds).toEqual([]);
+
+			// Level 3 depth
+			expect(tree.nodes["sub-4"].depth).toBe(3);
+			expect(tree.nodes["sub-4"].childrenIds).toEqual([]);
+		});
+
+		it("emits discrete rlm stream event alongside presentation on rlm_child_update", () => {
+			const state = createEventMapperState({ sessionId: "root-session" });
+
+			const frames1 = mapAgentSessionEvent(state, {
+				type: "rlm_child_update",
+				child: {
+					id: "child-a",
+					label: "Worker A",
+					status: "running",
+					sessionDir: "/hidden/path",
+				},
+			} as unknown as AgentSessionEvent);
+
+			expect(frames1).toHaveLength(2);
+			expect(frames1[0].type).toBe("presentation");
+			expect(frames1[1].type).toBe("rlm");
+
+			const rlmEvent1 = frames1[1] as Extract<ChatStreamEvent, { type: "rlm" }>;
+			expect(rlmEvent1.child).toMatchObject({
+				id: "child-a",
+				label: "Worker A",
+				status: "running",
+				depth: 1,
+			});
+			expect(rlmEvent1.tree?.rootChildrenIds).toEqual(["child-a"]);
+
+			// Nested child update
+			const frames2 = mapAgentSessionEvent(state, {
+				type: "rlm_child_update",
+				child: {
+					id: "child-b",
+					parentId: "child-a",
+					label: "Worker B (nested under A)",
+					status: "running",
+					sessionDir: "/hidden/path/b",
+				},
+			} as unknown as AgentSessionEvent);
+
+			const rlmEvent2 = frames2[1] as Extract<ChatStreamEvent, { type: "rlm" }>;
+			expect(rlmEvent2.child).toMatchObject({
+				id: "child-b",
+				parentId: "child-a",
+				depth: 2,
+			});
+			expect(rlmEvent2.tree?.nodes["child-a"].childrenIds).toEqual(["child-b"]);
+			expect(state.presentation.rlmTree?.nodes["child-b"].depth).toBe(2);
+		});
+
+		it("resyncs parent session metadata and computes RLM tree on session_resynced", () => {
+			const state = createEventMapperState({ sessionId: "child-session" });
+
+			const frames = mapAgentConnectionEvent(state, {
+				type: "session_resynced",
+				snapshot: {
+					parent: {
+						activeSessionId: "parent-active-1",
+						sessionId: "parent-session-1",
+						nodeId: "node-1",
+						childId: "child-session",
+					},
+					children: [
+						{
+							id: "sub-child-1",
+							parentId: "child-session",
+							label: "Sub worker",
+							status: "done",
+							sessionDir: "/tmp/sub",
+						},
+					],
+				},
+			} as unknown as AgentConnectionEvent);
+
+			expect(frames.length).toBeGreaterThanOrEqual(3);
+			const presFrame = frames.find(
+				(f): f is Extract<ChatStreamEvent, { type: "presentation" }> => f.type === "presentation",
+			);
+			expect(presFrame).toBeDefined();
+			expect(presFrame?.presentation.parent).toMatchObject({
+				activeSessionId: "parent-active-1",
+				sessionId: "parent-session-1",
+				childId: "child-session",
+			});
+			expect(presFrame?.presentation.rlmChildren).toHaveLength(1);
+			expect(presFrame?.presentation.rlmTree?.nodes["sub-child-1"]).toMatchObject({
+				id: "sub-child-1",
+				depth: 1,
+			});
+		});
+	});
+
+	describe("Phase 3: Interactive Clarification Questions & Extension Dialog Protocol", () => {
+		it("maps extension_ui_request with structured questions array to tool-Question part", () => {
+			const state = createEventMapperState({ sessionId: "test-session" });
+
+			const questions = [
+				{
+					id: "opt-1",
+					question: "Which database do you prefer?",
+					options: ["PostgreSQL", "SQLite"],
+					isMultiSelect: false,
+				},
+				{
+					id: "opt-2",
+					question: "Include documentation?",
+					options: ["Yes", "No"],
+					isMultiSelect: false,
+				},
+			];
+
+			const frames = mapAgentConnectionEvent(state, {
+				type: "extension_ui_request",
+				request: {
+					id: "dialog-req-1",
+					method: "questions",
+					payload: {
+						title: "Architecture Choices",
+						message: "Please choose from the options below:",
+						questions,
+						options: ["PostgreSQL", "SQLite"],
+						placeholder: "Type custom option...",
+					},
+				},
+			} as unknown as AgentConnectionEvent);
+
+			expect(frames).toHaveLength(1);
+			expect(frames[0].type).toBe("tool");
+
+			const toolFrame = frames[0] as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(toolFrame.part.type).toBe("tool-Question");
+			expect(toolFrame.part.category).toBe("question");
+			expect(toolFrame.part.toolName).toBe("ask_question");
+			expect(toolFrame.part.toolCallId).toBe("dialog-req-1");
+			expect(toolFrame.part.state).toBe("input-streaming");
+			expect(toolFrame.part.input).toMatchObject({
+				kind: "extension",
+				method: "questions",
+				title: "Architecture Choices",
+				message: "Please choose from the options below:",
+				questions: [
+					{
+						id: "opt-1",
+						question: "Which database do you prefer?",
+						prompt: "Which database do you prefer?",
+						title: "Which database do you prefer?",
+						kind: "single",
+						options: [
+							{ value: "PostgreSQL", label: "PostgreSQL" },
+							{ value: "SQLite", label: "SQLite" },
+						],
+					},
+					{
+						id: "opt-2",
+						question: "Include documentation?",
+						prompt: "Include documentation?",
+						title: "Include documentation?",
+						kind: "single",
+						options: [
+							{ value: "Yes", label: "Yes" },
+							{ value: "No", label: "No" },
+						],
+					},
+				],
+				options: ["PostgreSQL", "SQLite"],
+				placeholder: "Type custom option...",
+			});
+		});
+	});
+
+	describe("normalizeDaemonQuestions helpers", () => {
+		it("normalizes camelCase and snake_case daemon shapes with fallback ids", () => {
+			const raw = [
+				{
+					prompt: "Pick a color",
+					options: ["red", { id: "g-1", label: "Green", description: "A calm color" }, { value: "blue" }],
+					is_multi_select: true,
+					allow_write_in: true,
+					defaultOption: "red",
+				},
+				{ title: "Your name?" },
+				{},
+			];
+
+			const normalized = normalizeDaemonQuestions(raw);
+			expect(normalized).toEqual([
+				{
+					id: "question-1",
+					question: "Pick a color",
+					options: [
+						{ value: "red", label: "red" },
+						{ value: "g-1", label: "Green", description: "A calm color" },
+						{ value: "blue", label: "blue" },
+					],
+					isMultiSelect: true,
+					defaultOption: "red",
+					allowWriteIn: true,
+				},
+				{
+					id: "question-2",
+					question: "Your name?",
+					options: [],
+					isMultiSelect: false,
+					allowWriteIn: false,
+				},
+				{
+					id: "question-3",
+					question: "",
+					options: [],
+					isMultiSelect: false,
+					allowWriteIn: false,
+				},
+			]);
+		});
+
+		it("returns undefined for non-array or empty input", () => {
+			expect(normalizeDaemonQuestions(undefined)).toBeUndefined();
+			expect(normalizeDaemonQuestions("nope")).toBeUndefined();
+			expect(normalizeDaemonQuestions({})).toBeUndefined();
+			expect(normalizeDaemonQuestions([])).toBeUndefined();
+		});
+
+		it("projects normalized questions to the clarification registry shape", () => {
+			const normalized = normalizeDaemonQuestions([
+				{
+					id: "q-1",
+					question: "Choose a plan",
+					options: ["A", "B"],
+					isMultiSelect: true,
+					allowOther: true,
+					defaultOption: "A",
+				},
+				{ question: "Any notes?" },
+			]);
+
+			expect(normalizedQuestionsToClarification(normalized)).toEqual([
+				{
+					id: "q-1",
+					question: "Choose a plan",
+					options: ["A", "B"],
+					isMultiSelect: true,
+					defaultOption: "A",
+					allowWriteIn: true,
+				},
+				{ id: "question-2", question: "Any notes?" },
+			]);
+			expect(normalizedQuestionsToClarification(undefined)).toBeUndefined();
+		});
+
+		it("projects normalized questions to the browser wire shape", () => {
+			const normalized = normalizeDaemonQuestions([
+				{ question: "Multi?", options: ["x", "y"], isMultiSelect: true },
+				{ question: "Single?", options: ["a"] },
+				{ question: "Open text?", allowCustom: true },
+			]);
+
+			expect(normalizedQuestionsToWire(normalized)).toEqual([
+				{
+					id: "question-1",
+					question: "Multi?",
+					prompt: "Multi?",
+					title: "Multi?",
+					kind: "multi",
+					options: [
+						{ value: "x", label: "x" },
+						{ value: "y", label: "y" },
+					],
+				},
+				{
+					id: "question-2",
+					question: "Single?",
+					prompt: "Single?",
+					title: "Single?",
+					kind: "single",
+					options: [{ value: "a", label: "a" }],
+				},
+				{
+					id: "question-3",
+					question: "Open text?",
+					prompt: "Open text?",
+					title: "Open text?",
+					kind: "text",
+					allowOther: true,
+					allowCustom: true,
+				},
+			]);
+			expect(normalizedQuestionsToWire(undefined)).toBeUndefined();
+			expect(normalizedQuestionsToWire([])).toBeUndefined();
+		});
+	});
+
+	describe("extractToolErrorText content extraction", () => {
+		it("extracts error text from content blocks in a live tool_execution_end", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			const frames = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolCallId: "content-err",
+				toolName: "bash",
+				result: { content: [{ type: "text", text: "boom" }] },
+				isError: true,
+			} as AgentSessionEvent);
+
+			expect(frames[0].type).toBe("tool");
+			const part = (frames[0] as { part: { state: string; error?: { message: string } } }).part;
+			expect(part.state).toBe("output-error");
+			expect(part.error?.message).toContain("boom");
+		});
+
+		it("extracts error text from content blocks during hydration", () => {
+			const hydrated = toChatMessagesFromAgentMessages(
+				[
+					{
+						role: "assistant",
+						content: [{ type: "toolCall", id: "call-err", name: "bash", arguments: { command: "false" } }],
+					} as unknown as AgentMessage,
+					{
+						role: "toolResult",
+						toolCallId: "call-err",
+						toolName: "bash",
+						isError: true,
+						content: [{ type: "text", text: "fatal: nothing to commit" }],
+					} as unknown as AgentMessage,
+				],
+				"session-err",
+			);
+
+			const toolPart = hydrated[0].parts.find((part) => part.type.startsWith("tool-")) as
+				| (ChatToolPart & { error?: FleetErrorEnvelope })
+				| undefined;
+			expect(toolPart?.state).toBe("output-error");
+			expect(toolPart?.error?.message).toContain("fatal: nothing to commit");
+		});
+	});
+
+	describe("Phase 4: Streaming Compaction, Auto-Retry Envelopes & Presentation Sync", () => {
+		it("maps compaction_start and compaction_end with result metrics and artifact emission", () => {
+			const state = createEventMapperState({ sessionId: "session-compact" });
+
+			const startFrames = mapAgentSessionEvent(state, {
+				type: "compaction_start",
+				reason: "threshold",
+			} as unknown as AgentSessionEvent);
+
+			expect(startFrames).toHaveLength(2);
+			expect(startFrames[1]).toEqual({
+				type: "compaction",
+				phase: "start",
+				reason: "threshold",
+			});
+
+			const endFrames = mapAgentSessionEvent(state, {
+				type: "compaction_end",
+				reason: "threshold",
+				aborted: false,
+				willRetry: false,
+				result: {
+					summary: "Compacted 15 turns of conversation context.",
+					tokensBefore: 120000,
+					firstKeptEntryId: "entry-16",
+				},
+			} as unknown as AgentSessionEvent);
+
+			expect(endFrames).toHaveLength(3);
+			const presFrame = endFrames.find((f) => f.type === "presentation") as Extract<
+				ChatStreamEvent,
+				{ type: "presentation" }
+			>;
+			expect(presFrame).toBeDefined();
+			expect(presFrame.presentation.artifactRuns).toHaveLength(1);
+			expect(presFrame.presentation.artifactRuns[0].artifacts[0]).toMatchObject({
+				kind: "compaction",
+				status: "success",
+				title: "Compacted (threshold)",
+				output: {
+					reason: "threshold",
+					summary: "Compacted 15 turns of conversation context.",
+					tokensBefore: 120000,
+					firstKeptEntryId: "entry-16",
+				},
+			});
+
+			const compactFrame = endFrames.find(
+				(f) => f.type === "compaction" && (f as { phase?: string }).phase === "end",
+			) as Extract<ChatStreamEvent, { type: "compaction"; phase: "end" }>;
+			expect(compactFrame).toMatchObject({
+				type: "compaction",
+				phase: "end",
+				reason: "threshold",
+				aborted: false,
+				willRetry: false,
+				summary: "Compacted 15 turns of conversation context.",
+				tokensBefore: 120000,
+				firstKeptEntryId: "entry-16",
+			});
+		});
+
+		it("maps auto_retry_start and auto_retry_end with structured error envelopes", () => {
+			const state = createEventMapperState({ sessionId: "session-retry" });
+
+			const startFrames = mapAgentSessionEvent(state, {
+				type: "auto_retry_start",
+				attempt: 1,
+				maxAttempts: 3,
+				delayMs: 2000,
+				errorMessage: "Rate limit reached (429)",
+			} as unknown as AgentSessionEvent);
+
+			expect(startFrames).toHaveLength(2);
+			const retryStart = startFrames[1] as Extract<ChatStreamEvent, { type: "retry"; phase: "start" }>;
+			expect(retryStart).toMatchObject({
+				type: "retry",
+				phase: "start",
+				attempt: 1,
+				maxAttempts: 3,
+				delayMs: 2000,
+				errorMessage: "Rate limit reached (429)",
+				error: {
+					code: "RATE_LIMIT",
+					remediation: {
+						action: "retry_turn",
+					},
+				},
+			});
+
+			const endFrames = mapAgentSessionEvent(state, {
+				type: "auto_retry_end",
+				success: false,
+				attempt: 3,
+				finalError: "Context length overflow",
+			} as unknown as AgentSessionEvent);
+
+			expect(endFrames).toHaveLength(2);
+			const retryEnd = endFrames[1] as Extract<ChatStreamEvent, { type: "retry"; phase: "end" }>;
+			expect(retryEnd).toMatchObject({
+				type: "retry",
+				phase: "end",
+				success: false,
+				attempt: 3,
+				finalError: "Context length overflow",
+				error: {
+					code: "CONTEXT_OVERFLOW",
+					remediation: {
+						action: "compact_context",
+					},
+				},
+			});
+		});
+
+		it("maps auth_stale event to error frame with re-auth remediation", () => {
+			const state = createEventMapperState({ sessionId: "session-auth" });
+
+			const frames = mapAgentSessionEvent(state, {
+				type: "auth_stale",
+				provider: "anthropic",
+			} as unknown as AgentSessionEvent);
+
+			expect(frames).toHaveLength(2);
+			const errorFrame = frames[1] as Extract<ChatStreamEvent, { type: "error" }>;
+			expect(errorFrame.type).toBe("error");
+			expect(errorFrame.message).toBe("Authentication for anthropic is stale. Sign in again to continue.");
+			expect(errorFrame.error).toMatchObject({
+				code: "AUTH_CREDENTIAL_EXPIRED",
+				isTerminal: true,
+				remediation: {
+					action: "open_settings_tab",
+				},
+			});
+		});
+
+		it("maps goal_update and recap_update presentation changes", () => {
+			const state = createEventMapperState({ sessionId: "session-goals" });
+
+			const goalFrames = mapAgentSessionEvent(state, {
+				type: "goal_update",
+				goal: {
+					active: true,
+					status: "active",
+					objective: "Deploy fleet stack",
+					tokensUsed: 4500,
+					timeUsedSeconds: 30,
+					continuationsUsed: 1,
+				},
+			} as unknown as AgentSessionEvent);
+
+			expect(goalFrames).toHaveLength(1);
+			const goalPres = goalFrames[0] as Extract<ChatStreamEvent, { type: "presentation" }>;
+			expect(goalPres.presentation.goal).toMatchObject({
+				active: true,
+				status: "active",
+				objective: "Deploy fleet stack",
+				tokensUsed: 4500,
+			});
+
+			const recapFrames = mapAgentSessionEvent(state, {
+				type: "recap_update",
+				recap: "Completed database setup and schema migrations.",
+			} as unknown as AgentSessionEvent);
+
+			expect(recapFrames).toHaveLength(1);
+			const recapPres = recapFrames[0] as Extract<ChatStreamEvent, { type: "presentation" }>;
+			expect(recapPres.presentation.recap).toBe("Completed database setup and schema migrations.");
+			expect(recapPres.presentation.artifactRuns[0].artifacts[0]).toMatchObject({
+				kind: "recap",
+				status: "success",
+				output: {
+					text: "Completed database setup and schema migrations.",
+				},
+			});
+		});
+
+		it("attaches durationMs and structured error envelopes during tool streaming and hydration", () => {
+			const state = createEventMapperState({ sessionId: "test-session-5" });
+
+			// Tool execution start
+			const startFrames = mapAgentSessionEvent(state, {
+				type: "tool_execution_start",
+				toolName: "bash",
+				toolCallId: "call-1",
+				args: { command: "pytest -v" },
+			} as unknown as AgentSessionEvent);
+
+			expect(startFrames).toHaveLength(2);
+			const startTool = startFrames[1] as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(startTool.part).toMatchObject({
+				type: "tool-Bash",
+				category: "system",
+				toolName: "bash",
+				toolCallId: "call-1",
+				state: "input-streaming",
+			});
+
+			// Tool execution update
+			const updateFrames = mapAgentSessionEvent(state, {
+				type: "tool_execution_update",
+				toolName: "bash",
+				toolCallId: "call-1",
+				args: { command: "pytest -v" },
+				partialResult: { stdout: "running tests...\n" },
+			} as unknown as AgentSessionEvent);
+
+			expect(updateFrames).toHaveLength(1);
+			const updateTool = updateFrames[0] as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(updateTool.part.result).toEqual({ stdout: "running tests...\n" });
+
+			// Tool execution end with failure and duration
+			const endFrames = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolName: "bash",
+				toolCallId: "call-1",
+				isError: true,
+				result: {
+					stderr: "Command timeout after 30000ms",
+					durationMs: 30042,
+				},
+			} as unknown as AgentSessionEvent);
+
+			expect(endFrames).toHaveLength(1);
+			const endTool = endFrames[0] as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(endTool.part).toMatchObject({
+				type: "tool-Bash",
+				state: "output-error",
+				durationMs: 30042,
+				error: {
+					code: "TOOL_TIMEOUT",
+					message: "Command timeout after 30000ms",
+				},
+			});
+
+			// Hydration from agent messages preserves durationMs and error envelope
+			const hydrated = toChatMessagesFromAgentMessages(
+				[
+					{
+						role: "assistant",
+						content: [
+							{
+								type: "toolCall",
+								id: "call-1",
+								name: "bash",
+								arguments: { command: "pytest -v" },
+							},
+						],
+					} as unknown as AgentMessage,
+					{
+						role: "toolResult",
+						toolCallId: "call-1",
+						toolName: "bash",
+						isError: true,
+						content: [{ type: "text", text: "Command timeout after 30000ms" }],
+						details: { durationMs: 30042, stderr: "Command timeout after 30000ms" },
+					} as unknown as AgentMessage,
+				],
+				"test-session-5",
+			);
+
+			expect(hydrated).toHaveLength(1);
+			const toolPart = hydrated[0].parts[0] as ChatToolPart;
+			expect(toolPart).toMatchObject({
+				type: "tool-Bash",
+				toolCallId: "call-1",
+				state: "output-error",
+				durationMs: 30042,
+				error: {
+					code: "TOOL_TIMEOUT",
+					message: "Command timeout after 30000ms",
+				},
+			});
+		});
 	});
 });

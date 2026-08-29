@@ -171,7 +171,7 @@ describe("review regressions", () => {
 				],
 			},
 		];
-		const { getByRole, queryByRole } = render(
+		const { getByRole, getByText } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -185,7 +185,7 @@ describe("review regressions", () => {
 
 		expect(answer.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
 		expect(activity.getAttribute("aria-expanded")).toBe("false");
-		expect(queryByRole("button", { name: /IPython.*Completed/ })).toBeNull();
+		expect(getByText("done", { exact: true })).toBeTruthy();
 	});
 
 	it("does not repeat completed session presentation records in later turns", () => {
@@ -446,5 +446,23 @@ describe("review regressions", () => {
 		expect(getByLabelText("Changes failed")).toBeTruthy();
 		expect(queryByLabelText("Changes applied")).toBeNull();
 		expect(getByText("permission denied")).toBeTruthy();
+	});
+
+	it("renders a safe project-persistence error without an absolute path", () => {
+		const safeMessage = "Could not save the session's project assignment. Please try again.";
+		const { getByRole } = render(
+			<FleetPiAgentChat
+				error={new Error(safeMessage)}
+				inputBar={inputBar}
+				messages={[]}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="error"
+			/>,
+		);
+
+		const alert = getByRole("alert");
+		expect(alert.textContent).toContain(safeMessage);
+		expect(alert.textContent).not.toContain("/Users/zocho/.prime/agent/");
 	});
 });

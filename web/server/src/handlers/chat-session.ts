@@ -1,3 +1,4 @@
+import { ProjectIdSchema } from "@prime-agent/web-protocol";
 import { loadManagedPlanPresentations } from "../managed-plan-presentations";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
@@ -6,11 +7,16 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const url = new URL(request.url);
 		const sessionId = url.searchParams.get("sessionId");
+		const requestedProjectId = url.searchParams.get("projectId");
+		const openUI = url.searchParams.get("openUI") === "true";
 		if (!sessionId) {
 			return Response.json({ message: "GET /api/chat/session requires ?sessionId=" }, { status: 400 });
 		}
 		const bridge = getBridge();
-		const existing = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
+		const projectId = requestedProjectId ? ProjectIdSchema.parse(requestedProjectId) : undefined;
+		const existing = projectId
+			? await bridge.resumeSessionById(sessionId, projectId, { openUI })
+			: (bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId, undefined, { openUI })));
 		if (!existing) {
 			return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		}

@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 export const MAX_TURN_ATTACHMENT_BYTES = 100 * 1024 * 1024;
 
-export const RightPanelIdSchema = z.enum(["resources", "workspace", "artifacts"]);
+export const RightPanelIdSchema = z.enum(["resources", "workspace", "artifacts", "session-insights"]);
 export type RightPanelId = z.infer<typeof RightPanelIdSchema>;
 export type RightPanelState = RightPanelId | null;
 
@@ -126,12 +126,22 @@ export const SessionSummarySchema = z.object({
 });
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 
-export const OpenPanelActionSchema = z.object({
-	panel: RightPanelIdSchema,
-	projectId: ProjectIdSchema.optional(),
-	relativePath: WorkspaceRelativePathSchema.optional(),
-	focus: z.boolean().optional(),
-});
+export const OpenPanelActionSchema = z
+	.object({
+		panel: RightPanelIdSchema,
+		projectId: ProjectIdSchema.optional(),
+		relativePath: WorkspaceRelativePathSchema.optional(),
+		focus: z.boolean().optional(),
+	})
+	.superRefine((action, ctx) => {
+		if (action.relativePath !== undefined && action.panel !== "workspace" && action.panel !== "artifacts") {
+			ctx.addIssue({
+				code: "custom",
+				path: ["relativePath"],
+				message: "relativePath is only valid for workspace and artifacts panels",
+			});
+		}
+	});
 export type OpenPanelAction = z.infer<typeof OpenPanelActionSchema>;
 
 export const WorkspaceAttachmentSchema = z.object({

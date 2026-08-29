@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@openuidev/react-ui/layered/styles/index.css";
 @import "@fontsource-variable/inter";
 @import "../components/agents/agent-ui.css";
 @import "../components/fleet-pi/chat/fleet-pi-agent-chat.css";

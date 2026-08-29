@@ -52,7 +52,15 @@ export {
 	WorkspaceRelativePathSchema,
 } from "./fleet-contract";
 export * from "./model-patterns";
+export * from "./openui-artifact";
 export { buildOpenUIPrompt, type OpenUIPromptMode } from "./openui-prompt";
 export * from "./provider-catalog";
-export { ChatNewRequestSchema } from "./schemas/chat";
+export {
+	ChatNewRequestSchema,
+	ChatOpenUIArtifactPayloadSchema,
+	ChatOpenUIArtifactUpsertRequestSchema,
+	ChatOpenUIArtifactUpsertResponseSchema,
+	ChatPayloadEventSchema,
+	ChatPayloadPartSchema,
+} from "./schemas/chat";
 export { redactSessionLabelSecrets } from "./session-label";

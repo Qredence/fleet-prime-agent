@@ -1,12 +1,10 @@
+import { ChatSessionMetadataSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
-import { z } from "zod";
 import { loadManagedPlanPresentations } from "../managed-plan-presentations";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
-const BodySchema = z.object({
-	sessionId: SessionIdSchema,
-});
+const BodySchema = ChatSessionMetadataSchema.extend({ sessionId: SessionIdSchema });
 
 export function handleChatResumePost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
@@ -15,7 +13,7 @@ export function handleChatResumePost(request: Request): Promise<Response> {
 		const bridge = getBridge();
 
 		if (body.sessionId) {
-			const session = await bridge.resumeSessionById(body.sessionId);
+			const session = await bridge.resumeSessionById(body.sessionId, body.projectId, { openUI: body.openUI });
 			if (!session) {
 				return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
 			}

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+/dist-release/
+qredence-fleet-prime-*.tgz
 *.log
 .DS_Store
 *.tsbuildinfo

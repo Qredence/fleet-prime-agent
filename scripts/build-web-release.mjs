@@ -9,11 +9,9 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const webDist = join(root, "web", "app", "dist");
 const serverEntry = join(webDist, "server", "server.js");
 const clientSource = join(webDist, "client");
-const releaseRoot = join(root, "packages", "coding-agent", "dist", "web");
+const releaseRoot = join(root, "packages", "fleet-prime", "dist", "web");
 const serverOutput = join(releaseRoot, "server");
-const codingAgentPackage = JSON.parse(
-	readFileSync(join(root, "packages", "coding-agent", "package.json"), "utf8"),
-);
+const fleetPackage = JSON.parse(readFileSync(join(root, "packages", "fleet-prime", "package.json"), "utf8"));
 
 if (!existsSync(serverEntry) || !existsSync(clientSource)) {
 	throw new Error("Missing web build output. Run pnpm --dir web --filter @prime-agent/web build first.");
@@ -24,8 +22,8 @@ mkdirSync(releaseRoot, { recursive: true });
 cpSync(clientSource, join(releaseRoot, "client"), { recursive: true });
 
 const packageDependencies = new Set([
-	...Object.keys(codingAgentPackage.dependencies ?? {}),
-	...Object.keys(codingAgentPackage.optionalDependencies ?? {}),
+	...Object.keys(fleetPackage.dependencies ?? {}),
+	...Object.keys(fleetPackage.optionalDependencies ?? {}),
 ]);
 
 await build({
@@ -42,10 +40,7 @@ await build({
 		...[...packageDependencies]
 			.filter((dependency) => dependency.startsWith("@"))
 			.map((dependency) => `${dependency}/*`),
-		"@earendil-works/pi-agent-core",
-		"@earendil-works/pi-ai",
-		"@earendil-works/pi-ai/*",
-		"@earendil-works/pi-tui",
+		"prime-agent",
 		"@mariozechner/clipboard",
 		"@silvia-odwyer/photon-node",
 		"debug",

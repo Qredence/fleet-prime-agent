@@ -25,6 +25,7 @@ type UseLocalSlashActionsArgs = {
 	models: Array<ChatModelOption>;
 	onForkPicker: (entries: Array<ForkPickerEntry>) => void;
 	openSettings: (tab?: SettingsSlashTab) => void;
+	onOpenUIRequest: (request: string) => void | Promise<void>;
 	resumeSession: (metadata: ChatSessionMetadata) => Promise<void>;
 	sessions: Array<ChatSessionInfo>;
 	setEffortPickerOpen: (open: boolean) => void;
@@ -154,6 +155,7 @@ export function useLocalSlashActions({
 	models,
 	onForkPicker,
 	openSettings,
+	onOpenUIRequest,
 	resumeSession,
 	sessions,
 	setEffortPickerOpen,
@@ -272,6 +274,13 @@ export function useLocalSlashActions({
 					return true;
 				case "new-session":
 					void startNewSession();
+					return true;
+				case "openui-request":
+					if (!action.request) {
+						appendLocalMessage("Usage: /openui <request>");
+						return true;
+					}
+					void onOpenUIRequest(action.request);
 					return true;
 				case "session-info": {
 					void (async () => {
@@ -562,6 +571,7 @@ export function useLocalSlashActions({
 			models,
 			onForkPicker,
 			openSettings,
+			onOpenUIRequest,
 			sessions,
 			setEffortPickerOpen,
 			setModelKey,
@@ -573,6 +583,9 @@ export function useLocalSlashActions({
 
 	const handleSlashCommandSelect = useCallback(
 		(item: SuggestionItem) => {
+			// Selecting /openui should seed the composer with its argument hint;
+			// dispatch happens when the completed command is submitted.
+			if (item.id === "openui") return false;
 			const action = resolveLocalSlashAction(item.id);
 			if (!action) return false;
 			return applyLocalSlashAction(action);

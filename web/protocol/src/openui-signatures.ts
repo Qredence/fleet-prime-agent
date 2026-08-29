@@ -40,9 +40,9 @@ export const openUIPromptSpec = {
 		},
 		PanelAction: {
 			signature:
-				'PanelAction(label: string, panel: "resources" | "workspace" | "artifacts", relativePath?: any, focus?: boolean)',
+				'PanelAction(label: string, panel: "resources" | "workspace" | "artifacts" | "session-insights", relativePath?: any, focus?: boolean)',
 			description:
-				"A trusted local action that opens Resources, Workspace, or Artifacts and may select a contained workspace-relative path.",
+				"A trusted local action that opens Resources, Workspace, Artifacts, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 		},
 		Input: {
 			signature:
@@ -140,6 +140,10 @@ export const openUIPromptSpec = {
 			signature: "Citation(title: string, url: string, domain?: string)",
 			description: "A safe external source citation rendered as a link.",
 		},
+		HtmlArtifact: {
+			signature: "HtmlArtifact(title: string, document: string)",
+			description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
+		},
 	},
 	schema: {
 		$schema: "https://json-schema.org/draft/2020-12/schema",
@@ -235,6 +239,9 @@ export const openUIPromptSpec = {
 			Citation: {
 				$ref: "#/$defs/Citation",
 			},
+			HtmlArtifact: {
+				$ref: "#/$defs/HtmlArtifact",
+			},
 		},
 		required: [
 			"Root",
@@ -267,6 +274,7 @@ export const openUIPromptSpec = {
 			"Disclosure",
 			"Todo",
 			"Citation",
+			"HtmlArtifact",
 		],
 		additionalProperties: false,
 		$defs: {
@@ -404,7 +412,7 @@ export const openUIPromptSpec = {
 					},
 					panel: {
 						type: "string",
-						enum: ["resources", "workspace", "artifacts"],
+						enum: ["resources", "workspace", "artifacts", "session-insights"],
 					},
 					relativePath: {
 						type: "string",
@@ -417,7 +425,7 @@ export const openUIPromptSpec = {
 				required: ["label", "panel", "focus"],
 				additionalProperties: false,
 				description:
-					"A trusted local action that opens Resources, Workspace, or Artifacts and may select a contained workspace-relative path.",
+					"A trusted local action that opens Resources, Workspace, Artifacts, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 			},
 			Input: {
 				type: "object",
@@ -981,6 +989,20 @@ export const openUIPromptSpec = {
 				required: ["title", "url"],
 				additionalProperties: false,
 				description: "A safe external source citation rendered as a link.",
+			},
+			HtmlArtifact: {
+				type: "object",
+				properties: {
+					title: {
+						type: "string",
+					},
+					document: {
+						type: "string",
+					},
+				},
+				required: ["title", "document"],
+				additionalProperties: false,
+				description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
 			},
 		},
 	},

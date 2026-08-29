@@ -16,13 +16,7 @@
  */
 
 import { resolve } from "node:path";
-import {
-	AuthStorage,
-	DefaultResourceLoader,
-	getAgentDir,
-	ModelRegistry,
-	SettingsManager,
-} from "@earendil-works/pi-coding-agent";
+import { AuthStorage, DefaultResourceLoader, getAgentDir, ModelRegistry, SettingsManager } from "prime-agent";
 import { ProjectRegistry } from "./project-registry";
 import { resolveDefaultWorkspaceRoot } from "./workspace-root";
 

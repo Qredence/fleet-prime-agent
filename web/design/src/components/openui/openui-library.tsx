@@ -53,6 +53,7 @@ import { cn } from "../../lib/utils"
 import { isSafeExternalUrl } from "../../lib/safe-external-url"
 import { DonutChartDef, LineChartDef } from "./charts"
 import { DataTableDef, MetricGroupDef } from "./data"
+import { HtmlArtifactDef } from "./html-artifact"
 import {
   badgeToneClasses,
   badgeVariantsByTone,
@@ -145,11 +146,12 @@ function PanelActionComponent({
   props: {
     focus?: boolean
     label: string
-    panel: "resources" | "workspace" | "artifacts"
+    panel: "resources" | "workspace" | "artifacts" | "session-insights"
     relativePath?: string
   }
 }) {
   const triggerAction = useTriggerAction()
+  const isLocationPanel = panel === "workspace" || panel === "artifacts"
   return (
     <Button
       type="button"
@@ -157,7 +159,11 @@ function PanelActionComponent({
       onClick={() =>
         void triggerAction(label, undefined, {
           type: "fleet.open_panel",
-          params: { panel, relativePath, focus },
+          params: {
+            panel,
+            relativePath: isLocationPanel ? relativePath : undefined,
+            focus,
+          },
         })
       }
     >
@@ -169,13 +175,29 @@ function PanelActionComponent({
 export const PanelActionDef = defineComponent({
   name: "PanelAction",
   description:
-    "A trusted local action that opens Resources, Workspace, or Artifacts and may select a contained workspace-relative path.",
-  props: z.object({
-    label: z.string().describe("Visible action label"),
-    panel: RightPanelIdSchema,
-    relativePath: WorkspaceRelativePathSchema.optional(),
-    focus: z.boolean().optional().default(true),
-  }),
+    "A trusted local action that opens Resources, Workspace, Artifacts, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+  props: z
+    .object({
+      label: z.string().describe("Visible action label"),
+      panel: RightPanelIdSchema,
+      relativePath: WorkspaceRelativePathSchema.optional().describe(
+        "Workspace-relative path to select; valid only when panel is \"workspace\" or \"artifacts\"."
+      ),
+      focus: z.boolean().optional().default(true),
+    })
+    .superRefine((value, ctx) => {
+      if (
+        value.relativePath !== undefined &&
+        value.panel !== "workspace" &&
+        value.panel !== "artifacts"
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["relativePath"],
+          message: "relativePath is only valid for workspace and artifacts panels",
+        });
+      }
+    }),
   component: PanelActionComponent,
 })
 
@@ -924,5 +946,6 @@ export const openUILibrary = createLibrary({
     DisclosureDef,
     TodoDef,
     CitationDef,
+    HtmlArtifactDef,
   ],
 })

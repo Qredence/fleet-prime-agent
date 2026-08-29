@@ -10,6 +10,8 @@ import type {
 	ChatModelsDiscoverRequest,
 	ChatModelsDiscoverResponse,
 	ChatModelsResponse,
+	ChatOpenUIArtifactUpsertRequest,
+	ChatOpenUIArtifactUpsertResponse,
 	ChatPlanPresentation,
 	ChatPlanPresentationUpsertRequest,
 	ChatProviderInfo,
@@ -38,6 +40,8 @@ import {
 	ChatModelsDiscoverRequestSchema,
 	ChatModelsDiscoverResponseSchema,
 	ChatModelsResponseSchema,
+	ChatOpenUIArtifactUpsertRequestSchema,
+	ChatOpenUIArtifactUpsertResponseSchema,
 	ChatPlanPresentationSchema,
 	ChatPlanPresentationUpsertRequestSchema,
 	ChatProviderOAuthLoginRequestSchema,
@@ -95,6 +99,7 @@ export type ChatClient = {
 	uploadAttachments: (sessionId: string, files: Array<File>) => Promise<Array<UploadedAttachment>>;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	upsertPlanPresentation: (request: ChatPlanPresentationUpsertRequest) => Promise<ChatPlanPresentation>;
+	upsertOpenUIArtifact: (request: ChatOpenUIArtifactUpsertRequest) => Promise<ChatOpenUIArtifactUpsertResponse>;
 	resumeSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	updateSettings: (request: ChatSettingsUpdateRequest, projectId?: ProjectId) => Promise<ChatSettingsResponse>;
 	streamMessage: (
@@ -139,7 +144,7 @@ export const chatClient: ChatClient = {
 		return fetchValidatedJson("/api/chat/new", ChatSessionResponseSchema, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(projectId ? { projectId } : {}),
+			body: JSON.stringify({ openUI: true, ...(projectId ? { projectId } : {}) }),
 			signal,
 		});
 	},
@@ -280,7 +285,10 @@ export const chatClient: ChatClient = {
 	},
 
 	async loadSession(metadata) {
-		return fetchValidatedJson(`/api/chat/session?${metadataUrl(metadata)}`, ChatSessionResponseSchema);
+		return fetchValidatedJson(
+			`/api/chat/session?${metadataUrl({ ...metadata, openUI: true })}`,
+			ChatSessionResponseSchema,
+		);
 	},
 
 	async upsertPlanPresentation(request) {
@@ -291,11 +299,20 @@ export const chatClient: ChatClient = {
 			body: JSON.stringify(body),
 		}).then((result) => result.presentation);
 	},
+
+	async upsertOpenUIArtifact(request) {
+		const body = ChatOpenUIArtifactUpsertRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/artifacts", ChatOpenUIArtifactUpsertResponseSchema, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+	},
 	async resumeSession(metadata) {
 		return fetchValidatedJson("/api/chat/resume", ChatSessionResponseSchema, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(metadata),
+			body: JSON.stringify({ ...metadata, openUI: true }),
 		});
 	},
 

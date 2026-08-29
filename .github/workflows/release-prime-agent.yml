@@ -1,26 +1,24 @@
-name: Release Prime Agent
+name: Release Fleet Prime
+
+# Fleet release model (see AGENTS.md "Releasing"):
+#   build -> build:web:release -> release:pack -> tag.
+# The upstream Prime Agent engine is consumed as a checksum-pinned stock
+# tarball (PRIME_AGENT_RUNTIME.json). This workflow never publishes or
+# rebuilds Prime Agent itself; it packs and releases @qredence/fleet-prime.
 
 on:
   push:
     tags:
-      - "v*"
+      - "v[0-9]*"
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: "Release version or tag, for example v0.7.2"
+      version:
+        description: "Release version, e.g. 0.2.0 or 0.2.0-beta.1"
         required: true
         type: string
-      channel:
-        description: "Release channel"
-        required: true
-        default: stable
-        type: choice
-        options:
-          - stable
-          - beta
 
 concurrency:
-  group: release-prime-agent
+  group: release-fleet-prime-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -28,69 +26,42 @@ permissions:
 
 jobs:
   release-context:
+    name: Resolve release version
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
-      build_ref: ${{ steps.context.outputs.build_ref }}
-      channel: ${{ steps.context.outputs.channel }}
-      version: ${{ steps.context.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7.0.1
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-          persist-credentials: false
-
-      - name: Resolve release context
-        id: context
+      - name: Resolve and validate version
+        id: version
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          INPUT_CHANNEL: ${{ github.event.inputs.channel || '' }}
-          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag || '' }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
           REF_NAME: ${{ github.ref_name }}
-          REF_TYPE: ${{ github.ref_type }}
-          GITHUB_SHA_VALUE: ${{ github.sha }}
         run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            version="${INPUT_RELEASE_TAG#v}"
-            channel="$INPUT_CHANNEL"
-            build_ref="$GITHUB_SHA_VALUE"
-          elif [ "$REF_TYPE" = "tag" ]; then
-            version="${REF_NAME#v}"
-            channel=stable
-            build_ref="$REF_NAME"
+          set -euo pipefail
+          if [ -n "${INPUT_VERSION}" ]; then
+            VERSION="${INPUT_VERSION#v}"
           else
-            echo "Releases must run from a v* tag or workflow_dispatch." >&2
+            VERSION="${REF_NAME#v}"
+          fi
+          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "Invalid release version: ${VERSION}" >&2
+            echo "Expected semver such as 0.2.0 or 0.2.0-beta.1." >&2
             exit 1
           fi
-
-          if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
-            echo "Invalid release version: $version" >&2
-            exit 1
-          fi
-          if [ "$channel" != stable ] && [ "$channel" != beta ]; then
-            echo "Invalid release channel: $channel" >&2
-            exit 1
-          fi
-
-          echo "build_ref=$build_ref" >> "$GITHUB_OUTPUT"
-          echo "channel=$channel" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
   build:
-    runs-on: ubuntu-latest
+    name: Build, pack, and smoke test
     needs: release-context
-    permissions:
-      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
-      BUILD_REF: ${{ needs.release-context.outputs.build_ref }}
-      RELEASE_CHANNEL: ${{ needs.release-context.outputs.channel }}
       RELEASE_VERSION: ${{ needs.release-context.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.BUILD_REF }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -100,16 +71,27 @@ jobs:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version: 22
           cache: npm
+
+      - name: Get pnpm store directory
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev fd-find ripgrep
-          sudo ln -s "$(which fdfind)" /usr/local/bin/fd
+          sudo ln -s $(which fdfind) /usr/local/bin/fd
 
       - name: Install npm dependencies
         run: npm ci
@@ -117,145 +99,87 @@ jobs:
       - name: Install web dependencies
         run: pnpm install --dir web --frozen-lockfile
 
-      - name: Build packages
+      - name: Build web release bundle
         run: npm run build
 
-      - name: Build packaged web runtime
-        run: npm run build:web:release
-
-      - name: Check
+      - name: Run checks with runtime tarball verification
         run: npm run check
-
-      - name: Pack release
         env:
-          PRIME_AGENT_DOWNLOAD_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
-        run: |
-          test -n "$PRIME_AGENT_DOWNLOAD_BASE_URL"
-          npm run release:pack -- \
-            --channel "$RELEASE_CHANNEL" \
-            --version "$RELEASE_VERSION" \
-            --base-url "$PRIME_AGENT_DOWNLOAD_BASE_URL" \
-            --out-dir "packages/coding-agent/release/$RELEASE_CHANNEL"
+          PRIME_RUNTIME_VERIFY_TARBALL: "1"
 
-      - name: Smoke-test installed release
-        run: |
-          node scripts/check-web-release.mjs \
-            --package-dir "packages/coding-agent/release/$RELEASE_CHANNEL/packages/coding-agent" \
-            --artifacts-dir "packages/coding-agent/release/$RELEASE_CHANNEL/artifacts"
+      - name: Stamp fleet-prime package version
+        run: npm --prefix packages/fleet-prime version "${RELEASE_VERSION}" --no-git-tag-version --allow-same-version
 
-      - name: Upload release artifacts
-        uses: actions/upload-artifact@v7
+      - name: Pack release artifact
+        run: |
+          mkdir -p dist-release
+          npm pack packages/fleet-prime --pack-destination dist-release
+          test -f "dist-release/qredence-fleet-prime-${RELEASE_VERSION}.tgz"
+
+      - name: Smoke test packed artifact
+        run: node scripts/check-web-release.mjs --package "dist-release/qredence-fleet-prime-${RELEASE_VERSION}.tgz"
+
+      - name: Generate checksum
+        run: |
+          cd dist-release
+          sha256sum "qredence-fleet-prime-${RELEASE_VERSION}.tgz" > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: prime-agent-${{ env.RELEASE_CHANNEL }}
-          path: packages/coding-agent/release/${{ env.RELEASE_CHANNEL }}/artifacts/*
+          name: fleet-prime-${{ env.RELEASE_VERSION }}
+          path: |
+            dist-release/qredence-fleet-prime-${{ env.RELEASE_VERSION }}.tgz
+            dist-release/SHA256SUMS
           if-no-files-found: error
 
   publish:
-    runs-on: ubuntu-latest
+    name: Publish GitHub release
     needs: [release-context, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_DEFAULT_REGION: auto
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      CHANNEL: ${{ needs.release-context.outputs.channel }}
       RELEASE_VERSION: ${{ needs.release-context.outputs.version }}
-      R2_BUCKET: ${{ secrets.R2_BUCKET }}
-      R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
-      R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7.0.1
+      - name: Download release artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          ref: ${{ needs.release-context.outputs.build_ref }}
-          persist-credentials: false
+          name: fleet-prime-${{ env.RELEASE_VERSION }}
+          path: dist-release
 
-      - name: Download release artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: prime-agent-${{ env.CHANNEL }}
-          path: release-artifacts
-
-      - name: Prepare installer
-        run: |
-          INSTALL_BASE_URL="${R2_PUBLIC_BASE_URL%/}"
-          export INSTALL_BASE_URL
-          test -n "$INSTALL_BASE_URL"
-
-          node - <<'NODE'
-          const fs = require("node:fs");
-          const baseUrl = process.env.INSTALL_BASE_URL;
-          const installer = fs.readFileSync("install.sh", "utf8");
-          const renderInstaller = (channel) => installer
-            .replaceAll("__PRIME_AGENT_DOWNLOAD_BASE_URL__", baseUrl)
-            .replaceAll("__PRIME_AGENT_DEFAULT_RELEASE_CHANNEL__", channel);
-          fs.writeFileSync("/tmp/prime-agent-install.sh", renderInstaller("stable"));
-          fs.writeFileSync("/tmp/prime-agent-install-beta.sh", renderInstaller("beta"));
-          NODE
-
-      - name: Publish artifacts to Qredence R2
-        run: |
-          RELEASE_DIR=release-artifacts
-          RELEASE_PREFIX="releases/v${RELEASE_VERSION}"
-          test -f "$RELEASE_DIR/prime-agent-${RELEASE_VERSION}.tgz"
-          test -f "$RELEASE_DIR/SHA256SUMS"
-          test -f "$RELEASE_DIR/$CHANNEL"
-          test -f "$RELEASE_DIR/${CHANNEL}.json" || test -f "$RELEASE_DIR/latest.json"
-          test -n "$R2_BUCKET"
-          test -n "$R2_ENDPOINT_URL"
-
-          for artifact in "$RELEASE_DIR"/*.tgz; do
-            aws s3 cp "$artifact" "s3://${R2_BUCKET}/${RELEASE_PREFIX}/$(basename "$artifact")" \
-              --endpoint-url "$R2_ENDPOINT_URL" \
-              --content-type application/gzip \
-              --cache-control 'public, max-age=31536000, immutable'
-          done
-
-          aws s3 cp "$RELEASE_DIR/SHA256SUMS" "s3://${R2_BUCKET}/${RELEASE_PREFIX}/SHA256SUMS" \
-            --endpoint-url "$R2_ENDPOINT_URL" \
-            --content-type text/plain \
-            --cache-control 'public, max-age=31536000, immutable'
-
-          if [ "$CHANNEL" = stable ]; then
-            aws s3 cp "$RELEASE_DIR/latest.json" "s3://${R2_BUCKET}/latest.json" \
-              --endpoint-url "$R2_ENDPOINT_URL" \
-              --content-type application/json \
-              --cache-control no-cache
-          else
-            aws s3 cp "$RELEASE_DIR/beta.json" "s3://${R2_BUCKET}/beta.json" \
-              --endpoint-url "$R2_ENDPOINT_URL" \
-              --content-type application/json \
-              --cache-control no-cache
-          fi
-
-          aws s3 cp "$RELEASE_DIR/$CHANNEL" "s3://${R2_BUCKET}/$CHANNEL" \
-            --endpoint-url "$R2_ENDPOINT_URL" \
-            --content-type text/plain \
-            --cache-control no-cache
-
-          if [ "$CHANNEL" = stable ]; then
-            aws s3 cp /tmp/prime-agent-install.sh "s3://${R2_BUCKET}/install.sh" \
-              --endpoint-url "$R2_ENDPOINT_URL" \
-              --content-type text/x-shellscript \
-              --cache-control no-cache
-          else
-            aws s3 cp /tmp/prime-agent-install-beta.sh "s3://${R2_BUCKET}/install-beta.sh" \
-              --endpoint-url "$R2_ENDPOINT_URL" \
-              --content-type text/x-shellscript \
-              --cache-control no-cache
-          fi
-
-      - name: Create GitHub release for stable builds
-        if: env.CHANNEL == 'stable'
+      - name: Publish GitHub release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
-            gh release upload "v${RELEASE_VERSION}" release-artifacts/* --clobber
+          set -euo pipefail
+          TAG="v${RELEASE_VERSION}"
+          PRERELEASE_FLAG=()
+          case "${RELEASE_VERSION}" in
+            *-*) PRERELEASE_FLAG=(--prerelease) ;;
+          esac
+          NOTES_FILE="$(mktemp)"
+          {
+            echo "Fleet Prime release ${RELEASE_VERSION}."
+            echo ""
+            echo "Artifacts:"
+            echo ""
+            echo "- qredence-fleet-prime-${RELEASE_VERSION}.tgz: packed @qredence/fleet-prime launcher package"
+            echo "- SHA256SUMS: checksum for the packed tarball"
+            echo ""
+            echo "The upstream Prime Agent runtime is consumed as the stock tarball pinned in PRIME_AGENT_RUNTIME.json."
+            echo "Verify the checksum before installing the artifact."
+          } > "${NOTES_FILE}"
+          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" dist-release/* --repo "${GITHUB_REPOSITORY}" --clobber
           else
-            gh release create "v${RELEASE_VERSION}" \
-              --title "v${RELEASE_VERSION}" \
-              --generate-notes \
-              release-artifacts/*
+            gh release create "${TAG}" dist-release/* \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${TAG}" \
+              --target "${GITHUB_SHA}" \
+              --notes-file "${NOTES_FILE}" \
+              ${PRERELEASE_FLAG[@]+"${PRERELEASE_FLAG[@]}"}
           fi
+          rm -f "${NOTES_FILE}"

@@ -77,6 +77,35 @@ describe("applyChatStreamEvent", () => {
 		expect(text).toBe("Hello world");
 	});
 
+	it("preserves an in-flight assistant across a non-terminal session reset", () => {
+		const firstId = "run-1-a0";
+		const resumedId = "run-2-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(firstId));
+		t = applyChatStreamEvent(t, delta(firstId, "partial"));
+		const beforeReset = t;
+
+		const afterReset = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "reset-run",
+			sessionId: "session-1",
+			sessionReset: true,
+			message: toChatMessage("reset-message", "assistant", []),
+		});
+		expect(afterReset).toBe(beforeReset);
+
+		t = applyChatStreamEvent(afterReset, delta(resumedId, " answer"));
+		expect(assistantMessages(t)).toHaveLength(1);
+		expect(assistantMessages(t)[0]).toMatchObject({
+			id: resumedId,
+			parts: [{ type: "text", text: "partial answer" }],
+		});
+
+		t = applyChatStreamEvent(t, done(resumedId, "partial answer", "run-2"));
+		expect(t.assistantId).toBeNull();
+		expect(assistantMessages(t)).toHaveLength(1);
+		expect(assistantMessages(t)[0]?.parts).toEqual([{ type: "text", text: "partial answer" }]);
+	});
+
 	it("two sequential turns with distinct ids produce two assistant messages", () => {
 		const s1 = "run-1-a0";
 		const s2 = "run-2-a0";
@@ -183,6 +212,31 @@ describe("applyChatStreamEvent", () => {
 		expect(JSON.stringify(doneParts)).not.toContain("fleet-web-ok");
 	});
 
+	it("preserves multiple runtime payload parts when the terminal message replaces the bubble", () => {
+		const id = "run-payload-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id, "run-payload"));
+		t = applyChatStreamEvent(t, {
+			type: "payload",
+			messageId: id,
+			part: { type: "payload", id: "payload-1", kind: "custom-one", title: "[custom-one]", text: "one" },
+		});
+		t = applyChatStreamEvent(t, {
+			type: "payload",
+			messageId: id,
+			part: { type: "payload", id: "payload-2", kind: "custom-two", title: "[custom-two]", text: "two" },
+		});
+
+		t = applyChatStreamEvent(t, done(id, "final answer", "run-payload"));
+		const assistant = assistantMessages(t)[0]!;
+		expect(assistant.parts).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ type: "payload", id: "payload-1", text: "one" }),
+				expect.objectContaining({ type: "payload", id: "payload-2", text: "two" }),
+				expect.objectContaining({ type: "text", text: "final answer" }),
+			]),
+		);
+	});
+
 	it("accepts only newer presentation revisions and keeps the last snapshot after done", () => {
 		const id = "run-presentation-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id));
@@ -209,6 +263,39 @@ describe("applyChatStreamEvent", () => {
 		t = applyChatStreamEvent(t, done(id, "finished"));
 		expect(t.snapshot.presentation?.revision).toBe(3);
 		expect(t.snapshot.presentation?.sessionName).toBe("session-3");
+	});
+
+	it("merges the terminal assistant and presentation instead of replacing the conversation", () => {
+		const id = "run-terminal-snapshot-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id, "run-terminal-snapshot"));
+		t = applyChatStreamEvent(t, delta(id, "streamed answer"));
+		const terminalPresentation = {
+			revision: 7,
+			sessionName: "completed session",
+			userBash: [],
+			rlmChildren: [],
+			refinements: [],
+			artifactRuns: [
+				{
+					id: "openui-run",
+					runId: "openui-run",
+					artifacts: [],
+				},
+			],
+		};
+
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-terminal-snapshot",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [{ type: "text", text: "completed answer" }]),
+			presentation: terminalPresentation,
+		});
+
+		expect(t.snapshot.messages).toHaveLength(1);
+		expect(t.snapshot.messages[0]).toMatchObject({ id, parts: [{ type: "text", text: "completed answer" }] });
+		expect(t.snapshot.presentation).toEqual(terminalPresentation);
+		expect(t.assistantId).toBeNull();
 	});
 
 	it("replaces the optimistic user message when the live stream supplies image parts", () => {

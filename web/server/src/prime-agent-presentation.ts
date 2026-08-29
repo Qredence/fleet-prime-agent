@@ -58,17 +58,10 @@ export function upsertArtifact(
 }
 
 type ManagedPresentationSession = {
-	session: {
-		sessionManager: {
-			getSessionArtifactDir(): string | undefined;
-		};
-	};
 	sessionPath: string;
 };
 
 function presentationPath(session: ManagedPresentationSession): string | undefined {
-	const managedDir = session.session.sessionManager.getSessionArtifactDir();
-	if (managedDir) return join(managedDir, "presentation.json");
 	if (!session.sessionPath) return undefined;
 	return join(
 		dirname(dirname(session.sessionPath)),

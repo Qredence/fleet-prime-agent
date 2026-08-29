@@ -2,6 +2,7 @@ import { notify } from "@prime-agent/web-design/lib/notify";
 import type {
 	ChatMode,
 	ChatModelSelection,
+	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatStreamEvent,
 	FleetAdapterCapabilities,
@@ -22,6 +23,7 @@ import {
 	upsertAssistantToolPart,
 } from "./chat-message-helpers";
 import { applyChatStreamEvent } from "./chat-stream-state";
+import { hydratePlanPresentationMessages } from "./plan-presentation";
 import {
 	applyPlanModeSelection,
 	bindPendingPlanDecisionToolCallId,
@@ -93,7 +95,7 @@ export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 		model: ChatModelSelection | undefined;
 		projectId?: ProjectId;
 		recoverFromForbiddenSession: () => Promise<void>;
-		refreshSessions: () => Promise<void>;
+		refreshSessions: () => Promise<Array<ChatSessionInfo>>;
 		status: ChatStatus;
 	};
 
@@ -146,6 +148,40 @@ export function usePiChatMessaging({
 	const setAdapterCapabilities = useCallback((next: FleetAdapterCapabilities | undefined) => {
 		adapterCapabilitiesRef.current = next;
 	}, []);
+	const reconcileSession = useCallback(
+		async (sessionId: string): Promise<boolean> => {
+			const [result, sessions] = await Promise.all([client.loadSession({ sessionId }), refreshSessions()]);
+			if (sessionMetadataRef.current.sessionId !== sessionId) return false;
+
+			// A runtime reset can briefly return an empty transcript while the
+			// completed stream already contains the visible answer. Never replace
+			// that live answer with an empty snapshot; the next non-empty snapshot
+			// will still reconcile the full canonical transcript.
+			if (result.messages.length > 0) {
+				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
+			}
+			setPresentationSynced(result.presentation);
+			setSessionMetadataSynced(result.session);
+			setQueueSynced({ steering: [], followUp: [] });
+			setPlanLabelSynced(undefined);
+			const sessionStillRunning = sessions.find((session) => session.sessionId === sessionId)?.status === "running";
+			if (!sessionStillRunning) {
+				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
+			}
+			return sessionStillRunning;
+		},
+		[
+			client,
+			refreshSessions,
+			sessionMetadataRef,
+			setActivityLabelSynced,
+			setMessagesSynced,
+			setPlanLabelSynced,
+			setPresentationSynced,
+			setQueueSynced,
+			setSessionMetadataSynced,
+		],
+	);
 	const ensureSession = useCallback(
 		async (signal?: AbortSignal): Promise<ChatSessionMetadata> => {
 			if (signal?.aborted) throw new Error("Session creation was aborted");
@@ -182,6 +218,13 @@ export function usePiChatMessaging({
 		) => {
 			if (event.type === "error") {
 				throw new Error(event.message);
+			}
+			if (event.type === "done" && event.sessionReset) {
+				// A reconnect/reset is not completion of the active POST stream.
+				// Keep status and assistantId intact so subsequent frames continue
+				// the visible answer instead of replacing it with an empty message.
+				if (streamSessionId !== sessionMetadataRef.current.sessionId) void refreshSessions();
+				return;
 			}
 			let planPart: ReturnType<typeof createPlanToolPart>;
 			if (event.type === "done" && mode === "plan") {
@@ -287,7 +330,7 @@ export function usePiChatMessaging({
 		async (
 			trimmed: string,
 			streamingBehavior: "steer" | "followUp" = "steer",
-			options?: Pick<SendMessageInput, "attachments" | "mode" | "openUI" | "planAction">,
+			options?: Pick<SendMessageInput, "attachments" | "mode" | "openUI" | "openUIArtifact" | "planAction">,
 		) => {
 			const originatingSessionId = sessionMetadataRef.current.sessionId ?? (await ensureSession()).sessionId;
 			if (!originatingSessionId) throw new Error("Unable to queue a message without a session");
@@ -309,6 +352,7 @@ export function usePiChatMessaging({
 								message: trimmed,
 								attachments: options?.attachments,
 								openUI: options?.openUI,
+								openUIArtifact: options?.openUIArtifact,
 								model,
 								planAction: options?.planAction,
 								mode: options?.mode,
@@ -388,6 +432,7 @@ export function usePiChatMessaging({
 			text,
 			attachments,
 			openUI,
+			openUIArtifact,
 			planAction,
 			mode,
 			/** Mirror of the Alt/Option modifier at Enter-press time. */
@@ -408,6 +453,7 @@ export function usePiChatMessaging({
 						attachments,
 						mode,
 						openUI,
+						openUIArtifact,
 						planAction,
 					});
 				} catch (err) {
@@ -438,6 +484,7 @@ export function usePiChatMessaging({
 			const controller = new AbortController();
 			pendingSendControllerRef.current = controller;
 			let streamSessionId: string | undefined;
+			let terminalDoneSeen = false;
 
 			try {
 				const ensuredSession = await ensureSession(controller.signal);
@@ -452,6 +499,7 @@ export function usePiChatMessaging({
 						message: trimmed,
 						attachments,
 						openUI,
+						openUIArtifact,
 						model,
 						planAction,
 						mode,
@@ -459,6 +507,7 @@ export function usePiChatMessaging({
 						streamingBehavior: altKey ? "followUp" : "steer",
 					},
 					(event) => {
+						if (event.type === "done" && !event.sessionReset) terminalDoneSeen = true;
 						handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId, mode);
 						if (
 							event.type === "done" &&
@@ -471,7 +520,21 @@ export function usePiChatMessaging({
 					controller.signal,
 				);
 
-				if (sessionMetadataRef.current.sessionId === ensuredStreamSessionId) {
+				let sessionStillRunning = false;
+				try {
+					// Reconcile even after a terminal frame. The live stream can contain
+					// transient tool updates that are not present in its final message;
+					// the canonical session transcript is the source of truth for the
+					// completed conversation.
+					sessionStillRunning = await reconcileSession(ensuredStreamSessionId);
+				} catch {
+					// Keep the existing streamed state when a best-effort transcript
+					// refresh fails; the next session refresh can recover it.
+				}
+				if (
+					sessionMetadataRef.current.sessionId === ensuredStreamSessionId &&
+					(terminalDoneSeen || !sessionStillRunning)
+				) {
 					setStatus("ready");
 				}
 				captureConversationSaved({
@@ -521,6 +584,7 @@ export function usePiChatMessaging({
 			enqueueDuringStream,
 			findStreamAdmission,
 			handleStreamEvent,
+			reconcileSession,
 			messagesRef,
 			model,
 			pendingSendControllerRef,

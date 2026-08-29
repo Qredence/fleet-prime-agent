@@ -1,6 +1,7 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type {
 	ChatRequest,
+	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatSessionResponse,
 	ChatStreamEvent,
@@ -61,13 +62,49 @@ function sessionCommandDoneEvent(sessionId: string): ChatStreamEvent {
 	};
 }
 
+function sessionResetDoneEvent(sessionId: string): ChatStreamEvent {
+	return {
+		type: "done",
+		runId: `${sessionId}-reset-run`,
+		sessionId,
+		sessionReset: true,
+		message: toChatMessage(`${sessionId}-reset-message`, "assistant", []),
+	};
+}
+
+function completedSessionResponse(sessionId: string): ChatSessionResponse {
+	return {
+		session: { sessionId },
+		messages: [
+			toChatMessage("persisted-user", "user", [{ type: "text", text: "primary" }]),
+			toChatMessage("persisted-assistant", "assistant", [{ type: "text", text: "completed answer" }]),
+		],
+		planPresentations: [],
+		presentation,
+	};
+}
+
 async function flush() {
 	await Promise.resolve();
 	await Promise.resolve();
 	await Promise.resolve();
 }
 
-function createHarness(sessionId = "session-a") {
+function createHarness(sessionId = "session-a", availableSessions: Array<ChatSessionInfo> = []) {
+	const discoveredSessions =
+		availableSessions.length > 0
+			? availableSessions
+			: [
+					{
+						sessionId,
+						title: "Test session",
+						createdAt: "2026-08-27T00:00:00.000Z",
+						updatedAt: "2026-08-27T00:00:00.000Z",
+						status: "idle" as const,
+						messageCount: 0,
+						firstMessage: "Test session",
+					},
+				];
 	class TestEventSource {
 		onerror: (() => void) | null = null;
 		onmessage: ((event: MessageEvent<string>) => void) | null = null;
@@ -78,10 +115,12 @@ function createHarness(sessionId = "session-a") {
 	vi.stubGlobal("EventSource", TestEventSource);
 
 	const streams: Array<StreamCall> = [];
+	const persistSession = vi.fn();
+	const loadSession = vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata));
 	const client = {
 		abortSession: vi.fn().mockResolvedValue(undefined),
-		listSessions: vi.fn().mockResolvedValue([]),
-		loadSession: vi.fn().mockResolvedValue(sessionResponse({ sessionId })),
+		listSessions: vi.fn().mockResolvedValue(discoveredSessions),
+		loadSession,
 		resumeSession: vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata)),
 		streamMessage: vi.fn(
 			(
@@ -109,11 +148,11 @@ function createHarness(sessionId = "session-a") {
 		usePiChat(undefined, {
 			client,
 			initialSessionMetadata: { sessionId },
-			persistSession: vi.fn(),
+			persistSession,
 		}),
 	);
 
-	return { client, ...hook, streams };
+	return { client, ...hook, loadSession, streams };
 }
 
 describe("usePiChat stream admission", () => {
@@ -166,6 +205,64 @@ describe("usePiChat stream admission", () => {
 		streams[0].resolve();
 		await act(async () => {
 			await Promise.all([primary, firstQueued, secondQueued]);
+		});
+	});
+
+	it("sends the artifact prompt flag once while ordinary chat remains unflagged", async () => {
+		const { result, streams } = createHarness();
+		await act(async () => flush());
+
+		let artifactTurn!: Promise<void>;
+		await act(async () => {
+			artifactTurn = result.current.sendMessage({
+				text: "Generate an architecture visualization",
+				openUI: true,
+				openUIArtifact: true,
+			});
+			await flush();
+		});
+		expect(streams[0]?.request).toMatchObject({
+			message: "Generate an architecture visualization",
+			openUI: true,
+			openUIArtifact: true,
+		});
+		streams[0]!.resolve();
+		await act(async () => artifactTurn);
+
+		let ordinaryTurn!: Promise<void>;
+		await act(async () => {
+			ordinaryTurn = result.current.sendMessage({ text: "Explain the architecture" });
+			await flush();
+		});
+		expect(streams[1]?.request.openUI).toBeUndefined();
+		expect(streams[1]?.request.openUIArtifact).toBeUndefined();
+		streams[1]!.resolve();
+		await act(async () => ordinaryTurn);
+	});
+
+	it("uses the newest discovered session when the stored selection is unavailable", async () => {
+		const discovered: ChatSessionInfo = {
+			sessionId: "newest-session",
+			projectId: "project-a",
+			title: "Newest session",
+			createdAt: "2026-08-27T00:00:00.000Z",
+			updatedAt: "2026-08-27T01:00:00.000Z",
+			status: "idle",
+			messageCount: 2,
+			firstMessage: "Continue this work",
+		};
+		const { client, result } = createHarness("missing-session", [discovered]);
+
+		await waitFor(() =>
+			expect(client.loadSession).toHaveBeenCalledWith({
+				sessionId: discovered.sessionId,
+				projectId: discovered.projectId,
+			}),
+		);
+
+		expect(result.current.sessionMetadata).toEqual({
+			sessionId: discovered.sessionId,
+			projectId: discovered.projectId,
 		});
 	});
 
@@ -258,6 +355,136 @@ describe("usePiChat stream admission", () => {
 		await act(async () => {
 			await command;
 		});
+	});
+
+	it("keeps the primary answer visible when a runtime reset arrives before completion", async () => {
+		const { result, streams } = createHarness();
+		await act(async () => flush());
+
+		let turn!: Promise<void>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "primary" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-assistant", text: "partial" });
+			streams[0].onEvent(sessionResetDoneEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-resumed-assistant", text: " answer" });
+			streams[0].onEvent({
+				type: "done",
+				runId: "session-a-resumed-run",
+				sessionId: "session-a",
+				message: toChatMessage("session-a-resumed-assistant", "assistant", [
+					{ type: "text", text: "partial answer" },
+				]),
+			});
+			await flush();
+		});
+
+		streams[0].resolve();
+		await act(async () => {
+			await turn;
+		});
+
+		expect(result.current.status).toBe("ready");
+		expect(result.current.messages).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ role: "assistant", parts: [{ type: "text", text: "partial answer" }] }),
+			]),
+		);
+	});
+
+	it("rehydrates the persisted answer when the turn stream ends without a terminal frame", async () => {
+		const { client, loadSession, result, streams } = createHarness();
+		await act(async () => flush());
+
+		loadSession.mockResolvedValue(completedSessionResponse("session-a"));
+		let turn!: Promise<void>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "primary" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-assistant", text: "partial" });
+			await flush();
+		});
+
+		streams[0].resolve();
+		await act(async () => {
+			await turn;
+		});
+
+		expect(loadSession).toHaveBeenLastCalledWith({ sessionId: "session-a" });
+		expect(client.listSessions).toHaveBeenCalled();
+		expect(result.current.status).toBe("ready");
+		expect(result.current.messages).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ id: "persisted-assistant", parts: [{ type: "text", text: "completed answer" }] }),
+			]),
+		);
+	});
+
+	it("rehydrates canonical tool payloads after a terminal frame replaces the live bubble", async () => {
+		const { client, loadSession, result, streams } = createHarness();
+		await act(async () => flush());
+
+		loadSession.mockResolvedValue({
+			session: { sessionId: "session-a" },
+			messages: [
+				toChatMessage("persisted-user", "user", [{ type: "text", text: "primary" }]),
+				toChatMessage("persisted-assistant", "assistant", [
+					{ type: "text", text: "completed answer" },
+					{
+						type: "tool-IPython",
+						toolCallId: "persisted-tool",
+						state: "output-available",
+						output: { stdout: "persisted output" },
+					},
+				]),
+			],
+			planPresentations: [],
+			presentation,
+		});
+
+		let turn!: Promise<void>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "primary" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-assistant", text: "partial" });
+			streams[0].onEvent({
+				type: "done",
+				runId: "session-a-run",
+				sessionId: "session-a",
+				message: toChatMessage("session-a-assistant", "assistant", [
+					{ type: "text", text: "completed answer" },
+				]),
+			});
+			await flush();
+		});
+
+		streams[0].resolve();
+		await act(async () => {
+			await turn;
+		});
+
+		expect(client.loadSession).toHaveBeenLastCalledWith({ sessionId: "session-a" });
+		expect(result.current.status).toBe("ready");
+		expect(result.current.messages).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: "persisted-assistant",
+					parts: expect.arrayContaining([
+						{ type: "text", text: "completed answer" },
+						expect.objectContaining({ type: "tool-IPython", output: { stdout: "persisted output" } }),
+					]),
+				}),
+			]),
+		);
 	});
 
 	it("does not append a hidden session-command result to the newly visible session", async () => {

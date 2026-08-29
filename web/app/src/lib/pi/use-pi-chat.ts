@@ -2,12 +2,14 @@ import { notify } from "@prime-agent/web-design/lib/notify";
 import type {
 	ChatMode,
 	ChatModelSelection,
+	ChatOpenUIArtifactUpsertRequest,
 	ChatPlanAction,
 	ChatQuestionAnswer,
 	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatStreamEvent,
 	FleetAdapterCapabilities,
+	OpenUIHtmlArtifactPayload,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
@@ -29,10 +31,15 @@ export type SendMessageInput = {
 	text: string;
 	attachments?: Array<ChatAttachment>;
 	openUI?: boolean;
+	openUIArtifact?: boolean;
 	planAction?: ChatPlanAction;
 	mode?: ChatMode;
 	/** Mirror of the Alt/Option modifier at Enter-press time. */
 	altKey?: boolean;
+};
+
+export type OpenUIArtifactCandidate = Pick<ChatOpenUIArtifactUpsertRequest, "assistantMessageId" | "artifactIndex"> & {
+	artifact: OpenUIHtmlArtifactPayload;
 };
 
 export type UsePiChatOptions = {
@@ -137,9 +144,21 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setPresentation(nextPresentation);
 	}, []);
 
+	const persistOpenUIArtifact = useCallback(
+		async (candidate: OpenUIArtifactCandidate): Promise<string | undefined> => {
+			const sessionId = sessionMetadataRef.current.sessionId;
+			if (!sessionId) return undefined;
+			const result = await client.upsertOpenUIArtifact({ sessionId, ...candidate });
+			if (sessionMetadataRef.current.sessionId === sessionId) setPresentationSynced(result.presentation);
+			return result.artifact.id;
+		},
+		[client, setPresentationSynced],
+	);
+
 	const refreshSessions = useCallback(async () => {
 		const nextSessions = await client.listSessions();
 		setSessions(nextSessions);
+		return nextSessions;
 	}, [client]);
 
 	const recoverFromForbiddenSession = useCallback(
@@ -319,16 +338,28 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setMessagesSynced([]);
 
 		const storedSession = initialSessionMetadataRef.current;
-		const hasStoredSession = storedSession.sessionId;
-		if (!hasStoredSession) {
-			setSessionMetadataSynced({});
-			return () => controller.abort();
-		}
-
-		void client
-			.loadSession(storedSession)
+		void refreshSessions()
+			.then((availableSessions) => {
+				if (controller.signal.aborted) return undefined;
+				const selected = storedSession.sessionId
+					? availableSessions.find((candidate) => candidate.sessionId === storedSession.sessionId)
+					: undefined;
+				const fallback =
+					selected ??
+					(storedSession.projectId
+						? availableSessions.find((candidate) => candidate.projectId === storedSession.projectId)
+						: availableSessions[0]);
+				if (!fallback) {
+					setSessionMetadataSynced(storedSession.projectId ? { projectId: storedSession.projectId } : {});
+					return undefined;
+				}
+				const metadata = selected
+					? storedSession
+					: { sessionId: fallback.sessionId, projectId: fallback.projectId };
+				return client.loadSession(metadata);
+			})
 			.then((result) => {
-				if (controller.signal.aborted) return;
+				if (!result || controller.signal.aborted) return;
 				setSessionMetadataSynced(result.session);
 				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
 				setPresentationSynced(result.presentation);
@@ -359,6 +390,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setPresentationSynced,
 		setQueueSynced,
 		setSessionMetadataSynced,
+		refreshSessions,
 		recoverFromForbiddenSession,
 	]);
 
@@ -692,6 +724,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		messages: enhancedMessages,
 		planLabel,
 		presentation,
+		persistOpenUIArtifact,
 		queue,
 		renameSession,
 		refreshSessions,

@@ -91,6 +91,9 @@
 		},
 		"Citation": {
 			"$ref": "#/$defs/Citation"
+		},
+		"HtmlArtifact": {
+			"$ref": "#/$defs/HtmlArtifact"
 		}
 	},
 	"required": [
@@ -123,7 +126,8 @@
 		"Modal",
 		"Disclosure",
 		"Todo",
-		"Citation"
+		"Citation",
+		"HtmlArtifact"
 	],
 	"additionalProperties": false,
 	"$defs": {
@@ -317,7 +321,8 @@
 					"enum": [
 						"resources",
 						"workspace",
-						"artifacts"
+						"artifacts",
+						"session-insights"
 					]
 				},
 				"relativePath": {
@@ -334,7 +339,7 @@
 				"focus"
 			],
 			"additionalProperties": false,
-			"description": "A trusted local action that opens Resources, Workspace, or Artifacts and may select a contained workspace-relative path."
+			"description": "A trusted local action that opens Resources, Workspace, Artifacts, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels."
 		},
 		"Input": {
 			"type": "object",
@@ -1040,6 +1045,23 @@
 			],
 			"additionalProperties": false,
 			"description": "A safe external source citation rendered as a link."
+		},
+		"HtmlArtifact": {
+			"type": "object",
+			"properties": {
+				"title": {
+					"type": "string"
+				},
+				"document": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"title",
+				"document"
+			],
+			"additionalProperties": false,
+			"description": "A durable, self-contained HTML artifact rendered in a sandboxed preview."
 		}
 	}
 }

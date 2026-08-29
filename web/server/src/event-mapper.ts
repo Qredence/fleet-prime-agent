@@ -1,21 +1,30 @@
 import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, AssistantMessageEvent, ImageContent, UserMessage } from "@earendil-works/pi-ai";
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import { truncateTail } from "@earendil-works/pi-coding-agent";
 import type {
+	ChatClarificationQuestion,
+	ChatErrorPart,
 	ChatImagePart,
 	ChatMessage,
+	ChatPayloadPart,
 	ChatReasoningPresentation,
 	ChatReasoningStep,
 	ChatStreamEvent,
+	ChatToolCategory,
 	ChatToolPart,
+	FleetErrorEnvelope,
 	PrimeAgentArtifact,
 	PrimeAgentGoal,
+	PrimeAgentParentSession,
 	PrimeAgentRefinement,
 	PrimeAgentRefinementEdit,
+	PrimeAgentRlmChild,
+	PrimeAgentRlmNode,
+	PrimeAgentRlmTree,
 	PrimeAgentSessionPresentation,
 	PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
+import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
+import { truncateTail } from "prime-agent";
 import {
 	createEmptyPrimeAgentSessionPresentation,
 	stablePresentationId,
@@ -37,6 +46,118 @@ function toPascalCase(name: string): string {
 			return w.charAt(0).toUpperCase() + w.slice(1);
 		})
 		.join("");
+}
+
+export function categorizeTool(rawName: string): { category: ChatToolCategory; toolName: string; serverName?: string } {
+	const lower = rawName.toLowerCase();
+	if (lower === "ipython" || lower === "jupyter") {
+		return { category: "kernel", toolName: "ipython" };
+	}
+	if (lower === "bash" || lower === "sh" || lower === "terminal") {
+		return { category: "system", toolName: "bash" };
+	}
+	if (
+		lower === "edit" ||
+		lower === "edit_file" ||
+		lower === "write" ||
+		lower === "write_file" ||
+		lower === "read" ||
+		lower === "read_file" ||
+		lower === "glob" ||
+		lower === "grep"
+	) {
+		return { category: "system", toolName: rawName };
+	}
+	if (lower.startsWith("tool-question") || lower === "question" || lower === "ask_question") {
+		return { category: "question", toolName: "ask_question" };
+	}
+	if (lower.startsWith("plan") || lower.startsWith("todo")) {
+		return { category: "plan", toolName: rawName };
+	}
+	if (lower === "task" || lower === "agent" || lower === "rlm" || lower.startsWith("subagent")) {
+		return { category: "rlm", toolName: rawName };
+	}
+	if (rawName.startsWith("mcp__") || rawName.includes("/")) {
+		const parts = rawName.replace(/^mcp__/, "").split(/[_/]/);
+		const serverName = parts[0];
+		const toolName = parts.slice(1).join("_") || rawName;
+		return { category: "mcp", toolName, serverName };
+	}
+	return { category: "custom", toolName: rawName };
+}
+
+export function createFleetErrorEnvelope(
+	err: unknown,
+	fallbackMessage = "An unexpected error occurred",
+): FleetErrorEnvelope {
+	const message = typeof err === "string" ? err : err instanceof Error ? err.message : fallbackMessage;
+	const lower = message.toLowerCase();
+
+	if (
+		lower.includes("auth") ||
+		lower.includes("stale") ||
+		(lower.includes("token") && (lower.includes("expired") || lower.includes("invalid")))
+	) {
+		return {
+			code: "AUTH_CREDENTIAL_EXPIRED",
+			message,
+			isTerminal: true,
+			remediation: {
+				action: "open_settings_tab",
+				label: "Re-authenticate in Settings",
+			},
+		};
+	}
+	if (lower.includes("rate limit") || lower.includes("429") || lower.includes("quota")) {
+		return {
+			code: "RATE_LIMIT",
+			message,
+			isTerminal: false,
+			remediation: {
+				action: "retry_turn",
+				label: "Retry in a moment",
+			},
+		};
+	}
+	if (lower.includes("context length") || lower.includes("maximum context") || lower.includes("overflow")) {
+		return {
+			code: "CONTEXT_OVERFLOW",
+			message,
+			isTerminal: false,
+			remediation: {
+				action: "compact_context",
+				label: "Compact Context",
+			},
+		};
+	}
+	if (lower.includes("kernel") && (lower.includes("died") || lower.includes("crashed") || lower.includes("restart"))) {
+		return {
+			code: "KERNEL_CRASH",
+			message,
+			isTerminal: false,
+			remediation: {
+				action: "restart_kernel",
+				label: "Restart IPython Kernel",
+			},
+		};
+	}
+	if (lower.includes("timeout") || lower.includes("timed out")) {
+		return {
+			code: "TOOL_TIMEOUT",
+			message,
+			isTerminal: false,
+			remediation: {
+				action: "retry_turn",
+				label: "Retry with longer timeout",
+			},
+		};
+	}
+
+	return {
+		code: "UNKNOWN_ERROR",
+		message,
+		isTerminal: false,
+	};
 }
 
 function makeToolType(toolName: string): string {
@@ -98,6 +219,192 @@ function contentToChatParts(content: unknown): ChatMessage["parts"] {
 	return parts;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const PRIVATE_PAYLOAD_KEY =
+	/(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|authorization|sessionDir|fullOutputPath|harnessStatePath)/i;
+
+function browserSafePayload(value: unknown, key?: string): unknown {
+	if (key && PRIVATE_PAYLOAD_KEY.test(key)) return "[redacted]";
+	if (Array.isArray(value)) return value.map((item) => browserSafePayload(item));
+	if (isRecord(value)) {
+		return Object.fromEntries(
+			Object.entries(value).map(([entryKey, entryValue]) => [entryKey, browserSafePayload(entryValue, entryKey)]),
+		);
+	}
+	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null) {
+		return value;
+	}
+	return undefined;
+}
+
+function stringifyPayload(value: unknown): string {
+	if (typeof value === "string") return value;
+	if (value === undefined) return "";
+	try {
+		return JSON.stringify(value, null, 2) ?? "";
+	} catch {
+		return String(value);
+	}
+}
+
+function createPayloadPart(kind: string, title: string, payload: unknown, text?: string, id?: string): ChatPayloadPart {
+	const safePayload = browserSafePayload(payload);
+	return {
+		type: "payload",
+		...(id ? { id } : {}),
+		kind,
+		title,
+		...(text ? { text } : {}),
+		...(safePayload !== undefined ? { payload: safePayload } : {}),
+	};
+}
+
+function textFromChatParts(parts: ChatMessage["parts"]): string {
+	return parts
+		.filter((part): part is Extract<ChatMessage["parts"][number], { type: "text" }> => part.type === "text")
+		.map((part) => part.text)
+		.join("\n");
+}
+
+function toChatMessageFromRuntimeMessage(message: AgentMessage, id: string): ChatMessage | undefined {
+	const value = message as unknown as Record<string, unknown>;
+	const role = typeof value.role === "string" ? value.role : "runtime";
+	const timestamp = getTimestamp(message);
+
+	if (role === "bashExecution") {
+		const command = typeof value.command === "string" ? value.command : "";
+		const output = typeof value.output === "string" ? value.output : "";
+		const exitCode = typeof value.exitCode === "number" ? value.exitCode : undefined;
+		const cancelled = value.cancelled === true;
+		const truncated = value.truncated === true;
+		const status = cancelled
+			? "cancelled"
+			: exitCode !== undefined && exitCode !== 0
+				? `exit ${exitCode}`
+				: "completed";
+		const text = [
+			`$ ${command}`,
+			output,
+			truncated ? "Output truncated." : undefined,
+			cancelled ? "(cancelled)" : status,
+		]
+			.filter((part): part is string => Boolean(part))
+			.join("\n");
+		return {
+			id,
+			role: "assistant",
+			parts: [
+				createPayloadPart(
+					"bashExecution",
+					"Bash",
+					{
+						command,
+						output,
+						exitCode,
+						cancelled,
+						truncated,
+						excludeFromContext: value.excludeFromContext === true,
+					},
+					text,
+					id,
+				),
+			],
+			createdAt: timestamp,
+		};
+	}
+
+	if (role === "custom" && value.display === false) return undefined;
+
+	if (role === "custom") {
+		const customType = typeof value.customType === "string" && value.customType ? value.customType : "custom";
+		const contentParts = contentToChatParts(value.content);
+		const details = browserSafePayload(value.details);
+		const payload = {
+			customType,
+			...(details !== undefined ? { details } : {}),
+		};
+		return {
+			id,
+			role: "assistant",
+			parts: [
+				...contentParts,
+				createPayloadPart(
+					customType,
+					`[${customType}]`,
+					payload,
+					textFromChatParts(contentParts) ? undefined : stringifyPayload(details),
+					id,
+				),
+			],
+			createdAt: timestamp,
+		};
+	}
+
+	if (role === "branchSummary") {
+		const summary = typeof value.summary === "string" ? value.summary : "";
+		return {
+			id,
+			role: "assistant",
+			parts: [
+				createPayloadPart(
+					"branchSummary",
+					"Branch summary",
+					{ fromId: value.fromId, summary },
+					`Branch Summary\n\n${summary}`,
+					id,
+				),
+			],
+			createdAt: timestamp,
+		};
+	}
+
+	if (role === "compactionSummary") {
+		const summary = typeof value.summary === "string" ? value.summary : "";
+		const tokensBefore = typeof value.tokensBefore === "number" ? value.tokensBefore : undefined;
+		const customInstructions = typeof value.customInstructions === "string" ? value.customInstructions : undefined;
+		const tokenLabel = tokensBefore === undefined ? "" : `Compacted from ${tokensBefore.toLocaleString()} tokens`;
+		return {
+			id,
+			role: "assistant",
+			parts: [
+				createPayloadPart(
+					"compactionSummary",
+					"Compaction summary",
+					{ summary, tokensBefore, customInstructions, retainedMessageCount: value.retainedMessageCount },
+					[tokenLabel, customInstructions ? `Focus: ${customInstructions}` : undefined, summary]
+						.filter((part): part is string => Boolean(part))
+						.join("\n\n"),
+					id,
+				),
+			],
+			createdAt: timestamp,
+		};
+	}
+
+	if (role === "user" || role === "assistant" || role === "toolResult") return undefined;
+
+	const contentParts = contentToChatParts(value.content);
+	const payload = browserSafePayload(Object.fromEntries(Object.entries(value).filter(([key]) => key !== "content")));
+	return {
+		id,
+		role: "assistant",
+		parts: [
+			...contentParts,
+			createPayloadPart(
+				role,
+				`[${role}]`,
+				payload,
+				textFromChatParts(contentParts) ? undefined : stringifyPayload(payload),
+				id,
+			),
+		],
+		createdAt: timestamp,
+	};
+}
+
 function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
 	for (const block of msg.content) {
@@ -115,13 +422,26 @@ function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMess
 		} else if (value.type === "image" && value.data && value.mimeType) {
 			parts.push(imageToChatPart({ type: "image", data: value.data, mimeType: value.mimeType }));
 		} else if (value.type === "toolCall" && value.id && value.name) {
+			const { category, toolName, serverName } = categorizeTool(value.name);
 			parts.push({
 				type: makeToolType(value.name),
+				category,
+				toolName,
+				serverName,
 				toolCallId: value.id,
 				state: "output-available",
 				input: value.arguments,
 			} satisfies ChatToolPart);
 		}
+	}
+	const errorMessage = (msg as { errorMessage?: unknown }).errorMessage;
+	const stopReason = (msg as { stopReason?: unknown }).stopReason;
+	if ((stopReason === "error" || stopReason === "aborted") && typeof errorMessage === "string" && errorMessage) {
+		parts.push({
+			type: "error",
+			title: stopReason === "aborted" ? "Operation aborted" : "Assistant error",
+			message: errorMessage,
+		});
 	}
 	return {
 		id,
@@ -135,6 +455,138 @@ function toChatMessageFromUser(msg: UserMessage, id: string): ChatMessage {
 	return { id, role: "user", parts: contentToChatParts(msg.content), createdAt: getTimestamp(msg) };
 }
 
+// ---------------------------------------------------------------------------
+// Daemon question normalization
+// ---------------------------------------------------------------------------
+
+export interface DaemonQuestionOption {
+	value: string;
+	label: string;
+	description?: string;
+}
+
+export interface NormalizedDaemonQuestion {
+	id: string;
+	question: string;
+	options: Array<DaemonQuestionOption>;
+	isMultiSelect: boolean;
+	defaultOption?: string;
+	allowWriteIn: boolean;
+}
+
+/**
+ * Normalizes the heterogeneous question shapes emitted by daemon extensions
+ * (`question`/`prompt`/`title` text, string or object options, camelCase or
+ * snake_case flags) into a single canonical form. Returns `undefined` when
+ * `raw` is not an array or yields no questions.
+ */
+export function normalizeDaemonQuestions(raw: unknown): Array<NormalizedDaemonQuestion> | undefined {
+	if (!Array.isArray(raw)) return undefined;
+	const questions: Array<NormalizedDaemonQuestion> = [];
+	for (const [index, entry] of raw.entries()) {
+		const item = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+		const question =
+			typeof item.question === "string" && item.question.trim()
+				? item.question
+				: typeof item.prompt === "string" && item.prompt.trim()
+					? item.prompt
+					: typeof item.title === "string" && item.title.trim()
+						? item.title
+						: "";
+		const options: Array<DaemonQuestionOption> = [];
+		if (Array.isArray(item.options)) {
+			for (const option of item.options) {
+				if (typeof option === "string") {
+					if (option.trim()) options.push({ value: option, label: option });
+					continue;
+				}
+				if (!option || typeof option !== "object") continue;
+				const record = option as Record<string, unknown>;
+				const value =
+					typeof record.value === "string"
+						? record.value
+						: typeof record.id === "string"
+							? record.id
+							: typeof record.label === "string"
+								? record.label
+								: undefined;
+				if (value === undefined) continue;
+				const label = typeof record.label === "string" && record.label.trim() ? record.label : value;
+				const description =
+					typeof record.description === "string" && record.description.trim() ? record.description : undefined;
+				options.push(description === undefined ? { value, label } : { value, label, description });
+			}
+		}
+		const isMultiSelect =
+			typeof item.isMultiSelect === "boolean"
+				? item.isMultiSelect
+				: typeof item.is_multi_select === "boolean"
+					? item.is_multi_select
+					: item.kind === "multi";
+		const allowWriteIn =
+			typeof item.allowWriteIn === "boolean"
+				? item.allowWriteIn
+				: typeof item.allow_write_in === "boolean"
+					? item.allow_write_in
+					: typeof item.allowOther === "boolean"
+						? item.allowOther
+						: typeof item.allowCustom === "boolean"
+							? item.allowCustom
+							: false;
+		questions.push({
+			id: typeof item.id === "string" && item.id.trim() ? item.id : `question-${index + 1}`,
+			question,
+			options,
+			isMultiSelect,
+			...(typeof item.defaultOption === "string" ? { defaultOption: item.defaultOption } : {}),
+			allowWriteIn,
+		});
+	}
+	return questions.length > 0 ? questions : undefined;
+}
+
+/** Projects normalized questions into the `ChatPendingDialog` registry shape. */
+export function normalizedQuestionsToClarification(
+	questions: Array<NormalizedDaemonQuestion> | undefined,
+): Array<ChatClarificationQuestion> | undefined {
+	if (!questions) return undefined;
+	return questions.map((q) => ({
+		id: q.id,
+		question: q.question,
+		...(q.options.length > 0 ? { options: q.options.map((o) => o.value) } : {}),
+		...(q.isMultiSelect ? { isMultiSelect: true } : {}),
+		...(q.defaultOption !== undefined ? { defaultOption: q.defaultOption } : {}),
+		...(q.allowWriteIn ? { allowWriteIn: true } : {}),
+	}));
+}
+
+/**
+ * Projects normalized questions into the wire shape consumed by the browser
+ * question UI (`use-pending-question-bar` / `QuestionPrompt`): `prompt`/`title`
+ * text, object options with `value`/`label`, an explicit `kind`, and
+ * `allowOther`/`allowCustom` write-in flags.
+ */
+export function normalizedQuestionsToWire(
+	questions: Array<NormalizedDaemonQuestion> | undefined,
+): Array<Record<string, unknown>> | undefined {
+	if (!questions || questions.length === 0) return undefined;
+	return questions.map((q) => {
+		let kind: "multi" | "single" | "text" = "text";
+		if (q.isMultiSelect) kind = "multi";
+		else if (q.options.length > 0) kind = "single";
+		return {
+			id: q.id,
+			question: q.question,
+			prompt: q.question,
+			title: q.question,
+			kind,
+			...(q.options.length > 0 ? { options: q.options } : {}),
+			...(q.allowWriteIn ? { allowOther: true, allowCustom: true } : {}),
+			...(q.defaultOption !== undefined ? { defaultOption: q.defaultOption } : {}),
+		};
+	});
+}
+
 function toolResultOutput(msg: Record<string, unknown>): Record<string, unknown> {
 	const content = contentToChatParts(msg.content);
 	return {
@@ -142,6 +594,42 @@ function toolResultOutput(msg: Record<string, unknown>): Record<string, unknown>
 		...(msg.details !== undefined ? { details: msg.details } : {}),
 		isError: msg.isError === true,
 	};
+}
+
+function extractToolErrorText(result: unknown): string {
+	if (!result) return "Tool execution failed";
+	if (typeof result === "string") return result;
+	if (result instanceof Error) return result.message;
+	if (typeof result === "object") {
+		const rec = result as Record<string, unknown>;
+		if (typeof rec.error === "string") return rec.error;
+		if (rec.error instanceof Error) return rec.error.message;
+		if (typeof rec.stderr === "string") return rec.stderr;
+		if (typeof rec.message === "string") return rec.message;
+		if (rec.details && typeof rec.details === "object") {
+			const det = rec.details as Record<string, unknown>;
+			if (typeof det.stderr === "string") return det.stderr;
+			if (typeof det.error === "string") return det.error;
+			if (typeof det.message === "string") return det.message;
+		}
+		if (Array.isArray(rec.content)) {
+			const texts: Array<string> = [];
+			for (const block of rec.content) {
+				if (typeof block === "string") {
+					if (block.trim()) texts.push(block.trim());
+					continue;
+				}
+				if (block && typeof block === "object") {
+					const item = block as { type?: unknown; text?: unknown };
+					if (item.type === "text" && typeof item.text === "string" && item.text.trim()) {
+						texts.push(item.text.trim());
+					}
+				}
+			}
+			if (texts.length > 0) return texts.join("\n");
+		}
+	}
+	return "Tool execution failed";
 }
 
 /** Hydrate the canonical conversation while joining persisted tool results to calls. */
@@ -161,11 +649,26 @@ export function toChatMessagesFromAgentMessages(
 			output.push(toChatMessageFromUser(message as UserMessage, id));
 			continue;
 		}
+		const runtimeMessage = toChatMessageFromRuntimeMessage(message, id);
+		if (runtimeMessage) {
+			output.push(runtimeMessage);
+			continue;
+		}
 		if (role !== "toolResult") continue;
 
 		const result = message as unknown as Record<string, unknown>;
 		const toolCallId = typeof result.toolCallId === "string" ? result.toolCallId : undefined;
 		const toolName = typeof result.toolName === "string" ? result.toolName : "tool";
+		const isError = result.isError === true;
+		const errorText = isError ? extractToolErrorText(result) : undefined;
+		const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
+		const durationMs =
+			typeof result.durationMs === "number"
+				? result.durationMs
+				: typeof (result.details as { durationMs?: number })?.durationMs === "number"
+					? (result.details as { durationMs: number }).durationMs
+					: undefined;
+
 		let attached = false;
 		if (toolCallId) {
 			for (let messageIndex = output.length - 1; messageIndex >= 0 && !attached; messageIndex -= 1) {
@@ -178,9 +681,11 @@ export function toChatMessagesFromAgentMessages(
 				if (!part.type.startsWith("tool-")) continue;
 				const nextPart: ChatToolPart = {
 					...part,
-					state: result.isError === true ? "output-error" : "output-available",
+					state: isError ? "output-error" : "output-available",
 					output: toolResultOutput(result),
 					result: toolResultOutput(result),
+					...(durationMs !== undefined ? { durationMs } : {}),
+					...(errorEnvelope ? { error: errorEnvelope } : {}),
 				};
 				output[messageIndex] = {
 					...candidate,
@@ -198,9 +703,11 @@ export function toChatMessagesFromAgentMessages(
 					{
 						type: makeToolType(toolName),
 						...(toolCallId ? { toolCallId } : {}),
-						state: result.isError === true ? "output-error" : "output-available",
+						state: isError ? "output-error" : "output-available",
 						output: toolResultOutput(result),
 						result: toolResultOutput(result),
+						...(durationMs !== undefined ? { durationMs } : {}),
+						...(errorEnvelope ? { error: errorEnvelope } : {}),
 					},
 				],
 			});
@@ -209,17 +716,8 @@ export function toChatMessagesFromAgentMessages(
 	return output;
 }
 
-/**
- * Fallback hydration for transcript messages Fleet does not model — custom or
- * future runtime message types (e.g. 0.8.0's `refinement_outcome`) hydrate as
- * empty assistant messages instead of throwing or leaking unmodeled content.
- */
-function toChatMessageFromUnknownRole(id: string): ChatMessage {
-	return { id, role: "assistant", parts: [] };
-}
-
 // Re-export so server code can use them when hydrating from a transcript.
-export { toChatMessageFromAssistant, toChatMessageFromUnknownRole, toChatMessageFromUser };
+export { toChatMessageFromAssistant, toChatMessageFromRuntimeMessage, toChatMessageFromUser };
 
 // ---------------------------------------------------------------------------
 // Per-session mapper state
@@ -244,11 +742,14 @@ export interface EventMapperState {
 	messageSeq: number;
 	currentMessageId: string | undefined;
 	currentText: string;
+	currentAssistantMessage: AssistantMessage | undefined;
 	currentAssistantImages: ChatImagePart[];
+	currentAssistantErrors: ChatErrorPart[];
 	reasoningStartedAt: number | undefined;
 	reasoningSteps: ChatReasoningStep[];
 	reasoningPhase: ChatReasoningPresentation["phase"] | undefined;
 	currentToolParts: ChatToolPart[];
+	currentToolSentAgentMessages: Record<string, Array<unknown>>;
 	userMessages: ChatMessage[];
 	inRun: boolean;
 	presentation: PrimeAgentSessionPresentation;
@@ -266,11 +767,14 @@ export function createEventMapperState(init?: {
 		messageSeq: 0,
 		currentMessageId: undefined,
 		currentText: "",
+		currentAssistantMessage: undefined,
 		currentAssistantImages: [],
+		currentAssistantErrors: [],
 		reasoningStartedAt: undefined,
 		reasoningSteps: [],
 		reasoningPhase: undefined,
 		currentToolParts: [],
+		currentToolSentAgentMessages: {},
 		userMessages: [],
 		inRun: false,
 		presentation: init?.presentation ?? createEmptyPrimeAgentSessionPresentation(),
@@ -284,11 +788,14 @@ function resetRun(state: EventMapperState): void {
 	state.messageSeq = 0;
 	state.currentMessageId = undefined;
 	state.currentText = "";
+	state.currentAssistantMessage = undefined;
 	state.currentAssistantImages = [];
+	state.currentAssistantErrors = [];
 	state.reasoningStartedAt = undefined;
 	state.reasoningSteps = [];
 	state.reasoningPhase = undefined;
 	state.currentToolParts = [];
+	state.currentToolSentAgentMessages = {};
 	state.userMessages = [];
 	state.activeUserBashId = undefined;
 	state.inRun = true;
@@ -348,9 +855,58 @@ function userBashArtifact(entry: PrimeAgentUserBash, timestamp = Date.now()): Pr
 	};
 }
 
-function safeRlmChild(
+export function computeRlmExecutionTree(
+	rootSessionId: string,
+	children: readonly PrimeAgentRlmChild[],
+	activeNodeId?: string,
+): PrimeAgentRlmTree {
+	const nodes: Record<string, PrimeAgentRlmNode> = {};
+	const rootChildrenIds: string[] = [];
+
+	for (const child of children) {
+		nodes[child.id] = {
+			...child,
+			depth: 1,
+			childrenIds: [],
+		};
+	}
+
+	for (const child of children) {
+		if (child.parentId && child.parentId !== rootSessionId && nodes[child.parentId]) {
+			nodes[child.parentId].childrenIds.push(child.id);
+		} else {
+			rootChildrenIds.push(child.id);
+		}
+	}
+
+	const queue: Array<{ id: string; depth: number }> = rootChildrenIds.map((id) => ({ id, depth: 1 }));
+	const visited = new Set<string>();
+
+	while (queue.length > 0) {
+		const item = queue.shift();
+		if (!item || visited.has(item.id)) continue;
+		visited.add(item.id);
+
+		const node = nodes[item.id];
+		if (node) {
+			node.depth = item.depth;
+			for (const childId of node.childrenIds) {
+				queue.push({ id: childId, depth: item.depth + 1 });
+			}
+		}
+	}
+
+	return {
+		rootSessionId,
+		nodes,
+		rootChildrenIds,
+		...(activeNodeId ? { activeNodeId } : {}),
+	};
+}
+
+export function safeRlmChild(
 	child: Extract<AgentSessionEvent, { type: "rlm_child_update" }>["child"],
-): PrimeAgentSessionPresentation["rlmChildren"][number] {
+): PrimeAgentRlmChild {
 	return {
 		id: child.id,
 		...(child.parentId ? { parentId: child.parentId } : {}),
@@ -501,27 +1057,88 @@ function reasoningFrame(
 	};
 }
 
+function sentAgentMessageId(value: unknown): string | undefined {
+	const record = isRecord(value) ? value : undefined;
+	return typeof record?.id === "string" ? record.id : undefined;
+}
+
+function rememberSentAgentMessage(state: EventMapperState, toolCallId: string, message: unknown): void {
+	const safeMessage = browserSafePayload(message);
+	if (safeMessage === undefined) return;
+	const messages = state.currentToolSentAgentMessages[toolCallId] ?? [];
+	const id = sentAgentMessageId(safeMessage);
+	if (id && messages.some((entry) => sentAgentMessageId(entry) === id)) return;
+	state.currentToolSentAgentMessages[toolCallId] = [...messages, safeMessage];
+}
+
+function withSentAgentMessages(state: EventMapperState, toolCallId: string | undefined, value: unknown): unknown {
+	if (!toolCallId) return value;
+	const sentAgentMessages = state.currentToolSentAgentMessages[toolCallId];
+	if (!sentAgentMessages || sentAgentMessages.length === 0) return value;
+	const base = isRecord(value) ? value : {};
+	const details = isRecord(base.details) ? base.details : {};
+	return { ...base, details: { ...details, sentAgentMessages } };
+}
+
 function upsertCurrentToolPart(state: EventMapperState, nextPart: ChatToolPart): ChatToolPart {
 	const toolCallId = nextPart.toolCallId;
+	const enrichedPart: ChatToolPart =
+		typeof toolCallId === "string"
+			? {
+					...nextPart,
+					...(nextPart.output !== undefined
+						? { output: withSentAgentMessages(state, toolCallId, nextPart.output) }
+						: {}),
+					...(nextPart.result !== undefined
+						? { result: withSentAgentMessages(state, toolCallId, nextPart.result) }
+						: {}),
+				}
+			: nextPart;
 	if (typeof toolCallId !== "string" || toolCallId.length === 0) {
-		state.currentToolParts.push(nextPart);
-		return nextPart;
+		state.currentToolParts.push(enrichedPart);
+		return enrichedPart;
 	}
 
 	const existingIndex = state.currentToolParts.findIndex((part) => part.toolCallId === toolCallId);
 	if (existingIndex < 0) {
-		state.currentToolParts.push(nextPart);
-		return nextPart;
+		state.currentToolParts.push(enrichedPart);
+		return enrichedPart;
 	}
 
 	const existing = state.currentToolParts[existingIndex]!;
 	const merged: ChatToolPart = {
 		...existing,
-		...nextPart,
+		...enrichedPart,
 		...(existing.input !== undefined ? { input: existing.input } : {}),
 	};
 	state.currentToolParts[existingIndex] = merged;
 	return merged;
+}
+
+function isChatToolPart(part: ChatMessage["parts"][number]): part is ChatToolPart {
+	return part.type.startsWith("tool-");
+}
+
+function appendFinalAssistantText(state: EventMapperState, finalText: string): void {
+	if (!finalText || state.currentText.endsWith(finalText)) return;
+	if (finalText.startsWith(state.currentText)) {
+		state.currentText = finalText;
+		return;
+	}
+	state.currentText += finalText;
+}
+
+function rememberAssistantMessage(state: EventMapperState, message: AssistantMessage): ChatMessage {
+	state.currentAssistantMessage = message;
+	if (!state.currentMessageId) state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
+	const chatMessage = toChatMessageFromAssistant(message, state.currentMessageId);
+	appendFinalAssistantText(state, textFromAssistantMessage(message));
+	for (const part of chatMessage.parts) {
+		if (isChatToolPart(part)) upsertCurrentToolPart(state, part);
+	}
+	state.currentAssistantImages = chatMessage.parts.filter((part): part is ChatImagePart => part.type === "image");
+	state.currentAssistantErrors = chatMessage.parts.filter((part): part is ChatErrorPart => part.type === "error");
+	return chatMessage;
 }
 
 // ---------------------------------------------------------------------------
@@ -535,9 +1152,26 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [{ type: "state", state: { name: "agent_start" } }, reasoningFrame(state, "waiting", true)];
 		}
 		case "agent_end": {
+			const finalAssistant = [...event.messages].reverse().find(isAssistantMessage);
+			if (finalAssistant) rememberAssistantMessage(state, finalAssistant);
+			const payloadFrames = event.messages.flatMap((message, index) => {
+				const role = (message as { role?: unknown }).role;
+				if (role === "assistant" || role === "user" || role === "toolResult") return [];
+				const payloadMessage = toChatMessageFromRuntimeMessage(message, `${state.runId}-runtime-${index}`);
+				if (!payloadMessage) return [];
+				const contentText = textFromChatParts(payloadMessage.parts);
+				return payloadMessage.parts
+					.filter((part): part is ChatPayloadPart => part.type === "payload")
+					.map((part) => ({
+						type: "payload" as const,
+						part: part.text || !contentText ? part : { ...part, text: contentText },
+						...(state.currentMessageId ? { messageId: state.currentMessageId } : {}),
+					}));
+			});
 			const finalMessage = finalizeAssistantMessage(state);
 			state.inRun = false;
 			return [
+				...payloadFrames,
 				reasoningFrame(state, "complete", false),
 				{ type: "state", state: { name: "agent_settled" } },
 				{
@@ -559,35 +1193,38 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				state.userMessages.push(message);
 				return [{ type: "message", message }];
 			}
+			if (isAssistantMessage(event.message)) {
+				state.currentAssistantMessage = event.message;
+				if (!state.currentMessageId) state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
+			}
 			return [];
 		}
 		case "message_update": {
 			if (!isAssistantMessage(event.message)) return [];
+			state.currentAssistantMessage = event.message;
 			return mapAssistantStreamEvent(state, event.assistantMessageEvent);
 		}
 		case "message_end": {
 			// Some providers expose their final assistant content only on the
-			// authoritative message_end lifecycle event. Keep only text blocks;
-			// detailed reasoning remains excluded from the Fleet browser stream.
+			// authoritative message_end lifecycle event. Keep visible assistant
+			// metadata and tool calls while detailed reasoning remains excluded.
 			// The terminal text must also preserve earlier messages in this run:
 			// append rather than replace, skipping the delta-equivalent suffix.
 			if (isAssistantMessage(event.message)) {
-				const finalText = textFromAssistantMessage(event.message);
-				if (finalText && !state.currentText.endsWith(finalText)) {
-					state.currentText += finalText;
+				const message = rememberAssistantMessage(state, event.message);
+				if (message.parts.some((part) => part.type === "image" || part.type === "error")) {
+					return [{ type: "message", message }];
 				}
-				const message = toChatMessageFromAssistant(
-					event.message,
-					state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
-				);
-				state.currentAssistantImages = message.parts.filter((part): part is ChatImagePart => part.type === "image");
-				if (state.currentAssistantImages.length > 0) return [{ type: "message", message }];
 			}
 			return [];
 		}
 		case "tool_execution_start": {
+			const { category, toolName, serverName } = categorizeTool(event.toolName);
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
+				category,
+				toolName,
+				serverName,
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
 				input: event.args,
@@ -595,8 +1232,12 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [reasoningFrame(state, "executing", true), { type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_update": {
+			const { category, toolName, serverName } = categorizeTool(event.toolName);
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
+				category,
+				toolName,
+				serverName,
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
 				input: event.args,
@@ -605,12 +1246,27 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_end": {
+			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const errorText = event.isError ? extractToolErrorText(event.result) : undefined;
+			const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
+			const durationMs =
+				typeof (event.result as { durationMs?: number })?.durationMs === "number"
+					? (event.result as { durationMs: number }).durationMs
+					: typeof (event.result as { details?: { durationMs?: number } })?.details?.durationMs === "number"
+						? (event.result as { details: { durationMs: number } }).details.durationMs
+						: undefined;
+
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
+				category,
+				toolName,
+				serverName,
 				toolCallId: event.toolCallId,
 				state: event.isError ? "output-error" : "output-available",
 				output: event.result,
 				result: event.result,
+				...(durationMs !== undefined ? { durationMs } : {}),
+				...(errorEnvelope ? { error: errorEnvelope } : {}),
 			});
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
@@ -668,15 +1324,7 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			// authoritative, but only text blocks may enter Fleet's standard transcript.
 			// Append (skip the delta-equivalent suffix) so earlier messages in this
 			// run are preserved instead of being replaced by the latest one.
-			const finalText = textFromAssistantMessage(event.message);
-			if (finalText && !state.currentText.endsWith(finalText)) {
-				state.currentText += finalText;
-			}
-			const message = toChatMessageFromAssistant(
-				event.message,
-				state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
-			);
-			state.currentAssistantImages = message.parts.filter((part): part is ChatImagePart => part.type === "image");
+			rememberAssistantMessage(state, event.message);
 			return [];
 		}
 		default:
@@ -695,8 +1343,13 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 				reasoningFrame(state, "recovering", true),
 				{ type: "compaction", phase: "start", reason: event.reason },
 			];
-		case "compaction_end":
-			return [
+		case "compaction_end": {
+			const summary = event.result?.summary;
+			const tokensBefore = event.result?.tokensBefore;
+			const firstKeptEntryId = event.result?.firstKeptEntryId;
+			const errorMsg = event.errorMessage ? withOAuthBindingGuidance(event.errorMessage) : undefined;
+			const error = errorMsg ? createFleetErrorEnvelope(errorMsg) : undefined;
+			const frames: ChatStreamEvent[] = [
 				reasoningFrame(state, "recovering", false),
 				{
 					type: "compaction",
@@ -704,12 +1357,35 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 					reason: event.reason,
 					aborted: event.aborted,
 					willRetry: event.willRetry,
-					...(event.errorMessage !== undefined
-						? { errorMessage: withOAuthBindingGuidance(event.errorMessage) }
-						: {}),
+					...(summary !== undefined ? { summary } : {}),
+					...(tokensBefore !== undefined ? { tokensBefore } : {}),
+					...(firstKeptEntryId !== undefined ? { firstKeptEntryId } : {}),
+					...(errorMsg !== undefined ? { errorMessage: errorMsg } : {}),
+					...(error !== undefined ? { error } : {}),
 				},
 			];
-		case "auto_retry_start":
+			if (event.result) {
+				const artifact: PrimeAgentArtifact = {
+					id: stablePresentationId(`${presentationRunId(state)}:compaction:${Date.now()}`),
+					runId: presentationRunId(state),
+					kind: "compaction",
+					title: `Compacted (${event.reason})`,
+					status: event.aborted ? "cancelled" : errorMsg ? "error" : "success",
+					output: {
+						reason: event.reason,
+						summary: event.result.summary,
+						tokensBefore: event.result.tokensBefore,
+						firstKeptEntryId: event.result.firstKeptEntryId,
+					},
+					timestamp: Date.now(),
+				};
+				frames.unshift(emitPresentation(state, upsertArtifact(state.presentation, artifact)));
+			}
+			return frames;
+		}
+		case "auto_retry_start": {
+			const errorMsg = event.errorMessage ? withOAuthBindingGuidance(event.errorMessage) : undefined;
+			const error = errorMsg ? createFleetErrorEnvelope(errorMsg) : undefined;
 			return [
 				reasoningFrame(state, "recovering", true),
 				{
@@ -718,12 +1394,14 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 					attempt: event.attempt,
 					maxAttempts: event.maxAttempts,
 					delayMs: event.delayMs,
-					...(event.errorMessage !== undefined
-						? { errorMessage: withOAuthBindingGuidance(event.errorMessage) }
-						: {}),
+					...(errorMsg !== undefined ? { errorMessage: errorMsg } : {}),
+					...(error !== undefined ? { error } : {}),
 				},
 			];
-		case "auto_retry_end":
+		}
+		case "auto_retry_end": {
+			const finalErrorMsg = event.finalError ? withOAuthBindingGuidance(event.finalError) : undefined;
+			const error = finalErrorMsg ? createFleetErrorEnvelope(finalErrorMsg) : undefined;
 			return [
 				reasoningFrame(state, event.success ? "recovering" : "error", false),
 				{
@@ -731,30 +1409,49 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 					phase: "end",
 					success: event.success,
 					attempt: event.attempt,
-					...(event.finalError !== undefined ? { finalError: withOAuthBindingGuidance(event.finalError) } : {}),
+					...(finalErrorMsg !== undefined ? { finalError: finalErrorMsg } : {}),
+					...(error !== undefined ? { error } : {}),
 				},
 			];
+		}
 		case "session_action_update": {
 			const actions = event.actions as { steering?: readonly string[]; followUps?: readonly string[] } | undefined;
 			const steering = Array.from(actions?.steering ?? []) as string[];
 			const followUp = Array.from(actions?.followUps ?? []) as string[];
 			return [{ type: "queue", steering, followUp }];
 		}
-		case "auth_stale":
+		case "auth_stale": {
+			const message = `Authentication for ${event.provider} is stale. Sign in again to continue.`;
 			return [
 				reasoningFrame(state, "error", false),
 				{
 					type: "error",
-					message: `Authentication for ${event.provider} is stale. Sign in again to continue.`,
+					message,
+					error: createFleetErrorEnvelope(message),
 				},
 			];
+		}
 		case "ipython_sent_agent_message":
-			return [
-				{
-					type: "state",
-					state: { name: "agent_start", message: "Subagent message received" },
-				},
-			];
+			rememberSentAgentMessage(state, event.toolCallId, event.message);
+			{
+				const existing = state.currentToolParts.find((part) => part.toolCallId === event.toolCallId);
+				const result = withSentAgentMessages(state, event.toolCallId, existing?.result ?? existing?.output);
+				const part = upsertCurrentToolPart(state, {
+					type: "tool-IPython",
+					category: "kernel",
+					toolName: "ipython",
+					toolCallId: event.toolCallId,
+					state: existing?.state ?? "input-streaming",
+					...(result !== undefined ? { output: result, result } : {}),
+				});
+				return [
+					{ type: "tool", part, ...(state.currentMessageId ? { messageId: state.currentMessageId } : {}) },
+					{
+						type: "state",
+						state: { name: "agent_start", message: "Subagent message received" },
+					},
+				];
+			}
 		case "session_info_changed":
 			return [emitPresentation(state, { ...state.presentation, sessionName: event.name })];
 		case "thinking_level_changed":
@@ -763,9 +1460,18 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 			return [emitPresentation(state, { ...state.presentation, serviceTier: event.serviceTier })];
 		case "rlm_child_update": {
 			const child = safeRlmChild(event.child);
-			const rlmChildren = state.presentation.rlmChildren.filter((entry) => entry.id !== child.id);
-			rlmChildren.push(child);
-			const presentation = { ...state.presentation, rlmChildren };
+			const rawRlmChildren = state.presentation.rlmChildren.filter((entry) => entry.id !== child.id);
+			rawRlmChildren.push(child);
+			const rlmTree = computeRlmExecutionTree(state.sessionId, rawRlmChildren, child.id);
+			const rlmChildren = rawRlmChildren.map((c) => {
+				const treeNode = rlmTree.nodes[c.id];
+				return treeNode ? { ...c, depth: treeNode.depth, childrenIds: treeNode.childrenIds } : c;
+			});
+			const presentation: PrimeAgentSessionPresentation = {
+				...state.presentation,
+				rlmChildren,
+				rlmTree,
+			};
 			const artifact: PrimeAgentArtifact = {
 				id: stablePresentationId(`${presentationRunId(state)}:${child.id}:rlm`),
 				runId: presentationRunId(state),
@@ -783,7 +1489,11 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 				output: child,
 				timestamp: child.timestamp,
 			};
-			return [emitPresentation(state, upsertArtifact(presentation, artifact))];
+			const updatedChild = rlmTree.nodes[child.id] ?? child;
+			return [
+				emitPresentation(state, upsertArtifact(presentation, artifact)),
+				{ type: "rlm", child: updatedChild, tree: rlmTree },
+			];
 		}
 		case "recap_update": {
 			const presentation = { ...state.presentation, recap: event.recap };
@@ -920,6 +1630,7 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 		parts.push(part);
 	}
 	parts.push(...state.currentAssistantImages);
+	parts.push(...state.currentAssistantErrors);
 	return {
 		id: state.currentMessageId ?? `${state.runId}-a${state.messageSeq}`,
 		role: "assistant",
@@ -928,15 +1639,210 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Connection-level event mapping (AgentConnection seam)
 // ---------------------------------------------------------------------------
 
 /**
- * Translate one AgentSessionEvent into zero-or-more ChatStreamEvent frames.
+ * Translate one `AgentConnectionEvent` into zero-or-more `ChatStreamEvent` frames.
+ *
+ * The connection surface wraps the engine-internal `AgentSessionEvent` union
+ * inside a `session_event` envelope and adds four new event kinds the
+ * AgentSession surface never had:
+ *
+ *   - `session_replaced`: runtime rebuilt (new/switch/fork/import). We surface
+ *     a synthetic done frame and reset the per-run mapper state so the next
+ *     turn starts cleanly.
+ *   - `session_resynced`: snapshot reattached after daemon recovery. Same
+ *     treatment as a session_replaced for mapper state.
+ *   - `extension_ui_request`: a serialized request from an extension that
+ *     needs a user dialog. We surface it as a `tool-Question` frame so the
+ *     web client renders the dialog and the bridge routes the answer back
+ *     through `PendingDialogRegistry`.
+ *   - `side_question_event`: a TUI-visible side conversation, forwarded as a
+ *     browser-safe payload part.
+ *   - `session_status`: forwarded into the session presentation when it has a
+ *     recap; connection heartbeats and clean closes remain bookkeeping.
  *
  * Pure: no I/O. All session-local state lives in `state`. Returns `[]` for
- * events we deliberately suppress (either because the UI doesn't render them
- * or because the underlying field is already conveyed by a sibling event).
+ * events we deliberately suppress.
+ */
+export function mapAgentConnectionEvent(state: EventMapperState, event: AgentConnectionEvent): ChatStreamEvent[] {
+	switch (event.type) {
+		case "session_event":
+			return mapAgentSessionEvent(state, event.event);
+		case "session_replaced": {
+			resetRun(state);
+			const resetMessage: ChatMessage = {
+				id: state.currentMessageId ?? `${state.runId}-reset`,
+				role: "assistant",
+				parts: [],
+				createdAt: Date.now(),
+			};
+			return [
+				{ type: "state", state: { name: "agent_settled" } },
+				{
+					type: "done",
+					runId: state.runId,
+					sessionId: state.sessionId,
+					message: resetMessage,
+					sessionReset: true,
+				},
+			];
+		}
+		case "session_resynced": {
+			resetRun(state);
+			const events: ChatStreamEvent[] = [];
+			if (event.snapshot.parent || event.snapshot.children) {
+				const rawRlmChildren = (event.snapshot.children ?? []).map(safeRlmChild);
+				const rlmTree = computeRlmExecutionTree(state.sessionId, rawRlmChildren);
+				const rlmChildren = rawRlmChildren.map((c) => {
+					const treeNode = rlmTree.nodes[c.id];
+					return treeNode ? { ...c, depth: treeNode.depth, childrenIds: treeNode.childrenIds } : c;
+				});
+				const parent: PrimeAgentParentSession | undefined = event.snapshot.parent
+					? {
+							...(event.snapshot.parent.activeSessionId
+								? { activeSessionId: event.snapshot.parent.activeSessionId }
+								: {}),
+							...(event.snapshot.parent.sessionId ? { sessionId: event.snapshot.parent.sessionId } : {}),
+							...(event.snapshot.parent.nodeId ? { nodeId: event.snapshot.parent.nodeId } : {}),
+							...(event.snapshot.parent.childId ? { childId: event.snapshot.parent.childId } : {}),
+						}
+					: state.presentation.parent;
+				const presentation: PrimeAgentSessionPresentation = {
+					...state.presentation,
+					...(parent ? { parent } : {}),
+					rlmChildren,
+					rlmTree,
+				};
+				events.push(emitPresentation(state, presentation));
+			}
+			const resetMessage: ChatMessage = {
+				id: state.currentMessageId ?? `${state.runId}-reset`,
+				role: "assistant",
+				parts: [],
+				createdAt: Date.now(),
+			};
+			events.push(
+				{ type: "state", state: { name: "agent_settled" } },
+				{
+					type: "done",
+					runId: state.runId,
+					sessionId: state.sessionId,
+					message: resetMessage,
+					sessionReset: true,
+				},
+			);
+			return events;
+		}
+		case "extension_ui_request": {
+			// Forward a serializable UI request to the web client as a tool
+			// frame. The bridge's dialog registry maps the `toolCallId` to a
+			// PendingDialog, and `answerDialog` resolves it from the answer.
+			const request = event.request;
+			const payload = (request.payload && typeof request.payload === "object" ? request.payload : {}) as Record<
+				string,
+				unknown
+			>;
+			return [
+				{
+					type: "tool",
+					part: {
+						type: "tool-Question",
+						category: "question",
+						toolName: "ask_question",
+						toolCallId: request.id,
+						state: "input-streaming",
+						input: {
+							kind: "extension",
+							method: request.method,
+							title: typeof payload.title === "string" ? payload.title : undefined,
+							message: typeof payload.message === "string" ? payload.message : undefined,
+							options: Array.isArray(payload.options) ? payload.options : undefined,
+							questions: normalizedQuestionsToWire(normalizeDaemonQuestions(payload.questions)),
+							placeholder: typeof payload.placeholder === "string" ? payload.placeholder : undefined,
+							payload: request.payload,
+						},
+					},
+				},
+			];
+		}
+		case "extension_error": {
+			const envelope: FleetErrorEnvelope = {
+				code: "EXTENSION_ERROR",
+				message: `Extension error in ${event.extensionPath}: ${event.error}`,
+				isTerminal: false,
+			};
+			return [
+				{
+					type: "error",
+					message: envelope.message,
+					runId: state.runId,
+					code: envelope.code,
+					error: envelope,
+				},
+			];
+		}
+		case "closed": {
+			if (event.error) {
+				const envelope = createFleetErrorEnvelope(event.error, "Connection closed with error");
+				return [
+					{
+						type: "error",
+						message: envelope.message,
+						runId: state.runId,
+						code: envelope.code,
+						error: envelope,
+					},
+				];
+			}
+			return [];
+		}
+		case "connection_status":
+		case "heartbeats_changed":
+			return [];
+		case "side_question_event": {
+			const text = [
+				`Question: ${event.event.question}`,
+				event.event.answer ? `Answer: ${event.event.answer}` : `Status: ${event.event.status}`,
+			].join("\n\n");
+			return [
+				{
+					type: "payload",
+					part: createPayloadPart("sideQuestion", "Side question", event.event, text, event.event.id),
+					...(state.currentMessageId ? { messageId: state.currentMessageId } : {}),
+				},
+			];
+		}
+		case "session_status":
+			return event.recap ? [emitPresentation(state, { ...state.presentation, recap: event.recap })] : [];
+		default: {
+			// Future-proof: ignore unknown connection events silently.
+			return [];
+		}
+	}
+}
+
+export function mapAgentConnectionEvents(
+	state: EventMapperState,
+	events: readonly AgentConnectionEvent[],
+): ChatStreamEvent[] {
+	const out: ChatStreamEvent[] = [];
+	for (const evt of events) {
+		out.push(...mapAgentConnectionEvent(state, evt));
+	}
+	return out;
+}
+
+// ---------------------------------------------------------------------------
+// Legacy AgentSessionEvent entry points (kept for test back-compat)
+// ---------------------------------------------------------------------------
+
+/**
+ * Translate one `AgentSessionEvent` (the engine-internal union) into
+ * `ChatStreamEvent` frames. The bridge itself subscribes to
+ * `AgentConnectionEvent`; this entry point exists so existing mapper tests
+ * and the presentation-rebuild path can keep using the inner union.
  */
 export function mapAgentSessionEvent(state: EventMapperState, event: AgentSessionEvent): ChatStreamEvent[] {
 	const asCore = mapCoreAgentEvent(state, event as AgentEvent);

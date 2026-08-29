@@ -31,6 +31,14 @@ describe("resolveLocalSlashAction", () => {
 		expect(resolveLocalSlashAction("import")).toEqual({ type: "session-import", path: "" });
 	});
 
+	it("resolves /openui as a one-shot request and preserves the request text", () => {
+		expect(resolveLocalSlashAction("openui", "Generate a Fleet Agent architecture visualization")).toEqual({
+			type: "openui-request",
+			request: "Generate a Fleet Agent architecture visualization",
+		});
+		expect(resolveLocalSlashAction("openui")).toEqual({ type: "openui-request", request: "" });
+	});
+
 	it("opens the effort picker for /effort and sets a named thinking level", () => {
 		expect(resolveLocalSlashAction("effort")).toEqual({ type: "open-effort-picker" });
 		expect(resolveLocalSlashAction("thinking")).toEqual({ type: "open-effort-picker" });
@@ -61,5 +69,15 @@ describe("resolveLocalSlashAction", () => {
 		] as const) {
 			expect(resolveLocalSlashAction(command, args)).toBeNull();
 		}
+	});
+
+	it("advertises the OpenUI request hint without changing ordinary chat commands", () => {
+		const openui = buildSlashCommands(null, false).find((item) => item.id === "openui");
+		expect(openui).toMatchObject({
+			label: "/openui",
+			value: "/openui <request> ",
+			description: "Generate a durable OpenUI HTML artifact",
+		});
+		expect(resolveLocalSlashAction("compact", "summarize")).toBeNull();
 	});
 });

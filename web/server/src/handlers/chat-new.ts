@@ -29,12 +29,13 @@ export function handleChatNewPost(request: Request): Promise<Response> {
 			projectId,
 			thinkingLevel: toThinkingLevel(body.thinkingLevel),
 			mode: body.mode,
+			openUI: body.openUI,
 		});
 		if (body.model) {
 			await bridge.setModel(session.sessionId, body.model);
 			const thinking = body.model.thinkingLevel ?? body.thinkingLevel;
 			if (thinking) {
-				session.session.setThinkingLevel(toThinkingLevel(thinking)!);
+				await session.connection.setThinkingLevel(toThinkingLevel(thinking)!);
 			}
 		}
 		return Response.json({

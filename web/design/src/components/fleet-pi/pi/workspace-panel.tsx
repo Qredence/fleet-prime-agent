@@ -1,19 +1,15 @@
 import {
-  ChevronRight,
   CircleAlert,
-  File,
   FileText,
-  Folder,
   HardDrive,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Markdown } from "../../agents/markdown"
-import { Button } from "../../button"
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../../collapsible"
+  FileTree,
+  FileTreeFile,
+  FileTreeFolder,
+} from "../../motion/file-tree"
 import {
   CHAT_PANEL_BREAKPOINT_PX,
   WORKSPACE_SPLIT_GAP_RESET,
@@ -28,7 +24,7 @@ import {
   findWorkspaceNode,
 } from "./shared"
 import { WorkspacePreviewSkeleton, WorkspaceSkeleton } from "./skeleton-loaders"
-import type { RefObject } from "react"
+import type { ReactNode, RefObject } from "react"
 import type {
   WorkspaceFileResponse,
   WorkspaceTreeNode,
@@ -247,16 +243,28 @@ export function WorkspacePanelContent({
               {scopedView.headerLabel}
             </span>
           </div>
-          <div className="flex flex-col gap-0.5">
-            {scopedView.nodes.map((node) => (
-              <WorkspaceNode
-                key={node.path}
-                node={node}
-                onSelect={setSelectedPath}
-                selectedPath={selectedPath}
-              />
-            ))}
-          </div>
+          <FileTree
+            ariaLabel={
+              scopePath
+                ? `Files in ${scopedView.headerLabel}`
+                : "Workspace files"
+            }
+            className="gap-0.5"
+            classNames={{
+              item:
+                "h-8 gap-1.5 rounded-sm text-label font-normal text-foreground/65 hover:bg-foreground/5 hover:text-foreground/80 aria-selected:bg-foreground/8 aria-selected:text-foreground/80",
+              icon: "size-3.5 text-foreground/35",
+              label: "text-label",
+            }}
+            value={selectedPath}
+            onValueChange={(path) => {
+              if (findWorkspaceNode(workspace.nodes, path)?.type === "file") {
+                setSelectedPath(path)
+              }
+            }}
+          >
+            {scopedView.nodes.map((node) => renderWorkspaceNode(node))}
+          </FileTree>
           {workspace.diagnostics.length > 0 && !scopePath && (
             <div className="mt-2 border-t border-border/60 pt-2">
               <ResourceChipSection
@@ -292,67 +300,17 @@ export function WorkspacePanelContent({
   )
 }
 
-function WorkspaceNode({
-  node,
-  onSelect,
-  selectedPath,
-}: {
-  node: WorkspaceTreeNode
-  onSelect: (path: string) => void
-  selectedPath: string | null
-}) {
+function renderWorkspaceNode(node: WorkspaceTreeNode): ReactNode {
   if (node.type === "directory") {
     return (
-      <Collapsible>
-        <CollapsibleTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="sm"
-              className="group w-full justify-start gap-1.5 text-left text-label font-normal text-foreground/65 transition-none hover:bg-foreground/5 hover:text-foreground/80"
-            />
-          }
-        >
-          <ChevronRight className="size-3 shrink-0 text-foreground/35 transition-transform group-data-panel-open:rotate-90" />
-          <Folder className="size-3.5 shrink-0 text-foreground/35" />
-          <span className="min-w-0 flex-1 truncate" title={node.path}>
-            {node.name}
-          </span>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="ml-4">
-          <div className="flex flex-col gap-0.5">
-            {node.children?.map((child) => (
-              <WorkspaceNode
-                key={child.path}
-                node={child}
-                onSelect={onSelect}
-                selectedPath={selectedPath}
-              />
-            ))}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+      <FileTreeFolder key={node.path} value={node.path} name={node.name}>
+        {node.children?.map((child) => renderWorkspaceNode(child))}
+      </FileTreeFolder>
     )
   }
 
-  const selected = node.path === selectedPath
-
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      aria-pressed={selected}
-      className={`w-full justify-start gap-1.5 text-label font-normal transition-none ${
-        selected
-          ? "bg-foreground/8 text-foreground/80"
-          : "text-foreground/65 hover:bg-foreground/5 hover:text-foreground/80"
-      }`}
-      title={node.path}
-      onClick={() => onSelect(node.path)}
-    >
-      <File className="size-3.5 shrink-0 text-foreground/35" />
-      <span className="min-w-0 flex-1 truncate text-left">{node.name}</span>
-    </Button>
+    <FileTreeFile key={node.path} value={node.path} name={node.name} />
   )
 }
 

@@ -1,4 +1,3 @@
-import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt";
 import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
 import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/fleet-pi/pi/prime-agent-artifacts";
 import { notify } from "@prime-agent/web-design/lib/notify";
@@ -7,6 +6,7 @@ import type { ProjectId } from "@prime-agent/web-protocol";
 import type {
 	ChatMode,
 	ChatPiSettingsUpdate,
+	ChatQuestionAnswer,
 	ChatSessionMetadata,
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -170,6 +170,7 @@ export function useChatWorkspaceData() {
 		getSessionMetadata,
 		messages,
 		planLabel,
+		persistOpenUIArtifact,
 		presentation,
 		queue,
 		renameSession,
@@ -218,13 +219,17 @@ export function useChatWorkspaceData() {
 	);
 	const resumeSessionForWorkspaceWithResult = useCallback(
 		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
+			const targetMetadata =
+				metadata.projectId === undefined && activeProjectId
+					? { ...metadata, projectId: activeProjectId }
+					: metadata;
 			const currentMetadata = getSessionMetadata();
-			const shouldClear = shouldClearPendingAttachments(currentMetadata, metadata);
-			const resumed = await resumeSession(metadata, options);
+			const shouldClear = shouldClearPendingAttachments(currentMetadata, targetMetadata);
+			const resumed = await resumeSession(targetMetadata, options);
 			if (resumed && shouldClear) clearPendingAttachments();
 			return resumed;
 		},
-		[clearPendingAttachments, getSessionMetadata, resumeSession],
+		[activeProjectId, clearPendingAttachments, getSessionMetadata, resumeSession],
 	);
 	const resumeSessionForWorkspace = useCallback(
 		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
@@ -381,7 +386,7 @@ export function useChatWorkspaceData() {
 		setWorkspaceAttachments((current) => current.filter((attachment) => attachment.relativePath !== relativePath));
 	}, []);
 	const handleQuestionAnswer = useCallback(
-		({ toolCallId, answer }: { toolCallId?: string; answer: QuestionAnswer }) => {
+		({ toolCallId, answer }: { toolCallId?: string; answer: ChatQuestionAnswer }) => {
 			void answerQuestion({ toolCallId, answer }).catch((err) => {
 				const message = err instanceof Error ? err.message : String(err);
 				notify.error(message);
@@ -440,6 +445,29 @@ export function useChatWorkspaceData() {
 		setSettingsInitialTab(tab);
 		setSettingsDialogOpen(true);
 	}, []);
+	const handleOpenUIRequest = useCallback(
+		(request: string) => {
+			const attachments = [...workspaceAttachments, ...uploadedAttachments];
+			clearUploadedAttachments();
+			clearWorkspaceAttachments();
+			return sendMessage({
+				text: request,
+				altKey: false,
+				mode: chatMode,
+				openUI: true,
+				openUIArtifact: true,
+				attachments,
+			});
+		},
+		[
+			chatMode,
+			clearUploadedAttachments,
+			clearWorkspaceAttachments,
+			sendMessage,
+			uploadedAttachments,
+			workspaceAttachments,
+		],
+	);
 
 	const { forkFromEntry, handleLocalSlashSubmit, handleSlashCommandSelect } = useLocalSlashActions({
 		appendLocalMessage,
@@ -448,6 +476,7 @@ export function useChatWorkspaceData() {
 		modelKey,
 		models,
 		onForkPicker: setForkPickerEntries,
+		onOpenUIRequest: handleOpenUIRequest,
 		openSettings,
 		resumeSession: resumeSessionForWorkspace,
 		sessions,
@@ -477,6 +506,7 @@ export function useChatWorkspaceData() {
 	const { chatPanelData, settingsActions, workspaceTreeContext } = useRightPanelContextValue({
 		activityLabel,
 		artifactRuns,
+		chatMode,
 		handleThemePreferenceChange,
 		isLoadingProviders,
 		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
@@ -491,6 +521,7 @@ export function useChatWorkspaceData() {
 		onUpdateProvider,
 		openWorkspacePath,
 		planLabel,
+		presentation,
 		providers: providersData?.providers ?? [],
 		queue,
 		refreshResources,
@@ -501,6 +532,7 @@ export function useChatWorkspaceData() {
 		rightPanel,
 		saveSettings,
 		selectedArtifactId,
+		sessionId: sessionMetadata.sessionId,
 		selectedWorkspacePath,
 		setRightPanel,
 		setSelectedWorkspacePath,
@@ -508,6 +540,7 @@ export function useChatWorkspaceData() {
 		settingsError,
 		settingsLoading: settingsLoading || updateSettings.isPending,
 		status,
+		thinkingLevel,
 		themePreference,
 		workspaceError,
 		workspaceLoading,
@@ -551,6 +584,7 @@ export function useChatWorkspaceData() {
 		workspaceReferenceSuggestions,
 		messages,
 		openArtifact,
+		persistOpenUIArtifact,
 		effortPickerOpen,
 		modelKey,
 		modelPickerOpen,

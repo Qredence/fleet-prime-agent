@@ -171,8 +171,9 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 
 	const openPanelAction = useCallback(
 		(action: OpenPanelAction) => {
+			const isLocationPanel = action.panel === "workspace" || action.panel === "artifacts";
 			setRightPanel(action.panel);
-			setSelectedWorkspacePath(action.relativePath ?? null);
+			setSelectedWorkspacePath(isLocationPanel ? (action.relativePath ?? null) : null);
 			if (action.focus) {
 				window.requestAnimationFrame(() => {
 					document.querySelector<HTMLElement>("[data-fleet-panel-focus]")?.focus({ preventScroll: true });

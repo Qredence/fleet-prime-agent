@@ -2,54 +2,62 @@
  * PrimeBridge — central server-side session coordinator.
  *
  * Owns:
- * - Live `AgentSession`s keyed by `sessionId` (prime-agent's session dir name)
- * - `ExtensionUIContext` per session (forwards UI dialogs to PendingDialogRegistry)
- * - Event subscription and forward into the ring buffer (SSE replay source)
- * - Kernel readiness gate via `IpythonKernelProvisioner.ensure()`
+ * - daemon-backed `AgentConnection` instances (one per session) keyed by
+ *   persisted `sessionId`
+ * - the web dialog registry and event forwarder (SSE replay source)
+ * - Fleet-only presentation sidecars and the kernel readiness gate
+ *
+ * The daemon is the sole active session writer. The bridge is only a headless
+ * client of the public `AgentConnection` seam; the in-process adapter is
+ * available only through an explicit test factory.
  *
  * No HTTP, no React — pure TypeScript. The route layer calls into this only.
  */
 
-import { rm } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ImageContent } from "@earendil-works/pi-ai";
-import type {
-	AgentSession,
-	ExtensionUIContext,
-	ExtensionUIDialogOptions,
-	SessionEntry,
-	SessionInfo,
-	TerminalInputHandler,
-	Theme,
-	WorkingIndicatorOptions,
-} from "@earendil-works/pi-coding-agent";
-import {
-	AuthStorage,
-	createAgentSessionFromServices,
-	createAgentSessionServices,
-	IpythonKernelProvisioner,
-	SessionManager,
-} from "@earendil-works/pi-coding-agent";
 import type { ProjectId } from "@prime-agent/web-protocol";
 import {
 	buildOpenUIPrompt,
 	type ChatMessage,
 	type ChatMode,
+	type ChatPendingDialog,
 	type ChatPlanAction,
 	type ChatQuestionAnswer,
+	type ChatServiceTier,
 	type ChatStreamEvent,
 	type ChatThinkingLevel,
 	type OpenUIPromptMode,
 	type PrimeAgentArtifact,
-	type PrimeAgentRefinement,
-	type PrimeAgentRefinementEdit,
-	type PrimeAgentRlmChild,
 	type PrimeAgentSessionPresentation,
 	type PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
-
-import { createEventMapperState, mapAgentSessionEvent, toChatMessagesFromAgentMessages } from "./event-mapper";
+import type {
+	AgentConnection,
+	AgentConnectionExtensionUiRequest,
+	AgentConnectionModel,
+	AgentSession,
+	ExtensionUIContext,
+	ExtensionUIDialogOptions,
+} from "prime-agent";
+import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
+import {
+	createDaemonWebAgentConnection,
+	listDaemonSessions,
+	sessionDirectoryForCwd,
+	type WebAgentConnection,
+	type WebAgentConnectionFactory,
+} from "./daemon-runtime";
+import {
+	createEventMapperState,
+	mapAgentConnectionEvent,
+	normalizeDaemonQuestions,
+	normalizedQuestionsToClarification,
+	normalizedQuestionsToWire,
+	toChatMessagesFromAgentMessages,
+} from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
 import {
 	copyManagedPlanPresentationsForFork,
@@ -67,162 +75,105 @@ import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
 import { parseBackendSessionCommand } from "./session-commands";
 
+// ---------------------------------------------------------------------------
+// Web UI context — a thin ExtensionUIContext backed by PendingDialogRegistry
+// ---------------------------------------------------------------------------
+
+const WEB_UI_UNSUPPORTED = "Not available in the web UI";
+
+function unsupportedInWebUi(method: string): never {
+	throw new Error(`${method}: ${WEB_UI_UNSUPPORTED}`);
+}
+
 type UIContextCtorArgs = {
 	sessionId: string;
 	emitFrame: (frame: ChatStreamEvent) => void;
 	dialogs: PendingDialogRegistry;
 };
 
-class WebUIContext implements ExtensionUIContext {
-	readonly #sessionId: string;
-	readonly #emit: (frame: ChatStreamEvent) => void;
-	readonly #dialogs: PendingDialogRegistry;
-
-	constructor({ sessionId, emitFrame, dialogs }: UIContextCtorArgs) {
-		this.#sessionId = sessionId;
-		this.#emit = emitFrame;
-		this.#dialogs = dialogs;
-	}
-
-	async select(title: string, options: string[], _opts?: ExtensionUIDialogOptions): Promise<string | undefined> {
-		const toolCallId = crypto.randomUUID();
-		const dialog = await this.#dialogs.open<{ choice: string } | undefined>({
-			sessionId: this.#sessionId,
-			toolCallId,
-			kind: "select",
-			title,
-			message: "",
-			options,
-			signalFrame: {
-				type: "tool-Question",
-				toolCallId,
-				state: "input-streaming",
-				input: {
-					kind: "select",
-					title,
-					options,
-				},
-			},
-		});
-		return (dialog as { choice: string } | undefined)?.choice;
-	}
-
-	async confirm(title: string, message: string, _opts?: ExtensionUIDialogOptions): Promise<boolean> {
-		const toolCallId = crypto.randomUUID();
-		const dialog = await this.#dialogs.open<boolean>({
-			sessionId: this.#sessionId,
-			toolCallId,
-			kind: "confirm",
-			title,
-			message,
-			signalFrame: {
-				type: "tool-Question",
-				toolCallId,
-				state: "input-streaming",
-				input: {
-					kind: "confirm",
-					title,
-					message,
-				},
-			},
-		});
-		return Boolean(dialog);
-	}
-
-	async input(title: string, placeholder?: string, _opts?: ExtensionUIDialogOptions): Promise<string | undefined> {
-		const toolCallId = crypto.randomUUID();
-		const dialog = await this.#dialogs.open<{ text: string } | undefined>({
-			sessionId: this.#sessionId,
-			toolCallId,
-			kind: "input",
-			title,
-			message: "",
-			placeholder,
-			signalFrame: {
-				type: "tool-Question",
-				toolCallId,
-				state: "input-streaming",
-				input: {
-					kind: "text",
-					title,
-					placeholder,
-				},
-			},
-		});
-		return (dialog as { text: string } | undefined)?.text;
-	}
-
-	notify(message: string, type: "info" | "warning" | "error" = "info"): void {
-		const prefix = type === "info" ? "" : `${type.toUpperCase()}: `;
-		this.#emit({
-			type: "state",
-			state: { name: "agent_start", message: `${prefix}${message}` },
-		});
-	}
-
-	onTerminalInput(_handler: TerminalInputHandler): () => void {
-		return () => {};
-	}
-
-	setStatus(key: string, text: string | undefined): void {
-		this.#emit({
-			type: "state",
-			state: { name: "agent_start", message: `[${key}] ${text ?? ""}` },
-		});
-	}
-
-	setWorkingMessage(_message?: string): void {}
-	setWorkingVisible(_visible: boolean): void {}
-	setWorkingIndicator(_options?: WorkingIndicatorOptions): void {}
-	setHiddenThinkingLabel(_label?: string): void {}
-	setWidget: ExtensionUIContext["setWidget"] = () => {};
-	setFooter: ExtensionUIContext["setFooter"] = () => {};
-	setHeader: ExtensionUIContext["setHeader"] = () => {};
-	setTitle(_title: string): void {}
-	custom: ExtensionUIContext["custom"] = async () => {
-		throw new Error("Custom terminal UI components are not available in the web interface");
-	};
-	pasteToEditor(_text: string): void {}
-	setEditorText(_text: string): void {}
-	getEditorText(): string {
-		return "";
-	}
-	editor(_title: string, _prefill?: string): Promise<string | undefined> {
-		return Promise.resolve(undefined);
-	}
-	addAutocompleteProvider: ExtensionUIContext["addAutocompleteProvider"] = () => {};
-	setEditorComponent: ExtensionUIContext["setEditorComponent"] = () => {};
-	getEditorComponent: ExtensionUIContext["getEditorComponent"] = () => undefined;
-	get theme(): Theme {
-		throw new Error("Terminal themes are not available in the web interface");
-	}
-	getAllThemes(): { name: string; path: string | undefined }[] {
-		return [];
-	}
-	getTheme(_name: string): Theme | undefined {
-		return undefined;
-	}
-	setTheme(_theme: string | Theme): { success: boolean; error?: string } {
-		return { success: false, error: "not in browser" };
-	}
-	getToolsExpanded(): boolean {
-		return true;
-	}
-	setToolsExpanded(_expanded: boolean): void {}
-}
-
 /**
- * Verbatim port of `extractUserMessageText` from agent-session-runtime.ts —
- * joins the text parts of a user message's content for fork pre-fill.
+ * The web port only needs the three dialog primitives from `ExtensionUIContext`.
+ * Everything else (terminal input, theme management, custom widgets, footer
+ * factories, the editor component, etc.) is terminal-only and we expose a
+ * `Proxy` that throws a clear error. This keeps the type-checked interface
+ * intact for callers that just dereference a field, while the bridge itself
+ * only ever calls `select` / `confirm` / `input` / `notify` / `setStatus`.
  */
-function extractUserMessageText(content: string | Array<{ type: string; text?: string }>): string {
-	if (typeof content === "string") {
-		return content;
-	}
-	return content
-		.filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
-		.map((part) => part.text)
-		.join("");
+function createWebUIContext({ sessionId, emitFrame, dialogs }: UIContextCtorArgs): ExtensionUIContext {
+	const impl: Pick<ExtensionUIContext, "select" | "confirm" | "input" | "notify" | "setStatus"> = {
+		async select(title: string, options: string[], _opts?: ExtensionUIDialogOptions): Promise<string | undefined> {
+			const toolCallId = crypto.randomUUID();
+			const dialog = await dialogs.open<{ choice: string } | undefined>({
+				sessionId,
+				toolCallId,
+				kind: "select",
+				title,
+				message: "",
+				options,
+				signalFrame: {
+					type: "tool-Question",
+					toolCallId,
+					state: "input-streaming",
+					input: { kind: "select", title, options },
+				},
+			});
+			return (dialog as { choice: string } | undefined)?.choice;
+		},
+		async confirm(title: string, message: string, _opts?: ExtensionUIDialogOptions): Promise<boolean> {
+			const toolCallId = crypto.randomUUID();
+			const dialog = await dialogs.open<boolean>({
+				sessionId,
+				toolCallId,
+				kind: "confirm",
+				title,
+				message,
+				signalFrame: {
+					type: "tool-Question",
+					toolCallId,
+					state: "input-streaming",
+					input: { kind: "confirm", title, message },
+				},
+			});
+			return Boolean(dialog);
+		},
+		async input(title: string, placeholder?: string, _opts?: ExtensionUIDialogOptions): Promise<string | undefined> {
+			const toolCallId = crypto.randomUUID();
+			const dialog = await dialogs.open<{ text: string } | undefined>({
+				sessionId,
+				toolCallId,
+				kind: "input",
+				title,
+				message: "",
+				placeholder,
+				signalFrame: {
+					type: "tool-Question",
+					toolCallId,
+					state: "input-streaming",
+					input: { kind: "text", title, placeholder },
+				},
+			});
+			return (dialog as { text: string } | undefined)?.text;
+		},
+		notify(message: string, type: "info" | "warning" | "error" = "info"): void {
+			const prefix = type === "info" ? "" : `${type.toUpperCase()}: `;
+			emitFrame({
+				type: "state",
+				state: { name: "agent_start", message: `${prefix}${message}` },
+			});
+		},
+		setStatus(key: string, text: string | undefined): void {
+			emitFrame({
+				type: "state",
+				state: { name: "agent_start", message: `[${key}] ${text ?? ""}` },
+			});
+		},
+	};
+	return new Proxy(impl as unknown as ExtensionUIContext, {
+		get(target, prop, receiver) {
+			if (prop in target) return Reflect.get(target, prop, receiver);
+			return () => unsupportedInWebUi(String(prop));
+		},
+	}) as ExtensionUIContext;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,10 +185,21 @@ export interface BridgeSession {
 	readonly projectId: ProjectId | null;
 	readonly cwd: string;
 	readonly sessionPath: string;
-	readonly session: AgentSession;
+	/**
+	 * The only runtime entry point the bridge itself routes through.
+	 * Owned by the bridge; do not store references outside the bridge.
+	 */
+	readonly connection: AgentConnection;
+	/** Only populated by the explicit in-process test adapter. */
+	readonly session?: AgentSession;
+	readonly setOpenUIPrompt?: WebAgentConnection["setOpenUIPrompt"];
+	readonly terminate?: WebAgentConnection["terminate"];
+	readonly deleteSessionFile?: WebAgentConnection["deleteSessionFile"];
+	/** Cached connection state used by synchronous HTTP admission helpers. */
+	isStreaming: boolean;
 	readonly openUIPrompt: OpenUIPromptSessionState;
 	readonly mapperState: ReturnType<typeof createEventMapperState>;
-	readonly uiContext: WebUIContext;
+	readonly uiContext: ExtensionUIContext;
 	readonly unsubscribe: () => void;
 }
 
@@ -246,20 +208,10 @@ export interface CreateSessionOptions {
 	readonly projectId?: ProjectId | null;
 	readonly thinkingLevel?: ThinkingLevel;
 	readonly mode?: ChatMode;
+	readonly openUI?: boolean;
 }
 
 export type BridgeEventListener = (sessionId: string, frame: ChatStreamEvent) => void;
-
-/**
- * Structural mirror of prime-agent's `SessionTreeNode` (not re-exported from
- * the package index). `SessionManager.getTree()` returns this shape.
- */
-export interface SessionTreeNode {
-	entry: SessionEntry;
-	label?: string;
-	labelTimestamp?: string;
-	children: SessionTreeNode[];
-}
 
 export interface ForkSessionResult {
 	cancelled: boolean;
@@ -272,18 +224,27 @@ export interface PrimeBridgeOptions {
 	readonly ringBufferCapacity?: number;
 	readonly dialogTimeoutMs?: number;
 	readonly writePresentation?: typeof writeManagedPrimePresentation;
+	/** Test seam; production always uses the shared Prime daemon. */
+	readonly connectionFactory?: WebAgentConnectionFactory;
+	/** Test seam for session discovery; production always uses the shared daemon. */
+	readonly sessionLister?: typeof listDaemonSessions;
 }
 
 type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
 
-type OpenUIPromptSessionState = {
+export type OpenUIPromptSessionState = {
 	enabled: boolean;
 	mode: OpenUIPromptMode;
 	prompt: string;
+	artifact?: boolean;
 };
 
-function createOpenUIPromptSessionState(mode: OpenUIPromptMode = "agent", enabled = false): OpenUIPromptSessionState {
-	return { enabled, mode, prompt: buildOpenUIPrompt(mode) };
+function createOpenUIPromptSessionState(
+	mode: OpenUIPromptMode = "agent",
+	enabled = false,
+	artifact = false,
+): OpenUIPromptSessionState {
+	return { enabled, mode, artifact, prompt: buildOpenUIPrompt(mode, { artifact }) };
 }
 
 function resolveOpenUIPromptMode(mode?: ChatMode, planAction?: ChatPlanAction): OpenUIPromptMode {
@@ -298,124 +259,38 @@ function persistedBashStatus(message: Record<string, unknown>): PrimeAgentUserBa
 	return "success";
 }
 
-function stringField(value: Record<string, unknown>, key: string): string | undefined {
-	return typeof value[key] === "string" && value[key] ? (value[key] as string) : undefined;
-}
-
-function persistedRefinement(value: Record<string, unknown>, timestamp: number): PrimeAgentRefinement | undefined {
-	const refinementId = stringField(value, "refinementId");
-	const summary = stringField(value, "summary");
-	if (!refinementId || !summary || !Array.isArray(value.edits)) return undefined;
-	const edits: PrimeAgentRefinementEdit[] = value.edits.flatMap((raw, index) => {
-		if (typeof raw !== "object" || raw === null) return [];
-		const edit = raw as Record<string, unknown>;
-		const action =
-			edit.action === "create" || edit.action === "update" || edit.action === "delete" ? edit.action : "update";
-		const kind = stringField(edit, "kind") ?? "edit";
-		const id = stringField(edit, "id") ?? `${refinementId}-${index}`;
-		return [
-			{
-				action,
-				kind,
-				id,
-				...(stringField(edit, "title") ? { title: stringField(edit, "title") } : {}),
-				...(stringField(edit, "content") ? { content: stringField(edit, "content") } : {}),
-				...(typeof edit.before === "string" ? { before: edit.before } : {}),
-				...(typeof edit.after === "string" ? { after: edit.after } : {}),
-				...(stringField(edit, "reason") ? { reason: stringField(edit, "reason") } : {}),
-				applied: edit.applied === true,
-				...(stringField(edit, "error") ? { error: stringField(edit, "error") } : {}),
-			} satisfies PrimeAgentRefinementEdit,
-		];
-	});
-	return {
-		id: refinementId,
-		summary,
-		rationale: stringField(value, "rationale") ?? "",
-		expectedOutcome: stringField(value, "expectedOutcome") ?? "",
-		...(value.scope === "local" || value.scope === "global" ? { scope: value.scope } : {}),
-		...(stringField(value, "rollbackOf") ? { rollbackOf: stringField(value, "rollbackOf") } : {}),
-		edits,
-		status: "success",
-		timestamp,
-	};
+function presentationArtifactsEqual(left: PrimeAgentArtifact, right: PrimeAgentArtifact): boolean {
+	return (
+		left.id === right.id &&
+		left.runId === right.runId &&
+		left.sourceMessageId === right.sourceMessageId &&
+		left.kind === right.kind &&
+		left.title === right.title &&
+		left.status === right.status &&
+		JSON.stringify(left.input) === JSON.stringify(right.input) &&
+		JSON.stringify(left.output) === JSON.stringify(right.output)
+	);
 }
 
 function initialPresentationForSession(
-	session: AgentSession,
+	messages: readonly AgentMessage[],
+	sessionName: string | undefined,
+	thinkingLevel: ChatThinkingLevel | undefined,
+	serviceTier: ChatServiceTier | undefined,
+	recap: string | undefined,
 	sessionId: string,
 	base?: PrimeAgentSessionPresentation,
 ): PrimeAgentSessionPresentation {
 	if (base) return base;
 	const presentation = createEmptyPrimeAgentSessionPresentation({
-		...(session.sessionName ? { sessionName: session.sessionName } : {}),
-		thinkingLevel: session.thinkingLevel as ChatThinkingLevel,
-		serviceTier: session.serviceTier,
-		goal: session.goalState,
-		...(session.getCurrentRecap() ? { recap: session.getCurrentRecap() } : {}),
+		...(sessionName ? { sessionName } : {}),
+		...(thinkingLevel ? { thinkingLevel } : {}),
+		...(serviceTier ? { serviceTier } : {}),
+		...(recap ? { recap } : {}),
 	});
-	const messages = session.sessionManager.buildSessionContext().messages;
 	let bashIndex = 0;
 	for (const message of messages) {
 		const value = message as unknown as Record<string, unknown>;
-		if (value.role === "custom") {
-			const details =
-				typeof value.details === "object" && value.details !== null
-					? (value.details as Record<string, unknown>)
-					: undefined;
-			const timestamp = typeof value.timestamp === "number" ? value.timestamp : Date.now();
-			if (value.customType === "refinement_outcome" && details) {
-				const refinement = persistedRefinement(details, timestamp);
-				if (refinement) {
-					presentation.refinements.push(refinement);
-					presentation.artifactRuns = upsertArtifact(presentation, {
-						id: stablePresentationId(`${sessionId}:${refinement.id}:refinement`),
-						runId: sessionId,
-						sourceToolCallId: refinement.id,
-						kind: "refinement",
-						title: refinement.summary,
-						status: "success",
-						output: refinement,
-						timestamp,
-					}).artifactRuns;
-				}
-				continue;
-			}
-			if (value.customType === "rlm_child_failure" || value.customType === "rlm_child_terminal_notice") {
-				const childId = details && stringField(details, "childId");
-				const label = details && stringField(details, "sessionName");
-				if (childId && label) {
-					const status: PrimeAgentRlmChild["status"] =
-						value.customType === "rlm_child_failure"
-							? "error"
-							: details?.kind === "cancelled"
-								? "cancelled"
-								: "done";
-					const child: PrimeAgentRlmChild = {
-						id: childId,
-						label,
-						status,
-						...(details?.error && typeof details.error === "string" ? { error: details.error } : {}),
-						...(details?.lastAssistantTextPreview && typeof details.lastAssistantTextPreview === "string"
-							? { answerPreview: details.lastAssistantTextPreview }
-							: {}),
-						timestamp,
-					};
-					presentation.rlmChildren = [...presentation.rlmChildren.filter((entry) => entry.id !== childId), child];
-					presentation.artifactRuns = upsertArtifact(presentation, {
-						id: stablePresentationId(`${sessionId}:${childId}:rlm`),
-						runId: sessionId,
-						sourceToolCallId: childId,
-						kind: "rlm",
-						title: label,
-						status: status === "error" ? "error" : status === "cancelled" ? "cancelled" : "success",
-						output: child,
-						timestamp,
-					}).artifactRuns;
-				}
-			}
-			continue;
-		}
 		if (value.role !== "bashExecution") continue;
 		const command = typeof value.command === "string" ? value.command : "";
 		const output = typeof value.output === "string" ? value.output : "";
@@ -435,11 +310,11 @@ function initialPresentationForSession(
 			endedAt: timestamp,
 		};
 		presentation.userBash.push(entry);
-		const artifact: PrimeAgentArtifact = {
+		const artifact = {
 			id: stablePresentationId(`${runId}:bash`),
 			runId,
 			sourceToolCallId: runId,
-			kind: "bash",
+			kind: "bash" as const,
 			title: command || "Bash",
 			status: entry.status,
 			input: { command, excludeFromContext: entry.excludeFromContext },
@@ -451,31 +326,100 @@ function initialPresentationForSession(
 	return presentation;
 }
 
-async function createWebAgentSession(options: {
-	cwd: string;
-	sessionManager?: SessionManager;
-	openUIPrompt: OpenUIPromptSessionState;
-}) {
-	const authStorage = AuthStorage.create();
-	const services = await createAgentSessionServices({
-		cwd: options.cwd,
-		authStorage,
-		// The web bridge historically used the bare SDK path. Keep its telemetry
-		// and built-in Herdr behavior unchanged while adding the web-only prompt.
-		noBuiltinHerdrReporter: true,
-		telemetryDisabled: true,
-		resourceLoaderOptions: {
-			appendSystemPromptOverride: (base) =>
-				options.openUIPrompt.enabled ? [...base, options.openUIPrompt.prompt] : base,
-		},
-	});
-	const result = await createAgentSessionFromServices({
-		services,
-		sessionManager: options.sessionManager ?? SessionManager.create(options.cwd),
-		telemetryDisabled: true,
-	});
-	return { ...result, openUIPrompt: options.openUIPrompt };
+// ---------------------------------------------------------------------------
+// Per-session cached surface (keeps the public bridge API synchronous)
+// ---------------------------------------------------------------------------
+
+/**
+ * BridgeSessionCache — cached subset of the connection state used by the
+ * sync bridge methods. The AgentConnection API is async; the chat-command
+ * handler (out of this PR's scope) calls these methods synchronously, so the
+ * bridge maintains a fresh-enough cache and refreshes it on every
+ * `session_replaced` and the relevant `session_event` mutations.
+ */
+interface BridgeSessionCache {
+	sessionName: string | undefined;
+	thinkingLevel: ThinkingLevel | undefined;
+	serviceTier: ChatServiceTier | undefined;
+	systemPrompt: string;
+	contextUsage: unknown;
+	tree: { tree: unknown[]; leafId: string | null } | undefined;
+	isStreaming: boolean;
 }
+
+function emptyCache(): BridgeSessionCache {
+	return {
+		sessionName: undefined,
+		thinkingLevel: undefined,
+		serviceTier: undefined,
+		systemPrompt: "",
+		contextUsage: undefined,
+		tree: undefined,
+		isStreaming: false,
+	};
+}
+
+async function refreshCache(connection: AgentConnection): Promise<BridgeSessionCache> {
+	const [state, systemPrompt, stats, tree] = await Promise.all([
+		connection.getState(),
+		connection.getSystemPrompt().catch(() => ""),
+		connection.getSessionStats().catch(() => undefined),
+		connection.getSessionTree().catch(() => ({ tree: [], leafId: null })),
+	]);
+	return {
+		sessionName: state.sessionName,
+		thinkingLevel: state.thinkingLevel,
+		serviceTier: state.serviceTier ?? undefined,
+		systemPrompt,
+		contextUsage: stats?.contextUsage,
+		tree: { tree: tree.tree as unknown[], leafId: tree.leafId },
+		isStreaming: state.isStreaming,
+	};
+}
+
+function fallbackSessionPath(connectionState: Awaited<ReturnType<AgentConnection["getState"]>>, cwd: string): string {
+	if (connectionState.sessionFile) return resolve(connectionState.sessionFile);
+	const sessionDir = connectionState.sessionDir ?? sessionDirectoryForCwd(cwd);
+	return resolve(sessionDir, `${connectionState.sessionId}.jsonl`);
+}
+
+type SessionTreeEntry = Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"][number]["entry"];
+
+function findSessionTreeEntry(
+	nodes: Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"],
+	entryId: string,
+): SessionTreeEntry | undefined {
+	for (const node of nodes) {
+		if (node.entry.id === entryId) return node.entry;
+		const nested = findSessionTreeEntry(node.children, entryId);
+		if (nested) return nested;
+	}
+	return undefined;
+}
+
+function selectedTextFromSessionEntry(entry: SessionTreeEntry): string | undefined {
+	if (entry.type !== "message" || entry.message.role !== "user") return undefined;
+	const content = entry.message.content;
+	if (typeof content === "string") return content;
+	return content
+		.filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
+		.map((part) => part.text)
+		.join("");
+}
+
+/**
+ * prime-agent falls back to an `unknown/unknown` placeholder model when no
+ * real model can be resolved (e.g. no provider auth configured). Attempting
+ * to carry that placeholder over to a forked session makes `setModel` throw
+ * "Model not found"; skip it so the fork resolves its own default.
+ */
+function isUnresolvedPlaceholderModel(model: AgentConnectionModel | undefined): boolean {
+	return model?.provider === "unknown" && model?.id === "unknown";
+}
+
+// ---------------------------------------------------------------------------
+// PrimeBridge
+// ---------------------------------------------------------------------------
 
 export class PrimeBridge {
 	readonly #sessions = new Map<string, BridgeSession>();
@@ -487,6 +431,12 @@ export class PrimeBridge {
 	readonly #presentationWrites = new Map<string, Promise<void>>();
 	readonly #presentationGenerations = new Map<string, number>();
 	readonly #writePresentation: typeof writeManagedPrimePresentation;
+	readonly #connectionFactory: WebAgentConnectionFactory;
+	readonly #sessionLister: typeof listDaemonSessions;
+	readonly #caches = new Map<string, BridgeSessionCache>();
+	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
+	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
+	readonly #auxiliaryWarnings = new Set<string>();
 	#kernelReadyByCwd = new Map<string, Promise<void>>();
 	#kernelStateByCwd = new Map<string, KernelReadySnapshot>();
 
@@ -494,13 +444,15 @@ export class PrimeBridge {
 		this.#kernelTimeoutMs = options.kernelTimeoutMs ?? 30_000;
 		this.#ringBufferCapacity = options.ringBufferCapacity ?? 500;
 		this.#writePresentation = options.writePresentation ?? writeManagedPrimePresentation;
+		this.#connectionFactory = options.connectionFactory ?? createDaemonWebAgentConnection;
+		this.#sessionLister = options.sessionLister ?? listDaemonSessions;
 		this.#dialogs = new PendingDialogRegistry({
 			defaultTimeoutMs: options.dialogTimeoutMs ?? 60_000,
 			emitFrame: (sessionId, frame) => this.#dispatch(sessionId, frame),
 		});
 	}
 
-	/** Late-boot kernel readiness gate. Boot-time callers await this; failures cause `/api/chat/new` to 503. */
+	/** Late-boot kernel readiness gate. Boot-time callers await this; failures cause `/api/chat` to 503. */
 	async ensureKernelReady(cwd?: string): Promise<void> {
 		const key = resolve(cwd ?? process.cwd());
 		const existing = this.#kernelReadyByCwd.get(key);
@@ -544,7 +496,7 @@ export class PrimeBridge {
 		const next = frame.type === "done" && !(frame.sessionId ?? "").trim() ? { ...frame, sessionId } : frame;
 		const buffer = this.#ringBuffers.get(sessionId);
 		if (buffer) {
-			buffer.push({ sessionId, frame: next });
+			buffer.push(next);
 		}
 		for (const listener of this.#listeners) {
 			listener(sessionId, next);
@@ -571,12 +523,19 @@ export class PrimeBridge {
 
 	/** Test-only: reset state. */
 	resetForTests(): void {
-		for (const session of this.#sessions.values()) session.unsubscribe();
+		for (const session of this.#sessions.values()) {
+			session.unsubscribe();
+			void session.connection.dispose().catch(() => undefined);
+		}
 		this.#sessions.clear();
 		this.#listeners.clear();
 		this.#ringBuffers.clear();
 		this.#presentationWrites.clear();
 		this.#presentationGenerations.clear();
+		this.#caches.clear();
+		this.#openUIPromptTransitions.clear();
+		this.#daemonDialogs.clear();
+		this.#auxiliaryWarnings.clear();
 		this.#kernelReadyByCwd.clear();
 		this.#kernelStateByCwd.clear();
 	}
@@ -594,95 +553,246 @@ export class PrimeBridge {
 		void this.ensureKernelReady(options.cwd).catch(() => {
 			/* backgrounded; failures surface on first tool use */
 		});
-		const {
-			session,
-			extensionsResult: _ext,
-			openUIPrompt,
-		} = await createWebAgentSession({
+		const webAgent = await this.#connectionFactory({
 			cwd: options.cwd,
-			openUIPrompt: createOpenUIPromptSessionState(resolveOpenUIPromptMode(options.mode)),
+			openUIPrompt: createOpenUIPromptSessionState(resolveOpenUIPromptMode(options.mode), options.openUI === true),
+			...(options.thinkingLevel ? { thinkingLevel: options.thinkingLevel } : {}),
 		});
-		// Force-flush the session header to disk eagerly so /api/chat/sessions and
-		// future `resumeSessionById` calls (across Vite SSR restarts) can find it.
-		// `materializeSessionFile()` returns the planned path but skips the actual
-		// write — `_persist()` defers all writes until the first assistant message
-		// (anti dangling-session guard for the interactive CLI). For the web bridge
-		// we want the header durable *now*, so we call `flushNow()` instead, which
-		// bypasses that guard intentionally.
-		session.sessionManager.materializeSessionFile();
-		session.sessionManager.flushNow();
-		const bridgeSession = await this.#registerSession(
-			session,
+		return this.#registerConnection(
+			webAgent,
 			options.cwd,
-			session.sessionManager.getSessionFile() ?? "",
-			openUIPrompt,
+			undefined,
 			options.projectId ?? (await getPrimeConfig().projectRegistry.projectIdForCwd(options.cwd)),
 		);
-		if (options.thinkingLevel) {
-			await session.setThinkingLevel(options.thinkingLevel);
+	}
+
+	#handleDaemonExtensionUiRequest(
+		sessionId: string,
+		connection: AgentConnection,
+		request: AgentConnectionExtensionUiRequest,
+	): boolean {
+		const title = typeof request.payload.title === "string" ? request.payload.title : "Prime Agent asks";
+		const timeoutMs = typeof request.payload.timeout === "number" ? request.payload.timeout : undefined;
+		const options = Array.isArray(request.payload.options)
+			? request.payload.options.filter((option): option is string => typeof option === "string")
+			: undefined;
+		const message = typeof request.payload.message === "string" ? request.payload.message : "";
+		const placeholder =
+			typeof request.payload.placeholder === "string"
+				? request.payload.placeholder
+				: typeof request.payload.prefill === "string"
+					? request.payload.prefill
+					: undefined;
+
+		if (request.method === "notify") {
+			this.#dispatch(sessionId, {
+				type: "state",
+				state: {
+					name: "agent_start",
+					message: message || title,
+				},
+			});
+			return true;
 		}
-		return bridgeSession;
+		if (request.method === "setStatus") {
+			this.#dispatch(sessionId, {
+				type: "state",
+				state: {
+					name: "agent_start",
+					message: `[${typeof request.payload.statusKey === "string" ? request.payload.statusKey : "status"}] ${typeof request.payload.statusText === "string" ? request.payload.statusText : ""}`,
+				},
+			});
+			return true;
+		}
+
+		const normalizedQuestions = normalizeDaemonQuestions(request.payload.questions);
+		const registryQuestions = normalizedQuestionsToClarification(normalizedQuestions);
+		const wireQuestions = normalizedQuestionsToWire(normalizedQuestions);
+
+		const hasQuestions =
+			request.method === "questions" ||
+			request.method === "ask_question" ||
+			Boolean(registryQuestions && registryQuestions.length > 0);
+
+		if (
+			!hasQuestions &&
+			request.method !== "select" &&
+			request.method !== "confirm" &&
+			request.method !== "input" &&
+			request.method !== "editor"
+		) {
+			return false;
+		}
+
+		const kind = hasQuestions
+			? "questions"
+			: request.method === "select"
+				? "select"
+				: request.method === "confirm"
+					? "confirm"
+					: "input";
+		this.#daemonDialogs.set(request.id, { connection, method: request.method });
+		const pending = this.#dialogs.open<unknown>({
+			sessionId,
+			toolCallId: request.id,
+			kind,
+			title,
+			message,
+			...(options ? { options } : {}),
+			...(registryQuestions ? { questions: registryQuestions } : {}),
+			...(placeholder ? { placeholder } : {}),
+			...(timeoutMs !== undefined ? { timeoutMs } : {}),
+			signalFrame: {
+				type: "tool-Question",
+				toolCallId: request.id,
+				state: "input-streaming",
+				input: {
+					kind: hasQuestions
+						? "questions"
+						: request.method === "select"
+							? "select"
+							: request.method === "confirm"
+								? "confirm"
+								: "text",
+					title,
+					...(message ? { message } : {}),
+					...(options ? { options } : {}),
+					...(wireQuestions ? { questions: wireQuestions } : {}),
+					...(placeholder ? { placeholder } : {}),
+					method: request.method,
+				},
+			},
+		});
+		void pending
+			.then((value) => {
+				if (request.method === "confirm") {
+					return connection.respondToExtensionUiRequest(request.id, { confirmed: Boolean(value) });
+				}
+				if (hasQuestions) {
+					if (value && typeof value === "object") {
+						return connection.respondToExtensionUiRequest(request.id, {
+							value: JSON.stringify(value),
+						});
+					}
+					return connection.respondToExtensionUiRequest(request.id, {
+						value: typeof value === "string" ? value : "",
+					});
+				}
+				const text =
+					value && typeof value === "object" && "choice" in value
+						? (value as { choice?: unknown }).choice
+						: value && typeof value === "object" && "choices" in value
+							? (value as { choices?: unknown }).choices
+							: value && typeof value === "object" && "text" in value
+								? (value as { text?: unknown }).text
+								: undefined;
+				return connection.respondToExtensionUiRequest(request.id, {
+					value: typeof text === "string" ? text : Array.isArray(text) ? text.join(",") : "",
+				});
+			})
+			.catch(() => connection.respondToExtensionUiRequest(request.id, { cancelled: true }).catch(() => undefined))
+			.finally(() => this.#daemonDialogs.delete(request.id));
+		return true;
 	}
 
 	/**
 	 * Shared registration path for every session the bridge owns (create, resume,
-	 * fork). Binds the web UI context, forwards session events into the ring
-	 * buffer, and tracks the session in `#sessions`.
+	 * fork). Binds the web UI context, subscribes to `AgentConnectionEvent`,
+	 * forwards frames into the ring buffer, and tracks the session in
+	 * `#sessions`.
 	 */
-	async #registerSession(
-		session: AgentSession,
+	async #registerConnection(
+		webAgent: WebAgentConnection,
 		cwd: string,
-		sessionPath: string,
-		openUIPrompt: OpenUIPromptSessionState,
-		projectId: ProjectId | null,
+		sessionPathHint?: string,
+		projectId?: ProjectId | null,
 	): Promise<BridgeSession> {
-		const sessionId = session.sessionManager.getSessionId();
+		const { connection, openUIPrompt } = webAgent;
+		const state = await connection.getState();
+		const sessionId = state.sessionId;
+		const sessionCwd = state.cwd || cwd;
+		const sessionPath = resolve(state.sessionFile ?? sessionPathHint ?? fallbackSessionPath(state, sessionCwd));
 		const resolvedProjectId =
-			projectId ?? (await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, cwd));
+			projectId ?? (await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, sessionCwd));
 		await getPrimeConfig().projectRegistry.assignSession(sessionId, resolvedProjectId);
-		const uiContext = new WebUIContext({
+		const uiContext = createWebUIContext({
 			sessionId,
 			emitFrame: (frame) => this.#dispatch(sessionId, frame),
 			dialogs: this.#dialogs,
 		});
-		await session.bindExtensions({
-			uiContext,
-		});
+		await webAgent.bindUiContext?.(uiContext);
 
-		const persistedPresentation = await loadManagedPrimePresentation({ session, sessionPath });
+		const initialMessages = await connection.getMessages();
+		const cache = await refreshCache(connection);
+		this.#caches.set(sessionId, cache);
+		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath });
 		const mapperState = createEventMapperState({
 			sessionId,
-			presentation: initialPresentationForSession(session, sessionId, persistedPresentation),
+			presentation: initialPresentationForSession(
+				initialMessages,
+				cache.sessionName,
+				(cache.thinkingLevel ?? "off") as ChatThinkingLevel,
+				cache.serviceTier,
+				undefined,
+				sessionId,
+				persistedPresentation,
+			),
 		});
-		const unsubscribe = session.subscribe((event) => {
-			if (event.type === "compaction_end") {
+
+		const unsubscribe = connection.subscribe((event) => {
+			if (event.type === "extension_ui_request" && !webAgent.bindUiContext) {
+				if (this.#handleDaemonExtensionUiRequest(sessionId, connection, event.request)) return;
+			}
+			if (event.type === "session_event" && event.event.type === "compaction_end") {
 				// Compaction rewrites the transcript prefix, shifting the positional
 				// `${sessionId}-mN` ids the plan sidecar keys on. Invalidate records
 				// rather than let them rebind to unrelated messages.
 				void deleteManagedPlanPresentationsForSession(sessionId, sessionPath).catch(() => undefined);
 			}
+			if (event.type === "session_replaced" || event.type === "session_resynced") {
+				// The runtime rebuilt; refresh the cache from the new session state.
+				void refreshCache(connection)
+					.then((next) => {
+						this.#caches.set(sessionId, next);
+						const current = this.#sessions.get(sessionId);
+						if (current) current.isStreaming = next.isStreaming;
+					})
+					.catch(() => undefined);
+			}
+			if (event.type === "session_event") {
+				const current = this.#sessions.get(sessionId);
+				if (current && (event.event.type === "agent_start" || event.event.type === "turn_start")) {
+					current.isStreaming = true;
+				} else if (current && (event.event.type === "agent_end" || event.event.type === "turn_end")) {
+					current.isStreaming = false;
+				}
+			}
 			if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 				try {
 					process.stderr.write(
-						`[bridge:${sessionId.slice(0, 8)}] event ${event.type} ${JSON.stringify(event).slice(0, 200)}\n`,
+						`[bridge:${sessionId.slice(0, 8)}] conn-event ${event.type} ${JSON.stringify(event).slice(0, 200)}\n`,
 					);
 				} catch {
 					/* ignore */
 				}
 			}
-			const frames = mapAgentSessionEvent(mapperState, event);
+			const frames = mapAgentConnectionEvent(mapperState, event);
 			for (const frame of frames) {
-				if (frame.type === "presentation")
-					this.#persistPresentation(sessionId, session, sessionPath, frame.presentation);
+				if (frame.type === "presentation") this.#persistPresentation(sessionId, sessionPath, frame.presentation);
 				this.#dispatch(sessionId, frame);
 			}
 		});
 		const bridgeSession: BridgeSession = {
 			sessionId,
 			projectId: resolvedProjectId,
-			cwd,
+			cwd: sessionCwd,
 			sessionPath,
-			session,
+			connection,
+			session: webAgent.session,
+			setOpenUIPrompt: webAgent.setOpenUIPrompt,
+			terminate: webAgent.terminate,
+			deleteSessionFile: webAgent.deleteSessionFile,
+			isStreaming: cache.isStreaming,
 			openUIPrompt,
 			mapperState,
 			uiContext,
@@ -691,32 +801,46 @@ export class PrimeBridge {
 
 		this.#sessions.set(sessionId, bridgeSession);
 		this.#ringBufferFor(sessionId); // Pre-create so SSE attaches safely.
-		this.#persistPresentation(sessionId, session, sessionPath, mapperState.presentation);
+		this.#persistPresentation(sessionId, sessionPath, mapperState.presentation);
 		return bridgeSession;
 	}
 
 	#persistPresentation(
 		sessionId: string,
-		session: AgentSession,
 		sessionPath: string,
 		presentation: PrimeAgentSessionPresentation,
-	): void {
+	): Promise<void> {
 		const generation = this.#presentationGenerations.get(sessionId) ?? 0;
 		const previous = this.#presentationWrites.get(sessionId) ?? Promise.resolve();
 		const next = previous
 			.catch(() => undefined)
 			.then(() => {
 				const live = this.#sessions.get(sessionId);
-				if (live?.session !== session || (this.#presentationGenerations.get(sessionId) ?? 0) !== generation) {
+				if (
+					live?.sessionPath !== sessionPath ||
+					(this.#presentationGenerations.get(sessionId) ?? 0) !== generation
+				) {
 					return;
 				}
-				return this.#writePresentation({ session, sessionPath }, presentation);
+				return this.#writePresentation({ sessionPath }, presentation);
 			})
-			.catch(() => undefined);
+			.catch(() => {
+				if (this.#auxiliaryWarnings.has(sessionId)) return;
+				this.#auxiliaryWarnings.add(sessionId);
+				this.#dispatch(sessionId, {
+					type: "state",
+					state: {
+						name: "agent_start",
+						message:
+							"Some Fleet session details could not be saved. Your transcript is safe; they will be retried later.",
+					},
+				});
+			});
 		this.#presentationWrites.set(sessionId, next);
 		void next.finally(() => {
 			if (this.#presentationWrites.get(sessionId) === next) this.#presentationWrites.delete(sessionId);
 		});
+		return next;
 	}
 
 	/** Hot-lookup by id; reuse the live session if we already have one loaded. */
@@ -725,71 +849,102 @@ export class PrimeBridge {
 	}
 
 	/** Resume a persisted prime-agent session from its JSONL transcript. */
-	async resumeSessionByPath(sessionPath: string): Promise<BridgeSession> {
+	async resumeSessionByPath(sessionPath: string, options?: { readonly openUI?: boolean }): Promise<BridgeSession> {
+		const resolvedSessionPath = resolve(sessionPath);
 		// If a live session already owns this path, reuse it.
 		for (const [sessionId, session] of this.#sessions) {
-			if (session.sessionPath === sessionPath) {
+			if (resolve(session.sessionPath) === resolvedSessionPath) {
 				return this.#sessions.get(sessionId)!;
 			}
 		}
-		const sessionManager = await SessionManager.openAsync(sessionPath);
-		const agentSessionResult = await createWebAgentSession({
-			cwd: sessionManager.getCwd(),
-			sessionManager,
-			openUIPrompt: createOpenUIPromptSessionState(),
+		if (!existsSync(resolvedSessionPath)) throw new Error("The requested session transcript is unavailable");
+		const sessionManager = await SessionManager.openAsync(resolvedSessionPath);
+		const sessionCwd = sessionManager.getCwd();
+		const expectedSessionDir = resolve(sessionDirectoryForCwd(sessionCwd));
+		if (dirname(resolvedSessionPath) !== expectedSessionDir) {
+			throw new Error("The requested session is outside the configured Prime session store");
+		}
+		const webAgent = await this.#connectionFactory({
+			cwd: sessionCwd,
+			sessionPath: resolvedSessionPath,
+			openUIPrompt: createOpenUIPromptSessionState("agent", options?.openUI === true),
 		});
-		return this.#registerSession(
-			agentSessionResult.session,
-			sessionManager.getCwd(),
-			sessionPath,
-			agentSessionResult.openUIPrompt,
-			await getPrimeConfig().projectRegistry.projectIdForSession(
-				sessionManager.getSessionId(),
-				sessionManager.getCwd(),
-			),
+		return this.#registerConnection(
+			webAgent,
+			sessionCwd,
+			resolvedSessionPath,
+			await getPrimeConfig().projectRegistry.projectIdForSession(sessionManager.getSessionId(), sessionCwd),
 		);
 	}
 
-	async resumeSessionById(sessionId: string): Promise<BridgeSession | undefined> {
+	async resumeSessionById(
+		sessionId: string,
+		requestedProjectId?: ProjectId | null,
+		options?: { readonly openUI?: boolean },
+	): Promise<BridgeSession | undefined> {
 		const live = this.#sessions.get(sessionId);
-		if (live) return live;
-		const all = await SessionManager.listAll();
-		const match = all.find((info) => info.id === sessionId);
+		if (live) {
+			if (requestedProjectId && live.projectId !== requestedProjectId) {
+				const forkedId = await this.forkSessionIntoProject(sessionId, requestedProjectId);
+				return this.#requireSession(forkedId);
+			}
+			return live;
+		}
+		const all = await this.#sessionLister();
+		const match = all.find((info) => info.sessionId === sessionId || info.id === sessionId);
 		if (!match) return undefined;
-		return this.resumeSessionByPath(match.path);
+		if (!match.sessionFile) return undefined;
+		const resumed = await this.resumeSessionByPath(match.sessionFile, options);
+		if (requestedProjectId && resumed.projectId !== requestedProjectId) {
+			const forkedId = await this.forkSessionIntoProject(resumed.sessionId, requestedProjectId);
+			return this.#requireSession(forkedId);
+		}
+		return resumed;
 	}
 
-	async listSessions(cwd?: string): Promise<readonly SessionInfo[]> {
-		if (cwd) {
-			return await SessionManager.list(cwd);
-		}
-		return await SessionManager.listAll();
+	async listSessions(cwd?: string) {
+		return this.#sessionLister(cwd);
 	}
 
 	async deleteSession(sessionId: string): Promise<boolean> {
-		const existing = this.#sessions.get(sessionId);
-		const sessions = existing ? undefined : await SessionManager.listAll();
-		const sessionPath = existing?.sessionPath ?? sessions?.find((session) => session.id === sessionId)?.path;
-		if (!sessionPath) return false;
-		if (existing) {
-			this.#dialogs.cancelAll(sessionId, "server-shutdown");
-			existing.unsubscribe();
-			await existing.session.abort().catch(() => undefined);
-			this.#sessions.delete(sessionId);
-			this.#ringBuffers.delete(sessionId);
+		let existing = this.#sessions.get(sessionId);
+		if (!existing) {
+			const sessions = await this.#sessionLister();
+			const sessionPath = sessions.find(
+				(session) => session.sessionId === sessionId || session.id === sessionId,
+			)?.sessionFile;
+			if (!sessionPath) return false;
+			existing = await this.resumeSessionByPath(sessionPath);
 		}
-		this.#presentationGenerations.set(sessionId, (this.#presentationGenerations.get(sessionId) ?? 0) + 1);
-		const pendingPresentationWrite = this.#presentationWrites.get(sessionId);
+		const sessionPath = existing.sessionPath;
+		this.#presentationGenerations.set(
+			existing.sessionId,
+			(this.#presentationGenerations.get(existing.sessionId) ?? 0) + 1,
+		);
+		const pendingPresentationWrite = this.#presentationWrites.get(existing.sessionId);
 		await pendingPresentationWrite?.catch(() => undefined);
-		if (this.#presentationWrites.get(sessionId) === pendingPresentationWrite) {
-			this.#presentationWrites.delete(sessionId);
+		if (this.#presentationWrites.get(existing.sessionId) === pendingPresentationWrite) {
+			this.#presentationWrites.delete(existing.sessionId);
 		}
-		await deleteManagedAttachmentsForSession(sessionId, sessionPath);
-		await deleteManagedPlanPresentationsForSession(sessionId, sessionPath);
-		await rm(sessionPath, { force: true });
-		const artifactDir = join(dirname(dirname(sessionPath)), "session-artifacts", basename(sessionPath, ".jsonl"));
-		await rm(artifactDir, { recursive: true, force: true });
-		await getPrimeConfig().projectRegistry.assignSession(sessionId, null);
+		this.#dialogs.cancelAll(existing.sessionId, "server-shutdown");
+		existing.unsubscribe();
+		await existing.connection.abort().catch(() => undefined);
+		await this.#openUIPromptTransitions.get(existing.sessionId)?.catch(() => undefined);
+		try {
+			await existing.terminate?.();
+			const result = await (existing.deleteSessionFile?.(sessionPath) ??
+				existing.connection.deleteSavedSession(sessionPath));
+			if (!result.ok) throw new Error(result.error);
+		} finally {
+			await existing.connection.dispose().catch(() => undefined);
+			this.#sessions.delete(existing.sessionId);
+			this.#ringBuffers.delete(existing.sessionId);
+			this.#caches.delete(existing.sessionId);
+			this.#openUIPromptTransitions.delete(existing.sessionId);
+		}
+		await deleteManagedAttachmentsForSession(existing.sessionId, sessionPath);
+		await deleteManagedPlanPresentationsForSession(existing.sessionId, sessionPath);
+		await getPrimeConfig().projectRegistry.assignSession(existing.sessionId, null);
 		return true;
 	}
 
@@ -805,78 +960,145 @@ export class PrimeBridge {
 			streamingBehavior?: "steer" | "followUp";
 			mode?: ChatMode;
 			openUI?: boolean;
+			openUIArtifact?: boolean;
 			planAction?: ChatPlanAction;
 		},
 	): Promise<void> {
 		const session = this.#requireSession(sessionId);
 		const backendSessionCommand = parseBackendSessionCommand(text);
-		this.#setOpenUIPromptState(
-			session,
-			options?.openUI === true,
-			resolveOpenUIPromptMode(options?.mode, options?.planAction),
-		);
-		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
-			process.stderr.write(
-				`[bridge:${sessionId.slice(0, 8)}] prompt model=${session.session.agent?.state?.model?.provider ?? "?"}/${session.session.agent?.state?.model?.id ?? "?"} thinkingLevel=${session.session.agent?.state?.thinkingLevel ?? "?"}\n`,
-			);
-		}
-		await session.session.prompt(text, {
+		const openUIEnabled = options?.openUI === true;
+		const openUIMode = resolveOpenUIPromptMode(options?.mode, options?.planAction);
+		const openUIArtifact = options?.openUIArtifact === true;
+		const openUIStateChanged =
+			session.openUIPrompt.enabled !== openUIEnabled ||
+			session.openUIPrompt.mode !== openUIMode ||
+			(session.openUIPrompt.artifact ?? false) !== openUIArtifact;
+		const hasPendingOpenUITransition = this.#openUIPromptTransitions.has(sessionId);
+		const wasStreaming = session.isStreaming;
+		const promptOptions = {
 			images: options?.images,
 			streamingBehavior: options?.streamingBehavior,
 			queueIfBusy: true,
-			resumeIfIdle: true,
-		});
-		// AgentSession returns early when a session command is queued behind an
-		// active turn. Wait for the command itself so the HTTP stream can emit its
-		// terminal frame after refinement/compaction/goal work has actually run.
-		if (backendSessionCommand) await session.session.waitForSessionInputIdle();
+		};
+
+		if (!wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
+			// Preserve the idle ordering: commit the prompt state before admitting
+			// the next prompt. The transition queue also waits for an earlier active
+			// prompt's safe-boundary reconfiguration.
+			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact);
+		}
+		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
+			void (async () => {
+				const state = await session.connection.getState().catch(() => undefined);
+				process.stderr.write(
+					`[bridge:${sessionId.slice(0, 8)}] prompt model=${state?.model?.provider ?? "?"}/${state?.model?.id ?? "?"} thinkingLevel=${state?.thinkingLevel ?? "?"}\n`,
+				);
+			})();
+		}
+		// `promptAndWait` mirrors the legacy `session.prompt(...)` semantics:
+		// resolves when the turn settles (including any queued session commands).
+		// The `queueIfBusy` flag keeps steer/followUp admission behavior
+		// identical to the previous bridge. When a prompt is already streaming,
+		// admit it before waiting for the OpenUI transition; the transition then
+		// runs at the next safe idle boundary.
+		let promptError: unknown;
+		let promptFailed = false;
+		try {
+			await session.connection.promptAndWait(text, promptOptions);
+			// For a session command (e.g. /refine) queued behind an active turn, wait
+			// until input is idle so the HTTP stream can emit its terminal frame
+			// after the command has actually run.
+			if (backendSessionCommand) await session.connection.waitForIdle();
+		} catch (error) {
+			promptFailed = true;
+			promptError = error;
+		}
+		if (wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
+			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact);
+		}
+		if (promptFailed) throw promptError;
 	}
 
-	#setOpenUIPromptState(session: BridgeSession, enabled: boolean, mode: OpenUIPromptMode): void {
-		if (session.openUIPrompt.enabled === enabled && session.openUIPrompt.mode === mode) return;
+	#scheduleOpenUIPromptState(
+		session: BridgeSession,
+		enabled: boolean,
+		mode: OpenUIPromptMode,
+		artifact: boolean,
+	): Promise<void> {
+		const previous = this.#openUIPromptTransitions.get(session.sessionId) ?? Promise.resolve();
+		const transition = previous
+			.catch(() => undefined)
+			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact));
+		this.#openUIPromptTransitions.set(session.sessionId, transition);
+		void transition
+			.finally(() => {
+				if (this.#openUIPromptTransitions.get(session.sessionId) === transition) {
+					this.#openUIPromptTransitions.delete(session.sessionId);
+				}
+			})
+			.catch(() => undefined);
+		return transition;
+	}
 
-		const nextPrompt = buildOpenUIPrompt(mode);
-		const appendSystemPrompt = session.session.resourceLoader.getAppendSystemPrompt();
-		const currentPromptIndex = appendSystemPrompt.lastIndexOf(session.openUIPrompt.prompt);
-		if (!enabled && currentPromptIndex >= 0) {
-			appendSystemPrompt.splice(currentPromptIndex, 1);
-		} else if (enabled && currentPromptIndex >= 0) {
-			appendSystemPrompt[currentPromptIndex] = nextPrompt;
-		} else if (enabled) {
-			appendSystemPrompt.push(nextPrompt);
+	async #setOpenUIPromptState(
+		session: BridgeSession,
+		enabled: boolean,
+		mode: OpenUIPromptMode,
+		artifact = false,
+	): Promise<void> {
+		if (
+			session.openUIPrompt.enabled === enabled &&
+			session.openUIPrompt.mode === mode &&
+			(session.openUIPrompt.artifact ?? false) === artifact
+		)
+			return;
+		const previousPrompt = session.openUIPrompt.prompt;
+		const nextPrompt = buildOpenUIPrompt(mode, { artifact });
+		const nextState: OpenUIPromptSessionState = { enabled, mode, artifact, prompt: nextPrompt };
+		if (session.setOpenUIPrompt) {
+			await session.setOpenUIPrompt(nextState);
+			const cache = this.#caches.get(session.sessionId) ?? emptyCache();
+			const withoutPreviousPrompt = cache.systemPrompt.replace(previousPrompt, "").trim();
+			cache.systemPrompt = enabled
+				? `${withoutPreviousPrompt}${withoutPreviousPrompt ? "\n\n" : ""}${nextPrompt}`
+				: withoutPreviousPrompt;
+			this.#caches.set(session.sessionId, cache);
+		} else if (process.env.PRIME_BRIDGE_DEBUG === "1") {
+			process.stderr.write(
+				`[bridge:${session.sessionId.slice(0, 8)}] OpenUI prompt state changed but this connection cannot update prompts after creation; recreate the session to apply it\n`,
+			);
 		}
-
 		session.openUIPrompt.enabled = enabled;
 		session.openUIPrompt.mode = mode;
+		session.openUIPrompt.artifact = artifact;
 		session.openUIPrompt.prompt = nextPrompt;
-		session.session.setActiveToolsByName(session.session.getActiveToolNames());
 	}
 
 	async steer(sessionId: string, text: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
-		await session.session.steer(text);
+		await session.connection.steer(text);
 	}
 
 	async followUp(sessionId: string, text: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
-		await session.session.followUp(text);
+		await session.connection.followUp(text);
 	}
 
 	async abort(sessionId: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
 		this.#dialogs.cancelAll(sessionId, "user-abort");
-		await session.session.abort();
+		await session.connection.abort();
 	}
 
 	async setModel(sessionId: string, model: { provider: string; id: string }): Promise<void> {
 		const session = this.#requireSession(sessionId);
 		const resolved = getPrimeConfig().modelRegistry.find(model.provider, model.id);
 		if (!resolved) throw new Error(`Unknown model: ${model.provider}/${model.id}`);
-		await session.session.setModel(resolved);
+		await session.connection.setModel(model.provider, model.id);
 	}
 
 	async setThinkingLevel(level: ThinkingLevel): Promise<void> {
-		await Promise.all([...this.#sessions.values()].map((session) => session.session.setThinkingLevel(level)));
+		await Promise.all([...this.#sessions.values()].map((session) => session.connection.setThinkingLevel(level)));
 	}
 
 	// -----------------------------------------------------------------------
@@ -891,6 +1113,11 @@ export class PrimeBridge {
 		if (answer.kind === "skip") {
 			return this.#dialogs.cancel(sessionId, toolCallId, "user-abort");
 		}
+		if (answer.kind === "questions" && answer.answers) {
+			return this.#dialogs.answer(sessionId, toolCallId, {
+				answers: answer.answers,
+			});
+		}
 		if (answer.kind === "single" && answer.selectedIds && answer.selectedIds.length > 0) {
 			return this.#dialogs.answer(sessionId, toolCallId, {
 				choice: answer.selectedIds[0],
@@ -898,6 +1125,7 @@ export class PrimeBridge {
 		}
 		if (answer.kind === "multi" && answer.selectedIds && answer.selectedIds.length > 0) {
 			return this.#dialogs.answer(sessionId, toolCallId, {
+				choices: answer.selectedIds,
 				choice: answer.selectedIds[0],
 			});
 		}
@@ -908,8 +1136,8 @@ export class PrimeBridge {
 		return this.#dialogs.cancel(sessionId, toolCallId, "user-abort");
 	}
 
-	pendingDialogsFor(sessionId: string) {
-		return this.#dialogs.list(sessionId);
+	pendingDialogsFor(sessionId: string): readonly ChatPendingDialog[] {
+		return this.#dialogs.snapshot(sessionId);
 	}
 
 	// -----------------------------------------------------------------------
@@ -917,53 +1145,53 @@ export class PrimeBridge {
 	// -----------------------------------------------------------------------
 
 	/** /context — context-window usage for the session's current branch. */
-	getContextUsage(sessionId: string) {
-		const session = this.#requireSession(sessionId);
-		return session.session.getContextUsage();
+	getContextUsage(sessionId: string): unknown {
+		this.#requireSession(sessionId);
+		return this.#caches.get(sessionId)?.contextUsage;
 	}
 
 	/** /system-prompt — the exact system prompt sent to the model for the active turn. */
 	getSystemPrompt(sessionId: string): string {
-		const session = this.#requireSession(sessionId);
-		return session.session.systemPrompt;
+		this.#requireSession(sessionId);
+		const cached = this.#caches.get(sessionId)?.systemPrompt;
+		return cached ?? "";
 	}
 
 	/** /name — set or show the session display name. */
 	setSessionName(sessionId: string, name: string | undefined): void {
 		const session = this.#requireSession(sessionId);
 		if (!name) return;
-		session.session.setSessionName(name);
+		const cache = this.#caches.get(sessionId) ?? emptyCache();
+		cache.sessionName = name;
+		this.#caches.set(sessionId, cache);
+		void session.connection.setSessionName(name).catch(() => undefined);
 	}
 
 	getSessionName(sessionId: string): string | undefined {
-		const session = this.#requireSession(sessionId);
-		return session.session.sessionName;
+		this.#requireSession(sessionId);
+		return this.#caches.get(sessionId)?.sessionName;
 	}
 
 	/** /export — write the session to HTML (default) or JSONL (path ends with .jsonl). */
 	async exportSession(sessionId: string, outputPath?: string): Promise<{ path: string; format: "html" | "jsonl" }> {
 		const session = this.#requireSession(sessionId);
 		if (outputPath?.endsWith(".jsonl")) {
-			const path = session.session.exportToJsonl(outputPath);
+			const path = await session.connection.exportToJsonl(outputPath);
 			return { path, format: "jsonl" };
 		}
-		const path = await session.session.exportToHtml(outputPath);
+		const path = await session.connection.exportToHtml(outputPath);
 		return { path, format: "html" };
 	}
 
 	/** /reload — re-scan keybindings, extensions, skills, prompts, themes. */
 	async reloadResources(_sessionId?: string): Promise<void> {
-		// The resource loader is per-cwd inside `createAgentSession`, and the TUI's
-		// `/reload` reloads the *current* session's world via `session.reload()`.
-		// For the web port we reload every attached session's loader so new
-		// skills/prompts/themes show up on next prompt.
-		await Promise.all([...this.#sessions.values()].map((session) => session.session.reload()));
+		await Promise.all([...this.#sessions.values()].map((session) => session.connection.reload?.()));
 	}
 
 	/** /tree — session-tree navigation via navigateTree (requires entry id). */
 	async navigateTree(sessionId: string, targetId: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
-		await session.session.navigateTree(targetId, {});
+		await session.connection.navigateTree(targetId, {});
 		// Hydrated message ids are positional (${sessionId}-mN): branch navigation
 		// rewrites the transcript branch, so any existing plan records now point at
 		// unrelated messages. Invalidate instead of rendering the wrong card.
@@ -971,15 +1199,11 @@ export class PrimeBridge {
 	}
 
 	/** /tree — the session's entry tree plus the current leaf, for pickers. */
-	getSessionTree(sessionId: string): {
-		tree: SessionTreeNode[];
-		leafId: string | null;
-	} {
-		const session = this.#requireSession(sessionId);
-		return {
-			tree: session.session.sessionManager.getTree() as SessionTreeNode[],
-			leafId: session.session.sessionManager.getLeafId(),
-		};
+	getSessionTree(sessionId: string): { tree: unknown[]; leafId: string | null } {
+		this.#requireSession(sessionId);
+		const cached = this.#caches.get(sessionId)?.tree;
+		if (cached) return cached;
+		return { tree: [], leafId: null };
 	}
 
 	/**
@@ -990,10 +1214,16 @@ export class PrimeBridge {
 	 * bridge keeps the SOURCE session running in `#sessions` and registers the
 	 * fork alongside it under its fresh id.
 	 *
-	 * Safety rail from the runtime trace: `createBranchedSession` mutates its
-	 * manager in place (re-ids it to the fork), so the branch is always computed
-	 * on a SIDE `SessionManager` opened over the same file — never on the live
-	 * `session.sessionManager`.
+	 * The fork flow:
+	 *   1. Resolve the source entry (parent for `before`, target for `at`) and
+	 *      pre-compute the user-message text for `position: "before"`.
+	 *   2. Eagerly flush the source session so the side `SessionManager` (which
+	 *      re-reads the file) sees the full branch.
+	 *   3. Open a side `SessionManager` on the source file and create a branched
+	 *      session, or open a fresh session parented on the source for the
+	 *      "no recorded entries" case.
+	 *   4. Build a new connection over the side manager, carry the source's
+	 *      model/thinking/service-tier, and force-flush the fork header.
 	 */
 	async forkSession(
 		sessionId: string,
@@ -1001,10 +1231,9 @@ export class PrimeBridge {
 		position: "before" | "at" = "before",
 	): Promise<ForkSessionResult> {
 		const bridge = this.#requireSession(sessionId);
-		const sourceManager = bridge.session.sessionManager;
-
-		// Entry resolution ported from AgentSessionRuntime.fork (lines 532-545).
-		const selectedEntry = sourceManager.getEntry(entryId);
+		await bridge.connection.waitForIdle();
+		const sourceState = await bridge.connection.getState();
+		const selectedEntry = findSessionTreeEntry((await bridge.connection.getSessionTree()).tree, entryId);
 		if (!selectedEntry) {
 			throw new Error("Invalid entry ID for forking");
 		}
@@ -1013,80 +1242,68 @@ export class PrimeBridge {
 		if (position === "at") {
 			targetLeafId = selectedEntry.id;
 		} else {
-			if (selectedEntry.type !== "message" || selectedEntry.message.role !== "user") {
+			selectedText = selectedTextFromSessionEntry(selectedEntry);
+			if (selectedText === undefined) {
 				throw new Error("Invalid entry ID for forking");
 			}
 			targetLeafId = selectedEntry.parentId;
-			selectedText = extractUserMessageText(selectedEntry.message.content);
 		}
 
-		const currentFile = sourceManager.getSessionFile();
+		const currentFile = sourceState.sessionFile;
 		if (!currentFile) {
 			throw new Error("Cannot fork an unpersisted session");
 		}
-		const sessionDir = sourceManager.getSessionDir();
-
-		// `_persist` holds back pre-assistant entries from disk; flush the source
-		// so the side manager (which re-reads the file) sees the full branch.
-		sourceManager.flushNow();
+		const sessionDir = sourceState.sessionDir ?? dirname(currentFile);
 
 		let side: SessionManager;
+		let forkedPath: string | undefined;
 		if (targetLeafId) {
-			// Branch the recorded path root→leaf into a fresh session file. The
-			// call re-ids `side` in place to the forked session.
+			// The side manager only creates the new transcript; the source remains
+			// exclusively owned by the daemon.
 			side = SessionManager.open(currentFile, sessionDir);
-			const forkedPath = side.createBranchedSession(targetLeafId);
+			forkedPath = side.createBranchedSession(targetLeafId) ?? undefined;
 			if (!forkedPath) {
 				throw new Error("Failed to create forked session");
 			}
 		} else {
-			// `/fork` on the first user message (position "before"): no recorded
-			// entries to carry over, so start a fresh empty session parented on
-			// the source file — same as runtime.fork's targetLeafId === null path.
 			side = SessionManager.create(bridge.cwd, sessionDir);
-			const sourceRlmDepth = sourceManager.getHeader()?.rlmDepth;
+			const sourceHeader = await bridge.connection.getSessionHeader();
 			side.newSession({
 				parentSession: currentFile,
-				// `newSession` derives depth from the parent file on its own when
-				// the key is absent; an explicit `undefined` would suppress that.
-				...(sourceRlmDepth !== undefined ? { rlmDepth: sourceRlmDepth } : {}),
+				...(sourceHeader?.rlmDepth !== undefined ? { rlmDepth: sourceHeader.rlmDepth } : {}),
 			});
+			forkedPath = side.getSessionFile();
 		}
+		if (!forkedPath) throw new Error("Failed to create forked session");
+		// The daemon becomes the sole writer once it opens the target. This initial
+		// materialization makes a user-only fork durable before that handoff.
+		side.flushNow();
 
-		const { session: forked, openUIPrompt } = await createWebAgentSession({
+		const webAgent = await this.#connectionFactory({
 			cwd: bridge.cwd,
-			sessionManager: side,
-			openUIPrompt: createOpenUIPromptSessionState(bridge.openUIPrompt.mode, bridge.openUIPrompt.enabled),
+			sessionPath: forkedPath,
+			thinkingLevel: sourceState.thinkingLevel,
+			openUIPrompt: createOpenUIPromptSessionState(
+				bridge.openUIPrompt.mode,
+				bridge.openUIPrompt.enabled,
+				bridge.openUIPrompt.artifact ?? false,
+			),
 		});
 		// Carry the source session's model/thinking/service-tier over so the fork
 		// doesn't silently fall back to defaults (provider/settings may differ).
-		// setModel appends a model_change entry even when unchanged, so skip the
-		// call when session restore already landed on the same model.
-		const sourceModel = bridge.session.model;
-		if (sourceModel && (forked.model?.id !== sourceModel.id || forked.model?.provider !== sourceModel.provider)) {
-			await forked.setModel(sourceModel);
+		if (sourceState.model && !isUnresolvedPlaceholderModel(sourceState.model)) {
+			await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
 		}
-		await forked.setThinkingLevel(bridge.session.thinkingLevel);
-		forked.setServiceTier(bridge.session.serviceTier);
+		await webAgent.connection.setThinkingLevel(sourceState.thinkingLevel);
+		await webAgent.connection.setServiceTier(sourceState.serviceTier ?? "default");
 
-		// Persist the fork header now so cold resume (/api/chat/sessions after an
-		// SSR restart) can discover it — bridge durability policy.
-		forked.sessionManager.materializeSessionFile();
-		forked.sessionManager.flushNow();
-
-		const forkedBridge = await this.#registerSession(
-			forked,
-			bridge.cwd,
-			forked.sessionManager.getSessionFile() ?? "",
-			openUIPrompt,
-			bridge.projectId,
-		);
+		const forkedBridge = await this.#registerConnection(webAgent, bridge.cwd, forkedPath, bridge.projectId);
 		const forkedMessages = await this.getMessages(forkedBridge.sessionId);
 		await copyManagedPlanPresentationsForFork(bridge, forkedBridge, forkedMessages.length);
 		return {
 			cancelled: false,
 			selectedText,
-			newSessionId: forked.sessionManager.getSessionId(),
+			newSessionId: forkedBridge.sessionId,
 		};
 	}
 
@@ -1095,36 +1312,34 @@ export class PrimeBridge {
 		const source = this.#sessions.get(sessionId) ?? (await this.resumeSessionById(sessionId));
 		if (!source) throw new Error(`Unknown session: ${sessionId}`);
 		const targetCwd = await getPrimeConfig().projectRegistry.cwdForProject(targetProjectId);
-		const sourcePath = source.session.sessionManager.getSessionFile();
+		await source.connection.waitForIdle();
+		const sourceState = await source.connection.getState();
+		const sourcePath = sourceState.sessionFile;
 		if (!sourcePath) throw new Error("Cannot fork an unpersisted session");
-		const manager = SessionManager.forkFrom(sourcePath, targetCwd);
-		const result = await createWebAgentSession({
+		const targetSessionDir = sessionDirectoryForCwd(targetCwd);
+		const manager = SessionManager.forkFrom(sourcePath, targetCwd, targetSessionDir);
+		const forkedPath = manager.getSessionFile();
+		if (!forkedPath) throw new Error("Failed to create project fork");
+		const webAgent = await this.#connectionFactory({
 			cwd: targetCwd,
-			sessionManager: manager,
-			openUIPrompt: createOpenUIPromptSessionState(source.openUIPrompt.mode, source.openUIPrompt.enabled),
+			sessionPath: forkedPath,
+			thinkingLevel: sourceState.thinkingLevel,
+			openUIPrompt: createOpenUIPromptSessionState(
+				source.openUIPrompt.mode,
+				source.openUIPrompt.enabled,
+				source.openUIPrompt.artifact ?? false,
+			),
 		});
-		if (
-			source.session.model &&
-			(result.session.model?.id !== source.session.model.id ||
-				result.session.model?.provider !== source.session.model.provider)
-		) {
-			await result.session.setModel(source.session.model);
+		if (sourceState.model && !isUnresolvedPlaceholderModel(sourceState.model)) {
+			await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
 		}
-		await result.session.setThinkingLevel(source.session.thinkingLevel);
-		result.session.setServiceTier(source.session.serviceTier);
-		manager.materializeSessionFile();
-		manager.flushNow();
-		const forked = await this.#registerSession(
-			result.session,
-			targetCwd,
-			manager.getSessionFile() ?? "",
-			result.openUIPrompt,
-			targetProjectId,
-		);
+		await webAgent.connection.setThinkingLevel(sourceState.thinkingLevel);
+		await webAgent.connection.setServiceTier(sourceState.serviceTier ?? "default");
+		const forked = await this.#registerConnection(webAgent, targetCwd, forkedPath, targetProjectId);
 		const forkedMessages = await this.getMessages(forked.sessionId);
 		await copyManagedPlanPresentationsForFork(source, forked, forkedMessages.length);
 		forked.mapperState.presentation = source.mapperState.presentation;
-		this.#persistPresentation(forked.sessionId, forked.session, forked.sessionPath, forked.mapperState.presentation);
+		this.#persistPresentation(forked.sessionId, forked.sessionPath, forked.mapperState.presentation);
 		return forked.sessionId;
 	}
 
@@ -1136,7 +1351,7 @@ export class PrimeBridge {
 	async getMessages(sessionId: string): Promise<readonly ChatMessage[]> {
 		const live = this.#sessions.get(sessionId);
 		const messages: readonly AgentMessage[] = live
-			? live.session.sessionManager.buildSessionContext().messages
+			? await live.connection.getMessages()
 			: await this.#loadColdMessages(sessionId);
 		return toChatMessagesFromAgentMessages(messages, sessionId);
 	}
@@ -1145,13 +1360,37 @@ export class PrimeBridge {
 		return this.#sessions.get(sessionId)?.mapperState.presentation ?? createEmptyPrimeAgentSessionPresentation();
 	}
 
+	/**
+	 * Add or replace one durable presentation artifact. The deterministic id is
+	 * supplied by the handler, so retries of the same artifact are idempotent.
+	 */
+	async upsertPresentationArtifact(
+		sessionId: string,
+		artifact: PrimeAgentArtifact,
+	): Promise<PrimeAgentSessionPresentation> {
+		const session = this.#requireSession(sessionId);
+		const current = session.mapperState.presentation;
+		const existing = current.artifactRuns
+			.flatMap((run) => run.artifacts)
+			.find((candidate) => candidate.id === artifact.id);
+		if (existing && presentationArtifactsEqual(existing, artifact)) return current;
+
+		const next = {
+			...upsertArtifact(current, artifact),
+			revision: current.revision + 1,
+		};
+		session.mapperState.presentation = next;
+		await this.#persistPresentation(sessionId, session.sessionPath, next);
+		this.#dispatch(sessionId, { type: "presentation", sessionId, presentation: next });
+		return next;
+	}
+
 	async #loadColdMessages(sessionId: string): Promise<readonly AgentMessage[]> {
-		const all = await SessionManager.listAll();
-		const match = all.find((info) => info.id === sessionId);
-		if (!match) return [];
-		const sessionManager = await SessionManager.openAsync(match.path);
-		const context = sessionManager.buildSessionContext();
-		return context.messages;
+		const all = await this.#sessionLister();
+		const match = all.find((info) => info.sessionId === sessionId || info.id === sessionId);
+		if (!match?.sessionFile) return [];
+		const sessionManager = await SessionManager.openAsync(match.sessionFile);
+		return sessionManager.buildSessionContext().messages;
 	}
 
 	#requireSession(sessionId: string): BridgeSession {

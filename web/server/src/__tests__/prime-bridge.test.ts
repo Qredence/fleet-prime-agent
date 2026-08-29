@@ -1,15 +1,28 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
-import { IpythonKernelProvisioner } from "@earendil-works/pi-coding-agent";
+import type { AgentSession } from "prime-agent";
+import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { writeManagedPrimePresentation } from "../prime-agent-presentation";
-import { PrimeBridge } from "../prime-bridge";
+import { runtimeHostFor } from "../connection-runtime";
+import type { listDaemonSessions } from "../daemon-runtime";
+import { createInProcessTestAgentConnection } from "../in-process-test-connection";
+import { loadManagedPrimePresentation, writeManagedPrimePresentation } from "../prime-agent-presentation";
+import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
+import { getPrimeConfig, resetPrimeConfigForTests } from "../prime-config";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
 
 const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
 const SESSION_DIR_ENVS = ["PRIME_AGENT_SESSION_DIR", "PRIME_AGENT_CODING_AGENT_SESSION_DIR"];
+
+function createTestBridge(options: PrimeBridgeOptions = {}): PrimeBridge {
+	return new PrimeBridge({
+		...options,
+		connectionFactory: createInProcessTestAgentConnection,
+		sessionLister: options.sessionLister ?? (async () => []),
+	});
+}
 
 /** Snapshot `name`, unset it, and return a restore function. */
 function unsetEnv(name: string): () => void {
@@ -34,14 +47,14 @@ describe("PrimeBridge", () => {
 	});
 
 	it("listSessions is empty by default until the agent boots", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		setBridgeForTests(bridge);
 		const sessions = await bridge.listSessions();
 		expect(Array.isArray(sessions)).toBe(true);
 	});
 
 	it("kernelReadyState is not-started until ensureKernelReady", () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "not-started" });
 	});
 
@@ -72,7 +85,7 @@ describe("PrimeBridge", () => {
 	});
 
 	it("answerDialog returns false for unknown toolCallId", () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		expect(bridge.answerDialog("session-1", "toolCall-unknown", { kind: "skip" })).toBe(false);
 	});
 
@@ -113,6 +126,7 @@ describe("PrimeBridge.forkSession", () => {
 		process.env[AGENT_DIR_ENV] = agentDir;
 		// Session-dir env overrides would route writes outside the hermetic tmpdir.
 		restoreEnvs.push(...SESSION_DIR_ENVS.map(unsetEnv));
+		resetPrimeConfigForTests();
 		return () => {
 			rmSync(workDir, { recursive: true, force: true });
 			rmSync(agentDir, { recursive: true, force: true });
@@ -122,20 +136,28 @@ describe("PrimeBridge.forkSession", () => {
 	afterEach(() => {
 		for (const restore of restoreEnvs) restore();
 		restoreEnvs = [];
+		resetPrimeConfigForTests();
 		vi.restoreAllMocks();
 	});
 
 	/** Real hermetic session: tmp agent dir, kernel prewarm stubbed out. */
-	function createTestSession(bridge: PrimeBridge) {
+	function createTestSession(
+		bridge: PrimeBridge,
+	): Promise<{ session: AgentSession } & Awaited<ReturnType<PrimeBridge["createSession"]>>> {
 		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
-		return bridge.createSession({ cwd: workDir });
+		return bridge.createSession({ cwd: workDir }) as Promise<
+			{ session: AgentSession } & Awaited<ReturnType<PrimeBridge["createSession"]>>
+		>;
 	}
 
 	/** The forked session must be live in the bridge's registry after forkSession. */
-	function requireLiveSession(bridge: PrimeBridge, sessionId: string) {
+	function requireLiveSession(
+		bridge: PrimeBridge,
+		sessionId: string,
+	): { session: AgentSession } & Awaited<ReturnType<PrimeBridge["createSession"]>> {
 		const session = bridge.getSession(sessionId);
-		if (!session) throw new Error(`session ${sessionId} not live`);
-		return session;
+		if (!session || !session.session) throw new Error(`session ${sessionId} not live in the test adapter`);
+		return session as { session: AgentSession } & Awaited<ReturnType<PrimeBridge["createSession"]>>;
 	}
 
 	it("waits for pending presentation writes before deleting a session", async () => {
@@ -147,7 +169,7 @@ describe("PrimeBridge.forkSession", () => {
 			await writeGate;
 			await writeManagedPrimePresentation(...args);
 		});
-		const bridge = new PrimeBridge({ writePresentation: writer });
+		const bridge = createTestBridge({ writePresentation: writer });
 		const created = await createTestSession(bridge);
 
 		await vi.waitFor(() => expect(writer).toHaveBeenCalled());
@@ -168,8 +190,7 @@ describe("PrimeBridge.forkSession", () => {
 		userText: string,
 		assistantText: string,
 	): { userEntryId: string; assistantEntryId: string } {
-		const live = bridge.getSession(sessionId);
-		if (!live) throw new Error("session not live");
+		const live = requireLiveSession(bridge, sessionId);
 		const sm = live.session.sessionManager;
 		const userMessage: UserMessage = {
 			role: "user",
@@ -195,16 +216,22 @@ describe("PrimeBridge.forkSession", () => {
 		};
 		const userEntryId = sm.appendMessage(userMessage);
 		const assistantEntryId = sm.appendMessage(assistantMessage);
+		sm.flushNow();
 		return { userEntryId, assistantEntryId };
 	}
 
 	it("keeps OpenUI off by default and updates explicit OpenUI guidance by mode", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await bridge.createSession({ cwd: workDir, mode: "plan" });
 
 		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
 
-		const prompt = vi.spyOn(created.session, "prompt").mockResolvedValue(undefined);
+		const prompt = vi
+			.spyOn(
+				created.connection as unknown as { promptAndWait: typeof created.connection.promptAndWait },
+				"promptAndWait",
+			)
+			.mockResolvedValue(undefined);
 		await bridge.prompt(created.sessionId, "show a plan summary", { mode: "plan", openUI: true });
 		const planPrompt = bridge.getSystemPrompt(created.sessionId);
 		expect(planPrompt).toContain("Every OpenUI block must start with `root = Root(...)` as its first line.");
@@ -220,15 +247,186 @@ describe("PrimeBridge.forkSession", () => {
 		await bridge.prompt(created.sessionId, "plain markdown only", { mode: "agent", openUI: false });
 		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
 		expect(prompt).toHaveBeenCalledTimes(3);
-		expect(prompt).toHaveBeenNthCalledWith(
-			1,
-			"show a plan summary",
-			expect.objectContaining({ queueIfBusy: true, resumeIfIdle: true }),
+		expect(prompt).toHaveBeenNthCalledWith(1, "show a plan summary", expect.objectContaining({ queueIfBusy: true }));
+	});
+
+	it("enables OpenUI guidance at session creation when openUI is requested", async () => {
+		const bridge = createTestBridge();
+		const created = await bridge.createSession({ cwd: workDir, mode: "agent", openUI: true });
+
+		expect(created.openUIPrompt.enabled).toBe(true);
+		expect(bridge.getSystemPrompt(created.sessionId)).toContain("Every OpenUI block");
+	});
+
+	it("applies OpenUI guidance when resuming a persisted session with openUI enabled", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		expect(created.openUIPrompt.enabled).toBe(false);
+		created.session.sessionManager.flushNow();
+		const resumer = createTestBridge({
+			sessionLister: (async () => [
+				{
+					id: created.sessionId,
+					sessionId: created.sessionId,
+					cwd: created.cwd,
+					sessionFile: created.sessionPath,
+				},
+			]) as unknown as typeof listDaemonSessions,
+		});
+
+		const resumed = await resumer.resumeSessionById(created.sessionId, undefined, { openUI: true });
+
+		expect(resumed).toBeDefined();
+		expect(resumed?.openUIPrompt.enabled).toBe(true);
+		expect(resumer.getSystemPrompt(created.sessionId)).toContain("Every OpenUI block");
+	});
+
+	it("emits a gated diagnostic when OpenUI state changes on a connection without a prompt hook", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		vi.spyOn(
+			created.connection as unknown as { promptAndWait: typeof created.connection.promptAndWait },
+			"promptAndWait",
+		).mockResolvedValue(undefined);
+		const live = bridge.getSession(created.sessionId);
+		expect(live).toBeDefined();
+		(live as unknown as { setOpenUIPrompt?: unknown }).setOpenUIPrompt = undefined;
+
+		restoreEnvs.push(unsetEnv("PRIME_BRIDGE_DEBUG"));
+		process.env.PRIME_BRIDGE_DEBUG = "1";
+		const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+		await bridge.prompt(created.sessionId, "hi", { openUI: true });
+
+		const writes = stderrWrite.mock.calls.map(([chunk]) => String(chunk));
+		expect(writes.some((chunk) => chunk.includes("cannot update prompts after creation"))).toBe(true);
+	});
+
+	it.each(["steer", "followUp"] as const)(
+		"admits an active %s prompt before reconfiguring OpenUI",
+		async (streamingBehavior) => {
+			const bridge = createTestBridge();
+			const created = await createTestSession(bridge);
+			const setOpenUIPrompt = created.setOpenUIPrompt;
+			if (!setOpenUIPrompt) throw new Error("test adapter must expose setOpenUIPrompt");
+			const mutable = created as unknown as {
+				setOpenUIPrompt: NonNullable<typeof created.setOpenUIPrompt>;
+			};
+			const order: string[] = [];
+			mutable.setOpenUIPrompt = async (next) => {
+				order.push("reconfigure");
+				await setOpenUIPrompt(next);
+			};
+			created.isStreaming = true;
+			const prompt = vi.spyOn(created.connection, "promptAndWait").mockImplementation(async () => {
+				order.push("prompt");
+			});
+
+			await bridge.prompt(created.sessionId, "update the active turn", {
+				openUI: true,
+				streamingBehavior,
+			});
+
+			expect(order).toEqual(["prompt", "reconfigure"]);
+			expect(prompt).toHaveBeenCalledWith(
+				"update the active turn",
+				expect.objectContaining({ streamingBehavior, queueIfBusy: true }),
+			);
+		},
+	);
+
+	it("serializes idle OpenUI transitions before admitting later prompts", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const setOpenUIPrompt = created.setOpenUIPrompt;
+		if (!setOpenUIPrompt) throw new Error("test adapter must expose setOpenUIPrompt");
+		const mutable = created as unknown as {
+			setOpenUIPrompt: NonNullable<typeof created.setOpenUIPrompt>;
+		};
+		const transitionStates: boolean[] = [];
+		let releaseFirstTransition!: () => void;
+		const firstTransition = new Promise<void>((resolve) => {
+			releaseFirstTransition = resolve;
+		});
+		let isFirstTransition = true;
+		mutable.setOpenUIPrompt = async (next) => {
+			transitionStates.push(next.enabled);
+			if (isFirstTransition) {
+				isFirstTransition = false;
+				await firstTransition;
+			}
+			await setOpenUIPrompt(next);
+		};
+		const prompt = vi.spyOn(created.connection, "promptAndWait").mockResolvedValue(undefined);
+
+		const firstPrompt = bridge.prompt(created.sessionId, "enable OpenUI", { openUI: true });
+		await vi.waitFor(() => expect(transitionStates).toEqual([true]));
+		const secondPrompt = bridge.prompt(created.sessionId, "disable OpenUI", { openUI: false });
+		await vi.waitFor(() => expect(transitionStates).toEqual([true]));
+		expect(prompt).not.toHaveBeenCalled();
+
+		releaseFirstTransition();
+		await Promise.all([firstPrompt, secondPrompt]);
+
+		expect(transitionStates).toEqual([true, false]);
+		expect(prompt).toHaveBeenNthCalledWith(1, "enable OpenUI", expect.anything());
+		expect(prompt).toHaveBeenNthCalledWith(2, "disable OpenUI", expect.anything());
+	});
+
+	it("keeps the committed OpenUI state when reconfiguration fails and retries next time", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const setOpenUIPrompt = created.setOpenUIPrompt;
+		if (!setOpenUIPrompt) throw new Error("test adapter must expose setOpenUIPrompt");
+		const mutable = created as unknown as {
+			setOpenUIPrompt: NonNullable<typeof created.setOpenUIPrompt>;
+		};
+		let attempts = 0;
+		mutable.setOpenUIPrompt = async (next) => {
+			attempts += 1;
+			if (attempts === 1) throw new Error("reconfiguration failed");
+			await setOpenUIPrompt(next);
+		};
+		vi.spyOn(created.connection, "promptAndWait").mockResolvedValue(undefined);
+
+		await expect(bridge.prompt(created.sessionId, "first attempt", { openUI: true })).rejects.toThrow(
+			"reconfiguration failed",
 		);
+		expect(bridge.getSystemPrompt(created.sessionId)).not.toContain("Every OpenUI block");
+
+		await bridge.prompt(created.sessionId, "retry", { openUI: true });
+
+		expect(attempts).toBe(2);
+		expect(bridge.getSystemPrompt(created.sessionId)).toContain("Every OpenUI block");
+	});
+
+	it("upserts the same OpenUI artifact idempotently and persists the presentation", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const artifact = {
+			id: "openui-artifact-1",
+			runId: "openui-run-1",
+			sourceMessageId: "assistant-1",
+			kind: "openui-html" as const,
+			title: "Fleet Agent",
+			status: "success" as const,
+			input: { artifactIndex: 0 },
+			output: { title: "Fleet Agent", document: "<!doctype html><html><body>ready</body></html>" },
+			timestamp: Date.now(),
+		} satisfies Parameters<PrimeBridge["upsertPresentationArtifact"]>[1];
+
+		const first = await bridge.upsertPresentationArtifact(created.sessionId, artifact);
+		const second = await bridge.upsertPresentationArtifact(created.sessionId, artifact);
+
+		expect(second).toBe(first);
+		expect(second.revision).toBe(1);
+		expect(second.artifactRuns.flatMap((run) => run.artifacts)).toHaveLength(1);
+		const loaded = await loadManagedPrimePresentation({ sessionPath: created.sessionPath });
+		expect(loaded?.artifactRuns[0]?.artifacts[0]?.id).toBe("openui-artifact-1");
 	});
 
 	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		appendTurn(bridge, created.sessionId, "first question", "first answer");
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
@@ -246,7 +444,7 @@ describe("PrimeBridge.forkSession", () => {
 	});
 
 	it("rebuilds presentation from the selected branch instead of copying later source activity", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		appendTurn(bridge, created.sessionId, "first question", "first answer");
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
@@ -302,7 +500,7 @@ describe("PrimeBridge.forkSession", () => {
 	});
 
 	it("position 'at' on an arbitrary entry forks at that entry id directly", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		const { userEntryId, assistantEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
 
@@ -324,7 +522,7 @@ describe("PrimeBridge.forkSession", () => {
 	});
 
 	it("position 'at' on a user message includes that message (clone semantics)", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
 
@@ -337,7 +535,7 @@ describe("PrimeBridge.forkSession", () => {
 	});
 
 	it("position 'before' on the first user message creates a fresh empty session parented on the source", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "first question", "first answer");
 
@@ -353,7 +551,7 @@ describe("PrimeBridge.forkSession", () => {
 	});
 
 	it("keeps the source session untouched and running after the fork", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		const sourceFile = created.session.sessionManager.getSessionFile();
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
@@ -370,7 +568,7 @@ describe("PrimeBridge.forkSession", () => {
 	});
 
 	it("forwards thinkingLevel and model from the source session to the fork", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		const { assistantEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
 		created.session.setThinkingLevel("high");
@@ -387,7 +585,7 @@ describe("PrimeBridge.forkSession", () => {
 	});
 
 	it("flushNow persists the forked session file so it is discoverable cold", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
 
@@ -399,12 +597,107 @@ describe("PrimeBridge.forkSession", () => {
 		expect(existsSync(forkedFile!)).toBe(true);
 	});
 
+	it("resumes a session from the configured store but rejects an unconfigured store", async () => {
+		const configuredSessionDir = join(agentDir, "sessions");
+		const configuredManager = SessionManager.create(workDir, configuredSessionDir);
+		const configuredPath = configuredManager.materializeSessionFile();
+		configuredManager.flushNow();
+
+		const bridge = createTestBridge();
+		const resumed = await bridge.resumeSessionByPath(configuredPath);
+		expect(resumed.sessionId).toBe(configuredManager.getSessionId());
+
+		const unconfiguredDir = mkdtempSync(join(tmpdir(), "prime-bridge-unconfigured-sessions-"));
+		try {
+			const unconfiguredManager = SessionManager.create(workDir, unconfiguredDir);
+			const unconfiguredPath = unconfiguredManager.materializeSessionFile();
+			unconfiguredManager.flushNow();
+
+			await expect(bridge.resumeSessionByPath(unconfiguredPath)).rejects.toThrow(
+				"outside the configured Prime session store",
+			);
+		} finally {
+			rmSync(unconfiguredDir, { recursive: true, force: true });
+		}
+	});
+
+	it("forks a resumed session into the target project's working directory", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		appendTurn(bridge, created.sessionId, "source question", "source answer");
+		const targetCwd = join(workDir, "target-project");
+		mkdirSync(targetCwd);
+		const targetProject = await getPrimeConfig().projectRegistry.register(targetCwd, "Target project");
+		const canonicalTargetCwd = realpathSync(targetCwd);
+
+		const forkedId = await bridge.forkSessionIntoProject(created.sessionId, targetProject.projectId);
+		const forked = requireLiveSession(bridge, forkedId);
+
+		expect(forked.projectId).toBe(targetProject.projectId);
+		expect(forked.cwd).toBe(canonicalTargetCwd);
+		expect(forked.session.sessionManager.getCwd()).toBe(canonicalTargetCwd);
+		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
+		expect(created.projectId).not.toBe(targetProject.projectId);
+	});
+
 	it("rejects an unknown entry id", async () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 
 		await expect(bridge.forkSession(created.sessionId, "missing-entry", "before")).rejects.toThrow(
 			"Invalid entry ID for forking",
 		);
+	});
+});
+
+/**
+ * Regression net for the `InProcessAgentConnection` migration. The bridge
+ * class must not reach into `AgentSession` / `SessionManager` for its own
+ * operations. If any of these tokens resurface in `prime-bridge.ts`, the
+ * migration is incomplete and the test fails loud.
+ */
+describe("PrimeBridge AgentConnection migration regression", () => {
+	// The bridge file is one level up from the test file.
+	const bridgePath = resolvePath(__dirname, "..", "prime-bridge.ts");
+	const source = readFileSync(bridgePath, "utf8");
+
+	it("does not reach into AgentSession for the bridge's own session lifecycle", () => {
+		// The bridge no longer reaches through its optional test-only
+		// `BridgeSession.session` field. All active session operations use the
+		// public AgentConnection seam.
+		const reachThroughs = source.match(/\bsession\.session\.\w+(?:\([^)]*\))?/g) ?? [];
+		expect(reachThroughs).toEqual([]);
+	});
+
+	it("uses sessionManager.flushNow only via the back-compat cast", () => {
+		// Only the fork staging manager writes the new transcript before the
+		// daemon opens it; the source session remains daemon-owned. The staging
+		// manager is now referenced directly, not through BridgeSession.session.
+		const flushNowCalls = source.match(/\.sessionManager\.flushNow\(/g) ?? [];
+		expect(flushNowCalls).toEqual([]);
+	});
+
+	it("does not re-declare extractUserMessageText", () => {
+		// The migration replaces `extractUserMessageText` with content filtering
+		// inline. A re-declared helper would be redundant with the fork flow.
+		expect(source).not.toMatch(/function\s+extractUserMessageText/);
+	});
+
+	it("does not re-declare the legacy SessionTreeNode structural mirror", () => {
+		// The migration uses `connection.getSessionTree()`'s return type directly
+		// instead of a hand-rolled structural mirror.
+		expect(source).not.toMatch(/interface\s+SessionTreeNode/);
+	});
+});
+
+describe("runtimeHostFor", () => {
+	it("exposes the session's getSessionId through the in-process shim", () => {
+		// Smoke test: the shim is the same one used by
+		// `packages/coding-agent/test/suite/acp-features.test.ts`. It must give
+		// back the same session instance so tests can build an InProcessAgentConnection
+		// around an existing AgentSession without going through the runtime factory.
+		const fakeSession = { sessionManager: { getSessionId: () => "test-session" } } as never;
+		const host = runtimeHostFor(fakeSession);
+		expect(host.session.sessionManager.getSessionId()).toBe("test-session");
 	});
 });

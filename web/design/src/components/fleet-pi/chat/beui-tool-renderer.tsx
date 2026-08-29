@@ -126,8 +126,8 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
       <TodoList
         items={detail.items}
         title={detail.title}
-        defaultOpen={status === "running"}
-        collapseOnComplete
+        defaultOpen
+        collapseOnComplete={false}
         maxHeight={240}
       />
     )
@@ -138,7 +138,7 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
       <Citations
         citations={detail.citations}
         title="Sources"
-        defaultOpen={status === "running"}
+        defaultOpen
       />
     )
   }
@@ -175,8 +175,8 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
       kind={normalized.lowerName.includes("bash") || normalized.lowerName.includes("shell") || normalized.lowerName.includes("python") ? "terminal" : "custom"}
       meta={normalized.metadata.length > 0 ? normalized.metadata.join(" · ") : undefined}
       icon={statusIcon(status, normalized.name)}
-      defaultOpen={status === "running"}
-      collapseOnComplete
+      defaultOpen
+      collapseOnComplete={false}
       maxHeight={240}
       copyText={content}
     >

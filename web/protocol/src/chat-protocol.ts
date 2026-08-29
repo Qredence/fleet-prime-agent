@@ -1,5 +1,56 @@
-import type { ChatMessage, ChatToolPart } from "./chat-types";
+import type { ChatMessage, ChatPayloadPart, ChatToolCategory, ChatToolPart } from "./chat-types";
 import type { ChatAttachment, ProjectId } from "./fleet-contract";
+import type { OpenUIHtmlArtifactPayload } from "./openui-artifact";
+
+export type { OpenUIHtmlArtifactPayload } from "./openui-artifact";
+
+export type { ChatToolCategory };
+
+export type FleetErrorCode =
+	| "AUTH_CREDENTIAL_EXPIRED"
+	| "AUTH_MISSING"
+	| "KERNEL_CRASH"
+	| "KERNEL_TIMEOUT"
+	| "CONTEXT_OVERFLOW"
+	| "BUDGET_EXCEEDED"
+	| "TOOL_TIMEOUT"
+	| "RATE_LIMIT"
+	| "NETWORK_DISCONNECTED"
+	| "EXTENSION_ERROR"
+	| "SESSION_ABORTED"
+	| "UNKNOWN_ERROR";
+
+export type FleetErrorRemediationAction =
+	| "open_settings_tab"
+	| "restart_kernel"
+	| "retry_turn"
+	| "compact_context"
+	| "expand_budget"
+	| "reconnect";
+
+export type FleetErrorRemediation = {
+	action: FleetErrorRemediationAction;
+	target?: string;
+	label: string;
+};
+
+export type FleetErrorEnvelope = {
+	code: FleetErrorCode;
+	message: string;
+	provider?: string;
+	isTerminal?: boolean;
+	remediation?: FleetErrorRemediation;
+};
+
+export type ChatErrorEnvelope = FleetErrorEnvelope;
+
+export type ChatErrorStreamEvent = {
+	type: "error";
+	message: string;
+	runId?: string;
+	code?: FleetErrorCode;
+	error?: FleetErrorEnvelope;
+};
 
 export type QueueState = {
 	steering: Array<string>;
@@ -86,11 +137,22 @@ export type ChatModelSelection = {
 export type ChatSessionMetadata = {
 	sessionId?: string;
 	projectId?: ProjectId | null;
+	openUI?: boolean;
 };
 
 export type ChatServiceTier = "auto" | "default" | "flex" | "scale" | "priority" | null;
 
-export type PrimeAgentArtifactKind = "bash" | "ipython" | "mcp" | "generic" | "diff" | "rlm" | "recap" | "refinement";
+export type PrimeAgentArtifactKind =
+	| "bash"
+	| "ipython"
+	| "mcp"
+	| "generic"
+	| "diff"
+	| "rlm"
+	| "recap"
+	| "refinement"
+	| "compaction"
+	| "openui-html";
 
 export type PrimeAgentArtifactStatus = "running" | "success" | "error" | "cancelled";
 
@@ -146,7 +208,28 @@ export type PrimeAgentRlmChild = {
 	activity?: { kind: "waiting" | "writing" | "executing"; toolName?: string };
 	repliedSinceTask?: boolean;
 	error?: string;
+	depth?: number;
+	childrenIds?: Array<string>;
 	timestamp: number;
+};
+
+export type PrimeAgentRlmNode = PrimeAgentRlmChild & {
+	depth: number;
+	childrenIds: Array<string>;
+};
+
+export type PrimeAgentRlmTree = {
+	rootSessionId: string;
+	nodes: Record<string, PrimeAgentRlmNode>;
+	rootChildrenIds: Array<string>;
+	activeNodeId?: string;
+};
+
+export type PrimeAgentParentSession = {
+	activeSessionId?: string;
+	sessionId?: string;
+	nodeId?: string;
+	childId?: string;
 };
 
 export type PrimeAgentGoal = {
@@ -197,6 +280,8 @@ export type PrimeAgentSessionPresentation = {
 	serviceTier?: ChatServiceTier;
 	goal?: PrimeAgentGoal;
 	recap?: string;
+	parent?: PrimeAgentParentSession;
+	rlmTree?: PrimeAgentRlmTree;
 	userBash: Array<PrimeAgentUserBash>;
 	rlmChildren: Array<PrimeAgentRlmChild>;
 	refinements: Array<PrimeAgentRefinement>;
@@ -216,6 +301,7 @@ export type ChatRequest = ChatSessionMetadata & {
 	model?: ChatModelSelection;
 	mode?: ChatMode;
 	openUI?: boolean;
+	openUIArtifact?: boolean;
 	attachments?: Array<ChatAttachment>;
 	planAction?: ChatPlanAction;
 	streamingBehavior?: "steer" | "followUp";
@@ -223,11 +309,38 @@ export type ChatRequest = ChatSessionMetadata & {
 	userEmail?: string;
 };
 
+export interface ChatClarificationQuestion {
+	id?: string;
+	question: string;
+	options?: Array<string>;
+	isMultiSelect?: boolean;
+	defaultOption?: string;
+	allowWriteIn?: boolean;
+}
+
 export type ChatQuestionAnswer = {
-	kind: "single" | "multi" | "text" | "skip";
+	kind: "single" | "multi" | "text" | "skip" | "questions";
 	questionId?: string;
 	selectedIds?: Array<string>;
 	text?: string;
+	answers?: Record<string, string | Array<string>>;
+};
+
+export type ChatPendingDialog = {
+	sessionId: string;
+	toolCallId: string;
+	kind: "confirm" | "select" | "input" | "questions";
+	title: string;
+	message?: string;
+	options?: Array<string>;
+	questions?: Array<ChatClarificationQuestion>;
+	placeholder?: string;
+	createdAt: number;
+	timeoutMs?: number;
+};
+
+export type ChatPendingDialogsResponse = {
+	dialogs: Array<ChatPendingDialog>;
 };
 
 export type ChatQuestionAnswerRequest = ChatSessionMetadata & {
@@ -268,6 +381,18 @@ export type ChatPlanPresentation = {
 export type ChatPlanPresentationUpsertRequest = {
 	sessionId: string;
 	presentation: ChatPlanPresentation;
+};
+
+export type ChatOpenUIArtifactUpsertRequest = {
+	sessionId: string;
+	assistantMessageId: string;
+	artifactIndex: number;
+	artifact: OpenUIHtmlArtifactPayload;
+};
+
+export type ChatOpenUIArtifactUpsertResponse = {
+	artifact: PrimeAgentArtifact;
+	presentation: PrimeAgentSessionPresentation;
 };
 /** Optional, capability-gated browser enhancements owned by Fleet Prime. */
 export type FleetAdapterFeature = "reasoning-summary-v1";
@@ -328,6 +453,18 @@ export type ChatMessageEvent = {
 	message: ChatMessage;
 };
 
+export type ChatPayloadEvent = {
+	type: "payload";
+	part: ChatPayloadPart;
+	messageId?: string;
+};
+
+export type ChatRlmStreamEvent = {
+	type: "rlm";
+	child: PrimeAgentRlmChild;
+	tree?: PrimeAgentRlmTree;
+};
+
 export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
 	protocolVersion: 1,
 	schemaRevision: 1,
@@ -366,6 +503,7 @@ export type ChatStreamEvent =
 	| ChatStartEvent
 	| { type: "delta"; text: string; messageId?: string }
 	| { type: "tool"; part: ChatToolPart; messageId?: string }
+	| ChatRlmStreamEvent
 	| {
 			type: "plan";
 			mode: ChatMode;
@@ -380,6 +518,7 @@ export type ChatStreamEvent =
 	| ChatThinkingEvent
 	| ChatPresentationEvent
 	| ChatMessageEvent
+	| ChatPayloadEvent
 	| { type: "reasoning"; presentation: ChatReasoningPresentation; messageId?: string }
 	| { type: "compaction"; phase: "start"; reason: string }
 	| {
@@ -388,7 +527,11 @@ export type ChatStreamEvent =
 			reason: string;
 			aborted: boolean;
 			willRetry: boolean;
+			summary?: string;
+			tokensBefore?: number;
+			firstKeptEntryId?: string;
 			errorMessage?: string;
+			error?: ChatErrorEnvelope;
 	  }
 	| {
 			type: "retry";
@@ -397,6 +540,7 @@ export type ChatStreamEvent =
 			maxAttempts: number;
 			delayMs: number;
 			errorMessage?: string;
+			error?: ChatErrorEnvelope;
 	  }
 	| {
 			type: "retry";
@@ -404,6 +548,7 @@ export type ChatStreamEvent =
 			success: boolean;
 			attempt: number;
 			finalError?: string;
+			error?: ChatErrorEnvelope;
 	  }
 	| {
 			type: "done";
@@ -412,8 +557,9 @@ export type ChatStreamEvent =
 			sessionId: string;
 			requestKind?: ChatStreamRequestKind;
 			sessionReset?: boolean;
+			presentation?: PrimeAgentSessionPresentation;
 	  }
-	| { type: "error"; message: string; runId?: string };
+	| ChatErrorStreamEvent;
 
 type ChatStateEvent = {
 	name: "agent_start" | "agent_end" | "agent_settled" | "turn_start" | "turn_end" | "message_start" | "message_end";
@@ -557,6 +703,7 @@ export type ChatNewRequest = {
 	thinkingLevel?: ChatThinkingLevel;
 	mode?: ChatMode;
 	model?: ChatModelSelection;
+	openUI?: boolean;
 };
 
 export type ChatSessionInfo = {
