@@ -7,7 +7,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -61,7 +61,7 @@ function packToTemp(tempDir) {
 	if (!existsSync(launcher)) {
 		throw new Error(`Missing ${launcher}. Run npm run build:web:release before packing.`);
 	}
-	execFileSync("npm", ["pack", "packages/fleet-prime", "--pack-destination", tempDir], {
+	execFileSync("npm", ["pack", "./packages/fleet-prime", "--pack-destination", tempDir], {
 		cwd: root,
 		stdio: "inherit",
 	});
@@ -72,6 +72,22 @@ function packToTemp(tempDir) {
 		throw new Error("npm pack did not produce a qredence-fleet-prime tarball");
 	}
 	return join(tempDir, packed[packed.length - 1]);
+}
+
+function findClientJsAsset(clientDir) {
+	const queue = [clientDir];
+	while (queue.length > 0) {
+		const dir = queue.shift();
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			const entryPath = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				queue.push(entryPath);
+			} else if (entry.isFile() && entry.name.endsWith(".js")) {
+				return relative(clientDir, entryPath).split(sep).join("/");
+			}
+		}
+	}
+	return undefined;
 }
 
 function installTarball(tarball, prefix) {
@@ -170,13 +186,13 @@ async function checkWebRuntime(baseUrl, workspace, installedPackage) {
 	}
 
 	const clientDir = join(installedPackage, "dist", "web", "client");
-	const asset = readdirSync(clientDir).find((entry) => entry.endsWith(".js"));
-	if (!asset) {
+	const assetPath = findClientJsAsset(clientDir);
+	if (!assetPath) {
 		throw new Error(`No client JS asset found in ${clientDir}`);
 	}
-	const assetResponse = await fetchWithTimeout(`${baseUrl}/${asset}`);
+	const assetResponse = await fetchWithTimeout(`${baseUrl}/${assetPath}`);
 	if (assetResponse.status !== 200) {
-		throw new Error(`GET ${baseUrl}/${asset} -> HTTP ${assetResponse.status}`);
+		throw new Error(`GET ${baseUrl}/${assetPath} -> HTTP ${assetResponse.status}`);
 	}
 }
 
