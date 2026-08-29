@@ -22,7 +22,6 @@ const CSP_META_REFERENCE = /\bcontent-security-policy\b/i;
 const EVENT_HANDLER_ATTRIBUTE = /\son[a-z][\w:-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i;
 const SCRIPT_SOURCE_ATTRIBUTE = /<script\b[^>]*\bsrc\s*=/i;
 const CSS_IMPORT = /@import\b/i;
-const CSS_URL = /url\s*\(\s*("[^"]*"|'[^']*'|[^)]*)\)/gi;
 const NETWORK_API =
 	/\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|showModalDialog)\s*\(|\bwindow\s*\.\s*open\s*\(|\b(?:window|globalThis|document|location)\s*\.\s*(?:location|assign|replace|reload|href|pathname|host|hostname|port|protocol|search|hash)\s*=|\b(?:window|globalThis|document|location)\s*\.\s*(?:location\s*\.\s*)?(?:assign|replace|reload)\s*\(/i;
 const RESOURCE_ATTRIBUTE =
@@ -177,10 +176,64 @@ function hasUnsafeResourceAttribute(document: string): boolean {
 	return false;
 }
 
+// Linear-time scanner for CSS url(...) tokens. A previous regex version
+// backtracked quadratically on inputs like "url(" followed by many spaces
+// and no closing paren.
+function isCssWhitespace(character: string | undefined): boolean {
+	return character !== undefined && /\s/.test(character);
+}
+
+function extractCssUrlValues(document: string): string[] {
+	const values: string[] = [];
+	const lower = document.toLowerCase();
+	let searchFrom = 0;
+
+	while (searchFrom < document.length) {
+		const keywordStart = lower.indexOf("url", searchFrom);
+		if (keywordStart === -1) break;
+
+		let cursor = keywordStart + 3;
+		while (isCssWhitespace(document[cursor])) cursor += 1;
+		if (document[cursor] !== "(") {
+			searchFrom = keywordStart + 3;
+			continue;
+		}
+		cursor += 1;
+		while (isCssWhitespace(document[cursor])) cursor += 1;
+
+		const contentStart = cursor;
+		const quote = document[contentStart];
+		if (quote === '"' || quote === "'") {
+			// Quoted value is only accepted when its closing quote is followed
+			// by the closing paren; otherwise fall through to the unquoted scan.
+			const closingQuote = document.indexOf(quote, contentStart + 1);
+			if (closingQuote !== -1) {
+				let afterQuote = closingQuote + 1;
+				while (isCssWhitespace(document[afterQuote])) afterQuote += 1;
+				if (document[afterQuote] === ")") {
+					values.push(document.slice(contentStart, closingQuote + 1));
+					searchFrom = afterQuote + 1;
+					continue;
+				}
+			}
+		}
+
+		const closingParen = document.indexOf(")", contentStart);
+		if (closingParen === -1) {
+			// No closing paren remains in the document, so no later url()
+			// token can be complete either.
+			break;
+		}
+		values.push(document.slice(contentStart, closingParen));
+		searchFrom = closingParen + 1;
+	}
+
+	return values;
+}
+
 function hasUnsafeCssUrl(document: string): boolean {
-	CSS_URL.lastIndex = 0;
-	for (const match of document.matchAll(CSS_URL)) {
-		let value = match[1] ?? "";
+	for (const rawValue of extractCssUrlValues(document)) {
+		let value = rawValue;
 		if (
 			value.length >= 2 &&
 			((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))

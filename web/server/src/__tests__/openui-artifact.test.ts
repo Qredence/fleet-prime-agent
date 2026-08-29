@@ -124,6 +124,60 @@ describe("validateAndNormalizeOpenUIHtmlArtifact", () => {
 		expect(validateAndNormalizeOpenUIHtmlArtifact({ title: "Unsafe", document }).ok).toBe(false);
 	});
 
+	it("allows CSS url() values limited to safe data images", () => {
+		const quoted = validateAndNormalizeOpenUIHtmlArtifact({
+			title: "Safe CSS url quoted",
+			document: '<style>body { background: url("data:image/png;base64,AAAA"); }</style>',
+		});
+		expect(quoted.ok).toBe(true);
+
+		const unquoted = validateAndNormalizeOpenUIHtmlArtifact({
+			title: "Safe CSS url unquoted",
+			document: "<style>body { background: url(data:image/png;base64,AAAA); }</style>",
+		});
+		expect(unquoted.ok).toBe(true);
+	});
+
+	it("rejects CSS url() values that reference external or unsafe resources", () => {
+		const external = validateAndNormalizeOpenUIHtmlArtifact({
+			title: "Unsafe CSS url",
+			document: '<style>body { background: url("https://example.com/x.png"); }</style>',
+		});
+		expect(external.ok).toBe(false);
+
+		const empty = validateAndNormalizeOpenUIHtmlArtifact({
+			title: "Empty CSS url",
+			document: "<style>body { background: url(); }</style>",
+		});
+		expect(empty.ok).toBe(false);
+	});
+
+	it("parses quoted CSS url() values containing parentheses without truncation", () => {
+		const result = validateAndNormalizeOpenUIHtmlArtifact({
+			title: "Parentheses inside quoted CSS url",
+			document: '<style>body { background: url("data:image/svg+xml;utf8,<svg>()"); }</style>',
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it("rejects malformed quoted CSS url() values via the unquoted fallback", () => {
+		const result = validateAndNormalizeOpenUIHtmlArtifact({
+			title: "Malformed quoted CSS url",
+			document: '<style>body { background: url("https://example.com" x); }</style>',
+		});
+		expect(result.ok).toBe(false);
+	});
+
+	it("validates adversarial unclosed CSS url() input in bounded time", () => {
+		const document = `<style>body { background: url(${" ".repeat(200_000)}</style>`;
+		const started = performance.now();
+		const result = validateAndNormalizeOpenUIHtmlArtifact({ title: "Unclosed CSS url", document });
+		const elapsed = performance.now() - started;
+
+		expect(result.ok).toBe(true);
+		expect(elapsed).toBeLessThan(2_000);
+	});
+
 	it("enforces the UTF-8 size limit before normalization", () => {
 		const result = validateAndNormalizeOpenUIHtmlArtifact({
 			title: "Large",
