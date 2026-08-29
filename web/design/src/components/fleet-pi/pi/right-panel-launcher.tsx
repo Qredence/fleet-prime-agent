@@ -1,4 +1,4 @@
-import { Activity, Folder, Library, Package, X } from "lucide-react"
+import { Activity, Folder, Library, Package, PanelRight, X } from "lucide-react"
 import { useEffect, useEffectEvent, useId, useMemo, useRef } from "react"
 import { TabsSubtle, TabsSubtleItem } from "../../tabs-subtle"
 import {
@@ -9,6 +9,7 @@ import {
   useChatPanelDataContext,
   useWorkspaceTreeContext,
 } from "../layout/right-panel-context"
+import { ChromePillButton } from "../primitives/chrome-pill"
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "../styles/tokens"
 import { collectSessionOpenUIBlocks, getArtifactsScopePath } from "./artifacts-utils"
 import {
@@ -24,7 +25,29 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol"
 /** Reads panel state from RightPanelProvider — no prop threading from route. */
 export function RightPanelLauncherFromContext() {
-  const { artifactRuns, messages, rightPanel, setRightPanel, resources } = useChatPanelDataContext()
+  const { reopenRightPanel, rightPanel } = useChatPanelDataContext()
+
+  return (
+    <>
+      <div className="min-[960px]:hidden">
+        <RightPanelTabsFromContext idPrefix="right-panel-mobile" />
+      </div>
+      <div className="hidden min-[960px]:block">
+        {rightPanel === null ? (
+          <RightPanelTrigger onOpen={reopenRightPanel} />
+        ) : null}
+      </div>
+    </>
+  )
+}
+
+export function RightPanelTabsFromContext({
+  idPrefix = "right-panel",
+}: {
+  idPrefix?: string
+}) {
+  const { artifactRuns, messages, rightPanel, setRightPanel, resources } =
+    useChatPanelDataContext()
   const { workspaceTree } = useWorkspaceTreeContext()
 
   return (
@@ -35,7 +58,20 @@ export function RightPanelLauncherFromContext() {
       sessionBlocks={collectSessionOpenUIBlocks(messages).length}
       technicalArtifacts={artifactRuns.flatMap((run) => run.artifacts).length}
       workspace={workspaceTree}
+      idPrefix={idPrefix}
     />
+  )
+}
+
+export function RightPanelTrigger({ onOpen }: { onOpen: () => void }) {
+  return (
+    <ChromePillButton
+      ariaLabel="Open side panel"
+      className="size-9 justify-center px-0"
+      onClick={onOpen}
+    >
+      <PanelRight className="size-4" />
+    </ChromePillButton>
   )
 }
 
@@ -46,8 +82,10 @@ export function RightPanelLauncher({
   sessionBlocks = 0,
   technicalArtifacts = 0,
   workspace,
+  idPrefix = "right-panel",
 }: {
   activePanel: RightPanel
+  idPrefix?: string
   onPanelChange: (panel: RightPanel) => void
   resources: ChatResourcesResponse | null
   /** Generative-UI blocks in the current session — counted alongside workspace files. */
@@ -114,10 +152,10 @@ export function RightPanelLauncher({
     <TabsSubtle
       activeLabel
       variant="pill"
-      className="flex items-center"
+      className="flex w-fit max-w-full items-center"
       data-testid="right-panel-inline-launcher"
       data-active-panel={activePanel ?? "closed"}
-      idPrefix="right-panel"
+      idPrefix={idPrefix}
       selectedIndex={selectedIndex}
       onSelect={(index) => {
         const next = tabs.at(index)?.id

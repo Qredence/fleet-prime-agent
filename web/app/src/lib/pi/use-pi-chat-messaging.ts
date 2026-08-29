@@ -99,6 +99,8 @@ export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 		status: ChatStatus;
 	};
 
+export const RESOLVED_PROMISE: Promise<void> = Promise.resolve();
+
 export function usePiChatMessaging({
 	activityLabelRef,
 	client,
@@ -130,7 +132,7 @@ export function usePiChatMessaging({
 	// and clobbering one another (race documented in review finding M2).
 	const sessionCreatePromiseRef = useRef<Promise<ChatSessionMetadata> | null>(null);
 	const streamAdmissionsRef = useRef(new Set<StreamAdmission>());
-	const queuedSubmissionTailRef = useRef(Promise.resolve());
+	const queuedSubmissionTailRef = useRef(RESOLVED_PROMISE);
 	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
 	const findStreamAdmission = useCallback((sessionId?: string) => {
 		for (const admission of streamAdmissionsRef.current) {

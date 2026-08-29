@@ -14,6 +14,7 @@ import type { ReactNode, PointerEvent as ReactPointerEvent } from "react"
 export function ResizableCanvas({
   children,
   dataTestid,
+  headerLeading,
   loading,
   onClose,
   onRefresh,
@@ -26,6 +27,7 @@ export function ResizableCanvas({
 }: {
   children: ReactNode
   dataTestid?: string
+  headerLeading?: ReactNode
   headerActions?: ReactNode
   loading: boolean
   onClose: () => void
@@ -81,10 +83,14 @@ export function ResizableCanvas({
             onPointerDown={onResizeStart}
           />
           <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/60 px-3">
-              <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground/80">
-                <TitleIcon className="size-3.5 shrink-0" />
-                <span>{title}</span>
+            <div className="flex h-[60px] min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-1">
+              <div className="min-w-0 flex-1">
+                {headerLeading ?? (
+                  <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground/80">
+                    <TitleIcon className="size-3.5 shrink-0" />
+                    <span>{title}</span>
+                  </div>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 {headerActions}

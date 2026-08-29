@@ -54,6 +54,7 @@ type UseRightPanelContextValueArgs = {
 	resourcesError: Error | null;
 	resourcesLoading: boolean;
 	rightPanel: RightPanel;
+	reopenRightPanel: () => void;
 	saveSettings: (settings: ChatPiSettingsUpdate) => Promise<ChatSettingsResponse>;
 	selectedArtifactId?: string | null;
 	sessionId?: string;
@@ -104,6 +105,7 @@ export function useRightPanelContextValue({
 	resourcesError,
 	resourcesLoading,
 	rightPanel,
+	reopenRightPanel,
 	saveSettings,
 	selectedArtifactId,
 	sessionId,
@@ -134,6 +136,7 @@ export function useRightPanelContextValue({
 			resources,
 			resourcesError,
 			resourcesLoading,
+			reopenRightPanel,
 			rightPanel,
 			selectedModelKey: modelKey,
 			selectedArtifactId,
@@ -155,6 +158,7 @@ export function useRightPanelContextValue({
 			resources,
 			resourcesError,
 			resourcesLoading,
+			reopenRightPanel,
 			rightPanel,
 			modelKey,
 			selectedArtifactId,

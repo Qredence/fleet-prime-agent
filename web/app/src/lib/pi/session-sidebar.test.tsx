@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type {
   ChatSessionInfo,
   ProjectDirectoryBrowseResponse,
@@ -211,5 +211,97 @@ describe("FleetSessionSidebar project rows", () => {
     await waitFor(() => expect(getByText("Project is already registered")).toBeTruthy())
     expect(getByRole("dialog", { name: "Add project" })).toBeTruthy()
     expect(createProject).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("FleetSessionSidebar empty projects", () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
+  it("offers a Start first chat action for projects without sessions", () => {
+    const onNewSessionInProject = vi.fn()
+    const { getByRole } = render(
+      <AnimatedSidebarProvider>
+        <FleetSessionSidebar
+          sessions={[]}
+          projects={[project("alpha")]}
+          projectSessions={[]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onNewSessionInProject={onNewSessionInProject}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    fireEvent.click(getByRole("treeitem", { name: "Start first chat" }))
+    expect(onNewSessionInProject).toHaveBeenCalledWith("alpha")
+  })
+
+  it("falls back to selecting the project and opening a new session without onNewSessionInProject", () => {
+    const onNewSession = vi.fn()
+    const onProjectSelect = vi.fn()
+    const { getByRole } = render(
+      <AnimatedSidebarProvider>
+        <FleetSessionSidebar
+          sessions={[]}
+          projects={[project("alpha")]}
+          projectSessions={[]}
+          activeProjectId="alpha"
+          onNewSession={onNewSession}
+          onProjectSelect={onProjectSelect}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    fireEvent.click(getByRole("treeitem", { name: "Start first chat" }))
+    expect(onProjectSelect).toHaveBeenCalledWith("alpha")
+    expect(onNewSession).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("FleetSessionSidebar fork dialog", () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
+  it("uses a design-system select and forks into another project", async () => {
+    const onForkSessionIntoProject = vi.fn()
+    render(
+      <AnimatedSidebarProvider>
+        <FleetSessionSidebar
+          sessions={[]}
+          projects={[project("alpha"), project("beta")]}
+          projectSessions={[session("s1", "alpha")]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+          onForkSessionIntoProject={onForkSessionIntoProject}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for s1" }))
+    fireEvent.click(await screen.findByText("Fork into project"))
+
+    const dialog = await screen.findByRole("dialog", { name: "Fork session into project" })
+    // The fork target picker is the design-system Select, not a native element.
+    expect(dialog.querySelector("select")).toBeNull()
+    const targetPicker = within(dialog).getByRole("combobox", { name: "Target project" })
+    expect(targetPicker.textContent).toContain("beta — /workspace/beta")
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Fork session" }))
+    expect(onForkSessionIntoProject).toHaveBeenCalledWith("s1", "beta")
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Fork session into project" })).toBeNull(),
+    )
   })
 })

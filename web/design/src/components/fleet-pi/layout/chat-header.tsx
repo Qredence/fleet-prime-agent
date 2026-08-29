@@ -72,7 +72,7 @@ export function AccountMenu({
           <ChromePillButton
             ariaLabel="Open account menu"
             className={cn(
-              "min-w-0",
+              "min-w-0 border-transparent shadow-none",
               compact ? "size-8 justify-center px-2" : "w-full justify-start",
             )}
           >

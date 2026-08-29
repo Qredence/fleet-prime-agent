@@ -1,4 +1,11 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, type Locator, type Page } from "@playwright/test"
+
+async function clickCenter(page: Page, locator: Locator) {
+	const box = await locator.boundingBox()
+	expect(box).not.toBeNull()
+	if (!box) return
+	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+}
 
 // Smoke: prove the chat shell boots and the composer is interactive.
 //
@@ -349,11 +356,33 @@ test.describe("chat shell", () => {
 		const sidebar = page.getByRole("complementary", { name: "Fleet projects and sessions" })
 		await expect(sidebar).toBeVisible()
 		expect(await sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(280)
-		await expect(sidebar.getByRole("button", { name: "Qredence Fleet", exact: true })).toBeVisible()
+		const brandButton = sidebar.getByRole("button", { name: "Qredence Fleet", exact: true })
+		await expect(brandButton).toBeVisible()
+		const brandLayout = await brandButton.evaluate((element) => {
+			const buttonStyle = getComputedStyle(element)
+			const buttonBox = element.getBoundingClientRect()
+			const rowBox = element.parentElement?.getBoundingClientRect()
+			return {
+				flexGrow: buttonStyle.flexGrow,
+				flexShrink: buttonStyle.flexShrink,
+				buttonWidth: buttonBox.width,
+				rowWidth: rowBox?.width ?? 0,
+			}
+		})
+		expect(brandLayout.flexGrow).toBe("0")
+		expect(brandLayout.flexShrink).toBe("0")
+		expect(brandLayout.buttonWidth).toBeLessThan(brandLayout.rowWidth)
 		await expect(sidebar.getByRole("button", { name: "New chat", exact: true })).toBeVisible()
 		await expect(sidebar.getByText("Projects", { exact: true })).toBeVisible()
 		await expect(sidebar.getByText("Recents", { exact: true })).toHaveCount(0)
-		await expect(sidebar.getByRole("button", { name: "Open account menu" })).toContainText("Qredence")
+		const accountButton = sidebar.getByRole("button", { name: "Open account menu" })
+		await expect(accountButton).toContainText("Qredence")
+		expect(await accountButton.evaluate((element) => getComputedStyle(element).borderTopColor)).toMatch(
+			/transparent|rgba\(0, 0, 0, 0\)/,
+		)
+		await expect(
+			page.locator('[data-openui-devtools-root] > div > button[aria-label="Open OpenUI devtools"]'),
+		).toBeHidden()
 
 		await expect(
 			sidebar.getByRole("button", { name: "Search projects and sessions" }),
@@ -399,25 +428,75 @@ test.describe("chat shell", () => {
 		await page.goto("/")
 		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
 		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/)
-		const sessionInsights = page.getByRole("tab", { name: "Session insights", exact: true })
-		const resources = page.getByRole("tab", { name: "Resources", exact: true })
-		const workspace = page.getByRole("tab", { name: "Workspace", exact: true })
-		const artifacts = page.getByRole("tab", { name: "Workspace artifacts", exact: true })
+		const panelToggle = page.getByRole("button", { name: "Open side panel", exact: true })
+		const visiblePanelTabs = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
+		await expect(panelToggle).toBeVisible()
+		await expect(visiblePanelTabs).toHaveCount(0)
+
+		await clickCenter(page, panelToggle)
+		const workspaceCanvas = page.getByTestId("pi-workspace-canvas")
+		await expect(workspaceCanvas).toBeVisible()
+		await expect(workspaceCanvas).toHaveCSS("transform", "none")
+		const panelBox = await workspaceCanvas.boundingBox()
+		expect(panelBox?.y).toBeLessThanOrEqual(1)
+		expect(panelBox?.height).toBeGreaterThanOrEqual(899)
+		const panelTabs = workspaceCanvas.getByTestId("right-panel-inline-launcher")
+		await expect(panelTabs).toBeVisible()
+		const panelTabsBox = await panelTabs.boundingBox()
+		const panelTabsParentBox = await panelTabs.locator("xpath=..").boundingBox()
+		expect(panelTabsBox).not.toBeNull()
+		expect(panelTabsParentBox).not.toBeNull()
+		if (panelTabsBox && panelTabsParentBox) {
+			expect(panelTabsBox.width).toBeLessThan(panelTabsParentBox.width)
+		}
+		await expect(page.getByTestId("chat-header").getByTestId("right-panel-inline-launcher")).toBeHidden()
+
+		const sessionInsights = visiblePanelTabs.getByRole("tab", { name: "Session insights", exact: true })
+		const resources = visiblePanelTabs.getByRole("tab", { name: "Resources", exact: true })
+		const workspace = visiblePanelTabs.getByRole("tab", { name: "Workspace", exact: true })
+		const artifacts = visiblePanelTabs.getByRole("tab", { name: "Workspace artifacts", exact: true })
 		await expect(sessionInsights).toBeVisible()
 		await expect(resources).toBeVisible()
 		await expect(workspace).toBeVisible()
 		await expect(artifacts).toBeVisible()
 
-		await sessionInsights.click()
-		await expect(page.getByTestId("right-panel-inline-launcher")).toHaveAttribute("data-active-panel", "session-insights")
-		await expect(page.getByTestId("pi-session-insights-canvas")).toBeVisible()
-		await resources.click()
-		await expect(page.getByTestId("right-panel-inline-launcher")).toHaveAttribute("data-active-panel", "resources")
-		await expect(page.getByTestId("pi-resources-canvas")).toBeVisible()
-		await workspace.click()
-		await expect(page.getByTestId("pi-workspace-canvas")).toBeVisible()
+		await clickCenter(page, sessionInsights)
+		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "session-insights")
+		const sessionInsightsCanvas = page.getByTestId("pi-session-insights-canvas")
+		await expect(sessionInsightsCanvas).toBeVisible()
+		await expect(sessionInsightsCanvas).toHaveCSS("transform", "none")
+		await clickCenter(page, sessionInsights)
+		await expect(page.getByTestId("pi-session-insights-canvas")).toHaveCount(0)
+		await expect(panelToggle).toBeVisible()
+		await clickCenter(page, panelToggle)
+		await expect(sessionInsightsCanvas).toBeVisible()
+		await expect(sessionInsightsCanvas).toHaveCSS("transform", "none")
+
+		await clickCenter(page, resources)
+		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "resources")
+		const resourcesCanvas = page.getByTestId("pi-resources-canvas")
+		await expect(resourcesCanvas).toBeVisible()
+		await expect(resourcesCanvas).toHaveCSS("transform", "none")
+		await clickCenter(page, workspace)
+		await expect(workspaceCanvas).toBeVisible()
+		await expect(workspaceCanvas).toHaveCSS("transform", "none")
 		await expect(page.getByTestId("pi-resources-canvas")).toHaveCount(0)
-		await workspace.click()
+
+		const resizeHandle = page.getByRole("button", { name: "Resize Workspace panel", exact: true })
+		const beforeResize = await page.getByTestId("pi-workspace-canvas").boundingBox()
+		const resizeHandleBox = await resizeHandle.boundingBox()
+		expect(beforeResize?.width).toBeTruthy()
+		expect(resizeHandleBox).toBeTruthy()
+		if (beforeResize && resizeHandleBox) {
+			expect(Math.abs(resizeHandleBox.x - beforeResize.x)).toBeLessThanOrEqual(8)
+		}
+		await page.mouse.move(resizeHandleBox!.x + 1, resizeHandleBox!.y + 24)
+		await page.mouse.down()
+		await page.mouse.move(resizeHandleBox!.x + 81, resizeHandleBox!.y + 24)
+		await page.mouse.up()
+		await expect.poll(async () => (await page.getByTestId("pi-workspace-canvas").boundingBox())?.width ?? 0).toBeLessThan(beforeResize!.width)
+
+		await clickCenter(page, workspace)
 		await expect(page.getByTestId("pi-workspace-canvas")).toHaveCount(0)
 
 		await page.keyboard.press("Control+Shift+Digit3")

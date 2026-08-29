@@ -162,10 +162,6 @@
   }
 }
 
-@media (max-width: 639px) {
-  [data-openui-devtools-root] > div > button[aria-label="Open OpenUI devtools"] {
-    position: fixed !important;
-    right: 12px !important;
-    bottom: 128px !important;
-  }
+[data-openui-devtools-root] > div > button[aria-label="Open OpenUI devtools"] {
+  display: none !important;
 }

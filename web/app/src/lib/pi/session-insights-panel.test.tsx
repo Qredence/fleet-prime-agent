@@ -1,5 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { RightPanelLauncher } from "@prime-agent/web-design/components/fleet-pi/pi/right-panel-launcher"
+import {
+  RightPanelLauncher,
+  RightPanelTrigger,
+} from "@prime-agent/web-design/components/fleet-pi/pi/right-panel-launcher"
 import {
   deriveSessionInsights,
   SessionInsightsPanel,
@@ -183,5 +186,16 @@ describe("SessionInsightsPanel", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Session insights" }))
     expect(onPanelChange).toHaveBeenCalledWith("session-insights")
+  })
+
+  it("provides an accessible collapsed side-panel trigger", () => {
+    const onOpen = vi.fn()
+    render(<RightPanelTrigger onOpen={onOpen} />)
+
+    const trigger = screen.getByRole("button", { name: "Open side panel" })
+    expect(trigger.getAttribute("title")).toBe("Open side panel")
+    fireEvent.click(trigger)
+
+    expect(onOpen).toHaveBeenCalledTimes(1)
   })
 })

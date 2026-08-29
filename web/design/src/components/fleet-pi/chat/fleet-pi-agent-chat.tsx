@@ -293,9 +293,10 @@ function AssistantMessage({
       isLast,
       turnStreaming,
       messages,
-		onOpenUIAction,
-		onOpenUIArtifactReady,
-		suppressQuestionTool,
+      onOpenArtifact,
+      onOpenUIAction,
+      onOpenUIArtifactReady,
+      suppressQuestionTool,
       toolRenderers,
     ],
   )

@@ -37,6 +37,7 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	const [modelKey, setModelKey] = useState<string | undefined>();
 	const [thinkingLevel, setThinkingLevelState] = useState<ChatThinkingLevel | undefined>();
 	const [rightPanel, setRightPanelState] = useState<RightPanel>(null);
+	const lastRightPanelRef = useRef<Exclude<RightPanel, null>>("workspace");
 	const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
 	const [selectedWorkspacePath, setSelectedWorkspacePath] = useState<string | null>(null);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -134,7 +135,12 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 		[resourceCanvasWidth],
 	);
 
+	const reopenRightPanel = useCallback(() => {
+		setRightPanelState(lastRightPanelRef.current);
+	}, []);
+
 	const setRightPanel = useCallback((panel: RightPanel) => {
+		if (panel !== null) lastRightPanelRef.current = panel;
 		setRightPanelState(panel);
 
 		if (panel === null) {
@@ -218,6 +224,7 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 		openWorkspacePath,
 		openPanelAction,
 		persistSession,
+		reopenRightPanel,
 		resourceCanvasWidth,
 		rightPanel,
 		selectedArtifactId,

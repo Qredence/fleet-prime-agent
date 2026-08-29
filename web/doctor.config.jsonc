@@ -1,0 +1,177 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "ignore": {
+    "files": [
+      "**/prime-agent-visualization.html"
+    ],
+    "overrides": [
+      {
+        "files": ["src/components/openui/openui-library.tsx", "src/components/openui/charts.tsx"],
+        "rules": [
+          "react-doctor/no-multi-component-file",
+          "react-doctor/no-multi-comp",
+          "react-doctor/prefer-dynamic-import",
+          "react-doctor/no-array-index-as-key"
+        ]
+      },
+      {
+        "files": ["src/lib/pi/use-pi-chat.ts", "src/hooks/use-proximity-hover.ts"],
+        "rules": ["react-doctor/effect-needs-cleanup"]
+      },
+      {
+        "files": ["src/components/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx"],
+        "rules": ["react-doctor/js-set-map-lookups"]
+      },
+      {
+        "files": ["src/components/fleet-pi/pi/workspace-panel.tsx"],
+        "rules": [
+          "react-doctor/no-adjust-state-on-prop-change",
+          "react-doctor/exhaustive-deps",
+          "react-doctor/no-loading-flag-reset-outside-finally"
+        ]
+      },
+      {
+        "files": ["src/components/chart.tsx", "src/components/openui/data.tsx"],
+        "rules": ["react-doctor/prefer-dynamic-import"]
+      },
+      {
+        "files": ["src/components/agents/message-turns.tsx"],
+        "rules": [
+          "react-doctor/no-many-boolean-props",
+          "react-doctor/no-array-index-as-key"
+        ]
+      },
+      {
+        "files": [
+          "src/components/agents/input/mode-selector.tsx",
+          "src/components/fleet-pi/icons/google-icon.tsx",
+          "src/components/fleet-pi/primitives/centered-loader.tsx",
+          "src/components/agents/input/effort-picker.tsx",
+          "src/components/agents/input/model-picker.tsx",
+          "src/components/elements/fleet-reasoning-panel.tsx",
+          "src/components/fleet-pi/chat/chat-stop-control.tsx",
+          "src/components/fleet-pi/pi/open-project-folder-dialog.tsx",
+          "src/components/motion/context-menu.tsx"
+        ],
+        "rules": ["deslop/unused-file"]
+      },
+      {
+        "files": [
+          "src/lib/pi/plan-state.ts",
+          "src/components/elements/composer.tsx",
+          "src/components/fleet-pi/styles/tokens.ts",
+          "src/components/motion/action-swap-roll.tsx",
+          "src/components/motion/animated-select.tsx",
+          "src/components/motion/combobox/list.tsx",
+          "src/components/motion/combobox/trigger.tsx",
+          "src/lib/range.ts",
+          "src/lib/surfaces.tsx"
+        ],
+        "rules": ["deslop/unused-export"]
+      },
+      {
+        "files": ["src/components/agents/agent-activity/index.tsx"],
+        "rules": ["react-doctor/no-derived-state", "react-doctor/no-derived-state-effect"]
+      },
+      {
+        "files": ["src/components/agents/ai-sidebar.tsx"],
+        "rules": [
+          "react-doctor/no-render-prop-children",
+          "react-doctor/no-pass-live-state-to-parent",
+          "react-doctor/no-pass-data-to-parent",
+          "react-doctor/no-giant-component"
+        ]
+      },
+      {
+        "files": ["src/components/fleet-pi/session-sidebar/project-list.tsx"],
+        "rules": ["react-doctor/no-render-prop-children"]
+      },
+      {
+        "files": ["src/components/fleet-pi/session-sidebar/view-model.tsx"],
+        "rules": [
+          "react-doctor/no-pass-live-state-to-parent",
+          "react-doctor/no-pass-data-to-parent"
+        ]
+      },
+      {
+        "files": [
+          "src/components/agents/file-diff.tsx",
+          "src/components/agents/todo-list.tsx",
+          "src/components/agents/tool-approval.tsx",
+          "src/components/agents/tool-result.tsx"
+        ],
+        "rules": [
+          "react-doctor/no-adjust-state-on-prop-change",
+          "react-doctor/no-pass-data-to-parent"
+        ]
+      },
+      {
+        "files": [
+          "src/components/fleet-pi/chat/fleet-pi-input-bar-state.tsx",
+          "src/components/fleet-pi/pi/artifacts-panel.tsx"
+        ],
+        "rules": ["react-doctor/no-adjust-state-on-prop-change"]
+      },
+      {
+        "files": ["src/components/fleet-pi/pi/config-panel/sections/use-oauth-login-flow.ts"],
+        "rules": [
+          "react-doctor/no-set-state-after-await-in-effect",
+          "react-doctor/no-loading-flag-reset-outside-finally"
+        ]
+      },
+      {
+        "files": ["src/components/motion/combobox/content.tsx"],
+        "rules": ["react-doctor/no-derived-state-effect"]
+      },
+      {
+        "files": ["src/components/motion/combobox/context.tsx"],
+        "rules": ["react-doctor/no-effect-chain"]
+      },
+      {
+        "files": ["src/components/motion/project-folder.tsx"],
+        "rules": ["react-doctor/prefer-html-dialog"]
+      },
+      {
+        "files": [
+          "src/components/elements/composer.tsx",
+          "src/components/elements/reasoning-panel.tsx",
+          "src/components/elements/thinking-indicator.tsx"
+        ],
+        "rules": [
+          "react-doctor/no-transition-all",
+          "react-doctor/no-array-index-as-key"
+        ]
+      },
+      {
+        "files": [
+          "src/components/agents/agent-activity/activity-row.tsx",
+          "src/components/agents/agent-activity/index.tsx",
+          "src/components/agents/agent-disclosure.tsx",
+          "src/components/agents/tool-result.tsx",
+          "src/components/motion/file-tree.tsx"
+        ],
+        "rules": [
+          "react-doctor/use-lazy-motion",
+          "react-doctor/prefer-module-scope-static-value",
+          "react-doctor/motion-animate-presence-must-outlive-child"
+        ]
+      },
+      {
+        "files": [
+          "src/components/agents/prompt-input.tsx"
+        ],
+        "rules": [
+          "react-doctor/motion-animate-presence-must-outlive-child"
+        ]
+      },
+      {
+        "files": [
+          "package.json"
+        ],
+        "rules": [
+          "deslop/unused-dependency"
+        ]
+      }
+    ]
+  }
+}

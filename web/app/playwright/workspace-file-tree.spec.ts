@@ -73,6 +73,13 @@ async function mockWorkspaceApis(page: Page) {
 	})
 }
 
+async function clickCenter(page: Page, locator: ReturnType<Page["locator"]>) {
+	const box = await locator.boundingBox()
+	expect(box).not.toBeNull()
+	if (!box) return
+	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+}
+
 function collectBrowserErrors(page: Page) {
 	const errors: Array<string> = []
 	page.on("console", (message) => {
@@ -91,9 +98,10 @@ test.describe("workspace file tree", () => {
 		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
 		await page.waitForLoadState("networkidle")
 
-		await page.getByRole("tab", { name: "Workspace", exact: true }).click()
+		await clickCenter(page, page.getByRole("button", { name: "Open side panel", exact: true }))
 		const canvas = page.getByTestId("pi-workspace-canvas")
 		await expect(canvas).toBeVisible()
+		await expect(canvas).toHaveCSS("transform", "none")
 		const tree = canvas.getByRole("tree", { name: "Workspace files" })
 		await expect(tree).toBeVisible()
 

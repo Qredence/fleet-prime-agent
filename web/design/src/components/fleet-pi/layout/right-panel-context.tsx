@@ -24,6 +24,7 @@ export type ChatPanelDataContextValue = Pick<
   | "selectedArtifactId"
   | "thinkingLevel"
 > & {
+  reopenRightPanel: () => void
   rightPanel: RightPanel
   setRightPanel: (panel: RightPanel) => void
 }
@@ -84,10 +85,15 @@ export function RightPanelProvider({
   settingsActions: SettingsActionsContextValue
   workspaceTree: WorkspaceTreeContextValue
 }) {
+  const chatPanelDataValue = useMemo(
+    () => ({ ...chatPanelData, onOpenUIAction }),
+    [chatPanelData, onOpenUIAction],
+  )
+
   return (
     <SettingsActionsContext.Provider value={settingsActions}>
       <WorkspaceTreeContext.Provider value={workspaceTree}>
-        <ChatPanelDataContext.Provider value={{ ...chatPanelData, onOpenUIAction }}>
+        <ChatPanelDataContext.Provider value={chatPanelDataValue}>
           {children}
         </ChatPanelDataContext.Provider>
       </WorkspaceTreeContext.Provider>

@@ -1,244 +1,249 @@
 {
-	"$schema": "https://react.doctor/schema/config.json",
-	"ignore": {
-		// Globs match per-project, relative to each scanned project root
-		// (diagnostic paths are relativized to the project before matching).
-		// Demo/marketing page at the app root, not shipped app code.
-		// Excluded from scanning entirely (decision Q7, 2026-08-11; 7 diags).
-		"files": ["app/prime-agent-visualization.html"],
-		"overrides": [
-			{
-				// Waived 2026-08-11 — library file by design. openui-library.tsx is
-				// a defined-component registry (defineComponent DSL); multiple
-				// named components per file is the file's entire purpose, so the
-				// one-component-per-file intent of no-multi-comp does not apply.
-				"files": ["design/src/components/openui/openui-library.tsx"],
-				"rules": ["react-doctor/no-multi-component-file", "react-doctor/no-multi-comp"]
-			},
-			{
-				// Waived 2026-08-11 — charts.tsx intentionally co-locates the
-				// LineChart and DonutChart definitions, which share the same chart
-				// primitives and fallback-color convention. Splitting this focused
-				// component-pair would add indirection without improving ownership.
-				"files": ["design/src/components/openui/charts.tsx"],
-				"rules": ["react-doctor/no-multi-component-file", "react-doctor/no-multi-comp"]
-			},
-			{
-				// Waived 2026-08-11 — false positive. loadPreview's try/catch at
-				// workspace-panel.tsx:149-160 always reaches the finally branch at
-				// :161, which clears previewLoading unless the effect has already
-				// been cancelled during cleanup.
-				"files": ["design/src/components/fleet-pi/pi/workspace-panel.tsx"],
-				"rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
-			},
-			{
-				// Waived with evidence (decision Q6, 2026-08-11) — false positive.
-				// The effect's returned cleanup at
-				// web/app/src/lib/pi/use-pi-chat.ts:490-494 sets `closedByEffect`,
-				// closes the latest EventSource, and clears the pending reconnect
-				// timer, so teardown is guaranteed on unmount and re-run.
-				"files": ["app/src/lib/pi/use-pi-chat.ts"],
-				"rules": ["react-doctor/effect-needs-cleanup"]
-			},
-			{
-				// Waived with evidence (decision Q6, 2026-08-11) — false positive.
-				// ResizeObserver handles are registry-managed: re-registration
-				// disconnects the previous observer (web/design/src/hooks/
-				// use-proximity-hover.ts:81-84) and the unmount effect disconnects
-				// then clears the entire registry (:175-186).
-				"files": ["design/src/hooks/use-proximity-hover.ts"],
-				"rules": ["react-doctor/effect-needs-cleanup"]
-			},
-			{
-				// Waived with evidence — the filtered expression is a string
-				// substring search, not repeated array membership; see waiver 5.
-				"files": ["design/src/components/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx"],
-				"rules": ["react-doctor/js-set-map-lookups"]
-			},
-			{
-				// Intentional architecture exception. WorkspacePanel's
-				// controlled/uncontrolled selection owner needs a joint parent redesign.
-				"files": ["design/src/components/fleet-pi/pi/workspace-panel.tsx"],
-				"rules": [
-					"react-doctor/no-adjust-state-on-prop-change",
-					"react-doctor/exhaustive-deps"
-				]
-			},
-			{
-				// Intentional static-render compatibility boundary. React.lazy would
-				// suspend the OpenUI static render harness.
-				"files": [
-					"design/src/components/chart.tsx",
-					"design/src/components/openui/charts.tsx",
-					"design/src/components/openui/data.tsx",
-					"design/src/components/openui/openui-library.tsx"
-				],
-				"rules": ["react-doctor/prefer-dynamic-import"]
-			},
-			{
-				// Intentional public API compatibility adapter. The exported message
-				// turn components accept their legacy flat props alongside grouped
-				// internal state until a documented major-version migration.
-				"files": ["design/src/components/agents/message-turns.tsx"],
-				"rules": ["react-doctor/no-many-boolean-props"]
-			},
-			{
-				// Intentional retained future UI surface.
-				"files": [
-					"design/src/components/agents/input/mode-selector.tsx",
-					"design/src/components/fleet-pi/icons/google-icon.tsx",
-					"design/src/components/fleet-pi/primitives/centered-loader.tsx"
-				],
-				"rules": ["deslop/unused-file"]
-			},
-			{
-				// Intentional reserved client plan-mode state machine. Live callers only
-				// import isPlanDecisionToolCall; the rest stays until wired.
-				"files": ["app/src/lib/pi/plan-state.ts"],
-				"rules": ["deslop/unused-export"]
-			},
-			{
-				// Intentional controlled/uncontrolled state. AgentActivity owns an
-				// internal fallback while callers may control the disclosure externally.
-				"files": ["design/src/components/agents/agent-activity/index.tsx"],
-				"rules": [
-					"react-doctor/no-derived-state",
-					"react-doctor/no-derived-state-effect"
-				]
-			},
-			{
-				// Public dynamic sidebar slots are part of the component contract. The
-				// callbacks receive item-specific actions and state that children cannot
-				// provide without changing AISidebar's and FleetSessionSidebar's API.
-				"files": [
-					"design/src/components/agents/ai-sidebar.tsx",
-					"design/src/components/fleet-pi/session-sidebar.tsx"
-				],
-				"rules": ["react-doctor/no-render-prop-children"]
-			},
-			{
-				// Status transitions intentionally reset local disclosure state and
-				// report the transition to the owning parent from an effect.
-				"files": [
-					"design/src/components/agents/file-diff.tsx",
-					"design/src/components/agents/todo-list.tsx",
-					"design/src/components/agents/tool-approval.tsx",
-					"design/src/components/agents/tool-result.tsx"
-				],
-				"rules": [
-					"react-doctor/no-adjust-state-on-prop-change",
-					"react-doctor/no-pass-data-to-parent"
-				]
-			},
-			{
-				// The suggestion highlight is user-owned keyboard state. Resetting it
-				// when the trigger/query/result set changes keeps the selected item valid.
-				"files": ["design/src/components/fleet-pi/chat/fleet-pi-input-bar-state.tsx"],
-				"rules": ["react-doctor/no-adjust-state-on-prop-change"]
-			},
-			{
-				// Directory loading and active-project expansion are lifecycle-owned
-				// sidebar effects; their setters update the local reducer, not an
-				// external parent data contract.
-				"files": ["design/src/components/fleet-pi/session-sidebar.tsx"],
-				"rules": [
-					"react-doctor/no-pass-live-state-to-parent",
-					"react-doctor/no-pass-data-to-parent"
-				]
-			},
-			{
-				// The OAuth poll has stopped, generation, and login-id guards after
-				// every await; the detector cannot follow those cancellation proofs.
-				"files": ["design/src/components/fleet-pi/pi/config-panel/sections/use-oauth-login-flow.ts"],
-				"rules": ["react-doctor/no-set-state-after-await-in-effect"]
-			},
-			{
-				// Collision resolution is stored so the exit animation closes toward
-				// the side used while the popover was open.
-				"files": ["design/src/components/motion/combobox/content.tsx"],
-				"rules": ["react-doctor/no-derived-state-effect"]
-			},
-			{
-				// Active-value synchronization restores a valid keyboard highlight when
-				// an opened list, filtered items, or selected value changes.
-				"files": ["design/src/components/motion/combobox/context.tsx"],
-				"rules": ["react-doctor/no-effect-chain"]
-			},
-			{
-				// ProjectFolder uses a portal for layoutId choreography and implements
-				// role=dialog, aria-modal, Escape, focus wrapping, and scroll restore.
-				"files": ["design/src/components/motion/project-folder.tsx"],
-				"rules": ["react-doctor/prefer-html-dialog"]
-			},
-			{
-				// False positive: animate-in/fade-in/zoom-in-90 are keyframe utilities
-				// limited to the check icon's opacity and transform; the source has no
-				// transition-all or layout-property animation.
-				"files": ["design/src/components/elements/composer.tsx"],
-				"rules": ["react-doctor/no-transition-all"]
-			},
-			{
-				// Component exports are reachable through web/design's wildcard package
-				// exports and are reserved for direct consumers or future UI surfaces;
-				// the detector only sees current in-workspace imports.
-				"files": [
-					"design/src/components/agents/citations.tsx",
-					"design/src/components/agents/message-bubble.tsx",
-					"design/src/components/agents/message.tsx",
-					"design/src/components/agents/tool-approval.tsx",
-					"design/src/components/elements/composer.tsx",
-					"design/src/components/fleet-pi/layout/chat-header.tsx",
-					"design/src/components/fleet-pi/pi/right-panel-launcher.tsx",
-					"design/src/components/fleet-pi/styles/tokens.ts",
-					"design/src/components/motion/action-swap-roll.tsx",
-					"design/src/components/motion/animated-sidebar.tsx",
-					"design/src/components/motion/combobox/list.tsx",
-					"design/src/components/motion/combobox/trigger.tsx",
-					"design/src/components/motion/animated-select.tsx",
-					"design/src/components/agents/agent-activity/index.tsx",
-					"design/src/lib/range.ts",
-					"design/src/lib/surfaces.tsx"
-				],
-				"rules": ["deslop/unused-export"]
-			},
-			{
-				// Reserved/future UI files remain package-addressable and are not safe
-				// to delete merely because the current app route does not import them.
-				"files": [
-					"design/src/components/agents/input/effort-picker.tsx",
-					"design/src/components/agents/input/model-picker.tsx",
-					"design/src/components/elements/fleet-reasoning-panel.tsx",
-					"design/src/components/fleet-pi/chat/chat-stop-control.tsx",
-					"design/src/components/fleet-pi/pi/open-project-folder-dialog.tsx",
-					"design/src/components/motion/context-menu.tsx"
-				],
-				"rules": ["deslop/unused-file"]
-			},
-			{
-				// False positives — the OAuth busy flag is generation-guarded: clearing
-				// it unconditionally in the older attempt's finally would clobber a newer
-				// attempt that re-armed it. Same evidence class as workspace-panel.tsx.
-				"files": ["design/src/components/fleet-pi/pi/config-panel/sections/use-oauth-login-flow.ts"],
-				"rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
-			},
-			{
-				// False positives — same pattern as the composer.tsx waiver: animate-in
-				// keyframe utilities animate only opacity/transform; no transition-all or
-				// layout-property animation is authored here.
-				"files": [
-					"design/src/components/elements/reasoning-panel.tsx",
-					"design/src/components/elements/thinking-indicator.tsx",
-					"design/src/components/elements/tool-timeline.tsx"
-				],
-				"rules": ["react-doctor/no-transition-all"]
-			},
-			{
-				// Intentional composite key — OpenUI list items legitimately duplicate
-				// label+status (schema-valid), so position disambiguates them. Matches the
-				// inline biome-ignore rationale on the same element.
-				"files": ["design/src/components/openui/openui-library.tsx"],
-				"rules": ["react-doctor/no-array-index-as-key"]
-			}
-		]
-	}
+  "$schema": "https://react.doctor/schema/config.json",
+  "ignore": {
+    // Globs match per-project, relative to each scanned project root
+    // (diagnostic paths are relativized to the project before matching).
+    // Demo/marketing page at the app root, not shipped app code.
+    // Excluded from scanning entirely (decision Q7, 2026-08-11; 7 diags).
+    "files": [
+      "app/prime-agent-visualization.html"
+    ],
+    "overrides": [
+      {
+        // Waived 2026-08-11 — library file by design. openui-library.tsx is
+        // a defined-component registry (defineComponent DSL); multiple named
+        // components per file are the file's entire purpose, so the
+        // one-component-per-file intent of no-multi-comp does not apply.
+        "files": ["design/src/components/openui/openui-library.tsx"],
+        "rules": [
+          "react-doctor/no-multi-component-file",
+          "react-doctor/no-multi-comp"
+        ]
+      },
+      {
+        // Waived 2026-08-11 — charts.tsx intentionally co-locates the
+        // LineChart and DonutChart definitions, which share the same chart
+        // primitives and fallback-color convention. Splitting this focused
+        // component pair would add indirection without improving ownership.
+        "files": ["design/src/components/openui/charts.tsx"],
+        "rules": [
+          "react-doctor/no-multi-component-file",
+          "react-doctor/no-multi-comp"
+        ]
+      },
+      {
+        // Waived 2026-08-11 — false positive. loadPreview's try/catch always
+        // reaches its finally branch, which clears previewLoading unless the
+        // effect has already been cancelled during cleanup.
+        "files": ["design/src/components/fleet-pi/pi/workspace-panel.tsx"],
+        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+      },
+      {
+        // Waived with evidence (decision Q6, 2026-08-11) — false positive.
+        // The effect cleanup closes the latest EventSource and clears the
+        // pending reconnect timer, so teardown is guaranteed on unmount/re-run.
+        "files": ["app/src/lib/pi/use-pi-chat.ts"],
+        "rules": ["react-doctor/effect-needs-cleanup"]
+      },
+      {
+        // Waived with evidence (decision Q6, 2026-08-11) — false positive.
+        // ResizeObserver handles are registry-managed and disconnected on
+        // re-registration and unmount.
+        "files": ["design/src/hooks/use-proximity-hover.ts"],
+        "rules": ["react-doctor/effect-needs-cleanup"]
+      },
+      {
+        // Waived with evidence — this expression performs string substring
+        // matching, not repeated array membership lookups.
+        "files": ["design/src/components/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx"],
+        "rules": ["react-doctor/js-set-map-lookups"]
+      },
+      {
+        // Intentional architecture exception. WorkspacePanel's
+        // controlled/uncontrolled selection owner needs a joint parent redesign.
+        "files": ["design/src/components/fleet-pi/pi/workspace-panel.tsx"],
+        "rules": [
+          "react-doctor/no-adjust-state-on-prop-change",
+          "react-doctor/exhaustive-deps"
+        ]
+      },
+      {
+        // Intentional static-render compatibility boundary. React.lazy would
+        // suspend the OpenUI static render harness.
+        "files": [
+          "design/src/components/chart.tsx",
+          "design/src/components/openui/charts.tsx",
+          "design/src/components/openui/data.tsx",
+          "design/src/components/openui/openui-library.tsx"
+        ],
+        "rules": ["react-doctor/prefer-dynamic-import"]
+      },
+      {
+        // Intentional public API compatibility adapter. Exported message-turn
+        // components retain legacy flat props alongside grouped internal state
+        // until a documented major-version migration.
+        "files": ["design/src/components/agents/message-turns.tsx"],
+        "rules": ["react-doctor/no-many-boolean-props"]
+      },
+      {
+        // Intentional retained future UI surface.
+        "files": [
+          "design/src/components/agents/input/mode-selector.tsx",
+          "design/src/components/fleet-pi/icons/google-icon.tsx",
+          "design/src/components/fleet-pi/primitives/centered-loader.tsx"
+        ],
+        "rules": ["deslop/unused-file"]
+      },
+      {
+        // Intentional reserved client plan-mode state machine. Live callers
+        // currently import only isPlanDecisionToolCall; the rest stays until wired.
+        "files": ["app/src/lib/pi/plan-state.ts"],
+        "rules": ["deslop/unused-export"]
+      },
+      {
+        // Intentional controlled/uncontrolled state. AgentActivity owns an
+        // internal fallback while callers may control disclosure externally.
+        "files": ["design/src/components/agents/agent-activity/index.tsx"],
+        "rules": [
+          "react-doctor/no-derived-state",
+          "react-doctor/no-derived-state-effect"
+        ]
+      },
+      {
+        // Public dynamic sidebar slots are part of the component contract. The
+        // callbacks receive item-specific actions and state that children cannot
+        // provide without changing the sidebar APIs.
+        "files": [
+          "design/src/components/agents/ai-sidebar.tsx",
+          "design/src/components/fleet-pi/session-sidebar/project-list.tsx"
+        ],
+        "rules": ["react-doctor/no-render-prop-children"]
+      },
+      {
+        // Status transitions intentionally reset local disclosure state and
+        // report the transition to the owning parent from an effect.
+        "files": [
+          "design/src/components/agents/file-diff.tsx",
+          "design/src/components/agents/todo-list.tsx",
+          "design/src/components/agents/tool-approval.tsx",
+          "design/src/components/agents/tool-result.tsx"
+        ],
+        "rules": [
+          "react-doctor/no-adjust-state-on-prop-change",
+          "react-doctor/no-pass-data-to-parent"
+        ]
+      },
+      {
+        // The suggestion highlight is user-owned keyboard state. Resetting it
+        // when the trigger/query/result set changes keeps the selected item valid.
+        "files": ["design/src/components/fleet-pi/chat/fleet-pi-input-bar-state.tsx"],
+        "rules": ["react-doctor/no-adjust-state-on-prop-change"]
+      },
+      {
+        // Directory loading and active-project expansion are lifecycle-owned
+        // sidebar effects; their setters update the local reducer. The sidebar
+        // implementation is split between its view-model and project-list views.
+        "files": ["design/src/components/fleet-pi/session-sidebar/view-model.tsx"],
+        "rules": [
+          "react-doctor/no-pass-live-state-to-parent",
+          "react-doctor/no-pass-data-to-parent"
+        ]
+      },
+      {
+        // The OAuth poll has stopped, generation, and login-id guards after
+        // every await; the detector cannot follow those cancellation proofs.
+        "files": ["design/src/components/fleet-pi/pi/config-panel/sections/use-oauth-login-flow.ts"],
+        "rules": ["react-doctor/no-set-state-after-await-in-effect"]
+      },
+      {
+        // Collision resolution is stored so the exit animation closes toward
+        // the side used while the popover was open.
+        "files": ["design/src/components/motion/combobox/content.tsx"],
+        "rules": ["react-doctor/no-derived-state-effect"]
+      },
+      {
+        // Active-value synchronization restores a valid keyboard highlight when
+        // an opened list, filtered items, or selected value changes.
+        "files": ["design/src/components/motion/combobox/context.tsx"],
+        "rules": ["react-doctor/no-effect-chain"]
+      },
+      {
+        // ProjectFolder uses a portal for layoutId choreography and implements
+        // dialog semantics, Escape handling, focus wrapping, and scroll restore.
+        "files": ["design/src/components/motion/project-folder.tsx"],
+        "rules": ["react-doctor/prefer-html-dialog"]
+      },
+      {
+        // False positive: animate-in/fade-in/zoom-in-90 are keyframe utilities
+        // limited to opacity and transform; the source has no transition-all.
+        "files": ["design/src/components/elements/composer.tsx"],
+        "rules": ["react-doctor/no-transition-all"]
+      },
+      {
+        // Component exports are reachable through web/design's wildcard package
+        // exports and are reserved for direct consumers or future UI surfaces;
+        // the detector only sees current in-workspace imports.
+        "files": [
+          "design/src/components/agents/citations.tsx",
+          "design/src/components/agents/message-bubble.tsx",
+          "design/src/components/agents/message.tsx",
+          "design/src/components/agents/tool-approval.tsx",
+          "design/src/components/elements/composer.tsx",
+          "design/src/components/fleet-pi/layout/chat-header.tsx",
+          "design/src/components/fleet-pi/pi/right-panel-launcher.tsx",
+          "design/src/components/fleet-pi/styles/tokens.ts",
+          "design/src/components/motion/action-swap-roll.tsx",
+          "design/src/components/motion/animated-sidebar.tsx",
+          "design/src/components/motion/combobox/list.tsx",
+          "design/src/components/motion/combobox/trigger.tsx",
+          "design/src/components/motion/animated-select.tsx",
+          "design/src/components/agents/agent-activity/index.tsx",
+          "design/src/lib/range.ts",
+          "design/src/lib/surfaces.tsx"
+        ],
+        "rules": ["deslop/unused-export"]
+      },
+      {
+        // Reserved/future UI files remain package-addressable and are not safe
+        // to delete merely because the current app route does not import them.
+        "files": [
+          "design/src/components/agents/input/effort-picker.tsx",
+          "design/src/components/agents/input/model-picker.tsx",
+          "design/src/components/elements/fleet-reasoning-panel.tsx",
+          "design/src/components/fleet-pi/chat/chat-stop-control.tsx",
+          "design/src/components/fleet-pi/pi/open-project-folder-dialog.tsx",
+          "design/src/components/motion/context-menu.tsx"
+        ],
+        "rules": ["deslop/unused-file"]
+      },
+      {
+        // False positive — the OAuth busy flag is generation-guarded; clearing
+        // it from an older attempt would clobber a newer attempt.
+        "files": ["design/src/components/fleet-pi/pi/config-panel/sections/use-oauth-login-flow.ts"],
+        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+      },
+      {
+        // False positive — these animate-in utilities animate only opacity and
+        // transform; no transition-all or layout-property animation is authored.
+        "files": [
+          "design/src/components/elements/reasoning-panel.tsx",
+          "design/src/components/elements/thinking-indicator.tsx",
+          "design/src/components/elements/tool-timeline.tsx"
+        ],
+        "rules": ["react-doctor/no-transition-all"]
+      },
+      {
+        // Intentional composite key — OpenUI list items may legitimately share
+        // label and status, so position disambiguates schema-valid duplicates.
+        "files": ["design/src/components/openui/openui-library.tsx"],
+        "rules": ["react-doctor/no-array-index-as-key"]
+      },
+      {
+        // Keep this waiver scoped to the workspace manifest until the doctor
+        // dependency graph can resolve its workspace package boundaries.
+        "files": ["package.json"],
+        "rules": ["deslop/unused-dependency"]
+      }
+    ]
+  }
 }

@@ -1,6 +1,9 @@
 import { Library } from "lucide-react"
 import { ResizableCanvas } from "../pi/resizable-canvas"
-import { MobilePanel } from "../pi/right-panel-launcher"
+import {
+  MobilePanel,
+  RightPanelTabsFromContext,
+} from "../pi/right-panel-launcher"
 import {
   getRightPanelDefinition,
   type RightPanelContentProps,
@@ -41,6 +44,9 @@ export function RightPanelShell({
 
       <ResizableCanvas
         dataTestid={definition?.dataTestid}
+        headerLeading={
+          <RightPanelTabsFromContext idPrefix="right-panel-desktop" />
+        }
         loading={definition ? definition.getLoading(contentProps) : false}
         onClose={() => setRightPanel(null)}
         onRefresh={definition?.getOnRefresh(contentProps)}

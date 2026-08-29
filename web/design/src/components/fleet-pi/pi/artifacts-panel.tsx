@@ -19,6 +19,8 @@ import type { WorkspacePanelContentProps } from "./workspace-panel"
 import { primeAgentArtifactDiff } from "./prime-agent-artifacts"
 import type { OpenUIHtmlArtifactPayload } from "@prime-agent/web-protocol/openui-artifact"
 
+const DEFAULT_ARTIFACT_RUNS: Array<PrimeAgentArtifactRun> = []
+
 type ArtifactsPanelContentProps = Pick<
 	WorkspacePanelContentProps,
 	| "error"
@@ -262,7 +264,7 @@ export function ArtifactsPanelContent({
 	onSelectedPathChange,
 	selectedPath,
 	status,
-	artifactRuns = [],
+	artifactRuns = DEFAULT_ARTIFACT_RUNS,
 	selectedArtifactId,
 	workspace,
 }: ArtifactsPanelContentProps) {
