@@ -17,12 +17,12 @@ const MAX_TITLE_BYTES = 240;
 
 const FORBIDDEN_ELEMENTS = /<(?:link|iframe|object|embed|base|form|portal|frameset)\b/i;
 const META_TAG = /<meta\b[^>]*>/gi;
-const REFRESH_META = /\bhttp-equiv\s*=\s*["']?\s*refresh\b/i;
+const REFRESH_META = /\bhttp-equiv\s*=[\s"']*refresh\b/i;
 const CSP_META_REFERENCE = /\bcontent-security-policy\b/i;
-const EVENT_HANDLER_ATTRIBUTE = /\s+on[a-z][\w:-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i;
+const EVENT_HANDLER_ATTRIBUTE = /\son[a-z][\w:-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i;
 const SCRIPT_SOURCE_ATTRIBUTE = /<script\b[^>]*\bsrc\s*=/i;
 const CSS_IMPORT = /@import\b/i;
-const CSS_URL = /url\s*\(\s*(['"]?)(.*?)\1\s*\)/gi;
+const CSS_URL = /url\s*\(\s*("[^"]*"|'[^']*'|[^)]*)\)/gi;
 const NETWORK_API =
 	/\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|showModalDialog)\s*\(|\bwindow\s*\.\s*open\s*\(|\b(?:window|globalThis|document|location)\s*\.\s*(?:location|assign|replace|reload|href|pathname|host|hostname|port|protocol|search|hash)\s*=|\b(?:window|globalThis|document|location)\s*\.\s*(?:location\s*\.\s*)?(?:assign|replace|reload)\s*\(/i;
 const RESOURCE_ATTRIBUTE =
@@ -180,7 +180,16 @@ function hasUnsafeResourceAttribute(document: string): boolean {
 function hasUnsafeCssUrl(document: string): boolean {
 	CSS_URL.lastIndex = 0;
 	for (const match of document.matchAll(CSS_URL)) {
-		if (!safeResourceUrl(match[2] ?? "")) return true;
+		let value = match[1] ?? "";
+		if (
+			value.length >= 2 &&
+			((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+		) {
+			value = value.slice(1, -1);
+		} else {
+			value = value.trim();
+		}
+		if (!safeResourceUrl(value)) return true;
 	}
 	return false;
 }
