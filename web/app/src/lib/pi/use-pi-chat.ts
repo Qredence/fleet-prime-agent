@@ -483,12 +483,11 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				await refreshSessions();
 				return true;
 			} catch (err) {
-				if (
-					await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
-						setError,
-						setStatus,
-					})
-				) {
+				const recoveryDeps = { setError, setStatus };
+				const recovered =
+					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
+					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
+				if (recovered) {
 					return false;
 				}
 				const nextError = err instanceof Error ? err : new Error(String(err));

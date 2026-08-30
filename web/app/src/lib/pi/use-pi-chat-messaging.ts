@@ -33,7 +33,7 @@ import {
 	updatePlanStateFromAssistantText,
 } from "./plan-state";
 import type { SendMessageInput } from "./use-pi-chat";
-import { tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
+import { tryRecoverForbiddenSession, tryRecoverUnknownSession } from "./use-pi-chat-forbidden-session";
 
 type PiChatMessagingRefs = {
 	activityLabelRef: MutableRefObject<string | undefined>;
@@ -553,12 +553,11 @@ export function usePiChatMessaging({
 					void refreshSessions();
 					return;
 				}
-				if (
-					await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
-						setError,
-						setStatus,
-					})
-				) {
+				const recoveryDeps = { setError, setStatus };
+				const recovered =
+					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
+					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
+				if (recovered) {
 					return;
 				}
 				const nextError = err instanceof Error ? err : new Error(String(err));
