@@ -577,6 +577,13 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(
           }
           className={cn(
             "sticky top-0 flex h-svh w-full flex-col overflow-hidden",
+            // Carded panels carry m-2 gutters, so they must span the rail width
+            // rather than the full reserved column. The offcanvas clause below
+            // still wins when both apply, keeping the slide-out at full width.
+            carded &&
+              (collapsed
+                ? "w-[var(--sidebar-width-icon)]"
+                : "w-[var(--sidebar-width)]"),
             collapsible === "offcanvas" && "w-[var(--sidebar-width)]",
             variant === "sidebar" &&
               (side === "left" ? "border-border border-r bg-background" : "border-border border-l bg-background"),
