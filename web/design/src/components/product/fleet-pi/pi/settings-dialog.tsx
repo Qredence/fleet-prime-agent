@@ -680,93 +680,93 @@ function SettingsDialogBody({
     />
   )
   return (
-    // Nest AlertDialog under Dialog.Root so Base UI tracks nested open
-    // dialogs (Esc / isTopmost). Sibling roots fight Esc and re-prompt.
-    <>
-      <DialogContent className="w-full max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-w-[650px] md:h-[650px] md:max-h-[85vh] md:max-w-[760px] lg:max-w-[860px]">
-        <DialogTitle className="sr-only">Settings</DialogTitle>
-        <DialogDescription className="sr-only">
-          Customize your settings here.
-        </DialogDescription>
+    // Render the discard AlertDialog inside DialogContent so it inherits
+    // the settings dialog's surface level; both stay under Dialog.Root so
+    // Base UI tracks nested open dialogs (Esc / isTopmost). Sibling roots
+    // fight Esc and re-prompt.
+    <DialogContent className="w-full max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-w-[650px] md:h-[650px] md:max-h-[85vh] md:max-w-[760px] lg:max-w-[860px]">
+      <DialogTitle className="sr-only">Settings</DialogTitle>
+      <DialogDescription className="sr-only">
+        Customize your settings here.
+      </DialogDescription>
 
-        <SidebarProvider
-          className="h-full min-h-0"
-          enableKeyboardShortcut={false}
-          persistState={false}
+      <SidebarProvider
+        className="h-full min-h-0"
+        enableKeyboardShortcut={false}
+        persistState={false}
+      >
+        {/* Left Sidebar */}
+        <Sidebar
+          collapsible="none"
+          className="hidden h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex md:w-[240px]"
         >
-          {/* Left Sidebar */}
-          <Sidebar
-            collapsible="none"
-            className="hidden h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex md:w-[240px]"
-          >
-            <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border/60 p-4">
-              {/* Visual only — DialogTitle (sr-only) is the accessible name */}
-              <span className="text-sm font-semibold">Settings</span>
+          <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border/60 p-4">
+            {/* Visual only — DialogTitle (sr-only) is the accessible name */}
+            <span className="text-sm font-semibold">Settings</span>
+          </div>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {SETTINGS_SECTIONS.map((section) => (
+                    <SidebarNavItem
+                      key={section.id}
+                      active={activeTab === section.id}
+                      onClick={() => setActiveTab(section.id)}
+                      icon={section.icon}
+                      label={section.title}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
+
+        {/* Main Content Pane — sits on the dialog's own elevated surface */}
+        <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/10 px-6">
+            <div className="flex flex-1 items-center justify-between">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem className="hidden md:block">
+                    Settings
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator className="hidden md:block" />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>{activeSection.title}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
             </div>
-            <SidebarContent>
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {SETTINGS_SECTIONS.map((section) => (
-                      <SidebarNavItem
-                        key={section.id}
-                        active={activeTab === section.id}
-                        onClick={() => setActiveTab(section.id)}
-                        icon={section.icon}
-                        label={section.title}
-                      />
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </SidebarContent>
-          </Sidebar>
+          </header>
 
-          {/* Main Content Pane — sits on the dialog's own elevated surface */}
-          <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/10 px-6">
-              <div className="flex flex-1 items-center justify-between">
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block">
-                      Settings
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{activeSection.title}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
-              </div>
-            </header>
+          <div className="flex min-w-0 shrink-0 overflow-x-auto overscroll-x-contain border-b border-border/10 bg-muted/5 px-4 py-2.5 md:hidden">
+            <DiscreteTabs
+              aria-label="Settings sections"
+              className="min-w-max"
+              size="compact"
+              tabs={SETTINGS_SECTIONS}
+              value={activeTab}
+              onValueChange={(next) => {
+                if (isSettingsSectionId(next)) setActiveTab(next)
+              }}
+            />
+          </div>
 
-            <div className="flex min-w-0 shrink-0 overflow-x-auto overscroll-x-contain border-b border-border/10 bg-muted/5 px-4 py-2.5 md:hidden">
-              <DiscreteTabs
-                aria-label="Settings sections"
-                className="min-w-max"
-                size="compact"
-                tabs={SETTINGS_SECTIONS}
-                value={activeTab}
-                onValueChange={(next) => {
-                  if (isSettingsSectionId(next)) setActiveTab(next)
-                }}
-              />
+          <ScrollArea className="min-h-0 flex-1">
+            <div
+              id={`panel-${activeTab}`}
+              role="tabpanel"
+              aria-label={activeSection.title}
+              tabIndex={0}
+              className="p-6 outline-none"
+            >
+              {paneContent}
             </div>
-
-            <ScrollArea className="min-h-0 flex-1">
-              <div
-                id={`panel-${activeTab}`}
-                role="tabpanel"
-                aria-label={activeSection.title}
-                tabIndex={0}
-                className="p-6 outline-none"
-              >
-                {paneContent}
-              </div>
-            </ScrollArea>
-          </main>
-        </SidebarProvider>
-      </DialogContent>
+          </ScrollArea>
+        </main>
+      </SidebarProvider>
 
       <AlertDialog open={discardDialogOpen} onOpenChange={setDiscardDialogOpen}>
         <AlertDialogContent>
@@ -786,6 +786,6 @@ function SettingsDialogBody({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </DialogContent>
   )
 }

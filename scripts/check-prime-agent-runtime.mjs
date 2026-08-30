@@ -42,15 +42,24 @@ const pnpmLock = readFileSync(resolve(root, "pnpm-lock.yaml"), "utf8");
 if (!pnpmLock.includes(`specifier: ${expectedTarball}`)) {
 	throw new Error("pnpm-lock.yaml prime-agent specifier does not match the runtime manifest tarball");
 }
-if (!pnpmLock.includes(`prime-agent@${expectedTarball}`)) {
-	throw new Error("pnpm-lock.yaml prime-agent resolution does not match the runtime manifest tarball");
-}
 
-function lockEntryIntegrity(pnpmLock, tarball) {
+function lockEntryDetails(pnpmLock, tarball) {
 	const escapedTarball = tarball.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	const entry = pnpmLock.match(new RegExp(`^  prime-agent@${escapedTarball}:((?:\\n    .*)*)`, "m"));
-	const integrity = entry?.[1]?.match(/integrity: (sha512-[A-Za-z0-9+/=]+)/);
-	return integrity?.[1];
+	if (!entry) throw new Error("pnpm-lock.yaml is missing the pinned prime-agent resolution entry");
+	const integrity = entry[1].match(/integrity: (sha512-[A-Za-z0-9+/=]+)/)?.[1];
+	const version = entry[1].match(/version: (\S+)/)?.[1];
+	return { integrity, version };
+}
+
+const { integrity: lockIntegrity, version: lockVersion } = lockEntryDetails(pnpmLock, expectedTarball);
+if (!lockIntegrity) {
+	throw new Error("pnpm-lock.yaml prime-agent entry is missing its integrity digest");
+}
+if (lockVersion !== manifest.version) {
+	throw new Error(
+		`pnpm-lock.yaml prime-agent version ${lockVersion ?? "missing"} does not match the runtime manifest version ${manifest.version}`,
+	);
 }
 
 if (process.env.PRIME_RUNTIME_VERIFY_TARBALL === "1") {
@@ -64,8 +73,7 @@ if (process.env.PRIME_RUNTIME_VERIFY_TARBALL === "1") {
 		throw new Error("Downloaded runtime tarball sha256 does not match the runtime manifest");
 	}
 	const sha512 = `sha512-${createHash("sha512").update(tarball).digest("base64")}`;
-	const lockIntegrity = lockEntryIntegrity(pnpmLock, expectedTarball);
-	if (lockIntegrity && lockIntegrity !== sha512) {
+	if (lockIntegrity !== sha512) {
 		throw new Error("Downloaded runtime tarball sha512 does not match pnpm-lock.yaml integrity");
 	}
 	console.log("Runtime tarball hash verification passed");
