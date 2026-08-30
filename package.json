@@ -28,7 +28,7 @@
 		"check:web:release": "node scripts/check-web-release.mjs",
 		"test:web": "pnpm -r --if-present test",
 		"test": "pnpm -r --if-present test",
-		"release:pack": "pnpm --dir packages/fleet-prime pack",
+		"release:pack": "pnpm --dir packages/fleet-prime pack --pack-destination ../..",
 		"prepare": "husky"
 	},
 	"devDependencies": {
