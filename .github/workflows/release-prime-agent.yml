@@ -99,7 +99,7 @@ jobs:
       - name: Pack release artifact
         run: |
           mkdir -p dist-release
-          pnpm --dir packages/fleet-prime pack --pack-destination dist-release
+          pnpm --dir packages/fleet-prime pack --pack-destination "$GITHUB_WORKSPACE/dist-release"
           test -f "dist-release/qredence-fleet-prime-${RELEASE_VERSION}.tgz"
 
       - name: Smoke test packed artifact
