@@ -697,9 +697,9 @@ function SettingsDialogBody({
           {/* Left Sidebar */}
           <Sidebar
             collapsible="none"
-            className="hidden h-full shrink-0 flex-col border-r border-border/40 bg-muted/20 md:flex md:w-[240px]"
+            className="hidden h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex md:w-[240px]"
           >
-            <div className="flex h-14 shrink-0 items-center border-b border-border/40 p-4">
+            <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border/60 p-4">
               {/* Visual only — DialogTitle (sr-only) is the accessible name */}
               <span className="text-sm font-semibold">Settings</span>
             </div>
