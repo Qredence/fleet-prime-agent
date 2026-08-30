@@ -722,9 +722,9 @@ function SettingsDialogBody({
             </SidebarContent>
           </Sidebar>
 
-          {/* Main Content Pane */}
-          <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
-            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/10 bg-background px-6">
+          {/* Main Content Pane — sits on the dialog's own elevated surface */}
+          <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/10 px-6">
               <div className="flex flex-1 items-center justify-between">
                 <Breadcrumb>
                   <BreadcrumbList>

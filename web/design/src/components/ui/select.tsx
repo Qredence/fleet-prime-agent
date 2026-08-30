@@ -3,7 +3,12 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { Check, ChevronDown } from "lucide-react"
 
 import { cn } from "../../lib/utils"
+import { surfaceClasses } from "../../lib/surface-classes"
+import { SurfaceProvider, useSurface } from "../../lib/surface-context"
 import type { LucideIcon } from "lucide-react"
+
+/** Conventional elevation offset for a select menu off its substrate (Fluid surfaces). */
+const SELECT_SURFACE_OFFSET = 2
 
 export type SelectOption = {
   disabled?: boolean
@@ -36,6 +41,8 @@ function Select({
 }: SelectProps) {
   const selected = options.find((option) => option.value === value)
   const SelectedIcon = selected?.icon
+  const substrate = useSurface()
+  const menuLevel = Math.min(substrate + SELECT_SURFACE_OFFSET, 8)
 
   return (
     <SelectPrimitive.Root
@@ -74,7 +81,13 @@ function Select({
       <SelectPrimitive.Portal>
         {/* Above Dialog (z-50) / AlertDialog (z-60) so catalog pickers work in Settings */}
         <SelectPrimitive.Positioner className="z-[70]" sideOffset={4}>
-          <SelectPrimitive.Popup className="max-h-72 min-w-(--anchor-width) overflow-y-auto rounded-lg border border-border bg-popover p-1 text-sm text-popover-foreground shadow-md outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
+          <SelectPrimitive.Popup
+            className={cn(
+              "max-h-72 min-w-(--anchor-width) overflow-y-auto rounded-lg p-1 text-sm text-popover-foreground outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+              surfaceClasses(menuLevel, 3)
+            )}
+          >
+            <SurfaceProvider value={menuLevel}>
             <SelectPrimitive.List>
               {options.map((option) => {
                 const OptionIcon = option.icon
@@ -98,6 +111,7 @@ function Select({
                 )
               })}
             </SelectPrimitive.List>
+            </SurfaceProvider>
           </SelectPrimitive.Popup>
         </SelectPrimitive.Positioner>
       </SelectPrimitive.Portal>

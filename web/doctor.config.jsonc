@@ -53,7 +53,8 @@
           "src/components/product/fleet-pi/pi/open-project-folder-dialog.tsx",
           "src/components/registry/beui/motion/context-menu.tsx",
           "src/components/ui/empty.tsx",
-          "src/components/ui/toggle-group.tsx"
+          "src/components/ui/toggle-group.tsx",
+          "src/lib/elevated.tsx"
         ],
         "rules": ["deslop/unused-file"]
       },
