@@ -3,7 +3,12 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { X } from "lucide-react"
 
 import { cn } from "../../lib/utils"
+import { surfaceClasses } from "../../lib/surface-classes"
+import { SurfaceProvider, useSurface } from "../../lib/surface-context"
 import { Button } from "./button"
+
+/** Conventional elevation offset for a dialog off its substrate (Fluid surfaces). */
+const DIALOG_SURFACE_OFFSET = 4
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -49,6 +54,8 @@ function DialogContent({
   /** Extra classes for the backdrop (e.g. nested dialog z-index). */
   overlayClassName?: string
 }) {
+  const substrate = useSurface()
+  const level = Math.min(substrate + DIALOG_SURFACE_OFFSET, 8)
   return (
     <DialogPortal>
       <DialogOverlay className={overlayClassName} />
@@ -56,12 +63,13 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           // Popup must stack above its own backdrop (both default z-50).
-          "fixed top-1/2 left-1/2 z-[51] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-[51] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl p-4 text-sm text-popover-foreground duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          surfaceClasses(level),
           className
         )}
         {...props}
       >
-        {children}
+        <SurfaceProvider value={level}>{children}</SurfaceProvider>
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"

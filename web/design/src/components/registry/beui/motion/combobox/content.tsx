@@ -12,6 +12,11 @@ import { createPortal } from "react-dom";
 import { usePopoverPortalPosition } from "@prime-agent/web-design/components/registry/beui/motion/popover-position";
 import { useHydrated } from "@prime-agent/web-design/lib/hooks/use-hydrated";
 import { cn } from "@prime-agent/web-design/lib/utils";
+import { surfaceClasses } from "@prime-agent/web-design/lib/surface-classes";
+import {
+  SurfaceProvider,
+  useSurface,
+} from "@prime-agent/web-design/lib/surface-context";
 import { useComboboxContext } from "./context";
 
 type Side = "top" | "bottom";
@@ -48,6 +53,9 @@ export function ComboboxContent({
   const portalReady = useHydrated();
   const [actualSide, setActualSide] = useState<Side>(side);
   const [morphReady, setMorphReady] = useState(false);
+  const substrate = useSurface();
+  // Dropdown-class surface: background tracks the substrate, shadow weight stays fixed.
+  const menuLevel = Math.min(substrate + 2, 8);
   const layout = usePopoverPortalPosition(
     context.triggerRef,
     measureRef,
@@ -143,10 +151,12 @@ export function ComboboxContent({
         } as CSSProperties
       }
       className={cn(
-        "fixed z-[9999] w-(--combobox-trigger-width) overflow-hidden rounded-xl border border-border bg-background text-popover-foreground outline-none will-change-[height,transform]",
+        "fixed z-[9999] w-(--combobox-trigger-width) overflow-hidden rounded-xl text-popover-foreground outline-none will-change-[height,transform]",
+        surfaceClasses(menuLevel, 3),
         className,
       )}
     >
+      <SurfaceProvider value={menuLevel}>
       <m.div
         ref={measureRef}
         initial={false}
@@ -157,6 +167,7 @@ export function ComboboxContent({
       >
         {children}
       </m.div>
+      </SurfaceProvider>
     </m.div>,
     document.body,
   );

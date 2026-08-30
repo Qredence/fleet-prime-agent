@@ -78,7 +78,7 @@ export function FleetSessionSidebarProjectList({
 							onOpenChange={setProjectActionsOpen}
 							side="bottom"
 							align="end"
-							className="w-44 bg-popover p-1"
+							className="w-44 p-1"
 							trigger={
 								<button
 									type="button"

@@ -563,13 +563,13 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(
             context.reduce ? REDUCED_TRANSITION : PANEL_TRANSITION
           }
           className={cn(
-            "sticky top-0 flex h-svh w-full flex-col overflow-hidden bg-background",
+            "sticky top-0 flex h-svh w-full flex-col overflow-hidden",
             collapsible === "offcanvas" && "w-[var(--sidebar-width)]",
             variant === "sidebar" &&
-              (side === "left" ? "border-border border-r" : "border-border border-l"),
+              (side === "left" ? "border-border border-r bg-background" : "border-border border-l bg-background"),
             variant === "floating" &&
-              "m-2 h-[calc(100svh-1rem)] rounded-2xl border border-border shadow-sm",
-            variant === "inset" && "m-2 h-[calc(100svh-1rem)] rounded-2xl",
+              "m-2 h-[calc(100svh-1rem)] rounded-2xl bg-sidebar shadow-surface-3",
+            variant === "inset" && "m-2 h-[calc(100svh-1rem)] rounded-2xl bg-background",
             panelClassName,
           )}
         >

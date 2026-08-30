@@ -2,7 +2,12 @@ import * as React from "react"
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog"
 
 import { cn } from "../../lib/utils"
+import { surfaceClasses } from "../../lib/surface-classes"
+import { SurfaceProvider, useSurface } from "../../lib/surface-context"
 import { Button } from "./button"
+
+/** Conventional elevation offset for a dialog off its substrate (Fluid surfaces). */
+const DIALOG_SURFACE_OFFSET = 4
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
@@ -35,18 +40,21 @@ function AlertDialogContent({
   children,
   ...props
 }: AlertDialogPrimitive.Popup.Props) {
+  const substrate = useSurface()
+  const level = Math.min(substrate + DIALOG_SURFACE_OFFSET, 8)
   return (
     <AlertDialogPortal>
       <AlertDialogBackdrop />
       <AlertDialogPrimitive.Popup
         data-slot="alert-dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-[60] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-6 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/10 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-[60] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl p-6 text-sm text-popover-foreground outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          surfaceClasses(level),
           className
         )}
         {...props}
       >
-        {children}
+        <SurfaceProvider value={level}>{children}</SurfaceProvider>
       </AlertDialogPrimitive.Popup>
     </AlertDialogPortal>
   )
