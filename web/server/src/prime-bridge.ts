@@ -417,6 +417,23 @@ function isUnresolvedPlaceholderModel(model: AgentConnectionModel | undefined): 
 	return model?.provider === "unknown" && model?.id === "unknown";
 }
 
+/**
+ * The daemon reports free-form strings for transcripts it cannot resume (a
+ * worker that starts without a persisted root session, a transcript that
+ * vanished after listing). Shape-match them like the transport patterns in
+ * `wrap-api-handler` so a listed-but-unresumable session flows into the
+ * handlers' existing 404 branches instead of surfacing as a generic 500.
+ */
+const SESSION_NOT_RESUMABLE_PATTERNS = [
+	/session worker started without a root session/i,
+	/requested session transcript is unavailable/i,
+];
+
+function isSessionNotResumableError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 // ---------------------------------------------------------------------------
 // PrimeBridge
 // ---------------------------------------------------------------------------
@@ -894,7 +911,15 @@ export class PrimeBridge {
 		const match = all.find((info) => info.sessionId === sessionId || info.id === sessionId);
 		if (!match) return undefined;
 		if (!match.sessionFile) return undefined;
-		const resumed = await this.resumeSessionByPath(match.sessionFile, options);
+		let resumed: BridgeSession;
+		try {
+			resumed = await this.resumeSessionByPath(match.sessionFile, options);
+		} catch (error) {
+			// A listed transcript the runtime cannot resume is an unknown session
+			// for the caller, not a server failure.
+			if (isSessionNotResumableError(error)) return undefined;
+			throw error;
+		}
 		if (requestedProjectId && resumed.projectId !== requestedProjectId) {
 			const forkedId = await this.forkSessionIntoProject(resumed.sessionId, requestedProjectId);
 			return this.#requireSession(forkedId);
@@ -914,7 +939,12 @@ export class PrimeBridge {
 				(session) => session.sessionId === sessionId || session.id === sessionId,
 			)?.sessionFile;
 			if (!sessionPath) return false;
-			existing = await this.resumeSessionByPath(sessionPath);
+			try {
+				existing = await this.resumeSessionByPath(sessionPath);
+			} catch (error) {
+				if (isSessionNotResumableError(error)) return false;
+				throw error;
+			}
 		}
 		const sessionPath = existing.sessionPath;
 		this.#presentationGenerations.set(

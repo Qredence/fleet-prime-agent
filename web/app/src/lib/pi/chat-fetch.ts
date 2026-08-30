@@ -76,6 +76,11 @@ export function isForbiddenSessionError(error: unknown) {
 	return body.includes("Session belongs to another user");
 }
 
+/** True when the server no longer knows the session (404 from session loads). */
+export function isUnknownSessionError(error: unknown): boolean {
+	return error instanceof ChatRequestError && error.status === 404;
+}
+
 /** True for daemon transport failures, typed (envelope code) or legacy (raw upstream message). */
 export function isDaemonDisconnectError(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;

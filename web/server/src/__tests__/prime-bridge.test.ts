@@ -650,6 +650,98 @@ describe("PrimeBridge.forkSession", () => {
 	});
 });
 
+describe("PrimeBridge.resumeSessionById", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-resume-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		restoreEnvs.push(...SESSION_DIR_ENVS.map(unsetEnv));
+		resetPrimeConfigForTests();
+		return () => {
+			rmSync(workDir, { recursive: true, force: true });
+			rmSync(agentDir, { recursive: true, force: true });
+		};
+	});
+
+	afterEach(() => {
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		vi.restoreAllMocks();
+	});
+
+	function createPersistedTranscript(): { sessionId: string; sessionFile: string } {
+		const manager = SessionManager.create(workDir, join(agentDir, "sessions"));
+		const sessionFile = manager.materializeSessionFile();
+		manager.flushNow();
+		return { sessionId: manager.getSessionId(), sessionFile };
+	}
+
+	function listerFor(entry: { sessionId: string; sessionFile: string }): typeof listDaemonSessions {
+		return (async () => [
+			{
+				id: entry.sessionId,
+				sessionId: entry.sessionId,
+				cwd: workDir,
+				sessionFile: entry.sessionFile,
+			},
+		]) as unknown as typeof listDaemonSessions;
+	}
+
+	it("returns undefined when the runtime cannot resume a listed transcript", async () => {
+		const persisted = createPersistedTranscript();
+		const bridge = new PrimeBridge({
+			connectionFactory: async () => {
+				throw new Error("Session worker started without a root session");
+			},
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.resumeSessionById(persisted.sessionId)).resolves.toBeUndefined();
+	});
+
+	it("returns undefined when the transcript vanished after listing", async () => {
+		const persisted = createPersistedTranscript();
+		rmSync(persisted.sessionFile);
+		const bridge = new PrimeBridge({
+			connectionFactory: createInProcessTestAgentConnection,
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.resumeSessionById(persisted.sessionId)).resolves.toBeUndefined();
+	});
+
+	it("still rejects transport failures so handlers answer 500", async () => {
+		const persisted = createPersistedTranscript();
+		const bridge = new PrimeBridge({
+			connectionFactory: async () => {
+				throw new Error("cannot send daemon command: connect ENOENT /tmp/prime.sock");
+			},
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.resumeSessionById(persisted.sessionId)).rejects.toThrow("cannot send daemon command");
+	});
+
+	it("deleteSession returns false when the transcript cannot be resumed", async () => {
+		const persisted = createPersistedTranscript();
+		const bridge = new PrimeBridge({
+			connectionFactory: async () => {
+				throw new Error("Session worker started without a root session");
+			},
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.deleteSession(persisted.sessionId)).resolves.toBe(false);
+	});
+});
+
 /**
  * Regression net for the `InProcessAgentConnection` migration. The bridge
  * class must not reach into `AgentSession` / `SessionManager` for its own

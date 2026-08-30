@@ -24,7 +24,11 @@ import { resolveChatApiUrl } from "./chat-runtime-url";
 import { EMPTY_QUEUE_STATE, normalizeSessionMetadata } from "./chat-stream-state";
 import { hydratePlanPresentationMessages, planPresentationForToolCall } from "./plan-presentation";
 import { isPlanDecisionToolCall } from "./plan-state";
-import { runForbiddenSessionRecovery, tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
+import {
+	runForbiddenSessionRecovery,
+	tryRecoverForbiddenSession,
+	tryRecoverUnknownSession,
+} from "./use-pi-chat-forbidden-session";
 import { usePiChatMessaging } from "./use-pi-chat-messaging";
 import { enhancePlanDecisionMessages, resolvePlanDecisionMessages } from "./use-pi-chat-plan-decisions";
 
@@ -366,18 +370,17 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				setPresentationSynced(result.presentation);
 				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 			})
-			.catch((err) => {
+			.catch(async (err) => {
 				if (controller.signal.aborted) return;
-				return tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
-					setError,
-					setStatus,
-				}).then((recovered) => {
-					if (recovered || controller.signal.aborted) return;
-					const nextError = err instanceof Error ? err : new Error(String(err));
-					setError(nextError);
-					setStatus("error");
-					notifyChatError(nextError);
-				});
+				const recoveryDeps = { setError, setStatus };
+				const recovered =
+					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
+					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
+				if (recovered || controller.signal.aborted) return;
+				const nextError = err instanceof Error ? err : new Error(String(err));
+				setError(nextError);
+				setStatus("error");
+				notifyChatError(nextError);
 			});
 
 		return () => {
