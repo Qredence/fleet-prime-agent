@@ -8,7 +8,7 @@
  *     once under `design/src`.
  *  2. No dead files — every file under `design/src` must be imported by at
  *     least one other workspace file (`app/`, `design/src`, or `design/scripts`),
- *     unless it is listed in the repo-root `doctor.config.jsonc` waiver blocks
+ *     unless it is listed in the `web/doctor.config.jsonc` waiver blocks
  *     (reserved/future UI and public wildcard-export surfaces are documented there).
  *
  * Fails with exit code 1 and a violation report otherwise.
@@ -298,7 +298,7 @@ if (deadFiles.length > 0) {
 	for (const file of deadFiles) {
 		console.error(`    - ${relative(DESIGN_ROOT, file).replaceAll("\\", "/")}`);
 	}
-	console.error("  Add a usage, or register an intentional reservation in doctor.config.jsonc.");
+	console.error("  Add a usage, or register an intentional reservation in web/doctor.config.jsonc.");
 }
 
 for (const [label, files] of [

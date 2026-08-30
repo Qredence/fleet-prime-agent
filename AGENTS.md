@@ -21,7 +21,7 @@ working in that area.
 - NEVER remove or downgrade code to fix type errors from outdated dependencies; upgrade the dependency instead
 - Always ask before removing functionality or code that appears to be intentional
 - Do not preserve backward compatibility unless the user explicitly asks for it
-- Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)
+- Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_FLEET_PANEL_KEYBINDINGS`)
 - Do not add or restore vendored Prime Agent source trees. Engine behavior, providers, models, and daemon protocol changes belong upstream.
 - Do not import `prime-agent` outside `web/server`. Browser code (`web/app`, `web/design`) talks HTTP only. See `docs/guides/web-interface.md`.
 
@@ -31,7 +31,7 @@ working in that area.
 - `check:runtime` runs first inside `npm run check` and verifies the pinned runtime manifest.
 - Note: `npm run check` does not run tests.
 - NEVER run: `npm run dev`, `npm run build`, `npm test`
-- Only run specific tests if user instructs: `npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
+- Only run specific tests if user instructs: `npx vitest run src/__tests__/specific.test.ts`
 - Run tests from the package root, not the repo root.
 - If you create or modify a test file, you MUST run that test file and iterate until it passes.
 - When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
