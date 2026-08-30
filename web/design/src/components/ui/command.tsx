@@ -20,7 +20,8 @@ function Command({
     <CommandPrimitive
       data-slot="command"
       className={cn(
-        "flex size-full flex-col overflow-hidden !rounded-xl bg-popover p-1 text-popover-foreground",
+        // Background comes from the enclosing surface (dialog/popover).
+        "flex size-full flex-col overflow-hidden !rounded-xl p-1 text-popover-foreground",
         className
       )}
       {...props}

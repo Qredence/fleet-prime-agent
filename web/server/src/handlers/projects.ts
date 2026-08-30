@@ -13,7 +13,7 @@ import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 export function sessionStatus(
-	info: Partial<Pick<SessionSummary, "activity" | "isSessionActive" | "isStreaming">> & {
+	info: Partial<Pick<SessionSummary, "activity" | "isSessionActive" | "isStreaming" | "hasRunningRlmChildren">> & {
 		state?: { status?: string };
 	},
 	live: BridgeSession | undefined,
@@ -21,9 +21,10 @@ export function sessionStatus(
 	if (live?.isStreaming || live?.session?.isStreaming || info.isStreaming) {
 		return "running" as const;
 	}
-	// Restored daemon workers report activity "working" while the session was
-	// never activated (isSessionActive false); nothing can run in that state.
-	if (info.activity === "working" && info.isSessionActive) {
+	// Daemon sessions stay busy while active or while background RLM subagents
+	// keep the parent "working" after its own turn ends. Restored never-activated
+	// workers report "working" with both flags false; nothing runs in that state.
+	if (info.activity === "working" && (info.isSessionActive || info.hasRunningRlmChildren === true)) {
 		return "running" as const;
 	}
 	if (info.state?.status === "crash") return "failed" as const;

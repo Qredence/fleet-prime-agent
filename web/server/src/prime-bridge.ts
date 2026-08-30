@@ -45,6 +45,7 @@ import type {
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
 import {
 	createDaemonWebAgentConnection,
+	deleteDaemonSavedSession,
 	listDaemonSessions,
 	sessionDirectoryForCwd,
 	type WebAgentConnection,
@@ -228,6 +229,8 @@ export interface PrimeBridgeOptions {
 	readonly connectionFactory?: WebAgentConnectionFactory;
 	/** Test seam for session discovery; production always uses the shared daemon. */
 	readonly sessionLister?: typeof listDaemonSessions;
+	/** Test seam for catalog deletion; production always uses the shared daemon. */
+	readonly sessionFileDeleter?: typeof deleteDaemonSavedSession;
 }
 
 type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
@@ -417,6 +420,23 @@ function isUnresolvedPlaceholderModel(model: AgentConnectionModel | undefined): 
 	return model?.provider === "unknown" && model?.id === "unknown";
 }
 
+/**
+ * The daemon reports free-form strings for transcripts it cannot resume (a
+ * worker that starts without a persisted root session, a transcript that
+ * vanished after listing). Shape-match them like the transport patterns in
+ * `wrap-api-handler` so a listed-but-unresumable session flows into the
+ * handlers' existing 404 branches instead of surfacing as a generic 500.
+ */
+const SESSION_NOT_RESUMABLE_PATTERNS = [
+	/session worker started without a root session/i,
+	/requested session transcript is unavailable/i,
+];
+
+function isSessionNotResumableError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 // ---------------------------------------------------------------------------
 // PrimeBridge
 // ---------------------------------------------------------------------------
@@ -433,6 +453,7 @@ export class PrimeBridge {
 	readonly #writePresentation: typeof writeManagedPrimePresentation;
 	readonly #connectionFactory: WebAgentConnectionFactory;
 	readonly #sessionLister: typeof listDaemonSessions;
+	readonly #sessionFileDeleter: typeof deleteDaemonSavedSession;
 	readonly #caches = new Map<string, BridgeSessionCache>();
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
 	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
@@ -446,6 +467,7 @@ export class PrimeBridge {
 		this.#writePresentation = options.writePresentation ?? writeManagedPrimePresentation;
 		this.#connectionFactory = options.connectionFactory ?? createDaemonWebAgentConnection;
 		this.#sessionLister = options.sessionLister ?? listDaemonSessions;
+		this.#sessionFileDeleter = options.sessionFileDeleter ?? deleteDaemonSavedSession;
 		this.#dialogs = new PendingDialogRegistry({
 			defaultTimeoutMs: options.dialogTimeoutMs ?? 60_000,
 			emitFrame: (sessionId, frame) => this.#dispatch(sessionId, frame),
@@ -894,7 +916,15 @@ export class PrimeBridge {
 		const match = all.find((info) => info.sessionId === sessionId || info.id === sessionId);
 		if (!match) return undefined;
 		if (!match.sessionFile) return undefined;
-		const resumed = await this.resumeSessionByPath(match.sessionFile, options);
+		let resumed: BridgeSession;
+		try {
+			resumed = await this.resumeSessionByPath(match.sessionFile, options);
+		} catch (error) {
+			// A listed transcript the runtime cannot resume is an unknown session
+			// for the caller, not a server failure.
+			if (isSessionNotResumableError(error)) return undefined;
+			throw error;
+		}
 		if (requestedProjectId && resumed.projectId !== requestedProjectId) {
 			const forkedId = await this.forkSessionIntoProject(resumed.sessionId, requestedProjectId);
 			return this.#requireSession(forkedId);
@@ -910,11 +940,24 @@ export class PrimeBridge {
 		let existing = this.#sessions.get(sessionId);
 		if (!existing) {
 			const sessions = await this.#sessionLister();
-			const sessionPath = sessions.find(
-				(session) => session.sessionId === sessionId || session.id === sessionId,
-			)?.sessionFile;
+			const listed = sessions.find((session) => session.sessionId === sessionId || session.id === sessionId);
+			const sessionPath = listed?.sessionFile;
 			if (!sessionPath) return false;
-			existing = await this.resumeSessionByPath(sessionPath);
+			try {
+				existing = await this.resumeSessionByPath(sessionPath);
+			} catch (error) {
+				if (!isSessionNotResumableError(error)) throw error;
+				// The transcript is listed but cannot be resumed. Delete it through
+				// the daemon catalog so a broken entry never becomes undeletable.
+				const result = await this.#sessionFileDeleter(getPrimeConfig().defaultCwd, sessionPath);
+				if (!result.ok) throw new Error(result.error);
+				// Mirror the managed-session cleanup from the live path below.
+				const listedSessionId = listed?.sessionId ?? sessionId;
+				await deleteManagedAttachmentsForSession(listedSessionId, sessionPath);
+				await deleteManagedPlanPresentationsForSession(listedSessionId, sessionPath);
+				await getPrimeConfig().projectRegistry.assignSession(listedSessionId, null);
+				return true;
+			}
 		}
 		const sessionPath = existing.sessionPath;
 		this.#presentationGenerations.set(

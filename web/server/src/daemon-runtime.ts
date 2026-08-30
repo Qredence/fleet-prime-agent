@@ -366,16 +366,7 @@ function createReconfigurableConnection(
 			const currentState = await current.getState();
 			await killDaemonSession(options.cwd, currentState.activeSessionId ?? activeSessionId);
 		},
-		deleteSessionFile: async (savedSessionPath) => {
-			const { client } = await connectFleetDaemon(options.cwd);
-			try {
-				const response = await client.request({ type: "delete_saved_session", sessionPath: savedSessionPath });
-				if (!response.success) throw new Error(response.error);
-				return response.data as Awaited<ReturnType<AgentConnection["deleteSavedSession"]>>;
-			} finally {
-				client.close();
-			}
-		},
+		deleteSessionFile: (savedSessionPath) => deleteDaemonSavedSession(options.cwd, savedSessionPath),
 	};
 }
 
@@ -409,6 +400,20 @@ export async function listDaemonSessions(cwd?: string): Promise<SessionSummary[]
 			throw new Error("The Prime Agent daemon returned an invalid session list");
 		}
 		return data.sessions;
+	} finally {
+		client.close();
+	}
+}
+
+export type DeleteSavedSessionResult = Awaited<ReturnType<AgentConnection["deleteSavedSession"]>>;
+
+/** Delete a persisted session through the shared daemon catalog, without an active-session context. */
+export async function deleteDaemonSavedSession(cwd: string, sessionPath: string): Promise<DeleteSavedSessionResult> {
+	const { client } = await connectFleetDaemon(cwd);
+	try {
+		const response = await client.request({ type: "delete_saved_session", sessionPath });
+		if (!response.success) throw new Error(response.error);
+		return response.data as DeleteSavedSessionResult;
 	} finally {
 		client.close();
 	}

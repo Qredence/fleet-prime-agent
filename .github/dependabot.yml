@@ -1,13 +1,10 @@
-# Dependency update PRs wait out the same 7-day cooldown that .npmrc's
-# min-release-age enforces locally. Security-advisory PRs are exempt
-# from cooldown by design, so CVE fixes still arrive promptly.
+# Dependency update PRs wait out the same 7-day cooldown that
+# pnpm-workspace.yaml's minimumReleaseAge (10080 minutes) enforces locally.
+# Security-advisory PRs are exempt from cooldown by design, so CVE fixes
+# still arrive promptly.
 #
-# Vendored engine directories (packages/*, prime-agent-runtime) must never
-# get dependency PRs: they are verbatim upstream copies pinned by the root
-# UPSTREAM manifest, and check:upstream fails CI on any drift. Engine
-# dependency updates arrive via `node scripts/sync-upstream.mjs --apply`.
-# The per-package entries below use open-pull-requests-limit: 0, which
-# disables version-update PRs for those directories.
+# The repository is a single pnpm workspace resolved through the root
+# pnpm-lock.yaml; the root entry covers web/* and packages/fleet-prime.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -18,22 +15,14 @@ updates:
       default-days: 7
     open-pull-requests-limit: 5
     ignore:
-      # Engine-managed dependencies: declared in vendored packages/* manifests,
-      # resolved through the root lockfile, updated only via sync-upstream.mjs.
-      # Root-level version PRs for them fail check:upstream by design.
+      # Carried over from the vendored-engine era to keep update behavior
+      # unchanged. Most of these dependencies no longer appear in the
+      # unified lockfile; those entries are harmless no-ops.
       - dependency-name: "@anthropic-ai/sdk"
       - dependency-name: "@google/genai"
       - dependency-name: "@mistralai/mistralai"
       - dependency-name: "chalk"
       - dependency-name: "esbuild"
-
-  - package-ecosystem: npm
-    directory: /web
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 7
-    open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
     directory: /
@@ -41,28 +30,3 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
-
-  # Vendored upstream — never bump here; updates arrive via upstream sync.
-  - package-ecosystem: npm
-    directory: /packages/ai
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 0
-
-  - package-ecosystem: npm
-    directory: /packages/agent
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 0
-
-  - package-ecosystem: npm
-    directory: /packages/tui
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 0
-
-  - package-ecosystem: npm
-    directory: /packages/coding-agent
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 0

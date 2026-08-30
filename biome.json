@@ -35,6 +35,8 @@
 			"packages/*/test/**/*.ts",
 			"packages/coding-agent/examples/**/*.ts",
 			"web/*/src/**/*.ts",
+			"packages/fleet-prime/bin/**/*.mjs",
+			"scripts/prime-agent-web-launcher.mjs",
 			"!**/node_modules/**/*",
 			"!**/test-sessions.ts",
 			"!**/models.generated.ts",

@@ -20,6 +20,8 @@ const config = defineConfig({
         webRoot,
         resolve(webRoot, ".."),
         resolve(webRoot, "../../packages"),
+        // pnpm store lives at the repo root since the workspace unification.
+        resolve(webRoot, "../../node_modules"),
       ],
     },
     watch: {

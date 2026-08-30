@@ -5,7 +5,7 @@ import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import type { ChatClient } from "./chat-client";
 import { notifyChatError } from "./chat-error-notify";
 import type { QueueState } from "./chat-fetch";
-import { isForbiddenSessionError } from "./chat-fetch";
+import { isForbiddenSessionError, isUnknownSessionError } from "./chat-fetch";
 import { EMPTY_QUEUE_STATE } from "./chat-stream-state";
 
 export type ForbiddenSessionRecoveryDeps = {
@@ -41,12 +41,13 @@ export async function runForbiddenSessionRecovery(deps: ForbiddenSessionRecovery
 	await deps.refreshSessions();
 }
 
-export async function tryRecoverForbiddenSession(
+async function tryRecoverMatchingSessionError(
 	error: unknown,
+	matches: (error: unknown) => boolean,
 	recover: () => Promise<void>,
 	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus">,
 ) {
-	if (!isForbiddenSessionError(error)) {
+	if (!matches(error)) {
 		return false;
 	}
 
@@ -60,4 +61,21 @@ export async function tryRecoverForbiddenSession(
 	}
 
 	return true;
+}
+
+export async function tryRecoverForbiddenSession(
+	error: unknown,
+	recover: () => Promise<void>,
+	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus">,
+) {
+	return tryRecoverMatchingSessionError(error, isForbiddenSessionError, recover, deps);
+}
+
+/** 404 twin of the forbidden-session recovery: a listed transcript the daemon can no longer resume. */
+export async function tryRecoverUnknownSession(
+	error: unknown,
+	recover: () => Promise<void>,
+	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus">,
+) {
+	return tryRecoverMatchingSessionError(error, isUnknownSessionError, recover, deps);
 }

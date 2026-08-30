@@ -483,4 +483,13 @@ describe("sessionStatus", () => {
 	it("reports daemon streaming sessions as running regardless of activation", () => {
 		expect(sessionStatus({ activity: "idle", isSessionActive: false, isStreaming: true }, undefined)).toBe("running");
 	});
+
+	it("reports parent sessions with running background subagents as running", () => {
+		expect(
+			sessionStatus(
+				{ activity: "working", isSessionActive: false, isStreaming: false, hasRunningRlmChildren: true },
+				undefined,
+			),
+		).toBe("running");
+	});
 });

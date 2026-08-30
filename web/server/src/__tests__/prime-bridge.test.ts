@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve as resolvePath } from "node:path";
+import { dirname, join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentSession } from "prime-agent";
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
@@ -647,6 +647,119 @@ describe("PrimeBridge.forkSession", () => {
 		await expect(bridge.forkSession(created.sessionId, "missing-entry", "before")).rejects.toThrow(
 			"Invalid entry ID for forking",
 		);
+	});
+});
+
+describe("PrimeBridge.resumeSessionById", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-resume-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		restoreEnvs.push(...SESSION_DIR_ENVS.map(unsetEnv));
+		resetPrimeConfigForTests();
+		return () => {
+			rmSync(workDir, { recursive: true, force: true });
+			rmSync(agentDir, { recursive: true, force: true });
+		};
+	});
+
+	afterEach(() => {
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		vi.restoreAllMocks();
+	});
+
+	function createPersistedTranscript(): { sessionId: string; sessionFile: string } {
+		const manager = SessionManager.create(workDir, join(agentDir, "sessions"));
+		const sessionFile = manager.materializeSessionFile();
+		manager.flushNow();
+		return { sessionId: manager.getSessionId(), sessionFile };
+	}
+
+	function listerFor(entry: { sessionId: string; sessionFile: string }): typeof listDaemonSessions {
+		return (async () => [
+			{
+				id: entry.sessionId,
+				sessionId: entry.sessionId,
+				cwd: workDir,
+				sessionFile: entry.sessionFile,
+			},
+		]) as unknown as typeof listDaemonSessions;
+	}
+
+	it("returns undefined when the runtime cannot resume a listed transcript", async () => {
+		const persisted = createPersistedTranscript();
+		const bridge = new PrimeBridge({
+			connectionFactory: async () => {
+				throw new Error("Session worker started without a root session");
+			},
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.resumeSessionById(persisted.sessionId)).resolves.toBeUndefined();
+	});
+
+	it("returns undefined when the transcript vanished after listing", async () => {
+		const persisted = createPersistedTranscript();
+		rmSync(persisted.sessionFile);
+		const bridge = new PrimeBridge({
+			connectionFactory: createInProcessTestAgentConnection,
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.resumeSessionById(persisted.sessionId)).resolves.toBeUndefined();
+	});
+
+	it("still rejects transport failures so handlers answer 500", async () => {
+		const persisted = createPersistedTranscript();
+		const bridge = new PrimeBridge({
+			connectionFactory: async () => {
+				throw new Error("cannot send daemon command: connect ENOENT /tmp/prime.sock");
+			},
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.resumeSessionById(persisted.sessionId)).rejects.toThrow("cannot send daemon command");
+	});
+
+	it("deleteSession deletes an unresumable transcript through the daemon catalog", async () => {
+		const persisted = createPersistedTranscript();
+		const bridge = new PrimeBridge({
+			connectionFactory: async () => {
+				throw new Error("Session worker started without a root session");
+			},
+			sessionLister: listerFor(persisted),
+			sessionFileDeleter: async (_cwd, sessionPath) => {
+				rmSync(sessionPath);
+				return { ok: true, method: "unlink" } as const;
+			},
+		});
+		// The dead transcript may still own managed attachment and plan
+		// presentation directories plus a project assignment.
+		const managedRoot = dirname(dirname(persisted.sessionFile));
+		const attachmentDir = join(managedRoot, "session-attachments", persisted.sessionId);
+		const presentationDir = join(managedRoot, "session-plan-presentations", persisted.sessionId);
+		for (const dir of [attachmentDir, presentationDir]) {
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(join(dir, "marker.json"), "{}");
+		}
+		const registry = getPrimeConfig().projectRegistry;
+		const project = await registry.register(workDir, "unresumable cleanup");
+		await registry.assignSession(persisted.sessionId, project.projectId);
+		const unassign = vi.spyOn(registry, "assignSession");
+
+		await expect(bridge.deleteSession(persisted.sessionId)).resolves.toBe(true);
+		expect(existsSync(persisted.sessionFile)).toBe(false);
+		expect(existsSync(attachmentDir)).toBe(false);
+		expect(existsSync(presentationDir)).toBe(false);
+		expect(unassign).toHaveBeenCalledWith(persisted.sessionId, null);
 	});
 });
 

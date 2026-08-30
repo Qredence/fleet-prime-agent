@@ -116,18 +116,11 @@ run_pnpm() {
 }
 
 build_checkout() {
-	printf '\nInstalling root npm dependencies...\n'
-	npm ci --no-audit --no-fund
+	printf '\nInstalling workspace dependencies...\n'
+	run_pnpm install --frozen-lockfile
 
-	printf '\nInstalling web workspace dependencies...\n'
-	run_pnpm install --dir web --frozen-lockfile
-
-	printf '\nBuilding Fleet Prime packages...\n'
-	npm run build
-
-	printf '\nBuilding the production web runtime...\n'
-	run_pnpm --dir web --filter @prime-agent/web build
-	node scripts/build-web-release.mjs
+	printf '\nBuilding Fleet Prime...\n'
+	run_pnpm run build
 }
 
 install_fleet_agent_shim() {

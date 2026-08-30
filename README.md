@@ -30,7 +30,7 @@ cd fleet-prime-agent
 ./fleet-prime.sh install
 ```
 
-The installer uses pnpm 11 for the web workspace when a compatible system version is unavailable.
+The installer uses pnpm 11 for the workspace when a compatible system version is unavailable.
 
 ## Start your workspace
 
@@ -63,25 +63,24 @@ Fleet installs as `fleet-agent`; it does not replace or shadow an existing `prim
 ## Requirements
 
 - Node.js 22.8.0 or later
-- npm 11.10 or later
+- pnpm 11 (the installer bootstraps it via npm when absent)
 - Git
 - Python 3.10 or later for the managed IPython kernel
 
 ## Develop from source
 
-Fleet's launcher and pinned upstream runtime use the root npm workspace; the
-web product uses the isolated pnpm workspace in `web/`.
+Fleet resolves the whole workspace (web product, launcher package) with pnpm 11
+through the root `pnpm-workspace.yaml` and `pnpm-lock.yaml`.
 
 ```bash
-npm ci
-pnpm install --dir web
-pnpm --dir web --filter @prime-agent/web dev
+pnpm install
+pnpm --filter @prime-agent/web dev
 ```
 
-Always run pnpm with `--dir web`. Running pnpm at the repository root rewrites
-the root dependency layout and is unsupported.
+Never run `npm install` at the repository root; it drops a `package-lock.json`
+and rewrites the dependency layout.
 
-For validation, run `npm run check`. Run focused tests from the relevant package root, for example:
+For validation, run `pnpm run check`. Run focused tests from the relevant package root, for example:
 
 ```bash
 cd web/server

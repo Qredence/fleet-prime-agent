@@ -41,10 +41,9 @@ function checkStaticInstaller() {
 	for (const marker of [
 		"https://github.com/Qredence/fleet-prime-agent.git",
 		"git clone",
-		"npm ci",
+		"pnpm install",
 		"--frozen-lockfile",
-		"npm run build",
-		"scripts/build-web-release.mjs",
+		"pnpm run build",
 		"install_fleet_agent_shim",
 		"fleet-prime.sh",
 	]) {
@@ -58,6 +57,7 @@ function checkStaticInstaller() {
 		"__PRIME_AGENT_DOWNLOAD_BASE_URL__",
 		"R2_PUBLIC_BASE_URL",
 		"install-beta.sh",
+		"npm ci",
 		"npm install -g --no-fund",
 		"npm link",
 	]) {

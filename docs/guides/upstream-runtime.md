@@ -7,7 +7,7 @@ daemon-facing code in `web/server`.
 
 Prime Agent is consumed as a stock, checksum-pinned release tarball rather than
 vendored source. To upgrade it, update `PRIME_AGENT_RUNTIME.json` and the
-matching dependency URLs, run `npm install` plus `pnpm --dir web install`, then
+matching dependency URLs, run `pnpm install`, then
 run `node scripts/check-prime-agent-runtime.mjs`, web-server type checks, and
 the adapter parity tests. Review changes to the public runtime APIs consumed by
 `web/server` and the daemon protocol before merging. Do not patch upstream code

@@ -13,7 +13,7 @@ import type {
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
+import type { ChatAttachment, ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatClient } from "./chat-client";
 import { chatClient } from "./chat-client";
@@ -24,7 +24,11 @@ import { resolveChatApiUrl } from "./chat-runtime-url";
 import { EMPTY_QUEUE_STATE, normalizeSessionMetadata } from "./chat-stream-state";
 import { hydratePlanPresentationMessages, planPresentationForToolCall } from "./plan-presentation";
 import { isPlanDecisionToolCall } from "./plan-state";
-import { runForbiddenSessionRecovery, tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
+import {
+	runForbiddenSessionRecovery,
+	tryRecoverForbiddenSession,
+	tryRecoverUnknownSession,
+} from "./use-pi-chat-forbidden-session";
 import { usePiChatMessaging } from "./use-pi-chat-messaging";
 import { enhancePlanDecisionMessages, resolvePlanDecisionMessages } from "./use-pi-chat-plan-decisions";
 
@@ -163,10 +167,12 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	}, [client]);
 
 	const recoverFromForbiddenSession = useCallback(
-		() =>
+		// An override recovers into the project the caller asked to resume,
+		// instead of the hook-level default captured at mount.
+		(projectIdOverride?: ProjectId | null) =>
 			runForbiddenSessionRecovery({
 				client,
-				projectId,
+				projectId: projectIdOverride ?? projectId,
 				refreshSessions,
 				setActivityLabelSynced,
 				setError,
@@ -366,18 +372,17 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				setPresentationSynced(result.presentation);
 				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
 			})
-			.catch((err) => {
+			.catch(async (err) => {
 				if (controller.signal.aborted) return;
-				return tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
-					setError,
-					setStatus,
-				}).then((recovered) => {
-					if (recovered || controller.signal.aborted) return;
-					const nextError = err instanceof Error ? err : new Error(String(err));
-					setError(nextError);
-					setStatus("error");
-					notifyChatError(nextError);
-				});
+				const recoveryDeps = { setError, setStatus };
+				const recovered =
+					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
+					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
+				if (recovered || controller.signal.aborted) return;
+				const nextError = err instanceof Error ? err : new Error(String(err));
+				setError(nextError);
+				setStatus("error");
+				notifyChatError(nextError);
 			});
 
 		return () => {
@@ -480,12 +485,12 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				await refreshSessions();
 				return true;
 			} catch (err) {
-				if (
-					await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
-						setError,
-						setStatus,
-					})
-				) {
+				const recoveryDeps = { setError, setStatus };
+				const recover = () => recoverFromForbiddenSession(metadata.projectId);
+				const recovered =
+					(await tryRecoverForbiddenSession(err, recover, recoveryDeps)) ||
+					(await tryRecoverUnknownSession(err, recover, recoveryDeps));
+				if (recovered) {
 					return false;
 				}
 				const nextError = err instanceof Error ? err : new Error(String(err));

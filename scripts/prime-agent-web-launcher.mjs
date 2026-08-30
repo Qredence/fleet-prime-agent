@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
+import { createServer } from "node:http";
 import { extname, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
 import webServer from "./server/server.js";
 
 const DEFAULT_HOST = "127.0.0.1";
@@ -54,7 +54,10 @@ async function handleRequest(request, response) {
 			response.end("Loopback requests only");
 			return;
 		}
-		const requestUrl = new URL(request.url || "/", `http://${request.headers.host || `${options.host}:${options.port}`}`);
+		const requestUrl = new URL(
+			request.url || "/",
+			`http://${request.headers.host || `${options.host}:${options.port}`}`,
+		);
 		const staticPath = resolveStaticPath(requestUrl.pathname);
 		if (staticPath) {
 			serveStaticFile(request, response, staticPath);
@@ -129,7 +132,9 @@ function serveStaticFile(request, response, filePath) {
 		response.end();
 		return;
 	}
-	createReadStream(filePath).on("error", (error) => response.destroy(error)).pipe(response);
+	createReadStream(filePath)
+		.on("error", (error) => response.destroy(error))
+		.pipe(response);
 }
 
 function contentType(filePath) {

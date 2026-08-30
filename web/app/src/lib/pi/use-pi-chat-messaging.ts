@@ -1,3 +1,4 @@
+import { notify } from "@prime-agent/web-design/lib/notify";
 import type {
 	ChatMode,
 	ChatModelSelection,
@@ -33,7 +34,7 @@ import {
 	updatePlanStateFromAssistantText,
 } from "./plan-state";
 import type { SendMessageInput } from "./use-pi-chat";
-import { tryRecoverForbiddenSession } from "./use-pi-chat-forbidden-session";
+import { tryRecoverForbiddenSession, tryRecoverUnknownSession } from "./use-pi-chat-forbidden-session";
 
 type PiChatMessagingRefs = {
 	activityLabelRef: MutableRefObject<string | undefined>;
@@ -430,16 +431,20 @@ export function usePiChatMessaging({
 	);
 
 	const sendMessage = useCallback(
-		async ({
-			text,
-			attachments,
-			openUI,
-			openUIArtifact,
-			planAction,
-			mode,
-			/** Mirror of the Alt/Option modifier at Enter-press time. */
-			altKey,
-		}: SendMessageInput) => {
+		async (
+			{
+				text,
+				attachments,
+				openUI,
+				openUIArtifact,
+				planAction,
+				mode,
+				/** Mirror of the Alt/Option modifier at Enter-press time. */
+				altKey,
+			}: SendMessageInput,
+			/** Internal: marks the one-shot resend after a session recovery. */
+			recoveryRetry?: { afterSessionRecovery: boolean },
+		) => {
 			const trimmed = text.trim();
 			if (!trimmed) return;
 
@@ -553,12 +558,34 @@ export function usePiChatMessaging({
 					void refreshSessions();
 					return;
 				}
-				if (
-					await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, {
-						setError,
-						setStatus,
-					})
-				) {
+				const recoveryDeps = { setError, setStatus };
+				const recovered =
+					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
+					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
+				if (recovered) {
+					if (recoveryRetry?.afterSessionRecovery) {
+						notify.message("Started a fresh session, but your message was not sent. Please resend it.");
+						return;
+					}
+					// The composer has already cleared its value and the optimistic
+					// message above is gone, so re-submit the prompt against the
+					// recovered session instead of dropping it. Uploaded attachments
+					// were stored under the dead session and cannot carry over.
+					if (attachments?.some((attachment) => attachment.kind === "upload")) {
+						notify.message("Resent your message to a fresh session; uploaded files could not be carried over.");
+					}
+					await sendMessage(
+						{
+							text,
+							attachments: attachments?.filter((attachment) => attachment.kind === "workspace"),
+							openUI,
+							openUIArtifact,
+							planAction,
+							mode,
+							altKey,
+						},
+						{ afterSessionRecovery: true },
+					);
 					return;
 				}
 				const nextError = err instanceof Error ? err : new Error(String(err));

@@ -34,7 +34,7 @@ async function check(path: string, expected: string): Promise<boolean> {
 if (process.argv.includes("--check")) {
 	const fresh = (await check(signaturesPath, signaturesSource)) && (await check(schemaPath, schemaSource));
 	if (!fresh) {
-		throw new Error("OpenUI generated contract is stale. Run pnpm --dir web --filter @prime-agent/web-design generate:openui-contract");
+		throw new Error("OpenUI generated contract is stale. Run pnpm --filter @prime-agent/web-design generate:openui-contract");
 	}
 } else {
 	await writeFile(signaturesPath, signaturesSource, "utf8");

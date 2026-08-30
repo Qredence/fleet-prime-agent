@@ -22,20 +22,13 @@ process.exit(satisfies ? 0 : 1);
 }
 
 require_command node
-require_command npm
 require_command pnpm
 
 node_version="$(node --version | sed 's/^v//')"
-npm_version="$(npm --version)"
-pnpm_version="$(pnpm --dir web --version)"
+pnpm_version="$(pnpm --version)"
 
 if ! version_at_least "$node_version" "22.8.0"; then
 	echo "ERROR: Node.js 22.8.0 or newer is required; found $node_version." >&2
-	exit 1
-fi
-
-if ! version_at_least "$npm_version" "11.10.0"; then
-	echo "ERROR: npm 11.10 or newer is required; found $npm_version." >&2
 	exit 1
 fi
 
@@ -48,13 +41,9 @@ fi
 echo "==> Prime Agent Codex bootstrap"
 echo "repo: $repo_root"
 echo "node: $node_version"
-echo "npm: $npm_version"
 echo "pnpm: $pnpm_version"
 
-echo "==> Installing root npm dependencies"
-npm ci --no-audit --no-fund
-
-echo "==> Installing web workspace dependencies"
-pnpm install --dir web --frozen-lockfile
+echo "==> Installing workspace dependencies"
+pnpm install --frozen-lockfile
 
 echo "==> Bootstrap complete"

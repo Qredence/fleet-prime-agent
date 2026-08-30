@@ -9,6 +9,7 @@ import { Popover } from "../../../registry/beui/agents/input/input-popover";
 import { Button } from "../../../ui/button";
 import { ThreadSearch, type SearchableThread } from "../../../registry/assistant-ui/elements/thread-search";
 import { AnimatedSidebar, AnimatedSidebarFooter, AnimatedSidebarHeader, AnimatedSidebarRail } from "../../../registry/beui/motion/animated-sidebar";
+import { SurfaceProvider } from "../../../../lib/surface-context";
 import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers";
 import { sortSessions } from "../session-sidebar-model";
 import { FleetSessionSidebarProjectList } from "./project-list";
@@ -146,9 +147,11 @@ export function FleetSessionSidebarNavigation({
 		<AnimatedSidebar
 			ariaLabel="Fleet projects and sessions"
 			collapsible="offcanvas"
-			className="bg-sidebar text-sidebar-foreground"
-			panelClassName="border-r border-sidebar-border bg-sidebar shadow-none"
+			variant="floating"
+			className="text-sidebar-foreground"
 		>
+			{/* The floating rail is a surface-2 card; menus opened inside lift from it. */}
+			<SurfaceProvider value={2}>
 			<AnimatedSidebarHeader className="gap-2 border-0 px-2.5 pb-2 pt-2.5">
 				<div className="relative flex h-9 min-w-0 items-center justify-between gap-1">
 					<Popover
@@ -165,7 +168,7 @@ export function FleetSessionSidebarNavigation({
 								<ChevronDown className="size-3.5 text-muted-foreground" />
 							</button>
 						}
-						className="w-52 bg-popover p-1"
+						className="w-52 p-1"
 					>
 						{onCreateProject ? (
 							<SidebarMenuItem
@@ -193,7 +196,7 @@ export function FleetSessionSidebarNavigation({
 						onOpenChange={setSearchOpen}
 						side="bottom"
 						align="end"
-						className="w-64 bg-popover p-0"
+						className="w-64 p-0"
 						trigger={
 							<Button
 								type="button"
@@ -303,6 +306,7 @@ export function FleetSessionSidebarNavigation({
 				</a>
 			</AnimatedSidebarFooter>
 			<AnimatedSidebarRail />
+			</SurfaceProvider>
 		</AnimatedSidebar>
 	);
 }

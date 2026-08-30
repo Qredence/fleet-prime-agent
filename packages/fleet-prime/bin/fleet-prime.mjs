@@ -38,5 +38,5 @@ if (process.argv[2] === "agent") {
 	console.warn("Fleet Prime production bundle is not built; starting the source web server.");
 	run(viteCli, ["dev", ...process.argv.slice(2)], sourceWebApp);
 } else {
-	throw new Error("Fleet Prime is not built. Run npm run build:web:release before launching this installation.");
+	throw new Error("Fleet Prime is not built. Run pnpm run build:web:release before launching this installation.");
 }
