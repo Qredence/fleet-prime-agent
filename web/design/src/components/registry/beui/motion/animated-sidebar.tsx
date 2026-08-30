@@ -508,15 +508,22 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(
     const context = useAnimatedSidebar();
     const collapsed = collapsible !== "none" && !context.open;
     const offcanvas = collapsed && collapsible === "offcanvas";
+    // Floating and inset panels render as m-2 cards; the rail column reserves
+    // the card gutters so the card footprint never spills onto the inset.
+    const carded = variant === "floating" || variant === "inset";
+    const width = offcanvas
+      ? "0px"
+      : collapsed
+        ? carded
+          ? "calc(var(--sidebar-width-icon) + 1rem)"
+          : "var(--sidebar-width-icon)"
+        : carded
+          ? "calc(var(--sidebar-width) + 1rem)"
+          : "var(--sidebar-width)";
     const panelContextValue = useMemo(
       () => ({ collapsed, collapsible, side }),
       [collapsed, collapsible, side],
     );
-    const width = offcanvas
-      ? "0px"
-      : collapsed
-        ? "var(--sidebar-width-icon)"
-        : "var(--sidebar-width)";
 
     if (context.isMobile) {
       return (
@@ -557,7 +564,13 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(
           initial={false}
           animate={{
             opacity: offcanvas ? 0 : 1,
-            x: offcanvas ? (side === "left" ? "-100%" : "100%") : "0%",
+            // The m-2 card sits 0.5rem inside the rail column; the exit
+            // translate must clear the column edge, not just the card width.
+            x: offcanvas
+              ? side === "left"
+                ? "-120%"
+                : "120%"
+              : "0%",
           }}
           transition={
             context.reduce ? REDUCED_TRANSITION : PANEL_TRANSITION
