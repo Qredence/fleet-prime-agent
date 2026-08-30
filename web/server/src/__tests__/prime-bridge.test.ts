@@ -729,16 +729,21 @@ describe("PrimeBridge.resumeSessionById", () => {
 		await expect(bridge.resumeSessionById(persisted.sessionId)).rejects.toThrow("cannot send daemon command");
 	});
 
-	it("deleteSession returns false when the transcript cannot be resumed", async () => {
+	it("deleteSession deletes an unresumable transcript through the daemon catalog", async () => {
 		const persisted = createPersistedTranscript();
 		const bridge = new PrimeBridge({
 			connectionFactory: async () => {
 				throw new Error("Session worker started without a root session");
 			},
 			sessionLister: listerFor(persisted),
+			sessionFileDeleter: async (_cwd, sessionPath) => {
+				rmSync(sessionPath);
+				return { ok: true, method: "unlink" } as const;
+			},
 		});
 
-		await expect(bridge.deleteSession(persisted.sessionId)).resolves.toBe(false);
+		await expect(bridge.deleteSession(persisted.sessionId)).resolves.toBe(true);
+		expect(existsSync(persisted.sessionFile)).toBe(false);
 	});
 });
 

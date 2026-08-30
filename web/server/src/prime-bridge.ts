@@ -45,6 +45,7 @@ import type {
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
 import {
 	createDaemonWebAgentConnection,
+	deleteDaemonSavedSession,
 	listDaemonSessions,
 	sessionDirectoryForCwd,
 	type WebAgentConnection,
@@ -228,6 +229,8 @@ export interface PrimeBridgeOptions {
 	readonly connectionFactory?: WebAgentConnectionFactory;
 	/** Test seam for session discovery; production always uses the shared daemon. */
 	readonly sessionLister?: typeof listDaemonSessions;
+	/** Test seam for catalog deletion; production always uses the shared daemon. */
+	readonly sessionFileDeleter?: typeof deleteDaemonSavedSession;
 }
 
 type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
@@ -450,6 +453,7 @@ export class PrimeBridge {
 	readonly #writePresentation: typeof writeManagedPrimePresentation;
 	readonly #connectionFactory: WebAgentConnectionFactory;
 	readonly #sessionLister: typeof listDaemonSessions;
+	readonly #sessionFileDeleter: typeof deleteDaemonSavedSession;
 	readonly #caches = new Map<string, BridgeSessionCache>();
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
 	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
@@ -463,6 +467,7 @@ export class PrimeBridge {
 		this.#writePresentation = options.writePresentation ?? writeManagedPrimePresentation;
 		this.#connectionFactory = options.connectionFactory ?? createDaemonWebAgentConnection;
 		this.#sessionLister = options.sessionLister ?? listDaemonSessions;
+		this.#sessionFileDeleter = options.sessionFileDeleter ?? deleteDaemonSavedSession;
 		this.#dialogs = new PendingDialogRegistry({
 			defaultTimeoutMs: options.dialogTimeoutMs ?? 60_000,
 			emitFrame: (sessionId, frame) => this.#dispatch(sessionId, frame),
@@ -942,8 +947,12 @@ export class PrimeBridge {
 			try {
 				existing = await this.resumeSessionByPath(sessionPath);
 			} catch (error) {
-				if (isSessionNotResumableError(error)) return false;
-				throw error;
+				if (!isSessionNotResumableError(error)) throw error;
+				// The transcript is listed but cannot be resumed. Delete it through
+				// the daemon catalog so a broken entry never becomes undeletable.
+				const result = await this.#sessionFileDeleter(getPrimeConfig().defaultCwd, sessionPath);
+				if (!result.ok) throw new Error(result.error);
+				return true;
 			}
 		}
 		const sessionPath = existing.sessionPath;
