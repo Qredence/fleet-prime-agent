@@ -3,6 +3,7 @@ import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/ch
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import type { ChatClient } from "./chat-client";
+import { notifyChatError } from "./chat-error-notify";
 import type { QueueState } from "./chat-fetch";
 import { isForbiddenSessionError } from "./chat-fetch";
 import { EMPTY_QUEUE_STATE } from "./chat-stream-state";
@@ -55,7 +56,7 @@ export async function tryRecoverForbiddenSession(
 		const nextError = recoveryError instanceof Error ? recoveryError : new Error(String(recoveryError));
 		deps.setError(nextError);
 		deps.setStatus("error");
-		notify.error(nextError.message);
+		notifyChatError(nextError);
 	}
 
 	return true;

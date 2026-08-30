@@ -467,4 +467,20 @@ describe("sessionStatus", () => {
 		expect(sessionStatus({ state: { status: "crash" } }, undefined)).toBe("failed");
 		expect(sessionStatus({ state: { status: "active" } }, undefined)).toBe("interrupted");
 	});
+
+	it("does not report restored never-activated daemon sessions as running", () => {
+		expect(sessionStatus({ activity: "working", isSessionActive: false, isStreaming: false }, undefined)).toBe(
+			"interrupted",
+		);
+	});
+
+	it("reports active working daemon sessions as running", () => {
+		expect(sessionStatus({ activity: "working", isSessionActive: true, isStreaming: false }, undefined)).toBe(
+			"running",
+		);
+	});
+
+	it("reports daemon streaming sessions as running regardless of activation", () => {
+		expect(sessionStatus({ activity: "idle", isSessionActive: false, isStreaming: true }, undefined)).toBe("running");
+	});
 });

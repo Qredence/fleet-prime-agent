@@ -18,7 +18,12 @@ export function sessionStatus(
 	},
 	live: BridgeSession | undefined,
 ) {
-	if (live?.isStreaming || live?.session?.isStreaming || info.isStreaming || info.activity === "working") {
+	if (live?.isStreaming || live?.session?.isStreaming || info.isStreaming) {
+		return "running" as const;
+	}
+	// Restored daemon workers report activity "working" while the session was
+	// never activated (isSessionActive false); nothing can run in that state.
+	if (info.activity === "working" && info.isSessionActive) {
 		return "running" as const;
 	}
 	if (info.state?.status === "crash") return "failed" as const;

@@ -1,0 +1,193 @@
+import { useMemo, useState } from "react"
+import {
+  ChevronDown,
+  ChevronUp,
+  MessageCircleQuestion,
+} from "lucide-react"
+import { QuestionPrompt } from "./question-prompt"
+import type { QuestionAnswer, QuestionConfig } from "./question-prompt"
+
+export type QuestionToolPart = {
+  type: string
+  toolCallId?: string
+  state?: string
+  input?: {
+    questions: Array<QuestionConfig>
+    questionIndex?: number
+    totalQuestions?: number
+    onPreviousQuestion?: () => void
+    onNextQuestion?: () => void
+    submitLabel?: string
+    nextLabel?: string
+    skipLabel?: string
+    allowSkip?: boolean
+    onSubmitAnswer?: (answer: QuestionAnswer) => void
+  }
+  output?: {
+    answer?: QuestionAnswer
+  }
+}
+
+export type QuestionToolProps = {
+  part: QuestionToolPart
+  chatStatus?: string
+}
+
+function formatAnswer(answer: QuestionAnswer) {
+  if (answer.kind === "skip") return "Skipped"
+  if (answer.kind === "text") return answer.text || "Answered"
+  const ids = answer.selectedIds?.length ? answer.selectedIds.join(", ") : ""
+  if (answer.text) return ids ? `${ids} (${answer.text})` : answer.text
+  return ids || "Answered"
+}
+
+export function QuestionTool({ part }: QuestionToolProps) {
+  const [localIndex, setLocalIndex] = useState(part.input?.questionIndex ?? 1)
+  const questions: Array<QuestionConfig> = part.input?.questions ?? []
+  const totalQuestions = part.input?.totalQuestions ?? questions.length
+  const isControlled = typeof part.input?.questionIndex === "number"
+  const questionIndex = isControlled
+    ? (part.input?.questionIndex ?? 1)
+    : questions.length > 0
+      ? localIndex
+      : (part.input?.questionIndex ?? 1)
+  const clampedIndex = Math.max(1, Math.min(questionIndex, totalQuestions))
+  const question = questions[clampedIndex - 1]
+  const [localAnswers, setLocalAnswers] = useState<
+    Record<number, QuestionAnswer>
+  >({})
+
+  // Prev-prop tracking adjusted during render (react.dev "adjusting state
+  // during rendering") — same committed outcome as the old sync effects,
+  // without painting stale values first.
+  const [prevQuestionIndex, setPrevQuestionIndex] = useState(
+    part.input?.questionIndex
+  )
+  if (part.input?.questionIndex !== prevQuestionIndex) {
+    setPrevQuestionIndex(part.input?.questionIndex)
+    if (typeof part.input?.questionIndex === "number") {
+      setLocalIndex(part.input.questionIndex)
+    }
+  }
+
+  const [prevToolCallId, setPrevToolCallId] = useState(part.toolCallId)
+  if (part.toolCallId !== prevToolCallId) {
+    setPrevToolCallId(part.toolCallId)
+    setLocalAnswers({})
+    setLocalIndex(part.input?.questionIndex ?? 1)
+  }
+
+  const outputAnswer = part.output?.answer
+  const answeredCount = Object.keys(localAnswers).length
+  const isComplete =
+    totalQuestions === 1
+      ? !!outputAnswer || answeredCount >= 1
+      : totalQuestions > 0 && answeredCount >= totalQuestions
+  const showNavigation = totalQuestions > 1 && !isComplete
+  const canGoPrev = clampedIndex > 1
+  const canGoNext = clampedIndex < totalQuestions
+  const summaryAnswers = useMemo(() => {
+    if (!isComplete || totalQuestions <= 1) return []
+    return Array.from({ length: totalQuestions }, (_, idx) => ({
+      index: idx + 1,
+      answer: localAnswers[idx + 1],
+    }))
+  }, [isComplete, localAnswers, totalQuestions])
+  const summaryText = useMemo(() => {
+    if (!isComplete) return ""
+    if (summaryAnswers.length > 0) {
+      return summaryAnswers
+        .map(
+          (item) =>
+            `${item.index}: ${item.answer ? formatAnswer(item.answer) : "Pending"}`
+        )
+        .join(" • ")
+    }
+    if (outputAnswer) return formatAnswer(outputAnswer)
+    if (localAnswers[clampedIndex])
+      return formatAnswer(localAnswers[clampedIndex])
+    return "Pending"
+  }, [isComplete, summaryAnswers, outputAnswer, localAnswers, clampedIndex])
+
+  if (!question) return null
+
+  const goPrev = () => {
+    if (!canGoPrev) return
+    part.input?.onPreviousQuestion?.()
+    if (!isControlled) {
+      setLocalIndex((prev) => Math.max(1, prev - 1))
+    }
+  }
+
+  const goNext = () => {
+    if (!canGoNext) return
+    part.input?.onNextQuestion?.()
+    if (!isControlled) {
+      setLocalIndex((prev) => Math.min(totalQuestions, prev + 1))
+    }
+  }
+
+  return (
+    <div className="overflow-hidden rounded-an-tool-border-radius border border-border bg-an-tool-background">
+      <div className="flex h-7 items-center justify-between border-b border-border px-3 text-xs text-an-tool-color-muted">
+        <div className="inline-flex items-center gap-1.5">
+          <MessageCircleQuestion className="h-3.5 w-3.5" />
+          Question
+        </div>
+        {showNavigation && (
+          <div className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={goPrev}
+              disabled={!canGoPrev}
+              className="inline-flex size-5 items-center justify-center rounded-[4px] hover:bg-an-background-secondary disabled:opacity-40"
+              aria-label="Previous question"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <span>
+              {clampedIndex} of {totalQuestions}
+            </span>
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!canGoNext}
+              className="inline-flex size-5 items-center justify-center rounded-[4px] hover:bg-an-background-secondary disabled:opacity-40"
+              aria-label="Next question"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {isComplete ? (
+        <div className="bg-background px-3 py-2 text-xs text-an-tool-color-muted">
+          {summaryText}
+        </div>
+      ) : (
+        <QuestionPrompt
+          key={`${clampedIndex}-${question.title}`}
+          questions={questions}
+          questionIndex={clampedIndex}
+          totalQuestions={totalQuestions}
+          initialAnswer={localAnswers[clampedIndex]}
+          submitLabel={part.input?.submitLabel}
+          nextLabel={part.input?.nextLabel}
+          skipLabel={part.input?.skipLabel}
+          allowSkip={part.input?.allowSkip}
+          onSubmit={(nextAnswer) => {
+            setLocalAnswers((prev) => ({
+              ...prev,
+              [clampedIndex]: nextAnswer,
+            }))
+            part.input?.onSubmitAnswer?.(nextAnswer)
+            if (clampedIndex < totalQuestions) {
+              goNext()
+            }
+          }}
+        />
+      )}
+    </div>
+  )
+}

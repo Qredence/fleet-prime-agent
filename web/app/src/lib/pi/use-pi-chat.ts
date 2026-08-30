@@ -17,6 +17,7 @@ import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatClient } from "./chat-client";
 import { chatClient } from "./chat-client";
+import { notifyChatError } from "./chat-error-notify";
 import type { QueueState } from "./chat-fetch";
 import { upsertAssistantReasoningPresentation } from "./chat-message-helpers";
 import { resolveChatApiUrl } from "./chat-runtime-url";
@@ -319,7 +320,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (cancelled) return;
 			const nextError = err instanceof Error ? err : new Error(String(err));
 			setError(nextError);
-			notify.error(nextError.message);
+			notifyChatError(nextError);
 		});
 		return () => {
 			cancelled = true;
@@ -375,7 +376,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 					const nextError = err instanceof Error ? err : new Error(String(err));
 					setError(nextError);
 					setStatus("error");
-					notify.error(nextError.message);
+					notifyChatError(nextError);
 				});
 			});
 
@@ -490,7 +491,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				const nextError = err instanceof Error ? err : new Error(String(err));
 				setError(nextError);
 				setStatus("error");
-				notify.error(nextError.message);
+				notifyChatError(nextError);
 				return false;
 			}
 		},

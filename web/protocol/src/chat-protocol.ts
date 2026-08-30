@@ -52,6 +52,10 @@ export type ChatErrorStreamEvent = {
 	error?: FleetErrorEnvelope;
 };
 
+/** Canonical user-facing message for NETWORK_DISCONNECTED error envelopes. */
+export const NETWORK_DISCONNECTED_MESSAGE =
+	"Fleet Prime is not connected to the Prime Agent runtime. Start or reconnect the runtime, then try again.";
+
 export type QueueState = {
 	steering: Array<string>;
 	followUp: Array<string>;

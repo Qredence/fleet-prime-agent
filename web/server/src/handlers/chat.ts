@@ -5,7 +5,7 @@ import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { readInspectedManagedAttachment, validateManagedAttachments } from "../managed-attachments";
 import { parseBackendSessionCommand, sessionCommandResultText } from "../session-commands";
 import { getBridge } from "../singleton";
-import { safeErrorMessage, wrapApiHandler } from "../wrap-api-handler";
+import { chatErrorEnvelope, wrapApiHandler } from "../wrap-api-handler";
 
 export function resolveChatStreamingBehavior(streamingBehavior?: "steer" | "followUp"): "steer" | "followUp" {
 	return streamingBehavior ?? "steer";
@@ -220,9 +220,12 @@ export function handleChatPost(request: Request): Promise<Response> {
 						process.stderr.write(
 							`[chat] prompt errored: ${error instanceof Error ? error.message : String(error)}\n`,
 						);
+						const envelope = chatErrorEnvelope(error);
 						write({
 							type: "error",
-							message: safeErrorMessage(error),
+							message: envelope.message,
+							code: envelope.code,
+							error: envelope,
 						});
 						close();
 					});

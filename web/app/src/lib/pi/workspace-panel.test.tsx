@@ -4,8 +4,8 @@ import type {
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { WorkspacePanelContent } from "@prime-agent/web-design/components/fleet-pi/pi/workspace-panel"
-import type { WorkspacePanelContentProps } from "@prime-agent/web-design/components/fleet-pi/pi/workspace-panel"
+import { WorkspacePanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/workspace-panel"
+import type { WorkspacePanelContentProps } from "@prime-agent/web-design/components/product/fleet-pi/pi/workspace-panel"
 
 const workspace: WorkspaceTreeResponse = {
 	root: "/workspace/prime-agent",

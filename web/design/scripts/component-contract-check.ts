@@ -15,12 +15,15 @@
  */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { extname, basename, dirname, join, relative, resolve } from "node:path";
+import ts from "typescript";
 
 const DESIGN_ROOT = resolve(import.meta.dirname, "..");
 const REPO_ROOT = resolve(DESIGN_ROOT, "..", "..");
 const DESIGN_SRC = join(DESIGN_ROOT, "src");
 const DESIGN_SCRIPTS = join(DESIGN_ROOT, "scripts");
 const APP_SRC = resolve(DESIGN_ROOT, "..", "app", "src");
+const REGISTRY_ROOT = join(DESIGN_SRC, "components", "registry");
+const COMPONENT_SOURCES_PATH = join(DESIGN_ROOT, "component-sources.json");
 
 const ENTRY_EXEMPTIONS = new Set(["routeTree.gen.ts"]);
 const NAME_CONVENTIONS = new Set(["index", "types", "utils", "cn", "index.test"]);
@@ -76,7 +79,7 @@ function stripJsonc(source: string): string {
 
 function loadWaivedPaths(): Set<string> {
 	const waived = new Set<string>();
-	const configPath = join(REPO_ROOT, "doctor.config.jsonc");
+	const configPath = join(REPO_ROOT, "web", "doctor.config.jsonc");
 	if (!existsSync(configPath)) return waived;
 	try {
 		const config = JSON.parse(stripJsonc(readFileSync(configPath, "utf8"))) as unknown;
@@ -150,6 +153,11 @@ const importerFiles = [
 	...(existsSync(APP_SRC) ? collectFiles(APP_SRC) : []),
 ];
 const fileSet = new Set(designFiles);
+const sourceManifest = JSON.parse(readFileSync(COMPONENT_SOURCES_PATH, "utf8")) as {
+	sources: Array<{ destination: string; address: string; reviewedVersion: string; checksum: string; status: string }>;
+	widePropExceptions: Array<{ path: string; type: string; reason: string }>;
+	nativeControlExceptions: string[];
+};
 
 // Rule 1: basename uniqueness (conventional shared names exempt)
 const byBasename = new Map<string, string[]>();
@@ -186,11 +194,86 @@ const deadFiles = designFiles.filter((file) => {
 	const designPath = relative(REPO_ROOT, join("web", relative(REPO_ROOT, file))).replaceAll("\\", "/");
 	const projectPath = relative(REPO_ROOT, file).replaceAll("\\", "/"); // doctor paths are relative to "web/" project roots
 	const relativeToWeb = relative(resolve(REPO_ROOT, "web"), file).replaceAll("\\", "/");
+	const relativeToDesign = relative(DESIGN_ROOT, file).replaceAll("\\", "/");
 	return (
-		!waived.has(designPath) && !waived.has(projectPath) && !waived.has(relativeToWeb)
+		!waived.has(designPath) &&
+		!waived.has(projectPath) &&
+		!waived.has(relativeToWeb) &&
+		!waived.has(relativeToDesign)
 	);
 });
 deadFiles.sort();
+
+// Rule 3: registry provenance and primitive boundaries.
+const registryFiles = collectFiles(REGISTRY_ROOT);
+const sourceRoots = sourceManifest.sources.map((entry) => ({
+	...entry,
+	root: resolve(DESIGN_ROOT, entry.destination),
+}));
+const undeclaredRegistryFiles = registryFiles.filter(
+	(file) => !sourceRoots.some(({ root }) => file === root || file.startsWith(`${root}/`)),
+);
+const invalidSourceEntries = sourceRoots.filter(
+	(entry) =>
+		!entry.address ||
+		!entry.reviewedVersion ||
+		!entry.checksum ||
+		!["tracked", "patched", "forked"].includes(entry.status) ||
+		!existsSync(entry.root),
+);
+
+const directBaseUiImports: string[] = [];
+const unsupportedIconImports: string[] = [];
+const nativeControlViolations: string[] = [];
+const widePropViolations: Array<{ file: string; type: string; count: number }> = [];
+const nativeControlExceptions = new Set(sourceManifest.nativeControlExceptions);
+const widePropExceptions = new Set(
+	sourceManifest.widePropExceptions.map((entry) => `${entry.path}:${entry.type}`),
+);
+const nativeControlPattern = /<(?:button|input|select|textarea)\b/;
+for (const file of designFiles) {
+	const source = readFileSync(file, "utf8");
+	const relativePath = relative(DESIGN_ROOT, file).replaceAll("\\", "/");
+	if (/from ["']@base-ui\/react/.test(source) && !relativePath.startsWith("src/components/ui/")) {
+		directBaseUiImports.push(file);
+	}
+	if (/from ["'](?:@tabler\/icons-react|@heroicons\/|react-icons)/.test(source)) {
+		unsupportedIconImports.push(file);
+	}
+	if (
+		relativePath.startsWith("src/components/product/") &&
+		nativeControlPattern.test(source) &&
+		!nativeControlExceptions.has(relativePath)
+	) {
+		nativeControlViolations.push(file);
+	}
+	if (!relativePath.startsWith("src/components/registry/")) {
+		const syntaxKind = file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+		const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, syntaxKind);
+		for (const statement of sourceFile.statements) {
+			const isExported = ts.canHaveModifiers(statement)
+				? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+				: false;
+			if (!isExported) continue;
+			let typeName: string | undefined;
+			let count = 0;
+			if (ts.isTypeAliasDeclaration(statement) && ts.isTypeLiteralNode(statement.type)) {
+				typeName = statement.name.text;
+				count = statement.type.members.length;
+			} else if (ts.isInterfaceDeclaration(statement)) {
+				typeName = statement.name.text;
+				count = statement.members.length;
+			}
+			if (
+				typeName?.endsWith("Props") &&
+				count > 12 &&
+				!widePropExceptions.has(`${relativePath}:${typeName}`)
+			) {
+				widePropViolations.push({ file, type: typeName, count });
+			}
+		}
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Report
@@ -216,6 +299,32 @@ if (deadFiles.length > 0) {
 		console.error(`    - ${relative(DESIGN_ROOT, file).replaceAll("\\", "/")}`);
 	}
 	console.error("  Add a usage, or register an intentional reservation in doctor.config.jsonc.");
+}
+
+for (const [label, files] of [
+	["registry file(s) without component-sources.json provenance", undeclaredRegistryFiles],
+	["direct Base UI import(s) outside components/ui", directBaseUiImports],
+	["unsupported icon-library import(s)", unsupportedIconImports],
+	["new native product control(s) without a documented exception", nativeControlViolations],
+] as const) {
+	if (files.length === 0) continue;
+	failures += files.length;
+	console.error(`\n[check:components] ${files.length} ${label}:`);
+	for (const file of files) console.error(`    - ${relative(DESIGN_ROOT, file).replaceAll("\\", "/")}`);
+}
+
+if (invalidSourceEntries.length > 0) {
+	failures += invalidSourceEntries.length;
+	console.error(`\n[check:components] ${invalidSourceEntries.length} invalid provenance declaration(s):`);
+	for (const entry of invalidSourceEntries) console.error(`    - ${entry.destination}`);
+}
+
+if (widePropViolations.length > 0) {
+	failures += widePropViolations.length;
+	console.error(`\n[check:components] ${widePropViolations.length} public prop contract(s) exceed 12 top-level fields:`);
+	for (const violation of widePropViolations) {
+		console.error(`    - ${relative(DESIGN_ROOT, violation.file).replaceAll("\\", "/")}:${violation.type} (${violation.count})`);
+	}
 }
 
 if (failures === 0) {

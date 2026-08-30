@@ -1,7 +1,7 @@
 import type { ChatModelInfo, ChatModelSelection, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { redactSessionLabelSecrets } from "@prime-agent/web-protocol/session-label";
 import { Bot, ClipboardList, Hammer } from "lucide-react";
-import type { ModelOption } from "../../components/agents/types";
+import type { ModelOption } from "../../components/registry/beui/agents/types";
 
 export type ChatModelOption = ModelOption & {
 	provider: string;

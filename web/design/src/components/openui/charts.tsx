@@ -15,8 +15,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "../chart"
+} from "../ui/card"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "../ui/chart"
 
 const CHART_FALLBACK_COLORS = [1, 2, 3, 4, 5].map((n) => `var(--chart-${n})`)
 

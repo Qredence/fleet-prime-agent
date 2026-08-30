@@ -1,7 +1,8 @@
 import {
+	displayProjectSessions,
 	sortProjectsByActivity,
 	visibleProjectSessions,
-} from "@prime-agent/web-design/components/fleet-pi/session-sidebar-model";
+} from "@prime-agent/web-design/components/product/fleet-pi/session-sidebar-model";
 import type { ChatSessionInfo, ProjectSummary } from "@prime-agent/web-protocol";
 import { describe, expect, it } from "vitest";
 
@@ -54,5 +55,23 @@ describe("Fleet session sidebar model", () => {
 		expect(visible).toHaveLength(5);
 		expect(visible.map(({ sessionId }) => sessionId)).toContain("chat-7");
 		expect(visibleProjectSessions(sessions, "chat-7", true)).toHaveLength(7);
+	});
+
+	it("keeps message-less sessions out of the tree unless they are active", () => {
+		const messaged = session("messaged-chat", "2026-01-02T00:00:00.000Z");
+		const draft: ChatSessionInfo = {
+			...session("draft-chat", "2026-01-03T00:00:00.000Z"),
+			title: "(no messages)",
+			firstMessage: "",
+			messageCount: 0,
+		};
+
+		expect(displayProjectSessions([messaged, draft], undefined).map(({ sessionId }) => sessionId)).toEqual([
+			"messaged-chat",
+		]);
+		expect(displayProjectSessions([messaged, draft], "draft-chat").map(({ sessionId }) => sessionId)).toEqual([
+			"messaged-chat",
+			"draft-chat",
+		]);
 	});
 });

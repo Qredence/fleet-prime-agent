@@ -1,4 +1,9 @@
-import type { ChatSessionMetadata, ChatStreamEvent } from "@prime-agent/web-protocol/chat-protocol";
+import type {
+	ChatSessionMetadata,
+	ChatStreamEvent,
+	FleetErrorCode,
+	FleetErrorRemediation,
+} from "@prime-agent/web-protocol/chat-protocol";
 import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ZodType } from "zod";
 import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url";
@@ -12,13 +17,44 @@ function clearChatAuthBearerTokenCache(): void {}
 export class ChatRequestError extends Error {
 	readonly status: number;
 	readonly body: string;
+	readonly code: FleetErrorCode | undefined;
+	readonly remediation: FleetErrorRemediation | undefined;
 
 	constructor(status: number, body: string) {
 		super(formatChatRequestErrorMessage(status, body));
 		this.name = "ChatRequestError";
 		this.status = status;
 		this.body = body;
+		const envelope = parseErrorEnvelope(body);
+		this.code = envelope?.code;
+		this.remediation = envelope?.remediation;
 	}
+}
+
+function isFleetErrorRemediation(value: unknown): value is FleetErrorRemediation {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as { action?: unknown }).action === "string" &&
+		typeof (value as { label?: unknown }).label === "string"
+	);
+}
+
+function parseErrorEnvelope(body: string): { code: FleetErrorCode; remediation?: FleetErrorRemediation } | null {
+	const trimmed = body.trim();
+	if (!trimmed) return null;
+	try {
+		const parsed = JSON.parse(trimmed) as { code?: unknown; remediation?: unknown };
+		if (typeof parsed.code === "string") {
+			return {
+				code: parsed.code as FleetErrorCode,
+				remediation: isFleetErrorRemediation(parsed.remediation) ? parsed.remediation : undefined,
+			};
+		}
+	} catch {
+		// Server did not return a JSON error envelope.
+	}
+	return null;
 }
 
 function formatChatRequestErrorMessage(status: number, body: string) {
@@ -38,6 +74,20 @@ function formatChatRequestErrorMessage(status: number, body: string) {
 export function isForbiddenSessionError(error: unknown) {
 	const body = error instanceof ChatRequestError ? error.body : error instanceof Error ? error.message : String(error);
 	return body.includes("Session belongs to another user");
+}
+
+/** True for daemon transport failures, typed (envelope code) or legacy (raw upstream message). */
+export function isDaemonDisconnectError(error: unknown): boolean {
+	if (!(error instanceof Error)) return false;
+	if ((error as { code?: unknown }).code === "NETWORK_DISCONNECTED") return true;
+	return /daemon is not connected/i.test(error.message) || /cannot send daemon command/i.test(error.message);
+}
+
+/** Stream error events drop their typed envelope when re-thrown; keep the code attached. */
+export function chatErrorFromStreamEvent(event: { message: string; code?: FleetErrorCode }): Error {
+	const error = new Error(event.message) as Error & { code?: FleetErrorCode };
+	if (event.code) error.code = event.code;
+	return error;
 }
 
 async function withChatRequestHeaders(init?: RequestInit) {

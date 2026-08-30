@@ -20,7 +20,7 @@ import { createParser, Renderer } from "@openuidev/react-lang";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MotionRuntime } from "../src/components/motion/runtime";
+import { MotionRuntime } from "../src/components/registry/beui/motion/runtime";
 import {
 	DataTableDef,
 	buildSortComparator,
@@ -35,7 +35,7 @@ import {
 	stripOpenUIWrapper,
 } from "../src/components/openui/openui-utils";
 import type { OpenUIContentSegment } from "../src/components/openui/openui-utils";
-import { sanitizeChartColor } from "../src/components/chart";
+import { sanitizeChartColor } from "../src/components/ui/chart";
 import { isSafeExternalUrl } from "../src/lib/safe-external-url";
 
 // --- happy-dom window + node globalThis shims ---

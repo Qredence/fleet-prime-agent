@@ -3,9 +3,9 @@ import {
   AccountMenu,
   KernelStatusChip,
   SessionControls,
-} from "@prime-agent/web-design/components/fleet-pi/layout/chat-header"
-import { RightPanelLauncherFromContext } from "@prime-agent/web-design/components/fleet-pi/pi/right-panel-launcher"
-import { AnimatedSidebarTrigger } from "@prime-agent/web-design/components/motion/animated-sidebar"
+} from "@prime-agent/web-design/components/product/fleet-pi/layout/chat-header"
+import { RightPanelLauncherFromContext } from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher"
+import { AnimatedSidebarTrigger } from "@prime-agent/web-design/components/registry/beui/motion/animated-sidebar"
 import type {
   ChatSessionInfo,
   ChatSessionMetadata,
@@ -40,10 +40,11 @@ export function useChatWorkspaceHeader({
     left: (
       <AnimatedSidebarTrigger
         aria-label="Toggle conversations"
-        className="size-9 rounded-[10px] border bg-background shadow-sm hover:bg-muted"
+        className="size-9 rounded-[10px] border border-border/70 bg-background shadow-sm"
       >
         <span
           aria-hidden="true"
+          data-icon="inline-start"
           className="block h-3.5 w-4 rounded-[3px] border border-current before:block before:h-full before:w-1 before:border-r before:border-current"
         />
       </AnimatedSidebarTrigger>

@@ -2,7 +2,7 @@ import type {
 	ChatPanelDataContextValue,
 	SettingsActionsContextValue,
 	WorkspaceTreeContextValue,
-} from "@prime-agent/web-design/components/fleet-pi/layout/right-panel-context";
+} from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
 import type { RightPanel, ThemePreference } from "@prime-agent/web-design/lib/canvas-utils";
 import type { ChatModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type {

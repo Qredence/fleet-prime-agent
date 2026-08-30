@@ -6,9 +6,9 @@ import {
 } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { QueryClientProvider } from "@tanstack/react-query"
-import { MotionRuntime } from "@prime-agent/web-design/components/motion/runtime"
-import { Toaster } from "@prime-agent/web-design/components/sonner"
-import { NotFoundPage } from "@prime-agent/web-design/components/fleet-pi/not-found-page"
+import { MotionRuntime } from "@prime-agent/web-design/components/registry/beui/motion/runtime"
+import { Toaster } from "@prime-agent/web-design/components/ui/toast"
+import { NotFoundPage } from "@prime-agent/web-design/components/product/fleet-pi/not-found-page"
 
 import appCss from "@prime-agent/web-design/globals.css?url"
 import { getQueryClient } from "@/lib/query-client"

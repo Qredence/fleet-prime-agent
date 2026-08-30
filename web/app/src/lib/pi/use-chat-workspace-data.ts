@@ -1,5 +1,5 @@
-import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
-import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/fleet-pi/pi/prime-agent-artifacts";
+import type { ForkPickerEntry } from "@prime-agent/web-design/components/product/fleet-pi/chat/fork-picker-dialog";
+import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/product/fleet-pi/pi/prime-agent-artifacts";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ProjectId } from "@prime-agent/web-protocol";
@@ -44,6 +44,7 @@ import { useResourceInstallRefresh } from "@/lib/pi/use-resource-install-refresh
 import { useRightPanelContextValue } from "@/lib/pi/use-right-panel-context-value";
 import { buildWorkspaceReferenceSuggestions, workspacePathFromSuggestion } from "@/lib/pi/workspace-suggestions";
 import { loadWorkspaceFile } from "@/lib/workspace-file";
+import { notifyChatError } from "./chat-error-notify";
 import {
 	shouldClearPendingAttachments,
 	shouldClearPendingAttachmentsForNewSession,
@@ -358,7 +359,7 @@ export function useChatWorkspaceData() {
 				const uploaded = await chatClient.uploadAttachments(sessionId, files);
 				setUploadedAttachments((current) => [...current, ...uploaded]);
 			})().catch((attachmentError) => {
-				notify.error(attachmentError instanceof Error ? attachmentError.message : String(attachmentError));
+				notifyChatError(attachmentError);
 			});
 		};
 		input.click();
@@ -389,8 +390,7 @@ export function useChatWorkspaceData() {
 	const handleQuestionAnswer = useCallback(
 		({ toolCallId, answer }: { toolCallId?: string; answer: ChatQuestionAnswer }) => {
 			void answerQuestion({ toolCallId, answer }).catch((err) => {
-				const message = err instanceof Error ? err.message : String(err);
-				notify.error(message);
+				notifyChatError(err);
 			});
 		},
 		[answerQuestion],
@@ -559,79 +559,91 @@ export function useChatWorkspaceData() {
 	});
 
 	return {
-		activeSessionId: sessionMetadata.sessionId,
-		activityLabel,
-		activeProjectId,
-		artifactRuns,
-		answerQuestion,
-		chatMode,
-		chatPanelData,
-		commandPaletteOpen,
-		deleteSession: deleteSessionForWorkspace,
-		createProject,
-		browseProjectDirectories,
-		error,
-		forkFromEntry,
-		forkSessionIntoProject,
-		forkPickerEntries,
-		handleLocalSlashSubmit,
-		handleQuestionAnswer,
-		handleAttach,
-		handleResourceCanvasResizeStart,
-		handleSlashCommandSelect,
-		handleThemePreferenceChange,
-		header,
-		infoDescription,
-		inputSuggestionItems,
-		workspaceReferenceSuggestions,
-		messages,
-		openArtifact,
-		persistOpenUIArtifact,
-		effortPickerOpen,
-		modelKey,
-		modelPickerOpen,
-		models,
-		openPanelAction: openProjectPanelAction,
-		uploadedAttachments,
-		workspaceAttachments,
-		addWorkspaceAttachment,
-		removeWorkspaceAttachment,
-		clearWorkspaceAttachments,
-		removeUploadedAttachment,
-		projects: projectsData?.projects ?? [],
-		projectSessions: sessions,
-		selectProject,
-		renameProject,
-		unregisterProject,
-		clearUploadedAttachments,
-		pendingQuestionBar,
-		presentation,
-		resourceCanvasWidth,
-		rightPanel,
-		renameSession,
-		resumeSession: resumeSessionForWorkspace,
-		sendMessage,
-		sessions,
-		setForkPickerEntries,
-		setChatMode,
-		setCommandPaletteOpen,
-		setEffortPickerOpen,
-		setModelKey,
-		setModelPickerOpen,
-		setRightPanel,
-		setSettingsDialogOpen,
-		setSettingsInitialTab,
-		setThinkingLevel,
-		settingsActions,
-		settingsDialogOpen,
-		settingsInitialTab,
-		slashCommands,
-		startNewSession: startNewSessionForWorkspace,
-		startNewSessionInProject,
-		status,
-		stop,
-		themePreference,
-		thinkingLevel,
-		workspaceTreeContext,
+		session: {
+			activeSessionId: sessionMetadata.sessionId,
+			activeProjectId,
+			projects: projectsData?.projects ?? [],
+			projectSessions: sessions,
+			sessions,
+			browseProjectDirectories,
+			createProject,
+			deleteSession: deleteSessionForWorkspace,
+			forkSessionIntoProject,
+			renameProject,
+			renameSession,
+			resumeSession: resumeSessionForWorkspace,
+			selectProject,
+			startNewSession: startNewSessionForWorkspace,
+			startNewSessionInProject,
+			unregisterProject,
+		},
+		conversation: {
+			activityLabel,
+			artifactRuns,
+			error,
+			messages,
+			openArtifact,
+			openPanelAction: openProjectPanelAction,
+			persistOpenUIArtifact,
+			presentation,
+			sendMessage,
+			status,
+			stop,
+		},
+		composer: {
+			answerQuestion,
+			chatMode,
+			clearUploadedAttachments,
+			clearWorkspaceAttachments,
+			effortPickerOpen,
+			handleAttach,
+			handleLocalSlashSubmit,
+			handleQuestionAnswer,
+			handleSlashCommandSelect,
+			infoDescription,
+			inputSuggestionItems,
+			workspaceReferenceSuggestions,
+			modelKey,
+			modelPickerOpen,
+			models,
+			pendingQuestionBar,
+			removeUploadedAttachment,
+			removeWorkspaceAttachment,
+			addWorkspaceAttachment,
+			setChatMode,
+			setEffortPickerOpen,
+			setModelKey,
+			setModelPickerOpen,
+			setThinkingLevel,
+			slashCommands,
+			thinkingLevel,
+			uploadedAttachments,
+			workspaceAttachments,
+		},
+		panels: {
+			chatPanelData,
+			handleResourceCanvasResizeStart,
+			resourceCanvasWidth,
+			rightPanel,
+			setRightPanel,
+			settingsActions,
+			workspaceTreeContext,
+		},
+		dialogs: {
+			commandPaletteOpen,
+			forkFromEntry,
+			forkPickerEntries,
+			setCommandPaletteOpen,
+			setForkPickerEntries,
+			setSettingsDialogOpen,
+			setSettingsInitialTab,
+			settingsDialogOpen,
+			settingsInitialTab,
+		},
+		chrome: {
+			handleThemePreferenceChange,
+			header,
+			themePreference,
+		},
 	};
 }

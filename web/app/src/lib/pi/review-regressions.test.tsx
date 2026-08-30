@@ -2,10 +2,15 @@ import { fireEvent, render } from "@testing-library/react";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/fleet-pi/pi/artifacts-panel";
-import { FleetPiAgentChat } from "@prime-agent/web-design/components/fleet-pi/chat/fleet-pi-agent-chat";
+import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/artifacts-panel";
+import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
 
 vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
+	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
+		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>Trigger OpenUI action</button>
+	),
+}));
+vi.mock("@prime-agent/web-design/components/openui/openui-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
 		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>Trigger OpenUI action</button>
 	),
@@ -154,7 +159,7 @@ describe("review regressions", () => {
 		});
 	});
 
-	it("renders activity after the assistant response and specialized tool content", () => {
+	it("renders activity after the assistant response and specialized tool content", async () => {
 		const messages: Array<ChatMessage> = [
 			{
 				id: "assistant-footer",
@@ -171,7 +176,7 @@ describe("review regressions", () => {
 				],
 			},
 		];
-		const { getByRole, getByText } = render(
+		const { findByText, getByRole } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -180,12 +185,12 @@ describe("review regressions", () => {
 				status="ready"
 			/>,
 		);
-		const answer = getByRole("button", { name: "Trigger OpenUI action" });
+		const answer = await findByText("Final architecture summary");
 		const activity = getByRole("button", { name: "Completed 1 tracked action" });
 
 		expect(answer.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
 		expect(activity.getAttribute("aria-expanded")).toBe("false");
-		expect(getByText("done", { exact: true })).toBeTruthy();
+		expect(await findByText("done", { exact: true })).toBeTruthy();
 	});
 
 	it("does not repeat completed session presentation records in later turns", () => {

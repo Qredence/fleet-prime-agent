@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert"
-import { fleetAgentPlanPresentation } from "../src/components/elements/fleet-agent-plan"
+import { fleetAgentPlanPresentation } from "../src/components/registry/assistant-ui/elements/fleet-agent-plan"
 
 const pending = [
   { id: "1", title: "Inspect the request", status: "pending" as const },

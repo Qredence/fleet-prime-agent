@@ -1,4 +1,3 @@
-import { notify } from "@prime-agent/web-design/lib/notify";
 import type {
 	ChatMode,
 	ChatModelSelection,
@@ -14,7 +13,8 @@ import type { MutableRefObject } from "react";
 import { useCallback, useRef } from "react";
 import { captureChatSessionStarted, captureConversationSaved } from "@/lib/analytics-stub";
 import type { ChatClient } from "./chat-client";
-import type { QueueState } from "./chat-fetch";
+import { notifyChatError } from "./chat-error-notify";
+import { chatErrorFromStreamEvent, type QueueState } from "./chat-fetch";
 import {
 	assistantTextFromMessage,
 	createOptimisticUserMessage,
@@ -219,7 +219,7 @@ export function usePiChatMessaging({
 			mode?: ChatMode,
 		) => {
 			if (event.type === "error") {
-				throw new Error(event.message);
+				throw chatErrorFromStreamEvent(event);
 			}
 			if (event.type === "done" && event.sessionReset) {
 				// A reconnect/reset is not completion of the active POST stream.
@@ -389,7 +389,7 @@ export function usePiChatMessaging({
 									setActivityLabelSynced(streamingBehavior === "steer" ? "Steered" : "Follow-up queued");
 								}
 								if (event.type === "error") {
-									throw new Error(event.message);
+									throw chatErrorFromStreamEvent(event);
 								}
 							},
 						);
@@ -461,7 +461,7 @@ export function usePiChatMessaging({
 				} catch (err) {
 					const nextError = err instanceof Error ? err : new Error(String(err));
 					setError(nextError);
-					notify.error(nextError.message);
+					notifyChatError(nextError);
 				}
 				return;
 			}
@@ -564,7 +564,7 @@ export function usePiChatMessaging({
 				const nextError = err instanceof Error ? err : new Error(String(err));
 				setError(nextError);
 				setStatus("error");
-				notify.error(nextError.message);
+				notifyChatError(nextError);
 			} finally {
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(new Error("Chat stream ended before admission"));

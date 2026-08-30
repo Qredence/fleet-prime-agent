@@ -1,11 +1,12 @@
-import { render, renderHook, act } from "@testing-library/react"
+import { render, renderHook, act, fireEvent } from "@testing-library/react"
 import { useRef } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { Popover } from "@prime-agent/web-design/components/agents/input/popover"
+import { Popover } from "@prime-agent/web-design/components/registry/beui/agents/input/input-popover"
+import { ChromePillButton } from "@prime-agent/web-design/components/product/fleet-pi/primitives/chrome-pill"
 import { useProximityHover } from "@prime-agent/web-design/hooks/use-proximity-hover"
 import type { ChatProviderOAuthLoginRequest, ChatProviderOAuthLoginResponse, ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol"
 import type { ChatClient } from "./chat-client"
-import { useOAuthLoginFlow } from "@prime-agent/web-design/components/fleet-pi/pi/config-panel/sections/use-oauth-login-flow"
+import { useOAuthLoginFlow } from "@prime-agent/web-design/components/product/fleet-pi/pi/config-panel/sections/use-oauth-login-flow"
 import { usePiChat } from "./use-pi-chat"
 
 describe("React Doctor lifecycle and accessibility regressions", () => {
@@ -25,6 +26,29 @@ describe("React Doctor lifecycle and accessibility regressions", () => {
 
     expect(popupId).toBeTruthy()
     expect(document.getElementById(popupId ?? "")).not.toBeNull()
+  })
+
+  it("opens a Popover from a shared product button", () => {
+    const { container, getByRole, queryByText } = render(
+      <Popover
+        overlay
+        trigger={
+          <ChromePillButton ariaLabel="Open account menu">
+            Account
+          </ChromePillButton>
+        }
+      >
+        <div>Account settings</div>
+      </Popover>,
+    )
+
+    expect(queryByText("Account settings")).toBeNull()
+    expect(container.querySelector(".fixed.inset-0.z-40")).toBeNull()
+    fireEvent.click(getByRole("button", { name: "Open account menu" }))
+    expect(getByRole("dialog").textContent).toContain("Account settings")
+    expect(container.querySelector(".fixed.inset-0.z-40")).not.toBeNull()
+    fireEvent.click(getByRole("button", { name: "Open account menu" }))
+    expect(container.querySelector(".fixed.inset-0.z-40")).toBeNull()
   })
 
   it("uses the latest provider id after OAuth callback props change", async () => {

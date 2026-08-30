@@ -5,8 +5,53 @@ import type {
   ProjectSummary,
 } from "@prime-agent/web-protocol"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { FleetSessionSidebar } from "@prime-agent/web-design/components/fleet-pi/session-sidebar"
-import { AnimatedSidebarProvider } from "@prime-agent/web-design/components/motion/animated-sidebar"
+import { FleetSessionSidebar } from "@prime-agent/web-design/components/product/fleet-pi/session-sidebar"
+import type { FleetSessionSidebarDependencies } from "@prime-agent/web-design/components/product/fleet-pi/session-sidebar/types"
+import { AnimatedSidebarProvider } from "@prime-agent/web-design/components/registry/beui/motion/animated-sidebar"
+
+function SidebarHarness({
+  sessions,
+  projects,
+  projectSessions,
+  activeProjectId,
+  activeSessionId,
+  onNewSession,
+  onNewSessionInProject,
+  onResumeSession,
+  onRenameSession,
+  onDeleteSession,
+  onProjectSelect,
+  onCreateProject,
+  onRenameProject,
+  onUnregisterProject,
+  onForkSessionIntoProject,
+  onOpenPanelAction,
+  onBrowseDirectories,
+  onOpenSettings,
+  accountMenu,
+}: FleetSessionSidebarDependencies) {
+  return (
+    <FleetSessionSidebar
+      data={{ sessions, projects, projectSessions, activeProjectId, activeSessionId }}
+      sessionActions={{
+        onNewSession,
+        onNewSessionInProject,
+        onResumeSession,
+        onRenameSession,
+        onDeleteSession,
+      }}
+      projectActions={{
+        onProjectSelect,
+        onCreateProject,
+        onRenameProject,
+        onUnregisterProject,
+        onForkSessionIntoProject,
+      }}
+      navigationActions={{ onOpenPanelAction, onBrowseDirectories, onOpenSettings }}
+      slots={{ accountMenu }}
+    />
+  )
+}
 
 function project(projectId: string): ProjectSummary {
   return {
@@ -44,7 +89,7 @@ describe("FleetSessionSidebar project rows", () => {
     const onProjectSelect = vi.fn()
     const { getByRole } = render(
       <AnimatedSidebarProvider>
-        <FleetSessionSidebar
+        <SidebarHarness
           sessions={[]}
           projects={[project("alpha"), project("beta")]}
           projectSessions={[session("alpha-session", "alpha"), session("beta-session", "beta")]}
@@ -78,7 +123,7 @@ describe("FleetSessionSidebar project rows", () => {
 
     const { container, getByRole } = render(
       <AnimatedSidebarProvider>
-        <FleetSessionSidebar
+        <SidebarHarness
           sessions={[sensitiveSession]}
           projects={[project("alpha")]}
           projectSessions={[sensitiveSession]}
@@ -122,7 +167,7 @@ describe("FleetSessionSidebar project rows", () => {
 
     const { getByRole, getByText } = render(
       <AnimatedSidebarProvider>
-        <FleetSessionSidebar
+        <SidebarHarness
           sessions={[]}
           projects={[project("alpha")]}
           projectSessions={[]}
@@ -157,7 +202,7 @@ describe("FleetSessionSidebar project rows", () => {
 
     const { getByRole, getByText } = render(
       <AnimatedSidebarProvider>
-        <FleetSessionSidebar
+        <SidebarHarness
           sessions={[]}
           projects={[project("alpha")]}
           projectSessions={[]}
@@ -187,7 +232,7 @@ describe("FleetSessionSidebar project rows", () => {
 
     const { getByRole, getByText } = render(
       <AnimatedSidebarProvider>
-        <FleetSessionSidebar
+        <SidebarHarness
           sessions={[]}
           projects={[project("alpha")]}
           projectSessions={[]}
@@ -223,7 +268,7 @@ describe("FleetSessionSidebar empty projects", () => {
     const onNewSessionInProject = vi.fn()
     const { getByRole } = render(
       <AnimatedSidebarProvider>
-        <FleetSessionSidebar
+        <SidebarHarness
           sessions={[]}
           projects={[project("alpha")]}
           projectSessions={[]}
@@ -246,7 +291,7 @@ describe("FleetSessionSidebar empty projects", () => {
     const onProjectSelect = vi.fn()
     const { getByRole } = render(
       <AnimatedSidebarProvider>
-        <FleetSessionSidebar
+        <SidebarHarness
           sessions={[]}
           projects={[project("alpha")]}
           projectSessions={[]}
@@ -275,7 +320,7 @@ describe("FleetSessionSidebar fork dialog", () => {
     const onForkSessionIntoProject = vi.fn()
     render(
       <AnimatedSidebarProvider>
-        <FleetSessionSidebar
+        <SidebarHarness
           sessions={[]}
           projects={[project("alpha"), project("beta")]}
           projectSessions={[session("s1", "alpha")]}
@@ -303,5 +348,79 @@ describe("FleetSessionSidebar fork dialog", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "Fork session into project" })).toBeNull(),
     )
+  })
+})
+
+describe("FleetSessionSidebar draft sessions", () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
+  function draftSession(sessionId: string, projectId: string): ChatSessionInfo {
+    return {
+      ...session(sessionId, projectId),
+      title: "(no messages)",
+      firstMessage: "",
+      messageCount: 0,
+    }
+  }
+
+  it("hides message-less sessions from the project tree", () => {
+    const { queryByRole, getByRole } = render(
+      <AnimatedSidebarProvider>
+        <SidebarHarness
+          sessions={[session("messaged-chat", "alpha"), draftSession("draft-chat", "alpha")]}
+          projects={[project("alpha")]}
+          projectSessions={[session("messaged-chat", "alpha"), draftSession("draft-chat", "alpha")]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    expect(queryByRole("treeitem", { name: /draft-chat/i })).toBeNull()
+    expect(getByRole("treeitem", { name: /messaged-chat/i })).toBeTruthy()
+  })
+
+  it("keeps the active message-less session visible while composing", () => {
+    const { getByRole } = render(
+      <AnimatedSidebarProvider>
+        <SidebarHarness
+          sessions={[draftSession("draft-chat", "alpha")]}
+          projects={[project("alpha")]}
+          projectSessions={[draftSession("draft-chat", "alpha")]}
+          activeProjectId="alpha"
+          activeSessionId="draft-chat"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    expect(getByRole("treeitem", { name: /\(no messages\)/i })).toBeTruthy()
+  })
+
+  it("offers Start first chat when a project only has message-less sessions", () => {
+    const { getByRole } = render(
+      <AnimatedSidebarProvider>
+        <SidebarHarness
+          sessions={[draftSession("draft-chat", "alpha")]}
+          projects={[project("alpha")]}
+          projectSessions={[draftSession("draft-chat", "alpha")]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    expect(getByRole("treeitem", { name: "Start first chat" })).toBeTruthy()
   })
 })
