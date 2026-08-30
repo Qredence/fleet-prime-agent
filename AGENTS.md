@@ -27,11 +27,11 @@ working in that area.
 
 ## Commands
 
-- After code changes (not documentation changes): `npm run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
-- `check:runtime` runs first inside `npm run check` and verifies the pinned runtime manifest.
-- Note: `npm run check` does not run tests.
-- NEVER run: `npm run dev`, `npm run build`, `npm test`
-- Only run specific tests if user instructs: `npx vitest run src/__tests__/specific.test.ts`
+- After code changes (not documentation changes): `pnpm run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
+- `check:runtime` runs first inside `pnpm run check` and verifies the pinned runtime manifest.
+- Note: `pnpm run check` does not run tests.
+- NEVER run: `pnpm run dev:web`, `pnpm run build`, `pnpm test`
+- Only run specific tests if user instructs: `pnpm exec vitest run src/__tests__/specific.test.ts`
 - Run tests from the package root, not the repo root.
 - If you create or modify a test file, you MUST run that test file and iterate until it passes.
 - When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
@@ -40,14 +40,13 @@ working in that area.
 
 ## Installs
 
-- Repo root: `npm install` only. `web/`: `pnpm install` only. Never `npm install` inside `web/`, never `pnpm install` at the repo root.
-- A pnpm run at the repo root drops a stray `pnpm-workspace.yaml` and `pnpm-lock.yaml` at the root: delete both, re-run `npm install` at the root, never commit them. Full recovery steps: `docs/guides/web-interface.md`.
+- Repo root: `pnpm install` only. It resolves the whole workspace (`web/*`, `packages/fleet-prime`) through the root `pnpm-lock.yaml`.
+- Never run `npm install` (or `npm ci`) at the repo root: it drops a `package-lock.json` and rewrites `node_modules` to an npm layout. Recovery: delete `package-lock.json` and `node_modules`, then re-run `pnpm install`. Never commit a `package-lock.json`. Full recovery steps: `docs/guides/web-interface.md`.
 
 ## Dependencies
 
-- A 7-day minimum release age applies to all dependency updates: `.npmrc` sets `min-release-age=7` and `.github/dependabot.yml` uses a matching `cooldown`. Never bypass it for routine updates.
-- Enforcement requires npm >= 11.10; older npm silently ignores the setting, so use a current npm when updating dependencies.
-- For an urgent security patch younger than 7 days, override explicitly: `npm install --min-release-age=0 <pkg>`.
+- A 7-day minimum release age applies to all dependency updates: `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (minutes) and `.github/dependabot.yml` uses a matching `cooldown`. Never bypass it for routine updates.
+- For an urgent security patch younger than 7 days, override explicitly: `pnpm install --config.minimum-release-age=0 <pkg>`.
 
 ## Changelog
 

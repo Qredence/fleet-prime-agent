@@ -15,15 +15,15 @@ All participants must follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Getting started
 
 1. Fork the repository and clone your fork
-2. Install dependencies: `npm ci`, then `pnpm install --dir web`
+2. Install dependencies: `pnpm install`
 3. Create a branch and make your changes
-4. Run `npm run check` (format, lint, type-check; does not run tests)
+4. Run `pnpm run check` (format, lint, type-check; does not run tests)
 5. Run focused web tests from the relevant package root, e.g. `cd web/server && pnpm exec vitest run src/__tests__/prime-bridge.test.ts`
 6. Push the branch and open a pull request into `main`
 
-Use the direct npm and pnpm commands above for local development. Always run
-pnpm with `--dir web`; running it at the repository root rewrites the root
-dependency layout and is unsupported.
+Use the pnpm commands above for local development. Never run `npm install` at
+the repository root; it drops a `package-lock.json` and rewrites the dependency
+layout.
 
 ## Pull requests
 
