@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve as resolvePath } from "node:path";
+import { dirname, join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentSession } from "prime-agent";
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
@@ -741,9 +741,25 @@ describe("PrimeBridge.resumeSessionById", () => {
 				return { ok: true, method: "unlink" } as const;
 			},
 		});
+		// The dead transcript may still own managed attachment and plan
+		// presentation directories plus a project assignment.
+		const managedRoot = dirname(dirname(persisted.sessionFile));
+		const attachmentDir = join(managedRoot, "session-attachments", persisted.sessionId);
+		const presentationDir = join(managedRoot, "session-plan-presentations", persisted.sessionId);
+		for (const dir of [attachmentDir, presentationDir]) {
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(join(dir, "marker.json"), "{}");
+		}
+		const registry = getPrimeConfig().projectRegistry;
+		const project = await registry.register(workDir, "unresumable cleanup");
+		await registry.assignSession(persisted.sessionId, project.projectId);
+		const unassign = vi.spyOn(registry, "assignSession");
 
 		await expect(bridge.deleteSession(persisted.sessionId)).resolves.toBe(true);
 		expect(existsSync(persisted.sessionFile)).toBe(false);
+		expect(existsSync(attachmentDir)).toBe(false);
+		expect(existsSync(presentationDir)).toBe(false);
+		expect(unassign).toHaveBeenCalledWith(persisted.sessionId, null);
 	});
 });
 
