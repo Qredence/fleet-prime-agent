@@ -1,12 +1,13 @@
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang"
 import { useCallback, useMemo, useState } from "react"
-import { Markdown } from "../agents/markdown"
-import { UiErrorBoundary } from "../fleet-pi/ui-error-boundary"
-import { Alert, AlertDescription, AlertTitle } from "../alert"
-import { Button } from "../button"
-import { OpenPanelActionSchema, type OpenPanelAction } from "@prime-agent/web-protocol/fleet-contract"
+import { Markdown } from "../registry/beui/agents/markdown"
+import { UiErrorBoundary } from "../product/fleet-pi/ui-error-boundary"
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
+import { Button } from "../ui/button"
+import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract"
 
 import { openUILibrary } from "./openui-library"
+import { encodeOpenPanelActionMessage } from "./open-panel-action-message"
 import { segmentOpenUIContent } from "./openui-utils"
 import {
   OpenUIArtifactProvider,
@@ -20,23 +21,12 @@ import type {
 
 type OpenUIStateByBlock = Record<string, Record<string, unknown>>
 
-const OPEN_PANEL_ACTION_PREFIX = "fleet-prime:open-panel:"
-
-export function decodeOpenPanelActionMessage(message: string): OpenPanelAction | undefined {
-  if (!message.startsWith(OPEN_PANEL_ACTION_PREFIX)) return undefined
-  try {
-    return OpenPanelActionSchema.parse(JSON.parse(message.slice(OPEN_PANEL_ACTION_PREFIX.length)))
-  } catch {
-    return undefined
-  }
-}
-
 function getActionMessage(event: ActionEvent) {
   if (event.type === BuiltinActionType.OpenUrl) return null
 
   if (event.type === "fleet.open_panel") {
     const action = OpenPanelActionSchema.safeParse(event.params)
-    return action.success ? `${OPEN_PANEL_ACTION_PREFIX}${JSON.stringify(action.data)}` : null
+    return action.success ? encodeOpenPanelActionMessage(action.data) : null
   }
 
   if (event.type === BuiltinActionType.ContinueConversation) {

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "reviewedRevision": "64ec7eb9cc8f8f4d530dba34c681ec17f8a955a0",
+  "sources": [
+    {
+      "address": "@beui/agents",
+      "destination": "src/components/registry/beui/agents",
+      "reviewedVersion": "fleet snapshot 2026-08-30",
+      "checksum": "git:64ec7eb9cc8f8f4d530dba34c681ec17f8a955a0",
+      "status": "forked",
+      "notes": "Adapted to Fleet chat contracts and canonical web-design primitives."
+    },
+    {
+      "address": "@beui/motion",
+      "destination": "src/components/registry/beui/motion",
+      "reviewedVersion": "fleet snapshot 2026-08-30",
+      "checksum": "git:64ec7eb9cc8f8f4d530dba34c681ec17f8a955a0",
+      "status": "patched",
+      "notes": "Local accessibility and product integration patches are retained."
+    },
+    {
+      "address": "@assistant-ui/elements",
+      "destination": "src/components/registry/assistant-ui/elements",
+      "reviewedVersion": "fleet snapshot 2026-08-30",
+      "checksum": "git:64ec7eb9cc8f8f4d530dba34c681ec17f8a955a0",
+      "status": "forked",
+      "notes": "No runtime assistant-ui dependency; components are maintained adapters."
+    }
+  ],
+  "widePropExceptions": [
+    {
+      "path": "src/components/product/fleet-pi/pi/workspace-panel.tsx",
+      "type": "WorkspacePanelContentProps",
+      "reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
+    },
+    {
+      "path": "src/components/product/fleet-pi/session-sidebar/action-dialogs.tsx",
+      "type": "SidebarActionDialogsProps",
+      "reason": "Private dialog coordinator; the public FleetSessionSidebar API is grouped into data, actions, and slots."
+    }
+  ],
+  "nativeControlExceptions": [
+    "src/components/product/fleet-pi/chat/fleet-pi-agent-chat.tsx",
+    "src/components/product/fleet-pi/chat/fleet-pi-input-bar.tsx",
+    "src/components/product/fleet-pi/chat/fork-picker-dialog.tsx",
+    "src/components/product/fleet-pi/layout/chat-header.tsx",
+    "src/components/product/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx",
+    "src/components/product/fleet-pi/pi/config-panel/sections/provider-credentials-editor.tsx",
+    "src/components/product/fleet-pi/pi/open-project-folder-dialog.tsx",
+    "src/components/product/fleet-pi/pi/resizable-canvas.tsx",
+    "src/components/product/fleet-pi/pi/right-panel-launcher.tsx",
+    "src/components/product/fleet-pi/pi/workspace-panel.tsx",
+    "src/components/product/fleet-pi/primitives/discrete-tab.tsx",
+    "src/components/product/fleet-pi/session-sidebar/navigation.tsx",
+    "src/components/product/fleet-pi/session-sidebar/project-list.tsx",
+    "src/components/product/fleet-pi/session-sidebar/view-model.tsx",
+    "src/components/product/fleet-pi/ui-error-boundary.tsx"
+  ]
+}

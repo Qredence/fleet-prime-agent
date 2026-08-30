@@ -1,4 +1,4 @@
-import type { SuggestionItem } from "@prime-agent/web-design/components/agents/input/suggestions";
+import type { SuggestionItem } from "@prime-agent/web-design/components/registry/beui/agents/input/suggestions";
 import { normalizeSessionLabel } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type {
 	ChatResourcesResponse,

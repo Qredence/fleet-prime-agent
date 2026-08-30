@@ -1,9 +1,9 @@
-import { UiErrorBoundary } from "@prime-agent/web-design/components/fleet-pi/ui-error-boundary"
-import { FleetPiAgentChat } from "@prime-agent/web-design/components/fleet-pi/chat/fleet-pi-agent-chat"
-import type { FleetPiAgentChatProps } from "@prime-agent/web-design/components/fleet-pi/chat/fleet-pi-agent-chat"
+import { UiErrorBoundary } from "@prime-agent/web-design/components/product/fleet-pi/ui-error-boundary"
+import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat"
+import type { FleetPiAgentChatProps } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol"
-import type { QuestionAnswer } from "@prime-agent/web-design/components/agents/question/question-prompt"
+import type { QuestionAnswer } from "@prime-agent/web-design/components/registry/beui/agents/question/question-prompt"
 import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact"
 import { useCallback, useMemo } from "react"
 

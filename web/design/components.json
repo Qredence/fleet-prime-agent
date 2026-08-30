@@ -14,7 +14,7 @@
   "aliases": {
     "components": "@prime-agent/web-design/components",
     "utils": "@prime-agent/web-design/lib/utils",
-    "ui": "@prime-agent/web-design/components",
+    "ui": "@prime-agent/web-design/components/ui",
     "lib": "@prime-agent/web-design/lib",
     "hooks": "@prime-agent/web-design/hooks"
   },

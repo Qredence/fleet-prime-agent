@@ -1,9 +1,9 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { normalizeFleetToolPart } from "../../../../design/src/components/fleet-pi/chat/beui-tool-normalizer";
-import { BeuiToolRenderer } from "../../../../design/src/components/fleet-pi/chat/beui-tool-renderer";
-import { FleetPiToolRenderer } from "../../../../design/src/components/fleet-pi/chat/fleet-pi-tool-renderer";
+import { normalizeFleetToolPart } from "../../../../design/src/components/product/fleet-pi/chat/beui-tool-normalizer";
+import { BeuiToolRenderer } from "../../../../design/src/components/product/fleet-pi/chat/beui-tool-renderer";
+import { FleetPiToolRenderer } from "../../../../design/src/components/product/fleet-pi/chat/fleet-pi-tool-renderer";
 
 describe("normalizeFleetToolPart", () => {
 	it("extracts nested IPython details and keeps an active unresolved call running", () => {

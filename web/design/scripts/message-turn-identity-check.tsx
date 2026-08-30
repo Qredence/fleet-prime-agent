@@ -6,22 +6,18 @@ import {
   buildAssistantElements,
   getAssistantToolElementKey,
   UserTurn,
-} from "../src/components/agents/message-turns"
+} from "../src/components/registry/beui/agents/message-turns"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 
 const noIdTask = { type: "tool-Task" }
 const compatibilityMessage = { id: "compatibility-message" } as ChatMessage
 
-// These flat prop shapes were public before the grouped internal contract.
-// Keep them type-checked so package consumers do not lose source compatibility.
+// Keep the grouped turn contracts type-checked alongside the identity assertions.
 void (
   <UserTurn
     message={compatibilityMessage}
     UserMessageComponent={() => null}
-    enableImagePreview
-    showCopyToolbar
-    isMounted
-    isCopyVisible={false}
+    display={{ enableImagePreview: true, showCopyToolbar: true, isMounted: true, isCopyVisible: false }}
     onCopied={() => {}}
   />
 )
@@ -29,13 +25,11 @@ void (
   <AssistantTurn
     assistantMsgs={[compatibilityMessage]}
     turnKey="compatibility-turn"
-    isLastTurn
-    isStreaming={false}
-    showCopyToolbar
-    suppressQuestionTool={false}
+    stream={{ isLast: true, isStreaming: false }}
+    copy={{ enabled: true, isVisible: false }}
+    display={{ suppressQuestionTool: false }}
     ToolRendererComponent={() => null}
     TextRendererComponent={() => null}
-    isCopyVisible={false}
     onCopied={() => {}}
   />
 )

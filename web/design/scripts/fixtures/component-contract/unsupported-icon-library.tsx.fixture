@@ -1,0 +1,2 @@
+import { IconX } from "@tabler/icons-react"
+export const InvalidIcon = IconX

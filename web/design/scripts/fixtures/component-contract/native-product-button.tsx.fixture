@@ -1,0 +1,3 @@
+export function InvalidNativeButton() {
+  return <button type="button">Duplicate action</button>
+}

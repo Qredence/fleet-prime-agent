@@ -3,9 +3,9 @@
 @import "shadcn/tailwind.css";
 @import "@openuidev/react-ui/layered/styles/index.css";
 @import "@fontsource-variable/inter";
-@import "../components/agents/agent-ui.css";
-@import "../components/fleet-pi/chat/fleet-pi-agent-chat.css";
-@import "../components/fleet-pi/primitives/discrete-tab.css";
+@import "../components/registry/beui/agents/agent-ui.css";
+@import "../components/product/fleet-pi/chat/fleet-pi-agent-chat.css";
+@import "../components/product/fleet-pi/primitives/discrete-tab.css";
 @import "tw-shimmer";
 
 @custom-variant dark (&:is(.dark *));
@@ -110,6 +110,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --product-code-background: #1e1e1e;
+  --product-code-foreground: #d4d4d4;
+  --product-diff-added-background: rgb(34 197 94 / 10%);
+  --product-diff-added-border: rgb(34 197 94 / 50%);
+  --product-diff-added-foreground: #15803d;
+  --product-diff-removed-background: rgb(239 68 68 / 10%);
+  --product-diff-removed-border: rgb(239 68 68 / 50%);
+  --product-diff-removed-foreground: #dc2626;
 }
 
 .dark {
@@ -151,6 +159,33 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --product-code-background: #0a0a0a;
+  --product-code-foreground: #d4d4d4;
+  --product-diff-added-background: rgb(34 197 94 / 15%);
+  --product-diff-added-border: rgb(34 197 94 / 40%);
+  --product-diff-added-foreground: #4ade80;
+  --product-diff-removed-background: rgb(239 68 68 / 15%);
+  --product-diff-removed-border: rgb(239 68 68 / 40%);
+  --product-diff-removed-foreground: #f87171;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @layer base {

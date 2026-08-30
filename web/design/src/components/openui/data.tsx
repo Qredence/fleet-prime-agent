@@ -1,9 +1,9 @@
 import { defineComponent } from "@openuidev/react-lang"
-import { IconChevronDown, IconChevronUp } from "@tabler/icons-react"
+import { ChevronDown, ChevronUp } from "lucide-react"
 import { useState } from "react"
 import { Area, AreaChart } from "recharts"
 import { z } from "zod"
-import { Card, CardContent, CardHeader, CardTitle } from "../card"
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../table"
+} from "../ui/table"
 import { cn } from "../../lib/utils"
 
 type SortDirection = "asc" | "desc"
@@ -209,9 +209,9 @@ function DataTableComponent({
                         {column.label}
                         {isActive &&
                           (sort.dir === "asc" ? (
-                            <IconChevronUp className="size-3.5" />
+                            <ChevronUp className="size-3.5" />
                           ) : (
-                            <IconChevronDown className="size-3.5" />
+                            <ChevronDown className="size-3.5" />
                           ))}
                       </button>
                     </TableHead>

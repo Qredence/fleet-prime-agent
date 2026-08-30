@@ -2,7 +2,7 @@ import type {
 	QuestionAnswer,
 	QuestionConfig,
 	QuestionOption,
-} from "@prime-agent/web-design/components/agents/question/question-prompt";
+} from "@prime-agent/web-design/components/registry/beui/agents/question/question-prompt";
 import type { ChatQuestionAnswer } from "@prime-agent/web-protocol/chat-protocol";
 import { useMemo, useRef } from "react";
 import { isQuestionToolPartPending } from "./question-pending";

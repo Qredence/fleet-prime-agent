@@ -16,16 +16,16 @@ import {
 import { useId } from "react"
 import { z } from "zod/v4"
 import { RightPanelIdSchema, WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract"
-import { Alert, AlertDescription, AlertTitle } from "../alert"
-import { Badge } from "../badge"
-import { Button } from "../button"
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
+import { Badge } from "../ui/badge"
+import { Button } from "../ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../card"
+} from "../ui/card"
 import {
   ChartContainer,
   ChartLegend,
@@ -33,14 +33,14 @@ import {
   ChartTooltip,
   ChartTooltipContent,
   getChartColorVarName,
-} from "../chart"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../dialog"
-import { Field, FieldLabel } from "../field"
-import { Input } from "../input"
-import { Progress, ProgressLabel, ProgressValue } from "../progress"
-import { Select } from "../select"
-import { Separator } from "../separator"
-import { Switch } from "../switch"
+} from "../ui/chart"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog"
+import { Field, FieldLabel } from "../ui/field"
+import { Input } from "../ui/input"
+import { Progress, ProgressLabel, ProgressValue } from "../ui/progress"
+import { Select } from "../ui/select"
+import { Separator } from "../ui/separator"
+import { Switch } from "../ui/switch"
 import {
   Table,
   TableBody,
@@ -48,7 +48,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../table"
+} from "../ui/table"
 import { cn } from "../../lib/utils"
 import { isSafeExternalUrl } from "../../lib/safe-external-url"
 import { DonutChartDef, LineChartDef } from "./charts"

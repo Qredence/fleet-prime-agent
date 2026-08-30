@@ -1,5 +1,5 @@
-import type { SuggestionItem } from "@prime-agent/web-design/components/agents/input/suggestions";
-import type { ForkPickerEntry } from "@prime-agent/web-design/components/fleet-pi/chat/fork-picker-dialog";
+import type { ForkPickerEntry } from "@prime-agent/web-design/components/product/fleet-pi/chat/fork-picker-dialog";
+import type { SuggestionItem } from "@prime-agent/web-design/components/registry/beui/agents/input/suggestions";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import {
 	availableThinkingLevels,
