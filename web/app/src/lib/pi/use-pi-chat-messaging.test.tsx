@@ -10,6 +10,7 @@ import type {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "./chat-client";
 import { toChatMessage } from "./chat-message-helpers";
+import { ChatRequestError } from "./chat-fetch";
 import { usePiChat } from "./use-pi-chat";
 
 const presentation: PrimeAgentSessionPresentation = {
@@ -119,6 +120,7 @@ function createHarness(sessionId = "session-a", availableSessions: Array<ChatSes
 	const loadSession = vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata));
 	const client = {
 		abortSession: vi.fn().mockResolvedValue(undefined),
+		createSession: vi.fn().mockImplementation(async () => sessionResponse({ sessionId: `${sessionId}-fresh` })),
 		listSessions: vi.fn().mockResolvedValue(discoveredSessions),
 		loadSession,
 		resumeSession: vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata)),
@@ -330,6 +332,36 @@ describe("usePiChat stream admission", () => {
 		await act(async () => {
 			await retry;
 		});
+	});
+
+	it("resends the prompt to the recovered session after an unknown-session failure", async () => {
+		const { client, result, streams } = createHarness("session-dead");
+		await act(async () => flush());
+
+		let failed!: Promise<void>;
+		await act(async () => {
+			failed = result.current.sendMessage({ text: "please resend" });
+			await flush();
+		});
+		expect(streams).toHaveLength(1);
+		expect(streams[0].request.sessionId).toBe("session-dead");
+
+		await act(async () => {
+			streams[0].reject(new ChatRequestError(404, "Unknown session"));
+			await waitFor(() => expect(streams).toHaveLength(2));
+		});
+
+		// The dead session was replaced and the prompt was resubmitted to it.
+		expect(client.createSession).toHaveBeenCalled();
+		expect(streams[1].request.sessionId).toBe("session-dead-fresh");
+		expect(streams[1].request.message).toBe("please resend");
+		expect(result.current.messages.some((message) => message.role === "user")).toBe(true);
+
+		await act(async () => {
+			streams[1].resolve();
+			await failed;
+		});
+		expect(result.current.status).toBe("ready");
 	});
 
 	it("settles an idle session command without leaving its optimistic user message", async () => {
