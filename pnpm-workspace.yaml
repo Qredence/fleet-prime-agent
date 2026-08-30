@@ -1,21 +1,26 @@
 packages:
-  - app
-  - design
-  - protocol
-  - server
+  - packages/fleet-prime
+  - web/app
+  - web/design
+  - web/protocol
+  - web/server
 
-# 7 days in minutes. Matches root npm min-release-age.
+# 7 days in minutes (was the root .npmrc min-release-age=7).
 minimumReleaseAge: 10080
 trustPolicy: no-downgrade
 # Upstream's signed runtime tarball declares its own pinned R2 package tarballs.
 # Their hashes are verified by PRIME_AGENT_RUNTIME.json and the release smoke test.
 blockExoticSubdeps: false
-# Excluded: existing lockfile entries with a trust downgrade. @pierre/theme@2.0.0
-# (via @pierre/diffs@1.3.4) and semver@6.3.1 have no provenance where earlier
-# versions did. Revisit after upstream restores provenance or entries are bumped.
+# Excluded: lockfile entries with a trust downgrade — published without
+# provenance where earlier versions had it (@pierre/theme@2.0.0 via
+# @pierre/diffs@1.3.4, the npm re-published semver 5.7.2/6.3.1 releases,
+# undici-types@6.21.0 via the root @types/node toolchain). Revisit after
+# upstream restores provenance or entries are bumped.
 trustPolicyExclude:
   - '@pierre/theme@2.0.0'
   - semver@6.3.1
+  - semver@5.7.2
+  - undici-types@6.21.0
 confirmModulesPurge: false
 
 allowBuilds:
@@ -26,6 +31,9 @@ allowBuilds:
   prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-0.8.1.tgz: true
   protobufjs: false
   zeromq: true
+  # Root toolchain packages that gained install scripts under the unified workspace.
+  "@biomejs/biome": true
+  "@typescript/native-preview": true
 
 publicHoistPattern:
   - "*vite*"
@@ -33,6 +41,10 @@ publicHoistPattern:
   - "*tailwindcss*"
 
 overrides:
+  # Security pins previously enforced as npm overrides at the repo root.
+  rimraf: 6.1.2
+  gaxios>rimraf: 6.1.2
+  shell-quote: ^1.10.0
   # Unify highlighter types: streamdown's published .d.ts imports `shiki`
   # while @streamdown/code pins 3.x and @pierre/diffs pins 4.x.
   shiki: 4.4.2

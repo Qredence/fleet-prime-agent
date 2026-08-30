@@ -69,29 +69,16 @@ commands:
             pnpm config set store-dir ~/.cache/pnpm
             pnpm --version
 
-  install-root-dependencies:
+  install-dependencies:
     steps:
       - restore_cache:
           keys:
-            - v1-node22-npm-{{ checksum "package-lock.json" }}
+            - v1-node22-pnpm-{{ checksum "pnpm-lock.yaml" }}
       - run:
-          name: Install npm dependencies
-          command: npm ci
+          name: Install dependencies
+          command: pnpm install --frozen-lockfile
       - save_cache:
-          key: v1-node22-npm-{{ checksum "package-lock.json" }}
-          paths:
-            - ~/.npm
-
-  install-web-dependencies:
-    steps:
-      - restore_cache:
-          keys:
-            - v1-node22-pnpm-{{ checksum "web/pnpm-lock.yaml" }}
-      - run:
-          name: Install web dependencies
-          command: pnpm install --dir web --frozen-lockfile
-      - save_cache:
-          key: v1-node22-pnpm-{{ checksum "web/pnpm-lock.yaml" }}
+          key: v1-node22-pnpm-{{ checksum "pnpm-lock.yaml" }}
           paths:
             - ~/.cache/pnpm
 
@@ -102,14 +89,13 @@ jobs:
       - checkout
       - install-system-dependencies
       - install-pnpm
-      - install-root-dependencies
-      - install-web-dependencies
+      - install-dependencies
       - run:
           name: Build web bundle and release artifacts
-          command: npm run build
+          command: pnpm run build
       - run:
           name: Check
-          command: npm run check
+          command: pnpm run check
 
   test-web:
     executor: node
@@ -117,24 +103,23 @@ jobs:
       - checkout
       - install-system-dependencies
       - install-pnpm
-      - install-root-dependencies
-      - install-web-dependencies
+      - install-dependencies
       - run:
           name: Build web bundle
-          command: npm run build
+          command: pnpm run build
       - run:
           name: Prepare test results
           command: mkdir -p test-results
       - run:
           name: Test web app
           command: >-
-            pnpm --dir web --filter @prime-agent/web run test
+            pnpm --filter @prime-agent/web run test
             --reporter=default --reporter=junit
             --outputFile="$PWD/test-results/web-app.xml"
       - run:
           name: Test web server
           command: >-
-            pnpm --dir web --filter @prime-agent/web-server run test
+            pnpm --filter @prime-agent/web-server run test
             --reporter=default --reporter=junit
             --outputFile="$PWD/test-results/web-server.xml"
       - store_test_results:

@@ -9,28 +9,26 @@
 		"url": "git+https://github.com/Qredence/fleet-prime-agent.git"
 	},
 	"type": "module",
+	"packageManager": "pnpm@11.15.1",
 	"bin": {
 		"fleet-agent": "./packages/fleet-prime/bin/fleet-prime.mjs",
 		"fleet-prime": "./packages/fleet-prime/bin/fleet-prime.mjs"
 	},
-	"workspaces": [
-		"packages/fleet-prime"
-	],
 	"scripts": {
-		"build": "npm run build:web:release",
-		"check": "npm run check:runtime && biome check --write --error-on-warnings . && npm run check:installer && npm run check:rendering && npm run check:web",
+		"build": "pnpm run build:web:release",
+		"check": "pnpm run check:runtime && biome check --write --error-on-warnings . && pnpm run check:installer && pnpm run check:rendering && pnpm run check:web",
 		"check:runtime": "node scripts/check-prime-agent-runtime.mjs",
 		"check:installer": "node scripts/check-source-installer.mjs --static",
 		"test:source-installer": "node scripts/check-source-installer.mjs --smoke",
 		"check:browser-smoke": "node scripts/check-browser-smoke.mjs",
-		"dev:web": "pnpm --dir web --filter @prime-agent/web dev",
-		"build:web:release": "pnpm --dir web --filter @prime-agent/web build && pnpm --dir web --filter @prime-agent/web run check:bundle && node scripts/build-web-release.mjs",
-		"check:rendering": "pnpm --dir web run check:rendering",
-		"check:web": "pnpm --dir web run typecheck",
+		"dev:web": "pnpm --filter @prime-agent/web dev",
+		"build:web:release": "pnpm --filter @prime-agent/web build && pnpm --filter @prime-agent/web run check:bundle && node scripts/build-web-release.mjs",
+		"check:rendering": "pnpm --filter @prime-agent/web-design run check:message-identities && pnpm --filter @prime-agent/web-design run check:openui && pnpm --filter @prime-agent/web-design run check:components && pnpm --filter @prime-agent/web-design run check:agent-plan-contract && pnpm --filter @prime-agent/web-design run check:registries",
+		"check:web": "pnpm -r --if-present typecheck",
 		"check:web:release": "node scripts/check-web-release.mjs",
-		"test:web": "pnpm --dir web test",
-		"test": "pnpm --dir web test",
-		"release:pack": "npm pack ./packages/fleet-prime",
+		"test:web": "pnpm -r --if-present test",
+		"test": "pnpm -r --if-present test",
+		"release:pack": "pnpm --dir packages/fleet-prime pack",
 		"prepare": "husky"
 	},
 	"devDependencies": {
@@ -47,12 +45,5 @@
 	"engines": {
 		"node": ">=22.8.0"
 	},
-	"dependencies": {},
-	"overrides": {
-		"rimraf": "6.1.2",
-		"gaxios": {
-			"rimraf": "6.1.2"
-		},
-		"shell-quote": "^1.10.0"
-	}
+	"dependencies": {}
 }

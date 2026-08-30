@@ -14,7 +14,7 @@
 ## Checklist
 
 - [ ] I read `CONTRIBUTING.md` and `AGENTS.md`
-- [ ] `npm run check` passes locally
+- [ ] `pnpm run check` passes locally
 - [ ] I added or updated tests for the changed behavior
 - [ ] I added a `[Unreleased]` entry to each affected package CHANGELOG
 - [ ] The PR targets `main` and contains only related changes

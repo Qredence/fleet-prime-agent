@@ -38,24 +38,19 @@ if (webServerPackage.dependencies?.["prime-agent"] !== expectedTarball) {
 	throw new Error("web/server/package.json prime-agent pin does not match the runtime manifest tarball");
 }
 
-const packageLock = readJson("package-lock.json");
-const lockedRuntime = packageLock.packages?.["node_modules/prime-agent"];
-if (!lockedRuntime) {
-	throw new Error("package-lock.json is missing the node_modules/prime-agent entry");
-}
-if (lockedRuntime.version !== manifest.version) {
-	throw new Error("package-lock.json prime-agent version does not match the runtime manifest version");
-}
-if (lockedRuntime.resolved !== expectedTarball) {
-	throw new Error("package-lock.json prime-agent resolved URL does not match the runtime manifest tarball");
-}
-
-const pnpmLock = readFileSync(resolve(root, "web/pnpm-lock.yaml"), "utf8");
+const pnpmLock = readFileSync(resolve(root, "pnpm-lock.yaml"), "utf8");
 if (!pnpmLock.includes(`specifier: ${expectedTarball}`)) {
-	throw new Error("web/pnpm-lock.yaml prime-agent specifier does not match the runtime manifest tarball");
+	throw new Error("pnpm-lock.yaml prime-agent specifier does not match the runtime manifest tarball");
 }
 if (!pnpmLock.includes(`prime-agent@${expectedTarball}`)) {
-	throw new Error("web/pnpm-lock.yaml prime-agent resolution does not match the runtime manifest tarball");
+	throw new Error("pnpm-lock.yaml prime-agent resolution does not match the runtime manifest tarball");
+}
+
+function lockEntryIntegrity(pnpmLock, tarball) {
+	const escapedTarball = tarball.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const entry = pnpmLock.match(new RegExp(`^  prime-agent@${escapedTarball}:((?:\\n    .*)*)`, "m"));
+	const integrity = entry?.[1]?.match(/integrity: (sha512-[A-Za-z0-9+/=]+)/);
+	return integrity?.[1];
 }
 
 if (process.env.PRIME_RUNTIME_VERIFY_TARBALL === "1") {
@@ -69,8 +64,9 @@ if (process.env.PRIME_RUNTIME_VERIFY_TARBALL === "1") {
 		throw new Error("Downloaded runtime tarball sha256 does not match the runtime manifest");
 	}
 	const sha512 = `sha512-${createHash("sha512").update(tarball).digest("base64")}`;
-	if (lockedRuntime.integrity && lockedRuntime.integrity !== sha512) {
-		throw new Error("Downloaded runtime tarball sha512 does not match package-lock.json integrity");
+	const lockIntegrity = lockEntryIntegrity(pnpmLock, expectedTarball);
+	if (lockIntegrity && lockIntegrity !== sha512) {
+		throw new Error("Downloaded runtime tarball sha512 does not match pnpm-lock.yaml integrity");
 	}
 	console.log("Runtime tarball hash verification passed");
 }

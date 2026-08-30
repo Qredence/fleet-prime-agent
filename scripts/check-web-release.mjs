@@ -5,9 +5,9 @@
 // surface (/, /api/health, /api/workspace/tree, one client asset).
 
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -19,7 +19,7 @@ function printUsage() {
 	console.log("Usage: node scripts/check-web-release.mjs [--package path/to/qredence-fleet-prime-*.tgz]");
 	console.log("");
 	console.log("Without --package, packs packages/fleet-prime into a temporary directory first.");
-	console.log("Requires a built web runtime: npm run build:web:release");
+	console.log("Requires a built web runtime: pnpm run build:web:release");
 }
 
 function parseArgs(argv) {
@@ -59,9 +59,9 @@ function findExistingTarball() {
 function packToTemp(tempDir) {
 	const launcher = join(fleetPrimeDir, "dist", "web", "launcher.mjs");
 	if (!existsSync(launcher)) {
-		throw new Error(`Missing ${launcher}. Run npm run build:web:release before packing.`);
+		throw new Error(`Missing ${launcher}. Run pnpm run build:web:release before packing.`);
 	}
-	execFileSync("npm", ["pack", "./packages/fleet-prime", "--pack-destination", tempDir], {
+	execFileSync("pnpm", ["--dir", "packages/fleet-prime", "pack", "--pack-destination", tempDir], {
 		cwd: root,
 		stdio: "inherit",
 	});
@@ -69,7 +69,7 @@ function packToTemp(tempDir) {
 		.filter((entry) => entry.startsWith("qredence-fleet-prime-") && entry.endsWith(".tgz"))
 		.sort();
 	if (packed.length === 0) {
-		throw new Error("npm pack did not produce a qredence-fleet-prime tarball");
+		throw new Error("pnpm pack did not produce a qredence-fleet-prime tarball");
 	}
 	return join(tempDir, packed[packed.length - 1]);
 }
@@ -179,10 +179,14 @@ async function checkWebRuntime(baseUrl, workspace, installedPackage) {
 	}
 
 	const tree = await getJson(`${baseUrl}/api/workspace/tree`);
-	const expectedRoot = realpathSync(workspace);
-	const actualRoot = tree?.root ? realpathSync(String(tree.root)) : undefined;
-	if (actualRoot !== expectedRoot) {
-		throw new Error(`Workspace tree root mismatch: ${actualRoot} != ${expectedRoot}`);
+	// /api/workspace/tree returns a display label (safePathLabel), not a
+	// canonical path: short roots come back verbatim, longer ones as
+	// `…/<parent>/<basename>`. Match the label like the source-installer
+	// smoke does instead of realpath-ing it.
+	const labelSuffix = `${basename(dirname(workspace))}${sep}${basename(workspace)}`;
+	const reportedRoot = typeof tree?.root === "string" ? tree.root : "";
+	if (reportedRoot !== workspace && !reportedRoot.endsWith(labelSuffix)) {
+		throw new Error(`Workspace tree root mismatch: ${reportedRoot} != ${workspace}`);
 	}
 
 	const clientDir = join(installedPackage, "dist", "web", "client");
