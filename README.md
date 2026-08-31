@@ -22,7 +22,13 @@ https://github.com/user-attachments/assets/7df3d0ea-8c73-40a4-9bd3-f1c0445a9ea8
 
 ## Install
 
-Clone the repository and run the Fleet Prime installer command. It installs the pinned upstream Prime Agent runtime, the web dependencies, builds Fleet Prime, and links `fleet-agent`.
+Install the npm package (Node.js 22.8.0 or later):
+
+```bash
+npm install -g @qredence/fleet
+```
+
+Or install from source. Clone the repository and run the Fleet Prime installer command. It installs the pinned upstream Prime Agent runtime, the web dependencies, builds Fleet Prime, and links `fleet-agent`.
 
 ```bash
 git clone https://github.com/Qredence/fleet-prime-agent.git

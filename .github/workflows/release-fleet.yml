@@ -1,10 +1,12 @@
 name: Release Fleet Prime
 
 # Fleet release model (see AGENTS.md "Releasing"):
-#   build -> build:web:release -> release:pack -> tag.
+#   build -> build:web:release -> release:pack -> tag -> npm publish.
 # The upstream Prime Agent engine is consumed as a checksum-pinned stock
 # tarball (PRIME_AGENT_RUNTIME.json). This workflow never publishes or
-# rebuilds Prime Agent itself; it packs and releases @qredence/fleet-prime.
+# rebuilds Prime Agent itself; it packs, releases, and publishes
+# @qredence/fleet to npm via trusted publishing (see
+# docs/guides/releasing.md for the one-time bootstrap).
 
 on:
   push:
@@ -52,10 +54,13 @@ jobs:
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
   build:
-    name: Build, pack, and smoke test
+    name: Build, pack, smoke test, and publish
     needs: release-context
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write # OIDC for npm trusted publishing
     env:
       RELEASE_VERSION: ${{ needs.release-context.outputs.version }}
     steps:
@@ -71,10 +76,11 @@ jobs:
           run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@820762786026740c76336085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: pnpm
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install system dependencies
         run: |
@@ -100,15 +106,23 @@ jobs:
         run: |
           mkdir -p dist-release
           pnpm --dir packages/fleet-prime pack --pack-destination "$GITHUB_WORKSPACE/dist-release"
-          test -f "dist-release/qredence-fleet-prime-${RELEASE_VERSION}.tgz"
+          test -f "dist-release/qredence-fleet-${RELEASE_VERSION}.tgz"
 
       - name: Smoke test packed artifact
-        run: node scripts/check-web-release.mjs --package "dist-release/qredence-fleet-prime-${RELEASE_VERSION}.tgz"
+        run: node scripts/check-web-release.mjs --package "dist-release/qredence-fleet-${RELEASE_VERSION}.tgz"
+
+      # Trusted publishing needs npm >= 11.5.1; the Node 22 bundle ships npm 10.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Publish to npm
+        run: npm publish --provenance
+        working-directory: packages/fleet-prime
 
       - name: Generate checksum
         run: |
           cd dist-release
-          sha256sum "qredence-fleet-prime-${RELEASE_VERSION}.tgz" > SHA256SUMS
+          sha256sum "qredence-fleet-${RELEASE_VERSION}.tgz" > SHA256SUMS
           cat SHA256SUMS
 
       - name: Upload release artifact
@@ -116,7 +130,7 @@ jobs:
         with:
           name: fleet-prime-${{ env.RELEASE_VERSION }}
           path: |
-            dist-release/qredence-fleet-prime-${{ env.RELEASE_VERSION }}.tgz
+            dist-release/qredence-fleet-${{ env.RELEASE_VERSION }}.tgz
             dist-release/SHA256SUMS
           if-no-files-found: error
 
@@ -152,8 +166,10 @@ jobs:
             echo ""
             echo "Artifacts:"
             echo ""
-            echo "- qredence-fleet-prime-${RELEASE_VERSION}.tgz: packed @qredence/fleet-prime launcher package"
+            echo "- qredence-fleet-${RELEASE_VERSION}.tgz: packed @qredence/fleet launcher package"
             echo "- SHA256SUMS: checksum for the packed tarball"
+            echo ""
+            echo "The package is also published to npm as @qredence/fleet with provenance attestations."
             echo ""
             echo "The upstream Prime Agent runtime is consumed as the stock tarball pinned in PRIME_AGENT_RUNTIME.json."
             echo "Verify the checksum before installing the artifact."

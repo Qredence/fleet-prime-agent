@@ -11,8 +11,8 @@
 	"type": "module",
 	"packageManager": "pnpm@11.15.1",
 	"bin": {
-		"fleet-agent": "./packages/fleet-prime/bin/fleet-prime.mjs",
-		"fleet-prime": "./packages/fleet-prime/bin/fleet-prime.mjs"
+		"fleet-agent": "packages/fleet-prime/bin/fleet-prime.mjs",
+		"fleet-prime": "packages/fleet-prime/bin/fleet-prime.mjs"
 	},
 	"scripts": {
 		"build": "pnpm run build:web:release",
