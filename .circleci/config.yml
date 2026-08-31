@@ -21,44 +21,7 @@ commands:
               librsvg2-dev \
               fd-find \
               ripgrep
-            if command -v fdfind >/dev/null 2>&1; then
-              sudo tee /usr/local/bin/fd >/dev/null \<<'EOF'
-            #!/usr/bin/env bash
-            set -euo pipefail
-
-            base_dir="."
-            args=("$@")
-            for ((index = 0; index < ${#args[@]}; index += 1)); do
-              case "${args[index]}" in
-                --base-directory)
-                  if ((index + 1 < ${#args[@]})); then
-                    base_dir="${args[index + 1]}"
-                  fi
-                  ;;
-                --base-directory=*)
-                  base_dir="${args[index]#--base-directory=}"
-                  ;;
-              esac
-            done
-
-            output="$(fdfind --strip-cwd-prefix "$@")" || exit $?
-            if [[ -z "$output" ]]; then
-              exit 1
-            fi
-
-            while IFS= read -r path; do
-              path="${path#./}"
-              if [[ "$path" != */ && ( -d "$path" || -d "$base_dir/$path" ) ]]; then
-                path="$path/"
-              fi
-              printf '%s\n' "$path"
-            done \<<< "$output"
-            EOF
-              sudo chmod +x /usr/local/bin/fd
-            elif ! command -v fd >/dev/null 2>&1; then
-              echo "fd is not available after installing fd-find" >&2
-              exit 1
-            fi
+            sudo ln -s "$(command -v fdfind)" /usr/local/bin/fd
 
   install-pnpm:
     steps:
@@ -135,15 +98,95 @@ jobs:
           name: Confirm all CI jobs passed
           command: echo "All CircleCI validation jobs passed."
 
+  release:
+    executor: node
+    steps:
+      - checkout
+      - install-system-dependencies
+      - install-pnpm
+      - install-dependencies
+      - run:
+          name: Resolve release version
+          command: |
+            set -euo pipefail
+            VERSION="${CIRCLE_TAG#v}"
+            if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+              echo "Invalid release version: ${VERSION}" >&2
+              echo "Expected semver such as 0.5.0 or 0.5.0-beta.1." >&2
+              exit 1
+            fi
+            echo "export RELEASE_VERSION=${VERSION}" >> "$BASH_ENV"
+      - run:
+          name: Build web release bundle
+          command: pnpm run build
+      - run:
+          name: Run checks with runtime tarball verification
+          command: pnpm run check
+          environment:
+            PRIME_RUNTIME_VERIFY_TARBALL: "1"
+      - run:
+          name: Stamp fleet package version
+          command: pnpm --dir packages/fleet-prime version "${RELEASE_VERSION}" --no-git-tag-version --allow-same-version
+      - run:
+          name: Pack release artifact
+          command: |
+            mkdir -p dist-release
+            pnpm --dir packages/fleet-prime pack --pack-destination "$PWD/dist-release"
+            test -f "dist-release/qredence-fleet-${RELEASE_VERSION}.tgz"
+      - run:
+          name: Smoke test packed artifact
+          command: node scripts/check-web-release.mjs --package "dist-release/qredence-fleet-${RELEASE_VERSION}.tgz"
+      - run:
+          name: Upgrade npm for trusted publishing
+          command: sudo npm install --global npm@latest
+      - run:
+          name: Publish to npm
+          working_directory: packages/fleet-prime
+          command: |
+            export NPM_ID_TOKEN=$(circleci run oidc get --claims '{"aud": "npm:registry.npmjs.org"}')
+            npm publish --access public
+      - run:
+          name: Generate checksum
+          command: |
+            cd dist-release
+            sha256sum "qredence-fleet-${RELEASE_VERSION}.tgz" > SHA256SUMS
+            cat SHA256SUMS
+      - run:
+          name: Publish GitHub release
+          command: node scripts/publish-github-release.mjs
+      - store_artifacts:
+          path: dist-release
+          destination: dist-release
+
 workflows:
   ci:
     when:
       not:
         equal: [schedule, << pipeline.trigger.type >>]
     jobs:
-      - build-check
-      - test-web
+      - build-check:
+          filters:
+            tags:
+              ignore: /.*/
+      - test-web:
+          filters:
+            tags:
+              ignore: /.*/
       - ci-success:
           requires:
             - build-check
             - test-web
+          filters:
+            tags:
+              ignore: /.*/
+
+  release:
+    jobs:
+      - release:
+          context:
+            - github-release
+          filters:
+            tags:
+              only: /^v[0-9].*/
+            branches:
+              ignore: /.*/
