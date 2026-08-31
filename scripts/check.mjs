@@ -16,7 +16,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const biomeBin = resolve(root, "node_modules/.bin/biome");
+
+// Spawn the package's bin/biome Node wrapper instead of the extensionless
+// .bin shim: the wrapper resolves the platform binary (including the win32
+// .exe) and process.execPath works on every OS.
+const biomeBin = resolve(root, "node_modules/@biomejs/biome/bin/biome");
 
 function runStage(label, command, args) {
 	return new Promise((resolvePromise) => {
@@ -60,7 +64,8 @@ if (runtime.code !== 0) {
 	process.exit(1);
 }
 
-const biome = await runStage("biome", biomeBin, [
+const biome = await runStage("biome", process.execPath, [
+	biomeBin,
 	"check",
 	"--write",
 	"--error-on-warnings",

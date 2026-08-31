@@ -27,11 +27,20 @@ function runCheck(label, scriptName) {
 		return Promise.resolve({ label, code: 1, output: `missing script ${scriptName}\n` });
 	}
 	return new Promise((resolvePromise) => {
-		const child = spawn("sh", ["-c", command], {
-			cwd: designRoot,
-			env,
-			stdio: ["ignore", "pipe", "pipe"],
-		});
+		// The shell resolves the package.json command text (including && chains
+		// and the package .bin shims); cmd.exe is the Windows equivalent.
+		const isWindows = process.platform === "win32";
+		const child = isWindows
+			? spawn(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", command], {
+					cwd: designRoot,
+					env,
+					stdio: ["ignore", "pipe", "pipe"],
+				})
+			: spawn("sh", ["-c", command], {
+					cwd: designRoot,
+					env,
+					stdio: ["ignore", "pipe", "pipe"],
+				});
 		let output = "";
 		child.stdout.on("data", (chunk) => {
 			output += chunk;
