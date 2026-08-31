@@ -228,11 +228,7 @@ export function useChatWorkspaceData() {
 			const currentMetadata = getSessionMetadata();
 			const shouldClear = shouldClearPendingAttachments(currentMetadata, targetMetadata);
 			const resumed = await resumeSession(targetMetadata, options);
-			// A failed resume can still recover by replacing the session; staged
-			// attachments are stale for that replacement as well.
-			if (resumed ? shouldClear : getSessionMetadata().sessionId !== currentMetadata.sessionId) {
-				clearPendingAttachments();
-			}
+			if (resumed && shouldClear) clearPendingAttachments();
 			return resumed;
 		},
 		[activeProjectId, clearPendingAttachments, getSessionMetadata, resumeSession],
@@ -257,11 +253,7 @@ export function useChatWorkspaceData() {
 			setActiveProjectId(projectId);
 			setSelectedWorkspacePath(null);
 			const switched = await switchProject(projectId, targetSession?.sessionId);
-			// A failed switch can still recover by replacing the session; staged
-			// attachments are stale for that replacement as well.
-			if (switched ? shouldClear : getSessionMetadata().sessionId !== currentMetadata.sessionId) {
-				clearPendingAttachments();
-			}
+			if (switched && shouldClear) clearPendingAttachments();
 			await refetchProjects();
 		},
 		[clearPendingAttachments, getSessionMetadata, refetchProjects, setSelectedWorkspacePath, sessions, switchProject],

@@ -1,4 +1,3 @@
-import { notify } from "@prime-agent/web-design/lib/notify";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
@@ -37,7 +36,6 @@ export async function runForbiddenSessionRecovery(deps: ForbiddenSessionRecovery
 	deps.setMessagesSynced(result.messages);
 	deps.setPresentationSynced(result.presentation);
 	deps.setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
-	notify.message("Started a fresh session");
 	await deps.refreshSessions();
 }
 

@@ -486,6 +486,8 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				return true;
 			} catch (err) {
 				const recoveryDeps = { setError, setStatus };
+				// Recover into the project this resume targeted; mid-switch the
+				// hook-level default may still point at the previous project.
 				const recover = () => recoverFromForbiddenSession(metadata.projectId);
 				const recovered =
 					(await tryRecoverForbiddenSession(err, recover, recoveryDeps)) ||
