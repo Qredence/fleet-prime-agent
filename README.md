@@ -22,7 +22,7 @@ https://github.com/user-attachments/assets/7df3d0ea-8c73-40a4-9bd3-f1c0445a9ea8
 
 ## Install
 
-Install the npm package (Node.js 22.8.0 or later):
+Install the npm package (Node.js 22.12.0 or later):
 
 ```bash
 npm install -g @qredence/fleet
@@ -68,7 +68,7 @@ Fleet installs as `fleet-agent`; it does not replace or shadow an existing `prim
 
 ## Requirements
 
-- Node.js 22.8.0 or later
+- Node.js 22.12.0 or later
 - pnpm 11 (the installer bootstraps it via npm when absent)
 - Git
 - Python 3.10 or later for the managed IPython kernel
