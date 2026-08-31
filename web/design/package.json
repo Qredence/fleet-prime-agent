@@ -31,10 +31,12 @@
     "generate:openui-contract": "tsx scripts/generate-openui-contract.ts",
     "check:openui-contract": "tsx scripts/generate-openui-contract.ts --check",
     "check:message-identities": "tsx scripts/message-turn-identity-check.tsx",
-    "check:openui": "pnpm run check:openui-contract && tsx scripts/openui-render-check.tsx",
+    "check:openui": "pnpm run check:openui-contract && pnpm run check:openui-render",
+    "check:openui-render": "tsx scripts/openui-render-check.tsx",
     "check:agent-plan-contract": "tsx scripts/agent-plan-contract-check.ts",
     "check:components": "tsx scripts/component-contract-check.ts && tsx scripts/component-contract-fixtures-check.ts",
-    "check:registries": "tsx scripts/component-registry-check.ts"
+    "check:registries": "tsx scripts/component-registry-check.ts",
+    "check:all": "node scripts/render-checks.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
