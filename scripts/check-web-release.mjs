@@ -15,6 +15,9 @@ const fleetPrimeDir = join(root, "packages", "fleet-prime");
 const STARTUP_TIMEOUT_MS = 60000;
 const FETCH_TIMEOUT_MS = 5000;
 
+/**
+ * Prints command usage and the prerequisite for running the web release smoke test.
+ */
 function printUsage() {
 	console.log("Usage: node scripts/check-web-release.mjs [--package path/to/qredence-fleet-*.tgz]");
 	console.log("");
@@ -48,6 +51,10 @@ function parseArgs(argv) {
 	return { packagePath };
 }
 
+/**
+ * Finds the latest matching Fleet package tarball in the project root.
+ * @returns {string|undefined} The path to the latest matching tarball, or `undefined` when none exists.
+ */
 function findExistingTarball() {
 	const candidates = readdirSync(root)
 		.filter((entry) => entry.startsWith("qredence-fleet-") && entry.endsWith(".tgz"))
@@ -56,6 +63,12 @@ function findExistingTarball() {
 	return join(root, candidates[candidates.length - 1]);
 }
 
+/**
+ * Packs the fleet package into a temporary directory.
+ * @param {string} tempDir - Directory where the package tarball is created.
+ * @returns {string} The path to the created package tarball.
+ * @throws {Error} If the web launcher is missing or packing does not produce a tarball.
+ */
 function packToTemp(tempDir) {
 	const launcher = join(fleetPrimeDir, "dist", "web", "launcher.mjs");
 	if (!existsSync(launcher)) {
@@ -90,6 +103,13 @@ function findClientJsAsset(clientDir) {
 	return undefined;
 }
 
+/**
+ * Installs a release tarball into a temporary global npm prefix.
+ * @param {string} tarball - The path to the package tarball.
+ * @param {string} prefix - The npm installation prefix.
+ * @return {string} The path to the installed package.
+ * @throws {Error} If installation fails or the package is missing from the prefix.
+ */
 function installTarball(tarball, prefix) {
 	execFileSync("npm", ["install", "--global", "--no-fund", "--no-audit", tarball], {
 		stdio: "inherit",
