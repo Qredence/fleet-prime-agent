@@ -93,7 +93,7 @@ async function findOrCreateRelease(token, version, owner, repo, sha) {
 		body: JSON.stringify({
 			tag_name: tag,
 			target_commitish: sha,
-			name: tag,
+			name: `Fleet Prime v${version}`,
 			body: releaseNotes(version),
 			prerelease: version.includes("-"),
 		}),
