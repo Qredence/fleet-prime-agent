@@ -243,8 +243,8 @@ importers:
         specifier: ^8.5.0
         version: 8.5.0(zod@4.4.3)
       '@openuidev/lang-core':
-        specifier: ^0.2.7
-        version: 0.2.11(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(zod@4.4.3)
+        specifier: ^0.2.15
+        version: 0.2.15(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(zod@4.4.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -1142,8 +1142,8 @@ packages:
       react: ^18.3.1 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
 
-  '@openuidev/lang-core@0.2.11':
-    resolution: {integrity: sha512-30tTX7bnTLMQMs1kPhIv/tVY8hlW5xtimf6fBBS16ctidceuMZNWEe0VTpuz3lEmdyThp2lc7vy+lSfTqIIwlg==}
+  '@openuidev/lang-core@0.2.12':
+    resolution: {integrity: sha512-G2cYAUVkh2t7zBjqUYAfKdNLNpA5FwFfqSH0TRP6/SsTCzyxbP92Gih57zsWkYRC8zP4RV/bivIvP1ZAzQhhew==}
     peerDependencies:
       '@modelcontextprotocol/sdk': '>=1.0.0'
       zod: ^3.25.0 || ^4.0.0
@@ -1151,8 +1151,8 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@openuidev/lang-core@0.2.12':
-    resolution: {integrity: sha512-G2cYAUVkh2t7zBjqUYAfKdNLNpA5FwFfqSH0TRP6/SsTCzyxbP92Gih57zsWkYRC8zP4RV/bivIvP1ZAzQhhew==}
+  '@openuidev/lang-core@0.2.15':
+    resolution: {integrity: sha512-+KOiMD4PoPrFs8wikPceFIlCdwynL2nshIjCmGERI75ZaIgJAczmYTnbA+kSFD10e4vKHNdn6B6tvjsU953J5g==}
     peerDependencies:
       '@modelcontextprotocol/sdk': '>=1.0.0'
       zod: ^3.25.0 || ^4.0.0
@@ -6832,18 +6832,19 @@ snapshots:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
 
-  '@openuidev/lang-core@0.2.11(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(zod@4.4.3)':
-    dependencies:
-      zod: 4.4.3
-    optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.30.0(zod@4.4.3)
-
   '@openuidev/lang-core@0.2.12(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
       ci-info: 4.4.0
       zod: 4.4.3
     optionalDependencies:
       '@modelcontextprotocol/sdk': 1.30.0(supports-color@8.1.1)(zod@4.4.3)
+
+  '@openuidev/lang-core@0.2.15(@modelcontextprotocol/sdk@1.30.0(zod@4.4.3))(zod@4.4.3)':
+    dependencies:
+      ci-info: 4.4.0
+      zod: 4.4.3
+    optionalDependencies:
+      '@modelcontextprotocol/sdk': 1.30.0(zod@4.4.3)
 
   '@openuidev/observability@0.0.2': {}
 
