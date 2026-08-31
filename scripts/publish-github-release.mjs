@@ -3,19 +3,13 @@
 // Publishes the GitHub release for a Fleet release from the CircleCI release
 // job: creates the release for the pushed tag (reusing it on re-runs) and
 // uploads the packed tarball plus SHA256SUMS. Requires GITHUB_TOKEN,
-// RELEASE_VERSION, CIRCLE_SHA1, CIRCLE_PROJECT_USERNAME, and
-// CIRCLE_PROJECT_REPONAME from the CircleCI environment.
+// RELEASE_VERSION, and CIRCLE_SHA1 from the CircleCI environment; the
+// repository is read from the launcher package's repository.url.
 
 import { readFileSync } from "node:fs"
 
 const API_BASE = "https://api.github.com"
-const REQUIRED_ENV = [
-	"GITHUB_TOKEN",
-	"RELEASE_VERSION",
-	"CIRCLE_SHA1",
-	"CIRCLE_PROJECT_USERNAME",
-	"CIRCLE_PROJECT_REPONAME",
-]
+const REQUIRED_ENV = ["GITHUB_TOKEN", "RELEASE_VERSION", "CIRCLE_SHA1"]
 
 /**
  * Wraps fetch with the GitHub API headers and consistent error reporting.
@@ -68,8 +62,8 @@ function releaseNotes(version) {
  * Finds the existing release for the tag, or creates it when missing.
  * @param {string} token - GitHub token with contents write access.
  * @param {string} version - The release version without the leading v.
- * @param {string} owner - Repository owner (CIRCLE_PROJECT_USERNAME).
- * @param {string} repo - Repository name (CIRCLE_PROJECT_REPONAME).
+ * @param {string} owner - Repository owner.
+ * @param {string} repo - Repository name.
  * @param {string} sha - The tagged commit (CIRCLE_SHA1).
  * @returns {Promise<{id: number, uploadUrl: string, assets: Array<{id: number, name: string}>}>} The release.
  */
@@ -142,6 +136,23 @@ async function uploadAsset(token, release, name, path) {
 	console.log(`Uploaded ${asset.name} (${asset.size} bytes) to the release.`)
 }
 
+/**
+ * Resolves the owner/repo pair for this repository from the launcher
+ * package's repository.url, so the script does not depend on the VCS-derived
+ * CircleCI environment variables.
+ * @returns {{owner: string, repo: string}} The GitHub repository coordinates.
+ * @throws {Error} If repository.url is missing or not a GitHub URL.
+ */
+function readRepository() {
+	const manifest = JSON.parse(readFileSync("packages/fleet-prime/package.json", "utf8"))
+	const url = manifest?.repository?.url ?? ""
+	const match = url.match(/github\.com[/:]([^/#?]+)\/([^/#?.]+)/)
+	if (!match) {
+		throw new Error(`Cannot derive the GitHub repository from repository.url: ${url}`)
+	}
+	return { owner: match[1], repo: match[2] }
+}
+
 async function main() {
 	for (const name of REQUIRED_ENV) {
 		if (!process.env[name]) {
@@ -150,8 +161,7 @@ async function main() {
 	}
 	const token = process.env.GITHUB_TOKEN
 	const version = process.env.RELEASE_VERSION
-	const owner = process.env.CIRCLE_PROJECT_USERNAME
-	const repo = process.env.CIRCLE_PROJECT_REPONAME
+	const { owner, repo } = readRepository()
 	const sha = process.env.CIRCLE_SHA1
 
 	const release = await findOrCreateRelease(token, version, owner, repo, sha)
