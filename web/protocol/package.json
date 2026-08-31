@@ -21,11 +21,11 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
-    "@openuidev/lang-core": "^0.2.7",
+    "@openuidev/lang-core": "^0.2.15",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^25.8.0",
+    "@types/node": "^25.9.5",
     "typescript": "^6.0.3"
   }
 }
