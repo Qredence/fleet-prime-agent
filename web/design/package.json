@@ -27,7 +27,7 @@
     "./hooks/*": "./src/hooks/*"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "generate:openui-contract": "tsx scripts/generate-openui-contract.ts",
     "check:openui-contract": "tsx scripts/generate-openui-contract.ts --check",
     "check:message-identities": "tsx scripts/message-turn-identity-check.tsx",

@@ -17,7 +17,7 @@
     "./schemas/*": "./src/schemas/*"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",

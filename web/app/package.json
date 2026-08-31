@@ -8,7 +8,7 @@
     "build": "vite build",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
