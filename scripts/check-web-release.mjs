@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Smoke-tests a packed @qredence/fleet-prime release tarball: installs it into a
+// Smoke-tests a packed @qredence/fleet release tarball: installs it into a
 // temporary npm prefix, boots the bundled web runtime, and verifies the HTTP
 // surface (/, /api/health, /api/workspace/tree, one client asset).
 
@@ -16,7 +16,7 @@ const STARTUP_TIMEOUT_MS = 60000;
 const FETCH_TIMEOUT_MS = 5000;
 
 function printUsage() {
-	console.log("Usage: node scripts/check-web-release.mjs [--package path/to/qredence-fleet-prime-*.tgz]");
+	console.log("Usage: node scripts/check-web-release.mjs [--package path/to/qredence-fleet-*.tgz]");
 	console.log("");
 	console.log("Without --package, packs packages/fleet-prime into a temporary directory first.");
 	console.log("Requires a built web runtime: pnpm run build:web:release");
@@ -50,7 +50,7 @@ function parseArgs(argv) {
 
 function findExistingTarball() {
 	const candidates = readdirSync(root)
-		.filter((entry) => entry.startsWith("qredence-fleet-prime-") && entry.endsWith(".tgz"))
+		.filter((entry) => entry.startsWith("qredence-fleet-") && entry.endsWith(".tgz"))
 		.sort();
 	if (candidates.length === 0) return undefined;
 	return join(root, candidates[candidates.length - 1]);
@@ -66,10 +66,10 @@ function packToTemp(tempDir) {
 		stdio: "inherit",
 	});
 	const packed = readdirSync(tempDir)
-		.filter((entry) => entry.startsWith("qredence-fleet-prime-") && entry.endsWith(".tgz"))
+		.filter((entry) => entry.startsWith("qredence-fleet-") && entry.endsWith(".tgz"))
 		.sort();
 	if (packed.length === 0) {
-		throw new Error("pnpm pack did not produce a qredence-fleet-prime tarball");
+		throw new Error("pnpm pack did not produce a qredence-fleet tarball");
 	}
 	return join(tempDir, packed[packed.length - 1]);
 }
@@ -99,7 +99,7 @@ function installTarball(tarball, prefix) {
 		encoding: "utf8",
 		env: { ...process.env, NPM_CONFIG_PREFIX: prefix, npm_config_prefix: prefix },
 	}).trim();
-	const installedPackage = join(globalRoot, "@qredence", "fleet-prime");
+	const installedPackage = join(globalRoot, "@qredence", "fleet");
 	if (!existsSync(installedPackage)) {
 		throw new Error(`Expected installed package at ${installedPackage}`);
 	}

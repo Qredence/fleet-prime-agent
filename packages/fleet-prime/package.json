@@ -1,16 +1,39 @@
 {
-  "name": "@qredence/fleet-prime",
+  "name": "@qredence/fleet",
   "version": "0.1.0",
-  "private": true,
+  "description": "Fleet Prime: local web interface and launcher for the pinned Prime Agent runtime",
+  "license": "MIT",
   "type": "module",
+  "homepage": "https://github.com/Qredence/fleet-prime-agent#readme",
+  "bugs": "https://github.com/Qredence/fleet-prime-agent/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Qredence/fleet-prime-agent.git",
+    "directory": "packages/fleet-prime"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "coding-agent",
+    "cli",
+    "prime-agent",
+    "web-ui",
+    "workspace"
+  ],
   "bin": {
-    "fleet-agent": "./bin/fleet-prime.mjs",
-    "fleet-prime": "./bin/fleet-prime.mjs"
+    "fleet-agent": "bin/fleet-prime.mjs",
+    "fleet-prime": "bin/fleet-prime.mjs"
   },
   "files": [
     "bin",
     "dist"
   ],
+  "engines": {
+    "node": ">=22.8.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-core-0.8.1.tgz",
     "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-ai-0.8.1.tgz",
