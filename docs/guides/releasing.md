@@ -10,48 +10,56 @@ Fleet release (web product + packed CLI artifact + npm publish):
 
 1. Upgrade the runtime pin if needed, then run `pnpm install` and `pnpm run check`.
 2. Build and pack: `pnpm run build:web:release && pnpm run release:pack`.
-3. Tag this repository; the release workflow builds, smoke-tests, and publishes
-   `@qredence/fleet`. Do not publish Prime Agent itself from Fleet.
+3. Tag this repository; the CircleCI release pipeline builds, smoke-tests, and
+   publishes `@qredence/fleet`. Do not publish Prime Agent itself from Fleet.
 
 ## npm publishing
 
-Pushing a `v*` tag (or dispatching the release workflow) publishes
-`@qredence/fleet` to npmjs.com from the release workflow using
-npm trusted publishing (OIDC, no stored tokens). The publish runs from
-`packages/fleet-prime` after the packed tarball passes the web release smoke
-test. The upstream Prime Agent engine is never republished by Fleet; the
-published package installs it as the checksum-pinned tarball dependency from
-`PRIME_AGENT_RUNTIME.json`.
+Pushing a `v*` tag publishes `@qredence/fleet` to npmjs.com from the
+CircleCI `release` workflow using npm trusted publishing (OIDC, no stored
+tokens). The publish runs from `packages/fleet-prime` after the packed
+tarball passes the web release smoke test. The upstream Prime Agent engine is
+never republished by Fleet; the published package installs it as the
+checksum-pinned tarball dependency from `PRIME_AGENT_RUNTIME.json`.
 
-Trusted publishing requires `id-token: write` on a GitHub-hosted runner, an
-npm CLI of at least 11.5.1 (the workflow upgrades npm itself), and a
-`repository.url` in `packages/fleet-prime/package.json` that matches this
-GitHub repository exactly.
+Trusted publishing from CircleCI exchanges a job-scoped OIDC token for a
+short-lived publish token (`NPM_ID_TOKEN`); no `NPM_TOKEN` is stored anywhere.
+It requires an npm CLI of at least 11.5.1 on Node.js 22.14 or later (the
+`release` job upgrades npm itself) and the trusted publisher configured on
+npmjs.com as described below. Provenance attestations are not supported for
+CircleCI trusted publishing; releases publish without them.
 
-### One-time bootstrap
+### Required CircleCI setup
+
+The `release` job (`.circleci/config.yml`) needs two one-time setups:
+
+1. **GitHub release context.** Create a CircleCI context named `github-release`
+   containing a `GITHUB_TOKEN` environment variable: a fine-grained GitHub PAT
+   with Contents read/write on `Qredence/fleet-prime-agent` only (the job
+   creates the GitHub release and uploads the tarball plus SHA256SUMS with
+   it). The `release` job attaches this context.
+2. **npm trusted publisher.** On
+   `https://www.npmjs.com/package/@qredence/fleet/access` under Trusted
+   Publishing, add a **CircleCI** publisher with the organization ID and
+   project ID from `.circleci/info.yml`, the pipeline definition ID from
+   CircleCI Project Settings → Project Setup, and the VCS origin
+   `github.com/Qredence/fleet-prime-agent`; allow the `npm publish` action.
+   Optionally record the `github-release` context ID to also bind publishing
+   to that context.
+
+### One-time bootstrap (done)
 
 The first version of a new package cannot be published via trusted
 publishing: npm's trusted-publisher settings require the package to already
-exist.
-
-1. Ensure the `@qredence` organization exists on npmjs.com and your account is
-   an owner, then sign in on this machine with `npm login` (npm reports
-   missing publish permission as `E404`).
-2. Build locally and publish the initial version once with 2FA:
-
-   ```bash
-   pnpm run build:web:release
-   npm publish ./packages/fleet-prime --access public
-   ```
-
-3. Configure the trusted publisher at
-   `https://www.npmjs.com/package/@qredence/fleet/access`:
-   GitHub Actions, organization `Qredence`, repository `fleet-prime-agent`,
-   workflow filename `release-fleet.yml`, allowed action `npm publish`.
-4. Later tagged releases publish through OIDC with no stored tokens.
+exist. `@qredence/fleet@0.1.0` was therefore published manually once with 2FA
+(`pnpm run build:web:release && npm publish ./packages/fleet-prime --access
+public` after `npm login`); later tagged releases publish from CircleCI with
+no stored tokens.
 
 ### Hardening (recommended)
 
 After the trusted publisher works, restrict the package on npmjs.com
 (Settings → Publishing access → "Require two-factor authentication and
-disallow tokens") so only the trusted publisher can publish.
+disallow tokens") so only the trusted publisher can publish. As defense in
+depth, the CircleCI guide also suggests context expression restrictions such
+as `not job.ssh.enabled` (npm rejects OIDC tokens from SSH reruns).
