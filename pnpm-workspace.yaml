@@ -53,3 +53,7 @@ overrides:
   # cytoscape 3.34.1 published without provenance where 3.34.0 had it
   # (trust downgrade); keep the attested version until it is restored.
   cytoscape: 3.34.0
+  # rolldown 1.2.5 (vite 8's bundler) re-chunks the client graph: the app
+  # shell merges into one eager chunk and the eager graph grows 24%,
+  # tripping check:bundle. Keep 1.2.4 until upstream chunking settles.
+  rolldown: 1.2.4
