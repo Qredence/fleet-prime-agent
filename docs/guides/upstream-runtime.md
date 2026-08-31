@@ -33,8 +33,8 @@ checks.
   symlink path traversal, reachable through the pinned runtime's dependency
   tree (`packages/fleet-prime > prime-agent > extract-zip` and
   `web/server > prime-agent > extract-zip`). As of 2026-08-31 no patched
-  release exists: the advisory names `>= 2.0.2`, but extract-zip has not
-  published it (latest remains 2.0.1, from 2020). This cannot be fixed from
+  release exists. The latest extract-zip release remains 2.0.1, from 2020.
+  This cannot be fixed from
   Fleet — there is no version to override to and the dependency belongs to
   the upstream runtime. Recheck when bumping `PRIME_AGENT_RUNTIME.json`; if
   the new release still resolves extract-zip 2.0.1, report the advisory

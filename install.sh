@@ -39,7 +39,7 @@ command_required() {
 node_is_supported() {
 	node -e '
 const [major, minor, patch] = process.versions.node.split(".").map(Number);
-const supported = major > 22 || (major === 22 && (minor > 8 || (minor === 8 && patch >= 0)));
+const supported = major > 22 || (major === 22 && (minor > 12 || (minor === 12 && patch >= 0)));
 process.exit(supported ? 0 : 1);
 '
 }
@@ -203,7 +203,7 @@ main() {
 	command_required npm
 
 	if ! node_is_supported; then
-		die "Node.js 22.8.0 or newer is required; found $(node --version)"
+		die "Node.js 22.12.0 or newer is required; found $(node --version)"
 	fi
 
 	prepare_checkout

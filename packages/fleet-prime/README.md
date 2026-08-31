@@ -9,7 +9,7 @@ managed IPython kernels.
 
 ## Install
 
-Requires Node.js 22.8.0 or later. Python 3.10 or later is needed for the
+Requires Node.js 22.12.0 or later. Python 3.10 or later is needed for the
 managed IPython kernel.
 
 ```bash
