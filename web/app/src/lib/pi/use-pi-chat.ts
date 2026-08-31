@@ -13,7 +13,7 @@ import type {
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
+import type { ChatAttachment, ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatClient } from "./chat-client";
 import { chatClient } from "./chat-client";
@@ -167,10 +167,12 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	}, [client]);
 
 	const recoverFromForbiddenSession = useCallback(
-		() =>
+		// An override recovers into the project the caller asked to resume,
+		// instead of the hook-level default captured at mount.
+		(projectIdOverride?: ProjectId | null) =>
 			runForbiddenSessionRecovery({
 				client,
-				projectId,
+				projectId: projectIdOverride ?? projectId,
 				refreshSessions,
 				setActivityLabelSynced,
 				setError,
@@ -484,9 +486,12 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				return true;
 			} catch (err) {
 				const recoveryDeps = { setError, setStatus };
+				// Recover into the project this resume targeted; mid-switch the
+				// hook-level default may still point at the previous project.
+				const recover = () => recoverFromForbiddenSession(metadata.projectId);
 				const recovered =
-					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
-					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
+					(await tryRecoverForbiddenSession(err, recover, recoveryDeps)) ||
+					(await tryRecoverUnknownSession(err, recover, recoveryDeps));
 				if (recovered) {
 					return false;
 				}

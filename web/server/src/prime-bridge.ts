@@ -940,9 +940,8 @@ export class PrimeBridge {
 		let existing = this.#sessions.get(sessionId);
 		if (!existing) {
 			const sessions = await this.#sessionLister();
-			const sessionPath = sessions.find(
-				(session) => session.sessionId === sessionId || session.id === sessionId,
-			)?.sessionFile;
+			const listed = sessions.find((session) => session.sessionId === sessionId || session.id === sessionId);
+			const sessionPath = listed?.sessionFile;
 			if (!sessionPath) return false;
 			try {
 				existing = await this.resumeSessionByPath(sessionPath);
@@ -952,6 +951,11 @@ export class PrimeBridge {
 				// the daemon catalog so a broken entry never becomes undeletable.
 				const result = await this.#sessionFileDeleter(getPrimeConfig().defaultCwd, sessionPath);
 				if (!result.ok) throw new Error(result.error);
+				// Mirror the managed-session cleanup from the live path below.
+				const listedSessionId = listed?.sessionId ?? sessionId;
+				await deleteManagedAttachmentsForSession(listedSessionId, sessionPath);
+				await deleteManagedPlanPresentationsForSession(listedSessionId, sessionPath);
+				await getPrimeConfig().projectRegistry.assignSession(listedSessionId, null);
 				return true;
 			}
 		}

@@ -42,16 +42,12 @@ const pnpmLock = readFileSync(resolve(root, "pnpm-lock.yaml"), "utf8");
 if (!pnpmLock.includes(`specifier: ${expectedTarball}`)) {
 	throw new Error("pnpm-lock.yaml prime-agent specifier does not match the runtime manifest tarball");
 }
-if (!pnpmLock.includes(`prime-agent@${expectedTarball}`)) {
-	throw new Error("pnpm-lock.yaml prime-agent resolution does not match the runtime manifest tarball");
+const escapedTarball = expectedTarball.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const lockEntry = pnpmLock.match(new RegExp(`^  prime-agent@${escapedTarball}:((?:\\n    .*)*)`, "m"));
+if (!lockEntry) {
+	throw new Error("pnpm-lock.yaml is missing the pinned prime-agent resolution entry");
 }
-
-function lockEntryIntegrity(pnpmLock, tarball) {
-	const escapedTarball = tarball.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const entry = pnpmLock.match(new RegExp(`^  prime-agent@${escapedTarball}:((?:\\n    .*)*)`, "m"));
-	const integrity = entry?.[1]?.match(/integrity: (sha512-[A-Za-z0-9+/=]+)/);
-	return integrity?.[1];
-}
+const lockIntegrity = lockEntry[1].match(/integrity: (sha512-[A-Za-z0-9+/=]+)/)?.[1];
 
 if (process.env.PRIME_RUNTIME_VERIFY_TARBALL === "1") {
 	const response = await fetch(expectedTarball);
@@ -64,7 +60,6 @@ if (process.env.PRIME_RUNTIME_VERIFY_TARBALL === "1") {
 		throw new Error("Downloaded runtime tarball sha256 does not match the runtime manifest");
 	}
 	const sha512 = `sha512-${createHash("sha512").update(tarball).digest("base64")}`;
-	const lockIntegrity = lockEntryIntegrity(pnpmLock, expectedTarball);
 	if (lockIntegrity && lockIntegrity !== sha512) {
 		throw new Error("Downloaded runtime tarball sha512 does not match pnpm-lock.yaml integrity");
 	}

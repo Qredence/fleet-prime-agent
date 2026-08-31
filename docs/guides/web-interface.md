@@ -49,8 +49,9 @@ and `node_modules`, then re-run `pnpm install`. Never commit a
 ## Recovering from a stale Prime Agent daemon
 
 The web server attaches to the per-user daemon socket
-(`$TMPDIR/prime-agent-501/daemon.sock`) whenever the daemon there answers the
-protocol probe. A daemon started from a checkout's `node_modules` embeds that
+(`$TMPDIR/prime-agent-<UID>/daemon.sock`, where `<UID>` is the current user's
+UID, for example `prime-agent-501` for UID 501) whenever the daemon there
+answers the protocol probe. A daemon started from a checkout's `node_modules` embeds that
 install path. Reinstalling the workspace or changing its layout (for example
 the pnpm workspace unification) while such a daemon is still running leaves it
 accepting connections but unable to spawn session workers, so every chat send
