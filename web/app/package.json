@@ -18,7 +18,7 @@
     "@prime-agent/web-protocol": "workspace:*",
     "@prime-agent/web-server": "workspace:*",
     "@tailwindcss/vite": "^4.3.1",
-    "@tanstack/react-query": "^5.101.1",
+    "@tanstack/react-query": "^5.102.2",
     "@tanstack/react-router": "^1.170.16",
     "@tanstack/react-start": "^1.168.26",
     "react": "^19.2.7",
