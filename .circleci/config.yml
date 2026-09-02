@@ -43,16 +43,19 @@ commands:
       - run:
           name: Install pnpm
           command: |
-            pnpm_root="$(npm root --global)"
-            sudo npm install --global --force "pnpm@<< parameters.pnpm_version >>"
-            pnpm_bin="${pnpm_root}/pnpm/bin/pnpm.cjs"
+            pnpm_root="${HOME}/.cache/fleet-pnpm"
+            mkdir -p "${pnpm_root}"
+            npm install --prefix "${pnpm_root}" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "pnpm@<< parameters.pnpm_version >>"
+            pnpm_bin="${pnpm_root}/node_modules/pnpm/bin/pnpm.cjs"
             if [ ! -f "${pnpm_bin}" ]; then
               echo "Expected pnpm launcher was not installed at ${pnpm_bin}" >&2
               exit 1
             fi
             echo "export FLEET_PNPM_BIN=\"${pnpm_bin}\"" >> "${BASH_ENV}"
+            echo 'export npm_config_manage_package_manager_versions=false' >> "${BASH_ENV}"
             echo 'pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }' >> "${BASH_ENV}"
             export FLEET_PNPM_BIN="${pnpm_bin}"
+            export npm_config_manage_package_manager_versions=false
             pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }
             pnpm config set store-dir ~/.cache/pnpm
             pnpm --version
