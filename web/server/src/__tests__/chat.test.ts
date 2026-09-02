@@ -455,6 +455,62 @@ describe("handleChatNewPost", () => {
 		expect(response.status).toBe(200);
 		expect(resumeSessionById).toHaveBeenCalledWith("session-1", undefined, { openUI: true });
 	});
+
+	it("loads an authorized subagent transcript through the parent lineage", async () => {
+		const loadRlmChildTranscript = vi.fn(async () => ({
+			sessionId: "child-session",
+			projectId: null,
+			messages: [],
+			presentation: {
+				revision: 0,
+				userBash: [],
+				rlmChildren: [],
+				refinements: [],
+				artifactRuns: [],
+			},
+		}));
+		setBridgeForTests({ loadRlmChildTranscript } as unknown as PrimeBridge);
+
+		const response = await handleChatSessionGet(
+			new Request("http://localhost/api/chat/session?parentSessionId=parent-session&childId=child-1"),
+		);
+
+		expect(response.status).toBe(200);
+		expect(loadRlmChildTranscript).toHaveBeenCalledWith("parent-session", "child-1");
+		expect(await response.json()).not.toHaveProperty("session.sessionPath");
+	});
+
+	it("rejects incomplete or invalid subagent identifiers before loading", async () => {
+		const loadRlmChildTranscript = vi.fn();
+		setBridgeForTests({ loadRlmChildTranscript } as unknown as PrimeBridge);
+
+		const response = await handleChatSessionGet(
+			new Request("http://localhost/api/chat/session?parentSessionId=parent-session"),
+		);
+		const invalidResponse = await handleChatSessionGet(
+			new Request("http://localhost/api/chat/session?parentSessionId=../private&childId=child-1"),
+		);
+
+		expect(response.status).toBe(400);
+		expect(invalidResponse.status).toBe(400);
+		expect(loadRlmChildTranscript).not.toHaveBeenCalled();
+	});
+
+	it("keeps child-loader failures free of local transcript paths", async () => {
+		setBridgeForTests({
+			loadRlmChildTranscript: vi.fn(async () => {
+				throw new Error("failed to read /tmp/private/child.jsonl");
+			}),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatSessionGet(
+			new Request("http://localhost/api/chat/session?parentSessionId=parent-session&childId=child-1"),
+		);
+		const body = (await response.json()) as { message?: string };
+
+		expect(response.status).toBe(500);
+		expect(body.message).not.toContain("/tmp/private/child.jsonl");
+	});
 });
 
 describe("sessionStatus", () => {

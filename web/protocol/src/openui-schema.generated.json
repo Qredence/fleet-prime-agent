@@ -322,6 +322,8 @@
 						"resources",
 						"workspace",
 						"artifacts",
+						"repl",
+						"subagents",
 						"session-insights"
 					]
 				},
@@ -339,7 +341,7 @@
 				"focus"
 			],
 			"additionalProperties": false,
-			"description": "A trusted local action that opens Resources, Workspace, Artifacts, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels."
+			"description": "A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels."
 		},
 		"Input": {
 			"type": "object",

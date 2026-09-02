@@ -3,7 +3,14 @@ import { z } from "zod/v4";
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 export const MAX_TURN_ATTACHMENT_BYTES = 100 * 1024 * 1024;
 
-export const RightPanelIdSchema = z.enum(["resources", "workspace", "artifacts", "session-insights"]);
+export const RightPanelIdSchema = z.enum([
+	"resources",
+	"workspace",
+	"artifacts",
+	"repl",
+	"subagents",
+	"session-insights",
+]);
 export type RightPanelId = z.infer<typeof RightPanelIdSchema>;
 export type RightPanelState = RightPanelId | null;
 

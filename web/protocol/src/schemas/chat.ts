@@ -372,6 +372,25 @@ export const ChatQueueEventSchema = z
 	})
 	.openapi({ description: "Stream queue event" });
 
+export const ChatQueueMutationRequestSchema = z
+	.object({
+		sessionId: SessionIdSchema,
+		lane: z.enum(["steering", "followUp"]),
+		index: z.number().int().nonnegative(),
+		expectedText: z.string().min(1),
+	})
+	.openapi({ description: "Delete one queued message after verifying its expected text" });
+
+export const ChatQueueMutationResponseSchema = z
+	.object({
+		status: z.enum(["applied", "rejected", "invalid", "unsupported"]),
+		queue: z.object({
+			steering: z.array(z.string()),
+			followUp: z.array(z.string()),
+		}),
+	})
+	.openapi({ description: "Queued-message mutation result with an authoritative queue snapshot" });
+
 export const ChatThinkingEventSchema = z
 	.object({
 		type: z.literal("thinking"),

@@ -220,6 +220,13 @@ export interface ForkSessionResult {
 	newSessionId: string;
 }
 
+export interface RlmChildTranscript {
+	readonly sessionId: string;
+	readonly projectId: ProjectId | null;
+	readonly messages: Array<ChatMessage>;
+	readonly presentation: PrimeAgentSessionPresentation;
+}
+
 export interface PrimeBridgeOptions {
 	readonly kernelTimeoutMs?: number;
 	readonly ringBufferCapacity?: number;
@@ -936,6 +943,50 @@ export class PrimeBridge {
 		return this.#sessionLister(cwd);
 	}
 
+	/**
+	 * Load a completed RLM child without resuming it as a live session.
+	 *
+	 * Child transcripts can be stored outside the parent's configured session
+	 * directory. Authorization is therefore based on both the live parent's
+	 * presentation and the daemon's lineage metadata, never on a browser-
+	 * supplied filesystem path.
+	 */
+	async loadRlmChildTranscript(parentSessionId: string, childId: string): Promise<RlmChildTranscript | undefined> {
+		const parent = this.#sessions.get(parentSessionId);
+		if (!parent || !parent.mapperState.presentation.rlmChildren.some((child) => child.id === childId)) {
+			return undefined;
+		}
+
+		const sessions = await this.#sessionLister();
+		const child = sessions.find((candidate) => {
+			const raw = candidate as unknown as Record<string, unknown>;
+			return (
+				raw.parentSessionId === parentSessionId && raw.rlmChildId === childId && typeof raw.sessionFile === "string"
+			);
+		});
+		if (!child?.sessionFile) return undefined;
+
+		const sessionManager = await SessionManager.openAsync(child.sessionFile);
+		const sessionId = sessionManager.getSessionId();
+		if (sessionId !== child.sessionId && sessionId !== child.id) return undefined;
+
+		const agentMessages = sessionManager.buildSessionContext().messages;
+		const messages = toChatMessagesFromAgentMessages(agentMessages, sessionId);
+		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath: child.sessionFile });
+		const presentation = initialPresentationForSession(
+			agentMessages,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			sessionId,
+			persistedPresentation,
+		);
+		const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, sessionManager.getCwd());
+
+		return { sessionId, projectId, messages, presentation };
+	}
+
 	async deleteSession(sessionId: string): Promise<boolean> {
 		let existing = this.#sessions.get(sessionId);
 		if (!existing) {
@@ -1125,6 +1176,27 @@ export class PrimeBridge {
 	async followUp(sessionId: string, text: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
 		await session.connection.followUp(text);
+	}
+
+	async deleteQueuedMessage(
+		sessionId: string,
+		lane: "steering" | "followUp",
+		index: number,
+		expectedText: string,
+	): Promise<{
+		status: "applied" | "rejected" | "invalid" | "unsupported";
+		queue: { steering: string[]; followUp: string[] };
+	}> {
+		const session = this.#requireSession(sessionId);
+		const status = await session.connection.mutateQueuedMessage(lane, index, expectedText, { type: "delete" });
+		const queue = await session.connection.getQueue();
+		return {
+			status,
+			queue: {
+				steering: [...queue.steering],
+				followUp: [...queue.followUp],
+			},
+		};
 	}
 
 	async abort(sessionId: string): Promise<void> {
