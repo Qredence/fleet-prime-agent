@@ -4,6 +4,9 @@ import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prim
 import { describe, expect, it, vi } from "vitest";
 import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/artifacts-panel";
 import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
+import { FleetMessageQueue } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue";
+import { FleetSubagentList } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-subagent-list";
+import { FleetToolTimeline } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-tool-timeline";
 
 vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
@@ -59,6 +62,56 @@ function presentation(
 }
 
 describe("review regressions", () => {
+	it("keeps the completed tool timeline expanded by default", () => {
+		const { getByRole } = render(
+			<FleetToolTimeline
+				messages={[
+					{
+						id: "assistant-tools",
+						role: "assistant",
+						parts: [{ type: "tool-Bash", toolCallId: "bash-1", input: { command: "pwd" }, output: "ok" }],
+					},
+				]}
+				streaming={false}
+			/>,
+		);
+
+		expect(getByRole("button", { name: "1 tool action" }).getAttribute("aria-expanded")).toBe("true");
+	});
+
+	it("renders nested subagents in tree order regardless of completion order", () => {
+		const { getByRole, getByText } = render(
+			<FleetSubagentList
+				children={[
+					{ id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2 },
+					{ id: "parent", label: "Parent worker", status: "error", timestamp: 1 },
+				]}
+				tree={{
+					rootSessionId: "session-1",
+					rootChildrenIds: ["parent"],
+					nodes: {
+						parent: { id: "parent", label: "Parent worker", status: "error", timestamp: 1, depth: 0, childrenIds: ["child"] },
+						child: { id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2, depth: 1, childrenIds: [] },
+					},
+				}}
+			/>,
+		);
+
+		fireEvent.click(getByRole("button", { name: /Subagents completed/ }));
+		expect(getByText("Parent worker")).toBeTruthy();
+		expect(getByText("Child worker")).toBeTruthy();
+	});
+
+	it("removes a queued item using its lane and expected text", () => {
+		const onDelete = vi.fn();
+		const { getByRole } = render(
+			<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: ["Summarize"] }} onDelete={onDelete} />,
+		);
+
+		fireEvent.click(getByRole("button", { name: "Remove queued message: Run tests" }));
+		expect(onDelete).toHaveBeenCalledWith("steering", 0, "Run tests");
+	});
+
 	it("keeps completed reasoning presentation visible", () => {
 		const { getByLabelText } = render(
 			<FleetPiAgentChat
@@ -301,7 +354,7 @@ describe("review regressions", () => {
 			],
 		});
 		const messages: Array<ChatMessage> = [{ id: "assistant-live", role: "assistant", parts: [] }];
-		const { getByRole, getByText } = render(
+		const { getAllByText, getByRole, getByText } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -314,7 +367,7 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		expect(getByText("git status", { exact: true })).toBeTruthy();
+		expect(getAllByText("git status", { exact: true }).length).toBeGreaterThan(0);
 		expect(getByText("RLM · Repository scan", { exact: true })).toBeTruthy();
 		const openButton = getByRole("button", { name: "Open git status artifact 1" });
 		expect(getByRole("status").textContent).toContain("Coordinating 2 active actions");

@@ -211,4 +211,4 @@ const DiscreteTabTrigger = React.memo(function DiscreteTabTrigger({
 })
 DiscreteTabTrigger.displayName = "DiscreteTabTrigger"
 
-export { DiscreteTabs, DiscreteTabTrigger, discreteTabTriggerVariants }
+export { DiscreteTabs, DiscreteTabTrigger }

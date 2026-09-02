@@ -53,7 +53,7 @@ import { cn } from "../../lib/utils"
 import { isSafeExternalUrl } from "../../lib/safe-external-url"
 import { DonutChartDef, LineChartDef } from "./charts"
 import { DataTableDef, MetricGroupDef } from "./data"
-import { HtmlArtifactDef } from "./html-artifact"
+import { HtmlArtifactDef } from "./html-artifact-def"
 import {
   badgeToneClasses,
   badgeVariantsByTone,
@@ -146,7 +146,7 @@ function PanelActionComponent({
   props: {
     focus?: boolean
     label: string
-    panel: "resources" | "workspace" | "artifacts" | "session-insights"
+    panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights"
     relativePath?: string
   }
 }) {
@@ -175,7 +175,7 @@ function PanelActionComponent({
 export const PanelActionDef = defineComponent({
   name: "PanelAction",
   description:
-    "A trusted local action that opens Resources, Workspace, Artifacts, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+    "A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
   props: z
     .object({
       label: z.string().describe("Visible action label"),

@@ -9,7 +9,7 @@ const OPENAI_CHAT_MODEL_PLACEHOLDER = "qwen35-122b-a10b"
 const OPENAI_CHAT_NAME_PLACEHOLDER = "e.g. OpenCode Zen, Nebius, Groq…"
 const CUSTOM_MODELS_PLACEHOLDER = "model-a, model-b (comma-separated)"
 
-export const CUSTOM_PROVIDER_API_OPTIONS: Array<{
+const CUSTOM_PROVIDER_API_OPTIONS: Array<{
   value: PiCustomProviderApi
   label: string
 }> = [

@@ -168,6 +168,7 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
         language="diff"
         maxHeight={240}
         copyText={detail.copyText}
+        defaultOpen={status === "running"}
       />
     )
   }
@@ -181,7 +182,7 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
       kind={normalized.lowerName.includes("bash") || normalized.lowerName.includes("shell") || normalized.lowerName.includes("python") ? "terminal" : "custom"}
       meta={normalized.metadata.length > 0 ? normalized.metadata.join(" · ") : undefined}
       icon={statusIcon(status, normalized.name)}
-      defaultOpen
+      defaultOpen={status === "running"}
       collapseOnComplete={false}
       maxHeight={240}
       copyText={content}

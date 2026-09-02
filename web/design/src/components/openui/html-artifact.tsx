@@ -1,8 +1,7 @@
-import { defineComponent, useIsStreaming } from "@openuidev/react-lang";
+import { useIsStreaming } from "@openuidev/react-lang";
 import { Button, Card, CardHeader, CodeBlock, Tabs, TabsContent, TabsList, TabsTrigger } from "@openuidev/react-ui";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod/v4";
 import {
 	validateAndNormalizeOpenUIHtmlArtifact,
 	type OpenUIHtmlArtifactPayload,
@@ -76,7 +75,7 @@ function artifactKey(title: string, document: string): string {
 	return `${title}\u0000${document}`;
 }
 
-function HtmlArtifactComponent({ props: { title, document } }: { props: OpenUIHtmlArtifactPayload }) {
+export function HtmlArtifactComponent({ props: { title, document } }: { props: OpenUIHtmlArtifactPayload }) {
 	const isStreaming = useIsStreaming();
 	const context = useContext(OpenUIArtifactContext);
 	const validation = useMemo(() => validateAndNormalizeOpenUIHtmlArtifact({ title, document }), [document, title]);
@@ -131,16 +130,6 @@ function HtmlArtifactComponent({ props: { title, document } }: { props: OpenUIHt
 		</Card>
 	);
 }
-
-export const HtmlArtifactDef = defineComponent({
-	name: "HtmlArtifact",
-	description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
-	props: z.object({
-		title: z.string().describe("Short artifact title"),
-		document: z.string().describe("Complete self-contained HTML document"),
-	}),
-	component: HtmlArtifactComponent,
-});
 
 export function OpenUIHtmlArtifactView({
 	artifact,

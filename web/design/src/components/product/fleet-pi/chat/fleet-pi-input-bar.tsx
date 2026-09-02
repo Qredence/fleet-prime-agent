@@ -1,4 +1,4 @@
-import { Bot, FileCode2, FilePlus2, ListTodo, Settings2, X } from "lucide-react"
+import { FileCode2, FilePlus2, X } from "lucide-react"
 import { PromptInput } from "../../../registry/beui/agents/prompt-input"
 import { ComposerLoader } from "../../../registry/beui/agents/composer-loader"
 import { FileAttachment } from "../../../registry/beui/agents/input/file-attachment"
@@ -12,6 +12,7 @@ import { ModelSelector } from "../../../registry/assistant-ui/elements/model-sel
 import { Button } from "../../../ui/button"
 import { cn } from "../../../../lib/utils"
 import { useFleetPiInputBarState } from "./fleet-pi-input-bar-state"
+import { FLEET_PI_CHAT_MODES } from "./fleet-pi-chat-modes"
 import type { InputBarProps } from "../../../registry/beui/agents/input-bar"
 import type { SuggestionItem } from "../../../registry/beui/agents/input/suggestions"
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types"
@@ -21,18 +22,6 @@ import type {
   ChatThinkingLevel,
 } from "@prime-agent/web-protocol/chat-protocol"
 import type { ChatModelOption } from "../../../../lib/pi/chat-helpers"
-
-export function withFleetPiSuggestionStyles(
-  suggestions: InputBarProps["suggestions"],
-): InputBarProps["suggestions"] {
-  return suggestions
-}
-
-export const FLEET_PI_CHAT_MODES = [
-  { id: "agent", label: "Agent", icon: Bot, description: "Default coding agent" },
-  { id: "plan", label: "Plan", icon: ListTodo, description: "Plan before executing" },
-  { id: "harness", label: "Harness", icon: Settings2, description: "Harness-aware turn" },
-] as const
 
 export type FleetPiInputBarProps = Omit<
   InputBarProps,

@@ -23,6 +23,8 @@ import type {
 	ChatProviderUpdateResponse,
 	ChatQuestionAnswerRequest,
 	ChatQuestionAnswerResponse,
+	ChatQueueMutationRequest,
+	ChatQueueMutationResponse,
 	ChatRequest,
 	ChatResourcesResponse,
 	ChatSessionInfo,
@@ -51,6 +53,8 @@ import {
 	ChatProviderUpdateRequestSchema,
 	ChatProviderUpdateResponseSchema,
 	ChatQuestionAnswerResponseSchema,
+	ChatQueueMutationRequestSchema,
+	ChatQueueMutationResponseSchema,
 	ChatResourcesResponseSchema,
 	ChatSessionResponseSchema,
 	ChatSessionsResponseSchema,
@@ -78,6 +82,7 @@ const ProjectResponseSchema = z.object({ project: ProjectSummarySchema });
 export type ChatClient = {
 	abortSession: (metadata: ChatSessionMetadata) => Promise<void>;
 	answerQuestion: (request: ChatQuestionAnswerRequest) => Promise<ChatQuestionAnswerResponse>;
+	deleteQueuedMessage: (request: ChatQueueMutationRequest) => Promise<ChatQueueMutationResponse>;
 	browseWorkspace: (path?: string, projectId?: ProjectId) => Promise<WorkspaceBrowseResponse>;
 	createSession: (projectId?: ProjectId, signal?: AbortSignal) => Promise<ChatSessionResponse>;
 	listProjects: () => Promise<ProjectListResponse>;
@@ -98,6 +103,7 @@ export type ChatClient = {
 	deleteSession: (sessionId: string) => Promise<void>;
 	uploadAttachments: (sessionId: string, files: Array<File>) => Promise<Array<UploadedAttachment>>;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
+	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
 	upsertPlanPresentation: (request: ChatPlanPresentationUpsertRequest) => Promise<ChatPlanPresentation>;
 	upsertOpenUIArtifact: (request: ChatOpenUIArtifactUpsertRequest) => Promise<ChatOpenUIArtifactUpsertResponse>;
 	resumeSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
@@ -127,6 +133,15 @@ export const chatClient: ChatClient = {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(request),
+		});
+	},
+
+	async deleteQueuedMessage(request) {
+		const body = ChatQueueMutationRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/session", ChatQueueMutationResponseSchema, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
 		});
 	},
 
@@ -289,6 +304,11 @@ export const chatClient: ChatClient = {
 			`/api/chat/session?${metadataUrl({ ...metadata, openUI: true })}`,
 			ChatSessionResponseSchema,
 		);
+	},
+
+	async loadSubagentSession(parentSessionId, childId) {
+		const params = new URLSearchParams({ parentSessionId, childId });
+		return fetchValidatedJson(`/api/chat/session?${params}`, ChatSessionResponseSchema);
 	},
 
 	async upsertPlanPresentation(request) {

@@ -1,82 +1,10 @@
 import type { ReactNode } from "react"
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
-import type {
-  ChatMode,
-  ChatThinkingLevel,
-  PrimeAgentArtifactRun,
-  PrimeAgentGoal,
-  PrimeAgentSessionPresentation,
-  QueueState,
-} from "@prime-agent/web-protocol/chat-protocol"
-
-export type SessionInsightsInput = {
-  activityLabel?: string
-  artifactRuns: Array<PrimeAgentArtifactRun>
-  chatMode: ChatMode
-  messages: Array<ChatMessage>
-  planLabel?: string
-  presentation: PrimeAgentSessionPresentation
-  queue: QueueState
-  selectedModelKey?: string
-  sessionId?: string
-  status: ChatStatus
-  thinkingLevel?: ChatThinkingLevel
-}
-
-const RLM_CHILD_STATUSES = ["queued", "running", "done", "error", "cancelled"] as const
-
-export type SessionInsights = {
-  activity: string
-  artifactCount: number
-  assistantMessages: number
-  bashCommands: number
-  goal?: PrimeAgentGoal
-  ipythonCells: number
-  queuedFollowUps: number
-  queuedSteering: number
-  refinements: { failed: number; successful: number; total: number }
-  rlmChildren: Record<(typeof RLM_CHILD_STATUSES)[number], number>
-  userMessages: number
-}
-
-export function deriveSessionInsights({
-  activityLabel,
-  artifactRuns,
-  messages,
-  planLabel,
-  presentation,
-  queue,
-}: Pick<
-  SessionInsightsInput,
-  "activityLabel" | "artifactRuns" | "messages" | "planLabel" | "presentation" | "queue"
->): SessionInsights {
-  const rlmChildren = Object.fromEntries(RLM_CHILD_STATUSES.map((status) => [status, 0])) as SessionInsights["rlmChildren"]
-  for (const child of presentation.rlmChildren) rlmChildren[child.status] += 1
-
-  const refinements = presentation.refinements.reduce(
-    (counts, refinement) => ({
-      failed: counts.failed + Number(refinement.status === "error"),
-      successful: counts.successful + Number(refinement.status === "success"),
-      total: counts.total + 1,
-    }),
-    { failed: 0, successful: 0, total: 0 },
-  )
-  const artifacts = artifactRuns.flatMap((run) => run.artifacts)
-
-  return {
-    activity: activityLabel || planLabel || "Waiting for input",
-    artifactCount: artifacts.length,
-    assistantMessages: messages.filter((message) => message.role === "assistant").length,
-    bashCommands: presentation.userBash.length,
-    goal: presentation.goal,
-    ipythonCells: artifacts.filter((artifact) => artifact.kind === "ipython").length,
-    queuedFollowUps: queue.followUp.length,
-    queuedSteering: queue.steering.length,
-    refinements,
-    rlmChildren,
-    userMessages: messages.filter((message) => message.role === "user").length,
-  }
-}
+import type { PrimeAgentGoal } from "@prime-agent/web-protocol/chat-protocol"
+import {
+  RLM_CHILD_STATUSES,
+  deriveSessionInsights,
+  type SessionInsightsInput,
+} from "./session-insights"
 
 function humanize(value: string): string {
   return value.replaceAll("_", " ")
@@ -153,10 +81,9 @@ export function SessionInsightsPanel({
   }
 
   const insights = deriveSessionInsights({ activityLabel, artifactRuns, messages, planLabel, presentation, queue })
-  const rlmSummary = RLM_CHILD_STATUSES
-    .map((state) => [state, insights.rlmChildren[state]] as const)
-    .map(([state, count]) => `${count} ${state}`)
-    .join(" · ")
+  const rlmSummary = RLM_CHILD_STATUSES.map(
+    (state) => `${insights.rlmChildren[state]} ${state}`,
+  ).join(" · ")
 
   return (
     <section aria-label="Session insights" className="space-y-2.5 pb-1">

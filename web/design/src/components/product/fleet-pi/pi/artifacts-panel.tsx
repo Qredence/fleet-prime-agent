@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../../ui
 import { UiErrorBoundary } from "../ui-error-boundary"
 import { WorkspacePanelContent } from "./workspace-panel"
 import { collectSessionOpenUIBlocks, getArtifactsScopePath } from "./artifacts-utils"
-import { findWorkspaceNode } from "./shared"
+import { findWorkspaceNode } from "./resource-helpers"
 import { CodeBlock } from "../../../registry/beui/agents/code-block"
 import { FileDiff, type FileDiffStatus } from "../../../registry/beui/agents/file-diff"
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../../registry/beui/agents/tool-result"

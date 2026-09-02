@@ -105,20 +105,28 @@ function createHarness(sessionId = "session-a", availableSessions: Array<ChatSes
 						firstMessage: "Test session",
 					},
 				];
+	const eventSources: TestEventSource[] = [];
 	class TestEventSource {
 		onerror: (() => void) | null = null;
 		onmessage: ((event: MessageEvent<string>) => void) | null = null;
 		readonly close = vi.fn();
 
-		constructor(_url: string) {}
+		constructor(_url: string) {
+			eventSources.push(this);
+		}
 	}
 	vi.stubGlobal("EventSource", TestEventSource);
 
 	const streams: Array<StreamCall> = [];
 	const persistSession = vi.fn();
 	const loadSession = vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata));
+	const deleteQueuedMessage = vi.fn().mockResolvedValue({
+		status: "applied",
+		queue: { steering: [], followUp: [] },
+	});
 	const client = {
 		abortSession: vi.fn().mockResolvedValue(undefined),
+		deleteQueuedMessage,
 		listSessions: vi.fn().mockResolvedValue(discoveredSessions),
 		loadSession,
 		resumeSession: vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata)),
@@ -152,7 +160,7 @@ function createHarness(sessionId = "session-a", availableSessions: Array<ChatSes
 		}),
 	);
 
-	return { client, ...hook, loadSession, streams };
+	return { client, ...hook, eventSources, loadSession, streams };
 }
 
 describe("usePiChat stream admission", () => {
@@ -206,6 +214,29 @@ describe("usePiChat stream admission", () => {
 		await act(async () => {
 			await Promise.all([primary, firstQueued, secondQueued]);
 		});
+	});
+
+	it("removes a queued message optimistically and reconciles the server queue", async () => {
+		const { client, eventSources, result } = createHarness();
+		await act(async () => flush());
+
+		await act(async () => {
+			eventSources[0]?.onmessage?.(
+				new MessageEvent("message", { data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }) }),
+			);
+			await flush();
+		});
+		await act(async () => {
+			await result.current.deleteQueuedMessage("steering", 0, "queued");
+		});
+
+		expect(client.deleteQueuedMessage).toHaveBeenCalledWith({
+			sessionId: "session-a",
+			lane: "steering",
+			index: 0,
+			expectedText: "queued",
+		});
+		expect(result.current.queue).toEqual({ steering: [], followUp: [] });
 	});
 
 	it("sends the artifact prompt flag once while ordinary chat remains unflagged", async () => {

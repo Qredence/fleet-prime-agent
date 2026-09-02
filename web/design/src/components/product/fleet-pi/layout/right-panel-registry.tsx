@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react"
-import { Activity, Folder, Library, Package } from "lucide-react"
+import { Activity, Bot, Folder, Library, Package, SquareTerminal } from "lucide-react"
 import { Skeleton } from "../../../ui/skeleton"
 import {
   useChatPanelDataContext,
@@ -9,7 +9,7 @@ import type { ComponentType, ElementType } from "react"
 import type { RightPanel } from "../../../../lib/canvas-utils"
 
 export type ActiveRightPanel = Exclude<RightPanel, null>
-export type RightPanelBadgeSource = "resources" | "artifacts"
+export type RightPanelBadgeSource = "resources" | "artifacts" | "repl" | "subagents"
 export type RightPanelLoadingSource = "resources" | "workspace"
 
 export type RightPanelDefinition = {
@@ -41,6 +41,16 @@ const LazyResourcesPanel = lazy(() =>
 const LazySessionInsightsPanel = lazy(() =>
   import("../pi/session-insights-panel").then(({ SessionInsightsPanel }) => ({
     default: SessionInsightsPanel,
+  }))
+)
+const LazyReplPanel = lazy(() =>
+  import("../pi/repl-panel").then(({ ReplPanelContent }) => ({
+    default: ReplPanelContent,
+  }))
+)
+const LazySubagentsPanel = lazy(() =>
+  import("../pi/subagents-panel").then(({ SubagentsPanelContent }) => ({
+    default: SubagentsPanelContent,
   }))
 )
 const LazyWorkspacePanel = lazy(() =>
@@ -132,6 +142,29 @@ function ArtifactsContent() {
   )
 }
 
+function ReplContent() {
+  const data = useChatPanelDataContext()
+  return (
+    <Suspense fallback={<PanelFallback />}>
+      <LazyReplPanel artifactRuns={data.artifactRuns} />
+    </Suspense>
+  )
+}
+
+function SubagentsContent() {
+  const data = useChatPanelDataContext()
+  return (
+    <Suspense fallback={<PanelFallback />}>
+      <LazySubagentsPanel
+        agents={data.presentation.rlmChildren}
+        loadSession={data.loadSubagentSession}
+        parentSessionId={data.sessionId}
+        tree={data.presentation.rlmTree}
+      />
+    </Suspense>
+  )
+}
+
 export const RIGHT_PANEL_REGISTRY = {
   resources: {
     id: "resources",
@@ -178,9 +211,39 @@ export const RIGHT_PANEL_REGISTRY = {
     refreshSource: "workspace",
     component: ArtifactsContent,
   },
+  repl: {
+    id: "repl",
+    order: 3,
+    title: "REPL",
+    ariaLabel: "REPL runs",
+    commandLabel: "Open REPL",
+    commandKeywords: ["repl", "ipython", "python", "cells", "panels"],
+    icon: SquareTerminal,
+    dataTestid: "pi-repl-canvas",
+    mobileDataTestid: "pi-repl-mobile-panel",
+    badgeSource: "repl",
+    loadingSource: undefined,
+    refreshSource: undefined,
+    component: ReplContent,
+  },
+  subagents: {
+    id: "subagents",
+    order: 4,
+    title: "Subagents",
+    ariaLabel: "Subagents",
+    commandLabel: "Open Subagents",
+    commandKeywords: ["subagents", "agents", "threads", "delegation", "panels"],
+    icon: Bot,
+    dataTestid: "pi-subagents-canvas",
+    mobileDataTestid: "pi-subagents-mobile-panel",
+    badgeSource: "subagents",
+    loadingSource: undefined,
+    refreshSource: undefined,
+    component: SubagentsContent,
+  },
   "session-insights": {
     id: "session-insights",
-    order: 3,
+    order: 5,
     title: "Session insights",
     ariaLabel: "Session insights",
     commandLabel: "Open Session Insights",

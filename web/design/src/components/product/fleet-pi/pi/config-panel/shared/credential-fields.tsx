@@ -13,7 +13,7 @@ import type { LucideIcon } from "lucide-react"
 import type { ComponentProps } from "react"
 
 /** Invalid only after an attempted save — never paint empty fields red on open. */
-export function isFieldInvalid(
+function isFieldInvalid(
   value: string,
   attemptedSave: boolean,
   required = true

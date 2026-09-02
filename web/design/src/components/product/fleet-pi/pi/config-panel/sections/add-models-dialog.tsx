@@ -16,10 +16,8 @@ import {
 import { Spinner } from "../../../../../ui/spinner"
 import { cn } from "../../../../../../lib/utils"
 import { isModelEnabled } from "../shared/model-patterns"
-import {
-  ProviderBrandIcon,
-  formatProviderLabel,
-} from "../shared/provider-brand-icon"
+import { ProviderBrandIcon } from "../shared/provider-brand-icon"
+import { formatProviderLabel } from "../shared/provider-label"
 import type { ChatPiSettings } from "@prime-agent/web-protocol/chat-protocol"
 import type { ConfigModelInfo } from "../shared/types"
 

@@ -166,6 +166,7 @@ export function useChatWorkspaceData() {
 		activityLabel,
 		answerQuestion,
 		appendLocalMessage,
+		deleteQueuedMessage,
 		deleteSession,
 		error,
 		getMessages,
@@ -508,6 +509,14 @@ export function useChatWorkspaceData() {
 		(path: string) => loadWorkspaceFile(path, activeProjectId),
 		[activeProjectId],
 	);
+	const loadChatSession = useCallback(
+		(metadata: Parameters<typeof chatClient.loadSession>[0]) => chatClient.loadSession(metadata),
+		[],
+	);
+	const loadSubagentSession = useCallback(
+		(parentSessionId: string, childId: string) => chatClient.loadSubagentSession(parentSessionId, childId),
+		[],
+	);
 
 	const onDiscoverModels = useCallback(
 		async (providerId: string) => {
@@ -523,6 +532,8 @@ export function useChatWorkspaceData() {
 		handleThemePreferenceChange,
 		isLoadingProviders,
 		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
+		loadSession: loadChatSession,
+		loadSubagentSession,
 		loadWorkspaceFile: loadProjectWorkspaceFile,
 		messages,
 		modelKey,
@@ -593,12 +604,14 @@ export function useChatWorkspaceData() {
 		conversation: {
 			activityLabel,
 			artifactRuns,
+			deleteQueuedMessage,
 			error,
 			messages,
 			openArtifact,
 			openPanelAction: openProjectPanelAction,
 			persistOpenUIArtifact,
 			presentation,
+			queue,
 			sendMessage,
 			status,
 			stop,

@@ -18,7 +18,7 @@ import {
   countWorkspaceFiles,
   findWorkspaceNode,
   getResourceGroups,
-} from "./shared"
+} from "./resource-helpers"
 import type { ReactNode } from "react"
 import type { RightPanel } from "../../../../lib/canvas-utils"
 import type {
@@ -48,7 +48,14 @@ export function RightPanelTabsFromContext({
 }: {
   idPrefix?: string
 }) {
-  const { artifactRuns, messages, rightPanel, setRightPanel, resources } =
+  const {
+    artifactRuns,
+    messages,
+    presentation,
+    rightPanel,
+    setRightPanel,
+    resources,
+  } =
     useChatPanelDataContext()
   const { workspaceTree } = useWorkspaceTreeContext()
 
@@ -57,7 +64,11 @@ export function RightPanelTabsFromContext({
       activePanel={rightPanel}
       onPanelChange={setRightPanel}
       resources={resources}
+      replRuns={artifactRuns
+        .flatMap((run) => run.artifacts)
+        .filter((artifact) => artifact.kind === "ipython").length}
       sessionBlocks={collectSessionOpenUIBlocks(messages).length}
+      subagents={presentation.rlmChildren.length}
       technicalArtifacts={artifactRuns.flatMap((run) => run.artifacts).length}
       workspace={workspaceTree}
       idPrefix={idPrefix}
@@ -81,7 +92,9 @@ export function RightPanelLauncher({
   activePanel,
   onPanelChange,
   resources,
+  replRuns = 0,
   sessionBlocks = 0,
+  subagents = 0,
   technicalArtifacts = 0,
   workspace,
   idPrefix = "right-panel",
@@ -90,8 +103,10 @@ export function RightPanelLauncher({
   idPrefix?: string
   onPanelChange: (panel: RightPanel) => void
   resources: ChatResourcesResponse | null
+  replRuns?: number
   /** Generative-UI blocks in the current session — counted alongside workspace files. */
   sessionBlocks?: number
+  subagents?: number
   technicalArtifacts?: number
   workspace: WorkspaceTreeResponse | null
 }) {
@@ -125,9 +140,13 @@ export function RightPanelLauncher({
             ? totalResources || undefined
             : definition.badgeSource === "artifacts"
               ? totalArtifacts
+              : definition.badgeSource === "repl"
+                ? replRuns || undefined
+                : definition.badgeSource === "subagents"
+                  ? subagents || undefined
               : undefined,
       })),
-    [totalArtifacts, totalResources]
+    [replRuns, subagents, totalArtifacts, totalResources]
   )
 
   const selectedIndex = tabs.findIndex((tab) => tab.id === activePanel)

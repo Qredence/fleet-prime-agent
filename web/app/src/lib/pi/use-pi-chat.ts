@@ -5,6 +5,7 @@ import type {
 	ChatOpenUIArtifactUpsertRequest,
 	ChatPlanAction,
 	ChatQuestionAnswer,
+	ChatQueueMutationRequest,
 	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatStreamEvent,
@@ -442,6 +443,37 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setActivityLabelSynced(undefined);
 	}, [client, resetStreamAdmission, setActivityLabelSynced, setQueueSynced]);
 
+	const deleteQueuedMessage = useCallback(
+		async (lane: ChatQueueMutationRequest["lane"], index: number, expectedText: string) => {
+			const sessionId = sessionMetadataRef.current.sessionId;
+			if (!sessionId) return false;
+			const current = queueRef.current;
+			const items = lane === "steering" ? current.steering : current.followUp;
+			if (items[index] !== expectedText) return false;
+
+			const optimistic = {
+				...current,
+				[lane]: items.filter((_, itemIndex) => itemIndex !== index),
+			};
+			setQueueSynced(optimistic);
+
+			try {
+				const result = await client.deleteQueuedMessage({
+					sessionId,
+					lane,
+					index,
+					expectedText,
+				});
+				setQueueSynced(result.queue);
+				return result.status === "applied";
+			} catch (queueError) {
+				if (queueRef.current === optimistic) setQueueSynced(current);
+				throw queueError;
+			}
+		},
+		[client, setQueueSynced],
+	);
+
 	const startNewSession = useCallback(
 		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
 			if (options?.preserveRunning === false) stop();
@@ -725,6 +757,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		activityLabel,
 		answerQuestion,
 		appendLocalMessage,
+		deleteQueuedMessage,
 		deleteSession,
 		error,
 		getMessages,
