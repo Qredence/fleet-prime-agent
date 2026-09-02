@@ -15,10 +15,8 @@ import {
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "../../../styles/tokens"
 import { AddModelsDialog } from "./add-models-dialog"
 import { isModelEnabled } from "../shared/model-patterns"
-import {
-  ProviderBrandIcon,
-  formatProviderLabel,
-} from "../shared/provider-brand-icon"
+import { ProviderBrandIcon } from "../shared/provider-brand-icon"
+import { formatProviderLabel } from "../shared/provider-label"
 import type { ChatPiSettings } from "@prime-agent/web-protocol/chat-protocol"
 import type { ConfigModelInfo } from "../shared/types"
 

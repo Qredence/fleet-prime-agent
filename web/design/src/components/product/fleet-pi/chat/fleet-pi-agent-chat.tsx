@@ -18,21 +18,23 @@ import { FleetGenerativeTextRenderer } from "./generative-text-renderer"
 import type { OpenUIArtifactCandidate } from "../../../openui/html-artifact"
 import { PI_TOOL_RENDERERS } from "../pi/tool-renderers"
 import { FleetTurnStatus } from "./fleet-turn-status"
-import {
-  FleetPiInputBar,
-  withFleetPiSuggestionStyles,
-} from "./fleet-pi-input-bar"
+import { FleetPiInputBar } from "./fleet-pi-input-bar"
+import { getChatErrorPresentation } from "./chat-error-presentation"
 import type { AgentChatProps } from "../../../registry/beui/agents/types"
 import type { SuggestionItem } from "../../../registry/beui/agents/input/suggestions"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 import type {
-  ChatReasoningPresentation,
-  PrimeAgentArtifactRun,
-  PrimeAgentSessionPresentation,
+	ChatReasoningPresentation,
+	PrimeAgentArtifact,
+	PrimeAgentArtifactRun,
+	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol"
-import { NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-protocol"
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar"
 import { FleetReasoningPanel } from "../../../registry/assistant-ui/elements/fleet-reasoning-panel"
+import { FleetMessageQueue, type FleetQueueLane } from "../../../registry/assistant-ui/elements/fleet-message-queue"
+import { FleetSubagentList } from "../../../registry/assistant-ui/elements/fleet-subagent-list"
+import { FleetToolTimeline } from "../../../registry/assistant-ui/elements/fleet-tool-timeline"
+import { groupMessages, type ConversationTurn } from "../../../../lib/pi/conversation-turns"
 
 const LazyFleetPiToolRenderer = lazy(() =>
   import("./fleet-pi-tool-renderer").then(({ FleetPiToolRenderer }) => ({
@@ -59,42 +61,22 @@ export type FleetPiAgentChatProps = Omit<
 	activityLabel?: string
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
-	onOpenArtifact?: (artifactId: string) => void
+	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
+	queue?: { steering: readonly string[]; followUp: readonly string[] }
+	onDeleteQueuedMessage?: (lane: FleetQueueLane, index: number, text: string) => void | Promise<unknown>
 	inputBar: Omit<
     FleetPiInputBarProps,
     "onSend" | "onStop" | "status" | "suggestions"
 	>
 }
 
-type ConversationTurn = {
-  user?: ChatMessage
-  assistants: Array<ChatMessage>
-}
-
-function groupMessages(messages: Array<ChatMessage>): Array<ConversationTurn> {
-  const turns: Array<ConversationTurn> = []
-  let current: ConversationTurn | undefined
-
-  for (const message of messages) {
-    if (message.role === "user") {
-      if (current) turns.push(current)
-      current = { user: message, assistants: [] }
-      continue
-    }
-    if (message.role !== "assistant") continue
-    if (!current || message.source === "local") {
-      if (current) turns.push(current)
-      current = { assistants: [message] }
-      continue
-    }
-    current.assistants.push(message)
-  }
-
-  if (current) turns.push(current)
-  return turns
-}
-
+/**
+ * Extracts and joins the text content from a chat message's text parts.
+ *
+ * @param message - The chat message whose text parts are extracted
+ * @returns The joined text content, separated by blank lines
+ */
 function textFromMessage(message: ChatMessage) {
   return (message.parts ?? [])
     .flatMap((part) => {
@@ -119,6 +101,13 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
+/**
+ * Finds the first non-empty string value associated with the specified keys.
+ *
+ * @param value - The value containing the candidate properties
+ * @param keys - The property names to inspect in order
+ * @returns The first non-empty string value, or `undefined` if none is found
+ */
 function stringValue(value: unknown, ...keys: string[]) {
   const source = record(value)
   for (const key of keys) {
@@ -128,8 +117,14 @@ function stringValue(value: unknown, ...keys: string[]) {
   return undefined
 }
 
+/**
+ * Retrieves the most recent valid Fleet reasoning presentation from the chat messages.
+ *
+ * @param messages - The chat messages to inspect.
+ * @returns The latest reasoning presentation, or `undefined` when none is available.
+ */
 function reasoningPresentationFromMessages(
-  messages: Array<ChatMessage>,
+	messages: Array<ChatMessage>,
 ): ChatReasoningPresentation | undefined {
   for (const message of [...messages].reverse()) {
     for (const part of [...(message.parts ?? [])].reverse()) {
@@ -150,29 +145,90 @@ function reasoningPresentationFromMessages(
       return presentation as unknown as ChatReasoningPresentation
     }
   }
-  return undefined
+	return undefined
 }
 
+/**
+ * Extracts the run identifier from an assistant message identifier.
+ *
+ * @param messageId - The assistant message identifier
+ * @returns The run identifier, or `undefined` if the identifier does not match the expected format
+ */
+function runIdFromAssistantMessageId(messageId: string): string | undefined {
+	const match = /^(.*)-a\d+$/.exec(messageId)
+	return match?.[1]
+}
+
+/**
+ * Selects artifacts associated with the current conversation turn.
+ *
+ * @param artifactRuns - Artifact runs to search
+ * @param messages - Messages that define the current conversation turn
+ * @returns Artifacts linked to the messages, their tool calls, or their assistant runs
+ */
+function artifactsForCurrentTurn(
+	artifactRuns: Array<PrimeAgentArtifactRun> | undefined,
+	messages: Array<ChatMessage>,
+): Array<PrimeAgentArtifact> {
+	if (!artifactRuns || messages.length === 0) return []
+	const messageIds = new Set(messages.map((message) => message.id))
+	const toolCallIds = new Set(
+		messages.flatMap((message) =>
+			(message.parts ?? []).flatMap((part) => {
+				const source = record(part)
+				return typeof source?.toolCallId === "string" && source.toolCallId ? [source.toolCallId] : []
+			}),
+		),
+	)
+	const currentRunIds = new Set(
+		messages.flatMap((message) => {
+			const runId = runIdFromAssistantMessageId(message.id)
+			return runId ? [message.id, runId] : [message.id]
+		}),
+	)
+
+	return artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => {
+		if (artifact.sourceMessageId) return messageIds.has(artifact.sourceMessageId)
+		if (artifact.sourceToolCallId) {
+			return toolCallIds.has(artifact.sourceToolCallId) || currentRunIds.has(artifact.runId)
+		}
+		return currentRunIds.has(artifact.runId)
+	})
+}
+
+/**
+ * Builds activity items for tool calls, searches, running commands, active subagents, and goals.
+ *
+ * @param messages - Messages containing tool activity to display.
+ * @param presentation - Optional session activity data for commands, subagents, and goals.
+ * @param artifactRuns - Artifact runs used to provide artifact-opening actions.
+ * @param onOpenArtifact - Callback invoked when an artifact is opened.
+ * @returns The activity items represented by the supplied messages and session data.
+ */
 function buildActivityItems(
 	messages: Array<ChatMessage>,
 	presentation?: PrimeAgentSessionPresentation,
 	artifactRuns: Array<PrimeAgentArtifactRun> = [],
-	onOpenArtifact?: (artifactId: string) => void,
+	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void,
 ): AgentActivityItem[] {
-  const items = new Map<string, AgentActivityItem>()
+	const items = new Map<string, AgentActivityItem>()
 	const artifacts = artifactRuns.flatMap((run) => run.artifacts)
 	const openArtifactAction = (sourceId: string) => {
 		const artifactIndex = artifacts.findIndex(
 			(candidate) => candidate.sourceToolCallId === sourceId,
 		)
 		const artifact = artifactIndex >= 0 ? artifacts[artifactIndex] : undefined
-		return artifact && onOpenArtifact
-			? {
-					label: "Open in Artifacts",
-					ariaLabel: `Open ${artifact.title || "tool result"} artifact ${artifactIndex + 1}`,
-					onClick: () => onOpenArtifact(artifact.id),
-				}
-			: undefined
+		const target = artifact?.kind === "ipython"
+			? "repl"
+			: artifact
+				? "artifacts"
+				: undefined
+		if (!artifact || !target || !onOpenArtifact) return undefined
+		return {
+			label: target === "repl" ? "Open in REPL" : "Open in Artifacts",
+			ariaLabel: `Open ${artifact.title || "tool result"} artifact ${artifactIndex + 1}`,
+			onClick: () => onOpenArtifact(artifact.id, target),
+		}
 	}
   for (const message of messages) {
     for (const [partIndex, part] of (message.parts ?? []).entries()) {
@@ -253,6 +309,14 @@ function buildActivityItems(
 	]
 }
 
+/**
+ * Renders an assistant conversation turn with its content, tool activity, reasoning, and artifacts.
+ *
+ * @param messages - Assistant messages belonging to the turn
+ * @param isLast - Whether this is the latest conversation turn
+ * @param isStreaming - Whether the assistant is currently generating a response
+ * @param suppressQuestionTool - Whether to hide question-tool content
+ */
 function AssistantMessage({
   messages,
   isLast,
@@ -275,7 +339,7 @@ function AssistantMessage({
 	activityLabel?: string
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
-	onOpenArtifact?: (artifactId: string) => void
+	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 }) {
   const turnStreaming = isLast && isStreaming
@@ -325,6 +389,10 @@ function AssistantMessage({
 		[artifactRuns, messages, onOpenArtifact, presentation],
   )
   const reasoningPresentation = useMemo(() => reasoningPresentationFromMessages(messages), [messages])
+  const timelineArtifacts = useMemo(
+    () => (isLast ? artifactsForCurrentTurn(artifactRuns, messages) : []),
+    [artifactRuns, isLast, messages],
+  )
   const [activityOpen, setActivityOpen] = useState(turnStreaming)
   const [prevTurnStreaming, setPrevTurnStreaming] = useState(turnStreaming)
   if (prevTurnStreaming !== turnStreaming) {
@@ -343,6 +411,11 @@ function AssistantMessage({
             {isLast && isLifecycleNotice(activityLabel) ? (
               <FleetTurnStatus label={activityLabel} className="mb-2" />
             ) : null}
+            <FleetToolTimeline
+              messages={messages}
+              artifacts={timelineArtifacts}
+              streaming={turnStreaming}
+            />
             <StreamingResponse
               status={turnStreaming ? "streaming" : "complete"}
               copyText={copyText || undefined}
@@ -364,6 +437,9 @@ function AssistantMessage({
                 className="mt-2 max-w-none"
               />
             ) : null}
+            {isLast && presentation ? (
+              <FleetSubagentList children={presentation.rlmChildren} tree={presentation.rlmTree} />
+            ) : null}
           </MessageBubbleContent>
         </MessageBubble>
       </MessageContent>
@@ -382,9 +458,9 @@ type ConversationTurnViewProps = {
     toolRenderers: NonNullable<AgentChatProps["toolRenderers"]>
     onOpenUIAction?: (message: string) => void
     onOpenUIArtifactReady?: (
-      candidate: OpenUIArtifactCandidate
-    ) => void | Promise<string | undefined>
-    onOpenArtifact?: (artifactId: string) => void
+		candidate: OpenUIArtifactCandidate
+	) => void | Promise<string | undefined>
+		onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void
   }
   activity: {
     label?: string
@@ -474,31 +550,15 @@ function activitySummary(items: AgentActivityItem[]) {
   return "Completed " + count + " tracked actions"
 }
 
+/**
+ * Resolves suggestions from either an array or an object containing suggestion items.
+ *
+ * @param suggestions - The suggestions to normalize.
+ * @returns The available suggestions as an array.
+ */
 function resolveSuggestions(suggestions: FleetPiAgentChatProps["suggestions"]) {
   if (Array.isArray(suggestions)) return suggestions
   return suggestions?.items ?? []
-}
-
-export function getChatErrorPresentation(error: Error) {
-  if (
-    (error as { code?: unknown }).code === "NETWORK_DISCONNECTED" ||
-    /Cannot send daemon command/i.test(error.message) ||
-    /Prime Agent daemon is not connected/i.test(error.message) ||
-    /not connected to the Prime Agent runtime/i.test(error.message)
-  ) {
-    return {
-      title: "Agent unavailable",
-      message: NETWORK_DISCONNECTED_MESSAGE,
-    }
-  }
-
-  return {
-    title: "Request failed",
-    message: error.message.replace(
-      /\s+(?:Socket|Daemon log):\s*[^\n]*(?:\s+(?:Socket|Daemon log):\s*[^\n]*)*/gi,
-      "",
-    ),
-  }
 }
 
 const WELCOME_TASKS: SuggestionItem[] = [
@@ -568,6 +628,15 @@ function WelcomeState({
   )
 }
 
+/**
+ * Renders the Fleet Prime Agent chat interface, including conversation turns, activity, suggestions, errors, and message input.
+ *
+ * @param messages - Conversation messages to display.
+ * @param status - Current chat request status.
+ * @param suggestions - Optional prompts shown after a completed conversation.
+ * @param artifactRuns - Artifact runs associated with the current conversation turn.
+ * @returns The Fleet Prime Agent chat interface.
+ */
 export function FleetPiAgentChat({
   toolRenderers = PI_TOOL_RENDERERS,
   suggestions,
@@ -585,11 +654,12 @@ export function FleetPiAgentChat({
 	artifactRuns,
 	onOpenArtifact,
 	onOpenUIArtifactReady,
+  queue,
+  onDeleteQueuedMessage,
 }: FleetPiAgentChatProps) {
   const [draft, setDraft] = useState("")
   const turns = useMemo(() => groupMessages(messages), [messages])
-  const styledSuggestions = withFleetPiSuggestionStyles(suggestions)
-  const suggestionItems = resolveSuggestions(styledSuggestions)
+  const suggestionItems = resolveSuggestions(suggestions)
   const suggestionTexts = useMemo(
     () => suggestionItems.flatMap((item) => (item.disabled ? [] : [item.value ?? item.label])),
     [suggestionItems],
@@ -602,6 +672,26 @@ export function FleetPiAgentChat({
     setSelectedSuggestion(null)
   }
   const isStreaming = status === "streaming" || status === "submitted"
+  const rendering = useMemo<ConversationTurnViewProps["rendering"]>(
+    () => ({ toolRenderers, onOpenUIAction, onOpenUIArtifactReady, onOpenArtifact }),
+    [onOpenArtifact, onOpenUIAction, onOpenUIArtifactReady, toolRenderers]
+  )
+  const stateForLast = useMemo<ConversationTurnViewProps["state"]>(
+    () => ({ isLast: true, isStreaming, suppressQuestionTool }),
+    [isStreaming, suppressQuestionTool]
+  )
+  const stateForRest = useMemo<ConversationTurnViewProps["state"]>(
+    () => ({ isLast: false, isStreaming: false, suppressQuestionTool }),
+    [suppressQuestionTool]
+  )
+  const activityForLast = useMemo<ConversationTurnViewProps["activity"]>(
+    () => ({ label: activityLabel, presentation, artifactRuns }),
+    [activityLabel, artifactRuns, presentation]
+  )
+  const activityForRest = useMemo<ConversationTurnViewProps["activity"]>(
+    () => ({ label: undefined, presentation: undefined, artifactRuns: undefined }),
+    []
+  )
   const isEmpty = turns.length === 0 && !error
   const errorPresentation = error ? getChatErrorPresentation(error) : null
   const inputBarNode = (
@@ -615,7 +705,7 @@ export function FleetPiAgentChat({
       }
       controlled={{ value: draft, onChange: setDraft }}
       status={status}
-      suggestions={styledSuggestions}
+      suggestions={suggestions}
       onSend={onSend}
       onStop={onStop}
     />
@@ -654,22 +744,9 @@ export function FleetPiAgentChat({
             <ConversationTurnView
               key={key}
               turn={turn}
-              state={{
-                isLast,
-                isStreaming: isLast && isStreaming,
-                suppressQuestionTool,
-              }}
-              rendering={{
-                toolRenderers,
-                onOpenUIAction,
-                onOpenUIArtifactReady,
-                onOpenArtifact,
-              }}
-              activity={{
-                label: isLast ? activityLabel : undefined,
-                presentation: isLast ? presentation : undefined,
-                artifactRuns: isLast ? artifactRuns : undefined,
-              }}
+              state={isLast ? stateForLast : stateForRest}
+              rendering={rendering}
+              activity={isLast ? activityForLast : activityForRest}
             />
           )
         })}
@@ -699,6 +776,7 @@ export function FleetPiAgentChat({
         ) : null}
       </MessageScroller>
       {!isEmpty ? inputBarNode : null}
+      <FleetMessageQueue queue={queue ?? { steering: [], followUp: [] }} onDelete={onDeleteQueuedMessage} />
     </div>
   )
 }

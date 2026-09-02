@@ -1,5 +1,5 @@
 import { Streamdown } from "streamdown"
-import { lazy, Suspense } from "react"
+import { Fragment, isValidElement, lazy, Suspense } from "react"
 import { cn } from "./utils/cn"
 import type { Components } from "streamdown"
 
@@ -51,6 +51,32 @@ export type MarkdownProps = {
 
 const SAFE_HREF_PATTERN = /^(https?:|mailto:)/i
 
+/**
+ * Determines whether a rendered Markdown element contains a block-level image or code element.
+ *
+ * @param value - The value to inspect recursively.
+ * @returns `true` if the value contains a block-level image or code element, `false` otherwise.
+ */
+function containsBlockMarkdownChild(value: unknown, imageIsSoleChild: boolean): boolean {
+  if (!isValidElement(value)) return false
+
+  const props = value.props
+  if (typeof props !== "object" || props === null) return false
+
+  const node = "node" in props ? props.node : undefined
+  const tagName =
+    typeof node === "object" && node !== null && "tagName" in node
+      ? node.tagName
+      : undefined
+  if (tagName === "img") return imageIsSoleChild
+  if (tagName === "code" && "data-block" in props) return true
+
+  return (
+    "children" in props &&
+    containsBlockMarkdownChild(props.children, imageIsSoleChild)
+  )
+}
+
 export const markdownComponents: Components = {
   h1: ({ children, ...props }) => (
     <h1 className="an-md-h1 mt-3 mb-1.5 text-base font-semibold" {...props}>
@@ -72,14 +98,28 @@ export const markdownComponents: Components = {
       {children}
     </h4>
   ),
-  p: ({ children, ...props }) => (
-    <p
-      className="an-md-p text-sm leading-relaxed text-an-foreground/80"
-      {...props}
-    >
-      {children}
-    </p>
-  ),
+  p: ({ children, node, ...props }) => {
+    const child = (Array.isArray(children) ? children : [children]).filter(
+      (value) => value != null && value !== ""
+    )
+
+    if (
+      child.some((value) =>
+        containsBlockMarkdownChild(value, child.length === 1)
+      )
+    ) {
+      return <Fragment>{children}</Fragment>
+    }
+
+    return (
+      <p
+        className="an-md-p text-sm leading-relaxed text-an-foreground/80"
+        {...props}
+      >
+        {children}
+      </p>
+    )
+  },
   ul: ({ children, ...props }) => (
     <ul
       className="an-md-ul mb-2 flex list-outside list-disc flex-col gap-0.5 pl-4 text-sm text-an-foreground/80"

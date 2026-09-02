@@ -1,6 +1,5 @@
 import { Cpu } from "lucide-react"
 import {
-  KNOWN_PROVIDERS,
   isCustomProviderId,
   isOccProviderId,
 } from "@prime-agent/web-protocol/provider-catalog"
@@ -108,10 +107,4 @@ export function ProviderBrandIcon({
   const Icon =
     provider in PROVIDER_METADATA ? PROVIDER_METADATA[provider].icon : Cpu
   return <Icon className={cn(BRAND_CLASS, className)} aria-hidden />
-}
-
-export function formatProviderLabel(provider: string) {
-  return (
-    KNOWN_PROVIDERS.find((entry) => entry.id === provider)?.name ?? provider
-  )
 }

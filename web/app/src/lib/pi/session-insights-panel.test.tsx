@@ -3,10 +3,8 @@ import {
   RightPanelLauncher,
   RightPanelTrigger,
 } from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher"
-import {
-  deriveSessionInsights,
-  SessionInsightsPanel,
-} from "@prime-agent/web-design/components/product/fleet-pi/pi/session-insights-panel"
+import { SessionInsightsPanel } from "@prime-agent/web-design/components/product/fleet-pi/pi/session-insights-panel"
+import { deriveSessionInsights } from "@prime-agent/web-design/components/product/fleet-pi/pi/session-insights"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol"
 import { describe, expect, it, vi } from "vitest"

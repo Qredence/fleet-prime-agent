@@ -16,6 +16,8 @@ import type {
 	ChatProviderUpdateRequest,
 	ChatProviderUpdateResponse,
 	ChatResourcesResponse,
+	ChatSessionMetadata,
+	ChatSessionResponse,
 	ChatSettingsResponse,
 	ChatThinkingLevel,
 	PrimeAgentArtifactRun,
@@ -34,6 +36,8 @@ type UseRightPanelContextValueArgs = {
 	handleThemePreferenceChange: (preference: ThemePreference) => void;
 	isLoadingProviders?: boolean;
 	isUpdatingProvider?: boolean;
+	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
+	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
 	loadWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>;
 	messages: Array<ChatMessage>;
 	modelKey?: string;
@@ -78,6 +82,11 @@ type RightPanelContextSlices = {
 	workspaceTreeContext: WorkspaceTreeContextValue;
 };
 
+/**
+ * Assembles the memoized context values used by the right panel.
+ *
+ * @returns The chat panel, workspace tree, and settings action context slices
+ */
 export function useRightPanelContextValue({
 	activityLabel,
 	artifactRuns,
@@ -85,6 +94,8 @@ export function useRightPanelContextValue({
 	handleThemePreferenceChange,
 	isLoadingProviders,
 	isUpdatingProvider,
+	loadSession,
+	loadSubagentSession,
 	loadWorkspaceFile,
 	messages,
 	modelKey,
@@ -127,6 +138,8 @@ export function useRightPanelContextValue({
 			activityLabel,
 			artifactRuns,
 			chatMode,
+			loadSession,
+			loadSubagentSession,
 			messages,
 			models,
 			planLabel,
@@ -149,6 +162,8 @@ export function useRightPanelContextValue({
 			activityLabel,
 			artifactRuns,
 			chatMode,
+			loadSession,
+			loadSubagentSession,
 			messages,
 			models,
 			planLabel,

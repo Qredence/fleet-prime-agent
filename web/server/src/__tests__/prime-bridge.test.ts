@@ -763,6 +763,227 @@ describe("PrimeBridge.resumeSessionById", () => {
 	});
 });
 
+describe("PrimeBridge.loadRlmChildTranscript", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-rlm-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-rlm-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+		return () => {
+			rmSync(workDir, { recursive: true, force: true });
+			rmSync(agentDir, { recursive: true, force: true });
+		};
+	});
+
+	afterEach(() => {
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		vi.restoreAllMocks();
+	});
+
+	it("loads an authorized child from a separate transcript directory", async () => {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const bridge = createTestBridge({ sessionLister });
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const childDir = join(workDir, "rlm-child-store");
+		const childManager = SessionManager.create(workDir, childDir);
+		const childPath = childManager.materializeSessionFile();
+		childManager.appendMessage({
+			role: "user",
+			content: "Inspect the child transcript",
+			timestamp: Date.now(),
+		});
+		childManager.flushNow();
+
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: [
+				{
+					id: "child-1",
+					label: "Research worker",
+					status: "done",
+					timestamp: Date.now(),
+				},
+			],
+		};
+		listedSessions.push({
+			id: childManager.getSessionId(),
+			sessionId: childManager.getSessionId(),
+			cwd: workDir,
+			sessionFile: childPath,
+			parentSessionId: parent.sessionId,
+			rlmChildId: "child-1",
+		});
+		const result = await bridge.loadRlmChildTranscript(parent.sessionId, "child-1");
+
+		expect(result).toMatchObject({
+			sessionId: childManager.getSessionId(),
+			projectId: null,
+			messages: [{ role: "user", parts: [{ type: "text", text: "Inspect the child transcript" }] }],
+		});
+		expect(result?.presentation).toEqual({
+			revision: 0,
+			userBash: [],
+			rlmChildren: [],
+			refinements: [],
+			artifactRuns: [],
+		});
+	});
+
+	it("loads a child whose parent active session matches the root summary", async () => {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const bridge = createTestBridge({ sessionLister });
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const childManager = SessionManager.create(workDir, join(workDir, "rlm-active-parent-child-store"));
+		const childPath = childManager.materializeSessionFile();
+		childManager.appendMessage({
+			role: "user",
+			content: "Inspect the active parent child transcript",
+			timestamp: Date.now(),
+		});
+		childManager.flushNow();
+
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: [
+				{
+					id: "child-1",
+					label: "Research worker",
+					status: "done",
+					timestamp: Date.now(),
+				},
+			],
+		};
+		listedSessions.push(
+			{
+				id: parent.sessionId,
+				sessionId: parent.sessionId,
+				activeSessionId: "root-active-session",
+				cwd: workDir,
+			},
+			{
+				id: childManager.getSessionId(),
+				sessionId: childManager.getSessionId(),
+				cwd: workDir,
+				sessionFile: childPath,
+				parentActiveSessionId: "root-active-session",
+				rlmChildId: "child-1",
+			},
+		);
+
+		const result = await bridge.loadRlmChildTranscript(parent.sessionId, "child-1");
+
+		expect(result).toMatchObject({
+			sessionId: childManager.getSessionId(),
+			messages: [{ role: "user", parts: [{ type: "text", text: "Inspect the active parent child transcript" }] }],
+		});
+	});
+
+	it("loads an authorized nested child through its immediate parent lineage", async () => {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const bridge = createTestBridge({ sessionLister });
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const parentChildManager = SessionManager.create(workDir, join(workDir, "rlm-parent-child-store"));
+		const parentChildPath = parentChildManager.materializeSessionFile();
+		parentChildManager.flushNow();
+		const grandchildManager = SessionManager.create(workDir, join(workDir, "rlm-grandchild-store"));
+		const grandchildPath = grandchildManager.materializeSessionFile();
+		grandchildManager.appendMessage({
+			role: "user",
+			content: "Inspect the nested child transcript",
+			timestamp: Date.now(),
+		});
+		grandchildManager.flushNow();
+
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: [
+				{
+					id: "child-1",
+					label: "Research worker",
+					status: "done",
+					timestamp: Date.now(),
+				},
+				{
+					id: "grandchild-1",
+					parentId: "child-1",
+					label: "Nested worker",
+					status: "done",
+					timestamp: Date.now(),
+				},
+			],
+		};
+		listedSessions.push(
+			{
+				id: parentChildManager.getSessionId(),
+				sessionId: parentChildManager.getSessionId(),
+				cwd: workDir,
+				sessionFile: parentChildPath,
+				parentSessionId: parent.sessionId,
+				rlmChildId: "child-1",
+			},
+			{
+				id: grandchildManager.getSessionId(),
+				sessionId: grandchildManager.getSessionId(),
+				cwd: workDir,
+				sessionFile: grandchildPath,
+				parentSessionId: parentChildManager.getSessionId(),
+				rlmChildId: "grandchild-1",
+			},
+		);
+
+		const result = await bridge.loadRlmChildTranscript(parent.sessionId, "grandchild-1");
+
+		expect(result).toMatchObject({
+			sessionId: grandchildManager.getSessionId(),
+			messages: [{ role: "user", parts: [{ type: "text", text: "Inspect the nested child transcript" }] }],
+		});
+	});
+
+	it("rejects a listed transcript whose lineage does not match the live parent", async () => {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const bridge = createTestBridge({ sessionLister });
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: [
+				{
+					id: "child-1",
+					label: "Research worker",
+					status: "done",
+					timestamp: Date.now(),
+				},
+			],
+		};
+		listedSessions.push({
+			id: "child-session",
+			sessionId: "child-session",
+			cwd: workDir,
+			sessionFile: join(workDir, "missing.jsonl"),
+			parentSessionId: "other-parent",
+			rlmChildId: "child-1",
+		});
+
+		await expect(bridge.loadRlmChildTranscript(parent.sessionId, "child-1")).resolves.toBeUndefined();
+		expect(sessionLister).toHaveBeenCalledOnce();
+	});
+});
+
 /**
  * Regression net for the `InProcessAgentConnection` migration. The bridge
  * class must not reach into `AgentSession` / `SessionManager` for its own

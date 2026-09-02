@@ -17,6 +17,7 @@ export {
 } from "./handlers/chat-providers";
 export { handleChatProvidersOAuthPost } from "./handlers/chat-providers-oauth";
 export { handleChatQuestionPost } from "./handlers/chat-question";
+export { handleChatQueueMutationPost } from "./handlers/chat-queue";
 export { handleChatResourcesGet } from "./handlers/chat-resources";
 export { handleChatResumePost } from "./handlers/chat-resume";
 export { handleChatSessionGet } from "./handlers/chat-session";

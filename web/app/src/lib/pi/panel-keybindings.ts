@@ -5,6 +5,9 @@ export type FleetPanelKeybindingAction =
 	| "toggleResources"
 	| "toggleWorkspace"
 	| "toggleArtifacts"
+	| "toggleRepl"
+	| "toggleSubagents"
+	| "toggleCommandPalette"
 	| "closePanel"
 	| "focusPanel"
 	| "focusChat";
@@ -22,6 +25,9 @@ export const DEFAULT_FLEET_PANEL_KEYBINDINGS: Record<FleetPanelKeybindingAction,
 	toggleResources: { code: "Digit1", ctrlOrMeta: true, shift: true },
 	toggleWorkspace: { code: "Digit2", ctrlOrMeta: true, shift: true },
 	toggleArtifacts: { code: "Digit3", ctrlOrMeta: true, shift: true },
+	toggleRepl: { code: "Digit4", ctrlOrMeta: true, shift: true },
+	toggleSubagents: { code: "Digit5", ctrlOrMeta: true, shift: true },
+	toggleCommandPalette: { code: "KeyK", ctrlOrMeta: true },
 	closePanel: { code: "Escape" },
 	focusPanel: { code: "KeyP", ctrlOrMeta: true, shift: true },
 	focusChat: { code: "KeyC", ctrlOrMeta: true, shift: true },
@@ -38,6 +44,13 @@ function readKeybindings(): Record<FleetPanelKeybindingAction, FleetKeybinding> 
 	}
 }
 
+/**
+ * Determines whether a keyboard event matches a keybinding.
+ *
+ * @param event - The keyboard event to evaluate
+ * @param binding - The keybinding to compare against
+ * @returns `true` if the event matches the key code and modifier requirements, `false` otherwise
+ */
 function matches(event: KeyboardEvent, binding: FleetKeybinding): boolean {
 	return (
 		event.code === binding.code &&
@@ -47,17 +60,30 @@ function matches(event: KeyboardEvent, binding: FleetKeybinding): boolean {
 	);
 }
 
-function focusChatComposer(): void {
+/**
+ * Focuses the chat composer without scrolling the page.
+ */
+export function focusChatComposer(): void {
 	const target = document.querySelector<HTMLElement>(
 		"[data-fleet-chat-focus] textarea, [data-fleet-chat-focus] [contenteditable='true'], [data-fleet-chat-focus] input",
 	);
 	target?.focus({ preventScroll: true });
 }
 
+/**
+ * Registers keyboard shortcuts for toggling, closing, and focusing panels and the chat composer.
+ *
+ * @param onCommandPaletteToggle - Optional callback invoked when the command palette shortcut is pressed
+ * @param onClosePanel - Optional callback invoked when the close-panel shortcut is pressed while a panel is active
+ */
 export function usePanelKeybindings({
+	onCommandPaletteToggle,
+	onClosePanel,
 	rightPanel,
 	setRightPanel,
 }: {
+	onCommandPaletteToggle?: () => void;
+	onClosePanel?: () => void;
 	rightPanel: RightPanelState;
 	setRightPanel: (panel: RightPanelState) => void;
 }): void {
@@ -69,9 +95,15 @@ export function usePanelKeybindings({
 			if (match("toggleResources")) setRightPanel(rightPanel === "resources" ? null : "resources");
 			else if (match("toggleWorkspace")) setRightPanel(rightPanel === "workspace" ? null : "workspace");
 			else if (match("toggleArtifacts")) setRightPanel(rightPanel === "artifacts" ? null : "artifacts");
+			else if (match("toggleRepl")) setRightPanel(rightPanel === "repl" ? null : "repl");
+			else if (match("toggleSubagents")) setRightPanel(rightPanel === "subagents" ? null : "subagents");
+			else if (onCommandPaletteToggle && match("toggleCommandPalette")) onCommandPaletteToggle();
 			else if (rightPanel && match("closePanel")) {
-				setRightPanel(null);
-				focusChatComposer();
+				if (onClosePanel) onClosePanel();
+				else {
+					setRightPanel(null);
+					focusChatComposer();
+				}
 			} else if (rightPanel && match("focusPanel")) {
 				document.querySelector<HTMLElement>("[data-fleet-panel-focus]")?.focus({ preventScroll: true });
 			} else if (match("focusChat")) focusChatComposer();
@@ -85,5 +117,5 @@ export function usePanelKeybindings({
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [rightPanel, setRightPanel]);
+	}, [onCommandPaletteToggle, onClosePanel, rightPanel, setRightPanel]);
 }

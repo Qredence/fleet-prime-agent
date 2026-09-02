@@ -1,9 +1,14 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
 import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/artifacts-panel";
 import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
+import { FleetMessageQueue } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue";
+import { FleetSubagentList } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-subagent-list";
+import { FleetToolTimeline } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-tool-timeline";
+import { Markdown } from "@prime-agent/web-design/components/registry/beui/agents/markdown";
+import { notify } from "@prime-agent/web-design/lib/notify";
 
 vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
@@ -59,6 +64,153 @@ function presentation(
 }
 
 describe("review regressions", () => {
+	it("preserves paragraph styling around an inline image in mixed content", () => {
+		const { container, getByRole } = render(
+			<Markdown content="Before ![status](https://example.com/status.png) after" />,
+		);
+		const paragraph = container.querySelector("p.an-md-p");
+
+		expect(paragraph).not.toBeNull();
+		expect(paragraph?.textContent).toContain("Before");
+		expect(paragraph?.textContent).toContain("after");
+		expect(getByRole("img", { name: "status" }).closest("p")).toBe(paragraph);
+	});
+
+	it("keeps the completed tool timeline expanded by default", () => {
+		const { getByRole } = render(
+			<FleetToolTimeline
+				messages={[
+					{
+						id: "assistant-tools",
+						role: "assistant",
+						parts: [{ type: "tool-Bash", toolCallId: "bash-1", input: { command: "pwd" }, output: "ok" }],
+					},
+				]}
+				streaming={false}
+			/>,
+		);
+
+		expect(getByRole("button", { name: "1 tool action" }).getAttribute("aria-expanded")).toBe("true");
+	});
+
+	it("limits the active tool timeline to artifacts from the current turn", () => {
+		const messages: Array<ChatMessage> = [
+			{ id: "user-1", role: "user", parts: [{ type: "text", text: "First turn" }] },
+			{
+				id: "assistant-1",
+				role: "assistant",
+				parts: [{ type: "tool-Bash", toolCallId: "old-tool", input: { command: "old command" }, output: "done" }],
+			},
+			{ id: "user-2", role: "user", parts: [{ type: "text", text: "Second turn" }] },
+			{
+				id: "assistant-2",
+				role: "assistant",
+				parts: [{ type: "tool-Bash", toolCallId: "current-tool", input: { command: "current command" }, output: "done" }],
+			},
+		];
+		const artifactRuns: Array<PrimeAgentArtifactRun> = [
+			{
+				id: "old-run",
+				runId: "old-run",
+				artifacts: [
+					{
+						id: "old-artifact",
+						runId: "old-run",
+						sourceMessageId: "assistant-1",
+						sourceToolCallId: "old-tool",
+						kind: "bash",
+						title: "old command",
+						status: "success",
+						timestamp: 1,
+					},
+				],
+			},
+			{
+				id: "current-run",
+				runId: "current-run",
+				artifacts: [
+					{
+						id: "current-artifact",
+						runId: "current-run",
+						sourceMessageId: "assistant-2",
+						sourceToolCallId: "current-tool",
+						kind: "bash",
+						title: "current command",
+						status: "success",
+						timestamp: 2,
+					},
+				],
+			},
+		];
+
+		const { getAllByRole, queryByRole } = render(
+			<FleetPiAgentChat
+				artifactRuns={artifactRuns}
+				inputBar={inputBar}
+				messages={messages}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+			/>,
+		);
+
+		expect(queryByRole("button", { name: "2 tool actions" })).toBeNull();
+		expect(getAllByRole("button", { name: "1 tool action" })).toHaveLength(2);
+	});
+
+	it("renders nested subagents in tree order regardless of completion order", () => {
+		const { getByRole, getByText } = render(
+			<FleetSubagentList
+				children={[
+					{ id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2 },
+					{ id: "parent", label: "Parent worker", status: "error", timestamp: 1 },
+				]}
+				tree={{
+					rootSessionId: "session-1",
+					rootChildrenIds: ["parent"],
+					nodes: {
+						parent: { id: "parent", label: "Parent worker", status: "error", timestamp: 1, depth: 0, childrenIds: ["child"] },
+						child: { id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2, depth: 1, childrenIds: [] },
+					},
+				}}
+			/>,
+		);
+
+		fireEvent.click(getByRole("button", { name: /Subagents completed/ }));
+		expect(getByText("Parent worker")).toBeTruthy();
+		expect(getByText("Child worker")).toBeTruthy();
+	});
+
+	it("removes a queued item using its lane and expected text", () => {
+		const onDelete = vi.fn();
+		const { getByRole } = render(
+			<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: ["Summarize"] }} onDelete={onDelete} />,
+		);
+
+		fireEvent.click(getByRole("button", { name: "Remove queued message: Run tests" }));
+		expect(onDelete).toHaveBeenCalledWith("steering", 0, "Run tests");
+	});
+
+	it("reports queued item removal failures", async () => {
+		const onDelete = vi.fn().mockRejectedValue(new Error("queue unavailable"));
+		const notifyError = vi.spyOn(notify, "error").mockImplementation(() => "");
+		render(<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onDelete={onDelete} />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Remove queued message: Run tests" }));
+
+		await waitFor(() => expect(notifyError).toHaveBeenCalledWith("Unable to remove queued message"));
+	});
+
+	it("reports queued item removals rejected by the server", async () => {
+		const onDelete = vi.fn().mockResolvedValue(false);
+		const notifyError = vi.spyOn(notify, "error").mockImplementation(() => "");
+		render(<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onDelete={onDelete} />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Remove queued message: Run tests" }));
+
+		await waitFor(() => expect(notifyError).toHaveBeenCalledWith("Unable to remove queued message"));
+	});
+
 	it("keeps completed reasoning presentation visible", () => {
 		const { getByLabelText } = render(
 			<FleetPiAgentChat
@@ -257,7 +409,7 @@ describe("review regressions", () => {
 		expect(queryByText(/tracked actions/)).toBeNull();
 	});
 
-	it("renders active session activity and opens its artifact from the action column", () => {
+	it("renders active session activity and routes technical artifacts to Artifacts", () => {
 		const onOpenArtifact = vi.fn();
 		const active = presentation({
 			userBash: [
@@ -301,7 +453,7 @@ describe("review regressions", () => {
 			],
 		});
 		const messages: Array<ChatMessage> = [{ id: "assistant-live", role: "assistant", parts: [] }];
-		const { getByRole, getByText } = render(
+		const { getAllByText, getByRole, getByText } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -314,17 +466,17 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		expect(getByText("git status", { exact: true })).toBeTruthy();
+		expect(getAllByText("git status", { exact: true }).length).toBeGreaterThan(0);
 		expect(getByText("RLM · Repository scan", { exact: true })).toBeTruthy();
-		const openButton = getByRole("button", { name: "Open git status artifact 1" });
 		expect(getByRole("status").textContent).toContain("Coordinating 2 active actions");
 		expect(getByRole("region", { name: /Coordinating 2 active actions/ }).getAttribute("aria-hidden")).toBe("false");
-		expect(openButton.parentElement?.className).toContain("grid-cols-[1rem_auto_minmax(0,1fr)_auto]");
+		const openButton = getByRole("button", { name: "Open git status artifact 1" });
+		expect(openButton).toBeTruthy();
 		fireEvent.click(openButton);
-		expect(onOpenArtifact).toHaveBeenCalledWith("bash-artifact");
+		expect(onOpenArtifact).toHaveBeenCalledWith("bash-artifact", "artifacts");
 	});
 
-	it("opens canonical tool activity in Artifacts", () => {
+	it("opens IPython activity in REPL", () => {
 		const onOpenArtifact = vi.fn();
 		const messages: Array<ChatMessage> = [
 			{
@@ -378,7 +530,7 @@ describe("review regressions", () => {
 			"grid-cols-[1rem_auto_minmax(0,1fr)_auto]",
 		);
 		fireEvent.click(openButton);
-		expect(onOpenArtifact).toHaveBeenCalledWith("ipython-artifact");
+		expect(onOpenArtifact).toHaveBeenCalledWith("ipython-artifact", "repl");
 	});
 
 	it("forwards actions from reopened artifact OpenUI blocks", () => {
@@ -393,15 +545,9 @@ describe("review regressions", () => {
 
 		const { getByRole } = render(
 			<ArtifactsPanelContent
-				error={null}
-				loadWorkspaceFile={vi.fn()}
-				loading={false}
 				messages={messages}
 				onOpenUIAction={onOpenUIAction}
-				onSelectedPathChange={vi.fn()}
-				selectedPath={null}
 				status="ready"
-				workspace={null}
 			/>,
 		);
 
@@ -410,7 +556,7 @@ describe("review regressions", () => {
 		 expect(onOpenUIAction).toHaveBeenCalledWith("continue_conversation");
 	});
 
-	it("preserves failed diff status and output in artifacts", () => {
+	it("renders technical diff output in the Artifacts pane", () => {
 		const artifactRuns: Array<PrimeAgentArtifactRun> = [
 			{
 				id: "run-1",
@@ -434,22 +580,15 @@ describe("review regressions", () => {
 			},
 		];
 
-		const { getByLabelText, getByText, queryByLabelText } = render(
+		const { getByLabelText, getByText } = render(
 			<ArtifactsPanelContent
-				error={null}
-				loadWorkspaceFile={vi.fn()}
-				loading={false}
 				messages={[]}
-				onSelectedPathChange={vi.fn()}
-				selectedPath={null}
 				status="ready"
 				artifactRuns={artifactRuns}
-				workspace={null}
 			/>,
 		);
 
 		expect(getByLabelText("Changes failed")).toBeTruthy();
-		expect(queryByLabelText("Changes applied")).toBeNull();
 		expect(getByText("permission denied")).toBeTruthy();
 	});
 

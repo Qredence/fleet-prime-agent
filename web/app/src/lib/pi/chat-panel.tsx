@@ -5,6 +5,7 @@ import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-typ
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol"
 import type { QuestionAnswer } from "@prime-agent/web-design/components/registry/beui/agents/question/question-prompt"
 import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact"
+import type { FleetQueueLane } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue"
 import { useCallback, useMemo } from "react"
 
 type ChatPanelProps = {
@@ -15,6 +16,8 @@ type ChatPanelProps = {
 	activityLabel?: string
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
+	queue?: { steering: readonly string[]; followUp: readonly string[] }
+	onDeleteQueuedMessage?: (lane: FleetQueueLane, index: number, text: string) => Promise<boolean>
 	onOpenArtifact?: (artifactId: string) => void
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 	inputSuggestionItems: FleetPiAgentChatProps["suggestions"]
@@ -29,6 +32,11 @@ type ChatPanelProps = {
 	}) => void
 }
 
+/**
+ * Renders the Fleet Pi agent chat panel with workspace context, artifacts, queued messages, and interaction controls.
+ *
+ * @returns The chat panel UI.
+ */
 export function ChatPanel({
 	messages,
 	status,
@@ -37,6 +45,8 @@ export function ChatPanel({
 	activityLabel,
 	presentation,
 	artifactRuns,
+	queue,
+	onDeleteQueuedMessage,
 	onOpenArtifact,
 	onOpenUIArtifactReady,
 	inputSuggestionItems,
@@ -87,6 +97,8 @@ export function ChatPanel({
 					activityLabel={activityLabel}
 					presentation={presentation}
 					artifactRuns={artifactRuns}
+					queue={queue}
+					onDeleteQueuedMessage={onDeleteQueuedMessage}
 					onOpenArtifact={onOpenArtifact}
 					onOpenUIArtifactReady={onOpenUIArtifactReady}
 				questionTool={questionTool}

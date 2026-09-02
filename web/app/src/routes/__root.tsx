@@ -4,11 +4,15 @@ import {
   Scripts,
   createRootRoute,
 } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useLayoutEffect } from "react"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { MotionRuntime } from "@prime-agent/web-design/components/registry/beui/motion/runtime"
 import { Toaster } from "@prime-agent/web-design/components/ui/toast"
 import { NotFoundPage } from "@prime-agent/web-design/components/product/fleet-pi/not-found-page"
+import {
+  DEFAULT_UI_PREFERENCES,
+  readUiPreferences,
+} from "@prime-agent/web-design/lib/ui-preferences"
 
 import appCss from "@prime-agent/web-design/globals.css?url"
 import { getQueryClient } from "@/lib/query-client"
@@ -50,7 +54,18 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
+/**
+ * Renders the application shell and initializes user interface preferences and analytics.
+ */
 function RootComponent() {
+  useLayoutEffect(() => {
+    const preferences = readUiPreferences()
+    document.documentElement.dataset.density = preferences.density
+    document.documentElement.classList.toggle(
+      "reduce-motion",
+      preferences.motion === "reduced",
+    )
+  }, [])
   useEffect(() => {
     initAnalytics()
   }, [])
@@ -64,9 +79,14 @@ function RootComponent() {
   )
 }
 
+/**
+ * Renders the application's root HTML document shell.
+ *
+ * @param children - The routed application content rendered in the document body
+ */
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-density={DEFAULT_UI_PREFERENCES.density}>
       <head>
         <HeadContent />
       </head>

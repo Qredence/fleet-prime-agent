@@ -20,6 +20,14 @@ const ToggleGroupContext = React.createContext<
   orientation: "horizontal",
 })
 
+/**
+ * Groups toggle controls with shared styling and layout configuration.
+ *
+ * @param variant - Visual style applied to the group and its items
+ * @param size - Size applied to the group and its items
+ * @param spacing - Gap between grouped controls
+ * @param orientation - Direction in which the controls are arranged
+ */
 function ToggleGroup({
   className,
   variant,
@@ -33,6 +41,11 @@ function ToggleGroup({
     spacing?: number
     orientation?: "horizontal" | "vertical"
   }) {
+  const contextValue = React.useMemo(
+    () => ({ variant, size, spacing, orientation }),
+    [orientation, size, spacing, variant]
+  )
+
   return (
     <ToggleGroupPrimitive
       data-slot="toggle-group"
@@ -47,9 +60,7 @@ function ToggleGroup({
       )}
       {...props}
     >
-      <ToggleGroupContext.Provider
-        value={{ variant, size, spacing, orientation }}
-      >
+      <ToggleGroupContext.Provider value={contextValue}>
         {children}
       </ToggleGroupContext.Provider>
     </ToggleGroupPrimitive>

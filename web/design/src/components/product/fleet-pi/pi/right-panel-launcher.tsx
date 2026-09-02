@@ -1,5 +1,5 @@
 import { PanelRight, X } from "lucide-react"
-import { useEffect, useEffectEvent, useId, useMemo, useRef } from "react"
+import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { TabsSubtle, TabsSubtleItem } from "../../tabs-subtle"
 import {
   CHAT_PANEL_BREAKPOINT_PX,
@@ -12,14 +12,12 @@ import {
 import { RIGHT_PANEL_DEFINITIONS } from "../layout/right-panel-registry"
 import { ChromePillButton } from "../primitives/chrome-pill"
 import { Button } from "../../../ui/button"
+import { Select, type SelectOption } from "../../../ui/select"
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "../styles/tokens"
-import { collectSessionOpenUIBlocks, getArtifactsScopePath } from "./artifacts-utils"
-import {
-  countWorkspaceFiles,
-  findWorkspaceNode,
-  getResourceGroups,
-} from "./shared"
-import type { ReactNode } from "react"
+import { collectSessionOpenUIBlocks } from "./artifacts-utils"
+import { getResourceGroups } from "./resource-helpers"
+import type { HTMLAttributes, ReactNode } from "react"
+import type { LucideIcon } from "lucide-react"
 import type { RightPanel } from "../../../../lib/canvas-utils"
 import type {
   ChatResourcesResponse,
@@ -43,12 +41,25 @@ export function RightPanelLauncherFromContext() {
   )
 }
 
+/**
+ * Renders the right-panel launcher using state and data from application contexts.
+ *
+ * @param idPrefix - Prefix used for generated right-panel element IDs
+ * @returns The right-panel launcher
+ */
 export function RightPanelTabsFromContext({
   idPrefix = "right-panel",
 }: {
   idPrefix?: string
 }) {
-  const { artifactRuns, messages, rightPanel, setRightPanel, resources } =
+  const {
+    artifactRuns,
+    messages,
+    presentation,
+    rightPanel,
+    setRightPanel,
+    resources,
+  } =
     useChatPanelDataContext()
   const { workspaceTree } = useWorkspaceTreeContext()
 
@@ -57,8 +68,14 @@ export function RightPanelTabsFromContext({
       activePanel={rightPanel}
       onPanelChange={setRightPanel}
       resources={resources}
+      replRuns={artifactRuns
+        .flatMap((run) => run.artifacts)
+        .filter((artifact) => artifact.kind === "ipython").length}
       sessionBlocks={collectSessionOpenUIBlocks(messages).length}
-      technicalArtifacts={artifactRuns.flatMap((run) => run.artifacts).length}
+      subagents={presentation.rlmChildren.length}
+      openUIArtifacts={artifactRuns
+        .flatMap((run) => run.artifacts)
+        .filter((artifact) => artifact.kind === "openui-html").length}
       workspace={workspaceTree}
       idPrefix={idPrefix}
     />
@@ -77,12 +94,27 @@ export function RightPanelTrigger({ onOpen }: { onOpen: () => void }) {
   )
 }
 
+/**
+ * Renders the responsive launcher for switching between right-panel views.
+ *
+ * @param activePanel - The currently active panel, or `null` when all panels are closed
+ * @param onPanelChange - Called when a panel is opened, switched, or closed
+ * @param resources - Resources used to calculate the resources badge count
+ * @param replRuns - Number of REPL runs to show in the corresponding badge
+ * @param sessionBlocks - Number of generative UI blocks in the current session
+ * @param subagents - Number of subagents to show in the corresponding badge
+ * @param openUIArtifacts - Number of open generative UI artifacts
+ * @param workspace - Workspace data used to calculate the resources badge count
+ * @param idPrefix - Prefix used for the launcher's element IDs
+ */
 export function RightPanelLauncher({
   activePanel,
   onPanelChange,
   resources,
+  replRuns = 0,
   sessionBlocks = 0,
-  technicalArtifacts = 0,
+  subagents = 0,
+  openUIArtifacts = 0,
   workspace,
   idPrefix = "right-panel",
 }: {
@@ -90,9 +122,11 @@ export function RightPanelLauncher({
   idPrefix?: string
   onPanelChange: (panel: RightPanel) => void
   resources: ChatResourcesResponse | null
-  /** Generative-UI blocks in the current session — counted alongside workspace files. */
+  replRuns?: number
+  /** Generative-UI blocks in the current session. */
   sessionBlocks?: number
-  technicalArtifacts?: number
+  subagents?: number
+  openUIArtifacts?: number
   workspace: WorkspaceTreeResponse | null
 }) {
   const totalResources = getResourceGroups(resources, workspace).reduce(
@@ -100,21 +134,9 @@ export function RightPanelLauncher({
     0
   )
   const totalArtifacts = useMemo(() => {
-    const files = (() => {
-      if (!workspace) return 0
-
-      const artifactsRoot = findWorkspaceNode(
-        workspace.nodes,
-        getArtifactsScopePath(workspace.root)
-      )
-      if (!artifactsRoot?.children?.length) return 0
-
-      return countWorkspaceFiles(artifactsRoot.children)
-    })()
-
-    const total = files + sessionBlocks + technicalArtifacts
+    const total = sessionBlocks + openUIArtifacts
     return total > 0 ? total : undefined
-  }, [sessionBlocks, technicalArtifacts, workspace])
+  }, [openUIArtifacts, sessionBlocks])
 
   const tabs = useMemo(
     () =>
@@ -125,19 +147,33 @@ export function RightPanelLauncher({
             ? totalResources || undefined
             : definition.badgeSource === "artifacts"
               ? totalArtifacts
+              : definition.badgeSource === "repl"
+                ? replRuns || undefined
+                : definition.badgeSource === "subagents"
+                  ? subagents || undefined
               : undefined,
       })),
-    [totalArtifacts, totalResources]
+    [replRuns, subagents, totalArtifacts, totalResources]
   )
 
   const selectedIndex = tabs.findIndex((tab) => tab.id === activePanel)
+  const panelOptions = useMemo<Array<SelectOption>>(
+    () =>
+      tabs.map((tab) => ({
+        value: tab.id,
+        label: tab.title,
+        icon: tab.icon as LucideIcon,
+      })),
+    [tabs],
+  )
 
   return (
-    <TabsSubtle
-      activeLabel
-      className="w-fit max-w-full"
+    <ResponsivePanelLauncher
       data-testid="right-panel-inline-launcher"
       data-active-panel={activePanel ?? "closed"}
+      activePanel={activePanel}
+      options={panelOptions}
+      panelOptions={tabs}
       idPrefix={idPrefix}
       selectedIndex={selectedIndex}
       onSelect={(index) => {
@@ -145,18 +181,137 @@ export function RightPanelLauncher({
         if (!next) return
         onPanelChange(next === activePanel ? null : next)
       }}
+    />
+  )
+}
+
+type PanelLauncherTab = (typeof RIGHT_PANEL_DEFINITIONS)[number] & {
+  badge?: number
+}
+
+type ResponsivePanelLauncherProps = Omit<HTMLAttributes<HTMLDivElement>, "className" | "onSelect"> & {
+  activePanel: RightPanel
+  className?: string
+  idPrefix: string
+  onSelect: (index: number) => void
+  options: Array<SelectOption>
+  panelOptions: Array<PanelLauncherTab>
+  selectedIndex: number
+}
+
+/**
+ * Renders panel navigation as tabs or a dropdown based on the available width.
+ *
+ * @returns The responsive panel launcher.
+ */
+function ResponsivePanelLauncher({
+  activePanel,
+  className,
+  idPrefix,
+  onSelect,
+  options,
+  panelOptions,
+  selectedIndex,
+  ...props
+}: ResponsivePanelLauncherProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const measurementRef = useRef<HTMLDivElement>(null)
+  const [isDropdown, setIsDropdown] = useState(false)
+
+  const measure = useCallback(() => {
+    const container = containerRef.current
+    const measurement = measurementRef.current
+    if (!container || !measurement) return
+
+    const availableWidth = container.parentElement?.clientWidth ?? container.clientWidth
+    const requiredWidth = measurement.getBoundingClientRect().width
+    setIsDropdown(requiredWidth > availableWidth + 1)
+  }, [])
+
+  useLayoutEffect(() => {
+    measure()
+    const container = containerRef.current
+    const measurement = measurementRef.current
+    if (!container || !measurement || typeof ResizeObserver === "undefined") return
+
+    const observer = new ResizeObserver(measure)
+    if (container.parentElement) observer.observe(container.parentElement)
+    observer.observe(container)
+    observer.observe(measurement)
+    return () => observer.disconnect()
+  }, [measure, panelOptions, selectedIndex])
+
+  const selectPanel = useCallback(
+    (nextPanel: string) => {
+      const nextIndex = panelOptions.findIndex((panel) => panel.id === nextPanel)
+      if (nextIndex >= 0) onSelect(nextIndex)
+    },
+    [onSelect, panelOptions],
+  )
+
+  return (
+    <div
+      ref={containerRef}
+      className={`relative ${isDropdown ? "w-full" : "w-fit"} min-w-0 max-w-full overflow-hidden ${className ?? ""}`}
+      data-panel-launcher-mode={isDropdown ? "dropdown" : "tabs"}
+      {...props}
     >
-      {tabs.map((tab, index) => (
-        <TabsSubtleItem
-          key={tab.id}
-          index={index}
-          icon={tab.icon}
-          label={tab.title}
-          badge={tab.badge}
-          aria-label={tab.ariaLabel}
+      {isDropdown ? (
+        <Select
+          aria-label="Select panel"
+          className="w-full min-w-0 max-w-full rounded-full border-border/70 bg-sidebar"
+          onValueChange={selectPanel}
+          options={options}
+          placeholder="Open panel"
+          value={activePanel}
         />
-      ))}
-    </TabsSubtle>
+      ) : (
+        <TabsSubtle
+          activeLabel
+          className="w-fit max-w-full"
+          idPrefix={idPrefix}
+          selectedIndex={selectedIndex}
+          onSelect={onSelect}
+        >
+          {panelOptions.map((panel, index) => (
+            <TabsSubtleItem
+              key={panel.id}
+              index={index}
+              icon={panel.icon}
+              label={panel.title}
+              badge={panel.badge}
+              aria-label={panel.ariaLabel}
+            />
+          ))}
+        </TabsSubtle>
+      )}
+      <div
+        ref={measurementRef}
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute top-0 left-0 -z-10 h-0 w-max max-w-none overflow-hidden"
+        data-panel-launcher-measurement
+        inert
+      >
+        <TabsSubtle
+          activeLabel
+          className="w-max max-w-none"
+          idPrefix={`${idPrefix}-measurement`}
+          selectedIndex={selectedIndex}
+          onSelect={() => undefined}
+        >
+          {panelOptions.map((panel, index) => (
+            <TabsSubtleItem
+              key={panel.id}
+              index={index}
+              icon={panel.icon}
+              label={panel.title}
+              badge={panel.badge}
+              aria-label={panel.ariaLabel}
+            />
+          ))}
+        </TabsSubtle>
+      </div>
+    </div>
   )
 }
 

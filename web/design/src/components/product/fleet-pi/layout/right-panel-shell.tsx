@@ -17,16 +17,25 @@ export type RightPanelShellProps = {
   handleResourceCanvasResizeStart: (
     event: ReactPointerEvent<HTMLButtonElement>
   ) => void
+  onClose: () => void
   resourceCanvasWidth: number
 }
 
+/**
+ * Renders the selected right-panel content in mobile and desktop layouts.
+ *
+ * @param onClose - Closes the active right panel.
+ * @param handleResourceCanvasResizeStart - Handles the start of desktop panel resizing.
+ * @param resourceCanvasWidth - The desktop panel width.
+ */
 export function RightPanelShell({
   handleResourceCanvasResizeStart,
+  onClose,
   resourceCanvasWidth,
 }: RightPanelShellProps) {
   const chat = useChatPanelDataContext()
   const workspace = useWorkspaceTreeContext()
-  const { rightPanel, setRightPanel } = chat
+  const { rightPanel } = chat
   const panelOpen = rightPanel !== null
   const definition = rightPanel ? getRightPanelDefinition(rightPanel) : null
   const PanelContent = definition?.component
@@ -47,7 +56,7 @@ export function RightPanelShell({
       <MobilePanel
         dataTestid={definition?.mobileDataTestid}
         icon={definition?.icon}
-        onClose={() => setRightPanel(null)}
+        onClose={onClose}
         open={panelOpen}
         title={definition?.title ?? ""}
       >
@@ -60,7 +69,7 @@ export function RightPanelShell({
           <RightPanelTabsFromContext idPrefix="right-panel-desktop" />
         }
         loading={loading}
-        onClose={() => setRightPanel(null)}
+        onClose={onClose}
         onRefresh={onRefresh}
         onResizeStart={handleResourceCanvasResizeStart}
         open={panelOpen}

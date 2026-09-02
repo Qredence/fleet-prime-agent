@@ -30,6 +30,15 @@ export type ChatShellStorage = {
 	setSessionMetadata: (metadata: ChatSessionMetadata) => void;
 };
 
+type ArtifactOpenTarget = "artifacts" | "repl";
+
+/**
+ * Manages chat-shell state, including model selection, panels, navigation, themes, sessions, and resource-canvas sizing.
+ *
+ * @param modelsData - Available models and their server-provided selection and default thinking level
+ * @param storage - Storage interface for session metadata
+ * @returns Chat-shell state, resolved model information, navigation actions, panel controls, and event handlers
+ */
 export function useChatShellState(modelsData: ChatModelsResponse | undefined, storage: ChatShellStorage) {
 	const { sessionMetadata: storedSessionMetadata, setSessionMetadata: setStoredSessionMetadata } = storage;
 
@@ -157,9 +166,9 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	}, []);
 
 	const openArtifact = useCallback(
-		(artifactId: string) => {
+		(artifactId: string, target: ArtifactOpenTarget = "artifacts") => {
 			setSelectedArtifactId(artifactId);
-			setRightPanel("artifacts");
+			setRightPanel(target);
 		},
 		[setRightPanel],
 	);
@@ -177,8 +186,9 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 
 	const openPanelAction = useCallback(
 		(action: OpenPanelAction) => {
-			const isLocationPanel = action.panel === "workspace" || action.panel === "artifacts";
-			setRightPanel(action.panel);
+			const panel = action.panel === "artifacts" && action.relativePath ? "workspace" : action.panel;
+			const isLocationPanel = panel === "workspace" || panel === "artifacts";
+			setRightPanel(panel);
 			setSelectedWorkspacePath(isLocationPanel ? (action.relativePath ?? null) : null);
 			if (action.focus) {
 				window.requestAnimationFrame(() => {

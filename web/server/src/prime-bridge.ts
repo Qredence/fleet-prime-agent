@@ -41,6 +41,7 @@ import type {
 	AgentSession,
 	ExtensionUIContext,
 	ExtensionUIDialogOptions,
+	SessionSummary,
 } from "prime-agent";
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
 import {
@@ -218,6 +219,13 @@ export interface ForkSessionResult {
 	cancelled: boolean;
 	selectedText?: string;
 	newSessionId: string;
+}
+
+export interface RlmChildTranscript {
+	readonly sessionId: string;
+	readonly projectId: ProjectId | null;
+	readonly messages: Array<ChatMessage>;
+	readonly presentation: PrimeAgentSessionPresentation;
 }
 
 export interface PrimeBridgeOptions {
@@ -432,9 +440,59 @@ const SESSION_NOT_RESUMABLE_PATTERNS = [
 	/requested session transcript is unavailable/i,
 ];
 
+/**
+ * Determines whether an error indicates that a session transcript cannot be resumed.
+ *
+ * @param error - The error to inspect
+ * @returns `true` if the error matches a known non-resumable session condition, `false` otherwise
+ */
 function isSessionNotResumableError(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error);
 	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+/**
+ * Collects the non-empty session identifiers from a session summary.
+ *
+ * @returns The session summary's available identifiers.
+ */
+function sessionSummaryIdentifiers(summary: SessionSummary): Array<string> {
+	return [summary.id, summary.sessionId, summary.activeSessionId].flatMap((value) =>
+		typeof value === "string" && value.length > 0 ? [value] : [],
+	);
+}
+
+/**
+ * Collects the non-empty parent session identifiers from a session summary.
+ *
+ * @param summary - The session summary containing parent identifiers
+ * @returns The available parent session identifiers
+ */
+function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string> {
+	return [summary.parentSessionId, summary.parentActiveSessionId].flatMap((value) =>
+		typeof value === "string" && value.length > 0 ? [value] : [],
+	);
+}
+
+/** Follow daemon lineage metadata so nested RLM children remain authorized. */
+function hasSessionLineage(
+	candidate: SessionSummary,
+	rootIdentifiers: ReadonlySet<string>,
+	sessionsByIdentifier: ReadonlyMap<string, SessionSummary>,
+): boolean {
+	const pending: SessionSummary[] = [candidate];
+	const visited = new Set<SessionSummary>();
+	while (pending.length > 0) {
+		const current = pending.pop();
+		if (!current || visited.has(current)) continue;
+		visited.add(current);
+		for (const parentId of sessionSummaryParentIdentifiers(current)) {
+			if (rootIdentifiers.has(parentId)) return true;
+			const parent = sessionsByIdentifier.get(parentId);
+			if (parent && !visited.has(parent)) pending.push(parent);
+		}
+	}
+	return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -936,6 +994,62 @@ export class PrimeBridge {
 		return this.#sessionLister(cwd);
 	}
 
+	/**
+	 * Load a completed RLM child without resuming it as a live session.
+	 *
+	 * Child transcripts can be stored outside the parent's configured session
+	 * directory. Authorization is therefore based on both the live parent's
+	 * presentation and the daemon's lineage metadata, never on a browser-
+	 * supplied filesystem path.
+	 */
+	async loadRlmChildTranscript(parentSessionId: string, childId: string): Promise<RlmChildTranscript | undefined> {
+		const parent = this.#sessions.get(parentSessionId);
+		if (!parent || !parent.mapperState.presentation.rlmChildren.some((child) => child.id === childId)) {
+			return undefined;
+		}
+
+		const sessions = await this.#sessionLister();
+		const sessionsByIdentifier = new Map<string, SessionSummary>();
+		for (const session of sessions) {
+			for (const identifier of sessionSummaryIdentifiers(session)) {
+				if (!sessionsByIdentifier.has(identifier)) sessionsByIdentifier.set(identifier, session);
+			}
+		}
+		const rootIdentifiers = new Set([parentSessionId]);
+		const rootSummary = sessionsByIdentifier.get(parentSessionId);
+		if (rootSummary) {
+			for (const identifier of sessionSummaryIdentifiers(rootSummary)) rootIdentifiers.add(identifier);
+		}
+		const child = sessions.find((candidate) => {
+			return (
+				candidate.rlmChildId === childId &&
+				typeof candidate.sessionFile === "string" &&
+				hasSessionLineage(candidate, rootIdentifiers, sessionsByIdentifier)
+			);
+		});
+		if (!child?.sessionFile) return undefined;
+
+		const sessionManager = await SessionManager.openAsync(child.sessionFile);
+		const sessionId = sessionManager.getSessionId();
+		if (sessionId !== child.sessionId && sessionId !== child.id) return undefined;
+
+		const agentMessages = sessionManager.buildSessionContext().messages;
+		const messages = toChatMessagesFromAgentMessages(agentMessages, sessionId);
+		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath: child.sessionFile });
+		const presentation = initialPresentationForSession(
+			agentMessages,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			sessionId,
+			persistedPresentation,
+		);
+		const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, sessionManager.getCwd());
+
+		return { sessionId, projectId, messages, presentation };
+	}
+
 	async deleteSession(sessionId: string): Promise<boolean> {
 		let existing = this.#sessions.get(sessionId);
 		if (!existing) {
@@ -1125,6 +1239,27 @@ export class PrimeBridge {
 	async followUp(sessionId: string, text: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
 		await session.connection.followUp(text);
+	}
+
+	async deleteQueuedMessage(
+		sessionId: string,
+		lane: "steering" | "followUp",
+		index: number,
+		expectedText: string,
+	): Promise<{
+		status: "applied" | "rejected" | "invalid" | "unsupported";
+		queue: { steering: string[]; followUp: string[] };
+	}> {
+		const session = this.#requireSession(sessionId);
+		const status = await session.connection.mutateQueuedMessage(lane, index, expectedText, { type: "delete" });
+		const queue = await session.connection.getQueue();
+		return {
+			status,
+			queue: {
+				steering: [...queue.steering],
+				followUp: [...queue.followUp],
+			},
+		};
 	}
 
 	async abort(sessionId: string): Promise<void> {

@@ -1,13 +1,6 @@
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { segmentOpenUIContent } from "../../../openui/openui-utils";
 
-const ARTIFACTS_SCOPE_SUFFIX = "artifacts";
-
-/** Relative tree path of the artifacts folder. Matches workspace node paths. */
-export function getArtifactsScopePath(_root?: string) {
-	return ARTIFACTS_SCOPE_SUFFIX;
-}
-
 export type SessionOpenUIBlock = {
 	/** Stable id: `${messageId}:${segmentId}` — matches chat-rendered block ids. */
 	blockId: string;

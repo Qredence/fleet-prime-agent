@@ -1,8 +1,7 @@
-import { defineComponent, useIsStreaming } from "@openuidev/react-lang";
+import { useIsStreaming } from "@openuidev/react-lang";
 import { Button, Card, CardHeader, CodeBlock, Tabs, TabsContent, TabsList, TabsTrigger } from "@openuidev/react-ui";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod/v4";
 import {
 	validateAndNormalizeOpenUIHtmlArtifact,
 	type OpenUIHtmlArtifactPayload,
@@ -72,11 +71,25 @@ function ArtifactDiagnostic({ validation, document }: { validation: OpenUIHtmlAr
 	);
 }
 
+/**
+ * Creates a unique key from an artifact title and document.
+ *
+ * @param title - The artifact title
+ * @param document - The artifact document
+ * @returns A key combining the title and document
+ */
 function artifactKey(title: string, document: string): string {
 	return `${title}\u0000${document}`;
 }
 
-function HtmlArtifactComponent({ props: { title, document } }: { props: OpenUIHtmlArtifactPayload }) {
+/**
+ * Displays an HTML artifact with its title, rendered content, or validation diagnostics.
+ *
+ * While generation is active, displays a streaming placeholder and reports each valid artifact for later access when generation completes.
+ *
+ * @returns The rendered artifact card
+ */
+export function HtmlArtifactComponent({ props: { title, document } }: { props: OpenUIHtmlArtifactPayload }) {
 	const isStreaming = useIsStreaming();
 	const context = useContext(OpenUIArtifactContext);
 	const validation = useMemo(() => validateAndNormalizeOpenUIHtmlArtifact({ title, document }), [document, title]);
@@ -132,16 +145,13 @@ function HtmlArtifactComponent({ props: { title, document } }: { props: OpenUIHt
 	);
 }
 
-export const HtmlArtifactDef = defineComponent({
-	name: "HtmlArtifact",
-	description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
-	props: z.object({
-		title: z.string().describe("Short artifact title"),
-		document: z.string().describe("Complete self-contained HTML document"),
-	}),
-	component: HtmlArtifactComponent,
-});
-
+/**
+ * Displays an HTML artifact with rendered and raw document views.
+ *
+ * @param artifact - The HTML artifact to validate and display
+ * @param className - Additional CSS classes for the view container
+ * @returns A diagnostic view for invalid artifacts, or tabbed rendered and raw views for valid artifacts
+ */
 export function OpenUIHtmlArtifactView({
 	artifact,
 	className = "",

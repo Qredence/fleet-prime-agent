@@ -135,18 +135,12 @@ test.describe("workspace file tree", () => {
 		await expect(readme).toBeFocused()
 		await readme.press("Enter")
 
-		await page.getByRole("tab", { name: "Workspace artifacts", exact: true }).click()
-		const artifactsCanvas = page.getByTestId("pi-artifacts-canvas")
-		await expect(artifactsCanvas).toBeVisible()
-		const artifactsTree = artifactsCanvas.getByTestId("artifacts-tree").getByRole("tree", {
-			name: "Files in artifacts",
-		})
-		await expect(artifactsTree).toBeVisible()
-		await expect(artifactsTree.getByRole("treeitem", { name: "docs", exact: true })).toHaveCount(0)
-		const trace = artifactsTree.getByRole("treeitem", { name: "trace.md", exact: true })
+		const artifactsFolder = tree.getByRole("treeitem", { name: "artifacts", exact: true })
+		await artifactsFolder.click()
+		const trace = tree.getByRole("treeitem", { name: "trace.md", exact: true })
 		await trace.click()
 		await expect(trace).toHaveAttribute("aria-selected", "true")
-		await expect(artifactsCanvas.getByTestId("workspace-preview")).toContainText("trace.md")
+		await expect(canvas.getByTestId("workspace-preview")).toContainText("trace.md")
 
 		expect(
 			await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth),
@@ -165,6 +159,23 @@ test.describe("workspace file tree", () => {
 		await page.getByRole("tab", { name: "Workspace", exact: true }).click()
 		const dialog = page.getByRole("dialog", { name: "Workspace", exact: true })
 		await expect(dialog).toBeVisible()
+		const mobileLauncher = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
+		const launcherGeometry = await mobileLauncher.evaluate((element) => {
+			const measurement = element.querySelector<HTMLElement>("[data-panel-launcher-measurement]")
+			return {
+				availableWidth: element.clientWidth,
+				mode: element.getAttribute("data-panel-launcher-mode"),
+				requiredWidth: measurement?.getBoundingClientRect().width ?? 0,
+			}
+		})
+		expect(launcherGeometry.mode).toBe(
+			launcherGeometry.requiredWidth > launcherGeometry.availableWidth + 1 ? "dropdown" : "tabs",
+		)
+		if (launcherGeometry.mode === "dropdown") {
+			await expect(mobileLauncher.getByRole("combobox", { name: "Select panel", exact: true })).toBeVisible()
+		} else {
+			await expect(mobileLauncher.getByRole("tab", { name: "Workspace", exact: true })).toBeVisible()
+		}
 		const tree = dialog.getByRole("tree", { name: "Workspace files" })
 		await expect(tree).toBeVisible()
 		await expect(dialog.getByTestId("workspace-tree-resize-handle")).toBeHidden()
@@ -180,6 +191,9 @@ test.describe("workspace file tree", () => {
 		expect(
 			await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth),
 		).toBe(true)
+		await dialog.press("Escape")
+		await expect(dialog).toHaveCount(0)
+		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused()
 		expect(browserErrors).toEqual([])
 	})
 })

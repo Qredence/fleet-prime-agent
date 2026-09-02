@@ -18,11 +18,8 @@ import {
 import { isPathWithinScope } from "../../../../lib/workspace-path-nav"
 import { isDaytonaNotConnectedError } from "../../../../lib/pi/chat-helpers"
 import { useWorkspaceSplitLayout } from "./hooks/use-workspace-split-layout"
-import {
-  ResourceChipSection,
-  ResourceNotice,
-  findWorkspaceNode,
-} from "./shared"
+import { ResourceChipSection, ResourceNotice } from "./shared"
+import { findWorkspaceNode } from "./resource-helpers"
 import { WorkspacePreviewSkeleton, WorkspaceSkeleton } from "./skeleton-loaders"
 import type { ReactNode, RefObject } from "react"
 import type {

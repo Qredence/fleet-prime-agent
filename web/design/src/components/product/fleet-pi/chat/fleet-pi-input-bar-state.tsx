@@ -15,10 +15,8 @@ import {
   clampThinkingLevel,
   thinkingLevelLabel,
 } from "../../../../lib/pi/chat-helpers"
-import {
-  ProviderBrandIcon,
-  formatProviderLabel,
-} from "../pi/config-panel/shared/provider-brand-icon"
+import { ProviderBrandIcon } from "../pi/config-panel/shared/provider-brand-icon"
+import { formatProviderLabel } from "../pi/config-panel/shared/provider-label"
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar"
 
 type SuggestionConfig = NonNullable<FleetPiInputBarProps["slashCommands"]>

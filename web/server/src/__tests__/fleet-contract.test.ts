@@ -72,6 +72,8 @@ describe("Fleet browser contracts", () => {
 		expect(OpenPanelActionSchema.safeParse({ panel: "workspace", relativePath: "src/app.ts" }).success).toBe(true);
 		expect(OpenPanelActionSchema.safeParse({ panel: "artifacts", relativePath: "report.md" }).success).toBe(true);
 		expect(OpenPanelActionSchema.safeParse({ panel: "resources" }).success).toBe(true);
+		expect(OpenPanelActionSchema.safeParse({ panel: "repl" }).success).toBe(true);
+		expect(OpenPanelActionSchema.safeParse({ panel: "subagents" }).success).toBe(true);
 		expect(OpenPanelActionSchema.safeParse({ panel: "session-insights" }).success).toBe(true);
 		expect(OpenPanelActionSchema.safeParse({ panel: "resources", relativePath: "src/app.ts" }).success).toBe(false);
 		expect(OpenPanelActionSchema.safeParse({ panel: "session-insights", relativePath: "src/app.ts" }).success).toBe(

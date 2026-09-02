@@ -1,4 +1,4 @@
-import { getChatErrorPresentation } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
+import { getChatErrorPresentation } from "@prime-agent/web-design/components/product/fleet-pi/chat/chat-error-presentation";
 import { NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it } from "vitest";
 

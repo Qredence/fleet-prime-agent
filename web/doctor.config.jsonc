@@ -174,6 +174,81 @@
         "rules": [
           "deslop/unused-dependency"
         ]
+      },
+      {
+        // shadcn-style primitives and installed beui/assistant-ui registry
+        // components keep their upstream layout: variants, contexts, and
+        // helpers export alongside components per the registry contract,
+        // reachable through the ./components/ui/* and
+        // ./components/registry/* wildcard package exports.
+        "files": [
+          "src/components/ui/badge.tsx",
+          "src/components/ui/button.tsx",
+          "src/components/ui/chart.tsx",
+          "src/components/ui/tabs.tsx",
+          "src/components/ui/toast.tsx",
+          "src/components/ui/toggle.tsx",
+          "src/components/registry/beui/agents/markdown.tsx",
+          "src/components/registry/beui/agents/message-toolbar.tsx",
+          "src/components/registry/beui/agents/message-turns.tsx",
+          "src/components/registry/beui/agents/tools/mcp-tool.tsx",
+          "src/components/registry/beui/motion/combobox/context.tsx",
+          "src/components/registry/beui/motion/context-menu.tsx",
+          "src/components/registry/beui/motion/popover-morph.tsx",
+          "src/components/registry/assistant-ui/elements/composer.tsx",
+          "src/components/registry/assistant-ui/elements/fleet-agent-plan.tsx"
+        ],
+        "rules": ["react-doctor/only-export-components"]
+      },
+      {
+        // right-panel-registry.tsx is a definition registry by design: each
+        // named content wrapper pairs a lazy panel with its Suspense
+        // fallback, mirroring the openui-library waiver rationale.
+        "files": ["src/components/product/fleet-pi/layout/right-panel-registry.tsx"],
+        "rules": [
+          "react-doctor/no-multi-component-file",
+          "react-doctor/no-multi-comp"
+        ]
+      },
+      {
+        // False positive — the session-bootstrap effect is single-run
+        // (initializedRef) and re-checks controller.signal.aborted after
+        // every await boundary; the detector cannot follow AbortController
+        // cancellation proofs (same rationale as use-oauth-login-flow).
+        "files": ["src/lib/pi/use-pi-chat.ts"],
+        "rules": ["react-doctor/no-set-state-after-await-in-effect"]
+      },
+      {
+        // Restored from the pre-restructure root config (dropped in the
+        // component regroup): exports are reachable through the wildcard
+        // package exports and reserved for direct consumers or future UI
+        // surfaces; the detector only sees current in-workspace imports.
+        // icons.tsx is waived under the same registry rationale.
+        "files": [
+          "src/components/registry/beui/agents/citations.tsx",
+          "src/components/registry/beui/agents/icons.tsx",
+          "src/components/registry/beui/agents/message-bubble.tsx",
+          "src/components/registry/beui/agents/message.tsx",
+          "src/components/registry/beui/agents/tool-approval.tsx"
+        ],
+        "rules": ["deslop/unused-export"]
+      },
+      {
+        // Reserved future UI surface — its only importers are the
+        // intentionally retained unused primitives (centered-loader,
+        // chat-stop-control) waived above.
+        "files": [
+          "src/components/registry/beui/agents/spiral-loader.tsx",
+          "src/components/registry/beui/agents/spiral-loader-data.ts",
+          "src/components/registry/beui/agents/spiral-loader-lottie.tsx"
+        ],
+        "rules": ["deslop/unused-file"]
+      },
+      {
+        // Reserved hover-pairing API for surfaceClasses; not yet wired to a
+        // consumer surface.
+        "files": ["src/lib/surface-classes.ts"],
+        "rules": ["deslop/unused-export"]
       }
     ]
   }

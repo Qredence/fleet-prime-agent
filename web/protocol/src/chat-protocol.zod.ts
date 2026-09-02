@@ -69,6 +69,8 @@ export {
 	ChatQuestionAnswerResponseSchema,
 	ChatQuestionAnswerSchema,
 	ChatQueueEventSchema,
+	ChatQueueMutationRequestSchema,
+	ChatQueueMutationResponseSchema,
 	ChatReasoningEventSchema,
 	ChatReasoningPresentationSchema,
 	ChatReasoningStepSchema,

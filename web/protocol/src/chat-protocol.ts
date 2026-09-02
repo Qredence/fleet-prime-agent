@@ -61,6 +61,18 @@ export type QueueState = {
 	followUp: Array<string>;
 };
 
+export type ChatQueueMutationRequest = {
+	sessionId: string;
+	lane: "steering" | "followUp";
+	index: number;
+	expectedText: string;
+};
+
+export type ChatQueueMutationResponse = {
+	status: "applied" | "rejected" | "invalid" | "unsupported";
+	queue: QueueState;
+};
+
 export type ChatMode = "agent" | "plan" | "harness";
 
 export type ChatPlanAction = "execute" | "refine";

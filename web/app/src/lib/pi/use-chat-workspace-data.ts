@@ -58,6 +58,9 @@ function resolveSavedModelKey(models: Array<ChatModelOption>, response: ChatSett
 	);
 }
 
+/**
+ * Provides coordinated state, data, and actions for the chat workspace, including projects, sessions, conversations, attachments, panels, dialogs, and settings.
+ */
 export function useChatWorkspaceData() {
 	const user = useOptionalUser();
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -166,6 +169,7 @@ export function useChatWorkspaceData() {
 		activityLabel,
 		answerQuestion,
 		appendLocalMessage,
+		deleteQueuedMessage,
 		deleteSession,
 		error,
 		getMessages,
@@ -441,6 +445,18 @@ export function useChatWorkspaceData() {
 		},
 		[activeProjectId, openPanelAction],
 	);
+	const openSidebarPanelAction = useCallback(
+		(action: Parameters<typeof openPanelAction>[0]) => {
+			if (!action.projectId || action.projectId === activeProjectId) {
+				openPanelAction(action);
+				return;
+			}
+			void selectProject(action.projectId)
+				.then(() => openPanelAction(action))
+				.catch((error) => notifyChatError(error));
+		},
+		[activeProjectId, openPanelAction, selectProject],
+	);
 
 	const openSettings = useCallback((tab?: SettingsSlashTab) => {
 		setSettingsInitialTab(tab);
@@ -496,6 +512,14 @@ export function useChatWorkspaceData() {
 		(path: string) => loadWorkspaceFile(path, activeProjectId),
 		[activeProjectId],
 	);
+	const loadChatSession = useCallback(
+		(metadata: Parameters<typeof chatClient.loadSession>[0]) => chatClient.loadSession(metadata),
+		[],
+	);
+	const loadSubagentSession = useCallback(
+		(parentSessionId: string, childId: string) => chatClient.loadSubagentSession(parentSessionId, childId),
+		[],
+	);
 
 	const onDiscoverModels = useCallback(
 		async (providerId: string) => {
@@ -511,6 +535,8 @@ export function useChatWorkspaceData() {
 		handleThemePreferenceChange,
 		isLoadingProviders,
 		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
+		loadSession: loadChatSession,
+		loadSubagentSession,
 		loadWorkspaceFile: loadProjectWorkspaceFile,
 		messages,
 		modelKey,
@@ -562,6 +588,7 @@ export function useChatWorkspaceData() {
 		session: {
 			activeSessionId: sessionMetadata.sessionId,
 			activeProjectId,
+			openPanelAction: openSidebarPanelAction,
 			projects: projectsData?.projects ?? [],
 			projectSessions: sessions,
 			sessions,
@@ -580,12 +607,14 @@ export function useChatWorkspaceData() {
 		conversation: {
 			activityLabel,
 			artifactRuns,
+			deleteQueuedMessage,
 			error,
 			messages,
 			openArtifact,
 			openPanelAction: openProjectPanelAction,
 			persistOpenUIArtifact,
 			presentation,
+			queue,
 			sendMessage,
 			status,
 			stop,

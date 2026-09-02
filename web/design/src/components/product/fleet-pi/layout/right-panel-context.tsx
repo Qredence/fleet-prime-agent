@@ -15,6 +15,8 @@ import type {
   ChatProviderUpdateRequest,
   ChatProviderUpdateResponse,
   ChatResourcesResponse,
+  ChatSessionMetadata,
+  ChatSessionResponse,
   ChatSettingsResponse,
   ChatThinkingLevel,
   PrimeAgentArtifactRun,
@@ -28,6 +30,11 @@ export type ChatPanelDataContextValue = {
   activityLabel?: string
   artifactRuns: Array<PrimeAgentArtifactRun>
   chatMode: ChatMode
+  loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>
+  loadSubagentSession: (
+    parentSessionId: string,
+    childId: string,
+  ) => Promise<ChatSessionResponse>
   messages: Array<ChatMessage>
   models: Array<ChatModelOption>
   onOpenUIAction?: (message: string) => void

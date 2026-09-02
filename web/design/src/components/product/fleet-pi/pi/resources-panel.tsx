@@ -1,9 +1,6 @@
 import { CircleAlert } from "lucide-react"
-import {
-  ResourceChipSection,
-  ResourceNotice,
-  getResourceGroups,
-} from "./shared"
+import { ResourceChipSection, ResourceNotice } from "./shared"
+import { getResourceGroups } from "./resource-helpers"
 import { ResourcesSkeleton } from "./skeleton-loaders"
 import type {
   ChatResourcesResponse,

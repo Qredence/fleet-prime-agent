@@ -8,28 +8,17 @@ import { OpenUIHtmlArtifactView } from "../../../openui/html-artifact"
 import { Button } from "../../../ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../../ui/collapsible"
 import { UiErrorBoundary } from "../ui-error-boundary"
-import { WorkspacePanelContent } from "./workspace-panel"
-import { collectSessionOpenUIBlocks, getArtifactsScopePath } from "./artifacts-utils"
-import { findWorkspaceNode } from "./shared"
 import { CodeBlock } from "../../../registry/beui/agents/code-block"
 import { FileDiff, type FileDiffStatus } from "../../../registry/beui/agents/file-diff"
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../../registry/beui/agents/tool-result"
+import { collectSessionOpenUIBlocks } from "./artifacts-utils"
 import type { SessionOpenUIBlock } from "./artifacts-utils"
-import type { WorkspacePanelContentProps } from "./workspace-panel"
 import { primeAgentArtifactDiff } from "./prime-agent-artifacts"
 import type { OpenUIHtmlArtifactPayload } from "@prime-agent/web-protocol/openui-artifact"
 
 const DEFAULT_ARTIFACT_RUNS: Array<PrimeAgentArtifactRun> = []
 
-type ArtifactsPanelContentProps = Pick<
-	WorkspacePanelContentProps,
-	| "error"
-	| "loadWorkspaceFile"
-	| "loading"
-	| "onSelectedPathChange"
-	| "selectedPath"
-	| "workspace"
-> & {
+type ArtifactsPanelContentProps = {
 	messages: Array<ChatMessage>
 	onOpenUIAction?: (message: string) => void
 	status: ChatStatus
@@ -37,14 +26,12 @@ type ArtifactsPanelContentProps = Pick<
 	selectedArtifactId?: string | null
 }
 
-function artifactStatus(status: PrimeAgentArtifact["status"]): ToolResultStatus {
-	return status === "running" ? "running" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "success"
-}
-
-function artifactDiffStatus(status: PrimeAgentArtifact["status"]): FileDiffStatus {
-	return status === "running" ? "streaming" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "complete"
-}
-
+/**
+ * Converts a value to displayable text.
+ *
+ * @param value - The value to convert
+ * @returns The original string, an empty string for `null` or `undefined`, or a JSON representation of the value
+ */
 function textValue(value: unknown): string {
 	if (typeof value === "string") return value
 	if (value === undefined || value === null) return ""
@@ -55,6 +42,32 @@ function textValue(value: unknown): string {
 	}
 }
 
+/**
+ * Maps an artifact status to the corresponding tool result status.
+ *
+ * @param status - The artifact status to map
+ * @returns The corresponding tool result status
+ */
+function artifactStatus(status: PrimeAgentArtifact["status"]): ToolResultStatus {
+	return status === "running" ? "running" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "success"
+}
+
+/**
+ * Maps an artifact status to the corresponding file-diff status.
+ *
+ * @param status - The artifact status to map
+ * @returns The corresponding file-diff status
+ */
+function artifactDiffStatus(status: PrimeAgentArtifact["status"]): FileDiffStatus {
+	return status === "running" ? "streaming" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "complete"
+}
+
+/**
+ * Extracts displayable output sections from a value.
+ *
+ * @param value - The value containing output fields or content.
+ * @returns Labeled output sections for display.
+ */
 function outputSections(value: unknown): Array<{ label: string; text: string }> {
 	const source = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined
 	if (!source) return value === undefined ? [] : [{ label: "result", text: textValue(value) }]
@@ -138,6 +151,12 @@ function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; 
 	)
 }
 
+/**
+ * Renders a technical artifact with its source, output, or file diff details.
+ *
+ * @param artifact - The artifact to display.
+ * @param selected - Whether the artifact is selected and should be focused and opened.
+ */
 function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
 	const cardRef = useRef<HTMLElement>(null)
 	const initiallyOpen = selected || artifact.status === "running"
@@ -177,37 +196,48 @@ function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifac
 					))}
 				</>
 			) : null}
-			{diff ? null : <ToolResult
-				tool={artifact.kind}
-				title={artifact.title}
+			{diff ? null : (
+				<ToolResult
+					tool={artifact.kind}
+					title={artifact.title}
 					status={artifactStatus(artifact.status)}
 					open={open}
 					onOpenChange={setOpen}
 					defaultOpen={initiallyOpen}
-				kind={artifact.kind === "bash" || artifact.kind === "ipython" ? "terminal" : "custom"}
-			>
-				<div className="space-y-3">
-					{source ? (
-						<CodeBlock
-							code={source.code}
-							language={source.language}
-							languageLabel={source.label}
-							showStatus={false}
-							showLineNumbers={false}
-							wrap
-						/>
-					) : null}
-					{sections.map((section) => (
-						<ToolResultOutput key={section.label} label={section.label} language="text">
-							{section.text}
-						</ToolResultOutput>
-					))}
-				</div>
-			</ToolResult>}
+					kind={artifact.kind === "bash" || artifact.kind === "ipython" ? "terminal" : "custom"}
+				>
+					<div className="space-y-3">
+						{source ? (
+							<CodeBlock
+								code={source.code}
+								language={source.language}
+								languageLabel={source.label}
+								showStatus={false}
+								showLineNumbers={false}
+								wrap
+							/>
+						) : null}
+						{sections.map((section) => (
+							<ToolResultOutput key={section.label} label={section.label} language="text">
+								{section.text}
+							</ToolResultOutput>
+						))}
+					</div>
+				</ToolResult>
+			)}
 		</article>
 	)
 }
 
+/**
+ * Renders an expandable generative UI block with its component name and ordinal.
+ *
+ * @param block - The generative UI block to display
+ * @param expanded - Whether the block content is expanded
+ * @param isStreaming - Whether the block content is still streaming
+ * @param onOpenUIAction - Handles actions initiated by the rendered UI
+ * @param onToggle - Toggles the block's expanded state
+ */
 function GenerativeUiBlockRow({
 	block,
 	expanded,
@@ -255,38 +285,32 @@ function GenerativeUiBlockRow({
 	)
 }
 
+/**
+ * Displays session-generated OpenUI, technical, and generative UI artifacts.
+ *
+ * @param messages - Chat messages used to collect generative UI blocks.
+ * @param onOpenUIAction - Optional handler for actions triggered by rendered OpenUI content.
+ * @param status - Current chat status, used to mark the latest block as streaming.
+ * @param artifactRuns - Artifact runs whose artifacts are displayed in the panel.
+ * @param selectedArtifactId - Identifier of the artifact to focus and scroll into view.
+ */
 export function ArtifactsPanelContent({
-	error,
-	loadWorkspaceFile,
-	loading,
 	messages,
 	onOpenUIAction,
-	onSelectedPathChange,
-	selectedPath,
 	status,
 	artifactRuns = DEFAULT_ARTIFACT_RUNS,
 	selectedArtifactId,
-	workspace,
 }: ArtifactsPanelContentProps) {
-	const scopePath = workspace ? getArtifactsScopePath(workspace.root) : undefined
 	const blocks = useMemo(() => collectSessionOpenUIBlocks(messages), [messages])
-	const hasArtifactFiles = useMemo(() => {
-		if (!workspace || !scopePath) return false
-		const root = findWorkspaceNode(workspace.nodes, scopePath)
-		return Boolean(root?.children?.length)
-	}, [scopePath, workspace])
 	const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null)
 	const latestStreaming = status === "streaming" ? blocks.at(-1)?.blockId : undefined
-	const technicalArtifacts = useMemo(
-		() => artifactRuns.flatMap((run) => run.artifacts),
-		[artifactRuns],
-	)
+	const technicalArtifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns])
 	const openUIArtifacts = useMemo(
 		() => technicalArtifacts.filter((artifact) => artifact.kind === "openui-html"),
 		[technicalArtifacts],
 	)
 	const nonOpenUIArtifacts = useMemo(
-		() => technicalArtifacts.filter((artifact) => artifact.kind !== "openui-html"),
+		() => technicalArtifacts.filter((artifact) => artifact.kind !== "openui-html" && artifact.kind !== "ipython"),
 		[technicalArtifacts],
 	)
 
@@ -333,8 +357,7 @@ export function ArtifactsPanelContent({
 				{blocks.length === 0 ? (
 					<p className="px-2 pb-1 text-[11px] leading-4 text-foreground/40">
 						OpenUI interfaces the agent generates in this session appear here, and can be
-						re-opened without scrolling the conversation. Files written to
-						agent-workspace/artifacts show below once the agent creates them.
+						re-opened without scrolling the conversation.
 					</p>
 				) : (
 					<div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto">
@@ -353,25 +376,8 @@ export function ArtifactsPanelContent({
 							/>
 						))}
 					</div>
-				)}
+					)}
 			</div>
-			{hasArtifactFiles && (
-				<div className="min-h-0 flex-1">
-					<WorkspacePanelContent
-						error={error}
-						loadWorkspaceFile={loadWorkspaceFile}
-						loading={loading}
-						onSelectedPathChange={onSelectedPathChange}
-						previewEmptyDescription="Choose a report, dataset, trace, or diagram to preview."
-						previewEmptyTitle="Select an artifact"
-						scopeLabel="artifacts"
-						scopePath={scopePath}
-						selectedPath={selectedPath}
-						treeTestId="artifacts-tree"
-						workspace={workspace}
-					/>
-				</div>
-			)}
 		</div>
 	)
 }
