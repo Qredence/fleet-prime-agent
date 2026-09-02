@@ -427,6 +427,7 @@ test.describe("chat shell", () => {
 		await page.setViewportSize({ width: 1400, height: 900 })
 		await page.goto("/")
 		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
+		await page.waitForLoadState("networkidle")
 		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/)
 		const panelToggle = page.getByRole("button", { name: "Open side panel", exact: true })
 		const visiblePanelTabs = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
@@ -472,8 +473,9 @@ test.describe("chat shell", () => {
 
 		await clickCenter(page, subagents)
 		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "subagents")
-		await expect(page.getByTestId("pi-subagents-canvas")).toBeVisible()
-		await expect(page.getByText("Subagent threads will appear here when Prime delegates work.")).toBeVisible()
+		const subagentsCanvas = page.getByTestId("pi-subagents-canvas")
+		await expect(subagentsCanvas).toBeVisible()
+		await expect(subagentsCanvas.getByText("Subagent threads will appear here when Prime delegates work.")).toBeVisible()
 
 		await clickCenter(page, sessionInsights)
 		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "session-insights")
