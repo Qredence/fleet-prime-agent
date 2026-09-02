@@ -396,7 +396,7 @@ describe("review regressions", () => {
 		expect(queryByText(/tracked actions/)).toBeNull();
 	});
 
-	it("renders active session activity without routing technical artifacts to Artifacts", () => {
+	it("renders active session activity and routes technical artifacts to Artifacts", () => {
 		const onOpenArtifact = vi.fn();
 		const active = presentation({
 			userBash: [
@@ -440,7 +440,7 @@ describe("review regressions", () => {
 			],
 		});
 		const messages: Array<ChatMessage> = [{ id: "assistant-live", role: "assistant", parts: [] }];
-		const { getAllByText, getByRole, getByText, queryByRole } = render(
+		const { getAllByText, getByRole, getByText } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -457,8 +457,10 @@ describe("review regressions", () => {
 		expect(getByText("RLM · Repository scan", { exact: true })).toBeTruthy();
 		expect(getByRole("status").textContent).toContain("Coordinating 2 active actions");
 		expect(getByRole("region", { name: /Coordinating 2 active actions/ }).getAttribute("aria-hidden")).toBe("false");
-		expect(queryByRole("button", { name: "Open git status artifact 1" })).toBeNull();
-		expect(onOpenArtifact).not.toHaveBeenCalled();
+		const openButton = getByRole("button", { name: "Open git status artifact 1" });
+		expect(openButton).toBeTruthy();
+		fireEvent.click(openButton);
+		expect(onOpenArtifact).toHaveBeenCalledWith("bash-artifact", "artifacts");
 	});
 
 	it("opens IPython activity in REPL", () => {
@@ -541,7 +543,7 @@ describe("review regressions", () => {
 		 expect(onOpenUIAction).toHaveBeenCalledWith("continue_conversation");
 	});
 
-	it("keeps technical diff output out of the Artifacts pane", () => {
+	it("renders technical diff output in the Artifacts pane", () => {
 		const artifactRuns: Array<PrimeAgentArtifactRun> = [
 			{
 				id: "run-1",
@@ -565,7 +567,7 @@ describe("review regressions", () => {
 			},
 		];
 
-		const { queryByLabelText, queryByText } = render(
+		const { getByLabelText, getByText } = render(
 			<ArtifactsPanelContent
 				messages={[]}
 				status="ready"
@@ -573,9 +575,8 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		expect(queryByLabelText("Changes failed")).toBeNull();
-		expect(queryByLabelText("Changes applied")).toBeNull();
-		expect(queryByText("permission denied")).toBeNull();
+		expect(getByLabelText("Changes failed")).toBeTruthy();
+		expect(getByText("permission denied")).toBeTruthy();
 	});
 
 	it("renders a safe project-persistence error without an absolute path", () => {

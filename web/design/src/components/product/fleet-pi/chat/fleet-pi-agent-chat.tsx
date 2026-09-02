@@ -179,7 +179,7 @@ function buildActivityItems(
 		const artifact = artifactIndex >= 0 ? artifacts[artifactIndex] : undefined
 		const target = artifact?.kind === "ipython"
 			? "repl"
-			: artifact?.kind === "openui-html"
+			: artifact
 				? "artifacts"
 				: undefined
 		if (!artifact || !target || !onOpenArtifact) return undefined
