@@ -43,10 +43,17 @@ commands:
       - run:
           name: Install pnpm
           command: |
-            echo 'export COREPACK_ENABLE_PROJECT_SPEC=0' >> "${BASH_ENV}"
-            export COREPACK_ENABLE_PROJECT_SPEC=0
-            corepack install --global "pnpm@<< parameters.pnpm_version >>"
-            hash -r
+            pnpm_root="$(npm root --global)"
+            sudo npm install --global --force "pnpm@<< parameters.pnpm_version >>"
+            pnpm_bin="${pnpm_root}/pnpm/bin/pnpm.cjs"
+            if [ ! -f "${pnpm_bin}" ]; then
+              echo "Expected pnpm launcher was not installed at ${pnpm_bin}" >&2
+              exit 1
+            fi
+            echo "export FLEET_PNPM_BIN=\"${pnpm_bin}\"" >> "${BASH_ENV}"
+            echo 'pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }' >> "${BASH_ENV}"
+            export FLEET_PNPM_BIN="${pnpm_bin}"
+            pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }
             pnpm config set store-dir ~/.cache/pnpm
             pnpm --version
 
