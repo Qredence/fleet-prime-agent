@@ -20,7 +20,13 @@ const LazyForkPickerDialog = lazy(() =>
 );
 
 // The settings dialog reads RightPanelProvider context, so ChatWorkspaceOverlayDialogs
-// must render inside the provider; the command palette renders outside it.
+/**
+ * Renders the command palette overlay when it is open.
+ *
+ * This component must be rendered inside the workspace provider.
+ *
+ * @returns The command palette overlay when open; otherwise an empty fragment.
+ */
 
 export function ChatCommandPaletteOverlay({
 	chrome,
@@ -59,6 +65,11 @@ export function ChatCommandPaletteOverlay({
 	);
 }
 
+/**
+ * Renders the workspace settings and fork picker dialogs when their state indicates they are open.
+ *
+ * @param dialogs - Dialog state and handlers for managing settings and fork picker interactions.
+ */
 export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceData["dialogs"] }) {
 	const {
 		forkFromEntry,

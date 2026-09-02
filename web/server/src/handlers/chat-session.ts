@@ -3,6 +3,12 @@ import { loadManagedPlanPresentations } from "../managed-plan-presentations";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
+/**
+ * Retrieves a chat session or subagent transcript based on the request query parameters.
+ *
+ * @param request - HTTP request containing the session identifiers and optional retrieval options
+ * @returns A response containing session metadata, messages, plan presentations, and presentation data
+ */
 export function handleChatSessionGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const url = new URL(request.url);

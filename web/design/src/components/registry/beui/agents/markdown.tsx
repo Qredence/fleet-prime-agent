@@ -51,6 +51,12 @@ export type MarkdownProps = {
 
 const SAFE_HREF_PATTERN = /^(https?:|mailto:)/i
 
+/**
+ * Determines whether a rendered Markdown element contains a block-level image or code element.
+ *
+ * @param value - The value to inspect recursively.
+ * @returns `true` if the value contains a block-level image or code element, `false` otherwise.
+ */
 function containsBlockMarkdownChild(value: unknown): boolean {
   if (!isValidElement(value)) return false
 

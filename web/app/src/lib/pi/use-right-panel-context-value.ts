@@ -82,6 +82,11 @@ type RightPanelContextSlices = {
 	workspaceTreeContext: WorkspaceTreeContextValue;
 };
 
+/**
+ * Assembles the memoized context values used by the right panel.
+ *
+ * @returns The chat panel, workspace tree, and settings action context slices
+ */
 export function useRightPanelContextValue({
 	activityLabel,
 	artifactRuns,

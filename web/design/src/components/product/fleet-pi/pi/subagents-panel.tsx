@@ -49,12 +49,28 @@ type TranscriptState = {
 	error?: Error
 }
 
+/**
+ * Maps a child agent's state to the corresponding chat status.
+ *
+ * @param child - The child agent whose status should be mapped
+ * @returns `streaming` for running children, `error` for errored children, and `ready` for all other states
+ */
 function transcriptStatus(child: PrimeAgentRlmChild): ChatStatus {
 	if (child.status === "running") return "streaming"
 	if (child.status === "error") return "error"
 	return "ready"
 }
 
+/**
+ * Renders a conversation turn with its user message, assistant content, and final-turn metadata.
+ *
+ * @param turn - The conversation turn to display
+ * @param isLast - Whether the turn is the most recent turn
+ * @param isStreaming - Whether assistant content is still streaming
+ * @param artifacts - Artifacts associated with the turn
+ * @param presentation - Optional nested subagent presentation for the final turn
+ * @returns The rendered conversation turn
+ */
 function SubagentTurnView({
 	turn,
 	isLast,
@@ -121,6 +137,14 @@ function SubagentTurnView({
 	)
 }
 
+/**
+ * Displays a subagent's metadata, transcript, artifacts, and current loading or error state.
+ *
+ * @param child - The subagent whose thread is displayed
+ * @param parentSessionId - The active parent session identifier
+ * @param transcript - The loaded transcript state for the subagent
+ * @param onRefresh - Refreshes the subagent transcript
+ */
 function ChildTranscript({
 	child,
 	parentSessionId,
@@ -226,6 +250,14 @@ function ChildTranscript({
 	)
 }
 
+/**
+ * Displays delegated subagent threads and the selected child's transcript.
+ *
+ * @param agents - The delegated subagents to display.
+ * @param loadSession - Loads a child subagent's transcript.
+ * @param parentSessionId - Identifies the parent session containing the subagent threads.
+ * @param tree - Optional delegation tree used to order and indent the subagents.
+ */
 export function SubagentsPanelContent({ agents, loadSession, parentSessionId, tree }: SubagentsPanelContentProps) {
 	const ordered = useMemo(() => orderedRlmChildren(agents, tree), [agents, tree])
 	const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)

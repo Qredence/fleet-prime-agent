@@ -1,5 +1,11 @@
 import { NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-protocol";
 
+/**
+ * Maps a chat error to a user-facing title and message.
+ *
+ * @param error - The error to present.
+ * @returns An object containing the presentation title and message.
+ */
 export function getChatErrorPresentation(error: Error) {
 	if (
 		(error as { code?: unknown }).code === "NETWORK_DISCONNECTED" ||

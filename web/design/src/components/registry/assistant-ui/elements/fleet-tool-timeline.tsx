@@ -22,10 +22,23 @@ type FleetToolTimelineProps = {
 	className?: string
 }
 
+/**
+ * Converts a non-null, non-array object into a string-keyed record.
+ *
+ * @param value - The value to convert
+ * @returns The value as a record, or `undefined` for other values
+ */
 function record(value: unknown): Record<string, unknown> | undefined {
 	return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined
 }
 
+/**
+ * Selects the first non-empty string value from common input fields.
+ *
+ * @param input - The tool input containing candidate target values
+ * @param fallback - The value to use when no candidate target is available
+ * @returns The first matching target value, or `fallback` when none is found
+ */
 function target(input: unknown, fallback: string) {
 	const source = record(input)
 	for (const key of ["path", "filePath", "command", "cmd", "query", "pattern", "code"]) {
@@ -34,6 +47,13 @@ function target(input: unknown, fallback: string) {
 	return fallback
 }
 
+/**
+ * Determines the timeline status for a tool action.
+ *
+ * @param part - Tool action data containing its state and output information
+ * @param streaming - Whether the conversation is currently streaming
+ * @returns The corresponding timeline status
+ */
 function status(part: Record<string, unknown>, streaming: boolean): TimelineStep["status"] {
 	const state = part.state
 	if (state === "output-error" || state === "error") return "error"
@@ -42,6 +62,14 @@ function status(part: Record<string, unknown>, streaming: boolean): TimelineStep
 	return streaming && part.output === undefined && part.result === undefined ? "running" : "complete"
 }
 
+/**
+ * Converts a supported tool message part into a timeline step.
+ *
+ * @param part - The tool message part to convert
+ * @param fallbackId - The identifier to use when the part has no tool call ID
+ * @param streaming - Whether the conversation is currently streaming
+ * @returns A timeline step, or `undefined` for unsupported tool parts
+ */
 function toolStep(part: Record<string, unknown>, fallbackId: string, streaming: boolean): TimelineStep | undefined {
 	const type = part.type
 	if (typeof type !== "string" || !type.startsWith("tool-") || type === "tool-FleetReasoning" || type === "tool-Thinking") return undefined
@@ -66,6 +94,12 @@ function toolStep(part: Record<string, unknown>, fallbackId: string, streaming: 
 	}
 }
 
+/**
+ * Converts an artifact into a timeline step with an appropriate icon, action label, target, and status.
+ *
+ * @param artifact - The artifact to represent in the timeline
+ * @returns The timeline step derived from the artifact
+ */
 function artifactStep(artifact: PrimeAgentArtifact): TimelineStep {
 	const icon = artifact.kind === "diff" ? FilePenLine : artifact.kind === "bash" || artifact.kind === "ipython" ? Terminal : Wrench
 	return {
@@ -77,6 +111,12 @@ function artifactStep(artifact: PrimeAgentArtifact): TimelineStep {
 	}
 }
 
+/**
+ * Maps a timeline step status to its corresponding text color classes.
+ *
+ * @param status - The timeline step status
+ * @returns The CSS classes for the status color
+ */
 function statusClass(status: TimelineStep["status"]) {
 	if (status === "running") return "text-blue-600 dark:text-blue-400"
 	if (status === "error") return "text-destructive"
@@ -84,6 +124,14 @@ function statusClass(status: TimelineStep["status"]) {
 	return "text-emerald-600 dark:text-emerald-400"
 }
 
+/**
+ * Displays a collapsible timeline of tool actions from chat messages and artifacts.
+ *
+ * @param messages - Chat messages containing tool actions
+ * @param artifacts - Artifacts associated with tool actions
+ * @param streaming - Whether the chat is currently streaming
+ * @param className - Additional CSS classes for the timeline
+ */
 export function FleetToolTimeline({ messages, artifacts = [], streaming, className }: FleetToolTimelineProps) {
 	const steps = useMemo(() => {
 		const seen = new Set<string>()

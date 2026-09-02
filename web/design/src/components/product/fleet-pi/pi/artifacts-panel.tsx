@@ -26,6 +26,12 @@ type ArtifactsPanelContentProps = {
 	selectedArtifactId?: string | null
 }
 
+/**
+ * Converts a value to displayable text.
+ *
+ * @param value - The value to convert
+ * @returns The original string, an empty string for `null` or `undefined`, or a JSON representation of the value
+ */
 function textValue(value: unknown): string {
 	if (typeof value === "string") return value
 	if (value === undefined || value === null) return ""
@@ -36,14 +42,32 @@ function textValue(value: unknown): string {
 	}
 }
 
+/**
+ * Maps an artifact status to the corresponding tool result status.
+ *
+ * @param status - The artifact status to map
+ * @returns The corresponding tool result status
+ */
 function artifactStatus(status: PrimeAgentArtifact["status"]): ToolResultStatus {
 	return status === "running" ? "running" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "success"
 }
 
+/**
+ * Maps an artifact status to the corresponding file-diff status.
+ *
+ * @param status - The artifact status to map
+ * @returns The corresponding file-diff status
+ */
 function artifactDiffStatus(status: PrimeAgentArtifact["status"]): FileDiffStatus {
 	return status === "running" ? "streaming" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "complete"
 }
 
+/**
+ * Extracts displayable output sections from a value.
+ *
+ * @param value - The value containing output fields or content.
+ * @returns Labeled output sections for display.
+ */
 function outputSections(value: unknown): Array<{ label: string; text: string }> {
 	const source = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined
 	if (!source) return value === undefined ? [] : [{ label: "result", text: textValue(value) }]
@@ -127,6 +151,12 @@ function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; 
 	)
 }
 
+/**
+ * Renders a technical artifact with its source, output, or file diff details.
+ *
+ * @param artifact - The artifact to display.
+ * @param selected - Whether the artifact is selected and should be focused and opened.
+ */
 function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
 	const cardRef = useRef<HTMLElement>(null)
 	const initiallyOpen = selected || artifact.status === "running"
@@ -199,6 +229,15 @@ function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifac
 	)
 }
 
+/**
+ * Renders an expandable generative UI block with its component name and ordinal.
+ *
+ * @param block - The generative UI block to display
+ * @param expanded - Whether the block content is expanded
+ * @param isStreaming - Whether the block content is still streaming
+ * @param onOpenUIAction - Handles actions initiated by the rendered UI
+ * @param onToggle - Toggles the block's expanded state
+ */
 function GenerativeUiBlockRow({
 	block,
 	expanded,
@@ -246,6 +285,15 @@ function GenerativeUiBlockRow({
 	)
 }
 
+/**
+ * Displays session-generated OpenUI, technical, and generative UI artifacts.
+ *
+ * @param messages - Chat messages used to collect generative UI blocks.
+ * @param onOpenUIAction - Optional handler for actions triggered by rendered OpenUI content.
+ * @param status - Current chat status, used to mark the latest block as streaming.
+ * @param artifactRuns - Artifact runs whose artifacts are displayed in the panel.
+ * @param selectedArtifactId - Identifier of the artifact to focus and scroll into view.
+ */
 export function ArtifactsPanelContent({
 	messages,
 	onOpenUIAction,

@@ -41,6 +41,12 @@ export function RightPanelLauncherFromContext() {
   )
 }
 
+/**
+ * Renders the right-panel launcher using state and data from application contexts.
+ *
+ * @param idPrefix - Prefix used for generated right-panel element IDs
+ * @returns The right-panel launcher
+ */
 export function RightPanelTabsFromContext({
   idPrefix = "right-panel",
 }: {
@@ -88,6 +94,19 @@ export function RightPanelTrigger({ onOpen }: { onOpen: () => void }) {
   )
 }
 
+/**
+ * Renders the responsive launcher for switching between right-panel views.
+ *
+ * @param activePanel - The currently active panel, or `null` when all panels are closed
+ * @param onPanelChange - Called when a panel is opened, switched, or closed
+ * @param resources - Resources used to calculate the resources badge count
+ * @param replRuns - Number of REPL runs to show in the corresponding badge
+ * @param sessionBlocks - Number of generative UI blocks in the current session
+ * @param subagents - Number of subagents to show in the corresponding badge
+ * @param openUIArtifacts - Number of open generative UI artifacts
+ * @param workspace - Workspace data used to calculate the resources badge count
+ * @param idPrefix - Prefix used for the launcher's element IDs
+ */
 export function RightPanelLauncher({
   activePanel,
   onPanelChange,
@@ -180,6 +199,11 @@ type ResponsivePanelLauncherProps = Omit<HTMLAttributes<HTMLDivElement>, "classN
   selectedIndex: number
 }
 
+/**
+ * Renders panel navigation as tabs or a dropdown based on the available width.
+ *
+ * @returns The responsive panel launcher.
+ */
 function ResponsivePanelLauncher({
   activePanel,
   className,

@@ -2,6 +2,13 @@ import type { LucideIcon } from "lucide-react"
 import type { ChatResourceInfo } from "@prime-agent/web-protocol/chat-protocol"
 import { getResourceChipTitle, resourceKey } from "./resource-helpers"
 
+/**
+ * Renders a styled notice with an icon, title, and description.
+ *
+ * @param description - The notice description
+ * @param icon - The icon displayed with the title
+ * @param title - The notice title
+ */
 export function ResourceNotice({
   description,
   icon: Icon,
@@ -112,6 +119,11 @@ function ResourceChip({
   )
 }
 
+/**
+ * Renders an icon inside a circular styled container.
+ *
+ * @param icon - The icon component to render
+ */
 function ResourceChipIcon({ icon: Icon }: { icon: LucideIcon }) {
   return (
     <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-foreground/4 text-foreground/45">

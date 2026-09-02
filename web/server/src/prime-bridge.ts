@@ -440,17 +440,34 @@ const SESSION_NOT_RESUMABLE_PATTERNS = [
 	/requested session transcript is unavailable/i,
 ];
 
+/**
+ * Determines whether an error indicates that a session transcript cannot be resumed.
+ *
+ * @param error - The error to inspect
+ * @returns `true` if the error matches a known non-resumable session condition, `false` otherwise
+ */
 function isSessionNotResumableError(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error);
 	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
 }
 
+/**
+ * Collects the non-empty session identifiers from a session summary.
+ *
+ * @returns The session summary's available identifiers.
+ */
 function sessionSummaryIdentifiers(summary: SessionSummary): Array<string> {
 	return [summary.id, summary.sessionId, summary.activeSessionId].flatMap((value) =>
 		typeof value === "string" && value.length > 0 ? [value] : [],
 	);
 }
 
+/**
+ * Collects the non-empty parent session identifiers from a session summary.
+ *
+ * @param summary - The session summary containing parent identifiers
+ * @returns The available parent session identifiers
+ */
 function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string> {
 	return [summary.parentSessionId, summary.parentActiveSessionId].flatMap((value) =>
 		typeof value === "string" && value.length > 0 ? [value] : [],

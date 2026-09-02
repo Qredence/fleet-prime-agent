@@ -21,6 +21,13 @@ export type RightPanelShellProps = {
   resourceCanvasWidth: number
 }
 
+/**
+ * Renders the selected right-panel content in mobile and desktop layouts.
+ *
+ * @param onClose - Closes the active right panel.
+ * @param handleResourceCanvasResizeStart - Handles the start of desktop panel resizing.
+ * @param resourceCanvasWidth - The desktop panel width.
+ */
 export function RightPanelShell({
   handleResourceCanvasResizeStart,
   onClose,

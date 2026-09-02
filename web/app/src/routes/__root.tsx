@@ -54,6 +54,9 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
+/**
+ * Renders the application shell and initializes user interface preferences and analytics.
+ */
 function RootComponent() {
   useLayoutEffect(() => {
     const preferences = readUiPreferences()
@@ -76,6 +79,11 @@ function RootComponent() {
   )
 }
 
+/**
+ * Renders the application's root HTML document shell.
+ *
+ * @param children - The routed application content rendered in the document body
+ */
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-density={DEFAULT_UI_PREFERENCES.density}>

@@ -5,6 +5,12 @@ export type WorkspacePanelTarget = {
 
 const WORKSPACE_ROOT = "agent-workspace";
 
+/**
+ * Normalizes a slash-separated path by removing empty and current-directory segments and resolving parent-directory segments.
+ *
+ * @param path - The path to normalize
+ * @returns The normalized path
+ */
 function collapseWorkspaceSegments(path: string): string {
 	const stack: Array<string> = [];
 	for (const segment of path.split("/")) {
@@ -78,6 +84,12 @@ export function normalizeWorkspaceFilePath(raw: string): string | null {
 	return null;
 }
 
+/**
+ * Resolves a raw file path to a workspace panel target.
+ *
+ * @param rawPath - The raw file path to normalize and resolve
+ * @returns The workspace panel target, or `null` when the path is invalid
+ */
 export function resolveWorkspacePanelTarget(rawPath: string): WorkspacePanelTarget | null {
 	const path = normalizeWorkspaceFilePath(rawPath);
 	if (!path) return null;

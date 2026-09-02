@@ -20,6 +20,14 @@ const ToggleGroupContext = React.createContext<
   orientation: "horizontal",
 })
 
+/**
+ * Groups toggle controls with shared styling and layout configuration.
+ *
+ * @param variant - Visual style applied to the group and its items
+ * @param size - Size applied to the group and its items
+ * @param spacing - Gap between grouped controls
+ * @param orientation - Direction in which the controls are arranged
+ */
 function ToggleGroup({
   className,
   variant,

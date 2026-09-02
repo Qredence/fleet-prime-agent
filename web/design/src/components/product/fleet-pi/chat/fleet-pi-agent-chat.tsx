@@ -71,6 +71,12 @@ export type FleetPiAgentChatProps = Omit<
 	>
 }
 
+/**
+ * Extracts and joins the text content from a chat message's text parts.
+ *
+ * @param message - The chat message whose text parts are extracted
+ * @returns The joined text content, separated by blank lines
+ */
 function textFromMessage(message: ChatMessage) {
   return (message.parts ?? [])
     .flatMap((part) => {
@@ -95,6 +101,13 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
+/**
+ * Finds the first non-empty string value associated with the specified keys.
+ *
+ * @param value - The value containing the candidate properties
+ * @param keys - The property names to inspect in order
+ * @returns The first non-empty string value, or `undefined` if none is found
+ */
 function stringValue(value: unknown, ...keys: string[]) {
   const source = record(value)
   for (const key of keys) {
@@ -104,6 +117,12 @@ function stringValue(value: unknown, ...keys: string[]) {
   return undefined
 }
 
+/**
+ * Retrieves the most recent valid Fleet reasoning presentation from the chat messages.
+ *
+ * @param messages - The chat messages to inspect.
+ * @returns The latest reasoning presentation, or `undefined` when none is available.
+ */
 function reasoningPresentationFromMessages(
 	messages: Array<ChatMessage>,
 ): ChatReasoningPresentation | undefined {
@@ -129,11 +148,24 @@ function reasoningPresentationFromMessages(
 	return undefined
 }
 
+/**
+ * Extracts the run identifier from an assistant message identifier.
+ *
+ * @param messageId - The assistant message identifier
+ * @returns The run identifier, or `undefined` if the identifier does not match the expected format
+ */
 function runIdFromAssistantMessageId(messageId: string): string | undefined {
 	const match = /^(.*)-a\d+$/.exec(messageId)
 	return match?.[1]
 }
 
+/**
+ * Selects artifacts associated with the current conversation turn.
+ *
+ * @param artifactRuns - Artifact runs to search
+ * @param messages - Messages that define the current conversation turn
+ * @returns Artifacts linked to the messages, their tool calls, or their assistant runs
+ */
 function artifactsForCurrentTurn(
 	artifactRuns: Array<PrimeAgentArtifactRun> | undefined,
 	messages: Array<ChatMessage>,
@@ -164,6 +196,15 @@ function artifactsForCurrentTurn(
 	})
 }
 
+/**
+ * Builds activity items for tool calls, searches, running commands, active subagents, and goals.
+ *
+ * @param messages - Messages containing tool activity to display.
+ * @param presentation - Optional session activity data for commands, subagents, and goals.
+ * @param artifactRuns - Artifact runs used to provide artifact-opening actions.
+ * @param onOpenArtifact - Callback invoked when an artifact is opened.
+ * @returns The activity items represented by the supplied messages and session data.
+ */
 function buildActivityItems(
 	messages: Array<ChatMessage>,
 	presentation?: PrimeAgentSessionPresentation,
@@ -268,6 +309,14 @@ function buildActivityItems(
 	]
 }
 
+/**
+ * Renders an assistant conversation turn with its content, tool activity, reasoning, and artifacts.
+ *
+ * @param messages - Assistant messages belonging to the turn
+ * @param isLast - Whether this is the latest conversation turn
+ * @param isStreaming - Whether the assistant is currently generating a response
+ * @param suppressQuestionTool - Whether to hide question-tool content
+ */
 function AssistantMessage({
   messages,
   isLast,
@@ -501,6 +550,12 @@ function activitySummary(items: AgentActivityItem[]) {
   return "Completed " + count + " tracked actions"
 }
 
+/**
+ * Resolves suggestions from either an array or an object containing suggestion items.
+ *
+ * @param suggestions - The suggestions to normalize.
+ * @returns The available suggestions as an array.
+ */
 function resolveSuggestions(suggestions: FleetPiAgentChatProps["suggestions"]) {
   if (Array.isArray(suggestions)) return suggestions
   return suggestions?.items ?? []
@@ -573,6 +628,15 @@ function WelcomeState({
   )
 }
 
+/**
+ * Renders the Fleet Prime Agent chat interface, including conversation turns, activity, suggestions, errors, and message input.
+ *
+ * @param messages - Conversation messages to display.
+ * @param status - Current chat request status.
+ * @param suggestions - Optional prompts shown after a completed conversation.
+ * @param artifactRuns - Artifact runs associated with the current conversation turn.
+ * @returns The Fleet Prime Agent chat interface.
+ */
 export function FleetPiAgentChat({
   toolRenderers = PI_TOOL_RENDERERS,
   suggestions,

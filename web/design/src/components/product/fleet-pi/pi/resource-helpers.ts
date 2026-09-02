@@ -9,6 +9,13 @@ import { BookOpen, ClipboardList, FileText, Package, Palette, Plug } from "lucid
 
 export type ResourceGroupId = "skills" | "prompts" | "extensions" | "packages" | "themes" | "agentsFiles";
 
+/**
+ * Builds categorized resource groups for display, including installed and workspace-discovered skills.
+ *
+ * @param resources - Resource data returned for the current chat, or `null` when unavailable
+ * @param workspace - Workspace tree used to discover skills, or `null` when unavailable
+ * @returns The skills, prompts, extensions, packages, themes, and context resource groups
+ */
 export function getResourceGroups(
 	resources: ChatResourcesResponse | null,
 	workspace: WorkspaceTreeResponse | null,
@@ -61,6 +68,12 @@ export function getResourceGroups(
 	];
 }
 
+/**
+ * Counts the files within a workspace tree.
+ *
+ * @param nodes - The workspace tree nodes to count
+ * @returns The total number of file nodes, including files in nested directories
+ */
 export function countWorkspaceFiles(nodes: Array<WorkspaceTreeNode>): number {
 	return nodes.reduce((count, node) => {
 		if (node.type === "file") return count + 1;
@@ -69,6 +82,13 @@ export function countWorkspaceFiles(nodes: Array<WorkspaceTreeNode>): number {
 	}, 0);
 }
 
+/**
+ * Finds a workspace node by its exact path.
+ *
+ * @param nodes - The workspace nodes to search
+ * @param path - The exact path of the node to find
+ * @returns The matching workspace node, or `null` if no node has the path
+ */
 export function findWorkspaceNode(nodes: Array<WorkspaceTreeNode>, path: string): WorkspaceTreeNode | null {
 	for (const node of nodes) {
 		if (node.path === path) return node;
@@ -79,6 +99,12 @@ export function findWorkspaceNode(nodes: Array<WorkspaceTreeNode>, path: string)
 	return null;
 }
 
+/**
+ * Extracts workspace skills from the skills directory.
+ *
+ * @param workspace - The workspace tree containing skill directories
+ * @returns Workspace skill resources sorted by name
+ */
 export function getWorkspaceSkillResources(workspace: WorkspaceTreeResponse | null): Array<ChatResourceInfo> {
 	if (!workspace) return [];
 
@@ -105,12 +131,24 @@ export function getWorkspaceSkillResources(workspace: WorkspaceTreeResponse | nu
 		.sort((left, right) => left.name.localeCompare(right.name));
 }
 
+/**
+ * Removes the `/fleet-pi/` prefix from a resource path when present.
+ *
+ * @param path - The resource path to format
+ * @returns The path without the `/fleet-pi/` prefix, or the original path
+ */
 export function displayResourcePath(path: string) {
 	const marker = "/fleet-pi/";
 	const index = path.indexOf(marker);
 	return index >= 0 ? path.slice(index + marker.length) : path;
 }
 
+/**
+ * Builds a multiline tooltip title containing the resource's identifying and descriptive details.
+ *
+ * @param item - The resource whose details are included in the title
+ * @returns A newline-separated title containing the resource name and available metadata
+ */
 export function getResourceChipTitle(item: ChatResourceInfo) {
 	return [
 		item.name,
@@ -124,10 +162,23 @@ export function getResourceChipTitle(item: ChatResourceInfo) {
 		.join("\n");
 }
 
+/**
+ * Generates a stable key for a chat resource.
+ *
+ * @param item - The resource whose source and path identify the key
+ * @returns A key composed of the resource source and path, or its name when no path is available
+ */
 export function resourceKey(item: ChatResourceInfo) {
 	return `${item.source ?? "resource"}:${item.path ?? item.name}`;
 }
 
+/**
+ * Combines resource collections while preserving the first occurrence of each resource.
+ *
+ * @param primary - The resources to include first
+ * @param secondary - The resources to add after the primary collection
+ * @returns The combined resources with duplicates removed
+ */
 function mergeResourceItems(primary: Array<ChatResourceInfo>, secondary: Array<ChatResourceInfo>) {
 	const seen = new Set<string>();
 	return [...primary, ...secondary].filter((item) => {

@@ -44,6 +44,13 @@ function readKeybindings(): Record<FleetPanelKeybindingAction, FleetKeybinding> 
 	}
 }
 
+/**
+ * Determines whether a keyboard event matches a keybinding.
+ *
+ * @param event - The keyboard event to evaluate
+ * @param binding - The keybinding to compare against
+ * @returns `true` if the event matches the key code and modifier requirements, `false` otherwise
+ */
 function matches(event: KeyboardEvent, binding: FleetKeybinding): boolean {
 	return (
 		event.code === binding.code &&
@@ -53,6 +60,9 @@ function matches(event: KeyboardEvent, binding: FleetKeybinding): boolean {
 	);
 }
 
+/**
+ * Focuses the chat composer without scrolling the page.
+ */
 export function focusChatComposer(): void {
 	const target = document.querySelector<HTMLElement>(
 		"[data-fleet-chat-focus] textarea, [data-fleet-chat-focus] [contenteditable='true'], [data-fleet-chat-focus] input",
@@ -60,6 +70,12 @@ export function focusChatComposer(): void {
 	target?.focus({ preventScroll: true });
 }
 
+/**
+ * Registers keyboard shortcuts for toggling, closing, and focusing panels and the chat composer.
+ *
+ * @param onCommandPaletteToggle - Optional callback invoked when the command palette shortcut is pressed
+ * @param onClosePanel - Optional callback invoked when the close-panel shortcut is pressed while a panel is active
+ */
 export function usePanelKeybindings({
 	onCommandPaletteToggle,
 	onClosePanel,

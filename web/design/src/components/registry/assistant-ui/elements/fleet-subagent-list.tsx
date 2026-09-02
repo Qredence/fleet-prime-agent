@@ -13,6 +13,13 @@ type FleetSubagentListProps = {
 	className?: string
 }
 
+/**
+ * Displays a collapsible list of subagents and their current status.
+ *
+ * @param children - The subagent entries to display
+ * @param tree - Optional hierarchy metadata used to order and indent the entries
+ * @returns The subagent list, or `null` when no subagents are available
+ */
 export function FleetSubagentList({ children, tree, className }: FleetSubagentListProps) {
 	const agents = useMemo(() => orderedRlmChildren(children, tree), [children, tree])
 	const active = agents.some((child) => child.status === "queued" || child.status === "running")

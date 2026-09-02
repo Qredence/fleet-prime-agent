@@ -12,7 +12,14 @@ import { HIT_AREA_EXPAND_CLASS } from "../../../styles/tokens"
 import type { LucideIcon } from "lucide-react"
 import type { ComponentProps } from "react"
 
-/** Invalid only after an attempted save — never paint empty fields red on open. */
+/**
+ * Determines whether a required field should be marked invalid after a save attempt.
+ *
+ * @param value - The field value to evaluate
+ * @param attemptedSave - Whether saving has been attempted
+ * @param required - Whether the field is required
+ * @returns `true` if saving was attempted, the field is required, and its trimmed value is empty; `false` otherwise.
+ */
 function isFieldInvalid(
   value: string,
   attemptedSave: boolean,

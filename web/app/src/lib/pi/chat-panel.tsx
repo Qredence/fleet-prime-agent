@@ -32,6 +32,11 @@ type ChatPanelProps = {
 	}) => void
 }
 
+/**
+ * Renders the Fleet Pi agent chat panel with workspace context, artifacts, queued messages, and interaction controls.
+ *
+ * @returns The chat panel UI.
+ */
 export function ChatPanel({
 	messages,
 	status,

@@ -58,6 +58,9 @@ function resolveSavedModelKey(models: Array<ChatModelOption>, response: ChatSett
 	);
 }
 
+/**
+ * Provides coordinated state, data, and actions for the chat workspace, including projects, sessions, conversations, attachments, panels, dialogs, and settings.
+ */
 export function useChatWorkspaceData() {
 	const user = useOptionalUser();
 	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);

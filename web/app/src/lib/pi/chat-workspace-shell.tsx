@@ -18,6 +18,9 @@ import {
 import { focusChatComposer, usePanelKeybindings } from "@/lib/pi/panel-keybindings";
 import { useChatWorkspaceData } from "@/lib/pi/use-chat-workspace-data";
 
+/**
+ * Renders the chat workspace shell with session navigation, conversation UI, panels, dialogs, and workspace actions.
+ */
 export function ChatWorkspaceShell() {
 	const { session, conversation, composer, panels, dialogs, chrome } = useChatWorkspaceData();
 	const toggleCommandPalette = useCallback(() => {

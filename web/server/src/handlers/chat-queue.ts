@@ -5,6 +5,11 @@ import {
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
+/**
+ * Processes a request to delete a queued chat message.
+ *
+ * @returns A JSON response containing the validated mutation result
+ */
 export function handleChatQueueMutationPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = ChatQueueMutationRequestSchema.parse(await request.json().catch(() => ({})));

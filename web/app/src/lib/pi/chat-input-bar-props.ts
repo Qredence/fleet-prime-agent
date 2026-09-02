@@ -5,6 +5,13 @@ import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
 
+/**
+ * Builds input-bar properties from the composer state and active chat session.
+ *
+ * @param composer - The composer state and handlers used to configure the input bar
+ * @param activeSessionId - The active chat session identifier used to build image attachment URLs
+ * @returns The input-bar properties for the chat panel
+ */
 export function buildChatInputBarProps(
 	composer: WorkspaceData["composer"],
 	activeSessionId: string | undefined,

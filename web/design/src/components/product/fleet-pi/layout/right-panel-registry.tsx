@@ -135,6 +135,11 @@ function ArtifactsContent() {
   )
 }
 
+/**
+ * Renders the REPL panel with current artifact run data and selection.
+ *
+ * @returns The REPL panel content
+ */
 function ReplContent() {
   const data = useChatPanelDataContext()
   return (
@@ -144,6 +149,9 @@ function ReplContent() {
   )
 }
 
+/**
+ * Renders the subagents panel with the current session's agent data.
+ */
 function SubagentsContent() {
   const data = useChatPanelDataContext()
   return (

@@ -38,6 +38,17 @@ export type SessionInsights = {
 	userMessages: number;
 };
 
+/**
+ * Aggregates session activity, message, artifact, refinement, child-run, and queue insights.
+ *
+ * @param activityLabel - The current activity label, used before the plan label.
+ * @param artifactRuns - Artifact runs whose artifacts are included in the counts.
+ * @param messages - Session messages to count by role.
+ * @param planLabel - The fallback activity label.
+ * @param presentation - Session presentation data used for goals, refinements, child runs, and tool activity.
+ * @param queue - Queued follow-up and steering items.
+ * @returns The derived session insights.
+ */
 export function deriveSessionInsights({
 	activityLabel,
 	artifactRuns,

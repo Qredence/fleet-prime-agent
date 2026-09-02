@@ -55,6 +55,13 @@ export type UsePiChatOptions = {
 	persistSession: (metadata: ChatSessionMetadata) => void;
 };
 
+/**
+ * Provides chat state and controls for managing Pi sessions, messages, streaming, queues, and presentations.
+ *
+ * @param model - The model selection used for chat responses.
+ * @param options - Configuration for the chat client, initial session, persistence, and project context.
+ * @returns The current chat state and operations for interacting with sessions and messages.
+ */
 export function usePiChat(model: ChatModelSelection | undefined, options: UsePiChatOptions) {
 	const { client = chatClient, initialSessionMetadata, persistSession, projectId } = options;
 	const [messages, setMessages] = useState<Array<ChatMessage>>([]);

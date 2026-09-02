@@ -21,6 +21,13 @@ const LANES: ReadonlyArray<{ key: FleetQueueLane; label: string }> = [
 	{ key: "followUp", label: "After run" },
 ]
 
+/**
+ * Displays queued fleet messages grouped by their execution lane.
+ *
+ * @param queue - The steering and follow-up messages to display
+ * @param onDelete - Optional callback invoked when a queued message is removed
+ * @returns The queued message list, or `null` when both lanes are empty
+ */
 export function FleetMessageQueue({ queue, onDelete, className }: FleetMessageQueueProps) {
 	const count = queue.steering.length + queue.followUp.length
 	if (count === 0) return null

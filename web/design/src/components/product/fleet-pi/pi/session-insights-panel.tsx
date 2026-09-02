@@ -6,6 +6,12 @@ import {
   type SessionInsightsInput,
 } from "./session-insights"
 
+/**
+ * Replaces underscores in a string with spaces.
+ *
+ * @param value - The string to format
+ * @returns The string with underscores replaced by spaces
+ */
 function humanize(value: string): string {
   return value.replaceAll("_", " ")
 }
@@ -56,6 +62,12 @@ function GoalDetails({ goal }: { goal: PrimeAgentGoal }) {
   )
 }
 
+/**
+ * Displays live insights and progress details for a session.
+ *
+ * @param sessionId - Identifies the session whose insights are displayed; an absent value shows a session prompt.
+ * @returns A session insights panel.
+ */
 export function SessionInsightsPanel({
   activityLabel,
   artifactRuns,

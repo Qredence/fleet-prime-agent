@@ -15,10 +15,22 @@ const REPL_STATUS_DETAILS: Record<PrimeAgentArtifact["status"], { toolState: str
 	success: { toolState: "output-available", label: "Completed" },
 }
 
+/**
+ * Maps an artifact status to the corresponding REPL tool state.
+ *
+ * @param status - The artifact status to map
+ * @returns The corresponding REPL tool state
+ */
 function toolState(status: PrimeAgentArtifact["status"]): string {
 	return REPL_STATUS_DETAILS[status].toolState
 }
 
+/**
+ * Builds the IPython tool data for an artifact.
+ *
+ * @param artifact - The artifact providing the tool call identifier, status, input, and output.
+ * @returns The IPython tool part derived from the artifact.
+ */
 function ipythonPart(artifact: PrimeAgentArtifact) {
 	return {
 		type: "tool-IPython",
@@ -29,10 +41,23 @@ function ipythonPart(artifact: PrimeAgentArtifact) {
 	}
 }
 
+/**
+ * Gets the human-readable label for an artifact status.
+ *
+ * @param status - The artifact status to label
+ * @returns The display label for the status
+ */
 function statusLabel(status: PrimeAgentArtifact["status"]): string {
 	return REPL_STATUS_DETAILS[status].label
 }
 
+/**
+ * Renders an IPython artifact as a numbered REPL cell with its current status.
+ *
+ * @param artifact - The IPython artifact to render
+ * @param index - The zero-based position of the cell
+ * @param selected - Whether the cell should receive focus and scroll into view
+ */
 function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact; index: number; selected: boolean }) {
 	const cellRef = useRef<HTMLElement>(null)
 
@@ -67,6 +92,13 @@ function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact;
 	)
 }
 
+/**
+ * Renders the IPython cells from the available artifact runs.
+ *
+ * @param artifactRuns - Artifact runs whose IPython cells should be displayed
+ * @param selectedArtifactId - Identifier of the cell to focus and scroll into view
+ * @returns The REPL panel content
+ */
 export function ReplPanelContent({ artifactRuns = [], selectedArtifactId }: ReplPanelContentProps) {
 	const cells = artifactRuns
 		.flatMap((run) => run.artifacts)

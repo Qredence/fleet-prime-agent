@@ -5,6 +5,12 @@ export type ConversationTurn = {
 	assistants: Array<ChatMessage>;
 };
 
+/**
+ * Groups chat messages into conversation turns.
+ *
+ * @param messages - The chat messages to group by user and assistant exchanges
+ * @returns The conversation turns, including assistant-only turns when applicable
+ */
 export function groupMessages(messages: Array<ChatMessage>): Array<ConversationTurn> {
 	const turns: Array<ConversationTurn> = [];
 	let current: ConversationTurn | undefined;
