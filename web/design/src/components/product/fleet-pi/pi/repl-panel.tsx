@@ -1,9 +1,11 @@
 import { Code2, SquareTerminal } from "lucide-react"
+import { useEffect, useRef } from "react"
 import type { PrimeAgentArtifact, PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol"
 import { IpythonTool } from "../../../registry/beui/agents/tools/ipython-tool"
 
 type ReplPanelContentProps = {
 	artifactRuns?: Array<PrimeAgentArtifactRun>
+	selectedArtifactId?: string | null
 }
 
 const REPL_STATUS_DETAILS: Record<PrimeAgentArtifact["status"], { toolState: string; label: string }> = {
@@ -31,7 +33,41 @@ function statusLabel(status: PrimeAgentArtifact["status"]): string {
 	return REPL_STATUS_DETAILS[status].label
 }
 
-export function ReplPanelContent({ artifactRuns = [] }: ReplPanelContentProps) {
+function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact; index: number; selected: boolean }) {
+	const cellRef = useRef<HTMLElement>(null)
+
+	useEffect(() => {
+		if (!selected) return
+		requestAnimationFrame(() => {
+			cellRef.current?.focus({ preventScroll: true })
+			cellRef.current?.scrollIntoView({ block: "nearest" })
+		})
+	}, [artifact.id, selected])
+
+	return (
+		<article
+			ref={cellRef}
+			tabIndex={-1}
+			className="overflow-hidden rounded-md border border-border/60 bg-background outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			data-repl-run-id={artifact.id}
+		>
+			<div className="flex min-w-0 items-center gap-2 border-b border-border/50 px-2.5 py-1.5">
+				<Code2 className="size-3.5 shrink-0 text-foreground/45" />
+				<span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/70">
+					Cell {index + 1}
+				</span>
+				<span className="shrink-0 text-[10px] text-foreground/40">
+					{statusLabel(artifact.status)}
+				</span>
+			</div>
+			<div className="p-2">
+				<IpythonTool part={ipythonPart(artifact)} />
+			</div>
+		</article>
+	)
+}
+
+export function ReplPanelContent({ artifactRuns = [], selectedArtifactId }: ReplPanelContentProps) {
 	const cells = artifactRuns
 		.flatMap((run) => run.artifacts)
 		.filter((artifact) => artifact.kind === "ipython")
@@ -55,24 +91,12 @@ export function ReplPanelContent({ artifactRuns = [] }: ReplPanelContentProps) {
 			) : (
 				<div className="space-y-2" data-testid="repl-run-list">
 					{cells.map((artifact, index) => (
-						<article
+						<ReplCell
 							key={artifact.id}
-							className="overflow-hidden rounded-md border border-border/60 bg-background"
-							data-repl-run-id={artifact.id}
-						>
-							<div className="flex min-w-0 items-center gap-2 border-b border-border/50 px-2.5 py-1.5">
-								<Code2 className="size-3.5 shrink-0 text-foreground/45" />
-								<span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/70">
-									Cell {index + 1}
-								</span>
-								<span className="shrink-0 text-[10px] text-foreground/40">
-									{statusLabel(artifact.status)}
-								</span>
-							</div>
-							<div className="p-2">
-								<IpythonTool part={ipythonPart(artifact)} />
-							</div>
-						</article>
+							artifact={artifact}
+							index={index}
+							selected={artifact.id === selectedArtifactId}
+						/>
 					))}
 				</div>
 			)}

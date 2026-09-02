@@ -10,6 +10,7 @@ import { ArtifactsPanelContent } from "@prime-agent/web-design/components/produc
 import { RightPanelLauncher } from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher"
 import { ReplPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/repl-panel"
 import { SubagentsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/subagents-panel"
+import { useChatShellState } from "./use-chat-shell-state"
 
 vi.mock("@prime-agent/web-design/components/product/fleet-pi/chat/generative-text-renderer", () => ({
 	FleetGenerativeTextRenderer: ({ content }: { content: string }) => <div>{content}</div>,
@@ -30,6 +31,23 @@ const emptyPresentation: PrimeAgentSessionPresentation = {
 }
 
 let notifyResize: (() => void) | undefined
+
+function ChatShellStateProbe() {
+	const { openArtifact, rightPanel, selectedArtifactId } = useChatShellState(undefined, {
+		sessionMetadata: {},
+		setSessionMetadata: vi.fn(),
+	})
+
+	return (
+		<div>
+			<button type="button" onClick={() => openArtifact("repl-1", "repl")}>
+				Open REPL cell
+			</button>
+			<span data-testid="probe-panel">{rightPanel ?? "closed"}</span>
+			<span data-testid="probe-selection">{selectedArtifactId ?? "none"}</span>
+		</div>
+	)
+}
 
 function mockLauncherLayout(availableWidth: number, requiredWidth: number) {
   const observers = new Set<TestResizeObserver>()
@@ -267,6 +285,51 @@ describe("right-panel execution tabs", () => {
 		expect(screen.getByText("Cell 1")).toBeTruthy()
 		expect(screen.getByText("print('hello')")).toBeTruthy()
 		expect(screen.getByText("hello")).toBeTruthy()
+	})
+
+	it("focuses and scrolls to the selected REPL cell", async () => {
+		const artifactRuns: Array<PrimeAgentArtifactRun> = [
+			{
+				id: "run-1",
+				runId: "run-1",
+				artifacts: [
+					{
+						id: "repl-1",
+						runId: "run-1",
+						kind: "ipython",
+						title: "IPython",
+						status: "success",
+						input: { code: "print('selected')" },
+						output: { stdout: "selected" },
+						timestamp: 1,
+					},
+				],
+			},
+		]
+		const scrollIntoView = vi.fn()
+		Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+			configurable: true,
+			value: scrollIntoView,
+		})
+
+		render(<ReplPanelContent artifactRuns={artifactRuns} selectedArtifactId="repl-1" />)
+
+		const selectedCell = await waitFor(() => {
+			const cell = document.querySelector<HTMLElement>('[data-repl-run-id="repl-1"]')
+			expect(document.activeElement).toBe(cell)
+			return cell
+		})
+		expect(selectedCell).not.toBeNull()
+		expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" })
+	})
+
+	it("preserves the selected cell when opening the REPL panel", () => {
+		render(<ChatShellStateProbe />)
+
+		fireEvent.click(screen.getByRole("button", { name: "Open REPL cell" }))
+
+		expect(screen.getByTestId("probe-panel").textContent).toBe("repl")
+		expect(screen.getByTestId("probe-selection").textContent).toBe("repl-1")
 	})
 
 	it("loads and renders the selected subagent's own transcript", async () => {

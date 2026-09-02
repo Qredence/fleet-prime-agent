@@ -4,7 +4,7 @@ import {
   Scripts,
   createRootRoute,
 } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useLayoutEffect } from "react"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { MotionRuntime } from "@prime-agent/web-design/components/registry/beui/motion/runtime"
 import { Toaster } from "@prime-agent/web-design/components/ui/toast"
@@ -55,14 +55,16 @@ export const Route = createRootRoute({
 })
 
 function RootComponent() {
-  useEffect(() => {
-    initAnalytics()
+  useLayoutEffect(() => {
     const preferences = readUiPreferences()
     document.documentElement.dataset.density = preferences.density
     document.documentElement.classList.toggle(
       "reduce-motion",
       preferences.motion === "reduced",
     )
+  }, [])
+  useEffect(() => {
+    initAnalytics()
   }, [])
 
   return (

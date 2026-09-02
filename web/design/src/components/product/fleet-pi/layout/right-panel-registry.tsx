@@ -139,7 +139,7 @@ function ReplContent() {
   const data = useChatPanelDataContext()
   return (
     <Suspense fallback={<PanelFallback />}>
-      <LazyReplPanel artifactRuns={data.artifactRuns} />
+      <LazyReplPanel artifactRuns={data.artifactRuns} selectedArtifactId={data.selectedArtifactId} />
     </Suspense>
   )
 }

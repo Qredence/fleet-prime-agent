@@ -160,7 +160,7 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 
 	const openArtifact = useCallback(
 		(artifactId: string, target: ArtifactOpenTarget = "artifacts") => {
-			setSelectedArtifactId(target === "artifacts" ? artifactId : null);
+			setSelectedArtifactId(artifactId);
 			setRightPanel(target);
 		},
 		[setRightPanel],
