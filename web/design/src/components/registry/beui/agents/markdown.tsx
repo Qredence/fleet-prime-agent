@@ -57,7 +57,7 @@ const SAFE_HREF_PATTERN = /^(https?:|mailto:)/i
  * @param value - The value to inspect recursively.
  * @returns `true` if the value contains a block-level image or code element, `false` otherwise.
  */
-function containsBlockMarkdownChild(value: unknown): boolean {
+function containsBlockMarkdownChild(value: unknown, imageIsSoleChild: boolean): boolean {
   if (!isValidElement(value)) return false
 
   const props = value.props
@@ -68,10 +68,13 @@ function containsBlockMarkdownChild(value: unknown): boolean {
     typeof node === "object" && node !== null && "tagName" in node
       ? node.tagName
       : undefined
-  if (tagName === "img") return true
+  if (tagName === "img") return imageIsSoleChild
   if (tagName === "code" && "data-block" in props) return true
 
-  return "children" in props && containsBlockMarkdownChild(props.children)
+  return (
+    "children" in props &&
+    containsBlockMarkdownChild(props.children, imageIsSoleChild)
+  )
 }
 
 export const markdownComponents: Components = {
@@ -100,7 +103,11 @@ export const markdownComponents: Components = {
       (value) => value != null && value !== ""
     )
 
-    if (child.some(containsBlockMarkdownChild)) {
+    if (
+      child.some((value) =>
+        containsBlockMarkdownChild(value, child.length === 1)
+      )
+    ) {
       return <Fragment>{children}</Fragment>
     }
 

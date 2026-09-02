@@ -477,7 +477,7 @@ function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string>
 /** Follow daemon lineage metadata so nested RLM children remain authorized. */
 function hasSessionLineage(
 	candidate: SessionSummary,
-	rootSessionId: string,
+	rootIdentifiers: ReadonlySet<string>,
 	sessionsByIdentifier: ReadonlyMap<string, SessionSummary>,
 ): boolean {
 	const pending: SessionSummary[] = [candidate];
@@ -487,7 +487,7 @@ function hasSessionLineage(
 		if (!current || visited.has(current)) continue;
 		visited.add(current);
 		for (const parentId of sessionSummaryParentIdentifiers(current)) {
-			if (parentId === rootSessionId) return true;
+			if (rootIdentifiers.has(parentId)) return true;
 			const parent = sessionsByIdentifier.get(parentId);
 			if (parent && !visited.has(parent)) pending.push(parent);
 		}
@@ -1015,11 +1015,16 @@ export class PrimeBridge {
 				if (!sessionsByIdentifier.has(identifier)) sessionsByIdentifier.set(identifier, session);
 			}
 		}
+		const rootIdentifiers = new Set([parentSessionId]);
+		const rootSummary = sessionsByIdentifier.get(parentSessionId);
+		if (rootSummary) {
+			for (const identifier of sessionSummaryIdentifiers(rootSummary)) rootIdentifiers.add(identifier);
+		}
 		const child = sessions.find((candidate) => {
 			return (
 				candidate.rlmChildId === childId &&
 				typeof candidate.sessionFile === "string" &&
-				hasSessionLineage(candidate, parentSessionId, sessionsByIdentifier)
+				hasSessionLineage(candidate, rootIdentifiers, sessionsByIdentifier)
 			);
 		});
 		if (!child?.sessionFile) return undefined;

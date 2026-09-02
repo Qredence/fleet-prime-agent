@@ -7,6 +7,7 @@ import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fle
 import { FleetMessageQueue } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue";
 import { FleetSubagentList } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-subagent-list";
 import { FleetToolTimeline } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-tool-timeline";
+import { Markdown } from "@prime-agent/web-design/components/registry/beui/agents/markdown";
 import { notify } from "@prime-agent/web-design/lib/notify";
 
 vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
@@ -63,6 +64,18 @@ function presentation(
 }
 
 describe("review regressions", () => {
+	it("preserves paragraph styling around an inline image in mixed content", () => {
+		const { container, getByRole } = render(
+			<Markdown content="Before ![status](https://example.com/status.png) after" />,
+		);
+		const paragraph = container.querySelector("p.an-md-p");
+
+		expect(paragraph).not.toBeNull();
+		expect(paragraph?.textContent).toContain("Before");
+		expect(paragraph?.textContent).toContain("after");
+		expect(getByRole("img", { name: "status" }).closest("p")).toBe(paragraph);
+	});
+
 	it("keeps the completed tool timeline expanded by default", () => {
 		const { getByRole } = render(
 			<FleetToolTimeline
