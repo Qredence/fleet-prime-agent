@@ -39,7 +39,11 @@ commands:
       - run:
           name: Install pnpm
           command: |
-            sudo npm install --global pnpm@11.15.1
+            pnpm_version="11.15.1"
+            if node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major === 22 && minor === 12 ? 0 : 1)'; then
+              pnpm_version="10.24.0"
+            fi
+            sudo npm install --global "pnpm@${pnpm_version}"
             pnpm config set store-dir ~/.cache/pnpm
             pnpm --version
 
