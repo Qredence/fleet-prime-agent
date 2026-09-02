@@ -197,7 +197,7 @@ describe("right-panel execution tabs", () => {
     expect(onPanelChange).toHaveBeenLastCalledWith(null)
   })
 
-  it("counts and renders only OpenUI artifacts and session UI blocks", () => {
+  it("counts and renders OpenUI and technical artifacts with session UI blocks", () => {
     const artifactRuns: Array<PrimeAgentArtifactRun> = [
       {
         id: "run-1",
@@ -254,9 +254,9 @@ describe("right-panel execution tabs", () => {
     expect(screen.getByText("Generated dashboard")).toBeTruthy()
     expect(screen.getByText("Generative UI")).toBeTruthy()
     expect(screen.getByText("Card")).toBeTruthy()
-    expect(screen.queryByText("Technical artifacts")).toBeNull()
+    expect(screen.getByText("Technical artifacts")).toBeTruthy()
     expect(screen.queryByText("print('hello')")).toBeNull()
-    expect(screen.queryByText("permission denied")).toBeNull()
+    expect(screen.getByText("permission denied")).toBeTruthy()
   })
 
 	it("renders recorded IPython cells in the REPL panel", () => {

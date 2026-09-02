@@ -302,6 +302,47 @@ describe("usePiChat stream admission", () => {
 		expect(result.current.queue).toEqual({ steering: [], followUp: [] });
 	});
 
+	it("fails closed when a shifted queued delete has duplicate text", async () => {
+		const { client, eventSources, result } = createHarness();
+		await act(async () => flush());
+
+		await act(async () => {
+			eventSources[0]?.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({ type: "queue", steering: ["first", "same", "same"], followUp: [] }),
+				}),
+			);
+			await flush();
+		});
+
+		const firstResponse = deferred<{
+			status: "applied" | "rejected" | "invalid" | "unsupported";
+			queue: { steering: string[]; followUp: string[] };
+		}>();
+		vi.mocked(client.deleteQueuedMessage).mockReturnValueOnce(firstResponse.promise);
+
+		let firstDeletion!: Promise<boolean>;
+		await act(async () => {
+			firstDeletion = result.current.deleteQueuedMessage("steering", 0, "first");
+			await flush();
+		});
+		let duplicateDeletion!: Promise<boolean>;
+		await act(async () => {
+			duplicateDeletion = result.current.deleteQueuedMessage("steering", 2, "same");
+			await flush();
+		});
+
+		expect(client.deleteQueuedMessage).toHaveBeenCalledTimes(1);
+		firstResponse.resolve({ status: "applied", queue: { steering: ["same", "same"], followUp: [] } });
+		await act(async () => {
+			await expect(firstDeletion).resolves.toBe(true);
+			await expect(duplicateDeletion).resolves.toBe(false);
+		});
+
+		expect(client.deleteQueuedMessage).toHaveBeenCalledTimes(1);
+		expect(result.current.queue).toEqual({ steering: ["same", "same"], followUp: [] });
+	});
+
 	it("ignores a queued-message response after switching sessions", async () => {
 		const { client, eventSources, result } = createHarness();
 		await act(async () => flush());

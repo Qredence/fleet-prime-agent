@@ -455,6 +455,9 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const deleteQueuedMessage = useCallback(
 		(lane: ChatQueueMutationRequest["lane"], index: number, expectedText: string) => {
 			const originatingSessionId = sessionMetadataRef.current.sessionId;
+			const requestedRevision = queueRevisionRef.current;
+			const requestedItems = lane === "steering" ? queueRef.current.steering : queueRef.current.followUp;
+			const requestedMatchCount = requestedItems.filter((item) => item === expectedText).length;
 			const previousDeletion = queuedDeletionTailRef.current;
 			const deletion = previousDeletion
 				.catch(() => undefined)
@@ -462,8 +465,20 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 					if (!originatingSessionId || sessionMetadataRef.current.sessionId !== originatingSessionId) return false;
 					const current = queueRef.current;
 					const items = lane === "steering" ? current.steering : current.followUp;
-					const resolvedIndex = items[index] === expectedText ? index : items.indexOf(expectedText);
-					if (resolvedIndex < 0) return false;
+					let resolvedIndex: number | undefined;
+					if (queueRevisionRef.current === requestedRevision) {
+						resolvedIndex = items[index] === expectedText ? index : undefined;
+					} else {
+						if (requestedMatchCount !== 1) return false;
+						// Queue snapshots expose text only, so a unique match in both snapshots
+						// is the only safe way to resolve an item after a revision.
+						const currentMatches = items.reduce<Array<number>>((matches, item, itemIndex) => {
+							if (item === expectedText) matches.push(itemIndex);
+							return matches;
+						}, []);
+						resolvedIndex = currentMatches.length === 1 ? currentMatches[0] : undefined;
+					}
+					if (resolvedIndex === undefined) return false;
 
 					const optimistic = {
 						...current,
