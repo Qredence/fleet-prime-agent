@@ -1,10 +1,11 @@
 "use client"
 
-import { CheckCircle2, ChevronDown, CircleAlert, CircleX, LoaderCircle } from "lucide-react"
+import { CheckCircle2, ChevronDown, LoaderCircle } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import type { PrimeAgentRlmChild, PrimeAgentRlmTree } from "@prime-agent/web-protocol/chat-protocol"
 import { cn } from "../../../../lib/utils"
+import { orderedRlmChildren, rlmStatusIcon } from "../../../../lib/pi/subagent-utils"
 
 type FleetSubagentListProps = {
 	children: readonly PrimeAgentRlmChild[]
@@ -12,32 +13,8 @@ type FleetSubagentListProps = {
 	className?: string
 }
 
-function statusIcon(status: PrimeAgentRlmChild["status"]) {
-	if (status === "done") return <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-	if (status === "error") return <CircleAlert className="size-3.5 text-destructive" />
-	if (status === "cancelled") return <CircleX className="size-3.5 text-muted-foreground" />
-	return <LoaderCircle className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />
-}
-
-function orderedChildren(children: readonly PrimeAgentRlmChild[], tree?: PrimeAgentRlmTree) {
-	const byId = new Map(children.map((child) => [child.id, child]))
-	const visited = new Set<string>()
-	const ordered: PrimeAgentRlmChild[] = []
-	const visit = (id: string) => {
-		if (visited.has(id)) return
-		visited.add(id)
-		const child = byId.get(id)
-		if (child) ordered.push(child)
-		for (const nextId of tree?.nodes[id]?.childrenIds ?? []) visit(nextId)
-	}
-
-	for (const id of tree?.rootChildrenIds ?? []) visit(id)
-	for (const child of children) visit(child.id)
-	return ordered
-}
-
 export function FleetSubagentList({ children, tree, className }: FleetSubagentListProps) {
-	const agents = useMemo(() => orderedChildren(children, tree), [children, tree])
+	const agents = useMemo(() => orderedRlmChildren(children, tree), [children, tree])
 	const active = agents.some((child) => child.status === "queued" || child.status === "running")
 	const [open, setOpen] = useState(active)
 	if (agents.length === 0) return null
@@ -59,7 +36,7 @@ export function FleetSubagentList({ children, tree, className }: FleetSubagentLi
 				<div className="space-y-1 border-t border-border/50 px-3 py-2">
 					{agents.map((child) => (
 						<div key={child.id} className="flex min-w-0 items-start gap-2" style={{ paddingLeft: `${Math.max(0, child.depth ?? 0) * 12}px` }}>
-							<span className="mt-0.5 shrink-0">{statusIcon(child.status)}</span>
+							<span className="mt-0.5 shrink-0">{rlmStatusIcon(child.status)}</span>
 							<div className="min-w-0 flex-1">
 								<div className="flex min-w-0 items-baseline gap-2">
 									<span className="truncate text-sm text-foreground/85">{child.label}</span>

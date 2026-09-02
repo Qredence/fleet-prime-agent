@@ -122,21 +122,14 @@ function WorkspaceContent() {
 
 function ArtifactsContent() {
   const data = useChatPanelDataContext()
-  const workspace = useWorkspaceTreeContext()
   return (
     <Suspense fallback={<PanelFallback />}>
       <LazyArtifactsPanel
         artifactRuns={data.artifactRuns}
-        error={workspace.workspaceError}
-        loadWorkspaceFile={workspace.loadWorkspaceFile}
-        loading={workspace.workspaceLoading}
         messages={data.messages}
         onOpenUIAction={data.onOpenUIAction}
-        onSelectedPathChange={workspace.setSelectedWorkspacePath}
         selectedArtifactId={data.selectedArtifactId}
-        selectedPath={workspace.selectedWorkspacePath}
         status={data.status}
-        workspace={workspace.workspaceTree}
       />
     </Suspense>
   )
@@ -200,15 +193,15 @@ export const RIGHT_PANEL_REGISTRY = {
     id: "artifacts",
     order: 2,
     title: "Artifacts",
-    ariaLabel: "Workspace artifacts",
+    ariaLabel: "Artifacts",
     commandLabel: "Open Artifacts",
     commandKeywords: ["artifacts", "reports", "datasets", "panels"],
     icon: Package,
     dataTestid: "pi-artifacts-canvas",
     mobileDataTestid: "pi-artifacts-mobile-panel",
     badgeSource: "artifacts",
-    loadingSource: "workspace",
-    refreshSource: "workspace",
+    loadingSource: undefined,
+    refreshSource: undefined,
     component: ArtifactsContent,
   },
   repl: {

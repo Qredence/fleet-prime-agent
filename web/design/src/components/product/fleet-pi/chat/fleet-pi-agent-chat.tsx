@@ -19,7 +19,6 @@ import type { OpenUIArtifactCandidate } from "../../../openui/html-artifact"
 import { PI_TOOL_RENDERERS } from "../pi/tool-renderers"
 import { FleetTurnStatus } from "./fleet-turn-status"
 import { FleetPiInputBar } from "./fleet-pi-input-bar"
-import { withFleetPiSuggestionStyles } from "./fleet-pi-chat-modes"
 import { getChatErrorPresentation } from "./chat-error-presentation"
 import type { AgentChatProps } from "../../../registry/beui/agents/types"
 import type { SuggestionItem } from "../../../registry/beui/agents/input/suggestions"
@@ -34,6 +33,7 @@ import { FleetReasoningPanel } from "../../../registry/assistant-ui/elements/fle
 import { FleetMessageQueue, type FleetQueueLane } from "../../../registry/assistant-ui/elements/fleet-message-queue"
 import { FleetSubagentList } from "../../../registry/assistant-ui/elements/fleet-subagent-list"
 import { FleetToolTimeline } from "../../../registry/assistant-ui/elements/fleet-tool-timeline"
+import { groupMessages, type ConversationTurn } from "../../../../lib/pi/conversation-turns"
 
 const LazyFleetPiToolRenderer = lazy(() =>
   import("./fleet-pi-tool-renderer").then(({ FleetPiToolRenderer }) => ({
@@ -60,7 +60,7 @@ export type FleetPiAgentChatProps = Omit<
 	activityLabel?: string
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
-	onOpenArtifact?: (artifactId: string) => void
+	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 	queue?: { steering: readonly string[]; followUp: readonly string[] }
 	onDeleteQueuedMessage?: (lane: FleetQueueLane, index: number, text: string) => void | Promise<unknown>
@@ -68,34 +68,6 @@ export type FleetPiAgentChatProps = Omit<
     FleetPiInputBarProps,
     "onSend" | "onStop" | "status" | "suggestions"
 	>
-}
-
-type ConversationTurn = {
-  user?: ChatMessage
-  assistants: Array<ChatMessage>
-}
-
-function groupMessages(messages: Array<ChatMessage>): Array<ConversationTurn> {
-  const turns: Array<ConversationTurn> = []
-  let current: ConversationTurn | undefined
-
-  for (const message of messages) {
-    if (message.role === "user") {
-      if (current) turns.push(current)
-      current = { user: message, assistants: [] }
-      continue
-    }
-    if (message.role !== "assistant") continue
-    if (!current || message.source === "local") {
-      if (current) turns.push(current)
-      current = { assistants: [message] }
-      continue
-    }
-    current.assistants.push(message)
-  }
-
-  if (current) turns.push(current)
-  return turns
 }
 
 function textFromMessage(message: ChatMessage) {
@@ -160,22 +132,26 @@ function buildActivityItems(
 	messages: Array<ChatMessage>,
 	presentation?: PrimeAgentSessionPresentation,
 	artifactRuns: Array<PrimeAgentArtifactRun> = [],
-	onOpenArtifact?: (artifactId: string) => void,
+	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void,
 ): AgentActivityItem[] {
-  const items = new Map<string, AgentActivityItem>()
+	const items = new Map<string, AgentActivityItem>()
 	const artifacts = artifactRuns.flatMap((run) => run.artifacts)
 	const openArtifactAction = (sourceId: string) => {
 		const artifactIndex = artifacts.findIndex(
 			(candidate) => candidate.sourceToolCallId === sourceId,
 		)
 		const artifact = artifactIndex >= 0 ? artifacts[artifactIndex] : undefined
-		return artifact && onOpenArtifact
-			? {
-					label: "Open in Artifacts",
-					ariaLabel: `Open ${artifact.title || "tool result"} artifact ${artifactIndex + 1}`,
-					onClick: () => onOpenArtifact(artifact.id),
-				}
-			: undefined
+		const target = artifact?.kind === "ipython"
+			? "repl"
+			: artifact?.kind === "openui-html"
+				? "artifacts"
+				: undefined
+		if (!artifact || !target || !onOpenArtifact) return undefined
+		return {
+			label: target === "repl" ? "Open in REPL" : "Open in Artifacts",
+			ariaLabel: `Open ${artifact.title || "tool result"} artifact ${artifactIndex + 1}`,
+			onClick: () => onOpenArtifact(artifact.id, target),
+		}
 	}
   for (const message of messages) {
     for (const [partIndex, part] of (message.parts ?? []).entries()) {
@@ -278,7 +254,7 @@ function AssistantMessage({
 	activityLabel?: string
 	presentation?: PrimeAgentSessionPresentation
 	artifactRuns?: Array<PrimeAgentArtifactRun>
-	onOpenArtifact?: (artifactId: string) => void
+	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 }) {
   const turnStreaming = isLast && isStreaming
@@ -397,9 +373,9 @@ type ConversationTurnViewProps = {
     toolRenderers: NonNullable<AgentChatProps["toolRenderers"]>
     onOpenUIAction?: (message: string) => void
     onOpenUIArtifactReady?: (
-      candidate: OpenUIArtifactCandidate
-    ) => void | Promise<string | undefined>
-    onOpenArtifact?: (artifactId: string) => void
+		candidate: OpenUIArtifactCandidate
+	) => void | Promise<string | undefined>
+		onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void
   }
   activity: {
     label?: string
@@ -583,8 +559,7 @@ export function FleetPiAgentChat({
 }: FleetPiAgentChatProps) {
   const [draft, setDraft] = useState("")
   const turns = useMemo(() => groupMessages(messages), [messages])
-  const styledSuggestions = withFleetPiSuggestionStyles(suggestions)
-  const suggestionItems = resolveSuggestions(styledSuggestions)
+  const suggestionItems = resolveSuggestions(suggestions)
   const suggestionTexts = useMemo(
     () => suggestionItems.flatMap((item) => (item.disabled ? [] : [item.value ?? item.label])),
     [suggestionItems],
@@ -630,7 +605,7 @@ export function FleetPiAgentChat({
       }
       controlled={{ value: draft, onChange: setDraft }}
       status={status}
-      suggestions={styledSuggestions}
+      suggestions={suggestions}
       onSend={onSend}
       onStop={onStop}
     />

@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react"
+import { fireEvent, render, waitFor, within } from "@testing-library/react"
 import type {
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
@@ -6,6 +6,7 @@ import type {
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { WorkspacePanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/workspace-panel"
 import type { WorkspacePanelContentProps } from "@prime-agent/web-design/components/product/fleet-pi/pi/workspace-panel"
+import { resolveWorkspacePanelTarget } from "@prime-agent/web-design/lib/workspace-path-nav"
 
 const workspace: WorkspaceTreeResponse = {
 	root: "/workspace/prime-agent",
@@ -105,6 +106,17 @@ beforeEach(() => {
 })
 
 describe("WorkspacePanelContent file tree", () => {
+	it.each([
+		"agent-workspace/artifacts/trace.md",
+		"artifacts/trace.md",
+		"/workspace/artifacts/trace.md",
+	])("routes workspace artifact path %s to the Workspace panel", (path) => {
+		expect(resolveWorkspacePanelTarget(path)).toEqual({
+			panel: "workspace",
+			path: "agent-workspace/artifacts/trace.md",
+		})
+	})
+
 	it("renders a semantic nested tree with collapsed folders", () => {
 		const { getByRole, queryByRole } = renderPanel()
 
@@ -177,6 +189,20 @@ describe("WorkspacePanelContent file tree", () => {
 		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy())
 		expect(readme.getAttribute("aria-selected")).toBe("true")
 		expect(getByTestId("workspace-preview").textContent).toContain("README.md")
+	})
+
+	it("keeps workspace artifact files accessible in the main tree", async () => {
+		const loadWorkspaceFile = vi.fn(async (path: string) => fileResponse(path))
+		const { getByRole, getByTestId } = renderPanel({ loadWorkspaceFile })
+		const tree = getByRole("tree", { name: "Workspace files" })
+		const artifacts = within(tree).getByRole("treeitem", { name: "artifacts" })
+
+		fireEvent.click(artifacts)
+		const trace = within(tree).getByRole("treeitem", { name: "trace.md" })
+		fireEvent.click(trace)
+
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("artifacts/trace.md"))
+		await waitFor(() => expect(getByTestId("workspace-preview").textContent).toContain("trace.md"))
 	})
 
 	it("supports tree keyboard navigation and file activation", async () => {

@@ -6,11 +6,15 @@ type ReplPanelContentProps = {
 	artifactRuns?: Array<PrimeAgentArtifactRun>
 }
 
+const REPL_STATUS_DETAILS: Record<PrimeAgentArtifact["status"], { toolState: string; label: string }> = {
+	running: { toolState: "input-streaming", label: "Running" },
+	error: { toolState: "output-error", label: "Failed" },
+	cancelled: { toolState: "aborted", label: "Cancelled" },
+	success: { toolState: "output-available", label: "Completed" },
+}
+
 function toolState(status: PrimeAgentArtifact["status"]): string {
-	if (status === "running") return "input-streaming"
-	if (status === "error") return "output-error"
-	if (status === "cancelled") return "aborted"
-	return "output-available"
+	return REPL_STATUS_DETAILS[status].toolState
 }
 
 function ipythonPart(artifact: PrimeAgentArtifact) {
@@ -24,10 +28,7 @@ function ipythonPart(artifact: PrimeAgentArtifact) {
 }
 
 function statusLabel(status: PrimeAgentArtifact["status"]): string {
-	if (status === "running") return "Running"
-	if (status === "error") return "Failed"
-	if (status === "cancelled") return "Cancelled"
-	return "Completed"
+	return REPL_STATUS_DETAILS[status].label
 }
 
 export function ReplPanelContent({ artifactRuns = [] }: ReplPanelContentProps) {

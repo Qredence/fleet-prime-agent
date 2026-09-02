@@ -839,6 +839,69 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		});
 	});
 
+	it("loads an authorized nested child through its immediate parent lineage", async () => {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const bridge = createTestBridge({ sessionLister });
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const parentChildManager = SessionManager.create(workDir, join(workDir, "rlm-parent-child-store"));
+		const parentChildPath = parentChildManager.materializeSessionFile();
+		parentChildManager.flushNow();
+		const grandchildManager = SessionManager.create(workDir, join(workDir, "rlm-grandchild-store"));
+		const grandchildPath = grandchildManager.materializeSessionFile();
+		grandchildManager.appendMessage({
+			role: "user",
+			content: "Inspect the nested child transcript",
+			timestamp: Date.now(),
+		});
+		grandchildManager.flushNow();
+
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: [
+				{
+					id: "child-1",
+					label: "Research worker",
+					status: "done",
+					timestamp: Date.now(),
+				},
+				{
+					id: "grandchild-1",
+					parentId: "child-1",
+					label: "Nested worker",
+					status: "done",
+					timestamp: Date.now(),
+				},
+			],
+		};
+		listedSessions.push(
+			{
+				id: parentChildManager.getSessionId(),
+				sessionId: parentChildManager.getSessionId(),
+				cwd: workDir,
+				sessionFile: parentChildPath,
+				parentSessionId: parent.sessionId,
+				rlmChildId: "child-1",
+			},
+			{
+				id: grandchildManager.getSessionId(),
+				sessionId: grandchildManager.getSessionId(),
+				cwd: workDir,
+				sessionFile: grandchildPath,
+				parentSessionId: parentChildManager.getSessionId(),
+				rlmChildId: "grandchild-1",
+			},
+		);
+
+		const result = await bridge.loadRlmChildTranscript(parent.sessionId, "grandchild-1");
+
+		expect(result).toMatchObject({
+			sessionId: grandchildManager.getSessionId(),
+			messages: [{ role: "user", parts: [{ type: "text", text: "Inspect the nested child transcript" }] }],
+		});
+	});
+
 	it("rejects a listed transcript whose lineage does not match the live parent", async () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;

@@ -1,10 +1,7 @@
 import {
 	AlertCircle,
 	Bot,
-	CheckCircle2,
 	ChevronRight,
-	CircleX,
-	LoaderCircle,
 	RefreshCw,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -34,6 +31,8 @@ import { derivePrimeAgentArtifactRuns } from "./prime-agent-artifacts"
 import { FleetSubagentList } from "../../../registry/assistant-ui/elements/fleet-subagent-list"
 import { FleetToolTimeline } from "../../../registry/assistant-ui/elements/fleet-tool-timeline"
 import { cn } from "../../../../lib/utils"
+import { groupMessages, type ConversationTurn } from "../../../../lib/pi/conversation-turns"
+import { orderedRlmChildren, rlmStatusIcon } from "../../../../lib/pi/subagent-utils"
 
 type SubagentsPanelContentProps = {
 	agents: Array<PrimeAgentRlmChild>
@@ -48,58 +47,6 @@ type TranscriptState = {
 	messages: Array<ChatMessage>
 	presentation?: PrimeAgentSessionPresentation
 	error?: Error
-}
-
-type ConversationTurn = {
-	user?: ChatMessage
-	assistants: Array<ChatMessage>
-}
-
-function groupMessages(messages: Array<ChatMessage>): Array<ConversationTurn> {
-	const turns: Array<ConversationTurn> = []
-	let current: ConversationTurn | undefined
-
-	for (const message of messages) {
-		if (message.role === "user") {
-			if (current) turns.push(current)
-			current = { user: message, assistants: [] }
-			continue
-		}
-		if (message.role !== "assistant") continue
-		if (!current || message.source === "local") {
-			if (current) turns.push(current)
-			current = { assistants: [message] }
-			continue
-		}
-		current.assistants.push(message)
-	}
-
-	if (current) turns.push(current)
-	return turns
-}
-
-function orderedAgents(agents: readonly PrimeAgentRlmChild[], tree?: PrimeAgentRlmTree) {
-	const byId = new Map(agents.map((agent) => [agent.id, agent]))
-	const visited = new Set<string>()
-	const ordered: Array<PrimeAgentRlmChild> = []
-	const visit = (id: string) => {
-		if (visited.has(id)) return
-		visited.add(id)
-		const agent = byId.get(id)
-		if (agent) ordered.push(agent)
-		for (const childId of tree?.nodes[id]?.childrenIds ?? []) visit(childId)
-	}
-
-	for (const id of tree?.rootChildrenIds ?? []) visit(id)
-	for (const agent of agents) visit(agent.id)
-	return ordered
-}
-
-function statusIcon(status: PrimeAgentRlmChild["status"]) {
-	if (status === "done") return <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-	if (status === "error") return <AlertCircle className="size-3.5 text-destructive" />
-	if (status === "cancelled") return <CircleX className="size-3.5 text-muted-foreground" />
-	return <LoaderCircle className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />
 }
 
 function transcriptStatus(child: PrimeAgentRlmChild): ChatStatus {
@@ -280,7 +227,7 @@ function ChildTranscript({
 }
 
 export function SubagentsPanelContent({ agents, loadSession, parentSessionId, tree }: SubagentsPanelContentProps) {
-	const ordered = useMemo(() => orderedAgents(agents, tree), [agents, tree])
+	const ordered = useMemo(() => orderedRlmChildren(agents, tree), [agents, tree])
 	const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
 	const [transcripts, setTranscripts] = useState<Record<string, TranscriptState>>({})
 	const requestVersions = useRef(new Map<string, number>())
@@ -372,7 +319,7 @@ export function SubagentsPanelContent({ agents, loadSession, parentSessionId, tr
 							style={{ paddingLeft: `${8 + Math.max(0, agent.depth ?? 0) * 12}px` }}
 							onClick={() => setSelectedAgentId(agent.id)}
 						>
-							<span className="shrink-0">{statusIcon(agent.status)}</span>
+							<span className="shrink-0">{rlmStatusIcon(agent.status)}</span>
 							<span className="min-w-0 flex-1 truncate text-xs text-foreground/80">{agent.label}</span>
 							<ChevronRight className="size-3 shrink-0 text-foreground/30" />
 							<span className="shrink-0 text-[10px] capitalize text-foreground/45">{agent.status}</span>

@@ -7,6 +7,7 @@ export type FleetPanelKeybindingAction =
 	| "toggleArtifacts"
 	| "toggleRepl"
 	| "toggleSubagents"
+	| "toggleCommandPalette"
 	| "closePanel"
 	| "focusPanel"
 	| "focusChat";
@@ -26,6 +27,7 @@ export const DEFAULT_FLEET_PANEL_KEYBINDINGS: Record<FleetPanelKeybindingAction,
 	toggleArtifacts: { code: "Digit3", ctrlOrMeta: true, shift: true },
 	toggleRepl: { code: "Digit4", ctrlOrMeta: true, shift: true },
 	toggleSubagents: { code: "Digit5", ctrlOrMeta: true, shift: true },
+	toggleCommandPalette: { code: "KeyK", ctrlOrMeta: true },
 	closePanel: { code: "Escape" },
 	focusPanel: { code: "KeyP", ctrlOrMeta: true, shift: true },
 	focusChat: { code: "KeyC", ctrlOrMeta: true, shift: true },
@@ -51,7 +53,7 @@ function matches(event: KeyboardEvent, binding: FleetKeybinding): boolean {
 	);
 }
 
-function focusChatComposer(): void {
+export function focusChatComposer(): void {
 	const target = document.querySelector<HTMLElement>(
 		"[data-fleet-chat-focus] textarea, [data-fleet-chat-focus] [contenteditable='true'], [data-fleet-chat-focus] input",
 	);
@@ -59,9 +61,13 @@ function focusChatComposer(): void {
 }
 
 export function usePanelKeybindings({
+	onCommandPaletteToggle,
+	onClosePanel,
 	rightPanel,
 	setRightPanel,
 }: {
+	onCommandPaletteToggle?: () => void;
+	onClosePanel?: () => void;
 	rightPanel: RightPanelState;
 	setRightPanel: (panel: RightPanelState) => void;
 }): void {
@@ -75,9 +81,13 @@ export function usePanelKeybindings({
 			else if (match("toggleArtifacts")) setRightPanel(rightPanel === "artifacts" ? null : "artifacts");
 			else if (match("toggleRepl")) setRightPanel(rightPanel === "repl" ? null : "repl");
 			else if (match("toggleSubagents")) setRightPanel(rightPanel === "subagents" ? null : "subagents");
+			else if (onCommandPaletteToggle && match("toggleCommandPalette")) onCommandPaletteToggle();
 			else if (rightPanel && match("closePanel")) {
-				setRightPanel(null);
-				focusChatComposer();
+				if (onClosePanel) onClosePanel();
+				else {
+					setRightPanel(null);
+					focusChatComposer();
+				}
 			} else if (rightPanel && match("focusPanel")) {
 				document.querySelector<HTMLElement>("[data-fleet-panel-focus]")?.focus({ preventScroll: true });
 			} else if (match("focusChat")) focusChatComposer();
@@ -91,5 +101,5 @@ export function usePanelKeybindings({
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [rightPanel, setRightPanel]);
+	}, [onCommandPaletteToggle, onClosePanel, rightPanel, setRightPanel]);
 }

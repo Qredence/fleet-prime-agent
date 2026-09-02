@@ -444,6 +444,41 @@ function isSessionNotResumableError(error: unknown): boolean {
 	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
 }
 
+function sessionSummaryIdentifiers(summary: Record<string, unknown>): Array<string> {
+	return ["id", "sessionId", "activeSessionId"].flatMap((key) => {
+		const value = summary[key];
+		return typeof value === "string" && value.length > 0 ? [value] : [];
+	});
+}
+
+function sessionSummaryParentIdentifiers(summary: Record<string, unknown>): Array<string> {
+	return ["parentSessionId", "parentActiveSessionId"].flatMap((key) => {
+		const value = summary[key];
+		return typeof value === "string" && value.length > 0 ? [value] : [];
+	});
+}
+
+/** Follow daemon lineage metadata so nested RLM children remain authorized. */
+function hasSessionLineage(
+	candidate: Record<string, unknown>,
+	rootSessionId: string,
+	sessionsByIdentifier: ReadonlyMap<string, Record<string, unknown>>,
+): boolean {
+	const pending = [candidate];
+	const visited = new Set<Record<string, unknown>>();
+	while (pending.length > 0) {
+		const current = pending.pop();
+		if (!current || visited.has(current)) continue;
+		visited.add(current);
+		for (const parentId of sessionSummaryParentIdentifiers(current)) {
+			if (parentId === rootSessionId) return true;
+			const parent = sessionsByIdentifier.get(parentId);
+			if (parent && !visited.has(parent)) pending.push(parent);
+		}
+	}
+	return false;
+}
+
 // ---------------------------------------------------------------------------
 // PrimeBridge
 // ---------------------------------------------------------------------------
@@ -958,10 +993,19 @@ export class PrimeBridge {
 		}
 
 		const sessions = await this.#sessionLister();
+		const sessionRecords = sessions.map((candidate) => candidate as unknown as Record<string, unknown>);
+		const sessionsByIdentifier = new Map<string, Record<string, unknown>>();
+		for (const record of sessionRecords) {
+			for (const identifier of sessionSummaryIdentifiers(record)) {
+				if (!sessionsByIdentifier.has(identifier)) sessionsByIdentifier.set(identifier, record);
+			}
+		}
 		const child = sessions.find((candidate) => {
 			const raw = candidate as unknown as Record<string, unknown>;
 			return (
-				raw.parentSessionId === parentSessionId && raw.rlmChildId === childId && typeof raw.sessionFile === "string"
+				raw.rlmChildId === childId &&
+				typeof raw.sessionFile === "string" &&
+				hasSessionLineage(raw, parentSessionId, sessionsByIdentifier)
 			);
 		});
 		if (!child?.sessionFile) return undefined;

@@ -30,6 +30,8 @@ export type ChatShellStorage = {
 	setSessionMetadata: (metadata: ChatSessionMetadata) => void;
 };
 
+type ArtifactOpenTarget = "artifacts" | "repl";
+
 export function useChatShellState(modelsData: ChatModelsResponse | undefined, storage: ChatShellStorage) {
 	const { sessionMetadata: storedSessionMetadata, setSessionMetadata: setStoredSessionMetadata } = storage;
 
@@ -157,9 +159,9 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	}, []);
 
 	const openArtifact = useCallback(
-		(artifactId: string) => {
-			setSelectedArtifactId(artifactId);
-			setRightPanel("artifacts");
+		(artifactId: string, target: ArtifactOpenTarget = "artifacts") => {
+			setSelectedArtifactId(target === "artifacts" ? artifactId : null);
+			setRightPanel(target);
 		},
 		[setRightPanel],
 	);
@@ -177,8 +179,9 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 
 	const openPanelAction = useCallback(
 		(action: OpenPanelAction) => {
-			const isLocationPanel = action.panel === "workspace" || action.panel === "artifacts";
-			setRightPanel(action.panel);
+			const panel = action.panel === "artifacts" && action.relativePath ? "workspace" : action.panel;
+			const isLocationPanel = panel === "workspace" || panel === "artifacts";
+			setRightPanel(panel);
 			setSelectedWorkspacePath(isLocationPanel ? (action.relativePath ?? null) : null);
 			if (action.focus) {
 				window.requestAnimationFrame(() => {

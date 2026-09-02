@@ -8,30 +8,31 @@ import { AnimatedSidebarInset } from "@prime-agent/web-design/components/registr
 import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components/openui/open-panel-action-message";
 import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact";
 import { notify } from "@prime-agent/web-design/lib/notify";
-import { useCallback, useEffect, useEffectEvent } from "react";
+import { useCallback } from "react";
 import { ChatPanel } from "@/lib/pi/chat-panel";
 import { buildChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
 import {
 	ChatCommandPaletteOverlay,
 	ChatWorkspaceOverlayDialogs,
 } from "@/lib/pi/chat-workspace-dialogs";
-import { usePanelKeybindings } from "@/lib/pi/panel-keybindings";
+import { focusChatComposer, usePanelKeybindings } from "@/lib/pi/panel-keybindings";
 import { useChatWorkspaceData } from "@/lib/pi/use-chat-workspace-data";
 
 export function ChatWorkspaceShell() {
 	const { session, conversation, composer, panels, dialogs, chrome } = useChatWorkspaceData();
-	const onCommandPaletteKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-			event.preventDefault();
-			dialogs.setCommandPaletteOpen(!dialogs.commandPaletteOpen);
-		}
+	const toggleCommandPalette = useCallback(() => {
+		dialogs.setCommandPaletteOpen((open) => !open);
+	}, [dialogs.setCommandPaletteOpen]);
+	const closeRightPanel = useCallback(() => {
+		panels.setRightPanel(null);
+		window.requestAnimationFrame(() => focusChatComposer());
+	}, [panels.setRightPanel]);
+	usePanelKeybindings({
+		onCommandPaletteToggle: toggleCommandPalette,
+		onClosePanel: closeRightPanel,
+		rightPanel: panels.rightPanel,
+		setRightPanel: panels.setRightPanel,
 	});
-	useEffect(() => {
-		const handleKeyDown = (event: KeyboardEvent) => onCommandPaletteKeyDown(event);
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, []);
-	usePanelKeybindings({ rightPanel: panels.rightPanel, setRightPanel: panels.setRightPanel });
 	const activeProjectName = session.projects.find(
 		(project) => project.projectId === session.activeProjectId,
 	)?.name;
@@ -136,6 +137,7 @@ export function ChatWorkspaceShell() {
 								<UiErrorBoundary>
 									<RightPanelShell
 										handleResourceCanvasResizeStart={panels.handleResourceCanvasResizeStart}
+										onClose={closeRightPanel}
 										resourceCanvasWidth={panels.resourceCanvasWidth}
 									/>
 								</UiErrorBoundary>

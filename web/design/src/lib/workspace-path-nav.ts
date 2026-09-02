@@ -1,12 +1,9 @@
 export type WorkspacePanelTarget = {
-	panel: "artifacts" | "workspace";
+	panel: "workspace";
 	path: string;
 };
 
 const WORKSPACE_ROOT = "agent-workspace";
-const ARTIFACTS_SEGMENT = `${WORKSPACE_ROOT}/artifacts`;
-
-export const WORKSPACE_ARTIFACTS_SCOPE = ARTIFACTS_SEGMENT;
 
 function collapseWorkspaceSegments(path: string): string {
 	const stack: Array<string> = [];
@@ -84,10 +81,6 @@ export function normalizeWorkspaceFilePath(raw: string): string | null {
 export function resolveWorkspacePanelTarget(rawPath: string): WorkspacePanelTarget | null {
 	const path = normalizeWorkspaceFilePath(rawPath);
 	if (!path) return null;
-
-	if (path.startsWith(`${ARTIFACTS_SEGMENT}/`) || path === ARTIFACTS_SEGMENT) {
-		return { panel: "artifacts", path };
-	}
 
 	return { panel: "workspace", path };
 }
