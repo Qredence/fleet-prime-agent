@@ -17,9 +17,11 @@ All participants must follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 1. Fork the repository and clone your fork
 2. Install dependencies: `pnpm install`
 3. Create a branch and make your changes
-4. Run `pnpm run check` (format, lint, type-check; does not run tests)
+4. Run `pnpm run check` (read-only formatting check, lint, and type-check; it does not run tests)
 5. Run focused web tests from the relevant package root, e.g. `cd web/server && pnpm exec vitest run src/__tests__/prime-bridge.test.ts`
-6. Push the branch and open a pull request into `main`
+6. Run `pnpm run format` only when you intentionally want Biome to write formatting changes
+7. Add a Changeset for every user-visible `@qredence/fleet` change, unless the change is documentation-only, CI-only, or internal
+8. Push the branch and open a pull request into `main`
 
 Use the pnpm commands above for local development. Never run `npm install` at
 the repository root; it drops a `package-lock.json` and rewrites the dependency
@@ -39,8 +41,21 @@ layout.
 
 ## Changelog
 
-Summarize Fleet changes in the pull request and release notes. Prime Agent
-release notes are maintained upstream.
+Add a Changeset under `.changeset/` for user-visible package changes:
+
+```md
+---
+"@qredence/fleet": patch
+---
+
+Describe the user-visible change.
+```
+
+Documentation-only, CI-only, and internal changes do not need a Changeset;
+state that explicitly in the pull request. The release-preparation job turns
+accumulated Changesets into one release pull request and CircleCI publishes
+after that pull request merges. Prime Agent engine release notes are
+maintained upstream.
 
 ## Documentation
 

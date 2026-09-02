@@ -160,9 +160,7 @@ function startServer(launcherBin, workspace) {
 	server.urlPromise = new Promise((resolvePromise, rejectPromise) => {
 		const timer = setTimeout(() => {
 			rejectPromise(
-				new Error(
-					`Fleet Prime interface did not start within ${STARTUP_TIMEOUT_MS}ms. Output:\n${server.output}`,
-				),
+				new Error(`Fleet Prime interface did not start within ${STARTUP_TIMEOUT_MS}ms. Output:\n${server.output}`),
 			);
 		}, STARTUP_TIMEOUT_MS);
 		server.on("error", (error) => {
@@ -240,6 +238,11 @@ async function main() {
 		for (const binName of ["fleet-prime", "fleet-agent"]) {
 			assertFile(join(prefix, "bin", binName), `installed bin/${binName}`);
 		}
+		execFileSync(join(prefix, "bin", "fleet-agent"), ["agent", "--help"], {
+			cwd: workspace,
+			stdio: "ignore",
+			timeout: 30000,
+		});
 		assertFile(join(installedPackage, "dist", "web", "launcher.mjs"), "packaged web launcher");
 		assertFile(join(installedPackage, "dist", "web", "server", "server.js"), "packaged web server bundle");
 

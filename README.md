@@ -2,7 +2,7 @@
 
 Fleet Prime Agent is Qredence's persistent local workspace for coding and research with AI. It combines a multi-project web chat with the upstream Prime Agent engine, so an agent can work through IPython, shell commands, file edits, plans, and subagents while sessions remain available after you close the browser.
 
-[![CI](https://github.com/Qredence/fleet-prime-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Qredence/fleet-prime-agent/actions/workflows/ci.yml)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/Qredence/fleet-prime-agent/tree/main.svg?style=shield)](https://app.circleci.com/pipelines/github/Qredence/fleet-prime-agent)
 [![Discord](https://shieldcn.dev/discord/1316199667142496307.svg?statusDot=true)](https://discord.gg/ebgy7gtZHK)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -27,6 +27,10 @@ Install the npm package (Node.js 22.12.0 or later):
 ```bash
 npm install -g @qredence/fleet
 ```
+
+The public package supports macOS and Linux. Windows is not supported. It
+provides both `fleet-agent` and `fleet-prime`; `fleet-agent agent` hands off
+to the upstream Prime Agent CLI.
 
 Or install from source. Clone the repository and run the Fleet Prime installer command. It installs the pinned upstream Prime Agent runtime, the web dependencies, builds Fleet Prime, and links `fleet-agent`.
 
@@ -69,9 +73,10 @@ Fleet installs as `fleet-agent`; it does not replace or shadow an existing `prim
 ## Requirements
 
 - Node.js 22.12.0 or later
-- pnpm 11 (the installer bootstraps it via npm when absent)
-- Git
 - Python 3.10 or later for the managed IPython kernel
+
+The source installer additionally requires Git and uses pnpm 11 (bootstrapped
+via npm when absent). npm users do not need the repository's pnpm workspace.
 
 ## Develop from source
 
@@ -93,12 +98,18 @@ cd web/server
 pnpm exec vitest run src/__tests__/specific.test.ts
 ```
 
+`pnpm run check` detects formatting drift without rewriting files. Use
+`pnpm run format` for the explicit formatting write step. Add a Changeset for
+user-visible package changes; documentation-only, CI-only, and internal work
+may document an explicit no-release path instead.
+
 ## Documentation and contribution
 
 - [Wiki](https://github.com/Qredence/fleet-prime-agent/wiki) — browsable documentation
 - [Prime Agent documentation](https://github.com/PrimeIntellect-ai/prime-agent#readme) — engine documentation
 - `web/app/ARCHITECTURE.md` — web application architecture and HTTP API
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contribution process
+- [Release guide](docs/guides/releasing.md) — Changesets, CircleCI publishing, and rollback
 - [SUPPORT.md](SUPPORT.md) — support and community channels
 
 Read `AGENTS.md` before opening a pull request. It defines development,

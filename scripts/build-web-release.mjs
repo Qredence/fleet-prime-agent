@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { build } from "esbuild";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { builtinModules } from "node:module";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const webDist = join(root, "web", "app", "dist");
@@ -25,8 +26,33 @@ const packageDependencies = new Set([
 	...Object.keys(fleetPackage.dependencies ?? {}),
 	...Object.keys(fleetPackage.optionalDependencies ?? {}),
 ]);
+const builtinModuleNames = new Set([...builtinModules, ...builtinModules.map((moduleName) => `node:${moduleName}`)]);
 
-await build({
+function packageName(specifier) {
+	return specifier.startsWith("@") ? specifier.split("/", 2).join("/") : specifier.split("/", 1)[0];
+}
+
+function auditExternalImports(metafile) {
+	const external = new Set();
+	for (const output of Object.values(metafile.outputs)) {
+		for (const imported of output.imports ?? []) {
+			if (!imported.external) continue;
+			const specifier = imported.path;
+			if (!specifier.startsWith(".") && !specifier.startsWith("/") && !builtinModuleNames.has(specifier)) {
+				external.add(packageName(specifier));
+			}
+		}
+	}
+	const undeclared = [...external].filter((dependency) => !packageDependencies.has(dependency)).sort();
+	if (undeclared.length > 0) {
+		throw new Error(
+			`Bundled server has external imports that are not direct production dependencies: ${undeclared.join(", ")}`,
+		);
+	}
+	console.log(`Bundled server external audit passed: ${[...external].sort().join(", ") || "none"}.`);
+}
+
+const buildResult = await build({
 	entryPoints: [serverEntry],
 	bundle: true,
 	format: "esm",
@@ -35,31 +61,17 @@ await build({
 	splitting: true,
 	outdir: serverOutput,
 	logLevel: "info",
+	metafile: true,
 	external: [
 		...packageDependencies,
 		...[...packageDependencies]
 			.filter((dependency) => dependency.startsWith("@"))
 			.map((dependency) => `${dependency}/*`),
-		"prime-agent",
-		"@mariozechner/clipboard",
-		"@silvia-odwyer/photon-node",
-		"debug",
-		"hosted-git-info",
-		"koffi",
-		"react",
-		"react/*",
-		"react-dom",
-		"react-dom/*",
-		"use-sync-external-store",
-		"use-sync-external-store/*",
-		"undici",
-		"zeromq",
 	],
 });
 
-cpSync(
-	join(root, "scripts", "prime-agent-web-launcher.mjs"),
-	join(releaseRoot, "launcher.mjs"),
-);
+auditExternalImports(buildResult.metafile);
+
+cpSync(join(root, "scripts", "prime-agent-web-launcher.mjs"), join(releaseRoot, "launcher.mjs"));
 
 console.log(`Packaged web runtime in ${releaseRoot}`);
