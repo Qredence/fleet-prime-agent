@@ -43,10 +43,9 @@ commands:
       - run:
           name: Install pnpm
           command: |
-            if command -v corepack >/dev/null 2>&1; then
-              sudo corepack disable pnpm
-            fi
-            sudo npm install --global "pnpm@<< parameters.pnpm_version >>"
+            echo 'export COREPACK_ENABLE_PROJECT_SPEC=0' >> "${BASH_ENV}"
+            export COREPACK_ENABLE_PROJECT_SPEC=0
+            corepack install --global "pnpm@<< parameters.pnpm_version >>"
             hash -r
             pnpm config set store-dir ~/.cache/pnpm
             pnpm --version
