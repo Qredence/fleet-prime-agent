@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react"
 
+import { notify } from "../../../../lib/notify"
 import { cn } from "../../../../lib/utils"
 
 export type FleetQueueLane = "steering" | "followUp"
@@ -23,6 +24,15 @@ const LANES: ReadonlyArray<{ key: FleetQueueLane; label: string }> = [
 export function FleetMessageQueue({ queue, onDelete, className }: FleetMessageQueueProps) {
 	const count = queue.steering.length + queue.followUp.length
 	if (count === 0) return null
+
+	const handleDelete = async (lane: FleetQueueLane, index: number, text: string) => {
+		try {
+			const deleted = await onDelete?.(lane, index, text)
+			if (deleted === false) notify.error("Unable to remove queued message")
+		} catch {
+			notify.error("Unable to remove queued message")
+		}
+	}
 
 	return (
 		<section aria-label="Queued messages" className={cn("mx-auto mb-2 w-full max-w-an px-3", className)}>
@@ -46,7 +56,7 @@ export function FleetMessageQueue({ queue, onDelete, className }: FleetMessageQu
 									<button
 										type="button"
 										aria-label={`Remove queued message: ${text}`}
-										onClick={() => void onDelete(key, index, text)}
+										onClick={() => void handleDelete(key, index, text)}
 										className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 									>
 										<X className="size-3.5" />

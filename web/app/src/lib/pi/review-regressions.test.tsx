@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fle
 import { FleetMessageQueue } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue";
 import { FleetSubagentList } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-subagent-list";
 import { FleetToolTimeline } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-tool-timeline";
+import { notify } from "@prime-agent/web-design/lib/notify";
 
 vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
@@ -112,6 +113,26 @@ describe("review regressions", () => {
 		expect(onDelete).toHaveBeenCalledWith("steering", 0, "Run tests");
 	});
 
+	it("reports queued item removal failures", async () => {
+		const onDelete = vi.fn().mockRejectedValue(new Error("queue unavailable"));
+		const notifyError = vi.spyOn(notify, "error").mockImplementation(() => "");
+		render(<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onDelete={onDelete} />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Remove queued message: Run tests" }));
+
+		await waitFor(() => expect(notifyError).toHaveBeenCalledWith("Unable to remove queued message"));
+	});
+
+	it("reports queued item removals rejected by the server", async () => {
+		const onDelete = vi.fn().mockResolvedValue(false);
+		const notifyError = vi.spyOn(notify, "error").mockImplementation(() => "");
+		render(<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onDelete={onDelete} />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Remove queued message: Run tests" }));
+
+		await waitFor(() => expect(notifyError).toHaveBeenCalledWith("Unable to remove queued message"));
+	});
+
 	it("keeps completed reasoning presentation visible", () => {
 		const { getByLabelText } = render(
 			<FleetPiAgentChat
@@ -119,7 +140,7 @@ describe("review regressions", () => {
 				messages={[settledReasoningMessage()]}
 				onSend={vi.fn()}
 				onStop={vi.fn()}
-				status="ready"
+			status="streaming"
 			/>,
 		);
 
@@ -310,7 +331,7 @@ describe("review regressions", () => {
 		expect(queryByText(/tracked actions/)).toBeNull();
 	});
 
-	it("renders active session activity and opens its artifact from the action column", () => {
+	it("renders active session activity without routing technical artifacts to Artifacts", () => {
 		const onOpenArtifact = vi.fn();
 		const active = presentation({
 			userBash: [
@@ -354,7 +375,7 @@ describe("review regressions", () => {
 			],
 		});
 		const messages: Array<ChatMessage> = [{ id: "assistant-live", role: "assistant", parts: [] }];
-		const { getAllByText, getByRole, getByText } = render(
+		const { getAllByText, getByRole, getByText, queryByRole } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -369,15 +390,13 @@ describe("review regressions", () => {
 
 		expect(getAllByText("git status", { exact: true }).length).toBeGreaterThan(0);
 		expect(getByText("RLM · Repository scan", { exact: true })).toBeTruthy();
-		const openButton = getByRole("button", { name: "Open git status artifact 1" });
 		expect(getByRole("status").textContent).toContain("Coordinating 2 active actions");
 		expect(getByRole("region", { name: /Coordinating 2 active actions/ }).getAttribute("aria-hidden")).toBe("false");
-		expect(openButton.parentElement?.className).toContain("grid-cols-[1rem_auto_minmax(0,1fr)_auto]");
-		fireEvent.click(openButton);
-		expect(onOpenArtifact).toHaveBeenCalledWith("bash-artifact");
+		expect(queryByRole("button", { name: "Open git status artifact 1" })).toBeNull();
+		expect(onOpenArtifact).not.toHaveBeenCalled();
 	});
 
-	it("opens canonical tool activity in Artifacts", () => {
+	it("opens IPython activity in REPL", () => {
 		const onOpenArtifact = vi.fn();
 		const messages: Array<ChatMessage> = [
 			{
@@ -431,7 +450,60 @@ describe("review regressions", () => {
 			"grid-cols-[1rem_auto_minmax(0,1fr)_auto]",
 		);
 		fireEvent.click(openButton);
-		expect(onOpenArtifact).toHaveBeenCalledWith("ipython-artifact");
+		expect(onOpenArtifact).toHaveBeenCalledWith("ipython-artifact", "repl");
+	});
+
+	it("opens OpenUI activity in Artifacts", () => {
+		const onOpenArtifact = vi.fn();
+		const messages: Array<ChatMessage> = [
+			{
+				id: "assistant-tool",
+				role: "assistant",
+				parts: [
+					{
+						type: "tool-Bash",
+						toolCallId: "openui-1",
+						state: "output-available",
+						input: { command: "render dashboard" },
+						output: "ok",
+					},
+				],
+			},
+		];
+		const artifactRuns: Array<PrimeAgentArtifactRun> = [
+			{
+				id: "tool-run",
+				runId: "assistant-tool",
+				artifacts: [
+					{
+						id: "openui-artifact",
+						runId: "assistant-tool",
+						sourceMessageId: "assistant-tool",
+						sourceToolCallId: "openui-1",
+						kind: "openui-html",
+						title: "Dashboard",
+						status: "success",
+						output: { title: "Dashboard", document: "<main>Dashboard</main>" },
+						timestamp: 1,
+					},
+				],
+			},
+		];
+
+		const { getByRole } = render(
+			<FleetPiAgentChat
+				inputBar={inputBar}
+				messages={messages}
+				onOpenArtifact={onOpenArtifact}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				artifactRuns={artifactRuns}
+				status="streaming"
+			/>,
+		);
+
+		fireEvent.click(getByRole("button", { name: "Open Dashboard artifact 1" }));
+		expect(onOpenArtifact).toHaveBeenCalledWith("openui-artifact", "artifacts");
 	});
 
 	it("forwards actions from reopened artifact OpenUI blocks", () => {
@@ -446,15 +518,9 @@ describe("review regressions", () => {
 
 		const { getByRole } = render(
 			<ArtifactsPanelContent
-				error={null}
-				loadWorkspaceFile={vi.fn()}
-				loading={false}
 				messages={messages}
 				onOpenUIAction={onOpenUIAction}
-				onSelectedPathChange={vi.fn()}
-				selectedPath={null}
 				status="ready"
-				workspace={null}
 			/>,
 		);
 
@@ -463,7 +529,7 @@ describe("review regressions", () => {
 		 expect(onOpenUIAction).toHaveBeenCalledWith("continue_conversation");
 	});
 
-	it("preserves failed diff status and output in artifacts", () => {
+	it("keeps technical diff output out of the Artifacts pane", () => {
 		const artifactRuns: Array<PrimeAgentArtifactRun> = [
 			{
 				id: "run-1",
@@ -487,23 +553,17 @@ describe("review regressions", () => {
 			},
 		];
 
-		const { getByLabelText, getByText, queryByLabelText } = render(
+		const { queryByLabelText, queryByText } = render(
 			<ArtifactsPanelContent
-				error={null}
-				loadWorkspaceFile={vi.fn()}
-				loading={false}
 				messages={[]}
-				onSelectedPathChange={vi.fn()}
-				selectedPath={null}
 				status="ready"
 				artifactRuns={artifactRuns}
-				workspace={null}
 			/>,
 		);
 
-		expect(getByLabelText("Changes failed")).toBeTruthy();
+		expect(queryByLabelText("Changes failed")).toBeNull();
 		expect(queryByLabelText("Changes applied")).toBeNull();
-		expect(getByText("permission denied")).toBeTruthy();
+		expect(queryByText("permission denied")).toBeNull();
 	});
 
 	it("renders a safe project-persistence error without an absolute path", () => {

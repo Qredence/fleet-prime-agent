@@ -78,6 +78,8 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const activityLabelRef = useRef(activityLabel);
 	const planLabelRef = useRef(planLabel);
 	const queueRef = useRef(queue);
+	const queueRevisionRef = useRef(0);
+	const queuedDeletionTailRef = useRef(Promise.resolve());
 	const presentationRef = useRef(presentation);
 	const pendingSendControllerRef = useRef<AbortController | null>(null);
 	const streamControllersRef = useRef(new Map<string, AbortController>());
@@ -123,6 +125,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				return;
 			}
 
+			queueRevisionRef.current += 1;
 			sessionMetadataRef.current = next;
 			setSessionMetadata(next);
 			persistSession(next);
@@ -141,8 +144,13 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	}, []);
 
 	const setQueueSynced = useCallback((nextQueue: QueueState) => {
+		queueRevisionRef.current += 1;
 		queueRef.current = nextQueue;
 		setQueue(nextQueue);
+	}, []);
+
+	const invalidateQueueMutations = useCallback(() => {
+		queueRevisionRef.current += 1;
 	}, []);
 
 	const setPresentationSynced = useCallback((nextPresentation: PrimeAgentSessionPresentation) => {
@@ -438,38 +446,63 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			streamControllersRef.current.get(metadata.sessionId)?.abort();
 			streamControllersRef.current.delete(metadata.sessionId);
 		}
+		invalidateQueueMutations();
 		setStatus("ready");
 		setQueueSynced(EMPTY_QUEUE_STATE);
 		setActivityLabelSynced(undefined);
-	}, [client, resetStreamAdmission, setActivityLabelSynced, setQueueSynced]);
+	}, [client, invalidateQueueMutations, resetStreamAdmission, setActivityLabelSynced, setQueueSynced]);
 
 	const deleteQueuedMessage = useCallback(
-		async (lane: ChatQueueMutationRequest["lane"], index: number, expectedText: string) => {
-			const sessionId = sessionMetadataRef.current.sessionId;
-			if (!sessionId) return false;
-			const current = queueRef.current;
-			const items = lane === "steering" ? current.steering : current.followUp;
-			if (items[index] !== expectedText) return false;
+		(lane: ChatQueueMutationRequest["lane"], index: number, expectedText: string) => {
+			const originatingSessionId = sessionMetadataRef.current.sessionId;
+			const previousDeletion = queuedDeletionTailRef.current;
+			const deletion = previousDeletion
+				.catch(() => undefined)
+				.then(async () => {
+					if (!originatingSessionId || sessionMetadataRef.current.sessionId !== originatingSessionId) return false;
+					const current = queueRef.current;
+					const items = lane === "steering" ? current.steering : current.followUp;
+					const resolvedIndex = items[index] === expectedText ? index : items.indexOf(expectedText);
+					if (resolvedIndex < 0) return false;
 
-			const optimistic = {
-				...current,
-				[lane]: items.filter((_, itemIndex) => itemIndex !== index),
-			};
-			setQueueSynced(optimistic);
+					const optimistic = {
+						...current,
+						[lane]: items.filter((_, itemIndex) => itemIndex !== resolvedIndex),
+					};
+					setQueueSynced(optimistic);
+					const requestRevision = queueRevisionRef.current;
 
-			try {
-				const result = await client.deleteQueuedMessage({
-					sessionId,
-					lane,
-					index,
-					expectedText,
+					try {
+						const result = await client.deleteQueuedMessage({
+							sessionId: originatingSessionId,
+							lane,
+							index: resolvedIndex,
+							expectedText,
+						});
+						if (
+							sessionMetadataRef.current.sessionId !== originatingSessionId ||
+							queueRevisionRef.current !== requestRevision
+						) {
+							return result.status === "applied";
+						}
+						setQueueSynced(result.queue);
+						return result.status === "applied";
+					} catch (queueError) {
+						if (
+							sessionMetadataRef.current.sessionId === originatingSessionId &&
+							queueRevisionRef.current === requestRevision &&
+							queueRef.current === optimistic
+						) {
+							setQueueSynced(current);
+						}
+						throw queueError;
+					}
 				});
-				setQueueSynced(result.queue);
-				return result.status === "applied";
-			} catch (queueError) {
-				if (queueRef.current === optimistic) setQueueSynced(current);
-				throw queueError;
-			}
+			queuedDeletionTailRef.current = deletion.then(
+				() => undefined,
+				() => undefined,
+			);
+			return deletion;
 		},
 		[client, setQueueSynced],
 	);
@@ -477,7 +510,10 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const startNewSession = useCallback(
 		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
 			if (options?.preserveRunning === false) stop();
-			else setStatus("ready");
+			else {
+				invalidateQueueMutations();
+				setStatus("ready");
+			}
 			const result = await client.createSession(options?.projectId ?? projectId);
 			setSessionMetadataSynced(result.session);
 			setMessagesSynced([]);
@@ -497,6 +533,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setPlanLabelSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,
+			invalidateQueueMutations,
 			stop,
 			projectId,
 		],
@@ -504,6 +541,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 	const resumeSession = useCallback(
 		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
+			invalidateQueueMutations();
 			try {
 				if (options?.preserveRunning === false) stop();
 				const result = await client.resumeSession(metadata);
@@ -544,6 +582,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setPlanLabelSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,
+			invalidateQueueMutations,
 			stop,
 		],
 	);
@@ -553,6 +592,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (nextSessionId) {
 				return resumeSession({ sessionId: nextSessionId, projectId: nextProjectId }, { preserveRunning: true });
 			}
+			invalidateQueueMutations();
 			setSessionMetadataSynced({ projectId: nextProjectId });
 			setMessagesSynced([]);
 			setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
@@ -570,6 +610,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setPresentationSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,
+			invalidateQueueMutations,
 		],
 	);
 

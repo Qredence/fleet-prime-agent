@@ -90,6 +90,16 @@ async function flush() {
 	await Promise.resolve();
 }
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+		resolve = resolvePromise;
+		reject = rejectPromise;
+	});
+	return { promise, reject, resolve };
+}
+
 function createHarness(sessionId = "session-a", availableSessions: Array<ChatSessionInfo> = []) {
 	const discoveredSessions =
 		availableSessions.length > 0
@@ -236,6 +246,93 @@ describe("usePiChat stream admission", () => {
 			index: 0,
 			expectedText: "queued",
 		});
+		expect(result.current.queue).toEqual({ steering: [], followUp: [] });
+	});
+
+	it("serializes queued-message deletes and re-resolves shifted indices", async () => {
+		const { client, eventSources, result } = createHarness();
+		await act(async () => flush());
+
+		await act(async () => {
+			eventSources[0]?.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({ type: "queue", steering: ["first", "second"], followUp: [] }),
+				}),
+			);
+			await flush();
+		});
+
+		const firstResponse = deferred<{
+			status: "applied" | "rejected" | "invalid" | "unsupported";
+			queue: { steering: string[]; followUp: string[] };
+		}>();
+		const secondResponse = deferred<{
+			status: "applied" | "rejected" | "invalid" | "unsupported";
+			queue: { steering: string[]; followUp: string[] };
+		}>();
+		vi.mocked(client.deleteQueuedMessage)
+			.mockReturnValueOnce(firstResponse.promise)
+			.mockReturnValueOnce(secondResponse.promise);
+
+		let firstDeletion!: Promise<boolean>;
+		await act(async () => {
+			firstDeletion = result.current.deleteQueuedMessage("steering", 0, "first");
+			await flush();
+		});
+		let secondDeletion!: Promise<boolean>;
+		await act(async () => {
+			secondDeletion = result.current.deleteQueuedMessage("steering", 1, "second");
+			await flush();
+		});
+
+		expect(client.deleteQueuedMessage).toHaveBeenCalledTimes(1);
+		firstResponse.resolve({ status: "applied", queue: { steering: ["second"], followUp: [] } });
+		await waitFor(() => expect(client.deleteQueuedMessage).toHaveBeenCalledTimes(2));
+		expect(client.deleteQueuedMessage).toHaveBeenNthCalledWith(2, {
+			sessionId: "session-a",
+			lane: "steering",
+			index: 0,
+			expectedText: "second",
+		});
+
+		secondResponse.resolve({ status: "applied", queue: { steering: [], followUp: [] } });
+		await act(async () => {
+			await Promise.all([firstDeletion, secondDeletion]);
+		});
+		expect(result.current.queue).toEqual({ steering: [], followUp: [] });
+	});
+
+	it("ignores a queued-message response after switching sessions", async () => {
+		const { client, eventSources, result } = createHarness();
+		await act(async () => flush());
+
+		await act(async () => {
+			eventSources[0]?.onmessage?.(
+				new MessageEvent("message", { data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }) }),
+			);
+			await flush();
+		});
+
+		const response = deferred<{
+			status: "applied" | "rejected" | "invalid" | "unsupported";
+			queue: { steering: string[]; followUp: string[] };
+		}>();
+		vi.mocked(client.deleteQueuedMessage).mockReturnValueOnce(response.promise);
+		let deletion!: Promise<boolean>;
+		await act(async () => {
+			deletion = result.current.deleteQueuedMessage("steering", 0, "queued");
+			await flush();
+		});
+
+		await act(async () => {
+			await result.current.resumeSession({ sessionId: "session-b" });
+		});
+		response.resolve({ status: "applied", queue: { steering: ["stale"], followUp: [] } });
+		await act(async () => {
+			await deletion;
+		});
+
+		expect(result.current.sessionMetadata.sessionId).toBe("session-b");
 		expect(result.current.queue).toEqual({ steering: [], followUp: [] });
 	});
 
