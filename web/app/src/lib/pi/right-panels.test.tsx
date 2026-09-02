@@ -309,4 +309,42 @@ describe("right-panel execution tabs", () => {
 		expect(await screen.findByText("Worker transcript loaded")).toBeTruthy()
 		expect(screen.getByRole("region", { name: "Subagent thread: Research worker" })).toBeTruthy()
 	})
+
+	it("reloads the selected transcript when a child advances", async () => {
+		const loadSession = vi
+			.fn<() => Promise<ChatSessionResponse>>()
+			.mockResolvedValueOnce({
+				session: { sessionId: "child-session" },
+				messages: [{ id: "child-assistant-1", role: "assistant", parts: [{ type: "text", text: "Running snapshot" }] }],
+				planPresentations: [],
+				presentation: emptyPresentation,
+			})
+			.mockResolvedValueOnce({
+				session: { sessionId: "child-session" },
+				messages: [{ id: "child-assistant-2", role: "assistant", parts: [{ type: "text", text: "Completed snapshot" }] }],
+				planPresentations: [],
+				presentation: emptyPresentation,
+			});
+		const { rerender } = render(
+			<SubagentsPanelContent
+				agents={[{ id: "child-1", label: "Research worker", status: "running", timestamp: 1 }]}
+				parentSessionId="parent-session"
+				loadSession={loadSession}
+			/>,
+		);
+
+		await waitFor(() => expect(loadSession).toHaveBeenCalledTimes(1));
+		expect(await screen.findByText("Running snapshot")).toBeTruthy();
+
+		rerender(
+			<SubagentsPanelContent
+				agents={[{ id: "child-1", label: "Research worker", status: "done", timestamp: 2 }]}
+				parentSessionId="parent-session"
+				loadSession={loadSession}
+			/>,
+		);
+
+		await waitFor(() => expect(loadSession).toHaveBeenCalledTimes(2));
+		expect(await screen.findByText("Completed snapshot")).toBeTruthy();
+	})
 })

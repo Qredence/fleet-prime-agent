@@ -41,6 +41,7 @@ import type {
 	AgentSession,
 	ExtensionUIContext,
 	ExtensionUIDialogOptions,
+	SessionSummary,
 } from "prime-agent";
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
 import {
@@ -444,28 +445,26 @@ function isSessionNotResumableError(error: unknown): boolean {
 	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
 }
 
-function sessionSummaryIdentifiers(summary: Record<string, unknown>): Array<string> {
-	return ["id", "sessionId", "activeSessionId"].flatMap((key) => {
-		const value = summary[key];
-		return typeof value === "string" && value.length > 0 ? [value] : [];
-	});
+function sessionSummaryIdentifiers(summary: SessionSummary): Array<string> {
+	return [summary.id, summary.sessionId, summary.activeSessionId].flatMap((value) =>
+		typeof value === "string" && value.length > 0 ? [value] : [],
+	);
 }
 
-function sessionSummaryParentIdentifiers(summary: Record<string, unknown>): Array<string> {
-	return ["parentSessionId", "parentActiveSessionId"].flatMap((key) => {
-		const value = summary[key];
-		return typeof value === "string" && value.length > 0 ? [value] : [];
-	});
+function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string> {
+	return [summary.parentSessionId, summary.parentActiveSessionId].flatMap((value) =>
+		typeof value === "string" && value.length > 0 ? [value] : [],
+	);
 }
 
 /** Follow daemon lineage metadata so nested RLM children remain authorized. */
 function hasSessionLineage(
-	candidate: Record<string, unknown>,
+	candidate: SessionSummary,
 	rootSessionId: string,
-	sessionsByIdentifier: ReadonlyMap<string, Record<string, unknown>>,
+	sessionsByIdentifier: ReadonlyMap<string, SessionSummary>,
 ): boolean {
-	const pending = [candidate];
-	const visited = new Set<Record<string, unknown>>();
+	const pending: SessionSummary[] = [candidate];
+	const visited = new Set<SessionSummary>();
 	while (pending.length > 0) {
 		const current = pending.pop();
 		if (!current || visited.has(current)) continue;
@@ -993,19 +992,17 @@ export class PrimeBridge {
 		}
 
 		const sessions = await this.#sessionLister();
-		const sessionRecords = sessions.map((candidate) => candidate as unknown as Record<string, unknown>);
-		const sessionsByIdentifier = new Map<string, Record<string, unknown>>();
-		for (const record of sessionRecords) {
-			for (const identifier of sessionSummaryIdentifiers(record)) {
-				if (!sessionsByIdentifier.has(identifier)) sessionsByIdentifier.set(identifier, record);
+		const sessionsByIdentifier = new Map<string, SessionSummary>();
+		for (const session of sessions) {
+			for (const identifier of sessionSummaryIdentifiers(session)) {
+				if (!sessionsByIdentifier.has(identifier)) sessionsByIdentifier.set(identifier, session);
 			}
 		}
 		const child = sessions.find((candidate) => {
-			const raw = candidate as unknown as Record<string, unknown>;
 			return (
-				raw.rlmChildId === childId &&
-				typeof raw.sessionFile === "string" &&
-				hasSessionLineage(raw, parentSessionId, sessionsByIdentifier)
+				candidate.rlmChildId === childId &&
+				typeof candidate.sessionFile === "string" &&
+				hasSessionLineage(candidate, parentSessionId, sessionsByIdentifier)
 			);
 		});
 		if (!child?.sessionFile) return undefined;

@@ -80,6 +80,71 @@ describe("review regressions", () => {
 		expect(getByRole("button", { name: "1 tool action" }).getAttribute("aria-expanded")).toBe("true");
 	});
 
+	it("limits the active tool timeline to artifacts from the current turn", () => {
+		const messages: Array<ChatMessage> = [
+			{ id: "user-1", role: "user", parts: [{ type: "text", text: "First turn" }] },
+			{
+				id: "assistant-1",
+				role: "assistant",
+				parts: [{ type: "tool-Bash", toolCallId: "old-tool", input: { command: "old command" }, output: "done" }],
+			},
+			{ id: "user-2", role: "user", parts: [{ type: "text", text: "Second turn" }] },
+			{
+				id: "assistant-2",
+				role: "assistant",
+				parts: [{ type: "tool-Bash", toolCallId: "current-tool", input: { command: "current command" }, output: "done" }],
+			},
+		];
+		const artifactRuns: Array<PrimeAgentArtifactRun> = [
+			{
+				id: "old-run",
+				runId: "old-run",
+				artifacts: [
+					{
+						id: "old-artifact",
+						runId: "old-run",
+						sourceMessageId: "assistant-1",
+						sourceToolCallId: "old-tool",
+						kind: "bash",
+						title: "old command",
+						status: "success",
+						timestamp: 1,
+					},
+				],
+			},
+			{
+				id: "current-run",
+				runId: "current-run",
+				artifacts: [
+					{
+						id: "current-artifact",
+						runId: "current-run",
+						sourceMessageId: "assistant-2",
+						sourceToolCallId: "current-tool",
+						kind: "bash",
+						title: "current command",
+						status: "success",
+						timestamp: 2,
+					},
+				],
+			},
+		];
+
+		const { getAllByRole, queryByRole } = render(
+			<FleetPiAgentChat
+				artifactRuns={artifactRuns}
+				inputBar={inputBar}
+				messages={messages}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+			/>,
+		);
+
+		expect(queryByRole("button", { name: "2 tool actions" })).toBeNull();
+		expect(getAllByRole("button", { name: "1 tool action" })).toHaveLength(2);
+	});
+
 	it("renders nested subagents in tree order regardless of completion order", () => {
 		const { getByRole, getByText } = render(
 			<FleetSubagentList

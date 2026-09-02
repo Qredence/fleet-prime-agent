@@ -241,7 +241,7 @@ export function SubagentsPanelContent({ agents, loadSession, parentSessionId, tr
 	const loadTranscript = useCallback(
 		async (agent: PrimeAgentRlmChild, force = false) => {
 			if (!parentSessionId) return
-			const requestKey = `${parentSessionId}:${agent.id}`
+			const requestKey = `${parentSessionId}:${agent.id}:${agent.status}:${agent.timestamp}`
 			const current = transcripts[agent.id]
 			if (!force && current?.requestKey === requestKey) return
 
@@ -282,7 +282,7 @@ export function SubagentsPanelContent({ agents, loadSession, parentSessionId, tr
 
 	useEffect(() => {
 		if (selectedAgent) void loadTranscript(selectedAgent)
-	}, [loadTranscript, selectedAgent?.id])
+	}, [loadTranscript, selectedAgent?.id, selectedAgent?.status, selectedAgent?.timestamp])
 
 	if (ordered.length === 0) {
 		return (

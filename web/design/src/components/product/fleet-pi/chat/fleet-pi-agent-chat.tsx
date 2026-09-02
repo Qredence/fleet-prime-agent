@@ -24,9 +24,10 @@ import type { AgentChatProps } from "../../../registry/beui/agents/types"
 import type { SuggestionItem } from "../../../registry/beui/agents/input/suggestions"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 import type {
-  ChatReasoningPresentation,
-  PrimeAgentArtifactRun,
-  PrimeAgentSessionPresentation,
+	ChatReasoningPresentation,
+	PrimeAgentArtifact,
+	PrimeAgentArtifactRun,
+	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol"
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar"
 import { FleetReasoningPanel } from "../../../registry/assistant-ui/elements/fleet-reasoning-panel"
@@ -104,7 +105,7 @@ function stringValue(value: unknown, ...keys: string[]) {
 }
 
 function reasoningPresentationFromMessages(
-  messages: Array<ChatMessage>,
+	messages: Array<ChatMessage>,
 ): ChatReasoningPresentation | undefined {
   for (const message of [...messages].reverse()) {
     for (const part of [...(message.parts ?? [])].reverse()) {
@@ -125,7 +126,42 @@ function reasoningPresentationFromMessages(
       return presentation as unknown as ChatReasoningPresentation
     }
   }
-  return undefined
+	return undefined
+}
+
+function runIdFromAssistantMessageId(messageId: string): string | undefined {
+	const match = /^(.*)-a\d+$/.exec(messageId)
+	return match?.[1]
+}
+
+function artifactsForCurrentTurn(
+	artifactRuns: Array<PrimeAgentArtifactRun> | undefined,
+	messages: Array<ChatMessage>,
+): Array<PrimeAgentArtifact> {
+	if (!artifactRuns || messages.length === 0) return []
+	const messageIds = new Set(messages.map((message) => message.id))
+	const toolCallIds = new Set(
+		messages.flatMap((message) =>
+			(message.parts ?? []).flatMap((part) => {
+				const source = record(part)
+				return typeof source?.toolCallId === "string" && source.toolCallId ? [source.toolCallId] : []
+			}),
+		),
+	)
+	const currentRunIds = new Set(
+		messages.flatMap((message) => {
+			const runId = runIdFromAssistantMessageId(message.id)
+			return runId ? [message.id, runId] : [message.id]
+		}),
+	)
+
+	return artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => {
+		if (artifact.sourceMessageId) return messageIds.has(artifact.sourceMessageId)
+		if (artifact.sourceToolCallId) {
+			return toolCallIds.has(artifact.sourceToolCallId) || currentRunIds.has(artifact.runId)
+		}
+		return currentRunIds.has(artifact.runId)
+	})
 }
 
 function buildActivityItems(
@@ -305,8 +341,8 @@ function AssistantMessage({
   )
   const reasoningPresentation = useMemo(() => reasoningPresentationFromMessages(messages), [messages])
   const timelineArtifacts = useMemo(
-    () => (isLast ? artifactRuns?.flatMap((run) => run.artifacts) : []),
-    [artifactRuns, isLast],
+    () => (isLast ? artifactsForCurrentTurn(artifactRuns, messages) : []),
+    [artifactRuns, isLast, messages],
   )
   const [activityOpen, setActivityOpen] = useState(turnStreaming)
   const [prevTurnStreaming, setPrevTurnStreaming] = useState(turnStreaming)
