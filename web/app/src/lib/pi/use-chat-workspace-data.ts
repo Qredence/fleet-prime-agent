@@ -441,6 +441,18 @@ export function useChatWorkspaceData() {
 		},
 		[activeProjectId, openPanelAction],
 	);
+	const openSidebarPanelAction = useCallback(
+		(action: Parameters<typeof openPanelAction>[0]) => {
+			if (!action.projectId || action.projectId === activeProjectId) {
+				openPanelAction(action);
+				return;
+			}
+			void selectProject(action.projectId)
+				.then(() => openPanelAction(action))
+				.catch((error) => notifyChatError(error));
+		},
+		[activeProjectId, openPanelAction, selectProject],
+	);
 
 	const openSettings = useCallback((tab?: SettingsSlashTab) => {
 		setSettingsInitialTab(tab);
@@ -562,6 +574,7 @@ export function useChatWorkspaceData() {
 		session: {
 			activeSessionId: sessionMetadata.sessionId,
 			activeProjectId,
+			openPanelAction: openSidebarPanelAction,
 			projects: projectsData?.projects ?? [],
 			projectSessions: sessions,
 			sessions,

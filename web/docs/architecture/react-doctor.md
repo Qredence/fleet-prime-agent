@@ -14,12 +14,12 @@ The final full and changed-scope scans both report zero diagnostics, zero
 errors, and 100/100:
 
 ```sh
-npx -y react-doctor@0.9.11 --project web --json
-npx -y react-doctor@0.9.11 --project web --scope files --base HEAD --include-untracked --json
+npx -y react-doctor@0.9.11 web --json
+npx -y react-doctor@0.9.11 web --scope files --base HEAD --include-untracked --json
 ```
 
 The final score is the result of code fixes plus only the documented waivers
-in the repository's `doctor.config.jsonc`; no error-level diagnostic is waived.
+in `web/doctor.config.jsonc`; no error-level diagnostic is waived.
 
 ## Implemented fixes
 
@@ -53,21 +53,21 @@ fixed in code. The remaining feature-era diagnostics were fixed in code
 (render-time prev-tracking replacing sync effects, explicit user-override
 fallback for disclosure state, `toSorted()`, combined iterations, `m` under the
 shared lazy Motion runtime). Four documented false positives were added as
-waivers in `doctor.config.jsonc` (generation-guarded OAuth busy flag,
+waivers in `web/doctor.config.jsonc` (generation-guarded OAuth busy flag,
 transition-utility entries matching the composer precedent, the schema-valid
 OpenUI composite key). Both scans again report zero diagnostics, 100/100:
 
 ```sh
-npx -y react-doctor@0.9.11 --project web --json
-npx -y react-doctor@0.9.11 --project web --scope files --base HEAD --include-untracked --json
+npx -y react-doctor@0.9.11 web --json
+npx -y react-doctor@0.9.11 web --scope files --base HEAD --include-untracked --json
 ```
 
-The scan must run from the repository root with `--project web`; running the
-tool from inside `web/` misses the root waiver configuration. A positional
-directory argument (`react-doctor web`) bypasses root-config discovery the same
-way, so waivers silently stop applying while diagnostics keep their
-project-relative paths. Waiver rule IDs are pinned per scanner release: 0.9.11
-knows `react-doctor/no-multi-comp`, newer releases renamed it to
+The active waiver config is `web/doctor.config.jsonc`. Run the scan from the
+repository root with `web` as the positional directory so React Doctor discovers
+`web/app` and `web/design` and applies the workspace-local config. Running from
+inside `web/` with `.` as the positional directory is equivalent. Waiver rule
+IDs are pinned per scanner release: 0.9.11 knows
+`react-doctor/no-multi-comp`, newer releases renamed it to
 `react-doctor/no-multi-component-file`, so the affected overrides list both IDs
 until the pinned release moves.
 

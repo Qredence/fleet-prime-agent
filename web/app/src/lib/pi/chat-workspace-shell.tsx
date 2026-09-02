@@ -49,6 +49,7 @@ export function ChatWorkspaceShell() {
     sessions,
     startNewSession,
     startNewSessionInProject,
+    openPanelAction: openPanelActionForSidebar,
     },
     conversation: {
       activityLabel,
@@ -230,7 +231,7 @@ export function ChatWorkspaceShell() {
               onForkSessionIntoProject: forkSessionIntoProject,
             }}
             navigationActions={{
-              onOpenPanelAction: openPanelAction,
+              onOpenPanelAction: openPanelActionForSidebar,
               onBrowseDirectories: browseProjectDirectories,
               onOpenSettings: () => setSettingsDialogOpen(true),
             }}
