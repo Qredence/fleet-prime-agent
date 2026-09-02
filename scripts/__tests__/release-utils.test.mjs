@@ -162,16 +162,23 @@ test("does not create a second release pull request while another is open", asyn
 });
 
 test("dry-runs release preparation without requiring GitHub credentials", async () => {
-	const result = await prepareRelease({
-		baseSha: "base-sha",
-		status: { releases: [{ name: "@qredence/fleet", oldVersion: "0.5.0", newVersion: "0.5.1" }] },
-		dryRun: true,
-	});
-	assert.deepEqual(result, {
-		prepared: false,
-		dryRun: true,
-		plan: { packageName: "@qredence/fleet", currentVersion: "0.5.0", version: "0.5.1" },
-	});
+	const previousBranch = process.env.CIRCLE_BRANCH;
+	process.env.CIRCLE_BRANCH = "main";
+	try {
+		const result = await prepareRelease({
+			baseSha: "base-sha",
+			status: { releases: [{ name: "@qredence/fleet", oldVersion: "0.5.0", newVersion: "0.5.1" }] },
+			dryRun: true,
+		});
+		assert.deepEqual(result, {
+			prepared: false,
+			dryRun: true,
+			plan: { packageName: "@qredence/fleet", currentVersion: "0.5.0", version: "0.5.1" },
+		});
+	} finally {
+		if (previousBranch === undefined) delete process.env.CIRCLE_BRANCH;
+		else process.env.CIRCLE_BRANCH = previousBranch;
+	}
 });
 
 test("verifies a registry tarball with an injected fetch implementation", async () => {
