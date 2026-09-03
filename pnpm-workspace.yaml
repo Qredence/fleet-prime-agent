@@ -7,6 +7,7 @@ packages:
 
 # 7 days in minutes (was the root .npmrc min-release-age=7).
 minimumReleaseAge: 10080
+managePackageManagerVersions: false
 trustPolicy: no-downgrade
 # Upstream's signed runtime tarball declares its own pinned R2 package tarballs.
 # Their hashes are verified by PRIME_AGENT_RUNTIME.json and the release smoke test.
