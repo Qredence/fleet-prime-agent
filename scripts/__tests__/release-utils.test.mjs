@@ -125,7 +125,7 @@ test("enforces the packed artifact allowlist", () => {
 
 test("reuses an existing release pull request without versioning again", async () => {
 	const calls = [];
-	const result = await createVersionPullRequest("token", { version: "0.5.1" }, "base-sha", {
+	const result = await createVersionPullRequest("token", "0.5.1", "base-sha", {
 		githubRequestImpl: async (path) => {
 			calls.push(path);
 			return [{ html_url: "https://github.com/Qredence/fleet-prime-agent/pull/1" }];
@@ -139,7 +139,7 @@ test("reuses an existing release pull request without versioning again", async (
 
 test("does not create a second release pull request while another is open", async () => {
 	const calls = [];
-	const result = await createVersionPullRequest("token", { version: "0.5.2" }, "base-sha", {
+	const result = await createVersionPullRequest("token", "0.5.2", "base-sha", {
 		githubRequestImpl: async (path) => {
 			calls.push(path);
 			if (path.includes("head=")) return [];
@@ -181,6 +181,25 @@ test("dry-runs release preparation without requiring GitHub credentials", async 
 	} finally {
 		if (previousBranch === undefined) delete process.env.CIRCLE_BRANCH;
 		else process.env.CIRCLE_BRANCH = previousBranch;
+	}
+});
+
+test("requires CircleCI to provide the release version before creating a release PR", async () => {
+	const previousVersion = process.env.FLEET_RELEASE_VERSION;
+	delete process.env.FLEET_RELEASE_VERSION;
+	try {
+		await assert.rejects(
+			prepareRelease({
+				token: "token",
+				baseSha: "base-sha",
+				branch: "main",
+				status: { releases: [{ name: "@qredence/fleet", oldVersion: "0.5.0", newVersion: "0.5.1" }] },
+			}),
+			/FLEET_RELEASE_VERSION is required/,
+		);
+	} finally {
+		if (previousVersion === undefined) delete process.env.FLEET_RELEASE_VERSION;
+		else process.env.FLEET_RELEASE_VERSION = previousVersion;
 	}
 });
 

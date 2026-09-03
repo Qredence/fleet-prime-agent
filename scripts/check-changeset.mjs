@@ -8,7 +8,15 @@ import { pnpmInvocation } from "./pnpm-command.mjs";
 
 const RELEASE_BRANCH_PREFIX = "release/fleet-";
 const PACKAGE_NAME = "@qredence/fleet";
-const USER_FACING_PREFIXES = ["packages/fleet-prime/bin/", "web/app/", "web/design/", "web/protocol/", "web/server/"];
+const USER_FACING_PREFIXES = [
+	"packages/fleet-prime/bin/",
+	"web/app/src/",
+	"web/app/public/",
+	"web/design/src/",
+	"web/protocol/src/",
+	"web/server/src/",
+];
+const INTERNAL_PATH_PATTERNS = [/(^|\/)__tests__(\/|$)/, /(^|\/)(?:fixtures?|mocks?)(\/|$)/, /\.(?:test|spec)\.[^/]+$/];
 const USER_FACING_FILES = new Set([
 	"fleet-prime.sh",
 	"install.sh",
@@ -78,7 +86,9 @@ function changedFiles(baseRef) {
  * @return {boolean} `true` if the path is explicitly listed or matches a user-facing directory prefix, `false` otherwise.
  */
 function isUserFacing(path) {
-	return USER_FACING_FILES.has(path) || USER_FACING_PREFIXES.some((prefix) => path.startsWith(prefix));
+	if (USER_FACING_FILES.has(path)) return true;
+	if (INTERNAL_PATH_PATTERNS.some((pattern) => pattern.test(path))) return false;
+	return USER_FACING_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
 /**

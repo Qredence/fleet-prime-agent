@@ -16,23 +16,28 @@ const baseBranch = "main";
 /**
  * Parses release preparation command-line options.
  * @param {string[]} argv - Command-line arguments to parse.
- * @returns {{dryRun: boolean}} The parsed options.
+ * @returns {{dryRun: boolean, printVersion: boolean}} The parsed options.
  * @throws {Error} If an unknown option is provided.
  */
 function parseArgs(argv) {
 	let dryRun = false;
+	let printVersion = false;
 	for (const argument of argv) {
 		if (argument === "--dry-run") {
 			dryRun = true;
 			continue;
 		}
+		if (argument === "--print-version") {
+			printVersion = true;
+			continue;
+		}
 		if (argument === "--help" || argument === "-h") {
-			console.log("Usage: node scripts/prepare-release.mjs [--dry-run]");
+			console.log("Usage: node scripts/prepare-release.mjs [--dry-run|--print-version]");
 			process.exit(0);
 		}
 		throw new Error(`Unknown option: ${argument}`);
 	}
-	return { dryRun };
+	return { dryRun, printVersion };
 }
 
 /**
@@ -172,24 +177,25 @@ function assertVersionChangesOnly(files) {
  * Creates a release branch and pull request for the specified package version.
  * Skips creation when the target release pull request already exists, another release pull request is active, or the release branch is unmanaged.
  * @param {string} token - GitHub authentication token.
- * @param {object} plan - Release plan containing the target version.
+ * @param {string} version - Stable release version from the CircleCI environment.
  * @param {string} baseSha - Commit SHA from which to create the release.
  * @throws {Error} If an unmanaged release branch already exists or versioning produces invalid or empty changes.
  */
 export async function createVersionPullRequest(
 	token,
-	plan,
+	version,
 	baseSha,
 	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404 } = {},
 ) {
 	const { owner, repo } = RELEASE_REPOSITORY;
-	const branch = `release/fleet-v${plan.version}`;
+	parseStableVersion(version);
+	const branch = `release/fleet-v${version}`;
 	const existingPullRequests = await githubRequestImpl(
 		`/repos/${owner}/${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${branch}`)}&per_page=1`,
 		token,
 	);
 	if (existingPullRequests.length > 0) {
-		console.log(`Release pull request already exists for ${plan.version}; leaving it unchanged.`);
+		console.log(`Release pull request already exists for ${version}; leaving it unchanged.`);
 		return;
 	}
 	const repositoryFullName = `${owner}/${repo}`.toLowerCase();
@@ -204,7 +210,7 @@ export async function createVersionPullRequest(
 	);
 	if (anotherReleasePullRequest) {
 		console.log(
-			`Release pull request ${anotherReleasePullRequest.html_url ?? "already open"} is active; waiting before preparing ${plan.version}.`,
+			`Release pull request ${anotherReleasePullRequest.html_url ?? "already open"} is active; waiting before preparing ${version}.`,
 		);
 		return;
 	}
@@ -238,7 +244,7 @@ export async function createVersionPullRequest(
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
-			message: `chore(release): version ${packageName} ${plan.version}`,
+			message: `chore(release): version ${packageName} ${version}`,
 			tree: tree.sha,
 			parents: [baseSha],
 		}),
@@ -252,15 +258,15 @@ export async function createVersionPullRequest(
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
-			title: `chore(release): ${packageName}@${plan.version}`,
+			title: `chore(release): ${packageName}@${version}`,
 			head: branch,
 			base: baseBranch,
 			body:
 				`This release PR was generated from the accumulated Changesets.\n\n` +
-				`After merge, CircleCI will build, verify, and publish ${packageName}@${plan.version}.`,
+				`After merge, CircleCI will build, verify, and publish ${packageName}@${version}.`,
 		}),
 	});
-	console.log(`Created release pull request ${pullRequest.html_url} for ${packageName}@${plan.version}.`);
+	console.log(`Created release pull request ${pullRequest.html_url} for ${packageName}@${version}.`);
 }
 
 /**
@@ -298,12 +304,23 @@ export async function prepareRelease({
 		return { prepared: false, dryRun: true, plan };
 	}
 	if (!token) throw new Error("GITHUB_TOKEN is required for release-PR preparation");
-	await createVersionPullRequest(token, plan, resolvedBaseSha);
+	const releaseVersion = process.env.FLEET_RELEASE_VERSION;
+	if (!releaseVersion) throw new Error("FLEET_RELEASE_VERSION is required for release-PR preparation");
+	if (releaseVersion !== plan.version) {
+		throw new Error(`FLEET_RELEASE_VERSION ${releaseVersion} does not match the Changesets version ${plan.version}`);
+	}
+	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha);
 	return { prepared: true, plan };
 }
 
 async function main() {
-	const { dryRun } = parseArgs(process.argv.slice(2));
+	const { dryRun, printVersion } = parseArgs(process.argv.slice(2));
+	if (printVersion) {
+		const status = readChangesetStatus();
+		if (!status) throw new Error("No pending Changesets");
+		console.log(releasePlanFromStatus(status).version);
+		return;
+	}
 	await prepareRelease({ token: process.env.GITHUB_TOKEN, dryRun });
 }
 

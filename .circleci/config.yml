@@ -183,6 +183,9 @@ jobs:
           at: .
       - check-node-22-12
       - run:
+          name: Verify pinned Prime Agent runtime tarball
+          command: PRIME_RUNTIME_VERIFY_TARBALL=1 node scripts/check-prime-agent-runtime.mjs
+      - run:
           name: Verify packed npm artifact
           command: |
             mkdir -p dist-release
@@ -224,7 +227,9 @@ jobs:
       - install-dependencies
       - run:
           name: Prepare or reuse the Changesets release pull request
-          command: pnpm run release:prepare
+          command: |
+            export FLEET_RELEASE_VERSION="$(node scripts/prepare-release.mjs --print-version)"
+            pnpm run release:prepare
 
   release-publish:
     executor: node-lts

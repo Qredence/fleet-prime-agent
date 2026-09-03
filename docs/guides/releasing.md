@@ -18,7 +18,8 @@ upstream tarballs declared in `packages/fleet-prime/package.json`.
    build/check, web JUnit tests, and the Linux and macOS packed-artifact
    installs.
 3. After the change PR merges, CircleCI's serialized `release-prepare` job
-   runs `changeset status`, then creates or reuses one
+   derives the planned version into `FLEET_RELEASE_VERSION`, runs
+   `changeset status`, then creates or reuses one
    `release/fleet-vX.Y.Z` pull request. It commits the `changeset version`
    result through the GitHub API, including the package manifest and
    generated changelog.
