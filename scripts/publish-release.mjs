@@ -12,6 +12,11 @@ const packageManifestPath = join(root, "packages", "fleet-prime", "package.json"
 const packageName = "@qredence/fleet";
 const publicBaseline = "0.5.0";
 
+/**
+ * Reads and validates the package manifest for the expected package and npm registry.
+ * @return {object} The validated package manifest.
+ * @throws {Error} If the package name or publish registry does not match the expected values.
+ */
 function readManifest() {
 	const manifest = JSON.parse(readFileSync(packageManifestPath, "utf8"));
 	if (manifest.name !== packageName) throw new Error(`Expected the public package to be ${packageName}`);
@@ -21,6 +26,11 @@ function readManifest() {
 	return manifest;
 }
 
+/**
+ * Fetches package metadata from the npm registry.
+ * @returns {object|undefined} The package metadata, or `undefined` if the package is not found.
+ * @throws {Error} If the registry responds with an unsuccessful HTTP status other than 404.
+ */
 async function readRegistryMetadata({ fetchImpl = fetch }) {
 	const response = await fetchImpl(`${NPM_REGISTRY}${encodeURIComponent(packageName)}`, {
 		headers: { Accept: "application/json" },
@@ -30,17 +40,34 @@ async function readRegistryMetadata({ fetchImpl = fetch }) {
 	return response.json();
 }
 
+/**
+ * Retrieves metadata for a specific published package version.
+ * @param {Function} fetchImpl - The function used to request registry metadata.
+ * @param {string} version - The package version to retrieve.
+ * @return {Object|undefined} The published version metadata, or `undefined` if the version is not published.
+ */
 async function readRegistryPackage({ fetchImpl = fetch, version }) {
 	const metadata = await readRegistryMetadata({ fetchImpl });
 	const published = metadata?.versions?.[version];
 	return published ? { ...published, version: published.version ?? version } : undefined;
 }
 
+/**
+ * Retrieves the version currently assigned to the npm `latest` dist-tag.
+ * @param {Object} [options]
+ * @param {Function} [options.fetchImpl=fetch] - Function used to request registry metadata.
+ * @returns {Promise<string|undefined>} The version assigned to `latest`, or `undefined` when unavailable.
+ */
 async function readRegistryLatest({ fetchImpl = fetch }) {
 	const metadata = await readRegistryMetadata({ fetchImpl });
 	return metadata?.["dist-tags"]?.latest;
 }
 
+/**
+ * Computes the SHA-256 checksum of a published package tarball.
+ * @param {object} metadata - Published package metadata containing the tarball URL.
+ * @return {Promise<string>} The tarball's SHA-256 checksum in hexadecimal format.
+ */
 export async function readRemoteChecksum({ fetchImpl = fetch, metadata }) {
 	const tarballUrl = metadata?.dist?.tarball;
 	if (!tarballUrl) throw new Error("Published npm metadata has no tarball URL");
@@ -50,16 +77,38 @@ export async function readRemoteChecksum({ fetchImpl = fetch, metadata }) {
 	return createHash("sha256").update(bytes).digest("hex");
 }
 
+/**
+ * Verifies that registry metadata describes the expected package version.
+ * @param {object|undefined} metadata - The registry metadata to verify.
+ * @param {string} expectedVersion - The version that the metadata must describe.
+ * @throws {Error} If the metadata version does not match the expected version.
+ */
 function assertPublishedMetadata(metadata, expectedVersion) {
 	if (metadata?.version !== expectedVersion) {
 		throw new Error(`Registry returned ${metadata?.version ?? "no version"} while checking ${expectedVersion}`);
 	}
 }
 
+/**
+ * Computes the SHA-256 checksum of a file.
+ * @param {string} path - The path to the file.
+ * @return {string} The checksum as a hexadecimal string.
+ */
 export function sha256(path) {
 	return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
+/**
+ * Determines whether a package version should be published or its release resumed.
+ * @param {Object} options - Release version and checksum metadata.
+ * @param {string} options.packageVersion - Version being released.
+ * @param {string} options.latestVersion - Latest version published to the registry.
+ * @param {string} [options.publishedVersion] - Version currently published for the release.
+ * @param {string} [options.localChecksum] - SHA-256 checksum of the local artifact.
+ * @param {string} [options.publishedChecksum] - SHA-256 checksum of the published artifact.
+ * @returns {"publish"|"resume"} `"resume"` if the matching version and checksum are already published, or `"publish"` if the version can be released.
+ * @throws {Error} If the version is unstable, published metadata is inconsistent, checksums differ, or release sequencing is invalid.
+ */
 export function releaseDecision({ packageVersion, latestVersion, publishedVersion, localChecksum, publishedChecksum }) {
 	parseStableVersion(packageVersion);
 	if (publishedVersion) {
@@ -77,6 +126,14 @@ export function releaseDecision({ packageVersion, latestVersion, publishedVersio
 	return "publish";
 }
 
+/**
+ * Determines whether the current commit versions the package.
+ * @param {string} [branch=process.env.CIRCLE_BRANCH] - The branch containing the commit.
+ * @param {boolean} [forceRelease=process.env.FORCE_RELEASE === "1"] - Whether to approve the commit regardless of branch and changed files.
+ * @param {Function} [readChangedPaths] - Function that returns the paths changed by the commit.
+ * @returns {boolean} `true` if the commit is eligible for release, `false` otherwise.
+ * @throws {Error} If the changed paths cannot be determined.
+ */
 export function isPackageVersionCommit({
 	branch = process.env.CIRCLE_BRANCH,
 	forceRelease = process.env.FORCE_RELEASE === "1",
@@ -108,12 +165,21 @@ export function isPackageVersionCommit({
 	}
 }
 
+/**
+ * Writes the artifact's SHA-256 checksum to a `SHA256SUMS` file in the same directory.
+ * @param {string} artifact - Path to the artifact whose checksum is recorded.
+ * @return {string} The path to the generated checksum file.
+ */
 function writeChecksumFile(artifact) {
 	const checksumPath = join(dirname(artifact), "SHA256SUMS");
 	writeFileSync(checksumPath, `${sha256(artifact)}  ${basename(artifact)}\n`, "utf8");
 	return checksumPath;
 }
 
+/**
+ * Obtains an npm OIDC token from the environment or CircleCI.
+ * @return {string} The npm OIDC token.
+ */
 function getOidcToken() {
 	if (process.env.NPM_ID_TOKEN) return process.env.NPM_ID_TOKEN;
 	return execFileSync("circleci", ["run", "oidc", "get", "--claims", '{"aud": "npm:registry.npmjs.org"}'], {
@@ -122,6 +188,10 @@ function getOidcToken() {
 	}).trim();
 }
 
+/**
+ * Publishes a release artifact to npm with public access.
+ * @param {string} artifact - The path to the package artifact.
+ */
 function publishToNpm(artifact) {
 	const token = getOidcToken();
 	if (!token) throw new Error("CircleCI did not return an npm OIDC token");
@@ -132,6 +202,12 @@ function publishToNpm(artifact) {
 	});
 }
 
+/**
+ * Wait for a published package version to become available in the npm registry.
+ * @param {string} version - The package version to locate.
+ * @returns {object} The published package metadata.
+ * @throws {Error} If the version is not available within 30 seconds.
+ */
 export async function waitForPublishedVersion({ fetchImpl = fetch, version, sleepImpl } = {}) {
 	const deadline = Date.now() + 30000;
 	while (Date.now() < deadline) {
@@ -144,6 +220,13 @@ export async function waitForPublishedVersion({ fetchImpl = fetch, version, slee
 	throw new Error(`npm did not expose ${packageName}@${version} within 30 seconds of publishing`);
 }
 
+/**
+ * Publishes the package artifact to npm and creates its GitHub release.
+ * @param {Object} options - Release configuration and dependency overrides.
+ * @param {Object} [options.manifest] - Package manifest containing the release name and version.
+ * @param {string} [options.artifact] - Path to the release artifact.
+ * @returns {Promise<Object>} Publication status, including whether the release was published or skipped and, when published, its version.
+ */
 export async function publishRelease({
 	fetchImpl = fetch,
 	manifest = readManifest(),

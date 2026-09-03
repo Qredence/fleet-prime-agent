@@ -20,6 +20,12 @@ const ALLOWED_PACKAGE_ROOTS = ["bin/", "dist/"];
 const ALLOWED_PACKAGE_FILES = new Set(["package.json", "README.md", "CHANGELOG.md", "LICENSE"]);
 const EXPECTED_FILES = ["bin", "dist", "CHANGELOG.md", "LICENSE", "README.md"];
 
+/**
+ * Parses package verification command-line options.
+ * @param {string[]} argv - Command-line arguments to parse.
+ * @returns {{packagePath: string|undefined, outputDirectory: string|undefined}} The resolved tarball path and output directory.
+ * @throws {Error} If an option is unknown or lacks a required path.
+ */
 function parseArgs(argv) {
 	let packagePath;
 	let outputDirectory;
@@ -54,6 +60,13 @@ function parseArgs(argv) {
 	return { packagePath, outputDirectory };
 }
 
+/**
+ * Loads and validates the Fleet package manifest.
+ * @param {Object} [options] - Validation options.
+ * @param {boolean} [options.requireGeneratedBuild=true] - Whether to require the generated web launcher.
+ * @returns {Object} The validated package manifest.
+ * @throws {Error} If the manifest or required generated build is invalid or missing.
+ */
 function readManifest({ requireGeneratedBuild = true } = {}) {
 	const manifest = JSON.parse(readFileSync(packageManifestPath, "utf8"));
 	if (manifest.name !== "@qredence/fleet") throw new Error(`Unexpected package name: ${manifest.name}`);
@@ -84,6 +97,11 @@ function readManifest({ requireGeneratedBuild = true } = {}) {
 	return manifest;
 }
 
+/**
+ * Creates an npm package tarball in the specified directory.
+ * @param {string} destination - Directory where the tarball is written.
+ * @return {string} The path to the created tarball.
+ */
 function packPackage(destination) {
 	const output = execFileSync("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", destination], {
 		cwd: packageRoot,
@@ -99,6 +117,11 @@ function packPackage(destination) {
 	return tarball;
 }
 
+/**
+ * Validates that a package path is permitted for publication and contains no development artifacts.
+ * @param {string} path - The package-relative path to validate.
+ * @throws {Error} If the path is not allowed or identifies a development file.
+ */
 export function assertAllowedPath(path) {
 	if (!ALLOWED_PACKAGE_FILES.has(path) && !ALLOWED_PACKAGE_ROOTS.some((prefix) => path.startsWith(prefix))) {
 		throw new Error(`Unexpected file in npm package: ${path}`);
@@ -108,6 +131,11 @@ export function assertAllowedPath(path) {
 	}
 }
 
+/**
+ * Validates the files and metadata reported by an npm package dry run.
+ * @param {object} manifest - The expected package manifest.
+ * @throws {Error} If the packed metadata differs from the manifest or contains a disallowed path.
+ */
 function inspectDryRun(manifest) {
 	const output = execFileSync("npm", ["pack", "--json", "--dry-run", "--ignore-scripts"], {
 		cwd: packageRoot,
@@ -124,6 +152,12 @@ function inspectDryRun(manifest) {
 	console.log(`Package dry-run passed: ${result.files?.length ?? 0} files, ${result.unpackedSize} bytes unpacked.`);
 }
 
+/**
+ * Validates the contents and embedded manifest of a package tarball.
+ * @param {string} tarball - The path to the package tarball.
+ * @param {object} manifest - The expected source package manifest.
+ * @throws {Error} If the tarball contains disallowed paths or its manifest does not match the source manifest.
+ */
 function inspectTarball(tarball, manifest) {
 	const entries = execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" })
 		.trim()
@@ -151,6 +185,10 @@ function inspectTarball(tarball, manifest) {
 	console.log(`Packed ${basename(tarball)} (${checksum})`);
 }
 
+/**
+ * Runs the web release smoke test against a package tarball.
+ * @param {string} tarball - Path to the package tarball to test.
+ */
 function runSmoke(tarball) {
 	execFileSync(process.execPath, [join(root, "scripts", "check-web-release.mjs"), "--package", tarball], {
 		cwd: root,
@@ -158,6 +196,9 @@ function runSmoke(tarball) {
 	});
 }
 
+/**
+ * Verifies the package manifest, contents, tarball, and web release smoke test.
+ */
 function main() {
 	const { packagePath: requestedPackage, outputDirectory } = parseArgs(process.argv.slice(2));
 	const temporaryDirectory = mkdtempSync(join(tmpdir(), "fleet-package-check-"));

@@ -13,6 +13,12 @@ const packageManifestPath = join(root, "packages", "fleet-prime", "package.json"
 const packageName = "@qredence/fleet";
 const baseBranch = "main";
 
+/**
+ * Parses release preparation command-line options.
+ * @param {string[]} argv - Command-line arguments to parse.
+ * @returns {{dryRun: boolean}} The parsed options.
+ * @throws {Error} If an unknown option is provided.
+ */
 function parseArgs(argv) {
 	let dryRun = false;
 	for (const argument of argv) {
@@ -29,6 +35,13 @@ function parseArgs(argv) {
 	return { dryRun };
 }
 
+/**
+ * Sends an authenticated request to the GitHub API.
+ * @param {string} path - The GitHub API path.
+ * @param {RequestInit} [options] - Additional request options.
+ * @return {Promise<unknown>} The parsed response body, or `undefined` when the response has no body.
+ * @throws {Error} If the GitHub API returns an unsuccessful response.
+ */
 async function githubRequest(path, token, options = {}) {
 	const response = await fetch(`https://api.github.com${path}`, {
 		...options,
@@ -44,6 +57,12 @@ async function githubRequest(path, token, options = {}) {
 	return body ? JSON.parse(body) : undefined;
 }
 
+/**
+ * Sends an authenticated GitHub API request and treats a missing resource as undefined.
+ * @param {string} path - The GitHub API request path.
+ * @param {string} token - The GitHub access token.
+ * @return {Promise<unknown|undefined>} The parsed response body, or undefined for an empty response or HTTP 404.
+ */
 async function githubRequestAllow404(path, token) {
 	const response = await fetch(`https://api.github.com${path}`, {
 		headers: {
@@ -58,6 +77,10 @@ async function githubRequestAllow404(path, token) {
 	return body ? JSON.parse(body) : undefined;
 }
 
+/**
+ * Lists the Markdown Changeset files in the Changesets directory.
+ * @return {string[]} Sorted Changeset filenames, excluding `README.md`.
+ */
 function readChangesetNames() {
 	const directory = join(root, ".changeset");
 	if (!existsSync(directory)) return [];
@@ -66,6 +89,11 @@ function readChangesetNames() {
 		.sort();
 }
 
+/**
+ * Reads the current Changesets release status.
+ * @return {object|undefined} The parsed release status, or `undefined` when no Changesets are present.
+ * @throws {Error} If the Changesets status command fails or produces no output.
+ */
 function readChangesetStatus() {
 	if (readChangesetNames().length === 0) return undefined;
 	const temporaryDirectory = mkdtempSync(join(tmpdir(), "fleet-changeset-status-"));
@@ -85,6 +113,12 @@ function readChangesetStatus() {
 	}
 }
 
+/**
+ * Builds the release plan for the package from Changesets status data.
+ * @param {object} status - Changesets status data containing release entries.
+ * @returns {{packageName: string, currentVersion: string, version: string}} The package name, current version, and planned release version.
+ * @throws {Error} If no release plan exists, the current version differs from the package manifest, or the planned version is unstable.
+ */
 export function releasePlanFromStatus(status) {
 	const release = status?.releases?.find((entry) => entry.name === packageName);
 	if (!release) throw new Error(`Changesets contain no release plan for ${packageName}`);
@@ -98,6 +132,11 @@ export function releasePlanFromStatus(status) {
 	return { packageName, currentVersion: release.oldVersion, version: release.newVersion };
 }
 
+/**
+ * Lists files changed from a specified Git commit.
+ * @param {string} baseSha - The commit to compare against.
+ * @returns {{status: string, path: string}[]} The changed files and their Git status codes.
+ */
 function changedFiles(baseSha) {
 	return execFileSync("git", ["diff", "--name-status", baseSha, "--"], { cwd: root, encoding: "utf8" })
 		.trim()
@@ -109,6 +148,10 @@ function changedFiles(baseSha) {
 		});
 }
 
+/**
+ * Validates that release versioning changes affect only approved package, changelog, and Changeset files.
+ * @param {Array<{path: string, status: string}>} files - Changed files and their Git statuses.
+ */
 function assertVersionChangesOnly(files) {
 	const allowed = (path, status) => {
 		if (path === "packages/fleet-prime/package.json" && status !== "D") return true;
@@ -125,6 +168,14 @@ function assertVersionChangesOnly(files) {
 	}
 }
 
+/**
+ * Creates a release branch and pull request for the specified package version.
+ * Skips creation when the target release pull request already exists, another release pull request is active, or the release branch is unmanaged.
+ * @param {string} token - GitHub authentication token.
+ * @param {object} plan - Release plan containing the target version.
+ * @param {string} baseSha - Commit SHA from which to create the release.
+ * @throws {Error} If an unmanaged release branch already exists or versioning produces invalid or empty changes.
+ */
 export async function createVersionPullRequest(
 	token,
 	plan,
@@ -212,6 +263,16 @@ export async function createVersionPullRequest(
 	console.log(`Created release pull request ${pullRequest.html_url} for ${packageName}@${plan.version}.`);
 }
 
+/**
+ * Prepares a release pull request for the pending Changesets.
+ * @param {Object} [options] - Release preparation options.
+ * @param {string} [options.baseSha] - Commit to use as the release base.
+ * @param {Object} [options.status] - Changeset status data.
+ * @param {boolean} [options.dryRun=false] - Whether to report the planned release without creating changes.
+ * @param {string} [options.branch] - Current branch name, which must be `main`.
+ * @returns {Promise<Object>} Preparation status, including the release plan when applicable.
+ * @throws {Error} If the current branch is not `main` or a GitHub token is missing for a non-dry run.
+ */
 export async function prepareRelease({
 	token,
 	baseSha,

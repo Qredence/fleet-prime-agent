@@ -152,6 +152,12 @@ async function getJson(url) {
 	return response.json();
 }
 
+/**
+ * Starts the Fleet Prime web interface on an ephemeral localhost port.
+ * @param {string} launcherBin - Path to the web launcher executable.
+ * @param {string} workspace - Working directory for the server process.
+ * @return {ChildProcess} The server process, with `urlPromise` resolving to its detected URL.
+ */
 function startServer(launcherBin, workspace) {
 	const server = spawn(process.execPath, [launcherBin, "--host", "127.0.0.1", "--port", "0"], {
 		cwd: workspace,
@@ -220,6 +226,12 @@ async function checkWebRuntime(baseUrl, workspace, installedPackage) {
 	}
 }
 
+/**
+ * Runs the Fleet Prime release smoke test.
+ *
+ * Packages or selects a release tarball, installs it in a temporary environment,
+ * verifies the command-line tools and web runtime, and cleans up temporary resources.
+ */
 async function main() {
 	const { packagePath: requestedPackage } = parseArgs(process.argv.slice(2));
 	const packDir = mkdtempSync(join(tmpdir(), "fleet-prime-pack-"));

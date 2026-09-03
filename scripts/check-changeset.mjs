@@ -19,14 +19,28 @@ const USER_FACING_FILES = new Set([
 	"scripts/prime-agent-web-launcher.mjs",
 ]);
 
+/**
+ * Executes a Git command and returns its trimmed standard output.
+ * @param {string[]} args - Arguments passed to Git.
+ * @return {string} The command's trimmed standard output.
+ */
 function gitOutput(args) {
 	return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
 
+/**
+ * Determines whether the script is running in CI comparison mode.
+ * @return {boolean} `true` if `CI` or `CIRCLE_BASE_REVISION` is set, `false` otherwise.
+ */
 function isCiComparison() {
 	return Boolean(process.env.CI || process.env.CIRCLE_BASE_REVISION);
 }
 
+/**
+ * Resolves the Git reference used as the Changeset comparison base.
+ * @returns {string} The configured CircleCI base revision, an available main reference, or `HEAD^`.
+ * @throws {Error} If running in CI without an available comparison base.
+ */
 function resolveBaseRef() {
 	if (process.env.CIRCLE_BASE_REVISION) return process.env.CIRCLE_BASE_REVISION;
 	for (const candidate of ["origin/main", "main"]) {
@@ -41,6 +55,12 @@ function resolveBaseRef() {
 	return "HEAD^";
 }
 
+/**
+ * Collects changed file paths relative to the specified base revision.
+ *
+ * @param {string} baseRef - The revision used as the comparison base.
+ * @return {string[]} The sorted, deduplicated list of changed files.
+ */
 function changedFiles(baseRef) {
 	const committed = gitOutput(["diff", "--name-only", `${baseRef}...HEAD`, "--"])
 		.split("\n")
@@ -52,10 +72,20 @@ function changedFiles(baseRef) {
 	return [...new Set([...committed, ...worktree, ...staged, ...untracked])].sort();
 }
 
+/**
+ * Determines whether a path identifies a user-facing file.
+ * @param {string} path - The file path to evaluate.
+ * @return {boolean} `true` if the path is explicitly listed or matches a user-facing directory prefix, `false` otherwise.
+ */
 function isUserFacing(path) {
 	return USER_FACING_FILES.has(path) || USER_FACING_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
+/**
+ * Determines whether the comparison includes a deleted Changeset file.
+ * @param {string} baseRef - The Git reference used as the comparison base.
+ * @return {boolean} `true` if a Changeset Markdown file was deleted, `false` otherwise.
+ */
 function hasDeletedChangeset(baseRef) {
 	return gitOutput(["diff", "--name-status", `${baseRef}...HEAD`, "--", ".changeset"])
 		.split("\n")
@@ -63,6 +93,12 @@ function hasDeletedChangeset(baseRef) {
 		.some((line) => /^D\t\.changeset\/[^/]+\.md$/.test(line));
 }
 
+/**
+ * Determines whether the changes consist solely of generated release files.
+ * @param {string} baseRef - The Git reference used to identify deleted Changesets.
+ * @param {string[]} files - Changed file paths.
+ * @return {boolean} `true` if the changes represent a generated version commit, `false` otherwise.
+ */
 function isGeneratedVersionCommit(baseRef, files) {
 	const releaseOnly =
 		files.length > 0 &&
@@ -77,12 +113,21 @@ function isGeneratedVersionCommit(baseRef, files) {
 	return subject.startsWith("chore(release):") || subject.includes("release/fleet-v") || hasDeletedChangeset(baseRef);
 }
 
+/**
+ * Lists pending Changeset Markdown files.
+ * @returns {string[]} The names of Markdown files in `.changeset`, excluding `README.md`; an empty array if the directory is absent.
+ */
 function pendingChangesets() {
 	const directory = ".changeset";
 	if (!existsSync(directory)) return [];
 	return readdirSync(directory).filter((entry) => entry.endsWith(".md") && entry !== "README.md");
 }
 
+/**
+ * Validates that the Changesets release plan includes `@qredence/fleet`.
+ * @param {string} baseRef - The revision used as the comparison base in CI.
+ * @throws {Error} If the release plan does not include `@qredence/fleet`.
+ */
 function validateChangesetStatus(baseRef) {
 	const temporaryDirectory = mkdtempSync(join(tmpdir(), "fleet-changeset-check-"));
 	const outputPath = join(temporaryDirectory, "status.json");
@@ -104,6 +149,12 @@ function validateChangesetStatus(baseRef) {
 	}
 }
 
+/**
+ * Validates that user-facing package changes have an associated Changeset.
+ *
+ * Skips generated version commits and changes that do not affect user-facing files.
+ * Throws an error when user-facing changes lack a pending Changeset or valid release status.
+ */
 function main() {
 	const branch = process.env.CIRCLE_BRANCH ?? gitOutput(["branch", "--show-current"]);
 	const baseRef = resolveBaseRef();

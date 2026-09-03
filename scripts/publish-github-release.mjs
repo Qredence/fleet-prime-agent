@@ -13,11 +13,12 @@ const API_BASE = "https://api.github.com";
 const REQUIRED_ENV = ["GITHUB_TOKEN", "RELEASE_VERSION", "CIRCLE_SHA1"];
 
 /**
- * Wraps fetch with the GitHub API headers and consistent error reporting.
+ * Sends an authenticated request to the GitHub API.
  * @param {string} path - GitHub API path or absolute URL.
- * @param {string} token - GitHub token with contents write access.
+ * @param {string} token - GitHub access token.
  * @param {RequestInit} [options] - Fetch options; `body` may be a Buffer.
- * @returns {Promise<Response>} The GitHub API response.
+ * @returns {Promise<Response>} The successful GitHub API response.
+ * @throws {Error} If the GitHub API returns a non-success response.
  */
 async function githubFetch(path, token, options = {}) {
 	const response = await fetch(path.startsWith("http") ? path : `${API_BASE}${path}`, {
@@ -41,8 +42,9 @@ async function githubFetch(path, token, options = {}) {
  * @param {string} token - GitHub token with contents read access.
  * @param {string} owner - Repository owner.
  * @param {string} repo - Repository name.
- * @param {string} tag - Tag name without refs/tags/.
+ * @param {string} tag - Tag name without `refs/tags/`.
  * @returns {Promise<string>} The commit SHA targeted by the tag.
+ * @throws {Error} If the tag does not resolve to a commit or contains too many annotated-tag indirections.
  */
 async function resolveTagCommit(token, owner, repo, tag) {
 	const refResponse = await githubFetch(`/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`, token);
@@ -59,8 +61,13 @@ async function resolveTagCommit(token, owner, repo, tag) {
 }
 
 /**
- * Ensures the release tag points at the CircleCI commit that produced the
- * already-verified npm artifact.
+ * Verifies that a GitHub release tag points to the expected commit.
+ * @param {string} token - GitHub authentication token.
+ * @param {string} owner - Repository owner.
+ * @param {string} repo - Repository name.
+ * @param {string} tag - GitHub tag to verify.
+ * @param {string} expectedSha - Commit SHA the tag must reference.
+ * @throws {Error} If the tag does not point to the expected commit.
  */
 async function assertTagTarget(token, owner, repo, tag, expectedSha) {
 	const actualSha = await resolveTagCommit(token, owner, repo, tag);
@@ -93,13 +100,13 @@ function releaseNotes(version) {
 }
 
 /**
- * Finds the existing release for the tag, or creates it when missing.
+ * Finds the release for a version, creating it when necessary and verifying that its tag targets the expected commit.
  * @param {string} token - GitHub token with contents write access.
- * @param {string} version - The release version without the leading v.
+ * @param {string} version - Release version without the leading `v`.
  * @param {string} owner - Repository owner.
  * @param {string} repo - Repository name.
- * @param {string} sha - The tagged commit (CIRCLE_SHA1).
- * @returns {Promise<{id: number, uploadUrl: string, assets: Array<{id: number, name: string}>}>} The release.
+ * @param {string} sha - Expected commit SHA for the release tag.
+ * @returns {{id: number, uploadUrl: string, assets: Array<{id: number, name: string}>}} Release metadata.
  */
 async function findOrCreateRelease(token, version, owner, repo, sha) {
 	const tag = `v${version}`;
@@ -155,11 +162,11 @@ async function findOrCreateRelease(token, version, owner, repo, sha) {
 }
 
 /**
- * Uploads one release asset, replacing any same-named asset from a prior run.
+ * Uploads a release asset, replacing any existing asset with the same name.
  * @param {string} token - GitHub token with contents write access.
  * @param {{id: number, uploadUrl: string, assets: Array<{id: number, name: string}>}} release - The release to attach the asset to.
  * @param {string} name - The asset file name.
- * @param {string} path - Path to the asset file inside dist-release.
+ * @param {string} path - Path to the asset file.
  */
 async function uploadAsset(token, release, name, path) {
 	const existing = release.assets.find((asset) => asset.name === name);
@@ -180,6 +187,10 @@ async function uploadAsset(token, release, name, path) {
 	console.log(`Uploaded ${asset.name} (${asset.size} bytes) to the release.`);
 }
 
+/**
+ * Publishes the Fleet GitHub release and its artifact files.
+ * @throws {Error} If a required environment variable is missing.
+ */
 async function main() {
 	for (const name of REQUIRED_ENV) {
 		if (!process.env[name]) {

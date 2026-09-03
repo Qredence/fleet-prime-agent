@@ -28,10 +28,20 @@ const packageDependencies = new Set([
 ]);
 const builtinModuleNames = new Set([...builtinModules, ...builtinModules.map((moduleName) => `node:${moduleName}`)]);
 
+/**
+ * Extract the root package name from a package specifier.
+ * @param {string} specifier - A package name, optionally including a subpath.
+ * @return {string} The package root name, including its scope when present.
+ */
 function packageName(specifier) {
 	return specifier.startsWith("@") ? specifier.split("/", 2).join("/") : specifier.split("/", 1)[0];
 }
 
+/**
+ * Audits external server imports against the package's declared dependencies.
+ * @param {object} metafile - The esbuild metafile containing bundle output import data.
+ * @throws {Error} If an external non-relative, non-builtin import is undeclared.
+ */
 function auditExternalImports(metafile) {
 	const external = new Set();
 	for (const output of Object.values(metafile.outputs)) {
