@@ -239,7 +239,7 @@ jobs:
           at: .
       - run:
           name: Pin npm trusted-publishing CLI
-          command: sudo npm install --global npm@11.5.1
+          command: sudo npm install --global npm@11.15.0
       - install-pnpm
       - run:
           name: Publish the verified artifact and GitHub release

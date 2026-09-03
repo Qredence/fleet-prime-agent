@@ -121,9 +121,9 @@ project/context as supported by npm. Do not store `NPM_TOKEN`; the publish job
 uses the CircleCI OIDC exchange. npm's package access should require trusted
 publishing (and two-factor authentication as available).
 
-The publish job uses the Node 22.23.2 LTS executor and pins npm 11.5.1. This
+The publish job uses the Node 22.23.2 LTS executor and pins npm 11.15.0. This
 is separate from the package's minimum runtime of Node 22.12.0 because npm
-trusted publishing requires Node 22.14.0 or later.
+trusted publishing requires npm 11.15.0 and Node 22.14.0 or later.
 
 The `nightly` workflow in `.circleci/config.yml` is a scheduled health check.
 Configure the corresponding CircleCI schedule for `main` if the project is
