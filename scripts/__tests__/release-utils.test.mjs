@@ -16,6 +16,17 @@ import {
 } from "../publish-release.mjs";
 import { assertReleaseVersion, compareVersions, parseStableVersion } from "../release-utils.mjs";
 
+const packageManifest = JSON.parse(
+	readFileSync(new URL("../../packages/fleet-prime/package.json", import.meta.url), "utf8"),
+);
+const packageVersion = packageManifest.version;
+const [packageMajor, packageMinor, packagePatch] = parseStableVersion(packageVersion);
+const nextPatchVersion = `${packageMajor}.${packageMinor}.${packagePatch + 1}`;
+
+function releaseStatus() {
+	return { releases: [{ name: "@qredence/fleet", oldVersion: packageVersion, newVersion: nextPatchVersion }] };
+}
+
 function response(status, payload = undefined) {
 	const body = payload instanceof Uint8Array ? Buffer.from(payload) : payload;
 	return {
@@ -170,13 +181,13 @@ test("dry-runs release preparation without requiring GitHub credentials", async 
 	try {
 		const result = await prepareRelease({
 			baseSha: "base-sha",
-			status: { releases: [{ name: "@qredence/fleet", oldVersion: "0.5.0", newVersion: "0.5.1" }] },
+			status: releaseStatus(),
 			dryRun: true,
 		});
 		assert.deepEqual(result, {
 			prepared: false,
 			dryRun: true,
-			plan: { packageName: "@qredence/fleet", currentVersion: "0.5.0", version: "0.5.1" },
+			plan: { packageName: "@qredence/fleet", currentVersion: packageVersion, version: nextPatchVersion },
 		});
 	} finally {
 		if (previousBranch === undefined) delete process.env.CIRCLE_BRANCH;
@@ -193,7 +204,7 @@ test("requires CircleCI to provide the release version before creating a release
 				token: "token",
 				baseSha: "base-sha",
 				branch: "main",
-				status: { releases: [{ name: "@qredence/fleet", oldVersion: "0.5.0", newVersion: "0.5.1" }] },
+				status: releaseStatus(),
 			}),
 			/FLEET_RELEASE_VERSION is required/,
 		);
@@ -208,7 +219,7 @@ test("rejects release preparation from a non-main branch", async () => {
 		prepareRelease({
 			baseSha: "base-sha",
 			branch: "feature/release",
-			status: { releases: [{ name: "@qredence/fleet", oldVersion: "0.5.0", newVersion: "0.5.1" }] },
+			status: releaseStatus(),
 			dryRun: true,
 		}),
 		/must run on main, found feature\/release/,
@@ -330,9 +341,10 @@ test("resumes an already-published version without a second npm publish", async 
 });
 
 test("derives the single-package release plan from Changesets status", () => {
-	assert.deepEqual(
-		releasePlanFromStatus({ releases: [{ name: "@qredence/fleet", oldVersion: "0.5.0", newVersion: "0.5.1" }] }),
-		{ packageName: "@qredence/fleet", currentVersion: "0.5.0", version: "0.5.1" },
-	);
+	assert.deepEqual(releasePlanFromStatus(releaseStatus()), {
+		packageName: "@qredence/fleet",
+		currentVersion: packageVersion,
+		version: nextPatchVersion,
+	});
 	assert.throws(() => releasePlanFromStatus({ releases: [] }), /no release plan/);
 });
