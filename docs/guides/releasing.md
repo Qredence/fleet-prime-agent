@@ -125,6 +125,12 @@ The publish job uses the Node 22.23.2 LTS executor and pins npm 11.15.0. This
 is separate from the package's minimum runtime of Node 22.12.0 because npm
 trusted publishing requires npm 11.15.0 and Node 22.14.0 or later.
 
+If a versioning commit passed validation before the publish configuration was
+fixed, manually trigger the `ci` workflow on `main` with the
+`release_retry=true` pipeline parameter. This guarded recovery switch sets
+`FORCE_RELEASE=1` only for that explicit run; it does not change normal
+release detection.
+
 The `nightly` workflow in `.circleci/config.yml` is a scheduled health check.
 Configure the corresponding CircleCI schedule for `main` if the project is
 using schedule triggers. It runs the supported Node LTS validation lane plus

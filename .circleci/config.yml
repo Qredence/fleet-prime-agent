@@ -1,5 +1,10 @@
 version: 2.1
 
+parameters:
+  release_retry:
+    type: boolean
+    default: false
+
 executors:
   node-lts:
     docker:
@@ -243,7 +248,11 @@ jobs:
       - install-pnpm
       - run:
           name: Publish the verified artifact and GitHub release
-          command: pnpm run release:publish
+          command: |
+            if [ "<< pipeline.parameters.release_retry >>" = "true" ]; then
+              export FORCE_RELEASE=1
+            fi
+            pnpm run release:publish
       - store_artifacts:
           path: dist-release
           destination: dist-release/release
