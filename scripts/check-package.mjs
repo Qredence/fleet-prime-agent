@@ -6,7 +6,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:f
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { parseStableVersion } from "./release-utils.mjs";
+import { pnpmInvocation } from "./pnpm-command.mjs";
+import { NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageRoot = join(root, "packages", "fleet-prime");
@@ -65,6 +66,9 @@ function readManifest({ requireGeneratedBuild = true } = {}) {
 	}
 	if (manifest.private === true) throw new Error("The public Fleet package must not be private");
 	if (manifest.publishConfig?.access !== "public") throw new Error("Fleet must publish with public access");
+	if (manifest.publishConfig?.registry !== NPM_REGISTRY) {
+		throw new Error(`Fleet must publish only to ${NPM_REGISTRY}`);
+	}
 	if (
 		!Array.isArray(manifest.files) ||
 		JSON.stringify([...manifest.files].sort()) !== JSON.stringify([...EXPECTED_FILES].sort())
@@ -137,7 +141,9 @@ function inspectTarball(tarball, manifest) {
 		packedManifest.name !== manifest.name ||
 		packedManifest.version !== manifest.version ||
 		JSON.stringify(packedManifest.bin ?? {}) !== JSON.stringify(manifest.bin ?? {}) ||
-		JSON.stringify([...(packedManifest.os ?? [])].sort()) !== JSON.stringify([...(manifest.os ?? [])].sort())
+		JSON.stringify([...(packedManifest.os ?? [])].sort()) !== JSON.stringify([...(manifest.os ?? [])].sort()) ||
+		packedManifest.publishConfig?.access !== "public" ||
+		packedManifest.publishConfig?.registry !== NPM_REGISTRY
 	) {
 		throw new Error("Tarball package.json does not match the source manifest");
 	}
@@ -159,7 +165,8 @@ function main() {
 	try {
 		mkdirSync(destination, { recursive: true });
 		if (!requestedPackage) {
-			execFileSync("pnpm", ["run", "build:web:release"], { cwd: root, stdio: "inherit" });
+			const pnpm = pnpmInvocation(["run", "build:web:release"]);
+			execFileSync(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
 		}
 		const manifest = readManifest({ requireGeneratedBuild: !requestedPackage });
 		inspectDryRun(manifest);

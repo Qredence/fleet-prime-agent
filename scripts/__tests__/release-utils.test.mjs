@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { assertAllowedPath } from "../check-package.mjs";
+import { pnpmInvocation } from "../pnpm-command.mjs";
 import { createVersionPullRequest, prepareRelease, releasePlanFromStatus } from "../prepare-release.mjs";
 import {
 	isPackageVersionCommit,
@@ -34,6 +35,20 @@ test("compares stable versions numerically", () => {
 	assert.equal(compareVersions("0.5.10", "0.5.2"), 1);
 	assert.equal(compareVersions("0.5.1", "0.5.1"), 0);
 	assert.deepEqual(parseStableVersion("0.5.1"), [0, 5, 1]);
+});
+
+test("uses CircleCI's pinned pnpm launcher for child processes", () => {
+	const previous = process.env.FLEET_PNPM_BIN;
+	process.env.FLEET_PNPM_BIN = "/tmp/fleet-pnpm/bin/pnpm.cjs";
+	try {
+		assert.deepEqual(pnpmInvocation(["run", "check"]), {
+			command: process.execPath,
+			args: ["/tmp/fleet-pnpm/bin/pnpm.cjs", "run", "check"],
+		});
+	} finally {
+		if (previous === undefined) delete process.env.FLEET_PNPM_BIN;
+		else process.env.FLEET_PNPM_BIN = previous;
+	}
 });
 
 test("rejects a release that is not newer than npm latest", () => {
@@ -179,6 +194,18 @@ test("dry-runs release preparation without requiring GitHub credentials", async 
 		if (previousBranch === undefined) delete process.env.CIRCLE_BRANCH;
 		else process.env.CIRCLE_BRANCH = previousBranch;
 	}
+});
+
+test("rejects release preparation from a non-main branch", async () => {
+	await assert.rejects(
+		prepareRelease({
+			baseSha: "base-sha",
+			branch: "feature/release",
+			status: { releases: [{ name: "@qredence/fleet", oldVersion: "0.5.0", newVersion: "0.5.1" }] },
+			dryRun: true,
+		}),
+		/must run on main, found feature\/release/,
+	);
 });
 
 test("verifies a registry tarball with an injected fetch implementation", async () => {

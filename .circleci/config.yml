@@ -47,14 +47,21 @@ commands:
             mkdir -p "${pnpm_root}"
             npm install --prefix "${pnpm_root}" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "pnpm@<< parameters.pnpm_version >>"
             pnpm_bin="${pnpm_root}/node_modules/pnpm/bin/pnpm.cjs"
+            pnpm_bin_dir="${pnpm_root}/node_modules/.bin"
             if [ ! -f "${pnpm_bin}" ]; then
               echo "Expected pnpm launcher was not installed at ${pnpm_bin}" >&2
               exit 1
             fi
+            if [ ! -x "${pnpm_bin_dir}/pnpm" ]; then
+              echo "Expected pnpm executable was not installed at ${pnpm_bin_dir}/pnpm" >&2
+              exit 1
+            fi
             echo "export FLEET_PNPM_BIN=\"${pnpm_bin}\"" >> "${BASH_ENV}"
+            echo "export PATH=\"${pnpm_bin_dir}:\$PATH\"" >> "${BASH_ENV}"
             echo 'export npm_config_manage_package_manager_versions=false' >> "${BASH_ENV}"
             echo 'pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }' >> "${BASH_ENV}"
             export FLEET_PNPM_BIN="${pnpm_bin}"
+            export PATH="${pnpm_bin_dir}:${PATH}"
             export npm_config_manage_package_manager_versions=false
             pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }
             pnpm config set store-dir ~/.cache/pnpm

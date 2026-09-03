@@ -1,5 +1,8 @@
 const STABLE_VERSION_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
+export const NPM_REGISTRY = "https://registry.npmjs.org/";
+export const RELEASE_REPOSITORY = Object.freeze({ owner: "Qredence", repo: "fleet-prime-agent" });
+
 export function parseStableVersion(version) {
 	const match = STABLE_VERSION_RE.exec(version);
 	if (!match) {
@@ -28,6 +31,6 @@ export function assertReleaseVersion({ packageName, packageVersion, publishedLat
 }
 
 export function registryPackageUrl(registry, packageName, version) {
-	const encodedName = encodeURIComponent(packageName).replace(/%2F/g, "%2F");
+	const encodedName = encodeURIComponent(packageName);
 	return `${registry.replace(/\/$/, "")}/${encodedName}/${version}`;
 }

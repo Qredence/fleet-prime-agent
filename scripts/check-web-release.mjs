@@ -9,6 +9,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pnpmInvocation } from "./pnpm-command.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fleetPrimeDir = join(root, "packages", "fleet-prime");
@@ -74,7 +75,8 @@ function packToTemp(tempDir) {
 	if (!existsSync(launcher)) {
 		throw new Error(`Missing ${launcher}. Run pnpm run build:web:release before packing.`);
 	}
-	execFileSync("pnpm", ["--dir", "packages/fleet-prime", "pack", "--pack-destination", tempDir], {
+	const pnpm = pnpmInvocation(["--dir", "packages/fleet-prime", "pack", "--pack-destination", tempDir]);
+	execFileSync(pnpm.command, pnpm.args, {
 		cwd: root,
 		stdio: "inherit",
 	});

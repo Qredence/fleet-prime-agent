@@ -98,6 +98,21 @@ Restrict both contexts to this project and `main`; for the publishing context,
 also disallow SSH reruns with the CircleCI expression
 `pipeline.git.branch == "main" and not job.ssh.enabled`.
 
+Before enabling either release job, verify the context metadata in CircleCI
+without attempting to print secret values:
+
+```bash
+circleci context get release-automation --json
+circleci context get github-release --json
+```
+
+Confirm that each response names only `GITHUB_TOKEN`, includes the
+`fleet-prime-agent` project restriction, and restricts the branch to `main`.
+Confirm that `github-release` also includes `not job.ssh.enabled`. The
+release-automation token needs only repository Pull requests and Contents
+read/write access required to create the generated release PR; the publishing
+token needs Contents read/write for the tag, release, and assets.
+
 Configure npm Trusted Publishing for `@qredence/fleet` with the CircleCI
 organization, project, pipeline-definition, and repository details from
 `.circleci/info.yml` and CircleCI Project Settings. Bind it to the release

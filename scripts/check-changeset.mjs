@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pnpmInvocation } from "./pnpm-command.mjs";
 
 const RELEASE_BRANCH_PREFIX = "release/fleet-";
 const PACKAGE_NAME = "@qredence/fleet";
@@ -89,7 +90,8 @@ function validateChangesetStatus(baseRef) {
 		const statusArguments = ["exec", "changeset", "status"];
 		if (isCiComparison()) statusArguments.push("--since", baseRef);
 		statusArguments.push("--output", outputPath);
-		execFileSync("pnpm", statusArguments, {
+		const pnpm = pnpmInvocation(statusArguments);
+		execFileSync(pnpm.command, pnpm.args, {
 			cwd: process.cwd(),
 			stdio: "inherit",
 		});
@@ -104,15 +106,14 @@ function validateChangesetStatus(baseRef) {
 
 function main() {
 	const branch = process.env.CIRCLE_BRANCH ?? gitOutput(["branch", "--show-current"]);
-	if (branch.startsWith(RELEASE_BRANCH_PREFIX)) {
-		console.log(`Release version branch ${branch} does not require a new Changeset.`);
-		return;
-	}
-
 	const baseRef = resolveBaseRef();
 	const files = changedFiles(baseRef);
 	if (isGeneratedVersionCommit(baseRef, files)) {
-		console.log("Generated Changesets version commit detected; no new Changeset is required.");
+		console.log(
+			branch.startsWith(RELEASE_BRANCH_PREFIX)
+				? `Generated release version branch ${branch} does not require a new Changeset.`
+				: "Generated Changesets version commit detected; no new Changeset is required.",
+		);
 		return;
 	}
 	const userFacingFiles = files.filter(isUserFacing);

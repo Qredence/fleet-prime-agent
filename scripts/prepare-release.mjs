@@ -5,7 +5,8 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { parseStableVersion } from "./release-utils.mjs";
+import { pnpmInvocation } from "./pnpm-command.mjs";
+import { parseStableVersion, RELEASE_REPOSITORY } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-prime", "package.json");
@@ -26,13 +27,6 @@ function parseArgs(argv) {
 		throw new Error(`Unknown option: ${argument}`);
 	}
 	return { dryRun };
-}
-
-function readRepository() {
-	const manifest = JSON.parse(readFileSync(packageManifestPath, "utf8"));
-	const match = manifest.repository?.url?.match(/github\.com[/:]([^/#?]+)\/([^/#?.]+)/);
-	if (!match) throw new Error(`Cannot derive the GitHub repository from repository.url: ${manifest.repository?.url}`);
-	return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
 }
 
 async function githubRequest(path, token, options = {}) {
@@ -77,7 +71,8 @@ function readChangesetStatus() {
 	const temporaryDirectory = mkdtempSync(join(tmpdir(), "fleet-changeset-status-"));
 	const outputPath = join(temporaryDirectory, "status.json");
 	try {
-		const result = spawnSync("pnpm", ["exec", "changeset", "status", "--output", outputPath], {
+		const pnpm = pnpmInvocation(["exec", "changeset", "status", "--output", outputPath]);
+		const result = spawnSync(pnpm.command, pnpm.args, {
 			cwd: root,
 			encoding: "utf8",
 		});
@@ -174,7 +169,8 @@ export async function createVersionPullRequest(
 		);
 	}
 
-	execFileSync("pnpm", ["exec", "changeset", "version"], { cwd: root, stdio: "inherit" });
+	const pnpm = pnpmInvocation(["exec", "changeset", "version"]);
+	execFileSync(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
 	const files = changedFiles(baseSha);
 	assertVersionChangesOnly(files);
 	if (files.length === 0) throw new Error("changeset version produced no changes");
@@ -227,9 +223,11 @@ export async function createVersionPullRequest(
 export async function prepareRelease({
 	token,
 	baseSha,
-	repository = readRepository(),
+	repository = RELEASE_REPOSITORY,
 	status = readChangesetStatus(),
 	dryRun = false,
+	branch = process.env.CIRCLE_BRANCH ??
+		execFileSync("git", ["branch", "--show-current"], { cwd: root, encoding: "utf8" }).trim(),
 } = {}) {
 	if (!status) {
 		console.log("No pending Changesets; release preparation is a no-op.");
@@ -240,8 +238,8 @@ export async function prepareRelease({
 		baseSha ??
 		process.env.CIRCLE_SHA1 ??
 		execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
-	if (process.env.CIRCLE_BRANCH && process.env.CIRCLE_BRANCH !== baseBranch) {
-		throw new Error(`Release preparation must run on ${baseBranch}, found ${process.env.CIRCLE_BRANCH}`);
+	if (branch !== baseBranch) {
+		throw new Error(`Release preparation must run on ${baseBranch}, found ${branch || "detached HEAD"}`);
 	}
 	if (dryRun) {
 		console.log(`Release preparation dry-run: would prepare ${packageName}@${plan.version}.`);

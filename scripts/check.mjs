@@ -14,6 +14,7 @@
 import { spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pnpmInvocation } from "./pnpm-command.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const write = process.argv.includes("--write");
@@ -83,10 +84,11 @@ if (biome.code !== 0) {
 	process.exit(1);
 }
 
+const pnpmTypecheck = pnpmInvocation(["run", "check:web"]);
 const phase2 = await Promise.all([
 	runStage("installer", process.execPath, ["scripts/check-source-installer.mjs", "--static"]),
 	runStage("rendering", process.execPath, ["web/design/scripts/render-checks.mjs"]),
-	runStage("typecheck", "pnpm", ["run", "check:web"]),
+	runStage("typecheck", pnpmTypecheck.command, pnpmTypecheck.args),
 ]);
 
 const failed = report([runtime, biome, ...phase2]);

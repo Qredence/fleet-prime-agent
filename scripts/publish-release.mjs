@@ -5,14 +5,24 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { assertReleaseVersion, compareVersions, parseStableVersion, registryPackageUrl } from "./release-utils.mjs";
+import {
+	assertReleaseVersion,
+	compareVersions,
+	NPM_REGISTRY,
+	parseStableVersion,
+	registryPackageUrl,
+} from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-prime", "package.json");
 const publicBaseline = "0.5.0";
 
 function readManifest() {
-	return JSON.parse(readFileSync(packageManifestPath, "utf8"));
+	const manifest = JSON.parse(readFileSync(packageManifestPath, "utf8"));
+	if (manifest.publishConfig?.registry !== NPM_REGISTRY) {
+		throw new Error(`Fleet must publish only to ${NPM_REGISTRY}`);
+	}
+	return manifest;
 }
 
 async function readRegistryPackage({ fetchImpl = fetch, registry, packageName, version }) {
@@ -161,7 +171,7 @@ export async function publishRelease({
 		console.log(`Skipping historical public baseline ${manifest.version}; no new release is required.`);
 		return { published: false, skipped: true };
 	}
-	const registry = manifest.publishConfig?.registry ?? "https://registry.npmjs.org";
+	const registry = NPM_REGISTRY;
 	const artifactPath = resolve(artifact ?? join(root, "dist-release", `qredence-fleet-${manifest.version}.tgz`));
 	if (!existsSync(artifactPath)) throw new Error(`Release artifact not found: ${artifactPath}`);
 	const localChecksum = sha256(artifactPath);
