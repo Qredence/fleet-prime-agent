@@ -10,7 +10,8 @@ managed IPython kernels.
 ## Install
 
 Requires Node.js 22.12.0 or later. Python 3.10 or later is needed for the
-managed IPython kernel.
+managed IPython kernel. The package supports macOS and Linux; Windows is not
+supported.
 
 ```bash
 npm install -g @qredence/fleet
@@ -29,6 +30,12 @@ Open the local URL the launcher prints. On first use, add a provider in
 **Settings → Providers** (or run `/login`) and choose a model in the composer.
 `fleet-prime` is an alias for the same launcher, and `fleet-agent agent`
 exposes the upstream Prime Agent CLI.
+
+## Release support
+
+The package is built and verified as a packed npm artifact by CircleCI. See
+the repository's [release guide](https://github.com/Qredence/fleet-prime-agent/blob/main/docs/guides/releasing.md)
+for the Changesets flow, trusted publishing, and rollback procedure.
 
 ## Learn more
 

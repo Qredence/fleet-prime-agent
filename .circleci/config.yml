@@ -1,9 +1,20 @@
 version: 2.1
 
 executors:
-  node:
+  node-lts:
     docker:
       - image: cimg/node:22.23.2
+    working_directory: ~/prime-agent
+
+  node-release-smoke:
+    docker:
+      - image: cimg/node:22.12.0
+    working_directory: ~/prime-agent
+
+  macos-release-smoke:
+    macos:
+      xcode: 26.6.0
+    resource_class: m4pro.medium
     working_directory: ~/prime-agent
 
 commands:
@@ -21,14 +32,38 @@ commands:
               librsvg2-dev \
               fd-find \
               ripgrep
-            sudo ln -s "$(command -v fdfind)" /usr/local/bin/fd
+            sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
 
   install-pnpm:
+    parameters:
+      pnpm_version:
+        type: string
+        default: "11.15.1"
     steps:
       - run:
           name: Install pnpm
           command: |
-            sudo npm install --global pnpm@11.15.1
+            pnpm_root="${HOME}/.cache/fleet-pnpm"
+            mkdir -p "${pnpm_root}"
+            npm install --prefix "${pnpm_root}" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "pnpm@<< parameters.pnpm_version >>"
+            pnpm_bin="${pnpm_root}/node_modules/pnpm/bin/pnpm.cjs"
+            pnpm_bin_dir="${pnpm_root}/node_modules/.bin"
+            if [ ! -f "${pnpm_bin}" ]; then
+              echo "Expected pnpm launcher was not installed at ${pnpm_bin}" >&2
+              exit 1
+            fi
+            if [ ! -x "${pnpm_bin_dir}/pnpm" ]; then
+              echo "Expected pnpm executable was not installed at ${pnpm_bin_dir}/pnpm" >&2
+              exit 1
+            fi
+            echo "export FLEET_PNPM_BIN=\"${pnpm_bin}\"" >> "${BASH_ENV}"
+            echo "export PATH=\"${pnpm_bin_dir}:\$PATH\"" >> "${BASH_ENV}"
+            echo 'export npm_config_manage_package_manager_versions=false' >> "${BASH_ENV}"
+            echo 'pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }' >> "${BASH_ENV}"
+            export FLEET_PNPM_BIN="${pnpm_bin}"
+            export PATH="${pnpm_bin_dir}:${PATH}"
+            export npm_config_manage_package_manager_versions=false
+            pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }
             pnpm config set store-dir ~/.cache/pnpm
             pnpm --version
 
@@ -36,18 +71,48 @@ commands:
     steps:
       - restore_cache:
           keys:
-            - v1-node22-pnpm-{{ checksum "pnpm-lock.yaml" }}
+            - v2-linux-node22-pnpm-{{ checksum "pnpm-lock.yaml" }}
       - run:
           name: Install dependencies
           command: pnpm install --frozen-lockfile
-      - save_cache:
-          key: v1-node22-pnpm-{{ checksum "pnpm-lock.yaml" }}
-          paths:
-            - ~/.cache/pnpm
+
+  fetch-main:
+    steps:
+      - run:
+          name: Fetch main for Changeset comparison
+          command: git fetch --no-tags origin main:refs/remotes/origin/main
+
+  install-node-22-12-macos:
+    steps:
+      - run:
+          name: Install Node.js 22.12.0
+          command: |
+            set -euo pipefail
+            node_dist="node-v22.12.0-darwin-arm64"
+            node_archive="${node_dist}.tar.gz"
+            node_url="https://nodejs.org/dist/v22.12.0"
+            node_tmp="${TMPDIR:-/tmp}/fleet-node-22.12.0"
+            mkdir -p "${node_tmp}" "${HOME}/.local"
+            curl --fail --location "${node_url}/${node_archive}" --output "${node_tmp}/${node_archive}"
+            curl --fail --location "${node_url}/SHASUMS256.txt" --output "${node_tmp}/SHASUMS256.txt"
+            (cd "${node_tmp}" && grep " ${node_archive}$" SHASUMS256.txt | shasum -a 256 -c -)
+            tar -xzf "${node_tmp}/${node_archive}" --directory "${HOME}/.local"
+            echo "export PATH=\"${HOME}/.local/${node_dist}/bin:\$PATH\"" >> "${BASH_ENV}"
+            export PATH="${HOME}/.local/${node_dist}/bin:${PATH}"
+            node --version
+            npm --version
+
+  check-node-22-12:
+    steps:
+      - run:
+          name: Verify Node.js 22.12.0 lane
+          command: |
+            node --version
+            node -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (major !== 22 || minor < 12) process.exit(1)'
 
 jobs:
   build-check:
-    executor: node
+    executor: node-lts
     steps:
       - checkout
       - install-system-dependencies
@@ -55,13 +120,28 @@ jobs:
       - install-dependencies
       - run:
           name: Build web bundle and release artifacts
-          command: pnpm run build
+          command: pnpm run build:web:release
       - run:
           name: Check
           command: pnpm run check
+      - fetch-main
+      - run:
+          name: Require a Changeset for user-facing package changes
+          command: pnpm run check:changeset
+      - run:
+          name: Test release automation
+          command: pnpm run test:release
+      - save_cache:
+          key: v2-linux-node22-pnpm-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.cache/pnpm
+      - persist_to_workspace:
+          root: .
+          paths:
+            - packages/fleet-prime/dist
 
   test-web:
-    executor: node
+    executor: node-lts
     steps:
       - checkout
       - install-system-dependencies
@@ -69,7 +149,7 @@ jobs:
       - install-dependencies
       - run:
           name: Build web bundle
-          command: pnpm run build
+          command: pnpm run build:web:release
       - run:
           name: Prepare test results
           command: mkdir -p test-results
@@ -91,72 +171,82 @@ jobs:
           path: test-results
           destination: test-results/web
 
-  ci-success:
-    executor: node
-    steps:
-      - run:
-          name: Confirm all CI jobs passed
-          command: echo "All CircleCI validation jobs passed."
-
-  release:
-    executor: node
+  package-verify-linux:
+    executor: node-release-smoke
     steps:
       - checkout
       - install-system-dependencies
+      - install-pnpm:
+          pnpm_version: "10.24.0"
+      - install-dependencies
+      - attach_workspace:
+          at: .
+      - check-node-22-12
+      - run:
+          name: Verify pinned Prime Agent runtime tarball
+          command: PRIME_RUNTIME_VERIFY_TARBALL=1 node scripts/check-prime-agent-runtime.mjs
+      - run:
+          name: Verify packed npm artifact
+          command: |
+            mkdir -p dist-release
+            node scripts/check-package.mjs --out-dir dist-release
+      - store_artifacts:
+          path: dist-release
+          destination: dist-release/linux
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist-release
+
+  package-verify-macos:
+    executor: macos-release-smoke
+    steps:
+      - checkout
+      - install-node-22-12-macos
+      - attach_workspace:
+          at: .
+      - check-node-22-12
+      - run:
+          name: Install the exact packed artifact globally
+          command: |
+            VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("packages/fleet-prime/package.json", "utf8")).version')"
+            node scripts/check-web-release.mjs --package "dist-release/qredence-fleet-${VERSION}.tgz"
+
+  ci-success:
+    executor: node-lts
+    steps:
+      - run:
+          name: Confirm all CircleCI validation jobs passed
+          command: echo "All CircleCI validation jobs passed."
+
+  release-prepare:
+    executor: node-lts
+    steps:
+      - checkout
       - install-pnpm
       - install-dependencies
       - run:
-          name: Resolve release version
+          name: Prepare or reuse the Changesets release pull request
           command: |
-            set -euo pipefail
-            VERSION="${CIRCLE_TAG#v}"
-            if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
-              echo "Invalid release version: ${VERSION}" >&2
-              echo "Expected semver such as 0.5.0 or 0.5.0-beta.1." >&2
-              exit 1
-            fi
-            echo "export RELEASE_VERSION=${VERSION}" >> "$BASH_ENV"
+            export FLEET_RELEASE_VERSION="$(node scripts/prepare-release.mjs --print-version)"
+            pnpm run release:prepare
+
+  release-publish:
+    executor: node-lts
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
       - run:
-          name: Build web release bundle
-          command: pnpm run build
+          name: Pin npm trusted-publishing CLI
+          command: sudo npm install --global npm@11.5.1
+      - install-pnpm
       - run:
-          name: Run checks with runtime tarball verification
-          command: pnpm run check
-          environment:
-            PRIME_RUNTIME_VERIFY_TARBALL: "1"
-      - run:
-          name: Stamp fleet package version
-          command: pnpm --dir packages/fleet-prime version "${RELEASE_VERSION}" --no-git-tag-version --allow-same-version
-      - run:
-          name: Pack release artifact
-          command: |
-            mkdir -p dist-release
-            pnpm --dir packages/fleet-prime pack --pack-destination "$PWD/dist-release"
-            test -f "dist-release/qredence-fleet-${RELEASE_VERSION}.tgz"
-      - run:
-          name: Smoke test packed artifact
-          command: node scripts/check-web-release.mjs --package "dist-release/qredence-fleet-${RELEASE_VERSION}.tgz"
-      - run:
-          name: Upgrade npm for trusted publishing
-          command: sudo npm install --global npm@latest
-      - run:
-          name: Publish to npm
-          working_directory: packages/fleet-prime
-          command: |
-            export NPM_ID_TOKEN=$(circleci run oidc get --claims '{"aud": "npm:registry.npmjs.org"}')
-            npm publish --access public
-      - run:
-          name: Generate checksum
-          command: |
-            cd dist-release
-            sha256sum "qredence-fleet-${RELEASE_VERSION}.tgz" > SHA256SUMS
-            cat SHA256SUMS
-      - run:
-          name: Publish GitHub release
-          command: node scripts/publish-github-release.mjs
+          name: Publish the verified artifact and GitHub release
+          command: pnpm run release:publish
       - store_artifacts:
           path: dist-release
-          destination: dist-release
+          destination: dist-release/release
 
 workflows:
   ci:
@@ -172,21 +262,84 @@ workflows:
           filters:
             tags:
               ignore: /.*/
+      - package-verify-linux:
+          requires:
+            - build-check
+          filters:
+            tags:
+              ignore: /.*/
+      - package-verify-macos:
+          requires:
+            - package-verify-linux
+          filters:
+            tags:
+              ignore: /.*/
       - ci-success:
           requires:
             - build-check
             - test-web
+            - package-verify-linux
+            - package-verify-macos
           filters:
             tags:
               ignore: /.*/
-
-  release:
-    jobs:
-      - release:
+      - release-prepare:
+          requires:
+            - ci-success
+          context:
+            - release-automation
+          serial-group: fleet-release-preparation
+          filters:
+            branches:
+              only: main
+            tags:
+              ignore: /.*/
+      - release-publish:
+          requires:
+            - ci-success
           context:
             - github-release
+          serial-group: fleet-release-publication
+          filters:
+            branches:
+              only: main
+            tags:
+              ignore: /.*/
+
+  nightly:
+    triggers:
+      - schedule:
+          cron: "0 9 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - build-check:
           filters:
             tags:
-              only: /^v[0-9].*/
-            branches:
+              ignore: /.*/
+      - test-web:
+          filters:
+            tags:
+              ignore: /.*/
+      - package-verify-linux:
+          requires:
+            - build-check
+          filters:
+            tags:
+              ignore: /.*/
+      - package-verify-macos:
+          requires:
+            - package-verify-linux
+          filters:
+            tags:
+              ignore: /.*/
+      - ci-success:
+          requires:
+            - build-check
+            - test-web
+            - package-verify-linux
+            - package-verify-macos
+          filters:
+            tags:
               ignore: /.*/

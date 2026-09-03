@@ -9,6 +9,7 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pnpmInvocation } from "./pnpm-command.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fleetPrimeDir = join(root, "packages", "fleet-prime");
@@ -74,7 +75,8 @@ function packToTemp(tempDir) {
 	if (!existsSync(launcher)) {
 		throw new Error(`Missing ${launcher}. Run pnpm run build:web:release before packing.`);
 	}
-	execFileSync("pnpm", ["--dir", "packages/fleet-prime", "pack", "--pack-destination", tempDir], {
+	const pnpm = pnpmInvocation(["--dir", "packages/fleet-prime", "pack", "--pack-destination", tempDir]);
+	execFileSync(pnpm.command, pnpm.args, {
 		cwd: root,
 		stdio: "inherit",
 	});
@@ -150,6 +152,12 @@ async function getJson(url) {
 	return response.json();
 }
 
+/**
+ * Starts the Fleet Prime web interface on an ephemeral localhost port.
+ * @param {string} launcherBin - Path to the web launcher executable.
+ * @param {string} workspace - Working directory for the server process.
+ * @return {ChildProcess} The server process, with `urlPromise` resolving to its detected URL.
+ */
 function startServer(launcherBin, workspace) {
 	const server = spawn(process.execPath, [launcherBin, "--host", "127.0.0.1", "--port", "0"], {
 		cwd: workspace,
@@ -160,9 +168,7 @@ function startServer(launcherBin, workspace) {
 	server.urlPromise = new Promise((resolvePromise, rejectPromise) => {
 		const timer = setTimeout(() => {
 			rejectPromise(
-				new Error(
-					`Fleet Prime interface did not start within ${STARTUP_TIMEOUT_MS}ms. Output:\n${server.output}`,
-				),
+				new Error(`Fleet Prime interface did not start within ${STARTUP_TIMEOUT_MS}ms. Output:\n${server.output}`),
 			);
 		}, STARTUP_TIMEOUT_MS);
 		server.on("error", (error) => {
@@ -220,6 +226,12 @@ async function checkWebRuntime(baseUrl, workspace, installedPackage) {
 	}
 }
 
+/**
+ * Runs the Fleet Prime release smoke test.
+ *
+ * Packages or selects a release tarball, installs it in a temporary environment,
+ * verifies the command-line tools and web runtime, and cleans up temporary resources.
+ */
 async function main() {
 	const { packagePath: requestedPackage } = parseArgs(process.argv.slice(2));
 	const packDir = mkdtempSync(join(tmpdir(), "fleet-prime-pack-"));
@@ -240,6 +252,11 @@ async function main() {
 		for (const binName of ["fleet-prime", "fleet-agent"]) {
 			assertFile(join(prefix, "bin", binName), `installed bin/${binName}`);
 		}
+		execFileSync(join(prefix, "bin", "fleet-agent"), ["agent", "--help"], {
+			cwd: workspace,
+			stdio: "ignore",
+			timeout: 30000,
+		});
 		assertFile(join(installedPackage, "dist", "web", "launcher.mjs"), "packaged web launcher");
 		assertFile(join(installedPackage, "dist", "web", "server", "server.js"), "packaged web server bundle");
 

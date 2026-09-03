@@ -3,8 +3,8 @@
 // Quality-gate orchestrator. Replaces the sequential `pnpm run check` chain.
 //
 // Phase 1 (sequential, fast): the runtime manifest check fails fast before any
-// other work, then biome --write runs alone because it mutates files and
-// concurrent readers must observe the formatted state.
+// other work, then Biome checks the repository. Formatting is read-only by
+// default; pass --write only from the explicit developer formatting command.
 //
 // Phase 2 (concurrent): installer, rendering, and typecheck stages are
 // independent read-only checks, so they run in parallel. Unlike the previous
@@ -14,8 +14,15 @@
 import { spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pnpmInvocation } from "./pnpm-command.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const write = process.argv.includes("--write");
+const unexpectedArguments = process.argv.slice(2).filter((argument) => argument !== "--write");
+if (unexpectedArguments.length > 0) {
+	console.error(`Unknown option: ${unexpectedArguments[0]}`);
+	process.exit(1);
+}
 
 // Spawn the package's bin/biome Node wrapper instead of the extensionless
 // .bin shim: the wrapper resolves the platform binary (including the win32
@@ -67,7 +74,7 @@ if (runtime.code !== 0) {
 const biome = await runStage("biome", process.execPath, [
 	biomeBin,
 	"check",
-	"--write",
+	...(write ? ["--write"] : []),
 	"--error-on-warnings",
 	".",
 ]);
@@ -77,10 +84,11 @@ if (biome.code !== 0) {
 	process.exit(1);
 }
 
+const pnpmTypecheck = pnpmInvocation(["run", "check:web"]);
 const phase2 = await Promise.all([
 	runStage("installer", process.execPath, ["scripts/check-source-installer.mjs", "--static"]),
 	runStage("rendering", process.execPath, ["web/design/scripts/render-checks.mjs"]),
-	runStage("typecheck", "pnpm", ["run", "check:web"]),
+	runStage("typecheck", pnpmTypecheck.command, pnpmTypecheck.args),
 ]);
 
 const failed = report([runtime, biome, ...phase2]);
