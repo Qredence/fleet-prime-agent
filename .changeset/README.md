@@ -4,6 +4,10 @@ Add one Markdown file for each user-visible Fleet change. The frontmatter
 declares the semver bump for `@qredence/fleet`; the body becomes part of the
 package changelog.
 
+Create one interactively with `pnpm changeset`, select `@qredence/fleet`, and
+choose the appropriate `patch`, `minor`, or `major` bump. Commit the generated
+Markdown file with the change.
+
 ```md
 ---
 "@qredence/fleet": patch

@@ -138,6 +138,15 @@ export function releasePlanFromStatus(status) {
 }
 
 /**
+ * Returns the planned package version, or `undefined` when no Changesets are pending.
+ * @param {object|undefined|null} status - Changesets status data, when available.
+ * @returns {string|undefined} The planned stable version.
+ */
+export function releaseVersionFromStatus(status) {
+	return status ? releasePlanFromStatus(status).version : undefined;
+}
+
+/**
  * Lists files changed from a specified Git commit.
  * @param {string} baseSha - The commit to compare against.
  * @returns {{status: string, path: string}[]} The changed files and their Git status codes.
@@ -313,15 +322,24 @@ export async function prepareRelease({
 	return { prepared: true, plan };
 }
 
-async function main() {
-	const { dryRun, printVersion } = parseArgs(process.argv.slice(2));
+/**
+ * Runs the release-preparation command.
+ * @param {string[]} [argv=process.argv.slice(2)] - Command-line arguments.
+ * @param {{readStatus?: () => object|undefined|null, log?: (message: string) => void}} [dependencies] - Injectable command dependencies for tests.
+ * @returns {Promise<void>} Resolves when preparation completes or is a no-op.
+ */
+export async function run(argv = process.argv.slice(2), { readStatus = readChangesetStatus, log = console.log } = {}) {
+	const { dryRun, printVersion } = parseArgs(argv);
 	if (printVersion) {
-		const status = readChangesetStatus();
-		if (!status) throw new Error("No pending Changesets");
-		console.log(releasePlanFromStatus(status).version);
+		const version = releaseVersionFromStatus(readStatus());
+		if (version) log(version);
 		return;
 	}
 	await prepareRelease({ token: process.env.GITHUB_TOKEN, dryRun });
+}
+
+async function main() {
+	await run();
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

@@ -20,7 +20,7 @@ All participants must follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 4. Run `pnpm run check` (read-only formatting check, lint, and type-check; it does not run tests)
 5. Run focused web tests from the relevant package root, e.g. `cd web/server && pnpm exec vitest run src/__tests__/prime-bridge.test.ts`
 6. Run `pnpm run format` only when you intentionally want Biome to write formatting changes
-7. Add a Changeset for every user-visible `@qredence/fleet` change, unless the change is documentation-only, CI-only, or internal
+7. Run `pnpm changeset` and commit the generated file for every user-visible `@qredence/fleet` change, unless the change is documentation-only, CI-only, or internal
 8. Push the branch and open a pull request into `main`
 
 Use the pnpm commands above for local development. Never run `npm install` at
@@ -41,7 +41,8 @@ layout.
 
 ## Changelog
 
-Add a Changeset under `.changeset/` for user-visible package changes:
+Run `pnpm changeset` for user-visible package changes. It creates a Markdown
+file under `.changeset/` with the package and semver bump selected in the CLI:
 
 ```md
 ---

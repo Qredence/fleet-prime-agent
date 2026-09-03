@@ -3,7 +3,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
 
 const RELEASE_BRANCH_PREFIX = "release/fleet-";
@@ -85,7 +86,7 @@ function changedFiles(baseRef) {
  * @param {string} path - The file path to evaluate.
  * @return {boolean} `true` if the path is explicitly listed or matches a user-facing directory prefix, `false` otherwise.
  */
-function isUserFacing(path) {
+export function isUserFacing(path) {
 	if (USER_FACING_FILES.has(path)) return true;
 	if (INTERNAL_PATH_PATTERNS.some((pattern) => pattern.test(path))) return false;
 	return USER_FACING_PREFIXES.some((prefix) => path.startsWith(prefix));
@@ -105,11 +106,12 @@ function hasDeletedChangeset(baseRef) {
 
 /**
  * Determines whether the changes consist solely of generated release files.
- * @param {string} baseRef - The Git reference used to identify deleted Changesets.
  * @param {string[]} files - Changed file paths.
+ * @param {string} subject - The latest commit subject.
+ * @param {boolean} deletedChangeset - Whether a Changeset file was deleted.
  * @return {boolean} `true` if the changes represent a generated version commit, `false` otherwise.
  */
-function isGeneratedVersionCommit(baseRef, files) {
+export function isGeneratedVersionChange({ files, subject, deletedChangeset }) {
 	const releaseOnly =
 		files.length > 0 &&
 		files.every(
@@ -119,8 +121,21 @@ function isGeneratedVersionCommit(baseRef, files) {
 				(path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md"),
 		);
 	if (!releaseOnly) return false;
-	const subject = gitOutput(["log", "-1", "--format=%s"]);
-	return subject.startsWith("chore(release):") || subject.includes("release/fleet-v") || hasDeletedChangeset(baseRef);
+	return subject.startsWith("chore(release):") || subject.includes("release/fleet-v") || deletedChangeset;
+}
+
+/**
+ * Determines whether the current Git comparison is a generated version commit.
+ * @param {string} baseRef - The Git reference used to identify deleted Changesets.
+ * @param {string[]} files - Changed file paths.
+ * @return {boolean} `true` when the changes are generated release output.
+ */
+function isGeneratedVersionCommit(baseRef, files) {
+	return isGeneratedVersionChange({
+		files,
+		subject: gitOutput(["log", "-1", "--format=%s"]),
+		deletedChangeset: hasDeletedChangeset(baseRef),
+	});
 }
 
 /**
@@ -131,6 +146,20 @@ function pendingChangesets() {
 	const directory = ".changeset";
 	if (!existsSync(directory)) return [];
 	return readdirSync(directory).filter((entry) => entry.endsWith(".md") && entry !== "README.md");
+}
+
+/**
+ * Verifies that user-facing files have an associated pending Changeset.
+ * @param {string[]} userFacingFiles - User-facing files in the comparison.
+ * @param {string[]} changesets - Pending Changeset filenames.
+ * @throws {Error} If user-facing files have no pending Changeset.
+ */
+export function assertChangesetPresent(userFacingFiles, changesets) {
+	if (userFacingFiles.length === 0 || changesets.length > 0) return;
+	throw new Error(
+		`User-facing package files changed without a Changeset: ${userFacingFiles.join(", ")}. ` +
+			"Add .changeset/<name>.md or document and isolate a docs/CI/internal no-release change.",
+	);
 }
 
 /**
@@ -184,14 +213,11 @@ function main() {
 	}
 
 	const changesets = pendingChangesets();
-	if (changesets.length === 0) {
-		throw new Error(
-			`User-facing package files changed without a Changeset: ${userFacingFiles.join(", ")}. ` +
-				"Add .changeset/<name>.md or document and isolate a docs/CI/internal no-release change.",
-		);
-	}
+	assertChangesetPresent(userFacingFiles, changesets);
 	validateChangesetStatus(baseRef);
 	console.log(`Changeset requirement passed for ${userFacingFiles.length} user-facing file(s).`);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+	main();
+}

@@ -12,8 +12,9 @@ upstream tarballs declared in `packages/fleet-prime/package.json`.
 
 ## Release flow
 
-1. For a user-visible package change, add a Markdown file under `.changeset/`
-   with a `patch`, `minor`, or `major` bump for `@qredence/fleet`.
+1. For a user-visible package change, run `pnpm changeset`, select
+   `@qredence/fleet`, choose a `patch`, `minor`, or `major` bump, and commit
+   the generated Markdown file under `.changeset/`.
 2. Open a pull request to `main`. CircleCI must pass `ci-success`, including
    build/check, web JUnit tests, and the Linux and macOS packed-artifact
    installs.

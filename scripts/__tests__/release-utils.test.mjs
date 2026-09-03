@@ -5,7 +5,13 @@ import { join } from "node:path";
 import test from "node:test";
 import { assertAllowedPath } from "../check-package.mjs";
 import { pnpmInvocation } from "../pnpm-command.mjs";
-import { createVersionPullRequest, prepareRelease, releasePlanFromStatus } from "../prepare-release.mjs";
+import {
+	createVersionPullRequest,
+	prepareRelease,
+	releasePlanFromStatus,
+	releaseVersionFromStatus,
+	run as runPrepareRelease,
+} from "../prepare-release.mjs";
 import {
 	isPackageVersionCommit,
 	publishRelease,
@@ -193,6 +199,29 @@ test("dry-runs release preparation without requiring GitHub credentials", async 
 		if (previousBranch === undefined) delete process.env.CIRCLE_BRANCH;
 		else process.env.CIRCLE_BRANCH = previousBranch;
 	}
+});
+
+test("treats no pending Changesets as a release-preparation no-op", async () => {
+	const result = await prepareRelease({ status: null, branch: "main" });
+	assert.deepEqual(result, { prepared: false });
+});
+
+test("prints no version for an empty release plan and the next version for a patch plan", async () => {
+	const noVersionOutput = [];
+	await runPrepareRelease(["--print-version"], {
+		readStatus: () => undefined,
+		log: (message) => noVersionOutput.push(message),
+	});
+	assert.deepEqual(noVersionOutput, []);
+
+	const versionOutput = [];
+	await runPrepareRelease(["--print-version"], {
+		readStatus: releaseStatus,
+		log: (message) => versionOutput.push(message),
+	});
+	assert.deepEqual(versionOutput, [nextPatchVersion]);
+	assert.equal(releaseVersionFromStatus(undefined), undefined);
+	assert.equal(releaseVersionFromStatus(releaseStatus()), nextPatchVersion);
 });
 
 test("requires CircleCI to provide the release version before creating a release PR", async () => {
