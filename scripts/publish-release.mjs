@@ -5,43 +5,40 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
-	assertReleaseVersion,
-	compareVersions,
-	NPM_REGISTRY,
-	parseStableVersion,
-	registryPackageUrl,
-} from "./release-utils.mjs";
+import { assertReleaseVersion, compareVersions, NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-prime", "package.json");
+const packageName = "@qredence/fleet";
 const publicBaseline = "0.5.0";
 
 function readManifest() {
 	const manifest = JSON.parse(readFileSync(packageManifestPath, "utf8"));
+	if (manifest.name !== packageName) throw new Error(`Expected the public package to be ${packageName}`);
 	if (manifest.publishConfig?.registry !== NPM_REGISTRY) {
 		throw new Error(`Fleet must publish only to ${NPM_REGISTRY}`);
 	}
 	return manifest;
 }
 
-async function readRegistryPackage({ fetchImpl = fetch, registry, packageName, version }) {
-	const response = await fetchImpl(registryPackageUrl(registry, packageName, version), {
+async function readRegistryMetadata({ fetchImpl = fetch }) {
+	const response = await fetchImpl(`${NPM_REGISTRY}${encodeURIComponent(packageName)}`, {
 		headers: { Accept: "application/json" },
 	});
 	if (response.status === 404) return undefined;
-	if (!response.ok) throw new Error(`npm registry lookup failed with HTTP ${response.status}`);
+	if (!response.ok) throw new Error(`npm registry metadata lookup failed with HTTP ${response.status}`);
 	return response.json();
 }
 
-async function readRegistryLatest({ fetchImpl = fetch, registry, packageName }) {
-	const response = await fetchImpl(`${registry.replace(/\/$/, "")}/${encodeURIComponent(packageName)}`, {
-		headers: { Accept: "application/json" },
-	});
-	if (response.status === 404) return undefined;
-	if (!response.ok) throw new Error(`npm registry latest lookup failed with HTTP ${response.status}`);
-	const metadata = await response.json();
-	return metadata["dist-tags"]?.latest;
+async function readRegistryPackage({ fetchImpl = fetch, version }) {
+	const metadata = await readRegistryMetadata({ fetchImpl });
+	const published = metadata?.versions?.[version];
+	return published ? { ...published, version: published.version ?? version } : undefined;
+}
+
+async function readRegistryLatest({ fetchImpl = fetch }) {
+	const metadata = await readRegistryMetadata({ fetchImpl });
+	return metadata?.["dist-tags"]?.latest;
 }
 
 export async function readRemoteChecksum({ fetchImpl = fetch, metadata }) {
@@ -135,10 +132,10 @@ function publishToNpm(artifact) {
 	});
 }
 
-export async function waitForPublishedVersion({ fetchImpl = fetch, registry, packageName, version, sleepImpl } = {}) {
+export async function waitForPublishedVersion({ fetchImpl = fetch, version, sleepImpl } = {}) {
 	const deadline = Date.now() + 30000;
 	while (Date.now() < deadline) {
-		const metadata = await readRegistryPackage({ fetchImpl, registry, packageName, version });
+		const metadata = await readRegistryPackage({ fetchImpl, version });
 		if (metadata) return metadata;
 		await (
 			sleepImpl ?? ((milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds)))
@@ -171,14 +168,11 @@ export async function publishRelease({
 		console.log(`Skipping historical public baseline ${manifest.version}; no new release is required.`);
 		return { published: false, skipped: true };
 	}
-	const registry = NPM_REGISTRY;
 	const artifactPath = resolve(artifact ?? join(root, "dist-release", `qredence-fleet-${manifest.version}.tgz`));
 	if (!existsSync(artifactPath)) throw new Error(`Release artifact not found: ${artifactPath}`);
 	const localChecksum = sha256(artifactPath);
 	const published = await readRegistryPackage({
 		fetchImpl,
-		registry,
-		packageName: manifest.name,
 		version: manifest.version,
 	});
 	let metadata;
@@ -197,14 +191,12 @@ export async function publishRelease({
 		metadata = published;
 		if (decision !== "resume") throw new Error(`Unexpected release decision: ${decision}`);
 	} else {
-		const latestVersion = await readRegistryLatest({ fetchImpl, registry, packageName: manifest.name });
+		const latestVersion = await readRegistryLatest({ fetchImpl });
 		releaseDecision({ packageVersion: manifest.version, latestVersion, localChecksum });
 		writeChecksumFileImpl(artifactPath);
 		publishToNpmImpl(artifactPath);
 		metadata = await waitForPublishedVersionImpl({
 			fetchImpl,
-			registry,
-			packageName: manifest.name,
 			version: manifest.version,
 		});
 		assertPublishedMetadata(metadata, manifest.version);

@@ -127,23 +127,23 @@ function assertVersionChangesOnly(files) {
 
 export async function createVersionPullRequest(
 	token,
-	repository,
 	plan,
 	baseSha,
 	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404 } = {},
 ) {
+	const { owner, repo } = RELEASE_REPOSITORY;
 	const branch = `release/fleet-v${plan.version}`;
 	const existingPullRequests = await githubRequestImpl(
-		`/repos/${repository.owner}/${repository.repo}/pulls?state=open&head=${encodeURIComponent(`${repository.owner}:${branch}`)}&per_page=1`,
+		`/repos/${owner}/${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${branch}`)}&per_page=1`,
 		token,
 	);
 	if (existingPullRequests.length > 0) {
 		console.log(`Release pull request already exists for ${plan.version}; leaving it unchanged.`);
 		return;
 	}
-	const repositoryFullName = `${repository.owner}/${repository.repo}`.toLowerCase();
+	const repositoryFullName = `${owner}/${repo}`.toLowerCase();
 	const openReleasePullRequests = await githubRequestImpl(
-		`/repos/${repository.owner}/${repository.repo}/pulls?state=open&base=${baseBranch}&per_page=100`,
+		`/repos/${owner}/${repo}/pulls?state=open&base=${baseBranch}&per_page=100`,
 		token,
 	);
 	const anotherReleasePullRequest = openReleasePullRequests.find(
@@ -158,12 +158,7 @@ export async function createVersionPullRequest(
 		return;
 	}
 
-	if (
-		await githubRequestAllow404Impl(
-			`/repos/${repository.owner}/${repository.repo}/git/ref/heads/${encodeURIComponent(branch)}`,
-			token,
-		)
-	) {
+	if (await githubRequestAllow404Impl(`/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, token)) {
 		throw new Error(
 			`Release branch ${branch} already exists without an open pull request; refusing to overwrite it.`,
 		);
@@ -175,11 +170,8 @@ export async function createVersionPullRequest(
 	assertVersionChangesOnly(files);
 	if (files.length === 0) throw new Error("changeset version produced no changes");
 
-	const baseCommit = await githubRequestImpl(
-		`/repos/${repository.owner}/${repository.repo}/git/commits/${baseSha}`,
-		token,
-	);
-	const tree = await githubRequestImpl(`/repos/${repository.owner}/${repository.repo}/git/trees`, token, {
+	const baseCommit = await githubRequestImpl(`/repos/${owner}/${repo}/git/commits/${baseSha}`, token);
+	const tree = await githubRequestImpl(`/repos/${owner}/${repo}/git/trees`, token, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
@@ -191,7 +183,7 @@ export async function createVersionPullRequest(
 			),
 		}),
 	});
-	const commit = await githubRequestImpl(`/repos/${repository.owner}/${repository.repo}/git/commits`, token, {
+	const commit = await githubRequestImpl(`/repos/${owner}/${repo}/git/commits`, token, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
@@ -200,12 +192,12 @@ export async function createVersionPullRequest(
 			parents: [baseSha],
 		}),
 	});
-	await githubRequestImpl(`/repos/${repository.owner}/${repository.repo}/git/refs`, token, {
+	await githubRequestImpl(`/repos/${owner}/${repo}/git/refs`, token, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit.sha }),
 	});
-	const pullRequest = await githubRequestImpl(`/repos/${repository.owner}/${repository.repo}/pulls`, token, {
+	const pullRequest = await githubRequestImpl(`/repos/${owner}/${repo}/pulls`, token, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
@@ -223,7 +215,6 @@ export async function createVersionPullRequest(
 export async function prepareRelease({
 	token,
 	baseSha,
-	repository = RELEASE_REPOSITORY,
 	status = readChangesetStatus(),
 	dryRun = false,
 	branch = process.env.CIRCLE_BRANCH ??
@@ -246,7 +237,7 @@ export async function prepareRelease({
 		return { prepared: false, dryRun: true, plan };
 	}
 	if (!token) throw new Error("GITHUB_TOKEN is required for release-PR preparation");
-	await createVersionPullRequest(token, repository, plan, resolvedBaseSha);
+	await createVersionPullRequest(token, plan, resolvedBaseSha);
 	return { prepared: true, plan };
 }
 

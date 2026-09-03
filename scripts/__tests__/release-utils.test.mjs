@@ -125,18 +125,12 @@ test("enforces the packed artifact allowlist", () => {
 
 test("reuses an existing release pull request without versioning again", async () => {
 	const calls = [];
-	const result = await createVersionPullRequest(
-		"token",
-		{ owner: "Qredence", repo: "fleet-prime-agent" },
-		{ version: "0.5.1" },
-		"base-sha",
-		{
-			githubRequestImpl: async (path) => {
-				calls.push(path);
-				return [{ html_url: "https://github.com/Qredence/fleet-prime-agent/pull/1" }];
-			},
+	const result = await createVersionPullRequest("token", { version: "0.5.1" }, "base-sha", {
+		githubRequestImpl: async (path) => {
+			calls.push(path);
+			return [{ html_url: "https://github.com/Qredence/fleet-prime-agent/pull/1" }];
 		},
-	);
+	});
 	assert.equal(result, undefined);
 	assert.deepEqual(calls, [
 		"/repos/Qredence/fleet-prime-agent/pulls?state=open&head=Qredence%3Arelease%2Ffleet-v0.5.1&per_page=1",
@@ -145,30 +139,24 @@ test("reuses an existing release pull request without versioning again", async (
 
 test("does not create a second release pull request while another is open", async () => {
 	const calls = [];
-	const result = await createVersionPullRequest(
-		"token",
-		{ owner: "Qredence", repo: "fleet-prime-agent" },
-		{ version: "0.5.2" },
-		"base-sha",
-		{
-			githubRequestImpl: async (path) => {
-				calls.push(path);
-				if (path.includes("head=")) return [];
-				return [
-					{
-						html_url: "https://github.com/Qredence/fleet-prime-agent/pull/1",
-						head: {
-							ref: "release/fleet-v0.5.1",
-							repo: { full_name: "Qredence/fleet-prime-agent" },
-						},
+	const result = await createVersionPullRequest("token", { version: "0.5.2" }, "base-sha", {
+		githubRequestImpl: async (path) => {
+			calls.push(path);
+			if (path.includes("head=")) return [];
+			return [
+				{
+					html_url: "https://github.com/Qredence/fleet-prime-agent/pull/1",
+					head: {
+						ref: "release/fleet-v0.5.1",
+						repo: { full_name: "Qredence/fleet-prime-agent" },
 					},
-				];
-			},
-			githubRequestAllow404Impl: async () => {
-				throw new Error("branch lookup should not run while another release PR is open");
-			},
+				},
+			];
 		},
-	);
+		githubRequestAllow404Impl: async () => {
+			throw new Error("branch lookup should not run while another release PR is open");
+		},
+	});
 	assert.equal(result, undefined);
 	assert.deepEqual(calls, [
 		"/repos/Qredence/fleet-prime-agent/pulls?state=open&head=Qredence%3Arelease%2Ffleet-v0.5.2&per_page=1",
@@ -226,12 +214,10 @@ test("waits for registry visibility with deterministic polling", async () => {
 	let calls = 0;
 	const metadata = { version: "0.5.1", dist: { tarball: "https://registry.example.test/fleet.tgz" } };
 	const result = await waitForPublishedVersion({
-		registry: "https://registry.example.test",
-		packageName: "@qredence/fleet",
 		version: "0.5.1",
 		fetchImpl: async () => {
 			calls += 1;
-			return calls === 1 ? response(404) : response(200, metadata);
+			return calls === 1 ? response(404) : response(200, { versions: { "0.5.1": metadata } });
 		},
 		sleepImpl: async () => {},
 	});
@@ -258,10 +244,11 @@ test("publishes a new version once and verifies the post-publish tarball", async
 			artifact,
 			isPackageVersionCommitImpl: () => true,
 			fetchImpl: async (url) => {
-				if (url.endsWith("/%40qredence%2Ffleet")) return response(200, { "dist-tags": { latest: "0.5.0" } });
-				if (url.endsWith("/%40qredence%2Ffleet/0.5.1")) {
+				if (url === "https://registry.npmjs.org/%40qredence%2Ffleet") {
 					versionLookups += 1;
-					return versionLookups === 1 ? response(404) : response(200, publishedMetadata);
+					return versionLookups < 3
+						? response(200, { "dist-tags": { latest: "0.5.0" }, versions: {} })
+						: response(200, { "dist-tags": { latest: "0.5.0" }, versions: { "0.5.1": publishedMetadata } });
 				}
 				if (url === publishedMetadata.dist.tarball) return response(200, bytes);
 				throw new Error(`Unexpected registry request: ${url}`);
@@ -272,8 +259,8 @@ test("publishes a new version once and verifies the post-publish tarball", async
 			publishGithubReleaseImpl: (environment) => {
 				githubReleaseEnvironment = environment;
 			},
-			waitForPublishedVersionImpl: async ({ fetchImpl, registry, packageName, version }) =>
-				waitForPublishedVersion({ fetchImpl, registry, packageName, version, sleepImpl: async () => {} }),
+			waitForPublishedVersionImpl: async ({ fetchImpl, version }) =>
+				waitForPublishedVersion({ fetchImpl, version, sleepImpl: async () => {} }),
 		});
 		assert.deepEqual(result, { published: true, skipped: false, version: "0.5.1" });
 		assert.equal(npmPublishes, 1);
@@ -304,8 +291,8 @@ test("resumes an already-published version without a second npm publish", async 
 			artifact,
 			isPackageVersionCommitImpl: () => true,
 			fetchImpl: async (url) => {
-				if (url.endsWith("/%40qredence%2Ffleet")) return response(200, { "dist-tags": { latest: "0.5.1" } });
-				if (url.endsWith("/%40qredence%2Ffleet/0.5.1")) return response(200, publishedMetadata);
+				if (url === "https://registry.npmjs.org/%40qredence%2Ffleet")
+					return response(200, { "dist-tags": { latest: "0.5.1" }, versions: { "0.5.1": publishedMetadata } });
 				if (url === publishedMetadata.dist.tarball) return response(200, bytes);
 				throw new Error(`Unexpected registry request: ${url}`);
 			},
