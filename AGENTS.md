@@ -1,115 +1,343 @@
-# Development Rules
+# Fleet Prime — Agent Instructions
 
-Universal rules for all work in this repository. Area-specific guides live in
-`docs/guides/` (see the index at the bottom); read the relevant guide before
-working in that area.
+`fleet-prime-agent` is the Fleet Prime product: a standalone web interface and launcher built around a checksum-pinned stock Prime Agent runtime.
 
-## Conversational Style
+Fleet owns the product/interface layer.
 
-- No fluff or cheerful filler text
-- Keep answers short and concise
-- No emojis in commits, issues, PR comments, or code
-- Technical prose only, be kind but direct (e.g., "Thanks @user" not "Thanks so much @user!")
+Prime Agent owns the execution engine.
 
-## Code Quality
+This file defines repository-wide execution rules.
 
-- Read files in full before making wide-ranging changes, before editing files you have not already fully inspected, and when the user asks you to investigate or audit something. Do not rely only on search snippets for broad changes.
-- Don't be too verbose with comments in the code. Only write comments when there is serious ambiguity
-- No `any` types unless absolutely necessary
-- Check node_modules for external API type definitions instead of guessing
-- **NEVER use inline imports** - no `await import("./foo.js")` in logic, no `import("pkg").Type` in type positions, no dynamic imports for types. Exception: lazy chunk boundaries required by the web bundle budget (`check:bundle`), such as `lazy(() => import(...))` or deferred loaders like `() => import("shiki")`, are allowed. Otherwise always use standard top-level imports.
-- NEVER remove or downgrade code to fix type errors from outdated dependencies; upgrade the dependency instead
-- Always ask before removing functionality or code that appears to be intentional
-- Do not preserve backward compatibility unless the user explicitly asks for it
-- Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_FLEET_PANEL_KEYBINDINGS`)
-- Do not add or restore vendored Prime Agent source trees. Engine behavior, providers, models, and daemon protocol changes belong upstream.
-- Do not import `prime-agent` outside `web/server`. Browser code (`web/app`, `web/design`) talks HTTP only. See `docs/guides/web-interface.md`.
+## Working model
 
-## Commands
+Before changing code:
 
-- After code changes (not documentation changes): `pnpm run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
-- `check:runtime` runs first inside `pnpm run check` and verifies the pinned runtime manifest.
-- Note: `pnpm run check` does not run tests.
-- NEVER run: `pnpm run dev:web`, `pnpm run build`, `pnpm test`
-- Only run specific tests if user instructs: `pnpm exec vitest run src/__tests__/specific.test.ts`
-- Run tests from the package root, not the repo root.
-- If you create or modify a test file, you MUST run that test file and iterate until it passes.
-- When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
-- Use the web-server's deterministic test doubles for adapter tests. Do not use
-  real provider APIs, real API keys, or paid tokens.
+1. Inspect the relevant implementation and its tests.
+2. Search for existing implementations, types, helpers, and established boundaries before adding new abstractions.
+3. Read `ARCHITECTURE.md` when the task affects ownership, lifecycle, runtime boundaries, protocol behavior, sessions, transports, or cross-package behavior.
+4. Read a file under `docs/guides/` only when performing the specific operation that guide covers.
 
-## Installs
+Treat current code, tests, workspace configuration, `PRIME_AGENT_RUNTIME.json`, package manifests, and executable validation as authoritative.
 
-- Repo root: `pnpm install` only. It resolves the whole workspace (`web/*`, `packages/fleet-web`) through the root `pnpm-lock.yaml`.
-- Never run `npm install` (or `npm ci`) at the repo root: it drops a `package-lock.json` and rewrites `node_modules` to an npm layout. Recovery: delete `package-lock.json` and `node_modules`, then re-run `pnpm install`. Never commit a `package-lock.json`. Full recovery steps: `docs/guides/web-interface.md`.
+Documentation explains the system but does not override executable contracts.
 
-## Dependencies
+## Execution
 
-- A 7-day minimum release age applies to all dependency updates: `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (minutes) and `.github/dependabot.yml` uses a matching `cooldown`. Never bypass it for routine updates.
-- For an urgent security patch younger than 7 days, override explicitly: `pnpm install --config.minimum-release-age=0 <pkg>`.
+For clear, reversible work, inspect the relevant context and proceed.
 
-## Changelog
+Prefer the simplest implementation that fully satisfies the request.
 
-Fleet changes are summarized in this repository's PRs and release notes. Do
-not add a changelog or change fragment to a copied upstream directory.
+Keep changes focused.
 
-## **CRITICAL** Git Rules for Parallel Agents **CRITICAL**
+Reuse existing modules, types, packages, and abstractions when they fit instead of creating parallel mechanisms.
 
-Multiple agents may work on different files in the same worktree simultaneously. You MUST follow these rules:
+Remove obsolete, duplicated, or superseded code when its removal is safe, verified, and directly relevant to the task.
 
-### Committing
+For multi-file or architectural work, maintain a concise task list and validate meaningful stages as you go.
 
-- **ONLY commit files YOU changed in THIS session**
-- ALWAYS include `fixes #<number>` or `closes #<number>` in the commit message when there is a related issue or PR
-- NEVER use `git add -A` or `git add .` - these sweep up changes from other agents
-- ALWAYS use `git add <specific-file-paths>` listing only files you modified
-- Before committing, run `git status` and verify you are only staging YOUR files
-- Track which files you created/modified/deleted during the session
+Do not modify unrelated files merely to make a diff cleaner.
 
-### Forbidden Git Operations
+## Git and external effects
 
-These commands can destroy other agents' work:
+Preserve pre-existing staged, unstaged, and untracked changes.
 
-- `git reset --hard` - destroys uncommitted changes
-- `git checkout .` - destroys uncommitted changes
-- `git clean -fd` - deletes untracked files
-- `git stash` - stashes ALL changes including other agents' work
-- `git add -A` / `git add .` - stages other agents' uncommitted work
-- `git commit --no-verify` - bypasses required checks and is never allowed
+Do not reset, clean, stash, overwrite, or revert changes you did not make.
 
-### Safe Workflow
+Do not use destructive or broad Git operations such as:
 
 ```bash
-# 1. Check status first
-git status
-
-# 2. Add ONLY your specific files
-git add web/server/src/prime-bridge.ts
-git add web/server/src/__tests__/prime-bridge.test.ts
-
-# 3. Commit
-git commit -m "fix(web): description"
-
-# 4. Push (pull --rebase if needed, but NEVER reset/checkout)
-git pull --rebase && git push
+git add .
+git add -A
+git reset --hard
+git clean -fd
+git checkout .
+git stash
+git commit --no-verify
 ```
 
-### If Rebase Conflicts Occur
+When staging is explicitly requested, stage only files changed for the current task.
 
-- Resolve conflicts in YOUR files only
-- If conflict is in a file you didn't modify, abort and ask the user
-- NEVER force push
+Do not commit, amend, push, open or merge pull requests, publish packages, create releases, deploy, or perform other externally visible actions unless explicitly requested.
 
-### User override
+Never force-push.
 
-If the user instructions conflict with rules set out here, ask for confirmation that they want to override the rules. Only then execute their instructions.
+Never expose credentials, tokens, `.env` values, provider secrets, or private runtime data.
 
-## Documentation index
+## Product boundary
 
-Read the relevant guide before working in that area:
+Fleet Prime is an independent product layer over the stock upstream Prime Agent runtime.
 
-- `docs/guides/web-interface.md` — web stack boundaries (`web/app`, `web/design`, `web/server`, `web/protocol`), runtime pin, install recovery. Read before any change under `web/`.
-- `docs/guides/upstream-runtime.md` — pinned runtime upgrades, daemon protocol changes, adding LLM providers. Read before upgrading `PRIME_AGENT_RUNTIME.json` or touching daemon-facing `web/server` code.
-- `docs/guides/github-workflow.md` — issue/PR etiquette and the PR handling flow. Read before creating issues/PRs or posting comments.
-- `docs/guides/tmux-testing.md` — driving the Prime Agent TUI in tmux. Read before interactive-mode testing.
-- `docs/guides/releasing.md` — Fleet release steps. Read before cutting a release.
+Do not vendor, copy, or patch Prime Agent source into this repository.
+
+Engine behavior such as:
+
+* provider implementations;
+* model implementations;
+* daemon internals;
+* upstream CLI behavior;
+* core runtime behavior;
+* upstream protocol implementation;
+
+belongs upstream unless Fleet is adapting or presenting an already-supported upstream capability.
+
+`PRIME_AGENT_RUNTIME.json` is the authoritative runtime pin.
+
+When the runtime changes, keep every package reference to the stock runtime aligned with that manifest and follow `docs/guides/upstream-runtime.md`.
+
+Do not encode the currently pinned runtime version into `AGENTS.md` or `ARCHITECTURE.md`.
+
+## Web architecture boundaries
+
+The primary dependency direction is:
+
+```text
+browser
+  ↓ HTTP / NDJSON / SSE
+web/app
+  ↓ typed Fleet protocol
+web/server
+  ↓ supported Prime Agent runtime / daemon API
+stock Prime Agent runtime
+```
+
+Additional responsibilities:
+
+```text
+web/protocol
+  → browser-safe transport contracts
+
+web/design
+  → reusable Fleet presentation/UI components
+
+packages/fleet-web
+  → Fleet launcher/distribution
+```
+
+### Browser boundary
+
+`web/app` and `web/design` must not import `prime-agent` or other upstream execution-runtime packages.
+
+Browser code communicates with execution through Fleet's typed HTTP/stream protocol.
+
+Do not expose raw runtime objects to browser code merely because the in-process implementation makes them technically accessible.
+
+### Server boundary
+
+`web/server` is Fleet's adapter boundary to Prime Agent.
+
+It owns:
+
+* runtime/daemon connection;
+* Fleet-to-Prime session adaptation;
+* upstream event mapping;
+* browser-safe presentation mapping;
+* HTTP handlers;
+* replay infrastructure;
+* pending interactions/dialogs;
+* Fleet-managed presentation state;
+* runtime compatibility handling.
+
+Do not move Prime Agent-specific execution knowledge into `web/app` or `web/design`.
+
+### Protocol boundary
+
+`web/protocol` owns browser-safe wire types.
+
+Server and browser should depend on the shared protocol instead of independently recreating equivalent event shapes.
+
+Protocol evolution should remain additive or explicitly versioned/capability-gated when compatibility requires it.
+
+See `docs/reference/adapter-contract.md` for the durable transport/privacy contract.
+
+## Prime Agent connection invariants
+
+Use the supported Prime Agent connection abstraction rather than bypassing it to access mutable runtime internals.
+
+Fleet/client code should operate through supported connection/session projection surfaces.
+
+Do not reintroduce direct raw `AgentSession`, `SessionManager`, extension-runtime, or equivalent mutable runtime access across the Fleet boundary when a supported connection abstraction exists.
+
+Session replacement behavior should use supported replacement hooks/options rather than leaking runtime ownership across the client boundary.
+
+Keep process-local executable/runtime capabilities process-local.
+
+Do not invent browser or wire representations for executable callbacks purely to expose internal convenience APIs.
+
+## Privacy and reasoning
+
+Raw detailed model reasoning is not a normal Fleet browser presentation surface.
+
+Do not expose raw detailed thinking through:
+
+* browser event streams;
+* standard message parts;
+* transcript hydration;
+* assistant-text fallback;
+* copy/export behavior;
+* ordinary diagnostics.
+
+Fleet may expose controlled browser-safe reasoning/execution presentation derived from typed lifecycle information.
+
+Do not infer new user-visible execution semantics from arbitrary model text when the runtime does not provide an authoritative typed signal.
+
+## TypeScript and imports
+
+Prefer precise types.
+
+Avoid `any`; use it only where an external boundary genuinely cannot be expressed more precisely, and isolate it narrowly.
+
+Inspect installed dependency type definitions instead of guessing external APIs.
+
+Use normal top-level imports.
+
+Do not use dynamic or inline imports as a general code-organization mechanism.
+
+Dynamic imports are acceptable only for intentional lazy/bundle boundaries where they materially affect browser loading or bundle constraints.
+
+Keep configurable interaction behavior configurable.
+
+Do not hardcode keybinding checks where the existing configurable keybinding system can express the behavior.
+
+## Dependencies and installation
+
+Use pnpm for the repository workspace.
+
+From the repository root:
+
+```bash
+pnpm install
+```
+
+Do not run root:
+
+```bash
+npm install
+npm ci
+```
+
+Do not introduce or commit a root `package-lock.json`.
+
+Respect the workspace dependency minimum-release-age policy.
+
+Do not bypass it for routine dependency updates.
+
+A younger dependency should require an explicit reviewed reason such as an urgent security remediation.
+
+## Testing
+
+Use deterministic local test doubles for Fleet adapter/runtime tests.
+
+Do not use real provider APIs, API keys, paid model calls, or user credentials for ordinary tests.
+
+When modifying a test file, run that test.
+
+When behavior changes, run focused tests that prove the affected behavior rather than relying only on static checking.
+
+Run tests from the owning workspace or through an explicit workspace filter.
+
+## Changesets
+
+User-visible changes to the published `@qredence/fleet` package require a Changeset unless the change is documentation-only, CI-only, or internal and does not affect the released package.
+
+Do not maintain a second hand-written Fleet changelog mechanism.
+
+Prime Agent engine release notes belong upstream.
+
+## Repository map
+
+* `web/app/` — TanStack Start browser product.
+* `web/server/` — Fleet adapter to Prime Agent and HTTP/runtime orchestration.
+* `web/protocol/` — typed browser/server protocol.
+* `web/design/` — reusable Fleet UI and presentation components.
+* `packages/fleet-web/` — published launcher/distribution package.
+* `scripts/` — repository validation, packaging, installation, and release tooling.
+* `PRIME_AGENT_RUNTIME.json` — authoritative stock Prime Agent runtime pin.
+* `docs/reference/` — durable technical contracts.
+* `docs/guides/` — operation-specific runbooks.
+
+Extend the owning package rather than creating a second location for the same responsibility.
+
+## Validation
+
+Use the smallest validation lane that proves the change, then escalate when the affected contract requires it.
+
+### Normal code changes
+
+Run:
+
+```bash
+pnpm run check
+```
+
+This is the primary static repository gate.
+
+It validates the runtime manifest, formatting/linting, installer structure, rendering constraints, and TypeScript workspaces.
+
+It does not replace behavioral tests.
+
+Also run focused tests for changed behavior.
+
+### Focused tests
+
+Use the affected workspace.
+
+Examples:
+
+```bash
+pnpm --filter @prime-agent/web-server exec vitest run <test-file>
+pnpm --filter @prime-agent/web exec vitest run <test-file>
+```
+
+Use the corresponding owning package for protocol/design tests.
+
+### Cross-package protocol/runtime changes
+
+For changes spanning protocol, server, and browser behavior, run the relevant focused suites and escalate to:
+
+```bash
+pnpm run check
+pnpm run test:web
+```
+
+when the broader web suite materially validates the change.
+
+### Runtime-pin changes
+
+Follow:
+
+```text
+docs/guides/upstream-runtime.md
+```
+
+and run the runtime-manifest verification and compatibility tests specified there.
+
+### Release/package changes
+
+Use repository package/release checks only when the task affects packaging, installation, release output, or release readiness.
+
+Do not run publish/release operations merely as validation.
+
+### Development servers and live providers
+
+Do not start long-running development servers or make live provider/model calls unless they are required for the task or explicitly requested.
+
+## Completion
+
+Before finishing:
+
+1. Review the diff for unintended changes.
+2. Run every applicable validation lane.
+3. Run:
+
+```bash
+git diff --check
+```
+
+4. Report:
+
+   * what changed;
+   * checks/tests run;
+   * anything not validated;
+   * whether live/provider/release validation was intentionally not run.
+
+Do not claim behavioral correctness from static checks alone.

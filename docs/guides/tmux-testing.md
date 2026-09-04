@@ -1,30 +1,26 @@
-# Testing Prime Agent Interactive Mode with tmux
+# Manual tmux testing
 
-Read this before driving the Prime Agent TUI in a terminal.
+Use tmux when an interactive Prime Agent TUI or terminal lifecycle must be tested manually. Keep the session name unique to the test and do not kill sessions you did not create.
 
-To test Prime Agent's TUI in a controlled terminal environment:
+## Basic flow
 
-```bash
-# Create tmux session with specific dimensions
+~~~bash
 tmux new-session -d -s prime-agent-test -x 80 -y 24
+tmux send-keys -t prime-agent-test 'prime-agent' Enter
+tmux capture-pane -t prime-agent-test -p
+~~~
 
-# Start the stock upstream Prime Agent CLI
-tmux send-keys -t prime-agent-test "prime-agent" Enter
+Send only the input needed for the scenario, then capture the pane again:
 
-# Wait for startup, then capture output
-sleep 3 && tmux capture-pane -t prime-agent-test -p
+~~~bash
+tmux send-keys -t prime-agent-test 'your test input' Enter
+tmux capture-pane -t prime-agent-test -p
+~~~
 
-# Send input
-tmux send-keys -t prime-agent-test "your prompt here" Enter
+Exercise cancellation, mode changes, or other key paths with the same configurable controls used by the product. Clean up only the named session:
 
-# Send special keys
-tmux send-keys -t prime-agent-test Escape
-tmux send-keys -t prime-agent-test C-o  # ctrl+o
-
-# Cleanup
+~~~bash
 tmux kill-session -t prime-agent-test
-```
+~~~
 
-You, yourself, are often running into a tmux session, so be careful when
-killing tmux sessions. Lots of other processes can be running on different
-tmux sessions.
+For automated adapter behavior, prefer deterministic server test doubles and focused Vitest suites. Manual tmux testing does not replace those checks.

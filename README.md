@@ -107,7 +107,8 @@ may document an explicit no-release path instead.
 
 - [Wiki](https://github.com/Qredence/fleet-prime-agent/wiki) — browsable documentation
 - [Prime Agent documentation](https://github.com/PrimeIntellect-ai/prime-agent#readme) — engine documentation
-- `web/app/ARCHITECTURE.md` — web application architecture and HTTP API
+- [ARCHITECTURE.md](ARCHITECTURE.md) — system ownership, boundaries, and data flow
+- [Adapter contract](docs/reference/adapter-contract.md) — browser/server compatibility and privacy guarantees
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contribution process
 - [Release guide](docs/guides/releasing.md) — Changesets, CircleCI publishing, and rollback
 - [SUPPORT.md](SUPPORT.md) — support and community channels
