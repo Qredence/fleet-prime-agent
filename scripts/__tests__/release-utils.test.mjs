@@ -30,6 +30,7 @@ const packageManifest = JSON.parse(
 const packageVersion = packageManifest.version;
 const [packageMajor, packageMinor, packagePatch] = parseStableVersion(packageVersion);
 const nextPatchVersion = `${packageMajor}.${packageMinor}.${packagePatch + 1}`;
+const expectedReleaseVersion = resolveReleaseVersion(packageVersion, nextPatchVersion);
 
 function releaseStatus() {
 	return { releases: [{ name: "@qredence/fleet", oldVersion: packageVersion, newVersion: nextPatchVersion }] };
@@ -195,7 +196,7 @@ test("dry-runs release preparation without requiring GitHub credentials", async 
 		assert.deepEqual(result, {
 			prepared: false,
 			dryRun: true,
-			plan: { packageName: "@qredence/fleet", currentVersion: packageVersion, version: "0.5.5" },
+			plan: { packageName: "@qredence/fleet", currentVersion: packageVersion, version: expectedReleaseVersion },
 		});
 	} finally {
 		if (previousBranch === undefined) delete process.env.CIRCLE_BRANCH;
@@ -221,9 +222,9 @@ test("prints no version for an empty release plan and the one-time target for a 
 		readStatus: releaseStatus,
 		log: (message) => versionOutput.push(message),
 	});
-	assert.deepEqual(versionOutput, ["0.5.5"]);
+	assert.deepEqual(versionOutput, [expectedReleaseVersion]);
 	assert.equal(releaseVersionFromStatus(undefined), undefined);
-	assert.equal(releaseVersionFromStatus(releaseStatus()), "0.5.5");
+	assert.equal(releaseVersionFromStatus(releaseStatus()), expectedReleaseVersion);
 });
 
 test("uses the one-time 0.5.5 target only for the current 0.5.1 patch release", () => {
@@ -381,7 +382,7 @@ test("derives the single-package release plan from Changesets status", () => {
 	assert.deepEqual(releasePlanFromStatus(releaseStatus()), {
 		packageName: "@qredence/fleet",
 		currentVersion: packageVersion,
-		version: "0.5.5",
+		version: expectedReleaseVersion,
 	});
 	assert.throws(() => releasePlanFromStatus({ releases: [] }), /no release plan/);
 });

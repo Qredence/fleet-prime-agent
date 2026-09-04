@@ -582,6 +582,13 @@ type AuthorizedRlmChild = {
 	summary: SessionSummary;
 };
 
+type RlmLineage = {
+	sessionsByIdentifier: ReadonlyMap<string, SessionSummary>;
+	sessionsByPath: ReadonlyMap<string, SessionSummary>;
+	rootIdentifiers: ReadonlySet<string>;
+	rootPaths: ReadonlySet<string>;
+};
+
 /**
  * Builds status metadata for an RLM child from its session summary.
  *
@@ -1161,12 +1168,11 @@ export class PrimeBridge {
 		return this.#sessionLister(cwd);
 	}
 
-	async #findAuthorizedRlmChild(parentSessionId: string, childId: string): Promise<AuthorizedRlmChild | undefined> {
-		const parent = this.#sessions.get(parentSessionId);
-		const child = parent?.mapperState.presentation.rlmChildren.find((entry) => entry.id === childId);
-		if (!parent || !child) return undefined;
-
-		const sessions = await this.#sessionLister();
+	async #resolveRlmLineage(
+		sessions: SessionSummary[],
+		rootSessionId: string,
+		rootSessionPath: string,
+	): Promise<RlmLineage> {
 		const sessionsByIdentifier = new Map<string, SessionSummary>();
 		const sessionsByPath = new Map<string, SessionSummary>();
 		for (const session of sessions) {
@@ -1176,9 +1182,9 @@ export class PrimeBridge {
 			const path = sessionSummaryPath(session);
 			if (path && !sessionsByPath.has(path)) sessionsByPath.set(path, session);
 		}
-		const rootIdentifiers = new Set([parentSessionId]);
-		const rootPaths = new Set(await sessionLineagePaths(parent.sessionPath));
-		const rootSummary = sessionsByIdentifier.get(parentSessionId);
+		const rootIdentifiers = new Set([rootSessionId]);
+		const rootPaths = new Set(await sessionLineagePaths(rootSessionPath));
+		const rootSummary = sessionsByIdentifier.get(rootSessionId);
 		if (rootSummary) {
 			for (const identifier of sessionSummaryIdentifiers(rootSummary)) rootIdentifiers.add(identifier);
 			for (const path of sessionSummaryParentPaths(rootSummary)) rootPaths.add(path);
@@ -1188,6 +1194,20 @@ export class PrimeBridge {
 			if (!rootAncestor) continue;
 			for (const identifier of sessionSummaryIdentifiers(rootAncestor)) rootIdentifiers.add(identifier);
 		}
+		return { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths };
+	}
+
+	async #findAuthorizedRlmChild(parentSessionId: string, childId: string): Promise<AuthorizedRlmChild | undefined> {
+		const parent = this.#sessions.get(parentSessionId);
+		const child = parent?.mapperState.presentation.rlmChildren.find((entry) => entry.id === childId);
+		if (!parent || !child) return undefined;
+
+		const sessions = await this.#sessionLister();
+		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await this.#resolveRlmLineage(
+			sessions,
+			parentSessionId,
+			parent.sessionPath,
+		);
 		const summary = sessions.find(
 			(candidate) =>
 				candidate.rlmChildId === childId &&
@@ -1230,27 +1250,11 @@ export class PrimeBridge {
 			return;
 		}
 
-		const sessionsByIdentifier = new Map<string, SessionSummary>();
-		const sessionsByPath = new Map<string, SessionSummary>();
-		for (const session of sessions) {
-			for (const identifier of sessionSummaryIdentifiers(session)) {
-				if (!sessionsByIdentifier.has(identifier)) sessionsByIdentifier.set(identifier, session);
-			}
-			const path = sessionSummaryPath(session);
-			if (path && !sessionsByPath.has(path)) sessionsByPath.set(path, session);
-		}
-		const rootIdentifiers = new Set([rootSessionId]);
-		const rootPaths = new Set(await sessionLineagePaths(parent.sessionPath));
-		const rootSummary = sessionsByIdentifier.get(rootSessionId);
-		if (rootSummary) {
-			for (const identifier of sessionSummaryIdentifiers(rootSummary)) rootIdentifiers.add(identifier);
-			for (const path of sessionSummaryParentPaths(rootSummary)) rootPaths.add(path);
-		}
-		for (const rootPath of rootPaths) {
-			const rootAncestor = sessionsByPath.get(rootPath);
-			if (!rootAncestor) continue;
-			for (const identifier of sessionSummaryIdentifiers(rootAncestor)) rootIdentifiers.add(identifier);
-		}
+		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await this.#resolveRlmLineage(
+			sessions,
+			rootSessionId,
+			parent.sessionPath,
+		);
 
 		const overrides = new Map<string, RlmChildStatusOverride>();
 		for (const child of parent.mapperState.presentation.rlmChildren) {

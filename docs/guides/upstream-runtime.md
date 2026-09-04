@@ -7,7 +7,8 @@ daemon-facing code in `web/server`.
 
 Prime Agent is consumed as a stock, checksum-pinned release tarball rather than
 vendored source. To upgrade it:
-1. Update `PRIME_AGENT_RUNTIME.json` with the new tarball URL and SHA-256 hash.
+1. Update `PRIME_AGENT_RUNTIME.json` with the new manifest version, tarball URL,
+   and SHA-256 hash, ensuring `manifest.version` matches the tarball filename.
 2. Update `pnpm-workspace.yaml` `allowBuilds` for the new tarball URL.
 3. Update matching dependency URLs in `packages/fleet-web/package.json` and `web/server/package.json`.
 4. Run `pnpm install`.
