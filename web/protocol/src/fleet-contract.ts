@@ -70,6 +70,7 @@ export const ProjectListResponseSchema = z.object({
 			status: z.enum(["idle", "running", "interrupted", "failed"]),
 			messageCount: z.number().int().nonnegative(),
 			firstMessage: z.string(),
+			isSubagent: z.boolean().optional(),
 		}),
 	),
 });
@@ -184,6 +185,7 @@ export const ChatToolPartSchema = z.discriminatedUnion("kind", [
 		kind: z.literal("ipython"),
 		code: z.string(),
 		output: z.string().optional(),
+		backgroundOutput: z.string().optional(),
 	}),
 	z.object({
 		kind: z.literal("file"),

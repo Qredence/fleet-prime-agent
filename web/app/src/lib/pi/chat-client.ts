@@ -104,6 +104,11 @@ export type ChatClient = {
 	uploadAttachments: (sessionId: string, files: Array<File>) => Promise<Array<UploadedAttachment>>;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
+	openSubagentEvents: (
+		parentSessionId: string,
+		childId: string,
+		resume?: { streamGeneration?: string; lastEventId?: number },
+	) => string;
 	upsertPlanPresentation: (request: ChatPlanPresentationUpsertRequest) => Promise<ChatPlanPresentation>;
 	upsertOpenUIArtifact: (request: ChatOpenUIArtifactUpsertRequest) => Promise<ChatOpenUIArtifactUpsertResponse>;
 	resumeSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
@@ -309,6 +314,13 @@ export const chatClient: ChatClient = {
 	async loadSubagentSession(parentSessionId, childId) {
 		const params = new URLSearchParams({ parentSessionId, childId });
 		return fetchValidatedJson(`/api/chat/session?${params}`, ChatSessionResponseSchema);
+	},
+
+	openSubagentEvents(parentSessionId, childId, resume) {
+		const params = new URLSearchParams({ parentSessionId, childId });
+		if (resume?.streamGeneration) params.set("streamGeneration", resume.streamGeneration);
+		if (resume?.lastEventId && resume.lastEventId > 0) params.set("lastEventId", String(resume.lastEventId));
+		return resolveChatApiUrl(`/api/chat/events?${params}`);
 	},
 
 	async upsertPlanPresentation(request) {

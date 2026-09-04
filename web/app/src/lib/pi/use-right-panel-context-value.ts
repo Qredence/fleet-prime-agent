@@ -40,6 +40,7 @@ type UseRightPanelContextValueArgs = {
 	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
 	loadWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>;
 	messages: Array<ChatMessage>;
+	onOpenSubagentTab?: (childId: string) => void;
 	modelKey?: string;
 	models: Array<ChatModelOption>;
 	modelCatalog?: Array<ChatModelOption>;
@@ -98,6 +99,7 @@ export function useRightPanelContextValue({
 	loadSubagentSession,
 	loadWorkspaceFile,
 	messages,
+	onOpenSubagentTab,
 	modelKey,
 	models,
 	modelCatalog,
@@ -141,6 +143,7 @@ export function useRightPanelContextValue({
 			loadSession,
 			loadSubagentSession,
 			messages,
+			onOpenSubagentTab,
 			models,
 			planLabel,
 			presentation,
@@ -165,6 +168,7 @@ export function useRightPanelContextValue({
 			loadSession,
 			loadSubagentSession,
 			messages,
+			onOpenSubagentTab,
 			models,
 			planLabel,
 			presentation,

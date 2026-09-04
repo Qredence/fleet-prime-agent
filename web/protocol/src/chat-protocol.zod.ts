@@ -81,6 +81,7 @@ export {
 	ChatSessionInfoSchema,
 	ChatSessionMetadataSchema,
 	ChatSessionResponseSchema,
+	ChatSessionSnapshotEventSchema,
 	ChatSessionsResponseSchema,
 	ChatStartEventSchema,
 	ChatStateEventSchema,

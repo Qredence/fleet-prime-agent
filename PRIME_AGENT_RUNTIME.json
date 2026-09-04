@@ -1,6 +1,6 @@
 {
   "package": "prime-agent",
-  "version": "0.8.1",
-  "tarball": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-0.8.1.tgz",
-  "sha256": "46c24db1782dd31adc35d5c6cbcc75564faba6ced3bf2ccf03d836ee77134475"
+  "version": "0.9.1",
+  "tarball": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-0.9.1.tgz",
+  "sha256": "573bce0cd004fc62052e9a924089941b7f39266ab71e66a94c85a1f9d35835ba"
 }

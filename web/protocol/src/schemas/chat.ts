@@ -425,6 +425,7 @@ export const PrimeAgentArtifactSchema = z
 		status: PrimeAgentArtifactStatusSchema,
 		input: z.unknown().optional(),
 		output: z.unknown().optional(),
+		backgroundOutput: z.string().optional(),
 		timestamp: z.number().finite(),
 	})
 	.openapi({ description: "Browser-safe Prime Agent technical artifact" });
@@ -464,7 +465,7 @@ export const PrimeAgentRlmChildSchema = z
 		sessionName: z.string().optional(),
 		model: z.string().optional(),
 		label: z.string(),
-		status: z.enum(["queued", "running", "done", "error", "cancelled"]),
+		status: z.enum(["queued", "running", "done", "error", "cancelled", "recovering", "failed"]),
 		durationMs: z.number().finite().optional(),
 		answerPreview: z.string().optional(),
 		toolUseCount: z.number().int().nonnegative().optional(),
@@ -477,6 +478,7 @@ export const PrimeAgentRlmChildSchema = z
 		error: z.string().optional(),
 		depth: z.number().int().positive().optional(),
 		childrenIds: z.array(z.string()).optional(),
+		lastHeardFrom: z.number().finite().optional(),
 		timestamp: z.number().finite(),
 	})
 	.openapi({ description: "Browser-safe RLM child status" });
@@ -597,6 +599,17 @@ export const ChatPresentationEventSchema = z
 	})
 	.openapi({ description: "Immutable Prime Agent presentation snapshot" });
 
+export const ChatSessionSnapshotEventSchema = z
+	.object({
+		type: z.literal("session_snapshot"),
+		session: ChatSessionMetadataSchema,
+		messages: z.array(ChatMessageSchema),
+		presentation: PrimeAgentSessionPresentationSchema,
+		status: z.enum(["ready", "streaming", "error"]),
+		terminal: z.boolean().optional(),
+	})
+	.openapi({ description: "Authoritative transcript bootstrap for a read-only session stream" });
+
 export const ChatRlmStreamEventSchema = z
 	.object({
 		type: z.literal("rlm"),
@@ -707,6 +720,7 @@ export const ChatStreamEventSchema = z
 		ChatQueueEventSchema,
 		ChatThinkingEventSchema,
 		ChatPresentationEventSchema,
+		ChatSessionSnapshotEventSchema,
 		ChatMessageEventSchema,
 		ChatPayloadEventSchema,
 		ChatReasoningEventSchema,
@@ -745,6 +759,7 @@ export const ChatSessionInfoSchema = z
 		status: z.enum(["idle", "running", "interrupted", "failed"]),
 		messageCount: z.number(),
 		firstMessage: z.string(),
+		isSubagent: z.boolean().optional(),
 	})
 	.openapi({ description: "Chat session info" });
 

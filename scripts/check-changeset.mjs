@@ -10,7 +10,7 @@ import { pnpmInvocation } from "./pnpm-command.mjs";
 const RELEASE_BRANCH_PREFIX = "release/fleet-";
 const PACKAGE_NAME = "@qredence/fleet";
 const USER_FACING_PREFIXES = [
-	"packages/fleet-prime/bin/",
+	"packages/fleet-web/bin/",
 	"web/app/src/",
 	"web/app/public/",
 	"web/design/src/",
@@ -22,8 +22,8 @@ const USER_FACING_FILES = new Set([
 	"fleet-prime.sh",
 	"install.sh",
 	"PRIME_AGENT_RUNTIME.json",
-	"packages/fleet-prime/package.json",
-	"packages/fleet-prime/README.md",
+	"packages/fleet-web/package.json",
+	"packages/fleet-web/README.md",
 	"scripts/build-web-release.mjs",
 	"scripts/prime-agent-web-launcher.mjs",
 ]);
@@ -105,19 +105,19 @@ function hasDeletedChangeset(baseRef) {
 }
 
 /**
- * Determines whether the changes consist solely of generated release files.
+ * Determines whether a change set represents generated release changes.
  * @param {string[]} files - Changed file paths.
- * @param {string} subject - The latest commit subject.
+ * @param {string} subject - Latest commit subject.
  * @param {boolean} deletedChangeset - Whether a Changeset file was deleted.
- * @return {boolean} `true` if the changes represent a generated version commit, `false` otherwise.
+ * @return {boolean} `true` if the changes contain only generated release files and indicate a release, `false` otherwise.
  */
 export function isGeneratedVersionChange({ files, subject, deletedChangeset }) {
 	const releaseOnly =
 		files.length > 0 &&
 		files.every(
 			(path) =>
-				path === "packages/fleet-prime/package.json" ||
-				path === "packages/fleet-prime/CHANGELOG.md" ||
+				path === "packages/fleet-web/package.json" ||
+				path === "packages/fleet-web/CHANGELOG.md" ||
 				(path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md"),
 		);
 	if (!releaseOnly) return false;

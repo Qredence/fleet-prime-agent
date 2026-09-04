@@ -107,6 +107,17 @@ function MenuItem({
 	);
 }
 
+/**
+ * Builds the fleet session sidebar view model and its interaction handlers.
+ *
+ * @param sessions - Available sessions used as the default project session list.
+ * @param projects - Projects displayed in the sidebar.
+ * @param projectSessions - Sessions grouped under projects and the unassigned section.
+ * @param activeProjectId - Identifier of the currently active project.
+ * @param activeSessionId - Identifier of the currently active session.
+ * @param createOpen - Whether the project creation dialog is open.
+ * @returns Sidebar data and handlers for browsing directories, managing projects and sessions, selecting resources, rendering menus, and submitting project creation.
+ */
 export function useFleetSessionSidebarViewModel({
 	sessions,
 	projects = EMPTY_PROJECTS,
@@ -210,6 +221,7 @@ export function useFleetSessionSidebarViewModel({
 				id: sessionResourceId(session.sessionId),
 				label: sessionLabel(session),
 				kind: "file" as const,
+				...(session.isSubagent ? { indent: 1 } : {}),
 			}));
 			if (sessionsForProject.length === 0) {
 				children.push({
@@ -246,6 +258,7 @@ export function useFleetSessionSidebarViewModel({
 				id: sessionResourceId(session.sessionId),
 				label: sessionLabel(session),
 				kind: "file",
+				...(session.isSubagent ? { indent: 1 } : {}),
 			}));
 			if (unassigned.length > INITIAL_SESSION_COUNT) {
 				unassignedChildren.push({

@@ -670,6 +670,17 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				}
 				return;
 			}
+			if (frame.type === "rlm") {
+				const current = presentationRef.current;
+				const existing = current.rlmChildren.find((child) => child.id === frame.child.id);
+				if (existing && existing.timestamp > frame.child.timestamp) return;
+				setPresentationSynced({
+					...current,
+					rlmChildren: [...current.rlmChildren.filter((child) => child.id !== frame.child.id), frame.child],
+					...(frame.tree ? { rlmTree: frame.tree } : {}),
+				});
+				return;
+			}
 			// In-flight NDJSON stream is authoritative; only act on out-of-turn pushes.
 			const currentStatus = statusRef.current;
 			if (currentStatus === "streaming" || currentStatus === "submitted") return;

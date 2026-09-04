@@ -31,11 +31,13 @@ import {
 	type ChatThinkingLevel,
 	type OpenUIPromptMode,
 	type PrimeAgentArtifact,
+	type PrimeAgentRlmChild,
 	type PrimeAgentSessionPresentation,
 	type PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
 import type {
 	AgentConnection,
+	AgentConnectionEvent,
 	AgentConnectionExtensionUiRequest,
 	AgentConnectionModel,
 	AgentSession,
@@ -53,11 +55,13 @@ import {
 	type WebAgentConnectionFactory,
 } from "./daemon-runtime";
 import {
+	applyRlmChildStatusOverrides,
 	createEventMapperState,
 	mapAgentConnectionEvent,
 	normalizeDaemonQuestions,
 	normalizedQuestionsToClarification,
 	normalizedQuestionsToWire,
+	type RlmChildStatusOverride,
 	toChatMessagesFromAgentMessages,
 } from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
@@ -226,6 +230,20 @@ export interface RlmChildTranscript {
 	readonly projectId: ProjectId | null;
 	readonly messages: Array<ChatMessage>;
 	readonly presentation: PrimeAgentSessionPresentation;
+}
+
+export interface RlmChildStream {
+	readonly sessionId: string;
+	readonly projectId: ProjectId | null;
+	readonly snapshot: Extract<ChatStreamEvent, { type: "session_snapshot" }>;
+	readonly channelId: string;
+	readonly streamGeneration: string;
+	readonly mode: "live" | "snapshot-only";
+	readonly resumeAccepted: boolean;
+	readonly cursorReset: boolean;
+	readonly replayFrom: number;
+	readonly includeSnapshot: boolean;
+	release(): Promise<void>;
 }
 
 export interface PrimeBridgeOptions {
@@ -474,11 +492,46 @@ function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string>
 	);
 }
 
-/** Follow daemon lineage metadata so nested RLM children remain authorized. */
+/**
+ * Resolves the transcript file path from a session summary.
+ *
+ * @param summary - The session summary containing the transcript file path
+ * @returns The resolved transcript path, or `undefined` when no valid path is present
+ */
+function sessionSummaryPath(summary: SessionSummary): string | undefined {
+	return typeof summary.sessionFile === "string" && summary.sessionFile.length > 0
+		? resolve(summary.sessionFile)
+		: undefined;
+}
+
+/**
+ * Resolves the parent session path from a session summary.
+ *
+ * @param summary - The session summary containing the parent session path
+ * @returns An array containing the resolved parent session path, or an empty array when none is available
+ */
+function sessionSummaryParentPaths(summary: SessionSummary): Array<string> {
+	return [summary.parentSessionPath].flatMap((value) =>
+		typeof value === "string" && value.length > 0 ? [resolve(value)] : [],
+	);
+}
+
+/**
+ * Determines whether a session belongs to a root session through daemon-reported parent metadata.
+ *
+ * @param candidate - The session whose ancestry is checked
+ * @param rootIdentifiers - Session identifiers authorized as roots
+ * @param rootPaths - Session paths authorized as roots
+ * @param sessionsByIdentifier - Sessions indexed by identifier
+ * @param sessionsByPath - Sessions indexed by path
+ * @returns `true` if the candidate has an authorized root ancestor, `false` otherwise
+ */
 function hasSessionLineage(
 	candidate: SessionSummary,
 	rootIdentifiers: ReadonlySet<string>,
+	rootPaths: ReadonlySet<string>,
 	sessionsByIdentifier: ReadonlyMap<string, SessionSummary>,
+	sessionsByPath: ReadonlyMap<string, SessionSummary>,
 ): boolean {
 	const pending: SessionSummary[] = [candidate];
 	const visited = new Set<SessionSummary>();
@@ -491,9 +544,111 @@ function hasSessionLineage(
 			const parent = sessionsByIdentifier.get(parentId);
 			if (parent && !visited.has(parent)) pending.push(parent);
 		}
+		for (const parentPath of sessionSummaryParentPaths(current)) {
+			if (rootPaths.has(parentPath)) return true;
+			const parent = sessionsByPath.get(parentPath);
+			if (parent && !visited.has(parent)) pending.push(parent);
+		}
 	}
 	return false;
 }
+
+/**
+ * Resolves the session path and its persisted ancestor paths.
+ *
+ * @param sessionPath - The starting session path
+ * @returns The resolved session paths in the persisted parent chain
+ */
+async function sessionLineagePaths(sessionPath: string): Promise<ReadonlySet<string>> {
+	const paths = new Set<string>();
+	let currentPath = resolve(sessionPath);
+	while (!paths.has(currentPath)) {
+		paths.add(currentPath);
+		try {
+			const manager = await SessionManager.openAsync(currentPath);
+			const parentSession = manager.getHeader()?.parentSession;
+			if (!parentSession) break;
+			currentPath = resolve(dirname(currentPath), parentSession);
+		} catch {
+			break;
+		}
+	}
+	return paths;
+}
+
+type AuthorizedRlmChild = {
+	parent: BridgeSession;
+	child: PrimeAgentRlmChild;
+	summary: SessionSummary;
+};
+
+type RlmLineage = {
+	sessionsByIdentifier: ReadonlyMap<string, SessionSummary>;
+	sessionsByPath: ReadonlyMap<string, SessionSummary>;
+	rootIdentifiers: ReadonlySet<string>;
+	rootPaths: ReadonlySet<string>;
+};
+
+/**
+ * Builds status metadata for an RLM child from its session summary.
+ *
+ * @param summary - The child's session summary
+ * @returns An override containing the resolved failure or recovery status and the last activity timestamp when available
+ */
+function rlmChildStatusOverride(summary: SessionSummary): RlmChildStatusOverride {
+	const status =
+		summary.statusLabel === "failed" || summary.workerState === "failed"
+			? "failed"
+			: summary.statusLabel === "recovering" || summary.workerState === "recovering"
+				? "recovering"
+				: undefined;
+	const lastHeardFrom = summary.lastHeardFromAt ? Date.parse(summary.lastHeardFromAt) : Number.NaN;
+	return {
+		...(status ? { status } : {}),
+		...(Number.isFinite(lastHeardFrom) ? { lastHeardFrom } : {}),
+	};
+}
+
+/**
+ * Determines the effective status of an RLM child session.
+ *
+ * @param child - The child session whose status provides the fallback value
+ * @param summary - The latest session summary used to determine a status override
+ * @returns The overridden status when available, otherwise the child's current status
+ */
+function effectiveRlmChildStatus(child: PrimeAgentRlmChild, summary: SessionSummary): PrimeAgentRlmChild["status"] {
+	return rlmChildStatusOverride(summary).status ?? child.status;
+}
+
+type AgentConnectionSessionWatcher = NonNullable<Awaited<ReturnType<AgentConnection["watchSession"]>>>;
+
+type RlmChildStreamResume = {
+	streamGeneration?: string;
+	lastEventId?: number;
+};
+
+type ManagedRlmChildStream = {
+	key: string;
+	parentSessionId: string;
+	childId: string;
+	streamSessionId: string;
+	canonicalSessionId: string;
+	channelId: string;
+	streamGeneration: string;
+	projectId: ProjectId | null;
+	child: PrimeAgentRlmChild;
+	summary: SessionSummary;
+	watcher: AgentConnectionSessionWatcher;
+	mapperState: ReturnType<typeof createEventMapperState>;
+	snapshot: Extract<ChatStreamEvent, { type: "session_snapshot" }>;
+	replayFrom: number;
+	refs: number;
+	closed: boolean;
+	buffering: boolean;
+	bufferedEvents: AgentConnectionEvent[];
+	removeWatcherListener: () => void;
+	refreshTail: Promise<void>;
+};
 
 // ---------------------------------------------------------------------------
 // PrimeBridge
@@ -503,6 +658,10 @@ export class PrimeBridge {
 	readonly #sessions = new Map<string, BridgeSession>();
 	readonly #listeners = new Set<BridgeEventListener>();
 	readonly #ringBuffers = new Map<string, RingBuffer>();
+	readonly #rlmChildStreams = new Map<string, ManagedRlmChildStream>();
+	readonly #rlmChildStreamInitializations = new Map<string, Promise<ManagedRlmChildStream | undefined>>();
+	readonly #rlmChildMetadataRefreshes = new Map<string, Promise<void>>();
+	readonly #rlmChildMetadataRefreshPending = new Set<string>();
 	readonly #dialogs: PendingDialogRegistry;
 	readonly #kernelTimeoutMs: number;
 	readonly #ringBufferCapacity: number;
@@ -603,6 +762,15 @@ export class PrimeBridge {
 
 	/** Test-only: reset state. */
 	resetForTests(): void {
+		for (const stream of this.#rlmChildStreams.values()) {
+			stream.closed = true;
+			stream.removeWatcherListener();
+			void stream.watcher.close().catch(() => undefined);
+		}
+		this.#rlmChildStreams.clear();
+		this.#rlmChildStreamInitializations.clear();
+		this.#rlmChildMetadataRefreshes.clear();
+		this.#rlmChildMetadataRefreshPending.clear();
 		for (const session of this.#sessions.values()) {
 			session.unsubscribe();
 			void session.connection.dispose().catch(() => undefined);
@@ -861,6 +1029,12 @@ export class PrimeBridge {
 				if (frame.type === "presentation") this.#persistPresentation(sessionId, sessionPath, frame.presentation);
 				this.#dispatch(sessionId, frame);
 			}
+			if (
+				event.type === "session_resynced" ||
+				(event.type === "session_event" && event.event.type === "rlm_child_update")
+			) {
+				this.#queueRlmChildMetadataRefresh(sessionId);
+			}
 		});
 		const bridgeSession: BridgeSession = {
 			sessionId,
@@ -994,48 +1168,253 @@ export class PrimeBridge {
 		return this.#sessionLister(cwd);
 	}
 
-	/**
-	 * Load a completed RLM child without resuming it as a live session.
-	 *
-	 * Child transcripts can be stored outside the parent's configured session
-	 * directory. Authorization is therefore based on both the live parent's
-	 * presentation and the daemon's lineage metadata, never on a browser-
-	 * supplied filesystem path.
-	 */
-	async loadRlmChildTranscript(parentSessionId: string, childId: string): Promise<RlmChildTranscript | undefined> {
-		const parent = this.#sessions.get(parentSessionId);
-		if (!parent || !parent.mapperState.presentation.rlmChildren.some((child) => child.id === childId)) {
-			return undefined;
-		}
-
-		const sessions = await this.#sessionLister();
+	async #resolveRlmLineage(
+		sessions: SessionSummary[],
+		rootSessionId: string,
+		rootSessionPath: string,
+	): Promise<RlmLineage> {
 		const sessionsByIdentifier = new Map<string, SessionSummary>();
+		const sessionsByPath = new Map<string, SessionSummary>();
 		for (const session of sessions) {
 			for (const identifier of sessionSummaryIdentifiers(session)) {
 				if (!sessionsByIdentifier.has(identifier)) sessionsByIdentifier.set(identifier, session);
 			}
+			const path = sessionSummaryPath(session);
+			if (path && !sessionsByPath.has(path)) sessionsByPath.set(path, session);
 		}
-		const rootIdentifiers = new Set([parentSessionId]);
-		const rootSummary = sessionsByIdentifier.get(parentSessionId);
+		const rootIdentifiers = new Set([rootSessionId]);
+		const rootPaths = new Set(await sessionLineagePaths(rootSessionPath));
+		const rootSummary = sessionsByIdentifier.get(rootSessionId);
 		if (rootSummary) {
 			for (const identifier of sessionSummaryIdentifiers(rootSummary)) rootIdentifiers.add(identifier);
+			for (const path of sessionSummaryParentPaths(rootSummary)) rootPaths.add(path);
 		}
-		const child = sessions.find((candidate) => {
-			return (
-				candidate.rlmChildId === childId &&
-				typeof candidate.sessionFile === "string" &&
-				hasSessionLineage(candidate, rootIdentifiers, sessionsByIdentifier)
-			);
-		});
-		if (!child?.sessionFile) return undefined;
+		for (const rootPath of rootPaths) {
+			const rootAncestor = sessionsByPath.get(rootPath);
+			if (!rootAncestor) continue;
+			for (const identifier of sessionSummaryIdentifiers(rootAncestor)) rootIdentifiers.add(identifier);
+		}
+		return { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths };
+	}
 
-		const sessionManager = await SessionManager.openAsync(child.sessionFile);
+	async #findAuthorizedRlmChild(parentSessionId: string, childId: string): Promise<AuthorizedRlmChild | undefined> {
+		const parent = this.#sessions.get(parentSessionId);
+		const child = parent?.mapperState.presentation.rlmChildren.find((entry) => entry.id === childId);
+		if (!parent || !child) return undefined;
+
+		const sessions = await this.#sessionLister();
+		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await this.#resolveRlmLineage(
+			sessions,
+			parentSessionId,
+			parent.sessionPath,
+		);
+		const summary = sessions.find(
+			(candidate) =>
+				candidate.rlmChildId === childId &&
+				hasSessionLineage(candidate, rootIdentifiers, rootPaths, sessionsByIdentifier, sessionsByPath),
+		);
+		return summary ? { parent, child, summary } : undefined;
+	}
+
+	#queueRlmChildMetadataRefresh(rootSessionId: string): void {
+		this.#rlmChildMetadataRefreshPending.add(rootSessionId);
+		if (this.#rlmChildMetadataRefreshes.has(rootSessionId)) return;
+		const refresh = (async () => {
+			while (this.#rlmChildMetadataRefreshPending.delete(rootSessionId)) {
+				await this.#refreshRlmChildMetadata(rootSessionId);
+			}
+		})();
+		this.#rlmChildMetadataRefreshes.set(rootSessionId, refresh);
+		void refresh
+			.finally(() => {
+				if (this.#rlmChildMetadataRefreshes.get(rootSessionId) === refresh) {
+					this.#rlmChildMetadataRefreshes.delete(rootSessionId);
+				}
+			})
+			.catch(() => undefined);
+	}
+
+	async #refreshRlmChildMetadata(rootSessionId: string): Promise<void> {
+		const parent = this.#sessions.get(rootSessionId);
+		if (!parent) return;
+		let sessions: SessionSummary[];
+		try {
+			sessions = await this.#sessionLister();
+		} catch {
+			for (const child of parent.mapperState.presentation.rlmChildren) {
+				parent.mapperState.rlmChildOverrides.delete(child.id);
+			}
+			for (const frame of applyRlmChildStatusOverrides(parent.mapperState, new Map())) {
+				this.#dispatch(rootSessionId, frame);
+			}
+			return;
+		}
+
+		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await this.#resolveRlmLineage(
+			sessions,
+			rootSessionId,
+			parent.sessionPath,
+		);
+
+		const overrides = new Map<string, RlmChildStatusOverride>();
+		for (const child of parent.mapperState.presentation.rlmChildren) {
+			const summary = sessions.find(
+				(candidate) =>
+					candidate.rlmChildId === child.id &&
+					hasSessionLineage(candidate, rootIdentifiers, rootPaths, sessionsByIdentifier, sessionsByPath),
+			);
+			if (summary) overrides.set(child.id, rlmChildStatusOverride(summary));
+			else parent.mapperState.rlmChildOverrides.delete(child.id);
+		}
+		const frames = applyRlmChildStatusOverrides(parent.mapperState, overrides);
+		for (const frame of frames) {
+			if (frame.type === "presentation") {
+				this.#persistPresentation(rootSessionId, parent.sessionPath, frame.presentation);
+			}
+			this.#dispatch(rootSessionId, frame);
+		}
+	}
+
+	#childStreamStatus(
+		child: PrimeAgentRlmChild,
+		summary?: SessionSummary,
+	): Extract<ChatStreamEvent, { type: "session_snapshot" }>["status"] {
+		const status = summary ? effectiveRlmChildStatus(child, summary) : child.status;
+		if (status === "error" || status === "failed") return "error";
+		if (status === "running" || status === "recovering") return "streaming";
+		return "ready";
+	}
+
+	async #closeRlmChildStream(stream: ManagedRlmChildStream): Promise<void> {
+		if (stream.closed) return;
+		stream.closed = true;
+		if (this.#rlmChildStreams.get(stream.key) === stream) this.#rlmChildStreams.delete(stream.key);
+		stream.buffering = false;
+		stream.bufferedEvents.length = 0;
+		stream.removeWatcherListener();
+		await stream.watcher.close().catch(() => undefined);
+		this.#ringBuffers.delete(stream.channelId);
+	}
+
+	async #publicRlmChildStream(stream: ManagedRlmChildStream, resume?: RlmChildStreamResume): Promise<RlmChildStream> {
+		const requestedCursor = resume?.lastEventId && resume.lastEventId > 0 ? resume.lastEventId : 0;
+		const generationMatches = resume?.streamGeneration === stream.streamGeneration;
+		const buffer = this.#ringBufferFor(stream.channelId);
+		const latest = buffer.latestSequence();
+		const cursorOverflowed =
+			generationMatches && requestedCursor > 0 ? buffer.replaySince(requestedCursor).overflowed : false;
+		const cursorInRange = requestedCursor === 0 || requestedCursor <= latest;
+		const canResume = generationMatches && requestedCursor > 0 && cursorInRange && !cursorOverflowed;
+
+		if (!canResume && !stream.snapshot.terminal && (resume?.streamGeneration !== undefined || requestedCursor > 0)) {
+			await this.#refreshRlmChildSnapshot(stream);
+		}
+
+		const refreshedLatest = buffer.latestSequence();
+		const includeSnapshot = !canResume || stream.snapshot.terminal === true;
+		const cursorReset = (resume?.streamGeneration !== undefined || requestedCursor > 0) && !canResume;
+		const replayFrom = canResume ? requestedCursor : stream.snapshot.terminal ? refreshedLatest : stream.replayFrom;
+
+		let released = false;
+		return {
+			sessionId: stream.streamSessionId,
+			projectId: stream.projectId,
+			snapshot: stream.snapshot,
+			channelId: stream.channelId,
+			streamGeneration: stream.streamGeneration,
+			mode: "live",
+			resumeAccepted: canResume,
+			cursorReset,
+			replayFrom,
+			includeSnapshot,
+			release: async () => {
+				if (released) return;
+				released = true;
+				stream.refs = Math.max(0, stream.refs - 1);
+				if (stream.refs === 0) await this.#closeRlmChildStream(stream);
+			},
+		};
+	}
+
+	async #refreshRlmChildSnapshot(stream: ManagedRlmChildStream): Promise<void> {
+		if (stream.closed) return;
+		stream.buffering = true;
+		const previous = stream.refreshTail;
+		const next = previous
+			.catch(() => undefined)
+			.then(async () => {
+				if (stream.closed) return;
+				const messages = toChatMessagesFromAgentMessages(
+					await stream.watcher.getMessages(),
+					stream.canonicalSessionId,
+				);
+				if (stream.closed) return;
+				stream.snapshot = {
+					...stream.snapshot,
+					messages,
+					presentation: stream.mapperState.presentation,
+				};
+				this.#dispatch(stream.channelId, stream.snapshot);
+				stream.replayFrom = this.#ringBufferFor(stream.channelId).latestSequence();
+			});
+		const tracked = next.catch(() => undefined);
+		stream.refreshTail = tracked;
+		await tracked;
+		if (stream.refreshTail === tracked) {
+			stream.buffering = false;
+			for (const event of stream.bufferedEvents.splice(0)) this.#handleRlmChildEvent(stream, event);
+		}
+	}
+
+	#queueRlmChildSnapshot(stream: ManagedRlmChildStream): void {
+		void this.#refreshRlmChildSnapshot(stream);
+	}
+
+	#handleRlmChildEvent(stream: ManagedRlmChildStream, event: AgentConnectionEvent): void {
+		if (stream.closed) return;
+		if (event.type === "session_event") {
+			if (event.event.type === "agent_start" || event.event.type === "turn_start") {
+				stream.snapshot = { ...stream.snapshot, status: "streaming", terminal: false };
+			}
+			if (event.event.type === "agent_end" || event.event.type === "turn_end") {
+				stream.snapshot = { ...stream.snapshot, status: "ready" };
+			}
+		}
+		if (event.type === "closed") {
+			stream.snapshot = {
+				...stream.snapshot,
+				status: event.error ? "error" : "ready",
+				terminal: true,
+			};
+		}
+		const frames = mapAgentConnectionEvent(stream.mapperState, event);
+		for (const frame of frames) {
+			if (frame.type === "error") stream.snapshot = { ...stream.snapshot, status: "error" };
+			this.#dispatch(stream.channelId, frame);
+		}
+		if (event.type === "session_event" && event.event.type === "rlm_child_update") {
+			this.#queueRlmChildMetadataRefresh(stream.parentSessionId);
+		}
+		if (
+			event.type === "session_replaced" ||
+			event.type === "session_resynced" ||
+			event.type === "closed" ||
+			(event.type === "session_event" && (event.event.type === "agent_end" || event.event.type === "turn_end"))
+		) {
+			this.#queueRlmChildSnapshot(stream);
+		}
+	}
+
+	async #loadAuthorizedRlmChildTranscript(authorized: AuthorizedRlmChild): Promise<RlmChildTranscript | undefined> {
+		const { summary: childSummary } = authorized;
+		if (!childSummary.sessionFile) return undefined;
+		const sessionManager = await SessionManager.openAsync(childSummary.sessionFile);
 		const sessionId = sessionManager.getSessionId();
-		if (sessionId !== child.sessionId && sessionId !== child.id) return undefined;
+		if (sessionId !== childSummary.sessionId && sessionId !== childSummary.id) return undefined;
 
 		const agentMessages = sessionManager.buildSessionContext().messages;
 		const messages = toChatMessagesFromAgentMessages(agentMessages, sessionId);
-		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath: child.sessionFile });
+		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath: childSummary.sessionFile });
 		const presentation = initialPresentationForSession(
 			agentMessages,
 			undefined,
@@ -1048,6 +1427,192 @@ export class PrimeBridge {
 		const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, sessionManager.getCwd());
 
 		return { sessionId, projectId, messages, presentation };
+	}
+
+	async #snapshotOnlyRlmChildStream(
+		authorized: AuthorizedRlmChild,
+		resume?: RlmChildStreamResume,
+	): Promise<RlmChildStream | undefined> {
+		const transcript = await this.#loadAuthorizedRlmChildTranscript(authorized).catch(() => undefined);
+		if (!transcript) return undefined;
+		const streamGeneration = crypto.randomUUID();
+		const snapshot: Extract<ChatStreamEvent, { type: "session_snapshot" }> = {
+			type: "session_snapshot",
+			session: { sessionId: transcript.sessionId, projectId: transcript.projectId },
+			messages: transcript.messages,
+			presentation: transcript.presentation,
+			status: this.#childStreamStatus(authorized.child, authorized.summary),
+			terminal: true,
+		};
+		return {
+			sessionId: transcript.sessionId,
+			projectId: transcript.projectId,
+			snapshot,
+			channelId: `snapshot:${authorized.parent.sessionId}:${authorized.child.id}:${streamGeneration}`,
+			streamGeneration,
+			mode: "snapshot-only",
+			resumeAccepted: false,
+			cursorReset: resume?.streamGeneration !== undefined || (resume?.lastEventId ?? 0) > 0,
+			replayFrom: 0,
+			includeSnapshot: true,
+			release: async () => undefined,
+		};
+	}
+
+	async #initializeRlmChildStream(authorized: AuthorizedRlmChild): Promise<ManagedRlmChildStream | undefined> {
+		const { child, summary, parent } = authorized;
+		const runtimeIds = [
+			summary.activeSessionId,
+			child.activeSessionId,
+			summary.sessionId,
+			summary.id,
+			child.id,
+		].filter((value): value is string => typeof value === "string" && value.length > 0);
+		let watcher: AgentConnectionSessionWatcher | undefined;
+		let streamSessionId: string | undefined;
+		for (const runtimeId of [...new Set(runtimeIds)]) {
+			try {
+				watcher = await parent.connection.watchSession(runtimeId);
+			} catch {
+				watcher = undefined;
+			}
+			if (watcher) {
+				streamSessionId = runtimeId;
+				break;
+			}
+		}
+		if (!watcher || !streamSessionId) return undefined;
+
+		const pendingEvents: AgentConnectionEvent[] = [];
+		let buffering = true;
+		let removeWatcherListener: () => void = () => undefined;
+		try {
+			removeWatcherListener = watcher.subscribe((event) => {
+				if (buffering) pendingEvents.push(event);
+				else {
+					const stream = this.#rlmChildStreams.get(`${parent.sessionId}:${child.id}`);
+					if (!stream) return;
+					if (stream.buffering) stream.bufferedEvents.push(event);
+					else this.#handleRlmChildEvent(stream, event);
+				}
+			});
+
+			const agentMessages = await watcher.getMessages();
+			const persistedPresentation = summary.sessionFile
+				? await loadManagedPrimePresentation({ sessionPath: summary.sessionFile })
+				: undefined;
+			const canonicalSessionId = summary.sessionId || streamSessionId;
+			const override = rlmChildStatusOverride(summary);
+			const presentation = initialPresentationForSession(
+				agentMessages,
+				summary.sessionName ?? child.sessionName ?? child.label,
+				summary.thinkingLevel as ChatThinkingLevel | undefined,
+				undefined,
+				child.recap ?? summary.summary,
+				canonicalSessionId,
+				persistedPresentation,
+			);
+			const mapperState = createEventMapperState({
+				sessionId: canonicalSessionId,
+				presentation,
+				rlmChildOverrides: new Map([[child.id, override]]),
+			});
+			const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(canonicalSessionId, summary.cwd);
+			const streamGeneration = crypto.randomUUID();
+			const stream: ManagedRlmChildStream = {
+				key: `${parent.sessionId}:${child.id}`,
+				parentSessionId: parent.sessionId,
+				childId: child.id,
+				streamSessionId,
+				canonicalSessionId,
+				channelId: `child:${parent.sessionId}:${child.id}:${streamGeneration}`,
+				streamGeneration,
+				projectId,
+				child,
+				summary,
+				watcher,
+				mapperState,
+				snapshot: {
+					type: "session_snapshot",
+					session: { sessionId: canonicalSessionId, projectId },
+					messages: toChatMessagesFromAgentMessages(agentMessages, canonicalSessionId),
+					presentation,
+					status: this.#childStreamStatus(child, summary),
+				},
+				replayFrom: 0,
+				refs: 1,
+				closed: false,
+				buffering: false,
+				bufferedEvents: [],
+				removeWatcherListener,
+				refreshTail: Promise.resolve(),
+			};
+			this.#rlmChildStreams.set(stream.key, stream);
+			this.#ringBufferFor(stream.channelId);
+			buffering = false;
+			for (const event of pendingEvents.splice(0)) this.#handleRlmChildEvent(stream, event);
+			return stream;
+		} catch {
+			buffering = false;
+			removeWatcherListener();
+			await watcher.close().catch(() => undefined);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Open a read-only stream for an authorized RLM child. Completed and cold
+	 * children use a one-shot snapshot and never resume a runtime session.
+	 */
+	async openRlmChildStream(
+		parentSessionId: string,
+		childId: string,
+		resume?: RlmChildStreamResume,
+	): Promise<RlmChildStream | undefined> {
+		const authorized = await this.#findAuthorizedRlmChild(parentSessionId, childId);
+		if (!authorized) return undefined;
+		const key = `${parentSessionId}:${childId}`;
+		const existing = this.#rlmChildStreams.get(key);
+		if (existing) {
+			existing.refs += 1;
+			return this.#publicRlmChildStream(existing, resume);
+		}
+
+		const status = effectiveRlmChildStatus(authorized.child, authorized.summary);
+		if (status !== "running" && status !== "recovering") return this.#snapshotOnlyRlmChildStream(authorized, resume);
+
+		const pending = this.#rlmChildStreamInitializations.get(key);
+		if (pending) {
+			const stream = await pending;
+			if (!stream) return undefined;
+			stream.refs += 1;
+			return this.#publicRlmChildStream(stream, resume);
+		}
+
+		const initialization = this.#initializeRlmChildStream(authorized);
+		this.#rlmChildStreamInitializations.set(key, initialization);
+		try {
+			const stream = await initialization;
+			if (!stream) return undefined;
+			return this.#publicRlmChildStream(stream, resume);
+		} finally {
+			if (this.#rlmChildStreamInitializations.get(key) === initialization) {
+				this.#rlmChildStreamInitializations.delete(key);
+			}
+		}
+	}
+
+	/**
+	 * Load a completed RLM child without resuming it as a live session.
+	 *
+	 * Child transcripts can be stored outside the parent's configured session
+	 * directory. Authorization is therefore based on both the live parent's
+	 * presentation and the daemon's lineage metadata, never on a browser-
+	 * supplied filesystem path.
+	 */
+	async loadRlmChildTranscript(parentSessionId: string, childId: string): Promise<RlmChildTranscript | undefined> {
+		const authorized = await this.#findAuthorizedRlmChild(parentSessionId, childId);
+		return authorized ? this.#loadAuthorizedRlmChildTranscript(authorized) : undefined;
 	}
 
 	async deleteSession(sessionId: string): Promise<boolean> {
@@ -1084,6 +1649,11 @@ export class PrimeBridge {
 			this.#presentationWrites.delete(existing.sessionId);
 		}
 		this.#dialogs.cancelAll(existing.sessionId, "server-shutdown");
+		for (const childStream of [...this.#rlmChildStreams.values()]) {
+			if (childStream.parentSessionId !== existing.sessionId) continue;
+			childStream.refs = 0;
+			await this.#closeRlmChildStream(childStream);
+		}
 		existing.unsubscribe();
 		await existing.connection.abort().catch(() => undefined);
 		await this.#openUIPromptTransitions.get(existing.sessionId)?.catch(() => undefined);

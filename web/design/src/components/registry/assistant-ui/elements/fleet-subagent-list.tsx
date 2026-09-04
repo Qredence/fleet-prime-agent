@@ -22,7 +22,7 @@ type FleetSubagentListProps = {
  */
 export function FleetSubagentList({ children, tree, className }: FleetSubagentListProps) {
 	const agents = useMemo(() => orderedRlmChildren(children, tree), [children, tree])
-	const active = agents.some((child) => child.status === "queued" || child.status === "running")
+	const active = agents.some((child) => child.status === "queued" || child.status === "running" || child.status === "recovering")
 	const [open, setOpen] = useState(active)
 	if (agents.length === 0) return null
 

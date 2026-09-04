@@ -105,6 +105,28 @@ describe("session list handlers", () => {
 		});
 	});
 
+	it("marks daemon subagent rows for sidebar indentation", async () => {
+		setBridgeForTests({
+			listSessions: vi.fn(async () => [
+				{
+					...legacySession,
+					id: "child-worker-id",
+					sessionId: "child-session-id",
+					runtimeKind: "subagent",
+				},
+			]),
+			getSession: vi.fn(() => undefined),
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatSessionsGet(new Request("http://localhost/api/chat/sessions"));
+
+		expect(ChatSessionsResponseSchema.parse(await response.json()).sessions[0]).toMatchObject({
+			sessionId: "child-session-id",
+			isSubagent: true,
+		});
+	});
+
 	it("rejects a session row without a stable ID using a safe error", async () => {
 		setBridgeForTests({
 			listSessions: vi.fn(async () => [{ cwd: process.cwd(), firstMessage: "invalid" }]),

@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const fleetPrimeDir = join(root, "packages", "fleet-prime");
+const fleetPrimeDir = join(root, "packages", "fleet-web");
 const STARTUP_TIMEOUT_MS = 60000;
 const FETCH_TIMEOUT_MS = 5000;
 
@@ -22,7 +22,7 @@ const FETCH_TIMEOUT_MS = 5000;
 function printUsage() {
 	console.log("Usage: node scripts/check-web-release.mjs [--package path/to/qredence-fleet-*.tgz]");
 	console.log("");
-	console.log("Without --package, packs packages/fleet-prime into a temporary directory first.");
+	console.log("Without --package, packs packages/fleet-web into a temporary directory first.");
 	console.log("Requires a built web runtime: pnpm run build:web:release");
 }
 
@@ -75,7 +75,7 @@ function packToTemp(tempDir) {
 	if (!existsSync(launcher)) {
 		throw new Error(`Missing ${launcher}. Run pnpm run build:web:release before packing.`);
 	}
-	const pnpm = pnpmInvocation(["--dir", "packages/fleet-prime", "pack", "--pack-destination", tempDir]);
+	const pnpm = pnpmInvocation(["--dir", "packages/fleet-web", "pack", "--pack-destination", tempDir]);
 	execFileSync(pnpm.command, pnpm.args, {
 		cwd: root,
 		stdio: "inherit",

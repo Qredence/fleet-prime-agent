@@ -5,6 +5,11 @@ import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { sessionStatus } from "./projects";
 
+/**
+ * Retrieves chat sessions with normalized metadata and optional project filtering.
+ *
+ * @returns A JSON response containing the matching chat sessions.
+ */
 export function handleChatSessionsGet(_request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const bridge = getBridge();
@@ -27,6 +32,7 @@ export function handleChatSessionsGet(_request: Request): Promise<Response> {
 					status: sessionStatus(session.source, liveSession),
 					messageCount: session.messageCount,
 					firstMessage: session.firstMessage,
+					...(session.isSubagent ? { isSubagent: true } : {}),
 				};
 			}),
 		);

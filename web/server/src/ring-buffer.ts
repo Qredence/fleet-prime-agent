@@ -53,6 +53,10 @@ export class RingBuffer {
 		return this.entries.length;
 	}
 
+	latestSequence(): number {
+		return this.entries.at(-1)?.seq ?? 0;
+	}
+
 	clear(): void {
 		this.entries.length = 0;
 		this.nextSeq = 1;

@@ -38,6 +38,7 @@ function ipythonPart(artifact: PrimeAgentArtifact) {
 		state: toolState(artifact.status),
 		input: artifact.input,
 		output: artifact.output,
+		backgroundOutput: artifact.backgroundOutput,
 	}
 }
 

@@ -265,6 +265,62 @@ describe("applyChatStreamEvent", () => {
 		expect(t.snapshot.presentation?.sessionName).toBe("session-3");
 	});
 
+	it("bootstraps a read-only transcript from a session snapshot", () => {
+		const message = toChatMessage("child-assistant", "assistant", [{ type: "text", text: "snapshot answer" }]);
+		const presentation = {
+			revision: 4,
+			sessionName: "Research worker",
+			userBash: [],
+			rlmChildren: [],
+			refinements: [],
+			artifactRuns: [],
+		};
+
+		const transition = applyChatStreamEvent(baseTransition(), {
+			type: "session_snapshot",
+			session: { sessionId: "child-session" },
+			messages: [message],
+			presentation,
+			status: "ready",
+		});
+
+		expect(transition.assistantId).toBeNull();
+		expect(transition.snapshot.messages).toEqual([message]);
+		expect(transition.snapshot.presentation).toEqual(presentation);
+		expect(transition.snapshot.queue).toEqual(EMPTY_QUEUE_STATE);
+	});
+
+	it("updates only the RLM presentation when a child status event arrives", () => {
+		const presentation = {
+			revision: 2,
+			userBash: [],
+			rlmChildren: [],
+			refinements: [],
+			artifactRuns: [],
+		};
+		const transition = applyChatStreamEvent(
+			{
+				...baseTransition(),
+				snapshot: { ...baseTransition().snapshot, presentation },
+			},
+			{
+				type: "rlm",
+				child: { id: "child-1", label: "Research worker", status: "running", timestamp: 10 },
+				tree: { rootSessionId: "session-1", rootChildrenIds: ["child-1"], nodes: {} },
+			},
+		);
+
+		expect(transition.snapshot.messages).toEqual([]);
+		expect(transition.snapshot.presentation?.rlmChildren).toEqual([
+			{ id: "child-1", label: "Research worker", status: "running", timestamp: 10 },
+		]);
+		expect(transition.snapshot.presentation?.rlmTree).toEqual({
+			rootSessionId: "session-1",
+			rootChildrenIds: ["child-1"],
+			nodes: {},
+		});
+	});
+
 	it("merges the terminal assistant and presentation instead of replacing the conversation", () => {
 		const id = "run-terminal-snapshot-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id, "run-terminal-snapshot"));

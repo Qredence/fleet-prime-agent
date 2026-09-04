@@ -13,6 +13,16 @@ const layoutStyle = {
   "--chat-header-top": `${CHAT_HEADER_OFFSET_PX}px`,
 } as CSSProperties
 
+/**
+ * Lays out the chat workspace with header content, main content, and a side panel.
+ *
+ * @param children - The main chat content
+ * @param headerCenter - Content displayed in the center of the chat header
+ * @param headerLeft - Content displayed on the left side of the chat header
+ * @param headerRight - Optional content displayed on the right side of the chat header
+ * @param panel - The side panel displayed alongside the chat content
+ * @returns The chat workspace layout
+ */
 export function ChatWorkspaceLayout({
   children,
   headerCenter,
@@ -39,15 +49,15 @@ export function ChatWorkspaceLayout({
         <header
           className={cn(
             CHAT_HEADER_LAYER_CLASS,
-            "grid min-h-[calc(var(--chat-header-top)+var(--chat-header-height))] shrink-0 grid-cols-[auto_1fr_auto] items-center gap-2 px-3 pt-[var(--chat-header-top)] pb-3"
+            "grid h-[var(--chat-header-height)] min-h-[var(--chat-header-height)] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 border-b border-[#2e3033] px-2 py-2"
           )}
           data-testid="chat-header"
         >
-          <div className="justify-self-start">{headerLeft}</div>
-          <div className="flex min-w-0 items-center justify-start gap-2 justify-self-start">
+          <div className="min-w-0 justify-self-start">{headerLeft}</div>
+          <div className="flex min-w-0 items-center justify-start gap-1 overflow-hidden justify-self-stretch">
             {headerCenter}
           </div>
-          <div className="justify-self-end">{headerRight}</div>
+          <div className="min-w-0 justify-self-end">{headerRight}</div>
         </header>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
       </div>

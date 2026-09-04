@@ -12,6 +12,12 @@ const sourceWebApp = resolve(sourceRoot, "web", "app");
 const viteCli = resolve(sourceRoot, "web", "app", "node_modules", "vite", "bin", "vite.js");
 const workspaceRoot = process.cwd();
 
+/**
+ * Launch a Node.js entry point and mirror its signals and exit status.
+ * @param {string} entrypoint - Path to the Node.js entry point.
+ * @param {string[]} args - Arguments passed to the entry point.
+ * @param {string} cwd - Working directory for the child process.
+ */
 function run(entrypoint, args, cwd) {
 	const child = spawn(process.execPath, [entrypoint, ...args], {
 		cwd,

@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router"
 import { useEffect, useLayoutEffect } from "react"
 import { QueryClientProvider } from "@tanstack/react-query"
+import { Agentation } from "agentation"
 import { MotionRuntime } from "@prime-agent/web-design/components/registry/beui/motion/runtime"
 import { Toaster } from "@prime-agent/web-design/components/ui/toast"
 import { NotFoundPage } from "@prime-agent/web-design/components/product/fleet-pi/not-found-page"
@@ -74,6 +75,7 @@ function RootComponent() {
     <MotionRuntime>
       <QueryClientProvider client={getQueryClient()}>
         <Outlet />
+        {import.meta.env.DEV ? <Agentation endpoint="http://localhost:4747" /> : null}
       </QueryClientProvider>
     </MotionRuntime>
   )

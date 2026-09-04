@@ -33,9 +33,10 @@ import {
 import { assistantMessageHasPendingQuestion } from "@/lib/pi/question-pending";
 import type { SettingsSlashTab } from "@/lib/pi/slash-commands";
 import { buildSlashCommands } from "@/lib/pi/slash-commands";
+import { useAgentTabs } from "@/lib/pi/use-agent-tabs";
 import { useChatShellState } from "@/lib/pi/use-chat-shell-state";
 import { useChatStorage } from "@/lib/pi/use-chat-storage";
-import { useActiveSessionLabel, useChatSuggestions } from "@/lib/pi/use-chat-view";
+import { useChatSuggestions } from "@/lib/pi/use-chat-view";
 import { useChatWorkspaceHeader } from "@/lib/pi/use-chat-workspace-header";
 import { useLocalSlashActions } from "@/lib/pi/use-local-slash-actions";
 import { usePendingQuestionBar } from "@/lib/pi/use-pending-question-bar";
@@ -403,12 +404,6 @@ export function useChatWorkspaceData() {
 		messages,
 		answerQuestion: handleQuestionAnswer,
 	});
-	const activeSessionLabel = useActiveSessionLabel({
-		activeSessionId: sessionMetadata.sessionId,
-		messages,
-		presentation,
-		sessions,
-	});
 	const suggestions = useChatSuggestions({
 		messages,
 		resources,
@@ -520,6 +515,12 @@ export function useChatWorkspaceData() {
 		(parentSessionId: string, childId: string) => chatClient.loadSubagentSession(parentSessionId, childId),
 		[],
 	);
+	const agentTabs = useAgentTabs({
+		activeProjectId,
+		loadSubagentSession,
+		presentation,
+		rootSessionId: sessionMetadata.sessionId,
+	});
 
 	const onDiscoverModels = useCallback(
 		async (providerId: string) => {
@@ -539,6 +540,7 @@ export function useChatWorkspaceData() {
 		loadSubagentSession,
 		loadWorkspaceFile: loadProjectWorkspaceFile,
 		messages,
+		onOpenSubagentTab: agentTabs.openChildTab,
 		modelKey,
 		models,
 		modelCatalog,
@@ -576,11 +578,11 @@ export function useChatWorkspaceData() {
 	});
 
 	const header = useChatWorkspaceHeader({
-		activeSessionId: sessionMetadata.sessionId,
-		activeSessionLabel,
-		sessions,
+		activeTabId: agentTabs.activeTabId,
+		tabs: agentTabs.tabs,
+		onCloseTab: agentTabs.closeTab,
 		onNewSession: () => void startNewSessionForWorkspace(),
-		onResumeSession: (metadata) => void resumeSessionForWorkspace(metadata),
+		onSelectTab: agentTabs.selectTab,
 		onOpenSettings: () => openSettings(),
 	});
 
@@ -619,6 +621,7 @@ export function useChatWorkspaceData() {
 			status,
 			stop,
 		},
+		agentTabs,
 		composer: {
 			answerQuestion,
 			chatMode,

@@ -19,4 +19,4 @@ fi
 
 # The wrapper resolves the pinned stock Prime Agent release from node_modules
 # and starts the production Fleet web bundle.
-exec node "$SCRIPT_DIR/packages/fleet-prime/bin/fleet-prime.mjs" "$@"
+exec node "$SCRIPT_DIR/packages/fleet-web/bin/fleet-prime.mjs" "$@"

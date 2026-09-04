@@ -9,7 +9,9 @@ import {
 	createVersionPullRequest,
 	prepareRelease,
 	releasePlanFromStatus,
+	releaseTargetBaselineVersion,
 	releaseVersionFromStatus,
+	resolveReleaseVersion,
 	run as runPrepareRelease,
 } from "../prepare-release.mjs";
 import {
@@ -23,11 +25,12 @@ import {
 import { assertReleaseVersion, compareVersions, parseStableVersion } from "../release-utils.mjs";
 
 const packageManifest = JSON.parse(
-	readFileSync(new URL("../../packages/fleet-prime/package.json", import.meta.url), "utf8"),
+	readFileSync(new URL("../../packages/fleet-web/package.json", import.meta.url), "utf8"),
 );
 const packageVersion = packageManifest.version;
 const [packageMajor, packageMinor, packagePatch] = parseStableVersion(packageVersion);
 const nextPatchVersion = `${packageMajor}.${packageMinor}.${packagePatch + 1}`;
+const expectedReleaseVersion = resolveReleaseVersion(packageVersion, nextPatchVersion);
 
 function releaseStatus() {
 	return { releases: [{ name: "@qredence/fleet", oldVersion: packageVersion, newVersion: nextPatchVersion }] };
@@ -108,8 +111,8 @@ test("detects only package-version commits on main", () => {
 		isPackageVersionCommit({
 			branch: "main",
 			readChangedPaths: () => [
-				"packages/fleet-prime/package.json",
-				"packages/fleet-prime/CHANGELOG.md",
+				"packages/fleet-web/package.json",
+				"packages/fleet-web/CHANGELOG.md",
 				".changeset/release.md",
 			],
 		}),
@@ -118,14 +121,14 @@ test("detects only package-version commits on main", () => {
 	assert.equal(
 		isPackageVersionCommit({
 			branch: "main",
-			readChangedPaths: () => ["packages/fleet-prime/package.json", "README.md"],
+			readChangedPaths: () => ["packages/fleet-web/package.json", "README.md"],
 		}),
 		false,
 	);
 	assert.equal(
 		isPackageVersionCommit({
 			branch: "feature/release",
-			readChangedPaths: () => ["packages/fleet-prime/package.json"],
+			readChangedPaths: () => ["packages/fleet-web/package.json"],
 		}),
 		false,
 	);
@@ -193,7 +196,7 @@ test("dry-runs release preparation without requiring GitHub credentials", async 
 		assert.deepEqual(result, {
 			prepared: false,
 			dryRun: true,
-			plan: { packageName: "@qredence/fleet", currentVersion: packageVersion, version: nextPatchVersion },
+			plan: { packageName: "@qredence/fleet", currentVersion: packageVersion, version: expectedReleaseVersion },
 		});
 	} finally {
 		if (previousBranch === undefined) delete process.env.CIRCLE_BRANCH;
@@ -206,7 +209,7 @@ test("treats no pending Changesets as a release-preparation no-op", async () => 
 	assert.deepEqual(result, { prepared: false });
 });
 
-test("prints no version for an empty release plan and the next version for a patch plan", async () => {
+test("prints no version for an empty release plan and the one-time target for a patch plan", async () => {
 	const noVersionOutput = [];
 	await runPrepareRelease(["--print-version"], {
 		readStatus: () => undefined,
@@ -219,9 +222,15 @@ test("prints no version for an empty release plan and the next version for a pat
 		readStatus: releaseStatus,
 		log: (message) => versionOutput.push(message),
 	});
-	assert.deepEqual(versionOutput, [nextPatchVersion]);
+	assert.deepEqual(versionOutput, [expectedReleaseVersion]);
 	assert.equal(releaseVersionFromStatus(undefined), undefined);
-	assert.equal(releaseVersionFromStatus(releaseStatus()), nextPatchVersion);
+	assert.equal(releaseVersionFromStatus(releaseStatus()), expectedReleaseVersion);
+});
+
+test("uses the one-time 0.5.5 target only for the current 0.5.1 patch release", () => {
+	assert.equal(resolveReleaseVersion("0.5.1", "0.5.2"), "0.5.5");
+	assert.equal(resolveReleaseVersion("0.5.2", "0.5.3"), "0.5.3");
+	assert.equal(releaseTargetBaselineVersion("0.5.5"), "0.5.4");
 });
 
 test("requires CircleCI to provide the release version before creating a release PR", async () => {
@@ -373,7 +382,7 @@ test("derives the single-package release plan from Changesets status", () => {
 	assert.deepEqual(releasePlanFromStatus(releaseStatus()), {
 		packageName: "@qredence/fleet",
 		currentVersion: packageVersion,
-		version: nextPatchVersion,
+		version: expectedReleaseVersion,
 	});
 	assert.throws(() => releasePlanFromStatus({ releases: [] }), /no release plan/);
 });

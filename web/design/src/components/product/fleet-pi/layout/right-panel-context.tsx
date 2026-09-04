@@ -36,6 +36,7 @@ export type ChatPanelDataContextValue = {
     childId: string,
   ) => Promise<ChatSessionResponse>
   messages: Array<ChatMessage>
+  onOpenSubagentTab?: (childId: string) => void
   models: Array<ChatModelOption>
   onOpenUIAction?: (message: string) => void
   planLabel?: string

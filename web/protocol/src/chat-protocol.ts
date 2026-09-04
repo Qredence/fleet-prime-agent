@@ -182,6 +182,7 @@ export type PrimeAgentArtifact = {
 	status: PrimeAgentArtifactStatus;
 	input?: unknown;
 	output?: unknown;
+	backgroundOutput?: string;
 	timestamp: number;
 };
 
@@ -215,7 +216,7 @@ export type PrimeAgentRlmChild = {
 	sessionName?: string;
 	model?: string;
 	label: string;
-	status: "queued" | "running" | "done" | "error" | "cancelled";
+	status: "queued" | "running" | "done" | "error" | "cancelled" | "recovering" | "failed";
 	durationMs?: number;
 	answerPreview?: string;
 	toolUseCount?: number;
@@ -226,6 +227,7 @@ export type PrimeAgentRlmChild = {
 	error?: string;
 	depth?: number;
 	childrenIds?: Array<string>;
+	lastHeardFrom?: number;
 	timestamp: number;
 };
 
@@ -481,6 +483,16 @@ export type ChatRlmStreamEvent = {
 	tree?: PrimeAgentRlmTree;
 };
 
+/** Authoritative transcript bootstrap used by read-only child streams. */
+export type ChatSessionSnapshotEvent = {
+	type: "session_snapshot";
+	session: ChatSessionMetadata;
+	messages: Array<ChatMessage>;
+	presentation: PrimeAgentSessionPresentation;
+	status: "ready" | "streaming" | "error";
+	terminal?: boolean;
+};
+
 export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
 	protocolVersion: 1,
 	schemaRevision: 1,
@@ -503,6 +515,9 @@ export type ChatConnectedFrame = {
 	type: "connected";
 	sessionId: string;
 	adapterCapabilities?: FleetAdapterCapabilities;
+	streamGeneration?: string;
+	cursorReset?: boolean;
+	resumeAccepted?: boolean;
 };
 
 /**
@@ -533,6 +548,7 @@ export type ChatStreamEvent =
 	| { type: "queue"; steering: Array<string>; followUp: Array<string> }
 	| ChatThinkingEvent
 	| ChatPresentationEvent
+	| ChatSessionSnapshotEvent
 	| ChatMessageEvent
 	| ChatPayloadEvent
 	| { type: "reasoning"; presentation: ChatReasoningPresentation; messageId?: string }
@@ -731,6 +747,7 @@ export type ChatSessionInfo = {
 	status: "idle" | "running" | "interrupted" | "failed";
 	messageCount: number;
 	firstMessage: string;
+	isSubagent?: boolean;
 };
 
 export type ChatResourceInfo = {

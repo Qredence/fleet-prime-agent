@@ -1,4 +1,8 @@
 import { UiErrorBoundary } from "@prime-agent/web-design/components/product/fleet-pi/ui-error-boundary";
+import {
+	agentTabPanelId,
+	agentTabTriggerId,
+} from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar";
 import { RightPanelShell } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell";
 import { RightPanelProvider } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
 import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/product/fleet-pi/layout/chat-workspace-layout";
@@ -8,7 +12,7 @@ import { AnimatedSidebarInset } from "@prime-agent/web-design/components/registr
 import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components/openui/open-panel-action-message";
 import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact";
 import { notify } from "@prime-agent/web-design/lib/notify";
-import { useCallback } from "react";
+import { lazy, Suspense, useCallback } from "react";
 import { ChatPanel } from "@/lib/pi/chat-panel";
 import { buildChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
 import {
@@ -18,11 +22,17 @@ import {
 import { focusChatComposer, usePanelKeybindings } from "@/lib/pi/panel-keybindings";
 import { useChatWorkspaceData } from "@/lib/pi/use-chat-workspace-data";
 
+const LazySubagentChatPanel = lazy(() =>
+	import("@/lib/pi/subagent-chat-panel").then(({ SubagentChatPanel }) => ({
+		default: SubagentChatPanel,
+	})),
+);
+
 /**
- * Renders the chat workspace shell with session navigation, conversation UI, panels, dialogs, and workspace actions.
+ * Renders the chat workspace with session navigation, the active conversation, panels, dialogs, and workspace actions.
  */
 export function ChatWorkspaceShell() {
-	const { session, conversation, composer, panels, dialogs, chrome } = useChatWorkspaceData();
+	const { session, conversation, composer, panels, dialogs, chrome, agentTabs } = useChatWorkspaceData();
 	const toggleCommandPalette = useCallback(() => {
 		dialogs.setCommandPaletteOpen((open) => !open);
 	}, [dialogs.setCommandPaletteOpen]);
@@ -85,6 +95,43 @@ export function ChatWorkspaceShell() {
 		},
 		[conversation.persistOpenUIArtifact],
 	);
+	const activeTabIsMain = agentTabs.activeTabId === "main" || !agentTabs.selectedChild;
+	const activeConversationPanel = activeTabIsMain ? (
+		<ChatPanel
+			messages={conversation.messages}
+			status={conversation.status}
+			error={conversation.error ?? undefined}
+			workspaceName={activeProjectName}
+			activityLabel={conversation.activityLabel}
+			presentation={conversation.presentation}
+			artifactRuns={conversation.artifactRuns}
+			queue={conversation.queue}
+			onDeleteQueuedMessage={conversation.deleteQueuedMessage}
+			onOpenArtifact={conversation.openArtifact}
+			onOpenUIArtifactReady={handleOpenUIArtifactReady}
+			inputSuggestionItems={composer.inputSuggestionItems}
+			suppressQuestionTool={!!composer.pendingQuestionBar}
+			inputBar={buildChatInputBarProps(composer, session.activeSessionId)}
+			onSend={handleSend}
+			onOpenUIAction={handleOpenUIAction}
+			onStop={conversation.stop}
+			onQuestionAnswer={composer.handleQuestionAnswer}
+		/>
+	) : (
+		<Suspense
+			fallback={
+				<div className="flex min-h-32 flex-1 items-center justify-center text-xs text-foreground/45">
+					Loading subagent thread…
+				</div>
+			}
+		>
+			<LazySubagentChatPanel
+				child={agentTabs.selectedChild!}
+				parentSessionId={session.activeSessionId}
+				state={agentTabs.conversation}
+			/>
+		</Suspense>
+	);
 	return (
 		<>
 			<ChatCommandPaletteOverlay
@@ -146,26 +193,15 @@ export function ChatWorkspaceShell() {
 								</UiErrorBoundary>
 							}
 						>
-							<ChatPanel
-								messages={conversation.messages}
-								status={conversation.status}
-								error={conversation.error ?? undefined}
-								workspaceName={activeProjectName}
-								activityLabel={conversation.activityLabel}
-								presentation={conversation.presentation}
-								artifactRuns={conversation.artifactRuns}
-								queue={conversation.queue}
-								onDeleteQueuedMessage={conversation.deleteQueuedMessage}
-								onOpenArtifact={conversation.openArtifact}
-								onOpenUIArtifactReady={handleOpenUIArtifactReady}
-								inputSuggestionItems={composer.inputSuggestionItems}
-								suppressQuestionTool={!!composer.pendingQuestionBar}
-								inputBar={buildChatInputBarProps(composer, session.activeSessionId)}
-								onSend={handleSend}
-								onOpenUIAction={handleOpenUIAction}
-								onStop={conversation.stop}
-								onQuestionAnswer={composer.handleQuestionAnswer}
-							/>
+							<div
+								aria-labelledby={agentTabTriggerId(agentTabs.activeTabId)}
+								className="flex min-h-0 min-w-0 flex-1 flex-col"
+								data-testid="agent-tab-panel"
+								id={agentTabPanelId(agentTabs.activeTabId)}
+								role="tabpanel"
+							>
+								{activeConversationPanel}
+							</div>
 						</ChatWorkspaceLayout>
 					</AnimatedSidebarInset>
 				</ChatApp>

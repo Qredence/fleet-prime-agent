@@ -6,12 +6,15 @@ daemon-facing code in `web/server`.
 ## Runtime upgrades
 
 Prime Agent is consumed as a stock, checksum-pinned release tarball rather than
-vendored source. To upgrade it, update `PRIME_AGENT_RUNTIME.json` and the
-matching dependency URLs, run `pnpm install`, then
-run `node scripts/check-prime-agent-runtime.mjs`, web-server type checks, and
-the adapter parity tests. Review changes to the public runtime APIs consumed by
-`web/server` and the daemon protocol before merging. Do not patch upstream code
-inside this repository.
+vendored source. To upgrade it:
+1. Update `PRIME_AGENT_RUNTIME.json` with the new manifest version, tarball URL,
+   and SHA-256 hash, ensuring `manifest.version` matches the tarball filename.
+2. Update `pnpm-workspace.yaml` `allowBuilds` for the new tarball URL.
+3. Update matching dependency URLs in `packages/fleet-web/package.json` and `web/server/package.json`.
+4. Run `pnpm install`.
+5. Run `PRIME_RUNTIME_VERIFY_TARBALL=1 node scripts/check-prime-agent-runtime.mjs`.
+6. Run web-server type checks (`pnpm run check`) and the adapter parity tests.
+Review changes to the public runtime APIs consumed by `web/server` and the daemon protocol before merging. Do not patch upstream code inside this repository. See the `.agents/skills/prime-runtime-upgrade/SKILL.md` skill for the complete runbook.
 
 ## Daemon protocol changes
 
@@ -31,7 +34,7 @@ checks.
 
 - **GHSA-jmr9-qjv8-65gv (high)** — `extract-zip <= 2.0.1` unvalidated
   symlink path traversal, reachable through the pinned runtime's dependency
-  tree (`packages/fleet-prime > prime-agent > extract-zip` and
+  tree (`packages/fleet-web > prime-agent > extract-zip` and
   `web/server > prime-agent > extract-zip`). As of 2026-08-31 no patched
   release exists. The latest extract-zip release remains 2.0.1, from 2020.
   This cannot be fixed from

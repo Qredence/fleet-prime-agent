@@ -8,7 +8,7 @@ import {
   Square,
   Sun,
 } from "lucide-react"
-import { RIGHT_PANEL_DEFINITIONS } from "./layout/right-panel-registry"
+import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "./layout/right-panel-registry"
 import {
   CommandDialog,
   CommandEmpty,
@@ -34,6 +34,13 @@ export type CommandPaletteProps = {
   themePreference: ThemePreference
 }
 
+/**
+ * Provides searchable commands for chat actions, panel navigation, sessions, and themes.
+ *
+ * @param sessions - Sessions available for resumption
+ * @param isStreaming - Whether generation is currently in progress
+ * @param themePreference - The currently selected theme preference
+ */
 export function ChatCommandPalette({
   open,
   onOpenChange,
@@ -93,7 +100,7 @@ export function ChatCommandPalette({
         <CommandSeparator />
 
         <CommandGroup heading="Panels">
-          {RIGHT_PANEL_DEFINITIONS.map((definition) => {
+          {RIGHT_PANEL_LAUNCHER_DEFINITIONS.map((definition) => {
             const Icon = definition.icon
             return (
               <CommandItem

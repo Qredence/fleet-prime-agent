@@ -42,6 +42,7 @@ export type ChatToolPart = {
 	input?: unknown;
 	output?: unknown;
 	result?: unknown;
+	backgroundOutput?: string;
 	durationMs?: number;
 	error?: unknown;
 	[key: string]: unknown;

@@ -1,46 +1,47 @@
 import { useNavigate } from "@tanstack/react-router"
 import {
   AccountMenu,
-  KernelStatusChip,
-  SessionControls,
 } from "@prime-agent/web-design/components/product/fleet-pi/layout/chat-header"
+import {
+  AgentTabBar,
+  type AgentTabItem,
+} from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar"
 import { RightPanelLauncherFromContext } from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher"
 import { AnimatedSidebarTrigger } from "@prime-agent/web-design/components/registry/beui/motion/animated-sidebar"
-import type {
-  ChatSessionInfo,
-  ChatSessionMetadata,
-} from "@prime-agent/web-protocol/chat-protocol"
 import { clearBrowserChatSessions } from "@/lib/pi/use-chat-storage"
 import { signOut, useOptionalUser } from "@/lib/auth-stub"
 import { resetAnalytics } from "@/lib/analytics-stub"
-import { useKernelHealth } from "@/lib/pi/use-kernel-health"
 
 type UseChatWorkspaceHeaderOptions = {
-  activeSessionId: string | undefined
-  activeSessionLabel: string
-  sessions: Array<ChatSessionInfo>
+  activeTabId: string
+  tabs: Array<AgentTabItem>
+  onCloseTab: (tabId: string) => void
   onNewSession: () => void
-  onResumeSession: (metadata: ChatSessionMetadata) => void
+  onSelectTab: (tabId: string) => void
   onOpenSettings: () => void
 }
 
+/**
+ * Builds the chat workspace header UI and its interaction handlers.
+ *
+ * @returns The sidebar trigger, account menu, tab bar, and right-panel launcher.
+ */
 export function useChatWorkspaceHeader({
-  activeSessionId,
-  activeSessionLabel,
-  sessions,
+  activeTabId,
+  tabs,
+  onCloseTab,
   onNewSession,
-  onResumeSession,
+  onSelectTab,
   onOpenSettings,
 }: UseChatWorkspaceHeaderOptions) {
   const navigate = useNavigate()
   const user = useOptionalUser()
-  const kernel = useKernelHealth()
 
   return {
     left: (
       <AnimatedSidebarTrigger
         aria-label="Toggle conversations"
-        className="size-9 rounded-[10px] border border-border/70 bg-background shadow-sm"
+        className="!size-7 !rounded-[7px] border border-border/70 bg-background shadow-sm"
       >
         <span
           aria-hidden="true"
@@ -64,17 +65,14 @@ export function useChatWorkspaceHeader({
       />
     ),
     center: (
-      <>
-        <SessionControls
-          activeSessionId={activeSessionId}
-          activeSessionLabel={activeSessionLabel}
-          sessions={sessions}
-          onNewSession={onNewSession}
-          onResumeSession={onResumeSession}
-        />
-        <KernelStatusChip ok={kernel?.ok ?? null} reason={kernel?.reason} />
-      </>
+      <AgentTabBar
+        tabs={tabs}
+        value={activeTabId}
+        onValueChange={onSelectTab}
+        onClose={onCloseTab}
+        onNewSession={onNewSession}
+      />
     ),
-    right: <RightPanelLauncherFromContext />,
+    right: <RightPanelLauncherFromContext compact />,
   }
 }

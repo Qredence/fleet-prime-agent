@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from "node:os";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
-import type { AgentSession } from "prime-agent";
+import type { AgentConnection, AgentConnectionEvent, AgentSession } from "prime-agent";
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runtimeHostFor } from "../connection-runtime";
@@ -890,6 +890,71 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		});
 	});
 
+	it("loads a child through the persisted source lineage of a forked root", async () => {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const bridge = createTestBridge({ sessionLister });
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const source = await bridge.createSession({ cwd: workDir });
+		const sourceSessionManager = source.session?.sessionManager;
+		if (!sourceSessionManager) throw new Error("test adapter did not expose the source session manager");
+		const userEntryId = sourceSessionManager.appendMessage({
+			role: "user",
+			content: "source question",
+			timestamp: Date.now(),
+		});
+		sourceSessionManager.flushNow();
+		const fork = await bridge.forkSession(source.sessionId, userEntryId, "at");
+		const forked = bridge.getSession(fork.newSessionId);
+		if (!forked) throw new Error("forked session was not registered");
+		const sourcePath = source.sessionPath;
+
+		const childManager = SessionManager.create(workDir, join(workDir, "rlm-fork-child-store"));
+		const childPath = childManager.materializeSessionFile();
+		childManager.appendMessage({
+			role: "user",
+			content: "Inspect the forked child transcript",
+			timestamp: Date.now(),
+		});
+		childManager.flushNow();
+
+		forked.mapperState.presentation = {
+			...forked.mapperState.presentation,
+			rlmChildren: [
+				{
+					id: "child-1",
+					label: "Research worker",
+					status: "done",
+					timestamp: Date.now(),
+				},
+			],
+		};
+		listedSessions.push(
+			{
+				id: forked.sessionId,
+				sessionId: forked.sessionId,
+				activeSessionId: "fork-active-session",
+				cwd: workDir,
+				sessionFile: forked.sessionPath,
+			},
+			{
+				id: childManager.getSessionId(),
+				sessionId: childManager.getSessionId(),
+				cwd: workDir,
+				sessionFile: childPath,
+				parentSessionPath: sourcePath,
+				rlmChildId: "child-1",
+			},
+		);
+
+		const result = await bridge.loadRlmChildTranscript(forked.sessionId, "child-1");
+
+		expect(result).toMatchObject({
+			sessionId: childManager.getSessionId(),
+			messages: [{ role: "user", parts: [{ type: "text", text: "Inspect the forked child transcript" }] }],
+		});
+	});
+
 	it("loads an authorized nested child through its immediate parent lineage", async () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
@@ -981,6 +1046,200 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 
 		await expect(bridge.loadRlmChildTranscript(parent.sessionId, "child-1")).resolves.toBeUndefined();
 		expect(sessionLister).toHaveBeenCalledOnce();
+	});
+});
+
+describe("PrimeBridge.openRlmChildStream", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+	const bridges: PrimeBridge[] = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-child-stream-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-child-stream-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+	});
+
+	afterEach(() => {
+		for (const bridge of bridges.splice(0)) bridge.resetForTests();
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		rmSync(workDir, { recursive: true, force: true });
+		rmSync(agentDir, { recursive: true, force: true });
+		vi.restoreAllMocks();
+	});
+
+	function createChildWatcher(messages: never[] = []) {
+		let listener: ((event: AgentConnectionEvent) => void) | undefined;
+		const unsubscribe = vi.fn();
+		const close = vi.fn(async () => undefined);
+		type ChildWatcher = NonNullable<Awaited<ReturnType<AgentConnection["watchSession"]>>>;
+		const watcher = {
+			getMessages: vi.fn(async () => messages),
+			getCommands: vi.fn(async () => []),
+			subscribe: vi.fn((next: (event: AgentConnectionEvent) => void) => {
+				listener = next;
+				return unsubscribe;
+			}),
+			getToolDefinition: vi.fn(async () => undefined),
+			close,
+		} as unknown as ChildWatcher;
+		return {
+			watcher,
+			subscribe: watcher.subscribe as unknown as ReturnType<typeof vi.fn>,
+			unsubscribe,
+			close,
+			emit: (event: AgentConnectionEvent) => listener?.(event),
+		};
+	}
+
+	async function createAuthorizedChild(status: "running" | "done" = "running"): Promise<{
+		bridge: PrimeBridge;
+		childManager: ReturnType<typeof SessionManager.create>;
+		childSessionId: string;
+		parent: Awaited<ReturnType<PrimeBridge["createSession"]>>;
+		listedSessions: Array<Record<string, unknown>>;
+	}> {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const bridge = createTestBridge({ sessionLister });
+		bridges.push(bridge);
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const childManager = SessionManager.create(workDir, join(workDir, `rlm-${status}-child-store`));
+		const childPath = childManager.materializeSessionFile();
+		childManager.flushNow();
+		const childSessionId = childManager.getSessionId();
+		const child = {
+			id: "child-1",
+			label: "Research worker",
+			status,
+			timestamp: Date.now(),
+			...(status === "running" ? { activeSessionId: "active-child-runtime" } : {}),
+		};
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: [child],
+		};
+		listedSessions.push({
+			id: childSessionId,
+			sessionId: childSessionId,
+			...(status === "running" ? { activeSessionId: "active-child-runtime", isStreaming: true } : {}),
+			cwd: workDir,
+			sessionFile: childPath,
+			parentSessionId: parent.sessionId,
+			rlmChildId: "child-1",
+		});
+		return { bridge, childManager, childSessionId, parent, listedSessions };
+	}
+
+	it("creates one watcher for concurrent opens and closes it after the final release", async () => {
+		const { bridge, parent } = await createAuthorizedChild();
+		const control = createChildWatcher();
+		let releaseWatch!: () => void;
+		const watchGate = new Promise<void>((resolve) => {
+			releaseWatch = resolve;
+		});
+		const watchSession = vi.spyOn(parent.connection, "watchSession").mockImplementation(async (sessionId) => {
+			await watchGate;
+			return sessionId === "active-child-runtime" ? control.watcher : undefined;
+		});
+
+		const firstOpen = bridge.openRlmChildStream(parent.sessionId, "child-1");
+		const secondOpen = bridge.openRlmChildStream(parent.sessionId, "child-1");
+		await vi.waitFor(() => expect(watchSession).toHaveBeenCalledOnce());
+		releaseWatch();
+		const [first, second] = await Promise.all([firstOpen, secondOpen]);
+		expect(first?.streamGeneration).toBe(second?.streamGeneration);
+		expect(first?.mode).toBe("live");
+
+		await first?.release();
+		expect(control.close).not.toHaveBeenCalled();
+		await second?.release();
+		expect(control.close).toHaveBeenCalledOnce();
+		expect(control.unsubscribe).toHaveBeenCalledOnce();
+	});
+
+	it("buffers events during bootstrap and replays them from the stream channel", async () => {
+		const { bridge, parent } = await createAuthorizedChild();
+		const control = createChildWatcher();
+		let releaseMessages!: () => void;
+		const messagesGate = new Promise<void>((resolve) => {
+			releaseMessages = resolve;
+		});
+		control.watcher.getMessages = vi.fn(async () => {
+			await messagesGate;
+			return [];
+		});
+		vi.spyOn(parent.connection, "watchSession").mockResolvedValue(control.watcher);
+
+		const opening = bridge.openRlmChildStream(parent.sessionId, "child-1");
+		await vi.waitFor(() => expect(control.subscribe).toHaveBeenCalledOnce());
+		control.emit({ type: "session_event", event: { type: "agent_start" } } as unknown as AgentConnectionEvent);
+		releaseMessages();
+		const stream = await opening;
+		expect(stream).toBeDefined();
+		const replay = bridge.replaySince(stream!.channelId, 0);
+		expect(replay.replayed.some((entry) => JSON.stringify(entry.event).includes('"name":"agent_start"'))).toBe(true);
+		await stream!.release();
+	});
+
+	it("closes the watcher when child bootstrap fails", async () => {
+		const { bridge, parent } = await createAuthorizedChild();
+		const control = createChildWatcher();
+		control.watcher.getMessages = vi.fn(async () => {
+			throw new Error("child bootstrap failed");
+		});
+		vi.spyOn(parent.connection, "watchSession").mockResolvedValue(control.watcher);
+
+		await expect(bridge.openRlmChildStream(parent.sessionId, "child-1")).resolves.toBeUndefined();
+		expect(control.unsubscribe).toHaveBeenCalledOnce();
+		expect(control.close).toHaveBeenCalledOnce();
+	});
+
+	it("uses a terminal snapshot-only stream for completed children", async () => {
+		const { bridge, childManager, childSessionId, parent } = await createAuthorizedChild("done");
+		childManager.appendMessage({ role: "user", content: "Completed child", timestamp: Date.now() });
+		childManager.flushNow();
+		const watchSession = vi.spyOn(parent.connection, "watchSession");
+
+		const stream = await bridge.openRlmChildStream(parent.sessionId, "child-1");
+		expect(stream).toMatchObject({
+			sessionId: childSessionId,
+			mode: "snapshot-only",
+			resumeAccepted: false,
+		});
+		expect(stream?.snapshot).toMatchObject({ status: "ready", terminal: true });
+		expect(stream?.snapshot.messages[0]).toMatchObject({ role: "user" });
+		expect(watchSession).not.toHaveBeenCalled();
+		await stream?.release();
+	});
+
+	it("rejects a cursor from an old stream generation and bootstraps a fresh snapshot", async () => {
+		const { bridge, parent } = await createAuthorizedChild();
+		const firstControl = createChildWatcher();
+		const secondControl = createChildWatcher();
+		const watchSession = vi
+			.spyOn(parent.connection, "watchSession")
+			.mockResolvedValueOnce(firstControl.watcher)
+			.mockResolvedValueOnce(secondControl.watcher);
+
+		const first = await bridge.openRlmChildStream(parent.sessionId, "child-1");
+		expect(first).toBeDefined();
+		await first!.release();
+		const second = await bridge.openRlmChildStream(parent.sessionId, "child-1", {
+			streamGeneration: first!.streamGeneration,
+			lastEventId: 1,
+		});
+		expect(second).toMatchObject({ resumeAccepted: false, cursorReset: true, includeSnapshot: true });
+		expect(second?.streamGeneration).not.toBe(first?.streamGeneration);
+		expect(watchSession).toHaveBeenCalledTimes(2);
+		await second?.release();
 	});
 });
 

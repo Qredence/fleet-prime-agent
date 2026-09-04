@@ -126,6 +126,14 @@ function carryForwardReasoningPresentation(
 	return { ...nextMessage, parts: [...preserved, ...nextMessage.parts] };
 }
 
+/**
+ * Merges an in-flight assistant message into the transcript.
+ *
+ * @param messages - The current transcript messages
+ * @param nextMessage - The assistant message to merge
+ * @param assistantId - The active assistant message identifier, if available
+ * @returns The transcript with the message replaced or appended
+ */
 function replaceOrAppendInFlight(
 	messages: Array<ChatMessage>,
 	nextMessage: ChatMessage,
@@ -158,7 +166,29 @@ function replaceOrAppendInFlight(
 	return [...messages, nextMessage];
 }
 
+/**
+ * Applies a chat stream event to the current transition and produces the updated chat state.
+ *
+ * @param transition - The current assistant identifier and chat stream snapshot
+ * @param event - The stream event to apply
+ * @returns The updated assistant identifier and chat stream snapshot
+ */
 export function applyChatStreamEvent(transition: ChatStreamTransition, event: ChatStreamEvent): ChatStreamTransition {
+	if (event.type === "session_snapshot") {
+		return {
+			assistantId: null,
+			snapshot: {
+				...transition.snapshot,
+				activityLabel: undefined,
+				messages: event.messages,
+				planLabel: undefined,
+				presentation: event.presentation,
+				queue: EMPTY_QUEUE_STATE,
+				sessionMetadata: event.session,
+			},
+		};
+	}
+
 	// Runtime reattachment uses a synthetic done frame to mark the old
 	// connection state as reset. The user turn is still in flight, so preserve
 	// the current assistant bubble until the real terminal done arrives.
@@ -172,6 +202,23 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 			snapshot: {
 				...transition.snapshot,
 				presentation: event.presentation,
+			},
+		};
+	}
+
+	if (event.type === "rlm") {
+		const presentation = transition.snapshot.presentation;
+		if (!presentation) return transition;
+		const rlmChildren = [...presentation.rlmChildren.filter((child) => child.id !== event.child.id), event.child];
+		return {
+			...transition,
+			snapshot: {
+				...transition.snapshot,
+				presentation: {
+					...presentation,
+					rlmChildren,
+					...(event.tree ? { rlmTree: event.tree } : {}),
+				},
 			},
 		};
 	}

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -9,9 +9,13 @@ import { pnpmInvocation } from "./pnpm-command.mjs";
 import { parseStableVersion, RELEASE_REPOSITORY } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const packageManifestPath = join(root, "packages", "fleet-prime", "package.json");
+const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
 const packageName = "@qredence/fleet";
 const baseBranch = "main";
+const oneTimeReleaseOverride = Object.freeze({
+	fromVersion: "0.5.1",
+	targetVersion: "0.5.5",
+});
 
 /**
  * Parses release preparation command-line options.
@@ -119,10 +123,10 @@ function readChangesetStatus() {
 }
 
 /**
- * Builds the release plan for the package from Changesets status data.
- * @param {object} status - Changesets status data containing release entries.
- * @returns {{packageName: string, currentVersion: string, version: string}} The package name, current version, and planned release version.
- * @throws {Error} If no release plan exists, the current version differs from the package manifest, or the planned version is unstable.
+ * Builds the package release plan from Changesets status data.
+ * @param {object} status - Changesets status data containing package release entries.
+ * @returns {{packageName: string, currentVersion: string, version: string}} The package name, current manifest version, and resolved release version.
+ * @throws {Error} If the package has no release plan, its expected version differs from the manifest, or the planned version is unstable.
  */
 export function releasePlanFromStatus(status) {
 	const release = status?.releases?.find((entry) => entry.name === packageName);
@@ -134,7 +138,59 @@ export function releasePlanFromStatus(status) {
 		);
 	}
 	parseStableVersion(release.newVersion);
-	return { packageName, currentVersion: release.oldVersion, version: release.newVersion };
+	return {
+		packageName,
+		currentVersion: release.oldVersion,
+		version: resolveReleaseVersion(release.oldVersion, release.newVersion),
+	};
+}
+
+/**
+ * Applies the one-time target for the pending 0.5.1 patch release.
+ * @param {string} currentVersion - The package version before Changesets runs.
+ * @param {string} plannedVersion - The version calculated by Changesets.
+ * @returns {string} The version to use for the release PR.
+ */
+export function resolveReleaseVersion(currentVersion, plannedVersion) {
+	const [major, minor, patch] = parseStableVersion(currentVersion);
+	const nextPatchVersion = `${major}.${minor}.${patch + 1}`;
+	return currentVersion === oneTimeReleaseOverride.fromVersion && plannedVersion === nextPatchVersion
+		? oneTimeReleaseOverride.targetVersion
+		: plannedVersion;
+}
+
+/**
+ * Derives the preceding patch version for a stable release target.
+ * @param {string} targetVersion - The target release version.
+ * @returns {string} The preceding patch version.
+ */
+export function releaseTargetBaselineVersion(targetVersion) {
+	const [major, minor, patch] = parseStableVersion(targetVersion);
+	if (patch === 0) throw new Error(`Cannot derive a patch baseline from ${targetVersion}`);
+	return `${major}.${minor}.${patch - 1}`;
+}
+
+/**
+ * Temporarily moves the manifest to the preceding patch so `changeset version` emits the target release.
+ * @param {{currentVersion: string, version: string}} releasePlan - The resolved release plan.
+ */
+function prepareManifestForReleaseTarget(releasePlan) {
+	if (
+		releasePlan.currentVersion !== oneTimeReleaseOverride.fromVersion ||
+		releasePlan.version !== oneTimeReleaseOverride.targetVersion
+	) {
+		return;
+	}
+	const manifest = JSON.parse(readFileSync(packageManifestPath, "utf8"));
+	if (manifest.version !== releasePlan.currentVersion) {
+		throw new Error(
+			`Release target ${releasePlan.version} expects ${packageName}@${releasePlan.currentVersion}, but the repository manifest is ${manifest.version}`,
+		);
+	}
+	writeFileSync(
+		packageManifestPath,
+		`${JSON.stringify({ ...manifest, version: releaseTargetBaselineVersion(releasePlan.version) }, null, 2)}\n`,
+	);
 }
 
 /**
@@ -168,8 +224,8 @@ function changedFiles(baseSha) {
  */
 function assertVersionChangesOnly(files) {
 	const allowed = (path, status) => {
-		if (path === "packages/fleet-prime/package.json" && status !== "D") return true;
-		if (path === "packages/fleet-prime/CHANGELOG.md" && status !== "D") return true;
+		if (path === "packages/fleet-web/package.json" && status !== "D") return true;
+		if (path === "packages/fleet-web/CHANGELOG.md" && status !== "D") return true;
 		return (
 			status === "D" && path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md"
 		);
@@ -186,15 +242,19 @@ function assertVersionChangesOnly(files) {
  * Creates a release branch and pull request for the specified package version.
  * Skips creation when the target release pull request already exists, another release pull request is active, or the release branch is unmanaged.
  * @param {string} token - GitHub authentication token.
- * @param {string} version - Stable release version from the CircleCI environment.
+ * @param {string} version - Stable release version.
  * @param {string} baseSha - Commit SHA from which to create the release.
- * @throws {Error} If an unmanaged release branch already exists or versioning produces invalid or empty changes.
+ * @param {Object} [options] - Release preparation options.
+ * @param {Function} [options.githubRequestImpl] - GitHub request implementation.
+ * @param {Function} [options.githubRequestAllow404Impl] - GitHub request implementation that allows a 404 response.
+ * @param {Object} [options.releasePlan] - Release plan used to prepare the manifest for the target version.
+ * @throws {Error} If the version is invalid, an unmanaged release branch exists, or versioning produces invalid or empty changes.
  */
 export async function createVersionPullRequest(
 	token,
 	version,
 	baseSha,
-	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404 } = {},
+	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404, releasePlan } = {},
 ) {
 	const { owner, repo } = RELEASE_REPOSITORY;
 	parseStableVersion(version);
@@ -230,6 +290,7 @@ export async function createVersionPullRequest(
 		);
 	}
 
+	if (releasePlan) prepareManifestForReleaseTarget(releasePlan);
 	const pnpm = pnpmInvocation(["exec", "changeset", "version"]);
 	execFileSync(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
 	const files = changedFiles(baseSha);
@@ -279,14 +340,14 @@ export async function createVersionPullRequest(
 }
 
 /**
- * Prepares a release pull request for the pending Changesets.
+ * Prepares a pull request for the pending Changesets release.
  * @param {Object} [options] - Release preparation options.
  * @param {string} [options.baseSha] - Commit to use as the release base.
  * @param {Object} [options.status] - Changeset status data.
  * @param {boolean} [options.dryRun=false] - Whether to report the planned release without creating changes.
  * @param {string} [options.branch] - Current branch name, which must be `main`.
- * @returns {Promise<Object>} Preparation status, including the release plan when applicable.
- * @throws {Error} If the current branch is not `main` or a GitHub token is missing for a non-dry run.
+ * @returns {Promise<Object>} Preparation result, including the release plan when applicable.
+ * @throws {Error} If the current branch is not `main`, required release environment values are missing, or the configured release version does not match the planned version.
  */
 export async function prepareRelease({
 	token,
@@ -318,7 +379,7 @@ export async function prepareRelease({
 	if (releaseVersion !== plan.version) {
 		throw new Error(`FLEET_RELEASE_VERSION ${releaseVersion} does not match the Changesets version ${plan.version}`);
 	}
-	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha);
+	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha, { releasePlan: plan });
 	return { prepared: true, plan };
 }
 

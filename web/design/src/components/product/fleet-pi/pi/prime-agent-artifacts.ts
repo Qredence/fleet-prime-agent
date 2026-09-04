@@ -194,6 +194,13 @@ function upsertRun(runs: PrimeAgentArtifactRun[], artifact: PrimeAgentArtifact):
 	if (artifact.status !== "running") run.endedAt = artifact.timestamp;
 }
 
+/**
+ * Builds artifact runs from supported tool entries in chat messages.
+ *
+ * @param messages - Chat messages containing tool entries to inspect
+ * @param chatStatus - Optional chat status used to determine artifact statuses
+ * @returns Artifact runs derived from the supported tool entries
+ */
 function artifactsFromMessages(messages: Array<ChatMessage>, chatStatus?: ChatStatus): Array<PrimeAgentArtifactRun> {
 	const runs: Array<PrimeAgentArtifactRun> = [];
 	for (const message of messages) {
@@ -224,6 +231,7 @@ function artifactsFromMessages(messages: Array<ChatMessage>, chatStatus?: ChatSt
 				status: statusFor(source, chatStatus),
 				...(input !== undefined ? { input } : {}),
 				...(output !== undefined ? { output } : {}),
+				...(typeof source.backgroundOutput === "string" ? { backgroundOutput: source.backgroundOutput } : {}),
 				timestamp,
 			});
 		}

@@ -28,9 +28,9 @@ function readJson(relativePath) {
 
 const expectedTarball = manifest.tarball;
 
-const fleetPrimePackage = readJson("packages/fleet-prime/package.json");
+const fleetPrimePackage = readJson("packages/fleet-web/package.json");
 if (fleetPrimePackage.dependencies?.["prime-agent"] !== expectedTarball) {
-	throw new Error("packages/fleet-prime/package.json prime-agent pin does not match the runtime manifest tarball");
+	throw new Error("packages/fleet-web/package.json prime-agent pin does not match the runtime manifest tarball");
 }
 
 const webServerPackage = readJson("web/server/package.json");

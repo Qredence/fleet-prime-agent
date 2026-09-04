@@ -9,7 +9,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Qredence/fleet-prime-agent.git",
-    "directory": "packages/fleet-prime"
+    "directory": "packages/fleet-web"
   },
   "keywords": [
     "ai",
@@ -43,9 +43,9 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-core-0.8.1.tgz",
-    "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-ai-0.8.1.tgz",
-    "prime-agent": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.8.1/prime-agent-0.8.1.tgz",
+    "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-core-0.9.1.tgz",
+    "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-ai-0.9.1.tgz",
+    "prime-agent": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-0.9.1.tgz",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "use-sync-external-store": "1.6.0"
