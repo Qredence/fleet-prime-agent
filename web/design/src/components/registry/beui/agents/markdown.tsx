@@ -1,5 +1,5 @@
 import { Streamdown } from "streamdown"
-import { Fragment, isValidElement, lazy, Suspense } from "react"
+import { Fragment, isValidElement, lazy, Suspense, useMemo } from "react"
 import { cn } from "./utils/cn"
 import type { Components } from "streamdown"
 
@@ -224,8 +224,11 @@ export function MarkdownFrame({
 }
 
 function PlainMarkdown({ content, className, codeControls }: MarkdownProps) {
-  const safeContent = normalizeCodeFenceLanguages(
-    fixNumberedListBreaks(content)
+  // Regex preprocessing runs per render (including per streamed token), so
+  // memoize on content — the transforms are pure functions of it.
+  const safeContent = useMemo(
+    () => normalizeCodeFenceLanguages(fixNumberedListBreaks(content)),
+    [content],
   )
 
   return (

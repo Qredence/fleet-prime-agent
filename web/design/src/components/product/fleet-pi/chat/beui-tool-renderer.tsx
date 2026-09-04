@@ -153,6 +153,8 @@ export const BeuiToolRenderer = memo(function BeuiToolRenderer({
           alt="Generated result"
           width={640}
           height={320}
+          loading="lazy"
+          decoding="async"
           className="h-auto max-h-80 w-full object-contain"
         />
       </ImageGeneration>

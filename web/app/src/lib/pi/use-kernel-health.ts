@@ -32,7 +32,12 @@ export function useKernelHealth(pollMs = 15_000) {
 			}
 		};
 		void tick();
-		const id = setInterval(() => void tick(), pollMs);
+		// Skip polling while the tab is hidden — health state goes stale but
+		// refreshes on the next visible tick instead of churning in background.
+		const id = setInterval(() => {
+			if (document.visibilityState === "hidden") return;
+			void tick();
+		}, pollMs);
 		return () => {
 			cancelled = true;
 			clearInterval(id);

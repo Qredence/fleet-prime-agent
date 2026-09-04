@@ -100,6 +100,7 @@ export function CitationFavicon({
           alt=""
           width={16}
           height={16}
+          loading="lazy"
           referrerPolicy="no-referrer"
           onError={() => setFailedUrl(favicon)}
           className="size-4 rounded-sm object-contain"

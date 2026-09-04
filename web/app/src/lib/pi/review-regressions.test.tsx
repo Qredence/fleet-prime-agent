@@ -93,7 +93,7 @@ describe("review regressions", () => {
 		expect(getByRole("button", { name: "1 tool action" }).getAttribute("aria-expanded")).toBe("true");
 	});
 
-	it("limits the active tool timeline to artifacts from the current turn", () => {
+	it("limits the active tool timeline to artifacts from the current turn", async () => {
 		const messages: Array<ChatMessage> = [
 			{ id: "user-1", role: "user", parts: [{ type: "text", text: "First turn" }] },
 			{
@@ -143,7 +143,7 @@ describe("review regressions", () => {
 			},
 		];
 
-		const { getAllByRole, queryByRole } = render(
+		const { findAllByRole, queryByRole } = render(
 			<FleetPiAgentChat
 				artifactRuns={artifactRuns}
 				inputBar={inputBar}
@@ -154,8 +154,10 @@ describe("review regressions", () => {
 			/>,
 		);
 
+		// Timeline and activity panels load lazily; wait for them first so the
+		// absence assertion below is meaningful instead of pre-load.
+		expect(await findAllByRole("button", { name: "1 tool action" })).toHaveLength(2);
 		expect(queryByRole("button", { name: "2 tool actions" })).toBeNull();
-		expect(getAllByRole("button", { name: "1 tool action" })).toHaveLength(2);
 	});
 
 	it("renders nested subagents in tree order regardless of completion order", () => {
@@ -211,8 +213,8 @@ describe("review regressions", () => {
 		await waitFor(() => expect(notifyError).toHaveBeenCalledWith("Unable to remove queued message"));
 	});
 
-	it("keeps completed reasoning presentation visible", () => {
-		const { getByLabelText } = render(
+	it("keeps completed reasoning presentation visible", async () => {
+		const { findByLabelText } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={[settledReasoningMessage()]}
@@ -222,7 +224,7 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		expect(getByLabelText("Safe reasoning progress")).toBeTruthy();
+		expect(await findByLabelText("Safe reasoning progress")).toBeTruthy();
 	});
 
 	it("does not render legacy raw thinking parts", () => {
