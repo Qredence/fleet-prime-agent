@@ -1,38 +1,56 @@
 # Fleet Prime Agent
 
-Fleet Prime Agent is Qredence's persistent local workspace for coding and research with AI. It combines a multi-project web chat with the upstream Prime Agent engine, so an agent can work through IPython, shell commands, file edits, plans, and subagents while sessions remain available after you close the browser.
+Fleet Prime is a local, multi-project workspace for coding and research with AI.
+It combines a focused web interface with the stock [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)
+runtime, keeping sessions, workspace navigation, live tool activity, and managed
+execution together on your machine.
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/Qredence/fleet-prime-agent/tree/main.svg?style=shield)](https://app.circleci.com/pipelines/github/Qredence/fleet-prime-agent)
 [![Discord](https://shieldcn.dev/discord/1316199667142496307.svg?statusDot=true)](https://discord.gg/ebgy7gtZHK)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+![Fleet Prime workspace](https://github.com/user-attachments/assets/7df3d0ea-8c73-40a4-9bd3-f1c0445a9ea8)
 
+## Quick start
 
+### Install the package
 
-
-
-https://github.com/user-attachments/assets/7df3d0ea-8c73-40a4-9bd3-f1c0445a9ea8
-
-
-
-
-
-
-
-
-## Install
-
-Install the npm package (Node.js 22.12.0 or later):
+Fleet supports macOS and Linux; Windows is not supported. You need Node.js
+22.12.0 or later, and Python 3.10 or later for the managed IPython kernel.
 
 ```bash
-npm install -g @qredence/fleet
+npm install --global @qredence/fleet
 ```
 
-The public package supports macOS and Linux. Windows is not supported. It
-provides both `fleet-agent` and `fleet-prime`; `fleet-agent agent` hands off
-to the upstream Prime Agent CLI.
+### Launch the web workspace
 
-Or install from source. Clone the repository and run the Fleet Prime installer command. It installs the pinned upstream Prime Agent runtime, the web dependencies, builds Fleet Prime, and links `fleet-agent`.
+Run Fleet from the project directory you want the agent to work in:
+
+```bash
+cd /path/to/your/project
+fleet-agent
+```
+
+Open the loopback URL printed by the launcher. On first use, add a provider in
+**Settings → Providers** (or run `/login`) and choose a model in the composer.
+
+`fleet-prime` is an alias for the web launcher.
+
+### Terminal mode
+
+Run the terminal interface with:
+
+```bash
+fleet-agent agent
+```
+
+An existing `prime-agent` installation remains untouched. Fleet uses the same
+upstream settings, kernel environment, and logs.
+
+## Install from source
+
+Use the source installer when you want to develop Fleet or run the repository
+checkout directly:
 
 ```bash
 git clone https://github.com/Qredence/fleet-prime-agent.git
@@ -40,94 +58,79 @@ cd fleet-prime-agent
 ./fleet-prime.sh install
 ```
 
-The installer uses pnpm 11 for the workspace when a compatible system version is unavailable.
+The installer installs workspace dependencies, builds the web runtime, and
+places a `fleet-agent` launcher in a user-writable bin directory. If that
+directory is not already on your `PATH`, the installer prints the path to add.
+Source installation also requires Git, Node.js, and npm.
 
-## Start your workspace
+## What Fleet provides
 
-Run Fleet Prime from the project directory you want the agent to work in:
+- A local workspace for multiple projects and persistent sessions.
+- Streaming assistant responses and dedicated activity for shell commands,
+  file edits, plans, questions, and subagents.
+- A managed IPython environment for interactive analysis and file operations.
+- Attachments, generated artifacts, workspace browsing, and session history.
+- Plan, refinement, and provider configuration flows through the web interface.
 
-```bash
-cd /path/to/your/project
-fleet-agent
-```
+## Develop
 
-Open the local URL printed by the launcher. On first use, add a provider in **Settings → Providers** (or run `/login`) and choose a model in the composer.
-
-Use the terminal interface instead when you prefer a TUI:
-
-```bash
-prime-agent
-```
-
-## Coexistence with an existing `prime-agent` install
-
-Fleet installs as `fleet-agent`; it does not replace or shadow an existing `prime-agent` binary. Both commands share `~/.prime/agent/` settings, kernel venv, and logs.
-
-## What it does
-
-- Keeps project sessions, attachments, and workspace navigation in a local web interface.
-- Streams agent work as dedicated cards for IPython, shell commands, edits, plans, subagents, and interactive questions.
-- Gives the agent a persistent IPython environment for file operations, command execution, and tool use.
-- Supports recursive subagents, executable skills, and the `/refine` self-improvement workflow.
-
-## Requirements
-
-- Node.js 22.12.0 or later
-- Python 3.10 or later for the managed IPython kernel
-
-The source installer additionally requires Git and uses pnpm 11 (bootstrapped
-via npm when absent). npm users do not need the repository's pnpm workspace.
-
-## Develop from source
-
-Fleet resolves the whole workspace (web product, launcher package) with pnpm 11
-through the root `pnpm-workspace.yaml` and `pnpm-lock.yaml`.
+Install the repository workspace with pnpm:
 
 ```bash
 pnpm install
-pnpm --filter @prime-agent/web dev
 ```
 
-Never run `npm install` at the repository root; it drops a `package-lock.json`
-and rewrites the dependency layout.
-
-For validation, run `pnpm run check`. Run focused tests from the relevant package root, for example:
+Start the web application in development mode:
 
 ```bash
-cd web/server
-pnpm exec vitest run src/__tests__/specific.test.ts
+pnpm run dev:web
 ```
 
-`pnpm run check` detects formatting drift without rewriting files. Use
-`pnpm run format` for the explicit formatting write step. Add a Changeset for
-user-visible package changes; documentation-only, CI-only, and internal work
-may document an explicit no-release path instead.
+Run the repository checks and tests before submitting a change:
 
-## Documentation and contribution
+```bash
+pnpm run check
+pnpm run test:web
+```
 
-- [Wiki](https://github.com/Qredence/fleet-prime-agent/wiki) — browsable documentation
-- [Prime Agent documentation](https://github.com/PrimeIntellect-ai/prime-agent#readme) — engine documentation
-- [ARCHITECTURE.md](ARCHITECTURE.md) — system ownership, boundaries, and data flow
-- [Adapter contract](docs/reference/adapter-contract.md) — browser/server compatibility and privacy guarantees
-- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution process
-- [Release guide](docs/guides/releasing.md) — Changesets, CircleCI publishing, and rollback
-- [SUPPORT.md](SUPPORT.md) — support and community channels
+Use pnpm for the repository workspace. Do not run `npm install` or `npm ci` at
+the repository root; those commands create an unsupported dependency layout.
+Contributors should read [CONTRIBUTING.md](CONTRIBUTING.md) and
+[AGENTS.md](AGENTS.md) before opening a pull request.
 
-Read `AGENTS.md` before opening a pull request. It defines development,
-validation, and pinned-runtime upgrade rules.
+## Architecture
+
+Fleet owns the product and adapter layers; Prime Agent remains the external
+execution engine. The browser communicates with Fleet through typed HTTP,
+NDJSON, and SSE contracts, while runtime access stays in `web/server`.
+
+The pinned runtime release and checksum are maintained in
+[PRIME_AGENT_RUNTIME.json](PRIME_AGENT_RUNTIME.json).
 
 ## Security
 
-Fleet Prime executes model-generated Python and project commands with your user permissions. Worker and kernel processes improve lifecycle isolation and recovery; they are not a security sandbox. Use trusted repositories, instructions, skills, and extensions, and review changes before accepting them. See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+Fleet runs locally and the web launcher accepts loopback connections only. It
+can execute model-generated Python and project commands with your user
+permissions; it is not a security sandbox. Use trusted repositories,
+instructions, skills, and extensions, and review changes before accepting
+them. See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
-## Upstream engine
+## Documentation and support
 
-Fleet does not vendor the Prime Agent engine. [PRIME_AGENT_RUNTIME.json](PRIME_AGENT_RUNTIME.json) pins the upstream release tarball and SHA-256; upgrades update that manifest and must pass the web-server parity tests.
+- [Architecture](ARCHITECTURE.md) — system ownership and data flow.
+- [Adapter contract](docs/reference/adapter-contract.md) — browser/server
+  compatibility, replay, and privacy guarantees.
+- [Contributing](CONTRIBUTING.md) — development and pull request process.
+- [Release guide](docs/guides/releasing.md) — Changesets, publishing, and
+  rollback.
+- [Support](SUPPORT.md) — questions, bugs, and community channels.
+- [Prime Agent documentation](https://github.com/PrimeIntellect-ai/prime-agent#readme)
+  — upstream engine documentation.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Fleet Prime Agent is released under the [MIT License](LICENSE).
 
-## Acknowledgments
-
-Fleet Prime Agent is powered by [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent), whose lineage includes [pi-mono](https://github.com/badlogic/pi-mono) by Mario Zechner. Thanks to the Prime Intellect team and the contributors who shaped that engine.
+Fleet is powered by [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent),
+whose lineage includes [pi-mono](https://github.com/badlogic/pi-mono) by Mario
+Zechner.
