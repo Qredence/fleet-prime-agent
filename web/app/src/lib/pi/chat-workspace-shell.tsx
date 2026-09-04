@@ -12,9 +12,8 @@ import { AnimatedSidebarInset } from "@prime-agent/web-design/components/registr
 import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components/openui/open-panel-action-message";
 import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact";
 import { notify } from "@prime-agent/web-design/lib/notify";
-import { useCallback } from "react";
+import { lazy, Suspense, useCallback } from "react";
 import { ChatPanel } from "@/lib/pi/chat-panel";
-import { SubagentChatPanel } from "@/lib/pi/subagent-chat-panel";
 import { buildChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
 import {
 	ChatCommandPaletteOverlay,
@@ -22,6 +21,12 @@ import {
 } from "@/lib/pi/chat-workspace-dialogs";
 import { focusChatComposer, usePanelKeybindings } from "@/lib/pi/panel-keybindings";
 import { useChatWorkspaceData } from "@/lib/pi/use-chat-workspace-data";
+
+const LazySubagentChatPanel = lazy(() =>
+	import("@/lib/pi/subagent-chat-panel").then(({ SubagentChatPanel }) => ({
+		default: SubagentChatPanel,
+	})),
+);
 
 /**
  * Renders the chat workspace shell with session navigation, conversation UI, panels, dialogs, and workspace actions.
@@ -113,11 +118,19 @@ export function ChatWorkspaceShell() {
 			onQuestionAnswer={composer.handleQuestionAnswer}
 		/>
 	) : (
-		<SubagentChatPanel
-			child={agentTabs.selectedChild!}
-			parentSessionId={session.activeSessionId}
-			state={agentTabs.conversation}
-		/>
+		<Suspense
+			fallback={
+				<div className="flex min-h-32 flex-1 items-center justify-center text-xs text-foreground/45">
+					Loading subagent thread…
+				</div>
+			}
+		>
+			<LazySubagentChatPanel
+				child={agentTabs.selectedChild!}
+				parentSessionId={session.activeSessionId}
+				state={agentTabs.conversation}
+			/>
+		</Suspense>
 	);
 	return (
 		<>
