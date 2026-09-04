@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const browserSourceRoots = ["web/app/src", "web/design/src"];
 const forbiddenImportPattern =
-	/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*|\bexport\s+[^;\n]*?\bfrom\s*)["'](prime-agent|@earendil-works\/pi-agent-core|@earendil-works\/pi-ai)(?:\/[^"']*)?["']/g;
+	/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?|\brequire\s*\(\s*|\bexport\s+[^;\n]*?\bfrom\s*)["'](prime-agent|@earendil-works\/pi-agent-core|@earendil-works\/pi-ai|@earendil-works\/pi-tui)(?:\/[^"']*)?["']/g;
 
 function sourceFiles(directory) {
 	const files = [];
