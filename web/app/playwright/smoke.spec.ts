@@ -402,9 +402,7 @@ test.describe("chat shell", () => {
 
 	test("/api/workspace/file previews ARCHITECTURE.md", async ({ request }) => {
 		// Default cwd is the git repo root (prime-agent/), not web/app.
-		const response = await request.get(
-			"/api/workspace/file?path=web/app/ARCHITECTURE.md",
-		)
+		const response = await request.get("/api/workspace/file?path=ARCHITECTURE.md")
 		expect(response.ok()).toBeTruthy()
 		const body = (await response.json()) as {
 			status?: string
@@ -415,7 +413,7 @@ test.describe("chat shell", () => {
 		expect(body.status).toBe("ok")
 		expect(body.mediaType).toBe("text/markdown")
 		expect(body.name).toBe("ARCHITECTURE.md")
-		expect(body.content).toMatch(/Fleet Prime Web Architecture/i)
+		expect(body.content).toMatch(/Fleet Prime Architecture/i)
 	})
 
 	test("BEUI chat preserves the desktop panel tabs and toggle behavior", async ({ page }) => {

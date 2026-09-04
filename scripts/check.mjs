@@ -6,12 +6,13 @@
 // other work, then Biome checks the repository. Formatting is read-only by
 // default; pass --write only from the explicit developer formatting command.
 //
-// Phase 2 (concurrent): installer, rendering, and typecheck stages are
-// independent read-only checks, so they run in parallel. Unlike the previous
-// &&-chain, a phase-2 failure no longer hides the results of later stages;
-// every stage always runs and all failures are reported.
+// Phase 2 (concurrent): boundary, installer, rendering, and typecheck stages
+// are independent read-only checks, so they run in parallel. Unlike the
+// previous &&-chain, a phase-2 failure no longer hides the results of later
+// stages; every stage always runs and all failures are reported.
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
@@ -28,6 +29,10 @@ if (unexpectedArguments.length > 0) {
 // .bin shim: the wrapper resolves the platform binary (including the win32
 // .exe) and process.execPath works on every OS.
 const biomeBin = resolve(root, "node_modules/@biomejs/biome/bin/biome");
+if (existsSync(resolve(root, "package-lock.json"))) {
+	console.error("Root package-lock.json is not allowed; use the pnpm workspace lockfile.");
+	process.exit(1);
+}
 
 function runStage(label, command, args) {
 	return new Promise((resolvePromise) => {
@@ -86,6 +91,7 @@ if (biome.code !== 0) {
 
 const pnpmTypecheck = pnpmInvocation(["run", "check:web"]);
 const phase2 = await Promise.all([
+	runStage("boundaries", process.execPath, ["scripts/check-web-boundaries.mjs"]),
 	runStage("installer", process.execPath, ["scripts/check-source-installer.mjs", "--static"]),
 	runStage("rendering", process.execPath, ["web/design/scripts/render-checks.mjs"]),
 	runStage("typecheck", pnpmTypecheck.command, pnpmTypecheck.args),

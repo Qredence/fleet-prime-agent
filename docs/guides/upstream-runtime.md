@@ -1,44 +1,41 @@
-# Upstream Runtime Guide
+# Upstream Prime Agent Runtime
 
-Read this before upgrading the pinned Prime Agent runtime or touching
-daemon-facing code in `web/server`.
+Use this runbook when changing `PRIME_AGENT_RUNTIME.json`, runtime package references, daemon-facing `web/server` code, or the Prime Agent protocol boundary.
 
-## Runtime upgrades
+## Source of truth
 
-Prime Agent is consumed as a stock, checksum-pinned release tarball rather than
-vendored source. To upgrade it:
-1. Update `PRIME_AGENT_RUNTIME.json` with the new manifest version, tarball URL,
-   and SHA-256 hash, ensuring `manifest.version` matches the tarball filename.
-2. Update `pnpm-workspace.yaml` `allowBuilds` for the new tarball URL.
-3. Update matching dependency URLs in `packages/fleet-web/package.json` and `web/server/package.json`.
-4. Run `pnpm install`.
-5. Run `PRIME_RUNTIME_VERIFY_TARBALL=1 node scripts/check-prime-agent-runtime.mjs`.
-6. Run web-server type checks (`pnpm run check`) and the adapter parity tests.
-Review changes to the public runtime APIs consumed by `web/server` and the daemon protocol before merging. Do not patch upstream code inside this repository. See the `.agents/skills/prime-runtime-upgrade/SKILL.md` skill for the complete runbook.
+`PRIME_AGENT_RUNTIME.json` owns the `prime-agent` release archive URL and checksum. Keep these references synchronized with it:
 
-## Daemon protocol changes
+- `packages/fleet-web/package.json`;
+- `web/server/package.json`;
+- `pnpm-workspace.yaml` runtime build allowances;
+- `pnpm-lock.yaml`;
+- any other direct runtime-family URL or version reference found by repository search.
 
-The daemon protocol is upstream-owned. When a pinned runtime upgrade changes
-the protocol or schema revision, review
-`web/docs/architecture/fleet-adapter-contract-v1.md`, update `web/server`, and
-run the daemon-runtime and bridge parity tests in the same PR.
+Do not copy upstream source into Fleet. Engine, provider, model, daemon, and upstream protocol changes belong upstream; Fleet should update its pin and adapter only after the upstream capability exists.
 
-## Adding a new LLM provider
+## Upgrade procedure
 
-Engine features (providers, models, daemon protocol, CLI behavior) are
-developed in `PrimeIntellect-ai/prime-agent`, not here. Contribute there, then
-update the pinned stock runtime release and Fleet adapter compatibility
-checks.
+1. Update the manifest package, version, tarball URL, and SHA-256 together.
+2. Update every direct package and workspace reference to the same release archive or runtime-family release.
+3. Run `pnpm install` from the repository root to refresh the workspace lockfile.
+4. Run:
 
-## Known upstream advisories
+   ~~~bash
+   pnpm run check:runtime
+   PRIME_RUNTIME_VERIFY_TARBALL=1 node scripts/check-prime-agent-runtime.mjs
+   ~~~
 
-- **GHSA-jmr9-qjv8-65gv (high)** — `extract-zip <= 2.0.1` unvalidated
-  symlink path traversal, reachable through the pinned runtime's dependency
-  tree (`packages/fleet-web > prime-agent > extract-zip` and
-  `web/server > prime-agent > extract-zip`). As of 2026-08-31 no patched
-  release exists. The latest extract-zip release remains 2.0.1, from 2020.
-  This cannot be fixed from
-  Fleet — there is no version to override to and the dependency belongs to
-  the upstream runtime. Recheck when bumping `PRIME_AGENT_RUNTIME.json`; if
-  the new release still resolves extract-zip 2.0.1, report the advisory
-  upstream before adopting it.
+   The second command downloads the archive and is the checksum/integrity check; use it when network access is appropriate.
+5. Run the focused daemon/adapter suites from the server workspace, especially `daemon-runtime.test.ts`, `event-mapper.test.ts`, `prime-bridge.test.ts`, `sse-replay.test.ts`, and `chat-events.test.ts` when their behavior is affected.
+6. Run `pnpm run check`. If protocol or browser behavior changed, run the relevant focused browser tests and escalate to `pnpm run test:web`.
+
+## Compatibility checks
+
+`web/server/src/daemon-runtime.ts` probes the local daemon and accepts only the daemon name and protocol version supported by the pinned runtime. A daemon/protocol change therefore requires both the upstream compatibility change and the corresponding Fleet adapter/test update.
+
+Do not solve an upstream incompatibility by copying or patching the runtime locally. If the daemon contract needs a new capability, keep the change at the `web/server`/`web/protocol` boundary and document the current browser guarantee in `docs/reference/adapter-contract.md`.
+
+## Advisory review
+
+Review the pinned archive and its transitive dependencies on every upgrade. The current lockfile contains `extract-zip@2.0.1`, so re-check GHSA-jmr9-qjv8-65gv and its patched-release status before changing or republishing the runtime package set. Do not bypass the workspace minimum-release-age policy for ordinary updates; record an explicit reviewed reason for an urgent security override.
