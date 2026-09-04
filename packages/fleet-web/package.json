@@ -1,6 +1,6 @@
 {
   "name": "@qredence/fleet",
-  "version": "0.5.1",
+  "version": "0.5.5",
   "description": "Fleet Prime: local web interface and launcher for the pinned Prime Agent runtime",
   "license": "MIT",
   "type": "module",

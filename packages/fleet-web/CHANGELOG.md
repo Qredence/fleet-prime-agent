@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.5
+
+### Patch Changes
+
+- 6f6db1c: Adds first-class read-only subagent conversation tabs with resilient live and snapshot transcript handling.
+- 2a1e883: adding changeset
+
 ## 0.5.1
 
 ### Patch Changes
