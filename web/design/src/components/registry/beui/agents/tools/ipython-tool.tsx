@@ -47,6 +47,14 @@ type IpythonCellCardProps = {
   part: any
 }
 
+/**
+ * Renders the status header for an IPython or shell cell.
+ *
+ * @param isPending - Whether the cell is still running
+ * @param isBashCell - Whether the cell contains shell commands
+ * @param hasError - Whether the cell execution failed
+ * @param kernelRestarted - Whether execution restarted the kernel
+ */
 function IpythonCardHeader({
   isPending,
   isBashCell,
@@ -102,6 +110,11 @@ function IpythonCardHeader({
   )
 }
 
+/**
+ * Displays background output that is not attributed to a specific cell.
+ *
+ * @param output - The background output to display
+ */
 function IpythonBackgroundOutput({ output }: { output: string }) {
   return (
     <div className="mt-1.5 border-t border-dashed border-border/70 pt-1.5 font-mono text-[11px] leading-[15px]">
@@ -115,6 +128,16 @@ function IpythonBackgroundOutput({ output }: { output: string }) {
   )
 }
 
+/**
+ * Renders an IPython or Bash cell with its code, execution status, output, errors, background output, and approval controls.
+ *
+ * @param step - Execution step information used to schedule completion.
+ * @param state - Current execution state of the cell.
+ * @param onComplete - Callback invoked when the cell finishes animating.
+ * @param approval - Optional approval data for rendering approval controls.
+ * @param cellIndex - Optional notebook cell index displayed with the code.
+ * @param part - Tool-call data containing the cell input and output details.
+ */
 function IpythonCellCard({
   step,
   state,

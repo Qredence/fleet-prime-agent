@@ -492,19 +492,40 @@ function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string>
 	);
 }
 
+/**
+ * Resolves the transcript file path from a session summary.
+ *
+ * @param summary - The session summary containing the transcript file path
+ * @returns The resolved transcript path, or `undefined` when no valid path is present
+ */
 function sessionSummaryPath(summary: SessionSummary): string | undefined {
 	return typeof summary.sessionFile === "string" && summary.sessionFile.length > 0
 		? resolve(summary.sessionFile)
 		: undefined;
 }
 
+/**
+ * Resolves the parent session path from a session summary.
+ *
+ * @param summary - The session summary containing the parent session path
+ * @returns An array containing the resolved parent session path, or an empty array when none is available
+ */
 function sessionSummaryParentPaths(summary: SessionSummary): Array<string> {
 	return [summary.parentSessionPath].flatMap((value) =>
 		typeof value === "string" && value.length > 0 ? [resolve(value)] : [],
 	);
 }
 
-/** Follow daemon lineage metadata so nested RLM children remain authorized. */
+/**
+ * Determines whether a session belongs to a root session through daemon-reported parent metadata.
+ *
+ * @param candidate - The session whose ancestry is checked
+ * @param rootIdentifiers - Session identifiers authorized as roots
+ * @param rootPaths - Session paths authorized as roots
+ * @param sessionsByIdentifier - Sessions indexed by identifier
+ * @param sessionsByPath - Sessions indexed by path
+ * @returns `true` if the candidate has an authorized root ancestor, `false` otherwise
+ */
 function hasSessionLineage(
 	candidate: SessionSummary,
 	rootIdentifiers: ReadonlySet<string>,
@@ -533,9 +554,10 @@ function hasSessionLineage(
 }
 
 /**
- * Resolve the persisted source chain for a root session. Forked roots copy the
- * RLM presentation, while child daemon metadata continues to point at the
- * source root; both paths are server-owned and therefore safe to compare.
+ * Resolves the session path and its persisted ancestor paths.
+ *
+ * @param sessionPath - The starting session path
+ * @returns The resolved session paths in the persisted parent chain
  */
 async function sessionLineagePaths(sessionPath: string): Promise<ReadonlySet<string>> {
 	const paths = new Set<string>();
@@ -560,6 +582,12 @@ type AuthorizedRlmChild = {
 	summary: SessionSummary;
 };
 
+/**
+ * Builds status metadata for an RLM child from its session summary.
+ *
+ * @param summary - The child's session summary
+ * @returns An override containing the resolved failure or recovery status and the last activity timestamp when available
+ */
 function rlmChildStatusOverride(summary: SessionSummary): RlmChildStatusOverride {
 	const status =
 		summary.statusLabel === "failed" || summary.workerState === "failed"
@@ -574,6 +602,13 @@ function rlmChildStatusOverride(summary: SessionSummary): RlmChildStatusOverride
 	};
 }
 
+/**
+ * Determines the effective status of an RLM child session.
+ *
+ * @param child - The child session whose status provides the fallback value
+ * @param summary - The latest session summary used to determine a status override
+ * @returns The overridden status when available, otherwise the child's current status
+ */
 function effectiveRlmChildStatus(child: PrimeAgentRlmChild, summary: SessionSummary): PrimeAgentRlmChild["status"] {
 	return rlmChildStatusOverride(summary).status ?? child.status;
 }

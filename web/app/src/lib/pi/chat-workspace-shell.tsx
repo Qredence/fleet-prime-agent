@@ -29,7 +29,7 @@ const LazySubagentChatPanel = lazy(() =>
 );
 
 /**
- * Renders the chat workspace shell with session navigation, conversation UI, panels, dialogs, and workspace actions.
+ * Renders the chat workspace with session navigation, the active conversation, panels, dialogs, and workspace actions.
  */
 export function ChatWorkspaceShell() {
 	const { session, conversation, composer, panels, dialogs, chrome, agentTabs } = useChatWorkspaceData();

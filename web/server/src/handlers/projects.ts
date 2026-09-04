@@ -51,6 +51,11 @@ async function sessionProjectIds() {
 	return { bridge, sessions, assignments };
 }
 
+/**
+ * Lists registered projects and their associated session metadata.
+ *
+ * @returns A response containing project records with session counts and normalized session details.
+ */
 export function handleProjectsGet(_request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const { sessions, assignments } = await sessionProjectIds();

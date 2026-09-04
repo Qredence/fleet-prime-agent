@@ -2,6 +2,13 @@ import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol
 import { SubagentTranscriptView } from "@prime-agent/web-design/components/product/fleet-pi/pi/subagent-transcript"
 import type { SubagentChatState } from "./use-subagent-chat"
 
+/**
+ * Renders the transcript view for a subagent chat.
+ *
+ * @param child - The subagent whose transcript is displayed
+ * @param parentSessionId - Optional identifier of the parent session
+ * @param state - The subagent chat state and refresh callback
+ */
 export function SubagentChatPanel({
   child,
   parentSessionId,

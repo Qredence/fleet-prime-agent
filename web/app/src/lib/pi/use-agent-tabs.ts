@@ -9,10 +9,26 @@ import { useSubagentChat } from "./use-subagent-chat";
 
 export type AgentTabConversation = ReturnType<typeof useSubagentChat>;
 
+/**
+ * Derives a display label for a subagent child.
+ *
+ * @param child - The subagent child whose session name or fallback label is used
+ * @returns The normalized child label, or `Subagent` when no label is available
+ */
 function childLabel(child: PrimeAgentRlmChild): string {
 	return normalizeSessionLabel(child.sessionName?.trim() || child.label) || "Subagent";
 }
 
+/**
+ * Manages the main-agent and subagent tabs for an agent session.
+ *
+ * @param activeProjectId - The project whose agent tabs are managed
+ * @param loadSubagentSession - Loads a subagent conversation
+ * @param presentation - Session data used to build the subagent tabs
+ * @param rootSessionId - The root session associated with the tabs
+ * @param client - The chat client used to load subagent conversations
+ * @returns The active tab, tab controls, available tabs, selected subagent, and its conversation state
+ */
 export function useAgentTabs({
 	activeProjectId,
 	loadSubagentSession,

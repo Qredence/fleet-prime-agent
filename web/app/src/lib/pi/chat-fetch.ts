@@ -131,6 +131,12 @@ export async function fetchValidatedJson<T>(url: string, schema: ZodType<T>, ini
 	return parseWithSchema(schema, data, `Response from ${url}`);
 }
 
+/**
+ * Reads newline-delimited chat events from a response stream and delivers them to a callback.
+ *
+ * @param response - The response containing the chat event stream
+ * @param onEvent - Callback invoked for each parsed chat event
+ */
 export async function readChatStream(response: Response, onEvent: (event: ChatStreamEvent) => void) {
 	const reader = response.body?.getReader();
 	if (!reader) throw new Error("Chat response did not include a stream");

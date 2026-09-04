@@ -17,12 +17,27 @@ type SseSource = {
 	release?: () => Promise<void>;
 };
 
+/**
+ * Reads the requested SSE resume cursor from the request.
+ *
+ * @param request - The incoming request containing an optional `Last-Event-ID` header
+ * @param url - The request URL containing an optional `lastEventId` query parameter
+ * @returns A positive resume cursor, or `0` when none is provided or valid
+ */
 function lastEventIdFor(request: Request, url: URL): number {
 	const raw = request.headers.get("last-event-id") ?? url.searchParams.get("lastEventId");
 	const parsed = raw ? Number.parseInt(raw, 10) : 0;
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
+/**
+ * Creates a server-sent events response for a chat or child-agent stream.
+ *
+ * @param request - The request whose abort signal terminates the stream
+ * @param source - The stream source and metadata used to initialize and replay events
+ * @param lastEventId - The client’s resume cursor
+ * @returns An SSE response containing the stream events
+ */
 function createSseResponse(request: Request, bridge: PrimeBridge, source: SseSource, lastEventId: number): Response {
 	const encoder = new TextEncoder();
 	let heartbeat: ReturnType<typeof setInterval> | undefined;
@@ -157,6 +172,12 @@ function createSseResponse(request: Request, bridge: PrimeBridge, source: SseSou
 	});
 }
 
+/**
+ * Handles GET requests for chat and child-agent Server-Sent Event streams.
+ *
+ * @param request - The incoming request containing stream identifiers and optional resume information
+ * @returns An SSE response for the requested stream, or an error response when the request is invalid or the stream is unavailable
+ */
 export function handleChatEventsGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const url = new URL(request.url);

@@ -332,6 +332,13 @@ interface ResourceRenameInputProps {
   onCancel: () => void;
 }
 
+/**
+ * Renders an inline input for editing a resource label.
+ *
+ * @param label - The current resource label
+ * @param onCommit - Callback invoked with the edited label
+ * @param onCancel - Callback invoked when renaming is canceled
+ */
 function ResourceRenameInput({ label, onCommit, onCancel }: ResourceRenameInputProps) {
   const [draft, setDraft] = useState(label);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -382,6 +389,11 @@ interface ResourceActionMenuProps {
   renderMenu?: AISidebarProps["renderMenu"];
 }
 
+/**
+ * Renders an action menu for a resource, with customizable content and rename support.
+ *
+ * @param renderMenu - Optional function that provides custom menu content and actions.
+ */
 function ResourceActionMenu({
   item,
   menuOpen,
@@ -436,6 +448,16 @@ function ResourceActionMenu({
   );
 }
 
+/**
+ * Builds the CSS class name for a resource row based on its interaction state and kind.
+ *
+ * @param acceptsChildren - Whether the resource can contain child resources
+ * @param active - Whether the resource is selected
+ * @param containerActive - Whether the resource's container state is active
+ * @param kind - The resource kind
+ * @param disabled - Whether the resource is disabled
+ * @returns The combined CSS class name for the resource row
+ */
 function getResourceRowClassName(
   acceptsChildren: boolean,
   active: boolean,
@@ -459,6 +481,17 @@ function getResourceRowClassName(
   );
 }
 
+/**
+ * Creates event handlers for selecting, renaming, and moving a sidebar resource row.
+ *
+ * @param acceptsChildren - Whether the row represents a container.
+ * @param allowMove - Whether the row supports drag-and-drop movement.
+ * @param disabled - Whether row interactions are disabled.
+ * @param kind - The resource kind used to determine rename behavior.
+ * @param renaming - Whether the row is currently being renamed.
+ * @param row - The flattened resource row associated with the handlers.
+ * @returns Event handlers for click, double-click, drag, and drop interactions.
+ */
 function useResourceRowEvents({
   acceptsChildren,
   allowMove,
@@ -548,6 +581,14 @@ interface ResourceRowContentProps {
   renderMenu?: AISidebarProps["renderMenu"];
 }
 
+/**
+ * Renders a resource row's icon, label, rename input, and contextual actions.
+ *
+ * @param renaming - Whether to render the inline rename input instead of the label and actions.
+ * @param activeLabel - Whether the label should animate when it overflows.
+ * @param item - Resource metadata used to determine available actions.
+ * @returns The rendered resource row content.
+ */
 function ResourceRowContent({
   icon,
   renaming,
@@ -601,6 +642,11 @@ function ResourceRowContent({
   );
 }
 
+/**
+ * Builds accessibility and interaction attributes for a resource row.
+ *
+ * @returns The row's ARIA, focus, drag-and-drop, and state attributes.
+ */
 function getResourceRowAriaProps(
   row: FlatResource,
   acceptsChildren: boolean,
@@ -627,6 +673,11 @@ function getResourceRowAriaProps(
   };
 }
 
+/**
+ * Renders an accessible tree row for a sidebar resource, including its label, icon, actions, menus, and drag-and-drop state.
+ *
+ * @param props - The row data, interaction handlers, and rendering customizations.
+ */
 function ResourceRow(props: ResourceRowProps) {
   const reduce = useReducedMotion() ?? false;
   const [hovered, setHovered] = useState(false);

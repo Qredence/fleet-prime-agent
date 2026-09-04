@@ -275,6 +275,12 @@ export const RIGHT_PANEL_LAUNCHER_DEFINITIONS = RIGHT_PANEL_DEFINITIONS.filter(
   (definition) => definition.showInLauncher !== false
 )
 
+/**
+ * Retrieves the registry definition for a right panel.
+ *
+ * @param panel - The active right panel identifier
+ * @returns The definition associated with `panel`
+ */
 export function getRightPanelDefinition(panel: ActiveRightPanel) {
   return RIGHT_PANEL_REGISTRY[panel]
 }

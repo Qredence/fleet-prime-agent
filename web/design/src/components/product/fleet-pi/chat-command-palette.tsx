@@ -34,6 +34,13 @@ export type CommandPaletteProps = {
   themePreference: ThemePreference
 }
 
+/**
+ * Provides searchable commands for chat actions, panel navigation, sessions, and themes.
+ *
+ * @param sessions - Sessions available for resumption
+ * @param isStreaming - Whether generation is currently in progress
+ * @param themePreference - The currently selected theme preference
+ */
 export function ChatCommandPalette({
   open,
   onOpenChange,

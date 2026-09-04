@@ -33,12 +33,27 @@ export type SubagentTranscriptState = {
   error?: Error
 }
 
+/**
+ * Maps a subagent's lifecycle state to the corresponding chat status.
+ *
+ * @param child - The subagent whose status determines the chat status
+ * @returns `streaming` for running or recovering subagents, `error` for failed subagents, and `ready` otherwise
+ */
 export function transcriptStatus(child: PrimeAgentRlmChild): ChatStatus {
   if (child.status === "running" || child.status === "recovering") return "streaming"
   if (child.status === "error" || child.status === "failed") return "error"
   return "ready"
 }
 
+/**
+ * Renders a conversation turn with its user message, assistant content, tool timeline, and subagent hierarchy.
+ *
+ * @param turn - The user and assistant messages comprising the conversation turn
+ * @param isLast - Whether this is the final turn in the transcript
+ * @param isStreaming - Whether assistant content is currently streaming
+ * @param artifacts - Artifacts associated with the turn's tool activity
+ * @param presentation - Optional session data used to render the subagent hierarchy
+ */
 export function SubagentTurnView({
   turn,
   isLast,
@@ -105,6 +120,17 @@ export function SubagentTurnView({
   )
 }
 
+/**
+ * Renders a subagent conversation thread with metadata, transcript messages, and status feedback.
+ *
+ * @param child - The subagent whose thread is displayed
+ * @param parentSessionId - The active parent session identifier
+ * @param transcript - The current transcript state and optional presentation data
+ * @param onRefresh - Callback invoked when the thread is refreshed
+ * @param fullWidth - Whether to render the thread in a full-width layout
+ * @param statusOverride - Optional status used instead of the status derived from the subagent
+ * @returns The rendered subagent thread
+ */
 export function SubagentTranscriptView({
   child,
   parentSessionId,

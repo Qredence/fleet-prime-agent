@@ -25,7 +25,11 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol"
 
 const COMPACT_TABS_CLASS = "[&_[data-proximity-index]]:!h-7 [&_[data-proximity-index]]:!px-2 [&_[data-proximity-index]]:!text-[11px]"
-/** Reads panel state from RightPanelProvider — no prop threading from route. */
+/**
+ * Renders responsive controls for opening or navigating the right panel based on context state.
+ *
+ * @param compact - Whether to use compact control styling
+ */
 export function RightPanelLauncherFromContext({ compact = false }: { compact?: boolean } = {}) {
   const { reopenRightPanel, rightPanel } = useChatPanelDataContext()
 
@@ -44,8 +48,9 @@ export function RightPanelLauncherFromContext({ compact = false }: { compact?: b
 }
 
 /**
- * Renders the right-panel launcher using state and data from application contexts.
+ * Renders the right-panel launcher using application context state and data.
  *
+ * @param compact - Whether to use compact launcher styling
  * @param idPrefix - Prefix used for generated right-panel element IDs
  * @returns The right-panel launcher
  */
@@ -85,6 +90,12 @@ export function RightPanelTabsFromContext({
   )
 }
 
+/**
+ * Renders a button that opens the right-side panel.
+ *
+ * @param compact - Whether to use compact button styling
+ * @param onOpen - Called when the button is clicked
+ */
 export function RightPanelTrigger({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
   return (
     <ChromePillButton
@@ -98,16 +109,17 @@ export function RightPanelTrigger({ compact = false, onOpen }: { compact?: boole
 }
 
 /**
- * Renders the responsive launcher for switching between right-panel views.
+ * Renders responsive controls for opening, switching between, and closing right-panel views.
  *
- * @param activePanel - The currently active panel, or `null` when all panels are closed
- * @param onPanelChange - Called when a panel is opened, switched, or closed
- * @param resources - Resources used to calculate the resources badge count
- * @param replRuns - Number of REPL runs to show in the corresponding badge
+ * @param activePanel - The active panel, or `null` when no panel is open
+ * @param onPanelChange - Called with the selected panel, or `null` to close the active panel
+ * @param resources - Resource data used for the resources badge
+ * @param replRuns - Number of REPL runs shown in the badge
  * @param sessionBlocks - Number of generative UI blocks in the current session
  * @param openUIArtifacts - Number of open generative UI artifacts
- * @param workspace - Workspace data used to calculate the resources badge count
- * @param idPrefix - Prefix used for the launcher's element IDs
+ * @param workspace - Workspace data used for the resources badge
+ * @param idPrefix - Prefix for the launcher's element IDs
+ * @param compact - Whether to use compact launcher styling
  */
 export function RightPanelLauncher({
   activePanel,

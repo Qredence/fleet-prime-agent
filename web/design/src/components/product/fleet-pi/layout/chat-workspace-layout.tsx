@@ -13,6 +13,16 @@ const layoutStyle = {
   "--chat-header-top": `${CHAT_HEADER_OFFSET_PX}px`,
 } as CSSProperties
 
+/**
+ * Lays out the chat workspace with header content, main content, and a side panel.
+ *
+ * @param children - The main chat content
+ * @param headerCenter - Content displayed in the center of the chat header
+ * @param headerLeft - Content displayed on the left side of the chat header
+ * @param headerRight - Optional content displayed on the right side of the chat header
+ * @param panel - The side panel displayed alongside the chat content
+ * @returns The chat workspace layout
+ */
 export function ChatWorkspaceLayout({
   children,
   headerCenter,

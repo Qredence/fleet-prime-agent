@@ -597,6 +597,12 @@ function toolResultOutput(msg: Record<string, unknown>): Record<string, unknown>
 	};
 }
 
+/**
+ * Extracts a user-readable error message from a tool result.
+ *
+ * @param result - The tool result containing error information
+ * @returns The extracted error text, or `"Tool execution failed"` when no message is available
+ */
 function extractToolErrorText(result: unknown): string {
 	if (!result) return "Tool execution failed";
 	if (typeof result === "string") return result;
@@ -633,6 +639,12 @@ function extractToolErrorText(result: unknown): string {
 	return "Tool execution failed";
 }
 
+/**
+ * Extracts background output from a tool result.
+ *
+ * @param result - The tool result to inspect
+ * @returns The background output string, or `undefined` when none is present
+ */
 function extractToolBackgroundOutput(result: unknown): string | undefined {
 	if (!result || typeof result !== "object") return undefined;
 	const record = result as Record<string, unknown>;
@@ -644,7 +656,12 @@ function extractToolBackgroundOutput(result: unknown): string | undefined {
 	return undefined;
 }
 
-/** Hydrate the canonical conversation while joining persisted tool results to calls. */
+/**
+ * Hydrates persisted agent messages into canonical chat messages and associates tool results with their calls.
+ *
+ * @param sessionId - Identifier used to generate stable message IDs.
+ * @returns The hydrated chat messages, including standalone tool results when no matching call exists.
+ */
 export function toChatMessagesFromAgentMessages(
 	messages: readonly AgentMessage[],
 	sessionId: string,
@@ -779,6 +796,12 @@ export type RlmChildStatusOverride = {
 	lastHeardFrom?: number;
 };
 
+/**
+ * Creates an event mapper state with optional session, presentation, and RLM child status data.
+ *
+ * @param init - Initial session configuration and presentation state.
+ * @returns A new event mapper state with transient run data reset.
+ */
 export function createEventMapperState(init?: {
 	sessionId?: string;
 	presentation?: PrimeAgentSessionPresentation;
@@ -929,6 +952,13 @@ export function computeRlmExecutionTree(
 	};
 }
 
+/**
+ * Creates a presentation-safe RLM child record with optional status and activity timestamp overrides.
+ *
+ * @param child - The RLM child update to sanitize
+ * @param override - Optional status and last-heard-from values to apply
+ * @returns A sanitized RLM child record with a current timestamp
+ */
 export function safeRlmChild(
 	child: Extract<AgentSessionEvent, { type: "rlm_child_update" }>["child"],
 	override?: RlmChildStatusOverride,
@@ -957,6 +987,12 @@ export function safeRlmChild(
 	};
 }
 
+/**
+ * Maps an RLM child status to an artifact status.
+ *
+ * @param status - The RLM child status to convert
+ * @returns The corresponding artifact status
+ */
 function rlmArtifactStatus(status: PrimeAgentRlmChild["status"]): PrimeAgentArtifactStatus {
 	if (status === "cancelled") return "cancelled";
 	if (status === "error" || status === "failed") return "error";
@@ -964,6 +1000,13 @@ function rlmArtifactStatus(status: PrimeAgentRlmChild["status"]): PrimeAgentArti
 	return "running";
 }
 
+/**
+ * Applies RLM child status overrides and updates related execution-tree and artifact presentation data.
+ *
+ * @param state - The event mapper state containing RLM presentation data.
+ * @param overrides - Status and activity-time overrides keyed by RLM child ID.
+ * @returns A presentation update event when the overrides change RLM data, otherwise an empty array.
+ */
 export function applyRlmChildStatusOverrides(
 	state: EventMapperState,
 	overrides: ReadonlyMap<string, RlmChildStatusOverride>,
@@ -1015,6 +1058,12 @@ export function applyRlmChildStatusOverrides(
 	];
 }
 
+/**
+ * Creates a presentation-safe goal object from a goal update event.
+ *
+ * @param goal - The goal data from the session event
+ * @returns A sanitized goal object containing available goal metadata and usage statistics
+ */
 function safeGoal(goal: Extract<AgentSessionEvent, { type: "goal_update" }>["goal"]): PrimeAgentGoal {
 	return {
 		active: goal.active,
@@ -1231,7 +1280,13 @@ function rememberAssistantMessage(state: EventMapperState, message: AssistantMes
 
 // ---------------------------------------------------------------------------
 // Core agent-loop events
-// ---------------------------------------------------------------------------
+/**
+ * Maps a core agent event to browser-facing chat stream events.
+ *
+ * @param state - Mutable event-mapper state for the current session and run
+ * @param event - Core agent event to map
+ * @returns Chat stream events for the event, or `undefined` when the event is not handled
+ */
 
 function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStreamEvent[] | undefined {
 	switch (event.type) {
@@ -1426,7 +1481,13 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 
 // ---------------------------------------------------------------------------
 // Session-specific events (AgentSessionEvent extends AgentEvent)
-// ---------------------------------------------------------------------------
+/**
+ * Maps a session-specific agent event to browser-facing stream events and presentation updates.
+ *
+ * @param state - Mutable mapper state for the current session and run
+ * @param event - Session event to map
+ * @returns Stream events representing the session event
+ */
 
 function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEvent): ChatStreamEvent[] {
 	switch (event.type) {
@@ -1733,28 +1794,15 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 // ---------------------------------------------------------------------------
 
 /**
- * Translate one `AgentConnectionEvent` into zero-or-more `ChatStreamEvent` frames.
+ * Maps a connection event to browser-facing chat stream frames.
  *
- * The connection surface wraps the engine-internal `AgentSessionEvent` union
- * inside a `session_event` envelope and adds four new event kinds the
- * AgentSession surface never had:
+ * Session replacement and resynchronization reset run state and emit settlement
+ * frames. Extension requests, errors, and side questions are converted to
+ * corresponding client-facing frames; bookkeeping events produce no frames.
  *
- *   - `session_replaced`: runtime rebuilt (new/switch/fork/import). We surface
- *     a synthetic done frame and reset the per-run mapper state so the next
- *     turn starts cleanly.
- *   - `session_resynced`: snapshot reattached after daemon recovery. Same
- *     treatment as a session_replaced for mapper state.
- *   - `extension_ui_request`: a serialized request from an extension that
- *     needs a user dialog. We surface it as a `tool-Question` frame so the
- *     web client renders the dialog and the bridge routes the answer back
- *     through `PendingDialogRegistry`.
- *   - `side_question_event`: a TUI-visible side conversation, forwarded as a
- *     browser-safe payload part.
- *   - `session_status`: forwarded into the session presentation when it has a
- *     recap; connection heartbeats and clean closes remain bookkeeping.
- *
- * Pure: no I/O. All session-local state lives in `state`. Returns `[]` for
- * events we deliberately suppress.
+ * @param state - Session-local mapper state to update
+ * @param event - Connection event to map
+ * @returns The chat stream frames produced for the event
  */
 export function mapAgentConnectionEvent(state: EventMapperState, event: AgentConnectionEvent): ChatStreamEvent[] {
 	switch (event.type) {

@@ -11,14 +11,32 @@ export type AgentTabItem = {
   status?: PrimeAgentRlmChild["status"]
 }
 
+/**
+ * Creates a deterministic ARIA ID for an agent tab trigger.
+ *
+ * @param tabId - The tab identifier to encode
+ * @returns The encoded tab trigger ID
+ */
 export function agentTabTriggerId(tabId: string) {
   return `agent-tab-${encodeURIComponent(tabId)}`
 }
 
+/**
+ * Generates the ARIA ID for an agent tab panel.
+ *
+ * @param tabId - The tab identifier to encode in the panel ID
+ * @returns The encoded agent tab panel ID
+ */
 export function agentTabPanelId(tabId: string) {
   return `agent-tab-panel-${encodeURIComponent(tabId)}`
 }
 
+/**
+ * Maps an agent status to its accessible tab label.
+ *
+ * @param status - The agent status to label
+ * @returns The corresponding label: `queued`, `streaming`, `error`, `cancelled`, `complete`, or `ready`
+ */
 function statusLabel(status: AgentTabItem["status"]): string {
   switch (status) {
     case "queued":
@@ -38,6 +56,12 @@ function statusLabel(status: AgentTabItem["status"]): string {
   }
 }
 
+/**
+ * Determines the CSS classes for an agent status indicator.
+ *
+ * @param status - The agent status to represent
+ * @returns CSS classes for the status indicator
+ */
 function statusDotClass(status: AgentTabItem["status"]): string {
   switch (status) {
     case "running":
@@ -55,6 +79,15 @@ function statusDotClass(status: AgentTabItem["status"]): string {
   }
 }
 
+/**
+ * Renders a tab bar for agent conversations with selection, keyboard navigation, and optional tab-closing and new-session controls.
+ *
+ * @param tabs - The agent conversation tabs to display
+ * @param value - The ID of the selected tab
+ * @param onValueChange - Called when a tab is selected
+ * @param onClose - Called with a subagent tab ID when that tab is closed
+ * @param onNewSession - Called when the new-chat control is selected
+ */
 export function AgentTabBar({
   tabs,
   value,

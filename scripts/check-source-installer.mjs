@@ -67,6 +67,14 @@ function checkStaticInstaller() {
 	}
 }
 
+/**
+ * Runs the source installer smoke test in an isolated temporary environment.
+ *
+ * Verifies fresh installation, checkout reuse, runtime behavior, shim creation,
+ * preservation of existing user files, and refusal to overwrite non-empty directories.
+ *
+ * @throws {Error} If any installer smoke-test assertion fails.
+ */
 async function checkInstallerSmoke() {
 	const tempRoot = mkdtempSync(join(tmpdir(), "prime-agent-source-installer-"));
 	const sourceMirror = join(tempRoot, "source");
@@ -180,6 +188,14 @@ function initializeGitMirror(directory) {
 	execFileSync("git", ["commit", "--quiet", "-m", "source-installer-smoke"], { cwd: directory });
 }
 
+/**
+ * Runs the source installer in a checkout directory.
+ * @param {string} checkout - The directory in which to run the installer.
+ * @param {string} sourceMirror - The directory containing `install.sh`.
+ * @param {Object} environment - Environment variables for the installer process.
+ * @returns {string} The installer's combined standard output and standard error.
+ * @throws {Error} If the installer exits with a nonzero status.
+ */
 function runInstaller(checkout, sourceMirror, environment) {
 	const result = spawnSync("sh", [join(sourceMirror, "install.sh")], {
 		cwd: checkout,
@@ -195,6 +211,14 @@ function runInstaller(checkout, sourceMirror, environment) {
 	return `${result.stdout}\n${result.stderr}`;
 }
 
+/**
+ * Verifies that the installed web runtime starts and serves its expected endpoints and client assets.
+ * @param {string} executable - Path to the runtime executable.
+ * @param {string} workspace - Workspace directory served by the runtime.
+ * @param {string} checkout - Source checkout containing the built web assets.
+ * @param {Object} environment - Environment variables for the runtime process.
+ * @throws {Error} If the client asset is missing, a runtime check fails, or the process does not stop cleanly.
+ */
 async function checkWebRuntime(executable, workspace, checkout, environment) {
 	const clientRoot = join(checkout, "packages", "fleet-web", "dist", "web", "client");
 	const asset = findFirstJavaScriptAsset(clientRoot);

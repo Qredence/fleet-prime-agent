@@ -14,6 +14,12 @@ export interface NormalizedSessionListRow {
 	readonly isSubagent: boolean;
 }
 
+/**
+ * Extracts a non-empty string value.
+ *
+ * @param value - The value to evaluate
+ * @returns The input string when it is non-empty, or `undefined` otherwise
+ */
 function stringValue(value: unknown): string | undefined {
 	return typeof value === "string" && value.length > 0 ? value : undefined;
 }
@@ -28,9 +34,11 @@ function messageCountValue(value: unknown): number {
 }
 
 /**
- * Normalize session rows across a Vite HMR boundary. A pre-upgrade global
- * bridge returns SessionInfo (`id`/`name`/Date), while the daemon bridge
- * returns SessionSummary (`sessionId`/`sessionName`/ISO strings).
+ * Normalizes a session entry from either supported session format.
+ *
+ * @param source - The session entry to normalize.
+ * @returns A normalized session row with consistent identifiers, metadata, timestamps, message details, and subagent status.
+ * @throws Error if the entry lacks a valid session ID or working directory.
  */
 export function normalizeSessionListRow(source: SessionListSource): NormalizedSessionListRow {
 	const raw = source as unknown as Record<string, unknown>;

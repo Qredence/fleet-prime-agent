@@ -126,6 +126,14 @@ function carryForwardReasoningPresentation(
 	return { ...nextMessage, parts: [...preserved, ...nextMessage.parts] };
 }
 
+/**
+ * Merges an in-flight assistant message into the transcript.
+ *
+ * @param messages - The current transcript messages
+ * @param nextMessage - The assistant message to merge
+ * @param assistantId - The active assistant message identifier, if available
+ * @returns The transcript with the message replaced or appended
+ */
 function replaceOrAppendInFlight(
 	messages: Array<ChatMessage>,
 	nextMessage: ChatMessage,
@@ -158,6 +166,13 @@ function replaceOrAppendInFlight(
 	return [...messages, nextMessage];
 }
 
+/**
+ * Applies a chat stream event to the current transition and produces the updated chat state.
+ *
+ * @param transition - The current assistant identifier and chat stream snapshot
+ * @param event - The stream event to apply
+ * @returns The updated assistant identifier and chat stream snapshot
+ */
 export function applyChatStreamEvent(transition: ChatStreamTransition, event: ChatStreamEvent): ChatStreamTransition {
 	if (event.type === "session_snapshot") {
 		return {

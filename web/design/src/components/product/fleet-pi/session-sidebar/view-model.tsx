@@ -107,6 +107,17 @@ function MenuItem({
 	);
 }
 
+/**
+ * Builds the fleet session sidebar view model and its interaction handlers.
+ *
+ * @param sessions - Available sessions used as the default project session list.
+ * @param projects - Projects displayed in the sidebar.
+ * @param projectSessions - Sessions grouped under projects and the unassigned section.
+ * @param activeProjectId - Identifier of the currently active project.
+ * @param activeSessionId - Identifier of the currently active session.
+ * @param createOpen - Whether the project creation dialog is open.
+ * @returns Sidebar data and handlers for browsing directories, managing projects and sessions, selecting resources, rendering menus, and submitting project creation.
+ */
 export function useFleetSessionSidebarViewModel({
 	sessions,
 	projects = EMPTY_PROJECTS,

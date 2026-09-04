@@ -123,10 +123,10 @@ function readChangesetStatus() {
 }
 
 /**
- * Builds the release plan for the package from Changesets status data.
- * @param {object} status - Changesets status data containing release entries.
- * @returns {{packageName: string, currentVersion: string, version: string}} The package name, current version, and planned release version.
- * @throws {Error} If no release plan exists, the current version differs from the package manifest, or the planned version is unstable.
+ * Builds the package release plan from Changesets status data.
+ * @param {object} status - Changesets status data containing package release entries.
+ * @returns {{packageName: string, currentVersion: string, version: string}} The package name, current manifest version, and resolved release version.
+ * @throws {Error} If the package has no release plan, its expected version differs from the manifest, or the planned version is unstable.
  */
 export function releasePlanFromStatus(status) {
 	const release = status?.releases?.find((entry) => entry.name === packageName);
@@ -160,9 +160,9 @@ export function resolveReleaseVersion(currentVersion, plannedVersion) {
 }
 
 /**
- * Returns the temporary manifest baseline needed for Changesets to generate the one-time target.
+ * Derives the preceding patch version for a stable release target.
  * @param {string} targetVersion - The target release version.
- * @returns {string} The temporary package version.
+ * @returns {string} The preceding patch version.
  */
 export function releaseTargetBaselineVersion(targetVersion) {
 	const [major, minor, patch] = parseStableVersion(targetVersion);
@@ -242,9 +242,13 @@ function assertVersionChangesOnly(files) {
  * Creates a release branch and pull request for the specified package version.
  * Skips creation when the target release pull request already exists, another release pull request is active, or the release branch is unmanaged.
  * @param {string} token - GitHub authentication token.
- * @param {string} version - Stable release version from the CircleCI environment.
+ * @param {string} version - Stable release version.
  * @param {string} baseSha - Commit SHA from which to create the release.
- * @throws {Error} If an unmanaged release branch already exists or versioning produces invalid or empty changes.
+ * @param {Object} [options] - Release preparation options.
+ * @param {Function} [options.githubRequestImpl] - GitHub request implementation.
+ * @param {Function} [options.githubRequestAllow404Impl] - GitHub request implementation that allows a 404 response.
+ * @param {Object} [options.releasePlan] - Release plan used to prepare the manifest for the target version.
+ * @throws {Error} If the version is invalid, an unmanaged release branch exists, or versioning produces invalid or empty changes.
  */
 export async function createVersionPullRequest(
 	token,
@@ -336,14 +340,14 @@ export async function createVersionPullRequest(
 }
 
 /**
- * Prepares a release pull request for the pending Changesets.
+ * Prepares a pull request for the pending Changesets release.
  * @param {Object} [options] - Release preparation options.
  * @param {string} [options.baseSha] - Commit to use as the release base.
  * @param {Object} [options.status] - Changeset status data.
  * @param {boolean} [options.dryRun=false] - Whether to report the planned release without creating changes.
  * @param {string} [options.branch] - Current branch name, which must be `main`.
- * @returns {Promise<Object>} Preparation status, including the release plan when applicable.
- * @throws {Error} If the current branch is not `main` or a GitHub token is missing for a non-dry run.
+ * @returns {Promise<Object>} Preparation result, including the release plan when applicable.
+ * @throws {Error} If the current branch is not `main`, required release environment values are missing, or the configured release version does not match the planned version.
  */
 export async function prepareRelease({
 	token,

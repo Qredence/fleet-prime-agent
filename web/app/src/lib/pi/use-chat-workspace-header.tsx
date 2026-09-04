@@ -21,6 +21,11 @@ type UseChatWorkspaceHeaderOptions = {
   onOpenSettings: () => void
 }
 
+/**
+ * Builds the chat workspace header UI and its interaction handlers.
+ *
+ * @returns The sidebar trigger, account menu, tab bar, and right-panel launcher.
+ */
 export function useChatWorkspaceHeader({
   activeTabId,
   tabs,

@@ -24,6 +24,12 @@ export type SubagentChatState = {
 	error?: Error;
 };
 
+/**
+ * Maps a child lifecycle status to its corresponding chat status.
+ *
+ * @param status - The child lifecycle status
+ * @returns The chat status represented by `status`
+ */
 function childStatus(status: PrimeAgentRlmChild["status"]): ChatStatus {
 	if (status === "running" || status === "recovering") return "streaming";
 	if (status === "error" || status === "failed") return "error";
@@ -34,6 +40,12 @@ function emptyState(): SubagentChatState {
 	return { status: "ready", loading: false, messages: [] };
 }
 
+/**
+ * Creates an initial chat stream transition from a session response.
+ *
+ * @param response - The session response containing the initial messages, presentation, and metadata
+ * @returns A chat stream transition initialized with the session snapshot
+ */
 function initialTransition(response: ChatSessionResponse): ChatStreamTransition {
 	const snapshot: ChatStreamSnapshot = {
 		messages: response.messages,
@@ -44,6 +56,11 @@ function initialTransition(response: ChatSessionResponse): ChatStreamTransition 
 	return { assistantId: null, snapshot };
 }
 
+/**
+ * Determines whether a value is a connected stream frame with a session identifier.
+ *
+ * @returns `true` if the value is a connected frame with a string session identifier, `false` otherwise.
+ */
 function isConnectedFrame(value: unknown): value is {
 	type: "connected";
 	sessionId: string;
@@ -65,6 +82,14 @@ type StoredSubagentCursor = {
 	lastEventId: number;
 };
 
+/**
+ * Loads a valid subagent event cursor from session storage.
+ *
+ * Invalid or unavailable stored data is removed and treated as absent.
+ *
+ * @param key - The session storage key containing the cursor
+ * @returns The stored cursor, or `undefined` when no valid cursor is available
+ */
 function readStoredSubagentCursor(key: string): StoredSubagentCursor | undefined {
 	if (typeof window === "undefined") return undefined;
 	try {
@@ -88,6 +113,13 @@ function readStoredSubagentCursor(key: string): StoredSubagentCursor | undefined
 	}
 }
 
+/**
+ * Loads and maintains a subagent chat session, including live stream updates.
+ *
+ * @param child - The subagent child whose chat session should be displayed.
+ * @param parentSessionId - Identifier of the parent session containing the child.
+ * @returns The current chat state and a function to reload the session.
+ */
 export function useSubagentChat({
 	client,
 	enabled,

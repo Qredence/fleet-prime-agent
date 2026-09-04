@@ -105,11 +105,11 @@ function hasDeletedChangeset(baseRef) {
 }
 
 /**
- * Determines whether the changes consist solely of generated release files.
+ * Determines whether a change set represents generated release changes.
  * @param {string[]} files - Changed file paths.
- * @param {string} subject - The latest commit subject.
+ * @param {string} subject - Latest commit subject.
  * @param {boolean} deletedChangeset - Whether a Changeset file was deleted.
- * @return {boolean} `true` if the changes represent a generated version commit, `false` otherwise.
+ * @return {boolean} `true` if the changes contain only generated release files and indicate a release, `false` otherwise.
  */
 export function isGeneratedVersionChange({ files, subject, deletedChangeset }) {
 	const releaseOnly =
