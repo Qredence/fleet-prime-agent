@@ -10,7 +10,7 @@ import { pnpmInvocation } from "./pnpm-command.mjs";
 import { NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const packageRoot = join(root, "packages", "fleet-prime");
+const packageRoot = join(root, "packages", "fleet-web");
 const packageManifestPath = join(packageRoot, "package.json");
 const REQUIRED_BINS = {
 	"fleet-agent": "bin/fleet-prime.mjs",

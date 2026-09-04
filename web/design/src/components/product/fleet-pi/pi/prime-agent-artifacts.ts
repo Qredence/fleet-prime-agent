@@ -224,6 +224,7 @@ function artifactsFromMessages(messages: Array<ChatMessage>, chatStatus?: ChatSt
 				status: statusFor(source, chatStatus),
 				...(input !== undefined ? { input } : {}),
 				...(output !== undefined ? { output } : {}),
+				...(typeof source.backgroundOutput === "string" ? { backgroundOutput: source.backgroundOutput } : {}),
 				timestamp,
 			});
 		}

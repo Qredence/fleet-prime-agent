@@ -184,7 +184,8 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 			eventType === "reasoning" ||
 			eventType === "compaction" ||
 			eventType === "retry" ||
-			eventType === "payload"
+			eventType === "payload" ||
+			eventType === "session_snapshot"
 		) {
 			const validatedEvent = parseWithSchema(ChatStreamEventSchema, data, "Chat stream event");
 

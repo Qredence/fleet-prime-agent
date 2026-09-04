@@ -34,7 +34,7 @@ jobs:
               pull_number: pr.number,
               per_page: 100,
             });
-            const packages = ["fleet-prime"];
+            const packages = ["fleet-web"];
             const failing = [];
             for (const pkg of packages) {
               const srcPrefix = `packages/${pkg}/src/`;

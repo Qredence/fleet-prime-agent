@@ -40,7 +40,7 @@ working in that area.
 
 ## Installs
 
-- Repo root: `pnpm install` only. It resolves the whole workspace (`web/*`, `packages/fleet-prime`) through the root `pnpm-lock.yaml`.
+- Repo root: `pnpm install` only. It resolves the whole workspace (`web/*`, `packages/fleet-web`) through the root `pnpm-lock.yaml`.
 - Never run `npm install` (or `npm ci`) at the repo root: it drops a `package-lock.json` and rewrites `node_modules` to an npm layout. Recovery: delete `package-lock.json` and `node_modules`, then re-run `pnpm install`. Never commit a `package-lock.json`. Full recovery steps: `docs/guides/web-interface.md`.
 
 ## Dependencies

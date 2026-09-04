@@ -2,11 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assertChangesetPresent, isGeneratedVersionChange, isUserFacing } from "../check-changeset.mjs";
 
-const releaseFiles = [
-	"packages/fleet-prime/package.json",
-	"packages/fleet-prime/CHANGELOG.md",
-	".changeset/release.md",
-];
+const releaseFiles = ["packages/fleet-web/package.json", "packages/fleet-web/CHANGELOG.md", ".changeset/release.md"];
 
 test("rejects user-facing files without a pending Changeset", () => {
 	assert.throws(

@@ -27,6 +27,7 @@ export function handleChatSessionsGet(_request: Request): Promise<Response> {
 					status: sessionStatus(session.source, liveSession),
 					messageCount: session.messageCount,
 					firstMessage: session.firstMessage,
+					...(session.isSubagent ? { isSubagent: true } : {}),
 				};
 			}),
 		);

@@ -10,9 +10,9 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const webDist = join(root, "web", "app", "dist");
 const serverEntry = join(webDist, "server", "server.js");
 const clientSource = join(webDist, "client");
-const releaseRoot = join(root, "packages", "fleet-prime", "dist", "web");
+const releaseRoot = join(root, "packages", "fleet-web", "dist", "web");
 const serverOutput = join(releaseRoot, "server");
-const fleetPackage = JSON.parse(readFileSync(join(root, "packages", "fleet-prime", "package.json"), "utf8"));
+const fleetPackage = JSON.parse(readFileSync(join(root, "packages", "fleet-web", "package.json"), "utf8"));
 
 if (!existsSync(serverEntry) || !existsSync(clientSource)) {
 	throw new Error("Missing web build output. Run pnpm --filter @prime-agent/web build first.");

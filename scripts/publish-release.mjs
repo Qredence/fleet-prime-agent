@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertReleaseVersion, compareVersions, NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const packageManifestPath = join(root, "packages", "fleet-prime", "package.json");
+const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
 const packageName = "@qredence/fleet";
 const publicBaseline = "0.5.0";
 
@@ -151,12 +151,12 @@ export function isPackageVersionCommit({
 					.split("\n")
 					.filter(Boolean);
 			})();
-		const hasManifest = changedPaths.includes("packages/fleet-prime/package.json");
-		const hasChangelog = changedPaths.includes("packages/fleet-prime/CHANGELOG.md");
+		const hasManifest = changedPaths.includes("packages/fleet-web/package.json");
+		const hasChangelog = changedPaths.includes("packages/fleet-web/CHANGELOG.md");
 		const releaseFilesOnly = changedPaths.every(
 			(path) =>
-				path === "packages/fleet-prime/package.json" ||
-				path === "packages/fleet-prime/CHANGELOG.md" ||
+				path === "packages/fleet-web/package.json" ||
+				path === "packages/fleet-web/CHANGELOG.md" ||
 				(path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md"),
 		);
 		return hasManifest && hasChangelog && releaseFilesOnly;

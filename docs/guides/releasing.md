@@ -1,14 +1,14 @@
 # Releasing Fleet
 
 Fleet publishes one public package, `@qredence/fleet`, from the
-`packages/fleet-prime` workspace. The checked-in package manifest is the
+`packages/fleet-web` workspace. The checked-in package manifest is the
 source of truth for its version. The current public baseline is `0.5.0`; the
 bootstrap Changeset in this repository makes the first automated release
 `0.5.1`.
 
 The upstream engine version is pinned in `PRIME_AGENT_RUNTIME.json`. Fleet
 does not vendor or republish that engine; it consumes the checksum-pinned
-upstream tarballs declared in `packages/fleet-prime/package.json`.
+upstream tarballs declared in `packages/fleet-web/package.json`.
 
 ## Release flow
 
@@ -54,7 +54,7 @@ pnpm run check:package --out-dir dist-release
 ```
 
 `check:package` builds no code itself. It expects the generated
-`packages/fleet-prime/dist/web/launcher.mjs`, inspects the npm dry-run file
+`packages/fleet-web/dist/web/launcher.mjs`, inspects the npm dry-run file
 list and final tarball, installs that exact tarball into an isolated global
 npm prefix, starts the real server, probes its HTTP surface, and runs the
 `fleet-agent agent --help` upstream handoff. It rejects source, test, and

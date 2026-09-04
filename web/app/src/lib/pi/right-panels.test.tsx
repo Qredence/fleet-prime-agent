@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type {
-  ChatSessionResponse,
-  PrimeAgentArtifactRun,
-  PrimeAgentSessionPresentation,
+	ChatSessionResponse,
+	PrimeAgentArtifactRun,
+	PrimeAgentRlmChild,
+	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -10,6 +11,7 @@ import { ArtifactsPanelContent } from "@prime-agent/web-design/components/produc
 import { RightPanelLauncher } from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher"
 import { ReplPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/repl-panel"
 import { SubagentsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/subagents-panel"
+import { SubagentChatPanel } from "./subagent-chat-panel"
 import { useChatShellState } from "./use-chat-shell-state"
 
 vi.mock("@prime-agent/web-design/components/product/fleet-pi/chat/generative-text-renderer", () => ({
@@ -103,7 +105,7 @@ afterEach(() => {
 })
 
 describe("right-panel execution tabs", () => {
-  it("exposes all registry panels in fit-mode tabs and toggles the active panel closed", () => {
+  it("exposes launcher panels in fit-mode tabs without a redundant Subagents tab", () => {
     const onPanelChange = vi.fn()
     const layout = mockLauncherLayout(500, 400)
     const { getByTestId, rerender } = render(
@@ -113,7 +115,6 @@ describe("right-panel execution tabs", () => {
         resources={null}
         replRuns={2}
         sessionBlocks={1}
-        subagents={1}
         openUIArtifacts={2}
         workspace={null}
       />,
@@ -121,14 +122,12 @@ describe("right-panel execution tabs", () => {
     layout(getByTestId("right-panel-inline-launcher"))
 
     expect(getByTestId("right-panel-inline-launcher").getAttribute("data-panel-launcher-mode")).toBe("tabs")
-    expect(screen.getAllByRole("tab")).toHaveLength(6)
+    expect(screen.getAllByRole("tab")).toHaveLength(5)
 
     const repl = screen.getByRole("tab", { name: "REPL runs" })
-    const subagents = screen.getByRole("tab", { name: "Subagents" })
     expect(repl).toBeTruthy()
-    expect(subagents).toBeTruthy()
     expect(repl.textContent).toContain("2")
-    expect(subagents.textContent).toContain("1")
+    expect(screen.queryByRole("tab", { name: "Subagents" })).toBeNull()
     expect(screen.getByRole("tab", { name: "Artifacts" }).textContent).toContain("3")
 
     fireEvent.click(repl)
@@ -143,11 +142,10 @@ describe("right-panel execution tabs", () => {
       />,
     )
     layout(getByTestId("right-panel-inline-launcher"))
-    fireEvent.click(screen.getByRole("tab", { name: "Subagents" }))
-    expect(onPanelChange).toHaveBeenLastCalledWith(null)
+    expect(screen.queryByRole("tab", { name: "Subagents" })).toBeNull()
   })
 
-  it("exposes all registry panels in overflow-mode dropdown and closes on the active option", async () => {
+  it("exposes launcher panels in overflow-mode dropdown without a redundant Subagents option", async () => {
     const onPanelChange = vi.fn()
     const layout = mockLauncherLayout(120, 400)
     const { getByRole, getByTestId, rerender } = render(
@@ -166,13 +164,12 @@ describe("right-panel execution tabs", () => {
     const select = getByRole("combobox", { name: "Select panel" })
     fireEvent.click(select)
     const options = await screen.findAllByRole("option")
-    expect(options).toHaveLength(6)
+    expect(options).toHaveLength(5)
     expect(options.map((option) => option.textContent?.trim())).toEqual([
       "Resources",
       "Workspace",
       "Artifacts",
       "REPL",
-      "Subagents",
       "Session insights",
     ])
 
@@ -191,10 +188,7 @@ describe("right-panel execution tabs", () => {
     )
     layout(getByTestId("right-panel-inline-launcher"))
     fireEvent.click(getByRole("combobox", { name: "Select panel" }))
-    const subagentsOption = getByRole("option", { name: "Subagents" })
-    fireEvent.pointerDown(subagentsOption, { pointerType: "mouse" })
-    fireEvent.click(subagentsOption)
-    expect(onPanelChange).toHaveBeenLastCalledWith(null)
+    expect(screen.queryByRole("option", { name: "Subagents" })).toBeNull()
   })
 
   it("counts and renders OpenUI and technical artifacts with session UI blocks", () => {
@@ -409,5 +403,26 @@ describe("right-panel execution tabs", () => {
 
 		await waitFor(() => expect(loadSession).toHaveBeenCalledTimes(2));
 		expect(await screen.findByText("Completed snapshot")).toBeTruthy();
+	})
+
+	it("retains error transcripts and renders a fallback error banner", async () => {
+		const child: PrimeAgentRlmChild = {
+			id: "child-1",
+			label: "Research worker",
+			status: "failed",
+			timestamp: 1,
+		}
+		const state = {
+			status: "error" as const,
+			loading: false,
+			messages: [{ id: "child-assistant", role: "assistant" as const, parts: [{ type: "text" as const, text: "Last known answer" }] }],
+			presentation: emptyPresentation,
+			refresh: vi.fn(),
+		}
+
+		render(<SubagentChatPanel child={child} parentSessionId="parent-session" state={state} />)
+
+		expect(await screen.findByText("Last known answer")).toBeTruthy()
+		expect(screen.getByRole("alert").textContent).toContain("ended with an error")
 	})
 })

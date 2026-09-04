@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleAlert, CircleX, LoaderCircle } from "lucide-react"
+import { CheckCircle2, CircleAlert, CircleX, LoaderCircle, RotateCw } from "lucide-react"
 import type { PrimeAgentRlmChild, PrimeAgentRlmTree } from "@prime-agent/web-protocol/chat-protocol"
 
 /**
@@ -36,7 +36,8 @@ export function orderedRlmChildren(children: readonly PrimeAgentRlmChild[], tree
  */
 export function rlmStatusIcon(status: PrimeAgentRlmChild["status"]) {
 	if (status === "done") return <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-	if (status === "error") return <CircleAlert className="size-3.5 text-destructive" />
+	if (status === "error" || status === "failed") return <CircleAlert className="size-3.5 text-destructive" />
 	if (status === "cancelled") return <CircleX className="size-3.5 text-muted-foreground" />
+	if (status === "recovering") return <RotateCw className="size-3.5 animate-spin text-amber-500 dark:text-amber-400" />
 	return <LoaderCircle className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />
 }

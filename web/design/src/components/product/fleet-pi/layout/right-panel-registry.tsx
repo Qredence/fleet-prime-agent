@@ -9,7 +9,7 @@ import type { ComponentType, ElementType } from "react"
 import type { RightPanel } from "../../../../lib/canvas-utils"
 
 export type ActiveRightPanel = Exclude<RightPanel, null>
-export type RightPanelBadgeSource = "resources" | "artifacts" | "repl" | "subagents"
+export type RightPanelBadgeSource = "resources" | "artifacts" | "repl"
 export type RightPanelLoadingSource = "resources" | "workspace"
 
 export type RightPanelDefinition = {
@@ -22,6 +22,7 @@ export type RightPanelDefinition = {
   icon: ElementType
   dataTestid: string
   mobileDataTestid: string
+  showInLauncher?: boolean
   badgeSource?: RightPanelBadgeSource
   loadingSource?: RightPanelLoadingSource
   refreshSource?: RightPanelLoadingSource
@@ -159,6 +160,7 @@ function SubagentsContent() {
       <LazySubagentsPanel
         agents={data.presentation.rlmChildren}
         loadSession={data.loadSubagentSession}
+        onOpenTab={data.onOpenSubagentTab}
         parentSessionId={data.sessionId}
         tree={data.presentation.rlmTree}
       />
@@ -177,6 +179,7 @@ export const RIGHT_PANEL_REGISTRY = {
     icon: Library,
     dataTestid: "pi-resources-canvas",
     mobileDataTestid: "pi-resources-mobile-panel",
+    showInLauncher: true,
     badgeSource: "resources",
     loadingSource: "resources",
     refreshSource: "resources",
@@ -192,6 +195,7 @@ export const RIGHT_PANEL_REGISTRY = {
     icon: Folder,
     dataTestid: "pi-workspace-canvas",
     mobileDataTestid: "pi-workspace-mobile-panel",
+    showInLauncher: true,
     badgeSource: undefined,
     loadingSource: "workspace",
     refreshSource: "workspace",
@@ -207,6 +211,7 @@ export const RIGHT_PANEL_REGISTRY = {
     icon: Package,
     dataTestid: "pi-artifacts-canvas",
     mobileDataTestid: "pi-artifacts-mobile-panel",
+    showInLauncher: true,
     badgeSource: "artifacts",
     loadingSource: undefined,
     refreshSource: undefined,
@@ -222,6 +227,7 @@ export const RIGHT_PANEL_REGISTRY = {
     icon: SquareTerminal,
     dataTestid: "pi-repl-canvas",
     mobileDataTestid: "pi-repl-mobile-panel",
+    showInLauncher: true,
     badgeSource: "repl",
     loadingSource: undefined,
     refreshSource: undefined,
@@ -237,7 +243,8 @@ export const RIGHT_PANEL_REGISTRY = {
     icon: Bot,
     dataTestid: "pi-subagents-canvas",
     mobileDataTestid: "pi-subagents-mobile-panel",
-    badgeSource: "subagents",
+    showInLauncher: false,
+    badgeSource: undefined,
     loadingSource: undefined,
     refreshSource: undefined,
     component: SubagentsContent,
@@ -252,6 +259,7 @@ export const RIGHT_PANEL_REGISTRY = {
     icon: Activity,
     dataTestid: "pi-session-insights-canvas",
     mobileDataTestid: "pi-session-insights-mobile-panel",
+    showInLauncher: true,
     badgeSource: undefined,
     loadingSource: undefined,
     refreshSource: undefined,
@@ -261,6 +269,10 @@ export const RIGHT_PANEL_REGISTRY = {
 
 export const RIGHT_PANEL_DEFINITIONS = Object.values(RIGHT_PANEL_REGISTRY).sort(
   (left, right) => left.order - right.order
+)
+
+export const RIGHT_PANEL_LAUNCHER_DEFINITIONS = RIGHT_PANEL_DEFINITIONS.filter(
+  (definition) => definition.showInLauncher !== false
 )
 
 export function getRightPanelDefinition(panel: ActiveRightPanel) {

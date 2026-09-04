@@ -159,6 +159,21 @@ function replaceOrAppendInFlight(
 }
 
 export function applyChatStreamEvent(transition: ChatStreamTransition, event: ChatStreamEvent): ChatStreamTransition {
+	if (event.type === "session_snapshot") {
+		return {
+			assistantId: null,
+			snapshot: {
+				...transition.snapshot,
+				activityLabel: undefined,
+				messages: event.messages,
+				planLabel: undefined,
+				presentation: event.presentation,
+				queue: EMPTY_QUEUE_STATE,
+				sessionMetadata: event.session,
+			},
+		};
+	}
+
 	// Runtime reattachment uses a synthetic done frame to mark the old
 	// connection state as reset. The user turn is still in flight, so preserve
 	// the current assistant bubble until the real terminal done arrives.
@@ -172,6 +187,23 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 			snapshot: {
 				...transition.snapshot,
 				presentation: event.presentation,
+			},
+		};
+	}
+
+	if (event.type === "rlm") {
+		const presentation = transition.snapshot.presentation;
+		if (!presentation) return transition;
+		const rlmChildren = [...presentation.rlmChildren.filter((child) => child.id !== event.child.id), event.child];
+		return {
+			...transition,
+			snapshot: {
+				...transition.snapshot,
+				presentation: {
+					...presentation,
+					rlmChildren,
+					...(event.tree ? { rlmTree: event.tree } : {}),
+				},
 			},
 		};
 	}

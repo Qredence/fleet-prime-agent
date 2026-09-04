@@ -13,6 +13,7 @@ import type {
 	ChatToolPart,
 	FleetErrorEnvelope,
 	PrimeAgentArtifact,
+	PrimeAgentArtifactStatus,
 	PrimeAgentGoal,
 	PrimeAgentParentSession,
 	PrimeAgentRefinement,
@@ -632,6 +633,17 @@ function extractToolErrorText(result: unknown): string {
 	return "Tool execution failed";
 }
 
+function extractToolBackgroundOutput(result: unknown): string | undefined {
+	if (!result || typeof result !== "object") return undefined;
+	const record = result as Record<string, unknown>;
+	if (typeof record.backgroundOutput === "string") return record.backgroundOutput;
+	if (record.details && typeof record.details === "object") {
+		const details = record.details as Record<string, unknown>;
+		if (typeof details.backgroundOutput === "string") return details.backgroundOutput;
+	}
+	return undefined;
+}
+
 /** Hydrate the canonical conversation while joining persisted tool results to calls. */
 export function toChatMessagesFromAgentMessages(
 	messages: readonly AgentMessage[],
@@ -668,6 +680,7 @@ export function toChatMessagesFromAgentMessages(
 				: typeof (result.details as { durationMs?: number })?.durationMs === "number"
 					? (result.details as { durationMs: number }).durationMs
 					: undefined;
+		const backgroundOutput = extractToolBackgroundOutput(result);
 
 		let attached = false;
 		if (toolCallId) {
@@ -685,6 +698,7 @@ export function toChatMessagesFromAgentMessages(
 					output: toolResultOutput(result),
 					result: toolResultOutput(result),
 					...(durationMs !== undefined ? { durationMs } : {}),
+					...(backgroundOutput !== undefined ? { backgroundOutput } : {}),
 					...(errorEnvelope ? { error: errorEnvelope } : {}),
 				};
 				output[messageIndex] = {
@@ -707,6 +721,7 @@ export function toChatMessagesFromAgentMessages(
 						output: toolResultOutput(result),
 						result: toolResultOutput(result),
 						...(durationMs !== undefined ? { durationMs } : {}),
+						...(backgroundOutput !== undefined ? { backgroundOutput } : {}),
 						...(errorEnvelope ? { error: errorEnvelope } : {}),
 					},
 				],
@@ -755,11 +770,19 @@ export interface EventMapperState {
 	presentation: PrimeAgentSessionPresentation;
 	activeUserBashId: string | undefined;
 	userBashSequence: number;
+	rlmChildOverrides: Map<string, RlmChildStatusOverride>;
+	rlmChildRuntimeOverrides: Map<string, RlmChildStatusOverride>;
 }
+
+export type RlmChildStatusOverride = {
+	status?: PrimeAgentRlmChild["status"];
+	lastHeardFrom?: number;
+};
 
 export function createEventMapperState(init?: {
 	sessionId?: string;
 	presentation?: PrimeAgentSessionPresentation;
+	rlmChildOverrides?: ReadonlyMap<string, RlmChildStatusOverride>;
 }): EventMapperState {
 	return {
 		runId: "",
@@ -780,6 +803,8 @@ export function createEventMapperState(init?: {
 		presentation: init?.presentation ?? createEmptyPrimeAgentSessionPresentation(),
 		activeUserBashId: undefined,
 		userBashSequence: 0,
+		rlmChildOverrides: new Map(init?.rlmChildOverrides),
+		rlmChildRuntimeOverrides: new Map(),
 	};
 }
 
@@ -906,7 +931,11 @@ export function computeRlmExecutionTree(
 
 export function safeRlmChild(
 	child: Extract<AgentSessionEvent, { type: "rlm_child_update" }>["child"],
+	override?: RlmChildStatusOverride,
 ): PrimeAgentRlmChild {
+	const childLastHeardFrom = (child as { lastHeardFrom?: unknown }).lastHeardFrom;
+	const lastHeardFrom =
+		override?.lastHeardFrom ?? (typeof childLastHeardFrom === "number" ? childLastHeardFrom : undefined);
 	return {
 		id: child.id,
 		...(child.parentId ? { parentId: child.parentId } : {}),
@@ -914,7 +943,7 @@ export function safeRlmChild(
 		...(child.sessionName ? { sessionName: child.sessionName } : {}),
 		...(child.model ? { model: child.model } : {}),
 		label: child.label,
-		status: child.status,
+		status: override?.status ?? child.status,
 		...(child.durationMs !== undefined ? { durationMs: child.durationMs } : {}),
 		...(child.answerPreview ? { answerPreview: child.answerPreview } : {}),
 		...(child.toolUseCount !== undefined ? { toolUseCount: child.toolUseCount } : {}),
@@ -923,8 +952,67 @@ export function safeRlmChild(
 		...(child.activity ? { activity: child.activity } : {}),
 		...(child.repliedSinceTask !== undefined ? { repliedSinceTask: child.repliedSinceTask } : {}),
 		...(child.error ? { error: child.error } : {}),
+		...(lastHeardFrom !== undefined ? { lastHeardFrom } : {}),
 		timestamp: Date.now(),
 	};
+}
+
+function rlmArtifactStatus(status: PrimeAgentRlmChild["status"]): PrimeAgentArtifactStatus {
+	if (status === "cancelled") return "cancelled";
+	if (status === "error" || status === "failed") return "error";
+	if (status === "done") return "success";
+	return "running";
+}
+
+export function applyRlmChildStatusOverrides(
+	state: EventMapperState,
+	overrides: ReadonlyMap<string, RlmChildStatusOverride>,
+): ChatStreamEvent[] {
+	for (const [childId, override] of overrides) state.rlmChildOverrides.set(childId, override);
+
+	let changed = false;
+	const rawRlmChildren = state.presentation.rlmChildren.map((child) => {
+		const override = state.rlmChildOverrides.get(child.id);
+		const runtimeOverride = state.rlmChildRuntimeOverrides.get(child.id);
+		const status = override?.status ?? runtimeOverride?.status ?? child.status;
+		const lastHeardFrom = override ? override.lastHeardFrom : (runtimeOverride?.lastHeardFrom ?? child.lastHeardFrom);
+		if (status === child.status && lastHeardFrom === child.lastHeardFrom) return child;
+		changed = true;
+		return {
+			...child,
+			status,
+			...(lastHeardFrom !== undefined ? { lastHeardFrom } : {}),
+		};
+	});
+	if (!changed) return [];
+
+	const rlmTree = computeRlmExecutionTree(state.sessionId, rawRlmChildren, state.presentation.rlmTree?.activeNodeId);
+	const rlmChildren = rawRlmChildren.map((child) => {
+		const treeNode = rlmTree.nodes[child.id];
+		return treeNode ? { ...child, depth: treeNode.depth, childrenIds: treeNode.childrenIds } : child;
+	});
+	const updatedArtifacts = state.presentation.artifactRuns.map((run) => ({
+		...run,
+		artifacts: run.artifacts.map((artifact) => {
+			if (artifact.kind !== "rlm" || !artifact.sourceToolCallId) return artifact;
+			const child = rlmChildren.find((entry) => entry.id === artifact.sourceToolCallId);
+			if (!child) return artifact;
+			return {
+				...artifact,
+				status: rlmArtifactStatus(child.status),
+				output: child,
+				timestamp: child.timestamp,
+			};
+		}),
+	}));
+	return [
+		emitPresentation(state, {
+			...state.presentation,
+			rlmChildren,
+			rlmTree,
+			artifactRuns: updatedArtifacts,
+		}),
+	];
 }
 
 function safeGoal(goal: Extract<AgentSessionEvent, { type: "goal_update" }>["goal"]): PrimeAgentGoal {
@@ -1233,6 +1321,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		}
 		case "tool_execution_update": {
 			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const backgroundOutput = extractToolBackgroundOutput(event.partialResult);
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
 				category,
@@ -1242,6 +1331,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				state: "input-streaming",
 				input: event.args,
 				result: event.partialResult,
+				...(backgroundOutput !== undefined ? { backgroundOutput } : {}),
 			});
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
@@ -1255,6 +1345,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 					: typeof (event.result as { details?: { durationMs?: number } })?.details?.durationMs === "number"
 						? (event.result as { details: { durationMs: number } }).details.durationMs
 						: undefined;
+			const backgroundOutput = extractToolBackgroundOutput(event.result);
 
 			const part = upsertCurrentToolPart(state, {
 				type: makeToolType(event.toolName),
@@ -1266,6 +1357,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				output: event.result,
 				result: event.result,
 				...(durationMs !== undefined ? { durationMs } : {}),
+				...(backgroundOutput !== undefined ? { backgroundOutput } : {}),
 				...(errorEnvelope ? { error: errorEnvelope } : {}),
 			});
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
@@ -1459,7 +1551,12 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 		case "service_tier_changed":
 			return [emitPresentation(state, { ...state.presentation, serviceTier: event.serviceTier })];
 		case "rlm_child_update": {
-			const child = safeRlmChild(event.child);
+			const runtimeChild = safeRlmChild(event.child);
+			state.rlmChildRuntimeOverrides.set(event.child.id, {
+				status: runtimeChild.status,
+				...(runtimeChild.lastHeardFrom !== undefined ? { lastHeardFrom: runtimeChild.lastHeardFrom } : {}),
+			});
+			const child = safeRlmChild(event.child, state.rlmChildOverrides.get(event.child.id));
 			const rawRlmChildren = state.presentation.rlmChildren.filter((entry) => entry.id !== child.id);
 			rawRlmChildren.push(child);
 			const rlmTree = computeRlmExecutionTree(state.sessionId, rawRlmChildren, child.id);
@@ -1478,14 +1575,7 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 				sourceToolCallId: child.id,
 				kind: "rlm",
 				title: child.label,
-				status:
-					child.status === "cancelled"
-						? "cancelled"
-						: child.status === "error"
-							? "error"
-							: child.status === "done"
-								? "success"
-								: "running",
+				status: rlmArtifactStatus(child.status),
 				output: child,
 				timestamp: child.timestamp,
 			};
@@ -1693,7 +1783,14 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 			resetRun(state);
 			const events: ChatStreamEvent[] = [];
 			if (event.snapshot.parent || event.snapshot.children) {
-				const rawRlmChildren = (event.snapshot.children ?? []).map(safeRlmChild);
+				const rawRlmChildren = (event.snapshot.children ?? []).map((child) => {
+					const runtimeChild = safeRlmChild(child);
+					state.rlmChildRuntimeOverrides.set(child.id, {
+						status: runtimeChild.status,
+						...(runtimeChild.lastHeardFrom !== undefined ? { lastHeardFrom: runtimeChild.lastHeardFrom } : {}),
+					});
+					return safeRlmChild(child, state.rlmChildOverrides.get(child.id));
+				});
 				const rlmTree = computeRlmExecutionTree(state.sessionId, rawRlmChildren);
 				const rlmChildren = rawRlmChildren.map((c) => {
 					const treeNode = rlmTree.nodes[c.id];

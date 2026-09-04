@@ -8,7 +8,7 @@ import {
   Square,
   Sun,
 } from "lucide-react"
-import { RIGHT_PANEL_DEFINITIONS } from "./layout/right-panel-registry"
+import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "./layout/right-panel-registry"
 import {
   CommandDialog,
   CommandEmpty,
@@ -93,7 +93,7 @@ export function ChatCommandPalette({
         <CommandSeparator />
 
         <CommandGroup heading="Panels">
-          {RIGHT_PANEL_DEFINITIONS.map((definition) => {
+          {RIGHT_PANEL_LAUNCHER_DEFINITIONS.map((definition) => {
             const Icon = definition.icon
             return (
               <CommandItem

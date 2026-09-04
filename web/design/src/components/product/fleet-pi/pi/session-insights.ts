@@ -22,7 +22,7 @@ export type SessionInsightsInput = {
 	thinkingLevel?: ChatThinkingLevel;
 };
 
-export const RLM_CHILD_STATUSES = ["queued", "running", "done", "error", "cancelled"] as const;
+export const RLM_CHILD_STATUSES = ["queued", "running", "done", "error", "cancelled", "recovering", "failed"] as const;
 
 export type SessionInsights = {
 	activity: string;

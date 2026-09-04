@@ -4,7 +4,7 @@
 # still arrive promptly.
 #
 # The repository is a single pnpm workspace resolved through the root
-# pnpm-lock.yaml; the root entry covers web/* and packages/fleet-prime.
+# pnpm-lock.yaml; the root entry covers web/* and packages/fleet-web.
 version: 2
 updates:
   - package-ecosystem: npm

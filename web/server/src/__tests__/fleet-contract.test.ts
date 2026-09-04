@@ -14,6 +14,7 @@ describe("Fleet browser contracts", () => {
 	it.each([
 		{ kind: "shell", command: "pwd", output: "/workspace", exitCode: 0 },
 		{ kind: "ipython", code: "1 + 1", output: "2" },
+		{ kind: "ipython", code: "import threading", output: "ok", backgroundOutput: "Thread finished" },
 		{ kind: "file", operation: "edit", relativePath: "src/app.ts", diff: "+changed" },
 		{ kind: "search", query: "Prime Agent", results: [{ title: "Docs", url: "https://example.com" }] },
 		{ kind: "mcp", server: "local", tool: "read", input: { path: "README.md" } },

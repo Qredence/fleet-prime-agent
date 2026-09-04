@@ -22,7 +22,7 @@ Boundary rules:
 ## Runtime pin
 
 `PRIME_AGENT_RUNTIME.json` pins the stock upstream tarball and SHA-256.
-`packages/fleet-prime` is Fleet's thin launcher package; it is not an upstream
+`packages/fleet-web` is Fleet's thin launcher package; it is not an upstream
 source checkout. Do not add copies of upstream source under `packages/` or
 `prime-agent-runtime/`.
 

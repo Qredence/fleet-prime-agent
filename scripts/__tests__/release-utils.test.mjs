@@ -23,7 +23,7 @@ import {
 import { assertReleaseVersion, compareVersions, parseStableVersion } from "../release-utils.mjs";
 
 const packageManifest = JSON.parse(
-	readFileSync(new URL("../../packages/fleet-prime/package.json", import.meta.url), "utf8"),
+	readFileSync(new URL("../../packages/fleet-web/package.json", import.meta.url), "utf8"),
 );
 const packageVersion = packageManifest.version;
 const [packageMajor, packageMinor, packagePatch] = parseStableVersion(packageVersion);
@@ -108,8 +108,8 @@ test("detects only package-version commits on main", () => {
 		isPackageVersionCommit({
 			branch: "main",
 			readChangedPaths: () => [
-				"packages/fleet-prime/package.json",
-				"packages/fleet-prime/CHANGELOG.md",
+				"packages/fleet-web/package.json",
+				"packages/fleet-web/CHANGELOG.md",
 				".changeset/release.md",
 			],
 		}),
@@ -118,14 +118,14 @@ test("detects only package-version commits on main", () => {
 	assert.equal(
 		isPackageVersionCommit({
 			branch: "main",
-			readChangedPaths: () => ["packages/fleet-prime/package.json", "README.md"],
+			readChangedPaths: () => ["packages/fleet-web/package.json", "README.md"],
 		}),
 		false,
 	);
 	assert.equal(
 		isPackageVersionCommit({
 			branch: "feature/release",
-			readChangedPaths: () => ["packages/fleet-prime/package.json"],
+			readChangedPaths: () => ["packages/fleet-web/package.json"],
 		}),
 		false,
 	);

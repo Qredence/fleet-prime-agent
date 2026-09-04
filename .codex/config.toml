@@ -8,3 +8,7 @@ multi_agent = true
 
 [sandbox_workspace_write]
 network_access = true
+
+[mcp_servers.agentation]
+command = "pnpm"
+args = [ "exec", "agentation-mcp", "server" ]

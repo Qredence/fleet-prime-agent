@@ -71,6 +71,7 @@ export function handleProjectsGet(_request: Request): Promise<Response> {
 					status: sessionStatus(session.source, getBridge().getSession(session.sessionId)),
 					messageCount: session.messageCount,
 					firstMessage: session.firstMessage ? redactSessionLabelSecrets(session.firstMessage) : "",
+					...(session.isSubagent ? { isSubagent: true } : {}),
 				};
 			}),
 		});

@@ -141,6 +141,32 @@ describe("FleetSessionSidebar project rows", () => {
     expect(getByRole("treeitem", { name: /Configure API key \[redacted\]/i })).toBeTruthy()
   })
 
+  it("indents subagent sessions without changing their selectable flat list", () => {
+    const root = session("root-session", "alpha")
+    const child = { ...session("child-session", "alpha"), isSubagent: true }
+    const { getByRole } = render(
+      <AnimatedSidebarProvider>
+        <SidebarHarness
+          sessions={[root, child]}
+          projects={[project("alpha")]}
+          projectSessions={[root, child]}
+          activeProjectId="alpha"
+          activeSessionId="root-session"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    const rootRow = getByRole("treeitem", { name: /root-session/i })
+    const childRow = getByRole("treeitem", { name: /child-session/i })
+    expect(rootRow.style.paddingLeft).toBe("22px")
+    expect(childRow.style.paddingLeft).toBe("36px")
+    expect(childRow.getAttribute("aria-level")).toBe("2")
+  })
+
   it("makes the selected directory and child paths explicit", async () => {
     const root: ProjectDirectoryBrowseResponse = {
       pathLabel: "~/workspace",

@@ -11,8 +11,8 @@
 	"type": "module",
 	"packageManager": "pnpm@11.15.1",
 	"bin": {
-		"fleet-agent": "packages/fleet-prime/bin/fleet-prime.mjs",
-		"fleet-prime": "packages/fleet-prime/bin/fleet-prime.mjs"
+		"fleet-agent": "packages/fleet-web/bin/fleet-prime.mjs",
+		"fleet-prime": "packages/fleet-web/bin/fleet-prime.mjs"
 	},
 	"scripts": {
 		"build": "pnpm run build:web:release",
@@ -34,7 +34,7 @@
 		"check:web:release": "node scripts/check-web-release.mjs",
 		"test:web": "pnpm -r --if-present test",
 		"test": "pnpm -r --if-present test",
-		"release:pack": "pnpm --dir packages/fleet-prime pack --pack-destination ../..",
+		"release:pack": "pnpm --dir packages/fleet-web pack --pack-destination ../..",
 		"prepare": "husky"
 	},
 	"devDependencies": {
@@ -42,6 +42,7 @@
 		"@changesets/cli": "3.0.1",
 		"@types/node": "^22.20.1",
 		"@typescript/native-preview": "7.0.0-dev.20260120.1",
+		"agentation-mcp": "1.2.0",
 		"esbuild": "0.28.1",
 		"husky": "^9.1.7",
 		"jiti": "^2.7.0",

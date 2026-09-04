@@ -11,6 +11,7 @@ export interface NormalizedSessionListRow {
 	readonly updatedAt: string;
 	readonly messageCount: number;
 	readonly firstMessage: string;
+	readonly isSubagent: boolean;
 }
 
 function stringValue(value: unknown): string | undefined {
@@ -41,6 +42,16 @@ export function normalizeSessionListRow(source: SessionListSource): NormalizedSe
 
 	const createdAt = timestampValue(raw.created) ?? timestampValue(raw.modified) ?? new Date().toISOString();
 	const updatedAt = timestampValue(raw.modified) ?? timestampValue(raw.created) ?? createdAt;
+	const isSubagent =
+		typeof raw.runtimeKind === "string"
+			? raw.runtimeKind === "subagent"
+			: Boolean(
+					raw.rlmChildId ??
+						raw.rlmParentNodeId ??
+						raw.parentActiveSessionId ??
+						raw.parentSessionId ??
+						raw.parentSessionPath,
+				);
 
 	return {
 		source,
@@ -51,5 +62,6 @@ export function normalizeSessionListRow(source: SessionListSource): NormalizedSe
 		updatedAt,
 		messageCount: messageCountValue(raw.messageCount),
 		firstMessage: typeof raw.firstMessage === "string" ? raw.firstMessage : "",
+		isSubagent,
 	};
 }

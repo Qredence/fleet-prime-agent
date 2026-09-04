@@ -9,7 +9,7 @@ import { pnpmInvocation } from "./pnpm-command.mjs";
 import { parseStableVersion, RELEASE_REPOSITORY } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const packageManifestPath = join(root, "packages", "fleet-prime", "package.json");
+const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
 const packageName = "@qredence/fleet";
 const baseBranch = "main";
 
@@ -168,8 +168,8 @@ function changedFiles(baseSha) {
  */
 function assertVersionChangesOnly(files) {
 	const allowed = (path, status) => {
-		if (path === "packages/fleet-prime/package.json" && status !== "D") return true;
-		if (path === "packages/fleet-prime/CHANGELOG.md" && status !== "D") return true;
+		if (path === "packages/fleet-web/package.json" && status !== "D") return true;
+		if (path === "packages/fleet-web/CHANGELOG.md" && status !== "D") return true;
 		return (
 			status === "D" && path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md"
 		);

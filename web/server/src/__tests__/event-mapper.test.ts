@@ -4,6 +4,7 @@ import type { ChatStreamEvent, ChatToolPart, FleetErrorEnvelope } from "@prime-a
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
+	applyRlmChildStatusOverrides,
 	categorizeTool,
 	computeRlmExecutionTree,
 	createEventMapperState,
@@ -247,6 +248,70 @@ describe("event-mapper", () => {
 			output: { details: { stdout: "2", durationMs: 8 } },
 		});
 		expect(state.currentToolParts.some((part) => part.state === "input-streaming")).toBe(false);
+	});
+
+	it("preserves backgroundOutput in tool_execution_update, tool_execution_end, and agent message hydration", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvents(state, [
+			{
+				type: "tool_execution_start",
+				toolCallId: "ipython-bg",
+				toolName: "ipython",
+				args: { code: "import threading" },
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_update",
+				toolCallId: "ipython-bg",
+				toolName: "ipython",
+				args: undefined,
+				partialResult: { details: { stdout: "starting...", backgroundOutput: "Thread started\n" } },
+			} as unknown as AgentSessionEvent,
+			{
+				type: "tool_execution_end",
+				toolCallId: "ipython-bg",
+				toolName: "ipython",
+				result: { details: { stdout: "done", backgroundOutput: "Thread completed\n", durationMs: 42 } },
+				isError: false,
+			} as AgentSessionEvent,
+		]);
+
+		const toolFrames = frames.filter((frame) => frame.type === "tool");
+		expect(toolFrames).toHaveLength(3);
+		expect(state.currentToolParts[0]).toMatchObject({
+			toolCallId: "ipython-bg",
+			state: "output-available",
+			backgroundOutput: "Thread completed\n",
+			durationMs: 42,
+		});
+
+		// Also verify hydration from AgentMessage[]
+		const hydrated = toChatMessagesFromAgentMessages(
+			[
+				{
+					role: "assistant",
+					content: [
+						{
+							type: "toolCall",
+							id: "ipython-bg",
+							name: "ipython",
+							arguments: { code: "import threading" },
+						},
+					],
+				} as unknown as AgentMessage,
+				{
+					role: "toolResult",
+					toolCallId: "ipython-bg",
+					toolName: "ipython",
+					details: { stdout: "done", backgroundOutput: "Thread completed\n", durationMs: 42 },
+				} as unknown as AgentMessage,
+			],
+			"session-bg",
+		);
+		expect(hydrated).toHaveLength(1);
+		const hydratedPart = hydrated[0].parts[0] as ChatToolPart;
+		expect(hydratedPart.backgroundOutput).toBe("Thread completed\n");
+		expect(hydratedPart.durationMs).toBe(42);
 	});
 
 	it("keeps concurrent tool calls distinct when their updates interleave", () => {
@@ -681,6 +746,48 @@ describe("event-mapper", () => {
 		expect(JSON.stringify(state.presentation)).not.toContain("/private/child-session");
 	});
 
+	it("applies authoritative daemon child status and heartbeat overrides to the tree and artifact", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, {
+			type: "rlm_child_update",
+			child: {
+				id: "child-1",
+				label: "Research worker",
+				status: "running",
+			},
+		} as unknown as AgentSessionEvent);
+
+		const failedFrames = applyRlmChildStatusOverrides(
+			state,
+			new Map([["child-1", { status: "failed", lastHeardFrom: 1710000000000 }]]),
+		);
+		const failedPresentation = failedFrames[0];
+		if (failedPresentation?.type !== "presentation") throw new Error("missing failed presentation");
+		expect(failedPresentation.presentation.rlmChildren[0]).toMatchObject({
+			status: "failed",
+			lastHeardFrom: 1710000000000,
+		});
+		expect(failedPresentation.presentation.artifactRuns[0]?.artifacts[0]).toMatchObject({
+			status: "error",
+			output: expect.objectContaining({ status: "failed" }),
+		});
+
+		const recoveringFrames = applyRlmChildStatusOverrides(
+			state,
+			new Map([["child-1", { status: "recovering", lastHeardFrom: 1710000001000 }]]),
+		);
+		const recoveringPresentation = recoveringFrames[0];
+		if (recoveringPresentation?.type !== "presentation") throw new Error("missing recovering presentation");
+		expect(recoveringPresentation.presentation.rlmChildren[0]).toMatchObject({
+			status: "recovering",
+			lastHeardFrom: 1710000001000,
+		});
+		expect(recoveringPresentation.presentation.artifactRuns[0]?.artifacts[0]).toMatchObject({
+			status: "running",
+			output: expect.objectContaining({ status: "recovering" }),
+		});
+	});
+
 	it("sanitizes refinement edits while preserving diff content for artifact rendering", () => {
 		const state = createEventMapperState({ sessionId: "session-1" });
 		mapAgentSessionEvent(state, {
@@ -1017,6 +1124,45 @@ describe("event-mapper", () => {
 			});
 			expect(rlmEvent2.tree?.nodes["child-a"].childrenIds).toEqual(["child-b"]);
 			expect(state.presentation.rlmTree?.nodes["child-b"].depth).toBe(2);
+		});
+
+		it("maps recovering and failed lifecycle statuses and lastHeardFrom on rlm_child_update", () => {
+			const state = createEventMapperState({ sessionId: "root-session" });
+
+			const frames1 = mapAgentSessionEvent(state, {
+				type: "rlm_child_update",
+				child: {
+					id: "worker-rec",
+					label: "Worker Recovering",
+					status: "recovering",
+					lastHeardFrom: 1710000000000,
+				},
+			} as unknown as AgentSessionEvent);
+
+			const rlmEvent1 = frames1.find((frame) => frame.type === "rlm") as Extract<ChatStreamEvent, { type: "rlm" }>;
+			expect(rlmEvent1.child).toMatchObject({
+				id: "worker-rec",
+				label: "Worker Recovering",
+				status: "recovering",
+				lastHeardFrom: 1710000000000,
+			});
+
+			const frames2 = mapAgentSessionEvent(state, {
+				type: "rlm_child_update",
+				child: {
+					id: "worker-rec",
+					label: "Worker Recovering",
+					status: "failed",
+					error: "Worker socket disconnected unexpectedly",
+				},
+			} as unknown as AgentSessionEvent);
+
+			const rlmEvent2 = frames2.find((frame) => frame.type === "rlm") as Extract<ChatStreamEvent, { type: "rlm" }>;
+			expect(rlmEvent2.child).toMatchObject({
+				id: "worker-rec",
+				status: "failed",
+				error: "Worker socket disconnected unexpectedly",
+			});
 		});
 
 		it("resyncs parent session metadata and computes RLM tree on session_resynced", () => {

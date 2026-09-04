@@ -210,6 +210,7 @@ export function useFleetSessionSidebarViewModel({
 				id: sessionResourceId(session.sessionId),
 				label: sessionLabel(session),
 				kind: "file" as const,
+				...(session.isSubagent ? { indent: 1 } : {}),
 			}));
 			if (sessionsForProject.length === 0) {
 				children.push({
@@ -246,6 +247,7 @@ export function useFleetSessionSidebarViewModel({
 				id: sessionResourceId(session.sessionId),
 				label: sessionLabel(session),
 				kind: "file",
+				...(session.isSubagent ? { indent: 1 } : {}),
 			}));
 			if (unassigned.length > INITIAL_SESSION_COUNT) {
 				unassignedChildren.push({
