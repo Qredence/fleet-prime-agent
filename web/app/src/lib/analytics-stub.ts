@@ -20,7 +20,9 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 	const observers: Array<PerformanceObserver> = [];
 	try {
 		const lcp = new PerformanceObserver((list) => {
-			for (const entry of list.getEntries()) {
+			const entries = list.getEntries();
+			const entry = entries[entries.length - 1];
+			if (entry) {
 				onVital({ name: "LCP", value: entry.startTime, url });
 			}
 		});
@@ -28,30 +30,58 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 		observers.push(lcp);
 
 		let clsValue = 0;
+		let clsSessionValue = 0;
+		let clsSessionStart = 0;
+		let clsSessionEnd = 0;
+		let hasClsSession = false;
 		const cls = new PerformanceObserver((list) => {
+			let measuredLayoutShift = false;
 			for (const entry of list.getEntries()) {
 				const layoutEntry = entry as PerformanceEntry & {
 					hadRecentInput?: boolean;
 					value?: number;
 				};
 				if (!layoutEntry.hadRecentInput) {
-					clsValue += layoutEntry.value ?? 0;
-					onVital({ name: "CLS", value: clsValue, url });
+					const entryValue = layoutEntry.value ?? 0;
+					if (
+						hasClsSession &&
+						entry.startTime - clsSessionEnd < 1_000 &&
+						entry.startTime - clsSessionStart < 5_000
+					) {
+						clsSessionValue += entryValue;
+					} else {
+						clsSessionValue = entryValue;
+						clsSessionStart = entry.startTime;
+					}
+					hasClsSession = true;
+					clsSessionEnd = entry.startTime;
+					clsValue = Math.max(clsValue, clsSessionValue);
+					measuredLayoutShift = true;
 				}
 			}
+			if (measuredLayoutShift) onVital({ name: "CLS", value: clsValue, url });
 		});
 		cls.observe({ type: "layout-shift", buffered: true });
 		observers.push(cls);
 
+		const interactionDurations = new Map<number, number>();
 		const inp = new PerformanceObserver((list) => {
+			let measuredInteraction = false;
 			for (const entry of list.getEntries()) {
 				const eventEntry = entry as PerformanceEntry & {
 					interactionId?: number;
 					duration?: number;
 				};
 				if (eventEntry.interactionId) {
-					onVital({ name: "INP", value: eventEntry.duration ?? 0, url });
+					interactionDurations.set(
+						eventEntry.interactionId,
+						Math.max(interactionDurations.get(eventEntry.interactionId) ?? 0, eventEntry.duration ?? 0),
+					);
+					measuredInteraction = true;
 				}
+			}
+			if (measuredInteraction) {
+				onVital({ name: "INP", value: Math.max(...interactionDurations.values()), url });
 			}
 		});
 		inp.observe({ type: "event", buffered: true, durationThreshold: 40 } as PerformanceObserverInit);

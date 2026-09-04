@@ -57,7 +57,7 @@ for (const file of eagerFiles) {
     violations.push(`${file} must not be in the welcome route eager graph`)
   }
   const source = readFileSync(join(assetsDirectory, file), "utf8")
-  if (/\brecharts\b|createHighlighter|from["']shiki["']|streamdown|lottie-react|\bcmdk\b/.test(source)) {
+  if (/\brecharts\b|createHighlighter|from\s*["']shiki["']|streamdown|lottie-react|\bcmdk\b/.test(source)) {
     violations.push(`${file} eagerly contains Recharts, Shiki, Streamdown, Lottie, or cmdk implementation code`)
   }
 }

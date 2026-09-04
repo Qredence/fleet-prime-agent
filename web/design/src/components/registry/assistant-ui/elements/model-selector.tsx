@@ -13,7 +13,7 @@ const LazyModelSelectorList = lazy(() =>
 
 function ModelSelectorList(props: ComponentProps<typeof LazyModelSelectorList>) {
   return (
-    <Suspense fallback={<div className="h-24 animate-pulse rounded-md bg-muted/40 p-1.5" aria-label="Loading models" />}>
+    <Suspense fallback={<div className="h-24 animate-pulse rounded-md bg-muted/40 p-1.5" aria-label="Loading models" role="status" />}>
       <LazyModelSelectorList {...props} />
     </Suspense>
   )

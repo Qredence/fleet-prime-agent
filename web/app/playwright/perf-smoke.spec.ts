@@ -55,11 +55,12 @@ test.describe("performance smoke", () => {
 				new Promise<number>((resolve) => {
 					const timeout = setTimeout(() => resolve(-1), 10_000)
 					new PerformanceObserver((list, observer) => {
-						for (const entry of list.getEntries()) {
+						const entries = list.getEntries()
+						const entry = entries[entries.length - 1]
+						if (entry) {
 							clearTimeout(timeout)
 							observer.disconnect()
 							resolve(entry.startTime)
-							return
 						}
 					}).observe({ type: "largest-contentful-paint", buffered: true })
 				}),
