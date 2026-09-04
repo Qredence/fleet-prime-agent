@@ -13,8 +13,12 @@ npx -y react-doctor@0.9.11 web --json
 For a change-focused scan:
 
 ~~~bash
-npx -y react-doctor@0.9.11 web --scope files --base HEAD --include-untracked --json
+target_branch="${GITHUB_BASE_REF:-main}"
+base_commit="$(git merge-base HEAD "origin/$target_branch")"
+npx -y react-doctor@0.9.11 web --scope files --base "$base_commit" --include-untracked --json
 ~~~
+
+Set `target_branch` to the pull request target branch when it is not available through `GITHUB_BASE_REF`.
 
 The maintained scan scope is `web/`; packaged launcher code is not part of this audit. The repository configuration is `web/doctor.config.jsonc`.
 
