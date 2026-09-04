@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -12,6 +12,10 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
 const packageName = "@qredence/fleet";
 const baseBranch = "main";
+const oneTimeReleaseOverride = Object.freeze({
+	fromVersion: "0.5.1",
+	targetVersion: "0.5.5",
+});
 
 /**
  * Parses release preparation command-line options.
@@ -134,7 +138,59 @@ export function releasePlanFromStatus(status) {
 		);
 	}
 	parseStableVersion(release.newVersion);
-	return { packageName, currentVersion: release.oldVersion, version: release.newVersion };
+	return {
+		packageName,
+		currentVersion: release.oldVersion,
+		version: resolveReleaseVersion(release.oldVersion, release.newVersion),
+	};
+}
+
+/**
+ * Applies the one-time target for the pending 0.5.1 patch release.
+ * @param {string} currentVersion - The package version before Changesets runs.
+ * @param {string} plannedVersion - The version calculated by Changesets.
+ * @returns {string} The version to use for the release PR.
+ */
+export function resolveReleaseVersion(currentVersion, plannedVersion) {
+	const [major, minor, patch] = parseStableVersion(currentVersion);
+	const nextPatchVersion = `${major}.${minor}.${patch + 1}`;
+	return currentVersion === oneTimeReleaseOverride.fromVersion && plannedVersion === nextPatchVersion
+		? oneTimeReleaseOverride.targetVersion
+		: plannedVersion;
+}
+
+/**
+ * Returns the temporary manifest baseline needed for Changesets to generate the one-time target.
+ * @param {string} targetVersion - The target release version.
+ * @returns {string} The temporary package version.
+ */
+export function releaseTargetBaselineVersion(targetVersion) {
+	const [major, minor, patch] = parseStableVersion(targetVersion);
+	if (patch === 0) throw new Error(`Cannot derive a patch baseline from ${targetVersion}`);
+	return `${major}.${minor}.${patch - 1}`;
+}
+
+/**
+ * Temporarily moves the manifest to the preceding patch so `changeset version` emits the target release.
+ * @param {{currentVersion: string, version: string}} releasePlan - The resolved release plan.
+ */
+function prepareManifestForReleaseTarget(releasePlan) {
+	if (
+		releasePlan.currentVersion !== oneTimeReleaseOverride.fromVersion ||
+		releasePlan.version !== oneTimeReleaseOverride.targetVersion
+	) {
+		return;
+	}
+	const manifest = JSON.parse(readFileSync(packageManifestPath, "utf8"));
+	if (manifest.version !== releasePlan.currentVersion) {
+		throw new Error(
+			`Release target ${releasePlan.version} expects ${packageName}@${releasePlan.currentVersion}, but the repository manifest is ${manifest.version}`,
+		);
+	}
+	writeFileSync(
+		packageManifestPath,
+		`${JSON.stringify({ ...manifest, version: releaseTargetBaselineVersion(releasePlan.version) }, null, 2)}\n`,
+	);
 }
 
 /**
@@ -194,7 +250,7 @@ export async function createVersionPullRequest(
 	token,
 	version,
 	baseSha,
-	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404 } = {},
+	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404, releasePlan } = {},
 ) {
 	const { owner, repo } = RELEASE_REPOSITORY;
 	parseStableVersion(version);
@@ -230,6 +286,7 @@ export async function createVersionPullRequest(
 		);
 	}
 
+	if (releasePlan) prepareManifestForReleaseTarget(releasePlan);
 	const pnpm = pnpmInvocation(["exec", "changeset", "version"]);
 	execFileSync(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
 	const files = changedFiles(baseSha);
@@ -318,7 +375,7 @@ export async function prepareRelease({
 	if (releaseVersion !== plan.version) {
 		throw new Error(`FLEET_RELEASE_VERSION ${releaseVersion} does not match the Changesets version ${plan.version}`);
 	}
-	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha);
+	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha, { releasePlan: plan });
 	return { prepared: true, plan };
 }
 

@@ -9,7 +9,9 @@ import {
 	createVersionPullRequest,
 	prepareRelease,
 	releasePlanFromStatus,
+	releaseTargetBaselineVersion,
 	releaseVersionFromStatus,
+	resolveReleaseVersion,
 	run as runPrepareRelease,
 } from "../prepare-release.mjs";
 import {
@@ -193,7 +195,7 @@ test("dry-runs release preparation without requiring GitHub credentials", async 
 		assert.deepEqual(result, {
 			prepared: false,
 			dryRun: true,
-			plan: { packageName: "@qredence/fleet", currentVersion: packageVersion, version: nextPatchVersion },
+			plan: { packageName: "@qredence/fleet", currentVersion: packageVersion, version: "0.5.5" },
 		});
 	} finally {
 		if (previousBranch === undefined) delete process.env.CIRCLE_BRANCH;
@@ -206,7 +208,7 @@ test("treats no pending Changesets as a release-preparation no-op", async () => 
 	assert.deepEqual(result, { prepared: false });
 });
 
-test("prints no version for an empty release plan and the next version for a patch plan", async () => {
+test("prints no version for an empty release plan and the one-time target for a patch plan", async () => {
 	const noVersionOutput = [];
 	await runPrepareRelease(["--print-version"], {
 		readStatus: () => undefined,
@@ -219,9 +221,15 @@ test("prints no version for an empty release plan and the next version for a pat
 		readStatus: releaseStatus,
 		log: (message) => versionOutput.push(message),
 	});
-	assert.deepEqual(versionOutput, [nextPatchVersion]);
+	assert.deepEqual(versionOutput, ["0.5.5"]);
 	assert.equal(releaseVersionFromStatus(undefined), undefined);
-	assert.equal(releaseVersionFromStatus(releaseStatus()), nextPatchVersion);
+	assert.equal(releaseVersionFromStatus(releaseStatus()), "0.5.5");
+});
+
+test("uses the one-time 0.5.5 target only for the current 0.5.1 patch release", () => {
+	assert.equal(resolveReleaseVersion("0.5.1", "0.5.2"), "0.5.5");
+	assert.equal(resolveReleaseVersion("0.5.2", "0.5.3"), "0.5.3");
+	assert.equal(releaseTargetBaselineVersion("0.5.5"), "0.5.4");
 });
 
 test("requires CircleCI to provide the release version before creating a release PR", async () => {
@@ -373,7 +381,7 @@ test("derives the single-package release plan from Changesets status", () => {
 	assert.deepEqual(releasePlanFromStatus(releaseStatus()), {
 		packageName: "@qredence/fleet",
 		currentVersion: packageVersion,
-		version: nextPatchVersion,
+		version: "0.5.5",
 	});
 	assert.throws(() => releasePlanFromStatus({ releases: [] }), /no release plan/);
 });
