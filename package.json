@@ -1,8 +1,8 @@
 {
-	"name": "fleet-prime",
-	"version": "0.1.0",
+	"name": "fleet-prime-agent-workspace",
+	"version": "0.0.0",
 	"private": true,
-	"description": "Fleet Prime workspace UI for a pinned upstream Prime Agent runtime.",
+	"description": "Private workspace tooling for @qredence/fleet.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -10,10 +10,6 @@
 	},
 	"type": "module",
 	"packageManager": "pnpm@11.15.1",
-	"bin": {
-		"fleet-agent": "packages/fleet-web/bin/fleet-prime.mjs",
-		"fleet-prime": "packages/fleet-web/bin/fleet-prime.mjs"
-	},
 	"scripts": {
 		"build": "pnpm run build:web:release",
 		"check": "node scripts/check.mjs",
