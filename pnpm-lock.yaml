@@ -167,7 +167,7 @@ importers:
         version: 0.13.8(@openuidev/react-headless@0.9.11(react@19.2.8)(zustand@4.5.7(@types/react@19.2.18)(immer@11.1.18)(react@19.2.8)))(@openuidev/react-lang@0.2.14(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.4.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.4.3))(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@8.1.1)(zod@4.4.3)(zustand@4.5.7(@types/react@19.2.18)(immer@11.1.18)(react@19.2.8))
       '@pierre/diffs':
         specifier: ^1.3.5
-        version: 1.3.5(@shikijs/themes@4.4.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 1.3.5(@shikijs/themes@4.4.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@prime-agent/web-protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -1974,6 +1974,10 @@ packages:
 
   '@shikijs/themes@4.4.2':
     resolution: {integrity: sha512-H0CFoL07ddDC2Dd6EdrPYNkRhUR6YCkJlnuYFceYYUJJA5TIm2b5B33qqiDYryBExgbKMndFJPb2u1gTuqO37g==}
+    engines: {node: '>=20'}
+
+  '@shikijs/themes@4.4.3':
+    resolution: {integrity: sha512-w8UHjeUnIR965KMWJHUPXOc2mNJUnK3vpVLYLvw5IYU2mnTTJ89E24OrJDBNiJDQ0qzb0tc4l7mrIXx5cFeIyw==}
     engines: {node: '>=20'}
 
   '@shikijs/transformers@4.4.3':
@@ -7218,10 +7222,10 @@ snapshots:
 
   '@oxc-project/types@0.144.0': {}
 
-  '@pierre/diffs@1.3.5(@shikijs/themes@4.4.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@pierre/diffs@1.3.5(@shikijs/themes@4.4.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@pierre/theme': 2.0.0
-      '@pierre/theming': 1.0.1(@pierre/theme@2.0.0)(@shikijs/themes@4.4.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(shiki@4.4.2)
+      '@pierre/theming': 1.0.1(@pierre/theme@2.0.0)(@shikijs/themes@4.4.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(shiki@4.4.2)
       '@shikijs/transformers': 4.4.3
       diff: 9.0.0
       hast-util-to-html: 9.0.5
@@ -7234,10 +7238,10 @@ snapshots:
 
   '@pierre/theme@2.0.0': {}
 
-  '@pierre/theming@1.0.1(@pierre/theme@2.0.0)(@shikijs/themes@4.4.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(shiki@4.4.2)':
+  '@pierre/theming@1.0.1(@pierre/theme@2.0.0)(@shikijs/themes@4.4.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(shiki@4.4.2)':
     optionalDependencies:
       '@pierre/theme': 2.0.0
-      '@shikijs/themes': 4.4.2
+      '@shikijs/themes': 4.4.3
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
       shiki: 4.4.2
@@ -7871,6 +7875,11 @@ snapshots:
   '@shikijs/themes@4.4.2':
     dependencies:
       '@shikijs/types': 4.4.2
+
+  '@shikijs/themes@4.4.3':
+    dependencies:
+      '@shikijs/types': 4.4.3
+    optional: true
 
   '@shikijs/transformers@4.4.3':
     dependencies:
