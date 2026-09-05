@@ -223,6 +223,16 @@ export function MarkdownFrame({
   )
 }
 
+/**
+ * Renders markdown content without syntax highlighting. Normalizes code fence
+ * languages and fixes numbered list breaks, with memoization to optimize
+ * performance during streaming.
+ *
+ * @param content - The markdown content to render
+ * @param className - Optional CSS class for styling the markdown container
+ * @param codeControls - Optional controls for code block interactions
+ * @returns Rendered plain markdown without syntax highlighting
+ */
 function PlainMarkdown({ content, className, codeControls }: MarkdownProps) {
   // Regex preprocessing runs per render (including per streamed token), so
   // memoize on content — the transforms are pure functions of it.

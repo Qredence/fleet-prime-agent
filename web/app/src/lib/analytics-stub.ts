@@ -94,6 +94,11 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 	};
 }
 
+/**
+ * Initializes web vitals tracking for performance monitoring. Observes LCP,
+ * INP, and CLS metrics and reports them to the console in development or
+ * beacons them to the analytics endpoint in production.
+ */
 export function initAnalytics(): void {
 	if (typeof window === "undefined") return;
 	if ((window as unknown as { __fleetVitalsInit?: boolean }).__fleetVitalsInit) return;

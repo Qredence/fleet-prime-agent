@@ -25,6 +25,12 @@ export interface ModelSelectorListProps {
   onEffortChange?: (effortId: string) => void
 }
 
+/**
+ * Groups models by provider for organized display in the selector list.
+ *
+ * @param models - Models to group by their provider property
+ * @returns Array of tuples containing provider name and its associated models
+ */
 function groupModels(models: readonly ModelSelectorModel[]) {
   const groups = new Map<string, ModelSelectorModel[]>()
   for (const model of models) {

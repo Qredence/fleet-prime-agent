@@ -30,6 +30,13 @@ const inputBar = {
 
 const noop = () => {};
 
+/**
+ * Generates a single conversation turn with a user question and assistant
+ * response containing text and a tool call.
+ *
+ * @param index - Turn identifier used to generate unique message IDs and content
+ * @returns Array containing user and assistant messages for one conversation turn
+ */
 function textTurn(index: number): Array<ChatMessage> {
 	return [
 		{ id: `user-${index}`, role: "user", parts: [{ type: "text", text: `Question ${index}: explain the upload flow.` }] },
@@ -44,10 +51,22 @@ function textTurn(index: number): Array<ChatMessage> {
 	];
 }
 
+/**
+ * Generates a 50-turn conversation for rendering benchmarks.
+ *
+ * @returns Flattened array of chat messages representing 50 conversation turns
+ */
 function fiftyTurns(): Array<ChatMessage> {
 	return Array.from({ length: 50 }, (_, index) => textTurn(index)).flat();
 }
 
+/**
+ * Renders the FleetPiAgentChat component with the provided messages for
+ * benchmark testing.
+ *
+ * @param messages - Chat messages to render
+ * @returns Testing library render result for the mounted chat component
+ */
 function renderChat(messages: Array<ChatMessage>) {
 	return render(
 		<FleetPiAgentChat

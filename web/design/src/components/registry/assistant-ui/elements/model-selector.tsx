@@ -11,6 +11,13 @@ const LazyModelSelectorList = lazy(() =>
   }))
 )
 
+/**
+ * Lazy-loaded wrapper for the model selector list that displays a loading
+ * skeleton while the cmdk dependency loads.
+ *
+ * @param props - Props forwarded to the ModelSelectorList component
+ * @returns Suspense-wrapped ModelSelectorList with loading fallback
+ */
 function ModelSelectorList(props: ComponentProps<typeof LazyModelSelectorList>) {
   return (
     <Suspense fallback={<div className="h-24 animate-pulse rounded-md bg-muted/40 p-1.5" aria-label="Loading models" role="status" />}>
