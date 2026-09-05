@@ -50,13 +50,11 @@ test.describe("performance smoke", () => {
 		const composer = page.locator('textarea, [contenteditable="true"], [data-chat-input]')
 		await expect(composer.first()).toBeVisible({ timeout: 15_000 })
 
-		const lcp = await page.evaluate(
+		const lcpPromise = page.evaluate(
 			() =>
 				new Promise<number>((resolve) => {
 					let latest = -1
 					let observer: PerformanceObserver
-					let quietPeriod: number | undefined
-					let timeout: number | undefined
 					let settled = false
 					const updateLatest = (entries: PerformanceEntryList) => {
 						const entry = entries[entries.length - 1]
@@ -66,25 +64,32 @@ test.describe("performance smoke", () => {
 						if (settled) return
 						settled = true
 						updateLatest(observer.takeRecords())
-						if (quietPeriod !== undefined) window.clearTimeout(quietPeriod)
-						if (timeout !== undefined) window.clearTimeout(timeout)
 						observer.disconnect()
+						for (const eventName of interactionEvents) {
+							window.removeEventListener(eventName, finishOnInteraction, true)
+						}
 						document.removeEventListener("visibilitychange", finishOnVisibilityChange)
+						window.removeEventListener("pagehide", finish)
 						resolve(latest)
 					}
+					const finishOnInteraction = () => finish()
 					const finishOnVisibilityChange = () => {
 						if (document.visibilityState === "hidden") finish()
 					}
+					const interactionEvents = ["pointerdown", "keydown", "touchstart"] as const
 					observer = new PerformanceObserver((list) => {
 						updateLatest(list.getEntries())
-						if (quietPeriod !== undefined) window.clearTimeout(quietPeriod)
-						quietPeriod = window.setTimeout(finish, 250)
 					})
 					observer.observe({ type: "largest-contentful-paint", buffered: true })
+					for (const eventName of interactionEvents) {
+						window.addEventListener(eventName, finishOnInteraction, true)
+					}
 					document.addEventListener("visibilitychange", finishOnVisibilityChange)
-					timeout = window.setTimeout(finish, 10_000)
+					window.addEventListener("pagehide", finish)
 				}),
 		)
+		await composer.first().click()
+		const lcp = await lcpPromise
 
 		expect(lcp).toBeGreaterThanOrEqual(0)
 		expect(lcp).toBeLessThan(4_000)

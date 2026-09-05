@@ -81,6 +81,19 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 				}
 			}
 		};
+		const getFinalInpValue = (): number | undefined => {
+			if (interactionDurations.size === 0) return undefined;
+			const durations = [...interactionDurations.values()].sort((a, b) => a - b);
+			const interactionCount = (performance as Performance & { interactionCount?: number }).interactionCount;
+			const totalInteractionCount =
+				typeof interactionCount === "number" && Number.isFinite(interactionCount)
+					? Math.max(interactionCount, durations.length)
+					: durations.length;
+			// INP estimates the 98th percentile by dropping one worst interaction per 50.
+			const ignoredWorstInteractions = Math.floor(totalInteractionCount / 50);
+			const percentileIndex = Math.max(0, durations.length - ignoredWorstInteractions - 1);
+			return durations[percentileIndex];
+		};
 		const inp = new PerformanceObserver((list) => processInteractionEntries(list.getEntries()));
 		inp.observe({ type: "event", buffered: true, durationThreshold: 40 } as PerformanceObserverInit);
 		observers.push(inp);
@@ -100,8 +113,9 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 			processInteractionEntries(inp.takeRecords());
 			pageMetricsReported = true;
 			if (hasClsSession) onVital({ name: "CLS", value: clsValue, url });
-			if (interactionDurations.size > 0) {
-				onVital({ name: "INP", value: Math.max(...interactionDurations.values()), url });
+			const inpValue = getFinalInpValue();
+			if (inpValue !== undefined) {
+				onVital({ name: "INP", value: inpValue, url });
 			}
 		};
 		const finalizeLcpOnInteraction = () => finalizeLcp();
@@ -155,7 +169,13 @@ export function initAnalytics(): void {
 			// Telemetry must never break the app.
 		}
 	};
-	observeWebVitals(report);
+	let stopObserving = observeWebVitals(report);
+	window.addEventListener("pageshow", (event) => {
+		if (event.persisted) {
+			stopObserving();
+			stopObserving = observeWebVitals(report);
+		}
+	});
 }
 
 export function identifyAnalyticsUser(_user: unknown): void {}
