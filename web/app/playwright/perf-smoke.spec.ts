@@ -53,16 +53,36 @@ test.describe("performance smoke", () => {
 		const lcp = await page.evaluate(
 			() =>
 				new Promise<number>((resolve) => {
-					const timeout = setTimeout(() => resolve(-1), 10_000)
-					new PerformanceObserver((list, observer) => {
-						const entries = list.getEntries()
+					let latest = -1
+					let observer: PerformanceObserver
+					let quietPeriod: number | undefined
+					let timeout: number | undefined
+					let settled = false
+					const updateLatest = (entries: PerformanceEntryList) => {
 						const entry = entries[entries.length - 1]
-						if (entry) {
-							clearTimeout(timeout)
-							observer.disconnect()
-							resolve(entry.startTime)
-						}
-					}).observe({ type: "largest-contentful-paint", buffered: true })
+						if (entry) latest = entry.startTime
+					}
+					const finish = () => {
+						if (settled) return
+						settled = true
+						updateLatest(observer.takeRecords())
+						if (quietPeriod !== undefined) window.clearTimeout(quietPeriod)
+						if (timeout !== undefined) window.clearTimeout(timeout)
+						observer.disconnect()
+						document.removeEventListener("visibilitychange", finishOnVisibilityChange)
+						resolve(latest)
+					}
+					const finishOnVisibilityChange = () => {
+						if (document.visibilityState === "hidden") finish()
+					}
+					observer = new PerformanceObserver((list) => {
+						updateLatest(list.getEntries())
+						if (quietPeriod !== undefined) window.clearTimeout(quietPeriod)
+						quietPeriod = window.setTimeout(finish, 250)
+					})
+					observer.observe({ type: "largest-contentful-paint", buffered: true })
+					document.addEventListener("visibilitychange", finishOnVisibilityChange)
+					timeout = window.setTimeout(finish, 10_000)
 				}),
 		)
 

@@ -143,7 +143,7 @@ describe("review regressions", () => {
 			},
 		];
 
-		const { findAllByRole, queryByRole } = render(
+		const { queryAllByRole, queryByRole } = render(
 			<FleetPiAgentChat
 				artifactRuns={artifactRuns}
 				inputBar={inputBar}
@@ -156,7 +156,7 @@ describe("review regressions", () => {
 
 		// Timeline and activity panels load lazily; wait for them first so the
 		// absence assertion below is meaningful instead of pre-load.
-		expect(await findAllByRole("button", { name: "1 tool action" })).toHaveLength(2);
+		await waitFor(() => expect(queryAllByRole("button", { name: "1 tool action" })).toHaveLength(2));
 		expect(queryByRole("button", { name: "2 tool actions" })).toBeNull();
 	});
 

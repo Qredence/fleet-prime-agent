@@ -18,12 +18,16 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 	}
 	const url = window.location.pathname;
 	const observers: Array<PerformanceObserver> = [];
+	let lcpValue: number | undefined;
+	let lcpReported = false;
+	let pageMetricsReported = false;
 	try {
 		const lcp = new PerformanceObserver((list) => {
+			if (lcpReported) return;
 			const entries = list.getEntries();
 			const entry = entries[entries.length - 1];
 			if (entry) {
-				onVital({ name: "LCP", value: entry.startTime, url });
+				lcpValue = entry.startTime;
 			}
 		});
 		lcp.observe({ type: "largest-contentful-paint", buffered: true });
@@ -34,9 +38,8 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 		let clsSessionStart = 0;
 		let clsSessionEnd = 0;
 		let hasClsSession = false;
-		const cls = new PerformanceObserver((list) => {
-			let measuredLayoutShift = false;
-			for (const entry of list.getEntries()) {
+		const processClsEntries = (entries: PerformanceEntryList) => {
+			for (const entry of entries) {
 				const layoutEntry = entry as PerformanceEntry & {
 					hadRecentInput?: boolean;
 					value?: number;
@@ -56,18 +59,16 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 					hasClsSession = true;
 					clsSessionEnd = entry.startTime;
 					clsValue = Math.max(clsValue, clsSessionValue);
-					measuredLayoutShift = true;
 				}
 			}
-			if (measuredLayoutShift) onVital({ name: "CLS", value: clsValue, url });
-		});
+		};
+		const cls = new PerformanceObserver((list) => processClsEntries(list.getEntries()));
 		cls.observe({ type: "layout-shift", buffered: true });
 		observers.push(cls);
 
 		const interactionDurations = new Map<number, number>();
-		const inp = new PerformanceObserver((list) => {
-			let measuredInteraction = false;
-			for (const entry of list.getEntries()) {
+		const processInteractionEntries = (entries: PerformanceEntryList) => {
+			for (const entry of entries) {
 				const eventEntry = entry as PerformanceEntry & {
 					interactionId?: number;
 					duration?: number;
@@ -77,15 +78,52 @@ function observeWebVitals(onVital: (vital: WebVital) => void): () => void {
 						eventEntry.interactionId,
 						Math.max(interactionDurations.get(eventEntry.interactionId) ?? 0, eventEntry.duration ?? 0),
 					);
-					measuredInteraction = true;
 				}
 			}
-			if (measuredInteraction) {
-				onVital({ name: "INP", value: Math.max(...interactionDurations.values()), url });
-			}
-		});
+		};
+		const inp = new PerformanceObserver((list) => processInteractionEntries(list.getEntries()));
 		inp.observe({ type: "event", buffered: true, durationThreshold: 40 } as PerformanceObserverInit);
 		observers.push(inp);
+
+		const finalizeLcp = () => {
+			if (lcpReported) return;
+			const pendingEntries = lcp.takeRecords();
+			const entry = pendingEntries[pendingEntries.length - 1];
+			if (entry) lcpValue = entry.startTime;
+			lcpReported = true;
+			if (lcpValue !== undefined) onVital({ name: "LCP", value: lcpValue, url });
+		};
+		const finalizePageMetrics = () => {
+			if (pageMetricsReported) return;
+			finalizeLcp();
+			processClsEntries(cls.takeRecords());
+			processInteractionEntries(inp.takeRecords());
+			pageMetricsReported = true;
+			if (hasClsSession) onVital({ name: "CLS", value: clsValue, url });
+			if (interactionDurations.size > 0) {
+				onVital({ name: "INP", value: Math.max(...interactionDurations.values()), url });
+			}
+		};
+		const finalizeLcpOnInteraction = () => finalizeLcp();
+		const finalizeOnVisibilityChange = () => {
+			if (document.visibilityState === "hidden") finalizePageMetrics();
+		};
+		const interactionEvents = ["pointerdown", "keydown", "touchstart"] as const;
+		for (const eventName of interactionEvents) {
+			window.addEventListener(eventName, finalizeLcpOnInteraction, { capture: true });
+		}
+		document.addEventListener("visibilitychange", finalizeOnVisibilityChange);
+		window.addEventListener("pagehide", finalizePageMetrics);
+
+		return () => {
+			finalizePageMetrics();
+			for (const eventName of interactionEvents) {
+				window.removeEventListener(eventName, finalizeLcpOnInteraction, { capture: true });
+			}
+			document.removeEventListener("visibilitychange", finalizeOnVisibilityChange);
+			window.removeEventListener("pagehide", finalizePageMetrics);
+			for (const observer of observers) observer.disconnect();
+		};
 	} catch {
 		// PerformanceObserver types vary by browser; vitals are best-effort.
 	}
