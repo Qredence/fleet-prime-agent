@@ -52,6 +52,7 @@ export function OpenUIHtmlFrame({
 			srcDoc={document}
 			referrerPolicy="no-referrer"
 			title={title}
+			loading="lazy"
 			className={`block w-full min-w-0 overflow-hidden rounded-md border border-border/60 bg-white ${className}`}
 		/>
 	);

@@ -1,5 +1,5 @@
 import { AlertCircle } from "lucide-react"
-import { lazy, memo, Suspense, useMemo, useState, type ComponentProps, type ReactNode } from "react"
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from "react"
 import {
   Message,
   MessageBubble,
@@ -8,8 +8,8 @@ import {
 } from "../../../registry/beui/agents/message"
 import { MessageScroller } from "../../../registry/beui/agents/message-scroller"
 import { StreamingResponse } from "../../../registry/beui/agents/streaming-response"
-import { AgentActivity, type AgentActivityItem } from "../../../registry/beui/agents/agent-activity/index"
-import { PromptSuggestions } from "../../../registry/assistant-ui/elements/prompt-suggestions"
+import type { AgentActivityItem } from "../../../registry/beui/agents/agent-activity/index"
+import type { FleetQueueLane } from "../../../registry/assistant-ui/elements/fleet-message-queue"
 import { buildAssistantElements } from "../../../registry/beui/agents/message-turns"
 import { UserMessage } from "../../../registry/beui/agents/user-message"
 import { normalizeAssistantToolParts } from "../../../registry/beui/agents/utils/tool-part-normalizer"
@@ -30,10 +30,6 @@ import type {
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol"
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar"
-import { FleetReasoningPanel } from "../../../registry/assistant-ui/elements/fleet-reasoning-panel"
-import { FleetMessageQueue, type FleetQueueLane } from "../../../registry/assistant-ui/elements/fleet-message-queue"
-import { FleetSubagentList } from "../../../registry/assistant-ui/elements/fleet-subagent-list"
-import { FleetToolTimeline } from "../../../registry/assistant-ui/elements/fleet-tool-timeline"
 import { groupMessages, type ConversationTurn } from "../../../../lib/pi/conversation-turns"
 
 const LazyFleetPiToolRenderer = lazy(() =>
@@ -42,10 +38,160 @@ const LazyFleetPiToolRenderer = lazy(() =>
   }))
 )
 
+/**
+ * Lazy-loaded wrapper for the Fleet Pi tool renderer with loading skeleton.
+ *
+ * @param props - Props forwarded to the FleetPiToolRenderer component
+ * @returns Suspense-wrapped FleetPiToolRenderer with loading fallback
+ */
 function FleetPiToolRenderer(props: ComponentProps<typeof LazyFleetPiToolRenderer>) {
   return (
     <Suspense fallback={<div className="h-7 animate-pulse rounded-md bg-muted/40" aria-label="Loading tool" />}>
       <LazyFleetPiToolRenderer {...props} />
+    </Suspense>
+  )
+}
+
+// The components below never render on the empty welcome state, so they stay
+// out of the initial eager graph (see web/app/scripts/check-bundle-budget.mjs)
+// and load on first use behind lightweight skeleton fallbacks.
+const LazyAgentActivity = lazy(() =>
+  import("../../../registry/beui/agents/agent-activity/index").then(({ AgentActivity }) => ({
+    default: AgentActivity,
+  }))
+)
+
+/**
+ * Lazy-loaded wrapper for the agent activity panel with loading skeleton.
+ * Defers loading until first conversation turn to keep the component out of
+ * the welcome route eager bundle.
+ *
+ * @param props - Props forwarded to the AgentActivity component
+ * @returns Suspense-wrapped AgentActivity with loading fallback
+ */
+function AgentActivity(props: ComponentProps<typeof LazyAgentActivity>) {
+  return (
+    <Suspense fallback={<div className="mt-2 h-8 animate-pulse rounded-md bg-muted/40" aria-label="Loading activity" />}>
+      <LazyAgentActivity {...props} />
+    </Suspense>
+  )
+}
+
+const LazyFleetReasoningPanel = lazy(() =>
+  import("../../../registry/assistant-ui/elements/fleet-reasoning-panel").then(
+    ({ FleetReasoningPanel }) => ({
+      default: FleetReasoningPanel,
+    }),
+  )
+)
+
+/**
+ * Lazy-loaded wrapper for the Fleet reasoning panel with loading skeleton.
+ * Defers loading until first conversation turn to keep the component out of
+ * the welcome route eager bundle.
+ *
+ * @param props - Props forwarded to the FleetReasoningPanel component
+ * @returns Suspense-wrapped FleetReasoningPanel with loading fallback
+ */
+function FleetReasoningPanel(props: ComponentProps<typeof LazyFleetReasoningPanel>) {
+  return (
+    <Suspense fallback={<div className="mb-2 h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading reasoning" />}>
+      <LazyFleetReasoningPanel {...props} />
+    </Suspense>
+  )
+}
+
+const LazyFleetToolTimeline = lazy(() =>
+  import("../../../registry/assistant-ui/elements/fleet-tool-timeline").then(
+    ({ FleetToolTimeline }) => ({
+      default: FleetToolTimeline,
+    }),
+  )
+)
+
+/**
+ * Lazy-loaded wrapper for the Fleet tool timeline with loading skeleton.
+ * Defers loading until first conversation turn to keep the component out of
+ * the welcome route eager bundle.
+ *
+ * @param props - Props forwarded to the FleetToolTimeline component
+ * @returns Suspense-wrapped FleetToolTimeline with loading fallback
+ */
+function FleetToolTimeline(props: ComponentProps<typeof LazyFleetToolTimeline>) {
+  return (
+    <Suspense fallback={<div className="h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading timeline" />}>
+      <LazyFleetToolTimeline {...props} />
+    </Suspense>
+  )
+}
+
+const LazyFleetSubagentList = lazy(() =>
+  import("../../../registry/assistant-ui/elements/fleet-subagent-list").then(
+    ({ FleetSubagentList }) => ({
+      default: FleetSubagentList,
+    }),
+  )
+)
+
+/**
+ * Lazy-loaded wrapper for the Fleet subagent list with loading skeleton.
+ * Defers loading until first conversation turn to keep the component out of
+ * the welcome route eager bundle.
+ *
+ * @param props - Props forwarded to the FleetSubagentList component
+ * @returns Suspense-wrapped FleetSubagentList with loading fallback
+ */
+function FleetSubagentList(props: ComponentProps<typeof LazyFleetSubagentList>) {
+  return (
+    <Suspense fallback={<div className="h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading subagents" />}>
+      <LazyFleetSubagentList {...props} />
+    </Suspense>
+  )
+}
+
+const LazyPromptSuggestions = lazy(() =>
+  import("../../../registry/assistant-ui/elements/prompt-suggestions").then(
+    ({ PromptSuggestions }) => ({
+      default: PromptSuggestions,
+    }),
+  )
+)
+
+/**
+ * Lazy-loaded wrapper for prompt suggestions with loading skeleton.
+ * Defers loading until first conversation turn to keep the component out of
+ * the welcome route eager bundle.
+ *
+ * @param props - Props forwarded to the PromptSuggestions component
+ * @returns Suspense-wrapped PromptSuggestions with loading fallback
+ */
+function PromptSuggestions(props: ComponentProps<typeof LazyPromptSuggestions>) {
+  return (
+    <Suspense fallback={<div className="h-8 animate-pulse rounded-full bg-muted/40" aria-label="Loading suggestions" />}>
+      <LazyPromptSuggestions {...props} />
+    </Suspense>
+  )
+}
+
+const LazyFleetMessageQueue = lazy(() =>
+  import("../../../registry/assistant-ui/elements/fleet-message-queue").then(
+    ({ FleetMessageQueue }) => ({
+      default: FleetMessageQueue,
+    }),
+  )
+)
+
+/**
+ * Lazy-loaded wrapper for the Fleet message queue. Defers loading until first
+ * conversation turn to keep the component out of the welcome route eager bundle.
+ *
+ * @param props - Props forwarded to the FleetMessageQueue component
+ * @returns Suspense-wrapped FleetMessageQueue with no loading fallback
+ */
+function FleetMessageQueue(props: ComponentProps<typeof LazyFleetMessageQueue>) {
+  return (
+    <Suspense fallback={null}>
+      <LazyFleetMessageQueue {...props} />
     </Suspense>
   )
 }
@@ -95,6 +241,12 @@ function textFromMessage(message: ChatMessage) {
     .join("\n\n")
 }
 
+/**
+ * Type guard that extracts a record from an unknown value.
+ *
+ * @param value - The value to check
+ * @returns The value cast as a record if it is a plain object, otherwise undefined
+ */
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -469,6 +621,13 @@ type ConversationTurnViewProps = {
   }
 }
 
+/**
+ * Checks if two message arrays contain identical message references.
+ *
+ * @param previous - The previous message array
+ * @param next - The next message array
+ * @returns True if both arrays have the same length and identical message references
+ */
 function sameMessages(
   previous: Array<ChatMessage>,
   next: Array<ChatMessage>
@@ -487,7 +646,10 @@ export const ConversationTurnView = memo(
     activity,
   }: ConversationTurnViewProps) {
     return (
-      <div className="flex flex-col gap-3">
+      <div
+        className="flex flex-col gap-3"
+        style={{ contentVisibility: "auto", containIntrinsicSize: "auto 400px" }}
+      >
         {turn.user ? (
           <Message from="user" animateIn={!state.isStreaming}>
             <MessageContent>
@@ -529,11 +691,25 @@ export const ConversationTurnView = memo(
     previous.activity.artifactRuns === next.activity.artifactRuns
 )
 
+/**
+ * Determines if an activity label indicates a lifecycle event rather than
+ * content generation.
+ *
+ * @param label - The activity label to check
+ * @returns True if the label matches a lifecycle event pattern
+ */
 function isLifecycleNotice(label: string | undefined) {
   if (!label) return false
   return /queued|steered|retry|compact|reset|recover|sign in/i.test(label)
 }
 
+/**
+ * Generates a descriptive label for active agent activity based on the
+ * types and count of items.
+ *
+ * @param items - The active agent activity items
+ * @returns A human-readable label describing the current activity
+ */
 function activityLabelFor(items: AgentActivityItem[]) {
 	if (items.length === 1) {
 		const item = items[0]
@@ -544,6 +720,12 @@ function activityLabelFor(items: AgentActivityItem[]) {
   return "Working through the run…"
 }
 
+/**
+ * Generates a summary message for completed agent activity.
+ *
+ * @param items - The completed agent activity items
+ * @returns A human-readable summary of completed actions
+ */
 function activitySummary(items: AgentActivityItem[]) {
 	const count = items.length
   if (count === 1) return "Completed 1 tracked action"
@@ -587,6 +769,15 @@ const WELCOME_TASKS: SuggestionItem[] = [
   },
 ]
 
+/**
+ * Renders the welcome screen displayed when the conversation is empty,
+ * including the composer and suggested prompt buttons.
+ *
+ * @param disabled - Whether interactions should be disabled (e.g., during streaming)
+ * @param onSelect - Callback invoked when a suggested prompt is clicked
+ * @param composer - The composer input component to display
+ * @returns The welcome state UI
+ */
 function WelcomeState({
   disabled,
   onSelect,
@@ -629,6 +820,55 @@ function WelcomeState({
 }
 
 /**
+ * Owns the composer draft state so that keystrokes re-render only the input
+ * bar instead of the whole chat (including the MessageScroller subtree).
+ * Suggestion clicks reach the draft via `draftSetterRef`, which always points
+ * at the currently mounted composer (welcome and bottom-bar composers are
+ * mutually exclusive, and the draft is cleared on send — so per-instance state
+ * is behavior-identical to the previous shared state).
+ */
+function ChatComposerHost({
+  inputBar,
+  status,
+  suggestions,
+  onSend,
+  onStop,
+  isEmpty,
+  draftSetterRef,
+}: {
+  inputBar: FleetPiAgentChatProps["inputBar"]
+  status: FleetPiAgentChatProps["status"]
+  suggestions: FleetPiAgentChatProps["suggestions"]
+  onSend: FleetPiAgentChatProps["onSend"]
+  onStop: FleetPiAgentChatProps["onStop"]
+  isEmpty: boolean
+  draftSetterRef: RefObject<((value: string) => void) | null>
+}) {
+  const [draft, setDraft] = useState("")
+  useEffect(() => {
+    draftSetterRef.current = setDraft
+  }, [draftSetterRef])
+  return (
+    <FleetPiInputBar
+      {...inputBar}
+      className={cn(inputBar.className, isEmpty && "px-0 pb-0")}
+      placeholder={
+        isEmpty
+          ? "Ask Prime to build, investigate, or change something…"
+          : inputBar.placeholder
+      }
+      controlled={{ value: draft, onChange: setDraft }}
+      status={status}
+      suggestions={suggestions}
+      onSend={onSend}
+      onStop={onStop}
+    />
+  )
+}
+
+const MemoChatComposerHost = memo(ChatComposerHost)
+
+/**
  * Renders the Fleet Prime Agent chat interface, including conversation turns, activity, suggestions, errors, and message input.
  *
  * @param messages - Conversation messages to display.
@@ -657,7 +897,11 @@ export function FleetPiAgentChat({
   queue,
   onDeleteQueuedMessage,
 }: FleetPiAgentChatProps) {
-  const [draft, setDraft] = useState("")
+  const draftSetterRef = useRef<((value: string) => void) | null>(null)
+  const setDraft = useCallback(
+    (value: string) => draftSetterRef.current?.(value),
+    [],
+  )
   const turns = useMemo(() => groupMessages(messages), [messages])
   const suggestionItems = resolveSuggestions(suggestions)
   const suggestionTexts = useMemo(
@@ -694,20 +938,15 @@ export function FleetPiAgentChat({
   )
   const isEmpty = turns.length === 0 && !error
   const errorPresentation = error ? getChatErrorPresentation(error) : null
-  const inputBarNode = (
-    <FleetPiInputBar
-      {...inputBar}
-      className={cn(inputBar.className, isEmpty && "px-0 pb-0")}
-      placeholder={
-        isEmpty
-          ? "Ask Prime to build, investigate, or change something…"
-          : inputBar.placeholder
-      }
-      controlled={{ value: draft, onChange: setDraft }}
+  const composerNode = (
+    <MemoChatComposerHost
+      inputBar={inputBar}
       status={status}
       suggestions={suggestions}
       onSend={onSend}
       onStop={onStop}
+      isEmpty={isEmpty}
+      draftSetterRef={draftSetterRef}
     />
   )
 
@@ -722,7 +961,7 @@ export function FleetPiAgentChat({
         className="flex-1"
         busy={isStreaming}
         followOutput
-        smooth={isStreaming}
+        smooth={!isStreaming}
         contentClassName={cn(
           "mx-auto flex w-full max-w-an flex-col gap-5 px-4",
           isEmpty
@@ -734,7 +973,7 @@ export function FleetPiAgentChat({
           <WelcomeState
             disabled={isStreaming}
             onSelect={(item) => setDraft(item.value ?? item.label)}
-            composer={inputBarNode}
+            composer={composerNode}
           />
         ) : null}
         {turns.map((turn, turnIndex) => {
@@ -775,7 +1014,7 @@ export function FleetPiAgentChat({
           />
         ) : null}
       </MessageScroller>
-      {!isEmpty ? inputBarNode : null}
+      {!isEmpty ? composerNode : null}
       <FleetMessageQueue queue={queue ?? { steering: [], followUp: [] }} onDelete={onDeleteQueuedMessage} />
     </div>
   )

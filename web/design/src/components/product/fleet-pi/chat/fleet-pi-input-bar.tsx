@@ -179,6 +179,9 @@ function FleetPiInputBarContent({
                 <img
                   src={image.url}
                   alt={image.filename}
+                  width={64}
+                  height={64}
+                  loading="lazy"
                   className="size-16 rounded-lg border object-cover"
                 />
                 <Button

@@ -11,7 +11,7 @@ import {
   SquareTerminal,
   Wrench,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { EASE_OUT, SPRING_LAYOUT } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { isSafeExternalUrl } from "../../../../../lib/safe-external-url";
@@ -38,7 +38,7 @@ function StepRow({ item }: { item: AgentActivityStep }) {
           <Check className="size-4" strokeWidth={1.8} />
         ) : state === "active" ? (
           <span className="relative grid size-3 place-items-center">
-            <motion.span
+            <m.span
               className="absolute inset-0 rounded-full bg-foreground/10"
               animate={{ opacity: [0.35, 0.8, 0.35] }}
               transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
@@ -135,7 +135,7 @@ function SearchRow({ item }: { item: AgentActivitySearch }) {
         <div className="space-y-0.5 pl-4">
           <AnimatePresence initial mode="popLayout">
             {item.results.map((result) => (
-              <motion.div
+              <m.div
                 layout="position"
                 key={result.id}
                 initial={enter}
@@ -144,14 +144,14 @@ function SearchRow({ item }: { item: AgentActivitySearch }) {
                 transition={transition}
               >
                 <SearchResultRow result={result} />
-              </motion.div>
+              </m.div>
             ))}
           </AnimatePresence>
         </div>
       ) : null}
       <AnimatePresence initial>
         {item.moreCount ? (
-          <motion.div
+          <m.div
             key="more-results"
             initial={enter}
             animate={visible}
@@ -160,7 +160,7 @@ function SearchRow({ item }: { item: AgentActivitySearch }) {
             className="px-1.5 py-1 pl-8 text-muted-foreground/55"
           >
             +{item.moreCount} more
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </div>

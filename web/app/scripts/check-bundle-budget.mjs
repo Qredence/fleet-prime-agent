@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { basename, join, resolve } from "node:path"
 import { gzipSync } from "node:zlib"
 
@@ -57,8 +57,8 @@ for (const file of eagerFiles) {
     violations.push(`${file} must not be in the welcome route eager graph`)
   }
   const source = readFileSync(join(assetsDirectory, file), "utf8")
-  if (/\brecharts\b|createHighlighter|from["']shiki["']/.test(source)) {
-    violations.push(`${file} eagerly contains Recharts or Shiki implementation code`)
+  if (/\brecharts\b|createHighlighter|from\s*["']shiki["']|streamdown|lottie-react|\bcmdk\b/.test(source)) {
+    violations.push(`${file} eagerly contains Recharts, Shiki, Streamdown, Lottie, or cmdk implementation code`)
   }
 }
 
@@ -71,3 +71,23 @@ if (violations.length > 0) {
     `Bundle contract passed (${eagerFiles.size} eager files, ${eagerGzipBytes} bytes gzip, ${(reduction * 100).toFixed(1)}% route-entry reduction).`,
   )
 }
+
+// Machine-readable snapshot for CI artifact storage (bundle-over-time
+// tracking with no new service). Written on pass AND fail.
+writeFileSync(
+  resolve(assetsDirectory, "..", "bundle-budget.json"),
+  JSON.stringify(
+    {
+      timestamp: new Date().toISOString(),
+      routeEntry: routeEntries[0],
+      routeEntryGzipBytes,
+      routeEntryReduction: reduction,
+      eagerFiles: eagerFiles.size,
+      eagerGzipBytes,
+      passed: violations.length === 0,
+      violations,
+    },
+    null,
+    2,
+  ) + "\n",
+)
