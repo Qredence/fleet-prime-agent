@@ -3,7 +3,7 @@ import { normalizeSessionLabel } from "@prime-agent/web-design/lib/pi/chat-helpe
 import { orderedRlmChildren } from "@prime-agent/web-design/lib/pi/subagent-utils";
 import type { PrimeAgentRlmChild, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
-import { useCallback, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 import { INITIAL_AGENT_TAB_SCOPE_STATE, reduceAgentTabScope, visibleAgentTabScope } from "./agent-tab-state";
 import { type ChatClient, chatClient } from "./chat-client";
 import { useSubagentChat } from "./use-subagent-chat";
@@ -45,6 +45,9 @@ export function useAgentTabs({
 }) {
 	const scopeKey = `${activeProjectId ?? ""}:${rootSessionId ?? ""}`;
 	const [tabScope, dispatchTabScope] = useReducer(reduceAgentTabScope, INITIAL_AGENT_TAB_SCOPE_STATE);
+	useEffect(() => {
+		dispatchTabScope({ type: "scope", scopeKey });
+	}, [scopeKey]);
 	const { dismissedChildIds, selectedTabId } = visibleAgentTabScope(tabScope, scopeKey);
 	const orderedChildren = useMemo(
 		() => orderedRlmChildren(presentation.rlmChildren, presentation.rlmTree),

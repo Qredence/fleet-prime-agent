@@ -5,6 +5,7 @@ export type AgentTabScopeState = {
 };
 
 export type AgentTabScopeAction =
+	| { type: "scope"; scopeKey: string }
 	| { type: "select"; scopeKey: string; tabId: string }
 	| { type: "dismiss"; scopeKey: string; tabId: string }
 	| { type: "restore"; scopeKey: string; tabId: string };
@@ -44,6 +45,7 @@ export function visibleAgentTabScope(state: AgentTabScopeState, scopeKey: string
  * @returns The updated tab scope state
  */
 export function reduceAgentTabScope(state: AgentTabScopeState, action: AgentTabScopeAction): AgentTabScopeState {
+	if (action.type === "scope") return stateForScope(state, action.scopeKey);
 	const current = stateForScope(state, action.scopeKey);
 	if (action.type === "select") return { ...current, selectedTabId: action.tabId };
 	if (action.type === "dismiss") {
