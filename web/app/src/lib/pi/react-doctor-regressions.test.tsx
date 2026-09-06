@@ -161,12 +161,13 @@ describe("React Doctor lifecycle and accessibility regressions", () => {
       listSessions: vi.fn().mockResolvedValue([]),
       loadSession: vi.fn().mockResolvedValue({ session: metadata, messages: [] }),
     } as unknown as ChatClient
+    const persistSession = vi.fn()
 
     const { unmount } = renderHook(() =>
       usePiChat(undefined, {
         client,
         initialSessionMetadata: metadata,
-        persistSession: vi.fn(),
+        persistSession,
       }),
     )
 

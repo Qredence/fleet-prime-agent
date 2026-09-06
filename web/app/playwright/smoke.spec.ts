@@ -349,7 +349,6 @@ test.describe("chat shell", () => {
 		// Completed, browser-safe reasoning remains available as an auditable
 		// presentation. Raw thinking remains excluded by the renderer contract.
 		await expect(page.getByLabel("Safe reasoning progress")).toBeVisible()
-		await expect(page.getByLabel("Safe reasoning progress")).toHaveCount(0)
 
 		const activity = page.locator('[data-content="mixed"]').first()
 		await expect(activity).toHaveAttribute("data-state", "closed")
