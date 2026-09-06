@@ -75,7 +75,9 @@ function RootComponent() {
     <MotionRuntime>
       <QueryClientProvider client={getQueryClient()}>
         <Outlet />
-        {import.meta.env.DEV ? <Agentation endpoint="http://localhost:4747" /> : null}
+		{import.meta.env.DEV && import.meta.env.VITE_FLEET_DISABLE_AGENTATION !== "1" ? (
+			<Agentation endpoint="http://localhost:4747" />
+		) : null}
       </QueryClientProvider>
     </MotionRuntime>
   )

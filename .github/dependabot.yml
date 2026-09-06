@@ -15,13 +15,7 @@ updates:
       default-days: 7
     open-pull-requests-limit: 5
     ignore:
-      # Carried over from the vendored-engine era to keep update behavior
-      # unchanged. Most of these dependencies no longer appear in the
-      # unified lockfile; those entries are harmless no-ops.
-      - dependency-name: "@anthropic-ai/sdk"
       - dependency-name: "@google/genai"
-      - dependency-name: "@mistralai/mistralai"
-      - dependency-name: "chalk"
       - dependency-name: "esbuild"
 
   - package-ecosystem: github-actions

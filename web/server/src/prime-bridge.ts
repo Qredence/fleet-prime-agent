@@ -46,6 +46,7 @@ import type {
 	SessionSummary,
 } from "prime-agent";
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
+import { CoalescingRefreshQueue } from "./coalescing-refresh-queue";
 import {
 	createDaemonWebAgentConnection,
 	deleteDaemonSavedSession,
@@ -660,8 +661,7 @@ export class PrimeBridge {
 	readonly #ringBuffers = new Map<string, RingBuffer>();
 	readonly #rlmChildStreams = new Map<string, ManagedRlmChildStream>();
 	readonly #rlmChildStreamInitializations = new Map<string, Promise<ManagedRlmChildStream | undefined>>();
-	readonly #rlmChildMetadataRefreshes = new Map<string, Promise<void>>();
-	readonly #rlmChildMetadataRefreshPending = new Set<string>();
+	readonly #rlmChildMetadataRefreshQueue = new CoalescingRefreshQueue();
 	readonly #dialogs: PendingDialogRegistry;
 	readonly #kernelTimeoutMs: number;
 	readonly #ringBufferCapacity: number;
@@ -769,8 +769,7 @@ export class PrimeBridge {
 		}
 		this.#rlmChildStreams.clear();
 		this.#rlmChildStreamInitializations.clear();
-		this.#rlmChildMetadataRefreshes.clear();
-		this.#rlmChildMetadataRefreshPending.clear();
+		this.#rlmChildMetadataRefreshQueue.clear();
 		for (const session of this.#sessions.values()) {
 			session.unsubscribe();
 			void session.connection.dispose().catch(() => undefined);
@@ -1217,21 +1216,7 @@ export class PrimeBridge {
 	}
 
 	#queueRlmChildMetadataRefresh(rootSessionId: string): void {
-		this.#rlmChildMetadataRefreshPending.add(rootSessionId);
-		if (this.#rlmChildMetadataRefreshes.has(rootSessionId)) return;
-		const refresh = (async () => {
-			while (this.#rlmChildMetadataRefreshPending.delete(rootSessionId)) {
-				await this.#refreshRlmChildMetadata(rootSessionId);
-			}
-		})();
-		this.#rlmChildMetadataRefreshes.set(rootSessionId, refresh);
-		void refresh
-			.finally(() => {
-				if (this.#rlmChildMetadataRefreshes.get(rootSessionId) === refresh) {
-					this.#rlmChildMetadataRefreshes.delete(rootSessionId);
-				}
-			})
-			.catch(() => undefined);
+		this.#rlmChildMetadataRefreshQueue.request(rootSessionId, () => this.#refreshRlmChildMetadata(rootSessionId));
 	}
 
 	async #refreshRlmChildMetadata(rootSessionId: string): Promise<void> {
