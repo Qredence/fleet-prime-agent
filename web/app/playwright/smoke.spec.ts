@@ -1,10 +1,30 @@
-import { test, expect, type Locator, type Page } from "@playwright/test"
+import { test, expect, type Locator, type Page, type Route } from "@playwright/test"
 
 async function clickCenter(page: Page, locator: Locator) {
 	const box = await locator.boundingBox()
 	expect(box).not.toBeNull()
 	if (!box) return
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+}
+
+async function fulfillEmptyChatEvents(route: Route, pathname: string) {
+	if (pathname !== "/api/chat/events") return false
+	await route.fulfill({
+		status: 200,
+		headers: { "content-type": "text/event-stream" },
+		body: "",
+	})
+	return true
+}
+
+async function fulfillEmptyChatSession(route: Route, pathname: string, method: string, sessionId: string) {
+	if (pathname !== "/api/chat/session" || method !== "GET") return false
+	await route.fulfill({
+		status: 200,
+		contentType: "application/json",
+		body: JSON.stringify({ session: { sessionId }, messages: [] }),
+	})
+	return true
 }
 
 // Smoke: prove the chat shell boots and the composer is interactive.
@@ -143,6 +163,8 @@ test.describe("chat shell", () => {
 		await page.route("**/api/chat**", async (route) => {
 			const request = route.request()
 			const pathname = new URL(request.url()).pathname
+			if (await fulfillEmptyChatEvents(route, pathname)) return
+			if (await fulfillEmptyChatSession(route, pathname, request.method(), "welcome-smoke-session")) return
 			if (pathname === "/api/chat/new" && request.method() === "POST") {
 				await route.fulfill({
 					status: 200,
@@ -250,6 +272,8 @@ test.describe("chat shell", () => {
 		await page.route("**/api/chat**", async (route) => {
 			const request = route.request()
 			const pathname = new URL(request.url()).pathname
+			if (await fulfillEmptyChatEvents(route, pathname)) return
+			if (await fulfillEmptyChatSession(route, pathname, request.method(), "trace-smoke-session")) return
 			if (pathname === "/api/chat/new" && request.method() === "POST") {
 				await route.fulfill({
 					status: 200,
