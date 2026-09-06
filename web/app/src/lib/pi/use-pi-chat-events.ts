@@ -130,7 +130,7 @@ export function usePiChatSessionEvents({
 					void client
 						.loadSession({ sessionId })
 						.then((result) => {
-							if (sessionMetadataRef.current.sessionId !== sessionId) return;
+							if (closedByEffect || sessionMetadataRef.current.sessionId !== sessionId) return;
 							setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
 							setPresentationSynced(result.presentation);
 							setSessionMetadataSynced(result.session);

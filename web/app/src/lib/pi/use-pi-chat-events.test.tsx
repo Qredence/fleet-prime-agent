@@ -13,7 +13,10 @@ const EMPTY_PRESENTATION: PrimeAgentSessionPresentation = {
 };
 
 describe("usePiChatSessionEvents", () => {
-	afterEach(() => vi.unstubAllGlobals());
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
 
 	it("ignores an agent-settled hydration that resolves after the visible session changes", async () => {
 		let resolveSession!: (value: { messages: []; presentation: PrimeAgentSessionPresentation; session: { sessionId: string } }) => void;
@@ -72,6 +75,66 @@ describe("usePiChatSessionEvents", () => {
 		expect(setMessagesSynced).not.toHaveBeenCalled();
 		expect(setPresentationSynced).not.toHaveBeenCalled();
 		expect(setSessionMetadataSynced).not.toHaveBeenCalled();
+	});
+
+	it("ignores an agent-settled hydration that resolves after effect teardown", async () => {
+		let resolveSession!: (value: { messages: []; presentation: PrimeAgentSessionPresentation; session: { sessionId: string } }) => void;
+		const loadSession = vi.fn(
+			() =>
+				new Promise<{ messages: []; presentation: PrimeAgentSessionPresentation; session: { sessionId: string } }>(
+					(resolve) => {
+						resolveSession = resolve;
+					},
+				),
+		);
+		class EventSourceStub {
+			static instances: EventSourceStub[] = [];
+			readonly close = vi.fn();
+			onerror: (() => void) | null = null;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			constructor() {
+				EventSourceStub.instances.push(this);
+			}
+		}
+		vi.stubGlobal("EventSource", EventSourceStub);
+
+		const setMessagesSynced = vi.fn();
+		const setPresentationSynced = vi.fn();
+		const setSessionMetadataSynced = vi.fn();
+		const setQueueSynced = vi.fn();
+		const { unmount } = renderHook(() =>
+			usePiChatSessionEvents({
+				client: { loadSession } as unknown as ChatClient,
+				presentationRef: { current: EMPTY_PRESENTATION },
+				sessionId: "session-a",
+				sessionMetadataRef: { current: { sessionId: "session-a" } },
+				setActivityLabelSynced: vi.fn(),
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced,
+				setPresentationSynced,
+				setQueueSynced,
+				setSessionMetadataSynced,
+				statusRef: { current: "ready" },
+			}),
+		);
+
+		await act(async () => {
+			EventSourceStub.instances[0]?.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({ type: "state", state: { name: "agent_settled" } }),
+				}),
+			);
+		});
+		unmount();
+		await act(async () => {
+			resolveSession({ messages: [], presentation: EMPTY_PRESENTATION, session: { sessionId: "session-a" } });
+			await Promise.resolve();
+		});
+
+		expect(setMessagesSynced).not.toHaveBeenCalled();
+		expect(setPresentationSynced).not.toHaveBeenCalled();
+		expect(setSessionMetadataSynced).not.toHaveBeenCalled();
+		expect(setQueueSynced).not.toHaveBeenCalled();
 	});
 
 	it("ignores queued frames from a closed session stream after a session switch", async () => {
@@ -163,6 +226,5 @@ describe("usePiChatSessionEvents", () => {
 
 		expect(EventSourceStub.instances).toHaveLength(2);
 		expect(setActivityLabelSynced).not.toHaveBeenCalled();
-		vi.useRealTimers();
 	});
 });

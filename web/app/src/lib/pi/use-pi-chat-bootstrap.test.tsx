@@ -24,6 +24,7 @@ describe("usePiChatBootstrap", () => {
 		const setSessionMetadataSynced = vi.fn();
 		const setMessagesSynced = vi.fn();
 		const setPresentationSynced = vi.fn();
+		const initializedRef = { current: false };
 		const { unmount } = renderHook(() =>
 			usePiChatBootstrap({
 				client: {
@@ -35,7 +36,7 @@ describe("usePiChatBootstrap", () => {
 					}),
 				} as unknown as ChatClient,
 				initialSessionMetadataRef: { current: { sessionId: "session-a" } },
-				initializedRef: { current: false },
+				initializedRef,
 				recoverFromForbiddenSession: vi.fn(),
 				refreshSessions,
 				setActivityLabelSynced: vi.fn(),
@@ -53,6 +54,7 @@ describe("usePiChatBootstrap", () => {
 		setMessagesSynced.mockClear();
 		setPresentationSynced.mockClear();
 		unmount();
+		expect(initializedRef.current).toBe(false);
 		await act(async () => {
 			resolveSessions([{ sessionId: "session-a" } as ChatSessionInfo]);
 			await Promise.resolve();

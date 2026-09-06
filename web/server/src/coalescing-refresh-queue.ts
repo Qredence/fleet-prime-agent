@@ -10,7 +10,13 @@ export class CoalescingRefreshQueue {
 		this.#pending.add(key);
 		if (this.#inFlight.has(key)) return;
 		const run = (async () => {
-			while (this.#pending.delete(key)) await refresh();
+			while (this.#pending.delete(key)) {
+				try {
+					await refresh();
+				} catch {
+					// Keep draining requests queued while a refresh was in flight.
+				}
+			}
 		})();
 		this.#inFlight.set(key, run);
 		void run

@@ -53,6 +53,7 @@ export function usePiChatBootstrap({
 		if (initializedRef.current) return;
 		initializedRef.current = true;
 		const controller = new AbortController();
+		let completed = false;
 		setStatus("ready");
 		setError(null);
 		setQueueSynced(EMPTY_QUEUE_STATE);
@@ -99,9 +100,15 @@ export function usePiChatBootstrap({
 				setError(nextError);
 				setStatus("error");
 				notifyChatError(nextError);
+			})
+			.finally(() => {
+				completed = true;
 			});
 
-		return () => controller.abort();
+		return () => {
+			controller.abort();
+			if (!completed) initializedRef.current = false;
+		};
 	}, [
 		client,
 		initialSessionMetadataRef,

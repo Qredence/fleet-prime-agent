@@ -29,7 +29,7 @@ export default defineConfig({
   webServer: {
 		// Agentation is a developer annotation surface that can intentionally block
 		// clicks; exclude it from product interaction smoke coverage.
-		command: `VITE_FLEET_DISABLE_AGENTATION=1 pnpm exec vite dev --port ${port}`,
+		command: `VITE_FLEET_DISABLE_AGENTATION=1 pnpm exec vite dev --port ${port} --strictPort`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: 120_000,
