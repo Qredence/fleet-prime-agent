@@ -1,10 +1,22 @@
 import { defineConfig, devices } from "@playwright/test"
 
+const port = process.env.PLAYWRIGHT_PORT ?? "3000"
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`
+const webServer = process.env.PLAYWRIGHT_BASE_URL
+  ? undefined
+  : {
+      // Agentation is a developer annotation surface that can intentionally block
+      // clicks; exclude it from product interaction smoke coverage.
+      command: `VITE_FLEET_DISABLE_AGENTATION=1 pnpm exec vite dev --port ${port} --strictPort`,
+      url: baseURL,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    }
+
 /**
  * Playwright smoke for the Fleet Prime web frontend.
  *
- * Runs a single Chromium project against the dev server. The webServer block
- * boots `vite dev` if it isn't already running.
+ * Runs a single Chromium project against an isolated Vite dev server.
  */
 export default defineConfig({
   testDir: "./playwright",
@@ -14,7 +26,7 @@ export default defineConfig({
   workers: 1,
   reporter: "list",
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",
+    baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -24,10 +36,5 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "pnpm run dev",
-    url: "http://127.0.0.1:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer,
 })

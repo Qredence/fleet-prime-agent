@@ -1,5 +1,5 @@
 import { AlertCircle } from "lucide-react"
-import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from "react"
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type RefObject } from "react"
 import {
   Message,
   MessageBubble,
@@ -18,10 +18,11 @@ import { FleetGenerativeTextRenderer } from "./generative-text-renderer"
 import type { OpenUIArtifactCandidate } from "../../../openui/html-artifact"
 import { PI_TOOL_RENDERERS } from "../pi/tool-renderers"
 import { FleetTurnStatus } from "./fleet-turn-status"
+import { activityLabelFor, activitySummary } from "./chat-activity"
+import { ChatWelcome } from "./chat-welcome"
 import { FleetPiInputBar } from "./fleet-pi-input-bar"
 import { getChatErrorPresentation } from "./chat-error-presentation"
 import type { AgentChatProps } from "../../../registry/beui/agents/types"
-import type { SuggestionItem } from "../../../registry/beui/agents/input/suggestions"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 import type {
 	ChatReasoningPresentation,
@@ -704,35 +705,6 @@ function isLifecycleNotice(label: string | undefined) {
 }
 
 /**
- * Generates a descriptive label for active agent activity based on the
- * types and count of items.
- *
- * @param items - The active agent activity items
- * @returns A human-readable label describing the current activity
- */
-function activityLabelFor(items: AgentActivityItem[]) {
-	if (items.length === 1) {
-		const item = items[0]
-		if (item?.type === "search") return "Checking a source…"
-    if (item?.type === "tool") return "Working with " + item.action + "…"
-  }
-  if (items.length > 1) return "Coordinating " + items.length + " active actions…"
-  return "Working through the run…"
-}
-
-/**
- * Generates a summary message for completed agent activity.
- *
- * @param items - The completed agent activity items
- * @returns A human-readable summary of completed actions
- */
-function activitySummary(items: AgentActivityItem[]) {
-	const count = items.length
-  if (count === 1) return "Completed 1 tracked action"
-  return "Completed " + count + " tracked actions"
-}
-
-/**
  * Resolves suggestions from either an array or an object containing suggestion items.
  *
  * @param suggestions - The suggestions to normalize.
@@ -741,82 +713,6 @@ function activitySummary(items: AgentActivityItem[]) {
 function resolveSuggestions(suggestions: FleetPiAgentChatProps["suggestions"]) {
   if (Array.isArray(suggestions)) return suggestions
   return suggestions?.items ?? []
-}
-
-const WELCOME_TASKS: SuggestionItem[] = [
-  {
-    id: "welcome-explore-codebase",
-    label: "Explore codebase",
-    value:
-      "Explore this codebase and explain its architecture, important modules, and main entry points.",
-  },
-  {
-    id: "welcome-review-changes",
-    label: "Review changes",
-    value:
-      "Review my current changes for bugs, regressions, architecture issues, and code quality problems.",
-  },
-  {
-    id: "welcome-fix-issue",
-    label: "Fix an issue",
-    value: "Help me investigate and fix an issue in this project.",
-  },
-  {
-    id: "welcome-plan-feature",
-    label: "Plan a feature",
-    value:
-      "Explore the relevant code and create an implementation plan for a new feature before making changes.",
-  },
-]
-
-/**
- * Renders the welcome screen displayed when the conversation is empty,
- * including the composer and suggested prompt buttons.
- *
- * @param disabled - Whether interactions should be disabled (e.g., during streaming)
- * @param onSelect - Callback invoked when a suggested prompt is clicked
- * @param composer - The composer input component to display
- * @returns The welcome state UI
- */
-function WelcomeState({
-  disabled,
-  onSelect,
-  composer,
-}: {
-  disabled: boolean
-  onSelect: (item: SuggestionItem) => void
-  composer: ReactNode
-}) {
-  return (
-    <section
-      aria-labelledby="fleet-welcome-title"
-      className="flex w-full max-w-an flex-col items-center text-center"
-    >
-      <h1
-        id="fleet-welcome-title"
-        className="text-2xl font-normal tracking-tight text-foreground sm:text-3xl"
-      >
-        What should Fleet Prime Agent work on?
-      </h1>
-      <div className="mt-6 w-full">{composer}</div>
-      <div
-        aria-label="Suggested prompts"
-        className="mt-4 flex w-full flex-wrap justify-center gap-2"
-      >
-        {WELCOME_TASKS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            disabled={disabled || item.disabled}
-            onClick={() => onSelect(item)}
-            className="inline-flex min-h-8 items-center rounded-full border border-border/70 bg-background/70 px-4 py-1.5 text-center text-sm text-foreground/80 shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none"
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-    </section>
-  )
 }
 
 /**
@@ -869,7 +765,7 @@ function ChatComposerHost({
 const MemoChatComposerHost = memo(ChatComposerHost)
 
 /**
- * Renders the Fleet Prime Agent chat interface, including conversation turns, activity, suggestions, errors, and message input.
+ * Renders the Fleet Prime Agent chat interface with conversation turns, activity, suggestions, errors, and message input.
  *
  * @param messages - Conversation messages to display.
  * @param status - Current chat request status.
@@ -970,7 +866,7 @@ export function FleetPiAgentChat({
         )}
       >
         {isEmpty ? (
-          <WelcomeState
+          <ChatWelcome
             disabled={isStreaming}
             onSelect={(item) => setDraft(item.value ?? item.label)}
             composer={composerNode}

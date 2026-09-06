@@ -8,8 +8,6 @@ import type {
 	ChatQueueMutationRequest,
 	ChatSessionInfo,
 	ChatSessionMetadata,
-	ChatStreamEvent,
-	FleetAdapterCapabilities,
 	OpenUIHtmlArtifactPayload,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -20,11 +18,11 @@ import type { ChatClient } from "./chat-client";
 import { chatClient } from "./chat-client";
 import { notifyChatError } from "./chat-error-notify";
 import type { QueueState } from "./chat-fetch";
-import { upsertAssistantReasoningPresentation } from "./chat-message-helpers";
-import { resolveChatApiUrl } from "./chat-runtime-url";
 import { EMPTY_QUEUE_STATE, normalizeSessionMetadata } from "./chat-stream-state";
 import { hydratePlanPresentationMessages, planPresentationForToolCall } from "./plan-presentation";
 import { isPlanDecisionToolCall } from "./plan-state";
+import { usePiChatBootstrap } from "./use-pi-chat-bootstrap";
+import { usePiChatSessionEvents } from "./use-pi-chat-events";
 import {
 	runForbiddenSessionRecovery,
 	tryRecoverForbiddenSession,
@@ -349,72 +347,21 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		};
 	}, [refreshSessions]);
 
-	useEffect(() => {
-		if (initializedRef.current) return;
-		initializedRef.current = true;
-		const controller = new AbortController();
-		setStatus("ready");
-		setError(null);
-		setQueueSynced(EMPTY_QUEUE_STATE);
-		setActivityLabelSynced(undefined);
-		setPlanLabelSynced(undefined);
-		setMessagesSynced([]);
-
-		const storedSession = initialSessionMetadataRef.current;
-		void refreshSessions()
-			.then((availableSessions) => {
-				if (controller.signal.aborted) return undefined;
-				const selected = storedSession.sessionId
-					? availableSessions.find((candidate) => candidate.sessionId === storedSession.sessionId)
-					: undefined;
-				const fallback =
-					selected ??
-					(storedSession.projectId
-						? availableSessions.find((candidate) => candidate.projectId === storedSession.projectId)
-						: availableSessions[0]);
-				if (!fallback) {
-					setSessionMetadataSynced(storedSession.projectId ? { projectId: storedSession.projectId } : {});
-					return undefined;
-				}
-				const metadata = selected
-					? storedSession
-					: { sessionId: fallback.sessionId, projectId: fallback.projectId };
-				return client.loadSession(metadata);
-			})
-			.then((result) => {
-				if (!result || controller.signal.aborted) return;
-				setSessionMetadataSynced(result.session);
-				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
-				setPresentationSynced(result.presentation);
-				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
-			})
-			.catch(async (err) => {
-				if (controller.signal.aborted) return;
-				const recoveryDeps = { setError, setStatus };
-				const recovered =
-					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
-					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
-				if (recovered || controller.signal.aborted) return;
-				const nextError = err instanceof Error ? err : new Error(String(err));
-				setError(nextError);
-				setStatus("error");
-				notifyChatError(nextError);
-			});
-
-		return () => {
-			controller.abort();
-		};
-	}, [
+	usePiChatBootstrap({
 		client,
+		initialSessionMetadataRef,
+		initializedRef,
+		recoverFromForbiddenSession,
+		refreshSessions,
 		setActivityLabelSynced,
+		setError,
 		setMessagesSynced,
 		setPlanLabelSynced,
 		setPresentationSynced,
 		setQueueSynced,
 		setSessionMetadataSynced,
-		refreshSessions,
-		recoverFromForbiddenSession,
-	]);
+		setStatus,
+	});
 
 	const { resetStreamAdmission, sendMessage, setAdapterCapabilities } = usePiChatMessaging({
 		activityLabelRef,
@@ -640,164 +587,19 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		sendMessageRef.current = sendMessage;
 	}, [sendMessage]);
 
-	// Per-visible-session EventSource with Last-Event-ID resumption. The
-	// NDJSON stream in `use-pi-chat-messaging` is authoritative for in-flight
-	// turns; this source carries server-side pushes (dialog requests, notify)
-	// that arrive outside a turn.
-	useEffect(() => {
-		const sessionId = sessionMetadata.sessionId;
-		if (!sessionId || typeof window === "undefined") return;
-
-		const lastEventIdKey = `pi:sse:last-event-id:${sessionId}`;
-		const sseCapabilitiesRef = { current: undefined as FleetAdapterCapabilities | undefined };
-		let lastEventId = Number.parseInt(window.sessionStorage.getItem(lastEventIdKey) ?? "0", 10);
-		if (Number.isNaN(lastEventId)) lastEventId = 0;
-
-		let source: EventSource | null = null;
-		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-		let closedByEffect = false;
-
-		const handleEvent = (raw: MessageEvent<string>) => {
-			let frame: ChatStreamEvent;
-			try {
-				frame = JSON.parse(raw.data) as ChatStreamEvent;
-			} catch {
-				return;
-			}
-			if (frame.type === "presentation") {
-				if (frame.presentation.revision > (presentationRef.current?.revision ?? -1)) {
-					setPresentationSynced(frame.presentation);
-				}
-				return;
-			}
-			if (frame.type === "rlm") {
-				const current = presentationRef.current;
-				const existing = current.rlmChildren.find((child) => child.id === frame.child.id);
-				if (existing && existing.timestamp > frame.child.timestamp) return;
-				setPresentationSynced({
-					...current,
-					rlmChildren: [...current.rlmChildren.filter((child) => child.id !== frame.child.id), frame.child],
-					...(frame.tree ? { rlmTree: frame.tree } : {}),
-				});
-				return;
-			}
-			// In-flight NDJSON stream is authoritative; only act on out-of-turn pushes.
-			const currentStatus = statusRef.current;
-			if (currentStatus === "streaming" || currentStatus === "submitted") return;
-			const connected = frame as unknown as {
-				type?: string;
-				adapterCapabilities?: FleetAdapterCapabilities;
-			};
-			if (connected.type === "connected") {
-				const caps = connected.adapterCapabilities;
-				sseCapabilitiesRef.current = caps;
-				setAdapterCapabilities(caps);
-				return;
-			}
-			if (frame.type === "reasoning") {
-				const capabilities = sseCapabilitiesRef.current;
-				const messageId = frame.messageId;
-				if (!capabilities?.features.includes("reasoning-summary-v1") || !messageId) return;
-				setMessagesSynced((current) =>
-					upsertAssistantReasoningPresentation(current, messageId, frame.presentation),
-				);
-				return;
-			}
-			if (frame.type === "tool" && frame.part?.type === "tool-Question") {
-				setMessagesSynced((current) => {
-					const toolCallId = frame.part.toolCallId ?? "";
-					const existingToolCallIndex = current.findIndex((message) =>
-						message.parts.some(
-							(p) => p.type !== "text" && p.type !== "error" && "toolCallId" in p && p.toolCallId === toolCallId,
-						),
-					);
-					if (existingToolCallIndex !== -1) return current;
-					const questionPart: ChatMessage["parts"][number] = {
-						...frame.part,
-						type: "tool-Question",
-					};
-					return [
-						...current,
-						{
-							id: crypto.randomUUID(),
-							role: "assistant",
-							parts: [questionPart],
-							createdAt: new Date().toISOString(),
-						},
-					];
-				});
-				return;
-			}
-			if (frame.type === "state") {
-				setActivityLabelSynced(typeof frame.state?.message === "string" ? frame.state.message : undefined);
-				if (frame.state?.name === "agent_settled") {
-					// Server asked us to resync — refetch the session transcript and
-					// rebuild the UI state without spinning up a new turn.
-					const settledSessionId = sessionId;
-					void client
-						.loadSession({ sessionId: settledSessionId })
-						.then((result) => {
-							if (sessionMetadataRef.current.sessionId !== settledSessionId) return;
-							setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
-							setPresentationSynced(result.presentation);
-							setSessionMetadataSynced(result.session);
-							setQueueSynced(EMPTY_QUEUE_STATE);
-						})
-						.catch(() => undefined);
-				}
-				return;
-			}
-			if (frame.type === "queue") {
-				setQueueSynced({ steering: frame.steering, followUp: frame.followUp });
-				return;
-			}
-		};
-
-		const connect = () => {
-			const params = new URLSearchParams({ sessionId });
-			if (lastEventId > 0) {
-				// EventSource only sends Last-Event-ID on native reconnect of the same
-				// instance. Closing it (below) starts a new connection, so pass the
-				// stored cursor as a query param the server also accepts.
-				params.set("lastEventId", String(lastEventId));
-			}
-			const url = resolveChatApiUrl(`/api/chat/events?${params}`);
-			source?.close();
-			source = new EventSource(url);
-			source.onmessage = (event) => {
-				const seq = Number.parseInt(event.lastEventId ?? "", 10);
-				if (!Number.isNaN(seq) && seq > 0) {
-					lastEventId = seq;
-					window.sessionStorage.setItem(lastEventIdKey, String(seq));
-				}
-				handleEvent(event);
-			};
-			source.onerror = () => {
-				source?.close();
-				if (closedByEffect) return;
-				// Exponential-ish backoff, capped. EventSource does its own reconnect,
-				// but a manual retry makes timing deterministic for the dialog flow.
-				if (reconnectTimer) clearTimeout(reconnectTimer);
-				reconnectTimer = setTimeout(connect, 2_000);
-			};
-		};
-		connect();
-
-		return () => {
-			closedByEffect = true;
-			source?.close();
-			if (reconnectTimer) clearTimeout(reconnectTimer);
-		};
-	}, [
+	usePiChatSessionEvents({
 		client,
-		sessionMetadata.sessionId,
+		presentationRef,
+		sessionId: sessionMetadata.sessionId,
+		sessionMetadataRef,
 		setActivityLabelSynced,
-		setMessagesSynced,
-		setQueueSynced,
-		setPresentationSynced,
-		setSessionMetadataSynced,
 		setAdapterCapabilities,
-	]);
+		setMessagesSynced,
+		setPresentationSynced,
+		setQueueSynced,
+		setSessionMetadataSynced,
+		statusRef,
+	});
 
 	const enhancedMessages = useMemo(() => enhanceMessages(messages), [messages, enhanceMessages]);
 	const renameSession = useCallback(

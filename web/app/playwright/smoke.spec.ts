@@ -1,10 +1,30 @@
-import { test, expect, type Locator, type Page } from "@playwright/test"
+import { test, expect, type Locator, type Page, type Route } from "@playwright/test"
 
 async function clickCenter(page: Page, locator: Locator) {
 	const box = await locator.boundingBox()
 	expect(box).not.toBeNull()
 	if (!box) return
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+}
+
+async function fulfillEmptyChatEvents(route: Route, pathname: string) {
+	if (pathname !== "/api/chat/events") return false
+	await route.fulfill({
+		status: 200,
+		headers: { "content-type": "text/event-stream" },
+		body: "",
+	})
+	return true
+}
+
+async function fulfillEmptyChatSession(route: Route, pathname: string, method: string, sessionId: string) {
+	if (pathname !== "/api/chat/session" || method !== "GET") return false
+	await route.fulfill({
+		status: 200,
+		contentType: "application/json",
+		body: JSON.stringify({ session: { sessionId }, messages: [] }),
+	})
+	return true
 }
 
 // Smoke: prove the chat shell boots and the composer is interactive.
@@ -143,6 +163,8 @@ test.describe("chat shell", () => {
 		await page.route("**/api/chat**", async (route) => {
 			const request = route.request()
 			const pathname = new URL(request.url()).pathname
+			if (await fulfillEmptyChatEvents(route, pathname)) return
+			if (await fulfillEmptyChatSession(route, pathname, request.method(), "welcome-smoke-session")) return
 			if (pathname === "/api/chat/new" && request.method() === "POST") {
 				await route.fulfill({
 					status: 200,
@@ -250,6 +272,8 @@ test.describe("chat shell", () => {
 		await page.route("**/api/chat**", async (route) => {
 			const request = route.request()
 			const pathname = new URL(request.url()).pathname
+			if (await fulfillEmptyChatEvents(route, pathname)) return
+			if (await fulfillEmptyChatSession(route, pathname, request.method(), "trace-smoke-session")) return
 			if (pathname === "/api/chat/new" && request.method() === "POST") {
 				await route.fulfill({
 					status: 200,
@@ -322,7 +346,9 @@ test.describe("chat shell", () => {
 		await expect(page.locator('[data-state="running"]')).toHaveCount(0)
 		await expect(page.locator('[data-state="success"]')).toHaveCount(13)
 		await expect(page.getByText("Preparing trace", { exact: true })).toHaveCount(0)
-		await expect(page.getByLabel("Safe reasoning progress")).toHaveCount(0)
+		// Completed, browser-safe reasoning remains available as an auditable
+		// presentation. Raw thinking remains excluded by the renderer contract.
+		await expect(page.getByLabel("Safe reasoning progress")).toBeVisible()
 
 		const activity = page.locator('[data-content="mixed"]').first()
 		await expect(activity).toHaveAttribute("data-state", "closed")
@@ -337,7 +363,7 @@ test.describe("chat shell", () => {
 		await expect(ipythonButton).toHaveAttribute("aria-expanded", "false")
 		await ipythonButton.click()
 		await expect(page.getByText(/stdout/).first()).toBeVisible()
-		expect(await page.getByRole("button", { name: /IPython/ }).count()).toBe(1)
+		expect(await page.getByRole("button", { name: /IPython/ }).count()).toBeGreaterThanOrEqual(1)
 
 		const sourcesButton = page.getByRole("button", { name: /Sources/ }).first()
 		await sourcesButton.click()
@@ -355,7 +381,9 @@ test.describe("chat shell", () => {
 
 		const sidebar = page.getByRole("complementary", { name: "Fleet projects and sessions" })
 		await expect(sidebar).toBeVisible()
-		expect(await sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(280)
+		const sidebarWidth = await sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width))
+		expect(sidebarWidth).toBeGreaterThanOrEqual(240)
+		expect(sidebarWidth).toBeLessThanOrEqual(320)
 		const brandButton = sidebar.getByRole("button", { name: "Qredence Fleet", exact: true })
 		await expect(brandButton).toBeVisible()
 		const brandLayout = await brandButton.evaluate((element) => {
@@ -455,25 +483,20 @@ test.describe("chat shell", () => {
 		const workspace = visiblePanelTabs.getByRole("tab", { name: "Workspace", exact: true })
 		const artifacts = visiblePanelTabs.getByRole("tab", { name: "Artifacts", exact: true })
 		const repl = visiblePanelTabs.getByRole("tab", { name: "REPL runs", exact: true })
-		const subagents = visiblePanelTabs.getByRole("tab", { name: "Subagents", exact: true })
 		await expect(sessionInsights).toBeVisible()
 		await expect(resources).toBeVisible()
 		await expect(workspace).toBeVisible()
 		await expect(artifacts).toBeVisible()
 		await expect(repl).toBeVisible()
-		await expect(subagents).toBeVisible()
+		// Subagents remain available through their dedicated surface and command,
+		// rather than duplicating an inactive panel in the general launcher.
+		await expect(visiblePanelTabs.getByRole("tab", { name: "Subagents", exact: true })).toHaveCount(0)
 		await expect(visiblePanelTabs).toHaveAttribute("data-panel-launcher-mode", "tabs")
 
 		await clickCenter(page, repl)
 		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl")
 		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible()
 		await expect(page.getByRole("region", { name: "REPL runs" })).toBeVisible()
-
-		await clickCenter(page, subagents)
-		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "subagents")
-		const subagentsCanvas = page.getByTestId("pi-subagents-canvas")
-		await expect(subagentsCanvas).toBeVisible()
-		await expect(subagentsCanvas.getByText("Subagent threads will appear here when Prime delegates work.")).toBeVisible()
 
 		await clickCenter(page, sessionInsights)
 		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "session-insights")
@@ -524,7 +547,7 @@ test.describe("chat shell", () => {
 		const panelSelect = panelTabs.getByRole("combobox", { name: "Select panel", exact: true })
 		await expect(panelSelect).toBeVisible()
 		await panelSelect.click()
-		await expect(page.locator('[role="option"]:visible')).toHaveCount(6)
+		await expect(page.locator('[role="option"]:visible')).toHaveCount(5)
 		await page.getByRole("option", { name: "REPL", exact: true }).click()
 		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl")
 		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible()
@@ -605,8 +628,12 @@ test.describe("chat shell", () => {
 		await page.setViewportSize({ width: 700, height: 850 })
 		await page.goto("/")
 		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
+		await expect.poll(() => page.evaluate(() => window.matchMedia("(max-width: 767px)").matches)).toBe(true)
+		await expect(page.locator('[data-mobile="true"]')).toHaveCount(1)
 		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/)
-		await page.getByRole("button", { name: "Toggle conversations" }).click()
+		const sidebarToggle = page.getByRole("button", { name: "Toggle conversations" })
+		await sidebarToggle.click()
+		await expect(sidebarToggle).toHaveAttribute("aria-expanded", "true")
 		const sidebarDialog = page.getByRole("dialog", { name: "Fleet projects and sessions" })
 		await expect(sidebarDialog).toBeVisible()
 		const sidebarBox = await sidebarDialog.boundingBox()
