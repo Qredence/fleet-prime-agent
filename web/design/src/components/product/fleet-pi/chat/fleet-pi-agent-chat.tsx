@@ -765,7 +765,7 @@ function ChatComposerHost({
 const MemoChatComposerHost = memo(ChatComposerHost)
 
 /**
- * Renders the Fleet Prime Agent chat interface, including conversation turns, activity, suggestions, errors, and message input.
+ * Renders the Fleet Prime Agent chat interface with conversation turns, activity, suggestions, errors, and message input.
  *
  * @param messages - Conversation messages to display.
  * @param status - Current chat request status.

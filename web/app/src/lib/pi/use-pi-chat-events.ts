@@ -27,7 +27,11 @@ type SessionEventsOptions = {
 	statusRef: MutableRefObject<ChatStatus>;
 };
 
-/** Owns the visible-session SSE connection, resume cursor, and teardown. */
+/**
+ * Manages the visible chat session's SSE connection, event resume cursor, state synchronization, reconnection, and cleanup.
+ *
+ * @param options - Session event handling dependencies and state setters.
+ */
 export function usePiChatSessionEvents({
 	client,
 	presentationRef,

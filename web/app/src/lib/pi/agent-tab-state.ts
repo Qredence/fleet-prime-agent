@@ -15,19 +15,34 @@ export const INITIAL_AGENT_TAB_SCOPE_STATE: AgentTabScopeState = {
 	selectedTabId: "main",
 };
 
+/**
+ * Retrieves the state for a scope, creating a fresh default state when the scope changes.
+ *
+ * @param state - The current tab scope state
+ * @param scopeKey - The scope key to retrieve
+ * @returns The existing state when it matches `scopeKey`; otherwise, a default state for that scope
+ */
 function stateForScope(state: AgentTabScopeState, scopeKey: string): AgentTabScopeState {
 	return state.scopeKey === scopeKey ? state : { dismissedChildIds: new Set(), scopeKey, selectedTabId: "main" };
 }
 
 /**
- * Keeps tab-local state scoped to the selected project/session pair. A stale
- * scope is treated as its initial state until the next user action, avoiding a
- * prop-driven state reset effect during render.
+ * Provides the tab state for the requested project/session scope.
+ *
+ * @param state - The current tab scope state
+ * @param scopeKey - The project/session scope identifier
+ * @returns The current state when it matches the scope; otherwise, a fresh initial state
  */
 export function visibleAgentTabScope(state: AgentTabScopeState, scopeKey: string): AgentTabScopeState {
 	return stateForScope(state, scopeKey);
 }
 
+/**
+ * Applies a tab selection, dismissal, or restoration action within its scope.
+ *
+ * @param action - The scoped tab action to apply
+ * @returns The updated tab scope state
+ */
 export function reduceAgentTabScope(state: AgentTabScopeState, action: AgentTabScopeAction): AgentTabScopeState {
 	const current = stateForScope(state, action.scopeKey);
 	if (action.type === "select") return { ...current, selectedTabId: action.tabId };

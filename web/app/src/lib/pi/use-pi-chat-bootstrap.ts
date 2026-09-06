@@ -28,7 +28,12 @@ type BootstrapOptions = {
 	setStatus: (status: ChatStatus) => void;
 };
 
-/** Hydrates the initial visible session and makes every post-await update abort-aware. */
+/**
+ * Initializes chat state and restores or selects the appropriate Pi session.
+ *
+ * Aborts pending initialization updates when the effect is cleaned up and attempts
+ * session recovery when loading fails.
+ */
 export function usePiChatBootstrap({
 	client,
 	initialSessionMetadataRef,

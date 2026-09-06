@@ -28,7 +28,13 @@ const WELCOME_TASKS: SuggestionItem[] = [
   },
 ]
 
-/** Empty-conversation welcome screen, composer host, and preset prompt actions. */
+/**
+ * Renders the empty-conversation welcome screen with a composer and preset prompt actions.
+ *
+ * @param disabled - Whether all prompt actions are disabled
+ * @param onSelect - Callback invoked with the selected prompt
+ * @param composer - Composer content rendered below the welcome heading
+ */
 export function ChatWelcome({
   disabled,
   onSelect,
