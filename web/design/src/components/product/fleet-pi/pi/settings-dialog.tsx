@@ -690,7 +690,7 @@ function SettingsDialogBody({
         </DialogDescription>
 
         <SidebarProvider
-          className="h-full min-h-0"
+          className="h-full min-h-0 min-w-0"
           enableKeyboardShortcut={false}
           persistState={false}
         >
