@@ -27,8 +27,8 @@ require_command pnpm
 node_version="$(node --version | sed 's/^v//')"
 pnpm_version="$(pnpm --version)"
 
-if ! version_at_least "$node_version" "22.8.0"; then
-	echo "ERROR: Node.js 22.8.0 or newer is required; found $node_version." >&2
+if ! version_at_least "$node_version" "22.12.0"; then
+	echo "ERROR: Node.js 22.12.0 or newer is required (repository engines); found $node_version." >&2
 	exit 1
 fi
 
