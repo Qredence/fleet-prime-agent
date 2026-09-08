@@ -382,6 +382,77 @@ export async function createDaemonWebAgentConnection(options: WebAgentConnection
 	};
 }
 
+export type DaemonChildPromptHandle = {
+	/** Resolves when the prompted turn settles; disposes the borrowed connection. */
+	settled: Promise<void>;
+	/** Aborts the in-flight turn when one is active; safe to call otherwise. */
+	abort: () => Promise<void>;
+};
+
+/**
+ * Prompt an RLM child session directly, mirroring how the upstream agents
+ * view attaches to any agent row (subagents included) for an interactive
+ * turn. The connection is borrowed per turn and disposed on settle: the
+ * child's managed watcher stream (when open) observes the turn's frames, so
+ * callers must not fan the same turn out to a second listener.
+ */
+export function startDaemonChildPrompt(
+	options: {
+		cwd: string;
+		activeSessionId: string;
+		text: string;
+		streamingBehavior?: "steer" | "followUp";
+	},
+	openConnection: (
+		cwd: string,
+		activeSessionId: string,
+	) => Promise<{ connection: AgentConnection; dispose: () => Promise<void> }> = openDaemonChildConnection,
+): DaemonChildPromptHandle {
+	let connection: AgentConnection | undefined;
+	let dispose = async (): Promise<void> => undefined;
+	const controller = new AbortController();
+	const settled = (async () => {
+		const opened = await openConnection(options.cwd, options.activeSessionId);
+		connection = opened.connection;
+		dispose = opened.dispose;
+		try {
+			await connection.promptAndWait(options.text, {
+				streamingBehavior: options.streamingBehavior ?? "steer",
+				queueIfBusy: true,
+				signal: controller.signal,
+			});
+		} finally {
+			await dispose().catch(() => undefined);
+		}
+	})();
+	return {
+		settled,
+		abort: async () => {
+			controller.abort();
+			await connection?.abort().catch(() => undefined);
+		},
+	};
+}
+
+async function openDaemonChildConnection(
+	cwd: string,
+	activeSessionId: string,
+): Promise<{ connection: AgentConnection; dispose: () => Promise<void> }> {
+	const { client, socketPath } = await connectFleetDaemon(cwd);
+	try {
+		const connection = await DaemonAgentConnection.attach(client, activeSessionId, {
+			closeClientOnDispose: true,
+			recoverDaemon: () => ensureFleetDaemonRunning(cwd, socketPath),
+			sendClientEnv: false,
+			supportsExtensionUi: true,
+		});
+		return { connection, dispose: () => connection.dispose() };
+	} catch (error) {
+		client.close();
+		throw error;
+	}
+}
+
 /** List the sessions in the configured Prime store through the shared daemon. */
 export async function listDaemonSessions(cwd?: string): Promise<SessionSummary[]> {
 	const effectiveCwd = cwd ?? getPrimeConfig().defaultCwd;

@@ -80,7 +80,7 @@ import { resolveChatApiUrl } from "./chat-runtime-url";
 const ProjectResponseSchema = z.object({ project: ProjectSummarySchema });
 
 export type ChatClient = {
-	abortSession: (metadata: ChatSessionMetadata) => Promise<void>;
+	abortSession: (metadata: ChatSessionMetadata & { childId?: string }) => Promise<void>;
 	answerQuestion: (request: ChatQuestionAnswerRequest) => Promise<ChatQuestionAnswerResponse>;
 	deleteQueuedMessage: (request: ChatQueueMutationRequest) => Promise<ChatQueueMutationResponse>;
 	browseWorkspace: (path?: string, projectId?: ProjectId) => Promise<WorkspaceBrowseResponse>;

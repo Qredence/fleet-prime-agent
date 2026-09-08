@@ -30,6 +30,7 @@ export const ChatRequestSchema = z
 		streamingBehavior: z.enum(["steer", "followUp"]).optional().openapi({ description: "Streaming behavior" }),
 		userId: z.string().optional().openapi({ description: "Authenticated user ID (server-injected)" }),
 		userEmail: z.string().optional().openapi({ description: "Authenticated user email (server-injected)" }),
+		childId: z.string().min(1).max(160).optional().openapi({ description: "RLM child within sessionId" }),
 	})
 	.superRefine((request, context) => {
 		const uploadBytes = (request.attachments ?? []).reduce(

@@ -337,6 +337,12 @@ export type ChatRequest = ChatSessionMetadata & {
 	streamingBehavior?: "steer" | "followUp";
 	userId?: string;
 	userEmail?: string;
+	/**
+	 * RLM child within `sessionId` (the parent) that receives the turn.
+	 * Only `message`/`streamingBehavior` apply; model, attachments, plan
+	 * actions, and OpenUI options are rejected for child turns.
+	 */
+	childId?: string;
 };
 
 export interface ChatClarificationQuestion {

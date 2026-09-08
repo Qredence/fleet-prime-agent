@@ -126,6 +126,13 @@ describe("ChatRequestSchema", () => {
 		}));
 		expect(ChatRequestSchema.safeParse({ sessionId: SESSION_ID, attachments }).success).toBe(false);
 	});
+
+	it("accepts an optional childId for subagent turns", () => {
+		expect(ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", childId: "child-1" }).success).toBe(
+			true,
+		);
+		expect(ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", childId: "" }).success).toBe(false);
+	});
 });
 
 describe("validateAndNormalizeOpenUIHtmlArtifact", () => {

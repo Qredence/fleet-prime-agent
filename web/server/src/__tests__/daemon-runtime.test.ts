@@ -1,8 +1,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { AgentConnection } from "prime-agent";
 import { afterEach, describe, expect, it } from "vitest";
-import { sessionDirectoryForCwd } from "../daemon-runtime";
+import { sessionDirectoryForCwd, startDaemonChildPrompt } from "../daemon-runtime";
 import { resetPrimeConfigForTests } from "../prime-config";
 
 const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
@@ -53,5 +54,69 @@ describe("daemon session-store resolution", () => {
 		expect(sessionDirectoryForCwd(join(homedir(), "fleet-runtime-project"))).toBe(
 			join(temporaryAgentDirectory, "sessions"),
 		);
+	});
+});
+
+describe("startDaemonChildPrompt", () => {
+	function fakeConnection() {
+		const calls: Array<{ text: string; options: unknown }> = [];
+		let releasePrompt!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			releasePrompt = resolve;
+		});
+		const connection = {
+			promptAndWait: vi.fn(async (text: string, options: unknown) => {
+				calls.push({ text, options });
+				await gate;
+			}),
+			abort: vi.fn(async () => undefined),
+		} as unknown as AgentConnection;
+		const dispose = vi.fn(async () => undefined);
+		return { connection, dispose, calls, releasePrompt };
+	}
+
+	it("prompts with steer admission and disposes the borrowed connection", async () => {
+		const fake = fakeConnection();
+		const openConnection = vi.fn(async () => ({ connection: fake.connection, dispose: fake.dispose }));
+		const handle = startDaemonChildPrompt(
+			{ cwd: "/work", activeSessionId: "child-active", text: "go deeper" },
+			openConnection,
+		);
+		await vi.waitFor(() => expect(openConnection).toHaveBeenCalledWith("/work", "child-active"));
+		fake.releasePrompt();
+		await handle.settled;
+		expect(fake.calls).toEqual([
+			{
+				text: "go deeper",
+				options: { streamingBehavior: "steer", queueIfBusy: true, signal: expect.any(AbortSignal) },
+			},
+		]);
+		expect(fake.dispose).toHaveBeenCalledOnce();
+	});
+
+	it("propagates attach failures without disposing", async () => {
+		const openConnection = vi.fn(async () => {
+			throw new Error("no such session");
+		});
+		const handle = startDaemonChildPrompt(
+			{ cwd: "/work", activeSessionId: "child-active", text: "hi" },
+			openConnection,
+		);
+		await expect(handle.settled).rejects.toThrow("no such session");
+	});
+
+	it("aborts the in-flight turn", async () => {
+		const fake = fakeConnection();
+		const openConnection = vi.fn(async () => ({ connection: fake.connection, dispose: fake.dispose }));
+		const handle = startDaemonChildPrompt(
+			{ cwd: "/work", activeSessionId: "child-active", text: "go deeper" },
+			openConnection,
+		);
+		await vi.waitFor(() => expect(fake.calls).toHaveLength(1));
+		await handle.abort();
+		expect(fake.connection.abort).toHaveBeenCalledOnce();
+		fake.releasePrompt();
+		await handle.settled;
+		expect(fake.dispose).toHaveBeenCalledOnce();
 	});
 });

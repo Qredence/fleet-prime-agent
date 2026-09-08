@@ -49,9 +49,11 @@ import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
 import { CoalescingRefreshQueue } from "./coalescing-refresh-queue";
 import {
 	createDaemonWebAgentConnection,
+	type DaemonChildPromptHandle,
 	deleteDaemonSavedSession,
 	listDaemonSessions,
 	sessionDirectoryForCwd,
+	startDaemonChildPrompt,
 	type WebAgentConnection,
 	type WebAgentConnectionFactory,
 } from "./daemon-runtime";
@@ -258,6 +260,8 @@ export interface PrimeBridgeOptions {
 	readonly sessionLister?: typeof listDaemonSessions;
 	/** Test seam for catalog deletion; production always uses the shared daemon. */
 	readonly sessionFileDeleter?: typeof deleteDaemonSavedSession;
+	/** Test seam for direct child turns; production attaches to the child session. */
+	readonly childPromptStarter?: typeof startDaemonChildPrompt;
 }
 
 type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
@@ -671,6 +675,8 @@ export class PrimeBridge {
 	readonly #connectionFactory: WebAgentConnectionFactory;
 	readonly #sessionLister: typeof listDaemonSessions;
 	readonly #sessionFileDeleter: typeof deleteDaemonSavedSession;
+	readonly #childPromptStarter: typeof startDaemonChildPrompt;
+	readonly #childPrompts = new Map<string, DaemonChildPromptHandle>();
 	readonly #caches = new Map<string, BridgeSessionCache>();
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
 	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
@@ -685,6 +691,7 @@ export class PrimeBridge {
 		this.#connectionFactory = options.connectionFactory ?? createDaemonWebAgentConnection;
 		this.#sessionLister = options.sessionLister ?? listDaemonSessions;
 		this.#sessionFileDeleter = options.sessionFileDeleter ?? deleteDaemonSavedSession;
+		this.#childPromptStarter = options.childPromptStarter ?? startDaemonChildPrompt;
 		this.#dialogs = new PendingDialogRegistry({
 			defaultTimeoutMs: options.dialogTimeoutMs ?? 60_000,
 			emitFrame: (sessionId, frame) => this.#dispatch(sessionId, frame),
@@ -1795,7 +1802,6 @@ export class PrimeBridge {
 		const session = this.#requireSession(sessionId);
 		await session.connection.followUp(text);
 	}
-
 	async deleteQueuedMessage(
 		sessionId: string,
 		lane: "steering" | "followUp",
@@ -1821,6 +1827,52 @@ export class PrimeBridge {
 		const session = this.#requireSession(sessionId);
 		this.#dialogs.cancelAll(sessionId, "user-abort");
 		await session.connection.abort();
+	}
+
+	/**
+	 * Prompt an RLM child session directly, mirroring how the upstream agents
+	 * view attaches to any agent row for an interactive turn. The borrowed
+	 * connection is disposed when the turn settles; live frames reach open
+	 * tabs through the child's managed watcher stream, which observes the
+	 * same session. Throws when the child is unknown to this parent.
+	 */
+	async promptRlmChild(
+		parentSessionId: string,
+		childId: string,
+		text: string,
+		streamingBehavior: "steer" | "followUp" = "steer",
+	): Promise<{ canonicalSessionId: string; activeSessionId: string }> {
+		const authorized = await this.#findAuthorizedRlmChild(parentSessionId, childId);
+		if (!authorized) throw new Error(`Unknown subagent thread: ${childId}`);
+		const activeSessionId = authorized.summary.activeSessionId ?? authorized.child.activeSessionId;
+		if (!activeSessionId) throw new Error(`Subagent thread is not attached: ${childId}`);
+		const canonicalSessionId = authorized.summary.sessionId || authorized.summary.id || activeSessionId;
+		const key = `${parentSessionId}:${childId}`;
+		const handle = this.#childPromptStarter({
+			cwd: authorized.parent.cwd,
+			activeSessionId,
+			text,
+			streamingBehavior,
+		});
+		this.#childPrompts.set(key, handle);
+		try {
+			await handle.settled;
+		} finally {
+			if (this.#childPrompts.get(key) === handle) this.#childPrompts.delete(key);
+		}
+		return { canonicalSessionId, activeSessionId };
+	}
+
+	/**
+	 * Abort the in-flight direct turn for an RLM child, if any.
+	 * Returns false when no child turn is active (parent-driven turns are
+	 * owned by the parent tab, not the child tab).
+	 */
+	async abortRlmChild(parentSessionId: string, childId: string): Promise<boolean> {
+		const handle = this.#childPrompts.get(`${parentSessionId}:${childId}`);
+		if (!handle) return false;
+		await handle.abort();
+		return true;
 	}
 
 	async setModel(sessionId: string, model: { provider: string; id: string }): Promise<void> {

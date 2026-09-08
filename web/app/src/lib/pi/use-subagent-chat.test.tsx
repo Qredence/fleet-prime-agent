@@ -138,3 +138,69 @@ describe("useSubagentChat lifecycle", () => {
 		expect(loadSession).toHaveBeenCalledTimes(loadsAfterUnknown);
 	});
 });
+
+describe("useSubagentChat sendMessage", () => {
+	function createSendHarness(initial: Array<ChatMessage> = [message("user-1", "go deeper"), message("done-1", "PASS")]) {
+		const openSubagentEvents = vi.fn(() => "/api/chat/events?parentSessionId=parent&childId=child-1");
+		const streamMessage = vi.fn(async (_request: unknown, _onEvent?: unknown, _signal?: unknown) => undefined);
+		const abortSession = vi.fn(async () => undefined);
+		const client = { openSubagentEvents, streamMessage, abortSession } as unknown as ChatClient;
+		const child: PrimeAgentRlmChild = {
+			id: "child-1",
+			label: "Research worker",
+			status: "done",
+			timestamp: 1,
+		};
+		const loadSession = vi.fn(async () => response(initial));
+		const hook = renderHook(() =>
+			useSubagentChat({ client, enabled: true, child, loadSession, parentSessionId: "parent" }),
+		);
+		return { ...hook, client, streamMessage, abortSession, loadSession };
+	}
+
+	it("posts to the child route and reconciles the canonical transcript", async () => {
+		installEventSource();
+		const { result, streamMessage, loadSession } = createSendHarness();
+
+		await act(async () => {
+			await result.current.sendMessage("go deeper");
+		});
+
+		expect(streamMessage).toHaveBeenCalledOnce();
+		const [request] = streamMessage.mock.calls[0]!;
+		expect(request).toMatchObject({
+			sessionId: "parent",
+			childId: "child-1",
+			message: "go deeper",
+			streamingBehavior: "steer",
+		});
+		await waitFor(() => expect(loadSession).toHaveBeenCalledTimes(2));
+		expect(result.current.status).toBe("ready");
+		expect(result.current.messages).toEqual([message("user-1", "go deeper"), message("done-1", "PASS")]);
+	});
+
+	it("surfaces stream errors and drops the optimistic message", async () => {
+		installEventSource();
+		const { result, streamMessage } = createSendHarness([]);
+		streamMessage.mockRejectedValueOnce(new Error("boom"));
+
+		await act(async () => {
+			await result.current.sendMessage("go deeper");
+		});
+
+		expect(result.current.status).toBe("error");
+		expect(result.current.error?.message).toBe("boom");
+		expect(result.current.messages).toEqual([]);
+	});
+
+	it("stops an in-flight send via the abort route", async () => {
+		installEventSource();
+		const { result, abortSession } = createSendHarness();
+
+		act(() => {
+			result.current.stop();
+		});
+
+		expect(abortSession).toHaveBeenCalledWith({ sessionId: "parent", childId: "child-1" });
+	});
+});

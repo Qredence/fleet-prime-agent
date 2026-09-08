@@ -1294,3 +1294,107 @@ describe("runtimeHostFor", () => {
 		expect(host.session.sessionManager.getSessionId()).toBe("test-session");
 	});
 });
+
+describe("PrimeBridge.promptRlmChild", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+	const bridges: PrimeBridge[] = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-child-prompt-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-child-prompt-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+	});
+
+	afterEach(() => {
+		for (const bridge of bridges.splice(0)) bridge.resetForTests();
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		rmSync(workDir, { recursive: true, force: true });
+		rmSync(agentDir, { recursive: true, force: true });
+		vi.restoreAllMocks();
+	});
+
+	async function createPromptableChild() {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const starterCalls: Array<{ cwd: string; activeSessionId: string; text: string; streamingBehavior?: string }> =
+			[];
+		const abortCalls: Array<string> = [];
+		let releaseGate: (() => void) | undefined;
+		const childPromptStarter = vi.fn(
+			(options: { cwd: string; activeSessionId: string; text: string; streamingBehavior?: string }) => {
+				starterCalls.push(options);
+				const gate = new Promise<void>((resolve) => {
+					releaseGate = resolve;
+				});
+				return {
+					settled: gate,
+					abort: async () => {
+						abortCalls.push(options.activeSessionId);
+						releaseGate?.();
+					},
+				};
+			},
+		);
+		const bridge = createTestBridge({ sessionLister, childPromptStarter });
+		bridges.push(bridge);
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: [{ id: "child-1", label: "Research worker", status: "running", timestamp: Date.now() }],
+		};
+		listedSessions.push({
+			id: "child-runtime",
+			sessionId: "child-runtime",
+			activeSessionId: "active-child-runtime",
+			cwd: workDir,
+			parentSessionId: parent.sessionId,
+			rlmChildId: "child-1",
+		});
+		const settlePrompt = () => releaseGate?.();
+		return { bridge, parent, starterCalls, abortCalls, settlePrompt };
+	}
+
+	it("prompts the authorized child session and reports its canonical ids", async () => {
+		const { bridge, parent, starterCalls, settlePrompt } = await createPromptableChild();
+		const pending = bridge.promptRlmChild(parent.sessionId, "child-1", "go deeper");
+		await vi.waitFor(() => expect(starterCalls).toHaveLength(1));
+		expect(starterCalls[0]).toMatchObject({
+			cwd: parent.cwd,
+			activeSessionId: "active-child-runtime",
+			text: "go deeper",
+			streamingBehavior: "steer",
+		});
+		settlePrompt();
+		await expect(pending).resolves.toEqual({
+			canonicalSessionId: "child-runtime",
+			activeSessionId: "active-child-runtime",
+		});
+	});
+
+	it("rejects unknown child threads", async () => {
+		const { bridge, parent } = await createPromptableChild();
+		await expect(bridge.promptRlmChild(parent.sessionId, "child-unknown", "hi")).rejects.toThrow(
+			"Unknown subagent thread",
+		);
+	});
+
+	it("aborts the in-flight child turn and reports false when idle", async () => {
+		const { bridge, parent, starterCalls, abortCalls, settlePrompt } = await createPromptableChild();
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(false);
+		const pending = bridge.promptRlmChild(parent.sessionId, "child-1", "go deeper");
+		await vi.waitFor(() => expect(starterCalls).toHaveLength(1));
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(true);
+		expect(abortCalls).toEqual(["active-child-runtime"]);
+		settlePrompt();
+		await pending;
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(false);
+	});
+});
