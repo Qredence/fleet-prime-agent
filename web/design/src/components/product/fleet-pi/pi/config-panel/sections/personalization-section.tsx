@@ -1,6 +1,6 @@
 import { Monitor, Moon, Sun } from "lucide-react"
 import { Select } from "../../../../../ui/select"
-import { ItemRow } from "../../../primitives/item-row"
+import { Field, FieldDescription, FieldLabel } from "../../../../../ui/field"
 import type { ThemePreference } from "../../../../../../lib/canvas-utils"
 
 const THEME_OPTIONS = [
@@ -17,9 +17,15 @@ export function PersonalizationSection({
   themePreference: ThemePreference
 }) {
   return (
-    <ItemRow
-      title="Theme"
-      trailing={
+    <Field
+      orientation="horizontal"
+      className="items-center justify-between gap-6 rounded-xl border p-4"
+    >
+      <div className="min-w-0">
+        <FieldLabel>Theme</FieldLabel>
+        <FieldDescription>Match the system theme or pick light or dark.</FieldDescription>
+      </div>
+      <div className="shrink-0">
         <Select
           aria-label="Theme"
           className="w-[160px]"
@@ -29,7 +35,7 @@ export function PersonalizationSection({
           options={[...THEME_OPTIONS]}
           value={themePreference}
         />
-      }
-    />
+      </div>
+    </Field>
   )
 }
