@@ -152,10 +152,12 @@ describe("useSubagentChat sendMessage", () => {
 			timestamp: 1,
 		};
 		const loadSession = vi.fn(async () => response(initial));
-		const hook = renderHook(() =>
-			useSubagentChat({ client, enabled: true, child, loadSession, parentSessionId: "parent" }),
+		const hook = renderHook(
+			({ selectedChild }: { selectedChild: PrimeAgentRlmChild }) =>
+				useSubagentChat({ client, enabled: true, child: selectedChild, loadSession, parentSessionId: "parent" }),
+			{ initialProps: { selectedChild: child } },
 		);
-		return { ...hook, client, streamMessage, abortSession, loadSession };
+		return { ...hook, child, client, streamMessage, abortSession, loadSession };
 	}
 
 	it("posts to the child route and reconciles the canonical transcript", async () => {
@@ -202,5 +204,29 @@ describe("useSubagentChat sendMessage", () => {
 		});
 
 		expect(abortSession).toHaveBeenCalledWith({ sessionId: "parent", childId: "child-1" });
+	});
+
+	it("stops the child whose send remains in flight after selection changes", async () => {
+		installEventSource();
+		const { result, rerender, child, streamMessage, abortSession } = createSendHarness();
+		let sendSignal: AbortSignal | undefined;
+		streamMessage.mockImplementationOnce(async (_request, _onEvent, signal) => {
+			const activeSignal = signal as AbortSignal;
+			sendSignal = activeSignal;
+			await new Promise<void>((resolve) => activeSignal.addEventListener("abort", () => resolve(), { once: true }));
+		});
+
+		let pendingSend: Promise<void> | undefined;
+		act(() => {
+			pendingSend = result.current.sendMessage("go deeper");
+		});
+		await waitFor(() => expect(streamMessage).toHaveBeenCalledOnce());
+
+		rerender({ selectedChild: { ...child, id: "child-2", label: "Second worker" } });
+		act(() => result.current.stop());
+
+		expect(sendSignal?.aborted).toBe(true);
+		expect(abortSession).toHaveBeenCalledWith({ sessionId: "parent", childId: "child-1" });
+		await act(async () => pendingSend);
 	});
 });

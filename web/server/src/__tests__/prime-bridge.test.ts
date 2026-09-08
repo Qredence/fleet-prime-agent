@@ -1326,18 +1326,18 @@ describe("PrimeBridge.promptRlmChild", () => {
 		const starterCalls: Array<{ cwd: string; activeSessionId: string; text: string; streamingBehavior?: string }> =
 			[];
 		const abortCalls: Array<string> = [];
-		let releaseGate: (() => void) | undefined;
+		const releaseGates: Array<() => void> = [];
 		const childPromptStarter = vi.fn(
 			(options: { cwd: string; activeSessionId: string; text: string; streamingBehavior?: string }) => {
 				starterCalls.push(options);
 				const gate = new Promise<void>((resolve) => {
-					releaseGate = resolve;
+					releaseGates.push(resolve);
 				});
 				return {
 					settled: gate,
 					abort: async () => {
-						abortCalls.push(options.activeSessionId);
-						releaseGate?.();
+						abortCalls.push(options.text);
+						releaseGates[starterCalls.indexOf(options)]?.();
 					},
 				};
 			},
@@ -1358,7 +1358,7 @@ describe("PrimeBridge.promptRlmChild", () => {
 			parentSessionId: parent.sessionId,
 			rlmChildId: "child-1",
 		});
-		const settlePrompt = () => releaseGate?.();
+		const settlePrompt = (index = 0) => releaseGates[index]?.();
 		return { bridge, parent, starterCalls, abortCalls, settlePrompt };
 	}
 
@@ -1392,9 +1392,24 @@ describe("PrimeBridge.promptRlmChild", () => {
 		const pending = bridge.promptRlmChild(parent.sessionId, "child-1", "go deeper");
 		await vi.waitFor(() => expect(starterCalls).toHaveLength(1));
 		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(true);
-		expect(abortCalls).toEqual(["active-child-runtime"]);
+		expect(abortCalls).toEqual(["go deeper"]);
 		settlePrompt();
 		await pending;
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(false);
+	});
+
+	it("retains earlier child prompt handles when a concurrent prompt settles", async () => {
+		const { bridge, parent, starterCalls, abortCalls, settlePrompt } = await createPromptableChild();
+		const first = bridge.promptRlmChild(parent.sessionId, "child-1", "first prompt");
+		await vi.waitFor(() => expect(starterCalls).toHaveLength(1));
+		const second = bridge.promptRlmChild(parent.sessionId, "child-1", "second prompt");
+		await vi.waitFor(() => expect(starterCalls).toHaveLength(2));
+
+		settlePrompt(1);
+		await second;
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(true);
+		expect(abortCalls).toEqual(["first prompt"]);
+		await first;
 		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(false);
 	});
 });

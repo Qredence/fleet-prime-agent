@@ -128,11 +128,44 @@ describe("ChatRequestSchema", () => {
 	});
 
 	it("accepts an optional childId for subagent turns", () => {
-		expect(ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", childId: "child-1" }).success).toBe(
-			true,
-		);
+		expect(
+			ChatRequestSchema.safeParse({
+				sessionId: SESSION_ID,
+				message: "hi",
+				childId: "child-1",
+				streamingBehavior: "followUp",
+			}).success,
+		).toBe(true);
 		expect(ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", childId: "" }).success).toBe(false);
 	});
+
+	it.each([
+		["model", { model: { provider: "openai", id: "gpt-5" } }],
+		["attachments", { attachments: [{ kind: "workspace", relativePath: "notes.txt", name: "notes.txt" }] }],
+		["planAction", { planAction: "execute" }],
+	])("rejects %s for child turns while preserving normal turn validation", (_field, payload) => {
+		expect(
+			ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", childId: "child-1", ...payload }).success,
+		).toBe(false);
+		expect(ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", ...payload }).success).toBe(true);
+	});
+
+	it.each(["openUI", "openUIArtifact"] as const)(
+		"rejects enabled %s for child turns while allowing it for normal turns",
+		(field) => {
+			expect(
+				ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", childId: "child-1", [field]: true })
+					.success,
+			).toBe(false);
+			expect(ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", [field]: true }).success).toBe(
+				true,
+			);
+			expect(
+				ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi", childId: "child-1", [field]: false })
+					.success,
+			).toBe(true);
+		},
+	);
 });
 
 describe("validateAndNormalizeOpenUIHtmlArtifact", () => {

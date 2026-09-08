@@ -145,7 +145,11 @@ export function useSubagentChat({
 	const [sendActive, setSendActive] = useState(false);
 	const transitionRef = useRef<ChatStreamTransition | null>(null);
 	const requestVersionRef = useRef(0);
-	const sendControllerRef = useRef<AbortController | null>(null);
+	const sendControllerRef = useRef<{
+		controller: AbortController;
+		parentSessionId: string;
+		childId: string;
+	} | null>(null);
 	const childId = child?.id;
 	const childActiveSessionId = child?.activeSessionId;
 	const childStatusValue = child?.status;
@@ -159,7 +163,7 @@ export function useSubagentChat({
 			if (!trimmed || !parentSessionId || !childId) return;
 			if (sendControllerRef.current) return;
 			const controller = new AbortController();
-			sendControllerRef.current = controller;
+			sendControllerRef.current = { controller, parentSessionId, childId };
 			setSendActive(true);
 			const userMessage = createOptimisticUserMessage(trimmed);
 			setState((current) => ({
@@ -209,18 +213,23 @@ export function useSubagentChat({
 					error: error instanceof Error ? error : new Error(String(error)),
 				}));
 			} finally {
-				if (sendControllerRef.current === controller) sendControllerRef.current = null;
-				setSendActive(false);
+				if (sendControllerRef.current?.controller === controller) {
+					sendControllerRef.current = null;
+					setSendActive(false);
+				}
 			}
 		},
 		[childId, client, loadSession, parentSessionId],
 	);
 
 	const stop = useCallback(() => {
-		sendControllerRef.current?.abort();
+		const activeSend = sendControllerRef.current;
+		activeSend?.controller.abort();
 		sendControllerRef.current = null;
-		if (parentSessionId && childId) {
-			void client.abortSession({ sessionId: parentSessionId, childId }).catch(() => undefined);
+		const sessionIdToAbort = activeSend?.parentSessionId ?? parentSessionId;
+		const childIdToAbort = activeSend?.childId ?? childId;
+		if (sessionIdToAbort && childIdToAbort) {
+			void client.abortSession({ sessionId: sessionIdToAbort, childId: childIdToAbort }).catch(() => undefined);
 		}
 		setSendActive(false);
 		refresh();

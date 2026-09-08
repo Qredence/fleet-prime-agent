@@ -676,7 +676,7 @@ export class PrimeBridge {
 	readonly #sessionLister: typeof listDaemonSessions;
 	readonly #sessionFileDeleter: typeof deleteDaemonSavedSession;
 	readonly #childPromptStarter: typeof startDaemonChildPrompt;
-	readonly #childPrompts = new Map<string, DaemonChildPromptHandle>();
+	readonly #childPrompts = new Map<string, Set<DaemonChildPromptHandle>>();
 	readonly #caches = new Map<string, BridgeSessionCache>();
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
 	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
@@ -1854,11 +1854,14 @@ export class PrimeBridge {
 			text,
 			streamingBehavior,
 		});
-		this.#childPrompts.set(key, handle);
+		const handles = this.#childPrompts.get(key) ?? new Set<DaemonChildPromptHandle>();
+		handles.add(handle);
+		this.#childPrompts.set(key, handles);
 		try {
 			await handle.settled;
 		} finally {
-			if (this.#childPrompts.get(key) === handle) this.#childPrompts.delete(key);
+			handles.delete(handle);
+			if (handles.size === 0 && this.#childPrompts.get(key) === handles) this.#childPrompts.delete(key);
 		}
 		return { canonicalSessionId, activeSessionId };
 	}
@@ -1869,7 +1872,7 @@ export class PrimeBridge {
 	 * owned by the parent tab, not the child tab).
 	 */
 	async abortRlmChild(parentSessionId: string, childId: string): Promise<boolean> {
-		const handle = this.#childPrompts.get(`${parentSessionId}:${childId}`);
+		const handle = this.#childPrompts.get(`${parentSessionId}:${childId}`)?.values().next().value;
 		if (!handle) return false;
 		await handle.abort();
 		return true;

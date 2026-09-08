@@ -33,6 +33,23 @@ export const ChatRequestSchema = z
 		childId: z.string().min(1).max(160).optional().openapi({ description: "RLM child within sessionId" }),
 	})
 	.superRefine((request, context) => {
+		if (request.childId) {
+			for (const [field, prohibited] of [
+				["model", request.model !== undefined],
+				["attachments", request.attachments !== undefined],
+				["planAction", request.planAction !== undefined],
+				["openUI", request.openUI === true],
+				["openUIArtifact", request.openUIArtifact === true],
+			] as const) {
+				if (prohibited) {
+					context.addIssue({
+						code: "custom",
+						path: [field],
+						message: `${field} is not supported for child turns`,
+					});
+				}
+			}
+		}
 		const uploadBytes = (request.attachments ?? []).reduce(
 			(total, attachment) => total + (attachment.kind === "upload" ? attachment.size : 0),
 			0,
