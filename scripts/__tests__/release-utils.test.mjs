@@ -22,7 +22,9 @@ import {
 	sha256,
 	waitForPublishedVersion,
 } from "../publish-release.mjs";
+import { releaseMarkerArgs, runReleaseMarker } from "../release-marker.mjs";
 import { assertReleaseVersion, compareVersions, parseStableVersion } from "../release-utils.mjs";
+import { rollbackRelease, validateRollback } from "../rollback-release.mjs";
 
 const packageManifest = JSON.parse(
 	readFileSync(new URL("../../packages/fleet-web/package.json", import.meta.url), "utf8"),
@@ -133,6 +135,109 @@ test("detects only package-version commits on main", () => {
 		false,
 	);
 	assert.equal(isPackageVersionCommit({ branch: "feature/release", forceRelease: true }), true);
+});
+
+test("builds deploy marker commands for the Fleet production component", () => {
+	assert.deepEqual(releaseMarkerArgs({ action: "plan", version: "0.5.9" }), [
+		"run",
+		"release",
+		"plan",
+		"fleet-release",
+		"--environment-name=production",
+		"--component-name=fleet-cli",
+		"--target-version=0.5.9",
+	]);
+	assert.deepEqual(
+		releaseMarkerArgs({ action: "update", status: "FAILED", failureReason: "release-publish failed" }),
+		["run", "release", "update", "--status=FAILED", "--failure-reason=release-publish failed"],
+	);
+});
+
+test("does not create a deploy marker for a non-release commit", () => {
+	const calls = [];
+	assert.equal(
+		runReleaseMarker("plan", {}, { isVersionCommitImpl: () => false, execImpl: (args) => calls.push(args) }),
+		false,
+	);
+	assert.deepEqual(calls, []);
+});
+
+test("validates npm rollback fencing and published target versions", () => {
+	assert.deepEqual(
+		validateRollback({
+			currentVersion: "0.5.8",
+			targetVersion: "0.5.7",
+			latestVersion: "0.5.8",
+			targetMetadata: { version: "0.5.7" },
+		}),
+		{ currentVersion: "0.5.8", targetVersion: "0.5.7" },
+	);
+	assert.throws(
+		() =>
+			validateRollback({
+				currentVersion: "0.5.8",
+				targetVersion: "0.5.7",
+				latestVersion: "0.5.9",
+				targetMetadata: { version: "0.5.7" },
+			}),
+		/npm latest is 0.5.9/,
+	);
+	assert.throws(
+		() =>
+			validateRollback({
+				currentVersion: "0.5.8",
+				targetVersion: "0.5.7",
+				latestVersion: "0.5.8",
+				targetMetadata: undefined,
+			}),
+		/not published/,
+	);
+	assert.throws(
+		() =>
+			validateRollback({
+				currentVersion: "0.5.8",
+				targetVersion: "0.5.8",
+				latestVersion: "0.5.8",
+				targetMetadata: { version: "0.5.8" },
+			}),
+		/already active/,
+	);
+});
+
+test("moves only the npm latest dist-tag after rollback verification", async () => {
+	const calls = [];
+	const result = await rollbackRelease({
+		currentVersion: "0.5.8",
+		targetVersion: "0.5.7",
+		fetchImpl: async () =>
+			response(200, {
+				"dist-tags": { latest: "0.5.8" },
+				versions: { "0.5.7": { version: "0.5.7" } },
+			}),
+		distTagAddImpl: async (version) => calls.push(version),
+	});
+	assert.deepEqual(result, { currentVersion: "0.5.8", targetVersion: "0.5.7" });
+	assert.deepEqual(calls, ["0.5.7"]);
+});
+
+test("rejects incomplete or failed rollback mutations", async () => {
+	await assert.rejects(() => rollbackRelease({ currentVersion: "0.5.8" }), /requires current and target versions/);
+	await assert.rejects(
+		() =>
+			rollbackRelease({
+				currentVersion: "0.5.8",
+				targetVersion: "0.5.7",
+				fetchImpl: async () =>
+					response(200, {
+						"dist-tags": { latest: "0.5.8" },
+						versions: { "0.5.7": { version: "0.5.7" } },
+					}),
+				distTagAddImpl: async () => {
+					throw new Error("dist-tag service unavailable");
+				},
+			}),
+		/dist-tag service unavailable/,
+	);
 });
 
 test("enforces the packed artifact allowlist", () => {

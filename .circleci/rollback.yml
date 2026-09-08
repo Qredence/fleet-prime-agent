@@ -1,0 +1,73 @@
+version: 2.1
+
+executors:
+  node-rollback:
+    docker:
+      - image: cimg/node:22.23.2
+    resource_class: medium
+    working_directory: ~/prime-agent
+
+jobs:
+  rollback-fleet:
+    executor: node-rollback
+    environment:
+      ROLLBACK_CURRENT_VERSION: << pipeline.deploy.current_version >>
+      ROLLBACK_TARGET_VERSION: << pipeline.deploy.target_version >>
+    steps:
+      - checkout
+      - run:
+          name: Configure scoped npm rollback credentials
+          command: |
+            set -euo pipefail
+            if [ -z "${NPM_TOKEN:-}" ]; then
+              echo "NPM_TOKEN is required for dist-tag rollback" >&2
+              exit 1
+            fi
+            npmrc_path="$(mktemp)"
+            chmod 600 "${npmrc_path}"
+            printf '%s\n' "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "${npmrc_path}"
+            echo "export NPM_CONFIG_USERCONFIG=${npmrc_path}" >> "${BASH_ENV}"
+      - run:
+          name: Plan Fleet rollback marker
+          command: |
+            set -euo pipefail
+            circleci run release plan fleet-rollback \
+              --environment-name=production \
+              --component-name=fleet-cli \
+              --target-version="${ROLLBACK_TARGET_VERSION}" \
+              --rollback
+      - run:
+          name: Restore npm latest dist-tag
+          command: node scripts/rollback-release.mjs
+      - run:
+          name: Mark Fleet rollback successful
+          command: circleci run release update --status=SUCCESS
+          when: on_success
+      - run:
+          name: Mark Fleet rollback failed
+          command: |
+            circleci run release update \
+              --status=FAILED \
+              --failure-reason="npm dist-tag rollback failed"
+          when: on_fail
+
+  cancel-rollback-marker:
+    executor: node-rollback
+    steps:
+      - run:
+          name: Mark canceled Fleet rollback
+          command: circleci run release update --status=CANCELED
+
+workflows:
+  rollback:
+    jobs:
+      - rollback-fleet:
+          context:
+            - npm-dist-tag-rollback
+          serial-group: fleet-release-operations
+          filters: pipeline.git.branch == "main"
+      - cancel-rollback-marker:
+          requires:
+            - rollback-fleet:
+                - canceled
+          filters: pipeline.git.branch == "main"

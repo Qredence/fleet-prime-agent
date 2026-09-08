@@ -32,7 +32,7 @@ Do not publish or create a release as a local validation step.
 4. After the release commit passes CI, the `release-publish` job builds or consumes the verified package artifact and runs `pnpm run release:publish`.
 5. Publication uses the repository's configured npm/GitHub release credentials, verifies package metadata and checksums, publishes the immutable npm version, waits for registry visibility, and creates the matching GitHub release with the package artifact and checksums.
 
-Each release lane has a serial group, publication waits for the verified CI artifact, and the guarded scripts handle reruns against the existing release version and artifact expectations.
+Each release lane has a serial group, publication waits for the verified CI artifact, and the guarded scripts handle reruns against the existing release version and artifact expectations. CircleCI tracks successful package publications as the `fleet-cli` component in the `production` environment.
 
 ## One-time CircleCI and npm setup
 
@@ -67,6 +67,30 @@ After this configuration is pushed, prove a pull request reports the CircleCI ag
 Never republish a published version with a different tarball checksum. The publication script refuses that state. Investigate the artifact, tag, registry metadata, and job output; use the release workflow's retry path only after the expected version and checksum are confirmed.
 
 Do not manually edit generated changelogs or release tags to bypass Changesets. If the release is not ready, fix the source change or release PR and let the guarded job run again.
+
+## CircleCI deploy tracking and rollback
+
+The main CircleCI release workflow adds a deploy marker only around `release-publish`; release preparation is not a production deployment. The marker uses:
+
+- component: `fleet-cli`
+- environment: `production`
+- version: the exact stable `@qredence/fleet` package version
+
+The project rollback pipeline is `.circleci/rollback.yml`. Register it as the project's rollback pipeline in CircleCI Project Settings → Deploys, create/select the `production` environment, and use the restricted `npm-dist-tag-rollback` context containing only the npm credential required to update this package's `latest` dist-tag.
+
+Manual rollback from the CircleCI Deploys UI is equivalent to:
+
+~~~bash
+circleci deploy rollback <target-version> \
+  --component fleet-cli \
+  --environment production \
+  --from <current-version> \
+  --reason "<incident reason>"
+~~~
+
+The rollback pipeline verifies that npm `latest` still equals `<current-version>` and that `<target-version>` is an already-published older version before running `npm dist-tag add @qredence/fleet@<target-version> latest`. It never unpublishes or repackages an npm version. Publication and rollback share the `fleet-release-operations` serial group so they cannot race.
+
+Deploy tracking is enabled without a Smart Deployments validation policy. Automatic rollback remains disabled until a Datadog, Prometheus-compatible, or custom webhook health signal is selected and documented.
 
 ## Rollback
 
