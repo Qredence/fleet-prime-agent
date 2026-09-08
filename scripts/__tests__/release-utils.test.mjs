@@ -22,7 +22,10 @@ import {
 	sha256,
 	waitForPublishedVersion,
 } from "../publish-release.mjs";
+import { releaseMarkerArgs, runReleaseMarker } from "../release-marker.mjs";
 import { assertReleaseVersion, compareVersions, parseStableVersion } from "../release-utils.mjs";
+import { reconcileRollbackMarker, resolveRollbackMarker, rollbackMarkerArgs } from "../rollback-marker.mjs";
+import { rollbackRelease, validateRollback } from "../rollback-release.mjs";
 
 const packageManifest = JSON.parse(
 	readFileSync(new URL("../../packages/fleet-web/package.json", import.meta.url), "utf8"),
@@ -133,6 +136,223 @@ test("detects only package-version commits on main", () => {
 		false,
 	);
 	assert.equal(isPackageVersionCommit({ branch: "feature/release", forceRelease: true }), true);
+});
+
+test("builds deploy marker commands for the Fleet production component", () => {
+	assert.deepEqual(releaseMarkerArgs({ action: "plan", version: "0.5.9" }), [
+		"run",
+		"release",
+		"plan",
+		"fleet-release",
+		"--environment-name=production",
+		"--component-name=fleet-cli",
+		"--target-version=0.5.9",
+	]);
+	assert.deepEqual(
+		releaseMarkerArgs({ action: "update", status: "FAILED", failureReason: "release-publish failed" }),
+		["run", "release", "update", "fleet-release", "--status=FAILED", "--failure-reason=release-publish failed"],
+	);
+});
+
+test("does not create a deploy marker for a non-release commit", () => {
+	const calls = [];
+	assert.equal(
+		runReleaseMarker("plan", {}, { isVersionCommitImpl: () => false, execImpl: (args) => calls.push(args) }),
+		false,
+	);
+	assert.deepEqual(calls, []);
+});
+
+test("validates npm rollback fencing and published target versions", () => {
+	assert.deepEqual(
+		validateRollback({
+			currentVersion: "0.5.8",
+			targetVersion: "0.5.7",
+			latestVersion: "0.5.8",
+			targetMetadata: { version: "0.5.7" },
+		}),
+		{ currentVersion: "0.5.8", targetVersion: "0.5.7" },
+	);
+	assert.throws(
+		() =>
+			validateRollback({
+				currentVersion: "0.5.8",
+				targetVersion: "0.5.7",
+				latestVersion: "0.5.9",
+				targetMetadata: { version: "0.5.7" },
+			}),
+		/npm latest is 0.5.9/,
+	);
+	assert.throws(
+		() =>
+			validateRollback({
+				currentVersion: "0.5.8",
+				targetVersion: "0.5.7",
+				latestVersion: "0.5.8",
+				targetMetadata: undefined,
+			}),
+		/not published/,
+	);
+	assert.throws(
+		() =>
+			validateRollback({
+				currentVersion: "0.5.8",
+				targetVersion: "0.5.8",
+				latestVersion: "0.5.8",
+				targetMetadata: { version: "0.5.8" },
+			}),
+		/already active/,
+	);
+});
+
+test("moves only the npm latest dist-tag after rollback verification", async () => {
+	const calls = [];
+	const result = await rollbackRelease({
+		currentVersion: "0.5.8",
+		targetVersion: "0.5.7",
+		fetchImpl: async () =>
+			response(200, {
+				"dist-tags": { latest: "0.5.8" },
+				versions: { "0.5.7": { version: "0.5.7" } },
+			}),
+		distTagAddImpl: async (version) => calls.push(version),
+	});
+	assert.deepEqual(result, { currentVersion: "0.5.8", targetVersion: "0.5.7" });
+	assert.deepEqual(calls, ["0.5.7"]);
+});
+
+test("rejects incomplete or failed rollback mutations", async () => {
+	await assert.rejects(() => rollbackRelease({ currentVersion: "0.5.8" }), /requires current and target versions/);
+	await assert.rejects(
+		() =>
+			rollbackRelease({
+				currentVersion: "0.5.8",
+				targetVersion: "0.5.7",
+				fetchImpl: async () =>
+					response(200, {
+						"dist-tags": { latest: "0.5.8" },
+						versions: { "0.5.7": { version: "0.5.7" } },
+					}),
+				distTagAddImpl: async () => {
+					throw new Error("dist-tag service unavailable");
+				},
+			}),
+		/dist-tag service unavailable/,
+	);
+});
+
+test("resolves rollback marker status from the npm latest version", () => {
+	assert.deepEqual(rollbackMarkerArgs({ status: "CANCELED" }), [
+		"run",
+		"release",
+		"update",
+		"fleet-rollback",
+		"--status=CANCELED",
+	]);
+	assert.deepEqual(rollbackMarkerArgs({ status: "FAILED", failureReason: "npm dist-tag rollback failed" }), [
+		"run",
+		"release",
+		"update",
+		"fleet-rollback",
+		"--status=FAILED",
+		"--failure-reason=npm dist-tag rollback failed",
+	]);
+	assert.deepEqual(
+		resolveRollbackMarker({
+			requestedStatus: "CANCELED",
+			currentVersion: "0.5.8",
+			targetVersion: "0.5.7",
+			latestVersion: "0.5.7",
+		}),
+		{ status: "SUCCESS" },
+	);
+	assert.deepEqual(
+		resolveRollbackMarker({
+			requestedStatus: "CANCELED",
+			currentVersion: "0.5.8",
+			targetVersion: "0.5.7",
+			latestVersion: "0.5.8",
+		}),
+		{ status: "CANCELED" },
+	);
+	assert.deepEqual(
+		resolveRollbackMarker({
+			requestedStatus: "SUCCESS",
+			currentVersion: "0.5.8",
+			targetVersion: "0.5.7",
+			latestVersion: "0.5.6",
+		}),
+		{
+			status: "FAILED",
+			failureReason: "npm latest is 0.5.6; expected 0.5.7 (rollback target) or 0.5.8 (current version)",
+		},
+	);
+});
+
+test("reconciles rollback markers and skips a second terminal update", async () => {
+	const statePath = join(mkdtempSync(join(tmpdir(), "fleet-rollback-marker-")), "state.json");
+	const calls = [];
+	const options = {
+		currentVersion: "0.5.8",
+		targetVersion: "0.5.7",
+		requestedStatus: "FAILED",
+		fetchImpl: async () =>
+			response(200, {
+				"dist-tags": { latest: "0.5.7" },
+				versions: { "0.5.7": { version: "0.5.7" } },
+			}),
+		execImpl: async (args) => calls.push(args),
+		statePath,
+	};
+	try {
+		assert.deepEqual(await reconcileRollbackMarker(options), {
+			status: "SUCCESS",
+			latestVersion: "0.5.7",
+			skipped: false,
+		});
+		assert.deepEqual(calls, [rollbackMarkerArgs({ status: "SUCCESS" })]);
+		assert.deepEqual(await reconcileRollbackMarker(options), {
+			status: "SUCCESS",
+			latestVersion: "0.5.7",
+			skipped: true,
+		});
+		assert.deepEqual(calls, [rollbackMarkerArgs({ status: "SUCCESS" })]);
+	} finally {
+		rmSync(statePath, { force: true });
+		rmSync(statePath.replace(/\/state\.json$/, ""), { recursive: true, force: true });
+	}
+});
+
+test("does not retry a rollback marker after a terminal update error", async () => {
+	const stateDirectory = mkdtempSync(join(tmpdir(), "fleet-rollback-marker-terminal-"));
+	const statePath = join(stateDirectory, "state.json");
+	const calls = [];
+	const options = {
+		currentVersion: "0.5.8",
+		targetVersion: "0.5.7",
+		requestedStatus: "FAILED",
+		fetchImpl: async () =>
+			response(200, {
+				"dist-tags": { latest: "0.5.8" },
+				versions: { "0.5.7": { version: "0.5.7" } },
+			}),
+		execImpl: async (args) => {
+			calls.push(args);
+			throw new Error("release is already terminal");
+		},
+		statePath,
+	};
+	try {
+		await assert.rejects(() => reconcileRollbackMarker(options), /already terminal/);
+		assert.deepEqual(await reconcileRollbackMarker(options), {
+			status: "FAILED",
+			latestVersion: "0.5.8",
+			skipped: true,
+		});
+		assert.equal(calls.length, 1);
+	} finally {
+		rmSync(stateDirectory, { recursive: true, force: true });
+	}
 });
 
 test("enforces the packed artifact allowlist", () => {
