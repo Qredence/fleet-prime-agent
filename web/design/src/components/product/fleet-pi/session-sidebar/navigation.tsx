@@ -9,6 +9,7 @@ import { Popover } from "../../../registry/beui/agents/input/input-popover";
 import { Button } from "../../../ui/button";
 import { ThreadSearch, type SearchableThread } from "../../../registry/assistant-ui/elements/thread-search";
 import { AnimatedSidebar, AnimatedSidebarFooter, AnimatedSidebarHeader, AnimatedSidebarRail } from "../../../registry/beui/motion/animated-sidebar";
+import { FleetVersionBadge } from "./fleet-version-badge";
 import { SurfaceProvider } from "../../../../lib/surface-context";
 import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers";
 import { sortSessions } from "../session-sidebar-model";
@@ -294,6 +295,7 @@ export function FleetSessionSidebarNavigation({
 				<div className="min-w-0 flex-1">
 					{accountMenu ?? <span className="flex h-8 items-center px-2 text-[13px]">Qredence</span>}
 				</div>
+				<FleetVersionBadge />
 				<a
 					href={DOCUMENTATION_URL}
 					target="_blank"
