@@ -1447,7 +1447,11 @@ describe("PrimeBridge.setModel fallback", () => {
 		const registry = getPrimeConfig().modelRegistry;
 		vi.spyOn(registry, "find").mockReturnValue(undefined);
 		vi.spyOn(registry, "getAvailable").mockReturnValue([{ provider: "deepseek", id: "deepseek-v4-flash" }] as never);
-		const setModel = vi.spyOn(parent.connection, "setModel");
+		// Mock the connection: the real InProcessAgentConnection validates against
+		// the ambient provider catalog (credentials), which is absent on CI.
+		const setModel = vi
+			.spyOn(parent.connection, "setModel")
+			.mockResolvedValue({ provider: "deepseek", id: "deepseek-v4-flash" } as never);
 
 		await expect(bridge.setModel(parent.sessionId, { provider: "deepseek", id: "deepseek-gone" })).resolves.toEqual({
 			provider: "deepseek",
