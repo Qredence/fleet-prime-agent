@@ -551,6 +551,13 @@ export const PrimeAgentRefinementSchema = z
 	})
 	.openapi({ description: "Browser-safe refinement result" });
 
+export const PrimeAgentKernelDiagnosticsSchema = z
+	.object({
+		truncated: z.boolean(),
+		tail: z.string(),
+	})
+	.openapi({ description: "Capped tail of the kernel process stderr log" });
+
 export const PrimeAgentSessionPresentationSchema = z
 	.object({
 		revision: z.number().int().nonnegative(),
@@ -565,6 +572,7 @@ export const PrimeAgentSessionPresentationSchema = z
 		rlmChildren: z.array(PrimeAgentRlmChildSchema),
 		refinements: z.array(PrimeAgentRefinementSchema),
 		artifactRuns: z.array(PrimeAgentArtifactRunSchema),
+		kernelDiagnostics: PrimeAgentKernelDiagnosticsSchema.optional(),
 	})
 	.openapi({ description: "Durable browser-visible Prime Agent presentation state" });
 

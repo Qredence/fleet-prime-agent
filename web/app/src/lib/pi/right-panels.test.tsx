@@ -281,6 +281,18 @@ describe("right-panel execution tabs", () => {
 		expect(screen.getByText("hello")).toBeTruthy()
 	})
 
+	it("shows kernel diagnostics in the REPL panel when present", () => {
+		const { rerender } = render(
+			<ReplPanelContent artifactRuns={[]} kernelDiagnostics={{ truncated: true, tail: "Traceback: boom" }} />,
+		)
+
+		expect(screen.getByText("Kernel diagnostics")).toBeTruthy()
+		expect(screen.getByText("Traceback: boom")).toBeTruthy()
+
+		rerender(<ReplPanelContent artifactRuns={[]} />)
+		expect(screen.queryByText("Kernel diagnostics")).toBeNull()
+	})
+
 	it("focuses and scrolls to the selected REPL cell", async () => {
 		const artifactRuns: Array<PrimeAgentArtifactRun> = [
 			{

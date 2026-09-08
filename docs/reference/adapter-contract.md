@@ -80,6 +80,8 @@ Without the capability, the browser falls back to its baseline status behavior. 
 
 Other event categories are part of the current baseline protocol unless they are explicitly gated by a future capability. Do not add a capability name for an implementation detail that has no compatibility or fallback meaning.
 
+Baseline presentation fields stay forward-tolerant: the browser ignores unknown optional presentation fields, and the server tolerates absent ones. A newer daemon schema revision that only adds optional fields (for example usage summaries) requires no protocol change.
+
 ## Fleet-managed presentation state
 
 Fleet persists presentation sidecars separately from the upstream transcript:

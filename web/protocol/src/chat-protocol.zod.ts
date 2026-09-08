@@ -100,6 +100,7 @@ export {
 	PrimeAgentArtifactRunSchema,
 	PrimeAgentArtifactSchema,
 	PrimeAgentGoalSchema,
+	PrimeAgentKernelDiagnosticsSchema,
 	PrimeAgentParentSessionSchema,
 	PrimeAgentRefinementEditSchema,
 	PrimeAgentRefinementSchema,

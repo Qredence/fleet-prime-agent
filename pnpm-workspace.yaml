@@ -29,7 +29,7 @@ allowBuilds:
   "@openuidev/lang-core": true
   '@google/genai': false
   koffi: false
-  prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-0.9.1.tgz: true
+  prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz: true
   protobufjs: false
   zeromq: true
   # Root toolchain packages that gained install scripts under the unified workspace.

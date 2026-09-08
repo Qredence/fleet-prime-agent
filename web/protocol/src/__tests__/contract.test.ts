@@ -7,6 +7,7 @@ import {
 	ChatStreamEventSchema,
 	FleetAdapterCapabilitiesSchema,
 	FleetErrorEnvelopeSchema,
+	PrimeAgentSessionPresentationSchema,
 } from "../schemas/chat";
 
 const SESSION_ID = "session-01";
@@ -117,7 +118,6 @@ describe("ChatRequestSchema", () => {
 	it("accepts a minimal turn request", () => {
 		expect(ChatRequestSchema.safeParse({ sessionId: SESSION_ID, message: "hi" }).success).toBe(true);
 	});
-
 	it("rejects more than 16 attachments", () => {
 		const attachments = Array.from({ length: 17 }, (_, index) => ({
 			kind: "workspace" as const,
@@ -158,5 +158,23 @@ describe("validateAndNormalizeOpenUIHtmlArtifact", () => {
 		const result = validateAndNormalizeOpenUIHtmlArtifact({ title: "t", document: big });
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.status).toBe(413);
+	});
+});
+
+describe("PrimeAgentSessionPresentationSchema kernelDiagnostics", () => {
+	const base = { revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] };
+	it("accepts presentations with and without kernel diagnostics", () => {
+		expect(PrimeAgentSessionPresentationSchema.safeParse(base).success).toBe(true);
+		expect(
+			PrimeAgentSessionPresentationSchema.safeParse({
+				...base,
+				kernelDiagnostics: { truncated: true, tail: "Traceback..." },
+			}).success,
+		).toBe(true);
+	});
+	it("rejects malformed kernel diagnostics", () => {
+		expect(PrimeAgentSessionPresentationSchema.safeParse({ ...base, kernelDiagnostics: { tail: "x" } }).success).toBe(
+			false,
+		);
 	});
 });
