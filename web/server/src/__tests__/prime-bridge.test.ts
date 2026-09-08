@@ -1398,3 +1398,60 @@ describe("PrimeBridge.promptRlmChild", () => {
 		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(false);
 	});
 });
+
+describe("PrimeBridge.setModel fallback", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+	const bridges: PrimeBridge[] = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-model-fallback-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-model-fallback-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+	});
+
+	afterEach(() => {
+		for (const bridge of bridges.splice(0)) bridge.resetForTests();
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		rmSync(workDir, { recursive: true, force: true });
+		rmSync(agentDir, { recursive: true, force: true });
+		vi.restoreAllMocks();
+	});
+
+	it("falls back to the first available model of a known provider", async () => {
+		const bridge = createTestBridge();
+		bridges.push(bridge);
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const registry = getPrimeConfig().modelRegistry;
+		vi.spyOn(registry, "find").mockReturnValue(undefined);
+		vi.spyOn(registry, "getAvailable").mockReturnValue([{ provider: "deepseek", id: "deepseek-v4-flash" }] as never);
+		const setModel = vi.spyOn(parent.connection, "setModel");
+
+		await expect(bridge.setModel(parent.sessionId, { provider: "deepseek", id: "deepseek-gone" })).resolves.toEqual({
+			provider: "deepseek",
+			id: "deepseek-v4-flash",
+		});
+		expect(setModel).toHaveBeenCalledWith("deepseek", "deepseek-v4-flash");
+	});
+
+	it("still throws when the provider itself is unknown", async () => {
+		const bridge = createTestBridge();
+		bridges.push(bridge);
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const registry = getPrimeConfig().modelRegistry;
+		vi.spyOn(registry, "find").mockReturnValue(undefined);
+		vi.spyOn(registry, "getAvailable").mockReturnValue([]);
+
+		await expect(bridge.setModel(parent.sessionId, { provider: "nope", id: "gone" })).rejects.toThrow(
+			"Unknown model: nope/gone",
+		);
+	});
+});

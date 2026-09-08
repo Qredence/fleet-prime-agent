@@ -1875,11 +1875,29 @@ export class PrimeBridge {
 		return true;
 	}
 
-	async setModel(sessionId: string, model: { provider: string; id: string }): Promise<void> {
+	async setModel(
+		sessionId: string,
+		model: { provider: string; id: string },
+	): Promise<{ provider: string; id: string }> {
 		const session = this.#requireSession(sessionId);
 		const resolved = getPrimeConfig().modelRegistry.find(model.provider, model.id);
-		if (!resolved) throw new Error(`Unknown model: ${model.provider}/${model.id}`);
-		await session.connection.setModel(model.provider, model.id);
+		if (resolved) {
+			await session.connection.setModel(model.provider, model.id);
+			return { provider: model.provider, id: model.id };
+		}
+		// Stale persisted default (e.g. a catalog id removed upstream): when the
+		// provider itself still resolves available models, fall back to its first
+		// available model instead of failing the turn. Unknown providers still
+		// throw: that signals missing credentials, not a stale id.
+		const fallback = getPrimeConfig()
+			.modelRegistry.getAvailable()
+			.find((candidate) => candidate.provider === model.provider);
+		if (!fallback) throw new Error(`Unknown model: ${model.provider}/${model.id}`);
+		process.stderr.write(
+			`[bridge:${sessionId.slice(0, 8)}] model fallback ${model.provider}/${model.id} -> ${fallback.provider}/${fallback.id}\n`,
+		);
+		await session.connection.setModel(fallback.provider, fallback.id);
+		return { provider: fallback.provider, id: fallback.id };
 	}
 
 	async setThinkingLevel(level: ThinkingLevel): Promise<void> {

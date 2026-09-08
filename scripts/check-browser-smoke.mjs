@@ -1,11 +1,15 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { build } from "esbuild";
 
 const outputDir = mkdtempSync(join(tmpdir(), "pi-browser-smoke-"));
 const outputPath = join(outputDir, "bundle.js");
 const errorLogPath = join(outputDir, "errors.log");
+
+// @earendil-works/* only exist under web/server (pnpm isolation), never at
+// the repo root, so the bundler needs that lookup path to resolve them.
+const serverModules = resolve(import.meta.dirname, "..", "web", "server", "node_modules");
 
 try {
 	await build({
@@ -14,6 +18,7 @@ try {
 		platform: "browser",
 		format: "esm",
 		external: ["@opentelemetry/api"],
+		nodePaths: [serverModules],
 		logLevel: "silent",
 		outfile: outputPath,
 	});
