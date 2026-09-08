@@ -636,13 +636,9 @@
 							"type": "string"
 						},
 						"additionalProperties": {
-							"anyOf": [
-								{
-									"type": "string"
-								},
-								{
-									"type": "number"
-								}
+							"type": [
+								"string",
+								"number"
 							]
 						}
 					}
@@ -699,13 +695,9 @@
 							"type": "string"
 						},
 						"additionalProperties": {
-							"anyOf": [
-								{
-									"type": "string"
-								},
-								{
-									"type": "number"
-								}
+							"type": [
+								"string",
+								"number"
 							]
 						}
 					}
@@ -811,13 +803,9 @@
 							"type": "string"
 						},
 						"additionalProperties": {
-							"anyOf": [
-								{
-									"type": "string"
-								},
-								{
-									"type": "number"
-								}
+							"type": [
+								"string",
+								"number"
 							]
 						}
 					}

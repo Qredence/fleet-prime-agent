@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { defineConfig } from "vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
@@ -5,9 +6,16 @@ import viteReact from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 
 const webRoot = resolve(import.meta.dirname)
+const fleetPackageJson = JSON.parse(
+  readFileSync(resolve(webRoot, "..", "..", "packages", "fleet-web", "package.json"), "utf8"),
+) as { version?: unknown }
+const fleetVersion = typeof fleetPackageJson.version === "string" ? fleetPackageJson.version : "dev"
 
 const config = defineConfig({
   envDir: webRoot,
+  define: {
+    __FLEET_VERSION__: JSON.stringify(fleetVersion),
+  },
   resolve: {
     tsconfigPaths: true,
   },

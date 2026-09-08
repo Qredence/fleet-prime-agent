@@ -13,11 +13,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-core-0.9.1.tgz",
-    "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-ai-0.9.1.tgz",
+    "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz",
+    "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz",
     "@prime-agent/web-protocol": "workspace:*",
-    "prime-agent": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-0.9.1.tgz",
-    "zod": "^4.4.3"
+    "prime-agent": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^25.9.5",

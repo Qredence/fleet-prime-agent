@@ -281,6 +281,54 @@ describe("right-panel execution tabs", () => {
 		expect(screen.getByText("hello")).toBeTruthy()
 	})
 
+	it("shows kernel diagnostics in the REPL panel when present", () => {
+		const { rerender } = render(
+			<ReplPanelContent artifactRuns={[]} kernelDiagnostics={{ truncated: true, tail: "Traceback: boom" }} />,
+		)
+
+		expect(screen.getByText("Kernel diagnostics")).toBeTruthy()
+		expect(screen.getByText("Traceback: boom")).toBeTruthy()
+
+		rerender(<ReplPanelContent artifactRuns={[]} />)
+		expect(screen.queryByText("Kernel diagnostics")).toBeNull()
+	})
+
+	it("sends subagent messages from the pinned composer and stops the turn", async () => {
+		const sendMessage = vi.fn(async () => undefined)
+		const stop = vi.fn()
+		const state = {
+			status: "ready" as const,
+			loading: false,
+			messages: [],
+			presentation: emptyPresentation,
+			refresh: vi.fn(),
+			sendMessage,
+			sending: false,
+			stop,
+		}
+		const child: PrimeAgentRlmChild = { id: "child-1", label: "Research worker", status: "done", timestamp: 1 }
+
+		const { rerender } = render(
+			<SubagentChatPanel child={child} parentSessionId="parent-session" state={state} />,
+		)
+
+		const input = screen.getByLabelText("Message subagent")
+		expect(input).toBeTruthy()
+		fireEvent.change(input, { target: { value: "go deeper" } })
+		fireEvent.keyDown(input, { key: "Enter", shiftKey: false })
+		await waitFor(() => expect(sendMessage).toHaveBeenCalledWith("go deeper"))
+
+		rerender(
+			<SubagentChatPanel
+				child={child}
+				parentSessionId="parent-session"
+				state={{ ...state, sending: true }}
+			/>,
+		)
+		fireEvent.click(screen.getByLabelText("Stop generating"))
+		expect(stop).toHaveBeenCalledOnce()
+	})
+
 	it("focuses and scrolls to the selected REPL cell", async () => {
 		const artifactRuns: Array<PrimeAgentArtifactRun> = [
 			{
@@ -418,6 +466,9 @@ describe("right-panel execution tabs", () => {
 			messages: [{ id: "child-assistant", role: "assistant" as const, parts: [{ type: "text" as const, text: "Last known answer" }] }],
 			presentation: emptyPresentation,
 			refresh: vi.fn(),
+			sendMessage: vi.fn(),
+			sending: false,
+			stop: vi.fn(),
 		}
 
 		render(<SubagentChatPanel child={child} parentSessionId="parent-session" state={state} />)

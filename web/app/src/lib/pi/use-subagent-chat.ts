@@ -9,6 +9,7 @@ import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-typ
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatClient } from "./chat-client";
 import { chatErrorFromStreamEvent, isUnknownSessionError, parseWithSchema } from "./chat-fetch";
+import { createOptimisticUserMessage, removeOptimisticUserMessage } from "./chat-message-helpers";
 import {
 	applyChatStreamEvent,
 	type ChatStreamSnapshot,
@@ -132,17 +133,107 @@ export function useSubagentChat({
 	child?: PrimeAgentRlmChild;
 	loadSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
 	parentSessionId?: string;
-}): SubagentChatState & { refresh: () => void } {
+}): SubagentChatState & {
+	refresh: () => void;
+	sendMessage: (text: string) => Promise<void>;
+	sending: boolean;
+	stop: () => void;
+} {
 	const [reloadToken, setReloadToken] = useState(0);
 	const [state, setState] = useState<SubagentChatState>(emptyState);
+	/** Keeps the SSE stream connected while a locally sent turn is in flight. */
+	const [sendActive, setSendActive] = useState(false);
 	const transitionRef = useRef<ChatStreamTransition | null>(null);
 	const requestVersionRef = useRef(0);
+	const sendControllerRef = useRef<{
+		controller: AbortController;
+		parentSessionId: string;
+		childId: string;
+	} | null>(null);
 	const childId = child?.id;
 	const childActiveSessionId = child?.activeSessionId;
 	const childStatusValue = child?.status;
 	const childError = child?.error;
 
 	const refresh = useCallback(() => setReloadToken((value) => value + 1), []);
+
+	const sendMessage = useCallback(
+		async (text: string) => {
+			const trimmed = text.trim();
+			if (!trimmed || !parentSessionId || !childId) return;
+			if (sendControllerRef.current) return;
+			const controller = new AbortController();
+			sendControllerRef.current = { controller, parentSessionId, childId };
+			setSendActive(true);
+			const userMessage = createOptimisticUserMessage(trimmed);
+			setState((current) => ({
+				...current,
+				status: "streaming",
+				loading: false,
+				error: undefined,
+				messages: [...current.messages, userMessage],
+			}));
+			try {
+				// The POST response carries only control frames (start/done/error);
+				// live turn content arrives on the child SSE stream, which stays
+				// connected while this send is in flight. Reconcile heals gaps.
+				await client.streamMessage(
+					{ sessionId: parentSessionId, childId, message: trimmed, streamingBehavior: "steer" },
+					(event) => {
+						if (controller.signal.aborted) return;
+						if (event.type === "error") throw chatErrorFromStreamEvent(event);
+						if (event.type === "start") {
+							setState((current) => ({ ...current, status: "streaming" }));
+						}
+					},
+					controller.signal,
+				);
+				if (controller.signal.aborted) return;
+				try {
+					const response = await loadSession(parentSessionId, childId);
+					if (controller.signal.aborted) return;
+					const transition = initialTransition(response);
+					transitionRef.current = transition;
+					setState({
+						status: "ready",
+						loading: false,
+						messages: response.messages,
+						presentation: response.presentation,
+					});
+				} catch {
+					setState((current) => ({ ...current, status: "ready", loading: false }));
+				}
+			} catch (error) {
+				if (controller.signal.aborted) return;
+				setState((current) => ({
+					...current,
+					status: "error",
+					loading: false,
+					messages: removeOptimisticUserMessage(current.messages, userMessage.id),
+					error: error instanceof Error ? error : new Error(String(error)),
+				}));
+			} finally {
+				if (sendControllerRef.current?.controller === controller) {
+					sendControllerRef.current = null;
+					setSendActive(false);
+				}
+			}
+		},
+		[childId, client, loadSession, parentSessionId],
+	);
+
+	const stop = useCallback(() => {
+		const activeSend = sendControllerRef.current;
+		activeSend?.controller.abort();
+		sendControllerRef.current = null;
+		const sessionIdToAbort = activeSend?.parentSessionId ?? parentSessionId;
+		const childIdToAbort = activeSend?.childId ?? childId;
+		if (sessionIdToAbort && childIdToAbort) {
+			void client.abortSession({ sessionId: sessionIdToAbort, childId: childIdToAbort }).catch(() => undefined);
+		}
+		setSendActive(false);
+		refresh();
+	}, [childId, client, parentSessionId, refresh]);
 
 	useEffect(() => {
 		const requestVersion = requestVersionRef.current + 1;
@@ -251,7 +342,7 @@ export function useSubagentChat({
 					presentation: response.presentation,
 				});
 
-				if (childStatusValue !== "running" && childStatusValue !== "recovering") return;
+				if (childStatusValue !== "running" && childStatusValue !== "recovering" && !sendActive) return;
 				if (typeof window === "undefined" || typeof EventSource === "undefined") return;
 
 				connect = () => {
@@ -389,7 +480,8 @@ export function useSubagentChat({
 		parentSessionId,
 		refresh,
 		reloadToken,
+		sendActive,
 	]);
 
-	return { ...state, refresh };
+	return { ...state, refresh, sendMessage, sending: sendActive, stop };
 }

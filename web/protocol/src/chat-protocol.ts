@@ -291,6 +291,17 @@ export type PrimeAgentRefinement = {
 	timestamp: number;
 };
 
+/**
+ * Capped tail of the upstream kernel process stderr log
+ * (`kernel-stderr.log` beside the managed presentation record). Read at
+ * session hydration; live stream frames do not refresh it, so it may lag the
+ * running kernel. Absent when the kernel never started.
+ */
+export type PrimeAgentKernelDiagnostics = {
+	truncated: boolean;
+	tail: string;
+};
+
 export type PrimeAgentSessionPresentation = {
 	revision: number;
 	sessionName?: string;
@@ -304,6 +315,7 @@ export type PrimeAgentSessionPresentation = {
 	rlmChildren: Array<PrimeAgentRlmChild>;
 	refinements: Array<PrimeAgentRefinement>;
 	artifactRuns: Array<PrimeAgentArtifactRun>;
+	kernelDiagnostics?: PrimeAgentKernelDiagnostics;
 };
 
 /**
@@ -325,6 +337,12 @@ export type ChatRequest = ChatSessionMetadata & {
 	streamingBehavior?: "steer" | "followUp";
 	userId?: string;
 	userEmail?: string;
+	/**
+	 * RLM child within `sessionId` (the parent) that receives the turn.
+	 * Only `message`/`streamingBehavior` apply; model, attachments, plan
+	 * actions, and OpenUI options are rejected for child turns.
+	 */
+	childId?: string;
 };
 
 export interface ChatClarificationQuestion {

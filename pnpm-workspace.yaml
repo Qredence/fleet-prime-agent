@@ -29,7 +29,7 @@ allowBuilds:
   "@openuidev/lang-core": true
   '@google/genai': false
   koffi: false
-  prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.1/prime-agent-0.9.1.tgz: true
+  prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz: true
   protobufjs: false
   zeromq: true
   # Root toolchain packages that gained install scripts under the unified workspace.
@@ -49,7 +49,7 @@ overrides:
   shell-quote: ^1.10.0
   # Unify highlighter types: streamdown's published .d.ts imports `shiki`
   # while @streamdown/code pins 3.x and @pierre/diffs pins 4.x.
-  shiki: 4.4.2
+  shiki: 4.4.3
   # GHSA-2v37-7h3g-55p8: nanoid < 3.3.18 can loop indefinitely (via postcss).
   nanoid: ^3.3.18
   # cytoscape 3.34.1 published without provenance where 3.34.0 had it

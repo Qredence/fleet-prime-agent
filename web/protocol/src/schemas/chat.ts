@@ -30,8 +30,26 @@ export const ChatRequestSchema = z
 		streamingBehavior: z.enum(["steer", "followUp"]).optional().openapi({ description: "Streaming behavior" }),
 		userId: z.string().optional().openapi({ description: "Authenticated user ID (server-injected)" }),
 		userEmail: z.string().optional().openapi({ description: "Authenticated user email (server-injected)" }),
+		childId: z.string().min(1).max(160).optional().openapi({ description: "RLM child within sessionId" }),
 	})
 	.superRefine((request, context) => {
+		if (request.childId) {
+			for (const [field, prohibited] of [
+				["model", request.model !== undefined],
+				["attachments", request.attachments !== undefined],
+				["planAction", request.planAction !== undefined],
+				["openUI", request.openUI === true],
+				["openUIArtifact", request.openUIArtifact === true],
+			] as const) {
+				if (prohibited) {
+					context.addIssue({
+						code: "custom",
+						path: [field],
+						message: `${field} is not supported for child turns`,
+					});
+				}
+			}
+		}
 		const uploadBytes = (request.attachments ?? []).reduce(
 			(total, attachment) => total + (attachment.kind === "upload" ? attachment.size : 0),
 			0,
@@ -551,6 +569,13 @@ export const PrimeAgentRefinementSchema = z
 	})
 	.openapi({ description: "Browser-safe refinement result" });
 
+export const PrimeAgentKernelDiagnosticsSchema = z
+	.object({
+		truncated: z.boolean(),
+		tail: z.string(),
+	})
+	.openapi({ description: "Capped tail of the kernel process stderr log" });
+
 export const PrimeAgentSessionPresentationSchema = z
 	.object({
 		revision: z.number().int().nonnegative(),
@@ -565,6 +590,7 @@ export const PrimeAgentSessionPresentationSchema = z
 		rlmChildren: z.array(PrimeAgentRlmChildSchema),
 		refinements: z.array(PrimeAgentRefinementSchema),
 		artifactRuns: z.array(PrimeAgentArtifactRunSchema),
+		kernelDiagnostics: PrimeAgentKernelDiagnosticsSchema.optional(),
 	})
 	.openapi({ description: "Durable browser-visible Prime Agent presentation state" });
 

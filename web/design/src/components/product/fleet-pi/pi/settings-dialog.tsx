@@ -32,6 +32,8 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -42,7 +44,6 @@ import {
   useChatPanelDataContext,
   useSettingsActionsContext,
 } from "../layout/right-panel-context"
-import { DiscreteTabs } from "../primitives/discrete-tab"
 import { PersonalizationSection } from "./config-panel/sections/personalization-section"
 import { ProviderCredentialsSection } from "./config-panel/sections/provider-credentials-section"
 import { ModelDefaultsSection } from "./config-panel/sections/model-defaults-section"
@@ -65,6 +66,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol"
 import {
   isSettingsSectionId,
+  SETTINGS_SECTION_GROUPS,
   SETTINGS_SECTIONS,
   type SettingsSectionId,
 } from "./settings-sections"
@@ -683,55 +685,58 @@ function SettingsDialogBody({
     // Nest AlertDialog under Dialog.Root so Base UI tracks nested open
     // dialogs (Esc / isTopmost). Sibling roots fight Esc and re-prompt.
     <>
-      <DialogContent className="w-full max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-w-[650px] md:h-[650px] md:max-h-[85vh] md:max-w-[760px] lg:max-w-[860px]">
+      <DialogContent className="flex h-[min(640px,calc(100dvh-4rem))] w-full max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-w-[min(860px,calc(100%-2rem))]">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Customize your settings here.
         </DialogDescription>
 
         <SidebarProvider
-          className="h-full min-h-0"
+          className="h-full min-h-0 min-w-0"
           enableKeyboardShortcut={false}
           persistState={false}
         >
           {/* Left Sidebar */}
           <Sidebar
             collapsible="none"
-            className="hidden h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex md:w-[240px]"
+            className="hidden h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar sm:flex sm:w-52"
           >
-            <div className="flex h-14 shrink-0 items-center border-b border-sidebar-border/60 p-4">
+            <SidebarHeader className="px-4 pt-5 pb-2">
               {/* Visual only — DialogTitle (sr-only) is the accessible name */}
               <span className="text-sm font-semibold">Settings</span>
-            </div>
+            </SidebarHeader>
             <SidebarContent>
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {SETTINGS_SECTIONS.map((section) => (
-                      <SidebarNavItem
-                        key={section.id}
-                        active={activeTab === section.id}
-                        onClick={() => setActiveTab(section.id)}
-                        icon={section.icon}
-                        label={section.title}
-                      />
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
+              {SETTINGS_SECTION_GROUPS.map((group) => (
+                <SidebarGroup key={group.id}>
+                  <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {SETTINGS_SECTIONS.filter((section) => section.group === group.id).map((section) => (
+                        <SidebarNavItem
+                          key={section.id}
+                          active={activeTab === section.id}
+                          onClick={() => setActiveTab(section.id)}
+                          icon={section.icon}
+                          label={section.title}
+                        />
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              ))}
             </SidebarContent>
           </Sidebar>
 
           {/* Main Content Pane — sits on the dialog's own elevated surface */}
-          <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+          <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/10 px-6">
               <div className="flex flex-1 items-center justify-between">
                 <Breadcrumb>
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block">
+                    <BreadcrumbItem className="hidden sm:block">
                       Settings
                     </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
+                    <BreadcrumbSeparator className="hidden sm:block" />
                     <BreadcrumbItem>
                       <BreadcrumbPage>{activeSection.title}</BreadcrumbPage>
                     </BreadcrumbItem>
@@ -740,16 +745,17 @@ function SettingsDialogBody({
               </div>
             </header>
 
-            <div className="flex min-w-0 shrink-0 overflow-x-auto overscroll-x-contain border-b border-border/10 bg-muted/5 px-4 py-2.5 md:hidden">
-              <DiscreteTabs
+            <div className="shrink-0 border-b border-border/10 bg-muted/5 px-4 py-2.5 sm:hidden">
+              <Select
                 aria-label="Settings sections"
-                className="min-w-max"
-                size="compact"
-                tabs={SETTINGS_SECTIONS}
                 value={activeTab}
                 onValueChange={(next) => {
                   if (isSettingsSectionId(next)) setActiveTab(next)
                 }}
+                options={SETTINGS_SECTIONS.map((section) => ({
+                  label: section.title,
+                  value: section.id,
+                }))}
               />
             </div>
 

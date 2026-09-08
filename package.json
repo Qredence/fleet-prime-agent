@@ -35,16 +35,16 @@
 	},
 	"devDependencies": {
 		"@babel/parser": "7.29.8",
-		"@biomejs/biome": "2.5.5",
+		"@biomejs/biome": "2.5.11",
 		"@changesets/cli": "3.0.1",
 		"@types/node": "^22.20.1",
 		"@typescript/native-preview": "7.0.0-dev.20260120.1",
 		"agentation-mcp": "1.2.0",
-		"esbuild": "0.28.1",
+		"esbuild": "0.28.2",
 		"husky": "^9.1.7",
 		"jiti": "^2.7.0",
 		"shx": "^0.4.0",
-		"tsx": "^4.23.12",
+		"tsx": "^4.23.13",
 		"typescript": "^7.0.2"
 	},
 	"engines": {

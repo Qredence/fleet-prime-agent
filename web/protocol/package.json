@@ -17,15 +17,17 @@
     "./schemas/*": "./src/schemas/*"
   },
   "scripts": {
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsgo --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
-    "@openuidev/lang-core": "^0.2.15",
-    "zod": "^4.4.3"
+    "@openuidev/lang-core": "^0.2.16",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^25.9.5",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }

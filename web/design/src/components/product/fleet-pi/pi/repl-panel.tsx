@@ -1,11 +1,16 @@
-import { Code2, SquareTerminal } from "lucide-react"
+import { Code2, SquareTerminal, TriangleAlert } from "lucide-react"
 import { useEffect, useRef } from "react"
-import type { PrimeAgentArtifact, PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol"
+import type {
+	PrimeAgentArtifact,
+	PrimeAgentArtifactRun,
+	PrimeAgentKernelDiagnostics,
+} from "@prime-agent/web-protocol/chat-protocol"
 import { IpythonTool } from "../../../registry/beui/agents/tools/ipython-tool"
 
 type ReplPanelContentProps = {
 	artifactRuns?: Array<PrimeAgentArtifactRun>
 	selectedArtifactId?: string | null
+	kernelDiagnostics?: PrimeAgentKernelDiagnostics | null
 }
 
 const REPL_STATUS_DETAILS: Record<PrimeAgentArtifact["status"], { toolState: string; label: string }> = {
@@ -100,7 +105,11 @@ function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact;
  * @param selectedArtifactId - Identifier of the cell to focus and scroll into view
  * @returns The REPL panel content
  */
-export function ReplPanelContent({ artifactRuns = [], selectedArtifactId }: ReplPanelContentProps) {
+export function ReplPanelContent({
+	artifactRuns = [],
+	selectedArtifactId,
+	kernelDiagnostics,
+}: ReplPanelContentProps) {
 	const cells = artifactRuns
 		.flatMap((run) => run.artifacts)
 		.filter((artifact) => artifact.kind === "ipython")
@@ -116,6 +125,23 @@ export function ReplPanelContent({ artifactRuns = [], selectedArtifactId }: Repl
 					{cells.length > 0 ? cells.length : "none yet"}
 				</span>
 			</div>
+
+			{kernelDiagnostics ? (
+				<details className="overflow-hidden rounded-md border border-border/60 bg-background">
+					<summary className="flex min-w-0 cursor-pointer items-center gap-2 px-2.5 py-1.5">
+						<TriangleAlert className="size-3.5 shrink-0 text-foreground/45" />
+						<span className="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/70">
+							Kernel diagnostics
+						</span>
+						<span className="shrink-0 text-[10px] text-foreground/40">
+							{kernelDiagnostics.truncated ? "tail" : "stderr"}
+						</span>
+					</summary>
+					<pre className="max-h-48 overflow-auto border-t border-border/50 px-2.5 py-1.5 font-mono text-[11px] leading-4 whitespace-pre-wrap text-foreground/70">
+						{kernelDiagnostics.tail}
+					</pre>
+				</details>
+			) : null}
 
 			{cells.length === 0 ? (
 				<p className="px-2 text-[11px] leading-4 text-foreground/45">

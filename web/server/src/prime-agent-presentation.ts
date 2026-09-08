@@ -3,6 +3,7 @@ import { basename, dirname, join } from "node:path";
 import type {
 	PrimeAgentArtifact,
 	PrimeAgentArtifactRun,
+	PrimeAgentKernelDiagnostics,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol";
 import { PrimeAgentSessionPresentationSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
@@ -71,6 +72,33 @@ function presentationPath(session: ManagedPresentationSession): string | undefin
 	);
 }
 
+/** Maximum bytes of kernel stderr surfaced to the browser per hydration. */
+export const MAX_KERNEL_STDERR_TAIL_BYTES = 65_536;
+
+/**
+ * Read the capped tail of the upstream kernel process stderr log sitting
+ * beside the managed presentation record. Returns undefined when the kernel
+ * never started (no log file). The tail is a point-in-time hydration snapshot;
+ * live stream frames do not refresh it. Same sensitivity class as the cell
+ * stdout already shown in the browser: the user's own local session output.
+ */
+export async function readKernelStderrTail(
+	session: ManagedPresentationSession,
+	maxBytes: number = MAX_KERNEL_STDERR_TAIL_BYTES,
+): Promise<PrimeAgentKernelDiagnostics | undefined> {
+	const directory = presentationPath(session);
+	if (!directory) return undefined;
+	try {
+		const content = await readFile(join(dirname(directory), "kernel-stderr.log"), "utf8");
+		if (!content) return undefined;
+		if (Buffer.byteLength(content, "utf8") <= maxBytes) return { truncated: false, tail: content };
+		const tail = Buffer.from(content, "utf8").subarray(-maxBytes).toString("utf8");
+		return { truncated: true, tail };
+	} catch {
+		return undefined;
+	}
+}
+
 export async function loadManagedPrimePresentation(
 	session: ManagedPresentationSession,
 ): Promise<PrimeAgentSessionPresentation | undefined> {
@@ -79,7 +107,9 @@ export async function loadManagedPrimePresentation(
 	try {
 		const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
 		const validated = PrimeAgentSessionPresentationSchema.safeParse(parsed);
-		return validated.success ? validated.data : undefined;
+		if (!validated.success) return undefined;
+		const kernelDiagnostics = await readKernelStderrTail(session);
+		return kernelDiagnostics ? { ...validated.data, kernelDiagnostics } : validated.data;
 	} catch {
 		return undefined;
 	}

@@ -1,4 +1,4 @@
-import { Info, Trash2 } from "lucide-react"
+import { Info, Pencil, Trash2 } from "lucide-react"
 import { Alert, AlertDescription } from "../../../../../ui/alert"
 import { Button } from "../../../../../ui/button"
 import { Spinner } from "../../../../../ui/spinner"
@@ -145,6 +145,7 @@ export function ActiveProviderList({
                       onEdit(provider.id)
                     }}
                   >
+                    {!isEditing ? <Pencil data-icon="inline-start" /> : null}
                     {isEditing ? "Cancel" : "Update"}
                   </Button>
                 </div>

@@ -1294,3 +1294,183 @@ describe("runtimeHostFor", () => {
 		expect(host.session.sessionManager.getSessionId()).toBe("test-session");
 	});
 });
+
+describe("PrimeBridge.promptRlmChild", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+	const bridges: PrimeBridge[] = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-child-prompt-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-child-prompt-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+	});
+
+	afterEach(() => {
+		for (const bridge of bridges.splice(0)) bridge.resetForTests();
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		rmSync(workDir, { recursive: true, force: true });
+		rmSync(agentDir, { recursive: true, force: true });
+		vi.restoreAllMocks();
+	});
+
+	async function createPromptableChild() {
+		const listedSessions: Array<Record<string, unknown>> = [];
+		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
+		const starterCalls: Array<{ cwd: string; activeSessionId: string; text: string; streamingBehavior?: string }> =
+			[];
+		const abortCalls: Array<string> = [];
+		const releaseGates: Array<() => void> = [];
+		const childPromptStarter = vi.fn(
+			(options: { cwd: string; activeSessionId: string; text: string; streamingBehavior?: string }) => {
+				starterCalls.push(options);
+				const gate = new Promise<void>((resolve) => {
+					releaseGates.push(resolve);
+				});
+				return {
+					settled: gate,
+					abort: async () => {
+						abortCalls.push(options.text);
+						releaseGates[starterCalls.indexOf(options)]?.();
+					},
+				};
+			},
+		);
+		const bridge = createTestBridge({ sessionLister, childPromptStarter });
+		bridges.push(bridge);
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: [{ id: "child-1", label: "Research worker", status: "running", timestamp: Date.now() }],
+		};
+		listedSessions.push({
+			id: "child-runtime",
+			sessionId: "child-runtime",
+			activeSessionId: "active-child-runtime",
+			cwd: workDir,
+			parentSessionId: parent.sessionId,
+			rlmChildId: "child-1",
+		});
+		const settlePrompt = (index = 0) => releaseGates[index]?.();
+		return { bridge, parent, starterCalls, abortCalls, settlePrompt };
+	}
+
+	it("prompts the authorized child session and reports its canonical ids", async () => {
+		const { bridge, parent, starterCalls, settlePrompt } = await createPromptableChild();
+		const pending = bridge.promptRlmChild(parent.sessionId, "child-1", "go deeper");
+		await vi.waitFor(() => expect(starterCalls).toHaveLength(1));
+		expect(starterCalls[0]).toMatchObject({
+			cwd: parent.cwd,
+			activeSessionId: "active-child-runtime",
+			text: "go deeper",
+			streamingBehavior: "steer",
+		});
+		settlePrompt();
+		await expect(pending).resolves.toEqual({
+			canonicalSessionId: "child-runtime",
+			activeSessionId: "active-child-runtime",
+		});
+	});
+
+	it("rejects unknown child threads", async () => {
+		const { bridge, parent } = await createPromptableChild();
+		await expect(bridge.promptRlmChild(parent.sessionId, "child-unknown", "hi")).rejects.toThrow(
+			"Unknown subagent thread",
+		);
+	});
+
+	it("aborts the in-flight child turn and reports false when idle", async () => {
+		const { bridge, parent, starterCalls, abortCalls, settlePrompt } = await createPromptableChild();
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(false);
+		const pending = bridge.promptRlmChild(parent.sessionId, "child-1", "go deeper");
+		await vi.waitFor(() => expect(starterCalls).toHaveLength(1));
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(true);
+		expect(abortCalls).toEqual(["go deeper"]);
+		settlePrompt();
+		await pending;
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(false);
+	});
+
+	it("retains earlier child prompt handles when a concurrent prompt settles", async () => {
+		const { bridge, parent, starterCalls, abortCalls, settlePrompt } = await createPromptableChild();
+		const first = bridge.promptRlmChild(parent.sessionId, "child-1", "first prompt");
+		await vi.waitFor(() => expect(starterCalls).toHaveLength(1));
+		const second = bridge.promptRlmChild(parent.sessionId, "child-1", "second prompt");
+		await vi.waitFor(() => expect(starterCalls).toHaveLength(2));
+
+		settlePrompt(1);
+		await second;
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(true);
+		expect(abortCalls).toEqual(["first prompt"]);
+		await first;
+		await expect(bridge.abortRlmChild(parent.sessionId, "child-1")).resolves.toBe(false);
+	});
+});
+
+describe("PrimeBridge.setModel fallback", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+	const bridges: PrimeBridge[] = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-model-fallback-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-model-fallback-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+	});
+
+	afterEach(() => {
+		for (const bridge of bridges.splice(0)) bridge.resetForTests();
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		rmSync(workDir, { recursive: true, force: true });
+		rmSync(agentDir, { recursive: true, force: true });
+		vi.restoreAllMocks();
+	});
+
+	it("falls back to the first available model of a known provider", async () => {
+		const bridge = createTestBridge();
+		bridges.push(bridge);
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const registry = getPrimeConfig().modelRegistry;
+		vi.spyOn(registry, "find").mockReturnValue(undefined);
+		vi.spyOn(registry, "getAvailable").mockReturnValue([{ provider: "deepseek", id: "deepseek-v4-flash" }] as never);
+		// Mock the connection: the real InProcessAgentConnection validates against
+		// the ambient provider catalog (credentials), which is absent on CI.
+		const setModel = vi
+			.spyOn(parent.connection, "setModel")
+			.mockResolvedValue({ provider: "deepseek", id: "deepseek-v4-flash" } as never);
+
+		await expect(bridge.setModel(parent.sessionId, { provider: "deepseek", id: "deepseek-gone" })).resolves.toEqual({
+			provider: "deepseek",
+			id: "deepseek-v4-flash",
+		});
+		expect(setModel).toHaveBeenCalledWith("deepseek", "deepseek-v4-flash");
+	});
+
+	it("still throws when the provider itself is unknown", async () => {
+		const bridge = createTestBridge();
+		bridges.push(bridge);
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const parent = await bridge.createSession({ cwd: workDir });
+		const registry = getPrimeConfig().modelRegistry;
+		vi.spyOn(registry, "find").mockReturnValue(undefined);
+		vi.spyOn(registry, "getAvailable").mockReturnValue([]);
+
+		await expect(bridge.setModel(parent.sessionId, { provider: "nope", id: "gone" })).rejects.toThrow(
+			"Unknown model: nope/gone",
+		);
+	});
+});

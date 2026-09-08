@@ -1,8 +1,10 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { FLEET_ADAPTER_CAPABILITIES } from "@prime-agent/web-protocol/chat-protocol";
 import { ChatRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { ChatAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { readInspectedManagedAttachment, validateManagedAttachments } from "../managed-attachments";
+import type { PrimeBridge } from "../prime-bridge";
 import { parseBackendSessionCommand, sessionCommandResultText } from "../session-commands";
 import { getBridge } from "../singleton";
 import { chatErrorEnvelope, wrapApiHandler } from "../wrap-api-handler";
@@ -25,6 +27,109 @@ export function chooseChatStartId(
 	return crypto.randomUUID();
 }
 
+/**
+ * Streams a direct turn to an RLM child session. Unlike the main-session
+ * path, only `start` and the terminal frame travel on this NDJSON stream:
+ * live turn deltas reach open tabs through the child's managed watcher
+ * stream, which observes the same session. The tab reconciles the canonical
+ * transcript when the terminal frame lands.
+ */
+async function handleChatChildPost(
+	bridge: PrimeBridge,
+	parentSessionId: string,
+	childId: string,
+	message: string,
+	streamingBehavior: "steer" | "followUp" | undefined,
+): Promise<Response> {
+	const session =
+		bridge.getSession(parentSessionId) ?? (await bridge.resumeSessionById(parentSessionId, undefined, {}));
+	if (!session) {
+		return Response.json({ message: `Unknown session: ${parentSessionId}` }, { status: 404 });
+	}
+
+	const encoder = new TextEncoder();
+	const stream = new ReadableStream<Uint8Array>({
+		start(controller) {
+			let closed = false;
+			const close = () => {
+				if (closed) return;
+				closed = true;
+				try {
+					controller.close();
+				} catch {
+					/* already closed */
+				}
+			};
+			const write = (frame: unknown) => {
+				if (closed) return;
+				try {
+					controller.enqueue(encoder.encode(`${JSON.stringify(frame)}\n`));
+				} catch {
+					/* stream already cancelled */
+				}
+			};
+
+			write({
+				type: "start",
+				id: crypto.randomUUID(),
+				runId: "pending",
+				sessionId: parentSessionId,
+				adapterCapabilities: FLEET_ADAPTER_CAPABILITIES,
+			});
+
+			void bridge
+				.promptRlmChild(parentSessionId, childId, message, resolveChatStreamingBehavior(streamingBehavior))
+				.then(async () => {
+					const transcript = await bridge.loadRlmChildTranscript(parentSessionId, childId).catch(() => undefined);
+					const answer = transcript
+						? [...transcript.messages].reverse().find((candidate) => candidate.role === "assistant")
+						: undefined;
+					if (!answer) {
+						const envelope = chatErrorEnvelope(
+							new Error("The subagent turn settled without an assistant message."),
+						);
+						write({ type: "error", message: envelope.message, code: envelope.code, error: envelope });
+						close();
+						return;
+					}
+					const doneMessage: ChatMessage = {
+						...answer,
+						id: answer.id || crypto.randomUUID(),
+					};
+					write({
+						type: "done",
+						runId: crypto.randomUUID(),
+						sessionId: parentSessionId,
+						message: doneMessage,
+					});
+					close();
+				})
+				.catch((error) => {
+					process.stderr.write(
+						`[chat] child prompt errored: ${error instanceof Error ? error.message : String(error)}\n`,
+					);
+					const envelope = chatErrorEnvelope(error);
+					write({
+						type: "error",
+						message: envelope.message,
+						code: envelope.code,
+						error: envelope,
+					});
+					close();
+				});
+		},
+	});
+
+	return new Response(stream, {
+		headers: {
+			"Content-Type": "application/x-ndjson; charset=utf-8",
+			"Cache-Control": "no-cache, no-store",
+			Connection: "keep-alive",
+			"X-Accel-Buffering": "no",
+		},
+	});
+}
+
 export function handleChatPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const raw = await request.json();
@@ -38,6 +143,18 @@ export function handleChatPost(request: Request): Promise<Response> {
 		const targetSessionId = sessionId;
 		if (!targetSessionId) {
 			return Response.json({ message: "POST /api/chat requires a `sessionId`." }, { status: 400 });
+		}
+		if (body.childId) {
+			if (
+				(body.attachments?.length ?? 0) > 0 ||
+				body.model !== undefined ||
+				body.planAction !== undefined ||
+				body.openUI === true ||
+				body.openUIArtifact === true
+			) {
+				return Response.json({ message: "POST /api/chat child turns support message text only." }, { status: 400 });
+			}
+			return handleChatChildPost(bridge, targetSessionId, body.childId, message, body.streamingBehavior);
 		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			process.stderr.write(`[chat] received session=${targetSessionId.slice(0, 8)} bytes=${message.length}\n`);
