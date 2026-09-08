@@ -5,11 +5,17 @@ It combines a focused web interface with the stock [Prime Agent](https://github.
 runtime, keeping sessions, workspace navigation, live tool activity, and managed
 execution together on your machine.
 
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/Qredence/fleet-prime-agent/tree/main.svg?style=shield)](https://app.circleci.com/pipelines/github/Qredence/fleet-prime-agent)
+
 [![Discord](https://shieldcn.dev/discord/1316199667142496307.svg?statusDot=true)](https://discord.gg/ebgy7gtZHK)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CircleCI](https://dl.circleci.com/status-badge/img/circleci/SomxVLJYMpo86z6XUrZBUq/77Axvw4aep78EpwCW6Nsyh/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/circleci/SomxVLJYMpo86z6XUrZBUq/77Axvw4aep78EpwCW6Nsyh/tree/main)
 
-![Fleet Prime workspace](https://github.com/user-attachments/assets/7df3d0ea-8c73-40a4-9bd3-f1c0445a9ea8)
+
+
+
+https://github.com/user-attachments/assets/3ea9344f-cb32-4568-a2ef-2012aa79e139
+
+
 
 ## Quick start
 
