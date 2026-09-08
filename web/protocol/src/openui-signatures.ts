@@ -650,14 +650,7 @@ export const openUIPromptSpec = {
 								type: "string",
 							},
 							additionalProperties: {
-								anyOf: [
-									{
-										type: "string",
-									},
-									{
-										type: "number",
-									},
-								],
+								type: ["string", "number"],
 							},
 						},
 					},
@@ -705,14 +698,7 @@ export const openUIPromptSpec = {
 								type: "string",
 							},
 							additionalProperties: {
-								anyOf: [
-									{
-										type: "string",
-									},
-									{
-										type: "number",
-									},
-								],
+								type: ["string", "number"],
 							},
 						},
 					},
@@ -795,14 +781,7 @@ export const openUIPromptSpec = {
 								type: "string",
 							},
 							additionalProperties: {
-								anyOf: [
-									{
-										type: "string",
-									},
-									{
-										type: "number",
-									},
-								],
+								type: ["string", "number"],
 							},
 						},
 					},
