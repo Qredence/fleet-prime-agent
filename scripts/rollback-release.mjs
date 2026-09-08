@@ -9,7 +9,7 @@ function registryUrl() {
 	return `${NPM_REGISTRY}${encodeURIComponent(PACKAGE_NAME)}`;
 }
 
-async function readRegistryMetadata({ fetchImpl = fetch } = {}) {
+export async function readRegistryMetadata({ fetchImpl = fetch } = {}) {
 	const response = await fetchImpl(registryUrl(), {
 		headers: { Accept: "application/json" },
 	});

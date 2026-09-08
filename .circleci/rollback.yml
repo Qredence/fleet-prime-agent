@@ -41,22 +41,23 @@ jobs:
           command: node scripts/rollback-release.mjs
       - run:
           name: Mark Fleet rollback successful
-          command: circleci run release update --status=SUCCESS
+          command: node scripts/rollback-marker.mjs SUCCESS
           when: on_success
       - run:
           name: Mark Fleet rollback failed
-          command: |
-            circleci run release update \
-              --status=FAILED \
-              --failure-reason="npm dist-tag rollback failed"
+          command: ROLLBACK_FAILURE_REASON="npm dist-tag rollback failed" node scripts/rollback-marker.mjs FAILED
           when: on_fail
 
   cancel-rollback-marker:
     executor: node-rollback
+    environment:
+      ROLLBACK_CURRENT_VERSION: << pipeline.deploy.current_version >>
+      ROLLBACK_TARGET_VERSION: << pipeline.deploy.target_version >>
     steps:
+      - checkout
       - run:
           name: Mark canceled Fleet rollback
-          command: circleci run release update --status=CANCELED
+          command: node scripts/rollback-marker.mjs CANCELED
 
 workflows:
   rollback:

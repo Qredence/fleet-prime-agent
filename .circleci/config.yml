@@ -252,6 +252,7 @@ jobs:
           name: Plan Fleet production release marker
           command: |
             if [ "<< pipeline.parameters.release_retry >>" = "true" ]; then
+              export FORCE_RELEASE=1
               echo 'export FORCE_RELEASE=1' >> "${BASH_ENV}"
             fi
             node scripts/release-marker.mjs plan
@@ -284,6 +285,7 @@ jobs:
           name: Mark canceled Fleet production release
           command: |
             if [ "<< pipeline.parameters.release_retry >>" = "true" ]; then
+              export FORCE_RELEASE=1
               echo 'export FORCE_RELEASE=1' >> "${BASH_ENV}"
             fi
             export RELEASE_MARKER_STATUS=CANCELED

@@ -28,6 +28,7 @@ export function releaseMarkerArgs({ action, status, version = packageManifest.ve
 			"run",
 			"release",
 			"update",
+			"fleet-release",
 			`--status=${status}`,
 			...(failureReason ? [`--failure-reason=${failureReason}`] : []),
 		];
