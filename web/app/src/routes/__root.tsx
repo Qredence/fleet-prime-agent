@@ -40,8 +40,15 @@ export const Route = createRootRoute({
       },
       {
         rel: "icon",
-        href: "/favicon.svg",
+        href: "/favicon-dark.svg",
         type: "image/svg+xml",
+        media: "(prefers-color-scheme: dark)",
+      },
+      {
+        rel: "icon",
+        href: "/favicon-light.svg",
+        type: "image/svg+xml",
+        media: "(prefers-color-scheme: light)",
       },
       {
         rel: "icon",
