@@ -25,7 +25,7 @@ import {
 import { releaseMarkerArgs, runReleaseMarker } from "../release-marker.mjs";
 import { assertReleaseVersion, compareVersions, parseStableVersion } from "../release-utils.mjs";
 import { reconcileRollbackMarker, resolveRollbackMarker, rollbackMarkerArgs } from "../rollback-marker.mjs";
-import { rollbackRelease, validateRollback } from "../rollback-release.mjs";
+import { promoteRelease, rollbackRelease, validateRollback } from "../rollback-release.mjs";
 
 const packageManifest = JSON.parse(
 	readFileSync(new URL("../../packages/fleet-web/package.json", import.meta.url), "utf8"),
@@ -145,7 +145,7 @@ test("builds deploy marker commands for the Fleet production component", () => {
 		"plan",
 		"fleet-release",
 		"--environment-name=production",
-		"--component-name=fleet-cli",
+		"--component-name=@qredence/fleet",
 		"--target-version=0.5.9",
 	]);
 	assert.deepEqual(
@@ -219,6 +219,41 @@ test("moves only the npm latest dist-tag after rollback verification", async () 
 	});
 	assert.deepEqual(result, { currentVersion: "0.5.8", targetVersion: "0.5.7" });
 	assert.deepEqual(calls, ["0.5.7"]);
+});
+
+test("supports a fenced forward npm latest promotion", async () => {
+	const calls = [];
+	const result = await promoteRelease({
+		currentVersion: "0.5.8",
+		targetVersion: "0.5.9",
+		fetchImpl: async () =>
+			response(200, {
+				"dist-tags": { latest: "0.5.8" },
+				versions: { "0.5.9": { version: "0.5.9" } },
+			}),
+		distTagAddImpl: async (version) => calls.push(version),
+	});
+	assert.deepEqual(result, { currentVersion: "0.5.8", targetVersion: "0.5.9" });
+	assert.deepEqual(calls, ["0.5.9"]);
+});
+
+test("validates a rollback dry run without changing npm", async () => {
+	let mutationCalled = false;
+	const result = await rollbackRelease({
+		currentVersion: "0.5.8",
+		targetVersion: "0.5.7",
+		dryRun: true,
+		fetchImpl: async () =>
+			response(200, {
+				"dist-tags": { latest: "0.5.8" },
+				versions: { "0.5.7": { version: "0.5.7" } },
+			}),
+		distTagAddImpl: async () => {
+			mutationCalled = true;
+		},
+	});
+	assert.deepEqual(result, { currentVersion: "0.5.8", targetVersion: "0.5.7" });
+	assert.equal(mutationCalled, false);
 });
 
 test("rejects incomplete or failed rollback mutations", async () => {
