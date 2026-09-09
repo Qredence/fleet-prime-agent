@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.9
+
+### Patch Changes
+
+- 280ba1b: Make the generated bundle-budget release metadata deterministic so immutable npm release retries produce the same artifact checksum.
+
 ## 0.5.8
 
 ### Patch Changes
