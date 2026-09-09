@@ -89,6 +89,7 @@ workflows:
       - deploy-fleet:
           context:
             - npm-dist-tag-deploy
+          serial-group: fleet-release-operations
           filters:
             branches:
               only: main
