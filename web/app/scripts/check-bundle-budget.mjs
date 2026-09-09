@@ -7,6 +7,10 @@ const baselineRouteEntryGzipBytes = 1_058_534
 const acceptedEagerGraphGzipBytes = 352_192
 const maximumEagerGraphGzipBytes = 450 * 1024
 const maximumGrowthFactor = 1.05
+const sourceDateEpoch = Number(process.env.SOURCE_DATE_EPOCH)
+const snapshotTimestamp = Number.isFinite(sourceDateEpoch)
+  ? new Date(sourceDateEpoch * 1000).toISOString()
+  : new Date().toISOString()
 
 if (!existsSync(assetsDirectory)) {
   throw new Error("Bundle contract requires a fresh @prime-agent/web production build.")
@@ -78,7 +82,7 @@ writeFileSync(
   resolve(assetsDirectory, "..", "bundle-budget.json"),
   JSON.stringify(
     {
-      timestamp: new Date().toISOString(),
+      timestamp: snapshotTimestamp,
       routeEntry: routeEntries[0],
       routeEntryGzipBytes,
       routeEntryReduction: reduction,
