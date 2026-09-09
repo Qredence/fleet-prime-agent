@@ -33,7 +33,7 @@ jobs:
             set -euo pipefail
             circleci run release plan fleet-rollback \
               --environment-name=production \
-              --component-name=fleet-cli \
+              --component-name="@qredence/fleet" \
               --target-version="${ROLLBACK_TARGET_VERSION}" \
               --rollback
       - run:

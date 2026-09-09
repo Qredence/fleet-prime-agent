@@ -8,7 +8,7 @@ import { isPackageVersionCommit } from "./publish-release.mjs";
 const packageManifest = JSON.parse(
 	readFileSync(new URL("../packages/fleet-web/package.json", import.meta.url), "utf8"),
 );
-const COMPONENT_NAME = "fleet-cli";
+const COMPONENT_NAME = "@qredence/fleet";
 const ENVIRONMENT_NAME = "production";
 
 export function releaseMarkerArgs({ action, status, version = packageManifest.version, failureReason } = {}) {

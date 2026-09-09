@@ -1,116 +1,113 @@
 version: 2.1
 
-commands:
-  install-pnpm:
-    parameters:
-      pnpm_version:
-        type: string
-        default: "11.15.1"
-    steps:
-      - run:
-          name: Install pnpm
-          command: |
-            pnpm_root="${HOME}/.cache/fleet-pnpm"
-            mkdir -p "${pnpm_root}"
-            npm install --prefix "${pnpm_root}" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "pnpm@<< parameters.pnpm_version >>"
-            pnpm_bin="${pnpm_root}/node_modules/pnpm/bin/pnpm.cjs"
-            pnpm_bin_dir="${pnpm_root}/node_modules/.bin"
-            if [ ! -f "${pnpm_bin}" ]; then
-              echo "Expected pnpm launcher was not installed at ${pnpm_bin}" >&2
-              exit 1
-            fi
-            if [ ! -x "${pnpm_bin_dir}/pnpm" ]; then
-              echo "Expected pnpm executable was not installed at ${pnpm_bin_dir}/pnpm" >&2
-              exit 1
-            fi
-            echo "export FLEET_PNPM_BIN=\"${pnpm_bin}\"" >> "${BASH_ENV}"
-            echo "export PATH=\"${pnpm_bin_dir}:\$PATH\"" >> "${BASH_ENV}"
-            echo 'export npm_config_manage_package_manager_versions=false' >> "${BASH_ENV}"
-            echo 'pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }' >> "${BASH_ENV}"
-            export FLEET_PNPM_BIN="${pnpm_bin}"
-            export PATH="${pnpm_bin_dir}:${PATH}"
-            export npm_config_manage_package_manager_versions=false
-            pnpm() { node "${FLEET_PNPM_BIN}" "$@"; }
-            pnpm config set store-dir ~/.cache/pnpm
-            pnpm --version
-
 executors:
-  node-lts:
+  node-release-deploy:
     docker:
       - image: cimg/node:22.23.2
     resource_class: medium
     working_directory: ~/prime-agent
 
 jobs:
-  release-publish:
-    executor: node-lts
+  deploy-fleet:
+    executor: node-release-deploy
     environment:
-      COMPONENT_NAME: "<< pipeline.deploy.component_name >>"
-      ENVIRONMENT_NAME: "<< pipeline.deploy.environment_name >>"
-      NAMESPACE: "<< pipeline.deploy.namespace >>"
-      TARGET_VERSION: "<< pipeline.deploy.target_version >>"
+      COMPONENT_NAME: << pipeline.deploy.component_name >>
+      ENVIRONMENT_NAME: << pipeline.deploy.environment_name >>
+      DEPLOY_CURRENT_VERSION: << pipeline.deploy.current_version >>
+      DEPLOY_TARGET_VERSION: << pipeline.deploy.target_version >>
     steps:
       - checkout
-      - attach_workspace:
-          at: .
       - run:
-          name: Pin npm trusted-publishing CLI
-          command: sudo npm install --global npm@11.15.0
-      - install-pnpm
-      - run:
-          name: Plan release
+          name: Configure scoped npm deployment credentials
           command: |
-            circleci run release plan \
-              --environment-name=${ENVIRONMENT_NAME} \
-              --namespace=${NAMESPACE} \
-              --component-name=${COMPONENT_NAME} \
-              --target-version=${TARGET_VERSION}
+            set -euo pipefail
+            if [ -z "${NPM_TOKEN:-}" ]; then
+              echo "NPM_TOKEN is required for dist-tag promotion" >&2
+              exit 1
+            fi
+            npmrc_path="$(mktemp)"
+            chmod 600 "${npmrc_path}"
+            printf '%s\n' "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "${npmrc_path}"
+            echo "export NPM_CONFIG_USERCONFIG=${npmrc_path}" >> "${BASH_ENV}"
       - run:
-          name: Publish the verified artifact and GitHub release
+          name: Validate Fleet deployment target
           command: |
-            pnpm run release:publish
+            set -euo pipefail
+            if [ "${COMPONENT_NAME}" != "@qredence/fleet" ]; then
+              echo "Unsupported deployment component: ${COMPONENT_NAME}" >&2
+              exit 1
+            fi
+            if [ "${ENVIRONMENT_NAME}" != "production" ]; then
+              echo "Unsupported deployment environment: ${ENVIRONMENT_NAME}" >&2
+              exit 1
+            fi
+            if [ -z "${DEPLOY_CURRENT_VERSION}" ] || [ "${DEPLOY_CURRENT_VERSION}" = "<nil>" ]; then
+              echo "Current deployed version is required" >&2
+              exit 1
+            fi
+            if [ -z "${DEPLOY_TARGET_VERSION}" ] || [ "${DEPLOY_TARGET_VERSION}" = "<nil>" ]; then
+              echo "Target deployment version is required" >&2
+              exit 1
+            fi
       - run:
-          name: Update deployment status to failed
-          command: circleci run release update --status=FAILED
+          name: Plan Fleet deployment marker
+          command: |
+            set -euo pipefail
+            circleci run release plan fleet-deploy \
+              --environment-name="${ENVIRONMENT_NAME}" \
+              --component-name="${COMPONENT_NAME}" \
+              --target-version="${DEPLOY_TARGET_VERSION}"
+      - run:
+          name: Promote npm latest dist-tag
+          command: node scripts/deploy-release.mjs
+      - run:
+          name: Mark Fleet deployment successful
+          command: circleci run release update fleet-deploy --status=SUCCESS
+          when: on_success
+      - run:
+          name: Mark Fleet deployment failed
+          command: |
+            circleci run release update fleet-deploy \
+              --status=FAILED \
+              --failure-reason="npm dist-tag promotion failed"
           when: on_fail
-      - store_artifacts:
-          path: dist-release
-          destination: dist-release/release
-  cancel-release-publish:
-    docker:
-      - image: cimg/base:stable
+
+  cancel-deploy-marker:
+    executor: node-release-deploy
     steps:
       - run:
-          name: Update planned release to CANCELED
-          command: |
-            circleci run release update release-publish \
-              --status=CANCELED
-  release-publish-release:
-    type: release
-    plan_name: release-publish
-    validation:
-      enabled: true
-      auto_rollback_on_failure: true
+          name: Mark canceled Fleet deployment
+          command: circleci run release update fleet-deploy --status=CANCELED
 
+  fleet-deploy-release:
+    type: release
+    plan_name: fleet-deploy
 
 workflows:
   deploy:
     jobs:
-      - release-publish:
+      - deploy-fleet:
+          context:
+            - npm-dist-tag-deploy
           filters:
             branches:
               only: main
             tags:
               ignore: /.*/
-      - release-publish-release:
+      - fleet-deploy-release:
           requires:
-            - release-publish
+            - deploy-fleet
           filters:
             branches:
               only: main
             tags:
               ignore: /.*/
-      - cancel-release-publish:
+      - cancel-deploy-marker:
           requires:
-            - release-publish:
-              - canceled
+            - deploy-fleet:
+                - canceled
+          filters:
+            branches:
+              only: main
+            tags:
+              ignore: /.*/

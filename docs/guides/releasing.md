@@ -32,7 +32,7 @@ Do not publish or create a release as a local validation step.
 4. After the release commit passes CI, the `release-publish` job builds or consumes the verified package artifact and runs `pnpm run release:publish`.
 5. Publication uses the repository's configured npm/GitHub release credentials, verifies package metadata and checksums, publishes the immutable npm version, waits for registry visibility, and creates the matching GitHub release with the package artifact and checksums.
 
-Each release lane has a serial group, publication waits for the verified CI artifact, and the guarded scripts handle reruns against the existing release version and artifact expectations. CircleCI tracks successful package publications as the `fleet-cli` component in the `production` environment.
+Each release lane has a serial group, publication waits for the verified CI artifact, and the guarded scripts handle reruns against the existing release version and artifact expectations. CircleCI tracks successful package publications as the `@qredence/fleet` component in the `production` environment.
 
 ## One-time CircleCI and npm setup
 
@@ -40,6 +40,8 @@ Create these least-privilege contexts in CircleCI:
 
 1. `release-automation`: `GITHUB_TOKEN` with only the repository permissions needed to create or update the release pull request. It is used only by `release-prepare`.
 2. `github-release`: `GITHUB_TOKEN` with repository Contents read/write for the release tag, release, and two assets. It is used only after npm has been verified.
+3. `npm-dist-tag-deploy`: `NPM_TOKEN` with only the scoped npm dist-tag permission needed to promote an already-published version to `latest`. Restrict it to this project and `main`.
+4. `npm-dist-tag-rollback`: `NPM_TOKEN` with only the scoped npm dist-tag permission needed to restore `latest`. Restrict it to this project and `main`.
 
 Restrict both contexts to this project and `main`; for the publishing context, also disallow SSH reruns with the CircleCI expression `pipeline.git.branch == "main" and not job.ssh.enabled`.
 
@@ -52,7 +54,7 @@ circleci context get github-release --json
 
 Confirm that each response names only `GITHUB_TOKEN`, includes the `fleet-prime-agent` project restriction, and restricts the branch to `main`. Confirm that `github-release` also includes `not job.ssh.enabled`. The release-automation token needs only the repository Pull requests and Contents read/write access required to create the generated release PR; the publishing token needs Contents read/write for the tag, release, and assets.
 
-Configure npm Trusted Publishing for `@qredence/fleet` with the CircleCI organization, project, pipeline-definition, and repository details from `.circleci/info.yml` and CircleCI Project Settings. Bind it to the release project/context as supported by npm. Do not store `NPM_TOKEN`; the publish job uses the CircleCI OIDC exchange. npm package access should require trusted publishing and two-factor authentication as available.
+Configure npm Trusted Publishing for `@qredence/fleet` with the CircleCI organization, project, pipeline-definition, context, and repository details from `.circleci/info.yml` and CircleCI Project Settings. Enable direct `npm publish` and do not use staged publishing in CI. npm's current Trusted Publisher UI always lists staged publishing as allowed; the editable control is direct publish. Do not store `NPM_TOKEN` for publication; the publish job uses the CircleCI OIDC exchange. Dist-tag promotion and rollback remain separate token-authenticated operations. npm package access should require trusted publishing and two-factor authentication as available.
 
 The publish job uses the Node 22.23.2 LTS executor and pins npm 11.15.0. This is separate from the package's minimum runtime of Node 22.12.0 because npm trusted publishing requires npm 11.15.0 and Node 22.14.0 or later.
 
@@ -72,17 +74,19 @@ Do not manually edit generated changelogs or release tags to bypass Changesets. 
 
 The main CircleCI release workflow adds a deploy marker only around `release-publish`; release preparation is not a production deployment. The marker uses:
 
-- component: `fleet-cli`
+- component: `@qredence/fleet`
 - environment: `production`
 - version: the exact stable `@qredence/fleet` package version
 
-The project rollback pipeline is `.circleci/rollback.yml`. Register it as the project's rollback pipeline in CircleCI Project Settings → Deploys, create/select the `production` environment, and use the restricted `npm-dist-tag-rollback` context containing only the npm credential required to update this package's `latest` dist-tag.
+The project deploy pipeline is `.circleci/deploy.yml`. It promotes an already-published immutable package version by changing only the npm `latest` dist-tag. It validates the CircleCI current-version fence and target version before mutation, and uses `fleet-deploy` as its deploy marker.
+
+The project rollback pipeline is `.circleci/rollback.yml`. Register it as the project's rollback pipeline in CircleCI Project Settings → Deploys, select the existing `production` environment, and use the restricted `npm-dist-tag-rollback` context containing only the npm credential required to update this package's `latest` dist-tag.
 
 Manual rollback from the CircleCI Deploys UI is equivalent to:
 
 ~~~bash
 circleci deploy rollback <target-version> \
-  --component fleet-cli \
+  --component @qredence/fleet \
   --environment production \
   --from <current-version> \
   --reason "<incident reason>"
@@ -90,7 +94,9 @@ circleci deploy rollback <target-version> \
 
 The rollback pipeline verifies that npm `latest` still equals `<current-version>` and that `<target-version>` is an already-published older version before running `npm dist-tag add @qredence/fleet@<target-version> latest`. It never unpublishes or repackages an npm version. Publication and rollback share the `fleet-release-operations` serial group so they cannot race.
 
-Deploy tracking is enabled without a Smart Deployments validation policy. Automatic rollback remains disabled until a Datadog, Prometheus-compatible, or custom webhook health signal is selected and documented.
+Deploy tracking is enabled without a Smart Deployments validation policy. Automatic rollback remains disabled until a Datadog, Prometheus-compatible, or custom webhook health signal is selected and documented. The CircleCI Release Agent is intentionally not configured: `production` is a Custom environment and this project promotes npm dist-tags rather than managing Kubernetes workloads.
+
+For a non-mutating rollback check, run the helper with `ROLLBACK_DRY_RUN=1` and a verified current/target pair. The helper still reads npm metadata and enforces the current-version fence and target validation, but skips `npm dist-tag add`.
 
 ## Rollback
 
