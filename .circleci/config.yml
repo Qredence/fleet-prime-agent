@@ -126,6 +126,13 @@ jobs:
       - install-pnpm
       - install-dependencies
       - run:
+          name: Set deterministic release timestamp
+          command: |
+            SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+            echo "export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" >> "${BASH_ENV}"
+            export SOURCE_DATE_EPOCH
+            echo "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
+      - run:
           name: Build web bundle and release artifacts
           command: pnpm run build:web:release
       - run:
