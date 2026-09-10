@@ -15,6 +15,7 @@
  */
 
 import { existsSync } from "node:fs";
+import { realpath } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ImageContent } from "@earendil-works/pi-ai";
@@ -2016,9 +2017,10 @@ export class PrimeBridge {
 		// Resolve symlinks: a link inside the project pointing outside must not
 		// escape confinement. The file itself may not exist yet, so realpath the
 		// parent directory (which must already exist).
-		const { realpath } = await import("node:fs/promises");
 		const parent = await realpath(dirname(candidate)).catch(() => null);
-		if (parent === null || !parent.startsWith(`${root}${sep}`)) {
+		// The project root itself is a valid export location; only paths
+		// escaping it (including via symlink) are rejected.
+		if (parent === null || (parent !== root && !parent.startsWith(`${root}${sep}`))) {
 			throw new SessionExportPathError();
 		}
 		return candidate;

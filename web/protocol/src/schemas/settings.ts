@@ -16,33 +16,15 @@ import {
 export const MAX_CHAT_RESOURCE_ENTRIES = 100;
 
 /**
- * Absolute filesystem paths without `.`/`..` segments or redundant
- * separators. Implemented without node:path so the schema stays usable from
- * browser bundles as well as the server.
+ * Filesystem path or package spec for code-load settings (extensions,
+ * skills, prompts, themes). Relative values such as `extensions/foo` and
+ * `../agent-workspace/pi/skills` are legitimate: the settings UI emits them
+ * via `toSettingsResourcePath`, and the response schema reuses this type
+ * when loading existing settings. Only the shape is constrained here
+ * (non-empty, bounded length, bounded list); containment is enforced where
+ * the runtime resolves the paths.
  */
-function isAbsoluteNormalizedPath(value: string): boolean {
-	let rest: string;
-	if (value.startsWith("/")) {
-		rest = value.slice(1);
-	} else if (/^[A-Za-z]:[/\\]/.test(value)) {
-		rest = value.slice(3);
-	} else if (value.startsWith("\\\\")) {
-		rest = value.slice(2);
-	} else {
-		return false;
-	}
-	const withoutTrailing = rest.endsWith("/") || rest.endsWith("\\") ? rest.slice(0, -1) : rest;
-	if (withoutTrailing === "") return true;
-	return withoutTrailing.split(/[/\\]/).every((segment) => segment !== "" && segment !== "." && segment !== "..");
-}
-
-/**
- * Absolute, normalized filesystem path for code-load settings (extensions,
- * skills, prompts, themes). Rejects empty and relative values.
- */
-export const chatResourcePathSchema = nonEmptyStringSchema.refine(isAbsoluteNormalizedPath, {
-	message: "Path must be an absolute, normalized path",
-});
+export const chatResourcePathSchema = nonEmptyStringSchema.max(1024);
 
 const chatResourcePathArraySchema = z.array(chatResourcePathSchema).max(MAX_CHAT_RESOURCE_ENTRIES);
 
