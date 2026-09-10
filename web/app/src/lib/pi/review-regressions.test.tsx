@@ -163,10 +163,6 @@ describe("review regressions", () => {
 	it("renders nested subagents in tree order regardless of completion order", () => {
 		const { getByRole, getByText } = render(
 			<FleetSubagentList
-				children={[
-					{ id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2 },
-					{ id: "parent", label: "Parent worker", status: "error", timestamp: 1 },
-				]}
 				tree={{
 					rootSessionId: "session-1",
 					rootChildrenIds: ["parent"],
@@ -175,7 +171,12 @@ describe("review regressions", () => {
 						child: { id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2, depth: 1, childrenIds: [] },
 					},
 				}}
-			/>,
+			>
+				{[
+					{ id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2 },
+					{ id: "parent", label: "Parent worker", status: "error", timestamp: 1 },
+				]}
+			</FleetSubagentList>,
 		);
 
 		fireEvent.click(getByRole("button", { name: /Subagents completed/ }));

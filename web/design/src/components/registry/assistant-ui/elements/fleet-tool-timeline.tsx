@@ -7,6 +7,8 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol"
 import { cn } from "../../../../lib/utils"
 
+const NO_ARTIFACTS: readonly PrimeAgentArtifact[] = []
+
 type TimelineStep = {
 	id: string
 	icon: typeof Terminal
@@ -132,7 +134,7 @@ function statusClass(status: TimelineStep["status"]) {
  * @param streaming - Whether the chat is currently streaming
  * @param className - Additional CSS classes for the timeline
  */
-export function FleetToolTimeline({ messages, artifacts = [], streaming, className }: FleetToolTimelineProps) {
+export function FleetToolTimeline({ messages, artifacts = NO_ARTIFACTS, streaming, className }: FleetToolTimelineProps) {
 	const steps = useMemo(() => {
 		const seen = new Set<string>()
 		const fromMessages = messages.flatMap((message) =>

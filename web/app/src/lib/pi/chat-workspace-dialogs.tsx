@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
@@ -66,7 +66,10 @@ export function ChatCommandPaletteOverlay({
 }
 
 /**
- * Renders the workspace settings and fork picker dialogs when their state indicates they are open.
+ * Renders the workspace settings and fork picker dialogs.
+ *
+ * Both dialogs stay mounted and are driven via props so the dialog close
+ * path (including focus restoration) runs instead of unmounting mid-close.
  *
  * @param dialogs - Dialog state and handlers for managing settings and fork picker interactions.
  */
@@ -80,6 +83,14 @@ export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceDat
 		settingsDialogOpen,
 		settingsInitialTab,
 	} = dialogs;
+	const [hasOpenedSettingsDialog, setHasOpenedSettingsDialog] = useState(settingsDialogOpen);
+	const [hasOpenedForkPickerDialog, setHasOpenedForkPickerDialog] = useState(forkPickerEntries !== null);
+	useEffect(() => {
+		if (settingsDialogOpen) setHasOpenedSettingsDialog(true);
+	}, [settingsDialogOpen]);
+	useEffect(() => {
+		if (forkPickerEntries !== null) setHasOpenedForkPickerDialog(true);
+	}, [forkPickerEntries]);
 	const handleSettingsOpenChange = useCallback(
 		(open: boolean) => {
 			setSettingsDialogOpen(open);
@@ -90,16 +101,16 @@ export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceDat
 
 	return (
 		<>
-			{settingsDialogOpen ? (
+			{hasOpenedSettingsDialog ? (
 				<Suspense fallback={null}>
 					<LazySettingsDialog
-						open
+						open={settingsDialogOpen}
 						onOpenChange={handleSettingsOpenChange}
 						initialTab={settingsInitialTab}
 					/>
 				</Suspense>
 			) : null}
-			{forkPickerEntries ? (
+			{hasOpenedForkPickerDialog ? (
 				<Suspense fallback={null}>
 					<LazyForkPickerDialog
 						entries={forkPickerEntries}

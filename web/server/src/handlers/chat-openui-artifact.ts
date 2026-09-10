@@ -3,6 +3,7 @@ import { ChatOpenUIArtifactUpsertRequestSchema } from "@prime-agent/web-protocol
 import { stablePresentationId } from "../prime-agent-presentation";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+import { requireProjectSession } from "./session-access";
 
 function record(value: unknown): Record<string, unknown> | undefined {
 	return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
@@ -28,7 +29,9 @@ export function handleChatOpenUIArtifactPut(request: Request): Promise<Response>
 
 		const bridge = getBridge();
 		const session = bridge.getSession(body.sessionId) ?? (await bridge.resumeSessionById(body.sessionId));
-		if (!session) return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
+		if (!session || !(await requireProjectSession(session))) {
+			return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
+		}
 
 		const messages = await bridge.getMessages(session.sessionId);
 		const incomingId = body.assistantMessageId;
@@ -64,5 +67,5 @@ export function handleChatOpenUIArtifactPut(request: Request): Promise<Response>
 		};
 		const presentation = await bridge.upsertPresentationArtifact(session.sessionId, artifact);
 		return Response.json({ artifact, presentation });
-	});
+	}, request);
 }

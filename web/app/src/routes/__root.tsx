@@ -16,6 +16,7 @@ import {
 } from "@prime-agent/web-design/lib/ui-preferences"
 
 import appCss from "@prime-agent/web-design/globals.css?url"
+import interWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url"
 import { getQueryClient } from "@/lib/query-client"
 import { initAnalytics } from "@/lib/analytics-stub"
 
@@ -37,6 +38,13 @@ export const Route = createRootRoute({
       {
         rel: "stylesheet",
         href: appCss,
+      },
+      {
+        rel: "preload",
+        href: interWoff2,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
       },
       {
         rel: "icon",

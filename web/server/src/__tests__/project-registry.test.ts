@@ -118,6 +118,24 @@ describe("ProjectRegistry", () => {
 		await expect(registry.register("relative/path")).rejects.toThrow("absolute");
 	});
 
+	it("protects GitHub CLI credentials under a relocated XDG config home", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
+		temporaryDirectories.push(root);
+		const xdgConfigHome = join(root, "xdg-config");
+		const githubConfig = join(xdgConfigHome, "gh");
+		await mkdir(githubConfig, { recursive: true });
+
+		const previousXdgConfigHome = process.env.XDG_CONFIG_HOME;
+		process.env.XDG_CONFIG_HOME = xdgConfigHome;
+		try {
+			const registry = new ProjectRegistry(join(root, ".prime-agent"), root);
+			await expect(registry.register(githubConfig)).rejects.toThrow("credentials directory");
+		} finally {
+			if (previousXdgConfigHome === undefined) delete process.env.XDG_CONFIG_HOME;
+			else process.env.XDG_CONFIG_HOME = previousXdgConfigHome;
+		}
+	});
+
 	it("filters directories without starvation from regular files and skips broken links", async () => {
 		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
 		temporaryDirectories.push(root);

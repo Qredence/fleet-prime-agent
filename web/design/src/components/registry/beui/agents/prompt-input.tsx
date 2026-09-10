@@ -126,7 +126,9 @@ export function PromptInput({
   }, [resizeTextarea]);
 
   const resizeRef = useRef(resizeTextarea);
-  resizeRef.current = resizeTextarea;
+  useEffect(() => {
+    resizeRef.current = resizeTextarea;
+  });
 
   useEffect(() => {
     const textarea = textareaRef.current;

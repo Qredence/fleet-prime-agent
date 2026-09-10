@@ -210,17 +210,38 @@ export function useChatWorkspaceData() {
 		setUploadedAttachments([]);
 		setWorkspaceAttachments([]);
 	}, []);
+	// In-flight session-creation memo mirroring sessionCreatePromiseRef in
+	// use-pi-chat-messaging.ts. startNewSession is fire-and-forget from several
+	// call sites (header/sidebar new-session buttons, attachment upload), so two
+	// concurrent invocations would otherwise create two sessions. Concurrent
+	// callers reuse the in-flight creation and share its result.
+	const workspaceSessionCreatePromiseRef = useRef<{
+		key: string;
+		promise: Promise<ChatSessionMetadata>;
+	} | null>(null);
 	const startNewSessionForWorkspace = useCallback(
-		async (options?: { projectId?: ProjectId; preserveRunning?: boolean }) => {
-			const currentMetadata = getSessionMetadata();
-			const targetProjectId = options?.projectId ?? activeProjectId;
-			const currentWorkspaceMetadata = {
-				...currentMetadata,
-				projectId: currentMetadata.projectId ?? activeProjectId,
-			};
-			const shouldClear = shouldClearPendingAttachmentsForNewSession(currentWorkspaceMetadata, targetProjectId);
-			await startNewSession(options);
-			if (shouldClear) clearPendingAttachments();
+		async (options?: { projectId?: ProjectId; preserveRunning?: boolean }): Promise<ChatSessionMetadata> => {
+			const key = `${options?.projectId ?? ""}::${options?.preserveRunning ?? ""}`;
+			const inFlight = workspaceSessionCreatePromiseRef.current;
+			if (inFlight && inFlight.key === key) return inFlight.promise;
+			const promise: Promise<ChatSessionMetadata> = (async () => {
+				const currentMetadata = getSessionMetadata();
+				const targetProjectId = options?.projectId ?? activeProjectId;
+				const currentWorkspaceMetadata = {
+					...currentMetadata,
+					projectId: currentMetadata.projectId ?? activeProjectId,
+				};
+				const shouldClear = shouldClearPendingAttachmentsForNewSession(currentWorkspaceMetadata, targetProjectId);
+				await startNewSession(options);
+				if (shouldClear) clearPendingAttachments();
+				return getSessionMetadata();
+			})().finally(() => {
+				if (workspaceSessionCreatePromiseRef.current?.promise === promise) {
+					workspaceSessionCreatePromiseRef.current = null;
+				}
+			});
+			workspaceSessionCreatePromiseRef.current = { key, promise };
+			return promise;
 		},
 		[activeProjectId, clearPendingAttachments, getSessionMetadata, startNewSession],
 	);
@@ -277,8 +298,8 @@ export function useChatWorkspaceData() {
 	const deleteSessionForWorkspace = useCallback(
 		async (sessionId: string) => {
 			const deletingActiveSession = getSessionMetadata().sessionId === sessionId;
-			await deleteSession(sessionId);
-			if (deletingActiveSession) clearPendingAttachments();
+			const deleted = await deleteSession(sessionId);
+			if (deleted && deletingActiveSession) clearPendingAttachments();
 		},
 		[clearPendingAttachments, deleteSession, getSessionMetadata],
 	);
@@ -358,8 +379,8 @@ export function useChatWorkspaceData() {
 			void (async () => {
 				const files = Array.from(input.files ?? []);
 				if (files.length === 0) return;
-				if (!getSessionMetadata().sessionId) await startNewSessionForWorkspace();
-				const sessionId = getSessionMetadata().sessionId;
+				const existingSessionId = getSessionMetadata().sessionId;
+				const sessionId = existingSessionId ?? (await startNewSessionForWorkspace()).sessionId;
 				if (!sessionId) throw new Error("Unable to create a session for attachments");
 				const uploaded = await chatClient.uploadAttachments(sessionId, files);
 				setUploadedAttachments((current) => [...current, ...uploaded]);
@@ -374,6 +395,17 @@ export function useChatWorkspaceData() {
 	}, []);
 	const clearUploadedAttachments = useCallback(() => setUploadedAttachments([]), []);
 	const clearWorkspaceAttachments = useCallback(() => setWorkspaceAttachments([]), []);
+	const restoreAttachments = useCallback(
+		(uploaded: Array<UploadedAttachment>, workspace: Array<WorkspaceAttachment>) => {
+			if (uploaded.length > 0) {
+				setUploadedAttachments((current) => [...uploaded, ...current]);
+			}
+			if (workspace.length > 0) {
+				setWorkspaceAttachments((current) => [...workspace, ...current]);
+			}
+		},
+		[],
+	);
 	const addWorkspaceAttachment = useCallback((item: Parameters<typeof workspacePathFromSuggestion>[0]) => {
 		const relativePath = workspacePathFromSuggestion(item);
 		if (!relativePath) return;
@@ -458,11 +490,11 @@ export function useChatWorkspaceData() {
 		setSettingsDialogOpen(true);
 	}, []);
 	const handleOpenUIRequest = useCallback(
-		(request: string) => {
+		async (request: string) => {
 			const attachments = [...workspaceAttachments, ...uploadedAttachments];
 			clearUploadedAttachments();
 			clearWorkspaceAttachments();
-			return sendMessage({
+			const sent = await sendMessage({
 				text: request,
 				altKey: false,
 				mode: chatMode,
@@ -470,11 +502,13 @@ export function useChatWorkspaceData() {
 				openUIArtifact: true,
 				attachments,
 			});
+			if (!sent) restoreAttachments(uploadedAttachments, workspaceAttachments);
 		},
 		[
 			chatMode,
 			clearUploadedAttachments,
 			clearWorkspaceAttachments,
+			restoreAttachments,
 			sendMessage,
 			uploadedAttachments,
 			workspaceAttachments,
@@ -642,6 +676,7 @@ export function useChatWorkspaceData() {
 			removeUploadedAttachment,
 			removeWorkspaceAttachment,
 			addWorkspaceAttachment,
+			restoreAttachments,
 			setChatMode,
 			setEffortPickerOpen,
 			setModelKey,

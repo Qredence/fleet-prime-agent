@@ -1,4 +1,5 @@
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "./chat-client";
@@ -16,6 +17,78 @@ describe("usePiChatSessionEvents", () => {
 	afterEach(() => {
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
+	});
+
+	it("merges question updates into the active assistant bubble", async () => {
+		class EventSourceStub {
+			static instances: EventSourceStub[] = [];
+			readonly close = vi.fn();
+			onerror: (() => void) | null = null;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			constructor() {
+				EventSourceStub.instances.push(this);
+			}
+		}
+		vi.stubGlobal("EventSource", EventSourceStub);
+		let messages: Array<ChatMessage> = [
+			{ id: "active-assistant", role: "assistant", parts: [{ type: "text", text: "" }] },
+		];
+		const setMessagesSynced = vi.fn(
+			(updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => {
+				messages = typeof updater === "function" ? updater(messages) : updater;
+			},
+		);
+		const statusRef = { current: "streaming" as const };
+		renderHook(() =>
+			usePiChatSessionEvents({
+				client: {} as ChatClient,
+				presentationRef: { current: EMPTY_PRESENTATION },
+				sessionId: "session-a",
+				sessionMetadataRef: { current: { sessionId: "session-a" } },
+				setActivityLabelSynced: vi.fn(),
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced,
+				setPresentationSynced: vi.fn(),
+				setQueueSynced: vi.fn(),
+				setSessionMetadataSynced: vi.fn(),
+				statusRef,
+			}),
+		);
+		const source = EventSourceStub.instances[0]!;
+		await act(async () => {
+			source.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "tool",
+						part: { type: "tool-Question", toolCallId: "question-1", state: "input-streaming", input: { title: "Choose" } },
+					}),
+				}),
+			);
+		});
+		expect(messages).toHaveLength(1);
+		expect(messages[0]?.parts).toContainEqual(expect.objectContaining({ toolCallId: "question-1", state: "input-streaming" }));
+		messages = [
+			{
+				id: "duplicate-question",
+				role: "assistant",
+				parts: [{ type: "tool-Question", toolCallId: "question-1", state: "input-streaming" }],
+			},
+			...messages,
+		];
+
+		await act(async () => {
+			source.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "tool",
+						part: { type: "tool-Question", toolCallId: "question-1", state: "output-available", output: { choice: "yes" } },
+					}),
+				}),
+			);
+		});
+		expect(messages).toHaveLength(1);
+		expect(messages[0]?.id).toBe("active-assistant");
+		expect(messages[0]?.parts).toContainEqual(expect.objectContaining({ toolCallId: "question-1", state: "output-available" }));
 	});
 
 	it("ignores an agent-settled hydration that resolves after the visible session changes", async () => {

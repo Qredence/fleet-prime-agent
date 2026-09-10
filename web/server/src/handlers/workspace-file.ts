@@ -11,5 +11,5 @@ export function handleWorkspaceFileGet(request: Request): Promise<Response> {
 			return Response.json({ message: result.message }, { status: result.status });
 		}
 		return Response.json(result.body);
-	});
+	}, request);
 }

@@ -185,7 +185,7 @@ export function ComposerMenuItem({
       data-slot="composer-menu-item"
       data-active={active || undefined}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-[13.5px] transition-colors",
+        "flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-[0.84375rem] transition-colors",
         active ? field : "hover:bg-foreground/[0.04]",
         className,
       )}
@@ -210,7 +210,7 @@ export function ComposerCommandItem({
         {command.description}
       </span>
       {active && (
-        <kbd className="bg-foreground/[0.06] text-foreground/45 rounded px-1 font-mono text-[10px]">
+        <kbd className="bg-foreground/[0.06] text-foreground/45 rounded px-1 font-mono text-[0.625rem]">
           ↵
         </kbd>
       )}
@@ -228,7 +228,7 @@ export function ComposerPersonItem({
 }) {
   return (
     <ComposerMenuItem active={active} {...props}>
-      <span className="bg-foreground/[0.06] text-foreground/45 flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-medium">
+      <span className="bg-foreground/[0.06] text-foreground/45 flex size-5 shrink-0 items-center justify-center rounded-full text-[0.5625rem] font-medium">
         {person.name[0]}
       </span>
       <span className="flex-1 truncate text-start">{person.name}</span>
@@ -280,7 +280,7 @@ export function ComposerAttachmentChip({
         </span>
         <span
           className={cn(
-            "text-[11px]",
+            "text-[0.6875rem]",
             attachment.state === "error"
               ? "text-red-600/80 dark:text-red-400/80"
               : "text-foreground/40",
@@ -332,7 +332,7 @@ export function ComposerInput({
         onSubmit?.();
       }}
       className={cn(
-        "placeholder:text-foreground/35 min-h-11 w-full bg-transparent px-3 text-[15px] caret-blue-500 outline-none dark:caret-blue-400",
+        "placeholder:text-foreground/35 min-h-11 w-full bg-transparent px-3 text-[0.9375rem] caret-blue-500 outline-none dark:caret-blue-400",
         className,
       )}
       {...props}
@@ -379,7 +379,7 @@ export function ComposerVoice({
           0:{String(seconds).padStart(2, "0")}
         </span>
       ) : (
-        <ShimmerLabel className="text-foreground/55 relative text-[13px]">
+        <ShimmerLabel className="text-foreground/55 relative text-[0.8125rem]">
           Transcribing
         </ShimmerLabel>
       )}
@@ -450,7 +450,7 @@ export function ComposerModelTrigger({
       aria-expanded={open}
       data-slot="composer-model-trigger"
       className={cn(
-        "text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/90 dark:hover:bg-foreground/[0.09] flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] transition-colors",
+        "text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/90 dark:hover:bg-foreground/[0.09] flex h-8 items-center gap-1.5 rounded-full px-3 text-[0.78125rem] transition-colors",
         className,
       )}
       {...props}
@@ -516,7 +516,7 @@ export function ComposerContext({
         )}
       >
         <div className="flex items-baseline justify-between">
-          <p className="text-[13.5px] font-medium">Context</p>
+          <p className="text-[0.84375rem] font-medium">Context</p>
           <p
             className={cn(
               mono,
@@ -543,7 +543,7 @@ export function ComposerContext({
           {segments.map((segment) => (
             <div
               key={segment.label}
-              className="text-foreground/55 flex items-center gap-2.5 text-[13px]"
+              className="text-foreground/55 flex items-center gap-2.5 text-[0.8125rem]"
             >
               <span
                 aria-hidden
@@ -557,7 +557,7 @@ export function ComposerContext({
           ))}
         </div>
         <div className="bg-foreground/[0.06] h-px" />
-        <div className="text-foreground/55 flex items-center justify-between text-[13px]">
+        <div className="text-foreground/55 flex items-center justify-between text-[0.8125rem]">
           <span>Total</span>
           <span className={cn(mono, "text-foreground/40 tabular-nums")}>
             {used}k / {usage.total}k

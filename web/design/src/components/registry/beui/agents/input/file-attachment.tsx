@@ -186,7 +186,7 @@ export function FileAttachment({
               {filename}
             </span>
             {size !== undefined && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[0.625rem] text-muted-foreground">
                 {formatFileSize(size)}
               </span>
             )}

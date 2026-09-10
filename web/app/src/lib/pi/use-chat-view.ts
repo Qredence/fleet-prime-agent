@@ -9,23 +9,6 @@ import type {
 import type { ChatMessage, ChatToolPart } from "@prime-agent/web-protocol/chat-types";
 import { useMemo } from "react";
 
-export function useActiveSessionLabel({
-	activeSessionId,
-	messages,
-	presentation,
-	sessions,
-}: {
-	activeSessionId: string | undefined;
-	messages: Array<ChatMessage>;
-	presentation?: PrimeAgentSessionPresentation;
-	sessions: Array<ChatSessionInfo>;
-}) {
-	return useMemo(
-		() => getActiveSessionLabel(activeSessionId, sessions, messages, presentation),
-		[activeSessionId, messages, presentation, sessions],
-	);
-}
-
 export function useChatSuggestions({
 	messages,
 	resources,

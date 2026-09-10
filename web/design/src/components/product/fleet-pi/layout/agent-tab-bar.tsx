@@ -3,32 +3,13 @@ import { useCallback, useEffect, useRef, type KeyboardEvent } from "react"
 import { Button } from "../../../ui/button"
 import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol"
 import { cn } from "../../../../lib/utils"
+import { agentTabPanelId, agentTabTriggerId } from "./agent-tab-ids"
 
 export type AgentTabItem = {
   id: string
   label: string
   kind: "main" | "subagent"
   status?: PrimeAgentRlmChild["status"]
-}
-
-/**
- * Creates a deterministic ARIA ID for an agent tab trigger.
- *
- * @param tabId - The tab identifier to encode
- * @returns The encoded tab trigger ID
- */
-export function agentTabTriggerId(tabId: string) {
-  return `agent-tab-${encodeURIComponent(tabId)}`
-}
-
-/**
- * Generates the ARIA ID for an agent tab panel.
- *
- * @param tabId - The tab identifier to encode in the panel ID
- * @returns The encoded agent tab panel ID
- */
-export function agentTabPanelId(tabId: string) {
-  return `agent-tab-panel-${encodeURIComponent(tabId)}`
 }
 
 /**
@@ -164,7 +145,7 @@ export function AgentTabBar({
                 aria-selected={active}
                 aria-label={`${tab.label}, ${status}`}
                 className={cn(
-                  "h-7 w-full min-w-0 justify-start text-left gap-1.5 rounded-[7px] border border-transparent px-2 text-[12px] font-medium leading-none transition-colors motion-reduce:transition-none",
+                  "h-7 w-full min-w-0 justify-start text-left gap-1.5 rounded-[7px] border border-transparent px-2 text-[0.75rem] font-medium leading-none transition-colors motion-reduce:transition-none",
                   active
                     ? "bg-surface-4 text-foreground shadow-none"
                     : "bg-transparent text-foreground/45 hover:bg-foreground/5 hover:text-foreground/75",

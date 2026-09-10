@@ -157,7 +157,7 @@ export function listChatProviders(): Array<ChatProviderInfo> {
 export function handleChatProvidersGet(_request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		return Response.json({ providers: buildProviders() });
-	});
+	}, _request);
 }
 
 function requireBaseUrl(baseUrl: string | undefined, providerId: string): string {
@@ -259,7 +259,7 @@ export function handleChatProvidersPost(request: Request): Promise<Response> {
 			success: true,
 			providers: buildProviders(),
 		});
-	});
+	}, request);
 }
 
 export function handleChatProvidersDelete(request: Request): Promise<Response> {
@@ -280,5 +280,5 @@ export function handleChatProvidersDelete(request: Request): Promise<Response> {
 			success: true,
 			providers: buildProviders(),
 		});
-	});
+	}, request);
 }

@@ -10,7 +10,7 @@ import type {
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import type { MutableRefObject } from "react";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { captureChatSessionStarted, captureConversationSaved } from "@/lib/analytics-stub";
 import type { ChatClient } from "./chat-client";
 import { notifyChatError } from "./chat-error-notify";
@@ -134,6 +134,10 @@ export function usePiChatMessaging({
 	const streamAdmissionsRef = useRef(new Set<StreamAdmission>());
 	const queuedSubmissionTailRef = useRef(RESOLVED_PROMISE);
 	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
+	const projectIdRef = useRef(projectId);
+	useEffect(() => {
+		projectIdRef.current = projectId;
+	}, [projectId]);
 	const findStreamAdmission = useCallback((sessionId?: string) => {
 		for (const admission of streamAdmissionsRef.current) {
 			if (admission.sessionId === sessionId) return admission;
@@ -192,7 +196,7 @@ export function usePiChatMessaging({
 			const inFlight = sessionCreatePromiseRef.current;
 			if (inFlight) return inFlight;
 			const promise = client
-				.createSession(projectId, signal)
+				.createSession(projectIdRef.current, signal)
 				.then((created) => {
 					if (signal?.aborted) throw new Error("Session creation was aborted");
 					setSessionMetadataSynced(created.session);
@@ -209,7 +213,7 @@ export function usePiChatMessaging({
 			sessionCreatePromiseRef.current = promise;
 			return promise;
 		},
-		[client, projectId, refreshSessions, sessionMetadataRef, setPresentationSynced, setSessionMetadataSynced],
+		[client, refreshSessions, sessionMetadataRef, setPresentationSynced, setSessionMetadataSynced],
 	);
 	const handleStreamEvent = useCallback(
 		(
@@ -441,7 +445,7 @@ export function usePiChatMessaging({
 			altKey,
 		}: SendMessageInput) => {
 			const trimmed = text.trim();
-			if (!trimmed) return;
+			if (!trimmed) return false;
 
 			if (
 				status === "submitted" ||
@@ -458,12 +462,13 @@ export function usePiChatMessaging({
 						openUIArtifact,
 						planAction,
 					});
+					return true;
 				} catch (err) {
 					const nextError = err instanceof Error ? err : new Error(String(err));
 					setError(nextError);
 					notifyChatError(nextError);
+					return false;
 				}
-				return;
 			}
 
 			setError(null);
@@ -490,7 +495,7 @@ export function usePiChatMessaging({
 
 			try {
 				const ensuredSession = await ensureSession(controller.signal);
-				if (controller.signal.aborted) return;
+				if (controller.signal.aborted) return false;
 				const ensuredStreamSessionId = ensuredSession.sessionId;
 				if (!ensuredStreamSessionId) throw new Error("Unable to start a session stream");
 				streamSessionId = ensuredStreamSessionId;
@@ -543,27 +548,29 @@ export function usePiChatMessaging({
 					messageCount: messagesRef.current.length,
 					sessionId: ensuredStreamSessionId,
 				});
+				return true;
 			} catch (err) {
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(err);
 				}
 				setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
-				if (controller.signal.aborted) return;
+				if (controller.signal.aborted) return false;
 				if (streamSessionId && sessionMetadataRef.current.sessionId !== streamSessionId) {
 					void refreshSessions();
-					return;
+					return false;
 				}
 				const recoveryDeps = { setError, setStatus };
 				const recovered =
 					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
 					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
 				if (recovered) {
-					return;
+					return false;
 				}
 				const nextError = err instanceof Error ? err : new Error(String(err));
 				setError(nextError);
 				setStatus("error");
 				notifyChatError(nextError);
+				return false;
 			} finally {
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(new Error("Chat stream ended before admission"));

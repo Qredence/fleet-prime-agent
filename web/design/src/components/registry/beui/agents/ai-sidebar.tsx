@@ -466,7 +466,7 @@ function getResourceRowClassName(
   disabled?: boolean,
 ) {
   return cn(
-    "group/resource relative flex min-h-8 min-w-0 cursor-pointer items-center gap-2 rounded-lg pr-2 text-[13px] outline-none",
+    "group/resource relative flex min-h-8 min-w-0 cursor-pointer items-center gap-2 rounded-lg pr-2 text-[0.8125rem] outline-none",
     "text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
     "focus-visible:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
     "data-[menu-open=true]:bg-muted data-[menu-open=true]:text-foreground",
@@ -880,7 +880,7 @@ function ResourceList({
           <div
             aria-hidden="true"
             data-active={dropTarget?.id === null || undefined}
-            className="absolute inset-x-1 bottom-0 flex h-8 items-center justify-center rounded-lg border border-dashed border-border text-[10px] text-muted-foreground data-[active=true]:border-primary/50 data-[active=true]:bg-primary/10 data-[active=true]:text-foreground"
+            className="absolute inset-x-1 bottom-0 flex h-8 items-center justify-center rounded-lg border border-dashed border-border text-[0.625rem] text-muted-foreground data-[active=true]:border-primary/50 data-[active=true]:bg-primary/10 data-[active=true]:text-foreground"
           >
             Move to top level
           </div>

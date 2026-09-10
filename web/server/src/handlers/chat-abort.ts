@@ -2,6 +2,7 @@ import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { z } from "zod";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+import { requireProjectSession } from "./session-access";
 
 const BodySchema = z.object({
 	sessionId: SessionIdSchema.optional(),
@@ -17,6 +18,10 @@ export function handleChatAbortPost(request: Request): Promise<Response> {
 			return Response.json({ message: "abort requires sessionId" }, { status: 400 });
 		}
 		const bridge = getBridge();
+		const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
+		if (!(await requireProjectSession(session))) {
+			return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
+		}
 		if (body.childId) {
 			const aborted = await bridge.abortRlmChild(sessionId, body.childId);
 			if (!aborted) {
@@ -26,5 +31,5 @@ export function handleChatAbortPost(request: Request): Promise<Response> {
 		}
 		await bridge.abort(sessionId);
 		return Response.json({ ok: true, sessionId });
-	});
+	}, request);
 }

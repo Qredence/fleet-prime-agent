@@ -60,7 +60,7 @@ export const EffortPicker = memo(function EffortPicker({
         <button
           type="button"
           className={cn(
-            "relative inline-flex h-7 cursor-pointer items-center gap-1 rounded-full px-2 text-[12px] leading-4 text-foreground/40 transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-1.5 after:-bottom-1.5 hover:bg-foreground/6 active:scale-[0.96]",
+            "relative inline-flex h-7 cursor-pointer items-center gap-1 rounded-full px-2 text-[0.75rem] leading-4 text-foreground/40 transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-1.5 after:-bottom-1.5 hover:bg-foreground/6 active:scale-[0.96]",
             className
           )}
           aria-label="Select effort"
@@ -80,7 +80,7 @@ export const EffortPicker = memo(function EffortPicker({
             aria-current={isActive ? "true" : undefined}
             onClick={() => handleSelect(level)}
             className={cn(
-              "flex w-full cursor-pointer items-start gap-2 rounded-[6px] px-2 py-2 text-left text-[12px] leading-4 text-an-foreground transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.96]",
+              "flex w-full cursor-pointer items-start gap-2 rounded-[6px] px-2 py-2 text-left text-[0.75rem] leading-4 text-an-foreground transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.96]",
               isActive && "bg-foreground/6"
             )}
           >

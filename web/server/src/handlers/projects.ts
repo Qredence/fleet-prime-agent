@@ -80,7 +80,7 @@ export function handleProjectsGet(_request: Request): Promise<Response> {
 				};
 			}),
 		});
-	});
+	}, _request);
 }
 
 export function handleProjectsPost(request: Request): Promise<Response> {
@@ -89,7 +89,7 @@ export function handleProjectsPost(request: Request): Promise<Response> {
 		const registry = getPrimeConfig().projectRegistry;
 		const path = await registry.resolveDirectoryInput(body);
 		return Response.json({ project: await registry.register(path, body.name) }, { status: 201 });
-	});
+	}, request);
 }
 
 export function handleProjectPatch(request: Request): Promise<Response> {
@@ -97,14 +97,14 @@ export function handleProjectPatch(request: Request): Promise<Response> {
 		const projectId = ProjectIdSchema.parse(new URL(request.url).searchParams.get("projectId") ?? "");
 		const body = ProjectRenameRequestSchema.parse(await request.json().catch(() => ({})));
 		return Response.json({ project: await getPrimeConfig().projectRegistry.rename(projectId, body.name) });
-	});
+	}, request);
 }
 
 export function handleProjectDelete(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const projectId = ProjectIdSchema.parse(new URL(request.url).searchParams.get("projectId") ?? "");
 		return Response.json({ project: await getPrimeConfig().projectRegistry.unregister(projectId) });
-	});
+	}, request);
 }
 
 export function handleProjectSessionFork(request: Request): Promise<Response> {
@@ -112,7 +112,7 @@ export function handleProjectSessionFork(request: Request): Promise<Response> {
 		const body = ProjectForkRequestSchema.parse(await request.json().catch(() => ({})));
 		const sessionId = await getBridge().forkSessionIntoProject(body.sessionId, body.targetProjectId);
 		return Response.json({ sessionId, projectId: body.targetProjectId }, { status: 201 });
-	});
+	}, request);
 }
 
 export function handleProjectBrowseGet(request: Request): Promise<Response> {
@@ -123,5 +123,5 @@ export function handleProjectBrowseGet(request: Request): Promise<Response> {
 			token: url.searchParams.get("token") ?? undefined,
 		});
 		return Response.json(result);
-	});
+	}, request);
 }

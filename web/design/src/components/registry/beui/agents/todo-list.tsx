@@ -314,7 +314,7 @@ export function TodoList({
           className="scrollbar-hide overflow-y-auto px-2 pb-2"
           style={{ maxHeight }}
         >
-          <ol aria-live="polite" className="space-y-0">
+          <ol aria-live={allComplete ? "polite" : "off"} className="space-y-0">
             <AnimatePresence initial={false} mode="popLayout">
               {items.map((item) => {
                   const status = item.status ?? "pending";

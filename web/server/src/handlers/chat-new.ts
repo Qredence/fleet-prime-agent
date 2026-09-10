@@ -47,5 +47,5 @@ export function handleChatNewPost(request: Request): Promise<Response> {
 			planPresentations: [],
 			presentation: bridge.getPresentation(session.sessionId),
 		});
-	});
+	}, request);
 }

@@ -69,7 +69,7 @@ function IpythonCardHeader({
   return (
     <div className="flex h-7 items-center justify-between pr-2 pl-2.5">
       <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-        <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground uppercase">
+        <span className="inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[0.625rem] leading-none text-muted-foreground uppercase">
           <Code2 className="h-3 w-3" />
           {isBashCell ? "shell" : "python"}
         </span>
@@ -117,8 +117,8 @@ function IpythonCardHeader({
  */
 function IpythonBackgroundOutput({ output }: { output: string }) {
   return (
-    <div className="mt-1.5 border-t border-dashed border-border/70 pt-1.5 font-mono text-[11px] leading-[15px]">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600/90 dark:text-amber-400/90">
+    <div className="mt-1.5 border-t border-dashed border-border/70 pt-1.5 font-mono text-[0.6875rem] leading-[15px]">
+      <span className="text-[0.625rem] font-semibold uppercase tracking-wider text-amber-600/90 dark:text-amber-400/90">
         Unattributed background output:
       </span>
       <div className="mt-0.5 max-h-[140px] overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-1.5 text-muted-foreground">
@@ -177,7 +177,7 @@ function IpythonCellCard({
         hasError={hasError}
         kernelRestarted={details?.kernelRestarted}
       />
-      <div className="overflow-hidden border-t border-border bg-background px-2.5 py-1.5 font-mono text-[12px] leading-[16px]">
+      <div className="overflow-hidden border-t border-border bg-background px-2.5 py-1.5 font-mono text-[0.75rem] leading-[16px]">
         <div className="break-all whitespace-pre-wrap">
           <span className="mr-2 text-cyan-600 select-none dark:text-cyan-400">
             {cellLabel}:

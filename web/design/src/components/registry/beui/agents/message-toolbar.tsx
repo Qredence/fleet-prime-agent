@@ -76,7 +76,7 @@ function CopyButton({
         "bg-transparent opacity-50 hover:bg-an-foreground/10 hover:opacity-100"
       )}
     >
-      <div className="relative h-3.5 w-3.5">
+      <div className="relative size-3.5">
         <Copy
           className={cn(
             "absolute inset-0 h-3.5 w-3.5 text-an-foreground-muted transition-[opacity,transform] duration-150 ease-out",

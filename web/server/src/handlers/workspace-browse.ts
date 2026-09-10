@@ -7,5 +7,5 @@ export function handleWorkspaceBrowseGet(request: Request): Promise<Response> {
 			{ message: "Workspace root switching is disabled; use /api/projects/browse for opaque directory tokens." },
 			{ status: 410 },
 		);
-	});
+	}, request);
 }

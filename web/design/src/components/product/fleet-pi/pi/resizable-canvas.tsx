@@ -87,7 +87,7 @@ export function ResizableCanvas({
             <div className="flex h-[var(--chat-header-height,44px)] min-h-[var(--chat-header-height,44px)] min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-1">
               <div className="min-w-0 flex-1">
                 {headerLeading ?? (
-                  <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground/80">
+                  <div className="flex min-w-0 items-center gap-2 text-[0.8125rem] font-medium text-foreground/80">
                     <TitleIcon className="size-3.5 shrink-0" />
                     <span>{title}</span>
                   </div>

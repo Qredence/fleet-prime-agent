@@ -1,6 +1,7 @@
 import { ChatModelsDiscoverRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { isOccFamilyApi } from "@prime-agent/web-protocol/provider-catalog";
 import { addCustomProviderModelIds, listCustomProviders, uiApiForCustomProvider } from "../custom-provider-store";
+import { isLoopbackHostname } from "../net";
 import { getPrimeConfig } from "../prime-config";
 import { wrapApiHandler } from "../wrap-api-handler";
 
@@ -8,6 +9,9 @@ export function openAiModelsUrl(baseUrl: string): URL {
 	const parsed = new URL(baseUrl);
 	if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
 		throw new Error("model discovery requires an http(s) URL");
+	}
+	if (parsed.protocol === "http:" && !isLoopbackHostname(parsed.hostname)) {
+		throw new Error("model discovery requires https for non-loopback hosts");
 	}
 	const path = parsed.pathname.replace(/\/+$/, "");
 	parsed.pathname = path.endsWith("/v1") ? `${path}/models` : `${path}/v1/models`;
@@ -50,10 +54,15 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 		try {
 			const modelsUrl = openAiModelsUrl(baseUrl);
 			// Stored provider credentials are sent to the user-configured provider
-			// endpoint; this is the model discovery auth flow.
+			// endpoint; this is the model discovery auth flow. Plain http stays
+			// allowed only for loopback hosts (local providers such as Ollama on
+			// localhost); non-loopback endpoints must be https so the Bearer key
+			// is never sent in cleartext, and redirects are rejected so the key
+			// cannot be forwarded cross-origin via redirect TOCTOU.
 			// codeql[js/file-access-to-http]
 			const response = await fetch(modelsUrl, {
 				headers: { Authorization: `Bearer ${apiKey}` },
+				redirect: "error",
 				signal: AbortSignal.timeout(10_000),
 			});
 			if (!response.ok) {
@@ -88,5 +97,5 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 		} catch {
 			return Response.json({ providerId: provider, models: [] });
 		}
-	});
+	}, request);
 }

@@ -10,5 +10,5 @@ export function handleWorkspaceTreeGet(_request: Request): Promise<Response> {
 		// The browser only needs a display label. Keep the canonical project
 		// directory server-owned; all tree/file paths remain workspace-relative.
 		return Response.json({ root: safePathLabel(root), nodes, diagnostics });
-	});
+	}, _request);
 }

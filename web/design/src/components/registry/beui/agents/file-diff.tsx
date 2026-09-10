@@ -219,7 +219,7 @@ export function FileDiff({
             <div
               ref={viewportRef}
               data-slot="file-diff-viewport"
-              aria-live="polite"
+              aria-live={streaming ? "off" : "polite"}
               className="scrollbar-hide overflow-auto"
               style={{ maxHeight }}
             >

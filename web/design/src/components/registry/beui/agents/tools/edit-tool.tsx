@@ -183,7 +183,7 @@ function EditToolDiffCard({
           )}
         </div>
         {step.diffStats && !isPending && (
-          <span className="inline-flex gap-2 font-mono text-[11px] text-an-tool-color-muted">
+          <span className="inline-flex gap-2 font-mono text-[0.6875rem] text-an-tool-color-muted">
             {step.diffStats.split(" ").map((token) => (
               <span
                 key={token}
@@ -202,7 +202,7 @@ function EditToolDiffCard({
         )}
       </div>
       {diffFiles ? (
-        <div className={`${diffClassName} text-[12px]`} style={diffCssVars}>
+        <div className={`${diffClassName} text-[0.75rem]`} style={diffCssVars}>
           <div
             className={isCollapsible ? "group/edit-diff relative" : "relative"}
           >

@@ -1,5 +1,5 @@
 import { AlertCircle, Bot, RefreshCw } from "lucide-react"
-import { useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type {
   PrimeAgentArtifact,
@@ -26,24 +26,13 @@ import { FleetPiToolRenderer } from "../chat/fleet-pi-tool-renderer"
 import { derivePrimeAgentArtifactRuns } from "./prime-agent-artifacts"
 import { PI_TOOL_RENDERERS } from "./tool-renderers"
 import { VirtualizedTurnList } from "../chat/virtualized-turn-list"
+import { transcriptStatus } from "./transcript-status"
 
 export type SubagentTranscriptState = {
   status: "loading" | "ready" | "error"
   messages: Array<ChatMessage>
   presentation?: PrimeAgentSessionPresentation
   error?: Error
-}
-
-/**
- * Maps a subagent's lifecycle state to the corresponding chat status.
- *
- * @param child - The subagent whose status determines the chat status
- * @returns `streaming` for running or recovering subagents, `error` for failed subagents, and `ready` otherwise
- */
-export function transcriptStatus(child: PrimeAgentRlmChild): ChatStatus {
-  if (child.status === "running" || child.status === "recovering") return "streaming"
-  if (child.status === "error" || child.status === "failed") return "error"
-  return "ready"
 }
 
 /**
@@ -107,10 +96,9 @@ export function SubagentTurnView({
                 ) : null}
                 <div className="flex flex-col gap-3">{assistantElements}</div>
                 {isLast && presentation ? (
-                  <FleetSubagentList
-                    children={presentation.rlmChildren}
-                    tree={presentation.rlmTree}
-                  />
+                  <FleetSubagentList tree={presentation.rlmTree}>
+                    {presentation.rlmChildren}
+                  </FleetSubagentList>
                 ) : null}
               </MessageBubbleContent>
             </MessageBubble>
@@ -119,6 +107,19 @@ export function SubagentTurnView({
       ) : null}
     </div>
   )
+}
+
+/**
+ * Stable key for a subagent conversation turn. Assistant-only turns have no
+ * user message, so fall back to the first assistant message id before the
+ * index: an index-only fallback shifts keys when a turn is prepended.
+ *
+ * @param turn - The conversation turn to key
+ * @param index - Positional fallback used only when the turn has no message ids
+ * @returns The stable key for the turn
+ */
+function getSubagentTurnKey(turn: ConversationTurn, index: number) {
+  return turn.user?.id ?? turn.assistants[0]?.id ?? `subagent-turn-${index}`
 }
 
 /**
@@ -160,7 +161,27 @@ export function SubagentTranscriptView({
     [childStatus, transcript],
   )
   const artifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns])
+  const presentation = transcript?.presentation
+  const renderSubagentTurn = useCallback(
+    (turn: ConversationTurn, index: number) => {
+      const isLast = index === turns.length - 1
+      return (
+        <SubagentTurnView
+          turn={turn}
+          isLast={isLast}
+          isStreaming={isLast && childStatus === "streaming"}
+          artifacts={isLast ? artifacts : []}
+          presentation={isLast ? presentation : undefined}
+        />
+      )
+    },
+    [artifacts, childStatus, presentation, turns.length]
+  )
   const title = child.sessionName || child.label
+  const [heartbeatLabel, setHeartbeatLabel] = useState<string | null>(null)
+  useEffect(() => {
+    setHeartbeatLabel(child.lastHeardFrom ? new Date(child.lastHeardFrom).toLocaleTimeString() : null)
+  }, [child.lastHeardFrom])
   const viewportRef = useRef<HTMLElement | null>(null)
 
   return (
@@ -174,16 +195,14 @@ export function SubagentTranscriptView({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/80">{title}</span>
-            <span className="shrink-0 text-[10px] capitalize text-foreground/45">{child.status}</span>
+            <span className="shrink-0 text-[0.625rem] capitalize text-foreground/45">{child.status}</span>
           </div>
-          {child.model ? <p className="truncate font-mono text-[10px] text-foreground/40">{child.model}</p> : null}
-          {child.lastHeardFrom ? (
-            <p className="truncate text-[10px] text-foreground/40">
-              Heartbeat: {new Date(child.lastHeardFrom).toLocaleTimeString()}
-            </p>
+          {child.model ? <p className="truncate font-mono text-[0.625rem] text-foreground/40">{child.model}</p> : null}
+          {heartbeatLabel ? (
+            <p className="truncate text-[0.625rem] text-foreground/40">Heartbeat: {heartbeatLabel}</p>
           ) : null}
           {child.answerPreview || child.recap ? (
-            <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[11px] leading-4 text-foreground/55">
+            <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[0.6875rem] leading-4 text-foreground/55">
               {child.answerPreview ?? child.recap}
             </p>
           ) : null}
@@ -204,26 +223,26 @@ export function SubagentTranscriptView({
       </div>
 
       {!parentSessionId ? (
-        <p className="rounded-md border border-dashed border-border/70 px-3 py-3 text-[11px] leading-4 text-foreground/45">
+        <p className="rounded-md border border-dashed border-border/70 p-3 text-[0.6875rem] leading-4 text-foreground/45">
           This subagent thread is unavailable until the parent session is active.
         </p>
       ) : transcript?.status === "loading" ? (
-        <div className={cn("flex items-center justify-center rounded-md border border-dashed border-border/70 text-[11px] text-foreground/45", fullWidth ? "min-h-32 flex-1" : "min-h-32")}>
+        <div className={cn("flex items-center justify-center rounded-md border border-dashed border-border/70 text-[0.6875rem] text-foreground/45", fullWidth ? "min-h-32 flex-1" : "min-h-32")}>
           Loading subagent thread…
         </div>
       ) : transcript?.status === "error" && turns.length === 0 ? (
-        <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11px] leading-4 text-destructive">
+        <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[0.6875rem] leading-4 text-destructive">
           <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
           <span>{transcript.error?.message ?? "Unable to load this subagent thread."}</span>
         </div>
       ) : turns.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/70 px-3 py-3 text-[11px] leading-4 text-foreground/45">
+        <p className="rounded-md border border-dashed border-border/70 p-3 text-[0.6875rem] leading-4 text-foreground/45">
           This subagent thread has no messages yet.
         </p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           {transcript?.error ? (
-            <div role="alert" className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11px] leading-4 text-destructive sm:mx-6">
+            <div role="alert" className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[0.6875rem] leading-4 text-destructive sm:mx-6">
               <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
               <span>{transcript.error.message}</span>
             </div>
@@ -244,21 +263,10 @@ export function SubagentTranscriptView({
             >
               <VirtualizedTurnList
                 estimateSize={320}
-                getItemKey={(turn, index) => turn.user?.id ?? `subagent-turn-${index}`}
+                getItemKey={getSubagentTurnKey}
                 itemGap={16}
                 items={turns}
-                renderItem={(turn, index) => {
-                  const isLast = index === turns.length - 1
-                  return (
-                    <SubagentTurnView
-                      turn={turn}
-                      isLast={isLast}
-                      isStreaming={isLast && childStatus === "streaming"}
-                      artifacts={isLast ? artifacts : []}
-                      presentation={isLast ? transcript?.presentation : undefined}
-                    />
-                  )
-                }}
+                renderItem={renderSubagentTurn}
                 viewportRef={viewportRef}
               />
             </MessageScroller>

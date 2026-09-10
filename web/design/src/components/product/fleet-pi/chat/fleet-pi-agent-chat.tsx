@@ -73,9 +73,11 @@ const LazyAgentActivity = lazy(() =>
  */
 function AgentActivity(props: ComponentProps<typeof LazyAgentActivity>) {
   return (
-    <Suspense fallback={<div className="mt-2 h-8 animate-pulse rounded-md bg-muted/40" aria-label="Loading activity" />}>
+    <div className="mt-2 min-h-8">
+      <Suspense fallback={<div className="h-8 animate-pulse rounded-md bg-muted/40" aria-label="Loading activity" />}>
       <LazyAgentActivity {...props} />
-    </Suspense>
+      </Suspense>
+    </div>
   )
 }
 
@@ -169,9 +171,11 @@ const LazyPromptSuggestions = lazy(() =>
  */
 function PromptSuggestions(props: ComponentProps<typeof LazyPromptSuggestions>) {
   return (
-    <Suspense fallback={<div className="h-8 animate-pulse rounded-full bg-muted/40" aria-label="Loading suggestions" />}>
+    <div className="min-h-8">
+      <Suspense fallback={<div className="h-8 animate-pulse rounded-full bg-muted/40" aria-label="Loading suggestions" />}>
       <LazyPromptSuggestions {...props} />
-    </Suspense>
+      </Suspense>
+    </div>
   )
 }
 
@@ -592,7 +596,7 @@ function AssistantMessage({
               />
             ) : null}
             {isLast && presentation ? (
-              <FleetSubagentList children={presentation.rlmChildren} tree={presentation.rlmTree} />
+              <FleetSubagentList tree={presentation.rlmTree}>{presentation.rlmChildren}</FleetSubagentList>
             ) : null}
           </MessageBubbleContent>
         </MessageBubble>
@@ -766,6 +770,19 @@ function ChatComposerHost({
 const MemoChatComposerHost = memo(ChatComposerHost)
 
 /**
+ * Stable key for a conversation turn. Assistant-only turns have no user
+ * message, so fall back to the first assistant message id before the index:
+ * an index-only fallback shifts keys when a turn is prepended.
+ *
+ * @param turn - The conversation turn to key
+ * @param turnIndex - Positional fallback used only when the turn has no message ids
+ * @returns The stable key for the turn
+ */
+function getConversationTurnKey(turn: ConversationTurn, turnIndex: number) {
+  return turn.user?.id ?? turn.assistants[0]?.id ?? `assistant-turn-${turnIndex}`
+}
+
+/**
  * Renders the Fleet Prime Agent chat interface with conversation turns, activity, suggestions, errors, and message input.
  *
  * @param messages - Conversation messages to display.
@@ -834,6 +851,20 @@ export function FleetPiAgentChat({
     () => ({ label: undefined, presentation: undefined, artifactRuns: undefined }),
     []
   )
+  const renderTurn = useCallback(
+    (turn: ConversationTurn, turnIndex: number) => {
+      const isLast = turnIndex === turns.length - 1
+      return (
+        <ConversationTurnView
+          turn={turn}
+          state={isLast ? stateForLast : stateForRest}
+          rendering={rendering}
+          activity={isLast ? activityForLast : activityForRest}
+        />
+      )
+    },
+    [activityForLast, activityForRest, rendering, stateForLast, stateForRest, turns.length]
+  )
   const isEmpty = turns.length === 0 && !error
   const errorPresentation = error ? getChatErrorPresentation(error) : null
   const composerNode = (
@@ -877,20 +908,10 @@ export function FleetPiAgentChat({
         ) : null}
         <VirtualizedTurnList
           estimateSize={400}
-          getItemKey={(turn, turnIndex) => turn.user?.id ?? `assistant-turn-${turnIndex}`}
+          getItemKey={getConversationTurnKey}
           itemGap={20}
           items={turns}
-          renderItem={(turn, turnIndex) => {
-            const isLast = turnIndex === turns.length - 1
-            return (
-              <ConversationTurnView
-                turn={turn}
-                state={isLast ? stateForLast : stateForRest}
-                rendering={rendering}
-                activity={isLast ? activityForLast : activityForRest}
-              />
-            )
-          }}
+          renderItem={renderTurn}
           viewportRef={viewportRef}
         />
         {errorPresentation ? (

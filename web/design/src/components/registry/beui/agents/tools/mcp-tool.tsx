@@ -222,7 +222,7 @@ export const McpTool = memo(function McpTool({
       >
         {codeBlock && (
           <LazyMarkdown
-            className="text-[12px]"
+            className="text-[0.75rem]"
             codeControls={false}
             content={codeBlock}
           />

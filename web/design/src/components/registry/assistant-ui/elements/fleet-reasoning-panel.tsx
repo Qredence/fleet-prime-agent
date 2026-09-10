@@ -52,7 +52,7 @@ export function FleetReasoningPanel({
         <div className="mb-1.5 flex flex-col gap-1.5 border-b border-border/45 pb-2.5">
           {activeStep?.body ? (
             <>
-              <ThinkingIndicator label={activeLabel} elapsed={elapsed} className="text-[13px]" />
+              <ThinkingIndicator label={activeLabel} elapsed={elapsed} className="text-[0.8125rem]" />
               <p className="pl-4 text-xs font-normal text-muted-foreground">
                 {activeStep.body}
               </p>
@@ -62,7 +62,7 @@ export function FleetReasoningPanel({
               label={activeLabel}
               tick={Math.floor((presentation.elapsedMs ?? 0) / 250)}
               variant="dots"
-              className="items-start gap-2 px-1 py-1 text-left"
+              className="items-start gap-2 p-1 text-left"
             />
           )}
         </div>

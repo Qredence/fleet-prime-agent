@@ -104,7 +104,7 @@ export function InputQuestionBar({
     >
       <div className="flex h-7 items-center justify-between border-b border-border px-3 text-xs text-an-tool-color-muted">
         <div className="inline-flex items-center gap-1.5">
-          <MessageCircleQuestion className="h-3.5 w-3.5" />
+          <MessageCircleQuestion className="size-3.5" />
           Question
         </div>
         {showQuestionNavigation && (
@@ -116,7 +116,7 @@ export function InputQuestionBar({
               className="relative inline-flex size-5 items-center justify-center rounded-[4px] transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-2.5 after:-bottom-2.5 hover:bg-an-background-secondary active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100"
               aria-label="Previous question"
             >
-              <ChevronUp className="h-3.5 w-3.5" />
+              <ChevronUp className="size-3.5" />
             </button>
             <span className="tabular-nums">
               {clampedQuestionIndex} of {totalQuestions}
@@ -128,7 +128,7 @@ export function InputQuestionBar({
               className="relative inline-flex size-5 items-center justify-center rounded-[4px] transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-2.5 after:-bottom-2.5 hover:bg-an-background-secondary active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100"
               aria-label="Next question"
             >
-              <ChevronDown className="h-3.5 w-3.5" />
+              <ChevronDown className="size-3.5" />
             </button>
           </div>
         )}

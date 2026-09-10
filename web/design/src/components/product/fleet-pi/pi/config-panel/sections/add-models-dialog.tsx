@@ -31,6 +31,7 @@ export type AddModelsDialogProps = {
   onAddModels: (models: Array<ConfigModelInfo>) => void
   onDiscoverProvider: (providerId: string) => Promise<void>
   onOpenChange: (open: boolean) => void
+  open: boolean
   /** Preferred labels for custom/OCC instance ids (display names). */
   providerLabel?: (providerId: string) => string
 }
@@ -50,6 +51,7 @@ export function AddModelsDialog({
   onAddModels,
   onDiscoverProvider,
   onOpenChange,
+  open,
   providerLabel = formatProviderLabel,
 }: AddModelsDialogProps) {
   const [filter, setFilter] = useState("")
@@ -110,7 +112,7 @@ export function AddModelsDialog({
   }
 
   return (
-    <Dialog open onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add models</DialogTitle>
@@ -175,7 +177,7 @@ export function AddModelsDialog({
             <div className="flex flex-col gap-3">
               {groupedCandidates.map(([provider, models]) => (
                 <div key={provider} className="flex flex-col gap-1">
-                  <div className="px-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                  <div className="px-2 text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
                     {providerLabel(provider)}
                     {(activeCountByProvider.get(provider) ?? 0) > 0 ? (
                       <span className="ml-1 font-normal normal-case tabular-nums">

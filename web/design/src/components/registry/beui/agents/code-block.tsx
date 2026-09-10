@@ -136,13 +136,13 @@ export function CodeBlock({
             {filename}
           </span>
 		) : null}
-		<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/55">
+		<span className="text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground/55">
 			{resolvedLanguageLabel}
 		</span>
 		{showStatus ? (
 			<span
 				className={cn(
-					"ml-auto inline-flex shrink-0 items-center gap-1 text-[10px] font-medium",
+					"ml-auto inline-flex shrink-0 items-center gap-1 text-[0.625rem] font-medium",
 					streaming
 						? "text-blue-600 dark:text-blue-400"
 						: "text-emerald-600 dark:text-emerald-400",
@@ -181,7 +181,7 @@ export function CodeBlock({
       <div
         ref={viewportRef}
         role={streaming ? "log" : undefined}
-        aria-live={streaming ? "polite" : undefined}
+        aria-live={streaming ? "off" : undefined}
         className="overflow-auto border-t border-foreground/[0.06] py-2 [scrollbar-color:color-mix(in_oklab,var(--muted-foreground)_35%,transparent)_transparent] [scrollbar-width:thin]"
         style={{ maxHeight }}
       >

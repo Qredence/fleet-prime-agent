@@ -28,5 +28,5 @@ export function handleChatResumePost(request: Request): Promise<Response> {
 			});
 		}
 		return Response.json({ message: "resume requires sessionId" }, { status: 400 });
-	});
+	}, request);
 }

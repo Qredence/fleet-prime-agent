@@ -143,7 +143,7 @@ export const PlanTool = memo(function PlanTool({
           <div className="flex items-center justify-between gap-2 px-3">
             <div className="text-sm text-an-tool-color">{plan.title}</div>
             {actionLabel ? (
-              <div className="rounded-full border border-border px-2 py-0.5 text-[11px] text-an-tool-color-muted">
+              <div className="rounded-full border border-border px-2 py-0.5 text-[0.6875rem] text-an-tool-color-muted">
                 {actionLabel}
               </div>
             ) : null}
@@ -193,11 +193,11 @@ export const PlanTool = memo(function PlanTool({
               {isExpanded ? "Hide detailed plan" : "Read detailed plan"}
             </button>
             {canAct ? (
-              <div className="text-[11px] text-an-tool-color-muted">
+              <div className="text-[0.6875rem] text-an-tool-color-muted">
                 Choose what to do with this plan.
               </div>
             ) : isAlreadyApproved ? (
-              <div className="text-[11px] text-an-tool-color-muted">
+              <div className="text-[0.6875rem] text-an-tool-color-muted">
                 Approved
               </div>
             ) : null}

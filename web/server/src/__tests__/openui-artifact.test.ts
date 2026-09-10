@@ -15,6 +15,17 @@ import {
 import type { BridgeSession, PrimeBridge } from "../prime-bridge";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
 
+vi.mock("../prime-config", () => ({
+	getPrimeConfig: () => ({
+		projectRegistry: {
+			get: async (projectId: string) => {
+				if (projectId === "project-1") return { projectId };
+				throw new Error("Unknown project");
+			},
+		},
+	}),
+}));
+
 const VALID_DOCUMENT = `<!doctype html>
 <html>
   <head><style>body { color: #123; }</style></head>
@@ -202,6 +213,7 @@ describe("handleChatOpenUIArtifactPut", () => {
 		}));
 		const session = {
 			sessionId: "session-1",
+			projectId: "project-1",
 			sessionPath: "/tmp/session-1.jsonl",
 		} as unknown as BridgeSession;
 		setBridgeForTests({

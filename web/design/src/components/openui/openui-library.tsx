@@ -446,7 +446,7 @@ export const CodeBlockDef = defineComponent({
     return (
       <pre className="w-full overflow-x-auto rounded-lg bg-muted p-3 text-xs">
         {language && (
-          <div className="mb-2 text-[10px] text-muted-foreground uppercase">
+          <div className="mb-2 text-[0.625rem] text-muted-foreground uppercase">
             {language}
           </div>
         )}

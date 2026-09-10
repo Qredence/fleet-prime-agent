@@ -80,7 +80,7 @@ export const ModelPicker = memo(function ModelPicker({
         <button
           type="button"
           className={cn(
-            "relative inline-flex h-7 max-w-full cursor-pointer items-center gap-1 rounded-full px-2 text-[12px] leading-4 text-foreground/40 transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-1.5 after:-bottom-1.5 hover:bg-foreground/6 active:scale-[0.96]",
+            "relative inline-flex h-7 max-w-full cursor-pointer items-center gap-1 rounded-full px-2 text-[0.75rem] leading-4 text-foreground/40 transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-1.5 after:-bottom-1.5 hover:bg-foreground/6 active:scale-[0.96]",
             className
           )}
           aria-label="Select model"
@@ -107,7 +107,7 @@ export const ModelPicker = memo(function ModelPicker({
             data-agent-model-picker-active={isActive ? "true" : undefined}
             onClick={() => handleSelect(model.id)}
             className={cn(
-              "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-[6px] px-2 py-2 text-left text-[12px] leading-4 text-an-foreground transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.96]",
+              "flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-[6px] px-2 py-2 text-left text-[0.75rem] leading-4 text-an-foreground transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.96]",
               isActive && "bg-foreground/6"
             )}
           >
@@ -144,7 +144,7 @@ export const ModelBadge = memo(function ModelBadge({
   return (
     <div
       className={cn(
-        "inline-flex h-7 items-center px-2 text-[12px] leading-4 text-foreground/30",
+        "inline-flex h-7 items-center px-2 text-[0.75rem] leading-4 text-foreground/30",
         className
       )}
     >

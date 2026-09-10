@@ -22,8 +22,30 @@ const CSP_META_REFERENCE = /\bcontent-security-policy\b/i;
 const EVENT_HANDLER_ATTRIBUTE = /\son[a-z][\w:-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i;
 const SCRIPT_SOURCE_ATTRIBUTE = /<script\b[^>]*\bsrc\s*=/i;
 const CSS_IMPORT = /@import\b/i;
-const NETWORK_API =
-	/\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|showModalDialog)\s*\(|\bwindow\s*\.\s*open\s*\(|\b(?:window|globalThis|document|location)\s*\.\s*(?:location|assign|replace|reload|href|pathname|host|hostname|port|protocol|search|hash)\s*=|\b(?:window|globalThis|document|location)\s*\.\s*(?:location\s*\.\s*)?(?:assign|replace|reload)\s*\(/i;
+// Split into single-purpose patterns: each keeps unbounded `\s*` runs separated
+// by required literals (disjoint character classes), so matching stays linear
+// and cannot backtrack polynomially on whitespace-heavy input (CodeQL
+// js/polynomial-redos). Do not merge them back into one alternation with
+// adjacent optional groups.
+const NETWORK_API_CALL = /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|showModalDialog)\s*\(/i;
+const NETWORK_API_COMPUTED =
+	/\[\s*["'`](?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|showModalDialog|open)\s*["'`]\s*\]/i;
+const WINDOW_OPEN_CALL = /\bwindow\s*\.\s*open\s*\(|\bwindow\?\.\s*open\s*\(|\bwindow\s+\?\s*\.\s*open\s*\(/i;
+const REMOTE_IMPORT = /\bimport\s*\(\s*["'`](?:https?:\/\/|wss?:\/\/|\/\/|data:|blob:)/i;
+const LOCATION_ASSIGN =
+	/\b(?:window|globalThis|document|location)\s*\.\s*(?:location|assign|replace|reload|href|pathname|host|hostname|port|protocol|search|hash)\s*=/i;
+const LOCATION_CALL =
+	/\b(?:window|globalThis|document|location)\s*\.\s*(?:assign|replace|reload)\s*\(|\b(?:window|globalThis|document|location)\s*\.\s*location\s*\.\s*(?:assign|replace|reload)\s*\(/i;
+function hasNetworkApi(document: string): boolean {
+	return (
+		NETWORK_API_CALL.test(document) ||
+		NETWORK_API_COMPUTED.test(document) ||
+		WINDOW_OPEN_CALL.test(document) ||
+		REMOTE_IMPORT.test(document) ||
+		LOCATION_ASSIGN.test(document) ||
+		LOCATION_CALL.test(document)
+	);
+}
 const RESOURCE_ATTRIBUTE =
 	/\b(?:src|href|action|formaction|poster|cite|background|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
 const UNSAFE_SCHEME =
@@ -328,7 +350,7 @@ export function validateAndNormalizeOpenUIHtmlArtifact(input: unknown): OpenUIHt
 	if (hasUnsafeResourceAttribute(document)) {
 		return { ok: false, reason: "External or unsafe resource URLs are not allowed." };
 	}
-	if (NETWORK_API.test(document)) {
+	if (hasNetworkApi(document)) {
 		return { ok: false, reason: "Network access and pop-up APIs are not allowed." };
 	}
 	if (hasHtmlAttribute(document, "download") || hasHtmlAttribute(document, "target")) {

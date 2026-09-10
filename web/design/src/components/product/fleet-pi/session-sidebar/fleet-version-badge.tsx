@@ -12,7 +12,7 @@ export function FleetVersionBadge() {
       variant="secondary"
       title={`Fleet ${version}`}
       aria-label={`Fleet version ${version}`}
-      className="shrink-0 font-mono text-[10px] font-normal text-muted-foreground"
+      className="shrink-0 font-mono text-[0.625rem] font-normal text-muted-foreground"
     >
       v{version}
     </Badge>

@@ -323,7 +323,7 @@ function MetricGroupComponent({
       {metrics.map((metric, index) => (
         <Card key={metric.label} className="gap-1 py-3">
           <CardContent className="flex flex-col gap-1 px-3">
-            <span className="text-[11px] font-medium text-foreground/50">
+            <span className="text-[0.6875rem] font-medium text-foreground/50">
               {metric.label}
             </span>
             <div className="flex items-baseline gap-2">
@@ -333,7 +333,7 @@ function MetricGroupComponent({
               {metric.delta ? (
                 <span
                   className={cn(
-                    "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                    "rounded px-1.5 py-0.5 text-[0.625rem] font-medium",
                     deltaToneClasses[metric.deltaTone ?? "neutral"]
                   )}
                 >
