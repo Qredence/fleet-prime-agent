@@ -97,7 +97,41 @@ describe("chat attachment upload ordering", () => {
 		expect(response.status).toBe(404);
 	});
 
-	it("serves stored attachments as downloads, never inline executable content", async () => {
+	it("serves verified raster images inline while keeping executable content as downloads", async () => {
+		const imageForm = new FormData();
+		imageForm.append("sessionId", session.sessionId);
+		imageForm.append(
+			"files",
+			new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], "preview.png", {
+				type: "image/png",
+			}),
+		);
+		const imageUpload = await handleChatAttachmentsPost(
+			new Request("http://localhost/api/chat/attachments", { method: "POST", body: imageForm }),
+		);
+		const image = (await imageUpload.json()) as { attachments: Array<{ attachmentId: string }> };
+		const imageResponse = await handleChatAttachmentGet(
+			new Request(
+				`http://localhost/api/chat/attachments?sessionId=${session.sessionId}&attachmentId=${image.attachments[0]?.attachmentId}`,
+			),
+		);
+		expect(imageResponse.headers.get("Content-Type")).toBe("image/png");
+		expect(imageResponse.headers.get("Content-Disposition")).toBeNull();
+		const mislabeledImageForm = new FormData();
+		mislabeledImageForm.append("sessionId", session.sessionId);
+		mislabeledImageForm.append("files", new File(["not an image"], "spoofed.png", { type: "image/png" }));
+		const mislabeledUpload = await handleChatAttachmentsPost(
+			new Request("http://localhost/api/chat/attachments", { method: "POST", body: mislabeledImageForm }),
+		);
+		const mislabeled = (await mislabeledUpload.json()) as { attachments: Array<{ attachmentId: string }> };
+		const mislabeledResponse = await handleChatAttachmentGet(
+			new Request(
+				`http://localhost/api/chat/attachments?sessionId=${session.sessionId}&attachmentId=${mislabeled.attachments[0]?.attachmentId}`,
+			),
+		);
+		expect(mislabeledResponse.headers.get("Content-Type")).toBe("application/octet-stream");
+		expect(mislabeledResponse.headers.get("Content-Disposition")).toContain("attachment;");
+
 		const form = new FormData();
 		form.append("sessionId", session.sessionId);
 		form.append("files", new File(["<svg></svg>"], "evil.svg", { type: "image/svg+xml" }));

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
@@ -83,6 +83,14 @@ export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceDat
 		settingsDialogOpen,
 		settingsInitialTab,
 	} = dialogs;
+	const [hasOpenedSettingsDialog, setHasOpenedSettingsDialog] = useState(settingsDialogOpen);
+	const [hasOpenedForkPickerDialog, setHasOpenedForkPickerDialog] = useState(forkPickerEntries !== null);
+	useEffect(() => {
+		if (settingsDialogOpen) setHasOpenedSettingsDialog(true);
+	}, [settingsDialogOpen]);
+	useEffect(() => {
+		if (forkPickerEntries !== null) setHasOpenedForkPickerDialog(true);
+	}, [forkPickerEntries]);
 	const handleSettingsOpenChange = useCallback(
 		(open: boolean) => {
 			setSettingsDialogOpen(open);
@@ -93,22 +101,26 @@ export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceDat
 
 	return (
 		<>
-			<Suspense fallback={null}>
-				<LazySettingsDialog
-					open={settingsDialogOpen}
-					onOpenChange={handleSettingsOpenChange}
-					initialTab={settingsInitialTab}
-				/>
-			</Suspense>
-			<Suspense fallback={null}>
-				<LazyForkPickerDialog
-					entries={forkPickerEntries}
-					onOpenChange={(open) => {
-						if (!open) setForkPickerEntries(null);
-					}}
-					onPick={forkFromEntry}
-				/>
-			</Suspense>
+			{hasOpenedSettingsDialog ? (
+				<Suspense fallback={null}>
+					<LazySettingsDialog
+						open={settingsDialogOpen}
+						onOpenChange={handleSettingsOpenChange}
+						initialTab={settingsInitialTab}
+					/>
+				</Suspense>
+			) : null}
+			{hasOpenedForkPickerDialog ? (
+				<Suspense fallback={null}>
+					<LazyForkPickerDialog
+						entries={forkPickerEntries}
+						onOpenChange={(open) => {
+							if (!open) setForkPickerEntries(null);
+						}}
+						onPick={forkFromEntry}
+					/>
+				</Suspense>
+			) : null}
 		</>
 	);
 }

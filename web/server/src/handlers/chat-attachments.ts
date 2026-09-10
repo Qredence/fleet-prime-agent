@@ -13,6 +13,25 @@ import { requireProjectSession } from "./session-access";
 const AttachmentIdSchema = z.uuid();
 const ATTACHMENT_WRITE_CONCURRENCY = 8;
 
+function isSafeRasterImage(mimeType: string, data: Uint8Array) {
+	if (mimeType === "image/png")
+		return (
+			data.length >= 8 &&
+			data.subarray(0, 8).every((byte, index) => byte === [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a][index])
+		);
+	if (mimeType === "image/jpeg") return data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
+	if (mimeType === "image/gif") {
+		const header = new TextDecoder().decode(data.subarray(0, 6));
+		return header === "GIF87a" || header === "GIF89a";
+	}
+	return (
+		mimeType === "image/webp" &&
+		data.length >= 12 &&
+		new TextDecoder().decode(data.subarray(0, 4)) === "RIFF" &&
+		new TextDecoder().decode(data.subarray(8, 12)) === "WEBP"
+	);
+}
+
 async function resolveSession(sessionId: string) {
 	const bridge = getBridge();
 	const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
@@ -61,13 +80,18 @@ export function handleChatAttachmentGet(request: Request): Promise<Response> {
 		if (!session) return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		const attachment = await readManagedAttachment(session, attachmentId).catch(() => undefined);
 		if (!attachment) return Response.json({ message: "Attachment not found" }, { status: 404 });
-		// Serve stored bytes as an opaque download: the stored MIME is
-		// caller-asserted at upload, so SVG/HTML must never execute in the
-		// app origin.
+		const safeRasterImage = isSafeRasterImage(attachment.metadata.mimeType, attachment.data);
+		// MIME metadata is caller-asserted, so only a small set of raster formats
+		// with matching byte signatures may render in the app origin. Everything
+		// else (including SVG and HTML) remains an opaque download.
 		return new Response(attachment.data, {
 			headers: {
-				"Content-Type": "application/octet-stream",
-				"Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.metadata.name)}`,
+				"Content-Type": safeRasterImage ? attachment.metadata.mimeType : "application/octet-stream",
+				...(safeRasterImage
+					? {}
+					: {
+							"Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.metadata.name)}`,
+						}),
 				"Cache-Control": "private, no-store",
 				"X-Content-Type-Options": "nosniff",
 			},

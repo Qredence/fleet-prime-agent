@@ -10,6 +10,7 @@ import type {
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "./chat-client";
+import { ChatRequestError } from "./chat-fetch";
 import { toChatMessage } from "./chat-message-helpers";
 import { usePiChat } from "./use-pi-chat";
 
@@ -141,6 +142,7 @@ function createHarness(
 	});
 	const client = {
 		abortSession: vi.fn().mockResolvedValue(undefined),
+		createSession: vi.fn().mockResolvedValue(sessionResponse({ sessionId: "recovered-session" })),
 		deleteQueuedMessage,
 		listSessions: vi.fn().mockResolvedValue(discoveredSessions),
 		loadSession,
@@ -189,6 +191,29 @@ function createHarness(
 }
 
 describe("usePiChat stream admission", () => {
+	it("does not recover a stale failed resume after a newer resume succeeds", async () => {
+		const { client, result } = createHarness();
+		await act(async () => flush());
+		const staleResume = deferred<ChatSessionResponse>();
+		vi.mocked(client.resumeSession)
+			.mockReturnValueOnce(staleResume.promise)
+			.mockResolvedValueOnce(sessionResponse({ sessionId: "session-b" }));
+
+		let first!: Promise<boolean>;
+		await act(async () => {
+			first = result.current.resumeSession({ sessionId: "session-a", projectId: "project-a" });
+			await flush();
+			await result.current.resumeSession({ sessionId: "session-b", projectId: "project-b" });
+		});
+		staleResume.reject(new ChatRequestError(404, JSON.stringify({ message: "Unknown session: session-a" })));
+		await act(async () => {
+			await expect(first).resolves.toBe(false);
+		});
+
+		expect(result.current.sessionMetadata.sessionId).toBe("session-b");
+		expect(client.createSession).not.toHaveBeenCalled();
+	});
+
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});

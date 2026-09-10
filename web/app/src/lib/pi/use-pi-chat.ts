@@ -541,6 +541,9 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				if (!isCurrent()) return false;
 				return true;
 			} catch (err) {
+				// A newer resume may have selected a session while this request was
+				// in flight. Do not let its recovery replace that newer selection.
+				if (!isCurrent()) return false;
 				const recoveryDeps = { setError, setStatus };
 				// Recover into the project this resume targeted; mid-switch the
 				// hook-level default may still point at the previous project.
