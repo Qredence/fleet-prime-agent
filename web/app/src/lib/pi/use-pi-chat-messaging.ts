@@ -445,7 +445,7 @@ export function usePiChatMessaging({
 			altKey,
 		}: SendMessageInput) => {
 			const trimmed = text.trim();
-			if (!trimmed) return;
+			if (!trimmed) return false;
 
 			if (
 				status === "submitted" ||
@@ -462,12 +462,13 @@ export function usePiChatMessaging({
 						openUIArtifact,
 						planAction,
 					});
+					return true;
 				} catch (err) {
 					const nextError = err instanceof Error ? err : new Error(String(err));
 					setError(nextError);
 					notifyChatError(nextError);
+					return false;
 				}
-				return;
 			}
 
 			setError(null);
@@ -494,7 +495,7 @@ export function usePiChatMessaging({
 
 			try {
 				const ensuredSession = await ensureSession(controller.signal);
-				if (controller.signal.aborted) return;
+				if (controller.signal.aborted) return false;
 				const ensuredStreamSessionId = ensuredSession.sessionId;
 				if (!ensuredStreamSessionId) throw new Error("Unable to start a session stream");
 				streamSessionId = ensuredStreamSessionId;
@@ -547,27 +548,29 @@ export function usePiChatMessaging({
 					messageCount: messagesRef.current.length,
 					sessionId: ensuredStreamSessionId,
 				});
+				return true;
 			} catch (err) {
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(err);
 				}
 				setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
-				if (controller.signal.aborted) return;
+				if (controller.signal.aborted) return false;
 				if (streamSessionId && sessionMetadataRef.current.sessionId !== streamSessionId) {
 					void refreshSessions();
-					return;
+					return false;
 				}
 				const recoveryDeps = { setError, setStatus };
 				const recovered =
 					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
 					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
 				if (recovered) {
-					return;
+					return false;
 				}
 				const nextError = err instanceof Error ? err : new Error(String(err));
 				setError(nextError);
 				setStatus("error");
 				notifyChatError(nextError);
+				return false;
 			} finally {
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(new Error("Chat stream ended before admission"));

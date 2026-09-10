@@ -93,7 +93,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const resumeRequestRef = useRef(0);
 	const statusRef = useRef(status);
 	const initializedRef = useRef(false);
-	const sendMessageRef = useRef<(input: SendMessageInput) => Promise<void>>(() => Promise.resolve());
+	const sendMessageRef = useRef<(input: SendMessageInput) => Promise<boolean>>(() => Promise.resolve(false));
 	const setMessagesSynced = useCallback(
 		(updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => {
 			const next = typeof updater === "function" ? updater(messagesRef.current) : updater;

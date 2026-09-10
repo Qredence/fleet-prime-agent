@@ -230,7 +230,7 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let primary!: Promise<void>;
+		let primary!: Promise<boolean>;
 		await act(async () => {
 			primary = result.current.sendMessage({ text: "primary" });
 			await flush();
@@ -242,14 +242,14 @@ describe("usePiChat stream admission", () => {
 			await flush();
 		});
 
-		let firstQueued!: Promise<void>;
+		let firstQueued!: Promise<boolean>;
 		await act(async () => {
 			firstQueued = result.current.sendMessage({ text: "first queued" });
 			await flush();
 		});
 		expect(streams).toHaveLength(2);
 
-		let secondQueued!: Promise<void>;
+		let secondQueued!: Promise<boolean>;
 		await act(async () => {
 			secondQueued = result.current.sendMessage({ text: "second queued" });
 			await flush();
@@ -429,7 +429,7 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let artifactTurn!: Promise<void>;
+		let artifactTurn!: Promise<boolean>;
 		await act(async () => {
 			artifactTurn = result.current.sendMessage({
 				text: "Generate an architecture visualization",
@@ -446,7 +446,7 @@ describe("usePiChat stream admission", () => {
 		streams[0]!.resolve();
 		await act(async () => artifactTurn);
 
-		let ordinaryTurn!: Promise<void>;
+		let ordinaryTurn!: Promise<boolean>;
 		await act(async () => {
 			ordinaryTurn = result.current.sendMessage({ text: "Explain the architecture" });
 			await flush();
@@ -487,13 +487,13 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let primary!: Promise<void>;
+		let primary!: Promise<boolean>;
 		await act(async () => {
 			primary = result.current.sendMessage({ text: "primary" });
 			await flush();
 		});
 
-		let queued!: Promise<void>;
+		let queued!: Promise<boolean>;
 		await act(async () => {
 			queued = result.current.sendMessage({ text: "queued while waiting" });
 			await flush();
@@ -522,7 +522,7 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let failed!: Promise<void>;
+		let failed!: Promise<boolean>;
 		await act(async () => {
 			failed = result.current.sendMessage({ text: "will fail" });
 			await flush();
@@ -531,11 +531,11 @@ describe("usePiChat stream admission", () => {
 
 		streams[0].reject(new Error("transport failed"));
 		await act(async () => {
-			await failed;
+			expect(await failed).toBe(false);
 		});
 		expect(result.current.messages.some((message) => message.role === "user")).toBe(false);
 
-		let retry!: Promise<void>;
+		let retry!: Promise<boolean>;
 		await act(async () => {
 			retry = result.current.sendMessage({ text: "retry" });
 			await flush();
@@ -553,7 +553,7 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let command!: Promise<void>;
+		let command!: Promise<boolean>;
 		await act(async () => {
 			command = result.current.sendMessage({ text: "/goal status" });
 			await flush();
@@ -578,7 +578,7 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let turn!: Promise<void>;
+		let turn!: Promise<boolean>;
 		await act(async () => {
 			turn = result.current.sendMessage({ text: "primary" });
 			await flush();
@@ -617,7 +617,7 @@ describe("usePiChat stream admission", () => {
 		await act(async () => flush());
 
 		loadSession.mockResolvedValue(completedSessionResponse("session-a"));
-		let turn!: Promise<void>;
+		let turn!: Promise<boolean>;
 		await act(async () => {
 			turn = result.current.sendMessage({ text: "primary" });
 			await flush();
@@ -665,7 +665,7 @@ describe("usePiChat stream admission", () => {
 			presentation,
 		});
 
-		let turn!: Promise<void>;
+		let turn!: Promise<boolean>;
 		await act(async () => {
 			turn = result.current.sendMessage({ text: "primary" });
 			await flush();
@@ -708,7 +708,7 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let primary!: Promise<void>;
+		let primary!: Promise<boolean>;
 		await act(async () => {
 			primary = result.current.sendMessage({ text: "primary" });
 			await flush();
@@ -718,7 +718,7 @@ describe("usePiChat stream admission", () => {
 			await flush();
 		});
 
-		let command!: Promise<void>;
+		let command!: Promise<boolean>;
 		await act(async () => {
 			command = result.current.sendMessage({ text: "/goal status" });
 			await flush();
@@ -744,7 +744,7 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let primary!: Promise<void>;
+		let primary!: Promise<boolean>;
 		await act(async () => {
 			primary = result.current.sendMessage({ text: "primary" });
 			await flush();
@@ -754,7 +754,7 @@ describe("usePiChat stream admission", () => {
 			await flush();
 		});
 
-		let command!: Promise<void>;
+		let command!: Promise<boolean>;
 		await act(async () => {
 			command = result.current.sendMessage({ text: "/goal status" });
 			await flush();
@@ -766,7 +766,7 @@ describe("usePiChat stream admission", () => {
 			await flush();
 		});
 
-		let next!: Promise<void>;
+		let next!: Promise<boolean>;
 		await act(async () => {
 			next = result.current.sendMessage({ text: "after command" });
 			await flush();
@@ -786,7 +786,7 @@ describe("usePiChat stream admission", () => {
 		const { client, result, streams } = createHarness();
 		await act(async () => flush());
 
-		let stopped!: Promise<void>;
+		let stopped!: Promise<boolean>;
 		await act(async () => {
 			stopped = result.current.sendMessage({ text: "stopped" });
 			await flush();
@@ -798,7 +798,7 @@ describe("usePiChat stream admission", () => {
 		});
 		expect(client.abortSession).toHaveBeenCalledWith({ sessionId: "session-a" });
 
-		let next!: Promise<void>;
+		let next!: Promise<boolean>;
 		await act(async () => {
 			next = result.current.sendMessage({ text: "next" });
 			await flush();
@@ -815,7 +815,7 @@ describe("usePiChat stream admission", () => {
 		const { result, streams } = createHarness();
 		await act(async () => flush());
 
-		let primary!: Promise<void>;
+		let primary!: Promise<boolean>;
 		await act(async () => {
 			primary = result.current.sendMessage({ text: "accepted prompt" });
 			await flush();

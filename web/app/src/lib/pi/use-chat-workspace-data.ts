@@ -490,11 +490,11 @@ export function useChatWorkspaceData() {
 		setSettingsDialogOpen(true);
 	}, []);
 	const handleOpenUIRequest = useCallback(
-		(request: string) => {
+		async (request: string) => {
 			const attachments = [...workspaceAttachments, ...uploadedAttachments];
 			clearUploadedAttachments();
 			clearWorkspaceAttachments();
-			return sendMessage({
+			const sent = await sendMessage({
 				text: request,
 				altKey: false,
 				mode: chatMode,
@@ -502,11 +502,13 @@ export function useChatWorkspaceData() {
 				openUIArtifact: true,
 				attachments,
 			});
+			if (!sent) restoreAttachments(uploadedAttachments, workspaceAttachments);
 		},
 		[
 			chatMode,
 			clearUploadedAttachments,
 			clearWorkspaceAttachments,
+			restoreAttachments,
 			sendMessage,
 			uploadedAttachments,
 			workspaceAttachments,

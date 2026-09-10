@@ -9,7 +9,7 @@ import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-typ
 import { type MutableRefObject, useEffect } from "react";
 import type { ChatClient } from "./chat-client";
 import type { QueueState } from "./chat-fetch";
-import { upsertAssistantReasoningPresentation } from "./chat-message-helpers";
+import { upsertAssistantReasoningPresentation, upsertToolPart } from "./chat-message-helpers";
 import { resolveChatApiUrl } from "./chat-runtime-url";
 import { EMPTY_QUEUE_STATE } from "./chat-stream-state";
 import { hydratePlanPresentationMessages } from "./plan-presentation";
@@ -60,6 +60,7 @@ export function usePiChatSessionEvents({
 		let reconnectNoticeShown = false;
 		let lastAppliedRlmSeq = 0;
 		let closedByEffect = false;
+		let activeAssistantId: string | undefined;
 
 		const handleEvent = (raw: MessageEvent<string>, seq: number) => {
 			let frame: ChatStreamEvent;
@@ -68,6 +69,8 @@ export function usePiChatSessionEvents({
 			} catch {
 				return;
 			}
+			if (frame.type === "start") activeAssistantId = frame.id;
+			if (frame.type === "done") activeAssistantId = undefined;
 			// Snapshot for dispatch-time checks below the streaming guard, where the
 			// narrowed type no longer includes the in-flight statuses.
 			const statusAtFrame = statusRef.current;
@@ -102,28 +105,73 @@ export function usePiChatSessionEvents({
 			if (frame.type === "tool" && frame.part?.type === "tool-Question") {
 				setMessagesSynced((current) => {
 					const toolCallId = frame.part.toolCallId ?? "";
-					if (
-						current.some((message) =>
-							message.parts.some(
-								(part) =>
+					if (!toolCallId) return current;
+					const hasToolCall = (message: ChatMessage) =>
+						message.parts.some(
+							(part) =>
+								part.type !== "text" &&
+								part.type !== "error" &&
+								"toolCallId" in part &&
+								part.toolCallId === toolCallId,
+						);
+					let targetIndex = frame.messageId
+						? current.findIndex((message) => message.id === frame.messageId && message.role === "assistant")
+						: -1;
+					if (targetIndex < 0 && activeAssistantId) {
+						targetIndex = current.findIndex(
+							(message) => message.id === activeAssistantId && message.role === "assistant",
+						);
+					}
+					if (targetIndex < 0) {
+						let latestAssistantWithoutToolCall = -1;
+						let latestMatchingToolCall = -1;
+						for (let index = current.length - 1; index >= 0; index -= 1) {
+							const message = current[index]!;
+							if (message.role !== "assistant") continue;
+							if (hasToolCall(message) && latestMatchingToolCall < 0) latestMatchingToolCall = index;
+							else if (latestAssistantWithoutToolCall < 0) latestAssistantWithoutToolCall = index;
+						}
+						// The first question frame normally races the POST stream's start
+						// frame, so attach it to the newest assistant bubble that has not
+						// seen this tool call yet. Later output frames update the existing
+						// matching part instead.
+						targetIndex =
+							frame.part.state === "input-streaming"
+								? latestAssistantWithoutToolCall >= 0
+									? latestAssistantWithoutToolCall
+									: latestMatchingToolCall
+								: latestMatchingToolCall >= 0
+									? latestMatchingToolCall
+									: latestAssistantWithoutToolCall;
+					}
+					const questionPart: ChatMessage["parts"][number] = { ...frame.part, type: "tool-Question" };
+					if (targetIndex < 0) {
+						return [
+							...current,
+							{
+								id: frame.messageId ?? crypto.randomUUID(),
+								role: "assistant",
+								parts: [questionPart],
+								createdAt: new Date().toISOString(),
+							},
+						];
+					}
+					return current.flatMap((message, index) => {
+						if (index === targetIndex) {
+							return [{ ...message, parts: upsertToolPart(message.parts, questionPart) }];
+						}
+						if (!hasToolCall(message)) return [message];
+						const parts = message.parts.filter(
+							(part) =>
+								!(
 									part.type !== "text" &&
 									part.type !== "error" &&
 									"toolCallId" in part &&
-									part.toolCallId === toolCallId,
-							),
-						)
-					)
-						return current;
-					const questionPart: ChatMessage["parts"][number] = { ...frame.part, type: "tool-Question" };
-					return [
-						...current,
-						{
-							id: crypto.randomUUID(),
-							role: "assistant",
-							parts: [questionPart],
-							createdAt: new Date().toISOString(),
-						},
-					];
+									part.toolCallId === toolCallId
+								),
+						);
+						return parts.length > 0 ? [{ ...message, parts }] : [];
+					});
 				});
 				return;
 			}

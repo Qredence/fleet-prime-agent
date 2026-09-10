@@ -59,13 +59,14 @@ export function ChatWorkspaceShell() {
 			composer.clearWorkspaceAttachments();
 			void (async () => {
 				try {
-					await conversation.sendMessage({
+					const sent = await conversation.sendMessage({
 						text,
 						altKey,
 						mode: composer.chatMode,
 						openUI: true,
 						attachments,
 					});
+					if (!sent) composer.restoreAttachments(uploaded, workspace);
 				} catch (error) {
 					composer.restoreAttachments(uploaded, workspace);
 					notifyChatError(error);
