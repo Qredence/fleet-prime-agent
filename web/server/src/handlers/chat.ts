@@ -8,6 +8,7 @@ import type { PrimeBridge } from "../prime-bridge";
 import { parseBackendSessionCommand, sessionCommandResultText } from "../session-commands";
 import { getBridge } from "../singleton";
 import { chatErrorEnvelope, wrapApiHandler } from "../wrap-api-handler";
+import { requireProjectSession } from "./session-access";
 
 export function resolveChatStreamingBehavior(streamingBehavior?: "steer" | "followUp"): "steer" | "followUp" {
 	return streamingBehavior ?? "steer";
@@ -43,7 +44,7 @@ async function handleChatChildPost(
 ): Promise<Response> {
 	const session =
 		bridge.getSession(parentSessionId) ?? (await bridge.resumeSessionById(parentSessionId, undefined, {}));
-	if (!session) {
+	if (!session || !(await requireProjectSession(session))) {
 		return Response.json({ message: `Unknown session: ${parentSessionId}` }, { status: 404 });
 	}
 
@@ -161,7 +162,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 		}
 		const session =
 			bridge.getSession(targetSessionId) ?? (await bridge.resumeSessionById(targetSessionId, undefined, { openUI }));
-		if (!session) {
+		if (!session || !(await requireProjectSession(session))) {
 			return Response.json({ message: `Unknown session: ${targetSessionId}` }, { status: 404 });
 		}
 		const uploadAttachments = (body.attachments ?? []).filter(
@@ -360,5 +361,5 @@ export function handleChatPost(request: Request): Promise<Response> {
 				"X-Accel-Buffering": "no",
 			},
 		});
-	});
+	}, request);
 }

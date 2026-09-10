@@ -66,7 +66,10 @@ export function ChatCommandPaletteOverlay({
 }
 
 /**
- * Renders the workspace settings and fork picker dialogs when their state indicates they are open.
+ * Renders the workspace settings and fork picker dialogs.
+ *
+ * Both dialogs stay mounted and are driven via props so the dialog close
+ * path (including focus restoration) runs instead of unmounting mid-close.
  *
  * @param dialogs - Dialog state and handlers for managing settings and fork picker interactions.
  */
@@ -90,26 +93,22 @@ export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceDat
 
 	return (
 		<>
-			{settingsDialogOpen ? (
-				<Suspense fallback={null}>
-					<LazySettingsDialog
-						open
-						onOpenChange={handleSettingsOpenChange}
-						initialTab={settingsInitialTab}
-					/>
-				</Suspense>
-			) : null}
-			{forkPickerEntries ? (
-				<Suspense fallback={null}>
-					<LazyForkPickerDialog
-						entries={forkPickerEntries}
-						onOpenChange={(open) => {
-							if (!open) setForkPickerEntries(null);
-						}}
-						onPick={forkFromEntry}
-					/>
-				</Suspense>
-			) : null}
+			<Suspense fallback={null}>
+				<LazySettingsDialog
+					open={settingsDialogOpen}
+					onOpenChange={handleSettingsOpenChange}
+					initialTab={settingsInitialTab}
+				/>
+			</Suspense>
+			<Suspense fallback={null}>
+				<LazyForkPickerDialog
+					entries={forkPickerEntries}
+					onOpenChange={(open) => {
+						if (!open) setForkPickerEntries(null);
+					}}
+					onPick={forkFromEntry}
+				/>
+			</Suspense>
 		</>
 	);
 }

@@ -356,9 +356,21 @@ export function MobilePanel({
 
   // Light dismiss — the full-viewport ::backdrop region maps clicks onto the
   // dialog element, matching the previous bottom sheet-style backdrop button.
+  // Close the native dialog (instead of notifying directly) so the browser
+  // runs modal focus restoration; the dialog onClose handler notifies.
   const onLightDismiss = useEffectEvent((event: MouseEvent) => {
-    if (panelRef.current && event.target === panelRef.current) onClose?.()
+    if (panelRef.current && event.target === panelRef.current) panelRef.current.close()
   })
+
+  // Header X-close must close the native dialog first so the browser restores
+  // focus to the previously focused element (the Esc path already closes
+  // natively); the dialog onClose handler then notifies the parent. When the
+  // native dialog is already closed (desktop mode), notify directly.
+  const handleHeaderClose = () => {
+    const dialog = panelRef.current
+    if (dialog && dialog.open) dialog.close()
+    else onClose?.()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -440,7 +452,7 @@ export function MobilePanel({
               {onClose && (
                 <Button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleHeaderClose}
                   variant="ghost"
                   size="icon-sm"
                   className={`${HIT_AREA_EXPAND_CLASS} text-foreground/40 hover:text-foreground/70`}

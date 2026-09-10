@@ -766,6 +766,19 @@ function ChatComposerHost({
 const MemoChatComposerHost = memo(ChatComposerHost)
 
 /**
+ * Stable key for a conversation turn. Assistant-only turns have no user
+ * message, so fall back to the first assistant message id before the index:
+ * an index-only fallback shifts keys when a turn is prepended.
+ *
+ * @param turn - The conversation turn to key
+ * @param turnIndex - Positional fallback used only when the turn has no message ids
+ * @returns The stable key for the turn
+ */
+function getConversationTurnKey(turn: ConversationTurn, turnIndex: number) {
+  return turn.user?.id ?? turn.assistants[0]?.id ?? `assistant-turn-${turnIndex}`
+}
+
+/**
  * Renders the Fleet Prime Agent chat interface with conversation turns, activity, suggestions, errors, and message input.
  *
  * @param messages - Conversation messages to display.
@@ -834,6 +847,20 @@ export function FleetPiAgentChat({
     () => ({ label: undefined, presentation: undefined, artifactRuns: undefined }),
     []
   )
+  const renderTurn = useCallback(
+    (turn: ConversationTurn, turnIndex: number) => {
+      const isLast = turnIndex === turns.length - 1
+      return (
+        <ConversationTurnView
+          turn={turn}
+          state={isLast ? stateForLast : stateForRest}
+          rendering={rendering}
+          activity={isLast ? activityForLast : activityForRest}
+        />
+      )
+    },
+    [activityForLast, activityForRest, rendering, stateForLast, stateForRest, turns.length]
+  )
   const isEmpty = turns.length === 0 && !error
   const errorPresentation = error ? getChatErrorPresentation(error) : null
   const composerNode = (
@@ -877,20 +904,10 @@ export function FleetPiAgentChat({
         ) : null}
         <VirtualizedTurnList
           estimateSize={400}
-          getItemKey={(turn, turnIndex) => turn.user?.id ?? `assistant-turn-${turnIndex}`}
+          getItemKey={getConversationTurnKey}
           itemGap={20}
           items={turns}
-          renderItem={(turn, turnIndex) => {
-            const isLast = turnIndex === turns.length - 1
-            return (
-              <ConversationTurnView
-                turn={turn}
-                state={isLast ? stateForLast : stateForRest}
-                rendering={rendering}
-                activity={isLast ? activityForLast : activityForRest}
-              />
-            )
-          }}
+          renderItem={renderTurn}
           viewportRef={viewportRef}
         />
         {errorPresentation ? (

@@ -39,5 +39,5 @@ export function handleChatSessionsGet(_request: Request): Promise<Response> {
 		return Response.json({
 			sessions: projectId ? formatted.filter((session) => session.projectId === projectId) : formatted,
 		});
-	});
+	}, _request);
 }

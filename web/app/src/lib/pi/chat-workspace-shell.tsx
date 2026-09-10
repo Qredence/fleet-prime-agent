@@ -15,6 +15,7 @@ import { notify } from "@prime-agent/web-design/lib/notify";
 import { lazy, Suspense, useCallback } from "react";
 import { ChatPanel } from "@/lib/pi/chat-panel";
 import { buildChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
+import { notifyChatError } from "@/lib/pi/chat-error-notify";
 import {
 	ChatCommandPaletteOverlay,
 	ChatWorkspaceOverlayDialogs,
@@ -51,23 +52,31 @@ export function ChatWorkspaceShell() {
 	)?.name;
 	const handleSend = useCallback(
 		(text: string, altKey?: boolean) => {
-			const attachments = [...composer.workspaceAttachments, ...composer.uploadedAttachments];
+			const uploaded = [...composer.uploadedAttachments];
+			const workspace = [...composer.workspaceAttachments];
+			const attachments = [...workspace, ...uploaded];
 			composer.clearUploadedAttachments();
 			composer.clearWorkspaceAttachments();
 			void (async () => {
-				await conversation.sendMessage({
-					text,
-					altKey,
-					mode: composer.chatMode,
-					openUI: true,
-					attachments,
-				});
+				try {
+					await conversation.sendMessage({
+						text,
+						altKey,
+						mode: composer.chatMode,
+						openUI: true,
+						attachments,
+					});
+				} catch (error) {
+					composer.restoreAttachments(uploaded, workspace);
+					notifyChatError(error);
+				}
 			})();
 		},
 		[
 			composer.chatMode,
 			composer.clearUploadedAttachments,
 			composer.clearWorkspaceAttachments,
+			composer.restoreAttachments,
 			composer.uploadedAttachments,
 			composer.workspaceAttachments,
 			conversation.sendMessage,

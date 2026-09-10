@@ -181,7 +181,7 @@ export function CodeBlock({
       <div
         ref={viewportRef}
         role={streaming ? "log" : undefined}
-        aria-live={streaming ? "polite" : undefined}
+        aria-live={streaming ? "off" : undefined}
         className="overflow-auto border-t border-foreground/[0.06] py-2 [scrollbar-color:color-mix(in_oklab,var(--muted-foreground)_35%,transparent)_transparent] [scrollbar-width:thin]"
         style={{ maxHeight }}
       >

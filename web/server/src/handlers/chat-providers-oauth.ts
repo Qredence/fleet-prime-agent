@@ -226,5 +226,5 @@ export function handleChatProvidersOAuthPost(request: Request): Promise<Response
 		}
 
 		return Response.json(startOAuthLogin(body.providerId, oauthDeps()));
-	});
+	}, request);
 }

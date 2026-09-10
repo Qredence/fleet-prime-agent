@@ -56,15 +56,21 @@ export function usePiChatSessionEvents({
 
 		let source: EventSource | null = null;
 		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+		let reconnectAttempt = 0;
+		let reconnectNoticeShown = false;
+		let lastAppliedRlmSeq = 0;
 		let closedByEffect = false;
 
-		const handleEvent = (raw: MessageEvent<string>) => {
+		const handleEvent = (raw: MessageEvent<string>, seq: number) => {
 			let frame: ChatStreamEvent;
 			try {
 				frame = JSON.parse(raw.data) as ChatStreamEvent;
 			} catch {
 				return;
 			}
+			// Snapshot for dispatch-time checks below the streaming guard, where the
+			// narrowed type no longer includes the in-flight statuses.
+			const statusAtFrame = statusRef.current;
 			if (frame.type === "presentation") {
 				if (frame.presentation.revision > (presentationRef.current?.revision ?? -1)) {
 					setPresentationSynced(frame.presentation);
@@ -72,6 +78,13 @@ export function usePiChatSessionEvents({
 				return;
 			}
 			if (frame.type === "rlm") {
+				// ChatRlmStreamEvent carries no revision, so order frames by the SSE
+				// stream sequence: drop redelivered sequences so a stale replay cannot
+				// clobber newer child state.
+				if (!Number.isNaN(seq) && seq > 0) {
+					if (seq <= lastAppliedRlmSeq) return;
+					lastAppliedRlmSeq = seq;
+				}
 				const current = presentationRef.current;
 				const existing = current.rlmChildren.find((child) => child.id === frame.child.id);
 				if (existing && existing.timestamp > frame.child.timestamp) return;
@@ -82,21 +95,10 @@ export function usePiChatSessionEvents({
 				});
 				return;
 			}
-			if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
-			const connected = frame as unknown as { adapterCapabilities?: FleetAdapterCapabilities; type?: string };
-			if (connected.type === "connected") {
-				sseCapabilitiesRef.current = connected.adapterCapabilities;
-				setAdapterCapabilities(connected.adapterCapabilities);
-				return;
-			}
-			if (frame.type === "reasoning") {
-				const messageId = frame.messageId;
-				if (!sseCapabilitiesRef.current?.features.includes("reasoning-summary-v1") || !messageId) return;
-				setMessagesSynced((current) =>
-					upsertAssistantReasoningPresentation(current, messageId, frame.presentation),
-				);
-				return;
-			}
+			// Clarification questions surface even while a turn is streaming: the
+			// POST stream owns state/queue frames during streaming, but a pending
+			// tool-Question blocks progress until answered. Dedupe by toolCallId
+			// keeps redeliveries from duplicating the prompt.
 			if (frame.type === "tool" && frame.part?.type === "tool-Question") {
 				setMessagesSynced((current) => {
 					const toolCallId = frame.part.toolCallId ?? "";
@@ -125,13 +127,39 @@ export function usePiChatSessionEvents({
 				});
 				return;
 			}
+			if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
+			const connected = frame as unknown as {
+				adapterCapabilities?: FleetAdapterCapabilities;
+				cursorReset?: boolean;
+				type?: string;
+			};
+			if (connected.type === "connected") {
+				sseCapabilitiesRef.current = connected.adapterCapabilities;
+				setAdapterCapabilities(connected.adapterCapabilities);
+				if (connected.cursorReset) lastAppliedRlmSeq = 0;
+				return;
+			}
+			if (frame.type === "reasoning") {
+				const messageId = frame.messageId;
+				if (!sseCapabilitiesRef.current?.features.includes("reasoning-summary-v1") || !messageId) return;
+				setMessagesSynced((current) =>
+					upsertAssistantReasoningPresentation(current, messageId, frame.presentation),
+				);
+				return;
+			}
 			if (frame.type === "state") {
 				setActivityLabelSynced(typeof frame.state?.message === "string" ? frame.state.message : undefined);
 				if (frame.state?.name === "agent_settled") {
+					// Hydration replays the full session snapshot: skip while a turn
+					// is in flight so it cannot clobber optimistic or streamed state.
+					if (statusAtFrame === "streaming" || statusAtFrame === "submitted") return;
+					const metadataSessionIdAtFrame = sessionMetadataRef.current.sessionId;
 					void client
 						.loadSession({ sessionId })
 						.then((result) => {
 							if (closedByEffect || sessionMetadataRef.current.sessionId !== sessionId) return;
+							if (sessionMetadataRef.current.sessionId !== metadataSessionIdAtFrame) return;
+							if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
 							setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
 							setPresentationSynced(result.presentation);
 							setSessionMetadataSynced(result.session);
@@ -160,13 +188,31 @@ export function usePiChatSessionEvents({
 					lastEventId = seq;
 					writeStoredValue(lastEventIdKey, String(seq), "session");
 				}
-				handleEvent(event);
+				if (reconnectAttempt > 0) {
+					reconnectAttempt = 0;
+					if (reconnectNoticeShown) {
+						reconnectNoticeShown = false;
+						if (statusRef.current !== "streaming" && statusRef.current !== "submitted") {
+							setActivityLabelSynced(undefined);
+						}
+					}
+				}
+				handleEvent(event, seq);
 			};
 			nextSource.onerror = () => {
 				if (closedByEffect || source !== nextSource) return;
 				nextSource.close();
+				reconnectAttempt += 1;
+				// The first failure reconnects silently; persistent failures escalate
+				// the activity label so a dead stream stays visible. Retries never stop.
+				if (reconnectAttempt > 1 && statusRef.current !== "streaming" && statusRef.current !== "submitted") {
+					reconnectNoticeShown = true;
+					setActivityLabelSynced(
+						reconnectAttempt > 2 ? `Reconnecting… (attempt ${reconnectAttempt})` : "Reconnecting…",
+					);
+				}
 				if (reconnectTimer) clearTimeout(reconnectTimer);
-				reconnectTimer = setTimeout(connect, 2_000);
+				reconnectTimer = setTimeout(connect, Math.min(2_000, 250 * 2 ** Math.min(reconnectAttempt, 3)));
 			};
 		};
 		connect();

@@ -6,7 +6,7 @@ import { wrapApiHandler } from "../wrap-api-handler";
 const BodySchema = z.object({
 	sessionId: SessionIdSchema,
 	command: z.string(),
-	args: z.string().optional(),
+	args: z.string().max(1024).optional(),
 });
 
 export function handleChatCommandPost(request: Request): Promise<Response> {
@@ -76,5 +76,5 @@ export function handleChatCommandPost(request: Request): Promise<Response> {
 			default:
 				return Response.json({ message: `Unknown slash command: /${body.command}` }, { status: 404 });
 		}
-	});
+	}, request);
 }

@@ -76,7 +76,7 @@ export function handleChatSettingsGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const cwd = await cwdForRequest(request);
 		return Response.json(buildResponse(cwd));
-	});
+	}, request);
 }
 
 export function handleChatSettingsPatch(request: Request): Promise<Response> {
@@ -132,9 +132,9 @@ export function handleChatSettingsPatch(request: Request): Promise<Response> {
 			manager.setThemePaths(patch.themes);
 		}
 		if (patch.packages !== undefined) {
-			manager.setPackages(patch.packages as never);
+			manager.setPackages(patch.packages);
 		}
 
 		return Response.json(buildResponse(cwd));
-	});
+	}, request);
 }

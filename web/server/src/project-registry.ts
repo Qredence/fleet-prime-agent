@@ -46,6 +46,38 @@ type DirectoryToken = {
 const TOKEN_TTL_MS = 10 * 60 * 1000;
 const MAX_DIRECTORY_ENTRIES = 200;
 
+const SENSITIVE_HOME_DIRECTORY_NAMES = [
+	".ssh",
+	".gnupg",
+	".aws",
+	".pki",
+	".docker",
+	".kube",
+	".azure",
+	".gcloud",
+	".gsutil",
+	".password-store",
+	// ~/.config as a whole stays registrable (code lives there); only the
+	// credential-bearing GitHub CLI directory is denied.
+	"config/gh",
+];
+
+function isSameOrWithin(candidate: string, ancestor: string): boolean {
+	return candidate === ancestor || candidate.startsWith(`${ancestor}${sep}`);
+}
+
+async function assertAllowedProjectDirectory(canonical: string): Promise<void> {
+	if (dirname(canonical) === canonical) throw new Error("Project path must not be a filesystem root");
+	const home = await realpath(homedir()).catch(() => homedir());
+	if (canonical === home) throw new Error("Project path must not be the home directory");
+	for (const name of SENSITIVE_HOME_DIRECTORY_NAMES) {
+		if (isSameOrWithin(canonical, join(home, name)))
+			throw new Error("Project path must not be a credentials directory");
+	}
+	const systemConfig = await realpath("/etc").catch(() => "/etc");
+	if (isSameOrWithin(canonical, systemConfig)) throw new Error("Project path must not be a system directory");
+}
+
 class ProjectRegistryPersistenceError extends Error {
 	constructor(operation: string, cause: unknown) {
 		super(`Could not ${operation}. Please try again.`, { cause });
@@ -167,6 +199,7 @@ export class ProjectRegistry {
 		const canonical = await realpath(candidate);
 		const info = await stat(canonical);
 		if (!info.isDirectory()) throw new Error("Project path must be a directory");
+		await assertAllowedProjectDirectory(canonical);
 		return canonical;
 	}
 
@@ -305,7 +338,7 @@ export class ProjectRegistry {
 		if (options.token) {
 			const token = this.#directoryTokens.get(options.token);
 			if (!token || token.expiresAt < Date.now()) throw new Error("Directory token expired");
-			path = token.path;
+			path = await this.#canonicalDirectory(token.path);
 		} else {
 			path = await this.#canonicalDirectory(options.path ?? this.#initialPath);
 		}

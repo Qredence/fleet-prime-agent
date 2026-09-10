@@ -15,7 +15,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import type { ProjectId } from "@prime-agent/web-protocol";
@@ -415,6 +415,20 @@ function fallbackSessionPath(connectionState: Awaited<ReturnType<AgentConnection
 	if (connectionState.sessionFile) return resolve(connectionState.sessionFile);
 	const sessionDir = connectionState.sessionDir ?? sessionDirectoryForCwd(cwd);
 	return resolve(sessionDir, `${connectionState.sessionId}.jsonl`);
+}
+
+/**
+ * Thrown when an explicit /export path escapes the session's project
+ * directory. The 400 status lets `wrapApiHandler` answer Bad Request; the
+ * message carries no paths (API errors are scrubbed for paths anyway).
+ */
+export class SessionExportPathError extends Error {
+	readonly status: 400 = 400;
+
+	constructor() {
+		super("Export path must stay inside the session project directory");
+		this.name = "SessionExportPathError";
+	}
 }
 
 type SessionTreeEntry = Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"][number]["entry"];
@@ -1144,10 +1158,11 @@ export class PrimeBridge {
 	): Promise<BridgeSession | undefined> {
 		const live = this.#sessions.get(sessionId);
 		if (live) {
-			if (requestedProjectId && live.projectId !== requestedProjectId) {
-				const forkedId = await this.forkSessionIntoProject(sessionId, requestedProjectId);
-				return this.#requireSession(forkedId);
-			}
+			// Project-scoped callers only see sessions linked to their project.
+			// A linked-but-foreign session is unknown to the caller: reads must
+			// never fork or expose its transcript (copies go through the
+			// explicit fork action instead).
+			if (requestedProjectId && live.projectId !== requestedProjectId) return undefined;
 			return live;
 		}
 		const all = await this.#sessionLister();
@@ -1163,10 +1178,7 @@ export class PrimeBridge {
 			if (isSessionNotResumableError(error)) return undefined;
 			throw error;
 		}
-		if (requestedProjectId && resumed.projectId !== requestedProjectId) {
-			const forkedId = await this.forkSessionIntoProject(resumed.sessionId, requestedProjectId);
-			return this.#requireSession(forkedId);
-		}
+		if (requestedProjectId && resumed.projectId !== requestedProjectId) return undefined;
 		return resumed;
 	}
 
@@ -1981,12 +1993,35 @@ export class PrimeBridge {
 	/** /export — write the session to HTML (default) or JSONL (path ends with .jsonl). */
 	async exportSession(sessionId: string, outputPath?: string): Promise<{ path: string; format: "html" | "jsonl" }> {
 		const session = this.#requireSession(sessionId);
+		const confinedPath = await this.#confineExportPath(session, outputPath);
 		if (outputPath?.endsWith(".jsonl")) {
-			const path = await session.connection.exportToJsonl(outputPath);
+			const path = await session.connection.exportToJsonl(confinedPath);
 			return { path, format: "jsonl" };
 		}
-		const path = await session.connection.exportToHtml(outputPath);
+		const path = await session.connection.exportToHtml(confinedPath);
 		return { path, format: "html" };
+	}
+
+	/**
+	 * Confine an explicit /export path inside the session's project directory
+	 * (the connection's live cwd). Absolute paths and `..` escapes that leave
+	 * the directory throw a 400-status error; an omitted path passes through
+	 * untouched so the default export location is unchanged.
+	 */
+	async #confineExportPath(session: BridgeSession, outputPath: string | undefined): Promise<string | undefined> {
+		if (outputPath === undefined) return undefined;
+		const { cwd } = await session.connection.getState();
+		const root = resolve(cwd);
+		const candidate = resolve(root, outputPath);
+		// Resolve symlinks: a link inside the project pointing outside must not
+		// escape confinement. The file itself may not exist yet, so realpath the
+		// parent directory (which must already exist).
+		const { realpath } = await import("node:fs/promises");
+		const parent = await realpath(dirname(candidate)).catch(() => null);
+		if (parent === null || !parent.startsWith(`${root}${sep}`)) {
+			throw new SessionExportPathError();
+		}
+		return candidate;
 	}
 
 	/** /reload — re-scan keybindings, extensions, skills, prompts, themes. */
@@ -2115,9 +2150,12 @@ export class PrimeBridge {
 
 	/** Fork the complete persisted history into another registered project. */
 	async forkSessionIntoProject(sessionId: string, targetProjectId: ProjectId): Promise<string> {
+		// Verify the caller's target project is still registered before touching
+		// the source session, so an unknown target fails without resuming or
+		// re-assigning anything as a side effect.
+		const targetCwd = await getPrimeConfig().projectRegistry.cwdForProject(targetProjectId);
 		const source = this.#sessions.get(sessionId) ?? (await this.resumeSessionById(sessionId));
 		if (!source) throw new Error(`Unknown session: ${sessionId}`);
-		const targetCwd = await getPrimeConfig().projectRegistry.cwdForProject(targetProjectId);
 		await source.connection.waitForIdle();
 		const sourceState = await source.connection.getState();
 		const sourcePath = sourceState.sessionFile;
@@ -2146,7 +2184,9 @@ export class PrimeBridge {
 		await copyManagedPlanPresentationsForFork(source, forked, forkedMessages.length);
 		forked.mapperState.presentation = source.mapperState.presentation;
 		this.#persistPresentation(forked.sessionId, forked.sessionPath, forked.mapperState.presentation);
-		return forked.sessionId;
+		// Postcondition: the forked session record must be linked to the
+		// caller's target project.
+		return this.#requireProjectSession(forked.sessionId, targetProjectId).sessionId;
 	}
 
 	// -----------------------------------------------------------------------
@@ -2202,6 +2242,20 @@ export class PrimeBridge {
 	#requireSession(sessionId: string): BridgeSession {
 		const session = this.#sessions.get(sessionId);
 		if (!session) {
+			throw new Error(`Unknown session: ${sessionId}`);
+		}
+		return session;
+	}
+
+	/**
+	 * Project-membership gate over the bridge's session records. Returns the
+	 * live session only when its project linkage matches the caller-asserted
+	 * project, and throws `Unknown session` otherwise so foreign sessions are
+	 * indistinguishable from missing ones.
+	 */
+	#requireProjectSession(sessionId: string, projectId: ProjectId): BridgeSession {
+		const session = this.#requireSession(sessionId);
+		if (session.projectId !== projectId) {
 			throw new Error(`Unknown session: ${sessionId}`);
 		}
 		return session;

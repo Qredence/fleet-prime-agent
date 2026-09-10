@@ -65,5 +65,5 @@ export function handleChatModelsGet(request: Request): Promise<Response> {
 			...(defaultThinkingLevel ? { defaultThinkingLevel } : {}),
 			diagnostics,
 		});
-	});
+	}, request);
 }

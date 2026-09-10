@@ -2,6 +2,7 @@ import { ProjectIdSchema, SessionIdSchema } from "@prime-agent/web-protocol";
 import { loadManagedPlanPresentations } from "../managed-plan-presentations";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+import { requireProjectSession } from "./session-access";
 
 /**
  * Retrieves a chat session or subagent transcript based on the request query parameters.
@@ -26,7 +27,14 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 			if (!parsedParentSessionId.success || !parsedChildId.success) {
 				return Response.json({ message: "Invalid subagent session identifiers" }, { status: 400 });
 			}
-			const child = await getBridge().loadRlmChildTranscript(parsedParentSessionId.data, parsedChildId.data);
+			const bridge = getBridge();
+			// The child loader authorizes through the live parent, so only gate
+			// a live parent here; cold or unknown parents keep the loader's 404.
+			const liveParent = bridge.getSession(parsedParentSessionId.data);
+			if (liveParent && !(await requireProjectSession(liveParent))) {
+				return Response.json({ message: `Unknown session: ${parsedParentSessionId.data}` }, { status: 404 });
+			}
+			const child = await bridge.loadRlmChildTranscript(parsedParentSessionId.data, parsedChildId.data);
 			if (!child) return Response.json({ message: "Unknown subagent transcript" }, { status: 404 });
 			return Response.json({
 				session: {
@@ -50,7 +58,7 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 		const existing = projectId
 			? await bridge.resumeSessionById(sessionId, projectId, { openUI })
 			: (bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId, undefined, { openUI })));
-		if (!existing) {
+		if (!existing || !(await requireProjectSession(existing))) {
 			return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		}
 		return Response.json({
@@ -62,5 +70,5 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 			planPresentations: await loadManagedPlanPresentations(existing),
 			presentation: bridge.getPresentation(existing.sessionId),
 		});
-	});
+	}, request);
 }

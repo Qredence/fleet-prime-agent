@@ -10,7 +10,7 @@ import type {
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import type { MutableRefObject } from "react";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { captureChatSessionStarted, captureConversationSaved } from "@/lib/analytics-stub";
 import type { ChatClient } from "./chat-client";
 import { notifyChatError } from "./chat-error-notify";
@@ -134,6 +134,10 @@ export function usePiChatMessaging({
 	const streamAdmissionsRef = useRef(new Set<StreamAdmission>());
 	const queuedSubmissionTailRef = useRef(RESOLVED_PROMISE);
 	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
+	const projectIdRef = useRef(projectId);
+	useEffect(() => {
+		projectIdRef.current = projectId;
+	}, [projectId]);
 	const findStreamAdmission = useCallback((sessionId?: string) => {
 		for (const admission of streamAdmissionsRef.current) {
 			if (admission.sessionId === sessionId) return admission;
@@ -192,7 +196,7 @@ export function usePiChatMessaging({
 			const inFlight = sessionCreatePromiseRef.current;
 			if (inFlight) return inFlight;
 			const promise = client
-				.createSession(projectId, signal)
+				.createSession(projectIdRef.current, signal)
 				.then((created) => {
 					if (signal?.aborted) throw new Error("Session creation was aborted");
 					setSessionMetadataSynced(created.session);
@@ -209,7 +213,7 @@ export function usePiChatMessaging({
 			sessionCreatePromiseRef.current = promise;
 			return promise;
 		},
-		[client, projectId, refreshSessions, sessionMetadataRef, setPresentationSynced, setSessionMetadataSynced],
+		[client, refreshSessions, sessionMetadataRef, setPresentationSynced, setSessionMetadataSynced],
 	);
 	const handleStreamEvent = useCallback(
 		(

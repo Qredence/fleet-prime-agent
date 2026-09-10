@@ -8,13 +8,16 @@ import {
 } from "../managed-attachments";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+import { requireProjectSession } from "./session-access";
 
 const AttachmentIdSchema = z.uuid();
 const ATTACHMENT_WRITE_CONCURRENCY = 8;
 
 async function resolveSession(sessionId: string) {
 	const bridge = getBridge();
-	return bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
+	const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
+	if (!(await requireProjectSession(session))) return undefined;
+	return session;
 }
 
 export function handleChatAttachmentsPost(request: Request): Promise<Response> {
@@ -46,7 +49,7 @@ export function handleChatAttachmentsPost(request: Request): Promise<Response> {
 		}
 		const attachments = settled.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
 		return Response.json({ attachments });
-	});
+	}, request);
 }
 
 export function handleChatAttachmentGet(request: Request): Promise<Response> {
@@ -58,13 +61,16 @@ export function handleChatAttachmentGet(request: Request): Promise<Response> {
 		if (!session) return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		const attachment = await readManagedAttachment(session, attachmentId).catch(() => undefined);
 		if (!attachment) return Response.json({ message: "Attachment not found" }, { status: 404 });
+		// Serve stored bytes as an opaque download: the stored MIME is
+		// caller-asserted at upload, so SVG/HTML must never execute in the
+		// app origin.
 		return new Response(attachment.data, {
 			headers: {
-				"Content-Type": attachment.metadata.mimeType,
-				"Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(attachment.metadata.name)}`,
+				"Content-Type": "application/octet-stream",
+				"Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.metadata.name)}`,
 				"Cache-Control": "private, no-store",
 				"X-Content-Type-Options": "nosniff",
 			},
 		});
-	});
+	}, request);
 }

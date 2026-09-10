@@ -23,7 +23,7 @@ const EVENT_HANDLER_ATTRIBUTE = /\son[a-z][\w:-]*\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>
 const SCRIPT_SOURCE_ATTRIBUTE = /<script\b[^>]*\bsrc\s*=/i;
 const CSS_IMPORT = /@import\b/i;
 const NETWORK_API =
-	/\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|showModalDialog)\s*\(|\bwindow\s*\.\s*open\s*\(|\b(?:window|globalThis|document|location)\s*\.\s*(?:location|assign|replace|reload|href|pathname|host|hostname|port|protocol|search|hash)\s*=|\b(?:window|globalThis|document|location)\s*\.\s*(?:location\s*\.\s*)?(?:assign|replace|reload)\s*\(/i;
+	/\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|showModalDialog)\s*\(|\[\s*["'`](?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|showModalDialog)\s*["'`]\s*\]|\bwindow\s*\??\.\s*open\s*\(|\b(?:window|globalThis|self|top|parent|frames)\s*(?:\?\s*\.)?\s*\[\s*["'`]\s*open\s*["'`]\s*\]\s*(?:\?\s*\.)?\s*\(|\bimport\s*\(\s*["'`](?:https?:\/\/|wss?:\/\/|\/\/|data:|blob:)|\b(?:window|globalThis|document|location)\s*\.\s*(?:location|assign|replace|reload|href|pathname|host|hostname|port|protocol|search|hash)\s*=|\b(?:window|globalThis|document|location)\s*\??\.\s*(?:location\s*\??\.\s*)?(?:assign|replace|reload)\s*\(/i;
 const RESOURCE_ATTRIBUTE =
 	/\b(?:src|href|action|formaction|poster|cite|background|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
 const UNSAFE_SCHEME =

@@ -11,5 +11,5 @@ export function handleHealthGet(request: Request): Promise<Response> {
 			kernel,
 			uptimeMs: process.uptime() * 1_000,
 		});
-	});
+	}, request);
 }

@@ -209,6 +209,10 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 	if (event.type === "rlm") {
 		const presentation = transition.snapshot.presentation;
 		if (!presentation) return transition;
+		// ChatRlmStreamEvent carries no revision, so the child timestamp is the
+		// monotonic signal: drop stale redeliveries for the same child.
+		const existingChild = presentation.rlmChildren.find((child) => child.id === event.child.id);
+		if (existingChild && existingChild.timestamp > event.child.timestamp) return transition;
 		const rlmChildren = [...presentation.rlmChildren.filter((child) => child.id !== event.child.id), event.child];
 		return {
 			...transition,

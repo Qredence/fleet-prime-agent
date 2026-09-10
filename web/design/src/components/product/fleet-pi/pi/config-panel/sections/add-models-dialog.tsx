@@ -31,6 +31,7 @@ export type AddModelsDialogProps = {
   onAddModels: (models: Array<ConfigModelInfo>) => void
   onDiscoverProvider: (providerId: string) => Promise<void>
   onOpenChange: (open: boolean) => void
+  open: boolean
   /** Preferred labels for custom/OCC instance ids (display names). */
   providerLabel?: (providerId: string) => string
 }
@@ -50,6 +51,7 @@ export function AddModelsDialog({
   onAddModels,
   onDiscoverProvider,
   onOpenChange,
+  open,
   providerLabel = formatProviderLabel,
 }: AddModelsDialogProps) {
   const [filter, setFilter] = useState("")
@@ -110,7 +112,7 @@ export function AddModelsDialog({
   }
 
   return (
-    <Dialog open onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add models</DialogTitle>

@@ -275,8 +275,8 @@ export function ModelDefaultsSection({
         )}
       </div>
 
-      {addOpen ? (
-        <AddModelsDialog
+      <AddModelsDialog
+          open={addOpen}
           configuredProviderIds={configuredProviderIds}
           discoverableProviderIds={discoverableProviderIds}
           discoveringProviderId={discoveringProviderId}
@@ -287,7 +287,6 @@ export function ModelDefaultsSection({
           onOpenChange={setAddOpen}
           providerLabel={providerLabel}
         />
-      ) : null}
     </SettingsPane>
   )
 }

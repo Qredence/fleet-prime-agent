@@ -4,6 +4,17 @@ import { handleChatEventsGet } from "../handlers/chat-events";
 import type { PrimeBridge, RlmChildStream } from "../prime-bridge";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
 
+vi.mock("../prime-config", () => ({
+	getPrimeConfig: () => ({
+		projectRegistry: {
+			get: async (projectId: string) => {
+				if (projectId !== "project-1") throw new Error("Unknown project");
+				return { projectId };
+			},
+		},
+	}),
+}));
+
 const emptyPresentation = {
 	revision: 0,
 	userBash: [],
@@ -29,7 +40,16 @@ afterEach(() => {
 describe("handleChatEventsGet child streams", () => {
 	it("validates child query shape and opaque identifiers before opening a watcher", async () => {
 		const openRlmChildStream = vi.fn();
-		setBridgeForTests(bridgeWith({ openRlmChildStream }));
+		setBridgeForTests(
+			bridgeWith({
+				getSession: vi.fn(() => ({
+					sessionId: "parent-session",
+					projectId: "project-1",
+				})) as unknown as PrimeBridge["getSession"],
+				resumeSessionById: vi.fn(async () => undefined),
+				openRlmChildStream,
+			}),
+		);
 
 		const incomplete = await handleChatEventsGet(
 			new Request("http://localhost/api/chat/events?parentSessionId=parent-session"),
@@ -77,7 +97,14 @@ describe("handleChatEventsGet child streams", () => {
 			includeSnapshot: true,
 			release,
 		};
-		const bridge = bridgeWith({ openRlmChildStream: vi.fn(async () => childStream) });
+		const bridge = bridgeWith({
+			getSession: vi.fn(() => ({
+				sessionId: "parent-session",
+				projectId: "project-1",
+			})) as unknown as PrimeBridge["getSession"],
+			resumeSessionById: vi.fn(async () => undefined),
+			openRlmChildStream: vi.fn(async () => childStream),
+		});
 		setBridgeForTests(bridge);
 
 		const response = await handleChatEventsGet(
@@ -122,7 +149,16 @@ describe("handleChatEventsGet child streams", () => {
 			release,
 		};
 		const openRlmChildStream = vi.fn(async () => childStream);
-		setBridgeForTests(bridgeWith({ openRlmChildStream }));
+		setBridgeForTests(
+			bridgeWith({
+				getSession: vi.fn(() => ({
+					sessionId: "parent-session",
+					projectId: "project-1",
+				})) as unknown as PrimeBridge["getSession"],
+				resumeSessionById: vi.fn(async () => undefined),
+				openRlmChildStream,
+			}),
+		);
 
 		const response = await handleChatEventsGet(
 			new Request(
@@ -167,7 +203,16 @@ describe("handleChatEventsGet child streams", () => {
 			includeSnapshot: true,
 			release,
 		};
-		setBridgeForTests(bridgeWith({ openRlmChildStream: vi.fn(async () => childStream) }));
+		setBridgeForTests(
+			bridgeWith({
+				getSession: vi.fn(() => ({
+					sessionId: "parent-session",
+					projectId: "project-1",
+				})) as unknown as PrimeBridge["getSession"],
+				resumeSessionById: vi.fn(async () => undefined),
+				openRlmChildStream: vi.fn(async () => childStream),
+			}),
+		);
 
 		const response = await handleChatEventsGet(
 			new Request("http://localhost/api/chat/events?parentSessionId=parent-session&childId=child-1&lastEventId=12"),
@@ -181,7 +226,16 @@ describe("handleChatEventsGet child streams", () => {
 
 	it("keeps unknown children out of the child stream", async () => {
 		const openRlmChildStream = vi.fn(async () => undefined);
-		setBridgeForTests(bridgeWith({ openRlmChildStream }));
+		setBridgeForTests(
+			bridgeWith({
+				getSession: vi.fn(() => ({
+					sessionId: "parent-session",
+					projectId: "project-1",
+				})) as unknown as PrimeBridge["getSession"],
+				resumeSessionById: vi.fn(async () => undefined),
+				openRlmChildStream,
+			}),
+		);
 
 		const response = await handleChatEventsGet(
 			new Request("http://localhost/api/chat/events?parentSessionId=parent-session&childId=child-1"),

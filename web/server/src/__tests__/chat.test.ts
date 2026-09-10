@@ -10,6 +10,19 @@ import type { BridgeSession, PrimeBridge } from "../prime-bridge";
 import { sessionCommandResultText } from "../session-commands";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
 
+vi.mock("../prime-config", () => ({
+	getPrimeConfig: () => ({
+		defaultCwd: "/tmp",
+		projectRegistry: {
+			get: async (projectId: string) => {
+				if (projectId === "project-1") return { projectId, canonicalPath: "/tmp" };
+				throw new Error("Unknown project");
+			},
+			projectIdForCwd: async () => "project-1",
+		},
+	}),
+}));
+
 describe("handleChatPost attachment validation", () => {
 	let root: string;
 	let session: BridgeSession;
@@ -19,6 +32,7 @@ describe("handleChatPost attachment validation", () => {
 		root = await mkdtemp(join(tmpdir(), "prime-chat-attachments-"));
 		session = {
 			sessionId: "session-1",
+			projectId: "project-1",
 			sessionPath: join(root, "sessions", "session-1.jsonl"),
 		} as unknown as BridgeSession;
 		prompt = vi.fn();
@@ -431,6 +445,7 @@ describe("handleChatNewPost", () => {
 			async () =>
 				({
 					sessionId: "session-1",
+					projectId: "project-1",
 					sessionPath: "/tmp/session-1.jsonl",
 				}) as unknown as BridgeSession,
 		);
@@ -456,6 +471,18 @@ describe("handleChatNewPost", () => {
 		expect(resumeSessionById).toHaveBeenCalledWith("session-1", undefined, { openUI: true });
 	});
 
+	it("rejects session reads for sessions outside registered projects", async () => {
+		setBridgeForTests({
+			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: null })),
+			resumeSessionById: vi.fn(async () => undefined),
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatSessionGet(new Request("http://localhost/api/chat/session?sessionId=session-1"));
+
+		expect(response.status).toBe(404);
+	});
+
 	it("loads an authorized subagent transcript through the parent lineage", async () => {
 		const loadRlmChildTranscript = vi.fn(async () => ({
 			sessionId: "child-session",
@@ -469,7 +496,10 @@ describe("handleChatNewPost", () => {
 				artifactRuns: [],
 			},
 		}));
-		setBridgeForTests({ loadRlmChildTranscript } as unknown as PrimeBridge);
+		setBridgeForTests({
+			getSession: vi.fn(() => ({ sessionId: "parent-session", projectId: "project-1" })),
+			loadRlmChildTranscript,
+		} as unknown as PrimeBridge);
 
 		const response = await handleChatSessionGet(
 			new Request("http://localhost/api/chat/session?parentSessionId=parent-session&childId=child-1"),
@@ -498,6 +528,7 @@ describe("handleChatNewPost", () => {
 
 	it("keeps child-loader failures free of local transcript paths", async () => {
 		setBridgeForTests({
+			getSession: vi.fn(() => ({ sessionId: "parent-session", projectId: "project-1" })),
 			loadRlmChildTranscript: vi.fn(async () => {
 				throw new Error("failed to read /tmp/private/child.jsonl");
 			}),

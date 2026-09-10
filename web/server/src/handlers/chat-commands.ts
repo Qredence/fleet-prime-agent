@@ -115,5 +115,5 @@ export function handleChatCommandsGet(request: Request): Promise<Response> {
 			commands: [...builtin, ...skillCommands, ...promptCommands, ...extensionCommands],
 			diagnostics,
 		});
-	});
+	}, request);
 }

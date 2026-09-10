@@ -66,5 +66,5 @@ export function handleChatResourcesGet(request: Request): Promise<Response> {
 			})),
 			diagnostics,
 		});
-	});
+	}, request);
 }

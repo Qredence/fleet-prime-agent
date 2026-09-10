@@ -12,11 +12,22 @@ vi.mock("../singleton", () => ({
 	getBridge: () => bridgeMock,
 }));
 
-import { handleChatAttachmentsPost } from "../handlers/chat-attachments";
+vi.mock("../prime-config", () => ({
+	getPrimeConfig: () => ({
+		projectRegistry: {
+			get: async (projectId: string) => {
+				if (projectId === "project-1") return { projectId };
+				throw new Error("Unknown project");
+			},
+		},
+	}),
+}));
+
+import { handleChatAttachmentGet, handleChatAttachmentsPost } from "../handlers/chat-attachments";
 
 describe("chat attachment upload ordering", () => {
 	let root: string;
-	const session = { sessionId: "session-1", sessionPath: "" };
+	const session = { sessionId: "session-1", projectId: "project-1", sessionPath: "" };
 
 	beforeEach(async () => {
 		root = await mkdtemp(join(tmpdir(), "prime-chat-attachments-"));
@@ -68,5 +79,47 @@ describe("chat attachment upload ordering", () => {
 		const storageRoot = join(root, "session-attachments", session.sessionId);
 		const leftovers = await readdir(storageRoot).catch(() => [] as string[]);
 		expect(leftovers).toEqual([]);
+	});
+
+	it("rejects uploads for sessions outside registered projects", async () => {
+		bridgeMock.getSession.mockReturnValue({ sessionId: "session-1", projectId: null });
+		const form = new FormData();
+		form.append("sessionId", session.sessionId);
+		form.append("files", new File(["first"], "first.txt", { type: "text/plain" }));
+
+		const response = await handleChatAttachmentsPost(
+			new Request("http://localhost/api/chat/attachments", {
+				method: "POST",
+				body: form,
+			}),
+		);
+
+		expect(response.status).toBe(404);
+	});
+
+	it("serves stored attachments as downloads, never inline executable content", async () => {
+		const form = new FormData();
+		form.append("sessionId", session.sessionId);
+		form.append("files", new File(["<svg></svg>"], "evil.svg", { type: "image/svg+xml" }));
+
+		const upload = await handleChatAttachmentsPost(
+			new Request("http://localhost/api/chat/attachments", {
+				method: "POST",
+				body: form,
+			}),
+		);
+		const uploaded = (await upload.json()) as { attachments: Array<{ attachmentId: string }> };
+		expect(upload.status).toBe(200);
+
+		const response = await handleChatAttachmentGet(
+			new Request(
+				`http://localhost/api/chat/attachments?sessionId=${session.sessionId}&attachmentId=${uploaded.attachments[0]?.attachmentId}`,
+			),
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("Content-Type")).toBe("application/octet-stream");
+		expect(response.headers.get("Content-Disposition")).toContain("attachment;");
+		expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
 	});
 });
