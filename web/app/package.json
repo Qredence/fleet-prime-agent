@@ -18,6 +18,7 @@
     "@prime-agent/web-design": "workspace:*",
     "@prime-agent/web-protocol": "workspace:*",
     "@prime-agent/web-server": "workspace:*",
+    "@fontsource-variable/inter": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-router": "^1.170.32",

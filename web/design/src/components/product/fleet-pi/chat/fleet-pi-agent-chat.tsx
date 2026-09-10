@@ -73,9 +73,11 @@ const LazyAgentActivity = lazy(() =>
  */
 function AgentActivity(props: ComponentProps<typeof LazyAgentActivity>) {
   return (
-    <Suspense fallback={<div className="mt-2 h-8 animate-pulse rounded-md bg-muted/40" aria-label="Loading activity" />}>
+    <div className="mt-2 min-h-8">
+      <Suspense fallback={<div className="h-8 animate-pulse rounded-md bg-muted/40" aria-label="Loading activity" />}>
       <LazyAgentActivity {...props} />
-    </Suspense>
+      </Suspense>
+    </div>
   )
 }
 
@@ -169,9 +171,11 @@ const LazyPromptSuggestions = lazy(() =>
  */
 function PromptSuggestions(props: ComponentProps<typeof LazyPromptSuggestions>) {
   return (
-    <Suspense fallback={<div className="h-8 animate-pulse rounded-full bg-muted/40" aria-label="Loading suggestions" />}>
+    <div className="min-h-8">
+      <Suspense fallback={<div className="h-8 animate-pulse rounded-full bg-muted/40" aria-label="Loading suggestions" />}>
       <LazyPromptSuggestions {...props} />
-    </Suspense>
+      </Suspense>
+    </div>
   )
 }
 
