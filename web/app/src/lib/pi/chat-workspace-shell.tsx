@@ -2,7 +2,7 @@ import { UiErrorBoundary } from "@prime-agent/web-design/components/product/flee
 import {
 	agentTabPanelId,
 	agentTabTriggerId,
-} from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar";
+} from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-ids";
 import { RightPanelShell } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell";
 import { RightPanelProvider } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
 import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/product/fleet-pi/layout/chat-workspace-layout";

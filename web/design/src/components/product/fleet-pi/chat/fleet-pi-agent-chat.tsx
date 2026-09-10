@@ -592,7 +592,7 @@ function AssistantMessage({
               />
             ) : null}
             {isLast && presentation ? (
-              <FleetSubagentList children={presentation.rlmChildren} tree={presentation.rlmTree} />
+              <FleetSubagentList tree={presentation.rlmTree}>{presentation.rlmChildren}</FleetSubagentList>
             ) : null}
           </MessageBubbleContent>
         </MessageBubble>

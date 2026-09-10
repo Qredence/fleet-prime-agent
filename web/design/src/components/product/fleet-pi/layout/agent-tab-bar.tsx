@@ -3,32 +3,13 @@ import { useCallback, useEffect, useRef, type KeyboardEvent } from "react"
 import { Button } from "../../../ui/button"
 import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol"
 import { cn } from "../../../../lib/utils"
+import { agentTabPanelId, agentTabTriggerId } from "./agent-tab-ids"
 
 export type AgentTabItem = {
   id: string
   label: string
   kind: "main" | "subagent"
   status?: PrimeAgentRlmChild["status"]
-}
-
-/**
- * Creates a deterministic ARIA ID for an agent tab trigger.
- *
- * @param tabId - The tab identifier to encode
- * @returns The encoded tab trigger ID
- */
-export function agentTabTriggerId(tabId: string) {
-  return `agent-tab-${encodeURIComponent(tabId)}`
-}
-
-/**
- * Generates the ARIA ID for an agent tab panel.
- *
- * @param tabId - The tab identifier to encode in the panel ID
- * @returns The encoded agent tab panel ID
- */
-export function agentTabPanelId(tabId: string) {
-  return `agent-tab-panel-${encodeURIComponent(tabId)}`
 }
 
 /**

@@ -85,7 +85,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const planLabelRef = useRef(planLabel);
 	const queueRef = useRef(queue);
 	const queueRevisionRef = useRef(0);
-	const queuedDeletionTailRef = useRef(Promise.resolve());
+	const queuedDeletionTailRef = useRef<Promise<unknown> | null>(null);
 	const presentationRef = useRef(presentation);
 	const pendingSendControllerRef = useRef<AbortController | null>(null);
 	const streamControllersRef = useRef(new Map<string, AbortController>());
@@ -175,7 +175,9 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		},
 		[client, setPresentationSynced],
 	);
-	projectIdRef.current = projectId;
+	useEffect(() => {
+		projectIdRef.current = projectId;
+	}, [projectId]);
 
 	const refreshSessions = useCallback(async () => {
 		const pendingRefresh = refreshSessionsPromiseRef.current;
@@ -414,7 +416,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			const requestedRevision = queueRevisionRef.current;
 			const requestedItems = lane === "steering" ? queueRef.current.steering : queueRef.current.followUp;
 			const requestedMatchCount = requestedItems.filter((item) => item === expectedText).length;
-			const previousDeletion = queuedDeletionTailRef.current;
+			const previousDeletion = queuedDeletionTailRef.current ?? Promise.resolve();
 			const deletion = previousDeletion
 				.catch(() => undefined)
 				.then(async () => {

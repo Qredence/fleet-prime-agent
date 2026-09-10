@@ -1,5 +1,5 @@
 import { AlertCircle, Bot, RefreshCw } from "lucide-react"
-import { useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type {
   PrimeAgentArtifact,
@@ -26,24 +26,13 @@ import { FleetPiToolRenderer } from "../chat/fleet-pi-tool-renderer"
 import { derivePrimeAgentArtifactRuns } from "./prime-agent-artifacts"
 import { PI_TOOL_RENDERERS } from "./tool-renderers"
 import { VirtualizedTurnList } from "../chat/virtualized-turn-list"
+import { transcriptStatus } from "./transcript-status"
 
 export type SubagentTranscriptState = {
   status: "loading" | "ready" | "error"
   messages: Array<ChatMessage>
   presentation?: PrimeAgentSessionPresentation
   error?: Error
-}
-
-/**
- * Maps a subagent's lifecycle state to the corresponding chat status.
- *
- * @param child - The subagent whose status determines the chat status
- * @returns `streaming` for running or recovering subagents, `error` for failed subagents, and `ready` otherwise
- */
-export function transcriptStatus(child: PrimeAgentRlmChild): ChatStatus {
-  if (child.status === "running" || child.status === "recovering") return "streaming"
-  if (child.status === "error" || child.status === "failed") return "error"
-  return "ready"
 }
 
 /**
@@ -107,10 +96,9 @@ export function SubagentTurnView({
                 ) : null}
                 <div className="flex flex-col gap-3">{assistantElements}</div>
                 {isLast && presentation ? (
-                  <FleetSubagentList
-                    children={presentation.rlmChildren}
-                    tree={presentation.rlmTree}
-                  />
+                  <FleetSubagentList tree={presentation.rlmTree}>
+                    {presentation.rlmChildren}
+                  </FleetSubagentList>
                 ) : null}
               </MessageBubbleContent>
             </MessageBubble>
@@ -161,6 +149,10 @@ export function SubagentTranscriptView({
   )
   const artifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns])
   const title = child.sessionName || child.label
+  const [heartbeatLabel, setHeartbeatLabel] = useState<string | null>(null)
+  useEffect(() => {
+    setHeartbeatLabel(child.lastHeardFrom ? new Date(child.lastHeardFrom).toLocaleTimeString() : null)
+  }, [child.lastHeardFrom])
   const viewportRef = useRef<HTMLElement | null>(null)
 
   return (
@@ -177,10 +169,8 @@ export function SubagentTranscriptView({
             <span className="shrink-0 text-[10px] capitalize text-foreground/45">{child.status}</span>
           </div>
           {child.model ? <p className="truncate font-mono text-[10px] text-foreground/40">{child.model}</p> : null}
-          {child.lastHeardFrom ? (
-            <p className="truncate text-[10px] text-foreground/40">
-              Heartbeat: {new Date(child.lastHeardFrom).toLocaleTimeString()}
-            </p>
+          {heartbeatLabel ? (
+            <p className="truncate text-[10px] text-foreground/40">Heartbeat: {heartbeatLabel}</p>
           ) : null}
           {child.answerPreview || child.recap ? (
             <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[11px] leading-4 text-foreground/55">
