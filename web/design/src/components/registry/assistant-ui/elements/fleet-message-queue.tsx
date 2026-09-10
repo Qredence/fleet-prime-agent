@@ -55,7 +55,7 @@ export function FleetMessageQueue({ queue, onDelete, className }: FleetMessageQu
 								key={`${key}:${index}:${text}`}
 								className="flex min-w-0 items-center gap-2 rounded-lg bg-background/80 px-2 py-1.5 text-sm"
 							>
-								<span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+								<span className="shrink-0 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground">
 									{label}
 								</span>
 								<span className="min-w-0 flex-1 truncate text-foreground/80">{text}</span>

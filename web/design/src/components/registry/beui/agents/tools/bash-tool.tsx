@@ -70,7 +70,7 @@ function BashToolTerminalCard({
           </svg>
         )}
       </div>
-      <div className="overflow-hidden border-t border-border bg-background px-2.5 py-1.5 font-mono text-[12px] leading-[16px]">
+      <div className="overflow-hidden border-t border-border bg-background px-2.5 py-1.5 font-mono text-[0.75rem] leading-[16px]">
         <div className="break-all">
           <span className="text-amber-600 select-none dark:text-amber-400">
             ${" "}

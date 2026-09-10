@@ -174,7 +174,7 @@ export function InputBarSurface({
 
         {isTyping && typingImage && showImage ? (
           <div className="flex flex-wrap gap-2 px-3 pt-3">
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md">
+            <div className="relative size-16 shrink-0 overflow-hidden rounded-md">
               <img src={typingImage} alt="" className="h-full w-full object-cover" />
             </div>
           </div>
@@ -182,7 +182,7 @@ export function InputBarSurface({
 
         <div className="min-h-[44px] pt-3 pr-3 pb-0 pl-3.5">
           {isTyping ? (
-            <div className="w-full text-[14px] leading-[1.6] text-an-foreground-muted">
+            <div className="w-full text-[0.875rem] leading-[1.6] text-an-foreground-muted">
               <span>{displayedText}</span>
               <span className="animate-an-blink ml-px inline-block h-[1em] w-[2px] bg-an-foreground align-text-bottom" />
             </div>
@@ -202,7 +202,7 @@ export function InputBarSurface({
                 disabled={disabled}
                 rows={1}
                 className={cn(
-                  "peer w-full resize-none border-0 bg-transparent text-[14px] leading-[1.6] text-an-foreground outline-none placeholder:text-an-input-placeholder-color",
+                  "peer w-full resize-none border-0 bg-transparent text-[0.875rem] leading-[1.6] text-an-foreground outline-none placeholder:text-an-input-placeholder-color",
                   "overflow-hidden",
                   disabled && "cursor-not-allowed opacity-50"
                 )}

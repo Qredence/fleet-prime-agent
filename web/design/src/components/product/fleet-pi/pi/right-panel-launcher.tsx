@@ -24,7 +24,7 @@ import type {
   WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol"
 
-const COMPACT_TABS_CLASS = "[&_[data-proximity-index]]:!h-7 [&_[data-proximity-index]]:!px-2 [&_[data-proximity-index]]:!text-[11px]"
+const COMPACT_TABS_CLASS = "[&_[data-proximity-index]]:!h-7 [&_[data-proximity-index]]:!px-2 [&_[data-proximity-index]]:!text-[0.6875rem]"
 /**
  * Renders responsive controls for opening or navigating the right panel based on context state.
  *
@@ -431,7 +431,7 @@ export function MobilePanel({
         </span>
         {title && (
           <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3">
-            <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground/80">
+            <div className="flex min-w-0 items-center gap-2 text-[0.8125rem] font-medium text-foreground/80">
               {Icon && <Icon className="size-3.5 shrink-0" />}
               <span className="truncate">{title}</span>
             </div>

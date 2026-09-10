@@ -47,13 +47,13 @@ export function FleetSubagentList({ children, tree, className }: FleetSubagentLi
 							<div className="min-w-0 flex-1">
 								<div className="flex min-w-0 items-baseline gap-2">
 									<span className="truncate text-sm text-foreground/85">{child.label}</span>
-									{child.model ? <span className="truncate font-mono text-[10px] text-muted-foreground">{child.model}</span> : null}
+									{child.model ? <span className="truncate font-mono text-[0.625rem] text-muted-foreground">{child.model}</span> : null}
 								</div>
 								{child.answerPreview || child.activity?.toolName || child.error ? (
 									<p className="truncate text-xs text-muted-foreground">{child.error ?? child.answerPreview ?? child.activity?.toolName}</p>
 								) : null}
 							</div>
-							<span className="shrink-0 text-[10px] capitalize text-muted-foreground">{child.status}</span>
+							<span className="shrink-0 text-[0.625rem] capitalize text-muted-foreground">{child.status}</span>
 						</div>
 					))}
 				</div>

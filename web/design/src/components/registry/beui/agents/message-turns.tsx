@@ -366,7 +366,7 @@ export function buildAssistantElements(
     elems.push(
       <div
         key={`${messageId}-text-final`}
-        className="group/assistant-text text-[14px]"
+        className="group/assistant-text text-[0.875rem]"
       >
         <TextRendererComponent
           content={text}

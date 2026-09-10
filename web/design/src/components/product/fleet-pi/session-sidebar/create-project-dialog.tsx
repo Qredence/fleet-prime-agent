@@ -172,12 +172,12 @@ export function FleetSessionSidebarCreateDialog({
 										{selectedDirectoryPath}
 									</p>
 								</div>
-								<span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
+								<span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[0.6875rem] font-medium text-primary">
 									Selected
 								</span>
 							</div>
 
-							<div className="space-y-2 border-t px-3 py-3">
+							<div className="space-y-2 border-t p-3">
 								<div className="flex items-center justify-between gap-2">
 									<div>
 										<p className="text-sm font-medium">Browse child directories</p>
@@ -248,7 +248,7 @@ export function FleetSessionSidebarCreateDialog({
 																		{pathEntryLabel(entry)}
 																	</span>
 																	<span
-																		className="block truncate text-[11px] text-muted-foreground"
+																		className="block truncate text-[0.6875rem] text-muted-foreground"
 																		title={entry.pathLabel}
 																	>
 																		{entry.pathLabel}

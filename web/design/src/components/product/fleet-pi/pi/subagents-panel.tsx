@@ -98,7 +98,7 @@ export function SubagentsPanelContent({
     return (
       <section
         aria-label="Subagents"
-        className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-[12px] leading-5 text-foreground/45"
+        className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-[0.75rem] leading-5 text-foreground/45"
       >
         Subagent threads will appear here when Prime delegates work.
       </section>
@@ -110,7 +110,7 @@ export function SubagentsPanelContent({
       <div className="flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
         <Bot className="size-3.5 shrink-0 text-foreground/45" />
         <span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Invoked subagents</span>
-        <span className="shrink-0 text-[10px] text-foreground/40">{ordered.length}</span>
+        <span className="shrink-0 text-[0.625rem] text-foreground/40">{ordered.length}</span>
       </div>
 
       <div className="space-y-0.5" data-testid="subagent-thread-list">
@@ -136,7 +136,7 @@ export function SubagentsPanelContent({
               <span className="shrink-0">{rlmStatusIcon(agent.status)}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-foreground/80">{agent.label}</span>
               <ChevronRight className="size-3 shrink-0 text-foreground/30" />
-              <span className="shrink-0 text-[10px] capitalize text-foreground/45">{agent.status}</span>
+              <span className="shrink-0 text-[0.625rem] capitalize text-foreground/45">{agent.status}</span>
             </Button>
           )
         })}

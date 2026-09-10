@@ -371,7 +371,7 @@ export function ProjectFolder({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
         >
-          <span className="absolute left-1/2 top-0 block h-0 w-0">
+          <span className="absolute left-1/2 top-0 block size-0">
             <AnimatePresence initial={false}>
               {!isExpanded
                   ? previewItems.map((preview, index) => {

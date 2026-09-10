@@ -24,7 +24,7 @@ export function ResourceNotice({
         <Icon className="size-3.5" />
         <span>{title}</span>
       </div>
-      <p className="mt-1 text-[11px] leading-4 text-foreground/40">
+      <p className="mt-1 text-[0.6875rem] leading-4 text-foreground/40">
         {description}
       </p>
     </div>
@@ -52,7 +52,7 @@ export function ResourceChipSection({
         <span className="truncate underline decoration-foreground/25 underline-offset-2">
           {label}
         </span>
-        <span className="ml-1 shrink-0 text-[11px] leading-4 text-foreground/30 tabular-nums no-underline">
+        <span className="ml-1 shrink-0 text-[0.6875rem] leading-4 text-foreground/30 tabular-nums no-underline">
           {items.length}
         </span>
       </div>
@@ -106,12 +106,12 @@ function ResourceChip({
         <span className="min-w-0 truncate">{item.name}</span>
       </div>
       {item.source && (
-        <span className="max-w-20 shrink-0 truncate rounded-[5px] bg-foreground/5 px-1.5 py-0.5 text-[10px] leading-3 text-foreground/35">
+        <span className="max-w-20 shrink-0 truncate rounded-[5px] bg-foreground/5 px-1.5 py-0.5 text-[0.625rem] leading-3 text-foreground/35">
           {item.source}
         </span>
       )}
       {item.activationStatus && (
-        <span className="max-w-24 shrink-0 truncate rounded-[5px] bg-foreground/5 px-1.5 py-0.5 text-[10px] leading-3 text-foreground/35">
+        <span className="max-w-24 shrink-0 truncate rounded-[5px] bg-foreground/5 px-1.5 py-0.5 text-[0.625rem] leading-3 text-foreground/35">
           {item.activationStatus}
         </span>
       )}

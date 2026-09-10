@@ -221,7 +221,7 @@ export function AnimatedSelectTrigger({ className, children }: AnimatedSelectTri
         transition={ctx.reduce ? { duration: 0 } : CHEVRON_TRANSITION}
         className="text-muted-foreground"
       >
-        <ChevronDown className="h-4 w-4" />
+        <ChevronDown className="size-4" />
       </m.span>
     </m.button>
   );
@@ -405,7 +405,7 @@ export function AnimatedSelectItem({
         )}
       >
         {children}
-        {selected ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+        {selected ? <Check className="size-3.5 shrink-0" /> : null}
       </button>
     </m.li>
   );

@@ -81,7 +81,7 @@ export function AccountMenu({
               className={
                 compact
                   ? "sr-only"
-                  : "text-[13px] font-medium tracking-[-0.01em] whitespace-nowrap"
+                  : "text-[0.8125rem] font-medium tracking-[-0.01em] whitespace-nowrap"
               }
             >
               {label}
@@ -191,7 +191,7 @@ export function SessionControls({
         }
       >
         {sessions.length === 0 ? (
-          <div className="px-2 py-2 text-label text-foreground/45">
+          <div className="p-2 text-label text-foreground/45">
             No saved conversations yet.
           </div>
         ) : (

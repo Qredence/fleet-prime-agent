@@ -37,7 +37,7 @@ function buildChartConfig(
 
 function EmptyChartNotice() {
   return (
-    <div className="flex min-h-[120px] w-full items-center justify-center rounded-md border border-border/50 text-[12px] text-foreground/40">
+    <div className="flex min-h-[120px] w-full items-center justify-center rounded-md border border-border/50 text-[0.75rem] text-foreground/40">
       No data
     </div>
   )

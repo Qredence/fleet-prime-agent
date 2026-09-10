@@ -22,7 +22,7 @@ export function PayloadPart({ part }: { part: ChatPayloadPart }) {
         {part.title}
       </div>
       {part.text ? (
-        <pre className="m-0 whitespace-pre-wrap break-words px-3 py-3 font-mono text-xs leading-5 text-foreground/80">
+        <pre className="m-0 whitespace-pre-wrap break-words p-3 font-mono text-xs leading-5 text-foreground/80">
           {part.text}
         </pre>
       ) : null}

@@ -372,7 +372,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
       <span
         className={cn(
           "inline-grid whitespace-nowrap",
-          isPill ? "text-[12px] font-medium" : "text-[13px]"
+          isPill ? "text-[0.75rem] font-medium" : "text-[0.8125rem]"
         )}
       >
         <span
@@ -439,7 +439,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
             {badge !== undefined ? (
               <span
                 className={cn(
-                  "text-[11px] tabular-nums transition-colors duration-80",
+                  "text-[0.6875rem] tabular-nums transition-colors duration-80",
                   tone
                 )}
               >

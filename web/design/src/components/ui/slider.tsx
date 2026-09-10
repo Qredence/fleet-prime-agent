@@ -150,16 +150,16 @@ export function Slider({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-[2] flex items-center px-2"
         >
-          {label ? <span className="px-2 text-[13px] text-transparent select-none" aria-hidden="true">{label}</span> : null}
+          {label ? <span className="px-2 text-[0.8125rem] text-transparent select-none" aria-hidden="true">{label}</span> : null}
           <span
-            className="ml-auto px-2 text-[13px] text-transparent tabular-nums select-none"
+            className="ml-auto px-2 text-[0.8125rem] text-transparent tabular-nums select-none"
             style={{minWidth: `${maxValueText.length}ch`}}
             aria-hidden="true"
           >
             {maxValueText}
           </span>
         </div>
-        <div className="pointer-events-none absolute inset-0 z-[4] flex items-center px-2 text-[13px]">
+        <div className="pointer-events-none absolute inset-0 z-[4] flex items-center px-2 text-[0.8125rem]">
           {label ? (
             <m.span
               className="px-2"

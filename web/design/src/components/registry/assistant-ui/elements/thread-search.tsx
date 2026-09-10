@@ -100,7 +100,7 @@ export function ThreadSearch({
         {thread.pinned && (
           <PinIcon className="text-foreground/30 size-2.5 shrink-0" />
         )}
-        <span className="min-w-0 flex-1 truncate text-[13px]">
+        <span className="min-w-0 flex-1 truncate text-[0.8125rem]">
           {thread.title}
         </span>
       </span>
@@ -137,7 +137,7 @@ export function ThreadSearch({
           onKeyDown={onKeyDown}
           placeholder="Search threads"
           aria-label="Search threads"
-          className="text-foreground/85 placeholder:text-foreground/30 min-w-0 flex-1 bg-transparent text-base outline-none md:text-[13px]"
+          className="text-foreground/85 placeholder:text-foreground/30 min-w-0 flex-1 bg-transparent text-base outline-none md:text-[0.8125rem]"
         />
       </div>
 

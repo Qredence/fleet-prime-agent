@@ -315,7 +315,7 @@ export function ActionSwapButton({
       {...rest}
     >
       {hasIcon ? (
-        <ActionSwapIcon value={activeItem.id} animation={animation} className="h-4 w-4">
+        <ActionSwapIcon value={activeItem.id} animation={animation} className="size-4">
           {activeItem.icon ?? null}
         </ActionSwapIcon>
       ) : null}

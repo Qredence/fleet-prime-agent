@@ -28,7 +28,7 @@ export function AgentPlan({
       {...props}
     >
       <div className="flex items-center justify-between">
-        <span className="text-[13.5px] font-medium">Plan</span>
+        <span className="text-[0.84375rem] font-medium">Plan</span>
         <span className={cn(mono, "text-foreground/35 tabular-nums")}>
           {completed} of {total}
         </span>
@@ -44,7 +44,7 @@ export function AgentPlan({
           const done = allDone || i < completed;
           const active = !allDone && i === completed;
           return (
-            <li key={step} className="flex items-center gap-2.5 text-[13.5px]">
+            <li key={step} className="flex items-center gap-2.5 text-[0.84375rem]">
               <span className="flex size-4 shrink-0 items-center justify-center">
                 {done ? (
                   <CheckIcon className="text-foreground/35 size-3.5" />

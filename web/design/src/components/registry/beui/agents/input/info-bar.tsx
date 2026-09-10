@@ -59,10 +59,10 @@ export function InputInfoBar({
           <button
             type="button"
             onClick={onClose}
-            className="relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-an-foreground-muted/70 transition-[background-color,color,transform] duration-150 after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2 hover:bg-an-background-secondary hover:text-an-foreground active:scale-[0.96]"
+            className="relative inline-flex size-6 shrink-0 items-center justify-center rounded-md text-an-foreground-muted/70 transition-[background-color,color,transform] duration-150 after:absolute after:top-1/2 after:left-1/2 after:size-10 after:-translate-x-1/2 after:-translate-y-1/2 hover:bg-an-background-secondary hover:text-an-foreground active:scale-[0.96]"
             aria-label="Close"
           >
-            <X className="h-3.5 w-3.5" strokeWidth={2} />
+            <X className="size-3.5" strokeWidth={2} />
           </button>
         )}
       </div>

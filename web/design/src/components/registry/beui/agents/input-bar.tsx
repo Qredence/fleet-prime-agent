@@ -460,7 +460,7 @@ function InputSuggestionsOverlay({
         )}
         disabled={interactionsDisabled}
         itemClassName={cn(
-          "h-8 shrink-0 justify-start rounded-[6px] border-transparent px-2 text-left font-mono text-[12px]",
+          "h-8 shrink-0 justify-start rounded-[6px] border-transparent px-2 text-left font-mono text-[0.75rem]",
           slashCommandConfig.itemClassName
         )}
         items={filteredSlashCommands}

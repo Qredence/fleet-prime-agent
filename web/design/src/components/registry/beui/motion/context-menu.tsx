@@ -567,7 +567,7 @@ function ContextMenuItemBase({
         if (closeOnSelect) context.setOpen(false);
       }}
       className={cn(
-        "relative isolate flex w-full select-none items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] outline-none",
+        "relative isolate flex w-full select-none items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[0.8125rem] outline-none",
         "focus-visible:ring-2 focus-visible:ring-foreground/15",
         "disabled:pointer-events-none disabled:opacity-40",
         inset && "pl-8",
@@ -616,7 +616,7 @@ export function ContextMenuCheckboxItem({
       ariaChecked={checked}
       onSelect={() => onCheckedChange?.(!checked)}
     >
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+      <span className="flex size-4 shrink-0 items-center justify-center">
         <AnimatePresence initial={false}>
           {checked ? (
             <m.span
@@ -626,7 +626,7 @@ export function ContextMenuCheckboxItem({
               exit={{ opacity: 0, scale: context.reduce ? 1 : 0.75 }}
               transition={context.reduce ? { duration: 0.08 } : SPRING_PANEL}
             >
-              <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.4} />
+              <Check aria-hidden="true" className="size-3.5" strokeWidth={2.4} />
             </m.span>
           ) : null}
         </AnimatePresence>
@@ -692,7 +692,7 @@ export function ContextMenuRadioItem({
       ariaChecked={checked}
       onSelect={() => group.onValueChange?.(value)}
     >
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+      <span className="flex size-4 shrink-0 items-center justify-center">
         <span
           className={cn(
             "h-1.5 w-1.5 rounded-full bg-current transition-opacity",
@@ -719,7 +719,7 @@ export function ContextMenuLabel({
   return (
     <div
       className={cn(
-        "px-2.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground",
+        "px-2.5 pb-1 pt-1.5 text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground",
         inset && "pl-8",
         className,
       )}
@@ -754,7 +754,7 @@ export function ContextMenuShortcut({
     <span
       aria-hidden="true"
       className={cn(
-        "ml-auto pl-4 text-[10px] font-medium tracking-wide text-muted-foreground",
+        "ml-auto pl-4 text-[0.625rem] font-medium tracking-wide text-muted-foreground",
         className,
       )}
     >
