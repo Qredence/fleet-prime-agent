@@ -9,6 +9,7 @@ import {
 	FleetErrorEnvelopeSchema,
 	PrimeAgentSessionPresentationSchema,
 } from "../schemas/chat";
+import { ChatPiSettingsSchema, ChatPiSettingsUpdateSchema, ChatSettingsResponseSchema } from "../schemas/settings";
 
 const SESSION_ID = "session-01";
 
@@ -166,6 +167,37 @@ describe("ChatRequestSchema", () => {
 			).toBe(true);
 		},
 	);
+});
+
+describe("chat settings resource limits", () => {
+	it("keeps existing large settings readable while capping update requests", () => {
+		const extensions = Array.from({ length: 101 }, (_, index) => `extensions/${index}`);
+		const effective = {
+			compaction: { enabled: true, reserveTokens: 1, keepRecentTokens: 1 },
+			enableSkillCommands: true,
+			extensions,
+			followUpMode: "all",
+			packages: [],
+			prompts: [],
+			retry: { enabled: true, maxRetries: 1, baseDelayMs: 1 },
+			skills: [],
+			steeringMode: "one-at-a-time",
+			themes: [],
+			transport: "auto",
+		};
+
+		expect(ChatPiSettingsSchema.safeParse(effective).success).toBe(true);
+		expect(
+			ChatSettingsResponseSchema.safeParse({
+				diagnostics: [],
+				effective,
+				project: { extensions },
+				projectPath: "/workspace/project",
+				updateImpact: { newSessionRecommended: false, resourceReloadRequired: false },
+			}).success,
+		).toBe(true);
+		expect(ChatPiSettingsUpdateSchema.safeParse({ extensions }).success).toBe(false);
+	});
 });
 
 describe("validateAndNormalizeOpenUIHtmlArtifact", () => {

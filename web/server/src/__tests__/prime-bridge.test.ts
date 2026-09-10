@@ -220,6 +220,18 @@ describe("PrimeBridge.forkSession", () => {
 		return { userEntryId, assistantEntryId };
 	}
 
+	it("allows JSONL exports into nested directories created by the runtime", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const outputPath = "reports/2026/session.jsonl";
+
+		const result = await bridge.exportSession(created.sessionId, outputPath);
+
+		expect(result.format).toBe("jsonl");
+		expect(result.path).toBe(join(workDir, outputPath));
+		expect(existsSync(result.path)).toBe(true);
+	});
+
 	it("keeps OpenUI off by default and updates explicit OpenUI guidance by mode", async () => {
 		const bridge = createTestBridge();
 		const created = await bridge.createSession({ cwd: workDir, mode: "plan" });

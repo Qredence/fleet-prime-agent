@@ -59,7 +59,7 @@ const SENSITIVE_HOME_DIRECTORY_NAMES = [
 	".password-store",
 	// ~/.config as a whole stays registrable (code lives there); only the
 	// credential-bearing GitHub CLI directory is denied.
-	"config/gh",
+	".config/gh",
 ];
 
 function isSameOrWithin(candidate: string, ancestor: string): boolean {
@@ -73,6 +73,15 @@ async function assertAllowedProjectDirectory(canonical: string): Promise<void> {
 	for (const name of SENSITIVE_HOME_DIRECTORY_NAMES) {
 		if (isSameOrWithin(canonical, join(home, name)))
 			throw new Error("Project path must not be a credentials directory");
+	}
+	// GitHub CLI honors XDG_CONFIG_HOME when it is an absolute path. Keep the
+	// corresponding credentials directory protected even when it is relocated.
+	const xdgConfigHome = process.env.XDG_CONFIG_HOME;
+	if (xdgConfigHome && isAbsolute(xdgConfigHome)) {
+		const canonicalConfigHome = await realpath(xdgConfigHome).catch(() => resolve(xdgConfigHome));
+		if (isSameOrWithin(canonical, join(canonicalConfigHome, "gh"))) {
+			throw new Error("Project path must not be a credentials directory");
+		}
 	}
 	const systemConfig = await realpath("/etc").catch(() => "/etc");
 	if (isSameOrWithin(canonical, systemConfig)) throw new Error("Project path must not be a system directory");

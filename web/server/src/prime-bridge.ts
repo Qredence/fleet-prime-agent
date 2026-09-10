@@ -2013,15 +2013,37 @@ export class PrimeBridge {
 		if (outputPath === undefined) return undefined;
 		const { cwd } = await session.connection.getState();
 		const root = resolve(cwd);
+		// Compare canonical paths so a symlinked cwd does not make valid
+		// in-project paths appear to escape the lexical root below, while
+		// preserving the runtime's existing path spelling in the export result.
+		const canonicalRoot = await realpath(root).catch(() => root);
 		const candidate = resolve(root, outputPath);
 		// Resolve symlinks: a link inside the project pointing outside must not
-		// escape confinement. The file itself may not exist yet, so realpath the
-		// parent directory (which must already exist).
-		const parent = await realpath(dirname(candidate)).catch(() => null);
-		// The project root itself is a valid export location; only paths
-		// escaping it (including via symlink) are rejected.
-		if (parent === null || (parent !== root && !parent.startsWith(`${root}${sep}`))) {
+		// escape confinement. The runtime creates missing parent directories, so
+		// walk up to the nearest existing ancestor instead of requiring the
+		// immediate parent to exist already.
+		const existingCandidate = await realpath(candidate).catch(() => undefined);
+		if (
+			existingCandidate &&
+			existingCandidate !== canonicalRoot &&
+			!existingCandidate.startsWith(`${canonicalRoot}${sep}`)
+		) {
 			throw new SessionExportPathError();
+		}
+		let ancestor = dirname(candidate);
+		while (true) {
+			const resolvedAncestor = await realpath(ancestor).catch(() => undefined);
+			if (resolvedAncestor) {
+				// The project root itself is a valid export location; only paths
+				// escaping it (including via symlink) are rejected.
+				if (resolvedAncestor !== canonicalRoot && !resolvedAncestor.startsWith(`${canonicalRoot}${sep}`)) {
+					throw new SessionExportPathError();
+				}
+				break;
+			}
+			const parent = dirname(ancestor);
+			if (parent === ancestor) throw new SessionExportPathError();
+			ancestor = parent;
 		}
 		return candidate;
 	}
