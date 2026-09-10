@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.10
+
+### Patch Changes
+
+- bfb0429: Improve Fleet Prime development startup, orb setup, and UI responsiveness with faster Vite loading and more stable chat controls.
+
 ## 0.5.9
 
 ### Patch Changes
