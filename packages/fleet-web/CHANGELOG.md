@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.11
+
+### Patch Changes
+
+- 786027b: React health triage, streaming correctness and trust-boundary hardening, design hygiene, and measured perf fixes across the Fleet Prime web app.
+- 786027b: Improve chat-workspace reliability, loading performance, and project safety:
+  
+  - Keep verified uploaded raster images renderable in previews while preserving forced downloads for other attachments.
+  - Defer Settings and Fork dialogs until they are first opened, so their lazy chunks stay off the cold-load path.
+  - Preserve staged attachments when direct or queued sends fail, and reconcile duplicate streamed question frames so answered questions close correctly.
+  - Ignore stale session-resume failures before recovery can replace a newer session.
+  - Prevent projects from targeting GitHub CLI credential directories, including relocated XDG configuration paths.
+  - Keep existing settings with more than 100 resource entries readable while enforcing bounded update requests.
+  - Allow JSONL exports to create nested directories within the active project without weakening path confinement.
+
 ## 0.5.10
 
 ### Patch Changes
