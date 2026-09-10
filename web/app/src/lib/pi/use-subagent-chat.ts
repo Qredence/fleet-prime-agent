@@ -1,3 +1,4 @@
+import { readStoredValue, removeStoredValue, writeStoredValue } from "@prime-agent/web-design/lib/safe-storage";
 import type {
 	ChatSessionResponse,
 	ChatStreamEvent,
@@ -92,9 +93,8 @@ type StoredSubagentCursor = {
  * @returns The stored cursor, or `undefined` when no valid cursor is available
  */
 function readStoredSubagentCursor(key: string): StoredSubagentCursor | undefined {
-	if (typeof window === "undefined") return undefined;
 	try {
-		const raw = window.sessionStorage.getItem(key);
+		const raw = readStoredValue(key, "session");
 		if (!raw) return undefined;
 		const value = JSON.parse(raw) as { generation?: unknown; lastEventId?: unknown };
 		if (
@@ -104,12 +104,12 @@ function readStoredSubagentCursor(key: string): StoredSubagentCursor | undefined
 			!Number.isInteger(value.lastEventId) ||
 			value.lastEventId < 0
 		) {
-			window.sessionStorage.removeItem(key);
+			removeStoredValue(key, "session");
 			return undefined;
 		}
 		return { generation: value.generation, lastEventId: value.lastEventId };
 	} catch {
-		window.sessionStorage.removeItem(key);
+		removeStoredValue(key, "session");
 		return undefined;
 	}
 }
@@ -265,16 +265,11 @@ export function useSubagentChat({
 		}
 
 		const persistCursor = () => {
-			if (typeof window === "undefined") return;
-			try {
-				if (!streamGeneration) {
-					window.sessionStorage.removeItem(cursorKey);
-					return;
-				}
-				window.sessionStorage.setItem(cursorKey, JSON.stringify({ generation: streamGeneration, lastEventId }));
-			} catch {
-				// Session storage is an optimization; streaming must remain functional when it is unavailable.
+			if (!streamGeneration) {
+				removeStoredValue(cursorKey, "session");
+				return;
 			}
+			writeStoredValue(cursorKey, JSON.stringify({ generation: streamGeneration, lastEventId }), "session");
 		};
 		const clearCursor = () => {
 			lastEventId = 0;

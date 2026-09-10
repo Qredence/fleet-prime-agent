@@ -78,6 +78,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		artifactRuns: [],
 	}));
 	const initialSessionMetadataRef = useRef(initialSessionMetadata);
+	const projectIdRef = useRef(projectId);
 	const messagesRef = useRef(messages);
 	const sessionMetadataRef = useRef(sessionMetadata);
 	const activityLabelRef = useRef(activityLabel);
@@ -88,6 +89,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const presentationRef = useRef(presentation);
 	const pendingSendControllerRef = useRef<AbortController | null>(null);
 	const streamControllersRef = useRef(new Map<string, AbortController>());
+	const refreshSessionsPromiseRef = useRef<Promise<Array<ChatSessionInfo>> | null>(null);
 	const statusRef = useRef(status);
 	const initializedRef = useRef(false);
 	const sendMessageRef = useRef<(input: SendMessageInput) => Promise<void>>(() => Promise.resolve());
@@ -173,11 +175,25 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		},
 		[client, setPresentationSynced],
 	);
+	projectIdRef.current = projectId;
 
 	const refreshSessions = useCallback(async () => {
-		const nextSessions = await client.listSessions();
-		setSessions(nextSessions);
-		return nextSessions;
+		const pendingRefresh = refreshSessionsPromiseRef.current;
+		if (pendingRefresh) return pendingRefresh;
+
+		const refreshRequest = client.listSessions().then((nextSessions) => {
+			setSessions(nextSessions);
+			return nextSessions;
+		});
+		refreshSessionsPromiseRef.current = refreshRequest;
+
+		try {
+			return await refreshRequest;
+		} finally {
+			if (refreshSessionsPromiseRef.current === refreshRequest) {
+				refreshSessionsPromiseRef.current = null;
+			}
+		}
 	}, [client]);
 
 	const recoverFromForbiddenSession = useCallback(
@@ -186,7 +202,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		(projectIdOverride?: ProjectId | null) =>
 			runForbiddenSessionRecovery({
 				client,
-				projectId: projectIdOverride ?? projectId,
+				projectId: projectIdOverride ?? projectIdRef.current,
 				refreshSessions,
 				setActivityLabelSynced,
 				setError,
@@ -199,7 +215,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			}),
 		[
 			client,
-			projectId,
 			refreshSessions,
 			setActivityLabelSynced,
 			setMessagesSynced,
@@ -333,19 +348,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			controllers.clear();
 		};
 	}, []);
-
-	useEffect(() => {
-		let cancelled = false;
-		void refreshSessions().catch((err) => {
-			if (cancelled) return;
-			const nextError = err instanceof Error ? err : new Error(String(err));
-			setError(nextError);
-			notifyChatError(nextError);
-		});
-		return () => {
-			cancelled = true;
-		};
-	}, [refreshSessions]);
 
 	usePiChatBootstrap({
 		client,

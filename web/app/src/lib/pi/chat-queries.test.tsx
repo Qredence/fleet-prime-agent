@@ -3,15 +3,34 @@ import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { chatClient } from "./chat-client";
-import { chatQueryKeys, useUpdateChatSettings } from "./chat-queries";
+import {
+	chatQueryKeys,
+	useChatCommands,
+	useChatModelCatalog,
+	useChatModels,
+	useChatResources,
+	useChatSettings,
+	useUpdateChatSettings,
+	useWorkspaceTree,
+} from "./chat-queries";
 
 vi.mock("./chat-client", () => ({
 	chatClient: {
+		getCommands: vi.fn(),
+		getModels: vi.fn(),
+		getResources: vi.fn(),
+		getSettings: vi.fn(),
 		updateSettings: vi.fn(),
+		getWorkspaceTree: vi.fn(),
 	},
 }));
 
 const updateSettings = vi.mocked(chatClient.updateSettings);
+const getCommands = vi.mocked(chatClient.getCommands);
+const getModels = vi.mocked(chatClient.getModels);
+const getResources = vi.mocked(chatClient.getResources);
+const getSettings = vi.mocked(chatClient.getSettings);
+const getWorkspaceTree = vi.mocked(chatClient.getWorkspaceTree);
 
 function createWrapper(queryClient: QueryClient) {
 	return function QueryWrapper({ children }: { children: ReactNode }) {
@@ -20,7 +39,35 @@ function createWrapper(queryClient: QueryClient) {
 }
 
 afterEach(() => {
-	updateSettings.mockReset();
+	vi.clearAllMocks();
+});
+
+describe("project-scoped query gating", () => {
+	it("does not request project data before project initialization", async () => {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+		renderHook(
+			() => {
+				useChatModels();
+				useChatModelCatalog({ enabled: true });
+				useChatResources();
+				useChatCommands();
+				useChatSettings();
+				useWorkspaceTree(undefined, { enabled: true });
+			},
+			{ wrapper: createWrapper(queryClient) },
+		);
+
+		await act(async () => {
+			await Promise.resolve();
+		});
+
+		expect(getModels).not.toHaveBeenCalled();
+		expect(getResources).not.toHaveBeenCalled();
+		expect(getCommands).not.toHaveBeenCalled();
+		expect(getSettings).not.toHaveBeenCalled();
+		expect(getWorkspaceTree).not.toHaveBeenCalled();
+	});
 });
 
 describe("useUpdateChatSettings", () => {

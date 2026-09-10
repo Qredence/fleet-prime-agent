@@ -1,3 +1,4 @@
+import { readStoredValue } from "@prime-agent/web-design/lib/safe-storage";
 import type { RightPanelState } from "@prime-agent/web-protocol/fleet-contract";
 import { useEffect } from "react";
 
@@ -35,7 +36,7 @@ export const DEFAULT_FLEET_PANEL_KEYBINDINGS: Record<FleetPanelKeybindingAction,
 
 function readKeybindings(): Record<FleetPanelKeybindingAction, FleetKeybinding> {
 	try {
-		const value = window.localStorage.getItem(FLEET_PANEL_KEYBINDINGS_STORAGE_KEY);
+		const value = readStoredValue(FLEET_PANEL_KEYBINDINGS_STORAGE_KEY);
 		if (!value) return DEFAULT_FLEET_PANEL_KEYBINDINGS;
 		const overrides = JSON.parse(value) as Partial<Record<FleetPanelKeybindingAction, FleetKeybinding>>;
 		return { ...DEFAULT_FLEET_PANEL_KEYBINDINGS, ...overrides };

@@ -6,6 +6,10 @@ type WebVital = {
 	url: string;
 };
 
+type AnalyticsWindow = Window & {
+	__fleetVitals?: Array<WebVital>;
+};
+
 /**
  * Hand-rolled LCP/INP/CLS observer — zero dependencies by design (do NOT add
  * the `web-vitals` package for this). In DEV it logs to the console; in
@@ -157,6 +161,8 @@ export function initAnalytics(): void {
 	(window as unknown as { __fleetVitalsInit?: boolean }).__fleetVitalsInit = true;
 	const report = (vital: WebVital) => {
 		if (import.meta.env.DEV) {
+			const analyticsWindow = window as AnalyticsWindow;
+			analyticsWindow.__fleetVitals = [...(analyticsWindow.__fleetVitals ?? []), vital];
 			console.debug(`[vitals] ${vital.name}: ${Math.round(vital.value)}`);
 			return;
 		}

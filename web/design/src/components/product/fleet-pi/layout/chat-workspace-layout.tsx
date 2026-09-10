@@ -49,7 +49,7 @@ export function ChatWorkspaceLayout({
         <header
           className={cn(
             CHAT_HEADER_LAYER_CLASS,
-            "grid h-[var(--chat-header-height)] min-h-[var(--chat-header-height)] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 border-b border-[#2e3033] px-2 py-2"
+            "grid h-[var(--chat-header-height)] min-h-[var(--chat-header-height)] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 border-b border-border/70 px-2 py-2"
           )}
           data-testid="chat-header"
         >

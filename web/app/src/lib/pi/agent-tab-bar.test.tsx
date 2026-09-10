@@ -41,7 +41,7 @@ describe("AgentTabBar", () => {
     ])
     expect(screen.getByRole("tab", { name: "Main agent, ready" }).getAttribute("aria-selected")).toBe("true")
     expect(screen.getByRole("tab", { name: "Research worker, streaming" }).getAttribute("aria-selected")).toBe("false")
-    expect(screen.getByRole("tab", { name: "Main agent, ready" }).className).toContain("bg-[#2c2c2c]")
+    expect(screen.getByRole("tab", { name: "Main agent, ready" }).className).toContain("bg-surface-4")
     expect(screen.getByRole("tab", { name: "Research worker, streaming" }).className).toContain("bg-transparent")
 
     fireEvent.keyDown(screen.getByRole("tab", { name: "Main agent, ready" }), { key: "ArrowRight" })

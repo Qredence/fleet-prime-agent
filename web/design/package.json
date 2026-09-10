@@ -21,6 +21,7 @@
     "./lib/utils": "./src/lib/utils.ts",
     "./lib/springs": "./src/lib/springs.ts",
     "./lib/shimmer-styles": "./src/lib/shimmer-styles.ts",
+    "./lib/safe-storage": "./src/lib/safe-storage.ts",
     "./lib/ui-preferences": "./src/lib/ui-preferences.ts",
     "./lib/pi/chat-helpers": "./src/lib/pi/chat-helpers.ts",
     "./lib/pi/*": "./src/lib/pi/*",

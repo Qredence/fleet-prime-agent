@@ -76,6 +76,7 @@ import {
   UI_PREFERENCES_KEY,
   type UiPreferences,
 } from "../../../../lib/ui-preferences"
+import { writeStoredValue } from "../../../../lib/safe-storage"
 
 function PreferenceRow({
   children,
@@ -609,7 +610,7 @@ function SettingsDialogBody({
   const [preferences, setPreferences] = useState(readUiPreferences)
 
   useEffect(() => {
-    window.localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(preferences))
+    writeStoredValue(UI_PREFERENCES_KEY, JSON.stringify(preferences))
     document.documentElement.dataset.density = preferences.density
     document.documentElement.classList.toggle(
       "reduce-motion",

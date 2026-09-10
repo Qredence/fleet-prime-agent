@@ -1,5 +1,5 @@
 import { AlertCircle, Bot, RefreshCw } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, useRef } from "react"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type {
   PrimeAgentArtifact,
@@ -25,6 +25,7 @@ import { FleetGenerativeTextRenderer } from "../chat/generative-text-renderer"
 import { FleetPiToolRenderer } from "../chat/fleet-pi-tool-renderer"
 import { derivePrimeAgentArtifactRuns } from "./prime-agent-artifacts"
 import { PI_TOOL_RENDERERS } from "./tool-renderers"
+import { VirtualizedTurnList } from "../chat/virtualized-turn-list"
 
 export type SubagentTranscriptState = {
   status: "loading" | "ready" | "error"
@@ -160,6 +161,7 @@ export function SubagentTranscriptView({
   )
   const artifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns])
   const title = child.sessionName || child.label
+  const viewportRef = useRef<HTMLElement | null>(null)
 
   return (
     <section
@@ -233,25 +235,32 @@ export function SubagentTranscriptView({
               followOutput={childStatus === "streaming"}
               label={`Transcript for ${child.label}`}
               smooth={childStatus === "streaming"}
+              viewportRef={viewportRef}
               viewportClassName={fullWidth ? "px-0" : undefined}
               contentClassName={cn(
                 "flex flex-col gap-4",
                 fullWidth ? "mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" : "px-2.5 py-3",
               )}
             >
-              {turns.map((turn, index) => {
-                const isLast = index === turns.length - 1
-                return (
-                  <SubagentTurnView
-                    key={turn.user?.id ?? `subagent-turn-${index}`}
-                    turn={turn}
-                    isLast={isLast}
-                    isStreaming={isLast && childStatus === "streaming"}
-                    artifacts={isLast ? artifacts : []}
-                    presentation={isLast ? transcript?.presentation : undefined}
-                  />
-                )
-              })}
+              <VirtualizedTurnList
+                estimateSize={320}
+                getItemKey={(turn, index) => turn.user?.id ?? `subagent-turn-${index}`}
+                itemGap={16}
+                items={turns}
+                renderItem={(turn, index) => {
+                  const isLast = index === turns.length - 1
+                  return (
+                    <SubagentTurnView
+                      turn={turn}
+                      isLast={isLast}
+                      isStreaming={isLast && childStatus === "streaming"}
+                      artifacts={isLast ? artifacts : []}
+                      presentation={isLast ? transcript?.presentation : undefined}
+                    />
+                  )
+                }}
+                viewportRef={viewportRef}
+              />
             </MessageScroller>
           </div>
         </div>

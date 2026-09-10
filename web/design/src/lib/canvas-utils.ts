@@ -1,5 +1,6 @@
 import type { RightPanelState } from "@prime-agent/web-protocol/fleet-contract";
 import { RESOURCE_CANVAS_VIEWPORT_RATIO } from "./layout-constants";
+import { readStoredValue, writeStoredValue } from "./safe-storage";
 import { readStoredWidth, storeStoredWidth } from "./stored-width";
 
 const RESOURCE_CANVAS_WIDTH_STORAGE_KEY = "fleet-prime:v1:right-panel-width";
@@ -35,13 +36,12 @@ export function storeResourceCanvasWidth(width: number) {
 export function readStoredThemePreference(): ThemePreference {
 	if (typeof window === "undefined") return "system";
 
-	const value = window.localStorage.getItem(THEME_PREFERENCE_STORAGE_KEY);
+	const value = readStoredValue(THEME_PREFERENCE_STORAGE_KEY);
 	return value === "light" || value === "dark" || value === "system" ? value : "system";
 }
 
 export function storeThemePreference(preference: ThemePreference) {
-	if (typeof window === "undefined") return;
-	window.localStorage.setItem(THEME_PREFERENCE_STORAGE_KEY, preference);
+	writeStoredValue(THEME_PREFERENCE_STORAGE_KEY, preference);
 }
 
 export function applyThemePreference(preference: ThemePreference) {

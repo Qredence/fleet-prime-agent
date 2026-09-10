@@ -2,6 +2,7 @@ import { Folder, FolderTree, Library, Package, Pencil, Trash2, Unplug } from "lu
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ProjectId } from "@prime-agent/web-protocol";
 import type { SidebarResource } from "../../../registry/beui/agents/ai-sidebar";
+import { writeStoredValue } from "../../../../lib/safe-storage";
 import {
 	INITIAL_SESSION_COUNT,
 	displayProjectSessions,
@@ -206,7 +207,7 @@ export function useFleetSessionSidebarViewModel({
 	}, [activeProjectId, setExpandedProjectIds]);
 
 	useEffect(() => {
-		window.localStorage.setItem(EXPANDED_PROJECTS_STORAGE_KEY, JSON.stringify(expandedProjectIds));
+		writeStoredValue(EXPANDED_PROJECTS_STORAGE_KEY, JSON.stringify(expandedProjectIds));
 	}, [expandedProjectIds]);
 
 	const sidebarItems = useMemo<SidebarResource[]>(() => {

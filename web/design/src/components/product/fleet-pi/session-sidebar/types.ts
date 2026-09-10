@@ -8,6 +8,7 @@ import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import type { OpenPanelAction } from "@prime-agent/web-protocol/fleet-contract";
 import type { ReactNode } from "react";
 import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers";
+import { readStoredValue } from "../../../../lib/safe-storage";
 
 export type FleetSessionSidebarData = {
 	sessions: Array<ChatSessionInfo>;
@@ -113,10 +114,7 @@ export function directoryErrorMessage(error: unknown, fallback: string) {
 }
 
 export function readExpandedProjects(activeProjectId: ProjectId | undefined) {
-	if (typeof window === "undefined") {
-		return activeProjectId ? [projectResourceId(activeProjectId)] : [];
-	}
-	const stored = window.localStorage.getItem(EXPANDED_PROJECTS_STORAGE_KEY);
+	const stored = readStoredValue(EXPANDED_PROJECTS_STORAGE_KEY);
 	if (!stored) return activeProjectId ? [projectResourceId(activeProjectId)] : [];
 	try {
 		const parsed: unknown = JSON.parse(stored);

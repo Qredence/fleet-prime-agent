@@ -1,3 +1,5 @@
+import { readStoredValue } from "./safe-storage";
+
 export const UI_PREFERENCES_KEY = "fleet-prime:v1:ui-preferences";
 
 export type UiPreferences = {
@@ -15,11 +17,8 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
 };
 
 export function readUiPreferences(): UiPreferences {
-	if (typeof window === "undefined") return DEFAULT_UI_PREFERENCES;
 	try {
-		const parsed = JSON.parse(
-			window.localStorage.getItem(UI_PREFERENCES_KEY) ?? "null",
-		) as Partial<UiPreferences> | null;
+		const parsed = JSON.parse(readStoredValue(UI_PREFERENCES_KEY) ?? "null") as Partial<UiPreferences> | null;
 		return { ...DEFAULT_UI_PREFERENCES, ...parsed };
 	} catch {
 		return DEFAULT_UI_PREFERENCES;

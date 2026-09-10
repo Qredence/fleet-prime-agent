@@ -137,7 +137,7 @@ export function useChatWorkspaceData() {
 	const { data: commandsData } = useChatCommands(activeProjectId);
 	const { data: settingsData, isLoading: settingsLoading, error: settingsError } = useChatSettings(activeProjectId);
 	const updateSettings = useUpdateChatSettings();
-	const shouldLoadWorkspaceTree = true;
+	const shouldLoadWorkspaceTree = rightPanel === "workspace" || rightPanel === "resources";
 	const {
 		data: workspaceData,
 		isLoading: workspaceLoading,

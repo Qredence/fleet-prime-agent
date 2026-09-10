@@ -1,3 +1,4 @@
+import { readStoredValue, removeStoredValue, writeStoredValue } from "@prime-agent/web-design/lib/safe-storage";
 import type { ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
 import { ChatSessionMetadataSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { useCallback, useEffect, useState } from "react";
@@ -22,12 +23,9 @@ export function useChatStorage() {
 }
 
 function readStoredBrowserSessions(): ChatSessionMetadata {
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-	if (typeof window === "undefined" || !window.localStorage) return {};
-
+	const raw = readStoredValue(CHAT_SESSION_STORAGE_KEY);
+	if (!raw) return readLegacyScopeStorage();
 	try {
-		const raw = window.localStorage.getItem(CHAT_SESSION_STORAGE_KEY);
-		if (!raw) return readLegacyScopeStorage();
 		const parsed = JSON.parse(raw) as unknown;
 		return parseSessionMetadata(parsed);
 	} catch {
@@ -36,9 +34,7 @@ function readStoredBrowserSessions(): ChatSessionMetadata {
 }
 
 function readLegacyScopeStorage(): ChatSessionMetadata {
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-	if (typeof window === "undefined" || !window.localStorage) return {};
-	const raw = window.localStorage.getItem("fleet-prime:v1:chat-sessions");
+	const raw = readStoredValue("fleet-prime:v1:chat-sessions");
 	if (!raw) return {};
 	try {
 		const parsed = JSON.parse(raw) as { normal?: unknown } | null;
@@ -54,23 +50,17 @@ function parseSessionMetadata(value: unknown): ChatSessionMetadata {
 }
 
 export function clearBrowserChatSessions() {
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-	if (typeof window === "undefined" || !window.localStorage) return;
-
-	window.localStorage.removeItem(CHAT_SESSION_STORAGE_KEY);
-	window.localStorage.removeItem("fleet-prime:v1:chat-sessions");
-	window.localStorage.removeItem("fleet-prime:v1:chat-mode");
+	removeStoredValue(CHAT_SESSION_STORAGE_KEY);
+	removeStoredValue("fleet-prime:v1:chat-sessions");
+	removeStoredValue("fleet-prime:v1:chat-mode");
 }
 
 function storeBrowserSessions(metadata: ChatSessionMetadata) {
-	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-	if (typeof window === "undefined" || !window.localStorage) return;
-
 	if (!metadata.sessionId && !metadata.projectId) {
-		window.localStorage.removeItem(CHAT_SESSION_STORAGE_KEY);
-		window.localStorage.removeItem("fleet-prime:v1:chat-sessions");
+		removeStoredValue(CHAT_SESSION_STORAGE_KEY);
+		removeStoredValue("fleet-prime:v1:chat-sessions");
 		return;
 	}
 
-	window.localStorage.setItem(CHAT_SESSION_STORAGE_KEY, JSON.stringify(metadata));
+	writeStoredValue(CHAT_SESSION_STORAGE_KEY, JSON.stringify(metadata));
 }

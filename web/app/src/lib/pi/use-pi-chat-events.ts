@@ -1,3 +1,4 @@
+import { readStoredValue, writeStoredValue } from "@prime-agent/web-design/lib/safe-storage";
 import type {
 	ChatSessionMetadata,
 	ChatStreamEvent,
@@ -50,7 +51,7 @@ export function usePiChatSessionEvents({
 
 		const lastEventIdKey = `pi:sse:last-event-id:${sessionId}`;
 		const sseCapabilitiesRef = { current: undefined as FleetAdapterCapabilities | undefined };
-		let lastEventId = Number.parseInt(window.sessionStorage.getItem(lastEventIdKey) ?? "0", 10);
+		let lastEventId = Number.parseInt(readStoredValue(lastEventIdKey, "session") ?? "0", 10);
 		if (Number.isNaN(lastEventId)) lastEventId = 0;
 
 		let source: EventSource | null = null;
@@ -157,7 +158,7 @@ export function usePiChatSessionEvents({
 				const seq = Number.parseInt(event.lastEventId ?? "", 10);
 				if (!Number.isNaN(seq) && seq > 0) {
 					lastEventId = seq;
-					window.sessionStorage.setItem(lastEventIdKey, String(seq));
+					writeStoredValue(lastEventIdKey, String(seq), "session");
 				}
 				handleEvent(event);
 			};

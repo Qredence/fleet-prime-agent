@@ -32,6 +32,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol"
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar"
 import { groupMessages, type ConversationTurn } from "../../../../lib/pi/conversation-turns"
+import { VirtualizedTurnList } from "./virtualized-turn-list"
 
 const LazyFleetPiToolRenderer = lazy(() =>
   import("./fleet-pi-tool-renderer").then(({ FleetPiToolRenderer }) => ({
@@ -794,6 +795,7 @@ export function FleetPiAgentChat({
   onDeleteQueuedMessage,
 }: FleetPiAgentChatProps) {
   const draftSetterRef = useRef<((value: string) => void) | null>(null)
+  const viewportRef = useRef<HTMLElement | null>(null)
   const setDraft = useCallback(
     (value: string) => draftSetterRef.current?.(value),
     [],
@@ -857,6 +859,7 @@ export function FleetPiAgentChat({
         className="flex-1"
         busy={isStreaming}
         followOutput
+        viewportRef={viewportRef}
         smooth={!isStreaming}
         contentClassName={cn(
           "mx-auto flex w-full max-w-an flex-col gap-5 px-4",
@@ -872,19 +875,24 @@ export function FleetPiAgentChat({
             composer={composerNode}
           />
         ) : null}
-        {turns.map((turn, turnIndex) => {
-          const key = turn.user?.id ?? `assistant-turn-${turnIndex}`
-          const isLast = turnIndex === turns.length - 1
-          return (
-            <ConversationTurnView
-              key={key}
-              turn={turn}
-              state={isLast ? stateForLast : stateForRest}
-              rendering={rendering}
-              activity={isLast ? activityForLast : activityForRest}
-            />
-          )
-        })}
+        <VirtualizedTurnList
+          estimateSize={400}
+          getItemKey={(turn, turnIndex) => turn.user?.id ?? `assistant-turn-${turnIndex}`}
+          itemGap={20}
+          items={turns}
+          renderItem={(turn, turnIndex) => {
+            const isLast = turnIndex === turns.length - 1
+            return (
+              <ConversationTurnView
+                turn={turn}
+                state={isLast ? stateForLast : stateForRest}
+                rendering={rendering}
+                activity={isLast ? activityForLast : activityForRest}
+              />
+            )
+          }}
+          viewportRef={viewportRef}
+        />
         {errorPresentation ? (
           <div
             role="alert"

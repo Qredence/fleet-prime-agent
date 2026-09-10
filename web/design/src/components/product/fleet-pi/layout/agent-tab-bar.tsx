@@ -166,7 +166,7 @@ export function AgentTabBar({
                 className={cn(
                   "h-7 w-full min-w-0 justify-start text-left gap-1.5 rounded-[7px] border border-transparent px-2 text-[12px] font-medium leading-none transition-colors motion-reduce:transition-none",
                   active
-                    ? "bg-[#2c2c2c] text-foreground shadow-none"
+                    ? "bg-surface-4 text-foreground shadow-none"
                     : "bg-transparent text-foreground/45 hover:bg-foreground/5 hover:text-foreground/75",
                   tab.kind === "subagent" && onClose && "pr-7",
                 )}

@@ -28,6 +28,7 @@ export function useChatModels(projectId?: ProjectId) {
 	return useQuery({
 		queryKey: keys.models(projectId),
 		queryFn: () => chatClient.getModels({ projectId }),
+		enabled: Boolean(projectId),
 	});
 }
 
@@ -43,7 +44,7 @@ export function useChatModelCatalog(options?: { enabled?: boolean; projectId?: P
 	return useQuery({
 		queryKey: keys.modelCatalog(options?.projectId),
 		queryFn: () => chatClient.getModels({ scope: "all", projectId: options?.projectId }),
-		enabled: options?.enabled,
+		enabled: Boolean(options?.projectId) && options?.enabled !== false,
 	});
 }
 
@@ -62,6 +63,7 @@ export function useChatResources(projectId?: ProjectId) {
 	return useQuery({
 		queryKey: keys.resources(projectId),
 		queryFn: () => chatClient.getResources(projectId),
+		enabled: Boolean(projectId),
 	});
 }
 
@@ -69,6 +71,7 @@ export function useChatCommands(projectId?: ProjectId) {
 	return useQuery({
 		queryKey: keys.commands(projectId),
 		queryFn: () => chatClient.getCommands(projectId),
+		enabled: Boolean(projectId),
 	});
 }
 
@@ -76,6 +79,7 @@ export function useChatSettings(projectId?: ProjectId) {
 	return useQuery({
 		queryKey: keys.settings(projectId),
 		queryFn: () => chatClient.getSettings(projectId),
+		enabled: Boolean(projectId),
 	});
 }
 
@@ -98,7 +102,7 @@ export function useWorkspaceTree(projectId?: ProjectId, options?: { enabled?: bo
 	return useQuery({
 		queryKey: keys.workspace(projectId),
 		queryFn: () => chatClient.getWorkspaceTree(projectId),
-		enabled: options?.enabled,
+		enabled: Boolean(projectId) && options?.enabled !== false,
 	});
 }
 

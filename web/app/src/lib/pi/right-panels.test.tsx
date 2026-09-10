@@ -11,6 +11,8 @@ import { ArtifactsPanelContent } from "@prime-agent/web-design/components/produc
 import { RightPanelLauncher } from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher"
 import { ReplPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/repl-panel"
 import { SubagentsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/subagents-panel"
+import { RightPanelShell } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell"
+import { RightPanelProvider } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context"
 import { SubagentChatPanel } from "./subagent-chat-panel"
 import { useChatShellState } from "./use-chat-shell-state"
 
@@ -105,6 +107,83 @@ afterEach(() => {
 })
 
 describe("right-panel execution tabs", () => {
+  function renderPanelShell(matchesDesktop: boolean) {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: matchesDesktop && query === "(min-width: 960px)",
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    )
+
+    return render(
+      <RightPanelProvider
+        chatPanelData={
+          {
+            artifactRuns: [],
+            chatMode: "agent",
+            loadSession: vi.fn(),
+            loadSubagentSession: vi.fn(),
+            messages: [],
+            models: [],
+            presentation: emptyPresentation,
+            queue: { steering: [], followUp: [] },
+            refreshResources: vi.fn(),
+            resources: null,
+            resourcesError: null,
+            resourcesLoading: false,
+            reopenRightPanel: vi.fn(),
+            rightPanel: "resources",
+            selectedArtifactId: null,
+            sessionId: "session-1",
+            setRightPanel: vi.fn(),
+            status: "ready",
+          } as never
+        }
+        onOpenUIAction={vi.fn()}
+        settingsActions={{
+          onThemePreferenceChange: vi.fn(),
+          saveSettings: vi.fn(),
+          settings: null,
+          settingsError: null,
+          settingsLoading: false,
+          themePreference: "system",
+        }}
+        workspaceTree={{
+          loadWorkspaceFile: vi.fn(),
+          openWorkspacePath: vi.fn(),
+          refreshWorkspace: vi.fn(),
+          selectedWorkspacePath: null,
+          setSelectedWorkspacePath: vi.fn(),
+          workspaceError: null,
+          workspaceLoading: false,
+          workspaceTree: null,
+        }}
+      >
+        <RightPanelShell
+          handleResourceCanvasResizeStart={vi.fn()}
+          onClose={vi.fn()}
+          resourceCanvasWidth={400}
+        />
+      </RightPanelProvider>,
+    )
+  }
+
+  it("mounts only the desktop panel tree on desktop", () => {
+    const { getByTestId, queryByTestId } = renderPanelShell(true)
+
+    expect(getByTestId("pi-resources-canvas")).toBeTruthy()
+    expect(queryByTestId("pi-resources-mobile-panel")).toBeNull()
+  })
+
+  it("mounts only the mobile panel tree below the desktop breakpoint", () => {
+    const { getByTestId, queryByTestId } = renderPanelShell(false)
+
+    expect(getByTestId("pi-resources-mobile-panel")).toBeTruthy()
+    expect(queryByTestId("pi-resources-canvas")).toBeNull()
+  })
+
   it("exposes launcher panels in fit-mode tabs without a redundant Subagents tab", () => {
     const onPanelChange = vi.fn()
     const layout = mockLauncherLayout(500, 400)

@@ -24,6 +24,14 @@ const FORBIDDEN_CHUNK_PATTERNS = [
 	/command-/i,
 ]
 
+const PROJECT_SCOPED_ENDPOINTS = [
+	"/api/chat/models",
+	"/api/chat/resources",
+	"/api/chat/commands",
+	"/api/chat/settings",
+	"/api/workspace/tree",
+]
+
 test.describe("performance smoke", () => {
 	test("welcome load fetches no deferred chunks", async ({ page }) => {
 		const forbidden: Array<string> = []
@@ -43,6 +51,33 @@ test.describe("performance smoke", () => {
 		await page.waitForTimeout(2_000)
 
 		expect(forbidden).toEqual([])
+	})
+
+	test("welcome scopes project requests and refreshes sessions once", async ({ page }) => {
+		const projectRequests: Array<URL> = []
+		let sessionListRequests = 0
+		page.on("request", (request) => {
+			if (request.method() !== "GET") return
+			const url = new URL(request.url())
+			if (PROJECT_SCOPED_ENDPOINTS.includes(url.pathname)) projectRequests.push(url)
+			if (url.pathname === "/api/chat/sessions" && !url.searchParams.has("projectId")) {
+				sessionListRequests += 1
+			}
+		})
+
+		await page.goto("/")
+		const composer = page.locator('textarea, [contenteditable="true"], [data-chat-input]')
+		await expect(composer.first()).toBeVisible({ timeout: 15_000 })
+		await page.waitForTimeout(2_000)
+
+		expect(sessionListRequests).toBe(1)
+		for (const endpoint of PROJECT_SCOPED_ENDPOINTS) {
+			const requests = projectRequests.filter((url) => url.pathname === endpoint)
+			expect(requests.length, `${endpoint} request count`).toBeLessThanOrEqual(1)
+			for (const url of requests) {
+				expect(url.searchParams.get("projectId"), `${endpoint} project scope`).toBeTruthy()
+			}
+		}
 	})
 
 	test("welcome LCP stays within budget", async ({ page }) => {
@@ -93,5 +128,32 @@ test.describe("performance smoke", () => {
 
 		expect(lcp).toBeGreaterThanOrEqual(0)
 		expect(lcp).toBeLessThan(4_000)
+	})
+
+	test("welcome reports usable Web Vitals", async ({ page }) => {
+		await page.goto("/")
+		const composer = page.locator('textarea, [contenteditable="true"], [data-chat-input]')
+		await expect(composer.first()).toBeVisible({ timeout: 15_000 })
+		await page.waitForFunction(
+			() =>
+				Boolean(
+					(window as Window & {
+						__fleetVitalsInit?: boolean
+					}).__fleetVitalsInit,
+				),
+			{ timeout: 15_000 },
+		)
+		await page.waitForTimeout(250)
+		await page.evaluate(() => window.dispatchEvent(new Event("pagehide")))
+
+		const vitals = await page.evaluate(
+			() =>
+				(window as Window & {
+					__fleetVitals?: Array<{ name: string; value: number; url: string }>
+				}).__fleetVitals ?? [],
+		)
+		expect(vitals.some((vital) => vital.name === "LCP")).toBe(true)
+		expect(vitals.every((vital) => Number.isFinite(vital.value) && vital.value >= 0)).toBe(true)
+		expect(vitals.find((vital) => vital.name === "LCP")?.value ?? Infinity).toBeLessThan(4_000)
 	})
 })

@@ -7,6 +7,7 @@ import type {
 	ChatStreamEvent,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "./chat-client";
 import { toChatMessage } from "./chat-message-helpers";
@@ -100,7 +101,11 @@ function deferred<T>() {
 	return { promise, reject, resolve };
 }
 
-function createHarness(sessionId = "session-a", availableSessions: Array<ChatSessionInfo> = []) {
+function createHarness(
+	sessionId = "session-a",
+	availableSessions: Array<ChatSessionInfo> = [],
+	strictMode = false,
+) {
 	const discoveredSessions =
 		availableSessions.length > 0
 			? availableSessions
@@ -162,13 +167,23 @@ function createHarness(sessionId = "session-a", availableSessions: Array<ChatSes
 		),
 	} as unknown as ChatClient;
 
-	const hook = renderHook(() =>
-		usePiChat(undefined, {
-			client,
-			initialSessionMetadata: { sessionId },
-			persistSession,
-		}),
-	);
+	const hook = strictMode
+		? renderHook(
+				() =>
+					usePiChat(undefined, {
+						client,
+						initialSessionMetadata: { sessionId },
+						persistSession,
+					}),
+				{ wrapper: StrictMode },
+			)
+		: renderHook(() =>
+				usePiChat(undefined, {
+					client,
+					initialSessionMetadata: { sessionId },
+					persistSession,
+				}),
+			);
 
 	return { client, ...hook, eventSources, loadSession, streams };
 }
@@ -176,6 +191,14 @@ function createHarness(sessionId = "session-a", availableSessions: Array<ChatSes
 describe("usePiChat stream admission", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
+	});
+
+	it("refreshes the session list once during bootstrap", async () => {
+		const { client } = createHarness("session-a", [], true);
+
+		await act(async () => flush());
+
+		expect(client.listSessions).toHaveBeenCalledTimes(1);
 	});
 
 	it("binds queued submissions to their originating session and releases the next post on queue admission", async () => {

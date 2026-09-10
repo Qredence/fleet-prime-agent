@@ -7,7 +7,9 @@ export const CHAT_MOBILE_PANEL_GAP_PX = 8;
 
 export const CHAT_CHROME_TOP_PX = CHAT_HEADER_OFFSET_PX + CHAT_HEADER_HEIGHT_PX + CHAT_MOBILE_PANEL_GAP_PX;
 
-export const RESOURCE_CANVAS_VIEWPORT_RATIO = 0.5;
+// Keep the execution panel useful without letting it consume half of the
+// desktop chat viewport. Users can still widen it with the resize handle.
+export const RESOURCE_CANVAS_VIEWPORT_RATIO = 0.4;
 
 /** Full Tailwind class strings — keep breakpoint px values in sync above. */
 export const DESKTOP_PANEL_HIDDEN_FLEX = "hidden min-[960px]:flex";

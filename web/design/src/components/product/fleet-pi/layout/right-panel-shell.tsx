@@ -1,4 +1,5 @@
 import { Library } from "lucide-react"
+import { CHAT_PANEL_BREAKPOINT_PX } from "../../../../lib/layout-constants"
 import { ResizableCanvas } from "../pi/resizable-canvas"
 import {
   MobilePanel,
@@ -11,7 +12,34 @@ import {
   useChatPanelDataContext,
   useWorkspaceTreeContext,
 } from "./right-panel-context"
-import type { PointerEvent as ReactPointerEvent } from "react"
+import { useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react"
+
+const DESKTOP_PANEL_QUERY = `(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`
+
+function subscribeToDesktopPanel(onChange: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined
+  const media = window.matchMedia(DESKTOP_PANEL_QUERY)
+  media.addEventListener("change", onChange)
+  return () => media.removeEventListener("change", onChange)
+}
+
+function getDesktopPanelSnapshot() {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia(DESKTOP_PANEL_QUERY).matches
+    : false
+}
+
+function getServerDesktopPanelSnapshot() {
+  return false
+}
+
+function useIsDesktopPanel() {
+  return useSyncExternalStore(
+    subscribeToDesktopPanel,
+    getDesktopPanelSnapshot,
+    getServerDesktopPanelSnapshot,
+  )
+}
 
 export type RightPanelShellProps = {
   handleResourceCanvasResizeStart: (
@@ -37,6 +65,7 @@ export function RightPanelShell({
   const workspace = useWorkspaceTreeContext()
   const { rightPanel } = chat
   const panelOpen = rightPanel !== null
+  const isDesktop = useIsDesktopPanel()
   const definition = rightPanel ? getRightPanelDefinition(rightPanel) : null
   const PanelContent = definition?.component
   const loading =
@@ -53,32 +82,34 @@ export function RightPanelShell({
         : undefined
   return (
     <>
-      <MobilePanel
-        dataTestid={definition?.mobileDataTestid}
-        icon={definition?.icon}
-        onClose={onClose}
-        open={panelOpen}
-        title={definition?.title ?? ""}
-      >
-        {PanelContent ? <PanelContent /> : null}
-      </MobilePanel>
-
-      <ResizableCanvas
-        dataTestid={definition?.dataTestid}
-        headerLeading={
-          <RightPanelTabsFromContext idPrefix="right-panel-desktop" />
-        }
-        loading={loading}
-        onClose={onClose}
-        onRefresh={onRefresh}
-        onResizeStart={handleResourceCanvasResizeStart}
-        open={panelOpen}
-        title={definition?.title ?? ""}
-        titleIcon={definition?.icon ?? Library}
-        width={resourceCanvasWidth}
-      >
-        {PanelContent ? <PanelContent /> : null}
-      </ResizableCanvas>
+      {isDesktop ? (
+        <ResizableCanvas
+          dataTestid={definition?.dataTestid}
+          headerLeading={
+            <RightPanelTabsFromContext idPrefix="right-panel-desktop" />
+          }
+          loading={loading}
+          onClose={onClose}
+          onRefresh={onRefresh}
+          onResizeStart={handleResourceCanvasResizeStart}
+          open={panelOpen}
+          title={definition?.title ?? ""}
+          titleIcon={definition?.icon ?? Library}
+          width={resourceCanvasWidth}
+        >
+          {PanelContent ? <PanelContent /> : null}
+        </ResizableCanvas>
+      ) : (
+        <MobilePanel
+          dataTestid={definition?.mobileDataTestid}
+          icon={definition?.icon}
+          onClose={onClose}
+          open={panelOpen}
+          title={definition?.title ?? ""}
+        >
+          {PanelContent ? <PanelContent /> : null}
+        </MobilePanel>
+      )}
     </>
   )
 }
