@@ -120,14 +120,16 @@ export const ModelSelector = memo(function ModelSelector({
       )}
       trigger={trigger}
     >
-      <ModelSelectorList
-        models={models}
-        selectedModel={selectedModel}
-        selectedEffort={selectedEffort}
-        effortLabel={effortLabel}
-        onModelChange={onModelChange}
-        onEffortChange={onEffortChange}
-      />
+      {open ? (
+        <ModelSelectorList
+          models={models}
+          selectedModel={selectedModel}
+          selectedEffort={selectedEffort}
+          effortLabel={effortLabel}
+          onModelChange={onModelChange}
+          onEffortChange={onEffortChange}
+        />
+      ) : null}
     </Popover>
   )
 })

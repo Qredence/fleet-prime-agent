@@ -19,10 +19,18 @@ const config = defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  optimizeDeps: {
+    include: [
+      "@tanstack/react-router",
+      "@tanstack/router-core",
+      "@tanstack/history",
+    ],
+  },
   server: {
     port: 3000,
     strictPort: false,
     host: "127.0.0.1",
+    allowedHosts: [],
     fs: {
       allow: [
         webRoot,

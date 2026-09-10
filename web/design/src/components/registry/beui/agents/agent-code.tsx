@@ -43,6 +43,15 @@ const LIGHT_THEME = "github-light-high-contrast";
 const DARK_THEME = "github-dark-high-contrast";
 let agentCodeHighlighter: Promise<Highlighter> | null = null;
 const tokenCache = new Map<string, AgentCodeTokenLines>();
+const MAX_TOKEN_CACHE_SIZE = 500;
+
+function setCachedTokens(key: string, lines: AgentCodeTokenLines) {
+  if (tokenCache.size >= MAX_TOKEN_CACHE_SIZE) {
+    const firstKey = tokenCache.keys().next().value;
+    if (firstKey !== undefined) tokenCache.delete(firstKey);
+  }
+  tokenCache.set(key, lines);
+}
 const loadShiki = () => import("shiki");
 
 function getAgentCodeHighlighter() {
@@ -100,7 +109,7 @@ export function useAgentCodeTokens(
             dark: token.variants.dark?.color,
           })),
       );
-      tokenCache.set(key, lines);
+      setCachedTokens(key, lines);
       setResult({ key, code, language, lines });
     });
     return () => {

@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PNPM_BIN=""
+PNPM_USE_NODE=0
+
+log() {
+  printf '[setup] %s - %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "$*"
+}
+
+run_timed() {
+  local desc="$1"
+  shift
+  local start_time
+  start_time=$(date +%s)
+  log "Starting: ${desc}"
+  "$@"
+  local end_time
+  end_time=$(date +%s)
+  log "Completed: ${desc} in $((end_time - start_time))s"
+}
+
+package_manager_version() {
+  node -e '
+const fs = require("node:fs");
+const packageManager = JSON.parse(fs.readFileSync("package.json", "utf8")).packageManager;
+if (typeof packageManager !== "string" || !packageManager.startsWith("pnpm@")) {
+  console.error("package.json must declare a pnpm packageManager version");
+  process.exit(1);
+}
+process.stdout.write(packageManager.slice("pnpm@".length));
+'
+}
+
+run_pnpm() {
+  if [ "$PNPM_USE_NODE" -eq 1 ]; then
+    node "$PNPM_BIN" "$@"
+  else
+    "$PNPM_BIN" "$@"
+  fi
+}
+
+install_system_dependencies() {
+  local missing_pkgs=()
+  for pkg in libcairo2-dev libgif-dev libjpeg-dev libpango1.0-dev librsvg2-dev fd-find ripgrep; do
+    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+      missing_pkgs+=("$pkg")
+    fi
+  done
+
+  if [ ${#missing_pkgs[@]} -gt 0 ]; then
+    log "Installing missing system packages: ${missing_pkgs[*]}"
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends "${missing_pkgs[@]}"
+  else
+    log "All system packages are already installed"
+  fi
+
+  if command -v fdfind >/dev/null 2>&1 && ! command -v fd >/dev/null 2>&1; then
+    sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+  fi
+}
+
+verify_pnpm() {
+  local expected_version
+  expected_version="$(package_manager_version)"
+
+  local candidate
+  candidate="$(type -P pnpm 2>/dev/null || true)"
+  if [ -z "$candidate" ] && [ -x "/usr/local/lib/node_modules/pnpm/pnpm" ]; then
+    candidate="/usr/local/lib/node_modules/pnpm/pnpm"
+  fi
+
+  local installed_version=""
+  if [ -n "$candidate" ]; then
+    installed_version="$("$candidate" --version 2>/dev/null || true)"
+  fi
+
+  if [ "$installed_version" = "$expected_version" ]; then
+    PNPM_BIN="$candidate"
+    PNPM_USE_NODE=0
+  else
+    local pnpm_root="${XDG_CACHE_HOME:-$HOME/.cache}/fleet-pnpm"
+    log "Installing pnpm@${expected_version} (found ${installed_version:-none})"
+    mkdir -p "$pnpm_root"
+    npm install --prefix "$pnpm_root" --no-save --no-package-lock --ignore-scripts --no-audit --no-fund "pnpm@${expected_version}"
+    PNPM_BIN="$pnpm_root/node_modules/pnpm/bin/pnpm.cjs"
+    PNPM_USE_NODE=1
+  fi
+
+  if [ ! -f "$PNPM_BIN" ] && [ ! -x "$PNPM_BIN" ]; then
+    log "Expected pnpm executable was not found at ${PNPM_BIN}" >&2
+    exit 1
+  fi
+
+  local actual_version
+  actual_version="$(run_pnpm --version)"
+  if [ "$actual_version" != "$expected_version" ]; then
+    log "Expected pnpm ${expected_version}, but selected ${actual_version}" >&2
+    exit 1
+  fi
+  log "Using pnpm ${actual_version}"
+}
+
+install_dependencies() {
+  run_pnpm install --frozen-lockfile
+}
+
+build_web_runtime() {
+  run_pnpm run build
+}
+
+main() {
+  log "Setting up Fleet Prime environment..."
+  run_timed "System packages" install_system_dependencies
+  run_timed "Pnpm verification" verify_pnpm
+  run_timed "Dependencies (pnpm install)" install_dependencies
+  run_timed "Build (pnpm run build)" build_web_runtime
+  log "Fleet Prime setup completed successfully."
+}
+
+main "$@"

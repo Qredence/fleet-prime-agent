@@ -1,4 +1,5 @@
 import { FileCode2, FilePlus2, X } from "lucide-react"
+import { useCallback } from "react"
 import { PromptInput } from "../../../registry/beui/agents/prompt-input"
 import { ComposerLoader } from "../../../registry/beui/agents/composer-loader"
 import { FileAttachment } from "../../../registry/beui/agents/input/file-attachment"
@@ -49,6 +50,7 @@ export type FleetPiInputBarProps = Omit<
 }
 
 const EMPTY_WORKSPACE_REFERENCES: Array<WorkspaceAttachment> = []
+const CHAT_MODES = [...FLEET_PI_CHAT_MODES]
 
 export function FleetPiInputBar(props: FleetPiInputBarProps) {
   return <FleetPiInputBarContent {...props} />
@@ -137,6 +139,15 @@ function FleetPiInputBarContent({
     attachments,
     slashCommands,
   })
+
+  const handleChatModeChange = useCallback(
+    (id: string) => onChatModeChange?.(id as ChatMode),
+    [onChatModeChange],
+  )
+  const handleEffortChange = useCallback(
+    (level: string) => onThinkingLevelChange?.(level as ChatThinkingLevel),
+    [onThinkingLevelChange],
+  )
 
   return (
     <div className={cn("shrink-0 px-3 pb-3", className)}>
@@ -272,16 +283,16 @@ function FleetPiInputBarContent({
           leadingAction={
             <>
               <ModeSelector
-                modes={[...FLEET_PI_CHAT_MODES]}
+                modes={CHAT_MODES}
                 value={chatMode}
-                onChange={(id) => onChatModeChange?.(id as ChatMode)}
+                onChange={handleChatModeChange}
               />
               <ModelSelector
                 models={selectorModels}
                 value={modelKey}
                 effort={thinkingLevel}
                 onModelChange={handleSelectorModelChange}
-                onEffortChange={(level) => onThinkingLevelChange?.(level as ChatThinkingLevel)}
+                onEffortChange={handleEffortChange}
                 open={combinedPickerOpen}
                 onOpenChange={handleCombinedPickerOpenChange}
                 placeholder="Model"

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Fast, idempotent verification or reconnect steps for resumed orbs
+exit 0

@@ -125,13 +125,16 @@ export function PromptInput({
     resizeTextarea();
   }, [resizeTextarea]);
 
+  const resizeRef = useRef(resizeTextarea);
+  resizeRef.current = resizeTextarea;
+
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(resizeTextarea);
+    const observer = new ResizeObserver(() => resizeRef.current());
     observer.observe(textarea);
     return () => observer.disconnect();
-  }, [resizeTextarea]);
+  }, []);
 
   const setValue = (next: string) => {
     if (value === undefined) setInternalValue(next);

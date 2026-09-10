@@ -84,7 +84,7 @@ export function ResizableCanvas({
             onPointerDown={onResizeStart}
           />
           <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="flex h-[60px] min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-1">
+            <div className="flex h-[var(--chat-header-height,44px)] min-h-[var(--chat-header-height,44px)] min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-1">
               <div className="min-w-0 flex-1">
                 {headerLeading ?? (
                   <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground/80">

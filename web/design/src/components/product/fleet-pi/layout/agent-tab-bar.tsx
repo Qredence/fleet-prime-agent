@@ -164,11 +164,11 @@ export function AgentTabBar({
                 aria-selected={active}
                 aria-label={`${tab.label}, ${status}`}
                 className={cn(
-                  "h-7 w-full min-w-0 justify-start gap-1.5 rounded-[7px] border border-transparent px-2 text-[12px] font-medium leading-none transition-colors motion-reduce:transition-none",
+                  "h-7 w-full min-w-0 justify-start text-left gap-1.5 rounded-[7px] border border-transparent px-2 text-[12px] font-medium leading-none transition-colors motion-reduce:transition-none",
                   active
                     ? "bg-[#2c2c2c] text-foreground shadow-none"
                     : "bg-transparent text-foreground/45 hover:bg-foreground/5 hover:text-foreground/75",
-                  tab.kind === "subagent" && "pr-7",
+                  tab.kind === "subagent" && onClose && "pr-7",
                 )}
                 data-state={active ? "active" : "inactive"}
                 id={agentTabTriggerId(tab.id)}
@@ -188,7 +188,7 @@ export function AgentTabBar({
                     className={cn("size-1.5 shrink-0 rounded-full", statusDotClass(tab.status))}
                   />
                 )}
-                <span className="min-w-0 flex-1 truncate">{tab.label}</span>
+                <span className="min-w-0 flex-1 truncate text-left">{tab.label}</span>
               </Button>
               {tab.kind === "subagent" && onClose ? (
                 <Button

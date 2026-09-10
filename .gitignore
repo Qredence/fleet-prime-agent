@@ -57,8 +57,13 @@ droid-wiki/
 .playwright-mcp/
 .remember/
 .superpowers/
-.agents/
+.agents/*
+!.agents/setup
+!.agents/resume
 .chunk/
 skills-lock.json
 qa-results/
 .codex/environments/environment.toml
+
+# Amp portals
+.amp/portals/*
