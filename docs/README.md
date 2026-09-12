@@ -14,7 +14,7 @@ Fleet owns the product and adapter layers. Prime Agent remains the external exec
 Read a guide only when performing that operation:
 
 - [Upstream runtime](guides/upstream-runtime.md) — bump the pinned Prime Agent release
-- [Releasing](guides/releasing.md) — Changesets, CircleCI publish, rollback
+- [Releasing](guides/releasing.md) — Changesets, CircleCI Smart Deployments, rollback
 - [Tmux testing](guides/tmux-testing.md) — interactive terminal checks
 - [React Doctor](guides/react-doctor.md) — optional React audit
 

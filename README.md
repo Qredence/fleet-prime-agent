@@ -132,8 +132,8 @@ them. See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 - [Adapter contract](docs/reference/adapter-contract.md) — browser/server
   compatibility, replay, and privacy guarantees.
 - [Contributing](CONTRIBUTING.md) — development and pull request process.
-- [Release guide](docs/guides/releasing.md) — Changesets, publishing, and
-  rollback.
+- [Release guide](docs/guides/releasing.md) — Changesets, CircleCI Smart
+  Deployments, and rollback.
 - [Support](SUPPORT.md) — questions, bugs, and community channels.
 - [Prime Agent documentation](https://github.com/PrimeIntellect-ai/prime-agent#readme)
   — upstream engine documentation.

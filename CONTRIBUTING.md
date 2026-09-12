@@ -98,7 +98,7 @@ Report vulnerabilities privately according to `SECURITY.md`; do not open a publi
 - [ARCHITECTURE.md](ARCHITECTURE.md) — system ownership, boundaries, and data flow.
 - [Adapter contract](docs/reference/adapter-contract.md) — browser/server compatibility and privacy guarantees.
 - [Upstream runtime guide](docs/guides/upstream-runtime.md) — runtime pin upgrades and daemon compatibility.
-- [Release guide](docs/guides/releasing.md) — release automation and artifact publication.
+- [Release guide](docs/guides/releasing.md) — Changesets, CircleCI Smart Deployments, and rollback.
 - [Manual tmux testing](docs/guides/tmux-testing.md) — interactive terminal testing.
 - [React Doctor](docs/guides/react-doctor.md) — optional React audit.
 - [Support](SUPPORT.md) — support and community channels.
