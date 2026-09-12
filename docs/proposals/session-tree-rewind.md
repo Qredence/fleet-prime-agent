@@ -1,4 +1,6 @@
-# Session tree and rewind (web) — architecture plan
+# Session tree and rewind (web) — product proposal
+
+This is a planning artifact, not a runbook. See [docs/README.md](../README.md) for current guides.
 
 Issue: [#124](https://github.com/Qredence/fleet-prime-agent/issues/124)
 

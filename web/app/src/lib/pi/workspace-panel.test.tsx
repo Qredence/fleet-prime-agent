@@ -1,12 +1,12 @@
-import { fireEvent, render, waitFor, within } from "@testing-library/react"
-import type {
-	WorkspaceFileResponse,
-	WorkspaceTreeResponse,
-} from "@prime-agent/web-protocol/chat-protocol"
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import { WorkspacePanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/workspace-panel"
-import type { WorkspacePanelContentProps } from "@prime-agent/web-design/components/product/fleet-pi/pi/workspace-panel"
-import { resolveWorkspacePanelTarget } from "@prime-agent/web-design/lib/workspace-path-nav"
+import {
+	WORKSPACE_PREVIEW_TIMEOUT_MS,
+	WorkspacePanelContent,
+	type WorkspacePanelContentProps,
+} from "@prime-agent/web-design/components/product/fleet-pi/pi/workspace-panel";
+import { resolveWorkspacePanelTarget } from "@prime-agent/web-design/lib/workspace-path-nav";
+import type { WorkspaceFileResponse, WorkspaceTreeResponse } from "@prime-agent/web-protocol/chat-protocol";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const workspace: WorkspaceTreeResponse = {
 	root: "/workspace/prime-agent",
@@ -54,7 +54,7 @@ const workspace: WorkspaceTreeResponse = {
 		},
 	],
 	diagnostics: [],
-}
+};
 
 function fileResponse(path: string): WorkspaceFileResponse {
 	return {
@@ -63,12 +63,11 @@ function fileResponse(path: string): WorkspaceFileResponse {
 		content: "# Preview\n\nPreview body",
 		mediaType: "text/markdown",
 		status: "ok",
-	}
+	};
 }
 
 function renderPanel(overrides: Partial<WorkspacePanelContentProps> = {}) {
-	const loadWorkspaceFile =
-		overrides.loadWorkspaceFile ?? vi.fn(async (path: string) => fileResponse(path))
+	const loadWorkspaceFile = overrides.loadWorkspaceFile ?? vi.fn(async (path: string) => fileResponse(path));
 
 	return {
 		loadWorkspaceFile,
@@ -81,11 +80,11 @@ function renderPanel(overrides: Partial<WorkspacePanelContentProps> = {}) {
 				loadWorkspaceFile={loadWorkspaceFile}
 			/>,
 		),
-	}
+	};
 }
 
 beforeEach(() => {
-	window.localStorage.clear()
+	window.localStorage.clear();
 	Object.defineProperty(window, "matchMedia", {
 		configurable: true,
 		value: (query: string) => ({
@@ -98,63 +97,66 @@ beforeEach(() => {
 			removeEventListener: vi.fn(),
 			dispatchEvent: vi.fn(),
 		}),
-	})
+	});
 	Object.defineProperty(Element.prototype, "scrollIntoView", {
 		configurable: true,
 		value: vi.fn(),
-	})
-})
+	});
+});
+
+afterEach(() => {
+	vi.useRealTimers();
+});
 
 describe("WorkspacePanelContent file tree", () => {
-	it.each([
-		"agent-workspace/artifacts/trace.md",
-		"artifacts/trace.md",
-		"/workspace/artifacts/trace.md",
-	])("routes workspace artifact path %s to the Workspace panel", (path) => {
-		expect(resolveWorkspacePanelTarget(path)).toEqual({
-			panel: "workspace",
-			path: "agent-workspace/artifacts/trace.md",
-		})
-	})
+	it.each(["agent-workspace/artifacts/trace.md", "artifacts/trace.md", "/workspace/artifacts/trace.md"])(
+		"routes workspace artifact path %s to the Workspace panel",
+		(path) => {
+			expect(resolveWorkspacePanelTarget(path)).toEqual({
+				panel: "workspace",
+				path: "agent-workspace/artifacts/trace.md",
+			});
+		},
+	);
 
 	it("renders a semantic nested tree with collapsed folders", () => {
-		const { getByRole, queryByRole } = renderPanel()
+		const { getByRole, queryByRole } = renderPanel();
 
-		expect(getByRole("tree", { name: "Workspace files" })).toBeTruthy()
-		const docs = getByRole("treeitem", { name: "docs" })
-		expect(docs.getAttribute("aria-level")).toBe("1")
-		expect(docs.getAttribute("aria-expanded")).toBe("false")
-		expect(queryByRole("treeitem", { name: "README.md" })).toBeNull()
-		expect(getByRole("treeitem", { name: "notes.md" })).toBeTruthy()
-	})
+		expect(getByRole("tree", { name: "Workspace files" })).toBeTruthy();
+		const docs = getByRole("treeitem", { name: "docs" });
+		expect(docs.getAttribute("aria-level")).toBe("1");
+		expect(docs.getAttribute("aria-expanded")).toBe("false");
+		expect(queryByRole("treeitem", { name: "README.md" })).toBeNull();
+		expect(getByRole("treeitem", { name: "notes.md" })).toBeTruthy();
+	});
 
 	it("expands folders without selecting them", () => {
-		const onSelectedPathChange = vi.fn()
+		const onSelectedPathChange = vi.fn();
 		const { getByRole, queryByRole } = renderPanel({
 			onSelectedPathChange,
 			selectedPath: null,
-		})
-		const docs = getByRole("treeitem", { name: "docs" })
+		});
+		const docs = getByRole("treeitem", { name: "docs" });
 
-		fireEvent.click(docs)
+		fireEvent.click(docs);
 
-		expect(docs.getAttribute("aria-expanded")).toBe("true")
-		expect(docs.getAttribute("aria-selected")).toBe("false")
-		expect(onSelectedPathChange).not.toHaveBeenCalled()
-		expect(queryByRole("treeitem", { name: "README.md" })).toBeTruthy()
+		expect(docs.getAttribute("aria-expanded")).toBe("true");
+		expect(docs.getAttribute("aria-selected")).toBe("false");
+		expect(onSelectedPathChange).not.toHaveBeenCalled();
+		expect(queryByRole("treeitem", { name: "README.md" })).toBeTruthy();
 
-		const guides = getByRole("treeitem", { name: "guides" })
-		fireEvent.click(guides)
+		const guides = getByRole("treeitem", { name: "guides" });
+		fireEvent.click(guides);
 
-		expect(guides.getAttribute("aria-expanded")).toBe("true")
-		expect(guides.getAttribute("aria-selected")).toBe("false")
-		expect(queryByRole("treeitem", { name: "intro.md" })).toBeTruthy()
-		expect(onSelectedPathChange).not.toHaveBeenCalled()
+		expect(guides.getAttribute("aria-expanded")).toBe("true");
+		expect(guides.getAttribute("aria-selected")).toBe("false");
+		expect(queryByRole("treeitem", { name: "intro.md" })).toBeTruthy();
+		expect(onSelectedPathChange).not.toHaveBeenCalled();
 
-		fireEvent.click(docs)
-		expect(docs.getAttribute("aria-expanded")).toBe("false")
-		expect(onSelectedPathChange).not.toHaveBeenCalled()
-	})
+		fireEvent.click(docs);
+		expect(docs.getAttribute("aria-expanded")).toBe("false");
+		expect(onSelectedPathChange).not.toHaveBeenCalled();
+	});
 
 	it("does not make folders without loaded children expandable", () => {
 		const workspaceWithCappedFolder = {
@@ -167,98 +169,155 @@ describe("WorkspacePanelContent file tree", () => {
 					type: "directory" as const,
 				},
 			],
-		}
-		const { getByRole } = renderPanel({ workspace: workspaceWithCappedFolder })
-		const capped = getByRole("treeitem", { name: "capped" })
+		};
+		const { getByRole } = renderPanel({ workspace: workspaceWithCappedFolder });
+		const capped = getByRole("treeitem", { name: "capped" });
 
-		expect(capped.getAttribute("aria-expanded")).toBeNull()
-		fireEvent.click(capped)
-		fireEvent.keyDown(capped, { key: "Enter" })
-		expect(capped.getAttribute("aria-expanded")).toBeNull()
-	})
+		expect(capped.getAttribute("aria-expanded")).toBeNull();
+		fireEvent.click(capped);
+		fireEvent.keyDown(capped, { key: "Enter" });
+		expect(capped.getAttribute("aria-expanded")).toBeNull();
+	});
 
 	it("selects files and renders their Markdown preview", async () => {
-		const loadWorkspaceFile = vi.fn(async (path: string) => fileResponse(path))
-		const { getByRole, getByTestId, getByText } = renderPanel({ loadWorkspaceFile })
+		const loadWorkspaceFile = vi.fn(async (path: string) => fileResponse(path));
+		const { getByRole, getByTestId, getByText } = renderPanel({ loadWorkspaceFile });
 
-		fireEvent.click(getByRole("treeitem", { name: "docs" }))
-		const readme = getByRole("treeitem", { name: "README.md" })
-		fireEvent.click(readme)
+		fireEvent.click(getByRole("treeitem", { name: "docs" }));
+		const readme = getByRole("treeitem", { name: "README.md" });
+		fireEvent.click(readme);
 
-		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md"))
-		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy())
-		expect(readme.getAttribute("aria-selected")).toBe("true")
-		expect(getByTestId("workspace-preview").textContent).toContain("README.md")
-	})
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md"));
+		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy());
+		expect(readme.getAttribute("aria-selected")).toBe("true");
+		expect(getByTestId("workspace-preview").textContent).toContain("README.md");
+	});
 
 	it("keeps workspace artifact files accessible in the main tree", async () => {
-		const loadWorkspaceFile = vi.fn(async (path: string) => fileResponse(path))
-		const { getByRole, getByTestId } = renderPanel({ loadWorkspaceFile })
-		const tree = getByRole("tree", { name: "Workspace files" })
-		const artifacts = within(tree).getByRole("treeitem", { name: "artifacts" })
+		const loadWorkspaceFile = vi.fn(async (path: string) => fileResponse(path));
+		const { getByRole, getByTestId } = renderPanel({ loadWorkspaceFile });
+		const tree = getByRole("tree", { name: "Workspace files" });
+		const artifacts = within(tree).getByRole("treeitem", { name: "artifacts" });
 
-		fireEvent.click(artifacts)
-		const trace = within(tree).getByRole("treeitem", { name: "trace.md" })
-		fireEvent.click(trace)
+		fireEvent.click(artifacts);
+		const trace = within(tree).getByRole("treeitem", { name: "trace.md" });
+		fireEvent.click(trace);
 
-		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("artifacts/trace.md"))
-		await waitFor(() => expect(getByTestId("workspace-preview").textContent).toContain("trace.md"))
-	})
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("artifacts/trace.md"));
+		await waitFor(() => expect(getByTestId("workspace-preview").textContent).toContain("trace.md"));
+	});
 
 	it("supports tree keyboard navigation and file activation", async () => {
-		const loadWorkspaceFile = vi.fn(async (path: string) => fileResponse(path))
-		const { getByRole, queryByRole } = renderPanel({ loadWorkspaceFile })
-		const docs = getByRole("treeitem", { name: "docs" })
-		docs.focus()
+		const loadWorkspaceFile = vi.fn(async (path: string) => fileResponse(path));
+		const { getByRole, queryByRole } = renderPanel({ loadWorkspaceFile });
+		const docs = getByRole("treeitem", { name: "docs" });
+		docs.focus();
 
-		fireEvent.keyDown(docs, { key: "ArrowRight" })
-		const readme = getByRole("treeitem", { name: "README.md" })
-		expect(docs.getAttribute("aria-expanded")).toBe("true")
+		fireEvent.keyDown(docs, { key: "ArrowRight" });
+		const readme = getByRole("treeitem", { name: "README.md" });
+		expect(docs.getAttribute("aria-expanded")).toBe("true");
 
-		fireEvent.keyDown(docs, { key: "ArrowDown" })
-		expect(document.activeElement).toBe(readme)
-		fireEvent.keyDown(readme, { key: "ArrowUp" })
-		expect(document.activeElement).toBe(docs)
-		fireEvent.keyDown(docs, { key: "ArrowRight" })
-		expect(document.activeElement).toBe(readme)
-		fireEvent.keyDown(readme, { key: "ArrowLeft" })
-		expect(document.activeElement).toBe(docs)
+		fireEvent.keyDown(docs, { key: "ArrowDown" });
+		expect(document.activeElement).toBe(readme);
+		fireEvent.keyDown(readme, { key: "ArrowUp" });
+		expect(document.activeElement).toBe(docs);
+		fireEvent.keyDown(docs, { key: "ArrowRight" });
+		expect(document.activeElement).toBe(readme);
+		fireEvent.keyDown(readme, { key: "ArrowLeft" });
+		expect(document.activeElement).toBe(docs);
 
-		fireEvent.keyDown(docs, { key: " " })
-		expect(docs.getAttribute("aria-expanded")).toBe("false")
-		expect(queryByRole("treeitem", { name: "README.md" })).toBeNull()
+		fireEvent.keyDown(docs, { key: " " });
+		expect(docs.getAttribute("aria-expanded")).toBe("false");
+		expect(queryByRole("treeitem", { name: "README.md" })).toBeNull();
 
-		fireEvent.keyDown(docs, { key: "ArrowRight" })
-		fireEvent.keyDown(docs, { key: "ArrowRight" })
-		const reopenedReadme = getByRole("treeitem", { name: "README.md" })
-		expect(document.activeElement).toBe(reopenedReadme)
-		fireEvent.keyDown(reopenedReadme, { key: "Enter" })
+		fireEvent.keyDown(docs, { key: "ArrowRight" });
+		fireEvent.keyDown(docs, { key: "ArrowRight" });
+		const reopenedReadme = getByRole("treeitem", { name: "README.md" });
+		expect(document.activeElement).toBe(reopenedReadme);
+		fireEvent.keyDown(reopenedReadme, { key: "Enter" });
 
-		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md"))
-	})
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md"));
+	});
 
 	it("renders scoped artifact trees without leaking sibling paths", () => {
 		const { getByRole, queryByRole } = renderPanel({
 			scopeLabel: "artifacts",
 			scopePath: "artifacts",
-		})
+		});
 
-		expect(getByRole("tree", { name: "Files in artifacts" })).toBeTruthy()
-		expect(getByRole("treeitem", { name: "trace.md" })).toBeTruthy()
-		expect(queryByRole("treeitem", { name: "docs" })).toBeNull()
-	})
+		expect(getByRole("tree", { name: "Files in artifacts" })).toBeTruthy();
+		expect(getByRole("treeitem", { name: "trace.md" })).toBeTruthy();
+		expect(queryByRole("treeitem", { name: "docs" })).toBeNull();
+	});
 
 	it("preserves workspace error, loading, and empty states", () => {
-		const errorView = renderPanel({ error: new Error("read failed") })
-		expect(errorView.getByText("Unable to load workspace")).toBeTruthy()
-		expect(errorView.getByText("read failed")).toBeTruthy()
-		errorView.unmount()
+		const errorView = renderPanel({ error: new Error("read failed") });
+		expect(errorView.getByText("Unable to load workspace")).toBeTruthy();
+		expect(errorView.getByText("read failed")).toBeTruthy();
+		errorView.unmount();
 
-		const loadingView = renderPanel({ loading: true, workspace: null })
-		expect(loadingView.container.querySelector('[data-slot="skeleton"]')).toBeTruthy()
-		loadingView.unmount()
+		const loadingView = renderPanel({ loading: true, workspace: null });
+		expect(loadingView.container.querySelector('[data-slot="skeleton"]')).toBeTruthy();
+		loadingView.unmount();
 
-		const emptyView = renderPanel({ workspace: null })
-		expect(emptyView.getByText("Workspace unavailable")).toBeTruthy()
-	})
-})
+		const emptyView = renderPanel({ workspace: null });
+		expect(emptyView.getByText("Workspace unavailable")).toBeTruthy();
+	});
+
+	it("shows a pending skeleton then README Markdown when the preview succeeds", async () => {
+		let resolvePreview: ((value: WorkspaceFileResponse) => void) | undefined;
+		const loadWorkspaceFile = vi.fn(
+			() =>
+				new Promise<WorkspaceFileResponse>((resolve) => {
+					resolvePreview = resolve;
+				}),
+		);
+		const { getByTestId, getByText, queryByText } = renderPanel({
+			loadWorkspaceFile,
+			onSelectedPathChange: vi.fn(),
+			selectedPath: "docs/README.md",
+		});
+
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md"));
+		expect(getByTestId("workspace-preview").querySelector('[data-slot="skeleton"]')).toBeTruthy();
+		expect(queryByText("Preview body", { exact: true })).toBeNull();
+
+		resolvePreview?.(fileResponse("docs/README.md"));
+		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy());
+		expect(getByTestId("workspace-preview").querySelector('[data-slot="skeleton"]')).toBeNull();
+		expect(getByTestId("workspace-preview").textContent).toContain("README.md");
+	});
+
+	it("shows an error instead of a skeleton when the preview request is rejected", async () => {
+		const loadWorkspaceFile = vi.fn(async () => {
+			throw new Error("file missing");
+		});
+		const { getByTestId, getByText } = renderPanel({
+			loadWorkspaceFile,
+			onSelectedPathChange: vi.fn(),
+			selectedPath: "docs/README.md",
+		});
+
+		await waitFor(() => expect(getByText("Unable to load preview")).toBeTruthy());
+		expect(getByText("file missing")).toBeTruthy();
+		expect(getByTestId("workspace-preview").querySelector('[data-slot="skeleton"]')).toBeNull();
+	});
+
+	it("times out a hung preview instead of leaving an infinite skeleton", async () => {
+		vi.useFakeTimers();
+		const loadWorkspaceFile = vi.fn(() => new Promise<WorkspaceFileResponse>(() => undefined));
+		const { getByTestId, getByText } = renderPanel({
+			loadWorkspaceFile,
+			onSelectedPathChange: vi.fn(),
+			selectedPath: "docs/README.md",
+		});
+
+		expect(getByTestId("workspace-preview").querySelector('[data-slot="skeleton"]')).toBeTruthy();
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(WORKSPACE_PREVIEW_TIMEOUT_MS);
+		});
+		expect(getByText("Unable to load preview")).toBeTruthy();
+		expect(getByText("Preview timed out")).toBeTruthy();
+		expect(getByTestId("workspace-preview").querySelector('[data-slot="skeleton"]')).toBeNull();
+	});
+});

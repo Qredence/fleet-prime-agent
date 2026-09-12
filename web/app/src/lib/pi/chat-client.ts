@@ -108,7 +108,7 @@ export type ChatClient = {
 	getCommands: (projectId?: ProjectId) => Promise<ChatCommandsResponse>;
 	getSettings: (projectId?: ProjectId) => Promise<ChatSettingsResponse>;
 	getWorkspaceTree: (projectId?: ProjectId) => Promise<WorkspaceTreeResponse>;
-	getWorkspaceFile: (path: string, projectId?: ProjectId) => Promise<WorkspaceFileResponse>;
+	getWorkspaceFile: (path: string, projectId?: ProjectId, signal?: AbortSignal) => Promise<WorkspaceFileResponse>;
 	listSessions: (projectId?: ProjectId) => Promise<Array<ChatSessionInfo>>;
 	renameSession: (sessionId: string, title: string) => Promise<void>;
 	deleteSession: (sessionId: string) => Promise<void>;
@@ -283,10 +283,14 @@ export const chatClient: ChatClient = {
 		return fetchValidatedJson(`/api/workspace/tree${query}`, WorkspaceTreeResponseSchema);
 	},
 
-	async getWorkspaceFile(path, projectId) {
+	async getWorkspaceFile(path, projectId, signal) {
 		const params = new URLSearchParams({ path });
 		if (projectId) params.set("projectId", projectId);
-		return fetchValidatedJson(`/api/workspace/file?${params}`, WorkspaceFileResponseSchema);
+		return fetchValidatedJson(
+			`/api/workspace/file?${params}`,
+			WorkspaceFileResponseSchema,
+			signal ? { signal } : undefined,
+		);
 	},
 
 	async listSessions(projectId) {

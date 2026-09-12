@@ -1,7 +1,7 @@
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
-import { notifyChatError } from "./chat-error-notify";
+import { notifyChatError, runWorkspaceAction } from "./chat-error-notify";
 import { ChatRequestError, chatErrorFromStreamEvent, isDaemonDisconnectError } from "./chat-fetch";
 
 vi.mock("@prime-agent/web-design/lib/notify", () => ({
@@ -55,5 +55,12 @@ describe("notifyChatError", () => {
 	it("toasts ordinary failures with their message", () => {
 		notifyChatError(new Error("Project no longer exists"));
 		expect(notifyError).toHaveBeenCalledWith("Project no longer exists");
+	});
+
+	it("surfaces rejected workspace chrome actions", async () => {
+		runWorkspaceAction(async () => {
+			throw new Error("Unable to create session");
+		});
+		await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith("Unable to create session"));
 	});
 });

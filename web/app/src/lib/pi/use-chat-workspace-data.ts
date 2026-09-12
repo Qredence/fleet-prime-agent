@@ -49,7 +49,7 @@ import { useResourceInstallRefresh } from "@/lib/pi/use-resource-install-refresh
 import { useRightPanelContextValue } from "@/lib/pi/use-right-panel-context-value";
 import { buildWorkspaceReferenceSuggestions, workspacePathFromSuggestion } from "@/lib/pi/workspace-suggestions";
 import { loadWorkspaceFile } from "@/lib/workspace-file";
-import { notifyChatError } from "./chat-error-notify";
+import { notifyChatError, runWorkspaceAction } from "./chat-error-notify";
 import {
 	shouldClearPendingAttachments,
 	shouldClearPendingAttachmentsForNewSession,
@@ -630,7 +630,7 @@ export function useChatWorkspaceData() {
 		activeTabId: agentTabs.activeTabId,
 		tabs: agentTabs.tabs,
 		onCloseTab: agentTabs.closeTab,
-		onNewSession: () => void startNewSessionForWorkspace(),
+		onNewSession: () => runWorkspaceAction(() => startNewSessionForWorkspace()),
 		onSelectTab: agentTabs.selectTab,
 		onOpenSettings: () => openSettings(),
 	});

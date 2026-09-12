@@ -1,18 +1,23 @@
-import { BookOpenText, ChevronDown, CircleHelp, Folder, FolderPlus, Search, Settings, SquarePen } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { useMemo } from "react";
-import type { ReactNode } from "react";
-import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
+import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
+import type { LucideIcon } from "lucide-react";
+import { BookOpenText, ChevronDown, CircleHelp, Folder, FolderPlus, Search, Settings, SquarePen } from "lucide-react";
+import type { ReactNode } from "react";
+import { useMemo } from "react";
+import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers";
+import { SurfaceProvider } from "../../../../lib/surface-context";
+import { type SearchableThread, ThreadSearch } from "../../../registry/assistant-ui/elements/thread-search";
 import type { AISidebarProps, SidebarResource } from "../../../registry/beui/agents/ai-sidebar";
 import { Popover } from "../../../registry/beui/agents/input/input-popover";
+import {
+	AnimatedSidebar,
+	AnimatedSidebarFooter,
+	AnimatedSidebarHeader,
+	AnimatedSidebarRail,
+} from "../../../registry/beui/motion/animated-sidebar";
 import { Button } from "../../../ui/button";
-import { ThreadSearch, type SearchableThread } from "../../../registry/assistant-ui/elements/thread-search";
-import { AnimatedSidebar, AnimatedSidebarFooter, AnimatedSidebarHeader, AnimatedSidebarRail } from "../../../registry/beui/motion/animated-sidebar";
-import { FleetVersionBadge } from "./fleet-version-badge";
-import { SurfaceProvider } from "../../../../lib/surface-context";
-import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers";
 import { sortSessions } from "../session-sidebar-model";
+import { FleetVersionBadge } from "./fleet-version-badge";
 import { FleetSessionSidebarProjectList } from "./project-list";
 import type { SidebarStateView } from "./state";
 import {
@@ -140,9 +145,7 @@ export function FleetSessionSidebarNavigation({
 	const matchingProjects = useMemo(() => {
 		const needle = query.trim().toLowerCase();
 		if (!needle) return sortedProjects;
-		return sortedProjects.filter((project) =>
-			`${project.name} ${project.pathLabel}`.toLowerCase().includes(needle),
-		);
+		return sortedProjects.filter((project) => `${project.name} ${project.pathLabel}`.toLowerCase().includes(needle));
 	}, [query, sortedProjects]);
 	return (
 		<AnimatedSidebar
@@ -153,161 +156,163 @@ export function FleetSessionSidebarNavigation({
 		>
 			{/* The floating rail is a surface-2 card; menus opened inside lift from it. */}
 			<SurfaceProvider value={2}>
-			<AnimatedSidebarHeader className="gap-2 border-0 px-2.5 pb-2 pt-2.5">
-				<div className="relative flex h-9 min-w-0 items-center justify-between gap-1">
-					<Popover
-						open={brandMenuOpen}
-						onOpenChange={setBrandMenuOpen}
-						side="bottom"
-						align="start"
-						trigger={
-							<button
-								type="button"
-								className="flex h-8 w-fit shrink-0 items-center gap-1 rounded-lg px-2 text-left text-sm font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-							>
-								<span className="truncate">Qredence Fleet</span>
-								<ChevronDown className="size-3.5 text-muted-foreground" />
-							</button>
-						}
-						className="w-52 p-1"
-					>
-						{onCreateProject ? (
+				<AnimatedSidebarHeader className="gap-2 border-0 px-2.5 pb-2 pt-2.5">
+					<div className="relative flex h-9 min-w-0 items-center justify-between gap-1">
+						<Popover
+							open={brandMenuOpen}
+							onOpenChange={setBrandMenuOpen}
+							side="bottom"
+							align="start"
+							trigger={
+								<button
+									type="button"
+									className="flex h-8 w-fit shrink-0 items-center gap-1 rounded-lg px-2 text-left text-sm font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+								>
+									<span className="truncate">Qredence Fleet</span>
+									<ChevronDown className="size-3.5 text-muted-foreground" />
+								</button>
+							}
+							className="w-52 p-1"
+						>
+							{onCreateProject ? (
+								<SidebarMenuItem
+									icon={FolderPlus}
+									label="Add project"
+									onClick={() => {
+										setBrandMenuOpen(false);
+										setCreateOpen(true);
+									}}
+								/>
+							) : null}
 							<SidebarMenuItem
-								icon={FolderPlus}
-								label="Add project"
+								icon={Settings}
+								label="Settings"
 								onClick={() => {
 									setBrandMenuOpen(false);
-									setCreateOpen(true);
+									onOpenSettings?.();
 								}}
 							/>
-						) : null}
-						<SidebarMenuItem
-							icon={Settings}
-							label="Settings"
-							onClick={() => {
-								setBrandMenuOpen(false);
-								onOpenSettings?.();
-							}}
-						/>
-						<SidebarMenuItem icon={BookOpenText} label="Documentation" href={DOCUMENTATION_URL} />
-					</Popover>
+							<SidebarMenuItem icon={BookOpenText} label="Documentation" href={DOCUMENTATION_URL} />
+						</Popover>
 
-					<Popover
-						open={searchOpen}
-						onOpenChange={setSearchOpen}
-						side="bottom"
-						align="end"
-						className="w-64 p-0"
-						trigger={
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon"
-								aria-label="Search projects and sessions"
-								title="Search projects and sessions"
-								className="shrink-0 text-muted-foreground hover:bg-sidebar-accent"
-							>
-								<Search data-icon="inline-start" className="size-4" />
-							</Button>
-						}
-					>
-						<div className="max-h-[min(32rem,calc(100vh-5rem))] overflow-y-auto">
-							<ThreadSearch
-								threads={searchThreads}
-								query={query}
-								activeId={activeSessionId ?? ""}
-								onQueryChange={setQuery}
-								onSelect={(sessionId) => selectSearchResult(`search-session:${sessionId}`)}
-								className="max-w-none rounded-none border-0 bg-transparent p-2 shadow-none"
-							/>
-							<div className="border-t border-border/60 px-2 pb-2 pt-1.5">
-								<span className="px-2 pb-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted-foreground/60">
-									Projects
-								</span>
-								<div className="mt-1 flex flex-col gap-0.5">
-									{matchingProjects.map((project) => (
-										<button
-											key={project.projectId}
-											type="button"
-											onClick={() => selectSearchResult(`search-project:${project.projectId}`)}
-											className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
-										>
-											<Folder className="size-3.5 shrink-0 text-muted-foreground/60" />
-											<span className="min-w-0 flex-1 truncate">{project.name}</span>
-											<span className="max-w-24 truncate text-[0.625rem] text-muted-foreground/55">{project.pathLabel}</span>
-										</button>
-									))}
-									{matchingProjects.length === 0 ? (
-										<span className="p-2 text-center text-[0.6875rem] text-muted-foreground/60">
-											No project matches “{query}”
-										</span>
-									) : null}
+						<Popover
+							open={searchOpen}
+							onOpenChange={setSearchOpen}
+							side="bottom"
+							align="end"
+							className="w-64 p-0"
+							trigger={
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									aria-label="Search projects and sessions"
+									title="Search projects and sessions"
+									className="shrink-0 text-muted-foreground hover:bg-sidebar-accent"
+								>
+									<Search data-icon="inline-start" className="size-4" />
+								</Button>
+							}
+						>
+							<div className="max-h-[min(32rem,calc(100vh-5rem))] overflow-y-auto">
+								<ThreadSearch
+									threads={searchThreads}
+									query={query}
+									activeId={activeSessionId ?? ""}
+									onQueryChange={setQuery}
+									onSelect={(sessionId) => selectSearchResult(`search-session:${sessionId}`)}
+									className="max-w-none rounded-none border-0 p-2 shadow-none"
+								/>
+								<div className="border-t border-border/60 px-2 pb-2 pt-1.5">
+									<span className="px-2 pb-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted-foreground/60">
+										Projects
+									</span>
+									<div className="mt-1 flex flex-col gap-0.5">
+										{matchingProjects.map((project) => (
+											<button
+												key={project.projectId}
+												type="button"
+												onClick={() => selectSearchResult(`search-project:${project.projectId}`)}
+												className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
+											>
+												<Folder className="size-3.5 shrink-0 text-muted-foreground/60" />
+												<span className="min-w-0 flex-1 truncate">{project.name}</span>
+												<span className="max-w-24 truncate text-[0.625rem] text-muted-foreground/55">
+													{project.pathLabel}
+												</span>
+											</button>
+										))}
+										{matchingProjects.length === 0 ? (
+											<span className="p-2 text-center text-[0.6875rem] text-muted-foreground/60">
+												No project matches “{query}”
+											</span>
+										) : null}
+									</div>
+								</div>
+								<div className="flex items-center justify-end gap-3 border-t border-border/60 px-3 py-2 text-[0.625rem] text-muted-foreground/70">
+									<span className="flex items-center gap-1">
+										<KbdHint>↑</KbdHint>
+										<KbdHint>↓</KbdHint>
+										navigate
+									</span>
+									<span className="flex items-center gap-1">
+										<KbdHint>↵</KbdHint>
+										open
+									</span>
+									<span className="flex items-center gap-1">
+										<KbdHint>esc</KbdHint>
+										close
+									</span>
 								</div>
 							</div>
-							<div className="flex items-center justify-end gap-3 border-t border-border/60 px-3 py-2 text-[0.625rem] text-muted-foreground/70">
-								<span className="flex items-center gap-1">
-									<KbdHint>↑</KbdHint>
-									<KbdHint>↓</KbdHint>
-									navigate
-								</span>
-								<span className="flex items-center gap-1">
-									<KbdHint>↵</KbdHint>
-									open
-								</span>
-								<span className="flex items-center gap-1">
-									<KbdHint>esc</KbdHint>
-									close
-								</span>
-							</div>
-						</div>
-					</Popover>
-				</div>
-				<button
-					type="button"
-					onClick={onNewSession}
-					className="flex h-8 w-full items-center justify-start gap-2 rounded-lg px-2 text-[0.8125rem] font-normal text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent focus-visible:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-				>
-					<SquarePen className="size-4 shrink-0 text-muted-foreground" />
-					New chat
-				</button>
-			</AnimatedSidebarHeader>
-			<FleetSessionSidebarProjectList
-				projectActionsOpen={projectActionsOpen}
-				setProjectActionsOpen={setProjectActionsOpen}
-				expandedProjectIds={expandedProjectIds}
-				setExpandedProjectIds={setExpandedProjectIds}
-				setCreateOpen={setCreateOpen}
-				projects={projects}
-				projectSessions={projectSessions}
-				sidebarItems={sidebarItems}
-				activeProjectId={activeProjectId}
-				activeSessionId={activeSessionId}
-				onNewSession={onNewSession}
-				onNewSessionInProject={onNewSessionInProject}
-				onProjectSelect={onProjectSelect}
-				onRenameSession={onRenameSession}
-				onCreateProject={onCreateProject}
-				resumeResource={resumeResource}
-				toggleProjectResource={toggleProjectResource}
-				renderMenu={renderMenu}
-			/>
-			<AnimatedSidebarFooter className="flex-row items-center gap-1 border-sidebar-border px-2.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-				<div className="min-w-0 flex-1">
-					{accountMenu ?? <span className="flex h-8 items-center px-2 text-[0.8125rem]">Qredence</span>}
-				</div>
-				<FleetVersionBadge />
-				<a
-					href={DOCUMENTATION_URL}
-					target="_blank"
-					rel="noreferrer"
-					aria-label="Open Qredence documentation"
-					title="Help"
-					className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-				>
-					<CircleHelp className="size-4" />
-				</a>
-			</AnimatedSidebarFooter>
-			<AnimatedSidebarRail />
+						</Popover>
+					</div>
+					<button
+						type="button"
+						onClick={onNewSession}
+						className="flex h-8 w-full items-center justify-start gap-2 rounded-lg px-2 text-[0.8125rem] font-normal text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent focus-visible:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+					>
+						<SquarePen className="size-4 shrink-0 text-muted-foreground" />
+						New chat
+					</button>
+				</AnimatedSidebarHeader>
+				<FleetSessionSidebarProjectList
+					projectActionsOpen={projectActionsOpen}
+					setProjectActionsOpen={setProjectActionsOpen}
+					expandedProjectIds={expandedProjectIds}
+					setExpandedProjectIds={setExpandedProjectIds}
+					setCreateOpen={setCreateOpen}
+					projects={projects}
+					projectSessions={projectSessions}
+					sidebarItems={sidebarItems}
+					activeProjectId={activeProjectId}
+					activeSessionId={activeSessionId}
+					onNewSession={onNewSession}
+					onNewSessionInProject={onNewSessionInProject}
+					onProjectSelect={onProjectSelect}
+					onRenameSession={onRenameSession}
+					onCreateProject={onCreateProject}
+					resumeResource={resumeResource}
+					toggleProjectResource={toggleProjectResource}
+					renderMenu={renderMenu}
+				/>
+				<AnimatedSidebarFooter className="flex-row items-center gap-1 border-sidebar-border px-2.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+					<div className="min-w-0 flex-1">
+						{accountMenu ?? <span className="flex h-8 items-center px-2 text-[0.8125rem]">Qredence</span>}
+					</div>
+					<FleetVersionBadge />
+					<a
+						href={DOCUMENTATION_URL}
+						target="_blank"
+						rel="noreferrer"
+						aria-label="Open Qredence documentation"
+						title="Help"
+						className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+					>
+						<CircleHelp className="size-4" />
+					</a>
+				</AnimatedSidebarFooter>
+				<AnimatedSidebarRail />
 			</SurfaceProvider>
 		</AnimatedSidebar>
 	);
