@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+### Patch Changes
+
+- 32da53c: Fix clipped right-panel tabs, low-contrast chrome menus, header New chat, and hung workspace Markdown previews.
+- ada7fde: Restore the source-checkout `fleet-prime.sh` launcher, replace an existing `fleet-agent` symlink instead of writing through it, and keep the web launcher running if an SSR stream times out.
+
 ## 0.6.0
 
 ### Minor Changes
