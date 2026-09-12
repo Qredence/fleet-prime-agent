@@ -1,9 +1,5 @@
 import { ArrowUp, FolderOpen, FolderPlus, FolderTree, TriangleAlert } from "lucide-react";
 import { useId } from "react";
-import { Button } from "../../../ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../ui/dialog";
-import { Input } from "../../../ui/input";
-import { Spinner } from "../../../ui/spinner";
 import {
 	Combobox,
 	ComboboxContent,
@@ -15,6 +11,10 @@ import {
 	ComboboxList,
 	ComboboxTrigger,
 } from "../../../registry/beui/motion/combobox";
+import { Button } from "../../../ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../ui/dialog";
+import { Input } from "../../../ui/input";
+import { Spinner } from "../../../ui/spinner";
 import type { SidebarStateView } from "./state";
 import type { FleetSessionSidebarDependencies } from "./types";
 import { pathEntryLabel } from "./types";
@@ -95,8 +95,8 @@ export function FleetSessionSidebarCreateDialog({
 				<DialogHeader>
 					<DialogTitle>Add project</DialogTitle>
 					<DialogDescription>
-						Choose the local directory that owns this project&apos;s sessions. Browse the server filesystem or paste
-						an absolute path.
+						Choose the local directory that owns this project&apos;s sessions. Browse the server filesystem or
+						paste an absolute path.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-4">
@@ -142,8 +142,8 @@ export function FleetSessionSidebarCreateDialog({
 							className="h-10 font-mono text-xs"
 						/>
 						<p id={directoryHelpId} className="text-xs text-muted-foreground">
-							Browse to select a directory, or paste an absolute path. The server validates the final choice before
-							registering it.
+							Browse to select a directory, or paste an absolute path. The server validates the final choice
+							before registering it.
 						</p>
 					</div>
 
@@ -159,7 +159,10 @@ export function FleetSessionSidebarCreateDialog({
 					) : null}
 
 					{directoryBrowser ? (
-						<div className="overflow-hidden rounded-xl border bg-muted/20" data-testid="project-directory-browser">
+						<div
+							className="overflow-hidden rounded-xl border bg-muted/20"
+							data-testid="project-directory-browser"
+						>
 							<div className="flex items-start gap-3 p-3">
 								<div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
 									<FolderOpen className="size-4" />
@@ -168,7 +171,10 @@ export function FleetSessionSidebarCreateDialog({
 									<p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
 										Selected directory
 									</p>
-									<p className="mt-1 break-all font-mono text-xs text-foreground" title={selectedDirectoryPath}>
+									<p
+										className="mt-1 break-all font-mono text-xs text-foreground"
+										title={selectedDirectoryPath}
+									>
 										{selectedDirectoryPath}
 									</p>
 								</div>
@@ -181,7 +187,9 @@ export function FleetSessionSidebarCreateDialog({
 								<div className="flex items-center justify-between gap-2">
 									<div>
 										<p className="text-sm font-medium">Browse child directories</p>
-										<p className="text-xs text-muted-foreground">Open a folder to make it the selected directory.</p>
+										<p className="text-xs text-muted-foreground">
+											Open a folder to make it the selected directory.
+										</p>
 									</div>
 									{directoryBrowser.parentToken ? (
 										<Button
@@ -189,7 +197,9 @@ export function FleetSessionSidebarCreateDialog({
 											size="sm"
 											variant="outline"
 											disabled={directoryBrowseLoading}
-											onClick={() => void loadDirectories({ token: directoryBrowser.parentToken ?? undefined })}
+											onClick={() =>
+												void loadDirectories({ token: directoryBrowser.parentToken ?? undefined })
+											}
 											aria-label="Go up one directory"
 											title="Go up one directory"
 										>

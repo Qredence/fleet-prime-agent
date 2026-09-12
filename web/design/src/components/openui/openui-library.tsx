@@ -1,951 +1,844 @@
+import type { ComponentRenderProps, StateField } from "@openuidev/react-lang";
+import { createLibrary, defineComponent, reactive, useStateField, useTriggerAction } from "@openuidev/react-lang";
+import { RightPanelIdSchema, WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract";
+import { useId } from "react";
+import { Bar, CartesianGrid, BarChart as RechartsBarChart, XAxis, YAxis } from "recharts";
+import { z } from "zod/v4";
+import { isSafeExternalUrl } from "../../lib/safe-external-url";
+import { cn } from "../../lib/utils";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import {
-  createLibrary,
-  defineComponent,
-  reactive,
-  useStateField,
-  useTriggerAction,
-} from "@openuidev/react-lang"
-import type { ComponentRenderProps, StateField } from "@openuidev/react-lang"
+	ChartContainer,
+	ChartLegend,
+	ChartLegendContent,
+	ChartTooltip,
+	ChartTooltipContent,
+	getChartColorVarName,
+} from "../ui/chart";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Field, FieldLabel } from "../ui/field";
+import { Input } from "../ui/input";
+import { Progress, ProgressLabel, ProgressValue } from "../ui/progress";
+import { Select } from "../ui/select";
+import { Separator } from "../ui/separator";
+import { Switch } from "../ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { DonutChartDef, LineChartDef } from "./charts";
+import { DataTableDef, MetricGroupDef } from "./data";
+import { HtmlArtifactDef } from "./html-artifact-def";
 import {
-  Bar,
-  CartesianGrid,
-  BarChart as RechartsBarChart,
-  XAxis,
-  YAxis,
-} from "recharts"
-import { useId } from "react"
-import { z } from "zod/v4"
-import { RightPanelIdSchema, WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract"
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
-import { Badge } from "../ui/badge"
-import { Button } from "../ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../ui/card"
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  getChartColorVarName,
-} from "../ui/chart"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog"
-import { Field, FieldLabel } from "../ui/field"
-import { Input } from "../ui/input"
-import { Progress, ProgressLabel, ProgressValue } from "../ui/progress"
-import { Select } from "../ui/select"
-import { Separator } from "../ui/separator"
-import { Switch } from "../ui/switch"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../ui/table"
-import { cn } from "../../lib/utils"
-import { isSafeExternalUrl } from "../../lib/safe-external-url"
-import { DonutChartDef, LineChartDef } from "./charts"
-import { DataTableDef, MetricGroupDef } from "./data"
-import { HtmlArtifactDef } from "./html-artifact-def"
-import {
-  badgeToneClasses,
-  badgeVariantsByTone,
-  openUITextToneSchema,
-  openUIToneSchema,
-  textToneClasses,
-  toneClasses,
-} from "./tones"
+	badgeToneClasses,
+	badgeVariantsByTone,
+	openUITextToneSchema,
+	openUIToneSchema,
+	textToneClasses,
+	toneClasses,
+} from "./tones";
 
 const gapClasses = {
-  sm: "gap-2",
-  md: "gap-4",
-  lg: "gap-6",
-  xl: "gap-8",
-} as const
+	sm: "gap-2",
+	md: "gap-4",
+	lg: "gap-6",
+	xl: "gap-8",
+} as const;
 
 const widthClasses = {
-  compact: "max-w-md",
-  normal: "max-w-2xl",
-  wide: "max-w-4xl",
-  full: "max-w-none",
-} as const
+	compact: "max-w-md",
+	normal: "max-w-2xl",
+	wide: "max-w-4xl",
+	full: "max-w-none",
+} as const;
 
-const commonTone = z.enum(openUIToneSchema).optional().default("default")
+const commonTone = z.enum(openUIToneSchema).optional().default("default");
 
-const textTone = z.enum(openUITextToneSchema).optional().default("default")
+const textTone = z.enum(openUITextToneSchema).optional().default("default");
 
-const gapSizeSchema = z.enum(["sm", "md", "lg", "xl"]).optional().default("md")
+const gapSizeSchema = z.enum(["sm", "md", "lg", "xl"]).optional().default("md");
 
-const childrenProp = z
-  .any()
-  .optional()
-  .describe("Child component, array of child components, or plain content")
+const childrenProp = z.any().optional().describe("Child component, array of child components, or plain content");
 
 function ButtonComponent({
-  props: { label, action, variant },
+	props: { label, action, variant },
 }: {
-  props: {
-    label: string
-    action?: unknown
-    variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
-  }
+	props: {
+		label: string;
+		action?: unknown;
+		variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+	};
 }) {
-  const triggerAction = useTriggerAction()
+	const triggerAction = useTriggerAction();
 
-  const handleClick = () => {
-    if (!action) {
-      void triggerAction(label)
-      return
-    }
+	const handleClick = () => {
+		if (!action) {
+			void triggerAction(label);
+			return;
+		}
 
-    if (typeof action === "string") {
-      void triggerAction(action)
-    } else {
-      void triggerAction(label, undefined, action)
-    }
-  }
+		if (typeof action === "string") {
+			void triggerAction(action);
+		} else {
+			void triggerAction(label, undefined, action);
+		}
+	};
 
-  return (
-    <Button type="button" variant={variant} onClick={handleClick}>
-      {label}
-    </Button>
-  )
+	return (
+		<Button type="button" variant={variant} onClick={handleClick}>
+			{label}
+		</Button>
+	);
 }
 
 export const ButtonDef = defineComponent({
-  name: "Button",
-  description:
-    "A button that triggers interactive actions or conversational updates.",
-  props: z.object({
-    label: z.string().describe("Visible button label"),
-    action: z
-      .any()
-      .optional()
-      .describe(
-        "Message string, action, or action composition to run on click. Defaults to label."
-      ),
-    variant: z
-      .enum(["default", "destructive", "outline", "secondary", "ghost", "link"])
-      .optional()
-      .default("default")
-      .describe("Visual style"),
-  }),
-  component: ButtonComponent,
-})
+	name: "Button",
+	description: "A button that triggers interactive actions or conversational updates.",
+	props: z.object({
+		label: z.string().describe("Visible button label"),
+		action: z
+			.any()
+			.optional()
+			.describe("Message string, action, or action composition to run on click. Defaults to label."),
+		variant: z
+			.enum(["default", "destructive", "outline", "secondary", "ghost", "link"])
+			.optional()
+			.default("default")
+			.describe("Visual style"),
+	}),
+	component: ButtonComponent,
+});
 
 function PanelActionComponent({
-  props: { focus, label, panel, relativePath },
+	props: { focus, label, panel, relativePath },
 }: {
-  props: {
-    focus?: boolean
-    label: string
-    panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights"
-    relativePath?: string
-  }
+	props: {
+		focus?: boolean;
+		label: string;
+		panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights";
+		relativePath?: string;
+	};
 }) {
-  const triggerAction = useTriggerAction()
-  const isLocationPanel = panel === "workspace" || panel === "artifacts"
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() =>
-        void triggerAction(label, undefined, {
-          type: "fleet.open_panel",
-          params: {
-            panel,
-            relativePath: isLocationPanel ? relativePath : undefined,
-            focus,
-          },
-        })
-      }
-    >
-      {label}
-    </Button>
-  )
+	const triggerAction = useTriggerAction();
+	const isLocationPanel = panel === "workspace" || panel === "artifacts";
+	return (
+		<Button
+			type="button"
+			variant="outline"
+			onClick={() =>
+				void triggerAction(label, undefined, {
+					type: "fleet.open_panel",
+					params: {
+						panel,
+						relativePath: isLocationPanel ? relativePath : undefined,
+						focus,
+					},
+				})
+			}
+		>
+			{label}
+		</Button>
+	);
 }
 
 export const PanelActionDef = defineComponent({
-  name: "PanelAction",
-  description:
-    "A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
-  props: z
-    .object({
-      label: z.string().describe("Visible action label"),
-      panel: RightPanelIdSchema,
-      relativePath: WorkspaceRelativePathSchema.optional().describe(
-        "Workspace-relative path to select; valid only when panel is \"workspace\" or \"artifacts\"."
-      ),
-      focus: z.boolean().optional().default(true),
-    })
-    .superRefine((value, ctx) => {
-      if (
-        value.relativePath !== undefined &&
-        value.panel !== "workspace" &&
-        value.panel !== "artifacts"
-      ) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["relativePath"],
-          message: "relativePath is only valid for workspace and artifacts panels",
-        });
-      }
-    }),
-  component: PanelActionComponent,
-})
+	name: "PanelAction",
+	description:
+		"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+	props: z
+		.object({
+			label: z.string().describe("Visible action label"),
+			panel: RightPanelIdSchema,
+			relativePath: WorkspaceRelativePathSchema.optional().describe(
+				'Workspace-relative path to select; valid only when panel is "workspace" or "artifacts".',
+			),
+			focus: z.boolean().optional().default(true),
+		})
+		.superRefine((value, ctx) => {
+			if (value.relativePath !== undefined && value.panel !== "workspace" && value.panel !== "artifacts") {
+				ctx.addIssue({
+					code: "custom",
+					path: ["relativePath"],
+					message: "relativePath is only valid for workspace and artifacts panels",
+				});
+			}
+		}),
+	component: PanelActionComponent,
+});
 
 export const TextDef = defineComponent({
-  name: "Text",
-  description: "Short body text for cards, captions, and summaries.",
-  props: z.object({
-    text: z.string().describe("Text to display"),
-    tone: textTone,
-    size: z.enum(["sm", "md", "lg"]).optional().default("md"),
-  }),
-  component: ({ props: { text, tone, size } }) => {
-    const sizeClass = { sm: "text-xs", md: "text-sm", lg: "text-base" }[size]
+	name: "Text",
+	description: "Short body text for cards, captions, and summaries.",
+	props: z.object({
+		text: z.string().describe("Text to display"),
+		tone: textTone,
+		size: z.enum(["sm", "md", "lg"]).optional().default("md"),
+	}),
+	component: ({ props: { text, tone, size } }) => {
+		const sizeClass = { sm: "text-xs", md: "text-sm", lg: "text-base" }[size];
 
-    return <p className={cn(sizeClass, textToneClasses[tone])}>{text}</p>
-  },
-})
+		return <p className={cn(sizeClass, textToneClasses[tone])}>{text}</p>;
+	},
+});
 
 export const HeadingDef = defineComponent({
-  name: "Heading",
-  description: "Section heading text.",
-  props: z.object({
-    text: z.string().describe("Heading text"),
-    level: z.number().int().min(1).max(4).optional().default(3),
-  }),
-  component: ({ props: { text, level } }) => {
-    if (level === 1) {
-      return <h1 className="text-2xl font-semibold tracking-tight">{text}</h1>
-    }
-    if (level === 2) {
-      return <h2 className="text-xl font-semibold tracking-tight">{text}</h2>
-    }
-    if (level === 4) {
-      return <h4 className="text-base font-semibold tracking-tight">{text}</h4>
-    }
-    return <h3 className="text-lg font-semibold tracking-tight">{text}</h3>
-  },
-})
+	name: "Heading",
+	description: "Section heading text.",
+	props: z.object({
+		text: z.string().describe("Heading text"),
+		level: z.number().int().min(1).max(4).optional().default(3),
+	}),
+	component: ({ props: { text, level } }) => {
+		if (level === 1) {
+			return <h1 className="text-2xl font-semibold tracking-tight">{text}</h1>;
+		}
+		if (level === 2) {
+			return <h2 className="text-xl font-semibold tracking-tight">{text}</h2>;
+		}
+		if (level === 4) {
+			return <h4 className="text-base font-semibold tracking-tight">{text}</h4>;
+		}
+		return <h3 className="text-lg font-semibold tracking-tight">{text}</h3>;
+	},
+});
 
 export const BadgeDef = defineComponent({
-  name: "Badge",
-  description: "Small status badge.",
-  props: z.object({
-    label: z.string().describe("Badge label"),
-    tone: commonTone,
-  }),
-  component: ({ props: { label, tone } }) => {
-    return (
-      <Badge
-        variant={badgeVariantsByTone[tone]}
-        className={badgeToneClasses[tone]}
-      >
-        {label}
-      </Badge>
-    )
-  },
-})
+	name: "Badge",
+	description: "Small status badge.",
+	props: z.object({
+		label: z.string().describe("Badge label"),
+		tone: commonTone,
+	}),
+	component: ({ props: { label, tone } }) => {
+		return (
+			<Badge variant={badgeVariantsByTone[tone]} className={badgeToneClasses[tone]}>
+				{label}
+			</Badge>
+		);
+	},
+});
 
 function InputComponent({
-  props: { name, value, placeholder, type, disabled },
+	props: { name, value, placeholder, type, disabled },
 }: {
-  props: {
-    name: string
-    value: StateField<string>
-    placeholder?: string
-    type?: "text" | "email" | "number" | "password" | "search"
-    disabled?: boolean
-  }
+	props: {
+		name: string;
+		value: StateField<string>;
+		placeholder?: string;
+		type?: "text" | "email" | "number" | "password" | "search";
+		disabled?: boolean;
+	};
 }) {
-  const field = useStateField(name, value)
-  const controlId = useId()
+	const field = useStateField(name, value);
+	const controlId = useId();
 
-  return (
-    <Field orientation="vertical" className="gap-1.5">
-      <FieldLabel htmlFor={controlId} className="sr-only">
-        {name}
-      </FieldLabel>
-      <Input
-        id={controlId}
-		value={field.value ?? ""}
-        onChange={(e) => field.setValue(e.target.value)}
-        disabled={disabled}
-        placeholder={placeholder}
-        type={type}
-      />
-    </Field>
-  )
+	return (
+		<Field orientation="vertical" className="gap-1.5">
+			<FieldLabel htmlFor={controlId} className="sr-only">
+				{name}
+			</FieldLabel>
+			<Input
+				id={controlId}
+				value={field.value ?? ""}
+				onChange={(e) => field.setValue(e.target.value)}
+				disabled={disabled}
+				placeholder={placeholder}
+				type={type}
+			/>
+		</Field>
+	);
 }
 
 export const InputDef = defineComponent({
-  name: "Input",
-  description: "An interactive, state-bound text input.",
-  props: z.object({
-    name: z.string().describe("Form field name for state tracking"),
-    value: reactive(z.string().describe("Bound state variable")),
-    placeholder: z.string().optional(),
-    type: z.enum(["text", "email", "number", "password", "search"]).optional(),
-    disabled: z.boolean().optional().default(false),
-  }),
-  component: InputComponent,
-})
+	name: "Input",
+	description: "An interactive, state-bound text input.",
+	props: z.object({
+		name: z.string().describe("Form field name for state tracking"),
+		value: reactive(z.string().describe("Bound state variable")),
+		placeholder: z.string().optional(),
+		type: z.enum(["text", "email", "number", "password", "search"]).optional(),
+		disabled: z.boolean().optional().default(false),
+	}),
+	component: InputComponent,
+});
 
 export const CardDef = defineComponent({
-  name: "Card",
-  description: "A chat-sized card container for structured information.",
-  props: z.object({
-    title: z.string().describe("Card title"),
-    content: childrenProp,
-    tone: commonTone,
-    width: z
-      .enum(["compact", "normal", "wide", "full"])
-      .optional()
-      .default("normal"),
-  }),
-  component: ({ props: { title, content, tone, width }, renderNode }) => {
-    return (
-      <Card className={cn("w-full", widthClasses[width], toneClasses[tone])}>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent className="min-w-0">{renderNode(content)}</CardContent>
-      </Card>
-    )
-  },
-})
+	name: "Card",
+	description: "A chat-sized card container for structured information.",
+	props: z.object({
+		title: z.string().describe("Card title"),
+		content: childrenProp,
+		tone: commonTone,
+		width: z.enum(["compact", "normal", "wide", "full"]).optional().default("normal"),
+	}),
+	component: ({ props: { title, content, tone, width }, renderNode }) => {
+		return (
+			<Card className={cn("w-full", widthClasses[width], toneClasses[tone])}>
+				<CardHeader>
+					<CardTitle>{title}</CardTitle>
+				</CardHeader>
+				<CardContent className="min-w-0">{renderNode(content)}</CardContent>
+			</Card>
+		);
+	},
+});
 
 export const CalloutDef = defineComponent({
-  name: "Callout",
-  description: "Highlighted note, warning, success, or error message.",
-  props: z.object({
-    title: z.string(),
-    content: childrenProp,
-    tone: commonTone,
-  }),
-  component: ({ props: { title, content, tone }, renderNode }) => {
-    return (
-      <Alert
-        variant={tone === "danger" ? "destructive" : "default"}
-        className={cn("w-full", tone !== "danger" && toneClasses[tone])}
-      >
-        <AlertTitle>{title}</AlertTitle>
-        <AlertDescription>{renderNode(content)}</AlertDescription>
-      </Alert>
-    )
-  },
-})
+	name: "Callout",
+	description: "Highlighted note, warning, success, or error message.",
+	props: z.object({
+		title: z.string(),
+		content: childrenProp,
+		tone: commonTone,
+	}),
+	component: ({ props: { title, content, tone }, renderNode }) => {
+		return (
+			<Alert
+				variant={tone === "danger" ? "destructive" : "default"}
+				className={cn("w-full", tone !== "danger" && toneClasses[tone])}
+			>
+				<AlertTitle>{title}</AlertTitle>
+				<AlertDescription>{renderNode(content)}</AlertDescription>
+			</Alert>
+		);
+	},
+});
 
 export const KeyValueDef = defineComponent({
-  name: "KeyValue",
-  description: "A single label/value row.",
-  props: z.object({
-    label: z.string(),
-    value: z.string(),
-  }),
-  component: ({ props: { label, value } }) => {
-    return (
-      <div className="flex w-full items-center justify-between gap-4 rounded-md border px-3 py-2 text-sm">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="text-right font-medium">{value}</span>
-      </div>
-    )
-  },
-})
+	name: "KeyValue",
+	description: "A single label/value row.",
+	props: z.object({
+		label: z.string(),
+		value: z.string(),
+	}),
+	component: ({ props: { label, value } }) => {
+		return (
+			<div className="flex w-full items-center justify-between gap-4 rounded-md border px-3 py-2 text-sm">
+				<span className="text-muted-foreground">{label}</span>
+				<span className="text-right font-medium">{value}</span>
+			</div>
+		);
+	},
+});
 
 export const MetricDef = defineComponent({
-  name: "Metric",
-  description: "A compact KPI metric card.",
-  props: z.object({
-    label: z.string(),
-    value: z.string(),
-    trend: z.string().optional(),
-    tone: commonTone,
-  }),
-  component: ({ props: { label, value, trend, tone } }) => {
-    return (
-      <Card size="sm" className={toneClasses[tone]}>
-        <CardHeader>
-          <CardDescription>{label}</CardDescription>
-          <CardTitle className="text-2xl">{value}</CardTitle>
-        </CardHeader>
-        {trend && (
-          <CardContent className="text-xs text-muted-foreground">
-            {trend}
-          </CardContent>
-        )}
-      </Card>
-    )
-  },
-})
+	name: "Metric",
+	description: "A compact KPI metric card.",
+	props: z.object({
+		label: z.string(),
+		value: z.string(),
+		trend: z.string().optional(),
+		tone: commonTone,
+	}),
+	component: ({ props: { label, value, trend, tone } }) => {
+		return (
+			<Card size="sm" className={toneClasses[tone]}>
+				<CardHeader>
+					<CardDescription>{label}</CardDescription>
+					<CardTitle className="text-2xl">{value}</CardTitle>
+				</CardHeader>
+				{trend && <CardContent className="text-xs text-muted-foreground">{trend}</CardContent>}
+			</Card>
+		);
+	},
+});
 
 export const ProgressBarDef = defineComponent({
-  name: "ProgressBar",
-  description: "Progress indicator with a label.",
-  props: z.object({
-    label: z.string(),
-    value: z.number().min(0).max(100),
-  }),
-  component: ({ props: { label, value } }) => {
-    return (
-      <Progress value={value} className="w-full">
-        <div className="flex justify-between text-xs">
-          <ProgressLabel className="text-xs text-muted-foreground">
-            {label}
-          </ProgressLabel>
-          <ProgressValue className="text-xs font-medium">
-            {(_, progressValue) => `${progressValue ?? value}%`}
-          </ProgressValue>
-        </div>
-      </Progress>
-    )
-  },
-})
+	name: "ProgressBar",
+	description: "Progress indicator with a label.",
+	props: z.object({
+		label: z.string(),
+		value: z.number().min(0).max(100),
+	}),
+	component: ({ props: { label, value } }) => {
+		return (
+			<Progress value={value} className="w-full">
+				<div className="flex justify-between text-xs">
+					<ProgressLabel className="text-xs text-muted-foreground">{label}</ProgressLabel>
+					<ProgressValue className="text-xs font-medium">
+						{(_, progressValue) => `${progressValue ?? value}%`}
+					</ProgressValue>
+				</div>
+			</Progress>
+		);
+	},
+});
 
 export const ListDef = defineComponent({
-  name: "List",
-  description: "Bulleted or numbered text list.",
-  props: z.object({
-    items: z.array(z.string()),
-    ordered: z.boolean().optional().default(false),
-  }),
-  component: ({ props: { items, ordered } }) => {
-    const Tag = ordered ? "ol" : "ul"
-    return (
-      <Tag
-        className={cn(
-          "flex flex-col gap-1 pl-5 text-sm",
-          ordered ? "list-decimal" : "list-disc"
-        )}
-      >
-        {items.map((item, index) => (
-          <li key={`${item}-${index}`}>{item}</li>
-        ))}
-      </Tag>
-    )
-  },
-})
+	name: "List",
+	description: "Bulleted or numbered text list.",
+	props: z.object({
+		items: z.array(z.string()),
+		ordered: z.boolean().optional().default(false),
+	}),
+	component: ({ props: { items, ordered } }) => {
+		const Tag = ordered ? "ol" : "ul";
+		return (
+			<Tag className={cn("flex flex-col gap-1 pl-5 text-sm", ordered ? "list-decimal" : "list-disc")}>
+				{items.map((item, index) => (
+					<li key={`${item}-${index}`}>{item}</li>
+				))}
+			</Tag>
+		);
+	},
+});
 
 export const CodeBlockDef = defineComponent({
-  name: "CodeBlock",
-  description: "Short preformatted code or command output.",
-  props: z.object({
-    code: z.string(),
-    language: z.string().optional(),
-  }),
-  component: ({ props: { code, language } }) => {
-    return (
-      <pre className="w-full overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-        {language && (
-          <div className="mb-2 text-[0.625rem] text-muted-foreground uppercase">
-            {language}
-          </div>
-        )}
-        <code>{code}</code>
-      </pre>
-    )
-  },
-})
+	name: "CodeBlock",
+	description: "Short preformatted code or command output.",
+	props: z.object({
+		code: z.string(),
+		language: z.string().optional(),
+	}),
+	component: ({ props: { code, language } }) => {
+		return (
+			<pre className="w-full overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+				{language && <div className="mb-2 text-[0.625rem] text-muted-foreground uppercase">{language}</div>}
+				<code>{code}</code>
+			</pre>
+		);
+	},
+});
 
 export const DividerDef = defineComponent({
-  name: "Divider",
-  description: "Horizontal divider with an optional label.",
-  props: z.object({
-    label: z.string().optional(),
-  }),
-  component: ({ props: { label } }) => {
-    return (
-      <div className="flex w-full items-center gap-3">
-        <Separator className="flex-1" />
-        {label && (
-          <span className="text-xs text-muted-foreground">{label}</span>
-        )}
-        <Separator className="flex-1" />
-      </div>
-    )
-  },
-})
+	name: "Divider",
+	description: "Horizontal divider with an optional label.",
+	props: z.object({
+		label: z.string().optional(),
+	}),
+	component: ({ props: { label } }) => {
+		return (
+			<div className="flex w-full items-center gap-3">
+				<Separator className="flex-1" />
+				{label && <span className="text-xs text-muted-foreground">{label}</span>}
+				<Separator className="flex-1" />
+			</div>
+		);
+	},
+});
 
 export const TableDef = defineComponent({
-  name: "Table",
-  description: "Small data table for comparisons and summaries.",
-  props: z.object({
-    columns: z.array(z.string()).describe("Column headings"),
-    rows: z.array(z.array(z.string())).describe("Rows matching the columns"),
-  }),
-  component: ({ props: { columns, rows } }) => {
-    return (
-      <div className="w-full overflow-x-auto rounded-lg border">
-        <Table className="min-w-max">
-          <TableHeader className="bg-muted/60">
-            <TableRow>
-              {columns.map((column) => (
-                <TableHead key={column}>{column}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
-                {row.map((cell, cellIndex) => (
-                  <TableCell key={`${rowIndex}-${cellIndex}`}>{cell}</TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    )
-  },
-})
+	name: "Table",
+	description: "Small data table for comparisons and summaries.",
+	props: z.object({
+		columns: z.array(z.string()).describe("Column headings"),
+		rows: z.array(z.array(z.string())).describe("Rows matching the columns"),
+	}),
+	component: ({ props: { columns, rows } }) => {
+		return (
+			<div className="w-full overflow-x-auto rounded-lg border">
+				<Table className="min-w-max">
+					<TableHeader className="bg-muted/60">
+						<TableRow>
+							{columns.map((column) => (
+								<TableHead key={column}>{column}</TableHead>
+							))}
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{rows.map((row, rowIndex) => (
+							<TableRow key={rowIndex}>
+								{row.map((cell, cellIndex) => (
+									<TableCell key={`${rowIndex}-${cellIndex}`}>{cell}</TableCell>
+								))}
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			</div>
+		);
+	},
+});
 
 export const BarChartDef = defineComponent({
-  name: "BarChart",
-  description:
-    "A bar chart for visualizing comparisons or trends using explicitly provided data points.",
-  props: z.object({
-    title: z.string().describe("The title of the chart"),
-    description: z
-      .string()
-      .optional()
-      .describe("A brief description of the chart"),
-    xAxisKey: z
-      .string()
-      .describe(
-        "The key from the data objects to use for the X-axis (e.g. 'year', 'month', 'country')"
-      ),
-    series: z
-      .array(
-        z.object({
-          dataKey: z
-            .string()
-            .describe("The key in the data object for this series"),
-          label: z
-            .string()
-            .describe(
-              "The human readable label for this series (e.g. 'United States', 'China')"
-            ),
-        })
-      )
-      .describe("The data series to plot as bars"),
-    data: z
-      .array(z.record(z.string(), z.union([z.string(), z.number()])))
-      .describe(
-        "The actual data points to plot. ALWAYS generate realistic data if asked to compare things like US vs China population."
-      ),
-  }),
-  component: ({ props: { title, description, xAxisKey, series, data } }) => {
-    const chartConfig: Record<string, { label: string; color: string }> = {}
-    series.forEach((s, index) => {
-      chartConfig[s.dataKey] = {
-        label: s.label,
-        color: `var(--chart-${(index % 5) + 1})`,
-      }
-    })
+	name: "BarChart",
+	description: "A bar chart for visualizing comparisons or trends using explicitly provided data points.",
+	props: z.object({
+		title: z.string().describe("The title of the chart"),
+		description: z.string().optional().describe("A brief description of the chart"),
+		xAxisKey: z
+			.string()
+			.describe("The key from the data objects to use for the X-axis (e.g. 'year', 'month', 'country')"),
+		series: z
+			.array(
+				z.object({
+					dataKey: z.string().describe("The key in the data object for this series"),
+					label: z.string().describe("The human readable label for this series (e.g. 'United States', 'China')"),
+				}),
+			)
+			.describe("The data series to plot as bars"),
+		data: z
+			.array(z.record(z.string(), z.union([z.string(), z.number()])))
+			.describe(
+				"The actual data points to plot. ALWAYS generate realistic data if asked to compare things like US vs China population.",
+			),
+	}),
+	component: ({ props: { title, description, xAxisKey, series, data } }) => {
+		const chartConfig: Record<string, { label: string; color: string }> = {};
+		series.forEach((s, index) => {
+			chartConfig[s.dataKey] = {
+				label: s.label,
+				color: `var(--chart-${(index % 5) + 1})`,
+			};
+		});
 
-    return (
-      <Card className="w-full max-w-3xl">
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <RechartsBarChart data={data}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey={xAxisKey}
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-              />
-              <YAxis tickLine={false} axisLine={false} width={36} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <ChartLegend content={<ChartLegendContent />} />
-              {series.map((s) => (
-                <Bar
-                  key={s.dataKey}
-                  dataKey={s.dataKey}
-                  fill={`var(${getChartColorVarName(s.dataKey)})`}
-                  radius={4}
-                />
-              ))}
-            </RechartsBarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-    )
-  },
-})
+		return (
+			<Card className="w-full max-w-3xl">
+				<CardHeader>
+					<CardTitle>{title}</CardTitle>
+					{description && <CardDescription>{description}</CardDescription>}
+				</CardHeader>
+				<CardContent>
+					<ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+						<RechartsBarChart data={data}>
+							<CartesianGrid vertical={false} />
+							<XAxis dataKey={xAxisKey} tickLine={false} tickMargin={10} axisLine={false} />
+							<YAxis tickLine={false} axisLine={false} width={36} />
+							<ChartTooltip content={<ChartTooltipContent />} />
+							<ChartLegend content={<ChartLegendContent />} />
+							{series.map((s) => (
+								<Bar
+									key={s.dataKey}
+									dataKey={s.dataKey}
+									fill={`var(${getChartColorVarName(s.dataKey)})`}
+									radius={4}
+								/>
+							))}
+						</RechartsBarChart>
+					</ChartContainer>
+				</CardContent>
+			</Card>
+		);
+	},
+});
 
 export const RootDef = defineComponent({
-  name: "Root",
-  description:
-    "The root container for the generated UI. Must be used as the top-level component.",
-  props: z.object({
-    children: childrenProp,
-  }),
-  component: ({ props: { children }, renderNode }) => {
-    return (
-      <div className="flex w-full flex-col items-start gap-4">
-        {renderNode(children)}
-      </div>
-    )
-  },
-})
+	name: "Root",
+	description: "The root container for the generated UI. Must be used as the top-level component.",
+	props: z.object({
+		children: childrenProp,
+	}),
+	component: ({ props: { children }, renderNode }) => {
+		return <div className="flex w-full flex-col items-start gap-4">{renderNode(children)}</div>;
+	},
+});
 
 export const StackDef = defineComponent({
-  name: "Stack",
-  description:
-    "A flexbox layout component for stacking children vertically or horizontally.",
-  props: z.object({
-    children: childrenProp,
-    direction: z
-      .enum(["row", "column"])
-      .optional()
-      .default("column")
-      .describe("The flex direction"),
-    gap: gapSizeSchema,
-  }),
-  component: ({ props: { children, direction, gap }, renderNode }) => {
-    const dirClass = direction === "row" ? "flex-row" : "flex-col"
-    return (
-      <div className={cn("flex w-full", dirClass, gapClasses[gap])}>
-        {renderNode(children)}
-      </div>
-    )
-  },
-})
+	name: "Stack",
+	description: "A flexbox layout component for stacking children vertically or horizontally.",
+	props: z.object({
+		children: childrenProp,
+		direction: z.enum(["row", "column"]).optional().default("column").describe("The flex direction"),
+		gap: gapSizeSchema,
+	}),
+	component: ({ props: { children, direction, gap }, renderNode }) => {
+		const dirClass = direction === "row" ? "flex-row" : "flex-col";
+		return <div className={cn("flex w-full", dirClass, gapClasses[gap])}>{renderNode(children)}</div>;
+	},
+});
 
 export const GroupDef = defineComponent({
-  name: "Group",
-  description:
-    "A wrapping horizontal group for badges, buttons, or short items.",
-  props: z.object({
-    children: childrenProp,
-    gap: gapSizeSchema,
-  }),
-  component: ({ props: { children, gap }, renderNode }) => {
-    return (
-      <div className={cn("flex flex-wrap items-center", gapClasses[gap])}>
-        {renderNode(children)}
-      </div>
-    )
-  },
-})
+	name: "Group",
+	description: "A wrapping horizontal group for badges, buttons, or short items.",
+	props: z.object({
+		children: childrenProp,
+		gap: gapSizeSchema,
+	}),
+	component: ({ props: { children, gap }, renderNode }) => {
+		return <div className={cn("flex flex-wrap items-center", gapClasses[gap])}>{renderNode(children)}</div>;
+	},
+});
 
 export const GridDef = defineComponent({
-  name: "Grid",
-  description: "A CSS grid layout component.",
-  props: z.object({
-    children: childrenProp,
-    cols: z
-      .number()
-      .min(1)
-      .max(12)
-      .optional()
-      .default(2)
-      .describe("Number of columns"),
-    gap: gapSizeSchema,
-  }),
-  component: ({ props: { children, cols, gap }, renderNode }) => {
-    const gridColsClass = {
-      1: "grid-cols-1",
-      2: "grid-cols-2",
-      3: "grid-cols-3",
-      4: "grid-cols-4",
-      5: "grid-cols-5",
-      6: "grid-cols-6",
-      7: "grid-cols-7",
-      8: "grid-cols-8",
-      9: "grid-cols-9",
-      10: "grid-cols-10",
-      11: "grid-cols-11",
-      12: "grid-cols-12",
-    }[cols]
+	name: "Grid",
+	description: "A CSS grid layout component.",
+	props: z.object({
+		children: childrenProp,
+		cols: z.number().min(1).max(12).optional().default(2).describe("Number of columns"),
+		gap: gapSizeSchema,
+	}),
+	component: ({ props: { children, cols, gap }, renderNode }) => {
+		const gridColsClass = {
+			1: "grid-cols-1",
+			2: "grid-cols-2",
+			3: "grid-cols-3",
+			4: "grid-cols-4",
+			5: "grid-cols-5",
+			6: "grid-cols-6",
+			7: "grid-cols-7",
+			8: "grid-cols-8",
+			9: "grid-cols-9",
+			10: "grid-cols-10",
+			11: "grid-cols-11",
+			12: "grid-cols-12",
+		}[cols];
 
-    return (
-      <div className={cn("grid w-full", gridColsClass, gapClasses[gap])}>
-        {renderNode(children)}
-      </div>
-    )
-  },
-})
+		return <div className={cn("grid w-full", gridColsClass, gapClasses[gap])}>{renderNode(children)}</div>;
+	},
+});
 
 function SelectComponent({
-  props: { name, value, options, placeholder },
+	props: { name, value, options, placeholder },
 }: {
-  props: {
-    name: string
-    value: StateField<string>
-    options: Array<{ value: string; label: string; disabled?: boolean }>
-    placeholder?: string
-  }
+	props: {
+		name: string;
+		value: StateField<string>;
+		options: Array<{ value: string; label: string; disabled?: boolean }>;
+		placeholder?: string;
+	};
 }) {
-  const field = useStateField(name, value)
-  const controlId = useId()
+	const field = useStateField(name, value);
+	const controlId = useId();
 
-  return (
-    <Field orientation="vertical" className="gap-1.5">
-      <FieldLabel htmlFor={controlId} className="sr-only">
-        {name}
-      </FieldLabel>
-      <Select
-        options={options}
-        triggerId={controlId}
-		value={field.value ?? ""}
-        onValueChange={(nextValue) => field.setValue(nextValue)}
-        placeholder={placeholder}
-      />
-    </Field>
-  )
+	return (
+		<Field orientation="vertical" className="gap-1.5">
+			<FieldLabel htmlFor={controlId} className="sr-only">
+				{name}
+			</FieldLabel>
+			<Select
+				options={options}
+				triggerId={controlId}
+				value={field.value ?? ""}
+				onValueChange={(nextValue) => field.setValue(nextValue)}
+				placeholder={placeholder}
+			/>
+		</Field>
+	);
 }
 
 export const SelectDef = defineComponent({
-  name: "Select",
-  description: "An interactive dropdown selector with reactive state binding.",
-  props: z.object({
-    name: z.string().describe("Form field name for state tracking"),
-    value: reactive(z.string().describe("Bound state variable")),
-    options: z
-      .array(
-        z.object({
-          value: z.string().describe("Option value"),
-          label: z.string().describe("Visible label"),
-          disabled: z.boolean().optional(),
-        })
-      )
-      .describe("Select options"),
-    placeholder: z
-      .string()
-      .optional()
-      .describe("Placeholder when no value selected"),
-  }),
-  component: SelectComponent,
-})
+	name: "Select",
+	description: "An interactive dropdown selector with reactive state binding.",
+	props: z.object({
+		name: z.string().describe("Form field name for state tracking"),
+		value: reactive(z.string().describe("Bound state variable")),
+		options: z
+			.array(
+				z.object({
+					value: z.string().describe("Option value"),
+					label: z.string().describe("Visible label"),
+					disabled: z.boolean().optional(),
+				}),
+			)
+			.describe("Select options"),
+		placeholder: z.string().optional().describe("Placeholder when no value selected"),
+	}),
+	component: SelectComponent,
+});
 
 function SwitchComponent({
-  props: { name, checked, label, disabled },
+	props: { name, checked, label, disabled },
 }: {
-  props: {
-    name: string
-    checked: StateField<boolean>
-    label?: string
-    disabled?: boolean
-  }
+	props: {
+		name: string;
+		checked: StateField<boolean>;
+		label?: string;
+		disabled?: boolean;
+	};
 }) {
-  const field = useStateField(name, checked)
-  const isChecked = Boolean(field.value)
-  const controlId = useId()
+	const field = useStateField(name, checked);
+	const isChecked = Boolean(field.value);
+	const controlId = useId();
 
-  return (
-    <Field orientation="horizontal" className="items-center gap-2">
-      <Switch
-        id={controlId}
-        checked={isChecked}
-        onCheckedChange={(nextChecked) => field.setValue(nextChecked)}
-        disabled={disabled}
-        aria-label={label ? undefined : name}
-      />
-      {label ? <FieldLabel htmlFor={controlId}>{label}</FieldLabel> : null}
-    </Field>
-  )
+	return (
+		<Field orientation="horizontal" className="items-center gap-2">
+			<Switch
+				id={controlId}
+				checked={isChecked}
+				onCheckedChange={(nextChecked) => field.setValue(nextChecked)}
+				disabled={disabled}
+				aria-label={label ? undefined : name}
+			/>
+			{label ? <FieldLabel htmlFor={controlId}>{label}</FieldLabel> : null}
+		</Field>
+	);
 }
 
 export const SwitchDef = defineComponent({
-  name: "Switch",
-  description: "A toggle switch component bound to a boolean reactive state.",
-  props: z.object({
-    name: z.string().describe("Form field name for state tracking"),
-    checked: reactive(z.boolean().describe("Bound boolean state variable")),
-    label: z.string().optional().describe("Label shown next to the switch"),
-    disabled: z.boolean().optional().default(false),
-  }),
-  component: SwitchComponent,
-})
+	name: "Switch",
+	description: "A toggle switch component bound to a boolean reactive state.",
+	props: z.object({
+		name: z.string().describe("Form field name for state tracking"),
+		checked: reactive(z.boolean().describe("Bound boolean state variable")),
+		label: z.string().optional().describe("Label shown next to the switch"),
+		disabled: z.boolean().optional().default(false),
+	}),
+	component: SwitchComponent,
+});
 
 function ModalComponent({
-  props: { name, open, title, content },
-  renderNode,
+	props: { name, open, title, content },
+	renderNode,
 }: ComponentRenderProps<{
-  name: string
-  open: StateField<boolean>
-  title: string
-  content?: unknown
+	name: string;
+	open: StateField<boolean>;
+	title: string;
+	content?: unknown;
 }>) {
-  const field = useStateField(name, open)
-  const isOpen = Boolean(field.value)
+	const field = useStateField(name, open);
+	const isOpen = Boolean(field.value);
 
-  return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(nextOpen) => field.setValue(nextOpen)}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        <div className="py-2">{renderNode(content)}</div>
-      </DialogContent>
-    </Dialog>
-  )
+	return (
+		<Dialog open={isOpen} onOpenChange={(nextOpen) => field.setValue(nextOpen)}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>{title}</DialogTitle>
+				</DialogHeader>
+				<div className="py-2">{renderNode(content)}</div>
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 export const ModalDef = defineComponent({
-  name: "Modal",
-  description: "An overlay dialog container bound to a boolean reactive state.",
-  props: z.object({
-    name: z.string().describe("Unique modal name for state tracking"),
-    open: reactive(
-      z
-        .boolean()
-        .describe("Bound boolean state variable controlling visibility")
-    ),
-    title: z.string().describe("Modal header title"),
-    content: childrenProp.describe("Modal body content"),
-  }),
-  component: ModalComponent,
-})
+	name: "Modal",
+	description: "An overlay dialog container bound to a boolean reactive state.",
+	props: z.object({
+		name: z.string().describe("Unique modal name for state tracking"),
+		open: reactive(z.boolean().describe("Bound boolean state variable controlling visibility")),
+		title: z.string().describe("Modal header title"),
+		content: childrenProp.describe("Modal body content"),
+	}),
+	component: ModalComponent,
+});
 
 export const DisclosureDef = defineComponent({
-  name: "Disclosure",
-  description: "A compact progressive-disclosure section for optional details.",
-  props: z.object({
-    title: z.string().describe("Visible disclosure title"),
-    content: childrenProp.describe("Content revealed when expanded"),
-    open: z.boolean().optional().default(false),
-  }),
-  component: ({ props: { title, content, open }, renderNode }) => (
-    <details open={open} className="w-full rounded-lg border px-3 py-2">
-      <summary className="cursor-pointer text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {title}
-      </summary>
-      <div className="pt-3 text-sm">{renderNode(content)}</div>
-    </details>
-  ),
-})
+	name: "Disclosure",
+	description: "A compact progressive-disclosure section for optional details.",
+	props: z.object({
+		title: z.string().describe("Visible disclosure title"),
+		content: childrenProp.describe("Content revealed when expanded"),
+		open: z.boolean().optional().default(false),
+	}),
+	component: ({ props: { title, content, open }, renderNode }) => (
+		<details open={open} className="w-full rounded-lg border px-3 py-2">
+			<summary className="cursor-pointer text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
+				{title}
+			</summary>
+			<div className="pt-3 text-sm">{renderNode(content)}</div>
+		</details>
+	),
+});
 
 export const TodoDef = defineComponent({
-  name: "Todo",
-  description: "A read-only progress list for plans and task status.",
-  props: z.object({
-    title: z.string().optional(),
-    items: z.array(
-      z.object({
-        label: z.string(),
-        status: z.enum(["pending", "in-progress", "completed", "cancelled"]).optional().default("pending"),
-        detail: z.string().optional(),
-      }),
-    ),
-  }),
-  component: ({ props: { title, items } }) => (
-    <div className="w-full rounded-lg border p-3">
-      {title ? <h3 className="mb-2 text-sm font-semibold">{title}</h3> : null}
-      <ul className="flex flex-col gap-2">
-        {items.map((item, index) => {
-          const complete = item.status === "completed"
-          const active = item.status === "in-progress"
-          return (
-            // biome-ignore lint/suspicious/noArrayIndexKey: duplicate labels and statuses are schema-valid, position disambiguates.
-            <li key={`${item.label}-${item.status ?? "pending"}-${index}`} className="flex items-start gap-2 text-sm">
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "mt-1 size-2 shrink-0 rounded-full border",
-                  complete && "border-emerald-500 bg-emerald-500",
-                  active && "border-primary bg-primary/30",
-                  !complete && !active && "border-muted-foreground/50",
-                )}
-              />
-              <span className="min-w-0 flex-1">
-                <span className={cn(complete && "text-muted-foreground line-through")}>{item.label}</span>
-                {item.detail ? <span className="mt-0.5 block text-xs text-muted-foreground">{item.detail}</span> : null}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  ),
-})
+	name: "Todo",
+	description: "A read-only progress list for plans and task status.",
+	props: z.object({
+		title: z.string().optional(),
+		items: z.array(
+			z.object({
+				label: z.string(),
+				status: z.enum(["pending", "in-progress", "completed", "cancelled"]).optional().default("pending"),
+				detail: z.string().optional(),
+			}),
+		),
+	}),
+	component: ({ props: { title, items } }) => (
+		<div className="w-full rounded-lg border p-3">
+			{title ? <h3 className="mb-2 text-sm font-semibold">{title}</h3> : null}
+			<ul className="flex flex-col gap-2">
+				{items.map((item, index) => {
+					const complete = item.status === "completed";
+					const active = item.status === "in-progress";
+					return (
+						<li
+							key={`${item.label}-${item.status ?? "pending"}-${index}`}
+							className="flex items-start gap-2 text-sm"
+						>
+							<span
+								aria-hidden="true"
+								className={cn(
+									"mt-1 size-2 shrink-0 rounded-full border",
+									complete && "border-emerald-500 bg-emerald-500",
+									active && "border-primary bg-primary/30",
+									!complete && !active && "border-muted-foreground/50",
+								)}
+							/>
+							<span className="min-w-0 flex-1">
+								<span className={cn(complete && "text-muted-foreground line-through")}>{item.label}</span>
+								{item.detail ? (
+									<span className="mt-0.5 block text-xs text-muted-foreground">{item.detail}</span>
+								) : null}
+							</span>
+						</li>
+					);
+				})}
+			</ul>
+		</div>
+	),
+});
 
 export const CitationDef = defineComponent({
-  name: "Citation",
-  description: "A safe external source citation rendered as a link.",
-  props: z.object({
-    title: z.string().describe("Source title"),
-    url: z
-      .url()
-      .regex(/^https?:\/\//i, "Citation URL must use http or https")
-      .refine(isSafeExternalUrl, "Citation URL must use http or https")
-      .describe("HTTPS or external source URL"),
-    domain: z.string().optional().describe("Optional source domain label"),
-  }),
-  component: ({ props: { title, url, domain } }) => {
-    const content = (
-      <>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">{title}</span>
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{domain ?? url}</span>
-        </span>
-        <span aria-hidden="true" className="text-muted-foreground">↗</span>
-      </>
-    )
-    const className = "flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-sm outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+	name: "Citation",
+	description: "A safe external source citation rendered as a link.",
+	props: z.object({
+		title: z.string().describe("Source title"),
+		url: z
+			.url()
+			.regex(/^https?:\/\//i, "Citation URL must use http or https")
+			.refine(isSafeExternalUrl, "Citation URL must use http or https")
+			.describe("HTTPS or external source URL"),
+		domain: z.string().optional().describe("Optional source domain label"),
+	}),
+	component: ({ props: { title, url, domain } }) => {
+		const content = (
+			<>
+				<span className="min-w-0 flex-1">
+					<span className="block truncate font-medium">{title}</span>
+					<span className="mt-0.5 block truncate text-xs text-muted-foreground">{domain ?? url}</span>
+				</span>
+				<span aria-hidden="true" className="text-muted-foreground">
+					↗
+				</span>
+			</>
+		);
+		const className =
+			"flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-sm outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
 
-    if (!isSafeExternalUrl(url)) {
-      return <div className={className}>{content}</div>
-    }
+		if (!isSafeExternalUrl(url)) {
+			return <div className={className}>{content}</div>;
+		}
 
-    return (
-      <a href={url} target="_blank" rel="noreferrer" className={className}>
-        {content}
-      </a>
-    )
-  },
-})
+		return (
+			<a href={url} target="_blank" rel="noreferrer" className={className}>
+				{content}
+			</a>
+		);
+	},
+});
 
 export const openUILibrary = createLibrary({
-  components: [
-    RootDef,
-    StackDef,
-    GridDef,
-    GroupDef,
-    DividerDef,
-    HeadingDef,
-    TextDef,
-    ButtonDef,
-    PanelActionDef,
-    InputDef,
-    CardDef,
-    BadgeDef,
-    CalloutDef,
-    KeyValueDef,
-    MetricDef,
-    ProgressBarDef,
-    ListDef,
-    CodeBlockDef,
-    TableDef,
-    BarChartDef,
-    LineChartDef,
-    DonutChartDef,
-    DataTableDef,
-    MetricGroupDef,
-    SelectDef,
-    SwitchDef,
-    ModalDef,
-    DisclosureDef,
-    TodoDef,
-    CitationDef,
-    HtmlArtifactDef,
-  ],
-})
+	components: [
+		RootDef,
+		StackDef,
+		GridDef,
+		GroupDef,
+		DividerDef,
+		HeadingDef,
+		TextDef,
+		ButtonDef,
+		PanelActionDef,
+		InputDef,
+		CardDef,
+		BadgeDef,
+		CalloutDef,
+		KeyValueDef,
+		MetricDef,
+		ProgressBarDef,
+		ListDef,
+		CodeBlockDef,
+		TableDef,
+		BarChartDef,
+		LineChartDef,
+		DonutChartDef,
+		DataTableDef,
+		MetricGroupDef,
+		SelectDef,
+		SwitchDef,
+		ModalDef,
+		DisclosureDef,
+		TodoDef,
+		CitationDef,
+		HtmlArtifactDef,
+	],
+});

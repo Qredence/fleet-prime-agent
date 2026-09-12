@@ -1,4 +1,3 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
 import type {
 	ChatQueueMutationRequest,
 	ChatRequest,
@@ -8,6 +7,7 @@ import type {
 	ChatStreamEvent,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "./chat-client";
@@ -103,11 +103,7 @@ function deferred<T>() {
 	return { promise, reject, resolve };
 }
 
-function createHarness(
-	sessionId = "session-a",
-	availableSessions: Array<ChatSessionInfo> = [],
-	strictMode = false,
-) {
+function createHarness(sessionId = "session-a", availableSessions: Array<ChatSessionInfo> = [], strictMode = false) {
 	const discoveredSessions =
 		availableSessions.length > 0
 			? availableSessions
@@ -161,11 +157,7 @@ function createHarness(
 		loadSession,
 		resumeSession: vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata)),
 		streamMessage: vi.fn(
-			(
-				request: ChatRequest,
-				onEvent: (event: ChatStreamEvent) => void,
-				signal?: AbortSignal,
-			) =>
+			(request: ChatRequest, onEvent: (event: ChatStreamEvent) => void, signal?: AbortSignal) =>
 				new Promise<void>((resolve, reject) => {
 					const call: StreamCall = { onEvent, reject, request, resolve };
 					streams.push(call);
@@ -173,11 +165,9 @@ function createHarness(
 						reject(new DOMException("Aborted", "AbortError"));
 						return;
 					}
-					signal?.addEventListener(
-						"abort",
-						() => reject(new DOMException("Aborted", "AbortError")),
-						{ once: true },
-					);
+					signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), {
+						once: true,
+					});
 				}),
 		),
 	} as unknown as ChatClient;
@@ -293,7 +283,9 @@ describe("usePiChat stream admission", () => {
 
 		await act(async () => {
 			eventSources[0]?.onmessage?.(
-				new MessageEvent("message", { data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }) }),
+				new MessageEvent("message", {
+					data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }),
+				}),
 			);
 			await flush();
 		});
@@ -317,7 +309,9 @@ describe("usePiChat stream admission", () => {
 
 		await act(async () => {
 			eventSources[0]?.onmessage?.(
-				new MessageEvent("message", { data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }) }),
+				new MessageEvent("message", {
+					data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }),
+				}),
 			);
 			await flush();
 		});
@@ -436,7 +430,9 @@ describe("usePiChat stream admission", () => {
 
 		await act(async () => {
 			eventSources[0]?.onmessage?.(
-				new MessageEvent("message", { data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }) }),
+				new MessageEvent("message", {
+					data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }),
+				}),
 			);
 			await flush();
 		});
@@ -716,9 +712,7 @@ describe("usePiChat stream admission", () => {
 				type: "done",
 				runId: "session-a-run",
 				sessionId: "session-a",
-				message: toChatMessage("session-a-assistant", "assistant", [
-					{ type: "text", text: "completed answer" },
-				]),
+				message: toChatMessage("session-a-assistant", "assistant", [{ type: "text", text: "completed answer" }]),
 			});
 			await flush();
 		});

@@ -1,12 +1,12 @@
 import { useIsStreaming } from "@openuidev/react-lang";
 import { Button, Card, CardHeader, CodeBlock, Tabs, TabsContent, TabsList, TabsTrigger } from "@openuidev/react-ui";
-import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
-	validateAndNormalizeOpenUIHtmlArtifact,
 	type OpenUIHtmlArtifactPayload,
 	type OpenUIHtmlArtifactValidation,
+	validateAndNormalizeOpenUIHtmlArtifact,
 } from "@prime-agent/web-protocol";
+import type { ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 export type OpenUIArtifactCandidate = {
 	assistantMessageId: string;
@@ -61,7 +61,10 @@ export function OpenUIHtmlFrame({
 function ArtifactDiagnostic({ validation, document }: { validation: OpenUIHtmlArtifactValidation; document: string }) {
 	if (validation.ok) return null;
 	return (
-		<div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+		<div
+			role="alert"
+			className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+		>
 			<p className="font-medium">OpenUI artifact was not rendered</p>
 			<p className="mt-1">{validationMessage(validation)}</p>
 			<details className="mt-2">

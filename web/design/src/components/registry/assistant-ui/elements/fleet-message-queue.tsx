@@ -1,35 +1,30 @@
-"use client"
+"use client";
 
-import { Pencil, X } from "lucide-react"
-import { useState } from "react"
+import { Pencil, X } from "lucide-react";
+import { useState } from "react";
 
-import { notify } from "../../../../lib/notify"
-import { cn } from "../../../../lib/utils"
+import { notify } from "../../../../lib/notify";
+import { cn } from "../../../../lib/utils";
 
-export type FleetQueueLane = "steering" | "followUp"
+export type FleetQueueLane = "steering" | "followUp";
 
 export type FleetMessageQueueProps = {
 	queue: {
-		steering: readonly string[]
-		followUp: readonly string[]
-	}
-	onDelete?: (lane: FleetQueueLane, index: number, text: string) => void | Promise<unknown>
-	onEdit?: (
-		lane: FleetQueueLane,
-		index: number,
-		expectedText: string,
-		nextText: string,
-	) => void | Promise<unknown>
-	className?: string
-}
+		steering: readonly string[];
+		followUp: readonly string[];
+	};
+	onDelete?: (lane: FleetQueueLane, index: number, text: string) => void | Promise<unknown>;
+	onEdit?: (lane: FleetQueueLane, index: number, expectedText: string, nextText: string) => void | Promise<unknown>;
+	className?: string;
+};
 
 const LANES: ReadonlyArray<{ key: FleetQueueLane; label: string }> = [
 	{ key: "steering", label: "Next" },
 	{ key: "followUp", label: "After run" },
-]
+];
 
 function queueItemKey(lane: FleetQueueLane, index: number): string {
-	return `${lane}:${index}`
+	return `${lane}:${index}`;
 }
 
 /**
@@ -41,50 +36,50 @@ function queueItemKey(lane: FleetQueueLane, index: number): string {
  * @returns The queued message list, or `null` when both lanes are empty
  */
 export function FleetMessageQueue({ queue, onDelete, onEdit, className }: FleetMessageQueueProps) {
-	const count = queue.steering.length + queue.followUp.length
-	const [editingKey, setEditingKey] = useState<string | null>(null)
-	const [draftText, setDraftText] = useState("")
+	const count = queue.steering.length + queue.followUp.length;
+	const [editingKey, setEditingKey] = useState<string | null>(null);
+	const [draftText, setDraftText] = useState("");
 
-	if (count === 0) return null
+	if (count === 0) return null;
 
 	const cancelEdit = () => {
-		setEditingKey(null)
-		setDraftText("")
-	}
+		setEditingKey(null);
+		setDraftText("");
+	};
 
 	const startEdit = (lane: FleetQueueLane, index: number, text: string) => {
-		setEditingKey(queueItemKey(lane, index))
-		setDraftText(text)
-	}
+		setEditingKey(queueItemKey(lane, index));
+		setDraftText(text);
+	};
 
 	const handleDelete = async (lane: FleetQueueLane, index: number, text: string) => {
-		if (editingKey === queueItemKey(lane, index)) cancelEdit()
+		if (editingKey === queueItemKey(lane, index)) cancelEdit();
 		try {
-			const deleted = await onDelete?.(lane, index, text)
-			if (deleted === false) notify.error("Unable to remove queued message")
+			const deleted = await onDelete?.(lane, index, text);
+			if (deleted === false) notify.error("Unable to remove queued message");
 		} catch {
-			notify.error("Unable to remove queued message")
+			notify.error("Unable to remove queued message");
 		}
-	}
+	};
 
 	const handleSaveEdit = async (lane: FleetQueueLane, index: number, expectedText: string) => {
-		const trimmed = draftText.trim()
+		const trimmed = draftText.trim();
 		if (trimmed.length === 0) {
-			await handleDelete(lane, index, expectedText)
-			return
+			await handleDelete(lane, index, expectedText);
+			return;
 		}
 		if (trimmed === expectedText) {
-			cancelEdit()
-			return
+			cancelEdit();
+			return;
 		}
 		try {
-			const saved = await onEdit?.(lane, index, expectedText, trimmed)
-			if (saved === false) notify.error("Unable to update queued message")
-			else cancelEdit()
+			const saved = await onEdit?.(lane, index, expectedText, trimmed);
+			if (saved === false) notify.error("Unable to update queued message");
+			else cancelEdit();
 		} catch {
-			notify.error("Unable to update queued message")
+			notify.error("Unable to update queued message");
 		}
-	}
+	};
 
 	return (
 		<section aria-label="Queued messages" className={cn("mx-auto mb-2 w-full max-w-an px-3", className)}>
@@ -96,8 +91,8 @@ export function FleetMessageQueue({ queue, onDelete, onEdit, className }: FleetM
 				<div className="space-y-1">
 					{LANES.flatMap(({ key, label }) =>
 						queue[key].map((text, index) => {
-							const itemKey = queueItemKey(key, index)
-							const isEditing = editingKey === itemKey
+							const itemKey = queueItemKey(key, index);
+							const isEditing = editingKey === itemKey;
 							return (
 								<div
 									key={`${key}:${index}:${text}`}
@@ -113,13 +108,13 @@ export function FleetMessageQueue({ queue, onDelete, onEdit, className }: FleetM
 												onChange={(event) => setDraftText(event.target.value)}
 												onKeyDown={(event) => {
 													if (event.key === "Escape") {
-														event.preventDefault()
-														cancelEdit()
-														return
+														event.preventDefault();
+														cancelEdit();
+														return;
 													}
 													if (event.key === "Enter" && !event.shiftKey) {
-														event.preventDefault()
-														void handleSaveEdit(key, index, text)
+														event.preventDefault();
+														void handleSaveEdit(key, index, text);
 													}
 												}}
 												aria-label={`Edit queued message: ${text}`}
@@ -172,11 +167,11 @@ export function FleetMessageQueue({ queue, onDelete, onEdit, className }: FleetM
 										</>
 									)}
 								</div>
-							)
+							);
 						}),
 					)}
 				</div>
 			</div>
 		</section>
-	)
+	);
 }

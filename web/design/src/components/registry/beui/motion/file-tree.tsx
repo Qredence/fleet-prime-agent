@@ -1,22 +1,23 @@
 "use client";
+
 // beui.dev/components/motion/file-tree
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
-import {
-	Children,
-	Fragment,
-	useCallback,
-	isValidElement,
-	useMemo,
-	useRef,
-	useState,
-	type KeyboardEvent,
-	type ReactNode,
-} from "react";
 import { SharedLayoutBg } from "@prime-agent/web-design/components/registry/beui/motion/shared-layout-bg";
 import { EASE_OUT, SPRING_LAYOUT, SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
+import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+	Children,
+	Fragment,
+	isValidElement,
+	type KeyboardEvent,
+	type ReactNode,
+	useCallback,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 
 type FileTreeItem = {
 	value: string;
@@ -102,11 +103,7 @@ function flattenItems(
 			setSize: items.length,
 		};
 
-		if (
-			item.type !== "folder" ||
-			!expanded.has(item.value) ||
-			!item.children?.length
-		) {
+		if (item.type !== "folder" || !expanded.has(item.value) || !item.children?.length) {
 			return [row];
 		}
 
@@ -156,15 +153,7 @@ function itemsFromChildren(children: ReactNode): Array<FileTreeItem> {
 	return items;
 }
 
-function DefaultIcon({
-	item,
-	open,
-	reduce,
-}: {
-	item: FileTreeItem;
-	open: boolean;
-	reduce: boolean;
-}) {
+function DefaultIcon({ item, open, reduce }: { item: FileTreeItem; open: boolean; reduce: boolean }) {
 	if (item.type === "file") return <File className="size-4" />;
 	if (reduce) {
 		return open ? <FolderOpen className="size-4" /> : <Folder className="size-4" />;
@@ -390,12 +379,7 @@ export function FileTree({
 								{row.item.icon ?? <DefaultIcon item={row.item} open={isOpen} reduce={reduce} />}
 							</span>
 
-							<span
-								className={cn(
-									"relative z-10 min-w-0 flex-1 truncate",
-									classNames?.label,
-								)}
-							>
+							<span className={cn("relative z-10 min-w-0 flex-1 truncate", classNames?.label)}>
 								{row.item.name}
 							</span>
 						</button>

@@ -1,39 +1,34 @@
-import { AlertCircle, Bot, RefreshCw } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type {
-  PrimeAgentArtifact,
-  PrimeAgentRlmChild,
-  PrimeAgentSessionPresentation,
-} from "@prime-agent/web-protocol/chat-protocol"
-import { Button } from "../../../ui/button"
-import {
-  Message,
-  MessageBubble,
-  MessageBubbleContent,
-  MessageContent,
-} from "../../../registry/beui/agents/message"
-import { MessageScroller } from "../../../registry/beui/agents/message-scroller"
-import { UserMessage } from "../../../registry/beui/agents/user-message"
-import { buildAssistantElements } from "../../../registry/beui/agents/message-turns"
-import { normalizeAssistantToolParts } from "../../../registry/beui/agents/utils/tool-part-normalizer"
-import { FleetSubagentList } from "../../../registry/assistant-ui/elements/fleet-subagent-list"
-import { FleetToolTimeline } from "../../../registry/assistant-ui/elements/fleet-tool-timeline"
-import { groupMessages, type ConversationTurn } from "../../../../lib/pi/conversation-turns"
-import { cn } from "../../../../lib/utils"
-import { FleetGenerativeTextRenderer } from "../chat/generative-text-renderer"
-import { FleetPiToolRenderer } from "../chat/fleet-pi-tool-renderer"
-import { derivePrimeAgentArtifactRuns } from "./prime-agent-artifacts"
-import { PI_TOOL_RENDERERS } from "./tool-renderers"
-import { VirtualizedTurnList } from "../chat/virtualized-turn-list"
-import { transcriptStatus } from "./transcript-status"
+	PrimeAgentArtifact,
+	PrimeAgentRlmChild,
+	PrimeAgentSessionPresentation,
+} from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import { AlertCircle, Bot, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ConversationTurn, groupMessages } from "../../../../lib/pi/conversation-turns";
+import { cn } from "../../../../lib/utils";
+import { FleetSubagentList } from "../../../registry/assistant-ui/elements/fleet-subagent-list";
+import { FleetToolTimeline } from "../../../registry/assistant-ui/elements/fleet-tool-timeline";
+import { Message, MessageBubble, MessageBubbleContent, MessageContent } from "../../../registry/beui/agents/message";
+import { MessageScroller } from "../../../registry/beui/agents/message-scroller";
+import { buildAssistantElements } from "../../../registry/beui/agents/message-turns";
+import { UserMessage } from "../../../registry/beui/agents/user-message";
+import { normalizeAssistantToolParts } from "../../../registry/beui/agents/utils/tool-part-normalizer";
+import { Button } from "../../../ui/button";
+import { FleetPiToolRenderer } from "../chat/fleet-pi-tool-renderer";
+import { FleetGenerativeTextRenderer } from "../chat/generative-text-renderer";
+import { VirtualizedTurnList } from "../chat/virtualized-turn-list";
+import { derivePrimeAgentArtifactRuns } from "./prime-agent-artifacts";
+import { PI_TOOL_RENDERERS } from "./tool-renderers";
+import { transcriptStatus } from "./transcript-status";
 
 export type SubagentTranscriptState = {
-  status: "loading" | "ready" | "error"
-  messages: Array<ChatMessage>
-  presentation?: PrimeAgentSessionPresentation
-  error?: Error
-}
+	status: "loading" | "ready" | "error";
+	messages: Array<ChatMessage>;
+	presentation?: PrimeAgentSessionPresentation;
+	error?: Error;
+};
 
 /**
  * Renders a conversation turn with its user message, assistant content, tool timeline, and subagent hierarchy.
@@ -45,68 +40,66 @@ export type SubagentTranscriptState = {
  * @param presentation - Optional session data used to render the subagent hierarchy
  */
 export function SubagentTurnView({
-  turn,
-  isLast,
-  isStreaming,
-  artifacts,
-  presentation,
+	turn,
+	isLast,
+	isStreaming,
+	artifacts,
+	presentation,
 }: {
-  turn: ConversationTurn
-  isLast: boolean
-  isStreaming: boolean
-  artifacts: Array<PrimeAgentArtifact>
-  presentation?: PrimeAgentSessionPresentation
+	turn: ConversationTurn;
+	isLast: boolean;
+	isStreaming: boolean;
+	artifacts: Array<PrimeAgentArtifact>;
+	presentation?: PrimeAgentSessionPresentation;
 }) {
-  const assistantElements = useMemo(
-    () =>
-      turn.assistants.flatMap((message, index) =>
-        buildAssistantElements(normalizeAssistantToolParts(message.parts ?? []), {
-          messageId: message.id,
-          isLast: isLast && index === turn.assistants.length - 1,
-          isStreaming,
-          suppressQuestionTool: true,
-          ToolRendererComponent: FleetPiToolRenderer,
-          TextRendererComponent: FleetGenerativeTextRenderer,
-          toolRenderers: PI_TOOL_RENDERERS,
-        }),
-      ),
-    [isLast, isStreaming, turn.assistants],
-  )
+	const assistantElements = useMemo(
+		() =>
+			turn.assistants.flatMap((message, index) =>
+				buildAssistantElements(normalizeAssistantToolParts(message.parts ?? []), {
+					messageId: message.id,
+					isLast: isLast && index === turn.assistants.length - 1,
+					isStreaming,
+					suppressQuestionTool: true,
+					ToolRendererComponent: FleetPiToolRenderer,
+					TextRendererComponent: FleetGenerativeTextRenderer,
+					toolRenderers: PI_TOOL_RENDERERS,
+				}),
+			),
+		[isLast, isStreaming, turn.assistants],
+	);
 
-  return (
-    <div className="flex flex-col gap-3">
-      {turn.user ? (
-        <Message from="user">
-          <MessageContent>
-            <UserMessage message={turn.user} enableImagePreview={false} />
-          </MessageContent>
-        </Message>
-      ) : null}
-      {turn.assistants.length > 0 ? (
-        <Message from="assistant">
-          <MessageContent>
-            <MessageBubble variant="ghost">
-              <MessageBubbleContent>
-                {isLast ? (
-                  <FleetToolTimeline
-                    messages={turn.assistants}
-                    artifacts={artifacts}
-                    streaming={isStreaming}
-                  />
-                ) : null}
-                <div className="flex flex-col gap-3">{assistantElements}</div>
-                {isLast && presentation ? (
-                  <FleetSubagentList tree={presentation.rlmTree}>
-                    {presentation.rlmChildren}
-                  </FleetSubagentList>
-                ) : null}
-              </MessageBubbleContent>
-            </MessageBubble>
-          </MessageContent>
-        </Message>
-      ) : null}
-    </div>
-  )
+	return (
+		<div className="flex flex-col gap-3">
+			{turn.user ? (
+				<Message from="user">
+					<MessageContent>
+						<UserMessage message={turn.user} enableImagePreview={false} />
+					</MessageContent>
+				</Message>
+			) : null}
+			{turn.assistants.length > 0 ? (
+				<Message from="assistant">
+					<MessageContent>
+						<MessageBubble variant="ghost">
+							<MessageBubbleContent>
+								{isLast ? (
+									<FleetToolTimeline
+										messages={turn.assistants}
+										artifacts={artifacts}
+										streaming={isStreaming}
+									/>
+								) : null}
+								<div className="flex flex-col gap-3">{assistantElements}</div>
+								{isLast && presentation ? (
+									<FleetSubagentList tree={presentation.rlmTree}>{presentation.rlmChildren}</FleetSubagentList>
+								) : null}
+							</MessageBubbleContent>
+						</MessageBubble>
+					</MessageContent>
+				</Message>
+			) : null}
+		</div>
+	);
 }
 
 /**
@@ -119,7 +112,7 @@ export function SubagentTurnView({
  * @returns The stable key for the turn
  */
 function getSubagentTurnKey(turn: ConversationTurn, index: number) {
-  return turn.user?.id ?? turn.assistants[0]?.id ?? `subagent-turn-${index}`
+	return turn.user?.id ?? turn.assistants[0]?.id ?? `subagent-turn-${index}`;
 }
 
 /**
@@ -134,145 +127,165 @@ function getSubagentTurnKey(turn: ConversationTurn, index: number) {
  * @returns The rendered subagent thread
  */
 export function SubagentTranscriptView({
-  child,
-  parentSessionId,
-  transcript,
-  onRefresh,
-  fullWidth = false,
-  status: statusOverride,
+	child,
+	parentSessionId,
+	transcript,
+	onRefresh,
+	fullWidth = false,
+	status: statusOverride,
 }: {
-  child: PrimeAgentRlmChild
-  parentSessionId?: string
-  transcript?: SubagentTranscriptState
-  onRefresh?: () => void
-  fullWidth?: boolean
-  status?: ChatStatus
+	child: PrimeAgentRlmChild;
+	parentSessionId?: string;
+	transcript?: SubagentTranscriptState;
+	onRefresh?: () => void;
+	fullWidth?: boolean;
+	status?: ChatStatus;
 }) {
-  const turns = useMemo(
-    () => (transcript?.status !== "loading" ? groupMessages(transcript?.messages ?? []) : []),
-    [transcript],
-  )
-  const childStatus = statusOverride ?? transcriptStatus(child)
-  const artifactRuns = useMemo(
-    () =>
-      transcript?.status !== "loading"
-        ? derivePrimeAgentArtifactRuns(transcript?.messages ?? [], transcript?.presentation, childStatus)
-        : [],
-    [childStatus, transcript],
-  )
-  const artifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns])
-  const presentation = transcript?.presentation
-  const renderSubagentTurn = useCallback(
-    (turn: ConversationTurn, index: number) => {
-      const isLast = index === turns.length - 1
-      return (
-        <SubagentTurnView
-          turn={turn}
-          isLast={isLast}
-          isStreaming={isLast && childStatus === "streaming"}
-          artifacts={isLast ? artifacts : []}
-          presentation={isLast ? presentation : undefined}
-        />
-      )
-    },
-    [artifacts, childStatus, presentation, turns.length]
-  )
-  const title = child.sessionName || child.label
-  const [heartbeatLabel, setHeartbeatLabel] = useState<string | null>(null)
-  useEffect(() => {
-    setHeartbeatLabel(child.lastHeardFrom ? new Date(child.lastHeardFrom).toLocaleTimeString() : null)
-  }, [child.lastHeardFrom])
-  const viewportRef = useRef<HTMLElement | null>(null)
+	const turns = useMemo(
+		() => (transcript?.status !== "loading" ? groupMessages(transcript?.messages ?? []) : []),
+		[transcript],
+	);
+	const childStatus = statusOverride ?? transcriptStatus(child);
+	const artifactRuns = useMemo(
+		() =>
+			transcript?.status !== "loading"
+				? derivePrimeAgentArtifactRuns(transcript?.messages ?? [], transcript?.presentation, childStatus)
+				: [],
+		[childStatus, transcript],
+	);
+	const artifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns]);
+	const presentation = transcript?.presentation;
+	const renderSubagentTurn = useCallback(
+		(turn: ConversationTurn, index: number) => {
+			const isLast = index === turns.length - 1;
+			return (
+				<SubagentTurnView
+					turn={turn}
+					isLast={isLast}
+					isStreaming={isLast && childStatus === "streaming"}
+					artifacts={isLast ? artifacts : []}
+					presentation={isLast ? presentation : undefined}
+				/>
+			);
+		},
+		[artifacts, childStatus, presentation, turns.length],
+	);
+	const title = child.sessionName || child.label;
+	const [heartbeatLabel, setHeartbeatLabel] = useState<string | null>(null);
+	useEffect(() => {
+		setHeartbeatLabel(child.lastHeardFrom ? new Date(child.lastHeardFrom).toLocaleTimeString() : null);
+	}, [child.lastHeardFrom]);
+	const viewportRef = useRef<HTMLElement | null>(null);
 
-  return (
-    <section
-      aria-label={`Subagent thread: ${child.label}`}
-      className={cn(fullWidth ? "flex min-h-0 min-w-0 flex-1 flex-col" : "space-y-2", "min-w-0")}
-      data-testid={fullWidth ? "subagent-conversation-surface" : undefined}
-    >
-      <div className="flex min-w-0 items-start gap-2 rounded-md border border-border/60 bg-background px-2.5 py-2">
-        <Bot className="mt-0.5 size-3.5 shrink-0 text-foreground/45" />
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/80">{title}</span>
-            <span className="shrink-0 text-[0.625rem] capitalize text-foreground/45">{child.status}</span>
-          </div>
-          {child.model ? <p className="truncate font-mono text-[0.625rem] text-foreground/40">{child.model}</p> : null}
-          {heartbeatLabel ? (
-            <p className="truncate text-[0.625rem] text-foreground/40">Heartbeat: {heartbeatLabel}</p>
-          ) : null}
-          {child.answerPreview || child.recap ? (
-            <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[0.6875rem] leading-4 text-foreground/55">
-              {child.answerPreview ?? child.recap}
-            </p>
-          ) : null}
-        </div>
-        {onRefresh ? (
-          <Button
-            aria-label={`Refresh ${child.label} thread`}
-            className="shrink-0 text-foreground/40 hover:text-foreground/70"
-            onClick={onRefresh}
-            size="icon-sm"
-            title={`Refresh ${child.label} thread`}
-            type="button"
-            variant="ghost"
-          >
-            <RefreshCw className={cn("size-3.5", transcript?.status === "loading" && "animate-spin")} />
-          </Button>
-        ) : null}
-      </div>
+	return (
+		<section
+			aria-label={`Subagent thread: ${child.label}`}
+			className={cn(fullWidth ? "flex min-h-0 min-w-0 flex-1 flex-col" : "space-y-2", "min-w-0")}
+			data-testid={fullWidth ? "subagent-conversation-surface" : undefined}
+		>
+			<div className="flex min-w-0 items-start gap-2 rounded-md border border-border/60 bg-background px-2.5 py-2">
+				<Bot className="mt-0.5 size-3.5 shrink-0 text-foreground/45" />
+				<div className="min-w-0 flex-1">
+					<div className="flex min-w-0 items-center gap-2">
+						<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/80">{title}</span>
+						<span className="shrink-0 text-[0.625rem] capitalize text-foreground/45">{child.status}</span>
+					</div>
+					{child.model ? (
+						<p className="truncate font-mono text-[0.625rem] text-foreground/40">{child.model}</p>
+					) : null}
+					{heartbeatLabel ? (
+						<p className="truncate text-[0.625rem] text-foreground/40">Heartbeat: {heartbeatLabel}</p>
+					) : null}
+					{child.answerPreview || child.recap ? (
+						<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[0.6875rem] leading-4 text-foreground/55">
+							{child.answerPreview ?? child.recap}
+						</p>
+					) : null}
+				</div>
+				{onRefresh ? (
+					<Button
+						aria-label={`Refresh ${child.label} thread`}
+						className="shrink-0 text-foreground/40 hover:text-foreground/70"
+						onClick={onRefresh}
+						size="icon-sm"
+						title={`Refresh ${child.label} thread`}
+						type="button"
+						variant="ghost"
+					>
+						<RefreshCw className={cn("size-3.5", transcript?.status === "loading" && "animate-spin")} />
+					</Button>
+				) : null}
+			</div>
 
-      {!parentSessionId ? (
-        <p className="rounded-md border border-dashed border-border/70 p-3 text-[0.6875rem] leading-4 text-foreground/45">
-          This subagent thread is unavailable until the parent session is active.
-        </p>
-      ) : transcript?.status === "loading" ? (
-        <div className={cn("flex items-center justify-center rounded-md border border-dashed border-border/70 text-[0.6875rem] text-foreground/45", fullWidth ? "min-h-32 flex-1" : "min-h-32")}>
-          Loading subagent thread…
-        </div>
-      ) : transcript?.status === "error" && turns.length === 0 ? (
-        <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[0.6875rem] leading-4 text-destructive">
-          <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
-          <span>{transcript.error?.message ?? "Unable to load this subagent thread."}</span>
-        </div>
-      ) : turns.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/70 p-3 text-[0.6875rem] leading-4 text-foreground/45">
-          This subagent thread has no messages yet.
-        </p>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col">
-          {transcript?.error ? (
-            <div role="alert" className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[0.6875rem] leading-4 text-destructive sm:mx-6">
-              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
-              <span>{transcript.error.message}</span>
-            </div>
-          ) : null}
-          <div className={cn("min-h-0 rounded-md border border-border/60 bg-background", fullWidth ? "flex min-h-0 flex-1 flex-col border-x-0 rounded-none border-b-0" : "h-96 max-h-[calc(100svh-18rem)]")}>
-            <MessageScroller
-              busy={childStatus === "streaming"}
-              className={fullWidth ? "min-h-0 flex-1" : undefined}
-              followOutput={childStatus === "streaming"}
-              label={`Transcript for ${child.label}`}
-              smooth={childStatus === "streaming"}
-              viewportRef={viewportRef}
-              viewportClassName={fullWidth ? "px-0" : undefined}
-              contentClassName={cn(
-                "flex flex-col gap-4",
-                fullWidth ? "mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" : "px-2.5 py-3",
-              )}
-            >
-              <VirtualizedTurnList
-                estimateSize={320}
-                getItemKey={getSubagentTurnKey}
-                itemGap={16}
-                items={turns}
-                renderItem={renderSubagentTurn}
-                viewportRef={viewportRef}
-              />
-            </MessageScroller>
-          </div>
-        </div>
-      )}
-    </section>
-  )
+			{!parentSessionId ? (
+				<p className="rounded-md border border-dashed border-border/70 p-3 text-[0.6875rem] leading-4 text-foreground/45">
+					This subagent thread is unavailable until the parent session is active.
+				</p>
+			) : transcript?.status === "loading" ? (
+				<div
+					className={cn(
+						"flex items-center justify-center rounded-md border border-dashed border-border/70 text-[0.6875rem] text-foreground/45",
+						fullWidth ? "min-h-32 flex-1" : "min-h-32",
+					)}
+				>
+					Loading subagent thread…
+				</div>
+			) : transcript?.status === "error" && turns.length === 0 ? (
+				<div
+					role="alert"
+					className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[0.6875rem] leading-4 text-destructive"
+				>
+					<AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+					<span>{transcript.error?.message ?? "Unable to load this subagent thread."}</span>
+				</div>
+			) : turns.length === 0 ? (
+				<p className="rounded-md border border-dashed border-border/70 p-3 text-[0.6875rem] leading-4 text-foreground/45">
+					This subagent thread has no messages yet.
+				</p>
+			) : (
+				<div className="flex min-h-0 flex-1 flex-col">
+					{transcript?.error ? (
+						<div
+							role="alert"
+							className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[0.6875rem] leading-4 text-destructive sm:mx-6"
+						>
+							<AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+							<span>{transcript.error.message}</span>
+						</div>
+					) : null}
+					<div
+						className={cn(
+							"min-h-0 rounded-md border border-border/60 bg-background",
+							fullWidth
+								? "flex min-h-0 flex-1 flex-col border-x-0 rounded-none border-b-0"
+								: "h-96 max-h-[calc(100svh-18rem)]",
+						)}
+					>
+						<MessageScroller
+							busy={childStatus === "streaming"}
+							className={fullWidth ? "min-h-0 flex-1" : undefined}
+							followOutput={childStatus === "streaming"}
+							label={`Transcript for ${child.label}`}
+							smooth={childStatus === "streaming"}
+							viewportRef={viewportRef}
+							viewportClassName={fullWidth ? "px-0" : undefined}
+							contentClassName={cn(
+								"flex flex-col gap-4",
+								fullWidth ? "mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" : "px-2.5 py-3",
+							)}
+						>
+							<VirtualizedTurnList
+								estimateSize={320}
+								getItemKey={getSubagentTurnKey}
+								itemGap={16}
+								items={turns}
+								renderItem={renderSubagentTurn}
+								viewportRef={viewportRef}
+							/>
+						</MessageScroller>
+					</div>
+				</div>
+			)}
+		</section>
+	);
 }

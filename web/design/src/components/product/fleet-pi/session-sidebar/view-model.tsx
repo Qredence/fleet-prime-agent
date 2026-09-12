@@ -1,26 +1,26 @@
+import type { ProjectId } from "@prime-agent/web-protocol";
 import { Folder, FolderTree, Library, Package, Pencil, Trash2, Unplug } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { ProjectId } from "@prime-agent/web-protocol";
-import type { SidebarResource } from "../../../registry/beui/agents/ai-sidebar";
 import { writeStoredValue } from "../../../../lib/safe-storage";
+import type { SidebarResource } from "../../../registry/beui/agents/ai-sidebar";
 import {
-	INITIAL_SESSION_COUNT,
 	displayProjectSessions,
+	INITIAL_SESSION_COUNT,
 	sortProjectsByActivity,
 	sortSessions,
 	visibleProjectSessions,
 } from "../session-sidebar-model";
 import type { SidebarStateView } from "./state";
 import {
+	directoryErrorMessage,
 	EMPTY_PROJECTS,
 	EXPANDED_PROJECTS_STORAGE_KEY,
 	type FleetSessionSidebarDependencies,
-	NEW_SESSION_PREFIX,
-	SESSION_PREFIX,
-	directoryErrorMessage,
 	idValue,
+	NEW_SESSION_PREFIX,
 	newSessionResourceId,
 	projectResourceId,
+	SESSION_PREFIX,
 	sessionLabel,
 	sessionResourceId,
 } from "./types";
@@ -335,9 +335,7 @@ export function useFleetSessionSidebarViewModel({
 				return;
 			}
 			const sessionId = idValue(value, "search-session:");
-			const session = sessionId
-				? projectSessions.find((entry) => entry.sessionId === sessionId)
-				: undefined;
+			const session = sessionId ? projectSessions.find((entry) => entry.sessionId === sessionId) : undefined;
 			if (!session) return;
 			if (session.projectId) {
 				const resourceId = projectResourceId(session.projectId);

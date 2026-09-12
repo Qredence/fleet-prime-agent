@@ -1,7 +1,15 @@
+import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
 import { Folder } from "lucide-react";
 import { useMemo } from "react";
-import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "../../../ui/alert-dialog";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogTitle,
+} from "../../../ui/alert-dialog";
 import { Button } from "../../../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../ui/dialog";
 import { Input } from "../../../ui/input";
@@ -78,7 +86,9 @@ export function FleetSessionSidebarActionDialogs({
 			<AlertDialog open={renameTarget !== null} onOpenChange={(open) => !open && setRenameTarget(null)}>
 				<AlertDialogContent>
 					<AlertDialogTitle>Rename session</AlertDialogTitle>
-					<AlertDialogDescription>Choose a local display title for this Fleet Prime session.</AlertDialogDescription>
+					<AlertDialogDescription>
+						Choose a local display title for this Fleet Prime session.
+					</AlertDialogDescription>
 					<Input
 						value={renameTitle}
 						onChange={(event) => setRenameTitle(event.target.value)}
@@ -181,9 +191,7 @@ export function FleetSessionSidebarActionDialogs({
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
 						<DialogTitle>Fork session into project</DialogTitle>
-						<DialogDescription>
-							Create a new Fleet Prime session in another registered project.
-						</DialogDescription>
+						<DialogDescription>Create a new Fleet Prime session in another registered project.</DialogDescription>
 					</DialogHeader>
 					<div className="py-2">
 						<Select

@@ -10,10 +10,11 @@
 // The keystroke bench (#3) intentionally includes a mount per iteration so it
 // needs no cross-iteration lifecycle: subtract the mount-only bench (#2) and
 // compare THAT delta across branches to isolate keystroke cost.
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import { beforeAll, bench, describe, vi } from "vitest";
+
 import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
+import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeAll, bench, describe, vi } from "vitest";
 
 vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: () => null,
@@ -39,12 +40,19 @@ const noop = () => {};
  */
 function textTurn(index: number): Array<ChatMessage> {
 	return [
-		{ id: `user-${index}`, role: "user", parts: [{ type: "text", text: `Question ${index}: explain the upload flow.` }] },
+		{
+			id: `user-${index}`,
+			role: "user",
+			parts: [{ type: "text", text: `Question ${index}: explain the upload flow.` }],
+		},
 		{
 			id: `assistant-${index}`,
 			role: "assistant",
 			parts: [
-				{ type: "text", text: `Answer ${index} with a fenced block:\n\n\`\`\`ts\nconst value_${index} = 42;\n\`\`\`` },
+				{
+					type: "text",
+					text: `Answer ${index} with a fenced block:\n\n\`\`\`ts\nconst value_${index} = 42;\n\`\`\``,
+				},
 				{ type: "tool-Bash", toolCallId: `tool-${index}`, input: { command: `ls ${index}` }, output: "done" },
 			],
 		},
@@ -69,13 +77,7 @@ function fiftyTurns(): Array<ChatMessage> {
  */
 function renderChat(messages: Array<ChatMessage>) {
 	return render(
-		<FleetPiAgentChat
-			inputBar={inputBar}
-			messages={messages}
-			onSend={noop}
-			onStop={noop}
-			status="ready"
-		/>,
+		<FleetPiAgentChat inputBar={inputBar} messages={messages} onSend={noop} onStop={noop} status="ready" />,
 	);
 }
 
