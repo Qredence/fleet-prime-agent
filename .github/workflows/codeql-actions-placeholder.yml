@@ -1,0 +1,13 @@
+name: CodeQL Actions placeholder
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Fleet Prime CI runs on CircleCI. This workflow satisfies CodeQL Actions analysis until default-setup languages are narrowed."
