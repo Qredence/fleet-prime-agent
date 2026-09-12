@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { runWorkspaceAction } from "./chat-error-notify";
 import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
@@ -9,9 +10,9 @@ const LazyChatCommandPalette = lazy(() =>
 	),
 );
 const LazySettingsDialog = lazy(() =>
-	import("@prime-agent/web-design/components/product/fleet-pi/pi/settings-dialog").then(
-		({ SettingsDialog }) => ({ default: SettingsDialog }),
-	),
+	import("@prime-agent/web-design/components/product/fleet-pi/pi/settings-dialog").then(({ SettingsDialog }) => ({
+		default: SettingsDialog,
+	})),
 );
 const LazyForkPickerDialog = lazy(() =>
 	import("@prime-agent/web-design/components/product/fleet-pi/chat/fork-picker-dialog").then(
@@ -48,7 +49,7 @@ export function ChatCommandPaletteOverlay({
 					<LazyChatCommandPalette
 						open
 						onOpenChange={dialogs.setCommandPaletteOpen}
-						onNewSession={() => void session.startNewSession()}
+						onNewSession={() => runWorkspaceAction(() => session.startNewSession())}
 						onStop={conversation.stop}
 						onResumeSession={(sessionToResume) =>
 							void session.resumeSession({ sessionId: sessionToResume.sessionId })

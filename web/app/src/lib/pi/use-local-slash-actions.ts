@@ -11,6 +11,7 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { chatClient } from "./chat-client";
+import { runWorkspaceAction } from "./chat-error-notify";
 import { assistantTextFromMessage } from "./chat-message-helpers";
 import { chatQueryKeys } from "./chat-queries";
 import type { LocalSlashAction, SettingsSlashTab } from "./slash-commands";
@@ -35,7 +36,7 @@ type UseLocalSlashActionsArgs = {
 	setModelKey: (key: string | undefined) => void;
 	setModelPickerOpen: (open: boolean) => void;
 	setThinkingLevel: (level: ChatThinkingLevel) => void;
-	startNewSession: () => void;
+	startNewSession: () => Promise<unknown>;
 };
 
 const MCP_USAGE = "MCP usage: /mcp, /mcp list, /mcp login <name>, /mcp logout <name>.";
@@ -279,7 +280,7 @@ export function useLocalSlashActions({
 					openSettings(action.tab);
 					return true;
 				case "new-session":
-					void startNewSession();
+					runWorkspaceAction(async () => startNewSession());
 					return true;
 				case "openui-request":
 					if (!action.request) {

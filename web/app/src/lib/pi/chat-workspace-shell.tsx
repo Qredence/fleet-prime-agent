@@ -1,25 +1,22 @@
-import { UiErrorBoundary } from "@prime-agent/web-design/components/product/fleet-pi/ui-error-boundary";
+import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact";
+import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components/openui/open-panel-action-message";
 import {
 	agentTabPanelId,
 	agentTabTriggerId,
 } from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-ids";
-import { RightPanelShell } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell";
-import { RightPanelProvider } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
 import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/product/fleet-pi/layout/chat-workspace-layout";
-import { ChatApp } from "@prime-agent/web-design/components/registry/beui/agents/chat-app";
+import { RightPanelProvider } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
+import { RightPanelShell } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell";
 import { FleetSessionSidebar } from "@prime-agent/web-design/components/product/fleet-pi/session-sidebar";
+import { UiErrorBoundary } from "@prime-agent/web-design/components/product/fleet-pi/ui-error-boundary";
+import { ChatApp } from "@prime-agent/web-design/components/registry/beui/agents/chat-app";
 import { AnimatedSidebarInset } from "@prime-agent/web-design/components/registry/beui/motion/animated-sidebar";
-import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components/openui/open-panel-action-message";
-import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { lazy, Suspense, useCallback } from "react";
-import { ChatPanel } from "@/lib/pi/chat-panel";
+import { notifyChatError, runWorkspaceAction } from "@/lib/pi/chat-error-notify";
 import { buildChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
-import { notifyChatError } from "@/lib/pi/chat-error-notify";
-import {
-	ChatCommandPaletteOverlay,
-	ChatWorkspaceOverlayDialogs,
-} from "@/lib/pi/chat-workspace-dialogs";
+import { ChatPanel } from "@/lib/pi/chat-panel";
+import { ChatCommandPaletteOverlay, ChatWorkspaceOverlayDialogs } from "@/lib/pi/chat-workspace-dialogs";
 import { focusChatComposer, usePanelKeybindings } from "@/lib/pi/panel-keybindings";
 import { useChatWorkspaceData } from "@/lib/pi/use-chat-workspace-data";
 
@@ -47,9 +44,7 @@ export function ChatWorkspaceShell() {
 		rightPanel: panels.rightPanel,
 		setRightPanel: panels.setRightPanel,
 	});
-	const activeProjectName = session.projects.find(
-		(project) => project.projectId === session.activeProjectId,
-	)?.name;
+	const activeProjectName = session.projects.find((project) => project.projectId === session.activeProjectId)?.name;
 	const handleSend = useCallback(
 		(text: string, altKey?: boolean) => {
 			const uploaded = [...composer.uploadedAttachments];
@@ -168,7 +163,7 @@ export function ChatWorkspaceShell() {
 							activeSessionId: session.activeSessionId,
 						}}
 						sessionActions={{
-							onNewSession: () => void session.startNewSession(),
+							onNewSession: () => runWorkspaceAction(() => session.startNewSession()),
 							onNewSessionInProject: session.startNewSessionInProject,
 							onResumeSession: (sessionToResume) =>
 								void session.resumeSession({ sessionId: sessionToResume.sessionId }),

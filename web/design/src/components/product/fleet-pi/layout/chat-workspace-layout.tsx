@@ -1,17 +1,13 @@
-import {
-  CHAT_CHROME_TOP_PX,
-  CHAT_HEADER_HEIGHT_PX,
-  CHAT_HEADER_OFFSET_PX,
-} from "../../../../lib/layout-constants"
-import { cn } from "../../../../lib/utils"
-import { CHAT_HEADER_LAYER_CLASS } from "../styles/tokens"
-import type { CSSProperties, ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react";
+import { CHAT_CHROME_TOP_PX, CHAT_HEADER_HEIGHT_PX, CHAT_HEADER_OFFSET_PX } from "../../../../lib/layout-constants";
+import { cn } from "../../../../lib/utils";
+import { CHAT_HEADER_LAYER_CLASS } from "../styles/tokens";
 
 const layoutStyle = {
-  "--chat-chrome-top": `${CHAT_CHROME_TOP_PX}px`,
-  "--chat-header-height": `${CHAT_HEADER_HEIGHT_PX}px`,
-  "--chat-header-top": `${CHAT_HEADER_OFFSET_PX}px`,
-} as CSSProperties
+	"--chat-chrome-top": `${CHAT_CHROME_TOP_PX}px`,
+	"--chat-header-height": `${CHAT_HEADER_HEIGHT_PX}px`,
+	"--chat-header-top": `${CHAT_HEADER_OFFSET_PX}px`,
+} as CSSProperties;
 
 /**
  * Lays out the chat workspace with header content, main content, and a side panel.
@@ -24,44 +20,37 @@ const layoutStyle = {
  * @returns The chat workspace layout
  */
 export function ChatWorkspaceLayout({
-  children,
-  headerCenter,
-  headerLeft,
-  headerRight,
-  panel,
+	children,
+	headerCenter,
+	headerLeft,
+	headerRight,
+	panel,
 }: {
-  children: ReactNode
-  headerCenter: ReactNode
-  headerLeft: ReactNode
-  headerRight?: ReactNode
-  panel: ReactNode
+	children: ReactNode;
+	headerCenter: ReactNode;
+	headerLeft: ReactNode;
+	headerRight?: ReactNode;
+	panel: ReactNode;
 }) {
-  return (
-    <div
-      className="flex h-svh min-w-0 overflow-hidden"
-      data-testid="chat-shell"
-      style={layoutStyle}
-    >
-      <div
-        className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-        data-testid="chat-column"
-      >
-        <header
-          className={cn(
-            CHAT_HEADER_LAYER_CLASS,
-            "grid h-[var(--chat-header-height)] min-h-[var(--chat-header-height)] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 border-b border-border/70 px-2 py-2"
-          )}
-          data-testid="chat-header"
-        >
-          <div className="min-w-0 justify-self-start">{headerLeft}</div>
-          <div className="flex min-w-0 items-center justify-start gap-1 overflow-hidden justify-self-stretch">
-            {headerCenter}
-          </div>
-          <div className="min-w-0 justify-self-end">{headerRight}</div>
-        </header>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
-      </div>
-      {panel}
-    </div>
-  )
+	return (
+		<div className="flex h-svh min-w-0 overflow-hidden" data-testid="chat-shell" style={layoutStyle}>
+			<div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-testid="chat-column">
+				<header
+					className={cn(
+						CHAT_HEADER_LAYER_CLASS,
+						"grid h-[var(--chat-header-height)] min-h-[var(--chat-header-height)] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 border-b border-border/70 px-2 py-2",
+					)}
+					data-testid="chat-header"
+				>
+					<div className="min-w-0 justify-self-start">{headerLeft}</div>
+					<div className="flex min-w-0 items-center justify-start gap-1 overflow-visible justify-self-stretch">
+						{headerCenter}
+					</div>
+					<div className="min-w-0 justify-self-end">{headerRight}</div>
+				</header>
+				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+			</div>
+			{panel}
+		</div>
+	);
 }
