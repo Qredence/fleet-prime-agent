@@ -6,14 +6,14 @@ import {
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	rmSync,
 	symlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, delimiter, dirname, join, relative, sep, resolve } from "node:path";
+import { basename, delimiter, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,6 +46,7 @@ function checkStaticInstaller() {
 		"pnpm run build",
 		"install_fleet_agent_shim",
 		"fleet-prime.sh",
+		'rm -f "$shim_path"',
 	]) {
 		if (!source.includes(marker)) {
 			throw new Error(`install.sh is missing required source-install step: ${marker}`);
@@ -175,7 +176,10 @@ function copyWorkingTree(target) {
 			const relativePath = relative(root, sourcePath);
 			if (!relativePath) return true;
 			const segments = relativePath.split(sep);
-			return !segments.some((segment) => segment === ".git" || segment === "node_modules" || segment === "dist" || segment === "release");
+			return !segments.some(
+				(segment) =>
+					segment === ".git" || segment === "node_modules" || segment === "dist" || segment === "release",
+			);
 		},
 	});
 }
@@ -237,6 +241,7 @@ async function checkWebRuntime(executable, workspace, checkout, environment) {
 		output += chunk.toString();
 	});
 
+	let checkError;
 	try {
 		const url = await waitForUrl(child, () => output);
 		await assertStatus(`${url}/`, 200, "root page");
@@ -252,7 +257,9 @@ async function checkWebRuntime(executable, workspace, checkout, environment) {
 			typeof workspaceResponse.body.root === "string" &&
 			(workspaceResponse.body.root === workspace || workspaceResponse.body.root.endsWith(workspaceLabelSuffix));
 		if (workspaceResponse.status !== 200 || !workspaceMatches) {
-			throw new Error(`Workspace check failed: expected ${workspace}, got ${JSON.stringify(workspaceResponse.body)}`);
+			throw new Error(
+				`Workspace check failed: expected ${workspace}, got ${JSON.stringify(workspaceResponse.body)}`,
+			);
 		}
 
 		const assetPath = relative(join(checkout, "packages", "fleet-web", "dist", "web", "client"), asset)
@@ -262,13 +269,20 @@ async function checkWebRuntime(executable, workspace, checkout, environment) {
 		if (/parse5|Named export .* not found|Cannot find package|ERR_MODULE_NOT_FOUND/.test(output)) {
 			throw new Error(`Source-installed web runtime emitted a production module error:\n${output}`);
 		}
-	} finally {
-		child.kill("SIGTERM");
-		const exit = await waitForExit(child);
-		if (exit.code !== 143 && exit.signal !== "SIGTERM") {
-			throw new Error(`Source-installed web runtime did not stop cleanly: ${JSON.stringify(exit)}\n${output}`);
-		}
+	} catch (error) {
+		checkError = error;
 	}
+
+	child.kill("SIGTERM");
+	const exit = await waitForExit(child);
+	if (exit.code !== 143 && exit.signal !== "SIGTERM") {
+		const stopError = new Error(
+			`Source-installed web runtime did not stop cleanly: ${JSON.stringify(exit)}\n${output}`,
+		);
+		if (checkError) throw checkError;
+		throw stopError;
+	}
+	if (checkError) throw checkError;
 }
 
 function findFirstJavaScriptAsset(directory) {

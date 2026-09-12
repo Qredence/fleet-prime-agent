@@ -1,16 +1,7 @@
 name: Fleet Prime CodeQL
 
 # Activated for default setup by the github-codeql-config-file repository property.
-# Default setup scans the repository's Actions, JavaScript/TypeScript, and Python code.
-# The engine directories are a verbatim upstream checkout pinned by UPSTREAM.
-# Their findings are owned and remediated in PrimeIntellect-ai/prime-agent;
-# Fleet-owned code remains covered by this repository's default CodeQL setup.
+# Default setup scans Actions, JavaScript/TypeScript, and Python. Minimal workflow
+# and Python placeholder files remain until repository settings narrow languages.
 queries:
   - uses: security-extended
-
-paths-ignore:
-  - packages/ai/**
-  - packages/agent/**
-  - packages/tui/**
-  - packages/coding-agent/**
-  - prime-agent-runtime/**

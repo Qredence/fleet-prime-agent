@@ -152,6 +152,10 @@ install_fleet_agent_shim() {
 	shim_path="$shim_dir/fleet-agent"
 	installed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf '%s' "$(date -u)")
 
+	# Replace an existing file or symlink. Redirecting onto a symlink would
+	# follow it and overwrite the checkout launcher (fleet-prime.sh).
+	rm -f "$shim_path"
+
 	# Write the shim. The launcher script in the checkout already handles
 	# the dev server fallback, and symlink resolution,
 	# so the shim is just a tiny exec wrapper. The here-doc keeps the literal

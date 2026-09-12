@@ -39,7 +39,10 @@ export function releaseMarkerArgs({ action, status, version = packageManifest.ve
 export function runReleaseMarker(
 	action,
 	options = {},
-	{ isVersionCommitImpl = isPackageVersionCommit, execImpl = (args) => execFileSync("circleci", args, { stdio: "inherit" }) } = {},
+	{
+		isVersionCommitImpl = isPackageVersionCommit,
+		execImpl = (args) => execFileSync("circleci", args, { stdio: "inherit" }),
+	} = {},
 ) {
 	if (!isVersionCommitImpl()) {
 		console.log("This commit does not version @qredence/fleet; deploy marker is a no-op.");

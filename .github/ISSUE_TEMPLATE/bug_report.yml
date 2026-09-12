@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a bug in Prime Agent
+description: Report a bug in Fleet Prime
 labels: ["bug"]
 body:
   - type: markdown
@@ -9,15 +9,14 @@ body:
   - type: dropdown
     id: package
     attributes:
-      label: Which package is affected?
+      label: Which area is affected?
       description: Pick the closest match if you are unsure.
       options:
-        - web (web chat UI)
-        - coding-agent
-        - tui
-        - agent
-        - ai
-        - installer
+        - web UI
+        - server / adapter
+        - protocol / transport
+        - launcher / installer
+        - documentation
         - other
     validations:
       required: true
@@ -44,12 +43,12 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, Node version, npm/pnpm version, and how Prime Agent was installed.
+      description: OS, Node version, pnpm version, and how Fleet was installed.
       placeholder: |
         - OS: macOS 15
         - Node: v22.14.0
-        - npm: 11.x, pnpm: 11.x
-        - Installed via install.sh / from source
+        - pnpm: 11.x
+        - Installed via npm / ./install.sh / from source
     validations:
       required: true
   - type: textarea

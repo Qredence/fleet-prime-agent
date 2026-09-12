@@ -94,7 +94,16 @@ async function handleRequest(request, response) {
 			response.end();
 			return;
 		}
-		Readable.fromWeb(webResponse.body).pipe(response);
+		const body = Readable.fromWeb(webResponse.body);
+		body.on("error", (streamError) => {
+			if (!response.writableEnded) {
+				response.destroy(streamError instanceof Error ? streamError : undefined);
+			}
+		});
+		response.on("error", () => {
+			body.destroy();
+		});
+		body.pipe(response);
 	} catch (error) {
 		if (response.headersSent) {
 			response.destroy(error instanceof Error ? error : undefined);

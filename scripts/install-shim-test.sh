@@ -23,10 +23,15 @@ chmod +x "$FAKE"
 export PATH="$SANDBOX/bin:$PATH"
 prime_agent_checkout_dir=$(pwd)
 [ "$prime_agent_checkout_dir" = "$REPO_ROOT" ] || { echo "run from repo root" >&2; exit 1; }
+mkdir -p "$HOME/.local/bin"
+ln -s "$REPO_ROOT/fleet-prime.sh" "$HOME/.local/bin/fleet-agent"
+launcher_before=$(cksum "$REPO_ROOT/fleet-prime.sh")
 sed -n '/^install_fleet_agent_shim() {/,/^}$/p' "$REPO_ROOT/install.sh" > "$SANDBOX/func.sh"
 (	die() { printf 'error: %s\n' "$1" >&2; exit 1; }
 	. "$SANDBOX/func.sh"
 	install_fleet_agent_shim )
+launcher_after=$(cksum "$REPO_ROOT/fleet-prime.sh")
+[ "$launcher_before" = "$launcher_after" ] || { echo "FAIL: installer followed a fleet-agent symlink and overwrote fleet-prime.sh" >&2; exit 1; }
 
 # (1) Fake prime-agent must still be the one on PATH.
 after=$(command -v prime-agent || true)
@@ -35,6 +40,7 @@ after=$(command -v prime-agent || true)
 # (2) Shim file must exist at the expected location and be executable.
 shim="$HOME/.local/bin/fleet-agent"
 [ -x "$shim" ] || { echo "FAIL: shim not installed at $shim" >&2; exit 1; }
+[ ! -L "$shim" ] || { echo "FAIL: shim is still a symlink: $shim" >&2; exit 1; }
 
 # (3) Shim exec line must point at the checkout's fleet-prime.sh.
 exec_line=$(grep -E '^exec ' "$shim" || true)

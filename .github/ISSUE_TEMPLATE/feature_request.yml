@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose an improvement to Prime Agent
+description: Propose an improvement to Fleet Prime
 labels: ["enhancement"]
 body:
   - type: markdown
@@ -9,14 +9,13 @@ body:
   - type: dropdown
     id: package
     attributes:
-      label: Which package does this affect?
+      label: Which area does this affect?
       options:
-        - web (web chat UI)
-        - coding-agent
-        - tui
-        - agent
-        - ai
-        - installer
+        - web UI
+        - server / adapter
+        - protocol / transport
+        - launcher / installer
+        - documentation
         - other
     validations:
       required: true
@@ -31,7 +30,7 @@ body:
     id: proposal
     attributes:
       label: Proposed solution
-      description: How could Prime Agent solve it? Include examples or sketches if useful.
+      description: How could Fleet Prime solve it? Include examples or sketches if useful.
     validations:
       required: true
   - type: textarea

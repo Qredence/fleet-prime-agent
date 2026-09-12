@@ -3,8 +3,8 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { readRegistryMetadata } from "./rollback-release.mjs";
 import { parseStableVersion } from "./release-utils.mjs";
+import { readRegistryMetadata } from "./rollback-release.mjs";
 
 export const ROLLBACK_DEPLOY_NAME = "fleet-rollback";
 export const ROLLBACK_MARKER_STATE_PATH = ".circleci/rollback-marker.state.json";
@@ -25,7 +25,13 @@ export function rollbackMarkerArgs({ status, failureReason } = {}) {
 	];
 }
 
-export function resolveRollbackMarker({ requestedStatus, currentVersion, targetVersion, latestVersion, failureReason } = {}) {
+export function resolveRollbackMarker({
+	requestedStatus,
+	currentVersion,
+	targetVersion,
+	latestVersion,
+	failureReason,
+} = {}) {
 	if (!TERMINAL_STATUSES.has(requestedStatus)) {
 		throw new Error(`Rollback marker status must be one of ${[...TERMINAL_STATUSES].join(", ")}`);
 	}
@@ -40,8 +46,7 @@ export function resolveRollbackMarker({ requestedStatus, currentVersion, targetV
 	}
 	return {
 		status: "FAILED",
-		failureReason:
-			`${failureReason ? `${failureReason}; ` : ""}npm latest is ${latestVersion}; expected ${targetVersion} (rollback target) or ${currentVersion} (current version)`,
+		failureReason: `${failureReason ? `${failureReason}; ` : ""}npm latest is ${latestVersion}; expected ${targetVersion} (rollback target) or ${currentVersion} (current version)`,
 	};
 }
 
@@ -90,7 +95,8 @@ export async function reconcileRollbackMarker({
 		};
 	}
 
-	if (!currentVersion || !targetVersion) throw new Error("Rollback marker reconciliation requires current and target versions");
+	if (!currentVersion || !targetVersion)
+		throw new Error("Rollback marker reconciliation requires current and target versions");
 	const metadata = await readRegistryMetadata({ fetchImpl });
 	const latestVersion = metadata?.["dist-tags"]?.latest;
 	if (!latestVersion) throw new Error("npm metadata has no latest dist-tag for @qredence/fleet");
@@ -132,7 +138,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 		failureReason: process.env.ROLLBACK_FAILURE_REASON,
 	})
 		.then((result) => {
-			if (result.skipped) console.log(`Rollback marker update skipped after prior ${result.status ?? "uncertain"} attempt.`);
+			if (result.skipped)
+				console.log(`Rollback marker update skipped after prior ${result.status ?? "uncertain"} attempt.`);
 		})
 		.catch((error) => {
 			console.error(error instanceof Error ? error.message : String(error));

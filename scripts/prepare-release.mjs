@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -12,10 +12,6 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
 const packageName = "@qredence/fleet";
 const baseBranch = "main";
-const oneTimeReleaseOverride = Object.freeze({
-	fromVersion: "0.5.1",
-	targetVersion: "0.5.5",
-});
 
 /**
  * Parses release preparation command-line options.
@@ -146,17 +142,15 @@ export function releasePlanFromStatus(status) {
 }
 
 /**
- * Applies the one-time target for the pending 0.5.1 patch release.
+ * Returns the version Changesets planned. Kept as a named helper so tests can
+ * pin the versioning policy without inlining callers.
  * @param {string} currentVersion - The package version before Changesets runs.
  * @param {string} plannedVersion - The version calculated by Changesets.
  * @returns {string} The version to use for the release PR.
  */
 export function resolveReleaseVersion(currentVersion, plannedVersion) {
-	const [major, minor, patch] = parseStableVersion(currentVersion);
-	const nextPatchVersion = `${major}.${minor}.${patch + 1}`;
-	return currentVersion === oneTimeReleaseOverride.fromVersion && plannedVersion === nextPatchVersion
-		? oneTimeReleaseOverride.targetVersion
-		: plannedVersion;
+	parseStableVersion(currentVersion);
+	return plannedVersion;
 }
 
 /**
@@ -168,29 +162,6 @@ export function releaseTargetBaselineVersion(targetVersion) {
 	const [major, minor, patch] = parseStableVersion(targetVersion);
 	if (patch === 0) throw new Error(`Cannot derive a patch baseline from ${targetVersion}`);
 	return `${major}.${minor}.${patch - 1}`;
-}
-
-/**
- * Temporarily moves the manifest to the preceding patch so `changeset version` emits the target release.
- * @param {{currentVersion: string, version: string}} releasePlan - The resolved release plan.
- */
-function prepareManifestForReleaseTarget(releasePlan) {
-	if (
-		releasePlan.currentVersion !== oneTimeReleaseOverride.fromVersion ||
-		releasePlan.version !== oneTimeReleaseOverride.targetVersion
-	) {
-		return;
-	}
-	const manifest = JSON.parse(readFileSync(packageManifestPath, "utf8"));
-	if (manifest.version !== releasePlan.currentVersion) {
-		throw new Error(
-			`Release target ${releasePlan.version} expects ${packageName}@${releasePlan.currentVersion}, but the repository manifest is ${manifest.version}`,
-		);
-	}
-	writeFileSync(
-		packageManifestPath,
-		`${JSON.stringify({ ...manifest, version: releaseTargetBaselineVersion(releasePlan.version) }, null, 2)}\n`,
-	);
 }
 
 /**
@@ -247,14 +218,13 @@ function assertVersionChangesOnly(files) {
  * @param {Object} [options] - Release preparation options.
  * @param {Function} [options.githubRequestImpl] - GitHub request implementation.
  * @param {Function} [options.githubRequestAllow404Impl] - GitHub request implementation that allows a 404 response.
- * @param {Object} [options.releasePlan] - Release plan used to prepare the manifest for the target version.
  * @throws {Error} If the version is invalid, an unmanaged release branch exists, or versioning produces invalid or empty changes.
  */
 export async function createVersionPullRequest(
 	token,
 	version,
 	baseSha,
-	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404, releasePlan } = {},
+	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404 } = {},
 ) {
 	const { owner, repo } = RELEASE_REPOSITORY;
 	parseStableVersion(version);
@@ -290,7 +260,6 @@ export async function createVersionPullRequest(
 		);
 	}
 
-	if (releasePlan) prepareManifestForReleaseTarget(releasePlan);
 	const pnpm = pnpmInvocation(["exec", "changeset", "version"]);
 	execFileSync(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
 	const files = changedFiles(baseSha);
@@ -379,7 +348,7 @@ export async function prepareRelease({
 	if (releaseVersion !== plan.version) {
 		throw new Error(`FLEET_RELEASE_VERSION ${releaseVersion} does not match the Changesets version ${plan.version}`);
 	}
-	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha, { releasePlan: plan });
+	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha);
 	return { prepared: true, plan };
 }
 
