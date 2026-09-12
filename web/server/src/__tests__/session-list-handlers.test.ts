@@ -141,4 +141,53 @@ describe("session list handlers", () => {
 		expect(body.message).toBe("The Prime Agent session listing returned an invalid session entry");
 		expect(body.message).not.toContain(process.cwd());
 	});
+
+	it("titles a command-only session from live Fleet presentation", async () => {
+		setBridgeForTests({
+			listSessions: vi.fn(async () => [
+				{
+					sessionId: "refine-session",
+					cwd: process.cwd(),
+					firstMessage: "(no messages)",
+					messageCount: 0,
+					created: "2026-09-12T00:00:00.000Z",
+					modified: "2026-09-12T00:01:00.000Z",
+				},
+			]),
+			getSession: vi.fn(
+				() =>
+					({
+						sessionId: "refine-session",
+						mapperState: {
+							presentation: {
+								revision: 1,
+								userBash: [],
+								rlmChildren: [],
+								refinements: [
+									{
+										id: "ref-1",
+										summary: "Tighten the plan",
+										rationale: "Clearer steps",
+										expectedOutcome: "A better plan",
+										edits: [],
+										status: "success",
+										timestamp: 1,
+									},
+								],
+								artifactRuns: [],
+							},
+						},
+					}) as unknown as BridgeSession,
+			),
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatSessionsGet(new Request("http://localhost/api/chat/sessions"));
+		expect(ChatSessionsResponseSchema.parse(await response.json()).sessions[0]).toMatchObject({
+			sessionId: "refine-session",
+			title: "Tighten the plan",
+			firstMessage: "Tighten the plan",
+			messageCount: 1,
+		});
+	});
 });

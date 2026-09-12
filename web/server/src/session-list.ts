@@ -1,4 +1,7 @@
+import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
+import { fallbackSessionLabel, meaningfulSessionLabel } from "@prime-agent/web-protocol/session-label";
 import type { SessionInfo, SessionSummary } from "prime-agent";
+import { loadManagedPrimePresentation } from "./prime-agent-presentation";
 
 export type SessionListSource = SessionInfo | SessionSummary;
 
@@ -12,6 +15,12 @@ export interface NormalizedSessionListRow {
 	readonly messageCount: number;
 	readonly firstMessage: string;
 	readonly isSubagent: boolean;
+}
+
+export interface SessionListDisplayFields {
+	readonly title: string;
+	readonly firstMessage: string;
+	readonly messageCount: number;
 }
 
 /**
@@ -65,11 +74,73 @@ export function normalizeSessionListRow(source: SessionListSource): NormalizedSe
 		source,
 		sessionId,
 		cwd,
-		title: stringValue(raw.sessionName) ?? stringValue(raw.name),
+		title: meaningfulSessionLabel(stringValue(raw.sessionName) ?? stringValue(raw.name)),
 		createdAt,
 		updatedAt,
 		messageCount: messageCountValue(raw.messageCount),
-		firstMessage: typeof raw.firstMessage === "string" ? raw.firstMessage : "",
+		firstMessage: meaningfulSessionLabel(typeof raw.firstMessage === "string" ? raw.firstMessage : undefined) ?? "",
 		isSubagent,
 	};
+}
+
+export function sessionSourcePath(source: SessionListSource): string | undefined {
+	const raw = source as unknown as Record<string, unknown>;
+	return stringValue(raw.sessionFile) ?? stringValue(raw.path);
+}
+
+function latestBy<T>(entries: ReadonlyArray<T>, time: (entry: T) => number): T | undefined {
+	if (entries.length === 0) return undefined;
+	return entries.reduce((latest, entry) => (time(entry) >= time(latest) ? entry : latest));
+}
+
+export function presentationListActivity(presentation: PrimeAgentSessionPresentation | undefined): {
+	title?: string;
+	activityCount: number;
+} {
+	if (!presentation) return { activityCount: 0 };
+	const artifacts = presentation.artifactRuns.flatMap((run) => run.artifacts);
+	const latestRefinement = latestBy(presentation.refinements, (entry) => entry.timestamp);
+	const latestArtifact = latestBy(artifacts, (entry) => entry.timestamp);
+	const latestBash = latestBy(presentation.userBash, (entry) => entry.startedAt);
+	const title =
+		meaningfulSessionLabel(presentation.sessionName) ??
+		meaningfulSessionLabel(latestRefinement?.summary) ??
+		meaningfulSessionLabel(latestArtifact?.title) ??
+		meaningfulSessionLabel(latestBash?.command);
+	return {
+		title,
+		activityCount: presentation.refinements.length + artifacts.length + presentation.userBash.length,
+	};
+}
+
+export function applyPresentationToSessionRow(
+	row: NormalizedSessionListRow,
+	presentation: PrimeAgentSessionPresentation | undefined,
+): SessionListDisplayFields {
+	const { title: presentationTitle, activityCount } = presentationListActivity(presentation);
+	const firstMessage = row.firstMessage || presentationTitle || "";
+	const title =
+		row.title ?? meaningfulSessionLabel(firstMessage) ?? presentationTitle ?? fallbackSessionLabel(row.sessionId);
+	return {
+		title,
+		firstMessage,
+		messageCount: row.messageCount > 0 ? row.messageCount : activityCount > 0 ? 1 : 0,
+	};
+}
+
+export function sessionNeedsPresentationJoin(row: NormalizedSessionListRow): boolean {
+	return row.messageCount === 0 || !row.title || !row.firstMessage;
+}
+
+export async function loadSessionListPresentation(
+	row: NormalizedSessionListRow,
+	source: SessionListSource,
+	livePresentation: PrimeAgentSessionPresentation | undefined,
+): Promise<PrimeAgentSessionPresentation | undefined> {
+	const liveActivity = presentationListActivity(livePresentation);
+	if (liveActivity.activityCount > 0 || liveActivity.title) return livePresentation;
+	if (!sessionNeedsPresentationJoin(row)) return livePresentation;
+	const path = sessionSourcePath(source);
+	if (!path) return livePresentation;
+	return (await loadManagedPrimePresentation({ sessionPath: path })) ?? livePresentation;
 }

@@ -32,6 +32,8 @@ function slashCommandName(item: SuggestionItem) {
 }
 
 function slashArgumentHint(item: SuggestionItem) {
+  const fromMetadata = item.metadata?.argumentHint?.trim()
+  if (fromMetadata) return fromMetadata
   const value = item.value?.trim() ?? ""
   const match = value.match(/^\/\S+\s+(.+)$/)
   return match?.[1]

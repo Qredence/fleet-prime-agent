@@ -431,7 +431,7 @@ export type ChatOpenUIArtifactUpsertResponse = {
 	presentation: PrimeAgentSessionPresentation;
 };
 /** Optional, capability-gated browser enhancements owned by Fleet Prime. */
-export type FleetAdapterFeature = "reasoning-summary-v1";
+export type FleetAdapterFeature = "reasoning-summary-v1" | "mcp-connections-v1";
 
 export type FleetAdapterCapabilities = {
 	// Forward-tolerant wire shape: a newer adapter may advance either revision
@@ -513,8 +513,8 @@ export type ChatSessionSnapshotEvent = {
 
 export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
 	protocolVersion: 1,
-	schemaRevision: 1,
-	features: ["reasoning-summary-v1"],
+	schemaRevision: 2,
+	features: ["reasoning-summary-v1", "mcp-connections-v1"],
 };
 
 type ChatStartEvent = {
@@ -836,3 +836,17 @@ export type ChatCommandsResponse = {
 	commands: Array<ChatSlashCommandInfo>;
 	diagnostics: Array<string>;
 };
+
+export type {
+	ChatMcpDeleteRequest,
+	ChatMcpListResponse,
+	ChatMcpOAuthAction,
+	ChatMcpOAuthLoginRequest,
+	ChatMcpOAuthLoginResponse,
+	ChatMcpUpsertRequest,
+	McpConnectionInfo,
+	McpConnectionSource,
+	McpConnectionStatus,
+	McpConnectionTransport,
+	McpEnvBinding,
+} from "./mcp";

@@ -9,7 +9,7 @@ import {
 import { Popover } from "../../../registry/beui/agents/input/input-popover"
 import { ChromePillButton } from "../primitives/chrome-pill"
 import { cn } from "../../../../lib/utils"
-import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers"
+import { sessionLabel } from "../session-sidebar/types"
 import type {
   ChatSessionInfo,
   ChatSessionMetadata,
@@ -196,7 +196,7 @@ export function SessionControls({
           </div>
         ) : (
           sessions.map((session) => {
-            const label = normalizeSessionLabel(session.title)
+            const label = sessionLabel(session, sessions)
             const active = session.sessionId === activeSessionId
             return (
               <button

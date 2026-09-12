@@ -6,6 +6,11 @@ import type {
 import type { RightPanel, ThemePreference } from "@prime-agent/web-design/lib/canvas-utils";
 import type { ChatModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type {
+	ChatMcpDeleteRequest,
+	ChatMcpListResponse,
+	ChatMcpOAuthLoginRequest,
+	ChatMcpOAuthLoginResponse,
+	ChatMcpUpsertRequest,
 	ChatMode,
 	ChatPiSettingsUpdate,
 	ChatProviderInfo,
@@ -20,6 +25,7 @@ import type {
 	ChatSessionResponse,
 	ChatSettingsResponse,
 	ChatThinkingLevel,
+	McpConnectionInfo,
 	PrimeAgentArtifactRun,
 	PrimeAgentSessionPresentation,
 	QueueState,
@@ -34,7 +40,9 @@ type UseRightPanelContextValueArgs = {
 	artifactRuns: Array<PrimeAgentArtifactRun>;
 	chatMode: ChatMode;
 	handleThemePreferenceChange: (preference: ThemePreference) => void;
+	isLoadingMcp?: boolean;
 	isLoadingProviders?: boolean;
+	isUpdatingMcp?: boolean;
 	isUpdatingProvider?: boolean;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
@@ -43,10 +51,14 @@ type UseRightPanelContextValueArgs = {
 	onOpenSubagentTab?: (childId: string) => void;
 	modelKey?: string;
 	models: Array<ChatModelOption>;
+	mcpConnections?: Array<McpConnectionInfo>;
 	modelCatalog?: Array<ChatModelOption>;
 	onDiscoverModels?: (providerId: string) => Promise<Array<ChatModelOption>>;
+	onMcpOAuth?: (request: ChatMcpOAuthLoginRequest) => Promise<ChatMcpOAuthLoginResponse>;
 	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
+	onRemoveMcp?: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
+	onUpdateMcp?: (request: ChatMcpUpsertRequest) => Promise<ChatMcpListResponse>;
 	onUpdateProvider?: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
 	openWorkspacePath: (rawPath: string) => void;
 	planLabel?: string;
@@ -93,7 +105,9 @@ export function useRightPanelContextValue({
 	artifactRuns,
 	chatMode,
 	handleThemePreferenceChange,
+	isLoadingMcp,
 	isLoadingProviders,
+	isUpdatingMcp,
 	isUpdatingProvider,
 	loadSession,
 	loadSubagentSession,
@@ -104,12 +118,16 @@ export function useRightPanelContextValue({
 	models,
 	modelCatalog,
 	onDiscoverModels,
+	onMcpOAuth,
 	onOAuthLogin,
+	onRemoveMcp,
 	onRemoveProvider,
+	onUpdateMcp,
 	onUpdateProvider,
 	openWorkspacePath,
 	planLabel,
 	presentation,
+	mcpConnections,
 	providers,
 	queue,
 	refreshResources,
@@ -213,13 +231,19 @@ export function useRightPanelContextValue({
 
 	const settingsActions = useMemo<SettingsActionsContextValue>(
 		() => ({
+			isLoadingMcp,
 			isLoadingProviders,
+			isUpdatingMcp,
 			isUpdatingProvider,
+			mcpConnections,
 			modelCatalog,
 			onDiscoverModels,
+			onMcpOAuth,
 			onOAuthLogin,
+			onRemoveMcp,
 			onRemoveProvider,
 			onThemePreferenceChange: handleThemePreferenceChange,
+			onUpdateMcp,
 			onUpdateProvider,
 			providers,
 			saveSettings,
@@ -230,12 +254,18 @@ export function useRightPanelContextValue({
 		}),
 		[
 			handleThemePreferenceChange,
+			isLoadingMcp,
 			isLoadingProviders,
+			isUpdatingMcp,
 			isUpdatingProvider,
+			mcpConnections,
 			modelCatalog,
 			onDiscoverModels,
+			onMcpOAuth,
 			onOAuthLogin,
+			onRemoveMcp,
 			onRemoveProvider,
+			onUpdateMcp,
 			onUpdateProvider,
 			providers,
 			saveSettings,

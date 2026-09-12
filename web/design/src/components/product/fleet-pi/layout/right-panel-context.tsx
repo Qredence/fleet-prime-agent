@@ -5,6 +5,11 @@ import type { ThemePreference } from "../../../../lib/canvas-utils"
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
 import type { ChatModelOption } from "../../../../lib/pi/chat-helpers"
 import type {
+  ChatMcpDeleteRequest,
+  ChatMcpListResponse,
+  ChatMcpOAuthLoginRequest,
+  ChatMcpOAuthLoginResponse,
+  ChatMcpUpsertRequest,
   ChatMode,
   ChatPiSettingsUpdate,
   ChatProviderInfo,
@@ -19,6 +24,7 @@ import type {
   ChatSessionResponse,
   ChatSettingsResponse,
   ChatThinkingLevel,
+  McpConnectionInfo,
   PrimeAgentArtifactRun,
   PrimeAgentSessionPresentation,
   QueueState,
@@ -68,17 +74,29 @@ export type WorkspaceTreeContextValue = {
 }
 
 export type SettingsActionsContextValue = {
+  isLoadingMcp?: boolean
   isLoadingProviders?: boolean
+  isUpdatingMcp?: boolean
   isUpdatingProvider?: boolean
+  mcpConnections?: Array<McpConnectionInfo>
   modelCatalog?: Array<ChatModelOption>
   onDiscoverModels?: (providerId: string) => Promise<Array<ChatModelOption>>
+  onMcpOAuth?: (
+    request: ChatMcpOAuthLoginRequest
+  ) => Promise<ChatMcpOAuthLoginResponse>
   onOAuthLogin?: (
     request: ChatProviderOAuthLoginRequest
   ) => Promise<ChatProviderOAuthLoginResponse>
+  onRemoveMcp?: (
+    request: ChatMcpDeleteRequest
+  ) => Promise<ChatMcpListResponse>
   onRemoveProvider?: (
     request: ChatProviderRemoveRequest
   ) => Promise<ChatProviderRemoveResponse>
   onThemePreferenceChange: (preference: ThemePreference) => void
+  onUpdateMcp?: (
+    request: ChatMcpUpsertRequest
+  ) => Promise<ChatMcpListResponse>
   onUpdateProvider?: (
     request: ChatProviderUpdateRequest
   ) => Promise<ChatProviderUpdateResponse>

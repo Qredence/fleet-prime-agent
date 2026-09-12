@@ -6,6 +6,11 @@ import type {
 } from "@prime-agent/web-protocol";
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import type { OpenPanelAction } from "@prime-agent/web-protocol/fleet-contract";
+import {
+	disambiguateSessionLabel,
+	fallbackSessionLabel,
+	sessionListTitle,
+} from "@prime-agent/web-protocol/session-label";
 import type { ReactNode } from "react";
 import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers";
 import { readStoredValue } from "../../../../lib/safe-storage";
@@ -82,8 +87,29 @@ export function idValue(id: string, prefix: string) {
 	return id.startsWith(prefix) ? id.slice(prefix.length) : null;
 }
 
-export function sessionLabel(session: ChatSessionInfo) {
-	return normalizeSessionLabel(session.title || session.firstMessage || session.sessionId.slice(0, 8));
+export function sessionBaseLabel(session: Pick<ChatSessionInfo, "sessionId" | "title" | "firstMessage">) {
+	return (
+		normalizeSessionLabel(
+			sessionListTitle({
+				sessionId: session.sessionId,
+				title: session.title,
+				firstMessage: session.firstMessage,
+			}),
+		) || fallbackSessionLabel(session.sessionId)
+	);
+}
+
+export function sessionLabel(
+	session: Pick<ChatSessionInfo, "sessionId" | "title" | "firstMessage">,
+	siblings?: ReadonlyArray<Pick<ChatSessionInfo, "sessionId" | "title" | "firstMessage">>,
+) {
+	const base = sessionBaseLabel(session);
+	if (!siblings) return base;
+	let collidingCount = 0;
+	for (const sibling of siblings) {
+		if (sessionBaseLabel(sibling) === base) collidingCount += 1;
+	}
+	return disambiguateSessionLabel(base, session.sessionId, collidingCount);
 }
 
 export function sessionDiscoveryMeta(session: ChatSessionInfo, projectById: Map<ProjectId, ProjectSummary>) {

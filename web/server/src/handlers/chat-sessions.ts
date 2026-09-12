@@ -1,6 +1,6 @@
 import { ProjectIdSchema } from "@prime-agent/web-protocol";
 import { getPrimeConfig } from "../prime-config";
-import { normalizeSessionListRow } from "../session-list";
+import { applyPresentationToSessionRow, loadSessionListPresentation, normalizeSessionListRow } from "../session-list";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { sessionStatus } from "./projects";
@@ -20,18 +20,22 @@ export function handleChatSessionsGet(_request: Request): Promise<Response> {
 			sessions.map(async (s) => {
 				const session = normalizeSessionListRow(s);
 				const liveSession = bridge.getSession(session.sessionId);
+				const fields = applyPresentationToSessionRow(
+					session,
+					await loadSessionListPresentation(session, s, liveSession?.mapperState?.presentation),
+				);
 				return {
 					sessionId: session.sessionId,
 					projectId: await getPrimeConfig().projectRegistry.projectIdForSession(
 						session.sessionId,
 						liveSession?.cwd ?? session.cwd,
 					),
-					title: session.title || session.firstMessage || session.sessionId.slice(0, 8),
+					title: fields.title,
 					createdAt: session.createdAt,
 					updatedAt: session.updatedAt,
 					status: sessionStatus(session.source, liveSession),
-					messageCount: session.messageCount,
-					firstMessage: session.firstMessage,
+					messageCount: fields.messageCount,
+					firstMessage: fields.firstMessage,
 					...(session.isSubagent ? { isSubagent: true } : {}),
 				};
 			}),

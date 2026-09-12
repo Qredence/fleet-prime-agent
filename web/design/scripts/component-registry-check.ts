@@ -28,7 +28,7 @@ assert.equal(RIGHT_PANEL_REGISTRY.workspace.refreshSource, "workspace")
 
 assert.deepEqual(
   SETTINGS_SECTIONS.map(({ id }) => id),
-  ["appearance", "chat", "sandbox", "providers", "llm-models", "skills", "pi-harness", "keybindings", "sessions"],
+  ["appearance", "chat", "mcp", "sandbox", "providers", "llm-models", "skills", "pi-harness", "keybindings", "sessions"],
 )
 assert.equal(new Set(SETTINGS_SECTIONS.map(({ order }) => order)).size, SETTINGS_SECTIONS.length)
 for (const section of SETTINGS_SECTIONS) {

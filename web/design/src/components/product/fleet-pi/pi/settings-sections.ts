@@ -1,10 +1,22 @@
-import { Cpu, HardDrive, Keyboard, KeyRound, MessageSquare, Paintbrush, Settings, Sparkles, Users } from "lucide-react";
+import {
+	Cpu,
+	HardDrive,
+	Keyboard,
+	KeyRound,
+	MessageSquare,
+	Paintbrush,
+	Plug,
+	Settings,
+	Sparkles,
+	Users,
+} from "lucide-react";
 
 type LucideIcon = typeof Cpu;
 
 export type SettingsSectionId =
 	| "appearance"
 	| "chat"
+	| "mcp"
 	| "sandbox"
 	| "providers"
 	| "llm-models"
@@ -34,6 +46,14 @@ export const SETTINGS_SECTION_REGISTRY = {
 		group: "workspace",
 	},
 	chat: { id: "chat", order: 20, title: "Chat", ariaLabel: "Chat settings", icon: MessageSquare, group: "workspace" },
+	mcp: {
+		id: "mcp",
+		order: 25,
+		title: "MCP",
+		ariaLabel: "MCP connection settings",
+		icon: Plug,
+		group: "workspace",
+	},
 	sandbox: {
 		id: "sandbox",
 		order: 30,

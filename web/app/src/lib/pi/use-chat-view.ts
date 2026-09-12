@@ -7,6 +7,7 @@ import type {
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatToolPart } from "@prime-agent/web-protocol/chat-types";
+import { meaningfulSessionLabel, sessionListTitle } from "@prime-agent/web-protocol/session-label";
 import { useMemo } from "react";
 
 export function useChatSuggestions({
@@ -200,11 +201,11 @@ export function getActiveSessionLabel(
 	messages: Array<ChatMessage>,
 	presentation?: PrimeAgentSessionPresentation,
 ) {
-	if (presentation?.sessionName?.trim()) return normalizeSessionLabel(presentation.sessionName);
+	const named = meaningfulSessionLabel(presentation?.sessionName);
+	if (named) return normalizeSessionLabel(named);
 	const activeSession = sessions.find((session) => session.sessionId === activeSessionId);
-	if (activeSession?.title.trim()) {
-		return normalizeSessionLabel(activeSession.title);
-	}
+	const titled = meaningfulSessionLabel(activeSession?.title);
+	if (titled) return normalizeSessionLabel(titled);
 
 	const lastUserMessage = [...messages]
 		.reverse()
@@ -214,7 +215,11 @@ export function getActiveSessionLabel(
 
 	if (activeSession) {
 		return normalizeSessionLabel(
-			activeSession.title || activeSession.firstMessage || activeSession.sessionId.slice(0, 8),
+			sessionListTitle({
+				sessionId: activeSession.sessionId,
+				title: activeSession.title,
+				firstMessage: activeSession.firstMessage,
+			}),
 		);
 	}
 

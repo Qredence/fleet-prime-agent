@@ -8,10 +8,13 @@ import {
 } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ChatSessionInfo, ChatSessionMetadata, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { chatClient } from "./chat-client";
 import { assistantTextFromMessage } from "./chat-message-helpers";
+import { chatQueryKeys } from "./chat-queries";
 import type { LocalSlashAction, SettingsSlashTab } from "./slash-commands";
-import { parseSlashInput, resolveLocalSlashAction } from "./slash-commands";
+import { parseSlashInput, resolveLocalSlashAction, slashCommandInsertsPrefixOnSelect } from "./slash-commands";
 
 const CHAT_COMMAND_URL = "/api/chat/command";
 
@@ -34,6 +37,8 @@ type UseLocalSlashActionsArgs = {
 	setThinkingLevel: (level: ChatThinkingLevel) => void;
 	startNewSession: () => void;
 };
+
+const MCP_USAGE = "MCP usage: /mcp, /mcp list, /mcp login <name>, /mcp logout <name>.";
 
 function liveSessionId(metadata: ChatSessionMetadata): string | undefined {
 	const id = metadata.sessionId?.trim();
@@ -164,6 +169,7 @@ export function useLocalSlashActions({
 	setThinkingLevel,
 	startNewSession,
 }: UseLocalSlashActionsArgs) {
+	const queryClient = useQueryClient();
 	/** Fire the bridge runner and echo the result into the transcript. */
 	const chatCommand = useCallback(
 		async (command: string, args = ""): Promise<ChatCommandResult> => {
@@ -483,12 +489,38 @@ export function useLocalSlashActions({
 				case "open-logout":
 					appendLocalMessage("Provider sign-out is managed by Fleet Prime CLI commands.");
 					return true;
-				case "open-mcp":
-					openSettings("chat");
-					if (action.args) {
-						appendLocalMessage(`MCP: ${action.args}. Manage MCP connections with Fleet Prime CLI configuration.`);
+				case "open-mcp": {
+					openSettings("mcp");
+					const parts = action.args.trim().split(/\s+/).filter(Boolean);
+					const verb = parts[0];
+					const target = parts.slice(1).join(" ");
+					if (!verb || verb === "list" || ((verb === "login" || verb === "reconnect") && !target)) {
+						return true;
 					}
+					if ((verb === "login" || verb === "reconnect") && target) {
+						appendLocalMessage(`Open Settings → MCP and sign in to "${target}".`);
+						return true;
+					}
+					if (verb === "logout" && target) {
+						void (async () => {
+							try {
+								const result = await chatClient.mcpOAuth({ name: target, action: "logout" });
+								if (result.connections) {
+									queryClient.setQueryData(chatQueryKeys.mcp, { connections: result.connections });
+								}
+								void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
+								appendLocalMessage(`Signed out of MCP connection "${target}".`);
+							} catch (error) {
+								appendLocalMessage(
+									error instanceof Error ? error.message : `Could not sign out of "${target}".`,
+								);
+							}
+						})();
+						return true;
+					}
+					appendLocalMessage(MCP_USAGE);
 					return true;
+				}
 				case "fast-toggle": {
 					void (async () => {
 						appendLocalMessage(
@@ -572,6 +604,7 @@ export function useLocalSlashActions({
 			onForkPicker,
 			openSettings,
 			onOpenUIRequest,
+			queryClient,
 			sessions,
 			setEffortPickerOpen,
 			setModelKey,
@@ -583,9 +616,7 @@ export function useLocalSlashActions({
 
 	const handleSlashCommandSelect = useCallback(
 		(item: SuggestionItem) => {
-			// Selecting /openui should seed the composer with its argument hint;
-			// dispatch happens when the completed command is submitted.
-			if (item.id === "openui") return false;
+			if (slashCommandInsertsPrefixOnSelect(item)) return false;
 			const action = resolveLocalSlashAction(item.id);
 			if (!action) return false;
 			return applyLocalSlashAction(action);

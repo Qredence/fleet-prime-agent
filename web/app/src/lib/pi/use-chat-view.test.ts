@@ -29,6 +29,17 @@ describe("getActiveSessionLabel", () => {
 	it("falls back to the transcript when the active session is not listed", () => {
 		expect(getActiveSessionLabel("session-2", [session], messages)).toBe("Transcript title");
 	});
+
+	it("skips placeholder titles and uses a short session id", () => {
+		const empty: ChatSessionInfo = {
+			...session,
+			sessionId: "session-empty",
+			title: "(no messages)",
+			firstMessage: "",
+			messageCount: 0,
+		};
+		expect(getActiveSessionLabel("session-empty", [empty], [])).toBe("session-");
+	});
 });
 
 describe("buildContextSuggestions", () => {
