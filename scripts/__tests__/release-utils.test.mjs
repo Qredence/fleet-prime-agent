@@ -464,7 +464,7 @@ test("treats no pending Changesets as a release-preparation no-op", async () => 
 	assert.deepEqual(result, { prepared: false });
 });
 
-test("prints no version for an empty release plan and the one-time target for a patch plan", async () => {
+test("prints no version for an empty release plan and the planned version for a patch plan", async () => {
 	const noVersionOutput = [];
 	await runPrepareRelease(["--print-version"], {
 		readStatus: () => undefined,
@@ -482,8 +482,8 @@ test("prints no version for an empty release plan and the one-time target for a 
 	assert.equal(releaseVersionFromStatus(releaseStatus()), expectedReleaseVersion);
 });
 
-test("uses the one-time 0.5.5 target only for the current 0.5.1 patch release", () => {
-	assert.equal(resolveReleaseVersion("0.5.1", "0.5.2"), "0.5.5");
+test("uses the Changesets planned version", () => {
+	assert.equal(resolveReleaseVersion("0.5.1", "0.5.2"), "0.5.2");
 	assert.equal(resolveReleaseVersion("0.5.2", "0.5.3"), "0.5.3");
 	assert.equal(releaseTargetBaselineVersion("0.5.5"), "0.5.4");
 });

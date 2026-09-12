@@ -3,7 +3,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Start a general discussion or ask a focused question about Prime Agent. Search the documentation and existing Discussions first.
+        Start a general discussion or ask a focused question about Fleet Prime. Search the documentation and existing Discussions first.
   - type: dropdown
     id: area
     attributes:
@@ -12,11 +12,9 @@ body:
       multiple: true
       options:
         - Installation or updates
-        - Configuration and authentication
-        - Agent behavior
-        - AI providers and models
-        - Coding agent and CLI
-        - TUI
+        - Configuration and providers
+        - Web UI
+        - Server / adapter
         - Development
         - Not sure
     validations:

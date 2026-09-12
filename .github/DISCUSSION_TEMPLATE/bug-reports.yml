@@ -10,14 +10,14 @@ body:
     id: package
     attributes:
       label: Affected area
-      description: Which part of Prime Agent is affected?
+      description: Which part of Fleet Prime is affected?
       multiple: true
       options:
-        - Agent core
-        - AI providers and models
-        - Coding agent and CLI
-        - TUI
-        - Installation or updates
+        - Web UI
+        - Server / adapter
+        - Protocol / transport
+        - Launcher or installer
+        - Providers and models
         - Documentation
         - Not sure
     validations:
@@ -35,7 +35,7 @@ body:
       label: Steps to reproduce
       description: Provide the smallest reliable sequence that reproduces the problem.
       placeholder: |
-        1. Run `prime-agent ...`
+        1. Run `fleet-agent ...`
         2. ...
         3. Observe ...
     validations:
@@ -50,17 +50,17 @@ body:
   - type: input
     id: version
     attributes:
-      label: Prime Agent version
-      description: Include the output of `prime-agent --version`, or the commit if running from source.
-      placeholder: "0.0.0 or commit SHA"
+      label: Fleet version
+      description: Include the `@qredence/fleet` version, or the commit if running from source.
+      placeholder: "0.6.0 or commit SHA"
     validations:
       required: true
   - type: input
     id: environment
     attributes:
       label: Environment
-      description: Include your operating system, terminal, and any other relevant environment details.
-      placeholder: "macOS 15, Terminal.app"
+      description: Include your operating system and any other relevant environment details.
+      placeholder: "macOS 15, Node 22.12"
     validations:
       required: true
   - type: textarea
