@@ -1,4 +1,3 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
 import type {
 	ChatSessionResponse,
 	ChatStreamEvent,
@@ -6,6 +5,7 @@ import type {
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "./chat-client";
 import { ChatRequestError } from "./chat-fetch";
@@ -51,12 +51,10 @@ function installEventSource() {
 		}
 
 		emit(event: ChatStreamEvent | { type: "connected"; sessionId: string; streamGeneration: string }) {
-			this.onmessage?.(
-				{
-					data: JSON.stringify(event),
-					lastEventId: "",
-				} as MessageEvent<string>,
-			);
+			this.onmessage?.({
+				data: JSON.stringify(event),
+				lastEventId: "",
+			} as MessageEvent<string>);
 		}
 	}
 	vi.stubGlobal("EventSource", EventSourceStub);
@@ -140,7 +138,9 @@ describe("useSubagentChat lifecycle", () => {
 });
 
 describe("useSubagentChat sendMessage", () => {
-	function createSendHarness(initial: Array<ChatMessage> = [message("user-1", "go deeper"), message("done-1", "PASS")]) {
+	function createSendHarness(
+		initial: Array<ChatMessage> = [message("user-1", "go deeper"), message("done-1", "PASS")],
+	) {
 		const openSubagentEvents = vi.fn(() => "/api/chat/events?parentSessionId=parent&childId=child-1");
 		const streamMessage = vi.fn(async (_request: unknown, _onEvent?: unknown, _signal?: unknown) => undefined);
 		const abortSession = vi.fn(async () => undefined);

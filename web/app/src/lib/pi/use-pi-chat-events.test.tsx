@@ -60,13 +60,20 @@ describe("usePiChatSessionEvents", () => {
 				new MessageEvent("message", {
 					data: JSON.stringify({
 						type: "tool",
-						part: { type: "tool-Question", toolCallId: "question-1", state: "input-streaming", input: { title: "Choose" } },
+						part: {
+							type: "tool-Question",
+							toolCallId: "question-1",
+							state: "input-streaming",
+							input: { title: "Choose" },
+						},
 					}),
 				}),
 			);
 		});
 		expect(messages).toHaveLength(1);
-		expect(messages[0]?.parts).toContainEqual(expect.objectContaining({ toolCallId: "question-1", state: "input-streaming" }));
+		expect(messages[0]?.parts).toContainEqual(
+			expect.objectContaining({ toolCallId: "question-1", state: "input-streaming" }),
+		);
 		messages = [
 			{
 				id: "duplicate-question",
@@ -81,18 +88,29 @@ describe("usePiChatSessionEvents", () => {
 				new MessageEvent("message", {
 					data: JSON.stringify({
 						type: "tool",
-						part: { type: "tool-Question", toolCallId: "question-1", state: "output-available", output: { choice: "yes" } },
+						part: {
+							type: "tool-Question",
+							toolCallId: "question-1",
+							state: "output-available",
+							output: { choice: "yes" },
+						},
 					}),
 				}),
 			);
 		});
 		expect(messages).toHaveLength(1);
 		expect(messages[0]?.id).toBe("active-assistant");
-		expect(messages[0]?.parts).toContainEqual(expect.objectContaining({ toolCallId: "question-1", state: "output-available" }));
+		expect(messages[0]?.parts).toContainEqual(
+			expect.objectContaining({ toolCallId: "question-1", state: "output-available" }),
+		);
 	});
 
 	it("ignores an agent-settled hydration that resolves after the visible session changes", async () => {
-		let resolveSession!: (value: { messages: []; presentation: PrimeAgentSessionPresentation; session: { sessionId: string } }) => void;
+		let resolveSession!: (value: {
+			messages: [];
+			presentation: PrimeAgentSessionPresentation;
+			session: { sessionId: string };
+		}) => void;
 		const loadSession = vi.fn(
 			() =>
 				new Promise<{ messages: []; presentation: PrimeAgentSessionPresentation; session: { sessionId: string } }>(
@@ -151,7 +169,11 @@ describe("usePiChatSessionEvents", () => {
 	});
 
 	it("ignores an agent-settled hydration that resolves after effect teardown", async () => {
-		let resolveSession!: (value: { messages: []; presentation: PrimeAgentSessionPresentation; session: { sessionId: string } }) => void;
+		let resolveSession!: (value: {
+			messages: [];
+			presentation: PrimeAgentSessionPresentation;
+			session: { sessionId: string };
+		}) => void;
 		const loadSession = vi.fn(
 			() =>
 				new Promise<{ messages: []; presentation: PrimeAgentSessionPresentation; session: { sessionId: string } }>(
