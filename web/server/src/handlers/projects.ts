@@ -8,7 +8,7 @@ import {
 import type { SessionSummary } from "prime-agent";
 import type { BridgeSession } from "../prime-bridge";
 import { getPrimeConfig } from "../prime-config";
-import { normalizeSessionListRow } from "../session-list";
+import { applyPresentationToSessionRow, loadSessionListPresentation, normalizeSessionListRow } from "../session-list";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
@@ -65,20 +65,27 @@ export function handleProjectsGet(_request: Request): Promise<Response> {
 		}
 		return Response.json({
 			projects: await getPrimeConfig().projectRegistry.list(counts),
-			sessions: sessions.map((source) => {
-				const session = normalizeSessionListRow(source);
-				return {
-					sessionId: session.sessionId,
-					projectId: assignments.get(session.sessionId) ?? null,
-					title: redactSessionLabelSecrets(session.title || session.firstMessage || session.sessionId.slice(0, 8)),
-					createdAt: session.createdAt,
-					updatedAt: session.updatedAt,
-					status: sessionStatus(session.source, getBridge().getSession(session.sessionId)),
-					messageCount: session.messageCount,
-					firstMessage: session.firstMessage ? redactSessionLabelSecrets(session.firstMessage) : "",
-					...(session.isSubagent ? { isSubagent: true } : {}),
-				};
-			}),
+			sessions: await Promise.all(
+				sessions.map(async (source) => {
+					const session = normalizeSessionListRow(source);
+					const liveSession = getBridge().getSession(session.sessionId);
+					const fields = applyPresentationToSessionRow(
+						session,
+						await loadSessionListPresentation(session, source, liveSession?.mapperState?.presentation),
+					);
+					return {
+						sessionId: session.sessionId,
+						projectId: assignments.get(session.sessionId) ?? null,
+						title: redactSessionLabelSecrets(fields.title),
+						createdAt: session.createdAt,
+						updatedAt: session.updatedAt,
+						status: sessionStatus(session.source, liveSession),
+						messageCount: fields.messageCount,
+						firstMessage: fields.firstMessage ? redactSessionLabelSecrets(fields.firstMessage) : "",
+						...(session.isSubagent ? { isSubagent: true } : {}),
+					};
+				}),
+			),
 		});
 	}, _request);
 }

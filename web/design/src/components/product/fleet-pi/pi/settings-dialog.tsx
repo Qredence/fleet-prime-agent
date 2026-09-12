@@ -45,6 +45,7 @@ import {
   useSettingsActionsContext,
 } from "../layout/right-panel-context"
 import { PersonalizationSection } from "./config-panel/sections/personalization-section"
+import { McpConnectionsSection } from "./config-panel/sections/mcp-connections-section"
 import { ProviderCredentialsSection } from "./config-panel/sections/provider-credentials-section"
 import { ModelDefaultsSection } from "./config-panel/sections/model-defaults-section"
 import { ResourcesSection } from "./config-panel/sections/resources-section"
@@ -107,13 +108,19 @@ function PreferenceRow({
  */
 function useSettingsForm() {
   const {
+    isLoadingMcp,
     isLoadingProviders,
+    isUpdatingMcp,
     isUpdatingProvider,
+    mcpConnections = [],
     modelCatalog,
     onDiscoverModels,
+    onMcpOAuth,
     onOAuthLogin,
+    onRemoveMcp,
     onRemoveProvider,
     onThemePreferenceChange,
+    onUpdateMcp,
     onUpdateProvider,
     providers = [],
     saveSettings,
@@ -228,11 +235,17 @@ function useSettingsForm() {
   }
 
   return {
+    isLoadingMcp,
     isLoadingProviders,
+    isUpdatingMcp,
     isUpdatingProvider,
-    onThemePreferenceChange,
+    mcpConnections,
+    onMcpOAuth,
     onOAuthLogin,
+    onRemoveMcp,
     onRemoveProvider,
+    onThemePreferenceChange,
+    onUpdateMcp,
     onUpdateProvider,
     providers,
     resources,
@@ -370,11 +383,17 @@ function SettingsDialogPaneContent({
   updatePreference: UpdatePreference
 }) {
   const {
+    isLoadingMcp,
     isLoadingProviders,
+    isUpdatingMcp,
     isUpdatingProvider,
-    onThemePreferenceChange,
+    mcpConnections,
+    onMcpOAuth,
     onOAuthLogin,
+    onRemoveMcp,
     onRemoveProvider,
+    onThemePreferenceChange,
+    onUpdateMcp,
     onUpdateProvider,
     providers,
     resources,
@@ -496,6 +515,16 @@ function SettingsDialogPaneContent({
           />
         </PreferenceRow>
       </div>
+    ),
+    mcp: () => (
+      <McpConnectionsSection
+        connections={mcpConnections}
+        isLoading={isLoadingMcp ?? false}
+        isPending={isUpdatingMcp ?? false}
+        onOAuth={onMcpOAuth}
+        onRemove={onRemoveMcp}
+        onUpsert={onUpdateMcp}
+      />
     ),
     sandbox: () => (
       <SandboxProviderSection

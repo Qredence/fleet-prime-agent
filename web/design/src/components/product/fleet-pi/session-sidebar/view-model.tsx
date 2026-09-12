@@ -220,7 +220,7 @@ export function useFleetSessionSidebarViewModel({
 			const visible = visibleProjectSessions(sessionsForProject, activeSessionId, revealed);
 			const children: SidebarResource[] = visible.map((session) => ({
 				id: sessionResourceId(session.sessionId),
-				label: sessionLabel(session),
+				label: sessionLabel(session, visible),
 				kind: "file" as const,
 				...(session.isSubagent ? { indent: 1 } : {}),
 			}));
@@ -257,7 +257,7 @@ export function useFleetSessionSidebarViewModel({
 				revealedProjectIds.has("unassigned"),
 			).map((session) => ({
 				id: sessionResourceId(session.sessionId),
-				label: sessionLabel(session),
+				label: sessionLabel(session, unassigned),
 				kind: "file",
 				...(session.isSubagent ? { indent: 1 } : {}),
 			}));

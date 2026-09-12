@@ -412,7 +412,7 @@ describe("FleetSessionSidebar draft sessions", () => {
   })
 
   it("keeps the active message-less session visible while composing", () => {
-    const { getByRole } = render(
+    const { getByRole, queryByRole } = render(
       <AnimatedSidebarProvider>
         <SidebarHarness
           sessions={[draftSession("draft-chat", "alpha")]}
@@ -428,7 +428,8 @@ describe("FleetSessionSidebar draft sessions", () => {
       </AnimatedSidebarProvider>,
     )
 
-    expect(getByRole("treeitem", { name: /\(no messages\)/i })).toBeTruthy()
+    expect(getByRole("treeitem", { name: /draft-ch/i })).toBeTruthy()
+    expect(queryByRole("treeitem", { name: /\(no messages\)/i })).toBeNull()
   })
 
   it("offers Start first chat when a project only has message-less sessions", () => {
@@ -448,5 +449,27 @@ describe("FleetSessionSidebar draft sessions", () => {
     )
 
     expect(getByRole("treeitem", { name: "Start first chat" })).toBeTruthy()
+  })
+
+  it("distinguishes duplicate session titles with a short id suffix", () => {
+    const first = { ...session("refine-aaaa", "alpha"), title: "Tighten the plan", firstMessage: "Tighten the plan" }
+    const second = { ...session("refine-bbbb", "alpha"), title: "Tighten the plan", firstMessage: "Tighten the plan" }
+    const { getByRole } = render(
+      <AnimatedSidebarProvider>
+        <SidebarHarness
+          sessions={[first, second]}
+          projects={[project("alpha")]}
+          projectSessions={[first, second]}
+          activeProjectId="alpha"
+          onNewSession={vi.fn()}
+          onResumeSession={vi.fn()}
+          onRenameSession={vi.fn()}
+          onDeleteSession={vi.fn()}
+        />
+      </AnimatedSidebarProvider>,
+    )
+
+    expect(getByRole("treeitem", { name: /Tighten the plan · aaaa/i })).toBeTruthy()
+    expect(getByRole("treeitem", { name: /Tighten the plan · bbbb/i })).toBeTruthy()
   })
 })

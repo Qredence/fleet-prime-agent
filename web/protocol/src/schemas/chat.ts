@@ -288,7 +288,7 @@ export const ChatMessageSchema = z
 	.passthrough()
 	.openapi({ description: "Chat message" });
 
-export const FleetAdapterFeatureSchema = z.enum(["reasoning-summary-v1"]);
+export const FleetAdapterFeatureSchema = z.enum(["reasoning-summary-v1", "mcp-connections-v1"]);
 
 export const FleetAdapterCapabilitiesSchema = z
 	.object({

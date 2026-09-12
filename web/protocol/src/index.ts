@@ -63,4 +63,11 @@ export {
 	ChatPayloadEventSchema,
 	ChatPayloadPartSchema,
 } from "./schemas/chat";
-export { redactSessionLabelSecrets } from "./session-label";
+export {
+	disambiguateSessionLabel,
+	EMPTY_SESSION_FIRST_MESSAGE,
+	fallbackSessionLabel,
+	meaningfulSessionLabel,
+	redactSessionLabelSecrets,
+	sessionListTitle,
+} from "./session-label";

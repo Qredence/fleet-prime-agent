@@ -128,7 +128,7 @@ export function FleetSessionSidebarNavigation({
 		() =>
 			sortSessions(projectSessions).map((session) => ({
 				id: session.sessionId,
-				title: sessionLabel(session),
+				title: sessionLabel(session, projectSessions),
 				preview: sessionDiscoveryMeta(session, projectById),
 				group: sessionSearchGroup(session.updatedAt),
 				// Keep the initial prompt searchable; a renamed session no longer

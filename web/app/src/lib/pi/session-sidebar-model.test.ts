@@ -74,4 +74,16 @@ describe("Fleet session sidebar model", () => {
 			"draft-chat",
 		]);
 	});
+
+	it("lists command-only sessions after sidecar join bumps their count", () => {
+		const commandOnly: ChatSessionInfo = {
+			...session("refine-chat", "2026-01-03T00:00:00.000Z"),
+			title: "Tighten the plan",
+			firstMessage: "Tighten the plan",
+			messageCount: 1,
+		};
+		expect(displayProjectSessions([commandOnly], undefined).map(({ sessionId }) => sessionId)).toEqual([
+			"refine-chat",
+		]);
+	});
 });

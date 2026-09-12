@@ -110,6 +110,14 @@ export {
 	PrimeAgentSessionPresentationSchema,
 	PrimeAgentUserBashSchema,
 } from "./schemas/chat";
+export {
+	ChatMcpDeleteRequestSchema,
+	ChatMcpListResponseSchema,
+	ChatMcpOAuthLoginRequestSchema,
+	ChatMcpOAuthLoginResponseSchema,
+	ChatMcpUpsertRequestSchema,
+	McpConnectionInfoSchema,
+} from "./schemas/mcp";
 export { ErrorResponseSchema, HealthResponseSchema } from "./schemas/misc";
 export {
 	ChatPiSettingsSchema,

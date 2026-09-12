@@ -1,5 +1,10 @@
 import type { ProjectId } from "@prime-agent/web-protocol";
 import type {
+	ChatMcpDeleteRequest,
+	ChatMcpListResponse,
+	ChatMcpOAuthLoginRequest,
+	ChatMcpOAuthLoginResponse,
+	ChatMcpUpsertRequest,
 	ChatProviderOAuthLoginRequest,
 	ChatProviderOAuthLoginResponse,
 	ChatProviderRemoveRequest,
@@ -15,6 +20,7 @@ export const chatQueryKeys = {
 	models: (projectId?: ProjectId) => ["chat", "models", projectId ?? "default"] as const,
 	modelCatalog: (projectId?: ProjectId) => ["chat", "models", "catalog", projectId ?? "default"] as const,
 	providers: ["chat", "providers"] as const,
+	mcp: ["chat", "mcp"] as const,
 	resources: (projectId?: ProjectId) => ["chat", "resources", projectId ?? "default"] as const,
 	commands: (projectId?: ProjectId) => ["chat", "commands", projectId ?? "default"] as const,
 	settings: (projectId?: ProjectId) => ["chat", "settings", projectId ?? "default"] as const,
@@ -103,6 +109,47 @@ export function useWorkspaceTree(projectId?: ProjectId, options?: { enabled?: bo
 		queryKey: keys.workspace(projectId),
 		queryFn: () => chatClient.getWorkspaceTree(projectId),
 		enabled: Boolean(projectId) && options?.enabled !== false,
+	});
+}
+
+export function useChatMcpConnections() {
+	return useQuery({
+		queryKey: keys.mcp,
+		queryFn: () => chatClient.getMcpConnections(),
+	});
+}
+
+export function useUpdateMcpConnection() {
+	const queryClient = useQueryClient();
+	return useMutation<ChatMcpListResponse, Error, ChatMcpUpsertRequest>({
+		mutationFn: (request) => chatClient.upsertMcpConnection(request),
+		onSuccess: (data) => {
+			queryClient.setQueryData(keys.mcp, data);
+			void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
+		},
+	});
+}
+
+export function useRemoveMcpConnection() {
+	const queryClient = useQueryClient();
+	return useMutation<ChatMcpListResponse, Error, ChatMcpDeleteRequest>({
+		mutationFn: (request) => chatClient.removeMcpConnection(request),
+		onSuccess: (data) => {
+			queryClient.setQueryData(keys.mcp, data);
+			void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
+		},
+	});
+}
+
+export function useMcpOAuth() {
+	const queryClient = useQueryClient();
+	return useMutation<ChatMcpOAuthLoginResponse, Error, ChatMcpOAuthLoginRequest>({
+		mutationFn: (request) => chatClient.mcpOAuth(request),
+		onSuccess: (data) => {
+			if (data.status !== "success" || !data.connections) return;
+			queryClient.setQueryData(keys.mcp, { connections: data.connections });
+			void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
+		},
 	});
 }
 

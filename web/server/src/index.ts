@@ -4,6 +4,7 @@ export { handleChatAttachmentGet, handleChatAttachmentsPost } from "./handlers/c
 export { handleChatCommandPost } from "./handlers/chat-command";
 export { handleChatCommandsGet } from "./handlers/chat-commands";
 export { handleChatEventsGet } from "./handlers/chat-events";
+export { handleChatMcpDelete, handleChatMcpGet, handleChatMcpOAuthPost, handleChatMcpPost } from "./handlers/chat-mcp";
 export { handleChatModelPost } from "./handlers/chat-model";
 export { handleChatModelsGet } from "./handlers/chat-models";
 export { handleChatModelsDiscoverPost } from "./handlers/chat-models-discover";

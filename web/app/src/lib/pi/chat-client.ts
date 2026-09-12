@@ -7,6 +7,11 @@ import type {
 } from "@prime-agent/web-protocol";
 import type {
 	ChatCommandsResponse,
+	ChatMcpDeleteRequest,
+	ChatMcpListResponse,
+	ChatMcpOAuthLoginRequest,
+	ChatMcpOAuthLoginResponse,
+	ChatMcpUpsertRequest,
 	ChatModelsDiscoverRequest,
 	ChatModelsDiscoverResponse,
 	ChatModelsResponse,
@@ -39,6 +44,11 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import {
 	ChatCommandsResponseSchema,
+	ChatMcpDeleteRequestSchema,
+	ChatMcpListResponseSchema,
+	ChatMcpOAuthLoginRequestSchema,
+	ChatMcpOAuthLoginResponseSchema,
+	ChatMcpUpsertRequestSchema,
 	ChatModelsDiscoverRequestSchema,
 	ChatModelsDiscoverResponseSchema,
 	ChatModelsResponseSchema,
@@ -118,6 +128,10 @@ export type ChatClient = {
 		onEvent: (event: ChatStreamEvent) => void,
 		signal?: AbortSignal,
 	) => Promise<void>;
+	getMcpConnections: () => Promise<ChatMcpListResponse>;
+	upsertMcpConnection: (request: ChatMcpUpsertRequest) => Promise<ChatMcpListResponse>;
+	removeMcpConnection: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
+	mcpOAuth: (request: ChatMcpOAuthLoginRequest) => Promise<ChatMcpOAuthLoginResponse>;
 	getProviders: () => Promise<{ providers: Array<ChatProviderInfo> }>;
 	oauthLoginProvider: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	updateProvider: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
@@ -387,6 +401,37 @@ export const chatClient: ChatClient = {
 		};
 
 		await attempt(true);
+	},
+
+	async getMcpConnections() {
+		return fetchValidatedJson("/api/chat/mcp", ChatMcpListResponseSchema);
+	},
+
+	async upsertMcpConnection(request: ChatMcpUpsertRequest) {
+		const body = ChatMcpUpsertRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/mcp", ChatMcpListResponseSchema, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+	},
+
+	async removeMcpConnection(request: ChatMcpDeleteRequest) {
+		const body = ChatMcpDeleteRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/mcp", ChatMcpListResponseSchema, {
+			method: "DELETE",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+	},
+
+	async mcpOAuth(request: ChatMcpOAuthLoginRequest) {
+		const body = ChatMcpOAuthLoginRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/mcp/oauth", ChatMcpOAuthLoginResponseSchema, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
 	},
 
 	async getProviders() {

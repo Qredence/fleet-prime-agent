@@ -18,6 +18,7 @@ import { Route as ApiChatArtifactsRouteImport } from './routes/api/chat/artifact
 import { Route as ApiChatCommandRouteImport } from './routes/api/chat/command'
 import { Route as ApiChatCommandsRouteImport } from './routes/api/chat/commands'
 import { Route as ApiChatEventsRouteImport } from './routes/api/chat/events'
+import { Route as ApiChatMcpRouteImport } from './routes/api/chat/mcp'
 import { Route as ApiChatModelRouteImport } from './routes/api/chat/model'
 import { Route as ApiChatModelsRouteImport } from './routes/api/chat/models'
 import { Route as ApiChatNewRouteImport } from './routes/api/chat/new'
@@ -34,6 +35,7 @@ import { Route as ApiWorkspaceBrowseRouteImport } from './routes/api/workspace/b
 import { Route as ApiWorkspaceFileRouteImport } from './routes/api/workspace/file'
 import { Route as ApiWorkspaceRootRouteImport } from './routes/api/workspace/root'
 import { Route as ApiWorkspaceTreeRouteImport } from './routes/api/workspace/tree'
+import { Route as ApiChatMcpOauthRouteImport } from './routes/api/chat/mcp/oauth'
 import { Route as ApiChatModelsDiscoverRouteImport } from './routes/api/chat/models/discover'
 import { Route as ApiChatProvidersOauthRouteImport } from './routes/api/chat/providers/oauth'
 
@@ -80,6 +82,11 @@ const ApiChatCommandsRoute = ApiChatCommandsRouteImport.update({
 const ApiChatEventsRoute = ApiChatEventsRouteImport.update({
   id: '/events',
   path: '/events',
+  getParentRoute: () => ApiChatRoute,
+} as any)
+const ApiChatMcpRoute = ApiChatMcpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => ApiChatRoute,
 } as any)
 const ApiChatModelRoute = ApiChatModelRouteImport.update({
@@ -162,6 +169,11 @@ const ApiWorkspaceTreeRoute = ApiWorkspaceTreeRouteImport.update({
   path: '/api/workspace/tree',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatMcpOauthRoute = ApiChatMcpOauthRouteImport.update({
+  id: '/oauth',
+  path: '/oauth',
+  getParentRoute: () => ApiChatMcpRoute,
+} as any)
 const ApiChatModelsDiscoverRoute = ApiChatModelsDiscoverRouteImport.update({
   id: '/discover',
   path: '/discover',
@@ -183,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
+  '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
   '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
@@ -199,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
+  '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
@@ -212,6 +226,7 @@ export interface FileRoutesByTo {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
+  '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
   '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
@@ -228,6 +243,7 @@ export interface FileRoutesByTo {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
+  '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
@@ -242,6 +258,7 @@ export interface FileRoutesById {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
+  '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
   '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
@@ -258,6 +275,7 @@ export interface FileRoutesById {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
+  '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
@@ -273,6 +291,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
+    | '/api/chat/mcp'
     | '/api/chat/model'
     | '/api/chat/models'
     | '/api/chat/new'
@@ -289,6 +308,7 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/root'
     | '/api/workspace/tree'
+    | '/api/chat/mcp/oauth'
     | '/api/chat/models/discover'
     | '/api/chat/providers/oauth'
   fileRoutesByTo: FileRoutesByTo
@@ -302,6 +322,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
+    | '/api/chat/mcp'
     | '/api/chat/model'
     | '/api/chat/models'
     | '/api/chat/new'
@@ -318,6 +339,7 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/root'
     | '/api/workspace/tree'
+    | '/api/chat/mcp/oauth'
     | '/api/chat/models/discover'
     | '/api/chat/providers/oauth'
   id:
@@ -331,6 +353,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
+    | '/api/chat/mcp'
     | '/api/chat/model'
     | '/api/chat/models'
     | '/api/chat/new'
@@ -347,6 +370,7 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/root'
     | '/api/workspace/tree'
+    | '/api/chat/mcp/oauth'
     | '/api/chat/models/discover'
     | '/api/chat/providers/oauth'
   fileRoutesById: FileRoutesById
@@ -425,6 +449,13 @@ declare module '@tanstack/react-router' {
       path: '/events'
       fullPath: '/api/chat/events'
       preLoaderRoute: typeof ApiChatEventsRouteImport
+      parentRoute: typeof ApiChatRoute
+    }
+    '/api/chat/mcp': {
+      id: '/api/chat/mcp'
+      path: '/mcp'
+      fullPath: '/api/chat/mcp'
+      preLoaderRoute: typeof ApiChatMcpRouteImport
       parentRoute: typeof ApiChatRoute
     }
     '/api/chat/model': {
@@ -539,6 +570,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWorkspaceTreeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat/mcp/oauth': {
+      id: '/api/chat/mcp/oauth'
+      path: '/oauth'
+      fullPath: '/api/chat/mcp/oauth'
+      preLoaderRoute: typeof ApiChatMcpOauthRouteImport
+      parentRoute: typeof ApiChatMcpRoute
+    }
     '/api/chat/models/discover': {
       id: '/api/chat/models/discover'
       path: '/discover'
@@ -555,6 +593,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ApiChatMcpRouteChildren {
+  ApiChatMcpOauthRoute: typeof ApiChatMcpOauthRoute
+}
+
+const ApiChatMcpRouteChildren: ApiChatMcpRouteChildren = {
+  ApiChatMcpOauthRoute: ApiChatMcpOauthRoute,
+}
+
+const ApiChatMcpRouteWithChildren = ApiChatMcpRoute._addFileChildren(
+  ApiChatMcpRouteChildren,
+)
 
 interface ApiChatModelsRouteChildren {
   ApiChatModelsDiscoverRoute: typeof ApiChatModelsDiscoverRoute
@@ -585,6 +635,7 @@ interface ApiChatRouteChildren {
   ApiChatCommandRoute: typeof ApiChatCommandRoute
   ApiChatCommandsRoute: typeof ApiChatCommandsRoute
   ApiChatEventsRoute: typeof ApiChatEventsRoute
+  ApiChatMcpRoute: typeof ApiChatMcpRouteWithChildren
   ApiChatModelRoute: typeof ApiChatModelRoute
   ApiChatModelsRoute: typeof ApiChatModelsRouteWithChildren
   ApiChatNewRoute: typeof ApiChatNewRoute
@@ -603,6 +654,7 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatCommandRoute: ApiChatCommandRoute,
   ApiChatCommandsRoute: ApiChatCommandsRoute,
   ApiChatEventsRoute: ApiChatEventsRoute,
+  ApiChatMcpRoute: ApiChatMcpRouteWithChildren,
   ApiChatModelRoute: ApiChatModelRoute,
   ApiChatModelsRoute: ApiChatModelsRouteWithChildren,
   ApiChatNewRoute: ApiChatNewRoute,

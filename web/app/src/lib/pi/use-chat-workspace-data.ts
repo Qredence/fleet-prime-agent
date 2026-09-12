@@ -17,6 +17,7 @@ import { useOptionalUser } from "@/lib/auth-stub";
 import { chatClient } from "@/lib/pi/chat-client";
 import {
 	useChatCommands,
+	useChatMcpConnections,
 	useChatModelCatalog,
 	useChatModels,
 	useChatProjects,
@@ -24,10 +25,13 @@ import {
 	useChatResources,
 	useChatSettings,
 	useDiscoverChatModels,
+	useMcpOAuth,
 	useOAuthLoginProvider,
 	useRemoveChatProvider,
+	useRemoveMcpConnection,
 	useUpdateChatProvider,
 	useUpdateChatSettings,
+	useUpdateMcpConnection,
 	useWorkspaceTree,
 } from "@/lib/pi/chat-queries";
 import { assistantMessageHasPendingQuestion } from "@/lib/pi/question-pending";
@@ -81,10 +85,14 @@ export function useChatWorkspaceData() {
 		if (user) identifyAnalyticsUser(user);
 	}, [user]);
 	const { data: providersData, isLoading: isLoadingProviders } = useChatProviders();
+	const { data: mcpData, isLoading: isLoadingMcp } = useChatMcpConnections();
 	const { data: projectsData, refetch: refetchProjects } = useChatProjects();
 	const { mutateAsync: onUpdateProvider, isPending: isUpdatingProvider } = useUpdateChatProvider();
 	const { mutateAsync: onOAuthLogin } = useOAuthLoginProvider();
 	const { mutateAsync: onRemoveProvider, isPending: isRemovingProvider } = useRemoveChatProvider();
+	const { mutateAsync: onUpdateMcp, isPending: isUpdatingMcp } = useUpdateMcpConnection();
+	const { mutateAsync: onRemoveMcp, isPending: isRemovingMcp } = useRemoveMcpConnection();
+	const { mutateAsync: onMcpOAuth } = useMcpOAuth();
 	const { data: modelsData } = useChatModels(activeProjectId);
 	const { data: modelCatalogData } = useChatModelCatalog({
 		enabled: settingsDialogOpen,
@@ -568,7 +576,9 @@ export function useChatWorkspaceData() {
 		artifactRuns,
 		chatMode,
 		handleThemePreferenceChange,
+		isLoadingMcp,
 		isLoadingProviders,
+		isUpdatingMcp: isUpdatingMcp || isRemovingMcp,
 		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
 		loadSession: loadChatSession,
 		loadSubagentSession,
@@ -579,12 +589,16 @@ export function useChatWorkspaceData() {
 		models,
 		modelCatalog,
 		onDiscoverModels,
+		onMcpOAuth,
 		onOAuthLogin,
+		onRemoveMcp,
 		onRemoveProvider,
+		onUpdateMcp,
 		onUpdateProvider,
 		openWorkspacePath,
 		planLabel,
 		presentation,
+		mcpConnections: mcpData?.connections ?? [],
 		providers: providersData?.providers ?? [],
 		queue,
 		refreshResources,

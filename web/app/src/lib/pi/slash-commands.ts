@@ -136,6 +136,7 @@ export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
 export type SettingsSlashTab =
 	| "appearance"
 	| "chat"
+	| "mcp"
 	| "sandbox"
 	| "providers"
 	| "llm-models"
@@ -330,11 +331,16 @@ export type SlashCommandSuggestion = {
 	value: string;
 	description?: string;
 	category?: "builtin" | "extension" | "prompt" | "skill";
+	metadata?: Record<string, string | undefined>;
 };
 
 function normalizeSlashCommandName(name: string) {
 	const normalized = name.trim().replace(/\s+/g, "-");
 	return /^[\w.-]+$/.test(normalized) ? normalized : "";
+}
+
+function slashSuggestionValue(name: string) {
+	return `/${name} `;
 }
 
 function toSlashSuggestion(command: {
@@ -343,13 +349,28 @@ function toSlashSuggestion(command: {
 	argumentHint?: string;
 	category?: SlashCommandSuggestion["category"];
 }): SlashCommandSuggestion {
+	const argumentHint = command.argumentHint?.trim();
 	return {
 		id: command.name,
 		label: `/${command.name}`,
-		value: `/${command.name}${command.argumentHint ? ` ${command.argumentHint}` : ""} `,
+		value: slashSuggestionValue(command.name),
 		description: command.description,
 		category: command.category ?? "builtin",
+		...(argumentHint ? { metadata: { argumentHint } } : {}),
 	};
+}
+
+/**
+ * Selecting a suggestion with an argument hint inserts `/${name} ` into the
+ * composer. Execution happens on submit so the user can type required args.
+ */
+export function slashCommandInsertsPrefixOnSelect(item: {
+	id: string;
+	metadata?: Record<string, string | undefined>;
+}): boolean {
+	if (item.metadata?.argumentHint?.trim()) return true;
+	const builtin = WEB_BUILTIN_SLASH_COMMANDS.find((command) => command.name === item.id);
+	return Boolean(builtin?.argumentHint?.trim());
 }
 
 /**
@@ -386,12 +407,14 @@ export function buildSlashCommands(
 			if (resource.activationStatus && resource.activationStatus !== "active") continue;
 			const commandName = normalizeSlashCommandName(resource.name);
 			if (!commandName || byId.has(commandName)) continue;
+			const argumentHint = resource.argumentHint?.trim();
 			byId.set(commandName, {
 				id: commandName,
 				label: `/${commandName}`,
-				value: `/${commandName} `,
+				value: slashSuggestionValue(commandName),
 				description: resource.description,
 				category,
+				...(argumentHint ? { metadata: { argumentHint } } : {}),
 			});
 		}
 	}

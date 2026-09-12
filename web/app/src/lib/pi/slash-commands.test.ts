@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildSlashCommands, resolveLocalSlashAction, WEB_BUILTIN_SLASH_COMMANDS } from "./slash-commands";
+import {
+	buildSlashCommands,
+	resolveLocalSlashAction,
+	slashCommandInsertsPrefixOnSelect,
+	WEB_BUILTIN_SLASH_COMMANDS,
+} from "./slash-commands";
 
 describe("buildSlashCommands", () => {
 	it("keeps client dispatcher builtins when the API returns a short catalog", () => {
@@ -60,6 +65,19 @@ describe("resolveLocalSlashAction", () => {
 		expect(unresolved).toEqual([]);
 	});
 
+	it("resolves /mcp locally so it can open the MCP settings surface", () => {
+		expect(resolveLocalSlashAction("mcp")).toEqual({ type: "open-mcp", args: "" });
+		expect(resolveLocalSlashAction("mcp", "logout linear")).toEqual({
+			type: "open-mcp",
+			args: "logout linear",
+		});
+	});
+
+	it("does not execute empty /name on select so Usage is not shown until submit", () => {
+		expect(slashCommandInsertsPrefixOnSelect({ id: "name" })).toBe(true);
+		expect(resolveLocalSlashAction("name")).toEqual({ type: "session-rename", name: undefined });
+	});
+
 	it("leaves session commands for the backend chat transport", () => {
 		for (const [command, args] of [
 			["compact", "keep the latest context"],
@@ -75,9 +93,33 @@ describe("resolveLocalSlashAction", () => {
 		const openui = buildSlashCommands(null, false).find((item) => item.id === "openui");
 		expect(openui).toMatchObject({
 			label: "/openui",
-			value: "/openui <request> ",
+			value: "/openui ",
 			description: "Generate a durable OpenUI HTML artifact",
+			metadata: { argumentHint: "<request>" },
 		});
 		expect(resolveLocalSlashAction("compact", "summarize")).toBeNull();
+	});
+});
+
+describe("slashCommandInsertsPrefixOnSelect", () => {
+	it("inserts a prefix for argument-taking builtins instead of executing them", () => {
+		for (const id of ["name", "import", "btw", "openui", "mcp"]) {
+			expect(slashCommandInsertsPrefixOnSelect({ id })).toBe(true);
+		}
+	});
+
+	it("still executes commands that do not take arguments", () => {
+		for (const id of ["settings", "copy", "clone", "share"]) {
+			expect(slashCommandInsertsPrefixOnSelect({ id })).toBe(false);
+		}
+	});
+
+	it("keeps the argument hint out of the composer value", () => {
+		const suggestions = buildSlashCommands(null, false);
+		for (const id of ["name", "import", "btw", "openui", "mcp"]) {
+			const suggestion = suggestions.find((item) => item.id === id);
+			expect(suggestion?.value).toBe(`/${id} `);
+			expect(suggestion?.value).not.toMatch(/\[|</);
+		}
 	});
 });

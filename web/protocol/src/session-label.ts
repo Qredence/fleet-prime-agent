@@ -8,6 +8,9 @@ const SECRET_VALUE_PATTERNS = [
 const NAMED_SECRET_PATTERN =
 	/\b(api[ _-]?key|access[ _-]?token|auth[ _-]?token|bearer|password|secret)\s*([:=])\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi;
 
+/** Upstream SessionManager placeholder when a listing counted no user turns. */
+export const EMPTY_SESSION_FIRST_MESSAGE = "(no messages)";
+
 /** Removes credential-shaped values before a transcript-derived label reaches browser chrome. */
 export function redactSessionLabelSecrets(label: string): string {
 	let redacted = label.replace(
@@ -18,4 +21,32 @@ export function redactSessionLabelSecrets(label: string): string {
 		redacted = redacted.replace(pattern, "[redacted]");
 	}
 	return redacted;
+}
+
+/** Returns a secret-redacted label, or undefined when the value is empty/placeholder. */
+export function meaningfulSessionLabel(value: string | undefined): string | undefined {
+	const trimmed = value?.trim();
+	if (!trimmed || trimmed === EMPTY_SESSION_FIRST_MESSAGE) return undefined;
+	const redacted = redactSessionLabelSecrets(trimmed).trim();
+	return redacted.length > 0 ? redacted : undefined;
+}
+
+export function fallbackSessionLabel(sessionId: string): string {
+	return sessionId.slice(0, 8);
+}
+
+export function sessionListTitle(input: { sessionId: string; title?: string; firstMessage?: string }): string {
+	return (
+		meaningfulSessionLabel(input.title) ??
+		meaningfulSessionLabel(input.firstMessage) ??
+		fallbackSessionLabel(input.sessionId)
+	);
+}
+
+/** Appends a short session-id suffix when several rows share the same visible label. */
+export function disambiguateSessionLabel(base: string, sessionId: string, collidingCount: number): string {
+	if (collidingCount <= 1) return base;
+	const suffix = sessionId.slice(-4);
+	if (base.endsWith(suffix)) return base;
+	return `${base} · ${suffix}`;
 }
