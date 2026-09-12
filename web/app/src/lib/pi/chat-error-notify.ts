@@ -14,5 +14,5 @@ export function notifyChatError(error: unknown): void {
  * Runs a workspace chrome action and surfaces failures instead of a silent no-op.
  */
 export function runWorkspaceAction(action: () => Promise<unknown>): void {
-	void Promise.resolve(action()).catch(notifyChatError);
+	void Promise.resolve().then(action).catch(notifyChatError);
 }

@@ -46,7 +46,7 @@ type UseRightPanelContextValueArgs = {
 	isUpdatingProvider?: boolean;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
-	loadWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>;
+	loadWorkspaceFile: (path: string, signal?: AbortSignal) => Promise<WorkspaceFileResponse>;
 	messages: Array<ChatMessage>;
 	onOpenSubagentTab?: (childId: string) => void;
 	modelKey?: string;

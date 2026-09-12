@@ -63,7 +63,10 @@ export type ChatPanelDataContextValue = {
 }
 
 export type WorkspaceTreeContextValue = {
-  loadWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>
+  loadWorkspaceFile: (
+    path: string,
+    signal?: AbortSignal,
+  ) => Promise<WorkspaceFileResponse>
   openWorkspacePath: (rawPath: string) => void
   refreshWorkspace: () => void
   selectedWorkspacePath: string | null

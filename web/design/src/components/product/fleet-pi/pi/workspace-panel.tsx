@@ -39,7 +39,7 @@ export type WorkspacePanelContentProps = {
 	error?: Error | null;
 	emptyDescription?: string;
 	emptyTitle?: string;
-	loadWorkspaceFile: (path: string) => Promise<WorkspaceFileResponse>;
+	loadWorkspaceFile: (path: string, signal?: AbortSignal) => Promise<WorkspaceFileResponse>;
 	loading: boolean;
 	onSelectedPathChange?: (path: string | null) => void;
 	previewEmptyDescription?: string;
@@ -155,7 +155,7 @@ export function WorkspacePanelContent({
 		void (async () => {
 			try {
 				const body = await Promise.race([
-					loadWorkspaceFile(selected),
+					loadWorkspaceFile(selected, controller.signal),
 					new Promise<never>((_, reject) => {
 						const onAbort = () => reject(new DOMException("Preview timed out", "AbortError"));
 						if (controller.signal.aborted) {

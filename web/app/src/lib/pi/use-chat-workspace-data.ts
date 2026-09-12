@@ -547,7 +547,7 @@ export function useChatWorkspaceData() {
 		[modelCatalogData, models],
 	);
 	const loadProjectWorkspaceFile = useCallback(
-		(path: string) => loadWorkspaceFile(path, activeProjectId),
+		(path: string, signal?: AbortSignal) => loadWorkspaceFile(path, activeProjectId, signal),
 		[activeProjectId],
 	);
 	const loadChatSession = useCallback(

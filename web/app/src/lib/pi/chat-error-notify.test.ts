@@ -63,4 +63,11 @@ describe("notifyChatError", () => {
 		});
 		await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith("Unable to create session"));
 	});
+
+	it("surfaces synchronous workspace chrome action failures", async () => {
+		runWorkspaceAction(() => {
+			throw new Error("Unable to open workspace");
+		});
+		await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith("Unable to open workspace"));
+	});
 });
