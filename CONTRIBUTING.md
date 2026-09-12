@@ -65,7 +65,7 @@ Playwright smoke (`pnpm --filter @prime-agent/web test:e2e`) is local-only; Circ
 
 Never use `npm install` or `npm ci` at the repository root, and do not add a root `package-lock.json`.
 
-Provider credentials belong in **Settings → Providers**, not in the repo. See `.env.example` for optional Vite/debug flags.
+Provider credentials belong in **Settings → Providers**, not in the repo. See `web/app/.env.example` for optional Vite/debug flags (copy into `web/app/.env.local`).
 
 ## Changesets
 
