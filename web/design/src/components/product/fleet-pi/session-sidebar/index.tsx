@@ -1,9 +1,9 @@
-import { useFleetSessionSidebarState } from "./state";
-import { useFleetSessionSidebarViewModel } from "./view-model";
-import { FleetSessionSidebarNavigation } from "./navigation";
-import { FleetSessionSidebarCreateDialog } from "./create-project-dialog";
 import { FleetSessionSidebarActionDialogs, type SidebarActionDialogsProps } from "./action-dialogs";
+import { FleetSessionSidebarCreateDialog } from "./create-project-dialog";
+import { FleetSessionSidebarNavigation } from "./navigation";
+import { useFleetSessionSidebarState } from "./state";
 import { EMPTY_PROJECTS, type FleetSessionSidebarProps } from "./types";
+import { useFleetSessionSidebarViewModel } from "./view-model";
 
 export type { FleetSessionSidebarProps } from "./types";
 
@@ -25,27 +25,10 @@ export function FleetSessionSidebar({
 	navigationActions = {},
 	slots = {},
 }: FleetSessionSidebarProps) {
-	const {
-		sessions,
-		projects = EMPTY_PROJECTS,
-		projectSessions = sessions,
-		activeProjectId,
-		activeSessionId,
-	} = data;
-	const {
-		onNewSession,
-		onNewSessionInProject,
-		onResumeSession,
-		onRenameSession,
-		onDeleteSession,
-	} = sessionActions;
-	const {
-		onProjectSelect,
-		onCreateProject,
-		onRenameProject,
-		onUnregisterProject,
-		onForkSessionIntoProject,
-	} = projectActions;
+	const { sessions, projects = EMPTY_PROJECTS, projectSessions = sessions, activeProjectId, activeSessionId } = data;
+	const { onNewSession, onNewSessionInProject, onResumeSession, onRenameSession, onDeleteSession } = sessionActions;
+	const { onProjectSelect, onCreateProject, onRenameProject, onUnregisterProject, onForkSessionIntoProject } =
+		projectActions;
 	const { onOpenPanelAction, onBrowseDirectories, onOpenSettings } = navigationActions;
 	const { accountMenu } = slots;
 	const state = useFleetSessionSidebarState(activeProjectId);

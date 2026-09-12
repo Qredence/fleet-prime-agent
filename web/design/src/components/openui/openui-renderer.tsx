@@ -1,265 +1,227 @@
-import { BuiltinActionType, Renderer } from "@openuidev/react-lang"
-import { useCallback, useMemo, useState } from "react"
-import { Markdown } from "../registry/beui/agents/markdown"
-import { UiErrorBoundary } from "../product/fleet-pi/ui-error-boundary"
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
-import { Button } from "../ui/button"
-import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract"
+import type { ActionEvent, OpenUIError, ParseResult } from "@openuidev/react-lang";
+import { BuiltinActionType, Renderer } from "@openuidev/react-lang";
+import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
+import { useCallback, useMemo, useState } from "react";
+import { UiErrorBoundary } from "../product/fleet-pi/ui-error-boundary";
+import { Markdown } from "../registry/beui/agents/markdown";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Button } from "../ui/button";
+import { type OpenUIArtifactCandidate, OpenUIArtifactProvider } from "./html-artifact";
+import { encodeOpenPanelActionMessage } from "./open-panel-action-message";
+import { openUILibrary } from "./openui-library";
+import { segmentOpenUIContent } from "./openui-utils";
 
-import { openUILibrary } from "./openui-library"
-import { encodeOpenPanelActionMessage } from "./open-panel-action-message"
-import { segmentOpenUIContent } from "./openui-utils"
-import {
-  OpenUIArtifactProvider,
-  type OpenUIArtifactCandidate,
-} from "./html-artifact"
-import type {
-  ActionEvent,
-  OpenUIError,
-  ParseResult,
-} from "@openuidev/react-lang"
-
-type OpenUIStateByBlock = Record<string, Record<string, unknown>>
+type OpenUIStateByBlock = Record<string, Record<string, unknown>>;
 
 function getActionMessage(event: ActionEvent) {
-  if (event.type === BuiltinActionType.OpenUrl) return null
+	if (event.type === BuiltinActionType.OpenUrl) return null;
 
-  if (event.type === "fleet.open_panel") {
-    const action = OpenPanelActionSchema.safeParse(event.params)
-    return action.success ? encodeOpenPanelActionMessage(action.data) : null
-  }
+	if (event.type === "fleet.open_panel") {
+		const action = OpenPanelActionSchema.safeParse(event.params);
+		return action.success ? encodeOpenPanelActionMessage(action.data) : null;
+	}
 
-  if (event.type === BuiltinActionType.ContinueConversation) {
-    const message = event.params.message
-    if (typeof message === "string" && message.trim()) return message
-  }
+	if (event.type === BuiltinActionType.ContinueConversation) {
+		const message = event.params.message;
+		if (typeof message === "string" && message.trim()) return message;
+	}
 
-  return event.humanFriendlyMessage.trim() || null
+	return event.humanFriendlyMessage.trim() || null;
 }
 
 function getFinalErrors(result: ParseResult | null, isStreaming?: boolean) {
-  if (!result || isStreaming) return []
+	if (!result || isStreaming) return [];
 
-  const unresolvedErrors = result.meta.unresolved.map((ref) => ({
-    code: "unresolved-reference",
-    message: `Reference "${ref}" was used but never defined.`,
-    source: "parser",
-  }))
+	const unresolvedErrors = result.meta.unresolved.map((ref) => ({
+		code: "unresolved-reference",
+		message: `Reference "${ref}" was used but never defined.`,
+		source: "parser",
+	}));
 
-  return [...result.meta.errors, ...unresolvedErrors]
+	return [...result.meta.errors, ...unresolvedErrors];
 }
 
-function OpenUIDiagnostics({
-  errors,
-  onRepair,
-  raw,
-}: {
-  errors: Array<unknown>
-  onRepair?: () => void
-  raw: string
-}) {
-  if (errors.length === 0) return null
+function OpenUIDiagnostics({ errors, onRepair, raw }: { errors: Array<unknown>; onRepair?: () => void; raw: string }) {
+	if (errors.length === 0) return null;
 
-  const messages = errors
-    .map((error) => {
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
-        typeof error.message === "string"
-      ) {
-        return error.message
-      }
+	const messages = errors
+		.map((error) => {
+			if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
+				return error.message;
+			}
 
-      return null
-    })
-    .filter((message): message is string => Boolean(message))
+			return null;
+		})
+		.filter((message): message is string => Boolean(message));
 
-  const summary = messages[0] ?? "OpenUI output could not be rendered."
+	const summary = messages[0] ?? "OpenUI output could not be rendered.";
 
-  return (
-    <Alert variant="destructive" className="mt-4 w-full">
-      <AlertTitle>OpenUI could not be rendered</AlertTitle>
-      <AlertDescription>
-      <p className="mb-3 leading-relaxed">
-        The generated UI could not be rendered. {summary}
-      </p>
-      <details className="border-t border-destructive/30 pt-3">
-        <summary className="cursor-pointer font-semibold">
-          Technical details
-        </summary>
-        <pre className="mt-3 mb-4 font-mono whitespace-pre-wrap">
-          {JSON.stringify(errors, null, 2)}
-        </pre>
-        <div className="border-t border-red-500/30 pt-4">
-          <h5 className="mb-2 font-bold">Raw output generated by AI:</h5>
-          <pre className="font-mono whitespace-pre-wrap">{raw}</pre>
-        </div>
-      </details>
-      {onRepair ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="mt-3"
-          onClick={onRepair}
-        >
-          Repair UI
-        </Button>
-      ) : null}
-      </AlertDescription>
-    </Alert>
-  )
+	return (
+		<Alert variant="destructive" className="mt-4 w-full">
+			<AlertTitle>OpenUI could not be rendered</AlertTitle>
+			<AlertDescription>
+				<p className="mb-3 leading-relaxed">The generated UI could not be rendered. {summary}</p>
+				<details className="border-t border-destructive/30 pt-3">
+					<summary className="cursor-pointer font-semibold">Technical details</summary>
+					<pre className="mt-3 mb-4 font-mono whitespace-pre-wrap">{JSON.stringify(errors, null, 2)}</pre>
+					<div className="border-t border-red-500/30 pt-4">
+						<h5 className="mb-2 font-bold">Raw output generated by AI:</h5>
+						<pre className="font-mono whitespace-pre-wrap">{raw}</pre>
+					</div>
+				</details>
+				{onRepair ? (
+					<Button type="button" size="sm" variant="outline" className="mt-3" onClick={onRepair}>
+						Repair UI
+					</Button>
+				) : null}
+			</AlertDescription>
+		</Alert>
+	);
 }
 
 function OpenUIBlock({
-  blockId,
-  content,
-  initialState,
-  isStreaming,
-  messageId,
-  onAction,
-  onArtifactReady,
-  onOpenArtifact,
-  onStateUpdate,
+	blockId,
+	content,
+	initialState,
+	isStreaming,
+	messageId,
+	onAction,
+	onArtifactReady,
+	onOpenArtifact,
+	onStateUpdate,
 }: {
-  blockId: string
-  messageId?: string
-  content: string
-  initialState?: Record<string, unknown>
-  isStreaming?: boolean
-  onAction?: (message: string) => void
-  onArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
-  onOpenArtifact?: (artifactId: string) => void
-  onStateUpdate: (blockId: string, state: Record<string, unknown>) => void
+	blockId: string;
+	messageId?: string;
+	content: string;
+	initialState?: Record<string, unknown>;
+	isStreaming?: boolean;
+	onAction?: (message: string) => void;
+	onArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
+	onOpenArtifact?: (artifactId: string) => void;
+	onStateUpdate: (blockId: string, state: Record<string, unknown>) => void;
 }) {
-  const [runtimeErrors, setRuntimeErrors] = useState<Array<OpenUIError>>([])
-  const [parseResult, setParseResult] = useState<ParseResult | null>(null)
+	const [runtimeErrors, setRuntimeErrors] = useState<Array<OpenUIError>>([]);
+	const [parseResult, setParseResult] = useState<ParseResult | null>(null);
 
-  const handleError = useCallback((nextErrors: Array<OpenUIError>) => {
-    if (nextErrors.length > 0) {
-      console.warn("OpenUI parsing/validation errors:", nextErrors)
-    }
+	const handleError = useCallback((nextErrors: Array<OpenUIError>) => {
+		if (nextErrors.length > 0) {
+			console.warn("OpenUI parsing/validation errors:", nextErrors);
+		}
 
-    setTimeout(() => {
-      setRuntimeErrors((previousErrors) =>
-        JSON.stringify(previousErrors) === JSON.stringify(nextErrors)
-          ? previousErrors
-          : nextErrors
-      )
-    }, 0)
-  }, [])
+		setTimeout(() => {
+			setRuntimeErrors((previousErrors) =>
+				JSON.stringify(previousErrors) === JSON.stringify(nextErrors) ? previousErrors : nextErrors,
+			);
+		}, 0);
+	}, []);
 
-  const handleAction = useCallback(
-    (event: ActionEvent) => {
-      const message = getActionMessage(event)
-      if (message) onAction?.(message)
-    },
-    [onAction]
-  )
+	const handleAction = useCallback(
+		(event: ActionEvent) => {
+			const message = getActionMessage(event);
+			if (message) onAction?.(message);
+		},
+		[onAction],
+	);
 
-  const finalErrors = getFinalErrors(parseResult, isStreaming)
+	const finalErrors = getFinalErrors(parseResult, isStreaming);
 
-  return (
-    <div className="flex w-full flex-col gap-2">
-      <UiErrorBoundary resetKeys={[content]}>
-        <OpenUIArtifactProvider
-          value={{
-            messageId,
-            artifactIndex: 0,
-            onArtifactReady,
-            onOpenArtifact,
-          }}
-        >
-          <Renderer
-            initialState={initialState}
-            isStreaming={isStreaming}
-            library={openUILibrary}
-            response={content}
-            onAction={handleAction}
-            onError={handleError}
-            onParseResult={setParseResult}
-            onStateUpdate={(state) => onStateUpdate(blockId, state)}
-          />
-        </OpenUIArtifactProvider>
-      </UiErrorBoundary>
-      <OpenUIDiagnostics
-        errors={[...runtimeErrors, ...finalErrors]}
-        onRepair={
-          onAction
-            ? () =>
-                onAction(
-                  "Repair the invalid OpenUI in your previous response and return a corrected OpenUI block.",
-                )
-            : undefined
-        }
-        raw={content}
-      />
-    </div>
-  )
+	return (
+		<div className="flex w-full flex-col gap-2">
+			<UiErrorBoundary resetKeys={[content]}>
+				<OpenUIArtifactProvider
+					value={{
+						messageId,
+						artifactIndex: 0,
+						onArtifactReady,
+						onOpenArtifact,
+					}}
+				>
+					<Renderer
+						initialState={initialState}
+						isStreaming={isStreaming}
+						library={openUILibrary}
+						response={content}
+						onAction={handleAction}
+						onError={handleError}
+						onParseResult={setParseResult}
+						onStateUpdate={(state) => onStateUpdate(blockId, state)}
+					/>
+				</OpenUIArtifactProvider>
+			</UiErrorBoundary>
+			<OpenUIDiagnostics
+				errors={[...runtimeErrors, ...finalErrors]}
+				onRepair={
+					onAction
+						? () =>
+								onAction(
+									"Repair the invalid OpenUI in your previous response and return a corrected OpenUI block.",
+								)
+						: undefined
+				}
+				raw={content}
+			/>
+		</div>
+	);
 }
 
 export function GenerativeTextRenderer({
-  content,
-  className,
-  isStreaming,
-  messageId,
-  onOpenUIAction,
-  onOpenUIArtifactReady,
-  onOpenArtifact,
+	content,
+	className,
+	isStreaming,
+	messageId,
+	onOpenUIAction,
+	onOpenUIArtifactReady,
+	onOpenArtifact,
 }: {
-  content: string
-  className?: string
-  isStreaming?: boolean
-  messageId?: string
-  onOpenUIAction?: (message: string) => void
-  onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
-  onOpenArtifact?: (artifactId: string) => void
+	content: string;
+	className?: string;
+	isStreaming?: boolean;
+	messageId?: string;
+	onOpenUIAction?: (message: string) => void;
+	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
+	onOpenArtifact?: (artifactId: string) => void;
 }) {
-  const [stateByBlock, setStateByBlock] = useState<OpenUIStateByBlock>({})
-  const segments = useMemo(() => segmentOpenUIContent(content), [content])
+	const [stateByBlock, setStateByBlock] = useState<OpenUIStateByBlock>({});
+	const segments = useMemo(() => segmentOpenUIContent(content), [content]);
 
-  const updateBlockState = useCallback(
-    (blockId: string, state: Record<string, unknown>) => {
-      setStateByBlock((previous) => ({ ...previous, [blockId]: state }))
-    },
-    []
-  )
+	const updateBlockState = useCallback((blockId: string, state: Record<string, unknown>) => {
+		setStateByBlock((previous) => ({ ...previous, [blockId]: state }));
+	}, []);
 
-  if (segments.length === 1 && segments[0]?.type === "markdown") {
-    return <Markdown className={className} content={content} />
-  }
+	if (segments.length === 1 && segments[0]?.type === "markdown") {
+		return <Markdown className={className} content={content} />;
+	}
 
-  return (
-    <div className={`flex w-full flex-col gap-3 ${className ?? ""}`}>
-      {segments.map((segment) => {
-        if (segment.type === "markdown") {
-          return (
-            <Markdown
-              key={segment.id}
-              content={segment.content}
-              className="leading-relaxed [&_p]:leading-relaxed"
-            />
-          )
-        }
+	return (
+		<div className={`flex w-full flex-col gap-3 ${className ?? ""}`}>
+			{segments.map((segment) => {
+				if (segment.type === "markdown") {
+					return (
+						<Markdown
+							key={segment.id}
+							content={segment.content}
+							className="leading-relaxed [&_p]:leading-relaxed"
+						/>
+					);
+				}
 
-        const blockId = `${messageId ?? "message"}:${segment.id}`
+				const blockId = `${messageId ?? "message"}:${segment.id}`;
 
-        return (
-          <OpenUIBlock
-            key={blockId}
-            blockId={blockId}
-            messageId={messageId}
-            content={segment.content}
-            initialState={stateByBlock[blockId]}
-            isStreaming={isStreaming}
-            onAction={onOpenUIAction}
-            onArtifactReady={onOpenUIArtifactReady}
-            onOpenArtifact={onOpenArtifact}
-            onStateUpdate={updateBlockState}
-          />
-        )
-      })}
-    </div>
-  )
+				return (
+					<OpenUIBlock
+						key={blockId}
+						blockId={blockId}
+						messageId={messageId}
+						content={segment.content}
+						initialState={stateByBlock[blockId]}
+						isStreaming={isStreaming}
+						onAction={onOpenUIAction}
+						onArtifactReady={onOpenUIArtifactReady}
+						onOpenArtifact={onOpenArtifact}
+						onStateUpdate={updateBlockState}
+					/>
+				);
+			})}
+		</div>
+	);
 }

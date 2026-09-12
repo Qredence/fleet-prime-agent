@@ -1,30 +1,29 @@
-import { ChevronRight, LayoutTemplate, Package } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types"
-import type { PrimeAgentArtifact, PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol"
+import type { PrimeAgentArtifact, PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import type { OpenUIHtmlArtifactPayload } from "@prime-agent/web-protocol/openui-artifact";
+import { ChevronRight, LayoutTemplate, Package } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { OpenUIHtmlArtifactView } from "../../../openui/html-artifact";
+import { GenerativeTextRenderer } from "../../../openui/inline-renderer";
+import { CodeBlock } from "../../../registry/beui/agents/code-block";
+import { FileDiff, type FileDiffStatus } from "../../../registry/beui/agents/file-diff";
+import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../../registry/beui/agents/tool-result";
+import { Button } from "../../../ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../../ui/collapsible";
+import { UiErrorBoundary } from "../ui-error-boundary";
+import type { SessionOpenUIBlock } from "./artifacts-utils";
+import { collectSessionOpenUIBlocks } from "./artifacts-utils";
+import { primeAgentArtifactDiff } from "./prime-agent-artifacts";
 
-import { GenerativeTextRenderer } from "../../../openui/inline-renderer"
-import { OpenUIHtmlArtifactView } from "../../../openui/html-artifact"
-import { Button } from "../../../ui/button"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../../ui/collapsible"
-import { UiErrorBoundary } from "../ui-error-boundary"
-import { CodeBlock } from "../../../registry/beui/agents/code-block"
-import { FileDiff, type FileDiffStatus } from "../../../registry/beui/agents/file-diff"
-import { ToolResult, ToolResultOutput, type ToolResultStatus } from "../../../registry/beui/agents/tool-result"
-import { collectSessionOpenUIBlocks } from "./artifacts-utils"
-import type { SessionOpenUIBlock } from "./artifacts-utils"
-import { primeAgentArtifactDiff } from "./prime-agent-artifacts"
-import type { OpenUIHtmlArtifactPayload } from "@prime-agent/web-protocol/openui-artifact"
-
-const DEFAULT_ARTIFACT_RUNS: Array<PrimeAgentArtifactRun> = []
+const DEFAULT_ARTIFACT_RUNS: Array<PrimeAgentArtifactRun> = [];
 
 type ArtifactsPanelContentProps = {
-	messages: Array<ChatMessage>
-	onOpenUIAction?: (message: string) => void
-	status: ChatStatus
-	artifactRuns?: Array<PrimeAgentArtifactRun>
-	selectedArtifactId?: string | null
-}
+	messages: Array<ChatMessage>;
+	onOpenUIAction?: (message: string) => void;
+	status: ChatStatus;
+	artifactRuns?: Array<PrimeAgentArtifactRun>;
+	selectedArtifactId?: string | null;
+};
 
 /**
  * Converts a value to displayable text.
@@ -33,12 +32,12 @@ type ArtifactsPanelContentProps = {
  * @returns The original string, an empty string for `null` or `undefined`, or a JSON representation of the value
  */
 function textValue(value: unknown): string {
-	if (typeof value === "string") return value
-	if (value === undefined || value === null) return ""
+	if (typeof value === "string") return value;
+	if (value === undefined || value === null) return "";
 	try {
-		return JSON.stringify(value, null, 2)
+		return JSON.stringify(value, null, 2);
 	} catch {
-		return String(value)
+		return String(value);
 	}
 }
 
@@ -49,7 +48,13 @@ function textValue(value: unknown): string {
  * @returns The corresponding tool result status
  */
 function artifactStatus(status: PrimeAgentArtifact["status"]): ToolResultStatus {
-	return status === "running" ? "running" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "success"
+	return status === "running"
+		? "running"
+		: status === "error"
+			? "error"
+			: status === "cancelled"
+				? "cancelled"
+				: "success";
 }
 
 /**
@@ -59,7 +64,13 @@ function artifactStatus(status: PrimeAgentArtifact["status"]): ToolResultStatus 
  * @returns The corresponding file-diff status
  */
 function artifactDiffStatus(status: PrimeAgentArtifact["status"]): FileDiffStatus {
-	return status === "running" ? "streaming" : status === "error" ? "error" : status === "cancelled" ? "cancelled" : "complete"
+	return status === "running"
+		? "streaming"
+		: status === "error"
+			? "error"
+			: status === "cancelled"
+				? "cancelled"
+				: "complete";
 }
 
 /**
@@ -69,60 +80,68 @@ function artifactDiffStatus(status: PrimeAgentArtifact["status"]): FileDiffStatu
  * @returns Labeled output sections for display.
  */
 function outputSections(value: unknown): Array<{ label: string; text: string }> {
-	const source = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined
-	if (!source) return value === undefined ? [] : [{ label: "result", text: textValue(value) }]
-	const sections: Array<{ label: string; text: string }> = []
+	const source = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : undefined;
+	if (!source) return value === undefined ? [] : [{ label: "result", text: textValue(value) }];
+	const sections: Array<{ label: string; text: string }> = [];
 	for (const label of ["stdout", "stderr", "result", "error"] as const) {
-		if (source[label] === undefined || source[label] === "") continue
-		sections.push({ label, text: textValue(source[label]) })
+		if (source[label] === undefined || source[label] === "") continue;
+		sections.push({ label, text: textValue(source[label]) });
 	}
-	const nested = source.details ?? source.output ?? source.result
+	const nested = source.details ?? source.output ?? source.result;
 	if (sections.length === 0 && nested !== value) {
-		sections.push(...outputSections(nested))
+		sections.push(...outputSections(nested));
 	}
 	if (sections.length === 0 && Array.isArray(source.content)) {
 		const text = source.content
 			.flatMap((part) => {
-				if (typeof part === "string") return [part]
-				if (typeof part === "object" && part !== null && "text" in part && typeof part.text === "string") return [part.text]
-				return []
+				if (typeof part === "string") return [part];
+				if (typeof part === "object" && part !== null && "text" in part && typeof part.text === "string")
+					return [part.text];
+				return [];
 			})
-			.join("")
-		if (text) sections.push({ label: source.isError === true ? "error" : "stdout", text })
+			.join("");
+		if (text) sections.push({ label: source.isError === true ? "error" : "stdout", text });
 	}
-	if (sections.length > 0) return sections
-	return [{ label: "result", text: textValue(value) }]
+	if (sections.length > 0) return sections;
+	return [{ label: "result", text: textValue(value) }];
 }
 
-function artifactSource(artifact: PrimeAgentArtifact): { code: string; language: "bash" | "python" | "json" | "text"; label: string } | undefined {
-	const input = typeof artifact.input === "object" && artifact.input !== null ? (artifact.input as Record<string, unknown>) : undefined
-	const code = input?.command ?? input?.code ?? input?.script
-	if (typeof code !== "string" || !code) return undefined
-	if (artifact.kind === "bash") return { code, language: "bash", label: "Bash" }
-	if (artifact.kind === "ipython") return { code, language: /^\s*%%bash(?:\s|$)/im.test(code) ? "bash" : "python", label: "IPython" }
-	if (artifact.kind === "diff") return { code, language: "text", label: "Text" }
-	return { code, language: "json", label: "JSON" }
+function artifactSource(
+	artifact: PrimeAgentArtifact,
+): { code: string; language: "bash" | "python" | "json" | "text"; label: string } | undefined {
+	const input =
+		typeof artifact.input === "object" && artifact.input !== null
+			? (artifact.input as Record<string, unknown>)
+			: undefined;
+	const code = input?.command ?? input?.code ?? input?.script;
+	if (typeof code !== "string" || !code) return undefined;
+	if (artifact.kind === "bash") return { code, language: "bash", label: "Bash" };
+	if (artifact.kind === "ipython")
+		return { code, language: /^\s*%%bash(?:\s|$)/im.test(code) ? "bash" : "python", label: "IPython" };
+	if (artifact.kind === "diff") return { code, language: "text", label: "Text" };
+	return { code, language: "json", label: "JSON" };
 }
 
 function openUIArtifactPayload(artifact: PrimeAgentArtifact): OpenUIHtmlArtifactPayload | undefined {
-	if (artifact.kind !== "openui-html") return undefined
-	const output = typeof artifact.output === "object" && artifact.output !== null
-		? artifact.output as Record<string, unknown>
-		: undefined
-	if (typeof output?.title !== "string" || typeof output.document !== "string") return undefined
-	return { title: output.title, document: output.document }
+	if (artifact.kind !== "openui-html") return undefined;
+	const output =
+		typeof artifact.output === "object" && artifact.output !== null
+			? (artifact.output as Record<string, unknown>)
+			: undefined;
+	if (typeof output?.title !== "string" || typeof output.document !== "string") return undefined;
+	return { title: output.title, document: output.document };
 }
 
 function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
-	const cardRef = useRef<HTMLElement>(null)
+	const cardRef = useRef<HTMLElement>(null);
 	useEffect(() => {
-		if (!selected) return
+		if (!selected) return;
 		requestAnimationFrame(() => {
-			cardRef.current?.focus({ preventScroll: true })
-			cardRef.current?.scrollIntoView({ block: "nearest" })
-		})
-	}, [selected])
-	const payload = openUIArtifactPayload(artifact)
+			cardRef.current?.focus({ preventScroll: true });
+			cardRef.current?.scrollIntoView({ block: "nearest" });
+		});
+	}, [selected]);
+	const payload = openUIArtifactPayload(artifact);
 	return (
 		<article
 			ref={cardRef}
@@ -148,7 +167,7 @@ function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; 
 				</div>
 			)}
 		</article>
-	)
+	);
 }
 
 /**
@@ -158,20 +177,21 @@ function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; 
  * @param selected - Whether the artifact is selected and should be focused and opened.
  */
 function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
-	const cardRef = useRef<HTMLElement>(null)
-	const initiallyOpen = selected || artifact.status === "running"
-	const [open, setOpen] = useState(initiallyOpen)
+	const cardRef = useRef<HTMLElement>(null);
+	const initiallyOpen = selected || artifact.status === "running";
+	const [open, setOpen] = useState(initiallyOpen);
 	useEffect(() => {
-		if (!selected) return
-		setOpen(true)
+		if (!selected) return;
+		setOpen(true);
 		requestAnimationFrame(() => {
-			cardRef.current?.focus({ preventScroll: true })
-			cardRef.current?.scrollIntoView({ block: "nearest" })
-		})
-	}, [selected])
-	const source = artifactSource(artifact)
-	const sections = outputSections(artifact.output)
-	const diff = artifact.kind === "diff" || artifact.kind === "refinement" ? primeAgentArtifactDiff(artifact) : undefined
+			cardRef.current?.focus({ preventScroll: true });
+			cardRef.current?.scrollIntoView({ block: "nearest" });
+		});
+	}, [selected]);
+	const source = artifactSource(artifact);
+	const sections = outputSections(artifact.output);
+	const diff =
+		artifact.kind === "diff" || artifact.kind === "refinement" ? primeAgentArtifactDiff(artifact) : undefined;
 	return (
 		<article
 			ref={cardRef}
@@ -226,7 +246,7 @@ function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifac
 				</ToolResult>
 			)}
 		</article>
-	)
+	);
 }
 
 /**
@@ -245,11 +265,11 @@ function GenerativeUiBlockRow({
 	onOpenUIAction,
 	onToggle,
 }: {
-	block: SessionOpenUIBlock
-	expanded: boolean
-	isStreaming: boolean
-	onOpenUIAction?: (message: string) => void
-	onToggle: () => void
+	block: SessionOpenUIBlock;
+	expanded: boolean;
+	isStreaming: boolean;
+	onOpenUIAction?: (message: string) => void;
+	onToggle: () => void;
 }) {
 	return (
 		<Collapsible open={expanded} onOpenChange={onToggle}>
@@ -282,7 +302,7 @@ function GenerativeUiBlockRow({
 				</div>
 			</CollapsibleContent>
 		</Collapsible>
-	)
+	);
 }
 
 /**
@@ -301,18 +321,18 @@ export function ArtifactsPanelContent({
 	artifactRuns = DEFAULT_ARTIFACT_RUNS,
 	selectedArtifactId,
 }: ArtifactsPanelContentProps) {
-	const blocks = useMemo(() => collectSessionOpenUIBlocks(messages), [messages])
-	const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null)
-	const latestStreaming = status === "streaming" ? blocks.at(-1)?.blockId : undefined
-	const technicalArtifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns])
+	const blocks = useMemo(() => collectSessionOpenUIBlocks(messages), [messages]);
+	const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
+	const latestStreaming = status === "streaming" ? blocks.at(-1)?.blockId : undefined;
+	const technicalArtifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns]);
 	const openUIArtifacts = useMemo(
 		() => technicalArtifacts.filter((artifact) => artifact.kind === "openui-html"),
 		[technicalArtifacts],
-	)
+	);
 	const nonOpenUIArtifacts = useMemo(
 		() => technicalArtifacts.filter((artifact) => artifact.kind !== "openui-html" && artifact.kind !== "ipython"),
 		[technicalArtifacts],
-	)
+	);
 
 	return (
 		<div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
@@ -320,12 +340,18 @@ export function ArtifactsPanelContent({
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 						<LayoutTemplate className="size-3.5 shrink-0 text-foreground/45" />
-						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">OpenUI artifacts</span>
+						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
+							OpenUI artifacts
+						</span>
 						<span className="shrink-0 text-[0.625rem] text-foreground/40">{openUIArtifacts.length}</span>
 					</div>
 					<div className="space-y-1">
 						{openUIArtifacts.map((artifact) => (
-							<OpenUIArtifact key={artifact.id} artifact={artifact} selected={artifact.id === selectedArtifactId} />
+							<OpenUIArtifact
+								key={artifact.id}
+								artifact={artifact}
+								selected={artifact.id === selectedArtifactId}
+							/>
 						))}
 					</div>
 				</div>
@@ -334,12 +360,18 @@ export function ArtifactsPanelContent({
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 						<Package className="size-3.5 shrink-0 text-foreground/45" />
-						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Technical artifacts</span>
+						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
+							Technical artifacts
+						</span>
 						<span className="shrink-0 text-[0.625rem] text-foreground/40">{nonOpenUIArtifacts.length}</span>
 					</div>
 					<div className="space-y-1">
 						{nonOpenUIArtifacts.map((artifact) => (
-							<TechnicalArtifact key={artifact.id} artifact={artifact} selected={artifact.id === selectedArtifactId} />
+							<TechnicalArtifact
+								key={artifact.id}
+								artifact={artifact}
+								selected={artifact.id === selectedArtifactId}
+							/>
 						))}
 					</div>
 				</div>
@@ -347,17 +379,15 @@ export function ArtifactsPanelContent({
 			<div className="flex min-h-0 flex-col">
 				<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 					<LayoutTemplate className="size-3.5 shrink-0 text-foreground/45" />
-					<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
-						Generative UI
-					</span>
+					<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Generative UI</span>
 					<span className="shrink-0 text-[0.625rem] text-foreground/40">
 						{blocks.length > 0 ? `${blocks.length}` : "none yet"}
 					</span>
 				</div>
 				{blocks.length === 0 ? (
 					<p className="px-2 pb-1 text-[0.6875rem] leading-4 text-foreground/40">
-						OpenUI interfaces the agent generates in this session appear here, and can be
-						re-opened without scrolling the conversation.
+						OpenUI interfaces the agent generates in this session appear here, and can be re-opened without
+						scrolling the conversation.
 					</p>
 				) : (
 					<div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto">
@@ -365,19 +395,17 @@ export function ArtifactsPanelContent({
 							<GenerativeUiBlockRow
 								key={block.blockId}
 								block={block}
-							expanded={block.blockId === expandedBlockId}
+								expanded={block.blockId === expandedBlockId}
 								isStreaming={block.blockId === latestStreaming}
 								onOpenUIAction={onOpenUIAction}
 								onToggle={() =>
-									setExpandedBlockId((current) =>
-										current === block.blockId ? null : block.blockId,
-									)
+									setExpandedBlockId((current) => (current === block.blockId ? null : block.blockId))
 								}
 							/>
 						))}
 					</div>
-					)}
+				)}
 			</div>
 		</div>
-	)
+	);
 }

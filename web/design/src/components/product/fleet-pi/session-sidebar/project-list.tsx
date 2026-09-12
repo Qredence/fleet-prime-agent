@@ -1,15 +1,30 @@
-import { ChevronDown, CircleStop, Folder, FolderPlus, LoaderCircle, MessageSquarePlus, MoreHorizontal, Plus, TriangleAlert } from "lucide-react";
-import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
+import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
+import {
+	ChevronDown,
+	CircleStop,
+	Folder,
+	FolderPlus,
+	LoaderCircle,
+	MessageSquarePlus,
+	MoreHorizontal,
+	Plus,
+	TriangleAlert,
+} from "lucide-react";
 import type { AISidebarProps, SidebarResource } from "../../../registry/beui/agents/ai-sidebar";
 import { AISidebar } from "../../../registry/beui/agents/ai-sidebar";
 import { Popover } from "../../../registry/beui/agents/input/input-popover";
+import {
+	AnimatedSidebarContent,
+	AnimatedSidebarGroup,
+	AnimatedSidebarGroupContent,
+	AnimatedSidebarGroupLabel,
+} from "../../../registry/beui/motion/animated-sidebar";
 import { ProjectFolder } from "../../../registry/beui/motion/project-folder";
 import { Button } from "../../../ui/button";
-import { AnimatedSidebarContent, AnimatedSidebarGroup, AnimatedSidebarGroupContent, AnimatedSidebarGroupLabel } from "../../../registry/beui/motion/animated-sidebar";
 import type { SidebarStateView } from "./state";
 import type { FleetSessionSidebarDependencies } from "./types";
-import { PROJECT_PREFIX, SESSION_PREFIX, idValue, projectResourceId, sessionResourceId } from "./types";
+import { idValue, PROJECT_PREFIX, projectResourceId, SESSION_PREFIX, sessionResourceId } from "./types";
 
 type SidebarProjectListProps = {
 	projectActionsOpen: SidebarStateView["projectActionsOpen"];

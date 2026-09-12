@@ -1,16 +1,11 @@
-import { Eye, EyeOff, Lock } from "lucide-react"
-import { useId } from "react"
-import { Field, FieldLabel } from "../../../../../ui/field"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "../../../../../ui/input-group"
-import { cn } from "../../../../../../lib/utils"
-import { HIT_AREA_EXPAND_CLASS } from "../../../styles/tokens"
-import type { LucideIcon } from "lucide-react"
-import type { ComponentProps } from "react"
+import type { LucideIcon } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
+import type { ComponentProps } from "react";
+import { useId } from "react";
+import { cn } from "../../../../../../lib/utils";
+import { Field, FieldLabel } from "../../../../../ui/field";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../../../../../ui/input-group";
+import { HIT_AREA_EXPAND_CLASS } from "../../../styles/tokens";
 
 /**
  * Determines whether a required field should be marked invalid after a save attempt.
@@ -20,109 +15,105 @@ import type { ComponentProps } from "react"
  * @param required - Whether the field is required
  * @returns `true` if saving was attempted, the field is required, and its trimmed value is empty; `false` otherwise.
  */
-function isFieldInvalid(
-  value: string,
-  attemptedSave: boolean,
-  required = true
-): boolean {
-  return attemptedSave && required && value.trim().length === 0
+function isFieldInvalid(value: string, attemptedSave: boolean, required = true): boolean {
+	return attemptedSave && required && value.trim().length === 0;
 }
 
 export function SecretCredentialField({
-  attemptedSave,
-  label,
-  onChange,
-  onToggleVisibility,
-  placeholder,
-  required = true,
-  showPassword,
-  value,
+	attemptedSave,
+	label,
+	onChange,
+	onToggleVisibility,
+	placeholder,
+	required = true,
+	showPassword,
+	value,
 }: {
-  attemptedSave: boolean
-  label: string
-  onChange: (value: string) => void
-  onToggleVisibility: () => void
-  placeholder: string
-  required?: boolean
-  showPassword: boolean
-  value: string
+	attemptedSave: boolean;
+	label: string;
+	onChange: (value: string) => void;
+	onToggleVisibility: () => void;
+	placeholder: string;
+	required?: boolean;
+	showPassword: boolean;
+	value: string;
 }) {
-  const controlId = useId()
-  const invalid = isFieldInvalid(value, attemptedSave, required)
+	const controlId = useId();
+	const invalid = isFieldInvalid(value, attemptedSave, required);
 
-  return (
-    <Field data-invalid={invalid || undefined}>
-      <FieldLabel htmlFor={controlId}>{label}</FieldLabel>
-      <InputGroup>
-        <InputGroupAddon align="inline-start">
-          <Lock />
-        </InputGroupAddon>
-        <InputGroupInput
-          id={controlId}
-          type={showPassword ? "text" : "password"}
-          placeholder={placeholder}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          aria-label={label}
-          aria-invalid={invalid || undefined}
-        />
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton
-            size="icon-xs"
-            className={cn(
-              HIT_AREA_EXPAND_CLASS,
-              "transition-[background-color,transform] duration-150 active:scale-[0.96]"
-            )}
-            aria-label={showPassword ? "Hide value" : "Show value"}
-            onClick={onToggleVisibility}
-          >
-            {showPassword ? <EyeOff /> : <Eye />}
-          </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
-    </Field>
-  )
+	return (
+		<Field data-invalid={invalid || undefined}>
+			<FieldLabel htmlFor={controlId}>{label}</FieldLabel>
+			<InputGroup>
+				<InputGroupAddon align="inline-start">
+					<Lock />
+				</InputGroupAddon>
+				<InputGroupInput
+					id={controlId}
+					type={showPassword ? "text" : "password"}
+					placeholder={placeholder}
+					value={value}
+					onChange={(event) => onChange(event.target.value)}
+					aria-label={label}
+					aria-invalid={invalid || undefined}
+				/>
+				<InputGroupAddon align="inline-end">
+					<InputGroupButton
+						size="icon-xs"
+						className={cn(
+							HIT_AREA_EXPAND_CLASS,
+							"transition-[background-color,transform] duration-150 active:scale-[0.96]",
+						)}
+						aria-label={showPassword ? "Hide value" : "Show value"}
+						onClick={onToggleVisibility}
+					>
+						{showPassword ? <EyeOff /> : <Eye />}
+					</InputGroupButton>
+				</InputGroupAddon>
+			</InputGroup>
+		</Field>
+	);
 }
 
 export function TextCredentialField({
-  attemptedSave,
-  icon: Icon,
-  inputType = "text",
-  label,
-  onChange,
-  placeholder,
-  required = true,
-  value,
+	attemptedSave,
+	icon: Icon,
+	inputType = "text",
+	label,
+	onChange,
+	placeholder,
+	required = true,
+	value,
 }: {
-  attemptedSave: boolean
-  icon: LucideIcon
-  inputType?: ComponentProps<"input">["type"]
-  label: string
-  onChange: (value: string) => void
-  placeholder: string
-  required?: boolean
-  value: string
+	attemptedSave: boolean;
+	icon: LucideIcon;
+	inputType?: ComponentProps<"input">["type"];
+	label: string;
+	onChange: (value: string) => void;
+	placeholder: string;
+	required?: boolean;
+	value: string;
 }) {
-  const controlId = useId()
-  const invalid = isFieldInvalid(value, attemptedSave, required)
+	const controlId = useId();
+	const invalid = isFieldInvalid(value, attemptedSave, required);
 
-  return (
-    <Field data-invalid={invalid || undefined}>
-      <FieldLabel htmlFor={controlId}>{label}</FieldLabel>
-      <InputGroup>
-        <InputGroupAddon align="inline-start">
-          <Icon />
-        </InputGroupAddon>
-        <InputGroupInput
-          id={controlId}
-          type={inputType}
-          placeholder={placeholder}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          aria-label={label}
-          aria-invalid={invalid || undefined}
-        />
-      </InputGroup>
-    </Field>
-  )
+	return (
+		<Field data-invalid={invalid || undefined}>
+			<FieldLabel htmlFor={controlId}>{label}</FieldLabel>
+			<InputGroup>
+				<InputGroupAddon align="inline-start">
+					<Icon />
+				</InputGroupAddon>
+				<InputGroupInput
+					id={controlId}
+					type={inputType}
+					placeholder={placeholder}
+					value={value}
+					onChange={(event) => onChange(event.target.value)}
+					aria-label={label}
+					aria-invalid={invalid || undefined}
+				/>
+			</InputGroup>
+		</Field>
+	);
 }

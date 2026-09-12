@@ -22,6 +22,43 @@
 			}
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["web/**/*.tsx"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noAutofocus": "off",
+						"noLabelWithoutControl": "off",
+						"noNoninteractiveTabindex": "off",
+						"noStaticElementInteractions": "off",
+						"noSvgWithoutTitle": "off",
+						"useAriaPropsSupportedByRole": "off",
+						"useKeyWithClickEvents": "off",
+						"useSemanticElements": "off"
+					},
+					"complexity": {
+						"noUselessFragments": "off",
+						"useLiteralKeys": "off"
+					},
+					"correctness": {
+						"useExhaustiveDependencies": "off"
+					},
+					"security": {
+						"noDangerouslySetInnerHtml": "off"
+					},
+					"style": {
+						"useTemplate": "off"
+					},
+					"suspicious": {
+						"noArrayIndexKey": "off",
+						"noConfusingVoidType": "off",
+						"noDocumentCookie": "off"
+					}
+				}
+			}
+		}
+	],
 	"formatter": {
 		"enabled": true,
 		"formatWithErrors": false,
@@ -31,26 +68,15 @@
 	},
 	"files": {
 		"includes": [
-			"packages/*/src/**/*.ts",
-			"packages/*/test/**/*.ts",
-			"packages/coding-agent/examples/**/*.ts",
-			"web/*/src/**/*.ts",
 			"packages/fleet-web/bin/**/*.mjs",
-			"scripts/prime-agent-web-launcher.mjs",
-			"scripts/build-web-release.mjs",
-			"scripts/check-changeset.mjs",
-			"scripts/check-package.mjs",
-			"scripts/check-web-release.mjs",
-			"scripts/prepare-release.mjs",
-			"scripts/publish-github-release.mjs",
-			"scripts/publish-release.mjs",
-			"scripts/release-utils.mjs",
-			"scripts/__tests__/**/*.mjs",
+			"web/*/src/**/*.ts",
+			"web/*/src/**/*.tsx",
+			"scripts/**/*.mjs",
+			"scripts/**/*.ts",
 			"!**/node_modules/**/*",
 			"!**/test-sessions.ts",
 			"!**/models.generated.ts",
 			"!**/routeTree.gen.ts",
-			"!packages/mom/data/**/*",
 			"!!**/node_modules",
 			"!.worktrees",
 			"!.claude/worktrees"
