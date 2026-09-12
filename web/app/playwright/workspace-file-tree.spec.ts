@@ -80,6 +80,18 @@ async function clickCenter(page: Page, locator: ReturnType<Page["locator"]>) {
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
 }
 
+async function openWorkspaceFromLauncher(page: Page) {
+	const launcher = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
+	await expect(launcher).toBeVisible()
+	const combo = launcher.getByRole("combobox", { name: "Select panel", exact: true })
+	if (await combo.isVisible()) {
+		await combo.click()
+		await page.getByRole("option", { name: /^Workspace/ }).click()
+		return
+	}
+	await launcher.getByRole("tab", { name: "Workspace", exact: true }).click()
+}
+
 function collectBrowserErrors(page: Page) {
 	const errors: Array<string> = []
 	page.on("console", (message) => {
@@ -156,7 +168,7 @@ test.describe("workspace file tree", () => {
 		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
 		await page.waitForLoadState("networkidle")
 
-		await page.getByRole("tab", { name: "Workspace", exact: true }).click()
+		await openWorkspaceFromLauncher(page)
 		const dialog = page.getByRole("dialog", { name: "Workspace", exact: true })
 		await expect(dialog).toBeVisible()
 		const mobileLauncher = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
