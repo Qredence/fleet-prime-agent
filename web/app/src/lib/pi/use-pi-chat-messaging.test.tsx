@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type {
+	ChatQueueMutationRequest,
 	ChatRequest,
 	ChatSessionInfo,
 	ChatSessionMetadata,
@@ -136,14 +137,26 @@ function createHarness(
 	const streams: Array<StreamCall> = [];
 	const persistSession = vi.fn();
 	const loadSession = vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata));
-	const deleteQueuedMessage = vi.fn().mockResolvedValue({
-		status: "applied",
-		queue: { steering: [], followUp: [] },
+	const mutateQueuedMessage = vi.fn().mockImplementation(async (request: ChatQueueMutationRequest) => {
+		if (request.mutation?.type === "replace") {
+			return {
+				status: "applied" as const,
+				queue: {
+					steering: request.lane === "steering" ? [request.mutation.text] : [],
+					followUp: request.lane === "followUp" ? [request.mutation.text] : [],
+				},
+			};
+		}
+		return { status: "applied" as const, queue: { steering: [], followUp: [] } };
 	});
+	const deleteQueuedMessage = vi.fn((request) =>
+		mutateQueuedMessage({ ...request, mutation: request.mutation ?? { type: "delete" } }),
+	);
 	const client = {
 		abortSession: vi.fn().mockResolvedValue(undefined),
 		createSession: vi.fn().mockResolvedValue(sessionResponse({ sessionId: "recovered-session" })),
 		deleteQueuedMessage,
+		mutateQueuedMessage,
 		listSessions: vi.fn().mockResolvedValue(discoveredSessions),
 		loadSession,
 		resumeSession: vi.fn().mockImplementation(async (metadata: ChatSessionMetadata) => sessionResponse(metadata)),
@@ -274,6 +287,30 @@ describe("usePiChat stream admission", () => {
 		});
 	});
 
+	it("updates a queued message optimistically and reconciles the server queue", async () => {
+		const { client, eventSources, result } = createHarness();
+		await act(async () => flush());
+
+		await act(async () => {
+			eventSources[0]?.onmessage?.(
+				new MessageEvent("message", { data: JSON.stringify({ type: "queue", steering: ["queued"], followUp: [] }) }),
+			);
+			await flush();
+		});
+		await act(async () => {
+			await result.current.editQueuedMessage("steering", 0, "queued", "updated");
+		});
+
+		expect(client.mutateQueuedMessage).toHaveBeenCalledWith({
+			sessionId: "session-a",
+			lane: "steering",
+			index: 0,
+			expectedText: "queued",
+			mutation: { type: "replace", text: "updated", lane: "steering" },
+		});
+		expect(result.current.queue).toEqual({ steering: ["updated"], followUp: [] });
+	});
+
 	it("removes a queued message optimistically and reconciles the server queue", async () => {
 		const { client, eventSources, result } = createHarness();
 		await act(async () => flush());
@@ -288,11 +325,12 @@ describe("usePiChat stream admission", () => {
 			await result.current.deleteQueuedMessage("steering", 0, "queued");
 		});
 
-		expect(client.deleteQueuedMessage).toHaveBeenCalledWith({
+		expect(client.mutateQueuedMessage).toHaveBeenCalledWith({
 			sessionId: "session-a",
 			lane: "steering",
 			index: 0,
 			expectedText: "queued",
+			mutation: { type: "delete" },
 		});
 		expect(result.current.queue).toEqual({ steering: [], followUp: [] });
 	});
@@ -318,7 +356,7 @@ describe("usePiChat stream admission", () => {
 			status: "applied" | "rejected" | "invalid" | "unsupported";
 			queue: { steering: string[]; followUp: string[] };
 		}>();
-		vi.mocked(client.deleteQueuedMessage)
+		vi.mocked(client.mutateQueuedMessage)
 			.mockReturnValueOnce(firstResponse.promise)
 			.mockReturnValueOnce(secondResponse.promise);
 
@@ -333,14 +371,15 @@ describe("usePiChat stream admission", () => {
 			await flush();
 		});
 
-		expect(client.deleteQueuedMessage).toHaveBeenCalledTimes(1);
+		expect(client.mutateQueuedMessage).toHaveBeenCalledTimes(1);
 		firstResponse.resolve({ status: "applied", queue: { steering: ["second"], followUp: [] } });
-		await waitFor(() => expect(client.deleteQueuedMessage).toHaveBeenCalledTimes(2));
-		expect(client.deleteQueuedMessage).toHaveBeenNthCalledWith(2, {
+		await waitFor(() => expect(client.mutateQueuedMessage).toHaveBeenCalledTimes(2));
+		expect(client.mutateQueuedMessage).toHaveBeenNthCalledWith(2, {
 			sessionId: "session-a",
 			lane: "steering",
 			index: 0,
 			expectedText: "second",
+			mutation: { type: "delete" },
 		});
 
 		secondResponse.resolve({ status: "applied", queue: { steering: [], followUp: [] } });
@@ -367,7 +406,7 @@ describe("usePiChat stream admission", () => {
 			status: "applied" | "rejected" | "invalid" | "unsupported";
 			queue: { steering: string[]; followUp: string[] };
 		}>();
-		vi.mocked(client.deleteQueuedMessage).mockReturnValueOnce(firstResponse.promise);
+		vi.mocked(client.mutateQueuedMessage).mockReturnValueOnce(firstResponse.promise);
 
 		let firstDeletion!: Promise<boolean>;
 		await act(async () => {
@@ -380,14 +419,14 @@ describe("usePiChat stream admission", () => {
 			await flush();
 		});
 
-		expect(client.deleteQueuedMessage).toHaveBeenCalledTimes(1);
+		expect(client.mutateQueuedMessage).toHaveBeenCalledTimes(1);
 		firstResponse.resolve({ status: "applied", queue: { steering: ["same", "same"], followUp: [] } });
 		await act(async () => {
 			await expect(firstDeletion).resolves.toBe(true);
 			await expect(duplicateDeletion).resolves.toBe(false);
 		});
 
-		expect(client.deleteQueuedMessage).toHaveBeenCalledTimes(1);
+		expect(client.mutateQueuedMessage).toHaveBeenCalledTimes(1);
 		expect(result.current.queue).toEqual({ steering: ["same", "same"], followUp: [] });
 	});
 
@@ -406,7 +445,7 @@ describe("usePiChat stream admission", () => {
 			status: "applied" | "rejected" | "invalid" | "unsupported";
 			queue: { steering: string[]; followUp: string[] };
 		}>();
-		vi.mocked(client.deleteQueuedMessage).mockReturnValueOnce(response.promise);
+		vi.mocked(client.mutateQueuedMessage).mockReturnValueOnce(response.promise);
 		let deletion!: Promise<boolean>;
 		await act(async () => {
 			deletion = result.current.deleteQueuedMessage("steering", 0, "queued");

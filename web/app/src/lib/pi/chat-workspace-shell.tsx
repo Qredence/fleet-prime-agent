@@ -117,6 +117,7 @@ export function ChatWorkspaceShell() {
 			artifactRuns={conversation.artifactRuns}
 			queue={conversation.queue}
 			onDeleteQueuedMessage={conversation.deleteQueuedMessage}
+			onEditQueuedMessage={conversation.editQueuedMessage}
 			onOpenArtifact={conversation.openArtifact}
 			onOpenUIArtifactReady={handleOpenUIArtifactReady}
 			inputSuggestionItems={composer.inputSuggestionItems}

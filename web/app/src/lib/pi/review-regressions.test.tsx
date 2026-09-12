@@ -184,6 +184,19 @@ describe("review regressions", () => {
 		expect(getByText("Child worker")).toBeTruthy();
 	});
 
+	it("edits a queued item in place", async () => {
+		const onEdit = vi.fn().mockResolvedValue(true);
+		const { getByLabelText, getByRole } = render(
+			<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onEdit={onEdit} />,
+		);
+
+		fireEvent.click(getByRole("button", { name: "Edit queued message: Run tests" }));
+		fireEvent.change(getByLabelText("Edit queued message: Run tests"), { target: { value: "Run lint" } });
+		fireEvent.click(getByRole("button", { name: "Save" }));
+
+		await waitFor(() => expect(onEdit).toHaveBeenCalledWith("steering", 0, "Run tests", "Run lint"));
+	});
+
 	it("removes a queued item using its lane and expected text", () => {
 		const onDelete = vi.fn();
 		const { getByRole } = render(

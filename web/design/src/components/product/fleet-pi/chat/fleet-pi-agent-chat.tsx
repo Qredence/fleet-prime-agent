@@ -217,6 +217,12 @@ export type FleetPiAgentChatProps = Omit<
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 	queue?: { steering: readonly string[]; followUp: readonly string[] }
 	onDeleteQueuedMessage?: (lane: FleetQueueLane, index: number, text: string) => void | Promise<unknown>
+	onEditQueuedMessage?: (
+		lane: FleetQueueLane,
+		index: number,
+		expectedText: string,
+		nextText: string,
+	) => void | Promise<unknown>
 	inputBar: Omit<
     FleetPiInputBarProps,
     "onSend" | "onStop" | "status" | "suggestions"
@@ -810,6 +816,7 @@ export function FleetPiAgentChat({
 	onOpenUIArtifactReady,
   queue,
   onDeleteQueuedMessage,
+  onEditQueuedMessage,
 }: FleetPiAgentChatProps) {
   const draftSetterRef = useRef<((value: string) => void) | null>(null)
   const viewportRef = useRef<HTMLElement | null>(null)
@@ -940,7 +947,11 @@ export function FleetPiAgentChat({
         ) : null}
       </MessageScroller>
       {!isEmpty ? composerNode : null}
-      <FleetMessageQueue queue={queue ?? { steering: [], followUp: [] }} onDelete={onDeleteQueuedMessage} />
+      <FleetMessageQueue
+        queue={queue ?? { steering: [], followUp: [] }}
+        onDelete={onDeleteQueuedMessage}
+        onEdit={onEditQueuedMessage}
+      />
     </div>
   )
 }

@@ -1815,6 +1815,36 @@ export class PrimeBridge {
 		const session = this.#requireSession(sessionId);
 		await session.connection.followUp(text);
 	}
+	async mutateQueuedMessage(
+		sessionId: string,
+		lane: "steering" | "followUp",
+		index: number,
+		expectedText: string,
+		mutation: { type: "delete" } | { type: "replace"; text: string; lane?: "steering" | "followUp" },
+	): Promise<{
+		status: "applied" | "rejected" | "invalid" | "unsupported";
+		queue: { steering: string[]; followUp: string[] };
+	}> {
+		const session = this.#requireSession(sessionId);
+		const upstreamMutation =
+			mutation.type === "delete"
+				? { type: "delete" as const }
+				: {
+						type: "replace" as const,
+						text: mutation.text,
+						lane: mutation.lane ?? lane,
+					};
+		const status = await session.connection.mutateQueuedMessage(lane, index, expectedText, upstreamMutation);
+		const queue = await session.connection.getQueue();
+		return {
+			status,
+			queue: {
+				steering: [...queue.steering],
+				followUp: [...queue.followUp],
+			},
+		};
+	}
+
 	async deleteQueuedMessage(
 		sessionId: string,
 		lane: "steering" | "followUp",
@@ -1824,16 +1854,7 @@ export class PrimeBridge {
 		status: "applied" | "rejected" | "invalid" | "unsupported";
 		queue: { steering: string[]; followUp: string[] };
 	}> {
-		const session = this.#requireSession(sessionId);
-		const status = await session.connection.mutateQueuedMessage(lane, index, expectedText, { type: "delete" });
-		const queue = await session.connection.getQueue();
-		return {
-			status,
-			queue: {
-				steering: [...queue.steering],
-				followUp: [...queue.followUp],
-			},
-		};
+		return this.mutateQueuedMessage(sessionId, lane, index, expectedText, { type: "delete" });
 	}
 
 	async abort(sessionId: string): Promise<void> {
