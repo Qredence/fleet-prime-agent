@@ -201,7 +201,7 @@ export const McpTool = memo(function McpTool({ part, mcpInfo, chatStatus, defaul
 				expandable={hasExpandableContent}
 				defaultOpen={defaultOpen}
 			>
-				{codeBlock && <LazyMarkdown className="text-[0.75rem]" codeControls={false} content={codeBlock} />}
+				{codeBlock && <LazyMarkdown className="text-label" codeControls={false} content={codeBlock} />}
 			</ToolRowBase>
 		</div>
 	);

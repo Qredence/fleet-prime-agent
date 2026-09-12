@@ -342,7 +342,7 @@ export function buildAssistantElements(
 	const text = textChunks.join("\n\n");
 	if (text) {
 		elems.push(
-			<div key={`${messageId}-text-final`} className="group/assistant-text text-[0.875rem]">
+			<div key={`${messageId}-text-final`} className="group/assistant-text text-body">
 				<TextRendererComponent
 					content={text}
 					isStreaming={isStreaming}

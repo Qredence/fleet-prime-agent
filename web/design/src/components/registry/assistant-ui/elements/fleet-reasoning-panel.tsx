@@ -51,7 +51,7 @@ export function FleetReasoningPanel({
 				<div className="mb-1.5 flex flex-col gap-1.5 border-b border-border/45 pb-2.5">
 					{activeStep?.body ? (
 						<>
-							<ThinkingIndicator label={activeLabel} elapsed={elapsed} className="text-[0.8125rem]" />
+							<ThinkingIndicator label={activeLabel} elapsed={elapsed} className="text-body" />
 							<p className="pl-4 text-xs font-normal text-muted-foreground">{activeStep.body}</p>
 						</>
 					) : (

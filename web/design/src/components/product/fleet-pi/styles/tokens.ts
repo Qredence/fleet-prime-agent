@@ -26,11 +26,6 @@ export const CHROME_PILL_INACTIVE_CLASS = "bg-sidebar text-foreground/55 hover:b
 
 export const CHROME_PILL_ACTIVE_CLASS = "bg-background text-foreground/75";
 
-/** Inline right-panel tabs — matches header pill chrome. */
-export const DISCRETE_TAB_INACTIVE_CLASS = `${CHROME_PILL_INACTIVE_CLASS} data-[state=inactive]:shadow-sm`;
-
-export const DISCRETE_TAB_ACTIVE_CLASS = `${CHROME_PILL_ACTIVE_CLASS} data-[state=active]:shadow-sm`;
-
 /** Chat shell header — above content row so tab tooltips can extend downward. */
 export const CHAT_HEADER_LAYER_CLASS = "relative z-10 overflow-visible";
 

@@ -147,7 +147,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 				) : null}
 				<Sparkles aria-hidden="true" className="size-3.5" />
 				<span className="font-medium">{title ?? (kind === "slash" ? "Commands" : "Workspace")}</span>
-				{query ? <span className="ml-auto max-w-[50%] truncate font-mono text-[0.6875rem]">{query}</span> : null}
+				{query ? <span className="ml-auto max-w-[50%] truncate font-mono text-caption">{query}</span> : null}
 				{onClose ? (
 					<button type="button" aria-label="Close suggestions" onClick={onClose} className="sr-only">
 						Close suggestions
@@ -167,7 +167,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 							}
 							return (
 								<div key={group.id} role="group" aria-label={group.label}>
-									<div className="px-3 pb-1 pt-2 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground">
+									<div className="px-3 pb-1 pt-2 text-micro font-medium uppercase tracking-wide text-muted-foreground">
 										{group.label}
 									</div>
 									{group.items.map((item, index) => renderItem(item, offset + index))}

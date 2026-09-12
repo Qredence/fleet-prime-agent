@@ -79,7 +79,7 @@ function sourceFiles(directory) {
 }
 
 const arbitraryTypeScalePattern = /text-\[0\./;
-const typeScaleRoots = ["web/app", "web/design/src/components/product", "web/design/src/lib"];
+const typeScaleRoots = ["web/app", "web/design"];
 
 export function findArbitraryTypeScaleLines(source) {
 	const lines = [];
@@ -88,6 +88,10 @@ export function findArbitraryTypeScaleLines(source) {
 		if (arbitraryTypeScalePattern.test(parts[index])) lines.push(index + 1);
 	}
 	return lines;
+}
+
+export function isTypeScaleExemptPath(relativePath) {
+	return relativePath.split(/[/\\]/).includes("openui");
 }
 
 function main() {
@@ -110,17 +114,19 @@ function main() {
 	const typeScaleViolations = [];
 	for (const sourceRoot of typeScaleRoots) {
 		for (const file of sourceFiles(resolve(root, sourceRoot))) {
+			const relativePath = relative(root, file);
+			if (isTypeScaleExemptPath(relativePath)) continue;
 			const source = readFileSync(file, "utf8");
 			for (const line of findArbitraryTypeScaleLines(source)) {
 				typeScaleViolations.push(
-					`${relative(root, file)}:${line} uses arbitrary text-[0. size (use text-micro/caption/label/body)`,
+					`${relativePath}:${line} uses arbitrary text-[0. size (use text-micro/caption/label/body)`,
 				);
 			}
 		}
 	}
 
 	if (typeScaleViolations.length > 0) {
-		console.error("Fleet product UI must use the named type scale outside openui/registry kits:");
+		console.error("Fleet UI must use the named type scale outside openui/:");
 		for (const violation of typeScaleViolations) console.error(`- ${violation}`);
 		process.exit(1);
 	}

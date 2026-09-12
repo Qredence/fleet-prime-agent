@@ -1,24 +1,33 @@
 import { describe, expect, it } from "vitest";
+import type { TodoItem } from "./plan-parser";
 import {
 	applyPlanModeSelection,
 	bindPendingPlanDecisionToolCallId,
 	createEmptyPlanState,
 	createPlanToolPart,
+	type PlanModeState,
 	resolvePlanDecision,
-	updatePlanStateFromAssistantText,
 } from "./plan-state";
 
+function planStateWithTodos(todos: Array<TodoItem>, extras: Partial<PlanModeState> = {}): PlanModeState {
+	return {
+		...applyPlanModeSelection(createEmptyPlanState(), "plan"),
+		todos,
+		pendingDecision: true,
+		...extras,
+	};
+}
+
 describe("Plan-mode presentation state", () => {
-	it("creates a single typed PlanWrite payload from an explicit Plan-mode checklist", () => {
-		const planMode = applyPlanModeSelection(createEmptyPlanState(), "plan");
-		const parsed = updatePlanStateFromAssistantText(
-			planMode,
-			"1. Review existing documentation.\n2. Compare terminology across guides.\n3. Report recommended corrections.",
-		);
-		const state = bindPendingPlanDecisionToolCallId(parsed.state, "assistant-42");
+	it("creates a single typed PlanWrite payload from explicit plan todos", () => {
+		const planMode = planStateWithTodos([
+			{ step: 1, text: "Review existing documentation.", completed: false },
+			{ step: 2, text: "Compare terminology across guides.", completed: false },
+			{ step: 3, text: "Report recommended corrections.", completed: false },
+		]);
+		const state = bindPendingPlanDecisionToolCallId(planMode, "assistant-42");
 		const part = createPlanToolPart("assistant-42", state);
 
-		expect(parsed.changed).toBe(true);
 		expect(part).toMatchObject({
 			type: "tool-PlanWrite",
 			toolCallId: "plan-mode-decision-assistant-42",
@@ -35,25 +44,21 @@ describe("Plan-mode presentation state", () => {
 		});
 	});
 
-	it("does not classify ordinary Agent-mode text as a plan", () => {
-		const parsed = updatePlanStateFromAssistantText(
-			createEmptyPlanState(),
-			"Note: the documentation is already consistent. Warning: no changes are needed.",
-		);
-
-		expect(parsed.changed).toBe(false);
-		expect(createPlanToolPart("assistant-43", parsed.state)).toBeUndefined();
+	it("does not invent a PlanWrite part without typed todos", () => {
+		expect(createPlanToolPart("assistant-43", createEmptyPlanState())).toBeUndefined();
 	});
 
 	it("routes local execute and refine decisions into the next Fleet mode", () => {
-		const planMode = applyPlanModeSelection(createEmptyPlanState(), "plan");
-		const parsed = updatePlanStateFromAssistantText(planMode, "1. Inspect docs.\n2. Report findings.");
+		const planMode = planStateWithTodos([
+			{ step: 1, text: "Inspect docs.", completed: false },
+			{ step: 2, text: "Report findings.", completed: false },
+		]);
 
-		const execute = resolvePlanDecision(parsed.state, {
+		const execute = resolvePlanDecision(planMode, {
 			kind: "single",
 			selectedIds: ["execute"],
 		});
-		const refine = resolvePlanDecision(parsed.state, {
+		const refine = resolvePlanDecision(planMode, {
 			kind: "text",
 			text: "Add an accessibility review step.",
 		});

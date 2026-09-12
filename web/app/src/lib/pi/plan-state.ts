@@ -7,7 +7,6 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatToolPart } from "@prime-agent/web-protocol/chat-types";
 import type { TodoItem } from "./plan-parser";
-import { extractTodoItems, markCompletedSteps } from "./plan-parser";
 
 export const PLAN_DECISION_TOOL_PREFIX = "plan-mode-decision";
 
@@ -66,37 +65,6 @@ export function applyPlanModeSelection(state: PlanModeState, mode?: ChatMode, pl
 	nextState.pendingDecision = false;
 	nextState.pendingDecisionToolCallId = undefined;
 	return nextState;
-}
-
-export function updatePlanStateFromAssistantText(state: PlanModeState, text: string) {
-	if (!state.enabled) return { state, changed: false };
-
-	const todos = extractTodoItems(text);
-	if (todos.length === 0) return { state, changed: false };
-
-	return {
-		state: {
-			...cloneState(state),
-			todos,
-			executing: false,
-			pendingDecision: true,
-			pendingDecisionToolCallId: undefined,
-		},
-		changed: true,
-	};
-}
-
-export function updatePlanExecutionProgress(state: PlanModeState, assistantText: string) {
-	if (!state.executing) return { state, changed: false };
-
-	const nextState = cloneState(state);
-	const changed = markCompletedSteps(assistantText, nextState.todos) > 0;
-	if (nextState.todos.length > 0 && nextState.todos.every((todo) => todo.completed)) {
-		nextState.executing = false;
-		return { state: nextState, changed: true };
-	}
-
-	return { state: nextState, changed };
 }
 
 export function createPlanEvent(state: PlanModeState) {

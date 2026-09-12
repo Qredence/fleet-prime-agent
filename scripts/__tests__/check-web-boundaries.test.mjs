@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { findArbitraryTypeScaleLines, findForbiddenImports } from "../check-web-boundaries.mjs";
+import { findArbitraryTypeScaleLines, findForbiddenImports, isTypeScaleExemptPath } from "../check-web-boundaries.mjs";
 
 test("detects comment-separated runtime imports", () => {
 	const cases = [
@@ -45,4 +45,10 @@ import "prime-agent-compatible";
 test("flags arbitrary type-scale utilities in product UI", () => {
 	assert.deepEqual(findArbitraryTypeScaleLines('className="text-[0.625rem] text-muted-foreground"'), [1]);
 	assert.deepEqual(findArbitraryTypeScaleLines('className="text-caption text-muted-foreground"'), []);
+});
+
+test("exempts only openui paths from the type-scale lint", () => {
+	assert.equal(isTypeScaleExemptPath("web/design/src/components/openui/charts.tsx"), true);
+	assert.equal(isTypeScaleExemptPath("web/design/src/components/registry/beui/agents/code-block.tsx"), false);
+	assert.equal(isTypeScaleExemptPath("web/app/src/lib/pi/plan-state.ts"), false);
 });
