@@ -8,14 +8,14 @@ body:
     id: area
     attributes:
       label: Area
-      description: Which part of Prime Agent would this affect?
+      description: Which part of Fleet Prime would this affect?
       multiple: true
       options:
-        - Agent core
-        - AI providers and models
-        - Coding agent and CLI
-        - TUI
-        - Installation or updates
+        - Web UI
+        - Server / adapter
+        - Protocol / transport
+        - Launcher or installer
+        - Providers and models
         - Documentation
         - Not sure
     validations:

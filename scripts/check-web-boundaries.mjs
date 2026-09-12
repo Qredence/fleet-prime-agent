@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { parse } from "@babel/parser";
 import { readdirSync, readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse } from "@babel/parser";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const browserSourceRoots = ["web/app", "web/design"];
@@ -15,7 +15,7 @@ const forbiddenPackages = [
 ];
 
 function forbiddenPackage(specifier) {
-	return forbiddenPackages.find((packageName) => specifier === packageName || specifier.startsWith(packageName + "/"));
+	return forbiddenPackages.find((packageName) => specifier === packageName || specifier.startsWith(`${packageName}/`));
 }
 
 export function findForbiddenImports(source, fileName = "source.ts") {
@@ -84,14 +84,14 @@ function main() {
 		for (const file of sourceFiles(resolve(root, sourceRoot))) {
 			const source = readFileSync(file, "utf8");
 			for (const { line, packageName } of findForbiddenImports(source, file)) {
-				violations.push(relative(root, file) + ":" + line + " imports " + packageName);
+				violations.push(`${relative(root, file)}:${line} imports ${packageName}`);
 			}
 		}
 	}
 
 	if (violations.length > 0) {
 		console.error("Browser packages must not import Prime Agent runtime packages directly:");
-		for (const violation of violations) console.error("- " + violation);
+		for (const violation of violations) console.error(`- ${violation}`);
 		process.exit(1);
 	}
 

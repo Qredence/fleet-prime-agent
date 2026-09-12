@@ -1,5 +1,14 @@
 # Kill the InteractiveModeLocalSessionHost bypass
 
+> Historical note: this record describes an **upstream Prime Agent** engine decision
+> (`AgentConnection`, InteractiveMode, daemon protocol v8). The code it names is not
+> in this repository. Keep it only as adapter context; new Fleet decisions belong in
+> a new ADR.
+
+## Status
+
+Upstream history. Not a Fleet product decision.
+
 `InteractiveModeLocalSessionHost` was a documented "legacy" backdoor (`interactive-mode-services.ts`) exposing raw `AgentSession`, `SessionManager`, and `ExtensionRunner` plus `runtimeHost.session.agent.signal` to terminal UI code whenever the connection was in-process. Every feature built through the host silently became daemon-incompatible, and the `AgentConnection` contract was being undercut from the inside.
 
 We deleted the host entirely. The gap is closed by widening `AgentConnection` with: an `extensions` sub-interface (completions, diagnostics, shortcuts, message/tool renderers, `bindExtensions`), a read-only `SessionView`, and an `afterReplace` hook with a narrow `ReplacedClientContext` (sendUserMessage/notify/setEditorText) replacing the old `withSession`/`setup` hooks for portable clients. `seedMessages` on `new_session` is wire-supported at `DAEMON_PROTOCOL_VERSION` 8. The extension surface (executable callbacks), `getAbortSignal`, `getReadonlySessionManager`, `getSystemPromptSync`, and `setup`/`withSession` remain permanently process-local — daemon adapters throw `AgentConnectionUnsupportedError`. Dual-compat tests cover new-client/old-daemon and old-client/new-daemon for `seedMessages` per `AGENTS.md`.

@@ -7,8 +7,8 @@ vulnerabilities affecting it are published as soon as fixes are ready.
 
 | Version | Supported |
 | ------- | --------- |
-| 0.7.x   | Yes       |
-| < 0.7   | No        |
+| 0.6.x   | Yes       |
+| < 0.6   | No        |
 
 ## Reporting a Vulnerability
 
@@ -22,7 +22,7 @@ update on the fix timeline.
 
 ## Scope
 
-Prime Agent executes model-generated Python and project commands with your
+Fleet Prime executes model-generated Python and project commands with your
 user permissions. Worker and kernel processes improve lifecycle isolation and
 recovery; they are not a security sandbox. Review changes and use trusted
 repositories, instructions, skills, and extensions only.

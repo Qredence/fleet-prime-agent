@@ -61,7 +61,7 @@ checkout directly:
 ```bash
 git clone https://github.com/Qredence/fleet-prime-agent.git
 cd fleet-prime-agent
-./fleet-prime.sh install
+./install.sh
 ```
 
 The installer installs workspace dependencies, builds the web runtime, and
@@ -110,6 +110,10 @@ Fleet owns the product and adapter layers; Prime Agent remains the external
 execution engine. The browser communicates with Fleet through typed HTTP,
 NDJSON, and SSE contracts, while runtime access stays in `web/server`.
 
+Internal workspace packages are named `@prime-agent/web-*`. The published
+launcher is `@qredence/fleet`. Chat UI code under `lib/pi` and `fleet-pi` is
+Fleet product code (the `pi` name is historical). See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 The pinned runtime release and checksum are maintained in
 [PRIME_AGENT_RUNTIME.json](PRIME_AGENT_RUNTIME.json).
 
@@ -123,6 +127,7 @@ them. See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 ## Documentation and support
 
+- [Documentation index](docs/README.md) — guides, reference, and ADRs.
 - [Architecture](ARCHITECTURE.md) — system ownership and data flow.
 - [Adapter contract](docs/reference/adapter-contract.md) — browser/server
   compatibility, replay, and privacy guarantees.

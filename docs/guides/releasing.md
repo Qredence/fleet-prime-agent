@@ -60,9 +60,9 @@ The publish job uses the Node 22.23.2 LTS executor and pins npm 11.15.0. This is
 
 If a versioning commit passed validation before the publish configuration was fixed, manually trigger the `ci` workflow on `main` with the `release_retry=true` pipeline parameter. This guarded recovery switch sets `FORCE_RELEASE=1` only for that explicit run; it does not change normal release detection.
 
-## Branch protection rollout
+## Branch protection
 
-After this configuration is pushed, prove a pull request reports the CircleCI aggregate status `ci/circleci: ci-success`. Then make that status required on `main` and remove the obsolete GitHub Actions `build-check-test` requirement. Do this only after the proof run; repository files cannot change GitHub's branch-protection settings.
+Pull requests should report the CircleCI aggregate status `ci/circleci: ci-success`. Keep that status required on `main`.
 
 ## Failure and retry handling
 

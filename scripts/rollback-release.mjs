@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { NPM_REGISTRY, compareVersions, parseStableVersion } from "./release-utils.mjs";
+import { compareVersions, NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
 
 export const PACKAGE_NAME = "@qredence/fleet";
 
@@ -142,7 +142,9 @@ async function main() {
 		dryRun: process.env.ROLLBACK_DRY_RUN === "1",
 	});
 	if (process.env.ROLLBACK_DRY_RUN === "1") {
-		console.log(`Dry run complete: ${PACKAGE_NAME} latest would move from ${result.currentVersion} to ${result.targetVersion}.`);
+		console.log(
+			`Dry run complete: ${PACKAGE_NAME} latest would move from ${result.currentVersion} to ${result.targetVersion}.`,
+		);
 	} else {
 		console.log(`Moved ${PACKAGE_NAME} latest from ${result.currentVersion} to ${result.targetVersion}.`);
 	}

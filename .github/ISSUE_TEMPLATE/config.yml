@@ -3,9 +3,9 @@ contact_links:
   - name: GitHub Discussions
     url: https://github.com/Qredence/fleet-prime-agent/discussions
     about: Ask questions and discuss ideas before opening an issue
-  - name: Documentation wiki
-    url: https://github.com/Qredence/fleet-prime-agent/wiki
-    about: Browse the full documentation
   - name: In-repo documentation
-    url: https://github.com/Qredence/fleet-prime-agent/blob/main/packages/coding-agent/docs/index.md
+    url: https://github.com/Qredence/fleet-prime-agent/blob/main/docs/README.md
     about: Read the documentation index in the repository
+  - name: Architecture
+    url: https://github.com/Qredence/fleet-prime-agent/blob/main/ARCHITECTURE.md
+    about: System ownership, data flow, and invariants
