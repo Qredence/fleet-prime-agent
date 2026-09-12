@@ -38,7 +38,6 @@ import type {
 	ChatSettingsResponse,
 	ChatSettingsUpdateRequest,
 	ChatStreamEvent,
-	WorkspaceBrowseResponse,
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -77,7 +76,6 @@ import {
 	ProjectListResponseSchema,
 	ProjectRenameRequestSchema,
 	ProjectSummarySchema,
-	WorkspaceBrowseResponseSchema,
 	WorkspaceFileResponseSchema,
 	WorkspaceTreeResponseSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
@@ -94,7 +92,6 @@ export type ChatClient = {
 	answerQuestion: (request: ChatQuestionAnswerRequest) => Promise<ChatQuestionAnswerResponse>;
 	deleteQueuedMessage: (request: ChatQueueMutationRequest) => Promise<ChatQueueMutationResponse>;
 	mutateQueuedMessage: (request: ChatQueueMutationRequest) => Promise<ChatQueueMutationResponse>;
-	browseWorkspace: (path?: string, projectId?: ProjectId) => Promise<WorkspaceBrowseResponse>;
 	createSession: (projectId?: ProjectId, signal?: AbortSignal) => Promise<ChatSessionResponse>;
 	listProjects: () => Promise<ProjectListResponse>;
 	createProject: (request: { path?: string; directoryToken?: string; name?: string }) => Promise<ProjectSummary>;
@@ -167,16 +164,6 @@ export const chatClient: ChatClient = {
 
 	async deleteQueuedMessage(request) {
 		return this.mutateQueuedMessage({ ...request, mutation: request.mutation ?? { type: "delete" } });
-	},
-
-	async browseWorkspace(path, projectId) {
-		const params = new URLSearchParams();
-		if (projectId) params.set("projectId", projectId);
-		if (path && path.trim().length > 0) {
-			params.set("path", path);
-		}
-		const query = params.toString();
-		return fetchValidatedJson(`/api/workspace/browse${query ? `?${query}` : ""}`, WorkspaceBrowseResponseSchema);
 	},
 
 	async createSession(projectId, signal) {

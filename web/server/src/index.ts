@@ -36,7 +36,6 @@ export {
 	handleProjectsGet,
 	handleProjectsPost,
 } from "./handlers/projects";
-export { handleWorkspaceBrowseGet } from "./handlers/workspace-browse";
 export { handleWorkspaceFileGet } from "./handlers/workspace-file";
 export { handleWorkspaceTreeGet } from "./handlers/workspace-tree";
 export { PrimeBridge } from "./prime-bridge";

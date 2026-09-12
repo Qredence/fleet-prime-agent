@@ -23,8 +23,7 @@ const MAX_DEPTH = 10;
 const MAX_ENTRIES_PER_DIR = 100;
 
 /**
- * Whether an entry is a directory, following symlinks the same way the
- * project-folder picker does (see workspace-browse.ts). A symlink whose target
+ * Whether an entry is a directory, following symlinks. A symlink whose target
  * cannot be stat-ed is treated as a file.
  */
 async function isDirectoryEntry(

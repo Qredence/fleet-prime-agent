@@ -30,9 +30,7 @@ import { Route as ApiChatSessionsRouteImport } from './routes/api/chat/sessions'
 import { Route as ApiChatSettingsRouteImport } from './routes/api/chat/settings'
 import { Route as ApiProjectsBrowseRouteImport } from './routes/api/projects/browse'
 import { Route as ApiProjectsForkRouteImport } from './routes/api/projects/fork'
-import { Route as ApiWorkspaceBrowseRouteImport } from './routes/api/workspace/browse'
 import { Route as ApiWorkspaceFileRouteImport } from './routes/api/workspace/file'
-import { Route as ApiWorkspaceRootRouteImport } from './routes/api/workspace/root'
 import { Route as ApiWorkspaceTreeRouteImport } from './routes/api/workspace/tree'
 import { Route as ApiChatMcpOauthRouteImport } from './routes/api/chat/mcp/oauth'
 import { Route as ApiChatModelsDiscoverRouteImport } from './routes/api/chat/models/discover'
@@ -143,19 +141,9 @@ const ApiProjectsForkRoute = ApiProjectsForkRouteImport.update({
   path: '/fork',
   getParentRoute: () => ApiProjectsRoute,
 } as any)
-const ApiWorkspaceBrowseRoute = ApiWorkspaceBrowseRouteImport.update({
-  id: '/api/workspace/browse',
-  path: '/api/workspace/browse',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiWorkspaceFileRoute = ApiWorkspaceFileRouteImport.update({
   id: '/api/workspace/file',
   path: '/api/workspace/file',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiWorkspaceRootRoute = ApiWorkspaceRootRouteImport.update({
-  id: '/api/workspace/root',
-  path: '/api/workspace/root',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWorkspaceTreeRoute = ApiWorkspaceTreeRouteImport.update({
@@ -201,9 +189,7 @@ export interface FileRoutesByFullPath {
   '/api/chat/settings': typeof ApiChatSettingsRoute
   '/api/projects/browse': typeof ApiProjectsBrowseRoute
   '/api/projects/fork': typeof ApiProjectsForkRoute
-  '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
-  '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
@@ -231,9 +217,7 @@ export interface FileRoutesByTo {
   '/api/chat/settings': typeof ApiChatSettingsRoute
   '/api/projects/browse': typeof ApiProjectsBrowseRoute
   '/api/projects/fork': typeof ApiProjectsForkRoute
-  '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
-  '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
@@ -262,9 +246,7 @@ export interface FileRoutesById {
   '/api/chat/settings': typeof ApiChatSettingsRoute
   '/api/projects/browse': typeof ApiProjectsBrowseRoute
   '/api/projects/fork': typeof ApiProjectsForkRoute
-  '/api/workspace/browse': typeof ApiWorkspaceBrowseRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
-  '/api/workspace/root': typeof ApiWorkspaceRootRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
@@ -294,9 +276,7 @@ export interface FileRouteTypes {
     | '/api/chat/settings'
     | '/api/projects/browse'
     | '/api/projects/fork'
-    | '/api/workspace/browse'
     | '/api/workspace/file'
-    | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
     | '/api/chat/models/discover'
@@ -324,9 +304,7 @@ export interface FileRouteTypes {
     | '/api/chat/settings'
     | '/api/projects/browse'
     | '/api/projects/fork'
-    | '/api/workspace/browse'
     | '/api/workspace/file'
-    | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
     | '/api/chat/models/discover'
@@ -354,9 +332,7 @@ export interface FileRouteTypes {
     | '/api/chat/settings'
     | '/api/projects/browse'
     | '/api/projects/fork'
-    | '/api/workspace/browse'
     | '/api/workspace/file'
-    | '/api/workspace/root'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
     | '/api/chat/models/discover'
@@ -368,9 +344,7 @@ export interface RootRouteChildren {
   ApiChatRoute: typeof ApiChatRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
   ApiProjectsRoute: typeof ApiProjectsRouteWithChildren
-  ApiWorkspaceBrowseRoute: typeof ApiWorkspaceBrowseRoute
   ApiWorkspaceFileRoute: typeof ApiWorkspaceFileRoute
-  ApiWorkspaceRootRoute: typeof ApiWorkspaceRootRoute
   ApiWorkspaceTreeRoute: typeof ApiWorkspaceTreeRoute
 }
 
@@ -523,25 +497,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProjectsForkRouteImport
       parentRoute: typeof ApiProjectsRoute
     }
-    '/api/workspace/browse': {
-      id: '/api/workspace/browse'
-      path: '/api/workspace/browse'
-      fullPath: '/api/workspace/browse'
-      preLoaderRoute: typeof ApiWorkspaceBrowseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/workspace/file': {
       id: '/api/workspace/file'
       path: '/api/workspace/file'
       fullPath: '/api/workspace/file'
       preLoaderRoute: typeof ApiWorkspaceFileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/workspace/root': {
-      id: '/api/workspace/root'
-      path: '/api/workspace/root'
-      fullPath: '/api/workspace/root'
-      preLoaderRoute: typeof ApiWorkspaceRootRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/workspace/tree': {
@@ -668,9 +628,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatRoute: ApiChatRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
   ApiProjectsRoute: ApiProjectsRouteWithChildren,
-  ApiWorkspaceBrowseRoute: ApiWorkspaceBrowseRoute,
   ApiWorkspaceFileRoute: ApiWorkspaceFileRoute,
-  ApiWorkspaceRootRoute: ApiWorkspaceRootRoute,
   ApiWorkspaceTreeRoute: ApiWorkspaceTreeRoute,
 }
 export const routeTree = rootRouteImport
