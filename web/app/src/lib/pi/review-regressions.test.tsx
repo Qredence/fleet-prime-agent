@@ -372,8 +372,9 @@ describe("review regressions", () => {
 		const progress = timeline.closest("[data-testid='turn-progress']");
 
 		expect(progress).not.toBeNull();
+		if (!progress) return;
 		expect(timeline.getAttribute("aria-expanded")).toBe("true");
-		expect(progress?.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+		expect(progress.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
 		expect(await findByText("done", { exact: true })).toBeTruthy();
 		expect(document.querySelector("[data-testid='agent-activity']")).toBeNull();
 	});

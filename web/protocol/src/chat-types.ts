@@ -66,7 +66,7 @@ export type ChatPlanToolInput = {
 };
 
 export type ChatToolPart = {
-	type: string;
+	type: `tool-${string}`;
 	category?: ChatToolCategory;
 	toolName?: string;
 	serverName?: string;
@@ -83,6 +83,18 @@ export type ChatToolPart = {
 };
 
 export type ChatMessagePart = ChatTextPart | ChatErrorPart | ChatImagePart | ChatPayloadPart | ChatToolPart;
+
+export function isChatTextPart(part: ChatMessagePart): part is ChatTextPart {
+	return part.type === "text";
+}
+
+export function isChatPayloadPart(part: ChatMessagePart): part is ChatPayloadPart {
+	return part.type === "payload";
+}
+
+export function isChatToolPart(part: ChatMessagePart): part is ChatToolPart {
+	return part.type.startsWith("tool-");
+}
 
 export type ChatMessage = {
 	id: string;

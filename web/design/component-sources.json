@@ -48,6 +48,7 @@
     "src/components/product/fleet-pi/panels/config-panel/sections/provider-credentials-editor.tsx",
     "src/components/product/fleet-pi/panels/resizable-canvas.tsx",
     "src/components/product/fleet-pi/panels/right-panel-launcher.tsx",
+    "src/components/product/fleet-pi/panels/settings-dialog.tsx",
     "src/components/product/fleet-pi/panels/workspace-panel.tsx",
     "src/components/product/fleet-pi/session-sidebar/navigation.tsx",
     "src/components/product/fleet-pi/session-sidebar/project-list.tsx",

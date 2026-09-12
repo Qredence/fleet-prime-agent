@@ -29,7 +29,7 @@ export function collectSessionOpenUIBlocks(messages: ReadonlyArray<ChatMessage>)
 	for (const message of messages) {
 		if (message.role !== "assistant") continue;
 		for (const part of message.parts) {
-			if (part.type !== "text" || typeof part.text !== "string") continue;
+			if (part.type !== "text" || !("text" in part) || typeof part.text !== "string") continue;
 			for (const segment of segmentOpenUIContent(part.text)) {
 				if (segment.type !== "openui") continue;
 				blocks.push({

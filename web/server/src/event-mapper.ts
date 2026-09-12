@@ -161,7 +161,7 @@ export function createFleetErrorEnvelope(
 	};
 }
 
-function makeToolType(toolName: string): string {
+function makeToolType(toolName: string): `tool-${string}` {
 	if (toolName === "thinking") return "tool-Thinking";
 	return `tool-${toPascalCase(toolName)}`;
 }
@@ -704,11 +704,11 @@ export function toChatMessagesFromAgentMessages(
 			for (let messageIndex = output.length - 1; messageIndex >= 0 && !attached; messageIndex -= 1) {
 				const candidate = output[messageIndex]!;
 				const partIndex = candidate.parts.findIndex(
-					(part) => part.type.startsWith("tool-") && (part as ChatToolPart).toolCallId === toolCallId,
+					(part) => isChatToolPart(part) && part.toolCallId === toolCallId,
 				);
 				if (partIndex < 0) continue;
 				const part = candidate.parts[partIndex]!;
-				if (!part.type.startsWith("tool-")) continue;
+				if (!isChatToolPart(part)) continue;
 				const nextPart: ChatToolPart = {
 					...part,
 					state: isError ? "output-error" : "output-available",

@@ -294,7 +294,7 @@ export const ChatPlanToolInputSchema = z
 
 export const ChatToolPartSchema = z
 	.object({
-		type: z.string(),
+		type: z.templateLiteral(["tool-", z.string()]),
 		category: ChatToolCategorySchema.optional(),
 		toolName: z.string().optional(),
 		serverName: z.string().optional(),

@@ -1,5 +1,13 @@
 import type { ChatReasoningPresentation } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatMessage, ChatMessagePart, ChatPayloadPart, ChatToolPart } from "@prime-agent/web-protocol/chat-types";
+import {
+	type ChatMessage,
+	type ChatMessagePart,
+	type ChatPayloadPart,
+	type ChatToolPart,
+	isChatPayloadPart,
+	isChatTextPart,
+	isChatToolPart,
+} from "@prime-agent/web-protocol/chat-types";
 
 export function createTextMessage(
 	role: ChatMessage["role"],
@@ -45,44 +53,47 @@ export function toChatMessage(
 	};
 }
 
-export function appendTextPart(parts: Array<ChatMessagePart>, delta: string) {
-	const index = parts.findIndex((part) => part.type === "text");
+export function appendTextPart(parts: Array<ChatMessagePart>, delta: string): Array<ChatMessagePart> {
+	const index = parts.findIndex(isChatTextPart);
 	if (index === -1) return [...parts, { type: "text", text: delta }];
 
+	const part = parts[index];
+	if (!part || !isChatTextPart(part)) return parts;
 	const next = [...parts];
-	const part = next[index];
-	next[index] = part.type === "text" ? { ...part, text: `${part.text}${delta}` } : part;
+	next[index] = { type: "text", text: `${part.text}${delta}` };
 	return next;
 }
 
-export function upsertToolPart(parts: Array<ChatMessagePart>, part: ChatToolPart) {
+export function upsertToolPart(parts: Array<ChatMessagePart>, part: ChatToolPart): Array<ChatMessagePart> {
 	const index = parts.findIndex(
-		(current) => current.type === part.type && "toolCallId" in current && current.toolCallId === part.toolCallId,
+		(current) => isChatToolPart(current) && current.toolCallId === part.toolCallId && current.type === part.type,
 	);
 
 	if (index === -1) {
-		const textIndex = parts.findIndex((current) => current.type === "text");
+		const textIndex = parts.findIndex(isChatTextPart);
 		if (textIndex === -1) return [...parts, part];
 
 		return [...parts.slice(0, textIndex), part, ...parts.slice(textIndex)];
 	}
 
+	const existing = parts[index];
 	const next = [...parts];
-	next[index] = { ...next[index], ...part };
+	next[index] = existing && isChatToolPart(existing) ? { ...existing, ...part } : part;
 	return next;
 }
 
-export function upsertPayloadPart(parts: Array<ChatMessagePart>, part: ChatPayloadPart) {
+export function upsertPayloadPart(parts: Array<ChatMessagePart>, part: ChatPayloadPart): Array<ChatMessagePart> {
 	const index = parts.findIndex(
 		(current) =>
-			current.type === "payload" &&
+			isChatPayloadPart(current) &&
 			(current.id && part.id ? current.id === part.id : current.kind === part.kind && current.title === part.title),
 	);
 
 	if (index === -1) return [...parts, part];
 
+	const existing = parts[index];
 	const next = [...parts];
-	next[index] = { ...next[index], ...part };
+	next[index] = existing && isChatPayloadPart(existing) ? { ...existing, ...part } : part;
 	return next;
 }
 
