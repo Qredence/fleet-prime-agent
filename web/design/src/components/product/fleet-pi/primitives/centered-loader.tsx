@@ -1,20 +1,15 @@
-import { SpiralLoader } from "../../../registry/beui/agents/spiral-loader"
-import { cn } from "../../../../lib/utils"
+import { cn } from "../../../../lib/utils";
+import { SpiralLoader } from "../../../registry/beui/agents/spiral-loader";
 
 export type CenteredLoaderProps = {
-  className?: string
-  size?: number
-}
+	className?: string;
+	size?: number;
+};
 
 export function CenteredLoader({ className, size = 20 }: CenteredLoaderProps) {
-  return (
-    <div
-      className={cn(
-        "flex min-h-svh items-center justify-center bg-background",
-        className
-      )}
-    >
-      <SpiralLoader size={size} />
-    </div>
-  )
+	return (
+		<div className={cn("flex min-h-svh items-center justify-center bg-background", className)}>
+			<SpiralLoader size={size} />
+		</div>
+	);
 }

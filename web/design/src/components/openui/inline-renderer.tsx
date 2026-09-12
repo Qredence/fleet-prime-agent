@@ -1,1 +1,1 @@
-export { GenerativeTextRenderer } from "./openui-renderer"
+export { GenerativeTextRenderer } from "./openui-renderer";

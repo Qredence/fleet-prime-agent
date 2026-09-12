@@ -1,24 +1,24 @@
-import { Code2, SquareTerminal, TriangleAlert } from "lucide-react"
-import { useEffect, useRef } from "react"
 import type {
 	PrimeAgentArtifact,
 	PrimeAgentArtifactRun,
 	PrimeAgentKernelDiagnostics,
-} from "@prime-agent/web-protocol/chat-protocol"
-import { IpythonTool } from "../../../registry/beui/agents/tools/ipython-tool"
+} from "@prime-agent/web-protocol/chat-protocol";
+import { Code2, SquareTerminal, TriangleAlert } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { IpythonTool } from "../../../registry/beui/agents/tools/ipython-tool";
 
 type ReplPanelContentProps = {
-	artifactRuns?: Array<PrimeAgentArtifactRun>
-	selectedArtifactId?: string | null
-	kernelDiagnostics?: PrimeAgentKernelDiagnostics | null
-}
+	artifactRuns?: Array<PrimeAgentArtifactRun>;
+	selectedArtifactId?: string | null;
+	kernelDiagnostics?: PrimeAgentKernelDiagnostics | null;
+};
 
 const REPL_STATUS_DETAILS: Record<PrimeAgentArtifact["status"], { toolState: string; label: string }> = {
 	running: { toolState: "input-streaming", label: "Running" },
 	error: { toolState: "output-error", label: "Failed" },
 	cancelled: { toolState: "aborted", label: "Cancelled" },
 	success: { toolState: "output-available", label: "Completed" },
-}
+};
 
 /**
  * Maps an artifact status to the corresponding REPL tool state.
@@ -27,7 +27,7 @@ const REPL_STATUS_DETAILS: Record<PrimeAgentArtifact["status"], { toolState: str
  * @returns The corresponding REPL tool state
  */
 function toolState(status: PrimeAgentArtifact["status"]): string {
-	return REPL_STATUS_DETAILS[status].toolState
+	return REPL_STATUS_DETAILS[status].toolState;
 }
 
 /**
@@ -44,7 +44,7 @@ function ipythonPart(artifact: PrimeAgentArtifact) {
 		input: artifact.input,
 		output: artifact.output,
 		backgroundOutput: artifact.backgroundOutput,
-	}
+	};
 }
 
 /**
@@ -54,7 +54,7 @@ function ipythonPart(artifact: PrimeAgentArtifact) {
  * @returns The display label for the status
  */
 function statusLabel(status: PrimeAgentArtifact["status"]): string {
-	return REPL_STATUS_DETAILS[status].label
+	return REPL_STATUS_DETAILS[status].label;
 }
 
 /**
@@ -65,15 +65,15 @@ function statusLabel(status: PrimeAgentArtifact["status"]): string {
  * @param selected - Whether the cell should receive focus and scroll into view
  */
 function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact; index: number; selected: boolean }) {
-	const cellRef = useRef<HTMLElement>(null)
+	const cellRef = useRef<HTMLElement>(null);
 
 	useEffect(() => {
-		if (!selected) return
+		if (!selected) return;
 		requestAnimationFrame(() => {
-			cellRef.current?.focus({ preventScroll: true })
-			cellRef.current?.scrollIntoView({ block: "nearest" })
-		})
-	}, [artifact.id, selected])
+			cellRef.current?.focus({ preventScroll: true });
+			cellRef.current?.scrollIntoView({ block: "nearest" });
+		});
+	}, [artifact.id, selected]);
 
 	return (
 		<article
@@ -87,15 +87,13 @@ function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact;
 				<span className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium text-foreground/70">
 					Cell {index + 1}
 				</span>
-				<span className="shrink-0 text-[0.625rem] text-foreground/40">
-					{statusLabel(artifact.status)}
-				</span>
+				<span className="shrink-0 text-[0.625rem] text-foreground/40">{statusLabel(artifact.status)}</span>
 			</div>
 			<div className="p-2">
 				<IpythonTool part={ipythonPart(artifact)} />
 			</div>
 		</article>
-	)
+	);
 }
 
 /**
@@ -105,22 +103,14 @@ function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact;
  * @param selectedArtifactId - Identifier of the cell to focus and scroll into view
  * @returns The REPL panel content
  */
-export function ReplPanelContent({
-	artifactRuns = [],
-	selectedArtifactId,
-	kernelDiagnostics,
-}: ReplPanelContentProps) {
-	const cells = artifactRuns
-		.flatMap((run) => run.artifacts)
-		.filter((artifact) => artifact.kind === "ipython")
+export function ReplPanelContent({ artifactRuns = [], selectedArtifactId, kernelDiagnostics }: ReplPanelContentProps) {
+	const cells = artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "ipython");
 
 	return (
 		<section aria-label="REPL runs" className="space-y-2 pb-1">
 			<div className="flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 				<SquareTerminal className="size-3.5 shrink-0 text-foreground/45" />
-				<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
-					IPython cells
-				</span>
+				<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">IPython cells</span>
 				<span className="shrink-0 text-[0.625rem] text-foreground/40">
 					{cells.length > 0 ? cells.length : "none yet"}
 				</span>
@@ -160,5 +150,5 @@ export function ReplPanelContent({
 				</div>
 			)}
 		</section>
-	)
+	);
 }
