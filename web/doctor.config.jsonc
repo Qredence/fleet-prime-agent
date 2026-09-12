@@ -43,11 +43,6 @@
       },
       {
         "files": [
-          "src/components/registry/beui/agents/input/mode-selector.tsx",
-          "src/components/product/fleet-pi/icons/google-icon.tsx",
-          "src/components/product/fleet-pi/primitives/centered-loader.tsx",
-          "src/components/registry/assistant-ui/elements/fleet-reasoning-panel.tsx",
-          "src/components/product/fleet-pi/chat/chat-stop-control.tsx",
           "src/components/product/fleet-pi/pi/open-project-folder-dialog.tsx"
         ],
         "rules": ["deslop/unused-file"]
@@ -58,7 +53,6 @@
           "src/components/registry/assistant-ui/elements/composer.tsx",
           "src/components/product/fleet-pi/styles/tokens.ts",
           "src/components/registry/beui/motion/action-swap-roll.tsx",
-          "src/components/registry/beui/motion/animated-select.tsx",
           "src/components/registry/beui/motion/combobox/list.tsx",
           "src/components/registry/beui/motion/combobox/trigger.tsx",
           "src/lib/range.ts",
@@ -224,23 +218,6 @@
           "src/components/registry/beui/agents/message.tsx",
           "src/components/registry/beui/agents/tool-approval.tsx"
         ],
-        "rules": ["deslop/unused-export"]
-      },
-      {
-        // Reserved future UI surface — its only importers are the
-        // intentionally retained unused primitives (centered-loader,
-        // chat-stop-control) waived above.
-        "files": [
-          "src/components/registry/beui/agents/spiral-loader.tsx",
-          "src/components/registry/beui/agents/spiral-loader-data.ts",
-          "src/components/registry/beui/agents/spiral-loader-lottie.tsx"
-        ],
-        "rules": ["deslop/unused-file"]
-      },
-      {
-        // Reserved hover-pairing API for surfaceClasses; not yet wired to a
-        // consumer surface.
-        "files": ["src/lib/surface-classes.ts"],
         "rules": ["deslop/unused-export"]
       }
     ]
