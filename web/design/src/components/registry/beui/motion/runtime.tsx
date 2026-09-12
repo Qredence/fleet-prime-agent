@@ -1,6 +1,6 @@
 "use client";
 
-import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
+import { domMax, LazyMotion, MotionConfig } from "motion/react";
 import { type ReactNode, useLayoutEffect, useState } from "react";
 
 function useHtmlReducedMotionClass() {
@@ -19,7 +19,7 @@ function useHtmlReducedMotionClass() {
 export function MotionRuntime({ children }: { children: ReactNode }) {
 	const htmlReduced = useHtmlReducedMotionClass();
 	return (
-		<LazyMotion features={domAnimation} strict>
+		<LazyMotion features={domMax} strict>
 			<MotionConfig reducedMotion={htmlReduced ? "always" : "user"}>{children}</MotionConfig>
 		</LazyMotion>
 	);

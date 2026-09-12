@@ -6,7 +6,7 @@ import { SharedLayoutBg } from "@prime-agent/web-design/components/registry/beui
 import { EASE_OUT, SPRING_LAYOUT, SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ChevronRight, File, Folder, FolderOpen } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
 	Children,
 	Fragment,
@@ -161,7 +161,7 @@ function DefaultIcon({ item, open, reduce }: { item: FileTreeItem; open: boolean
 
 	return (
 		<AnimatePresence initial={false} mode="popLayout">
-			<motion.span
+			<m.span
 				key={open ? "open" : "closed"}
 				initial={{ opacity: 0, scale: 0.75, rotate: open ? -8 : 8 }}
 				animate={{ opacity: 1, scale: 1, rotate: 0 }}
@@ -170,7 +170,7 @@ function DefaultIcon({ item, open, reduce }: { item: FileTreeItem; open: boolean
 				className="absolute inset-0 grid place-items-center"
 			>
 				{open ? <FolderOpen className="size-4" /> : <Folder className="size-4" />}
-			</motion.span>
+			</m.span>
 		</AnimatePresence>
 	);
 }
@@ -297,7 +297,7 @@ export function FileTree({
 				const isSelected = selectedId === row.item.value;
 
 				return (
-					<motion.div
+					<m.div
 						layout={reduce ? false : "position"}
 						key={row.item.value}
 						initial={reduce ? false : { opacity: 0, y: -6 }}
@@ -345,7 +345,7 @@ export function FileTree({
 							style={{ paddingLeft: 8 + row.depth * indent }}
 						>
 							{row.depth > 0 ? (
-								<motion.span
+								<m.span
 									aria-hidden="true"
 									initial={reduce ? false : { opacity: 0, scaleY: 0 }}
 									animate={{ opacity: 1, scaleY: 1 }}
@@ -356,7 +356,7 @@ export function FileTree({
 								/>
 							) : null}
 
-							<motion.span
+							<m.span
 								aria-hidden="true"
 								animate={{ rotate: isOpen ? 90 : 0 }}
 								transition={reduce ? { duration: 0 } : SPRING_SWAP}
@@ -366,7 +366,7 @@ export function FileTree({
 								)}
 							>
 								<ChevronRight className="size-3.5" />
-							</motion.span>
+							</m.span>
 
 							<span
 								aria-hidden="true"
@@ -383,7 +383,7 @@ export function FileTree({
 								{row.item.name}
 							</span>
 						</button>
-					</motion.div>
+					</m.div>
 				);
 			})}
 		</SharedLayoutBg>

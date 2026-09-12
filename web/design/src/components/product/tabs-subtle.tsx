@@ -1,6 +1,6 @@
 import { Tabs, TabsList, TabsTrigger } from "@prime-agent/web-design/components/ui/tabs";
 import type { LucideIcon } from "lucide-react";
-import { AnimatePresence, domMax, LazyMotion, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { fontWeights, spring } from "../../lib/ease";
@@ -60,7 +60,7 @@ function TabsSubtleIndicators({
 	const reduceMotion = useReducedMotion();
 	const instant = reduceMotion ? { duration: 0 } : undefined;
 	return (
-		<LazyMotion features={domMax}>
+		<>
 			{selectedRect ? (
 				<m.div
 					className={cn("pointer-events-none absolute", ACTIVE_PILL_CLASS, PILL_RADIUS)}
@@ -128,7 +128,7 @@ function TabsSubtleIndicators({
 					/>
 				) : null}
 			</AnimatePresence>
-		</LazyMotion>
+		</>
 	);
 }
 
@@ -355,25 +355,23 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 					</span>
 				) : null}
 				{collapseLabel ? null : labelContent}
-				<LazyMotion features={domMax}>
-					<AnimatePresence initial={false}>
-						{collapseLabel && showLabel ? (
-							<m.span
-								key="label"
-								className="ml-2 overflow-hidden"
-								initial={{ clipPath: "inset(0 100% 0 0)", opacity: 0 }}
-								animate={{ clipPath: "inset(0 0% 0 0)", opacity: 1 }}
-								exit={{ clipPath: "inset(0 100% 0 0)", opacity: 0 }}
-								transition={{
-									...spring.fast.enter,
-									opacity: { duration: 0.06 },
-								}}
-							>
-								{labelContent}
-							</m.span>
-						) : null}
-					</AnimatePresence>
-				</LazyMotion>
+				<AnimatePresence initial={false}>
+					{collapseLabel && showLabel ? (
+						<m.span
+							key="label"
+							className="ml-2 overflow-hidden"
+							initial={{ clipPath: "inset(0 100% 0 0)", opacity: 0 }}
+							animate={{ clipPath: "inset(0 0% 0 0)", opacity: 1 }}
+							exit={{ clipPath: "inset(0 100% 0 0)", opacity: 0 }}
+							transition={{
+								...spring.fast.enter,
+								opacity: { duration: 0.06 },
+							}}
+						>
+							{labelContent}
+						</m.span>
+					) : null}
+				</AnimatePresence>
 			</TabsTrigger>
 		);
 	},
