@@ -5,6 +5,7 @@ import type {
 	ChatOpenUIArtifactUpsertRequest,
 	ChatPlanAction,
 	ChatQuestionAnswer,
+	ChatQueueMutationKind,
 	ChatQueueMutationRequest,
 	ChatSessionInfo,
 	ChatSessionMetadata,
@@ -85,7 +86,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const planLabelRef = useRef(planLabel);
 	const queueRef = useRef(queue);
 	const queueRevisionRef = useRef(0);
-	const queuedDeletionTailRef = useRef<Promise<unknown> | null>(null);
+	const queuedMutationTailRef = useRef<Promise<unknown> | null>(null);
 	const presentationRef = useRef(presentation);
 	const pendingSendControllerRef = useRef<AbortController | null>(null);
 	const streamControllersRef = useRef(new Map<string, AbortController>());
@@ -411,20 +412,26 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setActivityLabelSynced(undefined);
 	}, [client, invalidateQueueMutations, resetStreamAdmission, setActivityLabelSynced, setQueueSynced]);
 
-	const deleteQueuedMessage = useCallback(
-		(lane: ChatQueueMutationRequest["lane"], index: number, expectedText: string) => {
+	const mutateQueuedMessage = useCallback(
+		(
+			lane: ChatQueueMutationRequest["lane"],
+			index: number,
+			expectedText: string,
+			mutation: ChatQueueMutationKind,
+			options?: { staleMessage?: string },
+		) => {
 			const originatingSessionId = sessionMetadataRef.current.sessionId;
 			const requestedRevision = queueRevisionRef.current;
 			const requestedItems = lane === "steering" ? queueRef.current.steering : queueRef.current.followUp;
 			const requestedMatchCount = requestedItems.filter((item) => item === expectedText).length;
-			const previousDeletion = queuedDeletionTailRef.current ?? Promise.resolve();
-			const deletion = previousDeletion
+			const previousMutation = queuedMutationTailRef.current ?? Promise.resolve();
+			const queuedMutation = previousMutation
 				.catch(() => undefined)
 				.then(async () => {
 					if (!originatingSessionId || sessionMetadataRef.current.sessionId !== originatingSessionId) return false;
-					const refuseStaleDeletion = (expectedRace: boolean) => {
-						if (!expectedRace) {
-							notifyChatError(new Error("The queued message changed before it could be deleted."));
+					const refuseStaleMutation = (expectedRace: boolean) => {
+						if (!expectedRace && options?.staleMessage) {
+							notifyChatError(new Error(options.staleMessage));
 						}
 						return false;
 					};
@@ -434,7 +441,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 					if (queueRevisionRef.current === requestedRevision) {
 						resolvedIndex = items[index] === expectedText ? index : undefined;
 					} else {
-						if (requestedMatchCount !== 1) return refuseStaleDeletion(true);
+						if (requestedMatchCount !== 1) return refuseStaleMutation(true);
 						// Queue snapshots expose text only, so a unique match in both snapshots
 						// is the only safe way to resolve an item after a revision.
 						const currentMatches = items.reduce<Array<number>>((matches, item, itemIndex) => {
@@ -444,21 +451,28 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 						resolvedIndex = currentMatches.length === 1 ? currentMatches[0] : undefined;
 					}
 					if (resolvedIndex === undefined)
-						return refuseStaleDeletion(queueRevisionRef.current !== requestedRevision);
+						return refuseStaleMutation(queueRevisionRef.current !== requestedRevision);
 
-					const optimistic = {
-						...current,
-						[lane]: items.filter((_, itemIndex) => itemIndex !== resolvedIndex),
-					};
+					const optimistic =
+						mutation.type === "delete"
+							? {
+									...current,
+									[lane]: items.filter((_, itemIndex) => itemIndex !== resolvedIndex),
+								}
+							: {
+									...current,
+									[lane]: items.map((item, itemIndex) => (itemIndex === resolvedIndex ? mutation.text : item)),
+								};
 					setQueueSynced(optimistic);
 					const requestRevision = queueRevisionRef.current;
 
 					try {
-						const result = await client.deleteQueuedMessage({
+						const result = await client.mutateQueuedMessage({
 							sessionId: originatingSessionId,
 							lane,
 							index: resolvedIndex,
 							expectedText,
+							mutation,
 						});
 						if (
 							sessionMetadataRef.current.sessionId !== originatingSessionId ||
@@ -479,13 +493,39 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 						throw queueError;
 					}
 				});
-			queuedDeletionTailRef.current = deletion.then(
+			queuedMutationTailRef.current = queuedMutation.then(
 				() => undefined,
 				() => undefined,
 			);
-			return deletion;
+			return queuedMutation;
 		},
 		[client, setQueueSynced],
+	);
+
+	const deleteQueuedMessage = useCallback(
+		(lane: ChatQueueMutationRequest["lane"], index: number, expectedText: string) =>
+			mutateQueuedMessage(
+				lane,
+				index,
+				expectedText,
+				{ type: "delete" },
+				{
+					staleMessage: "The queued message changed before it could be deleted.",
+				},
+			),
+		[mutateQueuedMessage],
+	);
+
+	const editQueuedMessage = useCallback(
+		(lane: ChatQueueMutationRequest["lane"], index: number, expectedText: string, nextText: string) =>
+			mutateQueuedMessage(
+				lane,
+				index,
+				expectedText,
+				{ type: "replace", text: nextText, lane },
+				{ staleMessage: "The queued message changed before it could be updated." },
+			),
+		[mutateQueuedMessage],
 	);
 
 	const startNewSession = useCallback(
@@ -667,6 +707,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		answerQuestion,
 		appendLocalMessage,
 		deleteQueuedMessage,
+		editQueuedMessage,
 		deleteSession,
 		error,
 		getMessages,

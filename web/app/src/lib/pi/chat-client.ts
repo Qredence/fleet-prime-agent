@@ -93,6 +93,7 @@ export type ChatClient = {
 	abortSession: (metadata: ChatSessionMetadata & { childId?: string }) => Promise<void>;
 	answerQuestion: (request: ChatQuestionAnswerRequest) => Promise<ChatQuestionAnswerResponse>;
 	deleteQueuedMessage: (request: ChatQueueMutationRequest) => Promise<ChatQueueMutationResponse>;
+	mutateQueuedMessage: (request: ChatQueueMutationRequest) => Promise<ChatQueueMutationResponse>;
 	browseWorkspace: (path?: string, projectId?: ProjectId) => Promise<WorkspaceBrowseResponse>;
 	createSession: (projectId?: ProjectId, signal?: AbortSignal) => Promise<ChatSessionResponse>;
 	listProjects: () => Promise<ProjectListResponse>;
@@ -155,13 +156,17 @@ export const chatClient: ChatClient = {
 		});
 	},
 
-	async deleteQueuedMessage(request) {
+	async mutateQueuedMessage(request) {
 		const body = ChatQueueMutationRequestSchema.parse(request);
 		return fetchValidatedJson("/api/chat/session", ChatQueueMutationResponseSchema, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(body),
 		});
+	},
+
+	async deleteQueuedMessage(request) {
+		return this.mutateQueuedMessage({ ...request, mutation: request.mutation ?? { type: "delete" } });
 	},
 
 	async browseWorkspace(path, projectId) {

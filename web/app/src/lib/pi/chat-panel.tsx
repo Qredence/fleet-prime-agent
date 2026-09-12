@@ -18,6 +18,12 @@ type ChatPanelProps = {
 	artifactRuns?: Array<PrimeAgentArtifactRun>
 	queue?: { steering: readonly string[]; followUp: readonly string[] }
 	onDeleteQueuedMessage?: (lane: FleetQueueLane, index: number, text: string) => Promise<boolean>
+	onEditQueuedMessage?: (
+		lane: FleetQueueLane,
+		index: number,
+		expectedText: string,
+		nextText: string,
+	) => Promise<boolean>
 	onOpenArtifact?: (artifactId: string) => void
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>
 	inputSuggestionItems: FleetPiAgentChatProps["suggestions"]
@@ -47,6 +53,7 @@ export function ChatPanel({
 	artifactRuns,
 	queue,
 	onDeleteQueuedMessage,
+	onEditQueuedMessage,
 	onOpenArtifact,
 	onOpenUIArtifactReady,
 	inputSuggestionItems,
@@ -99,6 +106,7 @@ export function ChatPanel({
 					artifactRuns={artifactRuns}
 					queue={queue}
 					onDeleteQueuedMessage={onDeleteQueuedMessage}
+					onEditQueuedMessage={onEditQueuedMessage}
 					onOpenArtifact={onOpenArtifact}
 					onOpenUIArtifactReady={onOpenUIArtifactReady}
 				questionTool={questionTool}

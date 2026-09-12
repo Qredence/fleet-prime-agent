@@ -61,11 +61,20 @@ export type QueueState = {
 	followUp: Array<string>;
 };
 
+export type ChatQueueReplaceMutation = {
+	type: "replace";
+	text: string;
+	lane?: "steering" | "followUp";
+};
+
+export type ChatQueueMutationKind = { type: "delete" } | ChatQueueReplaceMutation;
+
 export type ChatQueueMutationRequest = {
 	sessionId: string;
 	lane: "steering" | "followUp";
 	index: number;
 	expectedText: string;
+	mutation?: ChatQueueMutationKind;
 };
 
 export type ChatQueueMutationResponse = {

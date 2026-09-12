@@ -390,14 +390,30 @@ export const ChatQueueEventSchema = z
 	})
 	.openapi({ description: "Stream queue event" });
 
+export const ChatQueueReplaceMutationSchema = z
+	.object({
+		type: z.literal("replace"),
+		text: z.string().min(1),
+		lane: z.enum(["steering", "followUp"]).optional(),
+	})
+	.openapi({ description: "Replace one queued message after verifying its expected text" });
+
+export const ChatQueueMutationKindSchema = z
+	.discriminatedUnion("type", [z.object({ type: z.literal("delete") }), ChatQueueReplaceMutationSchema])
+	.openapi({ description: "Queued-message mutation to apply after verifying expected text" });
+
 export const ChatQueueMutationRequestSchema = z
 	.object({
 		sessionId: SessionIdSchema,
 		lane: z.enum(["steering", "followUp"]),
 		index: z.number().int().nonnegative(),
 		expectedText: z.string().min(1),
+		mutation: ChatQueueMutationKindSchema.optional(),
 	})
-	.openapi({ description: "Delete one queued message after verifying its expected text" });
+	.openapi({
+		description:
+			"Mutate one queued message after verifying its expected text; omit mutation to delete for backward compatibility",
+	});
 
 export const ChatQueueMutationResponseSchema = z
 	.object({

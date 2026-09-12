@@ -19,7 +19,14 @@ export function handleChatQueueMutationPost(request: Request): Promise<Response>
 		if (!(await requireProjectSession(session))) {
 			return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
 		}
-		const result = await bridge.deleteQueuedMessage(body.sessionId, body.lane, body.index, body.expectedText);
+		const mutation = body.mutation ?? { type: "delete" };
+		const result = await bridge.mutateQueuedMessage(
+			body.sessionId,
+			body.lane,
+			body.index,
+			body.expectedText,
+			mutation,
+		);
 		return Response.json(ChatQueueMutationResponseSchema.parse(result));
 	}, request);
 }
