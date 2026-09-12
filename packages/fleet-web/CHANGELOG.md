@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+### Minor Changes
+
+- 6889089: Edit queued steering and follow-up messages in place from the Fleet web UI, with the same expected-text guards and queue synchronization as deletion. Empty edits delete; otherwise the message is replaced via the queue PATCH seam.
+- 3299983: Keep slash commands with arguments in the composer until submit, title command-only sessions from Fleet sidecars instead of "(no messages)", and add a Settings MCP connections surface with browser-safe list, add, login, and logout.
+
 ## 0.5.11
 
 ### Patch Changes
