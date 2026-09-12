@@ -3,8 +3,6 @@ export * from "./chat-types";
 export type {
 	AttachmentUploadMetadata,
 	ChatAttachment,
-	ChatEvent,
-	ChatToolPart as FleetChatToolPart,
 	OpenPanelAction,
 	OpenUIAction,
 	ProjectCreateRequest,
@@ -27,8 +25,6 @@ export type {
 export {
 	AttachmentUploadMetadataSchema,
 	ChatAttachmentSchema,
-	ChatEventSchema,
-	ChatToolPartSchema,
 	MAX_ATTACHMENT_BYTES,
 	MAX_TURN_ATTACHMENT_BYTES,
 	OpenPanelActionSchema,
