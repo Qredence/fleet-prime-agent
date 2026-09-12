@@ -182,7 +182,7 @@ export function WorkspacePanelContent({
 			window.clearTimeout(timeoutId);
 			controller.abort();
 		};
-	}, [loadWorkspaceFile, selectedPath]);
+	}, [loadWorkspaceFile, selectedPath, workspace]);
 
 	useEffect(() => {
 		if (!selectedPath || typeof window === "undefined") return;

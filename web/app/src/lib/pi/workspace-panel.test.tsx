@@ -296,6 +296,37 @@ describe("WorkspacePanelContent file tree", () => {
 		expect(getByTestId("workspace-preview").textContent).toContain("README.md");
 	});
 
+	it("reloads the preview when the workspace tree refreshes with the same file selected", async () => {
+		const loadWorkspaceFile = vi.fn(async (path: string) => fileResponse(path));
+		const { getByText, rerender } = renderPanel({
+			loadWorkspaceFile,
+			onSelectedPathChange: vi.fn(),
+			selectedPath: "docs/README.md",
+		});
+
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy());
+
+		const refreshedWorkspace: WorkspaceTreeResponse = {
+			...workspace,
+			diagnostics: ["refreshed"],
+		};
+
+		rerender(
+			<WorkspacePanelContent
+				error={null}
+				loading={false}
+				workspace={refreshedWorkspace}
+				loadWorkspaceFile={loadWorkspaceFile}
+				onSelectedPathChange={vi.fn()}
+				selectedPath="docs/README.md"
+			/>,
+		);
+
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledTimes(2));
+		expect(loadWorkspaceFile).toHaveBeenLastCalledWith("docs/README.md", expect.any(AbortSignal));
+	});
+
 	it("shows an error instead of a skeleton when the preview request is rejected", async () => {
 		const loadWorkspaceFile = vi.fn(async () => {
 			throw new Error("file missing");
