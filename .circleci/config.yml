@@ -179,6 +179,18 @@ jobs:
             pnpm --filter @prime-agent/web-server run test
             --reporter=default --reporter=junit
             --outputFile="$PWD/test-results/web-server.xml"
+      - run:
+          name: Test web protocol
+          command: >-
+            pnpm --filter @prime-agent/web-protocol run test
+            --reporter=default --reporter=junit
+            --outputFile="$PWD/test-results/web-protocol.xml"
+      - run:
+          name: Test web design
+          command: >-
+            pnpm --filter @prime-agent/web-design run test
+            --reporter=default --reporter=junit
+            --outputFile="$PWD/test-results/web-design.xml"
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -191,6 +203,8 @@ jobs:
       - checkout
       - install-system-dependencies
       - install-pnpm:
+          # Smoke the packed artifact on Node 22.12.0 with pnpm 10 so the
+          # advertised minimum Node lane does not require the workspace pnpm 11 toolchain.
           pnpm_version: "10.24.0"
       - install-dependencies
       - attach_workspace:
