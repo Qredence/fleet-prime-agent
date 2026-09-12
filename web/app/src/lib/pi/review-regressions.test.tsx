@@ -1,23 +1,27 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
-import { describe, expect, it, vi } from "vitest";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/artifacts-panel";
 import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
+import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/artifacts-panel";
 import { FleetMessageQueue } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue";
 import { FleetSubagentList } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-subagent-list";
 import { FleetToolTimeline } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-tool-timeline";
 import { Markdown } from "@prime-agent/web-design/components/registry/beui/agents/markdown";
 import { notify } from "@prime-agent/web-design/lib/notify";
+import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
-		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>Trigger OpenUI action</button>
+		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>
+			Trigger OpenUI action
+		</button>
 	),
 }));
 vi.mock("@prime-agent/web-design/components/openui/openui-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
-		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>Trigger OpenUI action</button>
+		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>
+			Trigger OpenUI action
+		</button>
 	),
 }));
 
@@ -50,9 +54,7 @@ function settledReasoningMessage(): ChatMessage {
 	};
 }
 
-function presentation(
-	overrides: Partial<PrimeAgentSessionPresentation> = {},
-): PrimeAgentSessionPresentation {
+function presentation(overrides: Partial<PrimeAgentSessionPresentation> = {}): PrimeAgentSessionPresentation {
 	return {
 		revision: 1,
 		userBash: [],
@@ -105,7 +107,9 @@ describe("review regressions", () => {
 			{
 				id: "assistant-2",
 				role: "assistant",
-				parts: [{ type: "tool-Bash", toolCallId: "current-tool", input: { command: "current command" }, output: "done" }],
+				parts: [
+					{ type: "tool-Bash", toolCallId: "current-tool", input: { command: "current command" }, output: "done" },
+				],
 			},
 		];
 		const artifactRuns: Array<PrimeAgentArtifactRun> = [
@@ -167,8 +171,23 @@ describe("review regressions", () => {
 					rootSessionId: "session-1",
 					rootChildrenIds: ["parent"],
 					nodes: {
-						parent: { id: "parent", label: "Parent worker", status: "error", timestamp: 1, depth: 0, childrenIds: ["child"] },
-						child: { id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2, depth: 1, childrenIds: [] },
+						parent: {
+							id: "parent",
+							label: "Parent worker",
+							status: "error",
+							timestamp: 1,
+							depth: 0,
+							childrenIds: ["child"],
+						},
+						child: {
+							id: "child",
+							parentId: "parent",
+							label: "Child worker",
+							status: "done",
+							timestamp: 2,
+							depth: 1,
+							childrenIds: [],
+						},
 					},
 				}}
 			>
@@ -345,13 +364,7 @@ describe("review regressions", () => {
 			},
 		];
 		const { findByText, getByRole } = render(
-			<FleetPiAgentChat
-				inputBar={inputBar}
-				messages={messages}
-				onSend={vi.fn()}
-				onStop={vi.fn()}
-				status="ready"
-			/>,
+			<FleetPiAgentChat inputBar={inputBar} messages={messages} onSend={vi.fn()} onStop={vi.fn()} status="ready" />,
 		);
 		const answer = await findByText("Final architecture summary");
 		const activity = getByRole("button", { name: "Completed 1 tracked action" });
@@ -542,9 +555,7 @@ describe("review regressions", () => {
 		);
 
 		const openButton = getByRole("button", { name: "Open IPython artifact 1" });
-		expect(openButton.parentElement?.parentElement?.className).toContain(
-			"grid-cols-[1rem_auto_minmax(0,1fr)_auto]",
-		);
+		expect(openButton.parentElement?.parentElement?.className).toContain("grid-cols-[1rem_auto_minmax(0,1fr)_auto]");
 		fireEvent.click(openButton);
 		expect(onOpenArtifact).toHaveBeenCalledWith("ipython-artifact", "repl");
 	});
@@ -560,16 +571,12 @@ describe("review regressions", () => {
 		];
 
 		const { getByRole } = render(
-			<ArtifactsPanelContent
-				messages={messages}
-				onOpenUIAction={onOpenUIAction}
-				status="ready"
-			/>,
+			<ArtifactsPanelContent messages={messages} onOpenUIAction={onOpenUIAction} status="ready" />,
 		);
 
 		fireEvent.click(getByRole("button", { name: /Card/ }));
 		fireEvent.click(getByRole("button", { name: "Trigger OpenUI action" }));
-		 expect(onOpenUIAction).toHaveBeenCalledWith("continue_conversation");
+		expect(onOpenUIAction).toHaveBeenCalledWith("continue_conversation");
 	});
 
 	it("renders technical diff output in the Artifacts pane", () => {
@@ -597,11 +604,7 @@ describe("review regressions", () => {
 		];
 
 		const { getByLabelText, getByText } = render(
-			<ArtifactsPanelContent
-				messages={[]}
-				status="ready"
-				artifactRuns={artifactRuns}
-			/>,
+			<ArtifactsPanelContent messages={[]} status="ready" artifactRuns={artifactRuns} />,
 		);
 
 		expect(getByLabelText("Changes failed")).toBeTruthy();

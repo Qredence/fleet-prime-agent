@@ -187,9 +187,7 @@ describe("WorkspacePanelContent file tree", () => {
 		const readme = getByRole("treeitem", { name: "README.md" });
 		fireEvent.click(readme);
 
-		await waitFor(() =>
-			expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md", expect.any(AbortSignal)),
-		);
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md", expect.any(AbortSignal)));
 		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy());
 		expect(readme.getAttribute("aria-selected")).toBe("true");
 		expect(getByTestId("workspace-preview").textContent).toContain("README.md");
@@ -240,9 +238,7 @@ describe("WorkspacePanelContent file tree", () => {
 		expect(document.activeElement).toBe(reopenedReadme);
 		fireEvent.keyDown(reopenedReadme, { key: "Enter" });
 
-		await waitFor(() =>
-			expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md", expect.any(AbortSignal)),
-		);
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md", expect.any(AbortSignal)));
 	});
 
 	it("renders scoped artifact trees without leaking sibling paths", () => {
@@ -284,9 +280,7 @@ describe("WorkspacePanelContent file tree", () => {
 			selectedPath: "docs/README.md",
 		});
 
-		await waitFor(() =>
-			expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md", expect.any(AbortSignal)),
-		);
+		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md", expect.any(AbortSignal)));
 		expect(getByTestId("workspace-preview").querySelector('[data-slot="skeleton"]')).toBeTruthy();
 		expect(queryByText("Preview body", { exact: true })).toBeNull();
 

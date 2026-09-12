@@ -46,15 +46,9 @@
           "src/components/registry/beui/agents/input/mode-selector.tsx",
           "src/components/product/fleet-pi/icons/google-icon.tsx",
           "src/components/product/fleet-pi/primitives/centered-loader.tsx",
-          "src/components/registry/beui/agents/input/effort-picker.tsx",
-          "src/components/registry/beui/agents/input/model-picker.tsx",
           "src/components/registry/assistant-ui/elements/fleet-reasoning-panel.tsx",
           "src/components/product/fleet-pi/chat/chat-stop-control.tsx",
-          "src/components/product/fleet-pi/pi/open-project-folder-dialog.tsx",
-          "src/components/registry/beui/motion/context-menu.tsx",
-          "src/components/ui/empty.tsx",
-          "src/components/ui/toggle-group.tsx",
-          "src/lib/elevated.tsx"
+          "src/components/product/fleet-pi/pi/open-project-folder-dialog.tsx"
         ],
         "rules": ["deslop/unused-file"]
       },
@@ -193,7 +187,6 @@
           "src/components/registry/beui/agents/message-turns.tsx",
           "src/components/registry/beui/agents/tools/mcp-tool.tsx",
           "src/components/registry/beui/motion/combobox/context.tsx",
-          "src/components/registry/beui/motion/context-menu.tsx",
           "src/components/registry/beui/motion/popover-morph.tsx",
           "src/components/registry/assistant-ui/elements/composer.tsx",
           "src/components/registry/assistant-ui/elements/fleet-agent-plan.tsx"
