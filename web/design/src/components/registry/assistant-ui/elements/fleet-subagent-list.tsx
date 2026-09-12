@@ -36,7 +36,7 @@ export function FleetSubagentList({ children, tree, className }: FleetSubagentLi
 				className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>
 				{active ? (
-					<LoaderCircle className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+					<LoaderCircle className="size-3.5 animate-spin text-primary" />
 				) : (
 					<CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
 				)}

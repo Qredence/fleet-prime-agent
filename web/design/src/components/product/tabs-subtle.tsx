@@ -1,18 +1,17 @@
 import { Tabs, TabsList, TabsTrigger } from "@prime-agent/web-design/components/ui/tabs";
 import type { LucideIcon } from "lucide-react";
-import { AnimatePresence, domAnimation, LazyMotion, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, domMax, LazyMotion, m, useReducedMotion } from "motion/react";
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { ItemRect } from "../../hooks/use-proximity-hover";
-import { useProximityHover } from "../../hooks/use-proximity-hover";
-import { fontWeights } from "../../lib/font-weight";
-import { spring } from "../../lib/springs";
+import { fontWeights, spring } from "../../lib/ease";
+import type { ItemRect } from "../../lib/hooks/use-proximity-hover";
+import { useProximityHover } from "../../lib/hooks/use-proximity-hover";
 import { cn } from "../../lib/utils";
 
 /** Selection / hover pill surface — maps Fluid `bg-active` to Fleet chrome. */
 const ACTIVE_PILL_CLASS = "bg-background shadow-sm";
 
-/** Floating header chrome track (matches DiscreteTabs / chrome pills). */
+/** Floating header chrome track (matches chrome pills). */
 const PILL_TRACK_CLASS = "rounded-full border border-border/70 bg-sidebar p-0.5 shadow-sm backdrop-blur";
 
 const PILL_RADIUS = "rounded-full";
@@ -61,7 +60,7 @@ function TabsSubtleIndicators({
 	const reduceMotion = useReducedMotion();
 	const instant = reduceMotion ? { duration: 0 } : undefined;
 	return (
-		<LazyMotion features={domAnimation}>
+		<LazyMotion features={domMax}>
 			{selectedRect ? (
 				<m.div
 					className={cn("pointer-events-none absolute", ACTIVE_PILL_CLASS, PILL_RADIUS)}
@@ -291,9 +290,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 		const ariaLabel = ariaLabelProp ?? (collapseLabel && !showLabel ? label : undefined);
 
 		const labelContent = (
-			<span
-				className={cn("inline-grid whitespace-nowrap", isPill ? "text-[0.75rem] font-medium" : "text-[0.8125rem]")}
-			>
+			<span className={cn("inline-grid whitespace-nowrap", isPill ? "text-label font-medium" : "text-title")}>
 				<span
 					className="invisible col-start-1 row-start-1 [text-box:trim-both_cap_alphabetic]"
 					style={{ fontVariationSettings: fontWeights.semibold }}
@@ -351,14 +348,14 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 							className={cn("shrink-0 transition-[color,stroke-width] duration-80", tone)}
 						/>
 						{badge !== undefined ? (
-							<span className={cn("text-[0.6875rem] tabular-nums transition-colors duration-80", tone)}>
+							<span className={cn("text-caption tabular-nums transition-colors duration-80", tone)}>
 								{badge}
 							</span>
 						) : null}
 					</span>
 				) : null}
 				{collapseLabel ? null : labelContent}
-				<LazyMotion features={domAnimation}>
+				<LazyMotion features={domMax}>
 					<AnimatePresence initial={false}>
 						{collapseLabel && showLabel ? (
 							<m.span

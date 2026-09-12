@@ -53,4 +53,36 @@ describe("conversation turn rendering", () => {
 
 		expect(renderCounter.userMessage).toBe(1);
 	});
+
+	it("renders one turn-progress region and no AgentActivity stack", () => {
+		const turn = {
+			user: {
+				id: "user-1",
+				role: "user",
+				parts: [{ type: "text", text: "Inspect files" }],
+			} as ChatMessage,
+			assistants: [
+				{
+					id: "assistant-1",
+					role: "assistant",
+					parts: [
+						{ type: "text", text: "Looking" },
+						{ type: "tool-Bash", toolCallId: "bash-1", state: "input-streaming", input: { command: "ls" } },
+					],
+				} as ChatMessage,
+			],
+		};
+		const { container } = render(
+			<ConversationTurnView
+				turn={turn}
+				state={{ isLast: true, isStreaming: true, suppressQuestionTool: false }}
+				rendering={{}}
+				activity={{ label: "Queued behind another run" }}
+			/>,
+		);
+
+		expect(container.querySelectorAll("[data-testid='turn-progress']")).toHaveLength(1);
+		expect(container.querySelector("[data-testid='agent-activity']")).toBeNull();
+		expect(container.textContent).not.toContain("thoughtContent");
+	});
 });

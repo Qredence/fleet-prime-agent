@@ -13,7 +13,7 @@ import {
 } from "../../../../lib/layout-constants";
 import { isDaytonaNotConnectedError } from "../../../../lib/pi/chat-helpers";
 import { isPathWithinScope } from "../../../../lib/workspace-path-nav";
-import { Markdown } from "../../../registry/beui/agents/markdown";
+import { LazyMarkdown } from "../../../registry/beui/agents/lazy-markdown";
 import { FileTree, FileTreeFile, FileTreeFolder } from "../../../registry/beui/motion/file-tree";
 import { useWorkspaceSplitLayout } from "./hooks/use-workspace-split-layout";
 import { findWorkspaceNode } from "./resource-helpers";
@@ -354,7 +354,7 @@ function WorkspacePreview({
 					/>
 				)}
 				{selectedPath && !error && preview && (preview.status === undefined || preview.status === "ok") && (
-					<Markdown className="text-label leading-relaxed" content={preview.content} />
+					<LazyMarkdown className="text-label leading-relaxed" content={preview.content} />
 				)}
 			</div>
 		</div>

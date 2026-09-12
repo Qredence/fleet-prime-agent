@@ -249,6 +249,49 @@ export const ChatToolCategorySchema = z
 	.enum(["kernel", "system", "mcp", "rlm", "plan", "question", "custom"])
 	.openapi({ description: "Normalized tool category" });
 
+export const ChatTodoStatusSchema = z.enum(["pending", "in-progress", "completed", "cancelled"]);
+
+export const ChatTodoItemSchema = z
+	.object({
+		id: z.string().optional(),
+		content: z.string().optional(),
+		title: z.string().optional(),
+		status: ChatTodoStatusSchema.optional(),
+	})
+	.openapi({ description: "Todo or plan item" });
+
+export const ChatBashToolInputSchema = z
+	.object({
+		command: z.string().optional(),
+		cmd: z.string().optional(),
+	})
+	.openapi({ description: "Bash tool input" });
+
+export const ChatEditToolInputSchema = z
+	.object({
+		path: z.string().optional(),
+		filePath: z.string().optional(),
+		oldString: z.string().optional(),
+		newString: z.string().optional(),
+	})
+	.openapi({ description: "Edit or write tool input" });
+
+export const ChatQuestionToolInputSchema = z
+	.object({
+		header: z.string().optional(),
+		questions: z.unknown().optional(),
+	})
+	.openapi({ description: "Question tool input" });
+
+export const ChatPlanToolInputSchema = z
+	.object({
+		executing: z.boolean().optional(),
+		pendingDecision: z.boolean().optional(),
+		plan: z.unknown().optional(),
+		todos: z.array(ChatTodoItemSchema).optional(),
+	})
+	.openapi({ description: "Plan or todo tool input" });
+
 export const ChatToolPartSchema = z
 	.object({
 		type: z.string(),
@@ -258,12 +301,14 @@ export const ChatToolPartSchema = z
 		toolCallId: z.string().optional(),
 		state: z.string().optional(),
 		input: z.unknown().optional(),
+		args: z.unknown().optional(),
+		id: z.string().optional(),
 		output: z.unknown().optional(),
 		result: z.unknown().optional(),
+		backgroundOutput: z.string().optional(),
 		durationMs: z.number().optional(),
 		error: FleetErrorEnvelopeSchema.optional(),
 	})
-	.passthrough()
 	.openapi({ description: "Tool message part" });
 
 export const ChatMessagePartSchema = z
@@ -276,6 +321,8 @@ export const ChatMessageSchema = z
 		role: z.enum(["user", "assistant"]),
 		parts: z.array(ChatMessagePartSchema),
 		createdAt: z.union([z.date(), z.string(), z.number()]).optional(),
+		source: z.literal("local").optional(),
+		optimistic: z.boolean().optional(),
 		experimental_attachments: z
 			.array(
 				z.object({
@@ -285,7 +332,6 @@ export const ChatMessageSchema = z
 			)
 			.optional(),
 	})
-	.passthrough()
 	.openapi({ description: "Chat message" });
 
 export const FleetAdapterFeatureSchema = z.enum(["reasoning-summary-v1", "mcp-connections-v1"]);

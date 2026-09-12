@@ -1,10 +1,8 @@
-import type { ForkPickerEntry } from "@prime-agent/web-design/components/product/fleet-pi/chat/fork-picker-dialog";
-import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/product/fleet-pi/pi/prime-agent-artifacts";
+import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/product/fleet-pi/panels/prime-agent-artifacts";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ProjectId } from "@prime-agent/web-protocol";
 import type {
-	ChatMode,
 	ChatPiSettingsUpdate,
 	ChatQuestionAnswer,
 	ChatSessionMetadata,
@@ -41,6 +39,8 @@ import { useAgentTabs } from "@/lib/pi/use-agent-tabs";
 import { useChatShellState } from "@/lib/pi/use-chat-shell-state";
 import { useChatStorage } from "@/lib/pi/use-chat-storage";
 import { useChatSuggestions } from "@/lib/pi/use-chat-view";
+import { useChatWorkspaceComposerState } from "@/lib/pi/use-chat-workspace-composer-state";
+import { useChatWorkspaceDialogs } from "@/lib/pi/use-chat-workspace-dialogs";
 import { useChatWorkspaceHeader } from "@/lib/pi/use-chat-workspace-header";
 import { useLocalSlashActions } from "@/lib/pi/use-local-slash-actions";
 import { usePendingQuestionBar } from "@/lib/pi/use-pending-question-bar";
@@ -68,14 +68,26 @@ function resolveSavedModelKey(models: Array<ChatModelOption>, response: ChatSett
  */
 export function useChatWorkspaceData() {
 	const user = useOptionalUser();
-	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSlashTab | undefined>(undefined);
-	const [modelPickerOpen, setModelPickerOpen] = useState(false);
-	const [effortPickerOpen, setEffortPickerOpen] = useState(false);
-	const [chatMode, setChatMode] = useState<ChatMode>("agent");
-	const [uploadedAttachments, setUploadedAttachments] = useState<Array<UploadedAttachment>>([]);
-	const [workspaceAttachments, setWorkspaceAttachments] = useState<Array<WorkspaceAttachment>>([]);
-	const [forkPickerEntries, setForkPickerEntries] = useState<Array<ForkPickerEntry> | null>(null);
+	const {
+		forkPickerEntries,
+		setForkPickerEntries,
+		setSettingsDialogOpen,
+		setSettingsInitialTab,
+		settingsDialogOpen,
+		settingsInitialTab,
+	} = useChatWorkspaceDialogs();
+	const {
+		chatMode,
+		effortPickerOpen,
+		modelPickerOpen,
+		setChatMode,
+		setEffortPickerOpen,
+		setModelPickerOpen,
+		setUploadedAttachments,
+		setWorkspaceAttachments,
+		uploadedAttachments,
+		workspaceAttachments,
+	} = useChatWorkspaceComposerState();
 	const storage = useChatStorage();
 	const [activeProjectId, setActiveProjectId] = useState<ProjectId | undefined>(
 		storage.sessionMetadata.projectId ?? undefined,
@@ -218,7 +230,7 @@ export function useChatWorkspaceData() {
 	const clearPendingAttachments = useCallback(() => {
 		setUploadedAttachments([]);
 		setWorkspaceAttachments([]);
-	}, []);
+	}, [setUploadedAttachments, setWorkspaceAttachments]);
 	// In-flight session-creation memo mirroring sessionCreatePromiseRef in
 	// use-pi-chat-messaging.ts. startNewSession is fire-and-forget from several
 	// call sites (header/sidebar new-session buttons, attachment upload), so two
@@ -398,12 +410,15 @@ export function useChatWorkspaceData() {
 			});
 		};
 		input.click();
-	}, [getSessionMetadata, startNewSessionForWorkspace]);
-	const removeUploadedAttachment = useCallback((attachmentId: string) => {
-		setUploadedAttachments((current) => current.filter((attachment) => attachment.attachmentId !== attachmentId));
-	}, []);
-	const clearUploadedAttachments = useCallback(() => setUploadedAttachments([]), []);
-	const clearWorkspaceAttachments = useCallback(() => setWorkspaceAttachments([]), []);
+	}, [getSessionMetadata, setUploadedAttachments, startNewSessionForWorkspace]);
+	const removeUploadedAttachment = useCallback(
+		(attachmentId: string) => {
+			setUploadedAttachments((current) => current.filter((attachment) => attachment.attachmentId !== attachmentId));
+		},
+		[setUploadedAttachments],
+	);
+	const clearUploadedAttachments = useCallback(() => setUploadedAttachments([]), [setUploadedAttachments]);
+	const clearWorkspaceAttachments = useCallback(() => setWorkspaceAttachments([]), [setWorkspaceAttachments]);
 	const restoreAttachments = useCallback(
 		(uploaded: Array<UploadedAttachment>, workspace: Array<WorkspaceAttachment>) => {
 			if (uploaded.length > 0) {
@@ -413,26 +428,32 @@ export function useChatWorkspaceData() {
 				setWorkspaceAttachments((current) => [...workspace, ...current]);
 			}
 		},
-		[],
+		[setUploadedAttachments, setWorkspaceAttachments],
 	);
-	const addWorkspaceAttachment = useCallback((item: Parameters<typeof workspacePathFromSuggestion>[0]) => {
-		const relativePath = workspacePathFromSuggestion(item);
-		if (!relativePath) return;
-		setWorkspaceAttachments((current) => {
-			if (current.some((attachment) => attachment.relativePath === relativePath)) return current;
-			return [
-				...current,
-				{
-					kind: "workspace",
-					relativePath,
-					name: relativePath.split("/").pop() || relativePath,
-				},
-			];
-		});
-	}, []);
-	const removeWorkspaceAttachment = useCallback((relativePath: string) => {
-		setWorkspaceAttachments((current) => current.filter((attachment) => attachment.relativePath !== relativePath));
-	}, []);
+	const addWorkspaceAttachment = useCallback(
+		(item: Parameters<typeof workspacePathFromSuggestion>[0]) => {
+			const relativePath = workspacePathFromSuggestion(item);
+			if (!relativePath) return;
+			setWorkspaceAttachments((current) => {
+				if (current.some((attachment) => attachment.relativePath === relativePath)) return current;
+				return [
+					...current,
+					{
+						kind: "workspace",
+						relativePath,
+						name: relativePath.split("/").pop() || relativePath,
+					},
+				];
+			});
+		},
+		[setWorkspaceAttachments],
+	);
+	const removeWorkspaceAttachment = useCallback(
+		(relativePath: string) => {
+			setWorkspaceAttachments((current) => current.filter((attachment) => attachment.relativePath !== relativePath));
+		},
+		[setWorkspaceAttachments],
+	);
 	const handleQuestionAnswer = useCallback(
 		({ toolCallId, answer }: { toolCallId?: string; answer: ChatQuestionAnswer }) => {
 			void answerQuestion({ toolCallId, answer }).catch((err) => {
@@ -494,10 +515,13 @@ export function useChatWorkspaceData() {
 		[activeProjectId, openPanelAction, selectProject],
 	);
 
-	const openSettings = useCallback((tab?: SettingsSlashTab) => {
-		setSettingsInitialTab(tab);
-		setSettingsDialogOpen(true);
-	}, []);
+	const openSettings = useCallback(
+		(tab?: SettingsSlashTab) => {
+			setSettingsInitialTab(tab);
+			setSettingsDialogOpen(true);
+		},
+		[setSettingsDialogOpen, setSettingsInitialTab],
+	);
 	const handleOpenUIRequest = useCallback(
 		async (request: string) => {
 			const attachments = [...workspaceAttachments, ...uploadedAttachments];

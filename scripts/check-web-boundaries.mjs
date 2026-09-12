@@ -78,6 +78,18 @@ function sourceFiles(directory) {
 	return files;
 }
 
+const arbitraryTypeScalePattern = /text-\[0\./;
+const typeScaleRoots = ["web/app", "web/design/src/components/product", "web/design/src/lib"];
+
+export function findArbitraryTypeScaleLines(source) {
+	const lines = [];
+	const parts = source.split("\n");
+	for (let index = 0; index < parts.length; index += 1) {
+		if (arbitraryTypeScalePattern.test(parts[index])) lines.push(index + 1);
+	}
+	return lines;
+}
+
 function main() {
 	const violations = [];
 	for (const sourceRoot of browserSourceRoots) {
@@ -92,6 +104,24 @@ function main() {
 	if (violations.length > 0) {
 		console.error("Browser packages must not import Prime Agent runtime packages directly:");
 		for (const violation of violations) console.error(`- ${violation}`);
+		process.exit(1);
+	}
+
+	const typeScaleViolations = [];
+	for (const sourceRoot of typeScaleRoots) {
+		for (const file of sourceFiles(resolve(root, sourceRoot))) {
+			const source = readFileSync(file, "utf8");
+			for (const line of findArbitraryTypeScaleLines(source)) {
+				typeScaleViolations.push(
+					`${relative(root, file)}:${line} uses arbitrary text-[0. size (use text-micro/caption/label/body)`,
+				);
+			}
+		}
+	}
+
+	if (typeScaleViolations.length > 0) {
+		console.error("Fleet product UI must use the named type scale outside openui/registry kits:");
+		for (const violation of typeScaleViolations) console.error(`- ${violation}`);
 		process.exit(1);
 	}
 

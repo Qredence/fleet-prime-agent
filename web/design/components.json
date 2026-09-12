@@ -16,7 +16,7 @@
     "utils": "@prime-agent/web-design/lib/utils",
     "ui": "@prime-agent/web-design/components/ui",
     "lib": "@prime-agent/web-design/lib",
-    "hooks": "@prime-agent/web-design/hooks"
+    "hooks": "@prime-agent/web-design/lib/hooks"
   },
   "registries": {
     "@beui": "https://beui.dev/r/{name}.json",

@@ -16,22 +16,12 @@ import type { ChatClient } from "./chat-client";
 import { notifyChatError } from "./chat-error-notify";
 import { chatErrorFromStreamEvent, type QueueState } from "./chat-fetch";
 import {
-	assistantTextFromMessage,
 	createOptimisticUserMessage,
 	removeOptimisticUserMessage,
 	settleOptimisticUserMessage,
-	upsertAssistantToolPart,
 } from "./chat-message-helpers";
 import { applyChatStreamEvent } from "./chat-stream-state";
 import { hydratePlanPresentationMessages } from "./plan-presentation";
-import {
-	applyPlanModeSelection,
-	bindPendingPlanDecisionToolCallId,
-	createEmptyPlanState,
-	createPlanToolPart,
-	toChatPlanState,
-	updatePlanStateFromAssistantText,
-} from "./plan-state";
 import type { SendMessageInput } from "./use-pi-chat";
 import { tryRecoverForbiddenSession, tryRecoverUnknownSession } from "./use-pi-chat-forbidden-session";
 
@@ -220,7 +210,7 @@ export function usePiChatMessaging({
 			event: ChatStreamEvent,
 			assistantIdRef: { current: string | null },
 			streamSessionId: string,
-			mode?: ChatMode,
+			_mode?: ChatMode,
 		) => {
 			if (event.type === "error") {
 				throw chatErrorFromStreamEvent(event);
@@ -231,29 +221,6 @@ export function usePiChatMessaging({
 				// the visible answer instead of replacing it with an empty message.
 				if (streamSessionId !== sessionMetadataRef.current.sessionId) void refreshSessions();
 				return;
-			}
-			let planPart: ReturnType<typeof createPlanToolPart>;
-			if (event.type === "done" && mode === "plan") {
-				const initialPlanState = applyPlanModeSelection(createEmptyPlanState(), mode);
-				const parsedPlan = updatePlanStateFromAssistantText(
-					initialPlanState,
-					assistantTextFromMessage(event.message),
-				);
-				const planState = bindPendingPlanDecisionToolCallId(parsedPlan.state, event.message.id);
-				planPart = parsedPlan.changed ? createPlanToolPart(event.message.id, planState) : undefined;
-				if (planPart) {
-					// Persistence must run even when this session is not the visible one:
-					// the sidecar belongs to the streaming session, not the active view.
-					void client
-						.upsertPlanPresentation({
-							sessionId: streamSessionId,
-							presentation: {
-								assistantMessageId: event.message.id,
-								state: toChatPlanState(planState),
-							},
-						})
-						.catch(() => undefined);
-				}
 			}
 
 			if (event.type === "start") {
@@ -297,12 +264,6 @@ export function usePiChatMessaging({
 			setActivityLabelSynced(next.snapshot.activityLabel);
 			setPlanLabelSynced(next.snapshot.planLabel);
 
-			// Insert after the done merge: applyChatStreamEvent replaces the in-flight
-			// message with event.message, so inserting earlier would drop the card.
-			if (planPart && event.type === "done") {
-				setMessagesSynced((current) => upsertAssistantToolPart(current, event.message.id, planPart));
-			}
-
 			if (event.type === "start") {
 				setStatus("streaming");
 			}
@@ -314,7 +275,6 @@ export function usePiChatMessaging({
 		},
 		[
 			activityLabelRef,
-			client,
 			findStreamAdmission,
 			messagesRef,
 			presentationRef,

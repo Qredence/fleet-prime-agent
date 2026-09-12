@@ -66,7 +66,7 @@ function getSwapKey(value: ReactNode, fallback: string) {
 
 function getStatusClass(status: ToolResultStatus) {
 	if (status === "running") {
-		return "text-blue-600 dark:text-blue-400";
+		return "text-primary";
 	}
 	if (status === "success") {
 		return "text-emerald-600 dark:text-emerald-400";

@@ -12,11 +12,10 @@ import { useChatPanelDataContext, useWorkspaceTreeContext } from "../layout/righ
 import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "../layout/right-panel-registry";
 import { ChromePillButton } from "../primitives/chrome-pill";
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "../styles/tokens";
-import { collectSessionOpenUIBlocks } from "./artifacts-utils";
 import { getResourceGroups } from "./resource-helpers";
 
 const COMPACT_TABS_CLASS =
-	"[&_[data-proximity-index]]:!h-7 [&_[data-proximity-index]]:!px-2 [&_[data-proximity-index]]:!text-[0.6875rem]";
+	"[&_[data-proximity-index]]:!h-7 [&_[data-proximity-index]]:!px-2 [&_[data-proximity-index]]:!text-caption";
 /**
  * Renders responsive controls for opening or navigating the right panel based on context state.
  *
@@ -51,7 +50,7 @@ export function RightPanelTabsFromContext({
 	compact?: boolean;
 	idPrefix?: string;
 }) {
-	const { artifactRuns, messages, rightPanel, setRightPanel, resources } = useChatPanelDataContext();
+	const { artifactRuns, transcriptSummary, rightPanel, setRightPanel, resources } = useChatPanelDataContext();
 	const { workspaceTree } = useWorkspaceTreeContext();
 
 	return (
@@ -62,7 +61,7 @@ export function RightPanelTabsFromContext({
 			replRuns={
 				artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "ipython").length
 			}
-			sessionBlocks={collectSessionOpenUIBlocks(messages).length}
+			sessionBlocks={transcriptSummary.openUIBlocks.length}
 			openUIArtifacts={
 				artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "openui-html").length
 			}
@@ -437,7 +436,7 @@ export function MobilePanel({
 				</span>
 				{title && (
 					<div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3">
-						<div className="flex min-w-0 items-center gap-2 text-[0.8125rem] font-medium text-foreground/80">
+						<div className="flex min-w-0 items-center gap-2 text-label font-medium text-foreground/80">
 							{Icon && <Icon className="size-3.5 shrink-0" />}
 							<span className="truncate">{title}</span>
 						</div>

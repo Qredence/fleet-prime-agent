@@ -84,10 +84,10 @@ function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact;
 		>
 			<div className="flex min-w-0 items-center gap-2 border-b border-border/50 px-2.5 py-1.5">
 				<Code2 className="size-3.5 shrink-0 text-foreground/45" />
-				<span className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium text-foreground/70">
+				<span className="min-w-0 flex-1 truncate text-caption font-medium text-foreground/70">
 					Cell {index + 1}
 				</span>
-				<span className="shrink-0 text-[0.625rem] text-foreground/40">{statusLabel(artifact.status)}</span>
+				<span className="shrink-0 text-micro text-foreground/40">{statusLabel(artifact.status)}</span>
 			</div>
 			<div className="p-2">
 				<IpythonTool part={ipythonPart(artifact)} />
@@ -111,7 +111,7 @@ export function ReplPanelContent({ artifactRuns = [], selectedArtifactId, kernel
 			<div className="flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 				<SquareTerminal className="size-3.5 shrink-0 text-foreground/45" />
 				<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">IPython cells</span>
-				<span className="shrink-0 text-[0.625rem] text-foreground/40">
+				<span className="shrink-0 text-micro text-foreground/40">
 					{cells.length > 0 ? cells.length : "none yet"}
 				</span>
 			</div>
@@ -120,21 +120,21 @@ export function ReplPanelContent({ artifactRuns = [], selectedArtifactId, kernel
 				<details className="overflow-hidden rounded-md border border-border/60 bg-background">
 					<summary className="flex min-w-0 cursor-pointer items-center gap-2 px-2.5 py-1.5">
 						<TriangleAlert className="size-3.5 shrink-0 text-foreground/45" />
-						<span className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium text-foreground/70">
+						<span className="min-w-0 flex-1 truncate text-caption font-medium text-foreground/70">
 							Kernel diagnostics
 						</span>
-						<span className="shrink-0 text-[0.625rem] text-foreground/40">
+						<span className="shrink-0 text-micro text-foreground/40">
 							{kernelDiagnostics.truncated ? "tail" : "stderr"}
 						</span>
 					</summary>
-					<pre className="max-h-48 overflow-auto border-t border-border/50 px-2.5 py-1.5 font-mono text-[0.6875rem] leading-4 whitespace-pre-wrap text-foreground/70">
+					<pre className="max-h-48 overflow-auto border-t border-border/50 px-2.5 py-1.5 font-mono text-caption leading-4 whitespace-pre-wrap text-foreground/70">
 						{kernelDiagnostics.tail}
 					</pre>
 				</details>
 			) : null}
 
 			{cells.length === 0 ? (
-				<p className="px-2 text-[0.6875rem] leading-4 text-foreground/45">
+				<p className="px-2 text-caption leading-4 text-foreground/45">
 					Executed IPython cells and their output will appear here.
 				</p>
 			) : (

@@ -78,7 +78,11 @@ function iconFor(kind: FleetTurnStatusKind) {
 			return Gauge;
 		case "recovery":
 			return AlertCircle;
-		default:
+		case "notice":
 			return Clock3;
+		default: {
+			const exhaustive: never = kind;
+			return exhaustive;
+		}
 	}
 }

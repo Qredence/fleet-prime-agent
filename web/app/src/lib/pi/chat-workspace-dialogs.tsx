@@ -5,12 +5,12 @@ import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
 
 const LazyChatCommandPalette = lazy(() =>
-	import("@prime-agent/web-design/components/product/fleet-pi/chat-command-palette").then(
+	import("@prime-agent/web-design/components/product/fleet-pi/layout/chat-command-palette").then(
 		({ ChatCommandPalette }) => ({ default: ChatCommandPalette }),
 	),
 );
 const LazySettingsDialog = lazy(() =>
-	import("@prime-agent/web-design/components/product/fleet-pi/pi/settings-dialog").then(({ SettingsDialog }) => ({
+	import("@prime-agent/web-design/components/product/fleet-pi/panels/settings-dialog").then(({ SettingsDialog }) => ({
 		default: SettingsDialog,
 	})),
 );

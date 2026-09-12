@@ -72,7 +72,7 @@ export function ReasoningPanel({
 									aria-hidden
 									className={cn(
 										"mt-[7px] size-[5px] shrink-0 rounded-full transition-colors duration-300",
-										active ? "animate-pulse bg-blue-500 dark:bg-blue-400" : "bg-foreground/20",
+										active ? "animate-pulse bg-primary" : "bg-foreground/20",
 									)}
 								/>
 								<span className="flex min-w-0 flex-1 flex-col">

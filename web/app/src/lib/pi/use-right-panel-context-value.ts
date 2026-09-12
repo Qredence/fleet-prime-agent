@@ -3,6 +3,10 @@ import type {
 	SettingsActionsContextValue,
 	WorkspaceTreeContextValue,
 } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
+import {
+	type ChatTranscriptSummary,
+	summarizeChatTranscript,
+} from "@prime-agent/web-design/components/product/fleet-pi/panels/transcript-summary";
 import type { RightPanel, ThemePreference } from "@prime-agent/web-design/lib/canvas-utils";
 import type { ChatModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type {
@@ -33,7 +37,7 @@ import type {
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type UseRightPanelContextValueArgs = {
 	activityLabel?: string;
@@ -95,6 +99,28 @@ type RightPanelContextSlices = {
 	workspaceTreeContext: WorkspaceTreeContextValue;
 };
 
+const TRANSCRIPT_SUMMARY_THROTTLE_MS = 250;
+
+function useThrottledTranscriptSummary(messages: Array<ChatMessage>, status: ChatStatus): ChatTranscriptSummary {
+	const immediate = useMemo(() => summarizeChatTranscript(messages), [messages]);
+	const live = status === "streaming" || status === "submitted";
+	const [throttled, setThrottled] = useState(immediate);
+	const latestRef = useRef(immediate);
+	latestRef.current = immediate;
+
+	useEffect(() => {
+		if (!live) return;
+		const id = window.setTimeout(() => setThrottled(immediate), TRANSCRIPT_SUMMARY_THROTTLE_MS);
+		return () => window.clearTimeout(id);
+	}, [immediate, live]);
+
+	useEffect(() => {
+		if (live) setThrottled(latestRef.current);
+	}, [live]);
+
+	return live ? throttled : immediate;
+}
+
 /**
  * Assembles the memoized context values used by the right panel.
  *
@@ -153,6 +179,7 @@ export function useRightPanelContextValue({
 	workspaceLoading,
 	workspaceTree,
 }: UseRightPanelContextValueArgs): RightPanelContextSlices {
+	const transcriptSummary = useThrottledTranscriptSummary(messages, status);
 	const chatPanelData = useMemo<ChatPanelDataContextValue>(
 		() => ({
 			activityLabel,
@@ -160,7 +187,7 @@ export function useRightPanelContextValue({
 			chatMode,
 			loadSession,
 			loadSubagentSession,
-			messages,
+			transcriptSummary,
 			onOpenSubagentTab,
 			models,
 			planLabel,
@@ -185,7 +212,7 @@ export function useRightPanelContextValue({
 			chatMode,
 			loadSession,
 			loadSubagentSession,
-			messages,
+			transcriptSummary,
 			onOpenSubagentTab,
 			models,
 			planLabel,

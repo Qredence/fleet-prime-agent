@@ -178,7 +178,7 @@ export function FleetSessionSidebarCreateDialog({
 										{selectedDirectoryPath}
 									</p>
 								</div>
-								<span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[0.6875rem] font-medium text-primary">
+								<span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-caption font-medium text-primary">
 									Selected
 								</span>
 							</div>
@@ -258,7 +258,7 @@ export function FleetSessionSidebarCreateDialog({
 																		{pathEntryLabel(entry)}
 																	</span>
 																	<span
-																		className="block truncate text-[0.6875rem] text-muted-foreground"
+																		className="block truncate text-caption text-muted-foreground"
 																		title={entry.pathLabel}
 																	>
 																		{entry.pathLabel}

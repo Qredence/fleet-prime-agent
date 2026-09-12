@@ -1,6 +1,5 @@
 import type { ChatModelInfo, ChatModelSelection, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { redactSessionLabelSecrets } from "@prime-agent/web-protocol/session-label";
-import { Bot, ClipboardList, Hammer } from "lucide-react";
 import type { ModelOption } from "../../components/registry/beui/agents/types";
 
 export type ChatModelOption = ModelOption & {
@@ -64,27 +63,6 @@ export function clampThinkingLevel(
 	if (available.includes("medium")) return "medium";
 	return available[0] ?? "off";
 }
-
-export const CHAT_MODES = [
-	{
-		id: "agent",
-		label: "Agent",
-		icon: Bot,
-		description: "Full tool access",
-	},
-	{
-		id: "plan",
-		label: "Plan",
-		icon: ClipboardList,
-		description: "Read-only planning",
-	},
-	{
-		id: "harness",
-		label: "Harness",
-		icon: Hammer,
-		description: "Workspace architecture",
-	},
-];
 
 export function toModelOption(model: ChatModelInfo): ChatModelOption {
 	return {

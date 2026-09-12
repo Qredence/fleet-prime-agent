@@ -14,6 +14,9 @@ type TimelineStep = {
 	verb: string;
 	target: string;
 	status: "running" | "complete" | "error" | "cancelled";
+	artifactId?: string;
+	artifactTitle?: string;
+	artifactTarget?: "artifacts" | "repl";
 };
 
 type FleetToolTimelineProps = {
@@ -21,7 +24,22 @@ type FleetToolTimelineProps = {
 	artifacts?: readonly PrimeAgentArtifact[];
 	streaming: boolean;
 	className?: string;
+	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void;
 };
+
+function artifactPanel(kind: PrimeAgentArtifact["kind"]): "artifacts" | "repl" {
+	return kind === "ipython" ? "repl" : "artifacts";
+}
+
+function withArtifact(step: TimelineStep, artifact: PrimeAgentArtifact | undefined): TimelineStep {
+	if (!artifact) return step;
+	return {
+		...step,
+		artifactId: artifact.id,
+		artifactTitle: artifact.title,
+		artifactTarget: artifactPanel(artifact.kind),
+	};
+}
 
 /**
  * Converts a non-null, non-array object into a string-keyed record.
@@ -154,7 +172,7 @@ function artifactStep(artifact: PrimeAgentArtifact): TimelineStep {
  * @returns The CSS classes for the status color
  */
 function statusClass(status: TimelineStep["status"]) {
-	if (status === "running") return "text-blue-600 dark:text-blue-400";
+	if (status === "running") return "text-primary";
 	if (status === "error") return "text-destructive";
 	if (status === "cancelled") return "text-muted-foreground";
 	return "text-emerald-600 dark:text-emerald-400";
@@ -173,20 +191,26 @@ export function FleetToolTimeline({
 	artifacts = NO_ARTIFACTS,
 	streaming,
 	className,
+	onOpenArtifact,
 }: FleetToolTimelineProps) {
 	const steps = useMemo(() => {
 		const seen = new Set<string>();
+		const artifactByToolCallId = new Map(
+			artifacts.flatMap((artifact) =>
+				artifact.sourceToolCallId ? [[artifact.sourceToolCallId, artifact] as const] : [],
+			),
+		);
 		const fromMessages = messages.flatMap((message) =>
 			message.parts.flatMap((part, index) => {
 				const step = toolStep(record(part) ?? {}, `${message.id}:${index}`, streaming);
 				if (!step || seen.has(step.id)) return [];
 				seen.add(step.id);
-				return [step];
+				return [withArtifact(step, artifactByToolCallId.get(step.id))];
 			}),
 		);
 		const fromArtifacts = artifacts.flatMap((artifact) => {
 			if (artifact.sourceToolCallId && seen.has(artifact.sourceToolCallId)) return [];
-			const step = artifactStep(artifact);
+			const step = withArtifact(artifactStep(artifact), artifact);
 			if (seen.has(step.id)) return [];
 			seen.add(step.id);
 			return [step];
@@ -226,11 +250,28 @@ export function FleetToolTimeline({
 				<div className="space-y-1 border-t border-border/50 px-3 py-2">
 					{steps.map((step) => {
 						const Icon = step.icon;
+						const artifactId = step.artifactId;
+						const openLabel =
+							artifactId && step.artifactTitle
+								? step.artifactTarget === "repl"
+									? `Open ${step.artifactTitle} in REPL`
+									: `Open ${step.artifactTitle} in artifacts`
+								: undefined;
 						return (
 							<div key={step.id} className="flex min-w-0 items-center gap-2 text-xs">
 								<Icon className={cn("size-3.5 shrink-0", statusClass(step.status))} />
 								<span className="shrink-0 text-muted-foreground">{step.verb}</span>
 								<span className="min-w-0 flex-1 truncate font-mono text-foreground/75">{step.target}</span>
+								{openLabel && artifactId && onOpenArtifact ? (
+									<button
+										type="button"
+										className="shrink-0 text-micro text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										aria-label={openLabel}
+										onClick={() => onOpenArtifact(artifactId, step.artifactTarget)}
+									>
+										Open
+									</button>
+								) : null}
 							</div>
 						);
 					})}

@@ -1,5 +1,5 @@
-import { SubagentComposer } from "@prime-agent/web-design/components/product/fleet-pi/pi/subagent-composer";
-import { SubagentTranscriptView } from "@prime-agent/web-design/components/product/fleet-pi/pi/subagent-transcript";
+import { SubagentComposer } from "@prime-agent/web-design/components/product/fleet-pi/panels/subagent-composer";
+import { SubagentTranscriptView } from "@prime-agent/web-design/components/product/fleet-pi/panels/subagent-transcript";
 import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
 import type { SubagentChatState } from "./use-subagent-chat";
 

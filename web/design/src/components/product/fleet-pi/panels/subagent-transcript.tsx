@@ -20,7 +20,6 @@ import { FleetPiToolRenderer } from "../chat/fleet-pi-tool-renderer";
 import { FleetGenerativeTextRenderer } from "../chat/generative-text-renderer";
 import { VirtualizedTurnList } from "../chat/virtualized-turn-list";
 import { derivePrimeAgentArtifactRuns } from "./prime-agent-artifacts";
-import { PI_TOOL_RENDERERS } from "./tool-renderers";
 import { transcriptStatus } from "./transcript-status";
 
 export type SubagentTranscriptState = {
@@ -62,7 +61,6 @@ export function SubagentTurnView({
 					suppressQuestionTool: true,
 					ToolRendererComponent: FleetPiToolRenderer,
 					TextRendererComponent: FleetGenerativeTextRenderer,
-					toolRenderers: PI_TOOL_RENDERERS,
 				}),
 			),
 		[isLast, isStreaming, turn.assistants],
@@ -188,16 +186,14 @@ export function SubagentTranscriptView({
 				<div className="min-w-0 flex-1">
 					<div className="flex min-w-0 items-center gap-2">
 						<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/80">{title}</span>
-						<span className="shrink-0 text-[0.625rem] capitalize text-foreground/45">{child.status}</span>
+						<span className="shrink-0 text-micro capitalize text-foreground/45">{child.status}</span>
 					</div>
-					{child.model ? (
-						<p className="truncate font-mono text-[0.625rem] text-foreground/40">{child.model}</p>
-					) : null}
+					{child.model ? <p className="truncate font-mono text-micro text-foreground/40">{child.model}</p> : null}
 					{heartbeatLabel ? (
-						<p className="truncate text-[0.625rem] text-foreground/40">Heartbeat: {heartbeatLabel}</p>
+						<p className="truncate text-micro text-foreground/40">Heartbeat: {heartbeatLabel}</p>
 					) : null}
 					{child.answerPreview || child.recap ? (
-						<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[0.6875rem] leading-4 text-foreground/55">
+						<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-caption leading-4 text-foreground/55">
 							{child.answerPreview ?? child.recap}
 						</p>
 					) : null}
@@ -218,13 +214,13 @@ export function SubagentTranscriptView({
 			</div>
 
 			{!parentSessionId ? (
-				<p className="rounded-md border border-dashed border-border/70 p-3 text-[0.6875rem] leading-4 text-foreground/45">
+				<p className="rounded-md border border-dashed border-border/70 p-3 text-caption leading-4 text-foreground/45">
 					This subagent thread is unavailable until the parent session is active.
 				</p>
 			) : transcript?.status === "loading" ? (
 				<div
 					className={cn(
-						"flex items-center justify-center rounded-md border border-dashed border-border/70 text-[0.6875rem] text-foreground/45",
+						"flex items-center justify-center rounded-md border border-dashed border-border/70 text-caption text-foreground/45",
 						fullWidth ? "min-h-32 flex-1" : "min-h-32",
 					)}
 				>
@@ -233,13 +229,13 @@ export function SubagentTranscriptView({
 			) : transcript?.status === "error" && turns.length === 0 ? (
 				<div
 					role="alert"
-					className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[0.6875rem] leading-4 text-destructive"
+					className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption leading-4 text-destructive"
 				>
 					<AlertCircle className="mt-0.5 size-3.5 shrink-0" />
 					<span>{transcript.error?.message ?? "Unable to load this subagent thread."}</span>
 				</div>
 			) : turns.length === 0 ? (
-				<p className="rounded-md border border-dashed border-border/70 p-3 text-[0.6875rem] leading-4 text-foreground/45">
+				<p className="rounded-md border border-dashed border-border/70 p-3 text-caption leading-4 text-foreground/45">
 					This subagent thread has no messages yet.
 				</p>
 			) : (
@@ -247,7 +243,7 @@ export function SubagentTranscriptView({
 					{transcript?.error ? (
 						<div
 							role="alert"
-							className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[0.6875rem] leading-4 text-destructive sm:mx-6"
+							className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption leading-4 text-destructive sm:mx-6"
 						>
 							<AlertCircle className="mt-0.5 size-3.5 shrink-0" />
 							<span>{transcript.error.message}</span>

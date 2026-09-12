@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { findForbiddenImports } from "../check-web-boundaries.mjs";
+import { findArbitraryTypeScaleLines, findForbiddenImports } from "../check-web-boundaries.mjs";
 
 test("detects comment-separated runtime imports", () => {
 	const cases = [
@@ -40,4 +40,9 @@ import "prime-agent-compatible";
 `;
 
 	assert.deepEqual(findForbiddenImports(source), []);
+});
+
+test("flags arbitrary type-scale utilities in product UI", () => {
+	assert.deepEqual(findArbitraryTypeScaleLines('className="text-[0.625rem] text-muted-foreground"'), [1]);
+	assert.deepEqual(findArbitraryTypeScaleLines('className="text-caption text-muted-foreground"'), []);
 });

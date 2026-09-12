@@ -96,7 +96,7 @@ export function AddProviderPickerPanel({
 						{filteredPickerConfigured.length > 0 ? (
 							<div className="flex flex-col gap-1">
 								{filteredPickerAvailable.length > 0 ? (
-									<p className="px-2 pt-1 text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
+									<p className="px-2 pt-1 text-caption font-medium tracking-wide text-muted-foreground uppercase">
 										Already configured
 									</p>
 								) : null}

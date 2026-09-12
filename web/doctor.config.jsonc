@@ -15,15 +15,15 @@
         ]
       },
       {
-        "files": ["src/lib/pi/use-pi-chat.ts", "src/hooks/use-proximity-hover.ts"],
+        "files": ["src/lib/pi/use-pi-chat.ts", "src/lib/hooks/use-proximity-hover.ts"],
         "rules": ["react-doctor/effect-needs-cleanup"]
       },
       {
-        "files": ["src/components/product/fleet-pi/pi/config-panel/sections/add-models-dialog.tsx"],
+        "files": ["src/components/product/fleet-pi/panels/config-panel/sections/add-models-dialog.tsx"],
         "rules": ["react-doctor/js-set-map-lookups"]
       },
       {
-        "files": ["src/components/product/fleet-pi/pi/workspace-panel.tsx"],
+        "files": ["src/components/product/fleet-pi/panels/workspace-panel.tsx"],
         "rules": [
           "react-doctor/no-adjust-state-on-prop-change",
           "react-doctor/exhaustive-deps",
@@ -44,11 +44,7 @@
       {
         "files": [
           "src/components/registry/beui/agents/input/mode-selector.tsx",
-          "src/components/product/fleet-pi/icons/google-icon.tsx",
-          "src/components/product/fleet-pi/primitives/centered-loader.tsx",
-          "src/components/registry/assistant-ui/elements/fleet-reasoning-panel.tsx",
-          "src/components/product/fleet-pi/chat/chat-stop-control.tsx",
-          "src/components/product/fleet-pi/pi/open-project-folder-dialog.tsx"
+          "src/components/registry/assistant-ui/elements/fleet-reasoning-panel.tsx"
         ],
         "rules": ["deslop/unused-file"]
       },
@@ -105,12 +101,12 @@
       {
         "files": [
           "src/components/product/fleet-pi/chat/fleet-pi-input-bar-state.tsx",
-          "src/components/product/fleet-pi/pi/artifacts-panel.tsx"
+          "src/components/product/fleet-pi/panels/artifacts-panel.tsx"
         ],
         "rules": ["react-doctor/no-adjust-state-on-prop-change"]
       },
       {
-        "files": ["src/components/product/fleet-pi/pi/config-panel/sections/use-oauth-login-flow.ts"],
+        "files": ["src/components/product/fleet-pi/panels/config-panel/sections/use-oauth-login-flow.ts"],
         "rules": [
           "react-doctor/no-set-state-after-await-in-effect",
           "react-doctor/no-loading-flag-reset-outside-finally"
@@ -181,7 +177,6 @@
           "src/components/ui/chart.tsx",
           "src/components/ui/tabs.tsx",
           "src/components/ui/toast.tsx",
-          "src/components/ui/toggle.tsx",
           "src/components/registry/beui/agents/markdown.tsx",
           "src/components/registry/beui/agents/message-toolbar.tsx",
           "src/components/registry/beui/agents/message-turns.tsx",
@@ -224,23 +219,6 @@
           "src/components/registry/beui/agents/message.tsx",
           "src/components/registry/beui/agents/tool-approval.tsx"
         ],
-        "rules": ["deslop/unused-export"]
-      },
-      {
-        // Reserved future UI surface — its only importers are the
-        // intentionally retained unused primitives (centered-loader,
-        // chat-stop-control) waived above.
-        "files": [
-          "src/components/registry/beui/agents/spiral-loader.tsx",
-          "src/components/registry/beui/agents/spiral-loader-data.ts",
-          "src/components/registry/beui/agents/spiral-loader-lottie.tsx"
-        ],
-        "rules": ["deslop/unused-file"]
-      },
-      {
-        // Reserved hover-pairing API for surfaceClasses; not yet wired to a
-        // consumer surface.
-        "files": ["src/lib/surface-classes.ts"],
         "rules": ["deslop/unused-export"]
       }
     ]

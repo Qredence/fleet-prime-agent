@@ -57,7 +57,7 @@ function getStatusBadgeClass(status: ApprovalCardStatus) {
 		return "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400";
 	}
 	if (status === "submitting") {
-		return "border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400";
+		return "border-primary/30 bg-primary/10 text-primary";
 	}
 	if (status === "approved" || status === "answered") {
 		return "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";

@@ -1,9 +1,13 @@
 import {
 	RightPanelLauncher,
 	RightPanelTrigger,
-} from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher";
-import { deriveSessionInsights } from "@prime-agent/web-design/components/product/fleet-pi/pi/session-insights";
-import { SessionInsightsPanel } from "@prime-agent/web-design/components/product/fleet-pi/pi/session-insights-panel";
+} from "@prime-agent/web-design/components/product/fleet-pi/panels/right-panel-launcher";
+import { deriveSessionInsights } from "@prime-agent/web-design/components/product/fleet-pi/panels/session-insights";
+import { SessionInsightsPanel } from "@prime-agent/web-design/components/product/fleet-pi/panels/session-insights-panel";
+import {
+	EMPTY_CHAT_TRANSCRIPT_SUMMARY,
+	summarizeChatTranscript,
+} from "@prime-agent/web-design/components/product/fleet-pi/panels/transcript-summary";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -76,8 +80,8 @@ describe("SessionInsightsPanel", () => {
 					],
 				},
 			],
-			messages,
 			presentation,
+			transcriptSummary: summarizeChatTranscript(messages),
 			queue: { steering: ["Clarify"], followUp: ["Report"] },
 		});
 
@@ -101,12 +105,12 @@ describe("SessionInsightsPanel", () => {
 	] as const)("retains a %s goal state for the active session", (status, active) => {
 		const insights = deriveSessionInsights({
 			artifactRuns: [],
-			messages: [],
 			presentation: {
 				...presentation,
 				goal: { ...presentation.goal!, active, status },
 			},
 			queue: { steering: [], followUp: [] },
+			transcriptSummary: EMPTY_CHAT_TRANSCRIPT_SUMMARY,
 		});
 
 		expect(insights.goal).toMatchObject({ active, status });
@@ -118,13 +122,13 @@ describe("SessionInsightsPanel", () => {
 				activityLabel="Inspecting current state"
 				artifactRuns={[]}
 				chatMode="agent"
-				messages={messages}
 				presentation={{ ...presentation, recap: "The current session is on track." }}
 				queue={{ steering: ["Clarify"], followUp: [] }}
 				selectedModelKey="openai/gpt-5.6"
 				sessionId="session-1"
 				status="streaming"
 				thinkingLevel="high"
+				transcriptSummary={summarizeChatTranscript(messages)}
 			/>,
 		);
 
@@ -144,10 +148,10 @@ describe("SessionInsightsPanel", () => {
 			<SessionInsightsPanel
 				artifactRuns={[]}
 				chatMode="agent"
-				messages={[]}
 				presentation={{ ...presentation, goal: undefined }}
 				queue={{ steering: [], followUp: [] }}
 				status="ready"
+				transcriptSummary={EMPTY_CHAT_TRANSCRIPT_SUMMARY}
 			/>,
 		);
 
@@ -159,11 +163,11 @@ describe("SessionInsightsPanel", () => {
 			<SessionInsightsPanel
 				artifactRuns={[]}
 				chatMode="agent"
-				messages={[]}
 				presentation={{ ...presentation, goal: undefined, recap: undefined }}
 				queue={{ steering: [], followUp: [] }}
 				sessionId="session-1"
 				status="ready"
+				transcriptSummary={EMPTY_CHAT_TRANSCRIPT_SUMMARY}
 			/>,
 		);
 

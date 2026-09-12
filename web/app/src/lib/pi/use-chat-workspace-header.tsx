@@ -3,7 +3,7 @@ import {
 	type AgentTabItem,
 } from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar";
 import { AccountMenu } from "@prime-agent/web-design/components/product/fleet-pi/layout/chat-header";
-import { RightPanelLauncherFromContext } from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher";
+import { RightPanelLauncherFromContext } from "@prime-agent/web-design/components/product/fleet-pi/panels/right-panel-launcher";
 import { AnimatedSidebarTrigger } from "@prime-agent/web-design/components/registry/beui/motion/animated-sidebar";
 import { useNavigate } from "@tanstack/react-router";
 import { resetAnalytics } from "@/lib/analytics-stub";

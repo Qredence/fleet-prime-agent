@@ -6,13 +6,14 @@ import type {
 	PrimeAgentSessionPresentation,
 	QueueState,
 } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import type { ChatTranscriptSummary } from "./transcript-summary";
 
 export type SessionInsightsInput = {
 	activityLabel?: string;
 	artifactRuns: Array<PrimeAgentArtifactRun>;
 	chatMode: ChatMode;
-	messages: Array<ChatMessage>;
+	transcriptSummary: ChatTranscriptSummary;
 	planLabel?: string;
 	presentation: PrimeAgentSessionPresentation;
 	queue: QueueState;
@@ -43,7 +44,7 @@ export type SessionInsights = {
  *
  * @param activityLabel - The current activity label, used before the plan label.
  * @param artifactRuns - Artifact runs whose artifacts are included in the counts.
- * @param messages - Session messages to count by role.
+ * @param transcriptSummary - Throttled message counts used instead of the live transcript.
  * @param planLabel - The fallback activity label.
  * @param presentation - Session presentation data used for goals, refinements, child runs, and tool activity.
  * @param queue - Queued follow-up and steering items.
@@ -52,13 +53,13 @@ export type SessionInsights = {
 export function deriveSessionInsights({
 	activityLabel,
 	artifactRuns,
-	messages,
+	transcriptSummary,
 	planLabel,
 	presentation,
 	queue,
 }: Pick<
 	SessionInsightsInput,
-	"activityLabel" | "artifactRuns" | "messages" | "planLabel" | "presentation" | "queue"
+	"activityLabel" | "artifactRuns" | "transcriptSummary" | "planLabel" | "presentation" | "queue"
 >): SessionInsights {
 	const rlmChildren = Object.fromEntries(
 		RLM_CHILD_STATUSES.map((status) => [status, 0]),
@@ -78,7 +79,7 @@ export function deriveSessionInsights({
 	return {
 		activity: activityLabel || planLabel || "Waiting for input",
 		artifactCount: artifacts.length,
-		assistantMessages: messages.filter((message) => message.role === "assistant").length,
+		assistantMessages: transcriptSummary.assistantMessageCount,
 		bashCommands: presentation.userBash.length,
 		goal: presentation.goal,
 		ipythonCells: artifacts.filter((artifact) => artifact.kind === "ipython").length,
@@ -86,6 +87,6 @@ export function deriveSessionInsights({
 		queuedSteering: queue.steering.length,
 		refinements,
 		rlmChildren,
-		userMessages: messages.filter((message) => message.role === "user").length,
+		userMessages: transcriptSummary.userMessageCount,
 	};
 }

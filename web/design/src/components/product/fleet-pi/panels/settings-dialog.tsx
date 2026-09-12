@@ -3,8 +3,13 @@ import type { ChatPiSettings, ChatPiSettingsUpdate } from "@prime-agent/web-prot
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { type MutableRefObject, useEffect, useRef, useState } from "react";
-import { writeStoredValue } from "../../../../lib/safe-storage";
-import { readUiPreferences, UI_PREFERENCES_KEY, type UiPreferences } from "../../../../lib/ui-preferences";
+import {
+	applyUiPreferencesToDocument,
+	readUiPreferences,
+	type UiPreferences,
+	writeUiPreferences,
+} from "../../../../lib/ui-preferences";
+import { cn } from "../../../../lib/utils";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -25,18 +30,6 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../../
 import { Field, FieldDescription, FieldLabel } from "../../../ui/field";
 import { ScrollArea } from "../../../ui/scroll-area";
 import { Select } from "../../../ui/select";
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarGroup,
-	SidebarGroupContent,
-	SidebarGroupLabel,
-	SidebarHeader,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	SidebarProvider,
-} from "../../../ui/sidebar";
 import { Switch } from "../../../ui/switch";
 import { useChatPanelDataContext, useSettingsActionsContext } from "../layout/right-panel-context";
 import { McpConnectionsSection } from "./config-panel/sections/mcp-connections-section";
@@ -236,7 +229,7 @@ function useSettingsForm() {
 	};
 }
 
-function SidebarNavItem({
+function SettingsNavItem({
 	active,
 	onClick,
 	icon: Icon,
@@ -248,12 +241,19 @@ function SidebarNavItem({
 	label: string;
 }) {
 	return (
-		<SidebarMenuItem>
-			<SidebarMenuButton isActive={active} onClick={onClick}>
-				<Icon />
-				<span>{label}</span>
-			</SidebarMenuButton>
-		</SidebarMenuItem>
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn(
+				"flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-label transition-colors",
+				active
+					? "bg-background text-foreground shadow-sm"
+					: "text-muted-foreground hover:bg-muted hover:text-foreground",
+			)}
+		>
+			<Icon className="size-4 shrink-0" />
+			<span>{label}</span>
+		</button>
 	);
 }
 
@@ -270,9 +270,7 @@ export function SettingsDialog({
 	initialTab?: SettingsSectionId;
 }) {
 	useEffect(() => {
-		const preferences = readUiPreferences();
-		document.documentElement.dataset.density = preferences.density;
-		document.documentElement.classList.toggle("reduce-motion", preferences.motion === "reduced");
+		applyUiPreferencesToDocument(readUiPreferences());
 	}, []);
 
 	return <SettingsDialogSession initialTab={initialTab} onOpenChange={onOpenChange} open={open} />;
@@ -410,6 +408,7 @@ function SettingsDialogPaneContent({
 				/>
 				<PreferenceRow label="Density" description="Adjust spacing across chat and panels.">
 					<Select
+						aria-label="Density"
 						value={preferences.density}
 						onValueChange={(value) => updatePreference("density", value as UiPreferences["density"])}
 						options={[
@@ -420,6 +419,7 @@ function SettingsDialogPaneContent({
 				</PreferenceRow>
 				<PreferenceRow label="Motion" description="Respect the system setting or reduce UI motion.">
 					<Select
+						aria-label="Motion"
 						value={preferences.motion}
 						onValueChange={(value) => updatePreference("motion", value as UiPreferences["motion"])}
 						options={[
@@ -441,6 +441,7 @@ function SettingsDialogPaneContent({
 					description="Follow new output or preserve the reading position."
 				>
 					<Select
+						aria-label="Streaming transcript"
 						value={preferences.transcript}
 						onValueChange={(value) => updatePreference("transcript", value as UiPreferences["transcript"])}
 						options={[
@@ -565,9 +566,7 @@ function SettingsDialogBody({
 	const [preferences, setPreferences] = useState(readUiPreferences);
 
 	useEffect(() => {
-		writeStoredValue(UI_PREFERENCES_KEY, JSON.stringify(preferences));
-		document.documentElement.dataset.density = preferences.density;
-		document.documentElement.classList.toggle("reduce-motion", preferences.motion === "reduced");
+		writeUiPreferences(preferences);
 	}, [preferences]);
 
 	const updatePreference = <Key extends keyof UiPreferences>(key: Key, value: UiPreferences[Key]) => {
@@ -632,39 +631,34 @@ function SettingsDialogBody({
 				<DialogTitle className="sr-only">Settings</DialogTitle>
 				<DialogDescription className="sr-only">Customize your settings here.</DialogDescription>
 
-				<SidebarProvider className="h-full min-h-0 min-w-0" enableKeyboardShortcut={false} persistState={false}>
-					{/* Left Sidebar */}
-					<Sidebar
-						collapsible="none"
-						className="hidden h-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar sm:flex sm:w-52"
+				<div className="flex h-full min-h-0 min-w-0">
+					<nav
+						aria-label="Settings sections"
+						className="hidden h-full w-52 shrink-0 flex-col border-r border-border bg-sidebar sm:flex"
 					>
-						<SidebarHeader className="px-4 pt-5 pb-2">
-							{/* Visual only — DialogTitle (sr-only) is the accessible name */}
-							<span className="text-sm font-semibold">Settings</span>
-						</SidebarHeader>
-						<SidebarContent>
+						<div className="px-4 pt-5 pb-2 text-label font-semibold">Settings</div>
+						<div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
 							{SETTINGS_SECTION_GROUPS.map((group) => (
-								<SidebarGroup key={group.id}>
-									<SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-									<SidebarGroupContent>
-										<SidebarMenu>
-											{SETTINGS_SECTIONS.filter((section) => section.group === group.id).map((section) => (
-												<SidebarNavItem
-													key={section.id}
-													active={activeTab === section.id}
-													onClick={() => setActiveTab(section.id)}
-													icon={section.icon}
-													label={section.title}
-												/>
-											))}
-										</SidebarMenu>
-									</SidebarGroupContent>
-								</SidebarGroup>
+								<div key={group.id} className="py-2">
+									<p className="px-2 pb-1 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+										{group.label}
+									</p>
+									<div className="flex flex-col gap-0.5">
+										{SETTINGS_SECTIONS.filter((section) => section.group === group.id).map((section) => (
+											<SettingsNavItem
+												key={section.id}
+												active={activeTab === section.id}
+												onClick={() => setActiveTab(section.id)}
+												icon={section.icon}
+												label={section.title}
+											/>
+										))}
+									</div>
+								</div>
 							))}
-						</SidebarContent>
-					</Sidebar>
+						</div>
+					</nav>
 
-					{/* Main Content Pane — sits on the dialog's own elevated surface */}
 					<main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 						<header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/10 px-6">
 							<div className="flex flex-1 items-center justify-between">
@@ -706,7 +700,7 @@ function SettingsDialogBody({
 							</div>
 						</ScrollArea>
 					</main>
-				</SidebarProvider>
+				</div>
 			</DialogContent>
 
 			<AlertDialog open={discardDialogOpen} onOpenChange={setDiscardDialogOpen}>

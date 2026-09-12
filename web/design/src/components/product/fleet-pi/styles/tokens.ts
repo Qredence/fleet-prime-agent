@@ -2,7 +2,7 @@ import { cva } from "class-variance-authority";
 
 /** Small commit / add actions inside config sections. */
 export const COMPACT_ACTION_BUTTON_CLASS =
-	"h-8 shrink-0 cursor-pointer rounded-full border-border/45 bg-background/65 px-3 text-[0.6875rem] font-semibold text-foreground/75 shadow-sm transition-[background-color,border-color,box-shadow,opacity,transform] duration-150 hover:bg-foreground/5 active:scale-[0.96] disabled:opacity-50";
+	"h-8 shrink-0 cursor-pointer rounded-full border-border/45 bg-background/65 px-3 text-caption font-semibold text-foreground/75 shadow-sm transition-[background-color,border-color,box-shadow,opacity,transform] duration-150 hover:bg-foreground/5 active:scale-[0.96] disabled:opacity-50";
 
 /**
  * Invisible 40×40 hit-area expander for visually dense controls.
@@ -26,7 +26,7 @@ export const CHROME_PILL_INACTIVE_CLASS = "bg-sidebar text-foreground/55 hover:b
 
 export const CHROME_PILL_ACTIVE_CLASS = "bg-background text-foreground/75";
 
-/** Inline right-panel DiscreteTabs — matches header pill chrome. */
+/** Inline right-panel tabs — matches header pill chrome. */
 export const DISCRETE_TAB_INACTIVE_CLASS = `${CHROME_PILL_INACTIVE_CLASS} data-[state=inactive]:shadow-sm`;
 
 export const DISCRETE_TAB_ACTIVE_CLASS = `${CHROME_PILL_ACTIVE_CLASS} data-[state=active]:shadow-sm`;

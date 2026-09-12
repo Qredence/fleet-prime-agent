@@ -8,7 +8,7 @@ import {
   SETTINGS_SECTIONS,
   SETTINGS_SECTION_REGISTRY,
   isSettingsSectionId,
-} from "../src/components/product/fleet-pi/pi/settings-sections"
+} from "../src/components/product/fleet-pi/panels/settings-sections"
 
 assert.deepEqual(
   RIGHT_PANEL_DEFINITIONS.map(({ id }) => id),

@@ -170,7 +170,7 @@ export function MessageBubbleContent({ render, className, children, ref, ...prop
 			{variant !== "ghost" ? (
 				<m.span
 					aria-hidden="true"
-					layout={reduce ? false : "size"}
+					layout={false}
 					layoutDependency={layoutVersion}
 					initial={
 						animateIn && !reduce

@@ -61,7 +61,7 @@ type SidebarNavigationProps = {
 };
 
 const MENU_ITEM_CLASS =
-	"flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs outline-none transition-colors hover:bg-muted focus-visible:bg-muted";
+	"flex h-8 w-full items-center gap-2 rounded-md px-2 text-label outline-none transition-colors hover:bg-muted focus-visible:bg-muted";
 
 function SidebarMenuItem({
 	icon: Icon,
@@ -92,7 +92,7 @@ function SidebarMenuItem({
 
 function KbdHint({ children }: { children: ReactNode }) {
 	return (
-		<kbd className="rounded border border-border/60 bg-muted/60 px-1 font-mono text-[0.625rem] leading-4 text-muted-foreground">
+		<kbd className="rounded border border-border/60 bg-muted/60 px-1 font-mono text-micro leading-4 text-muted-foreground">
 			{children}
 		</kbd>
 	);
@@ -166,7 +166,7 @@ export function FleetSessionSidebarNavigation({
 							trigger={
 								<button
 									type="button"
-									className="flex h-8 w-fit shrink-0 items-center gap-1 rounded-lg px-2 text-left text-sm font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+									className="flex h-8 w-fit shrink-0 items-center gap-1 rounded-lg px-2 text-left text-body font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
 								>
 									<span className="truncate">Qredence Fleet</span>
 									<ChevronDown className="size-3.5 text-muted-foreground" />
@@ -224,7 +224,7 @@ export function FleetSessionSidebarNavigation({
 									className="max-w-none rounded-none border-0 p-2 shadow-none"
 								/>
 								<div className="border-t border-border/60 px-2 pb-2 pt-1.5">
-									<span className="px-2 pb-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-muted-foreground/60">
+									<span className="px-2 pb-1 font-mono text-micro uppercase tracking-[0.14em] text-muted-foreground/60">
 										Projects
 									</span>
 									<div className="mt-1 flex flex-col gap-0.5">
@@ -233,23 +233,23 @@ export function FleetSessionSidebarNavigation({
 												key={project.projectId}
 												type="button"
 												onClick={() => selectSearchResult(`search-project:${project.projectId}`)}
-												className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left text-xs outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
+												className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left text-label outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
 											>
 												<Folder className="size-3.5 shrink-0 text-muted-foreground/60" />
 												<span className="min-w-0 flex-1 truncate">{project.name}</span>
-												<span className="max-w-24 truncate text-[0.625rem] text-muted-foreground/55">
+												<span className="max-w-24 truncate text-micro text-muted-foreground/55">
 													{project.pathLabel}
 												</span>
 											</button>
 										))}
 										{matchingProjects.length === 0 ? (
-											<span className="p-2 text-center text-[0.6875rem] text-muted-foreground/60">
+											<span className="p-2 text-center text-caption text-muted-foreground/60">
 												No project matches “{query}”
 											</span>
 										) : null}
 									</div>
 								</div>
-								<div className="flex items-center justify-end gap-3 border-t border-border/60 px-3 py-2 text-[0.625rem] text-muted-foreground/70">
+								<div className="flex items-center justify-end gap-3 border-t border-border/60 px-3 py-2 text-micro text-muted-foreground/70">
 									<span className="flex items-center gap-1">
 										<KbdHint>↑</KbdHint>
 										<KbdHint>↓</KbdHint>
@@ -270,7 +270,7 @@ export function FleetSessionSidebarNavigation({
 					<button
 						type="button"
 						onClick={onNewSession}
-						className="flex h-8 w-full items-center justify-start gap-2 rounded-lg px-2 text-[0.8125rem] font-normal text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent focus-visible:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+						className="flex h-8 w-full items-center justify-start gap-2 rounded-lg px-2 text-body font-normal text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent focus-visible:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
 					>
 						<SquarePen className="size-4 shrink-0 text-muted-foreground" />
 						New chat
@@ -298,7 +298,7 @@ export function FleetSessionSidebarNavigation({
 				/>
 				<AnimatedSidebarFooter className="flex-row items-center gap-1 border-sidebar-border px-2.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
 					<div className="min-w-0 flex-1">
-						{accountMenu ?? <span className="flex h-8 items-center px-2 text-[0.8125rem]">Qredence</span>}
+						{accountMenu ?? <span className="flex h-8 items-center px-2 text-body">Qredence</span>}
 					</div>
 					<FleetVersionBadge />
 					<a

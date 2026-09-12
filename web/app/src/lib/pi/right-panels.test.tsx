@@ -1,9 +1,11 @@
 import { RightPanelProvider } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
 import { RightPanelShell } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/artifacts-panel";
-import { ReplPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/repl-panel";
-import { RightPanelLauncher } from "@prime-agent/web-design/components/product/fleet-pi/pi/right-panel-launcher";
-import { SubagentsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/subagents-panel";
+import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/panels/artifacts-panel";
+import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/product/fleet-pi/panels/artifacts-utils";
+import { ReplPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/panels/repl-panel";
+import { RightPanelLauncher } from "@prime-agent/web-design/components/product/fleet-pi/panels/right-panel-launcher";
+import { SubagentsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/panels/subagents-panel";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/product/fleet-pi/panels/transcript-summary";
 import type {
 	ChatSessionResponse,
 	PrimeAgentArtifactRun,
@@ -140,8 +142,8 @@ describe("right-panel execution tabs", () => {
 						chatMode: "agent",
 						loadSession: vi.fn(),
 						loadSubagentSession: vi.fn(),
-						messages: [],
 						models: [],
+						transcriptSummary: EMPTY_CHAT_TRANSCRIPT_SUMMARY,
 						presentation: emptyPresentation,
 						queue: { steering: [], followUp: [] },
 						refreshResources: vi.fn(),
@@ -334,7 +336,13 @@ describe("right-panel execution tabs", () => {
 			},
 		];
 
-		render(<ArtifactsPanelContent artifactRuns={artifactRuns} messages={messages} status="ready" />);
+		render(
+			<ArtifactsPanelContent
+				artifactRuns={artifactRuns}
+				openUIBlocks={collectSessionOpenUIBlocks(messages)}
+				status="ready"
+			/>,
+		);
 
 		expect(screen.getByText("OpenUI artifacts")).toBeTruthy();
 		expect(screen.getByText("Generated dashboard")).toBeTruthy();

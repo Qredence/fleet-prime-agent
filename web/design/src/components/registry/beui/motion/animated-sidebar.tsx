@@ -3,9 +3,18 @@
 import { SharedLayoutBg } from "@prime-agent/web-design/components/registry/beui/motion/shared-layout-bg";
 import { Button } from "@prime-agent/web-design/components/ui/button";
 import { EASE_DRAWER, EASE_OUT, SPRING_LAYOUT, SPRING_PRESS } from "@prime-agent/web-design/lib/ease";
+import { CHROME_MOBILE_MAX_WIDTH_QUERY } from "@prime-agent/web-design/lib/layout-constants";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ChevronRight } from "lucide-react";
-import { AnimatePresence, type HTMLMotionProps, m, useReducedMotion, type Variants } from "motion/react";
+import {
+	AnimatePresence,
+	domMax,
+	type HTMLMotionProps,
+	LazyMotion,
+	m,
+	useReducedMotion,
+	type Variants,
+} from "motion/react";
 import {
 	type ButtonHTMLAttributes,
 	type CSSProperties,
@@ -29,7 +38,7 @@ type SidebarSide = "left" | "right";
 type SidebarVariant = "sidebar" | "floating" | "inset";
 type SidebarCollapsible = "offcanvas" | "icon" | "none";
 
-const MOBILE_QUERY = "(max-width: 767px)";
+const MOBILE_QUERY = CHROME_MOBILE_MAX_WIDTH_QUERY;
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
 const PANEL_TRANSITION = {
@@ -468,54 +477,58 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(fun
 	}
 
 	return (
-		<m.aside
-			{...props}
-			ref={forwardedRef}
-			initial={false}
-			aria-label={ariaLabel}
-			data-slot="sidebar"
-			data-state={collapsed ? "collapsed" : "expanded"}
-			data-collapsible={collapsible}
-			data-variant={variant}
-			data-side={side}
-			transition={context.reduce ? { duration: 0 } : SIDEBAR_MORPH_TRANSITION}
-			layout="size"
-			style={{ ...style, width }}
-			className={cn(
-				"group/sidebar relative hidden h-auto shrink-0 md:block will-change-transform",
-				"peer",
-				side === "right" && "order-last",
-				className,
-			)}
-		>
-			<m.div
+		<LazyMotion features={domMax} strict>
+			<m.aside
+				{...props}
+				ref={forwardedRef}
 				initial={false}
-				animate={{
-					opacity: offcanvas ? 0 : 1,
-					// The m-2 card sits 0.5rem inside the rail column; the exit
-					// translate must clear the column edge, not just the card width.
-					x: offcanvas ? (side === "left" ? "-120%" : "120%") : "0%",
-				}}
-				transition={context.reduce ? REDUCED_TRANSITION : PANEL_TRANSITION}
+				aria-label={ariaLabel}
+				data-slot="sidebar"
+				data-state={collapsed ? "collapsed" : "expanded"}
+				data-collapsible={collapsible}
+				data-variant={variant}
+				data-side={side}
+				transition={context.reduce ? { duration: 0 } : SIDEBAR_MORPH_TRANSITION}
+				layout="size"
+				style={{ ...style, width }}
 				className={cn(
-					"sticky top-0 flex h-svh w-full flex-col overflow-hidden",
-					// Carded panels carry m-2 gutters, so they must span the rail width
-					// rather than the full reserved column. The offcanvas clause below
-					// still wins when both apply, keeping the slide-out at full width.
-					carded && (collapsed ? "w-[var(--sidebar-width-icon)]" : "w-[var(--sidebar-width)]"),
-					collapsible === "offcanvas" && "w-[var(--sidebar-width)]",
-					variant === "sidebar" &&
-						(side === "left" ? "border-border border-r bg-background" : "border-border border-l bg-background"),
-					variant === "floating" && "m-2 h-[calc(100svh-1rem)] rounded-2xl bg-sidebar shadow-surface-3",
-					variant === "inset" && "m-2 h-[calc(100svh-1rem)] rounded-2xl bg-background",
-					panelClassName,
+					"group/sidebar relative hidden h-auto shrink-0 md:block will-change-transform",
+					"peer",
+					side === "right" && "order-last",
+					className,
 				)}
 			>
-				<AnimatedSidebarPanelContext.Provider value={panelContextValue}>
-					{children}
-				</AnimatedSidebarPanelContext.Provider>
-			</m.div>
-		</m.aside>
+				<m.div
+					initial={false}
+					animate={{
+						opacity: offcanvas ? 0 : 1,
+						// The m-2 card sits 0.5rem inside the rail column; the exit
+						// translate must clear the column edge, not just the card width.
+						x: offcanvas ? (side === "left" ? "-120%" : "120%") : "0%",
+					}}
+					transition={context.reduce ? REDUCED_TRANSITION : PANEL_TRANSITION}
+					className={cn(
+						"sticky top-0 flex h-svh w-full flex-col overflow-hidden",
+						// Carded panels carry m-2 gutters, so they must span the rail width
+						// rather than the full reserved column. The offcanvas clause below
+						// still wins when both apply, keeping the slide-out at full width.
+						carded && (collapsed ? "w-[var(--sidebar-width-icon)]" : "w-[var(--sidebar-width)]"),
+						collapsible === "offcanvas" && "w-[var(--sidebar-width)]",
+						variant === "sidebar" &&
+							(side === "left"
+								? "border-border border-r bg-background"
+								: "border-border border-l bg-background"),
+						variant === "floating" && "m-2 h-[calc(100svh-1rem)] rounded-2xl bg-sidebar shadow-surface-3",
+						variant === "inset" && "m-2 h-[calc(100svh-1rem)] rounded-2xl bg-background",
+						panelClassName,
+					)}
+				>
+					<AnimatedSidebarPanelContext.Provider value={panelContextValue}>
+						{children}
+					</AnimatedSidebarPanelContext.Provider>
+				</m.div>
+			</m.aside>
+		</LazyMotion>
 	);
 });
 

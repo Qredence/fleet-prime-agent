@@ -67,11 +67,7 @@ export function AccountMenu({
 						)}
 					>
 						<QredenceLogo className="size-3.5 shrink-0" />
-						<span
-							className={
-								compact ? "sr-only" : "text-[0.8125rem] font-medium tracking-[-0.01em] whitespace-nowrap"
-							}
-						>
+						<span className={compact ? "sr-only" : "text-body font-medium tracking-[-0.01em] whitespace-nowrap"}>
 							{label}
 						</span>
 						<ChevronDown className="size-3.5 shrink-0 text-foreground/35" />

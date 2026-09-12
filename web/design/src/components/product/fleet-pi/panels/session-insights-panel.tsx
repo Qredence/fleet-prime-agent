@@ -28,8 +28,8 @@ function DetailList({ children, label }: { children: ReactNode; label: string })
 			aria-label={label}
 			className="rounded-md border border-border/60 bg-background px-3 py-2.5 shadow-[0_1px_4px_-1px_rgba(0,0,0,0.06)]"
 		>
-			<h3 className="mb-2 text-[0.6875rem] font-medium uppercase tracking-wide text-foreground/45">{label}</h3>
-			<dl className="space-y-1.5 text-[0.75rem]">{children}</dl>
+			<h3 className="mb-2 text-caption font-medium uppercase tracking-wide text-foreground/45">{label}</h3>
+			<dl className="space-y-1.5 text-label">{children}</dl>
 		</section>
 	);
 }
@@ -68,7 +68,7 @@ export function SessionInsightsPanel({
 	activityLabel,
 	artifactRuns,
 	chatMode,
-	messages,
+	transcriptSummary,
 	planLabel,
 	presentation,
 	queue,
@@ -81,14 +81,21 @@ export function SessionInsightsPanel({
 		return (
 			<section
 				aria-label="Session insights"
-				className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-[0.75rem] leading-5 text-foreground/45"
+				className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-label leading-5 text-foreground/45"
 			>
 				Start or open a session to view its live insights.
 			</section>
 		);
 	}
 
-	const insights = deriveSessionInsights({ activityLabel, artifactRuns, messages, planLabel, presentation, queue });
+	const insights = deriveSessionInsights({
+		activityLabel,
+		artifactRuns,
+		transcriptSummary,
+		planLabel,
+		presentation,
+		queue,
+	});
 	const rlmSummary = RLM_CHILD_STATUSES.map((state) => `${insights.rlmChildren[state]} ${state}`).join(" · ");
 
 	return (
