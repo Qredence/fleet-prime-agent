@@ -33,12 +33,6 @@ export interface PrimeConfig {
 	/** ResourceLoader bound to a given cwd (reloaded on every call). */
 	resourceLoaderFor(cwd: string): Promise<DefaultResourceLoader>;
 
-	/**
-	 * Rebind the process-wide workspace / agent root (`defaultCwd`).
-	 * Used by "Open project folder" — tree, file APIs, and new sessions follow.
-	 */
-	setDefaultCwd(cwd: string): void;
-
 	/** Force reload of AuthStorage/ModelRegistry from disk (after a POST/DELETE). */
 	reloadAuth(): void;
 }
@@ -51,8 +45,8 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 	const modelRegistry = ModelRegistry.create(authStorage);
 	const projectRegistry = new ProjectRegistry(agentDir, initialCwd);
 
-	let currentDefaultCwd = resolve(initialCwd);
-	let defaultSettings = SettingsManager.create(currentDefaultCwd);
+	const currentDefaultCwd = resolve(initialCwd);
+	const defaultSettings = SettingsManager.create(currentDefaultCwd);
 
 	const settingsByCwd = new Map<string, SettingsManager>();
 	settingsByCwd.set(currentDefaultCwd, defaultSettings);
@@ -89,18 +83,6 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 			return loader;
 		},
 
-		setDefaultCwd(cwd: string): void {
-			const next = resolve(cwd);
-			currentDefaultCwd = next;
-			const existing = settingsByCwd.get(next);
-			if (existing) {
-				defaultSettings = existing;
-				return;
-			}
-			defaultSettings = SettingsManager.create(next);
-			settingsByCwd.set(next, defaultSettings);
-		},
-
 		reloadAuth(): void {
 			this.authStorage.reload();
 			this.modelRegistry.refresh();
@@ -114,7 +96,7 @@ export function getPrimeConfig(): PrimeConfig {
 	const globalStore = globalThis as unknown as PrimeConfigGlobal;
 	const existing = globalStore.__primeConfig;
 	// Vite HMR can leave a pre-upgrade singleton without newer methods.
-	if (!existing || typeof existing.setDefaultCwd !== "function" || !existing.projectRegistry) {
+	if (!existing || !existing.projectRegistry) {
 		// Prefer git repo root over the Vite package cwd so the workspace tree
 		// and default session cwd match the repository the agent is working in.
 		// A pre-upgrade singleton always carries the stale Vite package cwd, so

@@ -45,7 +45,6 @@ import { useChatWorkspaceHeader } from "@/lib/pi/use-chat-workspace-header";
 import { useLocalSlashActions } from "@/lib/pi/use-local-slash-actions";
 import { usePendingQuestionBar } from "@/lib/pi/use-pending-question-bar";
 import { usePiChat } from "@/lib/pi/use-pi-chat";
-import { useResourceInstallRefresh } from "@/lib/pi/use-resource-install-refresh";
 import { useRightPanelContextValue } from "@/lib/pi/use-right-panel-context-value";
 import { buildWorkspaceReferenceSuggestions, workspacePathFromSuggestion } from "@/lib/pi/workspace-suggestions";
 import { loadWorkspaceFile } from "@/lib/workspace-file";
@@ -380,15 +379,6 @@ export function useChatWorkspaceData() {
 	useEffect(() => {
 		if (sessionMetadata.sessionId) void refetchProjects();
 	}, [refetchProjects, sessionMetadata.sessionId]);
-
-	useResourceInstallRefresh({
-		messages,
-		refreshResources,
-		refreshWorkspace,
-		sessionId: sessionMetadata.sessionId,
-		shouldLoadWorkspaceTree,
-		workspaceTree,
-	});
 
 	const infoDescription = queueLabel(queue) ?? activityLabel ?? planLabel;
 	const handleAttach = useCallback(() => {
