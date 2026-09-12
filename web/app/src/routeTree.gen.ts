@@ -19,7 +19,6 @@ import { Route as ApiChatCommandRouteImport } from './routes/api/chat/command'
 import { Route as ApiChatCommandsRouteImport } from './routes/api/chat/commands'
 import { Route as ApiChatEventsRouteImport } from './routes/api/chat/events'
 import { Route as ApiChatMcpRouteImport } from './routes/api/chat/mcp'
-import { Route as ApiChatModelRouteImport } from './routes/api/chat/model'
 import { Route as ApiChatModelsRouteImport } from './routes/api/chat/models'
 import { Route as ApiChatNewRouteImport } from './routes/api/chat/new'
 import { Route as ApiChatProvidersRouteImport } from './routes/api/chat/providers'
@@ -87,11 +86,6 @@ const ApiChatEventsRoute = ApiChatEventsRouteImport.update({
 const ApiChatMcpRoute = ApiChatMcpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
-  getParentRoute: () => ApiChatRoute,
-} as any)
-const ApiChatModelRoute = ApiChatModelRouteImport.update({
-  id: '/model',
-  path: '/model',
   getParentRoute: () => ApiChatRoute,
 } as any)
 const ApiChatModelsRoute = ApiChatModelsRouteImport.update({
@@ -196,7 +190,6 @@ export interface FileRoutesByFullPath {
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
-  '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
   '/api/chat/providers': typeof ApiChatProvidersRouteWithChildren
@@ -227,7 +220,6 @@ export interface FileRoutesByTo {
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
-  '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
   '/api/chat/providers': typeof ApiChatProvidersRouteWithChildren
@@ -259,7 +251,6 @@ export interface FileRoutesById {
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
-  '/api/chat/model': typeof ApiChatModelRoute
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
   '/api/chat/providers': typeof ApiChatProvidersRouteWithChildren
@@ -292,7 +283,6 @@ export interface FileRouteTypes {
     | '/api/chat/commands'
     | '/api/chat/events'
     | '/api/chat/mcp'
-    | '/api/chat/model'
     | '/api/chat/models'
     | '/api/chat/new'
     | '/api/chat/providers'
@@ -323,7 +313,6 @@ export interface FileRouteTypes {
     | '/api/chat/commands'
     | '/api/chat/events'
     | '/api/chat/mcp'
-    | '/api/chat/model'
     | '/api/chat/models'
     | '/api/chat/new'
     | '/api/chat/providers'
@@ -354,7 +343,6 @@ export interface FileRouteTypes {
     | '/api/chat/commands'
     | '/api/chat/events'
     | '/api/chat/mcp'
-    | '/api/chat/model'
     | '/api/chat/models'
     | '/api/chat/new'
     | '/api/chat/providers'
@@ -456,13 +444,6 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/api/chat/mcp'
       preLoaderRoute: typeof ApiChatMcpRouteImport
-      parentRoute: typeof ApiChatRoute
-    }
-    '/api/chat/model': {
-      id: '/api/chat/model'
-      path: '/model'
-      fullPath: '/api/chat/model'
-      preLoaderRoute: typeof ApiChatModelRouteImport
       parentRoute: typeof ApiChatRoute
     }
     '/api/chat/models': {
@@ -636,7 +617,6 @@ interface ApiChatRouteChildren {
   ApiChatCommandsRoute: typeof ApiChatCommandsRoute
   ApiChatEventsRoute: typeof ApiChatEventsRoute
   ApiChatMcpRoute: typeof ApiChatMcpRouteWithChildren
-  ApiChatModelRoute: typeof ApiChatModelRoute
   ApiChatModelsRoute: typeof ApiChatModelsRouteWithChildren
   ApiChatNewRoute: typeof ApiChatNewRoute
   ApiChatProvidersRoute: typeof ApiChatProvidersRouteWithChildren
@@ -655,7 +635,6 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatCommandsRoute: ApiChatCommandsRoute,
   ApiChatEventsRoute: ApiChatEventsRoute,
   ApiChatMcpRoute: ApiChatMcpRouteWithChildren,
-  ApiChatModelRoute: ApiChatModelRoute,
   ApiChatModelsRoute: ApiChatModelsRouteWithChildren,
   ApiChatNewRoute: ApiChatNewRoute,
   ApiChatProvidersRoute: ApiChatProvidersRouteWithChildren,
