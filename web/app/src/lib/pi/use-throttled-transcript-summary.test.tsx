@@ -12,6 +12,18 @@ function message(id: string, role: ChatMessage["role"]): ChatMessage {
 }
 
 describe("useThrottledTranscriptSummary", () => {
+	it("keeps a stable idle snapshot when messages are unchanged across rerenders", () => {
+		const messages = [message("user-1", "user")];
+		const { result, rerender } = renderHook(
+			({ messages, status }) => useThrottledTranscriptSummary(messages, status, "session-a"),
+			{ initialProps: { messages, status: "ready" as ChatStatus } },
+		);
+
+		const firstSnapshot = result.current;
+		rerender({ messages, status: "ready" });
+		expect(result.current).toBe(firstSnapshot);
+	});
+
 	it("returns the live transcript immediately when the session is idle", () => {
 		const { result, rerender } = renderHook(
 			({ messages }) => useThrottledTranscriptSummary(messages, "ready", "session-a"),
