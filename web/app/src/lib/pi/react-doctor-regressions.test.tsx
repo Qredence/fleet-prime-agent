@@ -1,7 +1,7 @@
-import { useOAuthLoginFlow } from "@prime-agent/web-design/components/product/fleet-pi/pi/config-panel/sections/use-oauth-login-flow";
+import { useOAuthLoginFlow } from "@prime-agent/web-design/components/product/fleet-pi/panels/config-panel/sections/use-oauth-login-flow";
 import { ChromePillButton } from "@prime-agent/web-design/components/product/fleet-pi/primitives/chrome-pill";
 import { Popover } from "@prime-agent/web-design/components/registry/beui/agents/input/input-popover";
-import { useProximityHover } from "@prime-agent/web-design/hooks/use-proximity-hover";
+import { useProximityHover } from "@prime-agent/web-design/lib/hooks/use-proximity-hover";
 import type {
 	ChatProviderOAuthLoginRequest,
 	ChatProviderOAuthLoginResponse,

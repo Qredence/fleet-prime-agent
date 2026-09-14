@@ -10,7 +10,7 @@ import {
 	useState,
 } from "react";
 
-export const TRANSCRIPT_VIRTUALIZATION_THRESHOLD = 40;
+export const TRANSCRIPT_VIRTUALIZATION_THRESHOLD = 16;
 
 type VirtualizedTurnListProps<T> = {
 	estimateSize: number;

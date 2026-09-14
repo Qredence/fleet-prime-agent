@@ -290,7 +290,7 @@ export function ImageGeneration({
 					</AnimatePresence>
 
 					{resolution ? (
-						<span className="absolute top-2 right-2 z-10 rounded-full bg-background/75 px-2 py-0.5 font-mono text-[0.625rem] tabular-nums text-muted-foreground">
+						<span className="absolute top-2 right-2 z-10 rounded-full bg-background/75 px-2 py-0.5 font-mono text-micro tabular-nums text-muted-foreground">
 							{resolution}
 						</span>
 					) : null}

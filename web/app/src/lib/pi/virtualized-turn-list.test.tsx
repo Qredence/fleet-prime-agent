@@ -89,6 +89,24 @@ describe("VirtualizedTurnList", () => {
 		expect(screen.getByTestId("turn-1")).toBeTruthy();
 	});
 
+	it("keeps a 15-turn transcript fully mounted below the windowing threshold", () => {
+		render(<Harness count={15} />);
+
+		expect(document.querySelector("[data-virtualized-transcript]")).toBeNull();
+		expect(screen.getByTestId("turn-0")).toBeTruthy();
+		expect(screen.getByTestId("turn-14")).toBeTruthy();
+	});
+
+	it("windows a 20-turn transcript once it crosses the threshold", () => {
+		render(<Harness count={20} />);
+
+		const list = document.querySelector<HTMLElement>("[data-virtualized-transcript]");
+		expect(list).not.toBeNull();
+		expect(list?.dataset.totalTurnCount).toBe("20");
+		expect(Number(list?.dataset.renderedTurnCount)).toBeLessThan(20);
+		expect(document.querySelectorAll("[data-virtualized-turn-index]").length).toBeLessThan(20);
+	});
+
 	it("windows long transcripts instead of mounting every turn", () => {
 		render(<Harness count={50} />);
 

@@ -3,6 +3,7 @@
 import { SharedLayoutBg } from "@prime-agent/web-design/components/registry/beui/motion/shared-layout-bg";
 import { Button } from "@prime-agent/web-design/components/ui/button";
 import { EASE_DRAWER, EASE_OUT, SPRING_LAYOUT, SPRING_PRESS } from "@prime-agent/web-design/lib/ease";
+import { useIsMobile } from "@prime-agent/web-design/lib/hooks/use-is-mobile";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ChevronRight } from "lucide-react";
 import { AnimatePresence, type HTMLMotionProps, m, useReducedMotion, type Variants } from "motion/react";
@@ -20,7 +21,6 @@ import {
 	useMemo,
 	useRef,
 	useState,
-	useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -29,7 +29,6 @@ type SidebarSide = "left" | "right";
 type SidebarVariant = "sidebar" | "floating" | "inset";
 type SidebarCollapsible = "offcanvas" | "icon" | "none";
 
-const MOBILE_QUERY = "(max-width: 767px)";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
 const PANEL_TRANSITION = {
@@ -113,24 +112,6 @@ const FOCUSABLE_SELECTOR = [
 	"textarea:not([disabled])",
 	"[tabindex]:not([tabindex='-1'])",
 ].join(",");
-
-function subscribeToMobileQuery(callback: () => void) {
-	const query = window.matchMedia(MOBILE_QUERY);
-	query.addEventListener("change", callback);
-	return () => query.removeEventListener("change", callback);
-}
-
-function getMobileSnapshot() {
-	return window.matchMedia(MOBILE_QUERY).matches;
-}
-
-function getServerMobileSnapshot() {
-	return false;
-}
-
-function useIsMobile() {
-	return useSyncExternalStore(subscribeToMobileQuery, getMobileSnapshot, getServerMobileSnapshot);
-}
 
 interface AnimatedSidebarContextValue {
 	isMobile: boolean;
@@ -701,7 +682,7 @@ export const AnimatedSidebarGroupLabel = forwardRef<HTMLDivElement, HTMLAttribut
 				aria-hidden={collapsed}
 				data-slot="sidebar-group-label"
 				className={cn(
-					"mb-1 h-7 overflow-hidden px-2 text-[0.625rem] font-medium uppercase tracking-[0.14em] text-muted-foreground transition-opacity",
+					"mb-1 h-7 overflow-hidden px-2 text-micro font-medium uppercase tracking-[0.14em] text-muted-foreground transition-opacity",
 					collapsed ? "opacity-0" : "opacity-100",
 					className,
 				)}

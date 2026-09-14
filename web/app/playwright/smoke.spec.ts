@@ -7,6 +7,18 @@ async function clickCenter(page: Page, locator: Locator) {
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
 }
 
+async function openWorkspaceFromLauncher(page: Page) {
+	const launcher = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
+	await expect(launcher).toBeVisible()
+	const combo = launcher.getByRole("combobox", { name: "Select panel", exact: true })
+	if (await combo.isVisible()) {
+		await combo.click()
+		await page.getByRole("option", { name: /^Workspace/ }).click()
+		return
+	}
+	await launcher.getByRole("tab", { name: "Workspace", exact: true }).click()
+}
+
 async function fulfillEmptyChatEvents(route: Route, pathname: string) {
 	if (pathname !== "/api/chat/events") return false
 	await route.fulfill({
@@ -25,6 +37,37 @@ async function fulfillEmptyChatSession(route: Route, pathname: string, method: s
 		body: JSON.stringify({ session: { sessionId }, messages: [] }),
 	})
 	return true
+}
+
+function isGetPath(response: { url(): string; request(): { method(): string } }, pathname: string) {
+	return new URL(response.url()).pathname === pathname && response.request().method() === "GET"
+}
+
+/** Keep welcome/settings smokes off persisted Prime transcripts and live POSTs. */
+async function mockEmptyWelcomeChat(page: Page, sessionId: string) {
+	await page.route("**/api/chat**", async (route) => {
+		const request = route.request()
+		const pathname = new URL(request.url()).pathname
+		if (await fulfillEmptyChatEvents(route, pathname)) return
+		if (await fulfillEmptyChatSession(route, pathname, request.method(), sessionId)) return
+		if (pathname === "/api/chat/new" && request.method() === "POST") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ session: { sessionId }, messages: [] }),
+			})
+			return
+		}
+		if (pathname === "/api/chat" && request.method() === "POST") {
+			await route.fulfill({
+				status: 200,
+				headers: { "content-type": "application/x-ndjson" },
+				body: "",
+			})
+			return
+		}
+		await route.continue()
+	})
 }
 
 // Smoke: prove the chat shell boots and the composer is interactive.
@@ -49,6 +92,7 @@ test.describe("chat shell", () => {
 	})
 
 	test("empty welcome state launches developer tasks without submitting", async ({ page }) => {
+		await mockEmptyWelcomeChat(page, "welcome-task-session")
 		await page.setViewportSize({ width: 1400, height: 900 })
 		await page.goto("/")
 
@@ -112,8 +156,9 @@ test.describe("chat shell", () => {
 		expect(headingBox).not.toBeNull()
 		expect(formBox).not.toBeNull()
 		if (welcomeBox && chatColumnBox && headingBox && formBox) {
-			expect(Math.abs(welcomeBox.x + welcomeBox.width / 2 - (chatColumnBox.x + chatColumnBox.width / 2))).toBeLessThanOrEqual(2)
-			expect(Math.abs(headingBox.x + headingBox.width / 2 - (formBox.x + formBox.width / 2))).toBeLessThanOrEqual(2)
+			// Classic scrollbars inset the scroller by ~15px; half of that is 7.5px.
+			expect(Math.abs(welcomeBox.x + welcomeBox.width / 2 - (chatColumnBox.x + chatColumnBox.width / 2))).toBeLessThanOrEqual(8)
+			expect(Math.abs(headingBox.x + headingBox.width / 2 - (formBox.x + formBox.width / 2))).toBeLessThanOrEqual(8)
 			expect(welcomeBox.x).toBeGreaterThanOrEqual(chatColumnBox.x - 1)
 			expect(welcomeBox.x + welcomeBox.width).toBeLessThanOrEqual(chatColumnBox.x + chatColumnBox.width + 1)
 		}
@@ -213,7 +258,7 @@ test.describe("chat shell", () => {
 		await expect.poll(() => submittedOpenUI).toBe(true)
 	})
 
-	test("structured tool traces keep terminal state and a capped activity rail", async ({ page }) => {
+	test("structured tool traces keep terminal state and a single turn-progress timeline", async ({ page }) => {
 		const browserErrors: string[] = []
 		page.on("console", (message) => {
 			if (message.type() === "error") browserErrors.push(message.text())
@@ -350,20 +395,20 @@ test.describe("chat shell", () => {
 		// presentation. Raw thinking remains excluded by the renderer contract.
 		await expect(page.getByLabel("Safe reasoning progress")).toBeVisible()
 
-		const activity = page.locator('[data-content="mixed"]').first()
-		await expect(activity).toHaveAttribute("data-state", "closed")
-		await activity.getByRole("button").click()
-		const activityList = activity.getByRole("list")
-		await expect(activityList).toBeVisible()
-		const activityViewport = activityList.locator("..")
-		const viewportStyle = await activityViewport.getAttribute("style")
-		expect(viewportStyle).toContain("height: 208px")
+		const progress = page.getByTestId("turn-progress")
+		await expect(progress).toHaveCount(1)
+		await expect(page.locator("[data-testid='agent-activity']")).toHaveCount(0)
+		const timeline = progress.getByRole("button", { name: "15 tool actions" })
+		await expect(timeline).toHaveAttribute("aria-expanded", "true")
+		await expect(progress.getByText("Ran", { exact: true }).first()).toBeVisible()
+		await expect(progress.getByText("Edited", { exact: true })).toBeVisible()
+		await expect(progress.getByText("Searched", { exact: true })).toBeVisible()
 
-		const ipythonButton = page.getByRole("button", { name: /IPython/ }).first()
+		const ipythonButton = page.getByRole("button", { name: /^IPython\b/ }).first()
 		await expect(ipythonButton).toHaveAttribute("aria-expanded", "false")
 		await ipythonButton.click()
 		await expect(page.getByText(/stdout/).first()).toBeVisible()
-		expect(await page.getByRole("button", { name: /IPython/ }).count()).toBeGreaterThanOrEqual(1)
+		expect(await page.getByRole("button", { name: /^IPython\b/ }).count()).toBeGreaterThanOrEqual(1)
 
 		const sourcesButton = page.getByRole("button", { name: /Sources/ }).first()
 		await sourcesButton.click()
@@ -565,10 +610,9 @@ test.describe("chat shell", () => {
 	})
 
 	test("Settings keeps the original sidebar and Prime configuration sections", async ({ page }) => {
+		await mockEmptyWelcomeChat(page, "settings-smoke-session")
 		await page.setViewportSize({ width: 1400, height: 900 })
-		const commandsResponse = page.waitForResponse(
-			(response) => response.url().endsWith("/api/chat/commands") && response.request().method() === "GET",
-		)
+		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"))
 		await page.goto("/")
 		await commandsResponse
 		const prompt = page.getByRole("textbox", { name: "Prompt" })
@@ -591,19 +635,19 @@ test.describe("chat shell", () => {
 	})
 
 	test("composer shows vertical slash and workspace reference menus", async ({ page }) => {
+		await mockEmptyWelcomeChat(page, "slash-menu-session")
 		await page.setViewportSize({ width: 1400, height: 900 })
-		const commandsResponse = page.waitForResponse(
-			(response) => response.url().endsWith("/api/chat/commands") && response.request().method() === "GET",
-		)
-		const workspaceResponse = page.waitForResponse(
-			(response) => response.url().endsWith("/api/workspace/tree") && response.request().method() === "GET",
-		)
+		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"))
 		await page.goto("/")
 		await commandsResponse
-		await workspaceResponse
 		await page.waitForLoadState("networkidle")
 		const prompt = page.getByRole("textbox", { name: "Prompt" })
 		await expect(prompt).toBeVisible({ timeout: 15_000 })
+
+		const workspaceTreeResponse = page.waitForResponse((response) => isGetPath(response, "/api/workspace/tree"))
+		await page.getByRole("button", { name: "Open side panel", exact: true }).click()
+		await expect(page.getByTestId("pi-workspace-canvas")).toBeVisible()
+		await workspaceTreeResponse
 
 		await prompt.fill("/")
 		const slashList = page.getByRole("listbox")
@@ -641,7 +685,7 @@ test.describe("chat shell", () => {
 		await expect(sidebarDialog.getByRole("button", { name: "Open account menu" })).toContainText("Qredence")
 		await page.keyboard.press("Escape")
 		await expect(sidebarDialog).toHaveCount(0)
-		await page.getByRole("tab", { name: "Workspace", exact: true }).click()
+		await openWorkspaceFromLauncher(page)
 		const dialog = page.getByRole("dialog", { name: "Workspace", exact: true })
 		await expect(dialog).toBeVisible()
 		await dialog.getByRole("button", { name: "Close panel" }).click()

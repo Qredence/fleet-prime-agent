@@ -158,7 +158,7 @@ function ActivityAction({ action }: { action: { label: string; ariaLabel?: strin
 			type="button"
 			aria-label={action.ariaLabel ?? action.label}
 			onClick={action.onClick}
-			className="shrink-0 rounded-md px-1.5 py-1 text-[0.625rem] font-medium text-primary outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
+			className="shrink-0 rounded-md px-1.5 py-1 text-micro font-medium text-primary outline-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring"
 		>
 			{action.label}
 		</button>

@@ -10,7 +10,6 @@ import { IpythonTool } from "./ipython-tool";
 import { McpTool, unwrapMcpOutput } from "./mcp-tool";
 import { PlanTool } from "./plan-tool";
 import { SearchTool } from "./search-tool";
-import { ThinkingTool } from "./thinking-tool";
 import { TodoTool } from "./todo-tool";
 import { ToolGroup } from "./tool-group";
 import { parseMcpToolType, toolRegistry } from "./tool-registry";
@@ -73,7 +72,7 @@ export const ToolRenderer = memo(function ToolRenderer({
 			);
 		}
 		case "tool-Thinking":
-			return <ThinkingTool part={part} />;
+			return null;
 	}
 
 	// MCP tools

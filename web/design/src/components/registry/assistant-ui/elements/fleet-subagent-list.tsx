@@ -36,7 +36,7 @@ export function FleetSubagentList({ children, tree, className }: FleetSubagentLi
 				className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>
 				{active ? (
-					<LoaderCircle className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+					<LoaderCircle className="size-3.5 animate-spin text-primary" />
 				) : (
 					<CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
 				)}
@@ -59,9 +59,7 @@ export function FleetSubagentList({ children, tree, className }: FleetSubagentLi
 								<div className="flex min-w-0 items-baseline gap-2">
 									<span className="truncate text-sm text-foreground/85">{child.label}</span>
 									{child.model ? (
-										<span className="truncate font-mono text-[0.625rem] text-muted-foreground">
-											{child.model}
-										</span>
+										<span className="truncate font-mono text-micro text-muted-foreground">{child.model}</span>
 									) : null}
 								</div>
 								{child.answerPreview || child.activity?.toolName || child.error ? (
@@ -70,7 +68,7 @@ export function FleetSubagentList({ children, tree, className }: FleetSubagentLi
 									</p>
 								) : null}
 							</div>
-							<span className="shrink-0 text-[0.625rem] capitalize text-muted-foreground">{child.status}</span>
+							<span className="shrink-0 text-micro capitalize text-muted-foreground">{child.status}</span>
 						</div>
 					))}
 				</div>

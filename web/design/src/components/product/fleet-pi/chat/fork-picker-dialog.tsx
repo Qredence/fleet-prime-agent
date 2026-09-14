@@ -26,14 +26,14 @@ export function ForkPickerDialog({ entries, onOpenChange, onPick }: ForkPickerDi
 						<button
 							key={entry.id}
 							type="button"
-							className="flex w-full cursor-pointer flex-col gap-0.5 rounded-md p-2 text-left text-[0.8125rem] leading-5 hover:bg-foreground/6"
+							className="flex w-full cursor-pointer flex-col gap-0.5 rounded-md p-2 text-left text-body leading-5 hover:bg-foreground/6"
 							onClick={() => {
 								onPick(entry.id);
 								onOpenChange(false);
 							}}
 						>
 							<span className="truncate font-medium">{entry.preview}</span>
-							<span className="truncate font-mono text-[0.6875rem] text-foreground/40">{entry.id}</span>
+							<span className="truncate font-mono text-caption text-foreground/40">{entry.id}</span>
 						</button>
 					))}
 				</div>

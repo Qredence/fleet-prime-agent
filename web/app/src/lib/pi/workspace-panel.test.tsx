@@ -2,7 +2,7 @@ import {
 	WORKSPACE_PREVIEW_TIMEOUT_MS,
 	WorkspacePanelContent,
 	type WorkspacePanelContentProps,
-} from "@prime-agent/web-design/components/product/fleet-pi/pi/workspace-panel";
+} from "@prime-agent/web-design/components/product/fleet-pi/panels/workspace-panel";
 import { resolveWorkspacePanelTarget } from "@prime-agent/web-design/lib/workspace-path-nav";
 import type { WorkspaceFileResponse, WorkspaceTreeResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react";

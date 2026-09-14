@@ -58,7 +58,7 @@ export interface ComboboxLabelProps {
 export function ComboboxLabel({ children, className }: ComboboxLabelProps) {
 	const groupId = useContext(ComboboxGroupContext);
 	const labelClassName = cn(
-		"w-full px-2 py-1.5 text-[0.68rem] font-medium uppercase tracking-[0.12em] text-muted-foreground",
+		"w-full px-2 py-1.5 text-caption font-medium uppercase tracking-[0.12em] text-muted-foreground",
 		className,
 	);
 	return groupId ? (

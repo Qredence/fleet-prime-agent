@@ -263,7 +263,7 @@ function getTodos(input: FleetToolRecord | undefined, summary: FleetToolOutputSu
 		if (!title) return [];
 		const rawStatus = getString(record, "status");
 		const status =
-			rawStatus === "in_progress"
+			rawStatus === "in_progress" || rawStatus === "in-progress"
 				? "in-progress"
 				: rawStatus === "completed"
 					? "completed"
@@ -350,7 +350,23 @@ function sourceLabelFor(name: string, language: AgentCodeLanguage | undefined): 
 	return language.toUpperCase();
 }
 
+const normalizeCache = new WeakMap<
+	object,
+	{ chatStatus: string | undefined; value: NormalizedFleetToolPart | undefined }
+>();
+
 export function normalizeFleetToolPart(part: unknown, chatStatus?: string): NormalizedFleetToolPart | undefined {
+	if (part && typeof part === "object") {
+		const cached = normalizeCache.get(part);
+		if (cached && cached.chatStatus === chatStatus) return cached.value;
+		const value = normalizeFleetToolPartUncached(part, chatStatus);
+		normalizeCache.set(part, { chatStatus, value });
+		return value;
+	}
+	return normalizeFleetToolPartUncached(part, chatStatus);
+}
+
+function normalizeFleetToolPartUncached(part: unknown, chatStatus?: string): NormalizedFleetToolPart | undefined {
 	const source = asRecord(part);
 	if (!source) return undefined;
 	const name = toolName(source);
@@ -361,7 +377,6 @@ export function normalizeFleetToolPart(part: unknown, chatStatus?: string): Norm
 	const status = resultStatus(source, chatStatus);
 	const command = getString(input, "command", "cmd", "code", "script");
 	const sourceLanguage = sourceLanguageFor(name, command);
-	const thought = getString(input, "thought", "text");
 	const metadata: string[] = [];
 	if (outputSummary.durationMs !== undefined) metadata.push(`${outputSummary.durationMs}ms`);
 	if (outputSummary.kernelRestarted) metadata.push("kernel restarted");
@@ -378,9 +393,7 @@ export function normalizeFleetToolPart(part: unknown, chatStatus?: string): Norm
 	const imageUrl =
 		lowerName.includes("image") || lowerName.includes("generat") ? getImageUrl(outputSummary) : undefined;
 	const approval = getApproval(input, outputSummary);
-	const content =
-		getOutputContent(outputSummary, output) ||
-		(lowerName === "thinking" || lowerName === "reasoning" ? (thought ?? "") : "");
+	const content = getOutputContent(outputSummary, output);
 	const hasOutputContent = Boolean(content.trim());
 	const id =
 		typeof source.toolCallId === "string" && source.toolCallId

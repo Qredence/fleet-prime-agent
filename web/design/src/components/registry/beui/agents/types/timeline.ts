@@ -21,7 +21,6 @@ export type TimelineStep =
 			toolDetail: string;
 			duration: number;
 			toolVariant?: "thinking" | "action" | "search";
-			thoughtContent?: string;
 			searchQuery?: string;
 			searchSource?: string;
 			filePath?: string;

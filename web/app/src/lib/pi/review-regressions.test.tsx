@@ -1,5 +1,6 @@
 import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/pi/artifacts-panel";
+import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/panels/artifacts-panel";
+import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/product/fleet-pi/panels/artifacts-utils";
 import { FleetMessageQueue } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue";
 import { FleetSubagentList } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-subagent-list";
 import { FleetToolTimeline } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-tool-timeline";
@@ -346,7 +347,7 @@ describe("review regressions", () => {
 		});
 	});
 
-	it("renders activity after the assistant response and specialized tool content", async () => {
+	it("renders specialized tool content with a single turn-progress timeline", async () => {
 		const messages: Array<ChatMessage> = [
 			{
 				id: "assistant-footer",
@@ -363,15 +364,19 @@ describe("review regressions", () => {
 				],
 			},
 		];
-		const { findByText, getByRole } = render(
+		const { findByRole, findByText } = render(
 			<FleetPiAgentChat inputBar={inputBar} messages={messages} onSend={vi.fn()} onStop={vi.fn()} status="ready" />,
 		);
 		const answer = await findByText("Final architecture summary");
-		const activity = getByRole("button", { name: "Completed 1 tracked action" });
+		const timeline = await findByRole("button", { name: "1 tool action" });
+		const progress = timeline.closest("[data-testid='turn-progress']");
 
-		expect(answer.compareDocumentPosition(activity) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
-		expect(activity.getAttribute("aria-expanded")).toBe("false");
+		expect(progress).not.toBeNull();
+		if (!progress) return;
+		expect(timeline.getAttribute("aria-expanded")).toBe("true");
+		expect(progress.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
 		expect(await findByText("done", { exact: true })).toBeTruthy();
+		expect(document.querySelector("[data-testid='agent-activity']")).toBeNull();
 	});
 
 	it("does not repeat completed session presentation records in later turns", () => {
@@ -438,7 +443,7 @@ describe("review regressions", () => {
 		expect(queryByText(/tracked actions/)).toBeNull();
 	});
 
-	it("renders active session activity and routes technical artifacts to Artifacts", () => {
+	it("renders active session activity and routes technical artifacts to Artifacts", async () => {
 		const onOpenArtifact = vi.fn();
 		const active = presentation({
 			userBash: [
@@ -470,6 +475,7 @@ describe("review regressions", () => {
 						{
 							id: "bash-artifact",
 							runId: "bash-active-run",
+							sourceMessageId: "assistant-live",
 							sourceToolCallId: "bash-active-run",
 							kind: "bash",
 							title: "git status",
@@ -481,8 +487,21 @@ describe("review regressions", () => {
 				},
 			],
 		});
-		const messages: Array<ChatMessage> = [{ id: "assistant-live", role: "assistant", parts: [] }];
-		const { getAllByText, getByRole, getByText } = render(
+		const messages: Array<ChatMessage> = [
+			{
+				id: "assistant-live",
+				role: "assistant",
+				parts: [
+					{
+						type: "tool-Bash",
+						toolCallId: "bash-active-run",
+						state: "input-streaming",
+						input: { command: "git status" },
+					},
+				],
+			},
+		];
+		const { findByRole, getAllByText, queryByText } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -495,17 +514,17 @@ describe("review regressions", () => {
 			/>,
 		);
 
+		expect(await findByRole("button", { name: "Ran git status" })).toBeTruthy();
 		expect(getAllByText("git status", { exact: true }).length).toBeGreaterThan(0);
-		expect(getByText("RLM · Repository scan", { exact: true })).toBeTruthy();
-		expect(getByRole("status").textContent).toContain("Coordinating 2 active actions");
-		expect(getByRole("region", { name: /Coordinating 2 active actions/ }).getAttribute("aria-hidden")).toBe("false");
-		const openButton = getByRole("button", { name: "Open git status artifact 1" });
-		expect(openButton).toBeTruthy();
+		expect(queryByText("RLM · Repository scan", { exact: true })).toBeNull();
+		expect(queryByText(/Coordinating/)).toBeNull();
+		expect(document.querySelector("[data-testid='agent-activity']")).toBeNull();
+		const openButton = await findByRole("button", { name: "Open git status in artifacts" });
 		fireEvent.click(openButton);
 		expect(onOpenArtifact).toHaveBeenCalledWith("bash-artifact", "artifacts");
 	});
 
-	it("opens IPython activity in REPL", () => {
+	it("opens IPython activity in REPL", async () => {
 		const onOpenArtifact = vi.fn();
 		const messages: Array<ChatMessage> = [
 			{
@@ -542,7 +561,7 @@ describe("review regressions", () => {
 				],
 			},
 		];
-		const { getByRole } = render(
+		const { findByRole } = render(
 			<FleetPiAgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -554,8 +573,8 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		const openButton = getByRole("button", { name: "Open IPython artifact 1" });
-		expect(openButton.parentElement?.parentElement?.className).toContain("grid-cols-[1rem_auto_minmax(0,1fr)_auto]");
+		expect(await findByRole("button", { name: "Ran 1 + 1" })).toBeTruthy();
+		const openButton = await findByRole("button", { name: "Open IPython in REPL" });
 		fireEvent.click(openButton);
 		expect(onOpenArtifact).toHaveBeenCalledWith("ipython-artifact", "repl");
 	});
@@ -571,7 +590,11 @@ describe("review regressions", () => {
 		];
 
 		const { getByRole } = render(
-			<ArtifactsPanelContent messages={messages} onOpenUIAction={onOpenUIAction} status="ready" />,
+			<ArtifactsPanelContent
+				onOpenUIAction={onOpenUIAction}
+				openUIBlocks={collectSessionOpenUIBlocks(messages)}
+				status="ready"
+			/>,
 		);
 
 		fireEvent.click(getByRole("button", { name: /Card/ }));
@@ -604,7 +627,7 @@ describe("review regressions", () => {
 		];
 
 		const { getByLabelText, getByText } = render(
-			<ArtifactsPanelContent messages={[]} status="ready" artifactRuns={artifactRuns} />,
+			<ArtifactsPanelContent status="ready" artifactRuns={artifactRuns} />,
 		);
 
 		expect(getByLabelText("Changes failed")).toBeTruthy();

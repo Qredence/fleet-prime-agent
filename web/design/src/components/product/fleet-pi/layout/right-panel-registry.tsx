@@ -27,32 +27,32 @@ export type RightPanelDefinition = {
 };
 
 const LazyArtifactsPanel = lazy(() =>
-	import("../pi/artifacts-panel").then(({ ArtifactsPanelContent }) => ({
+	import("../panels/artifacts-panel").then(({ ArtifactsPanelContent }) => ({
 		default: ArtifactsPanelContent,
 	})),
 );
 const LazyResourcesPanel = lazy(() =>
-	import("../pi/resources-panel").then(({ ResourcesPanelContent }) => ({
+	import("../panels/resources-panel").then(({ ResourcesPanelContent }) => ({
 		default: ResourcesPanelContent,
 	})),
 );
 const LazySessionInsightsPanel = lazy(() =>
-	import("../pi/session-insights-panel").then(({ SessionInsightsPanel }) => ({
+	import("../panels/session-insights-panel").then(({ SessionInsightsPanel }) => ({
 		default: SessionInsightsPanel,
 	})),
 );
 const LazyReplPanel = lazy(() =>
-	import("../pi/repl-panel").then(({ ReplPanelContent }) => ({
+	import("../panels/repl-panel").then(({ ReplPanelContent }) => ({
 		default: ReplPanelContent,
 	})),
 );
 const LazySubagentsPanel = lazy(() =>
-	import("../pi/subagents-panel").then(({ SubagentsPanelContent }) => ({
+	import("../panels/subagents-panel").then(({ SubagentsPanelContent }) => ({
 		default: SubagentsPanelContent,
 	})),
 );
 const LazyWorkspacePanel = lazy(() =>
-	import("../pi/workspace-panel").then(({ WorkspacePanelContent }) => ({
+	import("../panels/workspace-panel").then(({ WorkspacePanelContent }) => ({
 		default: WorkspacePanelContent,
 	})),
 );
@@ -74,7 +74,7 @@ function SessionInsightsContent() {
 				activityLabel={data.activityLabel}
 				artifactRuns={data.artifactRuns}
 				chatMode={data.chatMode}
-				messages={data.messages}
+				transcriptSummary={data.transcriptSummary}
 				planLabel={data.planLabel}
 				presentation={data.presentation}
 				queue={data.queue}
@@ -124,7 +124,7 @@ function ArtifactsContent() {
 		<Suspense fallback={<PanelFallback />}>
 			<LazyArtifactsPanel
 				artifactRuns={data.artifactRuns}
-				messages={data.messages}
+				openUIBlocks={data.transcriptSummary.openUIBlocks}
 				onOpenUIAction={data.onOpenUIAction}
 				selectedArtifactId={data.selectedArtifactId}
 				status={data.status}

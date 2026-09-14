@@ -66,7 +66,7 @@ function getSwapKey(value: ReactNode, fallback: string) {
 
 function getStatusClass(status: ToolResultStatus) {
 	if (status === "running") {
-		return "text-blue-600 dark:text-blue-400";
+		return "text-primary";
 	}
 	if (status === "success") {
 		return "text-emerald-600 dark:text-emerald-400";
@@ -114,7 +114,7 @@ export function ToolResultOutput({ children, language: _language = "bash", label
 	return (
 		<div className="space-y-1.5">
 			{label ? (
-				<div className="px-0.5 text-[0.625rem] font-medium uppercase tracking-[0.12em] text-muted-foreground/60">
+				<div className="px-0.5 text-micro font-medium uppercase tracking-[0.12em] text-muted-foreground/60">
 					{label}
 				</div>
 			) : null}
@@ -239,13 +239,13 @@ export function ToolResult({
 							<ActionSwapRollText value={metaKey}>{meta}</ActionSwapRollText>
 						</span>
 					) : null}
-					<span className="min-w-0 truncate font-mono text-[0.6875rem] text-muted-foreground/55">
+					<span className="min-w-0 truncate font-mono text-caption text-muted-foreground/55">
 						<ActionSwapRollText value={toolKey}>{tool}</ActionSwapRollText>
 					</span>
 				</span>
 				<span
 					className={cn(
-						"inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium",
+						"inline-flex shrink-0 items-center gap-1 text-caption font-medium",
 						getStatusClass(status),
 					)}
 				>
@@ -287,7 +287,7 @@ export function ToolResult({
 										<RotateCcw className="size-3.5" />
 									</ToolResultAction>
 								) : null}
-								<span className="ml-auto text-[0.6875rem] text-muted-foreground/55">
+								<span className="ml-auto text-caption text-muted-foreground/55">
 									<ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
 								</span>
 							</div>

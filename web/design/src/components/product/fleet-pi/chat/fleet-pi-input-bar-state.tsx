@@ -11,8 +11,8 @@ import {
 import type { ComposerTriggerGroup } from "../../../registry/assistant-ui/elements/composer-trigger-popover";
 import { useQuestionBarNavigation } from "../../../registry/beui/agents/hooks/use-question-bar-navigation";
 import type { SuggestionItem } from "../../../registry/beui/agents/input/suggestions";
-import { ProviderBrandIcon } from "../pi/config-panel/shared/provider-brand-icon";
-import { formatProviderLabel } from "../pi/config-panel/shared/provider-label";
+import { ProviderBrandIcon } from "../panels/config-panel/shared/provider-brand-icon";
+import { formatProviderLabel } from "../panels/config-panel/shared/provider-label";
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar";
 
 type SuggestionConfig = NonNullable<FleetPiInputBarProps["slashCommands"]>;

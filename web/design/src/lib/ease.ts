@@ -51,3 +51,39 @@ export const SPRING_GLIDE = {
 	damping: 50,
 	mass: 0.5,
 } as const;
+
+/** Tab / chrome indicator enter-exit tiers. Each ENTER spring is critically
+ * damped; EXIT is a matching tween one tier quicker. */
+export const spring = {
+	fast: {
+		enter: {
+			type: "spring" as const,
+			duration: 0.08,
+			bounce: 0,
+		},
+		exit: { duration: 0.06 },
+	},
+	moderate: {
+		enter: {
+			type: "spring" as const,
+			duration: 0.16,
+			bounce: 0,
+		},
+		exit: { duration: 0.12 },
+	},
+	slow: {
+		enter: {
+			type: "spring" as const,
+			duration: 0.24,
+			bounce: 0.12,
+		},
+		exit: { duration: 0.16 },
+	},
+} as const;
+
+export const fontWeights = {
+	normal: "'wght' 400, 'opsz' 14",
+	medium: "'wght' 450, 'opsz' 15",
+	semibold: "'wght' 550, 'opsz' 20",
+	bold: "'wght' 700, 'opsz' 25",
+} as const;

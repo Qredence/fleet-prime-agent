@@ -1,4 +1,5 @@
 import { AgentTabBar } from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/product/fleet-pi/panels/transcript-summary";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -145,8 +146,8 @@ function createWorkspaceData(startNewSession: () => Promise<unknown>): Workspace
 				chatMode: "agent",
 				loadSession: vi.fn(),
 				loadSubagentSession: vi.fn(),
-				messages: [],
 				models: [],
+				transcriptSummary: EMPTY_CHAT_TRANSCRIPT_SUMMARY,
 				presentation: emptyPresentation,
 				queue: { steering: [], followUp: [] },
 				refreshResources: vi.fn(),

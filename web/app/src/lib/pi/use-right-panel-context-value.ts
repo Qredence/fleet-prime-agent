@@ -34,6 +34,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useMemo } from "react";
+import { useThrottledTranscriptSummary } from "./use-throttled-transcript-summary";
 
 type UseRightPanelContextValueArgs = {
 	activityLabel?: string;
@@ -153,6 +154,7 @@ export function useRightPanelContextValue({
 	workspaceLoading,
 	workspaceTree,
 }: UseRightPanelContextValueArgs): RightPanelContextSlices {
+	const transcriptSummary = useThrottledTranscriptSummary(messages, status, sessionId ?? "");
 	const chatPanelData = useMemo<ChatPanelDataContextValue>(
 		() => ({
 			activityLabel,
@@ -160,7 +162,7 @@ export function useRightPanelContextValue({
 			chatMode,
 			loadSession,
 			loadSubagentSession,
-			messages,
+			transcriptSummary,
 			onOpenSubagentTab,
 			models,
 			planLabel,
@@ -185,7 +187,7 @@ export function useRightPanelContextValue({
 			chatMode,
 			loadSession,
 			loadSubagentSession,
-			messages,
+			transcriptSummary,
 			onOpenSubagentTab,
 			models,
 			planLabel,

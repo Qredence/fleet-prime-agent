@@ -40,5 +40,5 @@ export function rlmStatusIcon(status: PrimeAgentRlmChild["status"]) {
 	if (status === "cancelled") return <CircleX className="size-3.5 text-muted-foreground" />;
 	if (status === "recovering")
 		return <RotateCw className="size-3.5 animate-spin text-amber-500 dark:text-amber-400" />;
-	return <LoaderCircle className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />;
+	return <LoaderCircle className="size-3.5 animate-spin text-primary" />;
 }

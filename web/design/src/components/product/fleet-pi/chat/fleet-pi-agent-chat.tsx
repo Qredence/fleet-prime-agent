@@ -19,10 +19,10 @@ import {
 	useState,
 } from "react";
 import { type ConversationTurn, groupMessages } from "../../../../lib/pi/conversation-turns";
+import { useUiPreferences } from "../../../../lib/ui-preferences";
 import { cn } from "../../../../lib/utils";
 import type { OpenUIArtifactCandidate } from "../../../openui/html-artifact";
 import type { FleetQueueLane } from "../../../registry/assistant-ui/elements/fleet-message-queue";
-import type { AgentActivityItem } from "../../../registry/beui/agents/agent-activity/index";
 import { Message, MessageBubble, MessageBubbleContent, MessageContent } from "../../../registry/beui/agents/message";
 import { MessageScroller } from "../../../registry/beui/agents/message-scroller";
 import { buildAssistantElements } from "../../../registry/beui/agents/message-turns";
@@ -30,8 +30,6 @@ import { StreamingResponse } from "../../../registry/beui/agents/streaming-respo
 import type { AgentChatProps } from "../../../registry/beui/agents/types";
 import { UserMessage } from "../../../registry/beui/agents/user-message";
 import { normalizeAssistantToolParts } from "../../../registry/beui/agents/utils/tool-part-normalizer";
-import { PI_TOOL_RENDERERS } from "../pi/tool-renderers";
-import { activityLabelFor, activitySummary } from "./chat-activity";
 import { getChatErrorPresentation } from "./chat-error-presentation";
 import { ChatWelcome } from "./chat-welcome";
 import type { FleetPiInputBarProps } from "./fleet-pi-input-bar";
@@ -57,35 +55,6 @@ function FleetPiToolRenderer(props: ComponentProps<typeof LazyFleetPiToolRendere
 		<Suspense fallback={<div className="h-7 animate-pulse rounded-md bg-muted/40" aria-label="Loading tool" />}>
 			<LazyFleetPiToolRenderer {...props} />
 		</Suspense>
-	);
-}
-
-// The components below never render on the empty welcome state, so they stay
-// out of the initial eager graph (see web/app/scripts/check-bundle-budget.mjs)
-// and load on first use behind lightweight skeleton fallbacks.
-const LazyAgentActivity = lazy(() =>
-	import("../../../registry/beui/agents/agent-activity/index").then(({ AgentActivity }) => ({
-		default: AgentActivity,
-	})),
-);
-
-/**
- * Lazy-loaded wrapper for the agent activity panel with loading skeleton.
- * Defers loading until first conversation turn to keep the component out of
- * the welcome route eager bundle.
- *
- * @param props - Props forwarded to the AgentActivity component
- * @returns Suspense-wrapped AgentActivity with loading fallback
- */
-function AgentActivity(props: ComponentProps<typeof LazyAgentActivity>) {
-	return (
-		<div className="mt-2 min-h-8">
-			<Suspense
-				fallback={<div className="h-8 animate-pulse rounded-md bg-muted/40" aria-label="Loading activity" />}
-			>
-				<LazyAgentActivity {...props} />
-			</Suspense>
-		</div>
 	);
 }
 
@@ -131,28 +100,6 @@ function FleetToolTimeline(props: ComponentProps<typeof LazyFleetToolTimeline>) 
 	return (
 		<Suspense fallback={<div className="h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading timeline" />}>
 			<LazyFleetToolTimeline {...props} />
-		</Suspense>
-	);
-}
-
-const LazyFleetSubagentList = lazy(() =>
-	import("../../../registry/assistant-ui/elements/fleet-subagent-list").then(({ FleetSubagentList }) => ({
-		default: FleetSubagentList,
-	})),
-);
-
-/**
- * Lazy-loaded wrapper for the Fleet subagent list with loading skeleton.
- * Defers loading until first conversation turn to keep the component out of
- * the welcome route eager bundle.
- *
- * @param props - Props forwarded to the FleetSubagentList component
- * @returns Suspense-wrapped FleetSubagentList with loading fallback
- */
-function FleetSubagentList(props: ComponentProps<typeof LazyFleetSubagentList>) {
-	return (
-		<Suspense fallback={<div className="h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading subagents" />}>
-			<LazyFleetSubagentList {...props} />
 		</Suspense>
 	);
 }
@@ -262,22 +209,6 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 /**
- * Finds the first non-empty string value associated with the specified keys.
- *
- * @param value - The value containing the candidate properties
- * @param keys - The property names to inspect in order
- * @returns The first non-empty string value, or `undefined` if none is found
- */
-function stringValue(value: unknown, ...keys: string[]) {
-	const source = record(value);
-	for (const key of keys) {
-		const candidate = source?.[key];
-		if (typeof candidate === "string" && candidate.trim()) return candidate;
-	}
-	return undefined;
-}
-
-/**
  * Retrieves the most recent valid Fleet reasoning presentation from the chat messages.
  *
  * @param messages - The chat messages to inspect.
@@ -357,108 +288,6 @@ function artifactsForCurrentTurn(
 }
 
 /**
- * Builds activity items for tool calls, searches, running commands, active subagents, and goals.
- *
- * @param messages - Messages containing tool activity to display.
- * @param presentation - Optional session activity data for commands, subagents, and goals.
- * @param artifactRuns - Artifact runs used to provide artifact-opening actions.
- * @param onOpenArtifact - Callback invoked when an artifact is opened.
- * @returns The activity items represented by the supplied messages and session data.
- */
-function buildActivityItems(
-	messages: Array<ChatMessage>,
-	presentation?: PrimeAgentSessionPresentation,
-	artifactRuns: Array<PrimeAgentArtifactRun> = [],
-	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void,
-): AgentActivityItem[] {
-	const items = new Map<string, AgentActivityItem>();
-	const artifacts = artifactRuns.flatMap((run) => run.artifacts);
-	const openArtifactAction = (sourceId: string) => {
-		const artifactIndex = artifacts.findIndex((candidate) => candidate.sourceToolCallId === sourceId);
-		const artifact = artifactIndex >= 0 ? artifacts[artifactIndex] : undefined;
-		const target = artifact?.kind === "ipython" ? "repl" : artifact ? "artifacts" : undefined;
-		if (!artifact || !target || !onOpenArtifact) return undefined;
-		return {
-			label: target === "repl" ? "Open in REPL" : "Open in Artifacts",
-			ariaLabel: `Open ${artifact.title || "tool result"} artifact ${artifactIndex + 1}`,
-			onClick: () => onOpenArtifact(artifact.id, target),
-		};
-	};
-	for (const message of messages) {
-		for (const [partIndex, part] of (message.parts ?? []).entries()) {
-			const partRecord = record(part);
-			const type = partRecord?.type;
-			if (typeof type !== "string" || !type.startsWith("tool-")) continue;
-
-			const source = partRecord ?? {};
-			const name = type.slice(5);
-			const lowerName = name.toLowerCase();
-			if (lowerName === "fleetreasoning" || lowerName === "thinking" || lowerName === "taskoutput") {
-				continue;
-			}
-
-			const id = String(source.toolCallId ?? source.id ?? `${message.id}-${lowerName}-${partIndex}`);
-			const input = record(source.input) ?? record(source.args);
-			if (lowerName === "websearch" || lowerName === "grep" || lowerName === "glob") {
-				items.set(id, {
-					id,
-					type: "search",
-					query: stringValue(input, "query", "pattern", "path") ?? name,
-				});
-				continue;
-			}
-
-			const action =
-				lowerName.includes("edit") || lowerName.includes("write")
-					? "edit"
-					: lowerName.includes("read")
-						? "read"
-						: "run";
-			items.set(id, {
-				id,
-				type: "tool",
-				action,
-				target: stringValue(input, "path", "filePath", "command", "cmd", "code") ?? name,
-				openAction: openArtifactAction(id),
-			});
-		}
-	}
-	const presentationItems: AgentActivityItem[] = [];
-	for (const entry of presentation?.userBash ?? []) {
-		if (entry.status !== "running") continue;
-		presentationItems.push({
-			id: entry.id,
-			type: "trace",
-			kind: "run",
-			label: "Bash",
-			detail: entry.command || "User command",
-			action: openArtifactAction(entry.runId),
-		});
-	}
-	for (const child of presentation?.rlmChildren ?? []) {
-		if (child.status !== "queued" && child.status !== "running") continue;
-		presentationItems.push({
-			id: `rlm-${child.id}`,
-			type: "trace",
-			kind: "run",
-			label: `RLM · ${child.label}`,
-			detail: child.answerPreview || child.status,
-			action: openArtifactAction(child.id),
-		});
-	}
-	if (presentation?.goal?.active && presentation.goal.status === "active" && presentation.goal.objective) {
-		presentationItems.push({
-			id: `goal-${presentation.goal.goalId ?? "current"}`,
-			type: "step",
-			label: presentation.goal.objective,
-			status: presentation.goal.status === "active" ? "active" : "complete",
-			meta: presentation.goal.status,
-		});
-	}
-	return [...presentationItems, ...Array.from(items.values())];
-}
-
-/**
  * Renders an assistant conversation turn with its content, tool activity, reasoning, and artifacts.
  *
  * @param messages - Assistant messages belonging to the turn
@@ -474,7 +303,6 @@ function AssistantMessage({
 	toolRenderers,
 	onOpenUIAction,
 	activityLabel,
-	presentation,
 	artifactRuns,
 	onOpenArtifact,
 	onOpenUIArtifactReady,
@@ -483,10 +311,9 @@ function AssistantMessage({
 	isLast: boolean;
 	isStreaming: boolean;
 	suppressQuestionTool: boolean;
-	toolRenderers: NonNullable<AgentChatProps["toolRenderers"]>;
+	toolRenderers?: AgentChatProps["toolRenderers"];
 	onOpenUIAction?: (message: string) => void;
 	activityLabel?: string;
-	presentation?: PrimeAgentSessionPresentation;
 	artifactRuns?: Array<PrimeAgentArtifactRun>;
 	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void;
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
@@ -533,58 +360,40 @@ function AssistantMessage({
 			return text ? [text] : [];
 		})
 		.join("\n\n");
-	const activityItems = useMemo(
-		() => buildActivityItems(messages, presentation, artifactRuns, onOpenArtifact),
-		[artifactRuns, messages, onOpenArtifact, presentation],
-	);
 	const reasoningPresentation = useMemo(() => reasoningPresentationFromMessages(messages), [messages]);
 	const timelineArtifacts = useMemo(
 		() => (isLast ? artifactsForCurrentTurn(artifactRuns, messages) : []),
 		[artifactRuns, isLast, messages],
 	);
-	const [activityOpen, setActivityOpen] = useState(turnStreaming);
-	const [prevTurnStreaming, setPrevTurnStreaming] = useState(turnStreaming);
-	if (prevTurnStreaming !== turnStreaming) {
-		setPrevTurnStreaming(turnStreaming);
-		setActivityOpen(turnStreaming);
-	}
+	const showReasoning = Boolean(reasoningPresentation);
+	const showTurnStatus = isLast && !showReasoning && isLifecycleNotice(activityLabel);
 
 	return (
 		<Message from="assistant" animateIn={!turnStreaming}>
 			<MessageContent>
-				<MessageBubble variant="ghost">
+				<MessageBubble variant="ghost" layout={false}>
 					<MessageBubbleContent>
-						{reasoningPresentation ? (
-							<FleetReasoningPanel presentation={reasoningPresentation} className="mb-2" />
-						) : null}
-						{isLast && isLifecycleNotice(activityLabel) ? (
-							<FleetTurnStatus label={activityLabel} className="mb-2" />
-						) : null}
-						<FleetToolTimeline messages={messages} artifacts={timelineArtifacts} streaming={turnStreaming} />
+						<div data-testid="turn-progress" className="flex flex-col gap-[var(--density-gap)]">
+							{showReasoning && reasoningPresentation ? (
+								<FleetReasoningPanel presentation={reasoningPresentation} />
+							) : showTurnStatus ? (
+								<FleetTurnStatus label={activityLabel} />
+							) : null}
+							<FleetToolTimeline
+								messages={messages}
+								artifacts={timelineArtifacts}
+								streaming={turnStreaming}
+								onOpenArtifact={onOpenArtifact}
+							/>
+						</div>
 						<StreamingResponse
 							status={turnStreaming ? "streaming" : "complete"}
 							copyText={copyText || undefined}
 							announce={false}
-							contentClassName="flex flex-col gap-3"
+							contentClassName="flex flex-col gap-[var(--density-gap)]"
 						>
 							{elements}
 						</StreamingResponse>
-						{activityItems.length > 0 ? (
-							<AgentActivity
-								items={activityItems}
-								status={turnStreaming ? "working" : "complete"}
-								open={activityOpen}
-								onOpenChange={setActivityOpen}
-								activeLabel={activityLabelFor(activityItems)}
-								summary={activitySummary(activityItems)}
-								collapseOnComplete
-								maxHeight={208}
-								className="mt-2 max-w-none"
-							/>
-						) : null}
-						{isLast && presentation ? (
-							<FleetSubagentList tree={presentation.rlmTree}>{presentation.rlmChildren}</FleetSubagentList>
-						) : null}
 					</MessageBubbleContent>
 				</MessageBubble>
 			</MessageContent>
@@ -600,7 +409,7 @@ type ConversationTurnViewProps = {
 		suppressQuestionTool: boolean;
 	};
 	rendering: {
-		toolRenderers: NonNullable<AgentChatProps["toolRenderers"]>;
+		toolRenderers?: AgentChatProps["toolRenderers"];
 		onOpenUIAction?: (message: string) => void;
 		onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
 		onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void;
@@ -626,7 +435,10 @@ function sameMessages(previous: Array<ChatMessage>, next: Array<ChatMessage>) {
 export const ConversationTurnView = memo(
 	function ConversationTurnView({ turn, state, rendering, activity }: ConversationTurnViewProps) {
 		return (
-			<div className="flex flex-col gap-3" style={{ contentVisibility: "auto", containIntrinsicSize: "auto 400px" }}>
+			<div
+				className="flex flex-col gap-[var(--density-gap)]"
+				style={{ contentVisibility: "auto", containIntrinsicSize: "auto 400px" }}
+			>
 				{turn.user ? (
 					<Message from="user" animateIn={!state.isStreaming}>
 						<MessageContent>
@@ -645,7 +457,6 @@ export const ConversationTurnView = memo(
 						onOpenUIArtifactReady={rendering.onOpenUIArtifactReady}
 						onOpenArtifact={rendering.onOpenArtifact}
 						activityLabel={activity.label}
-						presentation={activity.presentation}
 						artifactRuns={activity.artifactRuns}
 					/>
 				) : null}
@@ -758,7 +569,7 @@ function getConversationTurnKey(turn: ConversationTurn, turnIndex: number) {
  * @returns The Fleet Prime Agent chat interface.
  */
 export function FleetPiAgentChat({
-	toolRenderers = PI_TOOL_RENDERERS,
+	toolRenderers,
 	suggestions,
 	status,
 	onStop,
@@ -780,6 +591,7 @@ export function FleetPiAgentChat({
 }: FleetPiAgentChatProps) {
 	const draftSetterRef = useRef<((value: string) => void) | null>(null);
 	const viewportRef = useRef<HTMLElement | null>(null);
+	const { transcript } = useUiPreferences();
 	const setDraft = useCallback((value: string) => draftSetterRef.current?.(value), []);
 	const turns = useMemo(() => groupMessages(messages), [messages]);
 	const suggestionItems = resolveSuggestions(suggestions);
@@ -848,11 +660,11 @@ export function FleetPiAgentChat({
 			<MessageScroller
 				className="flex-1"
 				busy={isStreaming}
-				followOutput
+				followOutput={transcript === "follow"}
 				viewportRef={viewportRef}
 				smooth={!isStreaming}
 				contentClassName={cn(
-					"mx-auto flex w-full max-w-an flex-col gap-5 px-4",
+					"mx-auto flex w-full max-w-an flex-col gap-[var(--density-gap)] px-[var(--density-pad-x)]",
 					isEmpty ? "min-h-full items-center justify-center py-8" : "py-6",
 				)}
 			>

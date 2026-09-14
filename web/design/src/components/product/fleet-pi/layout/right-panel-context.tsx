@@ -25,11 +25,12 @@ import type {
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
 import type { RightPanel, ThemePreference } from "../../../../lib/canvas-utils";
 import type { ChatModelOption } from "../../../../lib/pi/chat-helpers";
+import type { ChatTranscriptSummary } from "../panels/transcript-summary";
 
 export type ChatPanelDataContextValue = {
 	activityLabel?: string;
@@ -37,7 +38,7 @@ export type ChatPanelDataContextValue = {
 	chatMode: ChatMode;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
-	messages: Array<ChatMessage>;
+	transcriptSummary: ChatTranscriptSummary;
 	onOpenSubagentTab?: (childId: string) => void;
 	models: Array<ChatModelOption>;
 	onOpenUIAction?: (message: string) => void;

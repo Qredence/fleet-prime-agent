@@ -1,13 +1,12 @@
 :root {
-  /* Geometry — all radii derive from --an-border-radius */
-  --an-border-radius: 16px;
+  /* Geometry — alias Fleet radius instead of a second radius system. */
+  --an-border-radius: var(--radius);
   --an-message-border-radius: var(--an-border-radius);
   --an-input-border-radius: var(--an-border-radius);
-  --an-tool-border-radius: 10px;
+  --an-tool-border-radius: calc(var(--radius) * 0.8);
   --an-message-radius-inner-offset: 4px;
   --an-max-width: 768px;
 
-  /* Colors - Light mode defaults */
   --an-background: var(--background);
   --an-background-secondary: var(--secondary);
   --an-background-tertiary: var(--muted);
@@ -17,33 +16,27 @@
   --an-border-color: var(--border);
   --an-primary-color: var(--primary);
 
-  /* User Messages */
-  --an-user-message-bg: #f5f5f5;
-  --an-user-message-text: #1a1a1a;
+  --an-user-message-bg: var(--muted);
+  --an-user-message-text: var(--foreground);
 
-  /* Input */
-  --an-input-background: #ffffff;
-  --an-input-border-color: #e4e4e7;
-  --an-input-color: #1a1a1a;
-  --an-input-placeholder-color: #a3a3a3;
+  --an-input-background: var(--background);
+  --an-input-border-color: var(--border);
+  --an-input-color: var(--foreground);
+  --an-input-placeholder-color: var(--muted-foreground);
   --an-input-focus-outline: transparent;
   --an-context-padding: 10px;
 
-  /* Send/Stop Buttons */
-  --an-send-button-bg: #3b82f6;
-  --an-send-button-color: #ffffff;
+  --an-send-button-bg: var(--primary);
+  --an-send-button-color: var(--primary-foreground);
 
-  /* Tools */
-  --an-tool-background: #f5f5f5;
-  --an-tool-border-color: #e4e4e7;
-  --an-tool-color: #1a1a1a;
-  --an-tool-color-muted: #737373;
+  --an-tool-background: var(--muted);
+  --an-tool-border-color: var(--border);
+  --an-tool-color: var(--foreground);
+  --an-tool-color-muted: var(--muted-foreground);
 
-  /* Code */
   --an-code-background: var(--product-code-background);
   --an-code-color: var(--product-code-foreground);
 
-  /* Diff colors */
   --an-diff-added-bg: var(--product-diff-added-background);
   --an-diff-added-border: var(--product-diff-added-border);
   --an-diff-added-text: var(--product-diff-added-foreground);
@@ -52,37 +45,33 @@
   --an-diff-removed-text: var(--product-diff-removed-foreground);
 }
 
-/* Dark mode defaults */
 .dark {
-  --an-background: #0a0a0a;
-  --an-background-secondary: #242424;
-  --an-background-tertiary: #141414;
-  --an-foreground: #fafafa;
-  --an-foreground-muted: #8c8c8c;
-  --an-foreground-subtle: #71717a;
-  --an-border-color: #2a2a2a;
-  --an-primary-color: #60a5fa;
+  --an-background: var(--background);
+  --an-background-secondary: var(--secondary);
+  --an-background-tertiary: var(--muted);
+  --an-foreground: var(--foreground);
+  --an-foreground-muted: var(--muted-foreground);
+  --an-foreground-subtle: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
+  --an-border-color: var(--border);
+  --an-primary-color: var(--primary);
 
-  --an-user-message-bg: #1a1a1a;
-  --an-user-message-text: #fafafa;
+  --an-user-message-bg: var(--muted);
+  --an-user-message-text: var(--foreground);
 
-  --an-input-background: oklab(0.2 0 0);
-  --an-input-border-color: #2a2a2a;
-  --an-input-color: #fafafa;
-  --an-input-placeholder-color: #71717a;
+  --an-input-background: var(--card);
+  --an-input-border-color: var(--border);
+  --an-input-color: var(--foreground);
+  --an-input-placeholder-color: var(--muted-foreground);
   --an-input-focus-outline: transparent;
   --an-context-padding: 12px;
 
-  --an-send-button-bg: #60a5fa;
-  /* Dark mode uses a lighter primary (#60a5fa) — pair it with black text so
-     labels like "Approve" / send-arrow have proper contrast instead of
-     low-contrast white-on-light-blue. */
-  --an-send-button-color: #0a0a0a;
+  --an-send-button-bg: var(--primary);
+  --an-send-button-color: var(--primary-foreground);
 
-  --an-tool-background: #141414;
-  --an-tool-border-color: #2a2a2a;
-  --an-tool-color: #fafafa;
-  --an-tool-color-muted: #8c8c8c;
+  --an-tool-background: var(--muted);
+  --an-tool-border-color: var(--border);
+  --an-tool-color: var(--foreground);
+  --an-tool-color-muted: var(--muted-foreground);
 
   --an-code-background: var(--product-code-background);
   --an-code-color: var(--product-code-foreground);
