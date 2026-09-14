@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.5.0",
-    "@openuidev/lang-core": "^0.2.16",
+    "@openuidev/lang-core": "^0.2.17",
     "zod": "^4.5.4"
   },
   "devDependencies": {
