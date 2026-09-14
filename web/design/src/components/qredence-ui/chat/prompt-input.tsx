@@ -1,11 +1,11 @@
 "use client";
 
-import { Button } from "@prime-agent/web-design/components/qredence-ui/motion/button/index";
 import {
 	MorphPopover,
 	MorphPopoverContent,
 	MorphPopoverTrigger,
 } from "@prime-agent/web-design/components/qredence-ui/motion/popover-morph";
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import { SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ArrowUp, Plus, Square } from "lucide-react";
