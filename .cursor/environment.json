@@ -1,0 +1,17 @@
+{
+  "name": "Fleet Prime Agent",
+  "install": "corepack enable && corepack prepare pnpm@11.15.1 --activate && pnpm install --frozen-lockfile",
+  "terminals": [
+    {
+      "name": "web-dev",
+      "command": "corepack enable >/dev/null 2>&1 && pnpm run dev:web",
+      "description": "Fleet Prime web app (Vite dev server) on http://127.0.0.1:3000/"
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 3000
+    }
+  ]
+}
