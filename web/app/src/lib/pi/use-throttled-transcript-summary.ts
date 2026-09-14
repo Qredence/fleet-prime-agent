@@ -3,7 +3,7 @@ import {
 	summarizeChatTranscript,
 } from "@prime-agent/web-design/components/qredence-ui/panels/transcript-summary";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export const TRANSCRIPT_SUMMARY_THROTTLE_MS = 250;
 
@@ -81,5 +81,7 @@ export function useThrottledTranscriptSummary(
 		return () => window.clearInterval(id);
 	}, [live]);
 
-	return live ? throttled : summarizeChatTranscript(messages);
+	const idleSummary = useMemo(() => summarizeChatTranscript(messages), [messages]);
+
+	return live ? throttled : idleSummary;
 }
