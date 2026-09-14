@@ -1,7 +1,7 @@
 import {
 	derivePrimeAgentArtifactRuns,
 	primeAgentArtifactDiff,
-} from "@prime-agent/web-design/components/product/fleet-pi/panels/prime-agent-artifacts";
+} from "@prime-agent/web-design/components/qredence-ui/panels/prime-agent-artifacts";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol";
 import { describe, expect, it } from "vitest";
 

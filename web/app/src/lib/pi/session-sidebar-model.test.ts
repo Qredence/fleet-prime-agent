@@ -2,7 +2,7 @@ import {
 	displayProjectSessions,
 	sortProjectsByActivity,
 	visibleProjectSessions,
-} from "@prime-agent/web-design/components/product/fleet-pi/session-sidebar-model";
+} from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar-model";
 import type { ChatSessionInfo, ProjectSummary } from "@prime-agent/web-protocol";
 import { describe, expect, it } from "vitest";
 

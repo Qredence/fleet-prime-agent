@@ -1,6 +1,6 @@
 import type { ChatModelInfo, ChatModelSelection, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { redactSessionLabelSecrets } from "@prime-agent/web-protocol/session-label";
-import type { ModelOption } from "../../components/registry/beui/agents/types";
+import type { ModelOption } from "../../components/qredence-ui/chat/types";
 
 export type ChatModelOption = ModelOption & {
 	provider: string;

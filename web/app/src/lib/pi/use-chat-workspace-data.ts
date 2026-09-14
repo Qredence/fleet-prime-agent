@@ -1,4 +1,4 @@
-import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/product/fleet-pi/panels/prime-agent-artifacts";
+import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/qredence-ui/panels/prime-agent-artifacts";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ProjectId } from "@prime-agent/web-protocol";

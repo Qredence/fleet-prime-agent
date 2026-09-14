@@ -3,18 +3,18 @@ import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components
 import {
 	agentTabPanelId,
 	agentTabTriggerId,
-} from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-ids";
-import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/product/fleet-pi/layout/chat-workspace-layout";
-import { RightPanelProvider } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
-import { RightPanelShell } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell";
-import { FleetSessionSidebar } from "@prime-agent/web-design/components/product/fleet-pi/session-sidebar";
-import { UiErrorBoundary } from "@prime-agent/web-design/components/product/fleet-pi/ui-error-boundary";
-import { ChatApp } from "@prime-agent/web-design/components/registry/beui/agents/chat-app";
-import { AnimatedSidebarInset } from "@prime-agent/web-design/components/registry/beui/motion/animated-sidebar";
+} from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-ids";
+import { AnimatedSidebarInset } from "@prime-agent/web-design/components/qredence-ui/layout/animated-sidebar";
+import { ChatApp } from "@prime-agent/web-design/components/qredence-ui/layout/chat-app";
+import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/qredence-ui/layout/chat-workspace-layout";
+import { RightPanelProvider } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-context";
+import { RightPanelShell } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-shell";
+import { SessionSidebar } from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar";
+import { UiErrorBoundary } from "@prime-agent/web-design/components/qredence-ui/layout/ui-error-boundary";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { lazy, Suspense, useCallback } from "react";
 import { notifyChatError, runWorkspaceAction } from "@/lib/pi/chat-error-notify";
-import { buildChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
+import { useChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
 import { ChatPanel } from "@/lib/pi/chat-panel";
 import { ChatCommandPaletteOverlay, ChatWorkspaceOverlayDialogs } from "@/lib/pi/chat-workspace-dialogs";
 import { focusChatComposer, usePanelKeybindings } from "@/lib/pi/panel-keybindings";
@@ -100,6 +100,7 @@ export function ChatWorkspaceShell() {
 		},
 		[conversation.persistOpenUIArtifact],
 	);
+	const inputBar = useChatInputBarProps(composer, session.activeSessionId);
 	const activeTabIsMain = agentTabs.activeTabId === "main" || !agentTabs.selectedChild;
 	const activeConversationPanel = activeTabIsMain ? (
 		<ChatPanel
@@ -117,7 +118,7 @@ export function ChatWorkspaceShell() {
 			onOpenUIArtifactReady={handleOpenUIArtifactReady}
 			inputSuggestionItems={composer.inputSuggestionItems}
 			suppressQuestionTool={!!composer.pendingQuestionBar}
-			inputBar={buildChatInputBarProps(composer, session.activeSessionId)}
+			inputBar={inputBar}
 			onSend={handleSend}
 			onOpenUIAction={handleOpenUIAction}
 			onStop={conversation.stop}
@@ -154,7 +155,7 @@ export function ChatWorkspaceShell() {
 				workspaceTree={panels.workspaceTreeContext}
 			>
 				<ChatApp className="h-svh min-h-0 rounded-none border-0" sidebarWidth="17.5rem">
-					<FleetSessionSidebar
+					<SessionSidebar
 						data={{
 							sessions: session.sessions,
 							projects: session.projects,

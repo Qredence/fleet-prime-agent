@@ -1,11 +1,11 @@
-import { ConversationTurnView } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
+import { ConversationTurnView } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const renderCounter = vi.hoisted(() => ({ userMessage: 0 }));
 
-vi.mock("@prime-agent/web-design/components/registry/beui/agents/user-message", () => ({
+vi.mock("@prime-agent/web-design/components/qredence-ui/chat/user-message", () => ({
 	UserMessage: ({ message }: { message: ChatMessage }) => {
 		renderCounter.userMessage += 1;
 		return <div>{message.id}</div>;

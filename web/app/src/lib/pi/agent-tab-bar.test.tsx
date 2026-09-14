@@ -1,7 +1,4 @@
-import {
-	AgentTabBar,
-	type AgentTabItem,
-} from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar";
+import { AgentTabBar, type AgentTabItem } from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-bar";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";

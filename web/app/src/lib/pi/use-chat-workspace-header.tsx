@@ -1,10 +1,7 @@
-import {
-	AgentTabBar,
-	type AgentTabItem,
-} from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar";
-import { AccountMenu } from "@prime-agent/web-design/components/product/fleet-pi/layout/chat-header";
-import { RightPanelLauncherFromContext } from "@prime-agent/web-design/components/product/fleet-pi/panels/right-panel-launcher";
-import { AnimatedSidebarTrigger } from "@prime-agent/web-design/components/registry/beui/motion/animated-sidebar";
+import { AgentTabBar, type AgentTabItem } from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-bar";
+import { AnimatedSidebarTrigger } from "@prime-agent/web-design/components/qredence-ui/layout/animated-sidebar";
+import { AccountMenu } from "@prime-agent/web-design/components/qredence-ui/layout/chat-header";
+import { RightPanelLauncherFromContext } from "@prime-agent/web-design/components/qredence-ui/panels/right-panel-launcher";
 import { useNavigate } from "@tanstack/react-router";
 import { resetAnalytics } from "@/lib/analytics-stub";
 import { signOut, useOptionalUser } from "@/lib/auth-stub";

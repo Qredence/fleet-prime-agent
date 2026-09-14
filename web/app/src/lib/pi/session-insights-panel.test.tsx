@@ -1,13 +1,13 @@
 import {
 	RightPanelLauncher,
 	RightPanelTrigger,
-} from "@prime-agent/web-design/components/product/fleet-pi/panels/right-panel-launcher";
-import { deriveSessionInsights } from "@prime-agent/web-design/components/product/fleet-pi/panels/session-insights";
-import { SessionInsightsPanel } from "@prime-agent/web-design/components/product/fleet-pi/panels/session-insights-panel";
+} from "@prime-agent/web-design/components/qredence-ui/panels/right-panel-launcher";
+import { deriveSessionInsights } from "@prime-agent/web-design/components/qredence-ui/panels/session-insights";
+import { SessionInsightsPanel } from "@prime-agent/web-design/components/qredence-ui/panels/session-insights-panel";
 import {
 	EMPTY_CHAT_TRANSCRIPT_SUMMARY,
 	summarizeChatTranscript,
-} from "@prime-agent/web-design/components/product/fleet-pi/panels/transcript-summary";
+} from "@prime-agent/web-design/components/qredence-ui/panels/transcript-summary";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen } from "@testing-library/react";

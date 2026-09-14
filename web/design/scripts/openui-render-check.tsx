@@ -20,7 +20,7 @@ import { createParser, Renderer } from "@openuidev/react-lang";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MotionRuntime } from "../src/components/registry/beui/motion/runtime";
+import { MotionRuntime } from "../src/components/qredence-ui/motion/runtime";
 import {
 	DataTableDef,
 	buildSortComparator,

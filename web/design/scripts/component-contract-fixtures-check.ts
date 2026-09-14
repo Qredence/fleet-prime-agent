@@ -11,9 +11,5 @@ assert.match(
   readFixture("unsupported-icon-library.tsx.fixture"),
   /from ["'](?:@tabler\/icons-react|@heroicons\/|react-icons)/,
 )
-assert.equal(
-  readFixture("undeclared-registry-file.fixture").trim().startsWith("src/components/registry/"),
-  true,
-)
 
 console.log("Negative component contract fixtures passed.")

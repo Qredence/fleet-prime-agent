@@ -1,9 +1,9 @@
 import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact";
-import type { FleetPiAgentChatProps } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
-import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
-import { UiErrorBoundary } from "@prime-agent/web-design/components/product/fleet-pi/ui-error-boundary";
-import type { FleetQueueLane } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue";
-import type { QuestionAnswer } from "@prime-agent/web-design/components/registry/beui/agents/question/question-prompt";
+import type { AgentChatViewProps } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
+import { AgentChat } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
+import type { QuestionAnswer } from "@prime-agent/web-design/components/qredence-ui/chat/question/question-prompt";
+import { UiErrorBoundary } from "@prime-agent/web-design/components/qredence-ui/layout/ui-error-boundary";
+import type { QueueLane } from "@prime-agent/web-design/components/qredence-ui/tools/message-queue";
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useCallback, useMemo } from "react";
@@ -17,18 +17,13 @@ type ChatPanelProps = {
 	presentation?: PrimeAgentSessionPresentation;
 	artifactRuns?: Array<PrimeAgentArtifactRun>;
 	queue?: { steering: readonly string[]; followUp: readonly string[] };
-	onDeleteQueuedMessage?: (lane: FleetQueueLane, index: number, text: string) => Promise<boolean>;
-	onEditQueuedMessage?: (
-		lane: FleetQueueLane,
-		index: number,
-		expectedText: string,
-		nextText: string,
-	) => Promise<boolean>;
+	onDeleteQueuedMessage?: (lane: QueueLane, index: number, text: string) => Promise<boolean>;
+	onEditQueuedMessage?: (lane: QueueLane, index: number, expectedText: string, nextText: string) => Promise<boolean>;
 	onOpenArtifact?: (artifactId: string) => void;
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
-	inputSuggestionItems: FleetPiAgentChatProps["suggestions"];
+	inputSuggestionItems: AgentChatViewProps["suggestions"];
 	suppressQuestionTool: boolean;
-	inputBar: FleetPiAgentChatProps["inputBar"];
+	inputBar: AgentChatViewProps["inputBar"];
 	onSend: (text: string, altKey?: boolean) => void;
 	onOpenUIAction: (text: string) => void;
 	onStop: () => void;
@@ -91,7 +86,7 @@ export function ChatPanel({
 	return (
 		<div className="contents" data-fleet-chat-focus>
 			<UiErrorBoundary>
-				<FleetPiAgentChat
+				<AgentChat
 					messages={messages}
 					status={status}
 					onSend={handleSend}

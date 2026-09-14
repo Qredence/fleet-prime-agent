@@ -11,7 +11,7 @@
 // needs no cross-iteration lifecycle: subtract the mount-only bench (#2) and
 // compare THAT delta across branches to isolate keystroke cost.
 
-import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
+import { AgentChat } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, bench, describe, vi } from "vitest";
@@ -69,16 +69,14 @@ function fiftyTurns(): Array<ChatMessage> {
 }
 
 /**
- * Renders the FleetPiAgentChat component with the provided messages for
+ * Renders the AgentChat component with the provided messages for
  * benchmark testing.
  *
  * @param messages - Chat messages to render
  * @returns Testing library render result for the mounted chat component
  */
 function renderChat(messages: Array<ChatMessage>) {
-	return render(
-		<FleetPiAgentChat inputBar={inputBar} messages={messages} onSend={noop} onStop={noop} status="ready" />,
-	);
+	return render(<AgentChat inputBar={inputBar} messages={messages} onSend={noop} onStop={noop} status="ready" />);
 }
 
 describe("chat render", () => {

@@ -1,5 +1,5 @@
-import { AgentTabBar } from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar";
-import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/product/fleet-pi/panels/transcript-summary";
+import { AgentTabBar } from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-bar";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/qredence-ui/panels/transcript-summary";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -25,7 +25,7 @@ vi.mock("./chat-workspace-dialogs", () => ({
 	ChatWorkspaceOverlayDialogs: () => null,
 }));
 
-vi.mock("@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell", () => ({
+vi.mock("@prime-agent/web-design/components/qredence-ui/layout/right-panel-shell", () => ({
 	RightPanelShell: () => null,
 }));
 

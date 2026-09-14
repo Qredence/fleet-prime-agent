@@ -1,6 +1,6 @@
-import { FleetSessionSidebar } from "@prime-agent/web-design/components/product/fleet-pi/session-sidebar";
-import type { FleetSessionSidebarDependencies } from "@prime-agent/web-design/components/product/fleet-pi/session-sidebar/types";
-import { AnimatedSidebarProvider } from "@prime-agent/web-design/components/registry/beui/motion/animated-sidebar";
+import { AnimatedSidebarProvider } from "@prime-agent/web-design/components/qredence-ui/layout/animated-sidebar";
+import { SessionSidebar } from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar";
+import type { SessionSidebarDependencies } from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar/types";
 import type { ChatSessionInfo, ProjectDirectoryBrowseResponse, ProjectSummary } from "@prime-agent/web-protocol";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,9 +25,9 @@ function SidebarHarness({
 	onBrowseDirectories,
 	onOpenSettings,
 	accountMenu,
-}: FleetSessionSidebarDependencies) {
+}: SessionSidebarDependencies) {
 	return (
-		<FleetSessionSidebar
+		<SessionSidebar
 			data={{ sessions, projects, projectSessions, activeProjectId, activeSessionId }}
 			sessionActions={{
 				onNewSession,
@@ -74,7 +74,7 @@ function session(sessionId: string, projectId: string): ChatSessionInfo {
 	};
 }
 
-describe("FleetSessionSidebar project rows", () => {
+describe("SessionSidebar project rows", () => {
 	beforeEach(() => {
 		window.localStorage.clear();
 	});
@@ -273,7 +273,7 @@ describe("FleetSessionSidebar project rows", () => {
 	});
 });
 
-describe("FleetSessionSidebar empty projects", () => {
+describe("SessionSidebar empty projects", () => {
 	beforeEach(() => {
 		window.localStorage.clear();
 	});
@@ -325,7 +325,7 @@ describe("FleetSessionSidebar empty projects", () => {
 	});
 });
 
-describe("FleetSessionSidebar fork dialog", () => {
+describe("SessionSidebar fork dialog", () => {
 	beforeEach(() => {
 		window.localStorage.clear();
 	});
@@ -363,7 +363,7 @@ describe("FleetSessionSidebar fork dialog", () => {
 	});
 });
 
-describe("FleetSessionSidebar draft sessions", () => {
+describe("SessionSidebar draft sessions", () => {
 	beforeEach(() => {
 		window.localStorage.clear();
 	});

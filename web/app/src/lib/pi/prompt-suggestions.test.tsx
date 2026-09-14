@@ -1,4 +1,4 @@
-import { PromptSuggestions } from "@prime-agent/web-design/components/registry/assistant-ui/elements/prompt-suggestions";
+import { PromptSuggestions } from "@prime-agent/web-design/components/qredence-ui/chat/prompt-suggestions";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 

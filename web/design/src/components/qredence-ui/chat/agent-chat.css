@@ -1,0 +1,3 @@
+.agent-chat {
+  --chat-input-focus-outline: color-mix(in oklab, var(--ring) 45%, transparent);
+}

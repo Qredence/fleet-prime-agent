@@ -97,7 +97,7 @@ test.describe("chat shell", () => {
 		await page.goto("/")
 
 		const prompt = page.getByRole("textbox", { name: "Prompt" })
-		const welcome = page.locator('section[aria-labelledby="fleet-welcome-title"]')
+		const welcome = page.locator('section[aria-labelledby="welcome-title"]')
 		await expect(prompt).toBeVisible({ timeout: 15_000 })
 		await expect(page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })).toBeVisible()
 		await expect(welcome.getByText("Qredence", { exact: true })).toHaveCount(0)
@@ -180,7 +180,7 @@ test.describe("chat shell", () => {
 		await page.goto("/")
 
 		await expect(page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })).toBeVisible({ timeout: 15_000 })
-		const welcome = page.locator('section[aria-labelledby="fleet-welcome-title"]')
+		const welcome = page.locator('section[aria-labelledby="welcome-title"]')
 		const actions = welcome.locator('[aria-label="Suggested prompts"]')
 		const chatColumn = page.getByTestId("chat-column")
 		const actionButtons = actions.getByRole("button")

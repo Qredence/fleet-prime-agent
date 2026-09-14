@@ -1,0 +1,211 @@
+:root {
+  --chat-measure: 768px;
+  --chat-message-radius: var(--radius);
+  --chat-message-radius-inner: calc(var(--radius) - 4px);
+  --chat-input-radius: 1.5rem;
+  --chat-tool-radius: calc(var(--radius) * 0.8);
+  --chat-context-padding: 10px;
+  --chat-foreground-subtle: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
+  --chat-input-background: var(--background);
+  --chat-input-focus-outline: transparent;
+}
+
+.dark {
+  --chat-context-padding: 12px;
+  --chat-input-background: var(--card);
+}
+
+@theme inline {
+  --max-width-chat: var(--chat-measure);
+  --radius-chat-message: var(--chat-message-radius);
+  --radius-chat-message-inner: var(--chat-message-radius-inner);
+  --radius-chat-input: var(--chat-input-radius);
+  --radius-chat-tool: var(--chat-tool-radius);
+  --spacing-chat-context: var(--chat-context-padding);
+  --color-chat-foreground-subtle: var(--chat-foreground-subtle);
+  --color-chat-input-background: var(--chat-input-background);
+  --color-chat-input-focus-outline: var(--chat-input-focus-outline);
+  --color-product-diff-added: var(--product-diff-added-foreground);
+  --color-product-diff-removed: var(--product-diff-removed-foreground);
+}
+
+@keyframes chat-shimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+@keyframes chat-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes loading-dots {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes chat-ellipsis {
+  0% {
+    width: 0;
+  }
+  33% {
+    width: 0.33em;
+  }
+  66% {
+    width: 0.66em;
+  }
+  100% {
+    width: 1em;
+  }
+}
+
+.an-text-shimmer {
+  display: inline-block;
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--chat-foreground-subtle, var(--muted-foreground)) 0%,
+    var(--chat-foreground-subtle, var(--muted-foreground)) 40%,
+    var(--muted-foreground) 50%,
+    var(--chat-foreground-subtle, var(--muted-foreground)) 60%,
+    var(--chat-foreground-subtle, var(--muted-foreground)) 100%
+  );
+  background-repeat: no-repeat;
+}
+
+.an-text-shimmer--active {
+  animation: chat-shimmer var(--chat-shimmer-duration, 2s) linear infinite;
+}
+
+.an-ellipsis {
+  display: inline-block;
+  overflow: hidden;
+  width: 0;
+  vertical-align: bottom;
+  animation: chat-ellipsis 1.2s steps(1, end) infinite;
+}
+
+.an-markdown pre code {
+  counter-reset: none !important;
+}
+
+.an-markdown pre code > span::before {
+  content: none !important;
+  display: none !important;
+}
+
+.an-markdown pre code > span {
+  padding-left: 0 !important;
+}
+
+.an-edit-diff,
+.an-edit-diff pre,
+.an-edit-diff code {
+  font-size: 12px;
+}
+
+.dark .an-edit-tool-card {
+  background-color: #000;
+}
+
+[data-theme="dark"] .an-edit-tool-card {
+  background-color: #000;
+}
+
+.dark .an-edit-tool-card .an-edit-diff,
+.dark .an-edit-tool-card .an-edit-diff pre,
+.dark .an-edit-tool-card .an-edit-diff code {
+  background-color: #000 !important;
+}
+
+[data-theme="dark"] .an-edit-tool-card .an-edit-diff,
+[data-theme="dark"] .an-edit-tool-card .an-edit-diff pre,
+[data-theme="dark"] .an-edit-tool-card .an-edit-diff code {
+  background-color: #000 !important;
+}
+
+.an-markdown [data-streamdown="code-block"] {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--chat-tool-radius);
+  background: transparent;
+  gap: 0;
+}
+
+.an-markdown [data-streamdown="code-block-header"] {
+  padding: 0px 10px 0px 8px;
+  height: 28px;
+  font-size: 12px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--muted);
+  position: relative;
+}
+
+.an-markdown div:has(> [data-streamdown="code-block-actions"]) {
+  position: absolute;
+  height: 28px;
+  margin: 0;
+  top: 0;
+  right: 0;
+  padding-right: 8px;
+}
+
+.an-markdown [data-streamdown="code-block-actions"] {
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  padding: 0;
+}
+
+.an-markdown [data-streamdown="code-block-actions"] button > svg {
+  width: 14px;
+  height: 14px;
+}
+
+.an-markdown [data-streamdown="code-block-body"] {
+  margin: 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  background: transparent;
+  border: transparent;
+  overflow-x: auto;
+}
+
+.an-markdown [data-streamdown="code-block"] pre,
+.an-markdown [data-streamdown="code-block"] code {
+  font-size: 12px;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .an-text-shimmer--active {
+    animation: none;
+  }
+
+  .an-ellipsis {
+    animation: none;
+    width: 1em;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

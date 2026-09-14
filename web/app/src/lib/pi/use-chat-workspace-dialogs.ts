@@ -1,4 +1,4 @@
-import type { ForkPickerEntry } from "@prime-agent/web-design/components/product/fleet-pi/chat/fork-picker-dialog";
+import type { ForkPickerEntry } from "@prime-agent/web-design/components/qredence-ui/chat/fork-picker-dialog";
 import { useState } from "react";
 import type { SettingsSlashTab } from "@/lib/pi/slash-commands";
 
