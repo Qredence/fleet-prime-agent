@@ -82,6 +82,8 @@ The browser and server should share these types instead of reproducing wire shap
 
 Owns reusable presentation/UI elements.
 
+Presentation lives under `components/ui` (Base UI primitives), `components/openui` (generative UI), and `components/qredence-ui` (product chat, tools, layout, panels, motion, and chrome).
+
 It should not own runtime semantics or Prime Agent integration.
 
 ### `packages/fleet-web`

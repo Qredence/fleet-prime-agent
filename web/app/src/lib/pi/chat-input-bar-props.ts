@@ -1,9 +1,36 @@
 import type { ComponentProps } from "react";
+import { useMemo } from "react";
 import type { ChatPanel } from "./chat-panel";
 import { resolveChatApiUrl } from "./chat-runtime-url";
 import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
+type ChatInputBarComposer = Pick<
+	WorkspaceData["composer"],
+	| "addWorkspaceAttachment"
+	| "chatMode"
+	| "effortPickerOpen"
+	| "handleAttach"
+	| "handleLocalSlashSubmit"
+	| "handleSlashCommandSelect"
+	| "infoDescription"
+	| "modelKey"
+	| "modelPickerOpen"
+	| "models"
+	| "pendingQuestionBar"
+	| "removeUploadedAttachment"
+	| "removeWorkspaceAttachment"
+	| "setChatMode"
+	| "setEffortPickerOpen"
+	| "setModelKey"
+	| "setModelPickerOpen"
+	| "setThinkingLevel"
+	| "slashCommands"
+	| "thinkingLevel"
+	| "uploadedAttachments"
+	| "workspaceAttachments"
+	| "workspaceReferenceSuggestions"
+>;
 
 /**
  * Builds input-bar properties from the composer state and active chat session.
@@ -13,7 +40,7 @@ type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
  * @returns The input-bar properties for the chat panel
  */
 export function buildChatInputBarProps(
-	composer: WorkspaceData["composer"],
+	composer: ChatInputBarComposer,
 	activeSessionId: string | undefined,
 ): ComponentProps<typeof ChatPanel>["inputBar"] {
 	return {
@@ -70,4 +97,97 @@ export function buildChatInputBarProps(
 		effortPickerOpen: composer.effortPickerOpen,
 		onEffortPickerOpenChange: composer.setEffortPickerOpen,
 	};
+}
+
+/**
+ * Memoizes composer props so streaming transcript tokens do not rebuild the
+ * input-bar object and break ChatComposerHost isolation.
+ */
+export function useChatInputBarProps(
+	composer: ChatInputBarComposer,
+	activeSessionId: string | undefined,
+): ComponentProps<typeof ChatPanel>["inputBar"] {
+	const {
+		addWorkspaceAttachment,
+		chatMode,
+		effortPickerOpen,
+		handleAttach,
+		handleLocalSlashSubmit,
+		handleSlashCommandSelect,
+		infoDescription,
+		modelKey,
+		modelPickerOpen,
+		models,
+		pendingQuestionBar,
+		removeUploadedAttachment,
+		removeWorkspaceAttachment,
+		setChatMode,
+		setEffortPickerOpen,
+		setModelKey,
+		setModelPickerOpen,
+		setThinkingLevel,
+		slashCommands,
+		thinkingLevel,
+		uploadedAttachments,
+		workspaceAttachments,
+		workspaceReferenceSuggestions,
+	} = composer;
+
+	return useMemo(
+		() =>
+			buildChatInputBarProps(
+				{
+					addWorkspaceAttachment,
+					chatMode,
+					effortPickerOpen,
+					handleAttach,
+					handleLocalSlashSubmit,
+					handleSlashCommandSelect,
+					infoDescription,
+					modelKey,
+					modelPickerOpen,
+					models,
+					pendingQuestionBar,
+					removeUploadedAttachment,
+					removeWorkspaceAttachment,
+					setChatMode,
+					setEffortPickerOpen,
+					setModelKey,
+					setModelPickerOpen,
+					setThinkingLevel,
+					slashCommands,
+					thinkingLevel,
+					uploadedAttachments,
+					workspaceAttachments,
+					workspaceReferenceSuggestions,
+				},
+				activeSessionId,
+			),
+		[
+			activeSessionId,
+			addWorkspaceAttachment,
+			chatMode,
+			effortPickerOpen,
+			handleAttach,
+			handleLocalSlashSubmit,
+			handleSlashCommandSelect,
+			infoDescription,
+			modelKey,
+			modelPickerOpen,
+			models,
+			pendingQuestionBar,
+			removeUploadedAttachment,
+			removeWorkspaceAttachment,
+			setChatMode,
+			setEffortPickerOpen,
+			setModelKey,
+			setModelPickerOpen,
+			setThinkingLevel,
+			slashCommands,
+			thinkingLevel,
+			uploadedAttachments,
+			workspaceAttachments,
+			workspaceReferenceSuggestions,
+		],
+	);
 }

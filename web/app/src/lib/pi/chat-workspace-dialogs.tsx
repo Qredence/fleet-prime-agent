@@ -5,19 +5,19 @@ import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
 
 const LazyChatCommandPalette = lazy(() =>
-	import("@prime-agent/web-design/components/product/fleet-pi/layout/chat-command-palette").then(
+	import("@prime-agent/web-design/components/qredence-ui/layout/chat-command-palette").then(
 		({ ChatCommandPalette }) => ({ default: ChatCommandPalette }),
 	),
 );
 const LazySettingsDialog = lazy(() =>
-	import("@prime-agent/web-design/components/product/fleet-pi/panels/settings-dialog").then(({ SettingsDialog }) => ({
+	import("@prime-agent/web-design/components/qredence-ui/panels/settings-dialog").then(({ SettingsDialog }) => ({
 		default: SettingsDialog,
 	})),
 );
 const LazyForkPickerDialog = lazy(() =>
-	import("@prime-agent/web-design/components/product/fleet-pi/chat/fork-picker-dialog").then(
-		({ ForkPickerDialog }) => ({ default: ForkPickerDialog }),
-	),
+	import("@prime-agent/web-design/components/qredence-ui/chat/fork-picker-dialog").then(({ ForkPickerDialog }) => ({
+		default: ForkPickerDialog,
+	})),
 );
 
 // The settings dialog reads RightPanelProvider context, so ChatWorkspaceOverlayDialogs

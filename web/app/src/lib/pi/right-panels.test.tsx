@@ -1,11 +1,11 @@
-import { RightPanelProvider } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
-import { RightPanelShell } from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-shell";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/panels/artifacts-panel";
-import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/product/fleet-pi/panels/artifacts-utils";
-import { ReplPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/panels/repl-panel";
-import { RightPanelLauncher } from "@prime-agent/web-design/components/product/fleet-pi/panels/right-panel-launcher";
-import { SubagentsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/panels/subagents-panel";
-import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/product/fleet-pi/panels/transcript-summary";
+import { RightPanelProvider } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-context";
+import { RightPanelShell } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-shell";
+import { ArtifactsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/artifacts-panel";
+import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/qredence-ui/panels/artifacts-utils";
+import { ReplPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/repl-panel";
+import { RightPanelLauncher } from "@prime-agent/web-design/components/qredence-ui/panels/right-panel-launcher";
+import { SubagentsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/subagents-panel";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/qredence-ui/panels/transcript-summary";
 import type {
 	ChatSessionResponse,
 	PrimeAgentArtifactRun,
@@ -18,11 +18,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SubagentChatPanel } from "./subagent-chat-panel";
 import { useChatShellState } from "./use-chat-shell-state";
 
-vi.mock("@prime-agent/web-design/components/product/fleet-pi/chat/generative-text-renderer", () => ({
-	FleetGenerativeTextRenderer: ({ content }: { content: string }) => <div>{content}</div>,
+vi.mock("@prime-agent/web-design/components/qredence-ui/chat/generative-text-renderer", () => ({
+	SessionGenerativeTextRenderer: ({ content }: { content: string }) => <div>{content}</div>,
 }));
-vi.mock("@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-tool-renderer", () => ({
-	FleetPiToolRenderer: () => null,
+vi.mock("@prime-agent/web-design/components/qredence-ui/tools/session-tool-renderer", () => ({
+	SessionToolRenderer: () => null,
 }));
 vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: ({ content }: { content: string }) => <div>{content}</div>,

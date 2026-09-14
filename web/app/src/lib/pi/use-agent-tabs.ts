@@ -1,4 +1,4 @@
-import type { AgentTabItem } from "@prime-agent/web-design/components/product/fleet-pi/layout/agent-tab-bar";
+import type { AgentTabItem } from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-bar";
 import { normalizeSessionLabel } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import { orderedRlmChildren } from "@prime-agent/web-design/lib/pi/subagent-utils";
 import type { PrimeAgentRlmChild, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";

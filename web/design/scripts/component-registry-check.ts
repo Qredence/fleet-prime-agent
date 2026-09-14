@@ -3,12 +3,12 @@ import assert from "node:assert/strict"
 import {
   RIGHT_PANEL_DEFINITIONS,
   RIGHT_PANEL_REGISTRY,
-} from "../src/components/product/fleet-pi/layout/right-panel-registry"
+} from "../src/components/qredence-ui/layout/right-panel-registry"
 import {
   SETTINGS_SECTIONS,
   SETTINGS_SECTION_REGISTRY,
   isSettingsSectionId,
-} from "../src/components/product/fleet-pi/panels/settings-sections"
+} from "../src/components/qredence-ui/panels/settings-sections"
 
 assert.deepEqual(
   RIGHT_PANEL_DEFINITIONS.map(({ id }) => id),

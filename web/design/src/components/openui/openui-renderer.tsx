@@ -2,8 +2,8 @@ import type { ActionEvent, OpenUIError, ParseResult } from "@openuidev/react-lan
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang";
 import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useMemo, useState } from "react";
-import { UiErrorBoundary } from "../product/fleet-pi/ui-error-boundary";
-import { Markdown } from "../registry/beui/agents/markdown";
+import { Markdown } from "../qredence-ui/chat/markdown";
+import { UiErrorBoundary } from "../qredence-ui/layout/ui-error-boundary";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { type OpenUIArtifactCandidate, OpenUIArtifactProvider } from "./html-artifact";
@@ -189,7 +189,7 @@ export function GenerativeTextRenderer({
 	}, []);
 
 	if (segments.length === 1 && segments[0]?.type === "markdown") {
-		return <Markdown className={className} content={content} />;
+		return <Markdown className={className} content={content} isStreaming={isStreaming} />;
 	}
 
 	return (
@@ -201,6 +201,7 @@ export function GenerativeTextRenderer({
 							key={segment.id}
 							content={segment.content}
 							className="leading-relaxed [&_p]:leading-relaxed"
+							isStreaming={isStreaming}
 						/>
 					);
 				}

@@ -1,18 +1,18 @@
 import { strict as assert } from "node:assert"
-import { fleetAgentPlanPresentation } from "../src/components/registry/assistant-ui/elements/fleet-agent-plan"
+import { sessionAgentPlanPresentation } from "../src/components/qredence-ui/tools/session-agent-plan"
 
 const pending = [
   { id: "1", title: "Inspect the request", status: "pending" as const },
   { id: "2", title: "Build the change", status: "pending" as const },
 ]
 
-assert.deepEqual(fleetAgentPlanPresentation(pending), {
+assert.deepEqual(sessionAgentPlanPresentation(pending), {
   steps: ["Inspect the request", "Build the change"],
   activeIndex: 0,
 })
 
 assert.deepEqual(
-  fleetAgentPlanPresentation([
+  sessionAgentPlanPresentation([
     { id: "1", title: "Inspect the request", status: "completed" },
     { id: "2", title: "Build the change", status: "in_progress" },
     { id: "3", title: "Validate the result", status: "pending" },
@@ -24,7 +24,7 @@ assert.deepEqual(
 )
 
 assert.deepEqual(
-  fleetAgentPlanPresentation([
+  sessionAgentPlanPresentation([
     { id: "1", title: "Inspect the request", status: "completed" },
     { id: "2", title: "Build the change", status: "completed" },
   ]),
@@ -35,7 +35,7 @@ assert.deepEqual(
 )
 
 assert.equal(
-  fleetAgentPlanPresentation([
+  sessionAgentPlanPresentation([
     { id: "1", title: "Inspect the request", status: "pending" },
     { id: "2", title: "Build the change", status: "completed" },
   ]),
@@ -43,7 +43,7 @@ assert.equal(
 )
 
 assert.equal(
-  fleetAgentPlanPresentation([{ id: "1", title: "   ", status: "pending" }]),
+  sessionAgentPlanPresentation([{ id: "1", title: "   ", status: "pending" }]),
   undefined,
 )
 

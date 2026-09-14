@@ -248,7 +248,7 @@ Prime Agent engine release notes belong upstream.
 * `web/app/` — TanStack Start browser product.
 * `web/server/` — Fleet adapter to Prime Agent and HTTP/runtime orchestration.
 * `web/protocol/` — typed browser/server protocol.
-* `web/design/` — reusable Fleet UI and presentation components.
+* `web/design/` — reusable Fleet UI and presentation (`components/ui`, `components/openui`, `components/qredence-ui`).
 * `packages/fleet-web/` — published launcher/distribution package.
 * `scripts/` — repository validation, packaging, installation, and release tooling.
 * `PRIME_AGENT_RUNTIME.json` — authoritative stock Prime Agent runtime pin.

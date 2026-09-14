@@ -1,11 +1,49 @@
 import {
 	type ChatTranscriptSummary,
 	summarizeChatTranscript,
-} from "@prime-agent/web-design/components/product/fleet-pi/panels/transcript-summary";
+} from "@prime-agent/web-design/components/qredence-ui/panels/transcript-summary";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export const TRANSCRIPT_SUMMARY_THROTTLE_MS = 250;
+
+function isLiveStatus(status: ChatStatus) {
+	return status === "streaming" || status === "submitted";
+}
+
+/**
+ * Holds a value while a turn is live so streaming deltas do not republish
+ * right-rail snapshots on every token. Identity changes and live-status edges
+ * snap immediately; otherwise the snapshot updates at most once per
+ * {@link TRANSCRIPT_SUMMARY_THROTTLE_MS}.
+ */
+export function useThrottledWhileLive<T>(value: T, status: ChatStatus, identityKey: string): T {
+	const live = isLiveStatus(status);
+	const valueRef = useRef(value);
+	valueRef.current = value;
+	const [snapshot, setSnapshot] = useState(value);
+	const [seenKey, setSeenKey] = useState(identityKey);
+	const [seenLive, setSeenLive] = useState(live);
+
+	if (seenKey !== identityKey) {
+		setSeenKey(identityKey);
+		setSnapshot(value);
+	}
+	if (seenLive !== live) {
+		setSeenLive(live);
+		if (live) setSnapshot(value);
+	}
+
+	useEffect(() => {
+		if (!live) return;
+		const id = window.setInterval(() => {
+			setSnapshot(valueRef.current);
+		}, TRANSCRIPT_SUMMARY_THROTTLE_MS);
+		return () => window.clearInterval(id);
+	}, [live]);
+
+	return live ? snapshot : value;
+}
 
 /**
  * Holds the right-rail transcript snapshot while a turn is live so streaming
@@ -19,30 +57,29 @@ export function useThrottledTranscriptSummary(
 	status: ChatStatus,
 	transcriptKey: string,
 ): ChatTranscriptSummary {
-	const immediate = useMemo(() => summarizeChatTranscript(messages), [messages]);
-	const live = status === "streaming" || status === "submitted";
-	const [throttled, setThrottled] = useState(immediate);
+	const live = isLiveStatus(status);
+	const messagesRef = useRef(messages);
+	messagesRef.current = messages;
+	const [throttled, setThrottled] = useState(() => summarizeChatTranscript(messages));
 	const [seenKey, setSeenKey] = useState(transcriptKey);
 	const [seenLive, setSeenLive] = useState(live);
-	const latestRef = useRef(immediate);
-	latestRef.current = immediate;
 
 	if (seenKey !== transcriptKey) {
 		setSeenKey(transcriptKey);
-		setThrottled(immediate);
+		setThrottled(summarizeChatTranscript(messages));
 	}
 	if (seenLive !== live) {
 		setSeenLive(live);
-		if (live) setThrottled(immediate);
+		if (live) setThrottled(summarizeChatTranscript(messages));
 	}
 
 	useEffect(() => {
 		if (!live) return;
 		const id = window.setInterval(() => {
-			setThrottled(latestRef.current);
+			setThrottled(summarizeChatTranscript(messagesRef.current));
 		}, TRANSCRIPT_SUMMARY_THROTTLE_MS);
 		return () => window.clearInterval(id);
 	}, [live]);
 
-	return live ? throttled : immediate;
+	return live ? throttled : summarizeChatTranscript(messages);
 }

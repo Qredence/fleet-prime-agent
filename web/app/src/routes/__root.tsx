@@ -1,6 +1,6 @@
 import interWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
-import { NotFoundPage } from "@prime-agent/web-design/components/product/fleet-pi/not-found-page";
-import { MotionRuntime } from "@prime-agent/web-design/components/registry/beui/motion/runtime";
+import { NotFoundPage } from "@prime-agent/web-design/components/qredence-ui/layout/not-found-page";
+import { MotionRuntime } from "@prime-agent/web-design/components/qredence-ui/motion/runtime";
 import { Toaster } from "@prime-agent/web-design/components/ui/toast";
 import appCss from "@prime-agent/web-design/globals.css?url";
 import {

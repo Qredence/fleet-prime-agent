@@ -1,4 +1,4 @@
-import { VirtualizedTurnList } from "@prime-agent/web-design/components/product/fleet-pi/chat/virtualized-turn-list";
+import { VirtualizedTurnList } from "@prime-agent/web-design/components/qredence-ui/chat/virtualized-turn-list";
 import { act, render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -135,7 +135,9 @@ describe("VirtualizedTurnList", () => {
 		await act(async () => {
 			scrollTop = 1_000;
 			viewport.dispatchEvent(new Event("scroll"));
-			await Promise.resolve();
+			await new Promise<void>((resolve) => {
+				requestAnimationFrame(() => resolve());
+			});
 		});
 
 		const anchor = document.querySelector<HTMLElement>('[data-virtualized-turn-index="10"]');

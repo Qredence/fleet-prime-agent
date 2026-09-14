@@ -1,10 +1,10 @@
-import { FleetPiAgentChat } from "@prime-agent/web-design/components/product/fleet-pi/chat/fleet-pi-agent-chat";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/product/fleet-pi/panels/artifacts-panel";
-import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/product/fleet-pi/panels/artifacts-utils";
-import { FleetMessageQueue } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-message-queue";
-import { FleetSubagentList } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-subagent-list";
-import { FleetToolTimeline } from "@prime-agent/web-design/components/registry/assistant-ui/elements/fleet-tool-timeline";
-import { Markdown } from "@prime-agent/web-design/components/registry/beui/agents/markdown";
+import { AgentChat } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
+import { Markdown } from "@prime-agent/web-design/components/qredence-ui/chat/markdown";
+import { ArtifactsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/artifacts-panel";
+import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/qredence-ui/panels/artifacts-utils";
+import { MessageQueue } from "@prime-agent/web-design/components/qredence-ui/tools/message-queue";
+import { SubagentList } from "@prime-agent/web-design/components/qredence-ui/tools/subagent-list";
+import { ToolTimeline } from "@prime-agent/web-design/components/qredence-ui/tools/tool-timeline";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
@@ -81,7 +81,7 @@ describe("review regressions", () => {
 
 	it("keeps the completed tool timeline expanded by default", () => {
 		const { getByRole } = render(
-			<FleetToolTimeline
+			<ToolTimeline
 				messages={[
 					{
 						id: "assistant-tools",
@@ -149,7 +149,7 @@ describe("review regressions", () => {
 		];
 
 		const { queryAllByRole, queryByRole } = render(
-			<FleetPiAgentChat
+			<AgentChat
 				artifactRuns={artifactRuns}
 				inputBar={inputBar}
 				messages={messages}
@@ -167,7 +167,7 @@ describe("review regressions", () => {
 
 	it("renders nested subagents in tree order regardless of completion order", () => {
 		const { getByRole, getByText } = render(
-			<FleetSubagentList
+			<SubagentList
 				tree={{
 					rootSessionId: "session-1",
 					rootChildrenIds: ["parent"],
@@ -196,7 +196,7 @@ describe("review regressions", () => {
 					{ id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2 },
 					{ id: "parent", label: "Parent worker", status: "error", timestamp: 1 },
 				]}
-			</FleetSubagentList>,
+			</SubagentList>,
 		);
 
 		fireEvent.click(getByRole("button", { name: /Subagents completed/ }));
@@ -207,7 +207,7 @@ describe("review regressions", () => {
 	it("edits a queued item in place", async () => {
 		const onEdit = vi.fn().mockResolvedValue(true);
 		const { getByLabelText, getByRole } = render(
-			<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onEdit={onEdit} />,
+			<MessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onEdit={onEdit} />,
 		);
 
 		fireEvent.click(getByRole("button", { name: "Edit queued message: Run tests" }));
@@ -220,7 +220,7 @@ describe("review regressions", () => {
 	it("removes a queued item using its lane and expected text", () => {
 		const onDelete = vi.fn();
 		const { getByRole } = render(
-			<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: ["Summarize"] }} onDelete={onDelete} />,
+			<MessageQueue queue={{ steering: ["Run tests"], followUp: ["Summarize"] }} onDelete={onDelete} />,
 		);
 
 		fireEvent.click(getByRole("button", { name: "Remove queued message: Run tests" }));
@@ -230,7 +230,7 @@ describe("review regressions", () => {
 	it("reports queued item removal failures", async () => {
 		const onDelete = vi.fn().mockRejectedValue(new Error("queue unavailable"));
 		const notifyError = vi.spyOn(notify, "error").mockImplementation(() => "");
-		render(<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onDelete={onDelete} />);
+		render(<MessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onDelete={onDelete} />);
 
 		fireEvent.click(screen.getByRole("button", { name: "Remove queued message: Run tests" }));
 
@@ -240,7 +240,7 @@ describe("review regressions", () => {
 	it("reports queued item removals rejected by the server", async () => {
 		const onDelete = vi.fn().mockResolvedValue(false);
 		const notifyError = vi.spyOn(notify, "error").mockImplementation(() => "");
-		render(<FleetMessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onDelete={onDelete} />);
+		render(<MessageQueue queue={{ steering: ["Run tests"], followUp: [] }} onDelete={onDelete} />);
 
 		fireEvent.click(screen.getByRole("button", { name: "Remove queued message: Run tests" }));
 
@@ -249,7 +249,7 @@ describe("review regressions", () => {
 
 	it("keeps completed reasoning presentation visible", async () => {
 		const { findByLabelText } = render(
-			<FleetPiAgentChat
+			<AgentChat
 				inputBar={inputBar}
 				messages={[settledReasoningMessage()]}
 				onSend={vi.fn()}
@@ -277,13 +277,7 @@ describe("review regressions", () => {
 			},
 		];
 		const { queryByText } = render(
-			<FleetPiAgentChat
-				inputBar={inputBar}
-				messages={messages}
-				onSend={vi.fn()}
-				onStop={vi.fn()}
-				status="streaming"
-			/>,
+			<AgentChat inputBar={inputBar} messages={messages} onSend={vi.fn()} onStop={vi.fn()} status="streaming" />,
 		);
 		expect(queryByText("raw provider token", { exact: true })).toBeNull();
 	});
@@ -296,13 +290,7 @@ describe("review regressions", () => {
 			{ id: "assistant-active", role: "assistant", parts: [{ type: "text", text: "Working" }] },
 		];
 		const { getByRole, rerender } = render(
-			<FleetPiAgentChat
-				inputBar={inputBar}
-				messages={messages}
-				onSend={onSend}
-				onStop={onStop}
-				status="streaming"
-			/>,
+			<AgentChat inputBar={inputBar} messages={messages} onSend={onSend} onStop={onStop} status="streaming" />,
 		);
 		const prompt = getByRole("textbox", { name: "Prompt" });
 
@@ -330,13 +318,7 @@ describe("review regressions", () => {
 		expect(onSend).toHaveBeenCalledTimes(2);
 
 		rerender(
-			<FleetPiAgentChat
-				inputBar={inputBar}
-				messages={messages}
-				onSend={onSend}
-				onStop={onStop}
-				status="submitted"
-			/>,
+			<AgentChat inputBar={inputBar} messages={messages} onSend={onSend} onStop={onStop} status="submitted" />,
 		);
 		fireEvent.change(prompt, { target: { value: "Queue during admission" } });
 		fireEvent.keyDown(prompt, { key: "Enter" });
@@ -365,7 +347,7 @@ describe("review regressions", () => {
 			},
 		];
 		const { findByRole, findByText } = render(
-			<FleetPiAgentChat inputBar={inputBar} messages={messages} onSend={vi.fn()} onStop={vi.fn()} status="ready" />,
+			<AgentChat inputBar={inputBar} messages={messages} onSend={vi.fn()} onStop={vi.fn()} status="ready" />,
 		);
 		const answer = await findByText("Final architecture summary");
 		const timeline = await findByRole("button", { name: "1 tool action" });
@@ -427,7 +409,7 @@ describe("review regressions", () => {
 		});
 
 		const { queryByText } = render(
-			<FleetPiAgentChat
+			<AgentChat
 				inputBar={inputBar}
 				messages={messages}
 				onSend={vi.fn()}
@@ -502,7 +484,7 @@ describe("review regressions", () => {
 			},
 		];
 		const { findByRole, getAllByText, queryByText } = render(
-			<FleetPiAgentChat
+			<AgentChat
 				inputBar={inputBar}
 				messages={messages}
 				onOpenArtifact={onOpenArtifact}
@@ -562,7 +544,7 @@ describe("review regressions", () => {
 			},
 		];
 		const { findByRole } = render(
-			<FleetPiAgentChat
+			<AgentChat
 				inputBar={inputBar}
 				messages={messages}
 				onOpenArtifact={onOpenArtifact}
@@ -637,7 +619,7 @@ describe("review regressions", () => {
 	it("renders a safe project-persistence error without an absolute path", () => {
 		const safeMessage = "Could not save the session's project assignment. Please try again.";
 		const { getByRole } = render(
-			<FleetPiAgentChat
+			<AgentChat
 				error={new Error(safeMessage)}
 				inputBar={inputBar}
 				messages={[]}

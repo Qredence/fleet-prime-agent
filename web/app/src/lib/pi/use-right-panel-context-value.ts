@@ -2,7 +2,7 @@ import type {
 	ChatPanelDataContextValue,
 	SettingsActionsContextValue,
 	WorkspaceTreeContextValue,
-} from "@prime-agent/web-design/components/product/fleet-pi/layout/right-panel-context";
+} from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-context";
 import type { RightPanel, ThemePreference } from "@prime-agent/web-design/lib/canvas-utils";
 import type { ChatModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type {
@@ -34,7 +34,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useMemo } from "react";
-import { useThrottledTranscriptSummary } from "./use-throttled-transcript-summary";
+import { useThrottledTranscriptSummary, useThrottledWhileLive } from "./use-throttled-transcript-summary";
 
 type UseRightPanelContextValueArgs = {
 	activityLabel?: string;
@@ -155,10 +155,11 @@ export function useRightPanelContextValue({
 	workspaceTree,
 }: UseRightPanelContextValueArgs): RightPanelContextSlices {
 	const transcriptSummary = useThrottledTranscriptSummary(messages, status, sessionId ?? "");
+	const publishedArtifactRuns = useThrottledWhileLive(artifactRuns, status, sessionId ?? "");
 	const chatPanelData = useMemo<ChatPanelDataContextValue>(
 		() => ({
 			activityLabel,
-			artifactRuns,
+			artifactRuns: publishedArtifactRuns,
 			chatMode,
 			loadSession,
 			loadSubagentSession,
@@ -183,7 +184,7 @@ export function useRightPanelContextValue({
 		}),
 		[
 			activityLabel,
-			artifactRuns,
+			publishedArtifactRuns,
 			chatMode,
 			loadSession,
 			loadSubagentSession,

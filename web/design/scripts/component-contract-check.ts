@@ -22,7 +22,6 @@ const REPO_ROOT = resolve(DESIGN_ROOT, "..", "..");
 const DESIGN_SRC = join(DESIGN_ROOT, "src");
 const DESIGN_SCRIPTS = join(DESIGN_ROOT, "scripts");
 const APP_SRC = resolve(DESIGN_ROOT, "..", "app", "src");
-const REGISTRY_ROOT = join(DESIGN_SRC, "components", "registry");
 const COMPONENT_SOURCES_PATH = join(DESIGN_ROOT, "component-sources.json");
 
 const ENTRY_EXEMPTIONS = new Set(["routeTree.gen.ts"]);
@@ -154,7 +153,6 @@ const importerFiles = [
 ];
 const fileSet = new Set(designFiles);
 const sourceManifest = JSON.parse(readFileSync(COMPONENT_SOURCES_PATH, "utf8")) as {
-	sources: Array<{ destination: string; address: string; reviewedVersion: string; checksum: string; status: string }>;
 	widePropExceptions: Array<{ path: string; type: string; reason: string }>;
 	nativeControlExceptions: string[];
 };
@@ -204,24 +202,7 @@ const deadFiles = designFiles.filter((file) => {
 });
 deadFiles.sort();
 
-// Rule 3: registry provenance and primitive boundaries.
-const registryFiles = collectFiles(REGISTRY_ROOT);
-const sourceRoots = sourceManifest.sources.map((entry) => ({
-	...entry,
-	root: resolve(DESIGN_ROOT, entry.destination),
-}));
-const undeclaredRegistryFiles = registryFiles.filter(
-	(file) => !sourceRoots.some(({ root }) => file === root || file.startsWith(`${root}/`)),
-);
-const invalidSourceEntries = sourceRoots.filter(
-	(entry) =>
-		!entry.address ||
-		!entry.reviewedVersion ||
-		!entry.checksum ||
-		!["tracked", "patched", "forked"].includes(entry.status) ||
-		!existsSync(entry.root),
-);
-
+// Rule 3: primitive boundaries for first-party Qredence UI.
 const directBaseUiImports: string[] = [];
 const unsupportedIconImports: string[] = [];
 const nativeControlViolations: string[] = [];
@@ -231,6 +212,14 @@ const widePropExceptions = new Set(
 	sourceManifest.widePropExceptions.map((entry) => `${entry.path}:${entry.type}`),
 );
 const nativeControlPattern = /<(?:button|input|select|textarea)\b/;
+const nativeControlRoots = [
+	"src/components/qredence-ui/panels/",
+	"src/components/qredence-ui/layout/",
+	"src/components/qredence-ui/chrome/",
+	"src/components/qredence-ui/chat/agent-chat",
+	"src/components/qredence-ui/chat/input-bar",
+	"src/components/qredence-ui/chat/fork-picker-dialog",
+];
 for (const file of designFiles) {
 	const source = readFileSync(file, "utf8");
 	const relativePath = relative(DESIGN_ROOT, file).replaceAll("\\", "/");
@@ -241,13 +230,13 @@ for (const file of designFiles) {
 		unsupportedIconImports.push(file);
 	}
 	if (
-		relativePath.startsWith("src/components/product/") &&
+		nativeControlRoots.some((root) => relativePath.startsWith(root)) &&
 		nativeControlPattern.test(source) &&
 		!nativeControlExceptions.has(relativePath)
 	) {
 		nativeControlViolations.push(file);
 	}
-	if (!relativePath.startsWith("src/components/registry/")) {
+	if (!relativePath.startsWith("src/components/qredence-ui/motion/")) {
 		const syntaxKind = file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
 		const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, syntaxKind);
 		for (const statement of sourceFile.statements) {
@@ -302,7 +291,6 @@ if (deadFiles.length > 0) {
 }
 
 for (const [label, files] of [
-	["registry file(s) without component-sources.json provenance", undeclaredRegistryFiles],
 	["direct Base UI import(s) outside components/ui", directBaseUiImports],
 	["unsupported icon-library import(s)", unsupportedIconImports],
 	["new native product control(s) without a documented exception", nativeControlViolations],
@@ -311,12 +299,6 @@ for (const [label, files] of [
 	failures += files.length;
 	console.error(`\n[check:components] ${files.length} ${label}:`);
 	for (const file of files) console.error(`    - ${relative(DESIGN_ROOT, file).replaceAll("\\", "/")}`);
-}
-
-if (invalidSourceEntries.length > 0) {
-	failures += invalidSourceEntries.length;
-	console.error(`\n[check:components] ${invalidSourceEntries.length} invalid provenance declaration(s):`);
-	for (const entry of invalidSourceEntries) console.error(`    - ${entry.destination}`);
 }
 
 if (widePropViolations.length > 0) {

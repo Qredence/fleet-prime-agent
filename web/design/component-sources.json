@@ -1,58 +1,100 @@
 {
   "schemaVersion": 1,
-  "reviewedRevision": "64ec7eb9cc8f8f4d530dba34c681ec17f8a955a0",
-  "sources": [
-    {
-      "address": "@beui/agents",
-      "destination": "src/components/registry/beui/agents",
-      "reviewedVersion": "fleet snapshot 2026-08-30",
-      "checksum": "git:64ec7eb9cc8f8f4d530dba34c681ec17f8a955a0",
-      "status": "forked",
-      "notes": "Adapted to Fleet chat contracts and canonical web-design primitives."
-    },
-    {
-      "address": "@beui/motion",
-      "destination": "src/components/registry/beui/motion",
-      "reviewedVersion": "fleet snapshot 2026-08-30",
-      "checksum": "git:64ec7eb9cc8f8f4d530dba34c681ec17f8a955a0",
-      "status": "patched",
-      "notes": "Local accessibility and product integration patches are retained."
-    },
-    {
-      "address": "@assistant-ui/elements",
-      "destination": "src/components/registry/assistant-ui/elements",
-      "reviewedVersion": "fleet snapshot 2026-08-30",
-      "checksum": "git:64ec7eb9cc8f8f4d530dba34c681ec17f8a955a0",
-      "status": "forked",
-      "notes": "No runtime assistant-ui dependency; components are maintained adapters."
-    }
-  ],
   "widePropExceptions": [
     {
-      "path": "src/components/product/fleet-pi/panels/workspace-panel.tsx",
+      "path": "src/components/qredence-ui/panels/workspace-panel.tsx",
       "type": "WorkspacePanelContentProps",
       "reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
     },
     {
-      "path": "src/components/product/fleet-pi/session-sidebar/action-dialogs.tsx",
+      "path": "src/components/qredence-ui/layout/session-sidebar/action-dialogs.tsx",
       "type": "SidebarActionDialogsProps",
-      "reason": "Private dialog coordinator; the public FleetSessionSidebar API is grouped into data, actions, and slots."
+      "reason": "Private dialog coordinator; the public SessionSidebar API is grouped into data, actions, and slots."
+    },
+    {
+      "path": "src/components/qredence-ui/chat/composer-trigger-popover.tsx",
+      "type": "ComposerTriggerPopoverProps",
+      "reason": "Absorbed first-party composer trigger popover; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/chat/input-bar.tsx",
+      "type": "InputBarProps",
+      "reason": "Absorbed first-party composer contract; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/chat/message-scroller.tsx",
+      "type": "MessageScrollerProps",
+      "reason": "Absorbed first-party transcript scroller; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/chat/prompt-input.tsx",
+      "type": "PromptInputProps",
+      "reason": "Absorbed first-party composer widget; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/chat/question/question-prompt.tsx",
+      "type": "QuestionPromptProps",
+      "reason": "Absorbed first-party question prompt; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/chat/streaming-response.tsx",
+      "type": "StreamingResponseProps",
+      "reason": "Absorbed first-party streaming response widget; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/chat/types.ts",
+      "type": "AgentChatProps",
+      "reason": "Absorbed first-party agent chat contract; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/layout/ai-sidebar.tsx",
+      "type": "AISidebarProps",
+      "reason": "Absorbed first-party sidebar shell; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/layout/project-folder.tsx",
+      "type": "ProjectFolderProps",
+      "reason": "Absorbed first-party project folder widget; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/tools/approval-card/types.ts",
+      "type": "ApprovalCardProps",
+      "reason": "Absorbed first-party approval card; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/tools/code-block.tsx",
+      "type": "CodeBlockProps",
+      "reason": "Absorbed first-party code block; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/tools/image-generation.tsx",
+      "type": "ImageGenerationProps",
+      "reason": "Absorbed first-party image generation widget; existing public prop contract retained."
+    },
+    {
+      "path": "src/components/qredence-ui/tools/tool-result.tsx",
+      "type": "ToolResultProps",
+      "reason": "Absorbed first-party tool result widget; existing public prop contract retained."
     }
   ],
   "nativeControlExceptions": [
-    "src/components/product/fleet-pi/chat/fleet-pi-agent-chat.tsx",
-    "src/components/product/fleet-pi/chat/fleet-pi-input-bar.tsx",
-    "src/components/product/fleet-pi/chat/fork-picker-dialog.tsx",
-    "src/components/product/fleet-pi/layout/chat-header.tsx",
-    "src/components/product/fleet-pi/panels/config-panel/sections/add-models-dialog.tsx",
-    "src/components/product/fleet-pi/panels/config-panel/sections/provider-credentials-editor.tsx",
-    "src/components/product/fleet-pi/panels/resizable-canvas.tsx",
-    "src/components/product/fleet-pi/panels/right-panel-launcher.tsx",
-    "src/components/product/fleet-pi/panels/settings-dialog.tsx",
-    "src/components/product/fleet-pi/panels/workspace-panel.tsx",
-    "src/components/product/fleet-pi/session-sidebar/navigation.tsx",
-    "src/components/product/fleet-pi/session-sidebar/project-list.tsx",
-    "src/components/product/fleet-pi/session-sidebar/view-model.tsx",
-    "src/components/product/fleet-pi/ui-error-boundary.tsx"
+    "src/components/qredence-ui/chat/agent-chat.tsx",
+    "src/components/qredence-ui/chat/input-bar.tsx",
+    "src/components/qredence-ui/chat/fork-picker-dialog.tsx",
+    "src/components/qredence-ui/layout/ai-sidebar.tsx",
+    "src/components/qredence-ui/layout/animated-sidebar.tsx",
+    "src/components/qredence-ui/layout/chat-header.tsx",
+    "src/components/qredence-ui/layout/project-folder.tsx",
+    "src/components/qredence-ui/layout/thread-search.tsx",
+    "src/components/qredence-ui/panels/config-panel/sections/add-models-dialog.tsx",
+    "src/components/qredence-ui/panels/config-panel/sections/provider-credentials-editor.tsx",
+    "src/components/qredence-ui/panels/resizable-canvas.tsx",
+    "src/components/qredence-ui/panels/right-panel-launcher.tsx",
+    "src/components/qredence-ui/panels/settings-dialog.tsx",
+    "src/components/qredence-ui/panels/workspace-panel.tsx",
+    "src/components/qredence-ui/layout/session-sidebar/navigation.tsx",
+    "src/components/qredence-ui/layout/session-sidebar/project-list.tsx",
+    "src/components/qredence-ui/layout/session-sidebar/view-model.tsx",
+    "src/components/qredence-ui/layout/ui-error-boundary.tsx"
   ]
 }
