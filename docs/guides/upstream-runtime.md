@@ -12,6 +12,8 @@ Use this runbook when changing `PRIME_AGENT_RUNTIME.json`, runtime package refer
 - `pnpm-lock.yaml`;
 - any other direct runtime-family URL or version reference found by repository search.
 
+The same release version also pins `@earendil-works/pi-agent-core` and `@earendil-works/pi-ai` in those manifests and the lockfile. `pnpm run check:runtime` derives the expected `prime-agent-core` and `prime-agent-ai` tarball URLs from the manifest version and fails on drift.
+
 Do not copy upstream source into Fleet. Engine, provider, model, daemon, and upstream protocol changes belong upstream; Fleet should update its pin and adapter only after the upstream capability exists.
 
 ## Upgrade procedure
