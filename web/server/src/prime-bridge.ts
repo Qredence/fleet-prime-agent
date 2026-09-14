@@ -1806,15 +1806,6 @@ export class PrimeBridge {
 		session.openUIPrompt.prompt = nextPrompt;
 	}
 
-	async steer(sessionId: string, text: string): Promise<void> {
-		const session = this.#requireSession(sessionId);
-		await session.connection.steer(text);
-	}
-
-	async followUp(sessionId: string, text: string): Promise<void> {
-		const session = this.#requireSession(sessionId);
-		await session.connection.followUp(text);
-	}
 	async mutateQueuedMessage(
 		sessionId: string,
 		lane: "steering" | "followUp",
@@ -1843,18 +1834,6 @@ export class PrimeBridge {
 				followUp: [...queue.followUp],
 			},
 		};
-	}
-
-	async deleteQueuedMessage(
-		sessionId: string,
-		lane: "steering" | "followUp",
-		index: number,
-		expectedText: string,
-	): Promise<{
-		status: "applied" | "rejected" | "invalid" | "unsupported";
-		queue: { steering: string[]; followUp: string[] };
-	}> {
-		return this.mutateQueuedMessage(sessionId, lane, index, expectedText, { type: "delete" });
 	}
 
 	async abort(sessionId: string): Promise<void> {

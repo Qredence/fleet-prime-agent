@@ -8,8 +8,6 @@ import { INITIAL_AGENT_TAB_SCOPE_STATE, reduceAgentTabScope, visibleAgentTabScop
 import { type ChatClient, chatClient } from "./chat-client";
 import { useSubagentChat } from "./use-subagent-chat";
 
-export type AgentTabConversation = ReturnType<typeof useSubagentChat>;
-
 /**
  * Derives a display label for a subagent child.
  *

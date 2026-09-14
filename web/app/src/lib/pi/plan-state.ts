@@ -28,20 +28,6 @@ export function createEmptyPlanState(): PlanModeState {
 	};
 }
 
-export function restorePlanState(data: unknown): PlanModeState {
-	if (!data || typeof data !== "object") return createEmptyPlanState();
-
-	const candidate = data as Partial<PlanModeState>;
-	return {
-		enabled: Boolean(candidate.enabled),
-		executing: Boolean(candidate.executing),
-		todos: normalizeTodos(candidate.todos),
-		pendingDecision: Boolean(candidate.pendingDecision),
-		pendingDecisionToolCallId:
-			typeof candidate.pendingDecisionToolCallId === "string" ? candidate.pendingDecisionToolCallId : undefined,
-	};
-}
-
 export function applyPlanModeSelection(state: PlanModeState, mode?: ChatMode, planAction?: ChatPlanAction) {
 	const nextState = cloneState(state);
 
@@ -65,21 +51,6 @@ export function applyPlanModeSelection(state: PlanModeState, mode?: ChatMode, pl
 	nextState.pendingDecision = false;
 	nextState.pendingDecisionToolCallId = undefined;
 	return nextState;
-}
-
-export function createPlanEvent(state: PlanModeState) {
-	const snapshot = toChatPlanState(state);
-
-	return {
-		type: "plan" as const,
-		mode: snapshot.mode,
-		executing: snapshot.executing,
-		completed: snapshot.completed,
-		total: snapshot.total,
-		presentation: snapshot,
-		message: snapshot.message,
-		state: snapshot,
-	};
 }
 
 export function planStateFromChatPlanState(state: ChatPlanState, assistantId: string): PlanModeState {
@@ -225,22 +196,6 @@ function cloneState(state: PlanModeState): PlanModeState {
 		pendingDecision: Boolean(state.pendingDecision),
 		pendingDecisionToolCallId: state.pendingDecisionToolCallId,
 	};
-}
-
-function normalizeTodos(todos: unknown): Array<TodoItem> {
-	if (!Array.isArray(todos)) return [];
-
-	return todos
-		.map((todo, index) => {
-			if (!todo || typeof todo !== "object") return undefined;
-			const candidate = todo as Partial<TodoItem>;
-			return {
-				step: typeof candidate.step === "number" && Number.isFinite(candidate.step) ? candidate.step : index + 1,
-				text: typeof candidate.text === "string" ? candidate.text : "",
-				completed: Boolean(candidate.completed),
-			};
-		})
-		.filter((todo): todo is TodoItem => Boolean(todo?.text));
 }
 
 function formatPlanSummary(state: PlanModeState) {

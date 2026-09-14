@@ -25,7 +25,7 @@ describe("getPrimeConfig", () => {
 		const config = getPrimeConfig();
 
 		expect(config.defaultCwd).toBe(resolveDefaultWorkspaceRoot(process.cwd()));
-		expect(typeof config.setDefaultCwd).toBe("function");
+		expect(config.projectRegistry).toBeDefined();
 	});
 
 	it("returns an already-upgraded singleton as-is", () => {

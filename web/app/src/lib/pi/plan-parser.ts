@@ -4,7 +4,7 @@ export type TodoItem = {
 	completed: boolean;
 };
 
-export function cleanStepText(text: string) {
+function cleanStepText(text: string) {
 	let cleaned = text
 		.replace(/\*{1,2}([^*]+)\*{1,2}/g, "$1")
 		.replace(/`([^`]+)`/g, "$1")
