@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Bot } from "lucide-react";
-import { describe, expect, it } from "vitest";
+import { useState } from "react";
+import { describe, expect, it, vi } from "vitest";
 import { ComposerSelectorTrigger } from "./composer-selector-trigger";
+import { Popover } from "./input-popover";
 
 describe("ComposerSelectorTrigger", () => {
 	it("renders label, optional icon, and chevron", () => {
@@ -41,5 +43,35 @@ describe("ComposerSelectorTrigger", () => {
 		);
 
 		expect(container.querySelector("svg")).toBeNull();
+	});
+
+	it("forwards native button props such as onClick", () => {
+		const onClick = vi.fn();
+		render(<ComposerSelectorTrigger ariaLabel="Select mode" label="Agent" onClick={onClick} />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Select mode" }));
+
+		expect(onClick).toHaveBeenCalledTimes(1);
+	});
+
+	it("opens a Popover menu when the trigger is clicked", () => {
+		function Harness() {
+			const [open, setOpen] = useState(false);
+			return (
+				<Popover
+					open={open}
+					onOpenChange={setOpen}
+					trigger={<ComposerSelectorTrigger ariaLabel="Select mode" label="Agent" open={open} />}
+				>
+					<div role="menu">Mode menu</div>
+				</Popover>
+			);
+		}
+
+		render(<Harness />);
+
+		expect(screen.queryByRole("menu")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Select mode" }));
+		expect(screen.getByRole("menu")).toBeTruthy();
 	});
 });
