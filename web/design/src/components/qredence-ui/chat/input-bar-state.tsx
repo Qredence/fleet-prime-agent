@@ -308,6 +308,13 @@ export function useInputBarState({
 		[models, onModelChange, onThinkingLevelChange, thinkingLevel],
 	);
 
+	const openSlashMenu = useCallback(() => {
+		if (isStreaming || disabled) return;
+		if (!value.match(/^\/([^\s/]*)$/)) {
+			setValue("/");
+		}
+	}, [disabled, isStreaming, setValue, value]);
+
 	return {
 		activeTriggerIndex,
 		combinedPickerOpen,
@@ -319,6 +326,7 @@ export function useInputBarState({
 		images,
 		isStreaming,
 		navigation,
+		openSlashMenu,
 		selectorModels,
 		selectCommand,
 		selectWorkspaceReference,

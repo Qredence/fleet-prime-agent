@@ -1,10 +1,5 @@
 "use client";
 
-import {
-	MorphPopover,
-	MorphPopoverContent,
-	MorphPopoverTrigger,
-} from "@prime-agent/web-design/components/qredence-ui/motion/popover-morph";
 import { Button } from "@prime-agent/web-design/components/ui/button";
 import { SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
@@ -22,14 +17,6 @@ import {
 	useState,
 } from "react";
 
-export interface PromptAction {
-	value: string;
-	label: ReactNode;
-	description?: ReactNode;
-	icon?: ReactNode;
-	disabled?: boolean;
-}
-
 export interface PromptInputProps
 	extends Omit<
 		TextareaHTMLAttributes<HTMLTextAreaElement>,
@@ -38,8 +25,8 @@ export interface PromptInputProps
 	value?: string;
 	defaultValue?: string;
 	onValueChange?: (value: string) => void;
-	actions?: PromptAction[];
-	onAction?: (action: string) => void;
+	/** Opens the slash-command menu by inserting `/` through the same value path as typing. */
+	onAddClick?: () => void;
 	onSubmit?: (value: string) => void | Promise<void>;
 	loading?: boolean;
 	/** Keep prompt submission available while loading; Stop remains a separate action. */
@@ -55,8 +42,7 @@ export function PromptInput({
 	value,
 	defaultValue = "",
 	onValueChange,
-	actions = [],
-	onAction,
+	onAddClick,
 	onSubmit,
 	loading = false,
 	submitWhileLoading = false,
@@ -75,7 +61,6 @@ export function PromptInput({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const measurementRef = useRef<HTMLDivElement>(null);
 	const [internalValue, setInternalValue] = useState(defaultValue);
-	const [actionsOpen, setActionsOpen] = useState(false);
 	const currentValue = value ?? internalValue;
 	const canSubmit = Boolean(currentValue.trim()) && !disabled && (!loading || submitWhileLoading);
 
@@ -131,6 +116,12 @@ export function PromptInput({
 		submit();
 	};
 
+	const handleAddClick = () => {
+		if (disabled || loading || !onAddClick) return;
+		onAddClick();
+		textareaRef.current?.focus({ preventScroll: true });
+	};
+
 	return (
 		<form
 			onSubmit={submit}
@@ -162,56 +153,18 @@ export function PromptInput({
 			/>
 
 			<div className="mt-1 flex min-h-8 items-center gap-1">
-				{actions.length ? (
-					<MorphPopover open={actionsOpen} onOpenChange={setActionsOpen}>
-						<MorphPopoverTrigger>
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon"
-								disabled={disabled || loading}
-								aria-label="Add to prompt"
-								className="size-8 rounded-full text-foreground/70 hover:text-foreground"
-							>
-								<m.span
-									aria-hidden="true"
-									animate={{ rotate: actionsOpen ? 45 : 0 }}
-									transition={reduce ? { duration: 0 } : SPRING_SWAP}
-								>
-									<Plus className="size-4" />
-								</m.span>
-							</Button>
-						</MorphPopoverTrigger>
-
-						<MorphPopoverContent side="top" align="start" sideOffset={8} radius={12} className="w-56 p-1.5">
-							{actions.map((action) => (
-								<button
-									key={action.value}
-									type="button"
-									disabled={action.disabled}
-									onClick={() => {
-										onAction?.(action.value);
-										setActionsOpen(false);
-									}}
-									className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-50"
-								>
-									{action.icon ? (
-										<span className="mt-0.5 grid size-5 shrink-0 place-items-center text-foreground/70 [&_svg]:size-4">
-											{action.icon}
-										</span>
-									) : null}
-									<span className="min-w-0">
-										<span className="block text-sm text-foreground">{action.label}</span>
-										{action.description ? (
-											<span className="mt-0.5 block text-xs leading-4 text-foreground/60">
-												{action.description}
-											</span>
-										) : null}
-									</span>
-								</button>
-							))}
-						</MorphPopoverContent>
-					</MorphPopover>
+				{onAddClick ? (
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon"
+						disabled={disabled || loading}
+						aria-label="Open slash commands"
+						onClick={handleAddClick}
+						className="size-8 rounded-full text-foreground/70 hover:text-foreground"
+					>
+						<Plus className="size-4" />
+					</Button>
 				) : null}
 				{leadingAction}
 

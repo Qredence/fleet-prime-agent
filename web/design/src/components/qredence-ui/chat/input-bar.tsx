@@ -12,7 +12,7 @@ import { PromptInput } from "@prime-agent/web-design/components/qredence-ui/chat
 import type { ChatMode, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
-import { FileCode2, FilePlus2, X } from "lucide-react";
+import { FileCode2, X } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 import type { ChatModelOption } from "../../../lib/pi/chat-helpers";
 import { cn } from "../../../lib/utils";
@@ -152,6 +152,7 @@ function InputBarContent({
 		images,
 		isStreaming,
 		navigation,
+		openSlashMenu,
 		filteredWorkspaceItems,
 		removeTriggerToken,
 		selectCommand,
@@ -311,21 +312,7 @@ function InputBarContent({
 							? `composer-trigger-list-${triggerItems[activeTriggerIndex].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`
 							: undefined
 					}
-					actions={
-						attachments?.onAttach
-							? [
-									{
-										value: "attach",
-										label: "Attach file",
-										description: "Add a file or image to this turn",
-										icon: <FilePlus2 />,
-									},
-								]
-							: []
-					}
-					onAction={(action) => {
-						if (action === "attach") attachments?.onAttach?.();
-					}}
+					onAddClick={openSlashMenu}
 					onKeyDown={handlePromptKeyDown}
 					leadingAction={
 						<>
