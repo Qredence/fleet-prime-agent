@@ -1,11 +1,11 @@
 "use client";
 
 import { ActionSwapRollText } from "@prime-agent/web-design/components/qredence-ui/motion/action-swap-roll";
-import { Button } from "@prime-agent/web-design/components/qredence-ui/motion/button/index";
 import { Checkbox } from "@prime-agent/web-design/components/qredence-ui/motion/checkbox";
 import { RadioGroup, RadioGroupItem } from "@prime-agent/web-design/components/qredence-ui/motion/radio";
 import { ValidatedInput } from "@prime-agent/web-design/components/qredence-ui/motion/validated-input";
 import { AgentDisclosure } from "@prime-agent/web-design/components/qredence-ui/tools/agent-disclosure";
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import { EASE_OUT, SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ArrowLeft, ArrowRight, Check, CircleHelp, LoaderCircle, MessageSquareText, X } from "lucide-react";

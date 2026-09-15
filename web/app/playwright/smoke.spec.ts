@@ -119,7 +119,7 @@ test.describe("chat shell", () => {
 			"Ask Prime to build, investigate, or change something…",
 		)
 		await expect(prompt).toHaveCount(1)
-		await expect(page.getByRole("button", { name: "Add to prompt" })).toBeVisible()
+		await expect(page.getByRole("button", { name: "Open slash commands" })).toBeVisible()
 		await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible()
 		const modelSelector = page.getByRole("combobox", { name: "Select model and reasoning effort" })
 		await expect(modelSelector).toBeVisible()
@@ -249,7 +249,7 @@ test.describe("chat shell", () => {
 		const normalPrompt = page.getByPlaceholder("Send a message…")
 		await expect(normalPrompt).toBeVisible()
 		await expect(page.getByTestId("chat-column").getByText("Inspect the current implementation", { exact: true })).toBeVisible()
-		await expect(page.getByRole("button", { name: "Add to prompt" })).toBeVisible()
+		await expect(page.getByRole("button", { name: "Open slash commands" })).toBeVisible()
 		await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible()
 		await expect(page.getByRole("combobox", { name: "Select model and reasoning effort" })).toBeVisible()
 		await expect(page.getByRole("button", { name: /Enable OpenUI|Disable OpenUI/ })).toHaveCount(0)

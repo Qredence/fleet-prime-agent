@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useId, useState } from "react";
 import { cn } from "../../../lib/utils";
+import { ComposerSelectorTrigger } from "./input/composer-selector-trigger";
 import { Popover } from "./input/input-popover";
 
 const LazyModelSelectorList = lazy(() =>
@@ -93,25 +93,20 @@ export const ModelSelector = memo(function ModelSelector({
 	const selectedEffort = selectedModel?.efforts?.find((option) => option.id === effort) ?? selectedModel?.efforts?.[0];
 
 	const trigger = (
-		<button
-			type="button"
-			role="combobox"
-			aria-expanded={open}
-			aria-controls={popupId}
-			aria-haspopup="dialog"
-			aria-label="Select model and reasoning effort"
-			className={cn(
-				"relative inline-flex h-8 max-w-[18rem] min-w-0 items-center gap-1.5 rounded-lg px-2 text-xs text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-				className,
-			)}
-		>
-			{selectedModel?.icon ? <span className="shrink-0">{selectedModel.icon}</span> : null}
-			<span className="min-w-0 truncate font-medium">{selectedModel?.name ?? placeholder}</span>
-			{selectedEffort && selectedModel?.reasoning ? (
-				<span className="hidden shrink-0 text-muted-foreground/70 xl:inline">· {selectedEffort.name}</span>
-			) : null}
-			<ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
-		</button>
+		<ComposerSelectorTrigger
+			ariaLabel="Select model and reasoning effort"
+			label={selectedModel?.name ?? placeholder}
+			leadingIcon={selectedModel?.icon}
+			suffix={
+				selectedEffort && selectedModel?.reasoning ? (
+					<span className="hidden shrink-0 text-foreground/40 xl:inline">· {selectedEffort.name}</span>
+				) : null
+			}
+			open={open}
+			combobox
+			popupId={popupId}
+			className={className}
+		/>
 	);
 
 	return (

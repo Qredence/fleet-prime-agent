@@ -1,7 +1,8 @@
 import { cn } from "@prime-agent/web-design/lib/utils";
-import { Check, ChevronDown } from "lucide-react";
+import { Check } from "lucide-react";
 import type { ComponentType } from "react";
 import { memo, useCallback, useState } from "react";
+import { ComposerSelectorTrigger } from "./composer-selector-trigger";
 import { Popover } from "./input-popover";
 
 export type ModeOption = {
@@ -46,19 +47,15 @@ export const ModeSelector = memo(function ModeSelector({
 	const hasMultiple = modes.length > 1;
 
 	const trigger = (
-		<button
-			type="button"
-			className={cn(
-				"relative inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-2 text-label leading-4 text-foreground/40 transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-1.5 after:-bottom-1.5 hover:bg-foreground/6 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96]",
-				!hasMultiple && "pointer-events-none",
-				className,
-			)}
-			aria-label="Select mode"
-		>
-			{ActiveIcon && <ActiveIcon className="size-3.5 shrink-0" />}
-			<span className="font-medium">{activeMode?.label}</span>
-			{hasMultiple && <ChevronDown className="size-3 text-foreground/40" />}
-		</button>
+		<ComposerSelectorTrigger
+			ariaLabel="Select mode"
+			label={activeMode?.label ?? ""}
+			leadingIcon={ActiveIcon ? <ActiveIcon className="size-3.5 shrink-0" /> : undefined}
+			open={open}
+			showChevron={hasMultiple}
+			interactive={hasMultiple}
+			className={className}
+		/>
 	);
 
 	if (!hasMultiple) return trigger;

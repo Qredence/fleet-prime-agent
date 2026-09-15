@@ -83,6 +83,7 @@ export function useInputBarState({
 >) {
 	const [internalValue, setInternalValue] = useState("");
 	const [dismissedQuestionId, setDismissedQuestionId] = useState<string | null>(null);
+	const [slashMenuPinned, setSlashMenuPinned] = useState(false);
 	const value = controlled?.value ?? internalValue;
 	const setValue = controlled?.onChange ?? setInternalValue;
 	const isStreaming = status === "streaming" || status === "submitted";
@@ -112,16 +113,17 @@ export function useInputBarState({
 	);
 	const slashMatch = value.match(/^\/([^\s/]*)$/);
 	const workspaceMentionMatch = value.match(/(?:^|\s)@([^\s@]*)$/);
-	const slashQuery = slashMatch?.[1]?.toLowerCase();
+	const slashQuery = slashMatch?.[1]?.toLowerCase() ?? (slashMenuPinned ? "" : undefined);
 	const workspaceQuery = workspaceMentionMatch?.[1]?.toLowerCase();
 	const triggerKind: "slash" | "mention" | undefined =
-		slashQuery !== undefined ? "slash" : workspaceQuery !== undefined ? "mention" : undefined;
+		workspaceQuery !== undefined ? "mention" : slashMatch || slashMenuPinned ? "slash" : undefined;
 	const slashMatches = useSlashMatches(value, slashElementCommands);
-	const mentionMatches = useMentionMatches(value, mentionElementPeople);
 	const filteredCommands = useMemo(() => {
+		if (slashMenuPinned && !value.startsWith("/")) return commands;
 		const matchingNames = new Set(slashMatches.map((item) => item.name));
 		return commands.filter((item) => matchingNames.has(slashCommandName(item)));
-	}, [commands, slashMatches]);
+	}, [commands, slashMatches, slashMenuPinned, value]);
+	const mentionMatches = useMentionMatches(value, mentionElementPeople);
 	const filteredWorkspaceItems = useMemo(() => {
 		const matchingIds = new Set(mentionMatches.map((item) => item.id).filter((id): id is string => Boolean(id)));
 		return workspaceItems.filter((item) => matchingIds.has(item.id));
@@ -145,17 +147,6 @@ export function useInputBarState({
 		[onLocalSlashSubmit, onSend, setValue],
 	);
 
-	const selectCommand = useCallback(
-		(item: SuggestionItem) => {
-			if (onSlashCommandSelect?.(item) === true) {
-				setValue("");
-				return;
-			}
-			setValue(item.value ?? item.label);
-		},
-		[onSlashCommandSelect, setValue],
-	);
-
 	const removeTriggerToken = useCallback(
 		(match: RegExpMatchArray | null) => {
 			if (!match) return value;
@@ -166,8 +157,35 @@ export function useInputBarState({
 		[value],
 	);
 
+	const closeTriggerMenu = useCallback(() => {
+		if (slashMenuPinned) {
+			setSlashMenuPinned(false);
+			return;
+		}
+		if (triggerKind === "slash" && slashMatch) {
+			setValue(removeTriggerToken(slashMatch));
+			return;
+		}
+		if (triggerKind === "mention" && workspaceMentionMatch) {
+			setValue(removeTriggerToken(workspaceMentionMatch));
+		}
+	}, [removeTriggerToken, setValue, slashMatch, slashMenuPinned, triggerKind, workspaceMentionMatch]);
+
+	const selectCommand = useCallback(
+		(item: SuggestionItem) => {
+			setSlashMenuPinned(false);
+			if (onSlashCommandSelect?.(item) === true) {
+				setValue("");
+				return;
+			}
+			setValue(item.value ?? item.label);
+		},
+		[onSlashCommandSelect, setValue],
+	);
+
 	const selectWorkspaceReference = useCallback(
 		(item: SuggestionItem) => {
+			setSlashMenuPinned(false);
 			onWorkspaceReferenceSelect?.(item);
 			setValue(removeTriggerToken(workspaceMentionMatch));
 		},
@@ -189,9 +207,7 @@ export function useInputBarState({
 
 			if (isSuggestionMenuOpen && event.key === "Escape") {
 				event.preventDefault();
-				setValue(
-					triggerKind === "slash" ? removeTriggerToken(slashMatch) : removeTriggerToken(workspaceMentionMatch),
-				);
+				closeTriggerMenu();
 				return;
 			}
 
@@ -225,19 +241,16 @@ export function useInputBarState({
 		},
 		[
 			activeTriggerIndex,
+			closeTriggerMenu,
 			disabled,
 			isStreaming,
 			onRemoveWorkspaceReference,
-			removeTriggerToken,
 			selectCommand,
 			selectWorkspaceReference,
 			send,
-			setValue,
-			slashMatch,
 			triggerItems,
 			triggerKind,
 			value,
-			workspaceMentionMatch,
 			workspaceReferences,
 		],
 	);
@@ -308,6 +321,38 @@ export function useInputBarState({
 		[models, onModelChange, onThinkingLevelChange, thinkingLevel],
 	);
 
+	const openSlashMenu = useCallback(() => {
+		if (isStreaming || disabled) return;
+		setSlashMenuPinned(true);
+		setActiveTriggerIndex(0);
+		document.getElementById("composer-prompt")?.focus({ preventScroll: true });
+	}, [disabled, isStreaming]);
+
+	useEffect(() => {
+		if (slashMatch) setSlashMenuPinned(false);
+	}, [slashMatch]);
+
+	useEffect(() => {
+		if (isStreaming || disabled) setSlashMenuPinned(false);
+	}, [disabled, isStreaming]);
+
+	useEffect(() => {
+		if (!triggerOpen) return;
+
+		const handlePointerDown = (event: PointerEvent) => {
+			const target = event.target;
+			if (!(target instanceof Node)) return;
+			const menu = document.getElementById("composer-trigger-list");
+			const prompt = document.getElementById("composer-prompt");
+			if (menu?.contains(target)) return;
+			if (prompt?.contains(target) || target === prompt) return;
+			closeTriggerMenu();
+		};
+
+		document.addEventListener("pointerdown", handlePointerDown);
+		return () => document.removeEventListener("pointerdown", handlePointerDown);
+	}, [closeTriggerMenu, triggerOpen]);
+
 	return {
 		activeTriggerIndex,
 		combinedPickerOpen,
@@ -319,10 +364,12 @@ export function useInputBarState({
 		images,
 		isStreaming,
 		navigation,
+		openSlashMenu,
+		closeTriggerMenu,
 		selectorModels,
+		removeTriggerToken,
 		selectCommand,
 		selectWorkspaceReference,
-		removeTriggerToken,
 		send,
 		setActiveTriggerIndex,
 		setDismissedQuestionId,

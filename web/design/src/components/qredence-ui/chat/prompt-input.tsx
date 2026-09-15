@@ -1,14 +1,9 @@
 "use client";
 
-import { Button } from "@prime-agent/web-design/components/qredence-ui/motion/button/index";
-import {
-	MorphPopover,
-	MorphPopoverContent,
-	MorphPopoverTrigger,
-} from "@prime-agent/web-design/components/qredence-ui/motion/popover-morph";
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import { SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
-import { ArrowUp, Plus, Square } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
 	type FormEvent,
@@ -22,14 +17,6 @@ import {
 	useState,
 } from "react";
 
-export interface PromptAction {
-	value: string;
-	label: ReactNode;
-	description?: ReactNode;
-	icon?: ReactNode;
-	disabled?: boolean;
-}
-
 export interface PromptInputProps
 	extends Omit<
 		TextareaHTMLAttributes<HTMLTextAreaElement>,
@@ -38,8 +25,6 @@ export interface PromptInputProps
 	value?: string;
 	defaultValue?: string;
 	onValueChange?: (value: string) => void;
-	actions?: PromptAction[];
-	onAction?: (action: string) => void;
 	onSubmit?: (value: string) => void | Promise<void>;
 	loading?: boolean;
 	/** Keep prompt submission available while loading; Stop remains a separate action. */
@@ -55,8 +40,6 @@ export function PromptInput({
 	value,
 	defaultValue = "",
 	onValueChange,
-	actions = [],
-	onAction,
 	onSubmit,
 	loading = false,
 	submitWhileLoading = false,
@@ -75,7 +58,6 @@ export function PromptInput({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const measurementRef = useRef<HTMLDivElement>(null);
 	const [internalValue, setInternalValue] = useState(defaultValue);
-	const [actionsOpen, setActionsOpen] = useState(false);
 	const currentValue = value ?? internalValue;
 	const canSubmit = Boolean(currentValue.trim()) && !disabled && (!loading || submitWhileLoading);
 
@@ -135,7 +117,7 @@ export function PromptInput({
 		<form
 			onSubmit={submit}
 			className={cn(
-				"relative w-full rounded-chat-input border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-foreground/25 focus-within:ring-1 focus-within:ring-ring/20",
+				"relative w-full rounded-chat-input border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-1 focus-within:ring-chat-input-focus-outline/25",
 				disabled && "opacity-60",
 				className,
 			)}
@@ -162,57 +144,6 @@ export function PromptInput({
 			/>
 
 			<div className="mt-1 flex min-h-8 items-center gap-1">
-				{actions.length ? (
-					<MorphPopover open={actionsOpen} onOpenChange={setActionsOpen}>
-						<MorphPopoverTrigger>
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon"
-								disabled={disabled || loading}
-								aria-label="Add to prompt"
-								className="size-8 rounded-full text-foreground/70 hover:text-foreground"
-							>
-								<m.span
-									aria-hidden="true"
-									animate={{ rotate: actionsOpen ? 45 : 0 }}
-									transition={reduce ? { duration: 0 } : SPRING_SWAP}
-								>
-									<Plus className="size-4" />
-								</m.span>
-							</Button>
-						</MorphPopoverTrigger>
-
-						<MorphPopoverContent side="top" align="start" sideOffset={8} radius={12} className="w-56 p-1.5">
-							{actions.map((action) => (
-								<button
-									key={action.value}
-									type="button"
-									disabled={action.disabled}
-									onClick={() => {
-										onAction?.(action.value);
-										setActionsOpen(false);
-									}}
-									className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none transition-colors hover:bg-muted focus-visible:bg-muted disabled:pointer-events-none disabled:opacity-50"
-								>
-									{action.icon ? (
-										<span className="mt-0.5 grid size-5 shrink-0 place-items-center text-foreground/70 [&_svg]:size-4">
-											{action.icon}
-										</span>
-									) : null}
-									<span className="min-w-0">
-										<span className="block text-sm text-foreground">{action.label}</span>
-										{action.description ? (
-											<span className="mt-0.5 block text-xs leading-4 text-foreground/60">
-												{action.description}
-											</span>
-										) : null}
-									</span>
-								</button>
-							))}
-						</MorphPopoverContent>
-					</MorphPopover>
-				) : null}
 				{leadingAction}
 
 				{loading && onStop ? (
@@ -232,7 +163,12 @@ export function PromptInput({
 						size="icon"
 						disabled={!canSubmit}
 						aria-label={loading ? "Steer current run" : "Send prompt"}
-						className={cn("size-8 rounded-full", !loading && "ml-auto")}
+						className={cn(
+							"size-8 rounded-full",
+							!loading && "ml-auto",
+							canSubmit &&
+								"border-transparent bg-chat-input-accent text-white hover:bg-chat-input-accent/90 focus-visible:border-chat-input-accent focus-visible:ring-chat-input-accent/40",
+						)}
 					>
 						<AnimatePresence initial={false} mode="popLayout">
 							<m.span

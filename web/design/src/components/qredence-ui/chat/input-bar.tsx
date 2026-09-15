@@ -12,12 +12,12 @@ import { PromptInput } from "@prime-agent/web-design/components/qredence-ui/chat
 import type { ChatMode, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
-import { FileCode2, FilePlus2, X } from "lucide-react";
+import { FileCode2, Plus, X } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 import type { ChatModelOption } from "../../../lib/pi/chat-helpers";
 import { cn } from "../../../lib/utils";
 import { Button } from "../../ui/button";
-import { CHAT_COLUMN_CLASS } from "../chrome/tokens";
+import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS } from "../chrome/tokens";
 import { AGENT_CHAT_MODES } from "./chat-modes";
 import type { QuestionBarData } from "./hooks/use-question-bar-navigation";
 import { useInputBarState } from "./input-bar-state";
@@ -145,6 +145,7 @@ function InputBarContent({
 		activeTriggerIndex,
 		combinedPickerOpen,
 		commandGroups,
+		closeTriggerMenu,
 		files,
 		handleCombinedPickerOpenChange,
 		handlePromptKeyDown,
@@ -152,8 +153,8 @@ function InputBarContent({
 		images,
 		isStreaming,
 		navigation,
+		openSlashMenu,
 		filteredWorkspaceItems,
-		removeTriggerToken,
 		selectCommand,
 		selectWorkspaceReference,
 		selectorModels,
@@ -162,13 +163,11 @@ function InputBarContent({
 		setDismissedQuestionId,
 		setValue,
 		showQuestion,
-		slashMatch,
 		slashQuery,
 		triggerItems,
 		triggerKind,
 		triggerOpen,
 		value,
-		workspaceMentionMatch,
 		workspaceQuery,
 	} = useInputBarState({
 		models,
@@ -224,13 +223,7 @@ function InputBarContent({
 						if (triggerKind === "slash") selectCommand(item);
 						else selectWorkspaceReference(item);
 					}}
-					onClose={() =>
-						setValue(
-							triggerKind === "slash"
-								? removeTriggerToken(slashMatch)
-								: removeTriggerToken(workspaceMentionMatch),
-						)
-					}
+					onClose={closeTriggerMenu}
 					title={triggerKind === "slash" ? "Commands" : "Workspace references"}
 					listId="composer-trigger-list"
 				/>
@@ -311,24 +304,21 @@ function InputBarContent({
 							? `composer-trigger-list-${triggerItems[activeTriggerIndex].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`
 							: undefined
 					}
-					actions={
-						attachments?.onAttach
-							? [
-									{
-										value: "attach",
-										label: "Attach file",
-										description: "Add a file or image to this turn",
-										icon: <FilePlus2 />,
-									},
-								]
-							: []
-					}
-					onAction={(action) => {
-						if (action === "attach") attachments?.onAttach?.();
-					}}
 					onKeyDown={handlePromptKeyDown}
 					leadingAction={
 						<>
+							<Button
+								type="button"
+								variant="outline"
+								size="icon"
+								disabled={disabled || isStreaming}
+								aria-label="Open slash commands"
+								data-slot="composer-add"
+								onClick={openSlashMenu}
+								className={COMPOSER_ADD_BUTTON_CLASS}
+							>
+								<Plus className="size-4" />
+							</Button>
 							<ModeSelector modes={CHAT_MODES} value={chatMode} onChange={handleChatModeChange} />
 							<ModelSelector
 								models={selectorModels}
@@ -339,7 +329,6 @@ function InputBarContent({
 								open={combinedPickerOpen}
 								onOpenChange={handleCombinedPickerOpenChange}
 								placeholder="Model"
-								className="rounded-full"
 							/>
 						</>
 					}
