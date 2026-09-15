@@ -145,6 +145,7 @@ function InputBarContent({
 		activeTriggerIndex,
 		combinedPickerOpen,
 		commandGroups,
+		closeTriggerMenu,
 		files,
 		handleCombinedPickerOpenChange,
 		handlePromptKeyDown,
@@ -154,7 +155,6 @@ function InputBarContent({
 		navigation,
 		openSlashMenu,
 		filteredWorkspaceItems,
-		removeTriggerToken,
 		selectCommand,
 		selectWorkspaceReference,
 		selectorModels,
@@ -163,13 +163,11 @@ function InputBarContent({
 		setDismissedQuestionId,
 		setValue,
 		showQuestion,
-		slashMatch,
 		slashQuery,
 		triggerItems,
 		triggerKind,
 		triggerOpen,
 		value,
-		workspaceMentionMatch,
 		workspaceQuery,
 	} = useInputBarState({
 		models,
@@ -225,13 +223,7 @@ function InputBarContent({
 						if (triggerKind === "slash") selectCommand(item);
 						else selectWorkspaceReference(item);
 					}}
-					onClose={() =>
-						setValue(
-							triggerKind === "slash"
-								? removeTriggerToken(slashMatch)
-								: removeTriggerToken(workspaceMentionMatch),
-						)
-					}
+					onClose={closeTriggerMenu}
 					title={triggerKind === "slash" ? "Commands" : "Workspace references"}
 					listId="composer-trigger-list"
 				/>

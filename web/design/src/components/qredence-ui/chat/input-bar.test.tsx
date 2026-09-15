@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentChat } from "./agent-chat";
 import { InputBar } from "./input-bar";
@@ -20,6 +20,28 @@ describe("InputBar slash menu control", () => {
 
 		expect(screen.getByRole("button", { name: "Open slash commands" })).toBeTruthy();
 		expect(document.querySelector('[data-slot="composer-add"]')).toBeTruthy();
+	});
+
+	it("opens the slash menu from plus without changing the prompt value", () => {
+		render(
+			<InputBar
+				modelKey={undefined}
+				models={[]}
+				onModelChange={vi.fn()}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+				slashCommands={[{ id: "settings", label: "/settings", value: "/settings" }]}
+			/>,
+		);
+
+		const prompt = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement;
+		expect(prompt.value).toBe("");
+
+		fireEvent.click(screen.getByRole("button", { name: "Open slash commands" }));
+
+		expect(prompt.value).toBe("");
+		expect(screen.getByRole("listbox", { name: "Commands" })).toBeTruthy();
 	});
 
 	it("shows the open-slash control left of Agent on the empty ChatWelcome composer", () => {
