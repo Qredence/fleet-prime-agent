@@ -329,7 +329,6 @@ function InputBarContent({
 								open={combinedPickerOpen}
 								onOpenChange={handleCombinedPickerOpenChange}
 								placeholder="Model"
-								className="rounded-full"
 							/>
 						</>
 					}
