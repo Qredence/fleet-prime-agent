@@ -3,7 +3,7 @@
 import { Button } from "@prime-agent/web-design/components/ui/button";
 import { SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
-import { ArrowUp, Plus, Square } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
 	type FormEvent,
@@ -25,8 +25,6 @@ export interface PromptInputProps
 	value?: string;
 	defaultValue?: string;
 	onValueChange?: (value: string) => void;
-	/** Opens the slash-command menu by inserting `/` through the same value path as typing. */
-	onAddClick?: () => void;
 	onSubmit?: (value: string) => void | Promise<void>;
 	loading?: boolean;
 	/** Keep prompt submission available while loading; Stop remains a separate action. */
@@ -42,7 +40,6 @@ export function PromptInput({
 	value,
 	defaultValue = "",
 	onValueChange,
-	onAddClick,
 	onSubmit,
 	loading = false,
 	submitWhileLoading = false,
@@ -116,12 +113,6 @@ export function PromptInput({
 		submit();
 	};
 
-	const handleAddClick = () => {
-		if (disabled || loading || !onAddClick) return;
-		onAddClick();
-		textareaRef.current?.focus({ preventScroll: true });
-	};
-
 	return (
 		<form
 			onSubmit={submit}
@@ -153,19 +144,6 @@ export function PromptInput({
 			/>
 
 			<div className="mt-1 flex min-h-8 items-center gap-1">
-				{onAddClick ? (
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						disabled={disabled || loading}
-						aria-label="Open slash commands"
-						onClick={handleAddClick}
-						className="size-8 rounded-full text-foreground/70 hover:text-foreground"
-					>
-						<Plus className="size-4" />
-					</Button>
-				) : null}
 				{leadingAction}
 
 				{loading && onStop ? (

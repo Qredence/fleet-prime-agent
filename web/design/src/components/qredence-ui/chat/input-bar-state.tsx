@@ -313,6 +313,7 @@ export function useInputBarState({
 		if (!value.match(/^\/([^\s/]*)$/)) {
 			setValue("/");
 		}
+		document.getElementById("composer-prompt")?.focus({ preventScroll: true });
 	}, [disabled, isStreaming, setValue, value]);
 
 	return {

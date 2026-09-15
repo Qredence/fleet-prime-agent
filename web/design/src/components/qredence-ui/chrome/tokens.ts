@@ -35,6 +35,10 @@ export const CHAT_COLUMN_CLASS = "mx-auto w-full max-w-chat px-[var(--density-pa
 /** InputBar suggestion chips below the composer. */
 export const SUGGESTION_LIST_CLASS = "!px-0 flex-col items-start gap-1.5";
 
+/** Composer + control — opens the slash-command menu. */
+export const COMPOSER_ADD_BUTTON_CLASS =
+	"size-8 shrink-0 rounded-full border-border/70 bg-background text-foreground/80 shadow-sm hover:bg-muted hover:text-foreground";
+
 export const SUGGESTION_ITEM_CLASS =
 	"h-auto justify-start rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-pretty text-sm font-normal text-foreground/65 shadow-sm transition-colors hover:border-border hover:bg-foreground/6 hover:text-foreground";
 
