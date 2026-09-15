@@ -14,8 +14,8 @@
 .dark {
   --chat-context-padding: 12px;
   --chat-input-background: var(--card);
-  --chat-input-accent: #0ea5e9;
-  --chat-input-focus-outline: #0ea5e9;
+  --chat-input-accent: #2a64c0;
+  --chat-input-focus-outline: #2a64c0;
 }
 
 @theme inline {
