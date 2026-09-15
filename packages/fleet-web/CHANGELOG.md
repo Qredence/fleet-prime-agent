@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.2
+
+### Patch Changes
+
+- 8091f12: Polish the composer controls: unify Agent and Model selector triggers, use shared button chrome, apply brand-blue focus and send accents, open slash commands from plus without inserting `/`, and dismiss trigger menus on outside click.
+- 0fc2a5f: Absorb chat UI into first-party qredence-ui, drop legacy Fleet/Beui identifiers, tighten shared chat tokens, and isolate streaming work from the composer.
+- 582b775: Remove unused POST /api/chat/model endpoint (internal cleanup; no user-facing behavior change).
+- f158eda: Remove unused pi hooks and server bridge exports (internal cleanup; no user-facing behavior change).
+- 1aba5a9: Remove unused workspace browse/root API endpoints and client method (internal cleanup; no user-facing behavior change).
+- 1900684: Wire density, reduced-motion, and transcript-follow settings, collapse overlapping turn-progress UI, and align chat tokens with the Fleet theme.
+
 ## 0.6.1
 
 ### Patch Changes
