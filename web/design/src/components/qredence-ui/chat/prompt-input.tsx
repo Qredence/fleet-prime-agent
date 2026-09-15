@@ -135,7 +135,7 @@ export function PromptInput({
 		<form
 			onSubmit={submit}
 			className={cn(
-				"relative w-full rounded-chat-input border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-foreground/25 focus-within:ring-1 focus-within:ring-ring/20",
+				"relative w-full rounded-chat-input border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-1 focus-within:ring-chat-input-focus-outline/25",
 				disabled && "opacity-60",
 				className,
 			)}
@@ -232,7 +232,12 @@ export function PromptInput({
 						size="icon"
 						disabled={!canSubmit}
 						aria-label={loading ? "Steer current run" : "Send prompt"}
-						className={cn("size-8 rounded-full", !loading && "ml-auto")}
+						className={cn(
+							"size-8 rounded-full",
+							!loading && "ml-auto",
+							canSubmit &&
+								"border-transparent bg-chat-input-accent text-white hover:bg-chat-input-accent/90 focus-visible:border-chat-input-accent focus-visible:ring-chat-input-accent/40",
+						)}
 					>
 						<AnimatePresence initial={false} mode="popLayout">
 							<m.span

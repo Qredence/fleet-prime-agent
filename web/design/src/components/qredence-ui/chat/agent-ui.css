@@ -7,12 +7,15 @@
   --chat-context-padding: 10px;
   --chat-foreground-subtle: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
   --chat-input-background: var(--background);
-  --chat-input-focus-outline: transparent;
+  --chat-input-accent: #0169cc;
+  --chat-input-focus-outline: #0169cc;
 }
 
 .dark {
   --chat-context-padding: 12px;
   --chat-input-background: var(--card);
+  --chat-input-accent: #0ea5e9;
+  --chat-input-focus-outline: #0ea5e9;
 }
 
 @theme inline {
@@ -24,6 +27,7 @@
   --spacing-chat-context: var(--chat-context-padding);
   --color-chat-foreground-subtle: var(--chat-foreground-subtle);
   --color-chat-input-background: var(--chat-input-background);
+  --color-chat-input-accent: var(--chat-input-accent);
   --color-chat-input-focus-outline: var(--chat-input-focus-outline);
   --color-product-diff-added: var(--product-diff-added-foreground);
   --color-product-diff-removed: var(--product-diff-removed-foreground);
