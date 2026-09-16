@@ -120,6 +120,15 @@ export {
 } from "./schemas/mcp";
 export { ErrorResponseSchema, HealthResponseSchema } from "./schemas/misc";
 export {
+	SessionTreeNavigateRequestSchema,
+	SessionTreeNavigateResponseSchema,
+	SessionTreeNodeKindSchema,
+	SessionTreeNodeRoleSchema,
+	SessionTreeNodeSchema,
+	SessionTreeSnapshotResponseSchema,
+	SessionTreeSnapshotSchema,
+} from "./schemas/session-tree";
+export {
 	ChatPiSettingsSchema,
 	ChatPiSettingsUpdateSchema,
 	ChatSettingsResponseSchema,

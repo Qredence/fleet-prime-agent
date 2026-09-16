@@ -40,9 +40,9 @@ export const openUIPromptSpec = {
 		},
 		PanelAction: {
 			signature:
-				'PanelAction(label: string, panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights", relativePath?: any, focus?: boolean)',
+				'PanelAction(label: string, panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights" | "session-tree", relativePath?: any, focus?: boolean)',
 			description:
-				"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+				"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, Session insights, or Session tree. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 		},
 		Input: {
 			signature:
@@ -412,7 +412,15 @@ export const openUIPromptSpec = {
 					},
 					panel: {
 						type: "string",
-						enum: ["resources", "workspace", "artifacts", "repl", "subagents", "session-insights"],
+						enum: [
+							"resources",
+							"workspace",
+							"artifacts",
+							"repl",
+							"subagents",
+							"session-insights",
+							"session-tree",
+						],
 					},
 					relativePath: {
 						type: "string",
@@ -425,7 +433,7 @@ export const openUIPromptSpec = {
 				required: ["label", "panel", "focus"],
 				additionalProperties: false,
 				description:
-					"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+					"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, Session insights, or Session tree. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 			},
 			Input: {
 				type: "object",

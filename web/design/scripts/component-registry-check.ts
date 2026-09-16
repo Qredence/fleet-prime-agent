@@ -12,7 +12,7 @@ import {
 
 assert.deepEqual(
   RIGHT_PANEL_DEFINITIONS.map(({ id }) => id),
-  ["resources", "workspace", "artifacts", "repl", "subagents", "session-insights"],
+  ["resources", "workspace", "artifacts", "repl", "subagents", "session-insights", "session-tree"],
 )
 assert.equal(new Set(RIGHT_PANEL_DEFINITIONS.map(({ order }) => order)).size, RIGHT_PANEL_DEFINITIONS.length)
 for (const definition of RIGHT_PANEL_DEFINITIONS) {

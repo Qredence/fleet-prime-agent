@@ -38,6 +38,9 @@ import type {
 	ChatSettingsResponse,
 	ChatSettingsUpdateRequest,
 	ChatStreamEvent,
+	SessionTreeNavigateRequest,
+	SessionTreeSnapshot,
+	SessionTreeSnapshotResponse,
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -76,6 +79,9 @@ import {
 	ProjectListResponseSchema,
 	ProjectRenameRequestSchema,
 	ProjectSummarySchema,
+	SessionTreeNavigateRequestSchema,
+	SessionTreeNavigateResponseSchema,
+	SessionTreeSnapshotResponseSchema,
 	WorkspaceFileResponseSchema,
 	WorkspaceTreeResponseSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
@@ -110,6 +116,8 @@ export type ChatClient = {
 	renameSession: (sessionId: string, title: string) => Promise<void>;
 	deleteSession: (sessionId: string) => Promise<void>;
 	uploadAttachments: (sessionId: string, files: Array<File>) => Promise<Array<UploadedAttachment>>;
+	getSessionTree: (sessionId: string) => Promise<SessionTreeSnapshot>;
+	navigateSessionTree: (request: SessionTreeNavigateRequest) => Promise<SessionTreeSnapshot>;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
 	openSubagentEvents: (
@@ -312,6 +320,22 @@ export const chatClient: ChatClient = {
 		});
 		if (!response.ok) throw new ChatRequestError(response.status, await response.text());
 		return z.object({ attachments: z.array(UploadedAttachmentSchema) }).parse(await response.json()).attachments;
+	},
+
+	async getSessionTree(sessionId) {
+		const params = new URLSearchParams({ sessionId });
+		return fetchValidatedJson(`/api/chat/session-tree?${params}`, SessionTreeSnapshotResponseSchema).then(
+			(response: SessionTreeSnapshotResponse) => response.snapshot,
+		);
+	},
+
+	async navigateSessionTree(request) {
+		const body = SessionTreeNavigateRequestSchema.parse(request);
+		return fetchValidatedJson("/api/chat/session-tree", SessionTreeNavigateResponseSchema, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		}).then((response) => response.snapshot);
 	},
 
 	async loadSession(metadata) {

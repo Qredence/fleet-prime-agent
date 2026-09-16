@@ -523,7 +523,7 @@ export type ChatSessionSnapshotEvent = {
 export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
 	protocolVersion: 1,
 	schemaRevision: 2,
-	features: ["reasoning-summary-v1", "mcp-connections-v1"],
+	features: ["reasoning-summary-v1", "mcp-connections-v1", "session-tree-v1"],
 };
 
 type ChatStartEvent = {
@@ -859,3 +859,12 @@ export type {
 	McpConnectionTransport,
 	McpEnvBinding,
 } from "./mcp";
+export type {
+	SessionTreeNavigateRequest,
+	SessionTreeNavigateResponse,
+	SessionTreeNode,
+	SessionTreeNodeKind,
+	SessionTreeNodeRole,
+	SessionTreeSnapshot,
+	SessionTreeSnapshotResponse,
+} from "./schemas/session-tree";

@@ -29,6 +29,7 @@ import type {
 	PrimeAgentArtifactRun,
 	PrimeAgentSessionPresentation,
 	QueueState,
+	SessionTreeSnapshot,
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -88,6 +89,14 @@ type UseRightPanelContextValueArgs = {
 	workspaceError: Error | null;
 	workspaceLoading: boolean;
 	workspaceTree: WorkspaceTreeResponse | null;
+	sessionTreeSnapshot: SessionTreeSnapshot | null;
+	sessionTreeLoading: boolean;
+	sessionTreeError: string | null;
+	selectedSessionTreeEntryId: string | null;
+	isSessionTreeStreaming: boolean;
+	refreshSessionTree: () => void;
+	selectSessionTreeEntry: (entryId: string, messageId?: string) => void;
+	rewindSessionTree: (entryId: string, expectedLeafId: string | null) => Promise<void>;
 };
 
 type RightPanelContextSlices = {
@@ -153,6 +162,14 @@ export function useRightPanelContextValue({
 	workspaceError,
 	workspaceLoading,
 	workspaceTree,
+	sessionTreeSnapshot,
+	sessionTreeLoading,
+	sessionTreeError,
+	selectedSessionTreeEntryId,
+	isSessionTreeStreaming,
+	refreshSessionTree,
+	selectSessionTreeEntry,
+	rewindSessionTree,
 }: UseRightPanelContextValueArgs): RightPanelContextSlices {
 	const transcriptSummary = useThrottledTranscriptSummary(messages, status, sessionId ?? "");
 	const publishedArtifactRuns = useThrottledWhileLive(artifactRuns, status, sessionId ?? "");
@@ -181,6 +198,14 @@ export function useRightPanelContextValue({
 			setRightPanel,
 			status,
 			thinkingLevel,
+			sessionTreeSnapshot,
+			sessionTreeLoading,
+			sessionTreeError,
+			selectedSessionTreeEntryId,
+			isSessionTreeStreaming,
+			refreshSessionTree,
+			selectSessionTreeEntry,
+			rewindSessionTree,
 		}),
 		[
 			activityLabel,
@@ -206,6 +231,14 @@ export function useRightPanelContextValue({
 			setRightPanel,
 			status,
 			thinkingLevel,
+			sessionTreeSnapshot,
+			sessionTreeLoading,
+			sessionTreeError,
+			selectedSessionTreeEntryId,
+			isSessionTreeStreaming,
+			refreshSessionTree,
+			selectSessionTreeEntry,
+			rewindSessionTree,
 		],
 	);
 
