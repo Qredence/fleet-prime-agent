@@ -146,6 +146,6 @@ Fleet is powered by [Prime Agent](https://github.com/PrimeIntellect-ai/prime-age
 whose lineage includes [pi-mono](https://github.com/badlogic/pi-mono) by Mario
 Zechner.
 
-## Dowloads Stats
+## Download Stats
 
 ![npm downloads](https://www.npm.bet/svg?q=%40qredence%2Ffleet&timeRange=last-month&grouping=week&metric=downloads&zeroMode=reported)

@@ -311,7 +311,7 @@
 [data-density="compact"] {
   --density-gap: 1rem; /* 16px */
   --density-pad-x: 1rem; /* 16px */
-  --density-header-height: 2.5rem; /* 40px */
+  --density-header-height: 3rem; /* 48px: 32px controls + 8px vertical padding */
   --density-control-height: 2rem; /* 32px */
 }
 
