@@ -11,6 +11,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
 const packageName = "@qredence/fleet";
 const publicBaseline = "0.5.0";
+const PUBLISHED_VERSION_TIMEOUT_MS = 5 * 60_000;
 
 /**
  * Reads and validates the package manifest for the expected package and npm registry.
@@ -33,7 +34,10 @@ function readManifest() {
  */
 async function readRegistryMetadata({ fetchImpl = fetch }) {
 	const response = await fetchImpl(`${NPM_REGISTRY}${encodeURIComponent(packageName)}`, {
-		headers: { Accept: "application/json" },
+		headers: {
+			Accept: "application/json",
+			"Cache-Control": "no-cache",
+		},
 	});
 	if (response.status === 404) return undefined;
 	if (!response.ok) throw new Error(`npm registry metadata lookup failed with HTTP ${response.status}`);
@@ -206,10 +210,16 @@ function publishToNpm(artifact) {
  * Wait for a published package version to become available in the npm registry.
  * @param {string} version - The package version to locate.
  * @returns {object} The published package metadata.
- * @throws {Error} If the version is not available within 30 seconds.
+ * @param {number} [timeoutMs=PUBLISHED_VERSION_TIMEOUT_MS] - Maximum time to wait for registry visibility.
+ * @throws {Error} If the version is not available within the timeout.
  */
-export async function waitForPublishedVersion({ fetchImpl = fetch, version, sleepImpl } = {}) {
-	const deadline = Date.now() + 30000;
+export async function waitForPublishedVersion({
+	fetchImpl = fetch,
+	version,
+	sleepImpl,
+	timeoutMs = PUBLISHED_VERSION_TIMEOUT_MS,
+} = {}) {
+	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		const metadata = await readRegistryPackage({ fetchImpl, version });
 		if (metadata) return metadata;

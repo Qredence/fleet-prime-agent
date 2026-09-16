@@ -535,17 +535,23 @@ test("verifies a registry tarball with an injected fetch implementation", async 
 
 test("waits for registry visibility with deterministic polling", async () => {
 	let calls = 0;
+	const requestHeaders = [];
 	const metadata = { version: "0.5.1", dist: { tarball: "https://registry.example.test/fleet.tgz" } };
 	const result = await waitForPublishedVersion({
 		version: "0.5.1",
-		fetchImpl: async () => {
+		fetchImpl: async (_url, options) => {
 			calls += 1;
+			requestHeaders.push(options.headers);
 			return calls === 1 ? response(404) : response(200, { versions: { "0.5.1": metadata } });
 		},
 		sleepImpl: async () => {},
 	});
 	assert.deepEqual(result, metadata);
 	assert.equal(calls, 2);
+	assert.deepEqual(requestHeaders, [
+		{ Accept: "application/json", "Cache-Control": "no-cache" },
+		{ Accept: "application/json", "Cache-Control": "no-cache" },
+	]);
 });
 
 test("publishes a new version once and verifies the post-publish tarball", async () => {
