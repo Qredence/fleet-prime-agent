@@ -113,6 +113,135 @@ describe("PrimeBridge", () => {
 	});
 });
 
+describe("PrimeBridge session-tree navigation", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+	let bridge: PrimeBridge | undefined;
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-session-tree-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-session-tree-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+	});
+
+	afterEach(() => {
+		bridge?.resetForTests();
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		rmSync(workDir, { recursive: true, force: true });
+		rmSync(agentDir, { recursive: true, force: true });
+		resetPrimeConfigForTests();
+		vi.restoreAllMocks();
+	});
+
+	async function createLiveSession() {
+		bridge = createTestBridge();
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		const session = await bridge.createSession({ cwd: workDir });
+		return { bridge, session };
+	}
+
+	function treeWithLeaf(leafId: string | null): Awaited<ReturnType<AgentConnection["getSessionTree"]>> {
+		return { tree: [], leafId };
+	}
+
+	it("propagates refresh failures without replacing the cached tree", async () => {
+		const { bridge: liveBridge, session } = await createLiveSession();
+		const cachedTree = treeWithLeaf("leaf-1");
+		const readError = new Error("session tree read failed");
+		vi.spyOn(session.connection, "getSessionTree").mockResolvedValueOnce(cachedTree).mockRejectedValueOnce(readError);
+
+		await expect(liveBridge.readSessionTreeSnapshot(session.sessionId)).resolves.toMatchObject({
+			sessionId: session.sessionId,
+			leafId: "leaf-1",
+			nodes: [],
+		});
+		await expect(liveBridge.readSessionTreeSnapshot(session.sessionId)).rejects.toBe(readError);
+		expect(liveBridge.getSessionTree(session.sessionId)).toEqual({ tree: [], leafId: "leaf-1" });
+	});
+
+	it("does not navigate when the live tree cannot be read", async () => {
+		const { bridge: liveBridge, session } = await createLiveSession();
+		const readError = new Error("session tree unavailable");
+		vi.spyOn(session.connection, "getSessionTree").mockRejectedValue(readError);
+		const navigateTree = vi.spyOn(session.connection, "navigateTree");
+
+		await expect(liveBridge.navigateSessionTree(session.sessionId, "target-entry", "leaf-1")).rejects.toBe(readError);
+		expect(navigateTree).not.toHaveBeenCalled();
+	});
+
+	it("serializes concurrent session-tree validation and navigation", async () => {
+		const { bridge: liveBridge, session } = await createLiveSession();
+		const tree = treeWithLeaf("leaf-1");
+		vi.spyOn(session.connection, "getSessionTree").mockResolvedValue(tree);
+
+		let releaseFirstNavigation!: () => void;
+		const firstNavigation = new Promise<void>((resolve) => {
+			releaseFirstNavigation = resolve;
+		});
+		let firstNavigationStarted!: () => void;
+		const firstStarted = new Promise<void>((resolve) => {
+			firstNavigationStarted = resolve;
+		});
+		const navigateTree = vi.spyOn(session.connection, "navigateTree").mockImplementation(async (targetId) => {
+			if (targetId === "target-1") {
+				firstNavigationStarted();
+				await firstNavigation;
+			}
+			return { cancelled: false };
+		});
+
+		const first = liveBridge.navigateSessionTree(session.sessionId, "target-1", "leaf-1");
+		await firstStarted;
+		const second = liveBridge.navigateSessionTree(session.sessionId, "target-2", "leaf-1");
+		await Promise.resolve();
+		expect(navigateTree).toHaveBeenCalledTimes(1);
+
+		releaseFirstNavigation();
+		await expect(first).resolves.toMatchObject({ sessionId: session.sessionId });
+		await expect(second).resolves.toMatchObject({ sessionId: session.sessionId });
+		expect(navigateTree).toHaveBeenNthCalledWith(1, "target-1", {});
+		expect(navigateTree).toHaveBeenNthCalledWith(2, "target-2", {});
+	});
+
+	it("shares the navigation lock with the legacy tree command path", async () => {
+		const { bridge: liveBridge, session } = await createLiveSession();
+		vi.spyOn(session.connection, "getSessionTree").mockResolvedValue(treeWithLeaf("leaf-1"));
+
+		let releaseLegacyNavigation!: () => void;
+		const legacyNavigation = new Promise<void>((resolve) => {
+			releaseLegacyNavigation = resolve;
+		});
+		let legacyNavigationStarted!: () => void;
+		const legacyStarted = new Promise<void>((resolve) => {
+			legacyNavigationStarted = resolve;
+		});
+		const navigateTree = vi.spyOn(session.connection, "navigateTree").mockImplementation(async (targetId) => {
+			if (targetId === "legacy-target") {
+				legacyNavigationStarted();
+				await legacyNavigation;
+			}
+			return { cancelled: false };
+		});
+
+		const legacy = liveBridge.navigateTree(session.sessionId, "legacy-target");
+		await legacyStarted;
+		const sessionTree = liveBridge.navigateSessionTree(session.sessionId, "ui-target", "leaf-1");
+		await Promise.resolve();
+		expect(navigateTree).toHaveBeenCalledTimes(1);
+
+		releaseLegacyNavigation();
+		await expect(legacy).resolves.toBeUndefined();
+		await expect(sessionTree).resolves.toMatchObject({ sessionId: session.sessionId });
+		expect(navigateTree).toHaveBeenNthCalledWith(1, "legacy-target", {});
+		expect(navigateTree).toHaveBeenNthCalledWith(2, "ui-target", {});
+	});
+});
+
 describe("PrimeBridge.forkSession", () => {
 	let workDir: string;
 	let agentDir: string;

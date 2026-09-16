@@ -1,6 +1,6 @@
 import type { SessionTreeNode, SessionTreeSnapshot } from "@prime-agent/web-protocol/chat-protocol";
 import { GitBranch } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../../../lib/utils";
 import {
 	AlertDialog,
@@ -91,6 +91,7 @@ export function SessionTreePanel({
 	const [confirmExpectedLeafId, setConfirmExpectedLeafId] = useState<string | null>(null);
 	const [confirming, setConfirming] = useState(false);
 	const [confirmError, setConfirmError] = useState<string | null>(null);
+	const confirmGenerationRef = useRef(0);
 	const rows = useMemo(() => (snapshot ? flattenVisibleNodes(snapshot.nodes) : []), [snapshot]);
 	const selectedNode = useMemo(
 		() => rows.find((row) => row.node.id === selectedEntryId)?.node,
@@ -118,6 +119,7 @@ export function SessionTreePanel({
 	);
 
 	const clearConfirm = useCallback(() => {
+		confirmGenerationRef.current += 1;
 		setConfirmEntryId(null);
 		setConfirmExpectedLeafId(null);
 		setConfirmError(null);
@@ -134,15 +136,19 @@ export function SessionTreePanel({
 		const entryId = confirmEntryId;
 		const leafId = confirmExpectedLeafId;
 		if (!entryId) return;
+		const generation = ++confirmGenerationRef.current;
+		const isCurrent = () => confirmGenerationRef.current === generation;
 		setConfirming(true);
 		setConfirmError(null);
 		try {
 			await onRewind(entryId, leafId);
-			clearConfirm();
+			if (isCurrent()) clearConfirm();
 		} catch (caught) {
-			setConfirmError(caught instanceof Error ? caught.message : String(caught));
+			if (isCurrent()) {
+				setConfirmError(caught instanceof Error ? caught.message : String(caught));
+			}
 		} finally {
-			setConfirming(false);
+			if (isCurrent()) setConfirming(false);
 		}
 	}, [clearConfirm, confirmEntryId, confirmExpectedLeafId, onRewind]);
 

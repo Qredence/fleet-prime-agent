@@ -9,7 +9,7 @@ import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { requireProjectSession } from "./session-access";
 
-async function requireWritableSession(sessionId: string) {
+async function requireReadableSession(sessionId: string) {
 	const bridge = getBridge();
 	const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
 	if (!(await requireProjectSession(session))) {
@@ -18,13 +18,20 @@ async function requireWritableSession(sessionId: string) {
 			response: Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 }),
 		};
 	}
+	return { ok: true as const, session };
+}
+
+async function requireWritableSession(sessionId: string) {
+	const access = await requireReadableSession(sessionId);
+	if (!access.ok) return access;
+	const { session } = access;
 	if (session?.isStreaming) {
 		return {
 			ok: false as const,
 			response: Response.json({ message: new SessionTreeBusyError().message }, { status: 409 }),
 		};
 	}
-	return { ok: true as const, session };
+	return access;
 }
 
 /**
@@ -41,7 +48,7 @@ export function handleChatSessionTreeGet(request: Request): Promise<Response> {
 		if (!parsedSessionId.success) {
 			return Response.json({ message: "Invalid session id" }, { status: 400 });
 		}
-		const access = await requireWritableSession(parsedSessionId.data);
+		const access = await requireReadableSession(parsedSessionId.data);
 		if (!access.ok) return access.response;
 		const snapshot = await getBridge().readSessionTreeSnapshot(parsedSessionId.data);
 		return Response.json(SessionTreeSnapshotResponseSchema.parse({ snapshot }));

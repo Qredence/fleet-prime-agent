@@ -144,7 +144,7 @@ function PanelActionComponent({
 export const PanelActionDef = defineComponent({
 	name: "PanelAction",
 	description:
-		"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, or Session insights. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+		"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, Session insights, or Session tree. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 	props: z
 		.object({
 			label: z.string().describe("Visible action label"),

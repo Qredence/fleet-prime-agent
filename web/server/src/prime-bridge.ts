@@ -696,6 +696,7 @@ export class PrimeBridge {
 	readonly #childPromptStarter: typeof startDaemonChildPrompt;
 	readonly #childPrompts = new Map<string, Set<DaemonChildPromptHandle>>();
 	readonly #caches = new Map<string, BridgeSessionCache>();
+	readonly #sessionTreeNavigationQueues = new Map<string, Promise<void>>();
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
 	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
 	readonly #auxiliaryWarnings = new Set<string>();
@@ -805,6 +806,7 @@ export class PrimeBridge {
 		this.#presentationWrites.clear();
 		this.#presentationGenerations.clear();
 		this.#caches.clear();
+		this.#sessionTreeNavigationQueues.clear();
 		this.#openUIPromptTransitions.clear();
 		this.#daemonDialogs.clear();
 		this.#auxiliaryWarnings.clear();
@@ -2059,13 +2061,15 @@ export class PrimeBridge {
 	/** /tree — session-tree navigation via navigateTree (requires entry id). */
 	async navigateTree(sessionId: string, targetId: string): Promise<void> {
 		const session = this.#requireSession(sessionId);
-		await session.connection.waitForIdle();
-		await session.connection.navigateTree(targetId, {});
-		await this.#refreshSessionTreeCache(sessionId, session.connection);
-		// Hydrated message ids are positional (${sessionId}-mN): branch navigation
-		// rewrites the transcript branch, so any existing plan records now point at
-		// unrelated messages. Invalidate instead of rendering the wrong card.
-		await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
+		await this.#withSessionTreeNavigationLock(sessionId, async () => {
+			await session.connection.waitForIdle();
+			await session.connection.navigateTree(targetId, {});
+			await this.#refreshSessionTreeCache(sessionId, session.connection);
+			// Hydrated message ids are positional (${sessionId}-mN): branch navigation
+			// rewrites the transcript branch, so any existing plan records now point at
+			// unrelated messages. Invalidate instead of rendering the wrong card.
+			await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
+		});
 	}
 
 	/** /tree — the session's entry tree plus the current leaf, for pickers. */
@@ -2077,10 +2081,26 @@ export class PrimeBridge {
 	}
 
 	async #refreshSessionTreeCache(sessionId: string, connection: AgentConnection): Promise<void> {
-		const tree = await connection.getSessionTree().catch(() => ({ tree: [], leafId: null }));
+		const tree = await connection.getSessionTree();
 		const cache = this.#caches.get(sessionId) ?? emptyCache();
 		cache.tree = { tree: tree.tree as unknown[], leafId: tree.leafId };
 		this.#caches.set(sessionId, cache);
+	}
+
+	async #withSessionTreeNavigationLock<T>(sessionId: string, operation: () => Promise<T>): Promise<T> {
+		const previous = this.#sessionTreeNavigationQueues.get(sessionId) ?? Promise.resolve();
+		const current = previous.catch(() => undefined).then(operation);
+		const tail = current.then(
+			() => undefined,
+			() => undefined,
+		);
+		this.#sessionTreeNavigationQueues.set(sessionId, tail);
+		void tail.then(() => {
+			if (this.#sessionTreeNavigationQueues.get(sessionId) === tail) {
+				this.#sessionTreeNavigationQueues.delete(sessionId);
+			}
+		});
+		return current;
 	}
 
 	/** Reads a browser-safe session tree snapshot from the live connection. */
@@ -2098,17 +2118,19 @@ export class PrimeBridge {
 		expectedLeafId?: string,
 	): Promise<SessionTreeSnapshot> {
 		const session = this.#requireSession(sessionId);
-		await session.connection.waitForIdle();
-		const before = await session.connection.getSessionTree().catch(() => ({ tree: [], leafId: null }));
-		if (expectedLeafId && before.leafId !== expectedLeafId) {
-			throw new SessionTreeConcurrencyError();
-		}
-		const navigation = await session.connection.navigateTree(targetEntryId, {});
-		if (navigation.cancelled) {
-			throw new SessionTreeCancelledError();
-		}
-		await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
-		return this.readSessionTreeSnapshot(sessionId);
+		return this.#withSessionTreeNavigationLock(sessionId, async () => {
+			await session.connection.waitForIdle();
+			const before = await session.connection.getSessionTree();
+			if (expectedLeafId && before.leafId !== expectedLeafId) {
+				throw new SessionTreeConcurrencyError();
+			}
+			const navigation = await session.connection.navigateTree(targetEntryId, {});
+			if (navigation.cancelled) {
+				throw new SessionTreeCancelledError();
+			}
+			await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
+			return this.readSessionTreeSnapshot(sessionId);
+		});
 	}
 
 	/**

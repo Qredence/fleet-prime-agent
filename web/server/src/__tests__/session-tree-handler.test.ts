@@ -68,6 +68,24 @@ describe("session tree handlers", () => {
 		await expect(response.json()).resolves.toEqual({ snapshot });
 	});
 
+	it("allows reading the session tree while the session is streaming", async () => {
+		const readSessionTreeSnapshot = vi.fn().mockResolvedValue(snapshot);
+		setBridgeForTests({
+			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1", isStreaming: true })),
+			resumeSessionById: vi.fn(),
+			readSessionTreeSnapshot,
+			resetForTests: vi.fn(),
+		} as unknown as PrimeBridge);
+
+		const response = await handleChatSessionTreeGet(
+			new Request("http://localhost/api/chat/session-tree?sessionId=session-1"),
+		);
+
+		expect(response.status).toBe(200);
+		expect(readSessionTreeSnapshot).toHaveBeenCalledWith("session-1");
+		await expect(response.json()).resolves.toEqual({ snapshot });
+	});
+
 	it("rejects navigate while the session is streaming", async () => {
 		const navigateSessionTree = vi.fn();
 		setBridgeForTests({

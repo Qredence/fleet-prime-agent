@@ -1,5 +1,5 @@
 import { SessionTreePanel } from "@prime-agent/web-design/components/qredence-ui/panels/session-tree-panel";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const snapshot = {
@@ -196,6 +196,66 @@ describe("SessionTreePanel", () => {
 				onRewind={onRewind}
 			/>,
 		);
+
+		expect(screen.queryByText("Rewind session?")).toBeNull();
+	});
+
+	it("ignores stale rewind completion after the session changes", async () => {
+		let rejectFirst!: (error: Error) => void;
+		let resolveSecond!: () => void;
+		const firstRewind = new Promise<void>((_resolve, reject) => {
+			rejectFirst = reject;
+		});
+		const secondRewind = new Promise<void>((resolve) => {
+			resolveSecond = resolve;
+		});
+		const onRewind = vi.fn().mockReturnValueOnce(firstRewind).mockReturnValueOnce(secondRewind);
+		const { rerender } = render(
+			<SessionTreePanel
+				sessionId="session-1"
+				snapshot={snapshot}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Rewind here" }));
+		fireEvent.click(screen.getByRole("button", { name: "Rewind" }));
+
+		rerender(
+			<SessionTreePanel
+				sessionId="session-2"
+				snapshot={{ ...snapshot, sessionId: "session-2" }}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Rewind here" }));
+		fireEvent.click(screen.getByRole("button", { name: "Rewind" }));
+		expect(onRewind).toHaveBeenCalledTimes(2);
+		expect(screen.getByRole("button", { name: "Rewinding…" })).toBeTruthy();
+
+		await act(async () => {
+			rejectFirst(new Error("stale rewind error"));
+			await Promise.resolve();
+		});
+
+		expect(screen.queryByText("stale rewind error")).toBeNull();
+		expect(screen.getByRole("button", { name: "Rewinding…" })).toBeTruthy();
+
+		await act(async () => {
+			resolveSecond();
+			await Promise.resolve();
+		});
 
 		expect(screen.queryByText("Rewind session?")).toBeNull();
 	});
