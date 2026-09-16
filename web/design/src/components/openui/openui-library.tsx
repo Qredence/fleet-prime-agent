@@ -115,7 +115,7 @@ function PanelActionComponent({
 	props: {
 		focus?: boolean;
 		label: string;
-		panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights";
+		panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights" | "session-tree";
 		relativePath?: string;
 	};
 }) {

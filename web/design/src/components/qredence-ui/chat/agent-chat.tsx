@@ -433,6 +433,7 @@ type ConversationTurnViewProps = {
 	windowed?: boolean;
 	/** First-appearance entrance. Recycled virtualized rows should pass false. */
 	animateIn?: boolean;
+	highlightedMessageId?: string;
 };
 
 /**
@@ -454,11 +455,20 @@ export const ConversationTurnView = memo(
 		activity,
 		windowed = false,
 		animateIn,
+		highlightedMessageId,
 	}: ConversationTurnViewProps) {
 		const shouldAnimate = animateIn ?? !state.isStreaming;
+		const isHighlighted =
+			(highlightedMessageId &&
+				(turn.user?.id === highlightedMessageId ||
+					turn.assistants.some((message) => message.id === highlightedMessageId))) ||
+			false;
 		return (
 			<div
-				className="flex flex-col gap-[var(--density-gap)]"
+				className={cn(
+					"flex flex-col gap-[var(--density-gap)] rounded-lg transition-colors",
+					isHighlighted ? "bg-foreground/6 ring-1 ring-foreground/15" : undefined,
+				)}
 				style={windowed ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 400px" }}
 			>
 				{turn.user ? (
@@ -500,7 +510,8 @@ export const ConversationTurnView = memo(
 		previous.activity.presentation === next.activity.presentation &&
 		previous.activity.artifactRuns === next.activity.artifactRuns &&
 		previous.windowed === next.windowed &&
-		previous.animateIn === next.animateIn,
+		previous.animateIn === next.animateIn &&
+		previous.highlightedMessageId === next.highlightedMessageId,
 );
 
 /**
@@ -613,6 +624,7 @@ export function AgentChat({
 	queue,
 	onDeleteQueuedMessage,
 	onEditQueuedMessage,
+	highlightedMessageId,
 }: AgentChatViewProps) {
 	const draftSetterRef = useRef<((value: string) => void) | null>(null);
 	const viewportRef = useRef<HTMLElement | null>(null);
@@ -671,10 +683,21 @@ export function AgentChat({
 					activity={isLast ? activityForLast : activityForRest}
 					windowed={windowed}
 					animateIn={firstAppearance && !(isLast && isStreaming)}
+					highlightedMessageId={highlightedMessageId}
 				/>
 			);
 		},
-		[activityForLast, activityForRest, isStreaming, rendering, stateForLast, stateForRest, turns.length, windowed],
+		[
+			activityForLast,
+			activityForRest,
+			highlightedMessageId,
+			isStreaming,
+			rendering,
+			stateForLast,
+			stateForRest,
+			turns.length,
+			windowed,
+		],
 	);
 	const isEmpty = turns.length === 0 && !error;
 	const errorPresentation = error ? getChatErrorPresentation(error) : null;

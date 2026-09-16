@@ -105,6 +105,7 @@ export function ChatWorkspaceShell() {
 	const activeConversationPanel = activeTabIsMain ? (
 		<ChatPanel
 			messages={conversation.messages}
+			highlightedMessageId={conversation.highlightedTranscriptMessageId ?? undefined}
 			status={conversation.status}
 			error={conversation.error ?? undefined}
 			workspaceName={activeProjectName}

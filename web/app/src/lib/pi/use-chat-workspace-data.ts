@@ -46,6 +46,7 @@ import { useLocalSlashActions } from "@/lib/pi/use-local-slash-actions";
 import { usePendingQuestionBar } from "@/lib/pi/use-pending-question-bar";
 import { usePiChat } from "@/lib/pi/use-pi-chat";
 import { useRightPanelContextValue } from "@/lib/pi/use-right-panel-context-value";
+import { useSessionTree } from "@/lib/pi/use-session-tree";
 import { buildWorkspaceReferenceSuggestions, workspacePathFromSuggestion } from "@/lib/pi/workspace-suggestions";
 import { loadWorkspaceFile } from "@/lib/workspace-file";
 import { notifyChatError, runWorkspaceAction } from "./chat-error-notify";
@@ -578,6 +579,15 @@ export function useChatWorkspaceData() {
 		presentation,
 		rootSessionId: sessionMetadata.sessionId,
 	});
+	const sessionTree = useSessionTree({
+		sessionMetadata: {
+			sessionId: sessionMetadata.sessionId,
+			projectId: sessionMetadata.projectId ?? activeProjectId,
+		},
+		status,
+		resumeSession: resumeSessionForWorkspace,
+		rightPanel,
+	});
 
 	const onDiscoverModels = useCallback(
 		async (providerId: string) => {
@@ -638,6 +648,14 @@ export function useChatWorkspaceData() {
 		workspaceError,
 		workspaceLoading,
 		workspaceTree,
+		sessionTreeSnapshot: sessionTree.sessionTreeSnapshot,
+		sessionTreeLoading: sessionTree.sessionTreeLoading,
+		sessionTreeError: sessionTree.sessionTreeError,
+		selectedSessionTreeEntryId: sessionTree.selectedSessionTreeEntryId,
+		isSessionTreeStreaming: sessionTree.isSessionTreeStreaming,
+		refreshSessionTree: () => void sessionTree.refreshSessionTree(),
+		selectSessionTreeEntry: sessionTree.selectSessionTreeEntry,
+		rewindSessionTree: sessionTree.rewindSessionTree,
 	});
 
 	const header = useChatWorkspaceHeader({
@@ -675,6 +693,7 @@ export function useChatWorkspaceData() {
 			deleteQueuedMessage,
 			editQueuedMessage,
 			error,
+			highlightedTranscriptMessageId: sessionTree.highlightedTranscriptMessageId,
 			messages,
 			openArtifact,
 			openPanelAction: openProjectPanelAction,

@@ -1,4 +1,4 @@
-import { Activity, Bot, Folder, Library, Package, SquareTerminal } from "lucide-react";
+import { Activity, Bot, Folder, GitBranch, Library, Package, SquareTerminal } from "lucide-react";
 import type { ComponentType, ElementType } from "react";
 import { lazy, Suspense } from "react";
 import type { RightPanel } from "../../../lib/canvas-utils";
@@ -54,6 +54,11 @@ const LazySubagentsPanel = lazy(() =>
 const LazyWorkspacePanel = lazy(() =>
 	import("../panels/workspace-panel").then(({ WorkspacePanelContent }) => ({
 		default: WorkspacePanelContent,
+	})),
+);
+const LazySessionTreePanel = lazy(() =>
+	import("../panels/session-tree-panel").then(({ SessionTreePanel }) => ({
+		default: SessionTreePanel,
 	})),
 );
 
@@ -169,6 +174,25 @@ function SubagentsContent() {
 	);
 }
 
+function SessionTreeContent() {
+	const data = useChatPanelDataContext();
+	return (
+		<Suspense fallback={<PanelFallback />}>
+			<LazySessionTreePanel
+				sessionId={data.sessionId}
+				snapshot={data.sessionTreeSnapshot}
+				loading={data.sessionTreeLoading}
+				error={data.sessionTreeError}
+				isStreaming={data.isSessionTreeStreaming}
+				selectedEntryId={data.selectedSessionTreeEntryId}
+				onSelectEntry={data.selectSessionTreeEntry}
+				onRefresh={data.refreshSessionTree}
+				onRewind={data.rewindSessionTree}
+			/>
+		</Suspense>
+	);
+}
+
 export const RIGHT_PANEL_REGISTRY = {
 	resources: {
 		id: "resources",
@@ -265,6 +289,22 @@ export const RIGHT_PANEL_REGISTRY = {
 		loadingSource: undefined,
 		refreshSource: undefined,
 		component: SessionInsightsContent,
+	},
+	"session-tree": {
+		id: "session-tree",
+		order: 6,
+		title: "Session tree",
+		ariaLabel: "Session tree",
+		commandLabel: "Open Session Tree",
+		commandKeywords: ["session", "tree", "branch", "rewind", "history", "panels"],
+		icon: GitBranch,
+		dataTestid: "pi-session-tree-canvas",
+		mobileDataTestid: "pi-session-tree-mobile-panel",
+		showInLauncher: true,
+		badgeSource: undefined,
+		loadingSource: undefined,
+		refreshSource: undefined,
+		component: SessionTreeContent,
 	},
 } satisfies Record<ActiveRightPanel, RightPanelDefinition>;
 

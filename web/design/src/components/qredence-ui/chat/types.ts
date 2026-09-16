@@ -77,6 +77,7 @@ export type ModelOption = {
 /** Props for the <AgentChat> drop-in component */
 export type AgentChatProps = {
 	messages: Array<ChatMessage>;
+	highlightedMessageId?: string;
 	onSend: (message: { role: "user"; content: string; altKey?: boolean }) => void;
 	status: ChatStatus;
 	onStop: () => void;

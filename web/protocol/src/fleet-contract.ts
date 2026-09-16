@@ -10,6 +10,7 @@ export const RightPanelIdSchema = z.enum([
 	"repl",
 	"subagents",
 	"session-insights",
+	"session-tree",
 ]);
 export type RightPanelId = z.infer<typeof RightPanelIdSchema>;
 export type RightPanelState = RightPanelId | null;

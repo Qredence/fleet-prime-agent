@@ -22,6 +22,7 @@ import type {
 	PrimeAgentArtifactRun,
 	PrimeAgentSessionPresentation,
 	QueueState,
+	SessionTreeSnapshot,
 	WorkspaceFileResponse,
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -57,6 +58,14 @@ export type ChatPanelDataContextValue = {
 	reopenRightPanel: () => void;
 	rightPanel: RightPanel;
 	setRightPanel: (panel: RightPanel) => void;
+	sessionTreeSnapshot: SessionTreeSnapshot | null;
+	sessionTreeLoading: boolean;
+	sessionTreeError: string | null;
+	selectedSessionTreeEntryId: string | null;
+	isSessionTreeStreaming: boolean;
+	refreshSessionTree: () => void;
+	selectSessionTreeEntry: (entryId: string, messageId?: string) => void;
+	rewindSessionTree: (entryId: string, expectedLeafId: string | null) => Promise<void>;
 };
 
 export type WorkspaceTreeContextValue = {

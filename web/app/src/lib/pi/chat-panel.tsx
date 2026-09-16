@@ -10,6 +10,7 @@ import { useCallback, useMemo } from "react";
 
 type ChatPanelProps = {
 	messages: Array<ChatMessage>;
+	highlightedMessageId?: string;
 	status: ChatStatus;
 	error: Error | undefined;
 	workspaceName?: string;
@@ -37,6 +38,7 @@ type ChatPanelProps = {
  */
 export function ChatPanel({
 	messages,
+	highlightedMessageId,
 	status,
 	error,
 	workspaceName,
@@ -88,6 +90,7 @@ export function ChatPanel({
 			<UiErrorBoundary>
 				<AgentChat
 					messages={messages}
+					highlightedMessageId={highlightedMessageId}
 					status={status}
 					onSend={handleSend}
 					onOpenUIAction={handleOpenUIAction}
