@@ -435,7 +435,7 @@ export function MobilePanel({
 					{title ?? "Panel"}
 				</span>
 				{title && (
-					<div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3">
+					<div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-[var(--density-pad-x)]">
 						<div className="flex min-w-0 items-center gap-2 text-label font-medium text-foreground/80">
 							{Icon && <Icon className="size-3.5 shrink-0" />}
 							<span className="truncate">{title}</span>
@@ -458,7 +458,9 @@ export function MobilePanel({
 						</div>
 					</div>
 				)}
-				<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">{children}</div>
+				<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--density-pad-x)] py-4">
+					{children}
+				</div>
 			</div>
 		</dialog>
 	);

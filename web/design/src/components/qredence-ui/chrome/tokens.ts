@@ -20,7 +20,7 @@ export const HIT_AREA_EXPAND_DENSE_CLASS = "relative after:absolute after:inset-
 
 /** Floating header pills and inactive launcher chrome. */
 export const CHROME_PILL_CLASS =
-	"relative inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-border/70 px-3 text-label font-medium whitespace-nowrap shadow-sm backdrop-blur transition-colors";
+	"relative inline-flex h-9 items-center gap-1.5 rounded-md border border-border/70 px-3 text-label font-medium whitespace-nowrap shadow-sm backdrop-blur transition-colors";
 
 export const CHROME_PILL_INACTIVE_CLASS = "bg-sidebar text-foreground/55 hover:bg-background hover:text-foreground/75";
 
@@ -44,10 +44,10 @@ export const SUGGESTION_ITEM_CLASS =
 
 /** Mobile right-panel overlay sheet. */
 export const PANEL_OVERLAY_CLASS =
-	"h-full min-h-0 w-[min(360px,calc(100vw-1.5rem))] overflow-hidden rounded-md border border-border/70 bg-background/95 shadow-lg backdrop-blur";
+	"h-full min-h-0 w-[min(360px,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-border/70 bg-background/95 shadow-lg backdrop-blur";
 
-/** Inner rows: 4px + 8px section padding = 12px outer (concentric). */
-export const rowSurface = cva("flex min-w-0 rounded-[4px] border", {
+/** Inner rows: 8px radius inside 24px shell (concentric). */
+export const rowSurface = cva("flex min-w-0 rounded-sm border", {
 	variants: {
 		tone: {
 			default: "border-border/30 bg-background/30",

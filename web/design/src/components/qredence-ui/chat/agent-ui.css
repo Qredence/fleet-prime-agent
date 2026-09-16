@@ -1,7 +1,7 @@
 :root {
   --chat-measure: 768px;
   --chat-message-radius: var(--radius);
-  --chat-message-radius-inner: calc(var(--radius) - 4px);
+  --chat-message-radius-inner: 1rem; /* 16px concentric inside 24px shell */
   --chat-input-radius: 1.5rem;
   --chat-tool-radius: calc(var(--radius) * 0.8);
   --chat-context-padding: 10px;

@@ -621,7 +621,7 @@ function SettingsDialogBody({
 		// Nest AlertDialog under Dialog.Root so Base UI tracks nested open
 		// dialogs (Esc / isTopmost). Sibling roots fight Esc and re-prompt.
 		<>
-			<DialogContent className="flex h-[min(640px,calc(100dvh-4rem))] w-full max-w-[calc(100%-2rem)] overflow-hidden p-0 sm:max-w-[min(860px,calc(100%-2rem))]">
+			<DialogContent className="flex h-[min(640px,calc(100dvh-4rem))] w-full max-w-[calc(100%-2rem)] overflow-hidden rounded-2xl p-0 sm:max-w-[min(860px,calc(100%-2rem))]">
 				<DialogTitle className="sr-only">Settings</DialogTitle>
 				<DialogDescription className="sr-only">Customize your settings here.</DialogDescription>
 
@@ -630,8 +630,8 @@ function SettingsDialogBody({
 						aria-label="Settings sections"
 						className="hidden h-full w-52 shrink-0 flex-col border-r border-border bg-sidebar sm:flex"
 					>
-						<div className="px-4 pt-5 pb-2 text-label font-semibold">Settings</div>
-						<div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+						<div className="px-6 pt-6 pb-2 text-label font-semibold">Settings</div>
+						<div className="min-h-0 flex-1 overflow-y-auto px-2 pb-6">
 							{SETTINGS_SECTION_GROUPS.map((group) => (
 								<div key={group.id} className="py-2">
 									<p className="px-2 pb-1 text-caption font-medium uppercase tracking-wide text-muted-foreground">

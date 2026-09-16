@@ -16,9 +16,9 @@ import {
 	Folder,
 	FolderPlus,
 	LoaderCircle,
-	MessageSquarePlus,
 	MoreHorizontal,
 	Plus,
+	SquarePen,
 	TriangleAlert,
 } from "lucide-react";
 import { Button } from "../../../ui/button";
@@ -205,7 +205,7 @@ export function SessionSidebarProjectList({
 										}}
 										className="size-7 shrink-0 opacity-0 group-hover/resource:opacity-100 group-focus-within/resource:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
 									>
-										<MessageSquarePlus data-icon="inline-start" className="size-3.5" />
+										<SquarePen data-icon="inline-start" className="size-3.5" />
 									</Button>
 								);
 							}}
