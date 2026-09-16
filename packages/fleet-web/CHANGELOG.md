@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.3
+
+### Patch Changes
+
+- 1fdc437: Add a Session Tree right panel with branch browsing, transcript highlighting, and rewind-from-history support backed by dedicated session-tree protocol handlers.
+
 ## 0.6.2
 
 ### Patch Changes
