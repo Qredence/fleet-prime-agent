@@ -73,7 +73,7 @@ export function ResizableCanvas({
 						onPointerDown={onResizeStart}
 					/>
 					<div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-						<div className="flex h-[var(--chat-header-height,44px)] min-h-[var(--chat-header-height,44px)] min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-1">
+						<div className="flex h-[var(--chat-header-height,44px)] min-h-[var(--chat-header-height,44px)] min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-[var(--density-pad-x)] py-1">
 							<div className="min-w-0 flex-1">
 								{headerLeading ?? (
 									<div className="flex min-w-0 items-center gap-2 text-body font-medium text-foreground/80">
@@ -112,7 +112,7 @@ export function ResizableCanvas({
 								</Button>
 							</div>
 						</div>
-						<div className="flex-1 overflow-y-auto px-3 py-2">{children}</div>
+						<div className="flex-1 overflow-y-auto px-[var(--density-pad-x)] py-4">{children}</div>
 					</div>
 				</m.aside>
 			)}
