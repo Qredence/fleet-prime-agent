@@ -214,7 +214,7 @@ describe("right-panel execution tabs", () => {
 		layout(getByTestId("right-panel-inline-launcher"));
 
 		expect(getByTestId("right-panel-inline-launcher").getAttribute("data-panel-launcher-mode")).toBe("tabs");
-		expect(screen.getAllByRole("tab")).toHaveLength(5);
+		expect(screen.getAllByRole("tab")).toHaveLength(6);
 
 		const repl = screen.getByRole("tab", { name: "REPL runs" });
 		expect(repl).toBeTruthy();
@@ -246,13 +246,14 @@ describe("right-panel execution tabs", () => {
 		const select = getByRole("combobox", { name: "Select panel" });
 		fireEvent.click(select);
 		const options = await screen.findAllByRole("option");
-		expect(options).toHaveLength(5);
+		expect(options).toHaveLength(6);
 		expect(options.map((option) => option.textContent?.trim())).toEqual([
 			"Resources",
 			"Workspace",
 			"Artifacts",
 			"REPL",
 			"Session insights",
+			"Session tree",
 		]);
 
 		const replOption = getByRole("option", { name: "REPL" });
