@@ -85,7 +85,7 @@ import {
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
 import { parseBackendSessionCommand } from "./session-commands";
-import { SessionTreeConcurrencyError } from "./session-tree-errors";
+import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./session-tree-errors";
 import { mapSessionTreeSnapshot } from "./session-tree-mapper";
 
 // ---------------------------------------------------------------------------
@@ -2103,7 +2103,10 @@ export class PrimeBridge {
 		if (expectedLeafId && before.leafId !== expectedLeafId) {
 			throw new SessionTreeConcurrencyError();
 		}
-		await session.connection.navigateTree(targetEntryId, {});
+		const navigation = await session.connection.navigateTree(targetEntryId, {});
+		if (navigation.cancelled) {
+			throw new SessionTreeCancelledError();
+		}
 		await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
 		return this.readSessionTreeSnapshot(sessionId);
 	}

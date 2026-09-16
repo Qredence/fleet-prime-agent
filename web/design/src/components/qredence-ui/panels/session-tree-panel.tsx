@@ -1,10 +1,9 @@
 import type { SessionTreeNode, SessionTreeSnapshot } from "@prime-agent/web-protocol/chat-protocol";
 import { GitBranch } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "../../../lib/utils";
 import {
 	AlertDialog,
-	AlertDialogAction,
 	AlertDialogCancel,
 	AlertDialogContent,
 	AlertDialogDescription,
@@ -89,6 +88,9 @@ export function SessionTreePanel({
 	onRewind,
 }: SessionTreePanelProps) {
 	const [confirmEntryId, setConfirmEntryId] = useState<string | null>(null);
+	const [confirmExpectedLeafId, setConfirmExpectedLeafId] = useState<string | null>(null);
+	const [confirming, setConfirming] = useState(false);
+	const [confirmError, setConfirmError] = useState<string | null>(null);
 	const rows = useMemo(() => (snapshot ? flattenVisibleNodes(snapshot.nodes) : []), [snapshot]);
 	const selectedNode = useMemo(
 		() => rows.find((row) => row.node.id === selectedEntryId)?.node,
@@ -98,6 +100,15 @@ export function SessionTreePanel({
 		selectedNode && snapshot && selectedEntryId && selectedEntryId !== snapshot.leafId && !isStreaming,
 	);
 
+	// After a partial rewind failure reconciles the tree, re-arm the lock so retry
+	// does not 409 against the open-time leaf while the dialog stays open.
+	useEffect(() => {
+		if (confirmEntryId === null || confirming || confirmError === null) return;
+		const nextLeaf = snapshot?.leafId ?? null;
+		if (nextLeaf === confirmExpectedLeafId) return;
+		setConfirmExpectedLeafId(nextLeaf);
+	}, [confirmEntryId, confirming, confirmError, confirmExpectedLeafId, snapshot?.leafId]);
+
 	const resolveMessageId = useCallback(
 		(node: SessionTreeNode) => {
 			if (!sessionId || node.messageIndex === undefined) return undefined;
@@ -106,11 +117,44 @@ export function SessionTreePanel({
 		[sessionId],
 	);
 
-	const handleConfirmRewind = useCallback(async () => {
-		if (!confirmEntryId || !snapshot) return;
-		await onRewind(confirmEntryId, snapshot.leafId);
+	const clearConfirm = useCallback(() => {
 		setConfirmEntryId(null);
-	}, [confirmEntryId, onRewind, snapshot]);
+		setConfirmExpectedLeafId(null);
+		setConfirmError(null);
+		setConfirming(false);
+	}, []);
+
+	// Drop stale confirm state when the panel follows a different session.
+	useEffect(() => {
+		clearConfirm();
+	}, [sessionId, clearConfirm]);
+
+	const handleConfirmRewind = useCallback(async () => {
+		// Capture before any dialog close/state clear — AlertDialogAction/Close must not race this.
+		const entryId = confirmEntryId;
+		const leafId = confirmExpectedLeafId;
+		if (!entryId) return;
+		setConfirming(true);
+		setConfirmError(null);
+		try {
+			await onRewind(entryId, leafId);
+			clearConfirm();
+		} catch (caught) {
+			setConfirmError(caught instanceof Error ? caught.message : String(caught));
+		} finally {
+			setConfirming(false);
+		}
+	}, [clearConfirm, confirmEntryId, confirmExpectedLeafId, onRewind]);
+
+	const openConfirm = useCallback(
+		(entryId: string) => {
+			setConfirmError(null);
+			setConfirmEntryId(entryId);
+			// Lock the leaf at dialog open for optimistic concurrency while the dialog is open.
+			setConfirmExpectedLeafId(snapshot?.leafId ?? null);
+		},
+		[snapshot?.leafId],
+	);
 
 	if (!sessionId) {
 		return (
@@ -176,22 +220,41 @@ export function SessionTreePanel({
 					type="button"
 					size="sm"
 					disabled={!canRewind}
-					onClick={() => selectedEntryId && setConfirmEntryId(selectedEntryId)}
+					onClick={() => selectedEntryId && openConfirm(selectedEntryId)}
 				>
 					Rewind here
 				</Button>
 			</div>
 
-			<AlertDialog open={confirmEntryId !== null} onOpenChange={(open) => !open && setConfirmEntryId(null)}>
+			<AlertDialog
+				open={confirmEntryId !== null}
+				onOpenChange={(open) => {
+					if (!open && !confirming) clearConfirm();
+				}}
+			>
 				<AlertDialogContent>
 					<AlertDialogTitle>Rewind session?</AlertDialogTitle>
 					<AlertDialogDescription>
-						This replaces the live transcript from the selected entry forward. Later turns on the current branch
-						will be removed from the active session.
+						Later turns on the current branch leave the active session. Rewinding to a user turn follows Prime
+						Agent edit-from-here semantics: the leaf moves to that message&apos;s parent so you can resend from
+						there.
 					</AlertDialogDescription>
+					{confirmError ? (
+						<p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-label text-destructive">
+							{confirmError}
+						</p>
+					) : null}
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => void handleConfirmRewind()}>Rewind</AlertDialogAction>
+						<AlertDialogCancel disabled={confirming}>Cancel</AlertDialogCancel>
+						{/* Use a real Button — AlertDialogAction is Close and was racing/swallowing async rewind. */}
+						<Button
+							type="button"
+							variant="destructive"
+							disabled={confirming}
+							onClick={() => void handleConfirmRewind()}
+						>
+							{confirming ? "Rewinding…" : "Rewind"}
+						</Button>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>

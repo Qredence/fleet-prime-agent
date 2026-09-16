@@ -4,7 +4,7 @@ import {
 	SessionTreeSnapshotResponseSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
-import { SessionTreeBusyError, SessionTreeConcurrencyError } from "../session-tree-errors";
+import { SessionTreeBusyError, SessionTreeCancelledError, SessionTreeConcurrencyError } from "../session-tree-errors";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { requireProjectSession } from "./session-access";
@@ -64,8 +64,8 @@ export function handleChatSessionTreeNavigatePost(request: Request): Promise<Res
 			);
 			return Response.json(SessionTreeNavigateResponseSchema.parse({ snapshot }));
 		} catch (error) {
-			if (error instanceof SessionTreeConcurrencyError) {
-				return Response.json({ message: error.message }, { status: 409 });
+			if (error instanceof SessionTreeConcurrencyError || error instanceof SessionTreeCancelledError) {
+				return Response.json({ message: error.message }, { status: error.status });
 			}
 			throw error;
 		}

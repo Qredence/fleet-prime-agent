@@ -585,7 +585,7 @@ export function useChatWorkspaceData() {
 			projectId: sessionMetadata.projectId ?? activeProjectId,
 		},
 		status,
-		resumeSession: resumeSessionForWorkspace,
+		resumeSession: resumeSessionForWorkspaceWithResult,
 		rightPanel,
 	});
 

@@ -15,3 +15,12 @@ export class SessionTreeConcurrencyError extends Error {
 		this.name = "SessionTreeConcurrencyError";
 	}
 }
+
+export class SessionTreeCancelledError extends Error {
+	readonly status: 409 = 409;
+
+	constructor() {
+		super("Session tree navigation was cancelled. Refresh and try again.");
+		this.name = "SessionTreeCancelledError";
+	}
+}

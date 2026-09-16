@@ -68,4 +68,135 @@ describe("SessionTreePanel", () => {
 
 		expect(screen.getByRole("button", { name: "Rewind here" }).hasAttribute("disabled")).toBe(true);
 	});
+
+	it("keeps the confirm dialog open and shows the error when rewind fails", async () => {
+		const onRewind = vi
+			.fn()
+			.mockRejectedValue(new Error("The session tree changed while you were selecting a rewind target."));
+		render(
+			<SessionTreePanel
+				sessionId="session-1"
+				snapshot={snapshot}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Rewind here" }));
+		expect(screen.getByText("Rewind session?")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Rewind" }));
+		expect(await screen.findByText(/session tree changed/i)).toBeTruthy();
+		expect(screen.getByText("Rewind session?")).toBeTruthy();
+		expect(onRewind).toHaveBeenCalledWith("user-1", "assistant-1");
+	});
+
+	it("locks expectedLeafId at dialog open even if the snapshot leaf changes before confirm", async () => {
+		const onRewind = vi.fn().mockResolvedValue(undefined);
+		const { rerender } = render(
+			<SessionTreePanel
+				sessionId="session-1"
+				snapshot={snapshot}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Rewind here" }));
+		rerender(
+			<SessionTreePanel
+				sessionId="session-1"
+				snapshot={{ ...snapshot, leafId: "assistant-2" }}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Rewind" }));
+		expect(onRewind).toHaveBeenCalledWith("user-1", "assistant-1");
+	});
+
+	it("re-arms expectedLeafId after a failed rewind when the snapshot leaf reconciles", async () => {
+		const onRewind = vi.fn().mockRejectedValueOnce(new Error("resume failed")).mockResolvedValueOnce(undefined);
+		const { rerender } = render(
+			<SessionTreePanel
+				sessionId="session-1"
+				snapshot={snapshot}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Rewind here" }));
+		fireEvent.click(screen.getByRole("button", { name: "Rewind" }));
+		expect(await screen.findByText(/resume failed/i)).toBeTruthy();
+		expect(onRewind).toHaveBeenCalledWith("user-1", "assistant-1");
+
+		rerender(
+			<SessionTreePanel
+				sessionId="session-1"
+				snapshot={{ ...snapshot, leafId: "assistant-2" }}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+
+		expect(screen.getByText("Rewind session?")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Rewind" }));
+		await vi.waitFor(() => {
+			expect(onRewind).toHaveBeenLastCalledWith("user-1", "assistant-2");
+		});
+	});
+
+	it("closes the confirm dialog when the sessionId changes", async () => {
+		const onRewind = vi.fn().mockResolvedValue(undefined);
+		const { rerender } = render(
+			<SessionTreePanel
+				sessionId="session-1"
+				snapshot={snapshot}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Rewind here" }));
+		expect(screen.getByText("Rewind session?")).toBeTruthy();
+
+		rerender(
+			<SessionTreePanel
+				sessionId="session-2"
+				snapshot={{ ...snapshot, sessionId: "session-2" }}
+				loading={false}
+				isStreaming={false}
+				selectedEntryId="user-1"
+				onSelectEntry={vi.fn()}
+				onRefresh={vi.fn()}
+				onRewind={onRewind}
+			/>,
+		);
+
+		expect(screen.queryByText("Rewind session?")).toBeNull();
+	});
 });
