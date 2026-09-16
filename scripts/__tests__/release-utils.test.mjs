@@ -135,7 +135,14 @@ test("detects only package-version commits on main", () => {
 		}),
 		false,
 	);
-	assert.equal(isPackageVersionCommit({ branch: "feature/release", forceRelease: true }), true);
+	assert.equal(
+		isPackageVersionCommit({
+			branch: "feature/release",
+			forceRelease: true,
+			readChangedPaths: () => ["packages/fleet-web/package.json", "packages/fleet-web/CHANGELOG.md"],
+		}),
+		false,
+	);
 });
 
 test("builds deploy marker commands for the Fleet production component", () => {

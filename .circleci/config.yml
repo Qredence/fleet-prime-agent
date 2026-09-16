@@ -25,6 +25,16 @@ executors:
     working_directory: ~/prime-agent
 
 commands:
+  set-deterministic-release-timestamp:
+    steps:
+      - run:
+          name: Set deterministic release timestamp
+          command: |
+            SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+            echo "export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" >> "${BASH_ENV}"
+            export SOURCE_DATE_EPOCH
+            echo "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
+
   install-system-dependencies:
     steps:
       - run:
@@ -125,13 +135,7 @@ jobs:
       - install-system-dependencies
       - install-pnpm
       - install-dependencies
-      - run:
-          name: Set deterministic release timestamp
-          command: |
-            SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
-            echo "export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" >> "${BASH_ENV}"
-            export SOURCE_DATE_EPOCH
-            echo "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
+      - set-deterministic-release-timestamp
       - run:
           name: Build web bundle and release artifacts
           command: pnpm run build:web:release
@@ -207,6 +211,7 @@ jobs:
           # advertised minimum Node lane does not require the workspace pnpm 11 toolchain.
           pnpm_version: "10.24.0"
       - install-dependencies
+      - set-deterministic-release-timestamp
       - attach_workspace:
           at: .
       - check-node-22-12
@@ -273,8 +278,7 @@ jobs:
           name: Plan Fleet production release marker
           command: |
             if [ "<< pipeline.parameters.release_retry >>" = "true" ]; then
-              export FORCE_RELEASE=1
-              echo 'export FORCE_RELEASE=1' >> "${BASH_ENV}"
+              echo "Release retry requested; the current commit must still be a package version commit."
             fi
             node scripts/release-marker.mjs plan
       - run:
@@ -305,10 +309,6 @@ jobs:
       - run:
           name: Mark canceled Fleet production release
           command: |
-            if [ "<< pipeline.parameters.release_retry >>" = "true" ]; then
-              export FORCE_RELEASE=1
-              echo 'export FORCE_RELEASE=1' >> "${BASH_ENV}"
-            fi
             export RELEASE_MARKER_STATUS=CANCELED
             node scripts/release-marker.mjs update
 

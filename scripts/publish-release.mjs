@@ -133,17 +133,11 @@ export function releaseDecision({ packageVersion, latestVersion, publishedVersio
 /**
  * Determines whether the current commit versions the package.
  * @param {string} [branch=process.env.CIRCLE_BRANCH] - The branch containing the commit.
- * @param {boolean} [forceRelease=process.env.FORCE_RELEASE === "1"] - Whether to approve the commit regardless of its branch or changed files.
  * @param {Function} [readChangedPaths] - Function that returns the paths changed by the commit.
  * @returns {boolean} `true` if the commit is eligible for release, `false` otherwise.
  * @throws {Error} If the changed paths cannot be determined.
  */
-export function isPackageVersionCommit({
-	branch = process.env.CIRCLE_BRANCH,
-	forceRelease = process.env.FORCE_RELEASE === "1",
-	readChangedPaths,
-} = {}) {
-	if (forceRelease) return true;
+export function isPackageVersionCommit({ branch = process.env.CIRCLE_BRANCH, readChangedPaths } = {}) {
 	if (branch && branch !== "main") return false;
 	try {
 		const changedPaths =

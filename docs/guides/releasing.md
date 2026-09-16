@@ -58,7 +58,7 @@ Configure npm Trusted Publishing for `@qredence/fleet` with the CircleCI organiz
 
 The publish job uses the Node 22.23.2 LTS executor and pins npm 11.15.0. This is separate from the package's minimum runtime of Node 22.12.0 because npm trusted publishing requires npm 11.15.0 and Node 22.14.0 or later.
 
-If a versioning commit passed validation before the publish configuration was fixed, manually trigger the `ci` workflow on `main` with the `release_retry=true` pipeline parameter. This guarded recovery switch sets `FORCE_RELEASE=1` only for that explicit run; it does not change normal release detection.
+If a versioning commit passed validation before the publish configuration was fixed, rerun the failed `ci` workflow on that same versioning commit. The `release_retry=true` parameter remains accepted for compatibility, but it does not bypass the package-version commit gate or permit publication from a later fix commit.
 
 ## Branch protection
 
