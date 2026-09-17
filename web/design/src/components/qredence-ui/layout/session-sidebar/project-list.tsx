@@ -8,6 +8,7 @@ import {
 	AnimatedSidebarGroupLabel,
 } from "@prime-agent/web-design/components/qredence-ui/layout/animated-sidebar";
 import { ProjectFolder } from "@prime-agent/web-design/components/qredence-ui/layout/project-folder";
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import {
@@ -21,7 +22,6 @@ import {
 	SquarePen,
 	TriangleAlert,
 } from "lucide-react";
-import { Button } from "../../../ui/button";
 import type { SidebarStateView } from "./state";
 import type { SessionSidebarDependencies } from "./types";
 import { idValue, PROJECT_PREFIX, projectResourceId, SESSION_PREFIX, sessionResourceId } from "./types";

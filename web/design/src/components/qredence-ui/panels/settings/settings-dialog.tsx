@@ -1,3 +1,24 @@
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogTitle,
+} from "@prime-agent/web-design/components/ui/alert-dialog";
+import {
+	Breadcrumb,
+	BreadcrumbItem,
+	BreadcrumbList,
+	BreadcrumbPage,
+	BreadcrumbSeparator,
+} from "@prime-agent/web-design/components/ui/breadcrumb";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@prime-agent/web-design/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@prime-agent/web-design/components/ui/field";
+import { ScrollArea } from "@prime-agent/web-design/components/ui/scroll-area";
+import { Select } from "@prime-agent/web-design/components/ui/select";
+import { Switch } from "@prime-agent/web-design/components/ui/switch";
 import { notify as toast } from "@prime-agent/web-design/lib/notify";
 import type { ChatPiSettings, ChatPiSettingsUpdate } from "@prime-agent/web-protocol/chat-protocol";
 import type { LucideIcon } from "lucide-react";
@@ -10,27 +31,6 @@ import {
 	writeUiPreferences,
 } from "../../../../lib/ui-preferences";
 import { cn } from "../../../../lib/utils";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogTitle,
-} from "../../../ui/alert-dialog";
-import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbList,
-	BreadcrumbPage,
-	BreadcrumbSeparator,
-} from "../../../ui/breadcrumb";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../../ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "../../../ui/field";
-import { ScrollArea } from "../../../ui/scroll-area";
-import { Select } from "../../../ui/select";
-import { Switch } from "../../../ui/switch";
 import { useChatPanelDataContext, useSettingsActionsContext } from "../../layout/right-panel-context";
 import { McpConnectionsSection } from "../config-panel/sections/mcp-connections-section";
 import { ModelDefaultsSection } from "../config-panel/sections/model-defaults-section";

@@ -17,6 +17,17 @@ type SearchGroupRichProps = {
 	defaultOpen?: boolean;
 };
 
+type SearchCompleteTrackerProps = {
+	step: Extract<TimelineStep, { type: "tool-call" }>;
+	animating: boolean;
+	onStepComplete: (id: string) => void;
+};
+
+function SearchCompleteTracker({ step, animating, onStepComplete }: SearchCompleteTrackerProps) {
+	useToolComplete(animating, step.duration, () => onStepComplete(step.id));
+	return null;
+}
+
 function SearchGroupRich({ toolSteps, stepStates, onStepComplete, results = [], defaultOpen }: SearchGroupRichProps) {
 	const anyAnimating = toolSteps.some((s) => stepStates[s.id] === "animating");
 	const searchQuery = toolSteps.find((s) => s.searchQuery)?.searchQuery ?? "searching...";
@@ -27,15 +38,15 @@ function SearchGroupRich({ toolSteps, stepStates, onStepComplete, results = [], 
 	// label. Once results arrive the panel becomes meaningful.
 	const hasExpandableContent = totalResults > 0;
 
-	function CompleteTracker({ step }: { step: Extract<TimelineStep, { type: "tool-call" }> }) {
-		useToolComplete(stepStates[step.id] === "animating", step.duration, () => onStepComplete(step.id));
-		return null;
-	}
-
 	return (
 		<>
 			{toolSteps.map((step) => (
-				<CompleteTracker key={step.id} step={step} />
+				<SearchCompleteTracker
+					key={step.id}
+					step={step}
+					animating={stepStates[step.id] === "animating"}
+					onStepComplete={onStepComplete}
+				/>
 			))}
 			<ToolRowBase
 				shimmerLabel="Searching..."

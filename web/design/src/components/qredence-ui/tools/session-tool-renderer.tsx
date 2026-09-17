@@ -7,11 +7,9 @@ export const SessionToolRenderer = memo(function SessionToolRenderer(props: Tool
 	const partType = props.part.type as string;
 	if (partType === "tool-Thinking" || partType === "tool-FleetReasoning") return null;
 
-	const fallback = <ToolRenderer {...props} />;
-
 	if (partType.startsWith("tool-")) {
-		return <SpecializedToolRenderer {...props} fallback={fallback} />;
+		return <SpecializedToolRenderer {...props} />;
 	}
 
-	return fallback;
+	return <ToolRenderer {...props} />;
 });

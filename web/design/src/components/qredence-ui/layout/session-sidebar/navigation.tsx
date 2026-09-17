@@ -10,6 +10,7 @@ import {
 	type SearchableThread,
 	ThreadSearch,
 } from "@prime-agent/web-design/components/qredence-ui/layout/thread-search";
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import type { LucideIcon } from "lucide-react";
@@ -18,7 +19,6 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers";
 import { SurfaceProvider } from "../../../../lib/surface-context";
-import { Button } from "../../../ui/button";
 import { sortSessions } from "../session-sidebar-model";
 import { SessionSidebarProjectList } from "./project-list";
 import type { SidebarStateView } from "./state";

@@ -1,5 +1,5 @@
+import { Badge } from "@prime-agent/web-design/components/ui/badge";
 import { fleetVersion } from "../../../../lib/fleet-version";
-import { Badge } from "../../../ui/badge";
 
 /**
  * Released Fleet package version shown in the session sidebar footer.

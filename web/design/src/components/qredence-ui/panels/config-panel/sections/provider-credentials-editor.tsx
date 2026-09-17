@@ -1,3 +1,16 @@
+import { Alert, AlertDescription } from "@prime-agent/web-design/components/ui/alert";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogTitle,
+} from "@prime-agent/web-design/components/ui/alert-dialog";
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@prime-agent/web-design/components/ui/input-group";
+import { Spinner } from "@prime-agent/web-design/components/ui/spinner";
 import type {
 	ChatProviderInfo,
 	ChatProviderOAuthLoginRequest,
@@ -7,19 +20,6 @@ import type {
 import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
 import { ArrowLeft, Info, Search } from "lucide-react";
 import { cn } from "../../../../../lib/utils";
-import { Alert, AlertDescription } from "../../../../ui/alert";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogTitle,
-} from "../../../../ui/alert-dialog";
-import { Button } from "../../../../ui/button";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "../../../../ui/input-group";
-import { Spinner } from "../../../../ui/spinner";
 import { ProviderBrandIcon } from "../shared/provider-brand-icon";
 import { ProviderCredentialFields } from "../shared/provider-credential-fields";
 import { PROVIDER_METADATA } from "../shared/provider-metadata";

@@ -530,12 +530,16 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 	const startNewSession = useCallback(
 		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
+			const requestId = resumeRequestRef.current + 1;
+			resumeRequestRef.current = requestId;
+			const isCurrent = () => resumeRequestRef.current === requestId;
 			if (options?.preserveRunning === false) stop();
 			else {
 				invalidateQueueMutations();
 				setStatus("ready");
 			}
 			const result = await client.createSession(options?.projectId ?? projectIdRef.current ?? projectId);
+			if (!isCurrent()) return;
 			setSessionMetadataSynced(result.session);
 			setMessagesSynced([]);
 			setPresentationSynced(result.presentation);
@@ -686,7 +690,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 				notifyChatError(err);
 				return false;
 			}
-			if (deletingActive) {
+			if (sessionMetadataRef.current.sessionId === sessionId) {
 				setSessionMetadataSynced({});
 				setMessagesSynced([]);
 				setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });

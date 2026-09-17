@@ -1,11 +1,12 @@
 "use client";
 
 import { ActionSwapRollText } from "@prime-agent/web-design/components/qredence-ui/motion/action-swap-roll";
-import { Checkbox } from "@prime-agent/web-design/components/qredence-ui/motion/checkbox";
-import { RadioGroup, RadioGroupItem } from "@prime-agent/web-design/components/qredence-ui/motion/radio";
-import { ValidatedInput } from "@prime-agent/web-design/components/qredence-ui/motion/validated-input";
 import { AgentDisclosure } from "@prime-agent/web-design/components/qredence-ui/tools/agent-disclosure";
 import { Button } from "@prime-agent/web-design/components/ui/button";
+import { Checkbox } from "@prime-agent/web-design/components/ui/checkbox";
+import { Input } from "@prime-agent/web-design/components/ui/input";
+import { Label } from "@prime-agent/web-design/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@prime-agent/web-design/components/ui/radio-group";
 import { EASE_OUT, SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ArrowLeft, ArrowRight, Check, CircleHelp, LoaderCircle, MessageSquareText, X } from "lucide-react";
@@ -89,21 +90,27 @@ function QuestionOptions({
 				question.multiple ? (
 					<div className="grid gap-0.5">
 						{question.options.map((option) => (
-							<Checkbox
+							<Label
 								key={option.value}
-								checked={selectedValues.has(option.value)}
-								disabled={disabled || option.disabled}
-								label={option.label}
-								onCheckedChange={(checked) =>
-									onChange({
-										...answer,
-										selected: checked
-											? [...answer.selected, option.value]
-											: answer.selected.filter((value) => value !== option.value),
-									})
-								}
-								className="min-h-9 rounded-lg px-1.5 py-1"
-							/>
+								className={cn(
+									"flex min-h-9 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 font-normal",
+									(disabled || option.disabled) && "cursor-not-allowed opacity-60",
+								)}
+							>
+								<Checkbox
+									checked={selectedValues.has(option.value)}
+									disabled={disabled || option.disabled}
+									onCheckedChange={(checked) =>
+										onChange({
+											...answer,
+											selected: checked
+												? [...answer.selected, option.value]
+												: answer.selected.filter((value) => value !== option.value),
+										})
+									}
+								/>
+								<span className="select-none text-sm text-foreground">{option.label}</span>
+							</Label>
 						))}
 					</div>
 				) : (
@@ -114,36 +121,39 @@ function QuestionOptions({
 							onSingleSelect?.();
 						}}
 						className="gap-0.5"
+						disabled={disabled}
 					>
 						{question.options.map((option) => (
-							<RadioGroupItem
+							<Label
 								key={option.value}
-								value={option.value}
-								label={option.label}
-								disabled={disabled || option.disabled}
-								className="min-h-9 rounded-lg px-1.5 py-1"
-							/>
+								className={cn(
+									"flex min-h-9 cursor-pointer items-center gap-3 rounded-lg px-1.5 py-1 font-normal",
+									(disabled || option.disabled) && "cursor-not-allowed opacity-60",
+								)}
+							>
+								<RadioGroupItem value={option.value} disabled={disabled || option.disabled} />
+								<span className="select-none text-sm text-foreground">{option.label}</span>
+							</Label>
 						))}
 					</RadioGroup>
 				)
 			) : null}
 
 			{question.allowCustom ? (
-				<ValidatedInput
+				<Input
 					value={custom}
 					disabled={disabled}
 					placeholder={question.customPlaceholder ?? "Add another response…"}
-					onChange={(value) =>
+					onChange={(event) =>
 						onChange({
 							selected: question.multiple ? answer.selected : [],
-							custom: value,
+							custom: event.target.value,
 						})
 					}
-					className={cn("p-0.5", question.options?.length && "mt-1.5")}
-					classNames={{
-						field: "h-10 rounded-xl border-0 bg-background/70 focus-within:bg-background",
-						input: "px-3 text-sm",
-					}}
+					className={cn(
+						"h-10 rounded-xl border-0 bg-background/70 px-3 text-sm focus-visible:bg-background",
+						question.options?.length && "mt-1.5",
+					)}
 				/>
 			) : null}
 		</div>

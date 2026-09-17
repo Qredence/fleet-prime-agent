@@ -13,13 +13,14 @@ import {
 import { type TodoItem, TodoList } from "@prime-agent/web-design/components/qredence-ui/tools/todo-list";
 import { ToolApproval } from "@prime-agent/web-design/components/qredence-ui/tools/tool-approval";
 import type { ToolRendererProps } from "@prime-agent/web-design/components/qredence-ui/tools/tool-renderer";
+import { ToolRenderer } from "@prime-agent/web-design/components/qredence-ui/tools/tool-renderer";
 import {
 	ToolResult,
 	ToolResultOutput,
 	type ToolResultStatus,
 } from "@prime-agent/web-design/components/qredence-ui/tools/tool-result";
 import { CheckCircle2, Terminal, Wrench } from "lucide-react";
-import { memo, type ReactNode } from "react";
+import { memo } from "react";
 import { normalizeToolPart, type ToolRecord } from "./tool-output-normalizer";
 
 /** Map todo-list items (hyphen status) into the Agent-Plan item model (underscore status). */
@@ -91,14 +92,18 @@ function SourceBlock({
 
 export const SpecializedToolRenderer = memo(function SpecializedToolRenderer({
 	part,
+	nestedTools,
 	chatStatus,
-	fallback,
-}: ToolRendererProps & { fallback?: ReactNode }) {
+	toolRenderers,
+}: ToolRendererProps) {
+	const renderFallback = () => (
+		<ToolRenderer part={part} nestedTools={nestedTools} chatStatus={chatStatus} toolRenderers={toolRenderers} />
+	);
 	const normalized = normalizeToolPart(part, chatStatus);
-	if (!normalized || normalized.lowerName === "question") return fallback ?? null;
+	if (!normalized || normalized.lowerName === "question") return renderFallback();
 
 	const { detail, status } = normalized;
-	if (!detail) return fallback ?? null;
+	if (!detail) return renderFallback();
 
 	if (detail.kind === "todo") {
 		const planItems = toSessionPlanItems(detail.items);
@@ -106,7 +111,7 @@ export const SpecializedToolRenderer = memo(function SpecializedToolRenderer({
 		// A plan awaiting an Execute/Stay/Refine decision must keep its controls:
 		// the fallback PlanWrite renderer owns them, so never swap it out.
 		if (normalized.lowerName === "planwrite" && pendingDecision) {
-			return fallback ?? null;
+			return renderFallback();
 		}
 		const planPresentation =
 			normalized.lowerName === "planwrite" && (part.input as { executing?: unknown } | undefined)?.executing

@@ -1,3 +1,4 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import type {
 	ChatSessionResponse,
 	PrimeAgentRlmChild,
@@ -7,7 +8,6 @@ import { Bot, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { orderedRlmChildren, rlmStatusIcon } from "../../../../lib/pi/subagent-utils";
 import { cn } from "../../../../lib/utils";
-import { Button } from "../../../ui/button";
 import { type SubagentTranscriptState, SubagentTranscriptView } from "./subagent-transcript";
 
 type SubagentsPanelContentProps = {

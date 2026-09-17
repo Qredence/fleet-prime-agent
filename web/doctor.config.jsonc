@@ -54,9 +54,6 @@
           "src/components/qredence-ui/chat/composer/composer-menu.tsx",
           "src/components/qredence-ui/chrome/tokens.ts",
           "src/components/qredence-ui/motion/action-swap-roll.tsx",
-          "src/components/qredence-ui/motion/animated-select.tsx",
-          "src/components/qredence-ui/motion/combobox/list.tsx",
-          "src/components/qredence-ui/motion/combobox/trigger.tsx",
           "src/lib/range.ts",
           "src/lib/surfaces.tsx"
         ],
@@ -107,14 +104,6 @@
           "react-doctor/no-set-state-after-await-in-effect",
           "react-doctor/no-loading-flag-reset-outside-finally"
         ]
-      },
-      {
-        "files": ["src/components/qredence-ui/motion/combobox/content.tsx"],
-        "rules": ["react-doctor/no-derived-state-effect"]
-      },
-      {
-        "files": ["src/components/qredence-ui/motion/combobox/context.tsx"],
-        "rules": ["react-doctor/no-effect-chain"]
       },
       {
         "files": ["src/components/qredence-ui/layout/project-folder.tsx"],
@@ -174,8 +163,6 @@
           "src/components/qredence-ui/chat/message/message-toolbar.tsx",
           "src/components/qredence-ui/chat/message/message-turns.tsx",
           "src/components/qredence-ui/tools/mcp-tool.tsx",
-          "src/components/qredence-ui/motion/combobox/context.tsx",
-          "src/components/qredence-ui/motion/popover-morph.tsx",
           "src/components/qredence-ui/chat/composer/composer-menu.tsx",
           "src/components/qredence-ui/tools/session-agent-plan.tsx"
         ],

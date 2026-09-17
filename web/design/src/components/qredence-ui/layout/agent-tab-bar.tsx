@@ -1,8 +1,8 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
 import { Bot, Plus, X } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useRef } from "react";
 import { cn } from "../../../lib/utils";
-import { Button } from "../../ui/button";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "../chrome/tokens";
 import { agentTabPanelId, agentTabTriggerId } from "./agent-tab-ids";
 

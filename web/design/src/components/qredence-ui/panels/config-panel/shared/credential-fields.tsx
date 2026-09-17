@@ -1,10 +1,15 @@
+import { Field, FieldLabel } from "@prime-agent/web-design/components/ui/field";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupInput,
+} from "@prime-agent/web-design/components/ui/input-group";
 import type { LucideIcon } from "lucide-react";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useId } from "react";
 import { cn } from "../../../../../lib/utils";
-import { Field, FieldLabel } from "../../../../ui/field";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../../../../ui/input-group";
 import { HIT_AREA_EXPAND_CLASS } from "../../../chrome/tokens";
 
 /**

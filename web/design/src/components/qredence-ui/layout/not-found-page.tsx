@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@prime-agent/web-design/components/ui/card";
 
 export type NotFoundPageProps = {
 	title?: string;

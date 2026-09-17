@@ -1,4 +1,4 @@
-import { Skeleton } from "../../../ui/skeleton";
+import { Skeleton } from "@prime-agent/web-design/components/ui/skeleton";
 
 export function ResourcesSkeleton() {
 	return (

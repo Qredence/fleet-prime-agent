@@ -1,20 +1,24 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import {
-	Combobox,
-	ComboboxContent,
-	ComboboxEmpty,
-	ComboboxGroup,
-	ComboboxInput,
-	ComboboxItem,
-	ComboboxLabel,
-	ComboboxList,
-	ComboboxTrigger,
-} from "@prime-agent/web-design/components/qredence-ui/motion/combobox";
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@prime-agent/web-design/components/ui/command";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@prime-agent/web-design/components/ui/dialog";
+import { Input } from "@prime-agent/web-design/components/ui/input";
+import { Spinner } from "@prime-agent/web-design/components/ui/spinner";
 import { ArrowUp, FolderOpen, FolderPlus, FolderTree, TriangleAlert } from "lucide-react";
 import { useId } from "react";
-import { Button } from "../../../ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../ui/dialog";
-import { Input } from "../../../ui/input";
-import { Spinner } from "../../../ui/spinner";
 import type { SidebarStateView } from "./state";
 import type { SessionSidebarDependencies } from "./types";
 import { pathEntryLabel } from "./types";
@@ -223,55 +227,41 @@ export function SessionSidebarCreateDialog({
 										No child directories here.
 									</p>
 								) : (
-									<Combobox
-										value={directoryToken}
-										onValueChange={(token) => {
-											const entry = directoryBrowser.entries.find(
-												(candidate) => candidate.directoryToken === token,
-											);
-											if (!entry) return;
-											void loadDirectories({ token });
-										}}
-									>
-										<ComboboxTrigger className="h-10 bg-background">
-											<ComboboxInput
-												aria-label="Search child directories"
-												placeholder="Choose a child directory…"
-												className="text-xs"
-											/>
-										</ComboboxTrigger>
-										<ComboboxContent className="w-[min(32rem,calc(100vw-3rem))]">
-											<ComboboxList ariaLabel="Child directories">
-												<ComboboxGroup>
-													<ComboboxLabel>Child directories</ComboboxLabel>
-													{directoryBrowser.entries.map((entry) => (
-														<ComboboxItem
-															key={entry.directoryToken}
-															value={entry.directoryToken}
-															textValue={`${entry.name} ${entry.pathLabel}`}
-															keywords={[entry.pathLabel]}
-														>
-															<span className="flex min-w-0 items-start gap-2">
-																<FolderTree className="mt-0.5 size-4 shrink-0" />
-																<span className="min-w-0">
-																	<span className="block truncate font-medium text-foreground">
-																		{pathEntryLabel(entry)}
-																	</span>
-																	<span
-																		className="block truncate text-caption text-muted-foreground"
-																		title={entry.pathLabel}
-																	>
-																		{entry.pathLabel}
-																	</span>
-																</span>
+									<Command className="overflow-hidden rounded-lg border bg-background" shouldFilter>
+										<CommandInput
+											aria-label="Search child directories"
+											placeholder="Choose a child directory…"
+											className="text-xs"
+										/>
+										<CommandList className="max-h-56" aria-label="Child directories">
+											<CommandEmpty>No matching directories.</CommandEmpty>
+											<CommandGroup heading="Child directories">
+												{directoryBrowser.entries.map((entry) => (
+													<CommandItem
+														key={entry.directoryToken}
+														value={`${entry.name} ${entry.pathLabel}`}
+														onSelect={() => {
+															void loadDirectories({ token: entry.directoryToken });
+														}}
+														className="items-start gap-2"
+													>
+														<FolderTree className="mt-0.5 size-4 shrink-0" />
+														<span className="min-w-0">
+															<span className="block truncate font-medium text-foreground">
+																{pathEntryLabel(entry)}
 															</span>
-														</ComboboxItem>
-													))}
-												</ComboboxGroup>
-												<ComboboxEmpty>No matching directories.</ComboboxEmpty>
-											</ComboboxList>
-										</ComboboxContent>
-									</Combobox>
+															<span
+																className="block truncate text-caption text-muted-foreground"
+																title={entry.pathLabel}
+															>
+																{entry.pathLabel}
+															</span>
+														</span>
+													</CommandItem>
+												))}
+											</CommandGroup>
+										</CommandList>
+									</Command>
 								)}
 							</div>
 						</div>

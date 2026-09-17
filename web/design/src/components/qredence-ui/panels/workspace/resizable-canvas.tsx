@@ -1,9 +1,9 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import { RefreshCw, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef } from "react";
 import { DESKTOP_PANEL_HIDDEN_FLEX } from "../../../../lib/layout-constants";
-import { Button } from "../../../ui/button";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "../../chrome/tokens";
 
 export function ResizableCanvas({

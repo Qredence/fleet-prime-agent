@@ -1,13 +1,13 @@
+import { Alert, AlertDescription } from "@prime-agent/web-design/components/ui/alert";
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { Input } from "@prime-agent/web-design/components/ui/input";
+import { Spinner } from "@prime-agent/web-design/components/ui/spinner";
 import type {
 	ChatProviderInfo,
 	ChatProviderOAuthLoginRequest,
 	ChatProviderOAuthLoginResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Check, ExternalLink } from "lucide-react";
-import { Alert, AlertDescription } from "../../../../ui/alert";
-import { Button } from "../../../../ui/button";
-import { Input } from "../../../../ui/input";
-import { Spinner } from "../../../../ui/spinner";
 import { useOAuthLoginFlow } from "./use-oauth-login-flow";
 
 export function ProviderOAuthSignIn({

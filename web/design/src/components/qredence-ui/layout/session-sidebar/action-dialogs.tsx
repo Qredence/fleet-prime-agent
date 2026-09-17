@@ -1,6 +1,3 @@
-import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
-import { Folder } from "lucide-react";
-import { useMemo } from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -9,11 +6,21 @@ import {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogTitle,
-} from "../../../ui/alert-dialog";
-import { Button } from "../../../ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../ui/dialog";
-import { Input } from "../../../ui/input";
-import { Select, type SelectOption } from "../../../ui/select";
+} from "@prime-agent/web-design/components/ui/alert-dialog";
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@prime-agent/web-design/components/ui/dialog";
+import { Input } from "@prime-agent/web-design/components/ui/input";
+import { Select, type SelectOption } from "@prime-agent/web-design/components/ui/select";
+import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
+import { Folder } from "lucide-react";
+import { useMemo } from "react";
 import type { SidebarStateView } from "./state";
 
 export type SidebarActionDialogsProps = {

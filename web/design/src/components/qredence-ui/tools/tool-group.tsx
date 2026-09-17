@@ -18,6 +18,8 @@ export type ToolGroupProps = {
 	showElapsed?: boolean;
 };
 
+const EMPTY_NESTED_TOOLS: Array<any> = [];
+
 function formatCount(value: number, label: string): string {
 	return `${value} ${value === 1 ? label : `${label}s`}`;
 }
@@ -72,7 +74,7 @@ function formatStreamCounts(fileCount: number, searchCount: number): string {
 
 export const ToolGroup = memo(function ToolGroup({
 	part,
-	nestedTools = [],
+	nestedTools = EMPTY_NESTED_TOOLS,
 	chatStatus,
 	completeLabel,
 	shimmerLabel,
