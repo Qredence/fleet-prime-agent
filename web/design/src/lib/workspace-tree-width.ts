@@ -28,11 +28,7 @@ export function nextWorkspaceTreeWidthFromPointer(
 	return clampWorkspaceTreeWidth(width + (startX - clientX), containerWidth);
 }
 
-/**
- * Split mode places preview | handle | tree via areas while DOM stays
- * tree → handle → preview (stable identity across the 640px breakpoint).
- * Stacked leaves style undefined so auto-flow + gap apply without a phantom handle row.
- */
+/** Returns preview-left/tree-right grid styles in split mode, or `undefined` for the default stacked flow. */
 export function workspaceSplitGridStyle(isSplitLayout: boolean, treeWidth: number): CSSProperties | undefined {
 	if (!isSplitLayout) return undefined;
 	return {

@@ -3,6 +3,7 @@ import { ToolRenderer } from "@prime-agent/web-design/components/qredence-ui/too
 import { memo } from "react";
 import { SpecializedToolRenderer } from "./specialized-tool-renderer";
 
+/** Hides private reasoning parts and dispatches other tool parts to specialized or generic presentations. */
 export const SessionToolRenderer = memo(function SessionToolRenderer(props: ToolRendererProps) {
 	const partType = props.part.type as string;
 	if (partType === "tool-Thinking" || partType === "tool-FleetReasoning") return null;

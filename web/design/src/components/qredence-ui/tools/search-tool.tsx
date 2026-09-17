@@ -23,6 +23,7 @@ type SearchCompleteTrackerProps = {
 	onStepComplete: (id: string) => void;
 };
 
+/** While a search step is animating, schedules its completion callback for the end without rendering UI. */
 function SearchCompleteTracker({ step, animating, onStepComplete }: SearchCompleteTrackerProps) {
 	useToolComplete(animating, step.duration, () => onStepComplete(step.id));
 	return null;

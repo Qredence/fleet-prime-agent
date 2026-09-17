@@ -90,6 +90,10 @@ function SourceBlock({
 	);
 }
 
+/**
+ * Renders supported tool outputs with Fleet presentations and delegates unsupported or interactive tools to the
+ * generic renderer.
+ */
 export const SpecializedToolRenderer = memo(function SpecializedToolRenderer({
 	part,
 	nestedTools,

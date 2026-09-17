@@ -20,6 +20,11 @@ const getWorkspaceSplitSnapshot = () => window.matchMedia(`(min-width: ${WORKSPA
 // render identical; the post-hydration flip carries no mismatch recovery.
 const getServerWorkspaceSplitSnapshot = () => false;
 
+/**
+ * Tracks the responsive workspace split and its persisted tree width.
+ *
+ * @returns The split state, container ref, resize handler, and active grid style.
+ */
 export function useWorkspaceSplitLayout() {
 	const [treeWidth, setTreeWidth] = useState(readStoredWorkspaceTreeWidth);
 	const isSplitLayout = useSyncExternalStore(

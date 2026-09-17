@@ -15,11 +15,13 @@ export type ThemePreference = "light" | "dark" | "system";
 
 export type RightPanel = RightPanelState;
 
+/** Returns the default right-panel width clamped to the available chat space, or the minimum during SSR. */
 export function getResourceCanvasInitialWidth() {
 	if (typeof window === "undefined") return RESOURCE_CANVAS_MIN_WIDTH;
 	return clampResourceCanvasWidth(Math.floor(window.innerWidth * RESOURCE_CANVAS_DEFAULT_VIEWPORT_RATIO));
 }
 
+/** Returns the largest right-panel width that preserves the sidebar and main chat column, or the minimum during SSR. */
 export function getResourceCanvasMaxWidth() {
 	if (typeof window === "undefined") return RESOURCE_CANVAS_MIN_WIDTH;
 	// Panel sits beside the session sidebar inside the chat shell, so reserve

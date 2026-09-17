@@ -528,6 +528,12 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		[mutateQueuedMessage],
 	);
 
+	/**
+	 * Creates a session and adopts it only if no newer create or resume request has started.
+	 * Passing `preserveRunning: false` stops the active session before creating the replacement.
+	 *
+	 * @throws If session creation or the subsequent session-list refresh fails.
+	 */
 	const startNewSession = useCallback(
 		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
 			const requestId = resumeRequestRef.current + 1;
@@ -680,6 +686,12 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		},
 		[client, refreshSessions],
 	);
+	/**
+	 * Deletes a session, clearing the conversation only if that session is still active when deletion completes.
+	 *
+	 * @returns `false` when deletion fails; otherwise `true` after refreshing the session list.
+	 * @throws If refreshing the session list fails after deletion.
+	 */
 	const deleteSession = useCallback(
 		async (sessionId: string): Promise<boolean> => {
 			const deletingActive = sessionMetadataRef.current.sessionId === sessionId;
