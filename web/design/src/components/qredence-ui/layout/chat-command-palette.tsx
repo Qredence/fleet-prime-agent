@@ -1,7 +1,3 @@
-import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
-import { History, Keyboard, Monitor, Moon, Plus, Square, Sun } from "lucide-react";
-import { useState } from "react";
-import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils";
 import {
 	CommandDialog,
 	CommandEmpty,
@@ -10,7 +6,11 @@ import {
 	CommandItem,
 	CommandList,
 	CommandSeparator,
-} from "../../ui/command";
+} from "@prime-agent/web-design/components/ui/command";
+import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
+import { History, Keyboard, Monitor, Moon, Plus, Square, Sun } from "lucide-react";
+import { useState } from "react";
+import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils";
 import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "./right-panel-registry";
 
 export type CommandPaletteProps = {

@@ -1,8 +1,8 @@
+import { Skeleton } from "@prime-agent/web-design/components/ui/skeleton";
 import { Activity, Bot, Folder, GitBranch, Library, Package, SquareTerminal } from "lucide-react";
 import type { ComponentType, ElementType } from "react";
 import { lazy, Suspense } from "react";
 import type { RightPanel } from "../../../lib/canvas-utils";
-import { Skeleton } from "../../ui/skeleton";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "./right-panel-context";
 
 export type ActiveRightPanel = Exclude<RightPanel, null>;

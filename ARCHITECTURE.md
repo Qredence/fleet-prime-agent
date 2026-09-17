@@ -96,7 +96,7 @@ It consumes the pinned stock Prime Agent runtime. It is not an upstream source c
 
 Prime Agent is consumed as an external stock dependency.
 
-`PRIME_AGENT_RUNTIME.json` is the canonical pin for the `prime-agent` release archive. Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with that manifest; the repository runtime check enforces the package, tarball, and lockfile relationship.
+`PRIME_AGENT_RUNTIME.json` is the canonical pin for the `prime-agent` release archive. Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with that manifest; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
 
 Do not hardcode the current runtime version into this document.
 

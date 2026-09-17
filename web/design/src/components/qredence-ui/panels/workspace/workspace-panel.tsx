@@ -55,6 +55,7 @@ export type WorkspacePanelContentProps = {
 	workspace: WorkspaceTreeResponse | null;
 };
 
+/** Renders a scoped workspace tree and its responsive file-preview pane. */
 export function WorkspacePanelContent({
 	error,
 	emptyDescription = "agent-workspace has not been loaded yet.",
@@ -84,7 +85,7 @@ export function WorkspacePanelContent({
 	const [previewError, setPreviewError] = useState<Error | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
 	const previewRef = useRef<HTMLDivElement | null>(null);
-	const { handleTreeResizeStart, splitRef, splitStyle } = useWorkspaceSplitLayout(workspace);
+	const { handleTreeResizeStart, isSplitLayout, splitRef, splitStyle } = useWorkspaceSplitLayout();
 
 	const scopedView = useMemo(() => {
 		if (!workspace) {
@@ -230,68 +231,87 @@ export function WorkspacePanelContent({
 		return <ResourceNotice icon={HardDrive} title={emptyTitle} description={emptyDescription} />;
 	}
 
+	const treePane = (
+		<div
+			className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+			style={isSplitLayout ? { gridArea: "tree" } : undefined}
+		>
+			<div data-testid={treeTestId} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+				<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
+					<HardDrive className="size-3.5 shrink-0 text-foreground/45" />
+					<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
+						{scopedView.headerLabel}
+					</span>
+				</div>
+				<FileTree
+					ariaLabel={scopePath ? `Files in ${scopedView.headerLabel}` : "Workspace files"}
+					className="gap-0.5"
+					classNames={{
+						item: "h-8 gap-1.5 rounded-sm text-label font-normal text-foreground/65 hover:bg-foreground/5 hover:text-foreground/80 aria-selected:bg-foreground/8 aria-selected:text-foreground/80",
+						icon: "size-3.5 text-foreground/35",
+						label: "text-label",
+					}}
+					value={selectedPath}
+					onValueChange={(path) => {
+						if (findWorkspaceNode(workspace.nodes, path)?.type === "file") {
+							setSelectedPath(path);
+						}
+					}}
+				>
+					{scopedView.nodes.map((node) => renderWorkspaceNode(node))}
+				</FileTree>
+				{workspace.diagnostics.length > 0 && !scopePath && (
+					<div className="mt-2 border-t border-border/60 pt-2">
+						<ResourceChipSection
+							id="workspace-diagnostics"
+							label="Diagnostics"
+							icon={CircleAlert}
+							items={workspace.diagnostics.map((diagnostic, index) => ({
+								name: `Diagnostic ${index + 1}`,
+								description: diagnostic,
+							}))}
+						/>
+					</div>
+				)}
+			</div>
+		</div>
+	);
+
+	const resizeHandle = (
+		<button
+			type="button"
+			aria-label="Resize workspace tree"
+			className={`min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10 ${WORKSPACE_SPLIT_HIDDEN_BLOCK}`}
+			data-testid="workspace-tree-resize-handle"
+			style={isSplitLayout ? { gridArea: "handle" } : undefined}
+			onPointerDown={handleTreeResizeStart}
+		/>
+	);
+
+	const previewPane = (
+		<WorkspacePreview
+			emptyDescription={previewEmptyDescription}
+			emptyTitle={previewEmptyTitle}
+			error={previewError}
+			loading={previewLoading}
+			preview={preview}
+			previewRef={previewRef}
+			selectedPath={selectedPath}
+			splitGridArea={isSplitLayout ? "preview" : undefined}
+		/>
+	);
+
 	return (
 		<div
 			ref={splitRef}
 			className={`relative grid h-full min-h-0 grid-cols-1 gap-2 overflow-hidden ${WORKSPACE_SPLIT_GAP_RESET}`}
 			style={splitStyle}
 		>
-			<div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-				<div data-testid={treeTestId} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
-						<HardDrive className="size-3.5 shrink-0 text-foreground/45" />
-						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
-							{scopedView.headerLabel}
-						</span>
-					</div>
-					<FileTree
-						ariaLabel={scopePath ? `Files in ${scopedView.headerLabel}` : "Workspace files"}
-						className="gap-0.5"
-						classNames={{
-							item: "h-8 gap-1.5 rounded-sm text-label font-normal text-foreground/65 hover:bg-foreground/5 hover:text-foreground/80 aria-selected:bg-foreground/8 aria-selected:text-foreground/80",
-							icon: "size-3.5 text-foreground/35",
-							label: "text-label",
-						}}
-						value={selectedPath}
-						onValueChange={(path) => {
-							if (findWorkspaceNode(workspace.nodes, path)?.type === "file") {
-								setSelectedPath(path);
-							}
-						}}
-					>
-						{scopedView.nodes.map((node) => renderWorkspaceNode(node))}
-					</FileTree>
-					{workspace.diagnostics.length > 0 && !scopePath && (
-						<div className="mt-2 border-t border-border/60 pt-2">
-							<ResourceChipSection
-								id="workspace-diagnostics"
-								label="Diagnostics"
-								icon={CircleAlert}
-								items={workspace.diagnostics.map((diagnostic, index) => ({
-									name: `Diagnostic ${index + 1}`,
-									description: diagnostic,
-								}))}
-							/>
-						</div>
-					)}
-				</div>
-			</div>
-			<button
-				type="button"
-				aria-label="Resize workspace tree"
-				className={`min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10 ${WORKSPACE_SPLIT_HIDDEN_BLOCK}`}
-				data-testid="workspace-tree-resize-handle"
-				onPointerDown={handleTreeResizeStart}
-			/>
-			<WorkspacePreview
-				emptyDescription={previewEmptyDescription}
-				emptyTitle={previewEmptyTitle}
-				error={previewError}
-				loading={previewLoading}
-				preview={preview}
-				previewRef={previewRef}
-				selectedPath={selectedPath}
-			/>
+			{/* Stable DOM order avoids remounting tree/preview across the split breakpoint;
+			    split mode reorders visually via gridTemplateAreas. */}
+			{treePane}
+			{resizeHandle}
+			{previewPane}
 		</div>
 	);
 }
@@ -308,6 +328,7 @@ function renderWorkspaceNode(node: WorkspaceTreeNode): ReactNode {
 	return <FileTreeFile key={node.path} value={node.path} name={node.name} />;
 }
 
+/** Renders the selected workspace file or the appropriate loading, error, and empty states. */
 function WorkspacePreview({
 	emptyDescription,
 	emptyTitle,
@@ -316,6 +337,7 @@ function WorkspacePreview({
 	preview,
 	previewRef,
 	selectedPath,
+	splitGridArea,
 }: {
 	emptyDescription: string;
 	emptyTitle: string;
@@ -324,12 +346,14 @@ function WorkspacePreview({
 	preview: WorkspaceFileResponse | null;
 	previewRef: RefObject<HTMLDivElement | null>;
 	selectedPath: string | null;
+	splitGridArea?: "preview";
 }) {
 	return (
 		<div
 			className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background"
 			data-testid="workspace-preview"
 			ref={previewRef}
+			style={splitGridArea ? { gridArea: splitGridArea } : undefined}
 		>
 			<div className="flex min-h-9 min-w-0 shrink-0 items-center gap-2 border-b border-border/60 px-2.5">
 				<FileText className="size-3.5 shrink-0 text-foreground/35" />

@@ -1,9 +1,16 @@
 "use client";
 
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@prime-agent/web-design/components/ui/command";
+import { Slider } from "@prime-agent/web-design/components/ui/slider";
 import { Check, Gauge } from "lucide-react";
 import { useMemo } from "react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../../ui/command";
-import { Slider } from "../../ui/slider";
 import type { ModelSelectorEffort, ModelSelectorModel } from "./model-selector";
 
 export interface ModelSelectorListProps {

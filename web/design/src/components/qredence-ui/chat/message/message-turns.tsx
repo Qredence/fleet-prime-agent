@@ -10,6 +10,8 @@ import { getTextFromParts, isErrorPart, isPayloadPart, isTextPart, isV5ToolPart 
 import { formatTimestamp, MessageToolbar } from "./message-toolbar";
 import { PayloadPart } from "./payload-part";
 
+const EMPTY_NESTED_TOOLS: Array<ToolPartBase> = [];
+
 type UserMessageComponentProps = {
 	message: ChatMessage;
 	className?: string;
@@ -314,7 +316,7 @@ export function buildAssistantElements(
 			const toolCallId = part.toolCallId;
 			const nestedTools =
 				(part.type === "tool-Task" || part.type === "tool-Agent") && toolCallId
-					? nestedToolsMap.get(toolCallId) || []
+					? (nestedToolsMap.get(toolCallId) ?? EMPTY_NESTED_TOOLS)
 					: undefined;
 			const occurrence = part.toolCallId ? 0 : (unkeyedToolOccurrences.get(part.type) ?? 0);
 			if (!part.toolCallId) {

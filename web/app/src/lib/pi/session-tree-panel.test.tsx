@@ -1,5 +1,5 @@
 import { SessionTreePanel } from "@prime-agent/web-design/components/qredence-ui/panels/session/session-tree-panel";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const snapshot = {
@@ -197,7 +197,9 @@ describe("SessionTreePanel", () => {
 			/>,
 		);
 
-		expect(screen.queryByText("Rewind session?")).toBeNull();
+		await waitFor(() => {
+			expect(screen.queryByText("Rewind session?")).toBeNull();
+		});
 	});
 
 	it("ignores stale rewind completion after the session changes", async () => {

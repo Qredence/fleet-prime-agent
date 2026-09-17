@@ -1,6 +1,6 @@
+import { Switch } from "@prime-agent/web-design/components/ui/switch";
 import type { ChatPiSettings, ChatResourcesResponse } from "@prime-agent/web-protocol/chat-protocol";
 import type { ReactNode } from "react";
-import { Switch } from "../../../../ui/switch";
 import { ItemRow } from "../../../chrome/item-row";
 import { SettingsCommitActions, SettingsPane } from "../../../chrome/settings-pane";
 import { CatalogValueList } from "../shared/lists";

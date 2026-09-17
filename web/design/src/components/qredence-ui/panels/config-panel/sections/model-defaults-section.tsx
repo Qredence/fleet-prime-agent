@@ -1,9 +1,9 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@prime-agent/web-design/components/ui/input-group";
 import type { ChatPiSettings } from "@prime-agent/web-protocol/chat-protocol";
 import { Plus, Search, Star, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { cn } from "../../../../../lib/utils";
-import { Button } from "../../../../ui/button";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "../../../../ui/input-group";
 import { ItemRow } from "../../../chrome/item-row";
 import { SettingsCommitActions, SettingsPane } from "../../../chrome/settings-pane";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "../../../chrome/tokens";

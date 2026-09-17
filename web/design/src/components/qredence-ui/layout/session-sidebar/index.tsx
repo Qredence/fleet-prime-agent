@@ -1,5 +1,5 @@
+import { type ComponentProps, lazy, Suspense } from "react";
 import { SessionSidebarActionDialogs, type SidebarActionDialogsProps } from "./action-dialogs";
-import { SessionSidebarCreateDialog } from "./create-project-dialog";
 import { SessionSidebarNavigation } from "./navigation";
 import { useSessionSidebarState } from "./state";
 import { EMPTY_PROJECTS, type SessionSidebarProps } from "./types";
@@ -7,10 +7,25 @@ import { useSessionSidebarViewModel } from "./view-model";
 
 export type { SessionSidebarProps } from "./types";
 
-function SessionSidebarDialogs(props: Parameters<typeof SessionSidebarCreateDialog>[0] & SidebarActionDialogsProps) {
+// Keep cmdk (via ui/command) out of the welcome-route eager graph — same budget
+// contract as the lazy model-selector / command-palette chunks.
+const LazySessionSidebarCreateDialog = lazy(() =>
+	import("./create-project-dialog").then(({ SessionSidebarCreateDialog }) => ({
+		default: SessionSidebarCreateDialog,
+	})),
+);
+
+type CreateDialogProps = ComponentProps<typeof LazySessionSidebarCreateDialog>;
+
+/** Lazily mounts the project-creation dialog alongside the sidebar action dialogs. */
+function SessionSidebarDialogs(props: CreateDialogProps & SidebarActionDialogsProps) {
 	return (
 		<>
-			<SessionSidebarCreateDialog {...props} />
+			{props.createOpen ? (
+				<Suspense fallback={null}>
+					<LazySessionSidebarCreateDialog {...props} />
+				</Suspense>
+			) : null}
 			<SessionSidebarActionDialogs {...props} />
 		</>
 	);

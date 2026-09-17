@@ -16,6 +16,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { extname, basename, dirname, join, relative, resolve } from "node:path";
 import ts from "typescript";
+import { relativeUiImportPattern } from "./component-contract-patterns";
 
 const DESIGN_ROOT = resolve(import.meta.dirname, "..");
 const REPO_ROOT = resolve(DESIGN_ROOT, "..", "..");
@@ -206,6 +207,7 @@ deadFiles.sort();
 const directBaseUiImports: string[] = [];
 const unsupportedIconImports: string[] = [];
 const nativeControlViolations: string[] = [];
+const relativeUiImports: string[] = [];
 const widePropViolations: Array<{ file: string; type: string; count: number }> = [];
 const nativeControlExceptions = new Set(sourceManifest.nativeControlExceptions);
 const widePropExceptions = new Set(
@@ -228,6 +230,12 @@ for (const file of designFiles) {
 	}
 	if (/from ["'](?:@tabler\/icons-react|@heroicons\/|react-icons)/.test(source)) {
 		unsupportedIconImports.push(file);
+	}
+	if (
+		relativePath.startsWith("src/components/qredence-ui/") &&
+		relativeUiImportPattern.test(source)
+	) {
+		relativeUiImports.push(file);
 	}
 	if (
 		nativeControlRoots.some((root) => relativePath.startsWith(root)) &&
@@ -294,6 +302,7 @@ for (const [label, files] of [
 	["direct Base UI import(s) outside components/ui", directBaseUiImports],
 	["unsupported icon-library import(s)", unsupportedIconImports],
 	["new native product control(s) without a documented exception", nativeControlViolations],
+	["relative qredence-ui → ui import(s) (use @prime-agent/web-design/components/ui/...)", relativeUiImports],
 ] as const) {
 	if (files.length === 0) continue;
 	failures += files.length;

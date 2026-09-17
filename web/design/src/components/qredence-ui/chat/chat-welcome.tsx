@@ -1,6 +1,6 @@
 import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import type { ReactNode } from "react";
-import { Button } from "../../ui/button";
 import { SUGGESTION_ITEM_CLASS } from "../chrome/tokens";
 
 const WELCOME_TASKS: SuggestionItem[] = [

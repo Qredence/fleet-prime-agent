@@ -1,3 +1,6 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@prime-agent/web-design/components/ui/input-group";
+import { Spinner } from "@prime-agent/web-design/components/ui/spinner";
 import type {
 	ChatProviderInfo,
 	ChatProviderOAuthLoginRequest,
@@ -8,9 +11,6 @@ import type {
 	ChatProviderUpdateResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Plus, Search } from "lucide-react";
-import { Button } from "../../../../ui/button";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "../../../../ui/input-group";
-import { Spinner } from "../../../../ui/spinner";
 import { SettingsPane } from "../../../chrome/settings-pane";
 import {
 	AddProviderEditorPanel,

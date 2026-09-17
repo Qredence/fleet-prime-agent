@@ -1,3 +1,6 @@
+import { Alert, AlertDescription } from "@prime-agent/web-design/components/ui/alert";
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { Spinner } from "@prime-agent/web-design/components/ui/spinner";
 import type {
 	ChatProviderInfo,
 	ChatProviderOAuthLoginRequest,
@@ -6,9 +9,6 @@ import type {
 import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
 import { Info, Pencil, Trash2 } from "lucide-react";
 import { cn } from "../../../../../lib/utils";
-import { Alert, AlertDescription } from "../../../../ui/alert";
-import { Button } from "../../../../ui/button";
-import { Spinner } from "../../../../ui/spinner";
 import { ItemRow } from "../../../chrome/item-row";
 import { RowSurface } from "../../../chrome/surface";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "../../../chrome/tokens";

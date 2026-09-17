@@ -1,12 +1,13 @@
-import type { WorkspaceTreeResponse } from "@prime-agent/web-protocol/chat-protocol";
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { startHorizontalResize } from "../../../../lib/horizontal-resize";
 import { WORKSPACE_SPLIT_MIN_WIDTH_PX } from "../../../../lib/layout-constants";
 import {
 	clampWorkspaceTreeWidth,
+	nextWorkspaceTreeWidthFromPointer,
 	readStoredWorkspaceTreeWidth,
 	storeWorkspaceTreeWidth,
+	workspaceSplitGridStyle,
 } from "../../../../lib/workspace-tree-width";
 
 const subscribeWorkspaceSplit = (onChange: () => void) => {
@@ -19,7 +20,12 @@ const getWorkspaceSplitSnapshot = () => window.matchMedia(`(min-width: ${WORKSPA
 // render identical; the post-hydration flip carries no mismatch recovery.
 const getServerWorkspaceSplitSnapshot = () => false;
 
-export function useWorkspaceSplitLayout(_workspace: WorkspaceTreeResponse | null) {
+/**
+ * Tracks the responsive workspace split and its persisted tree width.
+ *
+ * @returns The split state, container ref, resize handler, and active grid style.
+ */
+export function useWorkspaceSplitLayout() {
 	const [treeWidth, setTreeWidth] = useState(readStoredWorkspaceTreeWidth);
 	const isSplitLayout = useSyncExternalStore(
 		subscribeWorkspaceSplit,
@@ -39,7 +45,7 @@ export function useWorkspaceSplitLayout(_workspace: WorkspaceTreeResponse | null
 				event,
 				startWidth,
 				getNextWidth: (clientX, startX, width) =>
-					clampWorkspaceTreeWidth(width + (clientX - startX), containerWidth),
+					nextWorkspaceTreeWidthFromPointer(clientX, startX, width, containerWidth),
 				onWidthChange: (nextWidth) => {
 					setTreeWidth(nextWidth);
 					storeWorkspaceTreeWidth(nextWidth);
@@ -64,16 +70,10 @@ export function useWorkspaceSplitLayout(_workspace: WorkspaceTreeResponse | null
 		});
 	}, []);
 
-	const splitStyle = isSplitLayout
-		? ({
-				gridTemplateColumns: `${treeWidth}px 8px minmax(160px, 1fr)`,
-			} satisfies CSSProperties)
-		: undefined;
-
 	return {
 		handleTreeResizeStart,
 		isSplitLayout,
 		splitRef,
-		splitStyle,
+		splitStyle: workspaceSplitGridStyle(isSplitLayout, treeWidth),
 	};
 }

@@ -1,7 +1,7 @@
+import { Field, FieldDescription, FieldLabel } from "@prime-agent/web-design/components/ui/field";
+import { Select } from "@prime-agent/web-design/components/ui/select";
 import { Monitor, Moon, Sun } from "lucide-react";
 import type { ThemePreference } from "../../../../../lib/canvas-utils";
-import { Field, FieldDescription, FieldLabel } from "../../../../ui/field";
-import { Select } from "../../../../ui/select";
 
 const THEME_OPTIONS = [
 	{ value: "system", label: "System", icon: Monitor },

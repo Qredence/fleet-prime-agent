@@ -12,7 +12,8 @@ import { RightPanelShell } from "@prime-agent/web-design/components/qredence-ui/
 import { SessionSidebar } from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar";
 import { UiErrorBoundary } from "@prime-agent/web-design/components/qredence-ui/layout/ui-error-boundary";
 import { notify } from "@prime-agent/web-design/lib/notify";
-import { lazy, Suspense, useCallback } from "react";
+import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
+import { lazy, Suspense, useCallback, useMemo } from "react";
 import { notifyChatError, runWorkspaceAction } from "@/lib/pi/chat-error-notify";
 import { useChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
 import { ChatPanel } from "@/lib/pi/chat-panel";
@@ -100,6 +101,78 @@ export function ChatWorkspaceShell() {
 		},
 		[conversation.persistOpenUIArtifact],
 	);
+
+	const sidebarData = useMemo(
+		() => ({
+			sessions: session.sessions,
+			projects: session.projects,
+			projectSessions: session.projectSessions,
+			activeProjectId: session.activeProjectId,
+			activeSessionId: session.activeSessionId,
+		}),
+		[session.sessions, session.projects, session.projectSessions, session.activeProjectId, session.activeSessionId],
+	);
+	const onNewSession = useCallback(
+		() => runWorkspaceAction(() => session.startNewSession()),
+		[session.startNewSession],
+	);
+	const onResumeSession = useCallback(
+		(sessionToResume: ChatSessionInfo) => {
+			void session.resumeSession({ sessionId: sessionToResume.sessionId });
+		},
+		[session.resumeSession],
+	);
+	const onRenameSession = useCallback(
+		(sessionId: string, title: string) => {
+			void session.renameSession(sessionId, title);
+		},
+		[session.renameSession],
+	);
+	const onDeleteSession = useCallback(
+		(sessionId: string) => {
+			void session.deleteSession(sessionId);
+		},
+		[session.deleteSession],
+	);
+	const onOpenSettings = useCallback(() => {
+		dialogs.setSettingsDialogOpen(true);
+	}, [dialogs.setSettingsDialogOpen]);
+	const sessionActions = useMemo(
+		() => ({
+			onNewSession,
+			onNewSessionInProject: session.startNewSessionInProject,
+			onResumeSession,
+			onRenameSession,
+			onDeleteSession,
+		}),
+		[onNewSession, session.startNewSessionInProject, onResumeSession, onRenameSession, onDeleteSession],
+	);
+	const projectActions = useMemo(
+		() => ({
+			onProjectSelect: session.selectProject,
+			onCreateProject: session.createProject,
+			onRenameProject: session.renameProject,
+			onUnregisterProject: session.unregisterProject,
+			onForkSessionIntoProject: session.forkSessionIntoProject,
+		}),
+		[
+			session.selectProject,
+			session.createProject,
+			session.renameProject,
+			session.unregisterProject,
+			session.forkSessionIntoProject,
+		],
+	);
+	const navigationActions = useMemo(
+		() => ({
+			onOpenPanelAction: session.openPanelAction,
+			onBrowseDirectories: session.browseProjectDirectories,
+			onOpenSettings,
+		}),
+		[session.openPanelAction, session.browseProjectDirectories, onOpenSettings],
+	);
+	const sidebarSlots = useMemo(() => ({ accountMenu: chrome.header.accountMenu }), [chrome.header.accountMenu]);
+
 	const inputBar = useChatInputBarProps(composer, session.activeSessionId);
 	const activeTabIsMain = agentTabs.activeTabId === "main" || !agentTabs.selectedChild;
 	const activeConversationPanel = activeTabIsMain ? (
@@ -155,36 +228,13 @@ export function ChatWorkspaceShell() {
 				settingsActions={panels.settingsActions}
 				workspaceTree={panels.workspaceTreeContext}
 			>
-				<ChatApp className="h-svh min-h-0 rounded-none border-0" sidebarWidth="17.5rem">
+				<ChatApp className="h-svh min-h-0 rounded-none border-0">
 					<SessionSidebar
-						data={{
-							sessions: session.sessions,
-							projects: session.projects,
-							projectSessions: session.projectSessions,
-							activeProjectId: session.activeProjectId,
-							activeSessionId: session.activeSessionId,
-						}}
-						sessionActions={{
-							onNewSession: () => runWorkspaceAction(() => session.startNewSession()),
-							onNewSessionInProject: session.startNewSessionInProject,
-							onResumeSession: (sessionToResume) =>
-								void session.resumeSession({ sessionId: sessionToResume.sessionId }),
-							onRenameSession: (sessionId, title) => void session.renameSession(sessionId, title),
-							onDeleteSession: (sessionId) => void session.deleteSession(sessionId),
-						}}
-						projectActions={{
-							onProjectSelect: session.selectProject,
-							onCreateProject: session.createProject,
-							onRenameProject: session.renameProject,
-							onUnregisterProject: session.unregisterProject,
-							onForkSessionIntoProject: session.forkSessionIntoProject,
-						}}
-						navigationActions={{
-							onOpenPanelAction: session.openPanelAction,
-							onBrowseDirectories: session.browseProjectDirectories,
-							onOpenSettings: () => dialogs.setSettingsDialogOpen(true),
-						}}
-						slots={{ accountMenu: chrome.header.accountMenu }}
+						data={sidebarData}
+						sessionActions={sessionActions}
+						projectActions={projectActions}
+						navigationActions={navigationActions}
+						slots={sidebarSlots}
 					/>
 					<AnimatedSidebarInset className="h-svh min-h-0 overflow-hidden">
 						<ChatWorkspaceLayout

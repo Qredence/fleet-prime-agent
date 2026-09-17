@@ -1,7 +1,7 @@
+import { FieldGroup } from "@prime-agent/web-design/components/ui/field";
+import { Select } from "@prime-agent/web-design/components/ui/select";
 import type { PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
 import { Box, Globe, Layers, Tag } from "lucide-react";
-import { FieldGroup } from "../../../../ui/field";
-import { Select } from "../../../../ui/select";
 import { SecretCredentialField, TextCredentialField } from "./credential-fields";
 
 const OPENAI_CHAT_BASE_URL_PLACEHOLDER = "https://opencode.ai/zen/v1";
