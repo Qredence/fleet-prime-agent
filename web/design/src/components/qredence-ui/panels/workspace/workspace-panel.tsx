@@ -55,6 +55,7 @@ export type WorkspacePanelContentProps = {
 	workspace: WorkspaceTreeResponse | null;
 };
 
+/** Renders a scoped workspace tree and its responsive file-preview pane. */
 export function WorkspacePanelContent({
 	error,
 	emptyDescription = "agent-workspace has not been loaded yet.",
@@ -327,6 +328,7 @@ function renderWorkspaceNode(node: WorkspaceTreeNode): ReactNode {
 	return <FileTreeFile key={node.path} value={node.path} name={node.name} />;
 }
 
+/** Renders the selected workspace file or the appropriate loading, error, and empty states. */
 function WorkspacePreview({
 	emptyDescription,
 	emptyTitle,

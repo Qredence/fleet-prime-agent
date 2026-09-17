@@ -9,6 +9,7 @@ export type ChatAppProps = ComponentProps<typeof AnimatedSidebarProvider> & {
 	sidebarWidth?: string;
 };
 
+/** Provides the animated sidebar layout with Fleet's shared default sidebar width. */
 export function ChatApp({
 	children,
 	className,

@@ -79,6 +79,7 @@ function OpenUIDiagnostics({ errors, onRepair, raw }: { errors: Array<unknown>; 
 	);
 }
 
+/** Renders an OpenUI block while coordinating actions, artifacts, state updates, and diagnostics. */
 function OpenUIBlock({
 	blockId,
 	content,

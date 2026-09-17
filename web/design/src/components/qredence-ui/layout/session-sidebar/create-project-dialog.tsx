@@ -45,6 +45,7 @@ type SidebarCreateDialogProps = {
 	submitCreate: () => Promise<void>;
 };
 
+/** Renders the project-creation dialog with directory browsing and submission state. */
 export function SessionSidebarCreateDialog({
 	createOpen,
 	setCreateOpen,

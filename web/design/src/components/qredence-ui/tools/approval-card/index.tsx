@@ -68,6 +68,7 @@ function isAnswered(answer: ApprovalCardAnswer) {
 	return answer.selected.length > 0 || Boolean(answer.custom?.trim());
 }
 
+/** Renders single-choice, multiple-choice, and custom-answer inputs for an approval question. */
 function QuestionOptions({
 	question,
 	answer,

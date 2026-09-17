@@ -29,6 +29,7 @@ function SearchCompleteTracker({ step, animating, onStepComplete }: SearchComple
 	return null;
 }
 
+/** Renders grouped search progress and expands to show completed search results. */
 function SearchGroupRich({ toolSteps, stepStates, onStepComplete, results = [], defaultOpen }: SearchGroupRichProps) {
 	const anyAnimating = toolSteps.some((s) => stepStates[s.id] === "animating");
 	const searchQuery = toolSteps.find((s) => s.searchQuery)?.searchQuery ?? "searching...";

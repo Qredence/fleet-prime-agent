@@ -10,6 +10,7 @@ export const WORKSPACE_PREVIEW_MIN_WIDTH_PX = 160;
 /** Resize handle column width — shared by clamp + grid style. */
 export const WORKSPACE_SPLIT_HANDLE_WIDTH_PX = 8;
 
+/** Clamps a workspace-tree width so the split preview retains its minimum width. */
 export function clampWorkspaceTreeWidth(width: number, containerWidth: number) {
 	const maxWidth = Math.max(
 		WORKSPACE_TREE_MIN_WIDTH,

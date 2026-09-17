@@ -17,6 +17,7 @@ const LazySessionSidebarCreateDialog = lazy(() =>
 
 type CreateDialogProps = ComponentProps<typeof LazySessionSidebarCreateDialog>;
 
+/** Lazily mounts the project-creation dialog alongside the sidebar action dialogs. */
 function SessionSidebarDialogs(props: CreateDialogProps & SidebarActionDialogsProps) {
 	return (
 		<>

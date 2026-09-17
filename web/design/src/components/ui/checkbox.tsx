@@ -3,6 +3,7 @@ import { CheckIcon } from "lucide-react";
 
 import { cn } from "../../lib/utils";
 
+/** Renders the shared styled checkbox primitive. */
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
 	return (
 		<CheckboxPrimitive.Root
