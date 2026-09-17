@@ -23,7 +23,7 @@
         "rules": ["react-doctor/js-set-map-lookups"]
       },
       {
-        "files": ["src/components/qredence-ui/panels/workspace-panel.tsx"],
+        "files": ["src/components/qredence-ui/panels/workspace/workspace-panel.tsx"],
         "rules": [
           "react-doctor/no-adjust-state-on-prop-change",
           "react-doctor/exhaustive-deps",
@@ -35,7 +35,7 @@
         "rules": ["react-doctor/prefer-dynamic-import"]
       },
       {
-        "files": ["src/components/qredence-ui/chat/message-turns.tsx"],
+        "files": ["src/components/qredence-ui/chat/message/message-turns.tsx"],
         "rules": [
           "react-doctor/no-many-boolean-props",
           "react-doctor/no-array-index-as-key"
@@ -43,7 +43,7 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/chat/input/mode-selector.tsx",
+          "src/components/qredence-ui/chat/composer/input/mode-selector.tsx",
           "src/components/qredence-ui/chat/thinking/session-reasoning-panel.tsx"
         ],
         "rules": ["deslop/unused-file"]
@@ -51,7 +51,7 @@
       {
         "files": [
           "src/lib/pi/plan-state.ts",
-          "src/components/qredence-ui/chat/composer-menu.tsx",
+          "src/components/qredence-ui/chat/composer/composer-menu.tsx",
           "src/components/qredence-ui/chrome/tokens.ts",
           "src/components/qredence-ui/motion/action-swap-roll.tsx",
           "src/components/qredence-ui/motion/animated-select.tsx",
@@ -96,8 +96,8 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/chat/input-bar-state.tsx",
-          "src/components/qredence-ui/panels/artifacts-panel.tsx"
+          "src/components/qredence-ui/chat/composer/input-bar-state.tsx",
+          "src/components/qredence-ui/panels/workspace/artifacts-panel.tsx"
         ],
         "rules": ["react-doctor/no-adjust-state-on-prop-change"]
       },
@@ -122,7 +122,7 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/chat/composer-menu.tsx",
+          "src/components/qredence-ui/chat/composer/composer-menu.tsx",
           "src/components/qredence-ui/chat/thinking/reasoning-panel.tsx",
           "src/components/qredence-ui/chat/thinking/thinking-indicator.tsx"
         ],
@@ -145,7 +145,7 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/chat/prompt-input.tsx"
+          "src/components/qredence-ui/chat/composer/prompt-input.tsx"
         ],
         "rules": [
           "react-doctor/motion-animate-presence-must-outlive-child"
@@ -170,13 +170,13 @@
           "src/components/ui/chart.tsx",
           "src/components/ui/tabs.tsx",
           "src/components/ui/toast.tsx",
-          "src/components/qredence-ui/chat/markdown.tsx",
-          "src/components/qredence-ui/chat/message-toolbar.tsx",
-          "src/components/qredence-ui/chat/message-turns.tsx",
+          "src/components/qredence-ui/chat/markdown/markdown.tsx",
+          "src/components/qredence-ui/chat/message/message-toolbar.tsx",
+          "src/components/qredence-ui/chat/message/message-turns.tsx",
           "src/components/qredence-ui/tools/mcp-tool.tsx",
           "src/components/qredence-ui/motion/combobox/context.tsx",
           "src/components/qredence-ui/motion/popover-morph.tsx",
-          "src/components/qredence-ui/chat/composer-menu.tsx",
+          "src/components/qredence-ui/chat/composer/composer-menu.tsx",
           "src/components/qredence-ui/tools/session-agent-plan.tsx"
         ],
         "rules": ["react-doctor/only-export-components"]
@@ -208,8 +208,8 @@
         "files": [
           "src/components/qredence-ui/tools/citations.tsx",
           "src/components/qredence-ui/chat/icons.tsx",
-          "src/components/qredence-ui/chat/message-bubble.tsx",
-          "src/components/qredence-ui/chat/message.tsx",
+          "src/components/qredence-ui/chat/message/message-bubble.tsx",
+          "src/components/qredence-ui/chat/message/message.tsx",
           "src/components/qredence-ui/tools/tool-approval.tsx"
         ],
         "rules": ["deslop/unused-export"]

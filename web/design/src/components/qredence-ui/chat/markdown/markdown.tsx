@@ -73,26 +73,11 @@ function containsBlockMarkdownChild(value: unknown, imageIsSoleChild: boolean): 
 }
 
 export const markdownComponents: Components = {
-	h1: ({ children, ...props }) => (
-		<h1 className="an-md-h1 mt-3 mb-1.5 text-base font-semibold" {...props}>
-			{children}
-		</h1>
-	),
-	h2: ({ children, ...props }) => (
-		<h2 className="an-md-h2 mt-3 mb-1.5 text-base font-semibold" {...props}>
-			{children}
-		</h2>
-	),
-	h3: ({ children, ...props }) => (
-		<h3 className="an-md-h3 mt-2 mb-1 text-sm font-semibold" {...props}>
-			{children}
-		</h3>
-	),
-	h4: ({ children, ...props }) => (
-		<h4 className="an-md-h4 mt-2 mb-1 text-sm font-medium" {...props}>
-			{children}
-		</h4>
-	),
+	// Headings / body / lists: Typeset owns size, weight, and flow.
+	h1: ({ children, ...props }) => <h1 {...props}>{children}</h1>,
+	h2: ({ children, ...props }) => <h2 {...props}>{children}</h2>,
+	h3: ({ children, ...props }) => <h3 {...props}>{children}</h3>,
+	h4: ({ children, ...props }) => <h4 {...props}>{children}</h4>,
 	p: ({ children, node, ...props }) => {
 		const child = (Array.isArray(children) ? children : [children]).filter((value) => value != null && value !== "");
 
@@ -100,38 +85,12 @@ export const markdownComponents: Components = {
 			return <Fragment>{children}</Fragment>;
 		}
 
-		return (
-			<p className="an-md-p text-sm leading-relaxed text-foreground/80" {...props}>
-				{children}
-			</p>
-		);
+		return <p {...props}>{children}</p>;
 	},
-	ul: ({ children, ...props }) => (
-		<ul
-			className="an-md-ul mb-2 flex list-outside list-disc flex-col gap-0.5 pl-4 text-sm text-foreground/80"
-			{...props}
-		>
-			{children}
-		</ul>
-	),
-	ol: ({ children, ...props }) => (
-		<ol
-			className="an-md-ol mb-2 flex list-outside list-decimal flex-col gap-0.5 pl-5 text-sm text-foreground/80"
-			{...props}
-		>
-			{children}
-		</ol>
-	),
-	li: ({ children, ...props }) => (
-		<li className="an-md-li pl-0.5 text-sm text-foreground/80" {...props}>
-			{children}
-		</li>
-	),
-	strong: ({ children, ...props }) => (
-		<strong className="font-medium text-foreground" {...props}>
-			{children}
-		</strong>
-	),
+	ul: ({ children, ...props }) => <ul {...props}>{children}</ul>,
+	ol: ({ children, ...props }) => <ol {...props}>{children}</ol>,
+	li: ({ children, ...props }) => <li {...props}>{children}</li>,
+	strong: ({ children, ...props }) => <strong {...props}>{children}</strong>,
 	a: ({ href, children, ...props }) => {
 		if (typeof href !== "string" || !SAFE_HREF_PATTERN.test(href)) {
 			return <span>{children}</span>;
@@ -143,46 +102,24 @@ export const markdownComponents: Components = {
 				href={href}
 				target={isExternal ? "_blank" : undefined}
 				rel={isExternal ? "noopener noreferrer" : undefined}
-				className="an-md-link text-primary underline-offset-2 hover:underline"
 			>
 				{children}
 			</a>
 		);
 	},
-	blockquote: ({ children, ...props }) => (
-		<blockquote
-			className="an-md-blockquote mb-2 border-l-2 border-border pl-3 text-sm text-foreground/70 italic"
-			{...props}
-		>
-			{children}
-		</blockquote>
-	),
-	hr: ({ ...props }) => <hr className="an-md-hr my-4 border-border" {...props} />,
+	blockquote: ({ children, ...props }) => <blockquote {...props}>{children}</blockquote>,
+	hr: ({ ...props }) => <hr {...props} />,
 	table: ({ children, ...props }) => (
-		<div className="my-3 overflow-x-auto rounded-chat-tool border border-border">
-			<table className="an-md-table w-full text-sm [&>thead]:bg-muted [&>thead>tr>th]:bg-muted" {...props}>
-				{children}
-			</table>
+		<div className="typeset-scroll">
+			<table {...props}>{children}</table>
 		</div>
 	),
-	th: ({ children, ...props }) => (
-		<th className="bg-secondary px-3 py-2 text-left font-medium" {...props}>
-			{children}
-		</th>
-	),
-	td: ({ children, ...props }) => (
-		<td className="border-t border-border px-3 py-2 text-foreground/80" {...props}>
-			{children}
-		</td>
-	),
+	th: ({ children, ...props }) => <th {...props}>{children}</th>,
+	td: ({ children, ...props }) => <td {...props}>{children}</td>,
 };
 
 export function MarkdownFrame({ children, className }: { children: React.ReactNode; className?: string }) {
-	return (
-		<div className={cn("an-markdown", "overflow-hidden wrap-break-word", "[&_li>p]:mb-0 [&_li>p]:inline", className)}>
-			{children}
-		</div>
-	);
+	return <div className={cn("typeset typeset-chat", "overflow-hidden wrap-break-word", className)}>{children}</div>;
 }
 
 /**

@@ -1,9 +1,9 @@
 import { cn } from "@prime-agent/web-design/lib/utils";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { memo, useState } from "react";
-import { ImageLightbox } from "../tools/image-lightbox";
-import { FileAttachment } from "./input/file-attachment";
-import { isTextPart } from "./utils/chat-message-parts";
+import { ImageLightbox } from "../../tools/image-lightbox";
+import { FileAttachment } from "../composer/input/file-attachment";
+import { isTextPart } from "../utils/chat-message-parts";
 
 export type UserMessageProps = {
 	message: ChatMessage;

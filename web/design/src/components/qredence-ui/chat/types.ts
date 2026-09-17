@@ -1,6 +1,6 @@
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type React from "react";
-import type { SuggestionItem } from "./input/suggestions";
+import type { SuggestionItem } from "./composer/input/suggestions";
 import type { QuestionAnswer, QuestionConfig } from "./question/question-prompt";
 
 export type InputSuggestions =

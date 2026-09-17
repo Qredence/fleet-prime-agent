@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AgentChat } from "./agent-chat";
+import { AgentChat } from "../agent-chat";
 import { InputBar } from "./input-bar";
 
 describe("InputBar slash menu control", () => {

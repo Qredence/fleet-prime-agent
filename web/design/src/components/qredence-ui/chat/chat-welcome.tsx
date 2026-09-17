@@ -1,4 +1,4 @@
-import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/input/suggestions";
+import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
 import type { ReactNode } from "react";
 import { Button } from "../../ui/button";
 import { SUGGESTION_ITEM_CLASS } from "../chrome/tokens";

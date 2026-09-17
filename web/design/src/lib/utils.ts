@@ -1,20 +1,14 @@
-import type { ClassValue } from "clsx";
-import { clsx } from "clsx";
-import { extendTailwindMerge } from "tailwind-merge";
+import { createCn } from "cn/config";
 
 // Register the Fleet Pi typography tokens (globals.css `--text-label`,
 // `--text-body`, `--text-title`, `--text-headline`, `--text-display`) as
-// font-size utilities. Without this, tailwind-merge classifies unknown
+// font-size utilities. Without this, class merging classifies unknown
 // bare `text-*` values as colors and drops e.g. `text-label` when a
 // `text-foreground/*` color class appears in the same merge.
-const twMergeExtended = extendTailwindMerge({
+export const cn = createCn({
 	extend: {
 		classGroups: {
 			"font-size": [{ text: ["micro", "caption", "label", "body", "title", "headline", "display"] }],
 		},
 	},
 });
-
-export function cn(...inputs: Array<ClassValue>) {
-	return twMergeExtended(clsx(inputs));
-}

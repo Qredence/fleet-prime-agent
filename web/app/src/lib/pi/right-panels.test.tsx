@@ -1,11 +1,11 @@
 import { RightPanelProvider } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-context";
 import { RightPanelShell } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-shell";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/artifacts-panel";
-import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/qredence-ui/panels/artifacts-utils";
-import { ReplPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/repl-panel";
-import { RightPanelLauncher } from "@prime-agent/web-design/components/qredence-ui/panels/right-panel-launcher";
-import { SubagentsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/subagents-panel";
-import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/qredence-ui/panels/transcript-summary";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/qredence-ui/panels/session/transcript-summary";
+import { SubagentsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/subagents/subagents-panel";
+import { ArtifactsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/artifacts-panel";
+import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/artifacts-utils";
+import { ReplPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/repl-panel";
+import { RightPanelLauncher } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/right-panel-launcher";
 import type {
 	ChatSessionResponse,
 	PrimeAgentArtifactRun,

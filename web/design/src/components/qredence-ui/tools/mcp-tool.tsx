@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { LazyMarkdown } from "../chat/lazy-markdown";
+import { LazyMarkdown } from "../chat/markdown/lazy-markdown";
 import type { McpToolInfo } from "./tool-registry";
 import { ToolRowBase } from "./tool-row-base";
 import { areToolPropsEqual, getToolStatus } from "./utils/format-tool";

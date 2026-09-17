@@ -1,25 +1,25 @@
-import { ComposerLoader } from "@prime-agent/web-design/components/qredence-ui/chat/composer-loader";
+import { ComposerLoader } from "@prime-agent/web-design/components/qredence-ui/chat/composer/composer-loader";
 import {
 	type ComposerTriggerItem,
 	ComposerTriggerPopover,
-} from "@prime-agent/web-design/components/qredence-ui/chat/composer-trigger-popover";
-import { FileAttachment } from "@prime-agent/web-design/components/qredence-ui/chat/input/file-attachment";
-import { ModeSelector } from "@prime-agent/web-design/components/qredence-ui/chat/input/mode-selector";
-import { InputQuestionBar } from "@prime-agent/web-design/components/qredence-ui/chat/input/question-bar";
-import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/input/suggestions";
+} from "@prime-agent/web-design/components/qredence-ui/chat/composer/composer-trigger-popover";
+import { FileAttachment } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/file-attachment";
+import { ModeSelector } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/mode-selector";
+import { InputQuestionBar } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/question-bar";
+import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
+import { PromptInput } from "@prime-agent/web-design/components/qredence-ui/chat/composer/prompt-input";
 import { ModelSelector } from "@prime-agent/web-design/components/qredence-ui/chat/model-selector";
-import { PromptInput } from "@prime-agent/web-design/components/qredence-ui/chat/prompt-input";
 import type { ChatMode, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { FileCode2, Plus, X } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
-import type { ChatModelOption } from "../../../lib/pi/chat-helpers";
-import { cn } from "../../../lib/utils";
-import { Button } from "../../ui/button";
-import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS } from "../chrome/tokens";
-import { AGENT_CHAT_MODES } from "./chat-modes";
-import type { QuestionBarData } from "./hooks/use-question-bar-navigation";
+import type { ChatModelOption } from "../../../../lib/pi/chat-helpers";
+import { cn } from "../../../../lib/utils";
+import { Button } from "../../../ui/button";
+import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS } from "../../chrome/tokens";
+import { AGENT_CHAT_MODES } from "../chat-modes";
+import type { QuestionBarData } from "../hooks/use-question-bar-navigation";
 import { useInputBarState } from "./input-bar-state";
 
 type SuggestionConfig =

@@ -1,5 +1,5 @@
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import { collectSessionOpenUIBlocks, type SessionOpenUIBlock } from "./artifacts-utils";
+import { collectSessionOpenUIBlocks, type SessionOpenUIBlock } from "../workspace/artifacts-utils";
 
 export type ChatTranscriptSummary = {
 	assistantMessageCount: number;

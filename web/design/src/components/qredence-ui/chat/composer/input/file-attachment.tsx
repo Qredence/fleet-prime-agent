@@ -1,7 +1,7 @@
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { FileCode, FileJson, FileText, ImageIcon, X } from "lucide-react";
 import { useState } from "react";
-import { ImageLightbox } from "../../tools/image-lightbox";
+import { ImageLightbox } from "../../../tools/image-lightbox";
 
 export type FileAttachmentProps = {
 	id: string;
