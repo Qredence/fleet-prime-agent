@@ -1,9 +1,14 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupInput,
+} from "@prime-agent/web-design/components/ui/input-group";
+import { Select } from "@prime-agent/web-design/components/ui/select";
 import type { ChatResourceInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Button } from "../../../../ui/button";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "../../../../ui/input-group";
-import { Select } from "../../../../ui/select";
 import { ItemRow } from "../../../chrome/item-row";
 import {
 	addUniqueSettingsResource,

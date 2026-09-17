@@ -1,7 +1,7 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import { Loader2, RotateCcw, Save } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../../../lib/utils";
-import { Button } from "../../ui/button";
 import { COMPACT_ACTION_BUTTON_CLASS } from "./tokens";
 
 /**

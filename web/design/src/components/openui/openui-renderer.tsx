@@ -79,6 +79,7 @@ function OpenUIDiagnostics({ errors, onRepair, raw }: { errors: Array<unknown>; 
 	);
 }
 
+/** Renders an OpenUI block while coordinating actions, artifacts, state updates, and diagnostics. */
 function OpenUIBlock({
 	blockId,
 	content,
@@ -123,19 +124,22 @@ function OpenUIBlock({
 		[onAction],
 	);
 
+	const artifactProviderValue = useMemo(
+		() => ({
+			messageId,
+			artifactIndex: 0,
+			onArtifactReady,
+			onOpenArtifact,
+		}),
+		[messageId, onArtifactReady, onOpenArtifact],
+	);
+
 	const finalErrors = getFinalErrors(parseResult, isStreaming);
 
 	return (
 		<div className="flex w-full flex-col gap-2">
 			<UiErrorBoundary resetKeys={[content]}>
-				<OpenUIArtifactProvider
-					value={{
-						messageId,
-						artifactIndex: 0,
-						onArtifactReady,
-						onOpenArtifact,
-					}}
-				>
+				<OpenUIArtifactProvider value={artifactProviderValue}>
 					<Renderer
 						initialState={initialState}
 						isStreaming={isStreaming}

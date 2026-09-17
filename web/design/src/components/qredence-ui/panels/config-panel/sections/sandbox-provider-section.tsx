@@ -1,3 +1,7 @@
+import { Alert, AlertDescription } from "@prime-agent/web-design/components/ui/alert";
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { FieldGroup } from "@prime-agent/web-design/components/ui/field";
+import { Spinner } from "@prime-agent/web-design/components/ui/spinner";
 import { notify as toast } from "@prime-agent/web-design/lib/notify";
 import type {
 	ChatProviderInfo,
@@ -7,10 +11,6 @@ import type {
 import { Globe, HardDrive, Info } from "lucide-react";
 import { useMemo, useState } from "react";
 import { cn } from "../../../../../lib/utils";
-import { Alert, AlertDescription } from "../../../../ui/alert";
-import { Button } from "../../../../ui/button";
-import { FieldGroup } from "../../../../ui/field";
-import { Spinner } from "../../../../ui/spinner";
 import { ItemRow } from "../../../chrome/item-row";
 import { SettingsPane } from "../../../chrome/settings-pane";
 import { RowSurface } from "../../../chrome/surface";

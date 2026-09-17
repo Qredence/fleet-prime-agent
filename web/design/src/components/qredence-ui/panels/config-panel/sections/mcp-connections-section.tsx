@@ -1,3 +1,11 @@
+import { Alert, AlertDescription } from "@prime-agent/web-design/components/ui/alert";
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@prime-agent/web-design/components/ui/field";
+import { Input } from "@prime-agent/web-design/components/ui/input";
+import { Select } from "@prime-agent/web-design/components/ui/select";
+import { Spinner } from "@prime-agent/web-design/components/ui/spinner";
+import { Switch } from "@prime-agent/web-design/components/ui/switch";
+import { Textarea } from "@prime-agent/web-design/components/ui/textarea";
 import { notify as toast } from "@prime-agent/web-design/lib/notify";
 import type {
 	ChatMcpDeleteRequest,
@@ -11,14 +19,6 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Plug, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Alert, AlertDescription } from "../../../../ui/alert";
-import { Button } from "../../../../ui/button";
-import { Field, FieldDescription, FieldLabel } from "../../../../ui/field";
-import { Input } from "../../../../ui/input";
-import { Select } from "../../../../ui/select";
-import { Spinner } from "../../../../ui/spinner";
-import { Switch } from "../../../../ui/switch";
-import { Textarea } from "../../../../ui/textarea";
 import { ItemRow } from "../../../chrome/item-row";
 import { SettingsPane } from "../../../chrome/settings-pane";
 import { ProviderOAuthSignIn } from "./provider-oauth-sign-in";

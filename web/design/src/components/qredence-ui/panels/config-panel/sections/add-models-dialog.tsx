@@ -1,11 +1,17 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@prime-agent/web-design/components/ui/dialog";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@prime-agent/web-design/components/ui/input-group";
+import { Spinner } from "@prime-agent/web-design/components/ui/spinner";
 import type { ChatPiSettings } from "@prime-agent/web-protocol/chat-protocol";
 import { RefreshCw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { cn } from "../../../../../lib/utils";
-import { Button } from "../../../../ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../../ui/dialog";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "../../../../ui/input-group";
-import { Spinner } from "../../../../ui/spinner";
 import { isModelEnabled } from "../shared/model-patterns";
 import { ProviderBrandIcon } from "../shared/provider-brand-icon";
 import { formatProviderLabel } from "../shared/provider-label";

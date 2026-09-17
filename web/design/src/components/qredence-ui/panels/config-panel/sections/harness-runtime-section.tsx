@@ -1,6 +1,6 @@
+import { Select } from "@prime-agent/web-design/components/ui/select";
+import { Switch } from "@prime-agent/web-design/components/ui/switch";
 import type { ChatDeliveryMode, ChatPiSettings, ChatTransport } from "@prime-agent/web-protocol/chat-protocol";
-import { Select } from "../../../../ui/select";
-import { Switch } from "../../../../ui/switch";
 import { ItemRow } from "../../../chrome/item-row";
 
 const TRANSPORT_OPTIONS = [

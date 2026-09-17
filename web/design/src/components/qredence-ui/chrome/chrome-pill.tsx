@@ -1,6 +1,6 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
 import type { ComponentProps } from "react";
 import { cn } from "../../../lib/utils";
-import { Button } from "../../ui/button";
 import { CHROME_PILL_ACTIVE_CLASS, CHROME_PILL_CLASS, CHROME_PILL_INACTIVE_CLASS } from "./tokens";
 
 type ChromePillButtonProps = Omit<ComponentProps<typeof Button>, "aria-label" | "size" | "variant"> & {

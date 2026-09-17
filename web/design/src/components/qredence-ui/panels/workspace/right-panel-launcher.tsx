@@ -1,3 +1,5 @@
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { Select, type SelectOption } from "@prime-agent/web-design/components/ui/select";
 import type { ChatResourcesResponse, WorkspaceTreeResponse } from "@prime-agent/web-protocol/chat-protocol";
 import type { LucideIcon } from "lucide-react";
 import { PanelRight, X } from "lucide-react";
@@ -5,8 +7,6 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RightPanel } from "../../../../lib/canvas-utils";
 import { CHAT_PANEL_BREAKPOINT_PX, DESKTOP_PANEL_ONLY } from "../../../../lib/layout-constants";
-import { Button } from "../../../ui/button";
-import { Select, type SelectOption } from "../../../ui/select";
 import { ChromePillButton } from "../../chrome/chrome-pill";
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "../../chrome/tokens";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "../../layout/right-panel-context";

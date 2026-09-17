@@ -1,10 +1,7 @@
 "use client";
 
-import {
-	MorphPopover,
-	MorphPopoverContent,
-	MorphPopoverTrigger,
-} from "@prime-agent/web-design/components/qredence-ui/motion/popover-morph";
+import { Button } from "@prime-agent/web-design/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@prime-agent/web-design/components/ui/popover";
 import { EASE_OUT, SPRING_LAYOUT } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { Bookmark, FileText, Folder, FolderOpen, MoreHorizontal, Pencil } from "lucide-react";
@@ -370,23 +367,26 @@ function ResourceActionMenu({ item, menuOpen, onMenuOpenChange, onRenameStart, r
 	);
 
 	return (
-		<MorphPopover open={menuOpen} onOpenChange={onMenuOpenChange}>
-			<MorphPopoverTrigger>
-				<button
-					type="button"
-					draggable={false}
-					tabIndex={-1}
-					aria-label={`Actions for ${item.label}`}
-					onClick={(event) => event.stopPropagation()}
-					className="grid size-7 shrink-0 place-items-center rounded-lg opacity-0 outline-none transition-opacity hover:bg-foreground/5 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/resource:opacity-100 group-data-[menu-open=true]/resource:opacity-100"
-				>
-					<MoreHorizontal aria-hidden="true" className="size-4" />
-				</button>
-			</MorphPopoverTrigger>
-			<MorphPopoverContent side="bottom" align="end" sideOffset={8} radius={12} className="w-40 p-1.5">
+		<Popover open={menuOpen} onOpenChange={onMenuOpenChange}>
+			<PopoverTrigger
+				render={
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						draggable={false}
+						aria-label={`Actions for ${item.label}`}
+						onClick={(event) => event.stopPropagation()}
+						className="size-7 shrink-0 opacity-0 outline-none transition-opacity hover:bg-foreground/5 focus-visible:opacity-100 group-hover/resource:opacity-100 group-data-[menu-open=true]/resource:opacity-100"
+					>
+						<MoreHorizontal aria-hidden="true" className="size-4" />
+					</Button>
+				}
+			/>
+			<PopoverContent side="bottom" align="end" sideOffset={8} className="w-40 p-1.5">
 				<div data-sidebar-resource-menu={item.id}>{menu}</div>
-			</MorphPopoverContent>
-		</MorphPopover>
+			</PopoverContent>
+		</Popover>
 	);
 }
 
