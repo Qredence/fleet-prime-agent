@@ -2,7 +2,7 @@
 
 Coherent folders under `web/design/src/components/qredence-ui/`. Public behavior is unchanged; deep imports under `@prime-agent/web-design/components/qredence-ui/*` still resolve via package path maps.
 
-```
+```text
 qredence-ui/
   chrome/          # shell tokens, pills, hit areas
   layout/          # app chrome: sidebar, header, right-panel shell/registry
