@@ -228,7 +228,7 @@ export function ChatWorkspaceShell() {
 				settingsActions={panels.settingsActions}
 				workspaceTree={panels.workspaceTreeContext}
 			>
-				<ChatApp className="h-svh min-h-0 rounded-none border-0" sidebarWidth="17.5rem">
+				<ChatApp className="h-svh min-h-0 rounded-none border-0">
 					<SessionSidebar
 						data={sidebarData}
 						sessionActions={sessionActions}

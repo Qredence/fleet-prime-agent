@@ -17,11 +17,11 @@ export const CHAT_CHROME_TOP_PX = CHAT_HEADER_OFFSET_PX + CHAT_HEADER_HEIGHT_PX 
  * doubled as both default open size and max-width cap.
  */
 export const RESOURCE_CANVAS_DEFAULT_VIEWPORT_RATIO = 0.4;
-/**
- * Expanded session sidebar width used when clamping the right panel.
- * Keep in sync with `ChatApp` `sidebarWidth="17.5rem"` in the chat shell.
- */
-export const RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX = 280;
+/** Expanded session sidebar width in rem — owned here; consumed by ChatApp and canvas clamp. */
+export const SESSION_SIDEBAR_WIDTH_REM = 17.5;
+export const SESSION_SIDEBAR_WIDTH_CSS = `${SESSION_SIDEBAR_WIDTH_REM}rem`;
+/** Same width in CSS px at the default 16px root font size. */
+export const RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX = SESSION_SIDEBAR_WIDTH_REM * 16;
 /**
  * Minimum width reserved for the chat column when the user widens the right
  * panel. Combined with {@link RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX} so the
@@ -29,7 +29,11 @@ export const RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX = 280;
  */
 export const RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX = 360;
 
-/** Full Tailwind class strings — keep breakpoint px values in sync above. */
+/**
+ * Full Tailwind class strings — literals must stay complete for the scanner.
+ * Keep the px in these strings aligned with {@link CHAT_PANEL_BREAKPOINT_PX} /
+ * {@link WORKSPACE_SPLIT_MIN_WIDTH_PX}.
+ */
 export const DESKTOP_PANEL_HIDDEN_FLEX = "hidden min-[960px]:flex";
 export const DESKTOP_PANEL_ONLY = "min-[960px]:hidden";
 export const WORKSPACE_SPLIT_HIDDEN_BLOCK = "hidden min-[640px]:block";

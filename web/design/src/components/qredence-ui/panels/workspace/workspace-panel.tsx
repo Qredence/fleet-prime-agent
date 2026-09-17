@@ -84,7 +84,7 @@ export function WorkspacePanelContent({
 	const [previewError, setPreviewError] = useState<Error | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
 	const previewRef = useRef<HTMLDivElement | null>(null);
-	const { handleTreeResizeStart, isSplitLayout, splitRef, splitStyle } = useWorkspaceSplitLayout(workspace);
+	const { handleTreeResizeStart, isSplitLayout, splitRef, splitStyle } = useWorkspaceSplitLayout();
 
 	const scopedView = useMemo(() => {
 		if (!workspace) {
@@ -231,7 +231,10 @@ export function WorkspacePanelContent({
 	}
 
 	const treePane = (
-		<div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+		<div
+			className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+			style={isSplitLayout ? { gridArea: "tree" } : undefined}
+		>
 			<div data-testid={treeTestId} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
 				<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 					<HardDrive className="size-3.5 shrink-0 text-foreground/45" />
@@ -279,6 +282,7 @@ export function WorkspacePanelContent({
 			aria-label="Resize workspace tree"
 			className={`min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10 ${WORKSPACE_SPLIT_HIDDEN_BLOCK}`}
 			data-testid="workspace-tree-resize-handle"
+			style={isSplitLayout ? { gridArea: "handle" } : undefined}
 			onPointerDown={handleTreeResizeStart}
 		/>
 	);
@@ -292,6 +296,7 @@ export function WorkspacePanelContent({
 			preview={preview}
 			previewRef={previewRef}
 			selectedPath={selectedPath}
+			splitGridArea={isSplitLayout ? "preview" : undefined}
 		/>
 	);
 
@@ -301,20 +306,11 @@ export function WorkspacePanelContent({
 			className={`relative grid h-full min-h-0 grid-cols-1 gap-2 overflow-hidden ${WORKSPACE_SPLIT_GAP_RESET}`}
 			style={splitStyle}
 		>
-			{/* DOM order matches visual order in each mode (WCAG 1.3.2 / focus). */}
-			{isSplitLayout ? (
-				<>
-					{previewPane}
-					{resizeHandle}
-					{treePane}
-				</>
-			) : (
-				<>
-					{treePane}
-					{resizeHandle}
-					{previewPane}
-				</>
-			)}
+			{/* Stable DOM order avoids remounting tree/preview across the split breakpoint;
+			    split mode reorders visually via gridTemplateAreas. */}
+			{treePane}
+			{resizeHandle}
+			{previewPane}
 		</div>
 	);
 }
@@ -339,6 +335,7 @@ function WorkspacePreview({
 	preview,
 	previewRef,
 	selectedPath,
+	splitGridArea,
 }: {
 	emptyDescription: string;
 	emptyTitle: string;
@@ -347,12 +344,14 @@ function WorkspacePreview({
 	preview: WorkspaceFileResponse | null;
 	previewRef: RefObject<HTMLDivElement | null>;
 	selectedPath: string | null;
+	splitGridArea?: "preview";
 }) {
 	return (
 		<div
 			className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background"
 			data-testid="workspace-preview"
 			ref={previewRef}
+			style={splitGridArea ? { gridArea: splitGridArea } : undefined}
 		>
 			<div className="flex min-h-9 min-w-0 shrink-0 items-center gap-2 border-b border-border/60 px-2.5">
 				<FileText className="size-3.5 shrink-0 text-foreground/35" />

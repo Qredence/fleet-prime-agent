@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { workspaceSplitGridStyle } from "../components/qredence-ui/panels/hooks/use-workspace-split-layout";
-import { clampWorkspaceTreeWidth, nextWorkspaceTreeWidthFromPointer } from "./workspace-tree-width";
+import {
+	clampWorkspaceTreeWidth,
+	nextWorkspaceTreeWidthFromPointer,
+	WORKSPACE_PREVIEW_MIN_WIDTH_PX,
+	WORKSPACE_SPLIT_HANDLE_WIDTH_PX,
+	workspaceSplitGridStyle,
+} from "./workspace-tree-width";
 
 describe("workspace split layout helpers", () => {
-	it("applies columns only in split mode (no stacked areas / phantom handle row)", () => {
+	it("applies columns and areas only in split mode (stable DOM, no stacked phantom handle)", () => {
 		expect(workspaceSplitGridStyle(false, 200)).toBeUndefined();
 		expect(workspaceSplitGridStyle(true, 220)).toEqual({
-			gridTemplateColumns: "minmax(160px, 1fr) 8px 220px",
+			gridTemplateColumns: `minmax(${WORKSPACE_PREVIEW_MIN_WIDTH_PX}px, 1fr) ${WORKSPACE_SPLIT_HANDLE_WIDTH_PX}px 220px`,
+			gridTemplateAreas: `"preview handle tree"`,
 		});
 	});
 
@@ -18,7 +24,9 @@ describe("workspace split layout helpers", () => {
 	});
 
 	it("clamps tree width so the preview keeps a minimum", () => {
-		expect(clampWorkspaceTreeWidth(900, 400)).toBe(400 - 160 - 8);
+		expect(clampWorkspaceTreeWidth(900, 400)).toBe(
+			400 - WORKSPACE_PREVIEW_MIN_WIDTH_PX - WORKSPACE_SPLIT_HANDLE_WIDTH_PX,
+		);
 		expect(clampWorkspaceTreeWidth(40, 400)).toBe(120);
 	});
 });
