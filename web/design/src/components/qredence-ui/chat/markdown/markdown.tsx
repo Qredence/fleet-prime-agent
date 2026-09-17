@@ -118,6 +118,7 @@ export const markdownComponents: Components = {
 	td: ({ children, ...props }) => <td {...props}>{children}</td>,
 };
 
+/** Wraps rendered Markdown in the Typeset chat preset and merges optional container classes. */
 export function MarkdownFrame({ children, className }: { children: React.ReactNode; className?: string }) {
 	return <div className={cn("typeset typeset-chat", "overflow-hidden wrap-break-word", className)}>{children}</div>;
 }
