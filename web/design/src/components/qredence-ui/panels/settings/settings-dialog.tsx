@@ -8,8 +8,8 @@ import {
 	readUiPreferences,
 	type UiPreferences,
 	writeUiPreferences,
-} from "../../../lib/ui-preferences";
-import { cn } from "../../../lib/utils";
+} from "../../../../lib/ui-preferences";
+import { cn } from "../../../../lib/utils";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,35 +18,41 @@ import {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogTitle,
-} from "../../ui/alert-dialog";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "../../ui/breadcrumb";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "../../ui/field";
-import { ScrollArea } from "../../ui/scroll-area";
-import { Select } from "../../ui/select";
-import { Switch } from "../../ui/switch";
-import { useChatPanelDataContext, useSettingsActionsContext } from "../layout/right-panel-context";
-import { McpConnectionsSection } from "./config-panel/sections/mcp-connections-section";
-import { ModelDefaultsSection } from "./config-panel/sections/model-defaults-section";
-import { PersonalizationSection } from "./config-panel/sections/personalization-section";
-import { ProviderCredentialsSection } from "./config-panel/sections/provider-credentials-section";
-import { ResourcesSection } from "./config-panel/sections/resources-section";
-import { SandboxProviderSection } from "./config-panel/sections/sandbox-provider-section";
+} from "../../../ui/alert-dialog";
+import {
+	Breadcrumb,
+	BreadcrumbItem,
+	BreadcrumbList,
+	BreadcrumbPage,
+	BreadcrumbSeparator,
+} from "../../../ui/breadcrumb";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../../ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "../../../ui/field";
+import { ScrollArea } from "../../../ui/scroll-area";
+import { Select } from "../../../ui/select";
+import { Switch } from "../../../ui/switch";
+import { useChatPanelDataContext, useSettingsActionsContext } from "../../layout/right-panel-context";
+import { McpConnectionsSection } from "../config-panel/sections/mcp-connections-section";
+import { ModelDefaultsSection } from "../config-panel/sections/model-defaults-section";
+import { PersonalizationSection } from "../config-panel/sections/personalization-section";
+import { ProviderCredentialsSection } from "../config-panel/sections/provider-credentials-section";
+import { ResourcesSection } from "../config-panel/sections/resources-section";
+import { SandboxProviderSection } from "../config-panel/sections/sandbox-provider-section";
 import {
 	harnessSettings,
 	modelSettings,
 	resourceSettings,
 	sameJson,
 	summarizeResources,
-} from "./config-panel/shared/settings-mappers";
-import { useModelDefaultsForm } from "./settings/use-model-defaults-form";
-import { useResourcesForm } from "./settings/use-resources-form";
+} from "../config-panel/shared/settings-mappers";
 import {
 	isSettingsSectionId,
 	SETTINGS_SECTION_GROUPS,
 	SETTINGS_SECTIONS,
 	type SettingsSectionId,
 } from "./settings-sections";
+import { useModelDefaultsForm } from "./use-model-defaults-form";
+import { useResourcesForm } from "./use-resources-form";
 
 function PreferenceRow({ children, description, label }: { children: ReactNode; description: string; label: string }) {
 	return (

@@ -1,4 +1,4 @@
-import { SessionTreePanel } from "@prime-agent/web-design/components/qredence-ui/panels/session-tree-panel";
+import { SessionTreePanel } from "@prime-agent/web-design/components/qredence-ui/panels/session/session-tree-panel";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 

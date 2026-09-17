@@ -1,5 +1,5 @@
+import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
 import type { ForkPickerEntry } from "@prime-agent/web-design/components/qredence-ui/chat/fork-picker-dialog";
-import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/input/suggestions";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import {
 	availableThinkingLevels,

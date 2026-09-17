@@ -1,4 +1,4 @@
-import { Popover } from "@prime-agent/web-design/components/qredence-ui/chat/input/input-popover";
+import { Popover } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/input-popover";
 import { ChromePillButton } from "@prime-agent/web-design/components/qredence-ui/chrome/chrome-pill";
 import { useOAuthLoginFlow } from "@prime-agent/web-design/components/qredence-ui/panels/config-panel/sections/use-oauth-login-flow";
 import { useProximityHover } from "@prime-agent/web-design/lib/hooks/use-proximity-hover";

@@ -51,3 +51,16 @@ Caption (`--text-caption`) only in dense tools.
 ## Weight
 
 Per component: **400 / 500 / 600** max. No 700+.
+
+## Chat Typeset
+
+Chat markdown uses shadcn Typeset (`src/styles/typeset.css`) with Fleet preset `.typeset-chat` (`src/styles/typeset-presets.css`):
+
+| Token | Value | Role |
+| --- | --- | --- |
+| `--typeset-font-body` / heading | `var(--font-sans)` (Inter Variable) | Matches Type section |
+| `--typeset-size` | `0.875rem` | Body 14 |
+| `--typeset-leading` | `1.6` | Chat reading rhythm |
+| `--typeset-flow` | `1em` | Tighter block spacing than docs |
+
+Wrapper classes: `typeset typeset-chat`. Nested UI chrome inside markdown should use `not-typeset` / `data-not-typeset` when needed. Streamdown code-block chrome stays in `agent-ui.css` under `.typeset`.

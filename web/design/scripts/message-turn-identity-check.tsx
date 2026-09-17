@@ -6,7 +6,7 @@ import {
   buildAssistantElements,
   getAssistantToolElementKey,
   UserTurn,
-} from "../src/components/qredence-ui/chat/message-turns"
+} from "../src/components/qredence-ui/chat/message/message-turns"
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 
 const noIdTask = { type: "tool-Task" }

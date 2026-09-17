@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSideContext } from "@prime-agent/web-design/components/qredence-ui/chat/message-context";
+import { MessageSideContext } from "@prime-agent/web-design/components/qredence-ui/chat/message/message-context";
 import { EASE_OUT, SPRING_LAYOUT, SPRING_SWAP } from "@prime-agent/web-design/lib/ease";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ChevronDown } from "lucide-react";

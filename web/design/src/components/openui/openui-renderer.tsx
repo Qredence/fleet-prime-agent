@@ -2,7 +2,7 @@ import type { ActionEvent, OpenUIError, ParseResult } from "@openuidev/react-lan
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang";
 import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useMemo, useState } from "react";
-import { Markdown } from "../qredence-ui/chat/markdown";
+import { Markdown } from "../qredence-ui/chat/markdown/markdown";
 import { UiErrorBoundary } from "../qredence-ui/layout/ui-error-boundary";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";

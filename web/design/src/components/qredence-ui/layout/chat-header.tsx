@@ -1,4 +1,4 @@
-import { Popover } from "@prime-agent/web-design/components/qredence-ui/chat/input/input-popover";
+import { Popover } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/input-popover";
 import type { ChatSessionInfo, ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
 import { BookOpenText, ChevronDown, History, LogOut, Plus, Settings } from "lucide-react";
 import { cn } from "../../../lib/utils";

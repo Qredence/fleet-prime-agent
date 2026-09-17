@@ -1,14 +1,14 @@
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type React from "react";
 import { memo, useMemo } from "react";
-import type { OpenUIArtifactCandidate } from "../../openui/html-artifact";
-import { normalizeAssistantToolParts } from "../tools/utils/tool-part-normalizer";
-import { ErrorMessage } from "./error-message";
+import type { OpenUIArtifactCandidate } from "../../../openui/html-artifact";
+import { normalizeAssistantToolParts } from "../../tools/utils/tool-part-normalizer";
+import { ErrorMessage } from "../error-message";
+import type { CustomToolRendererProps } from "../types";
+import type { ToolPartBase, ToolRendererProps } from "../utils/chat-message-parts";
+import { getTextFromParts, isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "../utils/chat-message-parts";
 import { formatTimestamp, MessageToolbar } from "./message-toolbar";
 import { PayloadPart } from "./payload-part";
-import type { CustomToolRendererProps } from "./types";
-import type { ToolPartBase, ToolRendererProps } from "./utils/chat-message-parts";
-import { getTextFromParts, isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "./utils/chat-message-parts";
 
 type UserMessageComponentProps = {
 	message: ChatMessage;

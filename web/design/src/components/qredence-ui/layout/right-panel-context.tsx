@@ -31,7 +31,7 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
 import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils";
 import type { ChatModelOption } from "../../../lib/pi/chat-helpers";
-import type { ChatTranscriptSummary } from "../panels/transcript-summary";
+import type { ChatTranscriptSummary } from "../panels/session/transcript-summary";
 
 export type ChatPanelDataContextValue = {
 	activityLabel?: string;

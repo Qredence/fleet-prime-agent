@@ -1,9 +1,9 @@
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ChevronDown, ChevronUp, MessageCircleQuestion } from "lucide-react";
-import type { ApprovalCardAnswers, ApprovalCardQuestion } from "../../tools/approval-card/index";
-import { ApprovalCard } from "../../tools/approval-card/index";
-import type { QuestionBarData, QuestionBarNavigation } from "../hooks/use-question-bar-navigation";
-import type { QuestionAnswer } from "../question/question-prompt";
+import type { ApprovalCardAnswers, ApprovalCardQuestion } from "../../../tools/approval-card/index";
+import { ApprovalCard } from "../../../tools/approval-card/index";
+import type { QuestionBarData, QuestionBarNavigation } from "../../hooks/use-question-bar-navigation";
+import type { QuestionAnswer } from "../../question/question-prompt";
 
 export type InputQuestionBarProps = {
 	questionBar: QuestionBarData;

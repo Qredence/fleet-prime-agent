@@ -10,11 +10,11 @@ import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { OpenUIHtmlArtifactPayload } from "@prime-agent/web-protocol/openui-artifact";
 import { ChevronRight, LayoutTemplate, Package } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { OpenUIHtmlArtifactView } from "../../openui/html-artifact";
-import { GenerativeTextRenderer } from "../../openui/inline-renderer";
-import { Button } from "../../ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../ui/collapsible";
-import { UiErrorBoundary } from "../layout/ui-error-boundary";
+import { OpenUIHtmlArtifactView } from "../../../openui/html-artifact";
+import { GenerativeTextRenderer } from "../../../openui/inline-renderer";
+import { Button } from "../../../ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../../../ui/collapsible";
+import { UiErrorBoundary } from "../../layout/ui-error-boundary";
 import type { SessionOpenUIBlock } from "./artifacts-utils";
 import { primeAgentArtifactDiff } from "./prime-agent-artifacts";
 

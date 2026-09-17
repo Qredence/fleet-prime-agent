@@ -1,4 +1,4 @@
-import { LazyMarkdown } from "@prime-agent/web-design/components/qredence-ui/chat/lazy-markdown";
+import { LazyMarkdown } from "@prime-agent/web-design/components/qredence-ui/chat/markdown/lazy-markdown";
 import { lazy, Suspense, useMemo } from "react";
 import type { OpenUIArtifactCandidate } from "../../openui/html-artifact";
 import { segmentOpenUIContent } from "../../openui/openui-utils";

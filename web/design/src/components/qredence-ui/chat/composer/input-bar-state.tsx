@@ -3,16 +3,16 @@ import {
 	type ComposerPerson,
 	useMentionMatches,
 	useSlashMatches,
-} from "@prime-agent/web-design/components/qredence-ui/chat/composer-menu";
-import type { ComposerTriggerGroup } from "@prime-agent/web-design/components/qredence-ui/chat/composer-trigger-popover";
+} from "@prime-agent/web-design/components/qredence-ui/chat/composer/composer-menu";
+import type { ComposerTriggerGroup } from "@prime-agent/web-design/components/qredence-ui/chat/composer/composer-trigger-popover";
+import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
 import { useQuestionBarNavigation } from "@prime-agent/web-design/components/qredence-ui/chat/hooks/use-question-bar-navigation";
-import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/input/suggestions";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { availableThinkingLevels, clampThinkingLevel, thinkingLevelLabel } from "../../../lib/pi/chat-helpers";
-import { ProviderBrandIcon } from "../panels/config-panel/shared/provider-brand-icon";
-import { formatProviderLabel } from "../panels/config-panel/shared/provider-label";
+import { availableThinkingLevels, clampThinkingLevel, thinkingLevelLabel } from "../../../../lib/pi/chat-helpers";
+import { ProviderBrandIcon } from "../../panels/config-panel/shared/provider-brand-icon";
+import { formatProviderLabel } from "../../panels/config-panel/shared/provider-label";
 import type { InputBarProps } from "./input-bar";
 
 type SuggestionConfig = NonNullable<InputBarProps["slashCommands"]>;

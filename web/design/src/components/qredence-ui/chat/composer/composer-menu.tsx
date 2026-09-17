@@ -3,7 +3,7 @@
 import { cn } from "@prime-agent/web-design/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import { type ComponentProps, useMemo } from "react";
-import { field, floating } from "../../../lib/surfaces";
+import { field, floating } from "../../../../lib/surfaces";
 
 export interface ComposerCommand {
 	name: string;

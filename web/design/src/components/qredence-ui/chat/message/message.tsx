@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSideContext } from "@prime-agent/web-design/components/qredence-ui/chat/message-context";
+import { MessageSideContext } from "@prime-agent/web-design/components/qredence-ui/chat/message/message-context";
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { m, useReducedMotion } from "motion/react";
 import { type ComponentPropsWithRef, createContext, type ReactNode, useContext, useMemo } from "react";
@@ -10,9 +10,9 @@ export {
 	MessageBubbleCollapsible,
 	MessageBubbleContent,
 	MessageBubbleGroup,
-} from "@prime-agent/web-design/components/qredence-ui/chat/message-bubble";
-export type { MessageScrollerProps } from "@prime-agent/web-design/components/qredence-ui/chat/message-scroller";
-export { MessageScroller } from "@prime-agent/web-design/components/qredence-ui/chat/message-scroller";
+} from "@prime-agent/web-design/components/qredence-ui/chat/message/message-bubble";
+export type { MessageScrollerProps } from "@prime-agent/web-design/components/qredence-ui/chat/message/message-scroller";
+export { MessageScroller } from "@prime-agent/web-design/components/qredence-ui/chat/message/message-scroller";
 
 export type MessageFrom = "user" | "assistant";
 

@@ -2,8 +2,8 @@
 
 import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useId, useState } from "react";
 import { cn } from "../../../lib/utils";
-import { ComposerSelectorTrigger } from "./input/composer-selector-trigger";
-import { Popover } from "./input/input-popover";
+import { ComposerSelectorTrigger } from "./composer/input/composer-selector-trigger";
+import { Popover } from "./composer/input/input-popover";
 
 const LazyModelSelectorList = lazy(() =>
 	import("./model-selector-list").then(({ ModelSelectorList }) => ({

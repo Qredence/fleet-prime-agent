@@ -1,4 +1,4 @@
-import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/input/suggestions";
+import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
 import type { WorkspaceTreeNode, WorkspaceTreeResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract";
 

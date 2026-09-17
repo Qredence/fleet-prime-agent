@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "widePropExceptions": [
     {
-      "path": "src/components/qredence-ui/panels/workspace-panel.tsx",
+      "path": "src/components/qredence-ui/panels/workspace/workspace-panel.tsx",
       "type": "WorkspacePanelContentProps",
       "reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
     },
@@ -12,22 +12,22 @@
       "reason": "Private dialog coordinator; the public SessionSidebar API is grouped into data, actions, and slots."
     },
     {
-      "path": "src/components/qredence-ui/chat/composer-trigger-popover.tsx",
+      "path": "src/components/qredence-ui/chat/composer/composer-trigger-popover.tsx",
       "type": "ComposerTriggerPopoverProps",
       "reason": "Absorbed first-party composer trigger popover; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/input-bar.tsx",
+      "path": "src/components/qredence-ui/chat/composer/input-bar.tsx",
       "type": "InputBarProps",
       "reason": "Absorbed first-party composer contract; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/message-scroller.tsx",
+      "path": "src/components/qredence-ui/chat/message/message-scroller.tsx",
       "type": "MessageScrollerProps",
       "reason": "Absorbed first-party transcript scroller; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/prompt-input.tsx",
+      "path": "src/components/qredence-ui/chat/composer/prompt-input.tsx",
       "type": "PromptInputProps",
       "reason": "Absorbed first-party composer widget; existing public prop contract retained."
     },
@@ -37,7 +37,7 @@
       "reason": "Absorbed first-party question prompt; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/streaming-response.tsx",
+      "path": "src/components/qredence-ui/chat/message/streaming-response.tsx",
       "type": "StreamingResponseProps",
       "reason": "Absorbed first-party streaming response widget; existing public prop contract retained."
     },
@@ -79,7 +79,7 @@
   ],
   "nativeControlExceptions": [
     "src/components/qredence-ui/chat/agent-chat.tsx",
-    "src/components/qredence-ui/chat/input-bar.tsx",
+    "src/components/qredence-ui/chat/composer/input-bar.tsx",
     "src/components/qredence-ui/chat/fork-picker-dialog.tsx",
     "src/components/qredence-ui/layout/ai-sidebar.tsx",
     "src/components/qredence-ui/layout/animated-sidebar.tsx",
@@ -88,10 +88,10 @@
     "src/components/qredence-ui/layout/thread-search.tsx",
     "src/components/qredence-ui/panels/config-panel/sections/add-models-dialog.tsx",
     "src/components/qredence-ui/panels/config-panel/sections/provider-credentials-editor.tsx",
-    "src/components/qredence-ui/panels/resizable-canvas.tsx",
-    "src/components/qredence-ui/panels/right-panel-launcher.tsx",
-    "src/components/qredence-ui/panels/settings-dialog.tsx",
-    "src/components/qredence-ui/panels/workspace-panel.tsx",
+    "src/components/qredence-ui/panels/workspace/resizable-canvas.tsx",
+    "src/components/qredence-ui/panels/workspace/right-panel-launcher.tsx",
+    "src/components/qredence-ui/panels/settings/settings-dialog.tsx",
+    "src/components/qredence-ui/panels/workspace/workspace-panel.tsx",
     "src/components/qredence-ui/layout/session-sidebar/navigation.tsx",
     "src/components/qredence-ui/layout/session-sidebar/project-list.tsx",
     "src/components/qredence-ui/layout/session-sidebar/view-model.tsx",

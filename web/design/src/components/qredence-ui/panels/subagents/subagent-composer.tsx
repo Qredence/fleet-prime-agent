@@ -1,4 +1,4 @@
-import { PromptInput } from "@prime-agent/web-design/components/qredence-ui/chat/prompt-input";
+import { PromptInput } from "@prime-agent/web-design/components/qredence-ui/chat/composer/prompt-input";
 
 /**
  * Composer for subagent tabs, built on the same prompt input as the main
