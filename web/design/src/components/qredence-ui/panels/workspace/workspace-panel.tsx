@@ -84,7 +84,7 @@ export function WorkspacePanelContent({
 	const [previewError, setPreviewError] = useState<Error | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
 	const previewRef = useRef<HTMLDivElement | null>(null);
-	const { handleTreeResizeStart, splitRef, splitStyle } = useWorkspaceSplitLayout(workspace);
+	const { handleTreeResizeStart, isSplitLayout, splitRef, splitStyle } = useWorkspaceSplitLayout(workspace);
 
 	const scopedView = useMemo(() => {
 		if (!workspace) {
@@ -230,68 +230,91 @@ export function WorkspacePanelContent({
 		return <ResourceNotice icon={HardDrive} title={emptyTitle} description={emptyDescription} />;
 	}
 
+	const treePane = (
+		<div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+			<div data-testid={treeTestId} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+				<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
+					<HardDrive className="size-3.5 shrink-0 text-foreground/45" />
+					<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
+						{scopedView.headerLabel}
+					</span>
+				</div>
+				<FileTree
+					ariaLabel={scopePath ? `Files in ${scopedView.headerLabel}` : "Workspace files"}
+					className="gap-0.5"
+					classNames={{
+						item: "h-8 gap-1.5 rounded-sm text-label font-normal text-foreground/65 hover:bg-foreground/5 hover:text-foreground/80 aria-selected:bg-foreground/8 aria-selected:text-foreground/80",
+						icon: "size-3.5 text-foreground/35",
+						label: "text-label",
+					}}
+					value={selectedPath}
+					onValueChange={(path) => {
+						if (findWorkspaceNode(workspace.nodes, path)?.type === "file") {
+							setSelectedPath(path);
+						}
+					}}
+				>
+					{scopedView.nodes.map((node) => renderWorkspaceNode(node))}
+				</FileTree>
+				{workspace.diagnostics.length > 0 && !scopePath && (
+					<div className="mt-2 border-t border-border/60 pt-2">
+						<ResourceChipSection
+							id="workspace-diagnostics"
+							label="Diagnostics"
+							icon={CircleAlert}
+							items={workspace.diagnostics.map((diagnostic, index) => ({
+								name: `Diagnostic ${index + 1}`,
+								description: diagnostic,
+							}))}
+						/>
+					</div>
+				)}
+			</div>
+		</div>
+	);
+
+	const resizeHandle = (
+		<button
+			type="button"
+			aria-label="Resize workspace tree"
+			className={`min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10 ${WORKSPACE_SPLIT_HIDDEN_BLOCK}`}
+			data-testid="workspace-tree-resize-handle"
+			onPointerDown={handleTreeResizeStart}
+		/>
+	);
+
+	const previewPane = (
+		<WorkspacePreview
+			emptyDescription={previewEmptyDescription}
+			emptyTitle={previewEmptyTitle}
+			error={previewError}
+			loading={previewLoading}
+			preview={preview}
+			previewRef={previewRef}
+			selectedPath={selectedPath}
+		/>
+	);
+
 	return (
 		<div
 			ref={splitRef}
 			className={`relative grid h-full min-h-0 grid-cols-1 gap-2 overflow-hidden ${WORKSPACE_SPLIT_GAP_RESET}`}
 			style={splitStyle}
 		>
-			<div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-				<div data-testid={treeTestId} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
-						<HardDrive className="size-3.5 shrink-0 text-foreground/45" />
-						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
-							{scopedView.headerLabel}
-						</span>
-					</div>
-					<FileTree
-						ariaLabel={scopePath ? `Files in ${scopedView.headerLabel}` : "Workspace files"}
-						className="gap-0.5"
-						classNames={{
-							item: "h-8 gap-1.5 rounded-sm text-label font-normal text-foreground/65 hover:bg-foreground/5 hover:text-foreground/80 aria-selected:bg-foreground/8 aria-selected:text-foreground/80",
-							icon: "size-3.5 text-foreground/35",
-							label: "text-label",
-						}}
-						value={selectedPath}
-						onValueChange={(path) => {
-							if (findWorkspaceNode(workspace.nodes, path)?.type === "file") {
-								setSelectedPath(path);
-							}
-						}}
-					>
-						{scopedView.nodes.map((node) => renderWorkspaceNode(node))}
-					</FileTree>
-					{workspace.diagnostics.length > 0 && !scopePath && (
-						<div className="mt-2 border-t border-border/60 pt-2">
-							<ResourceChipSection
-								id="workspace-diagnostics"
-								label="Diagnostics"
-								icon={CircleAlert}
-								items={workspace.diagnostics.map((diagnostic, index) => ({
-									name: `Diagnostic ${index + 1}`,
-									description: diagnostic,
-								}))}
-							/>
-						</div>
-					)}
-				</div>
-			</div>
-			<button
-				type="button"
-				aria-label="Resize workspace tree"
-				className={`min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10 ${WORKSPACE_SPLIT_HIDDEN_BLOCK}`}
-				data-testid="workspace-tree-resize-handle"
-				onPointerDown={handleTreeResizeStart}
-			/>
-			<WorkspacePreview
-				emptyDescription={previewEmptyDescription}
-				emptyTitle={previewEmptyTitle}
-				error={previewError}
-				loading={previewLoading}
-				preview={preview}
-				previewRef={previewRef}
-				selectedPath={selectedPath}
-			/>
+			{/* DOM order matches visual order in each mode (WCAG 1.3.2 / focus). */}
+			{isSplitLayout ? (
+				<>
+					{previewPane}
+					{resizeHandle}
+					{treePane}
+				</>
+			) : (
+				<>
+					{treePane}
+					{resizeHandle}
+					{previewPane}
+				</>
+			)}
 		</div>
 	);
 }

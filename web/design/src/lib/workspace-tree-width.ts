@@ -14,6 +14,16 @@ export function clampWorkspaceTreeWidth(width: number, containerWidth: number) {
 	return Math.min(maxWidth, Math.max(WORKSPACE_TREE_MIN_WIDTH, Math.round(width)));
 }
 
+/** Tree sits on the right of the preview: drag the handle left to grow the tree. */
+export function nextWorkspaceTreeWidthFromPointer(
+	clientX: number,
+	startX: number,
+	width: number,
+	containerWidth: number,
+) {
+	return clampWorkspaceTreeWidth(width + (startX - clientX), containerWidth);
+}
+
 export function readStoredWorkspaceTreeWidth(containerWidth?: number) {
 	return readStoredWidth(WORKSPACE_TREE_WIDTH_STORAGE_KEY, WORKSPACE_TREE_DEFAULT_WIDTH, (width) =>
 		containerWidth === undefined

@@ -1,5 +1,9 @@
 import type { RightPanelState } from "@prime-agent/web-protocol/fleet-contract";
-import { RESOURCE_CANVAS_VIEWPORT_RATIO } from "./layout-constants";
+import {
+	RESOURCE_CANVAS_DEFAULT_VIEWPORT_RATIO,
+	RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX,
+	RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX,
+} from "./layout-constants";
 import { readStoredValue, writeStoredValue } from "./safe-storage";
 import { readStoredWidth, storeStoredWidth } from "./stored-width";
 
@@ -13,12 +17,17 @@ export type RightPanel = RightPanelState;
 
 export function getResourceCanvasInitialWidth() {
 	if (typeof window === "undefined") return RESOURCE_CANVAS_MIN_WIDTH;
-	return getResourceCanvasMaxWidth();
+	return clampResourceCanvasWidth(Math.floor(window.innerWidth * RESOURCE_CANVAS_DEFAULT_VIEWPORT_RATIO));
 }
 
 export function getResourceCanvasMaxWidth() {
 	if (typeof window === "undefined") return RESOURCE_CANVAS_MIN_WIDTH;
-	return Math.max(RESOURCE_CANVAS_MIN_WIDTH, Math.floor(window.innerWidth * RESOURCE_CANVAS_VIEWPORT_RATIO));
+	// Panel sits beside the session sidebar inside the chat shell, so reserve
+	// both the sidebar and a usable chat column — not just 360px of viewport.
+	return Math.max(
+		RESOURCE_CANVAS_MIN_WIDTH,
+		window.innerWidth - RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX - RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX,
+	);
 }
 
 export function clampResourceCanvasWidth(width: number) {

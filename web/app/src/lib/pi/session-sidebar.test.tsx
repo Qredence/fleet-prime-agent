@@ -207,7 +207,6 @@ describe("SessionSidebar project rows", () => {
 		expect(getByText("Selected directory")).toBeTruthy();
 		expect(getByText("~/workspace", { exact: true })).toBeTruthy();
 
-		fireEvent.click(getByRole("combobox", { name: "Search child directories" }));
 		fireEvent.click(getByRole("option", { name: /prime-agent/ }));
 		await waitFor(() => expect(browseDirectories).toHaveBeenLastCalledWith({ token: "child-token" }));
 		expect(getByText("~/workspace/prime-agent", { exact: true })).toBeTruthy();

@@ -5,6 +5,7 @@ import { startHorizontalResize } from "../../../../lib/horizontal-resize";
 import { WORKSPACE_SPLIT_MIN_WIDTH_PX } from "../../../../lib/layout-constants";
 import {
 	clampWorkspaceTreeWidth,
+	nextWorkspaceTreeWidthFromPointer,
 	readStoredWorkspaceTreeWidth,
 	storeWorkspaceTreeWidth,
 } from "../../../../lib/workspace-tree-width";
@@ -18,6 +19,14 @@ const getWorkspaceSplitSnapshot = () => window.matchMedia(`(min-width: ${WORKSPA
 // Server/initial-hydration value: stacked. Keeps SSR HTML and the hydration
 // render identical; the post-hydration flip carries no mismatch recovery.
 const getServerWorkspaceSplitSnapshot = () => false;
+
+/** Columns for split mode. Stacked leaves style undefined so DOM order drives layout. */
+export function workspaceSplitGridStyle(isSplitLayout: boolean, treeWidth: number): CSSProperties | undefined {
+	if (!isSplitLayout) return undefined;
+	return {
+		gridTemplateColumns: `minmax(160px, 1fr) 8px ${treeWidth}px`,
+	};
+}
 
 export function useWorkspaceSplitLayout(_workspace: WorkspaceTreeResponse | null) {
 	const [treeWidth, setTreeWidth] = useState(readStoredWorkspaceTreeWidth);
@@ -39,7 +48,7 @@ export function useWorkspaceSplitLayout(_workspace: WorkspaceTreeResponse | null
 				event,
 				startWidth,
 				getNextWidth: (clientX, startX, width) =>
-					clampWorkspaceTreeWidth(width + (clientX - startX), containerWidth),
+					nextWorkspaceTreeWidthFromPointer(clientX, startX, width, containerWidth),
 				onWidthChange: (nextWidth) => {
 					setTreeWidth(nextWidth);
 					storeWorkspaceTreeWidth(nextWidth);
@@ -64,16 +73,10 @@ export function useWorkspaceSplitLayout(_workspace: WorkspaceTreeResponse | null
 		});
 	}, []);
 
-	const splitStyle = isSplitLayout
-		? ({
-				gridTemplateColumns: `${treeWidth}px 8px minmax(160px, 1fr)`,
-			} satisfies CSSProperties)
-		: undefined;
-
 	return {
 		handleTreeResizeStart,
 		isSplitLayout,
 		splitRef,
-		splitStyle,
+		splitStyle: workspaceSplitGridStyle(isSplitLayout, treeWidth),
 	};
 }

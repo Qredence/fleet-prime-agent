@@ -11,9 +11,23 @@ export const CHAT_MOBILE_PANEL_GAP_PX = 8;
 
 export const CHAT_CHROME_TOP_PX = CHAT_HEADER_OFFSET_PX + CHAT_HEADER_HEIGHT_PX + CHAT_MOBILE_PANEL_GAP_PX;
 
-// Keep the execution panel useful without letting it consume half of the
-// desktop chat viewport. Users can still widen it with the resize handle.
-export const RESOURCE_CANVAS_VIEWPORT_RATIO = 0.4;
+/**
+ * Default open width for the desktop right panel (fraction of the viewport).
+ * Replaces the former `RESOURCE_CANVAS_VIEWPORT_RATIO`, which incorrectly
+ * doubled as both default open size and max-width cap.
+ */
+export const RESOURCE_CANVAS_DEFAULT_VIEWPORT_RATIO = 0.4;
+/**
+ * Expanded session sidebar width used when clamping the right panel.
+ * Keep in sync with `ChatApp` `sidebarWidth="17.5rem"` in the chat shell.
+ */
+export const RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX = 280;
+/**
+ * Minimum width reserved for the chat column when the user widens the right
+ * panel. Combined with {@link RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX} so the
+ * panel max is measured against the full viewport, not the inset alone.
+ */
+export const RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX = 360;
 
 /** Full Tailwind class strings — keep breakpoint px values in sync above. */
 export const DESKTOP_PANEL_HIDDEN_FLEX = "hidden min-[960px]:flex";
