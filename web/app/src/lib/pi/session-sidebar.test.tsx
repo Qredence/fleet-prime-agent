@@ -204,7 +204,7 @@ describe("SessionSidebar project rows", () => {
 
 		fireEvent.click(getByRole("button", { name: /^Add project$/ }));
 		await waitFor(() => expect(browseDirectories).toHaveBeenCalledWith({}));
-		expect(getByText("Selected directory")).toBeTruthy();
+		await waitFor(() => expect(getByText("Selected directory")).toBeTruthy());
 		expect(getByText("~/workspace", { exact: true })).toBeTruthy();
 
 		fireEvent.click(getByRole("option", { name: /prime-agent/ }));
@@ -260,6 +260,7 @@ describe("SessionSidebar project rows", () => {
 		);
 
 		fireEvent.click(getByRole("button", { name: /^Add project$/ }));
+		await waitFor(() => expect(getByRole("dialog", { name: "Add project" })).toBeTruthy());
 		fireEvent.change(getByRole("textbox", { name: "Project directory" }), {
 			target: { value: "/workspace/alpha" },
 		});
