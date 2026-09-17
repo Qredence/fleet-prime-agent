@@ -16,6 +16,7 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { extname, basename, dirname, join, relative, resolve } from "node:path";
 import ts from "typescript";
+import { relativeUiImportPattern } from "./component-contract-patterns";
 
 const DESIGN_ROOT = resolve(import.meta.dirname, "..");
 const REPO_ROOT = resolve(DESIGN_ROOT, "..", "..");
@@ -213,7 +214,6 @@ const widePropExceptions = new Set(
 	sourceManifest.widePropExceptions.map((entry) => `${entry.path}:${entry.type}`),
 );
 const nativeControlPattern = /<(?:button|input|select|textarea)\b/;
-const relativeUiImportPattern = /from ["'](?:\.\.\/)+ui\//;
 const nativeControlRoots = [
 	"src/components/qredence-ui/panels/",
 	"src/components/qredence-ui/layout/",

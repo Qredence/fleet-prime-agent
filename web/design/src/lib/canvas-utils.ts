@@ -1,8 +1,8 @@
 import type { RightPanelState } from "@prime-agent/web-protocol/fleet-contract";
 import {
+	getResourceCanvasSessionSidebarWidthPx,
 	RESOURCE_CANVAS_DEFAULT_VIEWPORT_RATIO,
 	RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX,
-	RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX,
 } from "./layout-constants";
 import { readStoredValue, writeStoredValue } from "./safe-storage";
 import { readStoredWidth, storeStoredWidth } from "./stored-width";
@@ -24,11 +24,15 @@ export function getResourceCanvasInitialWidth() {
 /** Returns the largest right-panel width that preserves the sidebar and main chat column, or the minimum during SSR. */
 export function getResourceCanvasMaxWidth() {
 	if (typeof window === "undefined") return RESOURCE_CANVAS_MIN_WIDTH;
+	const computedRootFontSizePx = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize);
+	const rootFontSizePx =
+		Number.isFinite(computedRootFontSizePx) && computedRootFontSizePx > 0 ? computedRootFontSizePx : 16;
+	const sessionSidebarWidthPx = getResourceCanvasSessionSidebarWidthPx(rootFontSizePx);
 	// Panel sits beside the session sidebar inside the chat shell, so reserve
 	// both the sidebar and a usable chat column — not just 360px of viewport.
 	return Math.max(
 		RESOURCE_CANVAS_MIN_WIDTH,
-		window.innerWidth - RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX - RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX,
+		window.innerWidth - sessionSidebarWidthPx - RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX,
 	);
 }
 

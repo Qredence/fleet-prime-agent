@@ -18,7 +18,7 @@ The same release version also pins `@earendil-works/pi-agent-core` and `@earendi
 
 Import and dependency keys use the Earendil package names (`@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`). The resolved artifacts are the matching Prime Agent release-family tarballs (`prime-agent-core-<version>.tgz`, `prime-agent-ai-<version>.tgz`) derived from `PRIME_AGENT_RUNTIME.json`, not live npm registry versions of those packages.
 
-Do not replace those URL pins with a normal `name@version` from the public registry. The stock `prime-agent` family for this pin is not published there, and the separately published `@earendil-works/pi-*` packages on npm are a different version line that must not override the checksum-pinned runtime. `pnpm run check:runtime` enforces the expected R2 tarball URLs.
+Do not replace those URL pins with a normal `name@version` from the public registry. The stock `prime-agent` family for this pin is not published there, and the separately published `@earendil-works/pi-*` packages on npm are a different version line that must not override the checksum-pinned runtime. `pnpm run check:runtime` validates the manifest-derived runtime-family tarball URLs and keeps the package manifests and lockfile entries consistent with them.
 
 Do not copy upstream source into Fleet. Engine, provider, model, daemon, and upstream protocol changes belong upstream; Fleet should update its pin and adapter only after the upstream capability exists.
 

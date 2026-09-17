@@ -20,11 +20,13 @@ export const RESOURCE_CANVAS_DEFAULT_VIEWPORT_RATIO = 0.4;
 /** Expanded session sidebar width in rem — owned here; consumed by ChatApp and canvas clamp. */
 export const SESSION_SIDEBAR_WIDTH_REM = 17.5;
 export const SESSION_SIDEBAR_WIDTH_CSS = `${SESSION_SIDEBAR_WIDTH_REM}rem`;
-/** Same width in CSS px at the default 16px root font size. */
-export const RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX = SESSION_SIDEBAR_WIDTH_REM * 16;
+/** Converts the shared rem sidebar width to CSS pixels for the current root font size. */
+export function getResourceCanvasSessionSidebarWidthPx(rootFontSizePx: number) {
+	return SESSION_SIDEBAR_WIDTH_REM * rootFontSizePx;
+}
 /**
  * Minimum width reserved for the chat column when the user widens the right
- * panel. Combined with {@link RESOURCE_CANVAS_SESSION_SIDEBAR_WIDTH_PX} so the
+ * panel. Combined with the computed session sidebar width so the
  * panel max is measured against the full viewport, not the inset alone.
  */
 export const RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX = 360;

@@ -375,7 +375,6 @@ function ResourceActionMenu({ item, menuOpen, onMenuOpenChange, onRenameStart, r
 						variant="ghost"
 						size="icon-sm"
 						draggable={false}
-						tabIndex={-1}
 						aria-label={`Actions for ${item.label}`}
 						onClick={(event) => event.stopPropagation()}
 						className="size-7 shrink-0 opacity-0 outline-none transition-opacity hover:bg-foreground/5 focus-visible:opacity-100 group-hover/resource:opacity-100 group-data-[menu-open=true]/resource:opacity-100"
