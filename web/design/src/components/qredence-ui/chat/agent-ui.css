@@ -102,16 +102,16 @@
   animation: chat-ellipsis 1.2s steps(1, end) infinite;
 }
 
-.an-markdown pre code {
+.typeset pre code {
   counter-reset: none !important;
 }
 
-.an-markdown pre code > span::before {
+.typeset pre code > span::before {
   content: none !important;
   display: none !important;
 }
 
-.an-markdown pre code > span {
+.typeset pre code > span {
   padding-left: 0 !important;
 }
 
@@ -141,7 +141,7 @@
   background-color: #000 !important;
 }
 
-.an-markdown [data-streamdown="code-block"] {
+.typeset [data-streamdown="code-block"] {
   padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--chat-tool-radius);
@@ -149,7 +149,7 @@
   gap: 0;
 }
 
-.an-markdown [data-streamdown="code-block-header"] {
+.typeset [data-streamdown="code-block-header"] {
   padding: 0px 10px 0px 8px;
   height: 28px;
   font-size: 12px;
@@ -159,7 +159,7 @@
   position: relative;
 }
 
-.an-markdown div:has(> [data-streamdown="code-block-actions"]) {
+.typeset div:has(> [data-streamdown="code-block-actions"]) {
   position: absolute;
   height: 28px;
   margin: 0;
@@ -168,19 +168,19 @@
   padding-right: 8px;
 }
 
-.an-markdown [data-streamdown="code-block-actions"] {
+.typeset [data-streamdown="code-block-actions"] {
   background: transparent;
   border: none;
   backdrop-filter: none;
   padding: 0;
 }
 
-.an-markdown [data-streamdown="code-block-actions"] button > svg {
+.typeset [data-streamdown="code-block-actions"] button > svg {
   width: 14px;
   height: 14px;
 }
 
-.an-markdown [data-streamdown="code-block-body"] {
+.typeset [data-streamdown="code-block-body"] {
   margin: 0;
   padding-top: 8px;
   padding-bottom: 8px;
@@ -189,8 +189,8 @@
   overflow-x: auto;
 }
 
-.an-markdown [data-streamdown="code-block"] pre,
-.an-markdown [data-streamdown="code-block"] code {
+.typeset [data-streamdown="code-block"] pre,
+.typeset [data-streamdown="code-block"] code {
   font-size: 12px;
   background: transparent;
 }

@@ -1,7 +1,7 @@
 import type { SessionTreeNode, SessionTreeSnapshot } from "@prime-agent/web-protocol/chat-protocol";
 import { GitBranch } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cn } from "../../../lib/utils";
+import { cn } from "../../../../lib/utils";
 import {
 	AlertDialog,
 	AlertDialogCancel,
@@ -9,8 +9,8 @@ import {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogTitle,
-} from "../../ui/alert-dialog";
-import { Button } from "../../ui/button";
+} from "../../../ui/alert-dialog";
+import { Button } from "../../../ui/button";
 
 export type SessionTreePanelProps = {
 	sessionId?: string;

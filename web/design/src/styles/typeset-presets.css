@@ -1,0 +1,10 @@
+/* Fleet Typeset presets — rhythm aligned with LAYOUT.md (Inter + body 14). */
+
+.typeset-chat {
+  --typeset-font-body: var(--font-sans);
+  --typeset-font-heading: var(--font-sans);
+  --typeset-font-mono: var(--font-mono, ui-monospace, monospace);
+  --typeset-size: 0.875rem; /* body 14 */
+  --typeset-leading: 1.6;
+  --typeset-flow: 1em; /* tighter for chat */
+}

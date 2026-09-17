@@ -3,12 +3,12 @@ import {
 	MessageBubble,
 	MessageBubbleContent,
 	MessageContent,
-} from "@prime-agent/web-design/components/qredence-ui/chat/message";
-import { MessageScroller } from "@prime-agent/web-design/components/qredence-ui/chat/message-scroller";
-import { buildAssistantElements } from "@prime-agent/web-design/components/qredence-ui/chat/message-turns";
-import { StreamingResponse } from "@prime-agent/web-design/components/qredence-ui/chat/streaming-response";
+} from "@prime-agent/web-design/components/qredence-ui/chat/message/message";
+import { MessageScroller } from "@prime-agent/web-design/components/qredence-ui/chat/message/message-scroller";
+import { buildAssistantElements } from "@prime-agent/web-design/components/qredence-ui/chat/message/message-turns";
+import { StreamingResponse } from "@prime-agent/web-design/components/qredence-ui/chat/message/streaming-response";
+import { UserMessage } from "@prime-agent/web-design/components/qredence-ui/chat/message/user-message";
 import type { AgentChatProps } from "@prime-agent/web-design/components/qredence-ui/chat/types";
-import { UserMessage } from "@prime-agent/web-design/components/qredence-ui/chat/user-message";
 import type { QueueLane } from "@prime-agent/web-design/components/qredence-ui/tools/message-queue";
 import { normalizeAssistantToolParts } from "@prime-agent/web-design/components/qredence-ui/tools/utils/tool-part-normalizer";
 import type {
@@ -38,11 +38,11 @@ import type { OpenUIArtifactCandidate } from "../../openui/html-artifact";
 import { CHAT_COLUMN_CLASS } from "../chrome/tokens";
 import { getChatErrorPresentation } from "./chat-error-presentation";
 import { ChatWelcome } from "./chat-welcome";
+import type { InputBarProps } from "./composer/input-bar";
+import { InputBar } from "./composer/input-bar";
 import { SessionGenerativeTextRenderer } from "./generative-text-renderer";
-import type { InputBarProps } from "./input-bar";
-import { InputBar } from "./input-bar";
-import { TurnStatus } from "./turn-status";
-import { TRANSCRIPT_VIRTUALIZATION_THRESHOLD, VirtualizedTurnList } from "./virtualized-turn-list";
+import { TurnStatus } from "./message/turn-status";
+import { TRANSCRIPT_VIRTUALIZATION_THRESHOLD, VirtualizedTurnList } from "./message/virtualized-turn-list";
 
 const LazySessionToolRenderer = lazy(() =>
 	import("../tools/session-tool-renderer").then(({ SessionToolRenderer }) => ({

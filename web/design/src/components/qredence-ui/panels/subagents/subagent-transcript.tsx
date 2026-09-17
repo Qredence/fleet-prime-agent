@@ -3,10 +3,10 @@ import {
 	MessageBubble,
 	MessageBubbleContent,
 	MessageContent,
-} from "@prime-agent/web-design/components/qredence-ui/chat/message";
-import { MessageScroller } from "@prime-agent/web-design/components/qredence-ui/chat/message-scroller";
-import { buildAssistantElements } from "@prime-agent/web-design/components/qredence-ui/chat/message-turns";
-import { UserMessage } from "@prime-agent/web-design/components/qredence-ui/chat/user-message";
+} from "@prime-agent/web-design/components/qredence-ui/chat/message/message";
+import { MessageScroller } from "@prime-agent/web-design/components/qredence-ui/chat/message/message-scroller";
+import { buildAssistantElements } from "@prime-agent/web-design/components/qredence-ui/chat/message/message-turns";
+import { UserMessage } from "@prime-agent/web-design/components/qredence-ui/chat/message/user-message";
 import { SubagentList } from "@prime-agent/web-design/components/qredence-ui/tools/subagent-list";
 import { ToolTimeline } from "@prime-agent/web-design/components/qredence-ui/tools/tool-timeline";
 import { normalizeAssistantToolParts } from "@prime-agent/web-design/components/qredence-ui/tools/utils/tool-part-normalizer";
@@ -18,14 +18,14 @@ import type {
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { AlertCircle, Bot, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type ConversationTurn, groupMessages } from "../../../lib/pi/conversation-turns";
-import { cn } from "../../../lib/utils";
-import { Button } from "../../ui/button";
-import { SessionGenerativeTextRenderer } from "../chat/generative-text-renderer";
-import { VirtualizedTurnList } from "../chat/virtualized-turn-list";
-import { SessionToolRenderer } from "../tools/session-tool-renderer";
-import { derivePrimeAgentArtifactRuns } from "./prime-agent-artifacts";
-import { transcriptStatus } from "./transcript-status";
+import { type ConversationTurn, groupMessages } from "../../../../lib/pi/conversation-turns";
+import { cn } from "../../../../lib/utils";
+import { Button } from "../../../ui/button";
+import { SessionGenerativeTextRenderer } from "../../chat/generative-text-renderer";
+import { VirtualizedTurnList } from "../../chat/message/virtualized-turn-list";
+import { SessionToolRenderer } from "../../tools/session-tool-renderer";
+import { transcriptStatus } from "../session/transcript-status";
+import { derivePrimeAgentArtifactRuns } from "../workspace/prime-agent-artifacts";
 
 export type SubagentTranscriptState = {
 	status: "loading" | "ready" | "error";

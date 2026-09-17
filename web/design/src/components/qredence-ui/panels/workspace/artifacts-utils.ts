@@ -1,5 +1,5 @@
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import { segmentOpenUIContent } from "../../openui/openui-utils";
+import { segmentOpenUIContent } from "../../../openui/openui-utils";
 
 export type SessionOpenUIBlock = {
 	/** Stable id: `${messageId}:${segmentId}` — matches chat-rendered block ids. */

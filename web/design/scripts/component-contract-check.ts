@@ -217,7 +217,7 @@ const nativeControlRoots = [
 	"src/components/qredence-ui/layout/",
 	"src/components/qredence-ui/chrome/",
 	"src/components/qredence-ui/chat/agent-chat",
-	"src/components/qredence-ui/chat/input-bar",
+	"src/components/qredence-ui/chat/composer/input-bar",
 	"src/components/qredence-ui/chat/fork-picker-dialog",
 ];
 for (const file of designFiles) {

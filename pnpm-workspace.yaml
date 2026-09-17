@@ -7,6 +7,10 @@ packages:
 
 # 7 days in minutes (was the root .npmrc min-release-age=7).
 minimumReleaseAge: 10080
+# cn@0.3.0 is the shadcn-ui/cn package required for Fleet `createCn` migration;
+# published 2026-09-12 — allow before the 7-day maturity window elapses.
+minimumReleaseAgeExclude:
+  - cn@0.3.0
 managePackageManagerVersions: false
 trustPolicy: no-downgrade
 # Upstream's signed runtime tarball declares its own pinned R2 package tarballs.

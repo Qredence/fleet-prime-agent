@@ -1,7 +1,7 @@
 import {
 	type ChatTranscriptSummary,
 	summarizeChatTranscript,
-} from "@prime-agent/web-design/components/qredence-ui/panels/transcript-summary";
+} from "@prime-agent/web-design/components/qredence-ui/panels/session/transcript-summary";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useEffect, useMemo, useRef, useState } from "react";
 

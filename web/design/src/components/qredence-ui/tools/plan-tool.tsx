@@ -2,7 +2,7 @@ import { cn } from "@prime-agent/web-design/lib/utils";
 import { ChevronsDown, ChevronsUp, FileText } from "lucide-react";
 import { memo, useState } from "react";
 import { IconSpinner } from "../chat/icons";
-import { LazyMarkdown } from "../chat/lazy-markdown";
+import { LazyMarkdown } from "../chat/markdown/lazy-markdown";
 import { areToolPropsEqual, getToolStatus } from "./utils/format-tool";
 
 export type Plan = {

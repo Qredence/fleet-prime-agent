@@ -27,37 +27,37 @@ export type RightPanelDefinition = {
 };
 
 const LazyArtifactsPanel = lazy(() =>
-	import("../panels/artifacts-panel").then(({ ArtifactsPanelContent }) => ({
+	import("../panels/workspace/artifacts-panel").then(({ ArtifactsPanelContent }) => ({
 		default: ArtifactsPanelContent,
 	})),
 );
 const LazyResourcesPanel = lazy(() =>
-	import("../panels/resources-panel").then(({ ResourcesPanelContent }) => ({
+	import("../panels/workspace/resources-panel").then(({ ResourcesPanelContent }) => ({
 		default: ResourcesPanelContent,
 	})),
 );
 const LazySessionInsightsPanel = lazy(() =>
-	import("../panels/session-insights-panel").then(({ SessionInsightsPanel }) => ({
+	import("../panels/session/session-insights-panel").then(({ SessionInsightsPanel }) => ({
 		default: SessionInsightsPanel,
 	})),
 );
 const LazyReplPanel = lazy(() =>
-	import("../panels/repl-panel").then(({ ReplPanelContent }) => ({
+	import("../panels/workspace/repl-panel").then(({ ReplPanelContent }) => ({
 		default: ReplPanelContent,
 	})),
 );
 const LazySubagentsPanel = lazy(() =>
-	import("../panels/subagents-panel").then(({ SubagentsPanelContent }) => ({
+	import("../panels/subagents/subagents-panel").then(({ SubagentsPanelContent }) => ({
 		default: SubagentsPanelContent,
 	})),
 );
 const LazyWorkspacePanel = lazy(() =>
-	import("../panels/workspace-panel").then(({ WorkspacePanelContent }) => ({
+	import("../panels/workspace/workspace-panel").then(({ WorkspacePanelContent }) => ({
 		default: WorkspacePanelContent,
 	})),
 );
 const LazySessionTreePanel = lazy(() =>
-	import("../panels/session-tree-panel").then(({ SessionTreePanel }) => ({
+	import("../panels/session/session-tree-panel").then(({ SessionTreePanel }) => ({
 		default: SessionTreePanel,
 	})),
 );

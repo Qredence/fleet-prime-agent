@@ -1,7 +1,7 @@
 import { AgentChat } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
-import { Markdown } from "@prime-agent/web-design/components/qredence-ui/chat/markdown";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/artifacts-panel";
-import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/qredence-ui/panels/artifacts-utils";
+import { Markdown } from "@prime-agent/web-design/components/qredence-ui/chat/markdown/markdown";
+import { ArtifactsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/artifacts-panel";
+import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/artifacts-utils";
 import { MessageQueue } from "@prime-agent/web-design/components/qredence-ui/tools/message-queue";
 import { SubagentList } from "@prime-agent/web-design/components/qredence-ui/tools/subagent-list";
 import { ToolTimeline } from "@prime-agent/web-design/components/qredence-ui/tools/tool-timeline";
@@ -71,7 +71,7 @@ describe("review regressions", () => {
 		const { container, getByRole } = render(
 			<Markdown content="Before ![status](https://example.com/status.png) after" />,
 		);
-		const paragraph = container.querySelector("p.an-md-p");
+		const paragraph = container.querySelector(".typeset p");
 
 		expect(paragraph).not.toBeNull();
 		expect(paragraph?.textContent).toContain("Before");

@@ -10,9 +10,11 @@ const LazyChatCommandPalette = lazy(() =>
 	),
 );
 const LazySettingsDialog = lazy(() =>
-	import("@prime-agent/web-design/components/qredence-ui/panels/settings-dialog").then(({ SettingsDialog }) => ({
-		default: SettingsDialog,
-	})),
+	import("@prime-agent/web-design/components/qredence-ui/panels/settings/settings-dialog").then(
+		({ SettingsDialog }) => ({
+			default: SettingsDialog,
+		}),
+	),
 );
 const LazyForkPickerDialog = lazy(() =>
 	import("@prime-agent/web-design/components/qredence-ui/chat/fork-picker-dialog").then(({ ForkPickerDialog }) => ({

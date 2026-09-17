@@ -3,15 +3,15 @@ import type { LucideIcon } from "lucide-react";
 import { PanelRight, X } from "lucide-react";
 import type { HTMLAttributes, ReactNode } from "react";
 import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { RightPanel } from "../../../lib/canvas-utils";
-import { CHAT_PANEL_BREAKPOINT_PX, DESKTOP_PANEL_ONLY } from "../../../lib/layout-constants";
-import { Button } from "../../ui/button";
-import { Select, type SelectOption } from "../../ui/select";
-import { ChromePillButton } from "../chrome/chrome-pill";
-import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "../chrome/tokens";
-import { useChatPanelDataContext, useWorkspaceTreeContext } from "../layout/right-panel-context";
-import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "../layout/right-panel-registry";
-import { TabsSubtle, TabsSubtleItem } from "../layout/tabs-subtle";
+import type { RightPanel } from "../../../../lib/canvas-utils";
+import { CHAT_PANEL_BREAKPOINT_PX, DESKTOP_PANEL_ONLY } from "../../../../lib/layout-constants";
+import { Button } from "../../../ui/button";
+import { Select, type SelectOption } from "../../../ui/select";
+import { ChromePillButton } from "../../chrome/chrome-pill";
+import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "../../chrome/tokens";
+import { useChatPanelDataContext, useWorkspaceTreeContext } from "../../layout/right-panel-context";
+import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "../../layout/right-panel-registry";
+import { TabsSubtle, TabsSubtleItem } from "../../layout/tabs-subtle";
 import { getResourceGroups } from "./resource-helpers";
 
 const COMPACT_TABS_CLASS =

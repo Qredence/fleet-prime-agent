@@ -8,7 +8,7 @@ import {
   SETTINGS_SECTIONS,
   SETTINGS_SECTION_REGISTRY,
   isSettingsSectionId,
-} from "../src/components/qredence-ui/panels/settings-sections"
+} from "../src/components/qredence-ui/panels/settings/settings-sections"
 
 assert.deepEqual(
   RIGHT_PANEL_DEFINITIONS.map(({ id }) => id),

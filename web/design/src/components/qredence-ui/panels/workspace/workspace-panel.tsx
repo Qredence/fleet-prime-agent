@@ -1,4 +1,4 @@
-import { LazyMarkdown } from "@prime-agent/web-design/components/qredence-ui/chat/lazy-markdown";
+import { LazyMarkdown } from "@prime-agent/web-design/components/qredence-ui/chat/markdown/lazy-markdown";
 import {
 	FileTree,
 	FileTreeFile,
@@ -16,10 +16,10 @@ import {
 	CHAT_PANEL_BREAKPOINT_PX,
 	WORKSPACE_SPLIT_GAP_RESET,
 	WORKSPACE_SPLIT_HIDDEN_BLOCK,
-} from "../../../lib/layout-constants";
-import { isDaytonaNotConnectedError } from "../../../lib/pi/chat-helpers";
-import { isPathWithinScope } from "../../../lib/workspace-path-nav";
-import { useWorkspaceSplitLayout } from "./hooks/use-workspace-split-layout";
+} from "../../../../lib/layout-constants";
+import { isDaytonaNotConnectedError } from "../../../../lib/pi/chat-helpers";
+import { isPathWithinScope } from "../../../../lib/workspace-path-nav";
+import { useWorkspaceSplitLayout } from "../hooks/use-workspace-split-layout";
 import { findWorkspaceNode } from "./resource-helpers";
 import { ResourceChipSection, ResourceNotice } from "./shared";
 import { WorkspacePreviewSkeleton, WorkspaceSkeleton } from "./skeleton-loaders";
