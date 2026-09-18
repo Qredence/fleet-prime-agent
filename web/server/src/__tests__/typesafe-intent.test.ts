@@ -78,7 +78,7 @@ describe("interpretIntentResult", () => {
 	});
 
 	it("maps a confident safe match to an execute disposition", () => {
-		expect(interpretIntentResult(result("context", 0.93, 0.02))).toMatchObject({
+		expect(interpretIntentResult(result("context", 0.93, 0.02), "how much context have I used")).toMatchObject({
 			outcome: "matched",
 			disposition: "execute",
 			confidence: 0.93,
@@ -86,19 +86,33 @@ describe("interpretIntentResult", () => {
 		});
 	});
 
+	it("offers but never runs a single-token draft, however confident", () => {
+		// A bare mistyped token is the regime where the model is confidently wrong.
+		expect(interpretIntentResult(result("context", 0.99, 0.02), "contxt")).toMatchObject({
+			outcome: "matched",
+			disposition: "suggest",
+			command: { id: "context" },
+		});
+	});
+
 	it("refuses when the utterance is engineering work, however confident", () => {
-		expect(interpretIntentResult(result("context", 0.99, 0.95))).toEqual({ outcome: "none", reason: "code_task" });
+		expect(interpretIntentResult(result("context", 0.99, 0.95), "how much context have I used")).toEqual({
+			outcome: "none",
+			reason: "code_task",
+		});
 	});
 
 	it("treats a missing answer as no match rather than an error", () => {
-		expect(interpretIntentResult({ model: "m", answers: {}, usage: { input_tokens: 0, output_tokens: 0 } })).toEqual({
+		expect(
+			interpretIntentResult({ model: "m", answers: {}, usage: { input_tokens: 0, output_tokens: 0 } }, "anything"),
+		).toEqual({
 			outcome: "none",
 			reason: "no_match",
 		});
 	});
 
 	it("rejects a command that is not in the catalog", () => {
-		expect(interpretIntentResult(result("not-a-command", 0.99, 0))).toEqual({
+		expect(interpretIntentResult(result("not-a-command", 0.99, 0), "how much context have I used")).toEqual({
 			outcome: "none",
 			reason: "no_match",
 		});

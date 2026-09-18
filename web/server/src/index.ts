@@ -3,6 +3,7 @@ export { handleChatAbortPost } from "./handlers/chat-abort";
 export { handleChatAttachmentGet, handleChatAttachmentsPost } from "./handlers/chat-attachments";
 export { handleChatCommandPost } from "./handlers/chat-command";
 export { handleChatCommandsGet } from "./handlers/chat-commands";
+export { handleChatCompletionPost } from "./handlers/chat-completion";
 export { handleChatEventsGet } from "./handlers/chat-events";
 export { handleChatIntentGet, handleChatIntentPatch, handleChatIntentPost } from "./handlers/chat-intent";
 export { handleChatMcpDelete, handleChatMcpGet, handleChatMcpOAuthPost, handleChatMcpPost } from "./handlers/chat-mcp";

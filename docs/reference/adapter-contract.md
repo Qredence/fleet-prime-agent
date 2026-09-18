@@ -92,6 +92,16 @@ Falling through is the default and the common case. An absent key, a disabled to
 
 Third-party inference: when the capability is enabled, composer drafts are sent to a hosted classification service. The state sent is code-owned (the draft plus a fixed catalog) and the request carries no credentials. Because drafts are user text that can contain anything, this is why the feature is off by default and why the Settings row states the trade plainly.
 
+### `composer-completion-v1`
+
+When the adapter advertises `composer-completion-v1`, `POST /api/chat/completion` returns ghost text for a composer draft: a **verbatim** string the developer already wrote, which the browser paints dimmed after the caret and Tab accepts. It is local-only and always on — no key, no opt-in, and no data leaves the machine.
+
+A completion is never generated. The server prefix-matches the draft against an index of the developer's own earlier prompts, so the offered text always begins with exactly what was typed and can never contradict it. That is the property that makes Tab safe to press, and it is the reason this capability uses no model: a System One model returns typed judgments rather than prose, and measured against this task it added nothing over plain matching (choosing between ambiguous near-duplicate history candidates scored the same as "most recent"). The one place a model does measurably help — recognising a mistyped command token — is covered by the intent router above.
+
+**Derived local state.** The corpus is built from the runtime's session store through supported seams only: `listSessions()` for enumeration and `SessionManager.openAsync(...).buildSessionContext().messages` for reads — the same path the bridge uses to load a cold session. Transcripts are never hand-parsed. Only user-authored text is retained; assistant output and tool results are never indexed. The result is Fleet-owned derived state written beside the runtime's files (`fleet-prompt-index.json` in the agent dir), never inside them, and it is refreshed incrementally in the background so no request ever waits on a build.
+
+Because this reads prompts written in other projects on the same machine, a draft in one project can be completed from a prompt typed in another. That is intended, it stays local, and it is documented here rather than left implicit.
+
 ## Fleet-managed presentation state
 
 Fleet persists presentation sidecars separately from the upstream transcript:

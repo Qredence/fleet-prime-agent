@@ -20,6 +20,7 @@ import { cn } from "../../../../lib/utils";
 import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS } from "../../chrome/tokens";
 import { AGENT_CHAT_MODES } from "../chat-modes";
 import type { QuestionBarData } from "../hooks/use-question-bar-navigation";
+import type { InlineCompletion } from "./inline-completion";
 import { useInputBarState } from "./input-bar-state";
 
 type SuggestionConfig =
@@ -106,6 +107,12 @@ export type InputBarProps = {
 		onAccept: () => void;
 		onDismiss: () => void;
 	};
+	/**
+	 * Ghost text offered after the caret. Tab accepts it, Escape dismisses it.
+	 * `forValue` must be the draft it was computed against, so a completion for an
+	 * older draft is never painted onto a newer one.
+	 */
+	inlineCompletion?: InlineCompletion;
 	modelPickerOpen?: boolean;
 	onModelPickerOpenChange?: (open: boolean) => void;
 	effortPickerOpen?: boolean;
@@ -139,6 +146,7 @@ function InputBarContent({
 	onLocalSlashSubmit,
 	onDraftChange,
 	intentSuggestion,
+	inlineCompletion,
 	modelPickerOpen,
 	onModelPickerOpenChange,
 	effortPickerOpen,
@@ -159,10 +167,12 @@ function InputBarContent({
 	const {
 		acceptIntentSuggestion,
 		activeTriggerIndex,
+		attachTextarea,
 		combinedPickerOpen,
 		commandGroups,
 		closeTriggerMenu,
 		files,
+		ghostText,
 		handleCombinedPickerOpenChange,
 		handlePromptKeyDown,
 		handleSelectorModelChange,
@@ -196,6 +206,7 @@ function InputBarContent({
 		onLocalSlashSubmit,
 		onDraftChange,
 		intentSuggestion,
+		inlineCompletion,
 		modelPickerOpen,
 		onModelPickerOpenChange,
 		effortPickerOpen,
@@ -345,6 +356,8 @@ function InputBarContent({
 							: undefined
 					}
 					onKeyDown={handlePromptKeyDown}
+					onTextareaRef={attachTextarea}
+					ghostText={ghostText}
 					leadingAction={
 						<>
 							<Button

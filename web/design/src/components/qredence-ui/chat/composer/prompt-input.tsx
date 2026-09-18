@@ -16,6 +16,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { PROMPT_GHOST_CLASS, PROMPT_GHOST_PREFIX_CLASS, PROMPT_TEXT_METRICS } from "./inline-completion";
 
 export interface PromptInputProps
 	extends Omit<
@@ -34,6 +35,14 @@ export interface PromptInputProps
 	maxRows?: number;
 	leadingAction?: ReactNode;
 	className?: string;
+	/**
+	 * Ghost text painted after the caret, already decided by the host. This
+	 * component only paints it: whether a completion should be shown depends on
+	 * live editing state that lives in `useInputBarState`.
+	 */
+	ghostText?: string;
+	/** Lets the host read the textarea's caret without a `getElementById` lookup. */
+	onTextareaRef?: (element: HTMLTextAreaElement | null) => void;
 }
 
 export function PromptInput({
@@ -52,14 +61,41 @@ export function PromptInput({
 	placeholder = "Ask the agent to do something…",
 	"aria-label": ariaLabel = "Prompt",
 	onKeyDown,
+	onScroll,
+	ghostText,
+	onTextareaRef,
 	...textareaProps
 }: PromptInputProps) {
 	const reduce = useReducedMotion() ?? false;
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const measurementRef = useRef<HTMLDivElement>(null);
+	const ghostMirrorRef = useRef<HTMLDivElement>(null);
+	const [mirrorWidth, setMirrorWidth] = useState<number | undefined>(undefined);
 	const [internalValue, setInternalValue] = useState(defaultValue);
 	const currentValue = value ?? internalValue;
 	const canSubmit = Boolean(currentValue.trim()) && !disabled && (!loading || submitWhileLoading);
+
+	/**
+	 * Keeps the ghost mirror aligned with the textarea.
+	 *
+	 * The width pin matters: `scrollbar-hide` is not a real utility in this
+	 * project, so once the draft overflows the visible rows the textarea's
+	 * content box is narrower than its border box. Without pinning to
+	 * `clientWidth` the mirror wraps at a different column than the textarea.
+	 */
+	const syncGhostLayer = useCallback(() => {
+		const textarea = textareaRef.current;
+		const mirror = ghostMirrorRef.current;
+		if (!mirror) return;
+		if (textarea) {
+			mirror.scrollTop = textarea.scrollTop;
+			setMirrorWidth((current) => (current === textarea.clientWidth ? current : textarea.clientWidth));
+		}
+	}, []);
+
+	useLayoutEffect(() => {
+		syncGhostLayer();
+	}, [syncGhostLayer, ghostText, currentValue]);
 
 	const resizeTextarea = useCallback(() => {
 		const textarea = textareaRef.current;
@@ -84,10 +120,20 @@ export function PromptInput({
 	useEffect(() => {
 		const textarea = textareaRef.current;
 		if (!textarea || typeof ResizeObserver === "undefined") return;
-		const observer = new ResizeObserver(() => resizeRef.current());
+		const observer = new ResizeObserver(() => {
+			resizeRef.current();
+			// Content-box changes are exactly when the mirror can drift.
+			syncGhostLayer();
+		});
 		observer.observe(textarea);
 		return () => observer.disconnect();
-	}, []);
+	}, [syncGhostLayer]);
+
+	// Publish the element so the host can read the caret without a DOM lookup.
+	useEffect(() => {
+		onTextareaRef?.(textareaRef.current);
+		return () => onTextareaRef?.(null);
+	}, [onTextareaRef]);
 
 	const setValue = (next: string) => {
 		if (value === undefined) setInternalValue(next);
@@ -124,24 +170,57 @@ export function PromptInput({
 		>
 			<div
 				ref={measurementRef}
+				data-slot="composer-measure"
 				aria-hidden="true"
-				className="pointer-events-none invisible absolute inset-x-2 top-0 whitespace-pre-wrap px-2 text-sm leading-6 [overflow-wrap:break-word]"
+				className={cn("pointer-events-none invisible absolute inset-x-2 top-0", PROMPT_TEXT_METRICS)}
 			>
 				{`${currentValue}\u200b`}
 			</div>
-			<textarea
-				ref={textareaRef}
-				value={currentValue}
-				disabled={disabled}
-				placeholder={placeholder}
-				aria-label={ariaLabel}
-				autoComplete="off"
-				rows={minRows}
-				{...textareaProps}
-				onChange={(event) => setValue(event.target.value)}
-				onKeyDown={handleKeyDown}
-				className="scrollbar-hide block w-full resize-none overflow-y-auto bg-transparent px-2 pt-1.5 text-sm leading-6 text-foreground outline-none placeholder:text-foreground/55"
-			/>
+			<div className="relative">
+				{/* Ghost layer. A sibling of the measurement div, never a child: the
+				    measurement drives the composer's height, so ghost text there would
+				    grow the box while typing. Absolutely positioned over the textarea's
+				    border box so it needs no arithmetic against the form's padding. */}
+				{ghostText ? (
+					<div
+						data-slot="composer-ghost-layer"
+						aria-hidden="true"
+						className="pointer-events-none absolute inset-0 select-none overflow-hidden"
+					>
+						<div
+							ref={ghostMirrorRef}
+							data-slot="composer-ghost-mirror"
+							className={cn("h-full overflow-hidden pt-1.5", PROMPT_TEXT_METRICS, PROMPT_GHOST_PREFIX_CLASS)}
+							style={mirrorWidth === undefined ? undefined : { width: `${mirrorWidth}px` }}
+						>
+							{currentValue}
+							<span data-slot="composer-ghost" className={PROMPT_GHOST_CLASS}>
+								{ghostText}
+							</span>
+						</div>
+					</div>
+				) : null}
+				<textarea
+					ref={textareaRef}
+					value={currentValue}
+					disabled={disabled}
+					placeholder={placeholder}
+					aria-label={ariaLabel}
+					autoComplete="off"
+					rows={minRows}
+					{...textareaProps}
+					onChange={(event) => setValue(event.target.value)}
+					onKeyDown={handleKeyDown}
+					onScroll={(event) => {
+						onScroll?.(event);
+						syncGhostLayer();
+					}}
+					className={cn(
+						"block w-full resize-none overflow-y-auto bg-transparent pt-1.5 text-foreground outline-none placeholder:text-foreground/55",
+						PROMPT_TEXT_METRICS,
+					)}
+				/>
+			</div>
 
 			<div className="mt-1 flex min-h-8 items-center gap-1">
 				{leadingAction}

@@ -6,6 +6,7 @@ import {
 	COMPOSER_INTENT_FLOOR,
 	composerIntentCommand,
 	decideComposerIntent,
+	isSingleTokenDraft,
 } from "../composer-intent";
 
 const autoCommand = COMPOSER_INTENT_COMMANDS.find((c) => c.autoExecutable)?.id ?? "";
@@ -121,6 +122,24 @@ describe("decideComposerIntent", () => {
 				disposition: "suggest",
 			});
 		}
+	});
+
+	it("offers but never executes a single-token draft", () => {
+		expect(
+			decideComposerIntent({ command: autoCommand, confidence: 1, codeTaskProbability: 0, singleToken: true }),
+		).toMatchObject({ outcome: "matched", disposition: "suggest" });
+		// The same match on a full sentence still executes.
+		expect(
+			decideComposerIntent({ command: autoCommand, confidence: 1, codeTaskProbability: 0, singleToken: false }),
+		).toMatchObject({ disposition: "execute" });
+	});
+
+	it("recognises a single-token draft", () => {
+		expect(isSingleTokenDraft("contxt")).toBe(true);
+		expect(isSingleTokenDraft("  compcat  ")).toBe(true);
+		expect(isSingleTokenDraft("how much context is left")).toBe(false);
+		// Whitespace-only is not a token worth acting on either.
+		expect(isSingleTokenDraft("   ")).toBe(true);
 	});
 
 	it("walks the confidence bands in order", () => {

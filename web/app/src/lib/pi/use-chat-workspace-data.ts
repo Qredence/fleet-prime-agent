@@ -34,6 +34,7 @@ import {
 	useWorkspaceTree,
 } from "@/lib/pi/chat-queries";
 import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url";
+import { useComposerInlineCompletion } from "@/lib/pi/composer-inline-completion";
 import { useComposerIntentAvailability, useComposerIntentRouting } from "@/lib/pi/composer-intent";
 import { assistantMessageHasPendingQuestion } from "@/lib/pi/question-pending";
 import type { SettingsSlashTab } from "@/lib/pi/slash-commands";
@@ -549,6 +550,17 @@ export function useChatWorkspaceData() {
 		suggestion: offeredIntent,
 		dismissSuggestion: dismissIntentSuggestion,
 	} = useComposerIntentRouting(composerIntentAvailability.available);
+	// Completions are local and need no opt-in; they never leave the machine.
+	const { onDraftChange: onCompletionDraftChange, inlineCompletion } = useComposerInlineCompletion(true);
+
+	// Both consumers share the composer's single debounced draft publication.
+	const handleComposerDraftChange = useCallback(
+		(text: string) => {
+			onComposerDraftChange(text);
+			onCompletionDraftChange(text);
+		},
+		[onComposerDraftChange, onCompletionDraftChange],
+	);
 
 	const { forkFromEntry, handleLocalSlashSubmit, handleSlashCommandSelect } = useLocalSlashActions({
 		appendLocalMessage,
@@ -775,7 +787,8 @@ export function useChatWorkspaceData() {
 			infoDescription,
 			inputSuggestionItems,
 			intentSuggestion,
-			onComposerDraftChange,
+			inlineCompletion,
+			onComposerDraftChange: handleComposerDraftChange,
 			workspaceReferenceSuggestions,
 			modelKey,
 			modelPickerOpen,

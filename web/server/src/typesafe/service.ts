@@ -130,7 +130,7 @@ export function createTypeSafeService(options: TypeSafeServiceOptions = {}): Typ
 					},
 					fetchImpl,
 				);
-				const decision = interpretIntentResult(result);
+				const decision = interpretIntentResult(result, text);
 				const response: ComposerIntentResponse =
 					decision.outcome === "matched"
 						? {

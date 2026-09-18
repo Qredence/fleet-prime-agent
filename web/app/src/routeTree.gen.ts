@@ -17,6 +17,7 @@ import { Route as ApiChatAbortRouteImport } from './routes/api/chat/abort'
 import { Route as ApiChatArtifactsRouteImport } from './routes/api/chat/artifacts'
 import { Route as ApiChatCommandRouteImport } from './routes/api/chat/command'
 import { Route as ApiChatCommandsRouteImport } from './routes/api/chat/commands'
+import { Route as ApiChatCompletionRouteImport } from './routes/api/chat/completion'
 import { Route as ApiChatEventsRouteImport } from './routes/api/chat/events'
 import { Route as ApiChatIntentRouteImport } from './routes/api/chat/intent'
 import { Route as ApiChatMcpRouteImport } from './routes/api/chat/mcp'
@@ -76,6 +77,11 @@ const ApiChatCommandRoute = ApiChatCommandRouteImport.update({
 const ApiChatCommandsRoute = ApiChatCommandsRouteImport.update({
   id: '/commands',
   path: '/commands',
+  getParentRoute: () => ApiChatRoute,
+} as any)
+const ApiChatCompletionRoute = ApiChatCompletionRouteImport.update({
+  id: '/completion',
+  path: '/completion',
   getParentRoute: () => ApiChatRoute,
 } as any)
 const ApiChatEventsRoute = ApiChatEventsRouteImport.update({
@@ -188,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/api/chat/artifacts': typeof ApiChatArtifactsRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
+  '/api/chat/completion': typeof ApiChatCompletionRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
@@ -218,6 +225,7 @@ export interface FileRoutesByTo {
   '/api/chat/artifacts': typeof ApiChatArtifactsRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
+  '/api/chat/completion': typeof ApiChatCompletionRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/api/chat/artifacts': typeof ApiChatArtifactsRoute
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
+  '/api/chat/completion': typeof ApiChatCompletionRoute
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
@@ -281,6 +290,7 @@ export interface FileRouteTypes {
     | '/api/chat/artifacts'
     | '/api/chat/command'
     | '/api/chat/commands'
+    | '/api/chat/completion'
     | '/api/chat/events'
     | '/api/chat/intent'
     | '/api/chat/mcp'
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/api/chat/artifacts'
     | '/api/chat/command'
     | '/api/chat/commands'
+    | '/api/chat/completion'
     | '/api/chat/events'
     | '/api/chat/intent'
     | '/api/chat/mcp'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/api/chat/artifacts'
     | '/api/chat/command'
     | '/api/chat/commands'
+    | '/api/chat/completion'
     | '/api/chat/events'
     | '/api/chat/intent'
     | '/api/chat/mcp'
@@ -428,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/commands'
       fullPath: '/api/chat/commands'
       preLoaderRoute: typeof ApiChatCommandsRouteImport
+      parentRoute: typeof ApiChatRoute
+    }
+    '/api/chat/completion': {
+      id: '/api/chat/completion'
+      path: '/completion'
+      fullPath: '/api/chat/completion'
+      preLoaderRoute: typeof ApiChatCompletionRouteImport
       parentRoute: typeof ApiChatRoute
     }
     '/api/chat/events': {
@@ -613,6 +632,7 @@ interface ApiChatRouteChildren {
   ApiChatArtifactsRoute: typeof ApiChatArtifactsRoute
   ApiChatCommandRoute: typeof ApiChatCommandRoute
   ApiChatCommandsRoute: typeof ApiChatCommandsRoute
+  ApiChatCompletionRoute: typeof ApiChatCompletionRoute
   ApiChatEventsRoute: typeof ApiChatEventsRoute
   ApiChatIntentRoute: typeof ApiChatIntentRoute
   ApiChatMcpRoute: typeof ApiChatMcpRouteWithChildren
@@ -633,6 +653,7 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatArtifactsRoute: ApiChatArtifactsRoute,
   ApiChatCommandRoute: ApiChatCommandRoute,
   ApiChatCommandsRoute: ApiChatCommandsRoute,
+  ApiChatCompletionRoute: ApiChatCompletionRoute,
   ApiChatEventsRoute: ApiChatEventsRoute,
   ApiChatIntentRoute: ApiChatIntentRoute,
   ApiChatMcpRoute: ApiChatMcpRouteWithChildren,

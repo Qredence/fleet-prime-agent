@@ -12,6 +12,7 @@ import {
 	type ComposerIntentDecision,
 	composerIntentCommand,
 	decideComposerIntent,
+	isSingleTokenDraft,
 } from "@prime-agent/web-protocol/composer-intent";
 import {
 	type ChoiceQuestion,
@@ -105,8 +106,14 @@ export function buildIntentQuestions(): Record<string, SystemOneQuestion> {
 /**
  * Reads a routing answer. A missing or mistyped answer is treated as "no match"
  * rather than an error, so an unexpected response degrades to normal chat.
+ *
+ * `draft` is needed because a single-token draft is offered but never run
+ * automatically — see {@link isSingleTokenDraft}.
  */
-export function interpretIntentResult(result: SystemOneResult): ComposerIntentDecision & {
+export function interpretIntentResult(
+	result: SystemOneResult,
+	draft: string,
+): ComposerIntentDecision & {
 	confidence?: number;
 	codeTaskProbability?: number;
 } {
@@ -120,6 +127,7 @@ export function interpretIntentResult(result: SystemOneResult): ComposerIntentDe
 		command: route.choice,
 		confidence,
 		codeTaskProbability,
+		singleToken: isSingleTokenDraft(draft),
 	});
 	if (decision.outcome === "none") return decision;
 

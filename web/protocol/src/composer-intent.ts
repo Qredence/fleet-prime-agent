@@ -236,6 +236,19 @@ export type ComposerIntentDecision =
 	  };
 
 /**
+ * True when the draft is a single token with no internal whitespace.
+ *
+ * Such a draft is the regime where the model is *confidently* wrong rather than
+ * uncertain: asked to guess from only part of an utterance, it mis-suggested a
+ * command for 7 of 14 genuine tasks at 40% typed, and scored those wrong answers
+ * with higher confidence than its correct ones. A bare token is never enough
+ * signal to act on by itself.
+ */
+export function isSingleTokenDraft(draft: string): boolean {
+	return !/\s/.test(draft.trim());
+}
+
+/**
  * Turns a model answer into a routing decision. Pure, so every band boundary is
  * a table test rather than something only observable against the live API.
  *
@@ -246,6 +259,11 @@ export function decideComposerIntent(input: {
 	command: string | undefined;
 	confidence: number;
 	codeTaskProbability: number;
+	/**
+	 * A single-token draft is offered but never run automatically, however
+	 * confident the match. The user accepts it explicitly.
+	 */
+	singleToken?: boolean;
 }): ComposerIntentDecision {
 	if (input.codeTaskProbability >= COMPOSER_INTENT_CODE_TASK_MAX) {
 		return { outcome: "none", reason: "code_task" };
@@ -258,7 +276,7 @@ export function decideComposerIntent(input: {
 	if (input.confidence < COMPOSER_INTENT_FLOOR) {
 		return { outcome: "none", reason: "below_floor" };
 	}
-	if (input.confidence >= COMPOSER_INTENT_EXECUTE_GATE && command.autoExecutable) {
+	if (!input.singleToken && input.confidence >= COMPOSER_INTENT_EXECUTE_GATE && command.autoExecutable) {
 		return { outcome: "matched", command, disposition: "execute" };
 	}
 	return { outcome: "matched", command, disposition: "suggest" };

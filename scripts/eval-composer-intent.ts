@@ -82,7 +82,7 @@ async function classify(
 		{ state: buildIntentState(text), questions: buildIntentQuestions() },
 		{ timeoutMs: 20_000, maxRetries: 2, retryStatuses: TYPESAFE_RETRYABLE_STATUSES },
 	);
-	const decision = interpretIntentResult(result);
+	const decision = interpretIntentResult(result, text);
 	return decision.outcome === "matched"
 		? { got: decision.command.id, confidence: decision.confidence ?? 0 }
 		: { got: "none", confidence: decision.confidence ?? 0, reason: decision.reason };

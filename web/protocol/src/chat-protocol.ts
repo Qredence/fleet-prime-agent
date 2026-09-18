@@ -522,8 +522,14 @@ export type ChatSessionSnapshotEvent = {
 
 export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
 	protocolVersion: 1,
-	schemaRevision: 3,
-	features: ["reasoning-summary-v1", "mcp-connections-v1", "session-tree-v1", "composer-intent-v1"],
+	schemaRevision: 4,
+	features: [
+		"reasoning-summary-v1",
+		"mcp-connections-v1",
+		"session-tree-v1",
+		"composer-intent-v1",
+		"composer-completion-v1",
+	],
 };
 
 type ChatStartEvent = {
