@@ -408,7 +408,7 @@ function getResourceRowClassName(
 	disabled?: boolean,
 ) {
 	return cn(
-		"group/resource relative flex min-h-8 min-w-0 cursor-pointer items-center gap-2 rounded-lg pe-0 text-body outline-none",
+		"group/resource relative flex min-h-8 min-w-0 cursor-pointer items-center gap-2 rounded-sm pe-0 text-body outline-none",
 		"text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
 		"focus-visible:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
 		"data-[menu-open=true]:bg-muted data-[menu-open=true]:text-foreground",

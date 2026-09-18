@@ -104,7 +104,7 @@ export function SessionSidebarProjectList({
 									title="Project actions"
 									className={cn(
 										HIT_AREA_EXPAND_DENSE_CLASS,
-										"grid size-8 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+										"inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
 									)}
 								>
 									<MoreHorizontal aria-hidden="true" className="size-3.5" />
@@ -144,7 +144,7 @@ export function SessionSidebarProjectList({
 								onClick={() => setCreateOpen(true)}
 								className={cn(
 									HIT_AREA_EXPAND_DENSE_CLASS,
-									"grid size-8 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+									"inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
 								)}
 							>
 								<Plus aria-hidden="true" className="size-3.5" />
