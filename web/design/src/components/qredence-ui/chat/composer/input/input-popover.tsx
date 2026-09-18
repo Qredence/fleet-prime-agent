@@ -47,11 +47,7 @@ export function Popover({
 	return (
 		<PopoverRoot open={resolvedOpen} onOpenChange={handleOpenChange}>
 			{isValidElement(trigger) ? (
-				<PopoverTrigger
-					render={trigger}
-					aria-controls={popupId}
-					className="inline-flex items-center justify-center"
-				/>
+				<PopoverTrigger render={trigger} aria-controls={popupId} className="inline-flex items-center" />
 			) : (
 				<PopoverTrigger
 					render={
@@ -60,7 +56,7 @@ export function Popover({
 						</Button>
 					}
 					aria-controls={popupId}
-					className="inline-flex items-center justify-center"
+					className="inline-flex items-center"
 				/>
 			)}
 			{overlay && resolvedOpen ? <div className="fixed inset-0 z-40 bg-black/20" aria-hidden="true" /> : null}

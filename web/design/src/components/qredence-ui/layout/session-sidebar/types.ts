@@ -64,6 +64,8 @@ export type SessionSidebarDependencies = SessionSidebarData &
 	SessionSidebarSlots;
 
 export const DOCUMENTATION_URL = "https://docs.qredence.ai";
+export const TWITTER_URL = "https://x.com/zacharybydesign";
+export const DISCORD_URL = "https://discord.gg/ebgy7gtZHK";
 export const EXPANDED_PROJECTS_STORAGE_KEY = "fleet-prime:v1:sidebar-expanded-projects";
 export const EMPTY_PROJECTS: Array<ProjectSummary> = [];
 

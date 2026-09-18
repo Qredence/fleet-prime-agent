@@ -21,13 +21,16 @@ import { normalizeSessionLabel } from "../../../../lib/pi/chat-helpers";
 import { SurfaceProvider } from "../../../../lib/surface-context";
 import { sortSessions } from "../session-sidebar-model";
 import { SessionSidebarProjectList } from "./project-list";
+import { DiscordIcon, XIcon } from "./social-icons";
 import type { SidebarStateView } from "./state";
 import {
+	DISCORD_URL,
 	DOCUMENTATION_URL,
 	type SessionSidebarDependencies,
 	sessionDiscoveryMeta,
 	sessionLabel,
 	sessionSearchGroup,
+	TWITTER_URL,
 } from "./types";
 import { VersionBadge } from "./version-badge";
 
@@ -65,6 +68,9 @@ type SidebarNavigationProps = {
 
 const MENU_ITEM_CLASS =
 	"flex h-8 w-full items-center gap-2 rounded-md px-2 text-label outline-none transition-colors hover:bg-muted focus-visible:bg-muted";
+
+const SIDEBAR_ITEM_BUTTON_CLASS =
+	"flex h-8 w-full items-center justify-start gap-2 rounded-lg px-2 text-body font-normal text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent focus-visible:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring";
 
 function SidebarMenuItem({
 	icon: Icon,
@@ -270,11 +276,7 @@ export function SessionSidebarNavigation({
 							</div>
 						</Popover>
 					</div>
-					<button
-						type="button"
-						onClick={onNewSession}
-						className="flex h-8 w-full items-center justify-start gap-2 rounded-lg px-2 text-body font-normal text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent focus-visible:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-					>
+					<button type="button" onClick={onNewSession} className={SIDEBAR_ITEM_BUTTON_CLASS}>
 						<SquarePen className="size-4 shrink-0 text-muted-foreground" />
 						New chat
 					</button>
@@ -299,21 +301,31 @@ export function SessionSidebarNavigation({
 					toggleProjectResource={toggleProjectResource}
 					renderMenu={renderMenu}
 				/>
-				<AnimatedSidebarFooter className="flex-row items-center gap-1 border-sidebar-border px-2.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-					<div className="min-w-0 flex-1">
-						{accountMenu ?? <span className="flex h-8 items-center px-2 text-body">Qredence</span>}
-					</div>
-					<VersionBadge />
-					<a
-						href={DOCUMENTATION_URL}
-						target="_blank"
-						rel="noreferrer"
-						aria-label="Open Qredence documentation"
-						title="Help"
-						className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-					>
-						<CircleHelp className="size-4" />
+				<AnimatedSidebarFooter className="flex-col gap-1 border-sidebar-border px-2.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+					<a href={TWITTER_URL} target="_blank" rel="noreferrer" className={SIDEBAR_ITEM_BUTTON_CLASS}>
+						<XIcon className="size-4 shrink-0 text-muted-foreground" />
+						Twitter
 					</a>
+					<a href={DISCORD_URL} target="_blank" rel="noreferrer" className={SIDEBAR_ITEM_BUTTON_CLASS}>
+						<DiscordIcon className="size-4 shrink-0 text-muted-foreground" />
+						Discord
+					</a>
+					<div className="flex w-full flex-row items-center gap-1">
+						<div className="min-w-0 flex-1">
+							{accountMenu ?? <span className="flex h-8 items-center px-2 text-body">Qredence</span>}
+						</div>
+						<VersionBadge />
+						<a
+							href={DOCUMENTATION_URL}
+							target="_blank"
+							rel="noreferrer"
+							aria-label="Open Qredence documentation"
+							title="Help"
+							className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+						>
+							<CircleHelp className="size-4" />
+						</a>
+					</div>
 				</AnimatedSidebarFooter>
 				<AnimatedSidebarRail />
 			</SurfaceProvider>
