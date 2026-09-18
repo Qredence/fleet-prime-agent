@@ -58,7 +58,7 @@ const LazySessionToolRenderer = lazy(() =>
  */
 function SessionToolRenderer(props: ComponentProps<typeof LazySessionToolRenderer>) {
 	return (
-		<Suspense fallback={<div className="h-7 animate-pulse rounded-md bg-muted/40" aria-label="Loading tool" />}>
+		<Suspense fallback={<div className="h-7 animate-pulse rounded-md bg-muted/40" role="status" aria-label="Loading tool" />}>
 			<LazySessionToolRenderer {...props} />
 		</Suspense>
 	);
@@ -83,7 +83,7 @@ const LazySessionReasoningPanel = lazy(() =>
 function SessionReasoningPanel(props: ComponentProps<typeof LazySessionReasoningPanel>) {
 	return (
 		<Suspense
-			fallback={<div className="mb-2 h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading reasoning" />}
+			fallback={<div className="mb-2 h-6 animate-pulse rounded-md bg-muted/40" role="status" aria-label="Loading reasoning" />}
 		>
 			<LazySessionReasoningPanel {...props} />
 		</Suspense>
@@ -106,7 +106,7 @@ const LazyToolTimeline = lazy(() =>
  */
 function ToolTimeline(props: ComponentProps<typeof LazyToolTimeline>) {
 	return (
-		<Suspense fallback={<div className="h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading timeline" />}>
+		<Suspense fallback={<div className="h-6 animate-pulse rounded-md bg-muted/40" role="status" aria-label="Loading timeline" />}>
 			<LazyToolTimeline {...props} />
 		</Suspense>
 	);
@@ -130,7 +130,7 @@ function PromptSuggestions(props: ComponentProps<typeof LazyPromptSuggestions>) 
 	return (
 		<div className="min-h-8">
 			<Suspense
-				fallback={<div className="h-8 animate-pulse rounded-full bg-muted/40" aria-label="Loading suggestions" />}
+				fallback={<div className="h-8 animate-pulse rounded-full bg-muted/40" role="status" aria-label="Loading suggestions" />}
 			>
 				<LazyPromptSuggestions {...props} />
 			</Suspense>

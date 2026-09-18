@@ -61,17 +61,45 @@ describe("ComposerSelectorTrigger", () => {
 				<Popover
 					open={open}
 					onOpenChange={setOpen}
-					trigger={<ComposerSelectorTrigger ariaLabel="Select mode, Agent" label="Agent" open={open} />}
+					trigger={
+						<ComposerSelectorTrigger
+							ariaLabel="Select mode, Agent"
+							label="Agent"
+							open={open}
+							aria-haspopup="dialog"
+							aria-expanded={open}
+						/>
+					}
 				>
-					<div role="menu">Mode menu</div>
+					<div role="radiogroup" aria-label="Select mode">
+						Mode options
+					</div>
 				</Popover>
 			);
 		}
 
 		render(<Harness />);
 
-		expect(screen.queryByRole("menu")).toBeNull();
+		expect(screen.queryByRole("radiogroup")).toBeNull();
 		fireEvent.click(screen.getByRole("button", { name: "Select mode, Agent" }));
-		expect(screen.getByRole("menu")).toBeTruthy();
+		expect(screen.getByRole("radiogroup", { name: "Select mode" })).toBeTruthy();
+	});
+
+	it("exposes expanded state for non-combobox popover triggers", () => {
+		render(
+			<ComposerSelectorTrigger
+				ariaLabel="Select mode, Agent"
+				label="Agent"
+				open
+				aria-haspopup="dialog"
+				aria-expanded
+				aria-controls="mode-popup"
+			/>,
+		);
+
+		const trigger = screen.getByRole("button", { name: "Select mode, Agent" });
+		expect(trigger.getAttribute("aria-expanded")).toBe("true");
+		expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+		expect(trigger.getAttribute("aria-controls")).toBe("mode-popup");
 	});
 });

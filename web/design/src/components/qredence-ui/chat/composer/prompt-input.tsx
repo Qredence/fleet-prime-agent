@@ -170,7 +170,7 @@ export function PromptInput({
 			aria-label="Message composer"
 			onSubmit={submit}
 			className={cn(
-				"relative w-full rounded-chat-input border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-1 focus-within:ring-chat-input-focus-outline/25",
+				"relative w-full rounded-chat-input border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-2 focus-within:ring-chat-input-focus-outline/25",
 				disabled && "opacity-60",
 				className,
 			)}
@@ -252,7 +252,7 @@ export function PromptInput({
 						onClick={onStop}
 						className="ms-auto size-8 rounded-full"
 					>
-						<Square className="size-3 fill-current" />
+						<Square aria-hidden="true" className="size-3 fill-current" />
 					</Button>
 				) : null}
 				{!loading || canSubmit || submitWhileLoading ? (
@@ -277,7 +277,7 @@ export function PromptInput({
 								transition={reduce ? { duration: 0 } : SPRING_SWAP}
 								className="grid place-items-center"
 							>
-								<ArrowUp className="size-4" />
+								<ArrowUp aria-hidden="true" className="size-4" />
 							</m.span>
 						</AnimatePresence>
 					</Button>

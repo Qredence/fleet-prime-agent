@@ -172,7 +172,6 @@ function InputBarContent({
 		attachTextarea,
 		combinedPickerOpen,
 		commandGroups,
-		closeTriggerMenu,
 		files,
 		ghostText,
 		handleCombinedPickerOpenChange,
@@ -239,11 +238,11 @@ function InputBarContent({
 				<ComposerLoader label={infoDescription ?? undefined} isActive={isStreaming} />
 				{visibleIntentSuggestion && !isStreaming && !disabled ? (
 					<div className="flex items-center gap-2 rounded-xl border bg-muted/40 px-2.5 py-1.5">
-						<Terminal className="size-3.5 shrink-0 text-muted-foreground" />
+						<Terminal aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
 						<button
 							type="button"
 							onClick={acceptIntentSuggestion}
-							className="min-w-0 flex-1 truncate text-start text-sm hover:underline"
+							className="min-w-0 flex-1 truncate rounded-md text-start text-sm hover:underline focus-visible:ring-2 focus-visible:ring-ring"
 							title={visibleIntentSuggestion.description}
 						>
 							<span className="font-medium">{visibleIntentSuggestion.label}</span>
@@ -347,7 +346,6 @@ function InputBarContent({
 							if (triggerKind === "slash") selectCommand(item);
 							else selectWorkspaceReference(item);
 						}}
-						onClose={closeTriggerMenu}
 						title={triggerKind === "slash" ? "Commands" : "Workspace references"}
 						listId="composer-trigger-list"
 					/>
@@ -387,7 +385,7 @@ function InputBarContent({
 									onClick={openSlashMenu}
 									className={COMPOSER_ADD_BUTTON_CLASS}
 								>
-									<Plus className="size-4" />
+									<Plus aria-hidden="true" className="size-4" />
 								</Button>
 								<ModeSelector modes={CHAT_MODES} value={chatMode} onChange={handleChatModeChange} />
 								<ModelSelector
