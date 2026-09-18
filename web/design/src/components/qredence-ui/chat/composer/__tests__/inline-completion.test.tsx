@@ -9,8 +9,8 @@ import {
 	resolveInlineCompletion,
 	sameEditingState,
 	spliceCompletion,
-} from "./inline-completion";
-import { InputBar } from "./input-bar";
+} from "../inline-completion";
+import { InputBar } from "../input-bar";
 
 const READY: EditingState = { focused: true, composing: false, caretStart: 4, caretEnd: 4 };
 
@@ -104,7 +104,7 @@ describe("composer ghost layer", () => {
 
 	/** The ghost is gated on focus, which happy-dom does not establish on render. */
 	function focusComposer() {
-		const textarea = screen.getByRole("textbox", { name: "Prompt" });
+		const textarea = screen.getByRole("combobox", { name: "Prompt" });
 		textarea.focus();
 		fireEvent.focus(textarea);
 		return textarea;
@@ -174,7 +174,7 @@ describe("Tab acceptance", () => {
 				controlled={{ value, onChange }}
 			/>,
 		);
-		const textarea = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement;
+		const textarea = screen.getByRole("combobox", { name: "Prompt" }) as HTMLTextAreaElement;
 		// happy-dom focuses nothing by default; the ghost is gated on focus.
 		textarea.focus();
 		fireEvent.focus(textarea);
@@ -227,7 +227,7 @@ describe("Tab acceptance", () => {
 				controlled={{ value: "/set", onChange }}
 			/>,
 		);
-		const textarea = screen.getByRole("textbox", { name: "Prompt" });
+		const textarea = screen.getByRole("combobox", { name: "Prompt" });
 		textarea.focus();
 		fireEvent.focus(textarea);
 		fireEvent.keyDown(textarea, { key: "Tab" });

@@ -51,7 +51,7 @@ export function ChatWelcome({
 				What should Fleet Prime Agent work on?
 			</h1>
 			<div className="mt-6 w-full">{composer}</div>
-			<div aria-label="Suggested prompts" className="mt-4 flex w-full flex-wrap justify-center gap-2">
+			<div role="group" aria-label="Suggested prompts" className="mt-4 flex w-full flex-wrap justify-center gap-2">
 				{WELCOME_TASKS.map((item) => (
 					<Button
 						key={item.id}

@@ -12,6 +12,7 @@ import {
 	type TextareaHTMLAttributes,
 	useCallback,
 	useEffect,
+	useId,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -60,6 +61,7 @@ export function PromptInput({
 	disabled,
 	placeholder = "Ask the agent to do something…",
 	"aria-label": ariaLabel = "Prompt",
+	"aria-describedby": ariaDescribedBy,
 	onKeyDown,
 	onScroll,
 	ghostText,
@@ -70,10 +72,14 @@ export function PromptInput({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const measurementRef = useRef<HTMLDivElement>(null);
 	const ghostMirrorRef = useRef<HTMLDivElement>(null);
+	const descriptionId = useId();
+	const ghostStatusId = useId();
 	const [mirrorWidth, setMirrorWidth] = useState<number | undefined>(undefined);
 	const [internalValue, setInternalValue] = useState(defaultValue);
 	const currentValue = value ?? internalValue;
 	const canSubmit = Boolean(currentValue.trim()) && !disabled && (!loading || submitWhileLoading);
+	const sendDisabled = Boolean(disabled) || (loading && !submitWhileLoading);
+	const describedBy = [descriptionId, ghostStatusId, ariaDescribedBy].filter(Boolean).join(" ");
 
 	/**
 	 * Keeps the ghost mirror aligned with the textarea.
@@ -161,6 +167,7 @@ export function PromptInput({
 
 	return (
 		<form
+			aria-label="Message composer"
 			onSubmit={submit}
 			className={cn(
 				"relative w-full rounded-chat-input border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-1 focus-within:ring-chat-input-focus-outline/25",
@@ -176,6 +183,13 @@ export function PromptInput({
 			>
 				{`${currentValue}\u200b`}
 			</div>
+			<p id={descriptionId} className="sr-only">
+				Enter to send. Shift+Enter for a new line. Tab accepts an inline suggestion or menu item. Escape dismisses
+				suggestions.
+			</p>
+			<p id={ghostStatusId} className="sr-only" aria-live="polite">
+				{ghostText ? "Suggestion available. Press Tab to accept." : ""}
+			</p>
 			<div className="relative">
 				{/* Ghost layer. A sibling of the measurement div, never a child: the
 				    measurement drives the composer's height, so ghost text there would
@@ -206,6 +220,7 @@ export function PromptInput({
 					disabled={disabled}
 					placeholder={placeholder}
 					aria-label={ariaLabel}
+					aria-describedby={describedBy}
 					autoComplete="off"
 					rows={minRows}
 					{...textareaProps}
@@ -216,14 +231,18 @@ export function PromptInput({
 						syncGhostLayer();
 					}}
 					className={cn(
-						"block w-full resize-none overflow-y-auto bg-transparent pt-1.5 text-foreground outline-none placeholder:text-foreground/55",
+						"block w-full resize-none overflow-y-auto bg-transparent pt-1.5 text-foreground outline-none placeholder:text-foreground/70",
 						PROMPT_TEXT_METRICS,
 					)}
 				/>
 			</div>
 
 			<div className="mt-1 flex min-h-8 items-center gap-1">
-				{leadingAction}
+				{leadingAction ? (
+					<div role="group" aria-label="Composer options" className="flex min-w-0 items-center gap-1">
+						{leadingAction}
+					</div>
+				) : null}
 
 				{loading && onStop ? (
 					<Button
@@ -236,12 +255,12 @@ export function PromptInput({
 						<Square className="size-3 fill-current" />
 					</Button>
 				) : null}
-				{!loading || canSubmit ? (
+				{!loading || canSubmit || submitWhileLoading ? (
 					<Button
 						type="submit"
 						size="icon"
-						disabled={!canSubmit}
-						aria-label={loading ? "Steer current run" : "Send prompt"}
+						disabled={sendDisabled}
+						aria-label={loading ? "Send follow-up" : "Send prompt"}
 						className={cn(
 							"size-8 rounded-full",
 							!loading && "ml-auto",

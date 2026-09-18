@@ -1,6 +1,7 @@
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { FileCode, FileJson, FileText, ImageIcon, X } from "lucide-react";
 import { useState } from "react";
+import { HIT_AREA_EXPAND_CLASS } from "../../../chrome/tokens";
 import { ImageLightbox } from "../../../tools/image-lightbox";
 
 export type FileAttachmentProps = {
@@ -101,7 +102,7 @@ export function FileAttachment({
 	return (
 		<div
 			className={cn(
-				"relative rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding))] bg-muted/50",
+				"group relative rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding))] bg-muted/50",
 				isImageOnly
 					? "flex size-10 items-center justify-center"
 					: "flex max-w-[200px] min-w-[120px] items-center gap-2 py-1 pr-2 pl-1",
@@ -182,10 +183,14 @@ export function FileAttachment({
 						onRemove();
 					}}
 					aria-label={`Remove ${filename}`}
-					className={`absolute -top-1.5 -right-1.5 z-10 flex size-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground active:scale-[0.97] ${isHovered ? "opacity-100" : "opacity-0"}`}
+					className={cn(
+						HIT_AREA_EXPAND_CLASS,
+						"absolute -top-1.5 -end-1.5 z-10 flex size-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100",
+						isHovered ? "opacity-100" : "opacity-0",
+					)}
 					type="button"
 				>
-					<X className="size-3" />
+					<X aria-hidden="true" className="size-3" />
 				</button>
 			)}
 

@@ -2,20 +2,20 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { Bot } from "lucide-react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { ComposerSelectorTrigger } from "./composer-selector-trigger";
-import { Popover } from "./input-popover";
+import { ComposerSelectorTrigger } from "../input/composer-selector-trigger";
+import { Popover } from "../input/input-popover";
 
 describe("ComposerSelectorTrigger", () => {
 	it("renders label, optional icon, and chevron", () => {
 		render(
 			<ComposerSelectorTrigger
-				ariaLabel="Select mode"
+				ariaLabel="Select mode, Agent"
 				label="Agent"
 				leadingIcon={<Bot data-testid="mode-icon" />}
 			/>,
 		);
 
-		expect(screen.getByRole("button", { name: "Select mode" })).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Select mode, Agent" })).toBeTruthy();
 		expect(screen.getByText("Agent")).toBeTruthy();
 		expect(screen.getByTestId("mode-icon")).toBeTruthy();
 	});
@@ -23,7 +23,7 @@ describe("ComposerSelectorTrigger", () => {
 	it("renders combobox semantics when requested", () => {
 		render(
 			<ComposerSelectorTrigger
-				ariaLabel="Select model and reasoning effort"
+				ariaLabel="Select model and reasoning effort, Model"
 				label="Model"
 				combobox
 				open
@@ -31,7 +31,7 @@ describe("ComposerSelectorTrigger", () => {
 			/>,
 		);
 
-		const trigger = screen.getByRole("combobox", { name: "Select model and reasoning effort" });
+		const trigger = screen.getByRole("combobox", { name: "Select model and reasoning effort, Model" });
 		expect(trigger.getAttribute("aria-expanded")).toBe("true");
 		expect(trigger.getAttribute("aria-controls")).toBe("model-popup");
 		expect(trigger.getAttribute("data-state")).toBe("open");
@@ -39,7 +39,7 @@ describe("ComposerSelectorTrigger", () => {
 
 	it("hides chevron when showChevron is false", () => {
 		const { container } = render(
-			<ComposerSelectorTrigger ariaLabel="Select mode" label="Agent" showChevron={false} />,
+			<ComposerSelectorTrigger ariaLabel="Select mode, Agent" label="Agent" showChevron={false} />,
 		);
 
 		expect(container.querySelector("svg")).toBeNull();
@@ -47,9 +47,9 @@ describe("ComposerSelectorTrigger", () => {
 
 	it("forwards native button props such as onClick", () => {
 		const onClick = vi.fn();
-		render(<ComposerSelectorTrigger ariaLabel="Select mode" label="Agent" onClick={onClick} />);
+		render(<ComposerSelectorTrigger ariaLabel="Select mode, Agent" label="Agent" onClick={onClick} />);
 
-		fireEvent.click(screen.getByRole("button", { name: "Select mode" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select mode, Agent" }));
 
 		expect(onClick).toHaveBeenCalledTimes(1);
 	});
@@ -61,7 +61,7 @@ describe("ComposerSelectorTrigger", () => {
 				<Popover
 					open={open}
 					onOpenChange={setOpen}
-					trigger={<ComposerSelectorTrigger ariaLabel="Select mode" label="Agent" open={open} />}
+					trigger={<ComposerSelectorTrigger ariaLabel="Select mode, Agent" label="Agent" open={open} />}
 				>
 					<div role="menu">Mode menu</div>
 				</Popover>
@@ -71,7 +71,7 @@ describe("ComposerSelectorTrigger", () => {
 		render(<Harness />);
 
 		expect(screen.queryByRole("menu")).toBeNull();
-		fireEvent.click(screen.getByRole("button", { name: "Select mode" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select mode, Agent" }));
 		expect(screen.getByRole("menu")).toBeTruthy();
 	});
 });

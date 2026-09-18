@@ -46,10 +46,11 @@ export const ModeSelector = memo(function ModeSelector({
 	const ActiveIcon = activeMode?.icon;
 	const hasMultiple = modes.length > 1;
 
+	const modeLabel = activeMode?.label ?? "";
 	const trigger = (
 		<ComposerSelectorTrigger
-			ariaLabel="Select mode"
-			label={activeMode?.label ?? ""}
+			ariaLabel={modeLabel ? `Select mode, ${modeLabel}` : "Select mode"}
+			label={modeLabel}
 			leadingIcon={ActiveIcon ? <ActiveIcon className="size-3.5 shrink-0" /> : undefined}
 			open={open}
 			showChevron={hasMultiple}
@@ -62,28 +63,40 @@ export const ModeSelector = memo(function ModeSelector({
 
 	return (
 		<Popover open={open} onOpenChange={setOpen} side="top" align="start" trigger={trigger}>
-			{modes.map((mode) => {
-				const isActive = mode.id === activeMode?.id;
-				const Icon = mode.icon;
-				return (
-					<button
-						key={mode.id}
-						type="button"
-						onClick={() => handleSelect(mode.id)}
-						className={cn(
-							"flex w-full cursor-pointer items-start gap-2 rounded-[6px] px-2 py-2 text-left text-label leading-4 text-foreground transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.96]",
-							isActive && "bg-foreground/6",
-						)}
-					>
-						{Icon && <Icon className="mt-0.5 size-3.5 shrink-0" />}
-						<span className="min-w-0 flex-1">
-							<span className="block truncate font-medium">{mode.label}</span>
-							{mode.description && <span className="block truncate text-foreground/40">{mode.description}</span>}
-						</span>
-						{isActive && <Check className="mt-0.5 size-3.5 shrink-0 text-foreground/60" />}
-					</button>
-				);
-			})}
+			<div role="menu" aria-label="Select mode">
+				{modes.map((mode) => {
+					const isActive = mode.id === activeMode?.id;
+					const Icon = mode.icon;
+					return (
+						<button
+							key={mode.id}
+							type="button"
+							role="menuitemradio"
+							aria-checked={isActive}
+							onClick={() => handleSelect(mode.id)}
+							className={cn(
+								"flex w-full cursor-pointer items-start gap-2 rounded-[6px] px-2 py-2 text-left text-label leading-4 text-foreground transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.96]",
+								isActive && "bg-foreground/6",
+							)}
+						>
+							{Icon ? (
+								<span aria-hidden="true" className="mt-0.5 shrink-0">
+									<Icon className="size-3.5" />
+								</span>
+							) : null}
+							<span className="min-w-0 flex-1">
+								<span className="block truncate font-medium">{mode.label}</span>
+								{mode.description ? (
+									<span className="block truncate text-foreground/70">{mode.description}</span>
+								) : null}
+							</span>
+							{isActive ? (
+								<Check aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-foreground/60" />
+							) : null}
+						</button>
+					);
+				})}
+			</div>
 		</Popover>
 	);
 });

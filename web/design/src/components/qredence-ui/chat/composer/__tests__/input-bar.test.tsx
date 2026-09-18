@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AgentChat } from "../agent-chat";
-import { InputBar } from "./input-bar";
+import { AgentChat } from "../../agent-chat";
+import { InputBar } from "../input-bar";
 
 describe("InputBar slash menu control", () => {
 	it("renders the open-slash control on the welcome composer path", () => {
@@ -35,7 +35,7 @@ describe("InputBar slash menu control", () => {
 			/>,
 		);
 
-		const prompt = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement;
+		const prompt = screen.getByRole("combobox", { name: "Prompt" }) as HTMLTextAreaElement;
 		expect(prompt.value).toBe("");
 
 		fireEvent.click(screen.getByRole("button", { name: "Open slash commands" }));
@@ -61,7 +61,7 @@ describe("InputBar slash menu control", () => {
 		);
 
 		const slashButton = screen.getByRole("button", { name: "Open slash commands" });
-		const modeButton = screen.getByRole("button", { name: "Select mode" });
+		const modeButton = screen.getByRole("button", { name: "Select mode, Agent" });
 
 		expect(slashButton).toBeTruthy();
 		expect(slashButton.compareDocumentPosition(modeButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

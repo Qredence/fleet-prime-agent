@@ -17,7 +17,7 @@ import { FileCode2, Plus, Terminal, X } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 import type { ChatModelOption } from "../../../../lib/pi/chat-helpers";
 import { cn } from "../../../../lib/utils";
-import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS } from "../../chrome/tokens";
+import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS, HIT_AREA_EXPAND_CLASS } from "../../chrome/tokens";
 import { AGENT_CHAT_MODES } from "../chat-modes";
 import type { QuestionBarData } from "../hooks/use-question-bar-navigation";
 import type { InlineCompletion } from "./inline-completion";
@@ -251,9 +251,12 @@ function InputBarContent({
 							type="button"
 							aria-label="Dismiss suggestion"
 							onClick={visibleIntentSuggestion.onDismiss}
-							className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+							className={cn(
+								HIT_AREA_EXPAND_CLASS,
+								"grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+							)}
 						>
-							<X className="size-3" />
+							<X aria-hidden="true" className="size-3" />
 						</button>
 					</div>
 				) : null}
@@ -299,9 +302,12 @@ function InputBarContent({
 									size="icon-xs"
 									aria-label={`Remove ${image.filename}`}
 									onClick={() => attachments?.onRemoveImage?.(image.id)}
-									className="absolute -right-1 -top-1 size-5 rounded-full bg-background opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+									className={cn(
+										HIT_AREA_EXPAND_CLASS,
+										"absolute -end-1 -top-1 size-6 rounded-full bg-background opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
+									)}
 								>
-									<X data-icon="inline-start" className="size-3" />
+									<X data-icon="inline-start" aria-hidden="true" className="size-3" />
 								</Button>
 							</div>
 						))}
@@ -323,15 +329,20 @@ function InputBarContent({
 								key={attachment.relativePath}
 								className="inline-flex max-w-full items-center gap-1.5 rounded-lg border bg-background px-2 py-1 text-xs text-foreground/75"
 							>
-								<FileCode2 className="size-3.5 shrink-0 text-muted-foreground" />
-								<span className="max-w-[min(28rem,70vw)] truncate">@{attachment.relativePath}</span>
+								<FileCode2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+								<span className="max-w-[min(28rem,70vw)] truncate" title={`@${attachment.relativePath}`}>
+									@{attachment.relativePath}
+								</span>
 								<button
 									type="button"
 									aria-label={`Remove workspace reference ${attachment.relativePath}`}
 									onClick={() => onRemoveWorkspaceReference?.(attachment.relativePath)}
-									className="grid size-5 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+									className={cn(
+										HIT_AREA_EXPAND_CLASS,
+										"grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+									)}
 								>
-									<X className="size-3" />
+									<X aria-hidden="true" className="size-3" />
 								</button>
 							</div>
 						))}
@@ -340,6 +351,8 @@ function InputBarContent({
 				<PromptInput
 					id="composer-prompt"
 					name="prompt"
+					role="combobox"
+					aria-autocomplete="list"
 					value={value}
 					onValueChange={setValue}
 					onSubmit={(content) => send(content)}
