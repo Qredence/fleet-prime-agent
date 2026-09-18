@@ -47,13 +47,18 @@ function isLogLevel(value: string | undefined): value is TypeSafeLogLevel {
 }
 
 /**
- * Reads the TypeSafe configuration from an environment record.
+ * Reads the TypeSafe configuration.
+ *
+ * `storedKey` is a key the user saved in Settings. It **wins** over the
+ * environment variable, matching the runtime's own credential order (auth.json
+ * before environment) so every credential in the app resolves the same way. The
+ * environment remains the fallback, so deployments that set it are unaffected.
  *
  * `TYPESAFE_BASE_URL` and `TYPESAFE_MODEL` use the same names the official
  * SDK reads, so moving to the SDK later needs no environment change.
  */
-export function readTypeSafeConfig(env: NodeJS.Dict<string> = process.env): TypeSafeRuntimeConfig {
-	const apiKey = (env.TYPESAFE_API_KEY ?? "").trim() || undefined;
+export function readTypeSafeConfig(env: NodeJS.Dict<string> = process.env, storedKey?: string): TypeSafeRuntimeConfig {
+	const apiKey = (storedKey ?? "").trim() || (env.TYPESAFE_API_KEY ?? "").trim() || undefined;
 	const killed = (env.FLEET_TYPESAFE_ENABLED ?? "").trim() === "0";
 	return {
 		configured: Boolean(apiKey) && !killed,

@@ -115,7 +115,9 @@ export {
 	ComposerCompletionResponseSchema,
 } from "./schemas/completion";
 export {
+	ComposerIntentCredentialSchema,
 	ComposerIntentDispositionSchema,
+	ComposerIntentKeySourceSchema,
 	ComposerIntentReasonSchema,
 	ComposerIntentRequestSchema,
 	ComposerIntentResponseSchema,

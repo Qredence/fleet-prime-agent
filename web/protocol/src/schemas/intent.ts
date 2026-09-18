@@ -9,6 +9,10 @@ export const ComposerIntentReasonSchema = z
 	.enum(["disabled", "not_ready", "empty", "no_match", "code_task", "below_floor", "unavailable", "rate_limited"])
 	.openapi({ description: "Why a routing attempt produced no action" });
 
+export const ComposerIntentKeySourceSchema = z
+	.enum(["settings", "environment", "none"])
+	.openapi({ description: "Which key the classifier is using; never the key itself" });
+
 export const ComposerIntentDispositionSchema = z
 	.enum(["execute", "suggest"])
 	.openapi({ description: "Whether a matched command may run automatically or is only offered" });
@@ -39,8 +43,16 @@ export const ComposerIntentSettingsSchema = z
 		enabled: z.boolean(),
 		/** Whether a usable key is present. `unverified` until a probe succeeds. */
 		status: ComposerIntentStatusSchema,
+		keySource: ComposerIntentKeySourceSchema,
 	})
 	.openapi({ description: "Composer intent routing availability; never reveals the key or a raw error" });
+
+export const ComposerIntentCredentialSchema = z
+	.object({
+		/** A key to store, or null to remove the stored one. */
+		apiKey: nonEmptyStringSchema.max(400).nullable(),
+	})
+	.openapi({ description: "Set or clear the stored classifier key; write-only" });
 
 export const ComposerIntentSettingsUpdateSchema = z
 	.object({

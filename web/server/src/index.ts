@@ -5,7 +5,12 @@ export { handleChatCommandPost } from "./handlers/chat-command";
 export { handleChatCommandsGet } from "./handlers/chat-commands";
 export { handleChatCompletionPost } from "./handlers/chat-completion";
 export { handleChatEventsGet } from "./handlers/chat-events";
-export { handleChatIntentGet, handleChatIntentPatch, handleChatIntentPost } from "./handlers/chat-intent";
+export {
+	handleChatIntentGet,
+	handleChatIntentPatch,
+	handleChatIntentPost,
+	handleChatIntentPut,
+} from "./handlers/chat-intent";
 export { handleChatMcpDelete, handleChatMcpGet, handleChatMcpOAuthPost, handleChatMcpPost } from "./handlers/chat-mcp";
 export { handleChatModelsGet } from "./handlers/chat-models";
 export { handleChatModelsDiscoverPost } from "./handlers/chat-models-discover";

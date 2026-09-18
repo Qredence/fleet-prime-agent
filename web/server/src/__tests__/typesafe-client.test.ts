@@ -57,6 +57,27 @@ describe("readTypeSafeConfig", () => {
 		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_INTENT_MAX_RETRIES: "0" }).intentMaxRetries).toBe(0);
 	});
 
+	it("prefers a key saved in Settings over the environment", () => {
+		// Matching the runtime's own credential order (auth.json before
+		// environment), so every credential in the app resolves the same way.
+		const config = readTypeSafeConfig({ TYPESAFE_API_KEY: "env-key" }, "stored-key");
+		expect(config.apiKey).toBe("stored-key");
+		expect(config.configured).toBe(true);
+	});
+
+	it("falls back to the environment when nothing is stored", () => {
+		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "env-key" }, undefined).apiKey).toBe("env-key");
+		// An empty or whitespace-only stored value is not a key.
+		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "env-key" }, "   ").apiKey).toBe("env-key");
+		expect(readTypeSafeConfig({}, "   ").configured).toBe(false);
+	});
+
+	it("lets the operator kill switch win over a stored key", () => {
+		const config = readTypeSafeConfig({ FLEET_TYPESAFE_ENABLED: "0" }, "stored-key");
+		expect(config.configured).toBe(false);
+		expect(config.apiKey).toBe("stored-key");
+	});
+
 	it("strips trailing slashes from a custom base url", () => {
 		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "https://x.test///" }).baseUrl).toBe(
 			"https://x.test",

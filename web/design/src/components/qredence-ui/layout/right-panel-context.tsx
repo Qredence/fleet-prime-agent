@@ -27,7 +27,7 @@ import type {
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import type { ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
+import type { ComposerIntentKeySource, ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
 import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
 import type { RightPanel, ThemePreference } from "../../../lib/canvas-utils";
@@ -81,7 +81,7 @@ export type WorkspaceTreeContextValue = {
 };
 
 export type SettingsActionsContextValue = {
-	composerIntent?: { enabled: boolean; status: ComposerIntentStatus };
+	composerIntent?: { enabled: boolean; keySource: ComposerIntentKeySource; status: ComposerIntentStatus };
 	isLoadingMcp?: boolean;
 	isLoadingProviders?: boolean;
 	isUpdatingMcp?: boolean;
@@ -94,6 +94,8 @@ export type SettingsActionsContextValue = {
 	onRemoveMcp?: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
 	onComposerIntentChange?: (enabled: boolean) => void;
+	/** Stores the classifier key, or clears it with `null`. Write-only. */
+	onComposerIntentKeyChange?: (apiKey: string | null) => Promise<void> | void;
 	onThemePreferenceChange: (preference: ThemePreference) => void;
 	onUpdateMcp?: (request: ChatMcpUpsertRequest) => Promise<ChatMcpListResponse>;
 	onUpdateProvider?: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;

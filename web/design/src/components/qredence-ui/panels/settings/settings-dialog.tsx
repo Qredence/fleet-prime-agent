@@ -324,6 +324,7 @@ function SettingsDialogPaneContent({
 	composerIntent,
 	form,
 	onComposerIntentChange,
+	onComposerIntentKeyChange,
 	preferences,
 	updatePreference,
 }: {
@@ -331,6 +332,7 @@ function SettingsDialogPaneContent({
 	composerIntent?: SettingsActionsContextValue["composerIntent"];
 	form: SettingsForm;
 	onComposerIntentChange?: (enabled: boolean) => void;
+	onComposerIntentKeyChange?: (apiKey: string | null) => Promise<void> | void;
 	preferences: UiPreferences;
 	updatePreference: UpdatePreference;
 }) {
@@ -461,8 +463,11 @@ function SettingsDialogPaneContent({
 				</PreferenceRow>
 				<ComposerIntentSection
 					enabled={composerIntent?.enabled ?? false}
+					keySource={composerIntent?.keySource ?? "none"}
 					status={composerIntent?.status ?? "unconfigured"}
+					onClearKey={() => onComposerIntentKeyChange?.(null)}
 					onEnabledChange={onComposerIntentChange}
+					onSaveKey={(apiKey) => onComposerIntentKeyChange?.(apiKey)}
 				/>
 			</div>
 		),
@@ -574,7 +579,7 @@ function SettingsDialogBody({
 	onOpenChange: (open: boolean) => void;
 }) {
 	const form = useSettingsForm();
-	const { composerIntent, onComposerIntentChange } = useSettingsActionsContext();
+	const { composerIntent, onComposerIntentChange, onComposerIntentKeyChange } = useSettingsActionsContext();
 	const { resourceDirty, revertResourceDraft, resetDraft, requestCloseSettings, resetCommittedModelBaseline } = form;
 
 	const [activeTab, setActiveTab] = useState<SettingsSectionId>(() => initialTab ?? "appearance");
@@ -636,6 +641,7 @@ function SettingsDialogBody({
 			composerIntent={composerIntent}
 			form={form}
 			onComposerIntentChange={onComposerIntentChange}
+			onComposerIntentKeyChange={onComposerIntentKeyChange}
 			preferences={preferences}
 			updatePreference={updatePreference}
 		/>

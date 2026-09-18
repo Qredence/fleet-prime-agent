@@ -1,4 +1,9 @@
-import { handleChatIntentGet, handleChatIntentPatch, handleChatIntentPost } from "@prime-agent/web-server";
+import {
+	handleChatIntentGet,
+	handleChatIntentPatch,
+	handleChatIntentPost,
+	handleChatIntentPut,
+} from "@prime-agent/web-server";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/api/chat/intent")({
@@ -7,6 +12,7 @@ export const Route = createFileRoute("/api/chat/intent")({
 			GET: ({ request }) => handleChatIntentGet(request),
 			PATCH: ({ request }) => handleChatIntentPatch(request),
 			POST: ({ request }) => handleChatIntentPost(request),
+			PUT: ({ request }) => handleChatIntentPut(request),
 		},
 	},
 });

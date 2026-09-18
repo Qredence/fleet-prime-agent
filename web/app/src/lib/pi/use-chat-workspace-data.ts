@@ -625,6 +625,27 @@ export function useChatWorkspaceData() {
 		[composerIntentAvailability],
 	);
 
+	/**
+	 * Stores the classifier key, or clears it with `null`.
+	 *
+	 * The key is write-only: it goes up and never comes back, and the refresh
+	 * afterwards re-reads only whether a usable key exists and where it came from.
+	 */
+	const setComposerIntentKey = useCallback(
+		async (apiKey: string | null) => {
+			try {
+				await fetch(resolveChatApiUrl("/api/chat/intent"), {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ apiKey }),
+				});
+			} finally {
+				composerIntentAvailability.refresh();
+			}
+		},
+		[composerIntentAvailability],
+	);
+
 	const modelCatalog = useMemo(
 		() => modelCatalogData?.models.map(toModelOption) ?? models,
 		[modelCatalogData, models],
@@ -670,6 +691,7 @@ export function useChatWorkspaceData() {
 		chatMode,
 		composerIntent: composerIntentAvailability,
 		onComposerIntentChange: setComposerIntentEnabled,
+		onComposerIntentKeyChange: setComposerIntentKey,
 		handleThemePreferenceChange,
 		isLoadingMcp,
 		isLoadingProviders,

@@ -1,4 +1,4 @@
-import type { ComposerIntentResponse } from "@prime-agent/web-protocol/composer-intent";
+import type { ComposerIntentKeySource, ComposerIntentResponse } from "@prime-agent/web-protocol/composer-intent";
 import { composerIntentCommand } from "@prime-agent/web-protocol/composer-intent";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url";
@@ -192,6 +192,8 @@ export type ComposerIntentAvailability = {
 	available: boolean;
 	/** The user's own choice, as persisted server-side. */
 	enabled: boolean;
+	/** Which key is in effect. Never the key itself. */
+	keySource: ComposerIntentKeySource;
 	status: "unconfigured" | "unverified" | "ready" | "error" | "loading";
 	/** Re-reads availability, for the Settings toggle. */
 	refresh: () => void;
@@ -207,8 +209,9 @@ export function useComposerIntentAvailability(): ComposerIntentAvailability {
 	const [state, setState] = useState<{
 		available: boolean;
 		enabled: boolean;
+		keySource: ComposerIntentKeySource;
 		status: ComposerIntentAvailability["status"];
-	}>({ available: false, enabled: false, status: "loading" });
+	}>({ available: false, enabled: false, keySource: "none", status: "loading" });
 	// Guards against an earlier request landing after a later one.
 	const requestId = useRef(0);
 
@@ -219,21 +222,22 @@ export function useComposerIntentAvailability(): ComposerIntentAvailability {
 				const response = await fetch(resolveChatApiUrl("/api/chat/intent"));
 				if (id !== requestId.current) return;
 				if (!response.ok) {
-					setState({ available: false, enabled: false, status: "error" });
+					setState({ available: false, enabled: false, keySource: "none", status: "error" });
 					return;
 				}
-				const body = (await response.json()) as { enabled?: unknown; status?: unknown };
+				const body = (await response.json()) as { enabled?: unknown; keySource?: unknown; status?: unknown };
 				if (id !== requestId.current) return;
 				const status = typeof body.status === "string" ? body.status : "error";
 				const enabled = body.enabled === true;
 				setState({
 					available: enabled && status === "ready",
 					enabled,
+					keySource: (body.keySource ?? "none") as ComposerIntentKeySource,
 					status: status as ComposerIntentAvailability["status"],
 				});
 			} catch {
 				if (id !== requestId.current) return;
-				setState({ available: false, enabled: false, status: "error" });
+				setState({ available: false, enabled: false, keySource: "none", status: "error" });
 			}
 		})();
 	}, []);

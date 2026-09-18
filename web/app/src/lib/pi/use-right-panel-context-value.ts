@@ -70,6 +70,8 @@ type UseRightPanelContextValueArgs = {
 	/** Composer command-routing availability, for the Settings toggle. */
 	composerIntent?: ComposerIntentAvailability;
 	onComposerIntentChange?: (enabled: boolean) => void;
+	/** Stores the classifier key, or clears it with `null`. */
+	onComposerIntentKeyChange?: (apiKey: string | null) => Promise<void> | void;
 	queue: QueueState;
 	refreshResources: () => void;
 	refreshWorkspace: () => void;
@@ -120,6 +122,7 @@ export function useRightPanelContextValue({
 	chatMode,
 	composerIntent,
 	onComposerIntentChange,
+	onComposerIntentKeyChange,
 	handleThemePreferenceChange,
 	isLoadingMcp,
 	isLoadingProviders,
@@ -276,6 +279,7 @@ export function useRightPanelContextValue({
 			composerIntent: composerIntent
 				? {
 						enabled: composerIntent.enabled,
+						keySource: composerIntent.keySource,
 						// "loading" is a browser-only state; the Settings row shows
 						// "checking" until the first probe resolves.
 						status: composerIntent.status === "loading" ? "unverified" : composerIntent.status,
@@ -288,6 +292,7 @@ export function useRightPanelContextValue({
 			mcpConnections,
 			modelCatalog,
 			onComposerIntentChange,
+			onComposerIntentKeyChange,
 			onDiscoverModels,
 			onMcpOAuth,
 			onOAuthLogin,
@@ -313,6 +318,7 @@ export function useRightPanelContextValue({
 			mcpConnections,
 			modelCatalog,
 			onComposerIntentChange,
+			onComposerIntentKeyChange,
 			onDiscoverModels,
 			onMcpOAuth,
 			onOAuthLogin,

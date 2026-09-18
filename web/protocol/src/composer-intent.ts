@@ -282,6 +282,33 @@ export function decideComposerIntent(input: {
 /** Coarse readiness of the optional classifier, as shown in Settings. */
 export type ComposerIntentStatus = "unconfigured" | "unverified" | "ready" | "error";
 
+/**
+ * Where the classifier's API key came from.
+ *
+ * Reported so Settings can say which key is in effect: a key saved in Settings
+ * wins over the environment one, matching the runtime's own credential order.
+ * The key itself is never sent to the browser in any form.
+ */
+export type ComposerIntentKeySource = "settings" | "environment" | "none";
+
+/** Settings surface for the classifier. Write-only with respect to the key. */
+export type ComposerIntentSettings = {
+	/** The user's choice in Settings. Off until they turn it on. */
+	enabled: boolean;
+	/** Whether the resolved key can actually be used. */
+	status: ComposerIntentStatus;
+	keySource: ComposerIntentKeySource;
+};
+
+/**
+ * Body for `PUT /api/chat/intent`: set or clear the stored key.
+ *
+ * `null` removes it, which lets the environment variable take over again.
+ */
+export type ComposerIntentCredential = {
+	apiKey: string | null;
+};
+
 /** Request body for `POST /api/chat/intent`. */
 export type ComposerIntentRequest = {
 	/** The composer draft. Truncated server-side before it leaves the process. */
