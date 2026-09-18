@@ -169,7 +169,7 @@ export function SessionSidebarNavigation({
 							trigger={
 								<button
 									type="button"
-									className="flex h-8 w-fit shrink-0 items-center gap-1 rounded-lg px-2 text-left text-body font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+									className="flex h-8 w-fit shrink-0 items-center gap-1 rounded-lg px-2 text-start text-body font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
 								>
 									<span className="truncate">Qredence Fleet</span>
 									<ChevronDown className="size-3.5 text-muted-foreground" />
@@ -236,7 +236,7 @@ export function SessionSidebarNavigation({
 												key={project.projectId}
 												type="button"
 												onClick={() => selectSearchResult(`search-project:${project.projectId}`)}
-												className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left text-label outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
+												className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-start text-label outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
 											>
 												<Folder className="size-3.5 shrink-0 text-muted-foreground/60" />
 												<span className="min-w-0 flex-1 truncate">{project.name}</span>

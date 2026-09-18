@@ -172,7 +172,7 @@ export function AgentTabBar({
 							{tab.kind === "subagent" && onClose ? (
 								<Button
 									aria-label={`Close ${tab.label} tab`}
-									className="absolute top-1/2 inset-inline-end-1 size-5 -translate-y-1/2 rounded-[5px] p-0 text-foreground/35 opacity-0 transition-opacity motion-reduce:transition-none hover:bg-foreground/10 hover:text-foreground/75 focus-visible:opacity-100 group-hover/tab:opacity-100"
+									className="absolute top-1/2 left-auto size-5 -translate-y-1/2 rounded-[5px] p-0 text-foreground/35 opacity-0 transition-opacity motion-reduce:transition-none hover:bg-foreground/10 hover:text-foreground/75 focus-visible:opacity-100 group-hover/tab:opacity-100 [inset-inline-start:auto] [inset-inline-end:0.25rem]"
 									onClick={(event) => {
 										event.stopPropagation();
 										onClose(tab.id);

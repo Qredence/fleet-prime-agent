@@ -13,6 +13,7 @@ import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import {
 	ChevronDown,
+	ChevronUp,
 	CircleStop,
 	Folder,
 	FolderPlus,
@@ -83,13 +84,13 @@ export function SessionSidebarProjectList({
 	renderMenu,
 }: SidebarProjectListProps) {
 	return (
-		<AnimatedSidebarContent className="gap-0 px-2 pb-1 pt-2">
+		<AnimatedSidebarContent className="gap-0 px-2.5 pb-1 pt-2">
 			<AnimatedSidebarGroup className="p-0">
 				<div className="relative mb-1 h-8">
-					<AnimatedSidebarGroupLabel className="mb-0 h-8 pe-16 text-xs font-normal normal-case tracking-normal text-muted-foreground">
+					<AnimatedSidebarGroupLabel className="mb-0 h-8 pe-20 text-xs font-normal normal-case tracking-normal text-muted-foreground">
 						Projects
 					</AnimatedSidebarGroupLabel>
-					<div className="absolute inset-y-0 inset-inline-end-1 flex items-center gap-0.5">
+					<div className="absolute inset-y-0 left-auto flex items-center gap-0.5 [inset-inline-start:auto] [inset-inline-end:0]">
 						<Popover
 							open={projectActionsOpen}
 							onOpenChange={setProjectActionsOpen}
@@ -103,7 +104,7 @@ export function SessionSidebarProjectList({
 									title="Project actions"
 									className={cn(
 										HIT_AREA_EXPAND_DENSE_CLASS,
-										"grid size-6 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+										"grid size-8 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
 									)}
 								>
 									<MoreHorizontal aria-hidden="true" className="size-3.5" />
@@ -143,7 +144,7 @@ export function SessionSidebarProjectList({
 								onClick={() => setCreateOpen(true)}
 								className={cn(
 									HIT_AREA_EXPAND_DENSE_CLASS,
-									"grid size-6 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+									"grid size-8 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
 								)}
 							>
 								<Plus aria-hidden="true" className="size-3.5" />
@@ -187,6 +188,13 @@ export function SessionSidebarProjectList({
 							renderIcon={(item) => {
 								const projectId = idValue(item.id, PROJECT_PREFIX);
 								if (projectId) return <Folder className="size-4" />;
+								if (item.id.startsWith("toggle:")) {
+									return item.label === "Show less" ? (
+										<ChevronUp className="size-4" />
+									) : (
+										<ChevronDown className="size-4" />
+									);
+								}
 								if (item.kind === "action") return null;
 								const sessionId = idValue(item.id, SESSION_PREFIX);
 								const session = projectSessions.find((entry) => entry.sessionId === sessionId);
@@ -199,7 +207,7 @@ export function SessionSidebarProjectList({
 									<Button
 										type="button"
 										variant="ghost"
-										size="icon-xs"
+										size="icon"
 										aria-label={`New chat in ${item.label}`}
 										title={`New chat in ${item.label}`}
 										onClick={(event) => {
@@ -211,7 +219,7 @@ export function SessionSidebarProjectList({
 												onNewSession();
 											}
 										}}
-										className="size-7 shrink-0 opacity-0 group-hover/resource:opacity-100 group-focus-within/resource:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+										className="size-8 shrink-0 opacity-0 group-hover/resource:opacity-100 group-focus-within/resource:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
 									>
 										<SquarePen data-icon="inline-start" className="size-3.5" />
 									</Button>
