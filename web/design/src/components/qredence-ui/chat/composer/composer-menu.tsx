@@ -79,6 +79,10 @@ export function ComposerMenuItem({
 			type="button"
 			data-slot="composer-menu-item"
 			data-active={active || undefined}
+			// The listbox is driven from the textarea via aria-activedescendant, so
+			// its items must not be tab stops. Without this, Tab out of an open menu
+			// lands focus inside the popover chrome.
+			tabIndex={-1}
 			className={cn(
 				"flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-body transition-colors",
 				active ? field : "hover:bg-foreground/[0.04]",

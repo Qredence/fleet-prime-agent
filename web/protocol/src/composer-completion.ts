@@ -31,9 +31,6 @@ export const COMPOSER_COMPLETION_MIN_CHARS = 4;
  */
 export const COMPOSER_COMPLETION_MAX_CHARS = 200;
 
-/** Draft characters forwarded as state. */
-export const COMPOSER_COMPLETION_MAX_DRAFT_CHARS = 2_000;
-
 /**
  * True when a draft is already owned by another interaction, or is not prose.
  * The `/` and `@` trigger popovers own those keystrokes, and returning nothing

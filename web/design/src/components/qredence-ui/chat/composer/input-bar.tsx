@@ -102,6 +102,8 @@ export type InputBarProps = {
 	 * the user activates the chip itself.
 	 */
 	intentSuggestion?: {
+		/** The draft this offer was computed against; stale offers are dropped. */
+		forValue: string;
 		label: string;
 		description: string;
 		onAccept: () => void;
@@ -194,6 +196,7 @@ function InputBarContent({
 		triggerKind,
 		triggerOpen,
 		value,
+		visibleIntentSuggestion,
 		workspaceQuery,
 	} = useInputBarState({
 		models,
@@ -232,22 +235,22 @@ function InputBarContent({
 		<div className={cn("shrink-0 pb-3", CHAT_COLUMN_CLASS, className)}>
 			<div className="relative w-full">
 				<ComposerLoader label={infoDescription ?? undefined} isActive={isStreaming} />
-				{intentSuggestion && !isStreaming && !disabled ? (
+				{visibleIntentSuggestion && !isStreaming && !disabled ? (
 					<div className="mb-2 flex items-center gap-2 rounded-xl border bg-muted/40 px-2.5 py-1.5">
 						<Terminal className="size-3.5 shrink-0 text-muted-foreground" />
 						<button
 							type="button"
 							onClick={acceptIntentSuggestion}
 							className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-							title={intentSuggestion.description}
+							title={visibleIntentSuggestion.description}
 						>
-							<span className="font-medium">{intentSuggestion.label}</span>
-							<span className="text-muted-foreground"> — {intentSuggestion.description}</span>
+							<span className="font-medium">{visibleIntentSuggestion.label}</span>
+							<span className="text-muted-foreground"> — {visibleIntentSuggestion.description}</span>
 						</button>
 						<button
 							type="button"
 							aria-label="Dismiss suggestion"
-							onClick={intentSuggestion.onDismiss}
+							onClick={visibleIntentSuggestion.onDismiss}
 							className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
 						>
 							<X className="size-3" />

@@ -2,6 +2,7 @@ import type { InlineCompletion } from "@prime-agent/web-design/components/qreden
 import {
 	COMPOSER_COMPLETION_MIN_CHARS,
 	type ComposerCompletionResponse,
+	composerCompletionIgnores,
 	normalizeCompletionDraft,
 } from "@prime-agent/web-protocol/composer-completion";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -25,10 +26,17 @@ const CACHE_TTL_MS = 5 * 60_000;
 
 type CacheEntry = { completion: string | undefined; at: number };
 
-/** A draft shorter than this is not worth a request. Mirrors the intent floor. */
+/**
+ * A draft shorter than this is not worth a request. Mirrors the intent floor.
+ *
+ * The trigger-token check duplicates the server's, deliberately: the server is
+ * still the authority, but without it a slash or `@mention` draft would spend a
+ * request per typing pause only to be rejected.
+ */
 function isCompletable(text: string): boolean {
 	const trimmed = text.trim();
-	return trimmed.length >= COMPOSER_COMPLETION_MIN_CHARS;
+	if (trimmed.length < COMPOSER_COMPLETION_MIN_CHARS) return false;
+	return !composerCompletionIgnores(text);
 }
 
 function normalizedKey(text: string): string {

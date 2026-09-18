@@ -14,7 +14,14 @@ import { createPromptIndex, type OpenSession, type PromptIndex } from "./prompt-
 type CompletionGlobal = { __fleetPromptIndex?: PromptIndex };
 const globalStore = globalThis as unknown as CompletionGlobal;
 
-/** Pulls the user-authored text out of one runtime message. */
+/**
+ * Pulls the user-authored text out of one runtime message.
+ *
+ * The same shape `selectedTextFromSessionEntry` (prime-bridge.ts) handles for
+ * session-tree entries, but for a raw `AgentMessage` rather than a
+ * `SessionTreeEntry`, and joined with a space: text parts can split mid-sentence,
+ * so joining with nothing would glue words together.
+ */
 function messageText(message: unknown): string {
 	if (typeof message !== "object" || message === null) return "";
 	const content = (message as { content?: unknown }).content;
@@ -64,8 +71,4 @@ export function getPromptIndex(): PromptIndex {
 		});
 	}
 	return globalStore.__fleetPromptIndex;
-}
-
-export function setPromptIndexForTests(next: PromptIndex | undefined): void {
-	globalStore.__fleetPromptIndex = next;
 }

@@ -166,9 +166,6 @@ export const COMPOSER_INTENT_COMMANDS: ReadonlyArray<ComposerIntentCommandInfo> 
 	},
 ];
 
-/** Every routable command id, for question construction and result validation. */
-export const COMPOSER_INTENT_COMMAND_IDS: ReadonlyArray<string> = COMPOSER_INTENT_COMMANDS.map((c) => c.id);
-
 const COMPOSER_INTENT_COMMAND_BY_ID: ReadonlyMap<string, ComposerIntentCommandInfo> = new Map(
 	COMPOSER_INTENT_COMMANDS.map((command) => [command.id, command]),
 );

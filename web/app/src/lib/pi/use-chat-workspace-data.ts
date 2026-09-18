@@ -600,6 +600,7 @@ export function useChatWorkspaceData() {
 		() =>
 			offeredIntent
 				? {
+						forValue: offeredIntent.forValue,
 						label: offeredIntent.label,
 						description: offeredIntent.description,
 						onAccept: acceptIntentSuggestion,

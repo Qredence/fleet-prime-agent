@@ -1,9 +1,6 @@
-import {
-	COMPOSER_INTENT_COMMANDS,
-	type ComposerIntentResponse,
-	composerIntentCommand,
-} from "@prime-agent/web-protocol/composer-intent";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { ComposerIntentResponse } from "@prime-agent/web-protocol/composer-intent";
+import { composerIntentCommand } from "@prime-agent/web-protocol/composer-intent";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url";
 
 /**
@@ -29,6 +26,13 @@ export function normalizeIntentDraft(text: string): string {
 
 /** A suggestion the composer may offer, ready to render. */
 export type ComposerIntentSuggestion = {
+	/**
+	 * The draft this suggestion was computed against. The composer compares it to
+	 * its live value and drops the chip the moment they differ, so a click can
+	 * never run a command against text the user has since edited and discard the
+	 * keystroke.
+	 */
+	forValue: string;
 	command: string;
 	label: string;
 	description: string;
@@ -48,11 +52,11 @@ function isClassifiable(draft: string): boolean {
 }
 
 /** The offer-band suggestion for a response, if it has one. */
-function suggestionFor(response: ComposerIntentResponse): ComposerIntentSuggestion | undefined {
+function suggestionFor(response: ComposerIntentResponse, forValue: string): ComposerIntentSuggestion | undefined {
 	if (response.outcome !== "matched" || response.disposition !== "suggest" || !response.command) return undefined;
 	const command = composerIntentCommand(response.command);
 	if (!command) return undefined;
-	return { command: command.id, label: `/${command.id}`, description: command.description };
+	return { forValue, command: command.id, label: `/${command.id}`, description: command.description };
 }
 
 export type UseComposerIntentRoutingResult = {
@@ -119,7 +123,7 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 				// Only offer a suggestion for the draft still in the composer, and
 				// never re-offer one the user has already dismissed.
 				if (latestDraft.current !== draft || dismissedKey.current === key) return;
-				setSuggestion(suggestionFor(parsed));
+				setSuggestion(suggestionFor(parsed, draft));
 			} catch {
 				// Aborted or offline: leave the cache empty so submit falls through.
 			}
@@ -144,7 +148,7 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 			}
 			const cached = readCache(key);
 			if (cached) {
-				setSuggestion(suggestionFor(cached));
+				setSuggestion(suggestionFor(cached, text));
 				return;
 			}
 			setSuggestion(undefined);
@@ -182,9 +186,6 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 
 	return { onDraftChange, takeCached, suggestion, dismissSuggestion };
 }
-
-/** Every command the router may select. */
-export const ROUTABLE_COMMAND_IDS: ReadonlyArray<string> = COMPOSER_INTENT_COMMANDS.map((c) => c.id);
 
 export type ComposerIntentAvailability = {
 	/** True only once the server has confirmed both a key and the Settings toggle. */
@@ -241,5 +242,7 @@ export function useComposerIntentAvailability(): ComposerIntentAvailability {
 		refresh();
 	}, [refresh]);
 
-	return { ...state, refresh };
+	// A fresh object here would invalidate every memo downstream of this hook on
+	// each render, including the settings context values it feeds.
+	return useMemo(() => ({ ...state, refresh }), [refresh, state]);
 }

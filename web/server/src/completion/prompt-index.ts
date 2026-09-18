@@ -46,6 +46,8 @@ export const PROMPT_INDEX_MAX_SESSION_MESSAGES = 2_000;
 export const PROMPT_INDEX_CANDIDATE_LIMIT = 2_000;
 /** A rebuild is started when the index is older than this. */
 export const PROMPT_INDEX_MAX_AGE_MS = 10 * 60_000;
+/** Wait after a failed or empty build before trying again. */
+export const PROMPT_INDEX_RETRY_BACKOFF_MS = 60_000;
 
 export const PROMPT_INDEX_FILE = "fleet-prompt-index.json";
 
@@ -146,7 +148,7 @@ async function readPersisted(agentDir: string): Promise<PersistedPromptIndex | u
 async function writePersisted(agentDir: string, index: PersistedPromptIndex): Promise<void> {
 	const path = promptIndexPath(agentDir);
 	await mkdir(dirname(path), { recursive: true });
-	const temporary = `${path}.${process.pid}.tmp`;
+	const temporary = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`;
 	await writeFile(temporary, `${JSON.stringify(index)}\n`, "utf8");
 	await rename(temporary, path);
 }
@@ -157,8 +159,10 @@ function flatten(index: PersistedPromptIndex, limit: number): Array<CompletionCa
 		const base = Date.parse(session.modified);
 		const at = Number.isFinite(base) ? base : 0;
 		session.prompts.forEach((text, offset) => {
-			// Later prompts in a session are more recent; the offset only breaks ties.
-			out.push({ text, at: at + offset });
+			// Later prompts in a session are more recent, but the tie-break must stay
+			// strictly inside the session: adding whole milliseconds would let a long
+			// session's nth prompt outrank a session updated a millisecond later.
+			out.push({ text, at: at + Math.min(offset, 999) / 1000 });
 		});
 	}
 	out.sort((a, b) => b.at - a.at);
@@ -177,14 +181,28 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 	let persisted: PersistedPromptIndex | undefined;
 	let loaded = false;
 	let building: Promise<void> | undefined;
+	/** Set after a failed build so a down daemon is not retried per request. */
+	let retryAfter = 0;
+	/**
+	 * Flattened view of {@link persisted}, rebuilt only when the index changes.
+	 * Without it every completion request re-sorts the whole corpus on the typing
+	 * path, for a value that only moves once per rebuild.
+	 */
+	let flattened: Array<CompletionCandidate> | undefined;
 
 	const load = async (): Promise<void> => {
 		if (loaded) return;
 		loaded = true;
 		persisted = await readPersisted(options.agentDir);
+		flattened = undefined;
 	};
 
-	const build = async (): Promise<void> => {
+	/**
+	 * Rebuilds the index. Returns false when the attempt failed or produced
+	 * nothing usable, which the caller turns into a backoff so a flapping daemon
+	 * is not retried on every keystroke pause.
+	 */
+	const build = async (): Promise<boolean> => {
 		await load();
 		const previous = new Map((persisted?.sessions ?? []).map((entry) => [entry.sessionFile, entry]));
 		let sessions: ReadonlyArray<IndexableSession>;
@@ -192,7 +210,7 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 			sessions = await options.listSessions();
 		} catch (error) {
 			log(`prompt index: session listing failed (${error instanceof Error ? error.name : "unknown"})`);
-			return;
+			return false;
 		}
 
 		const scoped = sessions
@@ -229,25 +247,42 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 			}
 		}
 
+		const harvest = next.reduce((total, entry) => total + entry.prompts.length, 0);
+		// A transiently empty listing (daemon up, store not yet populated) must not
+		// destroy a good corpus and stamp it fresh, which would silence completion
+		// for the whole freshness window. Keep what we had and retry later.
+		if (harvest === 0 && (persisted?.sessions.length ?? 0) > 0) {
+			log("prompt index: rebuild produced no prompts; keeping the previous corpus");
+			return false;
+		}
+
 		persisted = { version: 1, builtAt: new Date(now()).toISOString(), sessions: next };
+		flattened = undefined;
 		try {
 			await writePersisted(options.agentDir, persisted);
 		} catch (error) {
 			log(`prompt index: persist failed (${error instanceof Error ? error.name : "unknown"})`);
 		}
+		return true;
 	};
 
 	const ensureFresh = (): void => {
 		if (building) return;
+		if (now() < retryAfter) return;
 		building = (async () => {
 			await load();
 			const builtAt = persisted ? Date.parse(persisted.builtAt) : Number.NaN;
 			const fresh = Number.isFinite(builtAt) && now() - builtAt <= PROMPT_INDEX_MAX_AGE_MS;
 			// A fresh index on disk is used as-is; only a stale one is rebuilt.
 			if (fresh) return;
-			await build();
+			const ok = await build();
+			// Failed or empty attempts wait before trying again, so a daemon that is
+			// down costs one attempt per window rather than one per request.
+			retryAfter = ok ? 0 : now() + PROMPT_INDEX_RETRY_BACKOFF_MS;
 		})()
-			.catch(() => undefined)
+			.catch(() => {
+				retryAfter = now() + PROMPT_INDEX_RETRY_BACKOFF_MS;
+			})
 			.finally(() => {
 				building = undefined;
 			});
@@ -257,11 +292,12 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 		candidates(): ReadonlyArray<CompletionCandidate> {
 			ensureFresh();
 			if (!persisted) return [];
-			return flatten(persisted, PROMPT_INDEX_CANDIDATE_LIMIT);
+			flattened ??= flatten(persisted, PROMPT_INDEX_CANDIDATE_LIMIT);
+			return flattened;
 		},
 
 		async refresh(): Promise<void> {
-			await (building ?? build());
+			await (building ?? build().then(() => undefined));
 		},
 
 		stats(): { sessions: number; prompts: number; builtAt: number } {

@@ -170,10 +170,20 @@ export function useInputBarState({
 		return () => clearTimeout(timer);
 	}, [onDraftChange, value]);
 
+	/**
+	 * The chip is dropped the moment the draft moves past the one it was computed
+	 * for. Without this a click landing in the debounce window after a keystroke
+	 * would run the command against stale text and discard what was just typed.
+	 */
+	const visibleIntentSuggestion = intentSuggestion?.forValue === value ? intentSuggestion : undefined;
+
 	const acceptIntentSuggestion = useCallback(() => {
-		intentSuggestion?.onAccept();
+		// Re-checked here too: the click handler is not guaranteed to see a render
+		// that already dropped the chip.
+		if (visibleIntentSuggestion?.forValue !== value) return;
+		visibleIntentSuggestion.onAccept();
 		setValue("");
-	}, [intentSuggestion, setValue]);
+	}, [value, visibleIntentSuggestion, setValue]);
 
 	const removeTriggerToken = useCallback(
 		(match: RegExpMatchArray | null) => {
@@ -344,20 +354,20 @@ export function useInputBarState({
 				return;
 			}
 
-			// The popover owns Tab whenever it is open, including when it has no
-			// items. Previously the empty case fell through to native focus movement,
-			// which could land focus on the popover's own tabbable items.
-			if (isSuggestionMenuOpen && event.key === "Tab" && !event.shiftKey) {
-				event.preventDefault();
-				const item = triggerItems[activeTriggerIndex];
-				if (item) {
-					if (triggerKind === "slash") selectCommand(item);
-					else selectWorkspaceReference(item);
-				}
-				return;
-			}
-
+			// The popover owns Tab only while it has something to select. With an open
+			// token and no matches the key falls through to focus navigation, which is
+			// safe because the menu items are not tab stops — otherwise Tab would
+			// either trap focus in the composer or land inside the popover chrome.
 			if (isSuggestionMenuOpen && triggerItems.length > 0) {
+				if (event.key === "Tab" && !event.shiftKey) {
+					event.preventDefault();
+					const item = triggerItems[activeTriggerIndex];
+					if (item) {
+						if (triggerKind === "slash") selectCommand(item);
+						else selectWorkspaceReference(item);
+					}
+					return;
+				}
 				if (event.key === "ArrowDown") {
 					event.preventDefault();
 					setActiveTriggerIndex((index) => (index + 1) % triggerItems.length);
@@ -552,5 +562,6 @@ export function useInputBarState({
 		filteredCommands,
 		filteredWorkspaceItems,
 		value,
+		visibleIntentSuggestion,
 	};
 }
