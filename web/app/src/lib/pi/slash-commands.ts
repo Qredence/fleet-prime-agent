@@ -202,6 +202,17 @@ export function resolveSlashCommandAlias(command: string): string {
 	return SLASH_COMMAND_ALIASES[command] ?? command;
 }
 
+/**
+ * Maps a routed composer intent onto a local action.
+ *
+ * The router can only ever name an id from the `composer-intent` catalog, so no
+ * new `LocalSlashAction` member is needed: this reuses the same resolver the
+ * typed `/command` path uses, which keeps both routes to a command identical.
+ */
+export function localSlashActionForIntent(command: string): LocalSlashAction | null {
+	return resolveLocalSlashAction(resolveSlashCommandAlias(command));
+}
+
 /** Parse a `/cmd [args]` string from the composer. Returns null if not slash. */
 export function parseSlashInput(message: string) {
 	const match = message.trim().match(/^\/(\S+)(?:\s+(.*))?$/);

@@ -82,6 +82,28 @@ Other event categories are part of the current baseline protocol unless they are
 
 Baseline presentation fields stay forward-tolerant: the browser ignores unknown optional presentation fields, and the server tolerates absent ones. A newer daemon schema revision that only adds optional fields (for example usage summaries) requires no protocol change.
 
+### `composer-intent-v1`
+
+When the adapter advertises `composer-intent-v1`, `POST /api/chat/intent` routes a composer draft to a built-in command. It is optional and off by default: it requires a server-side TypeSafe API key *and* an explicit opt-in in Settings → Chat.
+
+The endpoint returns a decision and nothing else — a command id, a disposition, a confidence, and a coarse reason. It never returns model prose, question instructions, probabilities, or transport error text. `GET`/`PATCH` on the same path read and write the Settings choice and report only a boolean and a coarse status (`unconfigured` | `unverified` | `ready` | `error`); the key itself is never returned, logged, or included in a response envelope.
+
+Falling through is the default and the common case. An absent key, a disabled toggle, a draft shorter than four characters, a leading `/`, a transport failure, a timeout, a rate limit, an unreadable response, or a decision below the confidence floor all produce `outcome: "none"`, and the browser sends the draft to the agent exactly as it would have without this capability.
+
+The execute band does change what Enter does, and that is the point of it: for an id in the shared `composer-intent` catalog marked `autoExecutable`, and for a match above the execute gate in a draft with more than one token, submitting runs the command instead of sending the message. Two limits bound that. A single-token draft is offered but never run automatically, however confident the match, because that is the regime where the model is confidently wrong. And within the decision cache's TTL, re-typing the same text reaches the same decision — there is no per-draft override, so a user who wants that text sent to the agent rather than routed must change the wording or turn the capability off in Settings.
+
+Third-party inference: when the capability is enabled, composer drafts are sent to a hosted classification service. The state sent is code-owned (the draft plus a fixed catalog). The request authenticates with the server-side API key in its `Authorization` header and carries no browser or user credentials. Because drafts are user text that can contain anything, this is why the feature is off by default and why the Settings row states the trade plainly.
+
+### `composer-completion-v1`
+
+When the adapter advertises `composer-completion-v1`, `POST /api/chat/completion` returns ghost text for a composer draft: a **verbatim** string the developer already wrote, which the browser paints dimmed after the caret and Tab accepts. It is local-only and always on — no key, no opt-in, and no data leaves the machine.
+
+A completion is never generated. The server prefix-matches the draft against an index of the developer's own earlier prompts, so the offered text always begins with exactly what was typed and can never contradict it. That is the property that makes Tab safe to press, and it is the reason this capability uses no model: a System One model returns typed judgments rather than prose, and measured against this task it added nothing over plain matching (choosing between ambiguous near-duplicate history candidates scored the same as "most recent"). The one place a model does measurably help — recognising a mistyped command token — is covered by the intent router above.
+
+**Derived local state.** The corpus is built from the runtime's session store through supported seams only: `listSessions()` for enumeration and `SessionManager.openAsync(...).buildSessionContext().messages` for reads — the same path the bridge uses to load a cold session. Transcript files are never parsed directly. Only user-authored text is retained; assistant output and tool results are never indexed. The result is Fleet-owned derived state written beside the runtime's files (`fleet-prompt-index.json` in the agent dir), never inside them, and it is refreshed incrementally in the background so no request ever waits on a build.
+
+Because this reads prompts written in other projects on the same machine, a draft in one project can be completed from a prompt typed in another. That is intended, it stays local, and it is documented here rather than left implicit.
+
 ## Fleet-managed presentation state
 
 Fleet persists presentation sidecars separately from the upstream transcript:

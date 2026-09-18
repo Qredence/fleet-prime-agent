@@ -14,6 +14,9 @@ type ChatInputBarComposer = Pick<
 	| "handleLocalSlashSubmit"
 	| "handleSlashCommandSelect"
 	| "infoDescription"
+	| "inlineCompletion"
+	| "intentSuggestion"
+	| "onComposerDraftChange"
 	| "modelKey"
 	| "modelPickerOpen"
 	| "models"
@@ -92,6 +95,9 @@ export function buildChatInputBarProps(
 		onRemoveWorkspaceReference: composer.removeWorkspaceAttachment,
 		onSlashCommandSelect: composer.handleSlashCommandSelect,
 		onLocalSlashSubmit: composer.handleLocalSlashSubmit,
+		onDraftChange: composer.onComposerDraftChange,
+		intentSuggestion: composer.intentSuggestion,
+		inlineCompletion: composer.inlineCompletion,
 		modelPickerOpen: composer.modelPickerOpen,
 		onModelPickerOpenChange: composer.setModelPickerOpen,
 		effortPickerOpen: composer.effortPickerOpen,
@@ -115,9 +121,12 @@ export function useChatInputBarProps(
 		handleLocalSlashSubmit,
 		handleSlashCommandSelect,
 		infoDescription,
+		inlineCompletion,
+		intentSuggestion,
 		modelKey,
 		modelPickerOpen,
 		models,
+		onComposerDraftChange,
 		pendingQuestionBar,
 		removeUploadedAttachment,
 		removeWorkspaceAttachment,
@@ -144,9 +153,12 @@ export function useChatInputBarProps(
 					handleLocalSlashSubmit,
 					handleSlashCommandSelect,
 					infoDescription,
+					inlineCompletion,
+					intentSuggestion,
 					modelKey,
 					modelPickerOpen,
 					models,
+					onComposerDraftChange,
 					pendingQuestionBar,
 					removeUploadedAttachment,
 					removeWorkspaceAttachment,
@@ -172,9 +184,12 @@ export function useChatInputBarProps(
 			handleLocalSlashSubmit,
 			handleSlashCommandSelect,
 			infoDescription,
+			inlineCompletion,
+			intentSuggestion,
 			modelKey,
 			modelPickerOpen,
 			models,
+			onComposerDraftChange,
 			pendingQuestionBar,
 			removeUploadedAttachment,
 			removeWorkspaceAttachment,

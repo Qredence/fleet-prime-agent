@@ -15,7 +15,12 @@ import { runWorkspaceAction } from "./chat-error-notify";
 import { assistantTextFromMessage } from "./chat-message-helpers";
 import { chatQueryKeys } from "./chat-queries";
 import type { LocalSlashAction, SettingsSlashTab } from "./slash-commands";
-import { parseSlashInput, resolveLocalSlashAction, slashCommandInsertsPrefixOnSelect } from "./slash-commands";
+import {
+	localSlashActionForIntent,
+	parseSlashInput,
+	resolveLocalSlashAction,
+	slashCommandInsertsPrefixOnSelect,
+} from "./slash-commands";
 
 const CHAT_COMMAND_URL = "/api/chat/command";
 
@@ -37,6 +42,12 @@ type UseLocalSlashActionsArgs = {
 	setModelPickerOpen: (open: boolean) => void;
 	setThinkingLevel: (level: ChatThinkingLevel) => void;
 	startNewSession: () => Promise<unknown>;
+	/**
+	 * Synchronous read of the speculative composer-intent cache. Returns a
+	 * decision only for an execution-band match, so a miss or a suggestion-band
+	 * match falls through to sending the message.
+	 */
+	takeCachedIntent?: (text: string) => { command?: string } | null;
 };
 
 const MCP_USAGE = "MCP usage: /mcp, /mcp list, /mcp login <name>, /mcp logout <name>.";
@@ -169,6 +180,7 @@ export function useLocalSlashActions({
 	setModelPickerOpen,
 	setThinkingLevel,
 	startNewSession,
+	takeCachedIntent,
 }: UseLocalSlashActionsArgs) {
 	const queryClient = useQueryClient();
 	/** Fire the bridge runner and echo the result into the transcript. */
@@ -628,12 +640,21 @@ export function useLocalSlashActions({
 	const handleLocalSlashSubmit = useCallback(
 		(message: string) => {
 			const parsed = parseSlashInput(message);
-			if (!parsed) return false;
-			const action = resolveLocalSlashAction(parsed.command, parsed.args);
+			if (parsed) {
+				const action = resolveLocalSlashAction(parsed.command, parsed.args);
+				if (!action) return false;
+				return applyLocalSlashAction(action);
+			}
+			// Free text: consult the speculative intent cache only. A miss is a
+			// no-op, so the composer falls through to sending the message exactly
+			// as it does without this feature.
+			const intent = takeCachedIntent?.(message);
+			if (!intent?.command) return false;
+			const action = localSlashActionForIntent(intent.command);
 			if (!action) return false;
 			return applyLocalSlashAction(action);
 		},
-		[applyLocalSlashAction],
+		[applyLocalSlashAction, takeCachedIntent],
 	);
 
 	const forkFromEntry = useCallback(

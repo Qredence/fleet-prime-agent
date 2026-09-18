@@ -8,6 +8,7 @@ import type {
 	ChatSessionMetadata,
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
+import { composerIntentCommand } from "@prime-agent/web-protocol/composer-intent";
 import type { UploadedAttachment, WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { identifyAnalyticsUser } from "@/lib/analytics-stub";
@@ -32,6 +33,9 @@ import {
 	useUpdateMcpConnection,
 	useWorkspaceTree,
 } from "@/lib/pi/chat-queries";
+import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url";
+import { useComposerInlineCompletion } from "@/lib/pi/composer-inline-completion";
+import { useComposerIntentAvailability, useComposerIntentRouting } from "@/lib/pi/composer-intent";
 import { assistantMessageHasPendingQuestion } from "@/lib/pi/question-pending";
 import type { SettingsSlashTab } from "@/lib/pi/slash-commands";
 import { buildSlashCommands } from "@/lib/pi/slash-commands";
@@ -539,6 +543,25 @@ export function useChatWorkspaceData() {
 		],
 	);
 
+	const composerIntentAvailability = useComposerIntentAvailability();
+	const {
+		onDraftChange: onComposerDraftChange,
+		takeCached: takeCachedIntent,
+		suggestion: offeredIntent,
+		dismissSuggestion: dismissIntentSuggestion,
+	} = useComposerIntentRouting(composerIntentAvailability.available);
+	// Completions are local and need no opt-in; they never leave the machine.
+	const { onDraftChange: onCompletionDraftChange, inlineCompletion } = useComposerInlineCompletion(true);
+
+	// Both consumers share the composer's single debounced draft publication.
+	const handleComposerDraftChange = useCallback(
+		(text: string) => {
+			onComposerDraftChange(text);
+			onCompletionDraftChange(text);
+		},
+		[onComposerDraftChange, onCompletionDraftChange],
+	);
+
 	const { forkFromEntry, handleLocalSlashSubmit, handleSlashCommandSelect } = useLocalSlashActions({
 		appendLocalMessage,
 		getMessages,
@@ -555,7 +578,73 @@ export function useChatWorkspaceData() {
 		setModelPickerOpen,
 		setThinkingLevel,
 		startNewSession: startNewSessionForWorkspace,
+		takeCachedIntent,
 	});
+
+	/**
+	 * Runs an offered command. Local commands go through the same resolver the
+	 * typed `/command` path uses; session commands are sent as their slash form,
+	 * exactly as if the user had typed them.
+	 */
+	const acceptIntentSuggestion = useCallback(() => {
+		if (!offeredIntent) return;
+		dismissIntentSuggestion();
+		if (composerIntentCommand(offeredIntent.command)?.handling === "session") {
+			void sendMessage({ text: `/${offeredIntent.command}`, altKey: false, mode: chatMode });
+			return;
+		}
+		handleLocalSlashSubmit(`/${offeredIntent.command}`);
+	}, [chatMode, dismissIntentSuggestion, handleLocalSlashSubmit, offeredIntent, sendMessage]);
+
+	const intentSuggestion = useMemo(
+		() =>
+			offeredIntent
+				? {
+						forValue: offeredIntent.forValue,
+						label: offeredIntent.label,
+						description: offeredIntent.description,
+						onAccept: acceptIntentSuggestion,
+						onDismiss: dismissIntentSuggestion,
+					}
+				: undefined,
+		[acceptIntentSuggestion, dismissIntentSuggestion, offeredIntent],
+	);
+
+	const setComposerIntentEnabled = useCallback(
+		async (enabled: boolean) => {
+			try {
+				await fetch(resolveChatApiUrl("/api/chat/intent"), {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ enabled }),
+				});
+			} finally {
+				composerIntentAvailability.refresh();
+			}
+		},
+		[composerIntentAvailability],
+	);
+
+	/**
+	 * Stores the classifier key, or clears it with `null`.
+	 *
+	 * The key is write-only: it goes up and never comes back, and the refresh
+	 * afterwards re-reads only whether a usable key exists and where it came from.
+	 */
+	const setComposerIntentKey = useCallback(
+		async (apiKey: string | null) => {
+			try {
+				await fetch(resolveChatApiUrl("/api/chat/intent"), {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ apiKey }),
+				});
+			} finally {
+				composerIntentAvailability.refresh();
+			}
+		},
+		[composerIntentAvailability],
+	);
 
 	const modelCatalog = useMemo(
 		() => modelCatalogData?.models.map(toModelOption) ?? models,
@@ -600,6 +689,9 @@ export function useChatWorkspaceData() {
 		activityLabel,
 		artifactRuns,
 		chatMode,
+		composerIntent: composerIntentAvailability,
+		onComposerIntentChange: setComposerIntentEnabled,
+		onComposerIntentKeyChange: setComposerIntentKey,
 		handleThemePreferenceChange,
 		isLoadingMcp,
 		isLoadingProviders,
@@ -717,6 +809,9 @@ export function useChatWorkspaceData() {
 			handleSlashCommandSelect,
 			infoDescription,
 			inputSuggestionItems,
+			intentSuggestion,
+			inlineCompletion,
+			onComposerDraftChange: handleComposerDraftChange,
 			workspaceReferenceSuggestions,
 			modelKey,
 			modelPickerOpen,

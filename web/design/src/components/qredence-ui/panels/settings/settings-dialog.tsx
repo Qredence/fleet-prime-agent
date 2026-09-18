@@ -31,7 +31,12 @@ import {
 	writeUiPreferences,
 } from "../../../../lib/ui-preferences";
 import { cn } from "../../../../lib/utils";
-import { useChatPanelDataContext, useSettingsActionsContext } from "../../layout/right-panel-context";
+import {
+	type SettingsActionsContextValue,
+	useChatPanelDataContext,
+	useSettingsActionsContext,
+} from "../../layout/right-panel-context";
+import { ComposerIntentSection } from "../config-panel/sections/composer-intent-section";
 import { McpConnectionsSection } from "../config-panel/sections/mcp-connections-section";
 import { ModelDefaultsSection } from "../config-panel/sections/model-defaults-section";
 import { PersonalizationSection } from "../config-panel/sections/personalization-section";
@@ -316,12 +321,18 @@ type UpdatePreference = <Key extends keyof UiPreferences>(key: Key, value: UiPre
 
 function SettingsDialogPaneContent({
 	activeTab,
+	composerIntent,
 	form,
+	onComposerIntentChange,
+	onComposerIntentKeyChange,
 	preferences,
 	updatePreference,
 }: {
 	activeTab: SettingsSectionId;
+	composerIntent?: SettingsActionsContextValue["composerIntent"];
 	form: SettingsForm;
+	onComposerIntentChange?: (enabled: boolean) => void;
+	onComposerIntentKeyChange?: (apiKey: string | null) => Promise<void> | void;
 	preferences: UiPreferences;
 	updatePreference: UpdatePreference;
 }) {
@@ -450,6 +461,14 @@ function SettingsDialogPaneContent({
 						]}
 					/>
 				</PreferenceRow>
+				<ComposerIntentSection
+					enabled={composerIntent?.enabled ?? false}
+					keySource={composerIntent?.keySource ?? "none"}
+					status={composerIntent?.status ?? "unconfigured"}
+					onClearKey={() => onComposerIntentKeyChange?.(null)}
+					onEnabledChange={onComposerIntentChange}
+					onSaveKey={(apiKey) => onComposerIntentKeyChange?.(apiKey)}
+				/>
 			</div>
 		),
 		mcp: () => (
@@ -560,6 +579,7 @@ function SettingsDialogBody({
 	onOpenChange: (open: boolean) => void;
 }) {
 	const form = useSettingsForm();
+	const { composerIntent, onComposerIntentChange, onComposerIntentKeyChange } = useSettingsActionsContext();
 	const { resourceDirty, revertResourceDraft, resetDraft, requestCloseSettings, resetCommittedModelBaseline } = form;
 
 	const [activeTab, setActiveTab] = useState<SettingsSectionId>(() => initialTab ?? "appearance");
@@ -618,7 +638,10 @@ function SettingsDialogBody({
 	const paneContent = (
 		<SettingsDialogPaneContent
 			activeTab={activeTab}
+			composerIntent={composerIntent}
 			form={form}
+			onComposerIntentChange={onComposerIntentChange}
+			onComposerIntentKeyChange={onComposerIntentKeyChange}
 			preferences={preferences}
 			updatePreference={updatePreference}
 		/>

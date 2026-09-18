@@ -35,6 +35,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useMemo } from "react";
+import type { ComposerIntentAvailability } from "./composer-intent";
 import { useThrottledTranscriptSummary, useThrottledWhileLive } from "./use-throttled-transcript-summary";
 
 type UseRightPanelContextValueArgs = {
@@ -66,6 +67,11 @@ type UseRightPanelContextValueArgs = {
 	planLabel?: string;
 	presentation: PrimeAgentSessionPresentation;
 	providers?: Array<ChatProviderInfo>;
+	/** Composer command-routing availability, for the Settings toggle. */
+	composerIntent?: ComposerIntentAvailability;
+	onComposerIntentChange?: (enabled: boolean) => void;
+	/** Stores the classifier key, or clears it with `null`. */
+	onComposerIntentKeyChange?: (apiKey: string | null) => Promise<void> | void;
 	queue: QueueState;
 	refreshResources: () => void;
 	refreshWorkspace: () => void;
@@ -114,6 +120,9 @@ export function useRightPanelContextValue({
 	activityLabel,
 	artifactRuns,
 	chatMode,
+	composerIntent,
+	onComposerIntentChange,
+	onComposerIntentKeyChange,
 	handleThemePreferenceChange,
 	isLoadingMcp,
 	isLoadingProviders,
@@ -267,12 +276,23 @@ export function useRightPanelContextValue({
 
 	const settingsActions = useMemo<SettingsActionsContextValue>(
 		() => ({
+			composerIntent: composerIntent
+				? {
+						enabled: composerIntent.enabled,
+						keySource: composerIntent.keySource,
+						// "loading" is a browser-only state; the Settings row shows
+						// "checking" until the first probe resolves.
+						status: composerIntent.status === "loading" ? "unverified" : composerIntent.status,
+					}
+				: undefined,
 			isLoadingMcp,
 			isLoadingProviders,
 			isUpdatingMcp,
 			isUpdatingProvider,
 			mcpConnections,
 			modelCatalog,
+			onComposerIntentChange,
+			onComposerIntentKeyChange,
 			onDiscoverModels,
 			onMcpOAuth,
 			onOAuthLogin,
@@ -289,6 +309,7 @@ export function useRightPanelContextValue({
 			themePreference,
 		}),
 		[
+			composerIntent,
 			handleThemePreferenceChange,
 			isLoadingMcp,
 			isLoadingProviders,
@@ -296,6 +317,8 @@ export function useRightPanelContextValue({
 			isUpdatingProvider,
 			mcpConnections,
 			modelCatalog,
+			onComposerIntentChange,
+			onComposerIntentKeyChange,
 			onDiscoverModels,
 			onMcpOAuth,
 			onOAuthLogin,
