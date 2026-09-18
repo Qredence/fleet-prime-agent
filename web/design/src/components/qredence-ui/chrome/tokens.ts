@@ -42,9 +42,9 @@ export const COMPOSER_ADD_BUTTON_CLASS =
 export const SUGGESTION_ITEM_CLASS =
 	"h-auto justify-start rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-pretty text-sm font-normal text-foreground/65 shadow-sm transition-colors hover:border-border hover:bg-foreground/6 hover:text-foreground";
 
-/** Mobile right-panel overlay sheet. */
+/** Mobile right-panel overlay sheet. Height comes from top/bottom insets on the dialog, not h-full. */
 export const PANEL_OVERLAY_CLASS =
-	"h-full min-h-0 w-[min(360px,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-border/70 bg-background/95 shadow-lg backdrop-blur";
+	"min-h-0 w-[min(360px,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-border/70 bg-background/95 shadow-lg backdrop-blur";
 
 /** Inner rows: 8px radius inside 24px shell (concentric). */
 export const rowSurface = cva("flex min-w-0 rounded-sm border", {

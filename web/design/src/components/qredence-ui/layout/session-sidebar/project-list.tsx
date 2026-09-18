@@ -22,6 +22,8 @@ import {
 	SquarePen,
 	TriangleAlert,
 } from "lucide-react";
+import { cn } from "../../../../lib/utils";
+import { HIT_AREA_EXPAND_DENSE_CLASS } from "../../chrome/tokens";
 import type { SidebarStateView } from "./state";
 import type { SessionSidebarDependencies } from "./types";
 import { idValue, PROJECT_PREFIX, projectResourceId, SESSION_PREFIX, sessionResourceId } from "./types";
@@ -84,10 +86,10 @@ export function SessionSidebarProjectList({
 		<AnimatedSidebarContent className="gap-0 px-2 pb-1 pt-2">
 			<AnimatedSidebarGroup className="p-0">
 				<div className="relative mb-1 h-8">
-					<AnimatedSidebarGroupLabel className="mb-0 h-8 pr-16 text-xs font-normal normal-case tracking-normal text-muted-foreground">
+					<AnimatedSidebarGroupLabel className="mb-0 h-8 pe-16 text-xs font-normal normal-case tracking-normal text-muted-foreground">
 						Projects
 					</AnimatedSidebarGroupLabel>
-					<div className="absolute inset-y-0 right-1 flex items-center gap-0.5">
+					<div className="absolute inset-y-0 inset-inline-end-1 flex items-center gap-0.5">
 						<Popover
 							open={projectActionsOpen}
 							onOpenChange={setProjectActionsOpen}
@@ -99,7 +101,10 @@ export function SessionSidebarProjectList({
 									type="button"
 									aria-label="Project actions"
 									title="Project actions"
-									className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+									className={cn(
+										HIT_AREA_EXPAND_DENSE_CLASS,
+										"grid size-6 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+									)}
 								>
 									<MoreHorizontal aria-hidden="true" className="size-3.5" />
 								</button>
@@ -136,7 +141,10 @@ export function SessionSidebarProjectList({
 								aria-label="Add project"
 								title="Add project"
 								onClick={() => setCreateOpen(true)}
-								className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+								className={cn(
+									HIT_AREA_EXPAND_DENSE_CLASS,
+									"grid size-6 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+								)}
 							>
 								<Plus aria-hidden="true" className="size-3.5" />
 							</button>

@@ -143,11 +143,11 @@ export function AgentTabBar({
 								aria-selected={active}
 								aria-label={`${tab.label}, ${status}`}
 								className={cn(
-									"h-7 w-full min-w-0 justify-start text-left gap-1.5 rounded-[7px] border border-transparent px-2 text-label font-medium leading-none transition-colors motion-reduce:transition-none",
+									"h-7 w-full min-w-0 justify-start text-start gap-1.5 rounded-[7px] border border-transparent px-2 text-label font-medium leading-none transition-colors motion-reduce:transition-none",
 									active
 										? "bg-surface-4 text-foreground shadow-none"
 										: "bg-transparent text-foreground/45 hover:bg-foreground/5 hover:text-foreground/75",
-									tab.kind === "subagent" && onClose && "pr-7",
+									tab.kind === "subagent" && onClose && "pe-7",
 								)}
 								data-state={active ? "active" : "inactive"}
 								id={agentTabTriggerId(tab.id)}
@@ -167,12 +167,12 @@ export function AgentTabBar({
 										className={cn("size-1.5 shrink-0 rounded-full", statusDotClass(tab.status))}
 									/>
 								)}
-								<span className="min-w-0 flex-1 truncate text-left">{tab.label}</span>
+								<span className="min-w-0 flex-1 truncate text-start">{tab.label}</span>
 							</Button>
 							{tab.kind === "subagent" && onClose ? (
 								<Button
 									aria-label={`Close ${tab.label} tab`}
-									className="absolute top-1/2 right-1 size-5 -translate-y-1/2 rounded-[5px] p-0 text-foreground/35 opacity-0 transition-opacity motion-reduce:transition-none hover:bg-foreground/10 hover:text-foreground/75 focus-visible:opacity-100 group-hover/tab:opacity-100"
+									className="absolute top-1/2 inset-inline-end-1 size-5 -translate-y-1/2 rounded-[5px] p-0 text-foreground/35 opacity-0 transition-opacity motion-reduce:transition-none hover:bg-foreground/10 hover:text-foreground/75 focus-visible:opacity-100 group-hover/tab:opacity-100"
 									onClick={(event) => {
 										event.stopPropagation();
 										onClose(tab.id);

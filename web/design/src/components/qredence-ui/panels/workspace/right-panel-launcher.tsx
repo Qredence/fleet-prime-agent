@@ -420,7 +420,7 @@ export function MobilePanel({
 		<dialog
 			ref={panelRef}
 			data-testid={dataTestid}
-			className={`fixed top-[var(--chat-chrome-top)] right-3 bottom-3 m-0 ${PANEL_OVERLAY_CLASS} backdrop:bg-black/20 ${DESKTOP_PANEL_ONLY}`}
+			className={`fixed top-[var(--chat-chrome-top)] left-auto m-0 max-h-[calc(100dvh-var(--chat-chrome-top)-max(0.75rem,env(safe-area-inset-bottom)))] h-[calc(100dvh-var(--chat-chrome-top)-max(0.75rem,env(safe-area-inset-bottom)))] [inset-inline-start:auto] [inset-inline-end:max(0.75rem,env(safe-area-inset-right))] ${PANEL_OVERLAY_CLASS} backdrop:bg-black/20 ${DESKTOP_PANEL_ONLY}`}
 			aria-labelledby={panelTitleId}
 			onClose={() => {
 				if (suppressCloseRef.current) {
