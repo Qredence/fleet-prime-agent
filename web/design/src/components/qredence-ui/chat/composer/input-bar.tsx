@@ -13,7 +13,7 @@ import { Button } from "@prime-agent/web-design/components/ui/button";
 import type { ChatMode, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
-import { FileCode2, Plus, X } from "lucide-react";
+import { FileCode2, Plus, Terminal, X } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 import type { ChatModelOption } from "../../../../lib/pi/chat-helpers";
 import { cn } from "../../../../lib/utils";
@@ -93,6 +93,19 @@ export type InputBarProps = {
 	thinkingLevel?: ChatThinkingLevel;
 	onThinkingLevelChange?: (level: ChatThinkingLevel) => void;
 	onLocalSlashSubmit?: (message: string) => boolean;
+	/** Reports the current draft so the host can classify it ahead of submit. */
+	onDraftChange?: (text: string) => void;
+	/**
+	 * Optional offer of a built-in command instead of sending the draft. The
+	 * chip never intercepts Enter: sending always goes through `onSend` unless
+	 * the user activates the chip itself.
+	 */
+	intentSuggestion?: {
+		label: string;
+		description: string;
+		onAccept: () => void;
+		onDismiss: () => void;
+	};
 	modelPickerOpen?: boolean;
 	onModelPickerOpenChange?: (open: boolean) => void;
 	effortPickerOpen?: boolean;
@@ -124,6 +137,8 @@ function InputBarContent({
 	onSend,
 	onSlashCommandSelect,
 	onLocalSlashSubmit,
+	onDraftChange,
+	intentSuggestion,
 	modelPickerOpen,
 	onModelPickerOpenChange,
 	effortPickerOpen,
@@ -142,6 +157,7 @@ function InputBarContent({
 	className,
 }: InputBarProps) {
 	const {
+		acceptIntentSuggestion,
 		activeTriggerIndex,
 		combinedPickerOpen,
 		commandGroups,
@@ -178,6 +194,8 @@ function InputBarContent({
 		onSend,
 		onSlashCommandSelect,
 		onLocalSlashSubmit,
+		onDraftChange,
+		intentSuggestion,
 		modelPickerOpen,
 		onModelPickerOpenChange,
 		effortPickerOpen,
@@ -203,6 +221,28 @@ function InputBarContent({
 		<div className={cn("shrink-0 pb-3", CHAT_COLUMN_CLASS, className)}>
 			<div className="relative w-full">
 				<ComposerLoader label={infoDescription ?? undefined} isActive={isStreaming} />
+				{intentSuggestion && !isStreaming && !disabled ? (
+					<div className="mb-2 flex items-center gap-2 rounded-xl border bg-muted/40 px-2.5 py-1.5">
+						<Terminal className="size-3.5 shrink-0 text-muted-foreground" />
+						<button
+							type="button"
+							onClick={acceptIntentSuggestion}
+							className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
+							title={intentSuggestion.description}
+						>
+							<span className="font-medium">{intentSuggestion.label}</span>
+							<span className="text-muted-foreground"> — {intentSuggestion.description}</span>
+						</button>
+						<button
+							type="button"
+							aria-label="Dismiss suggestion"
+							onClick={intentSuggestion.onDismiss}
+							className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+						>
+							<X className="size-3" />
+						</button>
+					</div>
+				) : null}
 				{showQuestion ? (
 					<InputQuestionBar
 						questionBar={questionBar!}

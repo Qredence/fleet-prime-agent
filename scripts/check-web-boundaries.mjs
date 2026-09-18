@@ -12,6 +12,9 @@ const forbiddenPackages = [
 	"@earendil-works/pi-agent-core",
 	"@earendil-works/pi-ai",
 	"@earendil-works/pi-tui",
+	// TypeSafe classification is server-only; the API key must never reach the
+	// browser bundle. Fleet talks to it over /api/chat/intent instead.
+	"@typesafe-ai/sdk",
 ];
 
 function forbiddenPackage(specifier) {

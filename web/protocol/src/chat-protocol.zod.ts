@@ -111,6 +111,15 @@ export {
 	PrimeAgentUserBashSchema,
 } from "./schemas/chat";
 export {
+	ComposerIntentDispositionSchema,
+	ComposerIntentReasonSchema,
+	ComposerIntentRequestSchema,
+	ComposerIntentResponseSchema,
+	ComposerIntentSettingsSchema,
+	ComposerIntentSettingsUpdateSchema,
+	ComposerIntentStatusSchema,
+} from "./schemas/intent";
+export {
 	ChatMcpDeleteRequestSchema,
 	ChatMcpListResponseSchema,
 	ChatMcpOAuthLoginRequestSchema,

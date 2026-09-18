@@ -83,6 +83,8 @@ function createWorkspaceData(startNewSession: () => Promise<unknown>): Workspace
 		thinkingLevel: "off",
 		uploadedAttachments: [],
 		workspaceAttachments: [],
+		intentSuggestion: undefined,
+		onComposerDraftChange: vi.fn(),
 	} satisfies WorkspaceData["composer"];
 
 	return {

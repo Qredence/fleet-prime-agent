@@ -162,6 +162,8 @@ Hydration loads upstream messages and Fleet sidecars separately. Plan presentati
 
 Fleet product configuration owns project/session presentation and server behavior. Prime Agent owns runtime/provider configuration and execution semantics. Environment credentials are consumed only by the server/runtime process.
 
+External inference services follow the same rule as credentials: optional, server-only, off by default, and never a browser dependency. A handler calls the service from `web/server` and returns a typed projection to the browser; the client package and its key never enter the client bundle.
+
 Browser-visible settings are an explicit, sanitized projection. A secret must not cross into browser state merely because the server or runtime can access it.
 
 ## Dependency direction

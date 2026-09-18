@@ -1,0 +1,67 @@
+/**
+ * TypeSafe (System One) runtime configuration.
+ *
+ * Environment is read here and nowhere else in the server, mirroring how
+ * `prime-config.ts` owns the `~/.prime/agent` surface. The API key never leaves
+ * this process: it is not logged, not returned by any handler, and not part of
+ * any response envelope.
+ *
+ * Absence of a key means the feature is off by construction. There is no second
+ * switch that can turn it on without one.
+ */
+
+export type TypeSafeLogLevel = "debug" | "info" | "warn" | "error" | "off";
+
+export type TypeSafeRuntimeConfig = {
+	/** True when a key is present and the operator has not disabled the feature. */
+	readonly configured: boolean;
+	readonly apiKey: string | undefined;
+	readonly baseUrl: string;
+	readonly model: string;
+	/** Per-attempt ceiling for composer intent routing. */
+	readonly intentTimeoutMs: number;
+	/** Retries after the initial attempt, for intent routing only. */
+	readonly intentMaxRetries: number;
+	readonly logLevel: TypeSafeLogLevel;
+};
+
+export const DEFAULT_TYPESAFE_BASE_URL = "https://api.typesafe.ai";
+export const DEFAULT_TYPESAFE_MODEL = "jev-latest";
+export const DEFAULT_TYPESAFE_INTENT_TIMEOUT_MS = 1_500;
+export const DEFAULT_TYPESAFE_INTENT_MAX_RETRIES = 1;
+
+const LOG_LEVELS: ReadonlyArray<TypeSafeLogLevel> = ["debug", "info", "warn", "error", "off"];
+
+function positiveInt(value: string | undefined, fallback: number): number {
+	const parsed = Number.parseInt(value ?? "", 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function nonNegativeInt(value: string | undefined, fallback: number): number {
+	const parsed = Number.parseInt(value ?? "", 10);
+	return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function isLogLevel(value: string | undefined): value is TypeSafeLogLevel {
+	return value !== undefined && (LOG_LEVELS as ReadonlyArray<string>).includes(value);
+}
+
+/**
+ * Reads the TypeSafe configuration from an environment record.
+ *
+ * `TYPESAFE_BASE_URL` and `TYPESAFE_MODEL` use the same names the official
+ * SDK reads, so moving to the SDK later needs no environment change.
+ */
+export function readTypeSafeConfig(env: NodeJS.Dict<string> = process.env): TypeSafeRuntimeConfig {
+	const apiKey = (env.TYPESAFE_API_KEY ?? "").trim() || undefined;
+	const killed = (env.FLEET_TYPESAFE_ENABLED ?? "").trim() === "0";
+	return {
+		configured: Boolean(apiKey) && !killed,
+		apiKey,
+		baseUrl: (env.TYPESAFE_BASE_URL ?? "").trim().replace(/\/+$/, "") || DEFAULT_TYPESAFE_BASE_URL,
+		model: (env.TYPESAFE_MODEL ?? "").trim() || DEFAULT_TYPESAFE_MODEL,
+		intentTimeoutMs: positiveInt(env.TYPESAFE_INTENT_TIMEOUT_MS, DEFAULT_TYPESAFE_INTENT_TIMEOUT_MS),
+		intentMaxRetries: nonNegativeInt(env.TYPESAFE_INTENT_MAX_RETRIES, DEFAULT_TYPESAFE_INTENT_MAX_RETRIES),
+		logLevel: isLogLevel(env.TYPESAFE_LOG_LEVEL) ? env.TYPESAFE_LOG_LEVEL : "warn",
+	};
+}

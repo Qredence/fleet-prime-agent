@@ -1,5 +1,6 @@
 export * from "./chat-protocol";
 export * from "./chat-types";
+export * from "./composer-intent";
 export type {
 	AttachmentUploadMetadata,
 	ChatAttachment,

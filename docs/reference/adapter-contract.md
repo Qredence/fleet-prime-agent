@@ -82,6 +82,16 @@ Other event categories are part of the current baseline protocol unless they are
 
 Baseline presentation fields stay forward-tolerant: the browser ignores unknown optional presentation fields, and the server tolerates absent ones. A newer daemon schema revision that only adds optional fields (for example usage summaries) requires no protocol change.
 
+### `composer-intent-v1`
+
+When the adapter advertises `composer-intent-v1`, `POST /api/chat/intent` routes a composer draft to a built-in command. It is optional and off by default: it requires a server-side TypeSafe API key *and* an explicit opt-in in Settings → Chat.
+
+The endpoint returns a decision and nothing else — a command id, a disposition, a confidence, and a coarse reason. It never returns model prose, question instructions, probabilities, or transport error text. `GET`/`PATCH` on the same path read and write the Settings choice and report only a boolean and a coarse status (`unconfigured` | `unverified` | `ready` | `error`); the key itself is never returned, logged, or included in a response envelope.
+
+Falling through is the default and the common case. An absent key, a disabled toggle, a draft shorter than four characters, a leading `/`, a transport failure, a timeout, a rate limit, an unreadable response, or a decision below the confidence floor all produce `outcome: "none"`, and the browser sends the draft to the agent exactly as it would have without this capability. A decision may never change what Enter does on its own: the browser consults a cache populated by speculative background classification, and an auto-executable command only runs for an id in the shared `composer-intent` catalog.
+
+Third-party inference: when the capability is enabled, composer drafts are sent to a hosted classification service. The state sent is code-owned (the draft plus a fixed catalog) and the request carries no credentials. Because drafts are user text that can contain anything, this is why the feature is off by default and why the Settings row states the trade plainly.
+
 ## Fleet-managed presentation state
 
 Fleet persists presentation sidecars separately from the upstream transcript:

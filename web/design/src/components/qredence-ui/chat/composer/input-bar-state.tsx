@@ -17,6 +17,8 @@ import type { InputBarProps } from "./input-bar";
 
 type SuggestionConfig = NonNullable<InputBarProps["slashCommands"]>;
 const EMPTY_WORKSPACE_REFERENCES: Array<WorkspaceAttachment> = [];
+/** Matches the draft-classification debounce on the host side. */
+const DRAFT_REPORT_DEBOUNCE_MS = 300;
 
 function suggestionItems(config: SuggestionConfig | undefined) {
 	if (!config) return [];
@@ -44,6 +46,8 @@ export function useInputBarState({
 	onSend,
 	onSlashCommandSelect,
 	onLocalSlashSubmit,
+	onDraftChange,
+	intentSuggestion,
 	modelPickerOpen,
 	onModelPickerOpenChange,
 	effortPickerOpen,
@@ -67,6 +71,8 @@ export function useInputBarState({
 	| "onSend"
 	| "onSlashCommandSelect"
 	| "onLocalSlashSubmit"
+	| "onDraftChange"
+	| "intentSuggestion"
 	| "modelPickerOpen"
 	| "onModelPickerOpenChange"
 	| "effortPickerOpen"
@@ -146,6 +152,19 @@ export function useInputBarState({
 		},
 		[onLocalSlashSubmit, onSend, setValue],
 	);
+
+	// Report the draft on a pause so the host can classify it before submit.
+	// Reporting is one-way: this can never change what Enter does.
+	useEffect(() => {
+		if (!onDraftChange) return;
+		const timer = setTimeout(() => onDraftChange(value), DRAFT_REPORT_DEBOUNCE_MS);
+		return () => clearTimeout(timer);
+	}, [onDraftChange, value]);
+
+	const acceptIntentSuggestion = useCallback(() => {
+		intentSuggestion?.onAccept();
+		setValue("");
+	}, [intentSuggestion, setValue]);
 
 	const removeTriggerToken = useCallback(
 		(match: RegExpMatchArray | null) => {
@@ -354,6 +373,7 @@ export function useInputBarState({
 	}, [closeTriggerMenu, triggerOpen]);
 
 	return {
+		acceptIntentSuggestion,
 		activeTriggerIndex,
 		combinedPickerOpen,
 		commandGroups,

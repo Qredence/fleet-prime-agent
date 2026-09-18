@@ -18,6 +18,7 @@ import { Route as ApiChatArtifactsRouteImport } from './routes/api/chat/artifact
 import { Route as ApiChatCommandRouteImport } from './routes/api/chat/command'
 import { Route as ApiChatCommandsRouteImport } from './routes/api/chat/commands'
 import { Route as ApiChatEventsRouteImport } from './routes/api/chat/events'
+import { Route as ApiChatIntentRouteImport } from './routes/api/chat/intent'
 import { Route as ApiChatMcpRouteImport } from './routes/api/chat/mcp'
 import { Route as ApiChatModelsRouteImport } from './routes/api/chat/models'
 import { Route as ApiChatNewRouteImport } from './routes/api/chat/new'
@@ -80,6 +81,11 @@ const ApiChatCommandsRoute = ApiChatCommandsRouteImport.update({
 const ApiChatEventsRoute = ApiChatEventsRouteImport.update({
   id: '/events',
   path: '/events',
+  getParentRoute: () => ApiChatRoute,
+} as any)
+const ApiChatIntentRoute = ApiChatIntentRouteImport.update({
+  id: '/intent',
+  path: '/intent',
   getParentRoute: () => ApiChatRoute,
 } as any)
 const ApiChatMcpRoute = ApiChatMcpRouteImport.update({
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
+  '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
+  '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/events': typeof ApiChatEventsRoute
+  '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
   '/api/chat/models': typeof ApiChatModelsRouteWithChildren
   '/api/chat/new': typeof ApiChatNewRoute
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
+    | '/api/chat/intent'
     | '/api/chat/mcp'
     | '/api/chat/models'
     | '/api/chat/new'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
+    | '/api/chat/intent'
     | '/api/chat/mcp'
     | '/api/chat/models'
     | '/api/chat/new'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/events'
+    | '/api/chat/intent'
     | '/api/chat/mcp'
     | '/api/chat/models'
     | '/api/chat/new'
@@ -423,6 +435,13 @@ declare module '@tanstack/react-router' {
       path: '/events'
       fullPath: '/api/chat/events'
       preLoaderRoute: typeof ApiChatEventsRouteImport
+      parentRoute: typeof ApiChatRoute
+    }
+    '/api/chat/intent': {
+      id: '/api/chat/intent'
+      path: '/intent'
+      fullPath: '/api/chat/intent'
+      preLoaderRoute: typeof ApiChatIntentRouteImport
       parentRoute: typeof ApiChatRoute
     }
     '/api/chat/mcp': {
@@ -595,6 +614,7 @@ interface ApiChatRouteChildren {
   ApiChatCommandRoute: typeof ApiChatCommandRoute
   ApiChatCommandsRoute: typeof ApiChatCommandsRoute
   ApiChatEventsRoute: typeof ApiChatEventsRoute
+  ApiChatIntentRoute: typeof ApiChatIntentRoute
   ApiChatMcpRoute: typeof ApiChatMcpRouteWithChildren
   ApiChatModelsRoute: typeof ApiChatModelsRouteWithChildren
   ApiChatNewRoute: typeof ApiChatNewRoute
@@ -614,6 +634,7 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatCommandRoute: ApiChatCommandRoute,
   ApiChatCommandsRoute: ApiChatCommandsRoute,
   ApiChatEventsRoute: ApiChatEventsRoute,
+  ApiChatIntentRoute: ApiChatIntentRoute,
   ApiChatMcpRoute: ApiChatMcpRouteWithChildren,
   ApiChatModelsRoute: ApiChatModelsRouteWithChildren,
   ApiChatNewRoute: ApiChatNewRoute,
