@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.4
+
+### Patch Changes
+
+- 2ce0f1b: Compose qredence-ui onto shared ui controls, place the workspace tree beside the preview with safer right-panel sizing, and bump age-safe web design dependencies.
+- fbce697: Add optional composer command routing. With a `TYPESAFE_API_KEY` set on the server and the new Settings → Chat toggle turned on, a message that is really describing a built-in command is recognised: read-only commands run on submit, and state-changing ones are offered as a dismissible chip. Anything else — including every failure mode, a disabled toggle, or a missing key — is sent to the agent exactly as before.
+- d189496: Add ghost-text autocomplete to the chat composer. As you type, a dimmed completion from your own earlier prompts appears after the caret; Tab accepts it, Escape dismisses it. Tab still belongs to the slash-command and `@mention` menus first, and a completion is only ever offered when the caret is at the end of the draft, so accepting can never insert text somewhere you were not looking.
+- 7135cc0: Add shadcn Typeset for chat markdown, migrate `cn` to `cn@0.3.0` (`createCn` with Fleet font-size groups), and reorganize `qredence-ui` into coherent chat/panels folders without changing public behavior.
+- afd5b65: Polish Fleet UI layout tokens: 8px grid, 24px shell inset/radius, concentric 8/16/24 radii, and density padding on chat/panel/settings shells.
+
 ## 0.6.3
 
 ### Patch Changes
