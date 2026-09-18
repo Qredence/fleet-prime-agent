@@ -106,6 +106,14 @@ export type PromptIndexOptions = {
 export type PromptIndex = {
 	/** Current candidates. Never waits on a build. */
 	candidates(): ReadonlyArray<CompletionCandidate>;
+	/**
+	 * Resolves once the persisted index has been read from disk.
+	 *
+	 * Distinct from a rebuild: reading the file is milliseconds, and without this
+	 * the first request after a process start is answered from an empty corpus —
+	 * which is then cached as "no completion" for that draft.
+	 */
+	ready(): Promise<void>;
 	/** Forces a rebuild and resolves when it finishes. */
 	refresh(): Promise<void>;
 	/** Diagnostics for tests. */
@@ -179,7 +187,8 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 	const now = options.now ?? Date.now;
 	const log = options.log ?? (() => {});
 	let persisted: PersistedPromptIndex | undefined;
-	let loaded = false;
+	/** Memoised read of the persisted index; awaiting it always waits for the read. */
+	let loading: Promise<void> | undefined;
 	let building: Promise<void> | undefined;
 	/** Set after a failed build so a down daemon is not retried per request. */
 	let retryAfter = 0;
@@ -190,12 +199,19 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 	 */
 	let flattened: Array<CompletionCandidate> | undefined;
 
-	const load = async (): Promise<void> => {
-		if (loaded) return;
-		loaded = true;
-		persisted = await readPersisted(options.agentDir);
-		flattened = undefined;
+	// Memoised rather than guarded by a boolean: a boolean would let a caller
+	// return before an already-started read had finished.
+	const load = (): Promise<void> => {
+		loading ??= (async () => {
+			persisted = await readPersisted(options.agentDir);
+			flattened = undefined;
+		})();
+		return loading;
 	};
+
+	// Start the read now so the corpus is in memory before the first keystroke
+	// pause rather than after it.
+	void load();
 
 	/**
 	 * Rebuilds the index. Returns false when the attempt failed or produced
@@ -289,6 +305,8 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 	};
 
 	return {
+		ready: () => load(),
+
 		candidates(): ReadonlyArray<CompletionCandidate> {
 			ensureFresh();
 			if (!persisted) return [];

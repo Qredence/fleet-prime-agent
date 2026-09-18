@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({ candidates: [] as Array<{ text: string; at: nu
 vi.mock("../completion/singleton", () => ({
 	getPromptIndex: () => ({
 		candidates: () => mocks.candidates,
+		ready: async () => {},
 		refresh: async () => {},
 		stats: () => ({ sessions: 0, prompts: mocks.candidates.length, builtAt: 0 }),
 	}),

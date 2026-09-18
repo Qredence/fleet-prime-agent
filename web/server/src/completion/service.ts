@@ -15,8 +15,16 @@ import { findCompletion } from "./match";
 import type { PromptIndex } from "./prompt-index";
 
 export type ComposerCompletionService = {
-	complete: (draft: string) => ComposerCompletionResponse;
+	complete: (draft: string) => Promise<ComposerCompletionResponse>;
 };
+
+/**
+ * Longest a request will wait for the index to come off disk.
+ *
+ * Reading the persisted corpus is milliseconds; this cap exists so a slow disk
+ * degrades to "no ghost this time" rather than to a visible stall on a keystroke.
+ */
+const INDEX_READY_TIMEOUT_MS = 250;
 
 export type ComposerCompletionServiceOptions = {
 	index: PromptIndex;
@@ -24,10 +32,14 @@ export type ComposerCompletionServiceOptions = {
 
 export function createComposerCompletionService(options: ComposerCompletionServiceOptions): ComposerCompletionService {
 	return {
-		complete(draft: string): ComposerCompletionResponse {
+		async complete(draft: string): Promise<ComposerCompletionResponse> {
 			if (composerCompletionIgnores(draft)) return {};
-			// Candidate lookup never waits on a build: the index returns whatever it
-			// has and refreshes itself in the background.
+			// Wait only for the corpus to be *read*, never for a rebuild: the index
+			// refreshes itself in the background.
+			await Promise.race([
+				options.index.ready(),
+				new Promise<void>((resolve) => setTimeout(resolve, INDEX_READY_TIMEOUT_MS)),
+			]);
 			const completion = findCompletion(draft, options.index.candidates());
 			return completion ? { completion } : {};
 		},

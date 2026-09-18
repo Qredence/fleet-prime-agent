@@ -94,7 +94,10 @@ export function useComposerInlineCompletion(available: boolean): UseComposerInli
 				});
 				if (!response.ok) return;
 				const body = (await response.json()) as ComposerCompletionResponse;
-				remember(key, body.completion);
+				// Only positives are cached. A negative can simply mean the server's
+				// corpus was still being read, and caching that for the TTL would keep
+				// a perfectly completable draft silent.
+				if (body.completion) remember(key, body.completion);
 				// Only offer for the draft the user is still on.
 				if (latestDraft.current !== draft) return;
 				setOffer(body.completion ? { forValue: draft, text: body.completion } : undefined);
