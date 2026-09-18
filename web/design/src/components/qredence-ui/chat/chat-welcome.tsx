@@ -1,6 +1,5 @@
 import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
 import { Button } from "@prime-agent/web-design/components/ui/button";
-import type { ReactNode } from "react";
 import { SUGGESTION_ITEM_CLASS } from "../chrome/tokens";
 
 const WELCOME_TASKS: SuggestionItem[] = [
@@ -27,31 +26,28 @@ const WELCOME_TASKS: SuggestionItem[] = [
 ];
 
 /**
- * Renders the empty-conversation welcome screen with a composer and preset prompt actions.
+ * Renders the empty-conversation welcome heading and preset prompt actions.
+ * The composer mounts outside the transcript scroller as sticky chrome.
  *
  * @param disabled - Whether all prompt actions are disabled
  * @param onSelect - Callback invoked with the selected prompt
- * @param composer - Composer content rendered below the welcome heading
  */
 export function ChatWelcome({
 	disabled,
 	onSelect,
-	composer,
 }: {
 	disabled: boolean;
 	onSelect: (item: SuggestionItem) => void;
-	composer: ReactNode;
 }) {
 	return (
-		<section aria-labelledby="welcome-title" className="flex w-full flex-col items-center text-center">
+		<section aria-labelledby="welcome-title" className="flex w-full flex-col items-center gap-6 text-center">
 			<h1
 				id="welcome-title"
 				className="text-balance text-2xl font-normal tracking-tight text-foreground sm:text-3xl"
 			>
 				What should Fleet Prime Agent work on?
 			</h1>
-			<div className="mt-6 w-full">{composer}</div>
-			<div role="group" aria-label="Suggested prompts" className="mt-4 flex w-full flex-wrap justify-center gap-2">
+			<div role="group" aria-label="Suggested prompts" className="flex w-full flex-wrap justify-center gap-2">
 				{WELCOME_TASKS.map((item) => (
 					<Button
 						key={item.id}

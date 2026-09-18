@@ -104,7 +104,7 @@ describe("composer ghost layer", () => {
 
 	/** The ghost is gated on focus, which happy-dom does not establish on render. */
 	function focusComposer() {
-		const textarea = screen.getByRole("combobox", { name: "Prompt" });
+		const textarea = screen.getByRole("textbox", { name: "Prompt" });
 		textarea.focus();
 		fireEvent.focus(textarea);
 		return textarea;
@@ -156,6 +156,26 @@ describe("composer ghost layer", () => {
 			for (const token of tokens) expect(node?.className).toContain(token);
 		}
 	});
+
+	it("hides the ghost for the duration of IME composition", () => {
+		renderComposer({
+			inlineCompletion: { forValue: "ship", text: " it now" },
+			controlled: { value: "ship", onChange: vi.fn() },
+		});
+		const textarea = focusComposer();
+		expect(document.querySelector('[data-slot="composer-ghost"]')?.textContent).toBe(" it now");
+
+		fireEvent.compositionStart(textarea);
+		expect(document.querySelector('[data-slot="composer-ghost-layer"]')).toBeNull();
+
+		// Caret input during composition must not thrash editing state back to a painted ghost.
+		fireEvent.input(textarea);
+		fireEvent.keyUp(textarea, { key: "e" });
+		expect(document.querySelector('[data-slot="composer-ghost-layer"]')).toBeNull();
+
+		fireEvent.compositionEnd(textarea);
+		expect(document.querySelector('[data-slot="composer-ghost"]')?.textContent).toBe(" it now");
+	});
 });
 
 describe("Tab acceptance", () => {
@@ -174,7 +194,7 @@ describe("Tab acceptance", () => {
 				controlled={{ value, onChange }}
 			/>,
 		);
-		const textarea = screen.getByRole("combobox", { name: "Prompt" }) as HTMLTextAreaElement;
+		const textarea = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement;
 		// happy-dom focuses nothing by default; the ghost is gated on focus.
 		textarea.focus();
 		fireEvent.focus(textarea);
@@ -227,7 +247,7 @@ describe("Tab acceptance", () => {
 				controlled={{ value: "/set", onChange }}
 			/>,
 		);
-		const textarea = screen.getByRole("combobox", { name: "Prompt" });
+		const textarea = screen.getByRole("textbox", { name: "Prompt" });
 		textarea.focus();
 		fireEvent.focus(textarea);
 		fireEvent.keyDown(textarea, { key: "Tab" });

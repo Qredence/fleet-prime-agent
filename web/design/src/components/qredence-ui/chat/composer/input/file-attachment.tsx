@@ -105,7 +105,7 @@ export function FileAttachment({
 				"group relative rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding))] bg-muted/50",
 				isImageOnly
 					? "flex size-10 items-center justify-center"
-					: "flex max-w-[200px] min-w-[120px] items-center gap-2 py-1 pr-2 pl-1",
+					: "flex max-w-[min(12.5rem,100%)] min-w-0 items-center gap-2 py-1 ps-1 pe-2",
 				className,
 			)}
 			onMouseEnter={() => setIsHovered(true)}

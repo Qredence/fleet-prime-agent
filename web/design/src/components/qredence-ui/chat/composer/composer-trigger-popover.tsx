@@ -101,7 +101,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 					if (!item.disabled) onSelect(item);
 				}}
 				className={cn(
-					"flex min-h-10 cursor-pointer items-start gap-2 rounded-lg px-3 py-2 text-left",
+					"flex min-h-10 cursor-pointer items-start gap-2 rounded-lg px-3 py-2 text-start",
 					selected && "bg-accent text-accent-foreground",
 				)}
 			>
@@ -147,7 +147,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 				) : null}
 				<Sparkles aria-hidden="true" className="size-3.5" />
 				<span className="font-medium">{title ?? (kind === "slash" ? "Commands" : "Workspace")}</span>
-				{query ? <span className="ml-auto max-w-[50%] truncate font-mono text-caption">{query}</span> : null}
+				{query ? <span className="ms-auto max-w-[50%] truncate font-mono text-caption">{query}</span> : null}
 				{onClose ? (
 					<button type="button" aria-label="Close suggestions" onClick={onClose} className="sr-only">
 						Close suggestions

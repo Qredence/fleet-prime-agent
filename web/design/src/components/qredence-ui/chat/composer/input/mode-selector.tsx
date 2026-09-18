@@ -75,7 +75,7 @@ export const ModeSelector = memo(function ModeSelector({
 							aria-checked={isActive}
 							onClick={() => handleSelect(mode.id)}
 							className={cn(
-								"flex w-full cursor-pointer items-start gap-2 rounded-[6px] px-2 py-2 text-left text-label leading-4 text-foreground transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.96]",
+								"flex w-full cursor-pointer items-start gap-2 rounded-[6px] px-2 py-2 text-start text-label leading-4 text-foreground transition-[background-color,transform] duration-150 hover:bg-foreground/6 active:scale-[0.96]",
 								isActive && "bg-foreground/6",
 							)}
 						>

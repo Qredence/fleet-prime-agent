@@ -232,16 +232,18 @@ function InputBarContent({
 	);
 
 	return (
-		<div className={cn("shrink-0 pb-3", CHAT_COLUMN_CLASS, className)}>
-			<div className="relative w-full">
+		<div
+			className={cn("shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]", CHAT_COLUMN_CLASS, className)}
+		>
+			<div className="relative flex w-full flex-col gap-3">
 				<ComposerLoader label={infoDescription ?? undefined} isActive={isStreaming} />
 				{visibleIntentSuggestion && !isStreaming && !disabled ? (
-					<div className="mb-2 flex items-center gap-2 rounded-xl border bg-muted/40 px-2.5 py-1.5">
+					<div className="flex items-center gap-2 rounded-xl border bg-muted/40 px-2.5 py-1.5">
 						<Terminal className="size-3.5 shrink-0 text-muted-foreground" />
 						<button
 							type="button"
 							onClick={acceptIntentSuggestion}
-							className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
+							className="min-w-0 flex-1 truncate text-start text-sm hover:underline"
 							title={visibleIntentSuggestion.description}
 						>
 							<span className="font-medium">{visibleIntentSuggestion.label}</span>
@@ -260,32 +262,8 @@ function InputBarContent({
 						</button>
 					</div>
 				) : null}
-				{showQuestion ? (
-					<InputQuestionBar
-						questionBar={questionBar!}
-						navigation={navigation}
-						roundedTop
-						onDismiss={setDismissedQuestionId}
-					/>
-				) : null}
-				<ComposerTriggerPopover
-					open={triggerOpen}
-					kind={triggerKind ?? "slash"}
-					query={triggerKind === "slash" ? slashQuery : workspaceQuery}
-					items={triggerKind === "mention" ? filteredWorkspaceItems : undefined}
-					groups={triggerKind === "slash" ? commandGroups : undefined}
-					activeIndex={activeTriggerIndex}
-					onActiveIndexChange={setActiveTriggerIndex}
-					onSelect={(item: ComposerTriggerItem) => {
-						if (triggerKind === "slash") selectCommand(item);
-						else selectWorkspaceReference(item);
-					}}
-					onClose={closeTriggerMenu}
-					title={triggerKind === "slash" ? "Commands" : "Workspace references"}
-					listId="composer-trigger-list"
-				/>
 				{images.length > 0 || files.length > 0 ? (
-					<div className="mb-2 flex flex-wrap gap-2 rounded-xl border bg-muted/40 p-2">
+					<div className="flex flex-wrap gap-2 rounded-xl border bg-muted/40 p-2">
 						{images.map((image) => (
 							<div key={image.id} className="group relative">
 								<img
@@ -323,7 +301,7 @@ function InputBarContent({
 					</div>
 				) : null}
 				{workspaceReferences.length > 0 ? (
-					<div className="mb-2 flex flex-wrap gap-1.5 rounded-xl border bg-muted/40 p-2">
+					<div className="flex flex-wrap gap-1.5 rounded-xl border bg-muted/40 p-2">
 						{workspaceReferences.map((attachment) => (
 							<div
 								key={attachment.relativePath}
@@ -348,60 +326,84 @@ function InputBarContent({
 						))}
 					</div>
 				) : null}
-				<PromptInput
-					id="composer-prompt"
-					name="prompt"
-					role="combobox"
-					aria-autocomplete="list"
-					value={value}
-					onValueChange={setValue}
-					onSubmit={(content) => send(content)}
-					loading={isStreaming}
-					submitWhileLoading
-					onStop={onStop}
-					disabled={disabled}
-					autoFocus={autoFocus}
-					placeholder={placeholder ?? "Send a message…"}
-					onPaste={attachments?.onPaste}
-					aria-controls={triggerOpen ? "composer-trigger-list" : undefined}
-					aria-expanded={triggerOpen}
-					aria-haspopup="listbox"
-					aria-activedescendant={
-						triggerOpen && triggerItems[activeTriggerIndex]
-							? `composer-trigger-list-${triggerItems[activeTriggerIndex].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`
-							: undefined
-					}
-					onKeyDown={handlePromptKeyDown}
-					onTextareaRef={attachTextarea}
-					ghostText={ghostText}
-					leadingAction={
-						<>
-							<Button
-								type="button"
-								variant="outline"
-								size="icon"
-								disabled={disabled || isStreaming}
-								aria-label="Open slash commands"
-								data-slot="composer-add"
-								onClick={openSlashMenu}
-								className={COMPOSER_ADD_BUTTON_CLASS}
-							>
-								<Plus className="size-4" />
-							</Button>
-							<ModeSelector modes={CHAT_MODES} value={chatMode} onChange={handleChatModeChange} />
-							<ModelSelector
-								models={selectorModels}
-								value={modelKey}
-								effort={thinkingLevel}
-								onModelChange={handleSelectorModelChange}
-								onEffortChange={handleEffortChange}
-								open={combinedPickerOpen}
-								onOpenChange={handleCombinedPickerOpenChange}
-								placeholder="Model"
-							/>
-						</>
-					}
-				/>
+				<div className="relative w-full">
+					{showQuestion ? (
+						<InputQuestionBar
+							questionBar={questionBar!}
+							navigation={navigation}
+							roundedTop
+							onDismiss={setDismissedQuestionId}
+						/>
+					) : null}
+					<ComposerTriggerPopover
+						open={triggerOpen}
+						kind={triggerKind ?? "slash"}
+						query={triggerKind === "slash" ? slashQuery : workspaceQuery}
+						items={triggerKind === "mention" ? filteredWorkspaceItems : undefined}
+						groups={triggerKind === "slash" ? commandGroups : undefined}
+						activeIndex={activeTriggerIndex}
+						onActiveIndexChange={setActiveTriggerIndex}
+						onSelect={(item: ComposerTriggerItem) => {
+							if (triggerKind === "slash") selectCommand(item);
+							else selectWorkspaceReference(item);
+						}}
+						onClose={closeTriggerMenu}
+						title={triggerKind === "slash" ? "Commands" : "Workspace references"}
+						listId="composer-trigger-list"
+					/>
+					<PromptInput
+						id="composer-prompt"
+						name="prompt"
+						value={value}
+						onValueChange={setValue}
+						onSubmit={(content) => send(content)}
+						loading={isStreaming}
+						submitWhileLoading
+						onStop={onStop}
+						disabled={disabled}
+						autoFocus={autoFocus}
+						placeholder={placeholder ?? "Send a message…"}
+						onPaste={attachments?.onPaste}
+						aria-controls={triggerOpen ? "composer-trigger-list" : undefined}
+						aria-expanded={triggerOpen}
+						aria-haspopup="listbox"
+						aria-activedescendant={
+							triggerOpen && triggerItems[activeTriggerIndex]
+								? `composer-trigger-list-${triggerItems[activeTriggerIndex].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`
+								: undefined
+						}
+						onKeyDown={handlePromptKeyDown}
+						onTextareaRef={attachTextarea}
+						ghostText={ghostText}
+						leadingAction={
+							<>
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									disabled={disabled || isStreaming}
+									aria-label="Open slash commands"
+									data-slot="composer-add"
+									onClick={openSlashMenu}
+									className={COMPOSER_ADD_BUTTON_CLASS}
+								>
+									<Plus className="size-4" />
+								</Button>
+								<ModeSelector modes={CHAT_MODES} value={chatMode} onChange={handleChatModeChange} />
+								<ModelSelector
+									models={selectorModels}
+									value={modelKey}
+									effort={thinkingLevel}
+									onModelChange={handleSelectorModelChange}
+									onEffortChange={handleEffortChange}
+									open={combinedPickerOpen}
+									onOpenChange={handleCombinedPickerOpenChange}
+									placeholder="Model"
+								/>
+							</>
+						}
+					/>
+				</div>
 			</div>
 		</div>
 	);

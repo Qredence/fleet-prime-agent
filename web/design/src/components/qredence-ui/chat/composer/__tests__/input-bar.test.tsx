@@ -35,7 +35,7 @@ describe("InputBar slash menu control", () => {
 			/>,
 		);
 
-		const prompt = screen.getByRole("combobox", { name: "Prompt" }) as HTMLTextAreaElement;
+		const prompt = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement;
 		expect(prompt.value).toBe("");
 
 		fireEvent.click(screen.getByRole("button", { name: "Open slash commands" }));
@@ -65,5 +65,38 @@ describe("InputBar slash menu control", () => {
 
 		expect(slashButton).toBeTruthy();
 		expect(slashButton.compareDocumentPosition(modeButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+
+	it("keeps every character when typing into the empty-session composer outside the scroller", () => {
+		render(
+			<AgentChat
+				inputBar={{
+					modelKey: undefined,
+					models: [],
+					onModelChange: vi.fn(),
+				}}
+				messages={[]}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+			/>,
+		);
+
+		const prompt = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement;
+		const draft = "type every character of this sentence";
+		let value = "";
+		for (const char of draft) {
+			value += char;
+			// Native `input` can precede React's delegated `onChange`. Publishing
+			// editing state from `input` used to re-render with a stale controlled
+			// value and wipe short keypresses (hold-to-repeat looked like it worked).
+			fireEvent.input(prompt, { target: { value } });
+			fireEvent.change(prompt, { target: { value } });
+			fireEvent.keyUp(prompt, { key: char });
+		}
+
+		expect(prompt.value).toBe(draft);
+		// Composer is sticky chrome, not nested under the transcript log.
+		expect(prompt.closest('[role="log"]')).toBeNull();
 	});
 });

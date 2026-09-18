@@ -237,9 +237,9 @@ export function PromptInput({
 				/>
 			</div>
 
-			<div className="mt-1 flex min-h-8 items-center gap-1">
+			<div className="mt-1 flex min-h-8 items-center gap-1.5">
 				{leadingAction ? (
-					<div role="group" aria-label="Composer options" className="flex min-w-0 items-center gap-1">
+					<div role="group" aria-label="Composer options" className="flex min-w-0 items-center gap-1.5">
 						{leadingAction}
 					</div>
 				) : null}
@@ -250,7 +250,7 @@ export function PromptInput({
 						size="icon"
 						aria-label="Stop generating"
 						onClick={onStop}
-						className="ml-auto size-8 rounded-full"
+						className="ms-auto size-8 rounded-full"
 					>
 						<Square className="size-3 fill-current" />
 					</Button>
@@ -263,7 +263,7 @@ export function PromptInput({
 						aria-label={loading ? "Send follow-up" : "Send prompt"}
 						className={cn(
 							"size-8 rounded-full",
-							!loading && "ml-auto",
+							!loading && "ms-auto",
 							canSubmit &&
 								"border-transparent bg-chat-input-accent text-white hover:bg-chat-input-accent/90 focus-visible:border-chat-input-accent focus-visible:ring-chat-input-accent/40",
 						)}

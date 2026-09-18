@@ -82,7 +82,7 @@ export function InputQuestionBar({ questionBar, navigation, roundedTop, onDismis
 	return (
 		<div
 			className={cn(
-				"mx-auto w-full max-w-[calc(100%-24px)] border-x border-t border-border",
+				"w-full border-x border-t border-border",
 				roundedTop ? "rounded-t-chat-input" : null,
 			)}
 		>

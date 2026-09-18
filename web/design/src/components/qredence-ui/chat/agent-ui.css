@@ -112,7 +112,7 @@
 }
 
 .typeset pre code > span {
-  padding-left: 0 !important;
+  padding-inline-start: 0 !important;
 }
 
 .an-edit-diff,
@@ -164,8 +164,8 @@
   height: 28px;
   margin: 0;
   top: 0;
-  right: 0;
-  padding-right: 8px;
+  inset-inline-end: 0;
+  padding-inline-end: 8px;
 }
 
 .typeset [data-streamdown="code-block-actions"] {

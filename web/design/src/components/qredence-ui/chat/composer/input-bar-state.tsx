@@ -254,15 +254,23 @@ export function useInputBarState({
 	 * `PromptInput` spreads `...textareaProps` before its own handlers, which
 	 * silently drops any handler it does not explicitly compose.
 	 *
+	 * Do **not** publish from `input`: that listener runs on the textarea before
+	 * React's delegated `onChange`, and a `setEditing` re-render with a stale
+	 * controlled `value` wipes the just-typed character (hold-to-repeat then
+	 * appears to "work"). `keyup` is enough for the caret gate after a keystroke.
+	 *
 	 * `keyup`/`click`/`mouseup` rather than `selectionchange`, which does not
 	 * fire in the test DOM.
 	 */
 	useEffect(() => {
 		if (!textarea) return;
 		const publish = () => {
+			// Mid-IME re-renders of a controlled textarea drop characters on some
+			// layouts (dead keys / accents). Hold caret publishes until composition ends.
+			if (composingRef.current) return;
 			const next: EditingState = {
 				focused: document.activeElement === textarea,
-				composing: composingRef.current,
+				composing: false,
 				caretStart: textarea.selectionStart ?? null,
 				caretEnd: textarea.selectionEnd ?? null,
 			};
@@ -270,13 +278,28 @@ export function useInputBarState({
 		};
 		const onCompositionStart = () => {
 			composingRef.current = true;
-			publish();
+			setEditing((previous) =>
+				previous.composing && previous.focused === (document.activeElement === textarea)
+					? previous
+					: {
+							focused: document.activeElement === textarea,
+							composing: true,
+							caretStart: previous.caretStart,
+							caretEnd: previous.caretEnd,
+						},
+			);
 		};
 		const onCompositionEnd = () => {
 			composingRef.current = false;
-			publish();
+			const next: EditingState = {
+				focused: document.activeElement === textarea,
+				composing: false,
+				caretStart: textarea.selectionStart ?? null,
+				caretEnd: textarea.selectionEnd ?? null,
+			};
+			setEditing((previous) => (sameEditingState(previous, next) ? previous : next));
 		};
-		const events = ["keyup", "click", "mouseup", "select", "focus", "blur", "input", "scroll"];
+		const events = ["keyup", "click", "mouseup", "select", "focus", "blur", "scroll"];
 		for (const type of events) textarea.addEventListener(type, publish);
 		textarea.addEventListener("compositionstart", onCompositionStart);
 		textarea.addEventListener("compositionend", onCompositionEnd);
