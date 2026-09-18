@@ -42,6 +42,27 @@ function nonNegativeInt(value: string | undefined, fallback: number): number {
 	return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
+/**
+ * Whether a configured base URL may carry a credential.
+ *
+ * The API key travels as a bearer token on every request, so an `http:` endpoint
+ * would put it on the wire in cleartext for any network observer. Only HTTPS is
+ * accepted, with loopback HTTP allowed because that traffic never leaves the
+ * machine.
+ */
+function isCredentialSafeBaseUrl(value: string): boolean {
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		return false;
+	}
+	if (url.protocol === "https:") return true;
+	if (url.protocol !== "http:") return false;
+	const host = url.hostname.replace(/^\[|\]$/g, "");
+	return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
 function isLogLevel(value: string | undefined): value is TypeSafeLogLevel {
 	return value !== undefined && (LOG_LEVELS as ReadonlyArray<string>).includes(value);
 }
@@ -60,10 +81,15 @@ function isLogLevel(value: string | undefined): value is TypeSafeLogLevel {
 export function readTypeSafeConfig(env: NodeJS.Dict<string> = process.env, storedKey?: string): TypeSafeRuntimeConfig {
 	const apiKey = (storedKey ?? "").trim() || (env.TYPESAFE_API_KEY ?? "").trim() || undefined;
 	const killed = (env.FLEET_TYPESAFE_ENABLED ?? "").trim() === "0";
+	const requestedBaseUrl = (env.TYPESAFE_BASE_URL ?? "").trim().replace(/\/+$/, "");
+	// An endpoint that would leak the key is treated as unusable rather than
+	// silently replaced with the default: falling back would send the credential
+	// to a host the operator did not configure.
+	const baseUrlUsable = requestedBaseUrl === "" || isCredentialSafeBaseUrl(requestedBaseUrl);
 	return {
-		configured: Boolean(apiKey) && !killed,
+		configured: Boolean(apiKey) && !killed && baseUrlUsable,
 		apiKey,
-		baseUrl: (env.TYPESAFE_BASE_URL ?? "").trim().replace(/\/+$/, "") || DEFAULT_TYPESAFE_BASE_URL,
+		baseUrl: requestedBaseUrl || DEFAULT_TYPESAFE_BASE_URL,
 		model: (env.TYPESAFE_MODEL ?? "").trim() || DEFAULT_TYPESAFE_MODEL,
 		intentTimeoutMs: positiveInt(env.TYPESAFE_INTENT_TIMEOUT_MS, DEFAULT_TYPESAFE_INTENT_TIMEOUT_MS),
 		intentMaxRetries: nonNegativeInt(env.TYPESAFE_INTENT_MAX_RETRIES, DEFAULT_TYPESAFE_INTENT_MAX_RETRIES),

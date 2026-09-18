@@ -105,7 +105,10 @@ function gateTable(rows: ReadonlyArray<Scored>): void {
 async function main(): Promise<void> {
 	const config = readTypeSafeConfig();
 	if (!config.configured) {
-		process.stderr.write("TYPESAFE_API_KEY is not set; nothing to evaluate.\n");
+		process.stderr.write(
+			"TypeSafe is not available: set TYPESAFE_API_KEY (or save a key in Settings) and make sure " +
+				"FLEET_TYPESAFE_ENABLED is not 0, and that TYPESAFE_BASE_URL is an HTTPS url.\n",
+		);
 		process.exit(1);
 	}
 

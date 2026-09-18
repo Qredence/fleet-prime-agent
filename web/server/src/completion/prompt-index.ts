@@ -49,6 +49,16 @@ export const PROMPT_INDEX_MAX_AGE_MS = 10 * 60_000;
 /** Wait after a failed or empty build before trying again. */
 export const PROMPT_INDEX_RETRY_BACKOFF_MS = 60_000;
 
+/**
+ * How many consecutive empty rebuilds confirm that the store really is empty.
+ *
+ * A single empty listing is ambiguous — a daemon that is up but whose store has
+ * not populated yet looks identical to a user who deleted every session. One
+ * repeat tells them apart, so the first is treated as transient and the second
+ * is trusted, which is what stops deleted prompts from being served forever.
+ */
+export const PROMPT_INDEX_EMPTY_CONFIRMATIONS = 2;
+
 export const PROMPT_INDEX_FILE = "fleet-prompt-index.json";
 
 type PersistedSession = {
@@ -61,6 +71,8 @@ type PersistedSession = {
 type PersistedPromptIndex = {
 	version: 1;
 	builtAt: string;
+	/** Consecutive empty rebuilds seen so far; see the confirmation constant. */
+	emptyStreak?: number;
 	sessions: Array<PersistedSession>;
 };
 
@@ -146,7 +158,8 @@ async function readPersisted(agentDir: string): Promise<PersistedPromptIndex | u
 				Array.isArray(entry.prompts) &&
 				entry.prompts.every((prompt) => typeof prompt === "string"),
 		);
-		return { version: 1, builtAt: typeof raw.builtAt === "string" ? raw.builtAt : "", sessions };
+		const emptyStreak = typeof raw.emptyStreak === "number" && raw.emptyStreak > 0 ? raw.emptyStreak : 0;
+		return { version: 1, builtAt: typeof raw.builtAt === "string" ? raw.builtAt : "", emptyStreak, sessions };
 	} catch {
 		// A missing or corrupt index is recoverable: the next refresh rebuilds it.
 		return undefined;
@@ -264,15 +277,29 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 		}
 
 		const harvest = next.reduce((total, entry) => total + entry.prompts.length, 0);
-		// A transiently empty listing (daemon up, store not yet populated) must not
-		// destroy a good corpus and stamp it fresh, which would silence completion
-		// for the whole freshness window. Keep what we had and retry later.
-		if (harvest === 0 && (persisted?.sessions.length ?? 0) > 0) {
+		const hadCorpus = (persisted?.sessions.length ?? 0) > 0;
+		const emptyStreak = (persisted?.emptyStreak ?? 0) + 1;
+		// A single empty listing must not destroy a good corpus and stamp it fresh,
+		// which would silence completion for the whole freshness window — but a
+		// repeat means the store really is empty, and keeping the old corpus would
+		// serve prompts the user has since deleted.
+		if (harvest === 0 && hadCorpus && emptyStreak < PROMPT_INDEX_EMPTY_CONFIRMATIONS) {
+			// Record the attempt without touching `builtAt`, so the retry is governed
+			// by the backoff rather than by the much longer freshness window.
+			persisted = { ...persisted!, emptyStreak };
+			try {
+				await writePersisted(options.agentDir, persisted);
+			} catch {
+				// Failing to record the attempt only costs a repeated check.
+			}
 			log("prompt index: rebuild produced no prompts; keeping the previous corpus");
 			return false;
 		}
+		if (harvest === 0 && hadCorpus) {
+			log("prompt index: store confirmed empty; clearing the corpus");
+		}
 
-		persisted = { version: 1, builtAt: new Date(now()).toISOString(), sessions: next };
+		persisted = { version: 1, builtAt: new Date(now()).toISOString(), emptyStreak: 0, sessions: next };
 		flattened = undefined;
 		try {
 			await writePersisted(options.agentDir, persisted);

@@ -95,6 +95,35 @@ export const TYPESAFE_RETRYABLE_STATUSES: ReadonlySet<number> = new Set([408, 42
 
 const NO_RETRY_STATUSES: ReadonlySet<number> = new Set();
 
+/** Base delay for a retry when the service gives no `Retry-After`. */
+export const RETRY_BASE_DELAY_MS = 250;
+/** Ceiling for a single computed backoff. */
+export const RETRY_MAX_DELAY_MS = 5_000;
+
+/**
+ * How long to wait before the next attempt.
+ *
+ * Retrying immediately on a 429 or a 5xx is the one thing that reliably makes a
+ * throttled service worse, so an explicit `Retry-After` is honoured when present
+ * and a bounded exponential backoff with jitter is used otherwise.
+ */
+export function retryDelayMs(response: Response, attempt: number): number {
+	const header = response.headers.get("retry-after")?.trim();
+	if (header) {
+		const seconds = Number(header);
+		if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, RETRY_MAX_DELAY_MS);
+		const date = Date.parse(header);
+		if (Number.isFinite(date)) return Math.min(Math.max(date - Date.now(), 0), RETRY_MAX_DELAY_MS);
+	}
+	const exponential = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
+	// Jitter keeps a burst of failures from retrying in lockstep.
+	return Math.round(exponential * (0.5 + Math.random() / 2));
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function noul(instructions: TypeSafeEntry, criteria?: NoulQuestion["criteria"]): NoulQuestion {
 	return criteria ? { type: "noul", instructions, criteria } : { type: "noul", instructions };
 }
@@ -168,6 +197,7 @@ export async function postSystemOne(
 				);
 				if (attempt < maxRetries && retryStatuses.has(response.status)) {
 					lastError = error;
+					await sleep(retryDelayMs(response, attempt));
 					continue;
 				}
 				throw error;

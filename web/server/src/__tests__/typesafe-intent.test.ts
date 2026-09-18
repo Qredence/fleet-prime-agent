@@ -86,6 +86,18 @@ describe("interpretIntentResult", () => {
 		});
 	});
 
+	it("never runs a draft the model only saw truncated", () => {
+		// Only MAX_INTENT_STATE_CHARS reaches the model, so a long draft that opens
+		// with a context question and continues into real work must not execute on
+		// the strength of its opening.
+		const long = `how much context have I used ${"and then refactor the auth middleware ".repeat(40)}`;
+		expect(long.length).toBeGreaterThan(1_000);
+		expect(interpretIntentResult(result("context", 0.99, 0.02), long)).toMatchObject({
+			outcome: "matched",
+			disposition: "suggest",
+		});
+	});
+
 	it("offers but never runs a single-token draft, however confident", () => {
 		// A bare mistyped token is the regime where the model is confidently wrong.
 		expect(interpretIntentResult(result("context", 0.99, 0.02), "contxt")).toMatchObject({

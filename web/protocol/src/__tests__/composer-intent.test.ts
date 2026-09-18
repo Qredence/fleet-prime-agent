@@ -124,13 +124,24 @@ describe("decideComposerIntent", () => {
 		}
 	});
 
-	it("offers but never executes a single-token draft", () => {
+	it("offers but never executes a draft whose evidence is incomplete", () => {
+		// Set for a single-token draft and for one the model only saw truncated.
 		expect(
-			decideComposerIntent({ command: autoCommand, confidence: 1, codeTaskProbability: 0, singleToken: true }),
+			decideComposerIntent({
+				command: autoCommand,
+				confidence: 1,
+				codeTaskProbability: 0,
+				requireConfirmation: true,
+			}),
 		).toMatchObject({ outcome: "matched", disposition: "suggest" });
 		// The same match on a full sentence still executes.
 		expect(
-			decideComposerIntent({ command: autoCommand, confidence: 1, codeTaskProbability: 0, singleToken: false }),
+			decideComposerIntent({
+				command: autoCommand,
+				confidence: 1,
+				codeTaskProbability: 0,
+				requireConfirmation: false,
+			}),
 		).toMatchObject({ disposition: "execute" });
 	});
 

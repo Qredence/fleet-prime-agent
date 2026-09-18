@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { IndexableSession, OpenSession } from "../completion/prompt-index";
-import { createPromptIndex, PROMPT_INDEX_MAX_AGE_MS, promptIndexPath } from "../completion/prompt-index";
+import {
+	createPromptIndex,
+	PROMPT_INDEX_MAX_AGE_MS,
+	PROMPT_INDEX_RETRY_BACKOFF_MS,
+	promptIndexPath,
+} from "../completion/prompt-index";
 
 const NOW = Date.parse("2026-09-18T12:00:00.000Z");
 
@@ -174,6 +179,29 @@ describe("createPromptIndex", () => {
 		await index.refresh();
 		expect(index.candidates().map((c) => c.text)).toEqual(["a real prompt from a person"]);
 		expect(index.stats().sessions).toBe(1);
+	});
+
+	it("clears the corpus once an empty store is confirmed", async () => {
+		const withPrompts: OpenSession = async () => [{ role: "user", text: "a real prompt from a person" }];
+		await makeIndex({
+			sessions: [session("/s/a.jsonl", "2026-09-18T11:00:00.000Z")],
+			openSession: withPrompts,
+		}).refresh();
+
+		// The store now reports no sessions at all, twice. The first is treated as
+		// transient; the second is trusted, so deleted prompts stop being served.
+		const empty = makeIndex({ sessions: [], openSession: withPrompts, now: NOW + PROMPT_INDEX_MAX_AGE_MS + 1 });
+		await empty.refresh();
+		expect(empty.candidates().map((c) => c.text)).toEqual(["a real prompt from a person"]);
+
+		const confirmed = createPromptIndex({
+			agentDir,
+			listSessions: async () => [],
+			openSession: withPrompts,
+			now: () => NOW + PROMPT_INDEX_MAX_AGE_MS + PROMPT_INDEX_RETRY_BACKOFF_MS + 2,
+		});
+		await confirmed.refresh();
+		expect(confirmed.candidates()).toEqual([]);
 	});
 
 	it("answers immediately from an empty corpus while the build runs", async () => {

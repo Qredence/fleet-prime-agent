@@ -92,7 +92,7 @@ Falling through is the default and the common case. An absent key, a disabled to
 
 The execute band does change what Enter does, and that is the point of it: for an id in the shared `composer-intent` catalog marked `autoExecutable`, and for a match above the execute gate in a draft with more than one token, submitting runs the command instead of sending the message. Two limits bound that. A single-token draft is offered but never run automatically, however confident the match, because that is the regime where the model is confidently wrong. And within the decision cache's TTL, re-typing the same text reaches the same decision — there is no per-draft override, so a user who wants that text sent to the agent rather than routed must change the wording or turn the capability off in Settings.
 
-Third-party inference: when the capability is enabled, composer drafts are sent to a hosted classification service. The state sent is code-owned (the draft plus a fixed catalog) and the request carries no credentials. Because drafts are user text that can contain anything, this is why the feature is off by default and why the Settings row states the trade plainly.
+Third-party inference: when the capability is enabled, composer drafts are sent to a hosted classification service. The state sent is code-owned (the draft plus a fixed catalog). The request authenticates with the server-side API key in its `Authorization` header and carries no browser or user credentials. Because drafts are user text that can contain anything, this is why the feature is off by default and why the Settings row states the trade plainly.
 
 ### `composer-completion-v1`
 

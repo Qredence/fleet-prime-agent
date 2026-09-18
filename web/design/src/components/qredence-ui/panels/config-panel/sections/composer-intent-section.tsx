@@ -88,7 +88,10 @@ export function ComposerIntentSection({
 					<Switch
 						aria-label="Describe a command"
 						checked={enabled}
-						disabled={unavailable}
+						// Disabled only when it cannot be turned *on*. An already-enabled
+						// setting stays switchable while the key is missing or broken, or
+						// the user would be stuck with it on until they fixed the key.
+						disabled={!onEnabledChange || (!enabled && unavailable)}
 						onCheckedChange={onEnabledChange}
 					/>
 				}

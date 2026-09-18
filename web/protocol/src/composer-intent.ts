@@ -257,10 +257,14 @@ export function decideComposerIntent(input: {
 	confidence: number;
 	codeTaskProbability: number;
 	/**
-	 * A single-token draft is offered but never run automatically, however
-	 * confident the match. The user accepts it explicitly.
+	 * Offered but never run automatically, however confident the match: the user
+	 * accepts it explicitly.
+	 *
+	 * Set for a single-token draft, which is the regime where the model is
+	 * confidently wrong, and for a draft longer than the state limit, where the
+	 * judgment was made on a truncation rather than the whole message.
 	 */
-	singleToken?: boolean;
+	requireConfirmation?: boolean;
 }): ComposerIntentDecision {
 	if (input.codeTaskProbability >= COMPOSER_INTENT_CODE_TASK_MAX) {
 		return { outcome: "none", reason: "code_task" };
@@ -273,7 +277,7 @@ export function decideComposerIntent(input: {
 	if (input.confidence < COMPOSER_INTENT_FLOOR) {
 		return { outcome: "none", reason: "below_floor" };
 	}
-	if (!input.singleToken && input.confidence >= COMPOSER_INTENT_EXECUTE_GATE && command.autoExecutable) {
+	if (!input.requireConfirmation && input.confidence >= COMPOSER_INTENT_EXECUTE_GATE && command.autoExecutable) {
 		return { outcome: "matched", command, disposition: "execute" };
 	}
 	return { outcome: "matched", command, disposition: "suggest" };

@@ -43,8 +43,27 @@ export async function readFleetSettings(agentDir: string): Promise<FleetSettings
 	}
 }
 
+/**
+ * Serializes writes within this process.
+ *
+ * The read-merge-write sequence is not atomic on its own, so two concurrent
+ * updates could each read the old value and the second would silently drop the
+ * first. Chaining them costs nothing at this size and removes that window.
+ */
+let writeChain: Promise<unknown> = Promise.resolve();
+
 /** Merges a patch into the settings file, writing via a temporary file. */
 export async function updateFleetSettings(
+	agentDir: string,
+	patch: Partial<Omit<FleetSettings, "version">>,
+): Promise<FleetSettings> {
+	const update = writeChain.then(() => writeFleetSettings(agentDir, patch));
+	// Keep the chain alive even if this update rejects.
+	writeChain = update.catch(() => undefined);
+	return update;
+}
+
+async function writeFleetSettings(
 	agentDir: string,
 	patch: Partial<Omit<FleetSettings, "version">>,
 ): Promise<FleetSettings> {
@@ -55,7 +74,9 @@ export async function updateFleetSettings(
 	};
 	const path = fleetSettingsPath(agentDir);
 	await mkdir(dirname(path), { recursive: true });
-	const temporary = `${path}.${process.pid}.tmp`;
+	// Unique per write: a shared name lets one writer rename the file out from
+	// under another, which surfaces as ENOENT on the loser.
+	const temporary = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`;
 	await writeFile(temporary, `${JSON.stringify(next, null, "\t")}\n`, "utf8");
 	await rename(temporary, path);
 	return next;

@@ -175,6 +175,22 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 		setSuggestion(undefined);
 	}, []);
 
+	// Nothing should survive the feature being switched off: a debounce that is
+	// still pending would classify anyway, a stale chip would keep offering a
+	// command, and a cached execution decision would fire the moment routing came
+	// back on.
+	useEffect(() => {
+		if (available) return;
+		if (timer.current !== undefined) {
+			clearTimeout(timer.current);
+			timer.current = undefined;
+		}
+		inFlight.current?.abort();
+		inFlight.current = null;
+		cache.current.clear();
+		setSuggestion(undefined);
+	}, [available]);
+
 	// Drop a pending debounce and any in-flight classification on unmount.
 	useEffect(
 		() => () => {

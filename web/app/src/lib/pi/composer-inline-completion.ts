@@ -2,8 +2,8 @@ import type { InlineCompletion } from "@prime-agent/web-design/components/qreden
 import {
 	COMPOSER_COMPLETION_MIN_CHARS,
 	type ComposerCompletionResponse,
+	composerCompletionGhost,
 	composerCompletionIgnores,
-	normalizeCompletionDraft,
 } from "@prime-agent/web-protocol/composer-completion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url";
@@ -129,13 +129,17 @@ export function useComposerInlineCompletion(available: boolean): UseComposerInli
 
 	useEffect(() => () => inFlight.current?.abort(), []);
 
-	const inlineCompletion: InlineCompletion | undefined = offer && {
-		forValue: offer.forValue,
-		// The server returns the whole accepted string, normalised; the composer
-		// needs only the suffix to paint, measured against the same normalised form.
-		text: offer.text.slice(normalizeCompletionDraft(offer.forValue).length),
-		onDismiss: () => setOffer(undefined),
-	};
+	// Uses the protocol's own rule rather than slicing here, so the suffix the
+	// composer paints and the one the ghost check validates can never disagree.
+	const ghost = offer ? composerCompletionGhost(offer.forValue, offer.text) : undefined;
+	const inlineCompletion: InlineCompletion | undefined =
+		offer && ghost
+			? {
+					forValue: offer.forValue,
+					text: ghost,
+					onDismiss: () => setOffer(undefined),
+				}
+			: undefined;
 
 	return { onDraftChange, inlineCompletion };
 }

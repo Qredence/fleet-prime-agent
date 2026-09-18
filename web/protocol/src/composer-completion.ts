@@ -88,5 +88,8 @@ export function composerCompletionGhost(draft: string, completion: string | unde
 	const normalizedCompletion = normalizeCompletionDraft(completion);
 	if (normalizedCompletion.length <= normalizedDraft.length) return undefined;
 	if (!normalizedCompletion.toLowerCase().startsWith(normalizedDraft.toLowerCase())) return undefined;
-	return normalizedCompletion.slice(normalizedDraft.length);
+	const suffix = normalizedCompletion.slice(normalizedDraft.length);
+	// The comparison is done on a trimmed draft, so a draft that already ends in
+	// whitespace would otherwise gain a second space when the suffix is appended.
+	return /\s$/.test(draft) ? suffix.replace(/^\s+/, "") : suffix;
 }

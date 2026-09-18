@@ -118,6 +118,7 @@ describe("composer intent settings", () => {
 
 describe("handleChatIntentPut", () => {
 	let agentDir: string;
+	let originalKey: string | undefined;
 
 	beforeEach(() => {
 		agentDir = mkdtempSync(join(tmpdir(), "fleet-intent-put-"));
@@ -126,9 +127,15 @@ describe("handleChatIntentPut", () => {
 		mocks.forceConfigured = undefined;
 		mocks.reloadAuth.mockReset();
 		mocks.resetTypeSafeService.mockReset();
+		// Restored verbatim afterwards: a worker that started with a value must
+		// not have it silently deleted for the tests that follow.
+		originalKey = process.env.TYPESAFE_API_KEY;
+		delete process.env.TYPESAFE_API_KEY;
 	});
 
 	afterEach(() => {
+		if (originalKey === undefined) delete process.env.TYPESAFE_API_KEY;
+		else process.env.TYPESAFE_API_KEY = originalKey;
 		rmSync(agentDir, { recursive: true, force: true });
 	});
 
@@ -152,13 +159,9 @@ describe("handleChatIntentPut", () => {
 	it("clears the stored key when given null, falling back to the environment", async () => {
 		mocks.credentials.set("typesafe", "ts-test-placeholder-key");
 		process.env.TYPESAFE_API_KEY = "ts-test-environment-key";
-		try {
-			const response = await handleChatIntentPut(request("PUT", { apiKey: null }));
-			expect(mocks.credentials.has("typesafe")).toBe(false);
-			expect(await response.json()).toEqual({ enabled: false, keySource: "environment", status: "ready" });
-		} finally {
-			delete process.env.TYPESAFE_API_KEY;
-		}
+		const response = await handleChatIntentPut(request("PUT", { apiKey: null }));
+		expect(mocks.credentials.has("typesafe")).toBe(false);
+		expect(await response.json()).toEqual({ enabled: false, keySource: "environment", status: "ready" });
 	});
 
 	it("rejects an empty key with 422 rather than storing a blank credential", async () => {

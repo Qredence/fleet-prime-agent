@@ -78,6 +78,26 @@ describe("readTypeSafeConfig", () => {
 		expect(config.apiKey).toBe("stored-key");
 	});
 
+	it("refuses a base url that would put the key on the wire in cleartext", () => {
+		// The key rides in the Authorization header on every request, so a
+		// non-loopback http endpoint is treated as unusable rather than silently
+		// replaced: falling back would send the credential somewhere unintended.
+		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "http://evil.example" }).configured).toBe(
+			false,
+		);
+		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "ftp://evil.example" }).configured).toBe(
+			false,
+		);
+		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "not a url" }).configured).toBe(false);
+	});
+
+	it("allows https anywhere and http only on loopback", () => {
+		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "https://x.test" }).configured).toBe(true);
+		for (const loopback of ["http://localhost:8080", "http://127.0.0.1:9", "http://[::1]:1"]) {
+			expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: loopback }).configured).toBe(true);
+		}
+	});
+
 	it("strips trailing slashes from a custom base url", () => {
 		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "https://x.test///" }).baseUrl).toBe(
 			"https://x.test",

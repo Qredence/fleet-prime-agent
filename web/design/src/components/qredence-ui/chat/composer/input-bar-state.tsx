@@ -299,10 +299,10 @@ export function useInputBarState({
 				streaming: isStreaming,
 				disabled: Boolean(disabled),
 				triggerOpen,
-				intentSuggestion: Boolean(intentSuggestion),
+				intentSuggestion: Boolean(visibleIntentSuggestion),
 				dismissed,
 			}),
-		[dismissed, disabled, editing, inlineCompletion, intentSuggestion, isStreaming, triggerOpen, value],
+		[dismissed, disabled, editing, inlineCompletion, isStreaming, triggerOpen, value, visibleIntentSuggestion],
 	);
 
 	const dismissInlineCompletion = useCallback(() => {

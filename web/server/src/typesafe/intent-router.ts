@@ -127,7 +127,11 @@ export function interpretIntentResult(
 		command: route.choice,
 		confidence,
 		codeTaskProbability,
-		singleToken: isSingleTokenDraft(draft),
+		// Only the first MAX_INTENT_STATE_CHARS reached the model, so anything
+		// longer was judged on a prefix: a draft that opens with a context request
+		// and ends with real work must not be executed on the strength of its
+		// opening.
+		requireConfirmation: isSingleTokenDraft(draft) || draft.trim().length > MAX_INTENT_STATE_CHARS,
 	});
 	if (decision.outcome === "none") return decision;
 
