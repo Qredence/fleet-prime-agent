@@ -66,3 +66,4 @@ qa-results/
 
 # Amp portals
 .amp/portals/*
+.commandcode/taste/taste.md
