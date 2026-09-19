@@ -259,7 +259,7 @@ export function PromptInput({
 					<Button
 						type="submit"
 						size="icon"
-						disabled={sendDisabled}
+						disabled={sendDisabled || !currentValue.trim()}
 						aria-label={loading ? "Send follow-up" : "Send prompt"}
 						className={cn(
 							"size-8 rounded-full",

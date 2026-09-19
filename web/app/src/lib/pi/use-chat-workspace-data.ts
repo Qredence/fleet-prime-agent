@@ -564,7 +564,10 @@ export function useChatWorkspaceData() {
 				forValue: offeredCommand.forValue,
 				text: `/${offeredCommand.command}`,
 				mode: "replace",
-				onDismiss: dismissCommand,
+				onDismiss: () => {
+					dismissCommand();
+					historyCompletion?.onDismiss?.();
+				},
 			};
 		}
 		return historyCompletion;

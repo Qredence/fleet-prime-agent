@@ -1,5 +1,5 @@
 import { COMPOSER_COMPLETION_MAX_CHARS, composerCompletionGhost } from "@prime-agent/web-protocol/composer-completion";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useComposerInlineCompletion } from "./composer-inline-completion";
 
@@ -130,26 +130,44 @@ describe("useComposerInlineCompletion", () => {
 		});
 	});
 
-	it("asks again when the session changes instead of replaying the cached answer", async () => {
+	it("keeps a stale session response from replacing the current session's offer", async () => {
 		// The same prefix resolves differently in a different session, so an offer
 		// cached for one session must not be replayed in the next — least of all in a
 		// brand-new chat, where it would present another session's history as the
-		// corpus. The composer keeps its draft across a switch, so this has to be
-		// driven by the session changing rather than by a keystroke.
+		// corpus. Resolve the aborted first request last to prove it cannot publish.
+		let resolveSessionA: ((response: Response) => void) | undefined;
+		let resolveSessionB: ((response: Response) => void) | undefined;
 		mockFetch()
-			.mockResolvedValueOnce(jsonResponse({ completion: "refactor the auth middleware in session a" }))
-			.mockResolvedValueOnce(jsonResponse({ completion: "refactor the auth middleware in session b" }));
+			.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						resolveSessionA = resolve;
+					}),
+			)
+			.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						resolveSessionB = resolve;
+					}),
+			);
 		const { result, rerender } = renderHook(
 			({ sessionId }: { sessionId: string }) => useComposerInlineCompletion({ available: true, sessionId }),
 			{ initialProps: { sessionId: "session-a" } },
 		);
 		result.current.onDraftChange("refactor the auth");
-		await waitFor(() => expect(result.current.inlineCompletion?.text).toBe(" middleware in session a"));
+		await waitFor(() => expect(mockFetch()).toHaveBeenCalledTimes(1));
 
 		rerender({ sessionId: "session-b" });
+		await waitFor(() => expect(mockFetch()).toHaveBeenCalledTimes(2));
+		await act(async () => {
+			resolveSessionB?.(jsonResponse({ completion: "refactor the auth middleware in session b" }));
+		});
 		await waitFor(() => expect(result.current.inlineCompletion?.text).toBe(" middleware in session b"));
 
-		expect(mockFetch()).toHaveBeenCalledTimes(2);
+		await act(async () => {
+			resolveSessionA?.(jsonResponse({ completion: "refactor the auth middleware in session a" }));
+		});
+		expect(result.current.inlineCompletion?.text).toBe(" middleware in session b");
 		expect(JSON.parse(String(mockFetch().mock.calls[1]?.[1]?.body))).toEqual({
 			text: "refactor the auth",
 			sessionId: "session-b",

@@ -182,7 +182,7 @@ async function main(): Promise<void> {
 		const suggested = findCompletion(testCase.draft, pool, ruleOptions("shipped", sessionId));
 		const outcome = classify(suggested?.completion, testCase.target);
 
-		const length = normalizeCompletionDraft(testCase.draft).length;
+		const length = testCase.draft.length;
 		(byLength.get(length) ?? byLength.set(length, []).get(length)!).push(outcome);
 
 		// Tier accounting uses the same run, so "session" below means the tier really

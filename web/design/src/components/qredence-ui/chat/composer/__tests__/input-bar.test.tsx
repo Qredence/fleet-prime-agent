@@ -91,7 +91,6 @@ describe("InputBar slash menu control", () => {
 			// editing state from `input` used to re-render with a stale controlled
 			// value and wipe short keypresses (hold-to-repeat looked like it worked).
 			fireEvent.input(prompt, { target: { value } });
-			fireEvent.change(prompt, { target: { value } });
 			fireEvent.keyUp(prompt, { key: char });
 		}
 

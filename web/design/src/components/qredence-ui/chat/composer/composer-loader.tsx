@@ -44,7 +44,7 @@ export function ComposerLoader({
 				{LOADER_DOTS[tick % LOADER_DOTS.length]}
 			</span>
 			<span className="sr-only" aria-live="polite">
-				{label}, {elapsed}s
+				{label}
 			</span>
 			<span aria-hidden="true" className="truncate">
 				{label}
