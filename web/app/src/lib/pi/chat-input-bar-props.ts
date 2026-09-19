@@ -15,7 +15,6 @@ type ChatInputBarComposer = Pick<
 	| "handleSlashCommandSelect"
 	| "infoDescription"
 	| "inlineCompletion"
-	| "intentSuggestion"
 	| "onComposerDraftChange"
 	| "modelKey"
 	| "modelPickerOpen"
@@ -96,7 +95,6 @@ export function buildChatInputBarProps(
 		onSlashCommandSelect: composer.handleSlashCommandSelect,
 		onLocalSlashSubmit: composer.handleLocalSlashSubmit,
 		onDraftChange: composer.onComposerDraftChange,
-		intentSuggestion: composer.intentSuggestion,
 		inlineCompletion: composer.inlineCompletion,
 		modelPickerOpen: composer.modelPickerOpen,
 		onModelPickerOpenChange: composer.setModelPickerOpen,
@@ -122,7 +120,6 @@ export function useChatInputBarProps(
 		handleSlashCommandSelect,
 		infoDescription,
 		inlineCompletion,
-		intentSuggestion,
 		modelKey,
 		modelPickerOpen,
 		models,
@@ -154,7 +151,6 @@ export function useChatInputBarProps(
 					handleSlashCommandSelect,
 					infoDescription,
 					inlineCompletion,
-					intentSuggestion,
 					modelKey,
 					modelPickerOpen,
 					models,
@@ -185,7 +181,6 @@ export function useChatInputBarProps(
 			handleSlashCommandSelect,
 			infoDescription,
 			inlineCompletion,
-			intentSuggestion,
 			modelKey,
 			modelPickerOpen,
 			models,

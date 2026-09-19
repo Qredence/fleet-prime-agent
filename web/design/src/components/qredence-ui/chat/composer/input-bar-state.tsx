@@ -15,6 +15,7 @@ import { ProviderBrandIcon } from "../../panels/config-panel/shared/provider-bra
 import { formatProviderLabel } from "../../panels/config-panel/shared/provider-label";
 import {
 	type EditingState,
+	ghostPaintText,
 	INITIAL_EDITING_STATE,
 	resolveInlineCompletion,
 	sameEditingState,
@@ -54,7 +55,6 @@ export function useInputBarState({
 	onSlashCommandSelect,
 	onLocalSlashSubmit,
 	onDraftChange,
-	intentSuggestion,
 	inlineCompletion,
 	modelPickerOpen,
 	onModelPickerOpenChange,
@@ -80,7 +80,6 @@ export function useInputBarState({
 	| "onSlashCommandSelect"
 	| "onLocalSlashSubmit"
 	| "onDraftChange"
-	| "intentSuggestion"
 	| "inlineCompletion"
 	| "modelPickerOpen"
 	| "onModelPickerOpenChange"
@@ -169,21 +168,6 @@ export function useInputBarState({
 		const timer = setTimeout(() => onDraftChange(value), DRAFT_REPORT_DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	}, [onDraftChange, value]);
-
-	/**
-	 * The chip is dropped the moment the draft moves past the one it was computed
-	 * for. Without this a click landing in the debounce window after a keystroke
-	 * would run the command against stale text and discard what was just typed.
-	 */
-	const visibleIntentSuggestion = intentSuggestion?.forValue === value ? intentSuggestion : undefined;
-
-	const acceptIntentSuggestion = useCallback(() => {
-		// Re-checked here too: the click handler is not guaranteed to see a render
-		// that already dropped the chip.
-		if (visibleIntentSuggestion?.forValue !== value) return;
-		visibleIntentSuggestion.onAccept();
-		setValue("");
-	}, [value, visibleIntentSuggestion, setValue]);
 
 	const removeTriggerToken = useCallback(
 		(match: RegExpMatchArray | null) => {
@@ -322,10 +306,9 @@ export function useInputBarState({
 				streaming: isStreaming,
 				disabled: Boolean(disabled),
 				triggerOpen,
-				intentSuggestion: Boolean(visibleIntentSuggestion),
 				dismissed,
 			}),
-		[dismissed, disabled, editing, inlineCompletion, isStreaming, triggerOpen, value, visibleIntentSuggestion],
+		[dismissed, disabled, editing, inlineCompletion, isStreaming, triggerOpen, value],
 	);
 
 	const dismissInlineCompletion = useCallback(() => {
@@ -338,7 +321,7 @@ export function useInputBarState({
 		const caret = readCaret();
 		// Re-checked here, not only in the render gate: the DOM is the authority.
 		if (!caret || caret.start !== caret.end || caret.start !== value.length) return;
-		const next = spliceCompletion(value, offeredCompletion.text);
+		const next = spliceCompletion(value, offeredCompletion.text, offeredCompletion.mode);
 		setValue(next);
 		// Applied after the controlled value commits; writing the selection before
 		// that would clamp the offset against the old, shorter value.
@@ -551,10 +534,9 @@ export function useInputBarState({
 	}, [closeTriggerMenu, triggerOpen]);
 
 	return {
-		acceptIntentSuggestion,
 		activeTriggerIndex,
 		attachTextarea: setTextarea,
-		ghostText: offeredCompletion?.text,
+		ghostText: ghostPaintText(value, offeredCompletion),
 		combinedPickerOpen,
 		commandGroups,
 		files,
@@ -585,6 +567,5 @@ export function useInputBarState({
 		filteredCommands,
 		filteredWorkspaceItems,
 		value,
-		visibleIntentSuggestion,
 	};
 }

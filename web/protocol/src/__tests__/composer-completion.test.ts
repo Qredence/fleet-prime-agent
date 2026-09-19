@@ -29,9 +29,24 @@ describe("composerCompletionGhost", () => {
 	});
 
 	it("refuses a completion that does not extend the draft", () => {
-		// A replacement is the intent router's chip, not an inline ghost.
+		// In `append` mode the ghost must begin with what was typed.
 		expect(composerCompletionGhost("hotskeys", "/hotkeys")).toBeUndefined();
 		expect(composerCompletionGhost("abc", "xyzabc")).toBeUndefined();
+	});
+
+	it("paints the whole completion in replace mode, which by definition does not extend the draft", () => {
+		expect(composerCompletionGhost("hotskeys", "/hotkeys", "replace")).toBe("/hotkeys");
+		expect(composerCompletionGhost("make this shorter", "/compact", "replace")).toBe("/compact");
+	});
+
+	it("still refuses an empty replacement", () => {
+		expect(composerCompletionGhost("make this shorter", "", "replace")).toBeUndefined();
+		expect(composerCompletionGhost("make this shorter", "   ", "replace")).toBeUndefined();
+		expect(composerCompletionGhost("make this shorter", undefined, "replace")).toBeUndefined();
+	});
+
+	it("normalises a replacement's whitespace", () => {
+		expect(composerCompletionGhost("make this shorter", "  /compact  ", "replace")).toBe("/compact");
 	});
 
 	it("refuses an empty or non-advancing completion", () => {
@@ -43,6 +58,11 @@ describe("composerCompletionGhost", () => {
 
 	it("matches case-insensitively but returns the candidate's own casing", () => {
 		expect(composerCompletionGhost("REFACTOR the", "refactor the parser")).toBe(" parser");
+	});
+
+	it("defaults to append, so a caller that predates commands keeps splicing", () => {
+		expect(composerCompletionGhost("ship", "ship it now")).toBe(" it now");
+		expect(composerCompletionGhost("ship", "ship it now", "append")).toBe(" it now");
 	});
 
 	it("keeps a sane floor for how little typing earns a suggestion", () => {

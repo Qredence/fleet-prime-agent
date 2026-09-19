@@ -32,13 +32,7 @@ const WELCOME_TASKS: SuggestionItem[] = [
  * @param disabled - Whether all prompt actions are disabled
  * @param onSelect - Callback invoked with the selected prompt
  */
-export function ChatWelcome({
-	disabled,
-	onSelect,
-}: {
-	disabled: boolean;
-	onSelect: (item: SuggestionItem) => void;
-}) {
+export function ChatWelcome({ disabled, onSelect }: { disabled: boolean; onSelect: (item: SuggestionItem) => void }) {
 	return (
 		<section aria-labelledby="welcome-title" className="flex w-full flex-col items-center gap-6 text-center">
 			<h1

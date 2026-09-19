@@ -81,12 +81,7 @@ export function InputQuestionBar({ questionBar, navigation, roundedTop, onDismis
 	};
 
 	return (
-		<div
-			className={cn(
-				"w-full border-x border-t border-border",
-				roundedTop ? "rounded-t-chat-input" : null,
-			)}
-		>
+		<div className={cn("w-full border-x border-t border-border", roundedTop ? "rounded-t-chat-input" : null)}>
 			<div className="flex h-7 items-center justify-between border-b border-border px-3 text-xs text-muted-foreground">
 				<div className="inline-flex items-center gap-1.5">
 					<MessageCircleQuestion aria-hidden="true" className="size-3.5" />

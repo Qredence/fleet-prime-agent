@@ -24,18 +24,16 @@ export function normalizeIntentDraft(text: string): string {
 	return text.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-/** A suggestion the composer may offer, ready to render. */
-export type ComposerIntentSuggestion = {
-	/**
-	 * The draft this suggestion was computed against. The composer compares it to
-	 * its live value and drops the chip the moment they differ, so a click can
-	 * never run a command against text the user has since edited and discard the
-	 * keystroke.
-	 */
+/**
+ * A command the router recognised behind the draft.
+ *
+ * `forValue` is the draft it was computed against. The composer compares it to
+ * its live value and drops the offer the moment they differ, so Tab can never
+ * run a command against text the user has since edited.
+ */
+export type ComposerIntentCommandOffer = {
 	forValue: string;
 	command: string;
-	label: string;
-	description: string;
 };
 
 type CacheEntry = { response: ComposerIntentResponse; at: number };
@@ -51,12 +49,19 @@ function isClassifiable(draft: string): boolean {
 	return true;
 }
 
-/** The offer-band suggestion for a response, if it has one. */
-function suggestionFor(response: ComposerIntentResponse, forValue: string): ComposerIntentSuggestion | undefined {
-	if (response.outcome !== "matched" || response.disposition !== "suggest" || !response.command) return undefined;
+/**
+ * The command offer for a response, if it has one.
+ *
+ * Both bands produce an offer: the router has already applied the confidence
+ * floor and the code-task guard, so a `matched` outcome is the whole test.
+ * Whether it would also run on submit is a separate question the composer
+ * answers from `takeCached`.
+ */
+function commandOfferFor(response: ComposerIntentResponse, forValue: string): ComposerIntentCommandOffer | undefined {
+	if (response.outcome !== "matched" || !response.command) return undefined;
 	const command = composerIntentCommand(response.command);
 	if (!command) return undefined;
-	return { forValue, command: command.id, label: `/${command.id}`, description: command.description };
+	return { forValue, command: command.id };
 }
 
 export type UseComposerIntentRoutingResult = {
@@ -67,10 +72,14 @@ export type UseComposerIntentRoutingResult = {
 	 * execution-band match; everything else returns null.
 	 */
 	takeCached: (text: string) => ComposerIntentResponse | null;
-	/** The offer-band suggestion for the current draft, if any. */
-	suggestion: ComposerIntentSuggestion | undefined;
-	/** Hides the current suggestion without running it. */
-	dismissSuggestion: () => void;
+	/** The command recognised behind the current draft, if any. */
+	command: ComposerIntentCommandOffer | undefined;
+	/**
+	 * Clears the command ghost and suppresses execute for this draft until it
+	 * changes. Escape calls this so Enter cannot still auto-run what the user
+	 * just dismissed.
+	 */
+	dismissCommand: () => void;
 };
 
 /**
@@ -82,8 +91,9 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const inFlight = useRef<AbortController | null>(null);
 	const latestDraft = useRef("");
-	const dismissedKey = useRef<string | undefined>(undefined);
-	const [suggestion, setSuggestion] = useState<ComposerIntentSuggestion | undefined>(undefined);
+	/** Normalized draft Escape dismissed; execute stays suppressed until the draft changes. */
+	const suppressedKey = useRef<string | undefined>(undefined);
+	const [command, setCommand] = useState<ComposerIntentCommandOffer | undefined>(undefined);
 
 	const readCache = useCallback((key: string): ComposerIntentResponse | undefined => {
 		const entry = cache.current.get(key);
@@ -104,6 +114,11 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 		}
 	}, []);
 
+	const offerFor = useCallback((response: ComposerIntentResponse, forValue: string, key: string) => {
+		if (suppressedKey.current === key) return undefined;
+		return commandOfferFor(response, forValue);
+	}, []);
+
 	const classify = useCallback(
 		async (draft: string) => {
 			const key = normalizeIntentDraft(draft);
@@ -120,15 +135,14 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 				if (!response.ok) return;
 				const parsed = (await response.json()) as ComposerIntentResponse;
 				remember(key, parsed);
-				// Only offer a suggestion for the draft still in the composer, and
-				// never re-offer one the user has already dismissed.
-				if (latestDraft.current !== draft || dismissedKey.current === key) return;
-				setSuggestion(suggestionFor(parsed, draft));
+				// Only offer a command for the draft still in the composer.
+				if (latestDraft.current !== draft) return;
+				setCommand(offerFor(parsed, draft, key));
 			} catch {
 				// Aborted or offline: leave the cache empty so submit falls through.
 			}
 		},
-		[remember],
+		[offerFor, remember],
 	);
 
 	const onDraftChange = useCallback(
@@ -138,41 +152,44 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 				clearTimeout(timer.current);
 				timer.current = undefined;
 			}
-			if (!available || !isClassifiable(text)) {
-				setSuggestion(undefined);
-				return;
-			}
 			const key = normalizeIntentDraft(text);
-			if (dismissedKey.current !== undefined && dismissedKey.current !== key) {
-				dismissedKey.current = undefined;
+			// Editing away from a dismissed draft lifts the suppress for later returns.
+			if (suppressedKey.current !== undefined && suppressedKey.current !== key) {
+				suppressedKey.current = undefined;
+			}
+			if (!available || !isClassifiable(text)) {
+				setCommand(undefined);
+				return;
 			}
 			const cached = readCache(key);
 			if (cached) {
-				setSuggestion(suggestionFor(cached, text));
+				setCommand(offerFor(cached, text, key));
 				return;
 			}
-			setSuggestion(undefined);
+			setCommand(undefined);
 			timer.current = setTimeout(() => {
 				timer.current = undefined;
 				void classify(text);
 			}, DEBOUNCE_MS);
 		},
-		[available, classify, readCache],
+		[available, classify, offerFor, readCache],
 	);
 
 	const takeCached = useCallback(
 		(text: string): ComposerIntentResponse | null => {
 			if (!available) return null;
-			const entry = readCache(normalizeIntentDraft(text));
+			const key = normalizeIntentDraft(text);
+			if (suppressedKey.current === key) return null;
+			const entry = readCache(key);
 			if (!entry || entry.outcome !== "matched" || entry.disposition !== "execute") return null;
 			return entry;
 		},
 		[available, readCache],
 	);
 
-	const dismissSuggestion = useCallback(() => {
-		dismissedKey.current = normalizeIntentDraft(latestDraft.current);
-		setSuggestion(undefined);
+	const dismissCommand = useCallback(() => {
+		suppressedKey.current = normalizeIntentDraft(latestDraft.current);
+		setCommand(undefined);
 	}, []);
 
 	// Nothing should survive the feature being switched off: a debounce that is
@@ -188,8 +205,19 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 		inFlight.current?.abort();
 		inFlight.current = null;
 		cache.current.clear();
-		setSuggestion(undefined);
+		suppressedKey.current = undefined;
+		setCommand(undefined);
 	}, [available]);
+
+	// The mirror of the switch-off above, and the same gap `useComposerInlineCompletion`
+	// closes with its re-ask: availability is resolved asynchronously (the key is
+	// checked server-side) while the composer keeps whatever was already typed. No
+	// keystroke follows the flip, so a draft typed while the check was in flight
+	// would never be classified and would get no offer until it was edited again.
+	useEffect(() => {
+		if (!available) return;
+		if (latestDraft.current) onDraftChange(latestDraft.current);
+	}, [available, onDraftChange]);
 
 	// Drop a pending debounce and any in-flight classification on unmount.
 	useEffect(
@@ -200,7 +228,7 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 		[],
 	);
 
-	return { onDraftChange, takeCached, suggestion, dismissSuggestion };
+	return { onDraftChange, takeCached, command, dismissCommand };
 }
 
 export type ComposerIntentAvailability = {

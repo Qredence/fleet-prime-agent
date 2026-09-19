@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ candidates: [] as Array<{ text: string; at: number }> }));
+const mocks = vi.hoisted(() => ({
+	candidates: [] as Array<{ text: string; at: number; sessionFile?: string }>,
+}));
 
 vi.mock("../completion/singleton", () => ({
 	getPromptIndex: () => ({
@@ -27,7 +29,34 @@ describe("handleChatCompletionPost", () => {
 		mocks.candidates = [{ text: "refactor the auth middleware and add tests", at: 1 }];
 		const response = await handleChatCompletionPost(post({ text: "refactor the auth mid" }));
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ completion: "refactor the auth middleware and add tests" });
+		expect(await response.json()).toEqual({
+			completion: "refactor the auth middleware and add tests",
+			confidence: 1,
+			source: "corpus",
+		});
+	});
+
+	it("prefers the named session's own history over the rest of the corpus", async () => {
+		mocks.candidates = [
+			{ text: "deploy the worker to staging and restart the queue", at: 999 },
+			{ text: "deploy the worker to staging", at: 1, sessionFile: "/sessions/session-a.jsonl" },
+		];
+		const response = await handleChatCompletionPost(post({ text: "deploy the work", sessionId: "session-a" }));
+		expect(await response.json()).toEqual({
+			completion: "deploy the worker to staging",
+			confidence: 1,
+			source: "session",
+		});
+	});
+
+	it("falls back to the corpus for an unknown session", async () => {
+		mocks.candidates = [
+			{ text: "deploy the worker to staging and restart the queue", at: 999 },
+			{ text: "deploy the worker to staging", at: 1, sessionFile: "/sessions/session-a.jsonl" },
+		];
+		const response = await handleChatCompletionPost(post({ text: "deploy the work", sessionId: "session-b" }));
+		const body = (await response.json()) as { source?: string };
+		expect(body.source).toBe("corpus");
 	});
 
 	it("returns an empty body when nothing matches", async () => {

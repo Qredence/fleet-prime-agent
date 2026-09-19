@@ -111,8 +111,10 @@ export {
 	PrimeAgentUserBashSchema,
 } from "./schemas/chat";
 export {
+	ComposerCompletionModeSchema,
 	ComposerCompletionRequestSchema,
 	ComposerCompletionResponseSchema,
+	ComposerCompletionSourceSchema,
 } from "./schemas/completion";
 export {
 	ComposerIntentCredentialSchema,

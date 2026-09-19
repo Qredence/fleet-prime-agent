@@ -16,6 +16,6 @@ export function handleChatCompletionPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = ComposerCompletionRequestSchema.parse(await request.json().catch(() => ({})));
 		const service = createComposerCompletionService({ index: getPromptIndex() });
-		return Response.json(await service.complete(body.text));
+		return Response.json(await service.complete(body.text, body.sessionId));
 	}, request);
 }

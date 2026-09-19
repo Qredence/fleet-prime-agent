@@ -297,7 +297,7 @@ describe("review regressions", () => {
 		fireEvent.click(getByRole("button", { name: "Stop generating" }));
 		expect(onStop).toHaveBeenCalledOnce();
 		fireEvent.change(prompt, { target: { value: "Adjust the current approach" } });
-		expect(getByRole("button", { name: "Steer current run" })).toBeTruthy();
+		expect(getByRole("button", { name: "Send follow-up" })).toBeTruthy();
 		fireEvent.keyDown(prompt, { key: "Enter" });
 		expect(onSend).toHaveBeenLastCalledWith({
 			role: "user",

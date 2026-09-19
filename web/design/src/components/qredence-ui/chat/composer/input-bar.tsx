@@ -13,7 +13,7 @@ import { Button } from "@prime-agent/web-design/components/ui/button";
 import type { ChatMode, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
-import { FileCode2, Plus, Terminal, X } from "lucide-react";
+import { FileCode2, Plus, X } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 import type { ChatModelOption } from "../../../../lib/pi/chat-helpers";
 import { cn } from "../../../../lib/utils";
@@ -97,19 +97,6 @@ export type InputBarProps = {
 	/** Reports the current draft so the host can classify it ahead of submit. */
 	onDraftChange?: (text: string) => void;
 	/**
-	 * Optional offer of a built-in command instead of sending the draft. The
-	 * chip never intercepts Enter: sending always goes through `onSend` unless
-	 * the user activates the chip itself.
-	 */
-	intentSuggestion?: {
-		/** The draft this offer was computed against; stale offers are dropped. */
-		forValue: string;
-		label: string;
-		description: string;
-		onAccept: () => void;
-		onDismiss: () => void;
-	};
-	/**
 	 * Ghost text offered after the caret. Tab accepts it, Escape dismisses it.
 	 * `forValue` must be the draft it was computed against, so a completion for an
 	 * older draft is never painted onto a newer one.
@@ -147,7 +134,6 @@ function InputBarContent({
 	onSlashCommandSelect,
 	onLocalSlashSubmit,
 	onDraftChange,
-	intentSuggestion,
 	inlineCompletion,
 	modelPickerOpen,
 	onModelPickerOpenChange,
@@ -167,7 +153,6 @@ function InputBarContent({
 	className,
 }: InputBarProps) {
 	const {
-		acceptIntentSuggestion,
 		activeTriggerIndex,
 		attachTextarea,
 		combinedPickerOpen,
@@ -195,7 +180,6 @@ function InputBarContent({
 		triggerKind,
 		triggerOpen,
 		value,
-		visibleIntentSuggestion,
 		workspaceQuery,
 	} = useInputBarState({
 		models,
@@ -207,7 +191,6 @@ function InputBarContent({
 		onSlashCommandSelect,
 		onLocalSlashSubmit,
 		onDraftChange,
-		intentSuggestion,
 		inlineCompletion,
 		modelPickerOpen,
 		onModelPickerOpenChange,
@@ -231,36 +214,9 @@ function InputBarContent({
 	);
 
 	return (
-		<div
-			className={cn("shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]", CHAT_COLUMN_CLASS, className)}
-		>
+		<div className={cn("shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]", CHAT_COLUMN_CLASS, className)}>
 			<div className="relative flex w-full flex-col gap-3">
 				<ComposerLoader label={infoDescription ?? undefined} isActive={isStreaming} />
-				{visibleIntentSuggestion && !isStreaming && !disabled ? (
-					<div className="flex items-center gap-2 rounded-xl border bg-muted/40 px-2.5 py-1.5">
-						<Terminal aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-						<button
-							type="button"
-							onClick={acceptIntentSuggestion}
-							className="min-w-0 flex-1 truncate rounded-md text-start text-sm hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-							title={visibleIntentSuggestion.description}
-						>
-							<span className="font-medium">{visibleIntentSuggestion.label}</span>
-							<span className="text-muted-foreground"> — {visibleIntentSuggestion.description}</span>
-						</button>
-						<button
-							type="button"
-							aria-label="Dismiss suggestion"
-							onClick={visibleIntentSuggestion.onDismiss}
-							className={cn(
-								HIT_AREA_EXPAND_CLASS,
-								"grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-							)}
-						>
-							<X aria-hidden="true" className="size-3" />
-						</button>
-					</div>
-				) : null}
 				{images.length > 0 || files.length > 0 ? (
 					<div className="flex flex-wrap gap-2 rounded-xl border bg-muted/40 p-2">
 						{images.map((image) => (
