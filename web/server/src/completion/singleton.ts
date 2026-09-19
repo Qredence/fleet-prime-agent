@@ -5,7 +5,7 @@
  * loaded corpus or start a second background build, mirroring `getBridge()` in
  * `../singleton.ts`.
  */
-import { SessionManager } from "prime-agent";
+import { SessionManager, type SessionMessageEntry } from "prime-agent";
 import { getPrimeConfig } from "../prime-config";
 import { normalizeSessionListRow, sessionSourcePath } from "../session-list";
 import { getBridge } from "../singleton";
@@ -38,16 +38,34 @@ function messageText(message: unknown): string {
 }
 
 /**
- * Reads one session through the runtime's supported `SessionManager`, the same
- * path the bridge uses to load a cold session. Transcripts are never
- * hand-parsed.
+ * Reads one session through the runtime's supported `SessionManager`. Transcripts
+ * are never hand-parsed.
+ *
+ * `getEntries()` rather than `buildSessionContext().messages`, and the difference
+ * is the point of the corpus. A context is what the *model* is shown: the branch
+ * leading to the current leaf, with everything before a compaction's
+ * `firstKeptEntryId` collapsed into a summary. A prompt is something the person
+ * *wrote*, and it does not stop being one because the conversation was compacted
+ * or the branch was abandoned. Measured over a real store of 447 sessions, the
+ * context view yielded 522 prompts and the entry view 830 — the corpus was never
+ * thin, it was being read through a lossy lens.
+ *
+ * Roles are preserved rather than pre-filtered, so `harvestPromptCandidates`
+ * stays the single authority on what counts: bash output (`bashExecution`),
+ * compaction summaries (`compactionSummary`) and harness messages are entries
+ * too, and none of them is a candidate.
+ *
+ * Exported so the test can pin that difference against a real session file.
  */
-const openSessionWithRuntime: OpenSession = async (sessionFile) => {
+export const openSessionWithRuntime: OpenSession = async (sessionFile) => {
 	const manager = await SessionManager.openAsync(sessionFile);
-	return manager.buildSessionContext().messages.map((message) => ({
-		role: (message as { role?: string }).role,
-		text: messageText(message),
-	}));
+	return manager
+		.getEntries()
+		.filter((entry): entry is SessionMessageEntry => entry.type === "message")
+		.map((entry) => ({
+			role: (entry.message as { role?: string }).role,
+			text: messageText(entry.message),
+		}));
 };
 
 export function getPromptIndex(): PromptIndex {
@@ -63,7 +81,6 @@ export function getPromptIndex(): PromptIndex {
 						sessionFile: sessionSourcePath(row.source),
 						modified: row.updatedAt,
 						isSubagent: row.isSubagent,
-						messageCount: row.messageCount,
 					};
 				}),
 			openSession: openSessionWithRuntime,

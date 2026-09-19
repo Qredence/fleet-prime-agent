@@ -12,36 +12,30 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { CompletionCandidate } from "./match";
-import { harvestPromptCandidates } from "./match";
+import { harvestPromptCandidates, sessionIdFromFile } from "./match";
 
 /**
- * Upper bound on how many of the most recently updated sessions are indexed.
+ * Upper bound on how many sessions are indexed, most recently updated first.
  *
- * Chosen from measurement rather than taste. On a real store of 404 non-subagent
- * sessions, the window size and the resulting corpus were:
+ * A guard against a pathological store, not a definition of the corpus. It was
+ * 400, picked when a 404-session store made the window look like it covered
+ * everything — and it silently cost 95 prompts from the 47 sessions it left out,
+ * including one session holding 35. A prompt does not become less worth
+ * repeating because the session holding it was last touched a month ago.
  *
- * | sessions | prompts | build |
- * | -------- | ------- | ----- |
- * | 50       | 49      | ~5s   |
- * | 200      | 276     | ~5s   |
- * | 400      | 534     | ~6s   |
- *
- * The narrow window is the trap: recent activity on a working machine is mostly
- * short sessions, so "the 50 most recent" held barely 50 prompts. Widening is
- * nearly free because the large sessions are skipped (see
- * {@link PROMPT_INDEX_MAX_SESSION_MESSAGES}) and the build is incremental.
+ * The window is also the wrong lever for cost, which is what it was standing in
+ * for. Measured on a store of 447 sessions: reading and harvesting *every* one
+ * through `getEntries()` takes ~3.2 s, off the request path, and the build is
+ * incremental afterwards. The bound therefore only exists so that a store of
+ * hundreds of thousands of sessions cannot make a rebuild unbounded.
  */
-export const PROMPT_INDEX_SESSION_LIMIT = 400;
-
+export const PROMPT_INDEX_SESSION_LIMIT = 2_000;
 /**
- * Sessions larger than this are skipped.
- *
- * A marathon run carries thousands of messages but very few user turns — measured
- * at 21, 37 and 25 user prompts across sessions of 10 008, 6 393 and 4 932
- * messages — so reading them is the most expensive and least productive part of
- * the build.
+ * Sessions with more entries than this are skipped on rebuild so a multi‑10k
+ * transcript cannot dominate memory/CPU. Incremental reuse of a prior harvest
+ * still applies when the session timestamp has not moved.
  */
-export const PROMPT_INDEX_MAX_SESSION_MESSAGES = 2_000;
+export const PROMPT_INDEX_MAX_SESSION_ENTRIES = 10_000;
 /** Upper bound on the retained corpus, by recency. */
 export const PROMPT_INDEX_CANDIDATE_LIMIT = 2_000;
 /** A rebuild is started when the index is older than this. */
@@ -61,14 +55,23 @@ export const PROMPT_INDEX_EMPTY_CONFIRMATIONS = 2;
 
 export const PROMPT_INDEX_FILE = "fleet-prompt-index.json";
 
-type PersistedSession = {
+/**
+ * The persisted index's on-disk shape.
+ *
+ * Exported, along with {@link readPromptIndexFile} and
+ * {@link flattenPromptIndex}, so the offline evaluation reads the corpus through
+ * the same code that writes it. A second parser in a script would be free to
+ * drift from this one, and an evaluation that measures a corpus the product never
+ * builds is worth nothing.
+ */
+export type PersistedSession = {
 	sessionFile: string;
 	/** The runtime's own "last modified" for the session file. */
 	modified: string;
 	prompts: Array<string>;
 };
 
-type PersistedPromptIndex = {
+export type PersistedPromptIndex = {
 	version: 1;
 	builtAt: string;
 	/** Consecutive empty rebuilds seen so far; see the confirmation constant. */
@@ -92,8 +95,6 @@ export type IndexableSession = {
 	/** The runtime's own last-modified timestamp for the session. */
 	modified?: string;
 	isSubagent?: boolean;
-	/** Used to skip marathon sessions, which are expensive and prompt-poor. */
-	messageCount?: number;
 };
 
 /**
@@ -112,7 +113,6 @@ export type PromptIndexOptions = {
 	now?: () => number;
 	log?: (message: string) => void;
 	sessionLimit?: number;
-	maxSessionMessages?: number;
 };
 
 export type PromptIndex = {
@@ -147,6 +147,11 @@ function sessionRecency(session: IndexableSession): number {
 	return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** Reads the persisted index, or `undefined` when absent or unreadable. */
+export async function readPromptIndexFile(agentDir: string): Promise<PersistedPromptIndex | undefined> {
+	return readPersisted(agentDir);
+}
+
 async function readPersisted(agentDir: string): Promise<PersistedPromptIndex | undefined> {
 	try {
 		const raw = JSON.parse(await readFile(promptIndexPath(agentDir), "utf8")) as Partial<PersistedPromptIndex>;
@@ -174,16 +179,30 @@ async function writePersisted(agentDir: string, index: PersistedPromptIndex): Pr
 	await rename(temporary, path);
 }
 
-function flatten(index: PersistedPromptIndex, limit: number): Array<CompletionCandidate> {
+/**
+ * Flattens the index into ranked candidates, exactly as the matcher consumes them.
+ *
+ * The `sessionId` stamp (and `sessionFile` for diagnostics) lets the matcher
+ * prefer the session being typed in; the sub-millisecond `at` offset is what
+ * keeps a session's own prompts ordered without outranking a session updated a
+ * moment later.
+ */
+export function flattenPromptIndex(index: PersistedPromptIndex, limit: number): Array<CompletionCandidate> {
 	const out: Array<CompletionCandidate> = [];
 	for (const session of index.sessions) {
 		const base = Date.parse(session.modified);
 		const at = Number.isFinite(base) ? base : 0;
+		const sessionId = sessionIdFromFile(session.sessionFile);
 		session.prompts.forEach((text, offset) => {
 			// Later prompts in a session are more recent, but the tie-break must stay
 			// strictly inside the session: adding whole milliseconds would let a long
 			// session's nth prompt outrank a session updated a millisecond later.
-			out.push({ text, at: at + Math.min(offset, 999) / 1000 });
+			out.push({
+				text,
+				at: at + Math.min(offset, 999) / 1000,
+				sessionFile: session.sessionFile,
+				sessionId,
+			});
 		});
 	}
 	out.sort((a, b) => b.at - a.at);
@@ -196,7 +215,6 @@ function flatten(index: PersistedPromptIndex, limit: number): Array<CompletionCa
  */
 export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 	const limit = options.sessionLimit ?? PROMPT_INDEX_SESSION_LIMIT;
-	const maxSessionMessages = options.maxSessionMessages ?? PROMPT_INDEX_MAX_SESSION_MESSAGES;
 	const now = options.now ?? Date.now;
 	const log = options.log ?? (() => {});
 	let persisted: PersistedPromptIndex | undefined;
@@ -244,9 +262,6 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 
 		const scoped = sessions
 			.filter((session) => !isSubagent(session))
-			// Marathon sessions are the most expensive reads and the least
-			// productive: thousands of messages, a handful of user turns.
-			.filter((session) => (session.messageCount ?? 0) <= maxSessionMessages)
 			.filter(
 				(session): session is IndexableSession & { sessionFile: string } =>
 					typeof session.sessionFile === "string" && session.sessionFile.length > 0,
@@ -265,6 +280,16 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 			}
 			try {
 				const messages = await options.openSession(session.sessionFile);
+				if (messages.length > PROMPT_INDEX_MAX_SESSION_ENTRIES) {
+					// Keep a prior harvest if we have one; otherwise skip the marathon.
+					if (cached) next.push(cached);
+					else {
+						log(
+							`prompt index: skipped ${session.sessionFile} (${messages.length} entries > ${PROMPT_INDEX_MAX_SESSION_ENTRIES})`,
+						);
+					}
+					continue;
+				}
 				next.push({
 					sessionFile: session.sessionFile,
 					modified,
@@ -337,7 +362,7 @@ export function createPromptIndex(options: PromptIndexOptions): PromptIndex {
 		candidates(): ReadonlyArray<CompletionCandidate> {
 			ensureFresh();
 			if (!persisted) return [];
-			flattened ??= flatten(persisted, PROMPT_INDEX_CANDIDATE_LIMIT);
+			flattened ??= flattenPromptIndex(persisted, PROMPT_INDEX_CANDIDATE_LIMIT);
 			return flattened;
 		},
 

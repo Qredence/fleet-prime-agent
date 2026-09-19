@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useInputBarState } from "./input-bar-state";
+import { useInputBarState } from "../input-bar-state";
 
 const slashCommands = [{ id: "settings", label: "/settings", value: "/settings" }];
 

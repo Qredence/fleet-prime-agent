@@ -6,6 +6,7 @@ import type { IndexableSession, OpenSession } from "../completion/prompt-index";
 import {
 	createPromptIndex,
 	PROMPT_INDEX_MAX_AGE_MS,
+	PROMPT_INDEX_MAX_SESSION_ENTRIES,
 	PROMPT_INDEX_RETRY_BACKOFF_MS,
 	promptIndexPath,
 } from "../completion/prompt-index";
@@ -78,6 +79,21 @@ describe("createPromptIndex", () => {
 
 		expect(openSession).toHaveBeenCalledTimes(1);
 		expect(openSession).toHaveBeenCalledWith("/s/real.jsonl");
+	});
+
+	it("reads every listed session, however long ago it was last touched", async () => {
+		// The window was 400, which on this store silently cost 95 prompts from the
+		// 47 sessions it excluded — including one session holding 35. Recency is a
+		// ranking, not a reason for a prompt to stop being a candidate.
+		const openSession = vi.fn<OpenSession>(async () => [{ role: "user", text: "a real prompt from a person" }]);
+		const sessions = Array.from({ length: 450 }, (_, index) =>
+			session(`/s/${index}.jsonl`, new Date(Date.UTC(2026, 0, 1) + index * 60_000).toISOString()),
+		);
+		const index = makeIndex({ sessions, openSession });
+		await index.refresh();
+
+		expect(openSession).toHaveBeenCalledTimes(450);
+		expect(index.stats().sessions).toBe(450);
 	});
 
 	it("keeps only the most recently updated sessions up to the limit", async () => {
@@ -212,5 +228,35 @@ describe("createPromptIndex", () => {
 		// Never awaits a build: a cold index returns nothing rather than blocking.
 		expect(index.candidates()).toEqual([]);
 		await vi.waitFor(() => expect(index.candidates().length).toBe(1));
+	});
+
+	it("skips sessions over the entry-count ceiling", async () => {
+		const openSession = vi.fn<OpenSession>(async () =>
+			Array.from({ length: PROMPT_INDEX_MAX_SESSION_ENTRIES + 1 }, (_, index) => ({
+				role: "user" as const,
+				text: `prompt number ${index} from a marathon session`,
+			})),
+		);
+		const index = makeIndex({
+			sessions: [session("/s/huge.jsonl", "2026-09-18T11:00:00.000Z")],
+			openSession,
+		});
+		await index.refresh();
+		expect(openSession).toHaveBeenCalledTimes(1);
+		expect(index.candidates()).toEqual([]);
+		expect(index.stats().sessions).toBe(0);
+	});
+
+	it("stamps sessionId onto flattened candidates", async () => {
+		const index = makeIndex({
+			sessions: [session("/s/session-a.jsonl", "2026-09-18T11:00:00.000Z")],
+			openSession: async () => [{ role: "user", text: "a real prompt from a person" }],
+		});
+		await index.refresh();
+		expect(index.candidates()[0]).toMatchObject({
+			text: "a real prompt from a person",
+			sessionFile: "/s/session-a.jsonl",
+			sessionId: "session-a",
+		});
 	});
 });

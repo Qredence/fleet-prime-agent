@@ -58,7 +58,9 @@ const LazySessionToolRenderer = lazy(() =>
  */
 function SessionToolRenderer(props: ComponentProps<typeof LazySessionToolRenderer>) {
 	return (
-		<Suspense fallback={<div className="h-7 animate-pulse rounded-md bg-muted/40" aria-label="Loading tool" />}>
+		<Suspense
+			fallback={<div className="h-7 animate-pulse rounded-md bg-muted/40" role="status" aria-label="Loading tool" />}
+		>
 			<LazySessionToolRenderer {...props} />
 		</Suspense>
 	);
@@ -83,7 +85,13 @@ const LazySessionReasoningPanel = lazy(() =>
 function SessionReasoningPanel(props: ComponentProps<typeof LazySessionReasoningPanel>) {
 	return (
 		<Suspense
-			fallback={<div className="mb-2 h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading reasoning" />}
+			fallback={
+				<div
+					className="mb-2 h-6 animate-pulse rounded-md bg-muted/40"
+					role="status"
+					aria-label="Loading reasoning"
+				/>
+			}
 		>
 			<LazySessionReasoningPanel {...props} />
 		</Suspense>
@@ -106,7 +114,11 @@ const LazyToolTimeline = lazy(() =>
  */
 function ToolTimeline(props: ComponentProps<typeof LazyToolTimeline>) {
 	return (
-		<Suspense fallback={<div className="h-6 animate-pulse rounded-md bg-muted/40" aria-label="Loading timeline" />}>
+		<Suspense
+			fallback={
+				<div className="h-6 animate-pulse rounded-md bg-muted/40" role="status" aria-label="Loading timeline" />
+			}
+		>
 			<LazyToolTimeline {...props} />
 		</Suspense>
 	);
@@ -130,7 +142,13 @@ function PromptSuggestions(props: ComponentProps<typeof LazyPromptSuggestions>) 
 	return (
 		<div className="min-h-8">
 			<Suspense
-				fallback={<div className="h-8 animate-pulse rounded-full bg-muted/40" aria-label="Loading suggestions" />}
+				fallback={
+					<div
+						className="h-8 animate-pulse rounded-full bg-muted/40"
+						role="status"
+						aria-label="Loading suggestions"
+					/>
+				}
 			>
 				<LazyPromptSuggestions {...props} />
 			</Suspense>
@@ -540,10 +558,9 @@ function resolveSuggestions(suggestions: AgentChatViewProps["suggestions"]) {
 /**
  * Owns the composer draft state so that keystrokes re-render only the input
  * bar instead of the whole chat (including the MessageScroller subtree).
- * Suggestion clicks reach the draft via `draftSetterRef`, which always points
- * at the currently mounted composer (welcome and bottom-bar composers are
- * mutually exclusive, and the draft is cleared on send — so per-instance state
- * is behavior-identical to the previous shared state).
+ * Suggestion clicks reach the draft via `draftSetterRef`. The composer always
+ * mounts as sticky chrome below the scroller (welcome and active session share
+ * one host), and the draft is cleared on send.
  */
 function ChatComposerHost({
 	inputBar,
@@ -569,7 +586,7 @@ function ChatComposerHost({
 	return (
 		<InputBar
 			{...inputBar}
-			className={cn(inputBar.className, isEmpty && "px-0 pb-0")}
+			className={inputBar.className}
 			placeholder={isEmpty ? "Ask Prime to build, investigate, or change something…" : inputBar.placeholder}
 			controlled={{ value: draft, onChange: setDraft }}
 			status={status}
@@ -728,11 +745,7 @@ export function AgentChat({
 				)}
 			>
 				{isEmpty ? (
-					<ChatWelcome
-						disabled={isStreaming}
-						onSelect={(item) => setDraft(item.value ?? item.label)}
-						composer={composerNode}
-					/>
+					<ChatWelcome disabled={isStreaming} onSelect={(item) => setDraft(item.value ?? item.label)} />
 				) : null}
 				<VirtualizedTurnList
 					estimateSize={400}
@@ -767,7 +780,7 @@ export function AgentChat({
 					/>
 				) : null}
 			</MessageScroller>
-			{!isEmpty ? composerNode : null}
+			{composerNode}
 			{queue && (queue.steering.length > 0 || queue.followUp.length > 0) ? (
 				<MessageQueue queue={queue} onDelete={onDeleteQueuedMessage} onEdit={onEditQueuedMessage} />
 			) : null}

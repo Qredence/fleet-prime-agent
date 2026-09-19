@@ -1,5 +1,6 @@
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { ChevronDown, ChevronUp, MessageCircleQuestion } from "lucide-react";
+import { HIT_AREA_EXPAND_DENSE_CLASS } from "../../../chrome/tokens";
 import type { ApprovalCardAnswers, ApprovalCardQuestion } from "../../../tools/approval-card/index";
 import { ApprovalCard } from "../../../tools/approval-card/index";
 import type { QuestionBarData, QuestionBarNavigation } from "../../hooks/use-question-bar-navigation";
@@ -80,15 +81,10 @@ export function InputQuestionBar({ questionBar, navigation, roundedTop, onDismis
 	};
 
 	return (
-		<div
-			className={cn(
-				"mx-auto w-full max-w-[calc(100%-24px)] border-x border-t border-border",
-				roundedTop ? "rounded-t-chat-input" : null,
-			)}
-		>
+		<div className={cn("w-full border-x border-t border-border", roundedTop ? "rounded-t-chat-input" : null)}>
 			<div className="flex h-7 items-center justify-between border-b border-border px-3 text-xs text-muted-foreground">
 				<div className="inline-flex items-center gap-1.5">
-					<MessageCircleQuestion className="size-3.5" />
+					<MessageCircleQuestion aria-hidden="true" className="size-3.5" />
 					Question
 				</div>
 				{showQuestionNavigation && (
@@ -97,10 +93,13 @@ export function InputQuestionBar({ questionBar, navigation, roundedTop, onDismis
 							type="button"
 							onClick={goToPreviousQuestion}
 							disabled={!canGoPrev}
-							className="relative inline-flex size-5 items-center justify-center rounded-[4px] transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-2.5 after:-bottom-2.5 hover:bg-secondary active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100"
+							className={cn(
+								HIT_AREA_EXPAND_DENSE_CLASS,
+								"inline-flex size-6 items-center justify-center rounded-[4px] transition-[background-color,transform] duration-150 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100",
+							)}
 							aria-label="Previous question"
 						>
-							<ChevronUp className="size-3.5" />
+							<ChevronUp aria-hidden="true" className="size-3.5" />
 						</button>
 						<span className="tabular-nums">
 							{clampedQuestionIndex} of {totalQuestions}
@@ -109,10 +108,13 @@ export function InputQuestionBar({ questionBar, navigation, roundedTop, onDismis
 							type="button"
 							onClick={goToNextQuestion}
 							disabled={!canGoNext}
-							className="relative inline-flex size-5 items-center justify-center rounded-[4px] transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-2.5 after:-bottom-2.5 hover:bg-secondary active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100"
+							className={cn(
+								HIT_AREA_EXPAND_DENSE_CLASS,
+								"inline-flex size-6 items-center justify-center rounded-[4px] transition-[background-color,transform] duration-150 hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] disabled:opacity-40 disabled:active:scale-100",
+							)}
 							aria-label="Next question"
 						>
-							<ChevronDown className="size-3.5" />
+							<ChevronDown aria-hidden="true" className="size-3.5" />
 						</button>
 					</div>
 				)}

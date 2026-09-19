@@ -63,7 +63,7 @@ export function AccountMenu({
 						ariaLabel="Open account menu"
 						className={cn(
 							"min-w-0 border-transparent shadow-none",
-							compact ? "size-8 justify-center px-2" : "w-full justify-start",
+							compact ? "size-8 justify-center px-2" : "w-full justify-start px-2 text-start",
 						)}
 					>
 						<QredenceLogo className="size-3.5 shrink-0" />

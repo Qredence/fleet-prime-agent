@@ -158,8 +158,8 @@ describe("SessionSidebar project rows", () => {
 
 		const rootRow = getByRole("treeitem", { name: /root-session/i });
 		const childRow = getByRole("treeitem", { name: /child-session/i });
-		expect(rootRow.style.paddingLeft).toBe("22px");
-		expect(childRow.style.paddingLeft).toBe("36px");
+		expect(rootRow.style.paddingInlineStart).toBe("22px");
+		expect(childRow.style.paddingInlineStart).toBe("36px");
 		expect(childRow.getAttribute("aria-level")).toBe("2");
 	});
 

@@ -1,12 +1,17 @@
 /**
  * Inline completion (ghost text) for the composer.
  *
+ * There is one suggestion surface. A completion is either an `append` — history
+ * that extends the draft — or a `replace` — a recognised command, which does not.
+ * Both are accepted with Tab.
+ *
  * Pure logic and the shared text-metric recipe. The ghost is painted by a second
  * mirror of the textarea, so the only thing keeping the ghost under the caret is
  * that the mirror, the measurement div and the textarea wrap identically. They
  * therefore all read {@link PROMPT_TEXT_METRICS}; never write those tokens out
  * by hand, and never let one node drift from the others.
  */
+import type { ComposerCompletionMode } from "@prime-agent/web-protocol/composer-completion";
 
 /**
  * The text metric recipe shared by the textarea, its auto-resize measurement
@@ -34,6 +39,8 @@ export const PROMPT_GHOST_CLASS = "text-foreground/55";
 export type InlineCompletion = {
 	forValue: string;
 	text: string;
+	/** `append` splices the text on; `replace` sets the draft to it. */
+	mode: ComposerCompletionMode;
 	onAccept?: (next: string) => void;
 	onDismiss?: () => void;
 };
@@ -73,8 +80,6 @@ export type InlineCompletionContext = {
 	disabled: boolean;
 	/** A `/` or `@` trigger menu is open and owns the interaction. */
 	triggerOpen: boolean;
-	/** A command suggestion chip is showing; it is the louder offer. */
-	intentSuggestion: boolean;
 	/** Set once the user has dismissed this exact draft's completion. */
 	dismissed: { forValue: string; text: string } | undefined;
 };
@@ -85,9 +90,12 @@ export type InlineCompletionContext = {
  * Returning `null` rather than an empty string keeps "nothing to show" and
  * "show nothing" the same state, so Tab can never be swallowed with nothing to
  * accept. Every reason to hide lives here so that the render gate and the
- * accept path cannot disagree.
+ * accept path cannot disagree — which is why the accepted `mode` travels back
+ * out with the text rather than being re-read from the prop by the accept path.
  */
-export function resolveInlineCompletion(context: InlineCompletionContext): { text: string } | null {
+export function resolveInlineCompletion(
+	context: InlineCompletionContext,
+): { text: string; mode: ComposerCompletionMode } | null {
 	const { completion, value, editing } = context;
 	if (!completion) return null;
 	// Stale, or already accepted.
@@ -96,13 +104,16 @@ export function resolveInlineCompletion(context: InlineCompletionContext): { tex
 	const text = completion.text;
 	// An invisible ghost would trap Tab.
 	if (text.length === 0 || text.trim().length === 0) return null;
-	// Already present: appending would duplicate it.
-	if (value.endsWith(text)) return null;
+	// Already present: appending would duplicate it. A `replace` is not a
+	// duplicate, and a draft merely *ending* with the command is the case
+	// replacement exists for ("please run the /compact"), so the guard is
+	// append-only. Applied to both modes it would hide an offer the command chip
+	// used to make.
+	if (completion.mode !== "replace" && value.endsWith(text)) return null;
 	if (value.length === 0) return null;
 
 	if (context.streaming || context.disabled) return null;
 	if (context.triggerOpen) return null;
-	if (context.intentSuggestion) return null;
 
 	if (context.dismissed && context.dismissed.forValue === value && context.dismissed.text === text) return null;
 
@@ -116,16 +127,39 @@ export function resolveInlineCompletion(context: InlineCompletionContext): { tex
 	// conditioned on a draft whose end is not where the text would be inserted.
 	if (editing.caretStart !== value.length) return null;
 
-	return { text };
+	return { text, mode: completion.mode };
 }
 
 /**
  * Applies an accepted completion.
  *
  * Trivial because {@link resolveInlineCompletion} has already established that
- * the caret is at the end; it exists as a named function so the "splice at the
- * caret" contract has exactly one home if mid-string insertion is ever enabled.
+ * the caret is at the end; it exists as a named function so the contract has
+ * exactly one home if mid-string insertion is ever enabled.
+ *
+ * `mode` defaults to `append` so a caller that predates commands cannot
+ * silently stop splicing.
  */
-export function spliceCompletion(value: string, text: string): string {
-	return `${value}${text}`;
+export function spliceCompletion(value: string, text: string, mode: ComposerCompletionMode = "append"): string {
+	return mode === "replace" ? text : `${value}${text}`;
+}
+
+/**
+ * The ghost as painted after the draft.
+ *
+ * For `append` this is the completion itself. For `replace` the draft is not a
+ * prefix of the suggestion, so painting the two flush would run them together
+ * into one unreadable string ("make this shorter/compact"); a separating space
+ * is inserted when the draft does not already end in whitespace.
+ *
+ * The separator is display-only. The accepted text is the completion alone, so
+ * it never reaches the draft.
+ */
+export function ghostPaintText(
+	value: string,
+	completion: { text: string; mode: ComposerCompletionMode } | null,
+): string | undefined {
+	if (!completion) return undefined;
+	if (completion.mode === "append") return completion.text;
+	return /\s$/.test(value) ? completion.text : ` ${completion.text}`;
 }

@@ -15,7 +15,7 @@ import { findCompletion } from "./match";
 import type { PromptIndex } from "./prompt-index";
 
 export type ComposerCompletionService = {
-	complete: (draft: string) => Promise<ComposerCompletionResponse>;
+	complete: (draft: string, sessionId?: string) => Promise<ComposerCompletionResponse>;
 };
 
 /**
@@ -32,7 +32,7 @@ export type ComposerCompletionServiceOptions = {
 
 export function createComposerCompletionService(options: ComposerCompletionServiceOptions): ComposerCompletionService {
 	return {
-		async complete(draft: string): Promise<ComposerCompletionResponse> {
+		async complete(draft: string, sessionId?: string): Promise<ComposerCompletionResponse> {
 			if (composerCompletionIgnores(draft)) return {};
 			// Wait only for the corpus to be *read*, never for a rebuild: the index
 			// refreshes itself in the background.
@@ -40,8 +40,15 @@ export function createComposerCompletionService(options: ComposerCompletionServi
 				options.index.ready(),
 				new Promise<void>((resolve) => setTimeout(resolve, INDEX_READY_TIMEOUT_MS)),
 			]);
-			const completion = findCompletion(draft, options.index.candidates());
-			return completion ? { completion } : {};
+			const suggestion = findCompletion(draft, options.index.candidates(), { sessionId });
+			if (!suggestion) return {};
+			// History completions always extend the draft; `replace` is synthesised
+			// in the browser from the intent router and never travels this payload.
+			return {
+				completion: suggestion.completion,
+				confidence: suggestion.confidence,
+				source: suggestion.source,
+			};
 		},
 	};
 }

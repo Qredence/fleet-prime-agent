@@ -231,9 +231,10 @@ export function useSessionSidebarViewModel({
 					kind: "action",
 				});
 			} else if (sessionsForProject.length > INITIAL_SESSION_COUNT) {
+				const hidden = sessionsForProject.length - visible.length;
 				children.push({
 					id: `toggle:${project.projectId}`,
-					label: revealed ? "Show less" : "Show more",
+					label: revealed ? "Show less" : `Show ${hidden} more`,
 					kind: "action",
 				});
 			}
@@ -251,20 +252,19 @@ export function useSessionSidebarViewModel({
 			),
 		);
 		if (unassigned.length > 0) {
-			const unassignedChildren: SidebarResource[] = visibleProjectSessions(
-				unassigned,
-				activeSessionId,
-				revealedProjectIds.has("unassigned"),
-			).map((session) => ({
+			const unassignedRevealed = revealedProjectIds.has("unassigned");
+			const unassignedVisible = visibleProjectSessions(unassigned, activeSessionId, unassignedRevealed);
+			const unassignedChildren: SidebarResource[] = unassignedVisible.map((session) => ({
 				id: sessionResourceId(session.sessionId),
 				label: sessionLabel(session, unassigned),
 				kind: "file",
 				...(session.isSubagent ? { indent: 1 } : {}),
 			}));
 			if (unassigned.length > INITIAL_SESSION_COUNT) {
+				const hidden = unassigned.length - unassignedVisible.length;
 				unassignedChildren.push({
 					id: "toggle:unassigned",
-					label: revealedProjectIds.has("unassigned") ? "Show less" : "Show more",
+					label: unassignedRevealed ? "Show less" : `Show ${hidden} more`,
 					kind: "action",
 				});
 			}

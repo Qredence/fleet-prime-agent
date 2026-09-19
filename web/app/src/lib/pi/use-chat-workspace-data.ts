@@ -1,3 +1,4 @@
+import type { InlineCompletion } from "@prime-agent/web-design/components/qredence-ui/chat/composer/inline-completion";
 import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/prime-agent-artifacts";
 import { notify } from "@prime-agent/web-design/lib/notify";
 import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
@@ -8,7 +9,6 @@ import type {
 	ChatSessionMetadata,
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
-import { composerIntentCommand } from "@prime-agent/web-protocol/composer-intent";
 import type { UploadedAttachment, WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { identifyAnalyticsUser } from "@/lib/analytics-stub";
@@ -547,11 +547,31 @@ export function useChatWorkspaceData() {
 	const {
 		onDraftChange: onComposerDraftChange,
 		takeCached: takeCachedIntent,
-		suggestion: offeredIntent,
-		dismissSuggestion: dismissIntentSuggestion,
+		command: offeredCommand,
+		dismissCommand,
 	} = useComposerIntentRouting(composerIntentAvailability.available);
-	// Completions are local and need no opt-in; they never leave the machine.
-	const { onDraftChange: onCompletionDraftChange, inlineCompletion } = useComposerInlineCompletion(true);
+	// History completions are local and need no opt-in; they never leave the
+	// machine. A recognised command is coalesced over history in the host — the
+	// history hook stays append-only.
+	const { onDraftChange: onCompletionDraftChange, inlineCompletion: historyCompletion } = useComposerInlineCompletion({
+		available: true,
+		sessionId: sessionMetadata.sessionId,
+	});
+
+	const inlineCompletion = useMemo((): InlineCompletion | undefined => {
+		if (offeredCommand) {
+			return {
+				forValue: offeredCommand.forValue,
+				text: `/${offeredCommand.command}`,
+				mode: "replace",
+				onDismiss: () => {
+					dismissCommand();
+					historyCompletion?.onDismiss?.();
+				},
+			};
+		}
+		return historyCompletion;
+	}, [dismissCommand, historyCompletion, offeredCommand]);
 
 	// Both consumers share the composer's single debounced draft publication.
 	const handleComposerDraftChange = useCallback(
@@ -580,35 +600,6 @@ export function useChatWorkspaceData() {
 		startNewSession: startNewSessionForWorkspace,
 		takeCachedIntent,
 	});
-
-	/**
-	 * Runs an offered command. Local commands go through the same resolver the
-	 * typed `/command` path uses; session commands are sent as their slash form,
-	 * exactly as if the user had typed them.
-	 */
-	const acceptIntentSuggestion = useCallback(() => {
-		if (!offeredIntent) return;
-		dismissIntentSuggestion();
-		if (composerIntentCommand(offeredIntent.command)?.handling === "session") {
-			void sendMessage({ text: `/${offeredIntent.command}`, altKey: false, mode: chatMode });
-			return;
-		}
-		handleLocalSlashSubmit(`/${offeredIntent.command}`);
-	}, [chatMode, dismissIntentSuggestion, handleLocalSlashSubmit, offeredIntent, sendMessage]);
-
-	const intentSuggestion = useMemo(
-		() =>
-			offeredIntent
-				? {
-						forValue: offeredIntent.forValue,
-						label: offeredIntent.label,
-						description: offeredIntent.description,
-						onAccept: acceptIntentSuggestion,
-						onDismiss: dismissIntentSuggestion,
-					}
-				: undefined,
-		[acceptIntentSuggestion, dismissIntentSuggestion, offeredIntent],
-	);
 
 	const setComposerIntentEnabled = useCallback(
 		async (enabled: boolean) => {
@@ -809,7 +800,6 @@ export function useChatWorkspaceData() {
 			handleSlashCommandSelect,
 			infoDescription,
 			inputSuggestionItems,
-			intentSuggestion,
 			inlineCompletion,
 			onComposerDraftChange: handleComposerDraftChange,
 			workspaceReferenceSuggestions,

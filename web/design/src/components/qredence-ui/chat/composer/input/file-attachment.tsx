@@ -1,6 +1,7 @@
 import { cn } from "@prime-agent/web-design/lib/utils";
 import { FileCode, FileJson, FileText, ImageIcon, X } from "lucide-react";
 import { useState } from "react";
+import { HIT_AREA_EXPAND_CLASS } from "../../../chrome/tokens";
 import { ImageLightbox } from "../../../tools/image-lightbox";
 
 export type FileAttachmentProps = {
@@ -66,13 +67,13 @@ function getFileIconName(filename: string, isImage?: boolean): FileIconName {
 function renderFileIcon(iconName: FileIconName) {
 	switch (iconName) {
 		case "image":
-			return <ImageIcon className="size-4 text-muted-foreground" />;
+			return <ImageIcon aria-hidden="true" className="size-4 text-muted-foreground" />;
 		case "code":
-			return <FileCode className="size-4 text-muted-foreground" />;
+			return <FileCode aria-hidden="true" className="size-4 text-muted-foreground" />;
 		case "data":
-			return <FileJson className="size-4 text-muted-foreground" />;
+			return <FileJson aria-hidden="true" className="size-4 text-muted-foreground" />;
 		default:
-			return <FileText className="size-4 text-muted-foreground" />;
+			return <FileText aria-hidden="true" className="size-4 text-muted-foreground" />;
 	}
 }
 
@@ -98,66 +99,55 @@ export function FileAttachment({
 		setIsLightboxOpen(true);
 	};
 
+	const previewButtonClass = cn(
+		"shrink-0 overflow-hidden rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding)-2px)]",
+		canPreview && "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring",
+	);
+
 	return (
 		<div
 			className={cn(
-				"relative rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding))] bg-muted/50",
+				"group relative rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding))] bg-muted/50",
 				isImageOnly
 					? "flex size-10 items-center justify-center"
-					: "flex max-w-[200px] min-w-[120px] items-center gap-2 py-1 pr-2 pl-1",
+					: "flex max-w-[min(12.5rem,100%)] min-w-0 items-center gap-2 py-1 ps-1 pe-2",
 				className,
 			)}
 			onMouseEnter={() => setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 		>
 			{isImageOnly ? (
-				<div
-					className={cn(
-						"size-8 shrink-0 overflow-hidden rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding)-2px)]",
-						canPreview && "cursor-pointer",
-					)}
-					onClick={canPreview ? openLightbox : undefined}
-					role={canPreview ? "button" : undefined}
-					tabIndex={canPreview ? 0 : undefined}
-					aria-label={canPreview ? `Preview ${filename}` : undefined}
-					onKeyDown={
-						canPreview
-							? (event) => {
-									if (event.key === "Enter" || event.key === " ") {
-										event.preventDefault();
-										openLightbox();
-									}
-								}
-							: undefined
-					}
-				>
-					<img src={url} alt={filename} className="h-full w-full object-cover" />
-				</div>
+				canPreview ? (
+					<button
+						type="button"
+						className={cn(previewButtonClass, "size-8 border-0 bg-transparent p-0")}
+						onClick={openLightbox}
+						aria-label={`Preview ${filename}`}
+					>
+						<img src={url} alt="" className="h-full w-full object-cover" />
+					</button>
+				) : (
+					<div className={cn(previewButtonClass, "size-8")}>
+						<img src={url} alt={filename} className="h-full w-full object-cover" />
+					</div>
+				)
 			) : (
 				<>
 					{isImage && url ? (
-						<div
-							className={cn(
-								"w-8 shrink-0 self-stretch overflow-hidden rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding)-2px)]",
-								canPreview && "cursor-pointer",
-							)}
-							onClick={canPreview ? openLightbox : undefined}
-							role={canPreview ? "button" : undefined}
-							tabIndex={canPreview ? 0 : undefined}
-							aria-label={canPreview ? `Preview ${filename}` : undefined}
-							onKeyDown={
-								canPreview
-									? (event) => {
-											if (event.key === "Enter" || event.key === " ") {
-												event.preventDefault();
-												openLightbox();
-											}
-										}
-									: undefined
-							}
-						>
-							<img src={url} alt={filename} className="aspect-square h-full w-full object-cover" />
-						</div>
+						canPreview ? (
+							<button
+								type="button"
+								className={cn(previewButtonClass, "w-8 self-stretch border-0 bg-transparent p-0")}
+								onClick={openLightbox}
+								aria-label={`Preview ${filename}`}
+							>
+								<img src={url} alt="" className="aspect-square h-full w-full object-cover" />
+							</button>
+						) : (
+							<div className={cn(previewButtonClass, "w-8 self-stretch")}>
+								<img src={url} alt={filename} className="aspect-square h-full w-full object-cover" />
+							</div>
+						)
 					) : (
 						<div className="flex w-8 shrink-0 items-center justify-center self-stretch rounded-[calc(var(--chat-input-radius)-var(--chat-context-padding)-2px)] bg-muted">
 							{renderFileIcon(iconName)}
@@ -182,10 +172,14 @@ export function FileAttachment({
 						onRemove();
 					}}
 					aria-label={`Remove ${filename}`}
-					className={`absolute -top-1.5 -right-1.5 z-10 flex size-4 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground active:scale-[0.97] ${isHovered ? "opacity-100" : "opacity-0"}`}
+					className={cn(
+						HIT_AREA_EXPAND_CLASS,
+						"absolute -top-1.5 -end-1.5 z-10 flex size-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100",
+						isHovered ? "opacity-100" : "opacity-0",
+					)}
 					type="button"
 				>
-					<X className="size-3" />
+					<X aria-hidden="true" className="size-3" />
 				</button>
 			)}
 

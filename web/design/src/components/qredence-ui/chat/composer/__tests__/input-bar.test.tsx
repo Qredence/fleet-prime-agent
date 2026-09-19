@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AgentChat } from "../agent-chat";
-import { InputBar } from "./input-bar";
+import { AgentChat } from "../../agent-chat";
+import { InputBar } from "../input-bar";
 
 describe("InputBar slash menu control", () => {
 	it("renders the open-slash control on the welcome composer path", () => {
@@ -61,9 +61,41 @@ describe("InputBar slash menu control", () => {
 		);
 
 		const slashButton = screen.getByRole("button", { name: "Open slash commands" });
-		const modeButton = screen.getByRole("button", { name: "Select mode" });
+		const modeButton = screen.getByRole("button", { name: "Select mode, Agent" });
 
 		expect(slashButton).toBeTruthy();
 		expect(slashButton.compareDocumentPosition(modeButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+
+	it("keeps every character when typing into the empty-session composer outside the scroller", () => {
+		render(
+			<AgentChat
+				inputBar={{
+					modelKey: undefined,
+					models: [],
+					onModelChange: vi.fn(),
+				}}
+				messages={[]}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+			/>,
+		);
+
+		const prompt = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement;
+		const draft = "type every character of this sentence";
+		let value = "";
+		for (const char of draft) {
+			value += char;
+			// Native `input` can precede React's delegated `onChange`. Publishing
+			// editing state from `input` used to re-render with a stale controlled
+			// value and wipe short keypresses (hold-to-repeat looked like it worked).
+			fireEvent.input(prompt, { target: { value } });
+			fireEvent.keyUp(prompt, { key: char });
+		}
+
+		expect(prompt.value).toBe(draft);
+		// Composer is sticky chrome, not nested under the transcript log.
+		expect(prompt.closest('[role="log"]')).toBeNull();
 	});
 });

@@ -13,11 +13,11 @@ import { Button } from "@prime-agent/web-design/components/ui/button";
 import type { ChatMode, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
-import { FileCode2, Plus, Terminal, X } from "lucide-react";
+import { FileCode2, Plus, X } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 import type { ChatModelOption } from "../../../../lib/pi/chat-helpers";
 import { cn } from "../../../../lib/utils";
-import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS } from "../../chrome/tokens";
+import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS, HIT_AREA_EXPAND_CLASS } from "../../chrome/tokens";
 import { AGENT_CHAT_MODES } from "../chat-modes";
 import type { QuestionBarData } from "../hooks/use-question-bar-navigation";
 import type { InlineCompletion } from "./inline-completion";
@@ -97,19 +97,6 @@ export type InputBarProps = {
 	/** Reports the current draft so the host can classify it ahead of submit. */
 	onDraftChange?: (text: string) => void;
 	/**
-	 * Optional offer of a built-in command instead of sending the draft. The
-	 * chip never intercepts Enter: sending always goes through `onSend` unless
-	 * the user activates the chip itself.
-	 */
-	intentSuggestion?: {
-		/** The draft this offer was computed against; stale offers are dropped. */
-		forValue: string;
-		label: string;
-		description: string;
-		onAccept: () => void;
-		onDismiss: () => void;
-	};
-	/**
 	 * Ghost text offered after the caret. Tab accepts it, Escape dismisses it.
 	 * `forValue` must be the draft it was computed against, so a completion for an
 	 * older draft is never painted onto a newer one.
@@ -147,7 +134,6 @@ function InputBarContent({
 	onSlashCommandSelect,
 	onLocalSlashSubmit,
 	onDraftChange,
-	intentSuggestion,
 	inlineCompletion,
 	modelPickerOpen,
 	onModelPickerOpenChange,
@@ -167,12 +153,10 @@ function InputBarContent({
 	className,
 }: InputBarProps) {
 	const {
-		acceptIntentSuggestion,
 		activeTriggerIndex,
 		attachTextarea,
 		combinedPickerOpen,
 		commandGroups,
-		closeTriggerMenu,
 		files,
 		ghostText,
 		handleCombinedPickerOpenChange,
@@ -196,7 +180,6 @@ function InputBarContent({
 		triggerKind,
 		triggerOpen,
 		value,
-		visibleIntentSuggestion,
 		workspaceQuery,
 	} = useInputBarState({
 		models,
@@ -208,7 +191,6 @@ function InputBarContent({
 		onSlashCommandSelect,
 		onLocalSlashSubmit,
 		onDraftChange,
-		intentSuggestion,
 		inlineCompletion,
 		modelPickerOpen,
 		onModelPickerOpenChange,
@@ -232,57 +214,11 @@ function InputBarContent({
 	);
 
 	return (
-		<div className={cn("shrink-0 pb-3", CHAT_COLUMN_CLASS, className)}>
-			<div className="relative w-full">
+		<div className={cn("shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]", CHAT_COLUMN_CLASS, className)}>
+			<div className="relative flex w-full flex-col gap-3">
 				<ComposerLoader label={infoDescription ?? undefined} isActive={isStreaming} />
-				{visibleIntentSuggestion && !isStreaming && !disabled ? (
-					<div className="mb-2 flex items-center gap-2 rounded-xl border bg-muted/40 px-2.5 py-1.5">
-						<Terminal className="size-3.5 shrink-0 text-muted-foreground" />
-						<button
-							type="button"
-							onClick={acceptIntentSuggestion}
-							className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-							title={visibleIntentSuggestion.description}
-						>
-							<span className="font-medium">{visibleIntentSuggestion.label}</span>
-							<span className="text-muted-foreground"> — {visibleIntentSuggestion.description}</span>
-						</button>
-						<button
-							type="button"
-							aria-label="Dismiss suggestion"
-							onClick={visibleIntentSuggestion.onDismiss}
-							className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-						>
-							<X className="size-3" />
-						</button>
-					</div>
-				) : null}
-				{showQuestion ? (
-					<InputQuestionBar
-						questionBar={questionBar!}
-						navigation={navigation}
-						roundedTop
-						onDismiss={setDismissedQuestionId}
-					/>
-				) : null}
-				<ComposerTriggerPopover
-					open={triggerOpen}
-					kind={triggerKind ?? "slash"}
-					query={triggerKind === "slash" ? slashQuery : workspaceQuery}
-					items={triggerKind === "mention" ? filteredWorkspaceItems : undefined}
-					groups={triggerKind === "slash" ? commandGroups : undefined}
-					activeIndex={activeTriggerIndex}
-					onActiveIndexChange={setActiveTriggerIndex}
-					onSelect={(item: ComposerTriggerItem) => {
-						if (triggerKind === "slash") selectCommand(item);
-						else selectWorkspaceReference(item);
-					}}
-					onClose={closeTriggerMenu}
-					title={triggerKind === "slash" ? "Commands" : "Workspace references"}
-					listId="composer-trigger-list"
-				/>
 				{images.length > 0 || files.length > 0 ? (
-					<div className="mb-2 flex flex-wrap gap-2 rounded-xl border bg-muted/40 p-2">
+					<div className="flex flex-wrap gap-2 rounded-xl border bg-muted/40 p-2">
 						{images.map((image) => (
 							<div key={image.id} className="group relative">
 								<img
@@ -299,9 +235,12 @@ function InputBarContent({
 									size="icon-xs"
 									aria-label={`Remove ${image.filename}`}
 									onClick={() => attachments?.onRemoveImage?.(image.id)}
-									className="absolute -right-1 -top-1 size-5 rounded-full bg-background opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+									className={cn(
+										HIT_AREA_EXPAND_CLASS,
+										"absolute -end-1 -top-1 size-6 rounded-full bg-background opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
+									)}
 								>
-									<X data-icon="inline-start" className="size-3" />
+									<X data-icon="inline-start" aria-hidden="true" className="size-3" />
 								</Button>
 							</div>
 						))}
@@ -317,78 +256,108 @@ function InputBarContent({
 					</div>
 				) : null}
 				{workspaceReferences.length > 0 ? (
-					<div className="mb-2 flex flex-wrap gap-1.5 rounded-xl border bg-muted/40 p-2">
+					<div className="flex flex-wrap gap-1.5 rounded-xl border bg-muted/40 p-2">
 						{workspaceReferences.map((attachment) => (
 							<div
 								key={attachment.relativePath}
 								className="inline-flex max-w-full items-center gap-1.5 rounded-lg border bg-background px-2 py-1 text-xs text-foreground/75"
 							>
-								<FileCode2 className="size-3.5 shrink-0 text-muted-foreground" />
-								<span className="max-w-[min(28rem,70vw)] truncate">@{attachment.relativePath}</span>
+								<FileCode2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+								<span className="max-w-[min(28rem,70vw)] truncate" title={`@${attachment.relativePath}`}>
+									@{attachment.relativePath}
+								</span>
 								<button
 									type="button"
 									aria-label={`Remove workspace reference ${attachment.relativePath}`}
 									onClick={() => onRemoveWorkspaceReference?.(attachment.relativePath)}
-									className="grid size-5 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+									className={cn(
+										HIT_AREA_EXPAND_CLASS,
+										"grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+									)}
 								>
-									<X className="size-3" />
+									<X aria-hidden="true" className="size-3" />
 								</button>
 							</div>
 						))}
 					</div>
 				) : null}
-				<PromptInput
-					id="composer-prompt"
-					name="prompt"
-					value={value}
-					onValueChange={setValue}
-					onSubmit={(content) => send(content)}
-					loading={isStreaming}
-					submitWhileLoading
-					onStop={onStop}
-					disabled={disabled}
-					autoFocus={autoFocus}
-					placeholder={placeholder ?? "Send a message…"}
-					onPaste={attachments?.onPaste}
-					aria-controls={triggerOpen ? "composer-trigger-list" : undefined}
-					aria-expanded={triggerOpen}
-					aria-haspopup="listbox"
-					aria-activedescendant={
-						triggerOpen && triggerItems[activeTriggerIndex]
-							? `composer-trigger-list-${triggerItems[activeTriggerIndex].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`
-							: undefined
-					}
-					onKeyDown={handlePromptKeyDown}
-					onTextareaRef={attachTextarea}
-					ghostText={ghostText}
-					leadingAction={
-						<>
-							<Button
-								type="button"
-								variant="outline"
-								size="icon"
-								disabled={disabled || isStreaming}
-								aria-label="Open slash commands"
-								data-slot="composer-add"
-								onClick={openSlashMenu}
-								className={COMPOSER_ADD_BUTTON_CLASS}
-							>
-								<Plus className="size-4" />
-							</Button>
-							<ModeSelector modes={CHAT_MODES} value={chatMode} onChange={handleChatModeChange} />
-							<ModelSelector
-								models={selectorModels}
-								value={modelKey}
-								effort={thinkingLevel}
-								onModelChange={handleSelectorModelChange}
-								onEffortChange={handleEffortChange}
-								open={combinedPickerOpen}
-								onOpenChange={handleCombinedPickerOpenChange}
-								placeholder="Model"
-							/>
-						</>
-					}
-				/>
+				<div className="relative w-full">
+					{showQuestion ? (
+						<InputQuestionBar
+							questionBar={questionBar!}
+							navigation={navigation}
+							roundedTop
+							onDismiss={setDismissedQuestionId}
+						/>
+					) : null}
+					<ComposerTriggerPopover
+						open={triggerOpen}
+						kind={triggerKind ?? "slash"}
+						query={triggerKind === "slash" ? slashQuery : workspaceQuery}
+						items={triggerKind === "mention" ? filteredWorkspaceItems : undefined}
+						groups={triggerKind === "slash" ? commandGroups : undefined}
+						activeIndex={activeTriggerIndex}
+						onActiveIndexChange={setActiveTriggerIndex}
+						onSelect={(item: ComposerTriggerItem) => {
+							if (triggerKind === "slash") selectCommand(item);
+							else selectWorkspaceReference(item);
+						}}
+						title={triggerKind === "slash" ? "Commands" : "Workspace references"}
+						listId="composer-trigger-list"
+					/>
+					<PromptInput
+						id="composer-prompt"
+						name="prompt"
+						value={value}
+						onValueChange={setValue}
+						onSubmit={(content) => send(content)}
+						loading={isStreaming}
+						submitWhileLoading
+						onStop={onStop}
+						disabled={disabled}
+						autoFocus={autoFocus}
+						placeholder={placeholder ?? "Send a message…"}
+						onPaste={attachments?.onPaste}
+						aria-controls={triggerOpen ? "composer-trigger-list" : undefined}
+						aria-expanded={triggerOpen}
+						aria-haspopup="listbox"
+						aria-activedescendant={
+							triggerOpen && triggerItems[activeTriggerIndex]
+								? `composer-trigger-list-${triggerItems[activeTriggerIndex].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`
+								: undefined
+						}
+						onKeyDown={handlePromptKeyDown}
+						onTextareaRef={attachTextarea}
+						ghostText={ghostText}
+						leadingAction={
+							<>
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									disabled={disabled || isStreaming}
+									aria-label="Open slash commands"
+									data-slot="composer-add"
+									onClick={openSlashMenu}
+									className={COMPOSER_ADD_BUTTON_CLASS}
+								>
+									<Plus aria-hidden="true" className="size-4" />
+								</Button>
+								<ModeSelector modes={CHAT_MODES} value={chatMode} onChange={handleChatModeChange} />
+								<ModelSelector
+									models={selectorModels}
+									value={modelKey}
+									effort={thinkingLevel}
+									onModelChange={handleSelectorModelChange}
+									onEffortChange={handleEffortChange}
+									open={combinedPickerOpen}
+									onOpenChange={handleCombinedPickerOpenChange}
+									placeholder="Model"
+								/>
+							</>
+						}
+					/>
+				</div>
 			</div>
 		</div>
 	);

@@ -91,16 +91,19 @@ export const ModelSelector = memo(function ModelSelector({
 	};
 	const selectedModel = models.find((model) => model.id === value) ?? models[0];
 	const selectedEffort = selectedModel?.efforts?.find((option) => option.id === effort) ?? selectedModel?.efforts?.[0];
+	const modelName = selectedModel?.name ?? placeholder;
+	const effortName = selectedEffort && selectedModel?.reasoning ? selectedEffort.name : undefined;
+	const modelAriaLabel = effortName
+		? `Select model and reasoning effort, ${modelName}, ${effortName}`
+		: `Select model and reasoning effort, ${modelName}`;
 
 	const trigger = (
 		<ComposerSelectorTrigger
-			ariaLabel="Select model and reasoning effort"
-			label={selectedModel?.name ?? placeholder}
+			ariaLabel={modelAriaLabel}
+			label={modelName}
 			leadingIcon={selectedModel?.icon}
 			suffix={
-				selectedEffort && selectedModel?.reasoning ? (
-					<span className="hidden shrink-0 text-foreground/40 xl:inline">· {selectedEffort.name}</span>
-				) : null
+				effortName ? <span className="hidden shrink-0 text-foreground/70 xl:inline">· {effortName}</span> : null
 			}
 			open={open}
 			combobox

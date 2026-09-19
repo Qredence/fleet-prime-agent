@@ -226,7 +226,7 @@ function MarqueeLabel({ active, children }: { active: boolean; children: string 
 	const running = active && distance > 0 && !reduce;
 
 	return (
-		<span ref={viewportRef} className="block min-w-0 flex-1 overflow-hidden">
+		<span ref={viewportRef} className="block min-w-0 flex-1 overflow-hidden" title={children}>
 			<m.span
 				className="flex w-max items-center gap-6 whitespace-nowrap"
 				animate={{ x: running ? [0, -distance] : 0 }}
@@ -359,7 +359,7 @@ function ResourceActionMenu({ item, menuOpen, onMenuOpenChange, onRenameStart, r
 				onMenuOpenChange(false);
 				onRenameStart();
 			}}
-			className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-xs text-foreground outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+			className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-start text-xs text-foreground outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
 		>
 			<Pencil aria-hidden="true" className="size-3.5" />
 			Rename
@@ -373,11 +373,11 @@ function ResourceActionMenu({ item, menuOpen, onMenuOpenChange, onRenameStart, r
 					<Button
 						type="button"
 						variant="ghost"
-						size="icon-sm"
+						size="icon"
 						draggable={false}
 						aria-label={`Actions for ${item.label}`}
 						onClick={(event) => event.stopPropagation()}
-						className="size-7 shrink-0 opacity-0 outline-none transition-opacity hover:bg-foreground/5 focus-visible:opacity-100 group-hover/resource:opacity-100 group-data-[menu-open=true]/resource:opacity-100"
+						className="size-8 shrink-0 opacity-0 outline-none transition-opacity hover:bg-foreground/5 focus-visible:opacity-100 group-hover/resource:opacity-100 group-data-[menu-open=true]/resource:opacity-100"
 					>
 						<MoreHorizontal aria-hidden="true" className="size-4" />
 					</Button>
@@ -408,14 +408,14 @@ function getResourceRowClassName(
 	disabled?: boolean,
 ) {
 	return cn(
-		"group/resource relative flex min-h-8 min-w-0 cursor-pointer items-center gap-2 rounded-lg pr-2 text-body outline-none",
+		"group/resource relative flex min-h-8 min-w-0 cursor-pointer items-center gap-2 rounded-sm pe-0 text-body outline-none",
 		"text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
 		"focus-visible:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
 		"data-[menu-open=true]:bg-muted data-[menu-open=true]:text-foreground",
 		"data-[dragging=true]:opacity-40",
 		"data-[drop=inside]:bg-primary/10 data-[drop=inside]:ring-1 data-[drop=inside]:ring-primary/45",
-		"data-[drop=before]:before:absolute data-[drop=before]:before:-top-0.5 data-[drop=before]:before:right-2 data-[drop=before]:before:left-2 data-[drop=before]:before:h-0.5 data-[drop=before]:before:rounded-full data-[drop=before]:before:bg-primary",
-		"data-[drop=after]:after:absolute data-[drop=after]:after:-bottom-0.5 data-[drop=after]:after:right-2 data-[drop=after]:after:left-2 data-[drop=after]:after:h-0.5 data-[drop=after]:after:rounded-full data-[drop=after]:after:bg-primary",
+		"data-[drop=before]:before:absolute data-[drop=before]:before:-top-0.5 data-[drop=before]:before:inset-x-2 data-[drop=before]:before:h-0.5 data-[drop=before]:before:rounded-full data-[drop=before]:before:bg-primary",
+		"data-[drop=after]:after:absolute data-[drop=after]:after:-bottom-0.5 data-[drop=after]:after:inset-x-2 data-[drop=after]:after:h-0.5 data-[drop=after]:after:rounded-full data-[drop=after]:after:bg-primary",
 		!acceptsChildren && active && "bg-muted text-foreground",
 		acceptsChildren && containerActive && "bg-muted/55 text-foreground ring-1 ring-border/70",
 		kind === "action" && "text-xs text-muted-foreground",
@@ -678,7 +678,7 @@ function ResourceRow(props: ResourceRowProps) {
 				props.row.item.kind,
 				props.row.item.disabled,
 			)}
-			style={{ paddingLeft: `${8 + (props.row.depth + (props.row.item.indent ?? 0)) * 14}px` }}
+			style={{ paddingInlineStart: `${8 + (props.row.depth + (props.row.item.indent ?? 0)) * 14}px` }}
 		>
 			<ResourceRowContent
 				icon={icon}

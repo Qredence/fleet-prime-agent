@@ -1,5 +1,5 @@
 import { COMPOSER_COMPLETION_MAX_CHARS, composerCompletionGhost } from "@prime-agent/web-protocol/composer-completion";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useComposerInlineCompletion } from "./composer-inline-completion";
 
@@ -23,7 +23,7 @@ describe("useComposerInlineCompletion", () => {
 		// measure the suffix the same way. Typing irregular spacing here is the
 		// case that breaks naive `completion.slice(draft.length)`.
 		mockFetch().mockResolvedValue(jsonResponse({ completion: "refactor the auth middleware and add tests" }));
-		const { result } = renderHook(() => useComposerInlineCompletion(true));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
 		result.current.onDraftChange("refactor   the auth");
 
 		await waitFor(() => expect(result.current.inlineCompletion).toBeDefined());
@@ -41,14 +41,14 @@ describe("useComposerInlineCompletion", () => {
 	it("keeps the offered text inside the server's cap", async () => {
 		const long = `deploy ${"x".repeat(COMPOSER_COMPLETION_MAX_CHARS)}`;
 		mockFetch().mockResolvedValue(jsonResponse({ completion: long }));
-		const { result } = renderHook(() => useComposerInlineCompletion(true));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
 		result.current.onDraftChange("deploy");
 		await waitFor(() => expect(result.current.inlineCompletion).toBeDefined());
 		expect(result.current.inlineCompletion?.text.length).toBeLessThanOrEqual(COMPOSER_COMPLETION_MAX_CHARS + 1);
 	});
 
 	it("never asks for a draft the trigger popovers own", async () => {
-		const { result } = renderHook(() => useComposerInlineCompletion(true));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
 		result.current.onDraftChange("/sett");
 		result.current.onDraftChange("look at @src/lib");
 		result.current.onDraftChange("hi");
@@ -58,7 +58,7 @@ describe("useComposerInlineCompletion", () => {
 	});
 
 	it("makes no request when the host has completions switched off", async () => {
-		const { result } = renderHook(() => useComposerInlineCompletion(false));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: false }));
 		result.current.onDraftChange("refactor the auth middleware");
 		await Promise.resolve();
 		expect(mockFetch()).not.toHaveBeenCalled();
@@ -73,7 +73,7 @@ describe("useComposerInlineCompletion", () => {
 					release = () => resolve(jsonResponse({ completion: "refactor the auth middleware" }));
 				}),
 		);
-		const { result } = renderHook(() => useComposerInlineCompletion(true));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
 		result.current.onDraftChange("refactor the auth");
 		result.current.onDraftChange("something else entirely");
 		release?.();
@@ -84,15 +84,99 @@ describe("useComposerInlineCompletion", () => {
 
 	it("offers nothing when the server has nothing to add", async () => {
 		mockFetch().mockResolvedValue(jsonResponse({}));
-		const { result } = renderHook(() => useComposerInlineCompletion(true));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
 		result.current.onDraftChange("nothing matches this prefix");
 		await waitFor(() => expect(mockFetch()).toHaveBeenCalled());
 		await waitFor(() => expect(result.current.inlineCompletion).toBeUndefined());
 	});
 
+	it("sends the session it is typing in, so the session's own history can win", async () => {
+		mockFetch().mockResolvedValue(jsonResponse({}));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true, sessionId: "session-a" }));
+		result.current.onDraftChange("refactor the auth");
+		await waitFor(() => expect(mockFetch()).toHaveBeenCalled());
+		expect(JSON.parse(String(mockFetch().mock.calls[0]?.[1]?.body))).toEqual({
+			text: "refactor the auth",
+			sessionId: "session-a",
+		});
+	});
+
+	it("omits the session when the composer has no identity yet", async () => {
+		mockFetch().mockResolvedValue(jsonResponse({}));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
+		result.current.onDraftChange("refactor the auth");
+		await waitFor(() => expect(mockFetch()).toHaveBeenCalled());
+		expect(JSON.parse(String(mockFetch().mock.calls[0]?.[1]?.body))).toEqual({ text: "refactor the auth" });
+	});
+
+	it("marks every history completion as an append", async () => {
+		mockFetch().mockResolvedValue(jsonResponse({ completion: "refactor the auth middleware" }));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
+		result.current.onDraftChange("refactor the auth");
+		await waitFor(() => expect(result.current.inlineCompletion).toBeDefined());
+		expect(result.current.inlineCompletion?.mode).toBe("append");
+	});
+
+	it("ignores a wire mode: replace and still treats history as append", async () => {
+		// A buggy or hostile local response must not make Tab wipe the draft.
+		mockFetch().mockResolvedValue(jsonResponse({ completion: "make this shorter please", mode: "replace" }));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
+		result.current.onDraftChange("make this shorter");
+		await waitFor(() => expect(result.current.inlineCompletion).toBeDefined());
+		expect(result.current.inlineCompletion).toMatchObject({
+			forValue: "make this shorter",
+			text: " please",
+			mode: "append",
+		});
+	});
+
+	it("keeps a stale session response from replacing the current session's offer", async () => {
+		// The same prefix resolves differently in a different session, so an offer
+		// cached for one session must not be replayed in the next — least of all in a
+		// brand-new chat, where it would present another session's history as the
+		// corpus. Resolve the aborted first request last to prove it cannot publish.
+		let resolveSessionA: ((response: Response) => void) | undefined;
+		let resolveSessionB: ((response: Response) => void) | undefined;
+		mockFetch()
+			.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						resolveSessionA = resolve;
+					}),
+			)
+			.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						resolveSessionB = resolve;
+					}),
+			);
+		const { result, rerender } = renderHook(
+			({ sessionId }: { sessionId: string }) => useComposerInlineCompletion({ available: true, sessionId }),
+			{ initialProps: { sessionId: "session-a" } },
+		);
+		result.current.onDraftChange("refactor the auth");
+		await waitFor(() => expect(mockFetch()).toHaveBeenCalledTimes(1));
+
+		rerender({ sessionId: "session-b" });
+		await waitFor(() => expect(mockFetch()).toHaveBeenCalledTimes(2));
+		await act(async () => {
+			resolveSessionB?.(jsonResponse({ completion: "refactor the auth middleware in session b" }));
+		});
+		await waitFor(() => expect(result.current.inlineCompletion?.text).toBe(" middleware in session b"));
+
+		await act(async () => {
+			resolveSessionA?.(jsonResponse({ completion: "refactor the auth middleware in session a" }));
+		});
+		expect(result.current.inlineCompletion?.text).toBe(" middleware in session b");
+		expect(JSON.parse(String(mockFetch().mock.calls[1]?.[1]?.body))).toEqual({
+			text: "refactor the auth",
+			sessionId: "session-b",
+		});
+	});
+
 	it("dismissal is idempotent and clears the offer", async () => {
 		mockFetch().mockResolvedValue(jsonResponse({ completion: "refactor the auth middleware and add tests" }));
-		const { result } = renderHook(() => useComposerInlineCompletion(true));
+		const { result } = renderHook(() => useComposerInlineCompletion({ available: true }));
 		result.current.onDraftChange("refactor the auth");
 		await waitFor(() => expect(result.current.inlineCompletion).toBeDefined());
 		result.current.inlineCompletion?.onDismiss?.();
