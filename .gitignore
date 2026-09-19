@@ -63,6 +63,7 @@ droid-wiki/
 skills-lock.json
 qa-results/
 .codex/environments/environment.toml
+.commandcode
 
 # Amp portals
 .amp/portals/*
