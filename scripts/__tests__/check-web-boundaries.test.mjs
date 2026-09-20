@@ -49,6 +49,6 @@ test("flags arbitrary type-scale utilities in product UI", () => {
 
 test("exempts only openui paths from the type-scale lint", () => {
 	assert.equal(isTypeScaleExemptPath("web/app/src/components/openui/charts.tsx"), true);
-	assert.equal(isTypeScaleExemptPath("web/app/src/components/qredence-ui/tools/code-block.tsx"), false);
+	assert.equal(isTypeScaleExemptPath("web/app/src/components/tools/code-block.tsx"), false);
 	assert.equal(isTypeScaleExemptPath("web/app/src/components/chat/plans/plan-state.ts"), false);
 });

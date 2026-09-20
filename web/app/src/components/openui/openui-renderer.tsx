@@ -2,12 +2,12 @@ import type { ActionEvent, OpenUIError, ParseResult } from "@openuidev/react-lan
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang";
 import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useMemo, useState } from "react";
+import { Markdown } from "@/components/chat/markdown/markdown";
+import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import { type OpenUIArtifactCandidate, OpenUIArtifactProvider } from "@/components/openui/html-artifact";
 import { encodeOpenPanelActionMessage } from "@/components/openui/open-panel-action-message";
 import { openUILibrary } from "@/components/openui/openui-library";
 import { segmentOpenUIContent } from "@/components/openui/openui-utils";
-import { Markdown } from "@/components/qredence-ui/chat/markdown/markdown";
-import { UiErrorBoundary } from "@/components/qredence-ui/layout/ui-error-boundary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 

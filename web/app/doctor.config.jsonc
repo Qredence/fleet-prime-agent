@@ -15,15 +15,15 @@
         ]
       },
       {
-        "files": ["src/lib/pi/use-pi-chat.ts", "src/lib/hooks/use-proximity-hover.ts"],
+        "files": ["src/components/chat/use-pi-chat.ts", "src/hooks/use-proximity-hover.ts"],
         "rules": ["react-doctor/effect-needs-cleanup"]
       },
       {
-        "files": ["src/components/qredence-ui/panels/config-panel/sections/add-models-dialog.tsx"],
+        "files": ["src/components/settings/providers/add-models-dialog.tsx"],
         "rules": ["react-doctor/js-set-map-lookups"]
       },
       {
-        "files": ["src/components/qredence-ui/panels/workspace/workspace-panel.tsx"],
+        "files": ["src/components/workspace/workspace-panel.tsx"],
         "rules": [
           "react-doctor/no-adjust-state-on-prop-change",
           "react-doctor/exhaustive-deps",
@@ -35,7 +35,7 @@
         "rules": ["react-doctor/prefer-dynamic-import"]
       },
       {
-        "files": ["src/components/qredence-ui/chat/message/message-turns.tsx"],
+        "files": ["src/components/chat/transcript/message-turns.tsx"],
         "rules": [
           "react-doctor/no-many-boolean-props",
           "react-doctor/no-array-index-as-key"
@@ -43,24 +43,24 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/chat/composer/input/mode-selector.tsx",
-          "src/components/qredence-ui/chat/thinking/session-reasoning-panel.tsx"
+          "src/components/chat/composer/input/mode-selector.tsx",
+          "src/components/chat/thinking/session-reasoning-panel.tsx"
         ],
         "rules": ["deslop/unused-file"]
       },
       {
         "files": [
-          "src/lib/pi/plan-state.ts",
-          "src/components/qredence-ui/chat/composer/composer-menu.tsx",
-          "src/components/qredence-ui/chrome/tokens.ts",
-          "src/components/qredence-ui/motion/action-swap-roll.tsx",
+          "src/components/chat/plans/plan-state.ts",
+          "src/components/chat/composer/composer-menu.tsx",
+          "src/components/layout/tokens.ts",
+          "src/components/motion/action-swap-roll.tsx",
           "src/lib/range.ts",
           "src/lib/surfaces.tsx"
         ],
         "rules": ["deslop/unused-export"]
       },
       {
-        "files": ["src/components/qredence-ui/layout/ai-sidebar.tsx"],
+        "files": ["src/components/layout/ai-sidebar.tsx"],
         "rules": [
           "react-doctor/no-render-prop-children",
           "react-doctor/no-pass-live-state-to-parent",
@@ -69,11 +69,11 @@
         ]
       },
       {
-        "files": ["src/components/qredence-ui/layout/session-sidebar/project-list.tsx"],
+        "files": ["src/components/sessions/session-sidebar/project-list.tsx"],
         "rules": ["react-doctor/no-render-prop-children"]
       },
       {
-        "files": ["src/components/qredence-ui/layout/session-sidebar/view-model.tsx"],
+        "files": ["src/components/sessions/session-sidebar/view-model.tsx"],
         "rules": [
           "react-doctor/no-pass-live-state-to-parent",
           "react-doctor/no-pass-data-to-parent"
@@ -81,10 +81,10 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/tools/file-diff.tsx",
-          "src/components/qredence-ui/tools/todo-list.tsx",
-          "src/components/qredence-ui/tools/tool-approval.tsx",
-          "src/components/qredence-ui/tools/tool-result.tsx"
+          "src/components/tools/file-diff.tsx",
+          "src/components/tools/todo-list.tsx",
+          "src/components/tools/tool-approval.tsx",
+          "src/components/tools/tool-result.tsx"
         ],
         "rules": [
           "react-doctor/no-adjust-state-on-prop-change",
@@ -93,27 +93,27 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/chat/composer/input-bar-state.tsx",
-          "src/components/qredence-ui/panels/workspace/artifacts-panel.tsx"
+          "src/components/chat/composer/input-bar-state.tsx",
+          "src/components/artifacts/artifacts-panel.tsx"
         ],
         "rules": ["react-doctor/no-adjust-state-on-prop-change"]
       },
       {
-        "files": ["src/components/qredence-ui/panels/config-panel/sections/use-oauth-login-flow.ts"],
+        "files": ["src/components/settings/providers/use-oauth-login-flow.ts"],
         "rules": [
           "react-doctor/no-set-state-after-await-in-effect",
           "react-doctor/no-loading-flag-reset-outside-finally"
         ]
       },
       {
-        "files": ["src/components/qredence-ui/layout/project-folder.tsx"],
+        "files": ["src/components/sessions/project-folder.tsx"],
         "rules": ["react-doctor/prefer-html-dialog"]
       },
       {
         "files": [
-          "src/components/qredence-ui/chat/composer/composer-menu.tsx",
-          "src/components/qredence-ui/chat/thinking/reasoning-panel.tsx",
-          "src/components/qredence-ui/chat/thinking/thinking-indicator.tsx"
+          "src/components/chat/composer/composer-menu.tsx",
+          "src/components/chat/thinking/reasoning-panel.tsx",
+          "src/components/chat/thinking/thinking-indicator.tsx"
         ],
         "rules": [
           "react-doctor/no-transition-all",
@@ -122,9 +122,9 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/tools/agent-disclosure.tsx",
-          "src/components/qredence-ui/tools/tool-result.tsx",
-          "src/components/qredence-ui/motion/file-tree.tsx"
+          "src/components/tools/agent-disclosure.tsx",
+          "src/components/tools/tool-result.tsx",
+          "src/components/motion/file-tree.tsx"
         ],
         "rules": [
           "react-doctor/use-lazy-motion",
@@ -134,7 +134,7 @@
       },
       {
         "files": [
-          "src/components/qredence-ui/chat/composer/prompt-input.tsx"
+          "src/components/chat/composer/prompt-input.tsx"
         ],
         "rules": [
           "react-doctor/motion-animate-presence-must-outlive-child"
@@ -149,22 +149,21 @@
         ]
       },
       {
-        // shadcn-style primitives and Qredence UI components keep their
-        // upstream layout: variants, contexts, and helpers export alongside
-        // components, reachable through the ./components/ui/* and
-        // ./components/qredence-ui/* wildcard package exports.
+        // shadcn-style primitives and product components keep their upstream
+        // layout: variants, contexts, and helpers export alongside the
+        // component that owns them.
         "files": [
           "src/components/ui/badge.tsx",
           "src/components/ui/button.tsx",
           "src/components/ui/chart.tsx",
           "src/components/ui/tabs.tsx",
           "src/components/ui/toast.tsx",
-          "src/components/qredence-ui/chat/markdown/markdown.tsx",
-          "src/components/qredence-ui/chat/message/message-toolbar.tsx",
-          "src/components/qredence-ui/chat/message/message-turns.tsx",
-          "src/components/qredence-ui/tools/mcp-tool.tsx",
-          "src/components/qredence-ui/chat/composer/composer-menu.tsx",
-          "src/components/qredence-ui/tools/session-agent-plan.tsx"
+          "src/components/chat/markdown/markdown.tsx",
+          "src/components/chat/transcript/message-toolbar.tsx",
+          "src/components/chat/transcript/message-turns.tsx",
+          "src/components/tools/mcp-tool.tsx",
+          "src/components/chat/composer/composer-menu.tsx",
+          "src/components/tools/session-agent-plan.tsx"
         ],
         "rules": ["react-doctor/only-export-components"]
       },
@@ -172,7 +171,7 @@
         // right-panel-registry.tsx is a definition registry by design: each
         // named content wrapper pairs a lazy panel with its Suspense
         // fallback, mirroring the openui-library waiver rationale.
-        "files": ["src/components/qredence-ui/layout/right-panel-registry.tsx"],
+        "files": ["src/components/layout/right-panel-registry.tsx"],
         "rules": [
           "react-doctor/no-multi-component-file",
           "react-doctor/no-multi-comp"
@@ -183,21 +182,20 @@
         // (initializedRef) and re-checks controller.signal.aborted after
         // every await boundary; the detector cannot follow AbortController
         // cancellation proofs (same rationale as use-oauth-login-flow).
-        "files": ["src/lib/pi/use-pi-chat.ts"],
+        "files": ["src/components/chat/use-pi-chat.ts"],
         "rules": ["react-doctor/no-set-state-after-await-in-effect"]
       },
       {
         // Restored from the pre-restructure root config (dropped in the
-        // component regroup): exports are reachable through the wildcard
-        // package exports and reserved for direct consumers or future UI
-        // surfaces; the detector only sees current in-workspace imports.
-        // icons.tsx is waived under the same registry rationale.
+        // component regroup): exports are reserved for direct consumers or
+        // future UI surfaces; the detector only sees current in-workspace
+        // imports. icons.tsx is waived under the same registry rationale.
         "files": [
-          "src/components/qredence-ui/tools/citations.tsx",
-          "src/components/qredence-ui/chat/icons.tsx",
-          "src/components/qredence-ui/chat/message/message-bubble.tsx",
-          "src/components/qredence-ui/chat/message/message.tsx",
-          "src/components/qredence-ui/tools/tool-approval.tsx"
+          "src/components/tools/citations.tsx",
+          "src/components/chat/icons.tsx",
+          "src/components/chat/transcript/message-bubble.tsx",
+          "src/components/chat/transcript/message.tsx",
+          "src/components/tools/tool-approval.tsx"
         ],
         "rules": ["deslop/unused-export"]
       }

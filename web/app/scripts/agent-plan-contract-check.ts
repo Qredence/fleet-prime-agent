@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert"
-import { sessionAgentPlanPresentation } from "@/components/qredence-ui/tools/session-agent-plan"
+import { sessionAgentPlanPresentation } from "@/components/tools/session-agent-plan"
 
 const pending = [
   { id: "1", title: "Inspect the request", status: "pending" as const },

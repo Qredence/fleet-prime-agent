@@ -2,99 +2,99 @@
   "schemaVersion": 1,
   "widePropExceptions": [
     {
-      "path": "src/components/qredence-ui/panels/workspace/workspace-panel.tsx",
+      "path": "src/components/workspace/workspace-panel.tsx",
       "type": "WorkspacePanelContentProps",
       "reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
     },
     {
-      "path": "src/components/qredence-ui/layout/session-sidebar/action-dialogs.tsx",
+      "path": "src/components/sessions/session-sidebar/action-dialogs.tsx",
       "type": "SidebarActionDialogsProps",
       "reason": "Private dialog coordinator; the public SessionSidebar API is grouped into data, actions, and slots."
     },
     {
-      "path": "src/components/qredence-ui/chat/composer/composer-trigger-popover.tsx",
+      "path": "src/components/chat/composer/composer-trigger-popover.tsx",
       "type": "ComposerTriggerPopoverProps",
       "reason": "Absorbed first-party composer trigger popover; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/composer/input-bar.tsx",
+      "path": "src/components/chat/composer/input-bar.tsx",
       "type": "InputBarProps",
       "reason": "Absorbed first-party composer contract; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/message/message-scroller.tsx",
+      "path": "src/components/chat/transcript/message-scroller.tsx",
       "type": "MessageScrollerProps",
       "reason": "Absorbed first-party transcript scroller; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/composer/prompt-input.tsx",
+      "path": "src/components/chat/composer/prompt-input.tsx",
       "type": "PromptInputProps",
       "reason": "Absorbed first-party composer widget; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/question/question-prompt.tsx",
+      "path": "src/components/chat/question/question-prompt.tsx",
       "type": "QuestionPromptProps",
       "reason": "Absorbed first-party question prompt; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/message/streaming-response.tsx",
+      "path": "src/components/chat/transcript/streaming-response.tsx",
       "type": "StreamingResponseProps",
       "reason": "Absorbed first-party streaming response widget; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/chat/types.ts",
+      "path": "src/components/chat/types.ts",
       "type": "AgentChatProps",
       "reason": "Absorbed first-party agent chat contract; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/layout/ai-sidebar.tsx",
+      "path": "src/components/layout/ai-sidebar.tsx",
       "type": "AISidebarProps",
       "reason": "Absorbed first-party sidebar shell; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/layout/project-folder.tsx",
+      "path": "src/components/sessions/project-folder.tsx",
       "type": "ProjectFolderProps",
       "reason": "Absorbed first-party project folder widget; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/tools/approval-card/types.ts",
+      "path": "src/components/tools/approval-card/types.ts",
       "type": "ApprovalCardProps",
       "reason": "Absorbed first-party approval card; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/tools/code-block.tsx",
+      "path": "src/components/tools/code-block.tsx",
       "type": "CodeBlockProps",
       "reason": "Absorbed first-party code block; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/tools/image-generation.tsx",
+      "path": "src/components/tools/image-generation.tsx",
       "type": "ImageGenerationProps",
       "reason": "Absorbed first-party image generation widget; existing public prop contract retained."
     },
     {
-      "path": "src/components/qredence-ui/tools/tool-result.tsx",
+      "path": "src/components/tools/tool-result.tsx",
       "type": "ToolResultProps",
       "reason": "Absorbed first-party tool result widget; existing public prop contract retained."
     }
   ],
   "nativeControlExceptions": [
-    "src/components/qredence-ui/chat/agent-chat.tsx",
-    "src/components/qredence-ui/chat/composer/input-bar.tsx",
-    "src/components/qredence-ui/chat/fork-picker-dialog.tsx",
-    "src/components/qredence-ui/layout/ai-sidebar.tsx",
-    "src/components/qredence-ui/layout/animated-sidebar.tsx",
-    "src/components/qredence-ui/layout/chat-header.tsx",
-    "src/components/qredence-ui/layout/project-folder.tsx",
-    "src/components/qredence-ui/layout/thread-search.tsx",
-    "src/components/qredence-ui/panels/config-panel/sections/add-models-dialog.tsx",
-    "src/components/qredence-ui/panels/config-panel/sections/provider-credentials-editor.tsx",
-    "src/components/qredence-ui/panels/workspace/resizable-canvas.tsx",
-    "src/components/qredence-ui/panels/workspace/right-panel-launcher.tsx",
-    "src/components/qredence-ui/panels/settings/settings-dialog.tsx",
-    "src/components/qredence-ui/panels/workspace/workspace-panel.tsx",
-    "src/components/qredence-ui/layout/session-sidebar/navigation.tsx",
-    "src/components/qredence-ui/layout/session-sidebar/project-list.tsx",
-    "src/components/qredence-ui/layout/session-sidebar/view-model.tsx",
-    "src/components/qredence-ui/layout/ui-error-boundary.tsx"
+    "src/components/chat/agent-chat.tsx",
+    "src/components/chat/composer/input-bar.tsx",
+    "src/components/chat/fork-picker-dialog.tsx",
+    "src/components/layout/ai-sidebar.tsx",
+    "src/components/layout/animated-sidebar.tsx",
+    "src/components/layout/chat-header.tsx",
+    "src/components/sessions/project-folder.tsx",
+    "src/components/sessions/thread-search.tsx",
+    "src/components/settings/providers/add-models-dialog.tsx",
+    "src/components/settings/providers/provider-credentials-editor.tsx",
+    "src/components/layout/resizable-canvas.tsx",
+    "src/components/workspace/right-panel-launcher.tsx",
+    "src/components/settings/settings-dialog.tsx",
+    "src/components/workspace/workspace-panel.tsx",
+    "src/components/sessions/session-sidebar/navigation.tsx",
+    "src/components/sessions/session-sidebar/project-list.tsx",
+    "src/components/sessions/session-sidebar/view-model.tsx",
+    "src/components/layout/ui-error-boundary.tsx"
   ]
 }

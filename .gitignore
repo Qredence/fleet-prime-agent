@@ -38,7 +38,8 @@ out.jsonl
 pi-*.html
 out.html
 todo.md
-plans/
+# Root-only scratch plans; app plan UI lives in web/app/src/components/chat/plans/.
+/plans/
 .prime/agent/
 collect.sh
 .kernel-venv/

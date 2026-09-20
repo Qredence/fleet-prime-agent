@@ -10,9 +10,9 @@
  *     other workspace file (`src/`, `scripts/`), unless it is listed in the
  *     `doctor.config.jsonc` waiver blocks (reserved/future UI and public
  *     wildcard-export surfaces are documented there).
- *  3. Primitive boundaries — Base UI imports stay in `components/ui`, the
- *     Qredence UI folder does not reach into `ui/` relatively, native controls
- *     in product areas are documented, and public prop contracts stay narrow.
+ *  3. Primitive boundaries — Base UI imports stay in `components/ui`, product
+ *     areas do not reach into `ui/` relatively, native controls in product
+ *     areas are documented, and public prop contracts stay narrow.
  *
  * Framework-defined route modules (`src/routes`, `src/router.tsx`,
  * `routeTree.gen.ts`) are entry points rather than component sources: they are
@@ -203,7 +203,7 @@ const deadFiles = componentSources.filter((file) => {
 });
 deadFiles.sort();
 
-// Rule 3: primitive boundaries for first-party Qredence UI.
+// Rule 3: primitive boundaries for first-party product UI.
 const directBaseUiImports: string[] = [];
 const unsupportedIconImports: string[] = [];
 const nativeControlViolations: string[] = [];
@@ -215,12 +215,15 @@ const widePropExceptions = new Set(
 );
 const nativeControlPattern = /<(?:button|input|select|textarea)\b/;
 const nativeControlRoots = [
-	"src/components/qredence-ui/panels/",
-	"src/components/qredence-ui/layout/",
-	"src/components/qredence-ui/chrome/",
-	"src/components/qredence-ui/chat/agent-chat",
-	"src/components/qredence-ui/chat/composer/input-bar",
-	"src/components/qredence-ui/chat/fork-picker-dialog",
+	"src/components/layout/",
+	"src/components/settings/",
+	"src/components/sessions/",
+	"src/components/workspace/",
+	"src/components/artifacts/",
+	"src/components/chat/subagents/",
+	"src/components/chat/agent-chat",
+	"src/components/chat/composer/input-bar",
+	"src/components/chat/fork-picker-dialog",
 ];
 for (const file of componentSources) {
 	const source = readFileSync(file, "utf8");
@@ -231,7 +234,11 @@ for (const file of componentSources) {
 	if (/from ["'](?:@tabler\/icons-react|@heroicons\/|react-icons)/.test(source)) {
 		unsupportedIconImports.push(file);
 	}
-	if (relativePath.startsWith("src/components/qredence-ui/") && relativeUiImportPattern.test(source)) {
+	if (
+		relativePath.startsWith("src/components/") &&
+		!relativePath.startsWith("src/components/ui/") &&
+		relativeUiImportPattern.test(source)
+	) {
 		relativeUiImports.push(file);
 	}
 	if (
@@ -242,7 +249,7 @@ for (const file of componentSources) {
 	) {
 		nativeControlViolations.push(file);
 	}
-	if (!relativePath.startsWith("src/components/qredence-ui/motion/")) {
+	if (!relativePath.startsWith("src/components/motion/")) {
 		const syntaxKind = file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
 		const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, syntaxKind);
 		for (const statement of sourceFile.statements) {
@@ -300,7 +307,7 @@ for (const [label, files] of [
 	["direct Base UI import(s) outside components/ui", directBaseUiImports],
 	["unsupported icon-library import(s)", unsupportedIconImports],
 	["new native product control(s) without a documented exception", nativeControlViolations],
-	["relative qredence-ui → ui import(s) (use @/components/ui/...)", relativeUiImports],
+	["relative product → ui import(s) (use @/components/ui/...)", relativeUiImports],
 ] as const) {
 	if (files.length === 0) continue;
 	failures += files.length;
