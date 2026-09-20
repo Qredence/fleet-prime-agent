@@ -105,7 +105,13 @@ async function readRuntimeVersionAtTag(token, owner, repo, version) {
 		const contents = await response.json();
 		if (!contents?.content) return undefined;
 		return JSON.parse(Buffer.from(contents.content, "base64").toString("utf8")).version;
-	} catch {
+	} catch (error) {
+		// Degrade to the generic upgrading note, but say so: silently losing the runtime comparison
+		// should be visible in the job log.
+		console.warn(
+			`Warning: could not read the ${version} runtime pin; the upgrading note will be generic. ` +
+				(error instanceof Error ? error.message : String(error)),
+		);
 		return undefined;
 	}
 }

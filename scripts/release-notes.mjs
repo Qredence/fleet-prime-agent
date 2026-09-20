@@ -42,25 +42,53 @@ export function readRuntimeVersion() {
 }
 
 /**
+ * Splits a changelog into lines.
+ * CRLF is normalised here so a stray carriage return cannot reach the release page: splitting on `\n`
+ * alone would leave a trailing `\r` on every line, which the blank-line trimming below would then fail
+ * to recognise.
+ * @param {string} changelog - The changelog contents.
+ * @returns {string[]} The changelog lines.
+ */
+function changelogLines(changelog) {
+	return (changelog ?? "").split(/\r?\n/);
+}
+
+/**
+ * Lists the version headings in a changelog, in order.
+ *
+ * The extractor and the predecessor lookup both go through this, so they cannot disagree about what
+ * counts as a heading. The version is matched exactly against the heading text, so `0.6.5` still
+ * cannot match a `0.6.50` heading, while surrounding whitespace is tolerated.
+ * @param {string[]} lines - Changelog lines.
+ * @returns {Array<{version: string, start: number}>} Each version and the line index of its heading.
+ */
+function versionHeadings(lines) {
+	const headings = [];
+	for (const [index, line] of lines.entries()) {
+		// `### Patch Changes` cannot match: the third character is `#`, not whitespace.
+		const match = /^##\s+(\S.*?)\s*$/.exec(line);
+		if (match) headings.push({ version: match[1], start: index });
+	}
+	return headings;
+}
+
+/**
  * Extracts the changelog section recorded for a release version.
  *
- * The heading is matched exactly, so `0.6.5` cannot match a `0.6.50` heading. Lines are returned
- * verbatim: Changesets separates the paragraphs of a multi-paragraph entry with lines holding only two
- * spaces, and re-wrapping or blank-line filtering would collapse them into one paragraph.
+ * Lines are returned verbatim: Changesets separates the paragraphs of a multi-paragraph entry with
+ * lines holding only two spaces, and re-wrapping or trimming individual lines would collapse those
+ * paragraphs and flatten the two-space-indented sub-bullets of entries such as 0.5.11 into top-level
+ * bullets.
  * @param {string} changelog - The changelog contents.
  * @param {string} version - The release version to extract.
  * @returns {string|undefined} The section body, or `undefined` when the version is not recorded.
  */
 export function extractVersionSection(changelog, version) {
-	const lines = (changelog ?? "").split("\n");
-	const heading = `## ${version}`;
-	const start = lines.findIndex((line) => line.trimEnd() === heading);
-	if (start === -1) return undefined;
-	const body = [];
-	for (const line of lines.slice(start + 1)) {
-		if (line.startsWith("## ")) break;
-		body.push(line);
-	}
+	const lines = changelogLines(changelog);
+	const headings = versionHeadings(lines);
+	const position = headings.findIndex((heading) => heading.version === version);
+	if (position === -1) return undefined;
+	const body = lines.slice(headings[position].start + 1, headings[position + 1]?.start ?? lines.length);
 	while (body.length > 0 && body[0] === "") body.shift();
 	while (body.length > 0 && body[body.length - 1] === "") body.pop();
 	return body.join("\n");
@@ -82,20 +110,23 @@ export function stripCommitHashes(section) {
  * Finds the version released immediately before the given one.
  *
  * Changesets prepends new sections, so the changelog is newest-first and the predecessor is the next
- * version heading. This is read from the changelog rather than the releases API so the comparison is
- * against the same document the changes are read from.
+ * version heading. This is read from the changelog rather than from refs so the comparison is against
+ * the same document the changes are read from, and because the local tag namespace is not a list of
+ * Fleet releases: the `upstream` remote contributes `prime-agent` tags (v0.7.0 through v0.9.4) that
+ * interleave with Fleet's, and Fleet has no 0.5.2, 0.5.3 or 0.5.4, so a "previous patch" guess would
+ * request a tag that does not exist.
  * @param {string} changelog - The changelog contents.
  * @param {string} version - The release version.
  * @returns {string|undefined} The previous version, or `undefined` when there is none.
  */
 export function previousVersion(changelog, version) {
-	const versions = (changelog ?? "")
-		.split("\n")
-		.filter((line) => line.startsWith("## "))
-		.map((line) => line.slice(3).trim());
-	const index = versions.indexOf(version);
-	if (index === -1) return undefined;
-	return versions[index + 1];
+	const headings = versionHeadings(changelogLines(changelog));
+	const position = headings.findIndex((heading) => heading.version === version);
+	if (position === -1) return undefined;
+	// A duplicated heading for the version being released must not resolve to itself, which would
+	// compare the runtime pin against the tag being published and always report it as unchanged.
+	const next = headings.slice(position + 1).find((heading) => heading.version !== version);
+	return next?.version;
 }
 
 /**
@@ -144,8 +175,8 @@ export function releaseNotes({ version, changelog, currentRuntimeVersion, previo
 	const changes = section
 		? stripCommitHashes(section)
 		: [
-				`This release's changes could not be derived from \`packages/fleet-web/CHANGELOG.md\`, which ` +
-					`records no \`## ${version}\` section.`,
+				`This release's changes could not be derived from \`packages/fleet-web/CHANGELOG.md\`: it has no ` +
+					`\`## ${version}\` section, or the section is empty.`,
 				"",
 				"Review the release pull request and the commit history for what changed.",
 			].join("\n");
