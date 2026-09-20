@@ -68,6 +68,10 @@ Pull requests should report the CircleCI aggregate status `ci/circleci: ci-succe
 
 Never republish a published version with a different tarball checksum. The publication script refuses that state. Investigate the artifact, tag, registry metadata, and job output; use the release workflow's retry path only after the expected version and checksum are confirmed.
 
+`npm publish` resolves as soon as npm accepts the tarball, but npm processes the version asynchronously afterwards and can take several minutes to expose it in the package metadata document. The publish job therefore polls for visibility for 15 minutes, retrying transient registry failures, before it gives up. A version that never becomes visible fails the job with the budget it used and the resume instruction, but the npm publish has already succeeded, so the version is live and immutable regardless. Re-run the failed `ci` workflow to verify the published tarball and create the GitHub release.
+
+To widen that wait on a slow release, set `FLEET_REGISTRY_VISIBILITY_TIMEOUT_MS` (milliseconds) on the `release-publish` job. It only extends the wait; it never changes which version is published or bypasses the checksum verification.
+
 Do not manually edit generated changelogs or release tags to bypass Changesets. If the release is not ready, fix the source change or release PR and let the guarded job run again.
 
 ## CircleCI Smart Deployments

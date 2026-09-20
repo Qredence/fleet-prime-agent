@@ -561,6 +561,74 @@ test("waits for registry visibility with deterministic polling", async () => {
 	]);
 });
 
+test("retries transient registry failures until the version becomes visible", async () => {
+	let calls = 0;
+	const metadata = { version: "0.5.1", dist: { tarball: "https://registry.example.test/fleet.tgz" } };
+	const result = await waitForPublishedVersion({
+		version: "0.5.1",
+		fetchImpl: async () => {
+			calls += 1;
+			if (calls === 1) return response(503);
+			if (calls === 2) throw new Error("socket hang up");
+			return response(200, { versions: { "0.5.1": metadata } });
+		},
+		sleepImpl: async () => {},
+	});
+	assert.deepEqual(result, metadata);
+	assert.equal(calls, 3);
+});
+
+test("reports the real visibility budget and the resume path when the registry stays silent", async () => {
+	await assert.rejects(
+		waitForPublishedVersion({
+			version: "0.5.1",
+			fetchImpl: async () => response(404),
+			sleepImpl: async () => {},
+			timeoutMs: 3000,
+		}),
+		(error) => {
+			assert.match(error.message, /did not expose @qredence\/fleet@0\.5\.1 within 3 seconds of publishing/);
+			assert.match(error.message, /re-run the release-publish job to verify it and resume the GitHub release/);
+			assert.doesNotMatch(error.message, /30 seconds/);
+			return true;
+		},
+	);
+});
+
+test("surfaces the last registry error when the visibility wait expires", async () => {
+	await assert.rejects(
+		waitForPublishedVersion({
+			version: "0.5.1",
+			fetchImpl: async () => {
+				throw new Error("registry unavailable");
+			},
+			sleepImpl: async () => {},
+			timeoutMs: 3000,
+		}),
+		/last registry error: registry unavailable/,
+	);
+});
+
+test("honors a registry visibility timeout override and rejects an invalid one", async () => {
+	assert.deepEqual(
+		await waitForPublishedVersion({
+			version: "0.5.1",
+			fetchImpl: async () => response(200, { versions: { "0.5.1": { version: "0.5.1" } } }),
+			sleepImpl: async () => {},
+		}),
+		{ version: "0.5.1" },
+	);
+	process.env.FLEET_REGISTRY_VISIBILITY_TIMEOUT_MS = "soon";
+	try {
+		await assert.rejects(
+			waitForPublishedVersion({ version: "0.5.1", fetchImpl: async () => response(404) }),
+			/FLEET_REGISTRY_VISIBILITY_TIMEOUT_MS must be a positive number of milliseconds, received soon/,
+		);
+	} finally {
+		delete process.env.FLEET_REGISTRY_VISIBILITY_TIMEOUT_MS;
+	}
+});
+
 test("publishes a new version once and verifies the post-publish tarball", async () => {
 	const directory = mkdtempSync(join(tmpdir(), "fleet-release-test-"));
 	const artifact = join(directory, "qredence-fleet-0.5.1.tgz");
