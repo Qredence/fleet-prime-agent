@@ -144,8 +144,8 @@ Use these sources when changing the contract:
 - `web/server/src/handlers/chat-events.ts`;
 - `web/server/src/ring-buffer.ts`;
 - `web/server/src/sse-replay.ts`;
-- `web/app/src/lib/pi/chat-stream-state.ts`;
-- `web/app/src/lib/pi/use-pi-chat.ts`.
+- `web/app/src/components/chat/chat-stream-state.ts`;
+- `web/app/src/components/chat/use-pi-chat.ts`.
 
 Relevant deterministic coverage includes the server event-mapper, chat, daemon-runtime, PrimeBridge, SSE replay, and chat-events suites, plus the browser stream/reducer and Plan presentation tests.
 

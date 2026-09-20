@@ -111,8 +111,9 @@ execution engine. The browser communicates with Fleet through typed HTTP,
 NDJSON, and SSE contracts, while runtime access stays in `web/server`.
 
 Internal workspace packages are named `@prime-agent/web-*`. The published
-launcher is `@qredence/fleet`. Chat UI code under `lib/pi` and `fleet-pi` is
-Fleet product code (the `pi` name is historical). See [CONTRIBUTING.md](CONTRIBUTING.md).
+launcher is `@qredence/fleet`. The frontend lives in `web/app` (routes,
+components, styles, and browser state); the `pi` name in older Fleet chat code
+is historical. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 The pinned runtime release and checksum are maintained in
 [PRIME_AGENT_RUNTIME.json](PRIME_AGENT_RUNTIME.json).

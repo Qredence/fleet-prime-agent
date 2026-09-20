@@ -32,15 +32,15 @@ or `npm exec pnpm@11.15.1`.
 | Name | Meaning |
 | --- | --- |
 | `@qredence/fleet` | Published launcher on npm (`fleet-agent` / `fleet-prime`) |
-| `@prime-agent/web`, `web-design`, `web-protocol`, `web-server` | Private workspace packages |
-| `lib/pi`, `fleet-pi` | Fleet chat product code; `pi` is historical (pi-mono), not a current package |
+| `@prime-agent/web`, `web-protocol`, `web-server` | Private workspace packages |
+| `pi`, `fleet-pi` | Historical names in Fleet chat code (pi-mono); not a current package. Chat code lives under `web/app/src/components/chat/` |
 | Prime Agent | External execution engine, pinned by `PRIME_AGENT_RUNTIME.json` |
 
 ## Where to change X
 
 | Change | Package |
 | --- | --- |
-| UI copy, layout, tool cards | `web/design` and composition in `web/app` |
+| UI copy, layout, tool cards | `web/app/src/components/<area>/` |
 | HTTP/NDJSON/SSE wire type | `web/protocol` (`ChatStreamEvent`) |
 | Daemon mapping, sessions, sanitization | `web/server` |
 | Thin HTTP route wrapper | `web/app/src/routes/api/` |

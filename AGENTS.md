@@ -106,16 +106,13 @@ Additional responsibilities:
 web/protocol
   → browser-safe transport contracts
 
-web/design
-  → reusable Fleet presentation/UI components
-
 packages/fleet-web
   → Fleet launcher/distribution
 ```
 
 ### Browser boundary
 
-`web/app` and `web/design` must not import `prime-agent` or other upstream execution-runtime packages.
+`web/app` must not import `prime-agent` or other upstream execution-runtime packages.
 
 Browser code communicates with execution through Fleet's typed HTTP/stream protocol.
 
@@ -137,7 +134,7 @@ It owns:
 * Fleet-managed presentation state;
 * runtime compatibility handling.
 
-Do not move Prime Agent-specific execution knowledge into `web/app` or `web/design`.
+Do not move Prime Agent-specific execution knowledge into `web/app`.
 
 ### Protocol boundary
 
@@ -245,10 +242,9 @@ Prime Agent engine release notes belong upstream.
 
 ## Repository map
 
-* `web/app/` — TanStack Start browser product.
+* `web/app/` — TanStack Start browser product and the whole frontend: routes, components, styles, browser state, and app-owned checks (`scripts/`, `playwright/`).
 * `web/server/` — Fleet adapter to Prime Agent and HTTP/runtime orchestration.
 * `web/protocol/` — typed browser/server protocol.
-* `web/design/` — reusable Fleet UI and presentation (`components/ui`, `components/openui`, `components/qredence-ui`).
 * `packages/fleet-web/` — published launcher/distribution package.
 * `scripts/` — repository validation, packaging, installation, and release tooling.
 * `PRIME_AGENT_RUNTIME.json` — authoritative stock Prime Agent runtime pin.

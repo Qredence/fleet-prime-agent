@@ -32,12 +32,9 @@ web/server
 Pinned stock Prime Agent runtime
 ~~~
 
-Additional product pieces:
+Additional product piece:
 
 ~~~text
-web/design
-   ↑ reusable UI/presentation used by web/app
-
 packages/fleet-web
    → Fleet launcher/distribution
 ~~~
@@ -48,7 +45,9 @@ The browser never receives upstream runtime objects. TanStack Start route module
 
 ### `web/app`
 
-Owns the TanStack Start browser product, browser state, routes, client behavior, and product composition.
+Owns the TanStack Start browser product: routes, browser state, client behavior, all frontend components and styles, and product composition.
+
+Presentation lives under `src/components/`: `ui` (Base UI primitives), `openui` (generative UI), `layout` (app chrome), and the product areas `chat`, `sessions`, `workspace`, `artifacts`, `settings`, `tools`, and `motion`. Areas own their local hooks, query definitions, helpers, and tests; `src/lib` and `src/hooks` hold only cross-area capabilities.
 
 It consumes Fleet browser-safe contracts. Server-only route wrappers may depend on `web/server`, but browser code must not import Prime Agent execution-runtime packages.
 
@@ -77,14 +76,6 @@ Prime Agent-specific runtime knowledge should terminate here.
 Owns browser/server transport types and compatibility vocabulary.
 
 The browser and server should share these types instead of reproducing wire shapes independently.
-
-### `web/design`
-
-Owns reusable presentation/UI elements.
-
-Presentation lives under `components/ui` (Base UI primitives), `components/openui` (generative UI), and `components/qredence-ui` (product chat, tools, layout, panels, motion, and chrome).
-
-It should not own runtime semantics or Prime Agent integration.
 
 ### `packages/fleet-web`
 
@@ -171,9 +162,7 @@ Browser-visible settings are an explicit, sanitized projection. A secret must no
 The intended workspace direction is:
 
 ~~~text
-web/app ───────────────→ web/design ─────→ web/protocol
-  │
-  ├──────────────→ web/protocol
+web/app ───────────────→ web/protocol
   │
   └─server-only route delegation─→ web/server ──→ web/protocol
                                       │
@@ -185,7 +174,7 @@ web/app ───────────────→ web/design ────
 
 Prohibited directions:
 
-* browser code in `web/app` or `web/design` must not import `prime-agent`, `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`, or equivalent execution-runtime packages;
+* browser code in `web/app` must not import `prime-agent`, `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`, or equivalent execution-runtime packages;
 * runtime-specific implementation must remain in `web/server`;
 * shared browser/server wire types belong in `web/protocol`;
 * Fleet must not add an upstream Prime Agent source tree or duplicate daemon/core runtime behavior.
