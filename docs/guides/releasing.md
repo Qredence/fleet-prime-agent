@@ -27,7 +27,7 @@ Do not publish or create a release as a local validation step.
 ## Automated release flow
 
 1. Changes land on `main` with the required CI checks green.
-2. The `release-prepare` job runs with the release-automation credentials, computes the next version, and runs `pnpm run release:prepare`. It creates or reuses the Changesets release pull request.
+2. The `release-prepare` job runs with the release-automation credentials, computes the next version, and runs `pnpm run release:prepare`. It creates the Changesets release pull request, resumes one whose branch an earlier run already created, or reuses an open one.
 3. Review and merge the generated release pull request through the normal protected-branch process.
 4. After the release commit passes CI, the `release-publish` job is the production Smart Deployment: it plans a CircleCI deploy marker, publishes the immutable npm version, and creates the matching GitHub release.
 5. Publication uses npm Trusted Publishing (CircleCI OIDC) plus the `github-release` context for the GitHub tag and assets. The job verifies package metadata and checksums, waits for registry visibility, then marks the CircleCI deployment `SUCCESS` or `FAILED`.
@@ -52,13 +52,19 @@ circleci context get release-automation --json
 circleci context get github-release --json
 ~~~
 
-Confirm that each response names only `GITHUB_TOKEN`, includes the `fleet-prime-agent` project restriction, and restricts the branch to `main`. Confirm that `github-release` also includes `not job.ssh.enabled`. The release-automation token needs only the repository Pull requests and Contents read/write access required to create the generated release PR; the publishing token needs Contents read/write for the tag, release, and assets.
+Confirm that each response names only `GITHUB_TOKEN`, includes the `fleet-prime-agent` project restriction, and restricts the branch to `main`. Confirm that `github-release` also includes `not job.ssh.enabled`. The release-automation token needs the repository Pull requests and Contents read/write access required to create the generated release PR; the publishing token needs Contents read/write for the tag, release, and assets. The release-automation token must be a fine-grained token granted `Pull requests: Read and write` and `Contents: Read and write`. `Pull requests: Read` alone is enough to list pull requests, so a token missing only the write permission fails late, after the job has already created the release branch, and leaves that branch behind.
 
 Configure npm Trusted Publishing for `@qredence/fleet` with the CircleCI organization, project, pipeline-definition, context, and repository details from `.circleci/info.yml` and CircleCI Project Settings. Enable direct `npm publish` and do not use staged publishing in CI. npm's current Trusted Publisher UI always lists staged publishing as allowed; the editable control is direct publish. Do not store `NPM_TOKEN` for publication; the publish job uses the CircleCI OIDC exchange. Dist-tag promotion and rollback remain separate token-authenticated operations. npm package access should require trusted publishing and two-factor authentication as available.
 
 The publish job uses the Node 22.23.2 LTS executor and pins npm 11.15.0. This is separate from the package's minimum runtime of Node 22.12.0 because npm trusted publishing requires npm 11.15.0 and Node 22.14.0 or later.
 
-If a versioning commit passed validation before the publish configuration was fixed, rerun the failed `ci` workflow on that same versioning commit. The `release_retry=true` parameter remains accepted for compatibility, but it does not bypass the package-version commit gate or permit publication from a later fix commit.
+Which release job failed decides the remedy, because the two recover differently.
+
+`release-publish` failures resume against npm. If a versioning commit passed validation before the publish configuration was fixed, rerun the failed `ci` workflow on that same versioning commit; the job sees the already-published version, verifies the tarball, and continues to the GitHub release. The `release_retry=true` parameter remains accepted for compatibility, but it does not bypass the package-version commit gate or permit publication from a later fix commit.
+
+`release-prepare` failures can strand a branch, because the job creates the release branch before it creates the pull request. A failure in between — a token that cannot write pull requests, a transient API error — leaves `release/fleet-v<version>` on origin with no pull request. Rerunning the same commit now resumes it: the job recognizes its own version commit and opens the pull request for the existing branch. It resumes only a branch whose tip is the version commit this automation created for that version *and* that base, so a leftover branch from a release that already merged, or a branch someone else pushed to, is never adopted. When it refuses, the error names the ref to delete; deleting it and rerunning prepares the version again from scratch.
+
+Because the version-commit subject is matched and not only written, changing its generated shape makes existing release branches unresumable. Closing a release pull request does not abandon the release either: the next run resumes the same branch and opens a new pull request, so stop a release by removing its Changesets or deleting the branch, not by closing the PR.
 
 ## Branch protection
 
