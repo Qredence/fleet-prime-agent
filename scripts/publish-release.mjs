@@ -11,7 +11,12 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
 const packageName = "@qredence/fleet";
 const publicBaseline = "0.5.0";
-const PUBLISHED_VERSION_TIMEOUT_MS = 5 * 60_000;
+// `npm publish` resolves as soon as npm accepts the tarball, but npm then processes the
+// version asynchronously and can take minutes to expose it in the package metadata
+// document. Because that publish is irreversible, the visibility wait is budgeted with a
+// wide margin so a slow registry cannot fail a version that has already been published.
+const DEFAULT_REGISTRY_VISIBILITY_TIMEOUT_MS = 15 * 60_000;
+const REGISTRY_VISIBILITY_POLL_INTERVAL_MS = 2000;
 
 /**
  * Reads and validates the package manifest for the expected package and npm registry.
@@ -201,27 +206,77 @@ function publishToNpm(artifact) {
 }
 
 /**
- * Wait for a published package version to become available in the npm registry.
- * @param {string} version - The package version to locate.
- * @returns {object} The published package metadata.
- * @param {number} [timeoutMs=PUBLISHED_VERSION_TIMEOUT_MS] - Maximum time to wait for registry visibility.
+ * Formats a duration for operator-facing messages, in the largest readable unit.
+ * @param {number} milliseconds - The duration to format.
+ * @return {string} The formatted duration, such as `90 seconds` or `15 minutes`.
+ */
+function formatDuration(milliseconds) {
+	const seconds = Math.max(1, Math.round(milliseconds / 1000));
+	if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"}`;
+	const minutes = Math.round(seconds / 60);
+	return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
+/**
+ * Resolves how long to wait for npm to expose a published version.
+ *
+ * The override lets an operator widen the budget on a failing release without shipping a
+ * code change, which matters because the publish being waited on is already irreversible.
+ * @return {number} The visibility timeout in milliseconds.
+ * @throws {Error} If the override is set to something other than a positive number.
+ */
+function resolveRegistryVisibilityTimeoutMs() {
+	const override = process.env.FLEET_REGISTRY_VISIBILITY_TIMEOUT_MS;
+	if (override === undefined || override === "") return DEFAULT_REGISTRY_VISIBILITY_TIMEOUT_MS;
+	const parsed = Number(override);
+	if (!Number.isFinite(parsed) || parsed <= 0) {
+		throw new Error(
+			`FLEET_REGISTRY_VISIBILITY_TIMEOUT_MS must be a positive number of milliseconds, received ${override}`,
+		);
+	}
+	return parsed;
+}
+
+/**
+ * Waits for a published package version to become available in the npm registry.
+ *
+ * Transient registry failures are retried until the deadline rather than thrown, because at
+ * this point `npm publish` has already succeeded and an aborted wait would strand the release
+ * between npm and GitHub. Exhausting the budget raises an error naming the real budget and
+ * the resume path, since re-running the job verifies the published tarball and continues.
+ * @param {Function} [options.fetchImpl] - Fetch implementation used for registry requests.
+ * @param {string} options.version - The package version to locate.
+ * @param {Function} [options.sleepImpl] - Sleep implementation used between polls.
+ * @param {number} [options.timeoutMs] - Maximum time to wait for registry visibility.
+ * @returns {Promise<object>} The published package metadata.
  * @throws {Error} If the version is not available within the timeout.
  */
 export async function waitForPublishedVersion({
 	fetchImpl = fetch,
 	version,
 	sleepImpl,
-	timeoutMs = PUBLISHED_VERSION_TIMEOUT_MS,
+	timeoutMs = resolveRegistryVisibilityTimeoutMs(),
 } = {}) {
 	const deadline = Date.now() + timeoutMs;
+	let lastRegistryError;
 	while (Date.now() < deadline) {
-		const metadata = await readRegistryPackage({ fetchImpl, version });
-		if (metadata) return metadata;
+		try {
+			const metadata = await readRegistryPackage({ fetchImpl, version });
+			if (metadata) return metadata;
+			lastRegistryError = undefined;
+		} catch (error) {
+			lastRegistryError = error;
+		}
 		await (
 			sleepImpl ?? ((milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds)))
-		)(2000);
+		)(REGISTRY_VISIBILITY_POLL_INTERVAL_MS);
 	}
-	throw new Error(`npm did not expose ${packageName}@${version} within 30 seconds of publishing`);
+	const lastErrorDetail = lastRegistryError ? `; last registry error: ${lastRegistryError.message}` : "";
+	throw new Error(
+		`npm did not expose ${packageName}@${version} within ${formatDuration(timeoutMs)} of publishing${lastErrorDetail}. ` +
+			"The npm publish itself succeeded, so that version is published and immutable; " +
+			"re-run the release-publish job to verify it and resume the GitHub release.",
+	);
 }
 
 /**
