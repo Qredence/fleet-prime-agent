@@ -7,12 +7,14 @@ import { assertAllowedPath } from "../check-package.mjs";
 import { pnpmInvocation } from "../pnpm-command.mjs";
 import {
 	createVersionPullRequest,
+	isResumableVersionCommit,
 	prepareRelease,
 	releasePlanFromStatus,
 	releaseTargetBaselineVersion,
 	releaseVersionFromStatus,
 	resolveReleaseVersion,
 	run as runPrepareRelease,
+	versionCommitMessage,
 } from "../prepare-release.mjs";
 import {
 	isPackageVersionCommit,
@@ -444,6 +446,136 @@ test("does not create a second release pull request while another is open", asyn
 		"/repos/Qredence/fleet-prime-agent/pulls?state=open&head=Qredence%3Arelease%2Ffleet-v0.5.2&per_page=1",
 		"/repos/Qredence/fleet-prime-agent/pulls?state=open&base=main&per_page=100",
 	]);
+});
+
+test("pins the release version commit subject", () => {
+	assert.equal(versionCommitMessage("0.5.1"), "chore(release): version @qredence/fleet 0.5.1");
+});
+
+test("resumes a release branch this automation created for this version and base", async () => {
+	const calls = [];
+	const branchLookups = [];
+	const pullRequests = [];
+	const result = await createVersionPullRequest("token", "0.5.1", "base-sha", {
+		githubRequestImpl: async (path, _token, options) => {
+			calls.push(path);
+			if (path.includes("head=")) return [];
+			if (path.includes("base=main")) return [];
+			if (path.endsWith("/git/commits/tip-sha")) {
+				return { message: versionCommitMessage("0.5.1"), parents: [{ sha: "base-sha" }] };
+			}
+			pullRequests.push(JSON.parse(options.body));
+			return { html_url: "https://github.com/Qredence/fleet-prime-agent/pull/7" };
+		},
+		githubRequestAllow404Impl: async (path) => {
+			branchLookups.push(path);
+			return { ref: "refs/heads/release/fleet-v0.5.1", object: { sha: "tip-sha", type: "commit" } };
+		},
+	});
+	assert.equal(result, undefined);
+	assert.deepEqual(branchLookups, ["/repos/Qredence/fleet-prime-agent/git/ref/heads/release%2Ffleet-v0.5.1"]);
+	// The ordered calls prove the early return: no tree, commit or ref was re-created.
+	assert.deepEqual(calls, [
+		"/repos/Qredence/fleet-prime-agent/pulls?state=open&head=Qredence%3Arelease%2Ffleet-v0.5.1&per_page=1",
+		"/repos/Qredence/fleet-prime-agent/pulls?state=open&base=main&per_page=100",
+		"/repos/Qredence/fleet-prime-agent/git/commits/tip-sha",
+		"/repos/Qredence/fleet-prime-agent/pulls",
+	]);
+	assert.deepEqual(pullRequests, [
+		{
+			title: "chore(release): @qredence/fleet@0.5.1",
+			head: "release/fleet-v0.5.1",
+			base: "main",
+			body: "This release PR was generated from the accumulated Changesets.\n\nAfter merge, CircleCI will build, verify, and publish @qredence/fleet@0.5.1.",
+		},
+	]);
+});
+
+test("refuses to resume a version commit built on a different base", async () => {
+	const calls = [];
+	await assert.rejects(
+		createVersionPullRequest("token", "0.5.2", "base-sha", {
+			githubRequestImpl: async (path) => {
+				calls.push(path);
+				if (path.includes("head=")) return [];
+				if (path.includes("base=main")) return [];
+				return { message: versionCommitMessage("0.5.2"), parents: [{ sha: "older-sha" }] };
+			},
+			githubRequestAllow404Impl: async () => ({ object: { sha: "tip-sha" } }),
+		}),
+		/already exists without an open pull request; refusing to overwrite it/,
+	);
+	assert.deepEqual(calls, [
+		"/repos/Qredence/fleet-prime-agent/pulls?state=open&head=Qredence%3Arelease%2Ffleet-v0.5.2&per_page=1",
+		"/repos/Qredence/fleet-prime-agent/pulls?state=open&base=main&per_page=100",
+		"/repos/Qredence/fleet-prime-agent/git/commits/tip-sha",
+	]);
+});
+
+test("refuses a merge tip left by an already-merged release branch", async () => {
+	await assert.rejects(
+		createVersionPullRequest("token", "0.5.3", "base-sha", {
+			githubRequestImpl: async (path) => {
+				if (path.includes("head=")) return [];
+				if (path.includes("base=main")) return [];
+				return { message: versionCommitMessage("0.5.3"), parents: [{ sha: "base-sha" }, { sha: "other" }] };
+			},
+			githubRequestAllow404Impl: async () => ({ object: { sha: "tip-sha" } }),
+		}),
+		/refusing to overwrite it/,
+	);
+});
+
+test("refuses a release branch whose ref body carries no tip", async () => {
+	await assert.rejects(
+		createVersionPullRequest("token", "0.5.4", "base-sha", {
+			githubRequestImpl: async (path) => {
+				if (path.includes("head=")) return [];
+				if (path.includes("base=main")) return [];
+				throw new Error(`no commit lookup expected: ${path}`);
+			},
+			githubRequestAllow404Impl: async () => ({ ref: "refs/heads/release/fleet-v0.5.4" }),
+		}),
+		/could not be read/,
+	);
+});
+
+test("accepts only an exact subject match when resuming", () => {
+	const parents = [{ sha: "base-sha" }];
+	assert.equal(
+		isResumableVersionCommit({
+			commit: { message: versionCommitMessage("0.5.1"), parents },
+			version: "0.5.1",
+			baseSha: "base-sha",
+		}),
+		true,
+	);
+	// The Git Data API stores a bare subject; a locally created commit ends in a newline.
+	assert.equal(
+		isResumableVersionCommit({
+			commit: { message: `${versionCommitMessage("0.5.1")}\n`, parents },
+			version: "0.5.1",
+			baseSha: "base-sha",
+		}),
+		true,
+	);
+	assert.equal(
+		isResumableVersionCommit({
+			commit: { message: versionCommitMessage("0.5.2"), parents },
+			version: "0.5.1",
+			baseSha: "base-sha",
+		}),
+		false,
+	);
+	assert.equal(
+		isResumableVersionCommit({
+			commit: { message: versionCommitMessage("0.5.1"), parents: [] },
+			version: "0.5.1",
+			baseSha: "base-sha",
+		}),
+		false,
+	);
+	assert.equal(isResumableVersionCommit({ commit: undefined, version: "0.5.1", baseSha: "base-sha" }), false);
 });
 
 test("dry-runs release preparation without requiring GitHub credentials", async () => {

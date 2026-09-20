@@ -43,6 +43,7 @@ function parseArgs(argv) {
 /**
  * Sends an authenticated request to the GitHub API.
  * @param {string} path - The GitHub API path.
+ * @param {string} token - The GitHub access token.
  * @param {RequestInit} [options] - Additional request options.
  * @return {Promise<unknown>} The parsed response body, or `undefined` when the response has no body.
  * @throws {Error} If the GitHub API returns an unsuccessful response.
@@ -210,8 +211,74 @@ function assertVersionChangesOnly(files) {
 }
 
 /**
+ * Builds the release version commit subject.
+ * The same string is written when the version commit is created and matched when a release branch
+ * left behind by an earlier run is resumed, so the writer and the reader share this helper. The
+ * release branches already on origin carry this exact subject, so changing its shape would make
+ * them non-resumable.
+ * @param {string} version - The stable release version.
+ * @returns {string} The version commit subject for the release.
+ */
+export function versionCommitMessage(version) {
+	return `chore(release): version ${packageName} ${version}`;
+}
+
+/**
+ * Decides whether an existing release branch tip is the version commit this automation created for
+ * this release, from this base.
+ * The base is part of the identity deliberately. A tip that matches only on subject and parent count
+ * is also the shape of a branch left behind by an already-merged release, and resuming one of those
+ * would open a pull request with nothing to merge. Requiring the recorded base also keeps a resume
+ * from reverting a version commit whose base predates changesets added to main since the failure.
+ * @param {object} details - The candidate tip and the release identity to match it against.
+ * @param {{message?: string, parents?: Array<{sha: string}>}} [details.commit] - Tip commit as returned by the Git Data API.
+ * @param {string} details.version - The release version under preparation.
+ * @param {string} details.baseSha - The commit the failed run used as the version commit's parent.
+ * @returns {boolean} `true` when the tip is provably this automation's version commit for this release.
+ */
+export function isResumableVersionCommit({ commit, version, baseSha }) {
+	const parents = Array.isArray(commit?.parents) ? commit.parents : [];
+	return (
+		typeof commit?.message === "string" &&
+		// The Git Data API stores a bare subject while a locally created commit ends in a newline.
+		commit.message.trimEnd() === versionCommitMessage(version) &&
+		parents.length === 1 &&
+		parents[0]?.sha === baseSha
+	);
+}
+
+/**
+ * Opens the release pull request for a release branch.
+ * @param {Object} options - Pull request details and request dependencies.
+ * @param {string} options.token - GitHub authentication token.
+ * @param {string} options.owner - Repository owner.
+ * @param {string} options.repo - Repository name.
+ * @param {string} options.branch - Release branch the pull request is opened for.
+ * @param {string} options.version - Stable release version.
+ * @param {Function} options.githubRequestImpl - GitHub request implementation.
+ * @returns {Promise<void>} Resolves once the pull request has been created.
+ */
+async function openReleasePullRequest({ token, owner, repo, branch, version, githubRequestImpl }) {
+	const pullRequest = await githubRequestImpl(`/repos/${owner}/${repo}/pulls`, token, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			title: `chore(release): ${packageName}@${version}`,
+			head: branch,
+			base: baseBranch,
+			body:
+				`This release PR was generated from the accumulated Changesets.\n\n` +
+				`After merge, CircleCI will build, verify, and publish ${packageName}@${version}.`,
+		}),
+	});
+	console.log(`Created release pull request ${pullRequest.html_url} for ${packageName}@${version}.`);
+}
+
+/**
  * Creates a release branch and pull request for the specified package version.
- * Skips creation when the target release pull request already exists, another release pull request is active, or the release branch is unmanaged.
+ * Skips creation when the target release pull request already exists or another release pull request
+ * is active. Resumes a release branch this automation created for this version and base but failed to
+ * open a pull request for, and refuses a branch it cannot prove it created.
  * @param {string} token - GitHub authentication token.
  * @param {string} version - Stable release version.
  * @param {string} baseSha - Commit SHA from which to create the release.
@@ -254,10 +321,30 @@ export async function createVersionPullRequest(
 		return;
 	}
 
-	if (await githubRequestAllow404Impl(`/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`, token)) {
-		throw new Error(
-			`Release branch ${branch} already exists without an open pull request; refusing to overwrite it.`,
+	const existingBranch = await githubRequestAllow404Impl(
+		`/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
+		token,
+	);
+	if (existingBranch) {
+		// A run can create the branch and then fail before its pull request exists, for example on a
+		// token that may read pull requests but not write them. Resuming is the only recovery, because
+		// this guard deliberately refuses to touch a branch it cannot prove it created itself.
+		const existingTipSha = existingBranch.object?.sha;
+		const existingTip = existingTipSha
+			? await githubRequestImpl(`/repos/${owner}/${repo}/git/commits/${existingTipSha}`, token)
+			: undefined;
+		if (!existingTipSha || !isResumableVersionCommit({ commit: existingTip, version, baseSha })) {
+			throw new Error(
+				`Release branch ${branch} already exists without an open pull request; refusing to overwrite it. ` +
+					`Its tip ${existingTipSha ?? "could not be read"} is not the ${packageName}@${version} version commit this automation created on ${baseSha}. ` +
+					`Delete refs/heads/${branch} and rerun to prepare ${version} again.`,
+			);
+		}
+		console.log(
+			`Release branch ${branch} at ${existingTipSha} is the ${packageName}@${version} version commit from an earlier run; opening its release pull request.`,
 		);
+		await openReleasePullRequest({ token, owner, repo, branch, version, githubRequestImpl });
+		return;
 	}
 
 	const pnpm = pnpmInvocation(["exec", "changeset", "version"]);
@@ -283,7 +370,7 @@ export async function createVersionPullRequest(
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
-			message: `chore(release): version ${packageName} ${version}`,
+			message: versionCommitMessage(version),
 			tree: tree.sha,
 			parents: [baseSha],
 		}),
@@ -293,19 +380,7 @@ export async function createVersionPullRequest(
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit.sha }),
 	});
-	const pullRequest = await githubRequestImpl(`/repos/${owner}/${repo}/pulls`, token, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			title: `chore(release): ${packageName}@${version}`,
-			head: branch,
-			base: baseBranch,
-			body:
-				`This release PR was generated from the accumulated Changesets.\n\n` +
-				`After merge, CircleCI will build, verify, and publish ${packageName}@${version}.`,
-		}),
-	});
-	console.log(`Created release pull request ${pullRequest.html_url} for ${packageName}@${version}.`);
+	await openReleasePullRequest({ token, owner, repo, branch, version, githubRequestImpl });
 }
 
 /**
