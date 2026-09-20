@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const browserSourceRoots = ["web/app", "web/design"];
+const browserSourceRoots = ["web/app"];
 const forbiddenPackages = [
 	"prime-agent",
 	"@earendil-works/pi-agent-core",
@@ -82,7 +82,7 @@ function sourceFiles(directory) {
 }
 
 const arbitraryTypeScalePattern = /text-\[0\./;
-const typeScaleRoots = ["web/app", "web/design"];
+const typeScaleRoots = ["web/app"];
 
 export function findArbitraryTypeScaleLines(source) {
 	const lines = [];

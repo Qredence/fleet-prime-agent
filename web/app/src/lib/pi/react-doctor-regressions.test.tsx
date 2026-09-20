@@ -1,7 +1,3 @@
-import { Popover } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/input-popover";
-import { ChromePillButton } from "@prime-agent/web-design/components/qredence-ui/chrome/chrome-pill";
-import { useOAuthLoginFlow } from "@prime-agent/web-design/components/qredence-ui/panels/config-panel/sections/use-oauth-login-flow";
-import { useProximityHover } from "@prime-agent/web-design/lib/hooks/use-proximity-hover";
 import type {
 	ChatProviderOAuthLoginRequest,
 	ChatProviderOAuthLoginResponse,
@@ -10,6 +6,10 @@ import type {
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Popover } from "@/components/qredence-ui/chat/composer/input/input-popover";
+import { ChromePillButton } from "@/components/qredence-ui/chrome/chrome-pill";
+import { useOAuthLoginFlow } from "@/components/qredence-ui/panels/config-panel/sections/use-oauth-login-flow";
+import { useProximityHover } from "@/lib/hooks/use-proximity-hover";
 import type { ChatClient } from "./chat-client";
 import { usePiChat } from "./use-pi-chat";
 

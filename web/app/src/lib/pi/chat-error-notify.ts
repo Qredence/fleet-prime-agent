@@ -1,4 +1,4 @@
-import { notify } from "@prime-agent/web-design/lib/notify";
+import { notify } from "@/lib/notify";
 import { isDaemonDisconnectError } from "./chat-fetch";
 
 /**

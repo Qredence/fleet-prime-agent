@@ -1,19 +1,16 @@
-import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact";
-import { decodeOpenPanelActionMessage } from "@prime-agent/web-design/components/openui/open-panel-action-message";
-import {
-	agentTabPanelId,
-	agentTabTriggerId,
-} from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-ids";
-import { AnimatedSidebarInset } from "@prime-agent/web-design/components/qredence-ui/layout/animated-sidebar";
-import { ChatApp } from "@prime-agent/web-design/components/qredence-ui/layout/chat-app";
-import { ChatWorkspaceLayout } from "@prime-agent/web-design/components/qredence-ui/layout/chat-workspace-layout";
-import { RightPanelProvider } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-context";
-import { RightPanelShell } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-shell";
-import { SessionSidebar } from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar";
-import { UiErrorBoundary } from "@prime-agent/web-design/components/qredence-ui/layout/ui-error-boundary";
-import { notify } from "@prime-agent/web-design/lib/notify";
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { lazy, Suspense, useCallback, useMemo } from "react";
+import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
+import { decodeOpenPanelActionMessage } from "@/components/openui/open-panel-action-message";
+import { agentTabPanelId, agentTabTriggerId } from "@/components/qredence-ui/layout/agent-tab-ids";
+import { AnimatedSidebarInset } from "@/components/qredence-ui/layout/animated-sidebar";
+import { ChatApp } from "@/components/qredence-ui/layout/chat-app";
+import { ChatWorkspaceLayout } from "@/components/qredence-ui/layout/chat-workspace-layout";
+import { RightPanelProvider } from "@/components/qredence-ui/layout/right-panel-context";
+import { RightPanelShell } from "@/components/qredence-ui/layout/right-panel-shell";
+import { SessionSidebar } from "@/components/qredence-ui/layout/session-sidebar";
+import { UiErrorBoundary } from "@/components/qredence-ui/layout/ui-error-boundary";
+import { notify } from "@/lib/notify";
 import { notifyChatError, runWorkspaceAction } from "@/lib/pi/chat-error-notify";
 import { useChatInputBarProps } from "@/lib/pi/chat-input-bar-props";
 import { ChatPanel } from "@/lib/pi/chat-panel";

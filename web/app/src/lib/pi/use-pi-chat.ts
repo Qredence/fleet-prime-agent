@@ -1,4 +1,3 @@
-import { notify } from "@prime-agent/web-design/lib/notify";
 import type {
 	ChatMode,
 	ChatModelSelection,
@@ -15,6 +14,7 @@ import type {
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ChatAttachment, ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { notify } from "@/lib/notify";
 import type { ChatClient } from "./chat-client";
 import { chatClient } from "./chat-client";
 import { notifyChatError } from "./chat-error-notify";

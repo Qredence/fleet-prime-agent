@@ -1,9 +1,9 @@
-import { SessionToolRenderer } from "@prime-agent/web-design/components/qredence-ui/tools/session-tool-renderer";
-import { SpecializedToolRenderer } from "@prime-agent/web-design/components/qredence-ui/tools/specialized-tool-renderer";
-import { normalizeToolPart } from "@prime-agent/web-design/components/qredence-ui/tools/tool-output-normalizer";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { SessionToolRenderer } from "@/components/qredence-ui/tools/session-tool-renderer";
+import { SpecializedToolRenderer } from "@/components/qredence-ui/tools/specialized-tool-renderer";
+import { normalizeToolPart } from "@/components/qredence-ui/tools/tool-output-normalizer";
 
 describe("normalizeToolPart", () => {
 	it("extracts nested IPython details and keeps an active unresolved call running", () => {

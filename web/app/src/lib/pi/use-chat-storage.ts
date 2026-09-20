@@ -1,7 +1,7 @@
-import { readStoredValue, removeStoredValue, writeStoredValue } from "@prime-agent/web-design/lib/safe-storage";
 import type { ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
 import { ChatSessionMetadataSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { useCallback, useEffect, useState } from "react";
+import { readStoredValue, removeStoredValue, writeStoredValue } from "@/lib/safe-storage";
 
 const CHAT_SESSION_STORAGE_KEY = "fleet-prime:v1:chat-session";
 

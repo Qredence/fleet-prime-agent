@@ -1,7 +1,7 @@
-import { VirtualizedTurnList } from "@prime-agent/web-design/components/qredence-ui/chat/message/virtualized-turn-list";
 import { act, render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { VirtualizedTurnList } from "@/components/qredence-ui/chat/message/virtualized-turn-list";
 
 function Harness({ count }: { count: number }) {
 	const viewportRef = useRef<HTMLElement | null>(null);

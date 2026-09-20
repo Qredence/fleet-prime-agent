@@ -1,21 +1,3 @@
-import type { RightPanel, ThemePreference } from "@prime-agent/web-design/lib/canvas-utils";
-import {
-	applyThemePreference,
-	clampResourceCanvasWidth,
-	getResourceCanvasInitialWidth,
-	readStoredResourceCanvasWidth,
-	readStoredThemePreference,
-	storeResourceCanvasWidth,
-	storeThemePreference,
-} from "@prime-agent/web-design/lib/canvas-utils";
-import { startHorizontalResize } from "@prime-agent/web-design/lib/horizontal-resize";
-import {
-	availableThinkingLevels,
-	clampThinkingLevel,
-	toModelOption,
-	toModelSelection,
-} from "@prime-agent/web-design/lib/pi/chat-helpers";
-import { resolveWorkspacePanelTarget } from "@prime-agent/web-design/lib/workspace-path-nav";
 import type {
 	ChatModelsResponse,
 	ChatSessionMetadata,
@@ -24,6 +6,19 @@ import type {
 import type { OpenPanelAction } from "@prime-agent/web-protocol/fleet-contract";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RightPanel, ThemePreference } from "@/lib/canvas-utils";
+import {
+	applyThemePreference,
+	clampResourceCanvasWidth,
+	getResourceCanvasInitialWidth,
+	readStoredResourceCanvasWidth,
+	readStoredThemePreference,
+	storeResourceCanvasWidth,
+	storeThemePreference,
+} from "@/lib/canvas-utils";
+import { startHorizontalResize } from "@/lib/horizontal-resize";
+import { availableThinkingLevels, clampThinkingLevel, toModelOption, toModelSelection } from "@/lib/pi/chat-helpers";
+import { resolveWorkspacePanelTarget } from "@/lib/workspace-path-nav";
 
 export type ChatShellStorage = {
 	sessionMetadata: ChatSessionMetadata;

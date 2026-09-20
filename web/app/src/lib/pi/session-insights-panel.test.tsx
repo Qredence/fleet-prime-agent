@@ -1,17 +1,14 @@
-import { deriveSessionInsights } from "@prime-agent/web-design/components/qredence-ui/panels/session/session-insights";
-import { SessionInsightsPanel } from "@prime-agent/web-design/components/qredence-ui/panels/session/session-insights-panel";
-import {
-	EMPTY_CHAT_TRANSCRIPT_SUMMARY,
-	summarizeChatTranscript,
-} from "@prime-agent/web-design/components/qredence-ui/panels/session/transcript-summary";
-import {
-	RightPanelLauncher,
-	RightPanelTrigger,
-} from "@prime-agent/web-design/components/qredence-ui/panels/workspace/right-panel-launcher";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { deriveSessionInsights } from "@/components/qredence-ui/panels/session/session-insights";
+import { SessionInsightsPanel } from "@/components/qredence-ui/panels/session/session-insights-panel";
+import {
+	EMPTY_CHAT_TRANSCRIPT_SUMMARY,
+	summarizeChatTranscript,
+} from "@/components/qredence-ui/panels/session/transcript-summary";
+import { RightPanelLauncher, RightPanelTrigger } from "@/components/qredence-ui/panels/workspace/right-panel-launcher";
 
 const presentation: PrimeAgentSessionPresentation = {
 	revision: 1,

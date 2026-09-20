@@ -1,6 +1,6 @@
-import { PromptSuggestions } from "@prime-agent/web-design/components/qredence-ui/chat/prompt-suggestions";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { PromptSuggestions } from "@/components/qredence-ui/chat/prompt-suggestions";
 
 describe("PromptSuggestions", () => {
 	it("preserves selected suggestion contrast across hover and focus states", () => {

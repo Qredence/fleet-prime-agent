@@ -5,19 +5,17 @@ import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
 
 const LazyChatCommandPalette = lazy(() =>
-	import("@prime-agent/web-design/components/qredence-ui/layout/chat-command-palette").then(
-		({ ChatCommandPalette }) => ({ default: ChatCommandPalette }),
-	),
+	import("@/components/qredence-ui/layout/chat-command-palette").then(({ ChatCommandPalette }) => ({
+		default: ChatCommandPalette,
+	})),
 );
 const LazySettingsDialog = lazy(() =>
-	import("@prime-agent/web-design/components/qredence-ui/panels/settings/settings-dialog").then(
-		({ SettingsDialog }) => ({
-			default: SettingsDialog,
-		}),
-	),
+	import("@/components/qredence-ui/panels/settings/settings-dialog").then(({ SettingsDialog }) => ({
+		default: SettingsDialog,
+	})),
 );
 const LazyForkPickerDialog = lazy(() =>
-	import("@prime-agent/web-design/components/qredence-ui/chat/fork-picker-dialog").then(({ ForkPickerDialog }) => ({
+	import("@/components/qredence-ui/chat/fork-picker-dialog").then(({ ForkPickerDialog }) => ({
 		default: ForkPickerDialog,
 	})),
 );

@@ -1,6 +1,6 @@
-import { SessionTreePanel } from "@prime-agent/web-design/components/qredence-ui/panels/session/session-tree-panel";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { SessionTreePanel } from "@/components/qredence-ui/panels/session/session-tree-panel";
 
 const snapshot = {
 	sessionId: "session-1",

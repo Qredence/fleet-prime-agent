@@ -1,9 +1,9 @@
+import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol";
+import { describe, expect, it } from "vitest";
 import {
 	derivePrimeAgentArtifactRuns,
 	primeAgentArtifactDiff,
-} from "@prime-agent/web-design/components/qredence-ui/panels/workspace/prime-agent-artifacts";
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol";
-import { describe, expect, it } from "vitest";
+} from "@/components/qredence-ui/panels/workspace/prime-agent-artifacts";
 
 function artifactStatus(state: string, chatStatus: ChatStatus, extra: Record<string, unknown> = {}) {
 	const messages: Array<ChatMessage> = [

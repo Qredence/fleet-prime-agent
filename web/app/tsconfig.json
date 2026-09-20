@@ -2,9 +2,12 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "scripts/**/*.ts",
+    "scripts/**/*.tsx",
     "playwright/**/*.ts",
     "vite.config.ts",
     "vitest.config.ts",
+    "vitest.bench.config.ts",
     "playwright.config.ts"
   ],
   "exclude": [
@@ -16,7 +19,7 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "node"],
+    "types": ["vite/client", "node", "vitest/globals"],
 
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -32,7 +35,6 @@
     "allowJs": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@prime-agent/web-design/*": ["../design/src/*"],
       "@prime-agent/web-protocol/*": ["../protocol/src/*"],
       "@prime-agent/web-server": ["../server/src/index.ts"]
     }

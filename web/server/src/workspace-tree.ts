@@ -18,7 +18,7 @@ const IGNORED = new Set([
 ]);
 
 // Keep the response bounded while including files under normal monorepo
-// paths such as apps/api/app/scripts and web/design/src/components.
+// paths such as apps/api/app/scripts and web/app/src/components.
 const MAX_DEPTH = 10;
 const MAX_ENTRIES_PER_DIR = 100;
 

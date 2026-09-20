@@ -1,6 +1,6 @@
-import { getChatErrorPresentation } from "@prime-agent/web-design/components/qredence-ui/chat/chat-error-presentation";
 import { NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it } from "vitest";
+import { getChatErrorPresentation } from "@/components/qredence-ui/chat/chat-error-presentation";
 
 describe("chat error presentation", () => {
 	it("turns daemon transport details into a useful runtime message", () => {

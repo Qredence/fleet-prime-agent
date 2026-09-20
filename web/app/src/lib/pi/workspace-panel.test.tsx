@@ -1,12 +1,12 @@
+import type { WorkspaceFileResponse, WorkspaceTreeResponse } from "@prime-agent/web-protocol/chat-protocol";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	WORKSPACE_PREVIEW_TIMEOUT_MS,
 	WorkspacePanelContent,
 	type WorkspacePanelContentProps,
-} from "@prime-agent/web-design/components/qredence-ui/panels/workspace/workspace-panel";
-import { resolveWorkspacePanelTarget } from "@prime-agent/web-design/lib/workspace-path-nav";
-import type { WorkspaceFileResponse, WorkspaceTreeResponse } from "@prime-agent/web-protocol/chat-protocol";
-import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+} from "@/components/qredence-ui/panels/workspace/workspace-panel";
+import { resolveWorkspacePanelTarget } from "@/lib/workspace-path-nav";
 
 const workspace: WorkspaceTreeResponse = {
 	root: "/workspace/prime-agent",

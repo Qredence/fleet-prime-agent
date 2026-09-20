@@ -1,19 +1,15 @@
 import interWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
-import { NotFoundPage } from "@prime-agent/web-design/components/qredence-ui/layout/not-found-page";
-import { MotionRuntime } from "@prime-agent/web-design/components/qredence-ui/motion/runtime";
-import { Toaster } from "@prime-agent/web-design/components/ui/toast";
-import appCss from "@prime-agent/web-design/globals.css?url";
-import {
-	applyUiPreferencesToDocument,
-	DEFAULT_UI_PREFERENCES,
-	readUiPreferences,
-} from "@prime-agent/web-design/lib/ui-preferences";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import { useEffect, useLayoutEffect } from "react";
+import { NotFoundPage } from "@/components/qredence-ui/layout/not-found-page";
+import { MotionRuntime } from "@/components/qredence-ui/motion/runtime";
+import { Toaster } from "@/components/ui/toast";
 import { initAnalytics } from "@/lib/analytics-stub";
 import { getQueryClient } from "@/lib/query-client";
+import { applyUiPreferencesToDocument, DEFAULT_UI_PREFERENCES, readUiPreferences } from "@/lib/ui-preferences";
+import appCss from "@/styles/globals.css?url";
 
 export const Route = createRootRoute({
 	head: () => ({

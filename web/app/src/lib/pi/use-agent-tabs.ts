@@ -1,9 +1,9 @@
-import type { AgentTabItem } from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-bar";
-import { normalizeSessionLabel } from "@prime-agent/web-design/lib/pi/chat-helpers";
-import { orderedRlmChildren } from "@prime-agent/web-design/lib/pi/subagent-utils";
 import type { PrimeAgentRlmChild, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
+import type { AgentTabItem } from "@/components/qredence-ui/layout/agent-tab-bar";
+import { normalizeSessionLabel } from "@/lib/pi/chat-helpers";
+import { orderedRlmChildren } from "@/lib/pi/subagent-utils";
 import { INITIAL_AGENT_TAB_SCOPE_STATE, reduceAgentTabScope, visibleAgentTabScope } from "./agent-tab-state";
 import { type ChatClient, chatClient } from "./chat-client";
 import { useSubagentChat } from "./use-subagent-chat";

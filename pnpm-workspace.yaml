@@ -1,7 +1,6 @@
 packages:
   - packages/fleet-web
   - web/app
-  - web/design
   - web/protocol
   - web/server
 

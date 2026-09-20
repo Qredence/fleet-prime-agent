@@ -1,24 +1,24 @@
-import { AgentChat } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
-import { Markdown } from "@prime-agent/web-design/components/qredence-ui/chat/markdown/markdown";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/artifacts-panel";
-import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/artifacts-utils";
-import { MessageQueue } from "@prime-agent/web-design/components/qredence-ui/tools/message-queue";
-import { SubagentList } from "@prime-agent/web-design/components/qredence-ui/tools/subagent-list";
-import { ToolTimeline } from "@prime-agent/web-design/components/qredence-ui/tools/tool-timeline";
-import { notify } from "@prime-agent/web-design/lib/notify";
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { AgentChat } from "@/components/qredence-ui/chat/agent-chat";
+import { Markdown } from "@/components/qredence-ui/chat/markdown/markdown";
+import { ArtifactsPanelContent } from "@/components/qredence-ui/panels/workspace/artifacts-panel";
+import { collectSessionOpenUIBlocks } from "@/components/qredence-ui/panels/workspace/artifacts-utils";
+import { MessageQueue } from "@/components/qredence-ui/tools/message-queue";
+import { SubagentList } from "@/components/qredence-ui/tools/subagent-list";
+import { ToolTimeline } from "@/components/qredence-ui/tools/tool-timeline";
+import { notify } from "@/lib/notify";
 
-vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
+vi.mock("@/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
 		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>
 			Trigger OpenUI action
 		</button>
 	),
 }));
-vi.mock("@prime-agent/web-design/components/openui/openui-renderer", () => ({
+vi.mock("@/components/openui/openui-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
 		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>
 			Trigger OpenUI action

@@ -93,7 +93,7 @@ const pnpmTypecheck = pnpmInvocation(["run", "check:web"]);
 const phase2 = await Promise.all([
 	runStage("boundaries", process.execPath, ["scripts/check-web-boundaries.mjs"]),
 	runStage("installer", process.execPath, ["scripts/check-source-installer.mjs", "--static"]),
-	runStage("rendering", process.execPath, ["web/design/scripts/render-checks.mjs"]),
+	runStage("rendering", process.execPath, ["web/app/scripts/render-checks.mjs"]),
 	runStage("typecheck", pnpmTypecheck.command, pnpmTypecheck.args),
 ]);
 

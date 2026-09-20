@@ -1,10 +1,10 @@
+import type { ChatSessionInfo, ProjectSummary } from "@prime-agent/web-protocol";
+import { describe, expect, it } from "vitest";
 import {
 	displayProjectSessions,
 	sortProjectsByActivity,
 	visibleProjectSessions,
-} from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar-model";
-import type { ChatSessionInfo, ProjectSummary } from "@prime-agent/web-protocol";
-import { describe, expect, it } from "vitest";
+} from "@/components/qredence-ui/layout/session-sidebar-model";
 
 function project(projectId: string, name = projectId): ProjectSummary {
 	return {

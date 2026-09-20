@@ -1,10 +1,10 @@
+import type { ChatQuestionAnswer } from "@prime-agent/web-protocol/chat-protocol";
+import { useMemo, useRef } from "react";
 import type {
 	QuestionAnswer,
 	QuestionConfig,
 	QuestionOption,
-} from "@prime-agent/web-design/components/qredence-ui/chat/question/question-prompt";
-import type { ChatQuestionAnswer } from "@prime-agent/web-protocol/chat-protocol";
-import { useMemo, useRef } from "react";
+} from "@/components/qredence-ui/chat/question/question-prompt";
 import { isQuestionToolPartPending } from "./question-pending";
 
 type ToolQuestionPart = {

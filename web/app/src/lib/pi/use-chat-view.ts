@@ -1,5 +1,3 @@
-import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
-import { normalizeSessionLabel } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type {
 	ChatResourcesResponse,
 	ChatSessionInfo,
@@ -9,6 +7,8 @@ import type {
 import type { ChatMessage, ChatToolPart } from "@prime-agent/web-protocol/chat-types";
 import { meaningfulSessionLabel, sessionListTitle } from "@prime-agent/web-protocol/session-label";
 import { useMemo } from "react";
+import type { SuggestionItem } from "@/components/qredence-ui/chat/composer/input/suggestions";
+import { normalizeSessionLabel } from "@/lib/pi/chat-helpers";
 
 export function useChatSuggestions({
 	messages,

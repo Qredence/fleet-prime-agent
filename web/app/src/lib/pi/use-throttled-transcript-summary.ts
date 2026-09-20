@@ -1,9 +1,9 @@
+import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	type ChatTranscriptSummary,
 	summarizeChatTranscript,
-} from "@prime-agent/web-design/components/qredence-ui/panels/session/transcript-summary";
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import { useEffect, useMemo, useRef, useState } from "react";
+} from "@/components/qredence-ui/panels/session/transcript-summary";
 
 export const TRANSCRIPT_SUMMARY_THROTTLE_MS = 250;
 

@@ -1,14 +1,14 @@
-import { AgentTabBar } from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-bar";
-import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/qredence-ui/panels/session/transcript-summary";
-import { notify } from "@prime-agent/web-design/lib/notify";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AgentTabBar } from "@/components/qredence-ui/layout/agent-tab-bar";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@/components/qredence-ui/panels/session/transcript-summary";
+import { notify } from "@/lib/notify";
 import { runWorkspaceAction } from "./chat-error-notify";
 import { ChatWorkspaceShell } from "./chat-workspace-shell";
 import type { useChatWorkspaceData } from "./use-chat-workspace-data";
 
-vi.mock("@prime-agent/web-design/lib/notify", () => ({
+vi.mock("@/lib/notify", () => ({
 	notify: {
 		error: vi.fn(),
 		message: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock("./chat-workspace-dialogs", () => ({
 	ChatWorkspaceOverlayDialogs: () => null,
 }));
 
-vi.mock("@prime-agent/web-design/components/qredence-ui/layout/right-panel-shell", () => ({
+vi.mock("@/components/qredence-ui/layout/right-panel-shell", () => ({
 	RightPanelShell: () => null,
 }));
 

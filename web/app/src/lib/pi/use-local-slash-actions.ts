@@ -1,15 +1,11 @@
-import type { SuggestionItem } from "@prime-agent/web-design/components/qredence-ui/chat/composer/input/suggestions";
-import type { ForkPickerEntry } from "@prime-agent/web-design/components/qredence-ui/chat/fork-picker-dialog";
-import { notify } from "@prime-agent/web-design/lib/notify";
-import {
-	availableThinkingLevels,
-	type ChatModelOption,
-	thinkingLevelLabel,
-} from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ChatSessionInfo, ChatSessionMetadata, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import type { SuggestionItem } from "@/components/qredence-ui/chat/composer/input/suggestions";
+import type { ForkPickerEntry } from "@/components/qredence-ui/chat/fork-picker-dialog";
+import { notify } from "@/lib/notify";
+import { availableThinkingLevels, type ChatModelOption, thinkingLevelLabel } from "@/lib/pi/chat-helpers";
 import { chatClient } from "./chat-client";
 import { runWorkspaceAction } from "./chat-error-notify";
 import { assistantTextFromMessage } from "./chat-message-helpers";

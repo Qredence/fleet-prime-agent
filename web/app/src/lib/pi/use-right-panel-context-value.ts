@@ -1,11 +1,4 @@
 import type {
-	ChatPanelDataContextValue,
-	SettingsActionsContextValue,
-	WorkspaceTreeContextValue,
-} from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-context";
-import type { RightPanel, ThemePreference } from "@prime-agent/web-design/lib/canvas-utils";
-import type { ChatModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
-import type {
 	ChatMcpDeleteRequest,
 	ChatMcpListResponse,
 	ChatMcpOAuthLoginRequest,
@@ -35,6 +28,13 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useMemo } from "react";
+import type {
+	ChatPanelDataContextValue,
+	SettingsActionsContextValue,
+	WorkspaceTreeContextValue,
+} from "@/components/qredence-ui/layout/right-panel-context";
+import type { RightPanel, ThemePreference } from "@/lib/canvas-utils";
+import type { ChatModelOption } from "@/lib/pi/chat-helpers";
 import type { ComposerIntentAvailability } from "./composer-intent";
 import { useThrottledTranscriptSummary, useThrottledWhileLive } from "./use-throttled-transcript-summary";
 

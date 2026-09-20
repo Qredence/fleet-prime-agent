@@ -1,10 +1,10 @@
-import { notify } from "@prime-agent/web-design/lib/notify";
 import { NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
+import { notify } from "@/lib/notify";
 import { notifyChatError, runWorkspaceAction } from "./chat-error-notify";
 import { ChatRequestError, chatErrorFromStreamEvent, isDaemonDisconnectError } from "./chat-fetch";
 
-vi.mock("@prime-agent/web-design/lib/notify", () => ({
+vi.mock("@/lib/notify", () => ({
 	notify: {
 		error: vi.fn(),
 		message: vi.fn(),

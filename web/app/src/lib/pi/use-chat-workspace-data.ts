@@ -1,7 +1,3 @@
-import type { InlineCompletion } from "@prime-agent/web-design/components/qredence-ui/chat/composer/inline-completion";
-import { derivePrimeAgentArtifactRuns } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/prime-agent-artifacts";
-import { notify } from "@prime-agent/web-design/lib/notify";
-import { type ChatModelOption, queueLabel, toModelOption } from "@prime-agent/web-design/lib/pi/chat-helpers";
 import type { ProjectId } from "@prime-agent/web-protocol";
 import type {
 	ChatPiSettingsUpdate,
@@ -11,9 +7,13 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { UploadedAttachment, WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { InlineCompletion } from "@/components/qredence-ui/chat/composer/inline-completion";
+import { derivePrimeAgentArtifactRuns } from "@/components/qredence-ui/panels/workspace/prime-agent-artifacts";
 import { identifyAnalyticsUser } from "@/lib/analytics-stub";
 import { useOptionalUser } from "@/lib/auth-stub";
+import { notify } from "@/lib/notify";
 import { chatClient } from "@/lib/pi/chat-client";
+import { type ChatModelOption, queueLabel, toModelOption } from "@/lib/pi/chat-helpers";
 import {
 	useChatCommands,
 	useChatMcpConnections,

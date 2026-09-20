@@ -77,18 +77,30 @@ importers:
 
   web/app:
     dependencies:
+      '@base-ui/react':
+        specifier: ^1.8.0
+        version: 1.8.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
-      '@prime-agent/web-design':
-        specifier: workspace:*
-        version: link:../design
+      '@openuidev/react-lang':
+        specifier: ^0.2.15
+        version: 0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.1)
+      '@openuidev/react-ui':
+        specifier: ^0.13.10
+        version: 0.13.10(@openuidev/react-headless@0.9.13(react@19.3.0)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0)))(@openuidev/react-lang@0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)(zod@4.6.1)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0))
+      '@pierre/diffs':
+        specifier: ^1.4.1
+        version: 1.4.1(@shikijs/themes@4.4.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@prime-agent/web-protocol':
         specifier: workspace:*
         version: link:../protocol
       '@prime-agent/web-server':
         specifier: workspace:*
         version: link:../server
+      '@streamdown/code':
+        specifier: ^1.1.1
+        version: 1.1.1(react@19.3.0)
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.13)(yaml@2.9.0))
@@ -101,15 +113,54 @@ importers:
       '@tanstack/react-start':
         specifier: ^1.168.49
         version: 1.168.49(esbuild@0.28.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(rolldown@1.2.4)(supports-color@8.1.1)(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.13)(yaml@2.9.0))(webpack@5.105.0(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.26))
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      cmdk:
+        specifier: ^1.1.1
+        version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      cn:
+        specifier: 0.3.0
+        version: 0.3.0
+      lucide-react:
+        specifier: ^1.44.0
+        version: 1.44.0(react@19.3.0)
+      motion:
+        specifier: ^13.2.0
+        version: 13.2.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+      react-error-boundary:
+        specifier: ^6.1.5
+        version: 6.1.5(@types/react@19.3.0)(react@19.3.0)
+      recharts:
+        specifier: 3.10.1
+        version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@19.2.8)(react@19.3.0)(redux@5.0.1)
+      shadcn:
+        specifier: 4.21.0
+        version: 4.21.0(supports-color@8.1.1)(typescript@6.0.3)
+      shiki:
+        specifier: 4.4.3
+        version: 4.4.3
+      streamdown:
+        specifier: ^2.6.0
+        version: 2.6.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
+      tw-shimmer:
+        specifier: ^0.4.12
+        version: 0.4.12(tailwindcss@4.3.3)
       zod:
         specifier: ^4.6.1
         version: 4.6.1
@@ -150,106 +201,6 @@ importers:
       vite:
         specifier: ^8.2.2
         version: 8.2.2(@types/node@25.9.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.13)(yaml@2.9.0)
-      vitest:
-        specifier: ^4.1.11
-        version: 4.1.11(@types/node@25.9.5)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.3)(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.13)(yaml@2.9.0))
-
-  web/design:
-    dependencies:
-      '@base-ui/react':
-        specifier: ^1.8.0
-        version: 1.8.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@fontsource-variable/inter':
-        specifier: ^5.3.0
-        version: 5.3.0
-      '@openuidev/react-lang':
-        specifier: ^0.2.15
-        version: 0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.1)
-      '@openuidev/react-ui':
-        specifier: ^0.13.10
-        version: 0.13.10(@openuidev/react-headless@0.9.13(react@19.3.0)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0)))(@openuidev/react-lang@0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.1))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)(zod@4.6.1)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0))
-      '@pierre/diffs':
-        specifier: ^1.4.1
-        version: 1.4.1(@shikijs/themes@4.4.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@prime-agent/web-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@streamdown/code':
-        specifier: ^1.1.1
-        version: 1.1.1(react@19.3.0)
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      cmdk:
-        specifier: ^1.1.1
-        version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      cn:
-        specifier: 0.3.0
-        version: 0.3.0
-      lucide-react:
-        specifier: ^1.44.0
-        version: 1.44.0(react@19.3.0)
-      motion:
-        specifier: ^13.2.0
-        version: 13.2.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      react:
-        specifier: ^19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: ^19.3.0
-        version: 19.3.0(react@19.3.0)
-      react-error-boundary:
-        specifier: ^6.1.5
-        version: 6.1.5(@types/react@19.3.0)(react@19.3.0)
-      recharts:
-        specifier: 3.10.1
-        version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@19.2.8)(react@19.3.0)(redux@5.0.1)
-      shadcn:
-        specifier: 4.21.0
-        version: 4.21.0(supports-color@8.1.1)(typescript@6.0.3)
-      shiki:
-        specifier: 4.4.3
-        version: 4.4.3
-      streamdown:
-        specifier: ^2.6.0
-        version: 2.6.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)
-      tw-animate-css:
-        specifier: ^1.4.0
-        version: 1.4.0
-      tw-shimmer:
-        specifier: ^0.4.12
-        version: 0.4.12(tailwindcss@4.3.3)
-      zod:
-        specifier: ^4.6.1
-        version: 4.6.1
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.3.3
-        version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@types/node':
-        specifier: ^25.9.5
-        version: 25.9.5
-      '@types/react':
-        specifier: ^19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: ^19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      happy-dom:
-        specifier: 20.14.3
-        version: 20.14.3
-      tailwindcss:
-        specifier: ^4.3.3
-        version: 4.3.3
-      tsx:
-        specifier: ^4.23.13
-        version: 4.23.13
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@25.9.5)(@vitest/coverage-v8@4.1.11)(happy-dom@20.14.3)(vite@8.2.2(@types/node@25.9.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.13)(yaml@2.9.0))
@@ -1084,15 +1035,6 @@ packages:
       react-dom: ^18.0.0 || ^19.0.0
     peerDependenciesMeta:
       '@openuidev/react-lang':
-        optional: true
-
-  '@openuidev/lang-core@0.2.15':
-    resolution: {integrity: sha512-+KOiMD4PoPrFs8wikPceFIlCdwynL2nshIjCmGERI75ZaIgJAczmYTnbA+kSFD10e4vKHNdn6B6tvjsU953J5g==}
-    peerDependencies:
-      '@modelcontextprotocol/sdk': '>=1.0.0'
-      zod: ^3.25.0 || ^4.0.0
-    peerDependenciesMeta:
-      '@modelcontextprotocol/sdk':
         optional: true
 
   '@openuidev/lang-core@0.2.17':
@@ -6650,13 +6592,6 @@ snapshots:
     optionalDependencies:
       '@openuidev/react-lang': 0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.1)
 
-  '@openuidev/lang-core@0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(zod@4.6.1)':
-    dependencies:
-      ci-info: 4.4.0
-      zod: 4.6.1
-    optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.30.0(supports-color@8.1.1)(zod@4.6.1)
-
   '@openuidev/lang-core@0.2.17(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(zod@4.6.1)':
     dependencies:
       ci-info: 4.4.0
@@ -6676,7 +6611,7 @@ snapshots:
   '@openuidev/react-lang@0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.1)':
     dependencies:
       '@openuidev/devtools': 0.1.2(@openuidev/observability@0.0.4)(@openuidev/react-lang@0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.1))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@openuidev/lang-core': 0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(zod@4.6.1)
+      '@openuidev/lang-core': 0.2.17(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.6.1))(zod@4.6.1)
       '@openuidev/observability': 0.0.4
       react: 19.3.0
       zod: 4.6.1

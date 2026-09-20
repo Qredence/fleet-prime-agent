@@ -1,6 +1,6 @@
-import { readStoredValue } from "@prime-agent/web-design/lib/safe-storage";
 import type { RightPanelState } from "@prime-agent/web-protocol/fleet-contract";
 import { useEffect } from "react";
+import { readStoredValue } from "@/lib/safe-storage";
 
 export type FleetPanelKeybindingAction =
 	| "toggleResources"

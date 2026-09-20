@@ -1,7 +1,7 @@
-import { AgentTabBar, type AgentTabItem } from "@prime-agent/web-design/components/qredence-ui/layout/agent-tab-bar";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { AgentTabBar, type AgentTabItem } from "@/components/qredence-ui/layout/agent-tab-bar";
 
 const initialTabs: Array<AgentTabItem> = [
 	{ id: "main", label: "Main agent", kind: "main" },

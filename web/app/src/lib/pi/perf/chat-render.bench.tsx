@@ -11,15 +11,15 @@
 // needs no cross-iteration lifecycle: subtract the mount-only bench (#2) and
 // compare THAT delta across branches to isolate keystroke cost.
 
-import { AgentChat } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, bench, describe, vi } from "vitest";
+import { AgentChat } from "@/components/qredence-ui/chat/agent-chat";
 
-vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
+vi.mock("@/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: () => null,
 }));
-vi.mock("@prime-agent/web-design/components/openui/openui-renderer", () => ({
+vi.mock("@/components/openui/openui-renderer", () => ({
 	GenerativeTextRenderer: () => null,
 }));
 

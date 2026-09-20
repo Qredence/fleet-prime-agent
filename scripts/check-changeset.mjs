@@ -13,7 +13,6 @@ const USER_FACING_PREFIXES = [
 	"packages/fleet-web/bin/",
 	"web/app/src/",
 	"web/app/public/",
-	"web/design/src/",
 	"web/protocol/src/",
 	"web/server/src/",
 ];

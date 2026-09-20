@@ -1,5 +1,5 @@
-import type { ForkPickerEntry } from "@prime-agent/web-design/components/qredence-ui/chat/fork-picker-dialog";
 import { useState } from "react";
+import type { ForkPickerEntry } from "@/components/qredence-ui/chat/fork-picker-dialog";
 import type { SettingsSlashTab } from "@/lib/pi/slash-commands";
 
 /**

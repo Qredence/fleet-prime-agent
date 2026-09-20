@@ -1,6 +1,6 @@
-import { SubagentComposer } from "@prime-agent/web-design/components/qredence-ui/panels/subagents/subagent-composer";
-import { SubagentTranscriptView } from "@prime-agent/web-design/components/qredence-ui/panels/subagents/subagent-transcript";
 import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
+import { SubagentComposer } from "@/components/qredence-ui/panels/subagents/subagent-composer";
+import { SubagentTranscriptView } from "@/components/qredence-ui/panels/subagents/subagent-transcript";
 import type { SubagentChatState } from "./use-subagent-chat";
 
 /**

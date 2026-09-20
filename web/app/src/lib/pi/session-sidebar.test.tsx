@@ -1,9 +1,9 @@
-import { AnimatedSidebarProvider } from "@prime-agent/web-design/components/qredence-ui/layout/animated-sidebar";
-import { SessionSidebar } from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar";
-import type { SessionSidebarDependencies } from "@prime-agent/web-design/components/qredence-ui/layout/session-sidebar/types";
 import type { ChatSessionInfo, ProjectDirectoryBrowseResponse, ProjectSummary } from "@prime-agent/web-protocol";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AnimatedSidebarProvider } from "@/components/qredence-ui/layout/animated-sidebar";
+import { SessionSidebar } from "@/components/qredence-ui/layout/session-sidebar";
+import type { SessionSidebarDependencies } from "@/components/qredence-ui/layout/session-sidebar/types";
 
 function SidebarHarness({
 	sessions,

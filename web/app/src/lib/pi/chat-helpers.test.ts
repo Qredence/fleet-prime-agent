@@ -1,10 +1,10 @@
+import { describe, expect, it } from "vitest";
 import {
 	availableThinkingLevels,
 	clampThinkingLevel,
 	normalizeSessionLabel,
 	thinkingLevelLabel,
-} from "@prime-agent/web-design/lib/pi/chat-helpers";
-import { describe, expect, it } from "vitest";
+} from "@/lib/pi/chat-helpers";
 
 describe("clampThinkingLevel", () => {
 	it("keeps a level the model supports", () => {

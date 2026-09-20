@@ -1,4 +1,3 @@
-import type { InlineCompletion } from "@prime-agent/web-design/components/qredence-ui/chat/composer/inline-completion";
 import {
 	COMPOSER_COMPLETION_MIN_CHARS,
 	type ComposerCompletionResponse,
@@ -6,6 +5,7 @@ import {
 	composerCompletionIgnores,
 } from "@prime-agent/web-protocol/composer-completion";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { InlineCompletion } from "@/components/qredence-ui/chat/composer/inline-completion";
 import { resolveChatApiUrl } from "@/lib/pi/chat-runtime-url";
 
 /**

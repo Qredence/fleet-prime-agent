@@ -1,4 +1,3 @@
-import { readStoredValue, removeStoredValue, writeStoredValue } from "@prime-agent/web-design/lib/safe-storage";
 import type {
 	ChatSessionResponse,
 	ChatStreamEvent,
@@ -8,6 +7,7 @@ import type {
 import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readStoredValue, removeStoredValue, writeStoredValue } from "@/lib/safe-storage";
 import type { ChatClient } from "./chat-client";
 import { chatErrorFromStreamEvent, isUnknownSessionError, parseWithSchema } from "./chat-fetch";
 import { createOptimisticUserMessage, removeOptimisticUserMessage } from "./chat-message-helpers";

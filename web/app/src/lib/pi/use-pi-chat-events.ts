@@ -1,4 +1,3 @@
-import { readStoredValue, writeStoredValue } from "@prime-agent/web-design/lib/safe-storage";
 import type {
 	ChatSessionMetadata,
 	ChatStreamEvent,
@@ -7,6 +6,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { type MutableRefObject, useEffect } from "react";
+import { readStoredValue, writeStoredValue } from "@/lib/safe-storage";
 import type { ChatClient } from "./chat-client";
 import type { QueueState } from "./chat-fetch";
 import { upsertAssistantReasoningPresentation, upsertToolPart } from "./chat-message-helpers";

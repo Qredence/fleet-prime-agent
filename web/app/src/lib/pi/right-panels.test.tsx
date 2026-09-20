@@ -1,11 +1,3 @@
-import { RightPanelProvider } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-context";
-import { RightPanelShell } from "@prime-agent/web-design/components/qredence-ui/layout/right-panel-shell";
-import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@prime-agent/web-design/components/qredence-ui/panels/session/transcript-summary";
-import { SubagentsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/subagents/subagents-panel";
-import { ArtifactsPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/artifacts-panel";
-import { collectSessionOpenUIBlocks } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/artifacts-utils";
-import { ReplPanelContent } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/repl-panel";
-import { RightPanelLauncher } from "@prime-agent/web-design/components/qredence-ui/panels/workspace/right-panel-launcher";
 import type {
 	ChatSessionResponse,
 	PrimeAgentArtifactRun,
@@ -15,16 +7,24 @@ import type {
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { RightPanelProvider } from "@/components/qredence-ui/layout/right-panel-context";
+import { RightPanelShell } from "@/components/qredence-ui/layout/right-panel-shell";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@/components/qredence-ui/panels/session/transcript-summary";
+import { SubagentsPanelContent } from "@/components/qredence-ui/panels/subagents/subagents-panel";
+import { ArtifactsPanelContent } from "@/components/qredence-ui/panels/workspace/artifacts-panel";
+import { collectSessionOpenUIBlocks } from "@/components/qredence-ui/panels/workspace/artifacts-utils";
+import { ReplPanelContent } from "@/components/qredence-ui/panels/workspace/repl-panel";
+import { RightPanelLauncher } from "@/components/qredence-ui/panels/workspace/right-panel-launcher";
 import { SubagentChatPanel } from "./subagent-chat-panel";
 import { useChatShellState } from "./use-chat-shell-state";
 
-vi.mock("@prime-agent/web-design/components/qredence-ui/chat/generative-text-renderer", () => ({
+vi.mock("@/components/qredence-ui/chat/generative-text-renderer", () => ({
 	SessionGenerativeTextRenderer: ({ content }: { content: string }) => <div>{content}</div>,
 }));
-vi.mock("@prime-agent/web-design/components/qredence-ui/tools/session-tool-renderer", () => ({
+vi.mock("@/components/qredence-ui/tools/session-tool-renderer", () => ({
 	SessionToolRenderer: () => null,
 }));
-vi.mock("@prime-agent/web-design/components/openui/inline-renderer", () => ({
+vi.mock("@/components/openui/inline-renderer", () => ({
 	GenerativeTextRenderer: ({ content }: { content: string }) => <div>{content}</div>,
 }));
 

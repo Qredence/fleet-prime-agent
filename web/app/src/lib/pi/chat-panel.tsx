@@ -1,12 +1,12 @@
-import type { OpenUIArtifactCandidate } from "@prime-agent/web-design/components/openui/html-artifact";
-import type { AgentChatViewProps } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
-import { AgentChat } from "@prime-agent/web-design/components/qredence-ui/chat/agent-chat";
-import type { QuestionAnswer } from "@prime-agent/web-design/components/qredence-ui/chat/question/question-prompt";
-import { UiErrorBoundary } from "@prime-agent/web-design/components/qredence-ui/layout/ui-error-boundary";
-import type { QueueLane } from "@prime-agent/web-design/components/qredence-ui/tools/message-queue";
 import type { PrimeAgentArtifactRun, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useCallback, useMemo } from "react";
+import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
+import type { AgentChatViewProps } from "@/components/qredence-ui/chat/agent-chat";
+import { AgentChat } from "@/components/qredence-ui/chat/agent-chat";
+import type { QuestionAnswer } from "@/components/qredence-ui/chat/question/question-prompt";
+import { UiErrorBoundary } from "@/components/qredence-ui/layout/ui-error-boundary";
+import type { QueueLane } from "@/components/qredence-ui/tools/message-queue";
 
 type ChatPanelProps = {
 	messages: Array<ChatMessage>;
