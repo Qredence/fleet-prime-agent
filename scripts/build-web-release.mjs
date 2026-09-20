@@ -69,6 +69,11 @@ const buildResult = await build({
 	platform: "node",
 	target: "node22",
 	splitting: true,
+	// The server output is ESM, so bundle remaining dependencies from their ESM
+	// entry points. Without this, esbuild's node default (main, then module)
+	// inlines CJS builds such as lucide-react's, whose dynamic require("react")
+	// cannot run inside the ESM bundle.
+	mainFields: ["module", "main"],
 	outdir: serverOutput,
 	logLevel: "info",
 	metafile: true,
