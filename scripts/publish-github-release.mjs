@@ -4,9 +4,19 @@
 // job: creates the release for the pushed tag (reusing it on re-runs) and
 // uploads the packed tarball plus SHA256SUMS. Requires GITHUB_TOKEN,
 // RELEASE_VERSION, and CIRCLE_SHA1 from the CircleCI environment; the
-// canonical repository is pinned in release-utils.mjs.
+// canonical repository is pinned in release-utils.mjs. The release notes are
+// derived from the changelog and the runtime pin by release-notes.mjs.
 
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+	extractVersionSection,
+	previousVersion,
+	readChangelog,
+	readRuntimeVersion,
+	releaseNotes,
+} from "./release-notes.mjs";
 import { RELEASE_REPOSITORY } from "./release-utils.mjs";
 
 const API_BASE = "https://api.github.com";
@@ -77,26 +87,33 @@ async function assertTagTarget(token, owner, repo, tag, expectedSha) {
 }
 
 /**
- * Builds the release notes shown on the GitHub release page.
- * @param {string} version - The release version without the leading v.
- * @returns {string} Markdown release notes.
+ * Reads the upstream runtime version pinned at an earlier release tag.
+ * A missing or unreadable pin degrades to the generic upgrading note rather than failing the release.
+ * @param {string} token - GitHub token with contents read access.
+ * @param {string} owner - Repository owner.
+ * @param {string} repo - Repository name.
+ * @param {string|undefined} version - The earlier release version, when it is known.
+ * @returns {Promise<string|undefined>} The pinned runtime version, or `undefined` when unavailable.
  */
-function releaseNotes(version) {
-	return [
-		`Fleet Prime release ${version}.`,
-		"",
-		"Artifacts:",
-		"",
-		`- qredence-fleet-${version}.tgz: packed @qredence/fleet launcher package`,
-		"- SHA256SUMS: checksum for the packed tarball",
-		"",
-		"The package is also published to npm as @qredence/fleet via npm trusted",
-		"publishing from CircleCI (no provenance attestations; CircleCI trusted",
-		"publishing does not support them yet).",
-		"",
-		"The upstream Prime Agent runtime is consumed as the stock tarball pinned in PRIME_AGENT_RUNTIME.json.",
-		"Verify the checksum before installing the artifact.",
-	].join("\n");
+async function readRuntimeVersionAtTag(token, owner, repo, version) {
+	if (!version) return undefined;
+	try {
+		const response = await githubFetch(
+			`/repos/${owner}/${repo}/contents/PRIME_AGENT_RUNTIME.json?ref=v${encodeURIComponent(version)}`,
+			token,
+		);
+		const contents = await response.json();
+		if (!contents?.content) return undefined;
+		return JSON.parse(Buffer.from(contents.content, "base64").toString("utf8")).version;
+	} catch (error) {
+		// Degrade to the generic upgrading note, but say so: silently losing the runtime comparison
+		// should be visible in the job log.
+		console.warn(
+			`Warning: could not read the ${version} runtime pin; the upgrading note will be generic. ` +
+				(error instanceof Error ? error.message : String(error)),
+		);
+		return undefined;
+	}
 }
 
 /**
@@ -141,6 +158,22 @@ async function findOrCreateRelease(token, version, owner, repo, sha) {
 	} else if (tagLookup.status !== 404) {
 		throw new Error(`GitHub tag lookup for ${tag} -> HTTP ${tagLookup.status}: ${await tagLookup.text()}`);
 	}
+	// Derived only when a release is actually created, so a re-run does not spend an API call on notes
+	// it will not use. findOrCreateRelease never patches an existing release body, which leaves the
+	// published notes editable by hand afterwards without a re-run clobbering them.
+	const changelog = readChangelog();
+	if (!extractVersionSection(changelog, version)) {
+		console.warn(
+			`Warning: packages/fleet-web/CHANGELOG.md records no "## ${version}" section; ` +
+				"the release notes will not describe the changes in this release.",
+		);
+	}
+	const releaseBody = releaseNotes({
+		version,
+		changelog,
+		currentRuntimeVersion: readRuntimeVersion(),
+		previousRuntimeVersion: await readRuntimeVersionAtTag(token, owner, repo, previousVersion(changelog, version)),
+	});
 	const created = await githubFetch(`/repos/${owner}/${repo}/releases`, token, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -148,7 +181,7 @@ async function findOrCreateRelease(token, version, owner, repo, sha) {
 			tag_name: tag,
 			target_commitish: sha,
 			name: `Fleet Prime v${version}`,
-			body: releaseNotes(version),
+			body: releaseBody,
 			prerelease: version.includes("-"),
 		}),
 	});
@@ -210,7 +243,10 @@ async function main() {
 	console.log(`GitHub release v${version} published with the release artifacts.`);
 }
 
-main().catch((error) => {
-	console.error(error instanceof Error ? error.message : String(error));
-	process.exit(1);
-});
+// Guarded so importing this module for its behaviour cannot publish anything.
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+	main().catch((error) => {
+		console.error(error instanceof Error ? error.message : String(error));
+		process.exit(1);
+	});
+}

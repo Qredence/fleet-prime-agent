@@ -29,10 +29,22 @@ Do not publish or create a release as a local validation step.
 1. Changes land on `main` with the required CI checks green.
 2. The `release-prepare` job runs with the release-automation credentials, computes the next version, and runs `pnpm run release:prepare`. It creates the Changesets release pull request, resumes one whose branch an earlier run already created, or reuses an open one.
 3. Review and merge the generated release pull request through the normal protected-branch process.
-4. After the release commit passes CI, the `release-publish` job is the production Smart Deployment: it plans a CircleCI deploy marker, publishes the immutable npm version, and creates the matching GitHub release.
+4. After the release commit passes CI, the `release-publish` job is the production Smart Deployment: it plans a CircleCI deploy marker, publishes the immutable npm version, and creates the matching GitHub release with notes derived from the changelog.
 5. Publication uses npm Trusted Publishing (CircleCI OIDC) plus the `github-release` context for the GitHub tag and assets. The job verifies package metadata and checksums, waits for registry visibility, then marks the CircleCI deployment `SUCCESS` or `FAILED`.
 
 Each release lane has a serial group, publication waits for the verified CI artifact, and the guarded scripts handle reruns against the existing release version and artifact expectations. A successful publication is a CircleCI Smart Deployment of `@qredence/fleet` in `production`.
+
+## Release notes
+
+The GitHub release body is derived, never hand-maintained, so it cannot drift from the changelog that Changesets already owns. `scripts/release-notes.mjs` builds it from three sources:
+
+- **What changed** — the `## <version>` section of `packages/fleet-web/CHANGELOG.md`, with the `- <commit>:` prefix stripped from each bullet. Because those entries are the changeset bodies, **the changeset body you write is the release note users read.** Write it for someone deciding whether to upgrade, not for a reviewer reading the diff.
+- **Upgrading** — whether `PRIME_AGENT_RUNTIME.json` moved since the previous release, read by comparing the pin at the previous release tag with the pin in this one.
+- **Artifacts** — the two uploaded files, the npm publication and its provenance caveat, and the instruction to verify `SHA256SUMS`.
+
+Notes are written only when the release is created. `release-publish` never patches an existing release body, so editing the notes on GitHub afterwards is safe from a later re-run — which is what the rollback procedure above relies on when it asks you to record an incident in the release notes.
+
+If the changelog records no section for the version being released, the job logs a warning and the notes say the changes could not be derived instead of failing. That is deliberate: notes are written after the npm publish, which cannot be undone, so a missing section must not fail a release that has already shipped.
 
 ## One-time CircleCI and npm setup
 
