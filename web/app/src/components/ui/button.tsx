@@ -37,8 +37,8 @@ const buttonVariants = cva(
 			// The two-step size ladder shared by every control — see /docs/sizes.
 			// default = 36px control height, compact = 28px for dense surfaces.
 			size: {
-				default: "h-9 px-4 text-[13px] gap-1.5",
-				compact: "h-7 px-3 text-[12px] gap-1",
+				default: "h-9 px-4 text-[13px] gap-1.5 [&_svg:not([class*='size-'])]:size-4",
+				compact: "h-7 px-3 text-[12px] gap-1 [&_svg:not([class*='size-'])]:size-3.5",
 				icon: "h-9 w-9 p-0 [&_svg]:h-4 [&_svg]:w-4",
 				"icon-compact": "h-7 w-7 p-0 [&_svg]:h-3.5 [&_svg]:w-3.5",
 			},
@@ -248,7 +248,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                   on the label span (a blockified flex item), not the flex root.
                   The button's height is fixed (h-*), so this doesn't change
                   layout — it just centers the cap-to-baseline box optically. */}
-							<span className="[text-box:trim-both_cap_alphabetic]">{label}</span>
+							<span className="inline-flex items-center gap-[inherit] [text-box:trim-both_cap_alphabetic] [&_svg]:shrink-0">
+								{label}
+							</span>
 							{TrailingIcon && (
 								<TrailingIcon
 									size={iconSize}

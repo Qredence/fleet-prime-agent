@@ -77,6 +77,8 @@ export function ComposerIntentSection({
 		try {
 			await onClearKey();
 			setDraftKey("");
+		} catch (error) {
+			setSaveError(error instanceof Error ? error.message : "Failed to remove key");
 		} finally {
 			setBusy(false);
 		}

@@ -43,6 +43,26 @@ describe("Button", () => {
 		expect(button.querySelectorAll("svg").length).toBe(2);
 	});
 
+	it("sizes unsized label icons by control size and keeps them in the label layout", () => {
+		const { rerender } = render(
+			<Button>
+				<Plus aria-hidden="true" /> Add item
+			</Button>,
+		);
+		const button = screen.getByRole("button", { name: "Add item" });
+		const label = button.querySelector("span:has(> svg)");
+		expect(button.className).toContain("[&_svg:not([class*='size-'])]:size-4");
+		expect(label?.className).toContain("inline-flex items-center gap-[inherit]");
+		expect(label?.className).toContain("[&_svg]:shrink-0");
+
+		rerender(
+			<Button size="compact">
+				<Plus aria-hidden="true" /> Add item
+			</Button>,
+		);
+		expect(button.className).toContain("[&_svg:not([class*='size-'])]:size-3.5");
+	});
+
 	it("merges slot classes, styles, click behavior, and the forwarded ref", () => {
 		const childClick = vi.fn();
 		const buttonClick = vi.fn();

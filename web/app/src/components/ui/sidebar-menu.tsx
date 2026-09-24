@@ -344,7 +344,9 @@ function useMenuScope(
 			if (!container) return;
 			const items = Array.from(
 				container.querySelectorAll<HTMLElement>('[data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]'),
-			).filter((el) => !el.closest('[data-sidebar="menu-sub"][data-state="closed"]'));
+			).filter(
+				(el) => !el.matches(DISABLED_CONTROL) && !el.closest('[data-sidebar="menu-sub"][data-state="closed"]'),
+			);
 			const currentIdx = items.indexOf(e.target as HTMLElement);
 			if (currentIdx === -1) return;
 			e.preventDefault();

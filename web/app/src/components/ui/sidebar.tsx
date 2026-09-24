@@ -68,15 +68,16 @@ function SidebarSheet({ side, open, onClose, children }: SidebarSheetProps) {
 	// when the spring lands does the real close propagate.
 	const [closing, setClosing] = useState(false);
 	const visible = open && !closing;
+	const wasOpen = useRef(open);
 
 	const finishClose = useCallback(() => {
+		wasOpen.current = false;
 		setClosing(false);
 		onClose();
 	}, [onClose]);
 
 	// A parent-driven close (trigger, shortcut, route change) gets the same
 	// exit as a primitive-driven one.
-	const wasOpen = useRef(open);
 	useEffect(() => {
 		if (wasOpen.current && !open) setClosing(true);
 		wasOpen.current = open;
