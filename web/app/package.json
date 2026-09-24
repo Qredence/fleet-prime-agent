@@ -28,7 +28,7 @@
     "@fontsource-variable/inter": "^5.3.0",
     "@openuidev/react-lang": "^0.2.15",
     "@openuidev/react-ui": "^0.13.10",
-    "@pierre/diffs": "^1.4.1",
+    "@pierre/diffs": "^1.4.2",
     "@prime-agent/web-protocol": "workspace:*",
     "@prime-agent/web-server": "workspace:*",
     "@streamdown/code": "^1.1.1",
