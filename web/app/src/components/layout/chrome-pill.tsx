@@ -14,7 +14,7 @@ export function ChromePillButton({ active = false, ariaLabel, className, title, 
 			{...props}
 			type="button"
 			variant="ghost"
-			size="sm"
+			size="compact"
 			className={cn(CHROME_PILL_CLASS, active ? CHROME_PILL_ACTIVE_CLASS : CHROME_PILL_INACTIVE_CLASS, className)}
 			aria-label={ariaLabel}
 			title={title ?? ariaLabel}

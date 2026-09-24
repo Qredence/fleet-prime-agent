@@ -80,7 +80,7 @@ export function CatalogValueList({
 								<Button
 									type="button"
 									variant="ghost"
-									size="icon-xs"
+									size="icon-compact"
 									aria-label={`Remove ${value}`}
 									onClick={() => onChange(values.filter((entry) => entry !== value))}
 								>

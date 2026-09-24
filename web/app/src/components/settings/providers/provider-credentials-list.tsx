@@ -96,7 +96,7 @@ export function ActiveProviderList({
 									<Button
 										type="button"
 										variant="ghost"
-										size="sm"
+										size="compact"
 										className={cn(
 											HIT_AREA_EXPAND_DENSE_CLASS,
 											"h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-destructive active:scale-[0.96]",
@@ -111,7 +111,7 @@ export function ActiveProviderList({
 									<Button
 										type="button"
 										variant="ghost"
-										size="sm"
+										size="compact"
 										className={cn(
 											HIT_AREA_EXPAND_DENSE_CLASS,
 											"h-7 px-2 text-xs transition-[background-color,transform] duration-150 active:scale-[0.96]",
@@ -174,7 +174,7 @@ export function ActiveProviderList({
 										<div className="flex items-center justify-end">
 											<Button
 												type="button"
-												size="sm"
+												size="compact"
 												disabled={isPending || !canSave}
 												onClick={() => onSave(provider.id)}
 											>

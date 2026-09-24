@@ -47,7 +47,7 @@ export function ChatWelcome({ disabled, onSelect }: { disabled: boolean; onSelec
 						key={item.id}
 						type="button"
 						variant="outline"
-						size="sm"
+						size="compact"
 						disabled={disabled || item.disabled}
 						onClick={() => onSelect(item)}
 						className={SUGGESTION_ITEM_CLASS}

@@ -517,7 +517,7 @@ export const AnimatedSidebarTrigger = forwardRef<HTMLButtonElement, AnimatedSide
 				}}
 				type={type}
 				variant="ghost"
-				size="icon-lg"
+				size="icon"
 				aria-label={props["aria-label"] ?? "Toggle sidebar"}
 				aria-expanded={expanded}
 				data-slot="sidebar-trigger"
@@ -547,7 +547,7 @@ export const AnimatedSidebarClose = forwardRef<HTMLButtonElement, AnimatedSideba
 				ref={forwardedRef}
 				type={type}
 				variant="ghost"
-				size="icon-lg"
+				size="icon"
 				aria-label={props["aria-label"] ?? "Close sidebar"}
 				onClick={(event) => {
 					onClick?.(event);

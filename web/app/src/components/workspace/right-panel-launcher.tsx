@@ -447,7 +447,7 @@ export function MobilePanel({
 									type="button"
 									onClick={handleHeaderClose}
 									variant="ghost"
-									size="icon-sm"
+									size="icon-compact"
 									className={`${HIT_AREA_EXPAND_CLASS} text-foreground/40 hover:text-foreground/70`}
 									aria-label="Close panel"
 									title="Close panel"

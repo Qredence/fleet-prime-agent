@@ -49,7 +49,7 @@ export function AddProviderPickerPanel({
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center gap-2">
-				<Button type="button" variant="ghost" size="icon-sm" aria-label="Back to providers" onClick={onClose}>
+				<Button type="button" variant="ghost" size="icon-compact" aria-label="Back to providers" onClick={onClose}>
 					<ArrowLeft />
 				</Button>
 				<div className="min-w-0 flex-1">
@@ -131,7 +131,13 @@ export function AddProviderOAuthPanel({
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center gap-2">
-				<Button type="button" variant="ghost" size="icon-sm" aria-label="Back to provider list" onClick={onBack}>
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-compact"
+					aria-label="Back to provider list"
+					onClick={onBack}
+				>
 					<ArrowLeft />
 				</Button>
 				<div className="min-w-0 flex-1">
@@ -215,7 +221,13 @@ export function AddProviderEditorPanel({
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center gap-2">
-				<Button type="button" variant="ghost" size="icon-sm" aria-label="Back to provider list" onClick={onBack}>
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon-compact"
+					aria-label="Back to provider list"
+					onClick={onBack}
+				>
 					<ArrowLeft />
 				</Button>
 				<div className="min-w-0 flex-1">
@@ -257,10 +269,10 @@ export function AddProviderEditorPanel({
 			</Alert>
 
 			<div className="flex items-center justify-end gap-1.5">
-				<Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+				<Button type="button" variant="ghost" size="compact" onClick={onCancel}>
 					Cancel
 				</Button>
-				<Button type="button" size="sm" disabled={isPending || !canSave} onClick={onSave}>
+				<Button type="button" size="compact" disabled={isPending || !canSave} onClick={onSave}>
 					{isPending ? <Spinner data-icon="inline-start" /> : null}
 					Save
 				</Button>

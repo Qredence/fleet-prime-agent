@@ -182,7 +182,7 @@ export function McpConnectionsSection({
 			actions={
 				<Button
 					type="button"
-					size="sm"
+					size="compact"
 					variant="outline"
 					disabled={isPending || adding}
 					onClick={() => setAdding(true)}
@@ -291,10 +291,15 @@ export function McpConnectionsSection({
 						</>
 					)}
 					<div className="flex justify-end gap-2">
-						<Button type="button" size="sm" variant="ghost" onClick={resetAddForm}>
+						<Button type="button" size="compact" variant="ghost" onClick={resetAddForm}>
 							Cancel
 						</Button>
-						<Button type="button" size="sm" disabled={isPending || !name.trim()} onClick={() => void handleAdd()}>
+						<Button
+							type="button"
+							size="compact"
+							disabled={isPending || !name.trim()}
+							onClick={() => void handleAdd()}
+						>
 							{isPending ? <Spinner data-icon="inline-start" /> : null}
 							Save
 						</Button>
@@ -318,7 +323,7 @@ export function McpConnectionsSection({
 									{connection.usesOAuth && connection.status !== "needs_auth" ? (
 										<Button
 											type="button"
-											size="sm"
+											size="compact"
 											variant="ghost"
 											disabled={isPending || !onOAuth}
 											onClick={() => {
@@ -332,7 +337,7 @@ export function McpConnectionsSection({
 										confirmRemove === connection.name ? (
 											<Button
 												type="button"
-												size="sm"
+												size="compact"
 												variant="destructive"
 												disabled={isPending}
 												onClick={() => {
@@ -344,7 +349,7 @@ export function McpConnectionsSection({
 										) : (
 											<Button
 												type="button"
-												size="sm"
+												size="compact"
 												variant="ghost"
 												disabled={isPending || !onRemove}
 												aria-label={`Remove ${connection.name}`}

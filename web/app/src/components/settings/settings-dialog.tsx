@@ -22,6 +22,7 @@ import {
 	sameJson,
 	summarizeResources,
 } from "@/components/settings/settings-mappers";
+import { SettingsRow } from "@/components/settings/settings-row";
 import {
 	isSettingsSectionId,
 	SETTINGS_SECTION_GROUPS,
@@ -48,7 +49,6 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select } from "@/components/ui/select";
-import { SettingsRow } from "@/components/ui/settings-row";
 import { Switch } from "@/components/ui/switch";
 import { notify as toast } from "@/lib/notify";
 import {

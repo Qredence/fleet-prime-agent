@@ -276,7 +276,7 @@ function GenerativeUiBlockRow({
 				render={
 					<Button
 						variant="ghost"
-						size="sm"
+						size="compact"
 						className="group w-full justify-start gap-1.5 text-left text-label font-normal text-foreground/65 transition-none hover:bg-foreground/5 hover:text-foreground/80"
 					/>
 				}

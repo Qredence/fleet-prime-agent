@@ -269,10 +269,23 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
 		if (asChildElement) {
 			const childProps = asChildElement.props;
+			const composedProps = { ...props };
+			for (const key of Object.keys(props)) {
+				if (!/^on[A-Z]/.test(key)) continue;
+				const parentHandler = props[key as keyof typeof props];
+				const childHandler = childProps[key as keyof typeof childProps];
+				if (typeof parentHandler !== "function" || typeof childHandler !== "function") continue;
+				(composedProps as Record<string, unknown>)[key] = (event: React.SyntheticEvent) => {
+					(childHandler as unknown as (event: React.SyntheticEvent) => void)(event);
+					if (!event.defaultPrevented) {
+						(parentHandler as unknown as (event: React.SyntheticEvent) => void)(event);
+					}
+				};
+			}
 			return cloneElement(
 				asChildElement,
 				{
-					...props,
+					...composedProps,
 					ref,
 					className: cn(rootClassName, childProps.className),
 					style: { ...style, ...childProps.style },

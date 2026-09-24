@@ -224,7 +224,7 @@ export function SessionSidebarCreateDialog({
 									{directoryBrowser.parentToken ? (
 										<Button
 											type="button"
-											size="sm"
+											size="compact"
 											variant="outline"
 											disabled={directoryBrowseLoading}
 											onClick={() =>
@@ -315,7 +315,7 @@ export function SessionSidebarCreateDialog({
 								<Button
 									type="button"
 									variant="link"
-									size="xs"
+									size="compact"
 									className="mt-1 h-auto p-0 text-destructive"
 									onClick={() =>
 										void loadDirectories(directoryBrowser ? { token: directoryBrowser.directoryToken } : {})

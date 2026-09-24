@@ -1,8 +1,8 @@
 import type { ComposerIntentKeySource, ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
 import { useCallback, useState } from "react";
 import { SecretCredentialField } from "@/components/settings/providers/credential-fields";
+import { SettingsRow } from "@/components/settings/settings-row";
 import { Button } from "@/components/ui/button";
-import { SettingsRow } from "@/components/ui/settings-row";
 import { Switch } from "@/components/ui/switch";
 
 const STATUS_COPY: Record<ComposerIntentStatus, string> = {
@@ -117,11 +117,11 @@ export function ComposerIntentSection({
 				{saveError ? <p className="text-xs text-destructive">{saveError}</p> : null}
 				<p className="text-xs text-muted-foreground">{KEY_SOURCE_COPY[keySource]}</p>
 				<div className="flex items-center gap-2">
-					<Button type="button" size="sm" disabled={busy || !draftKey.trim()} onClick={() => void save()}>
+					<Button type="button" size="compact" disabled={busy || !draftKey.trim()} onClick={() => void save()}>
 						Save key
 					</Button>
 					{keySource === "settings" ? (
-						<Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void clear()}>
+						<Button type="button" variant="outline" size="compact" disabled={busy} onClick={() => void clear()}>
 							Remove key
 						</Button>
 					) : null}

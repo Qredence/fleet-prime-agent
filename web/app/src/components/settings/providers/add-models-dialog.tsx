@@ -119,7 +119,7 @@ export function AddModelsDialog({
 								key={providerId}
 								type="button"
 								variant="outline"
-								size="sm"
+								size="compact"
 								disabled={discoveringProviderId !== null}
 								onClick={() => {
 									void onDiscoverProvider(providerId);
@@ -204,10 +204,10 @@ export function AddModelsDialog({
 				</div>
 
 				<div className="flex items-center justify-end gap-1.5">
-					<Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+					<Button type="button" variant="ghost" size="compact" onClick={() => onOpenChange(false)}>
 						Cancel
 					</Button>
-					<Button type="button" size="sm" disabled={selectedKeys.size === 0} onClick={confirmAdd}>
+					<Button type="button" size="compact" disabled={selectedKeys.size === 0} onClick={confirmAdd}>
 						Add {selectedKeys.size > 0 ? <span className="tabular-nums">({selectedKeys.size})</span> : null}
 					</Button>
 				</div>

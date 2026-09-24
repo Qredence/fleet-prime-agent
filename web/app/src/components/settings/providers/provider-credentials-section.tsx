@@ -192,7 +192,7 @@ export function ProviderCredentialsSection({
 						<Button
 							type="button"
 							variant="outline"
-							size="sm"
+							size="compact"
 							disabled={isLoading || credentialProviders.length === 0}
 							onClick={openAddPicker}
 						>
@@ -212,7 +212,7 @@ export function ProviderCredentialsSection({
 							<Button
 								type="button"
 								variant="outline"
-								size="sm"
+								size="compact"
 								disabled={credentialProviders.length === 0}
 								onClick={openAddPicker}
 							>

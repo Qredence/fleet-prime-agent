@@ -7,22 +7,23 @@ the application's `@/*` alias.
 ## Layer rules
 
 ```text
-ui/        → interactive primitives (Button, Select, Popover, Command, Checkbox, Radio, Input, …)
-openui/    → generative UI surfaces built on the same primitives
-<areas>/   → product composition only; compose ui via @/components/ui/*
+ui/        → Fleet-styled controls, compound parts, reusable UI compositions, and adapters
+openui/    → generative UI surfaces built on the shared UI layer
+<areas>/   → product composition; compose shared UI via @/components/ui/*
 motion/    → motion-only helpers (no parallel Select/Combobox/Popover/Checkbox/Radio/Input)
 ```
 
-- Compose `@/components/ui/...` — do **not** relative-import into `ui/`.
-- Do **not** add parallel form/overlay controls under `motion/` (or elsewhere).
-  New `@beui` installs that are interactive primitives belong in `ui/`;
-  motion-only chrome stays in `motion/`.
-- `openui/` wraps `ui` for generative surfaces; product areas should not
-  reimplement those primitives.
+- Import shared components from their exact `@/components/ui/<file>` path; do **not** relative-import into `ui/` or add a catch-all barrel.
+- Keep behavior and styling composable: use named parts for compound controls, explicit props for complete controls, and only expose `render`/`asChild` where its element/ref semantics are tested.
+- Preserve the distinction between low-level design-system controls and higher-level compositions/adapters. Settings-specific rows belong to `settings/`; Recharts wrappers may remain in `ui/` as documented adapters; the responsive Fleet sidebar is a shell element, not a generic primitive.
+- New `@beui` installs that are interactive controls belong in `ui/`; motion-only chrome stays in `motion/`. Do **not** add parallel form/overlay controls under `motion/` or product areas.
+- `openui/` composes the shared UI layer for generated surfaces; product areas should not reimplement shared controls.
+- Put behavior tests beside the owning UI component. Test accessibility, interaction, state, and composition contracts rather than utility-class strings or broad snapshots.
 
 ```text
 components/
-  ui/          # Base UI/shadcn primitives
+  ui/          # Base UI wrappers, Fleet-styled controls, compound components, adapters
+  settings/    # Settings-specific rows and settings compositions
   openui/      # generative UI library, renderers, artifact shell
   layout/      # app chrome: sidebar shell, header, right-panel shell/registry, chrome tokens
   chat/        # chat surface, session lifecycle, composer, transcript, plans, subagents

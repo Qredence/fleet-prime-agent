@@ -56,7 +56,7 @@ export function ProviderOAuthSignIn({
 					{authUrl ? (
 						<Button
 							type="button"
-							size="sm"
+							size="compact"
 							onClick={() => {
 								window.open(authUrl, "_blank", "noopener,noreferrer");
 							}}
@@ -82,7 +82,7 @@ export function ProviderOAuthSignIn({
 							<div className="flex justify-end">
 								<Button
 									type="button"
-									size="sm"
+									size="compact"
 									disabled={busy || (!prompt.allowEmpty && !promptAnswer.trim())}
 									onClick={() => {
 										void submitPrompt();
@@ -98,7 +98,7 @@ export function ProviderOAuthSignIn({
 						<Button
 							type="button"
 							variant="ghost"
-							size="sm"
+							size="compact"
 							disabled={busy}
 							onClick={() => {
 								void cancel();
@@ -126,7 +126,7 @@ export function ProviderOAuthSignIn({
 					<div className="flex justify-end">
 						<Button
 							type="button"
-							size="sm"
+							size="compact"
 							disabled={busy || !canStart}
 							onClick={() => {
 								void start();

@@ -70,7 +70,7 @@ function OpenUIDiagnostics({ errors, onRepair, raw }: { errors: Array<unknown>; 
 					</div>
 				</details>
 				{onRepair ? (
-					<Button type="button" size="sm" variant="outline" className="mt-3" onClick={onRepair}>
+					<Button type="button" size="compact" variant="outline" className="mt-3" onClick={onRepair}>
 						Repair UI
 					</Button>
 				) : null}

@@ -52,7 +52,7 @@ export function SettingsCommitActions({
 				<Button
 					type="button"
 					variant="ghost"
-					size="icon-sm"
+					size="icon-compact"
 					className="text-muted-foreground transition-transform active:scale-[0.96]"
 					disabled={disabled || saving}
 					onClick={onRevert}
@@ -64,7 +64,7 @@ export function SettingsCommitActions({
 			<Button
 				type="button"
 				variant="outline"
-				size="sm"
+				size="compact"
 				className={cn(
 					COMPACT_ACTION_BUTTON_CLASS,
 					"transition-transform active:scale-[0.96]",

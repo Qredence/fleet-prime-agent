@@ -121,7 +121,7 @@ export function ResizableCanvas({
 									onClick={onRefresh}
 									disabled={!onRefresh}
 									variant="ghost"
-									size="icon-sm"
+									size="icon-compact"
 									className={`${HIT_AREA_EXPAND_DENSE_CLASS} text-foreground/40 hover:text-foreground/70 disabled:cursor-not-allowed disabled:opacity-35`}
 									aria-label={`Refresh ${title}`}
 									title={`Refresh ${title}`}
@@ -135,7 +135,7 @@ export function ResizableCanvas({
 									type="button"
 									onClick={onClose}
 									variant="ghost"
-									size="icon-sm"
+									size="icon-compact"
 									className={`${HIT_AREA_EXPAND_DENSE_CLASS} text-foreground/40 hover:text-foreground/70`}
 									aria-label="Close panel"
 									title="Close panel"

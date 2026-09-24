@@ -154,7 +154,7 @@ export function AgentTabBar({
 								onClick={() => onValueChange(tab.id)}
 								onKeyDown={(event) => handleKeyDown(event, tab.id)}
 								role="tab"
-								size="sm"
+								size="compact"
 								tabIndex={active ? 0 : -1}
 								type="button"
 								variant="ghost"
@@ -177,7 +177,7 @@ export function AgentTabBar({
 										event.stopPropagation();
 										onClose(tab.id);
 									}}
-									size="icon-xs"
+									size="icon-compact"
 									title={`Close ${tab.label} tab`}
 									type="button"
 									variant="ghost"
@@ -202,7 +202,7 @@ export function AgentTabBar({
 						event.stopPropagation();
 						onNewSession();
 					}}
-					size="icon-sm"
+					size="icon-compact"
 					title="New chat"
 					type="button"
 					variant="ghost"
