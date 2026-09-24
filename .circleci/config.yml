@@ -277,6 +277,10 @@ jobs:
             node scripts/release-marker.mjs plan
       - run:
           name: Publish the verified artifact and GitHub release
+          # Covers the npm registry visibility wait (up to 15 minutes) that
+          # follows an irreversible publish. Silent polling would otherwise hit
+          # CircleCI's 10-minute no-output default mid-wait.
+          no_output_timeout: 20m
           command: |
             pnpm run release:publish
       - run:
