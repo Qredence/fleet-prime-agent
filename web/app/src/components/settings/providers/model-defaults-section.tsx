@@ -176,7 +176,7 @@ export function ModelDefaultsSection({
 						disabled={disabled || listedModels.length === 0}
 					/>
 				</InputGroup>
-				<Button type="button" variant="outline" size="sm" disabled={disabled} onClick={openAddDialog}>
+				<Button type="button" variant="outline" size="compact" disabled={disabled} onClick={openAddDialog}>
 					<Plus data-icon="inline-start" />
 					Add models
 				</Button>
@@ -187,7 +187,7 @@ export function ModelDefaultsSection({
 					<div className="flex flex-col items-center gap-3 py-8">
 						<p className="px-1 text-center text-xs text-pretty text-muted-foreground">{emptyMessage}</p>
 						{!normalizedFilter ? (
-							<Button type="button" variant="outline" size="sm" disabled={disabled} onClick={openAddDialog}>
+							<Button type="button" variant="outline" size="compact" disabled={disabled} onClick={openAddDialog}>
 								<Plus data-icon="inline-start" />
 								Add models
 							</Button>
@@ -211,7 +211,7 @@ export function ModelDefaultsSection({
 												<Button
 													type="button"
 													variant="ghost"
-													size="sm"
+													size="compact"
 													className={cn(
 														HIT_AREA_EXPAND_DENSE_CLASS,
 														"h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 active:scale-[0.96]",
@@ -227,7 +227,7 @@ export function ModelDefaultsSection({
 											<Button
 												type="button"
 												variant="ghost"
-												size="sm"
+												size="compact"
 												className={cn(
 													HIT_AREA_EXPAND_DENSE_CLASS,
 													"h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-destructive active:scale-[0.96]",

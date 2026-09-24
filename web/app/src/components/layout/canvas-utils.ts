@@ -9,7 +9,7 @@ import { readStoredWidth, storeStoredWidth } from "@/lib/stored-width";
 
 const RESOURCE_CANVAS_WIDTH_STORAGE_KEY = "fleet-prime:v1:right-panel-width";
 const THEME_PREFERENCE_STORAGE_KEY = "fleet-prime:v1:theme-preference";
-const RESOURCE_CANVAS_MIN_WIDTH = 320;
+export const RESOURCE_CANVAS_MIN_WIDTH = 320;
 
 export type ThemePreference = "light" | "dark" | "system";
 

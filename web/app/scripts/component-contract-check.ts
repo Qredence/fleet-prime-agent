@@ -21,7 +21,7 @@
  * Fails with exit code 1 and a violation report otherwise.
  */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { extname, basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import ts from "typescript";
 import { relativeUiImportPattern } from "./component-contract-patterns";
 
@@ -86,14 +86,28 @@ function stripJsonc(source: string): string {
 	return out;
 }
 
+/** Returns paths and patterns from unused-file waivers in doctor.config.jsonc.
+ * Missing configuration yields an empty set; read or parse errors set
+ * `process.exitCode` to 1. */
 function loadWaivedPaths(): Set<string> {
 	const waived = new Set<string>();
 	if (!existsSync(DOCTOR_CONFIG_PATH)) return waived;
 	try {
 		const config = JSON.parse(stripJsonc(readFileSync(DOCTOR_CONFIG_PATH, "utf8"))) as unknown;
-		const overrides = (config as { ignore?: { overrides?: Array<{ files?: unknown }> } })?.ignore?.overrides ?? [];
+		const overrides =
+			(config as { ignore?: { overrides?: Array<{ files?: unknown; rules?: unknown }> } })?.ignore
+				?.overrides ?? [];
 		if (!Array.isArray(overrides)) return waived;
 		for (const block of overrides) {
+			const rules = Array.isArray(block?.rules) ? (block.rules as unknown[]) : [];
+			const isUnusedFileWaiver = rules.some(
+				(rule) =>
+					typeof rule === "string" &&
+					(rule === "deslop/unused-file" ||
+						rule === "react-doctor/unused-file" ||
+						rule === "unused-file"),
+			);
+			if (!isUnusedFileWaiver) continue;
 			const files = Array.isArray(block?.files) ? (block.files as unknown[]) : [];
 			for (const file of files) {
 				if (typeof file === "string") waived.add(file.replaceAll("\\", "/"));
@@ -287,7 +301,7 @@ if (duplicates.length > 0) {
 	failures += duplicates.length;
 	console.error(`\n[check:components] ${duplicates.length} duplicate basename(s) across src/:`);
 	for (const [name, files] of duplicates) {
-		console.error(`\n  ${name}.${extname(files[0]!).slice(1)}`);
+		console.error(`\n  ${name}.${extname(files[0] ?? "").slice(1)}`);
 		for (const file of files) {
 			console.error(`    - ${relative(APP_ROOT, file).replaceAll("\\", "/")}`);
 		}

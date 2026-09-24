@@ -2,18 +2,20 @@
 
 ## Grid
 
-Base unit: **8px**. All spacing and radii snap to this grid.
+Base unit: **4px**. Structural layout and container spacing snap to a 4px base grid with a preferred scale of **4 / 8 / 12 / 16 / 24 / 32 / 48** px. Narrow optical adjustments (such as 6px / `gap-1.5` or 10px / `px-2.5`) are permitted inside compact control primitives.
 
-## Space scale
-
-Allowed values only: **8 / 16 / 24 / 32 / 40 / 48** (px).
+## Space & Density scale
 
 | Token | Value | Role |
 | --- | --- | --- |
+| `--density-header-height` | 44px (`2.75rem`) | Header height across chat and desktop panels |
+| `--density-control-height` | 36px (`2.25rem`) | Standard button/control height in headers |
 | `--density-gap` | 16px (`1rem`) | Header / stack gaps |
 | `--density-pad-x` | 24px (`1.5rem`) | Shell inset (chat column, panels, dialogs) |
-| compact `--density-gap` | 16px | Same gap, tighter pad |
-| compact `--density-pad-x` | 16px | Compact inset |
+| compact `--density-header-height` | 40px (`2.5rem`) | Compact header height across adjacent panes |
+| compact `--density-control-height` | 32px (`2rem`) | Compact button/control height in headers |
+| compact `--density-gap` | 16px (`1rem`) | Compact gap |
+| compact `--density-pad-x` | 16px (`1rem`) | Compact inset |
 
 ## Shell inset
 

@@ -240,6 +240,43 @@ describe("SessionSidebar project rows", () => {
 		await waitFor(() => expect(browseDirectories).toHaveBeenCalledTimes(2));
 	});
 
+	it("closes and resets the dialog after project registration succeeds", async () => {
+		const createProject = vi.fn().mockResolvedValue(undefined);
+
+		const { getByRole, queryByRole } = render(
+			<AnimatedSidebarProvider>
+				<SidebarHarness
+					sessions={[]}
+					projects={[project("alpha")]}
+					projectSessions={[]}
+					activeProjectId="alpha"
+					onNewSession={vi.fn()}
+					onResumeSession={vi.fn()}
+					onRenameSession={vi.fn()}
+					onDeleteSession={vi.fn()}
+					onCreateProject={createProject}
+				/>
+			</AnimatedSidebarProvider>,
+		);
+
+		fireEvent.click(getByRole("button", { name: /^Add project$/ }));
+		await waitFor(() => expect(getByRole("dialog", { name: "Add project" })).toBeTruthy());
+		fireEvent.change(getByRole("textbox", { name: "Project name" }), { target: { value: "Fleet app" } });
+		fireEvent.change(getByRole("textbox", { name: "Project directory" }), {
+			target: { value: "/workspace/alpha" },
+		});
+		const dialog = getByRole("dialog", { name: "Add project" });
+		fireEvent.click(within(dialog).getByRole("button", { name: /^Add project$/ }));
+
+		await waitFor(() => expect(createProject).toHaveBeenCalledWith({ path: "/workspace/alpha", name: "Fleet app" }));
+		await waitFor(() => expect(queryByRole("dialog", { name: "Add project" })).toBeNull());
+
+		fireEvent.click(getByRole("button", { name: /^Add project$/ }));
+		const reopenedDialog = await screen.findByRole("dialog", { name: "Add project" });
+		expect(within(reopenedDialog).getByRole("textbox", { name: "Project name" }).getAttribute("value")).toBe("");
+		expect(within(reopenedDialog).getByRole("textbox", { name: "Project directory" }).getAttribute("value")).toBe("");
+	});
+
 	it("keeps the dialog open when project registration fails", async () => {
 		const createProject = vi.fn().mockRejectedValue(new Error("Project is already registered"));
 

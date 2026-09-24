@@ -1,10 +1,8 @@
 import type { ProjectId } from "@prime-agent/web-protocol";
 import { Folder, FolderTree, Library, Package, Pencil, Trash2, Unplug } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import type { SidebarResource } from "@/components/layout/ai-sidebar";
-import type { SidebarStateView } from "@/components/sessions/session-sidebar/state";
 import {
-	directoryErrorMessage,
 	EMPTY_PROJECTS,
 	EXPANDED_PROJECTS_STORAGE_KEY,
 	idValue,
@@ -12,6 +10,7 @@ import {
 	newSessionResourceId,
 	projectResourceId,
 	SESSION_PREFIX,
+	type SessionDialog,
 	type SessionSidebarDependencies,
 	sessionLabel,
 	sessionResourceId,
@@ -25,35 +24,14 @@ import {
 } from "@/components/sessions/session-sidebar-model";
 import { writeStoredValue } from "@/lib/safe-storage";
 
-export type SidebarViewModelState = Pick<
-	SidebarStateView,
-	| "createOpen"
-	| "expandedProjectIds"
-	| "revealedProjectIds"
-	| "setExpandedProjectIds"
-	| "setRevealedProjectIds"
-	| "setSearchOpen"
-	| "setDirectoryBrowser"
-	| "setDirectoryBrowseLoading"
-	| "setDirectoryBrowseError"
-	| "setDirectoryToken"
-	| "setCreatePath"
-	| "setRenameTarget"
-	| "setRenameTitle"
-	| "setForkTarget"
-	| "setForkProjectId"
-	| "setDeleteTarget"
-	| "setRenameProjectTarget"
-	| "setRenameProjectName"
-	| "setUnregisterTarget"
-	| "createPath"
-	| "directoryToken"
-	| "createName"
-	| "setCreateName"
-	| "setCreateOpen"
-	| "setCreateSubmitError"
-	| "setCreateSubmitting"
->;
+export type SidebarViewModelState = {
+	expandedProjectIds: string[];
+	revealedProjectIds: Set<ProjectId>;
+	setExpandedProjectIds: (value: string[] | ((current: string[]) => string[])) => void;
+	setRevealedProjectIds: (value: Set<ProjectId> | ((current: Set<ProjectId>) => Set<ProjectId>)) => void;
+	setSearchOpen: (value: boolean) => void;
+	setActiveDialog: (dialog: SessionDialog) => void;
+};
 
 export type SidebarViewModelOptions = Pick<
 	SessionSidebarDependencies,
@@ -66,10 +44,8 @@ export type SidebarViewModelOptions = Pick<
 	| "onNewSessionInProject"
 	| "onProjectSelect"
 	| "onResumeSession"
-	| "onCreateProject"
 	| "onForkSessionIntoProject"
 	| "onOpenPanelAction"
-	| "onBrowseDirectories"
 > &
 	SidebarViewModelState;
 
@@ -110,14 +86,6 @@ function MenuItem({
 
 /**
  * Builds the fleet session sidebar view model and its interaction handlers.
- *
- * @param sessions - Available sessions used as the default project session list.
- * @param projects - Projects displayed in the sidebar.
- * @param projectSessions - Sessions grouped under projects and the unassigned section.
- * @param activeProjectId - Identifier of the currently active project.
- * @param activeSessionId - Identifier of the currently active session.
- * @param createOpen - Whether the project creation dialog is open.
- * @returns Sidebar data and handlers for browsing directories, managing projects and sessions, selecting resources, rendering menus, and submitting project creation.
  */
 export function useSessionSidebarViewModel({
 	sessions,
@@ -129,73 +97,15 @@ export function useSessionSidebarViewModel({
 	onNewSessionInProject,
 	onProjectSelect,
 	onResumeSession,
-	onCreateProject,
 	onForkSessionIntoProject,
 	onOpenPanelAction,
-	onBrowseDirectories,
-	createOpen,
 	expandedProjectIds,
 	revealedProjectIds,
 	setExpandedProjectIds,
 	setRevealedProjectIds,
 	setSearchOpen,
-	setDirectoryBrowser,
-	setDirectoryBrowseLoading,
-	setDirectoryBrowseError,
-	setDirectoryToken,
-	setCreatePath,
-	setRenameTarget,
-	setRenameTitle,
-	setForkTarget,
-	setForkProjectId,
-	setDeleteTarget,
-	setRenameProjectTarget,
-	setRenameProjectName,
-	setUnregisterTarget,
-	createPath,
-	directoryToken,
-	createName,
-	setCreateName,
-	setCreateOpen,
-	setCreateSubmitError,
-	setCreateSubmitting,
+	setActiveDialog,
 }: SidebarViewModelOptions) {
-	const createOpenRef = useRef(false);
-	const loadDirectories = useCallback(
-		async (input: { path?: string; token?: string }) => {
-			if (!onBrowseDirectories) return false;
-			setDirectoryBrowseLoading(true);
-			setDirectoryBrowseError(null);
-			try {
-				const response = await onBrowseDirectories(input);
-				setDirectoryBrowser(response);
-				setDirectoryToken(response.directoryToken);
-				setCreatePath(response.pathLabel);
-				return true;
-			} catch (error) {
-				setDirectoryBrowseError(directoryErrorMessage(error, "Could not browse this directory."));
-				return false;
-			} finally {
-				setDirectoryBrowseLoading(false);
-			}
-		},
-		[
-			onBrowseDirectories,
-			setCreatePath,
-			setDirectoryBrowseError,
-			setDirectoryBrowseLoading,
-			setDirectoryBrowser,
-			setDirectoryToken,
-		],
-	);
-
-	useEffect(() => {
-		const opened = createOpen && !createOpenRef.current;
-		createOpenRef.current = createOpen;
-		if (!opened || !onBrowseDirectories) return;
-		void loadDirectories({});
-	}, [createOpen, loadDirectories, onBrowseDirectories]);
-
 	const projectById = useMemo(() => new Map(projects.map((project) => [project.projectId, project])), [projects]);
 
 	const sortedProjects = useMemo(() => sortProjectsByActivity(projects, projectSessions), [projectSessions, projects]);
@@ -362,8 +272,7 @@ export function useSessionSidebarViewModel({
 							label="Rename"
 							onClick={() => {
 								controls.close();
-								setRenameTarget(session);
-								setRenameTitle(sessionLabel(session));
+								setActiveDialog({ kind: "rename-session", session });
 							}}
 						/>
 						{onForkSessionIntoProject && projects.length > 1 ? (
@@ -372,10 +281,7 @@ export function useSessionSidebarViewModel({
 								label="Fork into project"
 								onClick={() => {
 									controls.close();
-									setForkTarget(session);
-									setForkProjectId(
-										projects.find((project) => project.projectId !== session.projectId)?.projectId,
-									);
+									setActiveDialog({ kind: "fork-session", session });
 								}}
 							/>
 						) : null}
@@ -401,7 +307,7 @@ export function useSessionSidebarViewModel({
 							destructive
 							onClick={() => {
 								controls.close();
-								setDeleteTarget(session);
+								setActiveDialog({ kind: "delete-session", session });
 							}}
 						/>
 					</>
@@ -417,8 +323,7 @@ export function useSessionSidebarViewModel({
 							label="Rename project"
 							onClick={() => {
 								controls.close();
-								setRenameProjectTarget(project);
-								setRenameProjectName(project.name);
+								setActiveDialog({ kind: "rename-project", project });
 							}}
 						/>
 						<MenuItem
@@ -427,7 +332,7 @@ export function useSessionSidebarViewModel({
 							destructive
 							onClick={() => {
 								controls.close();
-								setUnregisterTarget(project);
+								setActiveDialog({ kind: "unregister-project", project });
 							}}
 						/>
 						{onOpenPanelAction ? (
@@ -451,49 +356,10 @@ export function useSessionSidebarViewModel({
 			}
 			return null;
 		},
-		[
-			onForkSessionIntoProject,
-			onOpenPanelAction,
-			projectById,
-			projectSessions,
-			projects,
-			setDeleteTarget,
-			setForkProjectId,
-			setForkTarget,
-			setRenameProjectName,
-			setRenameProjectTarget,
-			setRenameTarget,
-			setRenameTitle,
-			setUnregisterTarget,
-		],
+		[onForkSessionIntoProject, onOpenPanelAction, projectById, projectSessions, projects.length, setActiveDialog],
 	);
 
-	const submitCreate = async () => {
-		const path = createPath.trim();
-		if (!onCreateProject || (!path && !directoryToken)) return;
-		setCreateSubmitting(true);
-		setCreateSubmitError(null);
-		try {
-			await onCreateProject({
-				path: directoryToken ? undefined : path,
-				directoryToken,
-				name: createName.trim() || undefined,
-			});
-			setCreateOpen(false);
-			setCreatePath("");
-			setCreateName("");
-			setDirectoryToken(undefined);
-			setDirectoryBrowser(null);
-			setDirectoryBrowseError(null);
-		} catch (error) {
-			setCreateSubmitError(directoryErrorMessage(error, "Could not add this project."));
-		} finally {
-			setCreateSubmitting(false);
-		}
-	};
-
 	return {
-		loadDirectories,
 		projectById,
 		sortedProjects,
 		sidebarItems,
@@ -501,6 +367,5 @@ export function useSessionSidebarViewModel({
 		toggleProjectResource,
 		selectSearchResult,
 		renderMenu,
-		submitCreate,
 	};
 }

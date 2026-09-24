@@ -8,11 +8,7 @@ import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.z
 import type { ZodType } from "zod";
 import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
 
-// v1 (Fleet Prime web): no auth — local tool bound to 127.0.0.1.
-function getChatAuthBearerToken(): string | null {
-	return null;
-}
-function clearChatAuthBearerTokenCache(): void {}
+import { clearChatAuthBearerTokenCache, getChatAuthBearerToken } from "@/lib/auth-stub";
 
 export class ChatRequestError extends Error {
 	readonly status: number;

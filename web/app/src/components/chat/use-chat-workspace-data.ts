@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { derivePrimeAgentArtifactRuns } from "@/components/artifacts/prime-agent-artifacts";
 import { chatClient } from "@/components/chat/chat-client";
 import { notifyChatError, runWorkspaceAction } from "@/components/chat/chat-error-notify";
+import { fetchJson } from "@/components/chat/chat-fetch";
 import { type ChatModelOption, queueLabel, toModelOption } from "@/components/chat/chat-helpers";
 import {
 	useChatCommands,
@@ -121,6 +122,7 @@ export function useChatWorkspaceData() {
 	const {
 		commandPaletteOpen,
 		handleResourceCanvasResizeStart,
+		handleResourceCanvasWidthChange,
 		handleThemePreferenceChange,
 		initialSessionMetadata,
 		modelKey,
@@ -628,7 +630,7 @@ export function useChatWorkspaceData() {
 	const setComposerIntentKey = useCallback(
 		async (apiKey: string | null) => {
 			try {
-				await fetch(resolveChatApiUrl("/api/chat/intent"), {
+				await fetchJson<{ success?: boolean }>("/api/chat/intent", {
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ apiKey }),
@@ -827,6 +829,7 @@ export function useChatWorkspaceData() {
 		panels: {
 			chatPanelData,
 			handleResourceCanvasResizeStart,
+			handleResourceCanvasWidthChange,
 			resourceCanvasWidth,
 			rightPanel,
 			setRightPanel,

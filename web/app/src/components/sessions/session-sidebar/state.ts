@@ -1,7 +1,6 @@
-import type { ProjectDirectoryBrowseResponse, ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
-import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
+import type { ProjectId } from "@prime-agent/web-protocol";
 import { useCallback, useReducer } from "react";
-import { readExpandedProjects } from "@/components/sessions/session-sidebar/types";
+import { readExpandedProjects, type SessionDialog } from "@/components/sessions/session-sidebar/types";
 
 export type SidebarState = {
 	brandMenuOpen: boolean;
@@ -10,23 +9,7 @@ export type SidebarState = {
 	query: string;
 	expandedProjectIds: string[];
 	revealedProjectIds: Set<ProjectId>;
-	renameTarget: ChatSessionInfo | null;
-	renameTitle: string;
-	renameProjectTarget: ProjectSummary | null;
-	renameProjectName: string;
-	deleteTarget: ChatSessionInfo | null;
-	unregisterTarget: ProjectSummary | null;
-	createOpen: boolean;
-	createPath: string;
-	createName: string;
-	directoryToken: string | undefined;
-	directoryBrowser: ProjectDirectoryBrowseResponse | null;
-	directoryBrowseLoading: boolean;
-	directoryBrowseError: string | null;
-	createSubmitting: boolean;
-	createSubmitError: string | null;
-	forkTarget: ChatSessionInfo | null;
-	forkProjectId: ProjectId | undefined;
+	activeDialog: SessionDialog;
 };
 
 type SidebarField = {
@@ -42,6 +25,9 @@ export function sidebarReducer(state: SidebarState, action: SidebarAction): Side
 	return { ...state, [action.field.key]: action.field.value } as SidebarState;
 }
 
+/** Holds the sidebar's local menu, search, expansion, and active-dialog state.
+ * `activeProjectId` seeds the initially expanded projects once; later changes
+ * to that argument do not reset this state. */
 export function useSessionSidebarState(activeProjectId: ProjectId | undefined) {
 	const [state, dispatch] = useReducer(
 		sidebarReducer,
@@ -53,23 +39,7 @@ export function useSessionSidebarState(activeProjectId: ProjectId | undefined) {
 			query: "",
 			expandedProjectIds: readExpandedProjects(initialActiveProjectId),
 			revealedProjectIds: new Set(),
-			renameTarget: null,
-			renameTitle: "",
-			renameProjectTarget: null,
-			renameProjectName: "",
-			deleteTarget: null,
-			unregisterTarget: null,
-			createOpen: false,
-			createPath: "",
-			createName: "",
-			directoryToken: undefined,
-			directoryBrowser: null,
-			directoryBrowseLoading: false,
-			directoryBrowseError: null,
-			createSubmitting: false,
-			createSubmitError: null,
-			forkTarget: null,
-			forkProjectId: undefined,
+			activeDialog: null,
 		}),
 	);
 
@@ -104,38 +74,8 @@ export function useSessionSidebarState(activeProjectId: ProjectId | undefined) {
 			typeof value === "function" ? updateField("revealedProjectIds", value) : setField("revealedProjectIds", value),
 		[setField, updateField],
 	);
-	const setRenameTarget = useCallback((value: ChatSessionInfo | null) => setField("renameTarget", value), [setField]);
-	const setRenameTitle = useCallback((value: string) => setField("renameTitle", value), [setField]);
-	const setRenameProjectTarget = useCallback(
-		(value: ProjectSummary | null) => setField("renameProjectTarget", value),
-		[setField],
-	);
-	const setRenameProjectName = useCallback((value: string) => setField("renameProjectName", value), [setField]);
-	const setDeleteTarget = useCallback((value: ChatSessionInfo | null) => setField("deleteTarget", value), [setField]);
-	const setUnregisterTarget = useCallback(
-		(value: ProjectSummary | null) => setField("unregisterTarget", value),
-		[setField],
-	);
-	const setCreateOpen = useCallback((value: boolean) => setField("createOpen", value), [setField]);
-	const setCreatePath = useCallback((value: string) => setField("createPath", value), [setField]);
-	const setCreateName = useCallback((value: string) => setField("createName", value), [setField]);
-	const setDirectoryToken = useCallback((value: string | undefined) => setField("directoryToken", value), [setField]);
-	const setDirectoryBrowser = useCallback(
-		(value: ProjectDirectoryBrowseResponse | null) => setField("directoryBrowser", value),
-		[setField],
-	);
-	const setDirectoryBrowseLoading = useCallback(
-		(value: boolean) => setField("directoryBrowseLoading", value),
-		[setField],
-	);
-	const setDirectoryBrowseError = useCallback(
-		(value: string | null) => setField("directoryBrowseError", value),
-		[setField],
-	);
-	const setCreateSubmitting = useCallback((value: boolean) => setField("createSubmitting", value), [setField]);
-	const setCreateSubmitError = useCallback((value: string | null) => setField("createSubmitError", value), [setField]);
-	const setForkTarget = useCallback((value: ChatSessionInfo | null) => setField("forkTarget", value), [setField]);
-	const setForkProjectId = useCallback((value: ProjectId | undefined) => setField("forkProjectId", value), [setField]);
+	const setActiveDialog = useCallback((value: SessionDialog) => setField("activeDialog", value), [setField]);
+	const closeDialog = useCallback(() => setField("activeDialog", null), [setField]);
 
 	return {
 		...state,
@@ -145,23 +85,8 @@ export function useSessionSidebarState(activeProjectId: ProjectId | undefined) {
 		setQuery,
 		setExpandedProjectIds,
 		setRevealedProjectIds,
-		setRenameTarget,
-		setRenameTitle,
-		setRenameProjectTarget,
-		setRenameProjectName,
-		setDeleteTarget,
-		setUnregisterTarget,
-		setCreateOpen,
-		setCreatePath,
-		setCreateName,
-		setDirectoryToken,
-		setDirectoryBrowser,
-		setDirectoryBrowseLoading,
-		setDirectoryBrowseError,
-		setCreateSubmitting,
-		setCreateSubmitError,
-		setForkTarget,
-		setForkProjectId,
+		setActiveDialog,
+		closeDialog,
 	};
 }
 

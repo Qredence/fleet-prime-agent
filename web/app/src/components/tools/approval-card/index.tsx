@@ -397,13 +397,13 @@ export function ApprovalCard({
 							</div>
 						) : (
 							<div className="mt-4 flex flex-wrap items-center gap-2">
-								<Button size="sm" disabled={busy} onClick={onApprove} className="rounded-full">
+								<Button size="compact" disabled={busy} onClick={onApprove} className="rounded-full">
 									{approveLabel}
 								</Button>
 								{onRequestChanges ? (
 									<Button
 										variant="secondary"
-										size="sm"
+										size="compact"
 										disabled={busy}
 										onClick={onRequestChanges}
 										className="rounded-full"
@@ -414,7 +414,7 @@ export function ApprovalCard({
 								{onReject ? (
 									<Button
 										variant="ghost"
-										size="sm"
+										size="compact"
 										disabled={busy}
 										onClick={onReject}
 										className="rounded-full text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"

@@ -180,7 +180,7 @@ export function SessionTreePanel({
 					<GitBranch className="size-4" aria-hidden="true" />
 					<span>Branch history</span>
 				</div>
-				<Button type="button" size="sm" variant="outline" onClick={onRefresh} disabled={loading}>
+				<Button type="button" size="compact" variant="outline" onClick={onRefresh} disabled={loading}>
 					Refresh
 				</Button>
 			</div>
@@ -224,7 +224,7 @@ export function SessionTreePanel({
 				</p>
 				<Button
 					type="button"
-					size="sm"
+					size="compact"
 					disabled={!canRewind}
 					onClick={() => selectedEntryId && openConfirm(selectedEntryId)}
 				>

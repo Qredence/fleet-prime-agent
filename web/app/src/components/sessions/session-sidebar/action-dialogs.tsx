@@ -1,7 +1,8 @@
 import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
+import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { Folder } from "lucide-react";
-import { useMemo } from "react";
-import type { SidebarStateView } from "@/components/sessions/session-sidebar/state";
+import { useMemo, useState } from "react";
+import { type SessionDialog, sessionLabel } from "@/components/sessions/session-sidebar/types";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -24,58 +25,185 @@ import { Input } from "@/components/ui/input";
 import { Select, type SelectOption } from "@/components/ui/select";
 
 export type SidebarActionDialogsProps = {
+	activeDialog: SessionDialog;
+	onClose: () => void;
 	projects: Array<ProjectSummary>;
 	onRenameSession: (sessionId: string, title: string) => void;
 	onDeleteSession: (sessionId: string) => void;
 	onRenameProject?: (projectId: ProjectId, name: string) => void | Promise<void>;
 	onUnregisterProject?: (projectId: ProjectId) => void | Promise<void>;
 	onForkSessionIntoProject?: (sessionId: string, projectId: ProjectId) => void | Promise<void>;
-	renameTarget: SidebarStateView["renameTarget"];
-	setRenameTarget: SidebarStateView["setRenameTarget"];
-	renameTitle: SidebarStateView["renameTitle"];
-	setRenameTitle: SidebarStateView["setRenameTitle"];
-	renameProjectTarget: SidebarStateView["renameProjectTarget"];
-	setRenameProjectTarget: SidebarStateView["setRenameProjectTarget"];
-	renameProjectName: SidebarStateView["renameProjectName"];
-	setRenameProjectName: SidebarStateView["setRenameProjectName"];
-	deleteTarget: SidebarStateView["deleteTarget"];
-	setDeleteTarget: SidebarStateView["setDeleteTarget"];
-	unregisterTarget: SidebarStateView["unregisterTarget"];
-	setUnregisterTarget: SidebarStateView["setUnregisterTarget"];
-	forkTarget: SidebarStateView["forkTarget"];
-	setForkTarget: SidebarStateView["setForkTarget"];
-	forkProjectId: SidebarStateView["forkProjectId"];
-	setForkProjectId: SidebarStateView["setForkProjectId"];
 };
 
-export function SessionSidebarActionDialogs({
-	projects,
+function RenameSessionDialog({
+	session,
+	onClose,
 	onRenameSession,
-	onDeleteSession,
+}: {
+	session: ChatSessionInfo;
+	onClose: () => void;
+	onRenameSession: (sessionId: string, title: string) => void;
+}) {
+	const [renameTitle, setRenameTitle] = useState(() => sessionLabel(session));
+
+	return (
+		<AlertDialog open onOpenChange={(open) => !open && onClose()}>
+			<AlertDialogContent>
+				<AlertDialogTitle>Rename session</AlertDialogTitle>
+				<AlertDialogDescription>Choose a local display title for this Fleet Prime session.</AlertDialogDescription>
+				<Input
+					value={renameTitle}
+					onChange={(event) => setRenameTitle(event.target.value)}
+					aria-label="Session title"
+					autoFocus
+				/>
+				<AlertDialogFooter>
+					<AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+					<AlertDialogAction
+						disabled={!renameTitle.trim()}
+						onClick={() => {
+							if (renameTitle.trim()) {
+								onRenameSession(session.sessionId, renameTitle.trim());
+								onClose();
+							}
+						}}
+					>
+						Rename
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function RenameProjectDialog({
+	project,
+	onClose,
 	onRenameProject,
+}: {
+	project: ProjectSummary;
+	onClose: () => void;
+	onRenameProject?: (projectId: ProjectId, name: string) => void | Promise<void>;
+}) {
+	const [renameProjectName, setRenameProjectName] = useState(project.name);
+
+	return (
+		<AlertDialog open onOpenChange={(open) => !open && onClose()}>
+			<AlertDialogContent>
+				<AlertDialogTitle>Rename project</AlertDialogTitle>
+				<AlertDialogDescription>
+					This changes the display name only. The registered directory stays the same.
+				</AlertDialogDescription>
+				<Input
+					value={renameProjectName}
+					onChange={(event) => setRenameProjectName(event.target.value)}
+					aria-label="Project name"
+					autoFocus
+				/>
+				<AlertDialogFooter>
+					<AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+					<AlertDialogAction
+						disabled={!renameProjectName.trim() || !onRenameProject}
+						onClick={() => {
+							if (renameProjectName.trim()) {
+								void onRenameProject?.(project.projectId, renameProjectName.trim());
+								onClose();
+							}
+						}}
+					>
+						Rename
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function DeleteSessionDialog({
+	session,
+	onClose,
+	onDeleteSession,
+}: {
+	session: ChatSessionInfo;
+	onClose: () => void;
+	onDeleteSession: (sessionId: string) => void;
+}) {
+	return (
+		<AlertDialog open onOpenChange={(open) => !open && onClose()}>
+			<AlertDialogContent>
+				<AlertDialogTitle>Delete session?</AlertDialogTitle>
+				<AlertDialogDescription>
+					This removes the Fleet Prime session and its managed session artifacts. This cannot be undone.
+				</AlertDialogDescription>
+				<AlertDialogFooter>
+					<AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+					<AlertDialogAction
+						className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+						onClick={() => {
+							onDeleteSession(session.sessionId);
+							onClose();
+						}}
+					>
+						Delete
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function UnregisterProjectDialog({
+	project,
+	onClose,
 	onUnregisterProject,
+}: {
+	project: ProjectSummary;
+	onClose: () => void;
+	onUnregisterProject?: (projectId: ProjectId) => void | Promise<void>;
+}) {
+	return (
+		<AlertDialog open onOpenChange={(open) => !open && onClose()}>
+			<AlertDialogContent>
+				<AlertDialogTitle>Unregister project?</AlertDialogTitle>
+				<AlertDialogDescription>
+					The directory and its sessions remain intact. Existing sessions will move to Unassigned until the
+					directory is registered again.
+				</AlertDialogDescription>
+				<AlertDialogFooter>
+					<AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+					<AlertDialogAction
+						className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+						onClick={() => {
+							void onUnregisterProject?.(project.projectId);
+							onClose();
+						}}
+					>
+						Unregister
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function ForkSessionDialog({
+	session,
+	projects,
+	onClose,
 	onForkSessionIntoProject,
-	renameTarget,
-	setRenameTarget,
-	renameTitle,
-	setRenameTitle,
-	renameProjectTarget,
-	setRenameProjectTarget,
-	renameProjectName,
-	setRenameProjectName,
-	deleteTarget,
-	setDeleteTarget,
-	unregisterTarget,
-	setUnregisterTarget,
-	forkTarget,
-	setForkTarget,
-	forkProjectId,
-	setForkProjectId,
-}: SidebarActionDialogsProps) {
+}: {
+	session: ChatSessionInfo;
+	projects: Array<ProjectSummary>;
+	onClose: () => void;
+	onForkSessionIntoProject?: (sessionId: string, projectId: ProjectId) => void | Promise<void>;
+}) {
+	const initialProjectId = projects.find((project) => project.projectId !== session.projectId)?.projectId;
+	const [forkProjectId, setForkProjectId] = useState<ProjectId | undefined>(initialProjectId);
+
 	const forkProjectOptions = useMemo<Array<SelectOption>>(
 		() =>
 			projects.flatMap((project) =>
-				project.projectId === forkTarget?.projectId
+				project.projectId === session.projectId
 					? []
 					: [
 							{
@@ -85,148 +213,92 @@ export function SessionSidebarActionDialogs({
 							},
 						],
 			),
-		[forkTarget?.projectId, projects],
+		[session.projectId, projects],
 	);
 
 	return (
-		<>
-			<AlertDialog open={renameTarget !== null} onOpenChange={(open) => !open && setRenameTarget(null)}>
-				<AlertDialogContent>
-					<AlertDialogTitle>Rename session</AlertDialogTitle>
-					<AlertDialogDescription>
-						Choose a local display title for this Fleet Prime session.
-					</AlertDialogDescription>
-					<Input
-						value={renameTitle}
-						onChange={(event) => setRenameTitle(event.target.value)}
-						aria-label="Session title"
-						autoFocus
+		<Dialog open onOpenChange={(open) => !open && onClose()}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>Fork session into project</DialogTitle>
+					<DialogDescription>Create a new Fleet Prime session in another registered project.</DialogDescription>
+				</DialogHeader>
+				<div className="py-2">
+					<Select
+						value={forkProjectId ?? null}
+						onValueChange={(value) => setForkProjectId(value as ProjectId)}
+						options={forkProjectOptions}
+						placeholder="Select a project…"
+						aria-label="Target project"
 					/>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							disabled={!renameTitle.trim()}
-							onClick={() => {
-								if (renameTarget && renameTitle.trim()) {
-									onRenameSession(renameTarget.sessionId, renameTitle.trim());
-									setRenameTarget(null);
-								}
-							}}
-						>
-							Rename
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			<AlertDialog
-				open={renameProjectTarget !== null}
-				onOpenChange={(open) => !open && setRenameProjectTarget(null)}
-			>
-				<AlertDialogContent>
-					<AlertDialogTitle>Rename project</AlertDialogTitle>
-					<AlertDialogDescription>
-						This changes the display name only. The registered directory stays the same.
-					</AlertDialogDescription>
-					<Input
-						value={renameProjectName}
-						onChange={(event) => setRenameProjectName(event.target.value)}
-						aria-label="Project name"
-						autoFocus
-					/>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							disabled={!renameProjectName.trim() || !onRenameProject}
-							onClick={() => {
-								if (renameProjectTarget && renameProjectName.trim()) {
-									void onRenameProject?.(renameProjectTarget.projectId, renameProjectName.trim());
-									setRenameProjectTarget(null);
-								}
-							}}
-						>
-							Rename
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			<AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-				<AlertDialogContent>
-					<AlertDialogTitle>Delete session?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This removes the Fleet Prime session and its managed session artifacts. This cannot be undone.
-					</AlertDialogDescription>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-							onClick={() => {
-								if (deleteTarget) onDeleteSession(deleteTarget.sessionId);
-								setDeleteTarget(null);
-							}}
-						>
-							Delete
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			<AlertDialog open={unregisterTarget !== null} onOpenChange={(open) => !open && setUnregisterTarget(null)}>
-				<AlertDialogContent>
-					<AlertDialogTitle>Unregister project?</AlertDialogTitle>
-					<AlertDialogDescription>
-						The directory and its sessions remain intact. Existing sessions will move to Unassigned until the
-						directory is registered again.
-					</AlertDialogDescription>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-							onClick={() => {
-								if (unregisterTarget) void onUnregisterProject?.(unregisterTarget.projectId);
-								setUnregisterTarget(null);
-							}}
-						>
-							Unregister
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			<Dialog open={forkTarget !== null} onOpenChange={(open) => !open && setForkTarget(null)}>
-				<DialogContent className="sm:max-w-md">
-					<DialogHeader>
-						<DialogTitle>Fork session into project</DialogTitle>
-						<DialogDescription>Create a new Fleet Prime session in another registered project.</DialogDescription>
-					</DialogHeader>
-					<div className="py-2">
-						<Select
-							value={forkProjectId ?? null}
-							onValueChange={(value) => setForkProjectId(value as ProjectId)}
-							options={forkProjectOptions}
-							placeholder="Select a project…"
-							aria-label="Target project"
-						/>
-					</div>
-					<DialogFooter>
-						<Button type="button" variant="outline" onClick={() => setForkTarget(null)}>
-							Cancel
-						</Button>
-						<Button
-							type="button"
-							disabled={!forkTarget || !forkProjectId || !onForkSessionIntoProject}
-							onClick={() => {
-								if (!forkTarget || !forkProjectId) return;
-								void onForkSessionIntoProject?.(forkTarget.sessionId, forkProjectId);
-								setForkTarget(null);
-							}}
-						>
-							Fork session
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</>
+				</div>
+				<DialogFooter>
+					<Button type="button" variant="outline" onClick={onClose}>
+						Cancel
+					</Button>
+					<Button
+						type="button"
+						disabled={!forkProjectId || !onForkSessionIntoProject}
+						onClick={() => {
+							if (!forkProjectId) return;
+							void onForkSessionIntoProject?.(session.sessionId, forkProjectId);
+							onClose();
+						}}
+					>
+						Fork session
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
+}
+
+/** Renders the dialog selected by `activeDialog`, or nothing when it is null.
+ * Project creation is handled separately by SessionSidebar, so its dialog
+ * kind also renders nothing here. */
+export function SessionSidebarActionDialogs({
+	activeDialog,
+	onClose,
+	projects,
+	onRenameSession,
+	onDeleteSession,
+	onRenameProject,
+	onUnregisterProject,
+	onForkSessionIntoProject,
+}: SidebarActionDialogsProps) {
+	if (!activeDialog) return null;
+
+	switch (activeDialog.kind) {
+		case "rename-session":
+			return (
+				<RenameSessionDialog session={activeDialog.session} onClose={onClose} onRenameSession={onRenameSession} />
+			);
+		case "rename-project":
+			return (
+				<RenameProjectDialog project={activeDialog.project} onClose={onClose} onRenameProject={onRenameProject} />
+			);
+		case "delete-session":
+			return (
+				<DeleteSessionDialog session={activeDialog.session} onClose={onClose} onDeleteSession={onDeleteSession} />
+			);
+		case "unregister-project":
+			return (
+				<UnregisterProjectDialog
+					project={activeDialog.project}
+					onClose={onClose}
+					onUnregisterProject={onUnregisterProject}
+				/>
+			);
+		case "fork-session":
+			return (
+				<ForkSessionDialog
+					session={activeDialog.session}
+					projects={projects}
+					onClose={onClose}
+					onForkSessionIntoProject={onForkSessionIntoProject}
+				/>
+			);
+		case "create-project":
+			return null;
+	}
 }

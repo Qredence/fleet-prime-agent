@@ -118,7 +118,7 @@ export function SubagentsPanelContent({
 							key={agent.id}
 							type="button"
 							variant="ghost"
-							size="sm"
+							size="compact"
 							aria-pressed={selected}
 							className={cn(
 								"flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

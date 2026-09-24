@@ -199,7 +199,7 @@ export function SubagentTranscriptView({
 						aria-label={`Refresh ${child.label} thread`}
 						className="shrink-0 text-foreground/40 hover:text-foreground/70"
 						onClick={onRefresh}
-						size="icon-sm"
+						size="icon-compact"
 						title={`Refresh ${child.label} thread`}
 						type="button"
 						variant="ghost"

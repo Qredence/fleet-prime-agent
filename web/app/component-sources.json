@@ -7,11 +7,6 @@
       "reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
     },
     {
-      "path": "src/components/sessions/session-sidebar/action-dialogs.tsx",
-      "type": "SidebarActionDialogsProps",
-      "reason": "Private dialog coordinator; the public SessionSidebar API is grouped into data, actions, and slots."
-    },
-    {
       "path": "src/components/chat/composer/composer-trigger-popover.tsx",
       "type": "ComposerTriggerPopoverProps",
       "reason": "Absorbed first-party composer trigger popover; existing public prop contract retained."

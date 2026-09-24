@@ -2,10 +2,21 @@ import { RefreshCw, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef } from "react";
+import {
+	clampResourceCanvasWidth,
+	getResourceCanvasMaxWidth,
+	RESOURCE_CANVAS_MIN_WIDTH,
+} from "@/components/layout/canvas-utils";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { DESKTOP_PANEL_HIDDEN_FLEX } from "@/lib/layout-constants";
 
+/** Renders the desktop resource panel at `width` pixels when open.
+ * Its separator delegates pointer resizing to `onResizeStart`. Keyboard
+ * resizing calls `onWidthChange`, when supplied, with a clamped width. Left
+ * expands and Right shrinks by 16 px; Home and End select the current minimum
+ * and maximum.
+ * Opening focuses the panel, and Escape calls `onClose`. */
 export function ResizableCanvas({
 	children,
 	dataTestid,
@@ -14,6 +25,7 @@ export function ResizableCanvas({
 	onClose,
 	onRefresh,
 	onResizeStart,
+	onWidthChange,
 	open,
 	headerActions,
 	title,
@@ -28,6 +40,7 @@ export function ResizableCanvas({
 	onClose: () => void;
 	onRefresh?: () => void;
 	onResizeStart: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+	onWidthChange?: (width: number) => void;
 	open: boolean;
 	title: string;
 	titleIcon: React.ElementType;
@@ -40,6 +53,9 @@ export function ResizableCanvas({
 		if (!open) return;
 		panelRef.current?.focus({ preventScroll: true });
 	}, [open]);
+
+	const minWidth = RESOURCE_CANVAS_MIN_WIDTH;
+	const maxWidth = getResourceCanvasMaxWidth();
 
 	return (
 		<AnimatePresence>
@@ -67,13 +83,35 @@ export function ResizableCanvas({
 				>
 					<button
 						type="button"
+						role="separator"
+						aria-orientation="vertical"
 						aria-label={`Resize ${title} panel`}
-						className="absolute top-0 bottom-0 left-0 z-10 w-2 -translate-x-1 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10"
+						aria-valuenow={Math.round(width)}
+						aria-valuemin={minWidth}
+						aria-valuemax={maxWidth}
+						tabIndex={0}
+						className="absolute top-0 bottom-0 left-0 z-10 w-2 -translate-x-1 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-ring"
 						data-testid="pi-resources-resize-handle"
 						onPointerDown={onResizeStart}
+						onKeyDown={(event) => {
+							const step = 16;
+							if (event.key === "ArrowLeft") {
+								event.preventDefault();
+								onWidthChange?.(clampResourceCanvasWidth(width + step));
+							} else if (event.key === "ArrowRight") {
+								event.preventDefault();
+								onWidthChange?.(clampResourceCanvasWidth(width - step));
+							} else if (event.key === "Home") {
+								event.preventDefault();
+								onWidthChange?.(minWidth);
+							} else if (event.key === "End") {
+								event.preventDefault();
+								onWidthChange?.(maxWidth);
+							}
+						}}
 					/>
 					<div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-						<div className="flex h-[var(--chat-header-height,44px)] min-h-[var(--chat-header-height,44px)] min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-[var(--density-pad-x)] py-1">
+						<div className="flex h-[var(--chat-header-height,var(--density-header-height,44px))] min-h-[var(--chat-header-height,var(--density-header-height,44px))] min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-[var(--density-pad-x)] py-1">
 							<div className="min-w-0 flex-1">
 								{headerLeading ?? (
 									<div className="flex min-w-0 items-center gap-2 text-body font-medium text-foreground/80">
@@ -89,7 +127,7 @@ export function ResizableCanvas({
 									onClick={onRefresh}
 									disabled={!onRefresh}
 									variant="ghost"
-									size="icon-sm"
+									size="icon-compact"
 									className={`${HIT_AREA_EXPAND_DENSE_CLASS} text-foreground/40 hover:text-foreground/70 disabled:cursor-not-allowed disabled:opacity-35`}
 									aria-label={`Refresh ${title}`}
 									title={`Refresh ${title}`}
@@ -103,7 +141,7 @@ export function ResizableCanvas({
 									type="button"
 									onClick={onClose}
 									variant="ghost"
-									size="icon-sm"
+									size="icon-compact"
 									className={`${HIT_AREA_EXPAND_DENSE_CLASS} text-foreground/40 hover:text-foreground/70`}
 									aria-label="Close panel"
 									title="Close panel"

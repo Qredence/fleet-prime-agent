@@ -33,6 +33,7 @@ export type RightPanelShellProps = {
 	handleResourceCanvasResizeStart: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 	onClose: () => void;
 	resourceCanvasWidth: number;
+	onResourceCanvasWidthChange?: (width: number) => void;
 };
 
 /**
@@ -41,11 +42,13 @@ export type RightPanelShellProps = {
  * @param onClose - Closes the active right panel.
  * @param handleResourceCanvasResizeStart - Handles the start of desktop panel resizing.
  * @param resourceCanvasWidth - The desktop panel width.
+ * @param onResourceCanvasWidthChange - Updates the desktop panel width (for keyboard resizing).
  */
 export function RightPanelShell({
 	handleResourceCanvasResizeStart,
 	onClose,
 	resourceCanvasWidth,
+	onResourceCanvasWidthChange,
 }: RightPanelShellProps) {
 	const chat = useChatPanelDataContext();
 	const workspace = useWorkspaceTreeContext();
@@ -76,6 +79,7 @@ export function RightPanelShell({
 					onClose={onClose}
 					onRefresh={onRefresh}
 					onResizeStart={handleResourceCanvasResizeStart}
+					onWidthChange={onResourceCanvasWidthChange}
 					open={panelOpen}
 					title={definition?.title ?? ""}
 					titleIcon={definition?.icon ?? Library}

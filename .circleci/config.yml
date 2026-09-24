@@ -174,7 +174,7 @@ jobs:
       - run:
           name: Test web app
           command: >-
-            pnpm --filter @prime-agent/web run test
+            pnpm --filter @qredence/web run test
             --reporter=default --reporter=junit
             --outputFile="$PWD/test-results/web-app.xml"
       - run:

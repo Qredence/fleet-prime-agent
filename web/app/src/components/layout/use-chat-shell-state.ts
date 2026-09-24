@@ -127,6 +127,12 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 		applyThemePreference(preference);
 	}, []);
 
+	const handleResourceCanvasWidthChange = useCallback((nextWidth: number) => {
+		const clamped = clampResourceCanvasWidth(nextWidth);
+		setResourceCanvasWidth(clamped);
+		storeResourceCanvasWidth(clamped);
+	}, []);
+
 	const handleResourceCanvasResizeStart = useCallback(
 		(event: ReactPointerEvent<HTMLButtonElement>) => {
 			const startWidth = resourceCanvasWidth;
@@ -226,6 +232,7 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	return {
 		commandPaletteOpen,
 		handleResourceCanvasResizeStart,
+		handleResourceCanvasWidthChange,
 		handleThemePreferenceChange,
 		initialSessionMetadata: storedSessionMetadata,
 		modelKey,

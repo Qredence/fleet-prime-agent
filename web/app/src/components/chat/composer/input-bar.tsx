@@ -229,7 +229,7 @@ function InputBarContent({
 								<Button
 									type="button"
 									variant="outline"
-									size="icon-xs"
+									size="icon-compact"
 									aria-label={`Remove ${image.filename}`}
 									onClick={() => attachments?.onRemoveImage?.(image.id)}
 									className={cn(

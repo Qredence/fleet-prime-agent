@@ -1,19 +1,3 @@
-/**
- * Static lookup tables for surface tokens.
- *
- * Tailwind v4's static scanner only generates utility classes for literal
- * strings it sees in source. Template-literal class names like
- * `bg-surface-${level}` are invisible to the scanner, so the matching
- * utility never gets generated and the background renders transparent.
- *
- * Use these maps when picking a surface level at runtime:
- *
- *   <div className={surfaceClasses(level)} />
- *
- * Each entry below contains the literal class name, which is enough for
- * Tailwind to detect and emit the utility.
- */
-
 export const SURFACE_BG: Record<number, string> = {
 	1: "bg-surface-1",
 	2: "bg-surface-2",

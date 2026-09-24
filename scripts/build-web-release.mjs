@@ -15,7 +15,7 @@ const serverOutput = join(releaseRoot, "server");
 const fleetPackage = JSON.parse(readFileSync(join(root, "packages", "fleet-web", "package.json"), "utf8"));
 
 if (!existsSync(serverEntry) || !existsSync(clientSource)) {
-	throw new Error("Missing web build output. Run pnpm --filter @prime-agent/web build first.");
+	throw new Error("Missing web build output. Run pnpm --filter @qredence/web build first.");
 }
 
 rmSync(releaseRoot, { recursive: true, force: true });
