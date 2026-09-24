@@ -1,12 +1,7 @@
+"use client";
+
 import { createContext, type ReactNode, useContext } from "react";
 
-/**
- * Tracks the current substrate elevation level (Fluid Functionalism surfaces).
- *
- * Elevated components (dropdowns, dialogs, sheets) read it via useSurface()
- * and render at substrate + offset, then re-provide their own level so
- * further nesting elevates further.
- */
 const SurfaceContext = createContext<number>(1);
 
 export function useSurface(): number {

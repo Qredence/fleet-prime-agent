@@ -14,6 +14,8 @@ export function ItemRow({
 	className,
 	interactive = true,
 	tone = "default",
+	truncateSubtitle = true,
+	truncateTitle = true,
 }: {
 	icon?: ReactNode;
 	title: ReactNode;
@@ -22,6 +24,8 @@ export function ItemRow({
 	className?: string;
 	interactive?: boolean;
 	tone?: "default" | "muted" | "inset" | "dashed";
+	truncateSubtitle?: boolean;
+	truncateTitle?: boolean;
 }) {
 	return (
 		<RowSurface tone={tone} padding="md" interactive={interactive} className={cn("items-center gap-3", className)}>
@@ -31,8 +35,17 @@ export function ItemRow({
 				</div>
 			) : null}
 			<div className="min-w-0 flex-1">
-				<div className="truncate text-sm font-medium text-foreground">{title}</div>
-				{subtitle ? <div className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</div> : null}
+				<div className={cn("text-sm font-medium text-foreground", truncateTitle && "truncate")}>{title}</div>
+				{subtitle ? (
+					<div
+						className={cn(
+							"mt-0.5 text-xs text-muted-foreground",
+							truncateSubtitle ? "truncate" : "leading-normal",
+						)}
+					>
+						{subtitle}
+					</div>
+				) : null}
 			</div>
 			{trailing ? <div className="flex shrink-0 items-center gap-1.5">{trailing}</div> : null}
 		</RowSurface>

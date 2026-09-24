@@ -40,7 +40,7 @@ type SidebarProjectListProps = {
 	setProjectActionsOpen: SidebarStateView["setProjectActionsOpen"];
 	expandedProjectIds: SidebarStateView["expandedProjectIds"];
 	setExpandedProjectIds: SidebarStateView["setExpandedProjectIds"];
-	setCreateOpen: SidebarStateView["setCreateOpen"];
+	onOpenCreateProject: () => void;
 	projects: Array<ProjectSummary>;
 	projectSessions: Array<ChatSessionInfo>;
 	sidebarItems: SidebarResource[];
@@ -74,7 +74,7 @@ export function SessionSidebarProjectList({
 	setProjectActionsOpen,
 	expandedProjectIds,
 	setExpandedProjectIds,
-	setCreateOpen,
+	onOpenCreateProject,
 	projects,
 	projectSessions,
 	sidebarItems,
@@ -122,7 +122,7 @@ export function SessionSidebarProjectList({
 									type="button"
 									onClick={() => {
 										setProjectActionsOpen(false);
-										setCreateOpen(true);
+										onOpenCreateProject();
 									}}
 									className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs outline-none hover:bg-muted focus-visible:bg-muted"
 								>
@@ -147,7 +147,7 @@ export function SessionSidebarProjectList({
 								type="button"
 								aria-label="Add project"
 								title="Add project"
-								onClick={() => setCreateOpen(true)}
+								onClick={onOpenCreateProject}
 								className={cn(
 									HIT_AREA_EXPAND_DENSE_CLASS,
 									"inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
@@ -172,7 +172,7 @@ export function SessionSidebarProjectList({
 										content: <FolderPlus className="size-5 text-muted-foreground" />,
 									},
 								]}
-								onClick={() => setCreateOpen(true)}
+								onClick={onOpenCreateProject}
 								ariaLabel="Add a project"
 								className="w-full"
 							/>

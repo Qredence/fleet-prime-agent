@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const layoutStyle = {
 	"--chat-chrome-top": `${CHAT_CHROME_TOP_PX}px`,
-	"--chat-header-height": `${CHAT_HEADER_HEIGHT_PX}px`,
+	"--chat-header-height": `var(--density-header-height, ${CHAT_HEADER_HEIGHT_PX}px)`,
 	"--chat-header-top": `${CHAT_HEADER_OFFSET_PX}px`,
 } as CSSProperties;
 

@@ -63,6 +63,15 @@ export type SessionSidebarDependencies = SessionSidebarData &
 	SidebarNavigationActions &
 	SessionSidebarSlots;
 
+export type SessionDialog =
+	| { kind: "create-project" }
+	| { kind: "rename-session"; session: ChatSessionInfo }
+	| { kind: "delete-session"; session: ChatSessionInfo }
+	| { kind: "fork-session"; session: ChatSessionInfo }
+	| { kind: "rename-project"; project: ProjectSummary }
+	| { kind: "unregister-project"; project: ProjectSummary }
+	| null;
+
 export const DOCUMENTATION_URL = "https://docs.qredence.ai";
 export const TWITTER_URL = "https://x.com/zacharybydesign";
 export const DISCORD_URL = "https://discord.gg/ebgy7gtZHK";

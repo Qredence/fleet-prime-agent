@@ -46,9 +46,9 @@ import {
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select } from "@/components/ui/select";
+import { SettingsRow } from "@/components/ui/settings-row";
 import { Switch } from "@/components/ui/switch";
 import { notify as toast } from "@/lib/notify";
 import {
@@ -58,18 +58,6 @@ import {
 	writeUiPreferences,
 } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
-
-function PreferenceRow({ children, description, label }: { children: ReactNode; description: string; label: string }) {
-	return (
-		<Field orientation="horizontal" className="items-center justify-between gap-6 rounded-xl border p-4">
-			<div className="min-w-0">
-				<FieldLabel>{label}</FieldLabel>
-				<FieldDescription>{description}</FieldDescription>
-			</div>
-			<div className="shrink-0">{children}</div>
-		</Field>
-	);
-}
 
 /**
  * Thin composer over the per-section form hooks; keeps the dialog-level
@@ -417,7 +405,7 @@ function SettingsDialogPaneContent({
 					onThemePreferenceChange={onThemePreferenceChange}
 					themePreference={themePreference}
 				/>
-				<PreferenceRow label="Density" description="Adjust spacing across chat and panels.">
+				<SettingsRow label="Density" description="Adjust spacing across chat and panels.">
 					<Select
 						aria-label="Density"
 						value={preferences.density}
@@ -427,8 +415,8 @@ function SettingsDialogPaneContent({
 							{ label: "Compact", value: "compact" },
 						]}
 					/>
-				</PreferenceRow>
-				<PreferenceRow label="Motion" description="Respect the system setting or reduce UI motion.">
+				</SettingsRow>
+				<SettingsRow label="Motion" description="Respect the system setting or reduce UI motion.">
 					<Select
 						aria-label="Motion"
 						value={preferences.motion}
@@ -438,7 +426,7 @@ function SettingsDialogPaneContent({
 							{ label: "Reduced", value: "reduced" },
 						]}
 					/>
-				</PreferenceRow>
+				</SettingsRow>
 			</div>
 		),
 		chat: () => (
@@ -447,10 +435,7 @@ function SettingsDialogPaneContent({
 					<h3 className="text-lg font-medium">Chat</h3>
 					<p className="text-sm text-muted-foreground">Control transcript behavior.</p>
 				</div>
-				<PreferenceRow
-					label="Streaming transcript"
-					description="Follow new output or preserve the reading position."
-				>
+				<SettingsRow label="Streaming transcript" description="Follow new output or preserve the reading position.">
 					<Select
 						aria-label="Streaming transcript"
 						value={preferences.transcript}
@@ -460,7 +445,7 @@ function SettingsDialogPaneContent({
 							{ label: "Manual", value: "manual" },
 						]}
 					/>
-				</PreferenceRow>
+				</SettingsRow>
 				<ComposerIntentSection
 					enabled={composerIntent?.enabled ?? false}
 					keySource={composerIntent?.keySource ?? "none"}
@@ -548,7 +533,7 @@ function SettingsDialogPaneContent({
 						Set local conversation preferences. Provider and workspace configuration remains Fleet Prime-owned.
 					</p>
 				</div>
-				<PreferenceRow
+				<SettingsRow
 					label="Confirm session deletion"
 					description="Require confirmation before deleting a saved conversation."
 				>
@@ -557,7 +542,7 @@ function SettingsDialogPaneContent({
 						onCheckedChange={(checked) => updatePreference("confirmSessionDelete", checked)}
 						aria-label="Confirm session deletion"
 					/>
-				</PreferenceRow>
+				</SettingsRow>
 				<p className="text-xs text-muted-foreground">
 					Provider credentials, OAuth, models, sandbox configuration, and workspace selection are managed by Fleet
 					Prime and its CLI.

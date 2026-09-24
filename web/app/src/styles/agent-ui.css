@@ -4,7 +4,7 @@
   --chat-message-radius-inner: 1rem; /* 16px concentric inside 24px shell */
   --chat-input-radius: 1.5rem;
   --chat-tool-radius: calc(var(--radius) * 0.8);
-  --chat-context-padding: 10px;
+  --chat-context-padding: 12px;
   --chat-foreground-subtle: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
   --chat-input-background: var(--background);
   --chat-input-accent: #0169cc;
@@ -12,7 +12,6 @@
 }
 
 .dark {
-  --chat-context-padding: 12px;
   --chat-input-background: var(--card);
   --chat-input-accent: #2a64c0;
   --chat-input-focus-outline: #2a64c0;

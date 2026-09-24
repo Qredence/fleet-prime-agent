@@ -42,9 +42,14 @@
         ]
       },
       {
+        // Reserved/future surfaces: components shipped ahead of their first
+        // product consumer. The sidebar system lands as the app shell's
+        // navigation layer; mode-selector and session-reasoning-panel are
+        // adopted by upcoming surfaces.
         "files": [
           "src/components/chat/composer/input/mode-selector.tsx",
-          "src/components/chat/thinking/session-reasoning-panel.tsx"
+          "src/components/chat/thinking/session-reasoning-panel.tsx",
+          "src/components/ui/sidebar.tsx"
         ],
         "rules": ["deslop/unused-file"]
       },

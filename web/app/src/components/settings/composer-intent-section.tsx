@@ -1,8 +1,8 @@
 import type { ComposerIntentKeySource, ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
 import { useCallback, useState } from "react";
-import { ItemRow } from "@/components/layout/item-row";
 import { SecretCredentialField } from "@/components/settings/providers/credential-fields";
 import { Button } from "@/components/ui/button";
+import { SettingsRow } from "@/components/ui/settings-row";
 import { Switch } from "@/components/ui/switch";
 
 const STATUS_COPY: Record<ComposerIntentStatus, string> = {
@@ -48,10 +48,12 @@ export function ComposerIntentSection({
 	const [draftKey, setDraftKey] = useState("");
 	const [showKey, setShowKey] = useState(false);
 	const [attemptedSave, setAttemptedSave] = useState(false);
+	const [saveError, setSaveError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
 	const save = useCallback(async () => {
 		setAttemptedSave(true);
+		setSaveError(null);
 		if (!draftKey.trim() || !onSaveKey) return;
 		setBusy(true);
 		try {
@@ -61,6 +63,8 @@ export function ComposerIntentSection({
 			setDraftKey("");
 			setShowKey(false);
 			setAttemptedSave(false);
+		} catch (error) {
+			setSaveError(error instanceof Error ? error.message : "Failed to save key");
 		} finally {
 			setBusy(false);
 		}
@@ -69,6 +73,7 @@ export function ComposerIntentSection({
 	const clear = useCallback(async () => {
 		if (!onClearKey) return;
 		setBusy(true);
+		setSaveError(null);
 		try {
 			await onClearKey();
 			setDraftKey("");
@@ -81,9 +86,9 @@ export function ComposerIntentSection({
 
 	return (
 		<div className="flex flex-col gap-3">
-			<ItemRow
-				title="Describe a command"
-				subtitle={`Recognise when a message is really asking for a built-in command, like "compact this" or "show the shortcuts". Messages you send are shared with TypeSafe for classification only when this is on. ${STATUS_COPY[status]}`}
+			<SettingsRow
+				label="Describe a command"
+				description={`Recognise when a message is really asking for a built-in command, like "compact this" or "show the shortcuts". Messages you send are shared with TypeSafe for classification only when this is on. ${STATUS_COPY[status]}`}
 				trailing={
 					<Switch
 						aria-label="Describe a command"
@@ -100,12 +105,16 @@ export function ComposerIntentSection({
 				<SecretCredentialField
 					attemptedSave={attemptedSave}
 					label="TypeSafe API key"
-					onChange={setDraftKey}
+					onChange={(val) => {
+						setDraftKey(val);
+						if (saveError) setSaveError(null);
+					}}
 					onToggleVisibility={() => setShowKey((current) => !current)}
 					placeholder="Paste your TypeSafe API key"
 					showPassword={showKey}
 					value={draftKey}
 				/>
+				{saveError ? <p className="text-xs text-destructive">{saveError}</p> : null}
 				<p className="text-xs text-muted-foreground">{KEY_SOURCE_COPY[keySource]}</p>
 				<div className="flex items-center gap-2">
 					<Button type="button" size="sm" disabled={busy || !draftKey.trim()} onClick={() => void save()}>

@@ -243,6 +243,7 @@ export function ChatWorkspaceShell() {
 									<RightPanelShell
 										handleResourceCanvasResizeStart={panels.handleResourceCanvasResizeStart}
 										onClose={closeRightPanel}
+										onResourceCanvasWidthChange={panels.handleResourceCanvasWidthChange}
 										resourceCanvasWidth={panels.resourceCanvasWidth}
 									/>
 								</UiErrorBoundary>

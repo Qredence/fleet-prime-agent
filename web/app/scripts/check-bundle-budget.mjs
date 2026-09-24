@@ -13,7 +13,7 @@ const snapshotTimestamp = Number.isFinite(sourceDateEpoch)
   : new Date().toISOString()
 
 if (!existsSync(assetsDirectory)) {
-  throw new Error("Bundle contract requires a fresh @prime-agent/web production build.")
+  throw new Error("Bundle contract requires a fresh @qredence/web production build.")
 }
 
 const routeEntries = readdirSync(assetsDirectory).filter((file) => /^routes-.*\.js$/.test(file))

@@ -1,8 +1,5 @@
-import { type ComponentProps, lazy, Suspense } from "react";
-import {
-	SessionSidebarActionDialogs,
-	type SidebarActionDialogsProps,
-} from "@/components/sessions/session-sidebar/action-dialogs";
+import { lazy, Suspense, useCallback } from "react";
+import { SessionSidebarActionDialogs } from "@/components/sessions/session-sidebar/action-dialogs";
 import { SessionSidebarNavigation } from "@/components/sessions/session-sidebar/navigation";
 import { useSessionSidebarState } from "@/components/sessions/session-sidebar/state";
 import { EMPTY_PROJECTS, type SessionSidebarProps } from "@/components/sessions/session-sidebar/types";
@@ -17,22 +14,6 @@ const LazySessionSidebarCreateDialog = lazy(() =>
 		default: SessionSidebarCreateDialog,
 	})),
 );
-
-type CreateDialogProps = ComponentProps<typeof LazySessionSidebarCreateDialog>;
-
-/** Lazily mounts the project-creation dialog alongside the sidebar action dialogs. */
-function SessionSidebarDialogs(props: CreateDialogProps & SidebarActionDialogsProps) {
-	return (
-		<>
-			{props.createOpen ? (
-				<Suspense fallback={null}>
-					<LazySessionSidebarCreateDialog {...props} />
-				</Suspense>
-			) : null}
-			<SessionSidebarActionDialogs {...props} />
-		</>
-	);
-}
 
 export function SessionSidebar({
 	data,
@@ -50,7 +31,6 @@ export function SessionSidebar({
 	const state = useSessionSidebarState(activeProjectId);
 
 	const {
-		loadDirectories,
 		projectById,
 		sortedProjects,
 		sidebarItems,
@@ -58,7 +38,6 @@ export function SessionSidebar({
 		toggleProjectResource,
 		selectSearchResult,
 		renderMenu,
-		submitCreate,
 	} = useSessionSidebarViewModel({
 		sessions,
 		projects,
@@ -69,37 +48,22 @@ export function SessionSidebar({
 		onNewSessionInProject,
 		onProjectSelect,
 		onResumeSession,
-		onCreateProject,
 		onForkSessionIntoProject,
 		onOpenPanelAction,
-		onBrowseDirectories,
-		createOpen: state.createOpen,
 		expandedProjectIds: state.expandedProjectIds,
 		revealedProjectIds: state.revealedProjectIds,
 		setExpandedProjectIds: state.setExpandedProjectIds,
 		setRevealedProjectIds: state.setRevealedProjectIds,
 		setSearchOpen: state.setSearchOpen,
-		setDirectoryBrowser: state.setDirectoryBrowser,
-		setDirectoryBrowseLoading: state.setDirectoryBrowseLoading,
-		setDirectoryBrowseError: state.setDirectoryBrowseError,
-		setDirectoryToken: state.setDirectoryToken,
-		setCreatePath: state.setCreatePath,
-		setRenameTarget: state.setRenameTarget,
-		setRenameTitle: state.setRenameTitle,
-		setForkTarget: state.setForkTarget,
-		setForkProjectId: state.setForkProjectId,
-		setDeleteTarget: state.setDeleteTarget,
-		setRenameProjectTarget: state.setRenameProjectTarget,
-		setRenameProjectName: state.setRenameProjectName,
-		setUnregisterTarget: state.setUnregisterTarget,
-		createPath: state.createPath,
-		directoryToken: state.directoryToken,
-		createName: state.createName,
-		setCreateName: state.setCreateName,
-		setCreateOpen: state.setCreateOpen,
-		setCreateSubmitError: state.setCreateSubmitError,
-		setCreateSubmitting: state.setCreateSubmitting,
+		setActiveDialog: state.setActiveDialog,
 	});
+
+	const setActiveDialog = state.setActiveDialog;
+	const handleOpenCreateProject = useCallback(() => {
+		setActiveDialog({ kind: "create-project" });
+	}, [setActiveDialog]);
+
+	const isCreateOpen = state.activeDialog?.kind === "create-project";
 
 	return (
 		<>
@@ -114,7 +78,7 @@ export function SessionSidebar({
 				setProjectActionsOpen={state.setProjectActionsOpen}
 				expandedProjectIds={state.expandedProjectIds}
 				setExpandedProjectIds={state.setExpandedProjectIds}
-				setCreateOpen={state.setCreateOpen}
+				onOpenCreateProject={handleOpenCreateProject}
 				projects={projects}
 				projectSessions={projectSessions}
 				sidebarItems={sidebarItems}
@@ -135,48 +99,26 @@ export function SessionSidebar({
 				renderMenu={renderMenu}
 			/>
 
-			<SessionSidebarDialogs
+			{isCreateOpen ? (
+				<Suspense fallback={null}>
+					<LazySessionSidebarCreateDialog
+						open={isCreateOpen}
+						onClose={state.closeDialog}
+						onBrowseDirectories={onBrowseDirectories}
+						onCreateProject={onCreateProject}
+					/>
+				</Suspense>
+			) : null}
+
+			<SessionSidebarActionDialogs
+				activeDialog={state.activeDialog}
+				onClose={state.closeDialog}
 				projects={projects}
 				onRenameSession={onRenameSession}
 				onDeleteSession={onDeleteSession}
 				onRenameProject={onRenameProject}
 				onUnregisterProject={onUnregisterProject}
 				onForkSessionIntoProject={onForkSessionIntoProject}
-				onBrowseDirectories={onBrowseDirectories}
-				createOpen={state.createOpen}
-				setCreateOpen={state.setCreateOpen}
-				directoryBrowser={state.directoryBrowser}
-				setDirectoryBrowser={state.setDirectoryBrowser}
-				directoryBrowseLoading={state.directoryBrowseLoading}
-				directoryBrowseError={state.directoryBrowseError}
-				setDirectoryBrowseError={state.setDirectoryBrowseError}
-				directoryToken={state.directoryToken}
-				setDirectoryToken={state.setDirectoryToken}
-				createName={state.createName}
-				setCreateName={state.setCreateName}
-				createPath={state.createPath}
-				setCreatePath={state.setCreatePath}
-				renameTarget={state.renameTarget}
-				setRenameTarget={state.setRenameTarget}
-				renameTitle={state.renameTitle}
-				setRenameTitle={state.setRenameTitle}
-				renameProjectTarget={state.renameProjectTarget}
-				setRenameProjectTarget={state.setRenameProjectTarget}
-				renameProjectName={state.renameProjectName}
-				setRenameProjectName={state.setRenameProjectName}
-				deleteTarget={state.deleteTarget}
-				setDeleteTarget={state.setDeleteTarget}
-				unregisterTarget={state.unregisterTarget}
-				setUnregisterTarget={state.setUnregisterTarget}
-				forkTarget={state.forkTarget}
-				setForkTarget={state.setForkTarget}
-				forkProjectId={state.forkProjectId}
-				setForkProjectId={state.setForkProjectId}
-				createSubmitting={state.createSubmitting}
-				createSubmitError={state.createSubmitError}
-				setCreateSubmitError={state.setCreateSubmitError}
-				loadDirectories={loadDirectories}
-				submitCreate={submitCreate}
 			/>
 		</>
 	);

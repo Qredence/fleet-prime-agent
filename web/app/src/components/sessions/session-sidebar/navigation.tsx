@@ -42,7 +42,7 @@ type SidebarNavigationProps = {
 	setProjectActionsOpen: SidebarStateView["setProjectActionsOpen"];
 	expandedProjectIds: SidebarStateView["expandedProjectIds"];
 	setExpandedProjectIds: SidebarStateView["setExpandedProjectIds"];
-	setCreateOpen: SidebarStateView["setCreateOpen"];
+	onOpenCreateProject: () => void;
 	projects: Array<ProjectSummary>;
 	projectSessions: Array<ChatSessionInfo>;
 	sidebarItems: SidebarResource[];
@@ -115,7 +115,7 @@ export function SessionSidebarNavigation({
 	setProjectActionsOpen,
 	expandedProjectIds,
 	setExpandedProjectIds,
-	setCreateOpen,
+	onOpenCreateProject,
 	projects,
 	projectSessions,
 	sidebarItems,
@@ -186,7 +186,7 @@ export function SessionSidebarNavigation({
 									label="Add project"
 									onClick={() => {
 										setBrandMenuOpen(false);
-										setCreateOpen(true);
+										onOpenCreateProject();
 									}}
 								/>
 							) : null}
@@ -283,7 +283,7 @@ export function SessionSidebarNavigation({
 					setProjectActionsOpen={setProjectActionsOpen}
 					expandedProjectIds={expandedProjectIds}
 					setExpandedProjectIds={setExpandedProjectIds}
-					setCreateOpen={setCreateOpen}
+					onOpenCreateProject={onOpenCreateProject}
 					projects={projects}
 					projectSessions={projectSessions}
 					sidebarItems={sidebarItems}

@@ -1,8 +1,8 @@
+import type { ProjectDirectoryBrowseResponse } from "@prime-agent/web-protocol";
 import { ArrowUp, FolderOpen, FolderPlus, FolderTree, TriangleAlert } from "lucide-react";
-import { useId } from "react";
-import type { SidebarStateView } from "@/components/sessions/session-sidebar/state";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { SessionSidebarDependencies } from "@/components/sessions/session-sidebar/types";
-import { pathEntryLabel } from "@/components/sessions/session-sidebar/types";
+import { directoryErrorMessage, pathEntryLabel } from "@/components/sessions/session-sidebar/types";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
@@ -16,53 +16,67 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
-type SidebarCreateDialogProps = {
-	createOpen: SidebarStateView["createOpen"];
-	setCreateOpen: SidebarStateView["setCreateOpen"];
-	directoryBrowser: SidebarStateView["directoryBrowser"];
-	setDirectoryBrowser: SidebarStateView["setDirectoryBrowser"];
-	directoryBrowseLoading: SidebarStateView["directoryBrowseLoading"];
-	directoryBrowseError: SidebarStateView["directoryBrowseError"];
-	setDirectoryBrowseError: SidebarStateView["setDirectoryBrowseError"];
+export type SessionSidebarCreateDialogProps = {
+	open: boolean;
+	onClose: () => void;
 	onBrowseDirectories?: SessionSidebarDependencies["onBrowseDirectories"];
-	directoryToken: SidebarStateView["directoryToken"];
-	setDirectoryToken: SidebarStateView["setDirectoryToken"];
-	createName: SidebarStateView["createName"];
-	setCreateName: SidebarStateView["setCreateName"];
-	createPath: SidebarStateView["createPath"];
-	setCreatePath: SidebarStateView["setCreatePath"];
-	loadDirectories: (input: { path?: string; token?: string }) => Promise<boolean>;
-	createSubmitting: SidebarStateView["createSubmitting"];
-	createSubmitError: SidebarStateView["createSubmitError"];
-	setCreateSubmitError: SidebarStateView["setCreateSubmitError"];
-	submitCreate: () => Promise<void>;
+	onCreateProject?: SessionSidebarDependencies["onCreateProject"];
 };
 
 /** Renders the project-creation dialog with directory browsing and submission state. */
 export function SessionSidebarCreateDialog({
-	createOpen,
-	setCreateOpen,
-	directoryBrowser,
-	setDirectoryBrowser,
-	directoryBrowseLoading,
-	directoryBrowseError,
-	setDirectoryBrowseError,
+	open,
+	onClose,
 	onBrowseDirectories,
-	directoryToken,
-	setDirectoryToken,
-	createName,
-	setCreateName,
-	createPath,
-	setCreatePath,
-	loadDirectories,
-	createSubmitting,
-	createSubmitError,
-	setCreateSubmitError,
-	submitCreate,
-}: SidebarCreateDialogProps) {
+	onCreateProject,
+}: SessionSidebarCreateDialogProps) {
 	const projectNameId = useId();
 	const directoryId = useId();
 	const directoryHelpId = useId();
+
+	const [createName, setCreateName] = useState("");
+	const [createPath, setCreatePath] = useState("");
+	const [directoryToken, setDirectoryToken] = useState<string | undefined>(undefined);
+	const [directoryBrowser, setDirectoryBrowser] = useState<ProjectDirectoryBrowseResponse | null>(null);
+	const [directoryBrowseLoading, setDirectoryBrowseLoading] = useState(false);
+	const [directoryBrowseError, setDirectoryBrowseError] = useState<string | null>(null);
+	const [createSubmitting, setCreateSubmitting] = useState(false);
+	const [createSubmitError, setCreateSubmitError] = useState<string | null>(null);
+
+	const loadDirectories = useCallback(
+		async (input: { path?: string; token?: string }) => {
+			if (!onBrowseDirectories) return false;
+			setDirectoryBrowseLoading(true);
+			setDirectoryBrowseError(null);
+			try {
+				const response = await onBrowseDirectories(input);
+				setDirectoryBrowser(response);
+				setDirectoryToken(response.directoryToken);
+				setCreatePath(response.pathLabel);
+				return true;
+			} catch (error) {
+				setDirectoryBrowseError(directoryErrorMessage(error, "Could not browse this directory."));
+				return false;
+			} finally {
+				setDirectoryBrowseLoading(false);
+			}
+		},
+		[onBrowseDirectories],
+	);
+
+	const initialBrowseRef = useRef(false);
+	useEffect(() => {
+		if (open && !initialBrowseRef.current) {
+			initialBrowseRef.current = true;
+			if (onBrowseDirectories) {
+				void loadDirectories({});
+			}
+		}
+		if (!open) {
+			initialBrowseRef.current = false;
+		}
+	}, [open, loadDirectories, onBrowseDirectories]);
+
 	const selectedDirectoryPath = directoryBrowser?.pathLabel ?? createPath;
 	const canSubmit = Boolean(directoryToken || createPath.trim().startsWith("/"));
 
@@ -78,15 +92,33 @@ export function SessionSidebarCreateDialog({
 		resetDirectoryChoice();
 		setCreateName("");
 		setCreateSubmitError(null);
-		setCreateOpen(false);
+		onClose();
+	};
+
+	const submitCreate = async () => {
+		const path = createPath.trim();
+		if (!onCreateProject || (!path && !directoryToken)) return;
+		setCreateSubmitting(true);
+		setCreateSubmitError(null);
+		try {
+			await onCreateProject({
+				path: directoryToken ? undefined : path,
+				directoryToken,
+				name: createName.trim() || undefined,
+			});
+			closeDialog();
+		} catch (error) {
+			setCreateSubmitError(directoryErrorMessage(error, "Could not add this project."));
+		} finally {
+			setCreateSubmitting(false);
+		}
 	};
 
 	return (
 		<Dialog
-			open={createOpen}
-			onOpenChange={(open) => {
-				if (open) setCreateOpen(true);
-				else closeDialog();
+			open={open}
+			onOpenChange={(nextOpen) => {
+				if (!nextOpen) closeDialog();
 			}}
 		>
 			<DialogContent className="sm:max-w-xl">
