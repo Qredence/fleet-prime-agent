@@ -167,12 +167,14 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 		// onto e.g. a link, where plain-link output is wanted.
 		const asChildElement =
 			asChild && isValidElement(children)
-				? (children as ReactElement<{
-						children?: ReactNode;
-						className?: string;
-						style?: React.CSSProperties;
-						ref?: React.Ref<HTMLButtonElement>;
-					}>)
+				? (children as ReactElement<
+						Record<string, unknown> & {
+							children?: ReactNode;
+							className?: string;
+							style?: React.CSSProperties;
+							ref?: React.Ref<HTMLButtonElement>;
+						}
+					>)
 				: null;
 		const label = asChildElement ? asChildElement.props.children : children;
 		// Resolve the size: explicit prop (legacy aliases mapped onto the
@@ -287,6 +289,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 				{
 					...composedProps,
 					ref,
+					"data-slot": "button",
 					className: cn(rootClassName, childProps.className),
 					style: { ...style, ...childProps.style },
 				},
@@ -299,6 +302,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 				// Base UI's `ButtonPrimitive` forwards to an HTMLButtonElement;
 				// keep the public ref type narrow so consumers see the right type.
 				ref={ref as React.Ref<HTMLButtonElement>}
+				data-slot="button"
 				className={rootClassName}
 				disabled={disabled || loading}
 				style={style}
