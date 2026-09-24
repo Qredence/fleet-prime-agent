@@ -63,18 +63,23 @@ const ShapeContext = createContext<ShapeContextValue | null>(null);
 // <ShapeProvider defaultShape="rounded">, the shipped :focus-visible fallback
 // ring assumes its 8px radius, and the preset generators only emit a provider
 // for pill. A consumer with no provider gets the corners the docs show.
+/** Returns the active shape classes, or rounded classes outside a ShapeProvider. */
 function useShape(): ShapeClasses {
 	const ctx = useContext(ShapeContext);
 	if (!ctx) return shapeMap.rounded;
 	return ctx.classes;
 }
 
+/** Returns the shape and its setter; throws when no ShapeProvider is mounted. */
 function useShapeContext() {
 	const ctx = useContext(ShapeContext);
 	if (!ctx) throw new Error("useShapeContext must be used within a ShapeProvider");
 	return ctx;
 }
 
+/** Provides mutable shape classes and syncs the current input radius to the
+ * document root for CSS consumers. Changing shape briefly marks the root as
+ * transitioning to enable border-radius transitions. */
 function ShapeProvider({ children, defaultShape = "rounded" }: { children: ReactNode; defaultShape?: ShapeVariant }) {
 	const [shape, setShapeState] = useState<ShapeVariant>(defaultShape);
 	const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

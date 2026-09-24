@@ -27,4 +27,6 @@ export const spring = {
 // throttled/background tab can stall the animation, so a timer force-unmounts
 // after the tier's exit duration plus a safety buffer. Deriving it here keeps
 // the timers in step with the tokens above.
+/** Converts an exit duration in seconds to a timeout in milliseconds, with
+ * a 100 ms buffer for an animation completion callback that never fires. */
 export const exitFallbackMs = (tier: { exit: { duration: number } }) => Math.round(tier.exit.duration * 1000) + 100;

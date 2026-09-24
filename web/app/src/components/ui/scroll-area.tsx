@@ -26,6 +26,9 @@ interface ScrollAreaProps extends ComponentPropsWithoutRef<"div"> {
 	orientation?: Orientation;
 }
 
+/** Renders a scroll viewport with scrollbars on the requested axes.
+ * Touch-primary devices use native overflow scrolling; other devices use
+ * Base UI scrollbars. The forwarded ref points to the outer root. */
 const ScrollArea = forwardRef<ComponentRef<typeof ScrollAreaPrimitive.Root>, ScrollAreaProps>(
 	({ className, children, viewportClassName, orientation = "vertical", ...props }, ref) => {
 		const isTouch = useTouchPrimary();
@@ -82,6 +85,7 @@ const ScrollArea = forwardRef<ComponentRef<typeof ScrollAreaPrimitive.Root>, Scr
 
 ScrollArea.displayName = "ScrollArea";
 
+/** Renders a shaped Base UI scrollbar, or nothing inside a touch-primary ScrollArea. */
 const ScrollBar = forwardRef<
 	ComponentRef<typeof ScrollAreaPrimitive.Scrollbar>,
 	ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Scrollbar>

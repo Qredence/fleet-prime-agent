@@ -7,6 +7,9 @@
 
 import { useEffect, useState } from "react";
 
+/** Reports whether the device has touch input and currently prefers a coarse
+ * pointer. Returns false during SSR and the first client render, then updates
+ * on pointer activity or coarse-pointer media query changes. */
 export function useTouchPrimary() {
 	const [isTouchPrimary, setIsTouchPrimary] = useState(false);
 

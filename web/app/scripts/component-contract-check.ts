@@ -86,6 +86,9 @@ function stripJsonc(source: string): string {
 	return out;
 }
 
+/** Returns paths and patterns from unused-file waivers in doctor.config.jsonc.
+ * Missing configuration yields an empty set; read or parse errors set
+ * `process.exitCode` to 1. */
 function loadWaivedPaths(): Set<string> {
 	const waived = new Set<string>();
 	if (!existsSync(DOCTOR_CONFIG_PATH)) return waived;

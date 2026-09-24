@@ -253,6 +253,9 @@ function ForkSessionDialog({
 	);
 }
 
+/** Renders the dialog selected by `activeDialog`, or nothing when it is null.
+ * Project creation is handled separately by SessionSidebar, so its dialog
+ * kind also renders nothing here. */
 export function SessionSidebarActionDialogs({
 	activeDialog,
 	onClose,

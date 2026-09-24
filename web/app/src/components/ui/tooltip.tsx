@@ -102,6 +102,10 @@ function getSlideOffset(side: TooltipSide) {
 // Tooltip
 // ---------------------------------------------------------------------------
 
+/** Shows content beside a trigger on hover or focus, or according to `forceOpen`.
+ * Inherits a surrounding TooltipProvider's delay and skip-delay behavior;
+ * without one, it uses a local provider. `followCursor` tracks the pointer
+ * along the specified axis while leaving the other axis anchored. */
 function Tooltip({
 	content,
 	children,

@@ -164,6 +164,10 @@ interface MenuScopeOptions {
 	focusRing?: boolean;
 }
 
+/** Coordinates registered menu rows in DOM order and returns container
+ * handlers plus hover, active, and keyboard-focus overlays. Hidden and disabled
+ * rows are excluded from hover targets and active overlays; `focusRing: false`
+ * suppresses only the traveling ring. */
 function useMenuScope(
 	containerRef: RefObject<HTMLElement | null>,
 	{ focusRing = true }: MenuScopeOptions = {},
@@ -559,6 +563,8 @@ SidebarMenu.displayName = "SidebarMenu";
 
 export type SidebarMenuItemProps = LiHTMLAttributes<HTMLLIElement>;
 
+/** Connects a menu row to its scope and exposes its active, hover, and trailing
+ * control state. Replays the active flag when its element ref reattaches. */
 function useMenuRow(rowRef: RefObject<HTMLLIElement | null>, isSubRow = false) {
 	const scope = useContext(MenuScopeContext);
 	const registerRow = scope?.registerRow;
@@ -659,6 +665,8 @@ const ROW_GAP = 4;
 const ROW_BADGE_INSET = 8;
 const ROW_ACTION_INSET = 6;
 
+/** Returns the right padding in pixels needed to clear a row's action slots
+ * and optional badge, including their gap and edge inset. */
 function rowGutter(actionCount: number, hasBadge: boolean) {
 	if (!actionCount && !hasBadge) return ROW_BASE_PAD;
 	const actionsWidth = actionCount ? actionCount * ROW_SLOT + (actionCount - 1) * ROW_GAP : 0;

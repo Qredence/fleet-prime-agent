@@ -25,6 +25,9 @@ export function sidebarReducer(state: SidebarState, action: SidebarAction): Side
 	return { ...state, [action.field.key]: action.field.value } as SidebarState;
 }
 
+/** Holds the sidebar's local menu, search, expansion, and active-dialog state.
+ * `activeProjectId` seeds the initially expanded projects once; later changes
+ * to that argument do not reset this state. */
 export function useSessionSidebarState(activeProjectId: ProjectId | undefined) {
 	const [state, dispatch] = useReducer(
 		sidebarReducer,

@@ -108,6 +108,7 @@ const mountedProviders: HTMLElement[] = [];
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
+/** Returns the sidebar state and controls; throws outside a SidebarProvider. */
 export function useSidebar(): SidebarContextValue {
 	const ctx = useContext(SidebarContext);
 	if (!ctx) throw new Error("useSidebar must be used within a SidebarProvider");
@@ -150,6 +151,10 @@ export interface SidebarProviderProps extends HTMLAttributes<HTMLDivElement> {
 	widthMobile?: string;
 }
 
+/** Provides desktop and mobile sidebar state, width, peek, and toggle controls.
+ * Desktop open state may be controlled by `open` and `onOpenChange`; by default
+ * changes are persisted to a cookie. The toggle shortcut ignores typing and
+ * modifier keys and uses the side-specific default unless overridden. */
 const SidebarProvider = forwardRef<HTMLDivElement, SidebarProviderProps>(
 	(
 		{

@@ -11,6 +11,12 @@ import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { DESKTOP_PANEL_HIDDEN_FLEX } from "@/lib/layout-constants";
 
+/** Renders the desktop resource panel at `width` pixels when open.
+ * Its separator delegates pointer resizing to `onResizeStart`. Keyboard
+ * resizing calls `onWidthChange`, when supplied, with a clamped width. Left
+ * expands and Right shrinks by 16 px; Home and End select the current minimum
+ * and maximum.
+ * Opening focuses the panel, and Escape calls `onClose`. */
 export function ResizableCanvas({
 	children,
 	dataTestid,

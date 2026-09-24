@@ -133,12 +133,16 @@ function useSize(override?: SizeVariant | null): SizeClasses {
 	return sizeMap[useSizeVariant(override)];
 }
 
+/** Returns the current size and its setter; throws outside a SizeProvider. */
 function useSizeContext() {
 	const ctx = useContext(SizeContext);
 	if (!ctx) throw new Error("useSizeContext must be used within a SizeProvider");
 	return ctx;
 }
 
+/** Provides default or compact size classes to descendants. A `size` prop
+ * controls the value and makes the context setter a no-op; otherwise the
+ * provider starts at `defaultSize` and allows context updates. */
 function SizeProvider({
 	children,
 	size,

@@ -102,11 +102,13 @@ export interface PickNearestInput {
 }
 
 /**
- * The rule, as one pure function: an item the pointer is inside wins;
+ * The rule, as one pure function: an item containing the pointer on the
+ * selected axis wins;
  * otherwise the item whose center is nearest does, so a pointer in a gap, in
  * the padding, or past the last row still lands. `y` and `x` measure one
- * coordinate; `xy` measures the straight line to each center. Ties keep the
- * first item. The hook calls this once per animation frame; the docs page
+ * coordinate; `xy` measures the straight line to each center. Equal center
+ * distances keep the first item; overlapping hits use the last containing
+ * item. The hook calls this once per animation frame; the docs page
  * times it.
  */
 export function pickNearest({
@@ -196,6 +198,10 @@ function resolveActivator(element: HTMLElement): HTMLElement {
  */
 const measurementAttempts = 3;
 
+/** Tracks the nearest registered item under a pointer and measures item rects
+ * relative to the container for a moving highlight. Returns registration,
+ * measurement, and container event handlers; gap clicks activate the highlighted
+ * item by default. Updates active DOM attributes and clears them on leave. */
 export function useFluidHover<T extends HTMLElement>(
 	containerRef: RefObject<T | null>,
 	options: UseFluidHoverOptions = {},

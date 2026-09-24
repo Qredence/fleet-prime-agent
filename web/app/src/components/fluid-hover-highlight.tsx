@@ -90,6 +90,9 @@ export function resolveHighlightSource(props: FluidHoverHighlightProps): { rect:
 	return { rect: props.rect, session: props.session };
 }
 
+/** Renders the current hover rect as a non-interactive overlay in its relative container.
+ * A null rect or an unmeasured hook hides it; each new pointer session fades in from
+ * `from` (or the target rect), with positional travel removed for reduced motion. */
 export function FluidHoverHighlight(props: FluidHoverHighlightProps) {
 	const { from, className, transition } = props;
 	const { rect, session } = resolveHighlightSource(props);

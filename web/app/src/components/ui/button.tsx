@@ -141,6 +141,10 @@ const activeBgVariants: Record<string, string> = {
 	link: "bg-transparent shadow-none",
 };
 
+/** Renders a sized, shaped button with optional icons and a loading spinner.
+ * With `asChild`, a single element becomes the root; its event handler runs
+ * before the Button handler, which is skipped if the child prevents default.
+ * Loading disables the native button, but does not disable an `asChild` root. */
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 	(
 		{
