@@ -95,6 +95,13 @@ export function SessionSidebarCreateDialog({
 		onClose();
 	};
 
+	const closeAfterCreate = () => {
+		resetDirectoryChoice();
+		setCreateName("");
+		setCreateSubmitError(null);
+		onClose();
+	};
+
 	const submitCreate = async () => {
 		const path = createPath.trim();
 		if (!onCreateProject || (!path && !directoryToken)) return;
@@ -106,7 +113,7 @@ export function SessionSidebarCreateDialog({
 				directoryToken,
 				name: createName.trim() || undefined,
 			});
-			closeDialog();
+			closeAfterCreate();
 		} catch (error) {
 			setCreateSubmitError(directoryErrorMessage(error, "Could not add this project."));
 		} finally {
