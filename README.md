@@ -53,10 +53,11 @@ fleet-agent agent
 An existing `prime-agent` installation remains untouched. Fleet uses the same
 upstream settings, kernel environment, and logs.
 
-## Install from source
+## Contribute from source
 
-Use the source installer when you want to develop Fleet or run the repository
-checkout directly:
+The global npm package above is the supported installation path for using
+Fleet. Clone the repository and use the source installer only when you want to
+develop Fleet or validate a repository checkout directly:
 
 ```bash
 git clone https://github.com/Qredence/fleet-prime-agent.git
@@ -64,8 +65,8 @@ cd fleet-prime-agent
 ./install.sh
 ```
 
-The installer installs workspace dependencies, builds the web runtime, and
-places a `fleet-agent` launcher in a user-writable bin directory. If that
+The source installer installs workspace dependencies, builds the web runtime,
+and places a `fleet-agent` launcher in a user-writable bin directory. If that
 directory is not already on your `PATH`, the installer prints the path to add.
 Source installation also requires Git, Node.js, and npm.
 
