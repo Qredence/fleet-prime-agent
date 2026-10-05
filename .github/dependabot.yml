@@ -13,8 +13,9 @@ registries:
   prime-agent-r2:
     type: npm-registry
     url: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev
-    # Public bucket — token only satisfies Dependabot's required auth field.
-    token: public
+    # Placeholder Dependabot secret for public R2 (npm-registry requires a
+    # token field; value is unused for public bucket).
+    token: ${{secrets.DEPENDABOT_NULL_TOKEN}}
 updates:
   - package-ecosystem: npm
     directory: /
