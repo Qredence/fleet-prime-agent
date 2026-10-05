@@ -55,6 +55,14 @@ overrides:
   shiki: 4.4.3
   # GHSA-2v37-7h3g-55p8: nanoid < 3.3.18 can loop indefinitely (via postcss).
   nanoid: ^3.3.18
+  # Dependabot high (#213): brace-expansion < 5.0.11 (GHSA via alerts 32/33).
+  brace-expansion: 5.0.12
+  # Dependabot high (#213): undici 7.x < 7.29.1 (alerts 25/29).
+  undici: 7.29.1
+  # Dependabot high (#213 / GHSA-c475-qrg2-pj4r): basic-ftp <= 6.2.0 (alert 39).
+  # get-uri still declares ^5.x; 6.2.1 is the first patched release and clears the
+  # 7-day minimumReleaseAge window (6.2.2 published 2026-10-04 is still too young).
+  basic-ftp: 6.2.1
   # cytoscape 3.34.1 published without provenance where 3.34.0 had it
   # (trust downgrade); keep the attested version until it is restored.
   cytoscape: 3.34.0
