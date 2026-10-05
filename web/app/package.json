@@ -64,7 +64,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "agentation": "3.0.2",
     "happy-dom": "20.14.3",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vite": "^8.3.0",
     "vitest": "^4.1.11"
