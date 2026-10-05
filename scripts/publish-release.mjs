@@ -258,7 +258,9 @@ export async function waitForPublishedVersion({
 	timeoutMs = resolveRegistryVisibilityTimeoutMs(),
 } = {}) {
 	const deadline = Date.now() + timeoutMs;
+	const startTime = Date.now();
 	let lastRegistryError;
+	let polls = 0;
 	while (Date.now() < deadline) {
 		try {
 			const metadata = await readRegistryPackage({ fetchImpl, version });
@@ -266,6 +268,15 @@ export async function waitForPublishedVersion({
 			lastRegistryError = undefined;
 		} catch (error) {
 			lastRegistryError = error;
+		}
+		polls += 1;
+		// Surface heartbeat lines while the registry catches up: npm exposes a
+		// new version asynchronously, and CI executors (CircleCI's 10-minute
+		// no-output default) kill silent waits even when everything is healthy.
+		if (polls % 15 === 0) {
+			console.log(
+				`Waiting for npm to expose ${packageName}@${version} (${formatDuration(Date.now() - startTime)} elapsed, budget ${formatDuration(timeoutMs)})`,
+			);
 		}
 		await (
 			sleepImpl ?? ((milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds)))
