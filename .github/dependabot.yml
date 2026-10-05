@@ -29,6 +29,13 @@ updates:
     ignore:
       - dependency-name: "@google/genai"
       - dependency-name: "esbuild"
+      # Keep TypeScript on 6.x until compiler-API consumers migrate off
+      # stable `import ts from "typescript"` (#225 closed; TS 7 moves API under typescript/unstable).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Match @types/node major to engines.node (>=22.12.0); do not jump to 26 (#227 closed).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
