@@ -61,7 +61,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.2",
     "agentation": "3.0.2",
     "happy-dom": "20.14.3",
     "tsx": "^4.23.15",
