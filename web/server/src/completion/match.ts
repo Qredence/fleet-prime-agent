@@ -195,6 +195,15 @@ export function findCompletion(
 }
 
 /**
+ * Machine-injected user-channel headers from the Prime Agent bracket grammar
+ * (prime-agent 0.9.5+). Most of these arrive as `custom` entries, but autonomous
+ * continuations are persisted as `user` messages, so the header — not the role —
+ * is what marks them as not written by a person.
+ */
+const INJECTED_USER_CHANNEL_HEADER =
+	/^\[(?:autonomous-continuation|autonomous-status|agent-message from |heartbeat: |bash-done |child-exited|child-failed |goal: |python-state|python-skills-unavailable|update-complete|compaction-summary|branch-summary|auto-refinement|user-refinement|self-refinement)/;
+
+/**
  * Harvests the candidate completions out of one session's messages.
  *
  * Only user-authored text is kept; assistant output is never indexed. Entries
@@ -213,6 +222,7 @@ export function harvestPromptCandidates(
 		if (text.length < 8 || text.length > maxChars) continue;
 		// Harness scaffolding and injected context are not written by a person.
 		if (text.startsWith("<") || text.startsWith("[harness") || text.includes("<harness_state>")) continue;
+		if (INJECTED_USER_CHANNEL_HEADER.test(text)) continue;
 		out.push({ text, at });
 	}
 	return out;

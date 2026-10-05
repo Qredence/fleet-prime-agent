@@ -188,6 +188,11 @@ export function SubagentTranscriptView({
 					{heartbeatLabel ? (
 						<p className="truncate text-micro text-foreground/40">Heartbeat: {heartbeatLabel}</p>
 					) : null}
+					{child.progressNote && child.status === "running" ? (
+						<p className="truncate text-micro text-foreground/50" title={child.progressNote}>
+							Progress: {child.progressNote}
+						</p>
+					) : null}
 					{child.answerPreview || child.recap ? (
 						<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-caption leading-4 text-foreground/55">
 							{child.answerPreview ?? child.recap}

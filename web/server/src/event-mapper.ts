@@ -981,6 +981,8 @@ export function safeRlmChild(
 		...(child.recap ? { recap: child.recap } : {}),
 		...(child.activity ? { activity: child.activity } : {}),
 		...(child.repliedSinceTask !== undefined ? { repliedSinceTask: child.repliedSinceTask } : {}),
+		...(child.progressNote ? { progressNote: child.progressNote } : {}),
+		...(child.activityStaleMs !== undefined ? { activityStaleMs: child.activityStaleMs } : {}),
 		...(child.error ? { error: child.error } : {}),
 		...(lastHeardFrom !== undefined ? { lastHeardFrom } : {}),
 		timestamp: Date.now(),
@@ -1758,8 +1760,9 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 			return [emitPresentation(state, upsertArtifact(presentation, artifact))];
 		}
 		default: {
-			// Future prime-agent events: ignore silently. Compile-time exhaustiveness
-			// is enforced by the caller's `never` check on AgentSessionEvent's union.
+			// Events without a browser projection (for example `rlm_progress_note`,
+			// which the parent already folds into `rlm_child_update.child.progressNote`)
+			// and future prime-agent events are ignored silently.
 			return [];
 		}
 	}

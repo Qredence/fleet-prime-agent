@@ -110,8 +110,9 @@ export const WEB_BUILTIN_SLASH_COMMANDS: Array<ChatSlashCommandInfo> = [
 	},
 	{
 		name: "autonomous",
-		description: "Set or view autonomous mode",
-		argumentHint: "[status|on|off]",
+		description: "Set or view autonomous mode with an optional budget",
+		argumentHint:
+			"[status|off|on [--max-continuations <n>] [--max-turns <n>] [--max-tokens <n>] [--timeout-ms <n>] [--gate <command>]]",
 		source: "builtin",
 	},
 	{

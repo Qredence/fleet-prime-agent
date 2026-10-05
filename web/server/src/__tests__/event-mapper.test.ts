@@ -1126,6 +1126,42 @@ describe("event-mapper", () => {
 			expect(state.presentation.rlmTree?.nodes["child-b"].depth).toBe(2);
 		});
 
+		it("passes child progress notes and staleness through on rlm_child_update", () => {
+			const state = createEventMapperState({ sessionId: "root-session" });
+
+			const frames = mapAgentSessionEvent(state, {
+				type: "rlm_child_update",
+				child: {
+					id: "child-progress",
+					label: "Worker Progress",
+					status: "running",
+					sessionDir: "/hidden/path",
+					progressNote: "indexed 40 of 120 files",
+					lastActivityAt: 1710000000000,
+					activityStaleMs: 95_000,
+				},
+			} as unknown as AgentSessionEvent);
+
+			const rlmEvent = frames[1] as Extract<ChatStreamEvent, { type: "rlm" }>;
+			expect(rlmEvent.child).toMatchObject({
+				id: "child-progress",
+				progressNote: "indexed 40 of 120 files",
+				activityStaleMs: 95_000,
+			});
+			expect(rlmEvent.child).not.toHaveProperty("sessionDir");
+			expect(rlmEvent.child).not.toHaveProperty("lastActivityAt");
+		});
+
+		it("ignores rlm_progress_note events without emitting frames", () => {
+			const state = createEventMapperState({ sessionId: "root-session" });
+			const frames = mapAgentSessionEvent(state, {
+				type: "rlm_progress_note",
+				message: "halfway there",
+				timestamp: 1710000000000,
+			} as unknown as AgentSessionEvent);
+			expect(frames).toEqual([]);
+		});
+
 		it("maps recovering and failed lifecycle statuses and lastHeardFrom on rlm_child_update", () => {
 			const state = createEventMapperState({ sessionId: "root-session" });
 

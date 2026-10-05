@@ -11,7 +11,7 @@ const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 	{ name: "model", description: "Select model (opens selector UI)", argumentHint: "[search]" },
 	{ name: "effort", description: "Select reasoning/thinking level (opens selector UI)", argumentHint: "[level]" },
 	{ name: "fast", description: "Toggle OpenAI Fast mode" },
-	{ name: "scoped-models", description: "Enable/disable models for Ctrl+P cycling" },
+	{ name: "scoped-models", description: "Enable/disable models for Alt+M cycling" },
 	{
 		name: "export",
 		description: "Export session (HTML default, or specify path: .html/.jsonl)",
@@ -52,7 +52,12 @@ const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 		description: "Set or view a persistent goal; supports pause, resume, and clear",
 		argumentHint: "[objective]",
 	},
-	{ name: "autonomous", description: "Set or view autonomous mode", argumentHint: "[status|on|off]" },
+	{
+		name: "autonomous",
+		description: "Set or view autonomous mode with an optional budget",
+		argumentHint:
+			"[status|off|on [--max-continuations <n>] [--max-turns <n>] [--max-tokens <n>] [--timeout-ms <n>] [--gate <command>]]",
+	},
 	{ name: "rlm-max-depth", description: "Set or view per-chat RLM max depth", argumentHint: "[<int> [--global]]" },
 	{ name: "heartbeat", description: "Set or view a persistent heartbeat" },
 	{ name: "heartbeats", description: "View and manage all user and agent heartbeats" },

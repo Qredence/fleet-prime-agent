@@ -24,6 +24,20 @@ function createTestBridge(options: PrimeBridgeOptions = {}): PrimeBridge {
 	});
 }
 
+/**
+ * Conversation messages of a session context, without the hidden harness digest.
+ *
+ * Since prime-agent 0.9.5 the continual-harness digest is delivered as an
+ * in-context `harness_digest` custom message (display: false) at cold context
+ * boundaries such as a fork or resume, instead of living in the system prompt.
+ */
+function conversationMessages(messages: ReadonlyArray<unknown>): Array<unknown> {
+	return messages.filter((message) => {
+		const { role, customType } = message as { role?: string; customType?: string };
+		return !(role === "custom" && customType === "harness_digest");
+	});
+}
+
 /** Snapshot `name`, unset it, and return a restore function. */
 function unsetEnv(name: string): () => void {
 	const previous = process.env[name];
@@ -579,7 +593,7 @@ describe("PrimeBridge.forkSession", () => {
 		expect(result.newSessionId).not.toBe(created.sessionId);
 		// The fork carries everything up to (but excluding) the forked user message.
 		const forked = requireLiveSession(bridge, result.newSessionId);
-		const messages = forked.session.sessionManager.buildSessionContext().messages;
+		const messages = conversationMessages(forked.session.sessionManager.buildSessionContext().messages);
 		expect(messages.map((m) => (m as { role: string }).role)).toEqual(["user", "assistant"]);
 		expect((messages[0] as { content: string }).content).toBe("first question");
 	});
@@ -658,7 +672,7 @@ describe("PrimeBridge.forkSession", () => {
 		expect(branchIds).toContain(userEntryId);
 		expect(branchIds).toContain(assistantEntryId);
 		expect(branchIds.indexOf(userEntryId)).toBeLessThan(branchIds.indexOf(assistantEntryId));
-		const messages = forked.session.sessionManager.buildSessionContext().messages;
+		const messages = conversationMessages(forked.session.sessionManager.buildSessionContext().messages);
 		expect(messages).toHaveLength(2);
 	});
 
@@ -671,8 +685,13 @@ describe("PrimeBridge.forkSession", () => {
 
 		const forked = requireLiveSession(bridge, result.newSessionId);
 		expect(forked.session.sessionManager.getEntry(userEntryId)).toBeDefined();
-		const messages = forked.session.sessionManager.buildSessionContext().messages;
+		const context = forked.session.sessionManager.buildSessionContext().messages;
+		const messages = conversationMessages(context);
 		expect(messages).toHaveLength(1);
+		// The fork is a cold context boundary: upstream re-delivers a hidden harness digest.
+		expect(context).toContainEqual(
+			expect.objectContaining({ role: "custom", customType: "harness_digest", display: false }),
+		);
 	});
 
 	it("position 'before' on the first user message creates a fresh empty session parented on the source", async () => {
