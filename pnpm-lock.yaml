@@ -64,14 +64,14 @@ importers:
   packages/fleet-web:
     dependencies:
       '@earendil-works/pi-agent-core':
-        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz
-        version: prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz
+        version: prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
       '@earendil-works/pi-ai':
-        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz
-        version: prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz
+        version: prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
       prime-agent:
-        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz
-        version: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz
+        version: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -237,17 +237,17 @@ importers:
   web/server:
     dependencies:
       '@earendil-works/pi-agent-core':
-        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz
-        version: prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz
+        version: prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
       '@earendil-works/pi-ai':
-        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz
-        version: prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz
+        version: prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
       '@prime-agent/web-protocol':
         specifier: workspace:*
         version: link:../protocol
       prime-agent:
-        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz
-        version: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+        specifier: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz
+        version: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
       zod:
         specifier: ^4.6.1
         version: 4.6.1
@@ -2185,9 +2185,6 @@ packages:
 
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
-
-  '@types/mime-types@3.0.1':
-    resolution: {integrity: sha512-xRMsfuQbnRq1Ef+C+RKaENOxXX87Ygl38W1vDfPHRku02TgQr+Qd8iivLtAMcR0KF5/29xlnFihkTlbqFrGOVQ==}
 
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
@@ -4593,25 +4590,25 @@ packages:
     resolution: {integrity: sha512-gjVS5hOP+M3wMm5nmNOucbIrqudzs9v/57bWRHQWLYklXqoXKrVfYW2W9+glfGsqtPgpiz5WwyEEB+ksXIx3gQ==}
     engines: {node: '>=18'}
 
-  prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz:
-    resolution: {integrity: sha512-iRMQBhddQ/LO9hnZ4pOc6j1XXd+3vN3g+QEdqHX+cSlevCownkW/oUfG6Wbbfr6+kleBsX9DlL61+icQ8zl+Ww==, tarball: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz}
-    version: 0.9.3
+  prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz:
+    resolution: {integrity: sha512-ctU5g2tki+IA8uwQI/kUtNzZdVx+xzD81OHbsnLGAJkbatlK0GRQjflKwjb9OkXbOBj5ctYcl6YsVfLrRv8d7A==, tarball: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz}
+    version: 0.9.8
     engines: {node: '>=20.0.0'}
     hasBin: true
 
-  prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz:
-    resolution: {integrity: sha512-wa1jIanmgy6W7vylkorAdJO/gs2vnOkne6wpJ3YOVY2pTVzzzB8I4xWGXMYUkhb+fTtOFsE20OxqSqdOJw29JQ==, tarball: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz}
-    version: 0.9.3
+  prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz:
+    resolution: {integrity: sha512-0vnGk5S/64k+Q9CX5JrKWKvflUJ6uVYi+6wvH3FP2ZARbDTvrAJ2xSza60z6Hi2VEKrT3Cp6BajuX4btAm0trQ==, tarball: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz}
+    version: 0.9.8
     engines: {node: '>=20.0.0'}
 
-  prime-agent-tui@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-tui-0.9.3.tgz:
-    resolution: {integrity: sha512-kVexUcYi+0UYNAuWKpDVd5Vj/pw19JFvS3m8JidOYD+zPz0PhPUExNTFWSC9sZh/JJaE39IjF/lWWxG4YeKEaQ==, tarball: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-tui-0.9.3.tgz}
-    version: 0.9.3
+  prime-agent-tui@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-tui-0.9.8.tgz:
+    resolution: {integrity: sha512-ymmN+k3tAeK2J1WN21hvB9mNGElLCn5ye7qv5a2QiqG0iCQfC/+5P09Vg4L7C5CxBdZQaW3z14mLHbjt7DDbGQ==, tarball: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-tui-0.9.8.tgz}
+    version: 0.9.8
     engines: {node: '>=20.0.0'}
 
-  prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz:
-    resolution: {integrity: sha512-6H7hXxWpe1HhoVtblp+XduSEdMKMEoYewoYg0UxSC3PcPZib6d+eCZE4NpDlUVWubGR9j52KYp/OwIE1WGEFcQ==, tarball: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz}
-    version: 0.9.3
+  prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz:
+    resolution: {integrity: sha512-pipFyxalQD+YBzwMcsex5f57AxnXalO3Yko3wjc9gkXGSdVCc49ZJVLmhXFQNk48Himu7c+ImBWR/j7pN/2toQ==, tarball: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz}
+    version: 0.9.8
     engines: {node: '>=22.8.0'}
     hasBin: true
 
@@ -6597,7 +6594,6 @@ snapshots:
       zod-to-json-schema: 3.25.2(zod@4.6.1)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -7818,8 +7814,6 @@ snapshots:
   '@types/mdast@4.0.4':
     dependencies:
       '@types/unist': 3.0.3
-
-  '@types/mime-types@3.0.1': {}
 
   '@types/ms@2.1.0': {}
 
@@ -10338,22 +10332,20 @@ snapshots:
     dependencies:
       parse-ms: 4.0.0
 
-  prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1):
+  prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1):
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.6.1)
       '@aws-sdk/client-bedrock-runtime': 3.1116.0
       '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(supports-color@8.1.1)
       '@mistralai/mistralai': 2.6.4
-      chalk: 5.6.2
+      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@4.6.1)
       openai: 6.47.0(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.1)
       partial-json: 0.1.7
       proxy-agent: 6.5.0(supports-color@8.1.1)
       typebox: 1.3.18
-      undici: 7.29.1
-      zod-to-json-schema: 3.25.2(zod@4.6.1)
     transitivePeerDependencies:
       - '@aws-sdk/credential-provider-node'
-      - '@modelcontextprotocol/sdk'
+      - '@cfworker/json-schema'
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-http'
       - '@opentelemetry/resources'
@@ -10366,13 +10358,13 @@ snapshots:
       - ws
       - zod
 
-  prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1):
+  prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1):
     dependencies:
-      '@earendil-works/pi-ai': prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+      '@earendil-works/pi-ai': prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
       typebox: 1.3.18
     transitivePeerDependencies:
       - '@aws-sdk/credential-provider-node'
-      - '@modelcontextprotocol/sdk'
+      - '@cfworker/json-schema'
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-http'
       - '@opentelemetry/resources'
@@ -10385,22 +10377,20 @@ snapshots:
       - ws
       - zod
 
-  prime-agent-tui@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-tui-0.9.3.tgz:
+  prime-agent-tui@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-tui-0.9.8.tgz:
     dependencies:
-      '@types/mime-types': 3.0.1
-      chalk: 5.6.2
       get-east-asian-width: 1.6.0
       marked: 18.0.10
-      mime-types: 3.0.2
     optionalDependencies:
       koffi: 2.16.3
 
-  prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1):
+  prime-agent@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1):
     dependencies:
       '@agentclientprotocol/sdk': 1.4.0(zod@4.6.1)
-      '@earendil-works/pi-agent-core': prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-core-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
-      '@earendil-works/pi-ai': prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-ai-0.9.3.tgz(@aws-sdk/credential-provider-node@3.972.81)(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.1))(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
-      '@earendil-works/pi-tui': prime-agent-tui@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-tui-0.9.3.tgz
+      '@earendil-works/pi-agent-core': prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+      '@earendil-works/pi-ai': prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.1)
+      '@earendil-works/pi-tui': prime-agent-tui@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-tui-0.9.8.tgz
+      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@4.6.1)
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
       cli-highlight: 2.1.11
@@ -10424,7 +10414,7 @@ snapshots:
       '@mariozechner/clipboard': 0.3.9
     transitivePeerDependencies:
       - '@aws-sdk/credential-provider-node'
-      - '@modelcontextprotocol/sdk'
+      - '@cfworker/json-schema'
       - '@opentelemetry/api'
       - '@opentelemetry/exporter-trace-otlp-http'
       - '@opentelemetry/resources'
