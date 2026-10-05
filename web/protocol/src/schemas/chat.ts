@@ -555,6 +555,8 @@ export const PrimeAgentRlmChildSchema = z
 			.object({ kind: z.enum(["waiting", "writing", "executing"]), toolName: z.string().optional() })
 			.optional(),
 		repliedSinceTask: z.boolean().optional(),
+		progressNote: z.string().optional(),
+		activityStaleMs: z.number().finite().nonnegative().optional(),
 		error: z.string().optional(),
 		depth: z.number().int().positive().optional(),
 		childrenIds: z.array(z.string()).optional(),

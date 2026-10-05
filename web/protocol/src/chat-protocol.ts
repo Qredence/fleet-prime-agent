@@ -233,6 +233,10 @@ export type PrimeAgentRlmChild = {
 	recap?: string;
 	activity?: { kind: "waiting" | "writing" | "executing"; toolName?: string };
 	repliedSinceTask?: boolean;
+	/** Latest child `rlm.progress.note` (prime-agent 0.9.6+), newest wins. */
+	progressNote?: string;
+	/** Active ms since the child's last tracked activity once past upstream's staleness threshold. */
+	activityStaleMs?: number;
 	error?: string;
 	depth?: number;
 	childrenIds?: Array<string>;
