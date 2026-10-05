@@ -63,6 +63,12 @@ overrides:
   # get-uri still declares ^5.x; 6.2.1 is the first patched release and clears the
   # 7-day minimumReleaseAge window (6.2.2 published 2026-10-04 is still too young).
   basic-ftp: 6.2.1
+  # Dependabot high (#213): fast-uri < 3.1.7 (alerts 10–13 / 22; first patched 3.1.7).
+  # Via ajv@8.20.0. Pin 3.1.8 (latest mature 3.x; 3.1.7 also clears all listed alerts).
+  fast-uri: 3.1.8
+  # Dependabot high (#213 / GHSA-2883-xcg3-v3hh): js-yaml < 4.3.2 (alert 18).
+  # Via cosmiconfig / xmlbuilder2.
+  js-yaml: 4.3.2
   # cytoscape 3.34.1 published without provenance where 3.34.0 had it
   # (trust downgrade); keep the attested version until it is restored.
   cytoscape: 3.34.0
