@@ -299,6 +299,21 @@ describe("harvestPromptCandidates", () => {
 		expect(harvested.map((c) => c.text)).toEqual(["a genuine prompt from a person"]);
 	});
 
+	it("drops prime-agent bracket-grammar injections persisted on the user channel", () => {
+		const harvested = harvestPromptCandidates(
+			[
+				{ role: "user", text: "[autonomous-continuation]\n\nContinue working toward the task." },
+				{ role: "user", text: "[autonomous-continuation: gate-failed]\n\nAutonomous quality gate failed" },
+				{ role: "user", text: "[agent-message from parent:main]\n\nplease rerun the suite" },
+				{ role: "user", text: "[heartbeat: */5 * * * * run#3]\n\ncheck the deploy status" },
+				{ role: "user", text: "[goal: continuation]\n\nkeep going on the migration" },
+				{ role: "user", text: "[draft] a person can still start a prompt with brackets" },
+			],
+			1,
+		);
+		expect(harvested.map((c) => c.text)).toEqual(["[draft] a person can still start a prompt with brackets"]);
+	});
+
 	it("drops entries too long to be something a person retypes", () => {
 		const harvested = harvestPromptCandidates([{ role: "user", text: "x".repeat(400) }], 1);
 		expect(harvested).toEqual([]);
