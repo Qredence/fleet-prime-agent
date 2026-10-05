@@ -130,7 +130,7 @@ importers:
         specifier: 0.3.0
         version: 0.3.0
       lucide-react:
-        specifier: ^1.48.0
+        specifier: 1.48.0
         version: 1.48.0(react@19.3.0)
       motion:
         specifier: ^13.4.4
