@@ -36,7 +36,7 @@
 	"devDependencies": {
 		"@babel/parser": "8.0.5",
 		"@biomejs/biome": "2.5.11",
-		"@changesets/cli": "3.0.1",
+		"@changesets/cli": "3.0.3",
 		"@types/node": "^22.20.1",
 		"@typescript/native-preview": "7.0.0-dev.20260120.1",
 		"agentation-mcp": "1.2.0",
