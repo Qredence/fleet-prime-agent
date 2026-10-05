@@ -65,7 +65,7 @@
     "agentation": "3.0.2",
     "happy-dom": "20.14.3",
     "tsx": "^4.23.13",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vitest": "^4.1.11"
   }
