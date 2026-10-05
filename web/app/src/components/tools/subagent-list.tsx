@@ -62,9 +62,9 @@ export function SubagentList({ children, tree, className }: SubagentListProps) {
 										<span className="truncate font-mono text-micro text-muted-foreground">{child.model}</span>
 									) : null}
 								</div>
-								{child.answerPreview || child.activity?.toolName || child.error ? (
+								{child.answerPreview || child.progressNote || child.activity?.toolName || child.error ? (
 									<p className="truncate text-xs text-muted-foreground">
-										{child.error ?? child.answerPreview ?? child.activity?.toolName}
+										{child.error ?? child.answerPreview ?? child.progressNote ?? child.activity?.toolName}
 									</p>
 								) : null}
 							</div>
