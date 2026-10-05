@@ -6,9 +6,20 @@
 # The repository is a single pnpm workspace resolved through the root
 # pnpm-lock.yaml; the root entry covers web/* and packages/fleet-web.
 version: 2
+# Allow Dependabot egress to the public Cloudflare R2 host that serves
+# stock Prime Agent runtime tarballs (see packages/fleet-web/package.json).
+# Without this, Dependabot rebases fail with egress-not-allowlisted.
+registries:
+  prime-agent-r2:
+    type: npm-registry
+    url: https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev
+    # Public bucket — token only satisfies Dependabot's required auth field.
+    token: public
 updates:
   - package-ecosystem: npm
     directory: /
+    registries:
+      - prime-agent-r2
     schedule:
       interval: weekly
     cooldown:
