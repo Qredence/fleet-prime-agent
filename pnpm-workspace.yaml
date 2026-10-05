@@ -69,6 +69,12 @@ overrides:
   # Dependabot high (#213 / GHSA-2883-xcg3-v3hh): js-yaml < 4.3.2 (alert 18).
   # Via cosmiconfig / xmlbuilder2.
   js-yaml: 4.3.2
+  # Dependabot medium (#213): hono < 4.13.7 (alerts 15/17 first patched 4.13.5; alert 38 first patched 4.13.7).
+  # Via @modelcontextprotocol/sdk / @hono/node-server. Pin 4.13.10 (latest mature 4.13.x; 4.13.11+ still under 7-day minimumReleaseAge).
+  hono: 4.13.10
+  # Dependabot medium (#213): ip-address <= 10.7.0 (alerts 20/21 first patched 10.5.1; alert 36 first patched 10.7.1).
+  # Via express-rate-limit and socks. Pin 10.7.2 (latest mature; 10.7.3 published 2026-10-01 is still too young).
+  ip-address: 10.7.2
   # cytoscape 3.34.1 published without provenance where 3.34.0 had it
   # (trust downgrade); keep the attested version until it is restored.
   cytoscape: 3.34.0
