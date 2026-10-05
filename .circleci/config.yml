@@ -15,7 +15,8 @@ executors:
   node-release-smoke:
     docker:
       - image: cimg/node:22.12.0
-    resource_class: small
+    # medium: vite build in check-package.mjs OOMs on small (exit 137).
+    resource_class: medium
     working_directory: ~/prime-agent
 
   macos-release-smoke:
@@ -214,6 +215,8 @@ jobs:
           command: PRIME_RUNTIME_VERIFY_TARBALL=1 node scripts/check-prime-agent-runtime.mjs
       - run:
           name: Verify packed npm artifact
+          environment:
+            NODE_OPTIONS: --max-old-space-size=4096
           command: |
             mkdir -p dist-release
             node scripts/check-package.mjs --out-dir dist-release
