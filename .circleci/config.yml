@@ -15,8 +15,9 @@ executors:
   node-release-smoke:
     docker:
       - image: cimg/node:22.12.0
-    # medium: vite build in check-package.mjs OOMs on small (exit 137).
-    resource_class: medium
+    # medium+: vite build in check-package.mjs still OOMs on medium (exit 137)
+    # after @openuidev/react-ui 0.16.3; keep NODE_OPTIONS=4096 on the job.
+    resource_class: medium+
     working_directory: ~/prime-agent
 
   macos-release-smoke:
