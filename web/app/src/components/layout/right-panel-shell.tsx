@@ -2,8 +2,8 @@ import { Library } from "lucide-react";
 import { type PointerEvent as ReactPointerEvent, useSyncExternalStore } from "react";
 import { ResizableCanvas } from "@/components/layout/resizable-canvas";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
+import { MobilePanel, RightPanelTabsFromContext } from "@/components/layout/right-panel-launcher";
 import { getRightPanelDefinition } from "@/components/layout/right-panel-registry";
-import { MobilePanel, RightPanelTabsFromContext } from "@/components/workspace/right-panel-launcher";
 import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
 
 const DESKTOP_PANEL_QUERY = `(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`;

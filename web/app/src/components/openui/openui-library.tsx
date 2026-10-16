@@ -6,7 +6,18 @@ import { Bar, CartesianGrid, BarChart as RechartsBarChart, XAxis, YAxis } from "
 import { z } from "zod/v4";
 import { DonutChartDef, LineChartDef } from "@/components/openui/charts";
 import { DataTableDef, MetricGroupDef } from "@/components/openui/data";
-import { HtmlArtifactDef } from "@/components/openui/html-artifact-def";
+import { HtmlArtifactComponent } from "@/components/openui/html-artifact";
+
+export const HtmlArtifactDef = defineComponent({
+	name: "HtmlArtifact",
+	description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
+	props: z.object({
+		title: z.string().describe("Short artifact title"),
+		document: z.string().describe("Complete self-contained HTML document"),
+	}),
+	component: HtmlArtifactComponent,
+});
+
 import {
 	badgeToneClasses,
 	badgeVariantsByTone,
@@ -749,7 +760,7 @@ export const TodoDef = defineComponent({
 								aria-hidden="true"
 								className={cn(
 									"mt-1 size-2 shrink-0 rounded-full border",
-									complete && "border-emerald-500 bg-emerald-500",
+									complete && "border-success bg-success",
 									active && "border-primary bg-primary/30",
 									!complete && !active && "border-muted-foreground/50",
 								)}

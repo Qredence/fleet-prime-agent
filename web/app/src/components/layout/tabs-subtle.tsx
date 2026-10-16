@@ -5,7 +5,7 @@ import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo,
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ItemRect } from "@/hooks/use-proximity-hover";
 import { useProximityHover } from "@/hooks/use-proximity-hover";
-import { fontWeights, spring } from "@/lib/ease";
+import { spring } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
 /** Selection / hover pill surface — maps Fluid `bg-active` to Fleet chrome. */
@@ -292,20 +292,17 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 		const labelContent = (
 			<span className={cn("inline-grid whitespace-nowrap", isPill ? "text-label font-medium" : "text-title")}>
 				<span
-					className="invisible col-start-1 row-start-1 [text-box:trim-both_cap_alphabetic]"
-					style={{ fontVariationSettings: fontWeights.semibold }}
+					className="invisible col-start-1 row-start-1 font-[550] [text-box:trim-both_cap_alphabetic]"
 					aria-hidden="true"
 				>
 					{label}
 				</span>
 				<span
 					className={cn(
-						"col-start-1 row-start-1 transition-[color,font-variation-settings] duration-80 [text-box:trim-both_cap_alphabetic]",
+						"col-start-1 row-start-1 transition-[color,font-weight] duration-80 [text-box:trim-both_cap_alphabetic]",
+						isSelected ? "font-[550]" : "font-normal",
 						tone,
 					)}
-					style={{
-						fontVariationSettings: isSelected ? fontWeights.semibold : fontWeights.normal,
-					}}
 				>
 					{label}
 				</span>
@@ -379,35 +376,5 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 
 TabsSubtleItem.displayName = "TabsSubtleItem";
 
-interface TabsSubtlePanelProps extends HTMLAttributes<HTMLDivElement> {
-	index: number;
-	selectedIndex: number;
-	idPrefix: string;
-	children: ReactNode;
-}
-
-const TabsSubtlePanel = forwardRef<HTMLDivElement, TabsSubtlePanelProps>(
-	({ index, selectedIndex, idPrefix, children, className, ...props }, ref) => {
-		const isSelected = selectedIndex === index;
-
-		return (
-			<div
-				ref={ref}
-				id={`${idPrefix}-panel-${index}`}
-				role="tabpanel"
-				aria-labelledby={`${idPrefix}-tab-${index}`}
-				hidden={!isSelected}
-				tabIndex={-1}
-				className={cn("outline-none", className)}
-				{...props}
-			>
-				{isSelected ? children : null}
-			</div>
-		);
-	},
-);
-
-TabsSubtlePanel.displayName = "TabsSubtlePanel";
-
-export { TabsSubtle, TabsSubtleItem, TabsSubtlePanel };
+export { TabsSubtle, TabsSubtleItem };
 export default TabsSubtle;

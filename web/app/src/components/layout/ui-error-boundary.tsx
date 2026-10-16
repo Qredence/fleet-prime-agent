@@ -5,7 +5,7 @@ function DefaultFallback({ error, resetErrorBoundary }: FallbackProps) {
 	const message = error instanceof Error ? error.message : String(error);
 	return (
 		<div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
-			<p className="font-medium">Something went wrong</p>
+			<p className="font-medium">Unable to render this view</p>
 			<p className="text-xs opacity-70">{message}</p>
 			<button
 				type="button"

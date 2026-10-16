@@ -96,19 +96,3 @@ export function resolveWorkspacePanelTarget(rawPath: string): WorkspacePanelTarg
 
 	return { panel: "workspace", path };
 }
-
-export function extractWorkspaceFilePathFromToolInput(input: Record<string, unknown> | undefined): string | null {
-	if (!input) return null;
-
-	const filePath =
-		typeof input.file_path === "string" ? input.file_path : typeof input.path === "string" ? input.path : null;
-
-	return filePath;
-}
-
-export function resolveWorkspacePathFromToolInput(
-	input: Record<string, unknown> | undefined,
-): WorkspacePanelTarget | null {
-	const raw = extractWorkspaceFilePathFromToolInput(input);
-	return raw ? resolveWorkspacePanelTarget(raw) : null;
-}

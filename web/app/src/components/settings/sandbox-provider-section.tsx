@@ -5,9 +5,8 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Globe, HardDrive, Info } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ItemRow } from "@/components/layout/item-row";
+import { ItemRow, RowSurface } from "@/components/layout/item-row";
 import { SettingsPane } from "@/components/layout/settings-pane";
-import { RowSurface } from "@/components/layout/surface";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { SecretCredentialField, TextCredentialField } from "@/components/settings/providers/credential-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -70,7 +69,7 @@ export function SandboxProviderSection({
 				});
 			}
 
-			toast.success("Sandbox Provider updated successfully");
+			toast.success("Sandbox provider updated");
 			closeEditor();
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to update provider");

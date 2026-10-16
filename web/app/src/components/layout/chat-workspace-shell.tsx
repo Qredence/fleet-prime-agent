@@ -1,11 +1,10 @@
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { lazy, Suspense, useCallback, useMemo } from "react";
+import { ChatPanel } from "@/components/chat/agent-chat";
 import { notifyChatError, runWorkspaceAction } from "@/components/chat/chat-error-notify";
-import { ChatPanel } from "@/components/chat/chat-panel";
 import { useChatInputBarProps } from "@/components/chat/composer/chat-input-bar-props";
 import { useChatWorkspaceData } from "@/components/chat/use-chat-workspace-data";
-import { AnimatedSidebarInset } from "@/components/layout/animated-sidebar";
-import { ChatApp } from "@/components/layout/chat-app";
+import { AnimatedSidebarInset, ChatApp } from "@/components/layout/animated-sidebar";
 import { ChatCommandPaletteOverlay, ChatWorkspaceOverlayDialogs } from "@/components/layout/chat-workspace-dialogs";
 import { ChatWorkspaceLayout } from "@/components/layout/chat-workspace-layout";
 import { focusChatComposer, usePanelKeybindings } from "@/components/layout/panel-keybindings";
@@ -14,7 +13,7 @@ import { RightPanelShell } from "@/components/layout/right-panel-shell";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
 import { decodeOpenPanelActionMessage } from "@/components/openui/open-panel-action-message";
-import { agentTabPanelId, agentTabTriggerId } from "@/components/sessions/agent-tab-ids";
+import { agentTabPanelId, agentTabTriggerId } from "@/components/sessions/agent-tab-bar";
 import { SessionSidebar } from "@/components/sessions/session-sidebar";
 import { notify } from "@/lib/notify";
 
@@ -193,7 +192,6 @@ export function ChatWorkspaceShell() {
 			onSend={handleSend}
 			onOpenUIAction={handleOpenUIAction}
 			onStop={conversation.stop}
-			onQuestionAnswer={composer.handleQuestionAnswer}
 		/>
 	) : (
 		<Suspense

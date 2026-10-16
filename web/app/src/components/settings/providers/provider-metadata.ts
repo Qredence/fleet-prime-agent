@@ -10,17 +10,17 @@ export type PiProviderUiMetadata = {
 export const PROVIDER_METADATA: Record<string, PiProviderUiMetadata> = {
 	"amazon-bedrock": {
 		icon: Server,
-		placeholder: "AKIA... (AWS access key id)",
+		placeholder: "AKIA… (AWS access key id)",
 		help: "Amazon Bedrock uses standard AWS credentials (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) plus AWS_REGION. This field sets AWS_ACCESS_KEY_ID in .env.local.",
 	},
 	openai: {
 		icon: Sparkles,
-		placeholder: "sk-proj-...",
+		placeholder: "sk-proj-…",
 		help: "Stored securely in your root .env.local file. Overrides the active OPENAI_API_KEY environment variable.",
 	},
 	"openai-chat-completions": {
 		icon: Sparkles,
-		placeholder: "sk-... or nvapi-...",
+		placeholder: "sk-… or nvapi-…",
 		help: "OpenAI-compatible Chat Completions root (e.g. https://opencode.ai/zen/v1). Paste …/chat/completions if you want — it is normalized. Requires API key, base URL, and model name.",
 	},
 	"openai-chat-completions-model": {
@@ -30,37 +30,37 @@ export const PROVIDER_METADATA: Record<string, PiProviderUiMetadata> = {
 	},
 	anthropic: {
 		icon: Bot,
-		placeholder: "sk-ant-...",
+		placeholder: "sk-ant-…",
 		help: "Stored securely in your root .env.local file. Overrides the active ANTHROPIC_API_KEY environment variable.",
 	},
 	"google-vertex": {
 		icon: ShieldCheck,
-		placeholder: "Path to service account JSON, or credentials text...",
+		placeholder: "Path to service account JSON, or credentials text…",
 		help: "Stored securely in your root .env.local file. Overrides the active GOOGLE_APPLICATION_CREDENTIALS environment variable.",
 	},
 	google: {
 		icon: Brain,
-		placeholder: "AIzaSy...",
+		placeholder: "AIzaSy…",
 		help: "Stored securely in your root .env.local file. Overrides the active GEMINI_API_KEY environment variable.",
 	},
 	mistral: {
 		icon: Wind,
-		placeholder: "Your Mistral API key...",
+		placeholder: "Your Mistral API key…",
 		help: "Stored securely in your root .env.local file. Overrides the active MISTRAL_API_KEY environment variable.",
 	},
 	groq: {
 		icon: Zap,
-		placeholder: "gsk_...",
+		placeholder: "gsk_…",
 		help: "Stored securely in your root .env.local file. Overrides the active GROQ_API_KEY environment variable.",
 	},
 	openrouter: {
 		icon: Globe,
-		placeholder: "sk-or-...",
+		placeholder: "sk-or-…",
 		help: "Stored securely in your root .env.local file. Overrides the active OPENROUTER_API_KEY environment variable.",
 	},
 	"vercel-ai-gateway": {
 		icon: GitBranch,
-		placeholder: "Your AI Gateway API key...",
+		placeholder: "Your AI Gateway API key…",
 		help: "Stored securely in your root .env.local file. Overrides the active AI_GATEWAY_API_KEY environment variable.",
 	},
 	"github-copilot": {
@@ -80,7 +80,7 @@ export const PROVIDER_METADATA: Record<string, PiProviderUiMetadata> = {
 	},
 	custom: {
 		icon: Plug,
-		placeholder: "sk-... / provider key",
+		placeholder: "sk-… / provider key",
 		help: "Register any OpenAI-, Anthropic-, or Google-compatible endpoint through Pi's native custom-provider mechanism. Requires a name, API key, https base URL, API family, and at least one model id. Deployed accounts only.",
 	},
 };

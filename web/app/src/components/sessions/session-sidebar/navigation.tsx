@@ -6,7 +6,6 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { normalizeSessionLabel } from "@/components/chat/chat-helpers";
 import { Popover } from "@/components/chat/composer/input/input-popover";
-import type { AISidebarProps, SidebarResource } from "@/components/layout/ai-sidebar";
 import {
 	AnimatedSidebar,
 	AnimatedSidebarFooter,
@@ -14,6 +13,7 @@ import {
 	AnimatedSidebarRail,
 } from "@/components/layout/animated-sidebar";
 import { SessionSidebarProjectList } from "@/components/sessions/session-sidebar/project-list";
+import type { AISidebarProps, SidebarResource } from "@/components/sessions/session-sidebar/resource-tree";
 import { DiscordIcon, XIcon } from "@/components/sessions/session-sidebar/social-icons";
 import type { SidebarStateView } from "@/components/sessions/session-sidebar/state";
 import {
@@ -29,7 +29,7 @@ import { VersionBadge } from "@/components/sessions/session-sidebar/version-badg
 import { sortSessions } from "@/components/sessions/session-sidebar-model";
 import { type SearchableThread, ThreadSearch } from "@/components/sessions/thread-search";
 import { Button } from "@/components/ui/button";
-import { SurfaceProvider } from "@/lib/surface-context";
+import { SurfaceProvider } from "@/lib/surfaces";
 
 type SidebarNavigationProps = {
 	brandMenuOpen: SidebarStateView["brandMenuOpen"];
@@ -220,7 +220,7 @@ export function SessionSidebarNavigation({
 								</Button>
 							}
 						>
-							<div className="max-h-[min(32rem,calc(100vh-5rem))] overflow-y-auto">
+							<div className="max-h-[min(32rem,calc(100dvh-5rem))] overflow-y-auto overscroll-contain">
 								<ThreadSearch
 									threads={searchThreads}
 									query={query}

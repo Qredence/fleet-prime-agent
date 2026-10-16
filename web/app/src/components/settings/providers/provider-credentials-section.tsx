@@ -124,7 +124,13 @@ export function ProviderCredentialsSection({
 	return (
 		<SettingsPane
 			title="Providers"
-			description="Locally, API keys are stored in `.env.local`. When deployed, they are stored encrypted in your account."
+			description={
+				<>
+					Locally, API keys are stored in{" "}
+					<code className="rounded bg-muted px-1 py-0.5 font-mono text-caption text-foreground">.env.local</code>.
+					When deployed, they are stored encrypted in your account.
+				</>
+			}
 		>
 			{addPickerOpen ? (
 				<AddProviderPickerPanel

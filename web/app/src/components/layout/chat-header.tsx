@@ -1,8 +1,10 @@
-import type { ChatSessionInfo, ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
-import { BookOpenText, ChevronDown, History, LogOut, Plus, Settings } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { BookOpenText, ChevronDown, Settings } from "lucide-react";
 import { Popover } from "@/components/chat/composer/input/input-popover";
+import { AnimatedSidebarTrigger } from "@/components/layout/animated-sidebar";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
-import { sessionLabel } from "@/components/sessions/session-sidebar/types";
+import { RightPanelLauncherFromContext } from "@/components/layout/right-panel-launcher";
+import { AgentTabBar, type AgentTabItem } from "@/components/sessions/agent-tab-bar";
 import { cn } from "@/lib/utils";
 
 export const DOCUMENTATION_URL = "https://docs.qredence.ai";
@@ -28,23 +30,12 @@ export function QredenceLogo({ className }: { className?: string }) {
 	);
 }
 
-export { ChromePillButton as HeaderPillButton };
-
-export type AccountMenuUser = {
-	name?: string | null;
-	email?: string | null;
-};
-
 export function AccountMenu({
-	user,
-	onSignOut,
 	onOpenSettings,
 	compact = false,
 	label = "Fleet Prime Agent",
 	className,
 }: {
-	user: AccountMenuUser | null;
-	onSignOut: () => Promise<void> | void;
 	onOpenSettings?: () => void;
 	compact?: boolean;
 	label?: string;
@@ -74,110 +65,69 @@ export function AccountMenu({
 					</ChromePillButton>
 				}
 			>
-				{user ? (
-					<>
-						<div className="px-2 py-1.5 text-label leading-4 text-foreground/50">{user.name || user.email}</div>
-						<button type="button" className={menuItemClass}>
-							<QredenceLogo className="size-3.5 shrink-0 text-foreground/50" />
-							<span className="truncate">Account</span>
-						</button>
-						<a href={DOCUMENTATION_URL} target="_blank" rel="noreferrer" className={menuItemClass}>
-							<BookOpenText className="size-3.5 shrink-0 text-foreground/50" />
-							<span className="truncate">Documentation</span>
-						</a>
-						{onOpenSettings && (
-							<button type="button" className={menuItemClass} onClick={onOpenSettings}>
-								<Settings className="size-3.5 shrink-0 text-foreground/50" />
-								<span className="truncate">Settings</span>
-							</button>
-						)}
-						<button type="button" className={menuItemClass} onClick={() => void onSignOut()}>
-							<LogOut className="size-3.5 shrink-0 text-foreground/50" />
-							<span className="truncate">Sign out</span>
-						</button>
-					</>
-				) : (
-					<>
-						<a href={DOCUMENTATION_URL} target="_blank" rel="noreferrer" className={menuItemClass}>
-							<BookOpenText className="size-3.5 shrink-0 text-foreground/50" />
-							<span className="truncate">Documentation</span>
-						</a>
-						{onOpenSettings && (
-							<button type="button" className={menuItemClass} onClick={onOpenSettings}>
-								<Settings className="size-3.5 shrink-0 text-foreground/50" />
-								<span className="truncate">Settings</span>
-							</button>
-						)}
-					</>
+				<a href={DOCUMENTATION_URL} target="_blank" rel="noreferrer" className={menuItemClass}>
+					<BookOpenText className="size-3.5 shrink-0 text-foreground/50" />
+					<span className="truncate">Documentation</span>
+				</a>
+				{onOpenSettings && (
+					<button type="button" className={menuItemClass} onClick={onOpenSettings}>
+						<Settings className="size-3.5 shrink-0 text-foreground/50" />
+						<span className="truncate">Settings</span>
+					</button>
 				)}
 			</Popover>
 		</div>
 	);
 }
 
-export function SessionControls({
-	activeSessionId,
-	activeSessionLabel,
-	onNewSession,
-	onResumeSession,
-	sessions,
-}: {
-	activeSessionId?: string;
-	activeSessionLabel: string;
+type UseChatWorkspaceHeaderOptions = {
+	activeTabId: string;
+	tabs: Array<AgentTabItem>;
+	onCloseTab: (tabId: string) => void;
 	onNewSession: () => void;
-	onResumeSession: (metadata: ChatSessionMetadata) => void;
-	sessions: Array<ChatSessionInfo>;
-}) {
-	return (
-		<>
-			<Popover
-				side="bottom"
-				align="center"
-				className="w-[min(360px,calc(100vw-2rem))]"
-				overlay
-				trigger={
-					<ChromePillButton
-						ariaLabel="Open conversations"
-						className="w-28 justify-between sm:w-36 md:w-44 lg:w-52 xl:w-64"
-					>
-						<div className="flex min-w-0 items-center gap-2">
-							<History className="size-3 shrink-0 text-foreground/35" />
-							<span className="min-w-0 truncate text-left">{activeSessionLabel}</span>
-						</div>
-						<ChevronDown className="size-3.5 shrink-0 text-foreground/35" />
-					</ChromePillButton>
-				}
-			>
-				{sessions.length === 0 ? (
-					<div className="p-2 text-label text-foreground/45">No saved conversations yet.</div>
-				) : (
-					sessions.map((session) => {
-						const label = sessionLabel(session, sessions);
-						const active = session.sessionId === activeSessionId;
-						return (
-							<button
-								key={session.sessionId}
-								type="button"
-								onClick={() => onResumeSession({ sessionId: session.sessionId })}
-								className={`flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label leading-4 transition-colors hover:bg-foreground/6 ${
-									active ? "bg-foreground/6 text-foreground" : "text-foreground"
-								}`}
-							>
-								<History className="size-3 shrink-0 text-foreground/45" />
-								<span className="min-w-0 flex-1 truncate">{label}</span>
-							</button>
-						);
-					})
-				)}
-			</Popover>
-			<ChromePillButton ariaLabel="New session" onClick={onNewSession}>
-				<Plus className="size-3.5 shrink-0" />
-			</ChromePillButton>
-		</>
-	);
-}
+	onSelectTab: (tabId: string) => void;
+	onOpenSettings: () => void;
+};
 
-export function KernelStatusChip(_props: { ok: boolean | null; reason?: string }) {
-	// Hidden — removed from UI per user request
-	return null;
+/**
+ * Builds the chat workspace header UI and its interaction handlers.
+ */
+export function useChatWorkspaceHeader({
+	activeTabId,
+	tabs,
+	onCloseTab,
+	onNewSession,
+	onSelectTab,
+	onOpenSettings,
+}: UseChatWorkspaceHeaderOptions) {
+	// Retain the `@tanstack/react-router` runtime edge on the route entry chunk so
+	// Rolldown keeps shared root/route primitives (`button`, `toast`, `ui-preferences`)
+	// in separate chunks instead of merging them into `index-*.js` (see check-bundle-budget.mjs).
+	void useNavigate();
+
+	return {
+		left: (
+			<AnimatedSidebarTrigger
+				aria-label="Toggle conversations"
+				className="!size-7 !rounded-[7px] border border-border/70 bg-background shadow-sm"
+			>
+				<span
+					aria-hidden="true"
+					data-icon="inline-start"
+					className="block h-3.5 w-4 rounded-[3px] border border-current before:block before:h-full before:w-1 before:border-r before:border-current"
+				/>
+			</AnimatedSidebarTrigger>
+		),
+		accountMenu: <AccountMenu className="w-full" label="Qredence" onOpenSettings={onOpenSettings} />,
+		center: (
+			<AgentTabBar
+				tabs={tabs}
+				value={activeTabId}
+				onValueChange={onSelectTab}
+				onClose={onCloseTab}
+				onNewSession={onNewSession}
+			/>
+		),
+		right: <RightPanelLauncherFromContext compact />,
+	};
 }

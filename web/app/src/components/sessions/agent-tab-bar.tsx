@@ -2,9 +2,22 @@ import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol
 import { Bot, Plus, X } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useRef } from "react";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
-import { agentTabPanelId, agentTabTriggerId } from "@/components/sessions/agent-tab-ids";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+/**
+ * Creates a deterministic ARIA ID for an agent tab trigger.
+ */
+export function agentTabTriggerId(tabId: string) {
+	return `agent-tab-${encodeURIComponent(tabId)}`;
+}
+
+/**
+ * Generates the ARIA ID for an agent tab panel.
+ */
+export function agentTabPanelId(tabId: string) {
+	return `agent-tab-panel-${encodeURIComponent(tabId)}`;
+}
 
 export type AgentTabItem = {
 	id: string;
@@ -48,12 +61,12 @@ function statusDotClass(status: AgentTabItem["status"]): string {
 	switch (status) {
 		case "running":
 		case "recovering":
-			return "bg-emerald-400 motion-safe:animate-pulse";
+			return "bg-success motion-safe:animate-pulse";
 		case "error":
 		case "failed":
 			return "bg-destructive";
 		case "queued":
-			return "bg-amber-300";
+			return "bg-warning";
 		case "cancelled":
 			return "bg-foreground/35";
 		default:
@@ -134,7 +147,7 @@ export function AgentTabBar({
 					return (
 						<div
 							key={tab.id}
-							className="group/tab relative min-w-0 shrink-0 basis-[164px] sm:max-w-[164px]"
+							className="group/tab relative min-w-0 flex-1 max-w-[164px] basis-[164px]"
 							data-tab-id={tab.id}
 						>
 							<Button

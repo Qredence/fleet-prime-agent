@@ -2,7 +2,7 @@ import { cva } from "class-variance-authority";
 
 /** Small commit / add actions inside config sections. */
 export const COMPACT_ACTION_BUTTON_CLASS =
-	"h-8 shrink-0 cursor-pointer rounded-full border-border/45 bg-background/65 px-3 text-caption font-semibold text-foreground/75 shadow-sm transition-[background-color,border-color,box-shadow,opacity,transform] duration-150 hover:bg-foreground/5 active:scale-[0.96] disabled:opacity-50";
+	"h-8 shrink-0 cursor-pointer rounded-full border-border/45 bg-background/65 px-3 text-caption font-semibold text-foreground/75 shadow-sm transition-[background-color,border-color,box-shadow,opacity,transform] duration-150 hover:bg-foreground/5 enabled:active:scale-[0.96] disabled:opacity-50";
 
 /**
  * Invisible 40×40 hit-area expander for visually dense controls.
@@ -31,9 +31,6 @@ export const CHAT_HEADER_LAYER_CLASS = "relative z-10 overflow-visible";
 
 /** Shared chat thread + composer measure. Matches `--chat-measure` in agent-ui.css. */
 export const CHAT_COLUMN_CLASS = "mx-auto w-full max-w-chat px-[var(--density-pad-x)]";
-
-/** InputBar suggestion chips below the composer. */
-export const SUGGESTION_LIST_CLASS = "!px-0 flex-col items-start gap-1.5";
 
 /** Composer + control — opens the slash-command menu. */
 export const COMPOSER_ADD_BUTTON_CLASS =

@@ -16,7 +16,7 @@ vi.mock("@/lib/notify", () => ({
 	},
 }));
 
-vi.mock("@/components/chat/chat-panel", () => ({
+vi.mock("@/components/chat/agent-chat", () => ({
 	ChatPanel: () => <div data-testid="chat-panel" />,
 }));
 

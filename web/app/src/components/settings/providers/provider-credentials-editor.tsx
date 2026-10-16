@@ -73,7 +73,7 @@ export function AddProviderPickerPanel({
 				/>
 			</InputGroup>
 
-			<div className="max-h-[min(24rem,50vh)] overflow-y-auto">
+			<div className="max-h-[min(24rem,50dvh)] overflow-y-auto overscroll-contain">
 				{!pickerHasResults ? (
 					<p className="py-6 text-center text-xs text-pretty text-muted-foreground">
 						{credentialProvidersLength === 0 ? "No providers available." : "No matching providers found."}

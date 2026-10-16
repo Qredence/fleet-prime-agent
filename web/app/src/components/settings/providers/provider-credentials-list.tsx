@@ -5,8 +5,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
 import { Info, Pencil, Trash2 } from "lucide-react";
-import { ItemRow } from "@/components/layout/item-row";
-import { RowSurface } from "@/components/layout/surface";
+import { ItemRow, RowSurface } from "@/components/layout/item-row";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
 import { ProviderCredentialFields } from "@/components/settings/providers/provider-credential-fields";

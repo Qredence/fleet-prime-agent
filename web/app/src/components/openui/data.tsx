@@ -253,8 +253,8 @@ export const DataTableDef = defineComponent({
 });
 
 const deltaToneClasses = {
-	up: "bg-emerald-500/10 text-emerald-500",
-	down: "bg-red-500/10 text-red-500",
+	up: "bg-success/10 text-success",
+	down: "bg-destructive/10 text-destructive",
 	neutral: "bg-foreground/10 text-foreground/50",
 } as const;
 

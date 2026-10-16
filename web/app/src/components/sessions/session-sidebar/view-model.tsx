@@ -1,7 +1,7 @@
 import type { ProjectId } from "@prime-agent/web-protocol";
 import { Folder, FolderTree, Library, Package, Pencil, Trash2, Unplug } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
-import type { SidebarResource } from "@/components/layout/ai-sidebar";
+import type { SidebarResource } from "@/components/sessions/session-sidebar/resource-tree";
 import {
 	EMPTY_PROJECTS,
 	EXPANDED_PROJECTS_STORAGE_KEY,

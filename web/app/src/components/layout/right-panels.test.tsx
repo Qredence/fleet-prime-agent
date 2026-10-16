@@ -12,11 +12,11 @@ import { collectSessionOpenUIBlocks } from "@/components/artifacts/artifacts-uti
 import { SubagentChatPanel } from "@/components/chat/subagents/subagent-chat-panel";
 import { SubagentsPanelContent } from "@/components/chat/subagents/subagents-panel";
 import { RightPanelProvider } from "@/components/layout/right-panel-context";
+import { RightPanelLauncher } from "@/components/layout/right-panel-launcher";
 import { RightPanelShell } from "@/components/layout/right-panel-shell";
 import { useChatShellState } from "@/components/layout/use-chat-shell-state";
 import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@/components/sessions/transcript-summary";
 import { ReplPanelContent } from "@/components/workspace/repl-panel";
-import { RightPanelLauncher } from "@/components/workspace/right-panel-launcher";
 
 vi.mock("@/components/chat/generative-text-renderer", () => ({
 	SessionGenerativeTextRenderer: ({ content }: { content: string }) => <div>{content}</div>,
@@ -24,7 +24,7 @@ vi.mock("@/components/chat/generative-text-renderer", () => ({
 vi.mock("@/components/tools/session-tool-renderer", () => ({
 	SessionToolRenderer: () => null,
 }));
-vi.mock("@/components/openui/inline-renderer", () => ({
+vi.mock("@/components/openui/openui-renderer", () => ({
 	GenerativeTextRenderer: ({ content }: { content: string }) => <div>{content}</div>,
 }));
 

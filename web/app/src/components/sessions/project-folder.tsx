@@ -337,7 +337,7 @@ export function ProjectFolder({
 					if (!isExpanded && !isClosing) setOpen(hoveredRef.current);
 				}}
 				onClick={handleFolderClick}
-				whileTap={reduce || disabled ? undefined : { scale: 0.98 }}
+				whileTap={reduce || disabled ? undefined : { scale: 0.96 }}
 				transition={reduce ? { duration: 0 } : SPRING_PRESS}
 				className={cn(
 					"relative block h-56 w-72 select-none rounded-2xl text-left outline-none [perspective:1200px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",

@@ -64,6 +64,20 @@ export function applyThemePreference(preference: ThemePreference) {
 
 	const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 	const dark = preference === "dark" || (preference === "system" && systemDark);
-	document.documentElement.classList.toggle("dark", dark);
-	document.documentElement.dataset.theme = dark ? "dark" : "light";
+	const root = document.documentElement;
+	const changed = root.classList.contains("dark") !== dark;
+	let styleEl: HTMLStyleElement | undefined;
+	if (changed && document.head) {
+		styleEl = document.createElement("style");
+		styleEl.textContent = "*,*::before,*::after{-webkit-transition:none!important;transition:none!important}";
+		document.head.appendChild(styleEl);
+	}
+	root.classList.toggle("dark", dark);
+	root.dataset.theme = dark ? "dark" : "light";
+	if (styleEl) {
+		void window.getComputedStyle(root).opacity;
+		window.requestAnimationFrame(() => {
+			styleEl?.remove();
+		});
+	}
 }

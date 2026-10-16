@@ -41,8 +41,8 @@ function DetailList({ children, label }: { children: ReactNode; label: string })
 function Detail({ label, value }: { label: string; value: ReactNode }) {
 	return (
 		<div className="flex items-start justify-between gap-3">
-			<dt className="text-foreground/50">{label}</dt>
-			<dd className="min-w-0 text-right font-medium text-foreground/80">{value}</dd>
+			<dt className="shrink-0 text-foreground/50">{label}</dt>
+			<dd className="min-w-0 text-right font-medium tabular-nums text-foreground/80">{value}</dd>
 		</div>
 	);
 }
@@ -100,7 +100,7 @@ export function SessionInsightsPanel({
 		presentation,
 		queue,
 	});
-	const rlmSummary = RLM_CHILD_STATUSES.map((state) => `${insights.rlmChildren[state]} ${state}`).join(" · ");
+	const rlmSummary = RLM_CHILD_STATUSES.map((state) => `${insights.rlmChildren[state]}\u00A0${state}`).join(" · ");
 
 	return (
 		<section aria-label="Session insights" className="space-y-2.5 pb-1">
@@ -128,7 +128,7 @@ export function SessionInsightsPanel({
 				<Detail label="RLM children" value={rlmSummary || "None"} />
 				<Detail
 					label="Refinements"
-					value={`${insights.refinements.total} total · ${insights.refinements.successful} successful · ${insights.refinements.failed} failed`}
+					value={`${insights.refinements.total}\u00A0total · ${insights.refinements.successful}\u00A0successful · ${insights.refinements.failed}\u00A0failed`}
 				/>
 			</DetailList>
 

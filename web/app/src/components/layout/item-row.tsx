@@ -1,6 +1,13 @@
-import type { ReactNode } from "react";
-import { RowSurface } from "@/components/layout/surface";
+import type { VariantProps } from "class-variance-authority";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { rowSurface } from "@/components/layout/tokens";
 import { cn } from "@/lib/utils";
+
+type RowSurfaceProps = ComponentPropsWithoutRef<"div"> & VariantProps<typeof rowSurface>;
+
+export function RowSurface({ className, interactive, padding, tone, ...props }: RowSurfaceProps) {
+	return <div className={cn(rowSurface({ interactive, padding, tone }), className)} {...props} />;
+}
 
 /**
  * Compact settings row: optional icon, title (+ subtitle), trailing control.

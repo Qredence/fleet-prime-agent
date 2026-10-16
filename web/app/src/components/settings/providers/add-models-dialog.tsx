@@ -147,7 +147,7 @@ export function AddModelsDialog({
 					/>
 				</InputGroup>
 
-				<div className="max-h-72 overflow-y-auto">
+				<div className="max-h-72 overflow-y-auto overscroll-contain">
 					{groupedCandidates.length === 0 ? (
 						<p className="py-6 text-center text-xs text-pretty text-muted-foreground">
 							{candidateModels.length === 0 && !normalizedFilter

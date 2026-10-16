@@ -7,7 +7,7 @@ import type { SessionOpenUIBlock } from "@/components/artifacts/artifacts-utils"
 import { primeAgentArtifactDiff } from "@/components/artifacts/prime-agent-artifacts";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import { OpenUIHtmlArtifactView } from "@/components/openui/html-artifact";
-import { GenerativeTextRenderer } from "@/components/openui/inline-renderer";
+import { GenerativeTextRenderer } from "@/components/openui/openui-renderer";
 import { CodeBlock } from "@/components/tools/code-block";
 import { FileDiff, type FileDiffStatus } from "@/components/tools/file-diff";
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "@/components/tools/tool-result";

@@ -1,8 +1,28 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { runWorkspaceAction } from "@/components/chat/chat-error-notify";
+import type { SettingsSlashTab } from "@/components/chat/composer/slash-commands";
+import type { ForkPickerEntry } from "@/components/chat/fork-picker-dialog";
 import type { useChatWorkspaceData } from "@/components/chat/use-chat-workspace-data";
 
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
+
+/**
+ * Owns settings and fork-picker dialog state for the chat workspace.
+ */
+export function useChatWorkspaceDialogs() {
+	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSlashTab | undefined>(undefined);
+	const [forkPickerEntries, setForkPickerEntries] = useState<Array<ForkPickerEntry> | null>(null);
+
+	return {
+		forkPickerEntries,
+		setForkPickerEntries,
+		setSettingsDialogOpen,
+		setSettingsInitialTab,
+		settingsDialogOpen,
+		settingsInitialTab,
+	};
+}
 
 const LazyChatCommandPalette = lazy(() =>
 	import("@/components/layout/chat-command-palette").then(({ ChatCommandPalette }) => ({

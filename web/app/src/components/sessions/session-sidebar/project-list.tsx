@@ -13,8 +13,6 @@ import {
 	TriangleAlert,
 } from "lucide-react";
 import { Popover } from "@/components/chat/composer/input/input-popover";
-import type { AISidebarProps, SidebarResource } from "@/components/layout/ai-sidebar";
-import { AISidebar } from "@/components/layout/ai-sidebar";
 import {
 	AnimatedSidebarContent,
 	AnimatedSidebarGroup,
@@ -23,6 +21,11 @@ import {
 } from "@/components/layout/animated-sidebar";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { ProjectFolder } from "@/components/sessions/project-folder";
+import {
+	AISidebar,
+	type AISidebarProps,
+	type SidebarResource,
+} from "@/components/sessions/session-sidebar/resource-tree";
 import type { SidebarStateView } from "@/components/sessions/session-sidebar/state";
 import type { SessionSidebarDependencies } from "@/components/sessions/session-sidebar/types";
 import {
@@ -231,8 +234,6 @@ export function SessionSidebarProjectList({
 									</Button>
 								);
 							}}
-							allowMove={false}
-							ariaLabel="Projects and sessions"
 							className="px-0"
 						/>
 					)}
