@@ -106,8 +106,8 @@ importers:
         specifier: workspace:*
         version: link:../server
       '@streamdown/code':
-        specifier: ^1.1.1
-        version: 1.1.1(react@19.3.0)
+        specifier: ^2.0.0
+        version: 2.0.0(react@19.3.0)
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -1837,8 +1837,9 @@ packages:
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
-  '@streamdown/code@1.1.1':
-    resolution: {integrity: sha512-i7HTNuDgZWb+VdrNVOam9gQhIc5MSSDXKWXgbUrn/4vSRaSMM+Rtl10MQj4wLWPNpF7p80waJsAqFP8HZfb0Jg==}
+  '@streamdown/code@2.0.0':
+    resolution: {integrity: sha512-sSyX/9gOOcivbP7204+sfAam+gotxjUNV+T4EuN3aa6i5x1LaqtB6Ln/Mxzd1XGvm0vNApO4oKLZs+7gzFI1kQ==}
+    engines: {node: '>=20'}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
@@ -7379,7 +7380,7 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@streamdown/code@1.1.1(react@19.3.0)':
+  '@streamdown/code@2.0.0(react@19.3.0)':
     dependencies:
       react: 19.3.0
       shiki: 4.4.3
