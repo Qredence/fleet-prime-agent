@@ -121,13 +121,13 @@ export default function registerFrontendPerformance(amp: PluginAPI) {
 				try {
 					switch (check) {
 						case "bundle":
-							result = await amp.$`pnpm --dir ${workspacePath} --filter @prime-agent/web build && pnpm --dir ${workspacePath} --filter @prime-agent/web run check:bundle`
+							result = await amp.$`pnpm --dir ${workspacePath} --filter @qredence/web build && pnpm --dir ${workspacePath} --filter @qredence/web run check:bundle`
 							break
 						case "render":
-							result = await amp.$`pnpm --dir ${workspacePath} --filter @prime-agent/web run bench`
+							result = await amp.$`pnpm --dir ${workspacePath} --filter @qredence/web run bench`
 							break
 						case "browser":
-							result = await amp.$`env PLAYWRIGHT_BASE_URL=${baseUrl} pnpm --dir ${workspacePath} --filter @prime-agent/web exec playwright test playwright/perf-smoke.spec.ts`
+							result = await amp.$`env PLAYWRIGHT_BASE_URL=${baseUrl} pnpm --dir ${workspacePath} --filter @qredence/web exec playwright test playwright/perf-smoke.spec.ts`
 							break
 					}
 				} catch (error) {

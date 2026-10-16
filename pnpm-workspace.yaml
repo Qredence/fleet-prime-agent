@@ -6,10 +6,6 @@ packages:
 
 # 7 days in minutes (was the root .npmrc min-release-age=7).
 minimumReleaseAge: 10080
-# cn@0.3.0 is the shadcn-ui/cn package required for Fleet `createCn` migration;
-# published 2026-09-12 — allow before the 7-day maturity window elapses.
-minimumReleaseAgeExclude:
-  - cn@0.3.0
 managePackageManagerVersions: false
 trustPolicy: no-downgrade
 # Upstream's signed runtime tarball declares its own pinned R2 package tarballs.
@@ -50,9 +46,8 @@ overrides:
   rimraf: 6.1.2
   gaxios>rimraf: 6.1.2
   shell-quote: ^1.10.0
-  # Unify highlighter types: streamdown's published .d.ts imports `shiki`
-  # while @streamdown/code pins 3.x and @pierre/diffs pins 4.x.
-  shiki: 4.4.3
+  # Unify highlighter types across streamdown, @streamdown/code, and @pierre/diffs.
+  shiki: 4.5.0
   # GHSA-2v37-7h3g-55p8: nanoid < 3.3.18 can loop indefinitely (via postcss).
   nanoid: ^3.3.18
   # Dependabot high (#213): brace-expansion < 5.0.11 (GHSA via alerts 32/33).

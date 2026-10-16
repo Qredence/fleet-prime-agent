@@ -1,5 +1,5 @@
 services:
   fleet-web:
-    command: __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.onamp.dev pnpm --filter @prime-agent/web dev --port $PORT --host 0.0.0.0 --strictPort
+    command: VITE_FLEET_DISABLE_AGENTATION=1 __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.onamp.dev pnpm --filter @qredence/web dev --port $PORT --host 0.0.0.0 --strictPort
     port: 3000
     title: Fleet Prime

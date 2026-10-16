@@ -11,6 +11,7 @@ export default defineConfig({
 	plugins: [viteReact()],
 	test: {
 		environment: "happy-dom",
+		execArgv: ["--no-experimental-webstorage"],
 		globals: true,
 		include: ["src/**/*.bench.{ts,tsx}"],
 	},
