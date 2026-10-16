@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, MessageCircleQuestion } from "lucide-react";
-import type { QuestionBarData, QuestionBarNavigation } from "@/components/chat/hooks/use-question-bar-navigation";
 import type { QuestionAnswer } from "@/components/chat/question/question-prompt";
+import type { QuestionBarData, QuestionBarNavigation } from "@/components/chat/question/use-question-bar-navigation";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import type { ApprovalCardAnswers, ApprovalCardQuestion } from "@/components/tools/approval-card";
 import { ApprovalCard } from "@/components/tools/approval-card";

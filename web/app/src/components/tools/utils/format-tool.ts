@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 type CachedToolState = {
 	state: string | undefined;
 	inputJson: string;
@@ -88,4 +90,33 @@ export function getToolStatus(part: any, chatStatus?: string) {
 	const isInterrupted = basePending && chatStatus !== "streaming" && chatStatus !== undefined;
 
 	return { isPending, isError, isSuccess, isInterrupted };
+}
+
+export function useToolComplete(isAnimating: boolean, duration: number, onComplete: () => void) {
+	const onCompleteRef = useRef(onComplete);
+	useEffect(() => {
+		onCompleteRef.current = onComplete;
+	}, [onComplete]);
+
+	useEffect(() => {
+		if (!isAnimating) return;
+		const t = setTimeout(() => onCompleteRef.current(), duration);
+		return () => clearTimeout(t);
+	}, [isAnimating, duration]);
+}
+
+export function useElapsedTime(startedAt: number | undefined, isPending: boolean): number {
+	const [elapsedMs, setElapsedMs] = useState(0);
+
+	useEffect(() => {
+		if (isPending && startedAt) {
+			setElapsedMs(Date.now() - startedAt);
+			const interval = setInterval(() => {
+				setElapsedMs(Date.now() - startedAt);
+			}, 1000);
+			return () => clearInterval(interval);
+		}
+	}, [isPending, startedAt]);
+
+	return elapsedMs;
 }

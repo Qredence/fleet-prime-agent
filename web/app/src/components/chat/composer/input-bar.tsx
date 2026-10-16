@@ -2,20 +2,19 @@ import type { ChatMode, ChatThinkingLevel } from "@prime-agent/web-protocol/chat
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { FileCode2, Plus, X } from "lucide-react";
-import { type ReactNode, useCallback } from "react";
+import { useCallback } from "react";
 import type { ChatModelOption } from "@/components/chat/chat-helpers";
-import { AGENT_CHAT_MODES } from "@/components/chat/chat-modes";
 import { ComposerLoader } from "@/components/chat/composer/composer-loader";
 import { type ComposerTriggerItem, ComposerTriggerPopover } from "@/components/chat/composer/composer-trigger-popover";
 import type { InlineCompletion } from "@/components/chat/composer/inline-completion";
 import { FileAttachment } from "@/components/chat/composer/input/file-attachment";
-import { ModeSelector } from "@/components/chat/composer/input/mode-selector";
+import { AGENT_CHAT_MODES, ModeSelector } from "@/components/chat/composer/input/mode-selector";
 import { InputQuestionBar } from "@/components/chat/composer/input/question-bar";
-import type { SuggestionItem } from "@/components/chat/composer/input/suggestions";
 import { useInputBarState } from "@/components/chat/composer/input-bar-state";
 import { PromptInput } from "@/components/chat/composer/prompt-input";
-import type { QuestionBarData } from "@/components/chat/hooks/use-question-bar-navigation";
 import { ModelSelector } from "@/components/chat/model-selector";
+import type { QuestionBarData } from "@/components/chat/question/use-question-bar-navigation";
+import type { SuggestionItem } from "@/components/chat/types";
 import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS, HIT_AREA_EXPAND_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -50,8 +49,6 @@ export type InputBarAttachmentsConfig = {
 	onPaste?: (e: React.ClipboardEvent) => void;
 	isDragOver?: boolean;
 	enableImagePreview?: boolean;
-	buttonPosition?: "left" | "right";
-	previewStyle?: "thumbnail" | "chip" | "hidden";
 };
 
 export type InputBarControlledConfig = {
@@ -72,16 +69,7 @@ export type InputBarProps = {
 	suggestions?: SuggestionConfig;
 	slashCommands?: SuggestionConfig;
 	onSlashCommandSelect?: (item: SuggestionItem) => boolean | void;
-	typingAnimation?: {
-		text: string;
-		duration: number;
-		image?: string;
-		isActive: boolean;
-		onComplete: () => void;
-	};
 	questionBar?: QuestionBarData;
-	leftActions?: ReactNode;
-	rightActions?: ReactNode;
 	modelKey: string | undefined;
 	models: Array<ChatModelOption>;
 	infoDescription?: string | null;

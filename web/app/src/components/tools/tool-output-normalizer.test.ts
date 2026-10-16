@@ -1,8 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { SessionToolRenderer } from "@/components/tools/session-tool-renderer";
-import { SpecializedToolRenderer } from "@/components/tools/specialized-tool-renderer";
+import { SessionToolRenderer, SpecializedToolRenderer } from "@/components/tools/session-tool-renderer";
 import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 
 describe("normalizeToolPart", () => {

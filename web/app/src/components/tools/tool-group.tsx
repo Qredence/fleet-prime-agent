@@ -1,9 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { useElapsedTime } from "@/components/chat/hooks/use-elapsed-time";
 import { GenericTool } from "@/components/tools/generic-tool";
 import { toolRegistry } from "@/components/tools/tool-registry";
 import { ToolRowBase } from "@/components/tools/tool-row-base";
-import { formatElapsedTime, getToolStatus } from "@/components/tools/utils/format-tool";
+import { formatElapsedTime, getToolStatus, useElapsedTime } from "@/components/tools/utils/format-tool";
 import { cn } from "@/lib/utils";
 
 export type ToolGroupProps = {
@@ -164,7 +163,7 @@ export const ToolGroup = memo(function ToolGroup({
 		}
 
 		if (!description) return "";
-		return description.length > 60 ? `${description.slice(0, 57)}...` : description;
+		return description.length > 60 ? `${description.slice(0, 57)}…` : description;
 	})();
 	const elapsedTimeDisplay = formatElapsedTime(!isPending && outputDuration ? outputDuration : elapsedMs);
 

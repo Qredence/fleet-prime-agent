@@ -56,7 +56,7 @@ Per component: **400 / 500 / 600** max. No 700+.
 
 ## Chat Typeset
 
-Chat markdown uses shadcn Typeset (`src/styles/typeset.css`) with Fleet preset `.typeset-chat` (`src/styles/typeset-presets.css`):
+Chat markdown uses shadcn Typeset (`src/styles/typeset.css`) with Fleet preset `.typeset-chat`:
 
 | Token | Value | Role |
 | --- | --- | --- |

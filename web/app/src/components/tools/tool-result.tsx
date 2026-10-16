@@ -9,13 +9,12 @@ import {
 	CircleX,
 	Copy,
 	LoaderCircle,
-	RotateCcw,
 	SquareTerminal,
 	Wrench,
 } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { ActionSwapRollText } from "@/components/motion/action-swap-roll";
+import { ActionSwapRollText } from "@/components/motion/action-swap";
 import type { AgentCodeLanguage } from "@/components/tools/agent-code";
 import { AgentDisclosure } from "@/components/tools/agent-disclosure";
 import { SPRING_PRESS, SPRING_SWAP } from "@/lib/ease";
@@ -31,17 +30,12 @@ export interface ToolResultProps {
 	status?: ToolResultStatus;
 	kind?: ToolResultKind;
 	meta?: ReactNode;
-	icon?: ReactNode;
 	open?: boolean;
 	defaultOpen?: boolean;
 	onOpenChange?: (open: boolean) => void;
 	collapseOnComplete?: boolean;
 	maxHeight?: number;
 	copyText?: string;
-	onCopy?: () => void | Promise<void>;
-	onRetry?: () => void;
-	className?: string;
-	contentClassName?: string;
 }
 
 export interface ToolResultOutputProps {
@@ -58,19 +52,15 @@ function getStatusLabel(status: ToolResultStatus) {
 	return "Cancelled";
 }
 
-function getSwapKey(value: ReactNode, fallback: string) {
-	return typeof value === "string" || typeof value === "number" ? String(value) : fallback;
-}
-
 function getStatusClass(status: ToolResultStatus) {
 	if (status === "running") {
 		return "text-primary";
 	}
 	if (status === "success") {
-		return "text-emerald-600 dark:text-emerald-400";
+		return "text-success";
 	}
 	if (status === "error") {
-		return "text-rose-600 dark:text-rose-400";
+		return "text-destructive";
 	}
 	return "text-muted-foreground";
 }
@@ -99,7 +89,7 @@ function ToolResultAction({ label, onClick, children }: { label: string; onClick
 			aria-label={label}
 			title={label}
 			onClick={onClick}
-			whileTap={reduce ? undefined : { scale: 0.9 }}
+			whileTap={reduce ? undefined : { scale: 0.96 }}
 			transition={SPRING_PRESS}
 			className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 		>
@@ -135,17 +125,12 @@ export function ToolResult({
 	status = "running",
 	kind = "custom",
 	meta,
-	icon,
 	open,
 	defaultOpen = true,
 	onOpenChange,
 	collapseOnComplete = true,
 	maxHeight = 220,
 	copyText,
-	onCopy,
-	onRetry,
-	className,
-	contentClassName,
 }: ToolResultProps) {
 	const reduce = useReducedMotion() ?? false;
 	const baseId = useId();
@@ -158,10 +143,7 @@ export function ToolResult({
 	const [internalOpen, setInternalOpen] = useState(defaultOpen);
 	const currentOpen = open ?? internalOpen;
 	const running = status === "running";
-	const canCopy = Boolean(copyText || onCopy);
-	const titleKey = getSwapKey(title, status);
-	const metaKey = getSwapKey(meta, `${status}-meta`);
-	const toolKey = getSwapKey(tool, `${status}-tool`);
+	const canCopy = Boolean(copyText);
 	const statusLabel = getStatusLabel(status);
 
 	const setOpen = useCallback(
@@ -207,16 +189,15 @@ export function ToolResult({
 	});
 
 	const handleCopy = useCallback(async () => {
-		if (onCopy) await onCopy();
-		else if (copyText) await navigator.clipboard?.writeText(copyText);
+		if (copyText) await navigator.clipboard?.writeText(copyText);
 
 		setCopied(true);
 		if (copyTimer.current) window.clearTimeout(copyTimer.current);
 		copyTimer.current = window.setTimeout(() => setCopied(false), 1600);
-	}, [copyText, onCopy]);
+	}, [copyText]);
 
 	return (
-		<div data-state={status} aria-busy={running} className={cn("w-full text-sm", className)}>
+		<div data-state={status} aria-busy={running} className="w-full text-sm">
 			<button
 				id={triggerId}
 				type="button"
@@ -226,19 +207,13 @@ export function ToolResult({
 				className="group flex min-h-9 w-full items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 			>
 				<span aria-hidden="true" className="grid size-4 shrink-0 place-items-center text-muted-foreground">
-					{icon ?? <KindIcon kind={kind} />}
+					<KindIcon kind={kind} />
 				</span>
 				<span className="flex min-w-0 flex-1 items-baseline gap-2">
-					<span className="min-w-0 truncate font-medium text-foreground/90">
-						<ActionSwapRollText value={titleKey}>{title}</ActionSwapRollText>
-					</span>
-					{meta ? (
-						<span className="shrink-0 text-xs text-muted-foreground/60">
-							<ActionSwapRollText value={metaKey}>{meta}</ActionSwapRollText>
-						</span>
-					) : null}
-					<span className="min-w-0 truncate font-mono text-caption text-muted-foreground/55">
-						<ActionSwapRollText value={toolKey}>{tool}</ActionSwapRollText>
+					<span className="min-w-0 truncate font-medium text-foreground/90">{title}</span>
+					{meta ? <span className="shrink-0 text-xs tabular-nums text-muted-foreground/60">{meta}</span> : null}
+					<span className="hidden min-w-0 truncate font-mono text-caption text-muted-foreground/55 sm:inline">
+						{tool}
 					</span>
 				</span>
 				<span
@@ -267,24 +242,17 @@ export function ToolResult({
 							ref={viewportRef}
 							role="log"
 							aria-live="polite"
-							className="scrollbar-hide overflow-y-auto"
+							className="scrollbar-hide overflow-y-auto overscroll-contain"
 							style={{ maxHeight }}
 						>
-							<div className={cn("p-3", contentClassName)}>{children}</div>
+							<div className="p-3">{children}</div>
 						</div>
 
-						{canCopy || onRetry ? (
+						{canCopy ? (
 							<div className="flex items-center gap-0.5 px-2 pb-1.5">
-								{canCopy ? (
-									<ToolResultAction label={copied ? "Copied" : "Copy result"} onClick={handleCopy}>
-										{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-									</ToolResultAction>
-								) : null}
-								{onRetry ? (
-									<ToolResultAction label="Run again" onClick={onRetry}>
-										<RotateCcw className="size-3.5" />
-									</ToolResultAction>
-								) : null}
+								<ToolResultAction label={copied ? "Copied" : "Copy result"} onClick={handleCopy}>
+									{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+								</ToolResultAction>
 								<span className="ml-auto text-caption text-muted-foreground/55">
 									<ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
 								</span>

@@ -2,10 +2,96 @@
 
 import { AlertCircle, Clock3, Gauge, ListRestart, RotateCcw } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
-import { AgentProgress } from "@/components/chat/thinking/agent-progress";
+import { useEffect, useState } from "react";
+import { EASE_IN_OUT } from "@/lib/ease";
+import { mono } from "@/lib/surfaces";
 import { cn } from "@/lib/utils";
 
 export type TurnStatusKind = "queue" | "retry" | "compaction" | "recovery" | "notice";
+
+const GRID_CELLS = [
+	{ id: "top-left", delay: 0 },
+	{ id: "top-center", delay: 0.14 },
+	{ id: "top-right", delay: 0.28 },
+	{ id: "middle-left", delay: 0.42 },
+	{ id: "middle-center", delay: 0.56 },
+	{ id: "middle-right", delay: 0.7 },
+	{ id: "bottom-left", delay: 0.84 },
+	{ id: "bottom-center", delay: 0.98 },
+	{ id: "bottom-right", delay: 1.12 },
+];
+
+function formatElapsed(totalSeconds: number) {
+	const safeSeconds = Math.max(0, totalSeconds);
+	const minutes = Math.floor(safeSeconds / 60);
+	const seconds = (safeSeconds % 60).toFixed(1);
+	return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
+function AgentProgress({
+	label = "Churning",
+	elapsedSeconds,
+	initialSeconds = 0,
+	running = true,
+	className,
+}: {
+	label?: string;
+	elapsedSeconds?: number;
+	initialSeconds?: number;
+	running?: boolean;
+	className?: string;
+}) {
+	const reduce = useReducedMotion() ?? false;
+	const [internalSeconds, setInternalSeconds] = useState(initialSeconds);
+
+	useEffect(() => {
+		if (elapsedSeconds !== undefined || !running) return;
+
+		const startedAt = performance.now() - initialSeconds * 1000;
+		const timer = window.setInterval(() => {
+			setInternalSeconds((performance.now() - startedAt) / 1000);
+		}, 100);
+
+		return () => window.clearInterval(timer);
+	}, [elapsedSeconds, initialSeconds, running]);
+
+	const elapsed = elapsedSeconds ?? internalSeconds;
+
+	return (
+		<span
+			role="status"
+			aria-label={`${label}, in progress`}
+			className={cn("inline-flex items-center gap-2.5 text-sm text-muted-foreground", className)}
+		>
+			<span aria-hidden="true" className="grid size-5 shrink-0 grid-cols-3 gap-[2px]">
+				{GRID_CELLS.map(({ id, delay }) => (
+					<m.span
+						key={id}
+						className="rounded-[1px] bg-current"
+						animate={
+							reduce
+								? { opacity: [0.35, 0.8, 0.35] }
+								: {
+										opacity: [0.28, 1, 0.28],
+										scale: [0.72, 1, 0.72],
+									}
+						}
+						transition={{
+							duration: 1.55,
+							ease: EASE_IN_OUT,
+							repeat: Infinity,
+							delay,
+						}}
+					/>
+				))}
+			</span>
+			<span className="font-medium text-foreground/80">{label}</span>
+			<span aria-hidden="true" className={cn(mono, "tabular-nums text-muted-foreground/70")}>
+				{formatElapsed(elapsed)}
+			</span>
+		</span>
+	);
+}
 
 /** Lifecycle copy around AgentProgress for turn-level status. */
 export function TurnStatus({ label, className }: { label?: string; className?: string }) {
@@ -32,12 +118,7 @@ export function TurnStatus({ label, className }: { label?: string; className?: s
 				<AgentProgress label={title} running className="min-w-0 text-xs" />
 			) : (
 				<>
-					<Icon
-						className={cn(
-							"mt-0.5 size-3.5 shrink-0",
-							kind === "recovery" && "text-amber-600 dark:text-amber-400",
-						)}
-					/>
+					<Icon className={cn("mt-0.5 size-3.5 shrink-0", kind === "recovery" && "text-warning")} />
 					<strong className="font-medium text-foreground/90">{title}</strong>
 				</>
 			)}

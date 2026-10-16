@@ -7,7 +7,6 @@ import { runWorkspaceAction } from "@/components/chat/chat-error-notify";
 import { availableThinkingLevels, type ChatModelOption, thinkingLevelLabel } from "@/components/chat/chat-helpers";
 import { assistantTextFromMessage } from "@/components/chat/chat-message-helpers";
 import { chatQueryKeys } from "@/components/chat/chat-queries";
-import type { SuggestionItem } from "@/components/chat/composer/input/suggestions";
 import type { LocalSlashAction, SettingsSlashTab } from "@/components/chat/composer/slash-commands";
 import {
 	localSlashActionForIntent,
@@ -16,6 +15,7 @@ import {
 	slashCommandInsertsPrefixOnSelect,
 } from "@/components/chat/composer/slash-commands";
 import type { ForkPickerEntry } from "@/components/chat/fork-picker-dialog";
+import type { SuggestionItem } from "@/components/chat/types";
 import { notify } from "@/lib/notify";
 
 const CHAT_COMMAND_URL = "/api/chat/command";

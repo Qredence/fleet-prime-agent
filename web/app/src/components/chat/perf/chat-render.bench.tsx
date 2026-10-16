@@ -16,9 +16,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, bench, describe, vi } from "vitest";
 import { AgentChat } from "@/components/chat/agent-chat";
 
-vi.mock("@/components/openui/inline-renderer", () => ({
-	GenerativeTextRenderer: () => null,
-}));
 vi.mock("@/components/openui/openui-renderer", () => ({
 	GenerativeTextRenderer: () => null,
 }));

@@ -36,6 +36,7 @@ import {
 } from "@/components/chat/transcript/virtualized-turn-list";
 import type { AgentChatProps } from "@/components/chat/types";
 import { CHAT_COLUMN_CLASS } from "@/components/layout/tokens";
+import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
 import type { QueueLane } from "@/components/tools/message-queue";
 import { normalizeAssistantToolParts } from "@/components/tools/utils/tool-part-normalizer";
@@ -65,7 +66,7 @@ function SessionToolRenderer(props: ComponentProps<typeof LazySessionToolRendere
 }
 
 const LazySessionReasoningPanel = lazy(() =>
-	import("@/components/chat/thinking/session-reasoning-panel").then(({ SessionReasoningPanel }) => ({
+	import("@/components/chat/transcript/session-reasoning-panel").then(({ SessionReasoningPanel }) => ({
 		default: SessionReasoningPanel,
 	})),
 );
@@ -173,10 +174,7 @@ function MessageQueue(props: ComponentProps<typeof LazyMessageQueue>) {
 	);
 }
 
-export type AgentChatViewProps = Omit<AgentChatProps, "slots" | "toolRenderers" | "style" | "suggestions"> & {
-	toolRenderers?: AgentChatProps["toolRenderers"];
-	suggestions?: AgentChatProps["suggestions"];
-	className?: string;
+export type AgentChatViewProps = AgentChatProps & {
 	workspaceName?: string;
 	activityLabel?: string;
 	presentation?: PrimeAgentSessionPresentation;
@@ -780,6 +778,88 @@ export function AgentChat({
 			{queue && (queue.steering.length > 0 || queue.followUp.length > 0) ? (
 				<MessageQueue queue={queue} onDelete={onDeleteQueuedMessage} onEdit={onEditQueuedMessage} />
 			) : null}
+		</div>
+	);
+}
+
+type ChatPanelProps = {
+	messages: Array<ChatMessage>;
+	highlightedMessageId?: string;
+	status: AgentChatViewProps["status"];
+	error: Error | undefined;
+	workspaceName?: string;
+	activityLabel?: string;
+	presentation?: PrimeAgentSessionPresentation;
+	artifactRuns?: Array<PrimeAgentArtifactRun>;
+	queue?: { steering: readonly string[]; followUp: readonly string[] };
+	onDeleteQueuedMessage?: (lane: QueueLane, index: number, text: string) => Promise<boolean>;
+	onEditQueuedMessage?: (lane: QueueLane, index: number, expectedText: string, nextText: string) => Promise<boolean>;
+	onOpenArtifact?: (artifactId: string) => void;
+	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
+	inputSuggestionItems: AgentChatViewProps["suggestions"];
+	suppressQuestionTool: boolean;
+	inputBar: AgentChatViewProps["inputBar"];
+	onSend: (text: string, altKey?: boolean) => void;
+	onOpenUIAction: (text: string) => void;
+	onStop: () => void;
+};
+
+/**
+ * Renders the Fleet Pi agent chat panel with workspace context, artifacts, queued messages, and interaction controls.
+ */
+export function ChatPanel({
+	messages,
+	highlightedMessageId,
+	status,
+	error,
+	workspaceName,
+	activityLabel,
+	presentation,
+	artifactRuns,
+	queue,
+	onDeleteQueuedMessage,
+	onEditQueuedMessage,
+	onOpenArtifact,
+	onOpenUIArtifactReady,
+	inputSuggestionItems,
+	suppressQuestionTool,
+	inputBar,
+	onSend,
+	onOpenUIAction,
+	onStop,
+}: ChatPanelProps) {
+	const handleSend = useCallback(
+		(msg: { content: string; altKey?: boolean }) => {
+			onSend(msg.content, msg.altKey);
+		},
+		[onSend],
+	);
+
+	return (
+		<div className="contents" data-fleet-chat-focus>
+			<UiErrorBoundary>
+				<AgentChat
+					messages={messages}
+					highlightedMessageId={highlightedMessageId}
+					status={status}
+					onSend={handleSend}
+					onOpenUIAction={onOpenUIAction}
+					onStop={onStop}
+					workspaceName={workspaceName}
+					activityLabel={activityLabel}
+					presentation={presentation}
+					artifactRuns={artifactRuns}
+					queue={queue}
+					onDeleteQueuedMessage={onDeleteQueuedMessage}
+					onEditQueuedMessage={onEditQueuedMessage}
+					onOpenArtifact={onOpenArtifact}
+					onOpenUIArtifactReady={onOpenUIArtifactReady}
+					suppressQuestionTool={suppressQuestionTool}
+					error={error ?? undefined}
+					suggestions={inputSuggestionItems}
+					inputBar={inputBar}
+				/>
+			</UiErrorBoundary>
 		</div>
 	);
 }

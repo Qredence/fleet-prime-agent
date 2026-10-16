@@ -68,7 +68,7 @@ export const toolRegistry: Record<string, ToolMeta> = {
 		},
 		subtitle: (part) => {
 			const desc = part.input?.description || "";
-			return desc.length > 50 ? `${desc.slice(0, 47)}...` : desc;
+			return desc.length > 50 ? `${desc.slice(0, 47)}…` : desc;
 		},
 		variant: "simple",
 	},
@@ -82,7 +82,7 @@ export const toolRegistry: Record<string, ToolMeta> = {
 		},
 		subtitle: (part) => {
 			const desc = part.input?.description || "";
-			return desc.length > 50 ? `${desc.slice(0, 47)}...` : desc;
+			return desc.length > 50 ? `${desc.slice(0, 47)}…` : desc;
 		},
 		variant: "simple",
 	},
@@ -105,9 +105,9 @@ export const toolRegistry: Record<string, ToolMeta> = {
 			const path = part.input?.path || "";
 			if (path) {
 				const combined = `${pattern} in ${getDisplayPath(path)}`;
-				return combined.length > 40 ? `${combined.slice(0, 37)}...` : combined;
+				return combined.length > 40 ? `${combined.slice(0, 37)}…` : combined;
 			}
-			return pattern.length > 40 ? `${pattern.slice(0, 37)}...` : pattern;
+			return pattern.length > 40 ? `${pattern.slice(0, 37)}…` : pattern;
 		},
 		variant: "simple",
 	},
@@ -121,7 +121,7 @@ export const toolRegistry: Record<string, ToolMeta> = {
 		},
 		subtitle: (part) => {
 			const pattern = part.input?.pattern || "";
-			return pattern.length > 40 ? `${pattern.slice(0, 37)}...` : pattern;
+			return pattern.length > 40 ? `${pattern.slice(0, 37)}…` : pattern;
 		},
 		variant: "simple",
 	},
@@ -180,7 +180,7 @@ export const toolRegistry: Record<string, ToolMeta> = {
 			if (!command) return "";
 			let normalized = command.replace(/\\\s*\n\s*/g, " ").trim();
 			normalized = normalized.replace(/\/(?:Users|home|root)\/[^\s"']+/g, (match: string) => getDisplayPath(match));
-			return normalized.length > 50 ? `${normalized.slice(0, 47)}...` : normalized;
+			return normalized.length > 50 ? `${normalized.slice(0, 47)}…` : normalized;
 		},
 		variant: "simple",
 	},
@@ -194,7 +194,7 @@ export const toolRegistry: Record<string, ToolMeta> = {
 			const code = (part.input?.code || "") as string;
 			if (!code) return "";
 			const firstLine = code.split("\n", 1)[0].trim();
-			return firstLine.length > 50 ? `${firstLine.slice(0, 47)}...` : firstLine;
+			return firstLine.length > 50 ? `${firstLine.slice(0, 47)}…` : firstLine;
 		},
 		variant: "simple",
 	},
@@ -222,7 +222,7 @@ export const toolRegistry: Record<string, ToolMeta> = {
 		},
 		subtitle: (part) => {
 			const query = part.input?.query || "";
-			return query.length > 40 ? `${query.slice(0, 37)}...` : query;
+			return query.length > 40 ? `${query.slice(0, 37)}…` : query;
 		},
 		variant: "collapsible",
 	},
@@ -293,7 +293,7 @@ export const toolRegistry: Record<string, ToolMeta> = {
 			if (!command) return "";
 			let normalized = command.replace(/\\\s*\n\s*/g, " ").trim();
 			normalized = normalized.replace(/\/(?:Users|home|root)\/[^\s"']+/g, (match: string) => getDisplayPath(match));
-			return normalized.length > 50 ? `${normalized.slice(0, 47)}...` : normalized;
+			return normalized.length > 50 ? `${normalized.slice(0, 47)}…` : normalized;
 		},
 		variant: "simple",
 	},

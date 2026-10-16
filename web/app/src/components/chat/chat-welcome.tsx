@@ -1,4 +1,4 @@
-import type { SuggestionItem } from "@/components/chat/composer/input/suggestions";
+import type { SuggestionItem } from "@/components/chat/types";
 import { SUGGESTION_ITEM_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 

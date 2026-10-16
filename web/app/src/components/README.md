@@ -23,15 +23,14 @@ motion/    → motion-only helpers (no parallel Select/Combobox/Popover/Checkbox
 ```text
 components/
   ui/          # Base UI wrappers, Fleet-styled controls, compound components, adapters
-  settings/    # Settings-specific rows and settings compositions
   openui/      # generative UI library, renderers, artifact shell
-  layout/      # app chrome: sidebar shell, header, right-panel shell/registry, chrome tokens
-  chat/        # chat surface, session lifecycle, composer, transcript, plans, subagents
-  sessions/    # session sidebar, agent tabs, session tree/insights, thread search
-  workspace/   # workspace file tree/preview, resources, repl, right-panel launcher
+  layout/      # app chrome: sidebar shell, header, right-panel shell/registry/launcher, chrome tokens
+  chat/        # chat surface, session lifecycle, composer, transcript, plans, question, subagents
+  sessions/    # session sidebar, resource tree, agent tabs, session tree/insights, thread search
+  workspace/   # workspace file tree/preview, resources, repl
   artifacts/   # session artifact runs and panels
   settings/    # settings dialog, sections, provider credentials, MCP connections
-  tools/       # tool renderers + registry (left mostly flat)
+  tools/       # tool renderers + registry
   motion/      # motion-only helpers (action-swap, file-tree, preview-rail, runtime, shared-layout-bg)
 ```
 
@@ -53,6 +52,6 @@ these rules (one name one home, no dead files, primitive boundaries).
 ## Intentional deviations
 
 - `chat/agent-chat.tsx` stays at the chat root (central surface, high import fan-out).
-- `model-selector*`, `fork-picker-dialog`, `chat-welcome*`, `types.ts`, `icons.tsx`
+- `model-selector*`, `fork-picker-dialog`, `chat-welcome*`, `types.ts`
   stay at the chat root.
 - `tools/` is not re-grouped into `tools/core/` (subtractive preference).

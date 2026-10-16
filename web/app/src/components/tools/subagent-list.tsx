@@ -38,10 +38,10 @@ export function SubagentList({ children, tree, className }: SubagentListProps) {
 				{active ? (
 					<LoaderCircle className="size-3.5 animate-spin text-primary" />
 				) : (
-					<CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+					<CheckCircle2 className="size-3.5 text-success" />
 				)}
 				<span className="flex-1 font-medium">{active ? "Subagents working" : "Subagents completed"}</span>
-				<span className="text-xs text-muted-foreground">{agents.length}</span>
+				<span className="text-xs tabular-nums text-muted-foreground">{agents.length}</span>
 				<ChevronDown
 					className={cn("size-3.5 text-muted-foreground transition-transform", (open || active) && "rotate-180")}
 				/>

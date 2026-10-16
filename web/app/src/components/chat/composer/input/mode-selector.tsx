@@ -1,9 +1,15 @@
-import { Check } from "lucide-react";
+import { Bot, Check, ListTodo, Settings2 } from "lucide-react";
 import type { ComponentType, KeyboardEvent } from "react";
 import { memo, useCallback, useId, useRef, useState } from "react";
 import { ComposerSelectorTrigger } from "@/components/chat/composer/input/composer-selector-trigger";
 import { Popover } from "@/components/chat/composer/input/input-popover";
 import { cn } from "@/lib/utils";
+
+export const AGENT_CHAT_MODES = [
+	{ id: "agent", label: "Agent", icon: Bot, description: "Default coding agent" },
+	{ id: "plan", label: "Plan", icon: ListTodo, description: "Plan before executing" },
+	{ id: "harness", label: "Harness", icon: Settings2, description: "Harness-aware turn" },
+] as const;
 
 export type ModeOption = {
 	id: string;

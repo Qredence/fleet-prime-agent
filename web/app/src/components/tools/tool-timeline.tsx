@@ -175,7 +175,7 @@ function statusClass(status: TimelineStep["status"]) {
 	if (status === "running") return "text-primary";
 	if (status === "error") return "text-destructive";
 	if (status === "cancelled") return "text-muted-foreground";
-	return "text-emerald-600 dark:text-emerald-400";
+	return "text-success";
 }
 
 /**

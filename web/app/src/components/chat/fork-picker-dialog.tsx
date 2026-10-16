@@ -21,7 +21,7 @@ export function ForkPickerDialog({ entries, onOpenChange, onPick }: ForkPickerDi
 					<DialogTitle>Fork from a message</DialogTitle>
 					<DialogDescription>Creates a new session branched before the selected user message.</DialogDescription>
 				</DialogHeader>
-				<div className="flex max-h-[min(420px,60vh)] flex-col gap-1 overflow-y-auto">
+				<div className="flex max-h-[min(420px,60dvh)] flex-col gap-1 overflow-y-auto overscroll-contain">
 					{(entries ?? []).map((entry) => (
 						<button
 							key={entry.id}

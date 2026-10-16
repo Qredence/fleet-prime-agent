@@ -1,11 +1,24 @@
 import { FileText } from "lucide-react";
 import { memo } from "react";
-import { useToolComplete } from "@/components/chat/hooks/use-tool-complete";
-import type { SourceType } from "@/components/tools/icons/source-icons";
 import type { StepState, TimelineStep } from "@/components/tools/timeline";
 import { ToolRowBase } from "@/components/tools/tool-row-base";
+import { useToolComplete } from "@/components/tools/utils/format-tool";
 import { adaptToolPart } from "@/components/tools/utils/tool-adapters";
 import { cn } from "@/lib/utils";
+
+export type SourceType =
+	| "google"
+	| "booking"
+	| "tripadvisor"
+	| "expedia"
+	| "airbnb"
+	| "github"
+	| "stackoverflow"
+	| "arxiv"
+	| "scholar"
+	| "stripe"
+	| "zendesk"
+	| "web";
 
 export type SearchResult = { source: SourceType; title: string; date: string };
 
@@ -32,7 +45,7 @@ function SearchCompleteTracker({ step, animating, onStepComplete }: SearchComple
 /** Renders grouped search progress and expands to show completed search results. */
 function SearchGroupRich({ toolSteps, stepStates, onStepComplete, results = [], defaultOpen }: SearchGroupRichProps) {
 	const anyAnimating = toolSteps.some((s) => stepStates[s.id] === "animating");
-	const searchQuery = toolSteps.find((s) => s.searchQuery)?.searchQuery ?? "searching...";
+	const searchQuery = toolSteps.find((s) => s.searchQuery)?.searchQuery ?? "searching…";
 	const totalResults = results.length;
 	// Only expose the expand affordance once there is something useful to show.
 	// While the search is still streaming we have no results yet and the panel

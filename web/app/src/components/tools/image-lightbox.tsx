@@ -173,13 +173,13 @@ export function ImageLightbox({ open, onClose, images, initialIndex = 0 }: Image
 								}}
 								aria-label={`Go to image ${idx + 1}`}
 								className={cn(
-									"size-2 rounded-full transition-all",
+									"size-2 rounded-full transition-[background-color,transform] duration-150",
 									idx === currentIndex ? "scale-125 bg-white" : "bg-white/40 hover:bg-white/60",
 								)}
 							/>
 						))}
 					</div>
-					<span className="text-sm text-white/70">
+					<span className="text-sm tabular-nums text-white/70">
 						{currentIndex + 1} / {images.length}
 					</span>
 				</div>

@@ -8,8 +8,6 @@ import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.z
 import type { ZodType } from "zod";
 import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
 
-import { clearChatAuthBearerTokenCache, getChatAuthBearerToken } from "@/lib/auth-stub";
-
 export class ChatRequestError extends Error {
 	readonly status: number;
 	readonly body: string;
@@ -91,35 +89,15 @@ export function chatErrorFromStreamEvent(event: { message: string; code?: FleetE
 	return error;
 }
 
-async function withChatRequestHeaders(init?: RequestInit) {
-	const headers = new Headers(init?.headers);
-
-	const bearer = await getChatAuthBearerToken();
-	if (bearer) {
-		headers.set("Authorization", `Bearer ${bearer}`);
-	}
-
-	return headers;
-}
-
 export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 	const resolvedUrl = resolveChatApiUrl(url);
-
-	const attempt = async (allowRetry: boolean): Promise<T> => {
-		const headers = await withChatRequestHeaders(init);
-		const response = await fetch(resolvedUrl, { ...init, headers });
-		if (response.status === 401 && allowRetry) {
-			clearChatAuthBearerTokenCache();
-			return attempt(false);
-		}
-		if (!response.ok) {
-			const body = await response.text();
-			throw new ChatRequestError(response.status, body);
-		}
-		return (await response.json()) as T;
-	};
-
-	return attempt(true);
+	const headers = new Headers(init?.headers);
+	const response = await fetch(resolvedUrl, { ...init, headers });
+	if (!response.ok) {
+		const body = await response.text();
+		throw new ChatRequestError(response.status, body);
+	}
+	return (await response.json()) as T;
 }
 
 export async function fetchValidatedJson<T>(url: string, schema: ZodType<T>, init?: RequestInit): Promise<T> {

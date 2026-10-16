@@ -49,12 +49,6 @@ function parseSessionMetadata(value: unknown): ChatSessionMetadata {
 	return result.success ? result.data : {};
 }
 
-export function clearBrowserChatSessions() {
-	removeStoredValue(CHAT_SESSION_STORAGE_KEY);
-	removeStoredValue("fleet-prime:v1:chat-sessions");
-	removeStoredValue("fleet-prime:v1:chat-mode");
-}
-
 function storeBrowserSessions(metadata: ChatSessionMetadata) {
 	if (!metadata.sessionId && !metadata.projectId) {
 		removeStoredValue(CHAT_SESSION_STORAGE_KEY);

@@ -3,7 +3,7 @@
 import { ArrowLeft, ArrowRight, Check, CircleHelp, LoaderCircle, MessageSquareText, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActionSwapRollText } from "@/components/motion/action-swap-roll";
+import { ActionSwapRollText } from "@/components/motion/action-swap";
 import { AgentDisclosure } from "@/components/tools/agent-disclosure";
 import type {
 	ApprovalCardAnswer,
@@ -42,26 +42,26 @@ function getStatusLabel(status: ApprovalCardStatus) {
 
 function getStatusClass(status: ApprovalCardStatus) {
 	if (status === "approved" || status === "answered") {
-		return "text-emerald-600 dark:text-emerald-400";
+		return "text-success";
 	}
-	if (status === "rejected") return "text-rose-600 dark:text-rose-400";
+	if (status === "rejected") return "text-destructive";
 	if (status === "changes-requested") {
-		return "text-amber-600 dark:text-amber-400";
+		return "text-warning";
 	}
 	return "text-muted-foreground";
 }
 
 function getStatusBadgeClass(status: ApprovalCardStatus) {
 	if (status === "pending" || status === "changes-requested") {
-		return "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400";
+		return "border-warning/30 bg-warning/10 text-warning";
 	}
 	if (status === "submitting") {
 		return "border-primary/30 bg-primary/10 text-primary";
 	}
 	if (status === "approved" || status === "answered") {
-		return "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+		return "border-success/30 bg-success/10 text-success";
 	}
-	return "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400";
+	return "border-destructive/30 bg-destructive/10 text-destructive";
 }
 
 function isAnswered(answer: ApprovalCardAnswer) {
@@ -417,7 +417,7 @@ export function ApprovalCard({
 										size="compact"
 										disabled={busy}
 										onClick={onReject}
-										className="rounded-full text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400"
+										className="rounded-full text-muted-foreground hover:text-destructive"
 									>
 										Reject
 									</Button>

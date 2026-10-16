@@ -48,9 +48,9 @@ export function ModelSelectorList({
 	const groups = useMemo(() => groupModels(models), [models]);
 
 	return (
-		<Command className="min-h-0 max-h-[min(55vh,28rem)] bg-transparent" shouldFilter>
+		<Command className="min-h-0 max-h-[min(55dvh,28rem)] bg-transparent" shouldFilter>
 			<CommandInput placeholder="Search models…" aria-label="Search models" />
-			<CommandList className="min-h-0 flex-1 p-1.5">
+			<CommandList className="max-h-48 min-h-0 flex-1 p-1.5">
 				<CommandEmpty>No matching models</CommandEmpty>
 				{groups.map(([provider, providerModels]) => (
 					<CommandGroup key={provider} heading={providerModels[0]?.providerLabel ?? provider}>

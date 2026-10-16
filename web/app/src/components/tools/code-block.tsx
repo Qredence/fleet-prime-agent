@@ -121,7 +121,7 @@ export function CodeBlock({
 					<span
 						className={cn(
 							"ml-auto inline-flex shrink-0 items-center gap-1 text-micro font-medium",
-							streaming ? "text-blue-600 dark:text-blue-400" : "text-emerald-600 dark:text-emerald-400",
+							streaming ? "text-info" : "text-success",
 						)}
 					>
 						{streaming ? (
@@ -138,7 +138,7 @@ export function CodeBlock({
 						aria-label={copied ? "Copied" : "Copy code"}
 						title={copied ? "Copied" : "Copy code"}
 						onClick={handleCopy}
-						whileTap={reduce ? undefined : { scale: 0.9 }}
+						whileTap={reduce ? undefined : { scale: 0.96 }}
 						transition={SPRING_PRESS}
 						className={cn(
 							"grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",

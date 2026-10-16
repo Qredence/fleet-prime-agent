@@ -106,7 +106,7 @@ function formatMcpArgs(input: any): string {
 	for (const [key, value] of sorted) {
 		if (parts.length >= 2) break;
 		const val = typeof value === "string" ? value : JSON.stringify(value);
-		const display = val.length > 30 ? val.slice(0, 27) + "..." : val;
+		const display = val.length > 30 ? `${val.slice(0, 27)}…` : val;
 		parts.push(`${key}: ${display}`);
 	}
 	return parts.join("  ");
@@ -151,10 +151,10 @@ export function unwrapMcpOutput(output: any): any {
 function formatOutputForDisplay(output: any): string {
 	const unwrapped = unwrapMcpOutput(output);
 	if (typeof unwrapped === "string") {
-		return unwrapped.length > 3000 ? unwrapped.slice(0, 3000) + "\n..." : unwrapped;
+		return unwrapped.length > 3000 ? `${unwrapped.slice(0, 3000)}\n…` : unwrapped;
 	}
 	const text = JSON.stringify(unwrapped, null, 2);
-	return text.length > 3000 ? text.slice(0, 3000) + "\n..." : text;
+	return text.length > 3000 ? `${text.slice(0, 3000)}\n…` : text;
 }
 
 export const McpTool = memo(function McpTool({ part, mcpInfo, chatStatus, defaultOpen }: McpToolProps) {

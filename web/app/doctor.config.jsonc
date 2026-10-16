@@ -35,37 +35,14 @@
         "rules": ["react-doctor/prefer-dynamic-import"]
       },
       {
-        "files": ["src/components/chat/transcript/message-turns.tsx"],
-        "rules": [
-          "react-doctor/no-many-boolean-props",
-          "react-doctor/no-array-index-as-key"
-        ]
-      },
-      {
-        // Reserved/future surfaces: components shipped ahead of their first
-        // product consumer. The sidebar system lands as the app shell's
-        // navigation layer; mode-selector and session-reasoning-panel are
-        // adopted by upcoming surfaces.
-        "files": [
-          "src/components/chat/composer/input/mode-selector.tsx",
-          "src/components/chat/thinking/session-reasoning-panel.tsx",
-          "src/components/ui/sidebar.tsx"
-        ],
-        "rules": ["deslop/unused-file"]
-      },
-      {
         "files": [
           "src/components/chat/plans/plan-state.ts",
-          "src/components/chat/composer/composer-menu.tsx",
-          "src/components/layout/tokens.ts",
-          "src/components/motion/action-swap-roll.tsx",
-          "src/lib/range.ts",
-          "src/lib/surfaces.tsx"
+          "src/components/chat/composer/composer-menu.tsx"
         ],
         "rules": ["deslop/unused-export"]
       },
       {
-        "files": ["src/components/layout/ai-sidebar.tsx"],
+        "files": ["src/components/sessions/session-sidebar/resource-tree.tsx"],
         "rules": [
           "react-doctor/no-render-prop-children",
           "react-doctor/no-pass-live-state-to-parent",
@@ -117,8 +94,7 @@
       {
         "files": [
           "src/components/chat/composer/composer-menu.tsx",
-          "src/components/chat/thinking/reasoning-panel.tsx",
-          "src/components/chat/thinking/thinking-indicator.tsx"
+          "src/components/chat/transcript/session-reasoning-panel.tsx"
         ],
         "rules": [
           "react-doctor/no-transition-all",
@@ -154,17 +130,10 @@
         ]
       },
       {
-        // shadcn-style primitives and product components keep their upstream
-        // layout: variants, contexts, and helpers export alongside the
-        // component that owns them.
         "files": [
-          "src/components/ui/badge.tsx",
-          "src/components/ui/button.tsx",
           "src/components/ui/chart.tsx",
-          "src/components/ui/tabs.tsx",
           "src/components/ui/toast.tsx",
           "src/components/chat/markdown/markdown.tsx",
-          "src/components/chat/transcript/message-toolbar.tsx",
           "src/components/chat/transcript/message-turns.tsx",
           "src/components/tools/mcp-tool.tsx",
           "src/components/chat/composer/composer-menu.tsx",
@@ -173,9 +142,6 @@
         "rules": ["react-doctor/only-export-components"]
       },
       {
-        // right-panel-registry.tsx is a definition registry by design: each
-        // named content wrapper pairs a lazy panel with its Suspense
-        // fallback, mirroring the openui-library waiver rationale.
         "files": ["src/components/layout/right-panel-registry.tsx"],
         "rules": [
           "react-doctor/no-multi-component-file",
@@ -183,26 +149,8 @@
         ]
       },
       {
-        // False positive — the session-bootstrap effect is single-run
-        // (initializedRef) and re-checks controller.signal.aborted after
-        // every await boundary; the detector cannot follow AbortController
-        // cancellation proofs (same rationale as use-oauth-login-flow).
         "files": ["src/components/chat/use-pi-chat.ts"],
         "rules": ["react-doctor/no-set-state-after-await-in-effect"]
-      },
-      {
-        // Restored from the pre-restructure root config (dropped in the
-        // component regroup): exports are reserved for direct consumers or
-        // future UI surfaces; the detector only sees current in-workspace
-        // imports. icons.tsx is waived under the same registry rationale.
-        "files": [
-          "src/components/tools/citations.tsx",
-          "src/components/chat/icons.tsx",
-          "src/components/chat/transcript/message-bubble.tsx",
-          "src/components/chat/transcript/message.tsx",
-          "src/components/tools/tool-approval.tsx"
-        ],
-        "rules": ["deslop/unused-export"]
       }
     ]
   }

@@ -32,21 +32,6 @@
       "reason": "Absorbed first-party question prompt; existing public prop contract retained."
     },
     {
-      "path": "src/components/chat/transcript/streaming-response.tsx",
-      "type": "StreamingResponseProps",
-      "reason": "Absorbed first-party streaming response widget; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/chat/types.ts",
-      "type": "AgentChatProps",
-      "reason": "Absorbed first-party agent chat contract; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/layout/ai-sidebar.tsx",
-      "type": "AISidebarProps",
-      "reason": "Absorbed first-party sidebar shell; existing public prop contract retained."
-    },
-    {
       "path": "src/components/sessions/project-folder.tsx",
       "type": "ProjectFolderProps",
       "reason": "Absorbed first-party project folder widget; existing public prop contract retained."
@@ -65,31 +50,26 @@
       "path": "src/components/tools/image-generation.tsx",
       "type": "ImageGenerationProps",
       "reason": "Absorbed first-party image generation widget; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/tools/tool-result.tsx",
-      "type": "ToolResultProps",
-      "reason": "Absorbed first-party tool result widget; existing public prop contract retained."
     }
   ],
   "nativeControlExceptions": [
     "src/components/chat/agent-chat.tsx",
     "src/components/chat/composer/input-bar.tsx",
     "src/components/chat/fork-picker-dialog.tsx",
-    "src/components/layout/ai-sidebar.tsx",
     "src/components/layout/animated-sidebar.tsx",
     "src/components/layout/chat-header.tsx",
+    "src/components/layout/resizable-canvas.tsx",
+    "src/components/layout/right-panel-launcher.tsx",
+    "src/components/layout/ui-error-boundary.tsx",
     "src/components/sessions/project-folder.tsx",
+    "src/components/sessions/session-sidebar/navigation.tsx",
+    "src/components/sessions/session-sidebar/project-list.tsx",
+    "src/components/sessions/session-sidebar/resource-tree.tsx",
+    "src/components/sessions/session-sidebar/view-model.tsx",
     "src/components/sessions/thread-search.tsx",
     "src/components/settings/providers/add-models-dialog.tsx",
     "src/components/settings/providers/provider-credentials-editor.tsx",
-    "src/components/layout/resizable-canvas.tsx",
-    "src/components/workspace/right-panel-launcher.tsx",
     "src/components/settings/settings-dialog.tsx",
-    "src/components/workspace/workspace-panel.tsx",
-    "src/components/sessions/session-sidebar/navigation.tsx",
-    "src/components/sessions/session-sidebar/project-list.tsx",
-    "src/components/sessions/session-sidebar/view-model.tsx",
-    "src/components/layout/ui-error-boundary.tsx"
+    "src/components/workspace/workspace-panel.tsx"
   ]
 }

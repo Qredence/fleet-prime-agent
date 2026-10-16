@@ -2,37 +2,11 @@ import assert from "node:assert/strict"
 
 import { isValidElement } from "react"
 import {
-  AssistantTurn,
   buildAssistantElements,
   getAssistantToolElementKey,
-  UserTurn,
 } from "@/components/chat/transcript/message-turns"
-import type { ChatMessage } from "@prime-agent/web-protocol/chat-types"
 
 const noIdTask = { type: "tool-Task" }
-const compatibilityMessage = { id: "compatibility-message" } as ChatMessage
-
-// Keep the grouped turn contracts type-checked alongside the identity assertions.
-void (
-  <UserTurn
-    message={compatibilityMessage}
-    UserMessageComponent={() => null}
-    display={{ enableImagePreview: true, showCopyToolbar: true, isMounted: true, isCopyVisible: false }}
-    onCopied={() => {}}
-  />
-)
-void (
-  <AssistantTurn
-    assistantMsgs={[compatibilityMessage]}
-    turnKey="compatibility-turn"
-    stream={{ isLast: true, isStreaming: false }}
-    copy={{ enabled: true, isVisible: false }}
-    display={{ suppressQuestionTool: false }}
-    ToolRendererComponent={() => null}
-    TextRendererComponent={() => null}
-    onCopied={() => {}}
-  />
-)
 
 assert.equal(
   getAssistantToolElementKey("message-1", noIdTask, 0),

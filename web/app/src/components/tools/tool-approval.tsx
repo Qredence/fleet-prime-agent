@@ -3,7 +3,6 @@
 import { Check, ChevronDown, CircleAlert, LoaderCircle, ShieldCheck, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
-import { AgentCode, type AgentCodeLanguage } from "@/components/tools/agent-code";
 import { AgentDisclosure } from "@/components/tools/agent-disclosure";
 import { EASE_OUT, SPRING_PRESS, SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
@@ -14,12 +13,6 @@ export interface ToolApprovalParameter {
 	id: string;
 	label: ReactNode;
 	value: ReactNode;
-}
-
-export interface ToolApprovalCodeProps {
-	code: string;
-	language?: AgentCodeLanguage;
-	className?: string;
 }
 
 export interface ToolApprovalProps {
@@ -49,25 +42,15 @@ function getStatusCopy(status: ToolApprovalStatus) {
 
 function getStatusBadgeClass(status: ToolApprovalStatus) {
 	if (status === "pending") {
-		return "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400";
+		return "border-warning/30 bg-warning/10 text-warning";
 	}
 	if (status === "approving" || status === "running") {
 		return "border-primary/30 bg-primary/10 text-primary";
 	}
 	if (status === "approved" || status === "complete") {
-		return "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+		return "border-success/30 bg-success/10 text-success";
 	}
-	return "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400";
-}
-
-export function ToolApprovalCode({ code, language = "bash", className }: ToolApprovalCodeProps) {
-	return (
-		<AgentCode
-			code={code}
-			language={language}
-			className={cn("rounded-lg border border-border/50 bg-muted/30 px-2.5 py-2", className)}
-		/>
-	);
+	return "border-destructive/30 bg-destructive/10 text-destructive";
 }
 
 export function ToolApproval({
@@ -199,7 +182,7 @@ export function ToolApproval({
 						<m.button
 							type="button"
 							onClick={onApprove}
-							whileTap={reduce ? undefined : { scale: 0.97 }}
+							whileTap={reduce ? undefined : { scale: 0.96 }}
 							transition={SPRING_PRESS}
 							className="rounded-xl bg-foreground px-3 py-1.5 text-xs font-medium text-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 						>
@@ -209,7 +192,7 @@ export function ToolApproval({
 							<m.button
 								type="button"
 								onClick={onAlwaysAllow}
-								whileTap={reduce ? undefined : { scale: 0.97 }}
+								whileTap={reduce ? undefined : { scale: 0.96 }}
 								transition={SPRING_PRESS}
 								className="rounded-xl border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
 							>

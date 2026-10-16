@@ -1,5 +1,15 @@
 import type { PrimeAgentRlmChild, PrimeAgentRlmTree } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { CheckCircle2, CircleAlert, CircleX, LoaderCircle, RotateCw } from "lucide-react";
+
+/**
+ * Maps a subagent's lifecycle state to the corresponding chat status.
+ */
+export function transcriptStatus(child: PrimeAgentRlmChild): ChatStatus {
+	if (child.status === "running" || child.status === "recovering") return "streaming";
+	if (child.status === "error" || child.status === "failed") return "error";
+	return "ready";
+}
 
 /**
  * Orders RLM child records according to the optional tree structure.
@@ -35,10 +45,9 @@ export function orderedRlmChildren(children: readonly PrimeAgentRlmChild[], tree
  * @returns A status icon styled for the given status
  */
 export function rlmStatusIcon(status: PrimeAgentRlmChild["status"]) {
-	if (status === "done") return <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />;
+	if (status === "done") return <CheckCircle2 className="size-3.5 text-success" />;
 	if (status === "error" || status === "failed") return <CircleAlert className="size-3.5 text-destructive" />;
 	if (status === "cancelled") return <CircleX className="size-3.5 text-muted-foreground" />;
-	if (status === "recovering")
-		return <RotateCw className="size-3.5 animate-spin text-amber-500 dark:text-amber-400" />;
+	if (status === "recovering") return <RotateCw className="size-3.5 animate-spin text-warning" />;
 	return <LoaderCircle className="size-3.5 animate-spin text-primary" />;
 }

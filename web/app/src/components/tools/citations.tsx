@@ -5,9 +5,16 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useId, useState } from "react";
 import { AgentDisclosure } from "@/components/tools/agent-disclosure";
 import { EASE_OUT, SPRING_LAYOUT, SPRING_SWAP } from "@/lib/ease";
-import { getFaviconUrl } from "@/lib/favicon";
 import { isSafeExternalUrl } from "@/lib/safe-external-url";
 import { cn } from "@/lib/utils";
+
+function getFaviconUrl(value: string) {
+	try {
+		return new URL("/favicon.ico", value).toString();
+	} catch {
+		return null;
+	}
+}
 
 export interface CitationItem {
 	id: string;
@@ -40,12 +47,6 @@ export interface CitationListProps {
 	className?: string;
 }
 
-export interface CitationStackProps {
-	citations: CitationItem[];
-	limit?: number;
-	className?: string;
-}
-
 function citationTargetId(prefix: string, citationId: string) {
 	return `${prefix}-${citationId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
@@ -65,7 +66,7 @@ export function Citation({ citationId, index, idPrefix, className }: CitationPro
 	);
 }
 
-export function CitationFavicon({ url, className }: { url?: string; className?: string }) {
+function CitationFavicon({ url, className }: { url?: string; className?: string }) {
 	const favicon = url && isSafeExternalUrl(url) ? getFaviconUrl(url) : null;
 	const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
@@ -88,20 +89,6 @@ export function CitationFavicon({ url, className }: { url?: string; className?: 
 			) : (
 				<Globe2 className="size-3.5" />
 			)}
-		</span>
-	);
-}
-
-export function CitationStack({ citations, limit = 3, className }: CitationStackProps) {
-	return (
-		<span aria-hidden="true" className={cn("flex -space-x-1.5", className)}>
-			{citations.slice(0, limit).map((citation) => (
-				<CitationFavicon
-					key={citation.id}
-					url={citation.url}
-					className="size-6 rounded-full bg-background ring-2 ring-background"
-				/>
-			))}
 		</span>
 	);
 }
@@ -144,7 +131,7 @@ function CitationRow({ citation, index, idPrefix }: { citation: CitationItem; in
 	);
 }
 
-export function CitationList({ citations, idPrefix, className }: CitationListProps) {
+function CitationList({ citations, idPrefix, className }: CitationListProps) {
 	const reduce = useReducedMotion() ?? false;
 	const baseId = useId();
 	const resolvedPrefix = idPrefix ?? `citation-list-${baseId.replace(/:/g, "")}`;

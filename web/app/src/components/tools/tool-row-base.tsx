@@ -97,7 +97,7 @@ export function ToolRowBase({
 			<CollapsibleContent
 				className={cn(
 					"overflow-hidden",
-					"h-[var(--collapsible-panel-height)] transition-all duration-150 ease-out",
+					"h-[var(--collapsible-panel-height)] transition-[height] duration-150 ease-out",
 					"data-ending-style:h-0 data-starting-style:h-0",
 					"[&[hidden]:not([hidden='until-found'])]:hidden",
 				)}

@@ -66,7 +66,7 @@ export const ToolApprovalFooter = memo(function ToolApprovalFooter({
 					type="button"
 					onClick={handleReject}
 					disabled={Boolean(decision)}
-					className="h-5 rounded-[4px] px-1.5 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-muted/50 hover:text-foreground active:scale-[0.98] disabled:opacity-60 disabled:hover:bg-transparent disabled:active:scale-100"
+					className="h-5 rounded-[4px] px-1.5 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-muted/50 hover:text-foreground enabled:active:scale-[0.96] disabled:opacity-60 disabled:hover:bg-transparent"
 				>
 					{rejectText}
 				</button>
@@ -74,7 +74,7 @@ export const ToolApprovalFooter = memo(function ToolApprovalFooter({
 					type="button"
 					onClick={handleApprove}
 					disabled={Boolean(decision)}
-					className="h-5 rounded-[4px] bg-primary px-1.5 text-xs font-medium text-primary-foreground transition-[background-color,transform] duration-150 hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60 disabled:hover:bg-primary disabled:active:scale-100"
+					className="h-5 rounded-[4px] bg-primary px-1.5 text-xs font-medium text-primary-foreground transition-[background-color,transform] duration-150 hover:bg-primary/90 enabled:active:scale-[0.96] disabled:opacity-60 disabled:hover:bg-primary"
 				>
 					{approveText}
 				</button>

@@ -41,11 +41,3 @@ export function isV5ToolPart(part: unknown): part is ToolPartBase {
 	const partType = part.type;
 	return partType === "dynamic-tool" || (typeof partType === "string" && partType.startsWith("tool-"));
 }
-
-export function getTextFromParts(parts: Array<unknown>, joiner: string): string {
-	const texts: Array<string> = [];
-	for (const part of parts) {
-		if (isTextPart(part)) texts.push(part.text);
-	}
-	return texts.join(joiner);
-}

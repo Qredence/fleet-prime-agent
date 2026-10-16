@@ -174,7 +174,7 @@ export function FileAttachment({
 					aria-label={`Remove ${filename}`}
 					className={cn(
 						HIT_AREA_EXPAND_CLASS,
-						"absolute -top-1.5 -end-1.5 z-10 flex size-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100",
+						"absolute -top-1.5 -end-1.5 z-10 flex size-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring enabled:active:scale-[0.96] group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100",
 						isHovered ? "opacity-100" : "opacity-0",
 					)}
 					type="button"

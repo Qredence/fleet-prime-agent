@@ -23,7 +23,6 @@ import { applyChatStreamEvent } from "@/components/chat/chat-stream-state";
 import { hydratePlanPresentationMessages } from "@/components/chat/plans/plan-presentation";
 import type { SendMessageInput } from "@/components/chat/use-pi-chat";
 import { tryRecoverForbiddenSession, tryRecoverUnknownSession } from "@/components/chat/use-pi-chat-forbidden-session";
-import { captureChatSessionStarted, captureConversationSaved } from "@/lib/analytics-stub";
 
 type PiChatMessagingRefs = {
 	activityLabelRef: MutableRefObject<string | undefined>;
@@ -435,13 +434,6 @@ export function usePiChatMessaging({
 			setActivityLabelSynced(undefined);
 			setStatus("submitted");
 
-			if (messagesRef.current.length === 0) {
-				captureChatSessionStarted({
-					promptLength: trimmed.length,
-					sessionId: sessionMetadataRef.current.sessionId,
-				});
-			}
-
 			const userMessage = createOptimisticUserMessage(trimmed);
 			setMessagesSynced((current) => [...current, userMessage]);
 			const assistantIdRef = { current: null as string | null };
@@ -504,10 +496,6 @@ export function usePiChatMessaging({
 				) {
 					setStatus("ready");
 				}
-				captureConversationSaved({
-					messageCount: messagesRef.current.length,
-					sessionId: ensuredStreamSessionId,
-				});
 				return true;
 			} catch (err) {
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
@@ -553,7 +541,6 @@ export function usePiChatMessaging({
 			findStreamAdmission,
 			handleStreamEvent,
 			reconcileSession,
-			messagesRef,
 			model,
 			pendingSendControllerRef,
 			refreshSessions,

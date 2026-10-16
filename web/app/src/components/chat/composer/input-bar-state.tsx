@@ -17,9 +17,9 @@ import {
 	sameEditingState,
 	spliceCompletion,
 } from "@/components/chat/composer/inline-completion";
-import type { SuggestionItem } from "@/components/chat/composer/input/suggestions";
 import type { InputBarProps } from "@/components/chat/composer/input-bar";
-import { useQuestionBarNavigation } from "@/components/chat/hooks/use-question-bar-navigation";
+import { useQuestionBarNavigation } from "@/components/chat/question/use-question-bar-navigation";
+import type { SuggestionItem } from "@/components/chat/types";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
 import { formatProviderLabel } from "@/components/settings/providers/provider-label";
 

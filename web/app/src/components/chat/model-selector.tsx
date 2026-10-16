@@ -119,7 +119,10 @@ export const ModelSelector = memo(function ModelSelector({
 			onOpenChange={handleOpenChange}
 			side="top"
 			align="start"
-			className={cn("w-[min(24rem,calc(100vw-2rem))] max-h-[min(55vh,28rem)] overflow-hidden p-0", contentClassName)}
+			className={cn(
+				"w-[min(24rem,calc(100vw-2rem))] max-h-[min(55dvh,28rem)] overflow-hidden p-0",
+				contentClassName,
+			)}
 			trigger={trigger}
 		>
 			{open ? (

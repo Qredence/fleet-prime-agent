@@ -1,9 +1,9 @@
 import { memo } from "react";
-import { useToolComplete } from "@/components/chat/hooks/use-tool-complete";
 import type { StepState, TimelineStep } from "@/components/tools/timeline";
 import type { ToolApproval } from "@/components/tools/tool-approval-footer";
 import { ToolApprovalFooter } from "@/components/tools/tool-approval-footer";
 import { ToolTextShimmer } from "@/components/tools/tool-text-shimmer";
+import { useToolComplete } from "@/components/tools/utils/format-tool";
 import { adaptToolPart } from "@/components/tools/utils/tool-adapters";
 
 function extractCommandSummary(cmd: string): string {
@@ -61,7 +61,7 @@ function BashToolTerminalCard({ step, state, onComplete, approval }: BashToolTer
 			</div>
 			<div className="overflow-hidden border-t border-border bg-background px-2.5 py-1.5 font-mono text-label leading-[16px]">
 				<div className="break-all">
-					<span className="text-amber-600 select-none dark:text-amber-400">$ </span>
+					<span className="select-none text-warning">$ </span>
 					<span className="text-foreground">{command}</span>
 				</div>
 				{!isPending && step.bashOutput && (

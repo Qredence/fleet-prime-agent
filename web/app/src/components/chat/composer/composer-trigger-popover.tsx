@@ -147,7 +147,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 				<span className="font-medium">{title ?? (kind === "slash" ? "Commands" : "Workspace")}</span>
 				{query ? <span className="ms-auto max-w-[50%] truncate font-mono text-caption">{query}</span> : null}
 			</div>
-			<div className="max-h-[min(42vh,360px)] overflow-y-auto p-1.5">
+			<div className="max-h-[min(42dvh,360px)] overflow-y-auto overscroll-contain p-1.5">
 				{flatItems.length === 0 ? (
 					<div className="px-3 py-6 text-center text-sm text-muted-foreground">{emptyLabel}</div>
 				) : null}

@@ -11,13 +11,6 @@ import { SubagentList } from "@/components/tools/subagent-list";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
 import { notify } from "@/lib/notify";
 
-vi.mock("@/components/openui/inline-renderer", () => ({
-	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
-		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>
-			Trigger OpenUI action
-		</button>
-	),
-}));
 vi.mock("@/components/openui/openui-renderer", () => ({
 	GenerativeTextRenderer: ({ onOpenUIAction }: { onOpenUIAction?: (message: string) => void }) => (
 		<button type="button" onClick={() => onOpenUIAction?.("continue_conversation")}>

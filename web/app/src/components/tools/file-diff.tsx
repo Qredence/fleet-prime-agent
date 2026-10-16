@@ -40,7 +40,7 @@ function ChangeCount({ value, type }: { value: number; type: "added" | "removed"
 		<span
 			className={cn(
 				"font-mono text-xs tabular-nums",
-				type === "added" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400",
+				type === "added" ? "text-product-diff-added" : "text-product-diff-removed",
 			)}
 		>
 			{type === "added" ? "+" : "−"}
@@ -188,8 +188,8 @@ export function FileDiff({
 											key={line.id}
 											className={cn(
 												"grid grid-cols-[2.25rem_2.25rem_1rem_minmax(0,1fr)]",
-												type === "added" && "bg-emerald-500/[0.07]",
-												type === "removed" && "bg-rose-500/[0.07]",
+												type === "added" && "bg-success/[0.07]",
+												type === "removed" && "bg-destructive/[0.07]",
 											)}
 										>
 											<span className="select-none pr-2 text-right tabular-nums text-muted-foreground/40">
@@ -201,8 +201,8 @@ export function FileDiff({
 											<span
 												className={cn(
 													"select-none text-center text-muted-foreground/45",
-													type === "added" && "text-emerald-600 dark:text-emerald-400",
-													type === "removed" && "text-rose-600 dark:text-rose-400",
+													type === "added" && "text-product-diff-added",
+													type === "removed" && "text-product-diff-removed",
 												)}
 											>
 												{type === "added" ? "+" : type === "removed" ? "−" : ""}
@@ -225,7 +225,7 @@ export function FileDiff({
 									aria-label={copied ? "Copied" : "Copy diff"}
 									title={copied ? "Copied" : "Copy diff"}
 									onClick={handleCopy}
-									whileTap={reduce ? undefined : { scale: 0.9 }}
+									whileTap={reduce ? undefined : { scale: 0.96 }}
 									transition={SPRING_PRESS}
 									className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 								>

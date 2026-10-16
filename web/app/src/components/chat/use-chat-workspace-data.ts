@@ -32,6 +32,7 @@ import {
 	useWorkspaceTree,
 } from "@/components/chat/chat-queries";
 import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
+import { useChatWorkspaceComposerState } from "@/components/chat/composer/chat-input-bar-props";
 import { useComposerInlineCompletion } from "@/components/chat/composer/composer-inline-completion";
 import { useComposerIntentAvailability, useComposerIntentRouting } from "@/components/chat/composer/composer-intent";
 import type { InlineCompletion } from "@/components/chat/composer/inline-completion";
@@ -41,7 +42,6 @@ import {
 } from "@/components/chat/composer/pending-attachment-lifecycle";
 import type { SettingsSlashTab } from "@/components/chat/composer/slash-commands";
 import { buildSlashCommands } from "@/components/chat/composer/slash-commands";
-import { useChatWorkspaceComposerState } from "@/components/chat/composer/use-chat-workspace-composer-state";
 import {
 	buildWorkspaceReferenceSuggestions,
 	workspacePathFromSuggestion,
@@ -52,15 +52,13 @@ import { useChatStorage } from "@/components/chat/use-chat-storage";
 import { useChatSuggestions } from "@/components/chat/use-chat-view";
 import { useLocalSlashActions } from "@/components/chat/use-local-slash-actions";
 import { usePiChat } from "@/components/chat/use-pi-chat";
+import { useChatWorkspaceHeader } from "@/components/layout/chat-header";
+import { useChatWorkspaceDialogs } from "@/components/layout/chat-workspace-dialogs";
 import { useChatShellState } from "@/components/layout/use-chat-shell-state";
-import { useChatWorkspaceDialogs } from "@/components/layout/use-chat-workspace-dialogs";
-import { useChatWorkspaceHeader } from "@/components/layout/use-chat-workspace-header";
 import { useRightPanelContextValue } from "@/components/layout/use-right-panel-context-value";
 import { useAgentTabs } from "@/components/sessions/use-agent-tabs";
 import { useSessionTree } from "@/components/sessions/use-session-tree";
 import { loadWorkspaceFile } from "@/components/workspace/workspace-file";
-import { identifyAnalyticsUser } from "@/lib/analytics-stub";
-import { useOptionalUser } from "@/lib/auth-stub";
 import { notify } from "@/lib/notify";
 
 function resolveSavedModelKey(models: Array<ChatModelOption>, response: ChatSettingsResponse): string | undefined {
@@ -75,7 +73,6 @@ function resolveSavedModelKey(models: Array<ChatModelOption>, response: ChatSett
  * Provides coordinated state, data, and actions for the chat workspace, including projects, sessions, conversations, attachments, panels, dialogs, and settings.
  */
 export function useChatWorkspaceData() {
-	const user = useOptionalUser();
 	const {
 		forkPickerEntries,
 		setForkPickerEntries,
@@ -100,10 +97,6 @@ export function useChatWorkspaceData() {
 	const [activeProjectId, setActiveProjectId] = useState<ProjectId | undefined>(
 		storage.sessionMetadata.projectId ?? undefined,
 	);
-
-	useEffect(() => {
-		if (user) identifyAnalyticsUser(user);
-	}, [user]);
 	const { data: providersData, isLoading: isLoadingProviders } = useChatProviders();
 	const { data: mcpData, isLoading: isLoadingMcp } = useChatMcpConnections();
 	const { data: projectsData, refetch: refetchProjects } = useChatProjects();

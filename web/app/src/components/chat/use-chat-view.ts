@@ -8,7 +8,7 @@ import type { ChatMessage, ChatToolPart } from "@prime-agent/web-protocol/chat-t
 import { meaningfulSessionLabel, sessionListTitle } from "@prime-agent/web-protocol/session-label";
 import { useMemo } from "react";
 import { normalizeSessionLabel } from "@/components/chat/chat-helpers";
-import type { SuggestionItem } from "@/components/chat/composer/input/suggestions";
+import type { SuggestionItem } from "@/components/chat/types";
 
 export function useChatSuggestions({
 	messages,

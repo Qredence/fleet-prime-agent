@@ -1,10 +1,10 @@
 import { Code2 } from "lucide-react";
 import { memo } from "react";
-import { useToolComplete } from "@/components/chat/hooks/use-tool-complete";
 import type { StepState, TimelineStep } from "@/components/tools/timeline";
 import type { ToolApproval } from "@/components/tools/tool-approval-footer";
 import { ToolApprovalFooter } from "@/components/tools/tool-approval-footer";
 import { ToolTextShimmer } from "@/components/tools/tool-text-shimmer";
+import { useToolComplete } from "@/components/tools/utils/format-tool";
 import { adaptToolPart } from "@/components/tools/utils/tool-adapters";
 
 type IpythonDetails = {
@@ -114,7 +114,7 @@ function IpythonCardHeader({
 function IpythonBackgroundOutput({ output }: { output: string }) {
 	return (
 		<div className="mt-1.5 border-t border-dashed border-border/70 pt-1.5 font-mono text-caption leading-[15px]">
-			<span className="text-micro font-semibold uppercase tracking-wider text-amber-600/90 dark:text-amber-400/90">
+			<span className="text-micro font-semibold uppercase tracking-wider text-warning/90">
 				Unattributed background output:
 			</span>
 			<div className="mt-0.5 max-h-[140px] overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-1.5 text-muted-foreground">
@@ -166,7 +166,7 @@ function IpythonCellCard({ step, state, onComplete, approval, cellIndex, part }:
 				{!isPending && displayOutput && (
 					<div
 						className={`mt-1 max-h-[160px] overflow-hidden whitespace-pre-line ${
-							hasError ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
+							hasError ? "text-destructive" : "text-muted-foreground"
 						}`}
 					>
 						{displayOutput}

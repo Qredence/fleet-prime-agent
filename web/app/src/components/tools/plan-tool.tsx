@@ -1,6 +1,5 @@
-import { ChevronsDown, ChevronsUp, FileText } from "lucide-react";
+import { ChevronsDown, ChevronsUp, FileText, Loader2 } from "lucide-react";
 import { memo, useState } from "react";
-import { IconSpinner } from "@/components/chat/icons";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
 import { areToolPropsEqual, getToolStatus } from "@/components/tools/utils/format-tool";
 import { cn } from "@/lib/utils";
@@ -97,7 +96,7 @@ export const PlanTool = memo(function PlanTool({ part, chatStatus }: PlanToolPro
 			<div className="flex h-7 items-center justify-between pr-2.5 pl-3">
 				<div className="flex min-w-0 items-center gap-1">
 					{isPending ? (
-						<IconSpinner className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />
+						<Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />
 					) : (
 						<FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 					)}

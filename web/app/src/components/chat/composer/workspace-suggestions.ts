@@ -1,6 +1,6 @@
 import type { WorkspaceTreeNode, WorkspaceTreeResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract";
-import type { SuggestionItem } from "@/components/chat/composer/input/suggestions";
+import type { SuggestionItem } from "@/components/chat/types";
 
 const WORKSPACE_SUGGESTION_PREFIX = "workspace:";
 

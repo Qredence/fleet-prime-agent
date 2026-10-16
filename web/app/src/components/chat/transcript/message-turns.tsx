@@ -1,28 +1,34 @@
-import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type React from "react";
-import { memo, useMemo } from "react";
-import { ErrorMessage } from "@/components/chat/error-message";
-import { formatTimestamp, MessageToolbar } from "@/components/chat/transcript/message-toolbar";
+import { memo } from "react";
+import type { ToolPartBase, ToolRendererProps } from "@/components/chat/transcript/chat-message-parts";
+import { isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "@/components/chat/transcript/chat-message-parts";
 import { PayloadPart } from "@/components/chat/transcript/payload-part";
 import type { CustomToolRendererProps } from "@/components/chat/types";
-import type { ToolPartBase, ToolRendererProps } from "@/components/chat/utils/chat-message-parts";
-import {
-	getTextFromParts,
-	isErrorPart,
-	isPayloadPart,
-	isTextPart,
-	isV5ToolPart,
-} from "@/components/chat/utils/chat-message-parts";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
-import { normalizeAssistantToolParts } from "@/components/tools/utils/tool-part-normalizer";
+import { cn } from "@/lib/utils";
 
 const EMPTY_NESTED_TOOLS: Array<ToolPartBase> = [];
 
-type UserMessageComponentProps = {
-	message: ChatMessage;
+type ErrorMessageProps = {
+	title?: string;
+	message: string;
 	className?: string;
-	enableImagePreview?: boolean;
 };
+
+const ErrorMessage = memo(function ErrorMessage({
+	title = "Unable to complete request",
+	message,
+	className,
+}: ErrorMessageProps) {
+	return (
+		<div className={cn("flex justify-start", className)}>
+			<div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-foreground">
+				<div className="font-medium text-foreground">{title}</div>
+				<div className="mt-0.5 text-muted-foreground">{message}</div>
+			</div>
+		</div>
+	);
+});
 
 type TextRendererComponentProps = {
 	content: string;
@@ -33,161 +39,6 @@ type TextRendererComponentProps = {
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
 	onOpenArtifact?: (artifactId: string) => void;
 };
-
-type UserTurnDisplay = {
-	enableImagePreview: boolean;
-	showCopyToolbar: boolean;
-	isMounted: boolean;
-	isCopyVisible: boolean;
-};
-
-type AssistantTurnStream = {
-	isLast: boolean;
-	isStreaming: boolean;
-};
-
-type AssistantTurnCopy = {
-	enabled: boolean;
-	isVisible: boolean;
-};
-
-type AssistantTurnDisplay = {
-	suppressQuestionTool: boolean;
-};
-
-type UserTurnSharedProps = {
-	message: ChatMessage;
-	UserMessageComponent: React.ComponentType<UserMessageComponentProps>;
-	userMessageClassName?: string;
-	onCopied: (copyKey: string) => void;
-};
-
-type UserTurnProps = UserTurnSharedProps & { display: UserTurnDisplay };
-
-type AssistantTurnSharedProps = {
-	assistantMsgs: Array<ChatMessage>;
-	turnKey: string;
-	ToolRendererComponent: React.ComponentType<ToolRendererProps>;
-	TextRendererComponent: React.ComponentType<TextRendererComponentProps>;
-	toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>;
-	onOpenUIAction?: (message: string) => void;
-	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
-	onOpenArtifact?: (artifactId: string) => void;
-	onCopied: (copyKey: string) => void;
-};
-
-type AssistantTurnProps = AssistantTurnSharedProps & {
-	stream: AssistantTurnStream;
-	copy: AssistantTurnCopy;
-	display: AssistantTurnDisplay;
-};
-
-/** One user message bubble plus its hover copy/timestamp toolbar. */
-export const UserTurn = memo(function UserTurn(props: UserTurnProps) {
-	const { message, UserMessageComponent, userMessageClassName, onCopied, display } = props;
-	const { enableImagePreview, showCopyToolbar, isMounted, isCopyVisible } = display;
-	const text = getTextFromParts(message.parts ?? [], "");
-	const hasParts = (message.parts ?? []).length > 0;
-	if (!text && !hasParts) return null;
-	const userCreatedAt = (message as { createdAt?: Date | string })?.createdAt;
-	const userCopyKey = `user-${message.id}`;
-	const userTimestamp = isMounted && userCreatedAt ? formatTimestamp(new Date(userCreatedAt)) : undefined;
-	// Only render the toolbar when it has content — copy
-	// button (gated by showCopyToolbar) or a timestamp.
-	// Otherwise a 28px-tall empty row inflates the gap to the
-	// assistant reply.
-	const showUserToolbar = (showCopyToolbar && Boolean(text)) || Boolean(userTimestamp);
-	return (
-		<div className="group/user-message">
-			<UserMessageComponent
-				message={message}
-				className={userMessageClassName}
-				enableImagePreview={enableImagePreview}
-			/>
-			{showUserToolbar && (
-				<MessageToolbar
-					text={showCopyToolbar ? text : ""}
-					timestamp={userTimestamp}
-					heightClass="h-[28px]"
-					hoverClass="group-hover/user-message:opacity-100 group-hover/user-message:pointer-events-auto"
-					isVisible={isCopyVisible}
-					alignClass="justify-end"
-					onCopied={() => onCopied(userCopyKey)}
-				/>
-			)}
-		</div>
-	);
-});
-
-/** All assistant messages of a turn plus the single shared copy toolbar. */
-export const AssistantTurn = memo(function AssistantTurn(props: AssistantTurnProps) {
-	const {
-		assistantMsgs,
-		turnKey,
-		ToolRendererComponent,
-		TextRendererComponent,
-		toolRenderers,
-		onOpenUIAction,
-		onOpenUIArtifactReady,
-		onOpenArtifact,
-		onCopied,
-		stream,
-		copy,
-		display,
-	} = props;
-	const { isLast: isLastTurn, isStreaming } = stream;
-	const { enabled: showCopyToolbar, isVisible: isCopyVisible } = copy;
-	const { suppressQuestionTool } = display;
-	const assistantText = getTextFromParts(
-		assistantMsgs.flatMap((msg) => msg.parts ?? []),
-		"\n\n",
-	);
-	const isTurnStreaming = isStreaming && isLastTurn;
-	// Only reserve toolbar height when there's actually
-	// something to show in it. With showCopyToolbar=false the
-	// toolbar would otherwise render as a 48px-tall empty box,
-	// creating large gaps between assistant turns. The toolbar
-	// also stays mounted (invisible) while its copy state is
-	// active so the copied checkmark does not vanish mid-feedback.
-	const showToolbar = showCopyToolbar && Boolean(assistantText.trim()) && !isTurnStreaming;
-	const copyKey = `assistant-${turnKey}-all`;
-	const toolbarText = showCopyToolbar ? assistantText : "";
-
-	return (
-		<div className="group/assistant-turn">
-			<div className="flex flex-col gap-3">
-				{assistantMsgs.map((msg, i) => {
-					const isLastMsg = isLastTurn && i === assistantMsgs.length - 1;
-					return (
-						<AssistantParts
-							key={msg.id}
-							msg={msg}
-							isLast={isLastMsg}
-							isStreaming={isStreaming}
-							suppressQuestionTool={suppressQuestionTool}
-							ToolRendererComponent={ToolRendererComponent}
-							TextRendererComponent={TextRendererComponent}
-							toolRenderers={toolRenderers}
-							onOpenUIAction={onOpenUIAction}
-							onOpenUIArtifactReady={onOpenUIArtifactReady}
-							onOpenArtifact={onOpenArtifact}
-						/>
-					);
-				})}
-			</div>
-			{(showToolbar || isCopyVisible) && (
-				<MessageToolbar
-					text={toolbarText}
-					heightClass="h-[48px] flex items-start w-full"
-					hoverClass="group-hover/assistant-turn:opacity-100 group-hover/assistant-turn:pointer-events-auto"
-					isVisible={isCopyVisible}
-					alignClass="justify-start"
-					onCopied={() => onCopied(copyKey)}
-				/>
-			)}
-		</div>
-	);
-});
 
 const TOOL_CALL_KEY_PREFIX = "tool-call:";
 const UNKEYED_TOOL_KEY_PREFIX = "unkeyed-tool:";
@@ -329,8 +180,6 @@ export function buildAssistantElements(
 				unkeyedToolOccurrences.set(part.type, occurrence + 1);
 			}
 
-			// Non-empty toolCallId values remain authoritative. Unkeyed fallback keys assume the
-			// protocol only appends fragments; reordering unkeyed fragments is unsupported.
 			elems.push(
 				<ToolRendererComponent
 					key={getAssistantToolElementKey(messageId, part, occurrence)}
@@ -365,65 +214,4 @@ export function buildAssistantElements(
 	}
 
 	return elems;
-}
-
-function AssistantParts({
-	msg,
-	isLast,
-	isStreaming,
-	suppressQuestionTool,
-	ToolRendererComponent,
-	TextRendererComponent,
-	toolRenderers,
-	onOpenUIAction,
-	onOpenUIArtifactReady,
-	onOpenArtifact,
-}: {
-	msg: ChatMessage;
-	isLast: boolean;
-	isStreaming: boolean;
-	suppressQuestionTool: boolean;
-	ToolRendererComponent: React.ComponentType<ToolRendererProps>;
-	TextRendererComponent: React.ComponentType<TextRendererComponentProps>;
-	toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>;
-	onOpenUIAction?: (message: string) => void;
-	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
-	onOpenArtifact?: (artifactId: string) => void;
-}) {
-	const parts = useMemo(() => normalizeAssistantToolParts(msg.parts ?? []), [msg.parts]);
-
-	const elements = useMemo(
-		() =>
-			buildAssistantElements(parts, {
-				messageId: msg.id,
-				isLast,
-				isStreaming,
-				suppressQuestionTool,
-				ToolRendererComponent,
-				TextRendererComponent,
-				toolRenderers,
-				onOpenUIAction,
-				onOpenUIArtifactReady,
-				onOpenArtifact,
-			}),
-		[
-			parts,
-			msg.id,
-			isLast,
-			isStreaming,
-			suppressQuestionTool,
-			ToolRendererComponent,
-			TextRendererComponent,
-			toolRenderers,
-			onOpenUIAction,
-			onOpenUIArtifactReady,
-			onOpenArtifact,
-		],
-	);
-
-	if (elements.length > 1) {
-		return <div className="group/assistant-turn flex flex-col gap-3">{elements}</div>;
-	}
-
-	return <div className="group/assistant-turn">{elements}</div>;
 }
