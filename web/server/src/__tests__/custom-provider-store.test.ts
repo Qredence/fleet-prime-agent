@@ -39,7 +39,39 @@ describe("custom-provider-store", () => {
 			baseUrl: "https://api.acme.test",
 			api: "openai-completions",
 			apiKey: "CUSTOM_ACME_API_KEY",
+			compat: { supportsStore: false },
 			models: [{ id: "acme-1" }, { id: "acme-2" }],
+		});
+	});
+
+	it("defaults gpt-6 and gpt-5.6 models on openai-completions to reasoning_effort=none for tool compatibility", async () => {
+		await upsertCustomProvider(modelsJsonPath, "custom+neon", {
+			name: "Neon",
+			baseUrl: "https://branch-api.ai.c-6.us-east-2.aws.neon.tech/v1",
+			api: "openai-completions",
+			apiKey: "CUSTOM_NEON_API_KEY",
+			models: [{ id: "gpt-6-luna" }, { id: "claude-haiku-5-5" }],
+		});
+
+		const providers = listCustomProviders(modelsJsonPath);
+		expect(providers["custom+neon"]).toMatchObject({
+			compat: { supportsStore: false },
+			models: [
+				{
+					id: "gpt-6-luna",
+					reasoning: true,
+					thinkingLevelMap: {
+						off: "none",
+						minimal: null,
+						low: null,
+						medium: null,
+						high: null,
+						xhigh: null,
+						max: null,
+					},
+				},
+				{ id: "claude-haiku-5-5" },
+			],
 		});
 	});
 

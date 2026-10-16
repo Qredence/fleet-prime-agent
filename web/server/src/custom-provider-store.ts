@@ -97,16 +97,48 @@ function readModelsJsonForWrite(filePath: string): ModelsJson {
 	}
 }
 
+const OPENAI_COMPLETIONS_TOOL_REASONING_NONE_PATTERN = /^(?:[^/]+\/)?gpt-(?:5[.-]6|6)(?:[.-]|$)/i;
+
+const OPENAI_COMPLETIONS_REASONING_OFF_MAP = {
+	off: "none",
+	minimal: null,
+	low: null,
+	medium: null,
+	high: null,
+	xhigh: null,
+	max: null,
+} as const;
+
+function applyModelDefaults(
+	model: { id: string; [key: string]: unknown },
+	storedApi: string | undefined,
+): { id: string; [key: string]: unknown } {
+	if (
+		storedApi === "openai-completions" &&
+		OPENAI_COMPLETIONS_TOOL_REASONING_NONE_PATTERN.test(model.id) &&
+		model.reasoning === undefined &&
+		model.thinkingLevelMap === undefined
+	) {
+		return {
+			...model,
+			reasoning: true,
+			thinkingLevelMap: OPENAI_COMPLETIONS_REASONING_OFF_MAP,
+		};
+	}
+	return model;
+}
+
 function mergeModelDefinitions(
 	existing: Array<{ id: string; [key: string]: unknown }> | undefined,
 	incoming: Array<{ id: string; [key: string]: unknown }>,
+	storedApi?: string,
 ): Array<{ id: string; [key: string]: unknown }> {
 	const existingById = new Map((existing ?? []).map((model) => [model.id, model]));
 	const seen = new Set<string>();
 	return incoming.flatMap((model) => {
 		if (seen.has(model.id)) return [];
 		seen.add(model.id);
-		return [{ ...existingById.get(model.id), ...model }];
+		return [applyModelDefaults({ ...existingById.get(model.id), ...model }, storedApi)];
 	});
 }
 
@@ -123,6 +155,31 @@ function writeModelsJson(filePath: string, data: ModelsJson): void {
 	renameSync(tmpPath, filePath);
 }
 
+function defaultCompatForCustomProvider(
+	storedApi: string,
+	baseUrl: string,
+	existingCompat: unknown,
+): Record<string, unknown> | undefined {
+	const existingRecord =
+		existingCompat && typeof existingCompat === "object" && !Array.isArray(existingCompat)
+			? (existingCompat as Record<string, unknown>)
+			: undefined;
+	if (storedApi !== "openai-completions") {
+		return existingRecord;
+	}
+	try {
+		if (new URL(baseUrl).hostname === "api.openai.com") {
+			return existingRecord;
+		}
+	} catch {
+		// Non-OpenAI or unparseable baseUrl falls through to disabling store.
+	}
+	return {
+		supportsStore: false,
+		...existingRecord,
+	};
+}
+
 /**
  * Insert or update a custom-provider entry, preserving fields the UI does not
  * manage (compat, modelOverrides, headers) and entries for other providers.
@@ -131,13 +188,16 @@ export function upsertCustomProvider(filePath: string, providerId: string, input
 	const data = readModelsJsonForWrite(filePath);
 	const providers = { ...(data.providers ?? {}) };
 	const existing = providers[providerId] ?? {};
+	const storedApi = storedApiForCustomProvider(input.api);
+	const compat = defaultCompatForCustomProvider(storedApi, input.baseUrl, existing.compat);
 	providers[providerId] = {
 		...existing,
 		name: input.name ?? existing.name,
 		baseUrl: input.baseUrl,
-		api: storedApiForCustomProvider(input.api),
+		api: storedApi,
 		apiKey: input.apiKey,
-		models: mergeModelDefinitions(existing.models, input.models),
+		...(compat ? { compat } : {}),
+		models: mergeModelDefinitions(existing.models, input.models, storedApi),
 	};
 	writeModelsJson(filePath, { ...data, providers });
 }
@@ -148,9 +208,18 @@ export function addCustomProviderModelIds(filePath: string, providerId: string, 
 	const providers = { ...(data.providers ?? {}) };
 	const existing = providers[providerId];
 	if (!existing) return;
+	const compat =
+		typeof existing.api === "string" && typeof existing.baseUrl === "string"
+			? defaultCompatForCustomProvider(existing.api, existing.baseUrl, existing.compat)
+			: undefined;
 	providers[providerId] = {
 		...existing,
-		models: mergeModelDefinitions(existing.models, [...(existing.models ?? []), ...modelIds.map((id) => ({ id }))]),
+		...(compat ? { compat } : {}),
+		models: mergeModelDefinitions(
+			existing.models,
+			[...(existing.models ?? []), ...modelIds.map((id) => ({ id }))],
+			existing.api,
+		),
 	};
 	writeModelsJson(filePath, { ...data, providers });
 }
