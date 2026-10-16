@@ -3,7 +3,6 @@ import { Plus } from "lucide-react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Button } from "@/components/ui/button";
-import { SizeProvider } from "@/lib/size-context";
 
 describe("Button", () => {
 	it("uses the canonical compact size and resolves the legacy small alias", () => {
@@ -12,16 +11,6 @@ describe("Button", () => {
 
 		rerender(<Button size="sm">Legacy compact</Button>);
 		expect(screen.getByRole("button", { name: "Legacy compact" }).className).toContain("h-7");
-	});
-
-	it("inherits compact size from SizeProvider when size is omitted", () => {
-		render(
-			<SizeProvider size="compact">
-				<Button>In context</Button>
-			</SizeProvider>,
-		);
-
-		expect(screen.getByRole("button", { name: "In context" }).className).toContain("h-7");
 	});
 
 	it("disables interaction while loading and keeps its label available", () => {

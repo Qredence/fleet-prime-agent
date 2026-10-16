@@ -1,8 +1,53 @@
 "use client";
 
-import type { ComponentProps } from "react";
-import { useLayoutEffect, useRef, useState } from "react";
+import {
+	type ComponentProps,
+	createContext,
+	type ReactNode,
+	useContext,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { cn } from "@/lib/utils";
+
+const SurfaceContext = createContext<number>(1);
+
+export function useSurface(): number {
+	return useContext(SurfaceContext);
+}
+
+export function SurfaceProvider({ value, children }: { value: number; children: ReactNode }) {
+	return <SurfaceContext.Provider value={Math.max(1, Math.min(8, value))}>{children}</SurfaceContext.Provider>;
+}
+
+const SURFACE_BG: Record<number, string> = {
+	1: "bg-surface-1",
+	2: "bg-surface-2",
+	3: "bg-surface-3",
+	4: "bg-surface-4",
+	5: "bg-surface-5",
+	6: "bg-surface-6",
+	7: "bg-surface-7",
+	8: "bg-surface-8",
+};
+
+const SURFACE_SHADOW: Record<number, string> = {
+	1: "shadow-surface-1",
+	2: "shadow-surface-2",
+	3: "shadow-surface-3",
+	4: "shadow-surface-4",
+	5: "shadow-surface-5",
+	6: "shadow-surface-6",
+	7: "shadow-surface-7",
+	8: "shadow-surface-8",
+};
+
+export function surfaceClasses(bgLevel: number, shadowLevel: number = bgLevel): string {
+	const bg = Math.round(Math.max(1, Math.min(8, bgLevel)));
+	const shadow = Math.round(Math.max(1, Math.min(8, shadowLevel)));
+	return `${SURFACE_BG[bg]} ${SURFACE_SHADOW[shadow]}`;
+}
 
 export const paper =
 	"bg-background shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_32px_-16px_rgba(0,0,0,0.12)] dark:bg-popover dark:shadow-none";
@@ -15,56 +60,19 @@ export const floating =
 
 export const field = "bg-foreground/[0.04] dark:bg-foreground/[0.06]";
 
-export const fieldInteractive =
-	"bg-foreground/[0.04] transition-colors hover:bg-foreground/[0.07] dark:bg-foreground/[0.06] dark:hover:bg-foreground/[0.09]";
-
-export const pressable =
-	"transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.96] motion-reduce:transition-none";
-
-export const ghostButton =
-	"flex items-center justify-center rounded-full text-foreground/45 outline-none transition-[background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground/90 active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-foreground/20 motion-reduce:transition-none dark:hover:bg-foreground/[0.09]";
-
-export const inkButton =
-	"bg-foreground text-background transition-[opacity,scale] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:opacity-90 active:scale-[0.96] motion-reduce:transition-none";
-
-export const iconSwap =
-	"[grid-area:1/1] transition-[opacity,scale,filter] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none";
-
-export const iconSwapIn = "scale-100 opacity-100 blur-none";
-
-export const iconSwapOut = "scale-[0.25] opacity-0 blur-[4px]";
-
-export const labelSwap =
+const labelSwap =
 	"col-start-1 row-start-1 flex w-max items-center gap-1.5 leading-none transition-[opacity,filter] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none";
-
-export const labelSwapIn = "opacity-100 blur-none";
-
-export const labelSwapOut = "pointer-events-none select-none opacity-0 blur-[2px]";
+const labelSwapIn = "opacity-100 blur-none";
+const labelSwapOut = "pointer-events-none select-none opacity-0 blur-[2px]";
 
 export const collapsePanel =
 	"h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] data-[ending-style]:h-0 data-[starting-style]:h-0 motion-reduce:transition-none";
-
-export const live = "text-primary";
 
 export const mono = "font-mono text-caption tracking-tight";
 
 export function ShimmerLabel({ active = true, className, ...props }: ComponentProps<"span"> & { active?: boolean }) {
 	return <span className={cn(active && "shimmer motion-reduce:animate-none", className)} {...props} />;
 }
-
-/**
- * Scroll region for content that keeps its own whitespace. `whitespace-pre` in
- * a bounded box clips a long line with no way to reach it, so the rows scroll
- * instead.
- *
- * `codeSurface` wraps all the rows as one block, and the rows are its children.
- * It cannot go on each row: `min-width: 100%` resolves against the scroll
- * container's visible width rather than its scroll width, so a per-row width
- * leaves every row except the longest ending its background at the fold.
- */
-export const codeScroll = "overflow-x-auto";
-
-export const codeSurface = "w-max min-w-full";
 
 export function SwapLabel({
 	active,

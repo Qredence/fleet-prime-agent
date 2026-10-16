@@ -2,8 +2,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
-import { surfaceClasses } from "@/lib/surface-classes";
-import { SurfaceProvider, useSurface } from "@/lib/surface-context";
+import { SurfaceProvider, surfaceClasses, useSurface } from "@/lib/surfaces";
 import { cn } from "@/lib/utils";
 
 /** Conventional elevation offset for a dialog off its substrate (Fluid surfaces). */
@@ -19,10 +18,6 @@ function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
 
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
 	return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
-}
-
-function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
-	return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
 function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) {
@@ -130,15 +125,4 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
 	);
 }
 
-export {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogOverlay,
-	DialogPortal,
-	DialogTitle,
-	DialogTrigger,
-};
+export { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger };

@@ -2,8 +2,7 @@ import { Select as SelectPrimitive } from "@base-ui/react/select";
 import type { LucideIcon } from "lucide-react";
 import { Check, ChevronDown } from "lucide-react";
 import type * as React from "react";
-import { surfaceClasses } from "@/lib/surface-classes";
-import { SurfaceProvider, useSurface } from "@/lib/surface-context";
+import { SurfaceProvider, surfaceClasses, useSurface } from "@/lib/surfaces";
 import { cn } from "@/lib/utils";
 
 /** Conventional elevation offset for a select menu off its substrate (Fluid surfaces). */
@@ -69,7 +68,7 @@ function Select({ className, onValueChange, options, placeholder, triggerId, val
 				<SelectPrimitive.Positioner className="z-[70]" sideOffset={4}>
 					<SelectPrimitive.Popup
 						className={cn(
-							"max-h-72 min-w-(--anchor-width) overflow-y-auto rounded-lg p-1 text-sm text-popover-foreground outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+							"max-h-72 min-w-(--anchor-width) overflow-y-auto overscroll-contain rounded-lg p-1 text-sm text-popover-foreground outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
 							surfaceClasses(menuLevel, 3),
 						)}
 					>

@@ -10,7 +10,6 @@
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 import { type ComponentPropsWithoutRef, type ComponentRef, createContext, forwardRef, useContext } from "react";
 import { useTouchPrimary } from "@/hooks/use-touch-primary";
-import { useShape } from "@/lib/shape-context";
 import { cn } from "@/lib/utils";
 
 // On touch-primary devices the Base UI machinery is skipped entirely in
@@ -47,7 +46,7 @@ const ScrollArea = forwardRef<ComponentRef<typeof ScrollAreaPrimitive.Root>, Scr
 						<div
 							data-slot="scroll-area-viewport"
 							className={cn(
-								"size-full rounded-[inherit]",
+								"size-full overscroll-contain rounded-[inherit]",
 								orientation === "vertical" && "overflow-y-auto",
 								orientation === "horizontal" && "overflow-x-auto",
 								orientation === "both" && "overflow-auto",
@@ -91,7 +90,6 @@ const ScrollBar = forwardRef<
 	ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Scrollbar>
 >(({ className, orientation = "vertical", ...props }, ref) => {
 	const isTouch = useContext(ScrollAreaContext);
-	const shape = useShape();
 
 	if (isTouch) return null;
 
@@ -100,19 +98,8 @@ const ScrollBar = forwardRef<
 			ref={ref}
 			orientation={orientation}
 			data-slot="scroll-area-scrollbar"
-			// Base UI keeps the scrollbar mounted while scrollable; visibility is
-			// a plain opacity transition off its hover/scroll state attributes,
-			// matching the cue fade — 160ms in, 120ms out (exits faster, per the
-			// animation guidelines); spring tokens are framer-motion configs and
-			// don't apply here.
 			className={cn(
-				// The 10px track stays as a comfortable hit target; the thumb inside
-				// it rests narrow and low-contrast, then widens + darkens on hover so
-				// it gets out of the way until you reach for it.
 				"group/scrollbar absolute z-20 flex touch-none select-none",
-				// Show immediately; on hide, wait out the 150ms thumb shrink before
-				// fading so the thumb visibly narrows back first instead of the fade
-				// masking it.
 				"opacity-0 transition-opacity duration-120 ease-out delay-160",
 				"data-[hovering]:duration-160 data-[scrolling]:duration-160",
 				"data-[hovering]:opacity-100 data-[scrolling]:opacity-100",
@@ -126,13 +113,8 @@ const ScrollBar = forwardRef<
 			<ScrollAreaPrimitive.Thumb
 				data-slot="scroll-area-thumb"
 				className={cn(
-					// Fixed surface-relative overlay ramp (8 → 12 → 16%) — same tint
-					// direction as the menu hover/active tokens, one notch stronger.
-					"relative bg-[rgb(var(--overlay)/0.08)] transition-[background-color,width,height] duration-160 ease-in-out",
+					"relative rounded-lg bg-[rgb(var(--overlay)/0.08)] transition-[background-color,width,height] duration-160 ease-in-out",
 					"group-hover/scrollbar:bg-[rgb(var(--overlay)/0.12)] active:!bg-[rgb(var(--overlay)/0.16)]",
-					shape.bg,
-					// -translate nudges the thumb 2px off the container edge; the track
-					// (and its 10px hit target) stays flush so edge-throws still land.
 					orientation === "vertical" &&
 						"mx-auto my-1 w-1 -translate-x-0.5 h-[var(--scroll-area-thumb-height)] group-hover/scrollbar:w-1.5",
 					orientation === "horizontal" &&
@@ -146,4 +128,4 @@ const ScrollBar = forwardRef<
 ScrollBar.displayName = "ScrollBar";
 
 export type { ScrollAreaProps };
-export { ScrollArea, ScrollBar };
+export { ScrollArea };

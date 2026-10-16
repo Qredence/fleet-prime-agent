@@ -4,16 +4,20 @@ import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
 	type ButtonHTMLAttributes,
+	type ComponentType,
 	cloneElement,
 	forwardRef,
 	isValidElement,
 	type ReactElement,
 	type ReactNode,
 } from "react";
-import type { IconComponent } from "@/lib/icon-context";
-import { useShape } from "@/lib/shape-context";
-import { useSizeVariant } from "@/lib/size-context";
 import { cn } from "@/lib/utils";
+
+export type IconComponent = ComponentType<{
+	size?: number | string;
+	strokeWidth?: number | string;
+	className?: string;
+}>;
 
 const buttonVariants = cva(
 	[
@@ -181,21 +185,15 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 					>)
 				: null;
 		const label = asChildElement ? asChildElement.props.children : children;
-		// Resolve the size: explicit prop (legacy aliases mapped onto the
-		// canonical ladder) > surrounding SizeProvider > default.
-		const contextSize = useSizeVariant();
 		const resolvedSize: ButtonSizeCanonical = size
 			? (legacySizeAliases[size] ?? (size as ButtonSizeCanonical))
-			: contextSize === "compact"
-				? "compact"
-				: "default";
+			: "default";
 		const isIconOnly = resolvedSize === "icon" || resolvedSize === "icon-compact";
 		const isCompact = resolvedSize === "compact" || resolvedSize === "icon-compact";
 		const iconSize = isCompact ? 14 : 16;
 		// Spinner box tracks the button height so the loading glyph stays
 		// proportionate across sizes.
 		const spinnerSizeClass = isCompact ? "h-7 w-7" : "h-9 w-9";
-		const shape = useShape();
 		const bgClass = active ? activeBgVariants[variant ?? "primary"] : bgVariants[variant ?? "primary"];
 
 		const internals = (
@@ -207,10 +205,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 						bgClass,
 					)}
 				/>
-				<span className="relative inline-flex items-center justify-center gap-[inherit]">
+				<span className="relative inline-flex min-w-0 items-center justify-center gap-[inherit]">
 					{loading ? (
 						<>
-							<span className="flex items-center justify-center gap-[inherit] opacity-0">
+							<span className="flex min-w-0 items-center justify-center gap-[inherit] opacity-0">
 								{LeadingIcon && !isIconOnly && <LeadingIcon size={iconSize} strokeWidth={2} />}
 								{label}
 								{TrailingIcon && !isIconOnly && <TrailingIcon size={iconSize} strokeWidth={2} />}
@@ -248,7 +246,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                   on the label span (a blockified flex item), not the flex root.
                   The button's height is fixed (h-*), so this doesn't change
                   layout — it just centers the cap-to-baseline box optically. */}
-							<span className="inline-flex items-center gap-[inherit] [text-box:trim-both_cap_alphabetic] [&_svg]:shrink-0">
+							<span className="inline-flex items-center gap-[inherit] min-w-0 [text-box:trim-both_cap_alphabetic] [&_svg]:shrink-0">
 								{label}
 							</span>
 							{TrailingIcon && (
@@ -271,7 +269,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 				iconLeft: !isIconOnly && !!LeadingIcon,
 				iconRight: !isIconOnly && !!TrailingIcon,
 			}),
-			shape.button,
+			"rounded-lg",
 			className,
 		);
 
@@ -323,4 +321,4 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button";
 
 export type { ButtonProps, ButtonSize };
-export { Button, buttonVariants };
+export { Button };

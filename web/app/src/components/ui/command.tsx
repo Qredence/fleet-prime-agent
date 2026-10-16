@@ -21,7 +21,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
 
 function CommandDialog({
 	title = "Command Palette",
-	description = "Search for a command to run...",
+	description = "Search for a command to run…",
 	children,
 	className,
 	showCloseButton = false,
@@ -56,7 +56,7 @@ function CommandInput({ className, ...props }: React.ComponentProps<typeof Comma
 				<CommandPrimitive.Input
 					data-slot="command-input"
 					className={cn(
-						"w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+						"w-full text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
 						className,
 					)}
 					{...props}
@@ -73,7 +73,10 @@ function CommandList({ className, ...props }: React.ComponentProps<typeof Comman
 	return (
 		<CommandPrimitive.List
 			data-slot="command-list"
-			className={cn("no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none", className)}
+			className={cn(
+				"no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -123,32 +126,9 @@ function CommandItem({ className, children, ...props }: React.ComponentProps<typ
 			{...props}
 		>
 			{children}
-			<Check className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
+			<Check className="ml-auto opacity-0 group-data-[checked=true]/command-item:opacity-100" />
 		</CommandPrimitive.Item>
 	);
 }
 
-function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) {
-	return (
-		<span
-			data-slot="command-shortcut"
-			className={cn(
-				"ml-auto text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground",
-				className,
-			)}
-			{...props}
-		/>
-	);
-}
-
-export {
-	Command,
-	CommandDialog,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-	CommandSeparator,
-	CommandShortcut,
-};
+export { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator };

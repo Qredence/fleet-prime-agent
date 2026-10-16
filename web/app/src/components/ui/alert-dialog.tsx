@@ -1,8 +1,7 @@
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
-import { surfaceClasses } from "@/lib/surface-classes";
-import { SurfaceProvider, useSurface } from "@/lib/surface-context";
+import { SurfaceProvider, surfaceClasses, useSurface } from "@/lib/surfaces";
 import { cn } from "@/lib/utils";
 
 /** Conventional elevation offset for a dialog off its substrate (Fluid surfaces). */
@@ -99,11 +98,9 @@ function AlertDialogAction({ ...props }: AlertDialogPrimitive.Close.Props) {
 export {
 	AlertDialog,
 	AlertDialogAction,
-	AlertDialogBackdrop,
 	AlertDialogCancel,
 	AlertDialogContent,
 	AlertDialogDescription,
 	AlertDialogFooter,
-	AlertDialogPortal,
 	AlertDialogTitle,
 };
