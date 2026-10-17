@@ -1,8 +1,11 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { ChatPlanPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { ChatPlanPresentationSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { BridgeSession } from "./prime-bridge";
+
+const writeChains = new Map<string, Promise<unknown>>();
+const writeGenerations = new Map<string, number>();
 
 function root(session: BridgeSession) {
 	return join(dirname(dirname(session.sessionPath)), "session-plan-presentations", session.sessionId);
@@ -10,7 +13,29 @@ function root(session: BridgeSession) {
 function file(session: BridgeSession) {
 	return join(root(session), "presentations.json");
 }
+
+async function writePresentationsAtomic(
+	session: BridgeSession,
+	records: ReadonlyArray<ChatPlanPresentation>,
+): Promise<void> {
+	const directory = root(session);
+	const target = file(session);
+	await mkdir(directory, { recursive: true });
+	const temporary = join(directory, `.presentations-${process.pid}-${Date.now()}-${crypto.randomUUID()}.tmp`);
+	try {
+		await writeFile(temporary, `${JSON.stringify(records)}\n`, "utf8");
+		await rename(temporary, target);
+	} finally {
+		await rm(temporary, { force: true }).catch(() => undefined);
+	}
+}
+
 export async function loadManagedPlanPresentations(session: BridgeSession): Promise<Array<ChatPlanPresentation>> {
+	await writeChains.get(session.sessionId)?.catch(() => undefined);
+	return readManagedPlanPresentationsFromDisk(session);
+}
+
+async function readManagedPlanPresentationsFromDisk(session: BridgeSession): Promise<Array<ChatPlanPresentation>> {
 	try {
 		const parsed: unknown = JSON.parse(await readFile(file(session), "utf8"));
 		if (!Array.isArray(parsed)) return [];
@@ -22,21 +47,55 @@ export async function loadManagedPlanPresentations(session: BridgeSession): Prom
 		return [];
 	}
 }
+
 export async function upsertManagedPlanPresentation(session: BridgeSession, presentation: ChatPlanPresentation) {
 	const verified = ChatPlanPresentationSchema.parse(presentation);
-	const current = await loadManagedPlanPresentations(session);
-	const index = current.findIndex((item) => item.assistantMessageId === verified.assistantMessageId);
-	const next =
-		index < 0 ? [...current, verified] : current.map((item, itemIndex) => (itemIndex === index ? verified : item));
-	await mkdir(root(session), { recursive: true });
-	await writeFile(file(session), JSON.stringify(next));
-	return verified;
-}
-export async function deleteManagedPlanPresentationsForSession(sessionId: string, sessionPath: string) {
-	await rm(join(dirname(dirname(sessionPath)), "session-plan-presentations", sessionId), {
-		recursive: true,
-		force: true,
+	const generation = writeGenerations.get(session.sessionId) ?? 0;
+	const previous = writeChains.get(session.sessionId) ?? Promise.resolve();
+	const operation = previous
+		.catch(() => undefined)
+		.then(async () => {
+			if ((writeGenerations.get(session.sessionId) ?? 0) !== generation) {
+				return verified;
+			}
+			const current = await readManagedPlanPresentationsFromDisk(session);
+			const index = current.findIndex((item) => item.assistantMessageId === verified.assistantMessageId);
+			const next =
+				index < 0
+					? [...current, verified]
+					: current.map((item, itemIndex) => (itemIndex === index ? verified : item));
+			await writePresentationsAtomic(session, next);
+			return verified;
+		});
+	writeChains.set(session.sessionId, operation);
+	void operation.finally(() => {
+		if (writeChains.get(session.sessionId) === operation) {
+			writeChains.delete(session.sessionId);
+		}
 	});
+	return operation;
+}
+
+export async function deleteManagedPlanPresentationsForSession(sessionId: string, sessionPath: string) {
+	writeGenerations.set(sessionId, (writeGenerations.get(sessionId) ?? 0) + 1);
+	const previous = writeChains.get(sessionId) ?? Promise.resolve();
+	const operation = previous
+		.catch(() => undefined)
+		.then(() =>
+			rm(join(dirname(dirname(sessionPath)), "session-plan-presentations", sessionId), {
+				recursive: true,
+				force: true,
+			}),
+		);
+	writeChains.set(sessionId, operation);
+	try {
+		await operation;
+	} finally {
+		if (writeChains.get(sessionId) === operation) {
+			writeChains.delete(sessionId);
+			writeGenerations.delete(sessionId);
+		}
+	}
 }
 
 /**
@@ -59,6 +118,5 @@ export async function copyManagedPlanPresentationsForFork(
 		return [{ ...record, assistantMessageId: `${forked.sessionId}-m${index}` }];
 	});
 	if (copied.length === 0) return;
-	await mkdir(root(forked), { recursive: true });
-	await writeFile(file(forked), JSON.stringify(copied));
+	await writePresentationsAtomic(forked, copied);
 }

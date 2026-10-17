@@ -90,18 +90,19 @@ function createSseResponse(request: Request, bridge: PrimeBridge, source: SseSou
 			// the client which server-side stream key is carrying this child.
 			const channelId = source.channelId ?? source.sessionId;
 			let readyToFlush = false;
-			let resyncSent = false;
 			let liveCursor = source.replayFrom ?? lastEventId;
 			let pendingQuestionIds: ReadonlySet<string> | null =
-				liveCursor === 0
+				liveCursor === 0 && !source.cursorReset
 					? new Set(bridge.pendingDialogsFor(source.sessionId).map((dialog) => dialog.toolCallId))
 					: null;
 			const flush = () => {
-				if (!readyToFlush || resyncSent || closed) return;
+				if (!readyToFlush || closed) return;
 				const { replayed, overflowed } = bridge.replaySince(channelId, liveCursor);
 				if (overflowed) {
-					resyncSent = true;
+					const latestSeq = replayed.at(-1)?.seq ?? 0;
+					liveCursor = latestSeq;
 					write({
+						...(latestSeq > 0 ? { id: latestSeq } : {}),
 						data: {
 							type: "state",
 							state: { name: "agent_settled", message: "resync-required" },
@@ -144,6 +145,16 @@ function createSseResponse(request: Request, bridge: PrimeBridge, source: SseSou
 				},
 			});
 			if (source.includeSnapshot !== false && source.initialSnapshot) write({ data: source.initialSnapshot });
+			if (source.cursorReset && !source.initialSnapshot) {
+				write({
+					...(liveCursor > 0 ? { id: liveCursor } : {}),
+					data: {
+						type: "state",
+						state: { name: "agent_settled", message: "resync-required" },
+					},
+				});
+				pendingQuestionIds = null;
+			}
 			readyToFlush = true;
 			if (source.initialSnapshot?.terminal === true) {
 				cleanup();
@@ -186,7 +197,10 @@ export function handleChatEventsGet(request: Request): Promise<Response> {
 		const parentSessionIdParam = url.searchParams.get("parentSessionId");
 		const childIdParam = url.searchParams.get("childId");
 		const streamGenerationParam = url.searchParams.get("streamGeneration");
-		const hasChildQuery = parentSessionIdParam !== null || childIdParam !== null || streamGenerationParam !== null;
+		const hasChildQuery =
+			parentSessionIdParam !== null ||
+			childIdParam !== null ||
+			(streamGenerationParam !== null && sessionIdParam === null);
 
 		if (hasChildQuery) {
 			if (sessionIdParam || !parentSessionIdParam || !childIdParam) {
@@ -239,13 +253,22 @@ export function handleChatEventsGet(request: Request): Promise<Response> {
 		if (!sessionIdParam) return Response.json({ message: "SSE requires ?sessionId=" }, { status: 400 });
 		const sessionId = SessionIdSchema.safeParse(sessionIdParam);
 		if (!sessionId.success) return Response.json({ message: "Invalid session identifier" }, { status: 400 });
-		{
-			const bridge = getBridge();
-			const session = bridge.getSession(sessionId.data) ?? (await bridge.resumeSessionById(sessionId.data));
-			if (!session || !(await requireProjectSession(session))) {
-				return Response.json({ message: `Unknown session: ${sessionId.data}` }, { status: 404 });
-			}
+		if (streamGenerationParam !== null && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(streamGenerationParam)) {
+			return Response.json({ message: "Invalid stream generation" }, { status: 400 });
 		}
-		return createSseResponse(request, getBridge(), { sessionId: sessionId.data }, lastEventIdFor(request, url));
+		const bridge = getBridge();
+		const session = bridge.getSession(sessionId.data) ?? (await bridge.resumeSessionById(sessionId.data));
+		if (!session || !(await requireProjectSession(session))) {
+			return Response.json({ message: `Unknown session: ${sessionId.data}` }, { status: 404 });
+		}
+		const requestedCursor = lastEventIdFor(request, url);
+		const source =
+			typeof bridge.openSessionStream === "function"
+				? bridge.openSessionStream(sessionId.data, {
+						...(streamGenerationParam ? { streamGeneration: streamGenerationParam } : {}),
+						lastEventId: requestedCursor,
+					})
+				: { sessionId: sessionId.data };
+		return createSseResponse(request, bridge, source, requestedCursor);
 	}, request);
 }

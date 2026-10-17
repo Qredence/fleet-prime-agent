@@ -10,7 +10,12 @@ type UpstreamSessionTreeEntry = {
 	type: string;
 	parentId?: string;
 	label?: string;
-	message?: { role?: string; content?: unknown };
+	firstKeptEntryId?: string;
+	summary?: string;
+	customType?: string;
+	display?: boolean;
+	harnessDigest?: string;
+	message?: { role?: string; content?: unknown; toolCallId?: string };
 };
 
 type UpstreamSessionTreeNode = {
@@ -18,6 +23,8 @@ type UpstreamSessionTreeNode = {
 	label?: string;
 	children: UpstreamSessionTreeNode[];
 };
+
+const HARNESS_DIGEST_CUSTOM_TYPE = "harness_digest";
 
 function messageContentToText(content: unknown): string {
 	if (typeof content === "string") return content;
@@ -65,18 +72,18 @@ function entryRole(entry: UpstreamSessionTreeEntry): SessionTreeNodeRole | undef
 	}
 }
 
-function findActiveBranchPath(nodes: UpstreamSessionTreeNode[], leafId: string | null): Set<string> {
-	const active = new Set<string>();
-	if (!leafId) return active;
+function findActiveBranchEntries(nodes: UpstreamSessionTreeNode[], leafId: string | null): UpstreamSessionTreeEntry[] {
+	if (!leafId) return [];
+	const path: UpstreamSessionTreeEntry[] = [];
 
 	const walk = (items: UpstreamSessionTreeNode[]): boolean => {
 		for (const node of items) {
 			if (node.entry.id === leafId) {
-				active.add(node.entry.id);
+				path.push(node.entry);
 				return true;
 			}
 			if (walk(node.children)) {
-				active.add(node.entry.id);
+				path.push(node.entry);
 				return true;
 			}
 		}
@@ -84,27 +91,119 @@ function findActiveBranchPath(nodes: UpstreamSessionTreeNode[], leafId: string |
 	};
 
 	walk(nodes);
-	return active;
+	path.reverse();
+	return path;
 }
 
-function buildMessageIndexByEntryId(nodes: UpstreamSessionTreeNode[], leafId: string | null): Map<string, number> {
-	const activePath = findActiveBranchPath(nodes, leafId);
-	const messageIndexByEntryId = new Map<string, number>();
-	let messageIndex = 0;
-
-	const walk = (items: UpstreamSessionTreeNode[]) => {
-		for (const node of items) {
-			if (!activePath.has(node.entry.id)) continue;
-			if (node.entry.type === "message") {
-				messageIndexByEntryId.set(node.entry.id, messageIndex);
-				messageIndex += 1;
-			}
-			walk(node.children);
-			return;
+function assistantToolCallIds(content: unknown): string[] {
+	if (!Array.isArray(content)) return [];
+	const ids: string[] = [];
+	for (const block of content) {
+		if (!block || typeof block !== "object") continue;
+		const item = block as { type?: unknown; id?: unknown };
+		if (item.type === "toolCall" && typeof item.id === "string" && item.id.length > 0) {
+			ids.push(item.id);
 		}
+	}
+	return ids;
+}
+
+/**
+ * Computes the hydrated transcript message index (`${sessionId}-m${index}`) for
+ * entries on the active branch, mirroring `SessionManager.buildSessionContext`
+ * and `toChatMessagesFromAgentMessages`.
+ */
+function buildMessageIndexByEntryId(activeEntries: readonly UpstreamSessionTreeEntry[]): Map<string, number> {
+	const messageIndexByEntryId = new Map<string, number>();
+	if (activeEntries.length === 0) return messageIndexByEntryId;
+
+	let compaction: UpstreamSessionTreeEntry | undefined;
+	let compactionIdx = -1;
+	for (const [index, entry] of activeEntries.entries()) {
+		if (entry.type === "compaction") {
+			compaction = entry;
+			compactionIdx = index;
+		}
+	}
+
+	let newestDigestEntryId: string | undefined;
+	let newestDigestIdx = -1;
+	for (let index = activeEntries.length - 1; index >= 0; index -= 1) {
+		const entry = activeEntries[index]!;
+		if (entry.type === "custom_message" && entry.customType === HARNESS_DIGEST_CUSTOM_TYPE) {
+			newestDigestEntryId = entry.id;
+			newestDigestIdx = index;
+			break;
+		}
+	}
+	const snapshotOutranksDigest =
+		compaction?.harnessDigest !== undefined && (newestDigestIdx === -1 || newestDigestIdx < compactionIdx);
+	const keepDigestEntryId = snapshotOutranksDigest ? undefined : newestDigestEntryId;
+
+	const isContextEntry = (entry: UpstreamSessionTreeEntry): boolean => {
+		if (entry.type === "message") return true;
+		if (entry.type === "custom_message") {
+			return !(entry.customType === HARNESS_DIGEST_CUSTOM_TYPE && entry.id !== keepDigestEntryId);
+		}
+		if (entry.type === "branch_summary") return Boolean(entry.summary);
+		return false;
 	};
 
-	walk(nodes);
+	const contextEntries: UpstreamSessionTreeEntry[] = [];
+	if (compaction && compactionIdx >= 0) {
+		contextEntries.push(compaction);
+		let foundFirstKept = false;
+		for (let index = 0; index < compactionIdx; index += 1) {
+			const entry = activeEntries[index]!;
+			if (entry.id === compaction.firstKeptEntryId) {
+				foundFirstKept = true;
+			}
+			if (foundFirstKept && isContextEntry(entry)) {
+				contextEntries.push(entry);
+			}
+		}
+		for (let index = compactionIdx + 1; index < activeEntries.length; index += 1) {
+			const entry = activeEntries[index]!;
+			if (isContextEntry(entry)) {
+				contextEntries.push(entry);
+			}
+		}
+	} else {
+		for (const entry of activeEntries) {
+			if (isContextEntry(entry)) {
+				contextEntries.push(entry);
+			}
+		}
+	}
+
+	const toolCallOwnerIndex = new Map<string, number>();
+	for (const [contextIndex, entry] of contextEntries.entries()) {
+		if (entry.type === "custom_message" && entry.display === false) {
+			continue;
+		}
+		if (
+			entry.type === "message" &&
+			entry.message?.role === "custom" &&
+			(entry.message as { display?: unknown }).display === false
+		) {
+			continue;
+		}
+		if (entry.type === "message" && entry.message?.role === "assistant") {
+			messageIndexByEntryId.set(entry.id, contextIndex);
+			for (const toolCallId of assistantToolCallIds(entry.message.content)) {
+				toolCallOwnerIndex.set(toolCallId, contextIndex);
+			}
+			continue;
+		}
+		if (entry.type === "message" && entry.message?.role === "toolResult") {
+			const toolCallId = typeof entry.message.toolCallId === "string" ? entry.message.toolCallId : undefined;
+			const attachedIndex = toolCallId ? toolCallOwnerIndex.get(toolCallId) : undefined;
+			messageIndexByEntryId.set(entry.id, attachedIndex ?? contextIndex);
+			continue;
+		}
+		messageIndexByEntryId.set(entry.id, contextIndex);
+	}
+
 	return messageIndexByEntryId;
 }
 
@@ -140,8 +239,9 @@ export function mapSessionTreeSnapshot(
 	leafId: string | null,
 ): SessionTreeSnapshot {
 	const upstreamNodes = nodes as UpstreamSessionTreeNode[];
-	const activePath = findActiveBranchPath(upstreamNodes, leafId);
-	const messageIndexByEntryId = buildMessageIndexByEntryId(upstreamNodes, leafId);
+	const activeEntries = findActiveBranchEntries(upstreamNodes, leafId);
+	const activePath = new Set(activeEntries.map((entry) => entry.id));
+	const messageIndexByEntryId = buildMessageIndexByEntryId(activeEntries);
 	return {
 		sessionId,
 		leafId,

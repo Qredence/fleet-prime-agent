@@ -28,13 +28,11 @@ export function nextEnabledModelPatterns({
 	model: ConfigModelInfo;
 	models: Array<ConfigModelInfo>;
 }) {
-	if (currentPatterns === undefined && enabled) return undefined;
-
 	const current = currentPatterns ?? [];
 	const knownModelPatterns = new Set(models.map((item) => modelPatternFor(item)));
 	const activeKnown = new Set<string>();
 	for (const item of models) {
-		if (isModelEnabled(item, currentPatterns)) {
+		if (isModelEnabled(item, current)) {
 			activeKnown.add(modelPatternFor(item));
 		}
 	}

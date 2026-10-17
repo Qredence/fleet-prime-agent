@@ -70,7 +70,9 @@ const ScrollArea = forwardRef<ComponentRef<typeof ScrollAreaPrimitive.Root>, Scr
 						>
 							{/* Content gives Base UI an intrinsic size to measure
                   horizontal overflow against. */}
-							<ScrollAreaPrimitive.Content>{children}</ScrollAreaPrimitive.Content>
+							<ScrollAreaPrimitive.Content className={cn(orientation === "vertical" && "w-full min-w-full")}>
+								{children}
+							</ScrollAreaPrimitive.Content>
 						</ScrollAreaPrimitive.Viewport>
 						{orientation !== "horizontal" && <ScrollBar orientation="vertical" />}
 						{orientation !== "vertical" && <ScrollBar orientation="horizontal" />}

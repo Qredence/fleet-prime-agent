@@ -49,7 +49,23 @@ case "$exec_line" in
 	*) echo "FAIL: shim does not point at checkout: $exec_line" >&2; exit 1 ;;
 esac
 
+# (4) Unwritable HOME falls back to TMPDIR (and /tmp) under POSIX sh -u without
+# relying on Bash-only $EUID.
+TMP_FALLBACK="$SANDBOX/tmpdir"
+mkdir -p "$TMP_FALLBACK"
+env -i PATH="$SANDBOX/bin:/usr/bin:/bin" HOME="$SANDBOX/missing-home" TMPDIR="$TMP_FALLBACK" /bin/sh -eu -c '
+	prime_agent_checkout_dir=$1
+	prime_agent_shim_dir_override=
+	die() { printf "error: %s\n" "$1" >&2; exit 1; }
+	. "$2"
+	install_fleet_agent_shim
+' sh "$REPO_ROOT" "$SANDBOX/func.sh"
+uid=$(id -u)
+fallback_shim=$(ls "$TMP_FALLBACK"/fleet-prime-shim-"$uid"-*/fleet-agent 2>/dev/null | head -n 1 || true)
+[ -n "$fallback_shim" ] && [ -x "$fallback_shim" ] || { echo "FAIL: TMPDIR fallback shim not created" >&2; exit 1; }
+
 echo "OK: prime-agent preserved at $after"
 echo "OK: fleet-agent shim installed at $shim"
+echo "OK: TMPDIR fallback shim installed at $fallback_shim"
 echo "OK: shim forwards to $REPO_ROOT/fleet-prime.sh"
 exit 0

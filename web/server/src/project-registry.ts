@@ -341,12 +341,22 @@ export class ProjectRegistry {
 		return [...this.#sessionAssignments.values()].filter((assigned) => assigned === projectId).length;
 	}
 
+	#pruneExpiredDirectoryTokens(referenceNow = Date.now()): void {
+		for (const [key, token] of this.#directoryTokens) {
+			if (token.expiresAt < referenceNow) {
+				this.#directoryTokens.delete(key);
+			}
+		}
+	}
+
 	async browse(options: { path?: string; token?: string }): Promise<ProjectDirectoryBrowseResponse> {
 		await this.#ensureLoaded();
+		const referenceNow = Date.now();
+		this.#pruneExpiredDirectoryTokens(referenceNow);
 		let path: string;
 		if (options.token) {
 			const token = this.#directoryTokens.get(options.token);
-			if (!token || token.expiresAt < Date.now()) throw new Error("Directory token expired");
+			if (!token || token.expiresAt < referenceNow) throw new Error("Directory token expired");
 			path = await this.#canonicalDirectory(token.path);
 		} else {
 			path = await this.#canonicalDirectory(options.path ?? this.#initialPath);
@@ -389,9 +399,11 @@ export class ProjectRegistry {
 	}
 
 	async resolveDirectoryInput(input: { path?: string; directoryToken?: string }): Promise<string> {
+		const referenceNow = Date.now();
+		this.#pruneExpiredDirectoryTokens(referenceNow);
 		if (input.directoryToken) {
 			const token = this.#directoryTokens.get(input.directoryToken);
-			if (!token || token.expiresAt < Date.now()) throw new Error("Directory token expired");
+			if (!token || token.expiresAt < referenceNow) throw new Error("Directory token expired");
 			return this.#canonicalDirectory(token.path);
 		}
 		if (!input.path) throw new Error("A project path is required");

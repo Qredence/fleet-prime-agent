@@ -260,4 +260,31 @@ describe("ProjectRegistry", () => {
 		expect(message).toBe("open '[local path]'");
 		expect(message).not.toContain("/Users/zocho");
 	});
+
+	it("prunes expired directory tokens on subsequent browse calls", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
+		temporaryDirectories.push(root);
+		const subDir = join(root, "child");
+		await mkdir(subDir);
+		const registry = new ProjectRegistry(join(root, ".prime-agent"), root);
+
+		const nowSpy = vi.spyOn(Date, "now");
+		try {
+			nowSpy.mockReturnValue(1_000);
+			const firstBrowse = await registry.browse({ path: root });
+			expect(firstBrowse.entries).toHaveLength(1);
+
+			// Advance past the 10-minute token TTL and trigger another browse.
+			nowSpy.mockReturnValue(1_000 + 11 * 60 * 1_000);
+			await registry.browse({ path: root });
+
+			// Even if time rewound, the expired token was already deleted from the map.
+			nowSpy.mockReturnValue(1_000);
+			await expect(registry.resolveDirectoryInput({ directoryToken: firstBrowse.directoryToken })).rejects.toThrow(
+				"Directory token expired",
+			);
+		} finally {
+			nowSpy.mockRestore();
+		}
+	});
 });
