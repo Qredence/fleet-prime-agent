@@ -33,7 +33,7 @@
     "@prime-agent/web-server": "workspace:*",
     "@streamdown/code": "^2.0.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-query": "^5.104.2",
     "@tanstack/react-router": "^1.170.41",
     "@tanstack/react-start": "^1.168.60",
     "class-variance-authority": "^0.7.1",
