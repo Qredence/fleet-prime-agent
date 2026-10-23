@@ -858,6 +858,41 @@ export class PrimeBridge {
 		return summary ? { parent, child, summary } : undefined;
 	}
 
+	/**
+	 * Fleet's persistent session id for an RLM child: the stable key across
+	 * daemon `session_binding` re-points (which only change `activeSessionId`).
+	 * Daemon runtime ids are never returned: the summary's `id` *is* the
+	 * runtime id for active sessions (v0.9.8 summaryForActiveSession and the
+	 * Rust list), so it only counts when it differs from every known runtime id.
+	 * Order: summary.sessionId, the session file header, then summary.id.
+	 * Returns undefined (caller skips the stream / rejects the prompt and logs)
+	 * when nothing persistent is resolvable.
+	 */
+	async #persistentRlmChildSessionId(
+		{ child, summary }: AuthorizedRlmChild,
+		...knownRuntimeIds: readonly (string | undefined)[]
+	): Promise<string | undefined> {
+		const nonEmpty = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+		const declaredRuntimeIds = new Set([summary.activeSessionId, child.activeSessionId].filter(nonEmpty));
+		// The daemon's own sessionId field is authoritative unless it is a declared
+		// runtime id. The id we happened to watch through (which may be the
+		// persistent id on runtimes that accept it) is only excluded below.
+		if (nonEmpty(summary.sessionId) && !declaredRuntimeIds.has(summary.sessionId)) return summary.sessionId;
+		const runtimeIds = new Set([...declaredRuntimeIds, ...knownRuntimeIds.filter(nonEmpty)]);
+		const persistent = (value: unknown): value is string => nonEmpty(value) && !runtimeIds.has(value);
+		if (summary.sessionFile && existsSync(summary.sessionFile)) {
+			const fromFile = await SessionManager.openAsync(summary.sessionFile)
+				.then((manager) => manager.getSessionId())
+				.catch(() => undefined);
+			if (persistent(fromFile)) return fromFile;
+		}
+		if (persistent(summary.id)) return summary.id;
+		process.stderr.write(
+			`[bridge] RLM child ${child.id}: no persistent session id in the daemon summary; not keying it by the runtime id\n`,
+		);
+		return undefined;
+	}
+
 	#queueRlmChildMetadataRefresh(rootSessionId: string): void {
 		this.#rlmChildMetadataRefreshQueue.request(rootSessionId, () => this.#refreshRlmChildMetadata(rootSessionId));
 	}
@@ -945,7 +980,8 @@ export class PrimeBridge {
 
 		let released = false;
 		return {
-			sessionId: stream.streamSessionId,
+			// Fleet's persistent id, never the daemon runtime id (streamSessionId).
+			sessionId: stream.canonicalSessionId,
 			projectId: stream.projectId,
 			snapshot: stream.snapshot,
 			channelId: stream.channelId,
@@ -1125,11 +1161,12 @@ export class PrimeBridge {
 				}
 			});
 
+			const canonicalSessionId = await this.#persistentRlmChildSessionId(authorized, streamSessionId);
+			if (!canonicalSessionId) throw new Error("no persistent session id");
 			const agentMessages = await watcher.getMessages();
 			const persistedPresentation = summary.sessionFile
 				? await loadManagedPrimePresentation({ sessionPath: summary.sessionFile })
 				: undefined;
-			const canonicalSessionId = summary.sessionId || streamSessionId;
 			const override = rlmChildStatusOverride(summary);
 			const presentation = initialPresentationForSession(
 				agentMessages,
@@ -1486,7 +1523,8 @@ export class PrimeBridge {
 		if (!authorized) throw new Error(`Unknown subagent thread: ${childId}`);
 		const activeSessionId = authorized.summary.activeSessionId ?? authorized.child.activeSessionId;
 		if (!activeSessionId) throw new Error(`Subagent thread is not attached: ${childId}`);
-		const canonicalSessionId = authorized.summary.sessionId || authorized.summary.id || activeSessionId;
+		const canonicalSessionId = await this.#persistentRlmChildSessionId(authorized, activeSessionId);
+		if (!canonicalSessionId) throw new Error(`Subagent thread has no persistent session id: ${childId}`);
 		const key = `${parentSessionId}:${childId}`;
 		const handle = this.#childPromptStarter({
 			cwd: authorized.parent.cwd,

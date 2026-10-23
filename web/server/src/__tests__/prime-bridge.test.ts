@@ -1495,6 +1495,55 @@ describe("PrimeBridge.openRlmChildStream", () => {
 		return { bridge, childManager, childSessionId, parent, listedSessions };
 	}
 
+	it("keeps the persistent session key when session_binding re-points the child runtime", async () => {
+		const { bridge, parent, childSessionId, listedSessions } = await createAuthorizedChild();
+		const watchSession = vi
+			.spyOn(parent.connection, "watchSession")
+			.mockImplementation(async () => createChildWatcher().watcher);
+
+		const first = await bridge.openRlmChildStream(parent.sessionId, "child-1");
+		expect(first?.sessionId).toBe(childSessionId);
+		expect(first?.snapshot.session.sessionId).toBe(childSessionId);
+		await first?.release();
+
+		// session_binding: same persisted session, new runtime id.
+		listedSessions[0] = { ...listedSessions[0], id: "rebound-runtime", activeSessionId: "rebound-runtime" };
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: parent.mapperState.presentation.rlmChildren.map((child) => ({
+				...child,
+				activeSessionId: "rebound-runtime",
+			})),
+		};
+		const second = await bridge.openRlmChildStream(parent.sessionId, "child-1");
+		expect(watchSession).toHaveBeenLastCalledWith("rebound-runtime");
+		expect(second?.sessionId).toBe(childSessionId);
+		expect(second?.snapshot.session.sessionId).toBe(childSessionId);
+		await second?.release();
+	});
+
+	it("never keys a child stream by the runtime id when the summary lacks sessionId", async () => {
+		const { bridge, parent, childSessionId, listedSessions } = await createAuthorizedChild();
+		vi.spyOn(parent.connection, "watchSession").mockImplementation(async () => createChildWatcher().watcher);
+		vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+		// Active-session summary without sessionId (`id` is the runtime id): the
+		// persisted session file header supplies Fleet's id.
+		listedSessions[0] = { ...listedSessions[0], id: "active-child-runtime", sessionId: "" };
+		const fromFile = await bridge.openRlmChildStream(parent.sessionId, "child-1");
+		expect(fromFile?.sessionId).toBe(childSessionId);
+		expect(JSON.stringify(fromFile?.snapshot)).not.toContain("active-child-runtime");
+		await fromFile?.release();
+
+		// Nothing persistent at all: skip the stream instead of leaking the runtime id.
+		const control = createChildWatcher();
+		vi.spyOn(parent.connection, "watchSession").mockResolvedValue(control.watcher);
+		const { sessionFile: _omitted, ...withoutFile } = listedSessions[0] as Record<string, unknown>;
+		listedSessions[0] = withoutFile;
+		await expect(bridge.openRlmChildStream(parent.sessionId, "child-1")).resolves.toBeUndefined();
+		expect(control.close).toHaveBeenCalledOnce();
+	});
+
 	it("creates one watcher for concurrent opens and closes it after the final release", async () => {
 		const { bridge, parent } = await createAuthorizedChild();
 		const control = createChildWatcher();
@@ -1716,8 +1765,20 @@ describe("PrimeBridge.promptRlmChild", () => {
 			rlmChildId: "child-1",
 		});
 		const settlePrompt = (index = 0) => releaseGates[index]?.();
-		return { bridge, parent, starterCalls, abortCalls, settlePrompt };
+		return { bridge, parent, starterCalls, abortCalls, settlePrompt, listedSessions };
 	}
+
+	it("rejects a child prompt rather than reporting the runtime id when no persistent id resolves", async () => {
+		const { bridge, parent, starterCalls, listedSessions } = await createPromptableChild();
+		// Daemon summary without sessionId: `id` is the runtime id for active sessions.
+		listedSessions[0] = { ...listedSessions[0], id: "active-child-runtime", sessionId: "" };
+		vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+		await expect(bridge.promptRlmChild(parent.sessionId, "child-1", "hi")).rejects.toThrow(
+			"Subagent thread has no persistent session id: child-1",
+		);
+		expect(starterCalls).toHaveLength(0);
+	});
 
 	it("prompts the authorized child session and reports its canonical ids", async () => {
 		const { bridge, parent, starterCalls, settlePrompt } = await createPromptableChild();
