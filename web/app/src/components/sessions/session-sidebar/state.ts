@@ -20,7 +20,7 @@ export type SidebarAction =
 	| { type: "set"; field: SidebarField }
 	| { type: "update"; update: (state: SidebarState) => SidebarState };
 
-export function sidebarReducer(state: SidebarState, action: SidebarAction): SidebarState {
+function sidebarReducer(state: SidebarState, action: SidebarAction): SidebarState {
 	if (action.type === "update") return action.update(state);
 	return { ...state, [action.field.key]: action.field.value } as SidebarState;
 }

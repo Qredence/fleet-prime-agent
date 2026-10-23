@@ -68,7 +68,7 @@ type ChatInputBarComposer = Pick<
  * @param activeSessionId - The active chat session identifier used to build image attachment URLs
  * @returns The input-bar properties for the chat panel
  */
-export function buildChatInputBarProps(
+function buildChatInputBarProps(
 	composer: ChatInputBarComposer,
 	activeSessionId: string | undefined,
 ): ComponentProps<typeof ChatPanel>["inputBar"] {

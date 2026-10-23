@@ -83,7 +83,7 @@ interface AnimatedSidebarPanelContextValue {
 
 const AnimatedSidebarPanelContext = createContext<AnimatedSidebarPanelContextValue | null>(null);
 
-export function useAnimatedSidebar() {
+function useAnimatedSidebar() {
 	const context = useContext(AnimatedSidebarContext);
 	if (!context) {
 		throw new Error("useAnimatedSidebar must be used inside AnimatedSidebarProvider.");

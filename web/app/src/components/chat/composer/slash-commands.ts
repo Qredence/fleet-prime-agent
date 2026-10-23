@@ -199,7 +199,7 @@ function parseThinkingLevelArg(args: string): ChatThinkingLevel | undefined {
 	return parsed.success ? parsed.data : undefined;
 }
 
-export function resolveSlashCommandAlias(command: string): string {
+function resolveSlashCommandAlias(command: string): string {
 	return SLASH_COMMAND_ALIASES[command] ?? command;
 }
 
@@ -226,7 +226,7 @@ export function parseSlashInput(message: string) {
 }
 
 /** Strip a matched pair of quotes wrapping a single path argument (TUI parity with getPathCommandArgument). */
-export function parseQuotedPathArgument(args: string): string | undefined {
+function parseQuotedPathArgument(args: string): string | undefined {
 	const trimmed = args.trim();
 	if (!trimmed) return undefined;
 	const first = trimmed[0];

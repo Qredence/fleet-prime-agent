@@ -98,7 +98,7 @@ export function idValue(id: string, prefix: string) {
 	return id.startsWith(prefix) ? id.slice(prefix.length) : null;
 }
 
-export function sessionBaseLabel(session: Pick<ChatSessionInfo, "sessionId" | "title" | "firstMessage">) {
+function sessionBaseLabel(session: Pick<ChatSessionInfo, "sessionId" | "title" | "firstMessage">) {
 	return (
 		normalizeSessionLabel(
 			sessionListTitle({

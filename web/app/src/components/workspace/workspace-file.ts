@@ -5,7 +5,7 @@ import type { ProjectId } from "@prime-agent/web-protocol";
 import type { WorkspaceFileResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { chatClient } from "@/components/chat/chat-client";
 
-export const WORKSPACE_FILE_REQUEST_TIMEOUT_MS = 15_000;
+const WORKSPACE_FILE_REQUEST_TIMEOUT_MS = 15_000;
 
 export async function loadWorkspaceFile(
 	path: string,

@@ -114,7 +114,7 @@ function getBoolean(record: ToolRecord | undefined, ...keys: string[]): boolean 
 	return undefined;
 }
 
-export function stringifyToolValue(value: unknown): string {
+function stringifyToolValue(value: unknown): string {
 	if (typeof value === "string") return value;
 	if (value === undefined || value === null) return "";
 	try {
@@ -236,7 +236,7 @@ function getFilePath(input: ToolRecord | undefined, summary: ToolOutputSummary):
 	);
 }
 
-export function parseDiffLines(diff: string): FileDiffLine[] {
+function parseDiffLines(diff: string): FileDiffLine[] {
 	return diff.split("\n").map((content, index) => ({
 		id: `${index}-${content.slice(0, 16)}`,
 		type:

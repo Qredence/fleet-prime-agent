@@ -8,7 +8,7 @@ import type {
 import type { ChatToolPart } from "@prime-agent/web-protocol/chat-types";
 import type { TodoItem } from "@/components/chat/plans/plan-parser";
 
-export const PLAN_DECISION_TOOL_PREFIX = "plan-mode-decision";
+const PLAN_DECISION_TOOL_PREFIX = "plan-mode-decision";
 
 export type PlanModeState = {
 	enabled: boolean;
@@ -53,7 +53,7 @@ export function applyPlanModeSelection(state: PlanModeState, mode?: ChatMode, pl
 	return nextState;
 }
 
-export function planStateFromChatPlanState(state: ChatPlanState, assistantId: string): PlanModeState {
+function planStateFromChatPlanState(state: ChatPlanState, assistantId: string): PlanModeState {
 	return {
 		enabled: state.mode === "plan",
 		executing: state.executing,
@@ -163,7 +163,7 @@ export function resolvePlanDecision(
 	};
 }
 
-export function toChatPlanState(state: PlanModeState): ChatPlanState {
+function toChatPlanState(state: PlanModeState): ChatPlanState {
 	const completed = state.todos.filter((todo) => todo.completed).length;
 	const total = state.todos.length;
 	const mode: ChatMode = state.enabled ? "plan" : "agent";

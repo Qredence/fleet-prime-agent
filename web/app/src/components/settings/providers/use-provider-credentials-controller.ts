@@ -39,7 +39,7 @@ const CUSTOM_PROVIDER_PICKER_ROW: ChatProviderInfo = {
 };
 
 /** Splits a comma-separated model id list into trimmed, non-empty ids. */
-export function parseCustomProviderModels(raw: string): Array<string> {
+function parseCustomProviderModels(raw: string): Array<string> {
 	return raw
 		.split(",")
 		.map((entry) => entry.trim())
