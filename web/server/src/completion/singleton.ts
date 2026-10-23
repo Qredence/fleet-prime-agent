@@ -5,7 +5,7 @@
  * loaded corpus or start a second background build, mirroring `getBridge()` in
  * `../singleton.ts`.
  */
-import { SessionManager, type SessionMessageEntry } from "prime-agent";
+import { type LegacySessionMessageEntry, readLegacySession } from "../legacy/prime-agent-sdk";
 import { getPrimeConfig } from "../prime-config";
 import { normalizeSessionListRow, sessionSourcePath } from "../session-list";
 import { getBridge } from "../singleton";
@@ -38,8 +38,8 @@ function messageText(message: unknown): string {
 }
 
 /**
- * Reads one session through the runtime's supported `SessionManager`. Transcripts
- * are never hand-parsed.
+ * Reads one session through the legacy bridge's read-only reader, which uses the
+ * runtime's own parser. Transcripts are never hand-parsed, and never written.
  *
  * `getEntries()` rather than `buildSessionContext().messages`, and the difference
  * is the point of the corpus. A context is what the *model* is shown: the branch
@@ -58,10 +58,9 @@ function messageText(message: unknown): string {
  * Exported so the test can pin that difference against a real session file.
  */
 export const openSessionWithRuntime: OpenSession = async (sessionFile) => {
-	const manager = await SessionManager.openAsync(sessionFile);
-	return manager
-		.getEntries()
-		.filter((entry): entry is SessionMessageEntry => entry.type === "message")
+	const snapshot = await readLegacySession(sessionFile);
+	return (snapshot?.entries ?? [])
+		.filter((entry): entry is LegacySessionMessageEntry => entry.type === "message")
 		.map((entry) => ({
 			role: (entry.message as { role?: string }).role,
 			text: messageText(entry.message),

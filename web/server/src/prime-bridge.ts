@@ -86,6 +86,7 @@ import {
 	type RlmChildStatusOverride,
 	toChatMessagesFromAgentMessages,
 } from "./event-mapper";
+import { readLegacySession } from "./legacy/prime-agent-sdk";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
 import {
 	copyManagedPlanPresentationsForFork,
@@ -721,8 +722,9 @@ export class PrimeBridge {
 			}
 		}
 		if (!existsSync(resolvedSessionPath)) throw new Error("The requested session transcript is unavailable");
-		const sessionManager = await SessionManager.openAsync(resolvedSessionPath);
-		const sessionCwd = sessionManager.getCwd();
+		const transcript = await readLegacySession(resolvedSessionPath);
+		if (!transcript) throw new Error("The requested session transcript is unavailable");
+		const sessionCwd = transcript.cwd;
 		const expectedSessionDir = resolve(sessionDirectoryForCwd(sessionCwd));
 		if (dirname(resolvedSessionPath) !== expectedSessionDir) {
 			throw new Error("The requested session is outside the configured Prime session store");
@@ -736,7 +738,7 @@ export class PrimeBridge {
 			webAgent,
 			sessionCwd,
 			resolvedSessionPath,
-			await getPrimeConfig().projectRegistry.projectIdForSession(sessionManager.getSessionId(), sessionCwd),
+			await getPrimeConfig().projectRegistry.projectIdForSession(transcript.sessionId, sessionCwd),
 		);
 	}
 
@@ -972,11 +974,12 @@ export class PrimeBridge {
 	async #loadAuthorizedRlmChildTranscript(authorized: AuthorizedRlmChild): Promise<RlmChildTranscript | undefined> {
 		const { summary: childSummary } = authorized;
 		if (!childSummary.sessionFile) return undefined;
-		const sessionManager = await SessionManager.openAsync(childSummary.sessionFile);
-		const sessionId = sessionManager.getSessionId();
+		const snapshot = await readLegacySession(childSummary.sessionFile);
+		if (!snapshot) return undefined;
+		const sessionId = snapshot.sessionId;
 		if (sessionId !== childSummary.sessionId && sessionId !== childSummary.id) return undefined;
 
-		const agentMessages = sessionManager.buildSessionContext().messages;
+		const agentMessages = snapshot.messages();
 		const messages = toChatMessagesFromAgentMessages(agentMessages, sessionId);
 		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath: childSummary.sessionFile });
 		const presentation = initialPresentationForSession(
@@ -988,7 +991,7 @@ export class PrimeBridge {
 			sessionId,
 			persistedPresentation,
 		);
-		const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, sessionManager.getCwd());
+		const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, snapshot.cwd);
 
 		return { sessionId, projectId, messages, presentation };
 	}
@@ -1834,8 +1837,7 @@ export class PrimeBridge {
 		const all = await this.#sessionLister();
 		const match = all.find((info) => info.sessionId === sessionId || info.id === sessionId);
 		if (!match?.sessionFile) return [];
-		const sessionManager = await SessionManager.openAsync(match.sessionFile);
-		return sessionManager.buildSessionContext().messages;
+		return (await readLegacySession(match.sessionFile))?.messages() ?? [];
 	}
 
 	#requireSession(sessionId: string): BridgeSession {
