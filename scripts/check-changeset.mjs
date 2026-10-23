@@ -16,7 +16,11 @@ const USER_FACING_PREFIXES = [
 	"web/protocol/src/",
 	"web/server/src/",
 ];
-const INTERNAL_PATH_PATTERNS = [/(^|\/)__tests__(\/|$)/, /(^|\/)(?:fixtures?|mocks?)(\/|$)/, /\.(?:test|spec)\.[^/]+$/];
+const INTERNAL_PATH_PATTERNS = [
+	/(^|\/)__tests__(\/|$)/,
+	/(^|\/)(?:fixtures?|mocks?)(\/|$)/,
+	/\.(?:test|spec|bench)\.[^/]+$/,
+];
 const USER_FACING_FILES = new Set([
 	"fleet-prime.sh",
 	"install.sh",
