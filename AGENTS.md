@@ -136,6 +136,8 @@ It owns:
 
 Do not move Prime Agent-specific execution knowledge into `web/app`.
 
+Until the Rust daemon cutover, `web/server/src/legacy/prime-agent-sdk.ts` is the only server module that may import the v0.9.8 SDK's `SettingsManager`, `AuthStorage`, `ModelRegistry`, resource loader, agent dir, and session readers. Session reads go through its read-only `readLegacySession`. Other SDK imports are frozen in `scripts/server-sdk-imports.baseline.json`; `pnpm check` fails on new ones.
+
 ### Protocol boundary
 
 `web/protocol` owns browser-safe wire types.

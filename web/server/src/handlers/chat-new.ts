@@ -20,9 +20,6 @@ export function handleChatNewPost(request: Request): Promise<Response> {
 			(await registry.projectIdForCwd(getPrimeConfig().defaultCwd)) ??
 			(await registry.register(getPrimeConfig().defaultCwd)).projectId;
 		const project = await registry.get(projectId);
-		void bridge.ensureKernelReady(project.canonicalPath).catch(() => {
-			/* backgrounded; failures surface when ipython is invoked */
-		});
 
 		const session = await bridge.createSession({
 			cwd: project.canonicalPath,

@@ -10,28 +10,41 @@
  * cwd-scoped `SettingsManager` instances and `resourceLoaderFor(cwd)` for
  * skills/prompts/extensions/themes.
  *
+ * The SDK classes themselves come from the R1b legacy bridge
+ * (`./legacy/prime-agent-sdk.ts`), the only module allowed to import them.
+ *
  * Pinned on `globalThis` for the same reason as the bridge singleton: Vite's
  * SSR full-module restarts must not drop in-memory caches or trigger re-reads
  * of sensitive files mid-request.
  */
 
 import { resolve } from "node:path";
-import { AuthStorage, DefaultResourceLoader, getAgentDir, ModelRegistry, SettingsManager } from "prime-agent";
+import {
+	createLegacyAuthStorage,
+	createLegacyModelRegistry,
+	createLegacySettingsManager,
+	type LegacyAuthStorage,
+	type LegacyModelRegistry,
+	type LegacyResourceLoader,
+	type LegacySettingsManager,
+	legacyAgentDir,
+	loadLegacyResources,
+} from "./legacy/prime-agent-sdk";
 import { ProjectRegistry } from "./project-registry";
 import { resolveDefaultWorkspaceRoot } from "./workspace-root";
 
 export interface PrimeConfig {
-	readonly authStorage: AuthStorage;
-	readonly modelRegistry: ModelRegistry;
-	readonly defaultSettings: SettingsManager;
+	readonly authStorage: LegacyAuthStorage;
+	readonly modelRegistry: LegacyModelRegistry;
+	readonly defaultSettings: LegacySettingsManager;
 	readonly defaultCwd: string;
 	readonly agentDir: string;
 	readonly projectRegistry: ProjectRegistry;
 
 	/** SettingsManager bound to a given cwd (one per unique cwd). */
-	settingsFor(cwd: string): SettingsManager;
+	settingsFor(cwd: string): LegacySettingsManager;
 	/** ResourceLoader bound to a given cwd (reloaded on every call). */
-	resourceLoaderFor(cwd: string): Promise<DefaultResourceLoader>;
+	resourceLoaderFor(cwd: string): Promise<LegacyResourceLoader>;
 
 	/** Force reload of AuthStorage/ModelRegistry from disk (after a POST/DELETE). */
 	reloadAuth(): void;
@@ -40,15 +53,15 @@ export interface PrimeConfig {
 type PrimeConfigGlobal = { __primeConfig?: PrimeConfig };
 
 function createPrimeConfig(initialCwd: string): PrimeConfig {
-	const agentDir = getAgentDir();
-	const authStorage = AuthStorage.create();
-	const modelRegistry = ModelRegistry.create(authStorage);
+	const agentDir = legacyAgentDir();
+	const authStorage = createLegacyAuthStorage();
+	const modelRegistry = createLegacyModelRegistry(authStorage);
 	const projectRegistry = new ProjectRegistry(agentDir, initialCwd);
 
 	const currentDefaultCwd = resolve(initialCwd);
-	const defaultSettings = SettingsManager.create(currentDefaultCwd);
+	const defaultSettings = createLegacySettingsManager(currentDefaultCwd);
 
-	const settingsByCwd = new Map<string, SettingsManager>();
+	const settingsByCwd = new Map<string, LegacySettingsManager>();
 	settingsByCwd.set(currentDefaultCwd, defaultSettings);
 
 	const config: PrimeConfig = {
@@ -63,24 +76,17 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 		agentDir,
 		projectRegistry,
 
-		settingsFor(cwd: string): SettingsManager {
+		settingsFor(cwd: string): LegacySettingsManager {
 			if (cwd === currentDefaultCwd) return defaultSettings;
 			const existing = settingsByCwd.get(cwd);
 			if (existing) return existing;
-			const created = SettingsManager.create(cwd);
+			const created = createLegacySettingsManager(cwd);
 			settingsByCwd.set(cwd, created);
 			return created;
 		},
 
-		async resourceLoaderFor(cwd: string): Promise<DefaultResourceLoader> {
-			const settings = this.settingsFor(cwd);
-			const loader = new DefaultResourceLoader({
-				cwd,
-				agentDir,
-				settingsManager: settings,
-			});
-			await loader.reload();
-			return loader;
+		resourceLoaderFor(cwd: string): Promise<LegacyResourceLoader> {
+			return loadLegacyResources({ cwd, agentDir, settingsManager: this.settingsFor(cwd) });
 		},
 
 		reloadAuth(): void {
