@@ -14,6 +14,8 @@ test("rejects user-facing files without a pending Changeset", () => {
 test("allows documentation and internal files without a Changeset", () => {
 	assert.equal(isUserFacing("docs/guides/releasing.md"), false);
 	assert.equal(isUserFacing("scripts/check-changeset.mjs"), false);
+	assert.equal(isUserFacing("web/app/src/components/chat/perf/chat-render.bench.tsx"), false);
+	assert.equal(isUserFacing("web/app/src/components/chat/agent-chat.test.tsx"), false);
 	assert.doesNotThrow(() => assertChangesetPresent([], []));
 });
 
