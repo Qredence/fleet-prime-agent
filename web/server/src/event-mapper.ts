@@ -101,6 +101,12 @@ export interface EventMapperState {
 	reasoningPhase: ChatReasoningPresentation["phase"] | undefined;
 	currentToolParts: ChatToolPart[];
 	currentToolSentAgentMessages: Record<string, Array<unknown>>;
+	/**
+	 * Tool name and args from `tool_execution_start`, keyed by `toolCallId`.
+	 * The v0.10.1 Rust daemon omits `toolName` on `tool_execution_update`/`_end`
+	 * (and `args` on update), so later frames resolve them from here.
+	 */
+	toolCallStarts: Map<string, ToolCallStart>;
 	userMessages: ChatMessage[];
 	inRun: boolean;
 	presentation: PrimeAgentSessionPresentation;
@@ -109,6 +115,26 @@ export interface EventMapperState {
 	rlmChildOverrides: Map<string, RlmChildStatusOverride>;
 	rlmChildRuntimeOverrides: Map<string, RlmChildStatusOverride>;
 }
+
+export type ToolCallStart = { toolName: string; args: unknown };
+
+/**
+ * Protocol-7 top-level frames the v0.10.1 Rust daemon sends outside
+ * `session_event` (no `meta`). Kept local and minimal on purpose: the R1
+ * socket client owns the full protocol types (daemon-protocol.ts).
+ */
+export type DaemonSessionBindingFrame = {
+	type: "session_binding";
+	previousActiveSessionId: string;
+	activeSessionId: string;
+	sessionId?: string | null;
+	sessionFile?: string | null;
+};
+export type DaemonModelCatalogChangedFrame = { type: "model_catalog_changed" };
+export type DaemonTopLevelFrame = DaemonSessionBindingFrame | DaemonModelCatalogChangedFrame;
+
+/** Everything the mapper accepts: stock connection events plus Rust-only top-level frames. */
+export type MapperInputEvent = AgentConnectionEvent | DaemonTopLevelFrame;
 
 export type RlmChildStatusOverride = {
 	status?: PrimeAgentRlmChild["status"];
@@ -140,6 +166,7 @@ export function createEventMapperState(init?: {
 		reasoningPhase: undefined,
 		currentToolParts: [],
 		currentToolSentAgentMessages: {},
+		toolCallStarts: new Map(),
 		userMessages: [],
 		inRun: false,
 		presentation: init?.presentation ?? createEmptyPrimeAgentSessionPresentation(),
@@ -163,6 +190,7 @@ function resetRun(state: EventMapperState): void {
 	state.reasoningPhase = undefined;
 	state.currentToolParts = [];
 	state.currentToolSentAgentMessages = {};
+	state.toolCallStarts.clear();
 	state.userMessages = [];
 	state.activeUserBashId = undefined;
 	state.inRun = true;
@@ -595,6 +623,38 @@ function rememberAssistantMessage(state: EventMapperState, message: AssistantMes
 	return chatMessage;
 }
 
+/**
+ * Resolve tool identity for a tool_execution_* frame. v0.9.8 sends `toolName`
+ * on every frame; the v0.10.1 Rust daemon only on `tool_execution_start`, so
+ * update/end fall back to the start cache, then to the tool part already built
+ * from the assistant message's toolCall. Never hands `undefined` to categorizeTool.
+ */
+function resolveToolIdentity(
+	state: EventMapperState,
+	toolCallId: string,
+	frameToolName: unknown,
+): Pick<ChatToolPart, "type" | "category" | "toolName" | "serverName"> {
+	const rawName =
+		typeof frameToolName === "string" && frameToolName.length > 0
+			? frameToolName
+			: state.toolCallStarts.get(toolCallId)?.toolName;
+	if (rawName !== undefined) {
+		const { category, toolName, serverName } = categorizeTool(rawName);
+		return { type: makeToolType(rawName), category, toolName, serverName };
+	}
+	const existing = state.currentToolParts.find((part) => part.toolCallId === toolCallId);
+	if (existing) {
+		return {
+			type: existing.type,
+			category: existing.category,
+			toolName: existing.toolName,
+			serverName: existing.serverName,
+		};
+	}
+	const { category, toolName, serverName } = categorizeTool("unknown_tool");
+	return { type: makeToolType("unknown_tool"), category, toolName, serverName };
+}
+
 // ---------------------------------------------------------------------------
 // Core agent-loop events
 /**
@@ -629,6 +689,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 					}));
 			});
 			const finalMessage = finalizeAssistantMessage(state);
+			state.toolCallStarts.clear();
 			state.inRun = false;
 			return [
 				...payloadFrames,
@@ -679,12 +740,11 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [];
 		}
 		case "tool_execution_start": {
-			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const startToolName = typeof event.toolName === "string" ? event.toolName : undefined;
+			if (startToolName) state.toolCallStarts.set(event.toolCallId, { toolName: startToolName, args: event.args });
+			const identity = resolveToolIdentity(state, event.toolCallId, startToolName);
 			const part = upsertCurrentToolPart(state, {
-				type: makeToolType(event.toolName),
-				category,
-				toolName,
-				serverName,
+				...identity,
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
 				input: event.args,
@@ -692,23 +752,23 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [reasoningFrame(state, "executing", true), { type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_update": {
-			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const frame = event as { toolName?: unknown; args?: unknown };
+			const identity = resolveToolIdentity(state, event.toolCallId, frame.toolName);
+			const input = frame.args !== undefined ? frame.args : state.toolCallStarts.get(event.toolCallId)?.args;
 			const backgroundOutput = extractToolBackgroundOutput(event.partialResult);
 			const part = upsertCurrentToolPart(state, {
-				type: makeToolType(event.toolName),
-				category,
-				toolName,
-				serverName,
+				...identity,
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
-				input: event.args,
+				input,
 				result: event.partialResult,
 				...(backgroundOutput !== undefined ? { backgroundOutput } : {}),
 			});
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_end": {
-			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const identity = resolveToolIdentity(state, event.toolCallId, (event as { toolName?: unknown }).toolName);
+			state.toolCallStarts.delete(event.toolCallId);
 			const errorText = event.isError ? extractToolErrorText(event.result) : undefined;
 			const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
 			const durationMs =
@@ -720,10 +780,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			const backgroundOutput = extractToolBackgroundOutput(event.result);
 
 			const part = upsertCurrentToolPart(state, {
-				type: makeToolType(event.toolName),
-				category,
-				toolName,
-				serverName,
+				...identity,
 				toolCallId: event.toolCallId,
 				state: event.isError ? "output-error" : "output-available",
 				output: event.result,
@@ -1122,7 +1179,8 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
  * @param event - Connection event to map
  * @returns The chat stream frames produced for the event
  */
-export function mapAgentConnectionEvent(state: EventMapperState, event: AgentConnectionEvent): ChatStreamEvent[] {
+export function mapAgentConnectionEvent(state: EventMapperState, event: MapperInputEvent): ChatStreamEvent[] {
+	if (isDaemonTopLevelFrame(event)) return mapDaemonTopLevelFrame(state, event);
 	switch (event.type) {
 		case "session_event":
 			return mapAgentSessionEvent(state, event.event);
@@ -1286,9 +1344,39 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: AgentCon
 	}
 }
 
+function isDaemonTopLevelFrame(event: MapperInputEvent): event is DaemonTopLevelFrame {
+	const type = (event as { type?: unknown }).type;
+	return type === "session_binding" || type === "model_catalog_changed";
+}
+
+/**
+ * Rust-only top-level frames. Neither has a fitting ChatStreamEvent variant,
+ * and adding one is a contract change that needs its own decision, so both
+ * are consumed without emitting anything.
+ */
+function mapDaemonTopLevelFrame(state: EventMapperState, frame: DaemonTopLevelFrame): ChatStreamEvent[] {
+	switch (frame.type) {
+		case "session_binding":
+			// The daemon re-bound the persisted session to a new runtime
+			// (`activeSessionId`); in-flight tool calls of the old runtime are gone.
+			// TODO(R1): the bridge/socket client must re-target routing at
+			// `frame.activeSessionId`; decide separately whether the browser needs a
+			// ChatStreamEvent for it (contract change). `state.sessionId` is Fleet's
+			// id and is intentionally left unchanged here.
+			state.toolCallStarts.clear();
+			return [];
+		case "model_catalog_changed":
+			// TODO(R1): the bridge should re-fetch `get_model_catalog` and refresh
+			// its models cache; there is no ChatStreamEvent for model catalog updates.
+			return [];
+		default:
+			return [];
+	}
+}
+
 export function mapAgentConnectionEvents(
 	state: EventMapperState,
-	events: readonly AgentConnectionEvent[],
+	events: readonly MapperInputEvent[],
 ): ChatStreamEvent[] {
 	const out: ChatStreamEvent[] = [];
 	for (const evt of events) {

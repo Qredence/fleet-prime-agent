@@ -27,6 +27,11 @@ export function categorizeTool(rawName: string): { category: ChatToolCategory; t
 	if (lower === "ipython" || lower === "jupyter") {
 		return { category: "kernel", toolName: "ipython" };
 	}
+	// Prime Agent v0.10.1 (Rust daemon) renamed the kernel tool to `python_repl`.
+	// Same kernel card as v0.9.8's `ipython`, but keep the real tool name.
+	if (lower === "python_repl") {
+		return { category: "kernel", toolName: "python_repl" };
+	}
 	if (lower === "bash" || lower === "sh" || lower === "terminal") {
 		return { category: "system", toolName: "bash" };
 	}
@@ -136,6 +141,8 @@ export function createFleetErrorEnvelope(
 
 export function makeToolType(toolName: string): `tool-${string}` {
 	if (toolName === "thinking") return "tool-Thinking";
+	// v0.10.1 `python_repl` renders with the existing IPython kernel card.
+	if (toolName.toLowerCase() === "python_repl") return "tool-IPython";
 	return `tool-${toPascalCase(toolName)}`;
 }
 
