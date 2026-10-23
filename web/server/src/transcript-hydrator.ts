@@ -56,6 +56,14 @@ export function categorizeTool(rawName: string): { category: ChatToolCategory; t
 	if (lower === "task" || lower === "agent" || lower === "rlm" || lower.startsWith("subagent")) {
 		return { category: "rlm", toolName: rawName };
 	}
+	if (rawName.startsWith("mcp__")) {
+		// `mcp__<server>__<tool>`: the tool name may itself contain single underscores.
+		const rest = rawName.slice("mcp__".length);
+		const separator = rest.indexOf("__");
+		if (separator > 0 && separator < rest.length - 2) {
+			return { category: "mcp", toolName: rest.slice(separator + 2), serverName: rest.slice(0, separator) };
+		}
+	}
 	if (rawName.startsWith("mcp__") || rawName.includes("/")) {
 		const parts = rawName.replace(/^mcp__/, "").split(/[_/]/);
 		const serverName = parts[0];

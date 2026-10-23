@@ -25,6 +25,12 @@ import type {
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { truncateTail } from "prime-agent";
 import {
+	type DaemonModelCatalogChangedFrame,
+	type DaemonSessionBindingFrame,
+	isDaemonModelCatalogChangedFrame,
+	isDaemonSessionBindingFrame,
+} from "./daemon-protocol";
+import {
 	createEmptyPrimeAgentSessionPresentation,
 	stablePresentationId,
 	upsertArtifact,
@@ -120,17 +126,9 @@ export type ToolCallStart = { toolName: string; args: unknown };
 
 /**
  * Protocol-7 top-level frames the v0.10.1 Rust daemon sends outside
- * `session_event` (no `meta`). Kept local and minimal on purpose: the R1
- * socket client owns the full protocol types (daemon-protocol.ts).
+ * `session_event` (no `meta`). Types and guards come from the R1 socket
+ * client's daemon-protocol.ts.
  */
-export type DaemonSessionBindingFrame = {
-	type: "session_binding";
-	previousActiveSessionId: string;
-	activeSessionId: string;
-	sessionId?: string | null;
-	sessionFile?: string | null;
-};
-export type DaemonModelCatalogChangedFrame = { type: "model_catalog_changed" };
 export type DaemonTopLevelFrame = DaemonSessionBindingFrame | DaemonModelCatalogChangedFrame;
 
 /** Everything the mapper accepts: stock connection events plus Rust-only top-level frames. */
@@ -151,8 +149,14 @@ export function createEventMapperState(init?: {
 	sessionId?: string;
 	presentation?: PrimeAgentSessionPresentation;
 	rlmChildOverrides?: ReadonlyMap<string, RlmChildStatusOverride>;
+	/**
+	 * Transcript (snapshot) messages at attach time. The last assistant message
+	 * carries in-flight `toolCall` blocks, which seed the toolCallId cache so a
+	 * mid-tool attach (update/end with no start) keeps the real name and args.
+	 */
+	initialMessages?: readonly unknown[];
 }): EventMapperState {
-	return {
+	const state: EventMapperState = {
 		runId: "",
 		sessionId: init?.sessionId ?? "",
 		messageSeq: 0,
@@ -175,6 +179,37 @@ export function createEventMapperState(init?: {
 		rlmChildOverrides: new Map(init?.rlmChildOverrides),
 		rlmChildRuntimeOverrides: new Map(),
 	};
+	if (init?.initialMessages) seedToolCallStartsFromMessages(state, init.initialMessages);
+	return state;
+}
+
+/**
+ * Seed the toolCallId → {toolName, args} cache from the `toolCall` blocks of
+ * the last assistant message in a snapshot transcript (plus an optional
+ * in-flight `streamingMessage`). Existing entries win: a live
+ * `tool_execution_start` is more authoritative than a snapshot.
+ *
+ * @returns The number of tool calls seeded.
+ */
+export function seedToolCallStartsFromMessages(
+	state: EventMapperState,
+	messages: readonly unknown[] | undefined,
+	streamingMessage?: unknown,
+): number {
+	const candidates = [...(Array.isArray(messages) ? messages : []), ...(streamingMessage ? [streamingMessage] : [])];
+	const lastAssistant = [...candidates]
+		.reverse()
+		.find((message) => isRecord(message) && message.role === "assistant" && Array.isArray(message.content));
+	if (!isRecord(lastAssistant) || !Array.isArray(lastAssistant.content)) return 0;
+	let seeded = 0;
+	for (const block of lastAssistant.content as unknown[]) {
+		if (!isRecord(block) || block.type !== "toolCall") continue;
+		if (typeof block.id !== "string" || !block.id || typeof block.name !== "string" || !block.name) continue;
+		if (state.toolCallStarts.has(block.id)) continue;
+		state.toolCallStarts.set(block.id, { toolName: block.name, args: block.arguments });
+		seeded++;
+	}
+	return seeded;
 }
 
 function resetRun(state: EventMapperState): void {
@@ -723,7 +758,11 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		case "message_update": {
 			if (!isAssistantMessage(event.message)) return [];
 			state.currentAssistantMessage = event.message;
-			return mapAssistantStreamEvent(state, event.assistantMessageEvent);
+			// The v0.10.1 scripted engine sends message_update with no
+			// assistantMessageEvent (whole-message update); message_end carries the content.
+			const streamEvent = (event as { assistantMessageEvent?: AssistantMessageEvent }).assistantMessageEvent;
+			if (!streamEvent || typeof streamEvent.type !== "string") return [];
+			return mapAssistantStreamEvent(state, streamEvent);
 		}
 		case "message_end": {
 			// Some providers expose their final assistant content only on the
@@ -768,6 +807,8 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		}
 		case "tool_execution_end": {
 			const identity = resolveToolIdentity(state, event.toolCallId, (event as { toolName?: unknown }).toolName);
+			// Mid-tool attach: no start frame, so args come from the snapshot-seeded cache.
+			const cachedInput = state.toolCallStarts.get(event.toolCallId)?.args;
 			state.toolCallStarts.delete(event.toolCallId);
 			const errorText = event.isError ? extractToolErrorText(event.result) : undefined;
 			const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
@@ -783,6 +824,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				...identity,
 				toolCallId: event.toolCallId,
 				state: event.isError ? "output-error" : "output-available",
+				...(cachedInput !== undefined ? { input: cachedInput } : {}),
 				output: event.result,
 				result: event.result,
 				...(durationMs !== undefined ? { durationMs } : {}),
@@ -1186,6 +1228,7 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: MapperIn
 			return mapAgentSessionEvent(state, event.event);
 		case "session_replaced": {
 			resetRun(state);
+			seedToolCallStartsFromMessages(state, event.messages);
 			const resetMessage: ChatMessage = {
 				id: state.currentMessageId ?? `${state.runId}-reset`,
 				role: "assistant",
@@ -1205,6 +1248,9 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: MapperIn
 		}
 		case "session_resynced": {
 			resetRun(state);
+			// A resync (reconnect, or the bridge's reload after a sequence gap) may
+			// land mid-tool: re-seed tool identity from the snapshot transcript.
+			seedToolCallStartsFromMessages(state, event.snapshot.messages, event.snapshot.streamingMessage);
 			const events: ChatStreamEvent[] = [];
 			if (event.snapshot.parent || event.snapshot.children) {
 				const rawRlmChildren = (event.snapshot.children ?? []).map((child) => {
@@ -1345,8 +1391,7 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: MapperIn
 }
 
 function isDaemonTopLevelFrame(event: MapperInputEvent): event is DaemonTopLevelFrame {
-	const type = (event as { type?: unknown }).type;
-	return type === "session_binding" || type === "model_catalog_changed";
+	return isDaemonSessionBindingFrame(event) || isDaemonModelCatalogChangedFrame(event);
 }
 
 /**
@@ -1372,6 +1417,23 @@ function mapDaemonTopLevelFrame(state: EventMapperState, frame: DaemonTopLevelFr
 		default:
 			return [];
 	}
+}
+
+/**
+ * Surface a daemon `meta.sequence` gap through the existing resync path: the
+ * caller fetches a fresh snapshot (`connection.getInitialSnapshot()`) and this
+ * maps it as `session_resynced`, which resets the run, re-seeds tool identity
+ * and emits `done` with `sessionReset: true` so the browser reloads the
+ * transcript. No new ChatStreamEvent variant.
+ *
+ * TODO(R1 bridge): call this from prime-bridge.ts when daemon-runtime reports
+ * a gap (see daemon-sequence-gap.ts); not wired yet.
+ */
+export function resyncAfterSequenceGap(
+	state: EventMapperState,
+	snapshot: Extract<AgentConnectionEvent, { type: "session_resynced" }>["snapshot"],
+): ChatStreamEvent[] {
+	return mapAgentConnectionEvent(state, { type: "session_resynced", snapshot });
 }
 
 export function mapAgentConnectionEvents(
