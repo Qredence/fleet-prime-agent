@@ -1,0 +1,737 @@
+[
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "waiting",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Prepared run"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "message",
+		"message": {
+			"id": "run-mjuohs00-i-u0",
+			"role": "user",
+			"parts": [
+				{
+					"type": "text",
+					"text": "[fixture:ipython-call] Compute 6 * 7."
+				}
+			],
+			"createdAt": 1767225601000
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000005",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Starting Python kernel...",
+				"payload": {
+					"message": "Starting Python kernel..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Starting Python kernel..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000006",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "› setting up python kernel (one-time, ~30s)…",
+				"payload": {
+					"message": "› setting up python kernel (one-time, ~30s)…"
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000007",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "rebuilding kernel venv",
+				"payload": {
+					"message": "rebuilding kernel venv"
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "› setting up python kernel (one-time, ~30s)…"
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "rebuilding kernel venv"
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000008",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "✓ ready",
+				"payload": {
+					"message": "✓ ready"
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "✓ ready"
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000009",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Restoring Python state...",
+				"payload": {
+					"message": "Restoring Python state..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Restoring Python state..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000010",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Preparing Python runtime...",
+				"payload": {
+					"message": "Preparing Python runtime..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Preparing Python runtime..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "42"
+					}
+				],
+				"details": {
+					"status": "ok"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "\n"
+					}
+				],
+				"details": {
+					"status": "ok"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000011",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"payload": {}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_ipython_1",
+			"state": "output-available",
+			"input": {
+				"code": "print(6 * 7)"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "42\n"
+					}
+				],
+				"details": {
+					"durationMs": 0,
+					"status": "ok",
+					"stdout": "42\n",
+					"stderr": "",
+					"kernelRestarted": false
+				},
+				"isError": false
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "42\n"
+					}
+				],
+				"details": {
+					"durationMs": 0,
+					"status": "ok",
+					"stdout": "42\n",
+					"stderr": "",
+					"kernelRestarted": false
+				},
+				"isError": false
+			},
+			"durationMs": 0
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 4,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 5,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "The kernel print",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 5,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "ed 42.",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-5",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 6,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "run-mjuohs00-i",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "text",
+					"text": "The kernel printed 42."
+				},
+				{
+					"type": "tool-IPython",
+					"category": "kernel",
+					"toolName": "ipython",
+					"toolCallId": "call_ipython_1",
+					"state": "output-available",
+					"input": {
+						"code": "print(6 * 7)"
+					},
+					"result": {
+						"content": [
+							{
+								"type": "text",
+								"text": "42\n"
+							}
+						],
+						"details": {
+							"durationMs": 0,
+							"status": "ok",
+							"stdout": "42\n",
+							"stderr": "",
+							"kernelRestarted": false
+						},
+						"isError": false
+					},
+					"output": {
+						"content": [
+							{
+								"type": "text",
+								"text": "42\n"
+							}
+						],
+						"details": {
+							"durationMs": 0,
+							"status": "ok",
+							"stdout": "42\n",
+							"stderr": "",
+							"kernelRestarted": false
+						},
+						"isError": false
+					},
+					"durationMs": 0
+				}
+			]
+		},
+		"sessionId": "f00000000003"
+	}
+]

@@ -1,0 +1,429 @@
+[
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "waiting",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Prepared run"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "message",
+		"message": {
+			"id": "run-mjuohs00-i-u0",
+			"role": "user",
+			"parts": [
+				{
+					"type": "text",
+					"text": "[fixture:auto-retry] Try until it works."
+				}
+			],
+			"createdAt": 1767225601000
+		}
+	},
+	{
+		"type": "message",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "error",
+					"title": "Assistant error",
+					"message": "429 Too Many Requests: rate limit exceeded (scripted)"
+				}
+			],
+			"createdAt": 1767225603000
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "run-mjuohs00-i",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "error",
+					"title": "Assistant error",
+					"message": "429 Too Many Requests: rate limit exceeded (scripted)"
+				}
+			]
+		},
+		"sessionId": "f00000000003"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "recovering",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Completed",
+					"body": "Finished the current run."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Recovering after retry",
+					"body": "Recovering the current request."
+				}
+			],
+			"visibleSteps": 4,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Recovery completed"
+		}
+	},
+	{
+		"type": "retry",
+		"phase": "start",
+		"attempt": 1,
+		"maxAttempts": 2,
+		"delayMs": 50,
+		"errorMessage": "429 Too Many Requests: rate limit exceeded (scripted)",
+		"error": {
+			"code": "RATE_LIMIT",
+			"message": "429 Too Many Requests: rate limit exceeded (scripted)",
+			"isTerminal": false,
+			"remediation": {
+				"action": "retry_turn",
+				"label": "Retry in a moment"
+			}
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "waiting",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Prepared run"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "Succeeded after ",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "retry.",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "recovering",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Recovering after retry",
+					"body": "Recovering the current request."
+				}
+			],
+			"visibleSteps": 4,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Recovery completed"
+		}
+	},
+	{
+		"type": "retry",
+		"phase": "end",
+		"success": true,
+		"attempt": 1
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Recovering after retry",
+					"body": "Recovering the current request."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 5,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "run-mjuohs00-i",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "text",
+					"text": "Succeeded after retry."
+				}
+			]
+		},
+		"sessionId": "f00000000003"
+	}
+]

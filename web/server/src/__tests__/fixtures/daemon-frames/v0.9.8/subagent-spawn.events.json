@@ -1,0 +1,1642 @@
+[
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "waiting",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Prepared run"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "message",
+		"message": {
+			"id": "run-mjuohs00-i-u0",
+			"role": "user",
+			"parts": [
+				{
+					"type": "text",
+					"text": "[fixture:subagent-spawn] Delegate to a child."
+				}
+			],
+			"createdAt": 1767225601000
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_spawn_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "child = await rlm.spawn(\"[fixture:subagent-child] Say done.\", name=\"fixture-child\")\nprint(\"spawned\")"
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000005",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Starting Python kernel...",
+				"payload": {
+					"message": "Starting Python kernel..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_spawn_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "child = await rlm.spawn(\"[fixture:subagent-child] Say done.\", name=\"fixture-child\")\nprint(\"spawned\")"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Starting Python kernel..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000006",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Restoring Python state...",
+				"payload": {
+					"message": "Restoring Python state..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_spawn_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "child = await rlm.spawn(\"[fixture:subagent-child] Say done.\", name=\"fixture-child\")\nprint(\"spawned\")"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Restoring Python state..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000007",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Preparing Python runtime...",
+				"payload": {
+					"message": "Preparing Python runtime..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_spawn_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "child = await rlm.spawn(\"[fixture:subagent-child] Say done.\", name=\"fixture-child\")\nprint(\"spawned\")"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Preparing Python runtime..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "presentation",
+		"sessionId": "f00000000003",
+		"presentation": {
+			"revision": 1,
+			"userBash": [],
+			"rlmChildren": [
+				{
+					"id": "sub-e0000002",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "queued",
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			],
+			"refinements": [],
+			"artifactRuns": [
+				{
+					"id": "artifact-run:run-mjuohs00-i-2gz11z",
+					"runId": "run-mjuohs00-i",
+					"artifacts": [
+						{
+							"id": "run-mjuohs00-i:sub-e0000002:rlm-161pnm4",
+							"runId": "run-mjuohs00-i",
+							"sourceToolCallId": "sub-e0000002",
+							"kind": "rlm",
+							"title": "[fixture:subagent-child] Say done.",
+							"status": "running",
+							"output": {
+								"id": "sub-e0000002",
+								"sessionName": "fixture-child",
+								"model": "fleet-scripted/scripted-v1",
+								"label": "[fixture:subagent-child] Say done.",
+								"status": "queued",
+								"timestamp": 1767225600000
+							},
+							"timestamp": 1767225600000
+						}
+					],
+					"startedAt": 1767225600000
+				}
+			],
+			"rlmTree": {
+				"rootSessionId": "f00000000003",
+				"nodes": {
+					"sub-e0000002": {
+						"id": "sub-e0000002",
+						"sessionName": "fixture-child",
+						"model": "fleet-scripted/scripted-v1",
+						"label": "[fixture:subagent-child] Say done.",
+						"status": "queued",
+						"timestamp": 1767225600000,
+						"depth": 1,
+						"childrenIds": []
+					}
+				},
+				"rootChildrenIds": [
+					"sub-e0000002"
+				],
+				"activeNodeId": "sub-e0000002"
+			}
+		}
+	},
+	{
+		"type": "rlm",
+		"child": {
+			"id": "sub-e0000002",
+			"sessionName": "fixture-child",
+			"model": "fleet-scripted/scripted-v1",
+			"label": "[fixture:subagent-child] Say done.",
+			"status": "queued",
+			"timestamp": 1767225600000,
+			"depth": 1,
+			"childrenIds": []
+		},
+		"tree": {
+			"rootSessionId": "f00000000003",
+			"nodes": {
+				"sub-e0000002": {
+					"id": "sub-e0000002",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "queued",
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			},
+			"rootChildrenIds": [
+				"sub-e0000002"
+			],
+			"activeNodeId": "sub-e0000002"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_spawn_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "child = await rlm.spawn(\"[fixture:subagent-child] Say done.\", name=\"fixture-child\")\nprint(\"spawned\")"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "spawned"
+					}
+				],
+				"details": {
+					"status": "ok"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_spawn_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "child = await rlm.spawn(\"[fixture:subagent-child] Say done.\", name=\"fixture-child\")\nprint(\"spawned\")"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "\n"
+					}
+				],
+				"details": {
+					"status": "ok"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000008",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"payload": {}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_spawn_1",
+			"state": "output-available",
+			"input": {
+				"code": "child = await rlm.spawn(\"[fixture:subagent-child] Say done.\", name=\"fixture-child\")\nprint(\"spawned\")"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "spawned\n"
+					}
+				],
+				"details": {
+					"durationMs": 10,
+					"status": "ok",
+					"stdout": "spawned\n",
+					"stderr": "",
+					"kernelRestarted": false
+				},
+				"isError": false
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "spawned\n"
+					}
+				],
+				"details": {
+					"durationMs": 10,
+					"status": "ok",
+					"stdout": "spawned\n",
+					"stderr": "",
+					"kernelRestarted": false
+				},
+				"isError": false
+			},
+			"durationMs": 10
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 4,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 5,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "Spawned the chil",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 5,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "d agent.",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-5",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 6,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "run-mjuohs00-i",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "text",
+					"text": "Spawned the child agent."
+				},
+				{
+					"type": "tool-IPython",
+					"category": "kernel",
+					"toolName": "ipython",
+					"toolCallId": "call_spawn_1",
+					"state": "output-available",
+					"input": {
+						"code": "child = await rlm.spawn(\"[fixture:subagent-child] Say done.\", name=\"fixture-child\")\nprint(\"spawned\")"
+					},
+					"result": {
+						"content": [
+							{
+								"type": "text",
+								"text": "spawned\n"
+							}
+						],
+						"details": {
+							"durationMs": 10,
+							"status": "ok",
+							"stdout": "spawned\n",
+							"stderr": "",
+							"kernelRestarted": false
+						},
+						"isError": false
+					},
+					"output": {
+						"content": [
+							{
+								"type": "text",
+								"text": "spawned\n"
+							}
+						],
+						"details": {
+							"durationMs": 10,
+							"status": "ok",
+							"stdout": "spawned\n",
+							"stderr": "",
+							"kernelRestarted": false
+						},
+						"isError": false
+					},
+					"durationMs": 10
+				}
+			]
+		},
+		"sessionId": "f00000000003"
+	},
+	{
+		"type": "presentation",
+		"sessionId": "f00000000003",
+		"presentation": {
+			"revision": 2,
+			"userBash": [],
+			"rlmChildren": [
+				{
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			],
+			"refinements": [],
+			"artifactRuns": [
+				{
+					"id": "artifact-run:run-mjuohs00-i-2gz11z",
+					"runId": "run-mjuohs00-i",
+					"artifacts": [
+						{
+							"id": "run-mjuohs00-i:sub-e0000002:rlm-161pnm4",
+							"runId": "run-mjuohs00-i",
+							"sourceToolCallId": "sub-e0000002",
+							"kind": "rlm",
+							"title": "[fixture:subagent-child] Say done.",
+							"status": "running",
+							"output": {
+								"id": "sub-e0000002",
+								"activeSessionId": "f00000000008",
+								"sessionName": "fixture-child",
+								"model": "fleet-scripted/scripted-v1",
+								"label": "[fixture:subagent-child] Say done.",
+								"status": "running",
+								"repliedSinceTask": false,
+								"timestamp": 1767225600000
+							},
+							"timestamp": 1767225600000
+						}
+					],
+					"startedAt": 1767225600000
+				}
+			],
+			"rlmTree": {
+				"rootSessionId": "f00000000003",
+				"nodes": {
+					"sub-e0000002": {
+						"id": "sub-e0000002",
+						"activeSessionId": "f00000000008",
+						"sessionName": "fixture-child",
+						"model": "fleet-scripted/scripted-v1",
+						"label": "[fixture:subagent-child] Say done.",
+						"status": "running",
+						"repliedSinceTask": false,
+						"timestamp": 1767225600000,
+						"depth": 1,
+						"childrenIds": []
+					}
+				},
+				"rootChildrenIds": [
+					"sub-e0000002"
+				],
+				"activeNodeId": "sub-e0000002"
+			}
+		}
+	},
+	{
+		"type": "rlm",
+		"child": {
+			"id": "sub-e0000002",
+			"activeSessionId": "f00000000008",
+			"sessionName": "fixture-child",
+			"model": "fleet-scripted/scripted-v1",
+			"label": "[fixture:subagent-child] Say done.",
+			"status": "running",
+			"repliedSinceTask": false,
+			"timestamp": 1767225600000,
+			"depth": 1,
+			"childrenIds": []
+		},
+		"tree": {
+			"rootSessionId": "f00000000003",
+			"nodes": {
+				"sub-e0000002": {
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			},
+			"rootChildrenIds": [
+				"sub-e0000002"
+			],
+			"activeNodeId": "sub-e0000002"
+		}
+	},
+	{
+		"type": "presentation",
+		"sessionId": "f00000000003",
+		"presentation": {
+			"revision": 3,
+			"userBash": [],
+			"rlmChildren": [
+				{
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"activity": {
+						"kind": "waiting"
+					},
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			],
+			"refinements": [],
+			"artifactRuns": [
+				{
+					"id": "artifact-run:run-mjuohs00-i-2gz11z",
+					"runId": "run-mjuohs00-i",
+					"artifacts": [
+						{
+							"id": "run-mjuohs00-i:sub-e0000002:rlm-161pnm4",
+							"runId": "run-mjuohs00-i",
+							"sourceToolCallId": "sub-e0000002",
+							"kind": "rlm",
+							"title": "[fixture:subagent-child] Say done.",
+							"status": "running",
+							"output": {
+								"id": "sub-e0000002",
+								"activeSessionId": "f00000000008",
+								"sessionName": "fixture-child",
+								"model": "fleet-scripted/scripted-v1",
+								"label": "[fixture:subagent-child] Say done.",
+								"status": "running",
+								"activity": {
+									"kind": "waiting"
+								},
+								"repliedSinceTask": false,
+								"timestamp": 1767225600000
+							},
+							"timestamp": 1767225600000
+						}
+					],
+					"startedAt": 1767225600000
+				}
+			],
+			"rlmTree": {
+				"rootSessionId": "f00000000003",
+				"nodes": {
+					"sub-e0000002": {
+						"id": "sub-e0000002",
+						"activeSessionId": "f00000000008",
+						"sessionName": "fixture-child",
+						"model": "fleet-scripted/scripted-v1",
+						"label": "[fixture:subagent-child] Say done.",
+						"status": "running",
+						"activity": {
+							"kind": "waiting"
+						},
+						"repliedSinceTask": false,
+						"timestamp": 1767225600000,
+						"depth": 1,
+						"childrenIds": []
+					}
+				},
+				"rootChildrenIds": [
+					"sub-e0000002"
+				],
+				"activeNodeId": "sub-e0000002"
+			}
+		}
+	},
+	{
+		"type": "rlm",
+		"child": {
+			"id": "sub-e0000002",
+			"activeSessionId": "f00000000008",
+			"sessionName": "fixture-child",
+			"model": "fleet-scripted/scripted-v1",
+			"label": "[fixture:subagent-child] Say done.",
+			"status": "running",
+			"activity": {
+				"kind": "waiting"
+			},
+			"repliedSinceTask": false,
+			"timestamp": 1767225600000,
+			"depth": 1,
+			"childrenIds": []
+		},
+		"tree": {
+			"rootSessionId": "f00000000003",
+			"nodes": {
+				"sub-e0000002": {
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"activity": {
+						"kind": "waiting"
+					},
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			},
+			"rootChildrenIds": [
+				"sub-e0000002"
+			],
+			"activeNodeId": "sub-e0000002"
+		}
+	},
+	{
+		"type": "presentation",
+		"sessionId": "f00000000003",
+		"presentation": {
+			"revision": 4,
+			"userBash": [],
+			"rlmChildren": [
+				{
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"activity": {
+						"kind": "writing"
+					},
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			],
+			"refinements": [],
+			"artifactRuns": [
+				{
+					"id": "artifact-run:run-mjuohs00-i-2gz11z",
+					"runId": "run-mjuohs00-i",
+					"artifacts": [
+						{
+							"id": "run-mjuohs00-i:sub-e0000002:rlm-161pnm4",
+							"runId": "run-mjuohs00-i",
+							"sourceToolCallId": "sub-e0000002",
+							"kind": "rlm",
+							"title": "[fixture:subagent-child] Say done.",
+							"status": "running",
+							"output": {
+								"id": "sub-e0000002",
+								"activeSessionId": "f00000000008",
+								"sessionName": "fixture-child",
+								"model": "fleet-scripted/scripted-v1",
+								"label": "[fixture:subagent-child] Say done.",
+								"status": "running",
+								"activity": {
+									"kind": "writing"
+								},
+								"repliedSinceTask": false,
+								"timestamp": 1767225600000
+							},
+							"timestamp": 1767225600000
+						}
+					],
+					"startedAt": 1767225600000
+				}
+			],
+			"rlmTree": {
+				"rootSessionId": "f00000000003",
+				"nodes": {
+					"sub-e0000002": {
+						"id": "sub-e0000002",
+						"activeSessionId": "f00000000008",
+						"sessionName": "fixture-child",
+						"model": "fleet-scripted/scripted-v1",
+						"label": "[fixture:subagent-child] Say done.",
+						"status": "running",
+						"activity": {
+							"kind": "writing"
+						},
+						"repliedSinceTask": false,
+						"timestamp": 1767225600000,
+						"depth": 1,
+						"childrenIds": []
+					}
+				},
+				"rootChildrenIds": [
+					"sub-e0000002"
+				],
+				"activeNodeId": "sub-e0000002"
+			}
+		}
+	},
+	{
+		"type": "rlm",
+		"child": {
+			"id": "sub-e0000002",
+			"activeSessionId": "f00000000008",
+			"sessionName": "fixture-child",
+			"model": "fleet-scripted/scripted-v1",
+			"label": "[fixture:subagent-child] Say done.",
+			"status": "running",
+			"activity": {
+				"kind": "writing"
+			},
+			"repliedSinceTask": false,
+			"timestamp": 1767225600000,
+			"depth": 1,
+			"childrenIds": []
+		},
+		"tree": {
+			"rootSessionId": "f00000000003",
+			"nodes": {
+				"sub-e0000002": {
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"activity": {
+						"kind": "writing"
+					},
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			},
+			"rootChildrenIds": [
+				"sub-e0000002"
+			],
+			"activeNodeId": "sub-e0000002"
+		}
+	},
+	{
+		"type": "presentation",
+		"sessionId": "f00000000003",
+		"presentation": {
+			"revision": 5,
+			"userBash": [],
+			"rlmChildren": [
+				{
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"answerPreview": "Child done.",
+					"tokenCount": 11861,
+					"activity": {
+						"kind": "writing"
+					},
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			],
+			"refinements": [],
+			"artifactRuns": [
+				{
+					"id": "artifact-run:run-mjuohs00-i-2gz11z",
+					"runId": "run-mjuohs00-i",
+					"artifacts": [
+						{
+							"id": "run-mjuohs00-i:sub-e0000002:rlm-161pnm4",
+							"runId": "run-mjuohs00-i",
+							"sourceToolCallId": "sub-e0000002",
+							"kind": "rlm",
+							"title": "[fixture:subagent-child] Say done.",
+							"status": "running",
+							"output": {
+								"id": "sub-e0000002",
+								"activeSessionId": "f00000000008",
+								"sessionName": "fixture-child",
+								"model": "fleet-scripted/scripted-v1",
+								"label": "[fixture:subagent-child] Say done.",
+								"status": "running",
+								"answerPreview": "Child done.",
+								"tokenCount": 11861,
+								"activity": {
+									"kind": "writing"
+								},
+								"repliedSinceTask": false,
+								"timestamp": 1767225600000
+							},
+							"timestamp": 1767225600000
+						}
+					],
+					"startedAt": 1767225600000
+				}
+			],
+			"rlmTree": {
+				"rootSessionId": "f00000000003",
+				"nodes": {
+					"sub-e0000002": {
+						"id": "sub-e0000002",
+						"activeSessionId": "f00000000008",
+						"sessionName": "fixture-child",
+						"model": "fleet-scripted/scripted-v1",
+						"label": "[fixture:subagent-child] Say done.",
+						"status": "running",
+						"answerPreview": "Child done.",
+						"tokenCount": 11861,
+						"activity": {
+							"kind": "writing"
+						},
+						"repliedSinceTask": false,
+						"timestamp": 1767225600000,
+						"depth": 1,
+						"childrenIds": []
+					}
+				},
+				"rootChildrenIds": [
+					"sub-e0000002"
+				],
+				"activeNodeId": "sub-e0000002"
+			}
+		}
+	},
+	{
+		"type": "rlm",
+		"child": {
+			"id": "sub-e0000002",
+			"activeSessionId": "f00000000008",
+			"sessionName": "fixture-child",
+			"model": "fleet-scripted/scripted-v1",
+			"label": "[fixture:subagent-child] Say done.",
+			"status": "running",
+			"answerPreview": "Child done.",
+			"tokenCount": 11861,
+			"activity": {
+				"kind": "writing"
+			},
+			"repliedSinceTask": false,
+			"timestamp": 1767225600000,
+			"depth": 1,
+			"childrenIds": []
+		},
+		"tree": {
+			"rootSessionId": "f00000000003",
+			"nodes": {
+				"sub-e0000002": {
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"answerPreview": "Child done.",
+					"tokenCount": 11861,
+					"activity": {
+						"kind": "writing"
+					},
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			},
+			"rootChildrenIds": [
+				"sub-e0000002"
+			],
+			"activeNodeId": "sub-e0000002"
+		}
+	},
+	{
+		"type": "presentation",
+		"sessionId": "f00000000003",
+		"presentation": {
+			"revision": 6,
+			"userBash": [],
+			"rlmChildren": [
+				{
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"answerPreview": "Child done.",
+					"tokenCount": 11861,
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			],
+			"refinements": [],
+			"artifactRuns": [
+				{
+					"id": "artifact-run:run-mjuohs00-i-2gz11z",
+					"runId": "run-mjuohs00-i",
+					"artifacts": [
+						{
+							"id": "run-mjuohs00-i:sub-e0000002:rlm-161pnm4",
+							"runId": "run-mjuohs00-i",
+							"sourceToolCallId": "sub-e0000002",
+							"kind": "rlm",
+							"title": "[fixture:subagent-child] Say done.",
+							"status": "running",
+							"output": {
+								"id": "sub-e0000002",
+								"activeSessionId": "f00000000008",
+								"sessionName": "fixture-child",
+								"model": "fleet-scripted/scripted-v1",
+								"label": "[fixture:subagent-child] Say done.",
+								"status": "running",
+								"answerPreview": "Child done.",
+								"tokenCount": 11861,
+								"repliedSinceTask": false,
+								"timestamp": 1767225600000
+							},
+							"timestamp": 1767225600000
+						}
+					],
+					"startedAt": 1767225600000
+				}
+			],
+			"rlmTree": {
+				"rootSessionId": "f00000000003",
+				"nodes": {
+					"sub-e0000002": {
+						"id": "sub-e0000002",
+						"activeSessionId": "f00000000008",
+						"sessionName": "fixture-child",
+						"model": "fleet-scripted/scripted-v1",
+						"label": "[fixture:subagent-child] Say done.",
+						"status": "running",
+						"answerPreview": "Child done.",
+						"tokenCount": 11861,
+						"repliedSinceTask": false,
+						"timestamp": 1767225600000,
+						"depth": 1,
+						"childrenIds": []
+					}
+				},
+				"rootChildrenIds": [
+					"sub-e0000002"
+				],
+				"activeNodeId": "sub-e0000002"
+			}
+		}
+	},
+	{
+		"type": "rlm",
+		"child": {
+			"id": "sub-e0000002",
+			"activeSessionId": "f00000000008",
+			"sessionName": "fixture-child",
+			"model": "fleet-scripted/scripted-v1",
+			"label": "[fixture:subagent-child] Say done.",
+			"status": "running",
+			"answerPreview": "Child done.",
+			"tokenCount": 11861,
+			"repliedSinceTask": false,
+			"timestamp": 1767225600000,
+			"depth": 1,
+			"childrenIds": []
+		},
+		"tree": {
+			"rootSessionId": "f00000000003",
+			"nodes": {
+				"sub-e0000002": {
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "running",
+					"answerPreview": "Child done.",
+					"tokenCount": 11861,
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			},
+			"rootChildrenIds": [
+				"sub-e0000002"
+			],
+			"activeNodeId": "sub-e0000002"
+		}
+	},
+	{
+		"type": "presentation",
+		"sessionId": "f00000000003",
+		"presentation": {
+			"revision": 7,
+			"userBash": [],
+			"rlmChildren": [
+				{
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "done",
+					"durationMs": 271,
+					"answerPreview": "Child done.",
+					"tokenCount": 11861,
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			],
+			"refinements": [],
+			"artifactRuns": [
+				{
+					"id": "artifact-run:run-mjuohs00-i-2gz11z",
+					"runId": "run-mjuohs00-i",
+					"artifacts": [
+						{
+							"id": "run-mjuohs00-i:sub-e0000002:rlm-161pnm4",
+							"runId": "run-mjuohs00-i",
+							"sourceToolCallId": "sub-e0000002",
+							"kind": "rlm",
+							"title": "[fixture:subagent-child] Say done.",
+							"status": "success",
+							"output": {
+								"id": "sub-e0000002",
+								"activeSessionId": "f00000000008",
+								"sessionName": "fixture-child",
+								"model": "fleet-scripted/scripted-v1",
+								"label": "[fixture:subagent-child] Say done.",
+								"status": "done",
+								"durationMs": 271,
+								"answerPreview": "Child done.",
+								"tokenCount": 11861,
+								"repliedSinceTask": false,
+								"timestamp": 1767225600000
+							},
+							"timestamp": 1767225600000
+						}
+					],
+					"startedAt": 1767225600000,
+					"endedAt": 1767225600000
+				}
+			],
+			"rlmTree": {
+				"rootSessionId": "f00000000003",
+				"nodes": {
+					"sub-e0000002": {
+						"id": "sub-e0000002",
+						"activeSessionId": "f00000000008",
+						"sessionName": "fixture-child",
+						"model": "fleet-scripted/scripted-v1",
+						"label": "[fixture:subagent-child] Say done.",
+						"status": "done",
+						"durationMs": 271,
+						"answerPreview": "Child done.",
+						"tokenCount": 11861,
+						"repliedSinceTask": false,
+						"timestamp": 1767225600000,
+						"depth": 1,
+						"childrenIds": []
+					}
+				},
+				"rootChildrenIds": [
+					"sub-e0000002"
+				],
+				"activeNodeId": "sub-e0000002"
+			}
+		}
+	},
+	{
+		"type": "rlm",
+		"child": {
+			"id": "sub-e0000002",
+			"activeSessionId": "f00000000008",
+			"sessionName": "fixture-child",
+			"model": "fleet-scripted/scripted-v1",
+			"label": "[fixture:subagent-child] Say done.",
+			"status": "done",
+			"durationMs": 271,
+			"answerPreview": "Child done.",
+			"tokenCount": 11861,
+			"repliedSinceTask": false,
+			"timestamp": 1767225600000,
+			"depth": 1,
+			"childrenIds": []
+		},
+		"tree": {
+			"rootSessionId": "f00000000003",
+			"nodes": {
+				"sub-e0000002": {
+					"id": "sub-e0000002",
+					"activeSessionId": "f00000000008",
+					"sessionName": "fixture-child",
+					"model": "fleet-scripted/scripted-v1",
+					"label": "[fixture:subagent-child] Say done.",
+					"status": "done",
+					"durationMs": 271,
+					"answerPreview": "Child done.",
+					"tokenCount": 11861,
+					"repliedSinceTask": false,
+					"timestamp": 1767225600000,
+					"depth": 1,
+					"childrenIds": []
+				}
+			},
+			"rootChildrenIds": [
+				"sub-e0000002"
+			],
+			"activeNodeId": "sub-e0000002"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "waiting",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Prepared run"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "Spawned the chil",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "d agent.",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "payload",
+		"part": {
+			"type": "payload",
+			"id": "run-mjuohs00-i-runtime-0",
+			"kind": "rlm_child_terminal_notice",
+			"title": "[rlm_child_terminal_notice]",
+			"payload": {
+				"customType": "rlm_child_terminal_notice",
+				"details": {
+					"kind": "completed_without_reply",
+					"childId": "sub-e0000002",
+					"sessionName": "fixture-child",
+					"lastAssistantTextPreview": "Child done."
+				}
+			},
+			"text": "[child-exited: no-reply child:fixture-child]\n\nLast assistant text: Child done."
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 4,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "run-mjuohs00-i",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "text",
+					"text": "Spawned the child agent."
+				}
+			]
+		},
+		"sessionId": "f00000000003"
+	}
+]
