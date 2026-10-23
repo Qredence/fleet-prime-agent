@@ -716,6 +716,164 @@ describe("PrimeBridge.forkSession", () => {
 		expect((messages[0] as { content: string }).content).toBe("first question");
 	});
 
+	/**
+	 * Wraps the in-process connection like the daemon runtime: exposes
+	 * `onSequenceGap`, captures the bridge's subscribe listener so tests can
+	 * inject daemon events, and optionally overrides the attach snapshot.
+	 */
+	function createGapAwareFactory(overrides: { messages?: () => unknown[]; streamingMessage?: unknown }): {
+		factory: NonNullable<PrimeBridgeOptions["connectionFactory"]>;
+		emitGap: () => void;
+		emitEvent: (event: AgentConnectionEvent) => void;
+		snapshotCalls: () => number;
+	} {
+		const gapListeners = new Set<(gap: DaemonSequenceGap) => void>();
+		const eventListeners = new Set<(event: AgentConnectionEvent) => void>();
+		let snapshotCount = 0;
+		const factory: NonNullable<PrimeBridgeOptions["connectionFactory"]> = async (options) => {
+			const webAgent = await createInProcessTestAgentConnection(options);
+			const inner = webAgent.connection;
+			const connection = new Proxy(inner, {
+				get(target, property) {
+					if (property === "subscribe") {
+						return (listener: (event: AgentConnectionEvent) => void) => {
+							eventListeners.add(listener);
+							const off = target.subscribe(listener);
+							return () => {
+								eventListeners.delete(listener);
+								off();
+							};
+						};
+					}
+					if (property === "getMessages" && overrides.messages) {
+						return async () => overrides.messages?.();
+					}
+					if (property === "getInitialSnapshot") {
+						return async () => {
+							snapshotCount += 1;
+							const snapshot = await target.getInitialSnapshot();
+							return {
+								...snapshot,
+								...(overrides.messages ? { messages: overrides.messages() } : {}),
+								...(overrides.streamingMessage ? { streamingMessage: overrides.streamingMessage } : {}),
+							};
+						};
+					}
+					const value = Reflect.get(target, property);
+					return typeof value === "function" ? value.bind(target) : value;
+				},
+			}) as AgentConnection;
+			return {
+				...webAgent,
+				connection,
+				onSequenceGap: (listener: (gap: DaemonSequenceGap) => void) => {
+					gapListeners.add(listener);
+					return () => {
+						gapListeners.delete(listener);
+					};
+				},
+			};
+		};
+		return {
+			factory,
+			emitGap: () => {
+				for (const listener of [...gapListeners]) {
+					listener({
+						activeSessionId: "rt-1",
+						generation: "gen-1",
+						lastSequence: 4,
+						receivedSequence: 7,
+						missing: 2,
+					});
+				}
+			},
+			emitEvent: (event) => {
+				for (const listener of [...eventListeners]) listener(event);
+			},
+			snapshotCalls: () => snapshotCount,
+		};
+	}
+
+	it("resyncs from a fresh snapshot on a daemon sequence gap (done with sessionReset)", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = new PrimeBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const before = harness.snapshotCalls();
+		const cursor = bridge.replaySince(created.sessionId, 0).replayed.at(-1)?.seq ?? 0;
+
+		harness.emitGap();
+		harness.emitGap(); // coalesces into the in-flight resync's follow-up
+		harness.emitGap();
+		await vi.waitFor(() => {
+			const done = bridge
+				.replaySince(created.sessionId, cursor)
+				.replayed.map((entry) => entry.event as { type: string; sessionReset?: boolean; sessionId?: string })
+				.filter((frame) => frame.type === "done");
+			expect(done.length).toBeGreaterThanOrEqual(1);
+			expect(done.every((frame) => frame.sessionReset === true)).toBe(true);
+			expect(done[0]?.sessionId).toBe(created.sessionId);
+		});
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		// One resync for the first gap plus at most one coalesced follow-up.
+		expect(harness.snapshotCalls() - before).toBeLessThanOrEqual(2);
+	});
+
+	it("stops resyncing on gaps once the session is deleted", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = new PrimeBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		await bridge.deleteSession(created.sessionId);
+		const before = harness.snapshotCalls();
+		harness.emitGap();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(harness.snapshotCalls()).toBe(before);
+	});
+
+	it("resolves the tool name for a mid-tool attach from the attach snapshot", async () => {
+		const toolCallMessage = {
+			role: "assistant",
+			content: [{ type: "toolCall", id: "call_mid_1", name: "bash", arguments: { command: "ls -la" } }],
+			api: "openai-responses",
+			provider: "openai",
+			model: "gpt-test",
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: "toolUse",
+			timestamp: Date.now(),
+		};
+		// The in-flight assistant message exists only on the snapshot
+		// (streamingMessage), not in getMessages().
+		const harness = createGapAwareFactory({ messages: () => [], streamingMessage: toolCallMessage });
+		const bridge = new PrimeBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const cursor = bridge.replaySince(created.sessionId, 0).replayed.at(-1)?.seq ?? 0;
+
+		// The daemon's tool_execution_end carries no toolName (Rust protocol 7).
+		harness.emitEvent({
+			type: "session_event",
+			event: {
+				type: "tool_execution_end",
+				toolCallId: "call_mid_1",
+				result: { content: [{ type: "text", text: "total 0" }] },
+				isError: false,
+			},
+		} as unknown as AgentConnectionEvent);
+
+		const toolFrames = bridge
+			.replaySince(created.sessionId, cursor)
+			.replayed.map((entry) => entry.event as { type: string; part?: { toolName?: string; input?: unknown } })
+			.filter((frame) => frame.type === "tool");
+		expect(toolFrames).toHaveLength(1);
+		expect(toolFrames[0]?.part?.toolName).toBe("bash");
+		expect(toolFrames[0]?.part?.input).toEqual({ command: "ls -la" });
+	});
+
 	it("keeps the source session untouched and running after the fork", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
