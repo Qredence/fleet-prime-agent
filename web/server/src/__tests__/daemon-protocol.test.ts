@@ -23,6 +23,8 @@ describe("daemon protocol 7 types against the Rust v0.10.1 fixtures", () => {
 			"session-binding.jsonl",
 			"tool-execution-nameless.jsonl",
 			"model-catalog-changed.jsonl",
+			"session-closed-killed.jsonl",
+			"session-closed-killed-observer.jsonl",
 		]) {
 			for (const line of readRustFixtureLines(name)) {
 				expect(parseDaemonFrameLine(line)?.type).toEqual(expect.any(String));
@@ -74,6 +76,48 @@ describe("daemon protocol 7 types against the Rust v0.10.1 fixtures", () => {
 			(frame) => frame.type === "session_event" && (frame.event as { type?: string }).type === "session_binding",
 		);
 		expect(nested).toHaveLength(0);
+	});
+
+	it("delivers the same sequenced session_closed{killed} to the killing and the observing client", () => {
+		const killer = readRustFixture("session-closed-killed.jsonl");
+		const observer = readRustFixture("session-closed-killed-observer.jsonl");
+		const closedOf = (frames: typeof killer) => frames.filter((frame) => frame.type === "session_closed");
+		const [closed] = closedOf(killer);
+		expect(closedOf(killer)).toHaveLength(1);
+		expect(closedOf(observer)).toEqual([closed]);
+		expect(closed).toMatchObject({
+			activeSessionId: "ebbadc9bfa0a",
+			reason: "killed",
+			meta: { id: "ebbadc9bfa0a:9", activeSessionId: "ebbadc9bfa0a", sequence: 9 },
+		});
+		const lastEventSequence = Math.max(
+			...killer
+				.filter((frame) => frame.type === "session_event")
+				.map((frame) => (frame.meta as { sequence: number }).sequence),
+		);
+		expect((closed.meta as { sequence: number }).sequence).toBe(lastEventSequence + 1);
+
+		const closedAt = killer.indexOf(closed);
+		const killAt = killer.findIndex((frame) => frame.type === "response" && frame.command === "kill");
+		expect(killer[killAt]).toEqual({ id: "K-4", type: "response", command: "kill", success: true });
+		expect(closedAt).toBeLessThan(killAt);
+		expect(observer.some((frame) => frame.type === "response" && frame.command === "kill")).toBe(false);
+		for (const frames of [killer, observer]) {
+			expect(frames.slice(frames.indexOf(closedOf(frames)[0]) + 1).map((frame) => frame.type)).toContain(
+				"heartbeats_changed",
+			);
+		}
+	});
+
+	it("starts a never-streamed attach at sequence 0 in the attach response", () => {
+		for (const name of ["session-closed-killed.jsonl", "session-closed-killed-observer.jsonl"]) {
+			const attach = readRustFixture(name).find((frame) => frame.type === "response" && frame.command === "attach");
+			expect(attach?.data).toMatchObject({
+				lastEventSequence: 0,
+				lastEventCursor: { sequence: 0 },
+				replay: { status: "complete", toSequence: 0 },
+			});
+		}
 	});
 
 	it("recognizes model_catalog_changed and the chunked snapshot frames", () => {

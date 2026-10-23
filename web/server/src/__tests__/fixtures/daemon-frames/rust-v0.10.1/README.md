@@ -28,6 +28,8 @@ one frame per line, exactly as read off the unix socket (then scrubbed, see belo
 | `scripted-bash-mcp-turn.jsonl` (+ `.commands.jsonl`, `scripted-bash-mcp.script.json`) | live, scripted engine | the full turn that produced the above, driven by `create.config.script` (a script file path) |
 | `attach-mid-tool.jsonl` (+ `.commands.jsonl`) | live, scripted engine | a second client attaching while `bash` runs: the snapshot's last assistant message already carries both `toolCall` blocks (`id`/`name`/`arguments`), `summary.isRunningTools:true`, then live events start at `tool_execution_end` for `call-bash-1` **with no preceding `tool_execution_start`** |
 | `stale-resume-attach.jsonl` (+ `.commands.jsonl`) | live, scripted engine | reattach with a pre-turn `resumeCursor`: `replay.status:"unavailable"`, `reason:"event_replay_not_available"`; no events are replayed, only the snapshot |
+| `session-closed-killed.jsonl` (+ `.commands.jsonl`, `session-closed-killed.script.json`) | live, scripted engine | the killing client: create (top-level `telemetryDisabled:true`) → attach of a never-streamed session (`lastEventSequence:0`, `lastEventCursor.sequence:0`, `replay.status:"complete"`) → one text-only scripted turn (events `meta.sequence` 1–8) → `kill`. Gets `session_closed{reason:"killed"}` with `meta` (`sequence:9`, the next event sequence), then a top-level `{"type":"heartbeats_changed"}`, and only then the `kill` response `{success:true}` (no `data`) |
+| `session-closed-killed-observer.jsonl` (+ `.commands.jsonl`) | live, scripted engine | a second client attached before the turn: the same turn events, the identical `session_closed{killed}` frame (same `meta.id`/`sequence`/`emittedAt`) and `heartbeats_changed`; no `kill` response |
 
 ## Scrubbing
 
