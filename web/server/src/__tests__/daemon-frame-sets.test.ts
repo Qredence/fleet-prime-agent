@@ -588,6 +588,59 @@ describe(`daemon-frames/${RUST_SET} specifics`, () => {
 		});
 	});
 
+	describe("real v0.10.1 kill captures (killing client and observer)", () => {
+		const errorFrameOf = (events: readonly ChatStreamEvent[]) => {
+			const errors = events.filter((event) => event.type === "error");
+			expect(errors).toHaveLength(1);
+			// runId is per-run bookkeeping, not part of what the browser shows.
+			const { runId: _runId, ...visible } = errors[0] as Extract<ChatStreamEvent, { type: "error" }>;
+			return visible;
+		};
+
+		it.each(["session-closed-killed", "session-closed-killed-observer"])(
+			"%s: same browser error frame as the v0.9.8 PR 0 path, and no sequence gap",
+			async (name) => {
+				const scenario = readDaemonFrameScenario(RUST_SET, name);
+				const closed = scenario.frames.filter((frame) => frame.type === "session_closed");
+				expect(closed).toMatchObject([{ reason: "killed", meta: { sequence: 9 } }]);
+
+				const v098Id = readDaemonFrameScenario("v0.9.8", "normal-turn").activeSessionId;
+				const v098 = await replayDaemonFrameScenario({
+					frames: [{ type: "session_closed", activeSessionId: v098Id, reason: "killed", meta: { sequence: 1 } }],
+					activeSessionId: v098Id,
+				});
+				const { events } = await replayDaemonFrameScenario(scenario);
+				const rustError = errorFrameOf(events);
+				expect(rustError).toEqual(errorFrameOf(v098.events));
+				expect(rustError.message).toContain("The daemon stopped this agent session.");
+				expect(events.at(-1)?.type).toBe("error");
+
+				const gaps: DaemonSequenceGap[] = [];
+				const tracker = createDaemonSequenceGapTracker((gap) => gaps.push(gap));
+				for (const frame of scenario.frames) tracker.observe(frame);
+				expect(gaps).toEqual([]);
+			},
+		);
+
+		it("heartbeats_changed and the data-less kill response map to nothing and do not throw", async () => {
+			const scenario = readDaemonFrameScenario(RUST_SET, "session-closed-killed");
+			const heartbeats = scenario.frames.filter((frame) => frame.type === "heartbeats_changed");
+			const killResponse = scenario.frames.filter(
+				(frame) => frame.type === "response" && (frame as { command?: unknown }).command === "kill",
+			);
+			expect(heartbeats).toEqual([{ type: "heartbeats_changed" }]);
+			expect(killResponse).toHaveLength(1);
+			expect("data" in (killResponse[0] as object)).toBe(false);
+			const state = createEventMapperState({ sessionId: "s" });
+			for (const frame of [...heartbeats, ...killResponse]) {
+				expect(mapAgentConnectionEvent(state, structuredClone(frame) as never)).toEqual([]);
+			}
+			// In the replay the frame reaches the mapper as a top-level frame and adds no events.
+			const { connectionEvents } = await replayDaemonFrameScenario(scenario);
+			expect(connectionEvents.filter((event) => event.type === "heartbeats_changed")).toHaveLength(1);
+		});
+	});
+
 	it.each(["session-binding", "model-catalog-changed"])(
 		"%s: top-level frames are consumed without crashing or emitting frames",
 		async (name) => {

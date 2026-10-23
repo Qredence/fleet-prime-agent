@@ -25,8 +25,10 @@ import type {
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { truncateTail } from "prime-agent";
 import {
+	type DaemonHeartbeatsChangedFrame,
 	type DaemonModelCatalogChangedFrame,
 	type DaemonSessionBindingFrame,
+	isDaemonHeartbeatsChangedFrame,
 	isDaemonModelCatalogChangedFrame,
 	isDaemonSessionBindingFrame,
 } from "./daemon-protocol";
@@ -129,7 +131,10 @@ export type ToolCallStart = { toolName: string; args: unknown };
  * `session_event` (no `meta`). Types and guards come from the R1 socket
  * client's daemon-protocol.ts.
  */
-export type DaemonTopLevelFrame = DaemonSessionBindingFrame | DaemonModelCatalogChangedFrame;
+export type DaemonTopLevelFrame =
+	| DaemonSessionBindingFrame
+	| DaemonModelCatalogChangedFrame
+	| DaemonHeartbeatsChangedFrame;
 
 /** Everything the mapper accepts: stock connection events plus Rust-only top-level frames. */
 export type MapperInputEvent = AgentConnectionEvent | DaemonTopLevelFrame;
@@ -1379,7 +1384,6 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: MapperIn
 			return [];
 		}
 		case "connection_status":
-		case "heartbeats_changed":
 			return [];
 		case "side_question_event": {
 			const text = [
@@ -1404,7 +1408,11 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: MapperIn
 }
 
 function isDaemonTopLevelFrame(event: MapperInputEvent): event is DaemonTopLevelFrame {
-	return isDaemonSessionBindingFrame(event) || isDaemonModelCatalogChangedFrame(event);
+	return (
+		isDaemonSessionBindingFrame(event) ||
+		isDaemonModelCatalogChangedFrame(event) ||
+		isDaemonHeartbeatsChangedFrame(event)
+	);
 }
 
 /**
@@ -1427,6 +1435,11 @@ function mapDaemonTopLevelFrame(state: EventMapperState, frame: DaemonTopLevelFr
 			// daemon-runtime refreshes the shared model registry on this broadcast
 			// (notifyDaemonModelCatalogChanged); there is no ChatStreamEvent for
 			// model catalog updates.
+			return [];
+		case "heartbeats_changed":
+			// Not chat content: the frame stays on the raw onFrame channel for
+			// heartbeat/cron consumers (Agents page refetch); the chat stream
+			// emits nothing for it.
 			return [];
 		default:
 			return [];

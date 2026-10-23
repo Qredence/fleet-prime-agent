@@ -1,5 +1,7 @@
+import { DaemonClient } from "prime-agent";
 import { afterEach, describe, expect, it } from "vitest";
 import { DaemonSocketClient } from "../daemon-socket-client";
+import { createEventMapperState, mapAgentConnectionEvent } from "../event-mapper";
 import { type FakeDaemonEnvelope, okResponse, startFakeDaemon } from "./helpers/fake-daemon";
 import { readRustFixture } from "./helpers/rust-fixtures";
 
@@ -66,6 +68,57 @@ describe("DaemonSocketClient", () => {
 		client.close();
 		await expect(pending).rejects.toThrow(/closed/);
 		await expect(client.request({ type: "list" })).rejects.toThrow(/not connected/);
+	});
+
+	describe("heartbeats_changed after a kill (real v0.10.1 capture)", () => {
+		const killed = readRustFixture("session-closed-killed.jsonl");
+		const heartbeats = killed.find((frame) => frame.type === "heartbeats_changed");
+		const closed = killed.find((frame) => frame.type === "session_closed");
+		const startKillDaemon = () =>
+			startFakeDaemon({
+				hello: rustHello,
+				// Same order as the capture: session_closed, heartbeats_changed, data-less kill response.
+				reply: (envelope) =>
+					envelope.command.type === "kill"
+						? [closed!, heartbeats!, { type: "response", id: envelope.id, command: "kill", success: true }]
+						: undefined,
+			});
+
+		it("reaches Fleet socket client onFrame subscribers unchanged; the chat mapper emits nothing", async () => {
+			expect(heartbeats).toEqual({ type: "heartbeats_changed" });
+			const daemon = await startKillDaemon();
+			cleanups.push(daemon.close);
+			const client = new DaemonSocketClient(daemon.socketPath);
+			cleanups.push(() => client.close());
+			await client.connect(1000);
+			await client.waitForHello(1000);
+			const frames: unknown[] = [];
+			client.onFrame((frame) => frames.push(frame));
+			const response = await client.request({ type: "kill", activeSessionId: "a" });
+			expect(response).toMatchObject({ success: true, command: "kill" });
+			expect("data" in response && response.data !== undefined).toBe(false);
+			await vi.waitFor(() => expect(frames).toContainEqual(heartbeats));
+			expect(frames.map((frame) => (frame as { type: string }).type)).toEqual([
+				"session_closed",
+				"heartbeats_changed",
+			]);
+			const state = createEventMapperState({ sessionId: "fleet" });
+			expect(mapAgentConnectionEvent(state, structuredClone(heartbeats) as never)).toEqual([]);
+			expect(mapAgentConnectionEvent(state, structuredClone(response) as never)).toEqual([]);
+		});
+
+		it("reaches the SDK DaemonClient onMessage hook (daemon-runtime's onFrame source) unchanged", async () => {
+			const daemon = await startKillDaemon();
+			cleanups.push(daemon.close);
+			const client = new DaemonClient(daemon.socketPath);
+			cleanups.push(() => client.close());
+			await client.connect(1000);
+			await client.waitForHello(1000);
+			const frames: unknown[] = [];
+			client.onMessage((frame: unknown) => frames.push(frame));
+			await client.request({ type: "kill", activeSessionId: "a" } as never);
+			await vi.waitFor(() => expect(frames).toContainEqual(heartbeats));
+		});
 	});
 
 	it("times out a request the daemon never answers", async () => {

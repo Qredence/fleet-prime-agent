@@ -19,7 +19,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ChatStreamEvent } from "@prime-agent/web-protocol";
 import { DaemonAgentConnection } from "prime-agent";
-import { isDaemonModelCatalogChangedFrame, isDaemonSessionBindingFrame } from "../daemon-protocol";
+import {
+	isDaemonHeartbeatsChangedFrame,
+	isDaemonModelCatalogChangedFrame,
+	isDaemonSessionBindingFrame,
+} from "../daemon-protocol";
 import {
 	createEventMapperState,
 	type EventMapperState,
@@ -153,7 +157,9 @@ function snapshotMessages(frame: DaemonFrame, activeSessionId: string): unknown[
  * here they go to the mapper directly, in stream order.
  */
 function topLevelMapperFrame(frame: DaemonFrame): MapperInputEvent | undefined {
-	return isDaemonSessionBindingFrame(frame) || isDaemonModelCatalogChangedFrame(frame)
+	return isDaemonSessionBindingFrame(frame) ||
+		isDaemonModelCatalogChangedFrame(frame) ||
+		isDaemonHeartbeatsChangedFrame(frame)
 		? (structuredClone(frame) as MapperInputEvent)
 		: undefined;
 }
