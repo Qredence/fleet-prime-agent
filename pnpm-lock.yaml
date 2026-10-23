@@ -7,7 +7,7 @@ settings:
 overrides:
   rimraf: 6.1.2
   gaxios>rimraf: 6.1.2
-  shell-quote: ^1.10.0
+  shell-quote: 1.11.0
   shiki: 4.5.0
   nanoid: ^3.3.18
   brace-expansion: 5.0.12
@@ -15,10 +15,14 @@ overrides:
   basic-ftp: 6.2.1
   fast-uri: 3.1.8
   js-yaml: 4.3.2
-  hono: 4.13.10
+  hono: 4.13.13
   ip-address: 10.7.2
   cytoscape: 3.34.0
   rolldown: 1.2.4
+  proxy-addr: 2.0.8
+  '@modelcontextprotocol/sdk': 1.32.1
+  source-map-js: 1.2.2
+  postcss-selector-parser@7: 7.1.6
 
 importers:
 
@@ -86,10 +90,10 @@ importers:
         version: 5.3.0
       '@openuidev/react-lang':
         specifier: ^0.3.2
-        version: 0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
+        version: 0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
       '@openuidev/react-ui':
         specifier: ^0.17.0
-        version: 0.17.0(@openuidev/react-headless@0.16.3(react@19.3.0)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0)))(@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)(zod@4.6.5)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0))
+        version: 0.17.0(@openuidev/react-headless@0.16.3(react@19.3.0)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0)))(@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)(zod@4.6.5)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0))
       '@pierre/diffs':
         specifier: ^1.5.2
         version: 1.5.2(@shikijs/themes@4.5.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -210,7 +214,7 @@ importers:
         version: 9.1.0(zod@4.6.5)
       '@openuidev/lang-core':
         specifier: ^0.4.1
-        version: 0.4.1(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(zod@4.6.5)
+        version: 0.4.1(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(zod@4.6.5)
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -851,7 +855,7 @@ packages:
     resolution: {integrity: sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
-      '@modelcontextprotocol/sdk': ^1.25.2
+      '@modelcontextprotocol/sdk': 1.32.1
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
         optional: true
@@ -860,7 +864,7 @@ packages:
     resolution: {integrity: sha512-XovyyCCnBzW+zKu+z/zq8hwNs4KOR5rEMAOxo2f40Q5xoOI37IMm6MIg2COOUtUApo0i6850MTBKH2u4QLGIqg==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: 4.13.10
+      hono: 4.13.13
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -981,8 +985,8 @@ packages:
       '@opentelemetry/sdk-trace-base':
         optional: true
 
-  '@modelcontextprotocol/sdk@1.30.1':
-    resolution: {integrity: sha512-H2HxLvC3HDNybePJaLdSrU1hhUK5iQw+WvV1b01myFyI7sdVGe1u/IPTE5D9fGCiJDVtgMV/lmFkQXLmQyIFYA==}
+  '@modelcontextprotocol/sdk@1.32.1':
+    resolution: {integrity: sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -1037,7 +1041,7 @@ packages:
   '@openuidev/lang-core@0.3.2':
     resolution: {integrity: sha512-HSOWwPLQAFA/MgVBDDnKOrGFT5Ubcf1QNCmYm2nG18cug+mo3p4U9+gqU8j8nkF2A9V5+i41mb0CTZHF+C1mSg==}
     peerDependencies:
-      '@modelcontextprotocol/sdk': '>=1.0.0'
+      '@modelcontextprotocol/sdk': 1.32.1
       zod: ^3.25.0 || ^4.0.0
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
@@ -1046,7 +1050,7 @@ packages:
   '@openuidev/lang-core@0.4.1':
     resolution: {integrity: sha512-t9XSiORKTgyn6pWv8qqBkgD45PBhORdGWpQAHo3APvj9SYy7YprKURQgmXNu3z6E/Ds8tsLAI+AZjX3errH+jQ==}
     peerDependencies:
-      '@modelcontextprotocol/sdk': '>=1.0.0'
+      '@modelcontextprotocol/sdk': 1.32.1
       zod: ^3.25.0 || ^4.0.0
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
@@ -1068,7 +1072,7 @@ packages:
   '@openuidev/react-lang@0.3.2':
     resolution: {integrity: sha512-Z1JIKAUt9H9NNBBH/357Q5SFhuGkIg+grf0+ypYmOqDwsCmrWyBYUrcWyxDGw9v/rpgn5ucGLUTPLo5cYlYQcA==}
     peerDependencies:
-      '@modelcontextprotocol/sdk': '>=1.0.0'
+      '@modelcontextprotocol/sdk': 1.32.1
       react: '*'
       react-dom: '*'
       zod: ^3.25.0 || ^4.0.0
@@ -3486,8 +3490,8 @@ packages:
   highlightjs-vue@1.0.0:
     resolution: {integrity: sha512-PDEfEF102G23vHmPhLyPboFCD+BkMGu+GuJe2d9/eH4FsCwvgBpnc9n0pGE+ffKdph38s6foEZiEjdgHdzp+IA==}
 
-  hono@4.13.10:
-    resolution: {integrity: sha512-dQuLsa5oO+47QVMVMaaD9cIv8ctmVtK1iRvwWngkfloFJMeFeuoUFDswIqZGxmGX3hrRzREgEArjkK9OgsQEhA==}
+  hono@4.13.13:
+    resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@9.0.3:
@@ -4453,8 +4457,8 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  postcss-selector-parser@7.1.5:
-    resolution: {integrity: sha512-KvvtD7SrlBP7dlgkBghEE3r84CABm5SmV2aNcG4oCA+qDnJ/tvKonFVvwWAyyWUEwxuNawdfEAZKP9zM3oZ2Uw==}
+  postcss-selector-parser@7.1.6:
+    resolution: {integrity: sha512-7qASPzhKF2l2KLboRZux8CCTRMdGiV08vWmyKzPz22qZ7ZjQBOeY7rNzNoCLSUiftJ7HUq0GERHmxw/t0dCdMw==}
     engines: {node: '>=4'}
 
   postcss@8.5.28:
@@ -4532,8 +4536,8 @@ packages:
     resolution: {integrity: sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==}
     engines: {node: '>=12.0.0'}
 
-  proxy-addr@2.0.7:
-    resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
+  proxy-addr@2.0.8:
+    resolution: {integrity: sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ==}
     engines: {node: '>= 0.10'}
 
   proxy-agent@6.5.0:
@@ -4831,8 +4835,8 @@ packages:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
 
-  shell-quote@1.10.0:
-    resolution: {integrity: sha512-w1aiOKwKuRgtwAReIIj89puqg+I7GvX4IbLrvmhXbzQsj1+Zwi4VO3+fa6ZF91TWSjIxoEkKnMeHcLEODK5ZXA==}
+  shell-quote@1.11.0:
+    resolution: {integrity: sha512-JdxDPD0DBTyu08pq0kPC0xSNet/qsU07qT6IsX1AS8oO2ICNRY4ldNa8OAI6PuwAH8tG3lxEhbqmyp4Dw4036g==}
     engines: {node: '>= 0.4'}
 
   shiki@4.5.0:
@@ -4886,10 +4890,6 @@ packages:
   socks@2.8.9:
     resolution: {integrity: sha512-LJhUYUvItdQ0LkJTmPeaEObWXAqFyfmP85x0tch/ez9cahmhlBBLbIqDFnvBnUJGagb0JbIQrkBs1wJ+yRYpEw==}
     engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
-
-  source-map-js@1.2.1:
-    resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
-    engines: {node: '>=0.10.0'}
 
   source-map-js@1.2.2:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
@@ -6222,22 +6222,22 @@ snapshots:
 
   '@fontsource-variable/inter@5.3.0': {}
 
-  '@google/genai@1.52.0(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(supports-color@8.1.1)':
+  '@google/genai@1.52.0(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(supports-color@8.1.1)':
     dependencies:
       google-auth-library: 10.9.1(supports-color@8.1.1)
       p-retry: 4.6.2
       protobufjs: 7.6.5
       ws: 8.21.3
     optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@4.6.5)
+      '@modelcontextprotocol/sdk': 1.32.1(supports-color@8.1.1)(zod@4.6.5)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
       - utf-8-validate
 
-  '@hono/node-server@2.1.0(hono@4.13.10)':
+  '@hono/node-server@2.1.0(hono@4.13.13)':
     dependencies:
-      hono: 4.13.10
+      hono: 4.13.13
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -6335,9 +6335,9 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@3.25.76)':
+  '@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 2.1.0(hono@4.13.10)
+      '@hono/node-server': 2.1.0(hono@4.13.13)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -6347,7 +6347,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1(supports-color@8.1.1)
       express-rate-limit: 8.6.2(express@5.2.1(supports-color@8.1.1))(supports-color@8.1.1)
-      hono: 4.13.10
+      hono: 4.13.13
       jose: 6.2.8
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -6357,9 +6357,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5)':
+  '@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5)':
     dependencies:
-      '@hono/node-server': 2.1.0(hono@4.13.10)
+      '@hono/node-server': 2.1.0(hono@4.13.13)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -6369,7 +6369,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1(supports-color@8.1.1)
       express-rate-limit: 8.6.2(express@5.2.1(supports-color@8.1.1))(supports-color@8.1.1)
-      hono: 4.13.10
+      hono: 4.13.13
       jose: 6.2.8
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -6410,28 +6410,28 @@ snapshots:
 
   '@opentelemetry/semantic-conventions@1.43.0': {}
 
-  '@openuidev/devtools@0.2.2(@openuidev/observability@0.0.4)(@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@openuidev/devtools@0.2.2(@openuidev/observability@0.0.4)(@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@openuidev/observability': 0.0.4
       lucide-react: 0.575.0(react@19.3.0)
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
     optionalDependencies:
-      '@openuidev/react-lang': 0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
+      '@openuidev/react-lang': 0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
 
-  '@openuidev/lang-core@0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(zod@4.6.5)':
+  '@openuidev/lang-core@0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(zod@4.6.5)':
     dependencies:
       ci-info: 4.4.0
       zod: 4.6.5
     optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@4.6.5)
+      '@modelcontextprotocol/sdk': 1.32.1(supports-color@8.1.1)(zod@4.6.5)
 
-  '@openuidev/lang-core@0.4.1(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(zod@4.6.5)':
+  '@openuidev/lang-core@0.4.1(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(zod@4.6.5)':
     dependencies:
       ci-info: 4.4.0
       zod: 4.6.5
     optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@4.6.5)
+      '@modelcontextprotocol/sdk': 1.32.1(supports-color@8.1.1)(zod@4.6.5)
 
   '@openuidev/observability@0.0.4': {}
 
@@ -6442,22 +6442,22 @@ snapshots:
       react: 19.3.0
       zustand: 4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0)
 
-  '@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)':
+  '@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)':
     dependencies:
-      '@openuidev/devtools': 0.2.2(@openuidev/observability@0.0.4)(@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@openuidev/lang-core': 0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(zod@4.6.5)
+      '@openuidev/devtools': 0.2.2(@openuidev/observability@0.0.4)(@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@openuidev/lang-core': 0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(zod@4.6.5)
       '@openuidev/observability': 0.0.4
       react: 19.3.0
       zod: 4.6.5
     optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@4.6.5)
+      '@modelcontextprotocol/sdk': 1.32.1(supports-color@8.1.1)(zod@4.6.5)
       react-dom: 19.3.0(react@19.3.0)
 
-  '@openuidev/react-ui@0.17.0(@openuidev/react-headless@0.16.3(react@19.3.0)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0)))(@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)(zod@4.6.5)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0))':
+  '@openuidev/react-ui@0.17.0(@openuidev/react-headless@0.16.3(react@19.3.0)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0)))(@openuidev/react-lang@0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(supports-color@8.1.1)(zod@4.6.5)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0))':
     dependencies:
       '@floating-ui/react-dom': 2.1.9(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@openuidev/react-headless': 0.16.3(react@19.3.0)(zustand@4.5.7(@types/react@19.3.0)(immer@11.1.18)(react@19.3.0))
-      '@openuidev/react-lang': 0.3.2(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
+      '@openuidev/react-lang': 0.3.2(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(zod@4.6.5)
       '@radix-ui/react-accordion': 1.2.20(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@radix-ui/react-aspect-ratio': 1.1.15(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@radix-ui/react-checkbox': 1.3.11(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -7259,7 +7259,7 @@ snapshots:
       jiti: 2.7.0
       lightningcss: 1.32.0
       magic-string: 0.30.21
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
       tailwindcss: 4.3.3
 
   '@tailwindcss/oxide-android-arm64@4.3.3':
@@ -7936,7 +7936,7 @@ snapshots:
 
   agentation-mcp@1.3.2(supports-color@8.1.1):
     dependencies:
-      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.32.1(supports-color@8.1.1)(zod@3.25.76)
       better-sqlite3: 12.11.1
       zod: 3.25.76
     transitivePeerDependencies:
@@ -8566,7 +8566,7 @@ snapshots:
       on-finished: 2.4.1
       once: 1.4.0
       parseurl: 1.3.3
-      proxy-addr: 2.0.7
+      proxy-addr: 2.0.8
       qs: 6.15.3
       range-parser: 1.3.0
       router: 2.2.0(supports-color@8.1.1)
@@ -8960,7 +8960,7 @@ snapshots:
 
   highlightjs-vue@1.0.0: {}
 
-  hono@4.13.10: {}
+  hono@4.13.13: {}
 
   hosted-git-info@9.0.3:
     dependencies:
@@ -9167,7 +9167,7 @@ snapshots:
   launch-editor@2.14.1:
     dependencies:
       picocolors: 1.1.1
-      shell-quote: 1.10.0
+      shell-quote: 1.11.0
 
   lightningcss-android-arm64@1.32.0:
     optional: true
@@ -9995,7 +9995,7 @@ snapshots:
     dependencies:
       playwright-core: 1.64.0
 
-  postcss-selector-parser@7.1.5:
+  postcss-selector-parser@7.1.6:
     dependencies:
       cssesc: 3.0.0
       util-deprecate: 1.0.2
@@ -10004,7 +10004,7 @@ snapshots:
     dependencies:
       nanoid: 3.3.18
       picocolors: 1.1.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   postcss@8.5.29:
     dependencies:
@@ -10047,9 +10047,9 @@ snapshots:
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.6.5)
       '@aws-sdk/client-bedrock-runtime': 3.1116.0
-      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.30.1(supports-color@8.1.1)(zod@4.6.5))(supports-color@8.1.1)
+      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.5))(supports-color@8.1.1)
       '@mistralai/mistralai': 2.6.4
-      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@4.6.5)
+      '@modelcontextprotocol/sdk': 1.32.1(supports-color@8.1.1)(zod@4.6.5)
       openai: 6.47.0(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5)
       partial-json: 0.1.7
       proxy-agent: 6.5.0(supports-color@8.1.1)
@@ -10101,7 +10101,7 @@ snapshots:
       '@earendil-works/pi-agent-core': prime-agent-core@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-ai': prime-agent-ai@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz(@aws-sdk/credential-provider-node@3.972.81)(@smithy/signature-v4@5.7.3)(supports-color@8.1.1)(ws@8.21.3)(zod@4.6.5)
       '@earendil-works/pi-tui': prime-agent-tui@https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-tui-0.9.8.tgz
-      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@4.6.5)
+      '@modelcontextprotocol/sdk': 1.32.1(supports-color@8.1.1)(zod@4.6.5)
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
       cli-highlight: 2.1.11
@@ -10167,7 +10167,7 @@ snapshots:
       '@types/node': 22.20.5
       long: 5.3.2
 
-  proxy-addr@2.0.7:
+  proxy-addr@2.0.8:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
@@ -10562,7 +10562,7 @@ snapshots:
       '@babel/plugin-transform-typescript': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       '@dotenvx/dotenvx': 1.75.1
-      '@modelcontextprotocol/sdk': 1.30.1(supports-color@8.1.1)(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.32.1(supports-color@8.1.1)(zod@3.25.76)
       '@shadcn/registry': 0.1.3(supports-color@8.1.1)
       '@types/validate-npm-package-name': 4.0.2
       browserslist: 4.28.8
@@ -10579,7 +10579,7 @@ snapshots:
       open: 11.0.1
       ora: 8.2.0
       postcss: 8.5.28
-      postcss-selector-parser: 7.1.5
+      postcss-selector-parser: 7.1.6
       prompts: 2.4.2
       recast: 0.23.21
       socks: 2.8.9
@@ -10601,7 +10601,7 @@ snapshots:
 
   shebang-regex@3.0.0: {}
 
-  shell-quote@1.10.0: {}
+  shell-quote@1.11.0: {}
 
   shiki@4.5.0:
     dependencies:
@@ -10674,8 +10674,6 @@ snapshots:
     dependencies:
       ip-address: 10.7.2
       smart-buffer: 4.2.0
-
-  source-map-js@1.2.1: {}
 
   source-map-js@1.2.2: {}
 
