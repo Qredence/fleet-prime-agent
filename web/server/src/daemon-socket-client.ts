@@ -10,13 +10,26 @@ import { randomUUID } from "node:crypto";
 import { createConnection, type Socket } from "node:net";
 import {
 	createDaemonCommandEnvelope,
+	type DaemonAvailableModels,
 	type DaemonCommandBody,
+	type DaemonErrorInfo,
 	type DaemonHelloFrame,
+	type DaemonMcpConnections,
+	type DaemonModelCatalog,
 	type DaemonOutboundFrame,
+	type DaemonRemoveMcpConnectionResult,
+	type DaemonResourceSnapshot,
 	type DaemonResponseFrame,
+	type DaemonSetMcpStaticTokenResult,
 	type DaemonUnknownFrame,
+	isDaemonAvailableModels,
 	isDaemonHelloFrame,
+	isDaemonMcpConnections,
+	isDaemonModelCatalog,
+	isDaemonRemoveMcpConnectionResult,
+	isDaemonResourceSnapshot,
 	isDaemonResponseFrame,
+	isDaemonSetMcpStaticTokenResult,
 	parseDaemonFrameLine,
 	READ_ONLY_DAEMON_COMMANDS,
 } from "./daemon-protocol";
@@ -31,6 +44,24 @@ type PendingRequest = {
 };
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * A daemon `response` with `success:false`, or a success whose `data` does not
+ * match the Fleet-owned shape. `daemonError` is the daemon's own message.
+ */
+export class DaemonCommandError extends Error {
+	readonly command: string;
+	readonly daemonError: string | undefined;
+	readonly errorInfo: DaemonErrorInfo | undefined;
+
+	constructor(command: string, message: string, options: { daemonError?: string; errorInfo?: DaemonErrorInfo } = {}) {
+		super(message);
+		this.name = "DaemonCommandError";
+		this.command = command;
+		this.daemonError = options.daemonError;
+		this.errorInfo = options.errorInfo;
+	}
+}
 
 export class DaemonSocketClient {
 	readonly socketPath: string;
@@ -131,6 +162,83 @@ export class DaemonSocketClient {
 			});
 			socket.write(`${JSON.stringify(envelope)}\n`);
 		});
+	}
+
+	/** `get_model_catalog`: every model plus the providers with configured auth (no network). */
+	getModelCatalog(activeSessionId: string, timeoutMs?: number): Promise<DaemonModelCatalog> {
+		return this.#typed({ type: "get_model_catalog", activeSessionId }, isDaemonModelCatalog, timeoutMs);
+	}
+
+	/** `get_available_models`: only the auth-configured models. */
+	getAvailableModels(activeSessionId: string, timeoutMs?: number): Promise<DaemonAvailableModels> {
+		return this.#typed({ type: "get_available_models", activeSessionId }, isDaemonAvailableModels, timeoutMs);
+	}
+
+	/** `get_resource_snapshot`: context files, skills, prompts and their diagnostics. */
+	getResourceSnapshot(activeSessionId: string, timeoutMs?: number): Promise<DaemonResourceSnapshot> {
+		return this.#typed({ type: "get_resource_snapshot", activeSessionId }, isDaemonResourceSnapshot, timeoutMs);
+	}
+
+	/** `get_mcp_connections` (Rust only): roster, service-catalog cards, api-key slots. */
+	getMcpConnections(activeSessionId: string, timeoutMs?: number): Promise<DaemonMcpConnections> {
+		return this.#typed({ type: "get_mcp_connections", activeSessionId }, isDaemonMcpConnections, timeoutMs);
+	}
+
+	/**
+	 * `set_mcp_static_token` (Rust only): store a pasted token for a pasteable
+	 * service and verify it. A failed verification still resolves
+	 * (`verified:false` + `error`); a refusal (unknown/non-pasteable server,
+	 * empty token) rejects with {@link DaemonCommandError}.
+	 */
+	setMcpStaticToken(
+		activeSessionId: string,
+		server: string,
+		token: string,
+		timeoutMs?: number,
+	): Promise<DaemonSetMcpStaticTokenResult> {
+		return this.#typed(
+			{ type: "set_mcp_static_token", activeSessionId, server, token },
+			isDaemonSetMcpStaticTokenResult,
+			timeoutMs,
+		);
+	}
+
+	/** `remove_mcp_connection` (Rust only): drop one connection's credential and record. */
+	removeMcpConnection(
+		activeSessionId: string,
+		server: string,
+		timeoutMs?: number,
+	): Promise<DaemonRemoveMcpConnectionResult> {
+		return this.#typed(
+			{ type: "remove_mcp_connection", activeSessionId, server },
+			isDaemonRemoveMcpConnectionResult,
+			timeoutMs,
+		);
+	}
+
+	async #typed<T>(
+		command: DaemonCommandBody,
+		guard: (data: unknown) => data is T,
+		timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+	): Promise<T> {
+		const response = await this.request(command, timeoutMs);
+		if (!response.success) {
+			throw new DaemonCommandError(
+				command.type,
+				response.error ?? `The Prime Agent daemon refused "${command.type}"`,
+				{
+					...(response.error !== undefined ? { daemonError: response.error } : {}),
+					...(response.errorInfo !== undefined ? { errorInfo: response.errorInfo } : {}),
+				},
+			);
+		}
+		if (!guard(response.data)) {
+			throw new DaemonCommandError(
+				command.type,
+				`The Prime Agent daemon returned an invalid "${command.type}" payload`,
+			);
+		}
+		return response.data;
 	}
 
 	close(): void {
