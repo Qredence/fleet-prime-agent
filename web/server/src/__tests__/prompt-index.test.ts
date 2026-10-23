@@ -208,7 +208,10 @@ describe("createPromptIndex", () => {
 		// transient; the second is trusted, so deleted prompts stop being served.
 		const empty = makeIndex({ sessions: [], openSession: withPrompts, now: NOW + PROMPT_INDEX_MAX_AGE_MS + 1 });
 		await empty.refresh();
-		expect(empty.candidates().map((c) => c.text)).toEqual(["a real prompt from a person"]);
+		// stats(), not candidates(): candidates() would start a background rebuild of
+		// this stale index that confirms the empty store itself and persists after
+		// the test returns, racing afterEach's rmSync (ENOTEMPTY).
+		expect(empty.stats()).toMatchObject({ sessions: 1, prompts: 1 });
 
 		const confirmed = createPromptIndex({
 			agentDir,
@@ -228,6 +231,10 @@ describe("createPromptIndex", () => {
 		// Never awaits a build: a cold index returns nothing rather than blocking.
 		expect(index.candidates()).toEqual([]);
 		await vi.waitFor(() => expect(index.candidates().length).toBe(1));
+		// The corpus is visible before the background build has persisted it, so
+		// drain that write here; otherwise afterEach's rmSync can race the temp
+		// file and fail with ENOTEMPTY.
+		await index.refresh();
 	});
 
 	it("skips sessions over the entry-count ceiling", async () => {
