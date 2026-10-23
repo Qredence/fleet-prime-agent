@@ -1,0 +1,4 @@
+{"type":"command","id":"A-1","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-A","command":{"type":"create","telemetryDisabled":true,"lifecycle":"resident","config":{"cwd":"/fixture/project","telemetryDisabled":true,"script":"/fixture/tool-script.json"}}}
+{"type":"command","id":"A-2","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-A","command":{"type":"attach","activeSessionId":"b134578a8e2f","capabilities":["attach_snapshot","event_sequence","slim_attach","client_owned_sessions"],"telemetryDisabled":true}}
+{"type":"command","id":"A-3","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-A","command":{"type":"prompt_and_wait","activeSessionId":"b134578a8e2f","message":"list files and open issues"}}
+{"type":"command","id":"A-4","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-A","command":{"type":"kill","activeSessionId":"b134578a8e2f"}}

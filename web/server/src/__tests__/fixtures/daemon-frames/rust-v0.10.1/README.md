@@ -24,6 +24,10 @@ one frame per line, exactly as read off the unix socket (then scrubbed, see belo
 | `session-binding.jsonl` (+ `.commands.jsonl`) | live | kill → `session_closed{reason:"killed"}` → re-create on the same `sessionPath` → **top-level** `session_binding` (not inside `session_event`, no `meta`), sent twice (supersede on create, rebind on stale-id attach) |
 | `model-catalog-changed.jsonl` | **source-derived** (`crates/pa-daemon/src/worker/connection.rs:58-62`, broadcast at `supervisor/supervision.rs:896-901`) | top-level `{"type":"model_catalog_changed"}`; only fires when a background catalog refresh differs, not reproducible without editing the agent dir |
 | `telemetry-disabled-attach.json` | live | `config.telemetryDisabled` is ignored (a telemetry-disabled attach is refused); top-level `create.telemetryDisabled:true` is honored |
+| `tool-execution-nameless-bash-mcp.jsonl` | live, **scripted engine** | `bash` and `mcp__github__list_issues` lifecycles: `tool_execution_start` carries `toolName`/`args`, `tool_execution_end` is nameless (`toolCallId`+`result`+`isError`). The scripted engine emits no `tool_execution_update` (the nameless update shape is pinned by the live `python_repl` fixture) |
+| `scripted-bash-mcp-turn.jsonl` (+ `.commands.jsonl`, `scripted-bash-mcp.script.json`) | live, scripted engine | the full turn that produced the above, driven by `create.config.script` (a script file path) |
+| `attach-mid-tool.jsonl` (+ `.commands.jsonl`) | live, scripted engine | a second client attaching while `bash` runs: the snapshot's last assistant message already carries both `toolCall` blocks (`id`/`name`/`arguments`), `summary.isRunningTools:true`, then live events start at `tool_execution_end` for `call-bash-1` **with no preceding `tool_execution_start`** |
+| `stale-resume-attach.jsonl` (+ `.commands.jsonl`) | live, scripted engine | reattach with a pre-turn `resumeCursor`: `replay.status:"unavailable"`, `reason:"event_replay_not_available"`; no events are replayed, only the snapshot |
 
 ## Scrubbing
 
@@ -31,3 +35,14 @@ Applied by the capture script before writing: scratch paths → `/fixture`, `$TM
 home → `/home/user`, executable paths → `/opt/prime-agent/<name>`, `*Token`/secret-like string
 fields → `<redacted>`, model catalog arrays reduced to the one model used, the
 `get_model_catalog` payload elided, and the user's `harness_digest` content redacted.
+
+### Why a scripted engine for bash/MCP
+
+The v0.10.1 daemon gives the model only `python_repl` (`crates/pa-daemon/src/agent_engine/lifecycle.rs:1154-1155`,
+`tools: vec![]`; the engine adds `python_repl` at `crates/pa-core/src/session_engine/engine.rs:504-516`,
+`generic_mcp_servers: vec![]`). bash, file tools and MCP servers are reached from inside the Python
+kernel, so a real model never emits a top-level `bash` or `mcp__*` tool event from the daemon. The
+scripted engine (`crates/pa-daemon/src/engine/scripted.rs:16-19,353-440`, selected by
+`create.config.script` at `crates/pa-daemon/src/worker.rs:417-418`) emits the same
+`ToolExecutionStart/End` engine events the worker frames at `crates/pa-daemon/src/worker/turn.rs:791-817`.
+The agent-dir path is scrubbed to `/home/user/.prime/agent`.

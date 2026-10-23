@@ -1,0 +1,1 @@
+{"type":"command","id":"C-1","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-C","command":{"type":"attach","activeSessionId":"b134578a8e2f","capabilities":["attach_snapshot","event_sequence","slim_attach","client_owned_sessions"],"telemetryDisabled":true,"resumeCursor":{"generation":"e1d418183e22","sequence":0}}}
