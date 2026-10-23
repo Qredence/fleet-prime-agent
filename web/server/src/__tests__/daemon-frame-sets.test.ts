@@ -349,6 +349,36 @@ describe(`daemon-frames/${RUST_SET} specifics`, () => {
 			]);
 		});
 
+		it.each([
+			["lastEventSequence", { lastEventSequence: 0 }],
+			["lastEventCursor", { lastEventCursor: { generation: "gen-a", sequence: 0 } }],
+		] as const)(
+			"attach on a never-streamed session (%s 0): the first event at sequence 1 is not a gap",
+			(_label, baseline) => {
+				const tracker = createDaemonSequenceGapTracker();
+				tracker.observe({
+					type: "response",
+					command: "attach",
+					success: true,
+					data: { activeSessionId: "fresh", ...baseline },
+				});
+				expect(tracker.position("fresh")).toMatchObject({ sequence: 0 });
+				const at = (sequence: number, type: string) => ({
+					type: "session_event",
+					activeSessionId: "fresh",
+					event: { type },
+					meta: { sequence, cursor: { generation: "gen-a", sequence } },
+				});
+				expect(tracker.observe(at(1, "agent_start"))).toBeUndefined();
+				expect(tracker.observe(at(2, "turn_start"))).toBeUndefined();
+				expect(tracker.observe(at(4, "turn_end"))).toMatchObject({
+					lastSequence: 2,
+					receivedSequence: 4,
+					missing: 1,
+				});
+			},
+		);
+
 		it("a new cursor generation or a session_binding re-baselines instead of reporting a gap", () => {
 			const tracker = createDaemonSequenceGapTracker();
 			const event = (activeSessionId: string, generation: string, sequence: number) => ({
