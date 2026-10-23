@@ -51,8 +51,44 @@ export function usePiChatSessionEvents({
 
 		const lastEventIdKey = `pi:sse:last-event-id:${sessionId}`;
 		const sseCapabilitiesRef = { current: undefined as FleetAdapterCapabilities | undefined };
-		let lastEventId = Number.parseInt(readStoredValue(lastEventIdKey, "session") ?? "0", 10);
-		if (Number.isNaN(lastEventId)) lastEventId = 0;
+		let streamGeneration: string | undefined;
+		let lastEventId = 0;
+		const rawStoredCursor = readStoredValue(lastEventIdKey, "session");
+		if (rawStoredCursor) {
+			if (rawStoredCursor.startsWith("{")) {
+				try {
+					const parsed = JSON.parse(rawStoredCursor) as { generation?: unknown; lastEventId?: unknown };
+					if (typeof parsed.generation === "string" && parsed.generation.length > 0) {
+						streamGeneration = parsed.generation;
+					}
+					if (
+						typeof parsed.lastEventId === "number" &&
+						Number.isInteger(parsed.lastEventId) &&
+						parsed.lastEventId > 0
+					) {
+						lastEventId = parsed.lastEventId;
+					}
+				} catch {
+					lastEventId = 0;
+				}
+			} else {
+				const parsed = Number.parseInt(rawStoredCursor, 10);
+				if (!Number.isNaN(parsed) && parsed > 0) lastEventId = parsed;
+			}
+		}
+		const persistCursor = (nextSeq: number, nextGeneration = streamGeneration) => {
+			lastEventId = nextSeq;
+			streamGeneration = nextGeneration;
+			if (nextGeneration) {
+				writeStoredValue(
+					lastEventIdKey,
+					JSON.stringify({ generation: nextGeneration, lastEventId: nextSeq }),
+					"session",
+				);
+			} else {
+				writeStoredValue(lastEventIdKey, String(nextSeq), "session");
+			}
+		};
 
 		let source: EventSource | null = null;
 		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -175,18 +211,27 @@ export function usePiChatSessionEvents({
 				});
 				return;
 			}
-			if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
 			const connected = frame as unknown as {
 				adapterCapabilities?: FleetAdapterCapabilities;
 				cursorReset?: boolean;
+				streamGeneration?: string;
 				type?: string;
 			};
 			if (connected.type === "connected") {
 				sseCapabilitiesRef.current = connected.adapterCapabilities;
 				setAdapterCapabilities(connected.adapterCapabilities);
-				if (connected.cursorReset) lastAppliedRlmSeq = 0;
+				if (typeof connected.streamGeneration === "string" && connected.streamGeneration.length > 0) {
+					streamGeneration = connected.streamGeneration;
+				}
+				if (connected.cursorReset) {
+					lastAppliedRlmSeq = 0;
+					persistCursor(0, streamGeneration);
+				} else if (streamGeneration && lastEventId > 0) {
+					persistCursor(lastEventId, streamGeneration);
+				}
 				return;
 			}
+			if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
 			if (frame.type === "reasoning") {
 				const messageId = frame.messageId;
 				if (!sseCapabilitiesRef.current?.features.includes("reasoning-summary-v1") || !messageId) return;
@@ -196,7 +241,13 @@ export function usePiChatSessionEvents({
 				return;
 			}
 			if (frame.type === "state") {
-				setActivityLabelSynced(typeof frame.state?.message === "string" ? frame.state.message : undefined);
+				const nextActivityLabel =
+					frame.state?.name === "agent_settled" || frame.state?.message === "resync-required"
+						? undefined
+						: typeof frame.state?.message === "string"
+							? frame.state.message
+							: undefined;
+				setActivityLabelSynced(nextActivityLabel);
 				if (frame.state?.name === "agent_settled") {
 					// Hydration replays the full session snapshot: skip while a turn
 					// is in flight so it cannot clobber optimistic or streamed state.
@@ -222,6 +273,7 @@ export function usePiChatSessionEvents({
 
 		const connect = () => {
 			const params = new URLSearchParams({ sessionId });
+			if (streamGeneration) params.set("streamGeneration", streamGeneration);
 			if (lastEventId > 0) params.set("lastEventId", String(lastEventId));
 			source?.close();
 			const nextSource = new EventSource(resolveChatApiUrl(`/api/chat/events?${params}`));
@@ -233,8 +285,7 @@ export function usePiChatSessionEvents({
 				if (closedByEffect || source !== nextSource) return;
 				const seq = Number.parseInt(event.lastEventId ?? "", 10);
 				if (!Number.isNaN(seq) && seq > 0) {
-					lastEventId = seq;
-					writeStoredValue(lastEventIdKey, String(seq), "session");
+					persistCursor(seq, streamGeneration);
 				}
 				if (reconnectAttempt > 0) {
 					reconnectAttempt = 0;

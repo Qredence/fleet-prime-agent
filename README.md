@@ -68,7 +68,8 @@ cd fleet-prime-agent
 The source installer installs workspace dependencies, builds the web runtime,
 and places a `fleet-agent` launcher in a user-writable bin directory. If that
 directory is not already on your `PATH`, the installer prints the path to add.
-Source installation also requires Git, Node.js, and npm.
+Source installation requires Git, Node.js, and npm; it uses a compatible system
+pnpm 11 installation when present and falls back to `npm exec` otherwise.
 
 ## What Fleet provides
 

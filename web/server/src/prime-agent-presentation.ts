@@ -62,14 +62,20 @@ type ManagedPresentationSession = {
 	sessionPath: string;
 };
 
+function presentationDirForPath(sessionPath: string): string | undefined {
+	if (!sessionPath) return undefined;
+	return join(dirname(dirname(sessionPath)), "session-artifacts", basename(sessionPath, ".jsonl"));
+}
+
 function presentationPath(session: ManagedPresentationSession): string | undefined {
-	if (!session.sessionPath) return undefined;
-	return join(
-		dirname(dirname(session.sessionPath)),
-		"session-artifacts",
-		basename(session.sessionPath, ".jsonl"),
-		"presentation.json",
-	);
+	const directory = presentationDirForPath(session.sessionPath);
+	return directory ? join(directory, "presentation.json") : undefined;
+}
+
+export async function deleteManagedPrimePresentationForSession(sessionPath: string): Promise<void> {
+	const directory = presentationDirForPath(sessionPath);
+	if (!directory) return;
+	await rm(directory, { recursive: true, force: true });
 }
 
 /** Maximum bytes of kernel stderr surfaced to the browser per hydration. */

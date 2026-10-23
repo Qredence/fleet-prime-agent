@@ -36,13 +36,13 @@ export type ModelPatternCandidate = {
  * Whether a model is enabled by a set of patterns.
  *
  * @param model - the model to test
- * @param patterns - `undefined` allows all models, `[]` denies all, otherwise
- *   the model must match at least one pattern (see {@link modelMatchesPattern})
+ * @param patterns - empty or `undefined` denies all until models are added in
+ *   Settings; otherwise the model must match at least one pattern (see
+ *   {@link modelMatchesPattern})
  * @returns `true` when the model should be offered/enabled
  */
 export function isModelPatternEnabled(model: ModelPatternCandidate, patterns: Array<string> | undefined) {
-	if (patterns === undefined) return true;
-	if (patterns.length === 0) return false;
+	if (!patterns || patterns.length === 0) return false;
 	return patterns.some((pattern) => modelMatchesPattern(model, pattern));
 }
 

@@ -134,15 +134,16 @@ install_fleet_agent_shim() {
 	# Pick an install location. Prefer $HOME/.local/bin (XDG-friendly, writable
 	# without sudo on every mainstream Unix); fall back to a per-user tmpdir
 	# if $HOME is not writable so the installer never dies here.
+	uid=$(id -u 2>/dev/null || printf '0')
 	shim_dir=
 	if [ -n "$prime_agent_shim_dir_override" ]; then
 		shim_dir="$prime_agent_shim_dir_override"
 	elif [ -n "${HOME:-}" ] && [ -d "$HOME" ] && [ -w "$HOME" ]; then
 		shim_dir="$HOME/.local/bin"
 	elif [ -n "${TMPDIR:-}" ] && [ -d "$TMPDIR" ] && [ -w "$TMPDIR" ]; then
-		shim_dir="$TMPDIR/fleet-prime-shim-$EUID-$$"
+		shim_dir="$TMPDIR/fleet-prime-shim-$uid-$$"
 	else
-		shim_dir="/tmp/fleet-prime-shim-$EUID-$$"
+		shim_dir="/tmp/fleet-prime-shim-$uid-$$"
 	fi
 
 	if ! mkdir -p "$shim_dir" 2>/dev/null; then

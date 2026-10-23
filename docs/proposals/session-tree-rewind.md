@@ -22,8 +22,9 @@ The web UI must stay on Fleet's adapter boundary. Runtime session objects, `Sess
 
 | Capability | Location | Notes |
 |------------|----------|-------|
-| Tree navigation | `PrimeBridge.navigateTree(sessionId, targetId)` | Calls `AgentConnection.navigateTree`; invalidates managed plan presentations after branch change |
-| Tree snapshot | `PrimeBridge.getSessionTree(sessionId)` | Returns cached `{ tree, leafId }` from bridge session cache |
+| Tree navigation | `PrimeBridge.navigateTree` / `navigateSessionTree` | Calls `AgentConnection.navigateTree` with optimistic `expectedLeafId` guard; invalidates managed plan presentations after branch change |
+| Tree snapshot | `PrimeBridge.getSessionTree` / `readSessionTreeSnapshot` | Maps upstream tree nodes into browser-safe `SessionTreeSnapshot` via `session-tree-mapper.ts` |
+| Dedicated HTTP handlers | `handlers/session-tree.ts` (`GET/POST /api/chat/session-tree`) | Serves browser-safe snapshots and validated tree rewind mutations |
 | Fork / clone | `PrimeBridge.forkSession(sessionId, entryId, position)` | Creates a **new** live session; source session keeps running |
 | Slash bridge | `handleChatCommandPost` `tree` / `fork` / `clone` | `/tree` with args navigates; without args returns tree JSON. `/fork` and `/clone` call `forkSession` |
 
@@ -31,13 +32,14 @@ The web UI must stay on Fleet's adapter boundary. Runtime session objects, `Sess
 
 | Capability | Location | Notes |
 |------------|----------|-------|
+| Visual tree & rewind panel | `components/sessions/session-tree-panel.tsx`, `use-session-tree.ts` | Branch history drawer with active-branch markers, transcript highlighting, and confirmation-guarded rewind |
 | Text `/tree` | `use-local-slash-actions.ts` | Prints a text tree via the command API |
-| Fork picker | `fork-picker-dialog` + slash actions | `/fork` already has a picker wired to `fork` command |
-| Missing | — | No visual tree panel, no rewind-from-history UI, no in-place branch indicator in transcript |
+| Fork picker | `fork-picker-dialog` + slash actions | `/fork` has a picker wired to `fork` command |
+| Future slice | — | Inline per-turn rewind/fork actions directly on transcript turns |
 
 ### Protocol (`web/protocol`)
 
-No dedicated tree/rewind wire types yet. Today the browser reaches tree operations through the generic chat-command endpoint and receives opaque `tree` JSON.
+`web/protocol/src/schemas/session-tree.ts` defines `SessionTreeNode`, `SessionTreeSnapshot`, and the `GET/POST /api/chat/session-tree` request/response schemas.
 
 ## Proposed layering
 

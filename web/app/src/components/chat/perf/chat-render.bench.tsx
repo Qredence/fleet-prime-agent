@@ -3,6 +3,9 @@
 // Run: pnpm --filter @prime-agent/web bench
 // (vitest bench only; these files never run under `vitest run`.)
 //
+// Vitest 5 API: `bench` is a test-context fixture, so each benchmark lives in
+// a regular `test()` and must call `.run()` with its tinybench run options.
+//
 // Numbers are comparative, not absolute: run on the perf branch, then on
 // clean main (`git stash -u`), and compare means. happy-dom timings carry
 // noise — look for >2x deltas, not single-digit percent moves.
@@ -13,7 +16,7 @@
 
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeAll, bench, describe, vi } from "vitest";
+import { beforeAll, describe, test, vi } from "vitest";
 import { AgentChat } from "@/components/chat/agent-chat";
 
 vi.mock("@/components/openui/openui-renderer", () => ({
@@ -70,10 +73,22 @@ function fiftyTurns(): Array<ChatMessage> {
  * benchmark testing.
  *
  * @param messages - Chat messages to render
+ * @param inputBarOverrides - Optional composer props (e.g. open the model picker during warmup)
  * @returns Testing library render result for the mounted chat component
  */
-function renderChat(messages: Array<ChatMessage>) {
-	return render(<AgentChat inputBar={inputBar} messages={messages} onSend={noop} onStop={noop} status="ready" />);
+function renderChat(
+	messages: Array<ChatMessage>,
+	inputBarOverrides: Partial<typeof inputBar> & { modelPickerOpen?: boolean } = {},
+) {
+	return render(
+		<AgentChat
+			inputBar={{ ...inputBar, ...inputBarOverrides }}
+			messages={messages}
+			onSend={noop}
+			onStop={noop}
+			status="ready"
+		/>,
+	);
 }
 
 describe("chat render", () => {
@@ -82,46 +97,41 @@ describe("chat render", () => {
 	// first-load fetching.
 	beforeAll(async () => {
 		const warmup = renderChat(fiftyTurns());
-		await screen.findByRole("button", { name: "1 tool action" });
+		await screen.findAllByRole("button", { name: "1 tool action" });
 		await waitFor(() => {
 			if (warmup.container.querySelectorAll("pre").length === 0) {
 				throw new Error("waiting for highlighted code");
 			}
 		});
 		warmup.unmount();
-		const welcome = renderChat([]);
-		fireEvent.click(screen.getByRole("combobox", { name: "Select model and reasoning effort" }));
-		await screen.findByPlaceholderText("Search models…");
+		// The composer's model picker is controlled by its parent, so open it
+		// through props to load the lazy cmdk list chunk.
+		const welcome = renderChat([], { modelPickerOpen: true });
+		await screen.findByPlaceholderText("Search models…", undefined, { timeout: 10_000 });
 		welcome.unmount();
 	}, 60_000);
 
-	bench(
-		"welcome mount (empty conversation)",
-		() => {
+	test("welcome mount (empty conversation)", async ({ bench }) => {
+		await bench("welcome mount (empty conversation)", () => {
 			const view = renderChat([]);
 			view.unmount();
-		},
-		{ time: 500, warmupTime: 200, warmupIterations: 3 },
-	);
+		}).run({ time: 500, warmupTime: 200, warmupIterations: 3 });
+	});
 
-	bench(
-		"50-turn conversation mount",
-		() => {
+	test("50-turn conversation mount", async ({ bench }) => {
+		await bench("50-turn conversation mount", () => {
 			const view = renderChat(fiftyTurns());
 			view.unmount();
-		},
-		{ time: 1000, warmupTime: 300, warmupIterations: 2 },
-	);
+		}).run({ time: 1000, warmupTime: 300, warmupIterations: 2 });
+	});
 
 	let keystroke = 0;
-	bench(
-		"50-turn mount plus one keystroke",
-		() => {
+	test("50-turn mount plus one keystroke", async ({ bench }) => {
+		await bench("50-turn mount plus one keystroke", () => {
 			const view = renderChat(fiftyTurns());
 			const composer = view.getByRole("textbox", { name: "Prompt" });
 			fireEvent.change(composer, { target: { value: `draft text ${keystroke++}` } });
 			view.unmount();
-		},
-		{ time: 1000, warmupTime: 300, warmupIterations: 2 },
-	);
+		}).run({ time: 1000, warmupTime: 300, warmupIterations: 2 });
+	});
 });

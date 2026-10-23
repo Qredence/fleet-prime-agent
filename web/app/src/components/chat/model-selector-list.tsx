@@ -51,7 +51,11 @@ export function ModelSelectorList({
 		<Command className="min-h-0 max-h-[min(55dvh,28rem)] bg-transparent" shouldFilter>
 			<CommandInput placeholder="Search models…" aria-label="Search models" />
 			<CommandList className="max-h-48 min-h-0 flex-1 p-1.5">
-				<CommandEmpty>No matching models</CommandEmpty>
+				<CommandEmpty>
+					{models.length === 0
+						? "No models added yet. Add models in Settings → LLM Models."
+						: "No matching models"}
+				</CommandEmpty>
 				{groups.map(([provider, providerModels]) => (
 					<CommandGroup key={provider} heading={providerModels[0]?.providerLabel ?? provider}>
 						{providerModels.map((model) => {

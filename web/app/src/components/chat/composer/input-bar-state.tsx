@@ -465,21 +465,23 @@ export function useInputBarState({
 	}, [filteredCommands, triggerKind]);
 	const selectorModels = useMemo(
 		() =>
-			models.map((model) => ({
-				id: model.id,
-				name: model.name,
-				provider: model.provider,
-				providerLabel: formatProviderLabel(model.provider),
-				modelId: model.modelId,
-				icon: <ProviderBrandIcon provider={model.provider} className="size-4" />,
-				disabled: model.available === false,
-				reasoning: model.reasoning,
-				keywords: [model.provider, model.modelId, model.id],
-				efforts: availableThinkingLevels(model).map((level) => ({
-					id: level,
-					name: thinkingLevelLabel(level),
+			models
+				.filter((model) => model.available !== false)
+				.map((model) => ({
+					id: model.id,
+					name: model.name,
+					provider: model.provider,
+					providerLabel: formatProviderLabel(model.provider),
+					modelId: model.modelId,
+					icon: <ProviderBrandIcon provider={model.provider} className="size-4" />,
+					disabled: model.available === false,
+					reasoning: model.reasoning,
+					keywords: [model.provider, model.modelId, model.id],
+					efforts: availableThinkingLevels(model).map((level) => ({
+						id: level,
+						name: thinkingLevelLabel(level),
+					})),
 				})),
-			})),
 		[models],
 	);
 	const combinedPickerOpen = modelPickerOpen === true || effortPickerOpen === true;

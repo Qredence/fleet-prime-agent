@@ -63,4 +63,90 @@ describe("mapSessionTreeSnapshot", () => {
 		expect(messageIdForSessionTreeEntry("session-1", snapshot, "branch-assistant")).toBe("session-1-m3");
 		expect(messageIdForSessionTreeEntry("session-1", snapshot, "alt-assistant")).toBeUndefined();
 	});
+
+	it("aligns message indices across toolResult, hidden custom_message, and compaction boundaries", () => {
+		const compactedTree = [
+			{
+				entry: { id: "dropped-user", type: "message", message: { role: "user", content: "old turn" } },
+				children: [
+					{
+						entry: {
+							id: "kept-user",
+							type: "message",
+							parentId: "dropped-user",
+							message: { role: "user", content: "kept turn" },
+						},
+						children: [
+							{
+								entry: {
+									id: "compaction-1",
+									type: "compaction",
+									parentId: "kept-user",
+									firstKeptEntryId: "kept-user",
+									summary: "compacted summary",
+								},
+								children: [
+									{
+										entry: {
+											id: "hidden-digest",
+											type: "custom_message",
+											parentId: "compaction-1",
+											customType: "harness_digest",
+											display: false,
+										},
+										children: [
+											{
+												entry: {
+													id: "assistant-tool",
+													type: "message",
+													parentId: "hidden-digest",
+													message: {
+														role: "assistant",
+														content: [{ type: "toolCall", id: "tc-1", name: "bash", arguments: {} }],
+													},
+												},
+												children: [
+													{
+														entry: {
+															id: "tool-result",
+															type: "message",
+															parentId: "assistant-tool",
+															message: { role: "toolResult", toolCallId: "tc-1", content: "ok" },
+														},
+														children: [
+															{
+																entry: {
+																	id: "followup-user",
+																	type: "message",
+																	parentId: "tool-result",
+																	message: { role: "user", content: "next question" },
+																},
+																children: [],
+															},
+														],
+													},
+												],
+											},
+										],
+									},
+								],
+							},
+						],
+					},
+				],
+			},
+		];
+
+		const snapshot = mapSessionTreeSnapshot("session-2", compactedTree, "followup-user");
+		// Pre-compaction dropped message has no hydrated message id
+		expect(messageIdForSessionTreeEntry("session-2", snapshot, "dropped-user")).toBeUndefined();
+		// Compaction summary is at index 0, kept-user at 1, hidden-digest skipped at 2,
+		// assistant-tool at 3, tool-result attached to assistant-tool (3), followup-user at 5
+		expect(messageIdForSessionTreeEntry("session-2", snapshot, "compaction-1")).toBe("session-2-m0");
+		expect(messageIdForSessionTreeEntry("session-2", snapshot, "kept-user")).toBe("session-2-m1");
+		expect(messageIdForSessionTreeEntry("session-2", snapshot, "hidden-digest")).toBeUndefined();
+		expect(messageIdForSessionTreeEntry("session-2", snapshot, "assistant-tool")).toBe("session-2-m3");
+		expect(messageIdForSessionTreeEntry("session-2", snapshot, "tool-result")).toBe("session-2-m3");
+		expect(messageIdForSessionTreeEntry("session-2", snapshot, "followup-user")).toBe("session-2-m5");
+	});
 });

@@ -2,10 +2,8 @@ import type { ProjectId } from "@prime-agent/web-protocol";
 import type {
 	ChatPiSettingsUpdate,
 	ChatQuestionAnswer,
-	ChatSessionMetadata,
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
-import type { UploadedAttachment, WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { derivePrimeAgentArtifactRuns } from "@/components/artifacts/prime-agent-artifacts";
 import { chatClient } from "@/components/chat/chat-client";
@@ -36,20 +34,14 @@ import { useChatWorkspaceComposerState } from "@/components/chat/composer/chat-i
 import { useComposerInlineCompletion } from "@/components/chat/composer/composer-inline-completion";
 import { useComposerIntentAvailability, useComposerIntentRouting } from "@/components/chat/composer/composer-intent";
 import type { InlineCompletion } from "@/components/chat/composer/inline-completion";
-import {
-	shouldClearPendingAttachments,
-	shouldClearPendingAttachmentsForNewSession,
-} from "@/components/chat/composer/pending-attachment-lifecycle";
 import type { SettingsSlashTab } from "@/components/chat/composer/slash-commands";
 import { buildSlashCommands } from "@/components/chat/composer/slash-commands";
-import {
-	buildWorkspaceReferenceSuggestions,
-	workspacePathFromSuggestion,
-} from "@/components/chat/composer/workspace-suggestions";
+import { buildWorkspaceReferenceSuggestions } from "@/components/chat/composer/workspace-suggestions";
 import { assistantMessageHasPendingQuestion } from "@/components/chat/question/question-pending";
 import { usePendingQuestionBar } from "@/components/chat/question/use-pending-question-bar";
 import { useChatStorage } from "@/components/chat/use-chat-storage";
 import { useChatSuggestions } from "@/components/chat/use-chat-view";
+import { useChatWorkspaceActions } from "@/components/chat/use-chat-workspace-actions";
 import { useLocalSlashActions } from "@/components/chat/use-local-slash-actions";
 import { usePiChat } from "@/components/chat/use-pi-chat";
 import { useChatWorkspaceHeader } from "@/components/layout/chat-header";
@@ -229,224 +221,43 @@ export function useChatWorkspaceData() {
 		appliedPresentationThinkingKeyRef.current = key;
 		setThinkingLevel(presentation.thinkingLevel);
 	}, [presentation.thinkingLevel, sessionMetadata.sessionId, setThinkingLevel]);
-	const clearPendingAttachments = useCallback(() => {
-		setUploadedAttachments([]);
-		setWorkspaceAttachments([]);
-	}, [setUploadedAttachments, setWorkspaceAttachments]);
-	// In-flight session-creation memo mirroring sessionCreatePromiseRef in
-	// use-pi-chat-messaging.ts. startNewSession is fire-and-forget from several
-	// call sites (header/sidebar new-session buttons, attachment upload), so two
-	// concurrent invocations would otherwise create two sessions. Concurrent
-	// callers reuse the in-flight creation and share its result.
-	const workspaceSessionCreatePromiseRef = useRef<{
-		key: string;
-		promise: Promise<ChatSessionMetadata>;
-	} | null>(null);
-	const startNewSessionForWorkspace = useCallback(
-		async (options?: { projectId?: ProjectId; preserveRunning?: boolean }): Promise<ChatSessionMetadata> => {
-			const key = `${options?.projectId ?? ""}::${options?.preserveRunning ?? ""}`;
-			const inFlight = workspaceSessionCreatePromiseRef.current;
-			if (inFlight && inFlight.key === key) return inFlight.promise;
-			const promise: Promise<ChatSessionMetadata> = (async () => {
-				const currentMetadata = getSessionMetadata();
-				const targetProjectId = options?.projectId ?? activeProjectId;
-				const currentWorkspaceMetadata = {
-					...currentMetadata,
-					projectId: currentMetadata.projectId ?? activeProjectId,
-				};
-				const shouldClear = shouldClearPendingAttachmentsForNewSession(currentWorkspaceMetadata, targetProjectId);
-				await startNewSession(options);
-				if (shouldClear) clearPendingAttachments();
-				return getSessionMetadata();
-			})().finally(() => {
-				if (workspaceSessionCreatePromiseRef.current?.promise === promise) {
-					workspaceSessionCreatePromiseRef.current = null;
-				}
-			});
-			workspaceSessionCreatePromiseRef.current = { key, promise };
-			return promise;
-		},
-		[activeProjectId, clearPendingAttachments, getSessionMetadata, startNewSession],
-	);
-	const resumeSessionForWorkspaceWithResult = useCallback(
-		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
-			const targetMetadata =
-				metadata.projectId === undefined && activeProjectId
-					? { ...metadata, projectId: activeProjectId }
-					: metadata;
-			const currentMetadata = getSessionMetadata();
-			const shouldClear = shouldClearPendingAttachments(currentMetadata, targetMetadata);
-			const resumed = await resumeSession(targetMetadata, options);
-			if (resumed && shouldClear) clearPendingAttachments();
-			return resumed;
-		},
-		[activeProjectId, clearPendingAttachments, getSessionMetadata, resumeSession],
-	);
-	const resumeSessionForWorkspace = useCallback(
-		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
-			await resumeSessionForWorkspaceWithResult(metadata, options);
-		},
-		[resumeSessionForWorkspaceWithResult],
-	);
 
-	const selectProject = useCallback(
-		async (projectId: ProjectId) => {
-			const targetSession = sessions
-				.filter((session) => session.projectId === projectId)
-				.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-			const currentMetadata = getSessionMetadata();
-			const shouldClear = shouldClearPendingAttachments(currentMetadata, {
-				sessionId: targetSession?.sessionId,
-				projectId,
-			});
-			setActiveProjectId(projectId);
-			setSelectedWorkspacePath(null);
-			const switched = await switchProject(projectId, targetSession?.sessionId);
-			if (switched && shouldClear) clearPendingAttachments();
-			await refetchProjects();
-		},
-		[clearPendingAttachments, getSessionMetadata, refetchProjects, setSelectedWorkspacePath, sessions, switchProject],
-	);
-
-	const startNewSessionInProject = useCallback(
-		async (targetProjectId: ProjectId) => {
-			setActiveProjectId(targetProjectId);
-			setSelectedWorkspacePath(null);
-			await startNewSessionForWorkspace({ projectId: targetProjectId });
-			await refetchProjects();
-		},
-		[refetchProjects, setSelectedWorkspacePath, startNewSessionForWorkspace],
-	);
-
-	const deleteSessionForWorkspace = useCallback(
-		async (sessionId: string) => {
-			const deletingActiveSession = getSessionMetadata().sessionId === sessionId;
-			const deleted = await deleteSession(sessionId);
-			if (deleted && deletingActiveSession) clearPendingAttachments();
-		},
-		[clearPendingAttachments, deleteSession, getSessionMetadata],
-	);
-
-	const createProject = useCallback(
-		async (request: { path?: string; directoryToken?: string; name?: string }) => {
-			const project = await chatClient.createProject(request);
-			await refetchProjects();
-			await selectProject(project.projectId);
-		},
-		[refetchProjects, selectProject],
-	);
-
-	const renameProject = useCallback(
-		async (projectId: ProjectId, name: string) => {
-			await chatClient.renameProject(projectId, name);
-			await refetchProjects();
-		},
-		[refetchProjects],
-	);
-
-	const unregisterProject = useCallback(
-		async (projectId: ProjectId) => {
-			await chatClient.unregisterProject(projectId);
-			const refreshed = await refetchProjects();
-			if (activeProjectId === projectId) {
-				const fallback = refreshed.data?.projects.find((project) => project.projectId !== projectId);
-				if (fallback) await selectProject(fallback.projectId);
-				else {
-					setActiveProjectId(undefined);
-					setSelectedWorkspacePath(null);
-					const switched = await switchProject("", undefined);
-					if (switched) clearPendingAttachments();
-				}
-			}
-		},
-		[
-			activeProjectId,
-			clearPendingAttachments,
-			refetchProjects,
-			selectProject,
-			setSelectedWorkspacePath,
-			switchProject,
-		],
-	);
-	const browseProjectDirectories = useCallback(
-		(input: { path?: string; token?: string }) => chatClient.browseProjectDirectories(input),
-		[],
-	);
-	const forkSessionIntoProject = useCallback(
-		async (sessionId: string, targetProjectId: ProjectId) => {
-			await chatClient.forkSessionIntoProject(sessionId, targetProjectId);
-			await refetchProjects();
-		},
-		[refetchProjects],
-	);
-	useEffect(() => {
-		if (sessionMetadata.sessionId) void refetchProjects();
-	}, [refetchProjects, sessionMetadata.sessionId]);
+	const {
+		addWorkspaceAttachment,
+		browseProjectDirectories,
+		clearUploadedAttachments,
+		clearWorkspaceAttachments,
+		createProject,
+		deleteSessionForWorkspace,
+		forkSessionIntoProject,
+		handleAttach,
+		removeUploadedAttachment,
+		removeWorkspaceAttachment,
+		renameProject,
+		restoreAttachments,
+		resumeSessionForWorkspace,
+		resumeSessionForWorkspaceWithResult,
+		selectProject,
+		startNewSessionForWorkspace,
+		startNewSessionInProject,
+		unregisterProject,
+	} = useChatWorkspaceActions({
+		activeProjectId,
+		deleteSession,
+		getSessionMetadata,
+		refetchProjects,
+		resumeSession,
+		sessionId: sessionMetadata.sessionId,
+		sessions,
+		setActiveProjectId,
+		setSelectedWorkspacePath,
+		setUploadedAttachments,
+		setWorkspaceAttachments,
+		startNewSession,
+		switchProject,
+	});
 
 	const infoDescription = queueLabel(queue) ?? activityLabel ?? planLabel;
-	const handleAttach = useCallback(() => {
-		const input = document.createElement("input");
-		input.type = "file";
-		input.multiple = true;
-		input.accept = "image/*,text/*,application/json,application/pdf";
-		input.onchange = () => {
-			void (async () => {
-				const files = Array.from(input.files ?? []);
-				if (files.length === 0) return;
-				const existingSessionId = getSessionMetadata().sessionId;
-				const sessionId = existingSessionId ?? (await startNewSessionForWorkspace()).sessionId;
-				if (!sessionId) throw new Error("Unable to create a session for attachments");
-				const uploaded = await chatClient.uploadAttachments(sessionId, files);
-				setUploadedAttachments((current) => [...current, ...uploaded]);
-			})().catch((attachmentError) => {
-				notifyChatError(attachmentError);
-			});
-		};
-		input.click();
-	}, [getSessionMetadata, setUploadedAttachments, startNewSessionForWorkspace]);
-	const removeUploadedAttachment = useCallback(
-		(attachmentId: string) => {
-			setUploadedAttachments((current) => current.filter((attachment) => attachment.attachmentId !== attachmentId));
-		},
-		[setUploadedAttachments],
-	);
-	const clearUploadedAttachments = useCallback(() => setUploadedAttachments([]), [setUploadedAttachments]);
-	const clearWorkspaceAttachments = useCallback(() => setWorkspaceAttachments([]), [setWorkspaceAttachments]);
-	const restoreAttachments = useCallback(
-		(uploaded: Array<UploadedAttachment>, workspace: Array<WorkspaceAttachment>) => {
-			if (uploaded.length > 0) {
-				setUploadedAttachments((current) => [...uploaded, ...current]);
-			}
-			if (workspace.length > 0) {
-				setWorkspaceAttachments((current) => [...workspace, ...current]);
-			}
-		},
-		[setUploadedAttachments, setWorkspaceAttachments],
-	);
-	const addWorkspaceAttachment = useCallback(
-		(item: Parameters<typeof workspacePathFromSuggestion>[0]) => {
-			const relativePath = workspacePathFromSuggestion(item);
-			if (!relativePath) return;
-			setWorkspaceAttachments((current) => {
-				if (current.some((attachment) => attachment.relativePath === relativePath)) return current;
-				return [
-					...current,
-					{
-						kind: "workspace",
-						relativePath,
-						name: relativePath.split("/").pop() || relativePath,
-					},
-				];
-			});
-		},
-		[setWorkspaceAttachments],
-	);
-	const removeWorkspaceAttachment = useCallback(
-		(relativePath: string) => {
-			setWorkspaceAttachments((current) => current.filter((attachment) => attachment.relativePath !== relativePath));
-		},
-		[setWorkspaceAttachments],
-	);
 	const handleQuestionAnswer = useCallback(
 		({ toolCallId, answer }: { toolCallId?: string; answer: ChatQuestionAnswer }) => {
 			void answerQuestion({ toolCallId, answer }).catch((err) => {

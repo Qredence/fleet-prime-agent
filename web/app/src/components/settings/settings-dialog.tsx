@@ -639,7 +639,7 @@ function SettingsDialogBody({
 				<DialogTitle className="sr-only">Settings</DialogTitle>
 				<DialogDescription className="sr-only">Customize your settings here.</DialogDescription>
 
-				<div className="flex h-full min-h-0 min-w-0">
+				<div className="flex h-full w-full min-h-0 min-w-0 flex-1">
 					<nav
 						aria-label="Settings sections"
 						className="hidden h-full w-52 shrink-0 flex-col border-r border-border bg-sidebar sm:flex"
@@ -667,9 +667,9 @@ function SettingsDialogBody({
 						</div>
 					</nav>
 
-					<main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-						<header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/10 px-6">
-							<div className="flex flex-1 items-center justify-between">
+					<main className="flex h-full w-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+						<header className="flex h-14 w-full shrink-0 items-center gap-2 border-b border-border/10 px-6">
+							<div className="flex w-full flex-1 items-center justify-between">
 								<Breadcrumb>
 									<BreadcrumbList>
 										<BreadcrumbItem className="hidden sm:block">Settings</BreadcrumbItem>
@@ -682,7 +682,7 @@ function SettingsDialogBody({
 							</div>
 						</header>
 
-						<div className="shrink-0 border-b border-border/10 bg-muted/5 px-4 py-2.5 sm:hidden">
+						<div className="w-full shrink-0 border-b border-border/10 bg-muted/5 px-4 py-2.5 sm:hidden">
 							<Select
 								aria-label="Settings sections"
 								value={activeTab}
@@ -696,13 +696,13 @@ function SettingsDialogBody({
 							/>
 						</div>
 
-						<ScrollArea className="min-h-0 flex-1">
+						<ScrollArea className="min-h-0 w-full flex-1">
 							<div
 								id={`panel-${activeTab}`}
 								role="tabpanel"
 								aria-label={activeSection.title}
 								tabIndex={0}
-								className="p-6 outline-none"
+								className="w-full p-6 outline-none"
 							>
 								{paneContent}
 							</div>

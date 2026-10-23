@@ -54,7 +54,10 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	const [resourceCanvasWidth, setResourceCanvasWidth] = useState(() => readStoredResourceCanvasWidth());
 
 	useEffect(() => {
-		if (models.length === 0) return;
+		if (models.length === 0) {
+			if (modelKey !== undefined) setModelKey(undefined);
+			return;
+		}
 
 		const preferredKey = modelsData?.selectedModelKey ?? models[0].id;
 

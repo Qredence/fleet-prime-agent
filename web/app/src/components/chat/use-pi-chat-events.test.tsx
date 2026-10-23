@@ -322,4 +322,102 @@ describe("usePiChatSessionEvents", () => {
 		expect(EventSourceStub.instances).toHaveLength(2);
 		expect(setActivityLabelSynced).not.toHaveBeenCalled();
 	});
+
+	it("persists streamGeneration with lastEventId and resets the stored cursor on cursorReset", async () => {
+		vi.useFakeTimers();
+		class EventSourceStub {
+			static instances: EventSourceStub[] = [];
+			readonly url: string;
+			readonly close = vi.fn();
+			onerror: (() => void) | null = null;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			constructor(url: string) {
+				this.url = url;
+				EventSourceStub.instances.push(this);
+			}
+		}
+		vi.stubGlobal("EventSource", EventSourceStub);
+		window.sessionStorage.removeItem("pi:sse:last-event-id:session-gen");
+
+		const setActivityLabelSynced = vi.fn();
+		const loadSession = vi.fn(async () => ({
+			messages: [],
+			presentation: EMPTY_PRESENTATION,
+			session: { sessionId: "session-gen" },
+		}));
+		renderHook(() =>
+			usePiChatSessionEvents({
+				client: { loadSession } as unknown as ChatClient,
+				presentationRef: { current: EMPTY_PRESENTATION },
+				sessionId: "session-gen",
+				sessionMetadataRef: { current: { sessionId: "session-gen" } },
+				setActivityLabelSynced,
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced: vi.fn(),
+				setPresentationSynced: vi.fn(),
+				setQueueSynced: vi.fn(),
+				setSessionMetadataSynced: vi.fn(),
+				statusRef: { current: "ready" },
+			}),
+		);
+
+		const first = EventSourceStub.instances[0]!;
+		await act(async () => {
+			first.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "connected",
+						sessionId: "session-gen",
+						streamGeneration: "gen-1",
+					}),
+				}),
+			);
+			first.onmessage?.(
+				new MessageEvent("message", {
+					lastEventId: "14",
+					data: JSON.stringify({ type: "queue", steering: ["hi"], followUp: [] }),
+				}),
+			);
+		});
+
+		expect(window.sessionStorage.getItem("pi:sse:last-event-id:session-gen")).toBe(
+			JSON.stringify({ generation: "gen-1", lastEventId: 14 }),
+		);
+
+		await act(async () => {
+			first.onerror?.();
+			await vi.advanceTimersByTimeAsync(2_000);
+		});
+
+		const second = EventSourceStub.instances[1]!;
+		expect(second.url).toContain("streamGeneration=gen-1");
+		expect(second.url).toContain("lastEventId=14");
+
+		await act(async () => {
+			second.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "connected",
+						sessionId: "session-gen",
+						streamGeneration: "gen-2",
+						cursorReset: true,
+					}),
+				}),
+			);
+			second.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "state",
+						state: { name: "agent_settled", message: "resync-required" },
+					}),
+				}),
+			);
+		});
+
+		expect(window.sessionStorage.getItem("pi:sse:last-event-id:session-gen")).toBe(
+			JSON.stringify({ generation: "gen-2", lastEventId: 0 }),
+		);
+		expect(setActivityLabelSynced).not.toHaveBeenCalledWith("resync-required");
+		expect(loadSession).toHaveBeenCalledWith({ sessionId: "session-gen" });
+	});
 });

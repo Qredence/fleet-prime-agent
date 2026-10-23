@@ -15,9 +15,14 @@ export class RingBuffer {
 	private readonly entries: RingBufferEntry[] = [];
 	private readonly capacity: number;
 	private nextSeq = 1;
+	private generation = crypto.randomUUID();
 
 	constructor(capacity = 500) {
 		this.capacity = Math.max(1, capacity);
+	}
+
+	get streamGeneration(): string {
+		return this.generation;
 	}
 
 	push(event: unknown): RingBufferEntry {
@@ -31,13 +36,18 @@ export class RingBuffer {
 
 	/**
 	 * Replay entries with seq > `lastEventId`. If `lastEventId` is behind the
-	 * oldest retained entry, return `{ replayed, overflowed: true }` and the
-	 * caller should emit a settle frame + instruct the client to refetch.
+	 * oldest retained entry or ahead of the current sequence (for example after a
+	 * process restart), return `{ replayed, overflowed: true }` so the caller
+	 * emits a resync frame and instructs the client to rehydrate.
 	 */
 	replaySince(lastEventId: number): {
 		replayed: readonly RingBufferEntry[];
 		overflowed: boolean;
 	} {
+		const latest = this.latestSequence();
+		if (lastEventId > latest) {
+			return { replayed: [...this.entries], overflowed: true };
+		}
 		const oldest = this.entries[0];
 		if (!oldest) return { replayed: [], overflowed: false };
 		if (lastEventId < oldest.seq - 1) {
@@ -60,5 +70,6 @@ export class RingBuffer {
 	clear(): void {
 		this.entries.length = 0;
 		this.nextSeq = 1;
+		this.generation = crypto.randomUUID();
 	}
 }

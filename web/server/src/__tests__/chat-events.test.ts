@@ -247,3 +247,66 @@ describe("handleChatEventsGet child streams", () => {
 		});
 	});
 });
+
+describe("handleChatEventsGet main session streams", () => {
+	it("emits resync-required on stale cursor and continues streaming subsequent live events after overflow", async () => {
+		let listener: ((sessionId: string) => void) | undefined;
+		let callCount = 0;
+		const bridge = bridgeWith({
+			getSession: vi.fn(() => ({
+				sessionId: "root-session",
+				projectId: "project-1",
+			})) as unknown as PrimeBridge["getSession"],
+			resumeSessionById: vi.fn(async () => undefined),
+			addEventListener: vi.fn((cb) => {
+				listener = cb;
+				return () => {
+					listener = undefined;
+				};
+			}),
+			openSessionStream: vi.fn(() => ({
+				sessionId: "root-session",
+				streamGeneration: "gen-main-1",
+				resumeAccepted: false,
+				cursorReset: false,
+				replayFrom: 10,
+			})),
+			replaySince: vi.fn((_channelId: string, cursor: number) => {
+				callCount += 1;
+				if (callCount === 1) {
+					return {
+						replayed: [{ seq: 25, event: { type: "queue", steering: ["a"], followUp: [] } }],
+						overflowed: true,
+					};
+				}
+				return {
+					replayed: cursor === 25 ? [{ seq: 26, event: { type: "queue", steering: ["b"], followUp: [] } }] : [],
+					overflowed: false,
+				};
+			}),
+		});
+		setBridgeForTests(bridge);
+
+		const response = await handleChatEventsGet(
+			new Request("http://localhost/api/chat/events?sessionId=root-session&lastEventId=10"),
+		);
+		expect(response.status).toBe(200);
+		const reader = response.body?.getReader();
+		expect(reader).toBeDefined();
+
+		let text = "";
+		while (!text.includes("resync-required")) {
+			const chunk = await reader!.read();
+			text += new TextDecoder().decode(chunk.value);
+		}
+		expect(text).toContain('"streamGeneration":"gen-main-1"');
+		expect(text).toContain('"resync-required"');
+
+		listener?.("root-session");
+		const nextChunk = await reader!.read();
+		const nextText = new TextDecoder().decode(nextChunk.value);
+		expect(nextText).toContain("id: 26");
+		expect(nextText).toContain('"steering":["b"]');
+		await reader!.cancel();
+	});
+});

@@ -15,8 +15,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { realpath } from "node:fs/promises";
-import { dirname, resolve, sep } from "node:path";
+import { dirname, resolve } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import type { ProjectId } from "@prime-agent/web-protocol";
@@ -27,27 +26,45 @@ import {
 	type ChatPendingDialog,
 	type ChatPlanAction,
 	type ChatQuestionAnswer,
-	type ChatServiceTier,
 	type ChatStreamEvent,
 	type ChatThinkingLevel,
 	type OpenUIPromptMode,
 	type PrimeAgentArtifact,
 	type PrimeAgentRlmChild,
 	type PrimeAgentSessionPresentation,
-	type PrimeAgentUserBash,
 	type SessionTreeSnapshot,
 } from "@prime-agent/web-protocol";
 import type {
 	AgentConnection,
 	AgentConnectionEvent,
 	AgentConnectionExtensionUiRequest,
-	AgentConnectionModel,
 	AgentSession,
 	ExtensionUIContext,
-	ExtensionUIDialogOptions,
 	SessionSummary,
 } from "prime-agent";
 import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
+import {
+	type BridgeSessionCache,
+	confineSessionExportPath,
+	createOpenUIPromptSessionState,
+	createWebUIContext,
+	effectiveRlmChildStatus,
+	emptyCache,
+	fallbackSessionPath,
+	findSessionTreeEntry,
+	hasSessionLineage,
+	initialPresentationForSession,
+	isSessionNotResumableError,
+	isUnresolvedPlaceholderModel,
+	type OpenUIPromptSessionState,
+	presentationArtifactsEqual,
+	refreshCache,
+	resolveOpenUIPromptMode,
+	resolveRlmLineage,
+	rlmChildStatusOverride,
+	SessionExportPathError,
+	selectedTextFromSessionEntry,
+} from "./bridge-helpers";
 import { CoalescingRefreshQueue } from "./coalescing-refresh-queue";
 import {
 	createDaemonWebAgentConnection,
@@ -77,8 +94,8 @@ import {
 import { PendingDialogRegistry } from "./pending-dialogs";
 import {
 	createEmptyPrimeAgentSessionPresentation,
+	deleteManagedPrimePresentationForSession,
 	loadManagedPrimePresentation,
-	stablePresentationId,
 	upsertArtifact,
 	writeManagedPrimePresentation,
 } from "./prime-agent-presentation";
@@ -88,106 +105,7 @@ import { parseBackendSessionCommand } from "./session-commands";
 import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./session-tree-errors";
 import { mapSessionTreeSnapshot } from "./session-tree-mapper";
 
-// ---------------------------------------------------------------------------
-// Web UI context — a thin ExtensionUIContext backed by PendingDialogRegistry
-// ---------------------------------------------------------------------------
-
-const WEB_UI_UNSUPPORTED = "Not available in the web UI";
-
-function unsupportedInWebUi(method: string): never {
-	throw new Error(`${method}: ${WEB_UI_UNSUPPORTED}`);
-}
-
-type UIContextCtorArgs = {
-	sessionId: string;
-	emitFrame: (frame: ChatStreamEvent) => void;
-	dialogs: PendingDialogRegistry;
-};
-
-/**
- * The web port only needs the three dialog primitives from `ExtensionUIContext`.
- * Everything else (terminal input, theme management, custom widgets, footer
- * factories, the editor component, etc.) is terminal-only and we expose a
- * `Proxy` that throws a clear error. This keeps the type-checked interface
- * intact for callers that just dereference a field, while the bridge itself
- * only ever calls `select` / `confirm` / `input` / `notify` / `setStatus`.
- */
-function createWebUIContext({ sessionId, emitFrame, dialogs }: UIContextCtorArgs): ExtensionUIContext {
-	const impl: Pick<ExtensionUIContext, "select" | "confirm" | "input" | "notify" | "setStatus"> = {
-		async select(title: string, options: string[], _opts?: ExtensionUIDialogOptions): Promise<string | undefined> {
-			const toolCallId = crypto.randomUUID();
-			const dialog = await dialogs.open<{ choice: string } | undefined>({
-				sessionId,
-				toolCallId,
-				kind: "select",
-				title,
-				message: "",
-				options,
-				signalFrame: {
-					type: "tool-Question",
-					toolCallId,
-					state: "input-streaming",
-					input: { kind: "select", title, options },
-				},
-			});
-			return (dialog as { choice: string } | undefined)?.choice;
-		},
-		async confirm(title: string, message: string, _opts?: ExtensionUIDialogOptions): Promise<boolean> {
-			const toolCallId = crypto.randomUUID();
-			const dialog = await dialogs.open<boolean>({
-				sessionId,
-				toolCallId,
-				kind: "confirm",
-				title,
-				message,
-				signalFrame: {
-					type: "tool-Question",
-					toolCallId,
-					state: "input-streaming",
-					input: { kind: "confirm", title, message },
-				},
-			});
-			return Boolean(dialog);
-		},
-		async input(title: string, placeholder?: string, _opts?: ExtensionUIDialogOptions): Promise<string | undefined> {
-			const toolCallId = crypto.randomUUID();
-			const dialog = await dialogs.open<{ text: string } | undefined>({
-				sessionId,
-				toolCallId,
-				kind: "input",
-				title,
-				message: "",
-				placeholder,
-				signalFrame: {
-					type: "tool-Question",
-					toolCallId,
-					state: "input-streaming",
-					input: { kind: "text", title, placeholder },
-				},
-			});
-			return (dialog as { text: string } | undefined)?.text;
-		},
-		notify(message: string, type: "info" | "warning" | "error" = "info"): void {
-			const prefix = type === "info" ? "" : `${type.toUpperCase()}: `;
-			emitFrame({
-				type: "state",
-				state: { name: "agent_start", message: `${prefix}${message}` },
-			});
-		},
-		setStatus(key: string, text: string | undefined): void {
-			emitFrame({
-				type: "state",
-				state: { name: "agent_start", message: `[${key}] ${text ?? ""}` },
-			});
-		},
-	};
-	return new Proxy(impl as unknown as ExtensionUIContext, {
-		get(target, prop, receiver) {
-			if (prop in target) return Reflect.get(target, prop, receiver);
-			return () => unsupportedInWebUi(String(prop));
-		},
-	}) as ExtensionUIContext;
-}
+export { type OpenUIPromptSessionState, SessionExportPathError };
 
 // ---------------------------------------------------------------------------
 // Bridge types
@@ -270,378 +188,11 @@ export interface PrimeBridgeOptions {
 
 type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
 
-export type OpenUIPromptSessionState = {
-	enabled: boolean;
-	mode: OpenUIPromptMode;
-	prompt: string;
-	artifact?: boolean;
-};
-
-function createOpenUIPromptSessionState(
-	mode: OpenUIPromptMode = "agent",
-	enabled = false,
-	artifact = false,
-): OpenUIPromptSessionState {
-	return { enabled, mode, artifact, prompt: buildOpenUIPrompt(mode, { artifact }) };
-}
-
-function resolveOpenUIPromptMode(mode?: ChatMode, planAction?: ChatPlanAction): OpenUIPromptMode {
-	if (planAction === "execute") return "plan-execution";
-	if (planAction === "refine") return "plan";
-	return mode ?? "agent";
-}
-
-function persistedBashStatus(message: Record<string, unknown>): PrimeAgentUserBash["status"] {
-	if (message.cancelled === true) return "cancelled";
-	if (message.errorMessage || (typeof message.exitCode === "number" && message.exitCode !== 0)) return "error";
-	return "success";
-}
-
-function presentationArtifactsEqual(left: PrimeAgentArtifact, right: PrimeAgentArtifact): boolean {
-	return (
-		left.id === right.id &&
-		left.runId === right.runId &&
-		left.sourceMessageId === right.sourceMessageId &&
-		left.kind === right.kind &&
-		left.title === right.title &&
-		left.status === right.status &&
-		JSON.stringify(left.input) === JSON.stringify(right.input) &&
-		JSON.stringify(left.output) === JSON.stringify(right.output)
-	);
-}
-
-function initialPresentationForSession(
-	messages: readonly AgentMessage[],
-	sessionName: string | undefined,
-	thinkingLevel: ChatThinkingLevel | undefined,
-	serviceTier: ChatServiceTier | undefined,
-	recap: string | undefined,
-	sessionId: string,
-	base?: PrimeAgentSessionPresentation,
-): PrimeAgentSessionPresentation {
-	if (base) return base;
-	const presentation = createEmptyPrimeAgentSessionPresentation({
-		...(sessionName ? { sessionName } : {}),
-		...(thinkingLevel ? { thinkingLevel } : {}),
-		...(serviceTier ? { serviceTier } : {}),
-		...(recap ? { recap } : {}),
-	});
-	let bashIndex = 0;
-	for (const message of messages) {
-		const value = message as unknown as Record<string, unknown>;
-		if (value.role !== "bashExecution") continue;
-		const command = typeof value.command === "string" ? value.command : "";
-		const output = typeof value.output === "string" ? value.output : "";
-		const timestamp = typeof value.timestamp === "number" ? value.timestamp : Date.now();
-		const runId = stablePresentationId(`persisted-bash:${sessionId}:${bashIndex++}:${timestamp}:${command}`);
-		const entry: PrimeAgentUserBash = {
-			id: stablePresentationId(`user-bash:${runId}`),
-			runId,
-			command,
-			output,
-			status: persistedBashStatus(value),
-			...(typeof value.exitCode === "number" ? { exitCode: value.exitCode } : {}),
-			cancelled: value.cancelled === true,
-			truncated: value.truncated === true,
-			excludeFromContext: value.excludeFromContext === true,
-			startedAt: timestamp,
-			endedAt: timestamp,
-		};
-		presentation.userBash.push(entry);
-		const artifact = {
-			id: stablePresentationId(`${runId}:bash`),
-			runId,
-			sourceToolCallId: runId,
-			kind: "bash" as const,
-			title: command || "Bash",
-			status: entry.status,
-			input: { command, excludeFromContext: entry.excludeFromContext },
-			output: { stdout: output, ...(entry.exitCode !== undefined ? { exitCode: entry.exitCode } : {}) },
-			timestamp,
-		};
-		presentation.artifactRuns = upsertArtifact(presentation, artifact).artifactRuns;
-	}
-	return presentation;
-}
-
-// ---------------------------------------------------------------------------
-// Per-session cached surface (keeps the public bridge API synchronous)
-// ---------------------------------------------------------------------------
-
-/**
- * BridgeSessionCache — cached subset of the connection state used by the
- * sync bridge methods. The AgentConnection API is async; the chat-command
- * handler (out of this PR's scope) calls these methods synchronously, so the
- * bridge maintains a fresh-enough cache and refreshes it on every
- * `session_replaced` and the relevant `session_event` mutations.
- */
-interface BridgeSessionCache {
-	sessionName: string | undefined;
-	thinkingLevel: ThinkingLevel | undefined;
-	serviceTier: ChatServiceTier | undefined;
-	systemPrompt: string;
-	contextUsage: unknown;
-	tree: { tree: unknown[]; leafId: string | null } | undefined;
-	isStreaming: boolean;
-}
-
-function emptyCache(): BridgeSessionCache {
-	return {
-		sessionName: undefined,
-		thinkingLevel: undefined,
-		serviceTier: undefined,
-		systemPrompt: "",
-		contextUsage: undefined,
-		tree: undefined,
-		isStreaming: false,
-	};
-}
-
-async function refreshCache(connection: AgentConnection): Promise<BridgeSessionCache> {
-	const [state, systemPrompt, stats, tree] = await Promise.all([
-		connection.getState(),
-		connection.getSystemPrompt().catch(() => ""),
-		connection.getSessionStats().catch(() => undefined),
-		connection.getSessionTree().catch(() => ({ tree: [], leafId: null })),
-	]);
-	return {
-		sessionName: state.sessionName,
-		thinkingLevel: state.thinkingLevel,
-		serviceTier: state.serviceTier ?? undefined,
-		systemPrompt,
-		contextUsage: stats?.contextUsage,
-		tree: { tree: tree.tree as unknown[], leafId: tree.leafId },
-		isStreaming: state.isStreaming,
-	};
-}
-
-function fallbackSessionPath(connectionState: Awaited<ReturnType<AgentConnection["getState"]>>, cwd: string): string {
-	if (connectionState.sessionFile) return resolve(connectionState.sessionFile);
-	const sessionDir = connectionState.sessionDir ?? sessionDirectoryForCwd(cwd);
-	return resolve(sessionDir, `${connectionState.sessionId}.jsonl`);
-}
-
-/**
- * Thrown when an explicit /export path escapes the session's project
- * directory. The 400 status lets `wrapApiHandler` answer Bad Request; the
- * message carries no paths (API errors are scrubbed for paths anyway).
- */
-export class SessionExportPathError extends Error {
-	readonly status: 400 = 400;
-
-	constructor() {
-		super("Export path must stay inside the session project directory");
-		this.name = "SessionExportPathError";
-	}
-}
-
-type SessionTreeEntry = Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"][number]["entry"];
-
-function findSessionTreeEntry(
-	nodes: Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"],
-	entryId: string,
-): SessionTreeEntry | undefined {
-	for (const node of nodes) {
-		if (node.entry.id === entryId) return node.entry;
-		const nested = findSessionTreeEntry(node.children, entryId);
-		if (nested) return nested;
-	}
-	return undefined;
-}
-
-function selectedTextFromSessionEntry(entry: SessionTreeEntry): string | undefined {
-	if (entry.type !== "message" || entry.message.role !== "user") return undefined;
-	const content = entry.message.content;
-	if (typeof content === "string") return content;
-	return content
-		.filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
-		.map((part) => part.text)
-		.join("");
-}
-
-/**
- * prime-agent falls back to an `unknown/unknown` placeholder model when no
- * real model can be resolved (e.g. no provider auth configured). Attempting
- * to carry that placeholder over to a forked session makes `setModel` throw
- * "Model not found"; skip it so the fork resolves its own default.
- */
-function isUnresolvedPlaceholderModel(model: AgentConnectionModel | undefined): boolean {
-	return model?.provider === "unknown" && model?.id === "unknown";
-}
-
-/**
- * The daemon reports free-form strings for transcripts it cannot resume (a
- * worker that starts without a persisted root session, a transcript that
- * vanished after listing). Shape-match them like the transport patterns in
- * `wrap-api-handler` so a listed-but-unresumable session flows into the
- * handlers' existing 404 branches instead of surfacing as a generic 500.
- */
-const SESSION_NOT_RESUMABLE_PATTERNS = [
-	/session worker started without a root session/i,
-	/requested session transcript is unavailable/i,
-];
-
-/**
- * Determines whether an error indicates that a session transcript cannot be resumed.
- *
- * @param error - The error to inspect
- * @returns `true` if the error matches a known non-resumable session condition, `false` otherwise
- */
-function isSessionNotResumableError(error: unknown): boolean {
-	const message = error instanceof Error ? error.message : String(error);
-	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
-}
-
-/**
- * Collects the non-empty session identifiers from a session summary.
- *
- * @returns The session summary's available identifiers.
- */
-function sessionSummaryIdentifiers(summary: SessionSummary): Array<string> {
-	return [summary.id, summary.sessionId, summary.activeSessionId].flatMap((value) =>
-		typeof value === "string" && value.length > 0 ? [value] : [],
-	);
-}
-
-/**
- * Collects the non-empty parent session identifiers from a session summary.
- *
- * @param summary - The session summary containing parent identifiers
- * @returns The available parent session identifiers
- */
-function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string> {
-	return [summary.parentSessionId, summary.parentActiveSessionId].flatMap((value) =>
-		typeof value === "string" && value.length > 0 ? [value] : [],
-	);
-}
-
-/**
- * Resolves the transcript file path from a session summary.
- *
- * @param summary - The session summary containing the transcript file path
- * @returns The resolved transcript path, or `undefined` when no valid path is present
- */
-function sessionSummaryPath(summary: SessionSummary): string | undefined {
-	return typeof summary.sessionFile === "string" && summary.sessionFile.length > 0
-		? resolve(summary.sessionFile)
-		: undefined;
-}
-
-/**
- * Resolves the parent session path from a session summary.
- *
- * @param summary - The session summary containing the parent session path
- * @returns An array containing the resolved parent session path, or an empty array when none is available
- */
-function sessionSummaryParentPaths(summary: SessionSummary): Array<string> {
-	return [summary.parentSessionPath].flatMap((value) =>
-		typeof value === "string" && value.length > 0 ? [resolve(value)] : [],
-	);
-}
-
-/**
- * Determines whether a session belongs to a root session through daemon-reported parent metadata.
- *
- * @param candidate - The session whose ancestry is checked
- * @param rootIdentifiers - Session identifiers authorized as roots
- * @param rootPaths - Session paths authorized as roots
- * @param sessionsByIdentifier - Sessions indexed by identifier
- * @param sessionsByPath - Sessions indexed by path
- * @returns `true` if the candidate has an authorized root ancestor, `false` otherwise
- */
-function hasSessionLineage(
-	candidate: SessionSummary,
-	rootIdentifiers: ReadonlySet<string>,
-	rootPaths: ReadonlySet<string>,
-	sessionsByIdentifier: ReadonlyMap<string, SessionSummary>,
-	sessionsByPath: ReadonlyMap<string, SessionSummary>,
-): boolean {
-	const pending: SessionSummary[] = [candidate];
-	const visited = new Set<SessionSummary>();
-	while (pending.length > 0) {
-		const current = pending.pop();
-		if (!current || visited.has(current)) continue;
-		visited.add(current);
-		for (const parentId of sessionSummaryParentIdentifiers(current)) {
-			if (rootIdentifiers.has(parentId)) return true;
-			const parent = sessionsByIdentifier.get(parentId);
-			if (parent && !visited.has(parent)) pending.push(parent);
-		}
-		for (const parentPath of sessionSummaryParentPaths(current)) {
-			if (rootPaths.has(parentPath)) return true;
-			const parent = sessionsByPath.get(parentPath);
-			if (parent && !visited.has(parent)) pending.push(parent);
-		}
-	}
-	return false;
-}
-
-/**
- * Resolves the session path and its persisted ancestor paths.
- *
- * @param sessionPath - The starting session path
- * @returns The resolved session paths in the persisted parent chain
- */
-async function sessionLineagePaths(sessionPath: string): Promise<ReadonlySet<string>> {
-	const paths = new Set<string>();
-	let currentPath = resolve(sessionPath);
-	while (!paths.has(currentPath)) {
-		paths.add(currentPath);
-		try {
-			const manager = await SessionManager.openAsync(currentPath);
-			const parentSession = manager.getHeader()?.parentSession;
-			if (!parentSession) break;
-			currentPath = resolve(dirname(currentPath), parentSession);
-		} catch {
-			break;
-		}
-	}
-	return paths;
-}
-
 type AuthorizedRlmChild = {
 	parent: BridgeSession;
 	child: PrimeAgentRlmChild;
 	summary: SessionSummary;
 };
-
-type RlmLineage = {
-	sessionsByIdentifier: ReadonlyMap<string, SessionSummary>;
-	sessionsByPath: ReadonlyMap<string, SessionSummary>;
-	rootIdentifiers: ReadonlySet<string>;
-	rootPaths: ReadonlySet<string>;
-};
-
-/**
- * Builds status metadata for an RLM child from its session summary.
- *
- * @param summary - The child's session summary
- * @returns An override containing the resolved failure or recovery status and the last activity timestamp when available
- */
-function rlmChildStatusOverride(summary: SessionSummary): RlmChildStatusOverride {
-	const status =
-		summary.statusLabel === "failed" || summary.workerState === "failed"
-			? "failed"
-			: summary.statusLabel === "recovering" || summary.workerState === "recovering"
-				? "recovering"
-				: undefined;
-	const lastHeardFrom = summary.lastHeardFromAt ? Date.parse(summary.lastHeardFromAt) : Number.NaN;
-	return {
-		...(status ? { status } : {}),
-		...(Number.isFinite(lastHeardFrom) ? { lastHeardFrom } : {}),
-	};
-}
-
-/**
- * Determines the effective status of an RLM child session.
- *
- * @param child - The child session whose status provides the fallback value
- * @param summary - The latest session summary used to determine a status override
- * @returns The overridden status when available, otherwise the child's current status
- */
-function effectiveRlmChildStatus(child: PrimeAgentRlmChild, summary: SessionSummary): PrimeAgentRlmChild["status"] {
-	return rlmChildStatusOverride(summary).status ?? child.status;
-}
 
 type AgentConnectionSessionWatcher = NonNullable<Awaited<ReturnType<AgentConnection["watchSession"]>>>;
 
@@ -649,6 +200,14 @@ type RlmChildStreamResume = {
 	streamGeneration?: string;
 	lastEventId?: number;
 };
+
+export interface MainSessionStream {
+	readonly sessionId: string;
+	readonly streamGeneration: string;
+	readonly resumeAccepted: boolean;
+	readonly cursorReset: boolean;
+	readonly replayFrom: number;
+}
 
 type ManagedRlmChildStream = {
 	key: string;
@@ -784,6 +343,30 @@ export class PrimeBridge {
 	): { replayed: readonly { seq: number; event: unknown }[]; overflowed: boolean } {
 		const buffer = this.#ringBufferFor(sessionId);
 		return buffer.replaySince(lastEventId);
+	}
+
+	/**
+	 * Resolves stream generation and cursor state for a main-session SSE attach.
+	 */
+	openSessionStream(sessionId: string, resume?: RlmChildStreamResume): MainSessionStream {
+		const buffer = this.#ringBufferFor(sessionId);
+		const requestedCursor = resume?.lastEventId && resume.lastEventId > 0 ? resume.lastEventId : 0;
+		const generationProvided = resume?.streamGeneration !== undefined;
+		const generationMatches = !generationProvided || resume.streamGeneration === buffer.streamGeneration;
+		const latest = buffer.latestSequence();
+		const cursorOverflowed =
+			generationMatches && requestedCursor > 0 ? buffer.replaySince(requestedCursor).overflowed : false;
+		const cursorInRange = requestedCursor === 0 || requestedCursor <= latest;
+		const canResume = generationMatches && requestedCursor > 0 && cursorInRange && !cursorOverflowed;
+		const cursorReset = (generationProvided || requestedCursor > 0) && !canResume;
+		const replayFrom = canResume ? requestedCursor : cursorReset ? latest : 0;
+		return {
+			sessionId,
+			streamGeneration: buffer.streamGeneration,
+			resumeAccepted: canResume,
+			cursorReset,
+			replayFrom,
+		};
 	}
 
 	/** Test-only: reset state. */
@@ -1192,42 +775,13 @@ export class PrimeBridge {
 		return this.#sessionLister(cwd);
 	}
 
-	async #resolveRlmLineage(
-		sessions: SessionSummary[],
-		rootSessionId: string,
-		rootSessionPath: string,
-	): Promise<RlmLineage> {
-		const sessionsByIdentifier = new Map<string, SessionSummary>();
-		const sessionsByPath = new Map<string, SessionSummary>();
-		for (const session of sessions) {
-			for (const identifier of sessionSummaryIdentifiers(session)) {
-				if (!sessionsByIdentifier.has(identifier)) sessionsByIdentifier.set(identifier, session);
-			}
-			const path = sessionSummaryPath(session);
-			if (path && !sessionsByPath.has(path)) sessionsByPath.set(path, session);
-		}
-		const rootIdentifiers = new Set([rootSessionId]);
-		const rootPaths = new Set(await sessionLineagePaths(rootSessionPath));
-		const rootSummary = sessionsByIdentifier.get(rootSessionId);
-		if (rootSummary) {
-			for (const identifier of sessionSummaryIdentifiers(rootSummary)) rootIdentifiers.add(identifier);
-			for (const path of sessionSummaryParentPaths(rootSummary)) rootPaths.add(path);
-		}
-		for (const rootPath of rootPaths) {
-			const rootAncestor = sessionsByPath.get(rootPath);
-			if (!rootAncestor) continue;
-			for (const identifier of sessionSummaryIdentifiers(rootAncestor)) rootIdentifiers.add(identifier);
-		}
-		return { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths };
-	}
-
 	async #findAuthorizedRlmChild(parentSessionId: string, childId: string): Promise<AuthorizedRlmChild | undefined> {
 		const parent = this.#sessions.get(parentSessionId);
 		const child = parent?.mapperState.presentation.rlmChildren.find((entry) => entry.id === childId);
 		if (!parent || !child) return undefined;
 
 		const sessions = await this.#sessionLister();
-		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await this.#resolveRlmLineage(
+		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await resolveRlmLineage(
 			sessions,
 			parentSessionId,
 			parent.sessionPath,
@@ -1260,7 +814,7 @@ export class PrimeBridge {
 			return;
 		}
 
-		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await this.#resolveRlmLineage(
+		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await resolveRlmLineage(
 			sessions,
 			rootSessionId,
 			parent.sessionPath,
@@ -1644,6 +1198,7 @@ export class PrimeBridge {
 				const listedSessionId = listed?.sessionId ?? sessionId;
 				await deleteManagedAttachmentsForSession(listedSessionId, sessionPath);
 				await deleteManagedPlanPresentationsForSession(listedSessionId, sessionPath);
+				await deleteManagedPrimePresentationForSession(sessionPath);
 				await getPrimeConfig().projectRegistry.assignSession(listedSessionId, null);
 				return true;
 			}
@@ -1678,9 +1233,12 @@ export class PrimeBridge {
 			this.#ringBuffers.delete(existing.sessionId);
 			this.#caches.delete(existing.sessionId);
 			this.#openUIPromptTransitions.delete(existing.sessionId);
+			this.#presentationGenerations.delete(existing.sessionId);
+			this.#auxiliaryWarnings.delete(existing.sessionId);
 		}
 		await deleteManagedAttachmentsForSession(existing.sessionId, sessionPath);
 		await deleteManagedPlanPresentationsForSession(existing.sessionId, sessionPath);
+		await deleteManagedPrimePresentationForSession(sessionPath);
 		await getPrimeConfig().projectRegistry.assignSession(existing.sessionId, null);
 		return true;
 	}
@@ -1999,58 +1557,13 @@ export class PrimeBridge {
 	/** /export — write the session to HTML (default) or JSONL (path ends with .jsonl). */
 	async exportSession(sessionId: string, outputPath?: string): Promise<{ path: string; format: "html" | "jsonl" }> {
 		const session = this.#requireSession(sessionId);
-		const confinedPath = await this.#confineExportPath(session, outputPath);
+		const confinedPath = await confineSessionExportPath(session.connection, outputPath);
 		if (outputPath?.endsWith(".jsonl")) {
 			const path = await session.connection.exportToJsonl(confinedPath);
 			return { path, format: "jsonl" };
 		}
 		const path = await session.connection.exportToHtml(confinedPath);
 		return { path, format: "html" };
-	}
-
-	/**
-	 * Confine an explicit /export path inside the session's project directory
-	 * (the connection's live cwd). Absolute paths and `..` escapes that leave
-	 * the directory throw a 400-status error; an omitted path passes through
-	 * untouched so the default export location is unchanged.
-	 */
-	async #confineExportPath(session: BridgeSession, outputPath: string | undefined): Promise<string | undefined> {
-		if (outputPath === undefined) return undefined;
-		const { cwd } = await session.connection.getState();
-		const root = resolve(cwd);
-		// Compare canonical paths so a symlinked cwd does not make valid
-		// in-project paths appear to escape the lexical root below, while
-		// preserving the runtime's existing path spelling in the export result.
-		const canonicalRoot = await realpath(root).catch(() => root);
-		const candidate = resolve(root, outputPath);
-		// Resolve symlinks: a link inside the project pointing outside must not
-		// escape confinement. The runtime creates missing parent directories, so
-		// walk up to the nearest existing ancestor instead of requiring the
-		// immediate parent to exist already.
-		const existingCandidate = await realpath(candidate).catch(() => undefined);
-		if (
-			existingCandidate &&
-			existingCandidate !== canonicalRoot &&
-			!existingCandidate.startsWith(`${canonicalRoot}${sep}`)
-		) {
-			throw new SessionExportPathError();
-		}
-		let ancestor = dirname(candidate);
-		while (true) {
-			const resolvedAncestor = await realpath(ancestor).catch(() => undefined);
-			if (resolvedAncestor) {
-				// The project root itself is a valid export location; only paths
-				// escaping it (including via symlink) are rejected.
-				if (resolvedAncestor !== canonicalRoot && !resolvedAncestor.startsWith(`${canonicalRoot}${sep}`)) {
-					throw new SessionExportPathError();
-				}
-				break;
-			}
-			const parent = dirname(ancestor);
-			if (parent === ancestor) throw new SessionExportPathError();
-			ancestor = parent;
-		}
-		return candidate;
 	}
 
 	/** /reload — re-scan keybindings, extensions, skills, prompts, themes. */

@@ -7,7 +7,7 @@ import type {
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ChatModelOption } from "@/components/chat/chat-helpers";
-import { customModelKey, nextEnabledModelPatterns } from "@/components/settings/providers/model-patterns";
+import { nextEnabledModelPatterns } from "@/components/settings/providers/model-patterns";
 import { comparableModelSettings, modelSettings, sameJson } from "@/components/settings/settings-mappers";
 import type { ConfigModelInfo } from "@/components/settings/types";
 import { notify as toast } from "@/lib/notify";
@@ -65,34 +65,17 @@ export function useModelDefaultsForm({
 	const modelOptions = useMemo(() => {
 		const byId = new Map<string, ConfigModelInfo>();
 		for (const model of catalogModels) {
-			if (configuredProviderIds.has(model.provider)) {
+			if (configuredProviderIds.has(model.provider) && model.available !== false) {
 				byId.set(model.id, model);
 			}
 		}
 		for (const model of discoveredModels) {
-			if (configuredProviderIds.has(model.provider)) {
+			if (configuredProviderIds.has(model.provider) && model.available !== false) {
 				byId.set(model.id, model);
 			}
 		}
-		const merged = [...byId.values()];
-		if (!draft?.defaultProvider || !draft.defaultModel) return merged;
-		if (merged.some((model) => model.provider === draft.defaultProvider && model.modelId === draft.defaultModel)) {
-			return merged;
-		}
-
-		if (!configuredProviderIds.has(draft.defaultProvider)) return merged;
-
-		return [
-			{
-				id: customModelKey(draft.defaultProvider, draft.defaultModel),
-				name: draft.defaultModel,
-				provider: draft.defaultProvider,
-				modelId: draft.defaultModel,
-				available: false,
-			},
-			...merged,
-		];
-	}, [catalogModels, configuredProviderIds, discoveredModels, draft]);
+		return [...byId.values()];
+	}, [catalogModels, configuredProviderIds, discoveredModels]);
 
 	const modelBaseline =
 		lastCommittedModelSettings.current ?? (settings ? comparableModelSettings(settings.effective) : null);
