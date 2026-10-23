@@ -14,7 +14,9 @@ import { describe, expect, it } from "vitest";
 import {
 	DAEMON_FRAMES_ROOT,
 	type DaemonFrame,
+	inferActiveSessionId,
 	listDaemonFrameScenarios,
+	PLACEHOLDER_ACTIVE_SESSION_ID,
 	readDaemonFrameScenario,
 	replayDaemonFrameScenario,
 } from "./daemon-frame-replay";
@@ -64,6 +66,18 @@ describe.each(PINNED_SETS)("daemon-frames/%s contract replay", (set) => {
 			const parsed = ChatStreamEventSchema.safeParse(event);
 			expect(parsed.success, `${name} event #${index} (${event.type}): ${parsed.error?.message}`).toBe(true);
 		}
+	});
+});
+
+describe("daemon-frame replay harness", () => {
+	it("uses a placeholder session for frames that never name one, without throwing", async () => {
+		const frames: DaemonFrame[] = [{ type: "daemon_hello", protocol: { name: "prime-agent.daemon", version: 7 } }];
+		const activeSessionId = inferActiveSessionId(frames, []);
+		expect(activeSessionId).toBe(PLACEHOLDER_ACTIVE_SESSION_ID);
+		await expect(replayDaemonFrameScenario({ frames, activeSessionId })).resolves.toEqual({
+			connectionEvents: [],
+			events: [],
+		});
 	});
 });
 
