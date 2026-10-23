@@ -126,6 +126,8 @@ export interface BridgeSession {
 	readonly setOpenUIPrompt?: WebAgentConnection["setOpenUIPrompt"];
 	readonly terminate?: WebAgentConnection["terminate"];
 	readonly deleteSessionFile?: WebAgentConnection["deleteSessionFile"];
+	/** Daemon-backed fork (the daemon `fork` command); absent on the in-process test adapter. */
+	readonly forkToNewSession?: WebAgentConnection["forkToNewSession"];
 	/** Cached connection state used by synchronous HTTP admission helpers. */
 	isStreaming: boolean;
 	readonly openUIPrompt: OpenUIPromptSessionState;
@@ -655,6 +657,7 @@ export class PrimeBridge {
 			setOpenUIPrompt: webAgent.setOpenUIPrompt,
 			terminate: webAgent.terminate,
 			deleteSessionFile: webAgent.deleteSessionFile,
+			...(webAgent.forkToNewSession ? { forkToNewSession: webAgent.forkToNewSession } : {}),
 			isStreaming: cache.isStreaming,
 			openUIPrompt,
 			mapperState,
@@ -1657,13 +1660,12 @@ export class PrimeBridge {
 	 * The fork flow:
 	 *   1. Resolve the source entry (parent for `before`, target for `at`) and
 	 *      pre-compute the user-message text for `position: "before"`.
-	 *   2. Eagerly flush the source session so the side `SessionManager` (which
-	 *      re-reads the file) sees the full branch.
-	 *   3. Open a side `SessionManager` on the source file and create a branched
-	 *      session, or open a fresh session parented on the source for the
-	 *      "no recorded entries" case.
-	 *   4. Build a new connection over the side manager, carry the source's
-	 *      model/thinking/service-tier, and force-flush the fork header.
+	 *   2. Daemon-backed sessions run the daemon `fork` command, which writes the
+	 *      branched transcript; the source reopens in its own worker
+	 *      (`forkToNewSession`). The in-process test adapter instead writes the
+	 *      branch with a side `SessionManager`.
+	 *   3. Open a new connection on the fork and carry the source's
+	 *      model/thinking/service-tier.
 	 */
 	async forkSession(
 		sessionId: string,
@@ -1693,31 +1695,19 @@ export class PrimeBridge {
 		if (!currentFile) {
 			throw new Error("Cannot fork an unpersisted session");
 		}
-		const sessionDir = sourceState.sessionDir ?? dirname(currentFile);
 
-		let side: SessionManager;
 		let forkedPath: string | undefined;
-		if (targetLeafId) {
-			// The side manager only creates the new transcript; the source remains
-			// exclusively owned by the daemon.
-			side = SessionManager.open(currentFile, sessionDir);
-			forkedPath = side.createBranchedSession(targetLeafId) ?? undefined;
-			if (!forkedPath) {
-				throw new Error("Failed to create forked session");
-			}
+		if (bridge.forkToNewSession) {
+			// Daemon-backed sessions fork through the daemon `fork` command; the
+			// daemon writes the fork transcript and Fleet only opens it.
+			const forked = await bridge.forkToNewSession(entryId, position);
+			if (forked.cancelled) throw new Error("The Prime Agent daemon cancelled the fork");
+			forkedPath = forked.sessionPath;
+			selectedText = forked.selectedText ?? selectedText;
 		} else {
-			side = SessionManager.create(bridge.cwd, sessionDir);
-			const sourceHeader = await bridge.connection.getSessionHeader();
-			side.newSession({
-				parentSession: currentFile,
-				...(sourceHeader?.rlmDepth !== undefined ? { rlmDepth: sourceHeader.rlmDepth } : {}),
-			});
-			forkedPath = side.getSessionFile();
+			forkedPath = await this.#forkWithSideSessionManager(bridge, currentFile, sourceState.sessionDir, targetLeafId);
 		}
 		if (!forkedPath) throw new Error("Failed to create forked session");
-		// The daemon becomes the sole writer once it opens the target. This initial
-		// materialization makes a user-only fork durable before that handoff.
-		side.flushNow();
 
 		const webAgent = await this.#connectionFactory({
 			cwd: bridge.cwd,
@@ -1745,6 +1735,44 @@ export class PrimeBridge {
 			selectedText,
 			newSessionId: forkedBridge.sessionId,
 		};
+	}
+
+	/**
+	 * Legacy fork for the in-process test adapter (no daemon): a side
+	 * `SessionManager` writes the branched transcript before the new
+	 * connection opens it. Daemon-backed sessions use `forkToNewSession`.
+	 */
+	async #forkWithSideSessionManager(
+		bridge: BridgeSession,
+		currentFile: string,
+		sourceSessionDir: string | undefined,
+		targetLeafId: string | null,
+	): Promise<string> {
+		const sessionDir = sourceSessionDir ?? dirname(currentFile);
+		let side: SessionManager;
+		let forkedPath: string | undefined;
+		if (targetLeafId) {
+			// The side manager only creates the new transcript; the source remains
+			// exclusively owned by its runtime.
+			side = SessionManager.open(currentFile, sessionDir);
+			forkedPath = side.createBranchedSession(targetLeafId) ?? undefined;
+			if (!forkedPath) {
+				throw new Error("Failed to create forked session");
+			}
+		} else {
+			side = SessionManager.create(bridge.cwd, sessionDir);
+			const sourceHeader = await bridge.connection.getSessionHeader();
+			side.newSession({
+				parentSession: currentFile,
+				...(sourceHeader?.rlmDepth !== undefined ? { rlmDepth: sourceHeader.rlmDepth } : {}),
+			});
+			forkedPath = side.getSessionFile();
+		}
+		if (!forkedPath) throw new Error("Failed to create forked session");
+		// The runtime becomes the sole writer once it opens the target. This initial
+		// materialization makes a user-only fork durable before that handoff.
+		side.flushNow();
+		return forkedPath;
 	}
 
 	/** Fork the complete persisted history into another registered project. */

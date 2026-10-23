@@ -1,0 +1,31 @@
+{
+ "responses": [
+  {
+   "text": "Listed the directory and the issues.",
+   "toolCalls": [
+    {
+     "toolCallId": "call-bash-1",
+     "toolName": "bash",
+     "args": {
+      "command": "ls"
+     },
+     "result": "README.md\nsrc",
+     "isError": false,
+     "delayMs": 2500
+    },
+    {
+     "toolCallId": "call-mcp-1",
+     "toolName": "mcp__github__list_issues",
+     "args": {
+      "owner": "example",
+      "repo": "demo",
+      "state": "open"
+     },
+     "result": "[]",
+     "isError": false,
+     "delayMs": 1500
+    }
+   ]
+  }
+ ]
+}

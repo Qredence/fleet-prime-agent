@@ -1,0 +1,1 @@
+{"type":"command","id":"B-1","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-B","command":{"type":"attach","activeSessionId":"b134578a8e2f","capabilities":["attach_snapshot","event_sequence","slim_attach","client_owned_sessions"],"telemetryDisabled":true}}

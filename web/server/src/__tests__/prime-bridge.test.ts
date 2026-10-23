@@ -710,6 +710,44 @@ describe("PrimeBridge.forkSession", () => {
 		);
 	});
 
+	it("forks daemon-backed sessions through forkToNewSession instead of a side SessionManager", async () => {
+		const forkCalls: Array<{ entryId: string; position: string }> = [];
+		const bridge = new PrimeBridge({
+			sessionLister: async () => [],
+			connectionFactory: async (options) => {
+				const webAgent = await createInProcessTestAgentConnection(options);
+				return {
+					...webAgent,
+					// Stands in for the daemon `fork` command: the runtime writes the branch.
+					forkToNewSession: async (entryId: string, position: "before" | "at") => {
+						forkCalls.push({ entryId, position });
+						const sourceFile = webAgent.session.sessionManager.getSessionFile();
+						if (!sourceFile) throw new Error("unpersisted");
+						const entry = webAgent.session.sessionManager.getEntry(entryId);
+						const side = SessionManager.open(sourceFile, dirname(sourceFile));
+						const sessionPath = side.createBranchedSession(entry?.parentId ?? entryId);
+						if (!sessionPath) throw new Error("no fork");
+						side.flushNow();
+						return { cancelled: false as const, selectedText: "from-daemon", sessionPath };
+					},
+				};
+			},
+		});
+		const created = await createTestSession(bridge);
+		appendTurn(bridge, created.sessionId, "first question", "first answer");
+		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
+
+		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
+
+		expect(forkCalls).toEqual([{ entryId: userEntryId, position: "before" }]);
+		expect(result.cancelled).toBe(false);
+		expect(result.selectedText).toBe("from-daemon");
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
+		const forked = requireLiveSession(bridge, result.newSessionId);
+		const messages = conversationMessages(forked.session.sessionManager.buildSessionContext().messages);
+		expect((messages[0] as { content: string }).content).toBe("first question");
+	});
+
 	it("keeps the source session untouched and running after the fork", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
