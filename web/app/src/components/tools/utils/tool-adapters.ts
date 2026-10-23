@@ -41,11 +41,11 @@ function getDiffLinesFromPatch(
 	return result;
 }
 
-export function mapToolStateToStepState(aiState: "partial-call" | "call" | "result"): StepState {
+function mapToolStateToStepState(aiState: "partial-call" | "call" | "result"): StepState {
 	return aiState === "result" ? "complete" : "animating";
 }
 
-export function mapToolNameToVariant(toolName: string): "thinking" | "action" | "search" | undefined {
+function mapToolNameToVariant(toolName: string): "thinking" | "action" | "search" | undefined {
 	const lower = toolName.toLowerCase();
 	if (lower === "thinking" || lower === "reasoning") return "thinking";
 	if (
@@ -83,7 +83,7 @@ function extractToolDetail(toolName: string, args: Record<string, any>): string 
 	}
 }
 
-export function mapToolInvocationToStep(
+function mapToolInvocationToStep(
 	toolCallId: string,
 	toolInvocation: {
 		toolName: string;
@@ -160,7 +160,7 @@ export function mapToolInvocationToStep(
 	return step;
 }
 
-export function resolveToolPartState(partState?: string): "partial-call" | "call" | "result" {
+function resolveToolPartState(partState?: string): "partial-call" | "call" | "result" {
 	if (partState === "output-available") return "result";
 	if (partState === "input-streaming") return "partial-call";
 	return "call";

@@ -15,7 +15,7 @@ const ROOT_COMPONENT_PATTERN = /^root\s*=\s*([A-Za-z][A-Za-z0-9]*)/;
 const FIRST_STRING_LITERAL_PATTERN = /"((?:\\.|[^"\\]){1,80})"/;
 
 /** Human label for a block: card/heading titles if present, else the root component. */
-export function openUIBlockLabel(content: string): string {
+function openUIBlockLabel(content: string): string {
 	return FIRST_STRING_LITERAL_PATTERN.exec(content)?.[1] ?? ROOT_COMPONENT_PATTERN.exec(content)?.[1] ?? "Interface";
 }
 

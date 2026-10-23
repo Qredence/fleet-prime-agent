@@ -101,7 +101,7 @@ export type IndexableSession = {
  * Opens one session and returns its user-authored text.
  *
  * Structurally typed so tests can inject a double. The default implementation
- * uses the runtime's supported `SessionManager`, mirroring the cold-load path in
+ * uses the legacy bridge's read-only session reader, mirroring the cold-load path in
  * `prime-bridge.ts`.
  */
 export type OpenSession = (sessionFile: string) => Promise<ReadonlyArray<{ role?: string; text: string }>>;

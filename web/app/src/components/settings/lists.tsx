@@ -12,13 +12,6 @@ import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Select } from "@/components/ui/select";
 
-export {
-	addUniqueSettingsResource,
-	resourceOptionValue,
-	settingsResourceListIncludes,
-	toSettingsResourcePath,
-} from "@/components/settings/settings-resource-path";
-
 /**
  * List editor that prefers Select when catalog entries exist (e.g. detected
  * agent-workspace skills). Existing values are always ItemRows; free-text is

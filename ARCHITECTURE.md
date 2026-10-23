@@ -201,7 +201,7 @@ Architectural correctness is protected through:
 * TypeScript;
 * Biome;
 * runtime-manifest verification;
-* the browser/runtime import-boundary check;
+* the browser/runtime import-boundary check, plus the temporary `web/server` legacy-SDK guard (R1b);
 * deterministic Vitest tests;
 * rendering checks;
 * package/installer checks;

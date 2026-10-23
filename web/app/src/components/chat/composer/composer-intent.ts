@@ -20,7 +20,7 @@ const CACHE_TTL_MS = 5 * 60_000;
 const MIN_DRAFT_CHARS = 4;
 
 /** Cache key for a draft. Matches the server's own normalisation. */
-export function normalizeIntentDraft(text: string): string {
+function normalizeIntentDraft(text: string): string {
 	return text.trim().replace(/\s+/g, " ").toLowerCase();
 }
 

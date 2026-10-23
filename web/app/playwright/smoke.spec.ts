@@ -70,6 +70,38 @@ async function mockEmptyWelcomeChat(page: Page, sessionId: string) {
 	})
 }
 
+/**
+ * The hermetic dev server has no configured providers, so serve one
+ * reasoning-capable model for the selector instead of relying on local Prime
+ * credentials.
+ */
+async function mockReasoningModel(page: Page) {
+	await page.route("**/api/chat/models**", async (route) => {
+		if (new URL(route.request().url()).pathname !== "/api/chat/models") return route.continue()
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				models: [
+					{
+						key: "smoke/reasoning-model",
+						provider: "smoke",
+						id: "reasoning-model",
+						name: "Smoke Reasoning Model",
+						reasoning: true,
+						input: ["text"],
+						available: true,
+						thinkingLevels: ["off", "minimal", "low", "medium", "high"],
+						defaultThinkingLevel: "medium",
+					},
+				],
+				selectedModelKey: "smoke/reasoning-model",
+				diagnostics: [],
+			}),
+		})
+	})
+}
+
 // Smoke: prove the chat shell boots and the composer is interactive.
 //
 // The dev server boots with a real `PrimeBridge`, but the IPython kernel boot
@@ -93,6 +125,7 @@ test.describe("chat shell", () => {
 
 	test("empty welcome state launches developer tasks without submitting", async ({ page }) => {
 		await mockEmptyWelcomeChat(page, "welcome-task-session")
+		await mockReasoningModel(page)
 		await page.setViewportSize({ width: 1400, height: 900 })
 		await page.goto("/")
 
@@ -143,14 +176,14 @@ test.describe("chat shell", () => {
 			await page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })
 				.evaluate((element) => getComputedStyle(element).fontWeight),
 		).toBe("400")
-		expect(await welcome.locator("form").evaluate((element) => getComputedStyle(element).borderRadius)).toBe("24px")
+		expect(await page.getByRole("form", { name: "Message composer" }).evaluate((element) => getComputedStyle(element).borderRadius)).toBe("24px")
 		expect(await page.getByRole("log").evaluate((element) => getComputedStyle(element).justifyContent)).toBe("center")
 
 		const chatColumn = page.getByTestId("chat-column")
 		const welcomeBox = await welcome.boundingBox()
 		const chatColumnBox = await chatColumn.boundingBox()
 		const headingBox = await page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true }).boundingBox()
-		const formBox = await welcome.locator("form").boundingBox()
+		const formBox = await page.getByRole("form", { name: "Message composer" }).boundingBox()
 		expect(welcomeBox).not.toBeNull()
 		expect(chatColumnBox).not.toBeNull()
 		expect(headingBox).not.toBeNull()
@@ -190,7 +223,7 @@ test.describe("chat shell", () => {
 
 		const welcomeBox = await welcome.boundingBox()
 		const chatColumnBox = await chatColumn.boundingBox()
-		const formBox = await welcome.locator("form").boundingBox()
+		const formBox = await page.getByRole("form", { name: "Message composer" }).boundingBox()
 		expect(welcomeBox).not.toBeNull()
 		expect(chatColumnBox).not.toBeNull()
 		expect(formBox).not.toBeNull()
@@ -565,7 +598,7 @@ test.describe("chat shell", () => {
 		await expect(workspaceCanvas).toHaveCSS("transform", "none")
 		await expect(page.getByTestId("pi-resources-canvas")).toHaveCount(0)
 
-		const resizeHandle = page.getByRole("button", { name: "Resize Workspace panel", exact: true })
+		const resizeHandle = page.getByRole("separator", { name: "Resize Workspace panel", exact: true })
 		const beforeResize = await page.getByTestId("pi-workspace-canvas").boundingBox()
 		const resizeHandleBox = await resizeHandle.boundingBox()
 		expect(beforeResize?.width).toBeTruthy()
@@ -579,7 +612,7 @@ test.describe("chat shell", () => {
 		await page.mouse.up()
 		await expect.poll(async () => (await page.getByTestId("pi-workspace-canvas").boundingBox())?.width ?? 0).toBeLessThan(beforeResize!.width)
 
-		const narrowResizeHandleBox = await page.getByRole("button", { name: "Resize Workspace panel", exact: true }).boundingBox()
+		const narrowResizeHandleBox = await page.getByRole("separator", { name: "Resize Workspace panel", exact: true }).boundingBox()
 		expect(narrowResizeHandleBox).not.toBeNull()
 		if (narrowResizeHandleBox) {
 			await page.mouse.move(narrowResizeHandleBox.x + 1, narrowResizeHandleBox.y + 24)
@@ -592,7 +625,7 @@ test.describe("chat shell", () => {
 		const panelSelect = panelTabs.getByRole("combobox", { name: "Select panel", exact: true })
 		await expect(panelSelect).toBeVisible()
 		await panelSelect.click()
-		await expect(page.locator('[role="option"]:visible')).toHaveCount(5)
+		await expect(page.locator('[role="option"]:visible')).toHaveCount(6)
 		await page.getByRole("option", { name: "REPL", exact: true }).click()
 		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl")
 		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible()

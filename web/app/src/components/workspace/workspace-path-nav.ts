@@ -52,7 +52,7 @@ function findWorkspaceRootIndex(segments: Array<string>): number {
 	return segments.indexOf(WORKSPACE_ROOT);
 }
 
-export function normalizeWorkspaceFilePath(raw: string): string | null {
+function normalizeWorkspaceFilePath(raw: string): string | null {
 	const trimmed = raw.trim();
 	if (!trimmed) return null;
 
