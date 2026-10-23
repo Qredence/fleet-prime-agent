@@ -367,6 +367,69 @@ describe(`daemon-frames/${RUST_SET} specifics`, () => {
 			expect(tracker.observe(event("b", "g3", 8))).toMatchObject({ activeSessionId: "b", missing: 2 });
 		});
 
+		describe("sequence rule (pa-daemon turn.rs:754-768, streaming.rs:82-89,126-133,155-157)", () => {
+			const frame = (sequence: number, event: Record<string, unknown>) => ({
+				type: "session_event",
+				activeSessionId: "s1",
+				event,
+				meta: { sequence, cursor: { generation: "g", sequence } },
+			});
+			const delta = (sequence: number) =>
+				frame(sequence, {
+					type: "message_update",
+					message: { role: "assistant", content: [] },
+					assistantMessageEvent: { type: "text_delta", delta: "x" },
+				});
+			const run = (frames: unknown[]) => {
+				const tracker = createDaemonSequenceGapTracker();
+				return frames.flatMap((entry) => {
+					const gap = tracker.observe(entry);
+					return gap ? [gap] : [];
+				});
+			};
+
+			it("a jump landing on message_update is batching (parked deltas), not a gap", () => {
+				expect(run([frame(1, { type: "message_start" }), delta(2), delta(9), delta(15)])).toEqual([]);
+			});
+
+			it.each([
+				"tool_execution_end",
+				"tool_execution_start",
+				"turn_end",
+				"message_end",
+				"message_start",
+				"agent_end",
+			])("a jump landing on %s is real loss", (type) => {
+				expect(run([frame(1, { type: "turn_start" }), frame(4, { type, toolCallId: "c" })])).toEqual([
+					{ activeSessionId: "s1", generation: "g", lastSequence: 1, receivedSequence: 4, missing: 2 },
+				]);
+			});
+
+			it("a jump on session_closed (meta, not a session_event) is real loss too", () => {
+				expect(
+					run([
+						frame(1, { type: "turn_start" }),
+						{ type: "session_closed", activeSessionId: "s1", reason: "killed", meta: { sequence: 3 } },
+					]),
+				).toMatchObject([{ lastSequence: 1, receivedSequence: 3, missing: 1 }]);
+			});
+
+			it("after an abort, dropped parked deltas show up as a gap on the closing frame and resync harmlessly", () => {
+				// Deltas 11 and 12 were parked and dropped when the turn closed; turn_end arrives at 13.
+				const gaps = run([
+					delta(10),
+					frame(13, { type: "turn_end" }),
+					frame(14, { type: "agent_end", messages: [] }),
+				]);
+				expect(gaps).toEqual([
+					{ activeSessionId: "s1", generation: "g", lastSequence: 10, receivedSequence: 13, missing: 2 },
+				]);
+				const state = createEventMapperState({ sessionId: "fleet-s1" });
+				const frames = resyncAfterSequenceGap(state, { state: {} as never, messages: [] });
+				expect(frames.at(-1)).toMatchObject({ type: "done", sessionReset: true });
+			});
+		});
+
 		it("a gap surfaces through the existing session_resynced path (done + sessionReset, tools re-seeded)", () => {
 			const state = createEventMapperState({ sessionId: "s" });
 			const frames = resyncAfterSequenceGap(state, {
@@ -414,6 +477,53 @@ describe(`daemon-frames/${RUST_SET} specifics`, () => {
 		).toBe(true);
 		const { events } = await replayDaemonFrameScenario(scenario);
 		expect(events.some((event) => event.type === "done")).toBe(true);
+	});
+
+	it("message_update without assistantMessageEvent (provider Done/Error) updates the in-progress message", () => {
+		const state = createEventMapperState({ sessionId: "s" });
+		const send = (event: unknown) => mapAgentConnectionEvent(state, { type: "session_event", event } as never);
+		send({ type: "agent_start" });
+		send({ type: "message_start", message: { role: "assistant", content: [] } });
+		const snapshot = {
+			role: "assistant",
+			content: [
+				{ type: "text", text: "Final answer from the provider." },
+				{ type: "toolCall", id: "c1", name: "bash", arguments: { command: "ls" } },
+			],
+			stopReason: "stop",
+		};
+		expect(send({ type: "message_update", message: snapshot })).toEqual([]);
+		expect(state.currentAssistantMessage).toEqual(snapshot);
+		expect(state.currentText).toBe("Final answer from the provider.");
+		expect(state.currentToolParts.map((part) => [part.toolCallId, part.toolName])).toEqual([["c1", "bash"]]);
+		const done = send({ type: "agent_end", messages: [] }).find((event) => event.type === "done");
+		expect(done?.type === "done" && JSON.stringify(done.message.parts)).toContain("Final answer from the provider.");
+		// A later delta-less update with the same text does not duplicate it.
+		const again = createEventMapperState({ sessionId: "s" });
+		const sendAgain = (event: unknown) => mapAgentConnectionEvent(again, { type: "session_event", event } as never);
+		sendAgain({ type: "agent_start" });
+		sendAgain({ type: "message_update", message: snapshot });
+		sendAgain({ type: "message_end", message: snapshot });
+		expect(again.currentText).toBe("Final answer from the provider.");
+	});
+
+	it("session_closed{killed} maps to the same error frame for a v0.9.8 and a v0.10.1 session (parity)", async () => {
+		const closed = (activeSessionId: string): DaemonFrame => ({
+			type: "session_closed",
+			activeSessionId,
+			reason: "killed",
+			meta: { sequence: 1 },
+		});
+		const v098Id = readDaemonFrameScenario("v0.9.8", "normal-turn").activeSessionId;
+		const rustId = readDaemonFrameScenario(RUST_SET, "stale-resume-attach").activeSessionId;
+		const v098 = await replayDaemonFrameScenario({ frames: [closed(v098Id)], activeSessionId: v098Id });
+		const rust = await replayDaemonFrameScenario({ frames: [closed(rustId)], activeSessionId: rustId });
+		expect(v098.events).toEqual(rust.events);
+		expect(rust.events).toHaveLength(1);
+		expect(rust.events[0]).toMatchObject({
+			type: "error",
+			message: expect.stringContaining("The daemon stopped this agent session."),
+		});
 	});
 
 	it.each(["session-binding", "model-catalog-changed"])(

@@ -6,11 +6,20 @@
  * cursor replays nothing (`replay.status: "unavailable"`). The only sign of
  * lost events is a jump in `meta.sequence` within one cursor generation.
  *
- * Coalesced streaming deltas also consume sequence numbers: in the live
- * capture (real-turn-python-repl) every `message_update` lands after a jump
- * (5→8, 8→18, …) because the daemon batches deltas (≤1 per 50 ms) and the
- * merged update carries the full partial message. A jump that lands on a
- * `message_update` is therefore treated as coalescing, not loss.
+ * Sequence rule (prime-agent v0.10.1, tag 8aac8692):
+ *  - Only streaming `message_update` deltas are parked for batching. Each
+ *    parked delta consumes a sequence number and the merged frame carries the
+ *    newest parked sequence (crates/pa-daemon/src/worker/turn.rs:754-768,
+ *    streaming.rs:82-89,155-157). So a jump that lands on a `message_update`
+ *    is batching, not loss: no gap.
+ *  - `start` and `*_end` flush parked updates first and then go out directly;
+ *    every other frame consumes exactly one sequence. A jump that lands on any
+ *    other frame type (tool_execution_end, turn_end, message_end, …) is real
+ *    loss: gap → resync.
+ *  - When a turn closes, parked updates are dropped (streaming.rs:126-133), so
+ *    the jump after an abort is benign, but it lands on a non-update frame and
+ *    is reported like any other gap. A resync there is harmless; deliberately
+ *    not special-cased.
  *
  * The stock DaemonAgentConnection strips `meta` before events reach the event
  * mapper, so detection runs on the raw frame channel (daemon-runtime's
@@ -112,6 +121,7 @@ export function createDaemonSequenceGapTracker(onGap?: (gap: DaemonSequenceGap) 
 			else if (!previous || !sameGeneration || current.sequence > previous.sequence)
 				positions.set(activeSessionId, current);
 			if (!previous || !sameGeneration || current.sequence <= previous.sequence + 1) return undefined;
+			// Batching: parked deltas consumed the skipped sequences (see rule above).
 			if (frame.type === "session_event" && isRecord(frame.event) && frame.event.type === "message_update") {
 				return undefined;
 			}

@@ -758,10 +758,16 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		case "message_update": {
 			if (!isAssistantMessage(event.message)) return [];
 			state.currentAssistantMessage = event.message;
-			// The v0.10.1 scripted engine sends message_update with no
-			// assistantMessageEvent (whole-message update); message_end carries the content.
 			const streamEvent = (event as { assistantMessageEvent?: AssistantMessageEvent }).assistantMessageEvent;
-			if (!streamEvent || typeof streamEvent.type !== "string") return [];
+			if (!streamEvent || typeof streamEvent.type !== "string") {
+				// v0.10.1 sends whole-message updates with no assistantMessageEvent
+				// (provider Done/Error: pa-core run_once.rs:489, pa-daemon turn.rs:761-763;
+				// also the scripted engine). There is no delta to read: take the message
+				// snapshot like the terminal `done` stream event does. Nothing is emitted;
+				// the text reaches the browser via the final `done` message.
+				rememberAssistantMessage(state, event.message);
+				return [];
+			}
 			return mapAssistantStreamEvent(state, streamEvent);
 		}
 		case "message_end": {
@@ -1351,6 +1357,13 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: MapperIn
 			];
 		}
 		case "closed": {
+			// `session_closed{reason:"killed"}` (a client's plain kill; shutdown and
+			// replaced have their own reasons, pa-daemon worker/env.rs:22-36) reaches
+			// here from the stock adapter as `closed` with an error, on v0.9.8 and
+			// v0.10.1 alike, so it maps to an error frame. Kept for parity: the
+			// ChatStreamEvent contract is frozen.
+			// TODO(post-cutover follow-up): no UI when Fleet itself sent the kill; a
+			// neutral "session stopped" notice otherwise (separate contract decision).
 			if (event.error) {
 				const envelope = createFleetErrorEnvelope(event.error, "Connection closed with error");
 				return [
