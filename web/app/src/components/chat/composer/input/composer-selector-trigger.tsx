@@ -2,7 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { type ButtonHTMLAttributes, forwardRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export const COMPOSER_SELECTOR_TRIGGER_CLASS =
+const COMPOSER_SELECTOR_TRIGGER_CLASS =
 	"relative inline-flex h-7 max-w-[18rem] min-w-0 cursor-pointer items-center gap-1.5 rounded-full px-2 text-label leading-4 text-foreground/70 transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-1.5 after:-bottom-1.5 hover:bg-foreground/6 hover:text-foreground/85 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] data-[state=open]:bg-foreground/6 data-[state=open]:text-foreground/85";
 
 export type ComposerSelectorTriggerProps = {

@@ -37,15 +37,7 @@ function validationMessage(validation: OpenUIHtmlArtifactValidation): string {
 	return validation.ok ? "" : validation.reason;
 }
 
-export function OpenUIHtmlFrame({
-	document,
-	className = "",
-	title,
-}: {
-	document: string;
-	className?: string;
-	title: string;
-}) {
+function OpenUIHtmlFrame({ document, className = "", title }: { document: string; className?: string; title: string }) {
 	return (
 		<iframe
 			sandbox="allow-scripts"

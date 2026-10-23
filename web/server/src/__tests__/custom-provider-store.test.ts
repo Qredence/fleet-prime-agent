@@ -1,7 +1,6 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AuthStorage, ModelRegistry } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	envVarNameForManagedProvider,
@@ -10,6 +9,7 @@ import {
 	removeCustomProvider,
 	upsertCustomProvider,
 } from "../custom-provider-store";
+import { createLegacyAuthStorage, createLegacyModelRegistry } from "../legacy/prime-agent-sdk";
 
 describe("custom-provider-store", () => {
 	let dir: string;
@@ -207,9 +207,9 @@ describe("custom-provider-store", () => {
 			models: [{ id: "acme-1", name: "Acme One" }],
 		});
 
-		const authStorage = AuthStorage.create(join(dir, "auth.json"));
+		const authStorage = createLegacyAuthStorage(join(dir, "auth.json"));
 		authStorage.set(providerId, { type: "api_key", key: "secret-key" });
-		const registry = ModelRegistry.create(authStorage, modelsJsonPath);
+		const registry = createLegacyModelRegistry(authStorage, modelsJsonPath);
 		registry.refresh();
 
 		expect(registry.getError()).toBeUndefined();
@@ -234,7 +234,7 @@ describe("custom-provider-store", () => {
 		delete raw.providers["custom+broken"].apiKey;
 		rewriteModelsJson(raw);
 
-		const registry = ModelRegistry.create(AuthStorage.create(join(dir, "auth.json")), modelsJsonPath);
+		const registry = createLegacyModelRegistry(createLegacyAuthStorage(join(dir, "auth.json")), modelsJsonPath);
 		registry.refresh();
 
 		expect(registry.getError()).toContain("apiKey");

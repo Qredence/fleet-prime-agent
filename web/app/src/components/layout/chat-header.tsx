@@ -7,9 +7,9 @@ import { RightPanelLauncherFromContext } from "@/components/layout/right-panel-l
 import { AgentTabBar, type AgentTabItem } from "@/components/sessions/agent-tab-bar";
 import { cn } from "@/lib/utils";
 
-export const DOCUMENTATION_URL = "https://docs.qredence.ai";
+const DOCUMENTATION_URL = "https://docs.qredence.ai";
 
-export function QredenceLogo({ className }: { className?: string }) {
+function QredenceLogo({ className }: { className?: string }) {
 	return (
 		<svg
 			width="97"
@@ -30,7 +30,7 @@ export function QredenceLogo({ className }: { className?: string }) {
 	);
 }
 
-export function AccountMenu({
+function AccountMenu({
 	onOpenSettings,
 	compact = false,
 	label = "Fleet Prime Agent",

@@ -1,10 +1,6 @@
 import { isModelPatternEnabled, modelMatchesPattern, modelPattern } from "@prime-agent/web-protocol/model-patterns";
 import type { ConfigModelInfo } from "@/components/settings/types";
 
-export function customModelKey(provider: string, model: string) {
-	return `${provider}/${model}`;
-}
-
 export function isModelEnabled(model: ConfigModelInfo, patterns: Array<string> | undefined) {
 	return isModelPatternEnabled(
 		{
@@ -51,6 +47,6 @@ export function nextEnabledModelPatterns({
 	return [...preservedPatterns, ...activeKnown];
 }
 
-export function modelPatternFor(model: ConfigModelInfo) {
+function modelPatternFor(model: ConfigModelInfo) {
 	return modelPattern(model.provider, model.modelId);
 }

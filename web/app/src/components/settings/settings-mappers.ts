@@ -107,7 +107,7 @@ export function parsePackageSourceRows(rows: Array<string>): Array<ChatPackageSo
 	return parsedRows;
 }
 
-export function sanitizeStringList(values: Array<string>) {
+function sanitizeStringList(values: Array<string>) {
 	return values.flatMap((item) => {
 		const trimmed = item.trim();
 		return trimmed ? [trimmed] : [];

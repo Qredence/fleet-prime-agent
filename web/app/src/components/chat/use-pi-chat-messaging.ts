@@ -88,7 +88,7 @@ export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 		status: ChatStatus;
 	};
 
-export const RESOLVED_PROMISE: Promise<void> = Promise.resolve();
+const RESOLVED_PROMISE: Promise<void> = Promise.resolve();
 
 export function usePiChatMessaging({
 	activityLabelRef,

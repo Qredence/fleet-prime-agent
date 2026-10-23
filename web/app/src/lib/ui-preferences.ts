@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { readStoredValue, writeStoredValue } from "@/lib/safe-storage";
 
-export const UI_PREFERENCES_KEY = "fleet-prime:v1:ui-preferences";
-export const UI_PREFERENCES_EVENT = "fleet-prime:ui-preferences";
+const UI_PREFERENCES_KEY = "fleet-prime:v1:ui-preferences";
+const UI_PREFERENCES_EVENT = "fleet-prime:ui-preferences";
 
 export type UiPreferences = {
 	density: "comfortable" | "compact";

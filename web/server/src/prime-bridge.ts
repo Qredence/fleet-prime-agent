@@ -5,7 +5,7 @@
  * - daemon-backed `AgentConnection` instances (one per session) keyed by
  *   persisted `sessionId`
  * - the web dialog registry and event forwarder (SSE replay source)
- * - Fleet-only presentation sidecars and the kernel readiness gate
+ * - Fleet-only presentation sidecars
  *
  * The daemon is the sole active session writer. The bridge is only a headless
  * client of the public `AgentConnection` seam; the in-process adapter is
@@ -42,7 +42,7 @@ import type {
 	ExtensionUIContext,
 	SessionSummary,
 } from "prime-agent";
-import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
+import { SessionManager } from "prime-agent";
 import {
 	type BridgeSessionCache,
 	confineSessionExportPath,
@@ -87,6 +87,7 @@ import {
 	resyncAfterSequenceGap,
 	toChatMessagesFromAgentMessages,
 } from "./event-mapper";
+import { readLegacySession } from "./legacy/prime-agent-sdk";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
 import {
 	copyManagedPlanPresentationsForFork,
@@ -176,7 +177,6 @@ export interface RlmChildStream {
 }
 
 export interface PrimeBridgeOptions {
-	readonly kernelTimeoutMs?: number;
 	readonly ringBufferCapacity?: number;
 	readonly dialogTimeoutMs?: number;
 	readonly writePresentation?: typeof writeManagedPrimePresentation;
@@ -189,8 +189,6 @@ export interface PrimeBridgeOptions {
 	/** Test seam for direct child turns; production attaches to the child session. */
 	readonly childPromptStarter?: typeof startDaemonChildPrompt;
 }
-
-type KernelReadySnapshot = { ok: true } | { ok: false; reason: string };
 
 type AuthorizedRlmChild = {
 	parent: BridgeSession;
@@ -248,7 +246,6 @@ export class PrimeBridge {
 	readonly #rlmChildStreamInitializations = new Map<string, Promise<ManagedRlmChildStream | undefined>>();
 	readonly #rlmChildMetadataRefreshQueue = new CoalescingRefreshQueue();
 	readonly #dialogs: PendingDialogRegistry;
-	readonly #kernelTimeoutMs: number;
 	readonly #ringBufferCapacity: number;
 	readonly #presentationWrites = new Map<string, Promise<void>>();
 	readonly #presentationGenerations = new Map<string, number>();
@@ -263,11 +260,8 @@ export class PrimeBridge {
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
 	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
 	readonly #auxiliaryWarnings = new Set<string>();
-	#kernelReadyByCwd = new Map<string, Promise<void>>();
-	#kernelStateByCwd = new Map<string, KernelReadySnapshot>();
 
 	constructor(options: PrimeBridgeOptions = {}) {
-		this.#kernelTimeoutMs = options.kernelTimeoutMs ?? 30_000;
 		this.#ringBufferCapacity = options.ringBufferCapacity ?? 500;
 		this.#writePresentation = options.writePresentation ?? writeManagedPrimePresentation;
 		this.#connectionFactory = options.connectionFactory ?? createDaemonWebAgentConnection;
@@ -278,40 +272,6 @@ export class PrimeBridge {
 			defaultTimeoutMs: options.dialogTimeoutMs ?? 60_000,
 			emitFrame: (sessionId, frame) => this.#dispatch(sessionId, frame),
 		});
-	}
-
-	/** Late-boot kernel readiness gate. Boot-time callers await this; failures cause `/api/chat` to 503. */
-	async ensureKernelReady(cwd?: string): Promise<void> {
-		const key = resolve(cwd ?? process.cwd());
-		const existing = this.#kernelReadyByCwd.get(key);
-		if (existing) return existing;
-		this.#kernelStateByCwd.set(key, { ok: false, reason: "pending" });
-		const ready = (async () => {
-			// IpythonKernelProvisioner takes the session's cwd; for the boot-time
-			// readiness gate we use the server's working directory as a probe.
-			const provisioner = new IpythonKernelProvisioner(key);
-			const timeout = new Promise<never>((_r, reject) =>
-				setTimeout(() => reject(new Error("IPython kernel bootstrap timeout")), this.#kernelTimeoutMs),
-			);
-			await Promise.race([provisioner.ensure(), timeout]);
-		})();
-		this.#kernelReadyByCwd.set(key, ready);
-		void ready.then(
-			() => {
-				this.#kernelStateByCwd.set(key, { ok: true });
-			},
-			(error: unknown) => {
-				this.#kernelStateByCwd.set(key, {
-					ok: false,
-					reason: error instanceof Error ? error.message : String(error),
-				});
-			},
-		);
-		return ready;
-	}
-
-	kernelReadyState(cwd?: string): { ok: boolean; reason?: string } {
-		return this.#kernelStateByCwd.get(resolve(cwd ?? process.cwd())) ?? { ok: false, reason: "not-started" };
 	}
 
 	addEventListener(listener: BridgeEventListener): () => void {
@@ -397,8 +357,6 @@ export class PrimeBridge {
 		this.#openUIPromptTransitions.clear();
 		this.#daemonDialogs.clear();
 		this.#auxiliaryWarnings.clear();
-		this.#kernelReadyByCwd.clear();
-		this.#kernelStateByCwd.clear();
 	}
 
 	// -----------------------------------------------------------------------
@@ -406,14 +364,6 @@ export class PrimeBridge {
 	// -----------------------------------------------------------------------
 
 	async createSession(options: CreateSessionOptions): Promise<BridgeSession> {
-		// Don't block session creation on the IPython kernel — kernel readiness is
-		// lazily awaited by the ipython tool itself (and only on first use).
-		// Booting kernel takes ~30s on a cold venv and the user shouldn't wait
-		// behind a UI dialog for it. Fire-and-forget the prewarm so the kernel is
-		// warm by the time the agent emits its first tool call.
-		void this.ensureKernelReady(options.cwd).catch(() => {
-			/* backgrounded; failures surface on first tool use */
-		});
 		const webAgent = await this.#connectionFactory({
 			cwd: options.cwd,
 			openUIPrompt: createOpenUIPromptSessionState(resolveOpenUIPromptMode(options.mode), options.openUI === true),
@@ -786,8 +736,9 @@ export class PrimeBridge {
 			}
 		}
 		if (!existsSync(resolvedSessionPath)) throw new Error("The requested session transcript is unavailable");
-		const sessionManager = await SessionManager.openAsync(resolvedSessionPath);
-		const sessionCwd = sessionManager.getCwd();
+		const transcript = await readLegacySession(resolvedSessionPath);
+		if (!transcript) throw new Error("The requested session transcript is unavailable");
+		const sessionCwd = transcript.cwd;
 		const expectedSessionDir = resolve(sessionDirectoryForCwd(sessionCwd));
 		if (dirname(resolvedSessionPath) !== expectedSessionDir) {
 			throw new Error("The requested session is outside the configured Prime session store");
@@ -801,7 +752,7 @@ export class PrimeBridge {
 			webAgent,
 			sessionCwd,
 			resolvedSessionPath,
-			await getPrimeConfig().projectRegistry.projectIdForSession(sessionManager.getSessionId(), sessionCwd),
+			await getPrimeConfig().projectRegistry.projectIdForSession(transcript.sessionId, sessionCwd),
 		);
 	}
 
@@ -1072,11 +1023,12 @@ export class PrimeBridge {
 	async #loadAuthorizedRlmChildTranscript(authorized: AuthorizedRlmChild): Promise<RlmChildTranscript | undefined> {
 		const { summary: childSummary } = authorized;
 		if (!childSummary.sessionFile) return undefined;
-		const sessionManager = await SessionManager.openAsync(childSummary.sessionFile);
-		const sessionId = sessionManager.getSessionId();
+		const snapshot = await readLegacySession(childSummary.sessionFile);
+		if (!snapshot) return undefined;
+		const sessionId = snapshot.sessionId;
 		if (sessionId !== childSummary.sessionId && sessionId !== childSummary.id) return undefined;
 
-		const agentMessages = sessionManager.buildSessionContext().messages;
+		const agentMessages = snapshot.messages();
 		const messages = toChatMessagesFromAgentMessages(agentMessages, sessionId);
 		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath: childSummary.sessionFile });
 		const presentation = initialPresentationForSession(
@@ -1088,7 +1040,7 @@ export class PrimeBridge {
 			sessionId,
 			persistedPresentation,
 		);
-		const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, sessionManager.getCwd());
+		const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, snapshot.cwd);
 
 		return { sessionId, projectId, messages, presentation };
 	}
@@ -1961,8 +1913,7 @@ export class PrimeBridge {
 		const all = await this.#sessionLister();
 		const match = all.find((info) => info.sessionId === sessionId || info.id === sessionId);
 		if (!match?.sessionFile) return [];
-		const sessionManager = await SessionManager.openAsync(match.sessionFile);
-		return sessionManager.buildSessionContext().messages;
+		return (await readLegacySession(match.sessionFile))?.messages() ?? [];
 	}
 
 	#requireSession(sessionId: string): BridgeSession {

@@ -53,7 +53,7 @@ export function toChatMessage(
 	};
 }
 
-export function appendTextPart(parts: Array<ChatMessagePart>, delta: string): Array<ChatMessagePart> {
+function appendTextPart(parts: Array<ChatMessagePart>, delta: string): Array<ChatMessagePart> {
 	const index = parts.findIndex(isChatTextPart);
 	if (index === -1) return [...parts, { type: "text", text: delta }];
 
@@ -82,7 +82,7 @@ export function upsertToolPart(parts: Array<ChatMessagePart>, part: ChatToolPart
 	return next;
 }
 
-export function upsertPayloadPart(parts: Array<ChatMessagePart>, part: ChatPayloadPart): Array<ChatMessagePart> {
+function upsertPayloadPart(parts: Array<ChatMessagePart>, part: ChatPayloadPart): Array<ChatMessagePart> {
 	const index = parts.findIndex(
 		(current) =>
 			isChatPayloadPart(current) &&
@@ -97,7 +97,7 @@ export function upsertPayloadPart(parts: Array<ChatMessagePart>, part: ChatPaylo
 	return next;
 }
 
-export function createFleetReasoningPart({
+function createFleetReasoningPart({
 	messageId,
 	presentation,
 }: {

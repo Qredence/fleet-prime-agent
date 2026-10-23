@@ -1,7 +1,12 @@
 import { defineConfig, devices } from "@playwright/test"
+import { hermeticServerEnv, resolveSmokeStateDir } from "./playwright/hermetic-state"
 
 const port = process.env.PLAYWRIGHT_PORT ?? "3000"
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`
+// The opt-in real-provider acceptance test needs the developer's own Prime
+// credentials, so it keeps the real ~/.prime state; every other run is hermetic.
+const hermetic = !process.env.PLAYWRIGHT_BASE_URL && process.env.PRIME_REAL_ACCEPTANCE !== "1"
+const serverEnv = hermetic ? hermeticServerEnv(resolveSmokeStateDir()) : undefined
 const webServer = process.env.PLAYWRIGHT_BASE_URL
   ? undefined
   : {
@@ -11,6 +16,7 @@ const webServer = process.env.PLAYWRIGHT_BASE_URL
       url: baseURL,
       reuseExistingServer: false,
       timeout: 120_000,
+      env: serverEnv,
     }
 
 /**
@@ -37,4 +43,5 @@ export default defineConfig({
     },
   ],
   webServer,
+  globalTeardown: hermetic ? "./playwright/global-teardown.ts" : undefined,
 })

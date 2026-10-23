@@ -11,17 +11,9 @@ export type ChatModelOption = ModelOption & {
 	thinkingLevels?: Array<ChatThinkingLevel>;
 };
 
-export const ALL_THINKING_LEVELS: Array<ChatThinkingLevel> = [
-	"off",
-	"minimal",
-	"low",
-	"medium",
-	"high",
-	"xhigh",
-	"max",
-];
+const ALL_THINKING_LEVELS: Array<ChatThinkingLevel> = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
-export const THINKING_LEVEL_LABELS: Record<ChatThinkingLevel, string> = {
+const THINKING_LEVEL_LABELS: Record<ChatThinkingLevel, string> = {
 	off: "Off",
 	minimal: "Minimal",
 	low: "Low",
@@ -29,16 +21,6 @@ export const THINKING_LEVEL_LABELS: Record<ChatThinkingLevel, string> = {
 	high: "High",
 	xhigh: "Extra high",
 	max: "Max",
-};
-
-export const THINKING_LEVEL_DESCRIPTIONS: Record<ChatThinkingLevel, string> = {
-	off: "No reasoning",
-	minimal: "Very brief reasoning",
-	low: "Light reasoning",
-	medium: "Moderate reasoning",
-	high: "Deep reasoning",
-	xhigh: "Very deep reasoning",
-	max: "Maximum reasoning",
 };
 
 export function thinkingLevelLabel(level: ChatThinkingLevel): string {

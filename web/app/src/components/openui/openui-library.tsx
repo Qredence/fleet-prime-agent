@@ -8,7 +8,7 @@ import { DonutChartDef, LineChartDef } from "@/components/openui/charts";
 import { DataTableDef, MetricGroupDef } from "@/components/openui/data";
 import { HtmlArtifactComponent } from "@/components/openui/html-artifact";
 
-export const HtmlArtifactDef = defineComponent({
+const HtmlArtifactDef = defineComponent({
 	name: "HtmlArtifact",
 	description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
 	props: z.object({
@@ -102,7 +102,7 @@ function ButtonComponent({
 	);
 }
 
-export const ButtonDef = defineComponent({
+const ButtonDef = defineComponent({
 	name: "Button",
 	description: "A button that triggers interactive actions or conversational updates.",
 	props: z.object({
@@ -152,7 +152,7 @@ function PanelActionComponent({
 	);
 }
 
-export const PanelActionDef = defineComponent({
+const PanelActionDef = defineComponent({
 	name: "PanelAction",
 	description:
 		"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, Session insights, or Session tree. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
@@ -177,7 +177,7 @@ export const PanelActionDef = defineComponent({
 	component: PanelActionComponent,
 });
 
-export const TextDef = defineComponent({
+const TextDef = defineComponent({
 	name: "Text",
 	description: "Short body text for cards, captions, and summaries.",
 	props: z.object({
@@ -192,7 +192,7 @@ export const TextDef = defineComponent({
 	},
 });
 
-export const HeadingDef = defineComponent({
+const HeadingDef = defineComponent({
 	name: "Heading",
 	description: "Section heading text.",
 	props: z.object({
@@ -213,7 +213,7 @@ export const HeadingDef = defineComponent({
 	},
 });
 
-export const BadgeDef = defineComponent({
+const BadgeDef = defineComponent({
 	name: "Badge",
 	description: "Small status badge.",
 	props: z.object({
@@ -260,7 +260,7 @@ function InputComponent({
 	);
 }
 
-export const InputDef = defineComponent({
+const InputDef = defineComponent({
 	name: "Input",
 	description: "An interactive, state-bound text input.",
 	props: z.object({
@@ -273,7 +273,7 @@ export const InputDef = defineComponent({
 	component: InputComponent,
 });
 
-export const CardDef = defineComponent({
+const CardDef = defineComponent({
 	name: "Card",
 	description: "A chat-sized card container for structured information.",
 	props: z.object({
@@ -294,7 +294,7 @@ export const CardDef = defineComponent({
 	},
 });
 
-export const CalloutDef = defineComponent({
+const CalloutDef = defineComponent({
 	name: "Callout",
 	description: "Highlighted note, warning, success, or error message.",
 	props: z.object({
@@ -315,7 +315,7 @@ export const CalloutDef = defineComponent({
 	},
 });
 
-export const KeyValueDef = defineComponent({
+const KeyValueDef = defineComponent({
 	name: "KeyValue",
 	description: "A single label/value row.",
 	props: z.object({
@@ -332,7 +332,7 @@ export const KeyValueDef = defineComponent({
 	},
 });
 
-export const MetricDef = defineComponent({
+const MetricDef = defineComponent({
 	name: "Metric",
 	description: "A compact KPI metric card.",
 	props: z.object({
@@ -354,7 +354,7 @@ export const MetricDef = defineComponent({
 	},
 });
 
-export const ProgressBarDef = defineComponent({
+const ProgressBarDef = defineComponent({
 	name: "ProgressBar",
 	description: "Progress indicator with a label.",
 	props: z.object({
@@ -375,7 +375,7 @@ export const ProgressBarDef = defineComponent({
 	},
 });
 
-export const ListDef = defineComponent({
+const ListDef = defineComponent({
 	name: "List",
 	description: "Bulleted or numbered text list.",
 	props: z.object({
@@ -394,7 +394,7 @@ export const ListDef = defineComponent({
 	},
 });
 
-export const CodeBlockDef = defineComponent({
+const CodeBlockDef = defineComponent({
 	name: "CodeBlock",
 	description: "Short preformatted code or command output.",
 	props: z.object({
@@ -411,7 +411,7 @@ export const CodeBlockDef = defineComponent({
 	},
 });
 
-export const DividerDef = defineComponent({
+const DividerDef = defineComponent({
 	name: "Divider",
 	description: "Horizontal divider with an optional label.",
 	props: z.object({
@@ -428,7 +428,7 @@ export const DividerDef = defineComponent({
 	},
 });
 
-export const TableDef = defineComponent({
+const TableDef = defineComponent({
 	name: "Table",
 	description: "Small data table for comparisons and summaries.",
 	props: z.object({
@@ -461,7 +461,7 @@ export const TableDef = defineComponent({
 	},
 });
 
-export const BarChartDef = defineComponent({
+const BarChartDef = defineComponent({
 	name: "BarChart",
 	description: "A bar chart for visualizing comparisons or trends using explicitly provided data points.",
 	props: z.object({
@@ -523,7 +523,7 @@ export const BarChartDef = defineComponent({
 	},
 });
 
-export const RootDef = defineComponent({
+const RootDef = defineComponent({
 	name: "Root",
 	description: "The root container for the generated UI. Must be used as the top-level component.",
 	props: z.object({
@@ -534,7 +534,7 @@ export const RootDef = defineComponent({
 	},
 });
 
-export const StackDef = defineComponent({
+const StackDef = defineComponent({
 	name: "Stack",
 	description: "A flexbox layout component for stacking children vertically or horizontally.",
 	props: z.object({
@@ -548,7 +548,7 @@ export const StackDef = defineComponent({
 	},
 });
 
-export const GroupDef = defineComponent({
+const GroupDef = defineComponent({
 	name: "Group",
 	description: "A wrapping horizontal group for badges, buttons, or short items.",
 	props: z.object({
@@ -560,7 +560,7 @@ export const GroupDef = defineComponent({
 	},
 });
 
-export const GridDef = defineComponent({
+const GridDef = defineComponent({
 	name: "Grid",
 	description: "A CSS grid layout component.",
 	props: z.object({
@@ -617,7 +617,7 @@ function SelectComponent({
 	);
 }
 
-export const SelectDef = defineComponent({
+const SelectDef = defineComponent({
 	name: "Select",
 	description: "An interactive dropdown selector with reactive state binding.",
 	props: z.object({
@@ -665,7 +665,7 @@ function SwitchComponent({
 	);
 }
 
-export const SwitchDef = defineComponent({
+const SwitchDef = defineComponent({
 	name: "Switch",
 	description: "A toggle switch component bound to a boolean reactive state.",
 	props: z.object({
@@ -701,7 +701,7 @@ function ModalComponent({
 	);
 }
 
-export const ModalDef = defineComponent({
+const ModalDef = defineComponent({
 	name: "Modal",
 	description: "An overlay dialog container bound to a boolean reactive state.",
 	props: z.object({
@@ -713,7 +713,7 @@ export const ModalDef = defineComponent({
 	component: ModalComponent,
 });
 
-export const DisclosureDef = defineComponent({
+const DisclosureDef = defineComponent({
 	name: "Disclosure",
 	description: "A compact progressive-disclosure section for optional details.",
 	props: z.object({
@@ -731,7 +731,7 @@ export const DisclosureDef = defineComponent({
 	),
 });
 
-export const TodoDef = defineComponent({
+const TodoDef = defineComponent({
 	name: "Todo",
 	description: "A read-only progress list for plans and task status.",
 	props: z.object({

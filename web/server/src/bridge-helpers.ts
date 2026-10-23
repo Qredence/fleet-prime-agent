@@ -21,9 +21,9 @@ import type {
 	ExtensionUIDialogOptions,
 	SessionSummary,
 } from "prime-agent";
-import { SessionManager } from "prime-agent";
 import { sessionDirectoryForCwd } from "./daemon-runtime";
 import type { RlmChildStatusOverride } from "./event-mapper";
+import { readLegacySession } from "./legacy/prime-agent-sdk";
 import type { PendingDialogRegistry } from "./pending-dialogs";
 import {
 	createEmptyPrimeAgentSessionPresentation,
@@ -417,8 +417,7 @@ export async function sessionLineagePaths(sessionPath: string): Promise<Readonly
 	while (!paths.has(currentPath)) {
 		paths.add(currentPath);
 		try {
-			const manager = await SessionManager.openAsync(currentPath);
-			const parentSession = manager.getHeader()?.parentSession;
+			const parentSession = (await readLegacySession(currentPath))?.header.parentSession;
 			if (!parentSession) break;
 			currentPath = resolve(dirname(currentPath), parentSession);
 		} catch {
