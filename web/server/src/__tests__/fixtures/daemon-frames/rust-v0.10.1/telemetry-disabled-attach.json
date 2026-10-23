@@ -1,0 +1,197 @@
+[
+  {
+    "command": {
+      "type": "create",
+      "noSession": true,
+      "lifecycle": "resident",
+      "config": {
+        "cwd": "/fixture/project",
+        "telemetryDisabled": true,
+        "script": {
+          "responses": [
+            "ok"
+          ]
+        }
+      }
+    },
+    "response": {
+      "id": "cap-1",
+      "type": "response",
+      "command": "create",
+      "success": true,
+      "data": {
+        "id": "9f21b7b601ed",
+        "lifecycle": "draft",
+        "activity": "idle",
+        "isSessionActive": false,
+        "hasRegisteredCronJob": false,
+        "lastActivityAt": "2026-10-23T10:11:23.332Z",
+        "rlmDepth": 0,
+        "activeSessionId": "9f21b7b601ed",
+        "sessionId": "01a1683e-6a44-71d2-ba8a-6017cc4f62b2",
+        "sessionFile": "",
+        "cwd": "/fixture/project",
+        "thinkingLevel": "high",
+        "isStreaming": false,
+        "isCompacting": false,
+        "isQuotaParked": false,
+        "isBashRunning": false,
+        "isRunningTools": false,
+        "hasRunningSubagents": false,
+        "attachedClients": 0,
+        "messageCount": 0,
+        "sessionActions": {
+          "queuedCount": 0,
+          "steering": [],
+          "followUps": []
+        },
+        "created": "2026-10-23T10:11:23.332Z",
+        "workerState": "ready",
+        "workerPid": 62477,
+        "rosterDeltaSequence": 0,
+        "workerInstanceId": "be45cb45-7ad7-4a96-97cd-acc129d7fec6",
+        "model": {
+          "id": "gpt-6-luna",
+          "name": "GPT-6 Luna",
+          "api": "openai-codex-responses",
+          "provider": "openai-codex",
+          "reasoning": true
+        },
+        "runtimeKind": "top-level",
+        "unfinishedActionCount": 0,
+        "anthropicWarningShown": false
+      }
+    }
+  },
+  {
+    "command": {
+      "type": "attach",
+      "activeSessionId": "9f21b7b601ed",
+      "capabilities": [
+        "attach_snapshot",
+        "event_sequence",
+        "slim_attach",
+        "chunked_snapshot",
+        "client_owned_sessions",
+        "extension_ui"
+      ],
+      "telemetryDisabled": true
+    },
+    "response": {
+      "id": "cap-2",
+      "type": "response",
+      "command": "attach",
+      "success": false,
+      "error": "Cannot attach to this active agent while telemetry is disabled for the current invocation. Stop the agent and retry so it can restart without telemetry."
+    }
+  },
+  {
+    "command": {
+      "type": "create",
+      "noSession": true,
+      "telemetryDisabled": true,
+      "lifecycle": "resident",
+      "config": {
+        "cwd": "/fixture/project",
+        "script": {
+          "responses": [
+            "ok"
+          ]
+        }
+      }
+    },
+    "response": {
+      "id": "cap-3",
+      "type": "response",
+      "command": "create",
+      "success": true,
+      "data": {
+        "id": "f1efe660fbd9",
+        "lifecycle": "draft",
+        "activity": "idle",
+        "isSessionActive": false,
+        "hasRegisteredCronJob": false,
+        "lastActivityAt": "2026-10-23T10:11:23.387Z",
+        "rlmDepth": 0,
+        "activeSessionId": "f1efe660fbd9",
+        "sessionId": "01a1683e-6a7b-73df-bae2-6c0129a8e226",
+        "sessionFile": "",
+        "cwd": "/fixture/project",
+        "thinkingLevel": "high",
+        "isStreaming": false,
+        "isCompacting": false,
+        "isQuotaParked": false,
+        "isBashRunning": false,
+        "isRunningTools": false,
+        "hasRunningSubagents": false,
+        "attachedClients": 0,
+        "messageCount": 0,
+        "sessionActions": {
+          "queuedCount": 0,
+          "steering": [],
+          "followUps": []
+        },
+        "created": "2026-10-23T10:11:23.387Z",
+        "workerState": "ready",
+        "workerPid": 62478,
+        "rosterDeltaSequence": 0,
+        "workerInstanceId": "784c1b5c-c720-4158-8107-5553ce7298d2",
+        "model": {
+          "id": "gpt-6-luna",
+          "name": "GPT-6 Luna",
+          "api": "openai-codex-responses",
+          "provider": "openai-codex",
+          "reasoning": true
+        },
+        "runtimeKind": "top-level",
+        "unfinishedActionCount": 0,
+        "anthropicWarningShown": false
+      }
+    }
+  },
+  {
+    "command": {
+      "type": "attach",
+      "activeSessionId": "f1efe660fbd9",
+      "capabilities": [
+        "attach_snapshot",
+        "event_sequence",
+        "slim_attach",
+        "chunked_snapshot",
+        "client_owned_sessions",
+        "extension_ui"
+      ],
+      "telemetryDisabled": true
+    },
+    "response": {
+      "id": "cap-4",
+      "type": "response",
+      "command": "attach",
+      "success": true
+    }
+  },
+  {
+    "command": {
+      "type": "kill",
+      "activeSessionId": "9f21b7b601ed"
+    },
+    "response": {
+      "id": "cap-5",
+      "type": "response",
+      "command": "kill",
+      "success": true
+    }
+  },
+  {
+    "command": {
+      "type": "kill",
+      "activeSessionId": "f1efe660fbd9"
+    },
+    "response": {
+      "id": "cap-6",
+      "type": "response",
+      "command": "kill",
+      "success": true
+    }
+  }
+]
