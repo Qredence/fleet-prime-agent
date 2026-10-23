@@ -103,6 +103,7 @@ import {
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
 import { parseBackendSessionCommand } from "./session-commands";
+import { readSessionHeaderId } from "./session-header";
 import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./session-tree-errors";
 import { mapSessionTreeSnapshot } from "./session-tree-mapper";
 
@@ -880,10 +881,9 @@ export class PrimeBridge {
 		if (nonEmpty(summary.sessionId) && !declaredRuntimeIds.has(summary.sessionId)) return summary.sessionId;
 		const runtimeIds = new Set([...declaredRuntimeIds, ...knownRuntimeIds.filter(nonEmpty)]);
 		const persistent = (value: unknown): value is string => nonEmpty(value) && !runtimeIds.has(value);
-		if (summary.sessionFile && existsSync(summary.sessionFile)) {
-			const fromFile = await SessionManager.openAsync(summary.sessionFile)
-				.then((manager) => manager.getSessionId())
-				.catch(() => undefined);
+		if (summary.sessionFile) {
+			// Read-only header read: SessionManager.openAsync may repair or rewrite the file.
+			const fromFile = await readSessionHeaderId(summary.sessionFile);
 			if (persistent(fromFile)) return fromFile;
 		}
 		if (persistent(summary.id)) return summary.id;
