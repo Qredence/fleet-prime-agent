@@ -1,0 +1,138 @@
+[
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "-reasoning-0",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Bash",
+			"category": "system",
+			"toolName": "bash",
+			"toolCallId": "call-bash-1",
+			"state": "input-streaming",
+			"input": {
+				"command": "ls"
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Bash",
+			"category": "system",
+			"toolName": "bash",
+			"toolCallId": "call-bash-1",
+			"state": "output-available",
+			"input": {
+				"command": "ls"
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "README.md\nsrc"
+					}
+				],
+				"details": null,
+				"isError": false
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "README.md\nsrc"
+					}
+				],
+				"details": null,
+				"isError": false
+			}
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "-reasoning-0",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-MCPGithubListIssues",
+			"category": "mcp",
+			"toolName": "list_issues",
+			"serverName": "github",
+			"toolCallId": "call-mcp-1",
+			"state": "input-streaming",
+			"input": {
+				"owner": "example",
+				"repo": "demo",
+				"state": "open"
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-MCPGithubListIssues",
+			"category": "mcp",
+			"toolName": "list_issues",
+			"serverName": "github",
+			"toolCallId": "call-mcp-1",
+			"state": "output-available",
+			"input": {
+				"owner": "example",
+				"repo": "demo",
+				"state": "open"
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "[]"
+					}
+				],
+				"details": null,
+				"isError": false
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "[]"
+					}
+				],
+				"details": null,
+				"isError": false
+			}
+		}
+	}
+]

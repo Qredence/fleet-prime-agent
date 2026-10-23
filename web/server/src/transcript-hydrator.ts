@@ -27,6 +27,11 @@ export function categorizeTool(rawName: string): { category: ChatToolCategory; t
 	if (lower === "ipython" || lower === "jupyter") {
 		return { category: "kernel", toolName: "ipython" };
 	}
+	// Prime Agent v0.10.1 (Rust daemon) renamed the kernel tool to `python_repl`.
+	// Same kernel card as v0.9.8's `ipython`, but keep the real tool name.
+	if (lower === "python_repl") {
+		return { category: "kernel", toolName: "python_repl" };
+	}
 	if (lower === "bash" || lower === "sh" || lower === "terminal") {
 		return { category: "system", toolName: "bash" };
 	}
@@ -50,6 +55,14 @@ export function categorizeTool(rawName: string): { category: ChatToolCategory; t
 	}
 	if (lower === "task" || lower === "agent" || lower === "rlm" || lower.startsWith("subagent")) {
 		return { category: "rlm", toolName: rawName };
+	}
+	if (rawName.startsWith("mcp__")) {
+		// `mcp__<server>__<tool>`: the tool name may itself contain single underscores.
+		const rest = rawName.slice("mcp__".length);
+		const separator = rest.indexOf("__");
+		if (separator > 0 && separator < rest.length - 2) {
+			return { category: "mcp", toolName: rest.slice(separator + 2), serverName: rest.slice(0, separator) };
+		}
 	}
 	if (rawName.startsWith("mcp__") || rawName.includes("/")) {
 		const parts = rawName.replace(/^mcp__/, "").split(/[_/]/);
@@ -136,6 +149,8 @@ export function createFleetErrorEnvelope(
 
 export function makeToolType(toolName: string): `tool-${string}` {
 	if (toolName === "thinking") return "tool-Thinking";
+	// v0.10.1 `python_repl` renders with the existing IPython kernel card.
+	if (toolName.toLowerCase() === "python_repl") return "tool-IPython";
 	return `tool-${toPascalCase(toolName)}`;
 }
 

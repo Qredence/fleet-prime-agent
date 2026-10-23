@@ -1,0 +1,13 @@
+[
+	{
+		"type": "error",
+		"message": "The daemon stopped this agent session. Its transcript remains saved and can be reopened from Agents View. Diagnostic log: /home/user/.prime/agent/logs/agent.jsonl.",
+		"runId": "",
+		"code": "UNKNOWN_ERROR",
+		"error": {
+			"code": "UNKNOWN_ERROR",
+			"message": "The daemon stopped this agent session. Its transcript remains saved and can be reopened from Agents View. Diagnostic log: /home/user/.prime/agent/logs/agent.jsonl.",
+			"isTerminal": false
+		}
+	}
+]

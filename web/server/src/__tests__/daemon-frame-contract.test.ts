@@ -21,8 +21,18 @@ import {
 	replayDaemonFrameScenario,
 } from "./daemon-frame-replay";
 
-/** Sets whose mapper output is pinned. R1 adds the Rust set (`rust-v0.10.1`) here. */
-const PINNED_SETS = ["v0.9.8"] as const;
+/** Sets whose mapper output is pinned. */
+const PINNED_SETS = ["v0.9.8", "rust-v0.10.1"] as const;
+
+/**
+ * Scenarios that legitimately map to no ChatStreamEvent: a lone hello, and the
+ * Rust top-level frames the mapper consumes silently (session_binding,
+ * model_catalog_changed). Everything else must produce output.
+ */
+const EXPECTED_EMPTY_OUTPUT: Readonly<Record<(typeof PINNED_SETS)[number], ReadonlySet<string>>> = {
+	"v0.9.8": new Set(),
+	"rust-v0.10.1": new Set(["daemon-hello", "model-catalog-changed", "session-binding"]),
+};
 
 const V098_SCENARIOS = [
 	"auto-retry",
@@ -61,7 +71,8 @@ describe.each(PINNED_SETS)("daemon-frames/%s contract replay", (set) => {
 
 	it.each(scenarios)("%s output parses against the frozen ChatStreamEvent schema", async (name) => {
 		const { events } = await replayDaemonFrameScenario(readDaemonFrameScenario(set, name));
-		expect(events.length).toBeGreaterThan(0);
+		if (EXPECTED_EMPTY_OUTPUT[set].has(name)) expect(events).toEqual([]);
+		else expect(events.length).toBeGreaterThan(0);
 		for (const [index, event] of events.entries()) {
 			const parsed = ChatStreamEventSchema.safeParse(event);
 			expect(parsed.success, `${name} event #${index} (${event.type}): ${parsed.error?.message}`).toBe(true);

@@ -1,0 +1,232 @@
+[
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Bash",
+			"category": "system",
+			"toolName": "bash",
+			"toolCallId": "call-bash-1",
+			"state": "output-available",
+			"input": {
+				"command": "ls"
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "README.md\nsrc"
+					}
+				],
+				"details": null,
+				"isError": false
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "README.md\nsrc"
+					}
+				],
+				"details": null,
+				"isError": false
+			}
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "-reasoning-0",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-MCPGithubListIssues",
+			"category": "mcp",
+			"toolName": "list_issues",
+			"serverName": "github",
+			"toolCallId": "call-mcp-1",
+			"state": "input-streaming",
+			"input": {
+				"owner": "example",
+				"repo": "demo",
+				"state": "open"
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-MCPGithubListIssues",
+			"category": "mcp",
+			"toolName": "list_issues",
+			"serverName": "github",
+			"toolCallId": "call-mcp-1",
+			"state": "output-available",
+			"input": {
+				"owner": "example",
+				"repo": "demo",
+				"state": "open"
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "[]"
+					}
+				],
+				"details": null,
+				"isError": false
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "[]"
+					}
+				],
+				"details": null,
+				"isError": false
+			}
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "-a0",
+		"presentation": {
+			"runId": "",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "-reasoning-0",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "-reasoning-1",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "",
+		"message": {
+			"id": "-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "text",
+					"text": "Listed the directory and the issues."
+				},
+				{
+					"type": "tool-Bash",
+					"category": "system",
+					"toolName": "bash",
+					"toolCallId": "call-bash-1",
+					"state": "output-available",
+					"input": {
+						"command": "ls"
+					},
+					"output": {
+						"content": [
+							{
+								"type": "text",
+								"text": "README.md\nsrc"
+							}
+						],
+						"details": null,
+						"isError": false
+					},
+					"result": {
+						"content": [
+							{
+								"type": "text",
+								"text": "README.md\nsrc"
+							}
+						],
+						"details": null,
+						"isError": false
+					}
+				},
+				{
+					"type": "tool-MCPGithubListIssues",
+					"category": "mcp",
+					"toolName": "list_issues",
+					"serverName": "github",
+					"toolCallId": "call-mcp-1",
+					"state": "output-available",
+					"input": {
+						"owner": "example",
+						"repo": "demo",
+						"state": "open"
+					},
+					"output": {
+						"content": [
+							{
+								"type": "text",
+								"text": "[]"
+							}
+						],
+						"details": null,
+						"isError": false
+					},
+					"result": {
+						"content": [
+							{
+								"type": "text",
+								"text": "[]"
+							}
+						],
+						"details": null,
+						"isError": false
+					}
+				}
+			]
+		},
+		"sessionId": "b134578a8e2f"
+	},
+	{
+		"type": "error",
+		"message": "The daemon stopped this agent session. Its transcript remains saved and can be reopened from Agents View. Diagnostic log: /home/user/.prime/agent/logs/agent.jsonl.",
+		"runId": "",
+		"code": "UNKNOWN_ERROR",
+		"error": {
+			"code": "UNKNOWN_ERROR",
+			"message": "The daemon stopped this agent session. Its transcript remains saved and can be reopened from Agents View. Diagnostic log: /home/user/.prime/agent/logs/agent.jsonl.",
+			"isTerminal": false
+		}
+	}
+]

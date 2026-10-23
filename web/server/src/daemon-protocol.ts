@@ -100,6 +100,12 @@ export type DaemonSessionBindingFrame = {
 /** Rust-only broadcast: the served model catalog changed; re-fetch it. */
 export type DaemonModelCatalogChangedFrame = { type: "model_catalog_changed" };
 
+/**
+ * Top-level broadcast (no `meta`, no payload) after heartbeat/cron changes,
+ * e.g. right after a kill. Consumers refetch heartbeats/cron themselves.
+ */
+export type DaemonHeartbeatsChangedFrame = { type: "heartbeats_changed" };
+
 export type DaemonSessionSnapshotBeginFrame = {
 	type: "session_snapshot_begin";
 	activeSessionId: string;
@@ -371,6 +377,10 @@ export function isDaemonSessionBindingFrame(frame: unknown): frame is DaemonSess
 
 export function isDaemonModelCatalogChangedFrame(frame: unknown): frame is DaemonModelCatalogChangedFrame {
 	return isRecord(frame) && frame.type === "model_catalog_changed";
+}
+
+export function isDaemonHeartbeatsChangedFrame(frame: unknown): frame is DaemonHeartbeatsChangedFrame {
+	return isRecord(frame) && frame.type === "heartbeats_changed";
 }
 
 export function isDaemonSessionSnapshotFrame(

@@ -21,6 +21,7 @@
   "include": [
     "src",
     "scripts/record-contract-fixtures.ts",
+    "scripts/replay-contract-events.ts",
     "scripts/contract-fixtures/scripted-provider-extension.ts",
     "vitest.config.ts"
   ],
