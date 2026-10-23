@@ -62,6 +62,12 @@ export function hermeticServerEnv(stateDir: string): Record<string, string> {
 		PI_CODING_AGENT_DIR: "",
 		PRIME_AGENT_SESSION_DIR: "",
 		PRIME_AGENT_CODING_AGENT_SESSION_DIR: "",
+		// Prime Agent runtime-internal variable, set here for tests only. Only the
+		// v0.9.8 TS daemon/supervisor needs it. The v0.10.1 Rust daemon never reads
+		// it (only the CLI update path, pa-cli/src/update_flow/legacy_admission.rs:11),
+		// and HOME, TMPDIR and PRIME_AGENT_CODING_AGENT_DIR (pa-daemon/src/paths.rs)
+		// already isolate it, so drop this after the R1 cutover. The Fleet server and
+		// the daemon must share TMPDIR, kept short: macOS caps socket paths at ~104 bytes.
 		PRIME_AGENT_INTERNAL_DAEMON_SUPERVISOR_REGISTRY_DIR: join(home, ".prime", "supervisor-owners"),
 		XDG_CONFIG_HOME: join(home, ".config"),
 		XDG_DATA_HOME: join(home, ".local", "share"),
