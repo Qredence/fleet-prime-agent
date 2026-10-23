@@ -842,7 +842,6 @@ describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
 	});
 
 	function createTestSession(bridge: PrimeBridge): ReturnType<PrimeBridge["createSession"]> {
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		return bridge.createSession({ cwd: workDir });
 	}
 
