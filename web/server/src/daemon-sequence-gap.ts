@@ -106,9 +106,16 @@ export function createDaemonSequenceGapTracker(onGap?: (gap: DaemonSequenceGap) 
 					: typeof meta.activeSessionId === "string"
 						? meta.activeSessionId
 						: undefined;
-			const current =
-				cursorOf(meta.cursor) ??
-				(typeof meta.sequence === "number" ? { generation: undefined, sequence: meta.sequence } : undefined);
+			// A new worker generation restarts the counter (not a gap). Generation
+			// comes from `meta.cursor.generation` (protocol 7 captures) or a
+			// top-level `meta.generation`.
+			const fromCursor = cursorOf(meta.cursor);
+			const metaGeneration = typeof meta.generation === "string" ? meta.generation : undefined;
+			const current: Position | undefined = fromCursor
+				? { ...fromCursor, generation: fromCursor.generation ?? metaGeneration }
+				: typeof meta.sequence === "number"
+					? { generation: metaGeneration, sequence: meta.sequence }
+					: undefined;
 			if (!activeSessionId || !current) return undefined;
 			const previous = positions.get(activeSessionId);
 			const sameGeneration =

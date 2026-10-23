@@ -367,6 +367,38 @@ describe(`daemon-frames/${RUST_SET} specifics`, () => {
 			expect(tracker.observe(event("b", "g3", 8))).toMatchObject({ activeSessionId: "b", missing: 2 });
 		});
 
+		it.each([
+			[
+				"meta.cursor.generation",
+				(generation: string, sequence: number) => ({ sequence, cursor: { generation, sequence } }),
+			],
+			["meta.generation", (generation: string, sequence: number) => ({ sequence, generation })],
+		] as const)(
+			"a new worker generation (%s) with a low sequence restarts the baseline, not a gap",
+			(_label, meta) => {
+				const tracker = createDaemonSequenceGapTracker();
+				const at = (generation: string, sequence: number, type = "turn_start") => ({
+					type: "session_event",
+					activeSessionId: "w",
+					event: { type, toolCallId: "c" },
+					meta: meta(generation, sequence),
+				});
+				expect(tracker.observe(at("gen-1", 57))).toBeUndefined();
+				// Worker restarted: counter back to 1 under a new generation.
+				expect(tracker.observe(at("gen-2", 1))).toBeUndefined();
+				expect(tracker.position("w")).toEqual({ generation: "gen-2", sequence: 1 });
+				expect(tracker.observe(at("gen-2", 2))).toBeUndefined();
+				// The tracker continues from the new baseline: a real jump is still a gap.
+				expect(tracker.observe(at("gen-2", 5, "tool_execution_end"))).toEqual({
+					activeSessionId: "w",
+					generation: "gen-2",
+					lastSequence: 2,
+					receivedSequence: 5,
+					missing: 2,
+				});
+			},
+		);
+
 		describe("sequence rule (pa-daemon turn.rs:754-768, streaming.rs:82-89,126-133,155-157)", () => {
 			const frame = (sequence: number, event: Record<string, unknown>) => ({
 				type: "session_event",
