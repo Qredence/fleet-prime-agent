@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentConnection, AgentConnectionEvent, AgentSession } from "prime-agent";
-import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
+import { SessionManager } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runtimeHostFor } from "../connection-runtime";
 import type { listDaemonSessions } from "../daemon-runtime";
@@ -67,37 +67,6 @@ describe("PrimeBridge", () => {
 		expect(Array.isArray(sessions)).toBe(true);
 	});
 
-	it("kernelReadyState is not-started until ensureKernelReady", () => {
-		const bridge = createTestBridge();
-		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "not-started" });
-	});
-
-	it("kernelReadyState moves from pending to settled after ensureKernelReady", async () => {
-		let settle!: () => void;
-		const gate = new Promise<void>((resolve) => {
-			settle = resolve;
-		});
-		vi.spyOn(IpythonKernelProvisioner.prototype, "ensure").mockReturnValue(gate as never);
-
-		const bridge = new PrimeBridge({ kernelTimeoutMs: 30_000 });
-		const boot = bridge.ensureKernelReady();
-		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "pending" });
-
-		settle();
-		await boot;
-		expect(bridge.kernelReadyState()).toEqual({ ok: true });
-	});
-
-	it("kernelReadyState records ensure failure", async () => {
-		vi.spyOn(IpythonKernelProvisioner.prototype, "ensure").mockRejectedValue(new Error("no kernel"));
-
-		const bridge = new PrimeBridge({ kernelTimeoutMs: 30_000 });
-		const boot = bridge.ensureKernelReady();
-		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "pending" });
-		await expect(boot).rejects.toThrow("no kernel");
-		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "no kernel" });
-	});
-
 	it("answerDialog returns false for unknown toolCallId", () => {
 		const bridge = createTestBridge();
 		expect(bridge.answerDialog("session-1", "toolCall-unknown", { kind: "skip" })).toBe(false);
@@ -154,7 +123,6 @@ describe("PrimeBridge session-tree navigation", () => {
 
 	async function createLiveSession() {
 		bridge = createTestBridge();
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const session = await bridge.createSession({ cwd: workDir });
 		return { bridge, session };
 	}
@@ -283,11 +251,10 @@ describe("PrimeBridge.forkSession", () => {
 		vi.restoreAllMocks();
 	});
 
-	/** Real hermetic session: tmp agent dir, kernel prewarm stubbed out. */
+	/** Real hermetic session: tmp agent dir. */
 	function createTestSession(
 		bridge: PrimeBridge,
 	): Promise<{ session: AgentSession } & Awaited<ReturnType<PrimeBridge["createSession"]>>> {
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		return bridge.createSession({ cwd: workDir }) as Promise<
 			{ session: AgentSession } & Awaited<ReturnType<PrimeBridge["createSession"]>>
 		>;
@@ -952,7 +919,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const childDir = join(workDir, "rlm-child-store");
 		const childManager = SessionManager.create(workDir, childDir);
@@ -1003,7 +969,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const childManager = SessionManager.create(workDir, join(workDir, "rlm-active-parent-child-store"));
 		const childPath = childManager.materializeSessionFile();
@@ -1054,7 +1019,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const source = await bridge.createSession({ cwd: workDir });
 		const sourceSessionManager = source.session?.sessionManager;
 		if (!sourceSessionManager) throw new Error("test adapter did not expose the source session manager");
@@ -1119,7 +1083,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const parentChildManager = SessionManager.create(workDir, join(workDir, "rlm-parent-child-store"));
 		const parentChildPath = parentChildManager.materializeSessionFile();
@@ -1182,7 +1145,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		parent.mapperState.presentation = {
 			...parent.mapperState.presentation,
@@ -1269,7 +1231,6 @@ describe("PrimeBridge.openRlmChildStream", () => {
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
 		bridges.push(bridge);
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const childManager = SessionManager.create(workDir, join(workDir, `rlm-${status}-child-store`));
 		const childPath = childManager.materializeSessionFile();
@@ -1504,7 +1465,6 @@ describe("PrimeBridge.promptRlmChild", () => {
 		);
 		const bridge = createTestBridge({ sessionLister, childPromptStarter });
 		bridges.push(bridge);
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		parent.mapperState.presentation = {
 			...parent.mapperState.presentation,
@@ -1602,7 +1562,6 @@ describe("PrimeBridge.setModel fallback", () => {
 	it("falls back to the first available model of a known provider", async () => {
 		const bridge = createTestBridge();
 		bridges.push(bridge);
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const registry = getPrimeConfig().modelRegistry;
 		vi.spyOn(registry, "find").mockReturnValue(undefined);
@@ -1623,7 +1582,6 @@ describe("PrimeBridge.setModel fallback", () => {
 	it("still throws when the provider itself is unknown", async () => {
 		const bridge = createTestBridge();
 		bridges.push(bridge);
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const registry = getPrimeConfig().modelRegistry;
 		vi.spyOn(registry, "find").mockReturnValue(undefined);

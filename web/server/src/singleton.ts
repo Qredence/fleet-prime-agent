@@ -17,7 +17,6 @@ const globalStore = globalThis as unknown as BridgeGlobal;
 export function getBridge(): PrimeBridge {
 	if (!globalStore.__primeBridge) {
 		globalStore.__primeBridge = new PrimeBridge({
-			kernelTimeoutMs: 30_000,
 			ringBufferCapacity: 500,
 			dialogTimeoutMs: 60_000,
 		});
