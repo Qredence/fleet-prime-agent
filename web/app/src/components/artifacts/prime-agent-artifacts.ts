@@ -253,11 +253,3 @@ export function derivePrimeAgentArtifactRuns(
 	}
 	return runs;
 }
-
-export function artifactById(
-	runs: Array<PrimeAgentArtifactRun>,
-	id: string | null | undefined,
-): PrimeAgentArtifact | undefined {
-	if (!id) return undefined;
-	return runs.flatMap((run) => run.artifacts).find((artifact) => artifact.id === id);
-}

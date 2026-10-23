@@ -149,5 +149,3 @@ function ApiSelector({
 		</div>
 	);
 }
-
-export { OPENAI_CHAT_BASE_URL_PLACEHOLDER, OPENAI_CHAT_MODEL_PLACEHOLDER };

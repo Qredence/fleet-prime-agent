@@ -69,20 +69,6 @@ export function getResourceGroups(
 }
 
 /**
- * Counts the files within a workspace tree.
- *
- * @param nodes - The workspace tree nodes to count
- * @returns The total number of file nodes, including files in nested directories
- */
-export function countWorkspaceFiles(nodes: Array<WorkspaceTreeNode>): number {
-	return nodes.reduce((count, node) => {
-		if (node.type === "file") return count + 1;
-		if (!node.children?.length) return count;
-		return count + countWorkspaceFiles(node.children);
-	}, 0);
-}
-
-/**
  * Finds a workspace node by its exact path.
  *
  * @param nodes - The workspace nodes to search
@@ -105,7 +91,7 @@ export function findWorkspaceNode(nodes: Array<WorkspaceTreeNode>, path: string)
  * @param workspace - The workspace tree containing skill directories
  * @returns Workspace skill resources sorted by name
  */
-export function getWorkspaceSkillResources(workspace: WorkspaceTreeResponse | null): Array<ChatResourceInfo> {
+function getWorkspaceSkillResources(workspace: WorkspaceTreeResponse | null): Array<ChatResourceInfo> {
 	if (!workspace) return [];
 
 	const skillsRoot = findWorkspaceNode(workspace.nodes, "agent-workspace/skills");
@@ -137,7 +123,7 @@ export function getWorkspaceSkillResources(workspace: WorkspaceTreeResponse | nu
  * @param path - The resource path to format
  * @returns The path without the `/fleet-pi/` prefix, or the original path
  */
-export function displayResourcePath(path: string) {
+function displayResourcePath(path: string) {
 	const marker = "/fleet-pi/";
 	const index = path.indexOf(marker);
 	return index >= 0 ? path.slice(index + marker.length) : path;

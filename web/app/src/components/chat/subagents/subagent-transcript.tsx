@@ -38,7 +38,7 @@ export type SubagentTranscriptState = {
  * @param artifacts - Artifacts associated with the turn's tool activity
  * @param presentation - Optional session data used to render the subagent hierarchy
  */
-export function SubagentTurnView({
+function SubagentTurnView({
 	turn,
 	isLast,
 	isStreaming,

@@ -377,4 +377,3 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
 TabsSubtleItem.displayName = "TabsSubtleItem";
 
 export { TabsSubtle, TabsSubtleItem };
-export default TabsSubtle;

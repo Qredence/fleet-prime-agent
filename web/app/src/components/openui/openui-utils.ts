@@ -35,7 +35,7 @@ export function stripOpenUIWrapper(content: string) {
 	return cleaned;
 }
 
-export function isOpenUIProgram(content: string) {
+function isOpenUIProgram(content: string) {
 	return stripOpenUIWrapper(content).startsWith("root =");
 }
 

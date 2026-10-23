@@ -17,7 +17,7 @@ function parseStructuredJson(value: unknown): unknown {
 	}
 }
 
-export function normalizeToolPart(part: unknown): unknown {
+function normalizeToolPart(part: unknown): unknown {
 	if (!isRecord(part)) return part;
 	if (typeof part.type !== "string" || !part.type.startsWith("tool-")) return part;
 

@@ -20,9 +20,9 @@ export type FleetKeybinding = {
 	alt?: boolean;
 };
 
-export const FLEET_PANEL_KEYBINDINGS_STORAGE_KEY = "fleet-prime:v1:panel-keybindings";
+const FLEET_PANEL_KEYBINDINGS_STORAGE_KEY = "fleet-prime:v1:panel-keybindings";
 
-export const DEFAULT_FLEET_PANEL_KEYBINDINGS: Record<FleetPanelKeybindingAction, FleetKeybinding> = {
+const DEFAULT_FLEET_PANEL_KEYBINDINGS: Record<FleetPanelKeybindingAction, FleetKeybinding> = {
 	toggleResources: { code: "Digit1", ctrlOrMeta: true, shift: true },
 	toggleWorkspace: { code: "Digit2", ctrlOrMeta: true, shift: true },
 	toggleArtifacts: { code: "Digit3", ctrlOrMeta: true, shift: true },

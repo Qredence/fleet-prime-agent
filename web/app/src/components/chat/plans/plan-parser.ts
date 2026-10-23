@@ -67,25 +67,3 @@ export function extractTodoItems(message: string) {
 	}
 	return items;
 }
-
-export function extractDoneSteps(message: string) {
-	const steps: Array<number> = [];
-	for (const match of message.matchAll(/\[DONE:(\d+)\]/gi)) {
-		const step = Number(match[1]);
-		if (Number.isFinite(step)) steps.push(step);
-	}
-	return steps;
-}
-
-export function markCompletedSteps(text: string, items: Array<TodoItem>) {
-	let changed = 0;
-	const itemsByStep = new Map(items.map((todo) => [todo.step, todo]));
-	for (const step of extractDoneSteps(text)) {
-		const item = itemsByStep.get(step);
-		if (item && !item.completed) {
-			item.completed = true;
-			changed += 1;
-		}
-	}
-	return changed;
-}
