@@ -29,10 +29,9 @@
  * and a `done` frame with `sessionReset: true` (no new ChatStreamEvent).
  * See `resyncAfterSequenceGap` in event-mapper.ts.
  *
- * TODO(R1 bridge): subscribe a tracker to each daemon connection's raw frames
- * (createReconfigurableConnection `onFrame` in daemon-runtime.ts), expose an
- * `onSequenceGap` callback next to `onSessionBinding`, and in prime-bridge.ts
- * call `resyncAfterSequenceGap` + dispatch the frames on a gap.
+ * Wiring: daemon-runtime.ts subscribes one tracker per daemon socket (before
+ * attach) and exposes `onSequenceGap` next to `onSessionBinding`, filtered to
+ * the active session; prime-bridge.ts resyncs on each gap.
  */
 import { isRecord } from "./transcript-hydrator";
 

@@ -28,6 +28,7 @@ import {
 	isDaemonSessionBindingFrame,
 	isDaemonSessionSummary,
 } from "./daemon-protocol";
+import { createDaemonSequenceGapTracker, type DaemonSequenceGap } from "./daemon-sequence-gap";
 import { DaemonSocketClient } from "./daemon-socket-client";
 import { getPrimeConfig } from "./prime-config";
 
@@ -70,6 +71,12 @@ export type WebAgentConnection = {
 	forkToNewSession?: (entryId: string, position: "before" | "at") => Promise<DaemonForkToNewSessionResult>;
 	/** Observe Rust `session_binding` rebinds of this connection's active id. */
 	onSessionBinding?: (listener: (binding: DaemonSessionBindingFrame) => void) => () => void;
+	/**
+	 * Observe `meta.sequence` gaps (lost daemon events) for this connection's
+	 * active session, detected on the raw frame channel (daemon-sequence-gap.ts).
+	 * The bridge answers with a snapshot resync.
+	 */
+	onSequenceGap?: (listener: (gap: DaemonSequenceGap) => void) => () => void;
 };
 
 export type DaemonForkToNewSessionResult =
@@ -345,14 +352,34 @@ type OpenedDaemonConnection = {
 	sessionPath?: string;
 	/** Raw daemon frames seen by this connection's socket (session_binding, model_catalog_changed). */
 	onFrame: (hook: DaemonFrameHook) => () => void;
+	/**
+	 * Sequence gaps on this socket. The tracker subscribes before `attach`, so
+	 * the attach/snapshot baseline is observed and events dropped between the
+	 * snapshot and subscription are caught.
+	 */
+	onSequenceGap: (hook: (gap: DaemonSequenceGap) => void) => () => void;
 };
 
 async function openDaemonConnection(options: WebAgentConnectionOptions): Promise<OpenedDaemonConnection> {
 	const created = await createDaemonSession(options);
 	const { client, socketPath } = await connectFleetDaemon(options.cwd);
+	let unsubscribeGapTracker: () => void = () => undefined;
 	try {
 		const unsubscribeCatalog = client.onMessage((frame: unknown) => {
 			if (isDaemonModelCatalogChangedFrame(frame)) notifyDaemonModelCatalogChanged();
+		});
+		const gapHooks = new Set<(gap: DaemonSequenceGap) => void>();
+		const gapTracker = createDaemonSequenceGapTracker((gap) => {
+			for (const hook of [...gapHooks]) {
+				try {
+					hook(gap);
+				} catch {
+					// Hook failures stay local.
+				}
+			}
+		});
+		unsubscribeGapTracker = client.onMessage((frame: unknown) => {
+			gapTracker.observe(frame);
 		});
 		const connection = await DaemonAgentConnection.attach(client, created.activeSessionId, {
 			closeClientOnDispose: true,
@@ -363,6 +390,8 @@ async function openDaemonConnection(options: WebAgentConnectionOptions): Promise
 		const dispose = connection.dispose.bind(connection);
 		connection.dispose = async () => {
 			unsubscribeCatalog();
+			unsubscribeGapTracker();
+			gapHooks.clear();
 			await dispose();
 		};
 		return {
@@ -370,8 +399,15 @@ async function openDaemonConnection(options: WebAgentConnectionOptions): Promise
 			activeSessionId: created.activeSessionId,
 			...(created.sessionPath ? { sessionPath: created.sessionPath } : {}),
 			onFrame: (hook) => client.onMessage((frame: unknown) => hook(frame)),
+			onSequenceGap: (hook) => {
+				gapHooks.add(hook);
+				return () => {
+					gapHooks.delete(hook);
+				};
+			},
 		};
 	} catch (error) {
+		unsubscribeGapTracker();
 		client.close();
 		throw error;
 	}
@@ -494,6 +530,7 @@ function createReconfigurableConnection(
 	deleteSessionFile: NonNullable<WebAgentConnection["deleteSessionFile"]>;
 	forkToNewSession: NonNullable<WebAgentConnection["forkToNewSession"]>;
 	onSessionBinding: NonNullable<WebAgentConnection["onSessionBinding"]>;
+	onSequenceGap: NonNullable<WebAgentConnection["onSequenceGap"]>;
 } {
 	let current = initial.connection;
 	let activeSessionId = initial.activeSessionId;
@@ -504,6 +541,7 @@ function createReconfigurableConnection(
 	const subscriptions: Array<{ listener: ConnectionEventListener; unsubscribe: () => void }> = [];
 	const invalidationListeners: Array<{ listener: SessionInvalidationListener; unsubscribe: () => void }> = [];
 	const bindingListeners = new Set<(binding: DaemonSessionBindingFrame) => void>();
+	const gapListeners = new Set<(gap: DaemonSequenceGap) => void>();
 
 	/**
 	 * Rust `session_binding` (top-level frame): a worker replacement rebound
@@ -525,6 +563,19 @@ function createReconfigurableConnection(
 		}
 	};
 	let unsubscribeFrames = initial.onFrame(handleFrame);
+
+	/** Only gaps on the session this wrapper currently serves (follows session_binding). */
+	const handleGap = (gap: DaemonSequenceGap) => {
+		if (disposed || gap.activeSessionId !== activeSessionId) return;
+		for (const listener of [...gapListeners]) {
+			try {
+				listener(gap);
+			} catch {
+				// Listener failures stay local.
+			}
+		}
+	};
+	let unsubscribeGaps = initial.onSequenceGap(handleGap);
 
 	const resubscribe = () => {
 		for (const subscription of subscriptions) {
@@ -555,6 +606,8 @@ function createReconfigurableConnection(
 		sessionPath = reopened.sessionPath ?? fallbackPath;
 		unsubscribeFrames();
 		unsubscribeFrames = reopened.onFrame(handleFrame);
+		unsubscribeGaps();
+		unsubscribeGaps = reopened.onSequenceGap(handleGap);
 		resubscribe();
 	};
 
@@ -657,6 +710,8 @@ function createReconfigurableConnection(
 					disposed = true;
 					await reconfigureTail.catch(() => undefined);
 					unsubscribeFrames();
+					unsubscribeGaps();
+					gapListeners.clear();
 					await current.dispose();
 				};
 			}
@@ -681,6 +736,12 @@ function createReconfigurableConnection(
 				bindingListeners.delete(listener);
 			};
 		},
+		onSequenceGap: (listener) => {
+			gapListeners.add(listener);
+			return () => {
+				gapListeners.delete(listener);
+			};
+		},
 	};
 }
 
@@ -695,6 +756,7 @@ export async function createDaemonWebAgentConnection(options: WebAgentConnection
 		deleteSessionFile: reconfigurable.deleteSessionFile,
 		forkToNewSession: reconfigurable.forkToNewSession,
 		onSessionBinding: reconfigurable.onSessionBinding,
+		onSequenceGap: reconfigurable.onSequenceGap,
 	};
 }
 

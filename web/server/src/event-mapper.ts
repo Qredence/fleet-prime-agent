@@ -1417,15 +1417,16 @@ function mapDaemonTopLevelFrame(state: EventMapperState, frame: DaemonTopLevelFr
 		case "session_binding":
 			// The daemon re-bound the persisted session to a new runtime
 			// (`activeSessionId`); in-flight tool calls of the old runtime are gone.
-			// TODO(R1): the bridge/socket client must re-target routing at
-			// `frame.activeSessionId`; decide separately whether the browser needs a
-			// ChatStreamEvent for it (contract change). `state.sessionId` is Fleet's
+			// daemon-runtime's reconfigurable connection re-targets routing at
+			// `frame.activeSessionId`. Whether the browser needs a ChatStreamEvent
+			// for it is a separate contract decision. `state.sessionId` is Fleet's
 			// id and is intentionally left unchanged here.
 			state.toolCallStarts.clear();
 			return [];
 		case "model_catalog_changed":
-			// TODO(R1): the bridge should re-fetch `get_model_catalog` and refresh
-			// its models cache; there is no ChatStreamEvent for model catalog updates.
+			// daemon-runtime refreshes the shared model registry on this broadcast
+			// (notifyDaemonModelCatalogChanged); there is no ChatStreamEvent for
+			// model catalog updates.
 			return [];
 		default:
 			return [];
@@ -1439,8 +1440,8 @@ function mapDaemonTopLevelFrame(state: EventMapperState, frame: DaemonTopLevelFr
  * and emits `done` with `sessionReset: true` so the browser reloads the
  * transcript. No new ChatStreamEvent variant.
  *
- * TODO(R1 bridge): call this from prime-bridge.ts when daemon-runtime reports
- * a gap (see daemon-sequence-gap.ts); not wired yet.
+ * Called by prime-bridge.ts when daemon-runtime reports a gap
+ * (`onSequenceGap`, see daemon-sequence-gap.ts).
  */
 export function resyncAfterSequenceGap(
 	state: EventMapperState,

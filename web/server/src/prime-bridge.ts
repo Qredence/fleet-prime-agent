@@ -84,6 +84,7 @@ import {
 	normalizedQuestionsToClarification,
 	normalizedQuestionsToWire,
 	type RlmChildStatusOverride,
+	resyncAfterSequenceGap,
 	toChatMessagesFromAgentMessages,
 } from "./event-mapper";
 import { deleteManagedAttachmentsForSession } from "./managed-attachments";
@@ -582,6 +583,17 @@ export class PrimeBridge {
 		await webAgent.bindUiContext?.(uiContext);
 
 		const initialMessages = await connection.getMessages();
+		// getMessages() is the committed transcript; a mid-turn attach also has
+		// the in-flight assistant message (with its toolCall blocks) only on the
+		// snapshot. Seed the mapper's tool cache from both.
+		const initialStreamingMessage = await connection
+			.getInitialSnapshot()
+			.then((snapshot) => snapshot.streamingMessage)
+			.catch(() => undefined);
+		const seedMessages =
+			initialStreamingMessage && !initialMessages.includes(initialStreamingMessage)
+				? [...initialMessages, initialStreamingMessage]
+				: initialMessages;
 		const cache = await refreshCache(connection);
 		this.#caches.set(sessionId, cache);
 		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath });
@@ -596,9 +608,26 @@ export class PrimeBridge {
 				sessionId,
 				persistedPresentation,
 			),
+			initialMessages: seedMessages,
 		});
 
-		const unsubscribe = connection.subscribe((event) => {
+		const emitFrames = (frames: readonly ChatStreamEvent[]): void => {
+			for (const frame of frames) {
+				if (frame.type === "presentation") this.#persistPresentation(sessionId, sessionPath, frame.presentation);
+				this.#dispatch(sessionId, frame);
+			}
+		};
+		const refreshCacheAfterRebuild = (): void => {
+			void refreshCache(connection)
+				.then((next) => {
+					this.#caches.set(sessionId, next);
+					const current = this.#sessions.get(sessionId);
+					if (current) current.isStreaming = next.isStreaming;
+				})
+				.catch(() => undefined);
+		};
+
+		const unsubscribeEvents = connection.subscribe((event) => {
 			if (event.type === "extension_ui_request" && !webAgent.bindUiContext) {
 				if (this.#handleDaemonExtensionUiRequest(sessionId, connection, event.request)) return;
 			}
@@ -610,13 +639,7 @@ export class PrimeBridge {
 			}
 			if (event.type === "session_replaced" || event.type === "session_resynced") {
 				// The runtime rebuilt; refresh the cache from the new session state.
-				void refreshCache(connection)
-					.then((next) => {
-						this.#caches.set(sessionId, next);
-						const current = this.#sessions.get(sessionId);
-						if (current) current.isStreaming = next.isStreaming;
-					})
-					.catch(() => undefined);
+				refreshCacheAfterRebuild();
 			}
 			if (event.type === "session_event") {
 				const current = this.#sessions.get(sessionId);
@@ -635,11 +658,7 @@ export class PrimeBridge {
 					/* ignore */
 				}
 			}
-			const frames = mapAgentConnectionEvent(mapperState, event);
-			for (const frame of frames) {
-				if (frame.type === "presentation") this.#persistPresentation(sessionId, sessionPath, frame.presentation);
-				this.#dispatch(sessionId, frame);
-			}
+			emitFrames(mapAgentConnectionEvent(mapperState, event));
 			if (
 				event.type === "session_resynced" ||
 				(event.type === "session_event" && event.event.type === "rlm_child_update")
@@ -647,6 +666,48 @@ export class PrimeBridge {
 				this.#queueRlmChildMetadataRefresh(sessionId);
 			}
 		});
+
+		// Lost daemon events (meta.sequence gap): fetch a fresh snapshot and
+		// resync through the existing session_resynced path (`done` with
+		// sessionReset: true). Gaps that arrive while a resync is in flight
+		// coalesce into one follow-up resync.
+		let gapSubscriptionClosed = false;
+		let resyncInFlight = false;
+		let resyncPending = false;
+		const resyncAfterGap = async (): Promise<void> => {
+			if (resyncInFlight) {
+				resyncPending = true;
+				return;
+			}
+			resyncInFlight = true;
+			try {
+				do {
+					resyncPending = false;
+					let snapshot: Awaited<ReturnType<AgentConnection["getInitialSnapshot"]>>;
+					try {
+						snapshot = await connection.getInitialSnapshot();
+					} catch {
+						return;
+					}
+					if (gapSubscriptionClosed) return;
+					emitFrames(resyncAfterSequenceGap(mapperState, snapshot));
+					refreshCacheAfterRebuild();
+					this.#queueRlmChildMetadataRefresh(sessionId);
+				} while (resyncPending && !gapSubscriptionClosed);
+			} finally {
+				resyncInFlight = false;
+			}
+		};
+		const unsubscribeGaps =
+			webAgent.onSequenceGap?.(() => {
+				if (gapSubscriptionClosed) return;
+				void resyncAfterGap();
+			}) ?? (() => undefined);
+		const unsubscribe = (): void => {
+			gapSubscriptionClosed = true;
+			unsubscribeGaps();
+			unsubscribeEvents();
+		};
 		const bridgeSession: BridgeSession = {
 			sessionId,
 			projectId: resolvedProjectId,
