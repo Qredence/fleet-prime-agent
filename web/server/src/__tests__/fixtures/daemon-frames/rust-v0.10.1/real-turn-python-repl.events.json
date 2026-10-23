@@ -1,0 +1,779 @@
+[
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "waiting",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Prepared run"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "message",
+		"message": {
+			"id": "run-mjuohs00-i-u0",
+			"role": "user",
+			"parts": [
+				{
+					"type": "text",
+					"text": "Do exactly this, briefly: 1) use the bash tool to run `ls` in the current directory; 2) use python_repl to compute 6*7 and print it; 3) reply with one short sentence summarizing both results."
+				}
+			],
+			"createdAt": 1792750289016
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Starting Python kernel..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Restoring Python state..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Preparing Python runtime..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "output-available",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "README.md\nhello.py\nsrc\n\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 15,
+					"stdout": "README.md\nhello.py\nsrc\n\n",
+					"bashCommands": {
+						"first": "ls",
+						"count": 1,
+						"lines": 1
+					}
+				}
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "README.md\nhello.py\nsrc\n\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 15,
+					"stdout": "README.md\nhello.py\nsrc\n\n",
+					"bashCommands": {
+						"first": "ls",
+						"count": 1,
+						"lines": 1
+					}
+				}
+			},
+			"durationMs": 15
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 4,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 5,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_446a14674cb44127b24c4652625a371d|fc_07d2c49639ec7e7e016adb32d5cfa081919962229de7d50cd0",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6*7)"
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_446a14674cb44127b24c4652625a371d|fc_07d2c49639ec7e7e016adb32d5cfa081919962229de7d50cd0",
+			"state": "output-available",
+			"input": {
+				"code": "print(6*7)"
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "42\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 0,
+					"stdout": "42\n"
+				}
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "42\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 0,
+					"stdout": "42\n"
+				}
+			},
+			"durationMs": 0
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-5",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 6,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-5",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-6",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 7,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "`ls` showed `README.md`, `hello.py`, and `src`;",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-5",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-6",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 7,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": " 6×7 =",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-5",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-6",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 7,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": " 42.",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-5",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-6",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-7",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 8,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "run-mjuohs00-i",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "text",
+					"text": "`ls` showed `README.md`, `hello.py`, and `src`; 6×7 = 42."
+				},
+				{
+					"type": "tool-IPython",
+					"category": "kernel",
+					"toolName": "python_repl",
+					"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+					"state": "output-available",
+					"input": {
+						"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+					},
+					"result": {
+						"content": [
+							{
+								"type": "text",
+								"text": "README.md\nhello.py\nsrc\n\n"
+							}
+						],
+						"details": {
+							"status": "ok",
+							"kernelRestarted": false,
+							"durationMs": 15,
+							"stdout": "README.md\nhello.py\nsrc\n\n",
+							"bashCommands": {
+								"first": "ls",
+								"count": 1,
+								"lines": 1
+							}
+						}
+					},
+					"output": {
+						"content": [
+							{
+								"type": "text",
+								"text": "README.md\nhello.py\nsrc\n\n"
+							}
+						],
+						"details": {
+							"status": "ok",
+							"kernelRestarted": false,
+							"durationMs": 15,
+							"stdout": "README.md\nhello.py\nsrc\n\n",
+							"bashCommands": {
+								"first": "ls",
+								"count": 1,
+								"lines": 1
+							}
+						}
+					},
+					"durationMs": 15
+				},
+				{
+					"type": "tool-IPython",
+					"category": "kernel",
+					"toolName": "python_repl",
+					"toolCallId": "call_446a14674cb44127b24c4652625a371d|fc_07d2c49639ec7e7e016adb32d5cfa081919962229de7d50cd0",
+					"state": "output-available",
+					"input": {
+						"code": "print(6*7)"
+					},
+					"output": {
+						"content": [
+							{
+								"type": "text",
+								"text": "42\n"
+							}
+						],
+						"details": {
+							"status": "ok",
+							"kernelRestarted": false,
+							"durationMs": 0,
+							"stdout": "42\n"
+						}
+					},
+					"result": {
+						"content": [
+							{
+								"type": "text",
+								"text": "42\n"
+							}
+						],
+						"details": {
+							"status": "ok",
+							"kernelRestarted": false,
+							"durationMs": 0,
+							"stdout": "42\n"
+						}
+					},
+					"durationMs": 0
+				}
+			]
+		},
+		"sessionId": "61506e70f987"
+	}
+]

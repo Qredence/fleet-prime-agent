@@ -18,9 +18,15 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ChatStreamEvent } from "@prime-agent/web-protocol";
-import type { AgentConnectionEvent } from "prime-agent";
 import { DaemonAgentConnection } from "prime-agent";
-import { createEventMapperState, mapAgentConnectionEvent } from "../event-mapper";
+import { isDaemonModelCatalogChangedFrame, isDaemonSessionBindingFrame } from "../daemon-protocol";
+import {
+	createEventMapperState,
+	type EventMapperState,
+	type MapperInputEvent,
+	mapAgentConnectionEvent,
+	seedToolCallStartsFromMessages,
+} from "../event-mapper";
 
 export const DAEMON_FRAMES_ROOT = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "daemon-frames");
 
@@ -124,6 +130,38 @@ async function drain(): Promise<void> {
 	}
 }
 
+/**
+ * Snapshot transcripts the bridge would hand the mapper at attach time
+ * (`createEventMapperState({ initialMessages })`): an `attach` response's
+ * `snapshot.messages` or chunked `session_snapshot_chunk.messages` for the
+ * replayed session. Seeding them in stream order mirrors that.
+ */
+function snapshotMessages(frame: DaemonFrame, activeSessionId: string): unknown[] | undefined {
+	if (frame.type === "response" && frame.command === "attach" && frame.success === true) {
+		const data = frame.data as { activeSessionId?: unknown; snapshot?: { messages?: unknown } } | undefined;
+		if (data?.activeSessionId === activeSessionId && Array.isArray(data.snapshot?.messages))
+			return data.snapshot.messages;
+	}
+	if (frame.type === "session_snapshot_chunk" && frame.activeSessionId === activeSessionId)
+		return Array.isArray(frame.messages) ? frame.messages : undefined;
+	return undefined;
+}
+
+/**
+ * Rust-only top-level frames (no `meta`) the stock v0.9.8 adapter drops. In
+ * production daemon-runtime receives them on the client's raw frame channel;
+ * here they go to the mapper directly, in stream order.
+ */
+function topLevelMapperFrame(frame: DaemonFrame): MapperInputEvent | undefined {
+	return isDaemonSessionBindingFrame(frame) || isDaemonModelCatalogChangedFrame(frame)
+		? (structuredClone(frame) as MapperInputEvent)
+		: undefined;
+}
+
+/** Same env var daemon-runtime.ts pins (`AGENT_DIR_ENV`); value matches the fixtures' scrubbed agent dir. */
+const REPLAY_AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
+const REPLAY_AGENT_DIR = "/home/user/.prime/agent";
+
 function withFrozenClock<T>(fn: () => T): T {
 	const realNow = Date.now;
 	const realRandom = Math.random;
@@ -145,20 +183,30 @@ function withFrozenClock<T>(fn: () => T): T {
  */
 export async function replayDaemonFrameScenario(
 	scenario: Pick<DaemonFrameScenario, "frames" | "activeSessionId">,
-): Promise<{ connectionEvents: AgentConnectionEvent[]; events: ChatStreamEvent[] }> {
+	options: { onState?: (state: EventMapperState) => void } = {},
+): Promise<{ connectionEvents: MapperInputEvent[]; events: ChatStreamEvent[] }> {
+	// The stock adapter embeds the agent log path in close errors; pin it to the
+	// scrubbed placeholder so goldens never carry a host home directory.
+	const previousAgentDir = process.env[REPLAY_AGENT_DIR_ENV];
+	process.env[REPLAY_AGENT_DIR_ENV] = REPLAY_AGENT_DIR;
 	const transport = new ReplayTransport();
 	const connection = new DaemonAgentConnection(transport, scenario.activeSessionId, { supportsExtensionUi: true });
 	const state = withFrozenClock(() => createEventMapperState({ sessionId: scenario.activeSessionId }));
-	const connectionEvents: AgentConnectionEvent[] = [];
+	options.onState?.(state);
+	const connectionEvents: MapperInputEvent[] = [];
 	const events: ChatStreamEvent[] = [];
-	let pending: AgentConnectionEvent[] = [];
+	let pending: MapperInputEvent[] = [];
 	const unsubscribe = connection.subscribe((event) => {
 		pending.push(structuredClone(event));
 	});
 	try {
 		for (const frame of scenario.frames) {
+			const seed = snapshotMessages(frame, scenario.activeSessionId);
+			if (seed) seedToolCallStartsFromMessages(state, seed);
 			transport.deliver(frame);
 			await drain();
+			const topLevel = topLevelMapperFrame(frame);
+			if (topLevel) pending.push(topLevel);
 			const batch = pending;
 			pending = [];
 			connectionEvents.push(...batch);
@@ -168,6 +216,8 @@ export async function replayDaemonFrameScenario(
 		}
 	} finally {
 		unsubscribe();
+		if (previousAgentDir === undefined) delete process.env[REPLAY_AGENT_DIR_ENV];
+		else process.env[REPLAY_AGENT_DIR_ENV] = previousAgentDir;
 	}
 	// JSON round-trip: the browser receives these frames over SSE as JSON.
 	return { connectionEvents, events: JSON.parse(JSON.stringify(events)) as ChatStreamEvent[] };

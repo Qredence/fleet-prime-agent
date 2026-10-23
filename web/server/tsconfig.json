@@ -17,6 +17,6 @@
       "@prime-agent/web-protocol/*": ["../protocol/src/*"]
     }
   },
-  "include": ["src", "scripts/record-contract-fixtures.ts", "vitest.config.ts"],
+  "include": ["src", "scripts/record-contract-fixtures.ts", "scripts/replay-contract-events.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
