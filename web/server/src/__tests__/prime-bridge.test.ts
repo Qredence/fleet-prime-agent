@@ -749,6 +749,136 @@ describe("PrimeBridge.forkSession", () => {
 		expect((messages[0] as { content: string }).content).toBe("first question");
 	});
 
+	it("keeps the source session untouched and running after the fork", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const sourceFile = created.session.sessionManager.getSessionFile();
+		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
+		const sourceLeafBefore = created.session.sessionManager.getLeafId();
+
+		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
+
+		// Source is neither re-idded nor evicted (bridge semantics, not TUI replace-in-slot).
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
+		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
+		expect(created.session.sessionManager.getSessionFile()).toBe(sourceFile);
+		expect(created.session.sessionManager.getLeafId()).toBe(sourceLeafBefore);
+		expect(bridge.getSession(result.newSessionId)).toBeDefined();
+	});
+
+	it("forwards thinkingLevel and model from the source session to the fork", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const { assistantEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
+		created.session.setThinkingLevel("high");
+		const sourceThinking = created.session.thinkingLevel; // clamped to model capabilities
+
+		const result = await bridge.forkSession(created.sessionId, assistantEntryId, "at");
+
+		const forked = requireLiveSession(bridge, result.newSessionId);
+		expect(forked.session.thinkingLevel).toBe(sourceThinking);
+		// Whatever model the source resolved (undefined when the runner has no
+		// provider auth) is carried over to the fork.
+		expect(forked.session.model?.id).toBe(created.session.model?.id);
+		expect(forked.session.serviceTier).toBe(created.session.serviceTier);
+	});
+
+	it("flushNow persists the forked session file so it is discoverable cold", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
+
+		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
+
+		const forked = requireLiveSession(bridge, result.newSessionId);
+		const forkedFile = forked.session.sessionManager.getSessionFile();
+		expect(typeof forkedFile).toBe("string");
+		expect(existsSync(forkedFile!)).toBe(true);
+	});
+
+	it("resumes a session from the configured store but rejects an unconfigured store", async () => {
+		const configuredSessionDir = join(agentDir, "sessions");
+		const configuredManager = SessionManager.create(workDir, configuredSessionDir);
+		const configuredPath = configuredManager.materializeSessionFile();
+		configuredManager.flushNow();
+
+		const bridge = createTestBridge();
+		const resumed = await bridge.resumeSessionByPath(configuredPath);
+		expect(resumed.sessionId).toBe(configuredManager.getSessionId());
+
+		const unconfiguredDir = mkdtempSync(join(tmpdir(), "prime-bridge-unconfigured-sessions-"));
+		try {
+			const unconfiguredManager = SessionManager.create(workDir, unconfiguredDir);
+			const unconfiguredPath = unconfiguredManager.materializeSessionFile();
+			unconfiguredManager.flushNow();
+
+			await expect(bridge.resumeSessionByPath(unconfiguredPath)).rejects.toThrow(
+				"outside the configured Prime session store",
+			);
+		} finally {
+			rmSync(unconfiguredDir, { recursive: true, force: true });
+		}
+	});
+
+	it("forks a resumed session into the target project's working directory", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		appendTurn(bridge, created.sessionId, "source question", "source answer");
+		const targetCwd = join(workDir, "target-project");
+		mkdirSync(targetCwd);
+		const targetProject = await getPrimeConfig().projectRegistry.register(targetCwd, "Target project");
+		const canonicalTargetCwd = realpathSync(targetCwd);
+
+		const forkedId = await bridge.forkSessionIntoProject(created.sessionId, targetProject.projectId);
+		const forked = requireLiveSession(bridge, forkedId);
+
+		expect(forked.projectId).toBe(targetProject.projectId);
+		expect(forked.cwd).toBe(canonicalTargetCwd);
+		expect(forked.session.sessionManager.getCwd()).toBe(canonicalTargetCwd);
+		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
+		expect(created.projectId).not.toBe(targetProject.projectId);
+	});
+
+	it("rejects an unknown entry id", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+
+		await expect(bridge.forkSession(created.sessionId, "missing-entry", "before")).rejects.toThrow(
+			"Invalid entry ID for forking",
+		);
+	});
+});
+
+describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-gap-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-gap-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+		return () => {
+			rmSync(workDir, { recursive: true, force: true });
+			rmSync(agentDir, { recursive: true, force: true });
+		};
+	});
+
+	afterEach(() => {
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		vi.restoreAllMocks();
+	});
+
+	function createTestSession(bridge: PrimeBridge): ReturnType<PrimeBridge["createSession"]> {
+		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
+		return bridge.createSession({ cwd: workDir });
+	}
+
 	/**
 	 * Wraps the in-process connection like the daemon runtime: exposes
 	 * `onSequenceGap`, captures the bridge's subscribe listener so tests can
@@ -905,105 +1035,6 @@ describe("PrimeBridge.forkSession", () => {
 		expect(toolFrames).toHaveLength(1);
 		expect(toolFrames[0]?.part?.toolName).toBe("bash");
 		expect(toolFrames[0]?.part?.input).toEqual({ command: "ls -la" });
-	});
-
-	it("keeps the source session untouched and running after the fork", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const sourceFile = created.session.sessionManager.getSessionFile();
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
-		const sourceLeafBefore = created.session.sessionManager.getLeafId();
-
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
-
-		// Source is neither re-idded nor evicted (bridge semantics, not TUI replace-in-slot).
-		expect(bridge.getSession(created.sessionId)).toBeDefined();
-		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
-		expect(created.session.sessionManager.getSessionFile()).toBe(sourceFile);
-		expect(created.session.sessionManager.getLeafId()).toBe(sourceLeafBefore);
-		expect(bridge.getSession(result.newSessionId)).toBeDefined();
-	});
-
-	it("forwards thinkingLevel and model from the source session to the fork", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const { assistantEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
-		created.session.setThinkingLevel("high");
-		const sourceThinking = created.session.thinkingLevel; // clamped to model capabilities
-
-		const result = await bridge.forkSession(created.sessionId, assistantEntryId, "at");
-
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		expect(forked.session.thinkingLevel).toBe(sourceThinking);
-		// Whatever model the source resolved (undefined when the runner has no
-		// provider auth) is carried over to the fork.
-		expect(forked.session.model?.id).toBe(created.session.model?.id);
-		expect(forked.session.serviceTier).toBe(created.session.serviceTier);
-	});
-
-	it("flushNow persists the forked session file so it is discoverable cold", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
-
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
-
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		const forkedFile = forked.session.sessionManager.getSessionFile();
-		expect(typeof forkedFile).toBe("string");
-		expect(existsSync(forkedFile!)).toBe(true);
-	});
-
-	it("resumes a session from the configured store but rejects an unconfigured store", async () => {
-		const configuredSessionDir = join(agentDir, "sessions");
-		const configuredManager = SessionManager.create(workDir, configuredSessionDir);
-		const configuredPath = configuredManager.materializeSessionFile();
-		configuredManager.flushNow();
-
-		const bridge = createTestBridge();
-		const resumed = await bridge.resumeSessionByPath(configuredPath);
-		expect(resumed.sessionId).toBe(configuredManager.getSessionId());
-
-		const unconfiguredDir = mkdtempSync(join(tmpdir(), "prime-bridge-unconfigured-sessions-"));
-		try {
-			const unconfiguredManager = SessionManager.create(workDir, unconfiguredDir);
-			const unconfiguredPath = unconfiguredManager.materializeSessionFile();
-			unconfiguredManager.flushNow();
-
-			await expect(bridge.resumeSessionByPath(unconfiguredPath)).rejects.toThrow(
-				"outside the configured Prime session store",
-			);
-		} finally {
-			rmSync(unconfiguredDir, { recursive: true, force: true });
-		}
-	});
-
-	it("forks a resumed session into the target project's working directory", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		appendTurn(bridge, created.sessionId, "source question", "source answer");
-		const targetCwd = join(workDir, "target-project");
-		mkdirSync(targetCwd);
-		const targetProject = await getPrimeConfig().projectRegistry.register(targetCwd, "Target project");
-		const canonicalTargetCwd = realpathSync(targetCwd);
-
-		const forkedId = await bridge.forkSessionIntoProject(created.sessionId, targetProject.projectId);
-		const forked = requireLiveSession(bridge, forkedId);
-
-		expect(forked.projectId).toBe(targetProject.projectId);
-		expect(forked.cwd).toBe(canonicalTargetCwd);
-		expect(forked.session.sessionManager.getCwd()).toBe(canonicalTargetCwd);
-		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
-		expect(created.projectId).not.toBe(targetProject.projectId);
-	});
-
-	it("rejects an unknown entry id", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-
-		await expect(bridge.forkSession(created.sessionId, "missing-entry", "before")).rejects.toThrow(
-			"Invalid entry ID for forking",
-		);
 	});
 });
 
