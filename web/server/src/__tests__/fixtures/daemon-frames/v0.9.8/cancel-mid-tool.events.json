@@ -1,0 +1,387 @@
+[
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "waiting",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Prepared run"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "message",
+		"message": {
+			"id": "run-mjuohs00-i-u0",
+			"role": "user",
+			"parts": [
+				{
+					"type": "text",
+					"text": "[fixture:cancel-mid-tool] Sleep for a while."
+				}
+			],
+			"createdAt": 1767225601000
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_sleep_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "import time\ntime.sleep(30)\nprint('never')"
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000005",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Starting Python kernel...",
+				"payload": {
+					"message": "Starting Python kernel..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_sleep_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "import time\ntime.sleep(30)\nprint('never')"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Starting Python kernel..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000006",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Restoring Python state...",
+				"payload": {
+					"message": "Restoring Python state..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_sleep_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "import time\ntime.sleep(30)\nprint('never')"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Restoring Python state..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000007",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"message": "Preparing Python runtime...",
+				"payload": {
+					"message": "Preparing Python runtime..."
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_sleep_1",
+			"state": "input-streaming",
+			"input": {
+				"code": "import time\ntime.sleep(30)\nprint('never')"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Preparing Python runtime..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "ipython",
+			"toolCallId": "call_sleep_1",
+			"state": "output-error",
+			"input": {
+				"code": "import time\ntime.sleep(30)\nprint('never')"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Request was aborted"
+					}
+				],
+				"details": {}
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Request was aborted"
+					}
+				],
+				"details": {}
+			},
+			"error": {
+				"code": "UNKNOWN_ERROR",
+				"message": "Request was aborted",
+				"isTerminal": false
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 4,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "run-mjuohs00-i",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "tool-IPython",
+					"category": "kernel",
+					"toolName": "ipython",
+					"toolCallId": "call_sleep_1",
+					"state": "output-available",
+					"input": {
+						"code": "import time\ntime.sleep(30)\nprint('never')"
+					},
+					"result": {
+						"content": [
+							{
+								"type": "text",
+								"text": "Request was aborted"
+							}
+						],
+						"details": {}
+					},
+					"output": {
+						"content": [
+							{
+								"type": "text",
+								"text": "Request was aborted"
+							}
+						],
+						"details": {}
+					},
+					"error": {
+						"code": "UNKNOWN_ERROR",
+						"message": "Request was aborted",
+						"isTerminal": false
+					}
+				}
+			]
+		},
+		"sessionId": "f00000000003"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000008",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "setWorkingMessage",
+				"payload": {}
+			}
+		}
+	}
+]

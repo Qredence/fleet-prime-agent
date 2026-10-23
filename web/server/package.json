@@ -10,7 +10,8 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "record:contract-fixtures": "tsx scripts/record-contract-fixtures.ts"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz",

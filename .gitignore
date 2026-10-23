@@ -69,3 +69,6 @@ qa-results/
 # Amp portals
 .amp/portals/*
 .commandcode/taste/taste.md
+
+# Contract fixture recorder scratch (web/server/scripts/record-contract-fixtures.ts)
+.contract-fixtures-scratch/

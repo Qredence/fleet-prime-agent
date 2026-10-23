@@ -71,6 +71,7 @@
 			"packages/fleet-web/bin/**/*.mjs",
 			"web/*/src/**/*.ts",
 			"web/*/src/**/*.tsx",
+			"web/server/scripts/**/*.ts",
 			"scripts/**/*.mjs",
 			"scripts/**/*.ts",
 			"!**/node_modules/**/*",

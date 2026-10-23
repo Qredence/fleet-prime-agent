@@ -1,0 +1,412 @@
+[
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "waiting",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Prepared run"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 2,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "message",
+		"message": {
+			"id": "run-mjuohs00-i-u0",
+			"role": "user",
+			"parts": [
+				{
+					"type": "text",
+					"text": "[fixture:extension-ui] Ask me to confirm."
+				}
+			],
+			"createdAt": 1767225601000
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 3,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-FleetConfirm",
+			"category": "custom",
+			"toolName": "fleet_confirm",
+			"toolCallId": "call_confirm_1",
+			"state": "input-streaming",
+			"input": {
+				"question": "Proceed with the fixture?"
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-Question",
+			"category": "question",
+			"toolName": "ask_question",
+			"toolCallId": "00000000-0000-4000-8000-000000000005",
+			"state": "input-streaming",
+			"input": {
+				"kind": "extension",
+				"method": "confirm",
+				"title": "Fixture confirmation",
+				"message": "Proceed with the fixture?",
+				"payload": {
+					"title": "Fixture confirmation",
+					"message": "Proceed with the fixture?"
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-FleetConfirm",
+			"category": "custom",
+			"toolName": "fleet_confirm",
+			"toolCallId": "call_confirm_1",
+			"state": "output-available",
+			"input": {
+				"question": "Proceed with the fixture?"
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "confirmed"
+					}
+				],
+				"details": {
+					"confirmed": true
+				}
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "confirmed"
+					}
+				],
+				"details": {
+					"confirmed": true
+				}
+			}
+		},
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_start"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "context",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				}
+			],
+			"visibleSteps": 4,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Reviewed context"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 5,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "The user confirm",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "responding",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				}
+			],
+			"visibleSteps": 5,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Response prepared"
+		}
+	},
+	{
+		"type": "delta",
+		"text": "ed.",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "turn_end"
+		}
+	},
+	{
+		"type": "reasoning",
+		"messageId": "run-mjuohs00-i-a0",
+		"presentation": {
+			"runId": "run-mjuohs00-i",
+			"phase": "complete",
+			"steps": [
+				{
+					"id": "run-mjuohs00-i-reasoning-0",
+					"title": "Preparing run",
+					"body": "Setting up the requested task."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-1",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-2",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-3",
+					"title": "Reviewing workspace context",
+					"body": "Reviewing the available conversation and project context."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-4",
+					"title": "Writing response",
+					"body": "Preparing the response."
+				},
+				{
+					"id": "run-mjuohs00-i-reasoning-5",
+					"title": "Completed",
+					"body": "Finished the current run."
+				}
+			],
+			"visibleSteps": 6,
+			"streaming": false,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed"
+		}
+	},
+	{
+		"type": "state",
+		"state": {
+			"name": "agent_settled"
+		}
+	},
+	{
+		"type": "done",
+		"runId": "run-mjuohs00-i",
+		"message": {
+			"id": "run-mjuohs00-i-a0",
+			"role": "assistant",
+			"parts": [
+				{
+					"type": "text",
+					"text": "The user confirmed."
+				},
+				{
+					"type": "tool-FleetConfirm",
+					"category": "custom",
+					"toolName": "fleet_confirm",
+					"toolCallId": "call_confirm_1",
+					"state": "output-available",
+					"input": {
+						"question": "Proceed with the fixture?"
+					},
+					"output": {
+						"content": [
+							{
+								"type": "text",
+								"text": "confirmed"
+							}
+						],
+						"details": {
+							"confirmed": true
+						}
+					},
+					"result": {
+						"content": [
+							{
+								"type": "text",
+								"text": "confirmed"
+							}
+						],
+						"details": {
+							"confirmed": true
+						}
+					}
+				}
+			]
+		},
+		"sessionId": "f00000000003"
+	}
+]
