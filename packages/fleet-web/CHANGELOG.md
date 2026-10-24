@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.5
+
+### Patch Changes
+
+- 8487dc6: Remove unreachable web UI code: unused exports, dead helpers, and the unused assistant-ui shadcn registry entry. No behavior change.
+
 ## 0.7.4
 
 ### Patch Changes
