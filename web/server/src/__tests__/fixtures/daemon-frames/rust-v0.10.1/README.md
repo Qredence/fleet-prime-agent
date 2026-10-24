@@ -30,6 +30,8 @@ one frame per line, exactly as read off the unix socket (then scrubbed, see belo
 | `stale-resume-attach.jsonl` (+ `.commands.jsonl`) | live, scripted engine | reattach with a pre-turn `resumeCursor`: `replay.status:"unavailable"`, `reason:"event_replay_not_available"`; no events are replayed, only the snapshot |
 | `session-closed-killed.jsonl` (+ `.commands.jsonl`, `session-closed-killed.script.json`) | live, scripted engine | the killing client: create (top-level `telemetryDisabled:true`) → attach of a never-streamed session (`lastEventSequence:0`, `lastEventCursor.sequence:0`, `replay.status:"complete"`) → one text-only scripted turn (events `meta.sequence` 1–8) → `kill`. Gets `session_closed{reason:"killed"}` with `meta` (`sequence:9`, the next event sequence), then a top-level `{"type":"heartbeats_changed"}`, and only then the `kill` response `{success:true}` (no `data`) |
 | `session-closed-killed-observer.jsonl` (+ `.commands.jsonl`) | live, scripted engine | a second client attached before the turn: the same turn events, the identical `session_closed{killed}` frame (same `meta.id`/`sequence`/`emittedAt`) and `heartbeats_changed`; no `kill` response |
+| `catalog-mcp/frames.jsonl` (+ `catalog-mcp/commands.jsonl`) | live, real agent engine (no model call) | create (`provider`/`model` = a models.json fixture provider) → cold `get_resource_snapshot` (all-empty: the core session builds lazily) → `get_model_catalog` → `get_available_models` → `get_mcp_connections` → `set_mcp_static_token` (paste fixture, fake token) → `get_mcp_connections` (card `pending`, roster `connected:true`) → `remove_mcp_connection` → `get_mcp_connections` (back to `setup_required`) → `get_system_prompt` (builds the core session) → warm `get_resource_snapshot` → `kill`. Lives in a subdirectory so the mapper replay does not treat it as a stream scenario |
+| `catalog-mcp/errors.json` | live | `{label, command, response}` refusals: non-pasteable server, empty token, missing `server`, missing `activeSessionId` (supervisor "malformed … command"), unknown session, and the scripted engine's "MCP connections are not available in this session" |
 
 ## Scrubbing
 
@@ -48,3 +50,17 @@ scripted engine (`crates/pa-daemon/src/engine/scripted.rs:16-19,353-440`, select
 `create.config.script` at `crates/pa-daemon/src/worker.rs:417-418`) emits the same
 `ToolExecutionStart/End` engine events the worker frames at `crates/pa-daemon/src/worker/turn.rs:791-817`.
 The agent-dir path is scrubbed to `/home/user/.prime/agent`.
+
+### Catalog / MCP capture (`catalog-mcp/`)
+
+Captured 2026-10-23 against a throwaway agent dir on the SSD (never the real `~/.prime`), with
+`PI_OFFLINE=1`, a clean env (`HOME` pointed at scratch, no provider keys), and only fake values:
+a `models.json` provider `fixture-local` (`apiKey` `fixture-key-not-real`, `baseUrl` `http://127.0.0.1:9/v1`),
+the MCP catalog disk cache seeded with `crates/pa-core/tests/fixtures/mcp/plugins-catalog.v2.json` plus the
+`paste-fixture` entry from `crates/pa-daemon/tests/mcp_catalog_e2e.rs:203-226` (endpoint on the `.invalid` TLD,
+so verification fails closed with `network-unreachable` and nothing leaves the machine), and the static token
+`fixture-token-not-real` (redacted to `<redacted>` in the commands). Trimmed for size: models 157 → 5 (the
+custom model plus one carrying each optional key: `thinkingLevelMap`/`featured`, `compat`, `headers`), MCP
+`connections`/`services` 70 → 5 (`airtable`, `github`, `linear`, `paste-fixture`, `slack`), skills 17 → 2
+(`fixture-skill`, builtin `mcp`; the workspace's own `.agents/skills` were dropped), `get_system_prompt` text
+elided. With no network cache the built-in model list is the binary's offline fallback (`fixture-*` ids).

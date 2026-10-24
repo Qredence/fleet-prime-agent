@@ -266,6 +266,33 @@ export type DaemonAckResultCommand = { type: "ack_result"; commandId: string };
  */
 export type DaemonPromptAdmissionCancelStatus = "cancelled" | "owned" | (string & {});
 
+/**
+ * Session-routed catalog, resource and MCP commands. Every one of them is a
+ * worker command: `activeSessionId` is REQUIRED (a missing selector is the
+ * supervisor's "malformed <type> command" refusal, an unknown one is
+ * "Unknown active session: <id>"), and the worker answers "Session is still
+ * initializing" until the session is created.
+ * PA@v0.10.1 `crates/pa-types/src/daemon/command.rs:696-752`.
+ */
+export type DaemonGetModelCatalogCommand = { type: "get_model_catalog"; activeSessionId: string };
+export type DaemonGetAvailableModelsCommand = { type: "get_available_models"; activeSessionId: string };
+export type DaemonGetResourceSnapshotCommand = { type: "get_resource_snapshot"; activeSessionId: string };
+/** Rust only (no TS v0.9.8 counterpart). */
+export type DaemonGetMcpConnectionsCommand = { type: "get_mcp_connections"; activeSessionId: string };
+/** Rust only: the inline paste flow; `server` must be a pasteable catalog service. */
+export type DaemonSetMcpStaticTokenCommand = {
+	type: "set_mcp_static_token";
+	activeSessionId: string;
+	server: string;
+	token: string;
+};
+/** Rust only: drop one connection's credential and record together. */
+export type DaemonRemoveMcpConnectionCommand = {
+	type: "remove_mcp_connection";
+	activeSessionId: string;
+	server: string;
+};
+
 export type DaemonCommandBody =
 	| DaemonCreateCommand
 	| DaemonListCommand
@@ -274,6 +301,12 @@ export type DaemonCommandBody =
 	| DaemonKillCommand
 	| DaemonDeleteSavedSessionCommand
 	| DaemonAckResultCommand
+	| DaemonGetModelCatalogCommand
+	| DaemonGetAvailableModelsCommand
+	| DaemonGetResourceSnapshotCommand
+	| DaemonGetMcpConnectionsCommand
+	| DaemonSetMcpStaticTokenCommand
+	| DaemonRemoveMcpConnectionCommand
 	| { type: string; [key: string]: unknown };
 
 export type DaemonCommandEnvelope = {
@@ -319,6 +352,8 @@ export const READ_ONLY_DAEMON_COMMANDS: ReadonlySet<string> = new Set([
 	"get_system_prompt",
 	"get_rlm_max_depth_status",
 	"get_tool_definition",
+	// Rust only: the `/mcp` view read. Not in the TS list (v0.9.8 has no such command).
+	"get_mcp_connections",
 ]);
 
 export function createDaemonCommandEnvelope(
@@ -436,4 +471,326 @@ export function describeDaemonHello(hello: DaemonHelloFrame): string {
 	if (hello.schemaRevision !== undefined) parts.push(`schema ${hello.schemaRevision}`);
 	if (hello.runtime?.buildId) parts.push(hello.runtime.buildId);
 	return parts.join(", ");
+}
+
+// ---------------------------------------------------------------------------
+// Model catalog, resource snapshot and MCP connection payloads (`response.data`).
+// Field names mirror the Rust serde output exactly; `T | null` marks an
+// `Option` the daemon serializes without `skip_serializing_if` (always present),
+// `?:` marks one it omits when unset.
+// ---------------------------------------------------------------------------
+
+/** $/million tokens. PA@v0.10.1 `crates/pa-types/src/ai/mod.rs:656-664`. */
+export type DaemonModelCost = { input: number; output: number; cacheRead: number; cacheWrite: number };
+
+export type DaemonModelInput = "text" | "image";
+
+/**
+ * One model descriptor, `pa_types::ai::Model` (`crates/pa-types/src/ai/mod.rs:692-725`).
+ * `thinkingLevelMap` maps a thinking level to the provider value (`null` = unsupported).
+ */
+export type DaemonModel = {
+	id: string;
+	name: string;
+	api: string;
+	provider: string;
+	baseUrl: string;
+	reasoning: boolean;
+	thinkingLevelMap?: Record<string, string | null>;
+	input: DaemonModelInput[];
+	cost: DaemonModelCost;
+	contextWindow: number;
+	maxTokens: number;
+	/** Present (and `true`) only when `maxTokens` came from models.json. */
+	maxTokensExplicit?: boolean;
+	featured?: boolean;
+	headers?: Record<string, string>;
+	compat?: Record<string, unknown>;
+};
+
+/**
+ * `get_model_catalog`: every model (unauthorized private Prime Inference
+ * models removed), sorted by (provider, id), plus the sorted, deduplicated
+ * providers that have configured auth. Served from the current snapshot with no
+ * network; a background refresh broadcasts `model_catalog_changed` when it
+ * differs. PA@v0.10.1 `crates/pa-daemon/src/model_catalog.rs:22-55,103-136`.
+ */
+export type DaemonModelCatalog = { models: DaemonModel[]; configuredProviders: string[] };
+
+/** `get_available_models`: auth-configured models only. `crates/pa-daemon/src/state_getters.rs:266-283`. */
+export type DaemonAvailableModels = { models: DaemonModel[] };
+
+/** `pa_core::skills::SourceInfo` (`crates/pa-core/src/skills/mod.rs:28-50`). */
+export type DaemonResourceSourceInfo = {
+	path: string;
+	/** `auto` (discovered), `builtin`, or a package/CLI source label. */
+	source: string;
+	scope: "user" | "project" | "temporary";
+	origin: "package" | "topLevel";
+	baseDir: string | null;
+};
+
+/** `crates/pa-daemon/src/agent_engine/artifacts.rs:7-37`. */
+export type DaemonResourceArtifact = {
+	id: string;
+	sessionId: string;
+	type: "skill" | "prompt" | "context_file";
+	logicalPath: string;
+	/** Only when the file sits under the session cwd. */
+	relativePath?: string;
+};
+
+export type DaemonResourceSkill = {
+	name: string;
+	filePath: string;
+	sourceInfo: DaemonResourceSourceInfo;
+	description?: string;
+	artifact?: DaemonResourceArtifact;
+};
+
+export type DaemonResourcePrompt = {
+	name: string;
+	filePath: string;
+	sourceInfo: DaemonResourceSourceInfo;
+	description?: string;
+	argumentHint?: string;
+	artifact?: DaemonResourceArtifact;
+};
+
+export type DaemonResourceContextFile = { path: string; artifact?: DaemonResourceArtifact };
+
+/** `pa_core::skills::ResourceDiagnostic` (`crates/pa-core/src/skills/diagnostics.rs:5-32`). */
+export type DaemonResourceDiagnostic =
+	| { type: "warning" | "error"; message: string; path?: string }
+	| {
+			type: "collision";
+			message: string;
+			path: string;
+			collision: { resourceType: string; name: string; winnerPath: string; loserPath: string };
+	  };
+
+/**
+ * `get_resource_snapshot`. The session's core engine builds lazily, so before
+ * the first turn (or any command that builds it, e.g. `get_system_prompt`) the
+ * snapshot is the all-empty shape. `themes` is always empty on Rust.
+ * PA@v0.10.1 `crates/pa-daemon/src/agent_engine/session_engine_impl.rs:1105-1187`,
+ * `crates/pa-daemon/src/engine/wire.rs:290-302`.
+ */
+export type DaemonResourceSnapshot = {
+	contextFiles: DaemonResourceContextFile[];
+	skills: DaemonResourceSkill[];
+	prompts: DaemonResourcePrompt[];
+	themes: unknown[];
+	diagnostics: {
+		skills: DaemonResourceDiagnostic[];
+		prompts: DaemonResourceDiagnostic[];
+		themes: DaemonResourceDiagnostic[];
+	};
+};
+
+/** One `/mcp` roster row, `McpConnectionEntry` (`crates/pa-core/src/mcp/mod.rs:973-995`). */
+export type DaemonMcpConnectionEntry = {
+	server: string;
+	label: string;
+	connected: boolean;
+	usesOauth: boolean;
+	/** `subscription`, `api key`, or the transport for credential-less servers. */
+	authKind: string;
+	transport: string;
+	userDeclared: boolean;
+	generic: boolean;
+};
+
+/** `crates/pa-core/src/mcp/catalog_status_views.rs:12-21`. */
+export type DaemonMcpConnectionStatus =
+	| "connected"
+	| "pending"
+	| "not_connected"
+	| "setup_required"
+	| "disabled"
+	| "error";
+
+/** One service-catalog card, `McpPluginView` (`crates/pa-core/src/mcp/catalog_plugin_views.rs:25-59`). */
+export type DaemonMcpServiceView = {
+	serviceId: string;
+	label: string;
+	connectionStatus: DaemonMcpConnectionStatus;
+	connectable: boolean;
+	addAccountAllowed: boolean | null;
+	loginPending: boolean | null;
+	usesOauth: boolean;
+	source: "catalog" | "user" | "acp";
+	connectionIds: string[];
+	/** View-only marker: this row opens the inline paste panel (`set_mcp_static_token`). */
+	pasteToken: boolean | null;
+	aliases: string[] | null;
+	description: string | null;
+	category: string | null;
+	publisher: string | null;
+	docsUrl: string | null;
+	setupHint: string | null;
+	unverified: boolean | null;
+	/** Epoch ms from the connection record. */
+	verifiedAt: number | null;
+	toolCount: number | null;
+};
+
+/** A stored api-key slot the `/mcp` view manages (`catalog_plugin_views.rs:486-498`). */
+export type DaemonMcpCredentialView = { id: string; label: string; configured: boolean };
+
+/** `get_mcp_connections` (`crates/pa-daemon/src/mcp_connections.rs:28-87`). */
+export type DaemonMcpConnections = {
+	connections: DaemonMcpConnectionEntry[];
+	services: DaemonMcpServiceView[];
+	credentials: DaemonMcpCredentialView[];
+	catalogDiagnostics: string[];
+};
+
+/**
+ * `set_mcp_static_token`: the credential is stored (bound to `endpoint`) even
+ * when verification fails; `verified:false` + `error` (a fixed category such
+ * as `network-unreachable`, `unauthorized`, `credential-changed`) is still a
+ * successful response. `crates/pa-daemon/src/mcp_connections.rs:89-147`,
+ * `crates/pa-core/src/mcp/manager_catalog.rs:509-592`.
+ */
+export type DaemonSetMcpStaticTokenResult = {
+	server: string;
+	endpoint: string;
+	verified: boolean;
+	toolCount: number | null;
+	error: string | null;
+};
+
+/** `remove_mcp_connection`: `removed` reports the credential removal. `mcp_connections.rs:149-184`. */
+export type DaemonRemoveMcpConnectionResult = { server: string; removed: boolean };
+
+function isString(value: unknown): value is string {
+	return typeof value === "string";
+}
+
+function isNullable<T>(value: unknown, guard: (inner: unknown) => inner is T): value is T | null {
+	return value === null || guard(value);
+}
+
+function isBoolean(value: unknown): value is boolean {
+	return typeof value === "boolean";
+}
+
+function isNumber(value: unknown): value is number {
+	return typeof value === "number" && Number.isFinite(value);
+}
+
+function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): value is T[] {
+	return Array.isArray(value) && value.every(guard);
+}
+
+function isStringArray(value: unknown): value is string[] {
+	return isArrayOf(value, isString);
+}
+
+export function isDaemonModel(value: unknown): value is DaemonModel {
+	return (
+		isRecord(value) &&
+		isString(value.id) &&
+		isString(value.name) &&
+		isString(value.api) &&
+		isString(value.provider) &&
+		isString(value.baseUrl) &&
+		isBoolean(value.reasoning) &&
+		isStringArray(value.input) &&
+		isRecord(value.cost) &&
+		isNumber(value.contextWindow) &&
+		isNumber(value.maxTokens)
+	);
+}
+
+export function isDaemonModelCatalog(value: unknown): value is DaemonModelCatalog {
+	return isRecord(value) && isArrayOf(value.models, isDaemonModel) && isStringArray(value.configuredProviders);
+}
+
+export function isDaemonAvailableModels(value: unknown): value is DaemonAvailableModels {
+	return isRecord(value) && isArrayOf(value.models, isDaemonModel);
+}
+
+function isNamedResource(value: unknown): value is { name: string; filePath: string; sourceInfo: unknown } {
+	return isRecord(value) && isString(value.name) && isString(value.filePath) && isRecord(value.sourceInfo);
+}
+
+function isResourceDiagnostic(value: unknown): value is DaemonResourceDiagnostic {
+	return isRecord(value) && isString(value.type) && isString(value.message);
+}
+
+export function isDaemonResourceSnapshot(value: unknown): value is DaemonResourceSnapshot {
+	if (!isRecord(value) || !isRecord(value.diagnostics)) return false;
+	const diagnostics = value.diagnostics;
+	return (
+		isArrayOf(
+			value.contextFiles,
+			(file): file is DaemonResourceContextFile => isRecord(file) && isString(file.path),
+		) &&
+		isArrayOf(value.skills, isNamedResource) &&
+		isArrayOf(value.prompts, isNamedResource) &&
+		Array.isArray(value.themes) &&
+		isArrayOf(diagnostics.skills, isResourceDiagnostic) &&
+		isArrayOf(diagnostics.prompts, isResourceDiagnostic) &&
+		isArrayOf(diagnostics.themes, isResourceDiagnostic)
+	);
+}
+
+function isMcpConnectionEntry(value: unknown): value is DaemonMcpConnectionEntry {
+	return (
+		isRecord(value) &&
+		isString(value.server) &&
+		isString(value.label) &&
+		isBoolean(value.connected) &&
+		isBoolean(value.usesOauth) &&
+		isString(value.authKind) &&
+		isString(value.transport) &&
+		isBoolean(value.userDeclared) &&
+		isBoolean(value.generic)
+	);
+}
+
+function isMcpServiceView(value: unknown): value is DaemonMcpServiceView {
+	return (
+		isRecord(value) &&
+		isString(value.serviceId) &&
+		isString(value.label) &&
+		isString(value.connectionStatus) &&
+		isBoolean(value.connectable) &&
+		isBoolean(value.usesOauth) &&
+		isString(value.source) &&
+		isStringArray(value.connectionIds) &&
+		isNullable(value.pasteToken, isBoolean) &&
+		isNullable(value.toolCount, isNumber)
+	);
+}
+
+function isMcpCredentialView(value: unknown): value is DaemonMcpCredentialView {
+	return isRecord(value) && isString(value.id) && isString(value.label) && isBoolean(value.configured);
+}
+
+export function isDaemonMcpConnections(value: unknown): value is DaemonMcpConnections {
+	return (
+		isRecord(value) &&
+		isArrayOf(value.connections, isMcpConnectionEntry) &&
+		isArrayOf(value.services, isMcpServiceView) &&
+		isArrayOf(value.credentials, isMcpCredentialView) &&
+		isStringArray(value.catalogDiagnostics)
+	);
+}
+
+export function isDaemonSetMcpStaticTokenResult(value: unknown): value is DaemonSetMcpStaticTokenResult {
+	return (
+		isRecord(value) &&
+		isString(value.server) &&
+		isString(value.endpoint) &&
+		isBoolean(value.verified) &&
+		isNullable(value.toolCount, isNumber) &&
+		isNullable(value.error, isString)
+	);
+}
+
+export function isDaemonRemoveMcpConnectionResult(value: unknown): value is DaemonRemoveMcpConnectionResult {
+	return isRecord(value) && isString(value.server) && isBoolean(value.removed);
 }
