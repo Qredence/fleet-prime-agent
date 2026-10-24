@@ -7,20 +7,19 @@
  */
 import type { AgentSession, CreateAgentSessionRuntimeFactory } from "prime-agent";
 import {
-	AuthStorage,
 	createAgentSessionFromServices,
 	createAgentSessionRuntime,
 	createAgentSessionServices,
-	getAgentDir,
 	InProcessAgentConnection,
 	SessionManager,
 } from "prime-agent";
 import type { WebAgentConnection, WebAgentConnectionOptions } from "./daemon-runtime";
+import { createLegacyAuthStorage, legacyAgentDir } from "./legacy/prime-agent-sdk";
 
 export async function createInProcessTestAgentConnection(
 	options: WebAgentConnectionOptions,
 ): Promise<WebAgentConnection & { session: AgentSession }> {
-	const authStorage = AuthStorage.create();
+	const authStorage = createLegacyAuthStorage();
 	const createRuntime: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
 		const services = await createAgentSessionServices({
 			cwd,
@@ -52,7 +51,7 @@ export async function createInProcessTestAgentConnection(
 		: SessionManager.create(options.cwd);
 	const runtime = await createAgentSessionRuntime(createRuntime, {
 		cwd: options.cwd,
-		agentDir: getAgentDir(),
+		agentDir: legacyAgentDir(),
 		sessionManager,
 	});
 	const connection = new InProcessAgentConnection(runtime);

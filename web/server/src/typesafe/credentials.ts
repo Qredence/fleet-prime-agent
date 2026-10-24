@@ -13,13 +13,13 @@
  * into the provider list.
  */
 import type { ComposerIntentKeySource } from "@prime-agent/web-protocol/composer-intent";
-import type { ApiKeyCredential } from "prime-agent";
+import type { LegacyApiKeyCredential } from "../legacy/prime-agent-sdk";
 import { getPrimeConfig } from "../prime-config";
 
 /** Credential identifier. Not a model provider id, and never resolved as one. */
 export const TYPESAFE_CREDENTIAL_ID = "typesafe";
 
-function readCredential(): ApiKeyCredential | undefined {
+function readCredential(): LegacyApiKeyCredential | undefined {
 	try {
 		const credential = getPrimeConfig().authStorage.get(TYPESAFE_CREDENTIAL_ID);
 		return credential?.type === "api_key" ? credential : undefined;

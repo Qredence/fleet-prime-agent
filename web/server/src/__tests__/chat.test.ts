@@ -370,7 +370,6 @@ describe("handleChatNewPost", () => {
 		} as unknown as BridgeSession;
 
 		setBridgeForTests({
-			ensureKernelReady: vi.fn(async () => {}),
 			createSession: vi.fn(async () => session),
 			setModel,
 			getPresentation: vi.fn(() => ({
@@ -415,7 +414,6 @@ describe("handleChatNewPost", () => {
 				}) as unknown as BridgeSession,
 		);
 		setBridgeForTests({
-			ensureKernelReady: vi.fn(async () => {}),
 			createSession,
 			setModel: vi.fn(),
 			getPresentation: vi.fn(() => ({

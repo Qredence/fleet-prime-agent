@@ -1,0 +1,316 @@
+[
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "-reasoning-0",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Starting Python kernel..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Restoring Python state..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "Preparing Python runtime..."
+					}
+				],
+				"details": {
+					"status": "starting"
+				}
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ee10a8eb42864fb5892a473973f67368|fc_07d2c49639ec7e7e016adb32d30f2481919658dab1a603a2f4",
+			"state": "output-available",
+			"input": {
+				"code": "r = await bash(\"ls\")\nprint(r.output)\n"
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "README.md\nhello.py\nsrc\n\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 15,
+					"stdout": "README.md\nhello.py\nsrc\n\n",
+					"bashCommands": {
+						"first": "ls",
+						"count": 1,
+						"lines": 1
+					}
+				}
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "README.md\nhello.py\nsrc\n\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 15,
+					"stdout": "README.md\nhello.py\nsrc\n\n",
+					"bashCommands": {
+						"first": "ls",
+						"count": 1,
+						"lines": 1
+					}
+				}
+			},
+			"durationMs": 15
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "-reasoning-0",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_446a14674cb44127b24c4652625a371d|fc_07d2c49639ec7e7e016adb32d5cfa081919962229de7d50cd0",
+			"state": "input-streaming",
+			"input": {
+				"code": "print(6*7)"
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_446a14674cb44127b24c4652625a371d|fc_07d2c49639ec7e7e016adb32d5cfa081919962229de7d50cd0",
+			"state": "output-available",
+			"input": {
+				"code": "print(6*7)"
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "42\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 0,
+					"stdout": "42\n"
+				}
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "42\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 0,
+					"stdout": "42\n"
+				}
+			},
+			"durationMs": 0
+		}
+	},
+	{
+		"type": "reasoning",
+		"presentation": {
+			"runId": "",
+			"phase": "executing",
+			"steps": [
+				{
+					"id": "-reasoning-0",
+					"title": "Running selected tools",
+					"body": "Executing the selected agent actions."
+				}
+			],
+			"visibleSteps": 1,
+			"streaming": true,
+			"startedAt": 1767225600000,
+			"elapsedMs": 0,
+			"restingLabel": "Completed selected actions"
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ab10448c848146bc8c99d189f4afbdb6|fc_07d2c49639ec7e7e016adb32f733208191bba6ba4c43c9e7cb",
+			"state": "input-streaming",
+			"input": {
+				"code": "r = await bash(\"ls -1 src\")\nprint(r.output)"
+			}
+		}
+	},
+	{
+		"type": "tool",
+		"part": {
+			"type": "tool-IPython",
+			"category": "kernel",
+			"toolName": "python_repl",
+			"toolCallId": "call_ab10448c848146bc8c99d189f4afbdb6|fc_07d2c49639ec7e7e016adb32f733208191bba6ba4c43c9e7cb",
+			"state": "output-available",
+			"input": {
+				"code": "r = await bash(\"ls -1 src\")\nprint(r.output)"
+			},
+			"output": {
+				"content": [
+					{
+						"type": "text",
+						"text": "index.ts\n\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 59,
+					"stdout": "index.ts\n\n",
+					"bashCommands": {
+						"first": "ls -1 src",
+						"count": 1,
+						"lines": 1
+					}
+				}
+			},
+			"result": {
+				"content": [
+					{
+						"type": "text",
+						"text": "index.ts\n\n"
+					}
+				],
+				"details": {
+					"status": "ok",
+					"kernelRestarted": false,
+					"durationMs": 59,
+					"stdout": "index.ts\n\n",
+					"bashCommands": {
+						"first": "ls -1 src",
+						"count": 1,
+						"lines": 1
+					}
+				}
+			},
+			"durationMs": 59
+		}
+	}
+]

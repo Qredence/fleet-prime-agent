@@ -3,10 +3,11 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentConnection, AgentConnectionEvent, AgentSession } from "prime-agent";
-import { IpythonKernelProvisioner, SessionManager } from "prime-agent";
+import { SessionManager } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runtimeHostFor } from "../connection-runtime";
 import type { listDaemonSessions } from "../daemon-runtime";
+import type { DaemonSequenceGap } from "../daemon-sequence-gap";
 import { createInProcessTestAgentConnection } from "../in-process-test-connection";
 import { loadManagedPrimePresentation, writeManagedPrimePresentation } from "../prime-agent-presentation";
 import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
@@ -67,37 +68,6 @@ describe("PrimeBridge", () => {
 		expect(Array.isArray(sessions)).toBe(true);
 	});
 
-	it("kernelReadyState is not-started until ensureKernelReady", () => {
-		const bridge = createTestBridge();
-		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "not-started" });
-	});
-
-	it("kernelReadyState moves from pending to settled after ensureKernelReady", async () => {
-		let settle!: () => void;
-		const gate = new Promise<void>((resolve) => {
-			settle = resolve;
-		});
-		vi.spyOn(IpythonKernelProvisioner.prototype, "ensure").mockReturnValue(gate as never);
-
-		const bridge = new PrimeBridge({ kernelTimeoutMs: 30_000 });
-		const boot = bridge.ensureKernelReady();
-		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "pending" });
-
-		settle();
-		await boot;
-		expect(bridge.kernelReadyState()).toEqual({ ok: true });
-	});
-
-	it("kernelReadyState records ensure failure", async () => {
-		vi.spyOn(IpythonKernelProvisioner.prototype, "ensure").mockRejectedValue(new Error("no kernel"));
-
-		const bridge = new PrimeBridge({ kernelTimeoutMs: 30_000 });
-		const boot = bridge.ensureKernelReady();
-		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "pending" });
-		await expect(boot).rejects.toThrow("no kernel");
-		expect(bridge.kernelReadyState()).toEqual({ ok: false, reason: "no kernel" });
-	});
-
 	it("answerDialog returns false for unknown toolCallId", () => {
 		const bridge = createTestBridge();
 		expect(bridge.answerDialog("session-1", "toolCall-unknown", { kind: "skip" })).toBe(false);
@@ -154,7 +124,6 @@ describe("PrimeBridge session-tree navigation", () => {
 
 	async function createLiveSession() {
 		bridge = createTestBridge();
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const session = await bridge.createSession({ cwd: workDir });
 		return { bridge, session };
 	}
@@ -283,11 +252,10 @@ describe("PrimeBridge.forkSession", () => {
 		vi.restoreAllMocks();
 	});
 
-	/** Real hermetic session: tmp agent dir, kernel prewarm stubbed out. */
+	/** Real hermetic session: tmp agent dir. */
 	function createTestSession(
 		bridge: PrimeBridge,
 	): Promise<{ session: AgentSession } & Awaited<ReturnType<PrimeBridge["createSession"]>>> {
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		return bridge.createSession({ cwd: workDir }) as Promise<
 			{ session: AgentSession } & Awaited<ReturnType<PrimeBridge["createSession"]>>
 		>;
@@ -710,6 +678,44 @@ describe("PrimeBridge.forkSession", () => {
 		);
 	});
 
+	it("forks daemon-backed sessions through forkToNewSession instead of a side SessionManager", async () => {
+		const forkCalls: Array<{ entryId: string; position: string }> = [];
+		const bridge = new PrimeBridge({
+			sessionLister: async () => [],
+			connectionFactory: async (options) => {
+				const webAgent = await createInProcessTestAgentConnection(options);
+				return {
+					...webAgent,
+					// Stands in for the daemon `fork` command: the runtime writes the branch.
+					forkToNewSession: async (entryId: string, position: "before" | "at") => {
+						forkCalls.push({ entryId, position });
+						const sourceFile = webAgent.session.sessionManager.getSessionFile();
+						if (!sourceFile) throw new Error("unpersisted");
+						const entry = webAgent.session.sessionManager.getEntry(entryId);
+						const side = SessionManager.open(sourceFile, dirname(sourceFile));
+						const sessionPath = side.createBranchedSession(entry?.parentId ?? entryId);
+						if (!sessionPath) throw new Error("no fork");
+						side.flushNow();
+						return { cancelled: false as const, selectedText: "from-daemon", sessionPath };
+					},
+				};
+			},
+		});
+		const created = await createTestSession(bridge);
+		appendTurn(bridge, created.sessionId, "first question", "first answer");
+		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
+
+		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
+
+		expect(forkCalls).toEqual([{ entryId: userEntryId, position: "before" }]);
+		expect(result.cancelled).toBe(false);
+		expect(result.selectedText).toBe("from-daemon");
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
+		const forked = requireLiveSession(bridge, result.newSessionId);
+		const messages = conversationMessages(forked.session.sessionManager.buildSessionContext().messages);
+		expect((messages[0] as { content: string }).content).toBe("first question");
+	});
+
 	it("keeps the source session untouched and running after the fork", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
@@ -807,6 +813,194 @@ describe("PrimeBridge.forkSession", () => {
 		await expect(bridge.forkSession(created.sessionId, "missing-entry", "before")).rejects.toThrow(
 			"Invalid entry ID for forking",
 		);
+	});
+});
+
+describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-gap-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-gap-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+		return () => {
+			rmSync(workDir, { recursive: true, force: true });
+			rmSync(agentDir, { recursive: true, force: true });
+		};
+	});
+
+	afterEach(() => {
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		vi.restoreAllMocks();
+	});
+
+	function createTestSession(bridge: PrimeBridge): ReturnType<PrimeBridge["createSession"]> {
+		return bridge.createSession({ cwd: workDir });
+	}
+
+	/**
+	 * Wraps the in-process connection like the daemon runtime: exposes
+	 * `onSequenceGap`, captures the bridge's subscribe listener so tests can
+	 * inject daemon events, and optionally overrides the attach snapshot.
+	 */
+	function createGapAwareFactory(overrides: { messages?: () => unknown[]; streamingMessage?: unknown }): {
+		factory: NonNullable<PrimeBridgeOptions["connectionFactory"]>;
+		emitGap: () => void;
+		emitEvent: (event: AgentConnectionEvent) => void;
+		snapshotCalls: () => number;
+	} {
+		const gapListeners = new Set<(gap: DaemonSequenceGap) => void>();
+		const eventListeners = new Set<(event: AgentConnectionEvent) => void>();
+		let snapshotCount = 0;
+		const factory: NonNullable<PrimeBridgeOptions["connectionFactory"]> = async (options) => {
+			const webAgent = await createInProcessTestAgentConnection(options);
+			const inner = webAgent.connection;
+			const connection = new Proxy(inner, {
+				get(target, property) {
+					if (property === "subscribe") {
+						return (listener: (event: AgentConnectionEvent) => void) => {
+							eventListeners.add(listener);
+							const off = target.subscribe(listener);
+							return () => {
+								eventListeners.delete(listener);
+								off();
+							};
+						};
+					}
+					if (property === "getMessages" && overrides.messages) {
+						return async () => overrides.messages?.();
+					}
+					if (property === "getInitialSnapshot") {
+						return async () => {
+							snapshotCount += 1;
+							const snapshot = await target.getInitialSnapshot();
+							return {
+								...snapshot,
+								...(overrides.messages ? { messages: overrides.messages() } : {}),
+								...(overrides.streamingMessage ? { streamingMessage: overrides.streamingMessage } : {}),
+							};
+						};
+					}
+					const value = Reflect.get(target, property);
+					return typeof value === "function" ? value.bind(target) : value;
+				},
+			}) as AgentConnection;
+			return {
+				...webAgent,
+				connection,
+				onSequenceGap: (listener: (gap: DaemonSequenceGap) => void) => {
+					gapListeners.add(listener);
+					return () => {
+						gapListeners.delete(listener);
+					};
+				},
+			};
+		};
+		return {
+			factory,
+			emitGap: () => {
+				for (const listener of [...gapListeners]) {
+					listener({
+						activeSessionId: "rt-1",
+						generation: "gen-1",
+						lastSequence: 4,
+						receivedSequence: 7,
+						missing: 2,
+					});
+				}
+			},
+			emitEvent: (event) => {
+				for (const listener of [...eventListeners]) listener(event);
+			},
+			snapshotCalls: () => snapshotCount,
+		};
+	}
+
+	it("resyncs from a fresh snapshot on a daemon sequence gap (done with sessionReset)", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = new PrimeBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const before = harness.snapshotCalls();
+		const cursor = bridge.replaySince(created.sessionId, 0).replayed.at(-1)?.seq ?? 0;
+
+		harness.emitGap();
+		harness.emitGap(); // coalesces into the in-flight resync's follow-up
+		harness.emitGap();
+		await vi.waitFor(() => {
+			const done = bridge
+				.replaySince(created.sessionId, cursor)
+				.replayed.map((entry) => entry.event as { type: string; sessionReset?: boolean; sessionId?: string })
+				.filter((frame) => frame.type === "done");
+			expect(done.length).toBeGreaterThanOrEqual(1);
+			expect(done.every((frame) => frame.sessionReset === true)).toBe(true);
+			expect(done[0]?.sessionId).toBe(created.sessionId);
+		});
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		// One resync for the first gap plus at most one coalesced follow-up.
+		expect(harness.snapshotCalls() - before).toBeLessThanOrEqual(2);
+	});
+
+	it("stops resyncing on gaps once the session is deleted", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = new PrimeBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		await bridge.deleteSession(created.sessionId);
+		const before = harness.snapshotCalls();
+		harness.emitGap();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(harness.snapshotCalls()).toBe(before);
+	});
+
+	it("resolves the tool name for a mid-tool attach from the attach snapshot", async () => {
+		const toolCallMessage = {
+			role: "assistant",
+			content: [{ type: "toolCall", id: "call_mid_1", name: "bash", arguments: { command: "ls -la" } }],
+			api: "openai-responses",
+			provider: "openai",
+			model: "gpt-test",
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: "toolUse",
+			timestamp: Date.now(),
+		};
+		// The in-flight assistant message exists only on the snapshot
+		// (streamingMessage), not in getMessages().
+		const harness = createGapAwareFactory({ messages: () => [], streamingMessage: toolCallMessage });
+		const bridge = new PrimeBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const cursor = bridge.replaySince(created.sessionId, 0).replayed.at(-1)?.seq ?? 0;
+
+		// The daemon's tool_execution_end carries no toolName (Rust protocol 7).
+		harness.emitEvent({
+			type: "session_event",
+			event: {
+				type: "tool_execution_end",
+				toolCallId: "call_mid_1",
+				result: { content: [{ type: "text", text: "total 0" }] },
+				isError: false,
+			},
+		} as unknown as AgentConnectionEvent);
+
+		const toolFrames = bridge
+			.replaySince(created.sessionId, cursor)
+			.replayed.map((entry) => entry.event as { type: string; part?: { toolName?: string; input?: unknown } })
+			.filter((frame) => frame.type === "tool");
+		expect(toolFrames).toHaveLength(1);
+		expect(toolFrames[0]?.part?.toolName).toBe("bash");
+		expect(toolFrames[0]?.part?.input).toEqual({ command: "ls -la" });
 	});
 });
 
@@ -952,7 +1146,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const childDir = join(workDir, "rlm-child-store");
 		const childManager = SessionManager.create(workDir, childDir);
@@ -1003,7 +1196,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const childManager = SessionManager.create(workDir, join(workDir, "rlm-active-parent-child-store"));
 		const childPath = childManager.materializeSessionFile();
@@ -1054,7 +1246,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const source = await bridge.createSession({ cwd: workDir });
 		const sourceSessionManager = source.session?.sessionManager;
 		if (!sourceSessionManager) throw new Error("test adapter did not expose the source session manager");
@@ -1119,7 +1310,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const parentChildManager = SessionManager.create(workDir, join(workDir, "rlm-parent-child-store"));
 		const parentChildPath = parentChildManager.materializeSessionFile();
@@ -1182,7 +1372,6 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		parent.mapperState.presentation = {
 			...parent.mapperState.presentation,
@@ -1269,7 +1458,6 @@ describe("PrimeBridge.openRlmChildStream", () => {
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
 		bridges.push(bridge);
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const childManager = SessionManager.create(workDir, join(workDir, `rlm-${status}-child-store`));
 		const childPath = childManager.materializeSessionFile();
@@ -1297,6 +1485,55 @@ describe("PrimeBridge.openRlmChildStream", () => {
 		});
 		return { bridge, childManager, childSessionId, parent, listedSessions };
 	}
+
+	it("keeps the persistent session key when session_binding re-points the child runtime", async () => {
+		const { bridge, parent, childSessionId, listedSessions } = await createAuthorizedChild();
+		const watchSession = vi
+			.spyOn(parent.connection, "watchSession")
+			.mockImplementation(async () => createChildWatcher().watcher);
+
+		const first = await bridge.openRlmChildStream(parent.sessionId, "child-1");
+		expect(first?.sessionId).toBe(childSessionId);
+		expect(first?.snapshot.session.sessionId).toBe(childSessionId);
+		await first?.release();
+
+		// session_binding: same persisted session, new runtime id.
+		listedSessions[0] = { ...listedSessions[0], id: "rebound-runtime", activeSessionId: "rebound-runtime" };
+		parent.mapperState.presentation = {
+			...parent.mapperState.presentation,
+			rlmChildren: parent.mapperState.presentation.rlmChildren.map((child) => ({
+				...child,
+				activeSessionId: "rebound-runtime",
+			})),
+		};
+		const second = await bridge.openRlmChildStream(parent.sessionId, "child-1");
+		expect(watchSession).toHaveBeenLastCalledWith("rebound-runtime");
+		expect(second?.sessionId).toBe(childSessionId);
+		expect(second?.snapshot.session.sessionId).toBe(childSessionId);
+		await second?.release();
+	});
+
+	it("never keys a child stream by the runtime id when the summary lacks sessionId", async () => {
+		const { bridge, parent, childSessionId, listedSessions } = await createAuthorizedChild();
+		vi.spyOn(parent.connection, "watchSession").mockImplementation(async () => createChildWatcher().watcher);
+		vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+		// Active-session summary without sessionId (`id` is the runtime id): the
+		// persisted session file header supplies Fleet's id.
+		listedSessions[0] = { ...listedSessions[0], id: "active-child-runtime", sessionId: "" };
+		const fromFile = await bridge.openRlmChildStream(parent.sessionId, "child-1");
+		expect(fromFile?.sessionId).toBe(childSessionId);
+		expect(JSON.stringify(fromFile?.snapshot)).not.toContain("active-child-runtime");
+		await fromFile?.release();
+
+		// Nothing persistent at all: skip the stream instead of leaking the runtime id.
+		const control = createChildWatcher();
+		vi.spyOn(parent.connection, "watchSession").mockResolvedValue(control.watcher);
+		const { sessionFile: _omitted, ...withoutFile } = listedSessions[0] as Record<string, unknown>;
+		listedSessions[0] = withoutFile;
+		await expect(bridge.openRlmChildStream(parent.sessionId, "child-1")).resolves.toBeUndefined();
+		expect(control.close).toHaveBeenCalledOnce();
+	});
 
 	it("creates one watcher for concurrent opens and closes it after the final release", async () => {
 		const { bridge, parent } = await createAuthorizedChild();
@@ -1504,7 +1741,6 @@ describe("PrimeBridge.promptRlmChild", () => {
 		);
 		const bridge = createTestBridge({ sessionLister, childPromptStarter });
 		bridges.push(bridge);
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		parent.mapperState.presentation = {
 			...parent.mapperState.presentation,
@@ -1519,8 +1755,20 @@ describe("PrimeBridge.promptRlmChild", () => {
 			rlmChildId: "child-1",
 		});
 		const settlePrompt = (index = 0) => releaseGates[index]?.();
-		return { bridge, parent, starterCalls, abortCalls, settlePrompt };
+		return { bridge, parent, starterCalls, abortCalls, settlePrompt, listedSessions };
 	}
+
+	it("rejects a child prompt rather than reporting the runtime id when no persistent id resolves", async () => {
+		const { bridge, parent, starterCalls, listedSessions } = await createPromptableChild();
+		// Daemon summary without sessionId: `id` is the runtime id for active sessions.
+		listedSessions[0] = { ...listedSessions[0], id: "active-child-runtime", sessionId: "" };
+		vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+		await expect(bridge.promptRlmChild(parent.sessionId, "child-1", "hi")).rejects.toThrow(
+			"Subagent thread has no persistent session id: child-1",
+		);
+		expect(starterCalls).toHaveLength(0);
+	});
 
 	it("prompts the authorized child session and reports its canonical ids", async () => {
 		const { bridge, parent, starterCalls, settlePrompt } = await createPromptableChild();
@@ -1602,7 +1850,6 @@ describe("PrimeBridge.setModel fallback", () => {
 	it("falls back to the first available model of a known provider", async () => {
 		const bridge = createTestBridge();
 		bridges.push(bridge);
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const registry = getPrimeConfig().modelRegistry;
 		vi.spyOn(registry, "find").mockReturnValue(undefined);
@@ -1623,7 +1870,6 @@ describe("PrimeBridge.setModel fallback", () => {
 	it("still throws when the provider itself is unknown", async () => {
 		const bridge = createTestBridge();
 		bridges.push(bridge);
-		vi.spyOn(bridge, "ensureKernelReady").mockResolvedValue(undefined);
 		const parent = await bridge.createSession({ cwd: workDir });
 		const registry = getPrimeConfig().modelRegistry;
 		vi.spyOn(registry, "find").mockReturnValue(undefined);

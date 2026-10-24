@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { OpenUIPromptMode } from "@prime-agent/web-protocol";
@@ -8,13 +8,28 @@ import {
 	type AgentConnection,
 	type AgentSession,
 	type AgentSessionRuntimeConfig,
-	DAEMON_PROTOCOL_NAME,
-	DAEMON_PROTOCOL_VERSION,
 	DaemonAgentConnection,
 	DaemonClient,
-	defaultDaemonSocketPath,
 	type SessionSummary,
 } from "prime-agent";
+import {
+	DAEMON_PROTOCOL_NAME,
+	DAEMON_PROTOCOL_VERSION,
+	type DaemonCreateCommand,
+	type DaemonForkResult,
+	type DaemonHelloFrame,
+	type DaemonSavedSessionPage,
+	type DaemonSessionBindingFrame,
+	describeDaemonHello,
+	isCompatibleDaemonHello,
+	isDaemonHelloFrame,
+	isDaemonModelCatalogChangedFrame,
+	isDaemonSavedSessionInfo,
+	isDaemonSessionBindingFrame,
+	isDaemonSessionSummary,
+} from "./daemon-protocol";
+import { createDaemonSequenceGapTracker, type DaemonSequenceGap } from "./daemon-sequence-gap";
+import { DaemonSocketClient } from "./daemon-socket-client";
 import { getPrimeConfig } from "./prime-config";
 
 const DAEMON_STARTUP_TIMEOUT_MS = 30_000;
@@ -48,7 +63,25 @@ export type WebAgentConnection = {
 	terminate?: () => Promise<void>;
 	/** Delete a persisted session through the daemon catalog, without an active-session context. */
 	deleteSessionFile?: (sessionPath: string) => ReturnType<AgentConnection["deleteSavedSession"]>;
+	/**
+	 * Branch the live session at `entryId` into a NEW persisted session through
+	 * the daemon `fork` command, then restore the source in its own worker.
+	 * Resolves with the forked transcript path; the caller opens it.
+	 */
+	forkToNewSession?: (entryId: string, position: "before" | "at") => Promise<DaemonForkToNewSessionResult>;
+	/** Observe Rust `session_binding` rebinds of this connection's active id. */
+	onSessionBinding?: (listener: (binding: DaemonSessionBindingFrame) => void) => () => void;
+	/**
+	 * Observe `meta.sequence` gaps (lost daemon events) for this connection's
+	 * active session, detected on the raw frame channel (daemon-sequence-gap.ts).
+	 * The bridge answers with a snapshot resync.
+	 */
+	onSequenceGap?: (listener: (gap: DaemonSequenceGap) => void) => () => void;
 };
+
+export type DaemonForkToNewSessionResult =
+	| { cancelled: true; selectedText?: string }
+	| { cancelled: false; selectedText?: string; sessionPath: string };
 
 export type WebAgentConnectionFactory = (options: WebAgentConnectionOptions) => Promise<WebAgentConnection>;
 
@@ -88,15 +121,50 @@ function daemonCliEntrypoint(): string {
 	return resolve(dirname(runtimeEntry), "bundle", "cli.js");
 }
 
-type DaemonHello = Awaited<ReturnType<DaemonClient["waitForHello"]>>;
+/**
+ * Opt-in native Prime Agent binary (v0.10.x Rust). When set, Fleet spawns
+ * `<bin> --mode daemon --daemon-socket <socket>` directly and never runs the
+ * npm migration launcher (which may download an installer).
+ */
+export const NATIVE_DAEMON_BINARY_ENV = "FLEET_PRIME_AGENT_BIN";
+
+/** The agent state dir env var both the TS and Rust runtimes honor. */
+export const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
+
+export function daemonSpawnCommand(
+	socketPath: string,
+	environment: NodeJS.ProcessEnv = process.env,
+): { command: string; args: string[] } {
+	const nativeBinary = environment[NATIVE_DAEMON_BINARY_ENV];
+	if (nativeBinary) return { command: nativeBinary, args: ["--mode", "daemon", "--daemon-socket", socketPath] };
+	return {
+		command: process.execPath,
+		args: [daemonCliEntrypoint(), "--mode", "daemon", "--daemon-socket", socketPath],
+	};
+}
+
+/**
+ * The shared per-user daemon socket, identical for the TS and Rust daemons:
+ * `$TMPDIR/prime-agent-<uid>/daemon.sock` (PA@v0.10.1 `crates/pa-daemon/src/platform/paths.rs`).
+ */
+export function defaultDaemonSocketPath(): string {
+	if (process.platform === "win32") return "\\\\.\\pipe\\prime-agent-daemon";
+	const suffix = typeof process.getuid === "function" ? String(process.getuid()) : "user";
+	return join(tmpdir(), `prime-agent-${suffix}`, "daemon.sock");
+}
 
 /**
  * The default daemon socket can already be owned by a daemon started outside
- * Fleet. Accept only the exact protocol identity pinned by this runtime so a
- * newer or unrelated daemon is never mistaken for the pinned one.
+ * Fleet. Accept only protocol 7 / schema revision 30 (the pinned TS v0.9.8
+ * daemon or the Rust v0.10.1 daemon) so an unrelated daemon is never mistaken
+ * for a compatible one.
  */
-function matchesPinnedDaemon(hello: DaemonHello): boolean {
-	return hello.protocol.name === DAEMON_PROTOCOL_NAME && hello.protocol.version === DAEMON_PROTOCOL_VERSION;
+function matchesPinnedDaemon(hello: unknown): hello is DaemonHelloFrame {
+	return isDaemonHelloFrame(hello) && isCompatibleDaemonHello(hello);
+}
+
+function describeHello(hello: unknown): string {
+	return isDaemonHelloFrame(hello) ? describeDaemonHello(hello) : "an unrecognized hello";
 }
 
 type DaemonProbeResult =
@@ -105,14 +173,14 @@ type DaemonProbeResult =
 	| { status: "unreachable" };
 
 async function probeDaemon(socketPath: string): Promise<DaemonProbeResult> {
-	const client = new DaemonClient(socketPath);
+	const client = new DaemonSocketClient(socketPath);
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
 		if (matchesPinnedDaemon(hello)) return { status: "compatible" };
 		return {
 			status: "incompatible",
-			detail: `found ${hello.protocol.name}@${hello.protocol.version}, expected ${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}`,
+			detail: `found ${describeHello(hello)}, expected ${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}`,
 		};
 	} catch {
 		return { status: "unreachable" };
@@ -131,11 +199,14 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 		);
 	}
 
-	const child = spawn(process.execPath, [daemonCliEntrypoint(), "--mode", "daemon", "--daemon-socket", socketPath], {
+	const { command, args } = daemonSpawnCommand(socketPath);
+	const child = spawn(command, args, {
 		cwd: spawnCwd,
 		detached: true,
 		stdio: "ignore",
-		env: { ...process.env },
+		// Sessions no longer carry `config.agentDir` (Rust ignores it), so the
+		// daemon itself is pinned to Fleet's agent dir.
+		env: { ...process.env, [AGENT_DIR_ENV]: process.env[AGENT_DIR_ENV] || getPrimeConfig().agentDir },
 	});
 	child.unref();
 
@@ -175,7 +246,7 @@ async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonClient; 
 		if (!matchesPinnedDaemon(hello)) {
 			throw new Error(
 				`Refusing to attach to the Prime Agent daemon at ${socketPath}: expected protocol ` +
-					`${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}, found ${hello.protocol.name}@${hello.protocol.version}`,
+					`${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}, found ${describeHello(hello)}`,
 			);
 		}
 		return { client, socketPath };
@@ -185,76 +256,260 @@ async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonClient; 
 	}
 }
 
-function isSessionSummary(value: unknown): value is SessionSummary {
-	if (!value || typeof value !== "object") return false;
-	const candidate = value as { id?: unknown; sessionId?: unknown; cwd?: unknown };
-	return (
-		typeof candidate.id === "string" && typeof candidate.sessionId === "string" && typeof candidate.cwd === "string"
+/**
+ * Run supervisor-level commands over Fleet's own protocol-7 socket client
+ * (no `prime-agent` client library involved).
+ */
+async function withDaemonSupervisor<T>(
+	cwd: string,
+	run: (client: DaemonSocketClient) => Promise<T>,
+	socketPath = defaultDaemonSocketPath(),
+): Promise<T> {
+	await ensureFleetDaemonRunning(cwd, socketPath);
+	const client = new DaemonSocketClient(socketPath);
+	try {
+		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
+		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
+		if (!matchesPinnedDaemon(hello)) {
+			throw new Error(`Refusing to use the Prime Agent daemon at ${socketPath}: found ${describeHello(hello)}`);
+		}
+		return await run(client);
+	} finally {
+		client.close();
+	}
+}
+
+/**
+ * The `create` command Fleet sends for every web session.
+ *
+ * - `telemetryDisabled: true` rides at the TOP level: that is the only flag the
+ *   Rust v0.10.1 supervisor honors (`crates/pa-daemon/src/supervisor/worker_lifecycle.rs:334-336`).
+ *   The config-level copy stays for the TS v0.9.8 supervisor, which reads only
+ *   `config.telemetryDisabled` (`daemon-supervisor.js:2935`); each runtime
+ *   ignores the other's key.
+ * - `config.agentDir` is not sent (Rust ignores it); the daemon process is
+ *   pinned to Fleet's agent dir through `PRIME_AGENT_CODING_AGENT_DIR` instead.
+ * - `continueRecent` is never sent (Rust refuses it).
+ */
+export function buildDaemonCreateCommand(options: {
+	cwd: string;
+	sessionDir: string;
+	sessionPath?: string;
+	thinkingLevel?: AgentSessionRuntimeConfig["thinking"];
+	openUIPrompt: WebAgentConnectionOptions["openUIPrompt"];
+}): DaemonCreateCommand {
+	return {
+		type: "create",
+		...(options.sessionPath ? { sessionPath: options.sessionPath } : {}),
+		telemetryDisabled: true,
+		config: {
+			cwd: options.cwd,
+			sessionDir: options.sessionDir,
+			telemetryDisabled: true,
+			...(options.thinkingLevel ? { thinking: options.thinkingLevel } : {}),
+			...(options.openUIPrompt.enabled ? { appendSystemPrompt: [options.openUIPrompt.prompt] } : {}),
+		},
+		lifecycle: "resident",
+	};
+}
+
+export type CreatedDaemonSession = { activeSessionId: string; sessionPath?: string };
+
+/** Create a resident daemon session; the worker is attached separately. */
+export async function createDaemonSession(
+	options: WebAgentConnectionOptions,
+	socketPath = defaultDaemonSocketPath(),
+): Promise<CreatedDaemonSession> {
+	const command = buildDaemonCreateCommand({
+		cwd: options.cwd,
+		sessionDir: sessionDirectoryForCwd(options.cwd),
+		...(options.sessionPath ? { sessionPath: options.sessionPath } : {}),
+		...(options.thinkingLevel ? { thinkingLevel: options.thinkingLevel } : {}),
+		openUIPrompt: options.openUIPrompt,
+	});
+	return withDaemonSupervisor(
+		options.cwd,
+		async (client) => {
+			const response = await client.request(command);
+			if (!response.success || !isDaemonSessionSummary(response.data)) {
+				throw new Error(response.success ? "The Prime Agent daemon returned an invalid session" : response.error);
+			}
+			const sessionPath = response.data.sessionFile ?? options.sessionPath;
+			return {
+				activeSessionId: response.data.activeSessionId ?? response.data.id,
+				...(sessionPath ? { sessionPath } : {}),
+			};
+		},
+		socketPath,
 	);
 }
 
-function runtimeConfig(
-	cwd: string,
-	thinkingLevel: AgentSessionRuntimeConfig["thinking"] | undefined,
-	openUIPrompt: WebAgentConnectionOptions["openUIPrompt"],
-): AgentSessionRuntimeConfig {
-	const sessionDir = sessionDirectoryForCwd(cwd);
-	return {
-		cwd,
-		agentDir: getPrimeConfig().agentDir,
-		sessionDir,
-		telemetryDisabled: true,
-		...(thinkingLevel ? { thinking: thinkingLevel } : {}),
-		...(openUIPrompt.enabled ? { appendSystemPrompt: [openUIPrompt.prompt] } : {}),
-	};
-}
+type DaemonFrameHook = (frame: unknown) => void;
 
 type OpenedDaemonConnection = {
 	connection: AgentConnection;
 	activeSessionId: string;
 	sessionPath?: string;
+	/** Raw daemon frames seen by this connection's socket (session_binding, model_catalog_changed). */
+	onFrame: (hook: DaemonFrameHook) => () => void;
+	/**
+	 * Sequence gaps on this socket. The tracker subscribes before `attach`, so
+	 * the attach/snapshot baseline is observed and events dropped between the
+	 * snapshot and subscription are caught.
+	 */
+	onSequenceGap: (hook: (gap: DaemonSequenceGap) => void) => () => void;
 };
 
 async function openDaemonConnection(options: WebAgentConnectionOptions): Promise<OpenedDaemonConnection> {
+	const created = await createDaemonSession(options);
 	const { client, socketPath } = await connectFleetDaemon(options.cwd);
+	let unsubscribeGapTracker: () => void = () => undefined;
 	try {
-		const response = await client.request({
-			type: "create",
-			...(options.sessionPath ? { sessionPath: options.sessionPath } : {}),
-			config: runtimeConfig(options.cwd, options.thinkingLevel, options.openUIPrompt),
-			lifecycle: "resident",
+		const unsubscribeCatalog = client.onMessage((frame: unknown) => {
+			if (isDaemonModelCatalogChangedFrame(frame)) notifyDaemonModelCatalogChanged();
 		});
-		if (!response.success || !isSessionSummary(response.data)) {
-			throw new Error(response.success ? "The Prime Agent daemon returned an invalid session" : response.error);
-		}
-		const activeSessionId = response.data.activeSessionId ?? response.data.id;
-		const connection = await DaemonAgentConnection.attach(client, activeSessionId, {
+		const gapHooks = new Set<(gap: DaemonSequenceGap) => void>();
+		const gapTracker = createDaemonSequenceGapTracker((gap) => {
+			for (const hook of [...gapHooks]) {
+				try {
+					hook(gap);
+				} catch {
+					// Hook failures stay local.
+				}
+			}
+		});
+		unsubscribeGapTracker = client.onMessage((frame: unknown) => {
+			gapTracker.observe(frame);
+		});
+		const connection = await DaemonAgentConnection.attach(client, created.activeSessionId, {
 			closeClientOnDispose: true,
 			recoverDaemon: () => ensureFleetDaemonRunning(options.cwd, socketPath),
 			sendClientEnv: false,
 			supportsExtensionUi: true,
 		});
+		const dispose = connection.dispose.bind(connection);
+		connection.dispose = async () => {
+			unsubscribeCatalog();
+			unsubscribeGapTracker();
+			gapHooks.clear();
+			await dispose();
+		};
 		return {
 			connection,
-			activeSessionId,
-			...(response.data.sessionFile || options.sessionPath
-				? { sessionPath: response.data.sessionFile ?? options.sessionPath }
-				: {}),
+			activeSessionId: created.activeSessionId,
+			...(created.sessionPath ? { sessionPath: created.sessionPath } : {}),
+			onFrame: (hook) => client.onMessage((frame: unknown) => hook(frame)),
+			onSequenceGap: (hook) => {
+				gapHooks.add(hook);
+				return () => {
+					gapHooks.delete(hook);
+				};
+			},
 		};
 	} catch (error) {
+		unsubscribeGapTracker();
 		client.close();
 		throw error;
 	}
 }
 
 async function killDaemonSession(cwd: string, activeSessionId: string): Promise<void> {
-	const { client } = await connectFleetDaemon(cwd);
-	try {
+	await withDaemonSupervisor(cwd, async (client) => {
 		const response = await client.request({ type: "kill", activeSessionId });
 		if (!response.success) throw new Error(response.error);
-	} finally {
-		client.close();
+	});
+}
+
+const modelCatalogListeners = new Set<() => void>();
+
+/**
+ * Observe Rust `model_catalog_changed` broadcasts. Fleet's own default
+ * listener refreshes the shared in-process ModelRegistry so the next catalog
+ * read is fresh.
+ */
+export function onDaemonModelCatalogChanged(listener: () => void): () => void {
+	modelCatalogListeners.add(listener);
+	return () => {
+		modelCatalogListeners.delete(listener);
+	};
+}
+
+export function notifyDaemonModelCatalogChanged(): void {
+	try {
+		getPrimeConfig().modelRegistry.refresh();
+	} catch {
+		// A stale catalog is recoverable; never break the event stream.
 	}
+	for (const listener of [...modelCatalogListeners]) {
+		try {
+			listener();
+		} catch {
+			// Listener failures stay local.
+		}
+	}
+}
+
+export type DaemonSessionRoute = { activeSessionId: string; sessionPath?: string };
+
+/**
+ * Apply a Rust `session_binding` frame to a connection's route. Returns the
+ * re-targeted route when the frame concerns this session (its previous id, or
+ * the repeat notice for the id it already moved to), else `undefined`.
+ */
+export function applySessionBinding(route: DaemonSessionRoute, frame: unknown): DaemonSessionRoute | undefined {
+	if (!isDaemonSessionBindingFrame(frame)) return undefined;
+	if (frame.previousActiveSessionId !== route.activeSessionId && frame.activeSessionId !== route.activeSessionId) {
+		return undefined;
+	}
+	const sessionPath = frame.sessionFile || route.sessionPath;
+	return { activeSessionId: frame.activeSessionId, ...(sessionPath ? { sessionPath } : {}) };
+}
+
+type ForkableConnection = Pick<AgentConnection, "waitForIdle" | "getState" | "fork">;
+
+export type DaemonWorkerFork =
+	| { cancelled: true; selectedText?: string }
+	| {
+			cancelled: false;
+			selectedText?: string;
+			sourcePath: string;
+			forkedPath: string;
+			/** The worker that now holds the FORK (the daemon swaps it in-slot). */
+			workerActiveSessionId: string | undefined;
+			sourceThinkingLevel: AgentSessionRuntimeConfig["thinking"] | undefined;
+	  };
+
+/**
+ * Run the daemon `fork` on a live worker. The daemon replaces the worker's
+ * session in-slot (PA@v0.10.1 `crates/pa-daemon/src/branch_navigation.rs:567-631`,
+ * same as TS `AgentSessionRuntime.fork`), so this reports both paths and the
+ * caller restores the source in a fresh worker.
+ */
+export async function forkInDaemonWorker(
+	connection: ForkableConnection,
+	entryId: string,
+	position: "before" | "at",
+	fallbackSourcePath?: string,
+): Promise<DaemonWorkerFork> {
+	await connection.waitForIdle();
+	const sourceState = await connection.getState();
+	const sourcePath = sourceState.sessionFile ?? fallbackSourcePath;
+	if (!sourcePath) throw new Error("Cannot fork an unpersisted session");
+	const result = (await connection.fork(entryId, { position })) as DaemonForkResult;
+	if (result.cancelled) {
+		return { cancelled: true, ...(result.selectedText !== undefined ? { selectedText: result.selectedText } : {}) };
+	}
+	const forkState = await connection.getState();
+	const forkedPath = forkState.sessionFile;
+	if (!forkedPath || forkedPath === sourcePath) throw new Error("Failed to create forked session");
+	return {
+		cancelled: false,
+		...(result.selectedText !== undefined ? { selectedText: result.selectedText } : {}),
+		sourcePath,
+		forkedPath,
+		workerActiveSessionId: forkState.activeSessionId ?? sourceState.activeSessionId,
+		sourceThinkingLevel: sourceState.thinkingLevel,
+	};
 }
 
 type ConnectionEventListener = Parameters<AgentConnection["subscribe"]>[0];
@@ -273,14 +528,54 @@ function createReconfigurableConnection(
 	setOpenUIPrompt: (state: WebAgentConnectionOptions["openUIPrompt"]) => Promise<void>;
 	terminate: () => Promise<void>;
 	deleteSessionFile: NonNullable<WebAgentConnection["deleteSessionFile"]>;
+	forkToNewSession: NonNullable<WebAgentConnection["forkToNewSession"]>;
+	onSessionBinding: NonNullable<WebAgentConnection["onSessionBinding"]>;
+	onSequenceGap: NonNullable<WebAgentConnection["onSequenceGap"]>;
 } {
 	let current = initial.connection;
 	let activeSessionId = initial.activeSessionId;
 	let sessionPath = initial.sessionPath;
+	let openUIPrompt = options.openUIPrompt;
 	let disposed = false;
 	let reconfigureTail = Promise.resolve();
 	const subscriptions: Array<{ listener: ConnectionEventListener; unsubscribe: () => void }> = [];
 	const invalidationListeners: Array<{ listener: SessionInvalidationListener; unsubscribe: () => void }> = [];
+	const bindingListeners = new Set<(binding: DaemonSessionBindingFrame) => void>();
+	const gapListeners = new Set<(gap: DaemonSequenceGap) => void>();
+
+	/**
+	 * Rust `session_binding` (top-level frame): a worker replacement rebound
+	 * this session to a new active id. The supervisor already re-routes the
+	 * stale id for commands and this socket's subscription, so the wrapper
+	 * only re-targets its own bookkeeping (kill/terminate/reconfigure).
+	 */
+	const handleFrame = (frame: unknown) => {
+		const next = applySessionBinding({ activeSessionId, ...(sessionPath ? { sessionPath } : {}) }, frame);
+		if (!next || !isDaemonSessionBindingFrame(frame)) return;
+		activeSessionId = next.activeSessionId;
+		sessionPath = next.sessionPath;
+		for (const listener of [...bindingListeners]) {
+			try {
+				listener(frame);
+			} catch {
+				// Listener failures stay local.
+			}
+		}
+	};
+	let unsubscribeFrames = initial.onFrame(handleFrame);
+
+	/** Only gaps on the session this wrapper currently serves (follows session_binding). */
+	const handleGap = (gap: DaemonSequenceGap) => {
+		if (disposed || gap.activeSessionId !== activeSessionId) return;
+		for (const listener of [...gapListeners]) {
+			try {
+				listener(gap);
+			} catch {
+				// Listener failures stay local.
+			}
+		}
+	};
+	let unsubscribeGaps = initial.onSequenceGap(handleGap);
 
 	const resubscribe = () => {
 		for (const subscription of subscriptions) {
@@ -291,6 +586,29 @@ function createReconfigurableConnection(
 			subscription.unsubscribe();
 			subscription.unsubscribe = current.onBeforeSessionInvalidate(subscription.listener);
 		}
+	};
+
+	/** Detach the bridge listeners so a worker swap's frames never reach them. */
+	const suspendSubscriptions = () => {
+		for (const subscription of subscriptions) {
+			subscription.unsubscribe();
+			subscription.unsubscribe = () => undefined;
+		}
+		for (const subscription of invalidationListeners) {
+			subscription.unsubscribe();
+			subscription.unsubscribe = () => undefined;
+		}
+	};
+
+	const adopt = (reopened: OpenedDaemonConnection, fallbackPath: string) => {
+		current = reopened.connection;
+		activeSessionId = reopened.activeSessionId;
+		sessionPath = reopened.sessionPath ?? fallbackPath;
+		unsubscribeFrames();
+		unsubscribeFrames = reopened.onFrame(handleFrame);
+		unsubscribeGaps();
+		unsubscribeGaps = reopened.onSequenceGap(handleGap);
+		resubscribe();
 	};
 
 	const scheduleReconfiguration = (next: WebAgentConnectionOptions["openUIPrompt"]): Promise<void> => {
@@ -311,12 +629,53 @@ function createReconfigurableConnection(
 				...(currentState.thinkingLevel ? { thinkingLevel: currentState.thinkingLevel } : {}),
 				openUIPrompt: next,
 			});
-			current = reopened.connection;
-			activeSessionId = reopened.activeSessionId;
-			sessionPath = reopened.sessionPath ?? nextSessionPath;
-			resubscribe();
+			openUIPrompt = next;
+			adopt(reopened, nextSessionPath);
 		});
 		reconfigureTail = operation.catch(() => undefined);
+		return operation;
+	};
+
+	/**
+	 * Fork through the daemon: the worker swaps to the fork in-slot, so the
+	 * forked worker is released and the source reopens in a fresh worker with
+	 * the bridge's subscriptions re-attached. No session file is written by Fleet.
+	 */
+	const forkToNewSession = (entryId: string, position: "before" | "at"): Promise<DaemonForkToNewSessionResult> => {
+		const previous = reconfigureTail;
+		const operation = previous.then(async (): Promise<DaemonForkToNewSessionResult> => {
+			if (disposed) throw new Error("The Prime Agent connection is disposed");
+			suspendSubscriptions();
+			let forked: DaemonWorkerFork;
+			try {
+				forked = await forkInDaemonWorker(current, entryId, position, sessionPath);
+			} catch (error) {
+				resubscribe();
+				throw error;
+			}
+			if (forked.cancelled) {
+				resubscribe();
+				return forked;
+			}
+			await current.dispose();
+			await killDaemonSession(options.cwd, forked.workerActiveSessionId ?? activeSessionId);
+			const reopened = await openDaemonConnection({
+				...options,
+				sessionPath: forked.sourcePath,
+				...(forked.sourceThinkingLevel ? { thinkingLevel: forked.sourceThinkingLevel } : {}),
+				openUIPrompt,
+			});
+			adopt(reopened, forked.sourcePath);
+			return {
+				cancelled: false,
+				...(forked.selectedText !== undefined ? { selectedText: forked.selectedText } : {}),
+				sessionPath: forked.forkedPath,
+			};
+		});
+		reconfigureTail = operation.then(
+			() => undefined,
+			() => undefined,
+		);
 		return operation;
 	};
 
@@ -350,6 +709,9 @@ function createReconfigurableConnection(
 				return async () => {
 					disposed = true;
 					await reconfigureTail.catch(() => undefined);
+					unsubscribeFrames();
+					unsubscribeGaps();
+					gapListeners.clear();
 					await current.dispose();
 				};
 			}
@@ -367,6 +729,19 @@ function createReconfigurableConnection(
 			await killDaemonSession(options.cwd, currentState.activeSessionId ?? activeSessionId);
 		},
 		deleteSessionFile: (savedSessionPath) => deleteDaemonSavedSession(options.cwd, savedSessionPath),
+		forkToNewSession,
+		onSessionBinding: (listener) => {
+			bindingListeners.add(listener);
+			return () => {
+				bindingListeners.delete(listener);
+			};
+		},
+		onSequenceGap: (listener) => {
+			gapListeners.add(listener);
+			return () => {
+				gapListeners.delete(listener);
+			};
+		},
 	};
 }
 
@@ -379,6 +754,9 @@ export async function createDaemonWebAgentConnection(options: WebAgentConnection
 		setOpenUIPrompt: reconfigurable.setOpenUIPrompt,
 		terminate: reconfigurable.terminate,
 		deleteSessionFile: reconfigurable.deleteSessionFile,
+		forkToNewSession: reconfigurable.forkToNewSession,
+		onSessionBinding: reconfigurable.onSessionBinding,
+		onSequenceGap: reconfigurable.onSequenceGap,
 	};
 }
 
@@ -440,13 +818,22 @@ async function openDaemonChildConnection(
 ): Promise<{ connection: AgentConnection; dispose: () => Promise<void> }> {
 	const { client, socketPath } = await connectFleetDaemon(cwd);
 	try {
+		const unsubscribeCatalog = client.onMessage((frame: unknown) => {
+			if (isDaemonModelCatalogChangedFrame(frame)) notifyDaemonModelCatalogChanged();
+		});
 		const connection = await DaemonAgentConnection.attach(client, activeSessionId, {
 			closeClientOnDispose: true,
 			recoverDaemon: () => ensureFleetDaemonRunning(cwd, socketPath),
 			sendClientEnv: false,
 			supportsExtensionUi: true,
 		});
-		return { connection, dispose: () => connection.dispose() };
+		return {
+			connection,
+			dispose: async () => {
+				unsubscribeCatalog();
+				await connection.dispose();
+			},
+		};
 	} catch (error) {
 		client.close();
 		throw error;
@@ -454,38 +841,104 @@ async function openDaemonChildConnection(
 }
 
 /** List the sessions in the configured Prime store through the shared daemon. */
-export async function listDaemonSessions(cwd?: string): Promise<SessionSummary[]> {
+export async function listDaemonSessions(
+	cwd?: string,
+	socketPath = defaultDaemonSocketPath(),
+): Promise<SessionSummary[]> {
 	const effectiveCwd = cwd ?? getPrimeConfig().defaultCwd;
-	const { client } = await connectFleetDaemon(effectiveCwd);
-	try {
-		const sessionDir = sessionDirectoryForCwd(effectiveCwd);
-		const response = await client.request({
-			type: "list",
-			all: true,
-			sessionDir,
-			...(cwd ? { cwd: resolve(cwd) } : {}),
+	return withDaemonSupervisor(
+		effectiveCwd,
+		async (client) => {
+			const sessionDir = sessionDirectoryForCwd(effectiveCwd);
+			const response = await client.request<{ sessions?: unknown }>({
+				type: "list",
+				all: true,
+				sessionDir,
+				...(cwd ? { cwd: resolve(cwd) } : {}),
+			});
+			if (!response.success) throw new Error(response.error);
+			const sessions = response.data?.sessions;
+			if (!Array.isArray(sessions) || !sessions.every(isDaemonSessionSummary)) {
+				throw new Error("The Prime Agent daemon returned an invalid session list");
+			}
+			// Same row shape on both runtimes; typed as the bridge's session-list source.
+			return sessions as unknown as SessionSummary[];
+		},
+		socketPath,
+	);
+}
+
+export const SAVED_SESSION_PAGE_SIZE = 200;
+const SAVED_SESSION_LIST_TIMEOUT_MS = 120_000;
+
+/**
+ * One page of the saved-session catalog (`list_saved_sessions`). The Rust
+ * daemon pages by `limit`/`cursor` and reports `nextCursor` + `remaining`;
+ * the TS v0.9.8 daemon ignores both and returns everything in one page.
+ */
+export async function listDaemonSavedSessionsPage(
+	options: { cwd: string; scope?: "all" | "current"; limit?: number; cursor?: string },
+	socketPath = defaultDaemonSocketPath(),
+): Promise<DaemonSavedSessionPage> {
+	const cwd = resolve(options.cwd);
+	return withDaemonSupervisor(
+		cwd,
+		async (client) => {
+			const response = await client.request<{ sessions?: unknown; nextCursor?: unknown; remaining?: unknown }>(
+				{
+					type: "list_saved_sessions",
+					cwd,
+					sessionDir: sessionDirectoryForCwd(cwd),
+					scope: options.scope ?? "all",
+					limit: options.limit ?? SAVED_SESSION_PAGE_SIZE,
+					...(options.cursor ? { cursor: options.cursor } : {}),
+				},
+				SAVED_SESSION_LIST_TIMEOUT_MS,
+			);
+			if (!response.success) throw new Error(response.error);
+			const data = response.data;
+			if (!Array.isArray(data?.sessions) || !data.sessions.every(isDaemonSavedSessionInfo)) {
+				throw new Error("The Prime Agent daemon returned an invalid saved-session page");
+			}
+			return {
+				sessions: data.sessions,
+				...(typeof data.remaining === "number" ? { remaining: data.remaining } : {}),
+				...(typeof data.nextCursor === "string" && data.nextCursor ? { nextCursor: data.nextCursor } : {}),
+			};
+		},
+		socketPath,
+	);
+}
+
+/** Walk every saved-session page; stops after `maxPages` as a loop guard. */
+export async function listAllDaemonSavedSessions(
+	options: { cwd: string; scope?: "all" | "current"; pageSize?: number; maxPages?: number },
+	listPage: typeof listDaemonSavedSessionsPage = listDaemonSavedSessionsPage,
+): Promise<DaemonSavedSessionPage["sessions"]> {
+	const rows: DaemonSavedSessionPage["sessions"] = [];
+	const maxPages = options.maxPages ?? 50;
+	let cursor: string | undefined;
+	for (let page = 0; page < maxPages; page++) {
+		const result = await listPage({
+			cwd: options.cwd,
+			...(options.scope ? { scope: options.scope } : {}),
+			limit: options.pageSize ?? SAVED_SESSION_PAGE_SIZE,
+			...(cursor ? { cursor } : {}),
 		});
-		if (!response.success) throw new Error(response.error);
-		const data = response.data as { sessions?: unknown } | undefined;
-		if (!Array.isArray(data?.sessions) || !data.sessions.every(isSessionSummary)) {
-			throw new Error("The Prime Agent daemon returned an invalid session list");
-		}
-		return data.sessions;
-	} finally {
-		client.close();
+		rows.push(...result.sessions);
+		if (!result.nextCursor || result.nextCursor === cursor) break;
+		cursor = result.nextCursor;
 	}
+	return rows;
 }
 
 export type DeleteSavedSessionResult = Awaited<ReturnType<AgentConnection["deleteSavedSession"]>>;
 
 /** Delete a persisted session through the shared daemon catalog, without an active-session context. */
 export async function deleteDaemonSavedSession(cwd: string, sessionPath: string): Promise<DeleteSavedSessionResult> {
-	const { client } = await connectFleetDaemon(cwd);
-	try {
+	return withDaemonSupervisor(cwd, async (client) => {
 		const response = await client.request({ type: "delete_saved_session", sessionPath });
 		if (!response.success) throw new Error(response.error);
 		return response.data as DeleteSavedSessionResult;
-	} finally {
-		client.close();
-	}
+	});
 }

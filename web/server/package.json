@@ -11,7 +11,8 @@
     "typecheck": "tsgo --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "record:contract-fixtures": "tsx scripts/record-contract-fixtures.ts"
+    "record:contract-fixtures": "tsx scripts/record-contract-fixtures.ts",
+    "replay:contract-events": "tsx scripts/replay-contract-events.ts"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "typebox": "1.3.18",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"
   }

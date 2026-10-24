@@ -1,0 +1,102 @@
+{
+	"description": "R1b legacy bridge ratchet (docs/plans/prime-agent-v0.10.1.md). Prime Agent SDK names that production web/server code may still import outside web/server/src/legacy/prime-agent-sdk.ts. Entries are removed as the R1 socket client replaces them; never add one. Delete this file with the bridge after the Rust daemon cutover.",
+	"files": {
+		"web/server/src/bridge-helpers.ts": [
+			"@earendil-works/pi-agent-core#AgentMessage",
+			"@earendil-works/pi-agent-core#ThinkingLevel",
+			"prime-agent#AgentConnection",
+			"prime-agent#AgentConnectionModel",
+			"prime-agent#ExtensionUIContext",
+			"prime-agent#ExtensionUIDialogOptions",
+			"prime-agent#SessionSummary"
+		],
+		"web/server/src/connection-runtime.ts": [
+			"prime-agent#AgentSession",
+			"prime-agent#AgentSessionRuntime"
+		],
+		"web/server/src/daemon-runtime.ts": [
+			"prime-agent#AgentConnection",
+			"prime-agent#AgentSession",
+			"prime-agent#AgentSessionRuntimeConfig",
+			"prime-agent#DAEMON_PROTOCOL_NAME",
+			"prime-agent#DAEMON_PROTOCOL_VERSION",
+			"prime-agent#DaemonAgentConnection",
+			"prime-agent#DaemonClient",
+			"prime-agent#ExtensionUIContext",
+			"prime-agent#SessionSummary",
+			"prime-agent#defaultDaemonSocketPath"
+		],
+		"web/server/src/event-mapper.ts": [
+			"@earendil-works/pi-agent-core#AgentEvent",
+			"@earendil-works/pi-ai#AssistantMessage",
+			"@earendil-works/pi-ai#AssistantMessageEvent",
+			"prime-agent#AgentConnectionEvent",
+			"prime-agent#AgentSessionEvent",
+			"prime-agent#truncateTail"
+		],
+		"web/server/src/handlers/chat-mcp.ts": [
+			"@earendil-works/pi-ai/mcp#BUILTIN_MCP_CATALOG",
+			"@earendil-works/pi-ai/mcp#createMcpOAuthProvider",
+			"@earendil-works/pi-ai/mcp#getCatalogEntry",
+			"@earendil-works/pi-ai/mcp#registerBuiltinMcpOAuthProviders",
+			"@earendil-works/pi-ai/oauth#OAuthLoginCallbacks",
+			"@earendil-works/pi-ai/oauth#getOAuthProvider",
+			"@earendil-works/pi-ai/oauth#registerOAuthProvider"
+		],
+		"web/server/src/handlers/chat-models.ts": [
+			"@earendil-works/pi-ai#getSupportedThinkingLevels"
+		],
+		"web/server/src/handlers/chat-new.ts": [
+			"@earendil-works/pi-agent-core#ThinkingLevel"
+		],
+		"web/server/src/handlers/chat-providers-oauth.ts": [
+			"@earendil-works/pi-ai/oauth#OAuthLoginCallbacks",
+			"@earendil-works/pi-ai/oauth#getOAuthProvider"
+		],
+		"web/server/src/handlers/chat-providers.ts": [
+			"@earendil-works/pi-ai#getProviders",
+			"@earendil-works/pi-ai/oauth#getOAuthProviders"
+		],
+		"web/server/src/handlers/chat.ts": [
+			"@earendil-works/pi-ai#ImageContent"
+		],
+		"web/server/src/handlers/projects.ts": [
+			"prime-agent#SessionSummary"
+		],
+		"web/server/src/in-process-test-connection.ts": [
+			"prime-agent#AgentSession",
+			"prime-agent#CreateAgentSessionRuntimeFactory",
+			"prime-agent#InProcessAgentConnection",
+			"prime-agent#SessionManager",
+			"prime-agent#createAgentSessionFromServices",
+			"prime-agent#createAgentSessionRuntime",
+			"prime-agent#createAgentSessionServices"
+		],
+		"web/server/src/mcp-connections.ts": [
+			"@earendil-works/pi-ai/mcp#BUILTIN_MCP_CATALOG",
+			"@earendil-works/pi-ai/mcp#getCatalogEntry"
+		],
+		"web/server/src/prime-bridge.ts": [
+			"@earendil-works/pi-agent-core#AgentMessage",
+			"@earendil-works/pi-agent-core#ThinkingLevel",
+			"@earendil-works/pi-ai#ImageContent",
+			"prime-agent#AgentConnection",
+			"prime-agent#AgentConnectionEvent",
+			"prime-agent#AgentConnectionExtensionUiRequest",
+			"prime-agent#AgentSession",
+			"prime-agent#ExtensionUIContext",
+			"prime-agent#SessionManager",
+			"prime-agent#SessionSummary"
+		],
+		"web/server/src/session-list.ts": [
+			"prime-agent#SessionInfo",
+			"prime-agent#SessionSummary"
+		],
+		"web/server/src/transcript-hydrator.ts": [
+			"@earendil-works/pi-agent-core#AgentMessage",
+			"@earendil-works/pi-ai#AssistantMessage",
+			"@earendil-works/pi-ai#ImageContent",
+			"@earendil-works/pi-ai#UserMessage"
+		]
+	}
+}

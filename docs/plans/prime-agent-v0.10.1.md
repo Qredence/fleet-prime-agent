@@ -54,6 +54,12 @@ without changing the product's look.
 - Keep the legacy `SettingsManager`, `AuthStorage` and a read-only `SessionManager` as a
   stopgap, since the on-disk format is unchanged. Open an issue to track their removal.
 - Delete `IpythonKernelProvisioner`.
+- Implementation: `web/server/src/legacy/prime-agent-sdk.ts` is the only server module that
+  imports those classes. Its session reader is read-only (unlike `SessionManager.openAsync`,
+  which repairs, migrates and truncates files). `scripts/check-web-boundaries.mjs` blocks
+  them elsewhere and freezes every other server SDK import in
+  `scripts/server-sdk-imports.baseline.json` until R1 removes them. The fork writers and the
+  in-process test adapter keep `SessionManager` until R1's daemon fork replaces them.
 
 ### Cutover PR (lands with R1)
 
