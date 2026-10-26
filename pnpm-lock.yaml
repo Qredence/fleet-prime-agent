@@ -129,8 +129,8 @@ importers:
         specifier: 0.4.0
         version: 0.4.0
       lucide-react:
-        specifier: ^1.53.0
-        version: 1.53.0(@types/react@19.3.0)(react@19.3.0)
+        specifier: ^1.59.0
+        version: 1.59.0(@types/react@19.3.0)(react@19.3.0)
       motion:
         specifier: ^14.1.0
         version: 14.1.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -3963,8 +3963,8 @@ packages:
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  lucide-react@1.53.0:
-    resolution: {integrity: sha512-OxJ7elNku+iqVzOolk5caxq2LM8Mck6lhA6uZx3g2PlZ53+FvBnT6PlJxGCukCa6oF5wQwgSatn9cH1b4olWmQ==}
+  lucide-react@1.59.0:
+    resolution: {integrity: sha512-5qgMyyCPU6OvnKpLS2t693+ZtiqA8oaSweWoUows0BLFKFf6V75m4+CptpmohZHpD5IuOVIBXHBBiv2vpLJmtw==}
     peerDependencies:
       '@types/react': '*'
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -9313,7 +9313,7 @@ snapshots:
     dependencies:
       react: 19.3.0
 
-  lucide-react@1.53.0(@types/react@19.3.0)(react@19.3.0):
+  lucide-react@1.59.0(@types/react@19.3.0)(react@19.3.0):
     dependencies:
       react: 19.3.0
     optionalDependencies:
