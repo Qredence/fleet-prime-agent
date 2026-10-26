@@ -20,6 +20,7 @@ import {
 	type DaemonHelloFrame,
 	type DaemonSavedSessionPage,
 	type DaemonSessionBindingFrame,
+	daemonRuntimeFlavor,
 	describeDaemonHello,
 	isCompatibleDaemonHello,
 	isDaemonHelloFrame,
@@ -30,6 +31,7 @@ import {
 } from "./daemon-protocol";
 import { DaemonSocketClient } from "./daemon-socket-client";
 import { getPrimeConfig } from "./prime-config";
+import { ensurePrimeAgentRuntime } from "./prime-runtime";
 
 const DAEMON_STARTUP_TIMEOUT_MS = 30_000;
 const DAEMON_PROBE_TIMEOUT_MS = 1_000;
@@ -170,7 +172,7 @@ async function probeDaemon(socketPath: string): Promise<DaemonProbeResult> {
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
-		if (matchesPinnedDaemon(hello)) return { status: "compatible" };
+		if (matchesPinnedDaemon(hello) && daemonRuntimeFlavor(hello) === "rust") return { status: "compatible" };
 		return {
 			status: "incompatible",
 			detail: `found ${describeHello(hello)}, expected ${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}`,
@@ -192,7 +194,8 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 		);
 	}
 
-	const { command, args } = daemonSpawnCommand(socketPath);
+	const nativeBinary = process.env[NATIVE_DAEMON_BINARY_ENV] ?? (await ensurePrimeAgentRuntime());
+	const { command, args } = daemonSpawnCommand(socketPath, { [NATIVE_DAEMON_BINARY_ENV]: nativeBinary });
 	const child = spawn(command, args, {
 		cwd: spawnCwd,
 		detached: true,
@@ -236,7 +239,7 @@ async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonClient; 
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
-		if (!matchesPinnedDaemon(hello)) {
+		if (!matchesPinnedDaemon(hello) || daemonRuntimeFlavor(hello) !== "rust") {
 			throw new Error(
 				`Refusing to attach to the Prime Agent daemon at ${socketPath}: expected protocol ` +
 					`${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}, found ${describeHello(hello)}`,
@@ -263,7 +266,7 @@ async function withDaemonSupervisor<T>(
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
-		if (!matchesPinnedDaemon(hello)) {
+		if (!matchesPinnedDaemon(hello) || daemonRuntimeFlavor(hello) !== "rust") {
 			throw new Error(`Refusing to use the Prime Agent daemon at ${socketPath}: found ${describeHello(hello)}`);
 		}
 		return await run(client);

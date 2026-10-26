@@ -250,6 +250,52 @@ describe("event-mapper", () => {
 		expect(state.currentToolParts.some((part) => part.state === "input-streaming")).toBe(false);
 	});
 
+	it("keeps Rust tool names on nameless update/end frames and recovers them from an attached snapshot", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvents(state, [
+			{
+				type: "tool_execution_start",
+				toolCallId: "rust-call",
+				toolName: "python_repl",
+				args: { code: "print(42)" },
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_update",
+				toolCallId: "rust-call",
+				partialResult: { content: [{ type: "text", text: "42" }] },
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_end",
+				toolCallId: "rust-call",
+				result: { content: [{ type: "text", text: "42" }] },
+				isError: false,
+			} as AgentSessionEvent,
+		]);
+		expect(
+			frames.filter((frame) => frame.type === "tool").map((frame) => frame.type === "tool" && frame.part.toolName),
+		).toEqual(["python_repl", "python_repl", "python_repl"]);
+		expect(state.currentToolParts[0]).toMatchObject({
+			type: "tool-PythonRepl",
+			toolName: "python_repl",
+			state: "output-available",
+		});
+
+		const resumed = createEventMapperState();
+		resumed.currentAssistantMessage = mkAssistant({
+			content: [{ type: "toolCall", id: "snapshot-call", name: "bash", arguments: { command: "pwd" } }],
+		});
+		const terminal = mapAgentSessionEvent(resumed, {
+			type: "tool_execution_end",
+			toolCallId: "snapshot-call",
+			result: { details: { stdout: "/work" } },
+			isError: false,
+		} as AgentSessionEvent);
+		expect(terminal.find((frame) => frame.type === "tool")).toMatchObject({
+			part: { type: "tool-Bash", toolName: "bash", toolCallId: "snapshot-call", state: "output-available" },
+		});
+	});
+
 	it("preserves backgroundOutput in tool_execution_update, tool_execution_end, and agent message hydration", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);

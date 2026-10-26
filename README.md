@@ -51,7 +51,75 @@ fleet-agent agent
 ```
 
 An existing `prime-agent` installation remains untouched. Fleet uses the same
-upstream settings, kernel environment, and logs.
+upstream settings, kernel environment, and logs. See
+[Prime Agent runtime and the local daemon](#prime-agent-runtime-and-the-local-daemon)
+for how a global CLI install relates to the runtime Fleet runs.
+
+## Prime Agent runtime and the local daemon
+
+Fleet consumes the stock Prime Agent runtime pinned in
+[PRIME_AGENT_RUNTIME.json](PRIME_AGENT_RUNTIME.json). A globally installed
+`prime-agent` CLI may also exist on the machine. The two are independent:
+
+- Fleet downloads its pinned Rust runtime on first use, verifies the archive and
+  executable checksums, and stores it under `~/.prime/fleet/runtimes`;
+- installing, replacing, or removing a global CLI does not change Fleet's pin
+  or its cached runtime.
+
+### Daemon socket configuration
+
+Fleet and any `prime-agent` CLI you run each own a daemon process. Fleet
+resolves its socket in `web/server/src/daemon-runtime.ts` and uses the shared
+per-user path:
+
+- Fleet: `$TMPDIR/prime-agent-<uid>/daemon.sock`
+- Migrated Rust CLI launcher: `$TMPDIR/prime-agent-rust-<uid>/daemon.sock`
+- Pre-migration TypeScript CLI: `$TMPDIR/prime-agent-<uid>/daemon.sock`
+
+Fleet keeps the shared `$TMPDIR/prime-agent-<uid>` path deliberately. Before
+starting a daemon, Fleet probes that socket and only attaches to a Rust daemon
+with a compatible protocol and schema. An existing TypeScript daemon is rejected
+even if its protocol matches; stop it before starting Fleet.
+
+Because the Rust CLI launcher pins its own `prime-agent-rust-<uid>` namespace,
+the CLI daemon and the Fleet daemon are separate processes on separate sockets.
+That is expected after a CLI migration and needs no reconciliation. Only
+`prime-agent status` (CLI) or Fleet's own connection reports which one is live.
+
+macOS caps AF_UNIX paths at 103 bytes. `$TMPDIR/prime-agent-<uid>/daemon.sock`
+plus the longer `worker-<id>-<id>.sock` names must fit, so a deeply nested
+`TMPDIR` will fail to bind; the Playwright harness in
+`web/app/playwright/hermetic-state.ts` falls back to `/tmp` for this reason.
+Keep `TMPDIR` short when running Fleet or the CLI.
+
+### Pointing Fleet at a native binary
+
+By default Fleet provisions and runs its pinned Rust binary. Set
+`FLEET_PRIME_AGENT_BIN` to use a different native binary; Fleet runs it as
+`<bin> --mode daemon --daemon-socket <socket>` when starting the daemon.
+An already-running compatible Rust daemon on the socket is reused.
+
+### Migrating a global CLI install
+
+A globally installed `prime-agent` CLI that predates the Rust rewrite installs
+as an npm package and can shadow the newer build on `PATH`. The upstream
+installer owns that keyword's lifecycle and takes over the npm package; Fleet
+does not, and Fleet's own runtime is unaffected either way. After migrating you
+should see:
+
+- `prime-agent --version` reporting the Rust build, resolved from
+  `~/.local/bin/prime-agent` rather than an npm-managed bin directory;
+- `npm ls -g --depth=0` no longer listing `prime-agent`;
+- the old npm-managed tree preserved at `~/.local/share/prime-agent-legacy`
+  and `~/.prime/agent` (sessions, settings, kernel venv) untouched.
+
+The installer does not create the daemon socket directory; the daemon creates
+it when spawned. An initial `ENOENT` for `daemon.sock` therefore means no
+daemon has started yet, not a broken install. Note that the CLI launcher only
+uses the `prime-agent-rust-<uid>` namespace when the npm-migration bridge
+marker is absent; if `~/.local/share/.prime-agent-npm-bridge/legacy-daemon-socket`
+exists, it pins `$TMPDIR/prime-agent-<uid>` instead and will share Fleet's
+socket.
 
 ## Contribute from source
 

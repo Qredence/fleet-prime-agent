@@ -100,6 +100,8 @@ export interface EventMapperState {
 	reasoningSteps: ChatReasoningStep[];
 	reasoningPhase: ChatReasoningPresentation["phase"] | undefined;
 	currentToolParts: ChatToolPart[];
+	/** Tool names learned from tool-start frames; Rust omits them on update/end frames. */
+	toolNamesByCallId: Map<string, string>;
 	currentToolSentAgentMessages: Record<string, Array<unknown>>;
 	userMessages: ChatMessage[];
 	inRun: boolean;
@@ -139,6 +141,7 @@ export function createEventMapperState(init?: {
 		reasoningSteps: [],
 		reasoningPhase: undefined,
 		currentToolParts: [],
+		toolNamesByCallId: new Map(),
 		currentToolSentAgentMessages: {},
 		userMessages: [],
 		inRun: false,
@@ -162,6 +165,7 @@ function resetRun(state: EventMapperState): void {
 	state.reasoningSteps = [];
 	state.reasoningPhase = undefined;
 	state.currentToolParts = [];
+	state.toolNamesByCallId.clear();
 	state.currentToolSentAgentMessages = {};
 	state.userMessages = [];
 	state.activeUserBashId = undefined;
@@ -538,6 +542,27 @@ function withSentAgentMessages(state: EventMapperState, toolCallId: string | und
 	return { ...base, details: { ...details, sentAgentMessages } };
 }
 
+function toolNameForEvent(state: EventMapperState, toolCallId: string, eventToolName: unknown): string {
+	if (typeof eventToolName === "string" && eventToolName.length > 0) {
+		state.toolNamesByCallId.set(toolCallId, eventToolName);
+		return eventToolName;
+	}
+	const knownName = state.toolNamesByCallId.get(toolCallId);
+	if (knownName) return knownName;
+	const existingPart = state.currentToolParts.find((part) => part.toolCallId === toolCallId);
+	if (existingPart?.toolName) return existingPart.toolName;
+	const content = state.currentAssistantMessage?.content;
+	if (Array.isArray(content)) {
+		for (const item of content) {
+			if (isRecord(item) && item.type === "toolCall" && item.id === toolCallId && typeof item.name === "string") {
+				state.toolNamesByCallId.set(toolCallId, item.name);
+				return item.name;
+			}
+		}
+	}
+	return "unknown_tool";
+}
+
 function upsertCurrentToolPart(state: EventMapperState, nextPart: ChatToolPart): ChatToolPart {
 	const toolCallId = nextPart.toolCallId;
 	const enrichedPart: ChatToolPart =
@@ -679,9 +704,10 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [];
 		}
 		case "tool_execution_start": {
-			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, event.toolName);
+			const { category, toolName, serverName } = categorizeTool(eventToolName);
 			const part = upsertCurrentToolPart(state, {
-				type: makeToolType(event.toolName),
+				type: makeToolType(eventToolName),
 				category,
 				toolName,
 				serverName,
@@ -692,10 +718,11 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [reasoningFrame(state, "executing", true), { type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_update": {
-			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, event.toolName);
+			const { category, toolName, serverName } = categorizeTool(eventToolName);
 			const backgroundOutput = extractToolBackgroundOutput(event.partialResult);
 			const part = upsertCurrentToolPart(state, {
-				type: makeToolType(event.toolName),
+				type: makeToolType(eventToolName),
 				category,
 				toolName,
 				serverName,
@@ -708,7 +735,8 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_end": {
-			const { category, toolName, serverName } = categorizeTool(event.toolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, event.toolName);
+			const { category, toolName, serverName } = categorizeTool(eventToolName);
 			const errorText = event.isError ? extractToolErrorText(event.result) : undefined;
 			const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
 			const durationMs =
@@ -720,7 +748,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			const backgroundOutput = extractToolBackgroundOutput(event.result);
 
 			const part = upsertCurrentToolPart(state, {
-				type: makeToolType(event.toolName),
+				type: makeToolType(eventToolName),
 				category,
 				toolName,
 				serverName,

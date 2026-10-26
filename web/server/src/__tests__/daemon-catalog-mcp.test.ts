@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	isDaemonAvailableModels,
 	isDaemonMcpConnections,
+	isDaemonModel,
 	isDaemonModelCatalog,
 	isDaemonRemoveMcpConnectionResult,
 	isDaemonResourceSnapshot,
@@ -73,6 +74,61 @@ async function startReplayDaemon(overrides: Record<string, CapturedResponse[]> =
 }
 
 const FAKE_TOKEN = "fixture-token-not-real";
+
+describe("daemon model validation", () => {
+	const model = {
+		id: "fixture-chat",
+		name: "Fixture Chat",
+		api: "openai-completions",
+		provider: "fixture-local",
+		baseUrl: "http://localhost:9999/v1",
+		reasoning: false,
+		input: ["text", "image"],
+		cost: { input: 0, output: 1, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 8192,
+		maxTokens: 1024,
+	};
+
+	it("accepts supported inputs and correctly typed optional fields", () => {
+		expect(isDaemonModel(model)).toBe(true);
+		expect(
+			isDaemonModel({
+				...model,
+				thinkingLevelMap: { off: null, high: "high" },
+				maxTokensExplicit: true,
+				featured: false,
+				headers: { "X-Fixture": "test" },
+				compat: { custom: { enabled: true } },
+			}),
+		).toBe(true);
+	});
+
+	it.each(["input", "output", "cacheRead", "cacheWrite"])("validates the %s cost", (field) => {
+		for (const invalid of [undefined, null, "0", Number.NaN, Number.POSITIVE_INFINITY]) {
+			expect(isDaemonModel({ ...model, cost: { ...model.cost, [field]: invalid } })).toBe(false);
+		}
+	});
+
+	it.each([
+		{ input: ["audio"] },
+		{ input: ["text", 1] },
+		{ cost: {} },
+		{ thinkingLevelMap: null },
+		{ thinkingLevelMap: [] },
+		{ thinkingLevelMap: { high: true } },
+		{ maxTokensExplicit: "true" },
+		{ featured: null },
+		{ headers: [] },
+		{ headers: { "X-Fixture": 1 } },
+		{ compat: null },
+		{ compat: [] },
+	])("rejects malformed model fields: %j", (fields) => {
+		const invalid = { ...model, ...fields };
+		expect(isDaemonModel(invalid)).toBe(false);
+		expect(isDaemonModelCatalog({ models: [invalid], configuredProviders: [] })).toBe(false);
+		expect(isDaemonAvailableModels({ models: [invalid] })).toBe(false);
+	});
+});
 
 describe("rust-v0.10.1 catalog/MCP fixtures", () => {
 	it("captured every success payload in the Fleet-owned shapes", () => {

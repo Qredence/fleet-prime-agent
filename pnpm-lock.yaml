@@ -3987,11 +3987,6 @@ packages:
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
-  marked@18.0.10:
-    resolution: {integrity: sha512-FJeH4bRpYoXiggcgriCGItKCSv3xkngJc4QCZ/rkQCogU3VYaLxYJoZl8Nw/b4+x7iij/pd+09mZ6A1dXzpL0A==}
-    engines: {node: '>= 20'}
-    hasBin: true
-
   marked@18.1.0:
     resolution: {integrity: sha512-PamYXWWWg2nboG3oX5Ffzpy3EFZROqZJK9hSlMmUnekp7TxPs5DcT95vwd46m73/exfKCRVMtgXoPMI4FEJL6w==}
     engines: {node: '>= 20'}
@@ -9336,8 +9331,6 @@ snapshots:
 
   markdown-table@3.0.4: {}
 
-  marked@18.0.10: {}
-
   marked@18.1.0: {}
 
   math-intrinsics@1.1.0: {}
@@ -10116,7 +10109,7 @@ snapshots:
       hosted-git-info: 9.0.3
       ignore: 7.0.6
       jiti: 2.7.0
-      marked: 18.0.10
+      marked: 18.1.0
       minimatch: 10.2.6
       proper-lockfile: 4.1.2
       strip-ansi: 7.2.0
