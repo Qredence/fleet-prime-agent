@@ -462,8 +462,8 @@ export function daemonRuntimeFlavor(hello: DaemonHelloFrame): DaemonRuntimeFlavo
  */
 export function isCompatibleDaemonHello(hello: DaemonHelloFrame): boolean {
 	if (hello.protocol.name !== DAEMON_PROTOCOL_NAME || hello.protocol.version !== DAEMON_PROTOCOL_VERSION) return false;
-	if (hello.schemaRevision !== undefined && hello.schemaRevision !== DAEMON_SCHEMA_REVISION) return false;
-	return true;
+	if (hello.schemaRevision !== DAEMON_SCHEMA_REVISION) return false;
+	return daemonRuntimeFlavor(hello) === "rust" || daemonRuntimeFlavor(hello) === "typescript";
 }
 
 export function describeDaemonHello(hello: DaemonHelloFrame): string {
@@ -697,10 +697,21 @@ export function isDaemonModel(value: unknown): value is DaemonModel {
 		isString(value.provider) &&
 		isString(value.baseUrl) &&
 		isBoolean(value.reasoning) &&
-		isStringArray(value.input) &&
+		isArrayOf(value.input, (input): input is DaemonModelInput => input === "text" || input === "image") &&
 		isRecord(value.cost) &&
+		isNumber(value.cost.input) &&
+		isNumber(value.cost.output) &&
+		isNumber(value.cost.cacheRead) &&
+		isNumber(value.cost.cacheWrite) &&
 		isNumber(value.contextWindow) &&
-		isNumber(value.maxTokens)
+		isNumber(value.maxTokens) &&
+		(value.thinkingLevelMap === undefined ||
+			(isRecord(value.thinkingLevelMap) &&
+				Object.values(value.thinkingLevelMap).every((level) => isNullable(level, isString)))) &&
+		(value.maxTokensExplicit === undefined || isBoolean(value.maxTokensExplicit)) &&
+		(value.featured === undefined || isBoolean(value.featured)) &&
+		(value.headers === undefined || (isRecord(value.headers) && Object.values(value.headers).every(isString))) &&
+		(value.compat === undefined || isRecord(value.compat))
 	);
 }
 

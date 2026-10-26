@@ -9,6 +9,18 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 export function validateRuntimeManifest(manifest) {
 	if (manifest.package !== "prime-agent") throw new Error("Runtime package must be prime-agent");
+	if (manifest.rust !== undefined) {
+		if (!/^\d+\.\d+\.\d+(?:[-.][0-9A-Za-z]+)*$/.test(manifest.rust.version)) {
+			throw new Error(`Invalid Prime Agent Rust runtime version: ${manifest.rust.version}`);
+		}
+		if (typeof manifest.rust.baseUrl !== "string") throw new Error("Rust runtime baseUrl must be a string");
+		for (const target of ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"]) {
+			const asset = manifest.rust.platforms?.[target];
+			if (!asset || !/^[a-f0-9]{64}$/.test(asset.sha256) || !/^[a-f0-9]{64}$/.test(asset.executableSha256)) {
+				throw new Error(`Runtime manifest must pin archive and executable SHA-256 for ${target}`);
+			}
+		}
+	}
 	if (!/^\d+\.\d+\.\d+(?:[-.][0-9A-Za-z]+)*$/.test(manifest.version)) {
 		throw new Error(`Invalid Prime Agent runtime version: ${manifest.version}`);
 	}

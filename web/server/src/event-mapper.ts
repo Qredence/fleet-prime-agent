@@ -108,6 +108,8 @@ export interface EventMapperState {
 	reasoningSteps: ChatReasoningStep[];
 	reasoningPhase: ChatReasoningPresentation["phase"] | undefined;
 	currentToolParts: ChatToolPart[];
+	/** Tool names learned from tool-start frames; Rust omits them on update/end frames. */
+	toolNamesByCallId: Map<string, string>;
 	currentToolSentAgentMessages: Record<string, Array<unknown>>;
 	/**
 	 * Tool name and args from `tool_execution_start`, keyed by `toolCallId`.
@@ -174,6 +176,7 @@ export function createEventMapperState(init?: {
 		reasoningSteps: [],
 		reasoningPhase: undefined,
 		currentToolParts: [],
+		toolNamesByCallId: new Map(),
 		currentToolSentAgentMessages: {},
 		toolCallStarts: new Map(),
 		userMessages: [],
@@ -229,6 +232,7 @@ function resetRun(state: EventMapperState): void {
 	state.reasoningSteps = [];
 	state.reasoningPhase = undefined;
 	state.currentToolParts = [];
+	state.toolNamesByCallId.clear();
 	state.currentToolSentAgentMessages = {};
 	state.toolCallStarts.clear();
 	state.userMessages = [];
@@ -606,6 +610,27 @@ function withSentAgentMessages(state: EventMapperState, toolCallId: string | und
 	return { ...base, details: { ...details, sentAgentMessages } };
 }
 
+function toolNameForEvent(state: EventMapperState, toolCallId: string, eventToolName: unknown): string {
+	if (typeof eventToolName === "string" && eventToolName.length > 0) {
+		state.toolNamesByCallId.set(toolCallId, eventToolName);
+		return eventToolName;
+	}
+	const knownName = state.toolNamesByCallId.get(toolCallId);
+	if (knownName) return knownName;
+	const existingPart = state.currentToolParts.find((part) => part.toolCallId === toolCallId);
+	if (existingPart?.toolName) return existingPart.toolName;
+	const content = state.currentAssistantMessage?.content;
+	if (Array.isArray(content)) {
+		for (const item of content) {
+			if (isRecord(item) && item.type === "toolCall" && item.id === toolCallId && typeof item.name === "string") {
+				state.toolNamesByCallId.set(toolCallId, item.name);
+				return item.name;
+			}
+		}
+	}
+	return "unknown_tool";
+}
+
 function upsertCurrentToolPart(state: EventMapperState, nextPart: ChatToolPart): ChatToolPart {
 	const toolCallId = nextPart.toolCallId;
 	const enrichedPart: ChatToolPart =
@@ -792,7 +817,8 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		case "tool_execution_start": {
 			const startToolName = typeof event.toolName === "string" ? event.toolName : undefined;
 			if (startToolName) state.toolCallStarts.set(event.toolCallId, { toolName: startToolName, args: event.args });
-			const identity = resolveToolIdentity(state, event.toolCallId, startToolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, startToolName);
+			const identity = resolveToolIdentity(state, event.toolCallId, eventToolName);
 			const part = upsertCurrentToolPart(state, {
 				...identity,
 				toolCallId: event.toolCallId,
@@ -803,7 +829,8 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		}
 		case "tool_execution_update": {
 			const frame = event as { toolName?: unknown; args?: unknown };
-			const identity = resolveToolIdentity(state, event.toolCallId, frame.toolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, frame.toolName);
+			const identity = resolveToolIdentity(state, event.toolCallId, eventToolName);
 			const input = frame.args !== undefined ? frame.args : state.toolCallStarts.get(event.toolCallId)?.args;
 			const backgroundOutput = extractToolBackgroundOutput(event.partialResult);
 			const part = upsertCurrentToolPart(state, {
@@ -817,10 +844,12 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_end": {
-			const identity = resolveToolIdentity(state, event.toolCallId, (event as { toolName?: unknown }).toolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, event.toolName);
+			const identity = resolveToolIdentity(state, event.toolCallId, eventToolName);
 			// Mid-tool attach: no start frame, so args come from the snapshot-seeded cache.
 			const cachedInput = state.toolCallStarts.get(event.toolCallId)?.args;
 			state.toolCallStarts.delete(event.toolCallId);
+			state.toolNamesByCallId.delete(event.toolCallId);
 			const errorText = event.isError ? extractToolErrorText(event.result) : undefined;
 			const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
 			const durationMs =

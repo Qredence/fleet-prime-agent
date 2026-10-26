@@ -41,7 +41,7 @@ describe("chat providers custom/OCC write path", () => {
 		rmSync(agentDir, { recursive: true, force: true });
 	});
 
-	it("GET synthesizes the default OCC row", async () => {
+	it("GET synthesizes the default OCC row and exposes Vertex's API-key env var", async () => {
 		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
 		const body = (await response.json()) as { providers: Array<Record<string, unknown>> };
 		const occ = body.providers.find((p) => p.id === "openai-chat-completions");
@@ -49,6 +49,9 @@ describe("chat providers custom/OCC write path", () => {
 			isConfigured: false,
 			envVarName: "OPENAI_CHAT_COMPLETIONS_API_KEY",
 			providerFamily: "openai-chat-completions",
+		});
+		expect(body.providers.find((p) => p.id === "google-vertex")).toMatchObject({
+			envVarName: "GOOGLE_CLOUD_API_KEY",
 		});
 	});
 
