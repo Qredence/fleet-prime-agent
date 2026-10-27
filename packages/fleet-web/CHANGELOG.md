@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.8.0
+
+### Minor Changes
+
+- ad6e714: Align conversation activity and code blocks with shadcn patterns, and show available runtime reasoning in conversation traces.
+- ad6e714: Organize agent activity into compact traces and a session Activity tab, with clearer tool output and subagent messages.
+- ef95640: Fleet now provisions the pinned Prime Agent Rust runtime on first launch, verifies the downloaded platform archive and executable checksums, and launches the web UI against that Rust daemon by default.
+
+### Patch Changes
+
+- 848b7ca: Map Prime Agent daemon socket frames onto the `ChatStreamEvent` contract in the web server, and read RLM child session headers read-only instead of opening them through the SDK session manager.
+- 2c58710: Web server: add a daemon client for the Prime Agent Rust v0.10.1 daemon (protocol types, socket client, runtime wiring in prime-bridge).
+- d2a7bb9: Route Fleet's remaining Prime Agent v0.9.8 SDK config and transcript access through one temporary legacy bridge, read session transcripts without ever rewriting them, and drop Fleet's duplicate IPython kernel prewarm (the runtime provisions its own kernel). `GET /api/health` no longer reports `kernel`.
+- ad6e714: Redact credentials in activity traces, preserve assistant child reports, improve tool and artifact activity, and handle runtime startup and downloads safely.
+- ad6e714: Handle runtime startup failures and stalled downloads, redact authorization and URL credentials in activity traces, and correct transcript content, artifact placement, downloads, and accessible tool controls.
+- 8487dc6: Remove unreachable web UI code: unused exports, dead helpers, and the unused assistant-ui shadcn registry entry. No behavior change.
+
 ## 0.7.4
 
 ### Patch Changes
