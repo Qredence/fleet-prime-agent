@@ -825,6 +825,10 @@ export const ChatErrorEventSchema = z
 	})
 	.openapi({ description: "Stream error event" });
 
+export const ChatStreamEventCursorSchema = z
+	.object({ generation: z.string().min(1), sequence: z.number().int().min(1) })
+	.strict();
+
 export const ChatStreamEventSchema = z
 	.union([
 		ChatStartEventSchema,
@@ -848,6 +852,13 @@ export const ChatStreamEventSchema = z
 		ChatDoneEventSchema,
 		ChatErrorEventSchema,
 	])
+	.and(
+		z
+			.object({
+				eventCursor: ChatStreamEventCursorSchema.optional(),
+			})
+			.strict(),
+	)
 	.openapi({ description: "Chat stream event (NDJSON line)" });
 
 export const ChatSessionResponseSchema = z

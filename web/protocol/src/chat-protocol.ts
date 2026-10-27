@@ -567,6 +567,12 @@ export type ChatConnectedFrame = {
 	resumeAccepted?: boolean;
 };
 
+/** Shared ordering metadata for the POST and resumable session-event streams. */
+export type ChatStreamEventCursor = {
+	generation: string;
+	sequence: number;
+};
+
 /**
  * A single NDJSON frame emitted on the chat turn stream (`POST /api/chat`).
  *
@@ -577,7 +583,7 @@ export type ChatConnectedFrame = {
  * ignored by the browser.
  * Validated by `ChatStreamEventSchema` in `chat-protocol.zod`.
  */
-export type ChatStreamEvent =
+export type ChatStreamEvent = (
 	| ChatStartEvent
 	| { type: "delta"; text: string; messageId?: string }
 	| { type: "tool"; part: ChatToolPart; messageId?: string }
@@ -639,7 +645,8 @@ export type ChatStreamEvent =
 			sessionReset?: boolean;
 			presentation?: PrimeAgentSessionPresentation;
 	  }
-	| ChatErrorStreamEvent;
+	| ChatErrorStreamEvent
+) & { eventCursor?: ChatStreamEventCursor };
 
 type ChatStateEvent = {
 	name: "agent_start" | "agent_end" | "agent_settled" | "turn_start" | "turn_end" | "message_start" | "message_end";

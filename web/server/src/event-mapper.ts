@@ -895,6 +895,18 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 	}
 }
 
+function reasoningContentIndex(state: EventMapperState, event: AssistantMessageEvent): number {
+	const index = "contentIndex" in event ? event.contentIndex : undefined;
+	if (typeof index === "number" && Number.isSafeInteger(index) && index >= 0) return index;
+	const partial = "partial" in event ? event.partial : undefined;
+	if (partial && Array.isArray(partial.content)) {
+		for (let index = partial.content.length - 1; index >= 0; index--) {
+			if (partial.content[index]?.type === "thinking") return index;
+		}
+	}
+	return [...state.reasoningTextByContentIndex.keys()].at(-1) ?? 0;
+}
+
 function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessageEvent): ChatStreamEvent[] {
 	switch (event.type) {
 		case "start": {
@@ -922,19 +934,20 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			];
 		}
 		case "thinking_delta": {
+			const contentIndex = reasoningContentIndex(state, event);
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
 			state.reasoningTextByContentIndex.set(
-				event.contentIndex,
-				(state.reasoningTextByContentIndex.get(event.contentIndex) ?? "") + event.delta,
+				contentIndex,
+				(state.reasoningTextByContentIndex.get(contentIndex) ?? "") + event.delta,
 			);
 			return [
 				reasoningFrame(state, "planning", true),
 				{
 					type: "reasoning_text",
 					phase: "delta",
-					contentIndex: event.contentIndex,
+					contentIndex,
 					text: event.delta,
 					messageId: state.currentMessageId,
 				},
@@ -948,43 +961,45 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 		case "error":
 			return [];
 		case "thinking_start": {
+			const contentIndex = reasoningContentIndex(state, event);
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
 			// contentIndex is scoped to one assistant message and can be reused by
 			// later messages in the same run.
-			state.reasoningTextByContentIndex.set(event.contentIndex, "");
+			state.reasoningTextByContentIndex.set(contentIndex, "");
 			return [
 				reasoningFrame(state, "planning", true),
 				{
 					type: "reasoning_text",
 					phase: "start",
-					contentIndex: event.contentIndex,
+					contentIndex,
 					text: "",
 					messageId: state.currentMessageId,
 				},
 			];
 		}
 		case "thinking_end": {
+			const contentIndex = reasoningContentIndex(state, event);
 			const endedEvent = event as typeof event & {
 				contentIndex: number;
 				content?: string;
 				partial?: { content?: Array<{ type?: string; thinking?: string }> };
 			};
-			const block = endedEvent.partial?.content?.[endedEvent.contentIndex];
+			const block = endedEvent.partial?.content?.[contentIndex];
 			const finalText =
 				typeof endedEvent.content === "string"
 					? endedEvent.content
 					: block?.type === "thinking" && typeof block.thinking === "string"
 						? block.thinking
 						: undefined;
-			if (finalText !== undefined) state.reasoningTextByContentIndex.set(endedEvent.contentIndex, finalText);
+			if (finalText !== undefined) state.reasoningTextByContentIndex.set(contentIndex, finalText);
 			return [
 				{
 					type: "reasoning_text",
 					phase: "end",
-					contentIndex: endedEvent.contentIndex,
-					text: finalText ?? state.reasoningTextByContentIndex.get(endedEvent.contentIndex) ?? "",
+					contentIndex,
+					text: finalText ?? state.reasoningTextByContentIndex.get(contentIndex) ?? "",
 					messageId: state.currentMessageId,
 				},
 			];

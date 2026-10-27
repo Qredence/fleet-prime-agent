@@ -105,6 +105,77 @@ describe("usePiChatSessionEvents", () => {
 		);
 	});
 
+	it("applies ordered replay once and stops at gaps or malformed frames", async () => {
+		class EventSourceStub {
+			static instances: EventSourceStub[] = [];
+			readonly close = vi.fn();
+			onerror: (() => void) | null = null;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			constructor() {
+				EventSourceStub.instances.push(this);
+			}
+		}
+		vi.stubGlobal("EventSource", EventSourceStub);
+		const applyEvent = vi.fn();
+		const recoveryRef = {
+			current: {
+				active: true,
+				sessionId: "session-recovery",
+				cursor: { generation: "gen-1", sequence: 4 },
+				needsSnapshot: false,
+				applyEvent,
+			},
+		};
+		renderHook(() =>
+			usePiChatSessionEvents({
+				client: {} as ChatClient,
+				recoveryRef,
+				presentationRef: { current: EMPTY_PRESENTATION },
+				sessionId: "session-recovery",
+				sessionMetadataRef: { current: { sessionId: "session-recovery" } },
+				setActivityLabelSynced: vi.fn(),
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced: vi.fn(),
+				setPresentationSynced: vi.fn(),
+				setQueueSynced: vi.fn(),
+				setSessionMetadataSynced: vi.fn(),
+				statusRef: { current: "streaming" },
+			}),
+		);
+		const source = EventSourceStub.instances[0]!;
+		const send = (sequence: number, text = "replayed") =>
+			source.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "delta",
+						text,
+						eventCursor: { generation: "gen-1", sequence },
+					}),
+					lastEventId: String(sequence),
+				}),
+			);
+		await act(async () => {
+			source.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "reasoning_text",
+						phase: "delta",
+						text: "invalid index",
+						eventCursor: { generation: "gen-1", sequence: 5 },
+					}),
+					lastEventId: "5",
+				}),
+			);
+			send(6);
+			send(6);
+		});
+		expect(applyEvent).toHaveBeenCalledOnce();
+		expect(recoveryRef.current.cursor).toEqual({ generation: "gen-1", sequence: 6 });
+		await act(async () => send(8));
+		expect(applyEvent).toHaveBeenCalledOnce();
+		expect(recoveryRef.current.needsSnapshot).toBe(true);
+	});
+
 	it("ignores an agent-settled hydration that resolves after the visible session changes", async () => {
 		let resolveSession!: (value: {
 			messages: [];

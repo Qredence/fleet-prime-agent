@@ -1777,7 +1777,11 @@ describe("PrimeBridge.openRlmChildStream", () => {
 		const stream = await opening;
 		expect(stream).toBeDefined();
 		const replay = bridge.replaySince(stream!.channelId, 0);
-		expect(replay.replayed.some((entry) => JSON.stringify(entry.event).includes('"name":"agent_start"'))).toBe(true);
+		const agentStart = replay.replayed.find((entry) => JSON.stringify(entry.event).includes('"name":"agent_start"'));
+		expect(agentStart).toBeDefined();
+		expect(agentStart?.event).toMatchObject({
+			eventCursor: { generation: stream!.streamGeneration, sequence: agentStart?.seq },
+		});
 		await stream!.release();
 	});
 

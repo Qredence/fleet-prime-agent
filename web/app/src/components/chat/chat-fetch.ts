@@ -8,6 +8,15 @@ import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.z
 import type { ZodType } from "zod";
 import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
 
+export class ChatStreamContractError extends Error {
+	constructor() {
+		super(
+			"The chat stream received an invalid event. The response may still be running; reload the conversation to refresh it.",
+		);
+		this.name = "ChatStreamContractError";
+	}
+}
+
 export class ChatRequestError extends Error {
 	readonly status: number;
 	readonly body: string;
@@ -138,7 +147,13 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 		const trimmed = line.trim();
 		if (!trimmed) return;
 
-		const data = JSON.parse(trimmed) as unknown;
+		let data: unknown;
+		try {
+			data = JSON.parse(trimmed) as unknown;
+		} catch {
+			console.error('[chat-stream] Invalid NDJSON event {"type":"unknown","issues":["invalid_json:[root]"]}');
+			throw new ChatStreamContractError();
+		}
 		const eventType =
 			typeof data === "object" && data !== null
 				? "type" in data && (data as Record<string, unknown>).type
@@ -182,27 +197,124 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 		}
 	};
 
-	for (;;) {
-		const { value, done } = await reader.read();
-		if (done) break;
-		const chunk = decoder.decode(value, { stream: true });
-		buffer += chunk;
+	try {
+		for (;;) {
+			const { value, done } = await reader.read();
+			if (done) break;
+			const chunk = decoder.decode(value, { stream: true });
+			buffer += chunk;
 
-		let newlineIndex = buffer.indexOf("\n");
-		while (newlineIndex >= 0) {
-			handleLine(buffer.slice(0, newlineIndex));
-			buffer = buffer.slice(newlineIndex + 1);
-			newlineIndex = buffer.indexOf("\n");
+			let newlineIndex = buffer.indexOf("\n");
+			while (newlineIndex >= 0) {
+				handleLine(buffer.slice(0, newlineIndex));
+				buffer = buffer.slice(newlineIndex + 1);
+				newlineIndex = buffer.indexOf("\n");
+			}
 		}
+		buffer += decoder.decode();
+		handleLine(buffer);
+	} catch (error) {
+		await reader.cancel().catch(() => undefined);
+		throw error;
+	} finally {
+		reader.releaseLock();
 	}
-
-	buffer += decoder.decode();
-	handleLine(buffer);
 }
 
 export function parseWithSchema<T>(schema: ZodType<T>, data: unknown, label: string): T {
 	const parsed = schema.safeParse(data);
 	if (parsed.success) return parsed.data;
+	if (label === "Chat stream event" || label === "Subagent chat stream event") {
+		const knownTypes = new Set([
+			"start",
+			"done",
+			"error",
+			"plan",
+			"state",
+			"tool",
+			"queue",
+			"reasoning",
+			"reasoning_text",
+			"compaction",
+			"retry",
+			"payload",
+			"session_snapshot",
+			"delta",
+			"message",
+			"thinking",
+			"presentation",
+			"rlm",
+		]);
+		const knownFields = new Set([
+			"type",
+			"part",
+			"message",
+			"messages",
+			"parts",
+			"id",
+			"role",
+			"text",
+			"state",
+			"name",
+			"phase",
+			"status",
+			"sessionId",
+			"runId",
+			"messageId",
+			"toolCallId",
+			"toolName",
+			"input",
+			"output",
+			"result",
+			"error",
+			"code",
+			"presentation",
+			"revision",
+			"sequenceNumber",
+			"contentIndex",
+			"terminal",
+			"session",
+			"queue",
+			"payload",
+			"category",
+			"reasoning",
+			"steps",
+			"durationMs",
+			"createdAt",
+			"requestKind",
+			"data",
+			"content",
+		]);
+		type Issue = { code?: string; path?: PropertyKey[]; errors?: Issue[][] };
+		const summarize = (issues: Issue[], prefix: PropertyKey[] = []): string[] =>
+			issues.flatMap((issue) => {
+				const issuePath = [...prefix, ...(issue.path ?? [])];
+				if (issue.code === "invalid_union" && issue.errors) {
+					const matching = issue.errors.filter(
+						(branch) => !branch.some((entry) => entry.code === "invalid_value" && entry.path?.[0] === "type"),
+					);
+					return matching.flatMap((branch) => summarize(branch, issuePath));
+				}
+				const path = issuePath
+					.map((key) =>
+						typeof key === "number" ? "[]" : typeof key === "string" && knownFields.has(key) ? key : "[field]",
+					)
+					.join(".");
+				return [`${issue.code ?? "invalid"}:${path || "[root]"}`];
+			});
+		const eventType =
+			typeof data === "object" &&
+			data !== null &&
+			"type" in data &&
+			typeof data.type === "string" &&
+			knownTypes.has(data.type)
+				? data.type
+				: "unknown";
+		console.error(
+			`[chat-stream] Invalid event ${JSON.stringify({ type: eventType, issues: summarize(parsed.error.issues).slice(0, 12) })}`,
+		);
+		throw new ChatStreamContractError();
+	}
 
 	throw new Error(`${label} did not match the expected contract`);
 }

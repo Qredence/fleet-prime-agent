@@ -1,6 +1,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ChatStreamEvent, ChatToolPart, FleetErrorEnvelope } from "@prime-agent/web-protocol";
+import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
@@ -36,6 +37,60 @@ function mkAssistant(partial: Partial<AssistantMessage> & { errorMessage?: strin
 }
 
 describe("event-mapper", () => {
+	it("normalizes reasoning events without content indexes and validates the final message", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = [
+			...mapAgentSessionEvent(state, {
+				type: "message_update",
+				message: mkAssistant(),
+				assistantMessageEvent: { type: "thinking_delta", delta: "sample" },
+			} as unknown as AgentSessionEvent),
+			...mapAgentSessionEvent(state, {
+				type: "message_update",
+				message: mkAssistant(),
+				assistantMessageEvent: { type: "thinking_end" },
+			} as unknown as AgentSessionEvent),
+			...mapAgentSessionEvent(state, {
+				type: "agent_end",
+				messages: [mkAssistant()],
+			} as unknown as AgentSessionEvent),
+		];
+		expect(frames.filter((frame) => frame.type === "reasoning_text")).toEqual([
+			expect.objectContaining({ phase: "delta", contentIndex: 0, text: "sample" }),
+			expect.objectContaining({ phase: "end", contentIndex: 0, text: "sample" }),
+		]);
+		const done = frames.find((frame) => frame.type === "done");
+		expect(done).toMatchObject({ message: { parts: [{ type: "reasoning", contentIndex: 0, text: "sample" }] } });
+		for (const frame of frames) {
+			const wireFrame = JSON.parse(JSON.stringify(frame)) as unknown;
+			expect(ChatStreamEventSchema.safeParse(wireFrame).success).toBe(true);
+		}
+	});
+
+	it.each([undefined, null, -1, 1.5, Number.NaN])("normalizes invalid reasoning indexes (%s)", (contentIndex) => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const event = {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_delta", contentIndex, delta: "sample" },
+		} as unknown as AgentSessionEvent;
+		const frame = mapAgentSessionEvent(state, event).find((candidate) => candidate.type === "reasoning_text");
+		expect(frame).toMatchObject({ type: "reasoning_text", phase: "delta", contentIndex: 0 });
+		expect(ChatStreamEventSchema.safeParse(JSON.parse(JSON.stringify(frame))).success).toBe(true);
+	});
+
+	it("preserves a valid nonzero reasoning index", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frame = mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_start", contentIndex: 7 },
+		} as unknown as AgentSessionEvent).find((candidate) => candidate.type === "reasoning_text");
+		expect(frame).toMatchObject({ type: "reasoning_text", phase: "start", contentIndex: 7 });
+	});
 	it("emits agent_start as a state event and starts a new run", () => {
 		const state = createEventMapperState();
 		const events = mapAgentSessionEvent(state, {

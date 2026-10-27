@@ -282,12 +282,14 @@ export class PrimeBridge {
 	/** Emit a frame to ring buffer (SSE replay) and all live listeners. */
 	#dispatch(sessionId: string, frame: ChatStreamEvent): void {
 		const next = frame.type === "done" && !(frame.sessionId ?? "").trim() ? { ...frame, sessionId } : frame;
-		const buffer = this.#ringBuffers.get(sessionId);
-		if (buffer) {
-			buffer.push(next);
-		}
+		const buffer = this.#ringBufferFor(sessionId);
+		const entry = buffer.push(next, (sequence, generation) => ({
+			...next,
+			eventCursor: { generation, sequence },
+		}));
+		const sequenced = entry.event as ChatStreamEvent;
 		for (const listener of this.#listeners) {
-			listener(sessionId, next);
+			listener(sessionId, sequenced);
 		}
 	}
 
@@ -1137,14 +1139,15 @@ export class PrimeBridge {
 				rlmChildOverrides: new Map([[child.id, override]]),
 			});
 			const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(canonicalSessionId, summary.cwd);
-			const streamGeneration = crypto.randomUUID();
+			const channelId = `child:${parent.sessionId}:${child.id}:${crypto.randomUUID()}`;
+			const streamGeneration = this.#ringBufferFor(channelId).streamGeneration;
 			const stream: ManagedRlmChildStream = {
 				key: `${parent.sessionId}:${child.id}`,
 				parentSessionId: parent.sessionId,
 				childId: child.id,
 				streamSessionId,
 				canonicalSessionId,
-				channelId: `child:${parent.sessionId}:${child.id}:${streamGeneration}`,
+				channelId,
 				streamGeneration,
 				projectId,
 				child,
