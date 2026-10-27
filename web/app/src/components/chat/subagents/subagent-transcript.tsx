@@ -30,38 +30,44 @@ export type SubagentTranscriptState = {
 };
 
 /**
- * Renders a conversation turn with its user message, assistant content, tool timeline, and subagent hierarchy.
+ * Renders a conversation turn with its user message, assistant content, and subagent hierarchy.
  *
  * @param turn - The user and assistant messages comprising the conversation turn
  * @param isLast - Whether this is the final turn in the transcript
  * @param isStreaming - Whether assistant content is currently streaming
- * @param artifacts - Artifacts associated with the turn's tool activity
  * @param presentation - Optional session data used to render the subagent hierarchy
  */
 function SubagentTurnView({
 	turn,
 	isLast,
 	isStreaming,
-	artifacts,
 	presentation,
+	artifacts,
 }: {
 	turn: ConversationTurn;
 	isLast: boolean;
 	isStreaming: boolean;
-	artifacts: Array<PrimeAgentArtifact>;
 	presentation?: PrimeAgentSessionPresentation;
+	artifacts: Array<PrimeAgentArtifact>;
 }) {
 	const assistantElements = useMemo(
 		() =>
 			turn.assistants.flatMap((message, index) =>
-				buildAssistantElements(normalizeAssistantToolParts(message.parts ?? []), {
-					messageId: message.id,
-					isLast: isLast && index === turn.assistants.length - 1,
-					isStreaming,
-					suppressQuestionTool: true,
-					ToolRendererComponent: SessionToolRenderer,
-					TextRendererComponent: SessionGenerativeTextRenderer,
-				}),
+				buildAssistantElements(
+					normalizeAssistantToolParts(
+						(message.parts ?? []).filter(
+							(part) => part.type !== "tool-FleetReasoning" && part.type !== "tool-Thinking",
+						),
+					),
+					{
+						messageId: message.id,
+						isLast: isLast && index === turn.assistants.length - 1,
+						isStreaming,
+						suppressQuestionTool: true,
+						ToolRendererComponent: SessionToolRenderer,
+						TextRendererComponent: SessionGenerativeTextRenderer,
+					},
+				),
 			),
 		[isLast, isStreaming, turn.assistants],
 	);
@@ -80,10 +86,10 @@ function SubagentTurnView({
 					<MessageContent>
 						<MessageBubble variant="ghost">
 							<MessageBubbleContent>
-								{isLast ? (
-									<ToolTimeline messages={turn.assistants} artifacts={artifacts} streaming={isStreaming} />
-								) : null}
 								<div className="flex flex-col gap-3">{assistantElements}</div>
+								{isLast && artifacts.length > 0 ? (
+									<ToolTimeline messages={[]} artifacts={artifacts} streaming={isStreaming} />
+								) : null}
 								{isLast && presentation ? (
 									<SubagentList tree={presentation.rlmTree}>{presentation.rlmChildren}</SubagentList>
 								) : null}
@@ -147,7 +153,16 @@ export function SubagentTranscriptView({
 				: [],
 		[childStatus, transcript],
 	);
-	const artifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns]);
+	const artifactOnlyEvents = useMemo(() => {
+		const toolIds = new Set(
+			(transcript?.messages ?? []).flatMap((message) =>
+				message.parts.flatMap((part) => ("toolCallId" in part && part.toolCallId ? [part.toolCallId] : [])),
+			),
+		);
+		return artifactRuns
+			.flatMap((run) => run.artifacts)
+			.filter((artifact) => !artifact.sourceToolCallId || !toolIds.has(artifact.sourceToolCallId));
+	}, [artifactRuns, transcript]);
 	const presentation = transcript?.presentation;
 	const renderSubagentTurn = useCallback(
 		(turn: ConversationTurn, index: number) => {
@@ -157,12 +172,12 @@ export function SubagentTranscriptView({
 					turn={turn}
 					isLast={isLast}
 					isStreaming={isLast && childStatus === "streaming"}
-					artifacts={isLast ? artifacts : []}
 					presentation={isLast ? presentation : undefined}
+					artifacts={isLast ? artifactOnlyEvents : []}
 				/>
 			);
 		},
-		[artifacts, childStatus, presentation, turns.length],
+		[artifactOnlyEvents, childStatus, presentation, turns.length],
 	);
 	const title = child.sessionName || child.label;
 	const [heartbeatLabel, setHeartbeatLabel] = useState<string | null>(null);

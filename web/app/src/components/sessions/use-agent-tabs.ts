@@ -59,6 +59,7 @@ export function useAgentTabs({
 	const tabs = useMemo<Array<AgentTabItem>>(
 		() => [
 			{ id: "main", label: "Main agent", kind: "main" },
+			{ id: "activity", label: "Activity", kind: "activity" },
 			...orderedChildren
 				.filter((child) => !dismissedChildIds.has(child.id))
 				.map((child) => ({
@@ -76,8 +77,8 @@ export function useAgentTabs({
 
 	const selectTab = useCallback(
 		(tabId: string) => {
-			if (tabId !== "main" && !orderedChildren.some((child) => child.id === tabId)) return;
-			if (tabId !== "main") {
+			if (tabId !== "activity" && tabId !== "main" && !orderedChildren.some((child) => child.id === tabId)) return;
+			if (tabId !== "activity" && tabId !== "main") {
 				dispatchTabScope({ type: "restore", scopeKey, tabId });
 			}
 			dispatchTabScope({ type: "select", scopeKey, tabId });

@@ -119,6 +119,42 @@ export function appendAssistantDelta(messages: Array<ChatMessage>, assistantId: 
 	});
 }
 
+export function applyAssistantReasoningText(
+	messages: Array<ChatMessage>,
+	assistantId: string,
+	event: { phase: "start" | "delta" | "end"; text: string; contentIndex: number; durationMs?: number },
+) {
+	return messages.map((message) => {
+		if (message.id !== assistantId) return message;
+		const index = message.parts.findIndex(
+			(part) => part.type === "reasoning" && part.contentIndex === event.contentIndex,
+		);
+		const existing = index < 0 ? undefined : message.parts[index];
+		const previousText = existing?.type === "reasoning" ? existing.text : "";
+		const part = {
+			type: "reasoning" as const,
+			contentIndex: event.contentIndex,
+			text:
+				event.phase === "start"
+					? event.text
+					: event.phase === "delta"
+						? previousText + event.text
+						: event.phase === "end"
+							? event.text || previousText
+							: previousText,
+			state: event.phase === "end" ? ("complete" as const) : ("streaming" as const),
+			...(event.durationMs !== undefined ? { durationMs: event.durationMs } : {}),
+		};
+		const parts = [...message.parts];
+		if (index >= 0) parts[index] = part;
+		else {
+			const emptyText = parts.findIndex((current) => current.type === "text" && !current.text);
+			parts.splice(emptyText < 0 ? parts.length : emptyText, 0, part);
+		}
+		return { ...message, parts };
+	});
+}
+
 export function upsertAssistantToolPart(messages: Array<ChatMessage>, assistantId: string, toolPart: ChatToolPart) {
 	return messages.map((message) => {
 		if (message.id !== assistantId) return message;

@@ -93,6 +93,7 @@ export interface EventMapperState {
 	messageSeq: number;
 	currentMessageId: string | undefined;
 	currentText: string;
+	reasoningTextByContentIndex: Map<number, string>;
 	currentAssistantMessage: AssistantMessage | undefined;
 	currentAssistantImages: ChatImagePart[];
 	currentAssistantErrors: ChatErrorPart[];
@@ -134,6 +135,7 @@ export function createEventMapperState(init?: {
 		messageSeq: 0,
 		currentMessageId: undefined,
 		currentText: "",
+		reasoningTextByContentIndex: new Map(),
 		currentAssistantMessage: undefined,
 		currentAssistantImages: [],
 		currentAssistantErrors: [],
@@ -158,6 +160,7 @@ function resetRun(state: EventMapperState): void {
 	state.messageSeq = 0;
 	state.currentMessageId = undefined;
 	state.currentText = "";
+	state.reasoningTextByContentIndex.clear();
 	state.currentAssistantMessage = undefined;
 	state.currentAssistantImages = [];
 	state.currentAssistantErrors = [];
@@ -611,6 +614,17 @@ function rememberAssistantMessage(state: EventMapperState, message: AssistantMes
 	state.currentAssistantMessage = message;
 	if (!state.currentMessageId) state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 	const chatMessage = toChatMessageFromAssistant(message, state.currentMessageId);
+	for (const [contentIndex, text] of state.reasoningTextByContentIndex) {
+		const existing = chatMessage.parts.find(
+			(part) => part.type === "reasoning" && part.contentIndex === contentIndex,
+		);
+		if (existing?.type === "reasoning") {
+			existing.text = text;
+			existing.state = "complete";
+		} else {
+			chatMessage.parts.push({ type: "reasoning", contentIndex, text, state: "complete" });
+		}
+	}
 	appendFinalAssistantText(state, textFromAssistantMessage(message));
 	for (const part of chatMessage.parts) {
 		if (isChatToolPart(part)) upsertCurrentToolPart(state, part);
@@ -691,8 +705,8 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		}
 		case "message_end": {
 			// Some providers expose their final assistant content only on the
-			// authoritative message_end lifecycle event. Keep visible assistant
-			// metadata and tool calls while detailed reasoning remains excluded.
+			// authoritative message_end lifecycle event. Keep its typed reasoning,
+			// visible metadata, and tool calls in the transcript projection.
 			// The terminal text must also preserve earlier messages in this run:
 			// append rather than replace, skipping the delta-equivalent suffix.
 			if (isAssistantMessage(event.message)) {
@@ -773,6 +787,10 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
+			// Runtime content indexes are local to each assistant message. The
+			// transcript combines a run into one message, so do not carry text from
+			// the previous runtime message into a reused index.
+			state.reasoningTextByContentIndex.clear();
 			return [];
 		}
 		case "text_delta": {
@@ -793,7 +811,20 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
-			return [reasoningFrame(state, "planning", true)];
+			state.reasoningTextByContentIndex.set(
+				event.contentIndex,
+				(state.reasoningTextByContentIndex.get(event.contentIndex) ?? "") + event.delta,
+			);
+			return [
+				reasoningFrame(state, "planning", true),
+				{
+					type: "reasoning_text",
+					phase: "delta",
+					contentIndex: event.contentIndex,
+					text: event.delta,
+					messageId: state.currentMessageId,
+				},
+			];
 		}
 		case "text_start":
 		case "text_end":
@@ -806,14 +837,48 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
-			return [reasoningFrame(state, "planning", true)];
+			// contentIndex is scoped to one assistant message and can be reused by
+			// later messages in the same run.
+			state.reasoningTextByContentIndex.set(event.contentIndex, "");
+			return [
+				reasoningFrame(state, "planning", true),
+				{
+					type: "reasoning_text",
+					phase: "start",
+					contentIndex: event.contentIndex,
+					text: "",
+					messageId: state.currentMessageId,
+				},
+			];
 		}
-		case "thinking_end":
-			return [];
+		case "thinking_end": {
+			const endedEvent = event as typeof event & {
+				contentIndex: number;
+				content?: string;
+				partial?: { content?: Array<{ type?: string; thinking?: string }> };
+			};
+			const block = endedEvent.partial?.content?.[endedEvent.contentIndex];
+			const finalText =
+				typeof endedEvent.content === "string"
+					? endedEvent.content
+					: block?.type === "thinking" && typeof block.thinking === "string"
+						? block.thinking
+						: undefined;
+			if (finalText !== undefined) state.reasoningTextByContentIndex.set(endedEvent.contentIndex, finalText);
+			return [
+				{
+					type: "reasoning_text",
+					phase: "end",
+					contentIndex: endedEvent.contentIndex,
+					text: finalText ?? state.reasoningTextByContentIndex.get(endedEvent.contentIndex) ?? "",
+					messageId: state.currentMessageId,
+				},
+			];
+		}
 		case "done": {
 			// Some providers deliver visible answer text only in the terminal message
 			// rather than emitting text_delta events. The terminal AssistantMessage is
-			// authoritative, but only text blocks may enter Fleet's standard transcript.
+			// authoritative, including typed reasoning blocks.
 			// Append (skip the delta-equivalent suffix) so earlier messages in this
 			// run are preserved instead of being replaced by the latest one.
 			rememberAssistantMessage(state, event.message);
@@ -1115,16 +1180,39 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 // Finalization
 // ---------------------------------------------------------------------------
 
-/* Legacy raw-thinking helpers intentionally removed: standard Fleet transcript
- * messages never carry detailed model thinking. */
-
 function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
-	if (state.currentText.length > 0) {
+	const emittedToolCallIds = new Set<string>();
+	const content = state.currentAssistantMessage?.content;
+	if (content) {
+		for (const [contentIndex, block] of content.entries()) {
+			const value = block as { type?: string; text?: string; thinking?: string; id?: string };
+			if (value.type === "text" && typeof value.text === "string" && value.text.length > 0) {
+				if (!parts.some((part) => part.type === "text")) {
+					parts.push({ type: "text", text: state.currentText || value.text });
+				}
+			} else if (value.type === "thinking") {
+				const text = state.reasoningTextByContentIndex.get(contentIndex) ?? value.thinking;
+				if (typeof text === "string") parts.push({ type: "reasoning", contentIndex, text, state: "complete" });
+			} else if (value.type === "toolCall" && value.id) {
+				const tool = state.currentToolParts.find((candidate) => candidate.toolCallId === value.id);
+				if (tool) {
+					parts.push(tool);
+					emittedToolCallIds.add(value.id);
+				}
+			}
+		}
+	}
+	if (state.currentText.length > 0 && !parts.some((part) => part.type === "text")) {
 		parts.push({ type: "text", text: state.currentText });
 	}
+	for (const [contentIndex, text] of [...state.reasoningTextByContentIndex].sort(([a], [b]) => a - b)) {
+		if (!parts.some((part) => part.type === "reasoning" && part.contentIndex === contentIndex)) {
+			parts.push({ type: "reasoning", contentIndex, text, state: "complete" });
+		}
+	}
 	for (const part of state.currentToolParts) {
-		parts.push(part);
+		if (!part.toolCallId || !emittedToolCallIds.has(part.toolCallId)) parts.push(part);
 	}
 	parts.push(...state.currentAssistantImages);
 	parts.push(...state.currentAssistantErrors);

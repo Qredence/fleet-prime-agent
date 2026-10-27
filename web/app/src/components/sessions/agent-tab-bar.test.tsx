@@ -5,6 +5,7 @@ import { AgentTabBar, type AgentTabItem } from "@/components/sessions/agent-tab-
 
 const initialTabs: Array<AgentTabItem> = [
 	{ id: "main", label: "Main agent", kind: "main" },
+	{ id: "activity", label: "Activity", kind: "activity" },
 	{ id: "research", label: "Research worker", kind: "subagent", status: "running" },
 	{ id: "writer", label: "Writer worker", kind: "subagent", status: "done" },
 ];
@@ -33,6 +34,7 @@ describe("AgentTabBar", () => {
 
 		expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.trim())).toEqual([
 			"Main agent",
+			"Activity",
 			"Research worker",
 			"Writer worker",
 		]);
@@ -45,9 +47,13 @@ describe("AgentTabBar", () => {
 
 		fireEvent.keyDown(screen.getByRole("tab", { name: "Main agent, ready" }), { key: "ArrowRight" });
 
+		expect(screen.getByRole("tab", { name: "Activity, ready" }).getAttribute("aria-selected")).toBe("true");
+		expect(screen.getByRole("tab", { name: "Writer worker, complete" }).getAttribute("aria-selected")).toBe("false");
+		fireEvent.keyDown(screen.getByRole("tab", { name: "Activity, ready" }), { key: "ArrowRight" });
 		expect(screen.getByRole("tab", { name: "Research worker, streaming" }).getAttribute("aria-selected")).toBe(
 			"true",
 		);
+
 		expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Research worker, streaming" }));
 	});
 

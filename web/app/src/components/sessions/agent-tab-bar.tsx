@@ -1,5 +1,5 @@
 import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
-import { Bot, Plus, X } from "lucide-react";
+import { Activity, Bot, Plus, X } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useRef } from "react";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ export function agentTabPanelId(tabId: string) {
 export type AgentTabItem = {
 	id: string;
 	label: string;
-	kind: "main" | "subagent";
+	kind: "activity" | "main" | "subagent";
 	status?: PrimeAgentRlmChild["status"];
 };
 
@@ -172,7 +172,9 @@ export function AgentTabBar({
 								type="button"
 								variant="ghost"
 							>
-								{tab.kind === "main" ? (
+								{tab.kind === "activity" ? (
+									<Activity aria-hidden="true" className="size-3.5 shrink-0" />
+								) : tab.kind === "main" ? (
 									<Bot aria-hidden="true" className="size-3.5 shrink-0" />
 								) : (
 									<span

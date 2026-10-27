@@ -1,10 +1,24 @@
+import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
 import type React from "react";
 import { memo } from "react";
 import type { ToolPartBase, ToolRendererProps } from "@/components/chat/transcript/chat-message-parts";
 import { isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "@/components/chat/transcript/chat-message-parts";
 import { PayloadPart } from "@/components/chat/transcript/payload-part";
+import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import type { CustomToolRendererProps } from "@/components/chat/types";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
+import { toolActionIconForName } from "@/components/tools/tool-action-icon";
+import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
+import {
+	Trace,
+	TraceCollapsible,
+	TraceCollapsibleContent,
+	TraceCollapsibleTrigger,
+	TraceDescription,
+	TraceIcon,
+	TraceLine,
+	TraceTitle,
+} from "@/components/ui/trace";
 import { cn } from "@/lib/utils";
 
 const EMPTY_NESTED_TOOLS: Array<ToolPartBase> = [];
@@ -67,14 +81,15 @@ type BuildAssistantElementsOptions = {
 	onOpenUIAction?: (message: string) => void;
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
 	onOpenArtifact?: (artifactId: string) => void;
+	artifactByToolCallId?: ReadonlyMap<string, PrimeAgentArtifact>;
+	onOpenToolArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void;
 };
 
 /**
  * Pure walk over (normalized) assistant parts producing the rendered element
  * list. Nested Task/Agent child tools (toolCallId "parent:child") are grouped
- * onto their parent card, tool-TaskOutput parts are suppressed, error parts
- * become <ErrorMessage>, and all text parts are joined into one trailing
- * markdown block.
+ * onto their parent card, tool-TaskOutput parts are suppressed, and error parts
+ * become <ErrorMessage>. Text and tool parts retain their original order.
  */
 export function buildAssistantElements(
 	parts: Array<unknown>,
@@ -92,6 +107,8 @@ export function buildAssistantElements(
 		onOpenUIAction,
 		onOpenUIArtifactReady,
 		onOpenArtifact,
+		artifactByToolCallId,
+		onOpenToolArtifact,
 	} = opts;
 
 	const elems: Array<React.ReactNode> = [];
@@ -111,6 +128,26 @@ export function buildAssistantElements(
 	const nestedToolsMap = new Map<string, Array<ToolPartBase>>();
 	const nestedToolIds = new Set<string>();
 	const unkeyedToolOccurrences = new Map<string, number>();
+	const flushText = () => {
+		const text = textChunks.splice(0).join("\n\n");
+		if (!text) return;
+		elems.push(
+			<div
+				key={`${messageId}-text-${elems.length}`}
+				className="group/assistant-text text-body [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-4 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+			>
+				<TextRendererComponent
+					content={text}
+					isStreaming={isStreaming}
+					messageId={messageId}
+					onOpenUIAction={onOpenUIAction}
+					onOpenUIArtifactReady={onOpenUIArtifactReady}
+					onOpenArtifact={onOpenArtifact}
+					className="leading-relaxed [&_p]:leading-relaxed"
+				/>
+			</div>,
+		);
+	};
 
 	for (const part of parts) {
 		if (!isV5ToolPart(part)) continue;
@@ -128,6 +165,30 @@ export function buildAssistantElements(
 	let i = 0;
 	while (i < parts.length) {
 		const part = parts[i]!;
+		if (
+			typeof part === "object" &&
+			part !== null &&
+			"type" in part &&
+			part.type === "reasoning" &&
+			"text" in part &&
+			typeof part.text === "string" &&
+			"contentIndex" in part &&
+			typeof part.contentIndex === "number" &&
+			"state" in part &&
+			typeof part.state === "string"
+		) {
+			flushText();
+			elems.push(
+				<ReasoningLine
+					key={`${messageId}-reasoning-${part.contentIndex}`}
+					text={part.text}
+					streaming={isLast && isStreaming && part.state === "streaming"}
+					durationMs={"durationMs" in part && typeof part.durationMs === "number" ? part.durationMs : undefined}
+				/>,
+			);
+			i++;
+			continue;
+		}
 
 		if (isV5ToolPart(part) && part.type === "tool-TaskOutput") {
 			i++;
@@ -142,6 +203,7 @@ export function buildAssistantElements(
 		}
 
 		if (isErrorPart(part)) {
+			flushText();
 			elems.push(
 				<ErrorMessage
 					key={`${messageId}-error-${part.title}-${part.message}`}
@@ -154,6 +216,7 @@ export function buildAssistantElements(
 		}
 
 		if (isPayloadPart(part)) {
+			flushText();
 			elems.push(<PayloadPart key={`${messageId}-payload-${i}`} part={part} />);
 			i++;
 			continue;
@@ -168,8 +231,18 @@ export function buildAssistantElements(
 				i++;
 				continue;
 			}
+			flushText();
 
-			const chatStreamingStatus = isLast && isStreaming ? "streaming" : undefined;
+			const state = typeof part.state === "string" ? part.state : "";
+			const chatStreamingStatus =
+				isLast && isStreaming && (state === "input-streaming" || state === "streaming") ? "streaming" : undefined;
+			const pending = state === "input-available" || state === "pending";
+			const normalized = normalizeToolPart(part, chatStreamingStatus);
+			const ToolIcon = toolActionIconForName(part.type.replace(/^tool-/, ""));
+			const failed = normalized?.status === "error";
+			const cancelled = normalized?.status === "cancelled";
+			const detailLabel = `Details for ${part.type.replace(/^tool-/, "")}${part.toolCallId ? ` (${part.toolCallId})` : ""}`;
+			const artifact = part.toolCallId ? artifactByToolCallId?.get(part.toolCallId) : undefined;
 			const toolCallId = part.toolCallId;
 			const nestedTools =
 				(part.type === "tool-Task" || part.type === "tool-Agent") && toolCallId
@@ -181,13 +254,72 @@ export function buildAssistantElements(
 			}
 
 			elems.push(
-				<ToolRendererComponent
+				<Trace
 					key={getAssistantToolElementKey(messageId, part, occurrence)}
-					part={part}
-					nestedTools={nestedTools}
-					chatStatus={chatStreamingStatus}
-					toolRenderers={toolRenderers}
-				/>,
+					className="my-1 flex-row items-center"
+					data-testid="assistant-tool-trace"
+				>
+					<TraceCollapsible
+						defaultOpen={
+							part.type === "tool-Question" ||
+							(part.type === "tool-PlanWrite" &&
+								Boolean((part.input as { pendingDecision?: unknown } | undefined)?.pendingDecision))
+						}
+					>
+						<TraceCollapsibleTrigger aria-label={detailLabel}>
+							<TraceLine
+								status={failed ? "error" : chatStreamingStatus ? "running" : pending ? "pending" : undefined}
+							>
+								<TraceIcon>
+									<ToolIcon />
+								</TraceIcon>
+								<TraceTitle>{part.type.replace(/^tool-/, "")}</TraceTitle>
+								{normalized?.traceDescription ? (
+									<TraceDescription className="max-w-48 truncate" title={normalized.traceDescription}>
+										{normalized.traceDescription}
+									</TraceDescription>
+								) : null}
+								<TraceDescription
+									className={normalized?.outputSummary.isError ? "text-destructive" : undefined}
+								>
+									{failed
+										? "failed"
+										: chatStreamingStatus
+											? "running"
+											: pending
+												? "waiting"
+												: cancelled
+													? "cancelled"
+													: normalized?.outputSummary.isError
+														? "reported error"
+														: "done"}
+								</TraceDescription>
+								{normalized?.durationLabel ? (
+									<TraceDescription>{normalized.durationLabel}</TraceDescription>
+								) : null}
+							</TraceLine>
+						</TraceCollapsibleTrigger>
+						<TraceCollapsibleContent>
+							<ToolRendererComponent
+								part={part}
+								nestedTools={nestedTools}
+								chatStatus={chatStreamingStatus}
+								toolRenderers={toolRenderers}
+								insideTrace
+							/>
+						</TraceCollapsibleContent>
+					</TraceCollapsible>
+					{artifact && onOpenToolArtifact ? (
+						<button
+							type="button"
+							className="shrink-0 text-micro underline"
+							aria-label={`Open ${artifact.title} in ${artifact.kind === "ipython" ? "REPL" : "artifacts"}`}
+							onClick={() => onOpenToolArtifact(artifact.id, artifact.kind === "ipython" ? "repl" : "artifacts")}
+						>
+							Open
+						</button>
+					) : null}
+				</Trace>,
 			);
 			i++;
 			continue;
@@ -196,22 +328,7 @@ export function buildAssistantElements(
 		i++;
 	}
 
-	const text = textChunks.join("\n\n");
-	if (text) {
-		elems.push(
-			<div key={`${messageId}-text-final`} className="group/assistant-text text-body">
-				<TextRendererComponent
-					content={text}
-					isStreaming={isStreaming}
-					messageId={messageId}
-					onOpenUIAction={onOpenUIAction}
-					onOpenUIArtifactReady={onOpenUIArtifactReady}
-					onOpenArtifact={onOpenArtifact}
-					className="leading-relaxed [&_p]:leading-relaxed"
-				/>
-			</div>,
-		);
-	}
+	flushText();
 
 	return elems;
 }

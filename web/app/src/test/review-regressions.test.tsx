@@ -89,6 +89,111 @@ describe("review regressions", () => {
 		expect(getByRole("button", { name: "1 tool action" }).getAttribute("aria-expanded")).toBe("true");
 	});
 
+	it("shows bounded tool context and normalized duration in Activity Trace rows", () => {
+		const { getByText, getByTestId } = render(
+			<ToolTimeline
+				messages={[
+					{
+						id: "assistant-safe-summary",
+						role: "assistant",
+						parts: [
+							{
+								type: "tool-Bash",
+								toolCallId: "bash-safe-summary",
+								state: "output-available",
+								input: { command: "git status --token=super-secret" },
+								output: { stdout: "clean", durationMs: 2_300 },
+							},
+						],
+					},
+				]}
+				streaming={false}
+			/>,
+		);
+
+		const trace = getByTestId("tool-trace");
+		expect(getByText("git status --token=[redacted]", { exact: true })).toBeTruthy();
+		expect(getByText("2.3 s", { exact: true })).toBeTruthy();
+		expect(trace.textContent).not.toContain("super-secret");
+	});
+
+	it("keeps independent colon tool ids and groups only real Task children", () => {
+		const { getByRole, queryByRole } = render(
+			<ToolTimeline
+				messages={[
+					{
+						id: "assistant-colon-tools",
+						role: "assistant",
+						parts: [
+							{
+								type: "tool-Bash",
+								toolCallId: "namespace:run",
+								state: "output-available",
+								output: "independent",
+							},
+							{ type: "tool-Task", toolCallId: "task-1", state: "output-available", output: "done" },
+							{ type: "tool-Bash", toolCallId: "task-1:child", state: "output-available", output: "nested" },
+						],
+					},
+				]}
+				streaming={false}
+			/>,
+		);
+
+		expect(getByRole("button", { name: "Details for Bash (namespace:run)" })).toBeTruthy();
+		expect(getByRole("button", { name: "Details for Task (task-1)" })).toBeTruthy();
+		expect(queryByRole("button", { name: "Details for Bash (task-1:child)" })).toBeNull();
+	});
+
+	it("surfaces reported tool errors while retaining success transport state", async () => {
+		const activity = render(
+			<ToolTimeline
+				messages={[
+					{
+						id: "assistant-reported-error",
+						role: "assistant",
+						parts: [
+							{
+								type: "tool-WebSearch",
+								toolCallId: "reported-error-search",
+								state: "output-available",
+								output: { evalue: "remote request failed" },
+							},
+						],
+					},
+				]}
+				streaming={false}
+			/>,
+		);
+		expect(activity.getByText("reported error", { exact: true })).toBeTruthy();
+		activity.unmount();
+
+		const { findByRole } = render(
+			<AgentChat
+				inputBar={inputBar}
+				messages={[
+					{
+						id: "assistant-reported-error-inline",
+						role: "assistant",
+						parts: [
+							{
+								type: "tool-WebSearch",
+								toolCallId: "reported-error-inline-search",
+								state: "output-available",
+								output: { evalue: "remote request failed" },
+							},
+						],
+					},
+				]}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+			/>,
+		);
+		const details = await findByRole("button", { name: "Details for WebSearch (reported-error-inline-search)" });
+		expect(details.closest("[data-testid='assistant-tool-trace']")?.textContent).toContain("reported error");
+	});
+
 	it("limits the active tool timeline to artifacts from the current turn", async () => {
 		const messages: Array<ChatMessage> = [
 			{ id: "user-1", role: "user", parts: [{ type: "text", text: "First turn" }] },
@@ -141,7 +246,7 @@ describe("review regressions", () => {
 			},
 		];
 
-		const { queryAllByRole, queryByRole } = render(
+		const { queryByRole } = render(
 			<AgentChat
 				artifactRuns={artifactRuns}
 				inputBar={inputBar}
@@ -154,8 +259,8 @@ describe("review regressions", () => {
 
 		// Timeline and activity panels load lazily; wait for them first so the
 		// absence assertion below is meaningful instead of pre-load.
-		await waitFor(() => expect(queryAllByRole("button", { name: "1 tool action" })).toHaveLength(2));
-		expect(queryByRole("button", { name: "2 tool actions" })).toBeNull();
+		await waitFor(() => expect(document.querySelectorAll("[data-testid='assistant-tool-trace']")).toHaveLength(2));
+		expect(queryByRole("button", { name: "Details for Bash (old-tool)" })).toBeTruthy();
 	});
 
 	it("renders nested subagents in tree order regardless of completion order", () => {
@@ -322,7 +427,7 @@ describe("review regressions", () => {
 		});
 	});
 
-	it("renders specialized tool content with a single turn-progress timeline", async () => {
+	it("renders specialized tool details inline at the original message position", async () => {
 		const messages: Array<ChatMessage> = [
 			{
 				id: "assistant-footer",
@@ -334,7 +439,7 @@ describe("review regressions", () => {
 						toolCallId: "footer-tool",
 						state: "output-available",
 						input: { code: "print('done')" },
-						output: { stdout: "done" },
+						output: { stdout: "done", durationMs: 3_200 },
 					},
 				],
 			},
@@ -343,15 +448,102 @@ describe("review regressions", () => {
 			<AgentChat inputBar={inputBar} messages={messages} onSend={vi.fn()} onStop={vi.fn()} status="ready" />,
 		);
 		const answer = await findByText("Final architecture summary");
-		const timeline = await findByRole("button", { name: "1 tool action" });
-		const progress = timeline.closest("[data-testid='turn-progress']");
+		const details = await findByRole("button", { name: "Details for IPython (footer-tool)" });
+		const progress = details.closest("[data-testid='assistant-tool-trace']");
 
 		expect(progress).not.toBeNull();
 		if (!progress) return;
-		expect(timeline.getAttribute("aria-expanded")).toBe("true");
-		expect(progress.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+		expect(details.getAttribute("aria-expanded")).toBe("false");
+		expect(progress.textContent).toContain("print('done')");
+		expect(progress.textContent).toContain("3.2 s");
+		fireEvent.click(details);
+		expect(answer.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
 		expect(await findByText("done", { exact: true })).toBeTruthy();
 		expect(document.querySelector("[data-testid='agent-activity']")).toBeNull();
+	});
+
+	it("labels interrupted main-session tools as cancelled", async () => {
+		const { findByRole } = render(
+			<AgentChat
+				inputBar={inputBar}
+				messages={[
+					{
+						id: "assistant-interrupted",
+						role: "assistant",
+						parts: [{ type: "tool-Bash", toolCallId: "interrupted-bash", state: "interrupted" }],
+					},
+				]}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+			/>,
+		);
+		const details = await findByRole("button", { name: "Details for Bash (interrupted-bash)" });
+		expect(details.closest("[data-testid='assistant-tool-trace']")?.textContent).toContain("cancelled");
+	});
+
+	it("distinguishes pending tools from failed tools with structured errors", async () => {
+		const { findByRole } = render(
+			<AgentChat
+				inputBar={inputBar}
+				messages={[
+					{
+						id: "assistant-statuses",
+						role: "assistant",
+						parts: [
+							{ type: "tool-Bash", toolCallId: "pending-bash", state: "input-available" },
+							{
+								type: "tool-Bash",
+								toolCallId: "failed-bash",
+								state: "output-error",
+								output: { error: "failed" },
+							},
+						],
+					},
+				]}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+			/>,
+		);
+		const pending = await findByRole("button", { name: "Details for Bash (pending-bash)" });
+		const failed = await findByRole("button", { name: "Details for Bash (failed-bash)" });
+		expect(pending.closest("[data-testid='assistant-tool-trace']")?.textContent).toContain("waiting");
+		expect(failed.closest("[data-testid='assistant-tool-trace']")?.textContent).toContain("failed");
+	});
+
+	it("deduplicates repeated child reports and keeps their raw payload collapsed", async () => {
+		const report = {
+			type: "payload" as const,
+			id: "child-report-1",
+			kind: "agent_message" as const,
+			title: "Research worker report",
+			text: "Found two useful references.",
+			payload: { internal: "raw child payload" },
+		};
+		const { container, findByText, queryAllByText } = render(
+			<AgentChat
+				inputBar={inputBar}
+				messages={[
+					{
+						id: "assistant-parent",
+						role: "assistant",
+						parts: [{ type: "text", text: "Found two useful references." }, report],
+					},
+					{ id: "assistant-child-copy", role: "assistant", parts: [report] },
+				]}
+				onSend={vi.fn()}
+				onStop={vi.fn()}
+				status="ready"
+			/>,
+		);
+
+		await findByText("Found two useful references.");
+		expect(queryAllByText("Found two useful references.", { exact: true })).toHaveLength(1);
+		expect(container.querySelectorAll('[data-payload-kind="agent_message"]')).toHaveLength(1);
+		expect(container.querySelector("details[data-payload-kind='agent_message']")?.hasAttribute("open")).toBe(false);
+		expect(container.querySelector("[data-payload-kind='agent_message'] summary")?.textContent).toBe("Details");
+		expect(container.textContent).not.toContain("[agent_message]");
 	});
 
 	it("does not repeat completed session presentation records in later turns", () => {
@@ -476,7 +668,7 @@ describe("review regressions", () => {
 				],
 			},
 		];
-		const { findByRole, getAllByText, queryByText } = render(
+		const { findByRole, queryByText } = render(
 			<AgentChat
 				inputBar={inputBar}
 				messages={messages}
@@ -489,8 +681,10 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		expect(await findByRole("button", { name: "Ran git status" })).toBeTruthy();
-		expect(getAllByText("git status", { exact: true }).length).toBeGreaterThan(0);
+		expect(await findByRole("button", { name: "Details for Bash (bash-active-run)" })).toBeTruthy();
+		expect(document.querySelector("[data-testid='assistant-tool-trace'] button")?.getAttribute("aria-expanded")).toBe(
+			"false",
+		);
 		expect(queryByText("RLM · Repository scan", { exact: true })).toBeNull();
 		expect(queryByText(/Coordinating/)).toBeNull();
 		expect(document.querySelector("[data-testid='agent-activity']")).toBeNull();
@@ -548,7 +742,7 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		expect(await findByRole("button", { name: "Ran 1 + 1" })).toBeTruthy();
+		expect(await findByRole("button", { name: "Details for IPython (ipython-1)" })).toBeTruthy();
 		const openButton = await findByRole("button", { name: "Open IPython in REPL" });
 		fireEvent.click(openButton);
 		expect(onOpenArtifact).toHaveBeenCalledWith("ipython-artifact", "repl");

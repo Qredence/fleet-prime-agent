@@ -17,6 +17,7 @@ export type AgentCodeTokenLines = AgentCodeToken[][];
 export interface AgentCodeLineProps {
 	code: string;
 	tokens?: AgentCodeToken[];
+	suffix?: string;
 	className?: string;
 }
 
@@ -102,7 +103,7 @@ export function useAgentCodeTokens(code: string, language: AgentCodeLanguage) {
 	return null;
 }
 
-export function AgentCodeLine({ code, tokens, className }: AgentCodeLineProps) {
+export function AgentCodeLine({ code, tokens, suffix, className }: AgentCodeLineProps) {
 	return (
 		<span className={className}>
 			{tokens
@@ -121,6 +122,7 @@ export function AgentCodeLine({ code, tokens, className }: AgentCodeLineProps) {
 						</span>
 					))
 				: code}
+			{suffix}
 		</span>
 	);
 }

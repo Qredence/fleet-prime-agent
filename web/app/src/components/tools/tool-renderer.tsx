@@ -19,6 +19,7 @@ export type ToolRendererProps = {
 	nestedTools?: Array<any>;
 	chatStatus?: string;
 	toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>;
+	insideTrace?: boolean;
 };
 
 function deriveToolStatus(part: any, chatStatus?: string): CustomToolRendererProps["status"] {

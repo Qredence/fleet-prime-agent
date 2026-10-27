@@ -578,9 +578,11 @@ export class PrimeBridge {
 			}
 			if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 				try {
-					process.stderr.write(
-						`[bridge:${sessionId.slice(0, 8)}] conn-event ${event.type} ${JSON.stringify(event).slice(0, 200)}\n`,
-					);
+					const eventSummary = {
+						type: event.type,
+						...(event.type === "session_event" ? { sessionEventType: event.event.type } : {}),
+					};
+					process.stderr.write(`[bridge:${sessionId.slice(0, 8)}] conn-event ${JSON.stringify(eventSummary)}\n`);
 				} catch {
 					/* ignore */
 				}

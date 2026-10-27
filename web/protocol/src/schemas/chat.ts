@@ -175,6 +175,16 @@ export const ChatTextPartSchema = z
 	})
 	.openapi({ description: "Text message part" });
 
+export const ChatReasoningPartSchema = z
+	.object({
+		type: z.literal("reasoning"),
+		contentIndex: z.number().int().nonnegative(),
+		text: z.string(),
+		state: z.enum(["streaming", "complete"]),
+		durationMs: z.number().nonnegative().optional(),
+	})
+	.openapi({ description: "Typed assistant reasoning part" });
+
 export const ChatErrorPartSchema = z
 	.object({
 		type: z.literal("error"),
@@ -312,7 +322,14 @@ export const ChatToolPartSchema = z
 	.openapi({ description: "Tool message part" });
 
 export const ChatMessagePartSchema = z
-	.union([ChatTextPartSchema, ChatErrorPartSchema, ChatImagePartSchema, ChatPayloadPartSchema, ChatToolPartSchema])
+	.union([
+		ChatTextPartSchema,
+		ChatReasoningPartSchema,
+		ChatErrorPartSchema,
+		ChatImagePartSchema,
+		ChatPayloadPartSchema,
+		ChatToolPartSchema,
+	])
 	.openapi({ description: "Message part" });
 
 export const ChatMessageSchema = z
@@ -618,6 +635,15 @@ export const PrimeAgentRefinementEditSchema = z.object({
 	error: z.string().optional(),
 });
 
+export const ChatReasoningTextEventSchema = z.object({
+	type: z.literal("reasoning_text"),
+	phase: z.enum(["start", "delta", "end"]),
+	contentIndex: z.number().int().nonnegative(),
+	text: z.string(),
+	messageId: z.string().optional(),
+	durationMs: z.number().nonnegative().optional(),
+});
+
 export const PrimeAgentRefinementSchema = z
 	.object({
 		id: z.string().min(1),
@@ -809,6 +835,7 @@ export const ChatStreamEventSchema = z
 		ChatStateStreamEventSchema,
 		ChatQueueEventSchema,
 		ChatThinkingEventSchema,
+		ChatReasoningTextEventSchema,
 		ChatPresentationEventSchema,
 		ChatSessionSnapshotEventSchema,
 		ChatMessageEventSchema,

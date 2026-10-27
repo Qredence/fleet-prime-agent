@@ -9,6 +9,7 @@ import type { QueueState } from "@/components/chat/chat-fetch";
 import { labelForState } from "@/components/chat/chat-fetch";
 import {
 	appendAssistantDelta,
+	applyAssistantReasoningText,
 	createTextMessage,
 	stripLegacyThinkingParts,
 	upsertAssistantPayloadPart,
@@ -114,16 +115,30 @@ function carryForwardReasoningPresentation(
 		assistantId ? messages.find((message) => message.id === assistantId && message.role === "assistant") : undefined,
 		messages.find((message) => message.id === nextMessage.id && message.role === "assistant"),
 	].filter(Boolean) as Array<ChatMessage>;
-	const preserved = candidates.flatMap((message) =>
-		message.parts.filter((part) => part.type === "tool-FleetReasoning" || part.type === "payload"),
+	const preserved = candidates.slice(0, 1).flatMap((message) =>
+		message.parts.filter(
+			(part) =>
+				(part.type === "tool-FleetReasoning" || part.type === "payload" || part.type === "reasoning") &&
+				!nextMessage.parts.some((next) => {
+					if (next.type !== part.type) return false;
+					if (part.type === "reasoning" && next.type === "reasoning")
+						return next.contentIndex === part.contentIndex;
+					if (part.type === "payload" && next.type === "payload")
+						return part.id && next.id
+							? part.id === next.id
+							: part.kind === next.kind && part.title === next.title;
+					return true;
+				}),
+		),
 	);
-	if (
-		preserved.length === 0 ||
-		nextMessage.parts.some((part) => part.type === "tool-FleetReasoning" || part.type === "payload")
-	) {
-		return nextMessage;
-	}
-	return { ...nextMessage, parts: [...preserved, ...nextMessage.parts] };
+	if (preserved.length === 0) return nextMessage;
+	return {
+		...nextMessage,
+		parts: [
+			...preserved.map((part) => (part.type === "reasoning" ? { ...part, state: "complete" as const } : part)),
+			...nextMessage.parts,
+		],
+	};
 }
 
 /**
@@ -292,10 +307,20 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 	if (event.type === "thinking") return transition;
 
 	const reconciled =
-		event.type === "delta" || event.type === "reasoning" || event.type === "tool" || event.type === "payload"
+		event.type === "delta" ||
+		event.type === "reasoning" ||
+		event.type === "reasoning_text" ||
+		event.type === "tool" ||
+		event.type === "payload"
 			? reconcileAssistantId(transition, event.messageId)
 			: transition;
 	const { assistantId, snapshot } = reconciled;
+	if (event.type === "reasoning_text" && assistantId) {
+		return {
+			assistantId,
+			snapshot: { ...snapshot, messages: applyAssistantReasoningText(snapshot.messages, assistantId, event) },
+		};
+	}
 
 	if (event.type === "delta" && assistantId) {
 		return {

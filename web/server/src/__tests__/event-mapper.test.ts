@@ -81,7 +81,7 @@ describe("event-mapper", () => {
 		expect(frames[1]).toEqual({ type: "delta", text: "hello", messageId: `${state.runId}-a0` });
 	});
 
-	it("suppresses raw thinking while preserving controlled reasoning", () => {
+	it("maps typed thinking lifecycle and preserves controlled reasoning", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
 		const startFrames = mapAgentSessionEvent(state, {
@@ -93,8 +93,9 @@ describe("event-mapper", () => {
 				partial: mkAssistant(),
 			},
 		} as unknown as AgentSessionEvent);
-		expect(startFrames).toHaveLength(1);
+		expect(startFrames).toHaveLength(2);
 		expect(startFrames[0]).toMatchObject({ type: "reasoning", presentation: { phase: "planning" } });
+		expect(startFrames[1]).toMatchObject({ type: "reasoning_text", phase: "start", contentIndex: 0 });
 
 		const frames = mapAgentSessionEvent(state, {
 			type: "message_update",
@@ -106,13 +107,19 @@ describe("event-mapper", () => {
 				partial: mkAssistant(),
 			},
 		} as unknown as AgentSessionEvent);
-		expect(frames).toHaveLength(1);
+		expect(frames).toHaveLength(2);
 		expect(frames[0]).toMatchObject({
 			type: "reasoning",
 			messageId: `${state.runId}-a0`,
 			presentation: { phase: "planning", streaming: true },
 		});
-		expect(JSON.stringify(frames)).not.toContain("…");
+		expect(frames[1]).toEqual({
+			type: "reasoning_text",
+			phase: "delta",
+			contentIndex: 0,
+			text: "…",
+			messageId: `${state.runId}-a0`,
+		});
 
 		const endFrames = mapAgentSessionEvent(state, {
 			type: "message_update",
@@ -120,17 +127,136 @@ describe("event-mapper", () => {
 			assistantMessageEvent: {
 				type: "thinking_end",
 				contentIndex: 0,
+				content: "final thinking content",
 				partial: mkAssistant(),
 			},
 		} as unknown as AgentSessionEvent);
-		expect(endFrames).toEqual([]);
+		expect(endFrames).toContainEqual({
+			type: "reasoning_text",
+			phase: "end",
+			contentIndex: 0,
+			text: "final thinking content",
+			messageId: `${state.runId}-a0`,
+		});
 	});
 
-	it("recovers terminal-only assistant text without exposing terminal thinking", () => {
+	it("uses thinking_end content when no delta or partial block was received", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_end", contentIndex: 2, content: "end-only reasoning" },
+		} as unknown as AgentSessionEvent);
+		expect(frames).toContainEqual(
+			expect.objectContaining({
+				type: "reasoning_text",
+				phase: "end",
+				contentIndex: 2,
+				text: "end-only reasoning",
+			}),
+		);
+	});
+
+	it("resets reused content indexes when a later assistant message starts", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_start", contentIndex: 0, partial: mkAssistant() },
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: {
+				type: "thinking_delta",
+				contentIndex: 0,
+				delta: "first message",
+				partial: mkAssistant(),
+			},
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_start", contentIndex: 0, partial: mkAssistant() },
+		} as unknown as AgentSessionEvent);
+		const endFrames = mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: {
+				type: "thinking_end",
+				contentIndex: 0,
+				content: "second message",
+				partial: mkAssistant(),
+			},
+		} as unknown as AgentSessionEvent);
+		expect(endFrames).toContainEqual(expect.objectContaining({ type: "reasoning_text", text: "second message" }));
+		const frames = mapAgentSessionEvent(state, { type: "agent_end", messages: [] } as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		expect(done.message.parts).toContainEqual(
+			expect.objectContaining({ type: "reasoning", contentIndex: 0, text: "second message", state: "complete" }),
+		);
+		expect(done.message.parts).not.toContainEqual(expect.objectContaining({ text: "first message" }));
+	});
+
+	it("keeps reasoning message-scoped and retains streamed text across assistant messages", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "start" },
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_start", contentIndex: 0 },
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_delta", contentIndex: 0, delta: "Earlier thought" },
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "text_delta", contentIndex: 1, delta: "Earlier response. " },
+		} as unknown as AgentSessionEvent);
+		const earlierMessage = mkAssistant({
+			content: [
+				{ type: "thinking", thinking: "Earlier thought" },
+				{ type: "text", text: "Earlier response. " },
+			] as AssistantMessage["content"],
+		});
+		mapAgentSessionEvent(state, { type: "message_end", message: earlierMessage } as unknown as AgentSessionEvent);
+
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "start" },
+		} as unknown as AgentSessionEvent);
+		const finalMessage = mkAssistant({
+			content: [{ type: "text", text: "Final answer." }] as AssistantMessage["content"],
+		});
+		mapAgentSessionEvent(state, { type: "message_end", message: finalMessage } as unknown as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [finalMessage],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+
+		expect(done.message.parts).toContainEqual({ type: "text", text: "Earlier response. Final answer." });
+		expect(done.message.parts).not.toContainEqual(
+			expect.objectContaining({ type: "reasoning", text: "Earlier thought" }),
+		);
+	});
+
+	it("recovers terminal-only assistant text and typed reasoning in content order", () => {
 		const state = createEventMapperState();
 		const completed = mkAssistant({
 			content: [
-				{ type: "thinking", thinking: "never-render-this" },
+				{ type: "thinking", thinking: "terminal reasoning" },
 				{ type: "text", text: "Recovered final answer." },
 			] as AssistantMessage["content"],
 		});
@@ -149,15 +275,17 @@ describe("event-mapper", () => {
 			messages: [],
 		} as unknown as AgentSessionEvent);
 		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts).toEqual([{ type: "text", text: "Recovered final answer." }]);
-		expect(JSON.stringify(done.message)).not.toContain("never-render-this");
+		expect(done.message.parts).toEqual([
+			{ type: "reasoning", contentIndex: 0, text: "terminal reasoning", state: "complete" },
+			{ type: "text", text: "Recovered final answer." },
+		]);
 	});
 
-	it("recovers text from an assistant message_end without exposing its thinking", () => {
+	it("recovers text and typed reasoning from an assistant message_end", () => {
 		const state = createEventMapperState();
 		const completed = mkAssistant({
 			content: [
-				{ type: "thinking", thinking: "still-never-render-this" },
+				{ type: "thinking", thinking: "message-end reasoning" },
 				{ type: "text", text: "Message-end final answer." },
 			] as AssistantMessage["content"],
 		});
@@ -171,8 +299,10 @@ describe("event-mapper", () => {
 			messages: [],
 		} as unknown as AgentSessionEvent);
 		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts).toEqual([{ type: "text", text: "Message-end final answer." }]);
-		expect(JSON.stringify(done.message)).not.toContain("still-never-render-this");
+		expect(done.message.parts).toEqual([
+			{ type: "reasoning", contentIndex: 0, text: "message-end reasoning", state: "complete" },
+			{ type: "text", text: "Message-end final answer." },
+		]);
 	});
 
 	it.each([
@@ -509,7 +639,7 @@ describe("event-mapper", () => {
 		);
 	});
 
-	it("never promotes thinking-only assistant output into the standard transcript", () => {
+	it("retains thinking-only assistant output as a typed reasoning part", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
 		mapAgentSessionEvent(state, {
@@ -527,22 +657,25 @@ describe("event-mapper", () => {
 			messages: [],
 		} as unknown as AgentSessionEvent);
 		const done = frames.find((f) => f.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts).toEqual([]);
-		expect(JSON.stringify(done.message)).not.toContain("fleet-web-ok");
+		expect(done.message.parts).toContainEqual(
+			expect.objectContaining({ type: "reasoning", text: "fleet-web-ok", state: "complete" }),
+		);
 	});
 
-	it("excludes persisted upstream thinking blocks from cold transcript hydration", () => {
+	it("hydrates persisted upstream thinking blocks as typed reasoning parts", () => {
 		const hydrated = toChatMessageFromAssistant(
 			mkAssistant({
 				content: [
-					{ type: "thinking", thinking: "never-render-this" },
+					{ type: "thinking", thinking: "reasoning content" },
 					{ type: "text", text: "safe answer" },
 				] as AssistantMessage["content"],
 			}),
 			"hydrated-a0",
 		);
-		expect(hydrated.parts).toEqual([{ type: "text", text: "safe answer" }]);
-		expect(JSON.stringify(hydrated)).not.toContain("never-render-this");
+		expect(hydrated.parts).toEqual([
+			{ type: "reasoning", contentIndex: 0, text: "reasoning content", state: "complete" },
+			{ type: "text", text: "safe answer" },
+		]);
 	});
 
 	it("stamps agent_end done frames with the mapper session id", () => {

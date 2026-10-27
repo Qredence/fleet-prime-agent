@@ -22,6 +22,11 @@ const LazySubagentChatPanel = lazy(() =>
 		default: SubagentChatPanel,
 	})),
 );
+const LazySessionActivityPanel = lazy(() =>
+	import("@/components/sessions/session-activity-panel").then(({ SessionActivityPanel }) => ({
+		default: SessionActivityPanel,
+	})),
+);
 
 /**
  * Renders the chat workspace with session navigation, the active conversation, panels, dialogs, and workspace actions.
@@ -170,44 +175,61 @@ export function ChatWorkspaceShell() {
 	const sidebarSlots = useMemo(() => ({ accountMenu: chrome.header.accountMenu }), [chrome.header.accountMenu]);
 
 	const inputBar = useChatInputBarProps(composer, session.activeSessionId);
-	const activeTabIsMain = agentTabs.activeTabId === "main" || !agentTabs.selectedChild;
-	const activeConversationPanel = activeTabIsMain ? (
-		<ChatPanel
-			messages={conversation.messages}
-			highlightedMessageId={conversation.highlightedTranscriptMessageId ?? undefined}
-			status={conversation.status}
-			error={conversation.error ?? undefined}
-			workspaceName={activeProjectName}
-			activityLabel={conversation.activityLabel}
-			presentation={conversation.presentation}
-			artifactRuns={conversation.artifactRuns}
-			queue={conversation.queue}
-			onDeleteQueuedMessage={conversation.deleteQueuedMessage}
-			onEditQueuedMessage={conversation.editQueuedMessage}
-			onOpenArtifact={conversation.openArtifact}
-			onOpenUIArtifactReady={handleOpenUIArtifactReady}
-			inputSuggestionItems={composer.inputSuggestionItems}
-			suppressQuestionTool={!!composer.pendingQuestionBar}
-			inputBar={inputBar}
-			onSend={handleSend}
-			onOpenUIAction={handleOpenUIAction}
-			onStop={conversation.stop}
-		/>
-	) : (
-		<Suspense
-			fallback={
-				<div className="flex min-h-32 flex-1 items-center justify-center text-xs text-foreground/45">
-					Loading subagent thread…
-				</div>
-			}
-		>
-			<LazySubagentChatPanel
-				child={agentTabs.selectedChild!}
-				parentSessionId={session.activeSessionId}
-				state={agentTabs.conversation}
+	const activeConversationPanel =
+		agentTabs.activeTabId === "activity" ? (
+			<Suspense
+				fallback={
+					<div className="flex min-h-32 flex-1 items-center justify-center text-xs text-foreground/45">
+						Loading session activity…
+					</div>
+				}
+			>
+				<LazySessionActivityPanel
+					artifactRuns={conversation.artifactRuns}
+					childAgents={conversation.presentation.rlmChildren}
+					messages={conversation.messages}
+					onOpenArtifact={conversation.openArtifact}
+					onSelectChild={agentTabs.openChildTab}
+					streaming={conversation.status === "streaming" || conversation.status === "submitted"}
+				/>
+			</Suspense>
+		) : agentTabs.activeTabId === "main" || !agentTabs.selectedChild ? (
+			<ChatPanel
+				messages={conversation.messages}
+				highlightedMessageId={conversation.highlightedTranscriptMessageId ?? undefined}
+				status={conversation.status}
+				error={conversation.error ?? undefined}
+				workspaceName={activeProjectName}
+				activityLabel={conversation.activityLabel}
+				presentation={conversation.presentation}
+				artifactRuns={conversation.artifactRuns}
+				queue={conversation.queue}
+				onDeleteQueuedMessage={conversation.deleteQueuedMessage}
+				onEditQueuedMessage={conversation.editQueuedMessage}
+				onOpenArtifact={conversation.openArtifact}
+				onOpenUIArtifactReady={handleOpenUIArtifactReady}
+				inputSuggestionItems={composer.inputSuggestionItems}
+				suppressQuestionTool={!!composer.pendingQuestionBar}
+				inputBar={inputBar}
+				onSend={handleSend}
+				onOpenUIAction={handleOpenUIAction}
+				onStop={conversation.stop}
 			/>
-		</Suspense>
-	);
+		) : (
+			<Suspense
+				fallback={
+					<div className="flex min-h-32 flex-1 items-center justify-center text-xs text-foreground/45">
+						Loading subagent thread…
+					</div>
+				}
+			>
+				<LazySubagentChatPanel
+					child={agentTabs.selectedChild!}
+					parentSessionId={session.activeSessionId}
+					state={agentTabs.conversation}
+				/>
+			</Suspense>
+		);
 	return (
 		<>
 			<ChatCommandPaletteOverlay

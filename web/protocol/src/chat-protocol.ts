@@ -488,6 +488,16 @@ export type ChatThinkingEvent = {
 	messageId?: string;
 };
 
+export type ChatReasoningTextEvent = {
+	type: "reasoning_text";
+	phase: ChatThinkingPhase;
+	contentIndex: number;
+	/** Delta text for start/delta; authoritative accumulated text on end when available. */
+	text: string;
+	messageId?: string;
+	durationMs?: number;
+};
+
 /** Request-specific completion metadata for non-turn chat requests. */
 export type ChatStreamRequestKind = "session-command";
 
@@ -584,6 +594,7 @@ export type ChatStreamEvent =
 	| { type: "state"; state: ChatStateEvent }
 	| { type: "queue"; steering: Array<string>; followUp: Array<string> }
 	| ChatThinkingEvent
+	| ChatReasoningTextEvent
 	| ChatPresentationEvent
 	| ChatSessionSnapshotEvent
 	| ChatMessageEvent
