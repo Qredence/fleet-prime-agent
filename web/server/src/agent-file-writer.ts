@@ -99,7 +99,17 @@ async function acquireLock(lockPath: string): Promise<LockHandle> {
 			};
 		} catch (error) {
 			if (errorCode(error) !== "EEXIST") throw error;
-			const holder = Number.parseInt(readFileSync(lockPath, "utf8"), 10);
+			// The holder can release between our failed `open` and this read, which
+			// would surface as ENOENT. That is contention resolving itself, not a
+			// failure, so retry immediately instead of propagating the raw error.
+			let owner: string;
+			try {
+				owner = readFileSync(lockPath, "utf8");
+			} catch (readError) {
+				if (errorCode(readError) === "ENOENT") continue;
+				throw readError;
+			}
+			const holder = Number.parseInt(owner, 10);
 			if (!isProcessAlive(holder)) {
 				rmSync(lockPath, { force: true });
 				continue;
