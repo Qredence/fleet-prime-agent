@@ -21,6 +21,10 @@ Treat current code, tests, workspace configuration, `PRIME_AGENT_RUNTIME.json`, 
 
 Documentation explains the system but does not override executable contracts.
 
+For important codebase-analysis claims, cite the relevant source and distinguish
+configured values, observed behavior, and inference. Do not describe a configured
+runtime pin as the active daemon version without evidence from that daemon.
+
 ## Execution
 
 For clear, reversible work, inspect the relevant context and proceed.

@@ -10,7 +10,6 @@ import {
 	type AgentSessionRuntimeConfig,
 	DaemonAgentConnection,
 	DaemonClient,
-	type SessionSummary,
 } from "prime-agent";
 import {
 	DAEMON_PROTOCOL_NAME,
@@ -20,6 +19,7 @@ import {
 	type DaemonHelloFrame,
 	type DaemonSavedSessionPage,
 	type DaemonSessionBindingFrame,
+	type DaemonSessionSummary,
 	daemonRuntimeFlavor,
 	describeDaemonHello,
 	isCompatibleDaemonHello,
@@ -867,7 +867,7 @@ async function openDaemonChildConnection(
 export async function listDaemonSessions(
 	cwd?: string,
 	socketPath = defaultDaemonSocketPath(),
-): Promise<SessionSummary[]> {
+): Promise<DaemonSessionSummary[]> {
 	const effectiveCwd = cwd ?? getPrimeConfig().defaultCwd;
 	return withDaemonSupervisor(
 		effectiveCwd,
@@ -884,8 +884,7 @@ export async function listDaemonSessions(
 			if (!Array.isArray(sessions) || !sessions.every(isDaemonSessionSummary)) {
 				throw new Error("The Prime Agent daemon returned an invalid session list");
 			}
-			// Same row shape on both runtimes; typed as the bridge's session-list source.
-			return sessions as unknown as SessionSummary[];
+			return sessions;
 		},
 		socketPath,
 	);

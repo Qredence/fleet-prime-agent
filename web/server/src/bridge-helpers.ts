@@ -14,13 +14,8 @@ import {
 	type PrimeAgentSessionPresentation,
 	type PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
-import type {
-	AgentConnection,
-	AgentConnectionModel,
-	ExtensionUIContext,
-	ExtensionUIDialogOptions,
-	SessionSummary,
-} from "prime-agent";
+import type { AgentConnection, AgentConnectionModel, ExtensionUIContext, ExtensionUIDialogOptions } from "prime-agent";
+import type { DaemonSessionSummary as SessionSummary } from "./daemon-protocol";
 import { sessionDirectoryForCwd } from "./daemon-runtime";
 import type { RlmChildStatusOverride } from "./event-mapper";
 import { readLegacySession } from "./legacy/prime-agent-sdk";

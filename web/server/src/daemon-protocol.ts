@@ -167,7 +167,19 @@ export type DaemonSessionSummary = {
 	lifecycle?: string;
 	activity?: string;
 	name?: string;
-	[key: string]: unknown;
+	sessionName?: string;
+	isSessionActive?: boolean;
+	isStreaming?: boolean;
+	hasRunningRlmChildren?: boolean;
+	parentActiveSessionId?: string;
+	parentSessionId?: string;
+	parentSessionPath?: string;
+	rlmChildId?: string;
+	statusLabel?: string;
+	workerState?: string;
+	lastHeardFromAt?: string;
+	thinkingLevel?: string;
+	summary?: string;
 };
 
 /** Saved-session row of `list_saved_sessions` (no `allMessagesText` on Rust). */

@@ -40,7 +40,6 @@ import type {
 	AgentConnectionExtensionUiRequest,
 	AgentSession,
 	ExtensionUIContext,
-	SessionSummary,
 } from "prime-agent";
 import { SessionManager } from "prime-agent";
 import {
@@ -66,6 +65,7 @@ import {
 	selectedTextFromSessionEntry,
 } from "./bridge-helpers";
 import { CoalescingRefreshQueue } from "./coalescing-refresh-queue";
+import type { DaemonSessionSummary as SessionSummary } from "./daemon-protocol";
 import {
 	createDaemonWebAgentConnection,
 	type DaemonChildPromptHandle,

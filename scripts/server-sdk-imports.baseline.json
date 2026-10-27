@@ -7,8 +7,7 @@
 			"prime-agent#AgentConnection",
 			"prime-agent#AgentConnectionModel",
 			"prime-agent#ExtensionUIContext",
-			"prime-agent#ExtensionUIDialogOptions",
-			"prime-agent#SessionSummary"
+			"prime-agent#ExtensionUIDialogOptions"
 		],
 		"web/server/src/connection-runtime.ts": [
 			"prime-agent#AgentSession",
@@ -23,7 +22,6 @@
 			"prime-agent#DaemonAgentConnection",
 			"prime-agent#DaemonClient",
 			"prime-agent#ExtensionUIContext",
-			"prime-agent#SessionSummary",
 			"prime-agent#defaultDaemonSocketPath"
 		],
 		"web/server/src/event-mapper.ts": [
@@ -60,9 +58,6 @@
 		"web/server/src/handlers/chat.ts": [
 			"@earendil-works/pi-ai#ImageContent"
 		],
-		"web/server/src/handlers/projects.ts": [
-			"prime-agent#SessionSummary"
-		],
 		"web/server/src/in-process-test-connection.ts": [
 			"prime-agent#AgentSession",
 			"prime-agent#CreateAgentSessionRuntimeFactory",
@@ -85,12 +80,7 @@
 			"prime-agent#AgentConnectionExtensionUiRequest",
 			"prime-agent#AgentSession",
 			"prime-agent#ExtensionUIContext",
-			"prime-agent#SessionManager",
-			"prime-agent#SessionSummary"
-		],
-		"web/server/src/session-list.ts": [
-			"prime-agent#SessionInfo",
-			"prime-agent#SessionSummary"
+			"prime-agent#SessionManager"
 		],
 		"web/server/src/transcript-hydrator.ts": [
 			"@earendil-works/pi-agent-core#AgentMessage",

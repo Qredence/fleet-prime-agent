@@ -67,6 +67,24 @@ without changing the product's look.
   `ipython` alias. These still fire on v0.9.8 today, so they are removed here and not in
   U1.
 
+### Remaining Rust-only migration
+
+- Supervisor session listing and daemon-backed forks already use the Rust daemon. Per-session
+  connections still use the TypeScript SDK's `DaemonClient` and `DaemonAgentConnection`;
+  replacing them requires equivalent attach, snapshot, event, reconnect, and request-recovery
+  behavior before the SDK connection can be removed.
+- The daemon provides model catalog and resource snapshot reads and limited MCP token
+  management. Existing project-level endpoints can run before a session exists, and resource
+  snapshots do not cover every field those endpoints return. Preserve their current behavior
+  while adapting these paths.
+- Provider credential and OAuth writes, custom model registration, general settings updates,
+  cross-project forks, and some transcript reads still depend on SDK-backed paths. Keep the
+  minimum bridge until supported upstream capabilities preserve these workflows and existing
+  data. Do not substitute a transcript reader that repairs or rewrites session files.
+- Once those paths and deterministic test adapters no longer need the SDK, remove the
+  TypeScript package family from production and development dependencies together with its
+  manifest, packaging, lockfile, and import-guard coupling. Keep the Rust pin checksum-verified.
+
 ### R2 / R3: pin and packaging
 
 - Pin the native binary with a checksum.

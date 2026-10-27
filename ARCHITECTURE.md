@@ -87,7 +87,9 @@ It consumes the pinned stock Prime Agent runtime. It is not an upstream source c
 
 Prime Agent is consumed as an external stock dependency.
 
-`PRIME_AGENT_RUNTIME.json` is the canonical pin for the `prime-agent` release archive. Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with that manifest; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
+`PRIME_AGENT_RUNTIME.json` pins both the Rust runtime under `rust.version` and the legacy TypeScript SDK release archive in its top-level fields. The Rust pin is the configured runtime for Fleet's normal launch; the TypeScript pin supports the remaining legacy SDK adapter. A configured pin is not proof of the connected daemon's version: an executable override or an already-running daemon may differ.
+
+Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with the TypeScript SDK pin; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
 
 Do not hardcode the current runtime version into this document.
 

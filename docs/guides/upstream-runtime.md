@@ -4,7 +4,9 @@ Use this runbook when changing `PRIME_AGENT_RUNTIME.json`, runtime package refer
 
 ## Source of truth
 
-`PRIME_AGENT_RUNTIME.json` owns the `prime-agent` release archive URL and checksum. Keep these references synchronized with it:
+`PRIME_AGENT_RUNTIME.json` pins the configured Rust runtime in `rust`. Its top-level package, version, tarball, and checksum identify the legacy TypeScript SDK used by Fleet's remaining compatibility adapter. A pin does not establish the connected daemon's version; an executable override or an existing daemon can differ.
+
+Keep these references synchronized with the top-level SDK archive pin:
 
 - `packages/fleet-web/package.json`;
 - `web/server/package.json`;
@@ -41,6 +43,10 @@ Do not copy upstream source into Fleet. Engine, provider, model, daemon, and ups
 ## Compatibility checks
 
 `web/server/src/daemon-runtime.ts` probes the local daemon and accepts only the daemon name and protocol version supported by the pinned runtime. A daemon/protocol change therefore requires both the upstream compatibility change and the corresponding Fleet adapter/test update.
+
+### Manual analysis scenario
+
+To check an agent's interpretation, ask it: "Identify Fleet's configured Rust runtime and legacy TypeScript SDK versions, cite the source for each, and say whether the active daemon version was observed." A correct answer reads `rust.version` and the top-level `version` in `PRIME_AGENT_RUNTIME.json`, labels them separately, and does not infer the active daemon version from either pin. Run this scenario manually with a model only when a live provider call is authorized; the runtime check and its local tests verify labels, not model reasoning.
 
 Do not solve an upstream incompatibility by copying or patching the runtime locally. If the daemon contract needs a new capability, keep the change at the `web/server`/`web/protocol` boundary and document the current browser guarantee in `docs/reference/adapter-contract.md`.
 
