@@ -291,8 +291,9 @@ test.describe("chat shell", () => {
 		await expect.poll(() => submittedOpenUI).toBe(true)
 	})
 
-	test("structured tool traces keep terminal state and a single turn-progress timeline", async ({ page }) => {
+	test("Activity keeps chronological tool traces with compact and error details", async ({ page }) => {
 		const browserErrors: string[] = []
+		const assistantReport = `Trace complete. ${"Detailed report section describing the completed inspection. ".repeat(50)}\n\n\`\`\`ts\nconst fixture = 42\n\`\`\``
 		page.on("console", (message) => {
 			if (message.type() === "error") browserErrors.push(message.text())
 		})
@@ -323,9 +324,9 @@ test.describe("chat shell", () => {
 		const terminalParts = Array.from({ length: 12 }, (_, index) => ({
 			type: "tool-Bash",
 			toolCallId: `bash-trace-${index}`,
-			state: "output-available",
+			state: index === 11 ? "output-error" : "output-available",
 			input: { command: `echo trace-${index}` },
-			output: { stdout: `trace-${index}` },
+			output: index === 11 ? { stderr: "trace command failed", exitCode: 1 } : { stdout: `trace-${index}` },
 		}))
 		const editPart = {
 			type: "tool-Edit",
@@ -338,6 +339,7 @@ test.describe("chat shell", () => {
 			type: "tool-WebSearch",
 			toolCallId: "search-trace-1",
 			state: "output-available",
+			input: { query: "safe source" },
 			output: {
 				results: [
 					{ title: "Safe source", url: "https://example.com/docs" },
@@ -371,6 +373,9 @@ test.describe("chat shell", () => {
 				{ type: "thinking", phase: "start", text: "", messageId },
 				{ type: "thinking", phase: "delta", text: "Preparing trace", messageId },
 				{ type: "thinking", phase: "end", text: "", messageId },
+				{ type: "reasoning_text", phase: "start", contentIndex: 0, text: "", messageId },
+				{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "Inspecting the fixture", messageId },
+				{ type: "reasoning_text", phase: "end", contentIndex: 0, text: "Inspecting the fixture", messageId },
 				{ type: "tool", messageId, part: ipythonStart },
 				{ type: "tool", messageId, part: ipythonUpdate },
 				{ type: "tool", messageId, part: ipythonEnd },
@@ -383,7 +388,7 @@ test.describe("chat shell", () => {
 						id: messageId,
 						role: "assistant",
 						parts: [
-							{ type: "text", text: "Trace complete" },
+							{ type: "text", text: assistantReport },
 							{
 								type: "tool-FleetReasoning",
 								state: "output-available",
@@ -419,35 +424,73 @@ test.describe("chat shell", () => {
 		await prompt.fill("Run the trace fixture")
 		await page.getByRole("button", { name: "Send prompt" }).click()
 
-		await expect(page.getByText("Trace complete", { exact: true })).toBeVisible({ timeout: 15_000 })
+		await expect(page.getByText("Trace complete", { exact: false }).first()).toBeVisible({ timeout: 15_000 })
 		await expect(page.getByPlaceholder("Send a message…")).toBeVisible()
-		await expect(page.locator('[data-state="running"]')).toHaveCount(0)
-		await expect(page.locator('[data-state="success"]')).toHaveCount(13)
+		const markdownCode = page.locator('[data-slot="code-block"]').filter({ hasText: "const fixture = 42" })
+		await expect(markdownCode).toBeVisible()
+		await expect(markdownCode.getByRole("button", { name: "Copy code" })).toBeVisible()
+		await expect(markdownCode.locator("pre")).toHaveCount(1)
+		await expect(markdownCode.locator('[data-streamdown="code-block"]')).toHaveCount(0)
 		await expect(page.getByText("Preparing trace", { exact: true })).toHaveCount(0)
-		// Completed, browser-safe reasoning remains available as an auditable
-		// presentation. Raw thinking remains excluded by the renderer contract.
-		await expect(page.getByLabel("Safe reasoning progress")).toBeVisible()
+		const reasoning = page.getByTestId("reasoning-line")
+		await expect(reasoning.getByRole("button", { name: /Thought/ })).toHaveAttribute("aria-expanded", "false")
+		await reasoning.getByRole("button", { name: /Thought/ }).click()
+		await expect(reasoning.getByText("Inspecting the fixture")).toBeVisible()
+		const mainTool = page.getByTestId("assistant-tool-trace").filter({ has: page.getByRole("button", { name: /Details for IPython.*python-trace-1/ }) })
+		await mainTool.getByRole("button", { name: /Details for IPython/ }).click()
+		await expect(mainTool.locator('[data-slot="code-block"]')).toHaveCount(2)
+		for (const content of await mainTool.locator('[data-slot="code-block-content"]').all()) {
+			const style = await content.evaluate((element) => {
+				const css = getComputedStyle(element)
+				return { radius: css.borderRadius, background: css.backgroundColor, leftBorder: css.borderLeftWidth, margin: css.marginTop }
+			})
+			expect(style).toEqual({ radius: "0px", background: "rgba(0, 0, 0, 0)", leftBorder: "0px", margin: "0px" })
+		}
+		await expect(mainTool.getByRole("button", { name: "Copy code" })).toBeVisible()
+		await expect(mainTool.getByRole("button", { name: "Copy result" })).toBeVisible()
+		await expect(mainTool.getByRole("button", { name: /^IPython\b/ })).toHaveCount(0)
+		await expect(page.locator('[data-slot="bubble"][data-align="end"]').first()).toBeVisible()
 
 		const progress = page.getByTestId("turn-progress")
 		await expect(progress).toHaveCount(1)
 		await expect(page.locator("[data-testid='agent-activity']")).toHaveCount(0)
-		const timeline = progress.getByRole("button", { name: "15 tool actions" })
+
+		await page.getByRole("tab", { name: "Activity, ready" }).click()
+		const activity = page.getByTestId("session-activity")
+		await expect(activity).toBeVisible()
+		await expect(activity.getByText("Run the trace fixture", { exact: true })).toBeVisible()
+		const assistantPreview = activity.locator("p").filter({ hasText: "Trace complete." })
+		await expect(assistantPreview).toContainText("Trace complete.")
+		expect(await assistantPreview.evaluate((element) => getComputedStyle(element).webkitLineClamp)).toBe("2")
+		const trace = activity.getByTestId("tool-trace")
+		const timeline = trace.getByRole("button", { name: "15 tool actions" })
 		await expect(timeline).toHaveAttribute("aria-expanded", "true")
-		await expect(progress.getByText("Ran", { exact: true }).first()).toBeVisible()
-		await expect(progress.getByText("Edited", { exact: true })).toBeVisible()
-		await expect(progress.getByText("Searched", { exact: true })).toBeVisible()
+		await expect(timeline).toBeInViewport()
+		await expect(trace.getByText("Ran Bash", { exact: true }).first()).toBeVisible()
+		await expect(trace.getByText("Edited Edit", { exact: true })).toBeVisible()
+		await expect(trace.getByText("Searched WebSearch", { exact: true })).toBeVisible()
+		await expect(trace.locator('[data-slot="trace-line"][data-status="error"]')).toHaveCount(1)
 
-		const ipythonButton = page.getByRole("button", { name: /^IPython\b/ }).first()
-		await expect(ipythonButton).toHaveAttribute("aria-expanded", "false")
-		await ipythonButton.click()
-		await expect(page.getByText(/stdout/).first()).toBeVisible()
-		expect(await page.getByRole("button", { name: /^IPython\b/ }).count()).toBeGreaterThanOrEqual(1)
+		const ipythonDetails = trace.getByRole("button", { name: /Details for IPython.*python-trace-1/ })
+		await expect(ipythonDetails).toBeVisible()
+		await expect(ipythonDetails).toHaveAttribute("aria-expanded", "false")
+		await ipythonDetails.click()
+		await expect(ipythonDetails).toHaveAttribute("aria-expanded", "true")
+		await expect(trace.getByText(/stdout/).first()).toBeVisible()
+		await expect(trace.getByRole("button", { name: /^IPython\b/ })).toHaveCount(0)
+		const failedDetails = trace.getByRole("button", { name: /Details for Bash.*bash-trace-11/ })
+		await failedDetails.click()
+		await expect(trace.getByText("trace command failed", { exact: true })).toBeVisible()
 
-		const sourcesButton = page.getByRole("button", { name: /Sources/ }).first()
-		await sourcesButton.click()
-		await expect(page.getByText("Safe source", { exact: true })).toBeVisible()
-		await expect(page.getByText("Unsafe source", { exact: true })).toBeVisible()
+		await trace.getByRole("button", { name: /Details for WebSearch.*search-trace-1/ }).click()
+		const sourcesButton = trace.getByRole("button", { name: /Sources/ }).first()
+		if (await sourcesButton.getAttribute("aria-expanded") === "false") await sourcesButton.click()
+		await expect(trace.getByRole("link", { name: /Safe source/ })).toBeVisible()
+		await expect(trace.getByText(/Unsafe source/)).toBeVisible()
 		expect(await page.locator('a[href^="javascript:"]').count()).toBe(0)
+		await page.setViewportSize({ width: 390, height: 844 })
+		await expect(page.getByRole("tab", { name: "Activity, ready" })).toHaveAttribute("aria-selected", "true")
+		await expect(activity.getByRole("heading", { name: "Conversation activity" })).toBeVisible()
 		expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
 		expect(browserErrors).toEqual([])
 	})

@@ -1,6 +1,5 @@
 import type {
 	ChatReasoningPresentation,
-	PrimeAgentArtifact,
 	PrimeAgentArtifactRun,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -91,32 +90,6 @@ function SessionReasoningPanel(props: ComponentProps<typeof LazySessionReasoning
 			}
 		>
 			<LazySessionReasoningPanel {...props} />
-		</Suspense>
-	);
-}
-
-const LazyToolTimeline = lazy(() =>
-	import("@/components/tools/tool-timeline").then(({ ToolTimeline }) => ({
-		default: ToolTimeline,
-	})),
-);
-
-/**
- * Lazy-loaded wrapper for the tool timeline with loading skeleton.
- * Defers loading until first conversation turn to keep the component out of
- * the welcome route eager bundle.
- *
- * @param props - Props forwarded to the ToolTimeline component
- * @returns Suspense-wrapped ToolTimeline with loading fallback
- */
-function ToolTimeline(props: ComponentProps<typeof LazyToolTimeline>) {
-	return (
-		<Suspense
-			fallback={
-				<div className="h-6 animate-pulse rounded-md bg-muted/40" role="status" aria-label="Loading timeline" />
-			}
-		>
-			<LazyToolTimeline {...props} />
 		</Suspense>
 	);
 }
@@ -257,54 +230,39 @@ function reasoningPresentationFromMessages(messages: Array<ChatMessage>): ChatRe
 	return undefined;
 }
 
-/**
- * Extracts the run identifier from an assistant message identifier.
- *
- * @param messageId - The assistant message identifier
- * @returns The run identifier, or `undefined` if the identifier does not match the expected format
- */
-function runIdFromAssistantMessageId(messageId: string): string | undefined {
-	const match = /^(.*)-a\d+$/.exec(messageId);
-	return match?.[1];
-}
-
-/**
- * Selects artifacts associated with the current conversation turn.
- *
- * @param artifactRuns - Artifact runs to search
- * @param messages - Messages that define the current conversation turn
- * @returns Artifacts linked to the messages, their tool calls, or their assistant runs
- */
-function artifactsForCurrentTurn(
-	artifactRuns: Array<PrimeAgentArtifactRun> | undefined,
-	messages: Array<ChatMessage>,
-): Array<PrimeAgentArtifact> {
-	if (!artifactRuns || messages.length === 0) return [];
-	const messageIds = new Set(messages.map((message) => message.id));
-	const toolCallIds = new Set(
-		messages.flatMap((message) =>
-			(message.parts ?? []).flatMap((part) => {
-				const source = record(part);
-				return typeof source?.toolCallId === "string" && source.toolCallId ? [source.toolCallId] : [];
-			}),
-		),
-	);
-	const currentRunIds = new Set(
-		messages.flatMap((message) => {
-			const runId = runIdFromAssistantMessageId(message.id);
-			return runId ? [message.id, runId] : [message.id];
+function deduplicateAgentMessagePayloads(messages: Array<ChatMessage>) {
+	const seen = new Set<string>();
+	const readableTexts = messages.flatMap((message) =>
+		(message.parts ?? []).flatMap((part) => {
+			const source = record(part);
+			return source?.type === "text" && typeof source.text === "string"
+				? [source.text.replace(/\s+/g, " ").trim()]
+				: [];
 		}),
 	);
-
-	return artifactRuns
-		.flatMap((run) => run.artifacts)
-		.filter((artifact) => {
-			if (artifact.sourceMessageId) return messageIds.has(artifact.sourceMessageId);
-			if (artifact.sourceToolCallId) {
-				return toolCallIds.has(artifact.sourceToolCallId) || currentRunIds.has(artifact.runId);
-			}
-			return currentRunIds.has(artifact.runId);
-		});
+	return messages.map((message) => ({
+		...message,
+		parts: (message.parts ?? []).flatMap((part) => {
+			const source = record(part);
+			if (source?.type !== "payload" || source.kind !== "agent_message") return [part];
+			const stable = (value: unknown) => {
+				try {
+					return JSON.stringify(value) ?? "";
+				} catch {
+					return String(value);
+				}
+			};
+			const key =
+				typeof source.id === "string"
+					? `id:${source.id}`
+					: `content:${stable([source.title, source.text, source.payload])}`;
+			if (seen.has(key)) return [];
+			seen.add(key);
+			const report = typeof source.text === "string" ? source.text.replace(/\s+/g, " ").trim() : "";
+			const duplicatedReport = report.length > 20 && readableTexts.some((text) => text.includes(report));
+			return duplicatedReport ? [{ ...source, title: "Details", text: undefined } as typeof part] : [part];
+		}),
+	}));
 }
 
 /**
@@ -341,9 +299,17 @@ function AssistantMessage({
 	animateIn: boolean;
 }) {
 	const turnStreaming = isLast && isStreaming;
+	const artifactByToolCallId = useMemo(() => {
+		const artifacts = artifactRuns?.flatMap((run) => run.artifacts) ?? [];
+		return new Map(
+			artifacts.flatMap((artifact) =>
+				artifact.sourceToolCallId ? [[artifact.sourceToolCallId, artifact] as const] : [],
+			),
+		);
+	}, [artifactRuns]);
 	const elements = useMemo(
 		() =>
-			messages.flatMap((message, index) =>
+			deduplicateAgentMessagePayloads(messages).flatMap((message, index) =>
 				buildAssistantElements(
 					normalizeAssistantToolParts(
 						(message.parts ?? []).filter(
@@ -362,6 +328,8 @@ function AssistantMessage({
 						onOpenUIAction,
 						onOpenUIArtifactReady,
 						onOpenArtifact,
+						artifactByToolCallId,
+						onOpenToolArtifact: onOpenArtifact,
 					},
 				),
 			),
@@ -370,6 +338,7 @@ function AssistantMessage({
 			turnStreaming,
 			messages,
 			onOpenArtifact,
+			artifactByToolCallId,
 			onOpenUIAction,
 			onOpenUIArtifactReady,
 			suppressQuestionTool,
@@ -383,11 +352,9 @@ function AssistantMessage({
 		})
 		.join("\n\n");
 	const reasoningPresentation = useMemo(() => reasoningPresentationFromMessages(messages), [messages]);
-	const timelineArtifacts = useMemo(
-		() => (isLast ? artifactsForCurrentTurn(artifactRuns, messages) : []),
-		[artifactRuns, isLast, messages],
-	);
-	const showReasoning = Boolean(reasoningPresentation);
+	const showReasoning =
+		Boolean(reasoningPresentation) &&
+		!messages.some((message) => message.parts.some((part) => part.type === "reasoning"));
 	const showTurnStatus = isLast && !showReasoning && isLifecycleNotice(activityLabel);
 
 	return (
@@ -401,12 +368,6 @@ function AssistantMessage({
 							) : showTurnStatus ? (
 								<TurnStatus label={activityLabel} />
 							) : null}
-							<ToolTimeline
-								messages={messages}
-								artifacts={timelineArtifacts}
-								streaming={turnStreaming}
-								onOpenArtifact={onOpenArtifact}
-							/>
 						</div>
 						<StreamingResponse
 							status={turnStreaming ? "streaming" : "complete"}

@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ArtifactsPanelContent } from "@/components/artifacts/artifacts-panel";
 import { collectSessionOpenUIBlocks } from "@/components/artifacts/artifacts-utils";
 import { SubagentChatPanel } from "@/components/chat/subagents/subagent-chat-panel";
+import { SubagentTranscriptView } from "@/components/chat/subagents/subagent-transcript";
 import { SubagentsPanelContent } from "@/components/chat/subagents/subagents-panel";
 import { RightPanelProvider } from "@/components/layout/right-panel-context";
 import { RightPanelLauncher } from "@/components/layout/right-panel-launcher";
@@ -197,7 +198,7 @@ describe("right-panel execution tabs", () => {
 		expect(queryByTestId("pi-resources-canvas")).toBeNull();
 	});
 
-	it("exposes launcher panels in fit-mode tabs without a redundant Subagents tab", () => {
+	it("exposes launcher panels in fit-mode tabs without REPL or a redundant Subagents tab", () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(500, 400);
 		const { getByTestId, rerender } = render(
@@ -214,16 +215,10 @@ describe("right-panel execution tabs", () => {
 		layout(getByTestId("right-panel-inline-launcher"));
 
 		expect(getByTestId("right-panel-inline-launcher").getAttribute("data-panel-launcher-mode")).toBe("tabs");
-		expect(screen.getAllByRole("tab")).toHaveLength(6);
-
-		const repl = screen.getByRole("tab", { name: "REPL runs" });
-		expect(repl).toBeTruthy();
-		expect(repl.textContent).toContain("2");
+		expect(screen.getAllByRole("tab")).toHaveLength(5);
+		expect(screen.queryByRole("tab", { name: "REPL runs" })).toBeNull();
 		expect(screen.queryByRole("tab", { name: "Subagents" })).toBeNull();
 		expect(screen.getByRole("tab", { name: "Artifacts" }).textContent).toContain("3");
-
-		fireEvent.click(repl);
-		expect(onPanelChange).toHaveBeenCalledWith("repl");
 
 		rerender(
 			<RightPanelLauncher activePanel="subagents" onPanelChange={onPanelChange} resources={null} workspace={null} />,
@@ -232,7 +227,7 @@ describe("right-panel execution tabs", () => {
 		expect(screen.queryByRole("tab", { name: "Subagents" })).toBeNull();
 	});
 
-	it("exposes launcher panels in overflow-mode dropdown without a redundant Subagents option", async () => {
+	it("exposes launcher panels in overflow-mode dropdown without REPL or a redundant Subagents option", async () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(120, 400);
 		const { getByRole, getByTestId, rerender } = render(
@@ -246,20 +241,15 @@ describe("right-panel execution tabs", () => {
 		const select = getByRole("combobox", { name: "Select panel" });
 		fireEvent.click(select);
 		const options = await screen.findAllByRole("option");
-		expect(options).toHaveLength(6);
+		expect(options).toHaveLength(5);
 		expect(options.map((option) => option.textContent?.trim())).toEqual([
 			"Resources",
 			"Workspace",
 			"Artifacts",
-			"REPL",
 			"Session insights",
 			"Session tree",
 		]);
-
-		const replOption = getByRole("option", { name: "REPL" });
-		fireEvent.pointerDown(replOption, { pointerType: "mouse" });
-		fireEvent.click(replOption);
-		expect(onPanelChange).toHaveBeenCalledWith("repl");
+		expect(screen.queryByRole("option", { name: "REPL" })).toBeNull();
 
 		rerender(
 			<RightPanelLauncher activePanel="subagents" onPanelChange={onPanelChange} resources={null} workspace={null} />,
@@ -508,6 +498,70 @@ describe("right-panel execution tabs", () => {
 		await waitFor(() => expect(loadSession).toHaveBeenCalledWith("parent-session", "child-1"));
 		expect(await screen.findByText("Worker transcript loaded")).toBeTruthy();
 		expect(screen.getByRole("region", { name: "Subagent thread: Research worker" })).toBeTruthy();
+	});
+
+	it("keeps artifact-only lifecycle entries without duplicating subagent tool rows", () => {
+		const { getByRole, getByText } = render(
+			<SubagentTranscriptView
+				child={{ id: "child-1", label: "Research worker", status: "done", timestamp: 1 }}
+				parentSessionId="parent-session"
+				status="ready"
+				transcript={{
+					status: "ready",
+					messages: [
+						{
+							id: "child-assistant",
+							role: "assistant",
+							parts: [
+								{ type: "reasoning", contentIndex: 0, text: "Child reasoning", state: "complete" },
+								{ type: "text", text: "Completed the child run." },
+								{ type: "tool-Bash", toolCallId: "child-bash", state: "output-available", output: "clean" },
+								{ type: "tool-IPython", toolCallId: "child-cancelled", state: "interrupted" },
+							],
+						},
+					],
+					presentation: {
+						...emptyPresentation,
+						artifactRuns: [
+							{
+								id: "child-run",
+								runId: "child-assistant",
+								artifacts: [
+									{
+										id: "child-compaction",
+										runId: "child-assistant",
+										kind: "compaction",
+										title: "Compaction",
+										status: "success",
+										timestamp: 2,
+									},
+									{
+										id: "child-unmatched-output",
+										runId: "child-assistant",
+										sourceToolCallId: "missing-tool",
+										kind: "bash",
+										title: "Unmatched output",
+										status: "success",
+										timestamp: 3,
+									},
+								],
+							},
+						],
+					},
+				}}
+			/>,
+		);
+
+		expect(getByRole("button", { name: "Details for Bash (child-bash)" })).toBeTruthy();
+		fireEvent.click(getByRole("button", { name: /Thought/ }));
+		expect(getByText("Child reasoning")).toBeTruthy();
+		expect(
+			getByRole("button", { name: "Details for IPython (child-cancelled)" }).closest(
+				"[data-testid='assistant-tool-trace']",
+			)?.textContent,
+		).toContain("cancelled");
+		expect(getByText("Compacted Session activity")).toBeTruthy();
+		expect(getByText("Completed Bash output")).toBeTruthy();
 	});
 
 	it("reloads the selected transcript when a child advances", async () => {

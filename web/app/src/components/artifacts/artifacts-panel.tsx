@@ -8,8 +8,8 @@ import { primeAgentArtifactDiff } from "@/components/artifacts/prime-agent-artif
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import { OpenUIHtmlArtifactView } from "@/components/openui/html-artifact";
 import { GenerativeTextRenderer } from "@/components/openui/openui-renderer";
-import { CodeBlock } from "@/components/tools/code-block";
 import { FileDiff, type FileDiffStatus } from "@/components/tools/file-diff";
+import { CodeBlock } from "@/components/tools/tool-code-block";
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "@/components/tools/tool-result";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";

@@ -252,7 +252,10 @@ export const RIGHT_PANEL_REGISTRY = {
 		icon: SquareTerminal,
 		dataTestid: "pi-repl-canvas",
 		mobileDataTestid: "pi-repl-mobile-panel",
-		showInLauncher: true,
+		// IPython runs are already available from conversation and Activity tool
+		// details. Keep the panel available as an artifact destination without
+		// taking a permanent slot in the panel navigation.
+		showInLauncher: false,
 		badgeSource: "repl",
 		loadingSource: undefined,
 		refreshSource: undefined,

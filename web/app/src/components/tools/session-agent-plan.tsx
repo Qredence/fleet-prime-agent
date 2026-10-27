@@ -1,7 +1,16 @@
 "use client";
 
-import { CheckIcon, Loader2Icon } from "lucide-react";
-import type { ComponentProps } from "react";
+import { Circle, CircleCheck, CircleDot, Route } from "lucide-react";
+import {
+	Trace,
+	TraceCollapsible,
+	TraceCollapsibleContent,
+	TraceCollapsibleTrigger,
+	TraceDescription,
+	TraceIcon,
+	TraceLine,
+	TraceTitle,
+} from "@/components/ui/trace";
 import { mono } from "@/lib/surfaces";
 import { cn } from "@/lib/utils";
 
@@ -28,58 +37,57 @@ function AgentPlan({
 	activeIndex,
 	className,
 	...props
-}: Omit<ComponentProps<"div">, "children" | "steps" | "activeIndex"> & {
+}: {
 	steps: readonly string[];
 	activeIndex: number;
+	className?: string;
+	"aria-label"?: string;
 }) {
 	const total = steps.length;
 	const completed = !(total > 0) ? 0 : Math.floor(clamp(activeIndex, 0, total));
 	const allDone = completed >= total;
-	const progress = !(total > 0) ? 0 : clamp((completed / total) * 100, 0, 100);
+	const occurrences = new Map<string, number>();
+	const stepKeys = steps.map((step) => {
+		const occurrence = occurrences.get(step) ?? 0;
+		occurrences.set(step, occurrence + 1);
+		return `${step}:${occurrence}`;
+	});
 
 	return (
-		<div data-slot="agent-plan" className={cn("flex w-full max-w-sm flex-col gap-3", className)} {...props}>
-			<div className="flex items-center justify-between">
-				<span className="text-body font-medium">Plan</span>
-				<span className={cn(mono, "text-foreground/35 tabular-nums")}>
-					{completed} of {total}
-				</span>
-			</div>
-			<div className="bg-foreground/[0.06] h-[3px] w-full overflow-hidden rounded-full">
-				<span
-					className="bg-foreground/80 block h-full rounded-full transition-[width] duration-500"
-					style={{ width: `${progress}%` }}
-				/>
-			</div>
-			<ul className="flex flex-col gap-2.5">
-				{steps.map((step, i) => {
-					const done = allDone || i < completed;
-					const active = !allDone && i === completed;
-					return (
-						<li key={step} className="flex items-center gap-2.5 text-body">
-							<span className="flex size-4 shrink-0 items-center justify-center">
-								{done ? (
-									<CheckIcon className="text-foreground/35 size-3.5" />
-								) : active ? (
-									<Loader2Icon className="text-foreground/90 size-3.5 animate-spin motion-reduce:animate-none" />
-								) : (
-									<span aria-hidden className="bg-foreground/15 size-1.5 rounded-full" />
-								)}
-							</span>
-							<span
-								className={cn(
-									done && "text-foreground/40",
-									active && "text-foreground/90",
-									!done && !active && "text-foreground/35",
-								)}
-							>
-								{step}
-							</span>
-						</li>
-					);
-				})}
-			</ul>
-		</div>
+		<Trace data-testid="plan-trace" className={cn("max-w-sm", className)} {...props}>
+			<TraceCollapsible defaultOpen>
+				<TraceCollapsibleTrigger aria-label={props["aria-label"] ?? `Plan: ${completed} of ${total} done`}>
+					<TraceLine status={allDone ? undefined : "running"}>
+						<TraceIcon>
+							<Route />
+						</TraceIcon>
+						<TraceTitle>Plan</TraceTitle>
+						<TraceDescription className={cn(mono, "text-xs")}>{`${completed} of ${total} done`}</TraceDescription>
+					</TraceLine>
+				</TraceCollapsibleTrigger>
+				<TraceCollapsibleContent>
+					<Trace className="gap-1" data-slot="plan-content">
+						{steps.map((step, i) => {
+							const done = allDone || i < completed;
+							const active = !allDone && i === completed;
+							const Icon = done ? CircleCheck : active ? CircleDot : Circle;
+							return (
+								<TraceLine
+									key={stepKeys[i]}
+									data-plan-step
+									status={active ? "running" : !done ? "pending" : undefined}
+								>
+									<TraceIcon>
+										<Icon />
+									</TraceIcon>
+									<TraceTitle>{step}</TraceTitle>
+								</TraceLine>
+							);
+						})}
+					</Trace>
+				</TraceCollapsibleContent>
+			</TraceCollapsible>
+		</Trace>
 	);
 }
 

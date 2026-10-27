@@ -16,6 +16,7 @@ export type ToolRendererProps = {
 	nestedTools?: Array<ToolPartBase>;
 	chatStatus?: string;
 	toolRenderers?: Record<string, ComponentType<CustomToolRendererProps>>;
+	insideTrace?: boolean;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

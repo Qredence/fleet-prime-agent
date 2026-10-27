@@ -57,20 +57,9 @@ RLM child records carry the runtime's optional child progress signals as they ap
 
 ## Privacy
 
-Raw detailed model reasoning must not be emitted, stored, promoted, copied, exported, or rendered as ordinary browser transcript content.
+Runtime-provided detailed reasoning is exposed in dedicated typed reasoning events and transcript parts, separate from assistant answer text. It is not added to ordinary copy/export, unrelated payloads, or diagnostics. Fleet does not fabricate reasoning when the runtime does not provide it, and does not maintain a separate reasoning store.
 
-In particular, detailed thinking must not become:
-
-* a live browser stream payload;
-* a standard message part;
-* hydrated transcript content;
-* an assistant-text fallback;
-* copy/export content;
-* an ordinary diagnostic.
-
-The server event mapper converts supported typed lifecycle signals into controlled status/reasoning summaries and recursively sanitizes sensitive payload fields before they cross the browser boundary. The browser also ignores legacy detailed-thinking shapes rather than treating them as transcript text.
-
-This guarantee applies to both live and hydrated data. A new presentation must use an approved typed runtime signal and preserve the same browser-safety boundary.
+The server event mapper converts supported typed lifecycle signals into controlled status summaries and recursively sanitizes unrelated payload fields. Legacy thinking shapes remain separate from the explicit reasoning representation.
 
 ## Implemented presentation capabilities
 
@@ -78,7 +67,7 @@ This guarantee applies to both live and hydrated data. A new presentation must u
 
 When the adapter advertises `reasoning-summary-v1`, the server may emit controlled phase labels derived from typed runtime lifecycle events. The browser renders these labels only when the capability is present.
 
-Without the capability, the browser falls back to its baseline status behavior. The feature does not authorize raw model reasoning, arbitrary text-based execution claims, or persistence as a normal assistant message.
+Without the capability, the browser falls back to its baseline status behavior. This feature does not authorize arbitrary text-based execution claims; detailed reasoning uses its own typed representation.
 
 Other event categories are part of the current baseline protocol unless they are explicitly gated by a future capability. Do not add a capability name for an implementation detail that has no compatibility or fallback meaning.
 
@@ -119,7 +108,7 @@ Fleet persists presentation sidecars separately from the upstream transcript:
 
 The server validates sidecars against shared schemas before writing them. Hydration returns them as separate fields and the browser joins plan presentations to the corresponding message. Session deletion removes associated sidecars; fork flows copy or re-key only valid Fleet-owned records.
 
-These records are Fleet presentation state. They are not upstream Prime Agent transcript entries, runtime state, or evidence that raw reasoning is safe to expose.
+These records are Fleet presentation state. They are not upstream Prime Agent transcript entries or runtime state.
 
 ## Ordering and replay guarantees
 

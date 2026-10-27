@@ -2,6 +2,7 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationTurnView } from "@/components/chat/agent-chat";
+import { buildAssistantElements } from "@/components/chat/transcript/message-turns";
 
 const renderCounter = vi.hoisted(() => ({ userMessage: 0 }));
 
@@ -84,5 +85,46 @@ describe("conversation turn rendering", () => {
 		expect(container.querySelectorAll("[data-testid='turn-progress']")).toHaveLength(1);
 		expect(container.querySelector("[data-testid='agent-activity']")).toBeNull();
 		expect(container.textContent).not.toContain("thoughtContent");
+	});
+
+	it("keeps assistant text on either side of tool calls in transcript order", () => {
+		const parts = [
+			{ type: "text", text: "Before" },
+			{ type: "tool-Bash", toolCallId: "call-1" },
+			{ type: "text", text: "After" },
+		];
+		const elements = buildAssistantElements(parts, {
+			messageId: "ordered",
+			isLast: false,
+			isStreaming: false,
+			suppressQuestionTool: false,
+			ToolRendererComponent: ({ part }) => <div data-order="tool">{part.type}</div>,
+			TextRendererComponent: ({ content }) => <div data-order="text">{content}</div>,
+		});
+		const { container } = render(<>{elements}</>);
+
+		expect(
+			Array.from(container.querySelectorAll("[data-order], [data-testid='assistant-tool-trace']")).map(
+				(node) => node.getAttribute("data-order") ?? "tool",
+			),
+		).toEqual(["text", "tool", "text"]);
+		expect(container.textContent).toContain("Before");
+		expect(container.textContent).toContain("After");
+	});
+
+	it("keeps a pending composer question out of the transcript when suppression is active", () => {
+		const elements = buildAssistantElements(
+			[{ type: "tool-Question", toolCallId: "question-1", state: "input-available" }],
+			{
+				messageId: "question",
+				isLast: true,
+				isStreaming: true,
+				suppressQuestionTool: true,
+				ToolRendererComponent: ({ part }) => <div>{part.type}</div>,
+				TextRendererComponent: ({ content }) => <div>{content}</div>,
+			},
+		);
+
+		expect(elements).toHaveLength(0);
 	});
 });

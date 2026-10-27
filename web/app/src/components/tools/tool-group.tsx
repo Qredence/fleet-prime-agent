@@ -1,8 +1,18 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { GenericTool } from "@/components/tools/generic-tool";
+import { toolActionIconForName } from "@/components/tools/tool-action-icon";
 import { toolRegistry } from "@/components/tools/tool-registry";
-import { ToolRowBase } from "@/components/tools/tool-row-base";
+import { ToolTextShimmer } from "@/components/tools/tool-text-shimmer";
 import { formatElapsedTime, getToolStatus, useElapsedTime } from "@/components/tools/utils/format-tool";
+import {
+	Trace,
+	TraceCollapsible,
+	TraceCollapsibleContent,
+	TraceCollapsibleTrigger,
+	TraceDescription,
+	TraceIcon,
+	TraceLine,
+	TraceTitle,
+} from "@/components/ui/trace";
 import { cn } from "@/lib/utils";
 
 export type ToolGroupProps = {
@@ -166,72 +176,111 @@ export const ToolGroup = memo(function ToolGroup({
 		return description.length > 60 ? `${description.slice(0, 57)}…` : description;
 	})();
 	const elapsedTimeDisplay = formatElapsedTime(!isPending && outputDuration ? outputDuration : elapsedMs);
+	const TaskIcon = toolActionIconForName(part.type === "tool-Agent" ? "agent" : "task");
+	const statusText = isPending ? "running" : isInterrupted ? "interrupted" : "done";
+	const summary = isPending && shimmerLabel ? shimmerLabel : completeLabel;
+	const summaryLine = (
+		<TraceLine status={isPending ? "running" : undefined}>
+			<TraceIcon>
+				<TaskIcon />
+			</TraceIcon>
+			<TraceTitle>
+				{isPending && shimmerLabel ? (
+					<ToolTextShimmer as="span" duration={1.2} className="m-0 inline-flex h-4 items-center leading-none">
+						{summary}
+					</ToolTextShimmer>
+				) : (
+					summary
+				)}
+			</TraceTitle>
+			{subtitle ? <TraceDescription className="max-w-56 truncate">{subtitle}</TraceDescription> : null}
+			<TraceDescription>{statusText}</TraceDescription>
+			{showElapsed && elapsedTimeDisplay ? <TraceDescription>{elapsedTimeDisplay}</TraceDescription> : null}
+		</TraceLine>
+	);
+	const childTrace = (
+		<Trace className="gap-1">
+			{(isPending ? nestedTools.slice(0, Math.max(visibleCount, 0)) : nestedTools).map((nestedPart, idx) => {
+				const derivedPart = isPending
+					? { ...nestedPart, state: idx === visibleCount - 1 ? "input-streaming" : "output-available" }
+					: nestedPart;
+				const nestedMeta = toolRegistry[derivedPart.type];
+				if (!nestedMeta) return null;
+				const { isPending: nestedIsPending, isError: nestedIsError } = getToolStatus(derivedPart, chatStatus);
+				const NestedIcon = nestedMeta.icon;
+				return (
+					<TraceLine
+						key={
+							derivedPart.toolCallId ?? derivedPart.id ?? `${derivedPart.type}-${nestedMeta.title(derivedPart)}`
+						}
+						status={nestedIsPending ? "running" : nestedIsError ? "error" : undefined}
+					>
+						<TraceIcon>
+							<NestedIcon />
+						</TraceIcon>
+						<TraceTitle>{nestedMeta.title(derivedPart)}</TraceTitle>
+						{nestedMeta.subtitle?.(derivedPart) ? (
+							<TraceDescription className="max-w-56 truncate">
+								{nestedMeta.subtitle(derivedPart)}
+							</TraceDescription>
+						) : null}
+					</TraceLine>
+				);
+			})}
+		</Trace>
+	);
 
 	if (isInterrupted && !part.output) {
-		return <ToolRowBase completeLabel={interruptedLabel} isAnimating={false} />;
+		return (
+			<Trace>
+				<TraceLine>
+					<TraceIcon>
+						<TaskIcon />
+					</TraceIcon>
+					<TraceTitle>{interruptedLabel}</TraceTitle>
+					<TraceDescription>interrupted</TraceDescription>
+				</TraceLine>
+			</Trace>
+		);
 	}
 
 	return (
-		<ToolRowBase
-			completeLabel={completeLabel}
-			shimmerLabel={shimmerLabel}
-			isAnimating={isPending}
-			detail={subtitle}
-			expandable={hasNestedTools}
-			expanded={expanded}
-			onToggleExpand={() => {
-				userToggledRef.current = true;
-				setExpanded((prev) => !prev);
-			}}
-			trailingContent={
-				showElapsed && elapsedTimeDisplay ? (
-					<span className="shrink-0 font-normal text-muted-foreground/60 tabular-nums">{elapsedTimeDisplay}</span>
-				) : undefined
-			}
-		>
-			<div className="relative">
-				{isPending && expanded && visibleToolCount > maskThreshold && (
-					<div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-10 bg-linear-to-b from-background to-transparent" />
-				)}
-				<div
-					ref={listRef}
-					className={cn(
-						nestedTools.length > 1 ? "flex flex-col gap-2" : undefined,
-						isPending && expanded && visibleToolCount > maskThreshold && "overflow-y-auto",
-					)}
-					style={
-						isPending && expanded && visibleToolCount > maskThreshold
-							? { height: `${streamHeight}px` }
-							: undefined
-					}
+		<Trace>
+			{hasNestedTools ? (
+				<TraceCollapsible
+					open={expanded}
+					onOpenChange={(next) => {
+						userToggledRef.current = true;
+						setExpanded(next);
+					}}
 				>
-					{(isPending ? nestedTools.slice(0, Math.max(visibleCount, 0)) : nestedTools).map((nestedPart, idx) => {
-						const derivedPart = isPending
-							? {
-									...nestedPart,
-									state: idx === visibleCount - 1 ? "input-streaming" : "output-available",
+					<TraceCollapsibleTrigger
+						aria-label={`${completeLabel}: ${subtitle || nestedTools.length} ${statusText}`}
+					>
+						{summaryLine}
+					</TraceCollapsibleTrigger>
+					<TraceCollapsibleContent>
+						<div className="relative">
+							{isPending && expanded && visibleToolCount > maskThreshold && (
+								<div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-10 bg-linear-to-b from-background to-transparent" />
+							)}
+							<div
+								ref={listRef}
+								className={cn(isPending && expanded && visibleToolCount > maskThreshold && "overflow-y-auto")}
+								style={
+									isPending && expanded && visibleToolCount > maskThreshold
+										? { height: `${streamHeight}px` }
+										: undefined
 								}
-							: nestedPart;
-						const nestedMeta = toolRegistry[derivedPart.type];
-						if (!nestedMeta) return null;
-						const { isPending: nestedIsPending, isError: nestedIsError } = getToolStatus(derivedPart, chatStatus);
-						return (
-							<GenericTool
-								key={
-									derivedPart.toolCallId ??
-									derivedPart.id ??
-									`${derivedPart.type}-${nestedMeta.title(derivedPart)}`
-								}
-								icon={nestedMeta.icon}
-								title={nestedMeta.title(derivedPart)}
-								subtitle={nestedMeta.subtitle?.(derivedPart)}
-								isPending={nestedIsPending}
-								isError={nestedIsError}
-							/>
-						);
-					})}
-				</div>
-			</div>
-		</ToolRowBase>
+							>
+								{childTrace}
+							</div>
+						</div>
+					</TraceCollapsibleContent>
+				</TraceCollapsible>
+			) : (
+				summaryLine
+			)}
+		</Trace>
 	);
 });

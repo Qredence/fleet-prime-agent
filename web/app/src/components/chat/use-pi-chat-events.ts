@@ -8,7 +8,12 @@ import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-typ
 import { type MutableRefObject, useEffect } from "react";
 import type { ChatClient } from "@/components/chat/chat-client";
 import type { QueueState } from "@/components/chat/chat-fetch";
-import { upsertAssistantReasoningPresentation, upsertToolPart } from "@/components/chat/chat-message-helpers";
+import {
+	applyAssistantReasoningText,
+	createTextMessage,
+	upsertAssistantReasoningPresentation,
+	upsertToolPart,
+} from "@/components/chat/chat-message-helpers";
 import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
 import { EMPTY_QUEUE_STATE } from "@/components/chat/chat-stream-state";
 import { hydratePlanPresentationMessages } from "@/components/chat/plans/plan-presentation";
@@ -232,6 +237,19 @@ export function usePiChatSessionEvents({
 				return;
 			}
 			if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
+			if (frame.type === "reasoning_text" && frame.messageId) {
+				const messageId = frame.messageId;
+				setMessagesSynced((current) =>
+					applyAssistantReasoningText(
+						current.some((message) => message.id === messageId)
+							? current
+							: [...current, createTextMessage("assistant", "", messageId)],
+						messageId,
+						frame,
+					),
+				);
+				return;
+			}
 			if (frame.type === "reasoning") {
 				const messageId = frame.messageId;
 				if (!sseCapabilitiesRef.current?.features.includes("reasoning-summary-v1") || !messageId) return;
