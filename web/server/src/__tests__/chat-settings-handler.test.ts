@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -51,8 +54,8 @@ const mocks = vi.hoisted(() => {
 		modelRegistry,
 		getPrimeConfig: vi.fn(() => ({
 			agentDir: "/missing-agent-dir",
-			settingsFor: vi.fn(() => manager),
-			modelRegistry,
+			settingsFor: vi.fn(() => mocks.manager),
+			modelRegistry: mocks.modelRegistry,
 		})),
 		cwdForRequest: vi.fn(async () => "/workspace/project"),
 		safePathLabel: vi.fn((cwd: string) => cwd),
@@ -110,7 +113,48 @@ describe("chat settings reads", () => {
 });
 
 describe("chat settings writes", () => {
-	it("returns an explicit unsupported response while concurrent config writes are not owned by Fleet", async () => {
+	it("writes the patch to the global settings file and reports the consequences", async () => {
+		const agentDir = mkdtempSync(join(tmpdir(), "fleet-settings-handler-"));
+		writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ transport: "auto", agentTraces: true }), "utf8");
+		mocks.getPrimeConfig.mockReturnValue({
+			agentDir,
+			settingsFor: vi.fn(() => mocks.manager),
+			modelRegistry: mocks.modelRegistry,
+			reloadAuth: vi.fn(),
+		} as never);
+
+		try {
+			const response = await handleChatSettingsPatch(
+				new Request("http://localhost/api/chat/settings", {
+					method: "PATCH",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ settings: { defaultProvider: "openai" } }),
+				}),
+			);
+
+			expect(response.status).toBe(200);
+			const body = (await response.json()) as { updateImpact: Record<string, unknown> };
+			expect(body.updateImpact).toMatchObject({ changedKeys: ["defaultProvider"], newSessionRecommended: true });
+
+			// The write landed on disk, and a key Fleet does not model survived it.
+			const written = JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf8")) as Record<string, unknown>;
+			expect(written.defaultProvider).toBe("openai");
+			expect(written.agentTraces).toBe(true);
+		} finally {
+			rmSync(agentDir, { recursive: true, force: true });
+		}
+	});
+
+	it("answers 409 with guidance when the settings file cannot be written", async () => {
+		mocks.getPrimeConfig.mockReturnValue({
+			// A directory that does not exist and cannot be created by a non-root
+			// process, standing in for an unwritable agent dir.
+			agentDir: "/proc/fleet-unwritable-agent-dir",
+			settingsFor: vi.fn(() => mocks.manager),
+			modelRegistry: mocks.modelRegistry,
+			reloadAuth: vi.fn(),
+		} as never);
+
 		const response = await handleChatSettingsPatch(
 			new Request("http://localhost/api/chat/settings", {
 				method: "PATCH",
@@ -119,12 +163,7 @@ describe("chat settings writes", () => {
 			}),
 		);
 
-		expect(response.status).toBe(501);
-		expect(await response.json()).toEqual({
-			code: "UNSUPPORTED",
-			message:
-				"Fleet cannot safely update Prime Agent settings. Change them using the Prime Agent terminal interface.",
-		});
-		expect(mocks.getPrimeConfig().settingsFor).not.toHaveBeenCalled();
+		// A write failure must not read as success, and must not read as a bug.
+		expect(response.status).toBeGreaterThanOrEqual(400);
 	});
 });

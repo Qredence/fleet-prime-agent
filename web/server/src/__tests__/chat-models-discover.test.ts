@@ -53,7 +53,7 @@ describe("chat model discovery", () => {
 	});
 
 	it("persists discovered IDs and refreshes the engine registry", async () => {
-		upsertCustomProvider(join(agentDir, "models.json"), "custom+lab", {
+		await upsertCustomProvider(join(agentDir, "models.json"), "custom+lab", {
 			baseUrl: "https://api.example.test/v1",
 			api: "openai-completions",
 			apiKey: "CUSTOM_LAB_API_KEY",
@@ -84,7 +84,7 @@ describe("chat model discovery", () => {
 	});
 
 	it("does not advertise or call OpenAI discovery for Google providers", async () => {
-		upsertCustomProvider(join(agentDir, "models.json"), "custom+google", {
+		await upsertCustomProvider(join(agentDir, "models.json"), "custom+google", {
 			baseUrl: "https://generativelanguage.example.test",
 			api: "google-genai",
 			apiKey: "CUSTOM_GOOGLE_API_KEY",
