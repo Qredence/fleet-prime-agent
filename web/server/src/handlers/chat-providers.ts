@@ -1,5 +1,3 @@
-import { getProviders } from "@earendil-works/pi-ai";
-import { getOAuthProviders } from "@earendil-works/pi-ai/oauth";
 import type { ChatProviderInfo } from "@prime-agent/web-protocol/chat-protocol";
 import {
 	ChatProviderRemoveRequestSchema,
@@ -118,12 +116,30 @@ export function resolveProviderAuthFields(
  * `auth.json`. `modelRegistry` holds an in-memory view populated at load time,
  * so it does not see a credential Fleet wrote moments ago; the file wins.
  */
+/**
+ * Providers whose OAuth flow the runtime supports.
+ *
+ * Mirrors `getOAuthProviders()` from the SDK, now that the provider list no
+ * longer reads the SDK at runtime. Chromium-based Copilot auth is the reason
+ * this cannot be inferred from the catalog.
+ */
+const BUILTIN_OAUTH_PROVIDER_IDS = ["anthropic", "github-copilot", "openai-codex", "xai"] as const;
+
+/** `prime-agent-traces` is diagnostics, not a model provider. */
+function isLlmsProviderId(providerId: string): boolean {
+	return providerId !== "prime-agent-traces";
+}
+
 function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatProviderInfo> {
 	const config = getPrimeConfig();
-	const oauthIds = new Set(getOAuthProviders().map((p) => p.id));
+	const oauthIds = new Set(BUILTIN_OAUTH_PROVIDER_IDS);
 
 	const custom = listCustomProviders(`${config.agentDir}/models.json`);
-	const builtinIds = new Set<string>(getProviders());
+	// Derived from the catalog Fleet ships rather than the SDK's model registry.
+	// The registry only lists providers that have a bundled model, so reading it
+	// made the pane depend on the SDK's build, and every provider it knows already
+	// has a display name here.
+	const builtinIds = new Set<string>(Object.keys(BUILT_IN_PROVIDER_DISPLAY_NAMES).filter(isLlmsProviderId));
 	const allIds = new Set<string>([...builtinIds, ...Object.keys(custom)]);
 	// A provider whose credentials exist only in `auth.json` is still real: it
 	// was configured by the runtime or an earlier Fleet build. Listing only the
@@ -233,7 +249,10 @@ export function handleChatProvidersPost(request: Request): Promise<Response> {
 			if (!displayName) {
 				badRequest("displayName is required when creating a new provider instance");
 			}
-			const existingIds = new Set<string>([...getProviders(), ...Object.keys(listCustomProviders(modelsJsonPath))]);
+			const existingIds = new Set<string>([
+				...Object.keys(BUILT_IN_PROVIDER_DISPLAY_NAMES).filter(isLlmsProviderId),
+				...Object.keys(listCustomProviders(modelsJsonPath)),
+			]);
 			providerId = allocateProviderId(
 				toInstanceSlug(displayName),
 				existingIds,
