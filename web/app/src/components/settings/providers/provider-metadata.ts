@@ -35,8 +35,8 @@ export const PROVIDER_METADATA: Record<string, PiProviderUiMetadata> = {
 	},
 	"google-vertex": {
 		icon: ShieldCheck,
-		placeholder: "Path to service account JSON, or credentials text…",
-		help: "Stored securely in your root .env.local file. Overrides the active GOOGLE_APPLICATION_CREDENTIALS environment variable.",
+		placeholder: "Google Cloud API key…",
+		help: "Uses GOOGLE_CLOUD_API_KEY from Prime Agent credentials or your environment.",
 	},
 	google: {
 		icon: Brain,

@@ -2,11 +2,21 @@
 
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensurePrimeRuntime } from "./prime-runtime.mjs";
 
-const packageRoot = resolve(dirname(fileURLToPath(import.meta.resolve("prime-agent"))), "..");
+const packagedManifestPath = fileURLToPath(new URL("../dist/runtime-manifest.json", import.meta.url));
+const sourceManifestPath = fileURLToPath(new URL("../../../PRIME_AGENT_RUNTIME.json", import.meta.url));
+const runtimeManifestPath = existsSync(packagedManifestPath) ? packagedManifestPath : sourceManifestPath;
 const launcher = fileURLToPath(new URL("../dist/web/launcher.mjs", import.meta.url));
+const isAgentCommand = process.argv[2] === "agent";
+const nativeBinary =
+	isAgentCommand || existsSync(launcher)
+		? (process.env.FLEET_PRIME_AGENT_BIN ??
+			(await ensurePrimeRuntime({ manifest: JSON.parse(await readFile(runtimeManifestPath, "utf8")) })))
+		: undefined;
 const sourceRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const sourceWebApp = resolve(sourceRoot, "web", "app");
 const viteCli = resolve(sourceRoot, "web", "app", "node_modules", "vite", "bin", "vite.js");
@@ -21,7 +31,11 @@ const workspaceRoot = process.cwd();
 function run(entrypoint, args, cwd) {
 	const child = spawn(process.execPath, [entrypoint, ...args], {
 		cwd,
-		env: { ...process.env, PRIME_AGENT_WORKSPACE_ROOT: workspaceRoot },
+		env: {
+			...process.env,
+			PRIME_AGENT_WORKSPACE_ROOT: workspaceRoot,
+			...(nativeBinary ? { FLEET_PRIME_AGENT_BIN: nativeBinary } : {}),
+		},
 		stdio: "inherit",
 	});
 	const forwardSignal = (signal) => {
@@ -36,10 +50,14 @@ function run(entrypoint, args, cwd) {
 }
 
 if (process.argv[2] === "agent") {
-	const cli = resolve(packageRoot, "dist", "bundle", "cli.js");
-	run(cli, process.argv.slice(3));
+	const args = process.argv.slice(3);
+	const child = spawn(nativeBinary, args, { cwd: workspaceRoot, env: process.env, stdio: "inherit" });
+	child.on("exit", (code, signal) => {
+		if (signal) process.kill(process.pid, signal);
+		else process.exitCode = code ?? 1;
+	});
 } else if (existsSync(launcher)) {
-	run(launcher, process.argv.slice(2));
+	run(launcher, process.argv.slice(2), workspaceRoot);
 } else if (existsSync(viteCli)) {
 	console.warn("Fleet Prime production bundle is not built; starting the source web server.");
 	run(viteCli, ["dev", ...process.argv.slice(2)], sourceWebApp);
