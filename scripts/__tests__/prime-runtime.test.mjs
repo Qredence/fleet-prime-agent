@@ -81,7 +81,7 @@ test("launcher distinguishes missing and non-executable native binaries", async 
 	await writeFile(binary, "fixture", { mode: 0o600 });
 	result = run();
 	assert.equal(result.status, 1);
-	assert.match(result.stderr, /Could not start Prime Agent: EACCES/);
+	assert.match(result.stderr, /Could not start Prime Agent binary .+: EACCES/);
 	assert.doesNotMatch(result.stderr, /not found/);
 });
 
