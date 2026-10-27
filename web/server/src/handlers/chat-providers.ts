@@ -265,7 +265,7 @@ export function handleChatProvidersPost(request: Request): Promise<Response> {
 		}
 
 		const displayName = body.displayName?.trim() || existingEntry?.name;
-		upsertCustomProvider(modelsJsonPath, providerId, {
+		await upsertCustomProvider(modelsJsonPath, providerId, {
 			...(displayName ? { name: displayName } : {}),
 			baseUrl,
 			api,
@@ -291,7 +291,7 @@ export function handleChatProvidersDelete(request: Request): Promise<Response> {
 			// Removing the registration for a UI-managed provider must not leave a
 			// stale models.json entry behind (the default OCC slot stays listed via
 			// the synthesized row even after removal).
-			removeCustomProvider(`${config.agentDir}/models.json`, body.providerId);
+			await removeCustomProvider(`${config.agentDir}/models.json`, body.providerId);
 		}
 		const removal = await removeProviderCredential(config.agentDir, body.providerId);
 		if (removal.status === "refused") badRequest(removal.reason);

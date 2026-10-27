@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import type { PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
 import {
 	isOccFamilyApi,
@@ -7,6 +6,7 @@ import {
 	isPiCustomProviderApi,
 	OPENAI_CHAT_COMPLETIONS_PROVIDER_ID,
 } from "@prime-agent/web-protocol/provider-catalog";
+import { writeJsonObjectFile } from "./agent-file-writer";
 
 /**
  * Shape of one custom-provider entry in prime-agent's `models.json`
@@ -147,12 +147,14 @@ export function listCustomProviders(filePath: string): Record<string, StoredCust
 	return data.providers ?? {};
 }
 
-function writeModelsJson(filePath: string, data: ModelsJson): void {
-	mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
-	const serialized = `${JSON.stringify(data, null, "\t")}\n`;
-	const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-	writeFileSync(tmpPath, serialized, "utf-8");
-	renameSync(tmpPath, filePath);
+/**
+ * `models.json` is a Prime Agent file like `auth.json` and `settings.json`, so
+ * it shares their lock and atomic rename. The previous writer used its own
+ * temporary file with no lock, which let two concurrent custom-provider saves
+ * interleave a read-merge-write and drop one.
+ */
+async function writeModelsJson(filePath: string, data: ModelsJson): Promise<void> {
+	await writeJsonObjectFile(filePath, data as unknown as Record<string, unknown>, { mode: 0o644 });
 }
 
 function defaultCompatForCustomProvider(
@@ -184,7 +186,11 @@ function defaultCompatForCustomProvider(
  * Insert or update a custom-provider entry, preserving fields the UI does not
  * manage (compat, modelOverrides, headers) and entries for other providers.
  */
-export function upsertCustomProvider(filePath: string, providerId: string, input: CustomProviderWriteInput): void {
+export async function upsertCustomProvider(
+	filePath: string,
+	providerId: string,
+	input: CustomProviderWriteInput,
+): Promise<void> {
 	const data = readModelsJsonForWrite(filePath);
 	const providers = { ...(data.providers ?? {}) };
 	const existing = providers[providerId] ?? {};
@@ -199,11 +205,15 @@ export function upsertCustomProvider(filePath: string, providerId: string, input
 		...(compat ? { compat } : {}),
 		models: mergeModelDefinitions(existing.models, input.models, storedApi),
 	};
-	writeModelsJson(filePath, { ...data, providers });
+	await writeModelsJson(filePath, { ...data, providers });
 }
 
 /** Add discovered model IDs while preserving every existing model definition. */
-export function addCustomProviderModelIds(filePath: string, providerId: string, modelIds: Array<string>): void {
+export async function addCustomProviderModelIds(
+	filePath: string,
+	providerId: string,
+	modelIds: Array<string>,
+): Promise<void> {
 	const data = readModelsJsonForWrite(filePath);
 	const providers = { ...(data.providers ?? {}) };
 	const existing = providers[providerId];
@@ -221,16 +231,16 @@ export function addCustomProviderModelIds(filePath: string, providerId: string, 
 			existing.api,
 		),
 	};
-	writeModelsJson(filePath, { ...data, providers });
+	await writeModelsJson(filePath, { ...data, providers });
 }
 
-export function removeCustomProvider(filePath: string, providerId: string): void {
+export async function removeCustomProvider(filePath: string, providerId: string): Promise<void> {
 	const data = readModelsJsonForWrite(filePath);
 	const providers = data.providers;
 	if (!providers || !(providerId in providers)) return;
 	const next = { ...providers };
 	delete next[providerId];
-	writeModelsJson(filePath, { ...data, providers: next });
+	await writeModelsJson(filePath, { ...data, providers: next });
 }
 
 /** True when the provider entry points at an HTTP(S) endpoint we can discover models from. */

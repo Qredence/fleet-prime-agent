@@ -86,7 +86,7 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 				thinkingLevels: ["off"] as const,
 			}));
 			if (models.length > 0) {
-				addCustomProviderModelIds(
+				await addCustomProviderModelIds(
 					`${config.agentDir}/models.json`,
 					provider,
 					models.map((model) => model.id),
