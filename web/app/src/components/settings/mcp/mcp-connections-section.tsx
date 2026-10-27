@@ -97,12 +97,17 @@ export function McpConnectionsSection({
 		const trimmedName = name.trim();
 		try {
 			if (transport === "http") {
+				// The server rejects a connection that declares both OAuth and a
+				// static bearer token, so OAuth wins and the token field is ignored.
+				// The form clears the token when OAuth is re-enabled, keeping the
+				// visible state and the submitted payload in agreement.
 				await onUpsert({
 					name: trimmedName,
 					transport: "http",
 					url: url.trim(),
-					...(oauth ? { oauth: true } : {}),
-					...(bearerTokenEnvVar.trim() ? { bearerTokenEnvVar: bearerTokenEnvVar.trim() } : {}),
+					...(!oauth && bearerTokenEnvVar.trim()
+						? { bearerTokenEnvVar: bearerTokenEnvVar.trim() }
+						: { oauth: true }),
 					force: true,
 				});
 			} else {
@@ -220,7 +225,12 @@ export function McpConnectionsSection({
 								</div>
 								<Switch
 									checked={oauth}
-									onCheckedChange={(checked) => setOauth(checked)}
+									onCheckedChange={(checked) => {
+										setOauth(checked);
+										// A hidden token must not survive the toggle: OAuth and a
+										// static bearer token are mutually exclusive upstream.
+										if (checked) setBearerTokenEnvVar("");
+									}}
 									aria-label="Use OAuth"
 								/>
 							</Field>

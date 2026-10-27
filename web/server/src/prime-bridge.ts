@@ -1782,7 +1782,7 @@ export class PrimeBridge {
 	/** The stock daemon cannot safely fork a transcript into another project. */
 	async forkSessionIntoProject(_sessionId: string, _targetProjectId: ProjectId): Promise<string> {
 		const error = new Error(
-			"Forking into another project is unavailable with Prime Agent 0.10.1. The original session is unchanged.",
+			"Forking into another project is unavailable with this Prime Agent runtime. The original session is unchanged.",
 		);
 		throw Object.assign(error, { status: 501 });
 	}

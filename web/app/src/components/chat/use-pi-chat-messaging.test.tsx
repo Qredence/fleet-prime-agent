@@ -743,6 +743,84 @@ describe("usePiChat stream admission", () => {
 		expect(client.streamMessage).toHaveBeenCalledOnce();
 	});
 
+	it("keeps replay alive when the user steers during recovery", async () => {
+		const { client, result, streams, eventSources } = createHarness();
+		await act(async () => flush());
+		// Recovery keeps the turn running so the loop stays in flight while the
+		// steered message is queued.
+		vi.mocked(client.listSessions).mockImplementation(async () => [
+			{ ...discoveredSession("session-a"), status: "running" as const },
+		]);
+		vi.mocked(client.loadSession).mockImplementation(async () => sessionResponse({ sessionId: "session-a" }));
+		const generation = "recovery-generation";
+
+		let turn!: Promise<boolean>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "keep this prompt" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({
+				type: "delta",
+				messageId: "session-a-assistant",
+				text: "partial reply",
+				eventCursor: { generation, sequence: 1 },
+			});
+			streams[0].reject(new ChatStreamContractError());
+			await flush();
+		});
+		expect(result.current.status).toBe("streaming");
+
+		// Steering must not tear down the recovery's replay handoff. The queued
+		// message resolves independently; recovery keeps running behind it.
+		let steer!: Promise<boolean>;
+		await act(async () => {
+			steer = result.current.sendMessage({ text: "steer while recovering" });
+			await flush();
+		});
+		await act(async () => {
+			streams[1].onEvent({
+				type: "queue",
+				steering: ["steer while recovering"],
+				followUp: [],
+				eventCursor: { generation, sequence: 1 },
+			});
+			await flush();
+		});
+		streams[1].resolve();
+		await act(async () => {
+			await expect(steer).resolves.toBe(true);
+		});
+
+		// The replayed frame must reach the transcript. Before the fix,
+		// `cancelStreamRecovery()` had cleared `active`/`applyEvent`, so this
+		// branch was skipped and the frame was dropped by the streaming guard.
+		const liveReplay = eventSources.at(-1)!;
+		await act(async () => {
+			liveReplay.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "delta",
+						messageId: "session-a-assistant",
+						text: " and replayed after steering",
+						eventCursor: { generation, sequence: 2 },
+					}),
+					lastEventId: "2",
+				}),
+			);
+			await flush();
+		});
+		expect(JSON.stringify(result.current.messages)).toContain("partial reply and replayed after steering");
+
+		// stop() must reach the still-running recovery through its own controller.
+		await act(async () => result.current.stop());
+		await act(async () => {
+			await expect(turn).resolves.toBe(false);
+		});
+		expect(result.current.status).toBe("ready");
+	});
+
 	it("stops recovery when the user stops the active runtime", async () => {
 		const { client, result, streams } = createHarness();
 		await act(async () => flush());

@@ -1,5 +1,6 @@
 import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
+import { Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 import { BookOpenText, ChevronDown, CircleHelp, Folder, FolderPlus, Search, Settings, SquarePen } from "lucide-react";
 import type { ReactNode } from "react";
@@ -83,11 +84,13 @@ function SidebarMenuItem({
 	to?: "/agents" | "/connectors";
 }) {
 	if (to) {
+		// Internal navigation goes through the router: a raw <a href> forced a
+		// full document reload and discarded in-flight client state.
 		return (
-			<a href={to} className={MENU_ITEM_CLASS}>
+			<Link to={to} className={MENU_ITEM_CLASS} onClick={onClick}>
 				{Icon ? <Icon className="size-3.5" /> : null}
 				{label}
-			</a>
+			</Link>
 		);
 	}
 	if (href) {

@@ -11,26 +11,15 @@ import {
 	AlertDialogFooter,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
 export type SidebarActionDialogsProps = {
 	activeDialog: SessionDialog;
 	onClose: () => void;
-	projects: Array<ProjectSummary>;
 	onRenameSession: (sessionId: string, title: string) => void;
 	onDeleteSession: (sessionId: string) => void;
 	onRenameProject?: (projectId: ProjectId, name: string) => void | Promise<void>;
 	onUnregisterProject?: (projectId: ProjectId) => void | Promise<void>;
-	onForkSessionIntoProject?: (sessionId: string, projectId: ProjectId) => void | Promise<void>;
 };
 
 function RenameSessionDialog({
@@ -184,45 +173,16 @@ function UnregisterProjectDialog({
 	);
 }
 
-function ForkSessionDialog({
-	onClose,
-}: {
-	session: ChatSessionInfo;
-	projects: Array<ProjectSummary>;
-	onClose: () => void;
-	onForkSessionIntoProject?: (sessionId: string, projectId: ProjectId) => void | Promise<void>;
-}) {
-	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="sm:max-w-md">
-				<DialogHeader>
-					<DialogTitle>Fork session into project</DialogTitle>
-					<DialogDescription>
-						Forking into another project is unavailable with this runtime. The original session remains unchanged.
-					</DialogDescription>
-				</DialogHeader>
-				<DialogFooter>
-					<Button type="button" variant="outline" onClick={onClose}>
-						Done
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
 /** Renders the dialog selected by `activeDialog`, or nothing when it is null.
  * Project creation is handled separately by SessionSidebar, so its dialog
  * kind also renders nothing here. */
 export function SessionSidebarActionDialogs({
 	activeDialog,
 	onClose,
-	projects,
 	onRenameSession,
 	onDeleteSession,
 	onRenameProject,
 	onUnregisterProject,
-	onForkSessionIntoProject,
 }: SidebarActionDialogsProps) {
 	if (!activeDialog) return null;
 
@@ -245,15 +205,6 @@ export function SessionSidebarActionDialogs({
 					project={activeDialog.project}
 					onClose={onClose}
 					onUnregisterProject={onUnregisterProject}
-				/>
-			);
-		case "fork-session":
-			return (
-				<ForkSessionDialog
-					session={activeDialog.session}
-					projects={projects}
-					onClose={onClose}
-					onForkSessionIntoProject={onForkSessionIntoProject}
 				/>
 			);
 		case "create-project":

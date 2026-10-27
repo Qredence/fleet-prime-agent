@@ -95,7 +95,6 @@ function createWorkspaceData(startNewSession: () => Promise<unknown>): Workspace
 			browseProjectDirectories: vi.fn(),
 			createProject: vi.fn(),
 			deleteSession: vi.fn(),
-			forkSessionIntoProject: vi.fn(),
 			renameProject: vi.fn(),
 			renameSession: vi.fn(),
 			resumeSession: vi.fn(),

@@ -1,6 +1,7 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ChatPiSettingsSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { afterEach, describe, expect, it } from "vitest";
 import { mergeProjectedSettings, projectSettingsValues, readSettingsProjection } from "../settings-projection";
 
@@ -70,6 +71,64 @@ describe("Fleet settings projection", () => {
 		expect(projection.global).toEqual({});
 		expect(projection.project).toEqual({});
 		expect(projection.diagnostics).toEqual(["Global settings are invalid JSON."]);
-		expect(await (await import("node:fs/promises")).readFile(globalPath, "utf8")).toBe("{not json");
+		expect(await readFile(globalPath, "utf8")).toBe("{not json");
+	});
+
+	it("narrows out-of-contract values so the response schema still accepts the projection", async () => {
+		const root = await makeTempDir();
+		const agentDir = join(root, "agent");
+		const cwd = join(root, "project");
+		await mkdir(agentDir, { recursive: true });
+		await mkdir(join(cwd, ".prime", "agent"), { recursive: true });
+		// Hand-edited or downgraded files can carry values the response schema
+		// rejects. One bad value must not fail the whole settings payload.
+		await writeFile(
+			join(agentDir, "settings.json"),
+			JSON.stringify({
+				defaultThinkingLevel: "ultra",
+				followUpMode: "all",
+				steeringMode: "sometimes",
+				transport: "carrier-pigeon",
+				compaction: { enabled: 1, reserveTokens: 0, keepRecentTokens: -5 },
+				retry: { enabled: "yes", maxRetries: 1.5, baseDelayMs: 2000 },
+				extensions: ["valid/path", ""],
+				skills: [],
+				packages: ["pkg-a", { source: "" }, { source: "pkg-b", extensions: [""] }],
+			}),
+		);
+
+		const projection = await readSettingsProjection(agentDir, cwd);
+		const effective = mergeProjectedSettings(
+			projectSettingsValues(projection.global),
+			projectSettingsValues(projection.project),
+		);
+
+		expect(effective).not.toHaveProperty("defaultThinkingLevel");
+		expect(effective).not.toHaveProperty("steeringMode");
+		expect(effective).not.toHaveProperty("transport");
+		expect(effective.followUpMode).toBe("all");
+		expect(effective.compaction).toEqual({});
+		expect(effective.retry).toEqual({ baseDelayMs: 2000 });
+		expect(effective.extensions).toBeUndefined();
+		expect(effective.skills).toEqual([]);
+		expect(effective.packages).toEqual(["pkg-a", { source: "pkg-b" }]);
+
+		// The projected values must survive the same schema the browser applies.
+		expect(
+			ChatPiSettingsSchema.safeParse({
+				compaction: { enabled: true, reserveTokens: 16384, keepRecentTokens: 20000 },
+				enableSkillCommands: true,
+				extensions: [],
+				followUpMode: effective.followUpMode ?? "one-at-a-time",
+				packages: effective.packages,
+				prompts: [],
+				retry: { enabled: true, maxRetries: 3, baseDelayMs: 2000 },
+				skills: effective.skills,
+				steeringMode: "one-at-a-time",
+				themes: [],
+				transport: "auto",
+				...(effective.defaultThinkingLevel ? { defaultThinkingLevel: effective.defaultThinkingLevel } : {}),
+			}).success,
+		).toBe(true);
 	});
 });

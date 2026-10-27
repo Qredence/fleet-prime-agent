@@ -1,8 +1,4 @@
-import type {
-	ChatProviderInfo,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
-} from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatProviderInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
 import { Info, Pencil, Trash2 } from "lucide-react";
 import { ItemRow, RowSurface } from "@/components/layout/item-row";
@@ -43,8 +39,6 @@ export function ActiveProviderList({
 	onCancelEdit: () => void;
 	onSave: (providerId: string) => void;
 	onRemove: (provider: ChatProviderInfo) => void;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
-	onConfigured?: () => void;
 }) {
 	const { api, apiKey, baseUrl, modelId, models, displayName, showPassword, attemptedSave, canSave } = form;
 	const { isPending, canRemove } = operation;

@@ -11,6 +11,7 @@ import {
 	DaemonAgentConnection,
 	DaemonClient,
 } from "prime-agent";
+import { AGENT_DIR_ENV } from "./agent-dir";
 import {
 	DAEMON_PROTOCOL_NAME,
 	DAEMON_PROTOCOL_VERSION,
@@ -129,9 +130,6 @@ function daemonCliEntrypoint(): string {
  * npm migration launcher (which may download an installer).
  */
 export const NATIVE_DAEMON_BINARY_ENV = "FLEET_PRIME_AGENT_BIN";
-
-/** The agent state dir env var both the TS and Rust runtimes honor. */
-export const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
 
 export function daemonSpawnCommand(
 	socketPath: string,

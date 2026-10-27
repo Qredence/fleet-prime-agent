@@ -20,7 +20,6 @@ function SidebarHarness({
 	onCreateProject,
 	onRenameProject,
 	onUnregisterProject,
-	onForkSessionIntoProject,
 	onOpenPanelAction,
 	onBrowseDirectories,
 	onOpenSettings,
@@ -41,7 +40,6 @@ function SidebarHarness({
 				onCreateProject,
 				onRenameProject,
 				onUnregisterProject,
-				onForkSessionIntoProject,
 			}}
 			navigationActions={{ onOpenPanelAction, onBrowseDirectories, onOpenSettings }}
 			slots={{ accountMenu }}
@@ -359,40 +357,6 @@ describe("SessionSidebar empty projects", () => {
 		fireEvent.click(getByRole("treeitem", { name: "Start first chat" }));
 		expect(onProjectSelect).toHaveBeenCalledWith("alpha");
 		expect(onNewSession).toHaveBeenCalledTimes(1);
-	});
-});
-
-describe("SessionSidebar fork dialog", () => {
-	beforeEach(() => {
-		window.localStorage.clear();
-	});
-
-	it("explains that cross-project forks are unavailable without changing the session", async () => {
-		const onForkSessionIntoProject = vi.fn();
-		render(
-			<AnimatedSidebarProvider>
-				<SidebarHarness
-					sessions={[]}
-					projects={[project("alpha"), project("beta")]}
-					projectSessions={[session("s1", "alpha")]}
-					activeProjectId="alpha"
-					onNewSession={vi.fn()}
-					onResumeSession={vi.fn()}
-					onRenameSession={vi.fn()}
-					onDeleteSession={vi.fn()}
-					onForkSessionIntoProject={onForkSessionIntoProject}
-				/>
-			</AnimatedSidebarProvider>,
-		);
-
-		fireEvent.click(screen.getByRole("button", { name: "Actions for s1" }));
-		fireEvent.click(await screen.findByText("Fork into project"));
-
-		const dialog = await screen.findByRole("dialog", { name: "Fork session into project" });
-		expect(within(dialog).getByText(/Forking into another project is unavailable/)).toBeTruthy();
-		fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
-		expect(onForkSessionIntoProject).not.toHaveBeenCalled();
-		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Fork session into project" })).toBeNull());
 	});
 });
 

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo
 import type { RightPanel } from "@/components/layout/canvas-utils";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
-import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "@/components/layout/right-panel-registry";
+import { RIGHT_PANEL_GROUPS } from "@/components/layout/right-panel-registry";
 import { TabsSubtle, TabsSubtleItem } from "@/components/layout/tabs-subtle";
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
@@ -136,7 +136,7 @@ export function RightPanelLauncher({
 
 	const tabs = useMemo(
 		() =>
-			RIGHT_PANEL_LAUNCHER_DEFINITIONS.map((definition) => ({
+			RIGHT_PANEL_GROUPS.map((definition) => ({
 				...definition,
 				badge:
 					definition.id === "workspace"
@@ -181,7 +181,7 @@ export function RightPanelLauncher({
 	);
 }
 
-type PanelLauncherTab = (typeof RIGHT_PANEL_LAUNCHER_DEFINITIONS)[number] & {
+type PanelLauncherTab = (typeof RIGHT_PANEL_GROUPS)[number] & {
 	badge?: number;
 };
 

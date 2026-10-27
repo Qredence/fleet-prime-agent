@@ -838,7 +838,7 @@ describe("PrimeBridge.forkSession", () => {
 		mkdirSync(targetCwd);
 		const targetProject = await getPrimeConfig().projectRegistry.register(targetCwd, "Target project");
 		await expect(bridge.forkSessionIntoProject(created.sessionId, targetProject.projectId)).rejects.toThrow(
-			"Forking into another project is unavailable with Prime Agent 0.10.1",
+			"Forking into another project is unavailable with this Prime Agent runtime",
 		);
 		expect(readFileSync(sourcePath!, "utf8")).toBe(sourceBytes);
 		expect(bridge.getSession(created.sessionId)).toBeDefined();

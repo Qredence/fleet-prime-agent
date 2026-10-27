@@ -36,7 +36,6 @@ export type ProjectActions = {
 	onCreateProject?: (request: { path?: string; directoryToken?: string; name?: string }) => void | Promise<void>;
 	onRenameProject?: (projectId: ProjectId, name: string) => void | Promise<void>;
 	onUnregisterProject?: (projectId: ProjectId) => void | Promise<void>;
-	onForkSessionIntoProject?: (sessionId: string, projectId: ProjectId) => void | Promise<void>;
 };
 
 export type SidebarNavigationActions = {
@@ -67,7 +66,6 @@ export type SessionDialog =
 	| { kind: "create-project" }
 	| { kind: "rename-session"; session: ChatSessionInfo }
 	| { kind: "delete-session"; session: ChatSessionInfo }
-	| { kind: "fork-session"; session: ChatSessionInfo }
 	| { kind: "rename-project"; project: ProjectSummary }
 	| { kind: "unregister-project"; project: ProjectSummary }
 	| null;

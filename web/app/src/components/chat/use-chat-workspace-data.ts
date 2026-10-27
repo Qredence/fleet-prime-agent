@@ -21,7 +21,6 @@ import {
 	useChatSettings,
 	useDiscoverChatModels,
 	useMcpOAuth,
-	useOAuthLoginProvider,
 	useRemoveChatProvider,
 	useRemoveMcpConnection,
 	useUpdateChatProvider,
@@ -92,7 +91,6 @@ export function useChatWorkspaceData() {
 	const { data: mcpData, isLoading: isLoadingMcp } = useChatMcpConnections();
 	const { data: projectsData, refetch: refetchProjects } = useChatProjects();
 	const { mutateAsync: onUpdateProvider, isPending: isUpdatingProvider } = useUpdateChatProvider();
-	const { mutateAsync: onOAuthLogin } = useOAuthLoginProvider();
 	const { mutateAsync: onRemoveProvider, isPending: isRemovingProvider } = useRemoveChatProvider();
 	const { mutateAsync: onUpdateMcp, isPending: isUpdatingMcp } = useUpdateMcpConnection();
 	const { mutateAsync: onRemoveMcp, isPending: isRemovingMcp } = useRemoveMcpConnection();
@@ -228,7 +226,6 @@ export function useChatWorkspaceData() {
 		clearWorkspaceAttachments,
 		createProject,
 		deleteSessionForWorkspace,
-		forkSessionIntoProject,
 		handleAttach,
 		removeUploadedAttachment,
 		removeWorkspaceAttachment,
@@ -508,7 +505,6 @@ export function useChatWorkspaceData() {
 		modelCatalog,
 		onDiscoverModels,
 		onMcpOAuth,
-		onOAuthLogin,
 		onRemoveMcp,
 		onRemoveProvider,
 		onUpdateMcp,
@@ -571,7 +567,6 @@ export function useChatWorkspaceData() {
 			browseProjectDirectories,
 			createProject,
 			deleteSession: deleteSessionForWorkspace,
-			forkSessionIntoProject,
 			renameProject,
 			renameSession,
 			resumeSession: resumeSessionForWorkspace,

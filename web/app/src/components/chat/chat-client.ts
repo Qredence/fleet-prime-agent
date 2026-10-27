@@ -1,6 +1,5 @@
 import type {
 	ProjectDirectoryBrowseResponse,
-	ProjectForkResponse,
 	ProjectId,
 	ProjectListResponse,
 	ProjectSummary,
@@ -20,8 +19,6 @@ import type {
 	ChatPlanPresentation,
 	ChatPlanPresentationUpsertRequest,
 	ChatProviderInfo,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
 	ChatProviderRemoveRequest,
 	ChatProviderRemoveResponse,
 	ChatProviderUpdateRequest,
@@ -58,8 +55,6 @@ import {
 	ChatOpenUIArtifactUpsertResponseSchema,
 	ChatPlanPresentationSchema,
 	ChatPlanPresentationUpsertRequestSchema,
-	ChatProviderOAuthLoginRequestSchema,
-	ChatProviderOAuthLoginResponseSchema,
 	ChatProviderRemoveRequestSchema,
 	ChatProvidersResponseSchema,
 	ChatProviderUpdateRequestSchema,
@@ -74,8 +69,6 @@ import {
 	ChatSettingsUpdateRequestSchema,
 	ProjectCreateRequestSchema,
 	ProjectDirectoryBrowseResponseSchema,
-	ProjectForkRequestSchema,
-	ProjectForkResponseSchema,
 	ProjectListResponseSchema,
 	ProjectRenameRequestSchema,
 	ProjectSummarySchema,
@@ -109,7 +102,6 @@ export type ChatClient = {
 	renameProject: (projectId: ProjectId, name: string) => Promise<ProjectSummary>;
 	unregisterProject: (projectId: ProjectId) => Promise<ProjectSummary>;
 	browseProjectDirectories: (options?: { path?: string; token?: string }) => Promise<ProjectDirectoryBrowseResponse>;
-	forkSessionIntoProject: (sessionId: string, targetProjectId: ProjectId) => Promise<ProjectForkResponse>;
 	getModels: (options?: { scope?: "enabled" | "all"; projectId?: ProjectId }) => Promise<ChatModelsResponse>;
 	discoverModels: (request: ChatModelsDiscoverRequest) => Promise<ChatModelsDiscoverResponse>;
 	getResources: (projectId?: ProjectId) => Promise<ChatResourcesResponse>;
@@ -144,7 +136,6 @@ export type ChatClient = {
 	removeMcpConnection: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
 	mcpOAuth: (request: ChatMcpOAuthLoginRequest) => Promise<ChatMcpOAuthLoginResponse>;
 	getProviders: () => Promise<{ providers: Array<ChatProviderInfo> }>;
-	oauthLoginProvider: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	updateProvider: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
 	removeProvider: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
 };
@@ -236,15 +227,6 @@ export const chatClient: ChatClient = {
 			`/api/projects/browse${query ? `?${query}` : ""}`,
 			ProjectDirectoryBrowseResponseSchema,
 		);
-	},
-
-	async forkSessionIntoProject(sessionId, targetProjectId) {
-		const body = ProjectForkRequestSchema.parse({ sessionId, targetProjectId });
-		return fetchValidatedJson("/api/projects/fork", ProjectForkResponseSchema, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(body),
-		});
 	},
 
 	async getModels(options) {
@@ -446,15 +428,6 @@ export const chatClient: ChatClient = {
 
 	async getProviders() {
 		return fetchValidatedJson("/api/chat/providers", ChatProvidersResponseSchema);
-	},
-
-	async oauthLoginProvider(request) {
-		const body = ChatProviderOAuthLoginRequestSchema.parse(request);
-		return fetchValidatedJson("/api/chat/providers/oauth", ChatProviderOAuthLoginResponseSchema, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(body),
-		});
 	},
 
 	async updateProvider(request) {

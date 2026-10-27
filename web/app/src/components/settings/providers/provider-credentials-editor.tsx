@@ -1,9 +1,4 @@
-import type {
-	ChatProviderInfo,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
-	PiCustomProviderApi,
-} from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatProviderInfo, PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
 import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
 import { ArrowLeft, Info, Search } from "lucide-react";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
@@ -117,15 +112,7 @@ export function AddProviderPickerPanel({
 	);
 }
 
-export function AddProviderOAuthPanel({
-	onBack,
-	provider,
-}: {
-	onBack: () => void;
-	onConfigured?: () => void;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
-	provider: ChatProviderInfo;
-}) {
+export function AddProviderOAuthPanel({ onBack, provider }: { onBack: () => void; provider: ChatProviderInfo }) {
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center gap-2">
@@ -193,8 +180,6 @@ export function AddProviderEditorPanel({
 	onTogglePassword: () => void;
 	onBack: () => void;
 	onCancel: () => void;
-	onConfigured?: () => void;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	onSave: () => void;
 }) {
 	const isCustomTemplate = provider.id === CUSTOM_PROVIDER_PICKER_ID || isCustomProviderId(provider.id);

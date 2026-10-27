@@ -86,7 +86,6 @@ function useSettingsForm() {
 		modelCatalog,
 		onDiscoverModels,
 		onMcpOAuth,
-		onOAuthLogin,
 		onRemoveMcp,
 		onRemoveProvider,
 		onThemePreferenceChange,
@@ -199,7 +198,6 @@ function useSettingsForm() {
 		isUpdatingProvider,
 		mcpConnections,
 		onMcpOAuth,
-		onOAuthLogin,
 		onRemoveMcp,
 		onRemoveProvider,
 		onThemePreferenceChange,
@@ -344,7 +342,6 @@ function SettingsDialogPaneContent({
 		isUpdatingProvider,
 		mcpConnections,
 		onMcpOAuth,
-		onOAuthLogin,
 		onRemoveMcp,
 		onRemoveProvider,
 		onThemePreferenceChange,
@@ -494,7 +491,6 @@ function SettingsDialogPaneContent({
 				isLoading={isLoadingProviders ?? false}
 				isPending={isUpdatingProvider ?? false}
 				providers={providers}
-				onOAuthLogin={onOAuthLogin}
 				onRemoveProvider={onRemoveProvider}
 				onUpdateProvider={onUpdateProvider}
 			/>

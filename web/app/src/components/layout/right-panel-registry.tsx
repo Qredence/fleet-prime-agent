@@ -350,8 +350,6 @@ export const RIGHT_PANEL_GROUPS: ReadonlyArray<RightPanelGroup> = [
 	},
 ];
 
-export const RIGHT_PANEL_LAUNCHER_DEFINITIONS = RIGHT_PANEL_GROUPS;
-
 export function getRightPanelGroup(panel: ActiveRightPanel) {
 	return RIGHT_PANEL_GROUPS.find((group) => group.panels.includes(panel));
 }

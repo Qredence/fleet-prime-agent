@@ -7,8 +7,6 @@ import type {
 	ChatMode,
 	ChatPiSettingsUpdate,
 	ChatProviderInfo,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
 	ChatProviderRemoveRequest,
 	ChatProviderRemoveResponse,
 	ChatProviderUpdateRequest,
@@ -90,7 +88,6 @@ export type SettingsActionsContextValue = {
 	modelCatalog?: Array<ChatModelOption>;
 	onDiscoverModels?: (providerId: string) => Promise<Array<ChatModelOption>>;
 	onMcpOAuth?: (request: ChatMcpOAuthLoginRequest) => Promise<ChatMcpOAuthLoginResponse>;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	onRemoveMcp?: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
 	onComposerIntentChange?: (enabled: boolean) => void;

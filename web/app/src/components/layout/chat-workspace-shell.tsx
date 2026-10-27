@@ -154,15 +154,8 @@ export function ChatWorkspaceShell() {
 			onCreateProject: session.createProject,
 			onRenameProject: session.renameProject,
 			onUnregisterProject: session.unregisterProject,
-			onForkSessionIntoProject: session.forkSessionIntoProject,
 		}),
-		[
-			session.selectProject,
-			session.createProject,
-			session.renameProject,
-			session.unregisterProject,
-			session.forkSessionIntoProject,
-		],
+		[session.selectProject, session.createProject, session.renameProject, session.unregisterProject],
 	);
 	const navigationActions = useMemo(
 		() => ({
