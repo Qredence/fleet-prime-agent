@@ -355,6 +355,97 @@ describe("FleetDaemonAgentConnection", () => {
 		}
 	});
 
+	it("ignores a child watcher's snapshot frames so the parent session survives", async () => {
+		const parentId = "parent-session";
+		const childId = "child-session";
+		const childState = { activeSessionId: childId, cwd: "/child", isStreaming: false };
+		// A child watcher streams its own snapshots on the shared socket. Before
+		// the fix these landed in the parent's buffer, the replacement apply threw
+		// on the id mismatch, and the parent was closed as a result.
+		const childReplacement = snapshotFrames(
+			"child-replacement",
+			"replacement",
+			{ activeSessionId: childId, state: childState },
+			[{ role: "user", content: "child transcript" }],
+		);
+		daemon = await startFakeDaemon({
+			hello,
+			reply: (envelope, socket) => {
+				if (envelope.command.type !== "attach") {
+					return okResponse(envelope, envelope.command.type === "get_messages" ? { messages: [] } : {});
+				}
+				const activeSessionId = String(envelope.command.activeSessionId);
+				if (activeSessionId === childId) {
+					setTimeout(() => {
+						for (const frame of childReplacement) socket.write(`${JSON.stringify(frame)}\n`);
+					}, 0);
+				}
+				return okResponse(envelope, {
+					activeSessionId,
+					snapshot: { activeSessionId, state: { activeSessionId, cwd: "/work" }, messages: [] },
+				});
+			},
+		});
+		client = new DaemonSocketClient(daemon.socketPath);
+		await client.connect();
+		await client.waitForHello();
+		connection = await FleetDaemonAgentConnection.attach(client, parentId);
+		const events: unknown[] = [];
+		connection.subscribe((event) => {
+			events.push(event);
+		});
+
+		const watcher = await connection.watchSession(childId);
+		await vi.waitFor(() => expect(events.length).toBeGreaterThanOrEqual(0));
+		// Give the child's replacement frames time to arrive.
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(events.filter((event) => (event as { type: string }).type === "closed")).toEqual([]);
+		await expect(connection.getInitialSnapshot()).resolves.toMatchObject({
+			state: { activeSessionId: parentId },
+		});
+		await watcher?.close();
+	});
+
+	it("consumes an attach-purpose snapshot without replacing or closing the session", async () => {
+		const activeSessionId = "fb0bae7caf80";
+		const attachSnapshot = snapshotFrames(
+			"attach-only",
+			"attach",
+			{ activeSessionId, state: { activeSessionId, cwd: "/work" }, messages: [{ role: "user", content: "x" }] },
+			[{ role: "user", content: "x" }],
+		);
+		daemon = await startFakeDaemon({
+			hello,
+			reply: (envelope, socket) => {
+				if (envelope.command.type !== "attach") return okResponse(envelope, {});
+				// An attach-purpose snapshot ends after the attach response. Its frames
+				// are consumed by the attach, so they must be released rather than
+				// retained, and they must never be applied as a replacement.
+				setTimeout(() => {
+					for (const frame of attachSnapshot) socket.write(`${JSON.stringify(frame)}\n`);
+				}, 0);
+				return okResponse(envelope, {
+					activeSessionId,
+					snapshot: { activeSessionId, state: { activeSessionId, cwd: "/work" }, messages: [] },
+				});
+			},
+		});
+		client = new DaemonSocketClient(daemon.socketPath);
+		await client.connect();
+		await client.waitForHello();
+		connection = await FleetDaemonAgentConnection.attach(client, activeSessionId);
+		const events: unknown[] = [];
+		connection.subscribe((event) => {
+			events.push(event);
+		});
+
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(events.filter((event) => (event as { type: string }).type === "session_replaced")).toEqual([]);
+		expect(events.filter((event) => (event as { type: string }).type === "closed")).toEqual([]);
+	});
+
 	it("replaces its navigation snapshot only after a complete replacement stream", async () => {
 		const activeSessionId = "b134578a8e2f";
 		const replacementMessages = [{ role: "user", content: "navigated transcript" }];

@@ -260,7 +260,12 @@ export class FleetDaemonAgentConnection {
 	static async attach(
 		client: DaemonSocketClient,
 		activeSessionId: string,
-		options: { recoverDaemon?: () => Promise<void>; closeClientOnDispose?: boolean } = {},
+		options: {
+			recoverDaemon?: () => Promise<void>;
+			closeClientOnDispose?: boolean;
+			/** Last cursor this client applied, so the daemon can replay from it. */
+			resumeCursor?: EventCursor;
+		} = {},
 	): Promise<FleetDaemonAgentConnection> {
 		const bufferedFrames: unknown[] = [];
 		const unsubscribe = client.onFrame((frame) => bufferedFrames.push(frame));
@@ -270,6 +275,7 @@ export class FleetDaemonAgentConnection {
 				activeSessionId,
 				supportsExtensionUi: false,
 				capabilities: ["attach_snapshot", "event_sequence"],
+				...(options.resumeCursor ? { resumeCursor: options.resumeCursor } : {}),
 			});
 			if (!response.success)
 				throw new Error(response.error ?? "The Prime Agent daemon could not attach the session");
@@ -347,6 +353,10 @@ export class FleetDaemonAgentConnection {
 				const response = await this.client.request({
 					type: "reattach",
 					activeSessionId: this.#activeSessionId,
+					// Ask for replay from the last applied event. The daemon may answer
+					// `replay.status: "unavailable"` (see stale-resume-attach.jsonl);
+					// the snapshot below is authoritative in that case.
+					...(this.#lastEventCursor ? { resumeCursor: this.#lastEventCursor } : {}),
 				});
 				if (!response.success)
 					throw new Error(response.error ?? "The Prime Agent daemon could not reattach the session");
@@ -416,6 +426,17 @@ export class FleetDaemonAgentConnection {
 	#onFrame(frame: unknown): void {
 		if (!isRecord(frame)) return;
 		if (typeof frame.type === "string" && frame.type.startsWith("session_snapshot_")) {
+			// A connection can carry snapshots for more than one session: a child
+			// watcher streams its own snapshots, and those must never enter this
+			// session's buffer. A foreign snapshot would then be handed to
+			// #applyReplacementSnapshot, fail its activeSessionId check, and emit a
+			// terminal `closed` that kills the parent session.
+			if (frame.activeSessionId !== this.#activeSessionId) {
+				// Still evict the tail so a foreign snapshot cannot leak.
+				if (frame.type === "session_snapshot_end") this.#evictSnapshotFrames(frame.snapshotId);
+				this.#sequenceGapTracker.observe(frame);
+				return;
+			}
 			this.#snapshotFrames.push(frame);
 			this.#sequenceGapTracker.observe(frame);
 			if (frame.type === "session_snapshot_end") void this.#applyReplacementSnapshot(frame);
@@ -424,9 +445,6 @@ export class FleetDaemonAgentConnection {
 		if (this.#recovering) {
 			this.#recoveryFrames.push(frame);
 			return;
-		}
-		if (frame.type === "session_event" && frame.activeSessionId === this.#activeSessionId) {
-			this.#snapshotFresh = false;
 		}
 		this.#sequenceGapTracker.observe(frame);
 		if (isDaemonSessionBindingFrame(frame)) {
@@ -446,6 +464,8 @@ export class FleetDaemonAgentConnection {
 				(previous.generation === undefined ||
 					cursor?.generation === undefined ||
 					previous.generation === cursor.generation);
+			// Dedupe before invalidating: a redundant frame is not evidence that the
+			// snapshot went stale, so this must not cost a round trip.
 			if (cursor && sameGeneration && cursor.sequence <= previous.sequence) return;
 			if (cursor) this.#lastEventCursor = cursor;
 			this.#snapshotFresh = false;
@@ -463,10 +483,21 @@ export class FleetDaemonAgentConnection {
 	}
 
 	async #applyReplacementSnapshot(end: JsonRecord): Promise<void> {
-		if (typeof end.snapshotId !== "string" || this.#handledSnapshotIds.has(end.snapshotId)) return;
+		if (typeof end.snapshotId !== "string") return;
+		if (this.#handledSnapshotIds.has(end.snapshotId)) {
+			this.#evictSnapshotFrames(end.snapshotId);
+			return;
+		}
 		const frames = this.#snapshotFrames.filter((frame) => isRecord(frame) && frame.snapshotId === end.snapshotId);
 		const begin = frames.find((frame) => isRecord(frame) && frame.type === "session_snapshot_begin");
-		if (!isRecord(begin) || begin.purpose !== "replacement") return;
+		// Every snapshot purpose ends here, so buffers are released for all of
+		// them. Only `replacement` is applied; `attach` snapshots were already
+		// consumed by the attach call and would otherwise accumulate for the
+		// lifetime of the connection.
+		if (!isRecord(begin) || begin.purpose !== "replacement") {
+			this.#evictSnapshotFrames(end.snapshotId);
+			return;
+		}
 		this.#handledSnapshotIds.add(end.snapshotId);
 		try {
 			const streamed = await collectSnapshotMessages(this.client, end.snapshotId, frames);
@@ -498,11 +529,17 @@ export class FleetDaemonAgentConnection {
 				error: error instanceof Error ? error.message : String(error),
 			});
 		} finally {
-			this.#snapshotFrames = this.#snapshotFrames.filter(
-				(frame) => !isRecord(frame) || frame.snapshotId !== end.snapshotId,
-			);
+			this.#evictSnapshotFrames(end.snapshotId);
 			this.#handledSnapshotIds.delete(end.snapshotId);
 		}
+	}
+
+	/** Drop buffered frames for one snapshot and forget its identity. */
+	#evictSnapshotFrames(snapshotId: unknown): void {
+		if (typeof snapshotId !== "string") return;
+		this.#snapshotFrames = this.#snapshotFrames.filter(
+			(frame) => !isRecord(frame) || frame.snapshotId !== snapshotId,
+		);
 	}
 
 	#cursorFromMeta(meta: JsonRecord): EventCursor | undefined {
@@ -522,7 +559,16 @@ export class FleetDaemonAgentConnection {
 			this.#pendingEvents.push(event);
 			return;
 		}
-		for (const listener of [...this.#listeners]) void listener(event);
+		// One throwing listener must not stop delivery to the others: the events
+		// are independent consumers of the same frame, and a dropped frame leaves
+		// the survivor desynchronized from the transcript.
+		for (const listener of [...this.#listeners]) {
+			try {
+				void listener(event);
+			} catch {
+				// Listener failures are theirs to report; the connection proceeds.
+			}
+		}
 	}
 
 	async #data<T>(type: string, fields: JsonRecord = {}, timeoutMs?: number): Promise<T> {
@@ -629,6 +675,30 @@ export class FleetDaemonAgentConnection {
 		return data.toolDefinition;
 	}
 
+	/**
+	 * Remove a persisted transcript. The daemon owns the file, so deleting
+	 * through it keeps the saved-session catalog and the on-disk transcript in
+	 * agreement; Fleet never unlinks that path itself.
+	 */
+	async deleteSavedSession(
+		sessionPath: string,
+	): Promise<{ ok: true; method: "trash" | "unlink" } | { ok: false; error: string }> {
+		const response = await this.client.request({
+			type: "delete_saved_session",
+			activeSessionId: this.#activeSessionId,
+			sessionPath,
+		});
+		if (!response.success) return { ok: false, error: response.error ?? "The daemon could not delete the session" };
+		const data = responseRecord(response.data, "delete_saved_session");
+		if (data.ok !== true) {
+			return {
+				ok: false,
+				error: typeof data.error === "string" ? data.error : "The daemon could not delete the session",
+			};
+		}
+		return { ok: true, method: data.method === "unlink" ? "unlink" : "trash" };
+	}
+
 	async getSystemPrompt(): Promise<string> {
 		const data = responseRecord(await this.#data("get_system_prompt"), "get_system_prompt");
 		return typeof data.systemPrompt === "string" ? data.systemPrompt : "";
@@ -657,7 +727,11 @@ export class FleetDaemonAgentConnection {
 	}
 
 	async promptAndWait(message: string, options: PromptOptions = {}): Promise<void> {
-		await this.#data(
+		// `prompt_and_wait` can legitimately block for a whole turn, so the signal
+		// the caller passed must be able to end the wait. Without this the request
+		// held for up to 24 hours after the caller had already given up.
+		if (options.signal?.aborted) throw new Error("The prompt was aborted before it was sent");
+		const pending = this.#data(
 			"prompt_and_wait",
 			{
 				message,
@@ -667,7 +741,23 @@ export class FleetDaemonAgentConnection {
 				...(options.source ? { source: options.source } : {}),
 			},
 			LONG_RUNNING_REQUEST_TIMEOUT_MS,
-		);
+		).then(() => undefined);
+		if (!options.signal) return pending;
+		const signal = options.signal;
+		return new Promise<void>((resolve, reject) => {
+			const onAbort = () => reject(new Error("The prompt was aborted"));
+			signal.addEventListener("abort", onAbort, { once: true });
+			pending.then(
+				() => {
+					signal.removeEventListener("abort", onAbort);
+					resolve();
+				},
+				(error: unknown) => {
+					signal.removeEventListener("abort", onAbort);
+					reject(error);
+				},
+			);
+		});
 	}
 
 	async waitForIdle(): Promise<void> {
