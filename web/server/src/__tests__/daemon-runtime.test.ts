@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { AgentConnection } from "prime-agent";
@@ -8,6 +8,7 @@ import {
 	buildDaemonCreateCommand,
 	createDaemonSession,
 	daemonSpawnCommand,
+	ensureFleetDaemonRunning,
 	forkInDaemonWorker,
 	listAllDaemonSavedSessions,
 	listDaemonSavedSessionsPage,
@@ -19,6 +20,7 @@ import {
 	startDaemonChildPrompt,
 } from "../daemon-runtime";
 import { resetPrimeConfigForTests } from "../prime-config";
+import * as primeRuntime from "../prime-runtime";
 import { type FakeDaemonEnvelope, okResponse, startFakeDaemon } from "./helpers/fake-daemon";
 import { readRustFixture } from "./helpers/rust-fixtures";
 
@@ -231,6 +233,24 @@ describe("daemon create command (R1: Rust v0.10.1 compatibility)", () => {
 });
 
 describe("daemon spawn", () => {
+	it.each(["ENOENT", "EACCES", "empty override"])("rejects startup errors promptly: %s", async (scenario) => {
+		const stores = useTemporaryStores();
+		const originalBinary = process.env[NATIVE_DAEMON_BINARY_ENV];
+		const binary = resolve(stores.sessionDir, "..", "prime-agent");
+		const runtime = vi.spyOn(primeRuntime, "ensurePrimeAgentRuntime").mockResolvedValue(binary);
+		if (scenario === "EACCES") writeFileSync(binary, "fixture", { mode: 0o600 });
+		process.env[NATIVE_DAEMON_BINARY_ENV] = scenario === "empty override" ? "" : binary;
+		try {
+			await expect(ensureFleetDaemonRunning(process.cwd(), join(stores.sessionDir, "daemon.sock"))).rejects.toThrow(
+				scenario === "EACCES" ? /Could not start Prime Agent daemon: EACCES/ : /Prime Agent binary not found/,
+			);
+			expect(runtime).toHaveBeenCalledTimes(scenario === "empty override" ? 1 : 0);
+		} finally {
+			runtime.mockRestore();
+			restoreEnvironment(NATIVE_DAEMON_BINARY_ENV, originalBinary);
+			stores.restore();
+		}
+	});
 	it("spawns the opt-in native binary directly, never the npm launcher", () => {
 		expect(
 			daemonSpawnCommand("/tmp/prime-agent-501/daemon.sock", { [NATIVE_DAEMON_BINARY_ENV]: "/opt/pa/prime-agent" }),

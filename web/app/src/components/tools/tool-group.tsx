@@ -254,9 +254,7 @@ export const ToolGroup = memo(function ToolGroup({
 						setExpanded(next);
 					}}
 				>
-					<TraceCollapsibleTrigger
-						aria-label={`${completeLabel}: ${subtitle || nestedTools.length} ${statusText}`}
-					>
+					<TraceCollapsibleTrigger aria-label={`${summary}: ${subtitle || nestedTools.length} ${statusText}`}>
 						{summaryLine}
 					</TraceCollapsibleTrigger>
 					<TraceCollapsibleContent>

@@ -201,7 +201,7 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 		);
 	}
 
-	const nativeBinary = process.env[NATIVE_DAEMON_BINARY_ENV] ?? (await ensurePrimeAgentRuntime());
+	const nativeBinary = process.env[NATIVE_DAEMON_BINARY_ENV] || (await ensurePrimeAgentRuntime());
 	const { command, args } = daemonSpawnCommand(socketPath, { [NATIVE_DAEMON_BINARY_ENV]: nativeBinary });
 	const child = spawn(command, args, {
 		cwd: spawnCwd,
@@ -211,11 +211,22 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 		// daemon itself is pinned to Fleet's agent dir.
 		env: { ...process.env, [AGENT_DIR_ENV]: process.env[AGENT_DIR_ENV] || getPrimeConfig().agentDir },
 	});
+	let spawnError: NodeJS.ErrnoException | undefined;
+	child.on("error", (error: NodeJS.ErrnoException) => {
+		spawnError = error;
+	});
 	child.unref();
 
 	const deadline = Date.now() + DAEMON_STARTUP_TIMEOUT_MS;
 	while (Date.now() < deadline) {
 		const probe = await probeDaemon(socketPath);
+		if (spawnError) {
+			throw new Error(
+				spawnError.code === "ENOENT"
+					? `Prime Agent binary not found: ${command}`
+					: `Could not start Prime Agent daemon: ${spawnError.code || spawnError.message}`,
+			);
+		}
 		if (probe.status === "compatible") return;
 		if (probe.status === "incompatible") {
 			throw new Error(

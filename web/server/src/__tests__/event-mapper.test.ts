@@ -425,6 +425,34 @@ describe("event-mapper", () => {
 			part: { type: "tool-Bash", toolName: "bash", toolCallId: "snapshot-call", state: "output-available" },
 		});
 	});
+	it("preserves an existing MCP identity when only its display name is available", () => {
+		const state = createEventMapperState();
+		const rawName = "mcp__example__search";
+		const identity = { type: `tool-${rawName}` as const, ...categorizeTool(rawName) };
+		state.currentToolParts = [{ ...identity, toolCallId: "attached-mcp", state: "input-streaming" }];
+		const events = mapAgentSessionEvents(state, [
+			{ type: "tool_execution_update", toolCallId: "attached-mcp", partialResult: "working" },
+			{ type: "tool_execution_end", toolCallId: "attached-mcp", result: "done", isError: false },
+		] as AgentSessionEvent[]);
+		for (const event of events) {
+			expect(event).toMatchObject({ type: "tool", part: identity });
+		}
+	});
+
+	it("prefers a raw assistant tool name to an existing display name", () => {
+		const state = createEventMapperState();
+		state.currentToolParts = [{ type: "tool-IPython", toolCallId: "snapshot-python", toolName: "Python" }];
+		state.currentAssistantMessage = mkAssistant({
+			content: [{ type: "toolCall", id: "snapshot-python", name: "python_repl", arguments: {} }],
+		});
+		const events = mapAgentSessionEvent(state, {
+			type: "tool_execution_end",
+			toolCallId: "snapshot-python",
+			result: "done",
+			isError: false,
+		} as AgentSessionEvent);
+		expect(events[0]).toMatchObject({ type: "tool", part: { type: "tool-IPython", toolName: "python_repl" } });
+	});
 
 	it("preserves backgroundOutput in tool_execution_update, tool_execution_end, and agent message hydration", () => {
 		const state = createEventMapperState();

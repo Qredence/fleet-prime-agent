@@ -195,7 +195,9 @@ function MarkdownCodeBlock({
 		const blobUrl = URL.createObjectURL(new Blob([code], { type: "text/plain;charset=utf-8" }));
 		const anchor = document.createElement("a");
 		anchor.href = blobUrl;
-		anchor.download = `code.${language === "text" ? "txt" : language}`;
+		const normalizedLanguage = language.trim().toLowerCase();
+		const extensions: Record<string, string> = { python: "py", markdown: "md", text: "txt" };
+		anchor.download = `code.${extensions[normalizedLanguage] ?? normalizedLanguage}`;
 		anchor.click();
 		window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 	};

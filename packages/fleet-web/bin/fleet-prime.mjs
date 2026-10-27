@@ -52,6 +52,16 @@ function run(entrypoint, args, cwd) {
 if (process.argv[2] === "agent") {
 	const args = process.argv.slice(3);
 	const child = spawn(nativeBinary, args, { cwd: workspaceRoot, env: process.env, stdio: "inherit" });
+	child.on("error", (error) => {
+		console.error(
+			error.code === "ENOENT"
+				? `Prime Agent binary not found: ${nativeBinary}`
+				: `Could not start Prime Agent: ${error.code || error.message}`,
+		);
+		process.exitCode = 1;
+	});
+	process.once("SIGINT", () => child.kill("SIGINT"));
+	process.once("SIGTERM", () => child.kill("SIGTERM"));
 	child.on("exit", (code, signal) => {
 		if (signal) process.kill(process.pid, signal);
 		else process.exitCode = code ?? 1;

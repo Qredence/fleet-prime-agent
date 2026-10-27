@@ -17,6 +17,30 @@ afterEach(async () => {
 });
 
 describe("Prime Agent runtime installation", () => {
+	it("bounds stalled archive downloads and cleans staging after an abort", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-server-runtime-timeout-"));
+		roots.push(root);
+		const installRoot = join(root, "cache", "linux-x64");
+		const controller = new AbortController();
+		const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+		try {
+			await expect(
+				ensurePrimeAgentRuntime({
+					target: "linux-x64",
+					installRoot,
+					fetch: async (_url, options) =>
+						new Promise((_resolve, reject) => {
+							options?.signal?.addEventListener("abort", () => reject(options.signal?.reason), { once: true });
+							controller.abort(new DOMException("Download timed out", "TimeoutError"));
+						}),
+				}),
+			).rejects.toThrow("Download timed out");
+			expect(timeout).toHaveBeenCalledWith(120_000);
+			expect(await readdir(dirname(installRoot))).toEqual([]);
+		} finally {
+			timeout.mockRestore();
+		}
+	});
 	it("rejects unverified network bytes before writing an archive or installing a runtime", async () => {
 		const root = await mkdtemp(join(tmpdir(), "fleet-server-runtime-test-"));
 		roots.push(root);

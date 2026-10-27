@@ -55,9 +55,9 @@ export function SubagentList({ children, tree, className }: SubagentListProps) {
 								<TraceTitle>{child.label}</TraceTitle>
 								{child.model ? <TraceDescription>{child.model}</TraceDescription> : null}
 								<TraceDescription className="capitalize">{child.status}</TraceDescription>
-								{(child.error ?? child.answerPreview ?? child.progressNote ?? child.activity?.toolName) ? (
+								{child.error || child.answerPreview || child.progressNote || child.activity?.toolName ? (
 									<TraceDescription className="max-w-56 truncate">
-										{child.error ?? child.answerPreview ?? child.progressNote ?? child.activity?.toolName}
+										{child.error || child.answerPreview || child.progressNote || child.activity?.toolName}
 									</TraceDescription>
 								) : null}
 							</TraceLine>

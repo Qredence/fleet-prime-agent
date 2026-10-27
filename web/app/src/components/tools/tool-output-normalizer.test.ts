@@ -8,6 +8,24 @@ import { ToolResultOutput } from "@/components/tools/tool-result";
 
 describe("normalizeToolPart", () => {
 	it.each([
+		["curl -H 'Authorization: Bearer sample-token' https://example.com", "Bearer", "sample-token"],
+		["curl -H 'Authorization: Basic dXNlcjpwYXNz' https://example.com", "Basic", "dXNlcjpwYXNz"],
+		["authorization=Bearer sample-token", "Bearer", "sample-token"],
+		['authorization="Bearer sample-token"', "Bearer", "sample-token"],
+	])("redacts authorization schemes with their credentials in %s", (command, scheme, credential) => {
+		const normalized = normalizeToolPart({ type: "tool-Bash", input: { command } });
+		expect(normalized?.traceDescription).toContain("[redacted]");
+		expect(normalized?.traceDescription).not.toContain(scheme);
+		expect(normalized?.traceDescription).not.toContain(credential);
+	});
+	it.each(["https", "postgresql", "git+https"])("redacts %s URL userinfo and preserves the host", (scheme) => {
+		const normalized = normalizeToolPart({
+			type: "tool-WebFetch",
+			input: { url: `${scheme}://sample-user:sample-pass@example.com/path` },
+		});
+		expect(normalized?.traceDescription).toBe(`${scheme}://[redacted]@example.com/path`);
+	});
+	it.each([
 		'run --password "hunter two" --verbose',
 		"run --password 'hunter two' --verbose",
 		'run --password="hunter two" --verbose',

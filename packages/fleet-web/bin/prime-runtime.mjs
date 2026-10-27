@@ -33,7 +33,7 @@ export async function ensurePrimeRuntime({
 	try {
 		const archivePath = join(staging, asset.archive);
 		// The release URL comes from Fleet's shipped runtime pin, never session or provider input.
-		const response = await fetchImpl(`${runtime.baseUrl}/${asset.archive}`);
+		const response = await fetchImpl(`${runtime.baseUrl}/${asset.archive}`, { signal: AbortSignal.timeout(120_000) });
 		if (!response.ok)
 			throw new Error(
 				`Could not download Prime Agent ${runtime.version} (${response.status}). Check your network and retry.`,

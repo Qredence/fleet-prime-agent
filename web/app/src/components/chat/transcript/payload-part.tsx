@@ -15,14 +15,22 @@ export function PayloadPart({ part }: { part: ChatPayloadPart }) {
 	const payload = formatPayload(part.payload);
 	const agentMessage = part.kind === "agent_message";
 	if (agentMessage) {
-		return payload ? (
-			<details data-payload-kind={part.kind} className="w-full min-w-0 text-xs text-muted-foreground">
-				<summary className="w-fit cursor-pointer py-1 font-medium">Details</summary>
-				<pre className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-words border-l border-border pl-3 font-mono text-xs leading-5">
-					{payload}
-				</pre>
-			</details>
-		) : null;
+		if (!part.text && !payload) return null;
+		return (
+			<>
+				{part.text ? (
+					<pre className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">{part.text}</pre>
+				) : null}
+				{payload ? (
+					<details data-payload-kind={part.kind} className="w-full min-w-0 text-xs text-muted-foreground">
+						<summary className="w-fit cursor-pointer py-1 font-medium">Details</summary>
+						<pre className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-words border-l border-border pl-3 font-mono text-xs leading-5">
+							{payload}
+						</pre>
+					</details>
+				) : null}
+			</>
+		);
 	}
 	return (
 		<section

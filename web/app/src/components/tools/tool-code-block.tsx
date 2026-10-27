@@ -134,7 +134,7 @@ export function CodeBlock({
 					</span>
 				) : null}
 				{copyable || onCopy ? (
-					<CodeBlockActions className={cn("-my-0 -me-0", !showStatus && "ml-auto")}>
+					<CodeBlockActions className={cn("-my-0 -me-0", showStatus ? "ms-0" : "ms-auto")}>
 						<m.button
 							type="button"
 							aria-label={copied ? "Copied" : "Copy code"}

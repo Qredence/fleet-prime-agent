@@ -64,8 +64,21 @@ export function SessionActivityPanel({
 					<ol className="space-y-4">
 						{turns.map((turn, index) => {
 							const assistantIds = new Set(turn.assistants.map((message) => message.id));
+							const toolCallIds = new Set(
+								turn.assistants.flatMap((message) =>
+									message.parts.flatMap((part) =>
+										part.type.startsWith("tool-") && "toolCallId" in part && part.toolCallId
+											? [part.toolCallId]
+											: [],
+									),
+								),
+							);
 							const turnArtifacts = artifacts.filter((artifact) => {
-								if (!artifact.sourceMessageId || !assistantIds.has(artifact.sourceMessageId)) return false;
+								if (
+									!(artifact.sourceMessageId && assistantIds.has(artifact.sourceMessageId)) &&
+									!(artifact.sourceToolCallId && toolCallIds.has(artifact.sourceToolCallId))
+								)
+									return false;
 								assignedArtifacts.add(artifact.id);
 								return true;
 							});

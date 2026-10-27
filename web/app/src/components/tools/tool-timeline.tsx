@@ -216,45 +216,46 @@ function TimelineStepRow({
 						? "cancelled"
 						: "done";
 
+	const line = (
+		<TraceLine
+			status={
+				step.status === "running"
+					? "running"
+					: step.status === "error"
+						? "error"
+						: step.status === "pending"
+							? "pending"
+							: undefined
+			}
+		>
+			<TraceIcon>
+				<Icon
+					className={cn(
+						"size-3.5",
+						step.status === "running" && "animate-pulse text-primary",
+						step.status === "error" && "text-destructive",
+					)}
+				/>
+			</TraceIcon>
+			<TraceTitle>
+				{step.verb} {step.target}
+			</TraceTitle>
+			<TraceDescription className={step.reportedError ? "text-destructive" : undefined}>
+				{statusLabel}
+			</TraceDescription>
+			{step.traceDescription ? (
+				<TraceDescription className="max-w-48 truncate" title={step.traceDescription}>
+					{step.traceDescription}
+				</TraceDescription>
+			) : null}
+			{step.durationLabel ? <TraceDescription>{step.durationLabel}</TraceDescription> : null}
+		</TraceLine>
+	);
 	return (
 		<div className="flex min-w-0 items-start gap-2">
-			<TraceCollapsible className="min-w-0 flex-1">
-				<TraceCollapsibleTrigger aria-label={detailLabel}>
-					<TraceLine
-						status={
-							step.status === "running"
-								? "running"
-								: step.status === "error"
-									? "error"
-									: step.status === "pending"
-										? "pending"
-										: undefined
-						}
-					>
-						<TraceIcon>
-							<Icon
-								className={cn(
-									"size-3.5",
-									step.status === "running" && "animate-pulse text-primary",
-									step.status === "error" && "text-destructive",
-								)}
-							/>
-						</TraceIcon>
-						<TraceTitle>
-							{step.verb} {step.target}
-						</TraceTitle>
-						<TraceDescription className={step.reportedError ? "text-destructive" : undefined}>
-							{statusLabel}
-						</TraceDescription>
-						{step.traceDescription ? (
-							<TraceDescription className="max-w-48 truncate" title={step.traceDescription}>
-								{step.traceDescription}
-							</TraceDescription>
-						) : null}
-						{step.durationLabel ? <TraceDescription>{step.durationLabel}</TraceDescription> : null}
-					</TraceLine>
-				</TraceCollapsibleTrigger>
-				{step.part ? (
+			{step.part ? (
+				<TraceCollapsible className="min-w-0 flex-1">
+					<TraceCollapsibleTrigger aria-label={detailLabel}>{line}</TraceCollapsibleTrigger>
 					<TraceCollapsibleContent>
 						{renderToolDetails ? (
 							renderToolDetails(step.part, step.status === "running", step.nestedTools)
@@ -269,8 +270,10 @@ function TimelineStepRow({
 							</Suspense>
 						)}
 					</TraceCollapsibleContent>
-				) : null}
-			</TraceCollapsible>
+				</TraceCollapsible>
+			) : (
+				line
+			)}
 			{openLabel && artifactId && onOpenArtifact ? (
 				<button
 					type="button"

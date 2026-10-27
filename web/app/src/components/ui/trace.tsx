@@ -59,13 +59,9 @@ function TraceDescription({ className, ...props }: React.ComponentProps<"span">)
 	);
 }
 
-function TraceCollapsible(props: React.ComponentProps<typeof Collapsible>) {
+function TraceCollapsible({ className, ...props }: React.ComponentProps<typeof Collapsible>) {
 	return (
-		<Collapsible
-			data-slot="trace-collapsible"
-			className={cn("flex w-full min-w-0 flex-col", props.className)}
-			{...props}
-		/>
+		<Collapsible data-slot="trace-collapsible" className={cn("flex w-full min-w-0 flex-col", className)} {...props} />
 	);
 }
 

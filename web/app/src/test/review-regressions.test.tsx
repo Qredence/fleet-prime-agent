@@ -6,6 +6,7 @@ import { ArtifactsPanelContent } from "@/components/artifacts/artifacts-panel";
 import { collectSessionOpenUIBlocks } from "@/components/artifacts/artifacts-utils";
 import { AgentChat } from "@/components/chat/agent-chat";
 import { Markdown } from "@/components/chat/markdown/markdown";
+import { PayloadPart } from "@/components/chat/transcript/payload-part";
 import { MessageQueue } from "@/components/tools/message-queue";
 import { SubagentList } from "@/components/tools/subagent-list";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
@@ -60,6 +61,63 @@ function presentation(overrides: Partial<PrimeAgentSessionPresentation> = {}): P
 }
 
 describe("review regressions", () => {
+	it.each([
+		{ text: "Child report", payload: undefined },
+		{ text: "Child report", payload: { result: "done" } },
+		{ text: undefined, payload: { result: "done" } },
+		{ text: undefined, payload: undefined },
+	])("renders agent message text and payload independently: %j", ({ text, payload }) => {
+		const { container, queryByText } = render(
+			<PayloadPart part={{ type: "payload", kind: "agent_message", title: "Details", text, payload }} />,
+		);
+		expect(Boolean(queryByText("Child report"))).toBe(Boolean(text));
+		expect(Boolean(container.querySelector("details"))).toBe(Boolean(payload));
+		if (payload) expect(container.querySelector("details")?.hasAttribute("open")).toBe(false);
+		if (!text && !payload) expect(container.innerHTML).toBe("");
+	});
+
+	it("shows standalone artifact rows without an empty details button", () => {
+		const { getByRole, queryByRole, getByText } = render(
+			<ToolTimeline
+				messages={[]}
+				artifacts={[
+					{
+						id: "recap-1",
+						runId: "run-1",
+						title: "Session recap",
+						kind: "recap",
+						status: "success",
+						timestamp: 1,
+					},
+				]}
+				streaming={false}
+				onOpenArtifact={vi.fn()}
+			/>,
+		);
+		expect(getByText("Recapped Session recap").closest("button")).toBeNull();
+		expect(queryByRole("button", { name: /Details for/ })).toBeNull();
+		expect(getByRole("button", { name: "Open Session recap in artifacts" })).toBeTruthy();
+	});
+
+	it.each(["Inspecting files", ""])("falls through empty subagent error and answer fields (%s)", (progressNote) => {
+		const { getByText } = render(
+			<SubagentList>
+				{[
+					{
+						id: "child-fallback",
+						label: "Worker",
+						status: "running",
+						timestamp: 1,
+						error: "",
+						answerPreview: "",
+						progressNote,
+						activity: { kind: "executing", toolName: "Read" },
+					},
+				]}
+			</SubagentList>,
+		);
+		expect(getByText(progressNote || "Read")).toBeTruthy();
+	});
 	it("preserves paragraph styling around an inline image in mixed content", () => {
 		const { container, getByRole } = render(
 			<Markdown content="Before ![status](https://example.com/status.png) after" />,

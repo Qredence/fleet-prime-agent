@@ -137,7 +137,7 @@ The durable browser/server contract, including ordering and cursor behavior, is 
 
 Fleet maps runtime information into typed browser presentation. The event mapper recursively sanitizes sensitive payload keys and converts supported lifecycle signals into controlled status summaries.
 
-When the supported runtime provides detailed reasoning, Fleet presents it as an explicit reasoning part in live and hydrated conversations. It remains separate from assistant answer text, ordinary copy/export, unrelated payloads, and diagnostics. Providers may not supply reasoning text.
+When the supported runtime provides detailed reasoning, Fleet presents it as an explicit reasoning part in live and hydrated conversations. It remains separate from assistant answer text, ordinary copy/export, unrelated payloads, and diagnostics. Some providers do not supply reasoning text; Fleet shows no reasoning part for those providers.
 
 Server-side mapping and sanitization own this boundary. The browser consumes protocol data, not runtime objects.
 
@@ -188,7 +188,7 @@ Prohibited directions:
 * `web/protocol` owns browser/server transport shapes.
 * Stock-runtime references remain aligned with `PRIME_AGENT_RUNTIME.json`.
 * Runtime-specific mutable objects and executable callbacks do not cross the browser boundary.
-* Runtime reasoning is an explicit conversation part, separate from assistant answer text and ordinary copy/export.
+* When supplied by the runtime, reasoning is an explicit conversation part, separate from assistant answer text and ordinary copy/export. Fleet shows no reasoning part for providers that do not supply it.
 * Typed runtime signals are preferred over inference from generated text.
 * Optional protocol behavior uses explicit capability/version semantics when compatibility requires it.
 * Replay/resync guarantees match the actual server state lifetime.

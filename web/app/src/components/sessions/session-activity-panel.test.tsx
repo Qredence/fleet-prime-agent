@@ -1,4 +1,4 @@
-import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
+import type { PrimeAgentArtifact, PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -19,6 +19,54 @@ const child: PrimeAgentRlmChild = {
 };
 
 describe("SessionActivityPanel", () => {
+	it("assigns tool-linked and message-linked artifacts to their turn only once", () => {
+		const artifact = (id: string, source: Partial<PrimeAgentArtifact>): PrimeAgentArtifact => ({
+			id,
+			runId: "run-1",
+			kind: "bash",
+			title: id,
+			status: "success",
+			timestamp: 1,
+			...source,
+		});
+		const openArtifact = vi.fn();
+		const { container } = render(
+			<SessionActivityPanel
+				artifactRuns={[
+					{
+						id: "run-1",
+						runId: "run-1",
+						artifacts: [
+							artifact("tool-linked", { sourceToolCallId: "bash-1" }),
+							artifact("message-linked", { sourceMessageId: "assistant-1" }),
+							artifact("unassigned", {}),
+						],
+					},
+				]}
+				childAgents={[]}
+				messages={[
+					messages[0]!,
+					{
+						id: "assistant-1",
+						role: "assistant",
+						parts: [{ type: "tool-Bash", toolCallId: "bash-1", output: "done" }],
+					},
+				]}
+				onOpenArtifact={openArtifact}
+				onSelectChild={vi.fn()}
+				streaming={false}
+			/>,
+		);
+		for (const title of ["tool-linked", "message-linked", "unassigned"]) {
+			const buttons = screen.getAllByRole("button", { name: `Open ${title} in artifacts` });
+			expect(buttons).toHaveLength(1);
+			const sectionId = buttons[0]?.closest("section")?.getAttribute("aria-labelledby");
+			expect(sectionId).toBe(title === "unassigned" ? "activity-tools-heading" : "activity-messages-heading");
+		}
+		fireEvent.click(screen.getByRole("button", { name: "Open tool-linked in artifacts" }));
+		expect(openArtifact).toHaveBeenCalledWith("tool-linked", "artifacts");
+		expect(container.querySelectorAll("[data-testid='tool-trace']")).toHaveLength(2);
+	});
 	it("shows conversation and dismissed child metadata and opens the child tab", () => {
 		const openChildTab = vi.fn();
 		render(
