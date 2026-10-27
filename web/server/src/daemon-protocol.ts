@@ -495,14 +495,17 @@ export function daemonRuntimeFlavor(hello: DaemonHelloFrame): DaemonRuntimeFlavo
 }
 
 /**
- * The daemon Fleet can drive: protocol 7 and, when announced, schema
- * revision 30. Both the pinned TS v0.9.8 and the Rust v0.10.1 daemon pass;
- * a daemon announcing another schema revision is refused.
+ * The daemon Fleet can drive: protocol 7, schema revision 30, and the Rust
+ * runtime flavor.
+ *
+ * Fleet cut over to the Rust daemon, so a TypeScript daemon that happens to
+ * advertise a matching schema is refused: its session and settings behavior
+ * differs and Fleet no longer carries a second adapter path for it.
  */
 export function isCompatibleDaemonHello(hello: DaemonHelloFrame): boolean {
 	if (hello.protocol.name !== DAEMON_PROTOCOL_NAME || hello.protocol.version !== DAEMON_PROTOCOL_VERSION) return false;
 	if (hello.schemaRevision !== DAEMON_SCHEMA_REVISION) return false;
-	return daemonRuntimeFlavor(hello) === "rust" || daemonRuntimeFlavor(hello) === "typescript";
+	return daemonRuntimeFlavor(hello) === "rust";
 }
 
 export function describeDaemonHello(hello: DaemonHelloFrame): string {

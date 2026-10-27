@@ -22,6 +22,7 @@ import type {
 	PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
+import type { FleetConnectionEvent } from "./agent-connection-port";
 import {
 	type DaemonHeartbeatsChangedFrame,
 	type DaemonModelCatalogChangedFrame,
@@ -160,8 +161,15 @@ export type DaemonTopLevelFrame =
 	| DaemonModelCatalogChangedFrame
 	| DaemonHeartbeatsChangedFrame;
 
-/** Everything the mapper accepts: stock connection events plus Rust-only top-level frames. */
-export type MapperInputEvent = AgentConnectionEvent | DaemonTopLevelFrame;
+/**
+ * Everything the mapper accepts: stock connection events, the Fleet adapter's
+ * wire-shaped events, and Rust-only top-level frames.
+ *
+ * The mapper is the narrow-from-wire boundary, so it accepts frames whose
+ * payloads are still unvalidated JSON. Every consumer of `MapperInputEvent`
+ * discriminates on `type` before reading payload fields.
+ */
+export type MapperInputEvent = AgentConnectionEvent | FleetConnectionEvent | DaemonTopLevelFrame;
 
 export type RlmChildStatusOverride = {
 	status?: PrimeAgentRlmChild["status"];
@@ -1307,6 +1315,13 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
  */
 export function mapAgentConnectionEvent(state: EventMapperState, event: MapperInputEvent): ChatStreamEvent[] {
 	if (isDaemonTopLevelFrame(event)) return mapDaemonTopLevelFrame(state, event);
+	// Fleet's daemon adapter emits the same discriminators with wire-shaped
+	// payloads. Narrow once here so the mapping below works on typed events;
+	// individual events are validated by the mappers they reach.
+	return mapTypedConnectionEvent(state, event as AgentConnectionEvent);
+}
+
+function mapTypedConnectionEvent(state: EventMapperState, event: AgentConnectionEvent): ChatStreamEvent[] {
 	switch (event.type) {
 		case "session_event":
 			return mapAgentSessionEvent(state, event.event);

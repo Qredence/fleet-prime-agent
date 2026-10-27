@@ -4,7 +4,7 @@ import { ChatSettingsResponseSchema } from "@prime-agent/web-protocol/chat-proto
 
 type JsonObject = Record<string, unknown>;
 
-export interface SettingsProjection {
+interface SettingsProjection {
 	readonly global: JsonObject;
 	readonly project: JsonObject;
 	readonly diagnostics: string[];

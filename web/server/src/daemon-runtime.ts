@@ -3,14 +3,8 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { OpenUIPromptMode } from "@prime-agent/web-protocol";
-import type { ExtensionUIContext } from "prime-agent";
-import {
-	type AgentConnection,
-	type AgentSession,
-	type AgentSessionRuntimeConfig,
-	DaemonAgentConnection,
-	DaemonClient,
-} from "prime-agent";
+import type { AgentSession, AgentSessionRuntimeConfig, ExtensionUIContext } from "prime-agent";
+import type { FleetAgentConnection } from "./agent-connection-port";
 import { AGENT_DIR_ENV } from "./agent-dir";
 import {
 	DAEMON_PROTOCOL_NAME,
@@ -30,8 +24,9 @@ import {
 	isDaemonSessionBindingFrame,
 	isDaemonSessionSummary,
 } from "./daemon-protocol";
-import { createDaemonSequenceGapTracker, type DaemonSequenceGap } from "./daemon-sequence-gap";
+import type { DaemonSequenceGap } from "./daemon-sequence-gap";
 import { DaemonSocketClient } from "./daemon-socket-client";
+import { FleetDaemonAgentConnection } from "./fleet-daemon-connection";
 import { getPrimeConfig } from "./prime-config";
 import { ensurePrimeAgentRuntime } from "./prime-runtime";
 
@@ -54,7 +49,7 @@ export type WebAgentConnectionOptions = {
 };
 
 export type WebAgentConnection = {
-	connection: AgentConnection;
+	connection: FleetAgentConnection;
 	openUIPrompt: WebAgentConnectionOptions["openUIPrompt"];
 	/** Present only for the explicit in-process test adapter. */
 	session?: AgentSession;
@@ -65,7 +60,7 @@ export type WebAgentConnection = {
 	/** Kill a daemon worker before deleting its persisted session file. */
 	terminate?: () => Promise<void>;
 	/** Delete a persisted session through the daemon catalog, without an active-session context. */
-	deleteSessionFile?: (sessionPath: string) => ReturnType<AgentConnection["deleteSavedSession"]>;
+	deleteSessionFile?: (sessionPath: string) => ReturnType<FleetAgentConnection["deleteSavedSession"]>;
 	/**
 	 * Branch the live session at `entryId` into a NEW persisted session through
 	 * the daemon `fork` command, then restore the source in its own worker.
@@ -257,10 +252,10 @@ export function ensureFleetDaemonRunning(cwd: string, socketPath = defaultDaemon
 	return startup;
 }
 
-async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonClient; socketPath: string }> {
+async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonSocketClient; socketPath: string }> {
 	const socketPath = defaultDaemonSocketPath();
 	await ensureFleetDaemonRunning(cwd, socketPath);
-	const client = new DaemonClient(socketPath);
+	const client = new DaemonSocketClient(socketPath);
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
@@ -368,7 +363,7 @@ export async function createDaemonSession(
 type DaemonFrameHook = (frame: unknown) => void;
 
 type OpenedDaemonConnection = {
-	connection: AgentConnection;
+	connection: FleetAgentConnection;
 	activeSessionId: string;
 	sessionPath?: string;
 	/** Raw daemon frames seen by this connection's socket (session_binding, model_catalog_changed). */
@@ -384,51 +379,30 @@ type OpenedDaemonConnection = {
 async function openDaemonConnection(options: WebAgentConnectionOptions): Promise<OpenedDaemonConnection> {
 	const created = await createDaemonSession(options);
 	const { client, socketPath } = await connectFleetDaemon(options.cwd);
-	let unsubscribeGapTracker: () => void = () => undefined;
 	try {
-		const unsubscribeCatalog = client.onMessage((frame: unknown) => {
+		const unsubscribeCatalog = client.onFrame((frame: unknown) => {
 			if (isDaemonModelCatalogChangedFrame(frame)) notifyDaemonModelCatalogChanged();
 		});
-		const gapHooks = new Set<(gap: DaemonSequenceGap) => void>();
-		const gapTracker = createDaemonSequenceGapTracker((gap) => {
-			for (const hook of [...gapHooks]) {
-				try {
-					hook(gap);
-				} catch {
-					// Hook failures stay local.
-				}
-			}
-		});
-		unsubscribeGapTracker = client.onMessage((frame: unknown) => {
-			gapTracker.observe(frame);
-		});
-		const connection = await DaemonAgentConnection.attach(client, created.activeSessionId, {
+		// The adapter owns sequence-gap detection: it observes the raw socket
+		// frames before `attach`, which is what establishes the baseline. A second
+		// tracker here would duplicate that work on the same frames.
+		const connection = await FleetDaemonAgentConnection.attach(client, created.activeSessionId, {
 			closeClientOnDispose: true,
 			recoverDaemon: () => ensureFleetDaemonRunning(options.cwd, socketPath),
-			sendClientEnv: false,
-			supportsExtensionUi: true,
 		});
 		const dispose = connection.dispose.bind(connection);
 		connection.dispose = async () => {
 			unsubscribeCatalog();
-			unsubscribeGapTracker();
-			gapHooks.clear();
 			await dispose();
 		};
 		return {
 			connection,
 			activeSessionId: created.activeSessionId,
 			...(created.sessionPath ? { sessionPath: created.sessionPath } : {}),
-			onFrame: (hook) => client.onMessage((frame: unknown) => hook(frame)),
-			onSequenceGap: (hook) => {
-				gapHooks.add(hook);
-				return () => {
-					gapHooks.delete(hook);
-				};
-			},
+			onFrame: (hook) => client.onFrame((frame: unknown) => hook(frame)),
+			onSequenceGap: (hook) => connection.onSequenceGap(hook),
 		};
 	} catch (error) {
-		unsubscribeGapTracker();
 		client.close();
 		throw error;
 	}
@@ -486,7 +460,7 @@ export function applySessionBinding(route: DaemonSessionRoute, frame: unknown): 
 	return { activeSessionId: frame.activeSessionId, ...(sessionPath ? { sessionPath } : {}) };
 }
 
-type ForkableConnection = Pick<AgentConnection, "waitForIdle" | "getState" | "fork">;
+type ForkableConnection = Pick<FleetAgentConnection, "waitForIdle" | "getState" | "fork">;
 
 export type DaemonWorkerFork =
 	| { cancelled: true; selectedText?: string }
@@ -533,8 +507,8 @@ export async function forkInDaemonWorker(
 	};
 }
 
-type ConnectionEventListener = Parameters<AgentConnection["subscribe"]>[0];
-type SessionInvalidationListener = Parameters<AgentConnection["onBeforeSessionInvalidate"]>[0];
+type ConnectionEventListener = Parameters<FleetAgentConnection["subscribe"]>[0];
+type SessionInvalidationListener = Parameters<FleetAgentConnection["onBeforeSessionInvalidate"]>[0];
 
 /**
  * The daemon protocol fixes appendSystemPrompt when a worker is created. Fleet
@@ -545,7 +519,7 @@ function createReconfigurableConnection(
 	options: WebAgentConnectionOptions,
 	initial: OpenedDaemonConnection,
 ): {
-	connection: AgentConnection;
+	connection: FleetAgentConnection;
 	setOpenUIPrompt: (state: WebAgentConnectionOptions["openUIPrompt"]) => Promise<void>;
 	terminate: () => Promise<void>;
 	deleteSessionFile: NonNullable<WebAgentConnection["deleteSessionFile"]>;
@@ -700,7 +674,7 @@ function createReconfigurableConnection(
 		return operation;
 	};
 
-	const connection = new Proxy({} as AgentConnection, {
+	const connection = new Proxy({} as FleetAgentConnection, {
 		get(_target, property) {
 			if (property === "subscribe") {
 				return (listener: ConnectionEventListener) => {
@@ -805,9 +779,9 @@ export function startDaemonChildPrompt(
 	openConnection: (
 		cwd: string,
 		activeSessionId: string,
-	) => Promise<{ connection: AgentConnection; dispose: () => Promise<void> }> = openDaemonChildConnection,
+	) => Promise<{ connection: FleetAgentConnection; dispose: () => Promise<void> }> = openDaemonChildConnection,
 ): DaemonChildPromptHandle {
-	let connection: AgentConnection | undefined;
+	let connection: FleetAgentConnection | undefined;
 	let dispose = async (): Promise<void> => undefined;
 	const controller = new AbortController();
 	const settled = (async () => {
@@ -836,17 +810,18 @@ export function startDaemonChildPrompt(
 async function openDaemonChildConnection(
 	cwd: string,
 	activeSessionId: string,
-): Promise<{ connection: AgentConnection; dispose: () => Promise<void> }> {
+): Promise<{ connection: FleetAgentConnection; dispose: () => Promise<void> }> {
 	const { client, socketPath } = await connectFleetDaemon(cwd);
 	try {
-		const unsubscribeCatalog = client.onMessage((frame: unknown) => {
+		const unsubscribeCatalog = client.onFrame((frame: unknown) => {
 			if (isDaemonModelCatalogChangedFrame(frame)) notifyDaemonModelCatalogChanged();
 		});
-		const connection = await DaemonAgentConnection.attach(client, activeSessionId, {
+		// A child gets its own Fleet adapter over a shared socket. The adapter
+		// filters snapshots by its own active id, so the child's watcher traffic
+		// cannot reach the parent's session state.
+		const connection = await FleetDaemonAgentConnection.attach(client, activeSessionId, {
 			closeClientOnDispose: true,
 			recoverDaemon: () => ensureFleetDaemonRunning(cwd, socketPath),
-			sendClientEnv: false,
-			supportsExtensionUi: true,
 		});
 		return {
 			connection,
@@ -952,7 +927,7 @@ export async function listAllDaemonSavedSessions(
 	return rows;
 }
 
-export type DeleteSavedSessionResult = Awaited<ReturnType<AgentConnection["deleteSavedSession"]>>;
+export type DeleteSavedSessionResult = Awaited<ReturnType<FleetAgentConnection["deleteSavedSession"]>>;
 
 /** Delete a persisted session through the shared daemon catalog, without an active-session context. */
 export async function deleteDaemonSavedSession(cwd: string, sessionPath: string): Promise<DeleteSavedSessionResult> {

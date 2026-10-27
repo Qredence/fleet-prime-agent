@@ -6,13 +6,28 @@
  * the full AgentConnection surface used by the server.
  */
 
+import { join } from "node:path";
+import type {
+	FleetAgentConnection,
+	FleetConnectionEvent,
+	FleetConnectionListener,
+	MessagesFor,
+	ModelFor,
+	QueueFor,
+	SessionTreeFor,
+	SnapshotFor,
+	StateFor,
+	StatsFor,
+	WatcherFor,
+} from "./agent-connection-port";
+import { resolveAgentDir } from "./agent-dir";
 import { isDaemonSessionBindingFrame, READ_ONLY_DAEMON_COMMANDS } from "./daemon-protocol";
 import { createDaemonSequenceGapTracker, type DaemonSequenceGap } from "./daemon-sequence-gap";
 import type { DaemonSocketClient } from "./daemon-socket-client";
 import { DaemonCommandOutcomeUnknownError } from "./daemon-socket-client";
 
 type JsonRecord = Record<string, unknown>;
-export type FleetConnectionSnapshot = {
+type FleetConnectionSnapshot = {
 	state: JsonRecord;
 	messages: unknown[];
 	lastEventSequence?: number;
@@ -20,14 +35,7 @@ export type FleetConnectionSnapshot = {
 	replay?: JsonRecord;
 	[key: string]: unknown;
 };
-export type FleetConnectionEvent =
-	| { type: "session_event"; event: JsonRecord }
-	| { type: "session_replaced"; state: JsonRecord; messages: unknown[] }
-	| { type: "session_resynced"; snapshot: FleetConnectionSnapshot }
-	| { type: "connection_status"; status: "reconnecting" | "connected"; error?: string; daemonVersion?: string }
-	| { type: "heartbeats_changed" }
-	| { type: "closed"; error?: string };
-type Listener = (event: FleetConnectionEvent) => void | Promise<void>;
+type Listener = FleetConnectionListener;
 type ConnectionSnapshot = FleetConnectionSnapshot;
 type QueueMutation =
 	| { type: "delete" }
@@ -46,13 +54,6 @@ type NavigateOptions = {
 	customInstructions?: string;
 	replaceInstructions?: boolean;
 	label?: string;
-};
-type Watcher = {
-	getMessages(): Promise<unknown[]>;
-	getCommands(): Promise<unknown[]>;
-	subscribe(listener: Listener): () => void;
-	getToolDefinition(name: string): Promise<unknown>;
-	close(): Promise<void>;
 };
 type EventCursor = { generation?: string; sequence: number };
 type FlatSessionTree = {
@@ -192,6 +193,24 @@ function responseRecord(value: unknown, command: string): JsonRecord {
 }
 
 /** Attach to a Rust worker and adapt its supported protocol surface to Fleet. */
+/**
+ * Turn a `session_closed` reason into text a person can act on.
+ *
+ * The daemon's `reason` is a protocol token (`killed`, `shutdown`, `replaced`,
+ * `error`; pa-daemon worker/env.rs), not a sentence. The retired SDK adapter
+ * composed a user-facing message here, so passing the raw token through would
+ * regress what the error surface shows.
+ */
+function describeSessionClose(reason: unknown): string | undefined {
+	if (typeof reason !== "string" || !reason) return undefined;
+	const logPath = join(resolveAgentDir(), "logs", "agent.jsonl");
+	if (reason === "killed") {
+		return `The daemon stopped this agent session. Its transcript remains saved and can be reopened from Agents View. Diagnostic log: ${logPath}.`;
+	}
+	if (reason === "shutdown" || reason === "replaced") return `The agent session was closed by the daemon (${reason}).`;
+	return `The agent session closed unexpectedly: ${reason}. Diagnostic log: ${logPath}.`;
+}
+
 export class FleetDaemonAgentConnection {
 	#activeSessionId: string;
 	#snapshot: ConnectionSnapshot;
@@ -478,7 +497,7 @@ export class FleetDaemonAgentConnection {
 		}
 		if (frame.type === "session_closed" && frame.activeSessionId === this.#activeSessionId) {
 			this.#snapshotFresh = false;
-			this.#emit({ type: "closed", error: typeof frame.reason === "string" ? frame.reason : undefined });
+			this.#emit({ type: "closed", error: describeSessionClose(frame.reason) });
 		}
 	}
 
@@ -605,13 +624,15 @@ export class FleetDaemonAgentConnection {
 		return () => this.#beforeInvalidate.delete(listener);
 	}
 
-	async getState(): Promise<JsonRecord> {
-		return this.#data("get_connection_state");
+	async getState(): Promise<StateFor<FleetAgentConnection>> {
+		// The daemon returns a state object; individual fields are validated where
+		// they are consumed (thinking level, model, streaming flags).
+		return (await this.#data("get_connection_state")) as StateFor<FleetAgentConnection>;
 	}
 
-	async getInitialSnapshot(): Promise<ConnectionSnapshot> {
-		if (this.#snapshotFresh) return this.#snapshot;
-		const [state, messagesData, sessionContextData] = await Promise.all([
+	async getInitialSnapshot(): Promise<SnapshotFor<FleetAgentConnection>> {
+		if (this.#snapshotFresh) return this.#snapshot as unknown as SnapshotFor<FleetAgentConnection>;
+		const [stateData, messagesData, sessionContextData] = await Promise.all([
 			this.getState(),
 			this.#data<unknown>("get_messages"),
 			this.#data<unknown>("get_session_context"),
@@ -620,6 +641,7 @@ export class FleetDaemonAgentConnection {
 			? messagesData
 			: responseRecord(messagesData, "get_messages").messages;
 		if (!Array.isArray(messages)) throw new Error("The Prime Agent daemon returned invalid messages");
+		const state = stateData as unknown as JsonRecord;
 		const sessionContext = responseRecord(sessionContextData, "get_session_context").context;
 		const { streamingMessage: previousStreamingMessage, ...base } = this.#snapshot;
 		this.#snapshot = {
@@ -632,31 +654,38 @@ export class FleetDaemonAgentConnection {
 			...(this.#lastEventCursor ? { lastEventSequence: this.#lastEventCursor.sequence } : {}),
 		};
 		this.#snapshotFresh = true;
-		return this.#snapshot;
+		// The daemon protocol is validated frame by frame above (state is an
+		// object, messages an array); the event mapper is what narrows the rest
+		// into Fleet's presentation shapes.
+		return this.#snapshot as unknown as SnapshotFor<FleetAgentConnection>;
 	}
 
-	async getMessages(): Promise<ConnectionSnapshot["messages"]> {
+	async getMessages(): Promise<MessagesFor<FleetAgentConnection>> {
 		const data = await this.#data<unknown>("get_messages");
-		return (
-			Array.isArray(data) ? data : responseRecord(data, "get_messages").messages
-		) as ConnectionSnapshot["messages"];
+		const messages = Array.isArray(data) ? data : responseRecord(data, "get_messages").messages;
+		if (!Array.isArray(messages)) throw new Error("The Prime Agent daemon returned invalid messages");
+		// Validated as an array here; the event mapper and transcript hydrator
+		// narrow individual messages further downstream.
+		return messages as unknown as MessagesFor<FleetAgentConnection>;
 	}
 
-	async getSessionTree(): Promise<{ tree: unknown[]; leafId: string | null }> {
+	async getSessionTree(): Promise<SessionTreeFor<FleetAgentConnection>> {
 		const data = responseRecord(await this.#data("get_session_tree"), "get_session_tree");
 		if (!Array.isArray(data.flatNodes)) throw new Error("The Prime Agent daemon returned an invalid session tree");
+		// `buildSessionTree` assembles nodes from validated wire entries; the
+		// session-tree mapper narrows them into Fleet's typed nodes.
 		return {
 			tree: buildSessionTree(data.flatNodes as FlatSessionTree[]),
 			leafId: typeof data.leafId === "string" ? data.leafId : null,
-		};
+		} as unknown as SessionTreeFor<FleetAgentConnection>;
 	}
 
-	async getSessionStats(): Promise<unknown> {
-		return this.#data("get_session_stats");
+	async getSessionStats(): Promise<StatsFor<FleetAgentConnection>> {
+		return (await this.#data("get_session_stats")) as StatsFor<FleetAgentConnection>;
 	}
 
-	async getQueue(): Promise<{ steering: string[]; followUp: string[] }> {
-		return this.#data("get_queue");
+	async getQueue(): Promise<QueueFor<FleetAgentConnection>> {
+		return (await this.#data("get_queue")) as QueueFor<FleetAgentConnection>;
 	}
 
 	async getSessionHeader(): Promise<unknown> {
@@ -764,15 +793,17 @@ export class FleetDaemonAgentConnection {
 		await this.#data("wait_for_idle", {}, LONG_RUNNING_REQUEST_TIMEOUT_MS);
 	}
 
-	async setModel(provider: string, modelId: string): Promise<unknown> {
-		return this.#data("set_model", { provider, modelId });
+	async setModel(provider: string, modelId: string): Promise<ModelFor<FleetAgentConnection>> {
+		return (await this.#data("set_model", { provider, modelId })) as ModelFor<FleetAgentConnection>;
 	}
 
-	async setThinkingLevel(level: string): Promise<void> {
+	async setThinkingLevel(level: Parameters<FleetAgentConnection["setThinkingLevel"]>[0]): Promise<void> {
 		await this.#data("set_thinking_level", { level });
 	}
 
-	async setServiceTier(serviceTier: string): Promise<void> {
+	// A null tier clears the override; rejecting it would make the setting
+	// impossible to unset from Fleet.
+	async setServiceTier(serviceTier: Parameters<FleetAgentConnection["setServiceTier"]>[0]): Promise<void> {
 		await this.#data("set_service_tier", { serviceTier });
 	}
 
@@ -808,7 +839,7 @@ export class FleetDaemonAgentConnection {
 		await this.#data("reload");
 	}
 
-	async watchSession(activeSessionId: string): Promise<Watcher | undefined> {
+	async watchSession(activeSessionId: string): Promise<WatcherFor<FleetAgentConnection>> {
 		let watcher: FleetDaemonAgentConnection;
 		try {
 			watcher = await FleetDaemonAgentConnection.attach(this.client, activeSessionId, {
@@ -817,13 +848,15 @@ export class FleetDaemonAgentConnection {
 		} catch {
 			return undefined;
 		}
+		// Watcher traffic is wire-shaped like the rest of the adapter; the bridge's
+		// mapper narrows it.
 		return {
 			getMessages: () => watcher.getMessages(),
 			getCommands: () => watcher.getCommands(),
-			subscribe: (listener) => watcher.subscribe(listener),
-			getToolDefinition: (name) => watcher.getToolDefinition(name),
+			subscribe: (listener: Listener) => watcher.subscribe(listener),
+			getToolDefinition: (name: string) => watcher.getToolDefinition(name),
 			close: () => watcher.dispose(),
-		};
+		} as unknown as WatcherFor<FleetAgentConnection>;
 	}
 
 	async abort(): Promise<void> {

@@ -5,6 +5,7 @@ import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentConnection, AgentConnectionEvent, AgentSession } from "prime-agent";
 import { SessionManager } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import type { FleetConnectionListener } from "../agent-connection-port";
 import { runtimeHostFor } from "../connection-runtime";
 import type { listDaemonSessions } from "../daemon-runtime";
 import type { DaemonSequenceGap } from "../daemon-sequence-gap";
@@ -13,7 +14,7 @@ import { loadManagedPrimePresentation, writeManagedPrimePresentation } from "../
 import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
 import { getPrimeConfig, resetPrimeConfigForTests } from "../prime-config";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
-import { createDeterministicTestAgentConnection } from "./support/deterministic-test-connection";
+import { createDeterministicTestAgentConnection } from "./helpers/deterministic-test-connection";
 
 const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
 const SESSION_DIR_ENVS = ["PRIME_AGENT_SESSION_DIR", "PRIME_AGENT_CODING_AGENT_SESSION_DIR"];
@@ -903,7 +904,7 @@ describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
 			const connection = new Proxy(inner, {
 				get(target, property) {
 					if (property === "subscribe") {
-						return (listener: (event: AgentConnectionEvent) => void) => {
+						return (listener: FleetConnectionListener) => {
 							eventListeners.add(listener);
 							const off = target.subscribe(listener);
 							return () => {
@@ -1091,7 +1092,7 @@ describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
 			const connection = new Proxy(inner, {
 				get(target, property) {
 					if (property === "subscribe") {
-						return (listener: (event: AgentConnectionEvent) => void) => {
+						return (listener: FleetConnectionListener) => {
 							eventListeners.add(listener);
 							const off = target.subscribe(listener);
 							return () => {

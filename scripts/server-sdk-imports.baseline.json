@@ -4,7 +4,6 @@
 		"web/server/src/bridge-helpers.ts": [
 			"@earendil-works/pi-agent-core#AgentMessage",
 			"@earendil-works/pi-agent-core#ThinkingLevel",
-			"prime-agent#AgentConnection",
 			"prime-agent#AgentConnectionModel",
 			"prime-agent#ExtensionUIContext",
 			"prime-agent#ExtensionUIDialogOptions"
@@ -14,15 +13,9 @@
 			"prime-agent#AgentSessionRuntime"
 		],
 		"web/server/src/daemon-runtime.ts": [
-			"prime-agent#AgentConnection",
 			"prime-agent#AgentSession",
 			"prime-agent#AgentSessionRuntimeConfig",
-			"prime-agent#DAEMON_PROTOCOL_NAME",
-			"prime-agent#DAEMON_PROTOCOL_VERSION",
-			"prime-agent#DaemonAgentConnection",
-			"prime-agent#DaemonClient",
-			"prime-agent#ExtensionUIContext",
-			"prime-agent#defaultDaemonSocketPath"
+			"prime-agent#ExtensionUIContext"
 		],
 		"web/server/src/event-mapper.ts": [
 			"@earendil-works/pi-agent-core#AgentEvent",
@@ -65,9 +58,7 @@
 			"@earendil-works/pi-agent-core#AgentMessage",
 			"@earendil-works/pi-agent-core#ThinkingLevel",
 			"@earendil-works/pi-ai#ImageContent",
-			"prime-agent#AgentConnection",
 			"prime-agent#AgentConnectionEvent",
-			"prime-agent#AgentConnectionExtensionUiRequest",
 			"prime-agent#AgentSession",
 			"prime-agent#ExtensionUIContext"
 		],

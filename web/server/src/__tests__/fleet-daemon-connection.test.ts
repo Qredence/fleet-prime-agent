@@ -76,6 +76,48 @@ describe("FleetDaemonAgentConnection", () => {
 		});
 	});
 
+	it("describes a daemon-closed session instead of surfacing the raw reason token", async () => {
+		const state = { activeSessionId: "active-1", cwd: "/work", thinkingLevel: "low" };
+		daemon = await startFakeDaemon({
+			hello,
+			reply: (envelope: FakeDaemonEnvelope, socket) => {
+				if (envelope.command.type === "attach") {
+					// Close the session right after attach so the frame is observed by the
+					// connected adapter rather than buffered as pre-attach history.
+					setTimeout(() => {
+						socket.write(
+							`${JSON.stringify({
+								type: "session_closed",
+								activeSessionId: "active-1",
+								reason: "killed",
+							})}\n`,
+						);
+					}, 0);
+					return okResponse(envelope, {
+						activeSessionId: "active-1",
+						snapshot: { activeSessionId: "active-1", state, messages: [] },
+					});
+				}
+				return okResponse(envelope, {});
+			},
+		});
+		client = new DaemonSocketClient(daemon.socketPath);
+		await client.connect();
+		await client.waitForHello();
+		connection = await FleetDaemonAgentConnection.attach(client, "active-1");
+
+		const closed = await new Promise<{ error?: string }>((resolve) => {
+			connection?.subscribe((event) => {
+				if (event.type === "closed") resolve({ error: event.error });
+			});
+		});
+
+		// `killed` is a protocol token; users need a sentence with a next step.
+		expect(closed.error).toContain("The daemon stopped this agent session.");
+		expect(closed.error).toContain("logs/agent.jsonl");
+		expect(closed.error).not.toBe("killed");
+	});
+
 	it("maps session events and routes connection calls to the attached active id", async () => {
 		const state = { activeSessionId: "active-1", cwd: "/work", thinkingLevel: "low" };
 		const messages = [{ role: "user", content: "hello", timestamp: 1 }];

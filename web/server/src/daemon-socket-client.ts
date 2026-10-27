@@ -36,7 +36,7 @@ import {
 } from "./daemon-protocol";
 
 export type DaemonFrameListener = (frame: DaemonOutboundFrame | DaemonUnknownFrame) => void;
-export type DaemonSocketCloseListener = (error: Error) => void;
+type DaemonSocketCloseListener = (error: Error) => void;
 
 type PendingRequest = {
 	id: string;
@@ -282,7 +282,13 @@ export class DaemonSocketClient {
 			} catch (error) {
 				clearTimeout(timer);
 				this.#pending.delete(id);
-				this.#rememberUnknownOutcome(id, command.type);
+				// A synchronous write failure means the frame never reached the
+				// socket, so nothing happened for either kind of command. Only
+				// non-read-only commands need the unknown-outcome marker, because
+				// that flag exists to warn that a write may have been applied.
+				if (!READ_ONLY_DAEMON_COMMANDS.has(command.type)) {
+					this.#rememberUnknownOutcome(id, command.type);
+				}
 				reject(new DaemonCommandOutcomeUnknownError(command.type, id, { cause: error }));
 			}
 		});

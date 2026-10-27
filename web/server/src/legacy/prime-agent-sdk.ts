@@ -26,6 +26,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type {
+	AgentConnection,
 	ApiKeyCredential,
 	FileEntry,
 	SessionContext,
@@ -52,6 +53,17 @@ export type LegacySessionHeader = SessionHeader;
 export type LegacySessionEntry = SessionEntry;
 export type LegacySessionMessageEntry = SessionMessageEntry;
 export type LegacySessionMessages = SessionContext["messages"];
+
+/**
+ * The upstream connection interface, exported for type derivation only.
+ *
+ * `agent-connection-port.ts` derives its method signatures from this so the
+ * port and the adapter cannot drift, while the SDK import stays inside this
+ * one module as `scripts/check-web-boundaries.mjs` requires. No value of this
+ * type is constructed here: the production connection is the Rust daemon
+ * adapter, and this module never runs SDK session code.
+ */
+export type LegacyAgentConnection = AgentConnection;
 
 /** `auth.json` store. Defaults to the agent directory's file; tests pass a temp path. */
 export function createLegacyAuthStorage(authPath?: string): LegacyAuthStorage {

@@ -34,13 +34,8 @@ import {
 	type PrimeAgentSessionPresentation,
 	type SessionTreeSnapshot,
 } from "@prime-agent/web-protocol";
-import type {
-	AgentConnection,
-	AgentConnectionEvent,
-	AgentConnectionExtensionUiRequest,
-	AgentSession,
-	ExtensionUIContext,
-} from "prime-agent";
+import type { AgentConnectionEvent, AgentSession, ExtensionUIContext } from "prime-agent";
+import type { FleetAgentConnection } from "./agent-connection-port";
 import {
 	type BridgeSessionCache,
 	confineSessionExportPath,
@@ -79,9 +74,6 @@ import {
 	applyRlmChildStatusOverrides,
 	createEventMapperState,
 	mapAgentConnectionEvent,
-	normalizeDaemonQuestions,
-	normalizedQuestionsToClarification,
-	normalizedQuestionsToWire,
 	type RlmChildStatusOverride,
 	resyncAfterSequenceGap,
 	toChatMessagesFromAgentMessages,
@@ -122,7 +114,7 @@ export interface BridgeSession {
 	 * The only runtime entry point the bridge itself routes through.
 	 * Owned by the bridge; do not store references outside the bridge.
 	 */
-	readonly connection: AgentConnection;
+	readonly connection: FleetAgentConnection;
 	/** Only populated by the explicit in-process test adapter. */
 	readonly session?: AgentSession;
 	readonly setOpenUIPrompt?: WebAgentConnection["setOpenUIPrompt"];
@@ -195,7 +187,7 @@ type AuthorizedRlmChild = {
 	summary: SessionSummary;
 };
 
-type AgentConnectionSessionWatcher = NonNullable<Awaited<ReturnType<AgentConnection["watchSession"]>>>;
+type AgentConnectionSessionWatcher = NonNullable<Awaited<ReturnType<FleetAgentConnection["watchSession"]>>>;
 
 type RlmChildStreamResume = {
 	streamGeneration?: string;
@@ -257,7 +249,6 @@ export class PrimeBridge {
 	readonly #caches = new Map<string, BridgeSessionCache>();
 	readonly #sessionTreeNavigationQueues = new Map<string, Promise<void>>();
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
-	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
 	readonly #auxiliaryWarnings = new Set<string>();
 
 	constructor(options: PrimeBridgeOptions = {}) {
@@ -356,7 +347,6 @@ export class PrimeBridge {
 		this.#caches.clear();
 		this.#sessionTreeNavigationQueues.clear();
 		this.#openUIPromptTransitions.clear();
-		this.#daemonDialogs.clear();
 		this.#auxiliaryWarnings.clear();
 	}
 
@@ -376,135 +366,6 @@ export class PrimeBridge {
 			undefined,
 			options.projectId ?? (await getPrimeConfig().projectRegistry.projectIdForCwd(options.cwd)),
 		);
-	}
-
-	#handleDaemonExtensionUiRequest(
-		sessionId: string,
-		connection: AgentConnection,
-		request: AgentConnectionExtensionUiRequest,
-	): boolean {
-		const title = typeof request.payload.title === "string" ? request.payload.title : "Prime Agent asks";
-		const timeoutMs = typeof request.payload.timeout === "number" ? request.payload.timeout : undefined;
-		const options = Array.isArray(request.payload.options)
-			? request.payload.options.filter((option): option is string => typeof option === "string")
-			: undefined;
-		const message = typeof request.payload.message === "string" ? request.payload.message : "";
-		const placeholder =
-			typeof request.payload.placeholder === "string"
-				? request.payload.placeholder
-				: typeof request.payload.prefill === "string"
-					? request.payload.prefill
-					: undefined;
-
-		if (request.method === "notify") {
-			this.#dispatch(sessionId, {
-				type: "state",
-				state: {
-					name: "agent_start",
-					message: message || title,
-				},
-			});
-			return true;
-		}
-		if (request.method === "setStatus") {
-			this.#dispatch(sessionId, {
-				type: "state",
-				state: {
-					name: "agent_start",
-					message: `[${typeof request.payload.statusKey === "string" ? request.payload.statusKey : "status"}] ${typeof request.payload.statusText === "string" ? request.payload.statusText : ""}`,
-				},
-			});
-			return true;
-		}
-
-		const normalizedQuestions = normalizeDaemonQuestions(request.payload.questions);
-		const registryQuestions = normalizedQuestionsToClarification(normalizedQuestions);
-		const wireQuestions = normalizedQuestionsToWire(normalizedQuestions);
-
-		const hasQuestions =
-			request.method === "questions" ||
-			request.method === "ask_question" ||
-			Boolean(registryQuestions && registryQuestions.length > 0);
-
-		if (
-			!hasQuestions &&
-			request.method !== "select" &&
-			request.method !== "confirm" &&
-			request.method !== "input" &&
-			request.method !== "editor"
-		) {
-			return false;
-		}
-
-		const kind = hasQuestions
-			? "questions"
-			: request.method === "select"
-				? "select"
-				: request.method === "confirm"
-					? "confirm"
-					: "input";
-		this.#daemonDialogs.set(request.id, { connection, method: request.method });
-		const pending = this.#dialogs.open<unknown>({
-			sessionId,
-			toolCallId: request.id,
-			kind,
-			title,
-			message,
-			...(options ? { options } : {}),
-			...(registryQuestions ? { questions: registryQuestions } : {}),
-			...(placeholder ? { placeholder } : {}),
-			...(timeoutMs !== undefined ? { timeoutMs } : {}),
-			signalFrame: {
-				type: "tool-Question",
-				toolCallId: request.id,
-				state: "input-streaming",
-				input: {
-					kind: hasQuestions
-						? "questions"
-						: request.method === "select"
-							? "select"
-							: request.method === "confirm"
-								? "confirm"
-								: "text",
-					title,
-					...(message ? { message } : {}),
-					...(options ? { options } : {}),
-					...(wireQuestions ? { questions: wireQuestions } : {}),
-					...(placeholder ? { placeholder } : {}),
-					method: request.method,
-				},
-			},
-		});
-		void pending
-			.then((value) => {
-				if (request.method === "confirm") {
-					return connection.respondToExtensionUiRequest(request.id, { confirmed: Boolean(value) });
-				}
-				if (hasQuestions) {
-					if (value && typeof value === "object") {
-						return connection.respondToExtensionUiRequest(request.id, {
-							value: JSON.stringify(value),
-						});
-					}
-					return connection.respondToExtensionUiRequest(request.id, {
-						value: typeof value === "string" ? value : "",
-					});
-				}
-				const text =
-					value && typeof value === "object" && "choice" in value
-						? (value as { choice?: unknown }).choice
-						: value && typeof value === "object" && "choices" in value
-							? (value as { choices?: unknown }).choices
-							: value && typeof value === "object" && "text" in value
-								? (value as { text?: unknown }).text
-								: undefined;
-				return connection.respondToExtensionUiRequest(request.id, {
-					value: typeof text === "string" ? text : Array.isArray(text) ? text.join(",") : "",
-				});
-			})
-			.catch(() => connection.respondToExtensionUiRequest(request.id, { cancelled: true }).catch(() => undefined))
-			.finally(() => this.#daemonDialogs.delete(request.id));
-		return true;
 	}
 
 	/**
@@ -580,9 +441,9 @@ export class PrimeBridge {
 		};
 
 		const unsubscribeEvents = connection.subscribe((event) => {
-			if (event.type === "extension_ui_request" && !webAgent.bindUiContext) {
-				if (this.#handleDaemonExtensionUiRequest(sessionId, connection, event.request)) return;
-			}
+			// `extension_ui_request` is absent here by construction: the Rust daemon
+			// does not advertise `extension_ui`, and the in-process test adapter
+			// binds its UI context directly rather than round-tripping requests.
 			if (event.type === "session_event" && event.event.type === "compaction_end") {
 				// Compaction rewrites the transcript prefix, shifting the positional
 				// `${sessionId}-mN` ids the plan sidecar keys on. Invalidate records
@@ -637,7 +498,7 @@ export class PrimeBridge {
 			try {
 				do {
 					resyncPending = false;
-					let snapshot: Awaited<ReturnType<AgentConnection["getInitialSnapshot"]>>;
+					let snapshot: Awaited<ReturnType<FleetAgentConnection["getInitialSnapshot"]>>;
 					try {
 						snapshot = await connection.getInitialSnapshot();
 					} catch {
@@ -1651,7 +1512,7 @@ export class PrimeBridge {
 		return { tree: [], leafId: null };
 	}
 
-	async #refreshSessionTreeCache(sessionId: string, connection: AgentConnection): Promise<void> {
+	async #refreshSessionTreeCache(sessionId: string, connection: FleetAgentConnection): Promise<void> {
 		const tree = await connection.getSessionTree();
 		const cache = this.#caches.get(sessionId) ?? emptyCache();
 		cache.tree = { tree: tree.tree as unknown[], leafId: tree.leafId };
