@@ -18,6 +18,7 @@ import {
 	toInstanceSlug,
 	toOccInstanceId,
 } from "@prime-agent/web-protocol/provider-catalog";
+import { configuredProviderIds, removeProviderCredential, setProviderApiKey } from "../agent-auth-store";
 import {
 	envVarNameForManagedProvider,
 	isDiscoverableEntry,
@@ -84,6 +85,15 @@ function envHintForBuiltin(providerId: string): string {
 	return PRIME_PROVIDER_ENV_MAP[providerId] ?? EXTRA_BUILTIN_ENV_HINTS[providerId] ?? "";
 }
 
+/**
+ * Stores a provider key in `auth.json` and turns a refusal into the same 400
+ * the other provider validation uses.
+ */
+async function storeApiKey(agentDir: string, providerId: string, apiKey: string): Promise<void> {
+	const outcome = await setProviderApiKey(agentDir, providerId, apiKey);
+	if (outcome.status === "refused") badRequest(outcome.reason);
+}
+
 function badRequest(message: string): never {
 	throw Object.assign(new Error(message), { status: 400 });
 }
@@ -103,13 +113,26 @@ export function resolveProviderAuthFields(
 	};
 }
 
-function buildProviders(): Array<ChatProviderInfo> {
+/**
+ * `configuredFromDisk` carries the provider ids Fleet just read from
+ * `auth.json`. `modelRegistry` holds an in-memory view populated at load time,
+ * so it does not see a credential Fleet wrote moments ago; the file wins.
+ */
+function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatProviderInfo> {
 	const config = getPrimeConfig();
 	const oauthIds = new Set(getOAuthProviders().map((p) => p.id));
 
 	const custom = listCustomProviders(`${config.agentDir}/models.json`);
 	const builtinIds = new Set<string>(getProviders());
 	const allIds = new Set<string>([...builtinIds, ...Object.keys(custom)]);
+	// A provider whose credentials exist only in `auth.json` is still real: it
+	// was configured by the runtime or an earlier Fleet build. Listing only the
+	// catalog and models.json hid those providers entirely, so they could not be
+	// reviewed or removed. MCP entries key as `mcp:<service>` and are not
+	// model providers, so they stay out of this list.
+	for (const providerId of configuredFromDisk ?? []) {
+		if (!providerId.startsWith("mcp:")) allIds.add(providerId);
+	}
 	// The generic OpenAI Chat Completions slot is always offered, even before a
 	// models.json entry exists, so its "add named instance" flow stays visible.
 	allIds.add(OPENAI_CHAT_COMPLETIONS_PROVIDER_ID);
@@ -119,6 +142,7 @@ function buildProviders(): Array<ChatProviderInfo> {
 			const isCustom = !builtinIds.has(id);
 			const customEntry = isCustom ? custom[id] : undefined;
 			const status = config.modelRegistry.getProviderAuthStatus(id);
+			const configured = configuredFromDisk?.has(id) ?? status.configured;
 			const catalogEntry = KNOWN_PROVIDER_BY_ID.get(id);
 			const name = isCustom
 				? (customEntry?.name ?? catalogEntry?.name ?? id)
@@ -131,7 +155,7 @@ function buildProviders(): Array<ChatProviderInfo> {
 				name,
 				envVarName,
 				...authFields,
-				isConfigured: status.configured,
+				isConfigured: configured,
 			};
 
 			if (isOccProviderId(id) || isCustomProviderId(id)) {
@@ -156,7 +180,8 @@ export function listChatProviders(): Array<ChatProviderInfo> {
 
 export function handleChatProvidersGet(_request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		return Response.json({ providers: buildProviders() });
+		const configured = await configuredProviderIds(getPrimeConfig().agentDir);
+		return Response.json({ providers: buildProviders(configured) });
 	}, _request);
 }
 
@@ -192,14 +217,11 @@ export function handleChatProvidersPost(request: Request): Promise<Response> {
 
 		if (!isManagedProvider) {
 			// Plain catalog provider: credentials only, no models.json involvement.
-			config.authStorage.set(body.providerId, {
-				type: "api_key",
-				key: body.apiKey,
-			});
+			await storeApiKey(config.agentDir, body.providerId, body.apiKey);
 			config.reloadAuth();
 			return Response.json({
 				success: true,
-				providers: buildProviders(),
+				providers: buildProviders(await configuredProviderIds(config.agentDir)),
 			});
 		}
 
@@ -250,14 +272,11 @@ export function handleChatProvidersPost(request: Request): Promise<Response> {
 			apiKey: envVarNameForManagedProvider(providerId),
 			models: modelIds.map((id) => ({ id })),
 		});
-		config.authStorage.set(providerId, {
-			type: "api_key",
-			key: body.apiKey,
-		});
+		await storeApiKey(config.agentDir, providerId, body.apiKey);
 		config.reloadAuth();
 		return Response.json({
 			success: true,
-			providers: buildProviders(),
+			providers: buildProviders(await configuredProviderIds(config.agentDir)),
 		});
 	}, request);
 }
@@ -274,11 +293,12 @@ export function handleChatProvidersDelete(request: Request): Promise<Response> {
 			// the synthesized row even after removal).
 			removeCustomProvider(`${config.agentDir}/models.json`, body.providerId);
 		}
-		config.authStorage.remove(body.providerId);
+		const removal = await removeProviderCredential(config.agentDir, body.providerId);
+		if (removal.status === "refused") badRequest(removal.reason);
 		config.reloadAuth();
 		return Response.json({
 			success: true,
-			providers: buildProviders(),
+			providers: buildProviders(await configuredProviderIds(config.agentDir)),
 		});
 	}, request);
 }

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getProviders as getBuiltinProviders } from "@earendil-works/pi-ai";
@@ -28,6 +28,14 @@ function readModelsJson(dir: string): { providers?: Record<string, Record<string
 	return JSON.parse(readFileSync(join(dir, "models.json"), "utf-8"));
 }
 
+/**
+ * Credentials now live in `auth.json`, written directly rather than through
+ * the SDK's in-memory AuthStorage, so these assertions read the file.
+ */
+function readAuthJson(dir: string): Record<string, { key?: string; type?: string }> {
+	return JSON.parse(readFileSync(join(dir, "auth.json"), "utf-8"));
+}
+
 describe("chat providers custom/OCC write path", () => {
 	let agentDir: string;
 
@@ -35,6 +43,7 @@ describe("chat providers custom/OCC write path", () => {
 		agentDir = mkdtempSync(join(tmpdir(), "chat-providers-"));
 		mocks.config.agentDir = agentDir;
 		mocks.keys.clear();
+		writeFileSync(join(agentDir, "auth.json"), "{}\n", "utf8");
 	});
 
 	afterEach(() => {
@@ -92,7 +101,7 @@ describe("chat providers custom/OCC write path", () => {
 			apiKey: "CUSTOM_MY_LAB_API_KEY",
 			models: [{ id: "lab-1" }, { id: "lab-2" }],
 		});
-		expect(mocks.keys.get("custom+my-lab")).toBe("sk-lab");
+		expect(readAuthJson(agentDir)["custom+my-lab"]?.key).toBe("sk-lab");
 
 		// Second creation with the same name allocates a suffixed id.
 		const second = await handleChatProvidersPost(
@@ -236,7 +245,7 @@ describe("chat providers custom/OCC write path", () => {
 			baseUrl: "https://v2.lab.test",
 			models: [{ id: "m1" }, { id: "m2" }],
 		});
-		expect(mocks.keys.get("custom+lab")).toBe("sk-2");
+		expect(readAuthJson(agentDir)["custom+lab"]?.key).toBe("sk-2");
 	});
 
 	it("falls back to stored managed-provider fields when update fields are blank", async () => {
@@ -353,7 +362,7 @@ describe("chat providers custom/OCC write path", () => {
 		const body = (await response.json()) as { providers: Array<Record<string, unknown>> };
 		expect(body.providers.some((p) => p.id === "custom+gone")).toBe(false);
 		expect(readModelsJson(agentDir).providers?.["custom+gone"]).toBeUndefined();
-		expect(mocks.keys.has("custom+gone")).toBe(false);
+		expect(readAuthJson(agentDir)).not.toHaveProperty("custom+gone");
 	});
 
 	it("catalog providers keep the key-only path", async () => {
@@ -366,7 +375,28 @@ describe("chat providers custom/OCC write path", () => {
 		);
 		expect(response.status).toBe(200);
 		expect(() => readModelsJson(agentDir)).toThrow();
-		expect(mocks.keys.get("deepseek")).toBe("sk-ds");
+		expect(readAuthJson(agentDir).deepseek?.key).toBe("sk-ds");
+	});
+
+	it("lists providers that exist only in auth.json and leaves MCP entries out", async () => {
+		// The runtime, or an earlier Fleet build, can store a credential for a
+		// provider that is neither in the engine catalog nor in models.json.
+		// Leaving it out of the list made it impossible to review or remove.
+		writeFileSync(
+			join(agentDir, "auth.json"),
+			JSON.stringify({
+				serper: { type: "api_key", key: "s" },
+				"mcp:linear": { type: "oauth", access: "a", refresh: "r" },
+			}),
+			"utf8",
+		);
+
+		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
+		const body = (await response.json()) as { providers: Array<Record<string, unknown>> };
+
+		expect(body.providers.find((p) => p.id === "serper")).toMatchObject({ isConfigured: true });
+		// MCP credentials key as `mcp:<service>`; they are connections, not models.
+		expect(body.providers.some((p) => String(p.id).startsWith("mcp:"))).toBe(false);
 	});
 });
 
