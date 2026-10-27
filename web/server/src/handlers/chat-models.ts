@@ -1,8 +1,8 @@
-import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
 import type { ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
 import { isModelPatternEnabled } from "@prime-agent/web-protocol/model-patterns";
 import { getPrimeConfig } from "../prime-config";
 import { cwdForRequest } from "../project-request";
+import { supportedThinkingLevels } from "../thinking-levels";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 function toPatternCandidate(model: { id: string; name: string; provider: string }) {
@@ -55,7 +55,7 @@ export function handleChatModelsGet(request: Request): Promise<Response> {
 
 		return Response.json({
 			models: models.map((m) => {
-				const thinkingLevels = getSupportedThinkingLevels(m) as Array<ChatThinkingLevel>;
+				const thinkingLevels = supportedThinkingLevels(m) as Array<ChatThinkingLevel>;
 				const fallback: ChatThinkingLevel = m.reasoning ? "medium" : "off";
 				return {
 					key: `${m.provider}/${m.id}`,
