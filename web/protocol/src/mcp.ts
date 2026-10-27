@@ -20,6 +20,8 @@ export type McpConnectionInfo = {
 	usesOAuth: boolean;
 	enabled: boolean;
 	status: McpConnectionStatus;
+	/** The runtime accepts a pasted token for this server. */
+	acceptsPastedToken?: boolean;
 	bearerTokenEnvVar?: string;
 	envBindings?: Array<McpEnvBinding>;
 	error?: string;
