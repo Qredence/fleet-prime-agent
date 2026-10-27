@@ -110,7 +110,7 @@ describe("SessionInsightsPanel", () => {
 		expect(insights.goal).toMatchObject({ active, status });
 	});
 
-	it("renders the selected session's live insight sections and existing recap", () => {
+	it("renders live insights without displaying retired recap content", () => {
 		render(
 			<SessionInsightsPanel
 				activityLabel="Inspecting current state"
@@ -133,7 +133,7 @@ describe("SessionInsightsPanel", () => {
 		expect(screen.getByText("Queued follow-ups")).toBeTruthy();
 		expect(screen.getByText("Token budget")).toBeTruthy();
 		expect(screen.getByText("Validate the session insights panel")).toBeTruthy();
-		expect(screen.getByText("The current session is on track.")).toBeTruthy();
+		expect(screen.queryByText("The current session is on track.")).toBeNull();
 		expect(screen.getByText("streaming")).toBeTruthy();
 	});
 
@@ -169,11 +169,11 @@ describe("SessionInsightsPanel", () => {
 		expect(screen.queryByText("Summary")).toBeNull();
 	});
 
-	it("adds Session insights to the existing right-panel tabs", () => {
+	it("opens the Session group on its default insights view", () => {
 		const onPanelChange = vi.fn();
 		render(<RightPanelLauncher activePanel={null} onPanelChange={onPanelChange} resources={null} workspace={null} />);
 
-		fireEvent.click(screen.getByRole("tab", { name: "Session insights" }));
+		fireEvent.click(screen.getByRole("tab", { name: "Session" }));
 		expect(onPanelChange).toHaveBeenCalledWith("session-insights");
 	});
 

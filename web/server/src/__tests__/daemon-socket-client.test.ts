@@ -1,6 +1,6 @@
 import { DaemonClient } from "prime-agent";
 import { afterEach, describe, expect, it } from "vitest";
-import { DaemonSocketClient } from "../daemon-socket-client";
+import { DaemonCommandOutcomeUnknownError, DaemonSocketClient } from "../daemon-socket-client";
 import { createEventMapperState, mapAgentConnectionEvent } from "../event-mapper";
 import { type FakeDaemonEnvelope, okResponse, startFakeDaemon } from "./helpers/fake-daemon";
 import { readRustFixture } from "./helpers/rust-fixtures";
@@ -34,6 +34,58 @@ describe("DaemonSocketClient", () => {
 			clientId: client.clientId,
 			command: { type: "list", all: true, id: envelope?.id },
 		});
+	});
+
+	it("checks capabilities only when the daemon advertised them", async () => {
+		const daemon = await startFakeDaemon({ hello: rustHello });
+		cleanups.push(daemon.close);
+		const client = new DaemonSocketClient(daemon.socketPath);
+		cleanups.push(() => client.close());
+		expect(client.supportsServerCapability("model_catalog")).toBe(false);
+		await client.connect(1000);
+		await client.waitForHello(1000);
+		expect(client.supportsServerCapability("model_catalog")).toBe(true);
+		expect(client.supportsServerCapability("extension_ui")).toBe(false);
+	});
+
+	it("notifies close listeners and reconnects with a fresh hello", async () => {
+		const daemon = await startFakeDaemon({
+			hello: rustHello,
+			reply: (envelope) => okResponse(envelope, { sessions: [] }),
+		});
+		cleanups.push(daemon.close);
+		const client = new DaemonSocketClient(daemon.socketPath);
+		cleanups.push(() => client.close());
+		const closed = new Promise<Error>((resolve) => client.onClose(resolve));
+
+		await client.connect(1000);
+		await client.waitForHello(1000);
+		expect(client.isConnected).toBe(true);
+		daemon.sockets[0]?.end();
+		await expect(closed).resolves.toMatchObject({ message: expect.stringContaining("socket") });
+		await vi.waitFor(() => expect(client.isConnected).toBe(false));
+
+		await client.reconnect(1000);
+		expect(client.isConnected).toBe(true);
+		expect(client.hello?.runtime?.buildId).toBe("pa-daemon-rs-0.10.1");
+		await expect(client.request({ type: "list", all: true })).resolves.toMatchObject({ success: true });
+		expect(daemon.sockets).toHaveLength(2);
+	});
+
+	it("rejects a pending connect immediately when explicitly closed", async () => {
+		const daemon = await startFakeDaemon({ hello: rustHello });
+		cleanups.push(daemon.close);
+		const client = new DaemonSocketClient(daemon.socketPath);
+		const connecting = client.connect(5000);
+		client.close();
+		await expect(connecting).rejects.toThrow("The Prime Agent daemon client was closed");
+		await expect(client.connect(1000)).rejects.toThrow("The Prime Agent daemon client was closed");
+	});
+
+	it("rejects connect when the client was closed before connect began", async () => {
+		const client = new DaemonSocketClient("/tmp/unused-prime-agent-daemon.sock");
+		client.close();
+		await expect(client.connect(1000)).rejects.toThrow("The Prime Agent daemon client was closed");
 	});
 
 	it("acknowledges mutating commands only", async () => {
@@ -128,5 +180,58 @@ describe("DaemonSocketClient", () => {
 		cleanups.push(() => client.close());
 		await client.connect(1000);
 		await expect(client.request({ type: "list" }, 50)).rejects.toThrow(/did not answer "list"/);
+	});
+
+	it("marks a written mutation outcome unknown and acknowledges its late response", async () => {
+		const daemon = await startFakeDaemon({ hello: rustHello });
+		cleanups.push(daemon.close);
+		const client = new DaemonSocketClient(daemon.socketPath);
+		cleanups.push(() => client.close());
+		await client.connect(1000);
+		await client.waitForHello(1000);
+
+		let outcome: DaemonCommandOutcomeUnknownError | undefined;
+		try {
+			await client.request({ type: "mutate_queued_message", activeSessionId: "a" }, 20);
+		} catch (error) {
+			if (error instanceof DaemonCommandOutcomeUnknownError) outcome = error;
+			else throw error;
+		}
+		expect(outcome).toMatchObject({
+			command: "mutate_queued_message",
+			outcome: "unknown",
+			requestId: expect.stringMatching(/^fleet_/),
+		});
+
+		const requestId = outcome?.requestId;
+		if (!requestId) throw new Error("Timed out mutation did not retain its request id");
+		daemon.sockets[0]?.write(
+			`${JSON.stringify({
+				type: "response",
+				id: requestId,
+				command: "mutate_queued_message",
+				success: true,
+				data: { status: "applied" },
+			})}\n`,
+		);
+		await vi.waitFor(() => expect(daemon.received.map((envelope) => envelope.command.type)).toContain("ack_result"));
+		expect(daemon.received.at(-1)?.command).toMatchObject({ type: "ack_result", commandId: requestId });
+	});
+
+	it("marks an in-flight mutation unknown when the daemon socket closes", async () => {
+		const daemon = await startFakeDaemon({ hello: rustHello });
+		cleanups.push(daemon.close);
+		const client = new DaemonSocketClient(daemon.socketPath);
+		cleanups.push(() => client.close());
+		await client.connect(1000);
+		await client.waitForHello(1000);
+		const pending = client.request({ type: "mutate_queued_message", activeSessionId: "a" }, 5000);
+		await vi.waitFor(() => expect(daemon.received).toHaveLength(1));
+		daemon.sockets[0]?.destroy();
+		await expect(pending).rejects.toMatchObject({
+			name: "DaemonCommandOutcomeUnknownError",
+			command: "mutate_queued_message",
+			outcome: "unknown",
+		});
 	});
 });

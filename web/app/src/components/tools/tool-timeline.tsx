@@ -113,6 +113,7 @@ function toolStep(
 	if (
 		typeof type !== "string" ||
 		!type.startsWith("tool-") ||
+		type === "tool-Question" ||
 		type === "tool-FleetReasoning" ||
 		type === "tool-Thinking" ||
 		isNestedTaskTool
@@ -161,13 +162,11 @@ function artifactStep(artifact: PrimeAgentArtifact): TimelineStep {
 				? "Compacted"
 				: artifact.kind === "refinement"
 					? "Refined"
-					: artifact.kind === "recap"
-						? "Recapped"
-						: artifact.kind === "rlm"
-							? "Delegated"
-							: artifact.kind === "diff"
-								? "Edited"
-								: "Completed",
+					: artifact.kind === "rlm"
+						? "Delegated"
+						: artifact.kind === "diff"
+							? "Edited"
+							: "Completed",
 		target:
 			artifact.kind === "bash"
 				? "Bash output"
@@ -177,11 +176,9 @@ function artifactStep(artifact: PrimeAgentArtifact): TimelineStep {
 						? "File change"
 						: artifact.kind === "rlm"
 							? "Child task"
-							: artifact.kind === "recap"
-								? "Session recap"
-								: artifact.kind === "refinement"
-									? "Refinement"
-									: "Session activity",
+							: artifact.kind === "refinement"
+								? "Refinement"
+								: "Session activity",
 		status: artifact.status === "success" ? "complete" : artifact.status,
 	};
 }
@@ -351,6 +348,7 @@ export function ToolTimeline({
 			});
 		});
 		const fromArtifacts = artifacts.flatMap((artifact) => {
+			if (artifact.kind === "recap") return [];
 			if (artifact.sourceToolCallId && seen.has(artifact.sourceToolCallId)) return [];
 			const step = withArtifact(artifactStep(artifact), artifact);
 			if (seen.has(step.id)) return [];

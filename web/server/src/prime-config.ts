@@ -18,7 +18,8 @@
  * of sensitive files mid-request.
  */
 
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { resolveAgentDir } from "./agent-dir";
 import {
 	createLegacyAuthStorage,
 	createLegacyModelRegistry,
@@ -27,7 +28,6 @@ import {
 	type LegacyModelRegistry,
 	type LegacyResourceLoader,
 	type LegacySettingsManager,
-	legacyAgentDir,
 	loadLegacyResources,
 } from "./legacy/prime-agent-sdk";
 import { ProjectRegistry } from "./project-registry";
@@ -53,13 +53,13 @@ export interface PrimeConfig {
 type PrimeConfigGlobal = { __primeConfig?: PrimeConfig };
 
 function createPrimeConfig(initialCwd: string): PrimeConfig {
-	const agentDir = legacyAgentDir();
-	const authStorage = createLegacyAuthStorage();
-	const modelRegistry = createLegacyModelRegistry(authStorage);
+	const agentDir = resolveAgentDir();
+	const authStorage = createLegacyAuthStorage(join(agentDir, "auth.json"));
+	const modelRegistry = createLegacyModelRegistry(authStorage, join(agentDir, "models.json"));
 	const projectRegistry = new ProjectRegistry(agentDir, initialCwd);
 
 	const currentDefaultCwd = resolve(initialCwd);
-	const defaultSettings = createLegacySettingsManager(currentDefaultCwd);
+	const defaultSettings = createLegacySettingsManager(currentDefaultCwd, agentDir);
 
 	const settingsByCwd = new Map<string, LegacySettingsManager>();
 	settingsByCwd.set(currentDefaultCwd, defaultSettings);
@@ -80,7 +80,7 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 			if (cwd === currentDefaultCwd) return defaultSettings;
 			const existing = settingsByCwd.get(cwd);
 			if (existing) return existing;
-			const created = createLegacySettingsManager(cwd);
+			const created = createLegacySettingsManager(cwd, agentDir);
 			settingsByCwd.set(cwd, created);
 			return created;
 		},

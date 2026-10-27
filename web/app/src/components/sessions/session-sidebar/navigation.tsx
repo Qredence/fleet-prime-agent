@@ -74,23 +74,33 @@ function SidebarMenuItem({
 	label,
 	onClick,
 	href,
+	to,
 }: {
-	icon: LucideIcon;
+	icon?: LucideIcon;
 	label: string;
 	onClick?: () => void;
 	href?: string;
+	to?: "/agents" | "/connectors";
 }) {
+	if (to) {
+		return (
+			<a href={to} className={MENU_ITEM_CLASS}>
+				{Icon ? <Icon className="size-3.5" /> : null}
+				{label}
+			</a>
+		);
+	}
 	if (href) {
 		return (
 			<a href={href} target="_blank" rel="noreferrer" className={MENU_ITEM_CLASS}>
-				<Icon className="size-3.5" />
+				{Icon ? <Icon className="size-3.5" /> : null}
 				{label}
 			</a>
 		);
 	}
 	return (
 		<button type="button" onClick={onClick} className={MENU_ITEM_CLASS}>
-			<Icon className="size-3.5" />
+			{Icon ? <Icon className="size-3.5" /> : null}
 			{label}
 		</button>
 	);
@@ -198,6 +208,8 @@ export function SessionSidebarNavigation({
 									onOpenSettings?.();
 								}}
 							/>
+							<SidebarMenuItem label="Agents" to="/agents" />
+							<SidebarMenuItem label="Connectors" to="/connectors" />
 							<SidebarMenuItem icon={BookOpenText} label="Documentation" href={DOCUMENTATION_URL} />
 						</Popover>
 

@@ -76,8 +76,8 @@ describe("review regressions", () => {
 		if (!text && !payload) expect(container.innerHTML).toBe("");
 	});
 
-	it("shows standalone artifact rows without an empty details button", () => {
-		const { getByRole, queryByRole, getByText } = render(
+	it("keeps stored session recap artifacts out of the tool timeline", () => {
+		const { queryByRole, queryByText } = render(
 			<ToolTimeline
 				messages={[]}
 				artifacts={[
@@ -94,9 +94,27 @@ describe("review regressions", () => {
 				onOpenArtifact={vi.fn()}
 			/>,
 		);
-		expect(getByText("Recapped Session recap").closest("button")).toBeNull();
 		expect(queryByRole("button", { name: /Details for/ })).toBeNull();
-		expect(getByRole("button", { name: "Open Session recap in artifacts" })).toBeTruthy();
+		expect(queryByRole("button", { name: "Open Session recap in artifacts" })).toBeNull();
+		expect(queryByText("Session recap")).toBeNull();
+	});
+
+	it("keeps questionnaire tool calls out of the tool timeline", () => {
+		const { queryByTestId, queryByText } = render(
+			<ToolTimeline
+				messages={[
+					{
+						id: "question-tool",
+						role: "assistant",
+						parts: [{ type: "tool-Question", toolCallId: "question-1", state: "input-available" }],
+					},
+				]}
+				streaming
+			/>,
+		);
+
+		expect(queryByTestId("tool-trace")).toBeNull();
+		expect(queryByText(/Question/)).toBeNull();
 	});
 
 	it.each(["Inspecting files", ""])("falls through empty subagent error and answer fields (%s)", (progressNote) => {

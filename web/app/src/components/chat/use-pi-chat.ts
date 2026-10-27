@@ -375,32 +375,34 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setStatus,
 	});
 
-	const { resetStreamAdmission, sendMessage, setAdapterCapabilities } = usePiChatMessaging({
-		activityLabelRef,
-		client,
-		messagesRef,
-		presentationRef,
-		model,
-		pendingSendControllerRef,
-		projectId,
-		planLabelRef,
-		queueRef,
-		recoverFromForbiddenSession,
-		refreshSessions,
-		sessionMetadataRef,
-		setActivityLabelSynced,
-		setError,
-		setMessagesSynced,
-		setPresentationSynced,
-		setPlanLabelSynced,
-		setQueueSynced,
-		setSessionMetadataSynced,
-		setStatus,
-		streamControllersRef,
-		status,
-	});
+	const { cancelStreamRecovery, resetStreamAdmission, sendMessage, setAdapterCapabilities, streamRecoveryRef } =
+		usePiChatMessaging({
+			activityLabelRef,
+			client,
+			messagesRef,
+			presentationRef,
+			model,
+			pendingSendControllerRef,
+			projectId,
+			planLabelRef,
+			queueRef,
+			recoverFromForbiddenSession,
+			refreshSessions,
+			sessionMetadataRef,
+			setActivityLabelSynced,
+			setError,
+			setMessagesSynced,
+			setPresentationSynced,
+			setPlanLabelSynced,
+			setQueueSynced,
+			setSessionMetadataSynced,
+			setStatus,
+			streamControllersRef,
+			status,
+		});
 
 	const stop = useCallback(() => {
+		cancelStreamRecovery();
 		const metadata = sessionMetadataRef.current;
 		resetStreamAdmission(metadata.sessionId);
 		pendingSendControllerRef.current?.abort();
@@ -416,7 +418,14 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setStatus("ready");
 		setQueueSynced(EMPTY_QUEUE_STATE);
 		setActivityLabelSynced(undefined);
-	}, [client, invalidateQueueMutations, resetStreamAdmission, setActivityLabelSynced, setQueueSynced]);
+	}, [
+		cancelStreamRecovery,
+		client,
+		invalidateQueueMutations,
+		resetStreamAdmission,
+		setActivityLabelSynced,
+		setQueueSynced,
+	]);
 
 	const mutateQueuedMessage = useCallback(
 		(
@@ -542,6 +551,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	 */
 	const startNewSession = useCallback(
 		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
+			cancelStreamRecovery();
 			const requestId = resumeRequestRef.current + 1;
 			resumeRequestRef.current = requestId;
 			const isCurrent = () => resumeRequestRef.current === requestId;
@@ -571,6 +581,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setQueueSynced,
 			setSessionMetadataSynced,
 			invalidateQueueMutations,
+			cancelStreamRecovery,
 			stop,
 			projectId,
 		],
@@ -578,6 +589,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 	const resumeSession = useCallback(
 		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
+			cancelStreamRecovery();
 			const requestId = resumeRequestRef.current + 1;
 			resumeRequestRef.current = requestId;
 			const isCurrent = () => resumeRequestRef.current === requestId;
@@ -629,6 +641,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setQueueSynced,
 			setSessionMetadataSynced,
 			invalidateQueueMutations,
+			cancelStreamRecovery,
 			stop,
 		],
 	);
@@ -638,6 +651,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (nextSessionId) {
 				return resumeSession({ sessionId: nextSessionId, projectId: nextProjectId }, { preserveRunning: true });
 			}
+			cancelStreamRecovery();
 			invalidateQueueMutations();
 			setSessionMetadataSynced({ projectId: nextProjectId });
 			setMessagesSynced([]);
@@ -649,6 +663,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			return true;
 		},
 		[
+			cancelStreamRecovery,
 			resumeSession,
 			setActivityLabelSynced,
 			setMessagesSynced,
@@ -667,6 +682,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	usePiChatSessionEvents({
 		client,
 		presentationRef,
+		recoveryRef: streamRecoveryRef,
 		sessionId: sessionMetadata.sessionId,
 		sessionMetadataRef,
 		setActivityLabelSynced,
@@ -719,10 +735,9 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		[client, refreshSessions, setMessagesSynced, setPresentationSynced, setSessionMetadataSynced, stop],
 	);
 
-	const answerQuestion = submitQuestionAnswer;
-
 	const getSessionMetadata = useCallback(() => sessionMetadataRef.current, []);
 	const getMessages = useCallback(() => messagesRef.current, []);
+	const answerQuestion = submitQuestionAnswer;
 
 	return {
 		activityLabel,

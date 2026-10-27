@@ -73,7 +73,6 @@ type BuildAssistantElementsOptions = {
 	messageId: string;
 	isLast: boolean;
 	isStreaming: boolean;
-	suppressQuestionTool: boolean;
 	suppressTextWhenPlanWrite?: boolean;
 	ToolRendererComponent: React.ComponentType<ToolRendererProps>;
 	TextRendererComponent: React.ComponentType<TextRendererComponentProps>;
@@ -99,7 +98,6 @@ export function buildAssistantElements(
 		messageId,
 		isLast,
 		isStreaming,
-		suppressQuestionTool,
 		suppressTextWhenPlanWrite = false,
 		ToolRendererComponent,
 		TextRendererComponent,
@@ -223,7 +221,7 @@ export function buildAssistantElements(
 		}
 
 		if (isV5ToolPart(part)) {
-			if (suppressQuestionTool && part.type === "tool-Question") {
+			if (part.type === "tool-Question") {
 				i++;
 				continue;
 			}
@@ -261,9 +259,8 @@ export function buildAssistantElements(
 				>
 					<TraceCollapsible
 						defaultOpen={
-							part.type === "tool-Question" ||
-							(part.type === "tool-PlanWrite" &&
-								Boolean((part.input as { pendingDecision?: unknown } | undefined)?.pendingDecision))
+							part.type === "tool-PlanWrite" &&
+							Boolean((part.input as { pendingDecision?: unknown } | undefined)?.pendingDecision)
 						}
 					>
 						<TraceCollapsibleTrigger aria-label={detailLabel}>

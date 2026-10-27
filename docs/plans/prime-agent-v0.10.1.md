@@ -66,6 +66,11 @@ without changing the product's look.
 - Remove the recap, `auth_stale`, `extension_error` and question/dialog surfaces, plus the
   `ipython` alias. These still fire on v0.9.8 today, so they are removed here and not in
   U1.
+- Migration in progress: the mapper ignores `recap_update`, `session_status`, `auth_stale`,
+  and `extension_error`; recap and questionnaire presentation is retired. Live pending
+  questions are skipped, and failures stop the active session with a visible error. The
+  `ipython` alias and server-side legacy question mapping still require removal. Existing
+  protocol schema and stored sessions are unchanged.
 
 ### Remaining Rust-only migration
 
@@ -73,14 +78,35 @@ without changing the product's look.
   connections still use the TypeScript SDK's `DaemonClient` and `DaemonAgentConnection`;
   replacing them requires equivalent attach, snapshot, event, reconnect, and request-recovery
   behavior before the SDK connection can be removed.
+- `web/server/src/daemon-socket-client.ts` now has an isolated `reconnect()` operation that
+  waits for the new hello, `onClose()` notifications for transport failures, and
+  `supportsServerCapability()` based on the hello's advertised capability list. These are not
+  wired into per-session connections. Fleet still rejects pending requests on disconnect
+  rather than replaying them with stable IDs; it emits `ack_result` for completed mutating
+  commands, but equivalent recovery ordering is unproven. Remaining transport parity includes
+  reconnect coordination and status, explicit daemon restart/reset handling, and proof that
+  attach snapshots, event replay/cursors, and resync match `DaemonAgentConnection` behavior.
+  The SDK adapter also owns higher-level session command mapping and snapshot assembly; those
+  responsibilities are not yet implemented by Fleet's socket client.
+- A Fleet-owned experimental session adapter now handles chunked attach and reattach snapshots,
+  event buffering, basic reconnect and selected session commands in isolation. It is not used
+  by production chat: complete connection-contract, recovery and resynchronization parity must
+  be demonstrated before replacing the SDK adapter.
 - The daemon provides model catalog and resource snapshot reads and limited MCP token
   management. Existing project-level endpoints can run before a session exists, and resource
   snapshots do not cover every field those endpoints return. Preserve their current behavior
   while adapting these paths.
-- Provider credential and OAuth writes, custom model registration, general settings updates,
-  cross-project forks, and some transcript reads still depend on SDK-backed paths. Keep the
-  minimum bridge until supported upstream capabilities preserve these workflows and existing
-  data. Do not substitute a transcript reader that repairs or rewrites session files.
+- Provider credential and OAuth writes, custom model registration, and some transcript reads
+  still depend on SDK-backed paths. Remove those dependencies using supported daemon operations
+  or explicit terminal/read-only fallbacks, preserving existing data. Do not substitute a
+  transcript reader that repairs or rewrites session files.
+- Cutover in progress: settings reads use Fleet's bounded read-only projection; settings edits
+  are unavailable with terminal guidance until safe concurrent updates are verified. Cross-project
+  forks are unavailable and leave the source untouched; same-project daemon forks remain. A
+  Fleet-owned deterministic connection supports selected bridge tests, while legacy integration
+  tests and production per-session connections still depend on the SDK.
+- Provider and MCP OAuth sign-in now use terminal guidance. Credential status/logout, MCP
+  catalog metadata, and provider credential/model management remain SDK-backed.
 - Once those paths and deterministic test adapters no longer need the SDK, remove the
   TypeScript package family from production and development dependencies together with its
   manifest, packaging, lockfile, and import-guard coupling. Keep the Rust pin checksum-verified.
@@ -106,6 +132,10 @@ without changing the product's look.
   registry entry from `web/app/components.json`.
 - **U2: pilot.** Move Message, Trace and Reasoning to AI Elements (presentation only, no
   `useChat` or AI SDK transport). Include before and after bundle sizes.
+- U2 remains outstanding. The AI Elements registry announced its move to shadcn/ui and
+  deprecation at the end of November 2026; check the supported successor and audit registry
+  changes before installing. A dry run for Message proposed replacing existing Button and
+  Separator files and adding dependencies; do not overwrite those components blindly.
 - **U3+: one surface per PR.**
 - Keep today's look. Polish only where it makes things more consistent or simpler.
 - Add components through Shadcn (`base-nova`), with the Shadcn audit checklist in each PR
@@ -117,6 +147,10 @@ without changing the product's look.
 - `/agents`, with heartbeat and cron as a section (no separate Schedules page for now).
 - `/connectors`: list MCP servers, add one with a static token, and remove one. OAuth
   shows a terminal-login hint.
+- The initial Agents page lists recent sessions and indicates scheduling is unavailable;
+  it does not yet manage agents or schedules. The initial Connectors page reuses existing MCP
+  configuration and OAuth; its existing bearer-token form takes an environment variable name,
+  not a raw token. Daemon-backed operations and capability-driven controls remain outstanding.
 - Skills stay in the session panel.
 - No Harness or Factory page. Refine stays a top-bar action.
 

@@ -209,7 +209,6 @@ export function ChatWorkspaceShell() {
 				onOpenArtifact={conversation.openArtifact}
 				onOpenUIArtifactReady={handleOpenUIArtifactReady}
 				inputSuggestionItems={composer.inputSuggestionItems}
-				suppressQuestionTool={!!composer.pendingQuestionBar}
 				inputBar={inputBar}
 				onSend={handleSend}
 				onOpenUIAction={handleOpenUIAction}

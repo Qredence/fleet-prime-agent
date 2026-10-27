@@ -41,7 +41,6 @@ import type {
 	AgentSession,
 	ExtensionUIContext,
 } from "prime-agent";
-import { SessionManager } from "prime-agent";
 import {
 	type BridgeSessionCache,
 	confineSessionExportPath,
@@ -1716,10 +1715,7 @@ export class PrimeBridge {
 	 * The fork flow:
 	 *   1. Resolve the source entry (parent for `before`, target for `at`) and
 	 *      pre-compute the user-message text for `position: "before"`.
-	 *   2. Daemon-backed sessions run the daemon `fork` command, which writes the
-	 *      branched transcript; the source reopens in its own worker
-	 *      (`forkToNewSession`). The in-process test adapter instead writes the
-	 *      branch with a side `SessionManager`.
+	 *   2. The daemon writes the branched transcript using `forkToNewSession`.
 	 *   3. Open a new connection on the fork and carry the source's
 	 *      model/thinking/service-tier.
 	 */
@@ -1735,16 +1731,12 @@ export class PrimeBridge {
 		if (!selectedEntry) {
 			throw new Error("Invalid entry ID for forking");
 		}
-		let targetLeafId: string | null;
 		let selectedText: string | undefined;
-		if (position === "at") {
-			targetLeafId = selectedEntry.id;
-		} else {
+		if (position === "before") {
 			selectedText = selectedTextFromSessionEntry(selectedEntry);
 			if (selectedText === undefined) {
 				throw new Error("Invalid entry ID for forking");
 			}
-			targetLeafId = selectedEntry.parentId;
 		}
 
 		const currentFile = sourceState.sessionFile;
@@ -1752,17 +1744,11 @@ export class PrimeBridge {
 			throw new Error("Cannot fork an unpersisted session");
 		}
 
-		let forkedPath: string | undefined;
-		if (bridge.forkToNewSession) {
-			// Daemon-backed sessions fork through the daemon `fork` command; the
-			// daemon writes the fork transcript and Fleet only opens it.
-			const forked = await bridge.forkToNewSession(entryId, position);
-			if (forked.cancelled) throw new Error("The Prime Agent daemon cancelled the fork");
-			forkedPath = forked.sessionPath;
-			selectedText = forked.selectedText ?? selectedText;
-		} else {
-			forkedPath = await this.#forkWithSideSessionManager(bridge, currentFile, sourceState.sessionDir, targetLeafId);
-		}
+		if (!bridge.forkToNewSession) throw new Error("Forking is unavailable without a Prime Agent daemon connection");
+		const forked = await bridge.forkToNewSession(entryId, position);
+		if (forked.cancelled) throw new Error("The Prime Agent daemon cancelled the fork");
+		const forkedPath = forked.sessionPath;
+		selectedText = forked.selectedText ?? selectedText;
 		if (!forkedPath) throw new Error("Failed to create forked session");
 
 		const webAgent = await this.#connectionFactory({
@@ -1793,83 +1779,12 @@ export class PrimeBridge {
 		};
 	}
 
-	/**
-	 * Legacy fork for the in-process test adapter (no daemon): a side
-	 * `SessionManager` writes the branched transcript before the new
-	 * connection opens it. Daemon-backed sessions use `forkToNewSession`.
-	 */
-	async #forkWithSideSessionManager(
-		bridge: BridgeSession,
-		currentFile: string,
-		sourceSessionDir: string | undefined,
-		targetLeafId: string | null,
-	): Promise<string> {
-		const sessionDir = sourceSessionDir ?? dirname(currentFile);
-		let side: SessionManager;
-		let forkedPath: string | undefined;
-		if (targetLeafId) {
-			// The side manager only creates the new transcript; the source remains
-			// exclusively owned by its runtime.
-			side = SessionManager.open(currentFile, sessionDir);
-			forkedPath = side.createBranchedSession(targetLeafId) ?? undefined;
-			if (!forkedPath) {
-				throw new Error("Failed to create forked session");
-			}
-		} else {
-			side = SessionManager.create(bridge.cwd, sessionDir);
-			const sourceHeader = await bridge.connection.getSessionHeader();
-			side.newSession({
-				parentSession: currentFile,
-				...(sourceHeader?.rlmDepth !== undefined ? { rlmDepth: sourceHeader.rlmDepth } : {}),
-			});
-			forkedPath = side.getSessionFile();
-		}
-		if (!forkedPath) throw new Error("Failed to create forked session");
-		// The runtime becomes the sole writer once it opens the target. This initial
-		// materialization makes a user-only fork durable before that handoff.
-		side.flushNow();
-		return forkedPath;
-	}
-
-	/** Fork the complete persisted history into another registered project. */
-	async forkSessionIntoProject(sessionId: string, targetProjectId: ProjectId): Promise<string> {
-		// Verify the caller's target project is still registered before touching
-		// the source session, so an unknown target fails without resuming or
-		// re-assigning anything as a side effect.
-		const targetCwd = await getPrimeConfig().projectRegistry.cwdForProject(targetProjectId);
-		const source = this.#sessions.get(sessionId) ?? (await this.resumeSessionById(sessionId));
-		if (!source) throw new Error(`Unknown session: ${sessionId}`);
-		await source.connection.waitForIdle();
-		const sourceState = await source.connection.getState();
-		const sourcePath = sourceState.sessionFile;
-		if (!sourcePath) throw new Error("Cannot fork an unpersisted session");
-		const targetSessionDir = sessionDirectoryForCwd(targetCwd);
-		const manager = SessionManager.forkFrom(sourcePath, targetCwd, targetSessionDir);
-		const forkedPath = manager.getSessionFile();
-		if (!forkedPath) throw new Error("Failed to create project fork");
-		const webAgent = await this.#connectionFactory({
-			cwd: targetCwd,
-			sessionPath: forkedPath,
-			thinkingLevel: sourceState.thinkingLevel,
-			openUIPrompt: createOpenUIPromptSessionState(
-				source.openUIPrompt.mode,
-				source.openUIPrompt.enabled,
-				source.openUIPrompt.artifact ?? false,
-			),
-		});
-		if (sourceState.model && !isUnresolvedPlaceholderModel(sourceState.model)) {
-			await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
-		}
-		await webAgent.connection.setThinkingLevel(sourceState.thinkingLevel);
-		await webAgent.connection.setServiceTier(sourceState.serviceTier ?? "default");
-		const forked = await this.#registerConnection(webAgent, targetCwd, forkedPath, targetProjectId);
-		const forkedMessages = await this.getMessages(forked.sessionId);
-		await copyManagedPlanPresentationsForFork(source, forked, forkedMessages.length);
-		forked.mapperState.presentation = source.mapperState.presentation;
-		this.#persistPresentation(forked.sessionId, forked.sessionPath, forked.mapperState.presentation);
-		// Postcondition: the forked session record must be linked to the
-		// caller's target project.
-		return this.#requireProjectSession(forked.sessionId, targetProjectId).sessionId;
+	/** The stock daemon cannot safely fork a transcript into another project. */
+	async forkSessionIntoProject(_sessionId: string, _targetProjectId: ProjectId): Promise<string> {
+		const error = new Error(
+			"Forking into another project is unavailable with Prime Agent 0.10.1. The original session is unchanged.",
+		);
+		throw Object.assign(error, { status: 501 });
 	}
 
 	// -----------------------------------------------------------------------
@@ -1924,20 +1839,6 @@ export class PrimeBridge {
 	#requireSession(sessionId: string): BridgeSession {
 		const session = this.#sessions.get(sessionId);
 		if (!session) {
-			throw new Error(`Unknown session: ${sessionId}`);
-		}
-		return session;
-	}
-
-	/**
-	 * Project-membership gate over the bridge's session records. Returns the
-	 * live session only when its project linkage matches the caller-asserted
-	 * project, and throws `Unknown session` otherwise so foreign sessions are
-	 * indistinguishable from missing ones.
-	 */
-	#requireProjectSession(sessionId: string, projectId: ProjectId): BridgeSession {
-		const session = this.#requireSession(sessionId);
-		if (session.projectId !== projectId) {
 			throw new Error(`Unknown session: ${sessionId}`);
 		}
 		return session;

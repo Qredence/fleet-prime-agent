@@ -139,18 +139,19 @@ export function RightPanelLauncher({
 			RIGHT_PANEL_LAUNCHER_DEFINITIONS.map((definition) => ({
 				...definition,
 				badge:
-					definition.badgeSource === "resources"
-						? totalResources || undefined
-						: definition.badgeSource === "artifacts"
-							? totalArtifacts
-							: definition.badgeSource === "repl"
+					definition.id === "workspace"
+						? totalArtifacts
+						: definition.id === "session"
+							? totalResources || undefined
+							: definition.id === "repl"
 								? replRuns || undefined
 								: undefined,
 			})),
 		[replRuns, totalArtifacts, totalResources],
 	);
 
-	const selectedIndex = tabs.findIndex((tab) => tab.id === activePanel);
+	const activeGroup = tabs.find((tab) => activePanel !== null && tab.panels.includes(activePanel));
+	const selectedIndex = activeGroup ? tabs.indexOf(activeGroup) : -1;
 	const panelOptions = useMemo<Array<SelectOption>>(
 		() =>
 			tabs.map((tab) => ({
@@ -165,15 +166,15 @@ export function RightPanelLauncher({
 		<ResponsivePanelLauncher
 			data-testid="right-panel-inline-launcher"
 			data-active-panel={activePanel ?? "closed"}
-			activePanel={activePanel}
+			activePanel={activeGroup?.id ?? null}
 			options={panelOptions}
 			panelOptions={tabs}
 			idPrefix={idPrefix}
 			selectedIndex={selectedIndex}
 			onSelect={(index) => {
-				const next = tabs.at(index)?.id;
+				const next = tabs.at(index);
 				if (!next) return;
-				onPanelChange(next === activePanel ? null : next);
+				onPanelChange(activeGroup?.id === next.id ? null : next.defaultPanel);
 			}}
 			compact={compact}
 		/>
@@ -185,7 +186,7 @@ type PanelLauncherTab = (typeof RIGHT_PANEL_LAUNCHER_DEFINITIONS)[number] & {
 };
 
 type ResponsivePanelLauncherProps = Omit<HTMLAttributes<HTMLDivElement>, "className" | "onSelect"> & {
-	activePanel: RightPanel;
+	activePanel: string | null;
 	className?: string;
 	compact?: boolean;
 	idPrefix: string;

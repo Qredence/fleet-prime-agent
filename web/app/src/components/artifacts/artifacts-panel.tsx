@@ -323,7 +323,10 @@ export function ArtifactsPanelContent({
 	const blocks = openUIBlocks;
 	const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
 	const latestStreaming = status === "streaming" ? blocks.at(-1)?.blockId : undefined;
-	const technicalArtifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns]);
+	const technicalArtifacts = useMemo(
+		() => artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind !== "recap"),
+		[artifactRuns],
+	);
 	const openUIArtifacts = useMemo(
 		() => technicalArtifacts.filter((artifact) => artifact.kind === "openui-html"),
 		[technicalArtifacts],

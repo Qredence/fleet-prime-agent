@@ -1,8 +1,4 @@
-import type {
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
-	ChatSessionMetadata,
-} from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -10,7 +6,6 @@ import type { ChatClient } from "@/components/chat/chat-client";
 import { Popover } from "@/components/chat/composer/input/input-popover";
 import { usePiChat } from "@/components/chat/use-pi-chat";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
-import { useOAuthLoginFlow } from "@/components/settings/providers/use-oauth-login-flow";
 import { useProximityHover } from "@/hooks/use-proximity-hover";
 
 describe("React Doctor lifecycle and accessibility regressions", () => {
@@ -50,66 +45,6 @@ describe("React Doctor lifecycle and accessibility regressions", () => {
 		expect(container.querySelector(".fixed.inset-0.z-40")).not.toBeNull();
 		fireEvent.click(getByRole("button", { name: "Open account menu" }));
 		expect(container.querySelector(".fixed.inset-0.z-40")).toBeNull();
-	});
-
-	it("uses the latest provider id after OAuth callback props change", async () => {
-		const requests: ChatProviderOAuthLoginRequest[] = [];
-		const onOAuthLogin = vi.fn(
-			async (request: ChatProviderOAuthLoginRequest): Promise<ChatProviderOAuthLoginResponse> => {
-				requests.push(request);
-				return { status: "success" };
-			},
-		);
-
-		const { result, rerender } = renderHook(
-			({ providerId }: { providerId: string }) => useOAuthLoginFlow({ providerId, onOAuthLogin }),
-			{ initialProps: { providerId: "provider-a" } },
-		);
-
-		rerender({ providerId: "provider-b" });
-		await act(async () => {
-			await result.current.start();
-		});
-
-		expect(requests).toEqual([{ providerId: "provider-b" }]);
-	});
-
-	it("keeps busy when a stale OAuth attempt resolves after a restart", async () => {
-		const pending: Array<(value: ChatProviderOAuthLoginResponse) => void> = [];
-		const onOAuthLogin = vi.fn((request: ChatProviderOAuthLoginRequest) => {
-			if (request.cancel) return Promise.resolve({ status: "success" } as ChatProviderOAuthLoginResponse);
-			return new Promise<ChatProviderOAuthLoginResponse>((resolve) => pending.push(resolve));
-		});
-
-		const { result } = renderHook(() => useOAuthLoginFlow({ providerId: "provider-a", onOAuthLogin }));
-
-		// Attempt A: leave the start request in flight.
-		await act(async () => {
-			void result.current.start();
-		});
-		expect(result.current.busy).toBe(true);
-
-		// Cancel, then immediately restart; attempt B also stays in flight.
-		await act(async () => {
-			await result.current.cancel();
-		});
-		await act(async () => {
-			void result.current.start();
-		});
-		expect(result.current.busy).toBe(true);
-
-		// Attempt A resolves late: its stale finally must not clear attempt B's busy.
-		await act(async () => {
-			pending[0]?.({ status: "waiting", loginId: "login-a" } as ChatProviderOAuthLoginResponse);
-			await Promise.resolve();
-		});
-		expect(result.current.busy).toBe(true);
-
-		await act(async () => {
-			pending[1]?.({ status: "success" });
-			await Promise.resolve();
-		});
-		expect(result.current.busy).toBe(false);
 	});
 
 	it("disconnects every registered ResizeObserver on unmount", () => {

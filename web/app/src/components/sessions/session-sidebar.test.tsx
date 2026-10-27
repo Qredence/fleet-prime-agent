@@ -367,7 +367,7 @@ describe("SessionSidebar fork dialog", () => {
 		window.localStorage.clear();
 	});
 
-	it("uses a design-system select and forks into another project", async () => {
+	it("explains that cross-project forks are unavailable without changing the session", async () => {
 		const onForkSessionIntoProject = vi.fn();
 		render(
 			<AnimatedSidebarProvider>
@@ -389,13 +389,9 @@ describe("SessionSidebar fork dialog", () => {
 		fireEvent.click(await screen.findByText("Fork into project"));
 
 		const dialog = await screen.findByRole("dialog", { name: "Fork session into project" });
-		// The fork target picker is the design-system Select, not a native element.
-		expect(dialog.querySelector("select")).toBeNull();
-		const targetPicker = within(dialog).getByRole("combobox", { name: "Target project" });
-		expect(targetPicker.textContent).toContain("beta — /workspace/beta");
-
-		fireEvent.click(within(dialog).getByRole("button", { name: "Fork session" }));
-		expect(onForkSessionIntoProject).toHaveBeenCalledWith("s1", "beta");
+		expect(within(dialog).getByText(/Forking into another project is unavailable/)).toBeTruthy();
+		fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+		expect(onForkSessionIntoProject).not.toHaveBeenCalled();
 		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Fork session into project" })).toBeNull());
 	});
 });

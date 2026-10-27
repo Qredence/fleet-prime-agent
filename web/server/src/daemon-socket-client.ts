@@ -20,6 +20,7 @@ import {
 	type DaemonRemoveMcpConnectionResult,
 	type DaemonResourceSnapshot,
 	type DaemonResponseFrame,
+	type DaemonServerCapability,
 	type DaemonSetMcpStaticTokenResult,
 	type DaemonUnknownFrame,
 	isDaemonAvailableModels,
@@ -35,8 +36,10 @@ import {
 } from "./daemon-protocol";
 
 export type DaemonFrameListener = (frame: DaemonOutboundFrame | DaemonUnknownFrame) => void;
+export type DaemonSocketCloseListener = (error: Error) => void;
 
 type PendingRequest = {
+	id: string;
 	command: string;
 	resolve: (response: DaemonResponseFrame) => void;
 	reject: (error: Error) => void;
@@ -63,6 +66,20 @@ export class DaemonCommandError extends Error {
 	}
 }
 
+/** The command was written, but Fleet did not receive its definitive response. */
+export class DaemonCommandOutcomeUnknownError extends Error {
+	readonly command: string;
+	readonly requestId: string;
+	readonly outcome = "unknown" as const;
+
+	constructor(command: string, requestId: string, options: ErrorOptions = {}) {
+		super(`The Prime Agent daemon may have applied "${command}", but its outcome is unknown`, options);
+		this.name = "DaemonCommandOutcomeUnknownError";
+		this.command = command;
+		this.requestId = requestId;
+	}
+}
+
 export class DaemonSocketClient {
 	readonly socketPath: string;
 	readonly clientId = `fleet-daemon-client:${randomUUID()}`;
@@ -71,9 +88,24 @@ export class DaemonSocketClient {
 	#hello: DaemonHelloFrame | undefined;
 	#helloWaiters = new Set<{ resolve: (hello: DaemonHelloFrame) => void; reject: (error: Error) => void }>();
 	#pending = new Map<string, PendingRequest>();
+	#unacknowledgedOutcomes = new Map<string, string>();
 	#listeners = new Set<DaemonFrameListener>();
+	#closeListeners = new Set<DaemonSocketCloseListener>();
 	#nextId = 0;
 	#closedError: Error | undefined;
+	#connectPromise: Promise<void> | undefined;
+	#connectReject: ((error: Error) => void) | undefined;
+	#connected = false;
+	#permanentlyClosed = false;
+
+	#rememberUnknownOutcome(id: string, command: string): void {
+		this.#unacknowledgedOutcomes.set(id, command);
+		while (this.#unacknowledgedOutcomes.size > 256) {
+			const oldest = this.#unacknowledgedOutcomes.keys().next().value;
+			if (oldest === undefined) break;
+			this.#unacknowledgedOutcomes.delete(oldest);
+		}
+	}
 
 	constructor(socketPath: string) {
 		this.socketPath = socketPath;
@@ -83,28 +115,99 @@ export class DaemonSocketClient {
 		return this.#hello;
 	}
 
+	get isConnected(): boolean {
+		return this.#connected && this.#socket !== undefined && !this.#socket.destroyed;
+	}
+
+	/** Whether the last daemon hello advertised this server capability. */
+	supportsServerCapability(capability: DaemonServerCapability): boolean {
+		return this.#hello?.serverCapabilities?.includes(capability) === true;
+	}
+
 	connect(timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS): Promise<void> {
-		if (this.#socket) return Promise.resolve();
-		return new Promise((resolve, reject) => {
+		if (this.#permanentlyClosed) return Promise.reject(new Error("The Prime Agent daemon client was closed"));
+		if (this.isConnected) return Promise.resolve();
+		if (this.#connectPromise) return this.#connectPromise;
+		if (this.#closedError) return Promise.reject(this.#closedError);
+		const attempt = new Promise<void>((resolve, reject) => {
 			const socket = createConnection(this.socketPath);
+			this.#socket = socket;
+			let settled = false;
+			const rejectConnect = (error: Error) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				if (this.#connectReject === rejectConnect) this.#connectReject = undefined;
+				reject(error);
+			};
 			const timer = setTimeout(() => {
+				const error = new Error(`Timed out connecting to the Prime Agent daemon at ${this.socketPath}`);
+				if (this.#socket === socket) {
+					this.#socket = undefined;
+					this.#fail(error);
+				}
 				socket.destroy();
-				reject(new Error(`Timed out connecting to the Prime Agent daemon at ${this.socketPath}`));
+				rejectConnect(error);
 			}, timeoutMs);
+			this.#connectReject = rejectConnect;
 			socket.setEncoding("utf8");
 			socket.once("connect", () => {
+				settled = true;
 				clearTimeout(timer);
+				if (this.#connectReject === rejectConnect) this.#connectReject = undefined;
+				if (this.#socket === socket) this.#connected = true;
 				resolve();
 			});
-			socket.on("data", (chunk: string) => this.#onData(chunk));
+			socket.on("data", (chunk: string) => {
+				if (this.#socket === socket) this.#onData(chunk);
+			});
 			socket.on("error", (error) => {
 				clearTimeout(timer);
-				this.#fail(error);
-				reject(error);
+				if (this.#socket === socket) {
+					this.#socket = undefined;
+					this.#connected = false;
+					this.#fail(error);
+				}
+				rejectConnect(error);
 			});
-			socket.on("close", () => this.#fail(new Error(`The Prime Agent daemon socket at ${this.socketPath} closed`)));
-			this.#socket = socket;
+			socket.on("close", () => {
+				if (this.#socket === socket) {
+					this.#socket = undefined;
+					this.#connected = false;
+					const error = new Error(`The Prime Agent daemon socket at ${this.socketPath} closed`);
+					this.#fail(error);
+					rejectConnect(error);
+				}
+			});
 		});
+		const trackedAttempt = attempt.finally(() => {
+			if (this.#connectPromise === trackedAttempt) this.#connectPromise = undefined;
+		});
+		this.#connectPromise = trackedAttempt;
+		return trackedAttempt;
+	}
+
+	/** Reopen a disconnected socket and wait for its new `daemon_hello`. */
+	async reconnect(timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS): Promise<void> {
+		if (this.#permanentlyClosed) throw new Error("The Prime Agent daemon client was closed");
+		if (this.isConnected) {
+			await this.waitForHello(timeoutMs);
+			return;
+		}
+		if (this.#connectPromise) {
+			await this.#connectPromise;
+			await this.waitForHello(timeoutMs);
+			return;
+		}
+		const previous = this.#socket;
+		this.#socket = undefined;
+		this.#connected = false;
+		this.#buffer = "";
+		this.#hello = undefined;
+		this.#closedError = undefined;
+		previous?.destroy();
+		await this.connect(timeoutMs);
+		await this.waitForHello(timeoutMs);
 	}
 
 	waitForHello(timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS): Promise<DaemonHelloFrame> {
@@ -137,6 +240,14 @@ export class DaemonSocketClient {
 		};
 	}
 
+	/** Observe socket closure or transport failure. Listener errors are isolated. */
+	onClose(listener: DaemonSocketCloseListener): () => void {
+		this.#closeListeners.add(listener);
+		return () => {
+			this.#closeListeners.delete(listener);
+		};
+	}
+
 	request<T = unknown>(
 		command: DaemonCommandBody,
 		timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
@@ -152,15 +263,28 @@ export class DaemonSocketClient {
 		return new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
 				this.#pending.delete(id);
-				reject(new Error(`The Prime Agent daemon did not answer "${command.type}" within ${timeoutMs}ms`));
+				if (READ_ONLY_DAEMON_COMMANDS.has(command.type)) {
+					reject(new Error(`The Prime Agent daemon did not answer "${command.type}" within ${timeoutMs}ms`));
+					return;
+				}
+				this.#rememberUnknownOutcome(id, command.type);
+				reject(new DaemonCommandOutcomeUnknownError(command.type, id));
 			}, timeoutMs);
 			this.#pending.set(id, {
+				id,
 				command: command.type,
 				resolve: resolve as (response: DaemonResponseFrame) => void,
 				reject,
 				timer,
 			});
-			socket.write(`${JSON.stringify(envelope)}\n`);
+			try {
+				socket.write(`${JSON.stringify(envelope)}\n`);
+			} catch (error) {
+				clearTimeout(timer);
+				this.#pending.delete(id);
+				this.#rememberUnknownOutcome(id, command.type);
+				reject(new DaemonCommandOutcomeUnknownError(command.type, id, { cause: error }));
+			}
 		});
 	}
 
@@ -242,8 +366,14 @@ export class DaemonSocketClient {
 	}
 
 	close(): void {
+		if (this.#permanentlyClosed) return;
+		this.#permanentlyClosed = true;
 		const socket = this.#socket;
-		this.#fail(new Error("The Prime Agent daemon client was closed"));
+		const error = new Error("The Prime Agent daemon client was closed");
+		this.#fail(error);
+		this.#connectReject?.(error);
+		this.#socket = undefined;
+		this.#connected = false;
 		socket?.end();
 		socket?.destroy();
 	}
@@ -276,6 +406,12 @@ export class DaemonSocketClient {
 				pending.resolve(frame);
 				return;
 			}
+			const unknownCommand = this.#unacknowledgedOutcomes.get(frame.id);
+			if (unknownCommand) {
+				this.#unacknowledgedOutcomes.delete(frame.id);
+				if (!READ_ONLY_DAEMON_COMMANDS.has(unknownCommand)) this.#acknowledge(frame.id);
+				return;
+			}
 		}
 		for (const listener of [...this.#listeners]) {
 			try {
@@ -303,8 +439,20 @@ export class DaemonSocketClient {
 		this.#helloWaiters.clear();
 		for (const pending of this.#pending.values()) {
 			clearTimeout(pending.timer);
-			pending.reject(error);
+			if (!READ_ONLY_DAEMON_COMMANDS.has(pending.command)) {
+				this.#rememberUnknownOutcome(pending.id, pending.command);
+				pending.reject(new DaemonCommandOutcomeUnknownError(pending.command, pending.id, { cause: error }));
+			} else {
+				pending.reject(error);
+			}
 		}
 		this.#pending.clear();
+		for (const listener of [...this.#closeListeners]) {
+			try {
+				listener(error);
+			} catch {
+				// A consumer failure must not interrupt transport cleanup.
+			}
+		}
 	}
 }

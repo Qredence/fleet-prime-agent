@@ -125,7 +125,7 @@ afterEach(() => {
 });
 
 describe("right-panel execution tabs", () => {
-	function renderPanelShell(matchesDesktop: boolean) {
+	function renderPanelShell(matchesDesktop: boolean, rightPanel: "resources" | "workspace" = "resources") {
 		vi.stubGlobal(
 			"matchMedia",
 			vi.fn((query: string) => ({
@@ -152,7 +152,7 @@ describe("right-panel execution tabs", () => {
 						resourcesError: null,
 						resourcesLoading: false,
 						reopenRightPanel: vi.fn(),
-						rightPanel: "resources",
+						rightPanel,
 						selectedArtifactId: null,
 						sessionId: "session-1",
 						setRightPanel: vi.fn(),
@@ -198,7 +198,7 @@ describe("right-panel execution tabs", () => {
 		expect(queryByTestId("pi-resources-canvas")).toBeNull();
 	});
 
-	it("exposes launcher panels in fit-mode tabs without REPL or a redundant Subagents tab", () => {
+	it("exposes the four top-level panel groups and opens their default views", () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(500, 400);
 		const { getByTestId, rerender } = render(
@@ -215,19 +215,21 @@ describe("right-panel execution tabs", () => {
 		layout(getByTestId("right-panel-inline-launcher"));
 
 		expect(getByTestId("right-panel-inline-launcher").getAttribute("data-panel-launcher-mode")).toBe("tabs");
-		expect(screen.getAllByRole("tab")).toHaveLength(5);
-		expect(screen.queryByRole("tab", { name: "REPL runs" })).toBeNull();
-		expect(screen.queryByRole("tab", { name: "Subagents" })).toBeNull();
-		expect(screen.getByRole("tab", { name: "Artifacts" }).textContent).toContain("3");
+		expect(screen.getAllByRole("tab")).toHaveLength(4);
+		expect(screen.getByRole("tab", { name: "REPL" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Subagents" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Workspace" }).textContent).toContain("3");
+		fireEvent.click(screen.getByRole("tab", { name: "Session" }));
+		expect(onPanelChange).toHaveBeenCalledWith("session-insights");
 
 		rerender(
 			<RightPanelLauncher activePanel="subagents" onPanelChange={onPanelChange} resources={null} workspace={null} />,
 		);
 		layout(getByTestId("right-panel-inline-launcher"));
-		expect(screen.queryByRole("tab", { name: "Subagents" })).toBeNull();
+		expect(screen.getByRole("tab", { name: "Subagents" })).toBeTruthy();
 	});
 
-	it("exposes launcher panels in overflow-mode dropdown without REPL or a redundant Subagents option", async () => {
+	it("exposes the four panel groups in the overflow-mode dropdown", async () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(120, 400);
 		const { getByRole, getByTestId, rerender } = render(
@@ -241,22 +243,32 @@ describe("right-panel execution tabs", () => {
 		const select = getByRole("combobox", { name: "Select panel" });
 		fireEvent.click(select);
 		const options = await screen.findAllByRole("option");
-		expect(options).toHaveLength(5);
+		expect(options).toHaveLength(4);
 		expect(options.map((option) => option.textContent?.trim())).toEqual([
-			"Resources",
 			"Workspace",
-			"Artifacts",
-			"Session insights",
-			"Session tree",
+			"Subagents",
+			"Session",
+			"REPL",
 		]);
-		expect(screen.queryByRole("option", { name: "REPL" })).toBeNull();
 
 		rerender(
 			<RightPanelLauncher activePanel="subagents" onPanelChange={onPanelChange} resources={null} workspace={null} />,
 		);
 		layout(getByTestId("right-panel-inline-launcher"));
 		fireEvent.click(getByRole("combobox", { name: "Select panel" }));
-		expect(screen.queryByRole("option", { name: "Subagents" })).toBeNull();
+		expect(screen.getByRole("option", { name: "Subagents" })).toBeTruthy();
+	});
+
+	it("keeps file and artifact views under Workspace and skills, insights, and tree under Session", () => {
+		const workspace = renderPanelShell(true, "workspace");
+		expect(screen.getByRole("tab", { name: "Files" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Artifacts" })).toBeTruthy();
+		workspace.unmount();
+
+		renderPanelShell(true, "resources");
+		expect(screen.getByRole("tab", { name: "Skills" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Insights" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Tree" })).toBeTruthy();
 	});
 
 	it("switches to a dropdown when a narrow canvas header cannot fit badged tab labels", async () => {
@@ -308,6 +320,15 @@ describe("right-panel execution tabs", () => {
 						timestamp: 2,
 					},
 					{
+						id: "recap-1",
+						runId: "run-1",
+						kind: "recap",
+						title: "Historical recap",
+						status: "success",
+						output: "A historical summary",
+						timestamp: 0,
+					},
+					{
 						id: "diff-1",
 						runId: "run-1",
 						kind: "diff",
@@ -340,6 +361,8 @@ describe("right-panel execution tabs", () => {
 		expect(screen.getByText("Generative UI")).toBeTruthy();
 		expect(screen.getByText("Card")).toBeTruthy();
 		expect(screen.getByText("Technical artifacts")).toBeTruthy();
+		expect(screen.queryByText("Historical recap")).toBeNull();
+		expect(screen.queryByText("A historical summary")).toBeNull();
 		expect(screen.queryByText("print('hello')")).toBeNull();
 		expect(screen.getByText("permission denied")).toBeTruthy();
 	});

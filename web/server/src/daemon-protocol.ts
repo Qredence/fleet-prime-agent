@@ -26,6 +26,33 @@ export const RUST_DAEMON_BUILD_ID_PREFIX = "pa-daemon-rs-";
 
 export type DaemonProtocolInfo = { name: string; version: number };
 
+/** Capabilities advertised by protocol-7 daemons supported by Fleet. */
+export type DaemonServerCapability =
+	| "attach_snapshot"
+	| "event_sequence"
+	| "extension_ui"
+	| "slim_attach"
+	| "chunked_snapshot"
+	| "client_owned_sessions"
+	| "heartbeat_catalog"
+	| "delete_rlm_subagent"
+	| "heartbeat_management"
+	| "model_catalog"
+	| "side_question_transcript"
+	| "transient_bash"
+	| "agent_roster"
+	| "session_input_admission"
+	| "prompt_admission_cancellation"
+	| "queue_message_mutation"
+	| "authoritative_child_roster"
+	| "owned_session_recovery_context"
+	| "rlm_quiescence_barrier"
+	| "session_input_pause"
+	| "owned_prompt_cancellation"
+	| "acp_mcp_servers"
+	| "direct_peer_transport"
+	| "abort_and_send_queued";
+
 export type DaemonRuntimeInfo = {
 	buildId?: string;
 	executablePath?: string;

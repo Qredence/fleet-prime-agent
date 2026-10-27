@@ -914,7 +914,7 @@ describe("event-mapper", () => {
 		expect(frames.at(-1)?.type).toBe("done");
 	});
 
-	it("keeps late IPython agent messages attached to the tool payload", () => {
+	it("ignores retired IPython agent-message events", () => {
 		const state = createEventMapperState({ sessionId: "session-1" });
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
 		const frames = mapAgentSessionEvent(state, {
@@ -928,10 +928,7 @@ describe("event-mapper", () => {
 			},
 		} as unknown as AgentSessionEvent);
 
-		const tool = frames.find((frame): frame is Extract<ChatStreamEvent, { type: "tool" }> => frame.type === "tool");
-		expect(tool?.part.result).toMatchObject({
-			details: { sentAgentMessages: [{ id: "sent-1", message: "child result" }] },
-		});
+		expect(frames).toEqual([]);
 	});
 
 	it("rewrites the 0.8.0 MCP OAuth binding error into re-login guidance", () => {
@@ -997,7 +994,7 @@ describe("event-mapper", () => {
 		const presentation = frames.filter(
 			(frame): frame is Extract<ChatStreamEvent, { type: "presentation" }> => frame.type === "presentation",
 		);
-		expect(presentation.map((frame) => frame.presentation.revision)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+		expect(presentation.map((frame) => frame.presentation.revision)).toEqual([1, 2, 3, 4, 5, 6]);
 		expect(state.presentation.sessionName).toBe("Renamed session");
 		expect(state.presentation.thinkingLevel).toBe("high");
 		expect(state.presentation.serviceTier).toBe("flex");
@@ -1149,6 +1146,23 @@ describe("event-mapper", () => {
 		expect(Buffer.byteLength(byteBoundOutput, "utf8")).toBeLessThanOrEqual(50 * 1024);
 	});
 
+	it("keeps the end of a large Unicode bash line without splitting characters", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, {
+			type: "bash_start",
+			command: "generate output",
+			excludeFromContext: true,
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "bash_output",
+			chunk: `${"🙂".repeat(20_000)}\n`,
+		} as unknown as AgentSessionEvent);
+		const output = state.presentation.userBash[0]?.output ?? "";
+		expect(output.endsWith("🙂\n")).toBe(true);
+		expect(output).not.toContain("�");
+		expect(Buffer.byteLength(output, "utf8")).toBeLessThanOrEqual(50 * 1024);
+	});
+
 	it("hydrates images and joins persisted tool results to their call", () => {
 		const assistant = mkAssistant({
 			content: [
@@ -1287,7 +1301,7 @@ describe("event-mapper", () => {
 			});
 		});
 
-		it("maps extension_error and closed errors to structured FleetErrorEnvelopes", () => {
+		it("ignores retired extension_error events", () => {
 			const state = createEventMapperState({ sessionId: "test-session" });
 			const extFrames = mapAgentConnectionEvent(state, {
 				type: "extension_error",
@@ -1296,15 +1310,7 @@ describe("event-mapper", () => {
 				error: "Module failed to load",
 			} as AgentConnectionEvent);
 
-			expect(extFrames).toHaveLength(1);
-			expect(extFrames[0]).toMatchObject({
-				type: "error",
-				code: "EXTENSION_ERROR",
-				error: {
-					code: "EXTENSION_ERROR",
-					message: "Extension error in /plugins/my-ext.js: Module failed to load",
-				},
-			});
+			expect(extFrames).toEqual([]);
 		});
 	});
 
@@ -1893,7 +1899,7 @@ describe("event-mapper", () => {
 			});
 		});
 
-		it("maps auth_stale event to error frame with re-auth remediation", () => {
+		it("ignores retired auth_stale events", () => {
 			const state = createEventMapperState({ sessionId: "session-auth" });
 
 			const frames = mapAgentSessionEvent(state, {
@@ -1901,20 +1907,10 @@ describe("event-mapper", () => {
 				provider: "anthropic",
 			} as unknown as AgentSessionEvent);
 
-			expect(frames).toHaveLength(2);
-			const errorFrame = frames[1] as Extract<ChatStreamEvent, { type: "error" }>;
-			expect(errorFrame.type).toBe("error");
-			expect(errorFrame.message).toBe("Authentication for anthropic is stale. Sign in again to continue.");
-			expect(errorFrame.error).toMatchObject({
-				code: "AUTH_CREDENTIAL_EXPIRED",
-				isTerminal: true,
-				remediation: {
-					action: "open_settings_tab",
-				},
-			});
+			expect(frames).toEqual([]);
 		});
 
-		it("maps goal_update and recap_update presentation changes", () => {
+		it("maps goal updates and ignores retired recap updates", () => {
 			const state = createEventMapperState({ sessionId: "session-goals" });
 
 			const goalFrames = mapAgentSessionEvent(state, {
@@ -1943,16 +1939,8 @@ describe("event-mapper", () => {
 				recap: "Completed database setup and schema migrations.",
 			} as unknown as AgentSessionEvent);
 
-			expect(recapFrames).toHaveLength(1);
-			const recapPres = recapFrames[0] as Extract<ChatStreamEvent, { type: "presentation" }>;
-			expect(recapPres.presentation.recap).toBe("Completed database setup and schema migrations.");
-			expect(recapPres.presentation.artifactRuns[0].artifacts[0]).toMatchObject({
-				kind: "recap",
-				status: "success",
-				output: {
-					text: "Completed database setup and schema migrations.",
-				},
-			});
+			expect(recapFrames).toEqual([]);
+			expect(state.presentation.recap).toBeUndefined();
 		});
 
 		it("attaches durationMs and structured error envelopes during tool streaming and hydration", () => {

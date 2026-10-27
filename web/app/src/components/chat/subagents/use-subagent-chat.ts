@@ -368,6 +368,18 @@ export function useSubagentChat({
 						try {
 							raw = JSON.parse(event.data) as unknown;
 						} catch {
+							terminalStream = true;
+							clearReconnectTimer();
+							source?.close();
+							source = null;
+							setState((current) => ({
+								...current,
+								status: "error",
+								loading: false,
+								error: new Error(
+									"The subagent stream received an invalid event. Reload the conversation to refresh it.",
+								),
+							}));
 							return;
 						}
 						if (isConnectedFrame(raw)) {
@@ -385,7 +397,17 @@ export function useSubagentChat({
 						let frame: ChatStreamEvent;
 						try {
 							frame = parseWithSchema(ChatStreamEventSchema, raw, "Subagent chat stream event");
-						} catch {
+						} catch (error) {
+							terminalStream = true;
+							clearReconnectTimer();
+							source?.close();
+							source = null;
+							setState((current) => ({
+								...current,
+								status: "error",
+								loading: false,
+								error: error instanceof Error ? error : new Error("Invalid subagent stream event"),
+							}));
 							return;
 						}
 

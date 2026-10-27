@@ -3,7 +3,8 @@ import { type PointerEvent as ReactPointerEvent, useSyncExternalStore } from "re
 import { ResizableCanvas } from "@/components/layout/resizable-canvas";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
 import { MobilePanel, RightPanelTabsFromContext } from "@/components/layout/right-panel-launcher";
-import { getRightPanelDefinition } from "@/components/layout/right-panel-registry";
+import { getRightPanelDefinition, getRightPanelGroup } from "@/components/layout/right-panel-registry";
+import { TabsSubtle, TabsSubtleItem } from "@/components/layout/tabs-subtle";
 import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
 
 const DESKTOP_PANEL_QUERY = `(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`;
@@ -52,11 +53,48 @@ export function RightPanelShell({
 }: RightPanelShellProps) {
 	const chat = useChatPanelDataContext();
 	const workspace = useWorkspaceTreeContext();
-	const { rightPanel } = chat;
+	const { rightPanel, setRightPanel } = chat;
 	const panelOpen = rightPanel !== null;
 	const isDesktop = useIsDesktopPanel();
 	const definition = rightPanel ? getRightPanelDefinition(rightPanel) : null;
 	const PanelContent = definition?.component;
+	const panelGroup = rightPanel ? getRightPanelGroup(rightPanel) : undefined;
+	const currentGroupPanelIndex = panelGroup && rightPanel ? panelGroup.panels.indexOf(rightPanel) : -1;
+	const content = (
+		<>
+			{panelGroup && panelGroup.panels.length > 1 ? (
+				<TabsSubtle
+					aria-label={`${panelGroup.title} views`}
+					className="mb-3 w-fit"
+					idPrefix={`right-panel-${panelGroup.id}-views`}
+					selectedIndex={currentGroupPanelIndex}
+					onSelect={(index) => {
+						const nextPanel = panelGroup.panels[index];
+						if (nextPanel) setRightPanel(nextPanel);
+					}}
+				>
+					{panelGroup.panels.map((panel, index) => (
+						<TabsSubtleItem
+							key={panel}
+							index={index}
+							label={
+								panel === "workspace"
+									? "Files"
+									: panel === "session-insights"
+										? "Insights"
+										: panel === "session-tree"
+											? "Tree"
+											: panel === "resources"
+												? "Skills"
+												: "Artifacts"
+							}
+						/>
+					))}
+				</TabsSubtle>
+			) : null}
+			{PanelContent ? <PanelContent /> : null}
+		</>
+	);
 	const loading =
 		definition?.loadingSource === "resources"
 			? chat.resourcesLoading
@@ -85,7 +123,7 @@ export function RightPanelShell({
 					titleIcon={definition?.icon ?? Library}
 					width={resourceCanvasWidth}
 				>
-					{PanelContent ? <PanelContent /> : null}
+					{content}
 				</ResizableCanvas>
 			) : (
 				<MobilePanel
@@ -95,7 +133,7 @@ export function RightPanelShell({
 					open={panelOpen}
 					title={definition?.title ?? ""}
 				>
-					{PanelContent ? <PanelContent /> : null}
+					{content}
 				</MobilePanel>
 			)}
 		</>

@@ -1,11 +1,4 @@
-import {
-	BUILTIN_MCP_CATALOG,
-	createMcpOAuthProvider,
-	getCatalogEntry,
-	registerBuiltinMcpOAuthProviders,
-} from "@earendil-works/pi-ai/mcp";
-import type { OAuthLoginCallbacks } from "@earendil-works/pi-ai/oauth";
-import { getOAuthProvider, registerOAuthProvider } from "@earendil-works/pi-ai/oauth";
+import { BUILTIN_MCP_CATALOG, getCatalogEntry } from "@earendil-works/pi-ai/mcp";
 import {
 	ChatMcpDeleteRequestSchema,
 	ChatMcpOAuthLoginRequestSchema,
@@ -24,13 +17,6 @@ import {
 import { getPrimeConfig } from "../prime-config";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
-import {
-	cancelOAuthLogin,
-	continueOAuthLogin,
-	type OAuthLoginDeps,
-	pollOAuthLogin,
-	startOAuthLogin,
-} from "./chat-providers-oauth";
 
 export type McpHandlerDeps = {
 	getUserServers: () => Record<string, FleetMcpServerConfig> | undefined;
@@ -40,7 +26,6 @@ export type McpHandlerDeps = {
 	auth: {
 		get: (provider: string) => { type?: string; endpoint?: unknown } | undefined;
 		removeVerified: (provider: string) => void;
-		login: (providerId: string, callbacks: OAuthLoginCallbacks) => Promise<void>;
 	};
 	workspaceRoot: string;
 	env: NodeJS.Dict<string>;
@@ -80,57 +65,6 @@ function listedConnections(deps: McpHandlerDeps): Array<McpConnectionInfo> {
 
 function listResponse(deps: McpHandlerDeps): ChatMcpListResponse {
 	return { connections: listedConnections(deps) };
-}
-
-function toMcpOAuthResponse(
-	snapshot: {
-		status: ChatMcpOAuthLoginResponse["status"];
-		loginId?: string;
-		authUrl?: string;
-		userCode?: string;
-		instructions?: string;
-		prompt?: ChatMcpOAuthLoginResponse["prompt"];
-		error?: string;
-	},
-	connections?: Array<McpConnectionInfo>,
-): ChatMcpOAuthLoginResponse {
-	return {
-		status: snapshot.status,
-		...(snapshot.loginId ? { loginId: snapshot.loginId } : {}),
-		...(snapshot.authUrl ? { authUrl: snapshot.authUrl } : {}),
-		...(snapshot.userCode ? { userCode: snapshot.userCode } : {}),
-		...(snapshot.instructions ? { instructions: snapshot.instructions } : {}),
-		...(snapshot.prompt ? { prompt: snapshot.prompt } : {}),
-		...(snapshot.error ? { error: snapshot.error } : {}),
-		...(connections ? { connections } : {}),
-	};
-}
-
-function ensureMcpOAuthProvider(name: string, deps: McpHandlerDeps): void {
-	registerBuiltinMcpOAuthProviders();
-	if (getCatalogEntry(name)) return;
-	const config = deps.getUserServers()?.[name];
-	if (!config || config.type !== "http" || config.oauth !== true) {
-		throw new McpRequestError("This MCP server does not use OAuth.");
-	}
-	registerOAuthProvider(
-		createMcpOAuthProvider({
-			server: name,
-			label: name,
-			url: config.url,
-		}),
-	);
-}
-
-function oauthDeps(deps: McpHandlerDeps): OAuthLoginDeps {
-	return {
-		login: (providerId, callbacks) => deps.auth.login(providerId, callbacks),
-		reloadAuth: () => {
-			deps.reloadAuth();
-			void deps.reloadResources();
-		},
-		listProviders: () => [],
-	};
 }
 
 async function logoutMcp(name: string, deps: McpHandlerDeps): Promise<ChatMcpOAuthLoginResponse> {
@@ -222,56 +156,19 @@ export function handleChatMcpOAuthPost(request: Request, deps: McpHandlerDeps = 
 	return wrapApiHandler(async () => {
 		const body = ChatMcpOAuthLoginRequestSchema.parse(await request.json().catch(() => ({})));
 		const known = [...BUILTIN_MCP_CATALOG.map((entry) => entry.server), ...Object.keys(deps.getUserServers() ?? {})];
-		if (!known.includes(body.name) && !body.loginId) {
+		if (!known.includes(body.name)) {
 			throw new McpRequestError(`Unknown MCP server: ${body.name}`);
 		}
 
-		if (body.cancel) {
-			if (!body.loginId) {
-				return Response.json(
-					{ status: "error", error: "loginId is required to cancel" } satisfies ChatMcpOAuthLoginResponse,
-					{ status: 400 },
-				);
-			}
-			return Response.json(toMcpOAuthResponse(cancelOAuthLogin(body.loginId)));
-		}
-		if (body.loginId && body.promptAnswer !== undefined) {
-			return Response.json(toMcpOAuthResponse(continueOAuthLogin(body.loginId, body.promptAnswer)));
-		}
-		if (body.loginId) {
-			const snapshot = pollOAuthLogin(body.loginId);
-			return Response.json(
-				toMcpOAuthResponse(snapshot, snapshot.status === "success" ? listedConnections(deps) : undefined),
-			);
-		}
-
 		const action = body.action ?? "login";
-		switch (action) {
-			case "logout":
-				return Response.json(await logoutMcp(body.name, deps));
-			case "reconnect":
-				await logoutMcp(body.name, deps);
-				break;
-			case "login":
-				break;
-			default: {
-				const unexpected: never = action;
-				throw new McpRequestError(`Unsupported MCP OAuth action: ${String(unexpected)}`);
-			}
-		}
+		if (action === "logout") return Response.json(await logoutMcp(body.name, deps));
 
-		ensureMcpOAuthProvider(body.name, deps);
-		const providerId = mcpProviderId(body.name);
-		if (!getOAuthProvider(providerId)) {
-			return Response.json(
-				{
-					status: "error",
-					error: `Unknown OAuth provider: ${providerId}`,
-				} satisfies ChatMcpOAuthLoginResponse,
-				{ status: 400 },
-			);
-		}
-
-		return Response.json(toMcpOAuthResponse(startOAuthLogin(providerId, oauthDeps(deps))));
+		return Response.json(
+			{
+				status: "error",
+				error: "MCP OAuth sign-in is unavailable in Fleet settings. Launch Prime Agent in a terminal using the same configuration directory as Fleet and complete MCP sign-in there. Restart Fleet afterward to reload the credentials.",
+			} satisfies ChatMcpOAuthLoginResponse,
+			{ status: 501 },
+		);
 	}, request);
 }

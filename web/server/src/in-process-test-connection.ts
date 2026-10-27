@@ -1,10 +1,12 @@
 /**
- * Explicit test adapter for PrimeBridge.
+ * Legacy SDK-bound integration adapter for PrimeBridge tests.
  *
- * Production sessions are daemon-backed. Keeping this adapter separate lets
- * bridge unit tests exercise the same AgentConnection contract without
- * starting a user daemon or making provider calls.
+ * Keep this for tests that deliberately exercise installed Prime Agent SDK
+ * session behavior. Bridge contract tests should use the deterministic
+ * test-only AgentConnection fixture instead.
  */
+
+import { join } from "node:path";
 import type { AgentSession, CreateAgentSessionRuntimeFactory } from "prime-agent";
 import {
 	createAgentSessionFromServices,
@@ -13,13 +15,15 @@ import {
 	InProcessAgentConnection,
 	SessionManager,
 } from "prime-agent";
+import { resolveAgentDir } from "./agent-dir";
 import type { WebAgentConnection, WebAgentConnectionOptions } from "./daemon-runtime";
-import { createLegacyAuthStorage, legacyAgentDir } from "./legacy/prime-agent-sdk";
+import { createLegacyAuthStorage } from "./legacy/prime-agent-sdk";
 
 export async function createInProcessTestAgentConnection(
 	options: WebAgentConnectionOptions,
 ): Promise<WebAgentConnection & { session: AgentSession }> {
-	const authStorage = createLegacyAuthStorage();
+	const agentDir = resolveAgentDir();
+	const authStorage = createLegacyAuthStorage(join(agentDir, "auth.json"));
 	const createRuntime: CreateAgentSessionRuntimeFactory = async ({ cwd, sessionManager, sessionStartEvent }) => {
 		const services = await createAgentSessionServices({
 			cwd,
@@ -51,7 +55,7 @@ export async function createInProcessTestAgentConnection(
 		: SessionManager.create(options.cwd);
 	const runtime = await createAgentSessionRuntime(createRuntime, {
 		cwd: options.cwd,
-		agentDir: legacyAgentDir(),
+		agentDir,
 		sessionManager,
 	});
 	const connection = new InProcessAgentConnection(runtime);

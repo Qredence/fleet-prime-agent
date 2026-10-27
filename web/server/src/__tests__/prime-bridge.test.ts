@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
@@ -13,6 +13,7 @@ import { loadManagedPrimePresentation, writeManagedPrimePresentation } from "../
 import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
 import { getPrimeConfig, resetPrimeConfigForTests } from "../prime-config";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
+import { createDeterministicTestAgentConnection } from "./support/deterministic-test-connection";
 
 const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
 const SESSION_DIR_ENVS = ["PRIME_AGENT_SESSION_DIR", "PRIME_AGENT_CODING_AGENT_SESSION_DIR"];
@@ -130,7 +131,10 @@ describe("PrimeBridge session-tree navigation", () => {
 	});
 
 	async function createLiveSession() {
-		bridge = createTestBridge();
+		bridge = createTrackedBridge({
+			connectionFactory: async (options) => createDeterministicTestAgentConnection(options),
+			sessionLister: async () => [],
+		});
 		const session = await bridge.createSession({ cwd: workDir });
 		return { bridge, session };
 	}
@@ -555,34 +559,125 @@ describe("PrimeBridge.forkSession", () => {
 		expect(loaded?.artifactRuns[0]?.artifacts[0]?.id).toBe("openui-artifact-1");
 	});
 
-	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {
+	it("reports unavailable daemon forking without changing the source session", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
-		appendTurn(bridge, created.sessionId, "first question", "first answer");
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
+		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
+		const sourceSessionPath = created.session.sessionManager.getSessionFile();
+		const sourceBytes = readFileSync(sourceSessionPath!, "utf8");
 
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
-
-		expect(result.cancelled).toBe(false);
-		expect(result.selectedText).toBe("second question");
-		expect(result.newSessionId).not.toBe(created.sessionId);
-		// The fork carries everything up to (but excluding) the forked user message.
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		const messages = conversationMessages(forked.session.sessionManager.buildSessionContext().messages);
-		expect(messages.map((m) => (m as { role: string }).role)).toEqual(["user", "assistant"]);
-		expect((messages[0] as { content: string }).content).toBe("first question");
+		await expect(bridge.forkSession(created.sessionId, userEntryId, "before")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
+		);
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
+		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
+		expect(readFileSync(sourceSessionPath!, "utf8")).toBe(sourceBytes);
 	});
 
-	it("rebuilds presentation from the selected branch instead of copying later source activity", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		appendTurn(bridge, created.sessionId, "first question", "first answer");
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
-		const source = requireLiveSession(bridge, created.sessionId);
-		const timestamp = Date.now();
+	it("registers the daemon returned transcript branch and preserves history before the selected user turn", async () => {
+		const sourceMessages: Array<UserMessage | AssistantMessage> = [
+			{ role: "user", content: "first question", timestamp: 1 },
+			{
+				role: "assistant",
+				content: [{ type: "text", text: "first answer" }],
+				api: "responses",
+				provider: "openai",
+				model: "gpt-5",
+				usage: {
+					input: 0,
+					output: 0,
+					cacheRead: 0,
+					cacheWrite: 0,
+					totalTokens: 0,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+				},
+				stopReason: "stop",
+				timestamp: 2,
+			},
+			{ role: "user", content: "second question", timestamp: 3 },
+		];
+		const tree = [
+			{
+				entry: {
+					type: "message",
+					id: "u1",
+					parentId: null,
+					timestamp: "1970-01-01T00:00:00.001Z",
+					message: sourceMessages[0],
+				},
+				children: [
+					{
+						entry: {
+							type: "message",
+							id: "a1",
+							parentId: "u1",
+							timestamp: "1970-01-01T00:00:00.002Z",
+							message: sourceMessages[1],
+						},
+						children: [
+							{
+								entry: {
+									type: "message",
+									id: "u2",
+									parentId: "a1",
+									timestamp: "1970-01-01T00:00:00.003Z",
+									message: sourceMessages[2],
+								},
+								children: [],
+							},
+						],
+					},
+				],
+			},
+		] as unknown as Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"];
+		const forkCalls: Array<{ entryId: string; position: "before" | "at" }> = [];
+		const carriedSettings: string[] = [];
+		const forkMessages = new Map<string, Array<UserMessage | AssistantMessage>>();
+		let forkOrdinal = 0;
+		const bridge = createTrackedBridge({
+			sessionLister: async () => [],
+			connectionFactory: async (options) =>
+				createDeterministicTestAgentConnection(options, {
+					sessionId: options.sessionPath ? "daemon-branch" : "daemon-source",
+					messages: options.sessionPath ? (forkMessages.get(options.sessionPath) ?? []) : sourceMessages,
+					sessionTree: options.sessionPath ? { tree: [], leafId: "a1" } : { tree, leafId: "u2" },
+					state: options.sessionPath
+						? {}
+						: {
+								model: {
+									id: "gpt-5",
+									name: "GPT-5",
+									api: "responses",
+									provider: "openai",
+									input: ["text"],
+									cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+									contextWindow: 128000,
+									maxTokens: 16384,
+								} as NonNullable<Awaited<ReturnType<AgentConnection["getState"]>>["model"]>,
+								thinkingLevel: "high",
+								serviceTier: "flex",
+							},
+					onSetModel: (provider, modelId) => carriedSettings.push(`model:${provider}/${modelId}`),
+					onSetThinkingLevel: (level) => carriedSettings.push(`thinking:${level}`),
+					onSetServiceTier: (tier) => carriedSettings.push(`tier:${tier}`),
+					forkToNewSession: async (entryId, position) => {
+						forkCalls.push({ entryId, position });
+						const forkPath = join(workDir, ".fleet-test", `daemon-branch-${++forkOrdinal}.jsonl`);
+						forkMessages.set(
+							forkPath,
+							sourceMessages.slice(0, entryId === "u2" && position === "before" ? 2 : 3),
+						);
+						return {
+							cancelled: false,
+							selectedText: position === "before" ? "second question" : undefined,
+							sessionPath: forkPath,
+						};
+					},
+				}),
+		});
+		const source = await bridge.createSession({ cwd: workDir });
 		source.mapperState.presentation = {
 			...source.mapperState.presentation,
-			revision: source.mapperState.presentation.revision + 1,
 			userBash: [
 				{
 					id: "source-bash",
@@ -590,102 +685,44 @@ describe("PrimeBridge.forkSession", () => {
 					command: "git status",
 					output: "clean\n",
 					status: "success",
-					exitCode: 0,
 					cancelled: false,
 					truncated: false,
 					excludeFromContext: false,
-					startedAt: timestamp,
-					endedAt: timestamp,
-				},
-			],
-			artifactRuns: [
-				{
-					id: "source-artifact-run",
-					runId: "source-bash-run",
-					startedAt: timestamp,
-					endedAt: timestamp,
-					artifacts: [
-						{
-							id: "source-artifact",
-							runId: "source-bash-run",
-							sourceToolCallId: "source-bash-run",
-							kind: "bash",
-							title: "git status",
-							status: "success",
-							input: { command: "git status" },
-							output: { stdout: "clean\n" },
-							timestamp,
-						},
-					],
+					startedAt: 1,
 				},
 			],
 		};
 
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
-		const forkedPresentation = bridge.getPresentation(result.newSessionId);
+		const result = await bridge.forkSession(source.sessionId, "u2", "before");
 
-		expect(forkedPresentation.userBash).toEqual([]);
-		expect(forkedPresentation.artifactRuns).toEqual([]);
-		expect(bridge.getPresentation(created.sessionId).userBash).toHaveLength(1);
-	});
-
-	it("position 'at' on an arbitrary entry forks at that entry id directly", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const { userEntryId, assistantEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
-
-		const result = await bridge.forkSession(created.sessionId, assistantEntryId, "at");
-
-		expect(result.cancelled).toBe(false);
-		expect(result.selectedText).toBeUndefined();
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		// The forked branch walks root→leaf through the fork target. AgentSession
-		// init may append bookkeeping entries (model_change…) after it, so assert
-		// the target is on the branch rather than the terminal leaf.
-		expect(forked.session.sessionManager.getEntry(assistantEntryId)).toBeDefined();
-		const branchIds = forked.session.sessionManager.getBranch().map((e) => e.id);
-		expect(branchIds).toContain(userEntryId);
-		expect(branchIds).toContain(assistantEntryId);
-		expect(branchIds.indexOf(userEntryId)).toBeLessThan(branchIds.indexOf(assistantEntryId));
-		const messages = conversationMessages(forked.session.sessionManager.buildSessionContext().messages);
-		expect(messages).toHaveLength(2);
-	});
-
-	it("position 'at' on a user message includes that message (clone semantics)", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
-
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
-
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		expect(forked.session.sessionManager.getEntry(userEntryId)).toBeDefined();
-		const context = forked.session.sessionManager.buildSessionContext().messages;
-		const messages = conversationMessages(context);
-		expect(messages).toHaveLength(1);
-		// The fork is a cold context boundary: upstream re-delivers a hidden harness digest.
-		expect(context).toContainEqual(
-			expect.objectContaining({ role: "custom", customType: "harness_digest", display: false }),
+		expect(forkCalls).toEqual([{ entryId: "u2", position: "before" }]);
+		expect(result.selectedText).toBe("second question");
+		expect(bridge.getSession(result.newSessionId)?.sessionPath).toBe(
+			join(workDir, ".fleet-test", "daemon-branch-1.jsonl"),
 		);
+		await expect(bridge.getMessages(result.newSessionId)).resolves.toMatchObject([
+			{ role: "user", parts: [{ type: "text", text: "first question" }] },
+			{ role: "assistant", parts: [{ type: "text", text: "first answer" }] },
+		]);
+		expect(carriedSettings).toEqual(["model:openai/gpt-5", "thinking:high", "tier:flex"]);
+		expect(bridge.getPresentation(result.newSessionId).userBash).toEqual([]);
+		expect(bridge.getPresentation(source.sessionId).userBash).toHaveLength(1);
+		expect(bridge.getSession(source.sessionId)).toBeDefined();
+
+		const atResult = await bridge.forkSession(source.sessionId, "u2", "at");
+		expect(forkCalls).toEqual([
+			{ entryId: "u2", position: "before" },
+			{ entryId: "u2", position: "at" },
+		]);
+		expect(atResult.selectedText).toBeUndefined();
+		await expect(bridge.getMessages(atResult.newSessionId)).resolves.toMatchObject([
+			{ role: "user", parts: [{ type: "text", text: "first question" }] },
+			{ role: "assistant", parts: [{ type: "text", text: "first answer" }] },
+			{ role: "user", parts: [{ type: "text", text: "second question" }] },
+		]);
 	});
 
-	it("position 'before' on the first user message creates a fresh empty session parented on the source", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "first question", "first answer");
-
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
-
-		expect(result.cancelled).toBe(false);
-		expect(result.selectedText).toBe("first question");
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		expect(forked.session.sessionManager.buildSessionContext().messages).toHaveLength(0);
-		expect(forked.session.sessionManager.getHeader()?.parentSession).toBe(
-			created.session.sessionManager.getSessionFile(),
-		);
-	});
-
-	it("forks daemon-backed sessions through forkToNewSession instead of a side SessionManager", async () => {
+	it("legacy integration: delegates daemon forks and preserves the returned branch history", async () => {
 		const forkCalls: Array<{ entryId: string; position: string }> = [];
 		const bridge = createTrackedBridge({
 			sessionLister: async () => [],
@@ -729,15 +766,18 @@ describe("PrimeBridge.forkSession", () => {
 		const sourceFile = created.session.sessionManager.getSessionFile();
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
 		const sourceLeafBefore = created.session.sessionManager.getLeafId();
+		const sourceBytes = readFileSync(sourceFile!, "utf8");
 
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
+		await expect(bridge.forkSession(created.sessionId, userEntryId, "at")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
+		);
 
-		// Source is neither re-idded nor evicted (bridge semantics, not TUI replace-in-slot).
+		// Unsupported operations leave the source session live and unchanged.
 		expect(bridge.getSession(created.sessionId)).toBeDefined();
 		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
 		expect(created.session.sessionManager.getSessionFile()).toBe(sourceFile);
 		expect(created.session.sessionManager.getLeafId()).toBe(sourceLeafBefore);
-		expect(bridge.getSession(result.newSessionId)).toBeDefined();
+		expect(readFileSync(sourceFile!, "utf8")).toBe(sourceBytes);
 	});
 
 	it("forwards thinkingLevel and model from the source session to the fork", async () => {
@@ -747,14 +787,10 @@ describe("PrimeBridge.forkSession", () => {
 		created.session.setThinkingLevel("high");
 		const sourceThinking = created.session.thinkingLevel; // clamped to model capabilities
 
-		const result = await bridge.forkSession(created.sessionId, assistantEntryId, "at");
-
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		expect(forked.session.thinkingLevel).toBe(sourceThinking);
-		// Whatever model the source resolved (undefined when the runner has no
-		// provider auth) is carried over to the fork.
-		expect(forked.session.model?.id).toBe(created.session.model?.id);
-		expect(forked.session.serviceTier).toBe(created.session.serviceTier);
+		await expect(bridge.forkSession(created.sessionId, assistantEntryId, "at")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
+		);
+		expect(created.session.thinkingLevel).toBe(sourceThinking);
 	});
 
 	it("flushNow persists the forked session file so it is discoverable cold", async () => {
@@ -762,12 +798,10 @@ describe("PrimeBridge.forkSession", () => {
 		const created = await createTestSession(bridge);
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
 
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
-
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		const forkedFile = forked.session.sessionManager.getSessionFile();
-		expect(typeof forkedFile).toBe("string");
-		expect(existsSync(forkedFile!)).toBe(true);
+		await expect(bridge.forkSession(created.sessionId, userEntryId, "at")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
+		);
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
 	});
 
 	it("resumes a session from the configured store but rejects an unconfigured store", async () => {
@@ -794,23 +828,20 @@ describe("PrimeBridge.forkSession", () => {
 		}
 	});
 
-	it("forks a resumed session into the target project's working directory", async () => {
+	it("rejects cross-project forks without changing the source transcript", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		appendTurn(bridge, created.sessionId, "source question", "source answer");
+		const sourcePath = created.session.sessionManager.getSessionFile();
+		const sourceBytes = readFileSync(sourcePath!, "utf8");
 		const targetCwd = join(workDir, "target-project");
 		mkdirSync(targetCwd);
 		const targetProject = await getPrimeConfig().projectRegistry.register(targetCwd, "Target project");
-		const canonicalTargetCwd = realpathSync(targetCwd);
-
-		const forkedId = await bridge.forkSessionIntoProject(created.sessionId, targetProject.projectId);
-		const forked = requireLiveSession(bridge, forkedId);
-
-		expect(forked.projectId).toBe(targetProject.projectId);
-		expect(forked.cwd).toBe(canonicalTargetCwd);
-		expect(forked.session.sessionManager.getCwd()).toBe(canonicalTargetCwd);
-		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
-		expect(created.projectId).not.toBe(targetProject.projectId);
+		await expect(bridge.forkSessionIntoProject(created.sessionId, targetProject.projectId)).rejects.toThrow(
+			"Forking into another project is unavailable with Prime Agent 0.10.1",
+		);
+		expect(readFileSync(sourcePath!, "utf8")).toBe(sourceBytes);
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
 	});
 
 	it("rejects an unknown entry id", async () => {
@@ -1437,7 +1468,7 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		});
 	});
 
-	it("loads a child through the persisted source lineage of a forked root", async () => {
+	it("does not create a forked root through an unavailable in-process adapter", async () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
@@ -1450,55 +1481,11 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 			timestamp: Date.now(),
 		});
 		sourceSessionManager.flushNow();
-		const fork = await bridge.forkSession(source.sessionId, userEntryId, "at");
-		const forked = bridge.getSession(fork.newSessionId);
-		if (!forked) throw new Error("forked session was not registered");
-		const sourcePath = source.sessionPath;
-
-		const childManager = SessionManager.create(workDir, join(workDir, "rlm-fork-child-store"));
-		const childPath = childManager.materializeSessionFile();
-		childManager.appendMessage({
-			role: "user",
-			content: "Inspect the forked child transcript",
-			timestamp: Date.now(),
-		});
-		childManager.flushNow();
-
-		forked.mapperState.presentation = {
-			...forked.mapperState.presentation,
-			rlmChildren: [
-				{
-					id: "child-1",
-					label: "Research worker",
-					status: "done",
-					timestamp: Date.now(),
-				},
-			],
-		};
-		listedSessions.push(
-			{
-				id: forked.sessionId,
-				sessionId: forked.sessionId,
-				activeSessionId: "fork-active-session",
-				cwd: workDir,
-				sessionFile: forked.sessionPath,
-			},
-			{
-				id: childManager.getSessionId(),
-				sessionId: childManager.getSessionId(),
-				cwd: workDir,
-				sessionFile: childPath,
-				parentSessionPath: sourcePath,
-				rlmChildId: "child-1",
-			},
+		await expect(bridge.forkSession(source.sessionId, userEntryId, "at")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
 		);
-
-		const result = await bridge.loadRlmChildTranscript(forked.sessionId, "child-1");
-
-		expect(result).toMatchObject({
-			sessionId: childManager.getSessionId(),
-			messages: [{ role: "user", parts: [{ type: "text", text: "Inspect the forked child transcript" }] }],
-		});
+		expect(bridge.getSession(source.sessionId)).toBeDefined();
+		expect(listedSessions).toEqual([]);
 	});
 
 	it("loads an authorized nested child through its immediate parent lineage", async () => {

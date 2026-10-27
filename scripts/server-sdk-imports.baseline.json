@@ -29,27 +29,17 @@
 			"@earendil-works/pi-ai#AssistantMessage",
 			"@earendil-works/pi-ai#AssistantMessageEvent",
 			"prime-agent#AgentConnectionEvent",
-			"prime-agent#AgentSessionEvent",
-			"prime-agent#truncateTail"
+			"prime-agent#AgentSessionEvent"
 		],
 		"web/server/src/handlers/chat-mcp.ts": [
 			"@earendil-works/pi-ai/mcp#BUILTIN_MCP_CATALOG",
-			"@earendil-works/pi-ai/mcp#createMcpOAuthProvider",
-			"@earendil-works/pi-ai/mcp#getCatalogEntry",
-			"@earendil-works/pi-ai/mcp#registerBuiltinMcpOAuthProviders",
-			"@earendil-works/pi-ai/oauth#OAuthLoginCallbacks",
-			"@earendil-works/pi-ai/oauth#getOAuthProvider",
-			"@earendil-works/pi-ai/oauth#registerOAuthProvider"
+			"@earendil-works/pi-ai/mcp#getCatalogEntry"
 		],
 		"web/server/src/handlers/chat-models.ts": [
 			"@earendil-works/pi-ai#getSupportedThinkingLevels"
 		],
 		"web/server/src/handlers/chat-new.ts": [
 			"@earendil-works/pi-agent-core#ThinkingLevel"
-		],
-		"web/server/src/handlers/chat-providers-oauth.ts": [
-			"@earendil-works/pi-ai/oauth#OAuthLoginCallbacks",
-			"@earendil-works/pi-ai/oauth#getOAuthProvider"
 		],
 		"web/server/src/handlers/chat-providers.ts": [
 			"@earendil-works/pi-ai#getProviders",
@@ -79,8 +69,7 @@
 			"prime-agent#AgentConnectionEvent",
 			"prime-agent#AgentConnectionExtensionUiRequest",
 			"prime-agent#AgentSession",
-			"prime-agent#ExtensionUIContext",
-			"prime-agent#SessionManager"
+			"prime-agent#ExtensionUIContext"
 		],
 		"web/server/src/transcript-hydrator.ts": [
 			"@earendil-works/pi-agent-core#AgentMessage",
