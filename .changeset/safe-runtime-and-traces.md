@@ -2,4 +2,4 @@
 "@qredence/fleet": patch
 ---
 
-Redact complete quoted credentials in activity traces, handle string assistant content, and verify cached runtime files through a single open handle.
+Redact credentials in activity traces, preserve assistant child reports, improve tool and artifact activity, and handle runtime startup and downloads safely.

@@ -67,18 +67,18 @@ export function SessionActivityPanel({
 							const toolCallIds = new Set(
 								turn.assistants.flatMap((message) =>
 									message.parts.flatMap((part) =>
-										part.type.startsWith("tool-") && "toolCallId" in part && part.toolCallId
+										part.type.startsWith("tool-") && "toolCallId" in part && typeof part.toolCallId === "string"
 											? [part.toolCallId]
-											: [],
+										: [],
 									),
 								),
 							);
 							const turnArtifacts = artifacts.filter((artifact) => {
-								if (
-									!(artifact.sourceMessageId && assistantIds.has(artifact.sourceMessageId)) &&
-									!(artifact.sourceToolCallId && toolCallIds.has(artifact.sourceToolCallId))
-								)
-									return false;
+								const matchesMessage =
+									artifact.sourceMessageId !== undefined && assistantIds.has(artifact.sourceMessageId);
+								const matchesTool =
+									artifact.sourceToolCallId !== undefined && toolCallIds.has(artifact.sourceToolCallId);
+								if (!matchesMessage && !matchesTool) return false;
 								assignedArtifacts.add(artifact.id);
 								return true;
 							});

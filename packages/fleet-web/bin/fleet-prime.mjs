@@ -56,12 +56,11 @@ if (process.argv[2] === "agent") {
 		console.error(
 			error.code === "ENOENT"
 				? `Prime Agent binary not found: ${nativeBinary}`
-				: `Could not start Prime Agent: ${error.code || error.message}`,
+				: `Could not start Prime Agent binary ${nativeBinary}: ${error.code ?? error.message}`,
 		);
 		process.exitCode = 1;
 	});
-	process.once("SIGINT", () => child.kill("SIGINT"));
-	process.once("SIGTERM", () => child.kill("SIGTERM"));
+	for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => child.kill(signal));
 	child.on("exit", (code, signal) => {
 		if (signal) process.kill(process.pid, signal);
 		else process.exitCode = code ?? 1;

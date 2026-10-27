@@ -38,6 +38,14 @@ describe("normalizeToolPart", () => {
 		expect(normalized?.traceDescription).not.toMatch(/hunter|two|three/);
 		if (command.endsWith("--verbose")) expect(normalized?.traceDescription).toContain("--verbose");
 	});
+	it.each([
+		["curl -H 'Authorization: Bearer top-secret' https://example.test", "curl -H 'Authorization: [redacted]'"],
+		["fetch https://user:top-secret@example.test/data", "https://[redacted]@example.test/data"],
+	])("redacts authorization credentials in trace descriptions: %s", (command, expected) => {
+		const normalized = normalizeToolPart({ type: "tool-Bash", input: { command } });
+		expect(normalized?.traceDescription).toContain(expected);
+		expect(normalized?.traceDescription).not.toContain("top-secret");
+	});
 	it("renders source and output directly inside a trace without a second tool disclosure", () => {
 		const markup = renderToStaticMarkup(
 			createElement(SessionToolRenderer, {

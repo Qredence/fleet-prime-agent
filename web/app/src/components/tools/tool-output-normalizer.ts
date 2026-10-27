@@ -376,6 +376,11 @@ function safeTraceText(value: string | undefined): string | undefined {
 	const safe = value
 		.replace(/\s+/g, " ")
 		.replace(
+			/(\bauthorization\b\s*[:=]\s*)(?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|[a-z]+\s+[^\s,;'"\\]+|[^\s,;'"\\]+)/gi,
+			"$1[redacted]",
+		)
+		.replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/gi, "$1[redacted]@")
+		.replace(
 			/(\b(?:[a-z0-9]+_)*(?:api[_ -]?key|access[_ -]?(?:token|key)|auth(?:orization)?|credential|password|secret|token)\b\s*[:=]\s*)(?:(?:Basic|Bearer)\s+)?(?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|[^\s,;"']+)/gi,
 			"$1[redacted]",
 		)

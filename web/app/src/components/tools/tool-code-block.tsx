@@ -121,7 +121,8 @@ export function CodeBlock({
 				{showStatus ? (
 					<span
 						className={cn(
-							"ml-auto inline-flex shrink-0 items-center gap-1 text-micro font-medium",
+							!copyable && !onCopy && "ml-auto",
+							"inline-flex shrink-0 items-center gap-1 text-micro font-medium",
 							streaming ? "text-info" : "text-success",
 						)}
 					>

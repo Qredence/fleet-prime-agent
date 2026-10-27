@@ -121,4 +121,36 @@ describe("SessionActivityPanel", () => {
 		expect(activity.querySelectorAll("[data-testid='tool-trace']").length).toBe(1);
 		expect(trace.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
+
+	it("assigns an artifact to its assistant turn by tool call id", async () => {
+		const artifact = {
+			id: "artifact-bash",
+			runId: "run-1",
+			sourceToolCallId: "bash-1",
+			kind: "bash" as const,
+			title: "Bash output",
+			status: "success" as const,
+			timestamp: 2,
+		};
+		const { container, findByTestId } = render(
+			<SessionActivityPanel
+				artifactRuns={[{ id: "artifacts-1", runId: "run-1", artifacts: [artifact] }]}
+				childAgents={[]}
+				messages={[
+					{ id: "user-1", role: "user", parts: [{ type: "text", text: "Run it" }] },
+					{
+						id: "assistant-1",
+						role: "assistant",
+						parts: [{ type: "tool-Bash", toolCallId: "bash-1", input: { command: "echo ok" } }],
+					},
+				]}
+				onOpenArtifact={vi.fn()}
+				onSelectChild={vi.fn()}
+				streaming={false}
+			/>,
+		);
+
+		await findByTestId("tool-trace");
+		expect(container.querySelectorAll("[data-testid='tool-trace']")).toHaveLength(1);
+	});
 });

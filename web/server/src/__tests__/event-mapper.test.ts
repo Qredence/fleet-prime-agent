@@ -1201,6 +1201,37 @@ describe("event-mapper", () => {
 			});
 		});
 
+		it("resolves a tool identity from the assistant snapshot when execution events omit its name", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			mapAgentSessionEvent(state, {
+				type: "message_update",
+				message: mkAssistant({
+					content: [
+						{ type: "toolCall", id: "call-snapshot", name: "mcp__github_search", arguments: { query: "fleet" } },
+					],
+				}),
+			} as unknown as AgentSessionEvent);
+
+			const frames = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolCallId: "call-snapshot",
+				result: { results: [] },
+				isError: false,
+			} as unknown as AgentSessionEvent);
+
+			expect(frames.find((frame) => frame.type === "tool")).toMatchObject({
+				part: {
+					type: "tool-MCPGithubSearch",
+					category: "mcp",
+					toolName: "search",
+					serverName: "github",
+					toolCallId: "call-snapshot",
+					state: "output-available",
+				},
+			});
+		});
+
 		it("maps extension_error and closed errors to structured FleetErrorEnvelopes", () => {
 			const state = createEventMapperState({ sessionId: "test-session" });
 			const extFrames = mapAgentConnectionEvent(state, {

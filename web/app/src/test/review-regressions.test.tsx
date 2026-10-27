@@ -147,6 +147,28 @@ describe("review regressions", () => {
 		expect(getByRole("button", { name: "1 tool action" }).getAttribute("aria-expanded")).toBe("true");
 	});
 
+	it("renders artifact-only timeline rows without an empty disclosure control", () => {
+		const { getByText, queryByRole } = render(
+			<ToolTimeline
+				artifacts={[
+					{
+						id: "artifact-only",
+						runId: "run-1",
+						kind: "generic",
+						title: "Generated output",
+						status: "success",
+						timestamp: 1,
+					},
+				]}
+				messages={[]}
+				streaming={false}
+			/>,
+		);
+
+		expect(getByText("Session activity", { exact: false })).toBeTruthy();
+		expect(queryByRole("button", { name: /Details for Session activity/ })).toBeNull();
+	});
+
 	it("shows bounded tool context and normalized duration in Activity Trace rows", () => {
 		const { getByText, getByTestId } = render(
 			<ToolTimeline
@@ -349,7 +371,16 @@ describe("review regressions", () => {
 				}}
 			>
 				{[
-					{ id: "child", parentId: "parent", label: "Child worker", status: "done", timestamp: 2 },
+					{
+						id: "child",
+						parentId: "parent",
+						label: "Child worker",
+						status: "done",
+						timestamp: 2,
+						error: "",
+						answerPreview: "",
+						progressNote: "Child is still checking",
+					},
 					{ id: "parent", label: "Parent worker", status: "error", timestamp: 1 },
 				]}
 			</SubagentList>,
@@ -358,6 +389,7 @@ describe("review regressions", () => {
 		fireEvent.click(getByRole("button", { name: /Subagents completed/ }));
 		expect(getByText("Parent worker")).toBeTruthy();
 		expect(getByText("Child worker")).toBeTruthy();
+		expect(getByText("Child is still checking")).toBeTruthy();
 	});
 
 	it("edits a queued item in place", async () => {
@@ -586,7 +618,7 @@ describe("review regressions", () => {
 					{
 						id: "assistant-parent",
 						role: "assistant",
-						parts: [{ type: "text", text: "Found two useful references." }, report],
+						parts: [report],
 					},
 					{ id: "assistant-child-copy", role: "assistant", parts: [report] },
 				]}
@@ -599,7 +631,7 @@ describe("review regressions", () => {
 		await findByText("Found two useful references.");
 		expect(queryAllByText("Found two useful references.", { exact: true })).toHaveLength(1);
 		expect(container.querySelectorAll('[data-payload-kind="agent_message"]')).toHaveLength(1);
-		expect(container.querySelector("details[data-payload-kind='agent_message']")?.hasAttribute("open")).toBe(false);
+		expect(container.querySelector("[data-payload-kind='agent_message'] details")?.hasAttribute("open")).toBe(false);
 		expect(container.querySelector("[data-payload-kind='agent_message'] summary")?.textContent).toBe("Details");
 		expect(container.textContent).not.toContain("[agent_message]");
 	});

@@ -212,13 +212,20 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 		env: { ...process.env, [AGENT_DIR_ENV]: process.env[AGENT_DIR_ENV] || getPrimeConfig().agentDir },
 	});
 	let spawnError: NodeJS.ErrnoException | undefined;
-	child.on("error", (error: NodeJS.ErrnoException) => {
+	child.once("error", (error: NodeJS.ErrnoException) => {
 		spawnError = error;
 	});
 	child.unref();
 
 	const deadline = Date.now() + DAEMON_STARTUP_TIMEOUT_MS;
 	while (Date.now() < deadline) {
+		if (spawnError) {
+			throw new Error(
+				spawnError.code === "ENOENT"
+					? `Prime Agent binary not found: ${command}`
+					: `Could not start Prime Agent binary ${command}: ${spawnError.code ?? spawnError.message}`,
+			);
+		}
 		const probe = await probeDaemon(socketPath);
 		if (spawnError) {
 			throw new Error(

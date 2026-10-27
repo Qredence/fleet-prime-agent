@@ -215,7 +215,6 @@ function TimelineStepRow({
 					: step.status === "cancelled"
 						? "cancelled"
 						: "done";
-
 	const line = (
 		<TraceLine
 			status={
@@ -251,6 +250,7 @@ function TimelineStepRow({
 			{step.durationLabel ? <TraceDescription>{step.durationLabel}</TraceDescription> : null}
 		</TraceLine>
 	);
+
 	return (
 		<div className="flex min-w-0 items-start gap-2">
 			{step.part ? (
@@ -272,7 +272,7 @@ function TimelineStepRow({
 					</TraceCollapsibleContent>
 				</TraceCollapsible>
 			) : (
-				line
+				<div className="min-w-0 flex-1">{line}</div>
 			)}
 			{openLabel && artifactId && onOpenArtifact ? (
 				<button

@@ -52,6 +52,29 @@ describe("assistant markdown code blocks", () => {
 		}
 	});
 
+	it.each([
+		["python", "py"],
+		["markdown", "md"],
+		["text", "txt"],
+	])("downloads %s code with the .%s extension", (language, extension) => {
+		const originalCreateObjectURL = URL.createObjectURL;
+		URL.createObjectURL = vi.fn(() => "blob:test");
+		let downloadName = "";
+		const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+			this: HTMLAnchorElement,
+		) {
+			downloadName = this.download;
+		});
+		try {
+			render(<Markdown content={`\`\`\`${language}\nexample\n\`\`\``} isStreaming />);
+			fireEvent.click(screen.getByRole("button", { name: "Download code" }));
+			expect(downloadName).toBe(`code.${extension}`);
+		} finally {
+			click.mockRestore();
+			URL.createObjectURL = originalCreateObjectURL;
+		}
+	});
+
 	it("keeps Streamdown syntax highlighting inside the CodeBlock surface", async () => {
 		const { container } = render(<HighlightedMarkdown content={"```ts\nconst answer = 42;\n```"} />);
 
