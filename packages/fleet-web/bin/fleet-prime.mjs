@@ -14,8 +14,8 @@ const launcher = fileURLToPath(new URL("../dist/web/launcher.mjs", import.meta.u
 const isAgentCommand = process.argv[2] === "agent";
 const nativeBinary =
 	isAgentCommand || existsSync(launcher)
-		? (process.env.FLEET_PRIME_AGENT_BIN ??
-			(await ensurePrimeRuntime({ manifest: JSON.parse(await readFile(runtimeManifestPath, "utf8")) })))
+		? process.env.FLEET_PRIME_AGENT_BIN ||
+			(await ensurePrimeRuntime({ manifest: JSON.parse(await readFile(runtimeManifestPath, "utf8")) }))
 		: undefined;
 const sourceRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const sourceWebApp = resolve(sourceRoot, "web", "app");
