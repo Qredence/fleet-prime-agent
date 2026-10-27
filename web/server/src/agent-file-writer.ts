@@ -161,6 +161,23 @@ export async function writeJsonObjectFile(
 export type UpdateJsonFileResult<T> = { status: "written"; value: T } | { status: "refused"; reason: string };
 
 /**
+ * A path Fleet cannot write to, carrying the underlying filesystem reason.
+ *
+ * Distinct from a refusal caused by on-disk content: this one is about the
+ * location itself, and its remedy is a directory or permission change.
+ */
+export class UnwritablePathError extends Error {
+	constructor(
+		readonly path: string,
+		readonly cause: unknown,
+	) {
+		const detail = cause instanceof Error ? cause.message : String(cause);
+		super(`${path}: ${detail}`);
+		this.name = "UnwritablePathError";
+	}
+}
+
+/**
  * Read-merge-write under the lock.
  *
  * `mutate` receives the current object (an empty object when the file is
@@ -173,7 +190,13 @@ export async function updateJsonObjectFile<T>(
 	mutate: (current: JsonObject) => { next: JsonObject; result: T } | { refuse: string },
 	options: { mode?: number } = {},
 ): Promise<UpdateJsonFileResult<T>> {
-	const lock = await acquireLock(`${path}.lock`);
+	const lock = await acquireLock(`${path}.lock`).catch((error: unknown) => {
+		// An agent dir Fleet cannot write to (read-only mount, a path whose parent
+		// is a file, a permissions problem) is a deployment condition with a
+		// documented remedy, not an internal fault. Refusing with the reason lets
+		// the caller surface guidance instead of a bare 500.
+		throw new UnwritablePathError(path, error);
+	});
 	try {
 		const current = await readJsonObjectFile(path);
 		if (current.kind === "invalid") {
@@ -181,7 +204,11 @@ export async function updateJsonObjectFile<T>(
 		}
 		const outcome = mutate(current.kind === "ok" ? current.value : {});
 		if ("refuse" in outcome) return { status: "refused", reason: outcome.refuse };
-		await writeJsonObjectFile(path, outcome.next, options);
+		try {
+			await writeJsonObjectFile(path, outcome.next, options);
+		} catch (error) {
+			throw new UnwritablePathError(path, error);
+		}
 		return { status: "written", value: outcome.result };
 	} finally {
 		lock.release();

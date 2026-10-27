@@ -10,7 +10,7 @@
  * changing `retry.enabled` does not reset `retry.maxRetries`.
  */
 import type { ChatPiSettingsUpdate } from "@prime-agent/web-protocol/chat-protocol";
-import { RUNTIME_FILE_MODE, updateJsonObjectFile } from "./agent-file-writer";
+import { RUNTIME_FILE_MODE, UnwritablePathError, updateJsonObjectFile } from "./agent-file-writer";
 
 type JsonObject = Record<string, unknown>;
 
@@ -108,7 +108,13 @@ export async function applySettingsPatch(
 			return { next, result: changedKeys };
 		},
 		{ mode: RUNTIME_FILE_MODE },
-	);
+	).catch((error: unknown) => {
+		// An unwritable agent dir has a documented remedy, so it belongs in the same
+		// refusal channel as an unparseable file rather than escaping as a generic
+		// 500 that reads like a Fleet bug.
+		if (error instanceof UnwritablePathError) return { status: "refused" as const, reason: error.message };
+		throw error;
+	});
 
 	if (outcome.status === "refused") return outcome;
 	return {

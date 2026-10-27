@@ -146,10 +146,15 @@ describe("chat settings writes", () => {
 	});
 
 	it("answers 409 with guidance when the settings file cannot be written", async () => {
+		// A path whose parent is a *file*: `mkdir` fails with ENOTDIR for every
+		// user, including root. Pointing at `/proc` instead made this test depend
+		// on running unprivileged, which is false in CI's root container.
+		const dir = mkdtempSync(join(tmpdir(), "fleet-settings-unwritable-"));
+		const blocker = join(dir, "not-a-directory");
+		writeFileSync(blocker, "occupied", "utf8");
+
 		mocks.getPrimeConfig.mockReturnValue({
-			// A directory that does not exist and cannot be created by a non-root
-			// process, standing in for an unwritable agent dir.
-			agentDir: "/proc/fleet-unwritable-agent-dir",
+			agentDir: join(blocker, "agent-dir"),
 			settingsFor: vi.fn(() => mocks.manager),
 			modelRegistry: mocks.modelRegistry,
 			reloadAuth: vi.fn(),
@@ -164,6 +169,11 @@ describe("chat settings writes", () => {
 		);
 
 		// A write failure must not read as success, and must not read as a bug.
-		expect(response.status).toBeGreaterThanOrEqual(400);
+		// 409 specifically: the handler has guidance for this case, and a bare 500
+		// would tell the user Fleet broke rather than how to route around it.
+		expect(response.status).toBe(409);
+		expect(((await response.json()) as { code: string }).code).toBe("UNWRITABLE");
+
+		rmSync(dir, { recursive: true, force: true });
 	});
 });
