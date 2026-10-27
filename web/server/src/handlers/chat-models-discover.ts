@@ -3,6 +3,7 @@ import { isOccFamilyApi } from "@prime-agent/web-protocol/provider-catalog";
 import { addCustomProviderModelIds, listCustomProviders, uiApiForCustomProvider } from "../custom-provider-store";
 import { isLoopbackHostname } from "../net";
 import { getPrimeConfig } from "../prime-config";
+import { resolveProviderApiKey } from "../prime-provider-credentials";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 export function openAiModelsUrl(baseUrl: string): URL {
@@ -25,7 +26,7 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 		const raw = await request.json().catch(() => ({}));
 		const body = ChatModelsDiscoverRequestSchema.parse(raw);
 		const config = getPrimeConfig();
-		const apiKey = await config.modelRegistry.getApiKeyForProvider(body.providerId);
+		const apiKey = await resolveProviderApiKey(config.agentDir, body.providerId);
 		if (!apiKey) {
 			return Response.json({
 				providerId: body.providerId,

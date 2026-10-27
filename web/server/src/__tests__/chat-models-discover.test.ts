@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,9 +7,6 @@ import { upsertCustomProvider } from "../custom-provider-store";
 const mocks = vi.hoisted(() => ({
 	config: {
 		agentDir: "",
-		modelRegistry: {
-			getApiKeyForProvider: vi.fn(),
-		},
 		reloadAuth: vi.fn(),
 	},
 }));
@@ -24,7 +21,18 @@ describe("chat model discovery", () => {
 	beforeEach(() => {
 		agentDir = mkdtempSync(join(tmpdir(), "chat-model-discover-"));
 		mocks.config.agentDir = agentDir;
-		mocks.config.modelRegistry.getApiKeyForProvider.mockResolvedValue("secret-key");
+		// The key now comes from the real `auth.json` under the agent dir, so the
+		// test seeds the same file the runtime reads.
+		writeFileSync(
+			join(agentDir, "auth.json"),
+			JSON.stringify({
+				"custom+lab": { type: "api_key", key: "secret-key" },
+				"custom+google": { type: "api_key", key: "secret-key" },
+			}),
+			{
+				mode: 0o600,
+			},
+		);
 		mocks.config.reloadAuth.mockReset();
 		vi.stubGlobal(
 			"fetch",
