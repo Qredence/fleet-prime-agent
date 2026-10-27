@@ -99,17 +99,24 @@ async function acquireLock(lockPath: string): Promise<LockHandle> {
 			};
 		} catch (error) {
 			if (errorCode(error) !== "EEXIST") throw error;
-			// The holder can release between our failed `open` and this read, which
-			// would surface as ENOENT. That is contention resolving itself, not a
-			// failure, so retry immediately instead of propagating the raw error.
-			let owner: string;
+			// Read the holder's pid through a descriptor rather than by path. The
+			// holder can release at any moment, so a path-based read after the
+			// failed create is a check-then-act against a file that may already be
+			// gone; opening first binds the read to whatever is actually there, and
+			// ENOENT from that open is the ordinary "it just released" case.
+			let raw: string;
 			try {
-				owner = readFileSync(lockPath, "utf8");
+				const reader = openSync(lockPath, "r");
+				try {
+					raw = readFileSync(reader, "utf8");
+				} finally {
+					closeSync(reader);
+				}
 			} catch (readError) {
 				if (errorCode(readError) === "ENOENT") continue;
 				throw readError;
 			}
-			const holder = Number.parseInt(owner, 10);
+			const holder = Number.parseInt(raw, 10);
 			if (!isProcessAlive(holder)) {
 				rmSync(lockPath, { force: true });
 				continue;
