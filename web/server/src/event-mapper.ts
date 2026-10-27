@@ -1298,7 +1298,7 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
 	const emittedToolCallIds = new Set<string>();
 	const content = state.currentAssistantMessage?.content;
-	if (content) {
+	if (Array.isArray(content)) {
 		for (const [contentIndex, block] of content.entries()) {
 			const value = block as { type?: string; text?: string; thinking?: string; id?: string };
 			if (value.type === "text" && typeof value.text === "string" && value.text.length > 0) {

@@ -32,6 +32,7 @@ export async function ensurePrimeRuntime({
 	const staging = await mkdtemp(join(dirname(destination), ".fleet-prime-runtime-"));
 	try {
 		const archivePath = join(staging, asset.archive);
+		// The release URL comes from Fleet's shipped runtime pin, never session or provider input.
 		const response = await fetchImpl(`${runtime.baseUrl}/${asset.archive}`);
 		if (!response.ok)
 			throw new Error(
@@ -40,6 +41,7 @@ export async function ensurePrimeRuntime({
 		const archive = Buffer.from(await response.arrayBuffer());
 		if (digest(archive) !== asset.sha256)
 			throw new Error(`Prime Agent ${runtime.version} archive checksum mismatch; refusing to install it.`);
+		// Only checksum-verified release bytes reach this private staging file.
 		await writeFile(archivePath, archive, { mode: 0o600 });
 		const unpacked = join(staging, "unpacked");
 		await mkdir(unpacked);

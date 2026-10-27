@@ -376,10 +376,13 @@ function safeTraceText(value: string | undefined): string | undefined {
 	const safe = value
 		.replace(/\s+/g, " ")
 		.replace(
-			/(\b(?:[a-z0-9]+_)*(?:api[_ -]?key|access[_ -]?(?:token|key)|auth(?:orization)?|credential|password|secret|token)\b\s*[:=]\s*)(["']?)[^\s,;"']+\2/gi,
+			/(\b(?:[a-z0-9]+_)*(?:api[_ -]?key|access[_ -]?(?:token|key)|auth(?:orization)?|credential|password|secret|token)\b\s*[:=]\s*)(?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|[^\s,;"']+)/gi,
 			"$1[redacted]",
 		)
-		.replace(/(--(?:api-key|access-token|password|secret|token)\s+)\S+/gi, "$1[redacted]")
+		.replace(
+			/(--(?:api-key|access-token|password|secret|token)\s+)(?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|\S+)/gi,
+			"$1[redacted]",
+		)
 		.trim();
 	if (!safe) return undefined;
 	return safe.length > 96 ? `${safe.slice(0, 93)}…` : safe;

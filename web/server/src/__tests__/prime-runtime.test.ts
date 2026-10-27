@@ -17,6 +17,20 @@ afterEach(async () => {
 });
 
 describe("Prime Agent runtime installation", () => {
+	it("rejects unverified network bytes before writing an archive or installing a runtime", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-server-runtime-test-"));
+		roots.push(root);
+		const installRoot = join(root, "cache", "linux-x64");
+		asset.sha256 = "0".repeat(64);
+		await expect(
+			ensurePrimeAgentRuntime({
+				target: "linux-x64",
+				installRoot,
+				fetch: async () => new Response("untrusted archive"),
+			}),
+		).rejects.toThrow("archive checksum mismatch");
+		expect(await readdir(dirname(installRoot))).toEqual([]);
+	});
 	it("stages next to the destination and safely installs concurrently", async () => {
 		const root = await mkdtemp(join(tmpdir(), "fleet-server-runtime-test-"));
 		roots.push(root);

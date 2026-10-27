@@ -7,6 +7,19 @@ import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 import { ToolResultOutput } from "@/components/tools/tool-result";
 
 describe("normalizeToolPart", () => {
+	it.each([
+		'run --password "hunter two" --verbose',
+		"run --password 'hunter two' --verbose",
+		'run --password="hunter two" --verbose',
+		'run password="hunter two" --verbose',
+		'run --token "hunter \\"two\\" three" --verbose',
+		'run --secret "hunter two',
+	])("redacts the complete quoted credential in %s", (command) => {
+		const normalized = normalizeToolPart({ type: "tool-Bash", input: { command } });
+		expect(normalized?.traceDescription).toContain("[redacted]");
+		expect(normalized?.traceDescription).not.toMatch(/hunter|two|three/);
+		if (command.endsWith("--verbose")) expect(normalized?.traceDescription).toContain("--verbose");
+	});
 	it("renders source and output directly inside a trace without a second tool disclosure", () => {
 		const markup = renderToStaticMarkup(
 			createElement(SessionToolRenderer, {

@@ -402,7 +402,10 @@ export function toChatMessageFromRuntimeMessage(message: AgentMessage, id: strin
 
 export function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
-	for (const [contentIndex, block] of msg.content.entries()) {
+	const content: unknown = msg.content;
+	const blocks =
+		typeof content === "string" ? [{ type: "text", text: content }] : Array.isArray(content) ? content : [];
+	for (const [contentIndex, block] of blocks.entries()) {
 		const value = block as {
 			type: string;
 			text?: string;
