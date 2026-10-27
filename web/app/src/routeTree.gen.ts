@@ -38,6 +38,7 @@ import { Route as ApiProjectsForkRouteImport } from './routes/api/projects/fork'
 import { Route as ApiWorkspaceFileRouteImport } from './routes/api/workspace/file'
 import { Route as ApiWorkspaceTreeRouteImport } from './routes/api/workspace/tree'
 import { Route as ApiChatMcpOauthRouteImport } from './routes/api/chat/mcp/oauth'
+import { Route as ApiChatMcpTokenRouteImport } from './routes/api/chat/mcp/token'
 import { Route as ApiChatModelsDiscoverRouteImport } from './routes/api/chat/models/discover'
 import { Route as ApiChatProvidersOauthRouteImport } from './routes/api/chat/providers/oauth'
 
@@ -186,6 +187,11 @@ const ApiChatMcpOauthRoute = ApiChatMcpOauthRouteImport.update({
   path: '/oauth',
   getParentRoute: () => ApiChatMcpRoute,
 } as any)
+const ApiChatMcpTokenRoute = ApiChatMcpTokenRouteImport.update({
+  id: '/token',
+  path: '/token',
+  getParentRoute: () => ApiChatMcpRoute,
+} as any)
 const ApiChatModelsDiscoverRoute = ApiChatModelsDiscoverRouteImport.update({
   id: '/discover',
   path: '/discover',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
+  '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
+  '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
+  '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
@@ -329,6 +338,7 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
+    | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
     | '/api/chat/providers/oauth'
   fileRoutesByTo: FileRoutesByTo
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
+    | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
     | '/api/chat/providers/oauth'
   id:
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
+    | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
     | '/api/chat/providers/oauth'
   fileRoutesById: FileRoutesById
@@ -615,6 +627,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatMcpOauthRouteImport
       parentRoute: typeof ApiChatMcpRoute
     }
+    '/api/chat/mcp/token': {
+      id: '/api/chat/mcp/token'
+      path: '/token'
+      fullPath: '/api/chat/mcp/token'
+      preLoaderRoute: typeof ApiChatMcpTokenRouteImport
+      parentRoute: typeof ApiChatMcpRoute
+    }
     '/api/chat/models/discover': {
       id: '/api/chat/models/discover'
       path: '/discover'
@@ -634,10 +653,12 @@ declare module '@tanstack/react-router' {
 
 interface ApiChatMcpRouteChildren {
   ApiChatMcpOauthRoute: typeof ApiChatMcpOauthRoute
+  ApiChatMcpTokenRoute: typeof ApiChatMcpTokenRoute
 }
 
 const ApiChatMcpRouteChildren: ApiChatMcpRouteChildren = {
   ApiChatMcpOauthRoute: ApiChatMcpOauthRoute,
+  ApiChatMcpTokenRoute: ApiChatMcpTokenRoute,
 }
 
 const ApiChatMcpRouteWithChildren = ApiChatMcpRoute._addFileChildren(

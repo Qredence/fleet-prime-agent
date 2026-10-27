@@ -2,6 +2,7 @@ import { BUILTIN_MCP_CATALOG, getCatalogEntry } from "@earendil-works/pi-ai/mcp"
 import {
 	ChatMcpDeleteRequestSchema,
 	ChatMcpOAuthLoginRequestSchema,
+	ChatMcpTokenRequestSchema,
 	ChatMcpUpsertRequestSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatMcpListResponse, ChatMcpOAuthLoginResponse, McpConnectionInfo } from "@prime-agent/web-protocol/mcp";
@@ -14,6 +15,7 @@ import {
 	mcpProviderId,
 	validateHttpMcpUrl,
 } from "../mcp-connections";
+import { storeMcpStaticToken } from "../mcp-daemon-credentials";
 import { getPrimeConfig } from "../prime-config";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
@@ -170,5 +172,31 @@ export function handleChatMcpOAuthPost(request: Request, deps: McpHandlerDeps = 
 			} satisfies ChatMcpOAuthLoginResponse,
 			{ status: 501 },
 		);
+	}, request);
+}
+
+/**
+ * Stores a pasted token through the daemon.
+ *
+ * A failed verification still stores the credential, so it answers 200 and
+ * reports `verified: false` with a reason rather than pretending the write
+ * failed.
+ */
+export function handleChatMcpTokenPost(request: Request, deps: McpHandlerDeps = defaultMcpDeps()): Promise<Response> {
+	return wrapApiHandler(async () => {
+		const body = ChatMcpTokenRequestSchema.parse(await request.json().catch(() => ({})));
+		const outcome = await storeMcpStaticToken(deps.workspaceRoot, body.name, body.token);
+		if (outcome.status !== "stored") {
+			const reason = outcome.status === "refused" ? outcome.reason : "The token was not stored.";
+			throw new McpRequestError(reason);
+		}
+		deps.reloadAuth();
+		await deps.reloadResources();
+		return Response.json({
+			verified: outcome.verified,
+			toolCount: outcome.toolCount,
+			...(outcome.error ? { error: outcome.error } : {}),
+			connections: listedConnections(deps),
+		});
 	}, request);
 }

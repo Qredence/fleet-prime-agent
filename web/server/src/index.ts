@@ -11,7 +11,13 @@ export {
 	handleChatIntentPost,
 	handleChatIntentPut,
 } from "./handlers/chat-intent";
-export { handleChatMcpDelete, handleChatMcpGet, handleChatMcpOAuthPost, handleChatMcpPost } from "./handlers/chat-mcp";
+export {
+	handleChatMcpDelete,
+	handleChatMcpGet,
+	handleChatMcpOAuthPost,
+	handleChatMcpPost,
+	handleChatMcpTokenPost,
+} from "./handlers/chat-mcp";
 export { handleChatModelsGet } from "./handlers/chat-models";
 export { handleChatModelsDiscoverPost } from "./handlers/chat-models-discover";
 export { handleChatNewPost } from "./handlers/chat-new";

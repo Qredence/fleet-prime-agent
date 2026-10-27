@@ -38,6 +38,11 @@ export const McpConnectionInfoSchema = z
 		usesOAuth: z.boolean(),
 		enabled: z.boolean(),
 		status: McpConnectionStatusSchema,
+		/**
+		 * The runtime accepts a pasted token for this server. Additive: older
+		 * payloads omit it and the UI falls back to the OAuth/terminal guidance.
+		 */
+		acceptsPastedToken: z.boolean().optional(),
 		bearerTokenEnvVar: z.string().optional(),
 		envBindings: z.array(McpEnvBindingSchema).optional(),
 		error: z.string().optional(),
@@ -90,6 +95,29 @@ export const ChatMcpOAuthLoginRequestSchema = z
 		cancel: z.boolean().optional(),
 	})
 	.openapi({ description: "MCP OAuth login, logout, or reconnect" });
+
+/**
+ * Store a pasted token for an MCP server that accepts one.
+ *
+ * The token is write-only: no response echoes it back, and the list endpoint
+ * never includes it.
+ */
+export const ChatMcpTokenRequestSchema = z
+	.object({
+		name: mcpServerNameSchema,
+		token: z.string().min(1).max(8192),
+	})
+	.openapi({ description: "Store an MCP server token" });
+
+export const ChatMcpTokenResponseSchema = z
+	.object({
+		/** Stored even when verification failed; `verified` reports the outcome. */
+		verified: z.boolean(),
+		toolCount: z.number().int().nonnegative().nullable(),
+		error: z.string().optional(),
+		connections: z.array(McpConnectionInfoSchema),
+	})
+	.openapi({ description: "MCP token storage result" });
 
 export const ChatMcpOAuthLoginResponseSchema = z
 	.object({

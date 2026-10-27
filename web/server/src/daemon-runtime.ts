@@ -425,6 +425,45 @@ async function killDaemonSession(cwd: string, activeSessionId: string): Promise<
 	});
 }
 
+/**
+ * Run `work` against a daemon command that requires an `activeSessionId`, using
+ * a resident session created for this call and killed afterwards.
+ *
+ * Several daemon commands (MCP credential writes among them) are session-scoped
+ * even though the concern they mutate is not. Fleet's MCP pane is project-global,
+ * so there is no live session to reuse. The throwaway session exists only to
+ * satisfy that contract; it is killed in `finally` so a failure cannot leak a
+ * resident worker.
+ */
+export async function withTransientDaemonSession<T>(
+	cwd: string,
+	work: (client: DaemonSocketClient, activeSessionId: string) => Promise<T>,
+): Promise<T> {
+	const socketPath = defaultDaemonSocketPath();
+	await ensureFleetDaemonRunning(cwd, socketPath);
+	const client = new DaemonSocketClient(socketPath);
+	let activeSessionId: string | undefined;
+	try {
+		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
+		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
+		if (!matchesPinnedDaemon(hello) || daemonRuntimeFlavor(hello) !== "rust") {
+			throw new Error(refusalMessage("use", socketPath, hello));
+		}
+		const created = await createDaemonSession({
+			cwd,
+			openUIPrompt: { enabled: false, mode: "agent", prompt: "" },
+		});
+		activeSessionId = created.activeSessionId;
+		return await work(client, activeSessionId);
+	} finally {
+		client.close();
+		if (activeSessionId) {
+			// Best-effort: a failed kill must not mask the operation's own result.
+			await killDaemonSession(cwd, activeSessionId).catch(() => undefined);
+		}
+	}
+}
+
 const modelCatalogListeners = new Set<() => void>();
 
 /**
