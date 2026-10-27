@@ -211,14 +211,15 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 		// daemon itself is pinned to Fleet's agent dir.
 		env: { ...process.env, [AGENT_DIR_ENV]: process.env[AGENT_DIR_ENV] || getPrimeConfig().agentDir },
 	});
-	let spawnError: NodeJS.ErrnoException | undefined;
+	const spawnErrors: NodeJS.ErrnoException[] = [];
 	child.once("error", (error: NodeJS.ErrnoException) => {
-		spawnError = error;
+		spawnErrors.push(error);
 	});
 	child.unref();
 
 	const deadline = Date.now() + DAEMON_STARTUP_TIMEOUT_MS;
 	while (Date.now() < deadline) {
+		let spawnError = spawnErrors[0];
 		if (spawnError) {
 			throw new Error(
 				spawnError.code === "ENOENT"
@@ -227,6 +228,7 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 			);
 		}
 		const probe = await probeDaemon(socketPath);
+		spawnError = spawnErrors[0];
 		if (spawnError) {
 			throw new Error(
 				spawnError.code === "ENOENT"

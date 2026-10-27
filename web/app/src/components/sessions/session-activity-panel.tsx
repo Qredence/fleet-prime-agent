@@ -67,9 +67,11 @@ export function SessionActivityPanel({
 							const toolCallIds = new Set(
 								turn.assistants.flatMap((message) =>
 									message.parts.flatMap((part) =>
-										part.type.startsWith("tool-") && "toolCallId" in part && typeof part.toolCallId === "string"
+										part.type.startsWith("tool-") &&
+										"toolCallId" in part &&
+										typeof part.toolCallId === "string"
 											? [part.toolCallId]
-										: [],
+											: [],
 									),
 								),
 							);
