@@ -14,8 +14,8 @@ const launcher = fileURLToPath(new URL("../dist/web/launcher.mjs", import.meta.u
 const isAgentCommand = process.argv[2] === "agent";
 const nativeBinary =
 	isAgentCommand || existsSync(launcher)
-		? (process.env.FLEET_PRIME_AGENT_BIN ??
-			(await ensurePrimeRuntime({ manifest: JSON.parse(await readFile(runtimeManifestPath, "utf8")) })))
+		? process.env.FLEET_PRIME_AGENT_BIN ||
+			(await ensurePrimeRuntime({ manifest: JSON.parse(await readFile(runtimeManifestPath, "utf8")) }))
 		: undefined;
 const sourceRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const sourceWebApp = resolve(sourceRoot, "web", "app");
@@ -52,6 +52,15 @@ function run(entrypoint, args, cwd) {
 if (process.argv[2] === "agent") {
 	const args = process.argv.slice(3);
 	const child = spawn(nativeBinary, args, { cwd: workspaceRoot, env: process.env, stdio: "inherit" });
+	child.on("error", (error) => {
+		console.error(
+			error.code === "ENOENT"
+				? `Prime Agent binary not found: ${nativeBinary}`
+				: `Could not start Prime Agent binary ${nativeBinary}: ${error.code ?? error.message}`,
+		);
+		process.exitCode = 1;
+	});
+	for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => child.kill(signal));
 	child.on("exit", (code, signal) => {
 		if (signal) process.kill(process.pid, signal);
 		else process.exitCode = code ?? 1;

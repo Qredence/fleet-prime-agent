@@ -4,7 +4,7 @@ import { dirname, join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentConnection, AgentConnectionEvent, AgentSession } from "prime-agent";
 import { SessionManager } from "prime-agent";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { runtimeHostFor } from "../connection-runtime";
 import type { listDaemonSessions } from "../daemon-runtime";
 import type { DaemonSequenceGap } from "../daemon-sequence-gap";
@@ -17,8 +17,15 @@ import { resetBridgeForTests, setBridgeForTests } from "../singleton";
 const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
 const SESSION_DIR_ENVS = ["PRIME_AGENT_SESSION_DIR", "PRIME_AGENT_CODING_AGENT_SESSION_DIR"];
 
+// Each test owns its local bridge; resetting the singleton does not dispose these sessions.
+function createTrackedBridge(options: PrimeBridgeOptions = {}): PrimeBridge {
+	const bridge = new PrimeBridge(options);
+	onTestFinished(() => bridge.resetForTests());
+	return bridge;
+}
+
 function createTestBridge(options: PrimeBridgeOptions = {}): PrimeBridge {
-	return new PrimeBridge({
+	return createTrackedBridge({
 		...options,
 		connectionFactory: createInProcessTestAgentConnection,
 		sessionLister: options.sessionLister ?? (async () => []),
@@ -74,14 +81,14 @@ describe("PrimeBridge", () => {
 	});
 
 	it("replaySince on an unknown session returns an empty result", () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTrackedBridge();
 		const result = bridge.replaySince("unknown", 0);
 		expect(result.replayed).toEqual([]);
 		expect(result.overflowed).toBe(false);
 	});
 
 	it("resetForTests clears listeners", () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTrackedBridge();
 		const listener = vi.fn();
 		bridge.addEventListener(listener);
 		bridge.resetForTests();
@@ -92,7 +99,7 @@ describe("PrimeBridge", () => {
 	});
 
 	it("getSession returns undefined for unknown sessionId", () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTrackedBridge();
 		expect(bridge.getSession("missing")).toBeUndefined();
 	});
 });
@@ -680,7 +687,7 @@ describe("PrimeBridge.forkSession", () => {
 
 	it("forks daemon-backed sessions through forkToNewSession instead of a side SessionManager", async () => {
 		const forkCalls: Array<{ entryId: string; position: string }> = [];
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			sessionLister: async () => [],
 			connectionFactory: async (options) => {
 				const webAgent = await createInProcessTestAgentConnection(options);
@@ -925,6 +932,194 @@ describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
 
 	it("resyncs from a fresh snapshot on a daemon sequence gap (done with sessionReset)", async () => {
 		const harness = createGapAwareFactory({});
+		const bridge = createTrackedBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const before = harness.snapshotCalls();
+		const cursor = bridge.replaySince(created.sessionId, 0).replayed.at(-1)?.seq ?? 0;
+
+		harness.emitGap();
+		harness.emitGap(); // coalesces into the in-flight resync's follow-up
+		harness.emitGap();
+		await vi.waitFor(() => {
+			const done = bridge
+				.replaySince(created.sessionId, cursor)
+				.replayed.map((entry) => entry.event as { type: string; sessionReset?: boolean; sessionId?: string })
+				.filter((frame) => frame.type === "done");
+			expect(done.length).toBeGreaterThanOrEqual(1);
+			expect(done.every((frame) => frame.sessionReset === true)).toBe(true);
+			expect(done[0]?.sessionId).toBe(created.sessionId);
+		});
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		// One resync for the first gap plus at most one coalesced follow-up.
+		expect(harness.snapshotCalls() - before).toBeLessThanOrEqual(2);
+	});
+
+	it("stops resyncing on gaps once the session is deleted", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = createTrackedBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		await bridge.deleteSession(created.sessionId);
+		const before = harness.snapshotCalls();
+		harness.emitGap();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(harness.snapshotCalls()).toBe(before);
+	});
+
+	it("resolves the tool name for a mid-tool attach from the attach snapshot", async () => {
+		const toolCallMessage = {
+			role: "assistant",
+			content: [{ type: "toolCall", id: "call_mid_1", name: "bash", arguments: { command: "ls -la" } }],
+			api: "openai-responses",
+			provider: "openai",
+			model: "gpt-test",
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: "toolUse",
+			timestamp: Date.now(),
+		};
+		// The in-flight assistant message exists only on the snapshot
+		// (streamingMessage), not in getMessages().
+		const harness = createGapAwareFactory({ messages: () => [], streamingMessage: toolCallMessage });
+		const bridge = createTrackedBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const cursor = bridge.replaySince(created.sessionId, 0).replayed.at(-1)?.seq ?? 0;
+
+		// The daemon's tool_execution_end carries no toolName (Rust protocol 7).
+		harness.emitEvent({
+			type: "session_event",
+			event: {
+				type: "tool_execution_end",
+				toolCallId: "call_mid_1",
+				result: { content: [{ type: "text", text: "total 0" }] },
+				isError: false,
+			},
+		} as unknown as AgentConnectionEvent);
+
+		const toolFrames = bridge
+			.replaySince(created.sessionId, cursor)
+			.replayed.map((entry) => entry.event as { type: string; part?: { toolName?: string; input?: unknown } })
+			.filter((frame) => frame.type === "tool");
+		expect(toolFrames).toHaveLength(1);
+		expect(toolFrames[0]?.part?.toolName).toBe("bash");
+		expect(toolFrames[0]?.part?.input).toEqual({ command: "ls -la" });
+	});
+});
+
+describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-gap-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-gap-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+		return () => {
+			rmSync(workDir, { recursive: true, force: true });
+			rmSync(agentDir, { recursive: true, force: true });
+		};
+	});
+
+	afterEach(() => {
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		vi.restoreAllMocks();
+	});
+
+	function createTestSession(bridge: PrimeBridge): ReturnType<PrimeBridge["createSession"]> {
+		return bridge.createSession({ cwd: workDir });
+	}
+
+	/**
+	 * Wraps the in-process connection like the daemon runtime: exposes
+	 * `onSequenceGap`, captures the bridge's subscribe listener so tests can
+	 * inject daemon events, and optionally overrides the attach snapshot.
+	 */
+	function createGapAwareFactory(overrides: { messages?: () => unknown[]; streamingMessage?: unknown }): {
+		factory: NonNullable<PrimeBridgeOptions["connectionFactory"]>;
+		emitGap: () => void;
+		emitEvent: (event: AgentConnectionEvent) => void;
+		snapshotCalls: () => number;
+	} {
+		const gapListeners = new Set<(gap: DaemonSequenceGap) => void>();
+		const eventListeners = new Set<(event: AgentConnectionEvent) => void>();
+		let snapshotCount = 0;
+		const factory: NonNullable<PrimeBridgeOptions["connectionFactory"]> = async (options) => {
+			const webAgent = await createInProcessTestAgentConnection(options);
+			const inner = webAgent.connection;
+			const connection = new Proxy(inner, {
+				get(target, property) {
+					if (property === "subscribe") {
+						return (listener: (event: AgentConnectionEvent) => void) => {
+							eventListeners.add(listener);
+							const off = target.subscribe(listener);
+							return () => {
+								eventListeners.delete(listener);
+								off();
+							};
+						};
+					}
+					if (property === "getMessages" && overrides.messages) {
+						return async () => overrides.messages?.();
+					}
+					if (property === "getInitialSnapshot") {
+						return async () => {
+							snapshotCount += 1;
+							const snapshot = await target.getInitialSnapshot();
+							return {
+								...snapshot,
+								...(overrides.messages ? { messages: overrides.messages() } : {}),
+								...(overrides.streamingMessage ? { streamingMessage: overrides.streamingMessage } : {}),
+							};
+						};
+					}
+					const value = Reflect.get(target, property);
+					return typeof value === "function" ? value.bind(target) : value;
+				},
+			}) as AgentConnection;
+			return {
+				...webAgent,
+				connection,
+				onSequenceGap: (listener: (gap: DaemonSequenceGap) => void) => {
+					gapListeners.add(listener);
+					return () => {
+						gapListeners.delete(listener);
+					};
+				},
+			};
+		};
+		return {
+			factory,
+			emitGap: () => {
+				for (const listener of [...gapListeners]) {
+					listener({
+						activeSessionId: "rt-1",
+						generation: "gen-1",
+						lastSequence: 4,
+						receivedSequence: 7,
+						missing: 2,
+					});
+				}
+			},
+			emitEvent: (event) => {
+				for (const listener of [...eventListeners]) listener(event);
+			},
+			snapshotCalls: () => snapshotCount,
+		};
+	}
+
+	it("resyncs from a fresh snapshot on a daemon sequence gap (done with sessionReset)", async () => {
+		const harness = createGapAwareFactory({});
 		const bridge = new PrimeBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
 		const created = await createTestSession(bridge);
 		const before = harness.snapshotCalls();
@@ -1050,7 +1245,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 
 	it("returns undefined when the runtime cannot resume a listed transcript", async () => {
 		const persisted = createPersistedTranscript();
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			connectionFactory: async () => {
 				throw new Error("Session worker started without a root session");
 			},
@@ -1063,7 +1258,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 	it("returns undefined when the transcript vanished after listing", async () => {
 		const persisted = createPersistedTranscript();
 		rmSync(persisted.sessionFile);
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			connectionFactory: createInProcessTestAgentConnection,
 			sessionLister: listerFor(persisted),
 		});
@@ -1073,7 +1268,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 
 	it("still rejects transport failures so handlers answer 500", async () => {
 		const persisted = createPersistedTranscript();
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			connectionFactory: async () => {
 				throw new Error("cannot send daemon command: connect ENOENT /tmp/prime.sock");
 			},
@@ -1085,7 +1280,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 
 	it("deleteSession deletes an unresumable transcript through the daemon catalog", async () => {
 		const persisted = createPersistedTranscript();
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			connectionFactory: async () => {
 				throw new Error("Session worker started without a root session");
 			},

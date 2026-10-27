@@ -162,6 +162,7 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 			eventType === "tool" ||
 			eventType === "queue" ||
 			eventType === "reasoning" ||
+			eventType === "reasoning_text" ||
 			eventType === "compaction" ||
 			eventType === "retry" ||
 			eventType === "payload" ||

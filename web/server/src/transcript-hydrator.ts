@@ -402,7 +402,10 @@ export function toChatMessageFromRuntimeMessage(message: AgentMessage, id: strin
 
 export function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
-	for (const block of msg.content) {
+	const content: unknown = msg.content;
+	const blocks =
+		typeof content === "string" ? [{ type: "text", text: content }] : Array.isArray(content) ? content : [];
+	for (const [contentIndex, block] of blocks.entries()) {
 		const value = block as {
 			type: string;
 			text?: string;
@@ -411,9 +414,12 @@ export function toChatMessageFromAssistant(msg: AssistantMessage, id: string): C
 			id?: string;
 			name?: string;
 			arguments?: unknown;
+			thinking?: string;
 		};
 		if (value.type === "text" && typeof value.text === "string") {
 			parts.push({ type: "text", text: value.text });
+		} else if (value.type === "thinking" && typeof value.thinking === "string") {
+			parts.push({ type: "reasoning", contentIndex, text: value.thinking, state: "complete" });
 		} else if (value.type === "image" && value.data && value.mimeType) {
 			parts.push(imageToChatPart({ type: "image", data: value.data, mimeType: value.mimeType }));
 		} else if (value.type === "toolCall" && value.id && value.name) {

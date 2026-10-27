@@ -68,9 +68,9 @@ Fleet consumes the stock Prime Agent runtime pinned in
 
 ### Daemon socket configuration
 
-Fleet and any `prime-agent` CLI you run each own a daemon process. Fleet
-resolves its socket in `web/server/src/daemon-runtime.ts` and uses the shared
-per-user path:
+Fleet and the `prime-agent` CLI use separate daemon processes and sockets when
+the migration bridge marker is absent. Fleet resolves its socket in
+`web/server/src/daemon-runtime.ts` and uses the shared per-user path:
 
 - Fleet: `$TMPDIR/prime-agent-<uid>/daemon.sock`
 - Migrated Rust CLI launcher: `$TMPDIR/prime-agent-rust-<uid>/daemon.sock`
@@ -81,10 +81,12 @@ starting a daemon, Fleet probes that socket and only attaches to a Rust daemon
 with a compatible protocol and schema. An existing TypeScript daemon is rejected
 even if its protocol matches; stop it before starting Fleet.
 
-Because the Rust CLI launcher pins its own `prime-agent-rust-<uid>` namespace,
-the CLI daemon and the Fleet daemon are separate processes on separate sockets.
-That is expected after a CLI migration and needs no reconciliation. Only
-`prime-agent status` (CLI) or Fleet's own connection reports which one is live.
+When `~/.local/share/.prime-agent-npm-bridge/legacy-daemon-socket` is absent,
+the Rust CLI launcher pins its own `prime-agent-rust-<uid>` namespace, so the
+CLI and Fleet daemons are separate processes on separate sockets. When the
+marker exists, the CLI uses `prime-agent-<uid>` and may share Fleet's socket.
+Use `prime-agent status` (CLI) or Fleet's own connection report to see which
+daemon is live.
 
 macOS caps AF_UNIX paths at 103 bytes. `$TMPDIR/prime-agent-<uid>/daemon.sock`
 plus the longer `worker-<id>-<id>.sock` names must fit, so a deeply nested

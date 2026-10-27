@@ -19,6 +19,7 @@ describe("ChatStreamEventSchema", () => {
 		const frames = [
 			{ type: "start", id: "e-1", runId: "r-1", sessionId: SESSION_ID },
 			{ type: "delta", text: "hello" },
+			{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "reasoning" },
 			{ type: "tool", part: { type: "tool-Shell", toolCallId: "t-1" } },
 			{ type: "state", state: { name: "agent_settled" } },
 			{ type: "queue", steering: [], followUp: [] },

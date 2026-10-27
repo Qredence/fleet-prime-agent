@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { chmod, copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { arch, platform, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -40,6 +41,85 @@ test("runtime target only supports the four published Rust builds", () => {
 	assert.equal(runtimeTarget("linux", "x64"), "linux-x64");
 	assert.throws(() => runtimeTarget("win32", "x64"), /does not support win32-x64/);
 });
+
+test("bounds stalled downloads and cleans staging after an abort", async (t) => {
+	const { root, manifest, target } = await fixture(t);
+	const installRoot = join(root, "cache", target);
+	const controller = new AbortController();
+	t.mock.method(AbortSignal, "timeout", (duration) => {
+		assert.equal(duration, 120_000);
+		return controller.signal;
+	});
+	await assert.rejects(
+		ensurePrimeRuntime({
+			manifest,
+			target,
+			installRoot,
+			fetch: async (_url, options) =>
+				new Promise((_resolve, reject) => {
+					options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+					controller.abort(new DOMException("Download timed out", "TimeoutError"));
+				}),
+		}),
+		/Download timed out/,
+	);
+	assert.deepEqual(await readdir(dirname(installRoot)), []);
+});
+
+test("launcher distinguishes missing and non-executable native binaries", async (t) => {
+	const { root } = await fixture(t);
+	const binary = join(root, "native-agent");
+	const run = () =>
+		spawnSync(process.execPath, [join(binDir, "fleet-prime.mjs"), "agent"], {
+			env: { ...process.env, FLEET_PRIME_AGENT_BIN: binary },
+			encoding: "utf8",
+			timeout: 5_000,
+		});
+	let result = run();
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /Prime Agent binary not found/);
+	await writeFile(binary, "fixture", { mode: 0o600 });
+	result = run();
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /Could not start Prime Agent binary .+: EACCES/);
+	assert.doesNotMatch(result.stderr, /not found/);
+});
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+	test(`launcher forwards ${signal} and preserves the child exit code`, { timeout: 10_000 }, async (t) => {
+		const { root } = await fixture(t);
+		const binary = join(root, "native-agent");
+		await writeFile(
+			binary,
+			`#!${process.execPath}\nprocess.on("${signal}", () => { console.log("received ${signal}"); process.exit(23); });\nconsole.log("ready");\nsetInterval(() => {}, 1000);\n`,
+			{ mode: 0o755 },
+		);
+		const child = spawn(process.execPath, [join(binDir, "fleet-prime.mjs"), "agent"], {
+			env: { ...process.env, FLEET_PRIME_AGENT_BIN: binary },
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		t.after(() => {
+			if (child.exitCode === null) child.kill("SIGKILL");
+		});
+		let output = "";
+		child.stdout.on("data", (chunk) => {
+			output += chunk;
+		});
+		const closed = once(child, "close");
+		await new Promise((resolve, reject) => {
+			child.stdout.on("data", () => {
+				if (output.includes("ready")) resolve();
+			});
+			child.once("error", reject);
+			child.once("exit", () => reject(new Error("Launcher exited before readiness")));
+		});
+		child.kill(signal);
+		const [code, exitSignal] = await closed;
+		assert.equal(code, 23);
+		assert.equal(exitSignal, null);
+		assert.match(output, new RegExp(`received ${signal}`));
+	});
+}
 
 test("refuses an archive that does not match its pinned checksum", async (t) => {
 	const { root, target, manifest } = await fixture(t);

@@ -164,18 +164,9 @@ Do not invent browser or wire representations for executable callbacks purely to
 
 ## Privacy and reasoning
 
-Raw detailed model reasoning is not a normal Fleet browser presentation surface.
+Fleet may present runtime-provided detailed reasoning through dedicated typed reasoning events and transcript parts. Keep it separate from assistant-text fallback, ordinary copy/export, unrelated payloads, and diagnostics. Do not create a separate reasoning store.
 
-Do not expose raw detailed thinking through:
-
-* browser event streams;
-* standard message parts;
-* transcript hydration;
-* assistant-text fallback;
-* copy/export behavior;
-* ordinary diagnostics.
-
-Fleet may expose controlled browser-safe reasoning/execution presentation derived from typed lifecycle information.
+Fleet may also expose controlled reasoning/execution presentation derived from typed lifecycle information.
 
 Do not infer new user-visible execution semantics from arbitrary model text when the runtime does not provide an authoritative typed signal.
 

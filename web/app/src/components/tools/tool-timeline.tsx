@@ -2,21 +2,44 @@
 
 import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import { ChevronDown, FilePenLine, FileSearch, Terminal, Wrench } from "lucide-react";
-import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
+import type { ToolPartBase } from "@/components/chat/transcript/chat-message-parts";
+import { toolActionIconForName } from "@/components/tools/tool-action-icon";
+import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
+import {
+	Trace,
+	TraceCollapsible,
+	TraceCollapsibleContent,
+	TraceCollapsibleTrigger,
+	TraceDescription,
+	TraceIcon,
+	TraceLine,
+	TraceTitle,
+} from "@/components/ui/trace";
 import { cn } from "@/lib/utils";
+
+const LazySessionToolRenderer = lazy(() =>
+	import("@/components/tools/session-tool-renderer").then(({ SessionToolRenderer }) => ({
+		default: SessionToolRenderer,
+	})),
+);
 
 const NO_ARTIFACTS: readonly PrimeAgentArtifact[] = [];
 
 type TimelineStep = {
 	id: string;
-	icon: typeof Terminal;
 	verb: string;
 	target: string;
-	status: "running" | "complete" | "error" | "cancelled";
+	status: "running" | "complete" | "error" | "cancelled" | "pending";
 	artifactId?: string;
 	artifactTitle?: string;
 	artifactTarget?: "artifacts" | "repl";
+	part?: ToolPartBase;
+	nestedTools?: Array<ToolPartBase>;
+	traceDescription?: string;
+	durationLabel?: string;
+	reportedError?: boolean;
 };
 
 type ToolTimelineProps = {
@@ -25,6 +48,7 @@ type ToolTimelineProps = {
 	streaming: boolean;
 	className?: string;
 	onOpenArtifact?: (artifactId: string, target?: "artifacts" | "repl") => void;
+	renderToolDetails?: (part: ToolPartBase, streaming: boolean, nestedTools?: Array<ToolPartBase>) => ReactNode;
 };
 
 function artifactPanel(kind: PrimeAgentArtifact["kind"]): "artifacts" | "repl" {
@@ -54,21 +78,6 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 /**
- * Selects the first non-empty string value from common input fields.
- *
- * @param input - The tool input containing candidate target values
- * @param fallback - The value to use when no candidate target is available
- * @returns The first matching target value, or `fallback` when none is found
- */
-function target(input: unknown, fallback: string) {
-	const source = record(input);
-	for (const key of ["path", "filePath", "command", "cmd", "query", "pattern", "code"]) {
-		if (typeof source?.[key] === "string" && source[key]) return source[key];
-	}
-	return fallback;
-}
-
-/**
  * Determines the timeline status for a tool action.
  *
  * @param part - Tool action data containing its state and output information
@@ -78,8 +87,10 @@ function target(input: unknown, fallback: string) {
 function status(part: Record<string, unknown>, streaming: boolean): TimelineStep["status"] {
 	const state = part.state;
 	if (state === "output-error" || state === "error") return "error";
-	if (state === "cancelled" || state === "canceled" || state === "aborted") return "cancelled";
+	if (state === "cancelled" || state === "canceled" || state === "aborted" || state === "interrupted")
+		return "cancelled";
 	if (state === "input-streaming" || state === "streaming") return streaming ? "running" : "cancelled";
+	if (state === "input-available" || state === "pending" || state === "queued") return "pending";
 	return streaming && part.output === undefined && part.result === undefined ? "running" : "complete";
 }
 
@@ -91,25 +102,24 @@ function status(part: Record<string, unknown>, streaming: boolean): TimelineStep
  * @param streaming - Whether the conversation is currently streaming
  * @returns A timeline step, or `undefined` for unsupported tool parts
  */
-function toolStep(part: Record<string, unknown>, fallbackId: string, streaming: boolean): TimelineStep | undefined {
+function toolStep(
+	part: Record<string, unknown>,
+	fallbackId: string,
+	streaming: boolean,
+	nestedTools: Array<ToolPartBase> = [],
+	isNestedTaskTool = false,
+): TimelineStep | undefined {
 	const type = part.type;
 	if (
 		typeof type !== "string" ||
 		!type.startsWith("tool-") ||
 		type === "tool-FleetReasoning" ||
-		type === "tool-Thinking"
+		type === "tool-Thinking" ||
+		isNestedTaskTool
 	)
 		return undefined;
 	const name = type.slice(5);
 	const lower = name.toLowerCase();
-	const icon =
-		lower.includes("edit") || lower.includes("write") || lower.includes("patch")
-			? FilePenLine
-			: lower.includes("read") || lower.includes("search") || lower.includes("grep") || lower.includes("glob")
-				? FileSearch
-				: lower.includes("bash") || lower.includes("shell") || lower.includes("python") || lower.includes("ipython")
-					? Terminal
-					: Wrench;
 	const verb =
 		lower.includes("edit") || lower.includes("write") || lower.includes("patch")
 			? "Edited"
@@ -123,31 +133,29 @@ function toolStep(part: Record<string, unknown>, fallbackId: string, streaming: 
 							lower.includes("ipython")
 						? "Ran"
 						: name;
+	const normalized = normalizeToolPart(part);
 	return {
 		id: typeof part.toolCallId === "string" ? part.toolCallId : fallbackId,
-		icon,
 		verb,
-		target: target(part.input ?? part.args, name),
+		target: name,
 		status: status(part, streaming),
+		part: part as ToolPartBase,
+		nestedTools,
+		traceDescription: normalized?.traceDescription,
+		durationLabel: normalized?.durationLabel,
+		reportedError: normalized?.outputSummary.isError,
 	};
 }
 
 /**
- * Converts an artifact into a timeline step with an appropriate icon, action label, target, and status.
+ * Converts an artifact into a timeline step with an appropriate action label, target, and status.
  *
  * @param artifact - The artifact to represent in the timeline
  * @returns The timeline step derived from the artifact
  */
 function artifactStep(artifact: PrimeAgentArtifact): TimelineStep {
-	const icon =
-		artifact.kind === "diff"
-			? FilePenLine
-			: artifact.kind === "bash" || artifact.kind === "ipython"
-				? Terminal
-				: Wrench;
 	return {
 		id: `artifact:${artifact.id}`,
-		icon,
 		verb:
 			artifact.kind === "compaction"
 				? "Compacted"
@@ -160,22 +168,124 @@ function artifactStep(artifact: PrimeAgentArtifact): TimelineStep {
 							: artifact.kind === "diff"
 								? "Edited"
 								: "Completed",
-		target: artifact.title,
+		target:
+			artifact.kind === "bash"
+				? "Bash output"
+				: artifact.kind === "ipython"
+					? "IPython result"
+					: artifact.kind === "diff"
+						? "File change"
+						: artifact.kind === "rlm"
+							? "Child task"
+							: artifact.kind === "recap"
+								? "Session recap"
+								: artifact.kind === "refinement"
+									? "Refinement"
+									: "Session activity",
 		status: artifact.status === "success" ? "complete" : artifact.status,
 	};
 }
 
-/**
- * Maps a timeline step status to its corresponding text color classes.
- *
- * @param status - The timeline step status
- * @returns The CSS classes for the status color
- */
-function statusClass(status: TimelineStep["status"]) {
-	if (status === "running") return "text-primary";
-	if (status === "error") return "text-destructive";
-	if (status === "cancelled") return "text-muted-foreground";
-	return "text-success";
+function TimelineStepRow({
+	step,
+	onOpenArtifact,
+	renderToolDetails,
+}: {
+	step: TimelineStep;
+	onOpenArtifact?: ToolTimelineProps["onOpenArtifact"];
+	renderToolDetails?: ToolTimelineProps["renderToolDetails"];
+}) {
+	const Icon = toolActionIconForName(step.part?.type.replace(/^tool-/, "") ?? step.target);
+	const artifactId = step.artifactId;
+	const openLabel =
+		artifactId && step.artifactTitle
+			? step.artifactTarget === "repl"
+				? `Open ${step.artifactTitle} in REPL`
+				: `Open ${step.artifactTitle} in artifacts`
+			: undefined;
+	const detailLabel = `Details for ${step.target}${step.id ? ` (${step.id})` : ""}`;
+	const statusLabel = step.reportedError
+		? "reported error"
+		: step.status === "error"
+			? "failed"
+			: step.status === "running"
+				? "running"
+				: step.status === "pending"
+					? "waiting"
+					: step.status === "cancelled"
+						? "cancelled"
+						: "done";
+	const line = (
+		<TraceLine
+			status={
+				step.status === "running"
+					? "running"
+					: step.status === "error"
+						? "error"
+						: step.status === "pending"
+							? "pending"
+							: undefined
+			}
+		>
+			<TraceIcon>
+				<Icon
+					className={cn(
+						"size-3.5",
+						step.status === "running" && "animate-pulse text-primary",
+						step.status === "error" && "text-destructive",
+					)}
+				/>
+			</TraceIcon>
+			<TraceTitle>
+				{step.verb} {step.target}
+			</TraceTitle>
+			<TraceDescription className={step.reportedError ? "text-destructive" : undefined}>
+				{statusLabel}
+			</TraceDescription>
+			{step.traceDescription ? (
+				<TraceDescription className="max-w-48 truncate" title={step.traceDescription}>
+					{step.traceDescription}
+				</TraceDescription>
+			) : null}
+			{step.durationLabel ? <TraceDescription>{step.durationLabel}</TraceDescription> : null}
+		</TraceLine>
+	);
+
+	return (
+		<div className="flex min-w-0 items-start gap-2">
+			{step.part ? (
+				<TraceCollapsible className="min-w-0 flex-1">
+					<TraceCollapsibleTrigger aria-label={detailLabel}>{line}</TraceCollapsibleTrigger>
+					<TraceCollapsibleContent>
+						{renderToolDetails ? (
+							renderToolDetails(step.part, step.status === "running", step.nestedTools)
+						) : (
+							<Suspense fallback={null}>
+								<LazySessionToolRenderer
+									part={step.part}
+									nestedTools={step.nestedTools}
+									chatStatus={step.status === "running" ? "streaming" : undefined}
+									insideTrace
+								/>
+							</Suspense>
+						)}
+					</TraceCollapsibleContent>
+				</TraceCollapsible>
+			) : (
+				<div className="min-w-0 flex-1">{line}</div>
+			)}
+			{openLabel && artifactId && onOpenArtifact ? (
+				<button
+					type="button"
+					className="shrink-0 text-micro underline"
+					aria-label={openLabel}
+					onClick={() => onOpenArtifact(artifactId, step.artifactTarget)}
+				>
+					Open
+				</button>
+			) : null}
+		</div>
+	);
 }
 
 /**
@@ -192,6 +302,7 @@ export function ToolTimeline({
 	streaming,
 	className,
 	onOpenArtifact,
+	renderToolDetails,
 }: ToolTimelineProps) {
 	const steps = useMemo(() => {
 		const seen = new Set<string>();
@@ -200,14 +311,45 @@ export function ToolTimeline({
 				artifact.sourceToolCallId ? [[artifact.sourceToolCallId, artifact] as const] : [],
 			),
 		);
-		const fromMessages = messages.flatMap((message) =>
-			message.parts.flatMap((part, index) => {
-				const step = toolStep(record(part) ?? {}, `${message.id}:${index}`, streaming);
+		const fromMessages = messages.flatMap((message) => {
+			const taskPartIds = new Set(
+				message.parts.flatMap((part) => {
+					const source = record(part);
+					return (source?.type === "tool-Task" || source?.type === "tool-Agent") &&
+						typeof source.toolCallId === "string"
+						? [source.toolCallId]
+						: [];
+				}),
+			);
+			const nestedToolsByTask = new Map<string, Array<ToolPartBase>>();
+			const nestedToolIds = new Set<string>();
+			for (const part of message.parts) {
+				const source = record(part);
+				const toolCallId = typeof source?.toolCallId === "string" ? source.toolCallId : undefined;
+				const separator = toolCallId?.indexOf(":") ?? -1;
+				if (!toolCallId || separator <= 0) continue;
+				const parentId = toolCallId.slice(0, separator);
+				if (!taskPartIds.has(parentId)) continue;
+				nestedToolIds.add(toolCallId);
+				const children = nestedToolsByTask.get(parentId) ?? [];
+				children.push(source as ToolPartBase);
+				nestedToolsByTask.set(parentId, children);
+			}
+			return message.parts.flatMap((part, index) => {
+				const source = record(part) ?? {};
+				const toolCallId = typeof source.toolCallId === "string" ? source.toolCallId : undefined;
+				const step = toolStep(
+					source,
+					`${message.id}:${index}`,
+					streaming,
+					toolCallId ? (nestedToolsByTask.get(toolCallId) ?? []) : [],
+					toolCallId ? nestedToolIds.has(toolCallId) : false,
+				);
 				if (!step || seen.has(step.id)) return [];
 				seen.add(step.id);
 				return [withArtifact(step, artifactByToolCallId.get(step.id))];
-			}),
-		);
+			});
+		});
 		const fromArtifacts = artifacts.flatMap((artifact) => {
 			if (artifact.sourceToolCallId && seen.has(artifact.sourceToolCallId)) return [];
 			const step = withArtifact(artifactStep(artifact), artifact);
@@ -220,63 +362,39 @@ export function ToolTimeline({
 	const [open, setOpen] = useState(true);
 	if (steps.length === 0) return null;
 
-	const active = steps.at(-1);
-	const ActiveIcon = active?.icon;
+	const active = [...steps].reverse().find((step) => step.status === "running") ?? steps.at(-1);
+	const StatusIcon = toolActionIconForName(active?.part?.type.replace(/^tool-/, "") ?? active?.target ?? "activity");
 	return (
-		<section className={cn("mb-2 rounded-xl border border-border/60 bg-muted/20", className)}>
-			<button
-				type="button"
-				aria-expanded={open}
-				onClick={() => setOpen((current) => !current)}
-				className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			>
-				{active && ActiveIcon ? (
-					<ActiveIcon
-						className={cn(
-							"size-3.5 shrink-0",
-							statusClass(active.status),
-							active.status === "running" && "animate-pulse",
-						)}
-					/>
-				) : null}
-				<span className="min-w-0 flex-1 truncate font-medium">
-					{streaming && active
-						? `${active.verb} ${active.target}`
-						: `${steps.length} tool ${steps.length === 1 ? "action" : "actions"}`}
-				</span>
-				<ChevronDown className={cn("size-3.5 text-muted-foreground transition-transform", open && "rotate-180")} />
-			</button>
-			{open ? (
-				<div className="space-y-1 border-t border-border/50 px-3 py-2">
-					{steps.map((step) => {
-						const Icon = step.icon;
-						const artifactId = step.artifactId;
-						const openLabel =
-							artifactId && step.artifactTitle
-								? step.artifactTarget === "repl"
-									? `Open ${step.artifactTitle} in REPL`
-									: `Open ${step.artifactTitle} in artifacts`
-								: undefined;
-						return (
-							<div key={step.id} className="flex min-w-0 items-center gap-2 text-xs">
-								<Icon className={cn("size-3.5 shrink-0", statusClass(step.status))} />
-								<span className="shrink-0 text-muted-foreground">{step.verb}</span>
-								<span className="min-w-0 flex-1 truncate font-mono text-foreground/75">{step.target}</span>
-								{openLabel && artifactId && onOpenArtifact ? (
-									<button
-										type="button"
-										className="shrink-0 text-micro text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-										aria-label={openLabel}
-										onClick={() => onOpenArtifact(artifactId, step.artifactTarget)}
-									>
-										Open
-									</button>
-								) : null}
-							</div>
-						);
-					})}
-				</div>
-			) : null}
-		</section>
+		<Trace className={cn("mb-2", className)} data-testid="tool-trace">
+			<TraceCollapsible open={open} onOpenChange={setOpen}>
+				<TraceCollapsibleTrigger aria-label={`${steps.length} tool ${steps.length === 1 ? "action" : "actions"}`}>
+					<TraceLine
+						status={active?.status === "running" ? "running" : active?.status === "error" ? "error" : undefined}
+					>
+						<TraceIcon>
+							<StatusIcon className={cn("size-3.5", active?.status === "running" && "animate-spin")} />
+						</TraceIcon>
+						<TraceTitle>
+							{streaming && active
+								? `${active.verb} ${active.target}`
+								: `${steps.length} tool ${steps.length === 1 ? "action" : "actions"}`}
+						</TraceTitle>
+						<TraceDescription>{steps.length}</TraceDescription>
+					</TraceLine>
+				</TraceCollapsibleTrigger>
+				<TraceCollapsibleContent>
+					<Trace className="gap-1">
+						{steps.map((step) => (
+							<TimelineStepRow
+								key={step.id}
+								step={step}
+								onOpenArtifact={onOpenArtifact}
+								renderToolDetails={renderToolDetails}
+							/>
+						))}
+					</Trace>
+				</TraceCollapsibleContent>
+			</TraceCollapsible>
+		</Trace>
 	);
 }

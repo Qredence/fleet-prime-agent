@@ -32,7 +32,10 @@ export async function ensurePrimeAgentRuntime(
 	const staging = await mkdtemp(join(dirname(installRoot), ".fleet-prime-runtime-"));
 	try {
 		const archivePath = join(staging, asset.archive);
-		const response = await (options.fetch ?? fetch)(`${runtime.baseUrl}/${asset.archive}`);
+		// The release URL comes from Fleet's shipped runtime pin, never session or provider input.
+		const response = await (options.fetch ?? fetch)(`${runtime.baseUrl}/${asset.archive}`, {
+			signal: AbortSignal.timeout(120_000),
+		});
 		if (!response.ok)
 			throw new Error(
 				`Could not download Prime Agent ${runtime.version} (${response.status}). Check your network and retry.`,
@@ -40,6 +43,7 @@ export async function ensurePrimeAgentRuntime(
 		const bytes = Buffer.from(await response.arrayBuffer());
 		if (digest(bytes) !== asset.sha256)
 			throw new Error(`Prime Agent ${runtime.version} archive checksum mismatch; refusing to install it.`);
+		// Only checksum-verified release bytes reach this private staging file.
 		await writeFile(archivePath, bytes, { mode: 0o600 });
 		const extractRoot = join(staging, "extracted");
 		await mkdir(extractRoot);
