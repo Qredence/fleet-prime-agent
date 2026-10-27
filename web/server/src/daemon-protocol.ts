@@ -515,6 +515,30 @@ export function describeDaemonHello(hello: DaemonHelloFrame): string {
 	return parts.join(", ");
 }
 
+/**
+ * Why a hello is refused, or `undefined` when Fleet accepts it.
+ *
+ * The flavors fail for different reasons, and "expected protocol 7" is
+ * misleading for a TypeScript daemon that reports protocol 7 and is still
+ * refused. Naming the actual mismatch keeps the error actionable.
+ */
+export function describeDaemonIncompatibility(hello: DaemonHelloFrame): string | undefined {
+	if (hello.protocol.name !== DAEMON_PROTOCOL_NAME || hello.protocol.version !== DAEMON_PROTOCOL_VERSION) {
+		return `it reports protocol ${describeDaemonHello(hello)}, but Fleet requires ${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}`;
+	}
+	if (hello.schemaRevision !== DAEMON_SCHEMA_REVISION) {
+		return `it reports schema revision ${hello.schemaRevision ?? "unknown"}, but Fleet requires ${DAEMON_SCHEMA_REVISION}`;
+	}
+	const flavor = daemonRuntimeFlavor(hello);
+	if (flavor === "typescript") {
+		return "it is the TypeScript daemon, and Fleet requires the Rust daemon (install a current prime-agent)";
+	}
+	if (flavor === "unknown") {
+		return "it does not identify itself as the Rust daemon (install a current prime-agent)";
+	}
+	return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Model catalog, resource snapshot and MCP connection payloads (`response.data`).
 // Field names mirror the Rust serde output exactly; `T | null` marks an

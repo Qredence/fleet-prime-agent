@@ -17,6 +17,7 @@ import {
 	type DaemonSessionSummary,
 	daemonRuntimeFlavor,
 	describeDaemonHello,
+	describeDaemonIncompatibility,
 	isCompatibleDaemonHello,
 	isDaemonHelloFrame,
 	isDaemonModelCatalogChangedFrame,
@@ -162,6 +163,18 @@ function describeHello(hello: unknown): string {
 	return isDaemonHelloFrame(hello) ? describeDaemonHello(hello) : "an unrecognized hello";
 }
 
+/** One refusal shape for every daemon gate, naming the actual mismatch. */
+function refusalMessage(action: string, socketPath: string, hello: unknown): string {
+	if (!isDaemonHelloFrame(hello)) {
+		return `Refusing to ${action} the Prime Agent daemon at ${socketPath}: it sent ${describeHello(hello)}`;
+	}
+	const reason = describeDaemonIncompatibility(hello);
+	return (
+		`Refusing to ${action} the Prime Agent daemon at ${socketPath}: ` +
+		`${reason ?? `found ${describeDaemonHello(hello)}`}`
+	);
+}
+
 type DaemonProbeResult =
 	| { status: "compatible" }
 	| { status: "incompatible"; detail: string }
@@ -260,10 +273,7 @@ async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonSocketCl
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
 		if (!matchesPinnedDaemon(hello) || daemonRuntimeFlavor(hello) !== "rust") {
-			throw new Error(
-				`Refusing to attach to the Prime Agent daemon at ${socketPath}: expected protocol ` +
-					`${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}, found ${describeHello(hello)}`,
-			);
+			throw new Error(refusalMessage("attach to", socketPath, hello));
 		}
 		return { client, socketPath };
 	} catch (error) {
@@ -287,7 +297,7 @@ async function withDaemonSupervisor<T>(
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
 		if (!matchesPinnedDaemon(hello) || daemonRuntimeFlavor(hello) !== "rust") {
-			throw new Error(`Refusing to use the Prime Agent daemon at ${socketPath}: found ${describeHello(hello)}`);
+			throw new Error(refusalMessage("use", socketPath, hello));
 		}
 		return await run(client);
 	} finally {

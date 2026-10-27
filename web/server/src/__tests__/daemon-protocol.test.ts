@@ -4,6 +4,7 @@ import {
 	DAEMON_PROTOCOL_NAME,
 	type DaemonHelloFrame,
 	daemonRuntimeFlavor,
+	describeDaemonIncompatibility,
 	isCompatibleDaemonHello,
 	isDaemonHelloFrame,
 	isDaemonModelCatalogChangedFrame,
@@ -62,6 +63,39 @@ describe("daemon protocol 7 types against the Rust v0.10.1 fixtures", () => {
 		expect(isCompatibleDaemonHello({ ...ts, protocol: { name: DAEMON_PROTOCOL_NAME, version: 8 } })).toBe(false);
 		expect(isCompatibleDaemonHello({ ...ts, protocol: { name: "other", version: 7 } })).toBe(false);
 		expect(daemonRuntimeFlavor({ type: "daemon_hello", protocol: ts.protocol })).toBe("unknown");
+	});
+
+	it("names the actual mismatch when refusing a daemon", () => {
+		const [hello] = readRustFixture("daemon-hello.jsonl");
+		expect(describeDaemonIncompatibility(hello as unknown as DaemonHelloFrame)).toBeUndefined();
+
+		const ts: DaemonHelloFrame = {
+			type: "daemon_hello",
+			protocol: { name: DAEMON_PROTOCOL_NAME, version: 7 },
+			schemaRevision: 30,
+			schemaId: KNOWN_DAEMON_SCHEMA_IDS.typescript,
+		};
+		// Reporting a matching protocol and schema is not enough: the flavor is
+		// the reason, and the message must say so rather than implying protocol 7.
+		expect(describeDaemonIncompatibility(ts)).toContain("TypeScript daemon");
+		expect(describeDaemonIncompatibility({ ...ts, schemaRevision: 31 })).toContain("schema revision 31");
+		expect(describeDaemonIncompatibility({ ...ts, protocol: { name: DAEMON_PROTOCOL_NAME, version: 8 } })).toContain(
+			"protocol",
+		);
+		// A hello missing the schema revision reports that mismatch first, since
+		// it is the earliest real difference from the pinned contract.
+		expect(
+			describeDaemonIncompatibility({ type: "daemon_hello", protocol: { name: DAEMON_PROTOCOL_NAME, version: 7 } }),
+		).toContain("schema revision unknown");
+		// With protocol and schema matching, an unidentifiable daemon is reported
+		// as such rather than as a protocol mismatch.
+		expect(
+			describeDaemonIncompatibility({
+				type: "daemon_hello",
+				protocol: { name: DAEMON_PROTOCOL_NAME, version: 7 },
+				schemaRevision: 30,
+			}),
+		).toContain("does not identify itself as the Rust daemon");
 	});
 
 	it("finds session_binding as a top-level frame, never inside session_event", () => {
