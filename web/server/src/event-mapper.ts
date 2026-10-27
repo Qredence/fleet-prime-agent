@@ -610,15 +610,18 @@ function withSentAgentMessages(state: EventMapperState, toolCallId: string | und
 	return { ...base, details: { ...details, sentAgentMessages } };
 }
 
-function toolNameForEvent(state: EventMapperState, toolCallId: string, eventToolName: unknown): string {
+function toolNameForEvent(state: EventMapperState, toolCallId: string, eventToolName: unknown): string | undefined {
 	if (typeof eventToolName === "string" && eventToolName.length > 0) {
 		state.toolNamesByCallId.set(toolCallId, eventToolName);
 		return eventToolName;
 	}
 	const knownName = state.toolNamesByCallId.get(toolCallId);
 	if (knownName) return knownName;
-	const existingPart = state.currentToolParts.find((part) => part.toolCallId === toolCallId);
-	if (existingPart?.toolName) return existingPart.toolName;
+	const knownStart = state.toolCallStarts.get(toolCallId)?.toolName;
+	if (knownStart) {
+		state.toolNamesByCallId.set(toolCallId, knownStart);
+		return knownStart;
+	}
 	const content = state.currentAssistantMessage?.content;
 	if (Array.isArray(content)) {
 		for (const item of content) {
@@ -628,7 +631,7 @@ function toolNameForEvent(state: EventMapperState, toolCallId: string, eventTool
 			}
 		}
 	}
-	return "unknown_tool";
+	return undefined;
 }
 
 function upsertCurrentToolPart(state: EventMapperState, nextPart: ChatToolPart): ChatToolPart {

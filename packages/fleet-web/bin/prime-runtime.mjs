@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, open, rename, rm, writeFile } from "node:fs/promises";
 import { arch, homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -59,10 +59,14 @@ export async function ensurePrimeRuntime({
 }
 
 async function matchesDigest(path, expected) {
+	let file;
 	try {
-		return (await stat(path)).isFile() && digest(await readFile(path)) === expected;
+		file = await open(path, "r");
+		return (await file.stat()).isFile() && digest(await file.readFile()) === expected;
 	} catch {
 		return false;
+	} finally {
+		await file?.close();
 	}
 }
 

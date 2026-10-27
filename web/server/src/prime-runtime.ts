@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmod, mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, open, rename, rm, writeFile } from "node:fs/promises";
 import { arch, homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 import manifest from "../../../PRIME_AGENT_RUNTIME.json";
@@ -59,11 +59,14 @@ export async function ensurePrimeAgentRuntime(
 }
 
 async function executableMatches(path: string, expected: string): Promise<boolean> {
+	let file: Awaited<ReturnType<typeof open>> | undefined;
 	try {
-		const info = await stat(path);
-		return info.isFile() && digest(await readFile(path)) === expected;
+		file = await open(path, "r");
+		return (await file.stat()).isFile() && digest(await file.readFile()) === expected;
 	} catch {
 		return false;
+	} finally {
+		await file?.close();
 	}
 }
 
