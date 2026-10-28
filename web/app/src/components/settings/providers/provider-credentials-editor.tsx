@@ -1,16 +1,11 @@
-import type {
-	ChatProviderInfo,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
-	PiCustomProviderApi,
-} from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatProviderInfo, PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
 import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
 import { ArrowLeft, Info, Search } from "lucide-react";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
 import { ProviderCredentialFields } from "@/components/settings/providers/provider-credential-fields";
 import { isOAuthProvider, supportsOAuth } from "@/components/settings/providers/provider-credentials-types";
 import { PROVIDER_METADATA } from "@/components/settings/providers/provider-metadata";
-import { ProviderOAuthSignIn } from "@/components/settings/providers/provider-oauth-sign-in";
+import { ProviderOAuthTerminalFallback } from "@/components/settings/providers/provider-oauth-terminal-fallback";
 import { CUSTOM_PROVIDER_PICKER_ID } from "@/components/settings/providers/use-provider-credentials-controller";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -117,17 +112,7 @@ export function AddProviderPickerPanel({
 	);
 }
 
-export function AddProviderOAuthPanel({
-	onBack,
-	onConfigured,
-	onOAuthLogin,
-	provider,
-}: {
-	onBack: () => void;
-	onConfigured?: () => void;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
-	provider: ChatProviderInfo;
-}) {
+export function AddProviderOAuthPanel({ onBack, provider }: { onBack: () => void; provider: ChatProviderInfo }) {
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center gap-2">
@@ -147,12 +132,7 @@ export function AddProviderOAuthPanel({
 					</p>
 				</div>
 			</div>
-			<ProviderOAuthSignIn
-				key={provider.id}
-				provider={provider}
-				onConfigured={onConfigured}
-				onOAuthLogin={onOAuthLogin}
-			/>
+			<ProviderOAuthTerminalFallback provider={provider} />
 		</div>
 	);
 }
@@ -178,8 +158,6 @@ export function AddProviderEditorPanel({
 	onTogglePassword,
 	onBack,
 	onCancel,
-	onConfigured,
-	onOAuthLogin,
 	onSave,
 }: {
 	provider: ChatProviderInfo;
@@ -202,8 +180,6 @@ export function AddProviderEditorPanel({
 	onTogglePassword: () => void;
 	onBack: () => void;
 	onCancel: () => void;
-	onConfigured?: () => void;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	onSave: () => void;
 }) {
 	const isCustomTemplate = provider.id === CUSTOM_PROVIDER_PICKER_ID || isCustomProviderId(provider.id);
@@ -277,14 +253,7 @@ export function AddProviderEditorPanel({
 					Save
 				</Button>
 			</div>
-			{oauthAvailable ? (
-				<ProviderOAuthSignIn
-					key={`${provider.id}-oauth`}
-					provider={provider}
-					onConfigured={onConfigured ?? onCancel}
-					onOAuthLogin={onOAuthLogin}
-				/>
-			) : null}
+			{oauthAvailable ? <ProviderOAuthTerminalFallback provider={provider} /> : null}
 		</div>
 	);
 }

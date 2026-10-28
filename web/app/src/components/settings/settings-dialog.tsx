@@ -59,6 +59,19 @@ import {
 } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
+function ReadOnlyPrimeSettings({ children }: { children: ReactNode }) {
+	return (
+		<div className="flex flex-col gap-3">
+			<p role="status" className="text-sm text-muted-foreground">
+				Prime Agent settings are read-only in Fleet. Change them in the Prime Agent terminal interface.
+			</p>
+			<fieldset disabled className="min-w-0">
+				{children}
+			</fieldset>
+		</div>
+	);
+}
+
 /**
  * Thin composer over the per-section form hooks; keeps the dialog-level
  * draft core, tab state, saving orchestration, and the discard flow.
@@ -73,7 +86,6 @@ function useSettingsForm() {
 		modelCatalog,
 		onDiscoverModels,
 		onMcpOAuth,
-		onOAuthLogin,
 		onRemoveMcp,
 		onRemoveProvider,
 		onThemePreferenceChange,
@@ -186,7 +198,6 @@ function useSettingsForm() {
 		isUpdatingProvider,
 		mcpConnections,
 		onMcpOAuth,
-		onOAuthLogin,
 		onRemoveMcp,
 		onRemoveProvider,
 		onThemePreferenceChange,
@@ -331,7 +342,6 @@ function SettingsDialogPaneContent({
 		isUpdatingProvider,
 		mcpConnections,
 		onMcpOAuth,
-		onOAuthLogin,
 		onRemoveMcp,
 		onRemoveProvider,
 		onThemePreferenceChange,
@@ -364,34 +374,36 @@ function SettingsDialogPaneContent({
 	} = form;
 
 	const resourcesPane = (scope: "skills" | "harness") => (
-		<ResourcesSection
-			scope={scope}
-			draft={draft}
-			updateDraft={updateDraft}
-			onEnableSkillCommandsChange={(enableSkillCommands) =>
-				updateDraft((current) => ({ ...current, enableSkillCommands }))
-			}
-			onExtensionsChange={(extensions) => updateDraft((current) => ({ ...current, extensions }))}
-			onPackageRowsChange={handlePackageRowsChange}
-			onPromptsChange={(prompts) => updateDraft((current) => ({ ...current, prompts }))}
-			onRevert={revertResourceDraft}
-			onSave={() =>
-				draft &&
-				saveSection("resources", {
-					...resourceSettings(draft),
-					...(scope === "harness" ? harnessSettings(draft) : {}),
-				})
-			}
-			onSkillsChange={(skills) => updateDraft((current) => ({ ...current, skills }))}
-			onThemesChange={(themes) => updateDraft((current) => ({ ...current, themes }))}
-			packageError={packageError}
-			packageRows={packageRows}
-			resourceDirty={resourceDirty}
-			resources={resources}
-			resourceSummary={resourceSummary}
-			saving={savingSection === "resources"}
-			settingsLoading={settingsLoading}
-		/>
+		<ReadOnlyPrimeSettings>
+			<ResourcesSection
+				scope={scope}
+				draft={draft}
+				updateDraft={updateDraft}
+				onEnableSkillCommandsChange={(enableSkillCommands) =>
+					updateDraft((current) => ({ ...current, enableSkillCommands }))
+				}
+				onExtensionsChange={(extensions) => updateDraft((current) => ({ ...current, extensions }))}
+				onPackageRowsChange={handlePackageRowsChange}
+				onPromptsChange={(prompts) => updateDraft((current) => ({ ...current, prompts }))}
+				onRevert={revertResourceDraft}
+				onSave={() =>
+					draft &&
+					saveSection("resources", {
+						...resourceSettings(draft),
+						...(scope === "harness" ? harnessSettings(draft) : {}),
+					})
+				}
+				onSkillsChange={(skills) => updateDraft((current) => ({ ...current, skills }))}
+				onThemesChange={(themes) => updateDraft((current) => ({ ...current, themes }))}
+				packageError={packageError}
+				packageRows={packageRows}
+				resourceDirty={resourceDirty}
+				resources={resources}
+				resourceSummary={resourceSummary}
+				saving={savingSection === "resources"}
+				settingsLoading={settingsLoading}
+			/>
+		</ReadOnlyPrimeSettings>
 	);
 
 	const panes: Record<SettingsSectionId, () => ReactNode> = {
@@ -479,29 +491,30 @@ function SettingsDialogPaneContent({
 				isLoading={isLoadingProviders ?? false}
 				isPending={isUpdatingProvider ?? false}
 				providers={providers}
-				onOAuthLogin={onOAuthLogin}
 				onRemoveProvider={onRemoveProvider}
 				onUpdateProvider={onUpdateProvider}
 			/>
 		),
 		"llm-models": () => (
-			<ModelDefaultsSection
-				draft={draft}
-				discoveringProviderId={discoveringProviderId}
-				modelDirty={modelDirty}
-				modelFilter={modelFilter}
-				modelOptions={modelOptions}
-				onAddModels={addModels}
-				onDiscoverProvider={discoverProvider}
-				onModelFilterChange={setModelFilter}
-				onRemoveModel={removeModel}
-				onSetDefaultModel={setDefaultModel}
-				providers={providers}
-				onRevert={revertModelDraft}
-				onSave={() => draft && saveSection("models", modelSettings(draft))}
-				saving={savingSection === "models"}
-				settingsLoading={settingsLoading}
-			/>
+			<ReadOnlyPrimeSettings>
+				<ModelDefaultsSection
+					draft={draft}
+					discoveringProviderId={discoveringProviderId}
+					modelDirty={modelDirty}
+					modelFilter={modelFilter}
+					modelOptions={modelOptions}
+					onAddModels={addModels}
+					onDiscoverProvider={discoverProvider}
+					onModelFilterChange={setModelFilter}
+					onRemoveModel={removeModel}
+					onSetDefaultModel={setDefaultModel}
+					providers={providers}
+					onRevert={revertModelDraft}
+					onSave={() => draft && saveSection("models", modelSettings(draft))}
+					saving={savingSection === "models"}
+					settingsLoading={settingsLoading}
+				/>
+			</ReadOnlyPrimeSettings>
 		),
 		skills: () => resourcesPane("skills"),
 		"pi-harness": () => resourcesPane("harness"),

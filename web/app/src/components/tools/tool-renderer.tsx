@@ -1,6 +1,5 @@
 import type React from "react";
 import { memo } from "react";
-import { QuestionTool } from "@/components/chat/question/question-tool";
 import type { CustomToolRendererProps } from "@/components/chat/types";
 import { BashTool } from "@/components/tools/bash-tool";
 import { EditTool } from "@/components/tools/edit-tool";
@@ -55,8 +54,6 @@ export const ToolRenderer = memo(function ToolRenderer({
 			return <PlanTool part={part} chatStatus={chatStatus} />;
 		case "tool-TodoWrite":
 			return <TodoTool part={part} chatStatus={chatStatus} />;
-		case "tool-Question":
-			return <QuestionTool part={part} chatStatus={chatStatus} />;
 		case "tool-Task":
 		case "tool-Agent": {
 			const labelBase = part.type === "tool-Agent" ? "Agent" : "Task";

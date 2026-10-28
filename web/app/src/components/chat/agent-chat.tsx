@@ -271,13 +271,11 @@ function deduplicateAgentMessagePayloads(messages: Array<ChatMessage>) {
  * @param messages - Assistant messages belonging to the turn
  * @param isLast - Whether this is the latest conversation turn
  * @param isStreaming - Whether the assistant is currently generating a response
- * @param suppressQuestionTool - Whether to hide question-tool content
  */
 function AssistantMessage({
 	messages,
 	isLast,
 	isStreaming,
-	suppressQuestionTool,
 	toolRenderers,
 	onOpenUIAction,
 	activityLabel,
@@ -289,7 +287,6 @@ function AssistantMessage({
 	messages: Array<ChatMessage>;
 	isLast: boolean;
 	isStreaming: boolean;
-	suppressQuestionTool: boolean;
 	toolRenderers?: AgentChatProps["toolRenderers"];
 	onOpenUIAction?: (message: string) => void;
 	activityLabel?: string;
@@ -320,7 +317,6 @@ function AssistantMessage({
 						messageId: message.id,
 						isLast: isLast && index === messages.length - 1,
 						isStreaming: turnStreaming,
-						suppressQuestionTool,
 						suppressTextWhenPlanWrite: true,
 						ToolRendererComponent: SessionToolRenderer,
 						TextRendererComponent: SessionGenerativeTextRenderer,
@@ -341,7 +337,6 @@ function AssistantMessage({
 			artifactByToolCallId,
 			onOpenUIAction,
 			onOpenUIArtifactReady,
-			suppressQuestionTool,
 			toolRenderers,
 		],
 	);
@@ -389,7 +384,6 @@ type ConversationTurnViewProps = {
 	state: {
 		isLast: boolean;
 		isStreaming: boolean;
-		suppressQuestionTool: boolean;
 	};
 	rendering: {
 		toolRenderers?: AgentChatProps["toolRenderers"];
@@ -456,7 +450,6 @@ export const ConversationTurnView = memo(
 						messages={turn.assistants}
 						isLast={state.isLast}
 						isStreaming={state.isStreaming}
-						suppressQuestionTool={state.suppressQuestionTool}
 						toolRenderers={rendering.toolRenderers}
 						onOpenUIAction={rendering.onOpenUIAction}
 						onOpenUIArtifactReady={rendering.onOpenUIArtifactReady}
@@ -474,7 +467,6 @@ export const ConversationTurnView = memo(
 		sameMessages(previous.turn.assistants, next.turn.assistants) &&
 		previous.state.isLast === next.state.isLast &&
 		previous.state.isStreaming === next.state.isStreaming &&
-		previous.state.suppressQuestionTool === next.state.suppressQuestionTool &&
 		previous.rendering.toolRenderers === next.rendering.toolRenderers &&
 		previous.rendering.onOpenUIAction === next.rendering.onOpenUIAction &&
 		previous.rendering.onOpenUIArtifactReady === next.rendering.onOpenUIArtifactReady &&
@@ -496,7 +488,7 @@ export const ConversationTurnView = memo(
  */
 function isLifecycleNotice(label: string | undefined) {
 	if (!label) return false;
-	return /queued|steered|retry|compact|reset|recover|sign in/i.test(label);
+	return /queued|steered|retry|compact|reset|recover|refresh|sign in/i.test(label);
 }
 
 /**
@@ -586,7 +578,6 @@ export function AgentChat({
 	className,
 	messages,
 	error,
-	suppressQuestionTool = false,
 	onOpenUIAction,
 	activityLabel,
 	presentation,
@@ -622,13 +613,10 @@ export function AgentChat({
 		[onOpenArtifact, onOpenUIAction, onOpenUIArtifactReady, toolRenderers],
 	);
 	const stateForLast = useMemo<ConversationTurnViewProps["state"]>(
-		() => ({ isLast: true, isStreaming, suppressQuestionTool }),
-		[isStreaming, suppressQuestionTool],
+		() => ({ isLast: true, isStreaming }),
+		[isStreaming],
 	);
-	const stateForRest = useMemo<ConversationTurnViewProps["state"]>(
-		() => ({ isLast: false, isStreaming: false, suppressQuestionTool }),
-		[suppressQuestionTool],
-	);
+	const stateForRest = useMemo<ConversationTurnViewProps["state"]>(() => ({ isLast: false, isStreaming: false }), []);
 	const activityForLast = useMemo<ConversationTurnViewProps["activity"]>(
 		() => ({ label: activityLabel, presentation, artifactRuns }),
 		[activityLabel, artifactRuns, presentation],
@@ -758,7 +746,6 @@ type ChatPanelProps = {
 	onOpenArtifact?: (artifactId: string) => void;
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
 	inputSuggestionItems: AgentChatViewProps["suggestions"];
-	suppressQuestionTool: boolean;
 	inputBar: AgentChatViewProps["inputBar"];
 	onSend: (text: string, altKey?: boolean) => void;
 	onOpenUIAction: (text: string) => void;
@@ -783,7 +770,6 @@ export function ChatPanel({
 	onOpenArtifact,
 	onOpenUIArtifactReady,
 	inputSuggestionItems,
-	suppressQuestionTool,
 	inputBar,
 	onSend,
 	onOpenUIAction,
@@ -815,7 +801,6 @@ export function ChatPanel({
 					onEditQueuedMessage={onEditQueuedMessage}
 					onOpenArtifact={onOpenArtifact}
 					onOpenUIArtifactReady={onOpenUIArtifactReady}
-					suppressQuestionTool={suppressQuestionTool}
 					error={error ?? undefined}
 					suggestions={inputSuggestionItems}
 					inputBar={inputBar}

@@ -8,11 +8,16 @@
  *   - `<scenario>.events.json`     expected Fleet `ChatStreamEvent[]` output
  *
  * Replay feeds every frame through the stock `DaemonAgentConnection` adapter
- * (the class daemon-runtime.ts attaches) over an offline transport, then maps
- * the resulting connection events with Fleet's real event mapper under a
- * frozen clock and RNG. The same code produces committed `events.json`
- * (scripts/record-contract-fixtures.ts), so expected output is never edited
- * by hand.
+ * over an offline transport, then maps the resulting connection events with
+ * Fleet's real event mapper under a frozen clock and RNG. The same code
+ * produces committed `events.json` (scripts/record-contract-fixtures.ts), so
+ * expected output is never edited by hand.
+ *
+ * The stock adapter is no longer the production path: the Rust cutover moved
+ * Fleet onto `FleetDaemonAgentConnection`. This harness stays because it is what
+ * produced the pinned goldens, and `fleet-adapter-contract.test.ts` replays the
+ * same frames through the adapter Fleet actually runs and requires identical
+ * output.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

@@ -3,6 +3,11 @@
  * event mapper → ChatStreamEvent. Any change in how Fleet maps a recorded
  * daemon stream (or in the frozen ChatStreamEvent schema) fails here.
  *
+ * The stock adapter is what produced these goldens, but it is not the path
+ * Fleet runs after the Rust cutover. `fleet-adapter-contract.test.ts` replays
+ * the same fixtures through `FleetDaemonAgentConnection` and requires identical
+ * output, so the pinned contract covers production.
+ *
  * Regenerate the v0.9.8 set with `pnpm --filter @prime-agent/web-server record:contract-fixtures`
  * (see fixtures/daemon-frames/v0.9.8/README.md).
  */

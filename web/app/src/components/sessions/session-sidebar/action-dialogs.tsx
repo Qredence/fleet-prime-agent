@@ -1,7 +1,6 @@
 import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
-import { Folder } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { type SessionDialog, sessionLabel } from "@/components/sessions/session-sidebar/types";
 import {
 	AlertDialog,
@@ -12,27 +11,15 @@ import {
 	AlertDialogFooter,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, type SelectOption } from "@/components/ui/select";
 
 export type SidebarActionDialogsProps = {
 	activeDialog: SessionDialog;
 	onClose: () => void;
-	projects: Array<ProjectSummary>;
 	onRenameSession: (sessionId: string, title: string) => void;
 	onDeleteSession: (sessionId: string) => void;
 	onRenameProject?: (projectId: ProjectId, name: string) => void | Promise<void>;
 	onUnregisterProject?: (projectId: ProjectId) => void | Promise<void>;
-	onForkSessionIntoProject?: (sessionId: string, projectId: ProjectId) => void | Promise<void>;
 };
 
 function RenameSessionDialog({
@@ -186,85 +173,16 @@ function UnregisterProjectDialog({
 	);
 }
 
-function ForkSessionDialog({
-	session,
-	projects,
-	onClose,
-	onForkSessionIntoProject,
-}: {
-	session: ChatSessionInfo;
-	projects: Array<ProjectSummary>;
-	onClose: () => void;
-	onForkSessionIntoProject?: (sessionId: string, projectId: ProjectId) => void | Promise<void>;
-}) {
-	const initialProjectId = projects.find((project) => project.projectId !== session.projectId)?.projectId;
-	const [forkProjectId, setForkProjectId] = useState<ProjectId | undefined>(initialProjectId);
-
-	const forkProjectOptions = useMemo<Array<SelectOption>>(
-		() =>
-			projects.flatMap((project) =>
-				project.projectId === session.projectId
-					? []
-					: [
-							{
-								value: project.projectId,
-								label: `${project.name} — ${project.pathLabel}`,
-								icon: Folder,
-							},
-						],
-			),
-		[session.projectId, projects],
-	);
-
-	return (
-		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="sm:max-w-md">
-				<DialogHeader>
-					<DialogTitle>Fork session into project</DialogTitle>
-					<DialogDescription>Create a new Fleet Prime session in another registered project.</DialogDescription>
-				</DialogHeader>
-				<div className="py-2">
-					<Select
-						value={forkProjectId ?? null}
-						onValueChange={(value) => setForkProjectId(value as ProjectId)}
-						options={forkProjectOptions}
-						placeholder="Select a project…"
-						aria-label="Target project"
-					/>
-				</div>
-				<DialogFooter>
-					<Button type="button" variant="outline" onClick={onClose}>
-						Cancel
-					</Button>
-					<Button
-						type="button"
-						disabled={!forkProjectId || !onForkSessionIntoProject}
-						onClick={() => {
-							if (!forkProjectId) return;
-							void onForkSessionIntoProject?.(session.sessionId, forkProjectId);
-							onClose();
-						}}
-					>
-						Fork session
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
 /** Renders the dialog selected by `activeDialog`, or nothing when it is null.
  * Project creation is handled separately by SessionSidebar, so its dialog
  * kind also renders nothing here. */
 export function SessionSidebarActionDialogs({
 	activeDialog,
 	onClose,
-	projects,
 	onRenameSession,
 	onDeleteSession,
 	onRenameProject,
 	onUnregisterProject,
-	onForkSessionIntoProject,
 }: SidebarActionDialogsProps) {
 	if (!activeDialog) return null;
 
@@ -287,15 +205,6 @@ export function SessionSidebarActionDialogs({
 					project={activeDialog.project}
 					onClose={onClose}
 					onUnregisterProject={onUnregisterProject}
-				/>
-			);
-		case "fork-session":
-			return (
-				<ForkSessionDialog
-					session={activeDialog.session}
-					projects={projects}
-					onClose={onClose}
-					onForkSessionIntoProject={onForkSessionIntoProject}
 				/>
 			);
 		case "create-project":

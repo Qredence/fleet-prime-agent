@@ -6,7 +6,7 @@ import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo
 import type { RightPanel } from "@/components/layout/canvas-utils";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
-import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "@/components/layout/right-panel-registry";
+import { RIGHT_PANEL_GROUPS } from "@/components/layout/right-panel-registry";
 import { TabsSubtle, TabsSubtleItem } from "@/components/layout/tabs-subtle";
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
@@ -136,21 +136,22 @@ export function RightPanelLauncher({
 
 	const tabs = useMemo(
 		() =>
-			RIGHT_PANEL_LAUNCHER_DEFINITIONS.map((definition) => ({
+			RIGHT_PANEL_GROUPS.map((definition) => ({
 				...definition,
 				badge:
-					definition.badgeSource === "resources"
-						? totalResources || undefined
-						: definition.badgeSource === "artifacts"
-							? totalArtifacts
-							: definition.badgeSource === "repl"
+					definition.id === "workspace"
+						? totalArtifacts
+						: definition.id === "session"
+							? totalResources || undefined
+							: definition.id === "repl"
 								? replRuns || undefined
 								: undefined,
 			})),
 		[replRuns, totalArtifacts, totalResources],
 	);
 
-	const selectedIndex = tabs.findIndex((tab) => tab.id === activePanel);
+	const activeGroup = tabs.find((tab) => activePanel !== null && tab.panels.includes(activePanel));
+	const selectedIndex = activeGroup ? tabs.indexOf(activeGroup) : -1;
 	const panelOptions = useMemo<Array<SelectOption>>(
 		() =>
 			tabs.map((tab) => ({
@@ -165,27 +166,27 @@ export function RightPanelLauncher({
 		<ResponsivePanelLauncher
 			data-testid="right-panel-inline-launcher"
 			data-active-panel={activePanel ?? "closed"}
-			activePanel={activePanel}
+			activePanel={activeGroup?.id ?? null}
 			options={panelOptions}
 			panelOptions={tabs}
 			idPrefix={idPrefix}
 			selectedIndex={selectedIndex}
 			onSelect={(index) => {
-				const next = tabs.at(index)?.id;
+				const next = tabs.at(index);
 				if (!next) return;
-				onPanelChange(next === activePanel ? null : next);
+				onPanelChange(activeGroup?.id === next.id ? null : next.defaultPanel);
 			}}
 			compact={compact}
 		/>
 	);
 }
 
-type PanelLauncherTab = (typeof RIGHT_PANEL_LAUNCHER_DEFINITIONS)[number] & {
+type PanelLauncherTab = (typeof RIGHT_PANEL_GROUPS)[number] & {
 	badge?: number;
 };
 
 type ResponsivePanelLauncherProps = Omit<HTMLAttributes<HTMLDivElement>, "className" | "onSelect"> & {
-	activePanel: RightPanel;
+	activePanel: string | null;
 	className?: string;
 	compact?: boolean;
 	idPrefix: string;

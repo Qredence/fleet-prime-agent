@@ -26,6 +26,33 @@ export const RUST_DAEMON_BUILD_ID_PREFIX = "pa-daemon-rs-";
 
 export type DaemonProtocolInfo = { name: string; version: number };
 
+/** Capabilities advertised by protocol-7 daemons supported by Fleet. */
+export type DaemonServerCapability =
+	| "attach_snapshot"
+	| "event_sequence"
+	| "extension_ui"
+	| "slim_attach"
+	| "chunked_snapshot"
+	| "client_owned_sessions"
+	| "heartbeat_catalog"
+	| "delete_rlm_subagent"
+	| "heartbeat_management"
+	| "model_catalog"
+	| "side_question_transcript"
+	| "transient_bash"
+	| "agent_roster"
+	| "session_input_admission"
+	| "prompt_admission_cancellation"
+	| "queue_message_mutation"
+	| "authoritative_child_roster"
+	| "owned_session_recovery_context"
+	| "rlm_quiescence_barrier"
+	| "session_input_pause"
+	| "owned_prompt_cancellation"
+	| "acp_mcp_servers"
+	| "direct_peer_transport"
+	| "abort_and_send_queued";
+
 export type DaemonRuntimeInfo = {
 	buildId?: string;
 	executablePath?: string;
@@ -167,7 +194,19 @@ export type DaemonSessionSummary = {
 	lifecycle?: string;
 	activity?: string;
 	name?: string;
-	[key: string]: unknown;
+	sessionName?: string;
+	isSessionActive?: boolean;
+	isStreaming?: boolean;
+	hasRunningRlmChildren?: boolean;
+	parentActiveSessionId?: string;
+	parentSessionId?: string;
+	parentSessionPath?: string;
+	rlmChildId?: string;
+	statusLabel?: string;
+	workerState?: string;
+	lastHeardFromAt?: string;
+	thinkingLevel?: string;
+	summary?: string;
 };
 
 /** Saved-session row of `list_saved_sessions` (no `allMessagesText` on Rust). */
@@ -456,14 +495,17 @@ export function daemonRuntimeFlavor(hello: DaemonHelloFrame): DaemonRuntimeFlavo
 }
 
 /**
- * The daemon Fleet can drive: protocol 7 and, when announced, schema
- * revision 30. Both the pinned TS v0.9.8 and the Rust v0.10.1 daemon pass;
- * a daemon announcing another schema revision is refused.
+ * The daemon Fleet can drive: protocol 7, schema revision 30, and the Rust
+ * runtime flavor.
+ *
+ * Fleet cut over to the Rust daemon, so a TypeScript daemon that happens to
+ * advertise a matching schema is refused: its session and settings behavior
+ * differs and Fleet no longer carries a second adapter path for it.
  */
 export function isCompatibleDaemonHello(hello: DaemonHelloFrame): boolean {
 	if (hello.protocol.name !== DAEMON_PROTOCOL_NAME || hello.protocol.version !== DAEMON_PROTOCOL_VERSION) return false;
 	if (hello.schemaRevision !== DAEMON_SCHEMA_REVISION) return false;
-	return daemonRuntimeFlavor(hello) === "rust" || daemonRuntimeFlavor(hello) === "typescript";
+	return daemonRuntimeFlavor(hello) === "rust";
 }
 
 export function describeDaemonHello(hello: DaemonHelloFrame): string {
@@ -471,6 +513,30 @@ export function describeDaemonHello(hello: DaemonHelloFrame): string {
 	if (hello.schemaRevision !== undefined) parts.push(`schema ${hello.schemaRevision}`);
 	if (hello.runtime?.buildId) parts.push(hello.runtime.buildId);
 	return parts.join(", ");
+}
+
+/**
+ * Why a hello is refused, or `undefined` when Fleet accepts it.
+ *
+ * The flavors fail for different reasons, and "expected protocol 7" is
+ * misleading for a TypeScript daemon that reports protocol 7 and is still
+ * refused. Naming the actual mismatch keeps the error actionable.
+ */
+export function describeDaemonIncompatibility(hello: DaemonHelloFrame): string | undefined {
+	if (hello.protocol.name !== DAEMON_PROTOCOL_NAME || hello.protocol.version !== DAEMON_PROTOCOL_VERSION) {
+		return `it reports protocol ${describeDaemonHello(hello)}, but Fleet requires ${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}`;
+	}
+	if (hello.schemaRevision !== DAEMON_SCHEMA_REVISION) {
+		return `it reports schema revision ${hello.schemaRevision ?? "unknown"}, but Fleet requires ${DAEMON_SCHEMA_REVISION}`;
+	}
+	const flavor = daemonRuntimeFlavor(hello);
+	if (flavor === "typescript") {
+		return "it is the TypeScript daemon, and Fleet requires the Rust daemon (install a current prime-agent)";
+	}
+	if (flavor === "unknown") {
+		return "it does not identify itself as the Rust daemon (install a current prime-agent)";
+	}
+	return undefined;
 }
 
 // ---------------------------------------------------------------------------

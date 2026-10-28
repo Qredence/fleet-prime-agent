@@ -11,7 +11,6 @@
  * What lives here:
  * - `SettingsManager`, `AuthStorage`, `ModelRegistry` and `DefaultResourceLoader`
  *   factories (the config surface behind `prime-config.ts`);
- * - `legacyAgentDir()`;
  * - a strictly read-only session reader (`readLegacySession`).
  *
  * The session reader never writes. `SessionManager.openAsync` is not read-only: it
@@ -27,6 +26,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type {
+	AgentConnection,
 	ApiKeyCredential,
 	FileEntry,
 	SessionContext,
@@ -38,7 +38,6 @@ import {
 	AuthStorage,
 	buildSessionContext,
 	DefaultResourceLoader,
-	getAgentDir,
 	ModelRegistry,
 	migrateSessionEntries,
 	parseSessionEntries,
@@ -55,10 +54,16 @@ export type LegacySessionEntry = SessionEntry;
 export type LegacySessionMessageEntry = SessionMessageEntry;
 export type LegacySessionMessages = SessionContext["messages"];
 
-/** The Prime Agent directory (`~/.prime/agent` unless overridden by the runtime's env). */
-export function legacyAgentDir(): string {
-	return getAgentDir();
-}
+/**
+ * The upstream connection interface, exported for type derivation only.
+ *
+ * `agent-connection-port.ts` derives its method signatures from this so the
+ * port and the adapter cannot drift, while the SDK import stays inside this
+ * one module as `scripts/check-web-boundaries.mjs` requires. No value of this
+ * type is constructed here: the production connection is the Rust daemon
+ * adapter, and this module never runs SDK session code.
+ */
+export type LegacyAgentConnection = AgentConnection;
 
 /** `auth.json` store. Defaults to the agent directory's file; tests pass a temp path. */
 export function createLegacyAuthStorage(authPath?: string): LegacyAuthStorage {
@@ -73,9 +78,9 @@ export function createLegacyModelRegistry(
 	return ModelRegistry.create(authStorage, modelsJsonPath);
 }
 
-/** Global plus project settings for `cwd`. */
-export function createLegacySettingsManager(cwd: string): LegacySettingsManager {
-	return SettingsManager.create(cwd);
+/** Global plus project settings for `cwd`, scoped to the caller's agent directory. */
+export function createLegacySettingsManager(cwd: string, agentDir?: string): LegacySettingsManager {
+	return SettingsManager.create(cwd, agentDir);
 }
 
 /** Skills, prompts, extensions, themes and agents files for `cwd`, already loaded. */

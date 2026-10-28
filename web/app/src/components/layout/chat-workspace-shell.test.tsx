@@ -54,14 +54,12 @@ type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
 
 function createWorkspaceData(startNewSession: () => Promise<unknown>): WorkspaceData {
 	const composer = {
-		answerQuestion: vi.fn(),
 		chatMode: "agent" as const,
 		clearUploadedAttachments: vi.fn(),
 		clearWorkspaceAttachments: vi.fn(),
 		effortPickerOpen: false,
 		handleAttach: vi.fn(),
 		handleLocalSlashSubmit: vi.fn(),
-		handleQuestionAnswer: vi.fn(),
 		handleSlashCommandSelect: vi.fn(),
 		infoDescription: undefined,
 		inputSuggestionItems: [],
@@ -69,7 +67,6 @@ function createWorkspaceData(startNewSession: () => Promise<unknown>): Workspace
 		modelKey: undefined,
 		modelPickerOpen: false,
 		models: [],
-		pendingQuestionBar: undefined,
 		removeUploadedAttachment: vi.fn(),
 		removeWorkspaceAttachment: vi.fn(),
 		addWorkspaceAttachment: vi.fn(),
@@ -98,7 +95,6 @@ function createWorkspaceData(startNewSession: () => Promise<unknown>): Workspace
 			browseProjectDirectories: vi.fn(),
 			createProject: vi.fn(),
 			deleteSession: vi.fn(),
-			forkSessionIntoProject: vi.fn(),
 			renameProject: vi.fn(),
 			renameSession: vi.fn(),
 			resumeSession: vi.fn(),

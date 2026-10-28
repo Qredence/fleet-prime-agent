@@ -4,8 +4,9 @@ import type {
 	FleetAdapterCapabilities,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
+import { ChatStreamEventCursorSchema, ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import { type MutableRefObject, useEffect } from "react";
+import { type MutableRefObject, useEffect, useRef } from "react";
 import type { ChatClient } from "@/components/chat/chat-client";
 import type { QueueState } from "@/components/chat/chat-fetch";
 import {
@@ -15,12 +16,14 @@ import {
 	upsertToolPart,
 } from "@/components/chat/chat-message-helpers";
 import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
+import type { ChatStreamRecoveryState } from "@/components/chat/chat-stream-recovery";
 import { EMPTY_QUEUE_STATE } from "@/components/chat/chat-stream-state";
 import { hydratePlanPresentationMessages } from "@/components/chat/plans/plan-presentation";
 import { readStoredValue, writeStoredValue } from "@/lib/safe-storage";
 
 type SessionEventsOptions = {
 	client: ChatClient;
+	recoveryRef?: MutableRefObject<ChatStreamRecoveryState>;
 	presentationRef: MutableRefObject<PrimeAgentSessionPresentation>;
 	sessionId?: string;
 	sessionMetadataRef: MutableRefObject<ChatSessionMetadata>;
@@ -40,6 +43,7 @@ type SessionEventsOptions = {
  */
 export function usePiChatSessionEvents({
 	client,
+	recoveryRef,
 	presentationRef,
 	sessionId,
 	sessionMetadataRef,
@@ -51,8 +55,15 @@ export function usePiChatSessionEvents({
 	setSessionMetadataSynced,
 	statusRef,
 }: SessionEventsOptions) {
+	const internalRecoveryRef = useRef<ChatStreamRecoveryState>({ active: false, needsSnapshot: false });
+	const activeRecoveryRef = recoveryRef ?? internalRecoveryRef;
 	useEffect(() => {
 		if (!sessionId || typeof window === "undefined") return;
+		if (!activeRecoveryRef.current.active && activeRecoveryRef.current.sessionId !== sessionId) {
+			activeRecoveryRef.current.sessionId = sessionId;
+			activeRecoveryRef.current.cursor = undefined;
+			activeRecoveryRef.current.needsSnapshot = false;
+		}
 
 		const lastEventIdKey = `pi:sse:last-event-id:${sessionId}`;
 		const sseCapabilitiesRef = { current: undefined as FleetAdapterCapabilities | undefined };
@@ -81,6 +92,9 @@ export function usePiChatSessionEvents({
 				if (!Number.isNaN(parsed) && parsed > 0) lastEventId = parsed;
 			}
 		}
+		if (!activeRecoveryRef.current.cursor && streamGeneration) {
+			activeRecoveryRef.current.cursor = { generation: streamGeneration, sequence: lastEventId };
+		}
 		const persistCursor = (nextSeq: number, nextGeneration = streamGeneration) => {
 			lastEventId = nextSeq;
 			streamGeneration = nextGeneration;
@@ -104,10 +118,123 @@ export function usePiChatSessionEvents({
 		let activeAssistantId: string | undefined;
 
 		const handleEvent = (raw: MessageEvent<string>, seq: number) => {
-			let frame: ChatStreamEvent;
+			let parsed: unknown;
 			try {
-				frame = JSON.parse(raw.data) as ChatStreamEvent;
+				parsed = JSON.parse(raw.data);
 			} catch {
+				if (activeRecoveryRef.current.active) activeRecoveryRef.current.needsSnapshot = true;
+				return;
+			}
+			if (typeof parsed === "object" && parsed !== null && "type" in parsed && parsed.type === "connected") {
+				const connected = parsed as {
+					adapterCapabilities?: FleetAdapterCapabilities;
+					cursorReset?: boolean;
+					streamGeneration?: string;
+				};
+				sseCapabilitiesRef.current = connected.adapterCapabilities;
+				setAdapterCapabilities(connected.adapterCapabilities);
+				if (typeof connected.streamGeneration === "string" && connected.streamGeneration.length > 0) {
+					if (
+						activeRecoveryRef.current.active &&
+						activeRecoveryRef.current.cursor &&
+						activeRecoveryRef.current.cursor.generation !== connected.streamGeneration
+					) {
+						activeRecoveryRef.current.needsSnapshot = true;
+					} else if (
+						!activeRecoveryRef.current.cursor ||
+						activeRecoveryRef.current.cursor.generation !== connected.streamGeneration
+					) {
+						activeRecoveryRef.current.cursor = {
+							generation: connected.streamGeneration,
+							sequence: connected.cursorReset ? 0 : lastEventId,
+						};
+					}
+					streamGeneration = connected.streamGeneration;
+				}
+				if (connected.cursorReset) {
+					lastAppliedRlmSeq = 0;
+					if (activeRecoveryRef.current.active) activeRecoveryRef.current.needsSnapshot = true;
+					else {
+						persistCursor(0, streamGeneration);
+						if (streamGeneration) {
+							activeRecoveryRef.current.cursor = { generation: streamGeneration, sequence: 0 };
+						}
+					}
+				}
+				if (activeRecoveryRef.current.active && !activeRecoveryRef.current.needsSnapshot) {
+					setActivityLabelSynced(undefined);
+				}
+				return;
+			}
+			const validation = ChatStreamEventSchema.safeParse(parsed);
+			if (!validation.success) {
+				const recovery = activeRecoveryRef.current;
+				if (
+					recovery.active &&
+					recovery.sessionId === sessionId &&
+					!recovery.needsSnapshot &&
+					typeof parsed === "object" &&
+					parsed !== null &&
+					"type" in parsed &&
+					(parsed.type === "reasoning" || parsed.type === "reasoning_text")
+				) {
+					const cursorResult = ChatStreamEventCursorSchema.safeParse(
+						"eventCursor" in parsed ? parsed.eventCursor : null,
+					);
+					const appliedCursor = recovery.cursor;
+					const cursor = cursorResult.success ? cursorResult.data : undefined;
+					if (
+						cursor &&
+						appliedCursor?.generation === cursor.generation &&
+						cursor.sequence === appliedCursor.sequence + 1
+					) {
+						// Reasoning has its own transcript channel. Drop this malformed
+						// reasoning frame, but keep the replay boundary so valid text and
+						// tool events later in the same run remain visible.
+						recovery.cursor = cursor;
+						persistCursor(cursor.sequence, cursor.generation);
+					} else if (
+						cursor &&
+						appliedCursor?.generation === cursor.generation &&
+						cursor.sequence <= appliedCursor.sequence
+					) {
+						return;
+					} else {
+						recovery.needsSnapshot = true;
+					}
+				} else if (recovery.active) {
+					recovery.needsSnapshot = true;
+				}
+				return;
+			}
+			const frame: ChatStreamEvent = validation.data;
+			if (activeRecoveryRef.current.active && activeRecoveryRef.current.sessionId === sessionId) {
+				const cursor = frame.eventCursor;
+				if (!cursor || !activeRecoveryRef.current.applyEvent || activeRecoveryRef.current.needsSnapshot) {
+					activeRecoveryRef.current.needsSnapshot = true;
+					return;
+				}
+				const appliedCursor = activeRecoveryRef.current.cursor;
+				if (appliedCursor && appliedCursor.generation !== cursor.generation) {
+					activeRecoveryRef.current.needsSnapshot = true;
+					return;
+				}
+				if (appliedCursor && cursor.sequence <= appliedCursor.sequence) return;
+				if (appliedCursor && cursor.sequence !== appliedCursor.sequence + 1) {
+					activeRecoveryRef.current.needsSnapshot = true;
+					return;
+				}
+				try {
+					activeRecoveryRef.current.applyEvent?.(frame);
+					activeRecoveryRef.current.cursor = cursor;
+					persistCursor(cursor.sequence, cursor.generation);
+					if (reconnectNoticeShown) {
+						reconnectNoticeShown = false;
+						setActivityLabelSynced(undefined);
+					}
+				} catch {
+					activeRecoveryRef.current.needsSnapshot = true;
+				}
 				return;
 			}
 			if (frame.type === "start") activeAssistantId = frame.id;
@@ -216,26 +343,6 @@ export function usePiChatSessionEvents({
 				});
 				return;
 			}
-			const connected = frame as unknown as {
-				adapterCapabilities?: FleetAdapterCapabilities;
-				cursorReset?: boolean;
-				streamGeneration?: string;
-				type?: string;
-			};
-			if (connected.type === "connected") {
-				sseCapabilitiesRef.current = connected.adapterCapabilities;
-				setAdapterCapabilities(connected.adapterCapabilities);
-				if (typeof connected.streamGeneration === "string" && connected.streamGeneration.length > 0) {
-					streamGeneration = connected.streamGeneration;
-				}
-				if (connected.cursorReset) {
-					lastAppliedRlmSeq = 0;
-					persistCursor(0, streamGeneration);
-				} else if (streamGeneration && lastEventId > 0) {
-					persistCursor(lastEventId, streamGeneration);
-				}
-				return;
-			}
 			if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
 			if (frame.type === "reasoning_text" && frame.messageId) {
 				const messageId = frame.messageId;
@@ -291,8 +398,11 @@ export function usePiChatSessionEvents({
 
 		const connect = () => {
 			const params = new URLSearchParams({ sessionId });
-			if (streamGeneration) params.set("streamGeneration", streamGeneration);
-			if (lastEventId > 0) params.set("lastEventId", String(lastEventId));
+			const recoveryCursor = activeRecoveryRef.current.active ? activeRecoveryRef.current.cursor : undefined;
+			const requestedGeneration = recoveryCursor?.generation ?? streamGeneration;
+			const requestedSequence = recoveryCursor?.sequence ?? lastEventId;
+			if (requestedGeneration) params.set("streamGeneration", requestedGeneration);
+			if (requestedSequence > 0) params.set("lastEventId", String(requestedSequence));
 			source?.close();
 			const nextSource = new EventSource(resolveChatApiUrl(`/api/chat/events?${params}`));
 			source = nextSource;
@@ -302,9 +412,6 @@ export function usePiChatSessionEvents({
 				// the state after a reconnect or visible-session switch.
 				if (closedByEffect || source !== nextSource) return;
 				const seq = Number.parseInt(event.lastEventId ?? "", 10);
-				if (!Number.isNaN(seq) && seq > 0) {
-					persistCursor(seq, streamGeneration);
-				}
 				if (reconnectAttempt > 0) {
 					reconnectAttempt = 0;
 					if (reconnectNoticeShown) {
@@ -315,6 +422,18 @@ export function usePiChatSessionEvents({
 					}
 				}
 				handleEvent(event, seq);
+				if (
+					!activeRecoveryRef.current.active &&
+					statusRef.current !== "streaming" &&
+					statusRef.current !== "submitted" &&
+					!Number.isNaN(seq) &&
+					seq > 0
+				) {
+					persistCursor(seq, streamGeneration);
+					if (streamGeneration) {
+						activeRecoveryRef.current.cursor = { generation: streamGeneration, sequence: seq };
+					}
+				}
 			};
 			nextSource.onerror = () => {
 				if (closedByEffect || source !== nextSource) return;
@@ -332,15 +451,27 @@ export function usePiChatSessionEvents({
 				reconnectTimer = setTimeout(connect, Math.min(2_000, 250 * 2 ** Math.min(reconnectAttempt, 3)));
 			};
 		};
+		const requestReconnect = () => {
+			if (closedByEffect) return;
+			if (reconnectTimer) clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+			reconnectAttempt = 0;
+			connect();
+		};
+		activeRecoveryRef.current.requestReconnect = requestReconnect;
 		connect();
 
 		return () => {
 			closedByEffect = true;
+			if (activeRecoveryRef.current.requestReconnect === requestReconnect) {
+				activeRecoveryRef.current.requestReconnect = undefined;
+			}
 			source?.close();
 			if (reconnectTimer) clearTimeout(reconnectTimer);
 		};
 	}, [
 		client,
+		activeRecoveryRef,
 		presentationRef,
 		sessionId,
 		sessionMetadataRef,

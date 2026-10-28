@@ -81,13 +81,6 @@
         "rules": ["react-doctor/no-adjust-state-on-prop-change"]
       },
       {
-        "files": ["src/components/settings/providers/use-oauth-login-flow.ts"],
-        "rules": [
-          "react-doctor/no-set-state-after-await-in-effect",
-          "react-doctor/no-loading-flag-reset-outside-finally"
-        ]
-      },
-      {
         "files": ["src/components/sessions/project-folder.tsx"],
         "rules": ["react-doctor/prefer-html-dialog"]
       },

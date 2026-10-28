@@ -131,19 +131,6 @@ export function SessionInsightsPanel({
 					value={`${insights.refinements.total}\u00A0total · ${insights.refinements.successful}\u00A0successful · ${insights.refinements.failed}\u00A0failed`}
 				/>
 			</DetailList>
-
-			{presentation.recap ? (
-				<DetailList label="Existing recap">
-					<Detail
-						label="Summary"
-						value={
-							<span className="block max-w-56 whitespace-pre-wrap text-left text-pretty">
-								{presentation.recap}
-							</span>
-						}
-					/>
-				</DetailList>
-			) : null}
 		</section>
 	);
 }

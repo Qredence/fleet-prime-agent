@@ -4,15 +4,12 @@ import type {
 	ChatMcpOAuthLoginRequest,
 	ChatMcpOAuthLoginResponse,
 	ChatMcpUpsertRequest,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
 	McpConnectionInfo,
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Plug, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ItemRow } from "@/components/layout/item-row";
 import { SettingsPane } from "@/components/layout/settings-pane";
-import { ProviderOAuthSignIn } from "@/components/settings/providers/provider-oauth-sign-in";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -53,18 +50,22 @@ function connectionSubtitle(connection: McpConnectionInfo): string {
 
 export function McpConnectionsSection({
 	connections,
+	description = "Connect built-in and user MCP servers. Tokens stay on the server; this list only shows status and environment-variable names.",
 	isLoading,
 	isPending,
 	onOAuth,
 	onRemove,
 	onUpsert,
+	title = "MCP",
 }: {
 	connections: Array<McpConnectionInfo>;
+	description?: string;
 	isLoading: boolean;
 	isPending: boolean;
 	onOAuth?: (request: ChatMcpOAuthLoginRequest) => Promise<ChatMcpOAuthLoginResponse>;
 	onRemove?: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
 	onUpsert?: (request: ChatMcpUpsertRequest) => Promise<ChatMcpListResponse>;
+	title?: string;
 }) {
 	const [adding, setAdding] = useState(false);
 	const [transport, setTransport] = useState<"http" | "stdio">("http");
@@ -96,12 +97,17 @@ export function McpConnectionsSection({
 		const trimmedName = name.trim();
 		try {
 			if (transport === "http") {
+				// The server rejects a connection that declares both OAuth and a
+				// static bearer token, so OAuth wins and the token field is ignored.
+				// The form clears the token when OAuth is re-enabled, keeping the
+				// visible state and the submitted payload in agreement.
 				await onUpsert({
 					name: trimmedName,
 					transport: "http",
 					url: url.trim(),
-					...(oauth ? { oauth: true } : {}),
-					...(bearerTokenEnvVar.trim() ? { bearerTokenEnvVar: bearerTokenEnvVar.trim() } : {}),
+					...(!oauth && bearerTokenEnvVar.trim()
+						? { bearerTokenEnvVar: bearerTokenEnvVar.trim() }
+						: { oauth: true }),
 					force: true,
 				});
 			} else {
@@ -159,26 +165,10 @@ export function McpConnectionsSection({
 		}
 	};
 
-	const oauthAdapter = useMemo(() => {
-		if (!onOAuth) return undefined;
-		return (connection: McpConnectionInfo) =>
-			async (request: ChatProviderOAuthLoginRequest): Promise<ChatProviderOAuthLoginResponse> => {
-				const starting = !request.loginId && !request.cancel;
-				const result = await onOAuth({
-					name: connection.name,
-					action: starting && connection.status === "connected" ? "reconnect" : "login",
-					loginId: request.loginId,
-					promptAnswer: request.promptAnswer,
-					cancel: request.cancel,
-				});
-				return result;
-			};
-	}, [onOAuth]);
-
 	return (
 		<SettingsPane
-			title="MCP"
-			description="Connect built-in and user MCP servers. Tokens stay on the server; this list only shows status and environment-variable names."
+			title={title}
+			description={description}
 			actions={
 				<Button
 					type="button"
@@ -229,11 +219,18 @@ export function McpConnectionsSection({
 							<Field orientation="horizontal" className="items-center justify-between">
 								<div>
 									<FieldLabel>OAuth</FieldLabel>
-									<FieldDescription>Use the browser sign-in flow for this server.</FieldDescription>
+									<FieldDescription>
+										Sign in from Prime Agent's terminal after saving this server.
+									</FieldDescription>
 								</div>
 								<Switch
 									checked={oauth}
-									onCheckedChange={(checked) => setOauth(checked)}
+									onCheckedChange={(checked) => {
+										setOauth(checked);
+										// A hidden token must not survive the toggle: OAuth and a
+										// static bearer token are mutually exclusive upstream.
+										if (checked) setBearerTokenEnvVar("");
+									}}
 									aria-label="Use OAuth"
 								/>
 							</Field>
@@ -367,18 +364,14 @@ export function McpConnectionsSection({
 								<AlertDescription className="text-xs text-pretty">{connection.error}</AlertDescription>
 							</Alert>
 						) : null}
-						{connection.usesOAuth && oauthAdapter ? (
-							<ProviderOAuthSignIn
-								provider={{
-									id: connection.name,
-									name: connection.label,
-									isConfigured: connection.status === "connected",
-									envVarName: "",
-									authType: "oauth",
-									supportsOAuth: true,
-								}}
-								onOAuthLogin={oauthAdapter(connection)}
-							/>
+						{connection.usesOAuth && connection.status === "needs_auth" ? (
+							<Alert className="px-3 py-2">
+								<AlertDescription className="text-xs text-pretty">
+									MCP OAuth sign-in from Fleet settings is unavailable. Launch Prime Agent in a terminal using
+									the same configuration directory as Fleet and complete sign-in for {connection.label} there.
+									Restart Fleet afterward to reload the credentials.
+								</AlertDescription>
+							</Alert>
 						) : null}
 					</div>
 				))}

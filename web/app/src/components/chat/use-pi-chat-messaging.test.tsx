@@ -11,7 +11,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/components/chat/chat-client";
-import { ChatRequestError } from "@/components/chat/chat-fetch";
+import { ChatRequestError, ChatStreamContractError } from "@/components/chat/chat-fetch";
 import { toChatMessage } from "@/components/chat/chat-message-helpers";
 import { usePiChat } from "@/components/chat/use-pi-chat";
 
@@ -36,6 +36,18 @@ function sessionResponse(session: ChatSessionMetadata): ChatSessionResponse {
 		messages: [],
 		planPresentations: [],
 		presentation,
+	};
+}
+
+function discoveredSession(sessionId: string, status: ChatSessionInfo["status"] = "idle"): ChatSessionInfo {
+	return {
+		sessionId,
+		title: "Test session",
+		createdAt: "2026-08-27T00:00:00.000Z",
+		updatedAt: "2026-08-27T00:00:00.000Z",
+		status,
+		messageCount: 0,
+		firstMessage: "Test session",
 	};
 }
 
@@ -75,11 +87,11 @@ function sessionResetDoneEvent(sessionId: string): ChatStreamEvent {
 	};
 }
 
-function completedSessionResponse(sessionId: string): ChatSessionResponse {
+function completedSessionResponse(sessionId: string, prompt = "primary"): ChatSessionResponse {
 	return {
 		session: { sessionId },
 		messages: [
-			toChatMessage("persisted-user", "user", [{ type: "text", text: "primary" }]),
+			toChatMessage("persisted-user", "user", [{ type: "text", text: prompt }]),
 			toChatMessage("persisted-assistant", "assistant", [{ type: "text", text: "completed answer" }]),
 		],
 		planPresentations: [],
@@ -123,8 +135,10 @@ function createHarness(sessionId = "session-a", availableSessions: Array<ChatSes
 		onerror: (() => void) | null = null;
 		onmessage: ((event: MessageEvent<string>) => void) | null = null;
 		readonly close = vi.fn();
+		readonly url: string;
 
-		constructor(_url: string) {
+		constructor(url: string) {
+			this.url = url;
 			eventSources.push(this);
 		}
 	}
@@ -218,6 +232,7 @@ describe("usePiChat stream admission", () => {
 	});
 
 	afterEach(() => {
+		vi.useRealTimers();
 		vi.unstubAllGlobals();
 	});
 
@@ -582,6 +597,281 @@ describe("usePiChat stream admission", () => {
 		await act(async () => {
 			await retry;
 		});
+	});
+
+	it("keeps the user prompt and streamed text when a stream contract fails", async () => {
+		const { client, result, streams } = createHarness();
+		await act(async () => flush());
+		vi.mocked(client.loadSession).mockResolvedValueOnce(completedSessionResponse("session-a", "keep this prompt"));
+		let turn!: Promise<boolean>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "keep this prompt" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-assistant", text: "partial reply" });
+			streams[0].reject(new ChatStreamContractError());
+			expect(await turn).toBe(true);
+		});
+		expect(JSON.stringify(result.current.messages)).toContain("keep this prompt");
+		expect(JSON.stringify(result.current.messages)).toContain("completed answer");
+		expect(result.current.status).toBe("ready");
+		expect(result.current.error).toBeNull();
+		expect(streams).toHaveLength(1);
+	});
+
+	it("keeps the streamed transcript while the runtime is active, then hydrates on completion", async () => {
+		const { client, result, streams } = createHarness();
+		await act(async () => flush());
+		vi.mocked(client.listSessions)
+			.mockResolvedValueOnce([{ ...discoveredSession("session-a"), status: "running" }])
+			.mockResolvedValueOnce([discoveredSession("session-a")]);
+		vi.mocked(client.loadSession).mockResolvedValueOnce(sessionResponse({ sessionId: "session-a" }));
+		vi.mocked(client.loadSession).mockResolvedValueOnce(completedSessionResponse("session-a", "keep this prompt"));
+
+		let turn!: Promise<boolean>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "keep this prompt" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-assistant", text: "partial reply" });
+			streams[0].reject(new ChatStreamContractError());
+			await flush();
+		});
+		expect(result.current.status).toBe("streaming");
+		expect(result.current.activityLabel).toBe("Reconnecting…");
+		expect(JSON.stringify(result.current.messages)).toContain("partial reply");
+
+		await vi.waitFor(() => expect(client.listSessions).toHaveBeenCalledTimes(3), { timeout: 3_500 });
+		await act(async () => flush());
+		await expect(turn).resolves.toBe(true);
+		expect(JSON.stringify(result.current.messages)).toContain("completed answer");
+		expect(result.current.status).toBe("ready");
+	});
+
+	it("replays live tool and text events from the last applied POST cursor", async () => {
+		const { client, result, streams, eventSources } = createHarness();
+		await act(async () => flush());
+		let runtimeStatus: "idle" | "running" = "running";
+		vi.mocked(client.listSessions).mockImplementation(async () => [
+			{ ...discoveredSession("session-a"), status: runtimeStatus },
+		]);
+		vi.mocked(client.loadSession).mockImplementation(async () =>
+			runtimeStatus === "running"
+				? sessionResponse({ sessionId: "session-a" })
+				: completedSessionResponse("session-a", "single prompt"),
+		);
+		const generation = "stream-generation";
+		await act(async () => {
+			eventSources[0]?.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({ type: "connected", sessionId: "session-a", streamGeneration: generation }),
+				}),
+			);
+		});
+		let turn!: Promise<boolean>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "single prompt" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0]!.onEvent(startEvent("session-a"));
+			streams[0]!.onEvent({
+				type: "delta",
+				messageId: "session-a-assistant",
+				text: "partial response",
+				eventCursor: { generation, sequence: 1 },
+			});
+			streams[0]!.onEvent({
+				type: "queue",
+				steering: ["keep queued item"],
+				followUp: [],
+				eventCursor: { generation, sequence: 2 },
+			});
+			streams[0]!.reject(new ChatStreamContractError());
+			await flush();
+		});
+		expect(eventSources).toHaveLength(2);
+		expect(eventSources[1]?.url).toContain("streamGeneration=stream-generation");
+		expect(eventSources[1]?.url).toContain("lastEventId=2");
+
+		const replay = (sequence: number, frame: ChatStreamEvent) =>
+			eventSources[1]?.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({ ...frame, eventCursor: { generation, sequence } }),
+					lastEventId: String(sequence),
+				}),
+			);
+		await act(async () => {
+			replay(1, { type: "delta", messageId: "session-a-assistant", text: "partial response" });
+			replay(2, { type: "queue", steering: ["keep queued item"], followUp: [] });
+			eventSources[1]?.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "reasoning_text",
+						phase: "delta",
+						text: "bad reasoning frame",
+						eventCursor: { generation, sequence: 3 },
+					}),
+					lastEventId: "3",
+				}),
+			);
+			replay(4, {
+				type: "tool",
+				messageId: "session-a-assistant",
+				part: { type: "tool-Shell", toolCallId: "tool-1", state: "input-streaming", input: { command: "ls" } },
+			});
+			replay(5, { type: "delta", messageId: "session-a-assistant", text: " plus replayed text" });
+		});
+		expect(JSON.stringify(result.current.messages)).toContain("partial response plus replayed text");
+		expect(JSON.stringify(result.current.messages)).toContain("tool-1");
+		expect(result.current.queue.steering).toEqual(["keep queued item"]);
+		expect(result.current.status).toBe("streaming");
+		expect(client.streamMessage).toHaveBeenCalledOnce();
+
+		runtimeStatus = "idle";
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 2_100));
+			await flush();
+		});
+		await expect(turn).resolves.toBe(true);
+		expect(JSON.stringify(result.current.messages)).toContain("completed answer");
+		expect(result.current.status).toBe("ready");
+		expect(client.streamMessage).toHaveBeenCalledOnce();
+	});
+
+	it("keeps replay alive when the user steers during recovery", async () => {
+		const { client, result, streams, eventSources } = createHarness();
+		await act(async () => flush());
+		// Recovery keeps the turn running so the loop stays in flight while the
+		// steered message is queued.
+		vi.mocked(client.listSessions).mockImplementation(async () => [
+			{ ...discoveredSession("session-a"), status: "running" as const },
+		]);
+		vi.mocked(client.loadSession).mockImplementation(async () => sessionResponse({ sessionId: "session-a" }));
+		const generation = "recovery-generation";
+
+		let turn!: Promise<boolean>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "keep this prompt" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({
+				type: "delta",
+				messageId: "session-a-assistant",
+				text: "partial reply",
+				eventCursor: { generation, sequence: 1 },
+			});
+			streams[0].reject(new ChatStreamContractError());
+			await flush();
+		});
+		expect(result.current.status).toBe("streaming");
+
+		// Steering must not tear down the recovery's replay handoff. The queued
+		// message resolves independently; recovery keeps running behind it.
+		let steer!: Promise<boolean>;
+		await act(async () => {
+			steer = result.current.sendMessage({ text: "steer while recovering" });
+			await flush();
+		});
+		await act(async () => {
+			streams[1].onEvent({
+				type: "queue",
+				steering: ["steer while recovering"],
+				followUp: [],
+				eventCursor: { generation, sequence: 1 },
+			});
+			await flush();
+		});
+		streams[1].resolve();
+		await act(async () => {
+			await expect(steer).resolves.toBe(true);
+		});
+
+		// The replayed frame must reach the transcript. Before the fix,
+		// `cancelStreamRecovery()` had cleared `active`/`applyEvent`, so this
+		// branch was skipped and the frame was dropped by the streaming guard.
+		const liveReplay = eventSources.at(-1)!;
+		await act(async () => {
+			liveReplay.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "delta",
+						messageId: "session-a-assistant",
+						text: " and replayed after steering",
+						eventCursor: { generation, sequence: 2 },
+					}),
+					lastEventId: "2",
+				}),
+			);
+			await flush();
+		});
+		expect(JSON.stringify(result.current.messages)).toContain("partial reply and replayed after steering");
+
+		// stop() must reach the still-running recovery through its own controller.
+		await act(async () => result.current.stop());
+		await act(async () => {
+			await expect(turn).resolves.toBe(false);
+		});
+		expect(result.current.status).toBe("ready");
+	});
+
+	it("stops recovery when the user stops the active runtime", async () => {
+		const { client, result, streams } = createHarness();
+		await act(async () => flush());
+		vi.mocked(client.listSessions).mockResolvedValueOnce([{ ...discoveredSession("session-a"), status: "running" }]);
+		vi.mocked(client.loadSession).mockResolvedValueOnce(sessionResponse({ sessionId: "session-a" }));
+
+		let turn!: Promise<boolean>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "keep this prompt" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-assistant", text: "partial reply" });
+			streams[0].reject(new ChatStreamContractError());
+			await flush();
+		});
+		await act(async () => result.current.stop());
+		await expect(turn).resolves.toBe(false);
+		expect(client.abortSession).toHaveBeenCalledTimes(1);
+		expect(result.current.status).toBe("ready");
+		expect(JSON.stringify(result.current.messages)).toContain("keep this prompt");
+	});
+
+	it("keeps the visible content and shows reload guidance after three refresh failures", async () => {
+		const { client, result, streams } = createHarness();
+		await act(async () => flush());
+		vi.useFakeTimers();
+		vi.mocked(client.loadSession).mockRejectedValue(new Error("session refresh unavailable"));
+
+		let turn!: Promise<boolean>;
+		await act(async () => {
+			turn = result.current.sendMessage({ text: "keep this prompt" });
+			await flush();
+		});
+		await act(async () => {
+			streams[0].onEvent(startEvent("session-a"));
+			streams[0].onEvent({ type: "delta", messageId: "session-a-assistant", text: "partial reply" });
+			streams[0].reject(new ChatStreamContractError());
+			await flush();
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(4_000);
+			await flush();
+		});
+
+		await expect(turn).resolves.toBe(false);
+		expect(result.current.status).toBe("error");
+		expect(result.current.error).toBeInstanceOf(ChatStreamContractError);
+		expect(JSON.stringify(result.current.messages)).toContain("keep this prompt");
+		expect(JSON.stringify(result.current.messages)).toContain("partial reply");
 	});
 
 	it("settles an idle session command without leaving its optimistic user message", async () => {

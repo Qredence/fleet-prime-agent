@@ -45,6 +45,13 @@ export function deriveFamilyTarballs(manifest) {
 	};
 }
 
+export function configuredRuntimePinLabels(manifest) {
+	return [
+		`Configured Rust runtime pin: ${manifest.rust?.version ?? "not configured"}`,
+		`Configured legacy TypeScript SDK pin: ${manifest.package}@${manifest.version}`,
+	];
+}
+
 export const runtimeFamilyDependencies = [
 	{ dependency: "prime-agent", lockPackage: "prime-agent", tarballKey: "prime" },
 	{
@@ -118,7 +125,7 @@ export async function checkPrimeAgentRuntime(options = {}) {
 		await verifyTarball(manifest, familyTarballs, pnpmLock);
 	}
 
-	console.log(`Pinned Prime Agent runtime: ${manifest.package}@${manifest.version}`);
+	for (const label of configuredRuntimePinLabels(manifest)) console.log(label);
 	console.log("Runtime manifest cross-checks passed");
 }
 

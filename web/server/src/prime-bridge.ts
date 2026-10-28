@@ -34,15 +34,8 @@ import {
 	type PrimeAgentSessionPresentation,
 	type SessionTreeSnapshot,
 } from "@prime-agent/web-protocol";
-import type {
-	AgentConnection,
-	AgentConnectionEvent,
-	AgentConnectionExtensionUiRequest,
-	AgentSession,
-	ExtensionUIContext,
-	SessionSummary,
-} from "prime-agent";
-import { SessionManager } from "prime-agent";
+import type { AgentConnectionEvent, AgentSession, ExtensionUIContext } from "prime-agent";
+import type { FleetAgentConnection } from "./agent-connection-port";
 import {
 	type BridgeSessionCache,
 	confineSessionExportPath,
@@ -66,6 +59,7 @@ import {
 	selectedTextFromSessionEntry,
 } from "./bridge-helpers";
 import { CoalescingRefreshQueue } from "./coalescing-refresh-queue";
+import type { DaemonSessionSummary as SessionSummary } from "./daemon-protocol";
 import {
 	createDaemonWebAgentConnection,
 	type DaemonChildPromptHandle,
@@ -80,9 +74,6 @@ import {
 	applyRlmChildStatusOverrides,
 	createEventMapperState,
 	mapAgentConnectionEvent,
-	normalizeDaemonQuestions,
-	normalizedQuestionsToClarification,
-	normalizedQuestionsToWire,
 	type RlmChildStatusOverride,
 	resyncAfterSequenceGap,
 	toChatMessagesFromAgentMessages,
@@ -123,7 +114,7 @@ export interface BridgeSession {
 	 * The only runtime entry point the bridge itself routes through.
 	 * Owned by the bridge; do not store references outside the bridge.
 	 */
-	readonly connection: AgentConnection;
+	readonly connection: FleetAgentConnection;
 	/** Only populated by the explicit in-process test adapter. */
 	readonly session?: AgentSession;
 	readonly setOpenUIPrompt?: WebAgentConnection["setOpenUIPrompt"];
@@ -196,7 +187,7 @@ type AuthorizedRlmChild = {
 	summary: SessionSummary;
 };
 
-type AgentConnectionSessionWatcher = NonNullable<Awaited<ReturnType<AgentConnection["watchSession"]>>>;
+type AgentConnectionSessionWatcher = NonNullable<Awaited<ReturnType<FleetAgentConnection["watchSession"]>>>;
 
 type RlmChildStreamResume = {
 	streamGeneration?: string;
@@ -258,7 +249,6 @@ export class PrimeBridge {
 	readonly #caches = new Map<string, BridgeSessionCache>();
 	readonly #sessionTreeNavigationQueues = new Map<string, Promise<void>>();
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
-	readonly #daemonDialogs = new Map<string, { connection: AgentConnection; method: string }>();
 	readonly #auxiliaryWarnings = new Set<string>();
 
 	constructor(options: PrimeBridgeOptions = {}) {
@@ -282,12 +272,14 @@ export class PrimeBridge {
 	/** Emit a frame to ring buffer (SSE replay) and all live listeners. */
 	#dispatch(sessionId: string, frame: ChatStreamEvent): void {
 		const next = frame.type === "done" && !(frame.sessionId ?? "").trim() ? { ...frame, sessionId } : frame;
-		const buffer = this.#ringBuffers.get(sessionId);
-		if (buffer) {
-			buffer.push(next);
-		}
+		const buffer = this.#ringBufferFor(sessionId);
+		const entry = buffer.push(next, (sequence, generation) => ({
+			...next,
+			eventCursor: { generation, sequence },
+		}));
+		const sequenced = entry.event as ChatStreamEvent;
 		for (const listener of this.#listeners) {
-			listener(sessionId, next);
+			listener(sessionId, sequenced);
 		}
 	}
 
@@ -355,7 +347,6 @@ export class PrimeBridge {
 		this.#caches.clear();
 		this.#sessionTreeNavigationQueues.clear();
 		this.#openUIPromptTransitions.clear();
-		this.#daemonDialogs.clear();
 		this.#auxiliaryWarnings.clear();
 	}
 
@@ -375,135 +366,6 @@ export class PrimeBridge {
 			undefined,
 			options.projectId ?? (await getPrimeConfig().projectRegistry.projectIdForCwd(options.cwd)),
 		);
-	}
-
-	#handleDaemonExtensionUiRequest(
-		sessionId: string,
-		connection: AgentConnection,
-		request: AgentConnectionExtensionUiRequest,
-	): boolean {
-		const title = typeof request.payload.title === "string" ? request.payload.title : "Prime Agent asks";
-		const timeoutMs = typeof request.payload.timeout === "number" ? request.payload.timeout : undefined;
-		const options = Array.isArray(request.payload.options)
-			? request.payload.options.filter((option): option is string => typeof option === "string")
-			: undefined;
-		const message = typeof request.payload.message === "string" ? request.payload.message : "";
-		const placeholder =
-			typeof request.payload.placeholder === "string"
-				? request.payload.placeholder
-				: typeof request.payload.prefill === "string"
-					? request.payload.prefill
-					: undefined;
-
-		if (request.method === "notify") {
-			this.#dispatch(sessionId, {
-				type: "state",
-				state: {
-					name: "agent_start",
-					message: message || title,
-				},
-			});
-			return true;
-		}
-		if (request.method === "setStatus") {
-			this.#dispatch(sessionId, {
-				type: "state",
-				state: {
-					name: "agent_start",
-					message: `[${typeof request.payload.statusKey === "string" ? request.payload.statusKey : "status"}] ${typeof request.payload.statusText === "string" ? request.payload.statusText : ""}`,
-				},
-			});
-			return true;
-		}
-
-		const normalizedQuestions = normalizeDaemonQuestions(request.payload.questions);
-		const registryQuestions = normalizedQuestionsToClarification(normalizedQuestions);
-		const wireQuestions = normalizedQuestionsToWire(normalizedQuestions);
-
-		const hasQuestions =
-			request.method === "questions" ||
-			request.method === "ask_question" ||
-			Boolean(registryQuestions && registryQuestions.length > 0);
-
-		if (
-			!hasQuestions &&
-			request.method !== "select" &&
-			request.method !== "confirm" &&
-			request.method !== "input" &&
-			request.method !== "editor"
-		) {
-			return false;
-		}
-
-		const kind = hasQuestions
-			? "questions"
-			: request.method === "select"
-				? "select"
-				: request.method === "confirm"
-					? "confirm"
-					: "input";
-		this.#daemonDialogs.set(request.id, { connection, method: request.method });
-		const pending = this.#dialogs.open<unknown>({
-			sessionId,
-			toolCallId: request.id,
-			kind,
-			title,
-			message,
-			...(options ? { options } : {}),
-			...(registryQuestions ? { questions: registryQuestions } : {}),
-			...(placeholder ? { placeholder } : {}),
-			...(timeoutMs !== undefined ? { timeoutMs } : {}),
-			signalFrame: {
-				type: "tool-Question",
-				toolCallId: request.id,
-				state: "input-streaming",
-				input: {
-					kind: hasQuestions
-						? "questions"
-						: request.method === "select"
-							? "select"
-							: request.method === "confirm"
-								? "confirm"
-								: "text",
-					title,
-					...(message ? { message } : {}),
-					...(options ? { options } : {}),
-					...(wireQuestions ? { questions: wireQuestions } : {}),
-					...(placeholder ? { placeholder } : {}),
-					method: request.method,
-				},
-			},
-		});
-		void pending
-			.then((value) => {
-				if (request.method === "confirm") {
-					return connection.respondToExtensionUiRequest(request.id, { confirmed: Boolean(value) });
-				}
-				if (hasQuestions) {
-					if (value && typeof value === "object") {
-						return connection.respondToExtensionUiRequest(request.id, {
-							value: JSON.stringify(value),
-						});
-					}
-					return connection.respondToExtensionUiRequest(request.id, {
-						value: typeof value === "string" ? value : "",
-					});
-				}
-				const text =
-					value && typeof value === "object" && "choice" in value
-						? (value as { choice?: unknown }).choice
-						: value && typeof value === "object" && "choices" in value
-							? (value as { choices?: unknown }).choices
-							: value && typeof value === "object" && "text" in value
-								? (value as { text?: unknown }).text
-								: undefined;
-				return connection.respondToExtensionUiRequest(request.id, {
-					value: typeof text === "string" ? text : Array.isArray(text) ? text.join(",") : "",
-				});
-			})
-			.catch(() => connection.respondToExtensionUiRequest(request.id, { cancelled: true }).catch(() => undefined))
-			.finally(() => this.#daemonDialogs.delete(request.id));
-		return true;
 	}
 
 	/**
@@ -579,9 +441,9 @@ export class PrimeBridge {
 		};
 
 		const unsubscribeEvents = connection.subscribe((event) => {
-			if (event.type === "extension_ui_request" && !webAgent.bindUiContext) {
-				if (this.#handleDaemonExtensionUiRequest(sessionId, connection, event.request)) return;
-			}
+			// `extension_ui_request` is absent here by construction: the Rust daemon
+			// does not advertise `extension_ui`, and the in-process test adapter
+			// binds its UI context directly rather than round-tripping requests.
 			if (event.type === "session_event" && event.event.type === "compaction_end") {
 				// Compaction rewrites the transcript prefix, shifting the positional
 				// `${sessionId}-mN` ids the plan sidecar keys on. Invalidate records
@@ -636,7 +498,7 @@ export class PrimeBridge {
 			try {
 				do {
 					resyncPending = false;
-					let snapshot: Awaited<ReturnType<AgentConnection["getInitialSnapshot"]>>;
+					let snapshot: Awaited<ReturnType<FleetAgentConnection["getInitialSnapshot"]>>;
 					try {
 						snapshot = await connection.getInitialSnapshot();
 					} catch {
@@ -1137,14 +999,15 @@ export class PrimeBridge {
 				rlmChildOverrides: new Map([[child.id, override]]),
 			});
 			const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(canonicalSessionId, summary.cwd);
-			const streamGeneration = crypto.randomUUID();
+			const channelId = `child:${parent.sessionId}:${child.id}:${crypto.randomUUID()}`;
+			const streamGeneration = this.#ringBufferFor(channelId).streamGeneration;
 			const stream: ManagedRlmChildStream = {
 				key: `${parent.sessionId}:${child.id}`,
 				parentSessionId: parent.sessionId,
 				childId: child.id,
 				streamSessionId,
 				canonicalSessionId,
-				channelId: `child:${parent.sessionId}:${child.id}:${streamGeneration}`,
+				channelId,
 				streamGeneration,
 				projectId,
 				child,
@@ -1649,7 +1512,7 @@ export class PrimeBridge {
 		return { tree: [], leafId: null };
 	}
 
-	async #refreshSessionTreeCache(sessionId: string, connection: AgentConnection): Promise<void> {
+	async #refreshSessionTreeCache(sessionId: string, connection: FleetAgentConnection): Promise<void> {
 		const tree = await connection.getSessionTree();
 		const cache = this.#caches.get(sessionId) ?? emptyCache();
 		cache.tree = { tree: tree.tree as unknown[], leafId: tree.leafId };
@@ -1713,10 +1576,7 @@ export class PrimeBridge {
 	 * The fork flow:
 	 *   1. Resolve the source entry (parent for `before`, target for `at`) and
 	 *      pre-compute the user-message text for `position: "before"`.
-	 *   2. Daemon-backed sessions run the daemon `fork` command, which writes the
-	 *      branched transcript; the source reopens in its own worker
-	 *      (`forkToNewSession`). The in-process test adapter instead writes the
-	 *      branch with a side `SessionManager`.
+	 *   2. The daemon writes the branched transcript using `forkToNewSession`.
 	 *   3. Open a new connection on the fork and carry the source's
 	 *      model/thinking/service-tier.
 	 */
@@ -1732,16 +1592,12 @@ export class PrimeBridge {
 		if (!selectedEntry) {
 			throw new Error("Invalid entry ID for forking");
 		}
-		let targetLeafId: string | null;
 		let selectedText: string | undefined;
-		if (position === "at") {
-			targetLeafId = selectedEntry.id;
-		} else {
+		if (position === "before") {
 			selectedText = selectedTextFromSessionEntry(selectedEntry);
 			if (selectedText === undefined) {
 				throw new Error("Invalid entry ID for forking");
 			}
-			targetLeafId = selectedEntry.parentId;
 		}
 
 		const currentFile = sourceState.sessionFile;
@@ -1749,17 +1605,11 @@ export class PrimeBridge {
 			throw new Error("Cannot fork an unpersisted session");
 		}
 
-		let forkedPath: string | undefined;
-		if (bridge.forkToNewSession) {
-			// Daemon-backed sessions fork through the daemon `fork` command; the
-			// daemon writes the fork transcript and Fleet only opens it.
-			const forked = await bridge.forkToNewSession(entryId, position);
-			if (forked.cancelled) throw new Error("The Prime Agent daemon cancelled the fork");
-			forkedPath = forked.sessionPath;
-			selectedText = forked.selectedText ?? selectedText;
-		} else {
-			forkedPath = await this.#forkWithSideSessionManager(bridge, currentFile, sourceState.sessionDir, targetLeafId);
-		}
+		if (!bridge.forkToNewSession) throw new Error("Forking is unavailable without a Prime Agent daemon connection");
+		const forked = await bridge.forkToNewSession(entryId, position);
+		if (forked.cancelled) throw new Error("The Prime Agent daemon cancelled the fork");
+		const forkedPath = forked.sessionPath;
+		selectedText = forked.selectedText ?? selectedText;
 		if (!forkedPath) throw new Error("Failed to create forked session");
 
 		const webAgent = await this.#connectionFactory({
@@ -1790,83 +1640,12 @@ export class PrimeBridge {
 		};
 	}
 
-	/**
-	 * Legacy fork for the in-process test adapter (no daemon): a side
-	 * `SessionManager` writes the branched transcript before the new
-	 * connection opens it. Daemon-backed sessions use `forkToNewSession`.
-	 */
-	async #forkWithSideSessionManager(
-		bridge: BridgeSession,
-		currentFile: string,
-		sourceSessionDir: string | undefined,
-		targetLeafId: string | null,
-	): Promise<string> {
-		const sessionDir = sourceSessionDir ?? dirname(currentFile);
-		let side: SessionManager;
-		let forkedPath: string | undefined;
-		if (targetLeafId) {
-			// The side manager only creates the new transcript; the source remains
-			// exclusively owned by its runtime.
-			side = SessionManager.open(currentFile, sessionDir);
-			forkedPath = side.createBranchedSession(targetLeafId) ?? undefined;
-			if (!forkedPath) {
-				throw new Error("Failed to create forked session");
-			}
-		} else {
-			side = SessionManager.create(bridge.cwd, sessionDir);
-			const sourceHeader = await bridge.connection.getSessionHeader();
-			side.newSession({
-				parentSession: currentFile,
-				...(sourceHeader?.rlmDepth !== undefined ? { rlmDepth: sourceHeader.rlmDepth } : {}),
-			});
-			forkedPath = side.getSessionFile();
-		}
-		if (!forkedPath) throw new Error("Failed to create forked session");
-		// The runtime becomes the sole writer once it opens the target. This initial
-		// materialization makes a user-only fork durable before that handoff.
-		side.flushNow();
-		return forkedPath;
-	}
-
-	/** Fork the complete persisted history into another registered project. */
-	async forkSessionIntoProject(sessionId: string, targetProjectId: ProjectId): Promise<string> {
-		// Verify the caller's target project is still registered before touching
-		// the source session, so an unknown target fails without resuming or
-		// re-assigning anything as a side effect.
-		const targetCwd = await getPrimeConfig().projectRegistry.cwdForProject(targetProjectId);
-		const source = this.#sessions.get(sessionId) ?? (await this.resumeSessionById(sessionId));
-		if (!source) throw new Error(`Unknown session: ${sessionId}`);
-		await source.connection.waitForIdle();
-		const sourceState = await source.connection.getState();
-		const sourcePath = sourceState.sessionFile;
-		if (!sourcePath) throw new Error("Cannot fork an unpersisted session");
-		const targetSessionDir = sessionDirectoryForCwd(targetCwd);
-		const manager = SessionManager.forkFrom(sourcePath, targetCwd, targetSessionDir);
-		const forkedPath = manager.getSessionFile();
-		if (!forkedPath) throw new Error("Failed to create project fork");
-		const webAgent = await this.#connectionFactory({
-			cwd: targetCwd,
-			sessionPath: forkedPath,
-			thinkingLevel: sourceState.thinkingLevel,
-			openUIPrompt: createOpenUIPromptSessionState(
-				source.openUIPrompt.mode,
-				source.openUIPrompt.enabled,
-				source.openUIPrompt.artifact ?? false,
-			),
-		});
-		if (sourceState.model && !isUnresolvedPlaceholderModel(sourceState.model)) {
-			await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
-		}
-		await webAgent.connection.setThinkingLevel(sourceState.thinkingLevel);
-		await webAgent.connection.setServiceTier(sourceState.serviceTier ?? "default");
-		const forked = await this.#registerConnection(webAgent, targetCwd, forkedPath, targetProjectId);
-		const forkedMessages = await this.getMessages(forked.sessionId);
-		await copyManagedPlanPresentationsForFork(source, forked, forkedMessages.length);
-		forked.mapperState.presentation = source.mapperState.presentation;
-		this.#persistPresentation(forked.sessionId, forked.sessionPath, forked.mapperState.presentation);
-		// Postcondition: the forked session record must be linked to the
-		// caller's target project.
-		return this.#requireProjectSession(forked.sessionId, targetProjectId).sessionId;
+	/** The stock daemon cannot safely fork a transcript into another project. */
+	async forkSessionIntoProject(_sessionId: string, _targetProjectId: ProjectId): Promise<string> {
+		const error = new Error(
+			"Forking into another project is unavailable with this Prime Agent runtime. The original session is unchanged.",
+		);
+		throw Object.assign(error, { status: 501 });
 	}
 
 	// -----------------------------------------------------------------------
@@ -1921,20 +1700,6 @@ export class PrimeBridge {
 	#requireSession(sessionId: string): BridgeSession {
 		const session = this.#sessions.get(sessionId);
 		if (!session) {
-			throw new Error(`Unknown session: ${sessionId}`);
-		}
-		return session;
-	}
-
-	/**
-	 * Project-membership gate over the bridge's session records. Returns the
-	 * live session only when its project linkage matches the caller-asserted
-	 * project, and throws `Unknown session` otherwise so foreign sessions are
-	 * indistinguishable from missing ones.
-	 */
-	#requireProjectSession(sessionId: string, projectId: ProjectId): BridgeSession {
-		const session = this.#requireSession(sessionId);
-		if (session.projectId !== projectId) {
 			throw new Error(`Unknown session: ${sessionId}`);
 		}
 		return session;

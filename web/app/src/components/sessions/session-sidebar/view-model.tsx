@@ -1,5 +1,5 @@
 import type { ProjectId } from "@prime-agent/web-protocol";
-import { Folder, FolderTree, Library, Package, Pencil, Trash2, Unplug } from "lucide-react";
+import { Folder, Library, Package, Pencil, Trash2, Unplug } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 import type { SidebarResource } from "@/components/sessions/session-sidebar/resource-tree";
 import {
@@ -44,7 +44,6 @@ export type SidebarViewModelOptions = Pick<
 	| "onNewSessionInProject"
 	| "onProjectSelect"
 	| "onResumeSession"
-	| "onForkSessionIntoProject"
 	| "onOpenPanelAction"
 > &
 	SidebarViewModelState;
@@ -97,7 +96,6 @@ export function useSessionSidebarViewModel({
 	onNewSessionInProject,
 	onProjectSelect,
 	onResumeSession,
-	onForkSessionIntoProject,
 	onOpenPanelAction,
 	expandedProjectIds,
 	revealedProjectIds,
@@ -275,16 +273,6 @@ export function useSessionSidebarViewModel({
 								setActiveDialog({ kind: "rename-session", session });
 							}}
 						/>
-						{onForkSessionIntoProject && projects.length > 1 ? (
-							<MenuItem
-								icon={FolderTree}
-								label="Fork into project"
-								onClick={() => {
-									controls.close();
-									setActiveDialog({ kind: "fork-session", session });
-								}}
-							/>
-						) : null}
 						{onOpenPanelAction && sessionProjectId ? (
 							<>
 								<div className="my-1 border-t" />
@@ -356,7 +344,7 @@ export function useSessionSidebarViewModel({
 			}
 			return null;
 		},
-		[onForkSessionIntoProject, onOpenPanelAction, projectById, projectSessions, projects.length, setActiveDialog],
+		[onOpenPanelAction, projectById, projectSessions, setActiveDialog],
 	);
 
 	return {

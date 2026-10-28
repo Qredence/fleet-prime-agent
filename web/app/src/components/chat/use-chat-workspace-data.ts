@@ -21,7 +21,6 @@ import {
 	useChatSettings,
 	useDiscoverChatModels,
 	useMcpOAuth,
-	useOAuthLoginProvider,
 	useRemoveChatProvider,
 	useRemoveMcpConnection,
 	useUpdateChatProvider,
@@ -37,8 +36,7 @@ import type { InlineCompletion } from "@/components/chat/composer/inline-complet
 import type { SettingsSlashTab } from "@/components/chat/composer/slash-commands";
 import { buildSlashCommands } from "@/components/chat/composer/slash-commands";
 import { buildWorkspaceReferenceSuggestions } from "@/components/chat/composer/workspace-suggestions";
-import { assistantMessageHasPendingQuestion } from "@/components/chat/question/question-pending";
-import { usePendingQuestionBar } from "@/components/chat/question/use-pending-question-bar";
+import { useSkipPendingQuestion } from "@/components/chat/question/use-skip-pending-question";
 import { useChatStorage } from "@/components/chat/use-chat-storage";
 import { useChatSuggestions } from "@/components/chat/use-chat-view";
 import { useChatWorkspaceActions } from "@/components/chat/use-chat-workspace-actions";
@@ -93,7 +91,6 @@ export function useChatWorkspaceData() {
 	const { data: mcpData, isLoading: isLoadingMcp } = useChatMcpConnections();
 	const { data: projectsData, refetch: refetchProjects } = useChatProjects();
 	const { mutateAsync: onUpdateProvider, isPending: isUpdatingProvider } = useUpdateChatProvider();
-	const { mutateAsync: onOAuthLogin } = useOAuthLoginProvider();
 	const { mutateAsync: onRemoveProvider, isPending: isRemovingProvider } = useRemoveChatProvider();
 	const { mutateAsync: onUpdateMcp, isPending: isUpdatingMcp } = useUpdateMcpConnection();
 	const { mutateAsync: onRemoveMcp, isPending: isRemovingMcp } = useRemoveMcpConnection();
@@ -229,7 +226,6 @@ export function useChatWorkspaceData() {
 		clearWorkspaceAttachments,
 		createProject,
 		deleteSessionForWorkspace,
-		forkSessionIntoProject,
 		handleAttach,
 		removeUploadedAttachment,
 		removeWorkspaceAttachment,
@@ -258,18 +254,21 @@ export function useChatWorkspaceData() {
 	});
 
 	const infoDescription = queueLabel(queue) ?? activityLabel ?? planLabel;
-	const handleQuestionAnswer = useCallback(
-		({ toolCallId, answer }: { toolCallId?: string; answer: ChatQuestionAnswer }) => {
-			void answerQuestion({ toolCallId, answer }).catch((err) => {
-				notifyChatError(err);
-			});
+	const skipPendingQuestion = useCallback(
+		async ({ toolCallId, answer }: { toolCallId: string; answer: ChatQuestionAnswer }) => {
+			const result = await answerQuestion({ toolCallId, answer });
+			if (!result.ok) throw new Error(result.message ?? "Unable to skip the unsupported questionnaire.");
 		},
 		[answerQuestion],
 	);
-	const pendingQuestionBar = usePendingQuestionBar({
-		messages,
-		answerQuestion: handleQuestionAnswer,
-	});
+	const handleQuestionSkipError = useCallback(
+		(error: unknown) => {
+			stop();
+			notifyChatError(error);
+		},
+		[stop],
+	);
+	useSkipPendingQuestion(messages, status, skipPendingQuestion, handleQuestionSkipError);
 	const suggestions = useChatSuggestions({
 		messages,
 		resources,
@@ -281,8 +280,7 @@ export function useChatWorkspaceData() {
 
 		const lastMessage = messages[messages.length - 1];
 		if (lastMessage.role !== "assistant") return false;
-
-		return !assistantMessageHasPendingQuestion(lastMessage);
+		return true;
 	}, [messages, status]);
 	const inputSuggestionItems = useMemo(
 		() => (shouldShowInputSuggestions ? suggestions : []),
@@ -507,7 +505,6 @@ export function useChatWorkspaceData() {
 		modelCatalog,
 		onDiscoverModels,
 		onMcpOAuth,
-		onOAuthLogin,
 		onRemoveMcp,
 		onRemoveProvider,
 		onUpdateMcp,
@@ -570,7 +567,6 @@ export function useChatWorkspaceData() {
 			browseProjectDirectories,
 			createProject,
 			deleteSession: deleteSessionForWorkspace,
-			forkSessionIntoProject,
 			renameProject,
 			renameSession,
 			resumeSession: resumeSessionForWorkspace,
@@ -598,14 +594,12 @@ export function useChatWorkspaceData() {
 		},
 		agentTabs,
 		composer: {
-			answerQuestion,
 			chatMode,
 			clearUploadedAttachments,
 			clearWorkspaceAttachments,
 			effortPickerOpen,
 			handleAttach,
 			handleLocalSlashSubmit,
-			handleQuestionAnswer,
 			handleSlashCommandSelect,
 			infoDescription,
 			inputSuggestionItems,
@@ -615,7 +609,6 @@ export function useChatWorkspaceData() {
 			modelKey,
 			modelPickerOpen,
 			models,
-			pendingQuestionBar,
 			removeUploadedAttachment,
 			removeWorkspaceAttachment,
 			addWorkspaceAttachment,

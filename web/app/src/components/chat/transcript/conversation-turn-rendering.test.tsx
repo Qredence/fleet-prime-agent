@@ -31,7 +31,7 @@ describe("conversation turn rendering", () => {
 			<>
 				<ConversationTurnView
 					turn={completedTurn}
-					state={{ isLast: false, isStreaming: false, suppressQuestionTool: false }}
+					state={{ isLast: false, isStreaming: false }}
 					rendering={rendering}
 					activity={activity}
 				/>
@@ -44,7 +44,7 @@ describe("conversation turn rendering", () => {
 			<>
 				<ConversationTurnView
 					turn={{ user: completedMessage, assistants: [] }}
-					state={{ isLast: false, isStreaming: false, suppressQuestionTool: false }}
+					state={{ isLast: false, isStreaming: false }}
 					rendering={rendering}
 					activity={activity}
 				/>
@@ -76,7 +76,7 @@ describe("conversation turn rendering", () => {
 		const { container } = render(
 			<ConversationTurnView
 				turn={turn}
-				state={{ isLast: true, isStreaming: true, suppressQuestionTool: false }}
+				state={{ isLast: true, isStreaming: true }}
 				rendering={{}}
 				activity={{ label: "Queued behind another run" }}
 			/>,
@@ -97,7 +97,6 @@ describe("conversation turn rendering", () => {
 			messageId: "ordered",
 			isLast: false,
 			isStreaming: false,
-			suppressQuestionTool: false,
 			ToolRendererComponent: ({ part }) => <div data-order="tool">{part.type}</div>,
 			TextRendererComponent: ({ content }) => <div data-order="text">{content}</div>,
 		});
@@ -112,14 +111,13 @@ describe("conversation turn rendering", () => {
 		expect(container.textContent).toContain("After");
 	});
 
-	it("keeps a pending composer question out of the transcript when suppression is active", () => {
+	it("hides questionnaire tool parts from transcript presentation", () => {
 		const elements = buildAssistantElements(
 			[{ type: "tool-Question", toolCallId: "question-1", state: "input-available" }],
 			{
 				messageId: "question",
 				isLast: true,
 				isStreaming: true,
-				suppressQuestionTool: true,
 				ToolRendererComponent: ({ part }) => <div>{part.type}</div>,
 				TextRendererComponent: ({ content }) => <div>{content}</div>,
 			},

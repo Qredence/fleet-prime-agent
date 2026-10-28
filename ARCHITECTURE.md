@@ -87,7 +87,9 @@ It consumes the pinned stock Prime Agent runtime. It is not an upstream source c
 
 Prime Agent is consumed as an external stock dependency.
 
-`PRIME_AGENT_RUNTIME.json` is the canonical pin for the `prime-agent` release archive. Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with that manifest; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
+`PRIME_AGENT_RUNTIME.json` pins both the Rust runtime under `rust.version` and the legacy TypeScript SDK release archive in its top-level fields. The Rust pin is the configured runtime for Fleet's normal launch; the TypeScript pin supports the remaining legacy SDK adapter. A configured pin is not proof of the connected daemon's version: an executable override or an already-running daemon may differ.
+
+Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with the TypeScript SDK pin; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
 
 Do not hardcode the current runtime version into this document.
 
@@ -95,13 +97,19 @@ Engine-level changes belong upstream. Fleet adapts supported upstream capabiliti
 
 ## Connection model
 
-Fleet uses the supported Prime Agent `AgentConnection` seam. The server asks that connection for session snapshots, messages, state, commands, and event subscriptions, and sends user actions through its commands. `DaemonAgentConnection` owns the local daemon transport, attach/reconnect, snapshot, and daemon protocol compatibility details.
+Fleet programs against a Fleet-owned connection port, `web/server/src/agent-connection-port.ts`. The port declares the connection methods Fleet actually drives, and derives their signatures from the upstream `AgentConnection` type so the two cannot drift. It is narrower than the upstream interface on purpose: the upstream connection declares far more methods for the terminal client, and implementing the unused ones as passthroughs would put unverified code on the production path.
+
+`FleetDaemonAgentConnection` implements that port over Fleet's own protocol-7 socket client. It owns the local daemon transport, attach/reconnect, snapshot handling, cursor-based dedupe, and daemon protocol compatibility details. The in-process test adapter implements the same port, which keeps bridge behavior independent of whether the runtime is daemon-backed or a deterministic test double.
+
+Fleet drives the Rust daemon only. A daemon is accepted when it reports the expected protocol version, schema revision, and the Rust runtime flavor; a TypeScript daemon is refused rather than routed down a path Fleet no longer carries.
 
 The server keeps runtime-specific lifecycle and mutable objects behind that seam. It may use server-only session-management operations for resume, fork, and cleanup, but those objects do not cross into `web/app` or the browser. Browser-facing state is a typed projection owned by `web/protocol`.
 
 Connection lifecycle hooks and replacement options are used for session invalidation/replacement and re-seeding behavior. The supported connection surface keeps client behavior independent of whether the runtime is daemon-backed or an in-process test double.
 
-Process-local capabilities such as extension callbacks, dialog handlers, kernel handles, and executable tools remain in the server process. They are not represented as browser callbacks or serialized into the wire protocol.
+Process-local capabilities such as kernel handles and executable tools remain in the server process. They are not represented as browser callbacks or serialized into the wire protocol.
+
+Extension UI callbacks are not part of the connection port: the Rust daemon does not advertise the `extension_ui` capability, so no request can arrive to answer. Questions that do need a user decision reach the browser through Fleet's own pending-dialog projection instead.
 
 ## Request and event flow
 

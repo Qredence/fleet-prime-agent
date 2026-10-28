@@ -50,6 +50,7 @@ const mocks = vi.hoisted(() => {
 		manager,
 		modelRegistry,
 		getPrimeConfig: vi.fn(() => ({
+			agentDir: "/missing-agent-dir",
 			settingsFor: vi.fn(() => manager),
 			modelRegistry,
 		})),
@@ -63,10 +64,10 @@ vi.mock("../project-request", () => ({ cwdForRequest: mocks.cwdForRequest }));
 vi.mock("../project-registry", () => ({ safePathLabel: mocks.safePathLabel }));
 
 import { handleChatModelsGet } from "../handlers/chat-models";
-import { handleChatSettingsGet } from "../handlers/chat-settings";
+import { handleChatSettingsGet, handleChatSettingsPatch } from "../handlers/chat-settings";
 
 describe("chat settings reads", () => {
-	it("reads the independent settings groups into one validated response", async () => {
+	it("reads defaults when no settings files exist", async () => {
 		const response = await handleChatSettingsGet(
 			new Request("http://localhost/api/chat/settings?projectId=project-1"),
 		);
@@ -77,12 +78,12 @@ describe("chat settings reads", () => {
 
 		expect(response.status).toBe(200);
 		expect(body.projectPath).toBe("/workspace/project");
-		expect(body.effective.defaultModel).toBe("global-model");
-		expect(body.effective.defaultProvider).toBe("project-provider");
-		expect(mocks.manager.getGlobalSettings).toHaveBeenCalledOnce();
-		expect(mocks.manager.getProjectSettings).toHaveBeenCalledOnce();
-		expect(mocks.manager.getCompactionSettings).toHaveBeenCalledOnce();
-		expect(mocks.manager.getRetrySettings).toHaveBeenCalledOnce();
+		expect(body.effective.defaultModel).toBeUndefined();
+		expect(body.effective.defaultProvider).toBeUndefined();
+		expect(mocks.manager.getGlobalSettings).not.toHaveBeenCalled();
+		expect(mocks.manager.getProjectSettings).not.toHaveBeenCalled();
+		expect(mocks.manager.getCompactionSettings).not.toHaveBeenCalled();
+		expect(mocks.manager.getRetrySettings).not.toHaveBeenCalled();
 	});
 
 	it("returns only models added in settings whose provider is configured and working", async () => {
@@ -105,5 +106,25 @@ describe("chat settings reads", () => {
 		expect(filteredBody.models.map((m) => m.key)).toEqual(["openai/gpt-4o"]);
 		expect(filteredBody.models[0]?.available).toBe(true);
 		expect(filteredBody.selectedModelKey).toBe("openai/gpt-4o");
+	});
+});
+
+describe("chat settings writes", () => {
+	it("returns an explicit unsupported response while concurrent config writes are not owned by Fleet", async () => {
+		const response = await handleChatSettingsPatch(
+			new Request("http://localhost/api/chat/settings", {
+				method: "PATCH",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ settings: { defaultProvider: "openai" } }),
+			}),
+		);
+
+		expect(response.status).toBe(501);
+		expect(await response.json()).toEqual({
+			code: "UNSUPPORTED",
+			message:
+				"Fleet cannot safely update Prime Agent settings. Change them using the Prime Agent terminal interface.",
+		});
+		expect(mocks.getPrimeConfig().settingsFor).not.toHaveBeenCalled();
 	});
 });

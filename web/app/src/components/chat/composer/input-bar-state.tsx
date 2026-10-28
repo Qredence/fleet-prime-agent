@@ -18,7 +18,6 @@ import {
 	spliceCompletion,
 } from "@/components/chat/composer/inline-completion";
 import type { InputBarProps } from "@/components/chat/composer/input-bar";
-import { useQuestionBarNavigation } from "@/components/chat/question/use-question-bar-navigation";
 import type { SuggestionItem } from "@/components/chat/types";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
 import { formatProviderLabel } from "@/components/settings/providers/provider-label";
@@ -66,7 +65,6 @@ export function useInputBarState({
 	onRemoveWorkspaceReference,
 	controlled,
 	disabled,
-	questionBar,
 	attachments,
 	slashCommands,
 }: Pick<
@@ -91,17 +89,14 @@ export function useInputBarState({
 	| "onRemoveWorkspaceReference"
 	| "controlled"
 	| "disabled"
-	| "questionBar"
 	| "attachments"
 	| "slashCommands"
 >) {
 	const [internalValue, setInternalValue] = useState("");
-	const [dismissedQuestionId, setDismissedQuestionId] = useState<string | null>(null);
 	const [slashMenuPinned, setSlashMenuPinned] = useState(false);
 	const value = controlled?.value ?? internalValue;
 	const setValue = controlled?.onChange ?? setInternalValue;
 	const isStreaming = status === "streaming" || status === "submitted";
-	const navigation = useQuestionBarNavigation(questionBar);
 	const commands = suggestionItems(slashCommands);
 	const workspaceItems = suggestionItems(workspaceSuggestions);
 	const slashElementCommands = useMemo<ComposerCommand[]>(
@@ -436,7 +431,6 @@ export function useInputBarState({
 		],
 	);
 
-	const showQuestion = questionBar && questionBar.id !== dismissedQuestionId;
 	const files = attachments?.files ?? [];
 	const images = attachments?.images ?? [];
 	const commandGroups = useMemo<ComposerTriggerGroup[]>(() => {
@@ -547,7 +541,6 @@ export function useInputBarState({
 		handleSelectorModelChange,
 		images,
 		isStreaming,
-		navigation,
 		openSlashMenu,
 		closeTriggerMenu,
 		selectorModels,
@@ -556,9 +549,7 @@ export function useInputBarState({
 		selectWorkspaceReference,
 		send,
 		setActiveTriggerIndex,
-		setDismissedQuestionId,
 		setValue,
-		showQuestion,
 		triggerItems,
 		triggerKind,
 		triggerOpen,

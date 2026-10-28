@@ -48,6 +48,5 @@ export type AgentChatProps = {
 	toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>;
 	onOpenUIAction?: (message: string) => void;
 	suggestions?: InputSuggestions;
-	suppressQuestionTool?: boolean;
 	className?: string;
 };

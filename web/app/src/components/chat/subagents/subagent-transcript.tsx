@@ -63,7 +63,6 @@ function SubagentTurnView({
 						messageId: message.id,
 						isLast: isLast && index === turn.assistants.length - 1,
 						isStreaming,
-						suppressQuestionTool: true,
 						ToolRendererComponent: SessionToolRenderer,
 						TextRendererComponent: SessionGenerativeTextRenderer,
 					},
@@ -208,9 +207,9 @@ export function SubagentTranscriptView({
 							Progress: {child.progressNote}
 						</p>
 					) : null}
-					{child.answerPreview || child.recap ? (
+					{child.answerPreview ? (
 						<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-caption leading-4 text-foreground/55">
-							{child.answerPreview ?? child.recap}
+							{child.answerPreview}
 						</p>
 					) : null}
 				</div>

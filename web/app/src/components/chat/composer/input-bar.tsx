@@ -9,11 +9,9 @@ import { type ComposerTriggerItem, ComposerTriggerPopover } from "@/components/c
 import type { InlineCompletion } from "@/components/chat/composer/inline-completion";
 import { FileAttachment } from "@/components/chat/composer/input/file-attachment";
 import { AGENT_CHAT_MODES, ModeSelector } from "@/components/chat/composer/input/mode-selector";
-import { InputQuestionBar } from "@/components/chat/composer/input/question-bar";
 import { useInputBarState } from "@/components/chat/composer/input-bar-state";
 import { PromptInput } from "@/components/chat/composer/prompt-input";
 import { ModelSelector } from "@/components/chat/model-selector";
-import type { QuestionBarData } from "@/components/chat/question/use-question-bar-navigation";
 import type { SuggestionItem } from "@/components/chat/types";
 import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS, HIT_AREA_EXPAND_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
@@ -69,7 +67,6 @@ export type InputBarProps = {
 	suggestions?: SuggestionConfig;
 	slashCommands?: SuggestionConfig;
 	onSlashCommandSelect?: (item: SuggestionItem) => boolean | void;
-	questionBar?: QuestionBarData;
 	modelKey: string | undefined;
 	models: Array<ChatModelOption>;
 	infoDescription?: string | null;
@@ -133,7 +130,6 @@ function InputBarContent({
 	autoFocus,
 	placeholder,
 	attachments,
-	questionBar,
 	slashCommands,
 	className,
 }: InputBarProps) {
@@ -149,7 +145,6 @@ function InputBarContent({
 		handleSelectorModelChange,
 		images,
 		isStreaming,
-		navigation,
 		openSlashMenu,
 		filteredWorkspaceItems,
 		selectCommand,
@@ -157,9 +152,7 @@ function InputBarContent({
 		selectorModels,
 		send,
 		setActiveTriggerIndex,
-		setDismissedQuestionId,
 		setValue,
-		showQuestion,
 		slashQuery,
 		triggerItems,
 		triggerKind,
@@ -187,7 +180,6 @@ function InputBarContent({
 		onRemoveWorkspaceReference,
 		controlled,
 		disabled,
-		questionBar,
 		attachments,
 		slashCommands,
 	});
@@ -267,14 +259,6 @@ function InputBarContent({
 					</div>
 				) : null}
 				<div className="relative w-full">
-					{showQuestion ? (
-						<InputQuestionBar
-							questionBar={questionBar!}
-							navigation={navigation}
-							roundedTop
-							onDismiss={setDismissedQuestionId}
-						/>
-					) : null}
 					<ComposerTriggerPopover
 						open={triggerOpen}
 						kind={triggerKind ?? "slash"}

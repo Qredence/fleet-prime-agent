@@ -52,6 +52,19 @@ describe("ChatStreamEventSchema", () => {
 		expect(ChatStreamEventSchema.safeParse({ type: "delta" }).success).toBe(false);
 		expect(ChatStreamEventSchema.safeParse(null).success).toBe(false);
 	});
+
+	it("accepts a shared replay cursor and rejects malformed cursor metadata", () => {
+		const cursor = { generation: "generation-1", sequence: 8 };
+		expect(ChatStreamEventSchema.safeParse({ type: "delta", text: "live", eventCursor: cursor }).success).toBe(true);
+		expect(
+			ChatStreamEventSchema.safeParse({ type: "delta", text: "live", eventCursor: { ...cursor, sequence: 0 } })
+				.success,
+		).toBe(false);
+		expect(
+			ChatStreamEventSchema.safeParse({ type: "delta", text: "live", eventCursor: { ...cursor, extra: true } })
+				.success,
+		).toBe(false);
+	});
 });
 
 describe("FleetAdapterCapabilitiesSchema", () => {

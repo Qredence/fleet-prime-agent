@@ -21,6 +21,10 @@ Treat current code, tests, workspace configuration, `PRIME_AGENT_RUNTIME.json`, 
 
 Documentation explains the system but does not override executable contracts.
 
+For important codebase-analysis claims, cite the relevant source and distinguish
+configured values, observed behavior, and inference. Do not describe a configured
+runtime pin as the active daemon version without evidence from that daemon.
+
 ## Execution
 
 For clear, reversible work, inspect the relevant context and proceed.
@@ -136,7 +140,7 @@ It owns:
 
 Do not move Prime Agent-specific execution knowledge into `web/app`.
 
-Until the Rust daemon cutover, `web/server/src/legacy/prime-agent-sdk.ts` is the only server module that may import the v0.9.8 SDK's `SettingsManager`, `AuthStorage`, `ModelRegistry`, resource loader, agent dir, and session readers. Session reads go through its read-only `readLegacySession`. Other SDK imports are frozen in `scripts/server-sdk-imports.baseline.json`; `pnpm check` fails on new ones.
+`web/server/src/legacy/prime-agent-sdk.ts` is the only server module that may import the v0.9.8 SDK's `SettingsManager`, `AuthStorage`, `ModelRegistry`, resource loader, agent dir, and session readers. Session reads go through its read-only `readLegacySession`. It also exports the upstream `AgentConnection` type for the connection port to derive its signatures, so the SDK import stays in one place. Other SDK imports are frozen in `scripts/server-sdk-imports.baseline.json`; `pnpm check` fails on new ones.
 
 ### Protocol boundary
 

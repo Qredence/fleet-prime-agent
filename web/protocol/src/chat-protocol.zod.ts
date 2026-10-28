@@ -86,6 +86,7 @@ export {
 	ChatStartEventSchema,
 	ChatStateEventSchema,
 	ChatStateStreamEventSchema,
+	ChatStreamEventCursorSchema,
 	ChatStreamEventSchema,
 	ChatTextPartSchema,
 	ChatThinkingEventSchema,
