@@ -152,8 +152,9 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 		.map((id) => {
 			const isCustom = !builtinIds.has(id);
 			const customEntry = isCustom ? custom[id] : undefined;
-			const status = config.modelRegistry.getProviderAuthStatus(id);
-			const configured = configuredFromDisk?.has(id) ?? status.configured;
+			// `configuredFromDisk` is authoritative: it reflects `auth.json` as it
+			// exists now, including a credential Fleet wrote moments ago.
+			const configured = configuredFromDisk?.has(id) ?? false;
 			const catalogEntry = KNOWN_PROVIDER_BY_ID.get(id);
 			const name = isCustom
 				? (customEntry?.name ?? catalogEntry?.name ?? id)
@@ -185,8 +186,14 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 		.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function listChatProviders(): Array<ChatProviderInfo> {
-	return buildProviders();
+/**
+ * Providers with credentials read from `auth.json`.
+ *
+ * Async and disk-backed so a caller can never observe the stale in-memory view
+ * the runtime registry would have returned.
+ */
+export async function listChatProviders(): Promise<Array<ChatProviderInfo>> {
+	return buildProviders(await configuredProviderIds(getPrimeConfig().agentDir));
 }
 
 export function handleChatProvidersGet(_request: Request): Promise<Response> {

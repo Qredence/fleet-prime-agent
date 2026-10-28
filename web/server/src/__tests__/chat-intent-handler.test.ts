@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ComposerIntentResponse } from "@prime-agent/web-protocol/composer-intent";
@@ -11,7 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 const mocks = vi.hoisted(() => ({
 	agentDir: "",
-	credentials: new Map<string, string>(),
 	reloadAuth: vi.fn(),
 	resetTypeSafeService: vi.fn(),
 	routeComposerIntent: vi.fn(
@@ -20,24 +19,38 @@ const mocks = vi.hoisted(() => ({
 	forceConfigured: undefined as boolean | undefined,
 }));
 
+/**
+ * Reads the real `auth.json` under the agent dir. The store is the file itself
+ * now, so assertions check what actually landed rather than a stand-in map.
+ */
+function authEntries(): Record<string, unknown> {
+	try {
+		return JSON.parse(readFileSync(join(mocks.agentDir, "auth.json"), "utf8")) as Record<string, unknown>;
+	} catch {
+		return {};
+	}
+}
+
+function hasStoredKey(id: string): boolean {
+	return Object.hasOwn(authEntries(), id);
+}
+
+function seedStoredKey(id: string, key: string): void {
+	writeFileSync(join(mocks.agentDir, "auth.json"), JSON.stringify({ [id]: { type: "api_key", key } }), {
+		mode: 0o600,
+	});
+}
+
 vi.mock("../prime-config", () => ({
 	getPrimeConfig: () => ({
 		agentDir: mocks.agentDir,
-		authStorage: {
-			get: (id: string) =>
-				mocks.credentials.has(id) ? { type: "api_key", key: mocks.credentials.get(id) } : undefined,
-			set: (id: string, credential: { key: string }) => void mocks.credentials.set(id, credential.key),
-			remove: (id: string) => void mocks.credentials.delete(id),
-			has: (id: string) => mocks.credentials.has(id),
-		},
 		reloadAuth: mocks.reloadAuth,
 	}),
 }));
 
 vi.mock("../typesafe/singleton", () => ({
 	getTypeSafeService: () => {
-		const configured =
-			mocks.forceConfigured ?? (mocks.credentials.has("typesafe") || Boolean(process.env.TYPESAFE_API_KEY));
+		const configured = mocks.forceConfigured ?? (hasStoredKey("typesafe") || Boolean(process.env.TYPESAFE_API_KEY));
 		return {
 			configured,
 			model: "jev-latest",
@@ -72,7 +85,6 @@ describe("composer intent settings", () => {
 	beforeEach(() => {
 		agentDir = mkdtempSync(join(tmpdir(), "fleet-intent-"));
 		mocks.agentDir = agentDir;
-		mocks.credentials.clear();
 		mocks.forceConfigured = undefined;
 		mocks.reloadAuth.mockReset();
 		mocks.resetTypeSafeService.mockReset();
@@ -123,7 +135,6 @@ describe("handleChatIntentPut", () => {
 	beforeEach(() => {
 		agentDir = mkdtempSync(join(tmpdir(), "fleet-intent-put-"));
 		mocks.agentDir = agentDir;
-		mocks.credentials.clear();
 		mocks.forceConfigured = undefined;
 		mocks.reloadAuth.mockReset();
 		mocks.resetTypeSafeService.mockReset();
@@ -144,7 +155,7 @@ describe("handleChatIntentPut", () => {
 		const body = (await response.json()) as Record<string, unknown>;
 
 		// Trimmed on the way in, and reportable only as a source.
-		expect(mocks.credentials.get("typesafe")).toBe("ts-test-placeholder-key");
+		expect(authEntries().typesafe).toEqual({ type: "api_key", key: "ts-test-placeholder-key" });
 		expect(body).toEqual({ enabled: false, keySource: "settings", status: "ready" });
 		expect(JSON.stringify(body)).not.toContain("ts-test-placeholder-key");
 		expect(JSON.stringify(body)).not.toMatch(/secret|token/i);
@@ -157,17 +168,17 @@ describe("handleChatIntentPut", () => {
 	});
 
 	it("clears the stored key when given null, falling back to the environment", async () => {
-		mocks.credentials.set("typesafe", "ts-test-placeholder-key");
+		seedStoredKey("typesafe", "ts-test-placeholder-key");
 		process.env.TYPESAFE_API_KEY = "ts-test-environment-key";
 		const response = await handleChatIntentPut(request("PUT", { apiKey: null }));
-		expect(mocks.credentials.has("typesafe")).toBe(false);
+		expect(hasStoredKey("typesafe")).toBe(false);
 		expect(await response.json()).toEqual({ enabled: false, keySource: "environment", status: "ready" });
 	});
 
 	it("rejects an empty key with 422 rather than storing a blank credential", async () => {
 		const response = await handleChatIntentPut(request("PUT", { apiKey: "   " }));
 		expect(response.status).toBe(422);
-		expect(mocks.credentials.size).toBe(0);
+		expect(hasStoredKey("typesafe")).toBe(false);
 	});
 
 	it("rejects a cross-origin request with 403 and stores nothing", async () => {
@@ -179,7 +190,7 @@ describe("handleChatIntentPut", () => {
 			),
 		);
 		expect(response.status).toBe(403);
-		expect(mocks.credentials.size).toBe(0);
+		expect(hasStoredKey("typesafe")).toBe(false);
 	});
 });
 

@@ -49,6 +49,22 @@ export async function hasProviderCredential(agentDir: string, providerId: string
 }
 
 /**
+ * The stored API key for `providerId`, or `undefined` when there is no usable
+ * api_key credential.
+ *
+ * Returns the secret, so callers must not log or render it. Prefer
+ * {@link hasProviderCredential} when a yes/no answer is enough.
+ */
+export async function readProviderApiKey(agentDir: string, providerId: string): Promise<string | undefined> {
+	const current = await readJsonObjectFile(authFilePath(agentDir));
+	if (current.kind !== "ok") return undefined;
+	const entry = current.value[providerId];
+	if (!isJsonObject(entry) || entry.type !== "api_key") return undefined;
+	const key = entry.key;
+	return typeof key === "string" ? key : undefined;
+}
+
+/**
  * Stores an API key for `providerId`, merging into any existing entry.
  *
  * An existing OAuth bundle keeps its refresh/expiry fields: the runtime can
