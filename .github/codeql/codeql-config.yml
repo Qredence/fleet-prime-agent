@@ -5,13 +5,3 @@ name: Fleet Prime CodeQL
 # and Python placeholder files remain until repository settings narrow languages.
 queries:
   - uses: security-extended
-
-# `js/file-system-race` fires on any stat/read pair. In tests that assert on a
-# file the test itself just wrote under a fresh `mkdtemp` directory, there is no
-# concurrent writer, so the query cannot distinguish a real race from the
-# assertion pattern. Production code is still scanned.
-paths-ignore:
-  - "web/server/src/__tests__/**"
-  - "web/app/src/**/__tests__/**"
-  - "**/*.test.ts"
-  - "**/*.test.tsx"
