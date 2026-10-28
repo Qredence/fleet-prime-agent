@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, open, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -30,15 +30,28 @@ describe("agent file writer", () => {
 	it("writes owner-only by default for credential-bearing files", async () => {
 		const path = join(dir, "auth.json");
 		await writeJsonObjectFile(path, { provider: { type: "api_key" } }, { mode: RUNTIME_FILE_MODE });
-		expect((await stat(path)).mode & 0o777).toBe(RUNTIME_FILE_MODE);
-		expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ provider: { type: "api_key" } });
+		// One descriptor for both the mode check and the contents, so the assertions
+		// describe a single file rather than two path lookups that could in principle
+		// see different files.
+		const handle = await open(path, "r");
+		try {
+			expect((await handle.stat()).mode & 0o777).toBe(RUNTIME_FILE_MODE);
+			expect(JSON.parse(await handle.readFile("utf8"))).toEqual({ provider: { type: "api_key" } });
+		} finally {
+			await handle.close();
+		}
 	});
 
 	it("preserves an existing file's permissions instead of widening them", async () => {
 		const path = join(dir, "settings.json");
 		await writeFile(path, "{}\n", { encoding: "utf8", mode: 0o600 });
 		await writeJsonObjectFile(path, { transport: "auto" }, { mode: 0o600 });
-		expect((await stat(path)).mode & 0o777).toBe(0o600);
+		const handle = await open(path, "r");
+		try {
+			expect((await handle.stat()).mode & 0o777).toBe(0o600);
+		} finally {
+			await handle.close();
+		}
 	});
 
 	it("serializes concurrent read-merge-writes so no update is lost", async () => {
