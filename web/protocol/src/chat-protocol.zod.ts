@@ -133,6 +133,8 @@ export {
 	ChatMcpListResponseSchema,
 	ChatMcpOAuthLoginRequestSchema,
 	ChatMcpOAuthLoginResponseSchema,
+	ChatMcpTokenRequestSchema,
+	ChatMcpTokenResponseSchema,
 	ChatMcpUpsertRequestSchema,
 	McpConnectionInfoSchema,
 } from "./schemas/mcp";

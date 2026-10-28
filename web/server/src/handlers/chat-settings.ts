@@ -1,9 +1,28 @@
+import { join } from "node:path";
 import { ChatSettingsUpdateRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { applySettingsPatch } from "../agent-settings-writer";
 import { getPrimeConfig } from "../prime-config";
 import { safePathLabel } from "../project-registry";
 import { cwdForRequest } from "../project-request";
 import { mergeProjectedSettings, projectSettingsValues, readSettingsProjection } from "../settings-projection";
+import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+
+/**
+ * Settings writes go to the project file when one already exists, matching the
+ * runtime's own resolution order, and to the global file otherwise. A request
+ * that carried a project therefore edits that project's settings, but never
+ * creates a project-level file to hold a change the user expected globally.
+ */
+async function settingsWritePath(request: Request): Promise<{ path: string; scope: "global" | "project" }> {
+	const config = getPrimeConfig();
+	const cwd = await cwdForRequest(request);
+	const project = await readSettingsProjection(config.agentDir, cwd);
+	if (Object.keys(project.project).length > 0) {
+		return { path: join(cwd, ".prime", "agent", "settings.json"), scope: "project" };
+	}
+	return { path: join(config.agentDir, "settings.json"), scope: "global" };
+}
 
 async function buildResponse(cwd: string) {
 	const config = getPrimeConfig();
@@ -59,14 +78,31 @@ export function handleChatSettingsGet(request: Request): Promise<Response> {
 
 export function handleChatSettingsPatch(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		ChatSettingsUpdateRequestSchema.parse(await request.json().catch(() => ({})));
-		return Response.json(
-			{
-				code: "UNSUPPORTED",
-				message:
-					"Fleet cannot safely update Prime Agent settings. Change them using the Prime Agent terminal interface.",
-			},
-			{ status: 501 },
-		);
+		const body = ChatSettingsUpdateRequestSchema.parse(await request.json().catch(() => ({})));
+		const cwd = await cwdForRequest(request);
+		const { path } = await settingsWritePath(request);
+
+		const outcome = await applySettingsPatch(path, body.settings);
+		if (outcome.status === "refused") {
+			return Response.json(
+				{
+					code: "UNWRITABLE",
+					message: `Fleet could not update ${safePathLabel(path)}. ${outcome.reason} Change these settings in the Prime Agent terminal interface instead.`,
+				},
+				{ status: 409 },
+			);
+		}
+
+		// The runtime reads settings at session start and on reload, so a write is
+		// not observable until one of those happens. A reload is cheap; failing it
+		// must not report the write as unsuccessful.
+		if (outcome.impact.resourceReloadRequired) {
+			await getBridge()
+				.reloadResources()
+				.catch(() => undefined);
+		}
+
+		const response = await buildResponse(cwd);
+		return Response.json({ ...response, updateImpact: outcome.impact });
 	}, request);
 }

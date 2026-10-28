@@ -142,18 +142,19 @@ describe("custom-provider-store", () => {
 		expect(provider.models).toEqual([{ id: "m", reasoning: true, cost: { input: 1 } }]);
 	});
 
-	it("refuses to overwrite an unparseable models.json", () => {
+	it("refuses to overwrite an unparseable models.json", async () => {
 		const original = "{ this is not valid JSONC";
 		writeFileSync(modelsJsonPath, original, "utf-8");
 
-		expect(() =>
+		// The write is async now, so the refusal surfaces as a rejection.
+		await expect(
 			upsertCustomProvider(modelsJsonPath, "custom+new", {
 				baseUrl: "https://new.test",
 				api: "openai-completions",
 				apiKey: "NEW_KEY",
 				models: [{ id: "new" }],
 			}),
-		).toThrow(/Refusing to update models\.json/);
+		).rejects.toThrow(/Refusing to update models\.json/);
 		expect(readFileSync(modelsJsonPath, "utf-8")).toBe(original);
 	});
 

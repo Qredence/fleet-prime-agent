@@ -59,19 +59,6 @@ import {
 } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
-function ReadOnlyPrimeSettings({ children }: { children: ReactNode }) {
-	return (
-		<div className="flex flex-col gap-3">
-			<p role="status" className="text-sm text-muted-foreground">
-				Prime Agent settings are read-only in Fleet. Change them in the Prime Agent terminal interface.
-			</p>
-			<fieldset disabled className="min-w-0">
-				{children}
-			</fieldset>
-		</div>
-	);
-}
-
 /**
  * Thin composer over the per-section form hooks; keeps the dialog-level
  * draft core, tab state, saving orchestration, and the discard flow.
@@ -374,36 +361,34 @@ function SettingsDialogPaneContent({
 	} = form;
 
 	const resourcesPane = (scope: "skills" | "harness") => (
-		<ReadOnlyPrimeSettings>
-			<ResourcesSection
-				scope={scope}
-				draft={draft}
-				updateDraft={updateDraft}
-				onEnableSkillCommandsChange={(enableSkillCommands) =>
-					updateDraft((current) => ({ ...current, enableSkillCommands }))
-				}
-				onExtensionsChange={(extensions) => updateDraft((current) => ({ ...current, extensions }))}
-				onPackageRowsChange={handlePackageRowsChange}
-				onPromptsChange={(prompts) => updateDraft((current) => ({ ...current, prompts }))}
-				onRevert={revertResourceDraft}
-				onSave={() =>
-					draft &&
-					saveSection("resources", {
-						...resourceSettings(draft),
-						...(scope === "harness" ? harnessSettings(draft) : {}),
-					})
-				}
-				onSkillsChange={(skills) => updateDraft((current) => ({ ...current, skills }))}
-				onThemesChange={(themes) => updateDraft((current) => ({ ...current, themes }))}
-				packageError={packageError}
-				packageRows={packageRows}
-				resourceDirty={resourceDirty}
-				resources={resources}
-				resourceSummary={resourceSummary}
-				saving={savingSection === "resources"}
-				settingsLoading={settingsLoading}
-			/>
-		</ReadOnlyPrimeSettings>
+		<ResourcesSection
+			scope={scope}
+			draft={draft}
+			updateDraft={updateDraft}
+			onEnableSkillCommandsChange={(enableSkillCommands) =>
+				updateDraft((current) => ({ ...current, enableSkillCommands }))
+			}
+			onExtensionsChange={(extensions) => updateDraft((current) => ({ ...current, extensions }))}
+			onPackageRowsChange={handlePackageRowsChange}
+			onPromptsChange={(prompts) => updateDraft((current) => ({ ...current, prompts }))}
+			onRevert={revertResourceDraft}
+			onSave={() =>
+				draft &&
+				saveSection("resources", {
+					...resourceSettings(draft),
+					...(scope === "harness" ? harnessSettings(draft) : {}),
+				})
+			}
+			onSkillsChange={(skills) => updateDraft((current) => ({ ...current, skills }))}
+			onThemesChange={(themes) => updateDraft((current) => ({ ...current, themes }))}
+			packageError={packageError}
+			packageRows={packageRows}
+			resourceDirty={resourceDirty}
+			resources={resources}
+			resourceSummary={resourceSummary}
+			saving={savingSection === "resources"}
+			settingsLoading={settingsLoading}
+		/>
 	);
 
 	const panes: Record<SettingsSectionId, () => ReactNode> = {
@@ -496,7 +481,11 @@ function SettingsDialogPaneContent({
 			/>
 		),
 		"llm-models": () => (
-			<ReadOnlyPrimeSettings>
+			<div className="flex flex-col gap-3">
+				<p className="text-sm text-muted-foreground">
+					Saving writes the same settings file Prime Agent reads. If you change these settings in the Prime Agent
+					terminal at the same moment, the later save wins.
+				</p>
 				<ModelDefaultsSection
 					draft={draft}
 					discoveringProviderId={discoveringProviderId}
@@ -514,7 +503,7 @@ function SettingsDialogPaneContent({
 					saving={savingSection === "models"}
 					settingsLoading={settingsLoading}
 				/>
-			</ReadOnlyPrimeSettings>
+			</div>
 		),
 		skills: () => resourcesPane("skills"),
 		"pi-harness": () => resourcesPane("harness"),
