@@ -112,11 +112,6 @@ export function resolveProviderAuthFields(
 }
 
 /**
- * `configuredFromDisk` carries the provider ids Fleet just read from
- * `auth.json`. `modelRegistry` holds an in-memory view populated at load time,
- * so it does not see a credential Fleet wrote moments ago; the file wins.
- */
-/**
  * Providers whose OAuth flow the runtime supports.
  *
  * Mirrors `getOAuthProviders()` from the SDK, now that the provider list no
