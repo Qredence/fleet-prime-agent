@@ -1,3 +1,4 @@
+import type { McpConnectionInfo } from "@prime-agent/web-protocol/mcp";
 import { describe, expect, it, vi } from "vitest";
 import {
 	handleChatMcpDelete,
@@ -38,8 +39,41 @@ function createDeps(initial: Record<string, FleetMcpServerConfig> = {}): {
 		env: {},
 		reloadAuth: vi.fn(),
 		reloadResources: vi.fn(async () => undefined),
+		// The daemon owns MCP config, so the list comes from it rather than from a
+		// local SDK catalog. Stubbed here so the test needs no live daemon.
+		listConnections: vi.fn(async () => daemonConnections()),
+		storeToken: vi.fn(async () => ({ status: "stored" as const, verified: true, toolCount: 1 })),
 	};
 	return { deps, servers, removed };
+}
+
+/**
+ * Two catalog services as the daemon reports them: one usable, one needing auth.
+ *
+ * Shaped like `DaemonMcpConnections` so the mapping under test is exercised
+ * rather than bypassed by a hand-built Fleet list.
+ */
+function daemonConnections(): McpConnectionInfo[] {
+	return [
+		{
+			name: "linear",
+			label: "Linear",
+			source: "builtin",
+			transport: "http",
+			usesOAuth: true,
+			enabled: true,
+			status: "connected",
+		},
+		{
+			name: "notion",
+			label: "Notion",
+			source: "builtin",
+			transport: "http",
+			usesOAuth: true,
+			enabled: false,
+			status: "needs_auth",
+		},
+	];
 }
 
 describe("MCP connection handlers", () => {
