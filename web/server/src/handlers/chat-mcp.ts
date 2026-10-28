@@ -15,7 +15,8 @@ import {
 	mcpProviderId,
 	validateHttpMcpUrl,
 } from "../mcp-connections";
-import { storeMcpStaticToken } from "../mcp-daemon-credentials";
+import { type McpCredentialOutcome, storeMcpStaticToken } from "../mcp-daemon-credentials";
+import { listDaemonMcpConnections } from "../mcp-daemon-list";
 import { getPrimeConfig } from "../prime-config";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
@@ -33,6 +34,15 @@ export type McpHandlerDeps = {
 	env: NodeJS.Dict<string>;
 	reloadAuth: () => void;
 	reloadResources: () => Promise<void>;
+	/**
+	 * The daemon's MCP view, which owns the configuration.
+	 *
+	 * Injected rather than imported so the handlers stay testable without a live
+	 * daemon, the same way every other operation here goes through `deps`.
+	 */
+	listConnections: (cwd: string) => Promise<McpConnectionInfo[]>;
+	/** Stores a static token through the daemon, which owns the credential. */
+	storeToken: (cwd: string, server: string, token: string) => Promise<McpCredentialOutcome>;
 };
 
 function defaultMcpDeps(): McpHandlerDeps {
@@ -58,6 +68,8 @@ function defaultMcpDeps(): McpHandlerDeps {
 		reloadResources: async () => {
 			await getBridge().reloadResources();
 		},
+		listConnections: listDaemonMcpConnections,
+		storeToken: storeMcpStaticToken,
 	};
 }
 
@@ -82,7 +94,16 @@ async function logoutMcp(name: string, deps: McpHandlerDeps): Promise<ChatMcpOAu
 }
 
 export function handleChatMcpGet(_request: Request, deps: McpHandlerDeps = defaultMcpDeps()): Promise<Response> {
-	return wrapApiHandler(async () => Response.json(listResponse(deps)), _request);
+	return wrapApiHandler(async () => {
+		// The daemon owns MCP configuration and verifies credentials, so its view
+		// is authoritative. The SDK-based list reported a server as connected
+		// whenever a credential object existed, which hid expired tokens.
+		//
+		// A daemon failure surfaces rather than falling back to that list: silently
+		// showing stale "connected" rows is the bug this replaced.
+		const connections = await deps.listConnections(deps.workspaceRoot);
+		return Response.json({ connections } satisfies ChatMcpListResponse);
+	}, _request);
 }
 
 export function handleChatMcpPost(request: Request, deps: McpHandlerDeps = defaultMcpDeps()): Promise<Response> {
@@ -185,7 +206,7 @@ export function handleChatMcpOAuthPost(request: Request, deps: McpHandlerDeps = 
 export function handleChatMcpTokenPost(request: Request, deps: McpHandlerDeps = defaultMcpDeps()): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = ChatMcpTokenRequestSchema.parse(await request.json().catch(() => ({})));
-		const outcome = await storeMcpStaticToken(deps.workspaceRoot, body.name, body.token);
+		const outcome = await deps.storeToken(deps.workspaceRoot, body.name, body.token);
 		if (outcome.status !== "stored") {
 			const reason = outcome.status === "refused" ? outcome.reason : "The token was not stored.";
 			throw new McpRequestError(reason);
