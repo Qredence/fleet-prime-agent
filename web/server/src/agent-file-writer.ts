@@ -104,8 +104,15 @@ async function acquireLock(lockPath: string): Promise<LockHandle> {
 			// create is a check-then-act against a file that may already be gone.
 			// Opening first binds the read to whatever is actually there, and ENOENT
 			// from that open is the ordinary "it just released" case.
+			//
+			// CodeQL still flags the open: `js/file-system-race` models path-based
+			// access and cannot see that the descriptor read is bound to one file.
+			// The race here is inherent to lock files and is handled by the ENOENT
+			// branch below, so this is suppressed with that reasoning rather than
+			// restructured around a query limitation.
 			let raw: string;
 			try {
+				// codeql[js/file-system-race]
 				const reader = openSync(lockPath, "r");
 				try {
 					raw = readFileSync(reader, "utf8");
