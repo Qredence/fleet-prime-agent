@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.9.0
+
+### Minor Changes
+
+- 3643a31: Read provider credentials and auth status from `auth.json` instead of the SDK
+  
+  Fleet now resolves provider credentials itself rather than through the stock
+  runtime's `AuthStorage` and `ModelRegistry`. Model discovery reads the stored key
+  from `auth.json` and falls back to the provider's environment variable in the
+  same order the runtime used. The provider list derives its "configured" state
+  from the credential file, so a key Fleet wrote a moment ago is visible
+  immediately instead of only after the runtime reloads its in-memory view.
+  
+  This removes the SDK from the credential path. Resource discovery (skills,
+  prompts, themes, extensions) still uses the runtime's loader.
+- 8b81e09: Run on Prime Agent's native runtime. Fleet now talks to the Prime Agent daemon directly instead of through the legacy TypeScript SDK, and reports a clear error when the installed daemon is not a compatible version. Fleet requires the Rust daemon: a TypeScript daemon that advertises the same protocol and schema revision is refused, because Fleet no longer carries a second adapter path for it.
+  
+  Recover chat sessions automatically when an invalid stream event interrupts the browser stream. Replayed text and tool events now resume after a malformed reasoning frame, missing runtime reasoning indexes are normalized before they reach the browser, and steering mid-recovery no longer drops the replayed answer.
+  
+  Improve Fleet's navigation for sessions, agents, and connectors, and retire legacy runtime recap and error surfaces. Keep the selected chat model across page reloads.
+- 3eea057: Read MCP connections from the Prime Agent daemon, and stop calling the bundled SDK at runtime for provider and model metadata.
+  
+  The MCP list now reflects whether a credential actually works, not merely whether one exists. Servers whose stored token had expired were previously shown as connected; those tokens are common, since OAuth refresh expires silently, so the pane could report a working integration that had not been usable for weeks. Fleet also now shows every server the runtime knows about, and marks which ones accept a pasted token.
+  
+  Provider and thinking-level metadata come from Fleet's own catalog instead of the SDK's bundled model list, so the settings pane depends on the providers Fleet supports rather than on what that particular SDK build shipped.
+- 2d0fb18: Edit Prime Agent settings and provider credentials from Fleet instead of being told to go to the terminal.
+  
+  Settings and provider credentials are written to the files Prime Agent reads, using a locked atomic write that never leaves a half-written file and keeps credential files owner-only. Settings that Fleet does not model survive a save, grouped settings such as retry merge field by field, and a file Fleet cannot parse is left untouched rather than replaced. Saving a resource setting reloads the runtime; changing model routing takes effect on the next session.
+  
+  Providers that only had a stored credential, with no entry in the engine catalog, were missing from Settings entirely and could not be reviewed or removed. They now appear, while MCP connections stay out of the provider list.
+
 ## 0.8.0
 
 ### Minor Changes
