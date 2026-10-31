@@ -69,12 +69,14 @@ export async function ensurePrimeRuntime({
 		// The kernel bootstraps from `prime-agent-runtime/`, which ships beside the
 		// binary. It lands before the executable is replaced, so a failed rename
 		// cannot leave a binary that looks current with no runtime.
+		// The directory only ever lands through this atomic rename of a verified
+		// archive, so one that is already present is complete and is kept rather
+		// than deleted: removing it would open a window in which a concurrently
+		// starting Fleet sees no runtime at all.
 		const extractedRuntime = join(unpacked, "prime-agent-runtime");
-		if (await directoryExists(extractedRuntime)) {
-			// `rename` cannot replace a non-empty directory. A concurrent install of
-			// the same checksummed archive may already have placed it; accept that.
-			await rm(packagedRuntime, { recursive: true, force: true });
+		if ((await directoryExists(extractedRuntime)) && !(await directoryExists(packagedRuntime))) {
 			await rename(extractedRuntime, packagedRuntime).catch((error) => {
+				// A concurrent install of the same checksummed archive placed it first.
 				if (error.code !== "ENOTEMPTY" && error.code !== "EEXIST") throw error;
 			});
 		}

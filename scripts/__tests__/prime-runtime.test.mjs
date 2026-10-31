@@ -221,6 +221,18 @@ test("repairs an existing binary-only install whose executable is already curren
 	assert.equal(downloads, 1);
 });
 
+test("replaces a corrupted executable and keeps the packaged runtime already in place", async (t) => {
+	const { root, binary, archive, target, manifest } = await fixture(t);
+	const installRoot = join(root, "cache", target);
+	await mkdir(join(installRoot, "prime-agent-runtime"), { recursive: true });
+	await writeFile(join(installRoot, "prime-agent-runtime", "marker"), "kept");
+	await writeFile(join(installRoot, "prime-agent"), "corrupted", { mode: 0o755 });
+	await ensurePrimeRuntime({ manifest, target, installRoot, fetch: async () => new Response(archive) });
+	assert.deepEqual(await readFile(join(installRoot, "prime-agent")), binary);
+	assert.equal(await readFile(join(installRoot, "prime-agent-runtime", "marker"), "utf8"), "kept");
+	assert.deepEqual(await readdir(dirname(installRoot)), [target]);
+});
+
 test("launcher reads the source manifest or the packaged manifest and runs the cached agent", async (t) => {
 	const { root, binary, target, manifest } = await fixture(t);
 	const packageRoot = join(root, "packages", "fleet-web");
