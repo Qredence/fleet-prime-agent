@@ -304,6 +304,7 @@ describe("chat settings writes", () => {
 		mocks.getPrimeConfig.mockReturnValue({
 			agentDir,
 			settingsFor: vi.fn(() => mocks.manager),
+			invalidateSettings: vi.fn(),
 			reloadAuth: vi.fn(),
 		} as never);
 
@@ -336,10 +337,12 @@ describe("chat settings writes", () => {
 		const dir = mkdtempSync(join(tmpdir(), "fleet-settings-unwritable-"));
 		const blocker = join(dir, "not-a-directory");
 		writeFileSync(blocker, "occupied", "utf8");
+		const invalidateSettings = vi.fn();
 
 		mocks.getPrimeConfig.mockReturnValue({
 			agentDir: join(blocker, "agent-dir"),
 			settingsFor: vi.fn(() => mocks.manager),
+			invalidateSettings,
 			reloadAuth: vi.fn(),
 		} as never);
 
@@ -356,6 +359,7 @@ describe("chat settings writes", () => {
 		// would tell the user Fleet broke rather than how to route around it.
 		expect(response.status).toBe(409);
 		expect(((await response.json()) as { code: string }).code).toBe("UNWRITABLE");
+		expect(invalidateSettings).not.toHaveBeenCalled();
 
 		rmSync(dir, { recursive: true, force: true });
 	});

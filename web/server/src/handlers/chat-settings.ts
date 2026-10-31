@@ -92,6 +92,7 @@ export function handleChatSettingsPatch(request: Request): Promise<Response> {
 				{ status: 409 },
 			);
 		}
+		getPrimeConfig().invalidateSettings();
 
 		// The runtime reads settings at session start and on reload, so a write is
 		// not observable until one of those happens. A reload is cheap; failing it
