@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmod, mkdir, mkdtemp, open, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, open, rename, rm, stat, writeFile } from "node:fs/promises";
 import { arch, homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 import manifest from "../../../PRIME_AGENT_RUNTIME.json";
@@ -26,7 +26,13 @@ export async function ensurePrimeAgentRuntime(
 		options.installRoot ??
 		join(options.home ?? homedir(), ".prime", "fleet", "runtimes", runtime.version, selectedTarget);
 	const binary = join(installRoot, "prime-agent");
-	if (await executableMatches(binary, asset.executableSha256)) return binary;
+	const packagedRuntime = join(installRoot, "prime-agent-runtime");
+	// A verified binary is not enough: the kernel bootstraps from the packaged
+	// runtime beside it. An install made by an earlier Fleet kept only the
+	// executable, so that state must be repaired rather than short-circuited.
+	if ((await executableMatches(binary, asset.executableSha256)) && (await directoryExists(packagedRuntime))) {
+		return binary;
+	}
 
 	await mkdir(dirname(installRoot), { recursive: true, mode: 0o700 });
 	const staging = await mkdtemp(join(dirname(installRoot), ".fleet-prime-runtime-"));
@@ -55,10 +61,35 @@ export async function ensurePrimeAgentRuntime(
 			throw new Error("Extracted Prime Agent executable checksum mismatch; refusing to install it.");
 		await chmod(extractedBinary, 0o755);
 		await mkdir(installRoot, { recursive: true, mode: 0o700 });
+		// The kernel bootstraps from the packaged runtime that ships beside the
+		// binary (`prime-agent-runtime/`, located next to the executable or via
+		// PI_PACKAGE_DIR). Keeping only the executable left every session unable
+		// to start a kernel, so the whole packaged payload is installed, not just
+		// the binary. The directory lands before the executable is replaced, so a
+		// failed rename cannot leave a binary that looks current with no runtime.
+		const extractedRuntime = join(extractRoot, "prime-agent-runtime");
+		if (await directoryExists(extractedRuntime)) {
+			// `rename` cannot replace a non-empty directory. Two concurrent installs
+			// (both reach here after verifying the same checksummed archive) would
+			// otherwise fail the whole install, so an already-present runtime is
+			// accepted: it came from the same verified payload.
+			await rm(packagedRuntime, { recursive: true, force: true });
+			await rename(extractedRuntime, packagedRuntime).catch((error: NodeJS.ErrnoException) => {
+				if (error.code !== "ENOTEMPTY" && error.code !== "EEXIST") throw error;
+			});
+		}
 		await rename(extractedBinary, binary);
 		return binary;
 	} finally {
 		await rm(staging, { recursive: true, force: true });
+	}
+}
+
+async function directoryExists(path: string): Promise<boolean> {
+	try {
+		return (await stat(path)).isDirectory();
+	} catch {
+		return false;
 	}
 }
 

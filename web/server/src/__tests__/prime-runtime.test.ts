@@ -59,11 +59,16 @@ describe("Prime Agent runtime installation", () => {
 		const root = await mkdtemp(join(tmpdir(), "fleet-server-runtime-test-"));
 		roots.push(root);
 		const input = join(root, "input");
-		await mkdir(input);
+		await mkdir(join(input, "prime-agent-runtime", "src", "rlm"), { recursive: true });
 		const binary = Buffer.from("fixture runtime");
 		await writeFile(join(input, "prime-agent"), binary);
+		// The shipped archive always carries the packaged kernel runtime. A
+		// binary-only fixture would let an install look complete while the kernel
+		// could never start, and would defeat the "already installed" early return.
+		await writeFile(join(input, "prime-agent-runtime", "pyproject.toml"), "[project]\n");
+		await writeFile(join(input, "prime-agent-runtime", "src", "rlm", "__init__.py"), "def spawn():\n\tpass\n");
 		const archivePath = join(root, "runtime.tar.gz");
-		const tar = spawnSync("tar", ["-czf", archivePath, "-C", input, "prime-agent"]);
+		const tar = spawnSync("tar", ["-czf", archivePath, "-C", input, "."]);
 		expect(tar.status).toBe(0);
 		const archive = await readFile(archivePath);
 		asset.sha256 = createHash("sha256").update(archive).digest("hex");
@@ -82,6 +87,67 @@ describe("Prime Agent runtime installation", () => {
 		expect(await readdir(dirname(installRoot))).toEqual(["linux-x64"]);
 		expect(fetchFixture).toHaveBeenCalledTimes(2);
 		await ensurePrimeAgentRuntime(options);
+		// A complete install (binary and packaged runtime) short-circuits.
 		expect(fetchFixture).toHaveBeenCalledTimes(2);
+	});
+	it("installs the packaged kernel runtime beside the binary", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-server-runtime-test-"));
+		roots.push(root);
+		const input = join(root, "input");
+		await mkdir(join(input, "prime-agent-runtime", "src", "rlm"), { recursive: true });
+		const binary = Buffer.from("fixture runtime");
+		await writeFile(join(input, "prime-agent"), binary);
+		await writeFile(join(input, "prime-agent-runtime", "pyproject.toml"), "[project]\n");
+		await writeFile(join(input, "prime-agent-runtime", "src", "rlm", "__init__.py"), "def spawn():\n\tpass\n");
+		const archivePath = join(root, "runtime.tar.gz");
+		const tar = spawnSync("tar", ["-czf", archivePath, "-C", input, "."]);
+		expect(tar.status).toBe(0);
+		const archive = await readFile(archivePath);
+		asset.sha256 = createHash("sha256").update(archive).digest("hex");
+		asset.executableSha256 = createHash("sha256").update(binary).digest("hex");
+		const installRoot = join(root, "cache", "linux-x64");
+		const binaryPath = await ensurePrimeAgentRuntime({
+			target: "linux-x64",
+			installRoot,
+			fetch: (async () => new Response(archive)) as typeof fetch,
+		});
+		// The kernel bootstraps from this directory; a binary-only install leaves
+		// every session unable to start one.
+		expect(await readdir(installRoot)).toEqual(["prime-agent", "prime-agent-runtime"]);
+		expect(await readFile(join(installRoot, "prime-agent-runtime", "pyproject.toml"), "utf8")).toBe("[project]\n");
+		expect(binaryPath).toBe(join(installRoot, "prime-agent"));
+	});
+	it("repairs an existing binary-only install whose executable is already current", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-server-runtime-test-"));
+		roots.push(root);
+		const input = join(root, "input");
+		await mkdir(join(input, "prime-agent-runtime", "src", "rlm"), { recursive: true });
+		const binary = Buffer.from("fixture runtime");
+		await writeFile(join(input, "prime-agent"), binary);
+		await writeFile(join(input, "prime-agent-runtime", "pyproject.toml"), "[project]\n");
+		await writeFile(join(input, "prime-agent-runtime", "src", "rlm", "__init__.py"), "def spawn():\n\tpass\n");
+		const archivePath = join(root, "runtime.tar.gz");
+		const tar = spawnSync("tar", ["-czf", archivePath, "-C", input, "."]);
+		expect(tar.status).toBe(0);
+		const archive = await readFile(archivePath);
+		asset.sha256 = createHash("sha256").update(archive).digest("hex");
+		asset.executableSha256 = createHash("sha256").update(binary).digest("hex");
+
+		// The state every install made by an earlier Fleet is in: the executable is
+		// present and hash-correct, but the packaged runtime was never kept. A
+		// binary-only early return would leave the kernel permanently unstartable.
+		const installRoot = join(root, "cache", "linux-x64");
+		await mkdir(installRoot, { recursive: true });
+		await writeFile(join(installRoot, "prime-agent"), binary);
+
+		await ensurePrimeAgentRuntime({
+			target: "linux-x64",
+			installRoot,
+			fetch: (async () => new Response(archive)) as typeof fetch,
+		});
+
+		expect(await readdir(installRoot)).toEqual(["prime-agent", "prime-agent-runtime"]);
+		expect(await readFile(join(installRoot, "prime-agent-runtime", "pyproject.toml"), "utf8")).toBe("[project]\n");
+		expect(await readFile(join(installRoot, "prime-agent"))).toEqual(binary);
 	});
 });

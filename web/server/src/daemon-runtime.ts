@@ -197,6 +197,28 @@ async function probeDaemon(socketPath: string): Promise<DaemonProbeResult> {
 	}
 }
 
+/**
+ * Describe why spawning the daemon failed.
+ *
+ * Node reports the same `ENOENT` whether the executable is missing or the
+ * spawn `cwd` is, with no field distinguishing them, so the message cannot
+ * claim which it was. It names both candidates instead: blaming a binary that
+ * exists and runs sends the operator after the wrong problem.
+ */
+export function describeDaemonSpawnError(
+	error: NodeJS.ErrnoException,
+	command: string,
+	options: { noun: string; cwd: string },
+): string {
+	if (error.code !== "ENOENT") {
+		return `Could not start Prime Agent ${options.noun}: ${error.code ?? error.message}`;
+	}
+	return (
+		`Could not start Prime Agent ${options.noun}: ${command} was not found, ` +
+		`or its working directory ${options.cwd} does not exist.`
+	);
+}
+
 async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> {
 	const initialProbe = await probeDaemon(socketPath);
 	if (initialProbe.status === "compatible") return;
@@ -227,20 +249,12 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 	while (Date.now() < deadline) {
 		let spawnError = spawnErrors[0];
 		if (spawnError) {
-			throw new Error(
-				spawnError.code === "ENOENT"
-					? `Prime Agent binary not found: ${command}`
-					: `Could not start Prime Agent binary ${command}: ${spawnError.code ?? spawnError.message}`,
-			);
+			throw new Error(describeDaemonSpawnError(spawnError, command, { noun: "binary", cwd: spawnCwd }));
 		}
 		const probe = await probeDaemon(socketPath);
 		spawnError = spawnErrors[0];
 		if (spawnError) {
-			throw new Error(
-				spawnError.code === "ENOENT"
-					? `Prime Agent binary not found: ${command}`
-					: `Could not start Prime Agent daemon: ${spawnError.code || spawnError.message}`,
-			);
+			throw new Error(describeDaemonSpawnError(spawnError, command, { noun: "daemon", cwd: spawnCwd }));
 		}
 		if (probe.status === "compatible") return;
 		if (probe.status === "incompatible") {
