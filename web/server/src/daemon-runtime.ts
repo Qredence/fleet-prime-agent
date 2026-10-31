@@ -499,15 +499,20 @@ export function notifyDaemonModelCatalogChanged(): void {
 /**
  * Read the model catalog through Fleet's cached snapshot.
  *
+ * The snapshot is **process-wide, not per-cwd**. The model catalog is a property
+ * of the daemon and its agent directory, identical for every project a user
+ * opens, so `sessionCwd` deliberately does not key the cache.
+ *
  * `get_model_catalog` requires an `activeSessionId`, and this route has no live
- * session to borrow: a catalog read is project-global and the bridge does not
- * expose the daemon's active id. A throwaway session is therefore the only
- * route, and it costs ~280 ms plus worker/log churn in the user's agent dir, so
- * it runs on a cache miss only. Warm reads are cache hits.
+ * session to borrow: the bridge does not expose the daemon's active id. A
+ * throwaway session is therefore the only route, and it costs ~280 ms plus
+ * worker/log churn, so it runs on a cache miss only. `sessionCwd` exists solely
+ * because creating that session requires a workspace directory; it has no
+ * bearing on which catalog is returned.
  */
-export function readDaemonModelCatalog(cwd: string): Promise<DaemonModelCatalog> {
+export function readDaemonModelCatalog(sessionCwd: string): Promise<DaemonModelCatalog> {
 	return loadModelCatalog(() =>
-		withTransientDaemonSession(cwd, (client, activeSessionId) => client.getModelCatalog(activeSessionId)),
+		withTransientDaemonSession(sessionCwd, (client, activeSessionId) => client.getModelCatalog(activeSessionId)),
 	);
 }
 

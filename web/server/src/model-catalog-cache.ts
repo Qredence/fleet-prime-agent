@@ -25,6 +25,12 @@ type CatalogSnapshot = { catalog: DaemonModelCatalog; fetchedAt: number };
 
 type CatalogCacheState = {
 	snapshot?: CatalogSnapshot;
+	/**
+	 * The last snapshot that was successfully published, kept across
+	 * invalidations. Only used as a last resort when bounded retries are
+	 * exhausted, so a churning daemon still answers with something readable.
+	 */
+	lastGood?: CatalogSnapshot;
 	/** Single-flight: concurrent callers share one refresh. */
 	inFlight?: Promise<CatalogSnapshot | undefined>;
 	/** Bumped by every invalidation so a pre-invalidation refresh cannot land. */
@@ -53,10 +59,19 @@ export function readModelCatalogSnapshot(maxAgeMs = MODEL_CATALOG_MAX_AGE_MS): D
  * error; it never fabricates an empty catalog, because an empty list would read
  * to the user as "you have no models" instead of "the runtime could not be
  * reached".
+ *
+ * Retries are bounded. An invalidation that lands while a refresh is in flight
+ * discards that refresh's result, so the callers have to try again; with every
+ * attached socket broadcasting `model_catalog_changed` independently, an
+ * unbounded retry could in principle re-enter many times. One retry is enough to
+ * observe a write that landed during the first read, so a second discard falls
+ * back to the last snapshot that was successfully read (even if now stale) or
+ * fails, rather than looping.
  */
 export async function loadModelCatalog(
 	refresh: () => Promise<DaemonModelCatalog>,
 	maxAgeMs = MODEL_CATALOG_MAX_AGE_MS,
+	attemptsRemaining = 1,
 ): Promise<DaemonModelCatalog> {
 	const cached = readModelCatalogSnapshot(maxAgeMs);
 	if (cached) return cached;
@@ -74,6 +89,7 @@ export async function loadModelCatalog(
 				// callers retry instead of serving it.
 				if (current.generation !== startedAt) return undefined;
 				current.snapshot = next;
+				current.lastGood = next;
 				return next;
 			} finally {
 				cacheState().inFlight = undefined;
@@ -82,7 +98,15 @@ export async function loadModelCatalog(
 	}
 	const settled = await state.inFlight;
 	if (settled) return settled.catalog;
-	return loadModelCatalog(refresh, maxAgeMs);
+
+	// The refresh was discarded by an invalidation. Retry a bounded number of
+	// times; once those are spent, prefer the last good snapshot over looping.
+	if (attemptsRemaining <= 0) {
+		const lastGood = cacheState().lastGood;
+		if (lastGood) return lastGood.catalog;
+		throw new Error("The model catalog kept changing while it was being read. Try again.");
+	}
+	return loadModelCatalog(refresh, maxAgeMs, attemptsRemaining - 1);
 }
 
 /** Drop the cached snapshot so the next read refreshes. */

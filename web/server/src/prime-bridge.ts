@@ -1382,7 +1382,20 @@ export class PrimeBridge {
 		const session = this.#requireSession(sessionId);
 		// Resolution is catalog-sourced and therefore async: the daemon owns the
 		// model list, and Fleet reads it through its cached snapshot.
-		const catalog = await readDaemonModelCatalog(session.cwd).catch(() => undefined);
+		//
+		// A failure here is logged, not swallowed silently: it covers both an
+		// unreachable daemon and a `get_model_catalog` response that fails the
+		// protocol guard, and the second case would otherwise disable the stale-id
+		// fallback below forever with no trace — while `/api/chat/models` returns a
+		// 500 for the very same cause. Behaviour is unchanged; only observability.
+		const catalog = await readDaemonModelCatalog(session.cwd).catch((error: unknown) => {
+			process.stderr.write(
+				`[bridge:${sessionId.slice(0, 8)}] model catalog unavailable, passing ${model.provider}/${model.id} through: ${
+					error instanceof Error ? error.message : String(error)
+				}\n`,
+			);
+			return undefined;
+		});
 		if (!catalog) {
 			// The catalog could not be read. Today's failure mode for this case is
 			// the connection's own error, not `Unknown model`, so hand the request

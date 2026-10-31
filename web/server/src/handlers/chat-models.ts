@@ -17,6 +17,7 @@ import type { DaemonModelCatalog } from "../daemon-protocol";
 import { readDaemonModelCatalog } from "../daemon-runtime";
 import { providerAvailability, toChatModelInfoList } from "../model-catalog";
 import { getPrimeConfig } from "../prime-config";
+import { safePathLabel } from "../project-registry";
 import { cwdForRequest } from "../project-request";
 import { wrapApiHandler } from "../wrap-api-handler";
 
@@ -69,13 +70,18 @@ function toPatternCandidate(model: ChatModelInfo) {
  * The runtime silently drops every custom provider in `models.json` when any one
  * of them lacks `apiKey`, and no daemon surface reports it. Without this the user
  * sees their providers vanish from the picker with no explanation.
+ *
+ * The path is rendered through `safePathLabel` because this reaches a 200
+ * response body, not an error envelope: `wrapApiHandler` only scrubs errors, so
+ * interpolating the raw path here would disclose the server's agent directory.
  */
 function customProviderDiagnostics(modelsJsonPath: string, offenders: string[]): string[] {
 	if (offenders.length === 0) return [];
+	const label = safePathLabel(modelsJsonPath);
 	return offenders.map(
 		(providerId) =>
-			`Provider ${providerId} in models.json has no apiKey, so none of your custom providers can load. ` +
-			`Add a non-empty "apiKey" to ${providerId} in ${modelsJsonPath} to fix it.`,
+			`Provider ${providerId} in ${label} has no apiKey, so none of your custom providers can load. ` +
+			`Add a non-empty "apiKey" to ${providerId} in models.json to fix it.`,
 	);
 }
 
