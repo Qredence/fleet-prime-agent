@@ -70,7 +70,7 @@ export function AddModelsDialog({
 	}, []);
 	const discoveryIds = [...(discoverableProviderIds ?? [])]
 		.filter((id) => configuredProviderIds.has(id))
-		.sort()
+		.sort((a, b) => a.localeCompare(b))
 		.join("\n");
 	useEffect(() => {
 		if (!open) return;
