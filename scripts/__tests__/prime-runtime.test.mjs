@@ -221,7 +221,7 @@ test("repairs an existing binary-only install whose executable is already curren
 	assert.equal(downloads, 1);
 });
 
-test("replaces a corrupted executable and keeps the packaged runtime already in place", async (t) => {
+test("a reinstall replaces both a corrupted executable and a damaged packaged runtime", async (t) => {
 	const { root, binary, archive, target, manifest } = await fixture(t);
 	const installRoot = join(root, "cache", target);
 	await mkdir(join(installRoot, "prime-agent-runtime"), { recursive: true });
@@ -229,7 +229,8 @@ test("replaces a corrupted executable and keeps the packaged runtime already in 
 	await writeFile(join(installRoot, "prime-agent"), "corrupted", { mode: 0o755 });
 	await ensurePrimeRuntime({ manifest, target, installRoot, fetch: async () => new Response(archive) });
 	assert.deepEqual(await readFile(join(installRoot, "prime-agent")), binary);
-	assert.equal(await readFile(join(installRoot, "prime-agent-runtime", "marker"), "utf8"), "kept");
+	// The verified runtime replaces the damaged copy rather than being skipped.
+	assert.deepEqual((await readdir(join(installRoot, "prime-agent-runtime"))).sort(), ["pyproject.toml", "src"]);
 	assert.deepEqual(await readdir(dirname(installRoot)), [target]);
 });
 

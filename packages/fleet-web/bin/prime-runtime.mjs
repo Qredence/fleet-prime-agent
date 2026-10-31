@@ -68,13 +68,15 @@ export async function ensurePrimeRuntime({
 		await mkdir(destination, { recursive: true, mode: 0o700 });
 		// The kernel bootstraps from `prime-agent-runtime/`, which ships beside the
 		// binary. It lands before the executable is replaced, so a failed rename
-		// cannot leave a binary that looks current with no runtime.
-		// The directory only ever lands through this atomic rename of a verified
-		// archive, so one that is already present is complete and is kept rather
-		// than deleted: removing it would open a window in which a concurrently
-		// starting Fleet sees no runtime at all.
+		// cannot leave a binary that looks current with no runtime. Any existing
+		// copy (possibly damaged) is moved aside into the private staging dir
+		// rather than deleted in place, so the window with no runtime is two
+		// renames, and the verified copy always replaces it.
 		const extractedRuntime = join(unpacked, "prime-agent-runtime");
-		if ((await directoryExists(extractedRuntime)) && !(await directoryExists(packagedRuntime))) {
+		if (await directoryExists(extractedRuntime)) {
+			await rename(packagedRuntime, join(staging, "previous-runtime")).catch((error) => {
+				if (error.code !== "ENOENT") throw error;
+			});
 			await rename(extractedRuntime, packagedRuntime).catch((error) => {
 				// A concurrent install of the same checksummed archive placed it first.
 				if (error.code !== "ENOTEMPTY" && error.code !== "EEXIST") throw error;
@@ -90,8 +92,10 @@ export async function ensurePrimeRuntime({
 async function directoryExists(path) {
 	try {
 		return (await stat(path)).isDirectory();
-	} catch {
-		return false;
+	} catch (error) {
+		// Only absence means "not installed"; surface permission or symlink errors.
+		if (error.code === "ENOENT" || error.code === "ENOTDIR") return false;
+		throw error;
 	}
 }
 
