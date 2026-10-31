@@ -37,6 +37,24 @@ export const EMPTY_QUEUE_STATE: QueueState = {
 	followUp: [],
 };
 
+/**
+ * The cleared-session presentation: initial state, project switch, session
+ * delete, and forbidden/unknown-session recovery all reset to exactly this.
+ *
+ * `PrimeAgentSessionPresentation` has five required fields and eight optional
+ * ones. Spelling the literal out at each reset site silently drops any field
+ * that later becomes required there, so resets share this one frozen value.
+ * Consumers replace the whole presentation instead of mutating it in place, so
+ * sharing the reference is safe.
+ */
+export const EMPTY_SESSION_PRESENTATION: PrimeAgentSessionPresentation = Object.freeze({
+	revision: 0,
+	userBash: [],
+	rlmChildren: [],
+	refinements: [],
+	artifactRuns: [],
+});
+
 /** Drop blank session fields so `{}` is a real clear, not a keep-if-empty merge. */
 export function normalizeSessionMetadata(metadata: ChatSessionMetadata): ChatSessionMetadata {
 	const sessionId = metadata.sessionId?.trim() || undefined;
