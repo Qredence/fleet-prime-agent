@@ -242,7 +242,9 @@ describe("daemon spawn", () => {
 		process.env[NATIVE_DAEMON_BINARY_ENV] = scenario === "empty override" ? "" : binary;
 		try {
 			await expect(ensureFleetDaemonRunning(process.cwd(), join(stores.sessionDir, "daemon.sock"))).rejects.toThrow(
-				scenario === "EACCES" ? /Could not start Prime Agent daemon: EACCES/ : /Prime Agent binary not found/,
+				scenario === "EACCES"
+					? /Could not start Prime Agent daemon: EACCES/
+					: /was not found, or its working directory .* does not exist/,
 			);
 			expect(runtime).toHaveBeenCalledTimes(scenario === "empty override" ? 1 : 0);
 		} finally {
