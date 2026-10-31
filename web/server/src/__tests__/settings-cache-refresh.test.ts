@@ -7,17 +7,59 @@ const state = vi.hoisted(() => ({ cwd: "" }));
 vi.mock("../project-request", () => ({ cwdForRequest: async () => state.cwd }));
 
 import type { DaemonModel } from "../daemon-protocol";
+import * as daemonRuntime from "../daemon-runtime";
 import { type ChatModelsHandlerDeps, handleChatModelsGet } from "../handlers/chat-models";
 import { handleChatSettingsPatch } from "../handlers/chat-settings";
+import * as modelCatalog from "../model-catalog";
 import { getPrimeConfig, resetPrimeConfigForTests } from "../prime-config";
 
 const previousAgentDir = process.env.PRIME_AGENT_CODING_AGENT_DIR;
 let tempDir = "";
 afterEach(() => {
+	vi.restoreAllMocks();
 	if (previousAgentDir === undefined) delete process.env.PRIME_AGENT_CODING_AGENT_DIR;
 	else process.env.PRIME_AGENT_CODING_AGENT_DIR = previousAgentDir;
 	delete (globalThis as Record<string, unknown>).__primeConfig;
 	if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+});
+
+it("updates the model route through its default dependencies after a settings write", async () => {
+	tempDir = mkdtempSync(join(tmpdir(), "fleet-settings-default-route-"));
+	process.env.PRIME_AGENT_CODING_AGENT_DIR = tempDir;
+	writeFileSync(join(tempDir, "settings.json"), JSON.stringify({ enabledModels: ["alpha/*"] }));
+	state.cwd = resetPrimeConfigForTests().defaultCwd;
+	const model = (provider: string, id: string): DaemonModel => ({
+		provider,
+		id,
+		name: id,
+		api: "openai-responses",
+		baseUrl: "https://example.test",
+		reasoning: false,
+		input: ["text"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 1000,
+		maxTokens: 100,
+	});
+	vi.spyOn(daemonRuntime, "readDaemonModelCatalog").mockResolvedValue({
+		models: [model("alpha", "a1"), model("beta", "b1")],
+		configuredProviders: [],
+	});
+	vi.spyOn(modelCatalog, "providerAvailability").mockResolvedValue(() => true);
+	const readModels = async () => {
+		const response = await handleChatModelsGet(new Request("http://localhost/api/chat/models?scope=enabled"));
+		expect(response.status).toBe(200);
+		return ((await response.json()) as { models: { key: string }[] }).models.map((entry) => entry.key);
+	};
+	expect(await readModels()).toEqual(["alpha/a1"]);
+	const response = await handleChatSettingsPatch(
+		new Request("http://localhost/api/chat/settings", {
+			method: "PATCH",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ settings: { enabledModels: ["beta/*"] } }),
+		}),
+	);
+	expect(response.status).toBe(200);
+	expect(await readModels()).toEqual(["beta/b1"]);
 });
 
 it("refreshes cached settings for all workspaces after a global settings write", async () => {
