@@ -1,110 +1,15 @@
-import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { chmod, mkdir, mkdtemp, open, rename, rm, stat, writeFile } from "node:fs/promises";
-import { arch, homedir, platform } from "node:os";
-import { dirname, join } from "node:path";
 import manifest from "../../../PRIME_AGENT_RUNTIME.json";
+import { ensurePrimeRuntime } from "../../../packages/fleet-web/bin/prime-runtime.mjs";
 
-export function runtimeArchiveTarget(os: string, cpu: string): string {
-	const target = `${os}-${cpu}`;
-	if (!["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"].includes(target)) {
-		throw new Error(
-			`Fleet's Rust Prime Agent runtime does not support ${target}; supported targets: darwin-arm64, darwin-x64, linux-arm64, linux-x64.`,
-		);
-	}
-	return target;
-}
-
-export async function ensurePrimeAgentRuntime(
+/**
+ * Install (or reuse) the pinned Prime Agent runtime: the `prime-agent` binary
+ * and the `prime-agent-runtime/` kernel bundle beside it.
+ *
+ * The npm launcher and the server share one installer so a `fleet-prime`
+ * install and a server-side install cannot drift apart again.
+ */
+export function ensurePrimeAgentRuntime(
 	options: { target?: string; installRoot?: string; home?: string; fetch?: typeof fetch } = {},
 ): Promise<string> {
-	const selectedTarget = options.target ?? runtimeArchiveTarget(platform(), arch());
-	const runtime = manifest.rust;
-	const asset = runtime.platforms[selectedTarget as keyof typeof runtime.platforms];
-	if (!asset) throw new Error(`No pinned Prime Agent runtime archive for ${selectedTarget}`);
-	const installRoot =
-		options.installRoot ??
-		join(options.home ?? homedir(), ".prime", "fleet", "runtimes", runtime.version, selectedTarget);
-	const binary = join(installRoot, "prime-agent");
-	const packagedRuntime = join(installRoot, "prime-agent-runtime");
-	// A verified binary is not enough: the kernel bootstraps from the packaged
-	// runtime beside it. An install made by an earlier Fleet kept only the
-	// executable, so that state must be repaired rather than short-circuited.
-	if ((await executableMatches(binary, asset.executableSha256)) && (await directoryExists(packagedRuntime))) {
-		return binary;
-	}
-
-	await mkdir(dirname(installRoot), { recursive: true, mode: 0o700 });
-	const staging = await mkdtemp(join(dirname(installRoot), ".fleet-prime-runtime-"));
-	try {
-		const archivePath = join(staging, asset.archive);
-		// The release URL comes from Fleet's shipped runtime pin, never session or provider input.
-		const response = await (options.fetch ?? fetch)(`${runtime.baseUrl}/${asset.archive}`, {
-			signal: AbortSignal.timeout(120_000),
-		});
-		if (!response.ok)
-			throw new Error(
-				`Could not download Prime Agent ${runtime.version} (${response.status}). Check your network and retry.`,
-			);
-		const bytes = Buffer.from(await response.arrayBuffer());
-		if (digest(bytes) !== asset.sha256)
-			throw new Error(`Prime Agent ${runtime.version} archive checksum mismatch; refusing to install it.`);
-		// Only checksum-verified release bytes reach this private staging file.
-		await writeFile(archivePath, bytes, { mode: 0o600 });
-		const extractRoot = join(staging, "extracted");
-		await mkdir(extractRoot);
-		const extraction = spawnSync("tar", ["-xzf", archivePath, "-C", extractRoot], { encoding: "utf8" });
-		if (extraction.status !== 0)
-			throw new Error(`Could not extract Prime Agent runtime: ${extraction.stderr || "tar failed"}`);
-		const extractedBinary = join(extractRoot, "prime-agent");
-		if (!(await executableMatches(extractedBinary, asset.executableSha256)))
-			throw new Error("Extracted Prime Agent executable checksum mismatch; refusing to install it.");
-		await chmod(extractedBinary, 0o755);
-		await mkdir(installRoot, { recursive: true, mode: 0o700 });
-		// The kernel bootstraps from the packaged runtime that ships beside the
-		// binary (`prime-agent-runtime/`, located next to the executable or via
-		// PI_PACKAGE_DIR). Keeping only the executable left every session unable
-		// to start a kernel, so the whole packaged payload is installed, not just
-		// the binary. The directory lands before the executable is replaced, so a
-		// failed rename cannot leave a binary that looks current with no runtime.
-		const extractedRuntime = join(extractRoot, "prime-agent-runtime");
-		if (await directoryExists(extractedRuntime)) {
-			// `rename` cannot replace a non-empty directory. Two concurrent installs
-			// (both reach here after verifying the same checksummed archive) would
-			// otherwise fail the whole install, so an already-present runtime is
-			// accepted: it came from the same verified payload.
-			await rm(packagedRuntime, { recursive: true, force: true });
-			await rename(extractedRuntime, packagedRuntime).catch((error: NodeJS.ErrnoException) => {
-				if (error.code !== "ENOTEMPTY" && error.code !== "EEXIST") throw error;
-			});
-		}
-		await rename(extractedBinary, binary);
-		return binary;
-	} finally {
-		await rm(staging, { recursive: true, force: true });
-	}
-}
-
-async function directoryExists(path: string): Promise<boolean> {
-	try {
-		return (await stat(path)).isDirectory();
-	} catch {
-		return false;
-	}
-}
-
-async function executableMatches(path: string, expected: string): Promise<boolean> {
-	let file: Awaited<ReturnType<typeof open>> | undefined;
-	try {
-		file = await open(path, "r");
-		return (await file.stat()).isFile() && digest(await file.readFile()) === expected;
-	} catch {
-		return false;
-	} finally {
-		await file?.close();
-	}
-}
-
-function digest(bytes: Buffer): string {
-	return createHash("sha256").update(bytes).digest("hex");
+	return ensurePrimeRuntime({ manifest, ...options });
 }
