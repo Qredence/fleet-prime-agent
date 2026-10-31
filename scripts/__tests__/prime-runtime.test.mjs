@@ -19,8 +19,13 @@ async function fixture(t) {
 	const files = join(root, "files");
 	await mkdir(files);
 	await writeFile(join(files, "prime-agent"), binary);
+	// The real release ships the kernel bundle beside the binary; a binary-only
+	// fixture would let an install look complete while the kernel cannot start.
+	await mkdir(join(files, "prime-agent-runtime", "src", "rlm"), { recursive: true });
+	await writeFile(join(files, "prime-agent-runtime", "pyproject.toml"), "[project]\n");
+	await writeFile(join(files, "prime-agent-runtime", "src", "rlm", "__init__.py"), "def spawn():\n\tpass\n");
 	const archivePath = join(root, "runtime.tar.gz");
-	const tar = spawnSync("tar", ["-czf", archivePath, "-C", files, "prime-agent"]);
+	const tar = spawnSync("tar", ["-czf", archivePath, "-C", files, "."]);
 	assert.equal(tar.status, 0, tar.stderr.toString());
 	const archive = await readFile(archivePath);
 	const target = runtimeTarget(platform(), arch());
@@ -174,6 +179,61 @@ test("stages beside the destination and safely installs concurrently", async (t)
 	);
 });
 
+test("installs the packaged kernel runtime beside the binary", async (t) => {
+	const { root, binary, archive, target, manifest } = await fixture(t);
+	const installRoot = join(root, "cache", target);
+	const executable = await ensurePrimeRuntime({
+		manifest,
+		target,
+		installRoot,
+		fetch: async () => new Response(archive),
+	});
+	assert.equal(executable, join(installRoot, "prime-agent"));
+	assert.deepEqual(await readFile(executable), binary);
+	assert.deepEqual((await readdir(installRoot)).sort(), ["prime-agent", "prime-agent-runtime"]);
+	assert.equal(await readFile(join(installRoot, "prime-agent-runtime", "pyproject.toml"), "utf8"), "[project]\n");
+});
+
+test("repairs an existing binary-only install whose executable is already current", async (t) => {
+	const { root, binary, archive, target, manifest } = await fixture(t);
+	const installRoot = join(root, "cache", target);
+	// Every install made by fleet-prime before this fix: a hash-correct
+	// executable with no packaged runtime. Reusing it would leave sessions
+	// unable to start a kernel.
+	await mkdir(installRoot, { recursive: true });
+	await writeFile(join(installRoot, "prime-agent"), binary, { mode: 0o755 });
+	let downloads = 0;
+	const options = {
+		manifest,
+		target,
+		installRoot,
+		fetch: async () => {
+			downloads += 1;
+			return new Response(archive);
+		},
+	};
+	await ensurePrimeRuntime(options);
+	assert.equal(downloads, 1);
+	assert.deepEqual((await readdir(installRoot)).sort(), ["prime-agent", "prime-agent-runtime"]);
+	assert.deepEqual(await readFile(join(installRoot, "prime-agent")), binary);
+	// Once complete, the install short-circuits without another download.
+	await ensurePrimeRuntime(options);
+	assert.equal(downloads, 1);
+});
+
+test("a reinstall replaces both a corrupted executable and a damaged packaged runtime", async (t) => {
+	const { root, binary, archive, target, manifest } = await fixture(t);
+	const installRoot = join(root, "cache", target);
+	await mkdir(join(installRoot, "prime-agent-runtime"), { recursive: true });
+	await writeFile(join(installRoot, "prime-agent-runtime", "marker"), "kept");
+	await writeFile(join(installRoot, "prime-agent"), "corrupted", { mode: 0o755 });
+	await ensurePrimeRuntime({ manifest, target, installRoot, fetch: async () => new Response(archive) });
+	assert.deepEqual(await readFile(join(installRoot, "prime-agent")), binary);
+	// The verified runtime replaces the damaged copy rather than being skipped.
+	assert.deepEqual((await readdir(join(installRoot, "prime-agent-runtime"))).sort(), ["pyproject.toml", "src"]);
+	assert.deepEqual(await readdir(dirname(installRoot)), [target]);
+});
+
 test("launcher reads the source manifest or the packaged manifest and runs the cached agent", async (t) => {
 	const { root, binary, target, manifest } = await fixture(t);
 	const packageRoot = join(root, "packages", "fleet-web");
@@ -187,6 +247,7 @@ test("launcher reads the source manifest or the packaged manifest and runs the c
 	await mkdir(dirname(cached), { recursive: true });
 	await writeFile(cached, binary);
 	await chmod(cached, 0o755);
+	await mkdir(join(dirname(cached), "prime-agent-runtime"));
 	const env = { ...process.env, HOME: fakeHome };
 	delete env.FLEET_PRIME_AGENT_BIN;
 	await writeFile(join(root, "PRIME_AGENT_RUNTIME.json"), JSON.stringify(manifest));
