@@ -19,9 +19,10 @@ describe("handleChatProvidersOAuthPost", () => {
 			providers?: unknown[];
 		};
 		expect(body.status).toBe("error");
-		expect(body.error).toContain("Launch Prime Agent in a terminal");
-		expect(body.error).toContain("same configuration directory as Fleet");
-		expect(body.error).toContain("Restart Fleet");
+		expect(body.error).toContain("has to run inside Prime Agent");
+		expect(body.error).toContain("/login");
+		expect(body.error).toContain("PRIME_AGENT_CODING_AGENT_DIR");
+		expect(body.error).not.toMatch(/restart Fleet/i);
 		expect(body).not.toHaveProperty("loginId");
 		expect(body).not.toHaveProperty("providers");
 		expect(body.error).not.toContain("sensitive-user-input");

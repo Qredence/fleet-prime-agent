@@ -183,9 +183,12 @@ describe("MCP connection handlers", () => {
 			expect(response.status).toBe(501);
 			const body = (await response.json()) as { status: string; error?: string; loginId?: string };
 			expect(body.status).toBe("error");
-			expect(body.error).toContain("Launch Prime Agent in a terminal");
-			expect(body.error).toContain("same configuration directory as Fleet");
-			expect(body.error).toContain("Restart Fleet");
+			expect(body.error).toContain("has to run inside Prime Agent");
+			expect(body.error).toContain("/mcp login ");
+			expect(body.error).toContain("PRIME_AGENT_CODING_AGENT_DIR");
+			// Restarting Fleet re-attaches to the same detached daemon, so the copy
+			// must not promise that a restart reloads the credential.
+			expect(body.error).not.toMatch(/restart Fleet/i);
 			expect(body.error).not.toContain("sensitive-user-input");
 			expect(body).not.toHaveProperty("loginId");
 			expect(removed).toEqual([]);

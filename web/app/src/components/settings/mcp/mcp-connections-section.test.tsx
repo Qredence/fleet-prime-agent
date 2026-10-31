@@ -25,9 +25,17 @@ describe("McpConnectionsSection OAuth fallback", () => {
 			/>,
 		);
 
-		expect(screen.getByText(/MCP OAuth sign-in from Fleet settings is unavailable/)).toBeTruthy();
-		expect(screen.getByText(/Launch Prime Agent in a terminal/)).toBeTruthy();
-		expect(screen.getByText(/complete sign-in for Linear there/)).toBeTruthy();
+		expect(screen.getByText(/Sign-in has to run inside Prime Agent/)).toBeTruthy();
+		// The guidance must name the command that actually exists: the CLI has no
+		// `mcp login` subcommand, and only the interactive TUI dispatches this.
+		expect(screen.getByText(/\/mcp login linear/)).toBeTruthy();
+		// Restarting Fleet cannot reload a detached daemon that re-reads auth.json
+		// per call, so the copy must not tell the user to restart.
+		expect(screen.queryByText(/restart Fleet/i)).toBeNull();
+		expect(screen.queryByText(/Launch Prime Agent in a terminal and complete sign-in/)).toBeNull();
+		// The env var only applies when the directory is non-default; it must be
+		// presented as conditional rather than as the primary instruction.
+		expect(screen.getByText(/non-default account directory/)).toBeTruthy();
 		expect(screen.queryByRole("button", { name: /sign in with linear/i })).toBeNull();
 		expect(onOAuth).not.toHaveBeenCalled();
 	});
