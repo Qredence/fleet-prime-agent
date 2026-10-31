@@ -479,6 +479,7 @@ export function useChatWorkspaceData() {
 	const onDiscoverModels = useCallback(
 		async (providerId: string) => {
 			const response = await discoverModelsMutation.mutateAsync(providerId);
+			if (response.error) throw new Error(response.error);
 			return response.models.map(toModelOption);
 		},
 		[discoverModelsMutation],

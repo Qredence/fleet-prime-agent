@@ -104,7 +104,15 @@ export function useProviderCredentialsController({
 
 	const filteredPickerAvailable = useMemo(() => {
 		const query = addPickerQuery.trim().toLowerCase();
-		return unconfiguredProviders.filter((provider) => providerMatchesQuery(provider, query));
+		return unconfiguredProviders
+			.filter((provider) => providerMatchesQuery(provider, query))
+			.sort((a, b) =>
+				a.id === CUSTOM_PROVIDER_PICKER_ID
+					? -1
+					: b.id === CUSTOM_PROVIDER_PICKER_ID
+						? 1
+						: a.name.localeCompare(b.name),
+			);
 	}, [addPickerQuery, unconfiguredProviders]);
 
 	const filteredPickerConfigured = useMemo(() => {

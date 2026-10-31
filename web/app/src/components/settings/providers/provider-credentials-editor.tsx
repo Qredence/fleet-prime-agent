@@ -50,7 +50,7 @@ export function AddProviderPickerPanel({
 				<div className="min-w-0 flex-1">
 					<p className="text-sm font-medium">Add provider</p>
 					<p className="text-xs text-pretty text-muted-foreground">
-						Choose a provider to store encrypted credentials for this account.
+						Choose a provider to save credentials in Prime Agent’s auth.json.
 					</p>
 				</div>
 			</div>

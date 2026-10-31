@@ -51,6 +51,7 @@ describe("chat model discovery", () => {
 	});
 
 	it.each([
+		["https://api.commandcode.ai/provider/v1", "https://api.commandcode.ai/provider/v1/models"],
 		["https://api.example.test", "https://api.example.test/v1/models"],
 		["https://api.example.test/", "https://api.example.test/v1/models"],
 		["https://api.example.test/v1", "https://api.example.test/v1/models"],
@@ -108,7 +109,44 @@ describe("chat model discovery", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(await response.json()).toEqual({ providerId: "custom+google", models: [] });
+		expect(await response.json()).toMatchObject({
+			providerId: "custom+google",
+			models: [],
+			error: expect.any(String),
+		});
 		expect(fetch).not.toHaveBeenCalled();
 	});
+	it.each(["http-error", "network-error", "invalid", "empty"])(
+		"reports %s without leaking credentials",
+		async (kind) => {
+			await upsertCustomProvider(join(agentDir, "models.json"), "custom+lab", {
+				baseUrl: "https://api.commandcode.ai/provider/v1",
+				api: "openai-completions",
+				apiKey: "CUSTOM_LAB_API_KEY",
+				models: [{ id: "keep", reasoning: true }],
+			});
+			if (kind === "network-error") vi.mocked(fetch).mockRejectedValue(new Error("secret-key"));
+			else
+				vi.mocked(fetch).mockResolvedValue(
+					new Response(JSON.stringify(kind === "invalid" ? { data: [{}] } : { data: [] }), {
+						status: kind === "http-error" ? 401 : 200,
+					}),
+				);
+			const response = await handleChatModelsDiscoverPost(
+				new Request("http://localhost/api/chat/models/discover", {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({ providerId: "custom+lab" }),
+				}),
+			);
+			const body = await response.json();
+			expect(body.models).toEqual([]);
+			if (kind === "empty") expect(body.error).toBeUndefined();
+			else expect(body.error).toEqual(expect.any(String));
+			expect(JSON.stringify(body)).not.toContain("secret-key");
+			expect(JSON.parse(readFileSync(join(agentDir, "models.json"), "utf8")).providers["custom+lab"].models).toEqual(
+				[{ id: "keep", reasoning: true }],
+			);
+		},
+	);
 });

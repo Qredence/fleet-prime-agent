@@ -1,6 +1,6 @@
 import type { ChatPiSettings } from "@prime-agent/web-protocol/chat-protocol";
 import { RefreshCw, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isModelEnabled } from "@/components/settings/providers/model-patterns";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
 import { formatProviderLabel } from "@/components/settings/providers/provider-label";
@@ -45,6 +45,37 @@ export function AddModelsDialog({
 	const [filter, setFilter] = useState("");
 	const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
 	const normalizedFilter = filter.trim().toLowerCase();
+	const [discovery, setDiscovery] = useState<
+		Record<string, { loading?: boolean; error?: boolean; updatedAt?: number }>
+	>({});
+	const discoveryRef = useRef(discovery);
+	const discoverCallback = useRef(onDiscoverProvider);
+	useEffect(() => {
+		discoverCallback.current = onDiscoverProvider;
+	}, [onDiscoverProvider]);
+	const refreshProvider = useCallback(async (id: string, force = false) => {
+		const previous = discoveryRef.current[id];
+		if (previous?.loading || (!force && previous?.updatedAt && Date.now() - previous.updatedAt < 60_000)) return;
+		const update = (value: typeof previous) => {
+			discoveryRef.current = { ...discoveryRef.current, [id]: value ?? {} };
+			setDiscovery(discoveryRef.current);
+		};
+		update({ ...previous, loading: true, error: false });
+		try {
+			await discoverCallback.current(id);
+			update({ updatedAt: Date.now() });
+		} catch {
+			update({ ...previous, loading: false, error: true });
+		}
+	}, []);
+	const discoveryIds = [...(discoverableProviderIds ?? [])]
+		.filter((id) => configuredProviderIds.has(id))
+		.sort()
+		.join("\n");
+	useEffect(() => {
+		if (!open) return;
+		for (const id of discoveryIds.split("\n").filter(Boolean)) void refreshProvider(id);
+	}, [open, discoveryIds, refreshProvider]);
 
 	const candidateModels = useMemo(() => {
 		return modelOptions.filter((model) => {
@@ -96,13 +127,20 @@ export function AddModelsDialog({
 	const confirmAdd = () => {
 		const selected = candidateModels.filter((model) => selectedKeys.has(model.id));
 		if (selected.length > 0) onAddModels(selected);
+		setSelectedKeys(new Set());
 		onOpenChange(false);
 	};
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-lg">
-				<DialogHeader>
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				if (!next) setSelectedKeys(new Set());
+				onOpenChange(next);
+			}}
+		>
+			<DialogContent className="flex max-h-[calc(100dvh-2rem)] min-w-0 max-w-[calc(100%-2rem)] sm:max-w-lg flex-col overflow-hidden">
+				<DialogHeader className="shrink-0">
 					<DialogTitle>Add models</DialogTitle>
 					<DialogDescription>
 						Pick models discovered from your configured providers. For OpenAI Chat Completions, refresh runs{" "}
@@ -110,31 +148,33 @@ export function AddModelsDialog({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="flex flex-wrap gap-1.5">
-					{discoverableProviders.map((providerId) => {
-						const discovering = discoveringProviderId === providerId;
-						const activeCount = activeCountByProvider.get(providerId) ?? 0;
-						return (
-							<Button
-								key={providerId}
-								type="button"
-								variant="outline"
-								size="compact"
-								disabled={discoveringProviderId !== null}
-								onClick={() => {
-									void onDiscoverProvider(providerId);
-								}}
-							>
-								{discovering ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-								{providerLabel(providerId)}
-								{activeCount > 0 ? (
-									<span className="tabular-nums text-muted-foreground">· {activeCount} active</span>
-								) : null}
-							</Button>
-						);
-					})}
+				<div className="max-h-28 shrink-0 overflow-y-auto">
+					<div className="flex min-w-0 flex-wrap gap-1.5 [&_button]:max-w-full [&_button]:h-auto [&_button]:whitespace-normal [&_button]:break-words">
+						{discoverableProviders.map((providerId) => {
+							const discovering = discovery[providerId]?.loading ?? discoveringProviderId === providerId;
+							const activeCount = activeCountByProvider.get(providerId) ?? 0;
+							return (
+								<Button
+									key={providerId}
+									type="button"
+									variant="outline"
+									size="compact"
+									disabled={discovering}
+									onClick={() => {
+										void refreshProvider(providerId, true);
+									}}
+								>
+									{discovering ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
+									Refresh {providerLabel(providerId)}
+									{discovery[providerId]?.error ? " · Refresh failed (stale)" : ""}
+									{activeCount > 0 ? (
+										<span className="tabular-nums text-muted-foreground">· {activeCount} active</span>
+									) : null}
+								</Button>
+							);
+						})}
+					</div>
 				</div>
-
 				<InputGroup>
 					<InputGroupAddon align="inline-start">
 						<Search />
@@ -147,12 +187,17 @@ export function AddModelsDialog({
 					/>
 				</InputGroup>
 
-				<div className="max-h-72 overflow-y-auto overscroll-contain">
+				<div
+					className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain"
+					aria-live="polite"
+				>
 					{groupedCandidates.length === 0 ? (
 						<p className="py-6 text-center text-xs text-pretty text-muted-foreground">
-							{candidateModels.length === 0 && !normalizedFilter
-								? "All discovered models are already in your list, or none are available yet."
-								: "No models match your search."}
+							{Object.values(discovery).some((state) => state.loading)
+								? "Loading models…"
+								: candidateModels.length === 0 && !normalizedFilter
+									? "No additional models available. Providers may have returned an empty list or all models are already enabled."
+									: "No models match your search."}
 						</p>
 					) : (
 						<div className="flex flex-col gap-3">
@@ -203,7 +248,7 @@ export function AddModelsDialog({
 					)}
 				</div>
 
-				<div className="flex items-center justify-end gap-1.5">
+				<div className="flex shrink-0 items-center justify-end gap-1.5">
 					<Button type="button" variant="ghost" size="compact" onClick={() => onOpenChange(false)}>
 						Cancel
 					</Button>

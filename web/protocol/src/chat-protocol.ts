@@ -682,6 +682,8 @@ export type ChatModelsDiscoverRequest = {
 };
 
 export type ChatModelsDiscoverResponse = {
+	/** Safe, non-credential-bearing discovery failure. */
+	error?: string;
 	providerId: string;
 	models: Array<ChatModelInfo>;
 };

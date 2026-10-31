@@ -85,6 +85,21 @@ export function resolveProviderAuthFields(
  */
 const BUILTIN_OAUTH_PROVIDER_IDS = ["anthropic", "github-copilot", "openai-codex", "xai"] as const;
 
+/** Browser-safe projection; existing files may predate URL credential validation. */
+function browserProviderBaseUrl(baseUrl: string | undefined): string | undefined {
+	if (!baseUrl) return undefined;
+	try {
+		const parsed = new URL(baseUrl);
+		if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
+		if (!parsed.username && !parsed.password) return baseUrl;
+		parsed.username = "";
+		parsed.password = "";
+		return parsed.toString();
+	} catch {
+		return undefined;
+	}
+}
+
 function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatProviderInfo> {
 	const config = getPrimeConfig();
 	const oauthIds = new Set(BUILTIN_OAUTH_PROVIDER_IDS);
@@ -119,7 +134,10 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 			const name = isCustom
 				? (customEntry?.name ?? catalogEntry?.name ?? id)
 				: (BUILT_IN_PROVIDER_DISPLAY_NAMES[id] ?? catalogEntry?.name ?? id);
-			const envVarName = isCustom ? (customEntry?.apiKey ?? catalogEntry?.envVarName ?? "") : envHintForBuiltin(id);
+			const candidateHint = isCustom
+				? (customEntry?.apiKey ?? catalogEntry?.envVarName ?? "")
+				: envHintForBuiltin(id);
+			const envVarName = /^[A-Z][A-Z0-9_]*$/.test(candidateHint) ? candidateHint : "";
 			const authFields = resolveProviderAuthFields(id, envVarName, oauthIds);
 
 			const row: ChatProviderInfo = {
@@ -130,14 +148,15 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 				isConfigured: configured,
 			};
 
-			if (isOccProviderId(id) || isCustomProviderId(id)) {
+			if (customEntry || isOccProviderId(id) || isCustomProviderId(id)) {
 				row.providerFamily = isOccProviderId(id) ? OPENAI_CHAT_COMPLETIONS_PROVIDER_ID : "custom";
 				if (customEntry?.name && (isNamedOccInstanceId(id) || isCustomProviderId(id))) {
 					row.displayName = customEntry.name;
 				}
 				const customApi = uiApiForCustomProvider(customEntry?.api);
 				if (customApi) row.api = customApi;
-				if (customEntry?.baseUrl) row.baseUrl = customEntry.baseUrl;
+				const baseUrl = browserProviderBaseUrl(customEntry?.baseUrl);
+				if (baseUrl) row.baseUrl = baseUrl;
 				row.modelIds = (customEntry?.models ?? []).map((model) => model.id);
 				row.discoverable = isDiscoverableEntry(customEntry);
 			}
@@ -170,6 +189,9 @@ function requireBaseUrl(baseUrl: string | undefined, providerId: string): string
 	}
 	try {
 		const parsed = new URL(trimmed);
+		if (parsed.username || parsed.password) {
+			badRequest("baseUrl must not contain credentials; use the API key field instead");
+		}
 		if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
 			badRequest(`baseUrl must be an http(s) URL for ${providerId}`);
 		}

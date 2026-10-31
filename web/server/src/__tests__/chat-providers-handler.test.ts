@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getProviders as getBuiltinProviders } from "@earendil-works/pi-ai";
@@ -476,5 +476,91 @@ describe("native builtin provider coverage", () => {
 
 		// The builtin path must never create models.json.
 		expect(() => readModelsJson(agentDir)).toThrow();
+	});
+	it("never exposes literal custom credentials as browser hints and advertises legacy custom discovery", async () => {
+		writeFileSync(
+			join(agentDir, "models.json"),
+			JSON.stringify({
+				providers: {
+					command: {
+						name: "Command",
+						api: "openai-completions",
+						baseUrl: "https://api.commandcode.ai/provider/v1",
+						apiKey: "literal-secret-value",
+						models: [],
+					},
+					lab: {
+						api: "openai-completions",
+						baseUrl: "https://example.test/v1",
+						apiKey: "LAB_API_KEY",
+						models: [],
+					},
+				},
+			}),
+		);
+		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
+		const body = await response.json();
+		expect(JSON.stringify(body)).not.toContain("literal-secret-value");
+		expect(body.providers.find((p: { id: string }) => p.id === "command")).toMatchObject({
+			envVarName: "",
+			discoverable: true,
+		});
+		expect(body.providers.find((p: { id: string }) => p.id === "lab")).toMatchObject({ envVarName: "LAB_API_KEY" });
+	});
+	it.each([
+		"https://test-user:test-password@example.test/v1",
+		"https://test-user@example.test/v1",
+		"https://:test-password@example.test/v1",
+	])("rejects URL credentials before changing storage: %s", async (baseUrl) => {
+		writeFileSync(join(agentDir, "auth.json"), "{}\n");
+		const response = await handleChatProvidersPost(
+			new Request("http://localhost/api/chat/providers", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					providerId: "custom",
+					createOccInstance: true,
+					displayName: "Unsafe",
+					apiKey: "test-key",
+					baseUrl,
+					models: ["m"],
+				}),
+			}),
+		);
+		expect(response.status).toBe(400);
+		const body = JSON.stringify(await response.json());
+		expect(body).not.toContain("test-user");
+		expect(body).not.toContain("test-password");
+		expect(readAuthJson(agentDir)).toEqual({});
+		expect(existsSync(join(agentDir, "models.json"))).toBe(false);
+	});
+
+	it("strips URL credentials from legacy browser responses without rewriting stored providers", async () => {
+		const stored = JSON.stringify({
+			providers: {
+				legacy: {
+					api: "openai-completions",
+					baseUrl: "https://test-user:test-password@example.test/v1",
+					apiKey: "LEGACY_API_KEY",
+					models: [],
+				},
+				"custom+encoded": {
+					api: "openai-completions",
+					baseUrl: "https://test%40user:test%3Apassword@example.test/v1",
+					apiKey: "ENCODED_API_KEY",
+					models: [],
+				},
+				invalid: { baseUrl: "not-a-url" },
+			},
+		});
+		writeFileSync(join(agentDir, "models.json"), stored);
+		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
+		const body = await response.json();
+		for (const id of ["legacy", "custom+encoded"]) {
+			expect(body.providers.find((p: { id: string }) => p.id === id)?.baseUrl).toBe("https://example.test/v1");
+		}
+		expect(body.providers.find((p: { id: string }) => p.id === "invalid")?.baseUrl).toBeUndefined();
+		expect(JSON.stringify(body)).not.toMatch(/test-user|test-password|test%40user|test%3Apassword/);
+		expect(readFileSync(join(agentDir, "models.json"), "utf8")).toBe(stored);
 	});
 });

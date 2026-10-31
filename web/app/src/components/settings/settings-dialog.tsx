@@ -88,6 +88,7 @@ function useSettingsForm() {
 
 	const [draft, setDraft] = useState<ChatPiSettings | null>(null);
 	const [savingSection, setSavingSection] = useState<string | null>(null);
+	const syncedSettings = useRef<typeof settings>(undefined);
 
 	const resourceSummary = summarizeResources(resources);
 
@@ -137,7 +138,8 @@ function useSettingsForm() {
 	};
 
 	useEffect(() => {
-		if (!settings) return;
+		if (!settings || syncedSettings.current === settings) return;
+		syncedSettings.current = settings;
 
 		const nextDraft = settings.effective;
 
@@ -698,13 +700,13 @@ function SettingsDialogBody({
 							/>
 						</div>
 
-						<ScrollArea className="min-h-0 w-full flex-1">
+						<ScrollArea className="min-h-0 min-w-0 w-full flex-1" viewportClassName="overflow-x-hidden">
 							<div
 								id={`panel-${activeTab}`}
 								role="tabpanel"
 								aria-label={activeSection.title}
 								tabIndex={0}
-								className="w-full p-6 outline-none"
+								className="min-w-0 w-full max-w-full p-4 outline-none [overflow-wrap:anywhere] sm:p-6"
 							>
 								{paneContent}
 							</div>
