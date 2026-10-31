@@ -8,7 +8,10 @@ export function handleChatProvidersOAuthPost(request: Request): Promise<Response
 		return Response.json(
 			{
 				status: "error",
-				error: "Provider OAuth sign-in is unavailable in Fleet settings. Launch Prime Agent in a terminal using the same configuration directory as Fleet and complete provider sign-in there. Restart Fleet afterward to reload the credentials.",
+				// Fleet reads provider credentials fresh from `auth.json` on every
+				// request (`agent-auth-store`), so there is nothing for a restart to
+				// reload here.
+				error: "Sign-in has to run inside Prime Agent. In a terminal, start Prime Agent against the same account as Fleet, then run /login and choose the provider. Fleet reads the stored credential on every request. If Fleet uses a non-default account directory, start Prime Agent with the same PRIME_AGENT_CODING_AGENT_DIR it uses.",
 			} satisfies ChatProviderOAuthLoginResponse,
 			{ status: 501 },
 		);

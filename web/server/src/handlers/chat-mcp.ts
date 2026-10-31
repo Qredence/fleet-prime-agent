@@ -189,7 +189,10 @@ export function handleChatMcpOAuthPost(request: Request, deps: McpHandlerDeps = 
 		return Response.json(
 			{
 				status: "error",
-				error: "MCP OAuth sign-in is unavailable in Fleet settings. Launch Prime Agent in a terminal using the same configuration directory as Fleet and complete MCP sign-in there. Restart Fleet afterward to reload the credentials.",
+				// Restarting Fleet does not restart the daemon: it is spawned detached
+				// and `startDaemon` re-attaches to an already-compatible socket. The
+				// daemon re-reads `auth.json` per call, so a restart would be a no-op.
+				error: `Sign-in for ${body.name} has to run inside Prime Agent. In a terminal, start Prime Agent against the same account as Fleet, then run /mcp login ${body.name}. Fleet picks the credential up on its next refresh. If Fleet uses a non-default account directory, start Prime Agent with the same PRIME_AGENT_CODING_AGENT_DIR it uses.`,
 			} satisfies ChatMcpOAuthLoginResponse,
 			{ status: 501 },
 		);
