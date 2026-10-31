@@ -139,11 +139,11 @@ function useSettingsForm() {
 
 	useEffect(() => {
 		if (!settings || syncedSettings.current === settings) return;
-		syncedSettings.current = settings;
 
 		const nextDraft = settings.effective;
 
 		if (draft && hasUnsavedChanges) return;
+		syncedSettings.current = settings;
 		if (draft && sameJson(draft, nextDraft)) return;
 
 		setDraft(nextDraft);

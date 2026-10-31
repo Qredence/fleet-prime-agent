@@ -48,7 +48,10 @@ function errorCode(error: unknown): string | undefined {
 }
 
 /** Reads a JSON object without throwing on absence or corrupt content. */
-export async function readJsonObjectFile(path: string): Promise<ReadJsonResult> {
+export async function readJsonObjectFile(
+	path: string,
+	parse: (raw: string) => unknown = JSON.parse,
+): Promise<ReadJsonResult> {
 	let raw: string;
 	try {
 		raw = await readFile(path, "utf8");
@@ -57,7 +60,7 @@ export async function readJsonObjectFile(path: string): Promise<ReadJsonResult> 
 		return { kind: "invalid", error: error instanceof Error ? error.message : "unreadable" };
 	}
 	try {
-		const parsed: unknown = JSON.parse(raw);
+		const parsed = parse(raw);
 		if (!isJsonObject(parsed)) return { kind: "invalid", error: "expected a JSON object" };
 		return { kind: "ok", value: parsed };
 	} catch (error) {
@@ -172,7 +175,10 @@ export async function writeJsonObjectFile(
 	}
 }
 
-export type UpdateJsonFileResult<T> = { status: "written"; value: T } | { status: "refused"; reason: string };
+export type UpdateJsonFileResult<T> =
+	| { status: "written"; value: T }
+	| { status: "unchanged"; value: T }
+	| { status: "refused"; reason: string };
 
 /**
  * A path Fleet cannot write to, carrying the underlying filesystem reason.
@@ -195,14 +201,14 @@ export class UnwritablePathError extends Error {
  * Read-merge-write under the lock.
  *
  * `mutate` receives the current object (an empty object when the file is
- * absent) and returns the next one. Returning `{ refuse }` aborts with a
- * reason instead of writing, which is how unrecognized or newer on-disk shapes
- * stay untouched.
+ * absent) and returns the next one. Returning `{ unchanged }` skips the write;
+ * returning `{ refuse }` aborts with a reason, which is how unrecognized or
+ * newer on-disk shapes stay untouched.
  */
 export async function updateJsonObjectFile<T>(
 	path: string,
-	mutate: (current: JsonObject) => { next: JsonObject; result: T } | { refuse: string },
-	options: { mode?: number } = {},
+	mutate: (current: JsonObject) => { next: JsonObject; result: T } | { unchanged: T } | { refuse: string },
+	options: { mode?: number; parse?: (raw: string) => unknown } = {},
 ): Promise<UpdateJsonFileResult<T>> {
 	const lock = await acquireLock(`${path}.lock`).catch((error: unknown) => {
 		// An agent dir Fleet cannot write to (read-only mount, a path whose parent
@@ -212,14 +218,15 @@ export async function updateJsonObjectFile<T>(
 		throw new UnwritablePathError(path, error);
 	});
 	try {
-		const current = await readJsonObjectFile(path);
+		const current = await readJsonObjectFile(path, options.parse);
 		if (current.kind === "invalid") {
 			return { status: "refused", reason: `${path} is not a readable JSON object: ${current.error}` };
 		}
 		const outcome = mutate(current.kind === "ok" ? current.value : {});
 		if ("refuse" in outcome) return { status: "refused", reason: outcome.refuse };
+		if ("unchanged" in outcome) return { status: "unchanged", value: outcome.unchanged };
 		try {
-			await writeJsonObjectFile(path, outcome.next, options);
+			await writeJsonObjectFile(path, outcome.next, { mode: options.mode });
 		} catch (error) {
 			throw new UnwritablePathError(path, error);
 		}

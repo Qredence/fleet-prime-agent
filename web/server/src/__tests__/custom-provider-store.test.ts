@@ -1,8 +1,9 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+	addCustomProviderModelIds,
 	envVarNameForManagedProvider,
 	isDiscoverableEntry,
 	listCustomProviders,
@@ -182,6 +183,40 @@ describe("custom-provider-store", () => {
 	it("remove is a no-op for unknown ids", async () => {
 		await removeCustomProvider(modelsJsonPath, "custom+missing");
 		expect(await listCustomProviders(modelsJsonPath)).toEqual({});
+		expect(existsSync(modelsJsonPath)).toBe(false);
+	});
+
+	it("serializes concurrent discovery, save, and removal updates", async () => {
+		const providerInput = (id: string) => ({
+			baseUrl: `https://${id}.test`,
+			api: "openai-completions" as const,
+			apiKey: `${id.toUpperCase()}_API_KEY`,
+			models: [{ id }],
+		});
+		await upsertCustomProvider(modelsJsonPath, "custom+alpha", providerInput("alpha"));
+		await upsertCustomProvider(modelsJsonPath, "custom+beta", providerInput("beta"));
+		await upsertCustomProvider(modelsJsonPath, "custom+remove", providerInput("remove"));
+
+		await Promise.all([
+			addCustomProviderModelIds(modelsJsonPath, "custom+alpha", ["alpha-live"]),
+			addCustomProviderModelIds(modelsJsonPath, "custom+beta", ["beta-live"]),
+		]);
+		await Promise.all([
+			upsertCustomProvider(modelsJsonPath, "custom+alpha", {
+				...providerInput("alpha"),
+				name: "Alpha updated",
+				models: [{ id: "alpha-saved" }],
+			}),
+			removeCustomProvider(modelsJsonPath, "custom+remove"),
+		]);
+
+		const providers = await listCustomProviders(modelsJsonPath);
+		expect(providers["custom+alpha"]).toMatchObject({
+			name: "Alpha updated",
+			models: [{ id: "alpha-saved" }],
+		});
+		expect(providers["custom+beta"]?.models?.map((model) => model.id)).toContain("beta-live");
+		expect(providers["custom+remove"]).toBeUndefined();
 	});
 
 	it("derives stable env var names for managed providers", () => {

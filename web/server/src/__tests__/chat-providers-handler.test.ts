@@ -486,7 +486,7 @@ describe("native builtin provider coverage", () => {
 						name: "Command",
 						api: "openai-completions",
 						baseUrl: "https://api.commandcode.ai/provider/v1",
-						apiKey: "literal-secret-value",
+						apiKey: "LITERAL_CUSTOM_VALUE",
 						models: [],
 					},
 					lab: {
@@ -495,22 +495,32 @@ describe("native builtin provider coverage", () => {
 						apiKey: "LAB_API_KEY",
 						models: [],
 					},
+					"custom+managed": {
+						api: "openai-completions",
+						baseUrl: "https://managed.test/v1",
+						apiKey: "CUSTOM_MANAGED_API_KEY",
+						models: [],
+					},
 				},
 			}),
 		);
 		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
 		const body = await response.json();
-		expect(JSON.stringify(body)).not.toContain("literal-secret-value");
+		expect(JSON.stringify(body)).not.toContain("LITERAL_CUSTOM_VALUE");
 		expect(body.providers.find((p: { id: string }) => p.id === "command")).toMatchObject({
 			envVarName: "",
 			discoverable: true,
 		});
-		expect(body.providers.find((p: { id: string }) => p.id === "lab")).toMatchObject({ envVarName: "LAB_API_KEY" });
+		expect(body.providers.find((p: { id: string }) => p.id === "lab")).toMatchObject({ envVarName: "" });
+		expect(body.providers.find((p: { id: string }) => p.id === "custom+managed")).toMatchObject({
+			envVarName: "CUSTOM_MANAGED_API_KEY",
+		});
 	});
 	it.each([
 		"https://test-user:test-password@example.test/v1",
 		"https://test-user@example.test/v1",
 		"https://:test-password@example.test/v1",
+		"https://example.test/v1?api_key=discard-me",
 	])("rejects URL credentials before changing storage: %s", async (baseUrl) => {
 		writeFileSync(join(agentDir, "auth.json"), "{}\n");
 		const response = await handleChatProvidersPost(
@@ -531,6 +541,7 @@ describe("native builtin provider coverage", () => {
 		const body = JSON.stringify(await response.json());
 		expect(body).not.toContain("test-user");
 		expect(body).not.toContain("test-password");
+		expect(body).not.toContain("discard-me");
 		expect(readAuthJson(agentDir)).toEqual({});
 		expect(existsSync(join(agentDir, "models.json"))).toBe(false);
 	});
@@ -550,6 +561,12 @@ describe("native builtin provider coverage", () => {
 					apiKey: "ENCODED_API_KEY",
 					models: [],
 				},
+				"legacy-query": {
+					api: "openai-completions",
+					baseUrl: "https://example.test/v1?api_key=discard-me&region=west",
+					apiKey: "LEGACY_QUERY_API_KEY",
+					models: [],
+				},
 				invalid: { baseUrl: "not-a-url" },
 			},
 		});
@@ -559,8 +576,11 @@ describe("native builtin provider coverage", () => {
 		for (const id of ["legacy", "custom+encoded"]) {
 			expect(body.providers.find((p: { id: string }) => p.id === id)?.baseUrl).toBe("https://example.test/v1");
 		}
+		expect(body.providers.find((p: { id: string }) => p.id === "legacy-query")?.baseUrl).toBe(
+			"https://example.test/v1?region=west",
+		);
 		expect(body.providers.find((p: { id: string }) => p.id === "invalid")?.baseUrl).toBeUndefined();
-		expect(JSON.stringify(body)).not.toMatch(/test-user|test-password|test%40user|test%3Apassword/);
+		expect(JSON.stringify(body)).not.toMatch(/test-user|test-password|test%40user|test%3Apassword|discard-me/);
 		expect(readFileSync(join(agentDir, "models.json"), "utf8")).toBe(stored);
 	});
 });

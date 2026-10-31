@@ -65,7 +65,7 @@ export function AddModelsDialog({
 			await discoverCallback.current(id);
 			update({ updatedAt: Date.now() });
 		} catch {
-			update({ ...previous, loading: false, error: true });
+			update({ loading: false, error: true });
 		}
 	}, []);
 	const discoveryIds = [...(discoverableProviderIds ?? [])]

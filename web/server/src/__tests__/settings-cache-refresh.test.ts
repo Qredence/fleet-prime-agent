@@ -14,11 +14,21 @@ import * as modelCatalog from "../model-catalog";
 import { getPrimeConfig, resetPrimeConfigForTests } from "../prime-config";
 
 const previousAgentDir = process.env.PRIME_AGENT_CODING_AGENT_DIR;
+const previousWorkspaceRoot = process.env.PRIME_AGENT_WORKSPACE_ROOT;
 let tempDir = "";
+
+function isolateDefaultWorkspace(root: string) {
+	const workspaceRoot = join(root, "workspace");
+	mkdirSync(workspaceRoot, { recursive: true });
+	process.env.PRIME_AGENT_WORKSPACE_ROOT = workspaceRoot;
+}
+
 afterEach(() => {
 	vi.restoreAllMocks();
 	if (previousAgentDir === undefined) delete process.env.PRIME_AGENT_CODING_AGENT_DIR;
 	else process.env.PRIME_AGENT_CODING_AGENT_DIR = previousAgentDir;
+	if (previousWorkspaceRoot === undefined) delete process.env.PRIME_AGENT_WORKSPACE_ROOT;
+	else process.env.PRIME_AGENT_WORKSPACE_ROOT = previousWorkspaceRoot;
 	delete (globalThis as Record<string, unknown>).__primeConfig;
 	if (tempDir) rmSync(tempDir, { recursive: true, force: true });
 });
@@ -26,6 +36,7 @@ afterEach(() => {
 it("updates the model route through its default dependencies after a settings write", async () => {
 	tempDir = mkdtempSync(join(tmpdir(), "fleet-settings-default-route-"));
 	process.env.PRIME_AGENT_CODING_AGENT_DIR = tempDir;
+	isolateDefaultWorkspace(tempDir);
 	writeFileSync(join(tempDir, "settings.json"), JSON.stringify({ enabledModels: ["alpha/*"] }));
 	state.cwd = resetPrimeConfigForTests().defaultCwd;
 	const model = (provider: string, id: string): DaemonModel => ({
@@ -65,6 +76,7 @@ it("updates the model route through its default dependencies after a settings wr
 it("refreshes cached settings for all workspaces after a global settings write", async () => {
 	tempDir = mkdtempSync(join(tmpdir(), "fleet-settings-cache-"));
 	process.env.PRIME_AGENT_CODING_AGENT_DIR = tempDir;
+	isolateDefaultWorkspace(tempDir);
 	writeFileSync(join(tempDir, "settings.json"), JSON.stringify({ enabledModels: ["alpha/*"] }));
 	const config = resetPrimeConfigForTests();
 	state.cwd = config.defaultCwd;
@@ -120,6 +132,7 @@ it("preserves project overrides when global settings change", async () => {
 	writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ enabledModels: ["alpha/*"] }));
 	writeFileSync(join(project, ".prime", "agent", "settings.json"), JSON.stringify({ enabledModels: ["project/*"] }));
 	process.env.PRIME_AGENT_CODING_AGENT_DIR = agentDir;
+	isolateDefaultWorkspace(tempDir);
 	const config = resetPrimeConfigForTests();
 	state.cwd = config.defaultCwd;
 	expect(config.settingsFor(project).getEnabledModels()).toEqual(["project/*"]);
@@ -144,6 +157,7 @@ it("refreshes a project settings write without changing another project's settin
 	writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ enabledModels: ["global/*"] }));
 	writeFileSync(join(settingsDir, "settings.json"), JSON.stringify({ enabledModels: ["alpha/*"] }));
 	process.env.PRIME_AGENT_CODING_AGENT_DIR = agentDir;
+	isolateDefaultWorkspace(tempDir);
 	const config = resetPrimeConfigForTests();
 	const otherCwd = join(tempDir, "other");
 	expect(config.settingsFor(state.cwd).getEnabledModels()).toEqual(["alpha/*"]);

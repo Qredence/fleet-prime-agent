@@ -43,6 +43,34 @@ const EXTRA_BUILTIN_ENV_HINTS: Record<string, string> = {
 	"amazon-bedrock": "AWS_BEARER_TOKEN_BEDROCK",
 };
 
+const CREDENTIAL_QUERY_PARAMETER_NAMES = new Set([
+	"auth",
+	"authorization",
+	"apikey",
+	"bearer",
+	"credential",
+	"credentials",
+	"key",
+	"pass",
+	"password",
+	"passwd",
+	"secret",
+	"sig",
+	"signature",
+	"token",
+	"jwt",
+	"assertion",
+]);
+
+function isCredentialQueryParameter(name: string): boolean {
+	const tokens = name
+		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter(Boolean);
+	return tokens.some((token) => CREDENTIAL_QUERY_PARAMETER_NAMES.has(token));
+}
+
 /** Env-var hint shown next to the credential field for a builtin provider. */
 function envHintForBuiltin(providerId: string): string {
 	return PRIME_PROVIDER_ENV_MAP[providerId] ?? EXTRA_BUILTIN_ENV_HINTS[providerId] ?? "";
@@ -91,9 +119,11 @@ function browserProviderBaseUrl(baseUrl: string | undefined): string | undefined
 	try {
 		const parsed = new URL(baseUrl);
 		if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
-		if (!parsed.username && !parsed.password) return baseUrl;
+		const credentialParameters = [...parsed.searchParams.keys()].filter(isCredentialQueryParameter);
+		if (!parsed.username && !parsed.password && credentialParameters.length === 0) return baseUrl;
 		parsed.username = "";
 		parsed.password = "";
+		for (const name of credentialParameters) parsed.searchParams.delete(name);
 		return parsed.toString();
 	} catch {
 		return undefined;
@@ -134,10 +164,11 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 			const name = isCustom
 				? (customEntry?.name ?? catalogEntry?.name ?? id)
 				: (BUILT_IN_PROVIDER_DISPLAY_NAMES[id] ?? catalogEntry?.name ?? id);
-			const candidateHint = isCustom
-				? (customEntry?.apiKey ?? catalogEntry?.envVarName ?? "")
+			const envVarName = isCustom
+				? customEntry?.apiKey === envVarNameForManagedProvider(id)
+					? customEntry.apiKey
+					: (catalogEntry?.envVarName ?? "")
 				: envHintForBuiltin(id);
-			const envVarName = /^[A-Z][A-Z0-9_]*$/.test(candidateHint) ? candidateHint : "";
 			const authFields = resolveProviderAuthFields(id, envVarName, oauthIds);
 
 			const row: ChatProviderInfo = {
@@ -189,7 +220,7 @@ function requireBaseUrl(baseUrl: string | undefined, providerId: string): string
 	}
 	try {
 		const parsed = new URL(trimmed);
-		if (parsed.username || parsed.password) {
+		if (parsed.username || parsed.password || [...parsed.searchParams.keys()].some(isCredentialQueryParameter)) {
 			badRequest("baseUrl must not contain credentials; use the API key field instead");
 		}
 		if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {

@@ -86,10 +86,7 @@ it("discovers on opening, deduplicates and caches for 60s, and exposes refresh f
 	fireEvent.click(screen.getByRole("button", { name: /Refresh/ }));
 	await waitFor(() => expect(screen.getByText(/Refresh failed/)).toBeTruthy());
 	expect(screen.getAllByText("new")).toBeTruthy();
-	const now = Date.now();
-	const clock = vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
 	view.rerender(<AddModelsDialog {...props} open={false} />);
 	view.rerender(<AddModelsDialog {...props} />);
 	await waitFor(() => expect(discover).toHaveBeenCalledTimes(3));
-	clock.mockRestore();
 });
