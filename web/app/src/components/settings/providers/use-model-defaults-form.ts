@@ -7,7 +7,7 @@ import type {
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { ChatModelOption } from "@/components/chat/chat-helpers";
-import { nextEnabledModelPatterns } from "@/components/settings/providers/model-patterns";
+import { isModelEnabled, nextEnabledModelPatterns } from "@/components/settings/providers/model-patterns";
 import { comparableModelSettings, modelSettings, sameJson } from "@/components/settings/settings-mappers";
 import type { ConfigModelInfo } from "@/components/settings/types";
 import { notify as toast } from "@/lib/notify";
@@ -40,7 +40,7 @@ export function useModelDefaultsForm({
 	setSavingSection: Dispatch<SetStateAction<string | null>>;
 }) {
 	const [modelFilter, setModelFilter] = useState("");
-	const [discoveredModels, setDiscoveredModels] = useState<Array<ConfigModelInfo>>([]);
+	const [discoveredModels, setDiscoveredModels] = useState<Record<string, Array<ConfigModelInfo>>>({});
 	const [discoveringProviderId, setDiscoveringProviderId] = useState<string | null>(null);
 	const lastCommittedModelSettings = useRef<ChatPiSettingsUpdate | null>(null);
 
@@ -64,18 +64,21 @@ export function useModelDefaultsForm({
 
 	const modelOptions = useMemo(() => {
 		const byId = new Map<string, ConfigModelInfo>();
+		const catalogById = new Map(catalogModels.map((model) => [model.id, model]));
 		for (const model of catalogModels) {
+			if (Object.hasOwn(discoveredModels, model.provider) && !isModelEnabled(model, draft?.enabledModels)) continue;
 			if (configuredProviderIds.has(model.provider) && model.available !== false) {
 				byId.set(model.id, model);
 			}
 		}
-		for (const model of discoveredModels) {
+		for (const model of Object.values(discoveredModels).flat()) {
 			if (configuredProviderIds.has(model.provider) && model.available !== false) {
-				byId.set(model.id, model);
+				const existing = catalogById.get(model.id);
+				byId.set(model.id, existing ? { ...model, ...existing } : model);
 			}
 		}
 		return [...byId.values()];
-	}, [catalogModels, configuredProviderIds, discoveredModels]);
+	}, [catalogModels, configuredProviderIds, discoveredModels, draft?.enabledModels]);
 
 	const modelBaseline =
 		lastCommittedModelSettings.current ?? (settings ? comparableModelSettings(settings.effective) : null);
@@ -168,13 +171,7 @@ export function useModelDefaultsForm({
 		setDiscoveringProviderId(providerId);
 		try {
 			const discovered = await onDiscoverModels(providerId);
-			setDiscoveredModels((current) => {
-				const byId = new Map(current.map((model) => [model.id, model]));
-				for (const model of discovered) {
-					byId.set(model.id, model);
-				}
-				return [...byId.values()];
-			});
+			setDiscoveredModels((current) => ({ ...current, [providerId]: discovered }));
 		} finally {
 			setDiscoveringProviderId(null);
 		}

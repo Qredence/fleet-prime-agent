@@ -43,6 +43,34 @@ const EXTRA_BUILTIN_ENV_HINTS: Record<string, string> = {
 	"amazon-bedrock": "AWS_BEARER_TOKEN_BEDROCK",
 };
 
+const CREDENTIAL_QUERY_PARAMETER_NAMES = new Set([
+	"auth",
+	"authorization",
+	"apikey",
+	"bearer",
+	"credential",
+	"credentials",
+	"key",
+	"pass",
+	"password",
+	"passwd",
+	"secret",
+	"sig",
+	"signature",
+	"token",
+	"jwt",
+	"assertion",
+]);
+
+function isCredentialQueryParameter(name: string): boolean {
+	const tokens = name
+		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+		.toLowerCase()
+		.split(/[^a-z0-9]+/)
+		.filter(Boolean);
+	return tokens.some((token) => CREDENTIAL_QUERY_PARAMETER_NAMES.has(token));
+}
+
 /** Env-var hint shown next to the credential field for a builtin provider. */
 function envHintForBuiltin(providerId: string): string {
 	return PRIME_PROVIDER_ENV_MAP[providerId] ?? EXTRA_BUILTIN_ENV_HINTS[providerId] ?? "";
@@ -85,6 +113,23 @@ export function resolveProviderAuthFields(
  */
 const BUILTIN_OAUTH_PROVIDER_IDS = ["anthropic", "github-copilot", "openai-codex", "xai"] as const;
 
+/** Browser-safe projection; existing files may predate URL credential validation. */
+function browserProviderBaseUrl(baseUrl: string | undefined): string | undefined {
+	if (!baseUrl) return undefined;
+	try {
+		const parsed = new URL(baseUrl);
+		if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
+		const credentialParameters = [...parsed.searchParams.keys()].filter(isCredentialQueryParameter);
+		if (!parsed.username && !parsed.password && credentialParameters.length === 0) return baseUrl;
+		parsed.username = "";
+		parsed.password = "";
+		for (const name of credentialParameters) parsed.searchParams.delete(name);
+		return parsed.toString();
+	} catch {
+		return undefined;
+	}
+}
+
 function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatProviderInfo> {
 	const config = getPrimeConfig();
 	const oauthIds = new Set(BUILTIN_OAUTH_PROVIDER_IDS);
@@ -119,7 +164,11 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 			const name = isCustom
 				? (customEntry?.name ?? catalogEntry?.name ?? id)
 				: (BUILT_IN_PROVIDER_DISPLAY_NAMES[id] ?? catalogEntry?.name ?? id);
-			const envVarName = isCustom ? (customEntry?.apiKey ?? catalogEntry?.envVarName ?? "") : envHintForBuiltin(id);
+			const envVarName = isCustom
+				? customEntry?.apiKey === envVarNameForManagedProvider(id)
+					? customEntry.apiKey
+					: (catalogEntry?.envVarName ?? "")
+				: envHintForBuiltin(id);
 			const authFields = resolveProviderAuthFields(id, envVarName, oauthIds);
 
 			const row: ChatProviderInfo = {
@@ -130,14 +179,15 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 				isConfigured: configured,
 			};
 
-			if (isOccProviderId(id) || isCustomProviderId(id)) {
+			if (customEntry || isOccProviderId(id) || isCustomProviderId(id)) {
 				row.providerFamily = isOccProviderId(id) ? OPENAI_CHAT_COMPLETIONS_PROVIDER_ID : "custom";
 				if (customEntry?.name && (isNamedOccInstanceId(id) || isCustomProviderId(id))) {
 					row.displayName = customEntry.name;
 				}
 				const customApi = uiApiForCustomProvider(customEntry?.api);
 				if (customApi) row.api = customApi;
-				if (customEntry?.baseUrl) row.baseUrl = customEntry.baseUrl;
+				const baseUrl = browserProviderBaseUrl(customEntry?.baseUrl);
+				if (baseUrl) row.baseUrl = baseUrl;
 				row.modelIds = (customEntry?.models ?? []).map((model) => model.id);
 				row.discoverable = isDiscoverableEntry(customEntry);
 			}
@@ -170,6 +220,9 @@ function requireBaseUrl(baseUrl: string | undefined, providerId: string): string
 	}
 	try {
 		const parsed = new URL(trimmed);
+		if (parsed.username || parsed.password || [...parsed.searchParams.keys()].some(isCredentialQueryParameter)) {
+			badRequest("baseUrl must not contain credentials; use the API key field instead");
+		}
 		if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
 			badRequest(`baseUrl must be an http(s) URL for ${providerId}`);
 		}

@@ -122,9 +122,10 @@ export function ProviderCredentialsSection({
 			title="Providers"
 			description={
 				<>
-					Locally, API keys are stored in{" "}
-					<code className="rounded bg-muted px-1 py-0.5 font-mono text-caption text-foreground">.env.local</code>.
-					When deployed, they are stored encrypted in your account.
+					Provider credentials are stored in Prime Agent’s{" "}
+					<code className="rounded bg-muted px-1 py-0.5 font-mono text-caption text-foreground">auth.json</code>.
+					Custom providers and model definitions are stored in models.json. Enabled models and defaults are saved
+					in settings.json, or the existing project settings file.
 				</>
 			}
 		>
