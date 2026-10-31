@@ -65,6 +65,7 @@ import {
 	type DaemonChildPromptHandle,
 	deleteDaemonSavedSession,
 	listDaemonSessions,
+	readDaemonModelCatalog,
 	sessionDirectoryForCwd,
 	startDaemonChildPrompt,
 	type WebAgentConnection,
@@ -84,6 +85,7 @@ import {
 	copyManagedPlanPresentationsForFork,
 	deleteManagedPlanPresentationsForSession,
 } from "./managed-plan-presentations";
+import { catalogHasModel, firstAvailableModelId, providerAvailability } from "./model-catalog";
 import { PendingDialogRegistry } from "./pending-dialogs";
 import {
 	createEmptyPrimeAgentSessionPresentation,
@@ -1378,8 +1380,17 @@ export class PrimeBridge {
 		model: { provider: string; id: string },
 	): Promise<{ provider: string; id: string }> {
 		const session = this.#requireSession(sessionId);
-		const resolved = getPrimeConfig().modelRegistry.find(model.provider, model.id);
-		if (resolved) {
+		// Resolution is catalog-sourced and therefore async: the daemon owns the
+		// model list, and Fleet reads it through its cached snapshot.
+		const catalog = await readDaemonModelCatalog(session.cwd).catch(() => undefined);
+		if (!catalog) {
+			// The catalog could not be read. Today's failure mode for this case is
+			// the connection's own error, not `Unknown model`, so hand the request
+			// to the connection unchanged rather than reporting a missing model.
+			await session.connection.setModel(model.provider, model.id);
+			return { provider: model.provider, id: model.id };
+		}
+		if (catalogHasModel(catalog, model.provider, model.id)) {
 			await session.connection.setModel(model.provider, model.id);
 			return { provider: model.provider, id: model.id };
 		}
@@ -1387,15 +1398,14 @@ export class PrimeBridge {
 		// provider itself still resolves available models, fall back to its first
 		// available model instead of failing the turn. Unknown providers still
 		// throw: that signals missing credentials, not a stale id.
-		const fallback = getPrimeConfig()
-			.modelRegistry.getAvailable()
-			.find((candidate) => candidate.provider === model.provider);
+		const isProviderAvailable = await providerAvailability(getPrimeConfig().agentDir);
+		const fallback = firstAvailableModelId(catalog, isProviderAvailable, model.provider);
 		if (!fallback) throw new Error(`Unknown model: ${model.provider}/${model.id}`);
 		process.stderr.write(
-			`[bridge:${sessionId.slice(0, 8)}] model fallback ${model.provider}/${model.id} -> ${fallback.provider}/${fallback.id}\n`,
+			`[bridge:${sessionId.slice(0, 8)}] model fallback ${model.provider}/${model.id} -> ${model.provider}/${fallback}\n`,
 		);
-		await session.connection.setModel(fallback.provider, fallback.id);
-		return { provider: fallback.provider, id: fallback.id };
+		await session.connection.setModel(model.provider, fallback);
+		return { provider: model.provider, id: fallback };
 	}
 
 	async setThinkingLevel(level: ThinkingLevel): Promise<void> {

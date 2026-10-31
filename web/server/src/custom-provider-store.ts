@@ -7,6 +7,7 @@ import {
 	OPENAI_CHAT_COMPLETIONS_PROVIDER_ID,
 } from "@prime-agent/web-protocol/provider-catalog";
 import { writeJsonObjectFile } from "./agent-file-writer";
+import { isBuiltInProviderId } from "./builtin-providers";
 
 /**
  * Shape of one custom-provider entry in prime-agent's `models.json`
@@ -145,6 +146,30 @@ function mergeModelDefinitions(
 export function listCustomProviders(filePath: string): Record<string, StoredCustomProvider> {
 	const data = readModelsJson(filePath);
 	return data.providers ?? {};
+}
+
+/**
+ * Custom providers the runtime will refuse to load, because they lack the
+ * `apiKey` it requires.
+ *
+ * The runtime validates a provider as an *override* when its id is a
+ * built-in with bundled models, and requires `apiKey` otherwise. Built-in
+ * override-only entries (a `baseUrl` with no key) are legal. But one
+ * non-built-in provider with a missing or non-string `apiKey` makes it drop
+ * **every** custom provider in the file — including well-formed ones listed
+ * before it — and reports nothing on any surface: no error field in
+ * `get_model_catalog`, no diagnostic in `get_resource_snapshot`, no log line.
+ * The only way a user learns why their providers vanished is this check.
+ *
+ * Returns the offending provider ids, in file order.
+ */
+export function providersMissingApiKey(filePath: string): string[] {
+	return Object.entries(listCustomProviders(filePath))
+		.filter(([providerId, entry]) => {
+			if (isBuiltInProviderId(providerId)) return false;
+			return typeof entry.apiKey !== "string" || entry.apiKey.length === 0;
+		})
+		.map(([providerId]) => providerId);
 }
 
 /**

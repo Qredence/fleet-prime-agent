@@ -22,20 +22,18 @@ import { join, resolve } from "node:path";
 import { resolveAgentDir } from "./agent-dir";
 import {
 	createLegacyAuthStorage,
-	createLegacyModelRegistry,
 	createLegacySettingsManager,
 	type LegacyAuthStorage,
-	type LegacyModelRegistry,
 	type LegacyResourceLoader,
 	type LegacySettingsManager,
 	loadLegacyResources,
 } from "./legacy/prime-agent-sdk";
+import { invalidateModelCatalog } from "./model-catalog-cache";
 import { ProjectRegistry } from "./project-registry";
 import { resolveDefaultWorkspaceRoot } from "./workspace-root";
 
 export interface PrimeConfig {
 	readonly authStorage: LegacyAuthStorage;
-	readonly modelRegistry: LegacyModelRegistry;
 	readonly defaultSettings: LegacySettingsManager;
 	readonly defaultCwd: string;
 	readonly agentDir: string;
@@ -46,7 +44,7 @@ export interface PrimeConfig {
 	/** ResourceLoader bound to a given cwd (reloaded on every call). */
 	resourceLoaderFor(cwd: string): Promise<LegacyResourceLoader>;
 
-	/** Force reload of AuthStorage/ModelRegistry from disk (after a POST/DELETE). */
+	/** Force reload of AuthStorage from disk and drop the cached model catalog (after a POST/DELETE). */
 	reloadAuth(): void;
 }
 
@@ -55,7 +53,6 @@ type PrimeConfigGlobal = { __primeConfig?: PrimeConfig };
 function createPrimeConfig(initialCwd: string): PrimeConfig {
 	const agentDir = resolveAgentDir();
 	const authStorage = createLegacyAuthStorage(join(agentDir, "auth.json"));
-	const modelRegistry = createLegacyModelRegistry(authStorage, join(agentDir, "models.json"));
 	const projectRegistry = new ProjectRegistry(agentDir, initialCwd);
 
 	const currentDefaultCwd = resolve(initialCwd);
@@ -66,7 +63,6 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 
 	const config: PrimeConfig = {
 		authStorage,
-		modelRegistry,
 		get defaultSettings() {
 			return defaultSettings;
 		},
@@ -91,7 +87,10 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 
 		reloadAuth(): void {
 			this.authStorage.reload();
-			this.modelRegistry.refresh();
+			// The daemon re-reads `auth.json` and `models.json` itself, so there is
+			// no registry to refresh. Fleet's own catalog snapshot is what goes
+			// stale after a write, so it is what gets dropped.
+			invalidateModelCatalog();
 		},
 	};
 

@@ -12,9 +12,6 @@ const mocks = vi.hoisted(() => {
 			set: (providerId: string, credential: { type: string; key: string }) => keys.set(providerId, credential.key),
 			remove: (providerId: string) => keys.delete(providerId),
 		},
-		modelRegistry: {
-			getProviderAuthStatus: (providerId: string) => ({ configured: keys.has(providerId) }),
-		},
 		reloadAuth: () => undefined,
 	};
 	return { keys, config };

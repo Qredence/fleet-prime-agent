@@ -17,6 +17,7 @@ import {
 	toOccInstanceId,
 } from "@prime-agent/web-protocol/provider-catalog";
 import { configuredProviderIds, removeProviderCredential, setProviderApiKey } from "../agent-auth-store";
+import { BUILT_IN_PROVIDER_DISPLAY_NAMES, builtInProviderIds } from "../builtin-providers";
 import {
 	envVarNameForManagedProvider,
 	isDiscoverableEntry,
@@ -28,42 +29,6 @@ import {
 import { getPrimeConfig } from "../prime-config";
 import { PRIME_PROVIDER_ENV_MAP } from "../prime-provider-env-map";
 import { wrapApiHandler } from "../wrap-api-handler";
-
-const BUILT_IN_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-	anthropic: "Anthropic",
-	"amazon-bedrock": "Amazon Bedrock",
-	"azure-openai-responses": "Azure OpenAI Responses",
-	cerebras: "Cerebras",
-	"cloudflare-ai-gateway": "Cloudflare AI Gateway",
-	"cloudflare-workers-ai": "Cloudflare Workers AI",
-	deepseek: "DeepSeek",
-	fireworks: "Fireworks",
-	google: "Google Gemini",
-	"google-vertex": "Google Vertex AI",
-	groq: "Groq",
-	huggingface: "Hugging Face",
-	"kimi-coding": "Kimi For Coding",
-	mistral: "Mistral",
-	minimax: "MiniMax",
-	"minimax-cn": "MiniMax (China)",
-	moonshotai: "Moonshot AI",
-	"moonshotai-cn": "Moonshot AI (China)",
-	opencode: "OpenCode Zen",
-	"opencode-go": "OpenCode Go",
-	openai: "OpenAI",
-	"openai-codex": "OpenAI Codex",
-	openrouter: "OpenRouter",
-	"prime-agent-traces": "Prime Agent Traces",
-	"prime-inference": "Prime Inference",
-	"vercel-ai-gateway": "Vercel AI Gateway",
-	xai: "xAI",
-	zai: "ZAI",
-	xiaomi: "Xiaomi MiMo",
-	"xiaomi-token-plan-cn": "Xiaomi MiMo Token Plan (China)",
-	"xiaomi-token-plan-ams": "Xiaomi MiMo Token Plan (Amsterdam)",
-	"xiaomi-token-plan-sgp": "Xiaomi MiMo Token Plan (Singapore)",
-	"github-copilot": "GitHub Copilot",
-};
 
 const KNOWN_PROVIDER_BY_ID = new Map(KNOWN_PROVIDERS.map((provider) => [provider.id, provider]));
 
@@ -120,11 +85,6 @@ export function resolveProviderAuthFields(
  */
 const BUILTIN_OAUTH_PROVIDER_IDS = ["anthropic", "github-copilot", "openai-codex", "xai"] as const;
 
-/** `prime-agent-traces` is diagnostics, not a model provider. */
-function isLlmsProviderId(providerId: string): boolean {
-	return providerId !== "prime-agent-traces";
-}
-
 function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatProviderInfo> {
 	const config = getPrimeConfig();
 	const oauthIds = new Set(BUILTIN_OAUTH_PROVIDER_IDS);
@@ -134,7 +94,7 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 	// The registry only lists providers that have a bundled model, so reading it
 	// made the pane depend on the SDK's build, and every provider it knows already
 	// has a display name here.
-	const builtinIds = new Set<string>(Object.keys(BUILT_IN_PROVIDER_DISPLAY_NAMES).filter(isLlmsProviderId));
+	const builtinIds = new Set<string>(builtInProviderIds());
 	const allIds = new Set<string>([...builtinIds, ...Object.keys(custom)]);
 	// A provider whose credentials exist only in `auth.json` is still real: it
 	// was configured by the runtime or an earlier Fleet build. Listing only the
@@ -252,7 +212,7 @@ export function handleChatProvidersPost(request: Request): Promise<Response> {
 				badRequest("displayName is required when creating a new provider instance");
 			}
 			const existingIds = new Set<string>([
-				...Object.keys(BUILT_IN_PROVIDER_DISPLAY_NAMES).filter(isLlmsProviderId),
+				...builtInProviderIds(),
 				...Object.keys(listCustomProviders(modelsJsonPath)),
 			]);
 			providerId = allocateProviderId(

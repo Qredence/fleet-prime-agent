@@ -9,9 +9,12 @@
  * settings, auth, the model catalog and transcripts itself.
  *
  * What lives here:
- * - `SettingsManager`, `AuthStorage`, `ModelRegistry` and `DefaultResourceLoader`
- *   factories (the config surface behind `prime-config.ts`);
+ * - `SettingsManager`, `AuthStorage` and `DefaultResourceLoader` factories (the
+ *   config surface behind `prime-config.ts`);
  * - a strictly read-only session reader (`readLegacySession`).
+ *
+ * The model catalog is not here: the Rust daemon serves it (`get_model_catalog`)
+ * and Fleet caches that response in `model-catalog-cache.ts`.
  *
  * The session reader never writes. `SessionManager.openAsync` is not read-only: it
  * repairs damaged JSONL tails in place, rewrites the file when it migrates the
@@ -38,14 +41,12 @@ import {
 	AuthStorage,
 	buildSessionContext,
 	DefaultResourceLoader,
-	ModelRegistry,
 	migrateSessionEntries,
 	parseSessionEntries,
 	SettingsManager,
 } from "prime-agent";
 
 export type LegacyAuthStorage = AuthStorage;
-export type LegacyModelRegistry = ModelRegistry;
 export type LegacySettingsManager = SettingsManager;
 export type LegacyResourceLoader = DefaultResourceLoader;
 export type LegacyApiKeyCredential = ApiKeyCredential;
@@ -68,14 +69,6 @@ export type LegacyAgentConnection = AgentConnection;
 /** `auth.json` store. Defaults to the agent directory's file; tests pass a temp path. */
 export function createLegacyAuthStorage(authPath?: string): LegacyAuthStorage {
 	return AuthStorage.create(authPath);
-}
-
-/** Model registry over `models.json`, resolving keys through `authStorage`. */
-export function createLegacyModelRegistry(
-	authStorage: LegacyAuthStorage,
-	modelsJsonPath?: string,
-): LegacyModelRegistry {
-	return ModelRegistry.create(authStorage, modelsJsonPath);
 }
 
 /** Global plus project settings for `cwd`, scoped to the caller's agent directory. */

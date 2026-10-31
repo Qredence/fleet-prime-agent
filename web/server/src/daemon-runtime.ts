@@ -12,6 +12,7 @@ import {
 	type DaemonCreateCommand,
 	type DaemonForkResult,
 	type DaemonHelloFrame,
+	type DaemonModelCatalog,
 	type DaemonSavedSessionPage,
 	type DaemonSessionBindingFrame,
 	type DaemonSessionSummary,
@@ -28,6 +29,7 @@ import {
 import type { DaemonSequenceGap } from "./daemon-sequence-gap";
 import { DaemonSocketClient } from "./daemon-socket-client";
 import { FleetDaemonAgentConnection } from "./fleet-daemon-connection";
+import { invalidateModelCatalog, loadModelCatalog } from "./model-catalog-cache";
 import { getPrimeConfig } from "./prime-config";
 import { ensurePrimeAgentRuntime } from "./prime-runtime";
 
@@ -467,9 +469,14 @@ export async function withTransientDaemonSession<T>(
 const modelCatalogListeners = new Set<() => void>();
 
 /**
- * Observe Rust `model_catalog_changed` broadcasts. Fleet's own default
- * listener refreshes the shared in-process ModelRegistry so the next catalog
- * read is fresh.
+ * Observe Rust `model_catalog_changed` broadcasts, which fire when the daemon's
+ * network catalog refresh changes the model list. Fleet's own snapshot cache
+ * subscribes so the next catalog read re-asks the daemon.
+ *
+ * The broadcast is not a local-file-change signal: `models.json` and
+ * `auth.json` edits are read through on the daemon's next read and never
+ * broadcast, which is why Fleet also invalidates on its own write paths and
+ * caps the snapshot age.
  */
 export function onDaemonModelCatalogChanged(listener: () => void): () => void {
 	modelCatalogListeners.add(listener);
@@ -479,11 +486,7 @@ export function onDaemonModelCatalogChanged(listener: () => void): () => void {
 }
 
 export function notifyDaemonModelCatalogChanged(): void {
-	try {
-		getPrimeConfig().modelRegistry.refresh();
-	} catch {
-		// A stale catalog is recoverable; never break the event stream.
-	}
+	invalidateModelCatalog();
 	for (const listener of [...modelCatalogListeners]) {
 		try {
 			listener();
@@ -491,6 +494,21 @@ export function notifyDaemonModelCatalogChanged(): void {
 			// Listener failures stay local.
 		}
 	}
+}
+
+/**
+ * Read the model catalog through Fleet's cached snapshot.
+ *
+ * `get_model_catalog` requires an `activeSessionId`, and this route has no live
+ * session to borrow: a catalog read is project-global and the bridge does not
+ * expose the daemon's active id. A throwaway session is therefore the only
+ * route, and it costs ~280 ms plus worker/log churn in the user's agent dir, so
+ * it runs on a cache miss only. Warm reads are cache hits.
+ */
+export function readDaemonModelCatalog(cwd: string): Promise<DaemonModelCatalog> {
+	return loadModelCatalog(() =>
+		withTransientDaemonSession(cwd, (client, activeSessionId) => client.getModelCatalog(activeSessionId)),
+	);
 }
 
 export type DaemonSessionRoute = { activeSessionId: string; sessionPath?: string };
