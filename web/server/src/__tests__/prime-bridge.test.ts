@@ -7,9 +7,11 @@ import { SessionManager } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { FleetConnectionListener } from "../agent-connection-port";
 import { runtimeHostFor } from "../connection-runtime";
+import type { DaemonModel, DaemonModelCatalog } from "../daemon-protocol";
 import type { listDaemonSessions } from "../daemon-runtime";
 import type { DaemonSequenceGap } from "../daemon-sequence-gap";
 import { createInProcessTestAgentConnection } from "../in-process-test-connection";
+import { invalidateModelCatalog, resetModelCatalogCacheForTests } from "../model-catalog-cache";
 import { loadManagedPrimePresentation, writeManagedPrimePresentation } from "../prime-agent-presentation";
 import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
 import { getPrimeConfig, resetPrimeConfigForTests } from "../prime-config";
@@ -2015,6 +2017,31 @@ describe("PrimeBridge.setModel fallback", () => {
 	let restoreEnvs: Array<() => void> = [];
 	const bridges: PrimeBridge[] = [];
 
+	const DEEPSEEK_GONE: DaemonModel = {
+		id: "deepseek-gone",
+		name: "Gone",
+		api: "deepseek",
+		provider: "deepseek",
+		baseUrl: "https://api.deepseek.com",
+		reasoning: false,
+		input: ["text"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 64_000,
+		maxTokens: 4096,
+	};
+	const DEEPSEEK_FALLBACK: DaemonModel = { ...DEEPSEEK_GONE, id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" };
+
+	/** Serve `catalog` as the daemon's cached snapshot for the next reads. */
+	function seedCatalog(...models: DaemonModel[]): void {
+		invalidateModelCatalog();
+		const state = globalThis as unknown as {
+			__fleetModelCatalogCache?: { snapshot?: { catalog: DaemonModelCatalog; fetchedAt: number } };
+		};
+		state.__fleetModelCatalogCache = {
+			snapshot: { catalog: { models, configuredProviders: [] }, fetchedAt: Date.now() },
+		};
+	}
+
 	beforeEach(() => {
 		resetBridgeForTests();
 		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-model-fallback-test-"));
@@ -2022,12 +2049,14 @@ describe("PrimeBridge.setModel fallback", () => {
 		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
 		process.env[AGENT_DIR_ENV] = agentDir;
 		resetPrimeConfigForTests();
+		resetModelCatalogCacheForTests();
 	});
 
 	afterEach(() => {
 		for (const bridge of bridges.splice(0)) bridge.resetForTests();
 		for (const restore of restoreEnvs) restore();
 		restoreEnvs = [];
+		resetModelCatalogCacheForTests();
 		resetPrimeConfigForTests();
 		rmSync(workDir, { recursive: true, force: true });
 		rmSync(agentDir, { recursive: true, force: true });
@@ -2035,12 +2064,13 @@ describe("PrimeBridge.setModel fallback", () => {
 	});
 
 	it("falls back to the first available model of a known provider", async () => {
+		// The stale id is *not* in the catalog: that is what makes it stale.
+		seedCatalog(DEEPSEEK_FALLBACK);
+		// The provider must have a credential for its models to be "available".
+		writeFileSync(join(agentDir, "auth.json"), JSON.stringify({ deepseek: { type: "api_key", key: "dsk-test" } }));
 		const bridge = createTestBridge();
 		bridges.push(bridge);
 		const parent = await bridge.createSession({ cwd: workDir });
-		const registry = getPrimeConfig().modelRegistry;
-		vi.spyOn(registry, "find").mockReturnValue(undefined);
-		vi.spyOn(registry, "getAvailable").mockReturnValue([{ provider: "deepseek", id: "deepseek-v4-flash" }] as never);
 		// Mock the connection: the real InProcessAgentConnection validates against
 		// the ambient provider catalog (credentials), which is absent on CI.
 		const setModel = vi
@@ -2054,16 +2084,47 @@ describe("PrimeBridge.setModel fallback", () => {
 		expect(setModel).toHaveBeenCalledWith("deepseek", "deepseek-v4-flash");
 	});
 
-	it("still throws when the provider itself is unknown", async () => {
+	it("uses a model that is in the catalog as-is", async () => {
+		seedCatalog(DEEPSEEK_FALLBACK);
 		const bridge = createTestBridge();
 		bridges.push(bridge);
 		const parent = await bridge.createSession({ cwd: workDir });
-		const registry = getPrimeConfig().modelRegistry;
-		vi.spyOn(registry, "find").mockReturnValue(undefined);
-		vi.spyOn(registry, "getAvailable").mockReturnValue([]);
+		const setModel = vi.spyOn(parent.connection, "setModel").mockResolvedValue(null as never);
+
+		await expect(
+			bridge.setModel(parent.sessionId, { provider: "deepseek", id: "deepseek-v4-flash" }),
+		).resolves.toEqual({ provider: "deepseek", id: "deepseek-v4-flash" });
+		expect(setModel).toHaveBeenCalledWith("deepseek", "deepseek-v4-flash");
+	});
+
+	it("still throws when the provider itself is unknown", async () => {
+		seedCatalog(DEEPSEEK_FALLBACK);
+		const bridge = createTestBridge();
+		bridges.push(bridge);
+		const parent = await bridge.createSession({ cwd: workDir });
 
 		await expect(bridge.setModel(parent.sessionId, { provider: "nope", id: "gone" })).rejects.toThrow(
 			"Unknown model: nope/gone",
 		);
+	});
+
+	it("throws for a known provider whose models all lack credentials", async () => {
+		// No auth.json entry and no env var: the provider resolves in the catalog
+		// but has no available model, which the old path also reported as unknown.
+		// The provider's env var is cleared so an ambient key on the developer's
+		// machine cannot make the model look configured.
+		const restoreDeepseek = unsetEnv("DEEPSEEK_API_KEY");
+		try {
+			seedCatalog(DEEPSEEK_FALLBACK);
+			const bridge = createTestBridge();
+			bridges.push(bridge);
+			const parent = await bridge.createSession({ cwd: workDir });
+
+			await expect(bridge.setModel(parent.sessionId, { provider: "deepseek", id: "deepseek-gone" })).rejects.toThrow(
+				"Unknown model: deepseek/deepseek-gone",
+			);
+		} finally {
+			restoreDeepseek();
+		}
 	});
 });

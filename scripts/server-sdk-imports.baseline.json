@@ -28,9 +28,6 @@
 			"@earendil-works/pi-ai/mcp#BUILTIN_MCP_CATALOG",
 			"@earendil-works/pi-ai/mcp#getCatalogEntry"
 		],
-		"web/server/src/handlers/chat-models.ts": [
-			"@earendil-works/pi-ai#getSupportedThinkingLevels"
-		],
 		"web/server/src/handlers/chat-new.ts": [
 			"@earendil-works/pi-agent-core#ThinkingLevel"
 		],
