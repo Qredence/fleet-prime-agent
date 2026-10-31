@@ -1,16 +1,9 @@
-import type { ChatSessionInfo, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/components/chat/chat-client";
+import { EMPTY_SESSION_PRESENTATION } from "@/components/chat/chat-stream-state";
 import { usePiChatBootstrap } from "@/components/chat/use-pi-chat-bootstrap";
-
-const EMPTY_PRESENTATION: PrimeAgentSessionPresentation = {
-	artifactRuns: [],
-	refinements: [],
-	rlmChildren: [],
-	revision: 0,
-	userBash: [],
-};
 
 describe("usePiChatBootstrap", () => {
 	it("does not hydrate after unmount while the initial session list is still pending", async () => {
@@ -31,7 +24,7 @@ describe("usePiChatBootstrap", () => {
 					loadSession: vi.fn().mockResolvedValue({
 						messages: [],
 						planPresentations: [],
-						presentation: EMPTY_PRESENTATION,
+						presentation: EMPTY_SESSION_PRESENTATION,
 						session: { sessionId: "session-a" },
 					}),
 				} as unknown as ChatClient,

@@ -18,7 +18,11 @@ import type { ChatClient } from "@/components/chat/chat-client";
 import { chatClient } from "@/components/chat/chat-client";
 import { notifyChatError } from "@/components/chat/chat-error-notify";
 import type { QueueState } from "@/components/chat/chat-fetch";
-import { EMPTY_QUEUE_STATE, normalizeSessionMetadata } from "@/components/chat/chat-stream-state";
+import {
+	EMPTY_QUEUE_STATE,
+	EMPTY_SESSION_PRESENTATION,
+	normalizeSessionMetadata,
+} from "@/components/chat/chat-stream-state";
 import {
 	hydratePlanPresentationMessages,
 	planPresentationForToolCall,
@@ -77,13 +81,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const [activityLabel, setActivityLabel] = useState<string | undefined>();
 	const [planLabel, setPlanLabel] = useState<string | undefined>();
 	const [queue, setQueue] = useState<QueueState>(EMPTY_QUEUE_STATE);
-	const [presentation, setPresentation] = useState<PrimeAgentSessionPresentation>(() => ({
-		revision: 0,
-		userBash: [],
-		rlmChildren: [],
-		refinements: [],
-		artifactRuns: [],
-	}));
+	const [presentation, setPresentation] = useState<PrimeAgentSessionPresentation>(() => EMPTY_SESSION_PRESENTATION);
 	const initialSessionMetadataRef = useRef(initialSessionMetadata);
 	const projectIdRef = useRef(projectId);
 	const messagesRef = useRef(messages);
@@ -655,7 +653,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			invalidateQueueMutations();
 			setSessionMetadataSynced({ projectId: nextProjectId });
 			setMessagesSynced([]);
-			setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
+			setPresentationSynced(EMPTY_SESSION_PRESENTATION);
 			setQueueSynced(EMPTY_QUEUE_STATE);
 			setActivityLabelSynced(undefined);
 			setPlanLabelSynced(undefined);
@@ -727,7 +725,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (sessionMetadataRef.current.sessionId === sessionId) {
 				setSessionMetadataSynced({});
 				setMessagesSynced([]);
-				setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
+				setPresentationSynced(EMPTY_SESSION_PRESENTATION);
 			}
 			await refreshSessions();
 			return true;
