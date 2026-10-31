@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.10.0
+
+### Minor Changes
+
+- 871ce42: Serve the model catalog from the Prime Agent daemon instead of the SDK
+  
+  Fleet no longer builds or refreshes the stock runtime's `ModelRegistry`. The
+  model picker reads the pinned daemon's `get_model_catalog`, which re-parses
+  `models.json` and `auth.json` from disk on every call, through a short-lived
+  in-process snapshot so a page load does not create a daemon session per request.
+  
+  Two user-visible fixes come with it:
+  
+  - Providers configured only through an environment variable now count as
+    configured. The retired path hard-coded `configured: false` for environment
+    candidates, so a working `ANTHROPIC_API_KEY` or `GROQ_API_KEY` reported its
+    models as unavailable and hid them from the default model list.
+  - A custom provider in `models.json` that is missing `apiKey` now produces an
+    actionable diagnostic. The runtime silently drops every custom provider in the
+    file in that case, with no error on any surface.
+  
+  Model thinking levels, the `Unknown model` error, and the stale-model fallback
+  to a provider's first available model are unchanged.
+
+### Patch Changes
+
+- daee396: Restore the packaged Python kernel runtime on install
+  
+  Fleet's installer extracted the pinned Prime Agent release, installed only the
+  executable, and deleted the rest of the payload. The `prime-agent-runtime`
+  directory the kernel bootstraps from was destroyed on every install, so sessions
+  failed with "the runtime bundle that ships beside the Prime Agent binary is
+  missing" even though the release contains it.
+  
+  The installer now keeps the packaged runtime beside the binary, repairs an
+  existing binary-only install on the next start, and no longer claims a binary is
+  missing when the spawn working directory is the thing that does not exist.
+- b2648a8: Correct the MCP and provider sign-in guidance
+  
+  Fleet cannot start OAuth sign-in itself: the pinned daemon exposes no login command,
+  and the only entry point is Prime Agent's interactive terminal. The previous guidance
+  told users to "launch Prime Agent in a terminal and complete sign-in", which fails —
+  the CLI `mcp` subcommand has no `login`, only `add|list|get|remove`.
+  
+  The alerts and the 501 responses now name the commands that exist (`/mcp login <name>`
+  for MCP servers, `/login` for providers) and no longer claim a Fleet restart is needed.
+  Restarting Fleet cannot reload the credential in any case: the daemon is spawned
+  detached and re-attaches to an already-running socket, and it re-reads `auth.json` on
+  each call.
+- 32f79ab: Contain provider dialogs, protect credential hints, and refresh supported provider model lists when adding models.
+- 32f79ab: Refresh cached settings after saving so newly enabled models appear in the model picker without restarting the server.
+- 9bf257a: Share one cleared-session presentation value
+  
+  The cleared-session presentation was hand-spelled at four reset sites (initial
+  state, project switch, session delete, and forbidden-session recovery). A single
+  shared, frozen value now backs all of them, so a new required field on the
+  presentation type is a compile-time error in one place instead of a silent gap
+  in four.
+
 ## 0.9.0
 
 ### Minor Changes
