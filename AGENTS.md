@@ -278,10 +278,10 @@ Examples:
 
 ```bash
 pnpm --filter @prime-agent/web-server exec vitest run <test-file>
-pnpm --filter @prime-agent/web exec vitest run <test-file>
+pnpm --filter @qredence/web exec vitest run <test-file>
 ```
 
-Use the corresponding owning package for protocol/design tests.
+Use the corresponding owning package for protocol tests.
 
 ### Cross-package protocol/runtime changes
 

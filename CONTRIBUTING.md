@@ -32,7 +32,7 @@ or `npm exec pnpm@11.15.1`.
 | Name | Meaning |
 | --- | --- |
 | `@qredence/fleet` | Published launcher on npm (`fleet-agent` / `fleet-prime`) |
-| `@prime-agent/web`, `web-protocol`, `web-server` | Private workspace packages |
+| `@qredence/web`, `@prime-agent/web-protocol`, `@prime-agent/web-server` | Private workspace packages |
 | `pi`, `fleet-pi` | Historical names in Fleet chat code (pi-mono); not a current package. Chat code lives under `web/app/src/components/chat/` |
 | Prime Agent | External execution engine, pinned by `PRIME_AGENT_RUNTIME.json` |
 
@@ -61,7 +61,7 @@ or `npm exec pnpm@11.15.1`.
 
 6. Run `pnpm run format` only when you intentionally want Biome to write formatting changes.
 
-Playwright smoke (`pnpm --filter @prime-agent/web test:e2e`) is local-only; CircleCI does not run it.
+Playwright smoke (`pnpm --filter @qredence/web test:e2e`) is local-only; CircleCI does not run it.
 
 Never use `npm install` or `npm ci` at the repository root, and do not add a root `package-lock.json`.
 
