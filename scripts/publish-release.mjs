@@ -5,7 +5,13 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { assertReleaseVersion, compareVersions, NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
+import {
+	assertReleaseVersion,
+	compareVersions,
+	isReleaseVersionFile,
+	NPM_REGISTRY,
+	parseStableVersion,
+} from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
@@ -156,12 +162,7 @@ export function isPackageVersionCommit({ branch = process.env.CIRCLE_BRANCH, rea
 			})();
 		const hasManifest = changedPaths.includes("packages/fleet-web/package.json");
 		const hasChangelog = changedPaths.includes("packages/fleet-web/CHANGELOG.md");
-		const releaseFilesOnly = changedPaths.every(
-			(path) =>
-				path === "packages/fleet-web/package.json" ||
-				path === "packages/fleet-web/CHANGELOG.md" ||
-				(path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md"),
-		);
+		const releaseFilesOnly = changedPaths.every(isReleaseVersionFile);
 		return hasManifest && hasChangelog && releaseFilesOnly;
 	} catch (error) {
 		throw new Error(`Could not determine whether this commit versions the package: ${error.message}`);

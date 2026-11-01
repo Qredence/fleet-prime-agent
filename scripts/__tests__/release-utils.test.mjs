@@ -14,6 +14,7 @@ import {
 	releaseVersionFromStatus,
 	resolveReleaseVersion,
 	run as runPrepareRelease,
+	syncReadmeContributors,
 	versionCommitMessage,
 } from "../prepare-release.mjs";
 import {
@@ -25,7 +26,7 @@ import {
 	waitForPublishedVersion,
 } from "../publish-release.mjs";
 import { releaseMarkerArgs, runReleaseMarker } from "../release-marker.mjs";
-import { assertReleaseVersion, compareVersions, parseStableVersion } from "../release-utils.mjs";
+import { assertReleaseVersion, compareVersions, isReleaseVersionFile, parseStableVersion } from "../release-utils.mjs";
 import { reconcileRollbackMarker, resolveRollbackMarker, rollbackMarkerArgs } from "../rollback-marker.mjs";
 import { promoteRelease, rollbackRelease, validateRollback } from "../rollback-release.mjs";
 
@@ -127,6 +128,31 @@ test("detects only package-version commits on main", () => {
 		isPackageVersionCommit({
 			branch: "main",
 			readChangedPaths: () => ["packages/fleet-web/package.json", "README.md"],
+		}),
+		false,
+	);
+	assert.equal(
+		isPackageVersionCommit({
+			branch: "main",
+			readChangedPaths: () => [
+				"packages/fleet-web/package.json",
+				"packages/fleet-web/CHANGELOG.md",
+				".changeset/release.md",
+				"README.md",
+			],
+		}),
+		true,
+		"a release commit that credits a new contributor in the README must still publish",
+	);
+	assert.equal(
+		isPackageVersionCommit({
+			branch: "main",
+			readChangedPaths: () => [
+				"packages/fleet-web/package.json",
+				"packages/fleet-web/CHANGELOG.md",
+				"README.md",
+				"docs/README.md",
+			],
 		}),
 		false,
 	);
@@ -853,4 +879,87 @@ test("derives the single-package release plan from Changesets status", () => {
 		version: expectedReleaseVersion,
 	});
 	assert.throws(() => releasePlanFromStatus({ releases: [] }), /no release plan/);
+});
+
+test("classifies the files a release version commit may touch", () => {
+	for (const path of [
+		"packages/fleet-web/package.json",
+		"packages/fleet-web/CHANGELOG.md",
+		"README.md",
+		".changeset/brave-owls-sing.md",
+	]) {
+		assert.equal(isReleaseVersionFile(path), true, path);
+	}
+	for (const path of [
+		".changeset/README.md",
+		".changeset/config.json",
+		"docs/README.md",
+		"packages/fleet-web/README.md",
+	]) {
+		assert.equal(isReleaseVersionFile(path), false, path);
+	}
+});
+
+test("credits the contributors merged since the previous release tag in the README", async () => {
+	const lookups = [];
+	const written = [];
+	const changed = await syncReadmeContributors({
+		token: "token",
+		previousVersion: "0.10.1",
+		baseSha: "base-sha",
+		githubRequestImpl: async (path, token) => {
+			lookups.push([path, token]);
+			return {};
+		},
+		collectContributorsImpl: async ({ owner, repo, base, head, request }) => {
+			assert.deepEqual(
+				{ owner, repo, base, head },
+				{
+					owner: "Qredence",
+					repo: "fleet-prime-agent",
+					base: "v0.10.1",
+					head: "base-sha",
+				},
+			);
+			await request("/probe");
+			return [{ login: "alice", pullRequests: [320] }];
+		},
+		writeReadmeImpl: (contributors) => {
+			written.push(contributors);
+			return true;
+		},
+	});
+	assert.equal(changed, true);
+	assert.deepEqual(lookups, [["/probe", "token"]]);
+	assert.deepEqual(written, [[{ login: "alice", pullRequests: [320] }]]);
+});
+
+test("leaves the README alone when contributors cannot be read", async () => {
+	const changed = await syncReadmeContributors({
+		token: "token",
+		previousVersion: "0.10.1",
+		baseSha: "base-sha",
+		githubRequestImpl: async () => ({}),
+		collectContributorsImpl: async () => {
+			throw new Error("HTTP 403");
+		},
+		writeReadmeImpl: () => {
+			throw new Error("the README must not be written after a failed lookup");
+		},
+	});
+	assert.equal(changed, false);
+	assert.equal(
+		await syncReadmeContributors({
+			token: "token",
+			previousVersion: undefined,
+			baseSha: "base-sha",
+			githubRequestImpl: async () => {
+				throw new Error("no lookup without a previous release");
+			},
+			writeReadmeImpl: () => {
+				throw new Error("no write without a previous release");
+			},
+		}),
+		false,
+	);
 });

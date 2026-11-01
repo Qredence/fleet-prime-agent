@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
-import { parseStableVersion, RELEASE_REPOSITORY } from "./release-utils.mjs";
+import { collectContributors, writeReadmeContributors } from "./release-contributors.mjs";
+import { isReleaseVersionFile, parseStableVersion, RELEASE_REPOSITORY } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
@@ -191,17 +192,13 @@ function changedFiles(baseSha) {
 }
 
 /**
- * Validates that release versioning changes affect only approved package, changelog, and Changeset files.
+ * Validates that release versioning changes affect only approved package, changelog, README, and Changeset files.
  * @param {Array<{path: string, status: string}>} files - Changed files and their Git statuses.
  */
 function assertVersionChangesOnly(files) {
-	const allowed = (path, status) => {
-		if (path === "packages/fleet-web/package.json" && status !== "D") return true;
-		if (path === "packages/fleet-web/CHANGELOG.md" && status !== "D") return true;
-		return (
-			status === "D" && path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md"
-		);
-	};
+	// Changesets are only ever consumed, and the manifest, changelog, and README only ever rewritten.
+	const allowed = (path, status) =>
+		isReleaseVersionFile(path) && (path.startsWith(".changeset/") ? status === "D" : status !== "D");
 	const unexpected = files.filter(({ path, status }) => !allowed(path, status));
 	if (unexpected.length > 0) {
 		throw new Error(
@@ -248,6 +245,52 @@ export function isResumableVersionCommit({ commit, version, baseSha }) {
 }
 
 /**
+ * Credits the contributors of a release in the README before the version commit is built.
+ *
+ * The README list is cumulative, so it only needs the people behind the pull requests merged since
+ * the previous release tag. A failed lookup leaves the README alone with a warning instead of
+ * blocking the release pull request: the next release adds anyone this one missed.
+ * @param {object} options - The release being prepared and its dependencies.
+ * @param {string} options.token - GitHub authentication token.
+ * @param {string|undefined} options.previousVersion - The version the previous release tag carries.
+ * @param {string} options.baseSha - The commit the release is prepared from.
+ * @param {Function} options.githubRequestImpl - GitHub request implementation.
+ * @param {Function} [options.collectContributorsImpl] - Contributor lookup, overridable for tests.
+ * @param {Function} [options.writeReadmeImpl] - README writer, overridable for tests.
+ * @returns {Promise<boolean>} `true` when the README gained a contributor.
+ */
+export async function syncReadmeContributors({
+	token,
+	previousVersion,
+	baseSha,
+	githubRequestImpl,
+	collectContributorsImpl = collectContributors,
+	writeReadmeImpl = writeReadmeContributors,
+}) {
+	if (!previousVersion) return false;
+	const { owner, repo } = RELEASE_REPOSITORY;
+	let contributors;
+	try {
+		contributors = await collectContributorsImpl({
+			owner,
+			repo,
+			base: `v${previousVersion}`,
+			head: baseSha,
+			request: (path) => githubRequestImpl(path, token),
+		});
+	} catch (error) {
+		console.warn(
+			`Warning: could not read the pull requests merged since v${previousVersion}; README contributors are unchanged. ` +
+				(error instanceof Error ? error.message : String(error)),
+		);
+		return false;
+	}
+	const changed = writeReadmeImpl(contributors);
+	if (changed) console.log("Credited new contributors in README.md.");
+	return changed;
+}
+
+/**
  * Opens the release pull request for a release branch.
  * @param {Object} options - Pull request details and request dependencies.
  * @param {string} options.token - GitHub authentication token.
@@ -285,13 +328,20 @@ async function openReleasePullRequest({ token, owner, repo, branch, version, git
  * @param {Object} [options] - Release preparation options.
  * @param {Function} [options.githubRequestImpl] - GitHub request implementation.
  * @param {Function} [options.githubRequestAllow404Impl] - GitHub request implementation that allows a 404 response.
+ * @param {string} [options.previousVersion] - The version of the previous release, whose tag bounds the contributors credited in the README.
+ * @param {Function} [options.syncReadmeContributorsImpl] - README contributor sync, overridable for tests.
  * @throws {Error} If the version is invalid, an unmanaged release branch exists, or versioning produces invalid or empty changes.
  */
 export async function createVersionPullRequest(
 	token,
 	version,
 	baseSha,
-	{ githubRequestImpl = githubRequest, githubRequestAllow404Impl = githubRequestAllow404 } = {},
+	{
+		githubRequestImpl = githubRequest,
+		githubRequestAllow404Impl = githubRequestAllow404,
+		previousVersion,
+		syncReadmeContributorsImpl = syncReadmeContributors,
+	} = {},
 ) {
 	const { owner, repo } = RELEASE_REPOSITORY;
 	parseStableVersion(version);
@@ -349,6 +399,7 @@ export async function createVersionPullRequest(
 
 	const pnpm = pnpmInvocation(["exec", "changeset", "version"]);
 	execFileSync(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
+	await syncReadmeContributorsImpl({ token, previousVersion, baseSha, githubRequestImpl });
 	const files = changedFiles(baseSha);
 	assertVersionChangesOnly(files);
 	if (files.length === 0) throw new Error("changeset version produced no changes");
@@ -423,7 +474,7 @@ export async function prepareRelease({
 	if (releaseVersion !== plan.version) {
 		throw new Error(`FLEET_RELEASE_VERSION ${releaseVersion} does not match the Changesets version ${plan.version}`);
 	}
-	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha);
+	await createVersionPullRequest(token, releaseVersion, resolvedBaseSha, { previousVersion: plan.currentVersion });
 	return { prepared: true, plan };
 }
 
