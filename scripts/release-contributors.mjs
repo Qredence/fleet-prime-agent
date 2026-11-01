@@ -47,6 +47,18 @@ const NON_HUMAN_LOGINS = new Set([
 const LOGIN_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 
 /**
+ * Describes a failed lookup on one log line.
+ * The message can carry a GitHub response body, so line breaks and other control characters are
+ * replaced before it reaches the job log, where they could forge log lines.
+ * @param {unknown} error - The error raised by the lookup.
+ * @returns {string} A single-line description.
+ */
+export function describeLookupError(error) {
+	const message = error instanceof Error ? error.message : String(error);
+	return message.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+}
+
+/**
  * Decides whether a GitHub account belongs to a person.
  * @param {{login?: string, type?: string}|null|undefined} user - The account as returned by the GitHub API.
  * @returns {boolean} `true` for a person's account, `false` for bots, automation, AI agents, and malformed logins.

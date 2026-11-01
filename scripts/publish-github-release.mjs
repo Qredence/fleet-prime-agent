@@ -11,7 +11,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { collectContributors } from "./release-contributors.mjs";
+import { collectContributors, describeLookupError } from "./release-contributors.mjs";
 import {
 	extractVersionSection,
 	previousVersion,
@@ -142,7 +142,7 @@ async function readContributorsSinceTag(token, owner, repo, version, sha) {
 	} catch (error) {
 		console.warn(
 			`Warning: could not read the pull requests merged since v${version}; the release notes will not credit ` +
-				`contributors. ${error instanceof Error ? error.message : String(error)}`,
+				`contributors. ${describeLookupError(error)}`,
 		);
 		return undefined;
 	}

@@ -7,6 +7,7 @@ import {
 	collectContributors,
 	contributorsFromPullRequests,
 	contributorsSection,
+	describeLookupError,
 	isHumanContributor,
 	mergeReadmeContributors,
 	pullRequestsBetween,
@@ -234,4 +235,12 @@ test("propagates a failed lookup so callers can decide how to degrade", async ()
 		}),
 		/HTTP 403/,
 	);
+});
+
+test("keeps a failed lookup on one log line", () => {
+	assert.equal(
+		describeLookupError(new Error('GitHub API /compare -> HTTP 404: {"message":\n"Not Found"}\r\nforged')),
+		'GitHub API /compare -> HTTP 404: {"message": "Not Found"} forged',
+	);
+	assert.equal(describeLookupError("plain\tfailure"), "plain failure");
 });

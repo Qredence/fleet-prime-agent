@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
-import { collectContributors, writeReadmeContributors } from "./release-contributors.mjs";
+import { collectContributors, describeLookupError, writeReadmeContributors } from "./release-contributors.mjs";
 import { isReleaseVersionFile, parseStableVersion, RELEASE_REPOSITORY } from "./release-utils.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -281,7 +281,7 @@ export async function syncReadmeContributors({
 	} catch (error) {
 		console.warn(
 			`Warning: could not read the pull requests merged since v${previousVersion}; README contributors are unchanged. ` +
-				(error instanceof Error ? error.message : String(error)),
+				describeLookupError(error),
 		);
 		return false;
 	}
