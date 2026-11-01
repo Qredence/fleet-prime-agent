@@ -37,3 +37,22 @@ test("recognizes generated Changesets version commits", () => {
 		false,
 	);
 });
+
+test("recognizes a version commit that also credits contributors in the README", () => {
+	assert.equal(
+		isGeneratedVersionChange({
+			files: [...releaseFiles, "README.md"],
+			subject: "chore(release): version @qredence/fleet 0.10.2",
+			deletedChangeset: true,
+		}),
+		true,
+	);
+	assert.equal(
+		isGeneratedVersionChange({
+			files: [...releaseFiles, "README.md", "web/app/src/App.tsx"],
+			subject: "chore(release): version @qredence/fleet 0.10.2",
+			deletedChangeset: true,
+		}),
+		false,
+	);
+});

@@ -100,6 +100,20 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for requirements, checks, and the pull
 request process. The [documentation index](docs/README.md) links to the
 architecture, adapter contract, and operation-specific guides.
 
+## Contributors
+
+Thanks to everyone who has contributed to Fleet:
+
+<!-- contributors:start -->
+- [@mikemikimike](https://github.com/mikemikimike)
+- [@Zochory](https://github.com/Zochory)
+<!-- contributors:end -->
+
+This list is generated from merged pull requests: each release pull request
+adds anyone new, and each GitHub release credits the contributors of that
+release. The upstream engine's contributors are credited in
+[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent/graphs/contributors).
+
 ## Support
 
 - Ask questions or share ideas on [GitHub Discussions](https://github.com/Qredence/fleet-prime-agent/discussions).
