@@ -1,12 +1,10 @@
 import type { ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
-import { useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/components/chat/chat-client";
 import { Popover } from "@/components/chat/composer/input/input-popover";
 import { usePiChat } from "@/components/chat/use-pi-chat";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
-import { useProximityHover } from "@/hooks/use-proximity-hover";
 
 describe("React Doctor lifecycle and accessibility regressions", () => {
 	afterEach(() => {
@@ -45,35 +43,6 @@ describe("React Doctor lifecycle and accessibility regressions", () => {
 		expect(container.querySelector(".fixed.inset-0.z-40")).not.toBeNull();
 		fireEvent.click(getByRole("button", { name: "Open account menu" }));
 		expect(container.querySelector(".fixed.inset-0.z-40")).toBeNull();
-	});
-
-	it("disconnects every registered ResizeObserver on unmount", () => {
-		class TestResizeObserver {
-			static instances: TestResizeObserver[] = [];
-			readonly disconnect = vi.fn();
-			readonly observe = vi.fn();
-
-			constructor() {
-				TestResizeObserver.instances.push(this);
-			}
-		}
-		vi.stubGlobal("ResizeObserver", TestResizeObserver);
-
-		function Harness() {
-			const containerRef = useRef<HTMLDivElement>(null);
-			const { registerItem } = useProximityHover(containerRef);
-			return (
-				<div ref={containerRef} data-testid="container">
-					<div ref={(node) => registerItem(0, node)} />
-				</div>
-			);
-		}
-
-		const { unmount } = render(<Harness />);
-		unmount();
-
-		expect(TestResizeObserver.instances.length).toBeGreaterThan(0);
-		expect(TestResizeObserver.instances.every((observer) => observer.disconnect.mock.calls.length > 0)).toBe(true);
 	});
 
 	it("closes the EventSource owned by the visible session on unmount", async () => {

@@ -7,15 +7,13 @@ import type { RightPanel } from "@/components/layout/canvas-utils";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
 import { RIGHT_PANEL_GROUPS } from "@/components/layout/right-panel-registry";
-import { TabsSubtle, TabsSubtleItem } from "@/components/layout/tabs-subtle";
+import { TabStrip } from "@/components/layout/tab-strip";
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { getResourceGroups } from "@/components/workspace/resource-helpers";
 import { CHAT_PANEL_BREAKPOINT_PX, DESKTOP_PANEL_ONLY } from "@/lib/layout-constants";
 
-const COMPACT_TABS_CLASS =
-	"[&_[data-proximity-index]]:!h-7 [&_[data-proximity-index]]:!px-2 [&_[data-proximity-index]]:!text-caption";
 /**
  * Renders responsive controls for opening or navigating the right panel based on context state.
  *
@@ -257,6 +255,17 @@ function ResponsivePanelLauncher({
 		},
 		[onSelect, panelOptions],
 	);
+	const panelTabs = useMemo(
+		() =>
+			panelOptions.map((panel) => ({
+				id: panel.id,
+				label: panel.title,
+				icon: panel.icon,
+				badge: panel.badge,
+				ariaLabel: panel.ariaLabel,
+			})),
+		[panelOptions],
+	);
 
 	return (
 		<div
@@ -275,24 +284,16 @@ function ResponsivePanelLauncher({
 					value={activePanel}
 				/>
 			) : (
-				<TabsSubtle
-					activeLabel
-					className={`w-fit max-w-full ${compact ? COMPACT_TABS_CLASS : ""}`}
-					idPrefix={idPrefix}
-					selectedIndex={selectedIndex}
-					onSelect={onSelect}
-				>
-					{panelOptions.map((panel, index) => (
-						<TabsSubtleItem
-							key={panel.id}
-							index={index}
-							icon={panel.icon}
-							label={panel.title}
-							badge={panel.badge}
-							aria-label={panel.ariaLabel}
-						/>
-					))}
-				</TabsSubtle>
+				<TabStrip
+					ariaLabel="Panel views"
+					className="w-fit max-w-full"
+					dataTestid={`${idPrefix}-tabs`}
+					density="compact"
+					onValueChange={selectPanel}
+					tabs={panelTabs}
+					value={activePanel}
+					width="fit"
+				/>
 			)}
 			<div
 				ref={measurementRef}
@@ -301,24 +302,15 @@ function ResponsivePanelLauncher({
 				data-panel-launcher-measurement
 				inert
 			>
-				<TabsSubtle
-					activeLabel
-					className={`w-max max-w-none ${compact ? COMPACT_TABS_CLASS : ""}`}
-					idPrefix={`${idPrefix}-measurement`}
-					selectedIndex={selectedIndex}
-					onSelect={() => undefined}
-				>
-					{panelOptions.map((panel, index) => (
-						<TabsSubtleItem
-							key={panel.id}
-							index={index}
-							icon={panel.icon}
-							label={panel.title}
-							badge={panel.badge}
-							aria-label={panel.ariaLabel}
-						/>
-					))}
-				</TabsSubtle>
+				<TabStrip
+					ariaLabel="Panel views"
+					className="w-max max-w-none"
+					density="compact"
+					onValueChange={() => undefined}
+					tabs={panelTabs}
+					value={activePanel}
+					width="fit"
+				/>
 			</div>
 		</div>
 	);

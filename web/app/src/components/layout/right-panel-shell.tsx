@@ -1,13 +1,28 @@
 import { Library } from "lucide-react";
-import { type PointerEvent as ReactPointerEvent, useSyncExternalStore } from "react";
+import { type PointerEvent as ReactPointerEvent, useMemo, useSyncExternalStore } from "react";
 import { ResizableCanvas } from "@/components/layout/resizable-canvas";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
 import { MobilePanel, RightPanelTabsFromContext } from "@/components/layout/right-panel-launcher";
-import { getRightPanelDefinition, getRightPanelGroup } from "@/components/layout/right-panel-registry";
-import { TabsSubtle, TabsSubtleItem } from "@/components/layout/tabs-subtle";
+import {
+	type ActiveRightPanel,
+	getRightPanelDefinition,
+	getRightPanelGroup,
+} from "@/components/layout/right-panel-registry";
+import { TabStrip } from "@/components/layout/tab-strip";
 import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
 
 const DESKTOP_PANEL_QUERY = `(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`;
+
+/** Short labels for the in-panel view switcher. */
+const GROUP_VIEW_LABELS: Record<ActiveRightPanel, string> = {
+	resources: "Skills",
+	workspace: "Files",
+	artifacts: "Artifacts",
+	repl: "REPL",
+	subagents: "Subagents",
+	"session-insights": "Insights",
+	"session-tree": "Tree",
+};
 
 function subscribeToDesktopPanel(onChange: () => void) {
 	if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
@@ -59,38 +74,27 @@ export function RightPanelShell({
 	const definition = rightPanel ? getRightPanelDefinition(rightPanel) : null;
 	const PanelContent = definition?.component;
 	const panelGroup = rightPanel ? getRightPanelGroup(rightPanel) : undefined;
-	const currentGroupPanelIndex = panelGroup && rightPanel ? panelGroup.panels.indexOf(rightPanel) : -1;
+	const groupTabs = useMemo(
+		() =>
+			panelGroup && panelGroup.panels.length > 1
+				? panelGroup.panels.map((panel) => ({ id: panel, label: GROUP_VIEW_LABELS[panel] }))
+				: [],
+		[panelGroup],
+	);
 	const content = (
 		<>
-			{panelGroup && panelGroup.panels.length > 1 ? (
-				<TabsSubtle
-					aria-label={`${panelGroup.title} views`}
+			{groupTabs.length > 0 ? (
+				<TabStrip
+					ariaLabel={`${panelGroup?.title ?? "Panel"} views`}
 					className="mb-3 w-fit"
-					idPrefix={`right-panel-${panelGroup.id}-views`}
-					selectedIndex={currentGroupPanelIndex}
-					onSelect={(index) => {
-						const nextPanel = panelGroup.panels[index];
-						if (nextPanel) setRightPanel(nextPanel);
+					onValueChange={(nextPanel) => {
+						const next = groupTabs.find((tab) => tab.id === nextPanel)?.id;
+						if (next) setRightPanel(next);
 					}}
-				>
-					{panelGroup.panels.map((panel, index) => (
-						<TabsSubtleItem
-							key={panel}
-							index={index}
-							label={
-								panel === "workspace"
-									? "Files"
-									: panel === "session-insights"
-										? "Insights"
-										: panel === "session-tree"
-											? "Tree"
-											: panel === "resources"
-												? "Skills"
-												: "Artifacts"
-							}
-						/>
-					))}
-				</TabsSubtle>
+					tabs={groupTabs}
+					value={rightPanel}
+					width="fit"
+				/>
 			) : null}
 			{PanelContent ? <PanelContent /> : null}
 		</>

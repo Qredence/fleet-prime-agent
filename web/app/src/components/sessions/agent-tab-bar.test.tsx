@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentTabBar, type AgentTabItem } from "@/components/sessions/agent-tab-bar";
@@ -29,7 +29,7 @@ function ControlledTabBar({ onClose, onNewSession }: { onClose: (id: string) => 
 }
 
 describe("AgentTabBar", () => {
-	it("keeps tree order, exposes tab state, and roves focus with arrows", () => {
+	it("keeps tree order, exposes tab state, and roves focus with arrows", async () => {
 		render(<ControlledTabBar onClose={vi.fn()} onNewSession={vi.fn()} />);
 
 		expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.trim())).toEqual([
@@ -45,13 +45,19 @@ describe("AgentTabBar", () => {
 		expect(screen.getByRole("tab", { name: "Main agent, ready" }).className).toContain("bg-surface-4");
 		expect(screen.getByRole("tab", { name: "Research worker, streaming" }).className).toContain("bg-transparent");
 
+		// Base UI moves focus and selection from a microtask, so each keypress
+		// has to settle before the next one is aimed at the new active tab.
 		fireEvent.keyDown(screen.getByRole("tab", { name: "Main agent, ready" }), { key: "ArrowRight" });
-
-		expect(screen.getByRole("tab", { name: "Activity, ready" }).getAttribute("aria-selected")).toBe("true");
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: "Activity, ready" }).getAttribute("aria-selected")).toBe("true"),
+		);
 		expect(screen.getByRole("tab", { name: "Writer worker, complete" }).getAttribute("aria-selected")).toBe("false");
+
 		fireEvent.keyDown(screen.getByRole("tab", { name: "Activity, ready" }), { key: "ArrowRight" });
-		expect(screen.getByRole("tab", { name: "Research worker, streaming" }).getAttribute("aria-selected")).toBe(
-			"true",
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: "Research worker, streaming" }).getAttribute("aria-selected")).toBe(
+				"true",
+			),
 		);
 
 		expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Research worker, streaming" }));

@@ -15,7 +15,7 @@
         ]
       },
       {
-        "files": ["src/components/chat/use-pi-chat.ts", "src/hooks/use-proximity-hover.ts"],
+        "files": ["src/components/chat/use-pi-chat.ts"],
         "rules": ["react-doctor/effect-needs-cleanup"]
       },
       {

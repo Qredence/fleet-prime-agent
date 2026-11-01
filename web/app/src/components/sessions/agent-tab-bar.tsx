@@ -1,22 +1,23 @@
 import type { PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
-import { Activity, Bot, Plus, X } from "lucide-react";
-import { type KeyboardEvent, useCallback, useEffect, useRef } from "react";
-import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Activity, Bot } from "lucide-react";
+import { useMemo } from "react";
+import { TabStrip } from "@/components/layout/tab-strip";
+
+/** Prefix shared by the tab trigger and tab panel IDs. */
+const AGENT_TAB_ID_PREFIX = "agent-tab";
 
 /**
  * Creates a deterministic ARIA ID for an agent tab trigger.
  */
 export function agentTabTriggerId(tabId: string) {
-	return `agent-tab-${encodeURIComponent(tabId)}`;
+	return `${AGENT_TAB_ID_PREFIX}-${encodeURIComponent(tabId)}`;
 }
 
 /**
  * Generates the ARIA ID for an agent tab panel.
  */
 export function agentTabPanelId(tabId: string) {
-	return `agent-tab-panel-${encodeURIComponent(tabId)}`;
+	return `${AGENT_TAB_ID_PREFIX}-panel-${encodeURIComponent(tabId)}`;
 }
 
 export type AgentTabItem = {
@@ -96,135 +97,29 @@ export function AgentTabBar({
 	onClose?: (tabId: string) => void;
 	onNewSession?: () => void;
 }) {
-	const tabRefs = useRef(new Map<string, HTMLButtonElement>());
-	const setTabRef = useCallback((tabId: string, node: HTMLButtonElement | null) => {
-		if (node) tabRefs.current.set(tabId, node);
-		else tabRefs.current.delete(tabId);
-	}, []);
-
-	useEffect(() => {
-		for (const tabId of tabRefs.current.keys()) {
-			if (!tabs.some((tab) => tab.id === tabId)) tabRefs.current.delete(tabId);
-		}
-	}, [tabs]);
-
-	const focusTab = useCallback(
-		(index: number) => {
-			const tab = tabs[index];
-			if (!tab) return;
-			tabRefs.current.get(tab.id)?.focus();
-			onValueChange(tab.id);
-		},
-		[onValueChange, tabs],
-	);
-
-	const handleKeyDown = useCallback(
-		(event: KeyboardEvent<HTMLButtonElement>, tabId: string) => {
-			const index = tabs.findIndex((tab) => tab.id === tabId);
-			if (index < 0) return;
-			let nextIndex: number | undefined;
-			if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
-			if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
-			if (event.key === "Home") nextIndex = 0;
-			if (event.key === "End") nextIndex = tabs.length - 1;
-			if (nextIndex === undefined) return;
-			event.preventDefault();
-			focusTab(nextIndex);
-		},
-		[focusTab, tabs],
+	const items = useMemo(
+		() =>
+			tabs.map((tab) => ({
+				id: tab.id,
+				label: tab.label,
+				icon: tab.kind === "activity" ? Activity : tab.kind === "main" ? Bot : undefined,
+				dotClassName: tab.kind === "subagent" ? statusDotClass(tab.status) : undefined,
+				statusLabel: statusLabel(tab.status),
+				closable: tab.kind === "subagent" && Boolean(onClose),
+			})),
+		[tabs, onClose],
 	);
 
 	return (
-		<div className="flex min-w-0 max-w-full items-center gap-1" data-testid="agent-tab-bar">
-			<div
-				aria-label="Agent conversations"
-				className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-				role="tablist"
-			>
-				{tabs.map((tab) => {
-					const active = tab.id === value;
-					const status = statusLabel(tab.status);
-					return (
-						<div
-							key={tab.id}
-							className="group/tab relative min-w-0 flex-1 max-w-[164px] basis-[164px]"
-							data-tab-id={tab.id}
-						>
-							<Button
-								ref={(node) => setTabRef(tab.id, node)}
-								aria-controls={agentTabPanelId(tab.id)}
-								aria-selected={active}
-								aria-label={`${tab.label}, ${status}`}
-								className={cn(
-									"h-7 w-full min-w-0 justify-start text-start gap-1.5 rounded-[7px] border border-transparent px-2 text-label font-medium leading-none transition-colors motion-reduce:transition-none",
-									active
-										? "bg-surface-4 text-foreground shadow-none"
-										: "bg-transparent text-foreground/45 hover:bg-foreground/5 hover:text-foreground/75",
-									tab.kind === "subagent" && onClose && "pe-7",
-								)}
-								data-state={active ? "active" : "inactive"}
-								id={agentTabTriggerId(tab.id)}
-								onClick={() => onValueChange(tab.id)}
-								onKeyDown={(event) => handleKeyDown(event, tab.id)}
-								role="tab"
-								size="compact"
-								tabIndex={active ? 0 : -1}
-								type="button"
-								variant="ghost"
-							>
-								{tab.kind === "activity" ? (
-									<Activity aria-hidden="true" className="size-3.5 shrink-0" />
-								) : tab.kind === "main" ? (
-									<Bot aria-hidden="true" className="size-3.5 shrink-0" />
-								) : (
-									<span
-										aria-hidden="true"
-										className={cn("size-1.5 shrink-0 rounded-full", statusDotClass(tab.status))}
-									/>
-								)}
-								<span className="min-w-0 flex-1 truncate text-start">{tab.label}</span>
-							</Button>
-							{tab.kind === "subagent" && onClose ? (
-								<Button
-									aria-label={`Close ${tab.label} tab`}
-									className="absolute top-1/2 left-auto size-5 -translate-y-1/2 rounded-[5px] p-0 text-foreground/35 opacity-0 transition-opacity motion-reduce:transition-none hover:bg-foreground/10 hover:text-foreground/75 focus-visible:opacity-100 group-hover/tab:opacity-100 [inset-inline-start:auto] [inset-inline-end:0.25rem]"
-									onClick={(event) => {
-										event.stopPropagation();
-										onClose(tab.id);
-									}}
-									size="icon-compact"
-									title={`Close ${tab.label} tab`}
-									type="button"
-									variant="ghost"
-								>
-									<X aria-hidden="true" className="size-3" />
-								</Button>
-							) : null}
-						</div>
-					);
-				})}
-			</div>
-			{onNewSession ? (
-				<Button
-					aria-label="New chat"
-					className={cn(
-						HIT_AREA_EXPAND_DENSE_CLASS,
-						"relative z-10 size-7 shrink-0 rounded-[7px] text-foreground/50 hover:bg-foreground/7 hover:text-foreground/85",
-					)}
-					data-testid="new-chat-tab"
-					onClick={(event) => {
-						event.preventDefault();
-						event.stopPropagation();
-						onNewSession();
-					}}
-					size="icon-compact"
-					title="New chat"
-					type="button"
-					variant="ghost"
-				>
-					<Plus aria-hidden="true" className="size-3.5" />
-				</Button>
-			) : null}
-		</div>
+		<TabStrip
+			ariaLabel="Agent conversations"
+			dataTestid="agent-tab-bar"
+			idPrefix={AGENT_TAB_ID_PREFIX}
+			onClose={onClose}
+			onNewSession={onNewSession}
+			onValueChange={onValueChange}
+			tabs={items}
+			value={value}
+		/>
 	);
 }
