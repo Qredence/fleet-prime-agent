@@ -35,6 +35,8 @@ export type TabStripProps = {
 	width?: "fill" | "fit";
 	/** `compact` tightens padding and gaps. */
 	density?: "default" | "compact";
+	/** Shows icon tabs as icon-only below the 960px panel breakpoint. */
+	iconOnlyOnMobile?: boolean;
 	/** Prefix for the tab trigger and controlled panel IDs. */
 	idPrefix?: string;
 	className?: string;
@@ -56,6 +58,7 @@ export type TabStripProps = {
  * @param ariaLabel - Accessible name for the tab list
  * @param width - Fills the available width or sizes to content
  * @param density - Default or tightened spacing
+ * @param iconOnlyOnMobile - Hides icon tab labels below 960px; the name stays in `aria-label` and `title`
  * @param idPrefix - Prefix for the tab trigger and controlled panel IDs
  * @param className - Additional wrapper classes
  * @param dataTestid - Test ID for the tab list wrapper
@@ -69,6 +72,7 @@ export function TabStrip({
 	ariaLabel = "Tabs",
 	width = "fill",
 	density = "default",
+	iconOnlyOnMobile = false,
 	idPrefix,
 	className,
 	dataTestid,
@@ -106,6 +110,7 @@ export function TabStrip({
 					{tabs.map((tab) => {
 						const active = tab.id === value;
 						const Icon = tab.icon;
+						const iconOnly = iconOnlyOnMobile && Icon !== undefined;
 						const accessibleName =
 							tab.ariaLabel ?? (tab.statusLabel ? `${tab.label}, ${tab.statusLabel}` : tab.label);
 						const tabId = idPrefix ? `${idPrefix}-${encodeURIComponent(tab.id)}` : undefined;
@@ -116,6 +121,7 @@ export function TabStrip({
 								className={cn(
 									"group/tab relative",
 									fill ? "min-w-0 max-w-[164px] flex-1 basis-[164px]" : "shrink-0",
+									iconOnly && "max-[959px]:flex-none max-[959px]:basis-auto",
 								)}
 								data-tab-id={tab.id}
 							>
@@ -134,6 +140,7 @@ export function TabStrip({
 										tab.closable && onClose && "pe-7",
 									)}
 									id={tabId}
+									title={iconOnly ? accessibleName : undefined}
 									onPointerDown={() => {
 										pressStartedActive.current = active;
 									}}
@@ -159,7 +166,9 @@ export function TabStrip({
 											className={cn("size-1.5 shrink-0 rounded-full", tab.dotClassName)}
 										/>
 									) : null}
-									<span className="min-w-0 flex-1 truncate text-start">{tab.label}</span>
+									<span className={cn("min-w-0 flex-1 truncate text-start", iconOnly && "max-[959px]:hidden")}>
+										{tab.label}
+									</span>
 								</TabsTrigger>
 								{tab.closable && onClose ? (
 									<Button

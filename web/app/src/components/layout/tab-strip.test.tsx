@@ -172,4 +172,15 @@ describe("TabStrip", () => {
 
 		expect(onValueChange).toHaveBeenCalledWith("first");
 	});
+
+	it("collapses only icon tabs to icon-only below the panel breakpoint when asked", () => {
+		render(<TabStrip iconOnlyOnMobile onValueChange={vi.fn()} tabs={tabs} value="first" />);
+
+		const first = screen.getByRole("tab", { name: "First" });
+		expect(first.getAttribute("title")).toBe("First");
+		expect(screen.getByText("First").className).toContain("max-[959px]:hidden");
+		const third = screen.getByRole("tab", { name: "Third, streaming" });
+		expect(third.getAttribute("title")).toBeNull();
+		expect(screen.getByText("Third").className).not.toContain("max-[959px]:hidden");
+	});
 });
