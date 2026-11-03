@@ -4,28 +4,28 @@
   "tarball": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz",
   "sha256": "d7b72785119efc28bfbca8ec4a7f47a1fcdcf47fcd8cebdb60bffaa79e3e1274",
   "rust": {
-    "version": "0.10.1",
-    "baseUrl": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.10.1",
+    "version": "0.10.2",
+    "baseUrl": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.10.2",
     "platforms": {
       "darwin-arm64": {
-        "archive": "prime-agent-0.10.1-darwin-arm64.tar.gz",
-        "sha256": "2b47bd9cefa0b531151aaeb7295073ba0a16cf694177c18b4f9f74a54b24e279",
-        "executableSha256": "d96a650b2eb526141ac6e2e68d3d1fad694b8ba3988f0b312572e461bc167e32"
+        "archive": "prime-agent-0.10.2-darwin-arm64.tar.gz",
+        "sha256": "2f0894811f8ba047eb1874cc1d7392f45c0d6135be6090e7601983de17a6d1d7",
+        "executableSha256": "85fc476f45bc3b316152bb266b685b14a744464c057211c3334eab2da78c727a"
       },
       "darwin-x64": {
-        "archive": "prime-agent-0.10.1-darwin-x64.tar.gz",
-        "sha256": "9e2812084acead5a2c44209ffac350f762da67a27f4abcc5b417b7a6ef436632",
-        "executableSha256": "7b5d5d0770d6c0d7800ada77b74219b4505109026e1bd0de3eb4df73bb6cb4ae"
+        "archive": "prime-agent-0.10.2-darwin-x64.tar.gz",
+        "sha256": "32683ec045940093f6fea66ad234894f0361fd7c466932365c09097edf97499a",
+        "executableSha256": "6643b29e6a5bb2f8c943b7c372acab71091ab8a35f7f4ee47cc047fb877b0c92"
       },
       "linux-arm64": {
-        "archive": "prime-agent-0.10.1-linux-arm64.tar.gz",
-        "sha256": "5af68c10a088538fd4990fd18778d8c7fe28c0491083dc069c5177f733770e91",
-        "executableSha256": "2853e37410c249f337e44f91cb8a792d76ff1f0b05401f18f09515f1d22a0075"
+        "archive": "prime-agent-0.10.2-linux-arm64.tar.gz",
+        "sha256": "cd31de3a52dac3bdee44b723f10341cc5255f135acbcde8894575e324fa852b7",
+        "executableSha256": "b522a2462e0242d51083c410afc85bdeaf4924708a98a3cac6d2b9bd1994521b"
       },
       "linux-x64": {
-        "archive": "prime-agent-0.10.1-linux-x64.tar.gz",
-        "sha256": "21ec219183f4134dd23dce9572102e69456066fe374846525561c776d4d1945c",
-        "executableSha256": "1fbb506f54a8e9af1f0d123e521d13a765bce34883707c69656f06d5951b314c"
+        "archive": "prime-agent-0.10.2-linux-x64.tar.gz",
+        "sha256": "09659961dfde201cc39f1e69b607385d708da3e591f267a4fea04970afb8b005",
+        "executableSha256": "f13e3e5ebcb1aa044bd4d5f8375479dbd1ca0210ded37db0d4a360a2be103b23"
       }
     }
   }

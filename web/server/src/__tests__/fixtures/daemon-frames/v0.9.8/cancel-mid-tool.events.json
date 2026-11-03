@@ -337,7 +337,7 @@
 					"category": "kernel",
 					"toolName": "ipython",
 					"toolCallId": "call_sleep_1",
-					"state": "output-available",
+					"state": "output-error",
 					"input": {
 						"code": "import time\ntime.sleep(30)\nprint('never')"
 					},

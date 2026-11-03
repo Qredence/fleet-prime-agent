@@ -634,6 +634,121 @@ describe("event-mapper", () => {
 		expect(part.state).toBe("output-error");
 	});
 
+	it("keeps a failed tool as output-error in the done message when agent_end repeats its toolCall", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "tool_execution_start",
+			toolCallId: "failed-1",
+			toolName: "bash",
+			args: { command: "cat missing.txt" },
+		} as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "tool_execution_end",
+			toolCallId: "failed-1",
+			result: { content: [{ type: "text", text: "cat: missing.txt: No such file or directory" }] },
+			isError: true,
+		} as AgentSessionEvent);
+		const assistant = mkAssistant({
+			content: [{ type: "toolCall", id: "failed-1", name: "bash", arguments: { command: "cat missing.txt" } }],
+			stopReason: "toolUse",
+		});
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [assistant],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		const toolPart = done.message.parts.find((part) => "toolCallId" in part && part.toolCallId === "failed-1");
+
+		expect(toolPart).toMatchObject({
+			state: "output-error",
+			error: { message: "cat: missing.txt: No such file or directory" },
+		});
+	});
+
+	describe("python_repl failure reported only via details.status (v0.10.2 drops isError)", () => {
+		const traceback = "FileNotFoundError: [Errno 2] No such file or directory: 'missing.csv'";
+		const failedCell = {
+			content: [{ type: "text", text: traceback }],
+			details: { status: "error", errorEname: "FileNotFoundError" },
+		};
+
+		it("maps the live tool part and the settled done part to output-error", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			mapAgentSessionEvent(state, {
+				type: "tool_execution_start",
+				toolCallId: "py-1",
+				toolName: "python_repl",
+				args: { code: "open('missing.csv')" },
+			} as AgentSessionEvent);
+			const live = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolCallId: "py-1",
+				toolName: "python_repl",
+				result: failedCell,
+				isError: false,
+			} as AgentSessionEvent);
+			const livePart = live.find((frame) => frame.type === "tool") as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(livePart.part).toMatchObject({ state: "output-error", error: { message: traceback } });
+
+			const frames = mapAgentSessionEvent(state, {
+				type: "agent_end",
+				messages: [
+					mkAssistant({
+						content: [
+							{ type: "toolCall", id: "py-1", name: "python_repl", arguments: { code: "open('missing.csv')" } },
+						],
+						stopReason: "toolUse",
+					}),
+				],
+			} as unknown as AgentSessionEvent);
+			const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+			const donePart = done.message.parts.find((part) => "toolCallId" in part && part.toolCallId === "py-1");
+			expect(donePart).toMatchObject({ state: "output-error", error: { message: traceback } });
+		});
+
+		it("keeps a details.status ok cell as output-available", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			const live = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolCallId: "py-ok",
+				toolName: "python_repl",
+				result: { content: [{ type: "text", text: "42" }], details: { status: "ok" } },
+				isError: false,
+			} as AgentSessionEvent);
+			const livePart = live.find((frame) => frame.type === "tool") as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(livePart.part.state).toBe("output-available");
+			expect(livePart.part).not.toHaveProperty("error");
+		});
+
+		it("hydrates the persisted toolResult as output-error", () => {
+			const hydrated = toChatMessagesFromAgentMessages(
+				[
+					mkAssistant({
+						content: [
+							{ type: "toolCall", id: "py-1", name: "python_repl", arguments: { code: "open('missing.csv')" } },
+						],
+						stopReason: "toolUse",
+					}) as unknown as AgentMessage,
+					{
+						role: "toolResult",
+						toolCallId: "py-1",
+						toolName: "python_repl",
+						...failedCell,
+						isError: false,
+					} as unknown as AgentMessage,
+				],
+				"s",
+			);
+			const part = hydrated
+				.flatMap((message) => message.parts)
+				.find((candidate) => "toolCallId" in candidate && candidate.toolCallId === "py-1");
+			expect(part).toMatchObject({ state: "output-error", error: { message: traceback } });
+		});
+	});
+
 	it("appends an end-without-start and carries terminal parts into done", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
