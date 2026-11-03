@@ -323,3 +323,27 @@ describe("normalizeToolPart", () => {
 		expect(markup).toBe("");
 	});
 });
+
+describe("aborted tools", () => {
+	it("labels a tool the daemon aborted as cancelled, not failed", () => {
+		const normalized = normalizeToolPart({
+			type: "tool-Bash",
+			toolCallId: "call-1",
+			state: "output-error",
+			input: { command: "sleep 60" },
+			error: { code: "unknown", message: "Request was aborted" },
+		});
+		expect(normalized?.status).toBe("cancelled");
+	});
+
+	it("keeps real tool errors as failures", () => {
+		const normalized = normalizeToolPart({
+			type: "tool-Bash",
+			toolCallId: "call-2",
+			state: "output-error",
+			input: { command: "false" },
+			error: { code: "unknown", message: "exit code 1" },
+		});
+		expect(normalized?.status).toBe("error");
+	});
+});

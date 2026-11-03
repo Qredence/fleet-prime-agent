@@ -411,7 +411,8 @@ describe("SessionSidebar draft sessions", () => {
 			</AnimatedSidebarProvider>,
 		);
 
-		expect(getByRole("treeitem", { name: /draft-ch/i })).toBeTruthy();
+		expect(getByRole("treeitem", { name: /New chat/i })).toBeTruthy();
+		expect(queryByRole("treeitem", { name: /draft-ch/i })).toBeNull();
 		expect(queryByRole("treeitem", { name: /\(no messages\)/i })).toBeNull();
 	});
 
