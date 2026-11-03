@@ -7,7 +7,7 @@ import { PayloadPart } from "@/components/chat/transcript/payload-part";
 import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import type { CustomToolRendererProps } from "@/components/chat/types";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
-import { toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
+import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
 import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 import {
 	Trace,
@@ -311,7 +311,7 @@ export function buildAssistantElements(
 						<button
 							type="button"
 							className="shrink-0 text-micro underline"
-							aria-label={`Open ${toolPartDisplayName(artifact.title)} in ${artifact.kind === "ipython" ? "REPL" : "artifacts"}`}
+							aria-label={`Open ${artifactDisplayTitle(artifact.title)} in ${artifact.kind === "ipython" ? "REPL" : "artifacts"}`}
 							onClick={() => onOpenToolArtifact(artifact.id, artifact.kind === "ipython" ? "repl" : "artifacts")}
 						>
 							Open

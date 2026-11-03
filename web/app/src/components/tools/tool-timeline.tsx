@@ -5,7 +5,7 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import type { ToolPartBase } from "@/components/chat/transcript/chat-message-parts";
-import { toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
+import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
 import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 import {
 	Trace,
@@ -197,7 +197,7 @@ function TimelineStepRow({
 	const artifactId = step.artifactId;
 	const openLabel =
 		artifactId && step.artifactTitle
-			? `Open ${toolPartDisplayName(step.artifactTitle)} in ${step.artifactTarget === "repl" ? "REPL" : "artifacts"}`
+			? `Open ${artifactDisplayTitle(step.artifactTitle)} in ${step.artifactTarget === "repl" ? "REPL" : "artifacts"}`
 			: undefined;
 	const detailLabel = `Details for ${step.target}${step.id ? ` (${step.id})` : ""}`;
 	const statusLabel = step.reportedError
