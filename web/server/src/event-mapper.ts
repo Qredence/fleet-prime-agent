@@ -52,6 +52,7 @@ import {
 	isAssistantMessage,
 	isChatToolPart,
 	isRecord,
+	isToolResultError,
 	isUserMessage,
 	makeToolType,
 	textFromAssistantMessage,
@@ -690,7 +691,10 @@ function rememberAssistantMessage(state: EventMapperState, message: AssistantMes
 	}
 	appendFinalAssistantText(state, textFromAssistantMessage(message));
 	for (const part of chatMessage.parts) {
-		if (isChatToolPart(part)) upsertCurrentToolPart(state, part);
+		if (!isChatToolPart(part)) continue;
+		// A toolCall block carries no result; keep a failure tool_execution_end already recorded.
+		const settled = state.currentToolParts.find((existing) => existing.toolCallId === part.toolCallId);
+		upsertCurrentToolPart(state, settled?.state === "output-error" ? { ...part, state: "output-error" } : part);
 	}
 	state.currentAssistantImages = chatMessage.parts.filter((part): part is ChatImagePart => part.type === "image");
 	state.currentAssistantErrors = chatMessage.parts.filter((part): part is ChatErrorPart => part.type === "error");
@@ -859,7 +863,8 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			const cachedInput = state.toolCallStarts.get(event.toolCallId)?.args;
 			state.toolCallStarts.delete(event.toolCallId);
 			state.toolNamesByCallId.delete(event.toolCallId);
-			const errorText = event.isError ? extractToolErrorText(event.result) : undefined;
+			const isError = isToolResultError(event.isError, event.result);
+			const errorText = isError ? extractToolErrorText(event.result) : undefined;
 			const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
 			const durationMs =
 				typeof (event.result as { durationMs?: number })?.durationMs === "number"
@@ -872,7 +877,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			const part = upsertCurrentToolPart(state, {
 				...identity,
 				toolCallId: event.toolCallId,
-				state: event.isError ? "output-error" : "output-available",
+				state: isError ? "output-error" : "output-available",
 				...(cachedInput !== undefined ? { input: cachedInput } : {}),
 				output: event.result,
 				result: event.result,

@@ -1,0 +1,19 @@
+{
+ "responses": [
+  {
+   "text": "Reading the missing file.",
+   "toolCalls": [
+    {
+     "toolCallId": "call-bash-err-1",
+     "toolName": "bash",
+     "args": {
+      "command": "cat missing.txt"
+     },
+     "result": "cat: missing.txt: No such file or directory",
+     "isError": true,
+     "delayMs": 300
+    }
+   ]
+  }
+ ]
+}

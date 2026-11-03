@@ -27,7 +27,7 @@ import {
 } from "./daemon-frame-replay";
 
 /** Sets whose mapper output is pinned. */
-const PINNED_SETS = ["v0.9.8", "rust-v0.10.1"] as const;
+const PINNED_SETS = ["v0.9.8", "rust-v0.10.1", "rust-v0.10.2"] as const;
 
 /**
  * Scenarios that legitimately map to no ChatStreamEvent: a lone hello, and the
@@ -37,6 +37,7 @@ const PINNED_SETS = ["v0.9.8", "rust-v0.10.1"] as const;
 const EXPECTED_EMPTY_OUTPUT: Readonly<Record<(typeof PINNED_SETS)[number], ReadonlySet<string>>> = {
 	"v0.9.8": new Set(),
 	"rust-v0.10.1": new Set(["daemon-hello", "model-catalog-changed", "session-binding"]),
+	"rust-v0.10.2": new Set(),
 };
 
 const V098_SCENARIOS = [
