@@ -77,3 +77,56 @@ describe(`daemon-frames/${SET}/tool-execution-error`, () => {
 		expect(toolParts(events).at(-1)?.state).toBe("output-error");
 	});
 });
+
+/**
+ * Live v0.10.2 capture of a `python_repl` cell that raises FileNotFoundError. The daemon sends
+ * `isError:false` (its tool bridge drops the tool's own flag) and reports the failure only as
+ * `result.details.status: "error"`; Fleet must still show the live part and the settled done
+ * part as `output-error`.
+ */
+describe(`daemon-frames/${SET}/python-cell-raises`, () => {
+	const scenario = readDaemonFrameScenario(SET, "python-cell-raises");
+	const end = scenario.frames
+		.map(
+			(frame) =>
+				frame.event as
+					| {
+							type?: unknown;
+							toolCallId?: unknown;
+							isError?: unknown;
+							result?: { details?: { status?: unknown; errorEname?: unknown } };
+					  }
+					| undefined,
+		)
+		.find((event) => event?.type === "tool_execution_end");
+	const callId = end?.toolCallId as string;
+
+	it("the daemon reports the raised cell only through details.status", () => {
+		expect(end?.isError).toBe(false);
+		expect(end?.result?.details?.status).toBe("error");
+		expect(end?.result?.details?.errorEname).toBe("FileNotFoundError");
+	});
+
+	it("maps the live tool part and the settled done part to output-error", async () => {
+		const { events } = await replayDaemonFrameScenario(scenario);
+		const start = scenario.frames
+			.map((frame) => frame.event as { type?: unknown; toolCallId?: unknown; toolName?: unknown } | undefined)
+			.find((event) => event?.type === "tool_execution_start" && event.toolCallId === callId);
+		expect(start?.toolName).toBe("python_repl");
+		const live = events.flatMap((event) =>
+			event.type === "tool" && event.part.toolCallId === callId ? [event.part] : [],
+		);
+		expect(live.at(-1)?.state).toBe("output-error");
+		expect(live.at(-1)?.error).toMatchObject({ message: expect.stringContaining("FileNotFoundError") });
+
+		const done = [...events].reverse().find((event) => event.type === "done");
+		const part =
+			done?.type === "done"
+				? (done.message.parts.find((entry) => "toolCallId" in entry && entry.toolCallId === callId) as
+						| ChatToolPart
+						| undefined)
+				: undefined;
+		expect(part?.state).toBe("output-error");
+		expect(part?.error).toMatchObject({ message: expect.stringContaining("FileNotFoundError") });
+	});
+});
