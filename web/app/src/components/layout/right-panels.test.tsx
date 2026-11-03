@@ -198,7 +198,7 @@ describe("right-panel execution tabs", () => {
 		expect(queryByTestId("pi-resources-canvas")).toBeNull();
 	});
 
-	it("exposes the four top-level panel groups and opens their default views", () => {
+	it("exposes the three top-level panel groups and opens their default views", () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(500, 400);
 		const { getByTestId, rerender } = render(
@@ -214,8 +214,8 @@ describe("right-panel execution tabs", () => {
 		layout(getByTestId("right-panel-inline-launcher"));
 
 		expect(getByTestId("right-panel-inline-launcher").getAttribute("data-panel-launcher-mode")).toBe("tabs");
-		expect(screen.getAllByRole("tab")).toHaveLength(4);
-		expect(screen.getByRole("tab", { name: "REPL" })).toBeTruthy();
+		expect(screen.getAllByRole("tab")).toHaveLength(3);
+		expect(screen.queryByRole("tab", { name: "REPL" })).toBeNull();
 		expect(screen.getByRole("tab", { name: "Subagents" })).toBeTruthy();
 		expect(screen.getByRole("tab", { name: "Workspace" }).textContent).toContain("3");
 		fireEvent.click(screen.getByRole("tab", { name: "Session" }));
@@ -243,7 +243,7 @@ describe("right-panel execution tabs", () => {
 		expect(onPanelChange).toHaveBeenCalledWith("session-insights");
 	});
 
-	it("exposes the four panel groups in the overflow-mode dropdown", async () => {
+	it("exposes the three panel groups in the overflow-mode dropdown", async () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(120, 400);
 		const { getByRole, getByTestId, rerender } = render(
@@ -257,13 +257,8 @@ describe("right-panel execution tabs", () => {
 		const select = getByRole("combobox", { name: "Select panel" });
 		fireEvent.click(select);
 		const options = await screen.findAllByRole("option");
-		expect(options).toHaveLength(4);
-		expect(options.map((option) => option.textContent?.trim())).toEqual([
-			"Workspace",
-			"Subagents",
-			"Session",
-			"REPL",
-		]);
+		expect(options).toHaveLength(3);
+		expect(options.map((option) => option.textContent?.trim())).toEqual(["Workspace", "Subagents", "Session"]);
 
 		rerender(
 			<RightPanelLauncher activePanel="subagents" onPanelChange={onPanelChange} resources={null} workspace={null} />,
