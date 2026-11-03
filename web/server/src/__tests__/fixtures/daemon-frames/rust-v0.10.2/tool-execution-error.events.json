@@ -214,7 +214,7 @@
 					"category": "system",
 					"toolName": "bash",
 					"toolCallId": "call-bash-err-1",
-					"state": "output-available",
+					"state": "output-error",
 					"input": {
 						"command": "cat missing.txt"
 					},

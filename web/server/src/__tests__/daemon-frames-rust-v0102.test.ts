@@ -50,6 +50,19 @@ describe(`daemon-frames/${SET}/tool-execution-error`, () => {
 		expect(last?.error).toMatchObject({ message: "cat: missing.txt: No such file or directory" });
 	});
 
+	it("the settled done message keeps the failed tool as output-error", async () => {
+		const { events } = await replayDaemonFrameScenario(scenario);
+		const done = [...events].reverse().find((event) => event.type === "done");
+		const part =
+			done?.type === "done"
+				? done.message.parts.find((entry) => "toolCallId" in entry && entry.toolCallId === CALL_ID)
+				: undefined;
+		expect((part as ChatToolPart | undefined)?.state).toBe("output-error");
+		expect((part as ChatToolPart | undefined)?.error).toMatchObject({
+			message: "cat: missing.txt: No such file or directory",
+		});
+	});
+
 	it("FleetDaemonAgentConnection maps the same events", async () => {
 		const attach = scenario.frames.find(
 			(frame) => frame.type === "response" && frame.command === "attach" && frame.success === true,

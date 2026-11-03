@@ -690,7 +690,10 @@ function rememberAssistantMessage(state: EventMapperState, message: AssistantMes
 	}
 	appendFinalAssistantText(state, textFromAssistantMessage(message));
 	for (const part of chatMessage.parts) {
-		if (isChatToolPart(part)) upsertCurrentToolPart(state, part);
+		if (!isChatToolPart(part)) continue;
+		// A toolCall block carries no result; keep a failure tool_execution_end already recorded.
+		const settled = state.currentToolParts.find((existing) => existing.toolCallId === part.toolCallId);
+		upsertCurrentToolPart(state, settled?.state === "output-error" ? { ...part, state: "output-error" } : part);
 	}
 	state.currentAssistantImages = chatMessage.parts.filter((part): part is ChatImagePart => part.type === "image");
 	state.currentAssistantErrors = chatMessage.parts.filter((part): part is ChatErrorPart => part.type === "error");

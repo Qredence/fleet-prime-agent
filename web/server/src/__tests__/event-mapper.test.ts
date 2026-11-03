@@ -634,6 +634,38 @@ describe("event-mapper", () => {
 		expect(part.state).toBe("output-error");
 	});
 
+	it("keeps a failed tool as output-error in the done message when agent_end repeats its toolCall", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "tool_execution_start",
+			toolCallId: "failed-1",
+			toolName: "bash",
+			args: { command: "cat missing.txt" },
+		} as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "tool_execution_end",
+			toolCallId: "failed-1",
+			result: { content: [{ type: "text", text: "cat: missing.txt: No such file or directory" }] },
+			isError: true,
+		} as AgentSessionEvent);
+		const assistant = mkAssistant({
+			content: [{ type: "toolCall", id: "failed-1", name: "bash", arguments: { command: "cat missing.txt" } }],
+			stopReason: "toolUse",
+		});
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [assistant],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		const toolPart = done.message.parts.find((part) => "toolCallId" in part && part.toolCallId === "failed-1");
+
+		expect(toolPart).toMatchObject({
+			state: "output-error",
+			error: { message: "cat: missing.txt: No such file or directory" },
+		});
+	});
+
 	it("appends an end-without-start and carries terminal parts into done", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
