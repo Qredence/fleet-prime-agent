@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Plus, X } from "lucide-react";
+import { useRef } from "react";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -74,6 +75,10 @@ export function TabStrip({
 }: TabStripProps) {
 	const compact = density === "compact";
 	const fill = width === "fill";
+	// With `activateOnFocus`, pointerdown focuses and selects the tab before the
+	// click lands, so `active` is already true by then. Remember whether the tab
+	// was active when the press started; keyboard presses have no pointerdown.
+	const pressStartedActive = useRef<boolean | null>(null);
 
 	return (
 		<div
@@ -129,10 +134,15 @@ export function TabStrip({
 										tab.closable && onClose && "pe-7",
 									)}
 									id={tabId}
+									onPointerDown={() => {
+										pressStartedActive.current = active;
+									}}
 									onClick={() => {
 										// Base UI ignores a press on the active tab. Re-fire so callers
 										// that toggle on re-select keep working.
-										if (active) onValueChange(tab.id);
+										const wasActive = pressStartedActive.current ?? active;
+										pressStartedActive.current = null;
+										if (wasActive) onValueChange(tab.id);
 									}}
 									value={tab.id}
 								>

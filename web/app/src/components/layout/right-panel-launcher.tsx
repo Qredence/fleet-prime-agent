@@ -24,7 +24,7 @@ export function RightPanelLauncherFromContext({ compact = false }: { compact?: b
 
 	return (
 		<>
-			<div className="min-[960px]:hidden">
+			<div className="flex min-w-0 justify-end min-[960px]:hidden">
 				<RightPanelTabsFromContext compact={compact} idPrefix="right-panel-mobile" />
 			</div>
 			<div className="hidden min-[960px]:block">

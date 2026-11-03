@@ -148,4 +148,28 @@ describe("TabStrip", () => {
 		expect(fitted?.className).toContain("shrink-0");
 		expect(fitted?.className).not.toContain("flex-1");
 	});
+	it("does not re-fire when a press selected the tab before its click", () => {
+		const onValueChange = vi.fn();
+		const { rerender } = render(<TabStrip onValueChange={onValueChange} tabs={tabs} value="first" />);
+		const second = screen.getByRole("tab", { name: "Second" });
+
+		fireEvent.pointerDown(second);
+		// activateOnFocus selects the tab on focus, before the click lands.
+		rerender(<TabStrip onValueChange={onValueChange} tabs={tabs} value="second" />);
+		onValueChange.mockClear();
+		fireEvent.click(screen.getByRole("tab", { name: "Second" }));
+
+		expect(onValueChange).not.toHaveBeenCalled();
+	});
+
+	it("re-fires when the press started on the active tab", () => {
+		const onValueChange = vi.fn();
+		render(<TabStrip onValueChange={onValueChange} tabs={tabs} value="first" />);
+		const first = screen.getByRole("tab", { name: "First" });
+
+		fireEvent.pointerDown(first);
+		fireEvent.click(first);
+
+		expect(onValueChange).toHaveBeenCalledWith("first");
+	});
 });

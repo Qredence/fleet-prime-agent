@@ -44,8 +44,10 @@ describe("session sidebar action dialogs", () => {
 
 describe("sessionLabel", () => {
 	it("shows a placeholder instead of the raw session-id prefix", () => {
-		expect(sessionLabel({ sessionId: "abcdef1234567890" })).toBe(UNTITLED_SESSION_LABEL);
-		expect(sessionLabel({ sessionId: "abcdef1234567890", title: "abcdef12" })).toBe(UNTITLED_SESSION_LABEL);
-		expect(sessionLabel({ sessionId: "abcdef1234567890", title: "Real title" })).toBe("Real title");
+		expect(sessionLabel({ sessionId: "abcdef1234567890", title: "", firstMessage: "" })).toBe(UNTITLED_SESSION_LABEL);
+		expect(sessionLabel({ sessionId: "abcdef1234567890", title: "abcdef12", firstMessage: "" })).toBe(
+			UNTITLED_SESSION_LABEL,
+		);
+		expect(sessionLabel({ sessionId: "abcdef1234567890", title: "Real title", firstMessage: "" })).toBe("Real title");
 	});
 });
