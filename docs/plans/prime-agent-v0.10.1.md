@@ -74,7 +74,7 @@ without changing the product's look.
 
 ### Remaining Rust-only migration
 
-Status as of 2026-11-03 (main at `097d7401e`).
+Status as of 2026-11-03, after the R4 docs (#321) merged.
 
 - **Done: production runs only the Rust daemon.** `isCompatibleDaemonHello` accepts a daemon
   only when it reports `prime-agent.daemon` protocol 7, schema revision 30, and the Rust
@@ -87,7 +87,9 @@ Status as of 2026-11-03 (main at `097d7401e`).
   `FleetDaemonAgentConnection` (`web/server/src/fleet-daemon-connection.ts:214`), built on
   Fleet's protocol-7 socket client (`daemon-socket-client.ts`). Fleet owns attach, chunked
   snapshots, cursor dedupe, reconnect and resync, and the session commands. Create and resume
-  both attach this way (`daemon-runtime.ts:415,908`). The SDK's `DaemonClient` and
+  both go through `openDaemonConnection`, which creates the daemon session (passing `sessionPath`
+  on resume) and attaches it (`daemon-runtime.ts:361-368,405-418`); child prompts attach the
+  same way through `openDaemonChildConnection` (`daemon-runtime.ts:896-908`). The SDK's `DaemonClient` and
   `DaemonAgentConnection` are no longer on the production path. They survive only in the
   contract-replay harness, which `fleet-adapter-contract.test.ts` checks against the Fleet
   adapter so both produce the same `ChatStreamEvent` output.
