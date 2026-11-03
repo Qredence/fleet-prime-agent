@@ -90,6 +90,29 @@ describe("applyChatStreamEvent", () => {
 		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toHaveLength(3);
 		expect(assistantTextFromMessage(assistantMessages(t)[0])).toBe("Answer");
 	});
+	it("starting a completed content index opens a new reasoning episode", () => {
+		const id = "run-reasoning-restart";
+		let t = applyChatStreamEvent(baseTransition(), start(id));
+		for (const event of [
+			{ type: "reasoning_text", phase: "start", contentIndex: 0, text: "", messageId: id },
+			{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "First thought", messageId: id },
+			{
+				type: "reasoning_text",
+				phase: "end",
+				contentIndex: 0,
+				text: "First thought",
+				messageId: id,
+				durationMs: 1200,
+			},
+			{ type: "reasoning_text", phase: "start", contentIndex: 0, text: "", messageId: id },
+			{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "Second thought", messageId: id },
+		] as const)
+			t = applyChatStreamEvent(t, event);
+		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toMatchObject([
+			{ contentIndex: 0, text: "First thought", state: "complete" },
+			{ contentIndex: 0, text: "Second thought", state: "streaming" },
+		]);
+	});
 	it("single turn appends exactly one assistant message and nulls assistantId on done", () => {
 		const id = "run-1-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id));

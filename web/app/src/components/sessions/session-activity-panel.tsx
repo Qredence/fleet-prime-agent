@@ -60,7 +60,10 @@ function TurnReasoningSummary({ parts, streaming }: { parts: Array<ChatReasoning
 		(total, part) => total + (typeof part.durationMs === "number" ? part.durationMs : 0),
 		0,
 	);
-	const previews = parts.map((part) => reasoningPreview(part.text)).filter(Boolean);
+	const previews = parts.flatMap((part, index) => {
+		const preview = reasoningPreview(part.text);
+		return preview ? [{ episode: index + 1, preview }] : [];
+	});
 
 	return (
 		<Trace data-testid="reasoning-summary">
@@ -83,9 +86,9 @@ function TurnReasoningSummary({ parts, streaming }: { parts: Array<ChatReasoning
 					</p>
 					{previews.length > 0 ? (
 						<ol className="flex max-h-40 flex-col gap-1.5 overflow-y-auto overscroll-contain">
-							{previews.map((preview, index) => (
-								<li className="text-xs text-foreground/80" key={`reasoning-preview-${index}`}>
-									<span className="font-medium text-muted-foreground">{index + 1}. </span>
+							{previews.map(({ episode, preview }) => (
+								<li className="text-xs text-foreground/80" key={`reasoning-preview-${episode}`}>
+									<span className="font-medium text-muted-foreground">{episode}. </span>
 									{preview}
 								</li>
 							))}

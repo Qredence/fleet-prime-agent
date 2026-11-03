@@ -344,13 +344,56 @@ describe("event-mapper", () => {
 		expect(endFrames).toContainEqual(
 			expect.objectContaining({ type: "reasoning_text", phase: "end", contentIndex: 1, text: "second message" }),
 		);
-		const frames = mapAgentSessionEvent(state, { type: "agent_end", messages: [] } as unknown as AgentSessionEvent);
+		const terminal = mkAssistant({
+			content: [
+				{ type: "thinking", thinking: "second message" },
+				{ type: "text", text: "Answer" },
+			] as AssistantMessage["content"],
+		});
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: terminal,
+			assistantMessageEvent: { type: "done", message: terminal },
+		} as unknown as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [terminal],
+		} as unknown as AgentSessionEvent);
 		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts.filter((part) => part.type === "reasoning")).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ type: "reasoning", contentIndex: 0, text: "first message", state: "complete" }),
-				expect.objectContaining({ type: "reasoning", contentIndex: 1, text: "second message", state: "complete" }),
-			]),
+		expect(done.message.parts.filter((part) => part.type === "reasoning")).toEqual([
+			expect.objectContaining({ type: "reasoning", contentIndex: 0, text: "first message", state: "complete" }),
+			expect.objectContaining({ type: "reasoning", contentIndex: 1, text: "second message", state: "complete" }),
+		]);
+	});
+
+	it("ends the previous Thought when thinking_start repeats without thinking_end", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_start", contentIndex: 0 },
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_delta", contentIndex: 0, delta: "First open episode" },
+		} as unknown as AgentSessionEvent);
+		const replaced = mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_start", contentIndex: 0 },
+		} as unknown as AgentSessionEvent);
+		expect(replaced).toContainEqual(
+			expect.objectContaining({
+				type: "reasoning_text",
+				phase: "end",
+				contentIndex: 0,
+				text: "First open episode",
+			}),
+		);
+		expect(replaced).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
 		);
 	});
 

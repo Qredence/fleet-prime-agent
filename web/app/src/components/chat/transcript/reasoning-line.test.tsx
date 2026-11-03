@@ -13,6 +13,13 @@ describe("splitReasoningSegments", () => {
 			{ text: "Second paragraph.", streaming: true },
 		]);
 	});
+
+	it("splits on whitespace-only blank lines and CRLF while keeping leading indentation", () => {
+		expect(splitReasoningSegments("First\r\n  \r\n\tindented\n", true)).toEqual([
+			{ text: "First", streaming: false },
+			{ text: "\tindented", streaming: true },
+		]);
+	});
 });
 
 describe("ReasoningLine", () => {

@@ -851,6 +851,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [];
 		}
 		case "tool_execution_start": {
+			const closed = closeActiveReasoningEpisodes(state);
 			const startToolName = typeof event.toolName === "string" ? event.toolName : undefined;
 			if (startToolName) state.toolCallStarts.set(event.toolCallId, { toolName: startToolName, args: event.args });
 			const eventToolName = toolNameForEvent(state, event.toolCallId, startToolName);
@@ -861,7 +862,11 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 				state: "input-streaming",
 				input: event.args,
 			});
-			return [reasoningFrame(state, "executing", true), { type: "tool", part, messageId: state.currentMessageId }];
+			return [
+				...closed,
+				reasoningFrame(state, "executing", true),
+				{ type: "tool", part, messageId: state.currentMessageId },
+			];
 		}
 		case "tool_execution_update": {
 			const frame = event as { toolName?: unknown; args?: unknown };
@@ -977,11 +982,13 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			return [];
 		}
 		case "text_delta": {
+			const closed = closeActiveReasoningEpisodes(state);
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
 			state.currentText += event.delta;
 			return [
+				...closed,
 				reasoningFrame(state, "responding", true),
 				{
 					type: "delta",
@@ -1033,18 +1040,28 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
+			const frames: ChatStreamEvent[] = [];
+			const previous = state.activeReasoningByRuntimeIndex.get(runtimeIndex);
+			if (previous !== undefined) {
+				frames.push({
+					type: "reasoning_text",
+					phase: "end",
+					contentIndex: previous,
+					text: state.reasoningTextByContentIndex.get(previous) ?? "",
+					messageId: state.currentMessageId,
+				});
+				state.activeReasoningByRuntimeIndex.delete(runtimeIndex);
+			}
 			const contentIndex = beginReasoningEpisode(state, runtimeIndex);
 			state.reasoningTextByContentIndex.set(contentIndex, "");
-			return [
-				reasoningFrame(state, "planning", true),
-				{
-					type: "reasoning_text",
-					phase: "start",
-					contentIndex,
-					text: "",
-					messageId: state.currentMessageId,
-				},
-			];
+			frames.push(reasoningFrame(state, "planning", true), {
+				type: "reasoning_text",
+				phase: "start",
+				contentIndex,
+				text: "",
+				messageId: state.currentMessageId,
+			});
+			return frames;
 		}
 		case "thinking_end": {
 			const runtimeIndex = reasoningContentIndex(state, event);
@@ -1344,9 +1361,31 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 					parts.push({ type: "text", text: state.currentText || value.text });
 				}
 			} else if (value.type === "thinking") {
-				const fleetIndex = state.reasoningFleetIndexByRuntime.get(contentIndex) ?? contentIndex;
-				const text = state.reasoningTextByContentIndex.get(fleetIndex) ?? value.thinking;
-				if (typeof text === "string") {
+				let fleetIndex = state.reasoningFleetIndexByRuntime.get(contentIndex);
+				if (fleetIndex === undefined) {
+					fleetIndex = contentIndex;
+					if (state.claimedReasoningIndexes.has(fleetIndex)) {
+						fleetIndex = Math.max(state.reasoningEpisodeSeq, contentIndex + 1);
+						while (state.claimedReasoningIndexes.has(fleetIndex)) fleetIndex++;
+					}
+					state.claimedReasoningIndexes.add(fleetIndex);
+					state.reasoningEpisodeSeq = Math.max(state.reasoningEpisodeSeq, fleetIndex + 1);
+					state.reasoningFleetIndexByRuntime.set(contentIndex, fleetIndex);
+				}
+				for (const [pendingIndex, pendingText] of [...state.reasoningTextByContentIndex].sort(
+					([left], [right]) => left - right,
+				)) {
+					if (pendingIndex >= fleetIndex) break;
+					if (!parts.some((part) => part.type === "reasoning" && part.contentIndex === pendingIndex)) {
+						parts.push({ type: "reasoning", contentIndex: pendingIndex, text: pendingText, state: "complete" });
+					}
+				}
+				const streamed = state.reasoningTextByContentIndex.get(fleetIndex);
+				const text = streamed ?? (typeof value.thinking === "string" ? value.thinking : undefined);
+				if (
+					typeof text === "string" &&
+					!parts.some((part) => part.type === "reasoning" && part.contentIndex === fleetIndex)
+				) {
 					parts.push({ type: "reasoning", contentIndex: fleetIndex, text, state: "complete" });
 				}
 			} else if (value.type === "toolCall" && value.id) {

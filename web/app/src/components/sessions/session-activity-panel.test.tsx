@@ -150,6 +150,7 @@ describe("SessionActivityPanel", () => {
 		fireEvent.click(screen.getByRole("button", { name: /Thought/ }));
 		expect(screen.getByText(/12 reasoning steps in this turn/)).toBeTruthy();
 		expect(screen.getByText("Step 1: inspect module 1")).toBeTruthy();
+		expect(screen.getByText("Step 6: inspect module 6")).toBeTruthy();
 		expect(screen.getByText("Step 12: inspect module 12")).toBeTruthy();
 	});
 

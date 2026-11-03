@@ -38,13 +38,7 @@ export function toolActionIconForName(name: string): LucideIcon {
 		return FilePenLine;
 	if (lower.includes("read") || lower.includes("file")) return FileSearch;
 	if (lower.includes("search") || lower.includes("grep") || lower.includes("glob")) return Search;
-	if (
-		lower.includes("bash") ||
-		lower.includes("shell") ||
-		lower.includes("python") ||
-		lower.includes("ipython") ||
-		lower.includes("cpython")
-	)
+	if (lower.includes("bash") || lower.includes("shell") || lower.includes("python") || lower.includes("ipython"))
 		return Terminal;
 	return Wrench;
 }

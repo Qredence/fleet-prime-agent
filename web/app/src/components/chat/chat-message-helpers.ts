@@ -135,8 +135,17 @@ export function applyAssistantReasoningText(
 			if (candidate.state === "streaming") streamingIndex = i;
 		}
 		if (streamingIndex >= 0) index = streamingIndex;
+		else if (event.phase === "delta") index = -1;
 		const existing = index < 0 ? undefined : message.parts[index];
 		const openNewEpisode = event.phase === "start" && existing?.type === "reasoning" && existing.state === "complete";
+		if (
+			event.phase === "end" &&
+			existing?.type === "reasoning" &&
+			existing.state === "complete" &&
+			streamingIndex < 0
+		) {
+			return message;
+		}
 		const previousText = !openNewEpisode && existing?.type === "reasoning" ? existing.text : "";
 		const part = {
 			type: "reasoning" as const,

@@ -277,7 +277,9 @@ export function SubagentTranscriptView({
 					<div
 						className={cn(
 							"flex min-h-0 flex-1 flex-col bg-background",
-							fullWidth ? "rounded-none border-x-0 border-b-0 border-t border-border/60" : "min-h-48",
+							fullWidth
+								? "rounded-none border-x-0 border-b-0 border-t border-border/60"
+								: "rounded-md border border-border/60",
 						)}
 					>
 						<MessageScroller

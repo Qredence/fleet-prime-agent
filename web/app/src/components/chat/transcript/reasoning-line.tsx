@@ -13,14 +13,13 @@ import {
 
 /** Blank-line paragraphs → discrete Thought rows; last stays streaming when open. */
 export function splitReasoningSegments(text: string, streaming: boolean): Array<{ text: string; streaming: boolean }> {
-	const normalized = text.replace(/^\n+/, "").replace(/\n+$/, "");
+	const normalized = text.replace(/^(?:\r?\n)+/, "").trimEnd();
 	if (!normalized.trim()) return [];
 	const segments = normalized
-		.split(/\n{2,}/)
-		.map((segment) => segment.trim())
+		.split(/\r?\n(?:[ \t]*\r?\n)+/)
+		.map((segment) => segment.replace(/\s+$/u, ""))
 		.filter(Boolean);
 	if (segments.length === 0) return [];
-	if (segments.length === 1) return [{ text: segments[0]!, streaming }];
 	return segments.map((segment, index) => ({
 		text: segment,
 		streaming: streaming && index === segments.length - 1,
@@ -66,9 +65,6 @@ export function ReasoningLine({
 	const segments = splitReasoningSegments(text, streaming);
 	if (segments.length === 0) {
 		return <ReasoningSegment text="" streaming={streaming} durationMs={durationMs} />;
-	}
-	if (segments.length === 1) {
-		return <ReasoningSegment text={segments[0]!.text} streaming={segments[0]!.streaming} durationMs={durationMs} />;
 	}
 	return (
 		<div className="flex w-full min-w-0 flex-col gap-2">
