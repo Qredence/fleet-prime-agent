@@ -13,6 +13,13 @@ import {
 	Wrench,
 } from "lucide-react";
 
+/** Presentation label for a tool part type or artifact title (`tool-IPython` → `CPython`). */
+export function toolPartDisplayName(partType: string): string {
+	const raw = partType.replace(/^tool-/, "");
+	if (raw.toLowerCase() === "ipython") return "CPython";
+	return raw;
+}
+
 /** Selects a compact, contextual icon for a tool or activity name. */
 export function toolActionIconForName(name: string): LucideIcon {
 	const lower = name.toLowerCase();
@@ -26,7 +33,13 @@ export function toolActionIconForName(name: string): LucideIcon {
 		return FilePenLine;
 	if (lower.includes("read") || lower.includes("file")) return FileSearch;
 	if (lower.includes("search") || lower.includes("grep") || lower.includes("glob")) return Search;
-	if (lower.includes("bash") || lower.includes("shell") || lower.includes("python") || lower.includes("ipython"))
+	if (
+		lower.includes("bash") ||
+		lower.includes("shell") ||
+		lower.includes("python") ||
+		lower.includes("ipython") ||
+		lower.includes("cpython")
+	)
 		return Terminal;
 	return Wrench;
 }

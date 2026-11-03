@@ -38,6 +38,26 @@ describe("derivePrimeAgentArtifactRuns", () => {
 		expect(artifactStatus("interrupted", "ready")).toBe("cancelled");
 	});
 
+	it("titles kernel tool artifacts as CPython", () => {
+		const messages: Array<ChatMessage> = [
+			{
+				id: "assistant-python",
+				role: "assistant",
+				parts: [
+					{
+						type: "tool-IPython",
+						toolCallId: "py-1",
+						state: "output-available",
+						input: { code: "1 + 1" },
+						output: { result: "2" },
+					},
+				],
+			},
+		];
+		const artifact = derivePrimeAgentArtifactRuns(messages, undefined, "ready")[0]?.artifacts[0];
+		expect(artifact).toMatchObject({ kind: "ipython", title: "CPython" });
+	});
+
 	it("normalizes canonical Prime Edit and Write payloads", () => {
 		const messages: Array<ChatMessage> = [
 			{

@@ -141,6 +141,8 @@ describe("TabStrip", () => {
 		);
 		const filled = screen.getByTestId("strip").querySelector('[data-tab-id="second"]');
 		expect(filled?.className).toContain("flex-1");
+		expect(filled?.className).toContain("max-w-[220px]");
+		expect(filled?.className).toContain("basis-auto");
 		unmount();
 
 		render(<TabStrip dataTestid="strip" onValueChange={vi.fn()} tabs={tabs} value="first" width="fit" />);

@@ -126,6 +126,13 @@ export interface EventMapperState {
 	currentMessageId: string | undefined;
 	currentText: string;
 	reasoningTextByContentIndex: Map<number, string>;
+	/** Run-unique Fleet indexes already used for reasoning parts. */
+	claimedReasoningIndexes: Set<number>;
+	reasoningEpisodeSeq: number;
+	/** Open thinking episode: runtime content index → Fleet content index. */
+	activeReasoningByRuntimeIndex: Map<number, number>;
+	/** Runtime → Fleet index for the current assistant message (survives thinking_end). */
+	reasoningFleetIndexByRuntime: Map<number, number>;
 	currentAssistantMessage: AssistantMessage | undefined;
 	currentAssistantImages: ChatImagePart[];
 	currentAssistantErrors: ChatErrorPart[];
@@ -201,6 +208,10 @@ export function createEventMapperState(init?: {
 		currentMessageId: undefined,
 		currentText: "",
 		reasoningTextByContentIndex: new Map(),
+		claimedReasoningIndexes: new Set(),
+		reasoningEpisodeSeq: 0,
+		activeReasoningByRuntimeIndex: new Map(),
+		reasoningFleetIndexByRuntime: new Map(),
 		currentAssistantMessage: undefined,
 		currentAssistantImages: [],
 		currentAssistantErrors: [],
@@ -257,6 +268,10 @@ function resetRun(state: EventMapperState): void {
 	state.currentMessageId = undefined;
 	state.currentText = "";
 	state.reasoningTextByContentIndex.clear();
+	state.claimedReasoningIndexes.clear();
+	state.reasoningEpisodeSeq = 0;
+	state.activeReasoningByRuntimeIndex.clear();
+	state.reasoningFleetIndexByRuntime.clear();
 	state.currentAssistantMessage = undefined;
 	state.currentAssistantImages = [];
 	state.currentAssistantErrors = [];
@@ -678,6 +693,14 @@ function rememberAssistantMessage(state: EventMapperState, message: AssistantMes
 	state.currentAssistantMessage = message;
 	if (!state.currentMessageId) state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 	const chatMessage = toChatMessageFromAssistant(message, state.currentMessageId);
+	for (const part of chatMessage.parts) {
+		if (part.type !== "reasoning") continue;
+		const fleetIndex = state.reasoningFleetIndexByRuntime.get(part.contentIndex) ?? part.contentIndex;
+		part.contentIndex = fleetIndex;
+		const streamed = state.reasoningTextByContentIndex.get(fleetIndex);
+		if (streamed !== undefined) part.text = streamed;
+		part.state = "complete";
+	}
 	for (const [contentIndex, text] of state.reasoningTextByContentIndex) {
 		const existing = chatMessage.parts.find(
 			(part) => part.type === "reasoning" && part.contentIndex === contentIndex,
@@ -901,7 +924,45 @@ function reasoningContentIndex(state: EventMapperState, event: AssistantMessageE
 			if (partial.content[index]?.type === "thinking") return index;
 		}
 	}
-	return [...state.reasoningTextByContentIndex.keys()].at(-1) ?? 0;
+	return [...state.activeReasoningByRuntimeIndex.keys()].at(-1) ?? 0;
+}
+
+function beginReasoningEpisode(state: EventMapperState, runtimeIndex: number): number {
+	let fleetIndex = runtimeIndex;
+	if (state.claimedReasoningIndexes.has(fleetIndex)) {
+		fleetIndex = Math.max(state.reasoningEpisodeSeq, runtimeIndex + 1);
+		while (state.claimedReasoningIndexes.has(fleetIndex)) fleetIndex++;
+	}
+	state.claimedReasoningIndexes.add(fleetIndex);
+	state.reasoningEpisodeSeq = Math.max(state.reasoningEpisodeSeq, fleetIndex + 1);
+	state.activeReasoningByRuntimeIndex.set(runtimeIndex, fleetIndex);
+	state.reasoningFleetIndexByRuntime.set(runtimeIndex, fleetIndex);
+	return fleetIndex;
+}
+
+function resolveActiveReasoningEpisode(state: EventMapperState, runtimeIndex: number): number {
+	const active = state.activeReasoningByRuntimeIndex.get(runtimeIndex);
+	if (active !== undefined) return active;
+	return beginReasoningEpisode(state, runtimeIndex);
+}
+
+function closeActiveReasoningEpisodes(state: EventMapperState): ChatStreamEvent[] {
+	if (state.activeReasoningByRuntimeIndex.size === 0) return [];
+	if (!state.currentMessageId) {
+		state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
+	}
+	const frames: ChatStreamEvent[] = [];
+	for (const [runtimeIndex, contentIndex] of [...state.activeReasoningByRuntimeIndex]) {
+		frames.push({
+			type: "reasoning_text",
+			phase: "end",
+			contentIndex,
+			text: state.reasoningTextByContentIndex.get(contentIndex) ?? "",
+			messageId: state.currentMessageId,
+		});
+		state.activeReasoningByRuntimeIndex.delete(runtimeIndex);
+	}
+	return frames;
 }
 
 function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessageEvent): ChatStreamEvent[] {
@@ -910,10 +971,9 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
-			// Runtime content indexes are local to each assistant message. The
-			// transcript combines a run into one message, so do not carry text from
-			// the previous runtime message into a reused index.
 			state.reasoningTextByContentIndex.clear();
+			state.activeReasoningByRuntimeIndex.clear();
+			state.reasoningFleetIndexByRuntime.clear();
 			return [];
 		}
 		case "text_delta": {
@@ -931,7 +991,9 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			];
 		}
 		case "thinking_delta": {
-			const contentIndex = reasoningContentIndex(state, event);
+			const runtimeIndex = reasoningContentIndex(state, event);
+			const hadActive = state.activeReasoningByRuntimeIndex.has(runtimeIndex);
+			const contentIndex = resolveActiveReasoningEpisode(state, runtimeIndex);
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
@@ -939,31 +1001,39 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 				contentIndex,
 				(state.reasoningTextByContentIndex.get(contentIndex) ?? "") + event.delta,
 			);
-			return [
-				reasoningFrame(state, "planning", true),
-				{
+			const frames: ChatStreamEvent[] = [reasoningFrame(state, "planning", true)];
+			if (!hadActive) {
+				frames.push({
 					type: "reasoning_text",
-					phase: "delta",
+					phase: "start",
 					contentIndex,
-					text: event.delta,
+					text: "",
 					messageId: state.currentMessageId,
-				},
-			];
+				});
+			}
+			frames.push({
+				type: "reasoning_text",
+				phase: "delta",
+				contentIndex,
+				text: event.delta,
+				messageId: state.currentMessageId,
+			});
+			return frames;
 		}
 		case "text_start":
-		case "text_end":
 		case "toolcall_start":
+			return closeActiveReasoningEpisodes(state);
+		case "text_end":
 		case "toolcall_delta":
 		case "toolcall_end":
 		case "error":
 			return [];
 		case "thinking_start": {
-			const contentIndex = reasoningContentIndex(state, event);
+			const runtimeIndex = reasoningContentIndex(state, event);
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
-			// contentIndex is scoped to one assistant message and can be reused by
-			// later messages in the same run.
+			const contentIndex = beginReasoningEpisode(state, runtimeIndex);
 			state.reasoningTextByContentIndex.set(contentIndex, "");
 			return [
 				reasoningFrame(state, "planning", true),
@@ -977,13 +1047,14 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			];
 		}
 		case "thinking_end": {
-			const contentIndex = reasoningContentIndex(state, event);
+			const runtimeIndex = reasoningContentIndex(state, event);
+			const contentIndex = resolveActiveReasoningEpisode(state, runtimeIndex);
 			const endedEvent = event as typeof event & {
 				contentIndex: number;
 				content?: string;
 				partial?: { content?: Array<{ type?: string; thinking?: string }> };
 			};
-			const block = endedEvent.partial?.content?.[contentIndex];
+			const block = endedEvent.partial?.content?.[runtimeIndex];
 			const finalText =
 				typeof endedEvent.content === "string"
 					? endedEvent.content
@@ -991,6 +1062,7 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 						? block.thinking
 						: undefined;
 			if (finalText !== undefined) state.reasoningTextByContentIndex.set(contentIndex, finalText);
+			state.activeReasoningByRuntimeIndex.delete(runtimeIndex);
 			return [
 				{
 					type: "reasoning_text",
@@ -1272,8 +1344,11 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 					parts.push({ type: "text", text: state.currentText || value.text });
 				}
 			} else if (value.type === "thinking") {
-				const text = state.reasoningTextByContentIndex.get(contentIndex) ?? value.thinking;
-				if (typeof text === "string") parts.push({ type: "reasoning", contentIndex, text, state: "complete" });
+				const fleetIndex = state.reasoningFleetIndexByRuntime.get(contentIndex) ?? contentIndex;
+				const text = state.reasoningTextByContentIndex.get(fleetIndex) ?? value.thinking;
+				if (typeof text === "string") {
+					parts.push({ type: "reasoning", contentIndex: fleetIndex, text, state: "complete" });
+				}
 			} else if (value.type === "toolCall" && value.id) {
 				const tool = state.currentToolParts.find((candidate) => candidate.toolCallId === value.id);
 				if (tool) {

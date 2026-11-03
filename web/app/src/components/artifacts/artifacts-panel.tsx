@@ -116,7 +116,7 @@ function artifactSource(
 	if (typeof code !== "string" || !code) return undefined;
 	if (artifact.kind === "bash") return { code, language: "bash", label: "Bash" };
 	if (artifact.kind === "ipython")
-		return { code, language: /^\s*%%bash(?:\s|$)/im.test(code) ? "bash" : "python", label: "IPython" };
+		return { code, language: /^\s*%%bash(?:\s|$)/im.test(code) ? "bash" : "python", label: "CPython" };
 	if (artifact.kind === "diff") return { code, language: "text", label: "Text" };
 	return { code, language: "json", label: "JSON" };
 }

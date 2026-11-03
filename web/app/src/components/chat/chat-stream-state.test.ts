@@ -69,28 +69,25 @@ describe("applyChatStreamEvent", () => {
 			},
 			{ type: "reasoning_text", phase: "start", contentIndex: 2, text: "", messageId: id },
 			{ type: "reasoning_text", phase: "delta", contentIndex: 2, text: "Second", messageId: id },
+			{
+				type: "reasoning_text",
+				phase: "end",
+				contentIndex: 2,
+				text: "Second",
+				messageId: id,
+				durationMs: 400,
+			},
+			{ type: "reasoning_text", phase: "start", contentIndex: 3, text: "", messageId: id },
+			{ type: "reasoning_text", phase: "delta", contentIndex: 3, text: "Third", messageId: id },
 		] as const)
 			t = applyChatStreamEvent(t, event);
-		t = applyChatStreamEvent(t, {
-			type: "reasoning_text",
-			phase: "start",
-			contentIndex: 0,
-			text: "",
-			messageId: id,
-		});
-		t = applyChatStreamEvent(t, {
-			type: "reasoning_text",
-			phase: "delta",
-			contentIndex: 0,
-			text: "Replacement",
-			messageId: id,
-		});
 		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toMatchObject([
-			{ contentIndex: 0, text: "Replacement", state: "streaming" },
-			{ contentIndex: 2, text: "Second", state: "streaming" },
+			{ contentIndex: 0, text: "First thought", state: "complete" },
+			{ contentIndex: 2, text: "Second", state: "complete" },
+			{ contentIndex: 3, text: "Third", state: "streaming" },
 		]);
 		t = applyChatStreamEvent(t, done(id, "Answer"));
-		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toHaveLength(2);
+		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toHaveLength(3);
 		expect(assistantTextFromMessage(assistantMessages(t)[0])).toBe("Answer");
 	});
 	it("single turn appends exactly one assistant message and nulls assistantId on done", () => {

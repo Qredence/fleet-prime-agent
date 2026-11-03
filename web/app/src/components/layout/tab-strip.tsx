@@ -30,7 +30,6 @@ export type TabStripProps = {
 	onClose?: (tabId: string) => void;
 	onNewSession?: () => void;
 	ariaLabel?: string;
-	/** `fill` splits the available width evenly; `fit` sizes to content. */
 	width?: "fill" | "fit";
 	/** `compact` tightens padding and gaps. */
 	density?: "default" | "compact";
@@ -53,7 +52,7 @@ export type TabStripProps = {
  * @param onClose - Called with a tab ID when its close control is pressed
  * @param onNewSession - Renders a trailing new-session control when provided
  * @param ariaLabel - Accessible name for the tab list
- * @param width - Fills the available width or sizes to content
+ * @param width - Grows into free space up to a max, or sizes to content
  * @param density - Default or tightened spacing
  * @param idPrefix - Prefix for the tab trigger and controlled panel IDs
  * @param className - Additional wrapper classes
@@ -110,7 +109,7 @@ export function TabStrip({
 								key={tab.id}
 								className={cn(
 									"group/tab relative",
-									fill ? "min-w-0 max-w-[164px] flex-1 basis-[164px]" : "shrink-0",
+									fill ? "min-w-0 max-w-[220px] flex-1 basis-auto" : "shrink-0",
 								)}
 								data-tab-id={tab.id}
 							>

@@ -7,7 +7,7 @@ import { PayloadPart } from "@/components/chat/transcript/payload-part";
 import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import type { CustomToolRendererProps } from "@/components/chat/types";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
-import { toolActionIconForName } from "@/components/tools/tool-action-icon";
+import { toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
 import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 import {
 	Trace,
@@ -178,7 +178,7 @@ export function buildAssistantElements(
 			flushText();
 			elems.push(
 				<ReasoningLine
-					key={`${messageId}-reasoning-${part.contentIndex}`}
+					key={`${messageId}-reasoning-${part.contentIndex}-${i}`}
 					text={part.text}
 					streaming={isLast && isStreaming && part.state === "streaming"}
 					durationMs={"durationMs" in part && typeof part.durationMs === "number" ? part.durationMs : undefined}
@@ -236,10 +236,11 @@ export function buildAssistantElements(
 				isLast && isStreaming && (state === "input-streaming" || state === "streaming") ? "streaming" : undefined;
 			const pending = state === "input-available" || state === "pending";
 			const normalized = normalizeToolPart(part, chatStreamingStatus);
-			const ToolIcon = toolActionIconForName(part.type.replace(/^tool-/, ""));
+			const toolLabel = toolPartDisplayName(part.type);
+			const ToolIcon = toolActionIconForName(toolLabel);
 			const failed = normalized?.status === "error";
 			const cancelled = normalized?.status === "cancelled";
-			const detailLabel = `Details for ${part.type.replace(/^tool-/, "")}${part.toolCallId ? ` (${part.toolCallId})` : ""}`;
+			const detailLabel = `Details for ${toolLabel}${part.toolCallId ? ` (${part.toolCallId})` : ""}`;
 			const artifact = part.toolCallId ? artifactByToolCallId?.get(part.toolCallId) : undefined;
 			const toolCallId = part.toolCallId;
 			const nestedTools =
@@ -270,7 +271,7 @@ export function buildAssistantElements(
 								<TraceIcon>
 									<ToolIcon />
 								</TraceIcon>
-								<TraceTitle>{part.type.replace(/^tool-/, "")}</TraceTitle>
+								<TraceTitle>{toolLabel}</TraceTitle>
 								{normalized?.traceDescription ? (
 									<TraceDescription className="max-w-48 truncate" title={normalized.traceDescription}>
 										{normalized.traceDescription}
@@ -310,7 +311,7 @@ export function buildAssistantElements(
 						<button
 							type="button"
 							className="shrink-0 text-micro underline"
-							aria-label={`Open ${artifact.title} in ${artifact.kind === "ipython" ? "REPL" : "artifacts"}`}
+							aria-label={`Open ${toolPartDisplayName(artifact.title)} in ${artifact.kind === "ipython" ? "REPL" : "artifacts"}`}
 							onClick={() => onOpenToolArtifact(artifact.id, artifact.kind === "ipython" ? "repl" : "artifacts")}
 						>
 							Open
