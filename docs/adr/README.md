@@ -7,3 +7,4 @@ Keep engine-level decisions upstream in Prime Agent. Do not copy upstream ADRs h
 ## Index
 
 - [0001](0001-kill-interactivemode-localsessionhost.md) — upstream Prime Agent history (not a Fleet product decision)
+- [0002](0002-rust-daemon-cutover.md) — drive only the native Rust Prime Agent daemon through Fleet's own connection; `ChatStreamEvent` frozen by fixtures

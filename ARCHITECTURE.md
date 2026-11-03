@@ -89,7 +89,11 @@ Prime Agent is consumed as an external stock dependency.
 
 `PRIME_AGENT_RUNTIME.json` pins both the Rust runtime under `rust.version` and the legacy TypeScript SDK release archive in its top-level fields. The Rust pin is the configured runtime for Fleet's normal launch; the TypeScript pin supports the remaining legacy SDK adapter. A configured pin is not proof of the connected daemon's version: an executable override or an already-running daemon may differ.
 
-Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with the TypeScript SDK pin; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
+The Rust pin records, for each supported target (darwin-arm64, darwin-x64, linux-arm64, linux-x64), the release archive's SHA-256 and the SHA-256 of the extracted `prime-agent` executable. `ensurePrimeRuntime` (`packages/fleet-web/bin/prime-runtime.mjs`) is the single installer: the launcher calls it, and `web/server` re-exports it. It downloads the archive from the pinned `baseUrl` and refuses it unless both digests match. It installs the binary and its packaged `prime-agent-runtime/` under `~/.prime/fleet/runtimes/<version>/<target>`. `scripts/check-prime-agent-runtime.mjs` (`pnpm run check:runtime`) validates the manifest shape in CI.
+
+Fleet spawns that native binary directly as `prime-agent --mode daemon --daemon-socket <socket>`, or the executable named by `FLEET_PRIME_AGENT_BIN`. It never runs the npm migration launcher or the network installer (`web/server/src/daemon-runtime.ts`).
+
+Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with the TypeScript SDK pin until the legacy SDK is removed; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
 
 Do not hardcode the current runtime version into this document.
 
@@ -101,7 +105,7 @@ Fleet programs against a Fleet-owned connection port, `web/server/src/agent-conn
 
 `FleetDaemonAgentConnection` implements that port over Fleet's own protocol-7 socket client. It owns the local daemon transport, attach/reconnect, snapshot handling, cursor-based dedupe, and daemon protocol compatibility details. The in-process test adapter implements the same port, which keeps bridge behavior independent of whether the runtime is daemon-backed or a deterministic test double.
 
-Fleet drives the Rust daemon only. A daemon is accepted when it reports the expected protocol version, schema revision, and the Rust runtime flavor; a TypeScript daemon is refused rather than routed down a path Fleet no longer carries.
+Fleet drives the Rust daemon only. A daemon is accepted when it reports the expected protocol version, schema revision, and the Rust runtime flavor (`isCompatibleDaemonHello` in `web/server/src/daemon-protocol.ts`). A TypeScript daemon is refused rather than routed down a path Fleet no longer carries. Every production session, created or resumed, attaches through `FleetDaemonAgentConnection`; the SDK's `DaemonAgentConnection` survives only in the contract-replay test harness. The reasons are recorded in [ADR 0002](docs/adr/0002-rust-daemon-cutover.md).
 
 The server keeps runtime-specific lifecycle and mutable objects behind that seam. It may use server-only session-management operations for resume, fork, and cleanup, but those objects do not cross into `web/app` or the browser. Browser-facing state is a typed projection owned by `web/protocol`.
 
