@@ -43,5 +43,6 @@ export default defineConfig({
     },
   ],
   webServer,
+  globalSetup: hermetic ? "./playwright/global-setup.ts" : undefined,
   globalTeardown: hermetic ? "./playwright/global-teardown.ts" : undefined,
 })
