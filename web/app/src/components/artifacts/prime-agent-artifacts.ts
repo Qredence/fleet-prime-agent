@@ -6,6 +6,7 @@ import type {
 	PrimeAgentArtifactRun,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol";
+import { toolPartDisplayName } from "@/components/tools/tool-action-icon";
 
 export type PrimeAgentArtifactDiffLine = {
 	id: string;
@@ -227,7 +228,7 @@ function artifactsFromMessages(messages: Array<ChatMessage>, chatStatus?: ChatSt
 				sourceMessageId: message.id,
 				...(typeof source.toolCallId === "string" ? { sourceToolCallId: source.toolCallId } : {}),
 				kind,
-				title: name,
+				title: toolPartDisplayName(name),
 				status: statusFor(source, chatStatus),
 				...(input !== undefined ? { input } : {}),
 				...(output !== undefined ? { output } : {}),

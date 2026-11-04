@@ -124,7 +124,7 @@ export function SessionInsightsPanel({
 				<Detail label="Assistant messages" value={insights.assistantMessages} />
 				<Detail label="Artifacts" value={insights.artifactCount} />
 				<Detail label="Bash commands" value={insights.bashCommands} />
-				<Detail label="IPython cells" value={insights.ipythonCells} />
+				<Detail label="CPython cells" value={insights.ipythonCells} />
 				<Detail label="RLM children" value={rlmSummary || "None"} />
 				<Detail
 					label="Refinements"

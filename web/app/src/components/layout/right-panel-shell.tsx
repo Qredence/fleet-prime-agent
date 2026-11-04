@@ -11,6 +11,10 @@ import {
 import { TabStrip } from "@/components/layout/tab-strip";
 import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
 
+/** Panels that manage their own scroll inside a fill-height body. */
+const FILL_BODY_PANELS = new Set<ActiveRightPanel>(["subagents"]);
+const FILL_BODY_CLASSNAME = "flex min-h-0 flex-col overflow-hidden py-3";
+
 const DESKTOP_PANEL_QUERY = `(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`;
 
 /** Short labels for the in-panel view switcher. */
@@ -81,12 +85,13 @@ export function RightPanelShell({
 				: [],
 		[panelGroup],
 	);
+	const fillBody = rightPanel !== null && FILL_BODY_PANELS.has(rightPanel);
 	const content = (
 		<>
 			{groupTabs.length > 0 ? (
 				<TabStrip
 					ariaLabel={`${panelGroup?.title ?? "Panel"} views`}
-					className="mb-3 w-fit"
+					className="mb-3 w-fit shrink-0"
 					onValueChange={(nextPanel) => {
 						const next = groupTabs.find((tab) => tab.id === nextPanel)?.id;
 						if (next) setRightPanel(next);
@@ -96,7 +101,15 @@ export function RightPanelShell({
 					width="fit"
 				/>
 			) : null}
-			{PanelContent ? <PanelContent /> : null}
+			{PanelContent ? (
+				fillBody ? (
+					<div className="flex min-h-0 min-w-0 flex-1 flex-col">
+						<PanelContent />
+					</div>
+				) : (
+					<PanelContent />
+				)
+			) : null}
 		</>
 	);
 	const loading =
@@ -115,6 +128,7 @@ export function RightPanelShell({
 		<>
 			{isDesktop ? (
 				<ResizableCanvas
+					bodyClassName={fillBody ? FILL_BODY_CLASSNAME : undefined}
 					dataTestid={definition?.dataTestid}
 					headerLeading={<RightPanelTabsFromContext compact idPrefix="right-panel-desktop" />}
 					loading={loading}
@@ -131,6 +145,7 @@ export function RightPanelShell({
 				</ResizableCanvas>
 			) : (
 				<MobilePanel
+					bodyClassName={fillBody ? FILL_BODY_CLASSNAME : undefined}
 					dataTestid={definition?.mobileDataTestid}
 					icon={definition?.icon}
 					onClose={onClose}

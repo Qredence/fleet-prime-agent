@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { getResourceGroups } from "@/components/workspace/resource-helpers";
 import { CHAT_PANEL_BREAKPOINT_PX, DESKTOP_PANEL_ONLY } from "@/lib/layout-constants";
+import { cn } from "@/lib/utils";
 
 /**
  * Renders responsive controls for opening or navigating the right panel based on context state.
@@ -56,9 +57,6 @@ export function RightPanelTabsFromContext({
 			activePanel={rightPanel}
 			onPanelChange={setRightPanel}
 			resources={resources}
-			replRuns={
-				artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "ipython").length
-			}
 			sessionBlocks={transcriptSummary.openUIBlocks.length}
 			openUIArtifacts={
 				artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "openui-html").length
@@ -94,7 +92,6 @@ export function RightPanelTrigger({ compact = false, onOpen }: { compact?: boole
  * @param activePanel - The active panel, or `null` when no panel is open
  * @param onPanelChange - Called with the selected panel, or `null` to close the active panel
  * @param resources - Resource data used for the resources badge
- * @param replRuns - Number of REPL runs shown in the badge
  * @param sessionBlocks - Number of generative UI blocks in the current session
  * @param openUIArtifacts - Number of open generative UI artifacts
  * @param workspace - Workspace data used for the resources badge
@@ -105,7 +102,6 @@ export function RightPanelLauncher({
 	activePanel,
 	onPanelChange,
 	resources,
-	replRuns = 0,
 	sessionBlocks = 0,
 	openUIArtifacts = 0,
 	workspace,
@@ -117,7 +113,6 @@ export function RightPanelLauncher({
 	idPrefix?: string;
 	onPanelChange: (panel: RightPanel) => void;
 	resources: ChatResourcesResponse | null;
-	replRuns?: number;
 	/** Generative-UI blocks in the current session. */
 	sessionBlocks?: number;
 	openUIArtifacts?: number;
@@ -141,11 +136,9 @@ export function RightPanelLauncher({
 						? totalArtifacts
 						: definition.id === "session"
 							? totalResources || undefined
-							: definition.id === "repl"
-								? replRuns || undefined
-								: undefined,
+							: undefined,
 			})),
-		[replRuns, totalArtifacts, totalResources],
+		[totalArtifacts, totalResources],
 	);
 
 	const activeGroup = tabs.find((tab) => activePanel !== null && tab.panels.includes(activePanel));
@@ -172,7 +165,8 @@ export function RightPanelLauncher({
 			onSelect={(index) => {
 				const next = tabs.at(index);
 				if (!next) return;
-				onPanelChange(activeGroup?.id === next.id ? null : next.defaultPanel);
+				if (activeGroup?.id === next.id) return;
+				onPanelChange(next.defaultPanel);
 			}}
 			compact={compact}
 		/>
@@ -317,6 +311,7 @@ function ResponsivePanelLauncher({
 }
 
 export function MobilePanel({
+	bodyClassName,
 	children,
 	dataTestid,
 	headerActions,
@@ -325,6 +320,7 @@ export function MobilePanel({
 	open,
 	title,
 }: {
+	bodyClassName?: string;
 	children: ReactNode;
 	dataTestid?: string;
 	headerActions?: ReactNode;
@@ -451,7 +447,12 @@ export function MobilePanel({
 						</div>
 					</div>
 				)}
-				<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--density-pad-x)] py-4">
+				<div
+					className={cn(
+						"min-h-0 flex-1 overscroll-contain px-[var(--density-pad-x)] py-4",
+						bodyClassName ?? "overflow-y-auto",
+					)}
+				>
 					{children}
 				</div>
 			</div>

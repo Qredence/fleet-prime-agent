@@ -198,7 +198,7 @@ describe("right-panel execution tabs", () => {
 		expect(queryByTestId("pi-resources-canvas")).toBeNull();
 	});
 
-	it("exposes the four top-level panel groups and opens their default views", () => {
+	it("exposes the three top-level panel groups and opens their default views", () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(500, 400);
 		const { getByTestId, rerender } = render(
@@ -206,7 +206,6 @@ describe("right-panel execution tabs", () => {
 				activePanel={null}
 				onPanelChange={onPanelChange}
 				resources={null}
-				replRuns={2}
 				sessionBlocks={1}
 				openUIArtifacts={2}
 				workspace={null}
@@ -215,8 +214,8 @@ describe("right-panel execution tabs", () => {
 		layout(getByTestId("right-panel-inline-launcher"));
 
 		expect(getByTestId("right-panel-inline-launcher").getAttribute("data-panel-launcher-mode")).toBe("tabs");
-		expect(screen.getAllByRole("tab")).toHaveLength(4);
-		expect(screen.getByRole("tab", { name: "REPL" })).toBeTruthy();
+		expect(screen.getAllByRole("tab")).toHaveLength(3);
+		expect(screen.queryByRole("tab", { name: "REPL" })).toBeNull();
 		expect(screen.getByRole("tab", { name: "Subagents" })).toBeTruthy();
 		expect(screen.getByRole("tab", { name: "Workspace" }).textContent).toContain("3");
 		fireEvent.click(screen.getByRole("tab", { name: "Session" }));
@@ -229,7 +228,22 @@ describe("right-panel execution tabs", () => {
 		expect(screen.getByRole("tab", { name: "Subagents" })).toBeTruthy();
 	});
 
-	it("exposes the four panel groups in the overflow-mode dropdown", async () => {
+	it("keeps the side panel open when the active group tab is pressed again", () => {
+		const onPanelChange = vi.fn();
+		const layout = mockLauncherLayout(500, 400);
+		const { getByTestId } = render(
+			<RightPanelLauncher activePanel="workspace" onPanelChange={onPanelChange} resources={null} workspace={null} />,
+		);
+		layout(getByTestId("right-panel-inline-launcher"));
+
+		fireEvent.click(screen.getByRole("tab", { name: "Workspace" }));
+		expect(onPanelChange).not.toHaveBeenCalled();
+
+		fireEvent.click(screen.getByRole("tab", { name: "Session" }));
+		expect(onPanelChange).toHaveBeenCalledWith("session-insights");
+	});
+
+	it("exposes the three panel groups in the overflow-mode dropdown", async () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(120, 400);
 		const { getByRole, getByTestId, rerender } = render(
@@ -243,13 +257,8 @@ describe("right-panel execution tabs", () => {
 		const select = getByRole("combobox", { name: "Select panel" });
 		fireEvent.click(select);
 		const options = await screen.findAllByRole("option");
-		expect(options).toHaveLength(4);
-		expect(options.map((option) => option.textContent?.trim())).toEqual([
-			"Workspace",
-			"Subagents",
-			"Session",
-			"REPL",
-		]);
+		expect(options).toHaveLength(3);
+		expect(options.map((option) => option.textContent?.trim())).toEqual(["Workspace", "Subagents", "Session"]);
 
 		rerender(
 			<RightPanelLauncher activePanel="subagents" onPanelChange={onPanelChange} resources={null} workspace={null} />,
@@ -279,7 +288,6 @@ describe("right-panel execution tabs", () => {
 				activePanel="session-insights"
 				onPanelChange={onPanelChange}
 				resources={null}
-				replRuns={7}
 				sessionBlocks={0}
 				openUIArtifacts={0}
 				workspace={null}
@@ -313,7 +321,7 @@ describe("right-panel execution tabs", () => {
 						id: "ipython-1",
 						runId: "run-1",
 						kind: "ipython",
-						title: "IPython",
+						title: "CPython",
 						status: "success",
 						input: { code: "print('hello')" },
 						output: { stdout: "hello" },
@@ -367,7 +375,7 @@ describe("right-panel execution tabs", () => {
 		expect(screen.getByText("permission denied")).toBeTruthy();
 	});
 
-	it("renders recorded IPython cells in the REPL panel", () => {
+	it("renders recorded CPython cells in the REPL panel", () => {
 		const artifactRuns: Array<PrimeAgentArtifactRun> = [
 			{
 				id: "run-1",
@@ -377,7 +385,7 @@ describe("right-panel execution tabs", () => {
 						id: "repl-1",
 						runId: "run-1",
 						kind: "ipython",
-						title: "IPython",
+						title: "CPython",
 						status: "success",
 						input: { code: "print('hello')" },
 						output: { stdout: "hello" },
@@ -447,7 +455,7 @@ describe("right-panel execution tabs", () => {
 						id: "repl-1",
 						runId: "run-1",
 						kind: "ipython",
-						title: "IPython",
+						title: "CPython",
 						status: "success",
 						input: { code: "print('selected')" },
 						output: { stdout: "selected" },
@@ -579,7 +587,7 @@ describe("right-panel execution tabs", () => {
 		fireEvent.click(getByRole("button", { name: /Thought/ }));
 		expect(getByText("Child reasoning")).toBeTruthy();
 		expect(
-			getByRole("button", { name: "Details for IPython (child-cancelled)" }).closest(
+			getByRole("button", { name: "Details for CPython (child-cancelled)" }).closest(
 				"[data-testid='assistant-tool-trace']",
 			)?.textContent,
 		).toContain("cancelled");

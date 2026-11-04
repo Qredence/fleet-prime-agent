@@ -2,9 +2,9 @@ import type React from "react";
 import { memo } from "react";
 import type { CustomToolRendererProps } from "@/components/chat/types";
 import { BashTool } from "@/components/tools/bash-tool";
+import { CpythonTool } from "@/components/tools/cpython-tool";
 import { EditTool } from "@/components/tools/edit-tool";
 import { GenericTool } from "@/components/tools/generic-tool";
-import { IpythonTool } from "@/components/tools/ipython-tool";
 import { McpTool, unwrapMcpOutput } from "@/components/tools/mcp-tool";
 import { PlanTool } from "@/components/tools/plan-tool";
 import { SearchTool } from "@/components/tools/search-tool";
@@ -42,7 +42,7 @@ export const ToolRenderer = memo(function ToolRenderer({
 		case "tool-Bash":
 			return <BashTool part={part} />;
 		case "tool-IPython":
-			return <IpythonTool part={part} />;
+			return <CpythonTool part={part} />;
 		case "tool-Edit":
 		case "tool-Write":
 			return <EditTool part={part} />;

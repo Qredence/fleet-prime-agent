@@ -51,47 +51,71 @@ function assistantMessages(transition: ChatStreamTransition): Array<ChatMessage>
 	return transition.snapshot.messages.filter((m) => m.role === "assistant");
 }
 
+function foldStreamEvents(
+	transition: ChatStreamTransition,
+	events: ReadonlyArray<ChatStreamEvent>,
+): ChatStreamTransition {
+	return events.reduce((next, event) => applyChatStreamEvent(next, event), transition);
+}
+
+function reasoningTextEvent(
+	messageId: string,
+	phase: "start" | "delta" | "end",
+	contentIndex: number,
+	text: string,
+	durationMs?: number,
+): ChatStreamEvent {
+	if (durationMs === undefined) {
+		return { type: "reasoning_text", phase, contentIndex, text, messageId };
+	}
+	return { type: "reasoning_text", phase, contentIndex, text, messageId, durationMs };
+}
+
+function completeReasoningEpisode(
+	messageId: string,
+	contentIndex: number,
+	text: string,
+	durationMs: number,
+	deltas: string[] = [text],
+): ChatStreamEvent[] {
+	return [
+		reasoningTextEvent(messageId, "start", contentIndex, ""),
+		...deltas.map((deltaText) => reasoningTextEvent(messageId, "delta", contentIndex, deltaText)),
+		reasoningTextEvent(messageId, "end", contentIndex, text, durationMs),
+	];
+}
+
 describe("applyChatStreamEvent", () => {
 	it("streams multiple typed reasoning parts and retains them when the terminal message omits them", () => {
 		const id = "run-reasoning-a0";
-		let t = applyChatStreamEvent(baseTransition(), start(id));
-		for (const event of [
-			{ type: "reasoning_text", phase: "start", contentIndex: 0, text: "", messageId: id },
-			{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "First ", messageId: id },
-			{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "thought", messageId: id },
-			{
-				type: "reasoning_text",
-				phase: "end",
-				contentIndex: 0,
-				text: "First thought",
-				messageId: id,
-				durationMs: 1200,
-			},
-			{ type: "reasoning_text", phase: "start", contentIndex: 2, text: "", messageId: id },
-			{ type: "reasoning_text", phase: "delta", contentIndex: 2, text: "Second", messageId: id },
-		] as const)
-			t = applyChatStreamEvent(t, event);
-		t = applyChatStreamEvent(t, {
-			type: "reasoning_text",
-			phase: "start",
-			contentIndex: 0,
-			text: "",
-			messageId: id,
-		});
-		t = applyChatStreamEvent(t, {
-			type: "reasoning_text",
-			phase: "delta",
-			contentIndex: 0,
-			text: "Replacement",
-			messageId: id,
-		});
+		let t = foldStreamEvents(baseTransition(), [
+			start(id),
+			...completeReasoningEpisode(id, 0, "First thought", 1200, ["First ", "thought"]),
+			...completeReasoningEpisode(id, 2, "Second", 400),
+			reasoningTextEvent(id, "start", 3, ""),
+			reasoningTextEvent(id, "delta", 3, "Third"),
+		]);
 		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toMatchObject([
-			{ contentIndex: 0, text: "Replacement", state: "streaming" },
-			{ contentIndex: 2, text: "Second", state: "streaming" },
+			{ contentIndex: 0, text: "First thought", state: "complete" },
+			{ contentIndex: 2, text: "Second", state: "complete" },
+			{ contentIndex: 3, text: "Third", state: "streaming" },
 		]);
 		t = applyChatStreamEvent(t, done(id, "Answer"));
-		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toHaveLength(2);
+		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toHaveLength(3);
 		expect(assistantTextFromMessage(assistantMessages(t)[0])).toBe("Answer");
+	});
+	it("starting a completed content index opens a new reasoning episode", () => {
+		const id = "run-reasoning-restart";
+		const t = foldStreamEvents(baseTransition(), [
+			start(id),
+			...completeReasoningEpisode(id, 0, "First thought", 1200),
+			reasoningTextEvent(id, "start", 0, ""),
+			reasoningTextEvent(id, "delta", 0, "Second thought"),
+		]);
+		expect(assistantMessages(t)[0].parts.filter((part) => part.type === "reasoning")).toMatchObject([
+			{ contentIndex: 0, text: "First thought", state: "complete" },
+			{ contentIndex: 0, text: "Second thought", state: "streaming" },
+		]);
 	});
 	it("single turn appends exactly one assistant message and nulls assistantId on done", () => {
 		const id = "run-1-a0";
