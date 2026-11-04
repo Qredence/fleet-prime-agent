@@ -211,7 +211,6 @@ export function GenerativeTextRenderer({
 
 	// Hydrate stored form state once per block, before the renderer mounts.
 	useEffect(() => {
-		if (segments.length === 0) return;
 		setStateByBlock((previous) => {
 			let changed = false;
 			const next = { ...previous };
@@ -225,7 +224,6 @@ export function GenerativeTextRenderer({
 					changed = true;
 				}
 			}
-			// Returning `previous` keeps the effect from re-rendering on no-op runs.
 			return changed ? next : previous;
 		});
 	}, [segments, sessionKey]);

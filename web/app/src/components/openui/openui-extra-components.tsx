@@ -7,20 +7,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-
-/**
- * Additional OpenUI components that map onto Fleet primitives the library did
- * not previously expose.
- *
- * Each one follows the same rules as the rest of `openui-library.tsx`: required
- * and distinctive props first (Zod key order is the positional argument order),
- * optional props last, and children rendered through `renderNode` so nested
- * generated content keeps working.
- */
+import { isSafeExternalUrl } from "@/lib/safe-external-url";
 
 const childrenProp = z.any().optional().describe("Child component, array of child components, or plain content");
 
-// --- Tabs -------------------------------------------------------------------
+/** Query results and incomplete streams arrive as null, not as an empty array. */
+function asList<T>(value: T[] | null | undefined): T[] {
+	return Array.isArray(value) ? value : [];
+}
 
 function TabsComponent({
 	props: { tabs, defaultIndex },
@@ -29,7 +23,7 @@ function TabsComponent({
 	tabs: Array<{ label: string; content?: unknown }>;
 	defaultIndex?: number;
 }>) {
-	const items = Array.isArray(tabs) ? tabs : [];
+	const items = asList(tabs);
 	if (items.length === 0) return null;
 	const safeDefault = Math.min(Math.max(defaultIndex ?? 0, 0), items.length - 1);
 
@@ -69,18 +63,15 @@ export const TabsDef = defineComponent({
 	component: TabsComponent,
 });
 
-// --- Accordion --------------------------------------------------------------
-
 function AccordionComponent({
 	props: { items },
 	renderNode,
 }: ComponentRenderProps<{
 	items: Array<{ title: string; content?: unknown; open?: boolean }>;
 }>) {
-	const entries = Array.isArray(items) ? items : [];
 	return (
 		<div className="flex w-full flex-col gap-2">
-			{entries.map((item, index) => (
+			{asList(items).map((item, index) => (
 				<details
 					key={`${item.title}-${index}`}
 					open={item.open ?? false}
@@ -110,8 +101,6 @@ export const AccordionDef = defineComponent({
 	}),
 	component: AccordionComponent,
 });
-
-// --- TextArea ---------------------------------------------------------------
 
 function TextAreaComponent({
 	props: { name, value, placeholder, rows, disabled },
@@ -157,8 +146,6 @@ export const TextAreaDef = defineComponent({
 	component: TextAreaComponent,
 });
 
-// --- Slider -----------------------------------------------------------------
-
 function SliderComponent({
 	props: { name, value, label, min, max, step },
 }: {
@@ -203,8 +190,6 @@ export const SliderDef = defineComponent({
 	component: SliderComponent,
 });
 
-// --- Steps ------------------------------------------------------------------
-
 const STEP_STATES = ["complete", "current", "pending", "failed"] as const;
 
 const stepDotClasses: Record<(typeof STEP_STATES)[number], string> = {
@@ -219,10 +204,9 @@ function StepsComponent({
 }: {
 	props: { steps: Array<{ label: string; detail?: string; state?: (typeof STEP_STATES)[number] }> };
 }) {
-	const entries = Array.isArray(steps) ? steps : [];
 	return (
 		<ol className="flex w-full flex-col gap-2">
-			{entries.map((step, index) => {
+			{asList(steps).map((step, index) => {
 				const state = step.state ?? "pending";
 				return (
 					<li key={`${step.label}-${index}`} className="flex items-start gap-2 text-sm">
@@ -263,13 +247,10 @@ export const StepsDef = defineComponent({
 	component: StepsComponent,
 });
 
-// --- KeyValueList -----------------------------------------------------------
-
 function KeyValueListComponent({ props: { items } }: { props: { items: Array<{ label: string; value: string }> } }) {
-	const entries = Array.isArray(items) ? items : [];
 	return (
 		<div className="flex w-full flex-col gap-1">
-			{entries.map((item, index) => (
+			{asList(items).map((item, index) => (
 				<div
 					key={`${item.label}-${index}`}
 					className="flex w-full items-center justify-between gap-4 rounded-md border px-3 py-1.5 text-sm"
@@ -291,8 +272,6 @@ export const KeyValueListDef = defineComponent({
 	component: KeyValueListComponent,
 });
 
-// --- Empty ------------------------------------------------------------------
-
 function EmptyComponent({ props: { title, description } }: { props: { title: string; description?: string } }) {
 	return (
 		<div className="flex w-full flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-6 text-center">
@@ -311,8 +290,6 @@ export const EmptyDef = defineComponent({
 	}),
 	component: EmptyComponent,
 });
-
-// --- Skeleton ---------------------------------------------------------------
 
 function SkeletonComponent({ props: { lines } }: { props: { lines?: number } }) {
 	const count = Math.min(Math.max(lines ?? 3, 1), 8);
@@ -334,11 +311,6 @@ export const SkeletonDef = defineComponent({
 	component: SkeletonComponent,
 });
 
-// --- Image ------------------------------------------------------------------
-
-const SAFE_IMAGE_SCHEME = /^https?:\/\//i;
-const SAFE_DATA_IMAGE = /^data:image\/(?:png|jpe?g|gif|webp|svg\+xml);/i;
-
 function ImageComponent({
 	props: { src, alt, caption, width },
 }: {
@@ -347,7 +319,7 @@ function ImageComponent({
 	const widthClass = { compact: "max-w-sm", normal: "max-w-xl", wide: "max-w-3xl", full: "max-w-none" }[
 		width ?? "normal"
 	];
-	const isSafe = SAFE_IMAGE_SCHEME.test(src) || SAFE_DATA_IMAGE.test(src);
+	const isSafe = isSafeExternalUrl(src) || /^data:image\/(?:png|jpe?g|gif|webp|svg\+xml);/i.test(src);
 
 	if (!isSafe) {
 		return (

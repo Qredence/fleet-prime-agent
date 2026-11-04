@@ -23,7 +23,6 @@ export type RepairableOpenUIError = {
 	severity?: "warning";
 };
 
-/** Errors worth sending back: warnings rendered fine and are not failures. */
 export function isRepairableError(error: RepairableOpenUIError): boolean {
 	return error.severity !== "warning";
 }

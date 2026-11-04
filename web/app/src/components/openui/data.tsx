@@ -131,11 +131,8 @@ function resolveColumnAlign(column: DataColumn) {
 }
 
 /**
- * Renders one cell.
- *
- * A generated program column key that the tool's rows do not carry used to
- * render as a blank cell, which is indistinguishable from "the data is empty".
- * Showing the absent key makes the mismatch visible against the real headers.
+ * Renders one cell. A column key the row does not carry renders a placeholder
+ * rather than a blank cell that reads as missing data.
  */
 function CellValue({ row, column }: { row: Record<string, unknown>; column: DataColumn }) {
 	const value = row[column.key];
@@ -146,7 +143,7 @@ function CellValue({ row, column }: { row: Record<string, unknown>; column: Data
 			</span>
 		);
 	}
-	return <>{formatCellValue(typeof value === "boolean" ? String(value) : (value as string | number), column.type)}</>;
+	return <>{formatCellValue(value as string | number, column.type)}</>;
 }
 
 function DataTableComponent({

@@ -16,8 +16,6 @@ import { buildMessage, parseMessage } from "@openuidev/react-lang";
 const STORAGE_PREFIX = "fleet.openui.state:";
 const MAX_ENTRIES = 200;
 
-export type OpenUIStoredState = Record<string, unknown>;
-
 function storage(): Storage | undefined {
 	try {
 		return typeof window === "undefined" ? undefined : window.localStorage;
@@ -32,20 +30,20 @@ function keyFor(sessionKey: string, blockId: string): string {
 }
 
 /** Encodes form state in the OpenUI message format, so it round-trips through `parseMessage`. */
-export function encodeStoredState(program: string, formState: OpenUIStoredState): string {
+export function encodeStoredState(program: string, formState: Record<string, unknown>): string {
 	return buildMessage({ content: program, context: { formState }, end: true });
 }
 
-export function decodeStoredState(stored: string): OpenUIStoredState | undefined {
+export function decodeStoredState(stored: string): Record<string, unknown> | undefined {
 	const parsed = parseMessage(stored);
 	const context = parsed.context;
 	if (typeof context !== "object" || context === null) return undefined;
 	const formState = (context as { formState?: unknown }).formState;
 	if (typeof formState !== "object" || formState === null) return undefined;
-	return formState as OpenUIStoredState;
+	return formState as Record<string, unknown>;
 }
 
-export function readStoredState(sessionKey: string, blockId: string): OpenUIStoredState | undefined {
+export function readStoredState(sessionKey: string, blockId: string): Record<string, unknown> | undefined {
 	const store = storage();
 	if (!store) return undefined;
 	const stored = store.getItem(keyFor(sessionKey, blockId));
@@ -69,7 +67,12 @@ function pruneOldest(store: Storage) {
 	}
 }
 
-export function writeStoredState(sessionKey: string, blockId: string, program: string, formState: OpenUIStoredState) {
+export function writeStoredState(
+	sessionKey: string,
+	blockId: string,
+	program: string,
+	formState: Record<string, unknown>,
+) {
 	const store = storage();
 	if (!store) return;
 	const isEmpty = Object.keys(formState).length === 0;

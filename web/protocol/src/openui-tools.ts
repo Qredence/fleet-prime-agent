@@ -109,14 +109,6 @@ export type SessionStatsRow = {
 	messages: number;
 };
 
-type ToolResult<Row> = { rows: Row[] } & Record<string, unknown>;
-
-export type OpenUIToolResult =
-	| ToolResult<WorkspaceTreeRow>
-	| ToolResult<SessionRow>
-	| ToolResult<ResourceRow>
-	| ToolResult<SessionStatsRow>;
-
 /**
  * One tool as the prompt sees it. Mirrors the shape upstream `ToolSpec` expects,
  * so this object can be passed straight into `generatePrompt({ tools })`.
@@ -150,11 +142,8 @@ const ROW_FIELDS = {
 		"Each row has exactly these fields: status, sessions, messages. Use those exact keys as DataTable column keys.",
 } as const;
 
-/**
- * Tool descriptions are prompt text. They state what the tool returns, not how
- * it is implemented, and they name the exact row fields: a generated DataTable
- * that guesses column keys renders blank cells against real headers.
- */
+/** Tool descriptions are prompt text: they name the exact row fields, because a
+ * generated DataTable that guesses column keys renders blank cells. */
 export const OPENUI_TOOL_DESCRIPTORS: readonly OpenUIToolDescriptor[] = [
 	{
 		name: "workspace_tree",

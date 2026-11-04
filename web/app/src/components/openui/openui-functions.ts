@@ -75,7 +75,7 @@ function formatShortPath(path: string, segments: number): string {
 	return `…/${parts.slice(-keep).join("/")}`;
 }
 
-export const durationFunction = defineFunction({
+const durationFunction = defineFunction({
 	name: "Duration",
 	description: "Formats a millisecond count as a short human duration, for example 90m or 2.5h.",
 	params: z.object({
@@ -85,7 +85,7 @@ export const durationFunction = defineFunction({
 	fn: ({ ms }) => formatDuration(ms),
 });
 
-export const bytesFunction = defineFunction({
+const bytesFunction = defineFunction({
 	name: "Bytes",
 	description: "Formats a byte count as a short human size, for example 1.2 MB.",
 	params: z.object({
@@ -95,7 +95,7 @@ export const bytesFunction = defineFunction({
 	fn: ({ bytes }) => formatBytes(bytes),
 });
 
-export const tokensFunction = defineFunction({
+const tokensFunction = defineFunction({
 	name: "Tokens",
 	description:
 		"Formats a token count compactly, for example 38.2k. Use it for model usage rather than writing the number by hand.",
@@ -106,7 +106,7 @@ export const tokensFunction = defineFunction({
 	fn: ({ count }) => formatTokens(count),
 });
 
-export const percentFunction = defineFunction({
+const percentFunction = defineFunction({
 	name: "Percent",
 	description: "Formats part / total as a percentage. Use it instead of computing a ratio by hand.",
 	params: z.object({
@@ -118,7 +118,7 @@ export const percentFunction = defineFunction({
 	fn: ({ part, total, decimals }) => formatPercent(part, total, decimals),
 });
 
-export const relativeTimeFunction = defineFunction({
+const relativeTimeFunction = defineFunction({
 	name: "RelativeTime",
 	description: "Turns an ISO timestamp into a short relative age, for example 3h ago.",
 	params: z.object({
@@ -128,7 +128,7 @@ export const relativeTimeFunction = defineFunction({
 	fn: ({ iso }) => formatRelativeTime(iso),
 });
 
-export const shortPathFunction = defineFunction({
+const shortPathFunction = defineFunction({
 	name: "ShortPath",
 	description: "Shortens a workspace-relative path to its last N segments for narrow columns.",
 	params: z.object({

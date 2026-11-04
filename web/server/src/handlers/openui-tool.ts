@@ -15,15 +15,9 @@ import { handleChatSessionsGet } from "./chat-sessions";
 import { handleWorkspaceTreeGet } from "./workspace-tree";
 
 /**
- * Read-only tool surface for OpenUI `Query()` statements.
- *
- * A generated program names a tool; the renderer posts `{ name, args }` here and
- * this handler dispatches to the same server code the UI already uses. Keeping
- * dispatch here means `web/app` carries no runtime knowledge, and the browser
- * never receives a raw runtime object.
- *
- * Only read-only tools are dispatched. There is no mutation path by design: a
- * generated UI must not write through the Fleet boundary.
+ * Read-only tool surface for OpenUI `Query()` statements. Dispatch lives here so
+ * `web/app` carries no runtime knowledge and the browser never receives a raw
+ * runtime object. There is no mutation path: generated UI must not write.
  */
 
 type ToolBudget = { readonly limit: number };

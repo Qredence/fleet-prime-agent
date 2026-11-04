@@ -34,8 +34,7 @@ async function callTool(name: OpenUIToolName, args: Record<string, unknown>): Pr
 	return { rows: parsed.data.rows ?? [] };
 }
 
-export type OpenUIToolProvider = Record<string, (args: Record<string, unknown>) => Promise<unknown>>;
-
-export const openUIToolProvider: OpenUIToolProvider = Object.fromEntries(
-	OPENUI_TOOL_NAMES.map((name) => [name, (args: Record<string, unknown>) => callTool(name, args ?? {})]),
-);
+export const openUIToolProvider: Record<string, (args: Record<string, unknown>) => Promise<unknown>> =
+	Object.fromEntries(
+		OPENUI_TOOL_NAMES.map((name) => [name, (args: Record<string, unknown>) => callTool(name, args ?? {})]),
+	);
