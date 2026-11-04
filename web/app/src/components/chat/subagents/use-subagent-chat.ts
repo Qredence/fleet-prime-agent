@@ -151,7 +151,6 @@ export function useSubagentChat({
 		childId: string;
 	} | null>(null);
 	const childId = child?.id;
-	const childActiveSessionId = child?.activeSessionId;
 	const childStatusValue = child?.status;
 	const childError = child?.error;
 
@@ -256,7 +255,9 @@ export function useSubagentChat({
 		let streamGeneration: string | undefined;
 		let terminalStream = false;
 		let currentStatus: ChatStatus = childStatus(childStatusValue);
-		const childKey = `${parentSessionId}:${childId}:${childActiveSessionId ?? ""}`;
+		// Keyed on the child thread, not its active session: a session reset must
+		// reuse (and clear) the same cursor instead of orphaning the old one.
+		const childKey = `${parentSessionId}:${childId}`;
 		const cursorKey = `pi:sse:cursor:subagent:${childKey}`;
 		const storedCursor = readStoredSubagentCursor(cursorKey);
 		if (storedCursor) {
@@ -430,6 +431,13 @@ export function useSubagentChat({
 							updateFromTransition(nextTransition, "error", chatErrorFromStreamEvent(frame));
 							return;
 						}
+						if (frame.type === "done" && frame.sessionReset) {
+							clearCursor();
+							source?.close();
+							source = null;
+							refresh();
+							return;
+						}
 						if (frame.type === "done") {
 							updateFromTransition(nextTransition, "ready");
 							return;
@@ -487,7 +495,6 @@ export function useSubagentChat({
 			clearReconnectTimer();
 		};
 	}, [
-		childActiveSessionId,
 		childId,
 		childError,
 		childStatusValue,

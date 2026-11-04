@@ -3,6 +3,7 @@ import { Bell, Settings } from "lucide-react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { TabStrip, type TabStripItem } from "@/components/layout/tab-strip";
+import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
 
 const tabs: Array<TabStripItem> = [
 	{ id: "first", label: "First", icon: Bell },
@@ -149,5 +150,61 @@ describe("TabStrip", () => {
 		const fitted = screen.getByTestId("strip").querySelector('[data-tab-id="second"]');
 		expect(fitted?.className).toContain("shrink-0");
 		expect(fitted?.className).not.toContain("flex-1");
+	});
+	it("does not re-fire when a press selected the tab before its click", () => {
+		const onValueChange = vi.fn();
+		const { rerender } = render(<TabStrip onValueChange={onValueChange} tabs={tabs} value="first" />);
+		const second = screen.getByRole("tab", { name: "Second" });
+
+		fireEvent.pointerDown(second);
+		// activateOnFocus selects the tab on focus, before the click lands.
+		rerender(<TabStrip onValueChange={onValueChange} tabs={tabs} value="second" />);
+		onValueChange.mockClear();
+		fireEvent.click(screen.getByRole("tab", { name: "Second" }));
+
+		expect(onValueChange).not.toHaveBeenCalled();
+	});
+
+	it("re-fires when the press started on the active tab", () => {
+		const onValueChange = vi.fn();
+		render(<TabStrip onValueChange={onValueChange} tabs={tabs} value="first" />);
+		const first = screen.getByRole("tab", { name: "First" });
+
+		fireEvent.pointerDown(first);
+		fireEvent.click(first);
+
+		expect(onValueChange).toHaveBeenCalledWith("first");
+	});
+
+	it("collapses only icon tabs to icon-only below the panel breakpoint when asked", () => {
+		render(<TabStrip iconOnlyOnMobile onValueChange={vi.fn()} tabs={tabs} value="first" />);
+
+		const first = screen.getByRole("tab", { name: "First" });
+		expect(first.getAttribute("title")).toBe("First");
+		expect(screen.getByText("First").className).toContain(`max-[${CHAT_PANEL_BREAKPOINT_PX}px]:hidden`);
+		const third = screen.getByRole("tab", { name: "Third, streaming" });
+		expect(third.getAttribute("title")).toBeNull();
+		expect(screen.getByText("Third").className).not.toContain("max-[");
+	});
+
+	it("starts the icon-only range where the desktop panel layout ends", () => {
+		render(<TabStrip iconOnlyOnMobile onValueChange={vi.fn()} tabs={tabs} value="first" />);
+
+		// Tailwind compiles `max-[N]` as `not (min-width: N)`, i.e. width < N, while
+		// `min-[N]` is width >= N. The hidden range must therefore end one pixel
+		// above the panel breakpoint or 959px falls into a gap where the desktop
+		// layout is active but the labels have reappeared.
+		const label = screen.getByText("First");
+		const maxVariants = [...label.classList].filter((name) => name.startsWith("max-["));
+		expect(maxVariants.length).toBeGreaterThan(0);
+
+		const values = maxVariants.map((name) => {
+			const match = /^max-\[(\d+(?:\.\d+)?)px\]:hidden$/.exec(name);
+			expect(match).not.toBeNull();
+			return Number(match?.[1]);
+		});
+		for (const value of values) {
+			expect(value).toBe(CHAT_PANEL_BREAKPOINT_PX);
+		}
 	});
 });

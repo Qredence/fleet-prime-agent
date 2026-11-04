@@ -318,8 +318,24 @@ function toolName(part: ToolRecord): string {
 	return type.startsWith("tool-") ? type.slice(5) : type;
 }
 
+/**
+ * Prime Agent reports a tool the user stopped as an error whose message is
+ * "Request was aborted". Treat that as a cancellation, not a failure.
+ */
+export function isAbortedToolPart(part: Record<string, unknown>): boolean {
+	const error = part.error;
+	const message =
+		typeof error === "string"
+			? error
+			: typeof error === "object" && error !== null && typeof (error as { message?: unknown }).message === "string"
+				? (error as { message: string }).message
+				: undefined;
+	return message !== undefined && /^request was aborted\b/i.test(message.trim());
+}
+
 function resultStatus(part: ToolRecord, chatStatus?: string): ToolResultStatus {
 	const state = typeof part.state === "string" ? part.state : undefined;
+	if (isAbortedToolPart(part)) return "cancelled";
 	if (state === "output-error" || state === "error") return "error";
 	if (state === "output-available" || state === "complete" || state === "success") return "success";
 	if (state === "cancelled" || state === "canceled" || state === "aborted" || state === "interrupted")
