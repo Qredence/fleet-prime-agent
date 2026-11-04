@@ -116,7 +116,7 @@ describe("normalizeToolPart", () => {
 			structured: false,
 			sourceCode: "%%bash\nls -la",
 			sourceLanguage: "bash",
-			sourceLabel: "IPython",
+			sourceLabel: "CPython",
 			sections: [{ label: "stdout", content: "ok", language: "text" }],
 		});
 
@@ -126,7 +126,7 @@ describe("normalizeToolPart", () => {
 			input: { code: "value = 1" },
 			output: { details: { stdout: "1" } },
 		});
-		expect(python?.detail).toMatchObject({ sourceLanguage: "python", sourceLabel: "IPython" });
+		expect(python?.detail).toMatchObject({ sourceLanguage: "python", sourceLabel: "CPython" });
 	});
 
 	it("gives terminal states precedence over the global streaming status", () => {
@@ -269,9 +269,9 @@ describe("normalizeToolPart", () => {
 				chatStatus: "streaming",
 			}),
 		);
-		expect(ipythonMarkup).toContain("IPython");
+		expect(ipythonMarkup).toContain("CPython");
 		expect(ipythonMarkup).toContain("Running");
-		expect(ipythonMarkup).not.toContain("Running IPython");
+		expect(ipythonMarkup).not.toContain("Running CPython");
 		expect(ipythonMarkup).toContain("max-height:160px");
 		expect(ipythonMarkup).not.toContain("Ready");
 

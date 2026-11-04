@@ -6,7 +6,6 @@ export type FleetPanelKeybindingAction =
 	| "toggleResources"
 	| "toggleWorkspace"
 	| "toggleArtifacts"
-	| "toggleRepl"
 	| "toggleSubagents"
 	| "toggleCommandPalette"
 	| "closePanel"
@@ -26,8 +25,7 @@ const DEFAULT_FLEET_PANEL_KEYBINDINGS: Record<FleetPanelKeybindingAction, FleetK
 	toggleResources: { code: "Digit1", ctrlOrMeta: true, shift: true },
 	toggleWorkspace: { code: "Digit2", ctrlOrMeta: true, shift: true },
 	toggleArtifacts: { code: "Digit3", ctrlOrMeta: true, shift: true },
-	toggleRepl: { code: "Digit4", ctrlOrMeta: true, shift: true },
-	toggleSubagents: { code: "Digit5", ctrlOrMeta: true, shift: true },
+	toggleSubagents: { code: "Digit4", ctrlOrMeta: true, shift: true },
 	toggleCommandPalette: { code: "KeyK", ctrlOrMeta: true },
 	closePanel: { code: "Escape" },
 	focusPanel: { code: "KeyP", ctrlOrMeta: true, shift: true },
@@ -96,7 +94,6 @@ export function usePanelKeybindings({
 			if (match("toggleResources")) setRightPanel(rightPanel === "resources" ? null : "resources");
 			else if (match("toggleWorkspace")) setRightPanel(rightPanel === "workspace" ? null : "workspace");
 			else if (match("toggleArtifacts")) setRightPanel(rightPanel === "artifacts" ? null : "artifacts");
-			else if (match("toggleRepl")) setRightPanel(rightPanel === "repl" ? null : "repl");
 			else if (match("toggleSubagents")) setRightPanel(rightPanel === "subagents" ? null : "subagents");
 			else if (onCommandPaletteToggle && match("toggleCommandPalette")) onCommandPaletteToggle();
 			else if (rightPanel && match("closePanel")) {

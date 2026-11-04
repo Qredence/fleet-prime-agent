@@ -1,10 +1,21 @@
 import type { PrimeAgentArtifactRun, PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import { ArrowUpRight, CircleCheck, CircleDashed, CircleX } from "lucide-react";
+import type { ChatMessage, ChatReasoningPart } from "@prime-agent/web-protocol/chat-types";
+import { ArrowUpRight, CircleCheck, CircleDashed, CircleX, LoaderCircle } from "lucide-react";
+import { useState } from "react";
 import { groupMessages } from "@/components/chat/transcript/conversation-turns";
 import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
 import { Button } from "@/components/ui/button";
+import {
+	Trace,
+	TraceCollapsible,
+	TraceCollapsibleContent,
+	TraceCollapsibleTrigger,
+	TraceDescription,
+	TraceIcon,
+	TraceLine,
+	TraceTitle,
+} from "@/components/ui/trace";
 
 function messageText(message: ChatMessage): string {
 	return message.parts
@@ -14,10 +25,79 @@ function messageText(message: ChatMessage): string {
 		.trim();
 }
 
+function isReasoningPart(part: ChatMessage["parts"][number]): part is ChatReasoningPart {
+	return part.type === "reasoning";
+}
+
 function childStatusIcon(status: PrimeAgentRlmChild["status"]) {
 	if (status === "done") return CircleCheck;
 	if (status === "error" || status === "failed" || status === "cancelled") return CircleX;
 	return CircleDashed;
+}
+
+function reasoningPreview(text: string): string {
+	const compact = text.replace(/\s+/g, " ").trim();
+	if (compact.length <= 140) return compact;
+	return `${compact.slice(0, 137).trimEnd()}…`;
+}
+
+function TurnReasoningSummary({ parts, streaming }: { parts: Array<ChatReasoningPart>; streaming: boolean }) {
+	const [userOpen, setUserOpen] = useState<boolean | undefined>();
+	if (parts.length === 0) return null;
+	if (parts.length === 1) {
+		const part = parts[0]!;
+		return (
+			<ReasoningLine
+				text={part.text}
+				streaming={streaming && part.state === "streaming"}
+				durationMs={part.durationMs}
+			/>
+		);
+	}
+
+	const active = streaming && parts.some((part) => part.state === "streaming");
+	const durationMs = parts.reduce(
+		(total, part) => total + (typeof part.durationMs === "number" ? part.durationMs : 0),
+		0,
+	);
+	const previews = parts.flatMap((part, index) => {
+		const preview = reasoningPreview(part.text);
+		return preview ? [{ episode: index + 1, preview }] : [];
+	});
+
+	return (
+		<Trace data-testid="reasoning-summary">
+			<TraceCollapsible open={userOpen ?? active} onOpenChange={setUserOpen}>
+				<TraceCollapsibleTrigger>
+					<TraceLine status={active ? "running" : undefined}>
+						<TraceIcon>
+							{active ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : <CircleCheck />}
+						</TraceIcon>
+						<TraceTitle>{active ? "Thinking" : "Thought"}</TraceTitle>
+						<TraceDescription>
+							{parts.length}
+							{durationMs > 0 ? ` · ${Math.max(0, Math.round(durationMs / 1000))}s` : ""}
+						</TraceDescription>
+					</TraceLine>
+				</TraceCollapsibleTrigger>
+				<TraceCollapsibleContent>
+					<p className="mb-2 text-xs text-muted-foreground">
+						{parts.length} reasoning steps in this turn. Full interleaved detail is on the Main agent transcript.
+					</p>
+					{previews.length > 0 ? (
+						<ol className="flex max-h-40 flex-col gap-1.5 overflow-y-auto overscroll-contain">
+							{previews.map(({ episode, preview }) => (
+								<li className="text-xs text-foreground/80" key={`reasoning-preview-${episode}`}>
+									<span className="font-medium text-muted-foreground">{episode}. </span>
+									{preview}
+								</li>
+							))}
+						</ol>
+					) : null}
+				</TraceCollapsibleContent>
+			</TraceCollapsible>
+		</Trace>
+	);
 }
 
 export function SessionActivityPanel({
@@ -42,7 +122,7 @@ export function SessionActivityPanel({
 		const text = messageText(message);
 		if (!text) return null;
 		return (
-			<div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2" key={message.id}>
+			<div className="rounded-md border border-border/60 bg-background/60 px-3 py-2" key={message.id}>
 				<div className="mb-1 text-micro font-medium uppercase tracking-wide text-muted-foreground">
 					{message.role === "user" ? "You" : "Assistant"}
 				</div>
@@ -90,22 +170,10 @@ export function SessionActivityPanel({
 									key={turn.user?.id ?? turn.assistants[0]?.id ?? index}
 								>
 									{turn.user ? renderMessage(turn.user) : null}
-									{turn.assistants.flatMap((message) =>
-										message.parts.flatMap((part) =>
-											part.type === "reasoning"
-												? [
-														<ReasoningLine
-															key={`${message.id}-reasoning-${part.contentIndex}`}
-															text={part.text}
-															streaming={
-																streaming && index === turns.length - 1 && part.state === "streaming"
-															}
-															durationMs={part.durationMs}
-														/>,
-													]
-												: [],
-										),
-									)}
+									<TurnReasoningSummary
+										parts={turn.assistants.flatMap((message) => message.parts.filter(isReasoningPart))}
+										streaming={streaming && index === turns.length - 1}
+									/>
 									<ToolTimeline
 										messages={turn.assistants}
 										artifacts={turnArtifacts}
@@ -150,7 +218,7 @@ export function SessionActivityPanel({
 								<li key={child.id}>
 									<Button
 										aria-label={`Open ${child.sessionName || child.label} agent tab`}
-										className="h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-left text-foreground hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring"
+										className="h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-2 text-left text-foreground hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring"
 										onClick={() => onSelectChild(child.id)}
 										size="compact"
 										type="button"

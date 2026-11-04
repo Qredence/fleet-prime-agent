@@ -13,6 +13,18 @@ import {
 	Wrench,
 } from "lucide-react";
 
+/** Presentation label for a tool part type (`tool-IPython` → `CPython`). */
+export function toolPartDisplayName(partType: string): string {
+	const raw = partType.replace(/^tool-/, "");
+	if (raw.toLowerCase() === "ipython") return "CPython";
+	return raw;
+}
+
+/** Presentation title for artifacts; remaps IPython → CPython without stripping other prefixes. */
+export function artifactDisplayTitle(title: string): string {
+	return title.toLowerCase() === "ipython" ? "CPython" : title;
+}
+
 /** Selects a compact, contextual icon for a tool or activity name. */
 export function toolActionIconForName(name: string): LucideIcon {
 	const lower = name.toLowerCase();

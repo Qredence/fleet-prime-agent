@@ -188,10 +188,17 @@ export function SubagentTranscriptView({
 	return (
 		<section
 			aria-label={`Subagent thread: ${child.label}`}
-			className={cn(fullWidth ? "flex min-h-0 min-w-0 flex-1 flex-col" : "space-y-2", "min-w-0")}
+			className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
 			data-testid={fullWidth ? "subagent-conversation-surface" : undefined}
 		>
-			<div className="flex min-w-0 items-start gap-2 rounded-md border border-border/60 bg-background px-2.5 py-2">
+			<div
+				className={cn(
+					"flex shrink-0 min-w-0 items-start gap-2",
+					fullWidth
+						? "rounded-md border border-border/60 bg-background px-2.5 py-2"
+						: "border-b border-border/40 pb-2",
+				)}
+			>
 				<Bot className="mt-0.5 size-3.5 shrink-0 text-foreground/45" />
 				<div className="min-w-0 flex-1">
 					<div className="flex min-w-0 items-center gap-2">
@@ -208,7 +215,12 @@ export function SubagentTranscriptView({
 						</p>
 					) : null}
 					{child.answerPreview ? (
-						<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-caption leading-4 text-foreground/55">
+						<p
+							className={cn(
+								"mt-1 whitespace-pre-wrap text-caption leading-4 text-foreground/55",
+								fullWidth ? "line-clamp-3" : "line-clamp-2",
+							)}
+						>
 							{child.answerPreview}
 						</p>
 					) : null}
@@ -233,12 +245,7 @@ export function SubagentTranscriptView({
 					This subagent thread is unavailable until the parent session is active.
 				</p>
 			) : transcript?.status === "loading" ? (
-				<div
-					className={cn(
-						"flex items-center justify-center rounded-md border border-dashed border-border/70 text-caption text-foreground/45",
-						fullWidth ? "min-h-32 flex-1" : "min-h-32",
-					)}
-				>
+				<div className="flex min-h-32 flex-1 items-center justify-center text-caption text-foreground/45">
 					Loading subagent thread…
 				</div>
 			) : transcript?.status === "error" && turns.length === 0 ? (
@@ -258,7 +265,10 @@ export function SubagentTranscriptView({
 					{transcript?.error ? (
 						<div
 							role="alert"
-							className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption leading-4 text-destructive sm:mx-6"
+							className={cn(
+								"mb-2 flex shrink-0 items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption leading-4 text-destructive",
+								fullWidth && "mx-4 mt-2 sm:mx-6",
+							)}
 						>
 							<AlertCircle className="mt-0.5 size-3.5 shrink-0" />
 							<span>{transcript.error.message}</span>
@@ -266,15 +276,15 @@ export function SubagentTranscriptView({
 					) : null}
 					<div
 						className={cn(
-							"min-h-0 rounded-md border border-border/60 bg-background",
+							"flex min-h-0 flex-1 flex-col bg-background",
 							fullWidth
-								? "flex min-h-0 flex-1 flex-col border-x-0 rounded-none border-b-0"
-								: "h-96 max-h-[calc(100svh-18rem)]",
+								? "rounded-none border-x-0 border-b-0 border-t border-border/60"
+								: "rounded-md border border-border/60",
 						)}
 					>
 						<MessageScroller
 							busy={childStatus === "streaming"}
-							className={fullWidth ? "min-h-0 flex-1" : undefined}
+							className="min-h-0 flex-1"
 							followOutput={childStatus === "streaming"}
 							label={`Transcript for ${child.label}`}
 							smooth={childStatus !== "streaming"}
@@ -282,7 +292,7 @@ export function SubagentTranscriptView({
 							viewportClassName={fullWidth ? "px-0" : undefined}
 							contentClassName={cn(
 								"flex flex-col gap-4",
-								fullWidth ? "mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" : "px-2.5 py-3",
+								fullWidth ? "mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" : "px-0.5 py-2",
 							)}
 						>
 							<VirtualizedTurnList

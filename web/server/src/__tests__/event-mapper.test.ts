@@ -36,6 +36,24 @@ function mkAssistant(partial: Partial<AssistantMessage> & { errorMessage?: strin
 	} as AssistantMessage;
 }
 
+function mapAssistantUpdate(
+	state: ReturnType<typeof createEventMapperState>,
+	assistantMessageEvent: Record<string, unknown>,
+	message: AssistantMessage = mkAssistant(),
+): ChatStreamEvent[] {
+	return mapAgentSessionEvent(state, {
+		type: "message_update",
+		message,
+		assistantMessageEvent,
+	} as unknown as AgentSessionEvent);
+}
+
+function startMappedRun(init?: Parameters<typeof createEventMapperState>[0]) {
+	const state = createEventMapperState(init);
+	mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+	return state;
+}
+
 describe("event-mapper", () => {
 	it("normalizes reasoning events without content indexes and validates the final message", () => {
 		const state = createEventMapperState({ sessionId: "session-1" });
@@ -57,6 +75,7 @@ describe("event-mapper", () => {
 			} as unknown as AgentSessionEvent),
 		];
 		expect(frames.filter((frame) => frame.type === "reasoning_text")).toEqual([
+			expect.objectContaining({ phase: "start", contentIndex: 0, text: "" }),
 			expect.objectContaining({ phase: "delta", contentIndex: 0, text: "sample" }),
 			expect.objectContaining({ phase: "end", contentIndex: 0, text: "sample" }),
 		]);
@@ -76,9 +95,10 @@ describe("event-mapper", () => {
 			message: mkAssistant(),
 			assistantMessageEvent: { type: "thinking_delta", contentIndex, delta: "sample" },
 		} as unknown as AgentSessionEvent;
-		const frame = mapAgentSessionEvent(state, event).find((candidate) => candidate.type === "reasoning_text");
-		expect(frame).toMatchObject({ type: "reasoning_text", phase: "delta", contentIndex: 0 });
-		expect(ChatStreamEventSchema.safeParse(JSON.parse(JSON.stringify(frame))).success).toBe(true);
+		const frames = mapAgentSessionEvent(state, event).filter((candidate) => candidate.type === "reasoning_text");
+		expect(frames[0]).toMatchObject({ type: "reasoning_text", phase: "start", contentIndex: 0 });
+		expect(frames[1]).toMatchObject({ type: "reasoning_text", phase: "delta", contentIndex: 0 });
+		expect(ChatStreamEventSchema.safeParse(JSON.parse(JSON.stringify(frames[1]))).success).toBe(true);
 	});
 
 	it("preserves a valid nonzero reasoning index", () => {
@@ -213,71 +233,95 @@ describe("event-mapper", () => {
 		);
 	});
 
-	it("resets reused content indexes when a later assistant message starts", () => {
-		const state = createEventMapperState();
-		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: { type: "thinking_start", contentIndex: 0, partial: mkAssistant() },
-		} as unknown as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: {
-				type: "thinking_delta",
-				contentIndex: 0,
-				delta: "first message",
-				partial: mkAssistant(),
-			},
-		} as unknown as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: { type: "thinking_start", contentIndex: 0, partial: mkAssistant() },
-		} as unknown as AgentSessionEvent);
-		const endFrames = mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: {
-				type: "thinking_end",
-				contentIndex: 0,
-				content: "second message",
-				partial: mkAssistant(),
-			},
-		} as unknown as AgentSessionEvent);
-		expect(endFrames).toContainEqual(expect.objectContaining({ type: "reasoning_text", text: "second message" }));
-		const frames = mapAgentSessionEvent(state, { type: "agent_end", messages: [] } as unknown as AgentSessionEvent);
-		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts).toContainEqual(
-			expect.objectContaining({ type: "reasoning", contentIndex: 0, text: "second message", state: "complete" }),
+	it("assigns a fresh Fleet content index after assistant start reuses runtime index 0", () => {
+		const state = startMappedRun();
+		mapAssistantUpdate(state, { type: "start" });
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "Before tools" });
+		mapAssistantUpdate(state, { type: "thinking_end", contentIndex: 0, content: "Before tools" });
+		mapAssistantUpdate(state, { type: "start" });
+		expect(mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 })).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
 		);
-		expect(done.message.parts).not.toContainEqual(expect.objectContaining({ text: "first message" }));
+		expect(
+			mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "After tools" }),
+		).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "delta", contentIndex: 1, text: "After tools" }),
+		);
+	});
+
+	it("closes an open Thought before toolcall_start so later thinking is a new row", () => {
+		const state = startMappedRun();
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "Planning" });
+		expect(mapAssistantUpdate(state, { type: "toolcall_start", contentIndex: 1 })).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "end", contentIndex: 0, text: "Planning" }),
+		);
+		const resumed = mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "After tool" });
+		expect(resumed).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
+		);
+		expect(resumed).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "delta", contentIndex: 1, text: "After tool" }),
+		);
+	});
+
+	it("opens a new Thought episode when a runtime content index is reused", () => {
+		const state = startMappedRun();
+		const partial = mkAssistant();
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0, partial });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "first message", partial });
+		mapAssistantUpdate(state, { type: "thinking_end", contentIndex: 0, content: "first message", partial });
+		expect(mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0, partial })).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
+		);
+		expect(
+			mapAssistantUpdate(state, { type: "thinking_end", contentIndex: 0, content: "second message", partial }),
+		).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "end", contentIndex: 1, text: "second message" }),
+		);
+		const terminal = mkAssistant({
+			content: [
+				{ type: "thinking", thinking: "second message" },
+				{ type: "text", text: "Answer" },
+			] as AssistantMessage["content"],
+		});
+		mapAssistantUpdate(state, { type: "done", message: terminal }, terminal);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [terminal],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		expect(done.message.parts.filter((part) => part.type === "reasoning")).toEqual([
+			expect.objectContaining({ type: "reasoning", contentIndex: 0, text: "first message", state: "complete" }),
+			expect.objectContaining({ type: "reasoning", contentIndex: 1, text: "second message", state: "complete" }),
+		]);
+	});
+
+	it("ends the previous Thought when thinking_start repeats without thinking_end", () => {
+		const state = startMappedRun();
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "First open episode" });
+		const replaced = mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		expect(replaced).toContainEqual(
+			expect.objectContaining({
+				type: "reasoning_text",
+				phase: "end",
+				contentIndex: 0,
+				text: "First open episode",
+			}),
+		);
+		expect(replaced).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
+		);
 	});
 
 	it("keeps reasoning message-scoped and retains streamed text across assistant messages", () => {
-		const state = createEventMapperState();
-		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: { type: "start" },
-		} as unknown as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: { type: "thinking_start", contentIndex: 0 },
-		} as unknown as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: { type: "thinking_delta", contentIndex: 0, delta: "Earlier thought" },
-		} as unknown as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: { type: "text_delta", contentIndex: 1, delta: "Earlier response. " },
-		} as unknown as AgentSessionEvent);
+		const state = startMappedRun();
+		mapAssistantUpdate(state, { type: "start" });
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "Earlier thought" });
+		mapAssistantUpdate(state, { type: "text_delta", contentIndex: 1, delta: "Earlier response. " });
 		const earlierMessage = mkAssistant({
 			content: [
 				{ type: "thinking", thinking: "Earlier thought" },
@@ -286,11 +330,7 @@ describe("event-mapper", () => {
 		});
 		mapAgentSessionEvent(state, { type: "message_end", message: earlierMessage } as unknown as AgentSessionEvent);
 
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: mkAssistant(),
-			assistantMessageEvent: { type: "start" },
-		} as unknown as AgentSessionEvent);
+		mapAssistantUpdate(state, { type: "start" });
 		const finalMessage = mkAssistant({
 			content: [{ type: "text", text: "Final answer." }] as AssistantMessage["content"],
 		});
@@ -307,56 +347,40 @@ describe("event-mapper", () => {
 		);
 	});
 
-	it("recovers terminal-only assistant text and typed reasoning in content order", () => {
-		const state = createEventMapperState();
-		const completed = mkAssistant({
-			content: [
-				{ type: "thinking", thinking: "terminal reasoning" },
-				{ type: "text", text: "Recovered final answer." },
-			] as AssistantMessage["content"],
-		});
-		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_update",
-			message: completed,
-			assistantMessageEvent: {
-				type: "done",
-				reason: "stop",
-				message: completed,
+	it.each([
+		{
+			label: "terminal done",
+			thinking: "terminal reasoning",
+			text: "Recovered final answer.",
+			deliver: (state: ReturnType<typeof createEventMapperState>, completed: AssistantMessage) => {
+				mapAssistantUpdate(state, { type: "done", reason: "stop", message: completed }, completed);
 			},
-		} as unknown as AgentSessionEvent);
-		const frames = mapAgentSessionEvent(state, {
-			type: "agent_end",
-			messages: [],
-		} as unknown as AgentSessionEvent);
-		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts).toEqual([
-			{ type: "reasoning", contentIndex: 0, text: "terminal reasoning", state: "complete" },
-			{ type: "text", text: "Recovered final answer." },
-		]);
-	});
-
-	it("recovers text and typed reasoning from an assistant message_end", () => {
-		const state = createEventMapperState();
+		},
+		{
+			label: "message_end",
+			thinking: "message-end reasoning",
+			text: "Message-end final answer.",
+			deliver: (state: ReturnType<typeof createEventMapperState>, completed: AssistantMessage) => {
+				mapAgentSessionEvent(state, { type: "message_end", message: completed } as unknown as AgentSessionEvent);
+			},
+		},
+	])("recovers text and typed reasoning from $label", ({ thinking, text, deliver }) => {
+		const state = startMappedRun();
 		const completed = mkAssistant({
 			content: [
-				{ type: "thinking", thinking: "message-end reasoning" },
-				{ type: "text", text: "Message-end final answer." },
+				{ type: "thinking", thinking },
+				{ type: "text", text },
 			] as AssistantMessage["content"],
 		});
-		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_end",
-			message: completed,
-		} as unknown as AgentSessionEvent);
+		deliver(state, completed);
 		const frames = mapAgentSessionEvent(state, {
 			type: "agent_end",
 			messages: [],
 		} as unknown as AgentSessionEvent);
 		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
 		expect(done.message.parts).toEqual([
-			{ type: "reasoning", contentIndex: 0, text: "message-end reasoning", state: "complete" },
-			{ type: "text", text: "Message-end final answer." },
+			{ type: "reasoning", contentIndex: 0, text: thinking, state: "complete" },
+			{ type: "text", text },
 		]);
 	});
 

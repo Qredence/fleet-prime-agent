@@ -126,11 +126,27 @@ export function applyAssistantReasoningText(
 ) {
 	return messages.map((message) => {
 		if (message.id !== assistantId) return message;
-		const index = message.parts.findIndex(
-			(part) => part.type === "reasoning" && part.contentIndex === event.contentIndex,
-		);
+		let index = -1;
+		let streamingIndex = -1;
+		for (let i = 0; i < message.parts.length; i++) {
+			const candidate = message.parts[i];
+			if (candidate?.type !== "reasoning" || candidate.contentIndex !== event.contentIndex) continue;
+			index = i;
+			if (candidate.state === "streaming") streamingIndex = i;
+		}
+		if (streamingIndex >= 0) index = streamingIndex;
+		else if (event.phase === "delta") index = -1;
 		const existing = index < 0 ? undefined : message.parts[index];
-		const previousText = existing?.type === "reasoning" ? existing.text : "";
+		const openNewEpisode = event.phase === "start" && existing?.type === "reasoning" && existing.state === "complete";
+		if (
+			event.phase === "end" &&
+			existing?.type === "reasoning" &&
+			existing.state === "complete" &&
+			streamingIndex < 0
+		) {
+			return message;
+		}
+		const previousText = !openNewEpisode && existing?.type === "reasoning" ? existing.text : "";
 		const part = {
 			type: "reasoning" as const,
 			contentIndex: event.contentIndex,
@@ -146,7 +162,7 @@ export function applyAssistantReasoningText(
 			...(event.durationMs !== undefined ? { durationMs: event.durationMs } : {}),
 		};
 		const parts = [...message.parts];
-		if (index >= 0) parts[index] = part;
+		if (index >= 0 && !openNewEpisode) parts[index] = part;
 		else {
 			const emptyText = parts.findIndex((current) => current.type === "text" && !current.text);
 			parts.splice(emptyText < 0 ? parts.length : emptyText, 0, part);

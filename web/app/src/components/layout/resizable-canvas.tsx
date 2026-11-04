@@ -10,6 +10,7 @@ import {
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { DESKTOP_PANEL_HIDDEN_FLEX } from "@/lib/layout-constants";
+import { cn } from "@/lib/utils";
 
 /** Renders the desktop resource panel at `width` pixels when open.
  * Its separator delegates pointer resizing to `onResizeStart`. Keyboard
@@ -18,6 +19,7 @@ import { DESKTOP_PANEL_HIDDEN_FLEX } from "@/lib/layout-constants";
  * and maximum.
  * Opening focuses the panel, and Escape calls `onClose`. */
 export function ResizableCanvas({
+	bodyClassName,
 	children,
 	dataTestid,
 	headerLeading,
@@ -32,6 +34,7 @@ export function ResizableCanvas({
 	titleIcon: TitleIcon,
 	width,
 }: {
+	bodyClassName?: string;
 	children: ReactNode;
 	dataTestid?: string;
 	headerLeading?: ReactNode;
@@ -150,7 +153,12 @@ export function ResizableCanvas({
 								</Button>
 							</div>
 						</div>
-						<div className="flex-1 overflow-y-auto overscroll-contain px-[var(--density-pad-x)] py-4">
+						<div
+							className={cn(
+								"flex-1 overscroll-contain px-[var(--density-pad-x)] py-4",
+								bodyClassName ?? "overflow-y-auto",
+							)}
+						>
 							{children}
 						</div>
 					</div>

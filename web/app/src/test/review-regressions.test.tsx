@@ -556,7 +556,7 @@ describe("review regressions", () => {
 			<AgentChat inputBar={inputBar} messages={messages} onSend={vi.fn()} onStop={vi.fn()} status="ready" />,
 		);
 		const answer = await findByText("Final architecture summary");
-		const details = await findByRole("button", { name: "Details for IPython (footer-tool)" });
+		const details = await findByRole("button", { name: "Details for CPython (footer-tool)" });
 		const progress = details.closest("[data-testid='assistant-tool-trace']");
 
 		expect(progress).not.toBeNull();
@@ -801,7 +801,7 @@ describe("review regressions", () => {
 		expect(onOpenArtifact).toHaveBeenCalledWith("bash-artifact", "artifacts");
 	});
 
-	it("opens IPython activity in REPL", async () => {
+	it("opens CPython activity in the REPL panel", async () => {
 		const onOpenArtifact = vi.fn();
 		const messages: Array<ChatMessage> = [
 			{
@@ -829,7 +829,7 @@ describe("review regressions", () => {
 						sourceMessageId: "assistant-tool",
 						sourceToolCallId: "ipython-1",
 						kind: "ipython" as const,
-						title: "IPython",
+						title: "CPython",
 						status: "success" as const,
 						input: { code: "1 + 1" },
 						output: { result: "2" },
@@ -850,8 +850,8 @@ describe("review regressions", () => {
 			/>,
 		);
 
-		expect(await findByRole("button", { name: "Details for IPython (ipython-1)" })).toBeTruthy();
-		const openButton = await findByRole("button", { name: "Open IPython in REPL" });
+		expect(await findByRole("button", { name: "Details for CPython (ipython-1)" })).toBeTruthy();
+		const openButton = await findByRole("button", { name: "Open CPython in REPL" });
 		fireEvent.click(openButton);
 		expect(onOpenArtifact).toHaveBeenCalledWith("ipython-artifact", "repl");
 	});

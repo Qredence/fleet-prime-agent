@@ -5,7 +5,7 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import type { ToolPartBase } from "@/components/chat/transcript/chat-message-parts";
-import { toolActionIconForName } from "@/components/tools/tool-action-icon";
+import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
 import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 import {
 	Trace,
@@ -121,6 +121,7 @@ function toolStep(
 		return undefined;
 	const name = type.slice(5);
 	const lower = name.toLowerCase();
+	const displayName = toolPartDisplayName(name);
 	const verb =
 		lower.includes("edit") || lower.includes("write") || lower.includes("patch")
 			? "Edited"
@@ -133,12 +134,12 @@ function toolStep(
 							lower.includes("python") ||
 							lower.includes("ipython")
 						? "Ran"
-						: name;
+						: displayName;
 	const normalized = normalizeToolPart(part);
 	return {
 		id: typeof part.toolCallId === "string" ? part.toolCallId : fallbackId,
 		verb,
-		target: name,
+		target: displayName,
 		status: status(part, streaming),
 		part: part as ToolPartBase,
 		nestedTools,
@@ -171,7 +172,7 @@ function artifactStep(artifact: PrimeAgentArtifact): TimelineStep {
 			artifact.kind === "bash"
 				? "Bash output"
 				: artifact.kind === "ipython"
-					? "IPython result"
+					? "CPython result"
 					: artifact.kind === "diff"
 						? "File change"
 						: artifact.kind === "rlm"
@@ -196,9 +197,7 @@ function TimelineStepRow({
 	const artifactId = step.artifactId;
 	const openLabel =
 		artifactId && step.artifactTitle
-			? step.artifactTarget === "repl"
-				? `Open ${step.artifactTitle} in REPL`
-				: `Open ${step.artifactTitle} in artifacts`
+			? `Open ${artifactDisplayTitle(step.artifactTitle)} in ${step.artifactTarget === "repl" ? "REPL" : "artifacts"}`
 			: undefined;
 	const detailLabel = `Details for ${step.target}${step.id ? ` (${step.id})` : ""}`;
 	const statusLabel = step.reportedError

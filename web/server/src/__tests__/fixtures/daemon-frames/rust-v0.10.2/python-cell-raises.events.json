@@ -100,6 +100,13 @@
 	},
 	{
 		"type": "reasoning_text",
+		"phase": "start",
+		"contentIndex": 0,
+		"text": "",
+		"messageId": "run-mjuohs00-i-a0"
+	},
+	{
+		"type": "reasoning_text",
 		"phase": "delta",
 		"contentIndex": 0,
 		"text": "The",

@@ -27,7 +27,7 @@ export type RightPanelDefinition = {
 };
 
 export type RightPanelGroup = {
-	id: "workspace" | "subagents" | "session" | "repl";
+	id: "workspace" | "subagents" | "session";
 	title: string;
 	ariaLabel: string;
 	icon: LucideIcon;
@@ -254,7 +254,7 @@ export const RIGHT_PANEL_REGISTRY = {
 		title: "REPL",
 		ariaLabel: "REPL runs",
 		commandLabel: "Open REPL",
-		commandKeywords: ["repl", "ipython", "python", "cells", "panels"],
+		commandKeywords: ["repl", "cpython", "ipython", "python", "cells", "panels"],
 		icon: SquareTerminal,
 		dataTestid: "pi-repl-canvas",
 		mobileDataTestid: "pi-repl-mobile-panel",
@@ -339,14 +339,6 @@ export const RIGHT_PANEL_GROUPS: ReadonlyArray<RightPanelGroup> = [
 		icon: Activity,
 		defaultPanel: "session-insights",
 		panels: ["resources", "session-insights", "session-tree"],
-	},
-	{
-		id: "repl",
-		title: "REPL",
-		ariaLabel: "REPL",
-		icon: SquareTerminal,
-		defaultPanel: "repl",
-		panels: ["repl"],
 	},
 ];
 
