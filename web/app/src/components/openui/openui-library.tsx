@@ -1,5 +1,13 @@
 import type { ComponentRenderProps, StateField } from "@openuidev/react-lang";
-import { createLibrary, defineComponent, reactive, useStateField, useTriggerAction } from "@openuidev/react-lang";
+import {
+	action,
+	createLibrary,
+	defineAction,
+	defineComponent,
+	reactive,
+	useStateField,
+	useTriggerAction,
+} from "@openuidev/react-lang";
 import { RightPanelIdSchema, WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { useId } from "react";
 import { Bar, CartesianGrid, BarChart as RechartsBarChart, XAxis, YAxis } from "recharts";
@@ -7,6 +15,18 @@ import { z } from "zod/v4";
 import { DonutChartDef, LineChartDef } from "@/components/openui/charts";
 import { DataTableDef, MetricGroupDef } from "@/components/openui/data";
 import { HtmlArtifactComponent } from "@/components/openui/html-artifact";
+import {
+	AccordionDef,
+	EmptyDef,
+	ImageDef,
+	KeyValueListDef,
+	SkeletonDef,
+	SliderDef,
+	StepsDef,
+	TabsDef,
+	TextAreaDef,
+} from "@/components/openui/openui-extra-components";
+import { openUIFunctions } from "@/components/openui/openui-functions";
 
 const HtmlArtifactDef = defineComponent({
 	name: "HtmlArtifact",
@@ -108,7 +128,7 @@ const ButtonDef = defineComponent({
 	props: z.object({
 		label: z.string().describe("Visible button label"),
 		action: z
-			.any()
+			.union([z.string(), action()])
 			.optional()
 			.describe("Message string, action, or action composition to run on click. Defaults to label."),
 		variant: z
@@ -175,6 +195,24 @@ const PanelActionDef = defineComponent({
 			}
 		}),
 	component: PanelActionComponent,
+});
+
+/**
+ * Typed alternative to inlining an object literal: this action is declared in the
+ * library, so `@OpenPanel(panel, ...)` reaches `onAction` with schema-checked
+ * params instead of a shape the renderer would otherwise accept unvalidated.
+ * `PanelAction` remains the positional component form.
+ */
+export const openPanelAction = defineAction({
+	name: "OpenPanel",
+	description: "Opens one of Fleet's right-hand panels. Trusted local action; it never fetches remote data.",
+	params: z.object({
+		panel: RightPanelIdSchema,
+		relativePath: WorkspaceRelativePathSchema.optional().describe(
+			'Workspace-relative path; valid only when panel is "workspace" or "artifacts".',
+		),
+		focus: z.boolean().optional().describe("Move keyboard focus into the panel"),
+	}),
 });
 
 const TextDef = defineComponent({
@@ -819,6 +857,68 @@ export const CitationDef = defineComponent({
 });
 
 export const openUILibrary = createLibrary({
+	// Declaring the root lets the renderer's parser resolve the 1.0 entry rule:
+	// a program without a `root` statement falls back to the first root-component
+	// call with a `no-root` warning instead of rendering nothing.
+	root: "Root",
+	// Grouping turns a long signature dump into navigable sections, so the model
+	// can find the right family instead of scanning every component.
+	componentGroups: [
+		{
+			name: "Layout",
+			components: ["Root", "Stack", "Grid", "Group", "Divider", "Tabs", "Accordion"],
+			notes: [
+				"Start every program with root = Root([...]).",
+				"Prefer Stack for a single axis, Grid only when the columns genuinely align.",
+			],
+		},
+		{
+			name: "Text & status",
+			components: ["Heading", "Text", "Badge", "Callout", "Empty", "Skeleton"],
+			notes: ["Use Callout for warnings and outcomes, Badge for compact state, Empty for a real zero-result state."],
+		},
+		{
+			name: "Data display",
+			components: [
+				"Metric",
+				"MetricGroup",
+				"KeyValue",
+				"KeyValueList",
+				"Table",
+				"DataTable",
+				"List",
+				"Steps",
+				"Todo",
+			],
+			notes: [
+				"DataTable formats typed columns (number, currency, percent); Table is for plain strings.",
+				"MetricGroup is for a row of KPIs. Steps is ordered progress; Todo is a task checklist.",
+			],
+		},
+		{
+			name: "Charts",
+			components: ["LineChart", "BarChart", "DonutChart"],
+			notes: ["Use charts only for real series data. Never invent trend numbers just to fill a chart."],
+		},
+		{
+			name: "Input",
+			components: ["Input", "TextArea", "Select", "Switch", "Slider", "Button"],
+			notes: ["Bind interactive fields to a $variable and reuse that variable in Query args so the data refetches."],
+		},
+		{
+			name: "Containers",
+			components: ["Card", "Modal", "Disclosure"],
+			notes: ["Card is the default chat-sized container; Modal needs a $variable bound to its open state."],
+		},
+		{
+			name: "Media & artifacts",
+			components: ["Image", "Citation", "CodeBlock", "HtmlArtifact", "PanelAction"],
+			notes: [
+				"Citation is for external sources only. PanelAction opens a Fleet panel and never fetches data.",
+				"HtmlArtifact is a single self-contained document, not a general layout escape hatch.",
+			],
+		},
+	],
 	components: [
 		RootDef,
 		StackDef,
@@ -849,7 +949,18 @@ export const openUILibrary = createLibrary({
 		ModalDef,
 		DisclosureDef,
 		TodoDef,
+		TabsDef,
+		AccordionDef,
+		TextAreaDef,
+		SliderDef,
+		StepsDef,
+		KeyValueListDef,
+		EmptyDef,
+		SkeletonDef,
+		ImageDef,
 		CitationDef,
 		HtmlArtifactDef,
 	],
+	functions: openUIFunctions,
+	actions: [openPanelAction],
 });

@@ -1187,7 +1187,10 @@ export class PrimeBridge {
 		const openUIStateChanged =
 			session.openUIPrompt.enabled !== openUIEnabled ||
 			session.openUIPrompt.mode !== openUIMode ||
-			(session.openUIPrompt.artifact ?? false) !== openUIArtifact;
+			(session.openUIPrompt.artifact ?? false) !== openUIArtifact ||
+			// A changed prompt body (new components, functions, or tools) must reach
+			// an existing session, not only newly created ones.
+			session.openUIPrompt.prompt !== buildOpenUIPrompt(openUIMode, { artifact: openUIArtifact });
 		const hasPendingOpenUITransition = this.#openUIPromptTransitions.has(sessionId);
 		const wasStreaming = session.isStreaming;
 		const promptOptions = {
@@ -1261,14 +1264,18 @@ export class PrimeBridge {
 		mode: OpenUIPromptMode,
 		artifact = false,
 	): Promise<void> {
+		const previousPrompt = session.openUIPrompt.prompt;
+		const nextPrompt = buildOpenUIPrompt(mode, { artifact });
+		// The prompt text is compared as well as the flags: `buildOpenUIPrompt`
+		// changes whenever the component catalog or tool surface changes, and a
+		// session must pick that up instead of keeping the prompt it was born with.
 		if (
 			session.openUIPrompt.enabled === enabled &&
 			session.openUIPrompt.mode === mode &&
-			(session.openUIPrompt.artifact ?? false) === artifact
+			(session.openUIPrompt.artifact ?? false) === artifact &&
+			previousPrompt === nextPrompt
 		)
 			return;
-		const previousPrompt = session.openUIPrompt.prompt;
-		const nextPrompt = buildOpenUIPrompt(mode, { artifact });
 		const nextState: OpenUIPromptSessionState = { enabled, mode, artifact, prompt: nextPrompt };
 		if (session.setOpenUIPrompt) {
 			await session.setOpenUIPrompt(nextState);

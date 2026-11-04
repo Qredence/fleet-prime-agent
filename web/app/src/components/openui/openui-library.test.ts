@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+import {
+	decodeOpenPanelActionMessage,
+	encodeOpenPanelActionMessage,
+	openPanelActionFromParams,
+} from "@/components/openui/open-panel-action-message";
+import { openUILibrary } from "@/components/openui/openui-library";
+
+describe("OpenUI library contract", () => {
+	it("declares Root as its entry so the no-root fallback can resolve", () => {
+		expect(openUILibrary.root).toBe("Root");
+	});
+
+	it("exposes typed action props instead of an unconstrained schema", () => {
+		const defs = openUILibrary.toJSONSchema().$defs;
+		expect(defs?.Button?.properties?.action).toEqual({
+			anyOf: [{ type: "string" }, { $ref: "#/$defs/ActionExpression" }],
+		});
+	});
+
+	it("registers the custom OpenPanel action", () => {
+		expect(Object.keys(openUILibrary.actions ?? {})).toEqual(["OpenPanel"]);
+	});
+
+	it("registers the client functions used in prompts", () => {
+		expect(Object.keys(openUILibrary.functions ?? {}).sort()).toEqual([
+			"Bytes",
+			"Duration",
+			"Percent",
+			"RelativeTime",
+			"ShortPath",
+			"Tokens",
+		]);
+	});
+});
+
+describe("openPanelActionFromParams", () => {
+	it("accepts a valid panel", () => {
+		expect(openPanelActionFromParams({ panel: "workspace", relativePath: "web/app" })).toEqual({
+			panel: "workspace",
+			relativePath: "web/app",
+		});
+	});
+
+	it("rejects an unknown panel", () => {
+		expect(openPanelActionFromParams({ panel: "nope" })).toBeUndefined();
+	});
+
+	it("rejects a relativePath for a panel that does not take one", () => {
+		expect(openPanelActionFromParams({ panel: "repl", relativePath: "web/app" })).toBeUndefined();
+	});
+
+	it("rejects non-object params", () => {
+		expect(openPanelActionFromParams(null)).toBeUndefined();
+		expect(openPanelActionFromParams("workspace")).toBeUndefined();
+	});
+
+	it("round-trips through the encoded message form", () => {
+		const encoded = encodeOpenPanelActionMessage({ panel: "artifacts", focus: true });
+		expect(decodeOpenPanelActionMessage(encoded)).toEqual({ panel: "artifacts", focus: true });
+	});
+});

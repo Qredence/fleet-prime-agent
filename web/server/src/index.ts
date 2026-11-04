@@ -41,6 +41,7 @@ export {
 export { handleChatSessionsGet } from "./handlers/chat-sessions";
 export { handleChatSettingsGet, handleChatSettingsPatch } from "./handlers/chat-settings";
 export { handleHealthGet } from "./handlers/health";
+export { handleOpenUIToolPost } from "./handlers/openui-tool";
 export {
 	handleProjectBrowseGet,
 	handleProjectDelete,

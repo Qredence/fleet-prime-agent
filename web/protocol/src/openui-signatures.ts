@@ -3,6 +3,7 @@
 import type { PromptSpec } from "@openuidev/lang-core";
 
 export const openUIPromptSpec = {
+	root: "Root",
 	components: {
 		Root: {
 			signature: "Root(children?: any)",
@@ -35,7 +36,7 @@ export const openUIPromptSpec = {
 		},
 		Button: {
 			signature:
-				'Button(label: string, action?: any, variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link")',
+				'Button(label: string, action?: string | ActionExpression, variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link")',
 			description: "A button that triggers interactive actions or conversational updates.",
 		},
 		PanelAction: {
@@ -136,6 +137,50 @@ export const openUIPromptSpec = {
 				'Todo(title?: string, items: {label: string, status?: "pending" | "in-progress" | "completed" | "cancelled", detail?: string}[])',
 			description: "A read-only progress list for plans and task status.",
 		},
+		Tabs: {
+			signature: "Tabs(tabs: {label: string, content?: any}[], defaultIndex?: number)",
+			description:
+				"A tabbed container. Each tab has a label and its own content, so several dense sections can share one chat card.",
+		},
+		Accordion: {
+			signature: "Accordion(items: {title: string, content?: any, open?: boolean}[])",
+			description:
+				"Collapsible sections. Use it when several independent details would otherwise dominate the message.",
+		},
+		TextArea: {
+			signature:
+				"TextArea(name: string, value: $binding<string>, placeholder?: string, rows?: number, disabled?: boolean)",
+			description: "A multi-line, state-bound text input for longer free-form answers.",
+		},
+		Slider: {
+			signature:
+				"Slider(name: string, value: $binding<number>, label?: string, min?: number, max?: number, step?: number)",
+			description: "A numeric range input bound to reactive state, for thresholds and limits.",
+		},
+		Steps: {
+			signature:
+				'Steps(steps: {label: string, detail?: string, state?: "complete" | "current" | "pending" | "failed"}[])',
+			description:
+				"An ordered multi-step progress list with an explicit current step. Prefer it over Todo when the order and the active step matter.",
+		},
+		KeyValueList: {
+			signature: "KeyValueList(items: {label: string, value: string}[])",
+			description: "Several label/value rows as one compact block, for facts that belong together.",
+		},
+		Empty: {
+			signature: "Empty(title: string, description?: string)",
+			description: "An explicit empty state for a query or list that returned nothing.",
+		},
+		Skeleton: {
+			signature: "Skeleton(lines?: number)",
+			description:
+				"A neutral placeholder block. Use it while content is being prepared rather than describing the wait.",
+		},
+		Image: {
+			signature: 'Image(src: string, alt: string, caption?: string, width?: "compact" | "normal" | "wide" | "full")',
+			description:
+				"Displays an image from an http(s) URL or an inline data image. Local files and other schemes are refused.",
+		},
 		Citation: {
 			signature: "Citation(title: string, url: string, domain?: string)",
 			description: "A safe external source citation rendered as a link.",
@@ -143,6 +188,96 @@ export const openUIPromptSpec = {
 		HtmlArtifact: {
 			signature: "HtmlArtifact(title: string, document: string)",
 			description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
+		},
+	},
+	componentGroups: [
+		{
+			name: "Layout",
+			components: ["Root", "Stack", "Grid", "Group", "Divider", "Tabs", "Accordion"],
+			notes: [
+				"Start every program with root = Root([...]).",
+				"Prefer Stack for a single axis, Grid only when the columns genuinely align.",
+			],
+		},
+		{
+			name: "Text & status",
+			components: ["Heading", "Text", "Badge", "Callout", "Empty", "Skeleton"],
+			notes: ["Use Callout for warnings and outcomes, Badge for compact state, Empty for a real zero-result state."],
+		},
+		{
+			name: "Data display",
+			components: [
+				"Metric",
+				"MetricGroup",
+				"KeyValue",
+				"KeyValueList",
+				"Table",
+				"DataTable",
+				"List",
+				"Steps",
+				"Todo",
+			],
+			notes: [
+				"DataTable formats typed columns (number, currency, percent); Table is for plain strings.",
+				"MetricGroup is for a row of KPIs. Steps is ordered progress; Todo is a task checklist.",
+			],
+		},
+		{
+			name: "Charts",
+			components: ["LineChart", "BarChart", "DonutChart"],
+			notes: ["Use charts only for real series data. Never invent trend numbers just to fill a chart."],
+		},
+		{
+			name: "Input",
+			components: ["Input", "TextArea", "Select", "Switch", "Slider", "Button"],
+			notes: ["Bind interactive fields to a $variable and reuse that variable in Query args so the data refetches."],
+		},
+		{
+			name: "Containers",
+			components: ["Card", "Modal", "Disclosure"],
+			notes: ["Card is the default chat-sized container; Modal needs a $variable bound to its open state."],
+		},
+		{
+			name: "Media & artifacts",
+			components: ["Image", "Citation", "CodeBlock", "HtmlArtifact", "PanelAction"],
+			notes: [
+				"Citation is for external sources only. PanelAction opens a Fleet panel and never fetches data.",
+				"HtmlArtifact is a single self-contained document, not a general layout escape hatch.",
+			],
+		},
+	],
+	functions: {
+		Duration: {
+			signature: "Duration(ms: number) → string",
+			description: "Formats a millisecond count as a short human duration, for example 90m or 2.5h.",
+		},
+		Bytes: {
+			signature: "Bytes(bytes: number) → string",
+			description: "Formats a byte count as a short human size, for example 1.2 MB.",
+		},
+		Tokens: {
+			signature: "Tokens(count: number) → string",
+			description:
+				"Formats a token count compactly, for example 38.2k. Use it for model usage rather than writing the number by hand.",
+		},
+		Percent: {
+			signature: "Percent(part: number, total?: number, decimals?: number) → string",
+			description: "Formats part / total as a percentage. Use it instead of computing a ratio by hand.",
+		},
+		RelativeTime: {
+			signature: "RelativeTime(iso: string) → string",
+			description: "Turns an ISO timestamp into a short relative age, for example 3h ago.",
+		},
+		ShortPath: {
+			signature: "ShortPath(path: string, segments?: number) → string",
+			description: "Shortens a workspace-relative path to its last N segments for narrow columns.",
+		},
+	},
+	actions: {
+		OpenPanel: {
+			signature:
+				'OpenPanel(panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights" | "session-tree", relativePath?: any, focus?: boolean)',
+			description: "Opens one of Fleet's right-hand panels. Trusted local action; it never fetches remote data.",
 		},
 	},
 	schema: {
@@ -236,6 +371,33 @@ export const openUIPromptSpec = {
 			Todo: {
 				$ref: "#/$defs/Todo",
 			},
+			Tabs: {
+				$ref: "#/$defs/Tabs",
+			},
+			Accordion: {
+				$ref: "#/$defs/Accordion",
+			},
+			TextArea: {
+				$ref: "#/$defs/TextArea",
+			},
+			Slider: {
+				$ref: "#/$defs/Slider",
+			},
+			Steps: {
+				$ref: "#/$defs/Steps",
+			},
+			KeyValueList: {
+				$ref: "#/$defs/KeyValueList",
+			},
+			Empty: {
+				$ref: "#/$defs/Empty",
+			},
+			Skeleton: {
+				$ref: "#/$defs/Skeleton",
+			},
+			Image: {
+				$ref: "#/$defs/Image",
+			},
 			Citation: {
 				$ref: "#/$defs/Citation",
 			},
@@ -273,6 +435,15 @@ export const openUIPromptSpec = {
 			"Modal",
 			"Disclosure",
 			"Todo",
+			"Tabs",
+			"Accordion",
+			"TextArea",
+			"Slider",
+			"Steps",
+			"KeyValueList",
+			"Empty",
+			"Skeleton",
+			"Image",
 			"Citation",
 			"HtmlArtifact",
 		],
@@ -393,7 +564,16 @@ export const openUIPromptSpec = {
 					label: {
 						type: "string",
 					},
-					action: {},
+					action: {
+						anyOf: [
+							{
+								type: "string",
+							},
+							{
+								$ref: "#/$defs/ActionExpression",
+							},
+						],
+					},
 					variant: {
 						default: "default",
 						type: "string",
@@ -403,6 +583,55 @@ export const openUIPromptSpec = {
 				required: ["label", "variant"],
 				additionalProperties: false,
 				description: "A button that triggers interactive actions or conversational updates.",
+			},
+			ActionExpression: {
+				anyOf: [
+					{
+						type: "object",
+						properties: {
+							type: {
+								type: "string",
+								const: "open_url",
+							},
+							url: {
+								type: "string",
+							},
+						},
+						required: ["type", "url"],
+						additionalProperties: false,
+					},
+					{
+						type: "object",
+						properties: {
+							type: {
+								type: "string",
+								const: "continue_conversation",
+							},
+							context: {
+								type: "string",
+							},
+						},
+						required: ["type"],
+						additionalProperties: false,
+					},
+					{
+						type: "object",
+						properties: {
+							type: {
+								type: "string",
+							},
+							params: {
+								type: "object",
+								propertyNames: {
+									type: "string",
+								},
+								additionalProperties: {},
+							},
+						},
+						required: ["type"],
+						additionalProperties: false,
+					},
+				],
 			},
 			PanelAction: {
 				type: "object",
@@ -959,6 +1188,221 @@ export const openUIPromptSpec = {
 				additionalProperties: false,
 				description: "A read-only progress list for plans and task status.",
 			},
+			Tabs: {
+				type: "object",
+				properties: {
+					tabs: {
+						type: "array",
+						items: {
+							type: "object",
+							properties: {
+								label: {
+									type: "string",
+								},
+								content: {},
+							},
+							required: ["label"],
+							additionalProperties: false,
+						},
+					},
+					defaultIndex: {
+						type: "integer",
+						minimum: 0,
+						maximum: 9007199254740991,
+					},
+				},
+				required: ["tabs"],
+				additionalProperties: false,
+				description:
+					"A tabbed container. Each tab has a label and its own content, so several dense sections can share one chat card.",
+			},
+			Accordion: {
+				type: "object",
+				properties: {
+					items: {
+						type: "array",
+						items: {
+							type: "object",
+							properties: {
+								title: {
+									type: "string",
+								},
+								content: {},
+								open: {
+									type: "boolean",
+								},
+							},
+							required: ["title"],
+							additionalProperties: false,
+						},
+					},
+				},
+				required: ["items"],
+				additionalProperties: false,
+				description:
+					"Collapsible sections. Use it when several independent details would otherwise dominate the message.",
+			},
+			TextArea: {
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+					},
+					value: {
+						type: "string",
+					},
+					placeholder: {
+						type: "string",
+					},
+					rows: {
+						type: "integer",
+						minimum: 1,
+						maximum: 20,
+					},
+					disabled: {
+						default: false,
+						type: "boolean",
+					},
+				},
+				required: ["name", "value", "disabled"],
+				additionalProperties: false,
+				description: "A multi-line, state-bound text input for longer free-form answers.",
+			},
+			Slider: {
+				type: "object",
+				properties: {
+					name: {
+						type: "string",
+					},
+					value: {
+						type: "number",
+					},
+					label: {
+						type: "string",
+					},
+					min: {
+						default: 0,
+						type: "number",
+					},
+					max: {
+						default: 100,
+						type: "number",
+					},
+					step: {
+						default: 1,
+						type: "number",
+					},
+				},
+				required: ["name", "value", "min", "max", "step"],
+				additionalProperties: false,
+				description: "A numeric range input bound to reactive state, for thresholds and limits.",
+			},
+			Steps: {
+				type: "object",
+				properties: {
+					steps: {
+						type: "array",
+						items: {
+							type: "object",
+							properties: {
+								label: {
+									type: "string",
+								},
+								detail: {
+									type: "string",
+								},
+								state: {
+									default: "pending",
+									type: "string",
+									enum: ["complete", "current", "pending", "failed"],
+								},
+							},
+							required: ["label", "state"],
+							additionalProperties: false,
+						},
+					},
+				},
+				required: ["steps"],
+				additionalProperties: false,
+				description:
+					"An ordered multi-step progress list with an explicit current step. Prefer it over Todo when the order and the active step matter.",
+			},
+			KeyValueList: {
+				type: "object",
+				properties: {
+					items: {
+						type: "array",
+						items: {
+							type: "object",
+							properties: {
+								label: {
+									type: "string",
+								},
+								value: {
+									type: "string",
+								},
+							},
+							required: ["label", "value"],
+							additionalProperties: false,
+						},
+					},
+				},
+				required: ["items"],
+				additionalProperties: false,
+				description: "Several label/value rows as one compact block, for facts that belong together.",
+			},
+			Empty: {
+				type: "object",
+				properties: {
+					title: {
+						type: "string",
+					},
+					description: {
+						type: "string",
+					},
+				},
+				required: ["title"],
+				additionalProperties: false,
+				description: "An explicit empty state for a query or list that returned nothing.",
+			},
+			Skeleton: {
+				type: "object",
+				properties: {
+					lines: {
+						default: 3,
+						type: "integer",
+						minimum: 1,
+						maximum: 8,
+					},
+				},
+				required: ["lines"],
+				additionalProperties: false,
+				description:
+					"A neutral placeholder block. Use it while content is being prepared rather than describing the wait.",
+			},
+			Image: {
+				type: "object",
+				properties: {
+					src: {
+						type: "string",
+					},
+					alt: {
+						type: "string",
+					},
+					caption: {
+						type: "string",
+					},
+					width: {
+						default: "normal",
+						type: "string",
+						enum: ["compact", "normal", "wide", "full"],
+					},
+				},
+				required: ["src", "alt", "width"],
+				additionalProperties: false,
+				description:
+					"Displays an image from an http(s) URL or an inline data image. Local files and other schemes are refused.",
+			},
 			Citation: {
 				type: "object",
 				properties: {
@@ -990,6 +1434,147 @@ export const openUIPromptSpec = {
 				required: ["title", "document"],
 				additionalProperties: false,
 				description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
+			},
+		},
+		functions: {
+			Duration: {
+				description: "Formats a millisecond count as a short human duration, for example 90m or 2.5h.",
+				params: {
+					type: "object",
+					properties: {
+						ms: {
+							type: "number",
+						},
+					},
+					required: ["ms"],
+					additionalProperties: false,
+				},
+				returns: {
+					type: "string",
+				},
+			},
+			Bytes: {
+				description: "Formats a byte count as a short human size, for example 1.2 MB.",
+				params: {
+					type: "object",
+					properties: {
+						bytes: {
+							type: "number",
+						},
+					},
+					required: ["bytes"],
+					additionalProperties: false,
+				},
+				returns: {
+					type: "string",
+				},
+			},
+			Tokens: {
+				description:
+					"Formats a token count compactly, for example 38.2k. Use it for model usage rather than writing the number by hand.",
+				params: {
+					type: "object",
+					properties: {
+						count: {
+							type: "number",
+						},
+					},
+					required: ["count"],
+					additionalProperties: false,
+				},
+				returns: {
+					type: "string",
+				},
+			},
+			Percent: {
+				description: "Formats part / total as a percentage. Use it instead of computing a ratio by hand.",
+				params: {
+					type: "object",
+					properties: {
+						part: {
+							type: "number",
+						},
+						total: {
+							default: 100,
+							type: "number",
+						},
+						decimals: {
+							default: 1,
+							type: "number",
+						},
+					},
+					required: ["part", "total", "decimals"],
+					additionalProperties: false,
+				},
+				returns: {
+					type: "string",
+				},
+			},
+			RelativeTime: {
+				description: "Turns an ISO timestamp into a short relative age, for example 3h ago.",
+				params: {
+					type: "object",
+					properties: {
+						iso: {
+							type: "string",
+						},
+					},
+					required: ["iso"],
+					additionalProperties: false,
+				},
+				returns: {
+					type: "string",
+				},
+			},
+			ShortPath: {
+				description: "Shortens a workspace-relative path to its last N segments for narrow columns.",
+				params: {
+					type: "object",
+					properties: {
+						path: {
+							type: "string",
+						},
+						segments: {
+							default: 2,
+							type: "number",
+						},
+					},
+					required: ["path", "segments"],
+					additionalProperties: false,
+				},
+				returns: {
+					type: "string",
+				},
+			},
+		},
+		actions: {
+			OpenPanel: {
+				description: "Opens one of Fleet's right-hand panels. Trusted local action; it never fetches remote data.",
+				params: {
+					type: "object",
+					properties: {
+						panel: {
+							type: "string",
+							enum: [
+								"resources",
+								"workspace",
+								"artifacts",
+								"repl",
+								"subagents",
+								"session-insights",
+								"session-tree",
+							],
+						},
+						relativePath: {
+							type: "string",
+						},
+						focus: {
+							type: "boolean",
+						},
+					},
+					required: ["panel"],
+					additionalProperties: false,
+				},
 			},
 		},
 	},

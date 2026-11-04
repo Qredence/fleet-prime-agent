@@ -1,12 +1,19 @@
 import type { ActionEvent, OpenUIError, ParseResult } from "@openuidev/react-lang";
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang";
 import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Markdown } from "@/components/chat/markdown/markdown";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import { type OpenUIArtifactCandidate, OpenUIArtifactProvider } from "@/components/openui/html-artifact";
-import { encodeOpenPanelActionMessage } from "@/components/openui/open-panel-action-message";
+import {
+	encodeOpenPanelActionMessage,
+	OPEN_PANEL_ACTION_NAME,
+	openPanelActionFromParams,
+} from "@/components/openui/open-panel-action-message";
 import { openUILibrary } from "@/components/openui/openui-library";
+import { buildOpenUIRepairRequest, toRepairableErrors } from "@/components/openui/openui-repair";
+import { readStoredState, writeStoredState } from "@/components/openui/openui-state-store";
+import { openUIToolProvider } from "@/components/openui/openui-tools";
 import { segmentOpenUIContent } from "@/components/openui/openui-utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -19,6 +26,13 @@ function getActionMessage(event: ActionEvent) {
 	if (event.type === "fleet.open_panel") {
 		const action = OpenPanelActionSchema.safeParse(event.params);
 		return action.success ? encodeOpenPanelActionMessage(action.data) : null;
+	}
+
+	// Library-defined `@OpenPanel(...)` step: params are schema-checked before
+	// they reach the panel layer, same as the positional component form.
+	if (event.type === OPEN_PANEL_ACTION_NAME) {
+		const action = openPanelActionFromParams(event.params);
+		return action ? encodeOpenPanelActionMessage(action) : null;
 	}
 
 	if (event.type === BuiltinActionType.ContinueConversation) {
@@ -135,6 +149,8 @@ function OpenUIBlock({
 	);
 
 	const finalErrors = getFinalErrors(parseResult, isStreaming);
+	const allErrors = useMemo(() => [...runtimeErrors, ...finalErrors], [runtimeErrors, finalErrors]);
+	const repairRequest = useMemo(() => buildOpenUIRepairRequest(toRepairableErrors(allErrors)), [allErrors]);
 
 	return (
 		<div className="flex w-full flex-col gap-2">
@@ -145,6 +161,7 @@ function OpenUIBlock({
 						isStreaming={isStreaming}
 						library={openUILibrary}
 						response={content}
+						toolProvider={openUIToolProvider}
 						onAction={handleAction}
 						onError={handleError}
 						onParseResult={setParseResult}
@@ -153,15 +170,8 @@ function OpenUIBlock({
 				</OpenUIArtifactProvider>
 			</UiErrorBoundary>
 			<OpenUIDiagnostics
-				errors={[...runtimeErrors, ...finalErrors]}
-				onRepair={
-					onAction
-						? () =>
-								onAction(
-									"Repair the invalid OpenUI in your previous response and return a corrected OpenUI block.",
-								)
-						: undefined
-				}
+				errors={allErrors}
+				onRepair={onAction && repairRequest ? () => onAction(repairRequest) : undefined}
 				raw={content}
 			/>
 		</div>
@@ -187,10 +197,38 @@ export function GenerativeTextRenderer({
 }) {
 	const [stateByBlock, setStateByBlock] = useState<OpenUIStateByBlock>({});
 	const segments = useMemo(() => segmentOpenUIContent(content), [content]);
+	const sessionKey = messageId ?? "message";
 
-	const updateBlockState = useCallback((blockId: string, state: Record<string, unknown>) => {
-		setStateByBlock((previous) => ({ ...previous, [blockId]: state }));
-	}, []);
+	const updateBlockState = useCallback(
+		(blockId: string, state: Record<string, unknown>) => {
+			setStateByBlock((previous) => ({ ...previous, [blockId]: state }));
+			const segment = segments.find((candidate) => `${sessionKey}:${candidate.id}` === blockId);
+			// Persist per block so a reload restores what the user selected.
+			if (segment) writeStoredState(sessionKey, segment.id, segment.content, state);
+		},
+		[segments, sessionKey],
+	);
+
+	// Hydrate stored form state once per block, before the renderer mounts.
+	useEffect(() => {
+		if (segments.length === 0) return;
+		setStateByBlock((previous) => {
+			let changed = false;
+			const next = { ...previous };
+			for (const segment of segments) {
+				if (segment.type !== "openui") continue;
+				const blockId = `${sessionKey}:${segment.id}`;
+				if (next[blockId] !== undefined) continue;
+				const stored = readStoredState(sessionKey, segment.id);
+				if (stored) {
+					next[blockId] = stored;
+					changed = true;
+				}
+			}
+			// Returning `previous` keeps the effect from re-rendering on no-op runs.
+			return changed ? next : previous;
+		});
+	}, [segments, sessionKey]);
 
 	if (segments.length === 1 && segments[0]?.type === "markdown") {
 		return <Markdown className={className} content={content} isStreaming={isStreaming} />;
