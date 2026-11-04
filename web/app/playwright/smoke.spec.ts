@@ -436,8 +436,8 @@ test.describe("chat shell", () => {
 		await expect(reasoning.getByRole("button", { name: /Thought/ })).toHaveAttribute("aria-expanded", "false")
 		await reasoning.getByRole("button", { name: /Thought/ }).click()
 		await expect(reasoning.getByText("Inspecting the fixture")).toBeVisible()
-		const mainTool = page.getByTestId("assistant-tool-trace").filter({ has: page.getByRole("button", { name: /Details for IPython.*python-trace-1/ }) })
-		await mainTool.getByRole("button", { name: /Details for IPython/ }).click()
+		const mainTool = page.getByTestId("assistant-tool-trace").filter({ has: page.getByRole("button", { name: /Details for CPython.*python-trace-1/ }) })
+		await mainTool.getByRole("button", { name: /Details for CPython/ }).click()
 		await expect(mainTool.locator('[data-slot="code-block"]')).toHaveCount(2)
 		for (const content of await mainTool.locator('[data-slot="code-block-content"]').all()) {
 			const style = await content.evaluate((element) => {
@@ -448,7 +448,7 @@ test.describe("chat shell", () => {
 		}
 		await expect(mainTool.getByRole("button", { name: "Copy code" })).toBeVisible()
 		await expect(mainTool.getByRole("button", { name: "Copy result" })).toBeVisible()
-		await expect(mainTool.getByRole("button", { name: /^IPython\b/ })).toHaveCount(0)
+		await expect(mainTool.getByRole("button", { name: /^CPython\b/ })).toHaveCount(0)
 		await expect(page.locator('[data-slot="bubble"][data-align="end"]').first()).toBeVisible()
 
 		const progress = page.getByTestId("turn-progress")
@@ -471,13 +471,13 @@ test.describe("chat shell", () => {
 		await expect(trace.getByText("Searched WebSearch", { exact: true })).toBeVisible()
 		await expect(trace.locator('[data-slot="trace-line"][data-status="error"]')).toHaveCount(1)
 
-		const ipythonDetails = trace.getByRole("button", { name: /Details for IPython.*python-trace-1/ })
+		const ipythonDetails = trace.getByRole("button", { name: /Details for CPython.*python-trace-1/ })
 		await expect(ipythonDetails).toBeVisible()
 		await expect(ipythonDetails).toHaveAttribute("aria-expanded", "false")
 		await ipythonDetails.click()
 		await expect(ipythonDetails).toHaveAttribute("aria-expanded", "true")
 		await expect(trace.getByText(/stdout/).first()).toBeVisible()
-		await expect(trace.getByRole("button", { name: /^IPython\b/ })).toHaveCount(0)
+		await expect(trace.getByRole("button", { name: /^CPython\b/ })).toHaveCount(0)
 		const failedDetails = trace.getByRole("button", { name: /Details for Bash.*bash-trace-11/ })
 		await failedDetails.click()
 		await expect(trace.getByText("trace command failed", { exact: true })).toBeVisible()

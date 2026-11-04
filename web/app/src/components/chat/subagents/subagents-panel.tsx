@@ -3,7 +3,7 @@ import type {
 	PrimeAgentRlmChild,
 	PrimeAgentRlmTree,
 } from "@prime-agent/web-protocol/chat-protocol";
-import { Bot, ChevronRight } from "lucide-react";
+import { Bot } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type SubagentTranscriptState, SubagentTranscriptView } from "@/components/chat/subagents/subagent-transcript";
 import { orderedRlmChildren, rlmStatusIcon } from "@/components/chat/subagents/subagent-utils";
@@ -95,7 +95,7 @@ export function SubagentsPanelContent({
 		return (
 			<section
 				aria-label="Subagents"
-				className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-label leading-5 text-foreground/45"
+				className="flex min-h-36 flex-1 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-label leading-5 text-foreground/45"
 			>
 				Subagent threads will appear here when Prime delegates work.
 			</section>
@@ -103,14 +103,17 @@ export function SubagentsPanelContent({
 	}
 
 	return (
-		<section aria-label="Subagents" className="space-y-2 pb-1">
-			<div className="flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
+		<section aria-label="Subagents" className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3">
+			<header className="flex shrink-0 items-center gap-2 px-0.5">
 				<Bot className="size-3.5 shrink-0 text-foreground/45" />
-				<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Invoked subagents</span>
-				<span className="shrink-0 text-micro text-foreground/40">{ordered.length}</span>
-			</div>
+				<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Invoked</span>
+				<span className="shrink-0 tabular-nums text-micro text-foreground/40">{ordered.length}</span>
+			</header>
 
-			<div className="space-y-0.5" data-testid="subagent-thread-list">
+			<div
+				className="max-h-[min(9.5rem,32%)] shrink-0 space-y-0.5 overflow-y-auto overscroll-contain"
+				data-testid="subagent-thread-list"
+			>
 				{ordered.map((agent) => {
 					const selected = agent.id === selectedAgent?.id;
 					return (
@@ -121,7 +124,7 @@ export function SubagentsPanelContent({
 							size="compact"
 							aria-pressed={selected}
 							className={cn(
-								"flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+								"flex h-auto w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 								selected && "bg-foreground/8",
 							)}
 							style={{ paddingLeft: `${8 + Math.max(0, agent.depth ?? 0) * 12}px` }}
@@ -132,7 +135,6 @@ export function SubagentsPanelContent({
 						>
 							<span className="shrink-0">{rlmStatusIcon(agent.status)}</span>
 							<span className="min-w-0 flex-1 truncate text-xs text-foreground/80">{agent.label}</span>
-							<ChevronRight className="size-3 shrink-0 text-foreground/30" />
 							<span className="shrink-0 text-micro capitalize text-foreground/45">{agent.status}</span>
 						</Button>
 					);
@@ -140,12 +142,14 @@ export function SubagentsPanelContent({
 			</div>
 
 			{selectedAgent ? (
-				<SubagentTranscriptView
-					child={selectedAgent}
-					parentSessionId={parentSessionId}
-					transcript={transcripts[selectedAgent.id]}
-					onRefresh={() => void loadTranscript(selectedAgent, true)}
-				/>
+				<div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-border/50 pt-3">
+					<SubagentTranscriptView
+						child={selectedAgent}
+						parentSessionId={parentSessionId}
+						transcript={transcripts[selectedAgent.id]}
+						onRefresh={() => void loadTranscript(selectedAgent, true)}
+					/>
+				</div>
 			) : null}
 		</section>
 	);

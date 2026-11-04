@@ -9,7 +9,25 @@ import {
 	Wrench,
 } from "lucide-react";
 import { describe, expect, it } from "vitest";
-import { toolActionIconForName } from "@/components/tools/tool-action-icon";
+import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
+
+describe("toolPartDisplayName", () => {
+	it("maps wire IPython parts to the CPython presentation label", () => {
+		expect(toolPartDisplayName("tool-IPython")).toBe("CPython");
+		expect(toolPartDisplayName("IPython")).toBe("CPython");
+		expect(toolPartDisplayName("ipython")).toBe("CPython");
+		expect(toolPartDisplayName("tool-Bash")).toBe("Bash");
+	});
+});
+
+describe("artifactDisplayTitle", () => {
+	it("remaps IPython titles without stripping other tool- prefixes", () => {
+		expect(artifactDisplayTitle("IPython")).toBe("CPython");
+		expect(artifactDisplayTitle("ipython")).toBe("CPython");
+		expect(artifactDisplayTitle("tool-linked")).toBe("tool-linked");
+		expect(artifactDisplayTitle("Bash output")).toBe("Bash output");
+	});
+});
 
 describe("toolActionIconForName", () => {
 	it("uses contextual action icons for common tool and event names", () => {

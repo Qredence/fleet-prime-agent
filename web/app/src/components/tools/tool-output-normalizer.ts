@@ -350,7 +350,7 @@ function sourceLanguageFor(name: string, command: string | undefined): AgentCode
 function sourceLabelFor(name: string, language: AgentCodeLanguage | undefined): string | undefined {
 	if (!language) return undefined;
 	const lowerName = name.toLowerCase();
-	if (lowerName.includes("ipython")) return "IPython";
+	if (lowerName.includes("ipython") || lowerName.includes("cpython") || lowerName === "python_repl") return "CPython";
 	if (lowerName.includes("bash") || lowerName.includes("shell")) return "Bash";
 	if (lowerName.includes("python")) return "Python";
 	if (language === "json") return "JSON";

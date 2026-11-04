@@ -9,7 +9,7 @@ import type {
 	FleetErrorEnvelope,
 } from "@prime-agent/web-protocol";
 
-/** Convert "ipython" | "bash" | "edit_file" | "read_file" — special-cases IPython + short acronyms. */
+/** Wire tool types: `ipython` → `IPython`, short tokens uppercased. */
 function toPascalCase(name: string): string {
 	return name
 		.split(/[_\-\s]+/g)
@@ -124,7 +124,7 @@ export function createFleetErrorEnvelope(
 			isTerminal: false,
 			remediation: {
 				action: "restart_kernel",
-				label: "Restart IPython Kernel",
+				label: "Restart CPython Kernel",
 			},
 		};
 	}

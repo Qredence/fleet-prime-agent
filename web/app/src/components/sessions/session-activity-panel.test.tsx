@@ -122,6 +122,38 @@ describe("SessionActivityPanel", () => {
 		expect(trace.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 
+	it("collapses many reasoning episodes into one activity summary", () => {
+		const reasoning = Array.from({ length: 12 }, (_, index) => ({
+			type: "reasoning" as const,
+			contentIndex: index,
+			text: `Step ${index + 1}: inspect module ${index + 1}`,
+			state: "complete" as const,
+			durationMs: 1000,
+		}));
+		render(
+			<SessionActivityPanel
+				artifactRuns={[]}
+				childAgents={[]}
+				messages={[
+					{ id: "user-1", role: "user", parts: [{ type: "text", text: "Explore the codebase" }] },
+					{ id: "assistant-1", role: "assistant", parts: reasoning },
+				]}
+				onOpenArtifact={vi.fn()}
+				onSelectChild={vi.fn()}
+				streaming={false}
+			/>,
+		);
+
+		expect(screen.getAllByRole("button", { name: /Thought/ })).toHaveLength(1);
+		expect(screen.getByTestId("reasoning-summary").textContent).toContain("12");
+		expect(screen.getByTestId("reasoning-summary").textContent).toContain("12s");
+		fireEvent.click(screen.getByRole("button", { name: /Thought/ }));
+		expect(screen.getByText(/12 reasoning steps in this turn/)).toBeTruthy();
+		expect(screen.getByText("Step 1: inspect module 1")).toBeTruthy();
+		expect(screen.getByText("Step 6: inspect module 6")).toBeTruthy();
+		expect(screen.getByText("Step 12: inspect module 12")).toBeTruthy();
+	});
+
 	it("assigns an artifact to its assistant turn by tool call id", async () => {
 		const artifact = {
 			id: "artifact-bash",
