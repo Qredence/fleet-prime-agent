@@ -2,7 +2,28 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmod, mkdir, mkdtemp, open, rename, rm, stat, writeFile } from "node:fs/promises";
 import { arch, homedir, platform } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
+
+const PINNED_RUST_RELEASE_HOST_RE = /^pub-[0-9a-f]{32}\.r2\.dev$/i;
+const TRUSTED_PATH = process.platform === "win32" ? undefined : ["/usr/local/bin", "/usr/bin", "/bin"].join(delimiter);
+
+function pinnedRustArchiveUrl(baseUrl, archive) {
+	if (typeof baseUrl !== "string" || typeof archive !== "string" || !archive || archive.includes("/")) {
+		throw new Error("Invalid pinned Rust runtime archive reference");
+	}
+	const parsed = new URL(baseUrl);
+	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOST_RE.test(parsed.hostname)) {
+		throw new Error("Rust runtime baseUrl is not a pinned Fleet release host");
+	}
+	return `${parsed.href.replace(/\/$/, "")}/${archive}`;
+}
+
+function spawnTar(args) {
+	const tarPath = process.platform === "win32" ? "tar" : "/usr/bin/tar";
+	const options = { encoding: "utf8" };
+	if (TRUSTED_PATH) options.env = { ...process.env, PATH: TRUSTED_PATH };
+	return spawnSync(tarPath, args, options);
+}
 
 // This module is the single Prime Agent runtime installer. The npm launcher
 // (`fleet-prime`) runs it directly, and the web server re-exports it from
@@ -43,7 +64,8 @@ export async function ensurePrimeRuntime({
 	try {
 		const archivePath = join(staging, asset.archive);
 		// The release URL comes from Fleet's shipped runtime pin, never session or provider input.
-		const response = await fetchImpl(`${runtime.baseUrl}/${asset.archive}`, {
+		const downloadUrl = pinnedRustArchiveUrl(runtime.baseUrl, asset.archive);
+		const response = await fetchImpl(downloadUrl, {
 			signal: AbortSignal.timeout(120_000),
 		});
 		if (!response.ok)
@@ -57,7 +79,7 @@ export async function ensurePrimeRuntime({
 		await writeFile(archivePath, archive, { mode: 0o600 });
 		const unpacked = join(staging, "unpacked");
 		await mkdir(unpacked);
-		const result = spawnSync("tar", ["-xzf", archivePath, "-C", unpacked], { encoding: "utf8" });
+		const result = spawnTar(["-xzf", archivePath, "-C", unpacked]);
 		if (result.status !== 0)
 			throw new Error(`Could not extract Prime Agent runtime: ${result.stderr || "tar failed"}`);
 		const extractedBinary = join(unpacked, "prime-agent");

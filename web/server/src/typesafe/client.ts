@@ -11,6 +11,7 @@
  * - `fetch` is injectable, so tests never reach the network.
  */
 import type { TypeSafeRuntimeConfig } from "./config";
+import { typeSafeEndpoint } from "./config";
 
 export type TypeSafeFetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -177,7 +178,7 @@ export async function postSystemOne(
 		const timeoutSignal = AbortSignal.timeout(timeoutMs);
 		const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
 		try {
-			const response = await fetchImpl(`${config.baseUrl}/v1/systemone`, {
+			const response = await fetchImpl(typeSafeEndpoint(config, "/v1/systemone"), {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${apiKey}`,
@@ -248,7 +249,7 @@ export async function probeConnection(
 ): Promise<boolean> {
 	if (!config.configured || !config.apiKey) return false;
 	try {
-		const response = await fetchImpl(`${config.baseUrl}/v1/models`, {
+		const response = await fetchImpl(typeSafeEndpoint(config, "/v1/models"), {
 			method: "GET",
 			headers: { Authorization: `Bearer ${config.apiKey}` },
 			signal: AbortSignal.timeout(timeoutMs),

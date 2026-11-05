@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import {
 	cpSync,
 	existsSync,
@@ -15,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, delimiter, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { execFileTrusted, spawnSyncTrusted, trustedPathString } from "./trusted-exec-env.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const installerPath = join(root, "install.sh");
@@ -33,7 +34,7 @@ if (mode === "--static") {
 
 function checkStaticInstaller() {
 	const source = readFileSync(installerPath, "utf8");
-	const syntax = spawnSync("sh", ["-n", installerPath], { encoding: "utf8" });
+	const syntax = spawnSyncTrusted("/bin/sh", ["-n", installerPath], { encoding: "utf8" });
 	if (syntax.status !== 0) {
 		throw new Error(`install.sh has invalid shell syntax:\n${syntax.stderr || syntax.stdout}`);
 	}
@@ -106,7 +107,7 @@ async function checkInstallerSmoke() {
 			...process.env,
 			NPM_CONFIG_PREFIX: globalPrefix,
 			npm_config_prefix: globalPrefix,
-			PATH: [shimDir, join(globalPrefix, "bin"), process.env.PATH].filter(Boolean).join(delimiter),
+			PATH: [shimDir, join(globalPrefix, "bin"), trustedPathString()].filter(Boolean).join(delimiter),
 			PRIME_AGENT_REPOSITORY_URL: repositoryUrl,
 			PRIME_AGENT_REPOSITORY_REF: "main",
 			PRIME_AGENT_PNPM_VERSION: "11.15.1",
@@ -120,7 +121,7 @@ async function checkInstallerSmoke() {
 			throw new Error("Installer did not build the packaged web launcher");
 		}
 
-		const origin = execFileSync("git", ["config", "--get", "remote.origin.url"], {
+		const origin = execFileTrusted("git", ["config", "--get", "remote.origin.url"], {
 			cwd: checkout,
 			encoding: "utf8",
 		}).trim();
@@ -146,7 +147,7 @@ async function checkInstallerSmoke() {
 
 		const runtimeEnvironment = {
 			...process.env,
-			PATH: [shimDir, runtimeBin, "/usr/bin", "/bin"].join(delimiter),
+			PATH: [shimDir, runtimeBin, trustedPathString()].join(delimiter),
 			PRIME_AGENT_CODING_AGENT_DIR: join(tempRoot, "agent-config"),
 		};
 		await checkWebRuntime(fleetAgentExecutable, workspace, checkout, runtimeEnvironment);
@@ -154,7 +155,7 @@ async function checkInstallerSmoke() {
 		const occupied = join(tempRoot, "occupied");
 		mkdirSync(occupied, { recursive: true });
 		writeFileSync(join(occupied, "keep.txt"), "user data\n");
-		const refused = spawnSync("sh", [join(sourceMirror, "install.sh")], {
+		const refused = spawnSyncTrusted("/bin/sh", [join(sourceMirror, "install.sh")], {
 			cwd: occupied,
 			env: installerEnvironment,
 			encoding: "utf8",
@@ -185,11 +186,11 @@ function copyWorkingTree(target) {
 }
 
 function initializeGitMirror(directory) {
-	execFileSync("git", ["init", "-b", "main"], { cwd: directory, stdio: "ignore" });
-	execFileSync("git", ["config", "user.email", "source-installer-smoke@example.invalid"], { cwd: directory });
-	execFileSync("git", ["config", "user.name", "Source Installer Smoke"], { cwd: directory });
-	execFileSync("git", ["add", "--all"], { cwd: directory });
-	execFileSync("git", ["commit", "--quiet", "-m", "source-installer-smoke"], { cwd: directory });
+	execFileTrusted("git", ["init", "-b", "main"], { cwd: directory, stdio: "ignore" });
+	execFileTrusted("git", ["config", "user.email", "source-installer-smoke@example.invalid"], { cwd: directory });
+	execFileTrusted("git", ["config", "user.name", "Source Installer Smoke"], { cwd: directory });
+	execFileTrusted("git", ["add", "--all"], { cwd: directory });
+	execFileTrusted("git", ["commit", "--quiet", "-m", "source-installer-smoke"], { cwd: directory });
 }
 
 /**
@@ -201,7 +202,7 @@ function initializeGitMirror(directory) {
  * @throws {Error} If the installer exits with a nonzero status.
  */
 function runInstaller(checkout, sourceMirror, environment) {
-	const result = spawnSync("sh", [join(sourceMirror, "install.sh")], {
+	const result = spawnSyncTrusted("/bin/sh", [join(sourceMirror, "install.sh")], {
 		cwd: checkout,
 		env: environment,
 		encoding: "utf8",

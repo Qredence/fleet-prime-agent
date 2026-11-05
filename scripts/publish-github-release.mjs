@@ -11,6 +11,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { sanitizeLogField } from "./log-safety.mjs";
+import { githubApiUrl, githubReleaseUploadUrl } from "./network-guards.mjs";
 import { collectContributors, describeLookupError } from "./release-contributors.mjs";
 import {
 	extractVersionSection,
@@ -21,7 +23,6 @@ import {
 } from "./release-notes.mjs";
 import { RELEASE_REPOSITORY } from "./release-utils.mjs";
 
-const API_BASE = "https://api.github.com";
 const REQUIRED_ENV = ["GITHUB_TOKEN", "RELEASE_VERSION", "CIRCLE_SHA1"];
 
 /**
@@ -33,7 +34,7 @@ const REQUIRED_ENV = ["GITHUB_TOKEN", "RELEASE_VERSION", "CIRCLE_SHA1"];
  * @throws {Error} If the GitHub API returns a non-success response.
  */
 async function githubFetch(path, token, options = {}) {
-	const response = await fetch(path.startsWith("http") ? path : `${API_BASE}${path}`, {
+	const response = await fetch(githubApiUrl(path), {
 		...options,
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -44,7 +45,7 @@ async function githubFetch(path, token, options = {}) {
 	});
 	if (!response.ok) {
 		const detail = await response.text();
-		throw new Error(`GitHub API ${path} -> HTTP ${response.status}: ${detail}`);
+		throw new Error(`GitHub API ${sanitizeLogField(path)} -> HTTP ${response.status}: ${sanitizeLogField(detail)}`);
 	}
 	return response;
 }
@@ -111,8 +112,8 @@ async function readRuntimeVersionAtTag(token, owner, repo, version) {
 		// Degrade to the generic upgrading note, but say so: silently losing the runtime comparison
 		// should be visible in the job log.
 		console.warn(
-			`Warning: could not read the ${version} runtime pin; the upgrading note will be generic. ` +
-				(error instanceof Error ? error.message : String(error)),
+			`Warning: could not read the ${sanitizeLogField(version)} runtime pin; the upgrading note will be generic. ` +
+				sanitizeLogField(error instanceof Error ? error.message : String(error)),
 		);
 		return undefined;
 	}
@@ -149,6 +150,29 @@ async function readContributorsSinceTag(token, owner, repo, version, sha) {
 }
 
 /**
+ * Uploads a release asset to GitHub's uploads host after validating the upload URL.
+ */
+async function githubUploadFetch(uploadUrl, owner, repo, token, { name, method = "POST", headers = {}, body }) {
+	const base = githubReleaseUploadUrl(uploadUrl, owner, repo);
+	const url = name ? `${base}?name=${encodeURIComponent(name)}` : base;
+	const response = await fetch(url, {
+		method,
+		headers: {
+			Authorization: `Bearer ${token}`,
+			Accept: "application/vnd.github+json",
+			"X-GitHub-Api-Version": "2022-11-28",
+			...headers,
+		},
+		body,
+	});
+	if (!response.ok) {
+		const detail = await response.text();
+		throw new Error(`GitHub upload -> HTTP ${response.status}: ${sanitizeLogField(detail)}`);
+	}
+	return response;
+}
+
+/**
  * Finds the release for a version, creating it when necessary and verifying that its tag targets the expected commit.
  * @param {string} token - GitHub token with contents write access.
  * @param {string} version - Release version without the leading `v`.
@@ -159,7 +183,7 @@ async function readContributorsSinceTag(token, owner, repo, version, sha) {
  */
 async function findOrCreateRelease(token, version, owner, repo, sha) {
 	const tag = `v${version}`;
-	const lookup = await fetch(`${API_BASE}/repos/${owner}/${repo}/releases/tags/${tag}`, {
+	const lookup = await fetch(githubApiUrl(`/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(tag)}`), {
 		headers: {
 			Authorization: `Bearer ${token}`,
 			Accept: "application/vnd.github+json",
@@ -178,7 +202,7 @@ async function findOrCreateRelease(token, version, owner, repo, sha) {
 	if (lookup.status !== 404) {
 		throw new Error(`GitHub release lookup for ${tag} -> HTTP ${lookup.status}: ${await lookup.text()}`);
 	}
-	const tagLookup = await fetch(`${API_BASE}/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`, {
+	const tagLookup = await fetch(githubApiUrl(`/repos/${owner}/${repo}/git/ref/tags/${encodeURIComponent(tag)}`), {
 		headers: {
 			Authorization: `Bearer ${token}`,
 			Accept: "application/vnd.github+json",
@@ -232,18 +256,19 @@ async function findOrCreateRelease(token, version, owner, repo, sha) {
  * Uploads a release asset, replacing any existing asset with the same name.
  * @param {string} token - GitHub token with contents write access.
  * @param {{id: number, uploadUrl: string, assets: Array<{id: number, name: string}>}} release - The release to attach the asset to.
+ * @param {string} owner - Repository owner for upload URL validation.
+ * @param {string} repo - Repository name for upload URL validation.
  * @param {string} name - The asset file name.
  * @param {string} path - Path to the asset file.
  */
-async function uploadAsset(token, release, name, path) {
+async function uploadAsset(token, release, owner, repo, name, path) {
 	const existing = release.assets.find((asset) => asset.name === name);
 	if (existing) {
 		await githubFetch(`/releases/assets/${existing.id}`, token, { method: "DELETE" });
 	}
-	const uploadBase = release.uploadUrl.replace(/\{.*\}/, "");
 	const body = readFileSync(path);
-	const uploaded = await githubFetch(`${uploadBase}?name=${encodeURIComponent(name)}`, token, {
-		method: "POST",
+	const uploaded = await githubUploadFetch(release.uploadUrl, owner, repo, token, {
+		name,
 		headers: {
 			"Content-Type": "application/octet-stream",
 			"Content-Length": body.length,
@@ -251,7 +276,7 @@ async function uploadAsset(token, release, name, path) {
 		body,
 	});
 	const asset = await uploaded.json();
-	console.log(`Uploaded ${asset.name} (${asset.size} bytes) to the release.`);
+	console.log(`Uploaded ${sanitizeLogField(asset.name)} (${asset.size} bytes) to the release.`);
 }
 
 /**
@@ -272,8 +297,8 @@ async function main() {
 	const release = await findOrCreateRelease(token, version, owner, repo, sha);
 	const artifactPath = process.env.RELEASE_ARTIFACT ?? `dist-release/qredence-fleet-${version}.tgz`;
 	const checksumsPath = process.env.RELEASE_CHECKSUMS ?? "dist-release/SHA256SUMS";
-	await uploadAsset(token, release, `qredence-fleet-${version}.tgz`, artifactPath);
-	await uploadAsset(token, release, "SHA256SUMS", checksumsPath);
+	await uploadAsset(token, release, owner, repo, `qredence-fleet-${version}.tgz`, artifactPath);
+	await uploadAsset(token, release, owner, repo, "SHA256SUMS", checksumsPath);
 	console.log(`GitHub release v${version} published with the release artifacts.`);
 }
 

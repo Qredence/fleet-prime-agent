@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { assertStableVersionString } from "./network-guards.mjs";
 import { parseStableVersion } from "./release-utils.mjs";
 import { readRegistryMetadata } from "./rollback-release.mjs";
+import { execFileTrusted } from "./trusted-exec-env.mjs";
+
+function sanitizeMarkerReason(reason) {
+	return String(reason)
+		.replace(/[\0\r\n]/g, " ")
+		.slice(0, 500);
+}
 
 export const ROLLBACK_DEPLOY_NAME = "fleet-rollback";
 export const ROLLBACK_MARKER_STATE_PATH = ".circleci/rollback-marker.state.json";
@@ -21,7 +28,7 @@ export function rollbackMarkerArgs({ status, failureReason } = {}) {
 		"update",
 		ROLLBACK_DEPLOY_NAME,
 		`--status=${status}`,
-		...(status === "FAILED" && failureReason ? [`--failure-reason=${failureReason}`] : []),
+		...(status === "FAILED" && failureReason ? [`--failure-reason=${sanitizeMarkerReason(failureReason)}`] : []),
 	];
 }
 
@@ -60,6 +67,7 @@ function readMarkerState(statePath) {
 }
 
 function writeMarkerState(statePath, state) {
+	assertStableVersionString(state.latestVersion);
 	writeFileSync(statePath, `${JSON.stringify(state)}\n`, { mode: 0o600 });
 }
 
@@ -83,7 +91,7 @@ export async function reconcileRollbackMarker({
 	requestedStatus,
 	failureReason = "npm dist-tag rollback failed",
 	fetchImpl = fetch,
-	execImpl = (args) => execFileSync("circleci", args, { stdio: "inherit" }),
+	execImpl = (args) => execFileTrusted("circleci", args, { stdio: "inherit" }),
 	statePath = ROLLBACK_MARKER_STATE_PATH,
 } = {}) {
 	const previousState = readMarkerState(statePath);

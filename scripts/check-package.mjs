@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -8,6 +7,7 @@ import { basename, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
 import { NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
+import { execFileTrusted } from "./trusted-exec-env.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageRoot = join(root, "packages", "fleet-web");
@@ -103,7 +103,7 @@ function readManifest({ requireGeneratedBuild = true } = {}) {
  * @return {string} The path to the created tarball.
  */
 function packPackage(destination) {
-	const output = execFileSync("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", destination], {
+	const output = execFileTrusted("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", destination], {
 		cwd: packageRoot,
 		encoding: "utf8",
 		stdio: ["ignore", "pipe", "inherit"],
@@ -137,7 +137,7 @@ export function assertAllowedPath(path) {
  * @throws {Error} If the packed metadata differs from the manifest or contains a disallowed path.
  */
 function inspectDryRun(manifest) {
-	const output = execFileSync("npm", ["pack", "--json", "--dry-run", "--ignore-scripts"], {
+	const output = execFileTrusted("npm", ["pack", "--json", "--dry-run", "--ignore-scripts"], {
 		cwd: packageRoot,
 		encoding: "utf8",
 	});
@@ -159,7 +159,7 @@ function inspectDryRun(manifest) {
  * @throws {Error} If the tarball contains disallowed paths or its manifest does not match the source manifest.
  */
 function inspectTarball(tarball, manifest) {
-	const entries = execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" })
+	const entries = execFileTrusted("/usr/bin/tar", ["-tzf", tarball], { encoding: "utf8" })
 		.trim()
 		.split("\n")
 		.filter(Boolean)
@@ -169,7 +169,7 @@ function inspectTarball(tarball, manifest) {
 		assertAllowedPath(path);
 	}
 	const packedManifest = JSON.parse(
-		execFileSync("tar", ["-xOf", tarball, "package/package.json"], { encoding: "utf8" }),
+		execFileTrusted("/usr/bin/tar", ["-xOf", tarball, "package/package.json"], { encoding: "utf8" }),
 	);
 	if (
 		packedManifest.name !== manifest.name ||
@@ -190,7 +190,7 @@ function inspectTarball(tarball, manifest) {
  * @param {string} tarball - Path to the package tarball to test.
  */
 function runSmoke(tarball) {
-	execFileSync(process.execPath, [join(root, "scripts", "check-web-release.mjs"), "--package", tarball], {
+	execFileTrusted(process.execPath, [join(root, "scripts", "check-web-release.mjs"), "--package", tarball], {
 		cwd: root,
 		stdio: "inherit",
 	});
@@ -207,7 +207,7 @@ function main() {
 		mkdirSync(destination, { recursive: true });
 		if (!requestedPackage) {
 			const pnpm = pnpmInvocation(["run", "build:web:release"]);
-			execFileSync(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
+			execFileTrusted(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
 		}
 		const manifest = readManifest({ requireGeneratedBuild: !requestedPackage });
 		inspectDryRun(manifest);

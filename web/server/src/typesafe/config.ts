@@ -68,6 +68,17 @@ function isLogLevel(value: string | undefined): value is TypeSafeLogLevel {
 }
 
 /**
+ * Builds a validated TypeSafe HTTP endpoint from configured base URL state.
+ */
+export function typeSafeEndpoint(config: TypeSafeRuntimeConfig, path: "/v1/systemone" | "/v1/models"): string {
+	const base = config.baseUrl.replace(/\/+$/, "");
+	if (!isCredentialSafeBaseUrl(base)) {
+		throw new Error("TypeSafe base URL is not credential-safe");
+	}
+	return `${base}${path}`;
+}
+
+/**
  * Reads the TypeSafe configuration.
  *
  * `storedKey` is a key the user saved in Settings. It **wins** over the

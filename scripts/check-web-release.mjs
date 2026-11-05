@@ -4,12 +4,13 @@
 // temporary npm prefix, boots the bundled web runtime, and verifies the HTTP
 // surface (/, /api/health, /api/workspace/tree, one client asset).
 
-import { execFileSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
+import { execFileTrusted } from "./trusted-exec-env.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const fleetPrimeDir = join(root, "packages", "fleet-web");
@@ -76,7 +77,7 @@ function packToTemp(tempDir) {
 		throw new Error(`Missing ${launcher}. Run pnpm run build:web:release before packing.`);
 	}
 	const pnpm = pnpmInvocation(["--dir", "packages/fleet-web", "pack", "--pack-destination", tempDir]);
-	execFileSync(pnpm.command, pnpm.args, {
+	execFileTrusted(pnpm.command, pnpm.args, {
 		cwd: root,
 		stdio: "inherit",
 	});
@@ -113,11 +114,11 @@ function findClientJsAsset(clientDir) {
  * @throws {Error} If installation fails or the package is missing from the prefix.
  */
 function installTarball(tarball, prefix) {
-	execFileSync("npm", ["install", "--global", "--no-fund", "--no-audit", tarball], {
+	execFileTrusted("npm", ["install", "--global", "--no-fund", "--no-audit", tarball], {
 		stdio: "inherit",
 		env: { ...process.env, NPM_CONFIG_PREFIX: prefix, npm_config_prefix: prefix },
 	});
-	const globalRoot = execFileSync("npm", ["root", "-g"], {
+	const globalRoot = execFileTrusted("npm", ["root", "-g"], {
 		encoding: "utf8",
 		env: { ...process.env, NPM_CONFIG_PREFIX: prefix, npm_config_prefix: prefix },
 	}).trim();
@@ -252,7 +253,7 @@ async function main() {
 		for (const binName of ["fleet-prime", "fleet-agent"]) {
 			assertFile(join(prefix, "bin", binName), `installed bin/${binName}`);
 		}
-		execFileSync(join(prefix, "bin", "fleet-agent"), ["agent", "--help"], {
+		execFileTrusted(join(prefix, "bin", "fleet-agent"), ["agent", "--help"], {
 			cwd: workspace,
 			stdio: "ignore",
 			timeout: 30000,

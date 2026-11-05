@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { sanitizeLogField } from "./log-safety.mjs";
 import { pnpmInvocation } from "./pnpm-command.mjs";
 import { collectContributors, describeLookupError, writeReadmeContributors } from "./release-contributors.mjs";
 import { isReleaseVersionFile, parseStableVersion, RELEASE_REPOSITORY } from "./release-utils.mjs";
+import { execFileTrusted, spawnSyncTrusted } from "./trusted-exec-env.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
@@ -107,7 +108,7 @@ function readChangesetStatus() {
 	const outputPath = join(temporaryDirectory, "status.json");
 	try {
 		const pnpm = pnpmInvocation(["exec", "changeset", "status", "--output", outputPath]);
-		const result = spawnSync(pnpm.command, pnpm.args, {
+		const result = spawnSyncTrusted(pnpm.command, pnpm.args, {
 			cwd: root,
 			encoding: "utf8",
 		});
@@ -181,7 +182,7 @@ export function releaseVersionFromStatus(status) {
  * @returns {{status: string, path: string}[]} The changed files and their Git status codes.
  */
 function changedFiles(baseSha) {
-	return execFileSync("git", ["diff", "--name-status", baseSha, "--"], { cwd: root, encoding: "utf8" })
+	return execFileTrusted("git", ["diff", "--name-status", baseSha, "--"], { cwd: root, encoding: "utf8" })
 		.trim()
 		.split("\n")
 		.filter(Boolean)
@@ -314,7 +315,9 @@ async function openReleasePullRequest({ token, owner, repo, branch, version, git
 				`After merge, CircleCI will build, verify, and publish ${packageName}@${version}.`,
 		}),
 	});
-	console.log(`Created release pull request ${pullRequest.html_url} for ${packageName}@${version}.`);
+	console.log(
+		`Created release pull request ${sanitizeLogField(pullRequest.html_url)} for ${packageName}@${sanitizeLogField(version)}.`,
+	);
 }
 
 /**
@@ -398,7 +401,7 @@ export async function createVersionPullRequest(
 	}
 
 	const pnpm = pnpmInvocation(["exec", "changeset", "version"]);
-	execFileSync(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
+	execFileTrusted(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
 	await syncReadmeContributorsImpl({ token, previousVersion, baseSha, githubRequestImpl });
 	const files = changedFiles(baseSha);
 	assertVersionChangesOnly(files);
@@ -450,7 +453,7 @@ export async function prepareRelease({
 	status = readChangesetStatus(),
 	dryRun = false,
 	branch = process.env.CIRCLE_BRANCH ??
-		execFileSync("git", ["branch", "--show-current"], { cwd: root, encoding: "utf8" }).trim(),
+		execFileTrusted("git", ["branch", "--show-current"], { cwd: root, encoding: "utf8" }).trim(),
 } = {}) {
 	if (!status) {
 		console.log("No pending Changesets; release preparation is a no-op.");
@@ -460,7 +463,7 @@ export async function prepareRelease({
 	const resolvedBaseSha =
 		baseSha ??
 		process.env.CIRCLE_SHA1 ??
-		execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+		execFileTrusted("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
 	if (branch !== baseBranch) {
 		throw new Error(`Release preparation must run on ${baseBranch}, found ${branch || "detached HEAD"}`);
 	}

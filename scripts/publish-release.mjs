@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { assertNpmRegistryTarballUrl } from "./network-guards.mjs";
 import {
 	assertReleaseVersion,
 	compareVersions,
@@ -12,6 +12,7 @@ import {
 	NPM_REGISTRY,
 	parseStableVersion,
 } from "./release-utils.mjs";
+import { execFileTrusted } from "./trusted-exec-env.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const packageManifestPath = join(root, "packages", "fleet-web", "package.json");
@@ -86,6 +87,7 @@ async function readRegistryLatest({ fetchImpl = fetch }) {
 export async function readRemoteChecksum({ fetchImpl = fetch, metadata }) {
 	const tarballUrl = metadata?.dist?.tarball;
 	if (!tarballUrl) throw new Error("Published npm metadata has no tarball URL");
+	assertNpmRegistryTarballUrl(tarballUrl);
 	const response = await fetchImpl(tarballUrl);
 	if (!response.ok) throw new Error(`Could not download published tarball: HTTP ${response.status}`);
 	const bytes = Buffer.from(await response.arrayBuffer());
@@ -154,8 +156,11 @@ export function isPackageVersionCommit({ branch = process.env.CIRCLE_BRANCH, rea
 		const changedPaths =
 			readChangedPaths?.() ??
 			(() => {
-				const parent = execFileSync("git", ["rev-parse", "HEAD^"], { cwd: root, encoding: "utf8" }).trim();
-				return execFileSync("git", ["diff", "--name-only", parent, "HEAD", "--"], { cwd: root, encoding: "utf8" })
+				const parent = execFileTrusted("git", ["rev-parse", "HEAD^"], { cwd: root, encoding: "utf8" }).trim();
+				return execFileTrusted("git", ["diff", "--name-only", parent, "HEAD", "--"], {
+					cwd: root,
+					encoding: "utf8",
+				})
 					.trim()
 					.split("\n")
 					.filter(Boolean);
@@ -186,7 +191,7 @@ function writeChecksumFile(artifact) {
  */
 function getOidcToken() {
 	if (process.env.NPM_ID_TOKEN) return process.env.NPM_ID_TOKEN;
-	return execFileSync("circleci", ["run", "oidc", "get", "--claims", '{"aud": "npm:registry.npmjs.org"}'], {
+	return execFileTrusted("circleci", ["run", "oidc", "get", "--claims", '{"aud": "npm:registry.npmjs.org"}'], {
 		encoding: "utf8",
 		stdio: ["ignore", "pipe", "inherit"],
 	}).trim();
@@ -199,7 +204,7 @@ function getOidcToken() {
 function publishToNpm(artifact) {
 	const token = getOidcToken();
 	if (!token) throw new Error("CircleCI did not return an npm OIDC token");
-	execFileSync("npm", ["publish", artifact, "--access", "public"], {
+	execFileTrusted("npm", ["publish", artifact, "--access", "public"], {
 		cwd: root,
 		stdio: "inherit",
 		env: { ...process.env, NPM_ID_TOKEN: token },
@@ -308,7 +313,7 @@ export async function publishRelease({
 	writeChecksumFileImpl = writeChecksumFile,
 	publishToNpmImpl = publishToNpm,
 	publishGithubReleaseImpl = (environment) =>
-		execFileSync(process.execPath, [join(root, "scripts", "publish-github-release.mjs")], {
+		execFileTrusted(process.execPath, [join(root, "scripts", "publish-github-release.mjs")], {
 			cwd: root,
 			stdio: "inherit",
 			env: environment,

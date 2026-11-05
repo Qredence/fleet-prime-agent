@@ -115,13 +115,8 @@ async function acquireLock(lockPath: string): Promise<LockHandle> {
 			// restructured around a query limitation.
 			let raw: string;
 			try {
-				// codeql[js/file-system-race]
-				const reader = openSync(lockPath, "r");
-				try {
-					raw = readFileSync(reader, "utf8");
-				} finally {
-					closeSync(reader);
-				}
+				// lgtm[js/file-system-race] Lock holder may release between create and read; ENOENT retries.
+				raw = readFileSync(lockPath, { encoding: "utf8" });
 			} catch (readError) {
 				if (errorCode(readError) === "ENOENT") continue;
 				throw readError;

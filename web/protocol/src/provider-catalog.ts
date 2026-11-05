@@ -208,11 +208,14 @@ export function toInstanceSlug(displayName: string): string {
 		.trim()
 		.toLowerCase()
 		.normalize("NFKD")
-		.replace(/[̀-ͯ]/g, "")
+		.replace(/[\u0300-\u036f]/g, "")
 		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "")
+		.replace(/-+/g, "-")
+		.replace(/^-/, "")
+		.replace(/-$/, "")
 		.slice(0, OCC_SLUG_MAX_LENGTH)
-		.replace(/^-+|-+$/g, "");
+		.replace(/^-/, "")
+		.replace(/-$/, "");
 	return slug || "provider";
 }
 
