@@ -10,14 +10,17 @@ export const CUSTOM_PROVIDER_MODELS_PAGE_SIZE = 40;
 export function CustomProviderModelsEditor({
 	attemptedSave,
 	modelIds,
+	newModelId,
 	onChange,
+	onNewModelIdChange,
 }: {
 	attemptedSave: boolean;
 	modelIds: Array<string>;
+	newModelId: string;
 	onChange: (modelIds: Array<string>) => void;
+	onNewModelIdChange: (value: string) => void;
 }) {
 	const [filter, setFilter] = useState("");
-	const [newModelId, setNewModelId] = useState("");
 	const [visibleCount, setVisibleCount] = useState(CUSTOM_PROVIDER_MODELS_PAGE_SIZE);
 	const normalizedFilter = filter.trim().toLowerCase();
 
@@ -35,11 +38,11 @@ export function CustomProviderModelsEditor({
 		const trimmed = newModelId.trim();
 		if (!trimmed) return;
 		if (modelIds.includes(trimmed)) {
-			setNewModelId("");
+			onNewModelIdChange("");
 			return;
 		}
 		onChange([...modelIds, trimmed]);
-		setNewModelId("");
+		onNewModelIdChange("");
 	};
 
 	const removeModelId = (id: string) => {
@@ -122,9 +125,9 @@ export function CustomProviderModelsEditor({
 						aria-label="Add model id"
 						placeholder="Add model id…"
 						value={newModelId}
-						onChange={(event) => setNewModelId(event.target.value)}
+						onChange={(event) => onNewModelIdChange(event.target.value)}
 						onKeyDown={(event) => {
-							if (event.key === "Enter") {
+							if (event.key === "Enter" && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
 								event.preventDefault();
 								addModelId();
 							}

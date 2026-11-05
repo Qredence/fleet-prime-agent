@@ -160,7 +160,7 @@ export function useProviderCredentialsController({
 		setDisplayName(existing?.displayName ?? (isCustomProviderId(providerId) ? (existing?.name ?? "") : ""));
 		setApi(existing?.api ?? "openai-completions");
 		setModelIds(existing?.modelIds ?? []);
-		setModelId(existing?.modelIds?.[0] ?? "");
+		setModelId(isCustomProviderId(providerId) ? "" : (existing?.modelIds?.[0] ?? ""));
 	};
 
 	const openAddPicker = () => {
@@ -190,7 +190,7 @@ export function useProviderCredentialsController({
 		const openAiChat = isOccProviderId(providerId);
 
 		if (isCustomEditor) {
-			const modelList = normalizeCustomProviderModelIds(modelIds);
+			const modelList = normalizeCustomProviderModelIds([...modelIds, modelId]);
 			if (!apiKey.trim() || !baseUrl.trim() || !displayName.trim()) return;
 			if (modelList.length === 0) return;
 
@@ -262,7 +262,7 @@ export function useProviderCredentialsController({
 		if (!editingProvider) return true;
 		if (editingProvider === CUSTOM_PROVIDER_PICKER_ID || isCustomProviderId(editingProvider)) {
 			if (baseUrl.trim().length === 0) return false;
-			if (normalizeCustomProviderModelIds(modelIds).length === 0) return false;
+			if (normalizeCustomProviderModelIds([...modelIds, modelId]).length === 0) return false;
 			return displayName.trim().length > 0;
 		}
 		if (!isOccProviderId(editingProvider)) return true;

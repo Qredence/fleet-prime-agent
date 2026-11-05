@@ -109,7 +109,9 @@ export function ProviderCredentialFields({
 				<CustomProviderModelsEditor
 					attemptedSave={attemptedSave}
 					modelIds={modelIds ?? []}
+					newModelId={modelId}
 					onChange={onModelIdsChange}
+					onNewModelIdChange={onModelIdChange}
 				/>
 			) : null}
 			{openAiChat && !showMultiModels ? (
