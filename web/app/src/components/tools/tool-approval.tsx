@@ -4,6 +4,7 @@ import { Check, ChevronDown, CircleAlert, LoaderCircle, ShieldCheck, X } from "l
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
 import { AgentDisclosure } from "@/components/tools/agent-disclosure";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { EASE_OUT, SPRING_PRESS, SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
@@ -92,123 +93,124 @@ export function ToolApproval({
 	}, [setOpen, status]);
 
 	return (
-		<div
+		<Item
+			variant="outline"
+			size="sm"
 			data-state={status}
 			aria-busy={busy}
-			className={cn("w-full overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-sm", className)}
+			className={cn("items-start rounded-2xl bg-muted/20 p-4", className)}
 		>
-			<div className="flex items-start gap-3 p-4">
-				<span
-					aria-hidden="true"
-					className={cn(
-						"mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl border border-border/60 bg-background text-muted-foreground",
-						error && "text-destructive",
-					)}
-				>
-					{busy ? (
-						<LoaderCircle className={cn("size-4", !reduce && "animate-spin")} />
-					) : error ? (
-						<CircleAlert className="size-4" />
-					) : status === "denied" ? (
-						<X className="size-4" />
-					) : status === "approved" || status === "complete" ? (
-						<Check className="size-4" />
-					) : (
-						<ShieldCheck className="size-4" />
-					)}
-				</span>
+			<ItemMedia
+				aria-hidden="true"
+				className={cn(
+					"mt-0.5 grid size-8 place-items-center rounded-xl border border-border/60 bg-background text-muted-foreground",
+					error && "text-destructive",
+				)}
+			>
+				{busy ? (
+					<LoaderCircle className={cn("size-4", !reduce && "animate-spin")} />
+				) : error ? (
+					<CircleAlert className="size-4" />
+				) : status === "denied" ? (
+					<X className="size-4" />
+				) : status === "approved" || status === "complete" ? (
+					<Check className="size-4" />
+				) : (
+					<ShieldCheck className="size-4" />
+				)}
+			</ItemMedia>
 
-				<div className="min-w-0 flex-1">
-					<div className="flex min-w-0 items-start justify-between gap-3">
-						<div className="min-w-0">
-							<div className="font-medium text-foreground">{title}</div>
-							<div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{tool}</div>
-						</div>
-						<span
-							className={cn(
-								"shrink-0 rounded-full border px-2 py-0.5 text-caption font-medium transition-colors",
-								getStatusBadgeClass(status),
-							)}
-						>
-							{getStatusCopy(status)}
-						</span>
+			<ItemContent>
+				<div className="flex min-w-0 items-start justify-between gap-3">
+					<div className="min-w-0">
+						<ItemTitle className="text-foreground">{title}</ItemTitle>
+						<div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{tool}</div>
 					</div>
-					{description ? <p className="mt-2 leading-5 text-muted-foreground">{description}</p> : null}
-
-					{parameters.length ? (
-						<button
-							type="button"
-							aria-expanded={currentOpen}
-							aria-controls={detailsId}
-							onClick={() => setOpen(!currentOpen)}
-							className="mt-2 inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-						>
-							View details
-							<m.span
-								aria-hidden="true"
-								animate={{ rotate: currentOpen ? 180 : 0 }}
-								transition={reduce ? { duration: 0 } : SPRING_SWAP}
-							>
-								<ChevronDown className="size-3.5" />
-							</m.span>
-						</button>
-					) : null}
-				</div>
-			</div>
-
-			<AgentDisclosure id={detailsId} open={currentOpen}>
-				<dl className="mx-4 mb-4 grid gap-2 rounded-xl border border-border/50 bg-background/70 p-3">
-					{parameters.map((parameter) => (
-						<div
-							key={parameter.id}
-							className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] items-center gap-3 text-xs"
-						>
-							<dt className="text-muted-foreground">{parameter.label}</dt>
-							<dd className="min-w-0 break-words font-mono text-foreground/85">{parameter.value}</dd>
-						</div>
-					))}
-				</dl>
-			</AgentDisclosure>
-
-			<AnimatePresence initial={false}>
-				{pending ? (
-					<m.div
-						initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
-						animate={{ opacity: 1, y: 0 }}
-						exit={{ opacity: 0 }}
-						transition={{ duration: reduce ? 0.12 : 0.22, ease: EASE_OUT }}
-						className="flex flex-wrap items-center gap-2 border-t border-border/60 px-4 py-3"
+					<span
+						className={cn(
+							"shrink-0 rounded-full border px-2 py-0.5 text-caption font-medium transition-colors",
+							getStatusBadgeClass(status),
+						)}
 					>
-						<m.button
-							type="button"
-							onClick={onApprove}
-							whileTap={reduce ? undefined : { scale: 0.96 }}
-							transition={SPRING_PRESS}
-							className="rounded-xl bg-foreground px-3 py-1.5 text-xs font-medium text-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						{getStatusCopy(status)}
+					</span>
+				</div>
+				{description ? <ItemDescription className="mt-1 leading-5">{description}</ItemDescription> : null}
+
+				{parameters.length ? (
+					<button
+						type="button"
+						aria-expanded={currentOpen}
+						aria-controls={detailsId}
+						onClick={() => setOpen(!currentOpen)}
+						className="mt-2 inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					>
+						View details
+						<m.span
+							aria-hidden="true"
+							animate={{ rotate: currentOpen ? 180 : 0 }}
+							transition={reduce ? { duration: 0 } : SPRING_SWAP}
 						>
-							Allow once
-						</m.button>
-						{onAlwaysAllow ? (
-							<m.button
-								type="button"
-								onClick={onAlwaysAllow}
-								whileTap={reduce ? undefined : { scale: 0.96 }}
-								transition={SPRING_PRESS}
-								className="rounded-xl border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-							>
-								Always allow
-							</m.button>
-						) : null}
-						<button
-							type="button"
-							onClick={onDeny}
-							className="rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-						>
-							Deny
-						</button>
-					</m.div>
+							<ChevronDown className="size-3.5" />
+						</m.span>
+					</button>
 				) : null}
-			</AnimatePresence>
-		</div>
+				<AgentDisclosure id={detailsId} open={currentOpen}>
+					<dl className="mt-3 grid gap-2 rounded-xl border border-border/50 bg-background/70 p-3">
+						{parameters.map((parameter) => (
+							<div
+								key={parameter.id}
+								className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] items-center gap-3 text-xs"
+							>
+								<dt className="text-muted-foreground">{parameter.label}</dt>
+								<dd className="min-w-0 break-words font-mono text-foreground/85">{parameter.value}</dd>
+							</div>
+						))}
+					</dl>
+				</AgentDisclosure>
+
+				<AnimatePresence initial={false}>
+					{pending ? (
+						<m.div
+							initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+							animate={{ opacity: 1, y: 0 }}
+							exit={{ opacity: 0 }}
+							transition={{ duration: reduce ? 0.12 : 0.22, ease: EASE_OUT }}
+							className="mt-2"
+						>
+							<ItemActions className="flex-wrap">
+								<m.button
+									type="button"
+									onClick={onApprove}
+									whileTap={reduce ? undefined : { scale: 0.96 }}
+									transition={SPRING_PRESS}
+									className="rounded-xl bg-foreground px-3 py-1.5 text-xs font-medium text-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+								>
+									Allow once
+								</m.button>
+								{onAlwaysAllow ? (
+									<m.button
+										type="button"
+										onClick={onAlwaysAllow}
+										whileTap={reduce ? undefined : { scale: 0.96 }}
+										transition={SPRING_PRESS}
+										className="rounded-xl border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+									>
+										Always allow
+									</m.button>
+								) : null}
+								<button
+									type="button"
+									onClick={onDeny}
+									className="rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+								>
+									Deny
+								</button>
+							</ItemActions>
+						</m.div>
+					) : null}
+				</AnimatePresence>
+			</ItemContent>
+		</Item>
 	);
 }

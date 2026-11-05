@@ -19,6 +19,7 @@ describe("ChatStreamEventSchema", () => {
 		const frames = [
 			{ type: "start", id: "e-1", runId: "r-1", sessionId: SESSION_ID },
 			{ type: "delta", text: "hello" },
+			{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "reasoning" },
 			{ type: "tool", part: { type: "tool-Shell", toolCallId: "t-1" } },
 			{ type: "state", state: { name: "agent_settled" } },
 			{ type: "queue", steering: [], followUp: [] },
@@ -50,6 +51,19 @@ describe("ChatStreamEventSchema", () => {
 		expect(ChatStreamEventSchema.safeParse({ type: "telepathy", text: "hi" }).success).toBe(false);
 		expect(ChatStreamEventSchema.safeParse({ type: "delta" }).success).toBe(false);
 		expect(ChatStreamEventSchema.safeParse(null).success).toBe(false);
+	});
+
+	it("accepts a shared replay cursor and rejects malformed cursor metadata", () => {
+		const cursor = { generation: "generation-1", sequence: 8 };
+		expect(ChatStreamEventSchema.safeParse({ type: "delta", text: "live", eventCursor: cursor }).success).toBe(true);
+		expect(
+			ChatStreamEventSchema.safeParse({ type: "delta", text: "live", eventCursor: { ...cursor, sequence: 0 } })
+				.success,
+		).toBe(false);
+		expect(
+			ChatStreamEventSchema.safeParse({ type: "delta", text: "live", eventCursor: { ...cursor, extra: true } })
+				.success,
+		).toBe(false);
 	});
 });
 
@@ -260,5 +274,15 @@ describe("PrimeAgentSessionPresentationSchema kernelDiagnostics", () => {
 		expect(PrimeAgentSessionPresentationSchema.safeParse({ ...base, kernelDiagnostics: { tail: "x" } }).success).toBe(
 			false,
 		);
+	});
+});
+
+describe("OpenUI syntax negotiation", () => {
+	it.each([undefined, "0.x", "1.x"])("accepts supported syntax %s", (openUISyntaxVersion) => {
+		expect(ChatRequestSchema.safeParse({ openUI: true, openUISyntaxVersion }).success).toBe(true);
+	});
+	it("rejects unsupported syntax and child-turn syntax overrides", () => {
+		expect(ChatRequestSchema.safeParse({ openUI: true, openUISyntaxVersion: "2.x" }).success).toBe(false);
+		expect(ChatRequestSchema.safeParse({ childId: "child", openUISyntaxVersion: "1.x" }).success).toBe(false);
 	});
 });

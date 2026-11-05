@@ -7,6 +7,15 @@ export type ChatTextPart = {
 	text: string;
 };
 
+/** Typed model reasoning content, kept separate from ordinary assistant text. */
+export type ChatReasoningPart = {
+	type: "reasoning";
+	contentIndex: number;
+	text: string;
+	state: "streaming" | "complete";
+	durationMs?: number;
+};
+
 export type ChatErrorPart = {
 	type: "error";
 	title?: string;
@@ -82,7 +91,13 @@ export type ChatToolPart = {
 	error?: unknown;
 };
 
-export type ChatMessagePart = ChatTextPart | ChatErrorPart | ChatImagePart | ChatPayloadPart | ChatToolPart;
+export type ChatMessagePart =
+	| ChatTextPart
+	| ChatReasoningPart
+	| ChatErrorPart
+	| ChatImagePart
+	| ChatPayloadPart
+	| ChatToolPart;
 
 export function isChatTextPart(part: ChatMessagePart): part is ChatTextPart {
 	return part.type === "text";

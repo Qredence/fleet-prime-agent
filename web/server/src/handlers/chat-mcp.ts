@@ -1,14 +1,8 @@
-import {
-	BUILTIN_MCP_CATALOG,
-	createMcpOAuthProvider,
-	getCatalogEntry,
-	registerBuiltinMcpOAuthProviders,
-} from "@earendil-works/pi-ai/mcp";
-import type { OAuthLoginCallbacks } from "@earendil-works/pi-ai/oauth";
-import { getOAuthProvider, registerOAuthProvider } from "@earendil-works/pi-ai/oauth";
+import { BUILTIN_MCP_CATALOG, getCatalogEntry } from "@earendil-works/pi-ai/mcp";
 import {
 	ChatMcpDeleteRequestSchema,
 	ChatMcpOAuthLoginRequestSchema,
+	ChatMcpTokenRequestSchema,
 	ChatMcpUpsertRequestSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatMcpListResponse, ChatMcpOAuthLoginResponse, McpConnectionInfo } from "@prime-agent/web-protocol/mcp";
@@ -21,16 +15,11 @@ import {
 	mcpProviderId,
 	validateHttpMcpUrl,
 } from "../mcp-connections";
+import { type McpCredentialOutcome, storeMcpStaticToken } from "../mcp-daemon-credentials";
+import { listDaemonMcpConnections } from "../mcp-daemon-list";
 import { getPrimeConfig } from "../prime-config";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
-import {
-	cancelOAuthLogin,
-	continueOAuthLogin,
-	type OAuthLoginDeps,
-	pollOAuthLogin,
-	startOAuthLogin,
-} from "./chat-providers-oauth";
 
 export type McpHandlerDeps = {
 	getUserServers: () => Record<string, FleetMcpServerConfig> | undefined;
@@ -40,12 +29,20 @@ export type McpHandlerDeps = {
 	auth: {
 		get: (provider: string) => { type?: string; endpoint?: unknown } | undefined;
 		removeVerified: (provider: string) => void;
-		login: (providerId: string, callbacks: OAuthLoginCallbacks) => Promise<void>;
 	};
 	workspaceRoot: string;
 	env: NodeJS.Dict<string>;
 	reloadAuth: () => void;
 	reloadResources: () => Promise<void>;
+	/**
+	 * The daemon's MCP view, which owns the configuration.
+	 *
+	 * Injected rather than imported so the handlers stay testable without a live
+	 * daemon, the same way every other operation here goes through `deps`.
+	 */
+	listConnections: (cwd: string) => Promise<McpConnectionInfo[]>;
+	/** Stores a static token through the daemon, which owns the credential. */
+	storeToken: (cwd: string, server: string, token: string) => Promise<McpCredentialOutcome>;
 };
 
 function defaultMcpDeps(): McpHandlerDeps {
@@ -71,6 +68,8 @@ function defaultMcpDeps(): McpHandlerDeps {
 		reloadResources: async () => {
 			await getBridge().reloadResources();
 		},
+		listConnections: listDaemonMcpConnections,
+		storeToken: storeMcpStaticToken,
 	};
 }
 
@@ -80,57 +79,6 @@ function listedConnections(deps: McpHandlerDeps): Array<McpConnectionInfo> {
 
 function listResponse(deps: McpHandlerDeps): ChatMcpListResponse {
 	return { connections: listedConnections(deps) };
-}
-
-function toMcpOAuthResponse(
-	snapshot: {
-		status: ChatMcpOAuthLoginResponse["status"];
-		loginId?: string;
-		authUrl?: string;
-		userCode?: string;
-		instructions?: string;
-		prompt?: ChatMcpOAuthLoginResponse["prompt"];
-		error?: string;
-	},
-	connections?: Array<McpConnectionInfo>,
-): ChatMcpOAuthLoginResponse {
-	return {
-		status: snapshot.status,
-		...(snapshot.loginId ? { loginId: snapshot.loginId } : {}),
-		...(snapshot.authUrl ? { authUrl: snapshot.authUrl } : {}),
-		...(snapshot.userCode ? { userCode: snapshot.userCode } : {}),
-		...(snapshot.instructions ? { instructions: snapshot.instructions } : {}),
-		...(snapshot.prompt ? { prompt: snapshot.prompt } : {}),
-		...(snapshot.error ? { error: snapshot.error } : {}),
-		...(connections ? { connections } : {}),
-	};
-}
-
-function ensureMcpOAuthProvider(name: string, deps: McpHandlerDeps): void {
-	registerBuiltinMcpOAuthProviders();
-	if (getCatalogEntry(name)) return;
-	const config = deps.getUserServers()?.[name];
-	if (!config || config.type !== "http" || config.oauth !== true) {
-		throw new McpRequestError("This MCP server does not use OAuth.");
-	}
-	registerOAuthProvider(
-		createMcpOAuthProvider({
-			server: name,
-			label: name,
-			url: config.url,
-		}),
-	);
-}
-
-function oauthDeps(deps: McpHandlerDeps): OAuthLoginDeps {
-	return {
-		login: (providerId, callbacks) => deps.auth.login(providerId, callbacks),
-		reloadAuth: () => {
-			deps.reloadAuth();
-			void deps.reloadResources();
-		},
-		listProviders: () => [],
-	};
 }
 
 async function logoutMcp(name: string, deps: McpHandlerDeps): Promise<ChatMcpOAuthLoginResponse> {
@@ -146,7 +94,16 @@ async function logoutMcp(name: string, deps: McpHandlerDeps): Promise<ChatMcpOAu
 }
 
 export function handleChatMcpGet(_request: Request, deps: McpHandlerDeps = defaultMcpDeps()): Promise<Response> {
-	return wrapApiHandler(async () => Response.json(listResponse(deps)), _request);
+	return wrapApiHandler(async () => {
+		// The daemon owns MCP configuration and verifies credentials, so its view
+		// is authoritative. The SDK-based list reported a server as connected
+		// whenever a credential object existed, which hid expired tokens.
+		//
+		// A daemon failure surfaces rather than falling back to that list: silently
+		// showing stale "connected" rows is the bug this replaced.
+		const connections = await deps.listConnections(deps.workspaceRoot);
+		return Response.json({ connections } satisfies ChatMcpListResponse);
+	}, _request);
 }
 
 export function handleChatMcpPost(request: Request, deps: McpHandlerDeps = defaultMcpDeps()): Promise<Response> {
@@ -222,56 +179,48 @@ export function handleChatMcpOAuthPost(request: Request, deps: McpHandlerDeps = 
 	return wrapApiHandler(async () => {
 		const body = ChatMcpOAuthLoginRequestSchema.parse(await request.json().catch(() => ({})));
 		const known = [...BUILTIN_MCP_CATALOG.map((entry) => entry.server), ...Object.keys(deps.getUserServers() ?? {})];
-		if (!known.includes(body.name) && !body.loginId) {
+		if (!known.includes(body.name)) {
 			throw new McpRequestError(`Unknown MCP server: ${body.name}`);
 		}
 
-		if (body.cancel) {
-			if (!body.loginId) {
-				return Response.json(
-					{ status: "error", error: "loginId is required to cancel" } satisfies ChatMcpOAuthLoginResponse,
-					{ status: 400 },
-				);
-			}
-			return Response.json(toMcpOAuthResponse(cancelOAuthLogin(body.loginId)));
-		}
-		if (body.loginId && body.promptAnswer !== undefined) {
-			return Response.json(toMcpOAuthResponse(continueOAuthLogin(body.loginId, body.promptAnswer)));
-		}
-		if (body.loginId) {
-			const snapshot = pollOAuthLogin(body.loginId);
-			return Response.json(
-				toMcpOAuthResponse(snapshot, snapshot.status === "success" ? listedConnections(deps) : undefined),
-			);
-		}
-
 		const action = body.action ?? "login";
-		switch (action) {
-			case "logout":
-				return Response.json(await logoutMcp(body.name, deps));
-			case "reconnect":
-				await logoutMcp(body.name, deps);
-				break;
-			case "login":
-				break;
-			default: {
-				const unexpected: never = action;
-				throw new McpRequestError(`Unsupported MCP OAuth action: ${String(unexpected)}`);
-			}
-		}
+		if (action === "logout") return Response.json(await logoutMcp(body.name, deps));
 
-		ensureMcpOAuthProvider(body.name, deps);
-		const providerId = mcpProviderId(body.name);
-		if (!getOAuthProvider(providerId)) {
-			return Response.json(
-				{
-					status: "error",
-					error: `Unknown OAuth provider: ${providerId}`,
-				} satisfies ChatMcpOAuthLoginResponse,
-				{ status: 400 },
-			);
-		}
+		return Response.json(
+			{
+				status: "error",
+				// Restarting Fleet does not restart the daemon: it is spawned detached
+				// and `startDaemon` re-attaches to an already-compatible socket. The
+				// daemon re-reads `auth.json` per call, so a restart would be a no-op.
+				error: `Sign-in for ${body.name} has to run inside Prime Agent. In a terminal, start Prime Agent against the same account as Fleet, then run /mcp login ${body.name}. Fleet picks the credential up on its next refresh. If Fleet uses a non-default account directory, start Prime Agent with the same PRIME_AGENT_CODING_AGENT_DIR it uses.`,
+			} satisfies ChatMcpOAuthLoginResponse,
+			{ status: 501 },
+		);
+	}, request);
+}
 
-		return Response.json(toMcpOAuthResponse(startOAuthLogin(providerId, oauthDeps(deps))));
+/**
+ * Stores a pasted token through the daemon.
+ *
+ * A failed verification still stores the credential, so it answers 200 and
+ * reports `verified: false` with a reason rather than pretending the write
+ * failed.
+ */
+export function handleChatMcpTokenPost(request: Request, deps: McpHandlerDeps = defaultMcpDeps()): Promise<Response> {
+	return wrapApiHandler(async () => {
+		const body = ChatMcpTokenRequestSchema.parse(await request.json().catch(() => ({})));
+		const outcome = await deps.storeToken(deps.workspaceRoot, body.name, body.token);
+		if (outcome.status !== "stored") {
+			const reason = outcome.status === "refused" ? outcome.reason : "The token was not stored.";
+			throw new McpRequestError(reason);
+		}
+		deps.reloadAuth();
+		await deps.reloadResources();
+		return Response.json({
+			verified: outcome.verified,
+			toolCount: outcome.toolCount,
+			...(outcome.error ? { error: outcome.error } : {}),
+			connections: listedConnections(deps),
+		});
 	}, request);
 }

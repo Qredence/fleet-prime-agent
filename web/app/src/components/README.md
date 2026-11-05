@@ -25,7 +25,7 @@ components/
   ui/          # Base UI wrappers, Fleet-styled controls, compound components, adapters
   openui/      # generative UI library, renderers, artifact shell
   layout/      # app chrome: sidebar shell, header, right-panel shell/registry/launcher, chrome tokens
-  chat/        # chat surface, session lifecycle, composer, transcript, plans, question, subagents
+  chat/        # chat surface, session lifecycle, composer, transcript, plans, subagents
   sessions/    # session sidebar, resource tree, agent tabs, session tree/insights, thread search
   workspace/   # workspace file tree/preview, resources, repl
   artifacts/   # session artifact runs and panels

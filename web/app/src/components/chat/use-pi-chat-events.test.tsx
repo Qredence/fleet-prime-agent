@@ -3,15 +3,8 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/components/chat/chat-client";
+import { EMPTY_SESSION_PRESENTATION } from "@/components/chat/chat-stream-state";
 import { usePiChatSessionEvents } from "@/components/chat/use-pi-chat-events";
-
-const EMPTY_PRESENTATION: PrimeAgentSessionPresentation = {
-	artifactRuns: [],
-	refinements: [],
-	rlmChildren: [],
-	revision: 0,
-	userBash: [],
-};
 
 describe("usePiChatSessionEvents", () => {
 	afterEach(() => {
@@ -42,7 +35,7 @@ describe("usePiChatSessionEvents", () => {
 		renderHook(() =>
 			usePiChatSessionEvents({
 				client: {} as ChatClient,
-				presentationRef: { current: EMPTY_PRESENTATION },
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-a",
 				sessionMetadataRef: { current: { sessionId: "session-a" } },
 				setActivityLabelSynced: vi.fn(),
@@ -105,6 +98,77 @@ describe("usePiChatSessionEvents", () => {
 		);
 	});
 
+	it("applies ordered replay once and stops at gaps or malformed frames", async () => {
+		class EventSourceStub {
+			static instances: EventSourceStub[] = [];
+			readonly close = vi.fn();
+			onerror: (() => void) | null = null;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			constructor() {
+				EventSourceStub.instances.push(this);
+			}
+		}
+		vi.stubGlobal("EventSource", EventSourceStub);
+		const applyEvent = vi.fn();
+		const recoveryRef = {
+			current: {
+				active: true,
+				sessionId: "session-recovery",
+				cursor: { generation: "gen-1", sequence: 4 },
+				needsSnapshot: false,
+				applyEvent,
+			},
+		};
+		renderHook(() =>
+			usePiChatSessionEvents({
+				client: {} as ChatClient,
+				recoveryRef,
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
+				sessionId: "session-recovery",
+				sessionMetadataRef: { current: { sessionId: "session-recovery" } },
+				setActivityLabelSynced: vi.fn(),
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced: vi.fn(),
+				setPresentationSynced: vi.fn(),
+				setQueueSynced: vi.fn(),
+				setSessionMetadataSynced: vi.fn(),
+				statusRef: { current: "streaming" },
+			}),
+		);
+		const source = EventSourceStub.instances[0]!;
+		const send = (sequence: number, text = "replayed") =>
+			source.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "delta",
+						text,
+						eventCursor: { generation: "gen-1", sequence },
+					}),
+					lastEventId: String(sequence),
+				}),
+			);
+		await act(async () => {
+			source.onmessage?.(
+				new MessageEvent("message", {
+					data: JSON.stringify({
+						type: "reasoning_text",
+						phase: "delta",
+						text: "invalid index",
+						eventCursor: { generation: "gen-1", sequence: 5 },
+					}),
+					lastEventId: "5",
+				}),
+			);
+			send(6);
+			send(6);
+		});
+		expect(applyEvent).toHaveBeenCalledOnce();
+		expect(recoveryRef.current.cursor).toEqual({ generation: "gen-1", sequence: 6 });
+		await act(async () => send(8));
+		expect(applyEvent).toHaveBeenCalledOnce();
+		expect(recoveryRef.current.needsSnapshot).toBe(true);
+	});
+
 	it("ignores an agent-settled hydration that resolves after the visible session changes", async () => {
 		let resolveSession!: (value: {
 			messages: [];
@@ -137,7 +201,7 @@ describe("usePiChatSessionEvents", () => {
 		renderHook(() =>
 			usePiChatSessionEvents({
 				client: { loadSession } as unknown as ChatClient,
-				presentationRef: { current: EMPTY_PRESENTATION },
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-a",
 				sessionMetadataRef,
 				setActivityLabelSynced: vi.fn(),
@@ -159,7 +223,11 @@ describe("usePiChatSessionEvents", () => {
 		});
 		sessionMetadataRef.current = { sessionId: "session-b" };
 		await act(async () => {
-			resolveSession({ messages: [], presentation: EMPTY_PRESENTATION, session: { sessionId: "session-a" } });
+			resolveSession({
+				messages: [],
+				presentation: EMPTY_SESSION_PRESENTATION,
+				session: { sessionId: "session-a" },
+			});
 			await Promise.resolve();
 		});
 
@@ -200,7 +268,7 @@ describe("usePiChatSessionEvents", () => {
 		const { unmount } = renderHook(() =>
 			usePiChatSessionEvents({
 				client: { loadSession } as unknown as ChatClient,
-				presentationRef: { current: EMPTY_PRESENTATION },
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-a",
 				sessionMetadataRef: { current: { sessionId: "session-a" } },
 				setActivityLabelSynced: vi.fn(),
@@ -222,7 +290,11 @@ describe("usePiChatSessionEvents", () => {
 		});
 		unmount();
 		await act(async () => {
-			resolveSession({ messages: [], presentation: EMPTY_PRESENTATION, session: { sessionId: "session-a" } });
+			resolveSession({
+				messages: [],
+				presentation: EMPTY_SESSION_PRESENTATION,
+				session: { sessionId: "session-a" },
+			});
 			await Promise.resolve();
 		});
 
@@ -249,7 +321,7 @@ describe("usePiChatSessionEvents", () => {
 			({ sessionId }) =>
 				usePiChatSessionEvents({
 					client: {} as ChatClient,
-					presentationRef: { current: EMPTY_PRESENTATION },
+					presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 					sessionId,
 					sessionMetadataRef: { current: { sessionId } },
 					setActivityLabelSynced,
@@ -293,7 +365,7 @@ describe("usePiChatSessionEvents", () => {
 		renderHook(() =>
 			usePiChatSessionEvents({
 				client: {} as ChatClient,
-				presentationRef: { current: EMPTY_PRESENTATION },
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-a",
 				sessionMetadataRef: { current: { sessionId: "session-a" } },
 				setActivityLabelSynced,
@@ -342,13 +414,13 @@ describe("usePiChatSessionEvents", () => {
 		const setActivityLabelSynced = vi.fn();
 		const loadSession = vi.fn(async () => ({
 			messages: [],
-			presentation: EMPTY_PRESENTATION,
+			presentation: EMPTY_SESSION_PRESENTATION,
 			session: { sessionId: "session-gen" },
 		}));
 		renderHook(() =>
 			usePiChatSessionEvents({
 				client: { loadSession } as unknown as ChatClient,
-				presentationRef: { current: EMPTY_PRESENTATION },
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-gen",
 				sessionMetadataRef: { current: { sessionId: "session-gen" } },
 				setActivityLabelSynced,

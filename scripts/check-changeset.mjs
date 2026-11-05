@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
+import { isReleaseVersionFile } from "./release-utils.mjs";
 
 const RELEASE_BRANCH_PREFIX = "release/fleet-";
 const PACKAGE_NAME = "@qredence/fleet";
@@ -115,14 +116,7 @@ function hasDeletedChangeset(baseRef) {
  * @return {boolean} `true` if the changes contain only generated release files and indicate a release, `false` otherwise.
  */
 export function isGeneratedVersionChange({ files, subject, deletedChangeset }) {
-	const releaseOnly =
-		files.length > 0 &&
-		files.every(
-			(path) =>
-				path === "packages/fleet-web/package.json" ||
-				path === "packages/fleet-web/CHANGELOG.md" ||
-				(path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md"),
-		);
+	const releaseOnly = files.length > 0 && files.every(isReleaseVersionFile);
 	if (!releaseOnly) return false;
 	return subject.startsWith("chore(release):") || subject.includes("release/fleet-v") || deletedChangeset;
 }

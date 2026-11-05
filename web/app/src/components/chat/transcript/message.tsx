@@ -174,11 +174,7 @@ export function MessageBubbleContent({ className, children, ref, ...props }: Mes
 		<div
 			ref={ref}
 			data-slot="message-bubble-content"
-			className={cn(
-				"relative z-0 w-full max-w-none min-w-9 text-sm leading-6 text-foreground",
-				"[&_a]:font-medium [&_a]:underline [&_a]:underline-offset-4 [&_code]:rounded [&_code]:bg-background/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[90%] [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-2 [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-background/60 [&_pre]:p-3 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
-				className,
-			)}
+			className={cn("relative z-0 w-full max-w-none min-w-9 text-sm leading-6 text-foreground", className)}
 			{...props}
 		>
 			<m.div

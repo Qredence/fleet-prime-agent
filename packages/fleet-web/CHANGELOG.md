@@ -1,5 +1,222 @@
 # Changelog
 
+## 0.11.0
+
+### Minor Changes
+
+- baebc6f: OpenUI: fix the integration and use more of the language.
+  
+  Fixed:
+  
+  - The component library now declares `Root` as its entry component, so a
+    generated program without a `root` statement renders the first root-component
+    call with a `no-root` warning instead of rendering nothing.
+  - `Button`'s action prop is a typed `ActionExpression | string` instead of
+    `any`, so the generated prompt teaches `@ToAssistant(...)` and `Action([...])`
+    on it and the JSON schema exposes the action contract.
+  - Generated OpenUI programs can now call Fleet data. `Query(...)` runs through a
+    read-only tool surface (`workspace_tree`, `list_sessions`, `list_resources`,
+    `session_stats`) backed by Fleet's existing server handlers. The prompt no
+    longer documents `Mutation`, because no write tool exists.
+  - `DataTable` no longer throws when a query is still loading (null rows), and a
+    column key that the rows do not carry renders a visible placeholder instead of
+    a blank cell that looks like missing data.
+  - The OpenUI devtools toggle is hidden again; its stylesheet rule matched a
+    label the installed devtools no longer emits.
+  
+  Added:
+  
+  - Components: `Tabs`, `Accordion`, `TextArea`, `Slider`, `Steps`,
+    `KeyValueList`, `Empty`, `Skeleton`, `Image`.
+  - Client functions: `@Duration`, `@Bytes`, `@Tokens`, `@Percent`,
+    `@ShortPath`.
+  - Component groups in the prompt so the signature list is navigable.
+  - A typed `@OpenPanel` action.
+  - OpenUI form state now survives reload and session switches, stored with
+    OpenUI's own message format.
+  - The Repair action sends structured parser errors (statement, component, hint)
+    instead of a generic retry.
+  
+  Changed:
+  
+  - `@openuidev/react-ui` was only a stylesheet import with no component
+    consumers; it is no longer a dependency.
+  
+  OpenUI reads retain the selected project. Stored forms match their program, are removed on session deletion, and are pruned by save time. Legacy clients retain the 0.x prompt until they declare 1.x support.
+
+## 0.10.5
+
+### Patch Changes
+
+- ee0f066: Polish small chat and sidebar rough edges
+  
+  - A tool you stop mid-run now shows "Cancelled" instead of "Failed".
+  - Enter submits the rename dialogs for sessions and projects.
+  - Untitled sessions show "New chat" in the sidebar instead of a raw session-id prefix.
+  - A subagent thread keeps one replay cursor across session resets, so a reset reloads it instead of replaying a stale stream.
+  - Clicking a side-panel tab switches to it instead of closing the panel.
+  - On narrow screens the panel launcher switches to its dropdown when its tabs don't fit, and the New chat button no longer overlaps it.
+  - On phones the Main and Activity header tabs show just their icons, with the name in a tooltip, instead of cut-off labels.
+
+## 0.10.4
+
+### Patch Changes
+
+- 4105939: Polish thinking episodes, side panels, and CPython labels
+  
+  - Each thinking stretch in a turn stays its own Thought row instead of growing one collapsible after tools run.
+  - Long Thoughts split into paragraphs as blank lines arrive, so Activity and the transcript stay readable.
+  - Kernel cells, REPL, and tool traces say CPython instead of IPython; the wire protocol is unchanged.
+  - The Subagents panel fills its body and scrolls inside it, and agent tabs can use a bit more width for longer names.
+  - The Projects sidebar label lines up vertically with its actions.
+
+## 0.10.3
+
+### Patch Changes
+
+- eaef08e: Fleet now installs Prime Agent 0.10.2, the latest stock Rust runtime. It brings upstream fixes for Google, Azure OpenAI, Bedrock and Anthropic providers, MCP OAuth issuers with a trailing slash, and stuck Python cells. The protocol is unchanged, so existing sessions keep working; the first launch after updating downloads the new runtime once.
+  
+  Failed tool calls now stay marked as failed once a turn finishes, including Python cells that raise an exception, instead of flipping to success.
+
+## 0.10.2
+
+### Patch Changes
+
+- 4ff865e: Share one tab strip between agent conversations and the side panel
+  
+  The agent conversation tabs, the right-panel launcher, and the in-panel view
+  switcher were separate implementations of the same strip. All three now render
+  the shared `TabStrip` on the existing `ui/tabs` primitive, so keyboard roving
+  comes from Base UI instead of hand-written handlers. The proximity-hover pill
+  is gone, and right-panel tabs keep their labels visible instead of collapsing
+  inactive tabs to an icon.
+
+## 0.10.1
+
+### Patch Changes
+
+- 0b78235: Keep the packaged kernel runtime when `fleet-prime` installs Prime Agent
+  
+  0.10.0 fixed the runtime install inside the web server, but the `fleet-prime`
+  command installs Prime Agent itself before it starts the server, and that path
+  still kept only the `prime-agent` executable and deleted the
+  `prime-agent-runtime` directory the kernel bootstraps from. The server then
+  reused that binary as-is, so sessions started from the npm package could still
+  fail with "the runtime bundle that ships beside the Prime Agent binary is
+  missing".
+  
+  `fleet-prime` and the server now share one installer. It keeps
+  `prime-agent-runtime` beside the binary, and an existing binary-only install
+  under `~/.prime/fleet/runtimes` is repaired automatically on the next start; no
+  manual cleanup is needed.
+
+## 0.10.0
+
+### Minor Changes
+
+- 871ce42: Serve the model catalog from the Prime Agent daemon instead of the SDK
+  
+  Fleet no longer builds or refreshes the stock runtime's `ModelRegistry`. The
+  model picker reads the pinned daemon's `get_model_catalog`, which re-parses
+  `models.json` and `auth.json` from disk on every call, through a short-lived
+  in-process snapshot so a page load does not create a daemon session per request.
+  
+  Two user-visible fixes come with it:
+  
+  - Providers configured only through an environment variable now count as
+    configured. The retired path hard-coded `configured: false` for environment
+    candidates, so a working `ANTHROPIC_API_KEY` or `GROQ_API_KEY` reported its
+    models as unavailable and hid them from the default model list.
+  - A custom provider in `models.json` that is missing `apiKey` now produces an
+    actionable diagnostic. The runtime silently drops every custom provider in the
+    file in that case, with no error on any surface.
+  
+  Model thinking levels, the `Unknown model` error, and the stale-model fallback
+  to a provider's first available model are unchanged.
+
+### Patch Changes
+
+- daee396: Restore the packaged Python kernel runtime on install
+  
+  Fleet's installer extracted the pinned Prime Agent release, installed only the
+  executable, and deleted the rest of the payload. The `prime-agent-runtime`
+  directory the kernel bootstraps from was destroyed on every install, so sessions
+  failed with "the runtime bundle that ships beside the Prime Agent binary is
+  missing" even though the release contains it.
+  
+  The installer now keeps the packaged runtime beside the binary, repairs an
+  existing binary-only install on the next start, and no longer claims a binary is
+  missing when the spawn working directory is the thing that does not exist.
+- b2648a8: Correct the MCP and provider sign-in guidance
+  
+  Fleet cannot start OAuth sign-in itself: the pinned daemon exposes no login command,
+  and the only entry point is Prime Agent's interactive terminal. The previous guidance
+  told users to "launch Prime Agent in a terminal and complete sign-in", which fails —
+  the CLI `mcp` subcommand has no `login`, only `add|list|get|remove`.
+  
+  The alerts and the 501 responses now name the commands that exist (`/mcp login <name>`
+  for MCP servers, `/login` for providers) and no longer claim a Fleet restart is needed.
+  Restarting Fleet cannot reload the credential in any case: the daemon is spawned
+  detached and re-attaches to an already-running socket, and it re-reads `auth.json` on
+  each call.
+- 32f79ab: Contain provider dialogs, protect credential hints, and refresh supported provider model lists when adding models.
+- 32f79ab: Refresh cached settings after saving so newly enabled models appear in the model picker without restarting the server.
+- 9bf257a: Share one cleared-session presentation value
+  
+  The cleared-session presentation was hand-spelled at four reset sites (initial
+  state, project switch, session delete, and forbidden-session recovery). A single
+  shared, frozen value now backs all of them, so a new required field on the
+  presentation type is a compile-time error in one place instead of a silent gap
+  in four.
+
+## 0.9.0
+
+### Minor Changes
+
+- 3643a31: Read provider credentials and auth status from `auth.json` instead of the SDK
+  
+  Fleet now resolves provider credentials itself rather than through the stock
+  runtime's `AuthStorage` and `ModelRegistry`. Model discovery reads the stored key
+  from `auth.json` and falls back to the provider's environment variable in the
+  same order the runtime used. The provider list derives its "configured" state
+  from the credential file, so a key Fleet wrote a moment ago is visible
+  immediately instead of only after the runtime reloads its in-memory view.
+  
+  This removes the SDK from the credential path. Resource discovery (skills,
+  prompts, themes, extensions) still uses the runtime's loader.
+- 8b81e09: Run on Prime Agent's native runtime. Fleet now talks to the Prime Agent daemon directly instead of through the legacy TypeScript SDK, and reports a clear error when the installed daemon is not a compatible version. Fleet requires the Rust daemon: a TypeScript daemon that advertises the same protocol and schema revision is refused, because Fleet no longer carries a second adapter path for it.
+  
+  Recover chat sessions automatically when an invalid stream event interrupts the browser stream. Replayed text and tool events now resume after a malformed reasoning frame, missing runtime reasoning indexes are normalized before they reach the browser, and steering mid-recovery no longer drops the replayed answer.
+  
+  Improve Fleet's navigation for sessions, agents, and connectors, and retire legacy runtime recap and error surfaces. Keep the selected chat model across page reloads.
+- 3eea057: Read MCP connections from the Prime Agent daemon, and stop calling the bundled SDK at runtime for provider and model metadata.
+  
+  The MCP list now reflects whether a credential actually works, not merely whether one exists. Servers whose stored token had expired were previously shown as connected; those tokens are common, since OAuth refresh expires silently, so the pane could report a working integration that had not been usable for weeks. Fleet also now shows every server the runtime knows about, and marks which ones accept a pasted token.
+  
+  Provider and thinking-level metadata come from Fleet's own catalog instead of the SDK's bundled model list, so the settings pane depends on the providers Fleet supports rather than on what that particular SDK build shipped.
+- 2d0fb18: Edit Prime Agent settings and provider credentials from Fleet instead of being told to go to the terminal.
+  
+  Settings and provider credentials are written to the files Prime Agent reads, using a locked atomic write that never leaves a half-written file and keeps credential files owner-only. Settings that Fleet does not model survive a save, grouped settings such as retry merge field by field, and a file Fleet cannot parse is left untouched rather than replaced. Saving a resource setting reloads the runtime; changing model routing takes effect on the next session.
+  
+  Providers that only had a stored credential, with no entry in the engine catalog, were missing from Settings entirely and could not be reviewed or removed. They now appear, while MCP connections stay out of the provider list.
+
+## 0.8.0
+
+### Minor Changes
+
+- ad6e714: Align conversation activity and code blocks with shadcn patterns, and show available runtime reasoning in conversation traces.
+- ad6e714: Organize agent activity into compact traces and a session Activity tab, with clearer tool output and subagent messages.
+- ef95640: Fleet now provisions the pinned Prime Agent Rust runtime on first launch, verifies the downloaded platform archive and executable checksums, and launches the web UI against that Rust daemon by default.
+
+### Patch Changes
+
+- 848b7ca: Map Prime Agent daemon socket frames onto the `ChatStreamEvent` contract in the web server, and read RLM child session headers read-only instead of opening them through the SDK session manager.
+- 2c58710: Web server: add a daemon client for the Prime Agent Rust v0.10.1 daemon (protocol types, socket client, runtime wiring in prime-bridge).
+- d2a7bb9: Route Fleet's remaining Prime Agent v0.9.8 SDK config and transcript access through one temporary legacy bridge, read session transcripts without ever rewriting them, and drop Fleet's duplicate IPython kernel prewarm (the runtime provisions its own kernel). `GET /api/health` no longer reports `kernel`.
+- ad6e714: Redact credentials in activity traces, preserve assistant child reports, improve tool and artifact activity, and handle runtime startup and downloads safely.
+- ad6e714: Handle runtime startup failures and stalled downloads, redact authorization and URL credentials in activity traces, and correct transcript content, artifact placement, downloads, and accessible tool controls.
+- 8487dc6: Remove unreachable web UI code: unused exports, dead helpers, and the unused assistant-ui shadcn registry entry. No behavior change.
+
 ## 0.7.4
 
 ### Patch Changes

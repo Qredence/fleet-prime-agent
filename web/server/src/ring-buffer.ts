@@ -25,8 +25,12 @@ export class RingBuffer {
 		return this.generation;
 	}
 
-	push(event: unknown): RingBufferEntry {
-		const entry: RingBufferEntry = { seq: this.nextSeq++, event };
+	push(event: unknown, decorate?: (seq: number, generation: string) => unknown): RingBufferEntry {
+		const seq = this.nextSeq++;
+		const entry: RingBufferEntry = {
+			seq,
+			event: decorate ? decorate(seq, this.generation) : event,
+		};
 		this.entries.push(entry);
 		if (this.entries.length > this.capacity) {
 			this.entries.splice(0, this.entries.length - this.capacity);

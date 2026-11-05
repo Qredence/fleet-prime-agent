@@ -27,7 +27,7 @@ Do not publish or create a release as a local validation step.
 ## Automated release flow
 
 1. Changes land on `main` with the required CI checks green.
-2. The `release-prepare` job runs with the release-automation credentials, computes the next version, and runs `pnpm run release:prepare`. It creates the Changesets release pull request, resumes one whose branch an earlier run already created, or reuses an open one.
+2. The `release-prepare` job runs with the release-automation credentials, computes the next version, and runs `pnpm run release:prepare`. It creates the Changesets release pull request, resumes one whose branch an earlier run already created, or reuses an open one. When it creates the version commit, it also adds anyone new among the authors of the pull requests merged since the previous release tag to the README's Contributors list (see [Contributors](#contributors)).
 3. Review and merge the generated release pull request through the normal protected-branch process.
 4. After the release commit passes CI, the `release-publish` job is the production Smart Deployment: it plans a CircleCI deploy marker, publishes the immutable npm version, and creates the matching GitHub release with notes derived from the changelog.
 5. Publication uses npm Trusted Publishing (CircleCI OIDC) plus the `github-release` context for the GitHub tag and assets. The job verifies package metadata and checksums, waits for registry visibility, then marks the CircleCI deployment `SUCCESS` or `FAILED`.
@@ -36,9 +36,10 @@ Each release lane has a serial group, publication waits for the verified CI arti
 
 ## Release notes
 
-The GitHub release body is derived, never hand-maintained, so it cannot drift from the changelog that Changesets already owns. `scripts/release-notes.mjs` builds it from three sources:
+The GitHub release body is derived, never hand-maintained, so it cannot drift from the changelog that Changesets already owns. `scripts/release-notes.mjs` builds it from four sources:
 
 - **What changed** — the `## <version>` section of `packages/fleet-web/CHANGELOG.md`, with the `- <commit>:` prefix stripped from each bullet. Because those entries are the changeset bodies, **the changeset body you write is the release note users read.** Write it for someone deciding whether to upgrade, not for a reviewer reading the diff.
+- **Contributors** — the human authors of the pull requests merged into `main` since the previous release tag, one bullet per person with their pull request numbers (`- @Zochory (#304, #305)`). See [Contributors](#contributors).
 - **Upgrading** — whether `PRIME_AGENT_RUNTIME.json` moved since the previous release, read by comparing the pin at the previous release tag with the pin in this one.
 - **Artifacts** — the two uploaded files, the npm publication and its provenance caveat, and the instruction to verify `SHA256SUMS`.
 
@@ -46,12 +47,23 @@ Notes are written only when the release is created. `release-publish` never patc
 
 If the changelog records no section for the version being released, the job logs a warning and the notes say the changes could not be derived instead of failing. That is deliberate: notes are written after the npm publish, which cannot be undone, so a missing section must not fail a release that has already shipped.
 
+## Contributors
+
+`scripts/release-contributors.mjs` derives who to credit from GitHub: it compares the previous release tag with the release commit, looks up the pull request that introduced each commit, and keeps merged pull requests into `main` by human authors. Release pull requests (`release/fleet-*`) are skipped, as are bots and automation or AI identities such as Dependabot, GitHub Actions, CodeRabbit, Claude, Codex, Cursor, and Gitar; extend `NON_HUMAN_LOGINS` when a new one appears.
+
+The same contributors feed two places:
+
+- **GitHub release body** — `release-publish` adds a `## Contributors` section before `## Upgrading`. Like the rest of the notes it is written after the npm publish, so a failed lookup logs a warning and omits the section rather than failing a shipped release.
+- **README** — `release-prepare` folds new contributors into the list between the `<!-- contributors:start -->` and `<!-- contributors:end -->` markers in `README.md`, so the release pull request carries the README change for review. The list only grows and stays in alphabetical order. A failed lookup leaves the README unchanged with a warning; the next release adds anyone it missed. To credit someone by hand, add a `- [@login](https://github.com/login)` line between the markers.
+
+The release version commit may therefore touch `README.md` alongside the manifest, changelog, and consumed Changesets; `isReleaseVersionFile` in `scripts/release-utils.mjs` is the one list of files that release preparation, the Changeset policy, and the publish gate all accept.
+
 ## One-time CircleCI and npm setup
 
 Create these least-privilege contexts in CircleCI:
 
 1. `release-automation`: `GITHUB_TOKEN` with only the repository permissions needed to create or update the release pull request. It is used only by `release-prepare`.
-2. `github-release`: `GITHUB_TOKEN` with repository Contents read/write for the release tag, release, and two assets. It is used only after npm has been verified.
+2. `github-release`: `GITHUB_TOKEN` with repository Contents read/write for the release tag, release, and two assets, plus Pull requests read to credit contributors. It is used only after npm has been verified.
 3. `npm-dist-tag-deploy`: `NPM_TOKEN` with only the scoped npm dist-tag permission needed to promote an already-published version to `latest`. Restrict it to this project and `main`.
 4. `npm-dist-tag-rollback`: `NPM_TOKEN` with only the scoped npm dist-tag permission needed to restore `latest`. Restrict it to this project and `main`.
 
@@ -64,7 +76,7 @@ circleci context get release-automation --json
 circleci context get github-release --json
 ~~~
 
-Confirm that each response names only `GITHUB_TOKEN`, includes the `fleet-prime-agent` project restriction, and restricts the branch to `main`. Confirm that `github-release` also includes `not job.ssh.enabled`. The release-automation token needs the repository Pull requests and Contents read/write access required to create the generated release PR; the publishing token needs Contents read/write for the tag, release, and assets. The release-automation token must be a fine-grained token granted `Pull requests: Read and write` and `Contents: Read and write`. `Pull requests: Read` alone is enough to list pull requests, so a token missing only the write permission fails late, after the job has already created the release branch, and leaves that branch behind.
+Confirm that each response names only `GITHUB_TOKEN`, includes the `fleet-prime-agent` project restriction, and restricts the branch to `main`. Confirm that `github-release` also includes `not job.ssh.enabled`. The release-automation token needs the repository Pull requests and Contents read/write access required to create the generated release PR; the publishing token needs Contents read/write for the tag, release, and assets, and `Pull requests: Read` to credit contributors in the release notes (without it the notes are published without a Contributors section). The release-automation token must be a fine-grained token granted `Pull requests: Read and write` and `Contents: Read and write`. `Pull requests: Read` alone is enough to list pull requests, so a token missing only the write permission fails late, after the job has already created the release branch, and leaves that branch behind.
 
 Configure npm Trusted Publishing for `@qredence/fleet` with the CircleCI organization, project, pipeline-definition, context, and repository details from `.circleci/info.yml` and CircleCI Project Settings. Enable direct `npm publish` and do not use staged publishing in CI. npm's current Trusted Publisher UI always lists staged publishing as allowed; the editable control is direct publish. Do not store `NPM_TOKEN` for publication; the publish job uses the CircleCI OIDC exchange. Dist-tag promotion and rollback remain separate token-authenticated operations. npm package access should require trusted publishing and two-factor authentication as available.
 

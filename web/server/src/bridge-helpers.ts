@@ -14,13 +14,9 @@ import {
 	type PrimeAgentSessionPresentation,
 	type PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
-import type {
-	AgentConnection,
-	AgentConnectionModel,
-	ExtensionUIContext,
-	ExtensionUIDialogOptions,
-	SessionSummary,
-} from "prime-agent";
+import type { AgentConnectionModel, ExtensionUIContext, ExtensionUIDialogOptions } from "prime-agent";
+import type { FleetAgentConnection } from "./agent-connection-port";
+import type { DaemonSessionSummary as SessionSummary } from "./daemon-protocol";
 import { sessionDirectoryForCwd } from "./daemon-runtime";
 import type { RlmChildStatusOverride } from "./event-mapper";
 import { readLegacySession } from "./legacy/prime-agent-sdk";
@@ -248,7 +244,7 @@ export function emptyCache(): BridgeSessionCache {
 	};
 }
 
-export async function refreshCache(connection: AgentConnection): Promise<BridgeSessionCache> {
+export async function refreshCache(connection: FleetAgentConnection): Promise<BridgeSessionCache> {
 	const [state, systemPrompt, stats, tree] = await Promise.all([
 		connection.getState(),
 		connection.getSystemPrompt().catch(() => ""),
@@ -267,7 +263,7 @@ export async function refreshCache(connection: AgentConnection): Promise<BridgeS
 }
 
 export function fallbackSessionPath(
-	connectionState: Awaited<ReturnType<AgentConnection["getState"]>>,
+	connectionState: Awaited<ReturnType<FleetAgentConnection["getState"]>>,
 	cwd: string,
 ): string {
 	if (connectionState.sessionFile) return resolve(connectionState.sessionFile);
@@ -290,7 +286,7 @@ export class SessionExportPathError extends Error {
 }
 
 export async function confineSessionExportPath(
-	connection: AgentConnection,
+	connection: FleetAgentConnection,
 	outputPath: string | undefined,
 ): Promise<string | undefined> {
 	if (outputPath === undefined) return undefined;
@@ -322,10 +318,10 @@ export async function confineSessionExportPath(
 	return candidate;
 }
 
-type SessionTreeEntry = Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"][number]["entry"];
+type SessionTreeEntry = Awaited<ReturnType<FleetAgentConnection["getSessionTree"]>>["tree"][number]["entry"];
 
 export function findSessionTreeEntry(
-	nodes: Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"],
+	nodes: Awaited<ReturnType<FleetAgentConnection["getSessionTree"]>>["tree"],
 	entryId: string,
 ): SessionTreeEntry | undefined {
 	for (const node of nodes) {

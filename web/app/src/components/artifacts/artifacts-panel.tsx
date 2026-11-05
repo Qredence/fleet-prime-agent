@@ -8,8 +8,8 @@ import { primeAgentArtifactDiff } from "@/components/artifacts/prime-agent-artif
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import { OpenUIHtmlArtifactView } from "@/components/openui/html-artifact";
 import { GenerativeTextRenderer } from "@/components/openui/openui-renderer";
-import { CodeBlock } from "@/components/tools/code-block";
 import { FileDiff, type FileDiffStatus } from "@/components/tools/file-diff";
+import { CodeBlock } from "@/components/tools/tool-code-block";
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "@/components/tools/tool-result";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -116,7 +116,7 @@ function artifactSource(
 	if (typeof code !== "string" || !code) return undefined;
 	if (artifact.kind === "bash") return { code, language: "bash", label: "Bash" };
 	if (artifact.kind === "ipython")
-		return { code, language: /^\s*%%bash(?:\s|$)/im.test(code) ? "bash" : "python", label: "IPython" };
+		return { code, language: /^\s*%%bash(?:\s|$)/im.test(code) ? "bash" : "python", label: "CPython" };
 	if (artifact.kind === "diff") return { code, language: "text", label: "Text" };
 	return { code, language: "json", label: "JSON" };
 }
@@ -323,7 +323,10 @@ export function ArtifactsPanelContent({
 	const blocks = openUIBlocks;
 	const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
 	const latestStreaming = status === "streaming" ? blocks.at(-1)?.blockId : undefined;
-	const technicalArtifacts = useMemo(() => artifactRuns.flatMap((run) => run.artifacts), [artifactRuns]);
+	const technicalArtifacts = useMemo(
+		() => artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind !== "recap"),
+		[artifactRuns],
+	);
 	const openUIArtifacts = useMemo(
 		() => technicalArtifacts.filter((artifact) => artifact.kind === "openui-html"),
 		[technicalArtifacts],

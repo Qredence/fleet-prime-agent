@@ -1,24 +1,35 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import type { AssistantMessage, UserMessage } from "@earendil-works/pi-ai";
 import type { AgentConnection, AgentConnectionEvent, AgentSession } from "prime-agent";
 import { SessionManager } from "prime-agent";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import type { FleetConnectionListener } from "../agent-connection-port";
 import { runtimeHostFor } from "../connection-runtime";
+import type { DaemonModel, DaemonModelCatalog } from "../daemon-protocol";
 import type { listDaemonSessions } from "../daemon-runtime";
 import type { DaemonSequenceGap } from "../daemon-sequence-gap";
 import { createInProcessTestAgentConnection } from "../in-process-test-connection";
+import { invalidateModelCatalog, resetModelCatalogCacheForTests } from "../model-catalog-cache";
 import { loadManagedPrimePresentation, writeManagedPrimePresentation } from "../prime-agent-presentation";
 import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
 import { getPrimeConfig, resetPrimeConfigForTests } from "../prime-config";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
+import { createDeterministicTestAgentConnection } from "./helpers/deterministic-test-connection";
 
 const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
 const SESSION_DIR_ENVS = ["PRIME_AGENT_SESSION_DIR", "PRIME_AGENT_CODING_AGENT_SESSION_DIR"];
 
+// Each test owns its local bridge; resetting the singleton does not dispose these sessions.
+function createTrackedBridge(options: PrimeBridgeOptions = {}): PrimeBridge {
+	const bridge = new PrimeBridge(options);
+	onTestFinished(() => bridge.resetForTests());
+	return bridge;
+}
+
 function createTestBridge(options: PrimeBridgeOptions = {}): PrimeBridge {
-	return new PrimeBridge({
+	return createTrackedBridge({
 		...options,
 		connectionFactory: createInProcessTestAgentConnection,
 		sessionLister: options.sessionLister ?? (async () => []),
@@ -74,14 +85,14 @@ describe("PrimeBridge", () => {
 	});
 
 	it("replaySince on an unknown session returns an empty result", () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTrackedBridge();
 		const result = bridge.replaySince("unknown", 0);
 		expect(result.replayed).toEqual([]);
 		expect(result.overflowed).toBe(false);
 	});
 
 	it("resetForTests clears listeners", () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTrackedBridge();
 		const listener = vi.fn();
 		bridge.addEventListener(listener);
 		bridge.resetForTests();
@@ -92,7 +103,7 @@ describe("PrimeBridge", () => {
 	});
 
 	it("getSession returns undefined for unknown sessionId", () => {
-		const bridge = new PrimeBridge();
+		const bridge = createTrackedBridge();
 		expect(bridge.getSession("missing")).toBeUndefined();
 	});
 });
@@ -123,7 +134,10 @@ describe("PrimeBridge session-tree navigation", () => {
 	});
 
 	async function createLiveSession() {
-		bridge = createTestBridge();
+		bridge = createTrackedBridge({
+			connectionFactory: async (options) => createDeterministicTestAgentConnection(options),
+			sessionLister: async () => [],
+		});
 		const session = await bridge.createSession({ cwd: workDir });
 		return { bridge, session };
 	}
@@ -458,6 +472,40 @@ describe("PrimeBridge.forkSession", () => {
 		},
 	);
 
+	it("refreshes an existing session when the OpenUI prompt body changes", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const setOpenUIPrompt = created.setOpenUIPrompt;
+		if (!setOpenUIPrompt) throw new Error("test adapter must expose setOpenUIPrompt");
+		const mutable = created as unknown as {
+			setOpenUIPrompt: NonNullable<typeof created.setOpenUIPrompt>;
+		};
+		const prompts: string[] = [];
+		mutable.setOpenUIPrompt = async (next) => {
+			prompts.push(next.prompt);
+			await setOpenUIPrompt(next);
+		};
+		vi.spyOn(created.connection, "promptAndWait").mockResolvedValue(undefined);
+
+		// Simulate a session created before the prompt body changed: same flags,
+		// stale text. Without comparing the text the bridge short-circuits and the
+		// session keeps answering with an outdated component catalogue.
+		created.openUIPrompt.prompt = "stale prompt";
+
+		await bridge.prompt(created.sessionId, "use tabs", { openUI: true, openUISyntaxVersion: "1.x" });
+
+		expect(prompts).toHaveLength(1);
+		expect(prompts[0]).not.toBe("stale prompt");
+		expect(prompts[0]).toContain("Tabs");
+		await bridge.prompt(created.sessionId, "legacy tab", { openUI: true });
+		expect(prompts).toHaveLength(2);
+		expect(prompts[1]).not.toContain("Tabs(");
+		expect(prompts[1]).toContain('Button("Apply Filters", Action([');
+		await bridge.prompt(created.sessionId, "current tab", { openUI: true, openUISyntaxVersion: "1.x" });
+		expect(prompts).toHaveLength(3);
+		expect(prompts[2]).toBe(prompts[0]);
+	});
+
 	it("serializes idle OpenUI transitions before admitting later prompts", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
@@ -548,34 +596,125 @@ describe("PrimeBridge.forkSession", () => {
 		expect(loaded?.artifactRuns[0]?.artifacts[0]?.id).toBe("openui-artifact-1");
 	});
 
-	it("position 'before' on a user message targets the parent entry and extracts selectedText", async () => {
+	it("reports unavailable daemon forking without changing the source session", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
-		appendTurn(bridge, created.sessionId, "first question", "first answer");
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
+		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
+		const sourceSessionPath = created.session.sessionManager.getSessionFile();
+		const sourceBytes = readFileSync(sourceSessionPath!, "utf8");
 
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
-
-		expect(result.cancelled).toBe(false);
-		expect(result.selectedText).toBe("second question");
-		expect(result.newSessionId).not.toBe(created.sessionId);
-		// The fork carries everything up to (but excluding) the forked user message.
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		const messages = conversationMessages(forked.session.sessionManager.buildSessionContext().messages);
-		expect(messages.map((m) => (m as { role: string }).role)).toEqual(["user", "assistant"]);
-		expect((messages[0] as { content: string }).content).toBe("first question");
+		await expect(bridge.forkSession(created.sessionId, userEntryId, "before")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
+		);
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
+		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
+		expect(readFileSync(sourceSessionPath!, "utf8")).toBe(sourceBytes);
 	});
 
-	it("rebuilds presentation from the selected branch instead of copying later source activity", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		appendTurn(bridge, created.sessionId, "first question", "first answer");
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "second question", "second answer");
-		const source = requireLiveSession(bridge, created.sessionId);
-		const timestamp = Date.now();
+	it("registers the daemon returned transcript branch and preserves history before the selected user turn", async () => {
+		const sourceMessages: Array<UserMessage | AssistantMessage> = [
+			{ role: "user", content: "first question", timestamp: 1 },
+			{
+				role: "assistant",
+				content: [{ type: "text", text: "first answer" }],
+				api: "responses",
+				provider: "openai",
+				model: "gpt-5",
+				usage: {
+					input: 0,
+					output: 0,
+					cacheRead: 0,
+					cacheWrite: 0,
+					totalTokens: 0,
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+				},
+				stopReason: "stop",
+				timestamp: 2,
+			},
+			{ role: "user", content: "second question", timestamp: 3 },
+		];
+		const tree = [
+			{
+				entry: {
+					type: "message",
+					id: "u1",
+					parentId: null,
+					timestamp: "1970-01-01T00:00:00.001Z",
+					message: sourceMessages[0],
+				},
+				children: [
+					{
+						entry: {
+							type: "message",
+							id: "a1",
+							parentId: "u1",
+							timestamp: "1970-01-01T00:00:00.002Z",
+							message: sourceMessages[1],
+						},
+						children: [
+							{
+								entry: {
+									type: "message",
+									id: "u2",
+									parentId: "a1",
+									timestamp: "1970-01-01T00:00:00.003Z",
+									message: sourceMessages[2],
+								},
+								children: [],
+							},
+						],
+					},
+				],
+			},
+		] as unknown as Awaited<ReturnType<AgentConnection["getSessionTree"]>>["tree"];
+		const forkCalls: Array<{ entryId: string; position: "before" | "at" }> = [];
+		const carriedSettings: string[] = [];
+		const forkMessages = new Map<string, Array<UserMessage | AssistantMessage>>();
+		let forkOrdinal = 0;
+		const bridge = createTrackedBridge({
+			sessionLister: async () => [],
+			connectionFactory: async (options) =>
+				createDeterministicTestAgentConnection(options, {
+					sessionId: options.sessionPath ? "daemon-branch" : "daemon-source",
+					messages: options.sessionPath ? (forkMessages.get(options.sessionPath) ?? []) : sourceMessages,
+					sessionTree: options.sessionPath ? { tree: [], leafId: "a1" } : { tree, leafId: "u2" },
+					state: options.sessionPath
+						? {}
+						: {
+								model: {
+									id: "gpt-5",
+									name: "GPT-5",
+									api: "responses",
+									provider: "openai",
+									input: ["text"],
+									cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+									contextWindow: 128000,
+									maxTokens: 16384,
+								} as NonNullable<Awaited<ReturnType<AgentConnection["getState"]>>["model"]>,
+								thinkingLevel: "high",
+								serviceTier: "flex",
+							},
+					onSetModel: (provider, modelId) => carriedSettings.push(`model:${provider}/${modelId}`),
+					onSetThinkingLevel: (level) => carriedSettings.push(`thinking:${level}`),
+					onSetServiceTier: (tier) => carriedSettings.push(`tier:${tier}`),
+					forkToNewSession: async (entryId, position) => {
+						forkCalls.push({ entryId, position });
+						const forkPath = join(workDir, ".fleet-test", `daemon-branch-${++forkOrdinal}.jsonl`);
+						forkMessages.set(
+							forkPath,
+							sourceMessages.slice(0, entryId === "u2" && position === "before" ? 2 : 3),
+						);
+						return {
+							cancelled: false,
+							selectedText: position === "before" ? "second question" : undefined,
+							sessionPath: forkPath,
+						};
+					},
+				}),
+		});
+		const source = await bridge.createSession({ cwd: workDir });
 		source.mapperState.presentation = {
 			...source.mapperState.presentation,
-			revision: source.mapperState.presentation.revision + 1,
 			userBash: [
 				{
 					id: "source-bash",
@@ -583,104 +722,46 @@ describe("PrimeBridge.forkSession", () => {
 					command: "git status",
 					output: "clean\n",
 					status: "success",
-					exitCode: 0,
 					cancelled: false,
 					truncated: false,
 					excludeFromContext: false,
-					startedAt: timestamp,
-					endedAt: timestamp,
-				},
-			],
-			artifactRuns: [
-				{
-					id: "source-artifact-run",
-					runId: "source-bash-run",
-					startedAt: timestamp,
-					endedAt: timestamp,
-					artifacts: [
-						{
-							id: "source-artifact",
-							runId: "source-bash-run",
-							sourceToolCallId: "source-bash-run",
-							kind: "bash",
-							title: "git status",
-							status: "success",
-							input: { command: "git status" },
-							output: { stdout: "clean\n" },
-							timestamp,
-						},
-					],
+					startedAt: 1,
 				},
 			],
 		};
 
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
-		const forkedPresentation = bridge.getPresentation(result.newSessionId);
+		const result = await bridge.forkSession(source.sessionId, "u2", "before");
 
-		expect(forkedPresentation.userBash).toEqual([]);
-		expect(forkedPresentation.artifactRuns).toEqual([]);
-		expect(bridge.getPresentation(created.sessionId).userBash).toHaveLength(1);
-	});
-
-	it("position 'at' on an arbitrary entry forks at that entry id directly", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const { userEntryId, assistantEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
-
-		const result = await bridge.forkSession(created.sessionId, assistantEntryId, "at");
-
-		expect(result.cancelled).toBe(false);
-		expect(result.selectedText).toBeUndefined();
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		// The forked branch walks root→leaf through the fork target. AgentSession
-		// init may append bookkeeping entries (model_change…) after it, so assert
-		// the target is on the branch rather than the terminal leaf.
-		expect(forked.session.sessionManager.getEntry(assistantEntryId)).toBeDefined();
-		const branchIds = forked.session.sessionManager.getBranch().map((e) => e.id);
-		expect(branchIds).toContain(userEntryId);
-		expect(branchIds).toContain(assistantEntryId);
-		expect(branchIds.indexOf(userEntryId)).toBeLessThan(branchIds.indexOf(assistantEntryId));
-		const messages = conversationMessages(forked.session.sessionManager.buildSessionContext().messages);
-		expect(messages).toHaveLength(2);
-	});
-
-	it("position 'at' on a user message includes that message (clone semantics)", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
-
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
-
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		expect(forked.session.sessionManager.getEntry(userEntryId)).toBeDefined();
-		const context = forked.session.sessionManager.buildSessionContext().messages;
-		const messages = conversationMessages(context);
-		expect(messages).toHaveLength(1);
-		// The fork is a cold context boundary: upstream re-delivers a hidden harness digest.
-		expect(context).toContainEqual(
-			expect.objectContaining({ role: "custom", customType: "harness_digest", display: false }),
+		expect(forkCalls).toEqual([{ entryId: "u2", position: "before" }]);
+		expect(result.selectedText).toBe("second question");
+		expect(bridge.getSession(result.newSessionId)?.sessionPath).toBe(
+			join(workDir, ".fleet-test", "daemon-branch-1.jsonl"),
 		);
+		await expect(bridge.getMessages(result.newSessionId)).resolves.toMatchObject([
+			{ role: "user", parts: [{ type: "text", text: "first question" }] },
+			{ role: "assistant", parts: [{ type: "text", text: "first answer" }] },
+		]);
+		expect(carriedSettings).toEqual(["model:openai/gpt-5", "thinking:high", "tier:flex"]);
+		expect(bridge.getPresentation(result.newSessionId).userBash).toEqual([]);
+		expect(bridge.getPresentation(source.sessionId).userBash).toHaveLength(1);
+		expect(bridge.getSession(source.sessionId)).toBeDefined();
+
+		const atResult = await bridge.forkSession(source.sessionId, "u2", "at");
+		expect(forkCalls).toEqual([
+			{ entryId: "u2", position: "before" },
+			{ entryId: "u2", position: "at" },
+		]);
+		expect(atResult.selectedText).toBeUndefined();
+		await expect(bridge.getMessages(atResult.newSessionId)).resolves.toMatchObject([
+			{ role: "user", parts: [{ type: "text", text: "first question" }] },
+			{ role: "assistant", parts: [{ type: "text", text: "first answer" }] },
+			{ role: "user", parts: [{ type: "text", text: "second question" }] },
+		]);
 	});
 
-	it("position 'before' on the first user message creates a fresh empty session parented on the source", async () => {
-		const bridge = createTestBridge();
-		const created = await createTestSession(bridge);
-		const { userEntryId } = appendTurn(bridge, created.sessionId, "first question", "first answer");
-
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "before");
-
-		expect(result.cancelled).toBe(false);
-		expect(result.selectedText).toBe("first question");
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		expect(forked.session.sessionManager.buildSessionContext().messages).toHaveLength(0);
-		expect(forked.session.sessionManager.getHeader()?.parentSession).toBe(
-			created.session.sessionManager.getSessionFile(),
-		);
-	});
-
-	it("forks daemon-backed sessions through forkToNewSession instead of a side SessionManager", async () => {
+	it("legacy integration: delegates daemon forks and preserves the returned branch history", async () => {
 		const forkCalls: Array<{ entryId: string; position: string }> = [];
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			sessionLister: async () => [],
 			connectionFactory: async (options) => {
 				const webAgent = await createInProcessTestAgentConnection(options);
@@ -722,15 +803,18 @@ describe("PrimeBridge.forkSession", () => {
 		const sourceFile = created.session.sessionManager.getSessionFile();
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
 		const sourceLeafBefore = created.session.sessionManager.getLeafId();
+		const sourceBytes = readFileSync(sourceFile!, "utf8");
 
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
+		await expect(bridge.forkSession(created.sessionId, userEntryId, "at")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
+		);
 
-		// Source is neither re-idded nor evicted (bridge semantics, not TUI replace-in-slot).
+		// Unsupported operations leave the source session live and unchanged.
 		expect(bridge.getSession(created.sessionId)).toBeDefined();
 		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
 		expect(created.session.sessionManager.getSessionFile()).toBe(sourceFile);
 		expect(created.session.sessionManager.getLeafId()).toBe(sourceLeafBefore);
-		expect(bridge.getSession(result.newSessionId)).toBeDefined();
+		expect(readFileSync(sourceFile!, "utf8")).toBe(sourceBytes);
 	});
 
 	it("forwards thinkingLevel and model from the source session to the fork", async () => {
@@ -740,14 +824,10 @@ describe("PrimeBridge.forkSession", () => {
 		created.session.setThinkingLevel("high");
 		const sourceThinking = created.session.thinkingLevel; // clamped to model capabilities
 
-		const result = await bridge.forkSession(created.sessionId, assistantEntryId, "at");
-
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		expect(forked.session.thinkingLevel).toBe(sourceThinking);
-		// Whatever model the source resolved (undefined when the runner has no
-		// provider auth) is carried over to the fork.
-		expect(forked.session.model?.id).toBe(created.session.model?.id);
-		expect(forked.session.serviceTier).toBe(created.session.serviceTier);
+		await expect(bridge.forkSession(created.sessionId, assistantEntryId, "at")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
+		);
+		expect(created.session.thinkingLevel).toBe(sourceThinking);
 	});
 
 	it("flushNow persists the forked session file so it is discoverable cold", async () => {
@@ -755,12 +835,10 @@ describe("PrimeBridge.forkSession", () => {
 		const created = await createTestSession(bridge);
 		const { userEntryId } = appendTurn(bridge, created.sessionId, "question", "answer");
 
-		const result = await bridge.forkSession(created.sessionId, userEntryId, "at");
-
-		const forked = requireLiveSession(bridge, result.newSessionId);
-		const forkedFile = forked.session.sessionManager.getSessionFile();
-		expect(typeof forkedFile).toBe("string");
-		expect(existsSync(forkedFile!)).toBe(true);
+		await expect(bridge.forkSession(created.sessionId, userEntryId, "at")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
+		);
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
 	});
 
 	it("resumes a session from the configured store but rejects an unconfigured store", async () => {
@@ -787,23 +865,20 @@ describe("PrimeBridge.forkSession", () => {
 		}
 	});
 
-	it("forks a resumed session into the target project's working directory", async () => {
+	it("rejects cross-project forks without changing the source transcript", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
 		appendTurn(bridge, created.sessionId, "source question", "source answer");
+		const sourcePath = created.session.sessionManager.getSessionFile();
+		const sourceBytes = readFileSync(sourcePath!, "utf8");
 		const targetCwd = join(workDir, "target-project");
 		mkdirSync(targetCwd);
 		const targetProject = await getPrimeConfig().projectRegistry.register(targetCwd, "Target project");
-		const canonicalTargetCwd = realpathSync(targetCwd);
-
-		const forkedId = await bridge.forkSessionIntoProject(created.sessionId, targetProject.projectId);
-		const forked = requireLiveSession(bridge, forkedId);
-
-		expect(forked.projectId).toBe(targetProject.projectId);
-		expect(forked.cwd).toBe(canonicalTargetCwd);
-		expect(forked.session.sessionManager.getCwd()).toBe(canonicalTargetCwd);
-		expect(created.session.sessionManager.getSessionId()).toBe(created.sessionId);
-		expect(created.projectId).not.toBe(targetProject.projectId);
+		await expect(bridge.forkSessionIntoProject(created.sessionId, targetProject.projectId)).rejects.toThrow(
+			"Forking into another project is unavailable with this Prime Agent runtime",
+		);
+		expect(readFileSync(sourcePath!, "utf8")).toBe(sourceBytes);
+		expect(bridge.getSession(created.sessionId)).toBeDefined();
 	});
 
 	it("rejects an unknown entry id", async () => {
@@ -865,7 +940,195 @@ describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
 			const connection = new Proxy(inner, {
 				get(target, property) {
 					if (property === "subscribe") {
-						return (listener: (event: AgentConnectionEvent) => void) => {
+						return (listener: FleetConnectionListener) => {
+							eventListeners.add(listener);
+							const off = target.subscribe(listener);
+							return () => {
+								eventListeners.delete(listener);
+								off();
+							};
+						};
+					}
+					if (property === "getMessages" && overrides.messages) {
+						return async () => overrides.messages?.();
+					}
+					if (property === "getInitialSnapshot") {
+						return async () => {
+							snapshotCount += 1;
+							const snapshot = await target.getInitialSnapshot();
+							return {
+								...snapshot,
+								...(overrides.messages ? { messages: overrides.messages() } : {}),
+								...(overrides.streamingMessage ? { streamingMessage: overrides.streamingMessage } : {}),
+							};
+						};
+					}
+					const value = Reflect.get(target, property);
+					return typeof value === "function" ? value.bind(target) : value;
+				},
+			}) as AgentConnection;
+			return {
+				...webAgent,
+				connection,
+				onSequenceGap: (listener: (gap: DaemonSequenceGap) => void) => {
+					gapListeners.add(listener);
+					return () => {
+						gapListeners.delete(listener);
+					};
+				},
+			};
+		};
+		return {
+			factory,
+			emitGap: () => {
+				for (const listener of [...gapListeners]) {
+					listener({
+						activeSessionId: "rt-1",
+						generation: "gen-1",
+						lastSequence: 4,
+						receivedSequence: 7,
+						missing: 2,
+					});
+				}
+			},
+			emitEvent: (event) => {
+				for (const listener of [...eventListeners]) listener(event);
+			},
+			snapshotCalls: () => snapshotCount,
+		};
+	}
+
+	it("resyncs from a fresh snapshot on a daemon sequence gap (done with sessionReset)", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = createTrackedBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const before = harness.snapshotCalls();
+		const cursor = bridge.replaySince(created.sessionId, 0).replayed.at(-1)?.seq ?? 0;
+
+		harness.emitGap();
+		harness.emitGap(); // coalesces into the in-flight resync's follow-up
+		harness.emitGap();
+		await vi.waitFor(() => {
+			const done = bridge
+				.replaySince(created.sessionId, cursor)
+				.replayed.map((entry) => entry.event as { type: string; sessionReset?: boolean; sessionId?: string })
+				.filter((frame) => frame.type === "done");
+			expect(done.length).toBeGreaterThanOrEqual(1);
+			expect(done.every((frame) => frame.sessionReset === true)).toBe(true);
+			expect(done[0]?.sessionId).toBe(created.sessionId);
+		});
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		// One resync for the first gap plus at most one coalesced follow-up.
+		expect(harness.snapshotCalls() - before).toBeLessThanOrEqual(2);
+	});
+
+	it("stops resyncing on gaps once the session is deleted", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = createTrackedBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		await bridge.deleteSession(created.sessionId);
+		const before = harness.snapshotCalls();
+		harness.emitGap();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(harness.snapshotCalls()).toBe(before);
+	});
+
+	it("resolves the tool name for a mid-tool attach from the attach snapshot", async () => {
+		const toolCallMessage = {
+			role: "assistant",
+			content: [{ type: "toolCall", id: "call_mid_1", name: "bash", arguments: { command: "ls -la" } }],
+			api: "openai-responses",
+			provider: "openai",
+			model: "gpt-test",
+			usage: {
+				input: 0,
+				output: 0,
+				cacheRead: 0,
+				cacheWrite: 0,
+				totalTokens: 0,
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+			},
+			stopReason: "toolUse",
+			timestamp: Date.now(),
+		};
+		// The in-flight assistant message exists only on the snapshot
+		// (streamingMessage), not in getMessages().
+		const harness = createGapAwareFactory({ messages: () => [], streamingMessage: toolCallMessage });
+		const bridge = createTrackedBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const cursor = bridge.replaySince(created.sessionId, 0).replayed.at(-1)?.seq ?? 0;
+
+		// The daemon's tool_execution_end carries no toolName (Rust protocol 7).
+		harness.emitEvent({
+			type: "session_event",
+			event: {
+				type: "tool_execution_end",
+				toolCallId: "call_mid_1",
+				result: { content: [{ type: "text", text: "total 0" }] },
+				isError: false,
+			},
+		} as unknown as AgentConnectionEvent);
+
+		const toolFrames = bridge
+			.replaySince(created.sessionId, cursor)
+			.replayed.map((entry) => entry.event as { type: string; part?: { toolName?: string; input?: unknown } })
+			.filter((frame) => frame.type === "tool");
+		expect(toolFrames).toHaveLength(1);
+		expect(toolFrames[0]?.part?.toolName).toBe("bash");
+		expect(toolFrames[0]?.part?.input).toEqual({ command: "ls -la" });
+	});
+});
+
+describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
+	let workDir: string;
+	let agentDir: string;
+	let restoreEnvs: Array<() => void> = [];
+
+	beforeEach(() => {
+		resetBridgeForTests();
+		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-gap-test-"));
+		agentDir = mkdtempSync(join(tmpdir(), "prime-bridge-gap-agent-dir-"));
+		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
+		process.env[AGENT_DIR_ENV] = agentDir;
+		resetPrimeConfigForTests();
+		return () => {
+			rmSync(workDir, { recursive: true, force: true });
+			rmSync(agentDir, { recursive: true, force: true });
+		};
+	});
+
+	afterEach(() => {
+		for (const restore of restoreEnvs) restore();
+		restoreEnvs = [];
+		resetPrimeConfigForTests();
+		vi.restoreAllMocks();
+	});
+
+	function createTestSession(bridge: PrimeBridge): ReturnType<PrimeBridge["createSession"]> {
+		return bridge.createSession({ cwd: workDir });
+	}
+
+	/**
+	 * Wraps the in-process connection like the daemon runtime: exposes
+	 * `onSequenceGap`, captures the bridge's subscribe listener so tests can
+	 * inject daemon events, and optionally overrides the attach snapshot.
+	 */
+	function createGapAwareFactory(overrides: { messages?: () => unknown[]; streamingMessage?: unknown }): {
+		factory: NonNullable<PrimeBridgeOptions["connectionFactory"]>;
+		emitGap: () => void;
+		emitEvent: (event: AgentConnectionEvent) => void;
+		snapshotCalls: () => number;
+	} {
+		const gapListeners = new Set<(gap: DaemonSequenceGap) => void>();
+		const eventListeners = new Set<(event: AgentConnectionEvent) => void>();
+		let snapshotCount = 0;
+		const factory: NonNullable<PrimeBridgeOptions["connectionFactory"]> = async (options) => {
+			const webAgent = await createInProcessTestAgentConnection(options);
+			const inner = webAgent.connection;
+			const connection = new Proxy(inner, {
+				get(target, property) {
+					if (property === "subscribe") {
+						return (listener: FleetConnectionListener) => {
 							eventListeners.add(listener);
 							const off = target.subscribe(listener);
 							return () => {
@@ -1050,7 +1313,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 
 	it("returns undefined when the runtime cannot resume a listed transcript", async () => {
 		const persisted = createPersistedTranscript();
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			connectionFactory: async () => {
 				throw new Error("Session worker started without a root session");
 			},
@@ -1063,7 +1326,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 	it("returns undefined when the transcript vanished after listing", async () => {
 		const persisted = createPersistedTranscript();
 		rmSync(persisted.sessionFile);
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			connectionFactory: createInProcessTestAgentConnection,
 			sessionLister: listerFor(persisted),
 		});
@@ -1073,7 +1336,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 
 	it("still rejects transport failures so handlers answer 500", async () => {
 		const persisted = createPersistedTranscript();
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			connectionFactory: async () => {
 				throw new Error("cannot send daemon command: connect ENOENT /tmp/prime.sock");
 			},
@@ -1085,7 +1348,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 
 	it("deleteSession deletes an unresumable transcript through the daemon catalog", async () => {
 		const persisted = createPersistedTranscript();
-		const bridge = new PrimeBridge({
+		const bridge = createTrackedBridge({
 			connectionFactory: async () => {
 				throw new Error("Session worker started without a root session");
 			},
@@ -1242,7 +1505,7 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 		});
 	});
 
-	it("loads a child through the persisted source lineage of a forked root", async () => {
+	it("does not create a forked root through an unavailable in-process adapter", async () => {
 		const listedSessions: Array<Record<string, unknown>> = [];
 		const sessionLister = vi.fn(async () => listedSessions) as unknown as typeof listDaemonSessions;
 		const bridge = createTestBridge({ sessionLister });
@@ -1255,55 +1518,11 @@ describe("PrimeBridge.loadRlmChildTranscript", () => {
 			timestamp: Date.now(),
 		});
 		sourceSessionManager.flushNow();
-		const fork = await bridge.forkSession(source.sessionId, userEntryId, "at");
-		const forked = bridge.getSession(fork.newSessionId);
-		if (!forked) throw new Error("forked session was not registered");
-		const sourcePath = source.sessionPath;
-
-		const childManager = SessionManager.create(workDir, join(workDir, "rlm-fork-child-store"));
-		const childPath = childManager.materializeSessionFile();
-		childManager.appendMessage({
-			role: "user",
-			content: "Inspect the forked child transcript",
-			timestamp: Date.now(),
-		});
-		childManager.flushNow();
-
-		forked.mapperState.presentation = {
-			...forked.mapperState.presentation,
-			rlmChildren: [
-				{
-					id: "child-1",
-					label: "Research worker",
-					status: "done",
-					timestamp: Date.now(),
-				},
-			],
-		};
-		listedSessions.push(
-			{
-				id: forked.sessionId,
-				sessionId: forked.sessionId,
-				activeSessionId: "fork-active-session",
-				cwd: workDir,
-				sessionFile: forked.sessionPath,
-			},
-			{
-				id: childManager.getSessionId(),
-				sessionId: childManager.getSessionId(),
-				cwd: workDir,
-				sessionFile: childPath,
-				parentSessionPath: sourcePath,
-				rlmChildId: "child-1",
-			},
+		await expect(bridge.forkSession(source.sessionId, userEntryId, "at")).rejects.toThrow(
+			"Forking is unavailable without a Prime Agent daemon connection",
 		);
-
-		const result = await bridge.loadRlmChildTranscript(forked.sessionId, "child-1");
-
-		expect(result).toMatchObject({
-			sessionId: childManager.getSessionId(),
-			messages: [{ role: "user", parts: [{ type: "text", text: "Inspect the forked child transcript" }] }],
-		});
+		expect(bridge.getSession(source.sessionId)).toBeDefined();
+		expect(listedSessions).toEqual([]);
 	});
 
 	it("loads an authorized nested child through its immediate parent lineage", async () => {
@@ -1582,7 +1801,11 @@ describe("PrimeBridge.openRlmChildStream", () => {
 		const stream = await opening;
 		expect(stream).toBeDefined();
 		const replay = bridge.replaySince(stream!.channelId, 0);
-		expect(replay.replayed.some((entry) => JSON.stringify(entry.event).includes('"name":"agent_start"'))).toBe(true);
+		const agentStart = replay.replayed.find((entry) => JSON.stringify(entry.event).includes('"name":"agent_start"'));
+		expect(agentStart).toBeDefined();
+		expect(agentStart?.event).toMatchObject({
+			eventCursor: { generation: stream!.streamGeneration, sequence: agentStart?.seq },
+		});
 		await stream!.release();
 	});
 
@@ -1828,6 +2051,31 @@ describe("PrimeBridge.setModel fallback", () => {
 	let restoreEnvs: Array<() => void> = [];
 	const bridges: PrimeBridge[] = [];
 
+	const DEEPSEEK_GONE: DaemonModel = {
+		id: "deepseek-gone",
+		name: "Gone",
+		api: "deepseek",
+		provider: "deepseek",
+		baseUrl: "https://api.deepseek.com",
+		reasoning: false,
+		input: ["text"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 64_000,
+		maxTokens: 4096,
+	};
+	const DEEPSEEK_FALLBACK: DaemonModel = { ...DEEPSEEK_GONE, id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" };
+
+	/** Serve `catalog` as the daemon's cached snapshot for the next reads. */
+	function seedCatalog(...models: DaemonModel[]): void {
+		invalidateModelCatalog();
+		const state = globalThis as unknown as {
+			__fleetModelCatalogCache?: { snapshot?: { catalog: DaemonModelCatalog; fetchedAt: number } };
+		};
+		state.__fleetModelCatalogCache = {
+			snapshot: { catalog: { models, configuredProviders: [] }, fetchedAt: Date.now() },
+		};
+	}
+
 	beforeEach(() => {
 		resetBridgeForTests();
 		workDir = mkdtempSync(join(tmpdir(), "prime-bridge-model-fallback-test-"));
@@ -1835,12 +2083,14 @@ describe("PrimeBridge.setModel fallback", () => {
 		restoreEnvs = [unsetEnv(AGENT_DIR_ENV), ...SESSION_DIR_ENVS.map(unsetEnv)];
 		process.env[AGENT_DIR_ENV] = agentDir;
 		resetPrimeConfigForTests();
+		resetModelCatalogCacheForTests();
 	});
 
 	afterEach(() => {
 		for (const bridge of bridges.splice(0)) bridge.resetForTests();
 		for (const restore of restoreEnvs) restore();
 		restoreEnvs = [];
+		resetModelCatalogCacheForTests();
 		resetPrimeConfigForTests();
 		rmSync(workDir, { recursive: true, force: true });
 		rmSync(agentDir, { recursive: true, force: true });
@@ -1848,12 +2098,13 @@ describe("PrimeBridge.setModel fallback", () => {
 	});
 
 	it("falls back to the first available model of a known provider", async () => {
+		// The stale id is *not* in the catalog: that is what makes it stale.
+		seedCatalog(DEEPSEEK_FALLBACK);
+		// The provider must have a credential for its models to be "available".
+		writeFileSync(join(agentDir, "auth.json"), JSON.stringify({ deepseek: { type: "api_key", key: "dsk-test" } }));
 		const bridge = createTestBridge();
 		bridges.push(bridge);
 		const parent = await bridge.createSession({ cwd: workDir });
-		const registry = getPrimeConfig().modelRegistry;
-		vi.spyOn(registry, "find").mockReturnValue(undefined);
-		vi.spyOn(registry, "getAvailable").mockReturnValue([{ provider: "deepseek", id: "deepseek-v4-flash" }] as never);
 		// Mock the connection: the real InProcessAgentConnection validates against
 		// the ambient provider catalog (credentials), which is absent on CI.
 		const setModel = vi
@@ -1867,16 +2118,47 @@ describe("PrimeBridge.setModel fallback", () => {
 		expect(setModel).toHaveBeenCalledWith("deepseek", "deepseek-v4-flash");
 	});
 
-	it("still throws when the provider itself is unknown", async () => {
+	it("uses a model that is in the catalog as-is", async () => {
+		seedCatalog(DEEPSEEK_FALLBACK);
 		const bridge = createTestBridge();
 		bridges.push(bridge);
 		const parent = await bridge.createSession({ cwd: workDir });
-		const registry = getPrimeConfig().modelRegistry;
-		vi.spyOn(registry, "find").mockReturnValue(undefined);
-		vi.spyOn(registry, "getAvailable").mockReturnValue([]);
+		const setModel = vi.spyOn(parent.connection, "setModel").mockResolvedValue(null as never);
+
+		await expect(
+			bridge.setModel(parent.sessionId, { provider: "deepseek", id: "deepseek-v4-flash" }),
+		).resolves.toEqual({ provider: "deepseek", id: "deepseek-v4-flash" });
+		expect(setModel).toHaveBeenCalledWith("deepseek", "deepseek-v4-flash");
+	});
+
+	it("still throws when the provider itself is unknown", async () => {
+		seedCatalog(DEEPSEEK_FALLBACK);
+		const bridge = createTestBridge();
+		bridges.push(bridge);
+		const parent = await bridge.createSession({ cwd: workDir });
 
 		await expect(bridge.setModel(parent.sessionId, { provider: "nope", id: "gone" })).rejects.toThrow(
 			"Unknown model: nope/gone",
 		);
+	});
+
+	it("throws for a known provider whose models all lack credentials", async () => {
+		// No auth.json entry and no env var: the provider resolves in the catalog
+		// but has no available model, which the old path also reported as unknown.
+		// The provider's env var is cleared so an ambient key on the developer's
+		// machine cannot make the model look configured.
+		const restoreDeepseek = unsetEnv("DEEPSEEK_API_KEY");
+		try {
+			seedCatalog(DEEPSEEK_FALLBACK);
+			const bridge = createTestBridge();
+			bridges.push(bridge);
+			const parent = await bridge.createSession({ cwd: workDir });
+
+			await expect(bridge.setModel(parent.sessionId, { provider: "deepseek", id: "deepseek-gone" })).rejects.toThrow(
+				"Unknown model: deepseek/deepseek-gone",
+			);
+		} finally {
+			restoreDeepseek();
+		}
 	});
 });

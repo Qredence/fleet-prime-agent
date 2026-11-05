@@ -5,17 +5,19 @@ import {
 	ProjectRenameRequestSchema,
 	redactSessionLabelSecrets,
 } from "@prime-agent/web-protocol";
-import type { SessionSummary } from "prime-agent";
 import type { BridgeSession } from "../prime-bridge";
 import { getPrimeConfig } from "../prime-config";
-import { applyPresentationToSessionRow, loadSessionListPresentation, normalizeSessionListRow } from "../session-list";
+import {
+	applyPresentationToSessionRow,
+	loadSessionListPresentation,
+	normalizeSessionListRow,
+	type SessionListSource,
+} from "../session-list";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 export function sessionStatus(
-	info: Partial<Pick<SessionSummary, "activity" | "isSessionActive" | "isStreaming" | "hasRunningRlmChildren">> & {
-		state?: { status?: string };
-	},
+	info: Pick<SessionListSource, "activity" | "isSessionActive" | "isStreaming" | "hasRunningRlmChildren" | "state">,
 	live: BridgeSession | undefined,
 ) {
 	if (live?.isStreaming || live?.session?.isStreaming || info.isStreaming) {

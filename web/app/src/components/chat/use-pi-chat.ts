@@ -18,7 +18,11 @@ import type { ChatClient } from "@/components/chat/chat-client";
 import { chatClient } from "@/components/chat/chat-client";
 import { notifyChatError } from "@/components/chat/chat-error-notify";
 import type { QueueState } from "@/components/chat/chat-fetch";
-import { EMPTY_QUEUE_STATE, normalizeSessionMetadata } from "@/components/chat/chat-stream-state";
+import {
+	EMPTY_QUEUE_STATE,
+	EMPTY_SESSION_PRESENTATION,
+	normalizeSessionMetadata,
+} from "@/components/chat/chat-stream-state";
 import {
 	hydratePlanPresentationMessages,
 	planPresentationForToolCall,
@@ -36,6 +40,7 @@ import {
 	tryRecoverUnknownSession,
 } from "@/components/chat/use-pi-chat-forbidden-session";
 import { usePiChatMessaging } from "@/components/chat/use-pi-chat-messaging";
+import { removeSessionOpenUIState } from "@/components/openui/openui-state-cleanup";
 import { notify } from "@/lib/notify";
 
 export type SendMessageInput = {
@@ -77,13 +82,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const [activityLabel, setActivityLabel] = useState<string | undefined>();
 	const [planLabel, setPlanLabel] = useState<string | undefined>();
 	const [queue, setQueue] = useState<QueueState>(EMPTY_QUEUE_STATE);
-	const [presentation, setPresentation] = useState<PrimeAgentSessionPresentation>(() => ({
-		revision: 0,
-		userBash: [],
-		rlmChildren: [],
-		refinements: [],
-		artifactRuns: [],
-	}));
+	const [presentation, setPresentation] = useState<PrimeAgentSessionPresentation>(() => EMPTY_SESSION_PRESENTATION);
 	const initialSessionMetadataRef = useRef(initialSessionMetadata);
 	const projectIdRef = useRef(projectId);
 	const messagesRef = useRef(messages);
@@ -375,32 +374,34 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setStatus,
 	});
 
-	const { resetStreamAdmission, sendMessage, setAdapterCapabilities } = usePiChatMessaging({
-		activityLabelRef,
-		client,
-		messagesRef,
-		presentationRef,
-		model,
-		pendingSendControllerRef,
-		projectId,
-		planLabelRef,
-		queueRef,
-		recoverFromForbiddenSession,
-		refreshSessions,
-		sessionMetadataRef,
-		setActivityLabelSynced,
-		setError,
-		setMessagesSynced,
-		setPresentationSynced,
-		setPlanLabelSynced,
-		setQueueSynced,
-		setSessionMetadataSynced,
-		setStatus,
-		streamControllersRef,
-		status,
-	});
+	const { cancelStreamRecovery, resetStreamAdmission, sendMessage, setAdapterCapabilities, streamRecoveryRef } =
+		usePiChatMessaging({
+			activityLabelRef,
+			client,
+			messagesRef,
+			presentationRef,
+			model,
+			pendingSendControllerRef,
+			projectId,
+			planLabelRef,
+			queueRef,
+			recoverFromForbiddenSession,
+			refreshSessions,
+			sessionMetadataRef,
+			setActivityLabelSynced,
+			setError,
+			setMessagesSynced,
+			setPresentationSynced,
+			setPlanLabelSynced,
+			setQueueSynced,
+			setSessionMetadataSynced,
+			setStatus,
+			streamControllersRef,
+			status,
+		});
 
 	const stop = useCallback(() => {
+		cancelStreamRecovery();
 		const metadata = sessionMetadataRef.current;
 		resetStreamAdmission(metadata.sessionId);
 		pendingSendControllerRef.current?.abort();
@@ -416,7 +417,14 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setStatus("ready");
 		setQueueSynced(EMPTY_QUEUE_STATE);
 		setActivityLabelSynced(undefined);
-	}, [client, invalidateQueueMutations, resetStreamAdmission, setActivityLabelSynced, setQueueSynced]);
+	}, [
+		cancelStreamRecovery,
+		client,
+		invalidateQueueMutations,
+		resetStreamAdmission,
+		setActivityLabelSynced,
+		setQueueSynced,
+	]);
 
 	const mutateQueuedMessage = useCallback(
 		(
@@ -542,6 +550,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	 */
 	const startNewSession = useCallback(
 		async (options?: { projectId?: string; preserveRunning?: boolean }) => {
+			cancelStreamRecovery();
 			const requestId = resumeRequestRef.current + 1;
 			resumeRequestRef.current = requestId;
 			const isCurrent = () => resumeRequestRef.current === requestId;
@@ -571,6 +580,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setQueueSynced,
 			setSessionMetadataSynced,
 			invalidateQueueMutations,
+			cancelStreamRecovery,
 			stop,
 			projectId,
 		],
@@ -578,6 +588,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 	const resumeSession = useCallback(
 		async (metadata: ChatSessionMetadata, options?: { preserveRunning?: boolean }) => {
+			cancelStreamRecovery();
 			const requestId = resumeRequestRef.current + 1;
 			resumeRequestRef.current = requestId;
 			const isCurrent = () => resumeRequestRef.current === requestId;
@@ -629,6 +640,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setQueueSynced,
 			setSessionMetadataSynced,
 			invalidateQueueMutations,
+			cancelStreamRecovery,
 			stop,
 		],
 	);
@@ -638,10 +650,11 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (nextSessionId) {
 				return resumeSession({ sessionId: nextSessionId, projectId: nextProjectId }, { preserveRunning: true });
 			}
+			cancelStreamRecovery();
 			invalidateQueueMutations();
 			setSessionMetadataSynced({ projectId: nextProjectId });
 			setMessagesSynced([]);
-			setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
+			setPresentationSynced(EMPTY_SESSION_PRESENTATION);
 			setQueueSynced(EMPTY_QUEUE_STATE);
 			setActivityLabelSynced(undefined);
 			setPlanLabelSynced(undefined);
@@ -649,6 +662,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			return true;
 		},
 		[
+			cancelStreamRecovery,
 			resumeSession,
 			setActivityLabelSynced,
 			setMessagesSynced,
@@ -667,6 +681,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	usePiChatSessionEvents({
 		client,
 		presentationRef,
+		recoveryRef: streamRecoveryRef,
 		sessionId: sessionMetadata.sessionId,
 		sessionMetadataRef,
 		setActivityLabelSynced,
@@ -704,6 +719,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (deletingActive) stop();
 			try {
 				await client.deleteSession(sessionId);
+				removeSessionOpenUIState(sessionId);
 			} catch (err) {
 				notifyChatError(err);
 				return false;
@@ -711,7 +727,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (sessionMetadataRef.current.sessionId === sessionId) {
 				setSessionMetadataSynced({});
 				setMessagesSynced([]);
-				setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
+				setPresentationSynced(EMPTY_SESSION_PRESENTATION);
 			}
 			await refreshSessions();
 			return true;
@@ -719,10 +735,9 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		[client, refreshSessions, setMessagesSynced, setPresentationSynced, setSessionMetadataSynced, stop],
 	);
 
-	const answerQuestion = submitQuestionAnswer;
-
 	const getSessionMetadata = useCallback(() => sessionMetadataRef.current, []);
 	const getMessages = useCallback(() => messagesRef.current, []);
+	const answerQuestion = submitQuestionAnswer;
 
 	return {
 		activityLabel,

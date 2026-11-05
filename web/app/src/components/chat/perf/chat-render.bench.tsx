@@ -1,6 +1,6 @@
 // Render benchmarks for the Fleet Prime chat surface.
 //
-// Run: pnpm --filter @prime-agent/web bench
+// Run: pnpm --filter @qredence/web bench
 // (vitest bench only; these files never run under `vitest run`.)
 //
 // Vitest 5 API: `bench` is a test-context fixture, so each benchmark lives in

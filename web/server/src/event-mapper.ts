@@ -9,7 +9,6 @@ import type {
 	ChatReasoningStep,
 	ChatStreamEvent,
 	ChatToolPart,
-	FleetErrorEnvelope,
 	PrimeAgentArtifact,
 	PrimeAgentArtifactStatus,
 	PrimeAgentGoal,
@@ -23,7 +22,7 @@ import type {
 	PrimeAgentUserBash,
 } from "@prime-agent/web-protocol";
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
-import { truncateTail } from "prime-agent";
+import type { FleetConnectionEvent } from "./agent-connection-port";
 import {
 	type DaemonHeartbeatsChangedFrame,
 	type DaemonModelCatalogChangedFrame,
@@ -45,7 +44,6 @@ import {
 	normalizedQuestionsToWire,
 } from "./question-normalizer";
 import {
-	browserSafePayload,
 	categorizeTool,
 	createFleetErrorEnvelope,
 	createPayloadPart,
@@ -54,6 +52,7 @@ import {
 	isAssistantMessage,
 	isChatToolPart,
 	isRecord,
+	isToolResultError,
 	isUserMessage,
 	makeToolType,
 	textFromAssistantMessage,
@@ -78,6 +77,31 @@ export {
 	toChatMessagesFromAgentMessages,
 };
 
+/** Bound the browser's bash preview independently of the runtime's stored output. */
+function bashPreviewTail(content: string): string {
+	const maxBytes = 50 * 1024;
+	const lines = content.split("\n");
+	const selected: string[] = [];
+	let bytes = 0;
+	for (let index = lines.length - 1; index >= 0 && selected.length < 2_000; index--) {
+		const line = lines[index] ?? "";
+		const lineBytes = Buffer.byteLength(line);
+		const separatorBytes = selected.length ? 1 : 0;
+		if (bytes + separatorBytes + lineBytes > maxBytes) {
+			if (selected.length === 0 || (selected.length === 1 && selected[0] === "")) {
+				const buffer = Buffer.from(line);
+				let start = Math.max(0, buffer.length - (maxBytes - separatorBytes));
+				while (start < buffer.length && (buffer[start]! & 0xc0) === 0x80) start++;
+				selected.push(buffer.subarray(start).toString("utf8"));
+			}
+			break;
+		}
+		selected.push(line);
+		bytes += separatorBytes + lineBytes;
+	}
+	return selected.reverse().join("\n");
+}
+
 // ---------------------------------------------------------------------------
 // Per-session mapper state
 // ---------------------------------------------------------------------------
@@ -101,6 +125,14 @@ export interface EventMapperState {
 	messageSeq: number;
 	currentMessageId: string | undefined;
 	currentText: string;
+	reasoningTextByContentIndex: Map<number, string>;
+	/** Run-unique Fleet indexes already used for reasoning parts. */
+	claimedReasoningIndexes: Set<number>;
+	reasoningEpisodeSeq: number;
+	/** Open thinking episode: runtime content index → Fleet content index. */
+	activeReasoningByRuntimeIndex: Map<number, number>;
+	/** Runtime → Fleet index for the current assistant message (survives thinking_end). */
+	reasoningFleetIndexByRuntime: Map<number, number>;
 	currentAssistantMessage: AssistantMessage | undefined;
 	currentAssistantImages: ChatImagePart[];
 	currentAssistantErrors: ChatErrorPart[];
@@ -108,7 +140,8 @@ export interface EventMapperState {
 	reasoningSteps: ChatReasoningStep[];
 	reasoningPhase: ChatReasoningPresentation["phase"] | undefined;
 	currentToolParts: ChatToolPart[];
-	currentToolSentAgentMessages: Record<string, Array<unknown>>;
+	/** Tool names learned from tool-start frames; Rust omits them on update/end frames. */
+	toolNamesByCallId: Map<string, string>;
 	/**
 	 * Tool name and args from `tool_execution_start`, keyed by `toolCallId`.
 	 * The v0.10.1 Rust daemon omits `toolName` on `tool_execution_update`/`_end`
@@ -136,8 +169,15 @@ export type DaemonTopLevelFrame =
 	| DaemonModelCatalogChangedFrame
 	| DaemonHeartbeatsChangedFrame;
 
-/** Everything the mapper accepts: stock connection events plus Rust-only top-level frames. */
-export type MapperInputEvent = AgentConnectionEvent | DaemonTopLevelFrame;
+/**
+ * Everything the mapper accepts: stock connection events, the Fleet adapter's
+ * wire-shaped events, and Rust-only top-level frames.
+ *
+ * The mapper is the narrow-from-wire boundary, so it accepts frames whose
+ * payloads are still unvalidated JSON. Every consumer of `MapperInputEvent`
+ * discriminates on `type` before reading payload fields.
+ */
+export type MapperInputEvent = AgentConnectionEvent | FleetConnectionEvent | DaemonTopLevelFrame;
 
 export type RlmChildStatusOverride = {
 	status?: PrimeAgentRlmChild["status"];
@@ -167,6 +207,11 @@ export function createEventMapperState(init?: {
 		messageSeq: 0,
 		currentMessageId: undefined,
 		currentText: "",
+		reasoningTextByContentIndex: new Map(),
+		claimedReasoningIndexes: new Set(),
+		reasoningEpisodeSeq: 0,
+		activeReasoningByRuntimeIndex: new Map(),
+		reasoningFleetIndexByRuntime: new Map(),
 		currentAssistantMessage: undefined,
 		currentAssistantImages: [],
 		currentAssistantErrors: [],
@@ -174,7 +219,7 @@ export function createEventMapperState(init?: {
 		reasoningSteps: [],
 		reasoningPhase: undefined,
 		currentToolParts: [],
-		currentToolSentAgentMessages: {},
+		toolNamesByCallId: new Map(),
 		toolCallStarts: new Map(),
 		userMessages: [],
 		inRun: false,
@@ -222,6 +267,11 @@ function resetRun(state: EventMapperState): void {
 	state.messageSeq = 0;
 	state.currentMessageId = undefined;
 	state.currentText = "";
+	state.reasoningTextByContentIndex.clear();
+	state.claimedReasoningIndexes.clear();
+	state.reasoningEpisodeSeq = 0;
+	state.activeReasoningByRuntimeIndex.clear();
+	state.reasoningFleetIndexByRuntime.clear();
 	state.currentAssistantMessage = undefined;
 	state.currentAssistantImages = [];
 	state.currentAssistantErrors = [];
@@ -229,7 +279,7 @@ function resetRun(state: EventMapperState): void {
 	state.reasoningSteps = [];
 	state.reasoningPhase = undefined;
 	state.currentToolParts = [];
-	state.currentToolSentAgentMessages = {};
+	state.toolNamesByCallId.clear();
 	state.toolCallStarts.clear();
 	state.userMessages = [];
 	state.activeUserBashId = undefined;
@@ -583,58 +633,47 @@ function reasoningFrame(
 	};
 }
 
-function sentAgentMessageId(value: unknown): string | undefined {
-	const record = isRecord(value) ? value : undefined;
-	return typeof record?.id === "string" ? record.id : undefined;
-}
-
-function rememberSentAgentMessage(state: EventMapperState, toolCallId: string, message: unknown): void {
-	const safeMessage = browserSafePayload(message);
-	if (safeMessage === undefined) return;
-	const messages = state.currentToolSentAgentMessages[toolCallId] ?? [];
-	const id = sentAgentMessageId(safeMessage);
-	if (id && messages.some((entry) => sentAgentMessageId(entry) === id)) return;
-	state.currentToolSentAgentMessages[toolCallId] = [...messages, safeMessage];
-}
-
-function withSentAgentMessages(state: EventMapperState, toolCallId: string | undefined, value: unknown): unknown {
-	if (!toolCallId) return value;
-	const sentAgentMessages = state.currentToolSentAgentMessages[toolCallId];
-	if (!sentAgentMessages || sentAgentMessages.length === 0) return value;
-	const base = isRecord(value) ? value : {};
-	const details = isRecord(base.details) ? base.details : {};
-	return { ...base, details: { ...details, sentAgentMessages } };
+function toolNameForEvent(state: EventMapperState, toolCallId: string, eventToolName: unknown): string | undefined {
+	if (typeof eventToolName === "string" && eventToolName.length > 0) {
+		state.toolNamesByCallId.set(toolCallId, eventToolName);
+		return eventToolName;
+	}
+	const knownName = state.toolNamesByCallId.get(toolCallId);
+	if (knownName) return knownName;
+	const knownStart = state.toolCallStarts.get(toolCallId)?.toolName;
+	if (knownStart) {
+		state.toolNamesByCallId.set(toolCallId, knownStart);
+		return knownStart;
+	}
+	const content = state.currentAssistantMessage?.content;
+	if (Array.isArray(content)) {
+		for (const item of content) {
+			if (isRecord(item) && item.type === "toolCall" && item.id === toolCallId && typeof item.name === "string") {
+				state.toolNamesByCallId.set(toolCallId, item.name);
+				return item.name;
+			}
+		}
+	}
+	return undefined;
 }
 
 function upsertCurrentToolPart(state: EventMapperState, nextPart: ChatToolPart): ChatToolPart {
 	const toolCallId = nextPart.toolCallId;
-	const enrichedPart: ChatToolPart =
-		typeof toolCallId === "string"
-			? {
-					...nextPart,
-					...(nextPart.output !== undefined
-						? { output: withSentAgentMessages(state, toolCallId, nextPart.output) }
-						: {}),
-					...(nextPart.result !== undefined
-						? { result: withSentAgentMessages(state, toolCallId, nextPart.result) }
-						: {}),
-				}
-			: nextPart;
 	if (typeof toolCallId !== "string" || toolCallId.length === 0) {
-		state.currentToolParts.push(enrichedPart);
-		return enrichedPart;
+		state.currentToolParts.push(nextPart);
+		return nextPart;
 	}
 
 	const existingIndex = state.currentToolParts.findIndex((part) => part.toolCallId === toolCallId);
 	if (existingIndex < 0) {
-		state.currentToolParts.push(enrichedPart);
-		return enrichedPart;
+		state.currentToolParts.push(nextPart);
+		return nextPart;
 	}
 
 	const existing = state.currentToolParts[existingIndex]!;
 	const merged: ChatToolPart = {
 		...existing,
-		...enrichedPart,
+		...nextPart,
 		...(existing.input !== undefined ? { input: existing.input } : {}),
 	};
 	state.currentToolParts[existingIndex] = merged;
@@ -654,9 +693,31 @@ function rememberAssistantMessage(state: EventMapperState, message: AssistantMes
 	state.currentAssistantMessage = message;
 	if (!state.currentMessageId) state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 	const chatMessage = toChatMessageFromAssistant(message, state.currentMessageId);
+	for (const part of chatMessage.parts) {
+		if (part.type !== "reasoning") continue;
+		const fleetIndex = state.reasoningFleetIndexByRuntime.get(part.contentIndex) ?? part.contentIndex;
+		part.contentIndex = fleetIndex;
+		const streamed = state.reasoningTextByContentIndex.get(fleetIndex);
+		if (streamed !== undefined) part.text = streamed;
+		part.state = "complete";
+	}
+	for (const [contentIndex, text] of state.reasoningTextByContentIndex) {
+		const existing = chatMessage.parts.find(
+			(part) => part.type === "reasoning" && part.contentIndex === contentIndex,
+		);
+		if (existing?.type === "reasoning") {
+			existing.text = text;
+			existing.state = "complete";
+		} else {
+			chatMessage.parts.push({ type: "reasoning", contentIndex, text, state: "complete" });
+		}
+	}
 	appendFinalAssistantText(state, textFromAssistantMessage(message));
 	for (const part of chatMessage.parts) {
-		if (isChatToolPart(part)) upsertCurrentToolPart(state, part);
+		if (!isChatToolPart(part)) continue;
+		// A toolCall block carries no result; keep a failure tool_execution_end already recorded.
+		const settled = state.currentToolParts.find((existing) => existing.toolCallId === part.toolCallId);
+		upsertCurrentToolPart(state, settled?.state === "output-error" ? { ...part, state: "output-error" } : part);
 	}
 	state.currentAssistantImages = chatMessage.parts.filter((part): part is ChatImagePart => part.type === "image");
 	state.currentAssistantErrors = chatMessage.parts.filter((part): part is ChatErrorPart => part.type === "error");
@@ -777,8 +838,8 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 		}
 		case "message_end": {
 			// Some providers expose their final assistant content only on the
-			// authoritative message_end lifecycle event. Keep visible assistant
-			// metadata and tool calls while detailed reasoning remains excluded.
+			// authoritative message_end lifecycle event. Keep its typed reasoning,
+			// visible metadata, and tool calls in the transcript projection.
 			// The terminal text must also preserve earlier messages in this run:
 			// append rather than replace, skipping the delta-equivalent suffix.
 			if (isAssistantMessage(event.message)) {
@@ -790,20 +851,27 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [];
 		}
 		case "tool_execution_start": {
+			const closed = closeActiveReasoningEpisodes(state);
 			const startToolName = typeof event.toolName === "string" ? event.toolName : undefined;
 			if (startToolName) state.toolCallStarts.set(event.toolCallId, { toolName: startToolName, args: event.args });
-			const identity = resolveToolIdentity(state, event.toolCallId, startToolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, startToolName);
+			const identity = resolveToolIdentity(state, event.toolCallId, eventToolName);
 			const part = upsertCurrentToolPart(state, {
 				...identity,
 				toolCallId: event.toolCallId,
 				state: "input-streaming",
 				input: event.args,
 			});
-			return [reasoningFrame(state, "executing", true), { type: "tool", part, messageId: state.currentMessageId }];
+			return [
+				...closed,
+				reasoningFrame(state, "executing", true),
+				{ type: "tool", part, messageId: state.currentMessageId },
+			];
 		}
 		case "tool_execution_update": {
 			const frame = event as { toolName?: unknown; args?: unknown };
-			const identity = resolveToolIdentity(state, event.toolCallId, frame.toolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, frame.toolName);
+			const identity = resolveToolIdentity(state, event.toolCallId, eventToolName);
 			const input = frame.args !== undefined ? frame.args : state.toolCallStarts.get(event.toolCallId)?.args;
 			const backgroundOutput = extractToolBackgroundOutput(event.partialResult);
 			const part = upsertCurrentToolPart(state, {
@@ -817,11 +885,14 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			return [{ type: "tool", part, messageId: state.currentMessageId }];
 		}
 		case "tool_execution_end": {
-			const identity = resolveToolIdentity(state, event.toolCallId, (event as { toolName?: unknown }).toolName);
+			const eventToolName = toolNameForEvent(state, event.toolCallId, event.toolName);
+			const identity = resolveToolIdentity(state, event.toolCallId, eventToolName);
 			// Mid-tool attach: no start frame, so args come from the snapshot-seeded cache.
 			const cachedInput = state.toolCallStarts.get(event.toolCallId)?.args;
 			state.toolCallStarts.delete(event.toolCallId);
-			const errorText = event.isError ? extractToolErrorText(event.result) : undefined;
+			state.toolNamesByCallId.delete(event.toolCallId);
+			const isError = isToolResultError(event.isError, event.result);
+			const errorText = isError ? extractToolErrorText(event.result) : undefined;
 			const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
 			const durationMs =
 				typeof (event.result as { durationMs?: number })?.durationMs === "number"
@@ -834,7 +905,7 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 			const part = upsertCurrentToolPart(state, {
 				...identity,
 				toolCallId: event.toolCallId,
-				state: event.isError ? "output-error" : "output-available",
+				state: isError ? "output-error" : "output-available",
 				...(cachedInput !== undefined ? { input: cachedInput } : {}),
 				output: event.result,
 				result: event.result,
@@ -849,20 +920,75 @@ function mapCoreAgentEvent(state: EventMapperState, event: AgentEvent): ChatStre
 	}
 }
 
+function reasoningContentIndex(state: EventMapperState, event: AssistantMessageEvent): number {
+	const index = "contentIndex" in event ? event.contentIndex : undefined;
+	if (typeof index === "number" && Number.isSafeInteger(index) && index >= 0) return index;
+	const partial = "partial" in event ? event.partial : undefined;
+	if (partial && Array.isArray(partial.content)) {
+		for (let index = partial.content.length - 1; index >= 0; index--) {
+			if (partial.content[index]?.type === "thinking") return index;
+		}
+	}
+	return [...state.activeReasoningByRuntimeIndex.keys()].at(-1) ?? 0;
+}
+
+function beginReasoningEpisode(state: EventMapperState, runtimeIndex: number): number {
+	let fleetIndex = runtimeIndex;
+	if (state.claimedReasoningIndexes.has(fleetIndex)) {
+		fleetIndex = Math.max(state.reasoningEpisodeSeq, runtimeIndex + 1);
+		while (state.claimedReasoningIndexes.has(fleetIndex)) fleetIndex++;
+	}
+	state.claimedReasoningIndexes.add(fleetIndex);
+	state.reasoningEpisodeSeq = Math.max(state.reasoningEpisodeSeq, fleetIndex + 1);
+	state.activeReasoningByRuntimeIndex.set(runtimeIndex, fleetIndex);
+	state.reasoningFleetIndexByRuntime.set(runtimeIndex, fleetIndex);
+	return fleetIndex;
+}
+
+function resolveActiveReasoningEpisode(state: EventMapperState, runtimeIndex: number): number {
+	const active = state.activeReasoningByRuntimeIndex.get(runtimeIndex);
+	if (active !== undefined) return active;
+	return beginReasoningEpisode(state, runtimeIndex);
+}
+
+function closeActiveReasoningEpisodes(state: EventMapperState): ChatStreamEvent[] {
+	if (state.activeReasoningByRuntimeIndex.size === 0) return [];
+	if (!state.currentMessageId) {
+		state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
+	}
+	const frames: ChatStreamEvent[] = [];
+	for (const [runtimeIndex, contentIndex] of [...state.activeReasoningByRuntimeIndex]) {
+		frames.push({
+			type: "reasoning_text",
+			phase: "end",
+			contentIndex,
+			text: state.reasoningTextByContentIndex.get(contentIndex) ?? "",
+			messageId: state.currentMessageId,
+		});
+		state.activeReasoningByRuntimeIndex.delete(runtimeIndex);
+	}
+	return frames;
+}
+
 function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessageEvent): ChatStreamEvent[] {
 	switch (event.type) {
 		case "start": {
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
+			state.reasoningTextByContentIndex.clear();
+			state.activeReasoningByRuntimeIndex.clear();
+			state.reasoningFleetIndexByRuntime.clear();
 			return [];
 		}
 		case "text_delta": {
+			const closed = closeActiveReasoningEpisodes(state);
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
 			state.currentText += event.delta;
 			return [
+				...closed,
 				reasoningFrame(state, "responding", true),
 				{
 					type: "delta",
@@ -872,30 +998,102 @@ function mapAssistantStreamEvent(state: EventMapperState, event: AssistantMessag
 			];
 		}
 		case "thinking_delta": {
+			const runtimeIndex = reasoningContentIndex(state, event);
+			const hadActive = state.activeReasoningByRuntimeIndex.has(runtimeIndex);
+			const contentIndex = resolveActiveReasoningEpisode(state, runtimeIndex);
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
-			return [reasoningFrame(state, "planning", true)];
+			state.reasoningTextByContentIndex.set(
+				contentIndex,
+				(state.reasoningTextByContentIndex.get(contentIndex) ?? "") + event.delta,
+			);
+			const frames: ChatStreamEvent[] = [reasoningFrame(state, "planning", true)];
+			if (!hadActive) {
+				frames.push({
+					type: "reasoning_text",
+					phase: "start",
+					contentIndex,
+					text: "",
+					messageId: state.currentMessageId,
+				});
+			}
+			frames.push({
+				type: "reasoning_text",
+				phase: "delta",
+				contentIndex,
+				text: event.delta,
+				messageId: state.currentMessageId,
+			});
+			return frames;
 		}
 		case "text_start":
-		case "text_end":
 		case "toolcall_start":
+			return closeActiveReasoningEpisodes(state);
+		case "text_end":
 		case "toolcall_delta":
 		case "toolcall_end":
 		case "error":
 			return [];
 		case "thinking_start": {
+			const runtimeIndex = reasoningContentIndex(state, event);
 			if (!state.currentMessageId) {
 				state.currentMessageId = `${state.runId}-a${state.messageSeq++}`;
 			}
-			return [reasoningFrame(state, "planning", true)];
+			const frames: ChatStreamEvent[] = [];
+			const previous = state.activeReasoningByRuntimeIndex.get(runtimeIndex);
+			if (previous !== undefined) {
+				frames.push({
+					type: "reasoning_text",
+					phase: "end",
+					contentIndex: previous,
+					text: state.reasoningTextByContentIndex.get(previous) ?? "",
+					messageId: state.currentMessageId,
+				});
+				state.activeReasoningByRuntimeIndex.delete(runtimeIndex);
+			}
+			const contentIndex = beginReasoningEpisode(state, runtimeIndex);
+			state.reasoningTextByContentIndex.set(contentIndex, "");
+			frames.push(reasoningFrame(state, "planning", true), {
+				type: "reasoning_text",
+				phase: "start",
+				contentIndex,
+				text: "",
+				messageId: state.currentMessageId,
+			});
+			return frames;
 		}
-		case "thinking_end":
-			return [];
+		case "thinking_end": {
+			const runtimeIndex = reasoningContentIndex(state, event);
+			const contentIndex = resolveActiveReasoningEpisode(state, runtimeIndex);
+			const endedEvent = event as typeof event & {
+				contentIndex: number;
+				content?: string;
+				partial?: { content?: Array<{ type?: string; thinking?: string }> };
+			};
+			const block = endedEvent.partial?.content?.[runtimeIndex];
+			const finalText =
+				typeof endedEvent.content === "string"
+					? endedEvent.content
+					: block?.type === "thinking" && typeof block.thinking === "string"
+						? block.thinking
+						: undefined;
+			if (finalText !== undefined) state.reasoningTextByContentIndex.set(contentIndex, finalText);
+			state.activeReasoningByRuntimeIndex.delete(runtimeIndex);
+			return [
+				{
+					type: "reasoning_text",
+					phase: "end",
+					contentIndex,
+					text: finalText ?? state.reasoningTextByContentIndex.get(contentIndex) ?? "",
+					messageId: state.currentMessageId,
+				},
+			];
+		}
 		case "done": {
 			// Some providers deliver visible answer text only in the terminal message
 			// rather than emitting text_delta events. The terminal AssistantMessage is
-			// authoritative, but only text blocks may enter Fleet's standard transcript.
+			// authoritative, including typed reasoning blocks.
 			// Append (skip the delta-equivalent suffix) so earlier messages in this
 			// run are preserved instead of being replaced by the latest one.
 			rememberAssistantMessage(state, event.message);
@@ -1000,38 +1198,6 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 			const followUp = Array.from(actions?.followUps ?? []) as string[];
 			return [{ type: "queue", steering, followUp }];
 		}
-		case "auth_stale": {
-			const message = `Authentication for ${event.provider} is stale. Sign in again to continue.`;
-			return [
-				reasoningFrame(state, "error", false),
-				{
-					type: "error",
-					message,
-					error: createFleetErrorEnvelope(message),
-				},
-			];
-		}
-		case "ipython_sent_agent_message":
-			rememberSentAgentMessage(state, event.toolCallId, event.message);
-			{
-				const existing = state.currentToolParts.find((part) => part.toolCallId === event.toolCallId);
-				const result = withSentAgentMessages(state, event.toolCallId, existing?.result ?? existing?.output);
-				const part = upsertCurrentToolPart(state, {
-					type: "tool-IPython",
-					category: "kernel",
-					toolName: "ipython",
-					toolCallId: event.toolCallId,
-					state: existing?.state ?? "input-streaming",
-					...(result !== undefined ? { output: result, result } : {}),
-				});
-				return [
-					{ type: "tool", part, ...(state.currentMessageId ? { messageId: state.currentMessageId } : {}) },
-					{
-						type: "state",
-						state: { name: "agent_start", message: "Subagent message received" },
-					},
-				];
-			}
 		case "session_info_changed":
 			return [emitPresentation(state, { ...state.presentation, sessionName: event.name })];
 		case "thinking_level_changed":
@@ -1073,20 +1239,6 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 				{ type: "rlm", child: updatedChild, tree: rlmTree },
 			];
 		}
-		case "recap_update": {
-			const presentation = { ...state.presentation, recap: event.recap };
-			if (!event.recap) return [emitPresentation(state, presentation)];
-			const artifact: PrimeAgentArtifact = {
-				id: stablePresentationId(`${presentationRunId(state)}:recap`),
-				runId: presentationRunId(state),
-				kind: "recap",
-				title: "Recap",
-				status: "success",
-				output: { text: event.recap },
-				timestamp: Date.now(),
-			};
-			return [emitPresentation(state, upsertArtifact(presentation, artifact))];
-		}
 		case "goal_update":
 			return [emitPresentation(state, { ...state.presentation, goal: safeGoal(event.goal) })];
 		case "bash_start": {
@@ -1111,7 +1263,7 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 		case "bash_output": {
 			const active = state.presentation.userBash.find((entry) => entry.id === state.activeUserBashId);
 			if (!active) return [];
-			const entry = { ...active, output: truncateTail(active.output + event.chunk).content };
+			const entry = { ...active, output: bashPreviewTail(active.output + event.chunk) };
 			return [emitPresentation(state, upsertArtifact(upsertUserBash(state, entry), userBashArtifact(entry)))];
 		}
 		case "bash_end": {
@@ -1197,16 +1349,64 @@ function mapSessionSpecificEvent(state: EventMapperState, event: AgentSessionEve
 // Finalization
 // ---------------------------------------------------------------------------
 
-/* Legacy raw-thinking helpers intentionally removed: standard Fleet transcript
- * messages never carry detailed model thinking. */
-
 function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
-	if (state.currentText.length > 0) {
+	const emittedToolCallIds = new Set<string>();
+	const content = state.currentAssistantMessage?.content;
+	if (Array.isArray(content)) {
+		for (const [contentIndex, block] of content.entries()) {
+			const value = block as { type?: string; text?: string; thinking?: string; id?: string };
+			if (value.type === "text" && typeof value.text === "string" && value.text.length > 0) {
+				if (!parts.some((part) => part.type === "text")) {
+					parts.push({ type: "text", text: state.currentText || value.text });
+				}
+			} else if (value.type === "thinking") {
+				let fleetIndex = state.reasoningFleetIndexByRuntime.get(contentIndex);
+				if (fleetIndex === undefined) {
+					fleetIndex = contentIndex;
+					if (state.claimedReasoningIndexes.has(fleetIndex)) {
+						fleetIndex = Math.max(state.reasoningEpisodeSeq, contentIndex + 1);
+						while (state.claimedReasoningIndexes.has(fleetIndex)) fleetIndex++;
+					}
+					state.claimedReasoningIndexes.add(fleetIndex);
+					state.reasoningEpisodeSeq = Math.max(state.reasoningEpisodeSeq, fleetIndex + 1);
+					state.reasoningFleetIndexByRuntime.set(contentIndex, fleetIndex);
+				}
+				for (const [pendingIndex, pendingText] of [...state.reasoningTextByContentIndex].sort(
+					([left], [right]) => left - right,
+				)) {
+					if (pendingIndex >= fleetIndex) break;
+					if (!parts.some((part) => part.type === "reasoning" && part.contentIndex === pendingIndex)) {
+						parts.push({ type: "reasoning", contentIndex: pendingIndex, text: pendingText, state: "complete" });
+					}
+				}
+				const streamed = state.reasoningTextByContentIndex.get(fleetIndex);
+				const text = streamed ?? (typeof value.thinking === "string" ? value.thinking : undefined);
+				if (
+					typeof text === "string" &&
+					!parts.some((part) => part.type === "reasoning" && part.contentIndex === fleetIndex)
+				) {
+					parts.push({ type: "reasoning", contentIndex: fleetIndex, text, state: "complete" });
+				}
+			} else if (value.type === "toolCall" && value.id) {
+				const tool = state.currentToolParts.find((candidate) => candidate.toolCallId === value.id);
+				if (tool) {
+					parts.push(tool);
+					emittedToolCallIds.add(value.id);
+				}
+			}
+		}
+	}
+	if (state.currentText.length > 0 && !parts.some((part) => part.type === "text")) {
 		parts.push({ type: "text", text: state.currentText });
 	}
+	for (const [contentIndex, text] of [...state.reasoningTextByContentIndex].sort(([a], [b]) => a - b)) {
+		if (!parts.some((part) => part.type === "reasoning" && part.contentIndex === contentIndex)) {
+			parts.push({ type: "reasoning", contentIndex, text, state: "complete" });
+		}
+	}
 	for (const part of state.currentToolParts) {
-		parts.push(part);
+		if (!part.toolCallId || !emittedToolCallIds.has(part.toolCallId)) parts.push(part);
 	}
 	parts.push(...state.currentAssistantImages);
 	parts.push(...state.currentAssistantErrors);
@@ -1234,6 +1434,13 @@ function finalizeAssistantMessage(state: EventMapperState): ChatMessage {
  */
 export function mapAgentConnectionEvent(state: EventMapperState, event: MapperInputEvent): ChatStreamEvent[] {
 	if (isDaemonTopLevelFrame(event)) return mapDaemonTopLevelFrame(state, event);
+	// Fleet's daemon adapter emits the same discriminators with wire-shaped
+	// payloads. Narrow once here so the mapping below works on typed events;
+	// individual events are validated by the mappers they reach.
+	return mapTypedConnectionEvent(state, event as AgentConnectionEvent);
+}
+
+function mapTypedConnectionEvent(state: EventMapperState, event: AgentConnectionEvent): ChatStreamEvent[] {
 	switch (event.type) {
 		case "session_event":
 			return mapAgentSessionEvent(state, event.event);
@@ -1345,22 +1552,6 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: MapperIn
 				},
 			];
 		}
-		case "extension_error": {
-			const envelope: FleetErrorEnvelope = {
-				code: "EXTENSION_ERROR",
-				message: `Extension error in ${event.extensionPath}: ${event.error}`,
-				isTerminal: false,
-			};
-			return [
-				{
-					type: "error",
-					message: envelope.message,
-					runId: state.runId,
-					code: envelope.code,
-					error: envelope,
-				},
-			];
-		}
 		case "closed": {
 			// `session_closed{reason:"killed"}` (a client's plain kill; shutdown and
 			// replaced have their own reasons, pa-daemon worker/env.rs:22-36) reaches
@@ -1398,8 +1589,6 @@ export function mapAgentConnectionEvent(state: EventMapperState, event: MapperIn
 				},
 			];
 		}
-		case "session_status":
-			return event.recap ? [emitPresentation(state, { ...state.presentation, recap: event.recap })] : [];
 		default: {
 			// Future-proof: ignore unknown connection events silently.
 			return [];

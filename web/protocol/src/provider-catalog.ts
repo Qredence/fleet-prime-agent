@@ -80,7 +80,7 @@ export const PI_PROVIDER_CATALOG = [
 	{
 		id: "google-vertex",
 		name: "Google Vertex",
-		envVarName: "GOOGLE_APPLICATION_CREDENTIALS",
+		envVarName: "GOOGLE_CLOUD_API_KEY",
 	},
 	{
 		id: "google",

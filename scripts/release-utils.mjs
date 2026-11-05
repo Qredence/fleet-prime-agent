@@ -4,6 +4,25 @@ export const NPM_REGISTRY = "https://registry.npmjs.org/";
 export const RELEASE_REPOSITORY = Object.freeze({ owner: "Qredence", repo: "fleet-prime-agent" });
 
 /**
+ * Decides whether a path is one the release version commit may touch.
+ *
+ * The generated version commit bumps the package manifest, prepends the changelog section, deletes
+ * the consumed Changesets, and folds any new contributor into the root README. Release preparation,
+ * the Changeset policy, and the publish gate all classify release commits through this one predicate,
+ * so a release PR that one of them writes cannot be rejected or ignored by another.
+ * @param {string} path - Repository-relative file path.
+ * @returns {boolean} `true` when the path belongs to a generated release version commit.
+ */
+export function isReleaseVersionFile(path) {
+	return (
+		path === "packages/fleet-web/package.json" ||
+		path === "packages/fleet-web/CHANGELOG.md" ||
+		path === "README.md" ||
+		(path.startsWith(".changeset/") && path.endsWith(".md") && path !== ".changeset/README.md")
+	);
+}
+
+/**
  * Validates and parses a stable semantic version.
  * @param {string} version - The version in major.minor.patch format without leading zeros.
  * @returns {number[]} The numeric major, minor, and patch components.

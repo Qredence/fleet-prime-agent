@@ -1,0 +1,12 @@
+{"type":"command","id":"cm-1","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"create","telemetryDisabled":true,"lifecycle":"resident","config":{"cwd":"/fixture/project","sessionDir":"/fixture/sessions","provider":"fixture-local","model":"fixture-chat"}}}
+{"type":"command","id":"cm-2","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"get_resource_snapshot","activeSessionId":"a382fc7a3a2d"}}
+{"type":"command","id":"cm-3","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"get_model_catalog","activeSessionId":"a382fc7a3a2d"}}
+{"type":"command","id":"cm-4","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"get_available_models","activeSessionId":"a382fc7a3a2d"}}
+{"type":"command","id":"cm-5","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"get_mcp_connections","activeSessionId":"a382fc7a3a2d"}}
+{"type":"command","id":"cm-6","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"set_mcp_static_token","activeSessionId":"a382fc7a3a2d","server":"paste-fixture","token":"<redacted>"}}
+{"type":"command","id":"cm-7","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"get_mcp_connections","activeSessionId":"a382fc7a3a2d"}}
+{"type":"command","id":"cm-8","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"remove_mcp_connection","activeSessionId":"a382fc7a3a2d","server":"paste-fixture"}}
+{"type":"command","id":"cm-9","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"get_mcp_connections","activeSessionId":"a382fc7a3a2d"}}
+{"type":"command","id":"cm-15","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"get_system_prompt","activeSessionId":"a382fc7a3a2d"}}
+{"type":"command","id":"cm-16","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"get_resource_snapshot","activeSessionId":"a382fc7a3a2d"}}
+{"type":"command","id":"cm-17","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"capture-cm","command":{"type":"kill","activeSessionId":"a382fc7a3a2d"}}

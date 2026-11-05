@@ -3,6 +3,7 @@ import { memo, useState } from "react";
 import { FileAttachment } from "@/components/chat/composer/input/file-attachment";
 import { isTextPart } from "@/components/chat/transcript/chat-message-parts";
 import { ImageLightbox } from "@/components/tools/image-lightbox";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { cn } from "@/lib/utils";
 
 export type UserMessageProps = {
@@ -160,11 +161,11 @@ export const UserMessage = memo(function UserMessage({
 				</div>
 			)}
 			{text && (
-				<div className="ms-[70px] max-w-[calc(95%-40px)]">
-					<div className="rounded-chat-message bg-muted px-3.5 py-1.5 text-sm text-foreground transition-colors">
-						<p className="leading-5 wrap-break-word whitespace-pre-wrap text-pretty">{text}</p>
-					</div>
-				</div>
+				<Bubble align="end" variant="muted" className="max-w-[85%]">
+					<BubbleContent className="rounded-chat-message px-3.5 py-1.5 whitespace-pre-wrap text-pretty">
+						{text}
+					</BubbleContent>
+				</Bubble>
 			)}
 		</div>
 	);

@@ -288,7 +288,22 @@ assertEqual(
 );
 
 // --- Stage 1: parse + validate against the library schema ---
-const parser = createParser(openUILibrary.toJSONSchema(), "Root");
+const parser = createParser(openUILibrary.toJSONSchema(), openUILibrary.root);
+assertEqual(openUILibrary.root, "Root", "library declares Root as its entry component");
+
+// 1.0 entry rule: without a `root` statement the parser falls back to the first
+// root-component call and reports `no-root` as a warning, not a fatal error.
+const fallbackProgram = ['title = Text("Orders")', "page = Root([title])"].join("\n");
+const fallbackParse = parser.parse(fallbackProgram);
+const noRootWarnings = fallbackParse.meta.errors.filter((error) => error.code === "no-root");
+assertEqual(noRootWarnings.length, 1, "root-less program reports one no-root warning");
+assertEqual(noRootWarnings[0]?.severity, "warning", "no-root is reported as a warning");
+assertEqual(
+	fallbackParse.meta.errors.filter((error) => error.code !== "no-root").length,
+	0,
+	"root-less program reports no hard errors",
+);
+assertEqual(fallbackParse.root !== null, true, "root-less program still resolves an entry element");
 const artifactProgram = [
 	"root = Root([artifact])",
 	`artifact = HtmlArtifact(${JSON.stringify("Fleet Agent architecture")}, ${JSON.stringify("<!doctype html><html><body><h1>Fleet Agent</h1></body></html>")})`,
@@ -301,6 +316,23 @@ assertEqual(
 	malformedArtifactParse.meta.errors.length > 0 || malformedArtifactParse.meta.unresolved.length > 0,
 	true,
 	"malformed OpenUI reports parser errors",
+);
+
+// Button's action prop accepts a plain message, one bare @step, and Action([...]).
+for (const [label, code] of [
+	["plain message", 'root = Root([b])\nb = Button("Go", "Tell me more")'],
+	["single action", 'root = Root([b])\nb = Button("Go", @ToAssistant("Tell me more"))'],
+	["action composition", 'root = Root([b])\nb = Button("Go", Action([@Set($a, 1), @ToAssistant("done")]))'],
+	["omitted action", 'root = Root([b])\nb = Button("Go")'],
+] as const) {
+	const actionParse = parser.parse(`$a = 0\n${code}`);
+	assertEqual(actionParse.meta.errors.length, 0, `Button action accepts ${label}`);
+}
+const buttonActionSchema = openUILibrary.toJSONSchema().$defs?.Button?.properties?.action;
+assertEqual(
+	JSON.stringify(buttonActionSchema),
+	JSON.stringify({ anyOf: [{ type: "string" }, { $ref: "#/$defs/ActionExpression" }] }),
+	"Button action prop exposes the ActionExpression contract alongside plain-message support",
 );
 
 const unsafeArtifactValidation = validateAndNormalizeOpenUIHtmlArtifact({
@@ -343,6 +375,16 @@ if (staticHtml.length === 0) {
 }
 console.log("RENDER OK (static)");
 
+// The entry fallback must render, not merely parse: a program with no `root`
+// statement still paints the first root-component call.
+const fallbackStaticHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer response={fallbackProgram} library={openUILibrary} />
+	</MotionRuntime>,
+);
+assertIncludes(fallbackStaticHtml, "Orders");
+assertExcludes(fallbackStaticHtml, "OpenUI could not be rendered", "root-less program renders without diagnostics");
+
 const artifactStaticHtml = renderToStaticMarkup(
 	<MotionRuntime>
 		<Renderer response={artifactProgram} library={openUILibrary} />
@@ -378,6 +420,86 @@ const unsafeCitationHtml = renderToStaticMarkup(
 );
 assertExcludes(unsafeCitationHtml, "<a ", "unsafe Citation URLs never render an anchor");
 
+// --- Wave: new catalog components and client functions ---
+const expandProgram = [
+	'$q = ""',
+	'root = Root([tabs, acc, ta, sl, steps, kv, empty, skel, img, fn])',
+	'tabs = Tabs([{"label":"One","content":"first panel"},{"label":"Two","content":"second panel"}], 1)',
+	'acc = Accordion([{"title":"Details","content":"hidden text","open":true}])',
+	'ta = TextArea("q", $q, "Write here")',
+	'sl = Slider("limit", 42, "Limit", 0, 100, 5)',
+	'steps = Steps([{"label":"Fetch","state":"complete"},{"label":"Render","state":"current","detail":"in progress"},{"label":"Verify","state":"pending"}])',
+	'kv = KeyValueList([{"label":"Runtime","value":"0.10.1"},{"label":"Status","value":"ready"}])',
+	'empty = Empty("No sessions", "Start a chat to see activity.")',
+	'skel = Skeleton(2)',
+	'img = Image("https://example.com/chart.png", "A chart")',
+	'fn = Text("ecosystem xyz", "muted")',
+].join("\n");
+const expandHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer response={expandProgram} library={openUILibrary} />
+	</MotionRuntime>,
+);
+for (const expected of ["second panel", "hidden text", "Write here", "Limit", "Render", "in progress", "Runtime", "0.10.1", "No sessions", "A chart", "ecosystem xyz"]) {
+	assertIncludes(expandHtml, expected);
+}
+// defaultIndex selects the second tab, so the first panel must stay unmounted.
+assertExcludes(expandHtml, "first panel", "Tabs honors defaultIndex instead of rendering every panel");
+assertIncludes(expandHtml, 'data-slot="tabs"');
+assertExcludes(expandHtml, "OpenUI could not be rendered", "new components render without diagnostics");
+
+// A column key the rows do not carry must not render as an indistinguishable blank.
+const missingKeyHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer
+			response={'root = Root([t])\nt = DataTable("T", [{"key": "missingField", "label": "Missing"}], [{"present": "x"}])'}
+			library={openUILibrary}
+		/>
+	</MotionRuntime>,
+);
+assertIncludes(missingKeyHtml, "—");
+assertExcludes(missingKeyHtml, "OpenUI could not be rendered", "a missing column field does not crash the table");
+
+// A Query still loading passes null rows; the table must survive that.
+const nullRowsHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer
+			response={'root = Root([t])\nt = DataTable("T", [{"key": "a", "label": "A"}], null)'}
+			library={openUILibrary}
+		/>
+	</MotionRuntime>,
+);
+assertExcludes(nullRowsHtml, "OpenUI could not be rendered", "null rows render an empty table instead of throwing");
+
+// Unsafe image sources are refused rather than fetched.
+const unsafeImageHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer response={'root = Root([img])\nimg = Image("javascript:alert(1)", "bad")'} library={openUILibrary} />
+	</MotionRuntime>,
+);
+assertIncludes(unsafeImageHtml, "Image blocked");
+assertExcludes(unsafeImageHtml, "javascript:alert(1)\" ", "unsafe image src is not placed in a src attribute");
+
+// Client functions must compute, not echo the call.
+const functionProgram = [
+	"root = Root([a, b, c, d, e])",
+	'a = Text("dur " + @Duration(5400000))',
+	'b = Text("size " + @Bytes(1572864))',
+	'c = Text("tok " + @Tokens(38200))',
+	'd = Text("pct " + @Percent(1, 3))',
+	'e = Text("path " + @ShortPath("web/app/src/components/openui/x.tsx", 2))',
+].join("\n");
+const functionHtml = renderToStaticMarkup(
+	<MotionRuntime>
+		<Renderer response={functionProgram} library={openUILibrary} />
+	</MotionRuntime>,
+);
+for (const expected of ["dur 1.5h", "size 1.5 MB", "tok 38.2k", "pct 33.3%", "path …/openui/x.tsx"]) {
+	assertIncludes(functionHtml, expected);
+}
+assertExcludes(functionHtml, "null", "client functions evaluate without runtime-error");
+assertExcludes(functionHtml, "OpenUI could not be rendered", "client functions render without diagnostics");
+
 for (const expected of ["Open workspace", "Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points", "Users", "12,403", "+4.2%", "Errors", "var(--chart-1)"]) {
 	assertIncludes(staticHtml, expected);
 }
@@ -409,6 +531,89 @@ try {
 	process.exit(1);
 }
 console.log("RENDER OK (dom)");
+
+// --- Stage 4: Query -> toolProvider -> Tabs -> real rows ---
+// The live browser run depends on a model turn; this pins the same path
+// deterministically so a regression in the tool wiring fails the gate.
+const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+const queryProgram = [
+	'$view = "overview"',
+	"root = Root([kpis, recent, pipeline])",
+	'stats = Query("session_stats", {}, {rows: []})',
+	'sessions = Query("list_sessions", {limit: 5}, {rows: []})',
+	'kpis = MetricGroup([{"label": "Sessions", "value": "" + @Sum(stats.rows.sessions), "delta": "live", "deltaTone": "neutral"}])',
+	'recent = DataTable("Runs", [{"key": "title", "label": "Session"}, {"key": "messageCount", "label": "Messages", "type": "number"}], sessions.rows)',
+	'pipeline = Steps([{"label": "Query", "state": "complete"}, {"label": "Render", "state": "current"}])',
+].join("\n");
+
+let queryHtml = "";
+try {
+	const container = win.document.createElement("div");
+	win.document.body.appendChild(container);
+	const root = createRoot(container as unknown as Element);
+	await act(async () => {
+		root.render(
+			<MotionRuntime>
+				<Renderer
+					response={queryProgram}
+					library={openUILibrary}
+					toolProvider={{
+						session_stats: async () => {
+							toolCalls.push({ name: "session_stats", args: {} });
+							return { rows: [{ status: "running", sessions: 7, messages: 70 }, { status: "idle", sessions: 3, messages: 30 }] };
+						},
+						list_sessions: async (args) => {
+							toolCalls.push({ name: "list_sessions", args });
+							return {
+								rows: [
+									{ sessionId: "s1", title: "Alpha session", projectId: "p", status: "running", messageCount: 12, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" },
+									{ sessionId: "s2", title: "Beta session", projectId: "p", status: "idle", messageCount: 34, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-03T00:00:00.000Z" },
+								],
+							};
+						},
+					}}
+				/>
+			</MotionRuntime>,
+		);
+	});
+	// The tools resolve asynchronously, then the renderer has to commit the
+	// resulting state. Poll the markup instead of guessing a single tick count.
+	const settle = async () => {
+		for (let attempt = 0; attempt < 20; attempt += 1) {
+			await act(async () => {
+				await new Promise((resolve) => setTimeout(resolve, 5));
+			});
+			if (win.document.body.innerHTML.includes("Alpha session")) return;
+		}
+	};
+	await settle();
+	queryHtml = win.document.body.innerHTML;
+	await act(async () => {
+		root.unmount();
+	});
+} catch (error) {
+	console.error("RENDER THREW (query):", error);
+	process.exit(1);
+}
+
+assertEqual(toolCalls.some((call) => call.name === "session_stats"), true, "a Query statement invokes the tool provider");
+assertEqual(toolCalls.some((call) => call.name === "list_sessions"), true, "each declared Query invokes its own tool");
+assertEqual(
+	toolCalls.find((call) => call.name === "list_sessions")?.args?.limit,
+	5,
+	"Query arguments reach the tool provider unchanged",
+);
+assertIncludes(queryHtml, "Alpha session");
+assertIncludes(queryHtml, "Beta session");
+assertIncludes(queryHtml, "34");
+// @Sum over the aggregate rows: 7 + 3 sessions, 70 + 30 messages.
+assertEqual(
+	queryHtml.includes("10"),
+	true,
+	"aggregate KPIs sum the tool rows (7 + 3 sessions)",
+);
+assertExcludes(queryHtml, "OpenUI could not be rendered", "Query-backed programs render without diagnostics");
+assertExcludes(queryHtml, "—", "real tool rows populate every declared column");
 
 for (const expected of [
 	"Traffic",

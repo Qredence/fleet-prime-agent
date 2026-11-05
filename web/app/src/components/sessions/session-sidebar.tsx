@@ -24,8 +24,7 @@ export function SessionSidebar({
 }: SessionSidebarProps) {
 	const { sessions, projects = EMPTY_PROJECTS, projectSessions = sessions, activeProjectId, activeSessionId } = data;
 	const { onNewSession, onNewSessionInProject, onResumeSession, onRenameSession, onDeleteSession } = sessionActions;
-	const { onProjectSelect, onCreateProject, onRenameProject, onUnregisterProject, onForkSessionIntoProject } =
-		projectActions;
+	const { onProjectSelect, onCreateProject, onRenameProject, onUnregisterProject } = projectActions;
 	const { onOpenPanelAction, onBrowseDirectories, onOpenSettings } = navigationActions;
 	const { accountMenu } = slots;
 	const state = useSessionSidebarState(activeProjectId);
@@ -48,7 +47,6 @@ export function SessionSidebar({
 		onNewSessionInProject,
 		onProjectSelect,
 		onResumeSession,
-		onForkSessionIntoProject,
 		onOpenPanelAction,
 		expandedProjectIds: state.expandedProjectIds,
 		revealedProjectIds: state.revealedProjectIds,
@@ -113,12 +111,10 @@ export function SessionSidebar({
 			<SessionSidebarActionDialogs
 				activeDialog={state.activeDialog}
 				onClose={state.closeDialog}
-				projects={projects}
 				onRenameSession={onRenameSession}
 				onDeleteSession={onDeleteSession}
 				onRenameProject={onRenameProject}
 				onUnregisterProject={onUnregisterProject}
-				onForkSessionIntoProject={onForkSessionIntoProject}
 			/>
 		</>
 	);

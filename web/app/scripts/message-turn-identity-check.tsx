@@ -53,7 +53,6 @@ const renderedElements = buildAssistantElements(
     messageId: "message-1",
     isLast: false,
     isStreaming: false,
-    suppressQuestionTool: true,
     ToolRendererComponent: () => null,
     TextRendererComponent: () => null,
   }

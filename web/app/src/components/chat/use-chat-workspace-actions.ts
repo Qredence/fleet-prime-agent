@@ -199,14 +199,6 @@ export function useChatWorkspaceActions({
 		[],
 	);
 
-	const forkSessionIntoProject = useCallback(
-		async (sourceSessionId: string, targetProjectId: ProjectId) => {
-			await chatClient.forkSessionIntoProject(sourceSessionId, targetProjectId);
-			await refetchProjects();
-		},
-		[refetchProjects],
-	);
-
 	useEffect(() => {
 		if (sessionId) void refetchProjects();
 	}, [refetchProjects, sessionId]);
@@ -288,7 +280,6 @@ export function useChatWorkspaceActions({
 		clearWorkspaceAttachments,
 		createProject,
 		deleteSessionForWorkspace,
-		forkSessionIntoProject,
 		handleAttach,
 		removeUploadedAttachment,
 		removeWorkspaceAttachment,

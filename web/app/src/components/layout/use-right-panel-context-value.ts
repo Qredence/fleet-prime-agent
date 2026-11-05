@@ -7,8 +7,6 @@ import type {
 	ChatMode,
 	ChatPiSettingsUpdate,
 	ChatProviderInfo,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
 	ChatProviderRemoveRequest,
 	ChatProviderRemoveResponse,
 	ChatProviderUpdateRequest,
@@ -61,7 +59,6 @@ type UseRightPanelContextValueArgs = {
 	modelCatalog?: Array<ChatModelOption>;
 	onDiscoverModels?: (providerId: string) => Promise<Array<ChatModelOption>>;
 	onMcpOAuth?: (request: ChatMcpOAuthLoginRequest) => Promise<ChatMcpOAuthLoginResponse>;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	onRemoveMcp?: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
 	onUpdateMcp?: (request: ChatMcpUpsertRequest) => Promise<ChatMcpListResponse>;
@@ -141,7 +138,6 @@ export function useRightPanelContextValue({
 	modelCatalog,
 	onDiscoverModels,
 	onMcpOAuth,
-	onOAuthLogin,
 	onRemoveMcp,
 	onRemoveProvider,
 	onUpdateMcp,
@@ -298,7 +294,6 @@ export function useRightPanelContextValue({
 			onComposerIntentKeyChange,
 			onDiscoverModels,
 			onMcpOAuth,
-			onOAuthLogin,
 			onRemoveMcp,
 			onRemoveProvider,
 			onThemePreferenceChange: handleThemePreferenceChange,
@@ -324,7 +319,6 @@ export function useRightPanelContextValue({
 			onComposerIntentKeyChange,
 			onDiscoverModels,
 			onMcpOAuth,
-			onOAuthLogin,
 			onRemoveMcp,
 			onRemoveProvider,
 			onUpdateMcp,

@@ -1,11 +1,10 @@
 import type React from "react";
 import { memo } from "react";
-import { QuestionTool } from "@/components/chat/question/question-tool";
 import type { CustomToolRendererProps } from "@/components/chat/types";
 import { BashTool } from "@/components/tools/bash-tool";
+import { CpythonTool } from "@/components/tools/cpython-tool";
 import { EditTool } from "@/components/tools/edit-tool";
 import { GenericTool } from "@/components/tools/generic-tool";
-import { IpythonTool } from "@/components/tools/ipython-tool";
 import { McpTool, unwrapMcpOutput } from "@/components/tools/mcp-tool";
 import { PlanTool } from "@/components/tools/plan-tool";
 import { SearchTool } from "@/components/tools/search-tool";
@@ -19,6 +18,7 @@ export type ToolRendererProps = {
 	nestedTools?: Array<any>;
 	chatStatus?: string;
 	toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>;
+	insideTrace?: boolean;
 };
 
 function deriveToolStatus(part: any, chatStatus?: string): CustomToolRendererProps["status"] {
@@ -42,7 +42,7 @@ export const ToolRenderer = memo(function ToolRenderer({
 		case "tool-Bash":
 			return <BashTool part={part} />;
 		case "tool-IPython":
-			return <IpythonTool part={part} />;
+			return <CpythonTool part={part} />;
 		case "tool-Edit":
 		case "tool-Write":
 			return <EditTool part={part} />;
@@ -54,8 +54,6 @@ export const ToolRenderer = memo(function ToolRenderer({
 			return <PlanTool part={part} chatStatus={chatStatus} />;
 		case "tool-TodoWrite":
 			return <TodoTool part={part} chatStatus={chatStatus} />;
-		case "tool-Question":
-			return <QuestionTool part={part} chatStatus={chatStatus} />;
 		case "tool-Task":
 		case "tool-Agent": {
 			const labelBase = part.type === "tool-Agent" ? "Agent" : "Task";

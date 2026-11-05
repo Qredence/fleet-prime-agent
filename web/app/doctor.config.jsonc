@@ -15,7 +15,7 @@
         ]
       },
       {
-        "files": ["src/components/chat/use-pi-chat.ts", "src/hooks/use-proximity-hover.ts"],
+        "files": ["src/components/chat/use-pi-chat.ts"],
         "rules": ["react-doctor/effect-needs-cleanup"]
       },
       {
@@ -79,13 +79,6 @@
           "src/components/artifacts/artifacts-panel.tsx"
         ],
         "rules": ["react-doctor/no-adjust-state-on-prop-change"]
-      },
-      {
-        "files": ["src/components/settings/providers/use-oauth-login-flow.ts"],
-        "rules": [
-          "react-doctor/no-set-state-after-await-in-effect",
-          "react-doctor/no-loading-flag-reset-outside-finally"
-        ]
       },
       {
         "files": ["src/components/sessions/project-folder.tsx"],

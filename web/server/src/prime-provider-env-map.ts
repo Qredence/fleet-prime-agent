@@ -40,3 +40,23 @@ export const PRIME_PROVIDER_ENV_MAP: Record<string, string> = {
 	"xiaomi-token-plan-ams": "XIAOMI_TOKEN_PLAN_AMS_API_KEY",
 	"xiaomi-token-plan-sgp": "XIAOMI_TOKEN_PLAN_SGP_API_KEY",
 };
+
+/**
+ * Providers whose credentials the engine reads from more than one env var, in
+ * its own precedence order (`getApiKeyEnvVars` in
+ * `@earendil-works/pi-ai/dist/env-api-keys.js`). They cannot be expressed in
+ * the single-var `PRIME_PROVIDER_ENV_MAP` mirror above.
+ */
+const MULTI_ENV_PROVIDER_MAP: Record<string, readonly string[]> = {
+	// ANTHROPIC_OAUTH_TOKEN takes precedence over ANTHROPIC_API_KEY.
+	anthropic: ["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
+	"github-copilot": ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"],
+};
+
+/** Every env var the engine consults for `providerId`, in precedence order. */
+export function providerEnvVarCandidates(providerId: string): readonly string[] {
+	const multi = MULTI_ENV_PROVIDER_MAP[providerId];
+	if (multi) return multi;
+	const single = PRIME_PROVIDER_ENV_MAP[providerId];
+	return single ? [single] : [];
+}

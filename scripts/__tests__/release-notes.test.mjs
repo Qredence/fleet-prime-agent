@@ -307,3 +307,27 @@ test("derives intact notes for every version the changelog records", () => {
 		assert.equal(previousVersion(changelog, version), versions[index + 1], `predecessor of ${version}`);
 	}
 });
+
+test("credits contributors between the changes and the upgrading note", () => {
+	const notes = releaseNotes({
+		version: "0.6.5",
+		changelog: changelogFixture,
+		contributors: [
+			{ login: "Zochory", pullRequests: [304, 305] },
+			{ login: "mikemikimike", pullRequests: [313] },
+		],
+	});
+	assert.ok(notes.includes("\n## Contributors\n\n- @Zochory (#304, #305)\n- @mikemikimike (#313)\n\n## Upgrading\n"));
+	const changes = notes.indexOf("\n## What changed\n");
+	const contributors = notes.indexOf("\n## Contributors\n");
+	const upgrading = notes.indexOf("\n## Upgrading\n");
+	assert.ok(changes < contributors && contributors < upgrading, "contributors must sit before the upgrading note");
+});
+
+test("omits the contributors section when nobody can be credited", () => {
+	for (const contributors of [undefined, []]) {
+		const notes = releaseNotes({ version: "0.6.5", changelog: changelogFixture, contributors });
+		assert.doesNotMatch(notes, /## Contributors/);
+		assert.ok(notes.includes("Second paragraph, separated by a line holding two spaces.\n\n## Upgrading\n"));
+	}
+});

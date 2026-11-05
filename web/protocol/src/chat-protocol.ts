@@ -345,6 +345,8 @@ export type ChatRequest = ChatSessionMetadata & {
 	mode?: ChatMode;
 	openUI?: boolean;
 	openUIArtifact?: boolean;
+	/** Omitted by legacy clients; only 1.x clients may receive the 1.x prompt. */
+	openUISyntaxVersion?: "0.x" | "1.x";
 	attachments?: Array<ChatAttachment>;
 	planAction?: ChatPlanAction;
 	streamingBehavior?: "steer" | "followUp";
@@ -488,6 +490,16 @@ export type ChatThinkingEvent = {
 	messageId?: string;
 };
 
+export type ChatReasoningTextEvent = {
+	type: "reasoning_text";
+	phase: ChatThinkingPhase;
+	contentIndex: number;
+	/** Delta text for start/delta; authoritative accumulated text on end when available. */
+	text: string;
+	messageId?: string;
+	durationMs?: number;
+};
+
 /** Request-specific completion metadata for non-turn chat requests. */
 export type ChatStreamRequestKind = "session-command";
 
@@ -557,6 +569,12 @@ export type ChatConnectedFrame = {
 	resumeAccepted?: boolean;
 };
 
+/** Shared ordering metadata for the POST and resumable session-event streams. */
+export type ChatStreamEventCursor = {
+	generation: string;
+	sequence: number;
+};
+
 /**
  * A single NDJSON frame emitted on the chat turn stream (`POST /api/chat`).
  *
@@ -567,7 +585,7 @@ export type ChatConnectedFrame = {
  * ignored by the browser.
  * Validated by `ChatStreamEventSchema` in `chat-protocol.zod`.
  */
-export type ChatStreamEvent =
+export type ChatStreamEvent = (
 	| ChatStartEvent
 	| { type: "delta"; text: string; messageId?: string }
 	| { type: "tool"; part: ChatToolPart; messageId?: string }
@@ -584,6 +602,7 @@ export type ChatStreamEvent =
 	| { type: "state"; state: ChatStateEvent }
 	| { type: "queue"; steering: Array<string>; followUp: Array<string> }
 	| ChatThinkingEvent
+	| ChatReasoningTextEvent
 	| ChatPresentationEvent
 	| ChatSessionSnapshotEvent
 	| ChatMessageEvent
@@ -628,7 +647,8 @@ export type ChatStreamEvent =
 			sessionReset?: boolean;
 			presentation?: PrimeAgentSessionPresentation;
 	  }
-	| ChatErrorStreamEvent;
+	| ChatErrorStreamEvent
+) & { eventCursor?: ChatStreamEventCursor };
 
 type ChatStateEvent = {
 	name: "agent_start" | "agent_end" | "agent_settled" | "turn_start" | "turn_end" | "message_start" | "message_end";
@@ -664,6 +684,8 @@ export type ChatModelsDiscoverRequest = {
 };
 
 export type ChatModelsDiscoverResponse = {
+	/** Safe, non-credential-bearing discovery failure. */
+	error?: string;
 	providerId: string;
 	models: Array<ChatModelInfo>;
 };

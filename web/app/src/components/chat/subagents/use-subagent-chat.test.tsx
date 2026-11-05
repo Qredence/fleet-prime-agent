@@ -88,6 +88,23 @@ afterEach(() => {
 });
 
 describe("useSubagentChat lifecycle", () => {
+	it("stops an invalid stream and retains the loaded transcript", async () => {
+		const sources = installEventSource();
+		const log = vi.spyOn(console, "error").mockImplementation(() => {});
+		const { result } = createHarness(async () => response([message("existing", "Already displayed")]));
+		await waitFor(() => expect(sources).toHaveLength(1));
+		const source = sources[0]!;
+		act(() =>
+			source.onmessage?.({
+				data: JSON.stringify({ type: "tool", part: { type: "tool-python", durationMs: "invalid" } }),
+				lastEventId: "",
+			} as MessageEvent<string>),
+		);
+		await waitFor(() => expect(result.current.status).toBe("error"));
+		expect(result.current.messages).toEqual([message("existing", "Already displayed")]);
+		expect(source.close).toHaveBeenCalled();
+		expect(log).toHaveBeenCalled();
+	});
 	it("retains a terminal snapshot and does not reconnect after completion", async () => {
 		const sources = installEventSource();
 		const loadSession = vi.fn(async () => response());

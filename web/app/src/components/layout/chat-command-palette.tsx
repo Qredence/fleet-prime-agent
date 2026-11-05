@@ -2,7 +2,7 @@ import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { History, Keyboard, Monitor, Moon, Plus, Square, Sun } from "lucide-react";
 import { useState } from "react";
 import type { RightPanel, ThemePreference } from "@/components/layout/canvas-utils";
-import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "@/components/layout/right-panel-registry";
+import { RIGHT_PANEL_DEFINITIONS } from "@/components/layout/right-panel-registry";
 import {
 	CommandDialog,
 	CommandEmpty,
@@ -82,7 +82,7 @@ export function ChatCommandPalette({
 				<CommandSeparator />
 
 				<CommandGroup heading="Panels">
-					{RIGHT_PANEL_LAUNCHER_DEFINITIONS.map((definition) => {
+					{RIGHT_PANEL_DEFINITIONS.map((definition) => {
 						const Icon = definition.icon;
 						return (
 							<CommandItem

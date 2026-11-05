@@ -1,15 +1,16 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+	addCustomProviderModelIds,
 	envVarNameForManagedProvider,
 	isDiscoverableEntry,
 	listCustomProviders,
+	providersMissingApiKey,
 	removeCustomProvider,
 	upsertCustomProvider,
 } from "../custom-provider-store";
-import { createLegacyAuthStorage, createLegacyModelRegistry } from "../legacy/prime-agent-sdk";
 
 describe("custom-provider-store", () => {
 	let dir: string;
@@ -142,18 +143,19 @@ describe("custom-provider-store", () => {
 		expect(provider.models).toEqual([{ id: "m", reasoning: true, cost: { input: 1 } }]);
 	});
 
-	it("refuses to overwrite an unparseable models.json", () => {
+	it("refuses to overwrite an unparseable models.json", async () => {
 		const original = "{ this is not valid JSONC";
 		writeFileSync(modelsJsonPath, original, "utf-8");
 
-		expect(() =>
+		// The write is async now, so the refusal surfaces as a rejection.
+		await expect(
 			upsertCustomProvider(modelsJsonPath, "custom+new", {
 				baseUrl: "https://new.test",
 				api: "openai-completions",
 				apiKey: "NEW_KEY",
 				models: [{ id: "new" }],
 			}),
-		).toThrow(/Refusing to update models\.json/);
+		).rejects.toThrow(/Refusing to update models\.json/);
 		expect(readFileSync(modelsJsonPath, "utf-8")).toBe(original);
 	});
 
@@ -181,6 +183,40 @@ describe("custom-provider-store", () => {
 	it("remove is a no-op for unknown ids", async () => {
 		await removeCustomProvider(modelsJsonPath, "custom+missing");
 		expect(await listCustomProviders(modelsJsonPath)).toEqual({});
+		expect(existsSync(modelsJsonPath)).toBe(false);
+	});
+
+	it("serializes concurrent discovery, save, and removal updates", async () => {
+		const providerInput = (id: string) => ({
+			baseUrl: `https://${id}.test`,
+			api: "openai-completions" as const,
+			apiKey: `${id.toUpperCase()}_API_KEY`,
+			models: [{ id }],
+		});
+		await upsertCustomProvider(modelsJsonPath, "custom+alpha", providerInput("alpha"));
+		await upsertCustomProvider(modelsJsonPath, "custom+beta", providerInput("beta"));
+		await upsertCustomProvider(modelsJsonPath, "custom+remove", providerInput("remove"));
+
+		await Promise.all([
+			addCustomProviderModelIds(modelsJsonPath, "custom+alpha", ["alpha-live"]),
+			addCustomProviderModelIds(modelsJsonPath, "custom+beta", ["beta-live"]),
+		]);
+		await Promise.all([
+			upsertCustomProvider(modelsJsonPath, "custom+alpha", {
+				...providerInput("alpha"),
+				name: "Alpha updated",
+				models: [{ id: "alpha-saved" }],
+			}),
+			removeCustomProvider(modelsJsonPath, "custom+remove"),
+		]);
+
+		const providers = await listCustomProviders(modelsJsonPath);
+		expect(providers["custom+alpha"]).toMatchObject({
+			name: "Alpha updated",
+			models: [{ id: "alpha-saved" }],
+		});
+		expect(providers["custom+beta"]?.models?.map((model) => model.id)).toContain("beta-live");
+		expect(providers["custom+remove"]).toBeUndefined();
 	});
 
 	it("derives stable env var names for managed providers", () => {
@@ -197,7 +233,7 @@ describe("custom-provider-store", () => {
 		expect(isDiscoverableEntry(undefined)).toBe(false);
 	});
 
-	it("round-trips through a real engine ModelRegistry and AuthStorage", async () => {
+	it("reads back a written custom provider with its models intact", async () => {
 		const providerId = "custom+acme";
 		await upsertCustomProvider(modelsJsonPath, providerId, {
 			name: "Acme",
@@ -207,21 +243,17 @@ describe("custom-provider-store", () => {
 			models: [{ id: "acme-1", name: "Acme One" }],
 		});
 
-		const authStorage = createLegacyAuthStorage(join(dir, "auth.json"));
-		authStorage.set(providerId, { type: "api_key", key: "secret-key" });
-		const registry = createLegacyModelRegistry(authStorage, modelsJsonPath);
-		registry.refresh();
-
-		expect(registry.getError()).toBeUndefined();
-		const model = registry.getAll().find((m) => m.provider === providerId && m.id === "acme-1");
-		expect(model).toBeDefined();
-		expect(model?.name).toBe("Acme One");
-		expect(model?.baseUrl).toBe("https://api.acme.test");
-		expect(registry.getProviderAuthStatus(providerId).configured).toBe(true);
-		expect(await registry.getApiKeyForProvider(providerId)).toBe("secret-key");
+		// `models.json` is read by the daemon, so what the store writes is what the
+		// catalog sees; the format assertion stays on this side of the boundary.
+		const stored = listCustomProviders(modelsJsonPath)[providerId];
+		expect(stored?.name).toBe("Acme");
+		expect(stored?.baseUrl).toBe("https://api.acme.test");
+		expect(stored?.api).toBe("openai-completions");
+		expect(stored?.apiKey).toBe("CUSTOM_ACME_API_KEY");
+		expect(stored?.models).toEqual([{ id: "acme-1", name: "Acme One" }]);
 	});
 
-	it("engine reports a load error when a required field is missing", async () => {
+	it("names a custom provider that the runtime would reject for a missing apiKey", async () => {
 		await upsertCustomProvider(modelsJsonPath, "custom+broken", {
 			baseUrl: "https://broken.test",
 			api: "openai-completions",
@@ -234,10 +266,56 @@ describe("custom-provider-store", () => {
 		delete raw.providers["custom+broken"].apiKey;
 		rewriteModelsJson(raw);
 
-		const registry = createLegacyModelRegistry(createLegacyAuthStorage(join(dir, "auth.json")), modelsJsonPath);
-		registry.refresh();
+		// The runtime drops *every* custom provider when one lacks `apiKey`, and
+		// reports nothing on any surface, so this is the only signal Fleet has.
+		expect(providersMissingApiKey(modelsJsonPath)).toEqual(["custom+broken"]);
+	});
 
-		expect(registry.getError()).toContain("apiKey");
+	it("accepts a built-in provider override that has no apiKey", async () => {
+		// A `baseUrl`-only override of a built-in provider is legal: the runtime
+		// validates built-ins by the override path, which does not require a key.
+		// Flagging it would produce a diagnostic for a file the daemon accepts.
+		rewriteModelsJson({
+			providers: {
+				openrouter: { baseUrl: "https://proxy.internal/v1" },
+				"custom+fine": {
+					baseUrl: "https://fine.test",
+					api: "openai-completions",
+					apiKey: "CUSTOM_FINE_API_KEY",
+					models: [{ id: "fine-1" }],
+				},
+			},
+		});
+
+		expect(providersMissingApiKey(modelsJsonPath)).toEqual([]);
+	});
+
+	it("flags every apiKey-less custom provider, including one listed after a valid entry", async () => {
+		rewriteModelsJson({
+			providers: {
+				"custom+good": {
+					baseUrl: "https://good.test",
+					api: "openai-completions",
+					apiKey: "CUSTOM_GOOD_API_KEY",
+					models: [{ id: "good-1" }],
+				},
+				"custom+bad": {
+					baseUrl: "https://bad.test",
+					api: "openai-completions",
+					models: [{ id: "bad-1" }],
+				},
+				"custom+empty": {
+					baseUrl: "https://empty.test",
+					api: "openai-completions",
+					apiKey: "",
+					models: [{ id: "empty-1" }],
+				},
+			},
+		});
+
+		// Cross-contamination is keyed on the file, not the entry: the well-formed
+		// provider is hidden too, so the offenders are what the user must fix.
+		expect(providersMissingApiKey(modelsJsonPath)).toEqual(["custom+bad", "custom+empty"]);
 	});
 
 	function rewriteModelsJson(raw: unknown) {

@@ -25,6 +25,7 @@ export const ChatRequestSchema = z
 		mode: ChatModeSchema.optional(),
 		openUI: z.boolean().optional(),
 		openUIArtifact: z.boolean().optional(),
+		openUISyntaxVersion: z.enum(["0.x", "1.x"]).optional(),
 		attachments: z.array(ChatAttachmentSchema).max(16).optional(),
 		planAction: ChatPlanActionSchema.optional(),
 		streamingBehavior: z.enum(["steer", "followUp"]).optional().openapi({ description: "Streaming behavior" }),
@@ -40,6 +41,7 @@ export const ChatRequestSchema = z
 				["planAction", request.planAction !== undefined],
 				["openUI", request.openUI === true],
 				["openUIArtifact", request.openUIArtifact === true],
+				["openUISyntaxVersion", request.openUISyntaxVersion !== undefined],
 			] as const) {
 				if (prohibited) {
 					context.addIssue({
@@ -174,6 +176,16 @@ export const ChatTextPartSchema = z
 		text: z.string(),
 	})
 	.openapi({ description: "Text message part" });
+
+export const ChatReasoningPartSchema = z
+	.object({
+		type: z.literal("reasoning"),
+		contentIndex: z.number().int().nonnegative(),
+		text: z.string(),
+		state: z.enum(["streaming", "complete"]),
+		durationMs: z.number().nonnegative().optional(),
+	})
+	.openapi({ description: "Typed assistant reasoning part" });
 
 export const ChatErrorPartSchema = z
 	.object({
@@ -312,7 +324,14 @@ export const ChatToolPartSchema = z
 	.openapi({ description: "Tool message part" });
 
 export const ChatMessagePartSchema = z
-	.union([ChatTextPartSchema, ChatErrorPartSchema, ChatImagePartSchema, ChatPayloadPartSchema, ChatToolPartSchema])
+	.union([
+		ChatTextPartSchema,
+		ChatReasoningPartSchema,
+		ChatErrorPartSchema,
+		ChatImagePartSchema,
+		ChatPayloadPartSchema,
+		ChatToolPartSchema,
+	])
 	.openapi({ description: "Message part" });
 
 export const ChatMessageSchema = z
@@ -618,6 +637,15 @@ export const PrimeAgentRefinementEditSchema = z.object({
 	error: z.string().optional(),
 });
 
+export const ChatReasoningTextEventSchema = z.object({
+	type: z.literal("reasoning_text"),
+	phase: z.enum(["start", "delta", "end"]),
+	contentIndex: z.number().int().nonnegative(),
+	text: z.string(),
+	messageId: z.string().optional(),
+	durationMs: z.number().nonnegative().optional(),
+});
+
 export const PrimeAgentRefinementSchema = z
 	.object({
 		id: z.string().min(1),
@@ -799,6 +827,10 @@ export const ChatErrorEventSchema = z
 	})
 	.openapi({ description: "Stream error event" });
 
+export const ChatStreamEventCursorSchema = z
+	.object({ generation: z.string().min(1), sequence: z.number().int().min(1) })
+	.strict();
+
 export const ChatStreamEventSchema = z
 	.union([
 		ChatStartEventSchema,
@@ -809,6 +841,7 @@ export const ChatStreamEventSchema = z
 		ChatStateStreamEventSchema,
 		ChatQueueEventSchema,
 		ChatThinkingEventSchema,
+		ChatReasoningTextEventSchema,
 		ChatPresentationEventSchema,
 		ChatSessionSnapshotEventSchema,
 		ChatMessageEventSchema,
@@ -821,6 +854,13 @@ export const ChatStreamEventSchema = z
 		ChatDoneEventSchema,
 		ChatErrorEventSchema,
 	])
+	.and(
+		z
+			.object({
+				eventCursor: ChatStreamEventCursorSchema.optional(),
+			})
+			.strict(),
+	)
 	.openapi({ description: "Chat stream event (NDJSON line)" });
 
 export const ChatSessionResponseSchema = z

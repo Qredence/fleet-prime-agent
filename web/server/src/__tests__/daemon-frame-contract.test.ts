@@ -3,6 +3,11 @@
  * event mapper → ChatStreamEvent. Any change in how Fleet maps a recorded
  * daemon stream (or in the frozen ChatStreamEvent schema) fails here.
  *
+ * The stock adapter is what produced these goldens, but it is not the path
+ * Fleet runs after the Rust cutover. `fleet-adapter-contract.test.ts` replays
+ * the same fixtures through `FleetDaemonAgentConnection` and requires identical
+ * output, so the pinned contract covers production.
+ *
  * Regenerate the v0.9.8 set with `pnpm --filter @prime-agent/web-server record:contract-fixtures`
  * (see fixtures/daemon-frames/v0.9.8/README.md).
  */
@@ -22,7 +27,7 @@ import {
 } from "./daemon-frame-replay";
 
 /** Sets whose mapper output is pinned. */
-const PINNED_SETS = ["v0.9.8", "rust-v0.10.1"] as const;
+const PINNED_SETS = ["v0.9.8", "rust-v0.10.1", "rust-v0.10.2"] as const;
 
 /**
  * Scenarios that legitimately map to no ChatStreamEvent: a lone hello, and the
@@ -32,6 +37,7 @@ const PINNED_SETS = ["v0.9.8", "rust-v0.10.1"] as const;
 const EXPECTED_EMPTY_OUTPUT: Readonly<Record<(typeof PINNED_SETS)[number], ReadonlySet<string>>> = {
 	"v0.9.8": new Set(),
 	"rust-v0.10.1": new Set(["daemon-hello", "model-catalog-changed", "session-binding"]),
+	"rust-v0.10.2": new Set(),
 };
 
 const V098_SCENARIOS = [

@@ -3,24 +3,22 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { OpenUIPromptMode } from "@prime-agent/web-protocol";
-import type { ExtensionUIContext } from "prime-agent";
-import {
-	type AgentConnection,
-	type AgentSession,
-	type AgentSessionRuntimeConfig,
-	DaemonAgentConnection,
-	DaemonClient,
-	type SessionSummary,
-} from "prime-agent";
+import type { AgentSession, AgentSessionRuntimeConfig, ExtensionUIContext } from "prime-agent";
+import type { FleetAgentConnection } from "./agent-connection-port";
+import { AGENT_DIR_ENV } from "./agent-dir";
 import {
 	DAEMON_PROTOCOL_NAME,
 	DAEMON_PROTOCOL_VERSION,
 	type DaemonCreateCommand,
 	type DaemonForkResult,
 	type DaemonHelloFrame,
+	type DaemonModelCatalog,
 	type DaemonSavedSessionPage,
 	type DaemonSessionBindingFrame,
+	type DaemonSessionSummary,
+	daemonRuntimeFlavor,
 	describeDaemonHello,
+	describeDaemonIncompatibility,
 	isCompatibleDaemonHello,
 	isDaemonHelloFrame,
 	isDaemonModelCatalogChangedFrame,
@@ -28,9 +26,12 @@ import {
 	isDaemonSessionBindingFrame,
 	isDaemonSessionSummary,
 } from "./daemon-protocol";
-import { createDaemonSequenceGapTracker, type DaemonSequenceGap } from "./daemon-sequence-gap";
+import type { DaemonSequenceGap } from "./daemon-sequence-gap";
 import { DaemonSocketClient } from "./daemon-socket-client";
+import { FleetDaemonAgentConnection } from "./fleet-daemon-connection";
+import { invalidateModelCatalog, loadModelCatalog } from "./model-catalog-cache";
 import { getPrimeConfig } from "./prime-config";
+import { ensurePrimeAgentRuntime } from "./prime-runtime";
 
 const DAEMON_STARTUP_TIMEOUT_MS = 30_000;
 const DAEMON_PROBE_TIMEOUT_MS = 1_000;
@@ -51,7 +52,7 @@ export type WebAgentConnectionOptions = {
 };
 
 export type WebAgentConnection = {
-	connection: AgentConnection;
+	connection: FleetAgentConnection;
 	openUIPrompt: WebAgentConnectionOptions["openUIPrompt"];
 	/** Present only for the explicit in-process test adapter. */
 	session?: AgentSession;
@@ -62,7 +63,7 @@ export type WebAgentConnection = {
 	/** Kill a daemon worker before deleting its persisted session file. */
 	terminate?: () => Promise<void>;
 	/** Delete a persisted session through the daemon catalog, without an active-session context. */
-	deleteSessionFile?: (sessionPath: string) => ReturnType<AgentConnection["deleteSavedSession"]>;
+	deleteSessionFile?: (sessionPath: string) => ReturnType<FleetAgentConnection["deleteSavedSession"]>;
 	/**
 	 * Branch the live session at `entryId` into a NEW persisted session through
 	 * the daemon `fork` command, then restore the source in its own worker.
@@ -128,9 +129,6 @@ function daemonCliEntrypoint(): string {
  */
 export const NATIVE_DAEMON_BINARY_ENV = "FLEET_PRIME_AGENT_BIN";
 
-/** The agent state dir env var both the TS and Rust runtimes honor. */
-export const AGENT_DIR_ENV = "PRIME_AGENT_CODING_AGENT_DIR";
-
 export function daemonSpawnCommand(
 	socketPath: string,
 	environment: NodeJS.ProcessEnv = process.env,
@@ -167,6 +165,18 @@ function describeHello(hello: unknown): string {
 	return isDaemonHelloFrame(hello) ? describeDaemonHello(hello) : "an unrecognized hello";
 }
 
+/** One refusal shape for every daemon gate, naming the actual mismatch. */
+function refusalMessage(action: string, socketPath: string, hello: unknown): string {
+	if (!isDaemonHelloFrame(hello)) {
+		return `Refusing to ${action} the Prime Agent daemon at ${socketPath}: it sent ${describeHello(hello)}`;
+	}
+	const reason = describeDaemonIncompatibility(hello);
+	return (
+		`Refusing to ${action} the Prime Agent daemon at ${socketPath}: ` +
+		`${reason ?? `found ${describeDaemonHello(hello)}`}`
+	);
+}
+
 type DaemonProbeResult =
 	| { status: "compatible" }
 	| { status: "incompatible"; detail: string }
@@ -177,7 +187,7 @@ async function probeDaemon(socketPath: string): Promise<DaemonProbeResult> {
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
-		if (matchesPinnedDaemon(hello)) return { status: "compatible" };
+		if (matchesPinnedDaemon(hello) && daemonRuntimeFlavor(hello) === "rust") return { status: "compatible" };
 		return {
 			status: "incompatible",
 			detail: `found ${describeHello(hello)}, expected ${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}`,
@@ -187,6 +197,28 @@ async function probeDaemon(socketPath: string): Promise<DaemonProbeResult> {
 	} finally {
 		client.close();
 	}
+}
+
+/**
+ * Describe why spawning the daemon failed.
+ *
+ * Node reports the same `ENOENT` whether the executable is missing or the
+ * spawn `cwd` is, with no field distinguishing them, so the message cannot
+ * claim which it was. It names both candidates instead: blaming a binary that
+ * exists and runs sends the operator after the wrong problem.
+ */
+export function describeDaemonSpawnError(
+	error: NodeJS.ErrnoException,
+	command: string,
+	options: { noun: string; cwd: string },
+): string {
+	if (error.code !== "ENOENT") {
+		return `Could not start Prime Agent ${options.noun}: ${error.code ?? error.message}`;
+	}
+	return (
+		`Could not start Prime Agent ${options.noun}: ${command} was not found, ` +
+		`or its working directory ${options.cwd} does not exist.`
+	);
 }
 
 async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> {
@@ -199,7 +231,8 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 		);
 	}
 
-	const { command, args } = daemonSpawnCommand(socketPath);
+	const nativeBinary = process.env[NATIVE_DAEMON_BINARY_ENV] || (await ensurePrimeAgentRuntime());
+	const { command, args } = daemonSpawnCommand(socketPath, { [NATIVE_DAEMON_BINARY_ENV]: nativeBinary });
 	const child = spawn(command, args, {
 		cwd: spawnCwd,
 		detached: true,
@@ -208,11 +241,23 @@ async function startDaemon(socketPath: string, spawnCwd: string): Promise<void> 
 		// daemon itself is pinned to Fleet's agent dir.
 		env: { ...process.env, [AGENT_DIR_ENV]: process.env[AGENT_DIR_ENV] || getPrimeConfig().agentDir },
 	});
+	const spawnErrors: NodeJS.ErrnoException[] = [];
+	child.once("error", (error: NodeJS.ErrnoException) => {
+		spawnErrors.push(error);
+	});
 	child.unref();
 
 	const deadline = Date.now() + DAEMON_STARTUP_TIMEOUT_MS;
 	while (Date.now() < deadline) {
+		let spawnError = spawnErrors[0];
+		if (spawnError) {
+			throw new Error(describeDaemonSpawnError(spawnError, command, { noun: "binary", cwd: spawnCwd }));
+		}
 		const probe = await probeDaemon(socketPath);
+		spawnError = spawnErrors[0];
+		if (spawnError) {
+			throw new Error(describeDaemonSpawnError(spawnError, command, { noun: "daemon", cwd: spawnCwd }));
+		}
 		if (probe.status === "compatible") return;
 		if (probe.status === "incompatible") {
 			throw new Error(
@@ -236,18 +281,15 @@ export function ensureFleetDaemonRunning(cwd: string, socketPath = defaultDaemon
 	return startup;
 }
 
-async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonClient; socketPath: string }> {
+async function connectFleetDaemon(cwd: string): Promise<{ client: DaemonSocketClient; socketPath: string }> {
 	const socketPath = defaultDaemonSocketPath();
 	await ensureFleetDaemonRunning(cwd, socketPath);
-	const client = new DaemonClient(socketPath);
+	const client = new DaemonSocketClient(socketPath);
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
-		if (!matchesPinnedDaemon(hello)) {
-			throw new Error(
-				`Refusing to attach to the Prime Agent daemon at ${socketPath}: expected protocol ` +
-					`${DAEMON_PROTOCOL_NAME}@${DAEMON_PROTOCOL_VERSION}, found ${describeHello(hello)}`,
-			);
+		if (!matchesPinnedDaemon(hello) || daemonRuntimeFlavor(hello) !== "rust") {
+			throw new Error(refusalMessage("attach to", socketPath, hello));
 		}
 		return { client, socketPath };
 	} catch (error) {
@@ -270,8 +312,8 @@ async function withDaemonSupervisor<T>(
 	try {
 		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
 		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
-		if (!matchesPinnedDaemon(hello)) {
-			throw new Error(`Refusing to use the Prime Agent daemon at ${socketPath}: found ${describeHello(hello)}`);
+		if (!matchesPinnedDaemon(hello) || daemonRuntimeFlavor(hello) !== "rust") {
+			throw new Error(refusalMessage("use", socketPath, hello));
 		}
 		return await run(client);
 	} finally {
@@ -347,7 +389,7 @@ export async function createDaemonSession(
 type DaemonFrameHook = (frame: unknown) => void;
 
 type OpenedDaemonConnection = {
-	connection: AgentConnection;
+	connection: FleetAgentConnection;
 	activeSessionId: string;
 	sessionPath?: string;
 	/** Raw daemon frames seen by this connection's socket (session_binding, model_catalog_changed). */
@@ -363,51 +405,30 @@ type OpenedDaemonConnection = {
 async function openDaemonConnection(options: WebAgentConnectionOptions): Promise<OpenedDaemonConnection> {
 	const created = await createDaemonSession(options);
 	const { client, socketPath } = await connectFleetDaemon(options.cwd);
-	let unsubscribeGapTracker: () => void = () => undefined;
 	try {
-		const unsubscribeCatalog = client.onMessage((frame: unknown) => {
+		const unsubscribeCatalog = client.onFrame((frame: unknown) => {
 			if (isDaemonModelCatalogChangedFrame(frame)) notifyDaemonModelCatalogChanged();
 		});
-		const gapHooks = new Set<(gap: DaemonSequenceGap) => void>();
-		const gapTracker = createDaemonSequenceGapTracker((gap) => {
-			for (const hook of [...gapHooks]) {
-				try {
-					hook(gap);
-				} catch {
-					// Hook failures stay local.
-				}
-			}
-		});
-		unsubscribeGapTracker = client.onMessage((frame: unknown) => {
-			gapTracker.observe(frame);
-		});
-		const connection = await DaemonAgentConnection.attach(client, created.activeSessionId, {
+		// The adapter owns sequence-gap detection: it observes the raw socket
+		// frames before `attach`, which is what establishes the baseline. A second
+		// tracker here would duplicate that work on the same frames.
+		const connection = await FleetDaemonAgentConnection.attach(client, created.activeSessionId, {
 			closeClientOnDispose: true,
 			recoverDaemon: () => ensureFleetDaemonRunning(options.cwd, socketPath),
-			sendClientEnv: false,
-			supportsExtensionUi: true,
 		});
 		const dispose = connection.dispose.bind(connection);
 		connection.dispose = async () => {
 			unsubscribeCatalog();
-			unsubscribeGapTracker();
-			gapHooks.clear();
 			await dispose();
 		};
 		return {
 			connection,
 			activeSessionId: created.activeSessionId,
 			...(created.sessionPath ? { sessionPath: created.sessionPath } : {}),
-			onFrame: (hook) => client.onMessage((frame: unknown) => hook(frame)),
-			onSequenceGap: (hook) => {
-				gapHooks.add(hook);
-				return () => {
-					gapHooks.delete(hook);
-				};
-			},
+			onFrame: (hook) => client.onFrame((frame: unknown) => hook(frame)),
+			onSequenceGap: (hook) => connection.onSequenceGap(hook),
 		};
 	} catch (error) {
-		unsubscribeGapTracker();
 		client.close();
 		throw error;
 	}
@@ -420,12 +441,56 @@ async function killDaemonSession(cwd: string, activeSessionId: string): Promise<
 	});
 }
 
+/**
+ * Run `work` against a daemon command that requires an `activeSessionId`, using
+ * a resident session created for this call and killed afterwards.
+ *
+ * Several daemon commands (MCP credential writes among them) are session-scoped
+ * even though the concern they mutate is not. Fleet's MCP pane is project-global,
+ * so there is no live session to reuse. The throwaway session exists only to
+ * satisfy that contract; it is killed in `finally` so a failure cannot leak a
+ * resident worker.
+ */
+export async function withTransientDaemonSession<T>(
+	cwd: string,
+	work: (client: DaemonSocketClient, activeSessionId: string) => Promise<T>,
+): Promise<T> {
+	const socketPath = defaultDaemonSocketPath();
+	await ensureFleetDaemonRunning(cwd, socketPath);
+	const client = new DaemonSocketClient(socketPath);
+	let activeSessionId: string | undefined;
+	try {
+		await client.connect(DAEMON_PROBE_TIMEOUT_MS);
+		const hello = await client.waitForHello(DAEMON_PROBE_TIMEOUT_MS);
+		if (!matchesPinnedDaemon(hello) || daemonRuntimeFlavor(hello) !== "rust") {
+			throw new Error(refusalMessage("use", socketPath, hello));
+		}
+		const created = await createDaemonSession({
+			cwd,
+			openUIPrompt: { enabled: false, mode: "agent", prompt: "" },
+		});
+		activeSessionId = created.activeSessionId;
+		return await work(client, activeSessionId);
+	} finally {
+		client.close();
+		if (activeSessionId) {
+			// Best-effort: a failed kill must not mask the operation's own result.
+			await killDaemonSession(cwd, activeSessionId).catch(() => undefined);
+		}
+	}
+}
+
 const modelCatalogListeners = new Set<() => void>();
 
 /**
- * Observe Rust `model_catalog_changed` broadcasts. Fleet's own default
- * listener refreshes the shared in-process ModelRegistry so the next catalog
- * read is fresh.
+ * Observe Rust `model_catalog_changed` broadcasts, which fire when the daemon's
+ * network catalog refresh changes the model list. Fleet's own snapshot cache
+ * subscribes so the next catalog read re-asks the daemon.
+ *
+ * The broadcast is not a local-file-change signal: `models.json` and
+ * `auth.json` edits are read through on the daemon's next read and never
+ * broadcast, which is why Fleet also invalidates on its own write paths and
+ * caps the snapshot age.
  */
 export function onDaemonModelCatalogChanged(listener: () => void): () => void {
 	modelCatalogListeners.add(listener);
@@ -435,11 +500,7 @@ export function onDaemonModelCatalogChanged(listener: () => void): () => void {
 }
 
 export function notifyDaemonModelCatalogChanged(): void {
-	try {
-		getPrimeConfig().modelRegistry.refresh();
-	} catch {
-		// A stale catalog is recoverable; never break the event stream.
-	}
+	invalidateModelCatalog();
 	for (const listener of [...modelCatalogListeners]) {
 		try {
 			listener();
@@ -447,6 +508,26 @@ export function notifyDaemonModelCatalogChanged(): void {
 			// Listener failures stay local.
 		}
 	}
+}
+
+/**
+ * Read the model catalog through Fleet's cached snapshot.
+ *
+ * The snapshot is **process-wide, not per-cwd**. The model catalog is a property
+ * of the daemon and its agent directory, identical for every project a user
+ * opens, so `sessionCwd` deliberately does not key the cache.
+ *
+ * `get_model_catalog` requires an `activeSessionId`, and this route has no live
+ * session to borrow: the bridge does not expose the daemon's active id. A
+ * throwaway session is therefore the only route, and it costs ~280 ms plus
+ * worker/log churn, so it runs on a cache miss only. `sessionCwd` exists solely
+ * because creating that session requires a workspace directory; it has no
+ * bearing on which catalog is returned.
+ */
+export function readDaemonModelCatalog(sessionCwd: string): Promise<DaemonModelCatalog> {
+	return loadModelCatalog(() =>
+		withTransientDaemonSession(sessionCwd, (client, activeSessionId) => client.getModelCatalog(activeSessionId)),
+	);
 }
 
 export type DaemonSessionRoute = { activeSessionId: string; sessionPath?: string };
@@ -465,7 +546,7 @@ export function applySessionBinding(route: DaemonSessionRoute, frame: unknown): 
 	return { activeSessionId: frame.activeSessionId, ...(sessionPath ? { sessionPath } : {}) };
 }
 
-type ForkableConnection = Pick<AgentConnection, "waitForIdle" | "getState" | "fork">;
+type ForkableConnection = Pick<FleetAgentConnection, "waitForIdle" | "getState" | "fork">;
 
 export type DaemonWorkerFork =
 	| { cancelled: true; selectedText?: string }
@@ -512,8 +593,8 @@ export async function forkInDaemonWorker(
 	};
 }
 
-type ConnectionEventListener = Parameters<AgentConnection["subscribe"]>[0];
-type SessionInvalidationListener = Parameters<AgentConnection["onBeforeSessionInvalidate"]>[0];
+type ConnectionEventListener = Parameters<FleetAgentConnection["subscribe"]>[0];
+type SessionInvalidationListener = Parameters<FleetAgentConnection["onBeforeSessionInvalidate"]>[0];
 
 /**
  * The daemon protocol fixes appendSystemPrompt when a worker is created. Fleet
@@ -524,7 +605,7 @@ function createReconfigurableConnection(
 	options: WebAgentConnectionOptions,
 	initial: OpenedDaemonConnection,
 ): {
-	connection: AgentConnection;
+	connection: FleetAgentConnection;
 	setOpenUIPrompt: (state: WebAgentConnectionOptions["openUIPrompt"]) => Promise<void>;
 	terminate: () => Promise<void>;
 	deleteSessionFile: NonNullable<WebAgentConnection["deleteSessionFile"]>;
@@ -679,7 +760,7 @@ function createReconfigurableConnection(
 		return operation;
 	};
 
-	const connection = new Proxy({} as AgentConnection, {
+	const connection = new Proxy({} as FleetAgentConnection, {
 		get(_target, property) {
 			if (property === "subscribe") {
 				return (listener: ConnectionEventListener) => {
@@ -784,9 +865,9 @@ export function startDaemonChildPrompt(
 	openConnection: (
 		cwd: string,
 		activeSessionId: string,
-	) => Promise<{ connection: AgentConnection; dispose: () => Promise<void> }> = openDaemonChildConnection,
+	) => Promise<{ connection: FleetAgentConnection; dispose: () => Promise<void> }> = openDaemonChildConnection,
 ): DaemonChildPromptHandle {
-	let connection: AgentConnection | undefined;
+	let connection: FleetAgentConnection | undefined;
 	let dispose = async (): Promise<void> => undefined;
 	const controller = new AbortController();
 	const settled = (async () => {
@@ -815,17 +896,18 @@ export function startDaemonChildPrompt(
 async function openDaemonChildConnection(
 	cwd: string,
 	activeSessionId: string,
-): Promise<{ connection: AgentConnection; dispose: () => Promise<void> }> {
+): Promise<{ connection: FleetAgentConnection; dispose: () => Promise<void> }> {
 	const { client, socketPath } = await connectFleetDaemon(cwd);
 	try {
-		const unsubscribeCatalog = client.onMessage((frame: unknown) => {
+		const unsubscribeCatalog = client.onFrame((frame: unknown) => {
 			if (isDaemonModelCatalogChangedFrame(frame)) notifyDaemonModelCatalogChanged();
 		});
-		const connection = await DaemonAgentConnection.attach(client, activeSessionId, {
+		// A child gets its own Fleet adapter over a shared socket. The adapter
+		// filters snapshots by its own active id, so the child's watcher traffic
+		// cannot reach the parent's session state.
+		const connection = await FleetDaemonAgentConnection.attach(client, activeSessionId, {
 			closeClientOnDispose: true,
 			recoverDaemon: () => ensureFleetDaemonRunning(cwd, socketPath),
-			sendClientEnv: false,
-			supportsExtensionUi: true,
 		});
 		return {
 			connection,
@@ -844,7 +926,7 @@ async function openDaemonChildConnection(
 export async function listDaemonSessions(
 	cwd?: string,
 	socketPath = defaultDaemonSocketPath(),
-): Promise<SessionSummary[]> {
+): Promise<DaemonSessionSummary[]> {
 	const effectiveCwd = cwd ?? getPrimeConfig().defaultCwd;
 	return withDaemonSupervisor(
 		effectiveCwd,
@@ -861,8 +943,7 @@ export async function listDaemonSessions(
 			if (!Array.isArray(sessions) || !sessions.every(isDaemonSessionSummary)) {
 				throw new Error("The Prime Agent daemon returned an invalid session list");
 			}
-			// Same row shape on both runtimes; typed as the bridge's session-list source.
-			return sessions as unknown as SessionSummary[];
+			return sessions;
 		},
 		socketPath,
 	);
@@ -932,7 +1013,7 @@ export async function listAllDaemonSavedSessions(
 	return rows;
 }
 
-export type DeleteSavedSessionResult = Awaited<ReturnType<AgentConnection["deleteSavedSession"]>>;
+export type DeleteSavedSessionResult = Awaited<ReturnType<FleetAgentConnection["deleteSavedSession"]>>;
 
 /** Delete a persisted session through the shared daemon catalog, without an active-session context. */
 export async function deleteDaemonSavedSession(cwd: string, sessionPath: string): Promise<DeleteSavedSessionResult> {

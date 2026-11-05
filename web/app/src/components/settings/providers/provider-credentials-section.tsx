@@ -1,7 +1,5 @@
 import type {
 	ChatProviderInfo,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
 	ChatProviderRemoveRequest,
 	ChatProviderRemoveResponse,
 	ChatProviderUpdateRequest,
@@ -39,14 +37,12 @@ import { Spinner } from "@/components/ui/spinner";
 export function ProviderCredentialsSection({
 	isLoading,
 	isPending,
-	onOAuthLogin,
 	onRemoveProvider,
 	onUpdateProvider,
 	providers,
 }: {
 	isLoading: boolean;
 	isPending: boolean;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
 	onUpdateProvider?: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
 	providers: Array<ChatProviderInfo>;
@@ -126,9 +122,10 @@ export function ProviderCredentialsSection({
 			title="Providers"
 			description={
 				<>
-					Locally, API keys are stored in{" "}
-					<code className="rounded bg-muted px-1 py-0.5 font-mono text-caption text-foreground">.env.local</code>.
-					When deployed, they are stored encrypted in your account.
+					Provider credentials are stored in Prime Agent’s{" "}
+					<code className="rounded bg-muted px-1 py-0.5 font-mono text-caption text-foreground">auth.json</code>.
+					Custom providers and model definitions are stored in models.json. Enabled models and defaults are saved
+					in settings.json, or the existing project settings file.
 				</>
 			}
 		>
@@ -148,8 +145,6 @@ export function ProviderCredentialsSection({
 					key={editingUnconfiguredProvider.id}
 					provider={editingUnconfiguredProvider}
 					onBack={openAddPicker}
-					onConfigured={closeEditor}
-					onOAuthLogin={onOAuthLogin}
 				/>
 			) : editingUnconfiguredProvider ? (
 				<AddProviderEditorPanel
@@ -173,8 +168,6 @@ export function ProviderCredentialsSection({
 					onTogglePassword={() => setShowPassword((current) => !current)}
 					onBack={openAddPicker}
 					onCancel={closeEditor}
-					onConfigured={closeEditor}
-					onOAuthLogin={onOAuthLogin}
 					onSave={() => {
 						if (editingProvider) void handleSave(editingProvider);
 					}}
@@ -241,8 +234,6 @@ export function ProviderCredentialsSection({
 							onCancelEdit={closeEditor}
 							onSave={(providerId) => void handleSave(providerId)}
 							onRemove={setConfirmRemoveProvider}
-							onOAuthLogin={onOAuthLogin}
-							onConfigured={closeEditor}
 						/>
 					)}
 				</div>

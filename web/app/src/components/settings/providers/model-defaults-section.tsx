@@ -141,9 +141,7 @@ export function ModelDefaultsSection({
 			title="LLM Models"
 			description={
 				<>
-					Models available in chat. Discover from configured providers, add the ones you want, and remove any you
-					do not need — changes save automatically. <span className="tabular-nums">{listedModels.length}</span> in
-					list
+					Models available in chat. <span className="tabular-nums">{listedModels.length}</span> in list
 					{modelOptions.length > 0 ? (
 						<>
 							{" "}

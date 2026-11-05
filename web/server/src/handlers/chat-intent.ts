@@ -18,12 +18,12 @@ import { wrapApiHandler } from "../wrap-api-handler";
  * The projection never reveals the key, its value, or a raw transport error.
  */
 async function composerIntentSettings(): Promise<ComposerIntentSettings> {
-	const service = getTypeSafeService();
+	const service = await getTypeSafeService();
 	const settings = await readFleetSettings(getPrimeConfig().agentDir);
 	return {
 		enabled: settings.composerIntentEnabled,
 		status: service.configured ? await service.status() : "unconfigured",
-		keySource: typeSafeKeySource(),
+		keySource: await typeSafeKeySource(),
 	};
 }
 
@@ -47,8 +47,8 @@ export function handleChatIntentGet(request: Request): Promise<Response> {
 export function handleChatIntentPut(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = ComposerIntentCredentialSchema.parse(await request.json().catch(() => ({})));
-		if (body.apiKey === null) clearStoredTypeSafeKey();
-		else writeStoredTypeSafeKey(body.apiKey);
+		if (body.apiKey === null) await clearStoredTypeSafeKey();
+		else await writeStoredTypeSafeKey(body.apiKey);
 		// The service caches its config at construction, so this is what makes the
 		// new key effective without restarting the process.
 		resetTypeSafeService();
@@ -79,7 +79,7 @@ export function handleChatIntentPatch(request: Request): Promise<Response> {
 export function handleChatIntentPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = ComposerIntentRequestSchema.parse(await request.json().catch(() => ({})));
-		const service = getTypeSafeService();
+		const service = await getTypeSafeService();
 		if (!service.configured) {
 			return Response.json({
 				enabled: false,

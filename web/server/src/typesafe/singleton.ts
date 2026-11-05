@@ -12,10 +12,10 @@ import { createTypeSafeService, type TypeSafeService } from "./service";
 type TypeSafeGlobal = { __fleetTypeSafe?: TypeSafeService };
 const globalStore = globalThis as unknown as TypeSafeGlobal;
 
-export function getTypeSafeService(): TypeSafeService {
+export async function getTypeSafeService(): Promise<TypeSafeService> {
 	if (!globalStore.__fleetTypeSafe) {
 		globalStore.__fleetTypeSafe = createTypeSafeService({
-			config: readTypeSafeConfig(process.env, readStoredTypeSafeKey()),
+			config: readTypeSafeConfig(process.env, await readStoredTypeSafeKey()),
 		});
 	}
 	return globalStore.__fleetTypeSafe;

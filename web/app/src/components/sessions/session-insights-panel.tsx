@@ -124,26 +124,13 @@ export function SessionInsightsPanel({
 				<Detail label="Assistant messages" value={insights.assistantMessages} />
 				<Detail label="Artifacts" value={insights.artifactCount} />
 				<Detail label="Bash commands" value={insights.bashCommands} />
-				<Detail label="IPython cells" value={insights.ipythonCells} />
+				<Detail label="CPython cells" value={insights.ipythonCells} />
 				<Detail label="RLM children" value={rlmSummary || "None"} />
 				<Detail
 					label="Refinements"
 					value={`${insights.refinements.total}\u00A0total · ${insights.refinements.successful}\u00A0successful · ${insights.refinements.failed}\u00A0failed`}
 				/>
 			</DetailList>
-
-			{presentation.recap ? (
-				<DetailList label="Existing recap">
-					<Detail
-						label="Summary"
-						value={
-							<span className="block max-w-56 whitespace-pre-wrap text-left text-pretty">
-								{presentation.recap}
-							</span>
-						}
-					/>
-				</DetailList>
-			) : null}
 		</section>
 	);
 }

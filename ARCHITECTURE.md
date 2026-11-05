@@ -87,7 +87,13 @@ It consumes the pinned stock Prime Agent runtime. It is not an upstream source c
 
 Prime Agent is consumed as an external stock dependency.
 
-`PRIME_AGENT_RUNTIME.json` is the canonical pin for the `prime-agent` release archive. Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with that manifest; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
+`PRIME_AGENT_RUNTIME.json` pins both the Rust runtime under `rust.version` and the legacy TypeScript SDK release archive in its top-level fields. The Rust pin is the configured runtime for Fleet's normal launch; the TypeScript pin supports the remaining legacy SDK adapter. A configured pin is not proof of the connected daemon's version: an executable override or an already-running daemon may differ.
+
+The Rust pin records, for each supported target (darwin-arm64, darwin-x64, linux-arm64, linux-x64), the release archive's SHA-256 and the SHA-256 of the extracted `prime-agent` executable. `ensurePrimeRuntime` (`packages/fleet-web/bin/prime-runtime.mjs`) is the single installer: the launcher calls it, and `web/server` wraps it as `ensurePrimeAgentRuntime` (`web/server/src/prime-runtime.ts`), which passes the pinned manifest. It downloads the archive from the pinned `baseUrl` and refuses it unless both digests match. It installs the binary and its packaged `prime-agent-runtime/` under `~/.prime/fleet/runtimes/<version>/<target>`. `scripts/check-prime-agent-runtime.mjs` (`pnpm run check:runtime`) validates the manifest shape in CI.
+
+Fleet spawns that native binary directly as `prime-agent --mode daemon --daemon-socket <socket>`, or the executable named by `FLEET_PRIME_AGENT_BIN`. It never runs the npm migration launcher or the network installer (`web/server/src/daemon-runtime.ts`).
+
+Package manifests, the workspace allow-build list, and the lockfile must remain synchronized with the TypeScript SDK pin until the legacy SDK is removed; the repository runtime check enforces the package, tarball, and lockfile relationship. Dependency keys may use `@earendil-works/pi-*` import names while resolving the matching checksum-pinned Prime Agent family tarballs—see `docs/guides/upstream-runtime.md`.
 
 Do not hardcode the current runtime version into this document.
 
@@ -95,13 +101,19 @@ Engine-level changes belong upstream. Fleet adapts supported upstream capabiliti
 
 ## Connection model
 
-Fleet uses the supported Prime Agent `AgentConnection` seam. The server asks that connection for session snapshots, messages, state, commands, and event subscriptions, and sends user actions through its commands. `DaemonAgentConnection` owns the local daemon transport, attach/reconnect, snapshot, and daemon protocol compatibility details.
+Fleet programs against a Fleet-owned connection port, `web/server/src/agent-connection-port.ts`. The port declares the connection methods Fleet actually drives, and derives their signatures from the upstream `AgentConnection` type so the two cannot drift. It is narrower than the upstream interface on purpose: the upstream connection declares far more methods for the terminal client, and implementing the unused ones as passthroughs would put unverified code on the production path.
+
+`FleetDaemonAgentConnection` implements that port over Fleet's own protocol-7 socket client. It owns the local daemon transport, attach/reconnect, snapshot handling, cursor-based dedupe, and daemon protocol compatibility details. The in-process test adapter implements the same port, which keeps bridge behavior independent of whether the runtime is daemon-backed or a deterministic test double.
+
+Fleet drives the Rust daemon only. A daemon is accepted when it reports the expected protocol version, schema revision, and the Rust runtime flavor (`isCompatibleDaemonHello` in `web/server/src/daemon-protocol.ts`). A TypeScript daemon is refused rather than routed down a path Fleet no longer carries. Every production session, created or resumed, attaches through `FleetDaemonAgentConnection`; the SDK's `DaemonAgentConnection` survives only in the contract-replay test harness. The reasons are recorded in [ADR 0002](docs/adr/0002-rust-daemon-cutover.md).
 
 The server keeps runtime-specific lifecycle and mutable objects behind that seam. It may use server-only session-management operations for resume, fork, and cleanup, but those objects do not cross into `web/app` or the browser. Browser-facing state is a typed projection owned by `web/protocol`.
 
 Connection lifecycle hooks and replacement options are used for session invalidation/replacement and re-seeding behavior. The supported connection surface keeps client behavior independent of whether the runtime is daemon-backed or an in-process test double.
 
-Process-local capabilities such as extension callbacks, dialog handlers, kernel handles, and executable tools remain in the server process. They are not represented as browser callbacks or serialized into the wire protocol.
+Process-local capabilities such as kernel handles and executable tools remain in the server process. They are not represented as browser callbacks or serialized into the wire protocol.
+
+Extension UI callbacks are not part of the connection port: the Rust daemon does not advertise the `extension_ui` capability, so no request can arrive to answer. Questions that do need a user decision reach the browser through Fleet's own pending-dialog projection instead.
 
 ## Request and event flow
 
@@ -135,9 +147,9 @@ The durable browser/server contract, including ordering and cursor behavior, is 
 
 ## Presentation and privacy boundary
 
-Fleet maps runtime information into browser-safe presentation. The event mapper recursively sanitizes sensitive payload keys and converts supported lifecycle signals into controlled status/reasoning summaries.
+Fleet maps runtime information into typed browser presentation. The event mapper recursively sanitizes sensitive payload keys and converts supported lifecycle signals into controlled status summaries.
 
-Raw detailed model reasoning is not a standard Fleet browser data surface. It must not become a live stream frame, hydrated transcript part, assistant-text fallback, copied/exported content, or ordinary diagnostic. Controlled execution/reasoning presentation is derived from safe typed lifecycle information rather than raw hidden reasoning text.
+When the supported runtime provides detailed reasoning, Fleet presents it as an explicit reasoning part in live and hydrated conversations. It remains separate from assistant answer text, ordinary copy/export, unrelated payloads, and diagnostics. Some providers do not supply reasoning text; Fleet then shows no reasoning part.
 
 Server-side mapping and sanitization own this boundary. The browser consumes protocol data, not runtime objects.
 
@@ -188,7 +200,7 @@ Prohibited directions:
 * `web/protocol` owns browser/server transport shapes.
 * Stock-runtime references remain aligned with `PRIME_AGENT_RUNTIME.json`.
 * Runtime-specific mutable objects and executable callbacks do not cross the browser boundary.
-* Raw detailed reasoning is not standard browser transcript data.
+* When supplied by the runtime, reasoning is an explicit conversation part, separate from assistant answer text and ordinary copy/export. Fleet shows no reasoning part for providers that do not supply it.
 * Typed runtime signals are preferred over inference from generated text.
 * Optional protocol behavior uses explicit capability/version semantics when compatibility requires it.
 * Replay/resync guarantees match the actual server state lifetime.

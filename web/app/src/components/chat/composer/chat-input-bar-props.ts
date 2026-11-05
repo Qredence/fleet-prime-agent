@@ -46,7 +46,6 @@ type ChatInputBarComposer = Pick<
 	| "modelKey"
 	| "modelPickerOpen"
 	| "models"
-	| "pendingQuestionBar"
 	| "removeUploadedAttachment"
 	| "removeWorkspaceAttachment"
 	| "setChatMode"
@@ -77,7 +76,6 @@ function buildChatInputBarProps(
 		models: composer.models,
 		infoDescription: composer.infoDescription,
 		slashCommands: composer.slashCommands,
-		questionBar: composer.pendingQuestionBar,
 		chatMode: composer.chatMode,
 		onChatModeChange: composer.setChatMode,
 		onModelChange: composer.setModelKey,
@@ -151,7 +149,6 @@ export function useChatInputBarProps(
 		modelPickerOpen,
 		models,
 		onComposerDraftChange,
-		pendingQuestionBar,
 		removeUploadedAttachment,
 		removeWorkspaceAttachment,
 		setChatMode,
@@ -182,7 +179,6 @@ export function useChatInputBarProps(
 					modelPickerOpen,
 					models,
 					onComposerDraftChange,
-					pendingQuestionBar,
 					removeUploadedAttachment,
 					removeWorkspaceAttachment,
 					setChatMode,
@@ -212,7 +208,6 @@ export function useChatInputBarProps(
 			modelPickerOpen,
 			models,
 			onComposerDraftChange,
-			pendingQuestionBar,
 			removeUploadedAttachment,
 			removeWorkspaceAttachment,
 			setChatMode,

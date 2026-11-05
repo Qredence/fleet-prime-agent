@@ -14,13 +14,14 @@ export interface ToolOutputSummary {
 	stderr?: string;
 	result?: unknown;
 	error?: string;
+	isError: boolean;
 	durationMs?: number;
 	kernelRestarted?: boolean;
 	structured: boolean;
 }
 
 export type ToolOutputSection = {
-	label: "stdout" | "stderr" | "result" | "error" | "output";
+	label: "stdout" | "stderr" | "result" | "reported-error" | "output";
 	content: string;
 	language: AgentCodeLanguage;
 };
@@ -65,6 +66,8 @@ export interface NormalizedToolPart {
 	output?: unknown;
 	outputSummary: ToolOutputSummary;
 	command?: string;
+	traceDescription?: string;
+	durationLabel?: string;
 	metadata: string[];
 	approval?: ToolRecord;
 	detail?: ToolDetail;
@@ -141,6 +144,7 @@ function summarizeOutput(output: unknown): ToolOutputSummary {
 	const stderr = getString(fields, "stderr", "standardError", "standard_error");
 	const errorValue = fields.error ?? fields.errorMessage ?? fields.evalue;
 	const error = errorValue === undefined ? undefined : stringifyToolValue(errorValue);
+	const isError = getBoolean(fields, "isError", "is_error") === true || Boolean(error);
 	const durationMs = getNumber(fields, "durationMs", "duration_ms", "duration");
 	const kernelRestarted = getBoolean(fields, "kernelRestarted", "kernel_restarted");
 	const structuredKeys = new Set([
@@ -172,6 +176,7 @@ function summarizeOutput(output: unknown): ToolOutputSummary {
 		stderr,
 		result,
 		error,
+		isError,
 		durationMs,
 		kernelRestarted,
 		structured,
@@ -189,7 +194,10 @@ function getOutputSections(summary: ToolOutputSummary, output: unknown): ToolOut
 			language: typeof summary.result === "object" && summary.result !== null ? "json" : "text",
 		});
 	}
-	if (summary.error) sections.push({ label: "error", content: summary.error, language: "text" });
+	if (summary.error) sections.push({ label: "reported-error", content: summary.error, language: "text" });
+	else if (summary.isError) {
+		sections.push({ label: "reported-error", content: "The tool reported an error.", language: "text" });
+	}
 	if (sections.length > 0) return sections;
 
 	const record = summary.details ?? summary.record;
@@ -310,8 +318,24 @@ function toolName(part: ToolRecord): string {
 	return type.startsWith("tool-") ? type.slice(5) : type;
 }
 
+/**
+ * Prime Agent reports a tool the user stopped as an error whose message is
+ * "Request was aborted". Treat that as a cancellation, not a failure.
+ */
+export function isAbortedToolPart(part: Record<string, unknown>): boolean {
+	const error = part.error;
+	const message =
+		typeof error === "string"
+			? error
+			: typeof error === "object" && error !== null && typeof (error as { message?: unknown }).message === "string"
+				? (error as { message: string }).message
+				: undefined;
+	return message !== undefined && /^request was aborted\b/i.test(message.trim());
+}
+
 function resultStatus(part: ToolRecord, chatStatus?: string): ToolResultStatus {
 	const state = typeof part.state === "string" ? part.state : undefined;
+	if (isAbortedToolPart(part)) return "cancelled";
 	if (state === "output-error" || state === "error") return "error";
 	if (state === "output-available" || state === "complete" || state === "success") return "success";
 	if (state === "cancelled" || state === "canceled" || state === "aborted" || state === "interrupted")
@@ -342,7 +366,7 @@ function sourceLanguageFor(name: string, command: string | undefined): AgentCode
 function sourceLabelFor(name: string, language: AgentCodeLanguage | undefined): string | undefined {
 	if (!language) return undefined;
 	const lowerName = name.toLowerCase();
-	if (lowerName.includes("ipython")) return "IPython";
+	if (lowerName.includes("ipython") || lowerName.includes("cpython") || lowerName === "python_repl") return "CPython";
 	if (lowerName.includes("bash") || lowerName.includes("shell")) return "Bash";
 	if (lowerName.includes("python")) return "Python";
 	if (language === "json") return "JSON";
@@ -363,6 +387,39 @@ export function normalizeToolPart(part: unknown, chatStatus?: string): Normalize
 	return normalizeToolPartUncached(part, chatStatus);
 }
 
+function safeTraceText(value: string | undefined): string | undefined {
+	if (!value) return undefined;
+	const safe = value
+		.replace(/\s+/g, " ")
+		.replace(
+			/(\bauthorization\b\s*[:=]\s*)(?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|[a-z]+\s+[^\s,;'"\\]+|[^\s,;'"\\]+)/gi,
+			"$1[redacted]",
+		)
+		.replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/gi, "$1[redacted]@")
+		.replace(
+			/(\b(?:[a-z0-9]+_)*(?:api[_ -]?key|access[_ -]?(?:token|key)|auth(?:orization)?|credential|password|secret|token)\b\s*[:=]\s*)(?:(?:Basic|Bearer)\s+)?(?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|[^\s,;"']+)/gi,
+			"$1[redacted]",
+		)
+		.replace(
+			/(--(?:api-key|access-token|password|secret|token)\s+)(?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|\S+)/gi,
+			"$1[redacted]",
+		)
+		.replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/@]+@/gi, "$1[redacted]@")
+		.trim();
+	if (!safe) return undefined;
+	return safe.length > 96 ? `${safe.slice(0, 93)}…` : safe;
+}
+
+export function toolTraceDescription(part: unknown): string | undefined {
+	const normalized = normalizeToolPart(part);
+	if (!normalized) return undefined;
+	const input = normalized.input;
+	const target = getString(input, "path", "filePath", "filename", "file");
+	return safeTraceText(
+		target ?? normalized.command ?? getString(input, "query", "pattern", "url", "description", "task", "prompt"),
+	);
+}
+
 function normalizeToolPartUncached(part: unknown, chatStatus?: string): NormalizedToolPart | undefined {
 	const source = asRecord(part);
 	if (!source) return undefined;
@@ -373,9 +430,10 @@ function normalizeToolPartUncached(part: unknown, chatStatus?: string): Normaliz
 	const outputSummary = summarizeOutput(output);
 	const status = resultStatus(source, chatStatus);
 	const command = getString(input, "command", "cmd", "code", "script");
+	const traceDescription = toolTraceDescriptionFromInput(input, command);
 	const sourceLanguage = sourceLanguageFor(name, command);
 	const metadata: string[] = [];
-	if (outputSummary.durationMs !== undefined) metadata.push(`${outputSummary.durationMs}ms`);
+	if (outputSummary.durationMs !== undefined) metadata.push(formatDuration(outputSummary.durationMs));
 	if (outputSummary.kernelRestarted) metadata.push("kernel restarted");
 
 	const diff = getDiff(input, outputSummary);
@@ -428,8 +486,25 @@ function normalizeToolPartUncached(part: unknown, chatStatus?: string): Normaliz
 		output,
 		outputSummary,
 		command,
+		traceDescription,
+		durationLabel: outputSummary.durationMs === undefined ? undefined : formatDuration(outputSummary.durationMs),
 		metadata,
 		approval,
 		detail,
 	};
+}
+
+function toolTraceDescriptionFromInput(input: ToolRecord | undefined, command: string | undefined) {
+	const target = getString(input, "path", "filePath", "filename", "file");
+	return safeTraceText(
+		target ?? command ?? getString(input, "query", "pattern", "url", "description", "task", "prompt"),
+	);
+}
+
+function formatDuration(durationMs: number): string {
+	if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
+	if (durationMs < 60_000) return `${(durationMs / 1000).toFixed(durationMs < 10_000 ? 1 : 0)} s`;
+	const minutes = Math.floor(durationMs / 60_000);
+	const seconds = Math.round((durationMs % 60_000) / 1000);
+	return seconds === 60 ? `${minutes + 1} min` : seconds > 0 ? `${minutes} min ${seconds} s` : `${minutes} min`;
 }

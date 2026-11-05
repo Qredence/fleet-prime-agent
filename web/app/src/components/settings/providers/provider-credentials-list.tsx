@@ -1,8 +1,4 @@
-import type {
-	ChatProviderInfo,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
-} from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatProviderInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
 import { Info, Pencil, Trash2 } from "lucide-react";
 import { ItemRow, RowSurface } from "@/components/layout/item-row";
@@ -17,7 +13,7 @@ import {
 	supportsOAuth,
 } from "@/components/settings/providers/provider-credentials-types";
 import { PROVIDER_METADATA } from "@/components/settings/providers/provider-metadata";
-import { ProviderOAuthSignIn } from "@/components/settings/providers/provider-oauth-sign-in";
+import { ProviderOAuthTerminalFallback } from "@/components/settings/providers/provider-oauth-terminal-fallback";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -33,8 +29,6 @@ export function ActiveProviderList({
 	onCancelEdit,
 	onSave,
 	onRemove,
-	onOAuthLogin,
-	onConfigured,
 }: {
 	providers: Array<ChatProviderInfo>;
 	editingProvider: string | null;
@@ -45,8 +39,6 @@ export function ActiveProviderList({
 	onCancelEdit: () => void;
 	onSave: (providerId: string) => void;
 	onRemove: (provider: ChatProviderInfo) => void;
-	onOAuthLogin?: (request: ChatProviderOAuthLoginRequest) => Promise<ChatProviderOAuthLoginResponse>;
-	onConfigured?: () => void;
 }) {
 	const { api, apiKey, baseUrl, modelId, models, displayName, showPassword, attemptedSave, canSave } = form;
 	const { isPending, canRemove } = operation;
@@ -134,12 +126,7 @@ export function ActiveProviderList({
 						{isEditing ? (
 							<RowSurface tone="inset" padding="md" className="flex flex-col gap-2 border-t border-border/30">
 								{oauthOnly ? (
-									<ProviderOAuthSignIn
-										key={provider.id}
-										provider={provider}
-										onConfigured={onConfigured}
-										onOAuthLogin={onOAuthLogin}
-									/>
+									<ProviderOAuthTerminalFallback provider={provider} />
 								) : (
 									<>
 										<ProviderCredentialFields
@@ -181,14 +168,7 @@ export function ActiveProviderList({
 												Save
 											</Button>
 										</div>
-										{oauthAvailable ? (
-											<ProviderOAuthSignIn
-												key={`${provider.id}-oauth`}
-												provider={provider}
-												onConfigured={onConfigured}
-												onOAuthLogin={onOAuthLogin}
-											/>
-										) : null}
+										{oauthAvailable ? <ProviderOAuthTerminalFallback provider={provider} /> : null}
 									</>
 								)}
 							</RowSurface>

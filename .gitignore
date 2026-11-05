@@ -72,3 +72,6 @@ qa-results/
 
 # Contract fixture recorder scratch (web/server/scripts/record-contract-fixtures.ts)
 .contract-fixtures-scratch/
+
+# Local code-review reports (agent-generated, never tracked)
+/reviews/

@@ -2,10 +2,11 @@
 
 Fleet Prime Agent is Qredence's persistent local workspace for coding and
 research with AI: a multi-project web chat built on the upstream
-[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) engine. The
-engine is installed as a checksum-pinned dependency and never modified; Fleet
-adds the web interface, workspace navigation, streaming tool cards, and
-managed IPython kernels.
+[Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) engine. Fleet
+provisions the pinned Prime Agent Rust runtime on first launch after verifying
+the upstream archive and executable SHA-256 checksums; it never modifies the
+engine. Fleet adds the web interface, workspace navigation, streaming tool
+cards, and managed REPL integration.
 
 ## Install
 

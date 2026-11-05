@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AgentsRouteImport } from './routes/agents'
+import { Route as ConnectorsRouteImport } from './routes/connectors'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiProjectsRouteImport } from './routes/api/projects'
@@ -36,12 +38,24 @@ import { Route as ApiProjectsForkRouteImport } from './routes/api/projects/fork'
 import { Route as ApiWorkspaceFileRouteImport } from './routes/api/workspace/file'
 import { Route as ApiWorkspaceTreeRouteImport } from './routes/api/workspace/tree'
 import { Route as ApiChatMcpOauthRouteImport } from './routes/api/chat/mcp/oauth'
+import { Route as ApiChatMcpTokenRouteImport } from './routes/api/chat/mcp/token'
 import { Route as ApiChatModelsDiscoverRouteImport } from './routes/api/chat/models/discover'
+import { Route as ApiChatOpenuiToolRouteImport } from './routes/api/chat/openui/tool'
 import { Route as ApiChatProvidersOauthRouteImport } from './routes/api/chat/providers/oauth'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectorsRoute = ConnectorsRouteImport.update({
+  id: '/connectors',
+  path: '/connectors',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -174,10 +188,20 @@ const ApiChatMcpOauthRoute = ApiChatMcpOauthRouteImport.update({
   path: '/oauth',
   getParentRoute: () => ApiChatMcpRoute,
 } as any)
+const ApiChatMcpTokenRoute = ApiChatMcpTokenRouteImport.update({
+  id: '/token',
+  path: '/token',
+  getParentRoute: () => ApiChatMcpRoute,
+} as any)
 const ApiChatModelsDiscoverRoute = ApiChatModelsDiscoverRouteImport.update({
   id: '/discover',
   path: '/discover',
   getParentRoute: () => ApiChatModelsRoute,
+} as any)
+const ApiChatOpenuiToolRoute = ApiChatOpenuiToolRouteImport.update({
+  id: '/openui/tool',
+  path: '/openui/tool',
+  getParentRoute: () => ApiChatRoute,
 } as any)
 const ApiChatProvidersOauthRoute = ApiChatProvidersOauthRouteImport.update({
   id: '/oauth',
@@ -187,6 +211,8 @@ const ApiChatProvidersOauthRoute = ApiChatProvidersOauthRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/connectors': typeof ConnectorsRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
@@ -213,11 +239,15 @@ export interface FileRoutesByFullPath {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
+  '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/openui/tool': typeof ApiChatOpenuiToolRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/connectors': typeof ConnectorsRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
@@ -244,12 +274,16 @@ export interface FileRoutesByTo {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
+  '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/openui/tool': typeof ApiChatOpenuiToolRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/connectors': typeof ConnectorsRoute
   '/api/chat': typeof ApiChatRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/api/projects': typeof ApiProjectsRouteWithChildren
@@ -276,13 +310,17 @@ export interface FileRoutesById {
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
+  '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/openui/tool': typeof ApiChatOpenuiToolRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agents'
+    | '/connectors'
     | '/api/chat'
     | '/api/health'
     | '/api/projects'
@@ -309,11 +347,15 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
+    | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
+    | '/api/chat/openui/tool'
     | '/api/chat/providers/oauth'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/agents'
+    | '/connectors'
     | '/api/chat'
     | '/api/health'
     | '/api/projects'
@@ -340,11 +382,15 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
+    | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
+    | '/api/chat/openui/tool'
     | '/api/chat/providers/oauth'
   id:
     | '__root__'
     | '/'
+    | '/agents'
+    | '/connectors'
     | '/api/chat'
     | '/api/health'
     | '/api/projects'
@@ -371,12 +417,16 @@ export interface FileRouteTypes {
     | '/api/workspace/file'
     | '/api/workspace/tree'
     | '/api/chat/mcp/oauth'
+    | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
+    | '/api/chat/openui/tool'
     | '/api/chat/providers/oauth'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentsRoute: typeof AgentsRoute
+  ConnectorsRoute: typeof ConnectorsRoute
   ApiChatRoute: typeof ApiChatRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
   ApiProjectsRoute: typeof ApiProjectsRouteWithChildren
@@ -391,6 +441,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connectors': {
+      id: '/connectors'
+      path: '/connectors'
+      fullPath: '/connectors'
+      preLoaderRoute: typeof ConnectorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -575,12 +639,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatMcpOauthRouteImport
       parentRoute: typeof ApiChatMcpRoute
     }
+    '/api/chat/mcp/token': {
+      id: '/api/chat/mcp/token'
+      path: '/token'
+      fullPath: '/api/chat/mcp/token'
+      preLoaderRoute: typeof ApiChatMcpTokenRouteImport
+      parentRoute: typeof ApiChatMcpRoute
+    }
     '/api/chat/models/discover': {
       id: '/api/chat/models/discover'
       path: '/discover'
       fullPath: '/api/chat/models/discover'
       preLoaderRoute: typeof ApiChatModelsDiscoverRouteImport
       parentRoute: typeof ApiChatModelsRoute
+    }
+    '/api/chat/openui/tool': {
+      id: '/api/chat/openui/tool'
+      path: '/openui/tool'
+      fullPath: '/api/chat/openui/tool'
+      preLoaderRoute: typeof ApiChatOpenuiToolRouteImport
+      parentRoute: typeof ApiChatRoute
     }
     '/api/chat/providers/oauth': {
       id: '/api/chat/providers/oauth'
@@ -594,10 +672,12 @@ declare module '@tanstack/react-router' {
 
 interface ApiChatMcpRouteChildren {
   ApiChatMcpOauthRoute: typeof ApiChatMcpOauthRoute
+  ApiChatMcpTokenRoute: typeof ApiChatMcpTokenRoute
 }
 
 const ApiChatMcpRouteChildren: ApiChatMcpRouteChildren = {
   ApiChatMcpOauthRoute: ApiChatMcpOauthRoute,
+  ApiChatMcpTokenRoute: ApiChatMcpTokenRoute,
 }
 
 const ApiChatMcpRouteWithChildren = ApiChatMcpRoute._addFileChildren(
@@ -646,6 +726,7 @@ interface ApiChatRouteChildren {
   ApiChatSessionTreeRoute: typeof ApiChatSessionTreeRoute
   ApiChatSessionsRoute: typeof ApiChatSessionsRoute
   ApiChatSettingsRoute: typeof ApiChatSettingsRoute
+  ApiChatOpenuiToolRoute: typeof ApiChatOpenuiToolRoute
 }
 
 const ApiChatRouteChildren: ApiChatRouteChildren = {
@@ -667,6 +748,7 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatSessionTreeRoute: ApiChatSessionTreeRoute,
   ApiChatSessionsRoute: ApiChatSessionsRoute,
   ApiChatSettingsRoute: ApiChatSettingsRoute,
+  ApiChatOpenuiToolRoute: ApiChatOpenuiToolRoute,
 }
 
 const ApiChatRouteWithChildren =
@@ -688,6 +770,8 @@ const ApiProjectsRouteWithChildren = ApiProjectsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentsRoute: AgentsRoute,
+  ConnectorsRoute: ConnectorsRoute,
   ApiChatRoute: ApiChatRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
   ApiProjectsRoute: ApiProjectsRouteWithChildren,

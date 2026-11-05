@@ -6,6 +6,17 @@ import {
 } from "@/components/sessions/agent-tab-state";
 
 describe("agent tab scope state", () => {
+	it("selects Activity without changing the selection in another session scope", () => {
+		const activity = reduceAgentTabScope(INITIAL_AGENT_TAB_SCOPE_STATE, {
+			scopeKey: "project-a:session-a",
+			tabId: "activity",
+			type: "select",
+		});
+
+		expect(visibleAgentTabScope(activity, "project-a:session-a").selectedTabId).toBe("activity");
+		expect(visibleAgentTabScope(activity, "project-b:session-b").selectedTabId).toBe("main");
+	});
+
 	it("resets selected and dismissed tabs when the project/session scope changes", () => {
 		const selected = reduceAgentTabScope(INITIAL_AGENT_TAB_SCOPE_STATE, {
 			scopeKey: "project-a:session-a",
@@ -59,5 +70,26 @@ describe("agent tab scope state", () => {
 		});
 
 		expect(restored.dismissedChildIds.has("child-1")).toBe(false);
+	});
+
+	it("selects a dismissed child when reopening it from Activity", () => {
+		const dismissed = reduceAgentTabScope(INITIAL_AGENT_TAB_SCOPE_STATE, {
+			scopeKey: "project-a:session-a",
+			tabId: "child-1",
+			type: "dismiss",
+		});
+		const restored = reduceAgentTabScope(dismissed, {
+			scopeKey: "project-a:session-a",
+			tabId: "child-1",
+			type: "restore",
+		});
+		const selected = reduceAgentTabScope(restored, {
+			scopeKey: "project-a:session-a",
+			tabId: "child-1",
+			type: "select",
+		});
+
+		expect(selected.dismissedChildIds.has("child-1")).toBe(false);
+		expect(selected.selectedTabId).toBe("child-1");
 	});
 });

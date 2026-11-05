@@ -11,7 +11,13 @@ export {
 	handleChatIntentPost,
 	handleChatIntentPut,
 } from "./handlers/chat-intent";
-export { handleChatMcpDelete, handleChatMcpGet, handleChatMcpOAuthPost, handleChatMcpPost } from "./handlers/chat-mcp";
+export {
+	handleChatMcpDelete,
+	handleChatMcpGet,
+	handleChatMcpOAuthPost,
+	handleChatMcpPost,
+	handleChatMcpTokenPost,
+} from "./handlers/chat-mcp";
 export { handleChatModelsGet } from "./handlers/chat-models";
 export { handleChatModelsDiscoverPost } from "./handlers/chat-models-discover";
 export { handleChatNewPost } from "./handlers/chat-new";
@@ -35,6 +41,7 @@ export {
 export { handleChatSessionsGet } from "./handlers/chat-sessions";
 export { handleChatSettingsGet, handleChatSettingsPatch } from "./handlers/chat-settings";
 export { handleHealthGet } from "./handlers/health";
+export { handleOpenUIToolPost } from "./handlers/openui-tool";
 export {
 	handleProjectBrowseGet,
 	handleProjectDelete,

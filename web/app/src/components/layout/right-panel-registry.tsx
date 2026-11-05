@@ -1,5 +1,6 @@
+import type { LucideIcon } from "lucide-react";
 import { Activity, Bot, Folder, GitBranch, Library, Package, SquareTerminal } from "lucide-react";
-import type { ComponentType, ElementType } from "react";
+import type { ComponentType } from "react";
 import { lazy, Suspense } from "react";
 import type { RightPanel } from "@/components/layout/canvas-utils";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
@@ -16,14 +17,22 @@ export type RightPanelDefinition = {
 	ariaLabel: string;
 	commandLabel: string;
 	commandKeywords: Array<string>;
-	icon: ElementType;
+	icon: LucideIcon;
 	dataTestid: string;
 	mobileDataTestid: string;
-	showInLauncher?: boolean;
 	badgeSource?: RightPanelBadgeSource;
 	loadingSource?: RightPanelLoadingSource;
 	refreshSource?: RightPanelLoadingSource;
 	component: ComponentType;
+};
+
+export type RightPanelGroup = {
+	id: "workspace" | "subagents" | "session";
+	title: string;
+	ariaLabel: string;
+	icon: LucideIcon;
+	defaultPanel: ActiveRightPanel;
+	panels: ReadonlyArray<ActiveRightPanel>;
 };
 
 const LazyArtifactsPanel = lazy(() =>
@@ -204,7 +213,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		icon: Library,
 		dataTestid: "pi-resources-canvas",
 		mobileDataTestid: "pi-resources-mobile-panel",
-		showInLauncher: true,
 		badgeSource: "resources",
 		loadingSource: "resources",
 		refreshSource: "resources",
@@ -220,7 +228,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		icon: Folder,
 		dataTestid: "pi-workspace-canvas",
 		mobileDataTestid: "pi-workspace-mobile-panel",
-		showInLauncher: true,
 		badgeSource: undefined,
 		loadingSource: "workspace",
 		refreshSource: "workspace",
@@ -236,7 +243,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		icon: Package,
 		dataTestid: "pi-artifacts-canvas",
 		mobileDataTestid: "pi-artifacts-mobile-panel",
-		showInLauncher: true,
 		badgeSource: "artifacts",
 		loadingSource: undefined,
 		refreshSource: undefined,
@@ -248,11 +254,10 @@ export const RIGHT_PANEL_REGISTRY = {
 		title: "REPL",
 		ariaLabel: "REPL runs",
 		commandLabel: "Open REPL",
-		commandKeywords: ["repl", "ipython", "python", "cells", "panels"],
+		commandKeywords: ["repl", "cpython", "ipython", "python", "cells", "panels"],
 		icon: SquareTerminal,
 		dataTestid: "pi-repl-canvas",
 		mobileDataTestid: "pi-repl-mobile-panel",
-		showInLauncher: true,
 		badgeSource: "repl",
 		loadingSource: undefined,
 		refreshSource: undefined,
@@ -268,7 +273,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		icon: Bot,
 		dataTestid: "pi-subagents-canvas",
 		mobileDataTestid: "pi-subagents-mobile-panel",
-		showInLauncher: false,
 		badgeSource: undefined,
 		loadingSource: undefined,
 		refreshSource: undefined,
@@ -284,7 +288,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		icon: Activity,
 		dataTestid: "pi-session-insights-canvas",
 		mobileDataTestid: "pi-session-insights-mobile-panel",
-		showInLauncher: true,
 		badgeSource: undefined,
 		loadingSource: undefined,
 		refreshSource: undefined,
@@ -300,7 +303,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		icon: GitBranch,
 		dataTestid: "pi-session-tree-canvas",
 		mobileDataTestid: "pi-session-tree-mobile-panel",
-		showInLauncher: true,
 		badgeSource: undefined,
 		loadingSource: undefined,
 		refreshSource: undefined,
@@ -312,9 +314,37 @@ export const RIGHT_PANEL_DEFINITIONS = Object.values(RIGHT_PANEL_REGISTRY).sort(
 	(left, right) => left.order - right.order,
 );
 
-export const RIGHT_PANEL_LAUNCHER_DEFINITIONS = RIGHT_PANEL_DEFINITIONS.filter(
-	(definition) => definition.showInLauncher !== false,
-);
+/** Top-level panel destinations. Individual views remain addressable by their existing panel IDs. */
+export const RIGHT_PANEL_GROUPS: ReadonlyArray<RightPanelGroup> = [
+	{
+		id: "workspace",
+		title: "Workspace",
+		ariaLabel: "Workspace",
+		icon: Folder,
+		defaultPanel: "workspace",
+		panels: ["workspace", "artifacts"],
+	},
+	{
+		id: "subagents",
+		title: "Subagents",
+		ariaLabel: "Subagents",
+		icon: Bot,
+		defaultPanel: "subagents",
+		panels: ["subagents"],
+	},
+	{
+		id: "session",
+		title: "Session",
+		ariaLabel: "Session",
+		icon: Activity,
+		defaultPanel: "session-insights",
+		panels: ["resources", "session-insights", "session-tree"],
+	},
+];
+
+export function getRightPanelGroup(panel: ActiveRightPanel) {
+	return RIGHT_PANEL_GROUPS.find((group) => group.panels.includes(panel));
+}
 
 /**
  * Retrieves the registry definition for a right panel.

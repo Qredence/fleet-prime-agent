@@ -43,6 +43,7 @@ export const ChatModelsDiscoverRequestSchema = z
 export const ChatModelsDiscoverResponseSchema = z
 	.object({
 		providerId: z.string(),
+		error: z.string().optional(),
 		models: z.array(ChatModelInfoSchema),
 	})
 	.openapi({ description: "Discovered models for a provider" });

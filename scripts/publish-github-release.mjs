@@ -5,11 +5,13 @@
 // uploads the packed tarball plus SHA256SUMS. Requires GITHUB_TOKEN,
 // RELEASE_VERSION, and CIRCLE_SHA1 from the CircleCI environment; the
 // canonical repository is pinned in release-utils.mjs. The release notes are
-// derived from the changelog and the runtime pin by release-notes.mjs.
+// derived from the changelog, the runtime pin, and the pull requests merged
+// since the previous tag by release-notes.mjs and release-contributors.mjs.
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { collectContributors, describeLookupError } from "./release-contributors.mjs";
 import {
 	extractVersionSection,
 	previousVersion,
@@ -117,6 +119,36 @@ async function readRuntimeVersionAtTag(token, owner, repo, version) {
 }
 
 /**
+ * Reads the human contributors of the pull requests merged since an earlier release tag.
+ * Credits are a courtesy: these notes are written after the irreversible npm publish, so a failed
+ * lookup omits the section with a warning rather than failing a release that has already shipped.
+ * @param {string} token - GitHub token with contents and pull request read access.
+ * @param {string} owner - Repository owner.
+ * @param {string} repo - Repository name.
+ * @param {string|undefined} version - The earlier release version, when it is known.
+ * @param {string} sha - The commit being released.
+ * @returns {Promise<Array<{login: string, pullRequests: number[]}>|undefined>} The contributors, or `undefined` when unavailable.
+ */
+async function readContributorsSinceTag(token, owner, repo, version, sha) {
+	if (!version) return undefined;
+	try {
+		return await collectContributors({
+			owner,
+			repo,
+			base: `v${version}`,
+			head: sha,
+			request: async (path) => (await githubFetch(path, token)).json(),
+		});
+	} catch (error) {
+		console.warn(
+			`Warning: could not read the pull requests merged since v${version}; the release notes will not credit ` +
+				`contributors. ${describeLookupError(error)}`,
+		);
+		return undefined;
+	}
+}
+
+/**
  * Finds the release for a version, creating it when necessary and verifying that its tag targets the expected commit.
  * @param {string} token - GitHub token with contents write access.
  * @param {string} version - Release version without the leading `v`.
@@ -168,11 +200,13 @@ async function findOrCreateRelease(token, version, owner, repo, sha) {
 				"the release notes will not describe the changes in this release.",
 		);
 	}
+	const previous = previousVersion(changelog, version);
 	const releaseBody = releaseNotes({
 		version,
 		changelog,
 		currentRuntimeVersion: readRuntimeVersion(),
-		previousRuntimeVersion: await readRuntimeVersionAtTag(token, owner, repo, previousVersion(changelog, version)),
+		previousRuntimeVersion: await readRuntimeVersionAtTag(token, owner, repo, previous),
+		contributors: await readContributorsSinceTag(token, owner, repo, previous, sha),
 	});
 	const created = await githubFetch(`/repos/${owner}/${repo}/releases`, token, {
 		method: "POST",

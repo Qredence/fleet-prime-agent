@@ -1,9 +1,18 @@
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { fallbackSessionLabel, meaningfulSessionLabel } from "@prime-agent/web-protocol/session-label";
-import type { SessionInfo, SessionSummary } from "prime-agent";
 import { loadManagedPrimePresentation } from "./prime-agent-presentation";
 
-export type SessionListSource = SessionInfo | SessionSummary;
+/** Session listing accepts both daemon summaries and saved-session rows. */
+export type SessionListSource = {
+	cwd: string;
+	id?: string;
+	sessionId?: string;
+	activity?: string;
+	isSessionActive?: boolean;
+	isStreaming?: boolean;
+	hasRunningRlmChildren?: boolean;
+	state?: { status?: string };
+};
 
 export interface NormalizedSessionListRow {
 	readonly source: SessionListSource;

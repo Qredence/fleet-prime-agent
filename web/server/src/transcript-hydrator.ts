@@ -9,7 +9,7 @@ import type {
 	FleetErrorEnvelope,
 } from "@prime-agent/web-protocol";
 
-/** Convert "ipython" | "bash" | "edit_file" | "read_file" — special-cases IPython + short acronyms. */
+/** Wire tool types: `ipython` → `IPython`, short tokens uppercased. */
 function toPascalCase(name: string): string {
 	return name
 		.split(/[_\-\s]+/g)
@@ -124,7 +124,7 @@ export function createFleetErrorEnvelope(
 			isTerminal: false,
 			remediation: {
 				action: "restart_kernel",
-				label: "Restart IPython Kernel",
+				label: "Restart CPython Kernel",
 			},
 		};
 	}
@@ -402,7 +402,10 @@ export function toChatMessageFromRuntimeMessage(message: AgentMessage, id: strin
 
 export function toChatMessageFromAssistant(msg: AssistantMessage, id: string): ChatMessage {
 	const parts: ChatMessage["parts"] = [];
-	for (const block of msg.content) {
+	const content: unknown = msg.content;
+	const blocks =
+		typeof content === "string" ? [{ type: "text", text: content }] : Array.isArray(content) ? content : [];
+	for (const [contentIndex, block] of blocks.entries()) {
 		const value = block as {
 			type: string;
 			text?: string;
@@ -411,9 +414,12 @@ export function toChatMessageFromAssistant(msg: AssistantMessage, id: string): C
 			id?: string;
 			name?: string;
 			arguments?: unknown;
+			thinking?: string;
 		};
 		if (value.type === "text" && typeof value.text === "string") {
 			parts.push({ type: "text", text: value.text });
+		} else if (value.type === "thinking" && typeof value.thinking === "string") {
+			parts.push({ type: "reasoning", contentIndex, text: value.thinking, state: "complete" });
 		} else if (value.type === "image" && value.data && value.mimeType) {
 			parts.push(imageToChatPart({ type: "image", data: value.data, mimeType: value.mimeType }));
 		} else if (value.type === "toolCall" && value.id && value.name) {
@@ -457,6 +463,18 @@ function toolResultOutput(msg: Record<string, unknown>): Record<string, unknown>
 		...(msg.details !== undefined ? { details: msg.details } : {}),
 		isError: msg.isError === true,
 	};
+}
+
+/**
+ * Whether a tool result is a failure. `isError` is authoritative when true; Prime Agent v0.10.2's
+ * `python_repl` also reports a failed cell only through `details.status: "error"` (its `isError`
+ * is dropped by the tool bridge), so both the live stream and hydration read this one helper.
+ */
+export function isToolResultError(isError: unknown, result: unknown): boolean {
+	if (isError === true) return true;
+	if (!result || typeof result !== "object") return false;
+	const details = (result as { details?: unknown }).details;
+	return !!details && typeof details === "object" && (details as { status?: unknown }).status === "error";
 }
 
 /**
@@ -554,7 +572,7 @@ export function toChatMessagesFromAgentMessages(
 		const result = message as unknown as Record<string, unknown>;
 		const toolCallId = typeof result.toolCallId === "string" ? result.toolCallId : undefined;
 		const toolName = typeof result.toolName === "string" ? result.toolName : "tool";
-		const isError = result.isError === true;
+		const isError = isToolResultError(result.isError, result);
 		const errorText = isError ? extractToolErrorText(result) : undefined;
 		const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
 		const durationMs =

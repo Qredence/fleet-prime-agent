@@ -4,11 +4,13 @@
 //
 // Every section is derived from artefacts the release already produces: the changes come from
 // packages/fleet-web/CHANGELOG.md, which Changesets writes from the accumulated .changeset/*.md
-// bodies, and the upgrading note from PRIME_AGENT_RUNTIME.json. Nothing here is hand-maintained,
-// which is what AGENTS.md requires of the Fleet changelog.
+// bodies, the contributors from the pull requests merged since the previous tag (see
+// release-contributors.mjs), and the upgrading note from PRIME_AGENT_RUNTIME.json. Nothing here is
+// hand-maintained, which is what AGENTS.md requires of the Fleet changelog.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { contributorsSection } from "./release-contributors.mjs";
 
 const packageName = "@qredence/fleet";
 // Resolved from this module rather than the working directory so the notes do not depend on how the
@@ -168,9 +170,12 @@ export function upgradingNote({ currentRuntimeVersion, previousRuntimeVersion } 
  * @param {string} [options.changelog] - The changelog contents.
  * @param {string} [options.currentRuntimeVersion] - The runtime version this release pins.
  * @param {string} [options.previousRuntimeVersion] - The runtime version the previous release pinned.
+ * @param {Array<{login: string, pullRequests: number[]}>} [options.contributors] - The human authors of the
+ *   pull requests in this release; the Contributors section is omitted when there are none or they could not
+ *   be read.
  * @returns {string} Markdown release notes.
  */
-export function releaseNotes({ version, changelog, currentRuntimeVersion, previousRuntimeVersion } = {}) {
+export function releaseNotes({ version, changelog, currentRuntimeVersion, previousRuntimeVersion, contributors } = {}) {
 	const section = extractVersionSection(changelog, version);
 	const changes = section
 		? stripCommitHashes(section)
@@ -180,6 +185,7 @@ export function releaseNotes({ version, changelog, currentRuntimeVersion, previo
 				"",
 				"Review the release pull request and the commit history for what changed.",
 			].join("\n");
+	const credits = contributorsSection(contributors);
 	return [
 		`Fleet Prime v${version}.`,
 		"",
@@ -187,6 +193,7 @@ export function releaseNotes({ version, changelog, currentRuntimeVersion, previo
 		"",
 		changes,
 		"",
+		...(credits ? [credits, ""] : []),
 		"## Upgrading",
 		"",
 		upgradingNote({ currentRuntimeVersion, previousRuntimeVersion }),

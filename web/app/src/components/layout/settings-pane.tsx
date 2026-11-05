@@ -20,7 +20,7 @@ export function SettingsPane({
 	title: string;
 }) {
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex min-w-0 max-w-full flex-col gap-4 [overflow-wrap:anywhere]">
 			<div className="flex items-start justify-between gap-3">
 				<div className="min-w-0 flex-1">
 					<h3 className="text-lg font-medium text-balance">{title}</h3>

@@ -3,6 +3,7 @@ import { isOccFamilyApi } from "@prime-agent/web-protocol/provider-catalog";
 import { addCustomProviderModelIds, listCustomProviders, uiApiForCustomProvider } from "../custom-provider-store";
 import { isLoopbackHostname } from "../net";
 import { getPrimeConfig } from "../prime-config";
+import { resolveProviderApiKey } from "../prime-provider-credentials";
 import { wrapApiHandler } from "../wrap-api-handler";
 
 export function openAiModelsUrl(baseUrl: string): URL {
@@ -13,6 +14,7 @@ export function openAiModelsUrl(baseUrl: string): URL {
 	if (parsed.protocol === "http:" && !isLoopbackHostname(parsed.hostname)) {
 		throw new Error("model discovery requires https for non-loopback hosts");
 	}
+	if (parsed.username || parsed.password) throw new Error("Credentials in model discovery URLs are not supported");
 	const path = parsed.pathname.replace(/\/+$/, "");
 	parsed.pathname = path.endsWith("/v1") ? `${path}/models` : `${path}/v1/models`;
 	parsed.search = "";
@@ -25,11 +27,12 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 		const raw = await request.json().catch(() => ({}));
 		const body = ChatModelsDiscoverRequestSchema.parse(raw);
 		const config = getPrimeConfig();
-		const apiKey = await config.modelRegistry.getApiKeyForProvider(body.providerId);
+		const apiKey = await resolveProviderApiKey(config.agentDir, body.providerId);
 		if (!apiKey) {
 			return Response.json({
 				providerId: body.providerId,
 				models: [],
+				error: "Model discovery is unavailable. Check provider configuration and try again.",
 			});
 		}
 
@@ -41,6 +44,7 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 			return Response.json({
 				providerId: provider,
 				models: [],
+				error: "Model discovery is unavailable. Check provider configuration and try again.",
 			});
 		}
 		const baseUrl = entry?.baseUrl;
@@ -48,6 +52,7 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 			return Response.json({
 				providerId: provider,
 				models: [],
+				error: "Model discovery is unavailable. Check provider configuration and try again.",
 			});
 		}
 
@@ -69,12 +74,16 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 				return Response.json({
 					providerId: provider,
 					models: [],
+					error: "Model discovery is unavailable. Check provider configuration and try again.",
 				});
 			}
 			const payload = (await response.json()) as {
 				data?: Array<{ id: string; created?: number; owned_by?: string }>;
 			};
-			const models = (payload.data ?? []).map((m) => ({
+			if (!Array.isArray(payload.data) || !payload.data.every((m) => typeof m?.id === "string" && m.id.length > 0)) {
+				throw new Error("Invalid model catalog");
+			}
+			const models = payload.data.map((m) => ({
 				key: `${provider}/${m.id}`,
 				provider,
 				id: m.id,
@@ -86,7 +95,7 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 				thinkingLevels: ["off"] as const,
 			}));
 			if (models.length > 0) {
-				addCustomProviderModelIds(
+				await addCustomProviderModelIds(
 					`${config.agentDir}/models.json`,
 					provider,
 					models.map((model) => model.id),
@@ -95,7 +104,11 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 			}
 			return Response.json({ providerId: provider, models });
 		} catch {
-			return Response.json({ providerId: provider, models: [] });
+			return Response.json({
+				providerId: provider,
+				models: [],
+				error: "Could not refresh models. Previous results are retained; try again.",
+			});
 		}
 	}, request);
 }

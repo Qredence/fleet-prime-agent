@@ -5,7 +5,7 @@ import type { ChatClient } from "@/components/chat/chat-client";
 import { notifyChatError } from "@/components/chat/chat-error-notify";
 import type { QueueState } from "@/components/chat/chat-fetch";
 import { isForbiddenSessionError, isUnknownSessionError } from "@/components/chat/chat-fetch";
-import { EMPTY_QUEUE_STATE } from "@/components/chat/chat-stream-state";
+import { EMPTY_QUEUE_STATE, EMPTY_SESSION_PRESENTATION } from "@/components/chat/chat-stream-state";
 
 export type ForbiddenSessionRecoveryDeps = {
 	client: ChatClient;
@@ -27,7 +27,7 @@ export async function runForbiddenSessionRecovery(deps: ForbiddenSessionRecovery
 	deps.setQueueSynced(EMPTY_QUEUE_STATE);
 	deps.setActivityLabelSynced(undefined);
 	deps.setPlanLabelSynced(undefined);
-	deps.setPresentationSynced({ revision: 0, userBash: [], rlmChildren: [], refinements: [], artifactRuns: [] });
+	deps.setPresentationSynced(EMPTY_SESSION_PRESENTATION);
 	deps.setError(null);
 	deps.setStatus("ready");
 

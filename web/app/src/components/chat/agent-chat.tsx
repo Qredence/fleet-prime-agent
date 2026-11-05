@@ -1,6 +1,5 @@
 import type {
 	ChatReasoningPresentation,
-	PrimeAgentArtifact,
 	PrimeAgentArtifactRun,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -91,32 +90,6 @@ function SessionReasoningPanel(props: ComponentProps<typeof LazySessionReasoning
 			}
 		>
 			<LazySessionReasoningPanel {...props} />
-		</Suspense>
-	);
-}
-
-const LazyToolTimeline = lazy(() =>
-	import("@/components/tools/tool-timeline").then(({ ToolTimeline }) => ({
-		default: ToolTimeline,
-	})),
-);
-
-/**
- * Lazy-loaded wrapper for the tool timeline with loading skeleton.
- * Defers loading until first conversation turn to keep the component out of
- * the welcome route eager bundle.
- *
- * @param props - Props forwarded to the ToolTimeline component
- * @returns Suspense-wrapped ToolTimeline with loading fallback
- */
-function ToolTimeline(props: ComponentProps<typeof LazyToolTimeline>) {
-	return (
-		<Suspense
-			fallback={
-				<div className="h-6 animate-pulse rounded-md bg-muted/40" role="status" aria-label="Loading timeline" />
-			}
-		>
-			<LazyToolTimeline {...props} />
 		</Suspense>
 	);
 }
@@ -257,54 +230,39 @@ function reasoningPresentationFromMessages(messages: Array<ChatMessage>): ChatRe
 	return undefined;
 }
 
-/**
- * Extracts the run identifier from an assistant message identifier.
- *
- * @param messageId - The assistant message identifier
- * @returns The run identifier, or `undefined` if the identifier does not match the expected format
- */
-function runIdFromAssistantMessageId(messageId: string): string | undefined {
-	const match = /^(.*)-a\d+$/.exec(messageId);
-	return match?.[1];
-}
-
-/**
- * Selects artifacts associated with the current conversation turn.
- *
- * @param artifactRuns - Artifact runs to search
- * @param messages - Messages that define the current conversation turn
- * @returns Artifacts linked to the messages, their tool calls, or their assistant runs
- */
-function artifactsForCurrentTurn(
-	artifactRuns: Array<PrimeAgentArtifactRun> | undefined,
-	messages: Array<ChatMessage>,
-): Array<PrimeAgentArtifact> {
-	if (!artifactRuns || messages.length === 0) return [];
-	const messageIds = new Set(messages.map((message) => message.id));
-	const toolCallIds = new Set(
-		messages.flatMap((message) =>
-			(message.parts ?? []).flatMap((part) => {
-				const source = record(part);
-				return typeof source?.toolCallId === "string" && source.toolCallId ? [source.toolCallId] : [];
-			}),
-		),
-	);
-	const currentRunIds = new Set(
-		messages.flatMap((message) => {
-			const runId = runIdFromAssistantMessageId(message.id);
-			return runId ? [message.id, runId] : [message.id];
+function deduplicateAgentMessagePayloads(messages: Array<ChatMessage>) {
+	const seen = new Set<string>();
+	const readableTexts = messages.flatMap((message) =>
+		(message.parts ?? []).flatMap((part) => {
+			const source = record(part);
+			return source?.type === "text" && typeof source.text === "string"
+				? [source.text.replace(/\s+/g, " ").trim()]
+				: [];
 		}),
 	);
-
-	return artifactRuns
-		.flatMap((run) => run.artifacts)
-		.filter((artifact) => {
-			if (artifact.sourceMessageId) return messageIds.has(artifact.sourceMessageId);
-			if (artifact.sourceToolCallId) {
-				return toolCallIds.has(artifact.sourceToolCallId) || currentRunIds.has(artifact.runId);
-			}
-			return currentRunIds.has(artifact.runId);
-		});
+	return messages.map((message) => ({
+		...message,
+		parts: (message.parts ?? []).flatMap((part) => {
+			const source = record(part);
+			if (source?.type !== "payload" || source.kind !== "agent_message") return [part];
+			const stable = (value: unknown) => {
+				try {
+					return JSON.stringify(value) ?? "";
+				} catch {
+					return String(value);
+				}
+			};
+			const key =
+				typeof source.id === "string"
+					? `id:${source.id}`
+					: `content:${stable([source.title, source.text, source.payload])}`;
+			if (seen.has(key)) return [];
+			seen.add(key);
+			const report = typeof source.text === "string" ? source.text.replace(/\s+/g, " ").trim() : "";
+			const duplicatedReport = report.length > 20 && readableTexts.some((text) => text.includes(report));
+			return duplicatedReport ? [{ ...source, title: "Details", text: undefined } as typeof part] : [part];
+		}),
+	}));
 }
 
 /**
@@ -313,13 +271,11 @@ function artifactsForCurrentTurn(
  * @param messages - Assistant messages belonging to the turn
  * @param isLast - Whether this is the latest conversation turn
  * @param isStreaming - Whether the assistant is currently generating a response
- * @param suppressQuestionTool - Whether to hide question-tool content
  */
 function AssistantMessage({
 	messages,
 	isLast,
 	isStreaming,
-	suppressQuestionTool,
 	toolRenderers,
 	onOpenUIAction,
 	activityLabel,
@@ -331,7 +287,6 @@ function AssistantMessage({
 	messages: Array<ChatMessage>;
 	isLast: boolean;
 	isStreaming: boolean;
-	suppressQuestionTool: boolean;
 	toolRenderers?: AgentChatProps["toolRenderers"];
 	onOpenUIAction?: (message: string) => void;
 	activityLabel?: string;
@@ -341,9 +296,17 @@ function AssistantMessage({
 	animateIn: boolean;
 }) {
 	const turnStreaming = isLast && isStreaming;
+	const artifactByToolCallId = useMemo(() => {
+		const artifacts = artifactRuns?.flatMap((run) => run.artifacts) ?? [];
+		return new Map(
+			artifacts.flatMap((artifact) =>
+				artifact.sourceToolCallId ? [[artifact.sourceToolCallId, artifact] as const] : [],
+			),
+		);
+	}, [artifactRuns]);
 	const elements = useMemo(
 		() =>
-			messages.flatMap((message, index) =>
+			deduplicateAgentMessagePayloads(messages).flatMap((message, index) =>
 				buildAssistantElements(
 					normalizeAssistantToolParts(
 						(message.parts ?? []).filter(
@@ -354,7 +317,6 @@ function AssistantMessage({
 						messageId: message.id,
 						isLast: isLast && index === messages.length - 1,
 						isStreaming: turnStreaming,
-						suppressQuestionTool,
 						suppressTextWhenPlanWrite: true,
 						ToolRendererComponent: SessionToolRenderer,
 						TextRendererComponent: SessionGenerativeTextRenderer,
@@ -362,6 +324,8 @@ function AssistantMessage({
 						onOpenUIAction,
 						onOpenUIArtifactReady,
 						onOpenArtifact,
+						artifactByToolCallId,
+						onOpenToolArtifact: onOpenArtifact,
 					},
 				),
 			),
@@ -370,9 +334,9 @@ function AssistantMessage({
 			turnStreaming,
 			messages,
 			onOpenArtifact,
+			artifactByToolCallId,
 			onOpenUIAction,
 			onOpenUIArtifactReady,
-			suppressQuestionTool,
 			toolRenderers,
 		],
 	);
@@ -383,11 +347,9 @@ function AssistantMessage({
 		})
 		.join("\n\n");
 	const reasoningPresentation = useMemo(() => reasoningPresentationFromMessages(messages), [messages]);
-	const timelineArtifacts = useMemo(
-		() => (isLast ? artifactsForCurrentTurn(artifactRuns, messages) : []),
-		[artifactRuns, isLast, messages],
-	);
-	const showReasoning = Boolean(reasoningPresentation);
+	const showReasoning =
+		Boolean(reasoningPresentation) &&
+		!messages.some((message) => message.parts.some((part) => part.type === "reasoning"));
 	const showTurnStatus = isLast && !showReasoning && isLifecycleNotice(activityLabel);
 
 	return (
@@ -401,12 +363,6 @@ function AssistantMessage({
 							) : showTurnStatus ? (
 								<TurnStatus label={activityLabel} />
 							) : null}
-							<ToolTimeline
-								messages={messages}
-								artifacts={timelineArtifacts}
-								streaming={turnStreaming}
-								onOpenArtifact={onOpenArtifact}
-							/>
 						</div>
 						<StreamingResponse
 							status={turnStreaming ? "streaming" : "complete"}
@@ -428,7 +384,6 @@ type ConversationTurnViewProps = {
 	state: {
 		isLast: boolean;
 		isStreaming: boolean;
-		suppressQuestionTool: boolean;
 	};
 	rendering: {
 		toolRenderers?: AgentChatProps["toolRenderers"];
@@ -495,7 +450,6 @@ export const ConversationTurnView = memo(
 						messages={turn.assistants}
 						isLast={state.isLast}
 						isStreaming={state.isStreaming}
-						suppressQuestionTool={state.suppressQuestionTool}
 						toolRenderers={rendering.toolRenderers}
 						onOpenUIAction={rendering.onOpenUIAction}
 						onOpenUIArtifactReady={rendering.onOpenUIArtifactReady}
@@ -513,7 +467,6 @@ export const ConversationTurnView = memo(
 		sameMessages(previous.turn.assistants, next.turn.assistants) &&
 		previous.state.isLast === next.state.isLast &&
 		previous.state.isStreaming === next.state.isStreaming &&
-		previous.state.suppressQuestionTool === next.state.suppressQuestionTool &&
 		previous.rendering.toolRenderers === next.rendering.toolRenderers &&
 		previous.rendering.onOpenUIAction === next.rendering.onOpenUIAction &&
 		previous.rendering.onOpenUIArtifactReady === next.rendering.onOpenUIArtifactReady &&
@@ -535,7 +488,7 @@ export const ConversationTurnView = memo(
  */
 function isLifecycleNotice(label: string | undefined) {
 	if (!label) return false;
-	return /queued|steered|retry|compact|reset|recover|sign in/i.test(label);
+	return /queued|steered|retry|compact|reset|recover|refresh|sign in/i.test(label);
 }
 
 /**
@@ -625,7 +578,6 @@ export function AgentChat({
 	className,
 	messages,
 	error,
-	suppressQuestionTool = false,
 	onOpenUIAction,
 	activityLabel,
 	presentation,
@@ -661,13 +613,10 @@ export function AgentChat({
 		[onOpenArtifact, onOpenUIAction, onOpenUIArtifactReady, toolRenderers],
 	);
 	const stateForLast = useMemo<ConversationTurnViewProps["state"]>(
-		() => ({ isLast: true, isStreaming, suppressQuestionTool }),
-		[isStreaming, suppressQuestionTool],
+		() => ({ isLast: true, isStreaming }),
+		[isStreaming],
 	);
-	const stateForRest = useMemo<ConversationTurnViewProps["state"]>(
-		() => ({ isLast: false, isStreaming: false, suppressQuestionTool }),
-		[suppressQuestionTool],
-	);
+	const stateForRest = useMemo<ConversationTurnViewProps["state"]>(() => ({ isLast: false, isStreaming: false }), []);
 	const activityForLast = useMemo<ConversationTurnViewProps["activity"]>(
 		() => ({ label: activityLabel, presentation, artifactRuns }),
 		[activityLabel, artifactRuns, presentation],
@@ -797,7 +746,6 @@ type ChatPanelProps = {
 	onOpenArtifact?: (artifactId: string) => void;
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
 	inputSuggestionItems: AgentChatViewProps["suggestions"];
-	suppressQuestionTool: boolean;
 	inputBar: AgentChatViewProps["inputBar"];
 	onSend: (text: string, altKey?: boolean) => void;
 	onOpenUIAction: (text: string) => void;
@@ -822,7 +770,6 @@ export function ChatPanel({
 	onOpenArtifact,
 	onOpenUIArtifactReady,
 	inputSuggestionItems,
-	suppressQuestionTool,
 	inputBar,
 	onSend,
 	onOpenUIAction,
@@ -854,7 +801,6 @@ export function ChatPanel({
 					onEditQueuedMessage={onEditQueuedMessage}
 					onOpenArtifact={onOpenArtifact}
 					onOpenUIArtifactReady={onOpenUIArtifactReady}
-					suppressQuestionTool={suppressQuestionTool}
 					error={error ?? undefined}
 					suggestions={inputSuggestionItems}
 					inputBar={inputBar}

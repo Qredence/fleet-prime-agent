@@ -88,5 +88,6 @@ const buildResult = await build({
 auditExternalImports(buildResult.metafile);
 
 cpSync(join(root, "scripts", "prime-agent-web-launcher.mjs"), join(releaseRoot, "launcher.mjs"));
+cpSync(join(root, "PRIME_AGENT_RUNTIME.json"), join(root, "packages", "fleet-web", "dist", "runtime-manifest.json"));
 
 console.log(`Packaged web runtime in ${releaseRoot}`);

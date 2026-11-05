@@ -5,8 +5,6 @@ import type {
 	ChatMcpOAuthLoginRequest,
 	ChatMcpOAuthLoginResponse,
 	ChatMcpUpsertRequest,
-	ChatProviderOAuthLoginRequest,
-	ChatProviderOAuthLoginResponse,
 	ChatProviderRemoveRequest,
 	ChatProviderRemoveResponse,
 	ChatProviderUpdateRequest,
@@ -166,20 +164,6 @@ export function useUpdateChatProvider() {
 	return useMutation<ChatProviderUpdateResponse, Error, ChatProviderUpdateRequest>({
 		mutationFn: (request) => chatClient.updateProvider(request),
 		onSuccess: (data) => {
-			queryClient.setQueryData(keys.providers, { providers: data.providers });
-			void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
-			void queryClient.invalidateQueries({ queryKey: ["chat", "settings"] });
-		},
-	});
-}
-
-export function useOAuthLoginProvider() {
-	const queryClient = useQueryClient();
-
-	return useMutation<ChatProviderOAuthLoginResponse, Error, ChatProviderOAuthLoginRequest>({
-		mutationFn: (request) => chatClient.oauthLoginProvider(request),
-		onSuccess: (data) => {
-			if (data.status !== "success" || !data.providers) return;
 			queryClient.setQueryData(keys.providers, { providers: data.providers });
 			void queryClient.invalidateQueries({ queryKey: ["chat", "models"] });
 			void queryClient.invalidateQueries({ queryKey: ["chat", "settings"] });

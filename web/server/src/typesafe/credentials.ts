@@ -1,57 +1,50 @@
 /**
  * The stored TypeSafe API key.
  *
- * The only module that touches it. The key lives in the runtime's `auth.json`
- * via `AuthStorage`, which is the right home for three reasons: the runtime
- * creates that file `0600` (and its directory `0700`) and re-applies the mode on
- * every write, whereas a Fleet-owned file would land world-readable; writes are
- * file-locked; and the runtime already keeps a non-provider service credential
- * there itself (Prime Inference), so this is an established pattern rather than
- * a novel use of the store.
+ * The only module that touches it. The key lives in the runtime's `auth.json`,
+ * which is the right home for three reasons: the runtime creates that file `0600`
+ * and re-applies the mode on every write, whereas a Fleet-owned file would land
+ * world-readable; Fleet's writer takes a lock and renames atomically; and the
+ * runtime already keeps a non-provider service credential there itself (Prime
+ * Inference), so this is an established pattern rather than a novel use.
  *
- * Nothing in Fleet enumerates `AuthStorage.list()`, so this entry cannot leak
- * into the provider list.
+ * Reads and writes go through Fleet's own `auth.json` accessors rather than the
+ * SDK's `AuthStorage`, so the same file backs both paths and a Fleet write is
+ * never invisible to a subsequent Fleet read.
+ *
+ * Nothing in Fleet enumerates the file's keys as providers, so this entry cannot
+ * leak into the provider list.
  */
 import type { ComposerIntentKeySource } from "@prime-agent/web-protocol/composer-intent";
-import type { LegacyApiKeyCredential } from "../legacy/prime-agent-sdk";
+import { readProviderApiKey, removeProviderCredential, setProviderApiKey } from "../agent-auth-store";
 import { getPrimeConfig } from "../prime-config";
 
 /** Credential identifier. Not a model provider id, and never resolved as one. */
 export const TYPESAFE_CREDENTIAL_ID = "typesafe";
 
-function readCredential(): LegacyApiKeyCredential | undefined {
-	try {
-		const credential = getPrimeConfig().authStorage.get(TYPESAFE_CREDENTIAL_ID);
-		return credential?.type === "api_key" ? credential : undefined;
-	} catch {
-		// A missing or unreadable store means "no stored key", never a hard failure:
-		// the environment variable remains a valid source.
-		return undefined;
-	}
-}
-
 /** The stored key, or `undefined` when none is usable. */
-export function readStoredTypeSafeKey(): string | undefined {
-	const key = readCredential()?.key?.trim();
-	return key ? key : undefined;
+export async function readStoredTypeSafeKey(): Promise<string | undefined> {
+	// A missing or unreadable store means "no stored key", never a hard failure:
+	// the environment variable remains a valid source.
+	const key = await readProviderApiKey(getPrimeConfig().agentDir, TYPESAFE_CREDENTIAL_ID).catch(() => undefined);
+	const trimmed = key?.trim();
+	return trimmed ? trimmed : undefined;
 }
 
 /** Stores a key, replacing any previous one. */
-export function writeStoredTypeSafeKey(key: string): void {
+export async function writeStoredTypeSafeKey(key: string): Promise<void> {
 	const trimmed = key.trim();
 	if (!trimmed) throw new Error("A TypeSafe API key cannot be empty");
-	const config = getPrimeConfig();
-	config.authStorage.set(TYPESAFE_CREDENTIAL_ID, { type: "api_key", key: trimmed });
-	config.reloadAuth();
+	const outcome = await setProviderApiKey(getPrimeConfig().agentDir, TYPESAFE_CREDENTIAL_ID, trimmed);
+	if (outcome.status === "refused") throw new Error(outcome.reason);
+	getPrimeConfig().reloadAuth();
 }
 
 /** Removes the stored key, letting the environment variable take over again. */
-export function clearStoredTypeSafeKey(): void {
-	const config = getPrimeConfig();
-	if (config.authStorage.has(TYPESAFE_CREDENTIAL_ID)) {
-		config.authStorage.remove(TYPESAFE_CREDENTIAL_ID);
-	}
-	config.reloadAuth();
+export async function clearStoredTypeSafeKey(): Promise<void> {
+	const outcome = await removeProviderCredential(getPrimeConfig().agentDir, TYPESAFE_CREDENTIAL_ID);
+	if (outcome.status === "refused") throw new Error(outcome.reason);
+	getPrimeConfig().reloadAuth();
 }
 
 /**
@@ -59,8 +52,8 @@ export function clearStoredTypeSafeKey(): void {
  *
  * Reports the source only — never the key, not even a masked suffix.
  */
-export function typeSafeKeySource(): ComposerIntentKeySource {
-	if (readStoredTypeSafeKey()) return "settings";
+export async function typeSafeKeySource(): Promise<ComposerIntentKeySource> {
+	if (await readStoredTypeSafeKey()) return "settings";
 	if ((process.env.TYPESAFE_API_KEY ?? "").trim()) return "environment";
 	return "none";
 }

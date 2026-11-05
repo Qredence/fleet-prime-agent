@@ -92,6 +92,10 @@ if (biome.code !== 0) {
 const pnpmTypecheck = pnpmInvocation(["run", "check:web"]);
 const phase2 = await Promise.all([
 	runStage("boundaries", process.execPath, ["scripts/check-web-boundaries.mjs"]),
+	// Resolves the real browser import graph. The boundary check only scans
+	// specifiers in web/app source; this catches transitive and unresolvable
+	// browser imports that a static scan cannot see.
+	runStage("browser-smoke", process.execPath, ["scripts/check-browser-smoke.mjs"]),
 	runStage("installer", process.execPath, ["scripts/check-source-installer.mjs", "--static"]),
 	runStage("rendering", process.execPath, ["web/app/scripts/render-checks.mjs"]),
 	runStage("typecheck", pnpmTypecheck.command, pnpmTypecheck.args),

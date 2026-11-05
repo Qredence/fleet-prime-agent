@@ -86,6 +86,7 @@ export {
 	ChatStartEventSchema,
 	ChatStateEventSchema,
 	ChatStateStreamEventSchema,
+	ChatStreamEventCursorSchema,
 	ChatStreamEventSchema,
 	ChatTextPartSchema,
 	ChatThinkingEventSchema,
@@ -132,6 +133,8 @@ export {
 	ChatMcpListResponseSchema,
 	ChatMcpOAuthLoginRequestSchema,
 	ChatMcpOAuthLoginResponseSchema,
+	ChatMcpTokenRequestSchema,
+	ChatMcpTokenResponseSchema,
 	ChatMcpUpsertRequestSchema,
 	McpConnectionInfoSchema,
 } from "./schemas/mcp";

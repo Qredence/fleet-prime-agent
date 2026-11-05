@@ -19,12 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SessionManager } from "prime-agent";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-	createLegacyAuthStorage,
-	createLegacyModelRegistry,
-	createLegacySettingsManager,
-	readLegacySession,
-} from "../legacy/prime-agent-sdk";
+import { createLegacyAuthStorage, createLegacySettingsManager, readLegacySession } from "../legacy/prime-agent-sdk";
 
 const ASSISTANT = {
 	role: "assistant" as const,
@@ -137,14 +132,6 @@ describe("legacy Prime Agent SDK bridge", () => {
 			const reopened = createLegacyAuthStorage(authPath);
 			expect(reopened.get("fleet-test")).toEqual({ type: "api_key", key: "not-a-real-key" });
 			expect(statSync(authPath).mode & 0o777).toBe(0o600);
-		});
-
-		it("builds a ModelRegistry over the given auth store and models.json", () => {
-			const registry = createLegacyModelRegistry(
-				createLegacyAuthStorage(join(dir, "auth.json")),
-				join(dir, "models.json"),
-			);
-			expect(Array.isArray(registry.getAll())).toBe(true);
 		});
 
 		it("binds a SettingsManager to the given cwd", () => {

@@ -36,7 +36,6 @@ export type ProjectActions = {
 	onCreateProject?: (request: { path?: string; directoryToken?: string; name?: string }) => void | Promise<void>;
 	onRenameProject?: (projectId: ProjectId, name: string) => void | Promise<void>;
 	onUnregisterProject?: (projectId: ProjectId) => void | Promise<void>;
-	onForkSessionIntoProject?: (sessionId: string, projectId: ProjectId) => void | Promise<void>;
 };
 
 export type SidebarNavigationActions = {
@@ -67,7 +66,6 @@ export type SessionDialog =
 	| { kind: "create-project" }
 	| { kind: "rename-session"; session: ChatSessionInfo }
 	| { kind: "delete-session"; session: ChatSessionInfo }
-	| { kind: "fork-session"; session: ChatSessionInfo }
 	| { kind: "rename-project"; project: ProjectSummary }
 	| { kind: "unregister-project"; project: ProjectSummary }
 	| null;
@@ -98,16 +96,19 @@ export function idValue(id: string, prefix: string) {
 	return id.startsWith(prefix) ? id.slice(prefix.length) : null;
 }
 
+/** Shown instead of a raw session-id prefix until a session has a real title. */
+export const UNTITLED_SESSION_LABEL = "New chat";
+
 function sessionBaseLabel(session: Pick<ChatSessionInfo, "sessionId" | "title" | "firstMessage">) {
-	return (
-		normalizeSessionLabel(
-			sessionListTitle({
-				sessionId: session.sessionId,
-				title: session.title,
-				firstMessage: session.firstMessage,
-			}),
-		) || fallbackSessionLabel(session.sessionId)
+	const label = normalizeSessionLabel(
+		sessionListTitle({
+			sessionId: session.sessionId,
+			title: session.title,
+			firstMessage: session.firstMessage,
+		}),
 	);
+	// The server falls back to the session-id prefix; that is noise in browser chrome.
+	return label && label !== fallbackSessionLabel(session.sessionId) ? label : UNTITLED_SESSION_LABEL;
 }
 
 export function sessionLabel(

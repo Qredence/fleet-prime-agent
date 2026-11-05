@@ -115,7 +115,6 @@ const legacyBridgeSymbols = new Set([
 	"DefaultResourceLoader",
 	"getAgentDir",
 	"migrateSessionEntries",
-	"ModelRegistry",
 	"parseSessionEntries",
 	"SessionManager",
 	"SettingsManager",

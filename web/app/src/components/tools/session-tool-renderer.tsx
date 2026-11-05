@@ -3,7 +3,6 @@
 import { memo } from "react";
 import type { AgentCodeLanguage } from "@/components/tools/agent-code";
 import { Citations } from "@/components/tools/citations";
-import { CodeBlock } from "@/components/tools/code-block";
 import { FileDiff } from "@/components/tools/file-diff";
 import { ImageGeneration } from "@/components/tools/image-generation";
 import {
@@ -13,6 +12,7 @@ import {
 } from "@/components/tools/session-agent-plan";
 import { type TodoItem, TodoList } from "@/components/tools/todo-list";
 import { ToolApproval } from "@/components/tools/tool-approval";
+import { CodeBlock } from "@/components/tools/tool-code-block";
 import { normalizeToolPart, type ToolRecord } from "@/components/tools/tool-output-normalizer";
 import type { ToolRendererProps } from "@/components/tools/tool-renderer";
 import { ToolRenderer } from "@/components/tools/tool-renderer";
@@ -84,6 +84,7 @@ export const SessionToolRenderer = memo(function SessionToolRenderer({
 	nestedTools,
 	chatStatus,
 	toolRenderers,
+	insideTrace = false,
 }: ToolRendererProps) {
 	const partType = part.type as string;
 	if (partType === "tool-Thinking" || partType === "tool-FleetReasoning") return null;
@@ -154,6 +155,30 @@ export const SessionToolRenderer = memo(function SessionToolRenderer({
 	}
 
 	const content = detail.content || "No output.";
+	const details = (
+		<div className="flex min-w-0 flex-col gap-2">
+			{detail.sourceCode ? (
+				<SourceBlock
+					code={detail.sourceCode}
+					language={detail.sourceLanguage ?? "text"}
+					languageLabel={detail.sourceLabel}
+					status={status}
+				/>
+			) : null}
+			{detail.sections.map((section) => (
+				<ToolResultOutput
+					key={section.label}
+					language={section.language}
+					label={section.label}
+					error={section.label === "reported-error"}
+				>
+					{section.content}
+				</ToolResultOutput>
+			))}
+			<Approval approval={normalized.approval} name={normalized.name} status={status} />
+		</div>
+	);
+	if (insideTrace) return details;
 	return (
 		<ToolResult
 			tool="Prime"
@@ -172,20 +197,7 @@ export const SessionToolRenderer = memo(function SessionToolRenderer({
 			maxHeight={240}
 			copyText={content}
 		>
-			{detail.sourceCode ? (
-				<SourceBlock
-					code={detail.sourceCode}
-					language={detail.sourceLanguage ?? "text"}
-					languageLabel={detail.sourceLabel}
-					status={status}
-				/>
-			) : null}
-			{detail.sections.map((section) => (
-				<ToolResultOutput key={section.label} language={section.language} label={section.label}>
-					{section.content}
-				</ToolResultOutput>
-			))}
-			<Approval approval={normalized.approval} name={normalized.name} status={status} />
+			{details}
 		</ToolResult>
 	);
 });

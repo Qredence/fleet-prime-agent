@@ -17,6 +17,14 @@ import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef,
 import { ActionSwapRollText } from "@/components/motion/action-swap";
 import type { AgentCodeLanguage } from "@/components/tools/agent-code";
 import { AgentDisclosure } from "@/components/tools/agent-disclosure";
+import {
+	CodeBlockActions,
+	CodeBlockContent,
+	CodeBlockCopyButton,
+	CodeBlockHeader,
+	CodeBlockTitle,
+	CodeBlock as UiCodeBlock,
+} from "@/components/ui/code-block";
 import { SPRING_PRESS, SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +50,7 @@ export interface ToolResultOutputProps {
 	children: string;
 	language?: AgentCodeLanguage;
 	label?: ReactNode;
+	error?: boolean;
 	className?: string;
 }
 
@@ -98,23 +107,42 @@ function ToolResultAction({ label, onClick, children }: { label: string; onClick
 	);
 }
 
-export function ToolResultOutput({ children, language: _language = "bash", label, className }: ToolResultOutputProps) {
+export function ToolResultOutput({
+	children,
+	language: _language = "bash",
+	label,
+	error = false,
+	className,
+}: ToolResultOutputProps) {
 	return (
-		<div className="space-y-1.5">
-			{label ? (
-				<div className="px-0.5 text-micro font-medium uppercase tracking-[0.12em] text-muted-foreground/60">
-					{label}
-				</div>
-			) : null}
-			<pre
-				className={cn(
-					"m-0 whitespace-pre-wrap break-words font-mono text-xs leading-5 text-foreground/80",
-					className,
-				)}
+		<UiCodeBlock
+			data-error={error || undefined}
+			variant={error ? "destructive" : "default"}
+			size="sm"
+			className={className}
+		>
+			<CodeBlockHeader className="py-1">
+				{label ? (
+					<CodeBlockTitle
+						className={cn(
+							"text-micro uppercase tracking-[0.12em]",
+							error ? "text-destructive" : "text-muted-foreground/60",
+						)}
+					>
+						{error ? "Reported error" : label}
+					</CodeBlockTitle>
+				) : null}
+				<CodeBlockActions>
+					<CodeBlockCopyButton value={children} aria-label="Copy result" />
+				</CodeBlockActions>
+			</CodeBlockHeader>
+			<CodeBlockContent
+				wrap
+				className={cn("max-h-60 text-xs leading-5", error ? "text-destructive" : "text-foreground/80")}
 			>
-				<code>{children}</code>
-			</pre>
-		</div>
+				{children}
+			</CodeBlockContent>
+		</UiCodeBlock>
 	);
 }
 
@@ -204,7 +232,7 @@ export function ToolResult({
 				aria-expanded={currentOpen}
 				aria-controls={contentId}
 				onClick={() => setOpen(!currentOpen)}
-				className="group flex min-h-9 w-full items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+				className="group flex min-h-9 w-full items-center gap-2 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 			>
 				<span aria-hidden="true" className="grid size-4 shrink-0 place-items-center text-muted-foreground">
 					<KindIcon kind={kind} />
@@ -237,7 +265,7 @@ export function ToolResult({
 
 			<AgentDisclosure id={contentId} role="region" aria-labelledby={triggerId} open={currentOpen}>
 				<div className="pl-6 pt-1.5">
-					<div className="overflow-hidden rounded-xl bg-muted/80">
+					<div>
 						<div
 							ref={viewportRef}
 							role="log"
@@ -245,7 +273,7 @@ export function ToolResult({
 							className="scrollbar-hide overflow-y-auto overscroll-contain"
 							style={{ maxHeight }}
 						>
-							<div className="p-3">{children}</div>
+							{children}
 						</div>
 
 						{canCopy ? (

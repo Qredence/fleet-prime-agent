@@ -1,0 +1,89 @@
+[
+  {
+    "label": "set_mcp_static_token.not_pasteable",
+    "command": {
+      "type": "set_mcp_static_token",
+      "activeSessionId": "a382fc7a3a2d",
+      "server": "linear",
+      "token": "<redacted>"
+    },
+    "response": {
+      "id": "cm-10",
+      "type": "response",
+      "command": "set_mcp_static_token",
+      "success": false,
+      "error": "linear does not collect a single credential; it is not pasteable."
+    }
+  },
+  {
+    "label": "set_mcp_static_token.empty_token",
+    "command": {
+      "type": "set_mcp_static_token",
+      "activeSessionId": "a382fc7a3a2d",
+      "server": "paste-fixture",
+      "token": "<redacted>"
+    },
+    "response": {
+      "id": "cm-11",
+      "type": "response",
+      "command": "set_mcp_static_token",
+      "success": false,
+      "error": "The pasted token is empty."
+    }
+  },
+  {
+    "label": "remove_mcp_connection.missing_server",
+    "command": {
+      "type": "remove_mcp_connection",
+      "activeSessionId": "a382fc7a3a2d"
+    },
+    "response": {
+      "id": "cm-12",
+      "type": "response",
+      "command": "remove_mcp_connection",
+      "success": false,
+      "error": "Invalid daemon command: malformed remove_mcp_connection command"
+    }
+  },
+  {
+    "label": "get_model_catalog.unknown_session",
+    "command": {
+      "type": "get_model_catalog",
+      "activeSessionId": "no-such-session"
+    },
+    "response": {
+      "id": "cm-13",
+      "type": "response",
+      "command": "get_model_catalog",
+      "success": false,
+      "error": "Unknown active session: no-such-session"
+    }
+  },
+  {
+    "label": "get_mcp_connections.missing_session",
+    "command": {
+      "type": "get_mcp_connections"
+    },
+    "response": {
+      "id": "cm-14",
+      "type": "response",
+      "command": "get_mcp_connections",
+      "success": false,
+      "error": "Invalid daemon command: malformed get_mcp_connections command"
+    }
+  },
+  {
+    "label": "get_mcp_connections.scripted_engine",
+    "command": {
+      "type": "get_mcp_connections",
+      "activeSessionId": "44151beb8b2d"
+    },
+    "response": {
+      "id": "cm-5",
+      "type": "response",
+      "command": "get_mcp_connections",
+      "success": false,
+      "error": "MCP connections are not available in this session"
+    }
+  }
+]

@@ -24,6 +24,9 @@ import {
 } from "@/components/layout/canvas-utils";
 import { resolveWorkspacePanelTarget } from "@/components/workspace/workspace-path-nav";
 import { startHorizontalResize } from "@/lib/horizontal-resize";
+import { readStoredValue, writeStoredValue } from "@/lib/safe-storage";
+
+const MODEL_SELECTION_KEY = "fleet:chat:model-selection";
 
 export type ChatShellStorage = {
 	sessionMetadata: ChatSessionMetadata;
@@ -44,6 +47,7 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 
 	const models = useMemo(() => modelsData?.models.map(toModelOption) ?? [], [modelsData]);
 	const [modelKey, setModelKey] = useState<string | undefined>();
+	const [modelSelectionRestored, setModelSelectionRestored] = useState(false);
 	const [thinkingLevel, setThinkingLevelState] = useState<ChatThinkingLevel | undefined>();
 	const [rightPanel, setRightPanelState] = useState<RightPanel>(null);
 	const lastRightPanelRef = useRef<Exclude<RightPanel, null>>("workspace");
@@ -54,6 +58,12 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	const [resourceCanvasWidth, setResourceCanvasWidth] = useState(() => readStoredResourceCanvasWidth());
 
 	useEffect(() => {
+		setModelKey(readStoredValue(MODEL_SELECTION_KEY, "session") ?? undefined);
+		setModelSelectionRestored(true);
+	}, []);
+
+	useEffect(() => {
+		if (!modelSelectionRestored || !modelsData) return;
 		if (models.length === 0) {
 			if (modelKey !== undefined) setModelKey(undefined);
 			return;
@@ -70,7 +80,11 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 		if (!selected || selected.available === false) {
 			setModelKey(preferredKey);
 		}
-	}, [models, modelKey, modelsData]);
+	}, [models, modelKey, modelsData, modelSelectionRestored]);
+
+	useEffect(() => {
+		if (modelSelectionRestored && modelKey) writeStoredValue(MODEL_SELECTION_KEY, modelKey, "session");
+	}, [modelKey, modelSelectionRestored]);
 
 	useEffect(() => {
 		const selected = models.find((model) => model.id === modelKey);

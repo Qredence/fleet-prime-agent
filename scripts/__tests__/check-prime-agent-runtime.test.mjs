@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+	configuredRuntimePinLabels,
 	deriveFamilyTarballs,
 	runtimeFamilyDependencies,
 	validateRuntimeManifest,
@@ -18,6 +20,22 @@ const sampleManifest = {
 	tarball: "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.3/prime-agent-0.9.3.tgz",
 	sha256: "ce71049389877770aa31b9be64c473685a86159adbbd2466bd43e4a9113242f1",
 };
+
+test("configured pin labels distinguish the Rust runtime from the legacy TypeScript SDK", () => {
+	assert.deepEqual(configuredRuntimePinLabels({ ...sampleManifest, rust: { version: "1.2.3" } }), [
+		"Configured Rust runtime pin: 1.2.3",
+		"Configured legacy TypeScript SDK pin: prime-agent@0.9.3",
+	]);
+	assert.equal(configuredRuntimePinLabels(sampleManifest)[0], "Configured Rust runtime pin: not configured");
+});
+
+test("runtime check reports the configured Rust pin before the legacy SDK pin", () => {
+	const manifest = JSON.parse(readFileSync(resolve(root, "PRIME_AGENT_RUNTIME.json"), "utf8"));
+	const output = execFileSync(process.execPath, [resolve(root, "scripts/check-prime-agent-runtime.mjs")], {
+		encoding: "utf8",
+	});
+	assert.deepEqual(output.trim().split("\n").slice(0, 2), configuredRuntimePinLabels(manifest));
+});
 
 test("validateRuntimeManifest accepts the pinned runtime manifest", () => {
 	validateRuntimeManifest(sampleManifest);

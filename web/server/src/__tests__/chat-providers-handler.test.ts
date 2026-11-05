@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getProviders as getBuiltinProviders } from "@earendil-works/pi-ai";
@@ -11,9 +11,6 @@ const mocks = vi.hoisted(() => {
 		authStorage: {
 			set: (providerId: string, credential: { type: string; key: string }) => keys.set(providerId, credential.key),
 			remove: (providerId: string) => keys.delete(providerId),
-		},
-		modelRegistry: {
-			getProviderAuthStatus: (providerId: string) => ({ configured: keys.has(providerId) }),
 		},
 		reloadAuth: () => undefined,
 	};
@@ -28,6 +25,14 @@ function readModelsJson(dir: string): { providers?: Record<string, Record<string
 	return JSON.parse(readFileSync(join(dir, "models.json"), "utf-8"));
 }
 
+/**
+ * Credentials now live in `auth.json`, written directly rather than through
+ * the SDK's in-memory AuthStorage, so these assertions read the file.
+ */
+function readAuthJson(dir: string): Record<string, { key?: string; type?: string }> {
+	return JSON.parse(readFileSync(join(dir, "auth.json"), "utf-8"));
+}
+
 describe("chat providers custom/OCC write path", () => {
 	let agentDir: string;
 
@@ -35,13 +40,14 @@ describe("chat providers custom/OCC write path", () => {
 		agentDir = mkdtempSync(join(tmpdir(), "chat-providers-"));
 		mocks.config.agentDir = agentDir;
 		mocks.keys.clear();
+		writeFileSync(join(agentDir, "auth.json"), "{}\n", "utf8");
 	});
 
 	afterEach(() => {
 		rmSync(agentDir, { recursive: true, force: true });
 	});
 
-	it("GET synthesizes the default OCC row", async () => {
+	it("GET synthesizes the default OCC row and exposes Vertex's API-key env var", async () => {
 		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
 		const body = (await response.json()) as { providers: Array<Record<string, unknown>> };
 		const occ = body.providers.find((p) => p.id === "openai-chat-completions");
@@ -49,6 +55,9 @@ describe("chat providers custom/OCC write path", () => {
 			isConfigured: false,
 			envVarName: "OPENAI_CHAT_COMPLETIONS_API_KEY",
 			providerFamily: "openai-chat-completions",
+		});
+		expect(body.providers.find((p) => p.id === "google-vertex")).toMatchObject({
+			envVarName: "GOOGLE_CLOUD_API_KEY",
 		});
 	});
 
@@ -89,7 +98,7 @@ describe("chat providers custom/OCC write path", () => {
 			apiKey: "CUSTOM_MY_LAB_API_KEY",
 			models: [{ id: "lab-1" }, { id: "lab-2" }],
 		});
-		expect(mocks.keys.get("custom+my-lab")).toBe("sk-lab");
+		expect(readAuthJson(agentDir)["custom+my-lab"]?.key).toBe("sk-lab");
 
 		// Second creation with the same name allocates a suffixed id.
 		const second = await handleChatProvidersPost(
@@ -233,7 +242,7 @@ describe("chat providers custom/OCC write path", () => {
 			baseUrl: "https://v2.lab.test",
 			models: [{ id: "m1" }, { id: "m2" }],
 		});
-		expect(mocks.keys.get("custom+lab")).toBe("sk-2");
+		expect(readAuthJson(agentDir)["custom+lab"]?.key).toBe("sk-2");
 	});
 
 	it("falls back to stored managed-provider fields when update fields are blank", async () => {
@@ -350,7 +359,7 @@ describe("chat providers custom/OCC write path", () => {
 		const body = (await response.json()) as { providers: Array<Record<string, unknown>> };
 		expect(body.providers.some((p) => p.id === "custom+gone")).toBe(false);
 		expect(readModelsJson(agentDir).providers?.["custom+gone"]).toBeUndefined();
-		expect(mocks.keys.has("custom+gone")).toBe(false);
+		expect(readAuthJson(agentDir)).not.toHaveProperty("custom+gone");
 	});
 
 	it("catalog providers keep the key-only path", async () => {
@@ -363,7 +372,28 @@ describe("chat providers custom/OCC write path", () => {
 		);
 		expect(response.status).toBe(200);
 		expect(() => readModelsJson(agentDir)).toThrow();
-		expect(mocks.keys.get("deepseek")).toBe("sk-ds");
+		expect(readAuthJson(agentDir).deepseek?.key).toBe("sk-ds");
+	});
+
+	it("lists providers that exist only in auth.json and leaves MCP entries out", async () => {
+		// The runtime, or an earlier Fleet build, can store a credential for a
+		// provider that is neither in the engine catalog nor in models.json.
+		// Leaving it out of the list made it impossible to review or remove.
+		writeFileSync(
+			join(agentDir, "auth.json"),
+			JSON.stringify({
+				serper: { type: "api_key", key: "s" },
+				"mcp:linear": { type: "oauth", access: "a", refresh: "r" },
+			}),
+			"utf8",
+		);
+
+		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
+		const body = (await response.json()) as { providers: Array<Record<string, unknown>> };
+
+		expect(body.providers.find((p) => p.id === "serper")).toMatchObject({ isConfigured: true });
+		// MCP credentials key as `mcp:<service>`; they are connections, not models.
+		expect(body.providers.some((p) => String(p.id).startsWith("mcp:"))).toBe(false);
 	});
 });
 
@@ -446,5 +476,111 @@ describe("native builtin provider coverage", () => {
 
 		// The builtin path must never create models.json.
 		expect(() => readModelsJson(agentDir)).toThrow();
+	});
+	it("never exposes literal custom credentials as browser hints and advertises legacy custom discovery", async () => {
+		writeFileSync(
+			join(agentDir, "models.json"),
+			JSON.stringify({
+				providers: {
+					command: {
+						name: "Command",
+						api: "openai-completions",
+						baseUrl: "https://api.commandcode.ai/provider/v1",
+						apiKey: "LITERAL_CUSTOM_VALUE",
+						models: [],
+					},
+					lab: {
+						api: "openai-completions",
+						baseUrl: "https://example.test/v1",
+						apiKey: "LAB_API_KEY",
+						models: [],
+					},
+					"custom+managed": {
+						api: "openai-completions",
+						baseUrl: "https://managed.test/v1",
+						apiKey: "CUSTOM_MANAGED_API_KEY",
+						models: [],
+					},
+				},
+			}),
+		);
+		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
+		const body = await response.json();
+		expect(JSON.stringify(body)).not.toContain("LITERAL_CUSTOM_VALUE");
+		expect(body.providers.find((p: { id: string }) => p.id === "command")).toMatchObject({
+			envVarName: "",
+			discoverable: true,
+		});
+		expect(body.providers.find((p: { id: string }) => p.id === "lab")).toMatchObject({ envVarName: "" });
+		expect(body.providers.find((p: { id: string }) => p.id === "custom+managed")).toMatchObject({
+			envVarName: "CUSTOM_MANAGED_API_KEY",
+		});
+	});
+	it.each([
+		"https://test-user:test-password@example.test/v1",
+		"https://test-user@example.test/v1",
+		"https://:test-password@example.test/v1",
+		"https://example.test/v1?api_key=discard-me",
+	])("rejects URL credentials before changing storage: %s", async (baseUrl) => {
+		writeFileSync(join(agentDir, "auth.json"), "{}\n");
+		const response = await handleChatProvidersPost(
+			new Request("http://localhost/api/chat/providers", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					providerId: "custom",
+					createOccInstance: true,
+					displayName: "Unsafe",
+					apiKey: "test-key",
+					baseUrl,
+					models: ["m"],
+				}),
+			}),
+		);
+		expect(response.status).toBe(400);
+		const body = JSON.stringify(await response.json());
+		expect(body).not.toContain("test-user");
+		expect(body).not.toContain("test-password");
+		expect(body).not.toContain("discard-me");
+		expect(readAuthJson(agentDir)).toEqual({});
+		expect(existsSync(join(agentDir, "models.json"))).toBe(false);
+	});
+
+	it("strips URL credentials from legacy browser responses without rewriting stored providers", async () => {
+		const stored = JSON.stringify({
+			providers: {
+				legacy: {
+					api: "openai-completions",
+					baseUrl: "https://test-user:test-password@example.test/v1",
+					apiKey: "LEGACY_API_KEY",
+					models: [],
+				},
+				"custom+encoded": {
+					api: "openai-completions",
+					baseUrl: "https://test%40user:test%3Apassword@example.test/v1",
+					apiKey: "ENCODED_API_KEY",
+					models: [],
+				},
+				"legacy-query": {
+					api: "openai-completions",
+					baseUrl: "https://example.test/v1?api_key=discard-me&region=west",
+					apiKey: "LEGACY_QUERY_API_KEY",
+					models: [],
+				},
+				invalid: { baseUrl: "not-a-url" },
+			},
+		});
+		writeFileSync(join(agentDir, "models.json"), stored);
+		const response = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
+		const body = await response.json();
+		for (const id of ["legacy", "custom+encoded"]) {
+			expect(body.providers.find((p: { id: string }) => p.id === id)?.baseUrl).toBe("https://example.test/v1");
+		}
+		expect(body.providers.find((p: { id: string }) => p.id === "legacy-query")?.baseUrl).toBe(
+			"https://example.test/v1?region=west",
+		);
+		expect(body.providers.find((p: { id: string }) => p.id === "invalid")?.baseUrl).toBeUndefined();
+		expect(JSON.stringify(body)).not.toMatch(/test-user|test-password|test%40user|test%3Apassword|discard-me/);
+		expect(readFileSync(join(agentDir, "models.json"), "utf8")).toBe(stored);
 	});
 });

@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import type { PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
 import {
 	isOccFamilyApi,
@@ -7,6 +6,8 @@ import {
 	isPiCustomProviderApi,
 	OPENAI_CHAT_COMPLETIONS_PROVIDER_ID,
 } from "@prime-agent/web-protocol/provider-catalog";
+import { type JsonObject, updateJsonObjectFile } from "./agent-file-writer";
+import { isBuiltInProviderId } from "./builtin-providers";
 
 /**
  * Shape of one custom-provider entry in prime-agent's `models.json`
@@ -86,17 +87,6 @@ function parseModelsJson(raw: string): ModelsJson {
 	return parsed as ModelsJson;
 }
 
-function readModelsJsonForWrite(filePath: string): ModelsJson {
-	if (!existsSync(filePath)) return {};
-	try {
-		return parseModelsJson(readFileSync(filePath, "utf-8"));
-	} catch (error) {
-		throw new Error(
-			`Refusing to update models.json because it could not be parsed: ${error instanceof Error ? error.message : error}`,
-		);
-	}
-}
-
 const OPENAI_COMPLETIONS_TOOL_REASONING_NONE_PATTERN = /^(?:[^/]+\/)?gpt-(?:5[.-]6|6)(?:[.-]|$)/i;
 
 const OPENAI_COMPLETIONS_REASONING_OFF_MAP = {
@@ -147,12 +137,46 @@ export function listCustomProviders(filePath: string): Record<string, StoredCust
 	return data.providers ?? {};
 }
 
-function writeModelsJson(filePath: string, data: ModelsJson): void {
-	mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
-	const serialized = `${JSON.stringify(data, null, "\t")}\n`;
-	const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-	writeFileSync(tmpPath, serialized, "utf-8");
-	renameSync(tmpPath, filePath);
+/**
+ * Custom providers the runtime will refuse to load, because they lack the
+ * `apiKey` it requires.
+ *
+ * The runtime validates a provider as an *override* when its id is a
+ * built-in with bundled models, and requires `apiKey` otherwise. Built-in
+ * override-only entries (a `baseUrl` with no key) are legal. But one
+ * non-built-in provider with a missing or non-string `apiKey` makes it drop
+ * **every** custom provider in the file — including well-formed ones listed
+ * before it — and reports nothing on any surface: no error field in
+ * `get_model_catalog`, no diagnostic in `get_resource_snapshot`, no log line.
+ * The only way a user learns why their providers vanished is this check.
+ *
+ * Returns the offending provider ids, in file order.
+ */
+export function providersMissingApiKey(filePath: string): string[] {
+	return Object.entries(listCustomProviders(filePath))
+		.filter(([providerId, entry]) => {
+			if (isBuiltInProviderId(providerId)) return false;
+			return typeof entry.apiKey !== "string" || entry.apiKey.length === 0;
+		})
+		.map(([providerId]) => providerId);
+}
+
+/**
+ * Keep custom-provider reads, merges, and writes under the same per-file lock.
+ * `models.json` accepts JSONC, so pass its parser to the shared file writer.
+ */
+async function updateModelsJson(filePath: string, mutate: (data: ModelsJson) => ModelsJson | undefined): Promise<void> {
+	const outcome = await updateJsonObjectFile(
+		filePath,
+		(current) => {
+			const next = mutate(current as ModelsJson);
+			return next ? { next: next as JsonObject, result: undefined } : { unchanged: undefined };
+		},
+		{ mode: 0o644, parse: parseModelsJson },
+	);
+	if (outcome.status === "refused") {
+		throw new Error(`Refusing to update models.json because it could not be parsed: ${outcome.reason}`);
+	}
 }
 
 function defaultCompatForCustomProvider(
@@ -184,53 +208,64 @@ function defaultCompatForCustomProvider(
  * Insert or update a custom-provider entry, preserving fields the UI does not
  * manage (compat, modelOverrides, headers) and entries for other providers.
  */
-export function upsertCustomProvider(filePath: string, providerId: string, input: CustomProviderWriteInput): void {
-	const data = readModelsJsonForWrite(filePath);
-	const providers = { ...(data.providers ?? {}) };
-	const existing = providers[providerId] ?? {};
-	const storedApi = storedApiForCustomProvider(input.api);
-	const compat = defaultCompatForCustomProvider(storedApi, input.baseUrl, existing.compat);
-	providers[providerId] = {
-		...existing,
-		name: input.name ?? existing.name,
-		baseUrl: input.baseUrl,
-		api: storedApi,
-		apiKey: input.apiKey,
-		...(compat ? { compat } : {}),
-		models: mergeModelDefinitions(existing.models, input.models, storedApi),
-	};
-	writeModelsJson(filePath, { ...data, providers });
+export async function upsertCustomProvider(
+	filePath: string,
+	providerId: string,
+	input: CustomProviderWriteInput,
+): Promise<void> {
+	await updateModelsJson(filePath, (data) => {
+		const providers = { ...(data.providers ?? {}) };
+		const existing = providers[providerId] ?? {};
+		const storedApi = storedApiForCustomProvider(input.api);
+		const compat = defaultCompatForCustomProvider(storedApi, input.baseUrl, existing.compat);
+		providers[providerId] = {
+			...existing,
+			name: input.name ?? existing.name,
+			baseUrl: input.baseUrl,
+			api: storedApi,
+			apiKey: input.apiKey,
+			...(compat ? { compat } : {}),
+			models: mergeModelDefinitions(existing.models, input.models, storedApi),
+		};
+		return { ...data, providers };
+	});
 }
 
 /** Add discovered model IDs while preserving every existing model definition. */
-export function addCustomProviderModelIds(filePath: string, providerId: string, modelIds: Array<string>): void {
-	const data = readModelsJsonForWrite(filePath);
-	const providers = { ...(data.providers ?? {}) };
-	const existing = providers[providerId];
-	if (!existing) return;
-	const compat =
-		typeof existing.api === "string" && typeof existing.baseUrl === "string"
-			? defaultCompatForCustomProvider(existing.api, existing.baseUrl, existing.compat)
-			: undefined;
-	providers[providerId] = {
-		...existing,
-		...(compat ? { compat } : {}),
-		models: mergeModelDefinitions(
-			existing.models,
-			[...(existing.models ?? []), ...modelIds.map((id) => ({ id }))],
-			existing.api,
-		),
-	};
-	writeModelsJson(filePath, { ...data, providers });
+export async function addCustomProviderModelIds(
+	filePath: string,
+	providerId: string,
+	modelIds: Array<string>,
+): Promise<void> {
+	await updateModelsJson(filePath, (data) => {
+		const providers = { ...(data.providers ?? {}) };
+		const existing = providers[providerId];
+		if (!existing) return;
+		const compat =
+			typeof existing.api === "string" && typeof existing.baseUrl === "string"
+				? defaultCompatForCustomProvider(existing.api, existing.baseUrl, existing.compat)
+				: undefined;
+		providers[providerId] = {
+			...existing,
+			...(compat ? { compat } : {}),
+			models: mergeModelDefinitions(
+				existing.models,
+				[...(existing.models ?? []), ...modelIds.map((id) => ({ id }))],
+				existing.api,
+			),
+		};
+		return { ...data, providers };
+	});
 }
 
-export function removeCustomProvider(filePath: string, providerId: string): void {
-	const data = readModelsJsonForWrite(filePath);
-	const providers = data.providers;
-	if (!providers || !(providerId in providers)) return;
-	const next = { ...providers };
-	delete next[providerId];
-	writeModelsJson(filePath, { ...data, providers: next });
+export async function removeCustomProvider(filePath: string, providerId: string): Promise<void> {
+	await updateModelsJson(filePath, (data) => {
+		const providers = data.providers;
+		if (!providers || !(providerId in providers)) return;
+		const next = { ...providers };
+		delete next[providerId];
+		return { ...data, providers: next };
+	});
 }
 
 /** True when the provider entry points at an HTTP(S) endpoint we can discover models from. */

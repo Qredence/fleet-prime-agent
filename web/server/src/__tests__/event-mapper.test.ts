@@ -1,6 +1,7 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ChatStreamEvent, ChatToolPart, FleetErrorEnvelope } from "@prime-agent/web-protocol";
+import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { AgentConnectionEvent, AgentSessionEvent } from "prime-agent";
 import { describe, expect, it } from "vitest";
 import {
@@ -35,7 +36,81 @@ function mkAssistant(partial: Partial<AssistantMessage> & { errorMessage?: strin
 	} as AssistantMessage;
 }
 
+function mapAssistantUpdate(
+	state: ReturnType<typeof createEventMapperState>,
+	assistantMessageEvent: Record<string, unknown>,
+	message: AssistantMessage = mkAssistant(),
+): ChatStreamEvent[] {
+	return mapAgentSessionEvent(state, {
+		type: "message_update",
+		message,
+		assistantMessageEvent,
+	} as unknown as AgentSessionEvent);
+}
+
+function startMappedRun(init?: Parameters<typeof createEventMapperState>[0]) {
+	const state = createEventMapperState(init);
+	mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+	return state;
+}
+
 describe("event-mapper", () => {
+	it("normalizes reasoning events without content indexes and validates the final message", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = [
+			...mapAgentSessionEvent(state, {
+				type: "message_update",
+				message: mkAssistant(),
+				assistantMessageEvent: { type: "thinking_delta", delta: "sample" },
+			} as unknown as AgentSessionEvent),
+			...mapAgentSessionEvent(state, {
+				type: "message_update",
+				message: mkAssistant(),
+				assistantMessageEvent: { type: "thinking_end" },
+			} as unknown as AgentSessionEvent),
+			...mapAgentSessionEvent(state, {
+				type: "agent_end",
+				messages: [mkAssistant()],
+			} as unknown as AgentSessionEvent),
+		];
+		expect(frames.filter((frame) => frame.type === "reasoning_text")).toEqual([
+			expect.objectContaining({ phase: "start", contentIndex: 0, text: "" }),
+			expect.objectContaining({ phase: "delta", contentIndex: 0, text: "sample" }),
+			expect.objectContaining({ phase: "end", contentIndex: 0, text: "sample" }),
+		]);
+		const done = frames.find((frame) => frame.type === "done");
+		expect(done).toMatchObject({ message: { parts: [{ type: "reasoning", contentIndex: 0, text: "sample" }] } });
+		for (const frame of frames) {
+			const wireFrame = JSON.parse(JSON.stringify(frame)) as unknown;
+			expect(ChatStreamEventSchema.safeParse(wireFrame).success).toBe(true);
+		}
+	});
+
+	it.each([undefined, null, -1, 1.5, Number.NaN])("normalizes invalid reasoning indexes (%s)", (contentIndex) => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const event = {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_delta", contentIndex, delta: "sample" },
+		} as unknown as AgentSessionEvent;
+		const frames = mapAgentSessionEvent(state, event).filter((candidate) => candidate.type === "reasoning_text");
+		expect(frames[0]).toMatchObject({ type: "reasoning_text", phase: "start", contentIndex: 0 });
+		expect(frames[1]).toMatchObject({ type: "reasoning_text", phase: "delta", contentIndex: 0 });
+		expect(ChatStreamEventSchema.safeParse(JSON.parse(JSON.stringify(frames[1]))).success).toBe(true);
+	});
+
+	it("preserves a valid nonzero reasoning index", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frame = mapAgentSessionEvent(state, {
+			type: "message_update",
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_start", contentIndex: 7 },
+		} as unknown as AgentSessionEvent).find((candidate) => candidate.type === "reasoning_text");
+		expect(frame).toMatchObject({ type: "reasoning_text", phase: "start", contentIndex: 7 });
+	});
 	it("emits agent_start as a state event and starts a new run", () => {
 		const state = createEventMapperState();
 		const events = mapAgentSessionEvent(state, {
@@ -81,7 +156,7 @@ describe("event-mapper", () => {
 		expect(frames[1]).toEqual({ type: "delta", text: "hello", messageId: `${state.runId}-a0` });
 	});
 
-	it("suppresses raw thinking while preserving controlled reasoning", () => {
+	it("maps typed thinking lifecycle and preserves controlled reasoning", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
 		const startFrames = mapAgentSessionEvent(state, {
@@ -93,8 +168,9 @@ describe("event-mapper", () => {
 				partial: mkAssistant(),
 			},
 		} as unknown as AgentSessionEvent);
-		expect(startFrames).toHaveLength(1);
+		expect(startFrames).toHaveLength(2);
 		expect(startFrames[0]).toMatchObject({ type: "reasoning", presentation: { phase: "planning" } });
+		expect(startFrames[1]).toMatchObject({ type: "reasoning_text", phase: "start", contentIndex: 0 });
 
 		const frames = mapAgentSessionEvent(state, {
 			type: "message_update",
@@ -106,13 +182,19 @@ describe("event-mapper", () => {
 				partial: mkAssistant(),
 			},
 		} as unknown as AgentSessionEvent);
-		expect(frames).toHaveLength(1);
+		expect(frames).toHaveLength(2);
 		expect(frames[0]).toMatchObject({
 			type: "reasoning",
 			messageId: `${state.runId}-a0`,
 			presentation: { phase: "planning", streaming: true },
 		});
-		expect(JSON.stringify(frames)).not.toContain("…");
+		expect(frames[1]).toEqual({
+			type: "reasoning_text",
+			phase: "delta",
+			contentIndex: 0,
+			text: "…",
+			messageId: `${state.runId}-a0`,
+		});
 
 		const endFrames = mapAgentSessionEvent(state, {
 			type: "message_update",
@@ -120,59 +202,186 @@ describe("event-mapper", () => {
 			assistantMessageEvent: {
 				type: "thinking_end",
 				contentIndex: 0,
+				content: "final thinking content",
 				partial: mkAssistant(),
 			},
 		} as unknown as AgentSessionEvent);
-		expect(endFrames).toEqual([]);
+		expect(endFrames).toContainEqual({
+			type: "reasoning_text",
+			phase: "end",
+			contentIndex: 0,
+			text: "final thinking content",
+			messageId: `${state.runId}-a0`,
+		});
 	});
 
-	it("recovers terminal-only assistant text without exposing terminal thinking", () => {
+	it("uses thinking_end content when no delta or partial block was received", () => {
 		const state = createEventMapperState();
-		const completed = mkAssistant({
-			content: [
-				{ type: "thinking", thinking: "never-render-this" },
-				{ type: "text", text: "Recovered final answer." },
-			] as AssistantMessage["content"],
-		});
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
+		const frames = mapAgentSessionEvent(state, {
 			type: "message_update",
-			message: completed,
-			assistantMessageEvent: {
-				type: "done",
-				reason: "stop",
-				message: completed,
-			},
+			message: mkAssistant(),
+			assistantMessageEvent: { type: "thinking_end", contentIndex: 2, content: "end-only reasoning" },
 		} as unknown as AgentSessionEvent);
-		const frames = mapAgentSessionEvent(state, {
-			type: "agent_end",
-			messages: [],
-		} as unknown as AgentSessionEvent);
-		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts).toEqual([{ type: "text", text: "Recovered final answer." }]);
-		expect(JSON.stringify(done.message)).not.toContain("never-render-this");
+		expect(frames).toContainEqual(
+			expect.objectContaining({
+				type: "reasoning_text",
+				phase: "end",
+				contentIndex: 2,
+				text: "end-only reasoning",
+			}),
+		);
 	});
 
-	it("recovers text from an assistant message_end without exposing its thinking", () => {
-		const state = createEventMapperState();
-		const completed = mkAssistant({
+	it("assigns a fresh Fleet content index after assistant start reuses runtime index 0", () => {
+		const state = startMappedRun();
+		mapAssistantUpdate(state, { type: "start" });
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "Before tools" });
+		mapAssistantUpdate(state, { type: "thinking_end", contentIndex: 0, content: "Before tools" });
+		mapAssistantUpdate(state, { type: "start" });
+		expect(mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 })).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
+		);
+		expect(
+			mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "After tools" }),
+		).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "delta", contentIndex: 1, text: "After tools" }),
+		);
+	});
+
+	it("closes an open Thought before toolcall_start so later thinking is a new row", () => {
+		const state = startMappedRun();
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "Planning" });
+		expect(mapAssistantUpdate(state, { type: "toolcall_start", contentIndex: 1 })).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "end", contentIndex: 0, text: "Planning" }),
+		);
+		const resumed = mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "After tool" });
+		expect(resumed).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
+		);
+		expect(resumed).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "delta", contentIndex: 1, text: "After tool" }),
+		);
+	});
+
+	it("opens a new Thought episode when a runtime content index is reused", () => {
+		const state = startMappedRun();
+		const partial = mkAssistant();
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0, partial });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "first message", partial });
+		mapAssistantUpdate(state, { type: "thinking_end", contentIndex: 0, content: "first message", partial });
+		expect(mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0, partial })).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
+		);
+		expect(
+			mapAssistantUpdate(state, { type: "thinking_end", contentIndex: 0, content: "second message", partial }),
+		).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "end", contentIndex: 1, text: "second message" }),
+		);
+		const terminal = mkAssistant({
 			content: [
-				{ type: "thinking", thinking: "still-never-render-this" },
-				{ type: "text", text: "Message-end final answer." },
+				{ type: "thinking", thinking: "second message" },
+				{ type: "text", text: "Answer" },
 			] as AssistantMessage["content"],
 		});
-		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
-		mapAgentSessionEvent(state, {
-			type: "message_end",
-			message: completed,
+		mapAssistantUpdate(state, { type: "done", message: terminal }, terminal);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [terminal],
 		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		expect(done.message.parts.filter((part) => part.type === "reasoning")).toEqual([
+			expect.objectContaining({ type: "reasoning", contentIndex: 0, text: "first message", state: "complete" }),
+			expect.objectContaining({ type: "reasoning", contentIndex: 1, text: "second message", state: "complete" }),
+		]);
+	});
+
+	it("ends the previous Thought when thinking_start repeats without thinking_end", () => {
+		const state = startMappedRun();
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "First open episode" });
+		const replaced = mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		expect(replaced).toContainEqual(
+			expect.objectContaining({
+				type: "reasoning_text",
+				phase: "end",
+				contentIndex: 0,
+				text: "First open episode",
+			}),
+		);
+		expect(replaced).toContainEqual(
+			expect.objectContaining({ type: "reasoning_text", phase: "start", contentIndex: 1 }),
+		);
+	});
+
+	it("keeps reasoning message-scoped and retains streamed text across assistant messages", () => {
+		const state = startMappedRun();
+		mapAssistantUpdate(state, { type: "start" });
+		mapAssistantUpdate(state, { type: "thinking_start", contentIndex: 0 });
+		mapAssistantUpdate(state, { type: "thinking_delta", contentIndex: 0, delta: "Earlier thought" });
+		mapAssistantUpdate(state, { type: "text_delta", contentIndex: 1, delta: "Earlier response. " });
+		const earlierMessage = mkAssistant({
+			content: [
+				{ type: "thinking", thinking: "Earlier thought" },
+				{ type: "text", text: "Earlier response. " },
+			] as AssistantMessage["content"],
+		});
+		mapAgentSessionEvent(state, { type: "message_end", message: earlierMessage } as unknown as AgentSessionEvent);
+
+		mapAssistantUpdate(state, { type: "start" });
+		const finalMessage = mkAssistant({
+			content: [{ type: "text", text: "Final answer." }] as AssistantMessage["content"],
+		});
+		mapAgentSessionEvent(state, { type: "message_end", message: finalMessage } as unknown as AgentSessionEvent);
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [finalMessage],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+
+		expect(done.message.parts).toContainEqual({ type: "text", text: "Earlier response. Final answer." });
+		expect(done.message.parts).not.toContainEqual(
+			expect.objectContaining({ type: "reasoning", text: "Earlier thought" }),
+		);
+	});
+
+	it.each([
+		{
+			label: "terminal done",
+			thinking: "terminal reasoning",
+			text: "Recovered final answer.",
+			deliver: (state: ReturnType<typeof createEventMapperState>, completed: AssistantMessage) => {
+				mapAssistantUpdate(state, { type: "done", reason: "stop", message: completed }, completed);
+			},
+		},
+		{
+			label: "message_end",
+			thinking: "message-end reasoning",
+			text: "Message-end final answer.",
+			deliver: (state: ReturnType<typeof createEventMapperState>, completed: AssistantMessage) => {
+				mapAgentSessionEvent(state, { type: "message_end", message: completed } as unknown as AgentSessionEvent);
+			},
+		},
+	])("recovers text and typed reasoning from $label", ({ thinking, text, deliver }) => {
+		const state = startMappedRun();
+		const completed = mkAssistant({
+			content: [
+				{ type: "thinking", thinking },
+				{ type: "text", text },
+			] as AssistantMessage["content"],
+		});
+		deliver(state, completed);
 		const frames = mapAgentSessionEvent(state, {
 			type: "agent_end",
 			messages: [],
 		} as unknown as AgentSessionEvent);
 		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts).toEqual([{ type: "text", text: "Message-end final answer." }]);
-		expect(JSON.stringify(done.message)).not.toContain("still-never-render-this");
+		expect(done.message.parts).toEqual([
+			{ type: "reasoning", contentIndex: 0, text: thinking, state: "complete" },
+			{ type: "text", text },
+		]);
 	});
 
 	it.each([
@@ -248,6 +457,80 @@ describe("event-mapper", () => {
 			output: { details: { stdout: "2", durationMs: 8 } },
 		});
 		expect(state.currentToolParts.some((part) => part.state === "input-streaming")).toBe(false);
+	});
+
+	it("keeps Rust tool names on nameless update/end frames and recovers them from an attached snapshot", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		const frames = mapAgentSessionEvents(state, [
+			{
+				type: "tool_execution_start",
+				toolCallId: "rust-call",
+				toolName: "python_repl",
+				args: { code: "print(42)" },
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_update",
+				toolCallId: "rust-call",
+				partialResult: { content: [{ type: "text", text: "42" }] },
+			} as AgentSessionEvent,
+			{
+				type: "tool_execution_end",
+				toolCallId: "rust-call",
+				result: { content: [{ type: "text", text: "42" }] },
+				isError: false,
+			} as AgentSessionEvent,
+		]);
+		expect(
+			frames.filter((frame) => frame.type === "tool").map((frame) => frame.type === "tool" && frame.part.toolName),
+		).toEqual(["python_repl", "python_repl", "python_repl"]);
+		expect(state.currentToolParts[0]).toMatchObject({
+			type: "tool-IPython",
+			toolName: "python_repl",
+			state: "output-available",
+		});
+
+		const resumed = createEventMapperState();
+		resumed.currentAssistantMessage = mkAssistant({
+			content: [{ type: "toolCall", id: "snapshot-call", name: "bash", arguments: { command: "pwd" } }],
+		});
+		const terminal = mapAgentSessionEvent(resumed, {
+			type: "tool_execution_end",
+			toolCallId: "snapshot-call",
+			result: { details: { stdout: "/work" } },
+			isError: false,
+		} as AgentSessionEvent);
+		expect(terminal.find((frame) => frame.type === "tool")).toMatchObject({
+			part: { type: "tool-Bash", toolName: "bash", toolCallId: "snapshot-call", state: "output-available" },
+		});
+	});
+	it("preserves an existing MCP identity when only its display name is available", () => {
+		const state = createEventMapperState();
+		const rawName = "mcp__example__search";
+		const identity = { type: `tool-${rawName}` as const, ...categorizeTool(rawName) };
+		state.currentToolParts = [{ ...identity, toolCallId: "attached-mcp", state: "input-streaming" }];
+		const events = mapAgentSessionEvents(state, [
+			{ type: "tool_execution_update", toolCallId: "attached-mcp", partialResult: "working" },
+			{ type: "tool_execution_end", toolCallId: "attached-mcp", result: "done", isError: false },
+		] as AgentSessionEvent[]);
+		for (const event of events) {
+			expect(event).toMatchObject({ type: "tool", part: identity });
+		}
+	});
+
+	it("prefers a raw assistant tool name to an existing display name", () => {
+		const state = createEventMapperState();
+		state.currentToolParts = [{ type: "tool-IPython", toolCallId: "snapshot-python", toolName: "Python" }];
+		state.currentAssistantMessage = mkAssistant({
+			content: [{ type: "toolCall", id: "snapshot-python", name: "python_repl", arguments: {} }],
+		});
+		const events = mapAgentSessionEvent(state, {
+			type: "tool_execution_end",
+			toolCallId: "snapshot-python",
+			result: "done",
+			isError: false,
+		} as AgentSessionEvent);
+		expect(events[0]).toMatchObject({ type: "tool", part: { type: "tool-IPython", toolName: "python_repl" } });
 	});
 
 	it("preserves backgroundOutput in tool_execution_update, tool_execution_end, and agent message hydration", () => {
@@ -375,6 +658,121 @@ describe("event-mapper", () => {
 		expect(part.state).toBe("output-error");
 	});
 
+	it("keeps a failed tool as output-error in the done message when agent_end repeats its toolCall", () => {
+		const state = createEventMapperState();
+		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "tool_execution_start",
+			toolCallId: "failed-1",
+			toolName: "bash",
+			args: { command: "cat missing.txt" },
+		} as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "tool_execution_end",
+			toolCallId: "failed-1",
+			result: { content: [{ type: "text", text: "cat: missing.txt: No such file or directory" }] },
+			isError: true,
+		} as AgentSessionEvent);
+		const assistant = mkAssistant({
+			content: [{ type: "toolCall", id: "failed-1", name: "bash", arguments: { command: "cat missing.txt" } }],
+			stopReason: "toolUse",
+		});
+		const frames = mapAgentSessionEvent(state, {
+			type: "agent_end",
+			messages: [assistant],
+		} as unknown as AgentSessionEvent);
+		const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+		const toolPart = done.message.parts.find((part) => "toolCallId" in part && part.toolCallId === "failed-1");
+
+		expect(toolPart).toMatchObject({
+			state: "output-error",
+			error: { message: "cat: missing.txt: No such file or directory" },
+		});
+	});
+
+	describe("python_repl failure reported only via details.status (v0.10.2 drops isError)", () => {
+		const traceback = "FileNotFoundError: [Errno 2] No such file or directory: 'missing.csv'";
+		const failedCell = {
+			content: [{ type: "text", text: traceback }],
+			details: { status: "error", errorEname: "FileNotFoundError" },
+		};
+
+		it("maps the live tool part and the settled done part to output-error", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			mapAgentSessionEvent(state, {
+				type: "tool_execution_start",
+				toolCallId: "py-1",
+				toolName: "python_repl",
+				args: { code: "open('missing.csv')" },
+			} as AgentSessionEvent);
+			const live = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolCallId: "py-1",
+				toolName: "python_repl",
+				result: failedCell,
+				isError: false,
+			} as AgentSessionEvent);
+			const livePart = live.find((frame) => frame.type === "tool") as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(livePart.part).toMatchObject({ state: "output-error", error: { message: traceback } });
+
+			const frames = mapAgentSessionEvent(state, {
+				type: "agent_end",
+				messages: [
+					mkAssistant({
+						content: [
+							{ type: "toolCall", id: "py-1", name: "python_repl", arguments: { code: "open('missing.csv')" } },
+						],
+						stopReason: "toolUse",
+					}),
+				],
+			} as unknown as AgentSessionEvent);
+			const done = frames.find((frame) => frame.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
+			const donePart = done.message.parts.find((part) => "toolCallId" in part && part.toolCallId === "py-1");
+			expect(donePart).toMatchObject({ state: "output-error", error: { message: traceback } });
+		});
+
+		it("keeps a details.status ok cell as output-available", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			const live = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolCallId: "py-ok",
+				toolName: "python_repl",
+				result: { content: [{ type: "text", text: "42" }], details: { status: "ok" } },
+				isError: false,
+			} as AgentSessionEvent);
+			const livePart = live.find((frame) => frame.type === "tool") as Extract<ChatStreamEvent, { type: "tool" }>;
+			expect(livePart.part.state).toBe("output-available");
+			expect(livePart.part).not.toHaveProperty("error");
+		});
+
+		it("hydrates the persisted toolResult as output-error", () => {
+			const hydrated = toChatMessagesFromAgentMessages(
+				[
+					mkAssistant({
+						content: [
+							{ type: "toolCall", id: "py-1", name: "python_repl", arguments: { code: "open('missing.csv')" } },
+						],
+						stopReason: "toolUse",
+					}) as unknown as AgentMessage,
+					{
+						role: "toolResult",
+						toolCallId: "py-1",
+						toolName: "python_repl",
+						...failedCell,
+						isError: false,
+					} as unknown as AgentMessage,
+				],
+				"s",
+			);
+			const part = hydrated
+				.flatMap((message) => message.parts)
+				.find((candidate) => "toolCallId" in candidate && candidate.toolCallId === "py-1");
+			expect(part).toMatchObject({ state: "output-error", error: { message: traceback } });
+		});
+	});
+
 	it("appends an end-without-start and carries terminal parts into done", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
@@ -463,7 +861,7 @@ describe("event-mapper", () => {
 		);
 	});
 
-	it("never promotes thinking-only assistant output into the standard transcript", () => {
+	it("retains thinking-only assistant output as a typed reasoning part", () => {
 		const state = createEventMapperState();
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
 		mapAgentSessionEvent(state, {
@@ -481,22 +879,25 @@ describe("event-mapper", () => {
 			messages: [],
 		} as unknown as AgentSessionEvent);
 		const done = frames.find((f) => f.type === "done") as Extract<ChatStreamEvent, { type: "done" }>;
-		expect(done.message.parts).toEqual([]);
-		expect(JSON.stringify(done.message)).not.toContain("fleet-web-ok");
+		expect(done.message.parts).toContainEqual(
+			expect.objectContaining({ type: "reasoning", text: "fleet-web-ok", state: "complete" }),
+		);
 	});
 
-	it("excludes persisted upstream thinking blocks from cold transcript hydration", () => {
+	it("hydrates persisted upstream thinking blocks as typed reasoning parts", () => {
 		const hydrated = toChatMessageFromAssistant(
 			mkAssistant({
 				content: [
-					{ type: "thinking", thinking: "never-render-this" },
+					{ type: "thinking", thinking: "reasoning content" },
 					{ type: "text", text: "safe answer" },
 				] as AssistantMessage["content"],
 			}),
 			"hydrated-a0",
 		);
-		expect(hydrated.parts).toEqual([{ type: "text", text: "safe answer" }]);
-		expect(JSON.stringify(hydrated)).not.toContain("never-render-this");
+		expect(hydrated.parts).toEqual([
+			{ type: "reasoning", contentIndex: 0, text: "reasoning content", state: "complete" },
+			{ type: "text", text: "safe answer" },
+		]);
 	});
 
 	it("stamps agent_end done frames with the mapper session id", () => {
@@ -652,7 +1053,7 @@ describe("event-mapper", () => {
 		expect(frames.at(-1)?.type).toBe("done");
 	});
 
-	it("keeps late IPython agent messages attached to the tool payload", () => {
+	it("ignores retired IPython agent-message events", () => {
 		const state = createEventMapperState({ sessionId: "session-1" });
 		mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
 		const frames = mapAgentSessionEvent(state, {
@@ -666,10 +1067,7 @@ describe("event-mapper", () => {
 			},
 		} as unknown as AgentSessionEvent);
 
-		const tool = frames.find((frame): frame is Extract<ChatStreamEvent, { type: "tool" }> => frame.type === "tool");
-		expect(tool?.part.result).toMatchObject({
-			details: { sentAgentMessages: [{ id: "sent-1", message: "child result" }] },
-		});
+		expect(frames).toEqual([]);
 	});
 
 	it("rewrites the 0.8.0 MCP OAuth binding error into re-login guidance", () => {
@@ -735,7 +1133,7 @@ describe("event-mapper", () => {
 		const presentation = frames.filter(
 			(frame): frame is Extract<ChatStreamEvent, { type: "presentation" }> => frame.type === "presentation",
 		);
-		expect(presentation.map((frame) => frame.presentation.revision)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+		expect(presentation.map((frame) => frame.presentation.revision)).toEqual([1, 2, 3, 4, 5, 6]);
 		expect(state.presentation.sessionName).toBe("Renamed session");
 		expect(state.presentation.thinkingLevel).toBe("high");
 		expect(state.presentation.serviceTier).toBe("flex");
@@ -887,6 +1285,23 @@ describe("event-mapper", () => {
 		expect(Buffer.byteLength(byteBoundOutput, "utf8")).toBeLessThanOrEqual(50 * 1024);
 	});
 
+	it("keeps the end of a large Unicode bash line without splitting characters", () => {
+		const state = createEventMapperState({ sessionId: "session-1" });
+		mapAgentSessionEvent(state, {
+			type: "bash_start",
+			command: "generate output",
+			excludeFromContext: true,
+		} as unknown as AgentSessionEvent);
+		mapAgentSessionEvent(state, {
+			type: "bash_output",
+			chunk: `${"🙂".repeat(20_000)}\n`,
+		} as unknown as AgentSessionEvent);
+		const output = state.presentation.userBash[0]?.output ?? "";
+		expect(output.endsWith("🙂\n")).toBe(true);
+		expect(output).not.toContain("�");
+		expect(Buffer.byteLength(output, "utf8")).toBeLessThanOrEqual(50 * 1024);
+	});
+
 	it("hydrates images and joins persisted tool results to their call", () => {
 		const assistant = mkAssistant({
 			content: [
@@ -994,7 +1409,38 @@ describe("event-mapper", () => {
 			});
 		});
 
-		it("maps extension_error and closed errors to structured FleetErrorEnvelopes", () => {
+		it("resolves a tool identity from the assistant snapshot when execution events omit its name", () => {
+			const state = createEventMapperState();
+			mapAgentSessionEvent(state, { type: "agent_start" } as AgentSessionEvent);
+			mapAgentSessionEvent(state, {
+				type: "message_update",
+				message: mkAssistant({
+					content: [
+						{ type: "toolCall", id: "call-snapshot", name: "mcp__github_search", arguments: { query: "fleet" } },
+					],
+				}),
+			} as unknown as AgentSessionEvent);
+
+			const frames = mapAgentSessionEvent(state, {
+				type: "tool_execution_end",
+				toolCallId: "call-snapshot",
+				result: { results: [] },
+				isError: false,
+			} as unknown as AgentSessionEvent);
+
+			expect(frames.find((frame) => frame.type === "tool")).toMatchObject({
+				part: {
+					type: "tool-MCPGithubSearch",
+					category: "mcp",
+					toolName: "search",
+					serverName: "github",
+					toolCallId: "call-snapshot",
+					state: "output-available",
+				},
+			});
+		});
+
+		it("ignores retired extension_error events", () => {
 			const state = createEventMapperState({ sessionId: "test-session" });
 			const extFrames = mapAgentConnectionEvent(state, {
 				type: "extension_error",
@@ -1003,15 +1449,7 @@ describe("event-mapper", () => {
 				error: "Module failed to load",
 			} as AgentConnectionEvent);
 
-			expect(extFrames).toHaveLength(1);
-			expect(extFrames[0]).toMatchObject({
-				type: "error",
-				code: "EXTENSION_ERROR",
-				error: {
-					code: "EXTENSION_ERROR",
-					message: "Extension error in /plugins/my-ext.js: Module failed to load",
-				},
-			});
+			expect(extFrames).toEqual([]);
 		});
 	});
 
@@ -1600,7 +2038,7 @@ describe("event-mapper", () => {
 			});
 		});
 
-		it("maps auth_stale event to error frame with re-auth remediation", () => {
+		it("ignores retired auth_stale events", () => {
 			const state = createEventMapperState({ sessionId: "session-auth" });
 
 			const frames = mapAgentSessionEvent(state, {
@@ -1608,20 +2046,10 @@ describe("event-mapper", () => {
 				provider: "anthropic",
 			} as unknown as AgentSessionEvent);
 
-			expect(frames).toHaveLength(2);
-			const errorFrame = frames[1] as Extract<ChatStreamEvent, { type: "error" }>;
-			expect(errorFrame.type).toBe("error");
-			expect(errorFrame.message).toBe("Authentication for anthropic is stale. Sign in again to continue.");
-			expect(errorFrame.error).toMatchObject({
-				code: "AUTH_CREDENTIAL_EXPIRED",
-				isTerminal: true,
-				remediation: {
-					action: "open_settings_tab",
-				},
-			});
+			expect(frames).toEqual([]);
 		});
 
-		it("maps goal_update and recap_update presentation changes", () => {
+		it("maps goal updates and ignores retired recap updates", () => {
 			const state = createEventMapperState({ sessionId: "session-goals" });
 
 			const goalFrames = mapAgentSessionEvent(state, {
@@ -1650,16 +2078,8 @@ describe("event-mapper", () => {
 				recap: "Completed database setup and schema migrations.",
 			} as unknown as AgentSessionEvent);
 
-			expect(recapFrames).toHaveLength(1);
-			const recapPres = recapFrames[0] as Extract<ChatStreamEvent, { type: "presentation" }>;
-			expect(recapPres.presentation.recap).toBe("Completed database setup and schema migrations.");
-			expect(recapPres.presentation.artifactRuns[0].artifacts[0]).toMatchObject({
-				kind: "recap",
-				status: "success",
-				output: {
-					text: "Completed database setup and schema migrations.",
-				},
-			});
+			expect(recapFrames).toEqual([]);
+			expect(state.presentation.recap).toBeUndefined();
 		});
 
 		it("attaches durationMs and structured error envelopes during tool streaming and hydration", () => {

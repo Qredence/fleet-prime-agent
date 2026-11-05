@@ -13,12 +13,13 @@ import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useRef } from "react";
 import type { ChatClient } from "@/components/chat/chat-client";
 import { notifyChatError } from "@/components/chat/chat-error-notify";
-import { chatErrorFromStreamEvent, type QueueState } from "@/components/chat/chat-fetch";
+import { ChatStreamContractError, chatErrorFromStreamEvent, type QueueState } from "@/components/chat/chat-fetch";
 import {
 	createOptimisticUserMessage,
 	removeOptimisticUserMessage,
 	settleOptimisticUserMessage,
 } from "@/components/chat/chat-message-helpers";
+import type { ChatStreamRecoveryState } from "@/components/chat/chat-stream-recovery";
 import { applyChatStreamEvent } from "@/components/chat/chat-stream-state";
 import { hydratePlanPresentationMessages } from "@/components/chat/plans/plan-presentation";
 import type { SendMessageInput } from "@/components/chat/use-pi-chat";
@@ -78,6 +79,19 @@ function createStreamAdmission(): StreamAdmission {
 	};
 }
 
+function waitForRecovery(signal: AbortSignal): Promise<void> {
+	if (signal.aborted) return Promise.resolve();
+	return new Promise((resolve) => {
+		const finish = () => {
+			clearTimeout(timer);
+			signal.removeEventListener("abort", finish);
+			resolve();
+		};
+		const timer = setTimeout(finish, 2_000);
+		signal.addEventListener("abort", finish, { once: true });
+	});
+}
+
 export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 	PiChatMessagingSetters & {
 		client: ChatClient;
@@ -124,6 +138,30 @@ export function usePiChatMessaging({
 	const queuedSubmissionTailRef = useRef(RESOLVED_PROMISE);
 	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
 	const projectIdRef = useRef(projectId);
+	const recoveryGenerationRef = useRef(0);
+	// Recovery owns its abort handle. The POST that failed is already aborted, so
+	// reusing its signal would leave `stop()` unable to cancel the recovery loop.
+	const recoveryContextRef = useRef<AbortController | null>(null);
+	const streamRecoveryRef = useRef<ChatStreamRecoveryState>({ active: false, needsSnapshot: false });
+	/**
+	 * Release everything a recovery owns: the abort handle, the context that
+	 * steering restarts from, and the replay handoff the SSE channel reads.
+	 * `applyEvent`/`cursor` are cleared because a stale replay must never be
+	 * applied to a session this hook is no longer recovering.
+	 */
+	const releaseRecovery = useCallback(() => {
+		recoveryGenerationRef.current += 1;
+		const controller = recoveryContextRef.current;
+		recoveryContextRef.current = null;
+		controller?.abort();
+		streamRecoveryRef.current.active = false;
+		streamRecoveryRef.current.applyEvent = undefined;
+	}, []);
+	const cancelStreamRecovery = useCallback(() => {
+		releaseRecovery();
+		streamRecoveryRef.current.cursor = undefined;
+	}, [releaseRecovery]);
+	useEffect(() => () => cancelStreamRecovery(), [cancelStreamRecovery]);
 	useEffect(() => {
 		projectIdRef.current = projectId;
 	}, [projectId]);
@@ -176,33 +214,6 @@ export function usePiChatMessaging({
 			setQueueSynced,
 			setSessionMetadataSynced,
 		],
-	);
-	const ensureSession = useCallback(
-		async (signal?: AbortSignal): Promise<ChatSessionMetadata> => {
-			if (signal?.aborted) throw new Error("Session creation was aborted");
-			const existing = sessionMetadataRef.current;
-			if (existing.sessionId) return existing;
-			const inFlight = sessionCreatePromiseRef.current;
-			if (inFlight) return inFlight;
-			const promise = client
-				.createSession(projectIdRef.current, signal)
-				.then((created) => {
-					if (signal?.aborted) throw new Error("Session creation was aborted");
-					setSessionMetadataSynced(created.session);
-					setPresentationSynced(created.presentation);
-					sessionMetadataRef.current = created.session;
-					void refreshSessions();
-					return created.session;
-				})
-				.finally(() => {
-					if (sessionCreatePromiseRef.current === promise) {
-						sessionCreatePromiseRef.current = null;
-					}
-				});
-			sessionCreatePromiseRef.current = promise;
-			return promise;
-		},
-		[client, refreshSessions, sessionMetadataRef, setPresentationSynced, setSessionMetadataSynced],
 	);
 	const handleStreamEvent = useCallback(
 		(
@@ -271,6 +282,7 @@ export function usePiChatMessaging({
 				setStatus("ready");
 				void refreshSessions();
 			}
+			if (event.eventCursor) streamRecoveryRef.current.cursor = event.eventCursor;
 		},
 		[
 			activityLabelRef,
@@ -290,7 +302,144 @@ export function usePiChatMessaging({
 			setStatus,
 		],
 	);
+	const recoverInvalidStream = useCallback(
+		async (sessionId: string, error: ChatStreamContractError, mode?: ChatMode): Promise<boolean> => {
+			releaseRecovery();
+			const generation = recoveryGenerationRef.current;
+			const controller = new AbortController();
+			const signal = controller.signal;
+			const assistantIdRef = { current: null as string | null };
+			recoveryContextRef.current = controller;
 
+			// This is the only writer that arms the replay handoff. Arm it here
+			// rather than at the failure site so every recovery attempt, including
+			// a restart, owns a live `applyEvent`; the SSE channel drops replayed
+			// frames whenever `active` or `applyEvent` is missing.
+			streamRecoveryRef.current.sessionId = sessionId;
+			streamRecoveryRef.current.active = true;
+			streamRecoveryRef.current.needsSnapshot = streamRecoveryRef.current.cursor === undefined;
+			streamRecoveryRef.current.applyEvent = (replayedEvent) => {
+				if (streamRecoveryRef.current.sessionId !== sessionId) return;
+				handleStreamEvent(replayedEvent, assistantIdRef, sessionId, mode);
+				if (replayedEvent.type === "done") {
+					setStatus("streaming");
+					setActivityLabelSynced("Reconnecting…");
+				}
+			};
+			streamRecoveryRef.current.requestReconnect?.();
+
+			setError(null);
+			let consecutiveFailures = 0;
+			const isCurrent = () =>
+				recoveryGenerationRef.current === generation &&
+				recoveryContextRef.current === controller &&
+				sessionMetadataRef.current.sessionId === sessionId &&
+				!signal.aborted;
+
+			try {
+				while (isCurrent()) {
+					try {
+						const [snapshot, sessions] = await Promise.all([
+							client.loadSession({ sessionId }),
+							refreshSessions(),
+						]);
+						if (!isCurrent()) return false;
+						consecutiveFailures = 0;
+						const runtimeStatus = sessions.find((session) => session.sessionId === sessionId)?.status;
+						setPresentationSynced(snapshot.presentation);
+						setSessionMetadataSynced(snapshot.session);
+
+						if (runtimeStatus === "running") {
+							setStatus("streaming");
+							setActivityLabelSynced("Reconnecting…");
+						} else if (runtimeStatus === "idle") {
+							if (snapshot.messages.length > 0) {
+								setMessagesSynced(
+									hydratePlanPresentationMessages(snapshot.messages, snapshot.planPresentations),
+								);
+							}
+							setQueueSynced({ steering: [], followUp: [] });
+							setPlanLabelSynced(undefined);
+							setActivityLabelSynced(snapshot.sessionReset ? "Started a fresh Pi session" : undefined);
+							setError(null);
+							setStatus("ready");
+							return true;
+						} else {
+							if (snapshot.messages.length > 0) {
+								setMessagesSynced(
+									hydratePlanPresentationMessages(snapshot.messages, snapshot.planPresentations),
+								);
+							}
+							setActivityLabelSynced(undefined);
+							setError(error);
+							setStatus("error");
+							return false;
+						}
+						await waitForRecovery(signal);
+					} catch {
+						if (!isCurrent()) return false;
+						consecutiveFailures += 1;
+						if (consecutiveFailures >= 3) break;
+						setActivityLabelSynced("Refreshing conversation…");
+						await waitForRecovery(signal);
+					}
+				}
+				if (!isCurrent()) return false;
+				setActivityLabelSynced(undefined);
+				setError(error);
+				setStatus("error");
+				return false;
+			} finally {
+				// Only tear down state this attempt still owns. A newer attempt
+				// (steering restarted recovery) has already replaced the context.
+				if (recoveryGenerationRef.current === generation) {
+					releaseRecovery();
+				}
+			}
+		},
+		[
+			client,
+			handleStreamEvent,
+			refreshSessions,
+			releaseRecovery,
+			sessionMetadataRef,
+			setActivityLabelSynced,
+			setError,
+			setMessagesSynced,
+			setPlanLabelSynced,
+			setPresentationSynced,
+			setQueueSynced,
+			setSessionMetadataSynced,
+			setStatus,
+		],
+	);
+	const ensureSession = useCallback(
+		async (signal?: AbortSignal): Promise<ChatSessionMetadata> => {
+			if (signal?.aborted) throw new Error("Session creation was aborted");
+			const existing = sessionMetadataRef.current;
+			if (existing.sessionId) return existing;
+			const inFlight = sessionCreatePromiseRef.current;
+			if (inFlight) return inFlight;
+			const promise = client
+				.createSession(projectIdRef.current, signal)
+				.then((created) => {
+					if (signal?.aborted) throw new Error("Session creation was aborted");
+					setSessionMetadataSynced(created.session);
+					setPresentationSynced(created.presentation);
+					sessionMetadataRef.current = created.session;
+					void refreshSessions();
+					return created.session;
+				})
+				.finally(() => {
+					if (sessionCreatePromiseRef.current === promise) {
+						sessionCreatePromiseRef.current = null;
+					}
+				});
+			sessionCreatePromiseRef.current = promise;
+			return promise;
+		},
+		[client, refreshSessions, sessionMetadataRef, setPresentationSynced, setSessionMetadataSynced],
+	);
 	const enqueueDuringStream = useCallback(
 		async (
 			trimmed: string,
@@ -405,6 +554,11 @@ export function usePiChatMessaging({
 		}: SendMessageInput) => {
 			const trimmed = text.trim();
 			if (!trimmed) return false;
+			// Steering deliberately leaves recovery running. Cancelling it here used
+			// to clear `active`/`applyEvent` while the loop restarted, so the SSE
+			// replay channel stayed dead and replayed frames were dropped; the two
+			// are independent, and the recovery loop's own controller is what
+			// `stop()` aborts.
 
 			if (
 				status === "submitted" ||
@@ -444,6 +598,7 @@ export function usePiChatMessaging({
 			pendingSendControllerRef.current = controller;
 			let streamSessionId: string | undefined;
 			let terminalDoneSeen = false;
+			let streamContractFailed = false;
 
 			try {
 				const ensuredSession = await ensureSession(controller.signal);
@@ -501,11 +656,25 @@ export function usePiChatMessaging({
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(err);
 				}
-				setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
+				if (!(err instanceof ChatStreamContractError)) {
+					setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
+				} else {
+					streamContractFailed = true;
+				}
 				if (controller.signal.aborted) return false;
 				if (streamSessionId && sessionMetadataRef.current.sessionId !== streamSessionId) {
 					void refreshSessions();
 					return false;
+				}
+				if (err instanceof ChatStreamContractError && streamSessionId) {
+					// Replaying the resumed SSE frames reconciles the interrupted turn
+					// with what the runtime already emitted. `recoverInvalidStream` owns
+					// the handoff, so a stale cursor from a different session is the only
+					// state this site needs to reset.
+					if (streamRecoveryRef.current.sessionId !== streamSessionId) {
+						streamRecoveryRef.current.cursor = undefined;
+					}
+					return await recoverInvalidStream(streamSessionId, err, mode);
 				}
 				const recoveryDeps = { setError, setStatus };
 				const recovered =
@@ -523,7 +692,7 @@ export function usePiChatMessaging({
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(new Error("Chat stream ended before admission"));
 				}
-				if (controller.signal.aborted) {
+				if (controller.signal.aborted && !streamContractFailed) {
 					setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
 				}
 				if (pendingSendControllerRef.current === controller) {
@@ -540,11 +709,12 @@ export function usePiChatMessaging({
 			enqueueDuringStream,
 			findStreamAdmission,
 			handleStreamEvent,
-			reconcileSession,
 			model,
 			pendingSendControllerRef,
-			refreshSessions,
 			recoverFromForbiddenSession,
+			recoverInvalidStream,
+			reconcileSession,
+			refreshSessions,
 			sessionMetadataRef,
 			setActivityLabelSynced,
 			setError,
@@ -555,5 +725,13 @@ export function usePiChatMessaging({
 		],
 	);
 
-	return { enqueueDuringStream, handleStreamEvent, resetStreamAdmission, sendMessage, setAdapterCapabilities };
+	return {
+		cancelStreamRecovery,
+		enqueueDuringStream,
+		handleStreamEvent,
+		resetStreamAdmission,
+		sendMessage,
+		setAdapterCapabilities,
+		streamRecoveryRef,
+	};
 }

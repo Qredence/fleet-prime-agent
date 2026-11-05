@@ -6,16 +6,15 @@ import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo
 import type { RightPanel } from "@/components/layout/canvas-utils";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
-import { RIGHT_PANEL_LAUNCHER_DEFINITIONS } from "@/components/layout/right-panel-registry";
-import { TabsSubtle, TabsSubtleItem } from "@/components/layout/tabs-subtle";
+import { RIGHT_PANEL_GROUPS } from "@/components/layout/right-panel-registry";
+import { TabStrip } from "@/components/layout/tab-strip";
 import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { getResourceGroups } from "@/components/workspace/resource-helpers";
 import { CHAT_PANEL_BREAKPOINT_PX, DESKTOP_PANEL_ONLY } from "@/lib/layout-constants";
+import { cn } from "@/lib/utils";
 
-const COMPACT_TABS_CLASS =
-	"[&_[data-proximity-index]]:!h-7 [&_[data-proximity-index]]:!px-2 [&_[data-proximity-index]]:!text-caption";
 /**
  * Renders responsive controls for opening or navigating the right panel based on context state.
  *
@@ -26,7 +25,7 @@ export function RightPanelLauncherFromContext({ compact = false }: { compact?: b
 
 	return (
 		<>
-			<div className="min-[960px]:hidden">
+			<div className="flex min-w-0 justify-end min-[960px]:hidden">
 				<RightPanelTabsFromContext compact={compact} idPrefix="right-panel-mobile" />
 			</div>
 			<div className="hidden min-[960px]:block">
@@ -58,9 +57,6 @@ export function RightPanelTabsFromContext({
 			activePanel={rightPanel}
 			onPanelChange={setRightPanel}
 			resources={resources}
-			replRuns={
-				artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "ipython").length
-			}
 			sessionBlocks={transcriptSummary.openUIBlocks.length}
 			openUIArtifacts={
 				artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "openui-html").length
@@ -96,7 +92,6 @@ export function RightPanelTrigger({ compact = false, onOpen }: { compact?: boole
  * @param activePanel - The active panel, or `null` when no panel is open
  * @param onPanelChange - Called with the selected panel, or `null` to close the active panel
  * @param resources - Resource data used for the resources badge
- * @param replRuns - Number of REPL runs shown in the badge
  * @param sessionBlocks - Number of generative UI blocks in the current session
  * @param openUIArtifacts - Number of open generative UI artifacts
  * @param workspace - Workspace data used for the resources badge
@@ -107,7 +102,6 @@ export function RightPanelLauncher({
 	activePanel,
 	onPanelChange,
 	resources,
-	replRuns = 0,
 	sessionBlocks = 0,
 	openUIArtifacts = 0,
 	workspace,
@@ -119,7 +113,6 @@ export function RightPanelLauncher({
 	idPrefix?: string;
 	onPanelChange: (panel: RightPanel) => void;
 	resources: ChatResourcesResponse | null;
-	replRuns?: number;
 	/** Generative-UI blocks in the current session. */
 	sessionBlocks?: number;
 	openUIArtifacts?: number;
@@ -136,21 +129,20 @@ export function RightPanelLauncher({
 
 	const tabs = useMemo(
 		() =>
-			RIGHT_PANEL_LAUNCHER_DEFINITIONS.map((definition) => ({
+			RIGHT_PANEL_GROUPS.map((definition) => ({
 				...definition,
 				badge:
-					definition.badgeSource === "resources"
-						? totalResources || undefined
-						: definition.badgeSource === "artifacts"
-							? totalArtifacts
-							: definition.badgeSource === "repl"
-								? replRuns || undefined
-								: undefined,
+					definition.id === "workspace"
+						? totalArtifacts
+						: definition.id === "session"
+							? totalResources || undefined
+							: undefined,
 			})),
-		[replRuns, totalArtifacts, totalResources],
+		[totalArtifacts, totalResources],
 	);
 
-	const selectedIndex = tabs.findIndex((tab) => tab.id === activePanel);
+	const activeGroup = tabs.find((tab) => activePanel !== null && tab.panels.includes(activePanel));
+	const selectedIndex = activeGroup ? tabs.indexOf(activeGroup) : -1;
 	const panelOptions = useMemo<Array<SelectOption>>(
 		() =>
 			tabs.map((tab) => ({
@@ -165,27 +157,28 @@ export function RightPanelLauncher({
 		<ResponsivePanelLauncher
 			data-testid="right-panel-inline-launcher"
 			data-active-panel={activePanel ?? "closed"}
-			activePanel={activePanel}
+			activePanel={activeGroup?.id ?? null}
 			options={panelOptions}
 			panelOptions={tabs}
 			idPrefix={idPrefix}
 			selectedIndex={selectedIndex}
 			onSelect={(index) => {
-				const next = tabs.at(index)?.id;
+				const next = tabs.at(index);
 				if (!next) return;
-				onPanelChange(next === activePanel ? null : next);
+				if (activeGroup?.id === next.id) return;
+				onPanelChange(next.defaultPanel);
 			}}
 			compact={compact}
 		/>
 	);
 }
 
-type PanelLauncherTab = (typeof RIGHT_PANEL_LAUNCHER_DEFINITIONS)[number] & {
+type PanelLauncherTab = (typeof RIGHT_PANEL_GROUPS)[number] & {
 	badge?: number;
 };
 
 type ResponsivePanelLauncherProps = Omit<HTMLAttributes<HTMLDivElement>, "className" | "onSelect"> & {
-	activePanel: RightPanel;
+	activePanel: string | null;
 	className?: string;
 	compact?: boolean;
 	idPrefix: string;
@@ -256,6 +249,17 @@ function ResponsivePanelLauncher({
 		},
 		[onSelect, panelOptions],
 	);
+	const panelTabs = useMemo(
+		() =>
+			panelOptions.map((panel) => ({
+				id: panel.id,
+				label: panel.title,
+				icon: panel.icon,
+				badge: panel.badge,
+				ariaLabel: panel.ariaLabel,
+			})),
+		[panelOptions],
+	);
 
 	return (
 		<div
@@ -274,24 +278,16 @@ function ResponsivePanelLauncher({
 					value={activePanel}
 				/>
 			) : (
-				<TabsSubtle
-					activeLabel
-					className={`w-fit max-w-full ${compact ? COMPACT_TABS_CLASS : ""}`}
-					idPrefix={idPrefix}
-					selectedIndex={selectedIndex}
-					onSelect={onSelect}
-				>
-					{panelOptions.map((panel, index) => (
-						<TabsSubtleItem
-							key={panel.id}
-							index={index}
-							icon={panel.icon}
-							label={panel.title}
-							badge={panel.badge}
-							aria-label={panel.ariaLabel}
-						/>
-					))}
-				</TabsSubtle>
+				<TabStrip
+					ariaLabel="Panel views"
+					className="w-fit max-w-full"
+					dataTestid={`${idPrefix}-tabs`}
+					density="compact"
+					onValueChange={selectPanel}
+					tabs={panelTabs}
+					value={activePanel}
+					width="fit"
+				/>
 			)}
 			<div
 				ref={measurementRef}
@@ -300,30 +296,22 @@ function ResponsivePanelLauncher({
 				data-panel-launcher-measurement
 				inert
 			>
-				<TabsSubtle
-					activeLabel
-					className={`w-max max-w-none ${compact ? COMPACT_TABS_CLASS : ""}`}
-					idPrefix={`${idPrefix}-measurement`}
-					selectedIndex={selectedIndex}
-					onSelect={() => undefined}
-				>
-					{panelOptions.map((panel, index) => (
-						<TabsSubtleItem
-							key={panel.id}
-							index={index}
-							icon={panel.icon}
-							label={panel.title}
-							badge={panel.badge}
-							aria-label={panel.ariaLabel}
-						/>
-					))}
-				</TabsSubtle>
+				<TabStrip
+					ariaLabel="Panel views"
+					className="w-max max-w-none"
+					density="compact"
+					onValueChange={() => undefined}
+					tabs={panelTabs}
+					value={activePanel}
+					width="fit"
+				/>
 			</div>
 		</div>
 	);
 }
 
 export function MobilePanel({
+	bodyClassName,
 	children,
 	dataTestid,
 	headerActions,
@@ -332,6 +320,7 @@ export function MobilePanel({
 	open,
 	title,
 }: {
+	bodyClassName?: string;
 	children: ReactNode;
 	dataTestid?: string;
 	headerActions?: ReactNode;
@@ -458,7 +447,12 @@ export function MobilePanel({
 						</div>
 					</div>
 				)}
-				<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--density-pad-x)] py-4">
+				<div
+					className={cn(
+						"min-h-0 flex-1 overscroll-contain px-[var(--density-pad-x)] py-4",
+						bodyClassName ?? "overflow-y-auto",
+					)}
+				>
 					{children}
 				</div>
 			</div>

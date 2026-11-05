@@ -38,7 +38,7 @@ export function ChatWorkspaceLayout({
 				<header
 					className={cn(
 						CHAT_HEADER_LAYER_CLASS,
-						"grid h-[var(--chat-header-height)] min-h-[var(--chat-header-height)] shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border/70 px-[var(--density-pad-x)] py-2",
+						"grid h-[var(--chat-header-height)] min-h-[var(--chat-header-height)] shrink-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] items-center min-[960px]:grid-cols-[auto_minmax(0,1fr)_auto] gap-2 border-b border-border/70 px-[var(--density-pad-x)] py-2",
 					)}
 					data-testid="chat-header"
 				>
@@ -46,7 +46,11 @@ export function ChatWorkspaceLayout({
 					<div className="flex min-w-0 items-center justify-start gap-1 overflow-visible justify-self-stretch">
 						{headerCenter}
 					</div>
-					<div className="min-w-0 justify-self-end">{headerRight}</div>
+					{/* Below the panel breakpoint the right slot holds the panel launcher, so it
+					    gets a definite share of the row: an auto column would size to the
+					    launcher's tabs, never let it switch to its dropdown, and push the
+					    center tabs' New chat button over it. */}
+					<div className="min-w-0 justify-self-stretch min-[960px]:justify-self-end">{headerRight}</div>
 				</header>
 				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
 			</div>

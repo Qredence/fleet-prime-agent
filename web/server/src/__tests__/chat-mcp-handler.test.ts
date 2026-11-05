@@ -1,5 +1,5 @@
-import type { OAuthLoginCallbacks } from "@earendil-works/pi-ai/oauth";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import type { McpConnectionInfo } from "@prime-agent/web-protocol/mcp";
+import { describe, expect, it, vi } from "vitest";
 import {
 	handleChatMcpDelete,
 	handleChatMcpGet,
@@ -7,12 +7,7 @@ import {
 	handleChatMcpPost,
 	type McpHandlerDeps,
 } from "../handlers/chat-mcp";
-import { resetOAuthLoginsForTests } from "../handlers/chat-providers-oauth";
 import type { FleetMcpServerConfig } from "../mcp-connections";
-
-afterEach(() => {
-	resetOAuthLoginsForTests();
-});
 
 function createDeps(initial: Record<string, FleetMcpServerConfig> = {}): {
 	deps: McpHandlerDeps;
@@ -39,16 +34,46 @@ function createDeps(initial: Record<string, FleetMcpServerConfig> = {}): {
 				removed.push(provider);
 				credentials.delete(provider);
 			},
-			login: async (_providerId, callbacks: OAuthLoginCallbacks) => {
-				callbacks.onAuth({ url: "https://auth.example.test/authorize" });
-			},
 		},
 		workspaceRoot: "/workspace",
 		env: {},
 		reloadAuth: vi.fn(),
 		reloadResources: vi.fn(async () => undefined),
+		// The daemon owns MCP config, so the list comes from it rather than from a
+		// local SDK catalog. Stubbed here so the test needs no live daemon.
+		listConnections: vi.fn(async () => daemonConnections()),
+		storeToken: vi.fn(async () => ({ status: "stored" as const, verified: true, toolCount: 1 })),
 	};
 	return { deps, servers, removed };
+}
+
+/**
+ * Two catalog services as the daemon reports them: one usable, one needing auth.
+ *
+ * Shaped like `DaemonMcpConnections` so the mapping under test is exercised
+ * rather than bypassed by a hand-built Fleet list.
+ */
+function daemonConnections(): McpConnectionInfo[] {
+	return [
+		{
+			name: "linear",
+			label: "Linear",
+			source: "builtin",
+			transport: "http",
+			usesOAuth: true,
+			enabled: true,
+			status: "connected",
+		},
+		{
+			name: "notion",
+			label: "Notion",
+			source: "builtin",
+			transport: "http",
+			usesOAuth: true,
+			enabled: false,
+			status: "needs_auth",
+		},
+	];
 }
 
 describe("MCP connection handlers", () => {
@@ -142,84 +167,35 @@ describe("MCP connection handlers", () => {
 		expect(body.message).not.toContain("escape");
 	});
 
-	it("returns a waiting OAuth snapshot with an auth URL", async () => {
-		const { deps } = createDeps();
-		deps.auth.login = async (_providerId, callbacks) => {
-			callbacks.onAuth({ url: "https://auth.example.test/authorize" });
-			await new Promise<void>((_resolve, reject) => {
-				callbacks.signal?.addEventListener("abort", () => reject(new Error("Login cancelled")), { once: true });
-			});
-		};
-		const response = await handleChatMcpOAuthPost(
-			new Request("http://localhost/api/chat/mcp/oauth", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ name: "linear", action: "login" }),
-			}),
-			deps,
-		);
-		expect(response.status).toBe(200);
-		const body = (await response.json()) as { status: string; authUrl?: string; loginId?: string };
-		expect(body.status).toBe("waiting");
-		expect(body.authUrl).toBe("https://auth.example.test/authorize");
-		expect(body.loginId).toBeTruthy();
-	});
-
-	it("returns success after a completing OAuth login", async () => {
-		const { deps } = createDeps();
-		const start = await handleChatMcpOAuthPost(
-			new Request("http://localhost/api/chat/mcp/oauth", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ name: "linear" }),
-			}),
-			deps,
-		);
-		const started = (await start.json()) as { loginId: string; status: string };
-		expect(started.status).toBe("waiting");
-		await vi.waitFor(async () => {
-			const polled = await handleChatMcpOAuthPost(
+	it.each(["login", "reconnect"] as const)(
+		"returns terminal guidance for %s without changing credentials",
+		async (action) => {
+			const { deps, removed } = createDeps();
+			const response = await handleChatMcpOAuthPost(
 				new Request("http://localhost/api/chat/mcp/oauth", {
 					method: "POST",
 					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ name: "linear", loginId: started.loginId }),
+					body: JSON.stringify({ name: "linear", action, promptAnswer: "sensitive-user-input" }),
 				}),
 				deps,
 			);
-			const body = (await polled.json()) as { status: string; connections?: Array<unknown> };
-			expect(body.status).toBe("success");
-			expect(body.connections).toBeTruthy();
-		});
-	});
 
-	it("returns an error snapshot when login fails", async () => {
-		const { deps } = createDeps();
-		deps.auth.login = async () => {
-			throw new Error("oauth failed");
-		};
-		const start = await handleChatMcpOAuthPost(
-			new Request("http://localhost/api/chat/mcp/oauth", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ name: "linear" }),
-			}),
-			deps,
-		);
-		const started = (await start.json()) as { loginId: string };
-		await vi.waitFor(async () => {
-			const polled = await handleChatMcpOAuthPost(
-				new Request("http://localhost/api/chat/mcp/oauth", {
-					method: "POST",
-					headers: { "content-type": "application/json" },
-					body: JSON.stringify({ name: "linear", loginId: started.loginId }),
-				}),
-				deps,
-			);
-			const body = (await polled.json()) as { status: string; error?: string };
+			expect(response.status).toBe(501);
+			const body = (await response.json()) as { status: string; error?: string; loginId?: string };
 			expect(body.status).toBe("error");
-			expect(body.error).toMatch(/oauth failed/);
-		});
-	});
+			expect(body.error).toContain("has to run inside Prime Agent");
+			expect(body.error).toContain("/mcp login ");
+			expect(body.error).toContain("PRIME_AGENT_CODING_AGENT_DIR");
+			// Restarting Fleet re-attaches to the same detached daemon, so the copy
+			// must not promise that a restart reloads the credential.
+			expect(body.error).not.toMatch(/restart Fleet/i);
+			expect(body.error).not.toContain("sensitive-user-input");
+			expect(body).not.toHaveProperty("loginId");
+			expect(removed).toEqual([]);
+			expect(deps.reloadAuth).not.toHaveBeenCalled();
+			expect(deps.reloadResources).not.toHaveBeenCalled();
+		},
+	);
 
 	it("logs out stored credentials and returns the refreshed list", async () => {
 		const { deps, removed } = createDeps();

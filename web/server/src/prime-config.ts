@@ -18,24 +18,22 @@
  * of sensitive files mid-request.
  */
 
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { resolveAgentDir } from "./agent-dir";
 import {
 	createLegacyAuthStorage,
-	createLegacyModelRegistry,
 	createLegacySettingsManager,
 	type LegacyAuthStorage,
-	type LegacyModelRegistry,
 	type LegacyResourceLoader,
 	type LegacySettingsManager,
-	legacyAgentDir,
 	loadLegacyResources,
 } from "./legacy/prime-agent-sdk";
+import { invalidateModelCatalog } from "./model-catalog-cache";
 import { ProjectRegistry } from "./project-registry";
 import { resolveDefaultWorkspaceRoot } from "./workspace-root";
 
 export interface PrimeConfig {
 	readonly authStorage: LegacyAuthStorage;
-	readonly modelRegistry: LegacyModelRegistry;
 	readonly defaultSettings: LegacySettingsManager;
 	readonly defaultCwd: string;
 	readonly agentDir: string;
@@ -43,32 +41,30 @@ export interface PrimeConfig {
 
 	/** SettingsManager bound to a given cwd (one per unique cwd). */
 	settingsFor(cwd: string): LegacySettingsManager;
+	/** Drop cached settings after a settings file changes. */
+	invalidateSettings(): void;
 	/** ResourceLoader bound to a given cwd (reloaded on every call). */
 	resourceLoaderFor(cwd: string): Promise<LegacyResourceLoader>;
 
-	/** Force reload of AuthStorage/ModelRegistry from disk (after a POST/DELETE). */
+	/** Force reload of AuthStorage from disk and drop the cached model catalog (after a POST/DELETE). */
 	reloadAuth(): void;
 }
 
 type PrimeConfigGlobal = { __primeConfig?: PrimeConfig };
 
 function createPrimeConfig(initialCwd: string): PrimeConfig {
-	const agentDir = legacyAgentDir();
-	const authStorage = createLegacyAuthStorage();
-	const modelRegistry = createLegacyModelRegistry(authStorage);
+	const agentDir = resolveAgentDir();
+	const authStorage = createLegacyAuthStorage(join(agentDir, "auth.json"));
 	const projectRegistry = new ProjectRegistry(agentDir, initialCwd);
 
 	const currentDefaultCwd = resolve(initialCwd);
-	const defaultSettings = createLegacySettingsManager(currentDefaultCwd);
-
 	const settingsByCwd = new Map<string, LegacySettingsManager>();
-	settingsByCwd.set(currentDefaultCwd, defaultSettings);
+	settingsByCwd.set(currentDefaultCwd, createLegacySettingsManager(currentDefaultCwd, agentDir));
 
 	const config: PrimeConfig = {
 		authStorage,
-		modelRegistry,
 		get defaultSettings() {
-			return defaultSettings;
+			return this.settingsFor(currentDefaultCwd);
 		},
 		get defaultCwd() {
 			return currentDefaultCwd;
@@ -77,12 +73,15 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 		projectRegistry,
 
 		settingsFor(cwd: string): LegacySettingsManager {
-			if (cwd === currentDefaultCwd) return defaultSettings;
 			const existing = settingsByCwd.get(cwd);
 			if (existing) return existing;
-			const created = createLegacySettingsManager(cwd);
+			const created = createLegacySettingsManager(cwd, agentDir);
 			settingsByCwd.set(cwd, created);
 			return created;
+		},
+
+		invalidateSettings(): void {
+			settingsByCwd.clear();
 		},
 
 		resourceLoaderFor(cwd: string): Promise<LegacyResourceLoader> {
@@ -91,7 +90,10 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 
 		reloadAuth(): void {
 			this.authStorage.reload();
-			this.modelRegistry.refresh();
+			// The daemon re-reads `auth.json` and `models.json` itself, so there is
+			// no registry to refresh. Fleet's own catalog snapshot is what goes
+			// stale after a write, so it is what gets dropped.
+			invalidateModelCatalog();
 		},
 	};
 
@@ -102,7 +104,7 @@ export function getPrimeConfig(): PrimeConfig {
 	const globalStore = globalThis as unknown as PrimeConfigGlobal;
 	const existing = globalStore.__primeConfig;
 	// Vite HMR can leave a pre-upgrade singleton without newer methods.
-	if (!existing || !existing.projectRegistry) {
+	if (!existing || !existing.projectRegistry || !existing.invalidateSettings) {
 		// Prefer git repo root over the Vite package cwd so the workspace tree
 		// and default session cwd match the repository the agent is working in.
 		// A pre-upgrade singleton always carries the stale Vite package cwd, so

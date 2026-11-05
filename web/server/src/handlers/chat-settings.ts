@@ -1,69 +1,66 @@
+import { join } from "node:path";
 import { ChatSettingsUpdateRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { applySettingsPatch } from "../agent-settings-writer";
 import { getPrimeConfig } from "../prime-config";
 import { safePathLabel } from "../project-registry";
 import { cwdForRequest } from "../project-request";
+import { mergeProjectedSettings, projectSettingsValues, readSettingsProjection } from "../settings-projection";
+import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 
-type PrimeSettings = ReturnType<ReturnType<typeof getPrimeConfig>["defaultSettings"]["getGlobalSettings"]>;
-
-function toProjectShape(project: PrimeSettings) {
-	const out: Record<string, unknown> = {};
-	if (project.compaction) out.compaction = project.compaction;
-	if (project.defaultModel !== undefined) out.defaultModel = project.defaultModel;
-	if (project.defaultProvider !== undefined) out.defaultProvider = project.defaultProvider;
-	if (project.defaultThinkingLevel !== undefined) out.defaultThinkingLevel = project.defaultThinkingLevel;
-	if (project.enableSkillCommands !== undefined) out.enableSkillCommands = project.enableSkillCommands;
-	if (project.enabledModels !== undefined) out.enabledModels = project.enabledModels;
-	if (project.extensions !== undefined) out.extensions = project.extensions;
-	if (project.followUpMode !== undefined) out.followUpMode = project.followUpMode;
-	if (project.packages !== undefined) out.packages = project.packages;
-	if (project.prompts !== undefined) out.prompts = project.prompts;
-	if (project.retry) out.retry = project.retry;
-	if (project.skills !== undefined) out.skills = project.skills;
-	if (project.steeringMode !== undefined) out.steeringMode = project.steeringMode;
-	if (project.themes !== undefined) out.themes = project.themes;
-	if (project.transport !== undefined) out.transport = project.transport;
-	return out;
+/**
+ * Settings writes go to the project file when one already exists, matching the
+ * runtime's own resolution order, and to the global file otherwise. A request
+ * that carried a project therefore edits that project's settings, but never
+ * creates a project-level file to hold a change the user expected globally.
+ */
+async function settingsWritePath(request: Request): Promise<{ path: string; scope: "global" | "project" }> {
+	const config = getPrimeConfig();
+	const cwd = await cwdForRequest(request);
+	const project = await readSettingsProjection(config.agentDir, cwd);
+	if (Object.keys(project.project).length > 0) {
+		return { path: join(cwd, ".prime", "agent", "settings.json"), scope: "project" };
+	}
+	return { path: join(config.agentDir, "settings.json"), scope: "global" };
 }
 
-function buildResponse(cwd: string) {
+async function buildResponse(cwd: string) {
 	const config = getPrimeConfig();
-	const manager = config.settingsFor(cwd);
-	const globalSettings = manager.getGlobalSettings();
-	const projectSettings = manager.getProjectSettings();
-
-	const compaction = manager.getCompactionSettings();
-	const retry = manager.getRetrySettings();
-	const merged: PrimeSettings = { ...globalSettings, ...projectSettings };
+	const projection = await readSettingsProjection(config.agentDir, cwd);
+	const globalSettings = projectSettingsValues(projection.global);
+	const projectSettings = projectSettingsValues(projection.project);
+	const merged = mergeProjectedSettings(globalSettings, projectSettings);
+	const compaction = merged.compaction as Record<string, unknown> | undefined;
+	const retry = merged.retry as Record<string, unknown> | undefined;
 
 	return {
-		diagnostics: [] as string[],
+		diagnostics: projection.diagnostics,
 		effective: {
 			compaction: {
-				enabled: compaction.enabled,
-				reserveTokens: compaction.reserveTokens,
-				keepRecentTokens: compaction.keepRecentTokens,
+				enabled: compaction?.enabled ?? true,
+				reserveTokens: compaction?.reserveTokens ?? 16384,
+				keepRecentTokens: compaction?.keepRecentTokens ?? 20000,
 			},
 			defaultModel: merged.defaultModel,
 			defaultProvider: merged.defaultProvider,
 			defaultThinkingLevel: merged.defaultThinkingLevel,
-			enableSkillCommands: manager.getEnableSkillCommands(),
-			enabledModels: manager.getEnabledModels(),
-			extensions: manager.getExtensionPaths(),
-			followUpMode: manager.getFollowUpMode(),
-			packages: manager.getPackages(),
-			prompts: manager.getPromptTemplatePaths(),
+			enableSkillCommands: merged.enableSkillCommands ?? true,
+			enabledModels: merged.enabledModels,
+			extensions: merged.extensions ?? [],
+			followUpMode: merged.followUpMode ?? "one-at-a-time",
+			packages: merged.packages ?? [],
+			prompts: merged.prompts ?? [],
 			retry: {
-				enabled: retry.enabled,
-				maxRetries: retry.maxRetries,
-				baseDelayMs: retry.baseDelayMs,
+				enabled: retry?.enabled ?? true,
+				maxRetries: retry?.maxRetries ?? 3,
+				baseDelayMs: retry?.baseDelayMs ?? 2000,
 			},
-			skills: manager.getSkillPaths(),
-			steeringMode: manager.getSteeringMode(),
-			themes: manager.getThemePaths(),
-			transport: manager.getTransport(),
+			skills: merged.skills ?? [],
+			steeringMode: merged.steeringMode ?? "one-at-a-time",
+			themes: merged.themes ?? [],
+			transport: merged.transport ?? "auto",
 		},
-		project: toProjectShape(projectSettings),
+		project: projectSettings,
 		projectPath: safePathLabel(cwd),
 		updateImpact: {
 			newSessionRecommended: false,
@@ -75,66 +72,38 @@ function buildResponse(cwd: string) {
 export function handleChatSettingsGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const cwd = await cwdForRequest(request);
-		return Response.json(buildResponse(cwd));
+		return Response.json(await buildResponse(cwd));
 	}, request);
 }
 
 export function handleChatSettingsPatch(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		const [cwd, raw] = await Promise.all([cwdForRequest(request), request.json().catch(() => ({}))]);
-		const body = ChatSettingsUpdateRequestSchema.parse(raw);
-		const config = getPrimeConfig();
-		const manager = config.settingsFor(cwd);
+		const body = ChatSettingsUpdateRequestSchema.parse(await request.json().catch(() => ({})));
+		const cwd = await cwdForRequest(request);
+		const { path } = await settingsWritePath(request);
 
-		const patch = body.settings;
-		if (patch.defaultProvider !== undefined) {
-			manager.setDefaultProvider(patch.defaultProvider);
+		const outcome = await applySettingsPatch(path, body.settings);
+		if (outcome.status === "refused") {
+			return Response.json(
+				{
+					code: "UNWRITABLE",
+					message: `Fleet could not update ${safePathLabel(path)}. ${outcome.reason} Change these settings in the Prime Agent terminal interface instead.`,
+				},
+				{ status: 409 },
+			);
 		}
-		if (patch.defaultModel !== undefined && patch.defaultProvider !== undefined) {
-			manager.setDefaultModelAndProvider(patch.defaultProvider, patch.defaultModel);
-		} else if (patch.defaultModel !== undefined) {
-			manager.setDefaultModel(patch.defaultModel);
-		}
-		if (patch.defaultThinkingLevel !== undefined) {
-			manager.setDefaultThinkingLevel(patch.defaultThinkingLevel);
-		}
-		if (patch.transport !== undefined) {
-			manager.setTransport(patch.transport);
-		}
-		if (patch.steeringMode !== undefined) {
-			manager.setSteeringMode(patch.steeringMode);
-		}
-		if (patch.followUpMode !== undefined) {
-			manager.setFollowUpMode(patch.followUpMode);
-		}
-		if (patch.enableSkillCommands !== undefined) {
-			manager.setEnableSkillCommands(patch.enableSkillCommands);
-		}
-		if (patch.enabledModels !== undefined) {
-			manager.setEnabledModels(patch.enabledModels ?? undefined);
-		}
-		if (patch.compaction?.enabled !== undefined) {
-			manager.setCompactionEnabled(patch.compaction.enabled);
-		}
-		if (patch.retry?.enabled !== undefined) {
-			manager.setRetryEnabled(patch.retry.enabled);
-		}
-		if (patch.extensions !== undefined) {
-			manager.setExtensionPaths(patch.extensions);
-		}
-		if (patch.skills !== undefined) {
-			manager.setSkillPaths(patch.skills);
-		}
-		if (patch.prompts !== undefined) {
-			manager.setPromptTemplatePaths(patch.prompts);
-		}
-		if (patch.themes !== undefined) {
-			manager.setThemePaths(patch.themes);
-		}
-		if (patch.packages !== undefined) {
-			manager.setPackages(patch.packages);
+		getPrimeConfig().invalidateSettings();
+
+		// The runtime reads settings at session start and on reload, so a write is
+		// not observable until one of those happens. A reload is cheap; failing it
+		// must not report the write as unsuccessful.
+		if (outcome.impact.resourceReloadRequired) {
+			await getBridge()
+				.reloadResources()
+				.catch(() => undefined);
 		}
 
-		return Response.json(buildResponse(cwd));
+		const response = await buildResponse(cwd);
+		return Response.json({ ...response, updateImpact: outcome.impact });
 	}, request);
 }

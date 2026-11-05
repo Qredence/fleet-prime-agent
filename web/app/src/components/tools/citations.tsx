@@ -1,10 +1,19 @@
 "use client";
 
-import { BookOpenText, ChevronDown, ExternalLink, Globe2 } from "lucide-react";
+import { ArrowUpRight, Globe2 } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useId, useState } from "react";
-import { AgentDisclosure } from "@/components/tools/agent-disclosure";
-import { EASE_OUT, SPRING_LAYOUT, SPRING_SWAP } from "@/lib/ease";
+import {
+	Trace,
+	TraceCollapsible,
+	TraceCollapsibleContent,
+	TraceCollapsibleTrigger,
+	TraceDescription,
+	TraceIcon,
+	TraceLine,
+	TraceTitle,
+} from "@/components/ui/trace";
+import { EASE_OUT, SPRING_LAYOUT } from "@/lib/ease";
 import { isSafeExternalUrl } from "@/lib/safe-external-url";
 import { cn } from "@/lib/utils";
 
@@ -81,28 +90,26 @@ function CitationFavicon({ url, className }: { url?: string; className?: string 
 function CitationRow({ citation, index, idPrefix }: { citation: CitationItem; index: number; idPrefix: string }) {
 	const safeUrl = citation.url && isSafeExternalUrl(citation.url) ? citation.url : undefined;
 	const content = (
-		<>
-			<CitationFavicon url={citation.url} />
-			<span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-				<span className="truncate text-sm font-medium text-foreground/80 transition-colors group-hover/citation:text-foreground">
-					{citation.title}
-				</span>
-				{citation.domain ? (
-					<span className="min-w-0 truncate text-xs text-muted-foreground/60">{citation.domain}</span>
-				) : null}
-			</span>
-			<span className="flex shrink-0 items-center gap-1.5">
-				<span className="grid size-5 place-items-center rounded-md bg-foreground/[0.05] text-micro font-semibold tabular-nums text-muted-foreground">
-					{index}
-				</span>
-				{safeUrl ? (
-					<ExternalLink className="size-3.5 text-muted-foreground/40 transition-colors group-hover/citation:text-muted-foreground" />
-				) : null}
-			</span>
-		</>
+		<TraceLine className="w-full max-w-full rounded-md px-1.5 py-1 text-sm group-hover/citation:text-foreground">
+			<TraceIcon>
+				<CitationFavicon url={citation.url} />
+			</TraceIcon>
+			<TraceTitle className="font-medium text-foreground/80 transition-colors group-hover/citation:text-foreground">
+				{citation.title}
+				{safeUrl ? <span className="sr-only"> (opens in a new tab)</span> : null}
+			</TraceTitle>
+			{citation.domain ? <TraceDescription className="max-w-40 truncate">{citation.domain}</TraceDescription> : null}
+			<TraceDescription className="rounded-md bg-foreground/[0.05] px-1.5 py-0.5 text-micro font-semibold">
+				{index}
+			</TraceDescription>
+			{safeUrl ? (
+				<TraceIcon>
+					<ArrowUpRight />
+				</TraceIcon>
+			) : null}
+		</TraceLine>
 	);
-	const className =
-		"group/citation flex items-center gap-2 rounded-md px-1.5 py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring";
+	const className = "group/citation block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring";
 	const id = citationTargetId(idPrefix, citation.id);
 
 	return safeUrl ? (
@@ -122,7 +129,7 @@ function CitationList({ citations, idPrefix, className }: CitationListProps) {
 	const resolvedPrefix = idPrefix ?? `citation-list-${baseId.replace(/:/g, "")}`;
 
 	return (
-		<div className={cn("grid gap-0.5", className)}>
+		<Trace className={cn("gap-0.5", className)}>
 			<AnimatePresence mode="popLayout">
 				{citations.map((citation, index) => (
 					<m.div
@@ -145,7 +152,7 @@ function CitationList({ citations, idPrefix, className }: CitationListProps) {
 					</m.div>
 				))}
 			</AnimatePresence>
-		</div>
+		</Trace>
 	);
 }
 
@@ -158,9 +165,7 @@ export function Citations({
 	idPrefix,
 	className,
 }: CitationsProps) {
-	const reduce = useReducedMotion() ?? false;
 	const baseId = useId();
-	const contentId = `${baseId}-content`;
 	const resolvedPrefix = idPrefix ?? `citation-${baseId.replace(/:/g, "")}`;
 	const [internalOpen, setInternalOpen] = useState(defaultOpen);
 	const currentOpen = open ?? internalOpen;
@@ -173,32 +178,24 @@ export function Citations({
 	);
 
 	return (
-		<div className={cn("w-full text-sm", className)}>
-			<button
-				type="button"
-				aria-expanded={currentOpen}
-				aria-controls={contentId}
-				onClick={() => setOpen(!currentOpen)}
-				className="group -ml-1 flex min-h-8 items-center gap-2 rounded-lg px-1 text-left text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-			>
-				<BookOpenText className="size-4" />
-				<span className="font-medium">{title}</span>
-				<span className="rounded-full bg-muted px-1.5 py-0.5 text-micro font-semibold tabular-nums">
-					{citations.length}
-				</span>
-				<m.span
-					aria-hidden="true"
-					animate={{ rotate: currentOpen ? 180 : 0 }}
-					transition={reduce ? { duration: 0 } : SPRING_SWAP}
-					className="text-muted-foreground/60"
+		<Trace className={cn("text-sm", className)} data-testid="sources-trace">
+			<TraceCollapsible open={currentOpen} onOpenChange={setOpen}>
+				<TraceCollapsibleTrigger
+					aria-label={`${typeof title === "string" || typeof title === "number" ? title : "Sources"} ${citations.length}`}
 				>
-					<ChevronDown className="size-3.5" />
-				</m.span>
-			</button>
-
-			<AgentDisclosure id={contentId} open={currentOpen}>
-				<CitationList citations={citations} idPrefix={resolvedPrefix} className="mt-1" />
-			</AgentDisclosure>
-		</div>
+					<TraceLine>
+						<TraceIcon>
+							<Globe2 />
+						</TraceIcon>
+						<TraceTitle>
+							{title} ({citations.length})
+						</TraceTitle>
+					</TraceLine>
+				</TraceCollapsibleTrigger>
+				<TraceCollapsibleContent>
+					<CitationList citations={citations} idPrefix={resolvedPrefix} />
+				</TraceCollapsibleContent>
+			</TraceCollapsible>
+		</Trace>
 	);
 }

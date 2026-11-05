@@ -1,12 +1,32 @@
 import { Library } from "lucide-react";
-import { type PointerEvent as ReactPointerEvent, useSyncExternalStore } from "react";
+import { type PointerEvent as ReactPointerEvent, useMemo, useSyncExternalStore } from "react";
 import { ResizableCanvas } from "@/components/layout/resizable-canvas";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
 import { MobilePanel, RightPanelTabsFromContext } from "@/components/layout/right-panel-launcher";
-import { getRightPanelDefinition } from "@/components/layout/right-panel-registry";
+import {
+	type ActiveRightPanel,
+	getRightPanelDefinition,
+	getRightPanelGroup,
+} from "@/components/layout/right-panel-registry";
+import { TabStrip } from "@/components/layout/tab-strip";
 import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
 
+/** Panels that manage their own scroll inside a fill-height body. */
+const FILL_BODY_PANELS = new Set<ActiveRightPanel>(["subagents"]);
+const FILL_BODY_CLASSNAME = "flex min-h-0 flex-col overflow-hidden py-3";
+
 const DESKTOP_PANEL_QUERY = `(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`;
+
+/** Short labels for the in-panel view switcher. */
+const GROUP_VIEW_LABELS: Record<ActiveRightPanel, string> = {
+	resources: "Skills",
+	workspace: "Files",
+	artifacts: "Artifacts",
+	repl: "REPL",
+	subagents: "Subagents",
+	"session-insights": "Insights",
+	"session-tree": "Tree",
+};
 
 function subscribeToDesktopPanel(onChange: () => void) {
 	if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
@@ -52,11 +72,46 @@ export function RightPanelShell({
 }: RightPanelShellProps) {
 	const chat = useChatPanelDataContext();
 	const workspace = useWorkspaceTreeContext();
-	const { rightPanel } = chat;
+	const { rightPanel, setRightPanel } = chat;
 	const panelOpen = rightPanel !== null;
 	const isDesktop = useIsDesktopPanel();
 	const definition = rightPanel ? getRightPanelDefinition(rightPanel) : null;
 	const PanelContent = definition?.component;
+	const panelGroup = rightPanel ? getRightPanelGroup(rightPanel) : undefined;
+	const groupTabs = useMemo(
+		() =>
+			panelGroup && panelGroup.panels.length > 1
+				? panelGroup.panels.map((panel) => ({ id: panel, label: GROUP_VIEW_LABELS[panel] }))
+				: [],
+		[panelGroup],
+	);
+	const fillBody = rightPanel !== null && FILL_BODY_PANELS.has(rightPanel);
+	const content = (
+		<>
+			{groupTabs.length > 0 ? (
+				<TabStrip
+					ariaLabel={`${panelGroup?.title ?? "Panel"} views`}
+					className="mb-3 w-fit shrink-0"
+					onValueChange={(nextPanel) => {
+						const next = groupTabs.find((tab) => tab.id === nextPanel)?.id;
+						if (next) setRightPanel(next);
+					}}
+					tabs={groupTabs}
+					value={rightPanel}
+					width="fit"
+				/>
+			) : null}
+			{PanelContent ? (
+				fillBody ? (
+					<div className="flex min-h-0 min-w-0 flex-1 flex-col">
+						<PanelContent />
+					</div>
+				) : (
+					<PanelContent />
+				)
+			) : null}
+		</>
+	);
 	const loading =
 		definition?.loadingSource === "resources"
 			? chat.resourcesLoading
@@ -73,6 +128,7 @@ export function RightPanelShell({
 		<>
 			{isDesktop ? (
 				<ResizableCanvas
+					bodyClassName={fillBody ? FILL_BODY_CLASSNAME : undefined}
 					dataTestid={definition?.dataTestid}
 					headerLeading={<RightPanelTabsFromContext compact idPrefix="right-panel-desktop" />}
 					loading={loading}
@@ -85,17 +141,18 @@ export function RightPanelShell({
 					titleIcon={definition?.icon ?? Library}
 					width={resourceCanvasWidth}
 				>
-					{PanelContent ? <PanelContent /> : null}
+					{content}
 				</ResizableCanvas>
 			) : (
 				<MobilePanel
+					bodyClassName={fillBody ? FILL_BODY_CLASSNAME : undefined}
 					dataTestid={definition?.mobileDataTestid}
 					icon={definition?.icon}
 					onClose={onClose}
 					open={panelOpen}
 					title={definition?.title ?? ""}
 				>
-					{PanelContent ? <PanelContent /> : null}
+					{content}
 				</MobilePanel>
 			)}
 		</>
