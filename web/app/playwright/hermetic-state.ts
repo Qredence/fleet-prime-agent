@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs"
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { SMOKE_OWNER_PID_FILE } from "./smoke-processes"
 
 /**
  * Hermetic Prime state for the Playwright dev server.
@@ -46,6 +47,8 @@ export function resolveSmokeStateDir(): string {
 		rmSync(stateDir, { recursive: true, force: true })
 		stateDir = mkdtempSync(join("/tmp", "fleet-smoke-"))
 	}
+	// Lets a later run's global setup reap this run's daemon if teardown never runs.
+	writeFileSync(join(stateDir, SMOKE_OWNER_PID_FILE), String(process.pid))
 	process.env[SMOKE_STATE_DIR_ENV] = stateDir
 	process.env[SMOKE_STATE_OWNED_ENV] = "1"
 	return stateDir
