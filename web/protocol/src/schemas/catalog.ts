@@ -128,7 +128,7 @@ export const ChatProviderInfoSchema = z
 		displayName: z.string().optional(),
 		api: z.enum(["openai-completions", "openai-responses", "anthropic-messages", "google-genai"]).optional(),
 		baseUrl: z.string().optional(),
-		modelIds: z.array(z.string().max(4096)).max(64).optional(),
+		modelIds: z.array(z.string().max(4096)).optional(),
 		discoverable: z.boolean().optional(),
 	})
 	.openapi({ description: "Chat provider info" });
@@ -148,7 +148,7 @@ export const ChatProviderUpdateRequestSchema = z
 		displayName: z.string().max(256).optional(),
 		createOccInstance: z.boolean().optional(),
 		api: z.enum(["openai-completions", "openai-responses", "anthropic-messages", "google-genai"]).optional(),
-		models: z.array(z.string().max(4096)).max(64).optional(),
+		models: z.array(z.string().max(4096)).optional(),
 	})
 	.openapi({ description: "Chat provider update request" });
 

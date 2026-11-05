@@ -143,7 +143,7 @@ export function AddProviderEditorPanel({
 	apiKey,
 	baseUrl,
 	modelId,
-	models,
+	modelIds,
 	displayName,
 	showPassword,
 	attemptedSave,
@@ -153,7 +153,7 @@ export function AddProviderEditorPanel({
 	onApiChange,
 	onBaseUrlChange,
 	onModelIdChange,
-	onModelsChange,
+	onModelIdsChange,
 	onDisplayNameChange,
 	onTogglePassword,
 	onBack,
@@ -165,7 +165,7 @@ export function AddProviderEditorPanel({
 	apiKey: string;
 	baseUrl: string;
 	modelId: string;
-	models: string;
+	modelIds: Array<string>;
 	displayName?: string;
 	showPassword: boolean;
 	attemptedSave: boolean;
@@ -175,7 +175,7 @@ export function AddProviderEditorPanel({
 	onApiChange: (value: PiCustomProviderApi) => void;
 	onBaseUrlChange: (value: string) => void;
 	onModelIdChange: (value: string) => void;
-	onModelsChange: (value: string) => void;
+	onModelIdsChange: (value: Array<string>) => void;
 	onDisplayNameChange?: (value: string) => void;
 	onTogglePassword: () => void;
 	onBack: () => void;
@@ -224,7 +224,7 @@ export function AddProviderEditorPanel({
 				apiKey={apiKey}
 				baseUrl={baseUrl}
 				modelId={modelId}
-				models={models}
+				modelIds={modelIds}
 				displayName={displayName}
 				isCustom={isCustomTemplate}
 				openAiChat={openAiChat}
@@ -234,7 +234,7 @@ export function AddProviderEditorPanel({
 				onApiChange={onApiChange}
 				onBaseUrlChange={onBaseUrlChange}
 				onModelIdChange={onModelIdChange}
-				onModelsChange={onModelsChange}
+				onModelIdsChange={onModelIdsChange}
 				onDisplayNameChange={onDisplayNameChange}
 				onTogglePassword={onTogglePassword}
 			/>

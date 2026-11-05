@@ -13,7 +13,7 @@ export type ProviderCredentialForm = {
 	apiKey: string;
 	baseUrl: string;
 	modelId: string;
-	models: string;
+	modelIds: Array<string>;
 	displayName: string;
 	showPassword: boolean;
 	attemptedSave: boolean;
@@ -30,7 +30,7 @@ export type ProviderCredentialActions = {
 	onApiChange: (value: PiCustomProviderApi) => void;
 	onBaseUrlChange: (value: string) => void;
 	onModelIdChange: (value: string) => void;
-	onModelsChange: (value: string) => void;
+	onModelIdsChange: (value: Array<string>) => void;
 	onDisplayNameChange: (value: string) => void;
 	onTogglePassword: () => void;
 };
