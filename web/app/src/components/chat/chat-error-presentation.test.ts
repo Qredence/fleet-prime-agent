@@ -42,4 +42,10 @@ describe("chat error presentation", () => {
 			message: "Project no longer exists",
 		});
 	});
+
+	it("strips daemon diagnostics from generic request failures without lowercasing offsets", () => {
+		const presentation = getChatErrorPresentation(new Error("Upstream failed Socket: /tmp/private.sock"));
+		expect(presentation.message).toBe("Upstream failed");
+		expect(presentation.message).not.toContain("/tmp/private.sock");
+	});
 });

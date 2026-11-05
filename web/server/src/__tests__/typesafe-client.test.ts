@@ -89,6 +89,12 @@ describe("readTypeSafeConfig", () => {
 			false,
 		);
 		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "not a url" }).configured).toBe(false);
+		expect(readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "https://x.test/#proxy" }).configured).toBe(
+			false,
+		);
+		expect(
+			readTypeSafeConfig({ TYPESAFE_API_KEY: "k", TYPESAFE_BASE_URL: "https://x.test?proxy=1" }).configured,
+		).toBe(false);
 	});
 
 	it("allows https anywhere and http only on loopback", () => {

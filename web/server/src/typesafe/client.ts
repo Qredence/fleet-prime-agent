@@ -185,6 +185,7 @@ export async function postSystemOne(
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({ state: body.state, model: config.model, questions: body.questions }),
+				redirect: "error",
 				signal,
 			});
 

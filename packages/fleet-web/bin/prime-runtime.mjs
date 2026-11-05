@@ -19,10 +19,9 @@ function pinnedRustArchiveUrl(baseUrl, archive) {
 }
 
 function spawnTar(args) {
-	const tarPath = process.platform === "win32" ? "tar" : "/usr/bin/tar";
 	const options = { encoding: "utf8" };
 	if (TRUSTED_PATH) options.env = { ...process.env, PATH: TRUSTED_PATH };
-	return spawnSync(tarPath, args, options);
+	return spawnSync("tar", args, options);
 }
 
 // This module is the single Prime Agent runtime installer. The npm launcher

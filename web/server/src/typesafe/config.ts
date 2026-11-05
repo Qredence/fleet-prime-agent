@@ -51,6 +51,7 @@ function nonNegativeInt(value: string | undefined, fallback: number): number {
  * machine.
  */
 function isCredentialSafeBaseUrl(value: string): boolean {
+	if (/[?#]/.test(value)) return false;
 	let url: URL;
 	try {
 		url = new URL(value);
