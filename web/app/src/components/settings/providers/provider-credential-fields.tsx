@@ -1,13 +1,13 @@
 import type { PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
-import { Box, Globe, Layers, Tag } from "lucide-react";
+import { Box, Globe, Tag } from "lucide-react";
 import { SecretCredentialField, TextCredentialField } from "@/components/settings/providers/credential-fields";
+import { CustomProviderModelsEditor } from "@/components/settings/providers/custom-provider-models-editor";
 import { FieldGroup } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 
 const OPENAI_CHAT_BASE_URL_PLACEHOLDER = "https://opencode.ai/zen/v1";
 const OPENAI_CHAT_MODEL_PLACEHOLDER = "qwen35-122b-a10b";
 const OPENAI_CHAT_NAME_PLACEHOLDER = "e.g. OpenCode Zen, Nebius, Groq…";
-const CUSTOM_MODELS_PLACEHOLDER = "model-a, model-b (comma-separated)";
 
 const CUSTOM_PROVIDER_API_OPTIONS: Array<{
 	value: PiCustomProviderApi;
@@ -36,14 +36,14 @@ export function ProviderCredentialFields({
 	api,
 	baseUrl,
 	modelId,
-	models,
+	modelIds,
 	displayName,
 	isCustom,
 	onApiKeyChange,
 	onApiChange,
 	onBaseUrlChange,
 	onModelIdChange,
-	onModelsChange,
+	onModelIdsChange,
 	onDisplayNameChange,
 	onTogglePassword,
 	openAiChat,
@@ -55,14 +55,14 @@ export function ProviderCredentialFields({
 	api?: PiCustomProviderApi;
 	baseUrl: string;
 	modelId: string;
-	models?: string;
+	modelIds?: Array<string>;
 	displayName?: string;
 	isCustom?: boolean;
 	onApiKeyChange: (value: string) => void;
 	onApiChange?: (value: PiCustomProviderApi) => void;
 	onBaseUrlChange: (value: string) => void;
 	onModelIdChange: (value: string) => void;
-	onModelsChange?: (value: string) => void;
+	onModelIdsChange?: (value: Array<string>) => void;
 	onDisplayNameChange?: (value: string) => void;
 	onTogglePassword: () => void;
 	openAiChat: boolean;
@@ -70,7 +70,7 @@ export function ProviderCredentialFields({
 	showPassword: boolean;
 }) {
 	const showApiSelector = isCustom && onApiChange;
-	const showMultiModels = isCustom && onModelsChange;
+	const showMultiModels = isCustom && onModelIdsChange;
 
 	return (
 		<FieldGroup className="gap-2">
@@ -106,13 +106,10 @@ export function ProviderCredentialFields({
 				/>
 			) : null}
 			{showMultiModels ? (
-				<TextCredentialField
+				<CustomProviderModelsEditor
 					attemptedSave={attemptedSave}
-					icon={Layers}
-					label="Model ids"
-					placeholder={CUSTOM_MODELS_PLACEHOLDER}
-					value={models ?? ""}
-					onChange={onModelsChange}
+					modelIds={modelIds ?? []}
+					onChange={onModelIdsChange}
 				/>
 			) : null}
 			{openAiChat && !showMultiModels ? (

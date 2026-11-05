@@ -69,7 +69,7 @@ export function ProviderCredentialsSection({
 		handleRemove,
 		handleSave,
 		modelId,
-		models,
+		modelIds,
 		openAddPicker,
 		openEditor,
 		pickerHasResults,
@@ -82,7 +82,7 @@ export function ProviderCredentialsSection({
 		setConfirmRemoveProvider,
 		setDisplayName,
 		setModelId,
-		setModels,
+		setModelIds,
 		setSearchQuery,
 		setShowPassword,
 		showPassword,
@@ -97,7 +97,7 @@ export function ProviderCredentialsSection({
 		apiKey,
 		baseUrl,
 		modelId,
-		models,
+		modelIds,
 		displayName,
 		showPassword,
 		attemptedSave,
@@ -112,7 +112,7 @@ export function ProviderCredentialsSection({
 		onApiChange: setApi,
 		onBaseUrlChange: setBaseUrl,
 		onModelIdChange: setModelId,
-		onModelsChange: setModels,
+		onModelIdsChange: setModelIds,
 		onDisplayNameChange: setDisplayName,
 		onTogglePassword: () => setShowPassword((current) => !current),
 	};
@@ -153,7 +153,7 @@ export function ProviderCredentialsSection({
 					apiKey={apiKey}
 					baseUrl={baseUrl}
 					modelId={modelId}
-					models={models}
+					modelIds={modelIds}
 					displayName={displayName}
 					showPassword={showPassword}
 					attemptedSave={attemptedSave}
@@ -163,7 +163,7 @@ export function ProviderCredentialsSection({
 					onApiChange={setApi}
 					onBaseUrlChange={setBaseUrl}
 					onModelIdChange={setModelId}
-					onModelsChange={setModels}
+					onModelIdsChange={setModelIds}
 					onDisplayNameChange={setDisplayName}
 					onTogglePassword={() => setShowPassword((current) => !current)}
 					onBack={openAddPicker}
