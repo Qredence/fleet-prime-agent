@@ -119,6 +119,34 @@ describe("chat providers custom/OCC write path", () => {
 		expect(secondBody.providers.some((p) => p.id === "custom+my-lab-2")).toBe(true);
 	});
 
+	it("lists custom providers with large model catalogs on GET and POST", async () => {
+		const models = Array.from({ length: 95 }, (_, index) => `command-model-${index + 1}`);
+		const response = await handleChatProvidersPost(
+			new Request("http://localhost/api/chat/providers", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					providerId: "custom",
+					createOccInstance: true,
+					displayName: "Command Code",
+					apiKey: "sk-command",
+					baseUrl: "https://command.test/v1",
+					models,
+				}),
+			}),
+		);
+		expect(response.status).toBe(200);
+		const postBody = (await response.json()) as { providers: Array<Record<string, unknown>> };
+		const row = postBody.providers.find((p) => p.id === "custom+command-code");
+		expect(row?.modelIds).toHaveLength(95);
+
+		const getResponse = await handleChatProvidersGet(new Request("http://localhost/api/chat/providers"));
+		const getBody = (await getResponse.json()) as { providers: Array<Record<string, unknown>> };
+		const listed = getBody.providers.find((p) => p.id === "custom+command-code");
+		expect(listed?.modelIds).toHaveLength(95);
+		expect((listed?.modelIds as Array<string> | undefined)?.[94]).toBe("command-model-95");
+	});
+
 	it("creates a named OCC instance from the generic slot", async () => {
 		const response = await handleChatProvidersPost(
 			new Request("http://localhost/api/chat/providers", {
