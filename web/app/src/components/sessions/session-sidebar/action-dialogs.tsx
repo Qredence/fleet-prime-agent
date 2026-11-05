@@ -32,6 +32,11 @@ function RenameSessionDialog({
 	onRenameSession: (sessionId: string, title: string) => void;
 }) {
 	const [renameTitle, setRenameTitle] = useState(() => sessionLabel(session));
+	const submit = () => {
+		if (!renameTitle.trim()) return;
+		onRenameSession(session.sessionId, renameTitle.trim());
+		onClose();
+	};
 
 	return (
 		<AlertDialog open onOpenChange={(open) => !open && onClose()}>
@@ -42,19 +47,16 @@ function RenameSessionDialog({
 					value={renameTitle}
 					onChange={(event) => setRenameTitle(event.target.value)}
 					aria-label="Session title"
+					onKeyDown={(event) => {
+						if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+						event.preventDefault();
+						submit();
+					}}
 					autoFocus
 				/>
 				<AlertDialogFooter>
 					<AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
-					<AlertDialogAction
-						disabled={!renameTitle.trim()}
-						onClick={() => {
-							if (renameTitle.trim()) {
-								onRenameSession(session.sessionId, renameTitle.trim());
-								onClose();
-							}
-						}}
-					>
+					<AlertDialogAction disabled={!renameTitle.trim()} onClick={submit}>
 						Rename
 					</AlertDialogAction>
 				</AlertDialogFooter>
@@ -73,6 +75,11 @@ function RenameProjectDialog({
 	onRenameProject?: (projectId: ProjectId, name: string) => void | Promise<void>;
 }) {
 	const [renameProjectName, setRenameProjectName] = useState(project.name);
+	const submit = () => {
+		if (!renameProjectName.trim() || !onRenameProject) return;
+		void onRenameProject(project.projectId, renameProjectName.trim());
+		onClose();
+	};
 
 	return (
 		<AlertDialog open onOpenChange={(open) => !open && onClose()}>
@@ -85,19 +92,16 @@ function RenameProjectDialog({
 					value={renameProjectName}
 					onChange={(event) => setRenameProjectName(event.target.value)}
 					aria-label="Project name"
+					onKeyDown={(event) => {
+						if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+						event.preventDefault();
+						submit();
+					}}
 					autoFocus
 				/>
 				<AlertDialogFooter>
 					<AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
-					<AlertDialogAction
-						disabled={!renameProjectName.trim() || !onRenameProject}
-						onClick={() => {
-							if (renameProjectName.trim()) {
-								void onRenameProject?.(project.projectId, renameProjectName.trim());
-								onClose();
-							}
-						}}
-					>
+					<AlertDialogAction disabled={!renameProjectName.trim() || !onRenameProject} onClick={submit}>
 						Rename
 					</AlertDialogAction>
 				</AlertDialogFooter>

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import type { ToolPartBase } from "@/components/chat/transcript/chat-message-parts";
 import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
-import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
+import { isAbortedToolPart, normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 import {
 	Trace,
 	TraceCollapsible,
@@ -86,6 +86,7 @@ function record(value: unknown): Record<string, unknown> | undefined {
  */
 function status(part: Record<string, unknown>, streaming: boolean): TimelineStep["status"] {
 	const state = part.state;
+	if (isAbortedToolPart(part)) return "cancelled";
 	if (state === "output-error" || state === "error") return "error";
 	if (state === "cancelled" || state === "canceled" || state === "aborted" || state === "interrupted")
 		return "cancelled";

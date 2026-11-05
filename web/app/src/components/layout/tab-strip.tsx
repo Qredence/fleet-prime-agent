@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Plus, X } from "lucide-react";
+import { useRef } from "react";
 import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +34,8 @@ export type TabStripProps = {
 	width?: "fill" | "fit";
 	/** `compact` tightens padding and gaps. */
 	density?: "default" | "compact";
+	/** Shows icon tabs as icon-only below the 960px panel breakpoint. */
+	iconOnlyOnMobile?: boolean;
 	/** Prefix for the tab trigger and controlled panel IDs. */
 	idPrefix?: string;
 	className?: string;
@@ -54,6 +57,7 @@ export type TabStripProps = {
  * @param ariaLabel - Accessible name for the tab list
  * @param width - Grows into free space up to a max, or sizes to content
  * @param density - Default or tightened spacing
+ * @param iconOnlyOnMobile - Hides icon tab labels below 960px; the name stays in `aria-label` and `title`
  * @param idPrefix - Prefix for the tab trigger and controlled panel IDs
  * @param className - Additional wrapper classes
  * @param dataTestid - Test ID for the tab list wrapper
@@ -67,12 +71,17 @@ export function TabStrip({
 	ariaLabel = "Tabs",
 	width = "fill",
 	density = "default",
+	iconOnlyOnMobile = false,
 	idPrefix,
 	className,
 	dataTestid,
 }: TabStripProps) {
 	const compact = density === "compact";
 	const fill = width === "fill";
+	// With `activateOnFocus`, pointerdown focuses and selects the tab before the
+	// click lands, so `active` is already true by then. Remember whether the tab
+	// was active when the press started; keyboard presses have no pointerdown.
+	const pressStartedActive = useRef<boolean | null>(null);
 
 	return (
 		<div
@@ -100,6 +109,7 @@ export function TabStrip({
 					{tabs.map((tab) => {
 						const active = tab.id === value;
 						const Icon = tab.icon;
+						const iconOnly = iconOnlyOnMobile && Icon !== undefined;
 						const accessibleName =
 							tab.ariaLabel ?? (tab.statusLabel ? `${tab.label}, ${tab.statusLabel}` : tab.label);
 						const tabId = idPrefix ? `${idPrefix}-${encodeURIComponent(tab.id)}` : undefined;
@@ -110,6 +120,7 @@ export function TabStrip({
 								className={cn(
 									"group/tab relative",
 									fill ? "min-w-0 max-w-[220px] flex-1 basis-auto" : "shrink-0",
+									iconOnly && "max-[960px]:flex-none max-[960px]:basis-auto",
 								)}
 								data-tab-id={tab.id}
 							>
@@ -128,10 +139,16 @@ export function TabStrip({
 										tab.closable && onClose && "pe-7",
 									)}
 									id={tabId}
+									title={iconOnly ? accessibleName : undefined}
+									onPointerDown={() => {
+										pressStartedActive.current = active;
+									}}
 									onClick={() => {
 										// Base UI ignores a press on the active tab. Re-fire so callers
 										// that toggle on re-select keep working.
-										if (active) onValueChange(tab.id);
+										const wasActive = pressStartedActive.current ?? active;
+										pressStartedActive.current = null;
+										if (wasActive) onValueChange(tab.id);
 									}}
 									value={tab.id}
 								>
@@ -148,7 +165,9 @@ export function TabStrip({
 											className={cn("size-1.5 shrink-0 rounded-full", tab.dotClassName)}
 										/>
 									) : null}
-									<span className="min-w-0 flex-1 truncate text-start">{tab.label}</span>
+									<span className={cn("min-w-0 flex-1 truncate text-start", iconOnly && "max-[960px]:hidden")}>
+										{tab.label}
+									</span>
 								</TabsTrigger>
 								{tab.closable && onClose ? (
 									<Button

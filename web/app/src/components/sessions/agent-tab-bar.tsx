@@ -114,6 +114,7 @@ export function AgentTabBar({
 		<TabStrip
 			ariaLabel="Agent conversations"
 			dataTestid="agent-tab-bar"
+			iconOnlyOnMobile
 			idPrefix={AGENT_TAB_ID_PREFIX}
 			onClose={onClose}
 			onNewSession={onNewSession}
