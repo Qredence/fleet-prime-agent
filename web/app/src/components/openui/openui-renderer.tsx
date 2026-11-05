@@ -218,7 +218,7 @@ export function GenerativeTextRenderer({
 				if (segment.type !== "openui") continue;
 				const blockId = `${sessionKey}:${segment.id}`;
 				if (next[blockId] !== undefined) continue;
-				const stored = readStoredState(sessionKey, segment.id);
+				const stored = readStoredState(sessionKey, segment.id, segment.content);
 				if (stored) {
 					next[blockId] = stored;
 					changed = true;

@@ -46,7 +46,7 @@ export function buildOpenUIRepairRequest(errors: ReadonlyArray<RepairableOpenUIE
 	const seen = new Set<string>();
 	const lines: string[] = [];
 	for (const error of repairable) {
-		const key = `${error.code}:${error.statementId ?? ""}:${error.path ?? ""}`;
+		const key = JSON.stringify([error.code, error.statementId, error.path, error.message]);
 		if (seen.has(key)) continue;
 		seen.add(key);
 		lines.push(describeError(error));

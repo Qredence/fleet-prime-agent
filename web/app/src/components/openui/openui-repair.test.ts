@@ -34,6 +34,13 @@ describe("OpenUI repair requests", () => {
 		expect(message?.match(/missing-required/g)).toHaveLength(1);
 	});
 
+	it("retains distinct messages for the same statement and path", () => {
+		const error = { code: "unresolved", message: "missing alpha", statementId: "root" };
+		const message = buildOpenUIRepairRequest([error, { ...error, message: "missing beta" }, error]);
+		expect(message?.match(/missing alpha/g)).toHaveLength(1);
+		expect(message).toContain("missing beta");
+	});
+
 	it("includes the prop path when present", () => {
 		const message = buildOpenUIRepairRequest([
 			{ code: "type-mismatch", message: "expected number", statementId: "chart", path: "/series" },

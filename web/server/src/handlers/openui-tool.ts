@@ -70,6 +70,7 @@ async function requireOk(response: Response, tool: string): Promise<Record<strin
  */
 function readRequest(request: Request, params?: Record<string, string>): Request {
 	const url = new URL(request.url);
+	url.search = "";
 	for (const [key, value] of Object.entries(params ?? {})) url.searchParams.set(key, value);
 	return new Request(url, { method: "GET", headers: request.headers });
 }

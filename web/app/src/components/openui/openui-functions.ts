@@ -55,7 +55,7 @@ function formatTokens(count: number): string {
 function formatPercent(part: number, total: number, decimals: number): string {
 	if (total === 0) return "0%";
 	const value = (part / total) * 100;
-	const factor = 10 ** Math.max(0, Math.min(decimals, 3));
+	const factor = 10 ** Math.round(Math.max(0, Math.min(decimals, 3)));
 	return `${Math.round(value * factor) / factor}%`;
 }
 

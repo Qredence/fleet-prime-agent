@@ -113,7 +113,7 @@ export function HtmlArtifactComponent({ props: { title, document } }: { props: O
 
 	return (
 		<Card className="w-full min-w-0 overflow-hidden">
-			<CardHeader className="flex-row items-center gap-2 border-b pb-3">
+			<CardHeader className="flex flex-row items-center gap-2 border-b pb-3">
 				<div className="min-w-0 flex-1">
 					<div className="truncate text-sm font-medium">{title}</div>
 					<div className="text-xs text-muted-foreground">

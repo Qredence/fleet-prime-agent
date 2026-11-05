@@ -32,6 +32,23 @@ afterEach(() => {
 });
 
 describe("handleOpenUIToolPost", () => {
+	it("forwards headers and only the tool's own query parameters", async () => {
+		chatSessionsGet.mockImplementation(() => Response.json({ sessions: [] }));
+		const makeRequest = (args: object) =>
+			new Request("http://localhost/api/chat/openui/tool?projectId=untrusted&extra=yes", {
+				method: "POST",
+				headers: { Origin: "http://localhost", "Content-Type": "application/json", "X-Test": "kept" },
+				body: JSON.stringify({ name: "list_sessions", args }),
+			});
+		expect((await handleOpenUIToolPost(makeRequest({}))).status).toBe(200);
+		const first = chatSessionsGet.mock.calls[0][0] as Request;
+		expect(new URL(first.url).search).toBe("");
+		expect(first.method).toBe("GET");
+		expect(first.headers.get("X-Test")).toBe("kept");
+		expect((await handleOpenUIToolPost(makeRequest({ projectId: "chosen" }))).status).toBe(200);
+		expect(new URL((chatSessionsGet.mock.calls[1][0] as Request).url).search).toBe("?projectId=chosen");
+	});
+
 	it("rejects an unknown tool name", async () => {
 		const response = await handleOpenUIToolPost(toolRequest({ name: "delete_everything", args: {} }));
 		expect(response.status).toBe(400);

@@ -12,8 +12,8 @@ import { isSafeExternalUrl } from "@/lib/safe-external-url";
 const childrenProp = z.any().optional().describe("Child component, array of child components, or plain content");
 
 /** Query results and incomplete streams arrive as null, not as an empty array. */
-function asList<T>(value: T[] | null | undefined): T[] {
-	return Array.isArray(value) ? value : [];
+function asList<T>(value: Array<T | null | undefined> | null | undefined): T[] {
+	return Array.isArray(value) ? value.filter((item): item is T => item != null) : [];
 }
 
 function TabsComponent({
@@ -192,6 +192,13 @@ export const SliderDef = defineComponent({
 
 const STEP_STATES = ["complete", "current", "pending", "failed"] as const;
 
+const stepStateLabels: Record<(typeof STEP_STATES)[number], string> = {
+	complete: "Complete",
+	current: "Current",
+	pending: "Pending",
+	failed: "Failed",
+};
+
 const stepDotClasses: Record<(typeof STEP_STATES)[number], string> = {
 	complete: "border-success bg-success",
 	current: "border-primary bg-primary/30",
@@ -214,6 +221,7 @@ function StepsComponent({
 							aria-hidden="true"
 							className={`mt-1 size-2 shrink-0 rounded-full border ${stepDotClasses[state]}`}
 						/>
+						<span className="sr-only">{stepStateLabels[state]}: </span>
 						<span className="min-w-0 flex-1">
 							<span className={state === "complete" ? "text-muted-foreground line-through" : undefined}>
 								{step.label}
