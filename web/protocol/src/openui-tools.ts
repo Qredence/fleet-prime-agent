@@ -62,7 +62,12 @@ export const WorkspaceTreeToolArgsSchema = z.object({
 
 export const ListSessionsToolArgsSchema = z.object({
 	limit: LimitSchema,
-	status: z.enum(["running", "idle", "error"]).optional().describe("Only include sessions in this state."),
+	status: z
+		.enum(["running", "idle", "failed", "interrupted"])
+		.optional()
+		.describe(
+			'Only include sessions in this state. These are the statuses Fleet reports; there is no "error" status.',
+		),
 	projectId: z.string().optional().describe("Only include sessions belonging to this project."),
 });
 

@@ -17,7 +17,7 @@ const BASE_RULES = [
 	'Arguments are positional. For example, write `Card("Title", child)` rather than `Card(title: "Title", content: child)`.',
 	"Use Markdown for prose, explanations, and code unless a visual card, table, metric, chart, or action row would be clearer.",
 	"Prefer compact UI blocks that fit inside a chat message.",
-	"Use Todo for read-only Prime plans and task progress, Disclosure for optional detail, and Citation for ordinary external sources.",
+	"Use Todo for read-only Prime checklists and plan items, Steps for ordered pipeline progress, Disclosure for optional detail, and Citation for ordinary external sources.",
 	"Use `PanelAction` only to open Resources, Workspace, Artifacts, or Session insights. Use a workspace-relative path only when selecting a Workspace or Artifact location; it cannot change the workspace root or access external paths.",
 	"Citation links are external references only; never use them to access local files or trigger host actions.",
 	"Do not use `Button` for application navigation, settings, tabs, tool execution, or approvals.",
@@ -122,6 +122,8 @@ export function stripMutationGuidance(prompt: string): string {
 		if (/^-\s*If a @Run\(mutation\) step fails/.test(line)) continue;
 		// Drop any step that would run a now-undefined mutation.
 		if ([...droppedMutationRefs].some((name) => line.includes(`@Run(${name})`))) continue;
+		// Upstream points at the mutation example after that example has been removed.
+		if (/form \+ mutation patterns/i.test(line)) continue;
 
 		let next = line;
 		for (const [pattern, replacement] of READ_ONLY_REWRITES) next = next.replace(pattern, replacement);
@@ -210,11 +212,10 @@ sessions = DataTable("Recent sessions", [{ key: "title", label: "Session" }, { k
 \`\`\``,
 	`A tabbed dashboard whose KPIs sum the aggregate rows:
 \`\`\`openui
-$view = "overview"
 stats = Query("session_stats", {}, {rows: []})
 root = Root([heading, tabs])
 heading = Heading("Fleet sessions", 2)
-tabs = Tabs([{"label": "Overview", "content": kpis}, {"label": "By status", "content": detail}], 0)
+tabs = Tabs([{"label": "Overview", "content": kpis}, {"label": "By status", "content": detail}, {"label": "Pipeline", "content": pipeline}], 0)
 kpis = MetricGroup([{ label: "Sessions", value: "" + @Sum(stats.rows.sessions) }, { label: "Messages", value: "" + @Sum(stats.rows.messages) }])
 detail = DataTable("Status", [{ key: "status", label: "Status" }, { key: "sessions", label: "Sessions", type: "number" }], stats.rows)
 pipeline = Steps([{"label": "Query", "state": "complete"}, {"label": "Aggregate", "state": "complete"}, {"label": "Render", "state": "current"}])
@@ -223,7 +224,7 @@ pipeline = Steps([{"label": "Query", "state": "complete"}, {"label": "Aggregate"
 \`\`\`openui
 stats = Query("session_stats", {}, {rows: []})
 root = Root([kpis, detail])
-kpis = MetricGroup([{ label: "Running", value: "" + @Count(@Filter(stats.rows, "status", "==", "running")) }])
+kpis = MetricGroup([{ label: "Running", value: "" + @Sum(@Filter(stats.rows, "status", "==", "running").sessions) }])
 detail = DataTable("By status", [{ key: "status", label: "Status" }, { key: "sessions", label: "Sessions", type: "number" }, { key: "messages", label: "Messages", type: "number" }], stats.rows)
 \`\`\``,
 ];
