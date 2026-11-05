@@ -2,11 +2,11 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmod, mkdir, mkdtemp, open, rename, rm, stat, writeFile } from "node:fs/promises";
 import { arch, homedir, platform } from "node:os";
-import { delimiter, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 
 const FLEET_PINNED_RELEASE_HOST = "pub-728493de92a943e2a9b2d17b4719f318.r2.dev";
 const PINNED_RUST_RELEASE_HOSTS = new Set([FLEET_PINNED_RELEASE_HOST]);
-const TRUSTED_PATH = process.platform === "win32" ? undefined : ["/usr/local/bin", "/usr/bin", "/bin"].join(delimiter);
+const TRUSTED_TAR_PATHS = process.platform === "win32" ? ["tar"] : ["/usr/bin/tar", "/bin/tar"];
 
 function pinnedRustArchiveUrl(baseUrl, archive) {
 	if (typeof baseUrl !== "string" || typeof archive !== "string" || !archive || archive.includes("/")) {
@@ -20,9 +20,12 @@ function pinnedRustArchiveUrl(baseUrl, archive) {
 }
 
 function spawnTar(args) {
-	const options = { encoding: "utf8" };
-	if (TRUSTED_PATH) options.env = { ...process.env, PATH: TRUSTED_PATH };
-	return spawnSync("tar", args, options);
+	for (const tarPath of TRUSTED_TAR_PATHS) {
+		const result = spawnSync(tarPath, args, { encoding: "utf8" });
+		if (result.error?.code === "ENOENT") continue;
+		return result;
+	}
+	return spawnSync(TRUSTED_TAR_PATHS[TRUSTED_TAR_PATHS.length - 1], args, { encoding: "utf8" });
 }
 
 // This module is the single Prime Agent runtime installer. The npm launcher
