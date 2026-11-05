@@ -38,12 +38,17 @@ const CUSTOM_PROVIDER_PICKER_ROW: ChatProviderInfo = {
 	displayName: "Custom provider",
 };
 
-/** Splits a comma-separated model id list into trimmed, non-empty ids. */
-function parseCustomProviderModels(raw: string): Array<string> {
-	return raw
-		.split(",")
-		.map((entry) => entry.trim())
-		.filter((entry) => entry.length > 0);
+/** Trims and deduplicates model id entries while preserving order. */
+export function normalizeCustomProviderModelIds(modelIds: ReadonlyArray<string>): Array<string> {
+	const seen = new Set<string>();
+	const normalized: Array<string> = [];
+	for (const entry of modelIds) {
+		const trimmed = entry.trim();
+		if (!trimmed || seen.has(trimmed)) continue;
+		seen.add(trimmed);
+		normalized.push(trimmed);
+	}
+	return normalized;
 }
 
 export function useProviderCredentialsController({
@@ -56,7 +61,7 @@ export function useProviderCredentialsController({
 	const [apiKey, setApiKey] = useState("");
 	const [baseUrl, setBaseUrl] = useState("");
 	const [modelId, setModelId] = useState("");
-	const [models, setModels] = useState("");
+	const [modelIds, setModelIds] = useState<Array<string>>([]);
 	const [api, setApi] = useState<PiCustomProviderApi>("openai-completions");
 	const [displayName, setDisplayName] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -131,7 +136,7 @@ export function useProviderCredentialsController({
 		setApiKey("");
 		setBaseUrl("");
 		setModelId("");
-		setModels("");
+		setModelIds([]);
 		setApi("openai-completions");
 		setDisplayName("");
 		setShowPassword(false);
@@ -154,8 +159,8 @@ export function useProviderCredentialsController({
 		setBaseUrl(existing?.baseUrl ?? "");
 		setDisplayName(existing?.displayName ?? (isCustomProviderId(providerId) ? (existing?.name ?? "") : ""));
 		setApi(existing?.api ?? "openai-completions");
-		setModels((existing?.modelIds ?? []).join(", "));
-		setModelId(existing?.modelIds?.[0] ?? "");
+		setModelIds(existing?.modelIds ?? []);
+		setModelId(isCustomProviderId(providerId) ? "" : (existing?.modelIds?.[0] ?? ""));
 	};
 
 	const openAddPicker = () => {
@@ -185,7 +190,7 @@ export function useProviderCredentialsController({
 		const openAiChat = isOccProviderId(providerId);
 
 		if (isCustomEditor) {
-			const modelList = parseCustomProviderModels(models);
+			const modelList = normalizeCustomProviderModelIds([...modelIds, modelId]);
 			if (!apiKey.trim() || !baseUrl.trim() || !displayName.trim()) return;
 			if (modelList.length === 0) return;
 
@@ -257,7 +262,7 @@ export function useProviderCredentialsController({
 		if (!editingProvider) return true;
 		if (editingProvider === CUSTOM_PROVIDER_PICKER_ID || isCustomProviderId(editingProvider)) {
 			if (baseUrl.trim().length === 0) return false;
-			if (parseCustomProviderModels(models).length === 0) return false;
+			if (normalizeCustomProviderModelIds([...modelIds, modelId]).length === 0) return false;
 			return displayName.trim().length > 0;
 		}
 		if (!isOccProviderId(editingProvider)) return true;
@@ -267,7 +272,7 @@ export function useProviderCredentialsController({
 			return displayName.trim().length > 0;
 		}
 		return true;
-	}, [apiKey, baseUrl, modelId, models, displayName, editingProvider, editingIsNewOccInstance]);
+	}, [apiKey, baseUrl, modelId, modelIds, displayName, editingProvider, editingIsNewOccInstance]);
 
 	return {
 		activeProviders,
@@ -292,7 +297,7 @@ export function useProviderCredentialsController({
 		handleRemove,
 		handleSave,
 		modelId,
-		models,
+		modelIds,
 		openAddPicker,
 		openEditor,
 		pickerHasResults,
@@ -310,7 +315,7 @@ export function useProviderCredentialsController({
 		setEditingIsNewOccInstance,
 		setEditingProvider,
 		setModelId,
-		setModels,
+		setModelIds,
 		setSearchQuery,
 		setShowPassword,
 		showPassword,
