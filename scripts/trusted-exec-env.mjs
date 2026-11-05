@@ -1,8 +1,16 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { delimiter } from "node:path";
+import { delimiter, dirname } from "node:path";
 
 const TRUSTED_PATH_ENTRIES =
 	process.platform === "win32" ? [] : ["/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"];
+
+/**
+ * Directory containing the Node binary running this script (npm/pnpm live alongside it).
+ * @returns {string}
+ */
+function nodeToolchainBinDir() {
+	return dirname(process.execPath);
+}
 
 /**
  * PATH entries that are not user-writable in normal CI and developer images.
@@ -11,7 +19,15 @@ const TRUSTED_PATH_ENTRIES =
  */
 export function trustedPathString() {
 	if (TRUSTED_PATH_ENTRIES.length === 0) return process.env.PATH ?? "";
-	return TRUSTED_PATH_ENTRIES.join(delimiter);
+	const entries = [nodeToolchainBinDir(), ...TRUSTED_PATH_ENTRIES];
+	const seen = new Set();
+	const unique = [];
+	for (const entry of entries) {
+		if (!entry || seen.has(entry)) continue;
+		seen.add(entry);
+		unique.push(entry);
+	}
+	return unique.join(delimiter);
 }
 
 /**
