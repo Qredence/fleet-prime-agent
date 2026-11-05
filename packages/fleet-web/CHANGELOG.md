@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.11.1
+
+### Patch Changes
+
+- 6225a65: <!-- coderabbit-ai-generated:v1 -->
+  
+  
+  Custom provider model drafts are included when saving, and Enter respects input method composition.
+- 6225a65: Large custom provider model catalogs (for example Command Code with 95+ models) no longer fail Fleet validation and disappear from Settings → Providers.
+  
+  Custom provider editing now uses a searchable model list with progressive “Load more” paging instead of a single comma-separated field, so big catalogs stay manageable without hitting the old 64-model wire cap.
+
 ## 0.11.0
 
 ### Minor Changes
