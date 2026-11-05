@@ -12,6 +12,5 @@ been resolved:
    Clarified that `npm install --global @qredence/fleet` is the product install
    path while `./install.sh` is for contributors (using system pnpm 11 when
    available and `npm exec` as the ephemeral fallback).
-4. **Unwritable-`HOME` shim test coverage (`scripts/install-shim-test.sh`):**
-   Extended to run `install_fleet_agent_shim` under `/bin/sh -eu` with an
-   unusable `HOME` and verify creation of the `TMPDIR` fallback shim.
+4. **Unwritable-`HOME` shim test coverage:**
+   Covered by `pnpm run test:source-installer` (`scripts/check-source-installer.mjs --smoke`), which exercises the full installer, preserves a pre-existing `prime-agent`, and verifies the `fleet-agent` shim. The former standalone `scripts/install-shim-test.sh` helper was removed as redundant with that smoke test.
