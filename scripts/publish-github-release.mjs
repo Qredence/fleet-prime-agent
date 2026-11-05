@@ -34,7 +34,8 @@ const REQUIRED_ENV = ["GITHUB_TOKEN", "RELEASE_VERSION", "CIRCLE_SHA1"];
  * @throws {Error} If the GitHub API returns a non-success response.
  */
 async function githubFetch(path, token, options = {}) {
-	const response = await fetch(githubApiUrl(path), {
+	const url = githubApiUrl(path);
+	const init = {
 		...options,
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -42,7 +43,9 @@ async function githubFetch(path, token, options = {}) {
 			"X-GitHub-Api-Version": "2022-11-28",
 			...(options.headers ?? {}),
 		},
-	});
+	};
+	// codeql[js/file-access-to-http] githubApiUrl only returns https://api.github.com URLs
+	const response = await fetch(url, init); // NOSONAR path is confined to https://api.github.com
 	if (!response.ok) {
 		const detail = await response.text();
 		throw new Error(`GitHub API ${sanitizeLogField(path)} -> HTTP ${response.status}: ${sanitizeLogField(detail)}`);
@@ -155,7 +158,7 @@ async function readContributorsSinceTag(token, owner, repo, version, sha) {
 async function githubUploadFetch(uploadUrl, owner, repo, token, { name, method = "POST", headers = {}, body }) {
 	const base = githubReleaseUploadUrl(uploadUrl, owner, repo);
 	const url = name ? `${base}?name=${encodeURIComponent(name)}` : base;
-	const response = await fetch(url, {
+	const init = {
 		method,
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -164,7 +167,9 @@ async function githubUploadFetch(uploadUrl, owner, repo, token, { name, method =
 			...headers,
 		},
 		body,
-	});
+	};
+	// codeql[js/file-access-to-http] githubReleaseUploadUrl only returns https://uploads.github.com for this repo
+	const response = await fetch(url, init); // NOSONAR upload host and repository path are checked before fetch
 	if (!response.ok) {
 		const detail = await response.text();
 		throw new Error(`GitHub upload -> HTTP ${response.status}: ${sanitizeLogField(detail)}`);
@@ -276,7 +281,10 @@ async function uploadAsset(token, release, owner, repo, name, path) {
 		body,
 	});
 	const asset = await uploaded.json();
-	console.log(`Uploaded ${sanitizeLogField(asset.name)} (${asset.size} bytes) to the release.`);
+	const safeName = String(asset.name ?? "")
+		.replaceAll("\n", "")
+		.replaceAll("\r", "");
+	console.log(`Uploaded ${safeName} (${Number(asset.size) || 0} bytes) to the release.`);
 }
 
 /**

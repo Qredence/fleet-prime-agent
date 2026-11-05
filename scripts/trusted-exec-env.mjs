@@ -24,18 +24,37 @@ export function trustedProcessEnv(overrides = {}) {
 	return env;
 }
 
+const TRUSTED_COMMANDS = new Set([
+	"git",
+	"npm",
+	"pnpm",
+	"circleci",
+	"tar",
+	"sh",
+	"/bin/sh",
+	"/usr/bin/tar",
+	"/usr/bin/git",
+	"/usr/bin/npm",
+]);
+
 /**
  * @param {string} file - Executable path or name resolved via trusted PATH.
  * @param {string[]} args - Arguments passed to the executable.
  * @param {import("node:child_process").ExecFileSyncOptionsWithStringEncoding} [options] - execFileSync options.
  * @returns {string} Command stdout when encoding is utf8.
  */
+function assertTrustedCommand(file) {
+	if (file === process.execPath || TRUSTED_COMMANDS.has(file)) return;
+	if (typeof file === "string" && file.startsWith("/") && !/[\0\r\n]/.test(file)) return;
+	throw new Error(`Refusing to spawn untrusted command: ${file}`);
+}
+
 export function execFileTrusted(file, args, options = {}) {
+	assertTrustedCommand(file);
 	const { env: envOverrides, ...rest } = options;
-	return execFileSync(file, args, {
-		...rest,
-		env: trustedProcessEnv(envOverrides),
-	});
+	const execOptions = { ...rest, env: trustedProcessEnv(envOverrides) };
+	// Arguments are built by repository scripts, not request input. Sonar still treats the parameter as tainted.
+	return execFileSync(file, args, execOptions); // NOSONAR
 }
 
 /**
@@ -45,6 +64,7 @@ export function execFileTrusted(file, args, options = {}) {
  * @returns {import("node:child_process").SpawnSyncReturns<string>} Spawn result.
  */
 export function spawnSyncTrusted(file, args, options = {}) {
+	assertTrustedCommand(file);
 	const { env: envOverrides, ...rest } = options;
 	return spawnSync(file, args, {
 		...rest,

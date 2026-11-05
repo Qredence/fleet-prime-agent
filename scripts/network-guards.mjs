@@ -67,7 +67,8 @@ export function assertPinnedLegacyTarballUrl(tarballUrl) {
  * @returns {string} Normalized upload URL without template query parameters.
  */
 export function githubReleaseUploadUrl(uploadUrl, owner, repo) {
-	const normalized = uploadUrl.replace(/\{.*\}/, "");
+	const brace = uploadUrl.indexOf("{");
+	const normalized = brace === -1 ? uploadUrl : uploadUrl.slice(0, brace);
 	const parsed = new URL(normalized);
 	if (parsed.protocol !== "https:" || parsed.hostname !== "uploads.github.com") {
 		throw new Error("Refusing release asset upload outside uploads.github.com");

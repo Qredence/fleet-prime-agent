@@ -8,7 +8,13 @@ import { ensurePrimeAgentRuntime } from "../prime-runtime";
 
 const { asset } = vi.hoisted(() => ({ asset: { archive: "runtime.tar.gz", sha256: "", executableSha256: "" } }));
 vi.mock("../../../../PRIME_AGENT_RUNTIME.json", () => ({
-	default: { rust: { version: "1.2.3", baseUrl: "https://runtime.invalid", platforms: { "linux-x64": asset } } },
+	default: {
+		rust: {
+			version: "1.2.3",
+			baseUrl: "https://pub-00000000000000000000000000000000.r2.dev/releases/v1.2.3",
+			platforms: { "linux-x64": asset },
+		},
+	},
 }));
 
 const roots: string[] = [];

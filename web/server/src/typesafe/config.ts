@@ -70,8 +70,14 @@ function isLogLevel(value: string | undefined): value is TypeSafeLogLevel {
 /**
  * Builds a validated TypeSafe HTTP endpoint from configured base URL state.
  */
+function trimTrailingSlashes(value: string): string {
+	let end = value.length;
+	while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1;
+	return end === value.length ? value : value.slice(0, end);
+}
+
 export function typeSafeEndpoint(config: TypeSafeRuntimeConfig, path: "/v1/systemone" | "/v1/models"): string {
-	const base = config.baseUrl.replace(/\/+$/, "");
+	const base = trimTrailingSlashes(config.baseUrl);
 	if (!isCredentialSafeBaseUrl(base)) {
 		throw new Error("TypeSafe base URL is not credential-safe");
 	}
