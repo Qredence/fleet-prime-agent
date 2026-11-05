@@ -40,14 +40,14 @@ export function ActiveProviderList({
 	onSave: (providerId: string) => void;
 	onRemove: (provider: ChatProviderInfo) => void;
 }) {
-	const { api, apiKey, baseUrl, modelId, models, displayName, showPassword, attemptedSave, canSave } = form;
+	const { api, apiKey, baseUrl, modelId, modelIds, displayName, showPassword, attemptedSave, canSave } = form;
 	const { isPending, canRemove } = operation;
 	const {
 		onApiKeyChange,
 		onApiChange,
 		onBaseUrlChange,
 		onModelIdChange,
-		onModelsChange,
+		onModelIdsChange,
 		onDisplayNameChange,
 		onTogglePassword,
 	} = actions;
@@ -135,7 +135,7 @@ export function ActiveProviderList({
 											apiKey={apiKey}
 											baseUrl={baseUrl}
 											modelId={modelId}
-											models={models}
+											modelIds={modelIds}
 											displayName={displayName}
 											isCustom={isCustom}
 											openAiChat={openAiChat}
@@ -145,7 +145,7 @@ export function ActiveProviderList({
 											onApiChange={onApiChange}
 											onBaseUrlChange={onBaseUrlChange}
 											onModelIdChange={onModelIdChange}
-											onModelsChange={onModelsChange}
+											onModelIdsChange={onModelIdsChange}
 											onDisplayNameChange={
 												isCustom || provider.providerFamily !== undefined ? onDisplayNameChange : undefined
 											}
