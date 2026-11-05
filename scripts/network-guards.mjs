@@ -2,7 +2,8 @@ import { parseStableVersion } from "./release-utils.mjs";
 
 const GITHUB_API_ORIGIN = "https://api.github.com";
 const NPM_REGISTRY_HOST = "registry.npmjs.org";
-const PINNED_RUST_RELEASE_HOST_RE = /^pub-[0-9a-f]{32}\.r2\.dev$/i;
+const FLEET_PINNED_RELEASE_HOST = "pub-728493de92a943e2a9b2d17b4719f318.r2.dev";
+const PINNED_RUST_RELEASE_HOSTS = new Set([FLEET_PINNED_RELEASE_HOST]);
 
 /**
  * Builds a GitHub REST URL from a repository-relative API path.
@@ -41,7 +42,7 @@ export function pinnedRustArchiveUrl(baseUrl, archive) {
 		throw new Error("Invalid pinned Rust runtime archive reference");
 	}
 	const parsed = new URL(baseUrl);
-	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOST_RE.test(parsed.hostname)) {
+	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOSTS.has(parsed.hostname)) {
 		throw new Error("Rust runtime baseUrl is not a pinned Fleet release host");
 	}
 	return `${parsed.href.replace(/\/$/, "")}/${archive}`;
@@ -52,7 +53,7 @@ export function pinnedRustArchiveUrl(baseUrl, archive) {
  */
 export function assertPinnedLegacyTarballUrl(tarballUrl) {
 	const parsed = new URL(tarballUrl);
-	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOST_RE.test(parsed.hostname)) {
+	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOSTS.has(parsed.hostname)) {
 		throw new Error("Runtime tarball URL is not a pinned Fleet release host");
 	}
 	if (!parsed.pathname.includes("/releases/") || !parsed.pathname.endsWith(".tgz")) {

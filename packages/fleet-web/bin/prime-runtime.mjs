@@ -4,7 +4,8 @@ import { chmod, mkdir, mkdtemp, open, rename, rm, stat, writeFile } from "node:f
 import { arch, homedir, platform } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 
-const PINNED_RUST_RELEASE_HOST_RE = /^pub-[0-9a-f]{32}\.r2\.dev$/i;
+const FLEET_PINNED_RELEASE_HOST = "pub-728493de92a943e2a9b2d17b4719f318.r2.dev";
+const PINNED_RUST_RELEASE_HOSTS = new Set([FLEET_PINNED_RELEASE_HOST]);
 const TRUSTED_PATH = process.platform === "win32" ? undefined : ["/usr/local/bin", "/usr/bin", "/bin"].join(delimiter);
 
 function pinnedRustArchiveUrl(baseUrl, archive) {
@@ -12,7 +13,7 @@ function pinnedRustArchiveUrl(baseUrl, archive) {
 		throw new Error("Invalid pinned Rust runtime archive reference");
 	}
 	const parsed = new URL(baseUrl);
-	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOST_RE.test(parsed.hostname)) {
+	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOSTS.has(parsed.hostname)) {
 		throw new Error("Rust runtime baseUrl is not a pinned Fleet release host");
 	}
 	return `${parsed.href.replace(/\/$/, "")}/${archive}`;

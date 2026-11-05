@@ -11,7 +11,7 @@ vi.mock("../../../../PRIME_AGENT_RUNTIME.json", () => ({
 	default: {
 		rust: {
 			version: "1.2.3",
-			baseUrl: "https://pub-00000000000000000000000000000000.r2.dev/releases/v1.2.3",
+			baseUrl: "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v1.2.3",
 			platforms: { "linux-x64": asset },
 		},
 	},
