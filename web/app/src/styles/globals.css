@@ -2,7 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./typeset.css";
-@import "@openuidev/react-ui/layered/styles/index.css";
 @import "@fontsource-variable/inter";
 @import "./agent-ui.css";
 @import "tw-shimmer";
@@ -370,7 +369,10 @@
   }
 }
 
-[data-openui-devtools-root] > div > button[aria-label="Open OpenUI devtools"] {
+/* OpenUI devtools is a development aid; keep it out of the product surface.
+   The 0.3.x devtools emits "Open OpenUI Inspect" (and "Open OpenUI Debug"),
+   so match by prefix instead of one exact label. */
+[data-openui-devtools-root] > div > button[aria-label^="Open OpenUI"] {
   display: none !important;
 }
 

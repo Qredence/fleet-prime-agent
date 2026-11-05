@@ -3,6 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 import { Slider } from "@/components/ui/slider";
 
 describe("Slider", () => {
+	it.each([0, -1, 1e-10])("renders fine/non-positive step %s without allocating decorative pips", (step) => {
+		const onChange = vi.fn();
+		const { container } = render(<Slider label="Fine" min={0} max={100} value={0} step={step} onChange={onChange} />);
+		const slider = screen.getByRole("slider", { name: "Fine" });
+		const safeStep = Math.max(Number.EPSILON, step);
+		expect(slider.getAttribute("step")).toBe(String(safeStep));
+		expect(container.querySelectorAll("span.size-\\[5px\\]")).toHaveLength(0);
+		fireEvent.keyDown(slider, { key: "ArrowRight" });
+		expect(onChange).toHaveBeenCalledWith(safeStep);
+	});
 	it("exposes an accessible controlled range and handles keyboard boundaries", () => {
 		const onChange = vi.fn();
 		render(

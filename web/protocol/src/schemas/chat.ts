@@ -25,6 +25,7 @@ export const ChatRequestSchema = z
 		mode: ChatModeSchema.optional(),
 		openUI: z.boolean().optional(),
 		openUIArtifact: z.boolean().optional(),
+		openUISyntaxVersion: z.enum(["0.x", "1.x"]).optional(),
 		attachments: z.array(ChatAttachmentSchema).max(16).optional(),
 		planAction: ChatPlanActionSchema.optional(),
 		streamingBehavior: z.enum(["steer", "followUp"]).optional().openapi({ description: "Streaming behavior" }),
@@ -40,6 +41,7 @@ export const ChatRequestSchema = z
 				["planAction", request.planAction !== undefined],
 				["openUI", request.openUI === true],
 				["openUIArtifact", request.openUIArtifact === true],
+				["openUISyntaxVersion", request.openUISyntaxVersion !== undefined],
 			] as const) {
 				if (prohibited) {
 					context.addIssue({

@@ -345,6 +345,8 @@ export type ChatRequest = ChatSessionMetadata & {
 	mode?: ChatMode;
 	openUI?: boolean;
 	openUIArtifact?: boolean;
+	/** Omitted by legacy clients; only 1.x clients may receive the 1.x prompt. */
+	openUISyntaxVersion?: "0.x" | "1.x";
 	attachments?: Array<ChatAttachment>;
 	planAction?: ChatPlanAction;
 	streamingBehavior?: "steer" | "followUp";

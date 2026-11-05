@@ -530,7 +530,7 @@ test.describe("chat shell", () => {
 			/transparent|rgba\(0, 0, 0, 0\)/,
 		)
 		await expect(
-			page.locator('[data-openui-devtools-root] > div > button[aria-label="Open OpenUI devtools"]'),
+			page.locator('[data-openui-devtools-root] > div > button[aria-label^="Open OpenUI"]'),
 		).toBeHidden()
 
 		await expect(

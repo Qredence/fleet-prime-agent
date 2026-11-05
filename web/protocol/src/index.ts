@@ -52,6 +52,7 @@ export {
 export * from "./model-patterns";
 export * from "./openui-artifact";
 export { buildOpenUIPrompt, type OpenUIPromptMode } from "./openui-prompt";
+export * from "./openui-tools";
 export * from "./provider-catalog";
 export {
 	ChatNewRequestSchema,

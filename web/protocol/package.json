@@ -12,6 +12,8 @@
     "./composer-intent": "./src/composer-intent.ts",
     "./composer-completion": "./src/composer-completion.ts",
     "./openui-artifact": "./src/openui-artifact.ts",
+    "./openui-component-groups": "./src/openui-component-groups.ts",
+    "./openui-tools": "./src/openui-tools.ts",
     "./fleet-contract": "./src/fleet-contract.ts",
     "./model-patterns": "./src/model-patterns.ts",
     "./provider-catalog": "./src/provider-catalog.ts",
@@ -25,7 +27,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
-    "@openuidev/lang-core": "^0.4.1",
+    "@openuidev/lang-core": "^1.0.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {

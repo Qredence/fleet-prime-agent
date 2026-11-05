@@ -472,6 +472,40 @@ describe("PrimeBridge.forkSession", () => {
 		},
 	);
 
+	it("refreshes an existing session when the OpenUI prompt body changes", async () => {
+		const bridge = createTestBridge();
+		const created = await createTestSession(bridge);
+		const setOpenUIPrompt = created.setOpenUIPrompt;
+		if (!setOpenUIPrompt) throw new Error("test adapter must expose setOpenUIPrompt");
+		const mutable = created as unknown as {
+			setOpenUIPrompt: NonNullable<typeof created.setOpenUIPrompt>;
+		};
+		const prompts: string[] = [];
+		mutable.setOpenUIPrompt = async (next) => {
+			prompts.push(next.prompt);
+			await setOpenUIPrompt(next);
+		};
+		vi.spyOn(created.connection, "promptAndWait").mockResolvedValue(undefined);
+
+		// Simulate a session created before the prompt body changed: same flags,
+		// stale text. Without comparing the text the bridge short-circuits and the
+		// session keeps answering with an outdated component catalogue.
+		created.openUIPrompt.prompt = "stale prompt";
+
+		await bridge.prompt(created.sessionId, "use tabs", { openUI: true, openUISyntaxVersion: "1.x" });
+
+		expect(prompts).toHaveLength(1);
+		expect(prompts[0]).not.toBe("stale prompt");
+		expect(prompts[0]).toContain("Tabs");
+		await bridge.prompt(created.sessionId, "legacy tab", { openUI: true });
+		expect(prompts).toHaveLength(2);
+		expect(prompts[1]).not.toContain("Tabs(");
+		expect(prompts[1]).toContain('Button("Apply Filters", Action([');
+		await bridge.prompt(created.sessionId, "current tab", { openUI: true, openUISyntaxVersion: "1.x" });
+		expect(prompts).toHaveLength(3);
+		expect(prompts[2]).toBe(prompts[0]);
+	});
+
 	it("serializes idle OpenUI transitions before admitting later prompts", async () => {
 		const bridge = createTestBridge();
 		const created = await createTestSession(bridge);
