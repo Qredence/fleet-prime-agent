@@ -74,48 +74,63 @@ without changing the product's look.
 
 ### Remaining Rust-only migration
 
-- Supervisor session listing and daemon-backed forks already use the Rust daemon. Per-session
-  connections still use the TypeScript SDK's `DaemonClient` and `DaemonAgentConnection`;
-  replacing them requires equivalent attach, snapshot, event, reconnect, and request-recovery
-  behavior before the SDK connection can be removed.
-- `web/server/src/daemon-socket-client.ts` now has an isolated `reconnect()` operation that
-  waits for the new hello, `onClose()` notifications for transport failures, and
-  `supportsServerCapability()` based on the hello's advertised capability list. These are not
-  wired into per-session connections. Fleet still rejects pending requests on disconnect
-  rather than replaying them with stable IDs; it emits `ack_result` for completed mutating
-  commands, but equivalent recovery ordering is unproven. Remaining transport parity includes
-  reconnect coordination and status, explicit daemon restart/reset handling, and proof that
-  attach snapshots, event replay/cursors, and resync match `DaemonAgentConnection` behavior.
-  The SDK adapter also owns higher-level session command mapping and snapshot assembly; those
-  responsibilities are not yet implemented by Fleet's socket client.
-- A Fleet-owned experimental session adapter now handles chunked attach and reattach snapshots,
-  event buffering, basic reconnect and selected session commands in isolation. It is not used
-  by production chat: complete connection-contract, recovery and resynchronization parity must
-  be demonstrated before replacing the SDK adapter.
-- The daemon provides model catalog and resource snapshot reads and limited MCP token
-  management. Existing project-level endpoints can run before a session exists, and resource
-  snapshots do not cover every field those endpoints return. Preserve their current behavior
-  while adapting these paths.
-- Provider credential and OAuth writes, custom model registration, and some transcript reads
-  still depend on SDK-backed paths. Remove those dependencies using supported daemon operations
-  or explicit terminal/read-only fallbacks, preserving existing data. Do not substitute a
-  transcript reader that repairs or rewrites session files.
-- Cutover in progress: settings reads use Fleet's bounded read-only projection; settings edits
-  are unavailable with terminal guidance until safe concurrent updates are verified. Cross-project
-  forks are unavailable and leave the source untouched; same-project daemon forks remain. A
-  Fleet-owned deterministic connection supports selected bridge tests, while legacy integration
-  tests and production per-session connections still depend on the SDK.
-- Provider and MCP OAuth sign-in now use terminal guidance. Credential status/logout, MCP
-  catalog metadata, and provider credential/model management remain SDK-backed.
-- Once those paths and deterministic test adapters no longer need the SDK, remove the
-  TypeScript package family from production and development dependencies together with its
-  manifest, packaging, lockfile, and import-guard coupling. Keep the Rust pin checksum-verified.
+Status as of 2026-11-03, after the R4 docs (#321) merged.
 
-### R2 / R3: pin and packaging
+- **Done: production runs only the Rust daemon.** `isCompatibleDaemonHello` accepts a daemon
+  only when it reports `prime-agent.daemon` protocol 7, schema revision 30, and the Rust
+  flavor: a `runtime.buildId` starting with `pa-daemon-rs-`, or the Rust schema id
+  `protocol-7-schema-30-8e4b17c2a9f5` (`web/server/src/daemon-protocol.ts:14-25,489-509`). A
+  TypeScript v0.9.8 daemon is refused even though it speaks protocol 7. The startup probe refuses
+  any other daemon on the socket instead of attaching to it
+  (`web/server/src/daemon-runtime.ts:160-162,185-200,225-232`).
+- **Done: every session uses Fleet's own connection.** Each session attaches through
+  `FleetDaemonAgentConnection` (`web/server/src/fleet-daemon-connection.ts:214`), built on
+  Fleet's protocol-7 socket client (`daemon-socket-client.ts`). Fleet owns attach, chunked
+  snapshots, cursor dedupe, reconnect and resync, and the session commands. Create and resume
+  both go through `openDaemonConnection`, which creates the daemon session (passing `sessionPath`
+  on resume) and attaches it (`daemon-runtime.ts:361-368,405-418`); child prompts attach the
+  same way through `openDaemonChildConnection` (`daemon-runtime.ts:896-908`). The SDK's `DaemonClient` and
+  `DaemonAgentConnection` are no longer on the production path. They survive only in the
+  contract-replay harness, which `fleet-adapter-contract.test.ts` checks against the Fleet
+  adapter so both produce the same `ChatStreamEvent` output.
+- **Done: native binary.** Fleet spawns the pinned Rust binary directly, either from
+  `FLEET_PRIME_AGENT_BIN` or from `ensurePrimeRuntime`. It never runs the npm migration
+  launcher or the network installer (`daemon-runtime.ts:130-141,234-235`). The pin is
+  checksum-verified; see `docs/guides/upstream-runtime.md`.
+- **In progress: pin bump to v0.10.2** (draft PR #320). Protocol and schema are unchanged. The
+  PR adds a live v0.10.2 fixture set (`daemon-frames/rust-v0.10.2/`) with a failing tool, which
+  pins the `isError` → `output-error` mapping.
+- **Remaining: the legacy SDK removal** (owner: prime api, prime rust advising). On main, 12
+  production files under `web/server/src` still import the v0.9.8 SDK family. Value imports
+  are in only four of them:
+  - `legacy/prime-agent-sdk.ts`, the R1b bridge: settings, auth storage, the resource loader,
+    and the read-only session reader;
+  - `in-process-test-connection.ts`, the deterministic test adapter;
+  - `handlers/chat-mcp.ts` and `mcp-connections.ts`, which import `BUILTIN_MCP_CATALOG` from
+    `@earendil-works/pi-ai/mcp`.
 
-- Pin the native binary with a checksum.
-- Never spawn the npm launcher or the network installer in CI.
-- Keep the `$TMPDIR/prime-agent-<uid>` socket path.
+  The rest are type-only imports, which are being swapped for Fleet-owned types.
+  `scripts/server-sdk-imports.baseline.json` shrinks with each PR and is deleted last.
+- MCP catalog: upstream has no session-less catalog command. Built-in servers appear only in a
+  session's `get_mcp_connections` response, so session-less paths should use a small Fleet-owned
+  list. Upstream's list is `linear` and `notion`, the same as the SDK's.
+- Settings, provider credentials and OAuth: settings reads use Fleet's bounded read-only
+  projection, settings edits show terminal guidance, and provider and MCP OAuth sign-in use
+  terminal guidance. Credential status and logout, and provider credential and model
+  management, still go through the legacy bridge. Replace them with supported daemon
+  operations or explicit terminal or read-only fallbacks that preserve existing data. Never
+  substitute a transcript reader that repairs or rewrites session files.
+- Cross-project forks are unavailable and leave the source session untouched. Same-project
+  forks go through the daemon's `fork` command.
+- Once nothing above needs the SDK, remove the TypeScript package family from production and
+  development dependencies, together with its manifest fields, packaging, lockfile entries and
+  import guard. Keep the Rust pin checksum-verified.
+
+### R2 / R3: pin and packaging (done)
+
+- The native binary is pinned with archive and executable checksums in `PRIME_AGENT_RUNTIME.json`.
+- Neither the npm launcher nor the network installer is ever spawned, in CI or in production.
+- The `$TMPDIR/prime-agent-<uid>` socket path is kept.
 
 ### R4: documentation
 
@@ -123,8 +138,8 @@ without changing the product's look.
 - `docs/reference/adapter-contract.md`
 - `docs/guides/upstream-runtime.md`
 - `docs/guides/releasing.md`
-- ADR 0001 (note: `docs/adr/0001-…` already exists, so the new decision record may take the
-  next free number)
+- ADR 0002, `docs/adr/0002-rust-daemon-cutover.md`, records the cutover decision. The
+  existing 0001 is upstream history.
 
 ## UI track (prime ui)
 

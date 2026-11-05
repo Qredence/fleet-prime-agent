@@ -183,6 +183,9 @@ test.describe("workspace file tree", () => {
 		expect(launcherGeometry.mode).toBe(
 			launcherGeometry.requiredWidth > launcherGeometry.availableWidth + 1 ? "dropdown" : "tabs",
 		)
+		const newChatBox = await page.getByTestId("new-chat-tab").boundingBox()
+		const launcherBox = await mobileLauncher.boundingBox()
+		expect(newChatBox && launcherBox && newChatBox.x + newChatBox.width <= launcherBox.x).toBe(true)
 		if (launcherGeometry.mode === "dropdown") {
 			await expect(mobileLauncher.getByRole("combobox", { name: "Select panel", exact: true })).toBeVisible()
 		} else {

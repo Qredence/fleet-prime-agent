@@ -1,5 +1,4 @@
 import { useIsStreaming } from "@openuidev/react-lang";
-import { Button, Card, CardHeader, CodeBlock, Tabs, TabsContent, TabsList, TabsTrigger } from "@openuidev/react-ui";
 import {
 	type OpenUIHtmlArtifactPayload,
 	type OpenUIHtmlArtifactValidation,
@@ -7,6 +6,10 @@ import {
 } from "@prime-agent/web-protocol";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader } from "@/components/ui/card";
+import { CodeBlock, CodeBlockContent, CodeBlockHeader, CodeBlockTitle } from "@/components/ui/code-block";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export type OpenUIArtifactCandidate = {
 	assistantMessageId: string;
@@ -109,23 +112,20 @@ export function HtmlArtifactComponent({ props: { title, document } }: { props: O
 	}, [context, isStreaming, validation]);
 
 	return (
-		<Card variant="card" width="full" className="min-w-0 overflow-hidden">
-			<CardHeader
-				title={<span className="truncate text-sm font-medium">{title}</span>}
-				subtitle={isStreaming ? "Generating artifact…" : validation.ok ? "OpenUI HTML artifact" : "Diagnostic"}
-				actions={
-					artifactId && context.onOpenArtifact ? (
-						<Button
-							variant="secondary"
-							size="small"
-							type="button"
-							onClick={() => context.onOpenArtifact?.(artifactId)}
-						>
-							Open in Artifacts
-						</Button>
-					) : undefined
-				}
-			/>
+		<Card className="w-full min-w-0 overflow-hidden">
+			<CardHeader className="flex flex-row items-center gap-2 border-b pb-3">
+				<div className="min-w-0 flex-1">
+					<div className="truncate text-sm font-medium">{title}</div>
+					<div className="text-xs text-muted-foreground">
+						{isStreaming ? "Generating artifact…" : validation.ok ? "OpenUI HTML artifact" : "Diagnostic"}
+					</div>
+				</div>
+				{artifactId && context.onOpenArtifact ? (
+					<Button variant="secondary" size="sm" type="button" onClick={() => context.onOpenArtifact?.(artifactId)}>
+						Open in Artifacts
+					</Button>
+				) : null}
+			</CardHeader>
 			<div className="min-w-0 p-3">
 				{isStreaming ? (
 					<div className="flex min-h-16 items-center justify-center rounded-md border border-dashed border-border/70 text-xs text-muted-foreground">
@@ -165,14 +165,19 @@ export function OpenUIHtmlArtifactView({
 		<div className={`min-w-0 ${className}`}>
 			<Tabs defaultValue="rendered" className="min-w-0">
 				<TabsList aria-label="OpenUI artifact views">
-					<TabsTrigger value="rendered" text="Rendered" />
-					<TabsTrigger value="raw" text="Raw" />
+					<TabsTrigger value="rendered">Rendered</TabsTrigger>
+					<TabsTrigger value="raw">Raw</TabsTrigger>
 				</TabsList>
 				<TabsContent value="rendered" className="min-w-0">
 					<OpenUIHtmlFrame document={normalized.document} title={normalized.title} className="min-h-[28rem]" />
 				</TabsContent>
 				<TabsContent value="raw" className="min-w-0">
-					<CodeBlock language="html" codeString={normalized.document} />
+					<CodeBlock>
+						<CodeBlockHeader>
+							<CodeBlockTitle>HTML</CodeBlockTitle>
+						</CodeBlockHeader>
+						<CodeBlockContent wrap>{normalized.document}</CodeBlockContent>
+					</CodeBlock>
 				</TabsContent>
 			</Tabs>
 		</div>

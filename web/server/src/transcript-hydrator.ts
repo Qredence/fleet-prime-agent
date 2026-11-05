@@ -9,7 +9,7 @@ import type {
 	FleetErrorEnvelope,
 } from "@prime-agent/web-protocol";
 
-/** Convert "ipython" | "bash" | "edit_file" | "read_file" — special-cases IPython + short acronyms. */
+/** Wire tool types: `ipython` → `IPython`, short tokens uppercased. */
 function toPascalCase(name: string): string {
 	return name
 		.split(/[_\-\s]+/g)
@@ -124,7 +124,7 @@ export function createFleetErrorEnvelope(
 			isTerminal: false,
 			remediation: {
 				action: "restart_kernel",
-				label: "Restart IPython Kernel",
+				label: "Restart CPython Kernel",
 			},
 		};
 	}
@@ -466,6 +466,18 @@ function toolResultOutput(msg: Record<string, unknown>): Record<string, unknown>
 }
 
 /**
+ * Whether a tool result is a failure. `isError` is authoritative when true; Prime Agent v0.10.2's
+ * `python_repl` also reports a failed cell only through `details.status: "error"` (its `isError`
+ * is dropped by the tool bridge), so both the live stream and hydration read this one helper.
+ */
+export function isToolResultError(isError: unknown, result: unknown): boolean {
+	if (isError === true) return true;
+	if (!result || typeof result !== "object") return false;
+	const details = (result as { details?: unknown }).details;
+	return !!details && typeof details === "object" && (details as { status?: unknown }).status === "error";
+}
+
+/**
  * Extracts a user-readable error message from a tool result.
  *
  * @param result - The tool result containing error information
@@ -560,7 +572,7 @@ export function toChatMessagesFromAgentMessages(
 		const result = message as unknown as Record<string, unknown>;
 		const toolCallId = typeof result.toolCallId === "string" ? result.toolCallId : undefined;
 		const toolName = typeof result.toolName === "string" ? result.toolName : "tool";
-		const isError = result.isError === true;
+		const isError = isToolResultError(result.isError, result);
 		const errorText = isError ? extractToolErrorText(result) : undefined;
 		const errorEnvelope = errorText ? createFleetErrorEnvelope(errorText) : undefined;
 		const durationMs =

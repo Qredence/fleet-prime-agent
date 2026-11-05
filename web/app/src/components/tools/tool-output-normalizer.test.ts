@@ -116,7 +116,7 @@ describe("normalizeToolPart", () => {
 			structured: false,
 			sourceCode: "%%bash\nls -la",
 			sourceLanguage: "bash",
-			sourceLabel: "IPython",
+			sourceLabel: "CPython",
 			sections: [{ label: "stdout", content: "ok", language: "text" }],
 		});
 
@@ -126,7 +126,7 @@ describe("normalizeToolPart", () => {
 			input: { code: "value = 1" },
 			output: { details: { stdout: "1" } },
 		});
-		expect(python?.detail).toMatchObject({ sourceLanguage: "python", sourceLabel: "IPython" });
+		expect(python?.detail).toMatchObject({ sourceLanguage: "python", sourceLabel: "CPython" });
 	});
 
 	it("gives terminal states precedence over the global streaming status", () => {
@@ -269,9 +269,9 @@ describe("normalizeToolPart", () => {
 				chatStatus: "streaming",
 			}),
 		);
-		expect(ipythonMarkup).toContain("IPython");
+		expect(ipythonMarkup).toContain("CPython");
 		expect(ipythonMarkup).toContain("Running");
-		expect(ipythonMarkup).not.toContain("Running IPython");
+		expect(ipythonMarkup).not.toContain("Running CPython");
 		expect(ipythonMarkup).toContain("max-height:160px");
 		expect(ipythonMarkup).not.toContain("Ready");
 
@@ -321,5 +321,29 @@ describe("normalizeToolPart", () => {
 		);
 
 		expect(markup).toBe("");
+	});
+});
+
+describe("aborted tools", () => {
+	it("labels a tool the daemon aborted as cancelled, not failed", () => {
+		const normalized = normalizeToolPart({
+			type: "tool-Bash",
+			toolCallId: "call-1",
+			state: "output-error",
+			input: { command: "sleep 60" },
+			error: { code: "unknown", message: "Request was aborted" },
+		});
+		expect(normalized?.status).toBe("cancelled");
+	});
+
+	it("keeps real tool errors as failures", () => {
+		const normalized = normalizeToolPart({
+			type: "tool-Bash",
+			toolCallId: "call-2",
+			state: "output-error",
+			input: { command: "false" },
+			error: { code: "unknown", message: "exit code 1" },
+		});
+		expect(normalized?.status).toBe("error");
 	});
 });

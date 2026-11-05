@@ -130,6 +130,22 @@ function resolveColumnAlign(column: DataColumn) {
 	return column.type && NUMBER_FAMILY_TYPES.includes(column.type) ? "right" : "left";
 }
 
+/**
+ * Renders one cell. A column key the row does not carry renders a placeholder
+ * rather than a blank cell that reads as missing data.
+ */
+function CellValue({ row, column }: { row: Record<string, unknown>; column: DataColumn }) {
+	const value = row[column.key];
+	if (value === undefined || value === null) {
+		return (
+			<span className="text-foreground/30" title={`No "${column.key}" field in this row`}>
+				—
+			</span>
+		);
+	}
+	return <>{formatCellValue(value as string | number, column.type)}</>;
+}
+
 function DataTableComponent({
 	props: { title, columns, rows },
 }: {
@@ -140,12 +156,21 @@ function DataTableComponent({
 	};
 }) {
 	const [sort, setSort] = useState<SortState | null>(null);
+	// A Query renders its default value first and may pass `null` before data
+	// arrives (and always does when the query fails), so the table has to
+	// tolerate a missing array instead of throwing mid-render.
+	const safeRows = Array.isArray(rows)
+		? rows.filter((row) => typeof row === "object" && row !== null && !Array.isArray(row))
+		: [];
+	const safeColumns = (Array.isArray(columns) ? columns : []).filter(
+		(column): column is DataColumn => typeof column?.key === "string",
+	);
 
-	let sortedRows = rows;
+	let sortedRows = safeRows;
 	if (sort) {
-		const activeColumn = columns.find((column) => column.key === sort.key) ?? { key: sort.key };
+		const activeColumn = safeColumns.find((column) => column.key === sort.key) ?? { key: sort.key };
 		const comparator = buildSortComparator(activeColumn, sort.dir);
-		sortedRows = rows.toSorted(comparator);
+		sortedRows = safeRows.toSorted(comparator);
 	}
 
 	return (
@@ -160,7 +185,7 @@ function DataTableComponent({
 					<Table className="min-w-max">
 						<TableHeader className="bg-muted/60">
 							<TableRow>
-								{columns.map((column) => {
+								{safeColumns.map((column) => {
 									const align = resolveColumnAlign(column);
 									const isActive = sort?.key === column.key;
 									return (
@@ -188,16 +213,19 @@ function DataTableComponent({
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{rows.length === 0 ? (
+							{sortedRows.length === 0 ? (
 								<TableRow>
-									<TableCell colSpan={Math.max(columns.length, 1)} className="text-center text-foreground/40">
+									<TableCell
+										colSpan={Math.max(safeColumns.length, 1)}
+										className="text-center text-foreground/40"
+									>
 										No data
 									</TableCell>
 								</TableRow>
 							) : (
 								sortedRows.map((row, rowIndex) => (
 									<TableRow key={rowIndex}>
-										{columns.map((column) => {
+										{safeColumns.map((column) => {
 											const align = resolveColumnAlign(column);
 											return (
 												<TableCell
@@ -207,7 +235,7 @@ function DataTableComponent({
 														column.type && NUMBER_FAMILY_TYPES.includes(column.type) && "tabular-nums",
 													)}
 												>
-													{formatCellValue(row[column.key] ?? "", column.type)}
+													<CellValue row={row} column={column} />
 												</TableCell>
 											);
 										})}

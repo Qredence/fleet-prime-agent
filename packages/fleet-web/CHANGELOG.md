@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.11.0
+
+### Minor Changes
+
+- baebc6f: OpenUI: fix the integration and use more of the language.
+  
+  Fixed:
+  
+  - The component library now declares `Root` as its entry component, so a
+    generated program without a `root` statement renders the first root-component
+    call with a `no-root` warning instead of rendering nothing.
+  - `Button`'s action prop is a typed `ActionExpression | string` instead of
+    `any`, so the generated prompt teaches `@ToAssistant(...)` and `Action([...])`
+    on it and the JSON schema exposes the action contract.
+  - Generated OpenUI programs can now call Fleet data. `Query(...)` runs through a
+    read-only tool surface (`workspace_tree`, `list_sessions`, `list_resources`,
+    `session_stats`) backed by Fleet's existing server handlers. The prompt no
+    longer documents `Mutation`, because no write tool exists.
+  - `DataTable` no longer throws when a query is still loading (null rows), and a
+    column key that the rows do not carry renders a visible placeholder instead of
+    a blank cell that looks like missing data.
+  - The OpenUI devtools toggle is hidden again; its stylesheet rule matched a
+    label the installed devtools no longer emits.
+  
+  Added:
+  
+  - Components: `Tabs`, `Accordion`, `TextArea`, `Slider`, `Steps`,
+    `KeyValueList`, `Empty`, `Skeleton`, `Image`.
+  - Client functions: `@Duration`, `@Bytes`, `@Tokens`, `@Percent`,
+    `@ShortPath`.
+  - Component groups in the prompt so the signature list is navigable.
+  - A typed `@OpenPanel` action.
+  - OpenUI form state now survives reload and session switches, stored with
+    OpenUI's own message format.
+  - The Repair action sends structured parser errors (statement, component, hint)
+    instead of a generic retry.
+  
+  Changed:
+  
+  - `@openuidev/react-ui` was only a stylesheet import with no component
+    consumers; it is no longer a dependency.
+  
+  OpenUI reads retain the selected project. Stored forms match their program, are removed on session deletion, and are pruned by save time. Legacy clients retain the 0.x prompt until they declare 1.x support.
+
+## 0.10.5
+
+### Patch Changes
+
+- ee0f066: Polish small chat and sidebar rough edges
+  
+  - A tool you stop mid-run now shows "Cancelled" instead of "Failed".
+  - Enter submits the rename dialogs for sessions and projects.
+  - Untitled sessions show "New chat" in the sidebar instead of a raw session-id prefix.
+  - A subagent thread keeps one replay cursor across session resets, so a reset reloads it instead of replaying a stale stream.
+  - Clicking a side-panel tab switches to it instead of closing the panel.
+  - On narrow screens the panel launcher switches to its dropdown when its tabs don't fit, and the New chat button no longer overlaps it.
+  - On phones the Main and Activity header tabs show just their icons, with the name in a tooltip, instead of cut-off labels.
+
+## 0.10.4
+
+### Patch Changes
+
+- 4105939: Polish thinking episodes, side panels, and CPython labels
+  
+  - Each thinking stretch in a turn stays its own Thought row instead of growing one collapsible after tools run.
+  - Long Thoughts split into paragraphs as blank lines arrive, so Activity and the transcript stay readable.
+  - Kernel cells, REPL, and tool traces say CPython instead of IPython; the wire protocol is unchanged.
+  - The Subagents panel fills its body and scrolls inside it, and agent tabs can use a bit more width for longer names.
+  - The Projects sidebar label lines up vertically with its actions.
+
+## 0.10.3
+
+### Patch Changes
+
+- eaef08e: Fleet now installs Prime Agent 0.10.2, the latest stock Rust runtime. It brings upstream fixes for Google, Azure OpenAI, Bedrock and Anthropic providers, MCP OAuth issuers with a trailing slash, and stuck Python cells. The protocol is unchanged, so existing sessions keep working; the first launch after updating downloads the new runtime once.
+  
+  Failed tool calls now stay marked as failed once a turn finishes, including Python cells that raise an exception, instead of flipping to success.
+
 ## 0.10.2
 
 ### Patch Changes

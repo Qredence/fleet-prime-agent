@@ -17,6 +17,8 @@ export type SliderProps = Omit<HTMLAttributes<HTMLDivElement>, "onChange"> & {
 	disabled?: boolean;
 };
 
+const MAX_PIP_COUNT = 1000;
+
 function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
 }
@@ -48,6 +50,7 @@ export function Slider({
 	const pipMask = `linear-gradient(to right, transparent calc(${percent}% + ${pipMaskOffset}px), black calc(${percent}% + ${pipMaskOffset + 2}px))`;
 	const pipValues = useMemo(() => {
 		const count = Math.floor((safeMax - min) / safeStep);
+		if (!(count < MAX_PIP_COUNT)) return [];
 		const values = Array.from({ length: count + 1 }, (_, index) => min + index * safeStep);
 		if (values.at(-1) !== safeMax) values.push(safeMax);
 		return values;

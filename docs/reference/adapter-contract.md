@@ -122,6 +122,25 @@ These records are Fleet presentation state. They are not upstream Prime Agent tr
 
 The implementation must not advertise stronger replay, ordering, or durability guarantees than these.
 
+## OpenUI tool surface
+
+Generated OpenUI programs may read Fleet data through `Query(...)`. The renderer
+resolves that through `web/app/src/components/openui/openui-tools.ts`, which
+posts `{ name, args }` to `/api/chat/openui/tool`; `web/server/src/handlers/openui-tool.ts`
+dispatches to the same server handlers the UI uses.
+
+Durable rules:
+
+- The surface is **read-only**. There is no `Mutation` tool and no write path.
+  The browser must not gain a write capability through generated UI.
+- Tool names, argument schemas, and row field names are owned by
+  `web/protocol/src/openui-tools.ts`. Row field names are prompt text: a
+  generated table that invents column keys renders placeholders, so keep the
+  descriptors accurate when a handler payload changes.
+- Tool arguments are untrusted model output and are schema-validated before
+  dispatch; workspace paths reject absolute paths, `..`, and backslashes.
+- `web/app` carries no runtime knowledge: the route delegates to `web/server`.
+
 ## Sources of truth
 
 Use these sources when changing the contract:
@@ -129,6 +148,7 @@ Use these sources when changing the contract:
 - `web/protocol/src/chat-protocol.ts`;
 - `web/protocol/src/chat-protocol.zod.ts`;
 - `web/protocol/src/schemas/chat.ts`;
+- `web/protocol/src/openui-tools.ts`;
 - `web/server/src/event-mapper.ts`;
 - `web/server/src/prime-bridge.ts`;
 - `web/server/src/handlers/chat.ts`;

@@ -1,12 +1,33 @@
 import type { ComponentRenderProps, StateField } from "@openuidev/react-lang";
-import { createLibrary, defineComponent, reactive, useStateField, useTriggerAction } from "@openuidev/react-lang";
+import {
+	action,
+	createLibrary,
+	defineAction,
+	defineComponent,
+	reactive,
+	useStateField,
+	useTriggerAction,
+} from "@openuidev/react-lang";
 import { RightPanelIdSchema, WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract";
+import { openUIComponentGroups } from "@prime-agent/web-protocol/openui-component-groups";
 import { useId } from "react";
 import { Bar, CartesianGrid, BarChart as RechartsBarChart, XAxis, YAxis } from "recharts";
 import { z } from "zod/v4";
 import { DonutChartDef, LineChartDef } from "@/components/openui/charts";
 import { DataTableDef, MetricGroupDef } from "@/components/openui/data";
 import { HtmlArtifactComponent } from "@/components/openui/html-artifact";
+import {
+	AccordionDef,
+	EmptyDef,
+	ImageDef,
+	KeyValueListDef,
+	SkeletonDef,
+	SliderDef,
+	StepsDef,
+	TabsDef,
+	TextAreaDef,
+} from "@/components/openui/openui-extra-components";
+import { openUIFunctions } from "@/components/openui/openui-functions";
 
 const HtmlArtifactDef = defineComponent({
 	name: "HtmlArtifact",
@@ -108,7 +129,7 @@ const ButtonDef = defineComponent({
 	props: z.object({
 		label: z.string().describe("Visible button label"),
 		action: z
-			.any()
+			.union([z.string(), action()])
 			.optional()
 			.describe("Message string, action, or action composition to run on click. Defaults to label."),
 		variant: z
@@ -175,6 +196,34 @@ const PanelActionDef = defineComponent({
 			}
 		}),
 	component: PanelActionComponent,
+});
+
+/**
+ * Typed alternative to inlining an object literal: this action is declared in the
+ * library, so `@OpenPanel(panel, ...)` reaches `onAction` with schema-checked
+ * params instead of a shape the renderer would otherwise accept unvalidated.
+ * `PanelAction` remains the positional component form.
+ */
+export const openPanelAction = defineAction({
+	name: "OpenPanel",
+	description: "Opens one of Fleet's right-hand panels. Trusted local action; it never fetches remote data.",
+	params: z
+		.object({
+			panel: RightPanelIdSchema,
+			relativePath: WorkspaceRelativePathSchema.optional().describe(
+				'Workspace-relative path; valid only when panel is "workspace" or "artifacts".',
+			),
+			focus: z.boolean().optional().describe("Move keyboard focus into the panel"),
+		})
+		.superRefine((value, ctx) => {
+			if (value.relativePath !== undefined && value.panel !== "workspace" && value.panel !== "artifacts") {
+				ctx.addIssue({
+					code: "custom",
+					path: ["relativePath"],
+					message: "relativePath is only valid for workspace and artifacts panels",
+				});
+			}
+		}),
 });
 
 const TextDef = defineComponent({
@@ -819,6 +868,13 @@ export const CitationDef = defineComponent({
 });
 
 export const openUILibrary = createLibrary({
+	// Declaring the root lets the renderer's parser resolve the 1.0 entry rule:
+	// a program without a `root` statement falls back to the first root-component
+	// call with a `no-root` warning instead of rendering nothing.
+	root: "Root",
+	// Grouping turns a long signature dump into navigable sections, so the model
+	// can find the right family instead of scanning every component.
+	componentGroups: openUIComponentGroups,
 	components: [
 		RootDef,
 		StackDef,
@@ -849,7 +905,18 @@ export const openUILibrary = createLibrary({
 		ModalDef,
 		DisclosureDef,
 		TodoDef,
+		TabsDef,
+		AccordionDef,
+		TextAreaDef,
+		SliderDef,
+		StepsDef,
+		KeyValueListDef,
+		EmptyDef,
+		SkeletonDef,
+		ImageDef,
 		CitationDef,
 		HtmlArtifactDef,
 	],
+	functions: openUIFunctions,
+	actions: [openPanelAction],
 });

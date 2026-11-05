@@ -7,7 +7,7 @@ import { ToolTextShimmer } from "@/components/tools/tool-text-shimmer";
 import { useToolComplete } from "@/components/tools/utils/format-tool";
 import { adaptToolPart } from "@/components/tools/utils/tool-adapters";
 
-type IpythonDetails = {
+type CpythonDetails = {
 	durationMs?: number;
 	status?: "ok" | "error" | "aborted" | "starting";
 	errorEname?: string;
@@ -25,10 +25,10 @@ function getInputCode(part: any): string {
 	return "";
 }
 
-function getOutputDetails(part: any): IpythonDetails | undefined {
+function getOutputDetails(part: any): CpythonDetails | undefined {
 	const out = part.output ?? part.result;
 	if (!out || typeof out !== "object") return undefined;
-	return out as IpythonDetails;
+	return out as CpythonDetails;
 }
 
 function firstNonEmpty(...candidates: Array<string | undefined>): string {
@@ -38,7 +38,7 @@ function firstNonEmpty(...candidates: Array<string | undefined>): string {
 	return "";
 }
 
-type IpythonCellCardProps = {
+type CpythonCellCardProps = {
 	step: Extract<TimelineStep, { type: "tool-call" }>;
 	state: StepState;
 	onComplete: () => void;
@@ -48,14 +48,14 @@ type IpythonCellCardProps = {
 };
 
 /**
- * Renders the status header for an IPython or shell cell.
+ * Renders the status header for a CPython or shell cell.
  *
  * @param isPending - Whether the cell is still running
  * @param isBashCell - Whether the cell contains shell commands
  * @param hasError - Whether the cell execution failed
  * @param kernelRestarted - Whether execution restarted the kernel
  */
-function IpythonCardHeader({
+function CpythonCardHeader({
 	isPending,
 	isBashCell,
 	hasError,
@@ -111,7 +111,7 @@ function IpythonCardHeader({
  *
  * @param output - The background output to display
  */
-function IpythonBackgroundOutput({ output }: { output: string }) {
+function CpythonBackgroundOutput({ output }: { output: string }) {
 	return (
 		<div className="mt-1.5 border-t border-dashed border-border/70 pt-1.5 font-mono text-caption leading-[15px]">
 			<span className="text-micro font-semibold uppercase tracking-wider text-warning/90">
@@ -125,7 +125,7 @@ function IpythonBackgroundOutput({ output }: { output: string }) {
 }
 
 /**
- * Renders an IPython or Bash cell with its code, execution status, output, errors, background output, and approval controls.
+ * Renders a CPython or Bash cell with its code, execution status, output, errors, background output, and approval controls.
  *
  * @param step - Execution step information used to schedule completion.
  * @param state - Current execution state of the cell.
@@ -134,7 +134,7 @@ function IpythonBackgroundOutput({ output }: { output: string }) {
  * @param cellIndex - Optional notebook cell index displayed with the code.
  * @param part - Tool-call data containing the cell input and output details.
  */
-function IpythonCellCard({ step, state, onComplete, approval, cellIndex, part }: IpythonCellCardProps) {
+function CpythonCellCard({ step, state, onComplete, approval, cellIndex, part }: CpythonCellCardProps) {
 	useToolComplete(state === "animating", step.duration, onComplete);
 	const isPending = state === "animating";
 	const code = getInputCode(part);
@@ -146,13 +146,13 @@ function IpythonCellCard({ step, state, onComplete, approval, cellIndex, part }:
 				? details.backgroundOutput
 				: undefined;
 	const isBashCell = code.trimStart().startsWith("%%bash");
-	const cellLabel = cellIndex !== undefined ? `In [${cellIndex}]` : "IPython";
+	const cellLabel = cellIndex !== undefined ? `In [${cellIndex}]` : "CPython";
 	const displayOutput = firstNonEmpty(details?.result, details?.stdout, details?.stderr, details?.error?.evalue);
 	const hasError = Boolean(details?.error) || Boolean(details?.errorEname) || details?.status === "error";
 
 	return (
 		<div className="overflow-hidden rounded-chat-tool border border-border bg-muted">
-			<IpythonCardHeader
+			<CpythonCardHeader
 				isPending={isPending}
 				isBashCell={isBashCell}
 				hasError={hasError}
@@ -172,7 +172,7 @@ function IpythonCellCard({ step, state, onComplete, approval, cellIndex, part }:
 						{displayOutput}
 					</div>
 				)}
-				{backgroundOutput && <IpythonBackgroundOutput output={backgroundOutput} />}
+				{backgroundOutput && <CpythonBackgroundOutput output={backgroundOutput} />}
 			</div>
 			{approval && <ToolApprovalFooter isPending={isPending} {...approval} />}
 		</div>
@@ -192,18 +192,18 @@ function nextCellIndex(toolCallId: string | undefined): number {
 	return next;
 }
 
-export type IpythonToolProps = {
+export type CpythonToolProps = {
 	part: any;
 };
 
-export const IpythonTool = memo(function IpythonTool({ part }: IpythonToolProps) {
+export const CpythonTool = memo(function CpythonTool({ part }: CpythonToolProps) {
 	const approval = (part.input?.approval ?? part.args?.approval) as ToolApproval | undefined;
-	const { step, stepState } = adaptToolPart(part, "IPython");
+	const { step, stepState } = adaptToolPart(part, "CPython");
 	const cellIndex = nextCellIndex(part.toolCallId);
 	const noop = () => {};
 
 	return (
-		<IpythonCellCard
+		<CpythonCellCard
 			step={step}
 			state={stepState}
 			onComplete={noop}

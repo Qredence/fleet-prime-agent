@@ -9,6 +9,7 @@ import { meaningfulSessionLabel, sessionListTitle } from "@prime-agent/web-proto
 import { useMemo } from "react";
 import { normalizeSessionLabel } from "@/components/chat/chat-helpers";
 import type { SuggestionItem } from "@/components/chat/types";
+import { isAbortedToolPart } from "@/components/tools/tool-output-normalizer";
 
 export function useChatSuggestions({
 	messages,
@@ -172,6 +173,7 @@ function hasStructuredFailure(message: ChatMessage | undefined) {
 		if (part.type === "error") return true;
 		if (!part.type.startsWith("tool-") || typeof part !== "object" || part === null) return false;
 		const tool = part as Record<string, unknown>;
+		if (isAbortedToolPart(tool)) return false;
 		if (tool.state === "output-error" || tool.state === "error" || tool.state === "failed") return true;
 		const output =
 			typeof tool.output === "object" && tool.output !== null ? (tool.output as Record<string, unknown>) : undefined;

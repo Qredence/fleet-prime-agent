@@ -40,6 +40,7 @@ import { Route as ApiWorkspaceTreeRouteImport } from './routes/api/workspace/tre
 import { Route as ApiChatMcpOauthRouteImport } from './routes/api/chat/mcp/oauth'
 import { Route as ApiChatMcpTokenRouteImport } from './routes/api/chat/mcp/token'
 import { Route as ApiChatModelsDiscoverRouteImport } from './routes/api/chat/models/discover'
+import { Route as ApiChatOpenuiToolRouteImport } from './routes/api/chat/openui/tool'
 import { Route as ApiChatProvidersOauthRouteImport } from './routes/api/chat/providers/oauth'
 
 const IndexRoute = IndexRouteImport.update({
@@ -197,6 +198,11 @@ const ApiChatModelsDiscoverRoute = ApiChatModelsDiscoverRouteImport.update({
   path: '/discover',
   getParentRoute: () => ApiChatModelsRoute,
 } as any)
+const ApiChatOpenuiToolRoute = ApiChatOpenuiToolRouteImport.update({
+  id: '/openui/tool',
+  path: '/openui/tool',
+  getParentRoute: () => ApiChatRoute,
+} as any)
 const ApiChatProvidersOauthRoute = ApiChatProvidersOauthRouteImport.update({
   id: '/oauth',
   path: '/oauth',
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/openui/tool': typeof ApiChatOpenuiToolRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRoutesByTo {
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/openui/tool': typeof ApiChatOpenuiToolRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRoutesById {
@@ -304,6 +312,7 @@ export interface FileRoutesById {
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
+  '/api/chat/openui/tool': typeof ApiChatOpenuiToolRoute
   '/api/chat/providers/oauth': typeof ApiChatProvidersOauthRoute
 }
 export interface FileRouteTypes {
@@ -340,6 +349,7 @@ export interface FileRouteTypes {
     | '/api/chat/mcp/oauth'
     | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
+    | '/api/chat/openui/tool'
     | '/api/chat/providers/oauth'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -374,6 +384,7 @@ export interface FileRouteTypes {
     | '/api/chat/mcp/oauth'
     | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
+    | '/api/chat/openui/tool'
     | '/api/chat/providers/oauth'
   id:
     | '__root__'
@@ -408,6 +419,7 @@ export interface FileRouteTypes {
     | '/api/chat/mcp/oauth'
     | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
+    | '/api/chat/openui/tool'
     | '/api/chat/providers/oauth'
   fileRoutesById: FileRoutesById
 }
@@ -641,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatModelsDiscoverRouteImport
       parentRoute: typeof ApiChatModelsRoute
     }
+    '/api/chat/openui/tool': {
+      id: '/api/chat/openui/tool'
+      path: '/openui/tool'
+      fullPath: '/api/chat/openui/tool'
+      preLoaderRoute: typeof ApiChatOpenuiToolRouteImport
+      parentRoute: typeof ApiChatRoute
+    }
     '/api/chat/providers/oauth': {
       id: '/api/chat/providers/oauth'
       path: '/oauth'
@@ -707,6 +726,7 @@ interface ApiChatRouteChildren {
   ApiChatSessionTreeRoute: typeof ApiChatSessionTreeRoute
   ApiChatSessionsRoute: typeof ApiChatSessionsRoute
   ApiChatSettingsRoute: typeof ApiChatSettingsRoute
+  ApiChatOpenuiToolRoute: typeof ApiChatOpenuiToolRoute
 }
 
 const ApiChatRouteChildren: ApiChatRouteChildren = {
@@ -728,6 +748,7 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatSessionTreeRoute: ApiChatSessionTreeRoute,
   ApiChatSessionsRoute: ApiChatSessionsRoute,
   ApiChatSettingsRoute: ApiChatSettingsRoute,
+  ApiChatOpenuiToolRoute: ApiChatOpenuiToolRoute,
 }
 
 const ApiChatRouteWithChildren =

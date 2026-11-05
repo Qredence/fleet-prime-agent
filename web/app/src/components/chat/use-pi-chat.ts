@@ -40,6 +40,7 @@ import {
 	tryRecoverUnknownSession,
 } from "@/components/chat/use-pi-chat-forbidden-session";
 import { usePiChatMessaging } from "@/components/chat/use-pi-chat-messaging";
+import { removeSessionOpenUIState } from "@/components/openui/openui-state-cleanup";
 import { notify } from "@/lib/notify";
 
 export type SendMessageInput = {
@@ -718,6 +719,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			if (deletingActive) stop();
 			try {
 				await client.deleteSession(sessionId);
+				removeSessionOpenUIState(sessionId);
 			} catch (err) {
 				notifyChatError(err);
 				return false;

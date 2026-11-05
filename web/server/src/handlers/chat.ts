@@ -135,7 +135,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const raw = await request.json();
 		const body = ChatRequestSchema.parse(raw);
-		const { sessionId, message, model, mode, openUI, openUIArtifact, planAction } = body;
+		const { sessionId, message, model, mode, openUI, openUIArtifact, openUISyntaxVersion, planAction } = body;
 		if (!message || typeof message !== "string") {
 			return Response.json({ message: "POST /api/chat requires a `message` string." }, { status: 400 });
 		}
@@ -151,7 +151,8 @@ export function handleChatPost(request: Request): Promise<Response> {
 				body.model !== undefined ||
 				body.planAction !== undefined ||
 				body.openUI === true ||
-				body.openUIArtifact === true
+				body.openUIArtifact === true ||
+				body.openUISyntaxVersion !== undefined
 			) {
 				return Response.json({ message: "POST /api/chat child turns support message text only." }, { status: 400 });
 			}
@@ -282,6 +283,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 						mode,
 						openUI,
 						openUIArtifact,
+						openUISyntaxVersion,
 						planAction,
 					})
 					.then(async () => {
