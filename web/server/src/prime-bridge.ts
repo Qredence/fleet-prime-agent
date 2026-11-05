@@ -1176,6 +1176,7 @@ export class PrimeBridge {
 			mode?: ChatMode;
 			openUI?: boolean;
 			openUIArtifact?: boolean;
+			openUISyntaxVersion?: "0.x" | "1.x";
 			planAction?: ChatPlanAction;
 		},
 	): Promise<void> {
@@ -1190,7 +1191,8 @@ export class PrimeBridge {
 			(session.openUIPrompt.artifact ?? false) !== openUIArtifact ||
 			// A changed prompt body (new components, functions, or tools) must reach
 			// an existing session, not only newly created ones.
-			session.openUIPrompt.prompt !== buildOpenUIPrompt(openUIMode, { artifact: openUIArtifact });
+			session.openUIPrompt.prompt !==
+				buildOpenUIPrompt(openUIMode, { artifact: openUIArtifact, syntaxVersion: options?.openUISyntaxVersion });
 		const hasPendingOpenUITransition = this.#openUIPromptTransitions.has(sessionId);
 		const wasStreaming = session.isStreaming;
 		const promptOptions = {
@@ -1203,7 +1205,13 @@ export class PrimeBridge {
 			// Preserve the idle ordering: commit the prompt state before admitting
 			// the next prompt. The transition queue also waits for an earlier active
 			// prompt's safe-boundary reconfiguration.
-			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact);
+			await this.#scheduleOpenUIPromptState(
+				session,
+				openUIEnabled,
+				openUIMode,
+				openUIArtifact,
+				options?.openUISyntaxVersion,
+			);
 		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			void (async () => {
@@ -1232,7 +1240,13 @@ export class PrimeBridge {
 			promptError = error;
 		}
 		if (wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
-			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact);
+			await this.#scheduleOpenUIPromptState(
+				session,
+				openUIEnabled,
+				openUIMode,
+				openUIArtifact,
+				options?.openUISyntaxVersion,
+			);
 		}
 		if (promptFailed) throw promptError;
 	}
@@ -1242,11 +1256,12 @@ export class PrimeBridge {
 		enabled: boolean,
 		mode: OpenUIPromptMode,
 		artifact: boolean,
+		syntaxVersion?: "0.x" | "1.x",
 	): Promise<void> {
 		const previous = this.#openUIPromptTransitions.get(session.sessionId) ?? Promise.resolve();
 		const transition = previous
 			.catch(() => undefined)
-			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact));
+			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact, syntaxVersion));
 		this.#openUIPromptTransitions.set(session.sessionId, transition);
 		void transition
 			.finally(() => {
@@ -1263,9 +1278,10 @@ export class PrimeBridge {
 		enabled: boolean,
 		mode: OpenUIPromptMode,
 		artifact = false,
+		syntaxVersion?: "0.x" | "1.x",
 	): Promise<void> {
 		const previousPrompt = session.openUIPrompt.prompt;
-		const nextPrompt = buildOpenUIPrompt(mode, { artifact });
+		const nextPrompt = buildOpenUIPrompt(mode, { artifact, syntaxVersion });
 		// The prompt text is compared as well as the flags: `buildOpenUIPrompt`
 		// changes whenever the component catalog or tool surface changes, and a
 		// session must pick that up instead of keeping the prompt it was born with.

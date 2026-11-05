@@ -40,10 +40,23 @@ function isReferencedOutsideAssignment(program: string, id: string): boolean {
 }
 
 describe("OpenUI agent prompt examples", () => {
-	const prompt = buildOpenUIPrompt("agent");
+	const prompt = buildOpenUIPrompt("agent", { syntaxVersion: "1.x" });
 	const programs = extractOpenUIExamples(prompt);
 	const parser = createParser(openUILibrary.toJSONSchema(), openUILibrary.root);
 
+	it("keeps tool examples root-first", () => {
+		for (const program of programs.filter((value) => value.includes('Query("')))
+			expect(program.split("\n")[0]).toMatch(/^root = Root/);
+	});
+	it("defaults undeclared clients to the legacy catalog and wrapped actions", () => {
+		const legacy = buildOpenUIPrompt("agent");
+		expect(legacy).toBe(buildOpenUIPrompt("agent", { syntaxVersion: "0.x" }));
+		expect(legacy).toContain('Button("Apply Filters", Action([');
+		expect(legacy).not.toContain("@OpenPanel");
+		expect(legacy).not.toContain("Tabs(");
+		expect(legacy).not.toContain('Query("list_sessions"');
+		expect(prompt).toContain('Query("list_sessions"');
+	});
 	it("ships at least one fenced openui example", () => {
 		expect(programs.length).toBeGreaterThan(0);
 	});

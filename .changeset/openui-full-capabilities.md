@@ -27,7 +27,7 @@ Added:
 - Components: `Tabs`, `Accordion`, `TextArea`, `Slider`, `Steps`,
   `KeyValueList`, `Empty`, `Skeleton`, `Image`.
 - Client functions: `@Duration`, `@Bytes`, `@Tokens`, `@Percent`,
-  `@RelativeTime`, `@ShortPath`.
+  `@ShortPath`.
 - Component groups in the prompt so the signature list is navigable.
 - A typed `@OpenPanel` action.
 - OpenUI form state now survives reload and session switches, stored with
@@ -39,3 +39,5 @@ Changed:
 
 - `@openuidev/react-ui` was only a stylesheet import with no component
   consumers; it is no longer a dependency.
+
+OpenUI reads retain the selected project. Stored forms match their program, are removed on session deletion, and are pruned by save time. Legacy clients retain the 0.x prompt until they declare 1.x support.

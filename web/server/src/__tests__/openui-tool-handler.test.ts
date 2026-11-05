@@ -32,6 +32,60 @@ afterEach(() => {
 });
 
 describe("handleOpenUIToolPost", () => {
+	it.each(["workspace_tree", "list_resources"])(
+		"preserves validated project context for %s and drops unrelated parameters",
+		async (name) => {
+			workspaceTreeGet.mockImplementation(() => Response.json({ nodes: [] }));
+			chatResourcesGet.mockImplementation(() => Response.json({ skills: [] }));
+			const request = new Request("http://localhost/api/chat/openui/tool?projectId=project-b&extra=discard", {
+				method: "POST",
+				headers: { Origin: "http://localhost", "Content-Type": "application/json" },
+				body: JSON.stringify({ name, args: {} }),
+			});
+			expect((await handleOpenUIToolPost(request)).status).toBe(200);
+			const forwarded = (name === "workspace_tree" ? workspaceTreeGet : chatResourcesGet).mock
+				.calls[0][0] as Request;
+			expect(new URL(forwarded.url).search).toBe("?projectId=project-b");
+		},
+	);
+	it("rejects malformed project context before reading", async () => {
+		const request = new Request("http://localhost/api/chat/openui/tool?projectId=../escape", {
+			method: "POST",
+			headers: { Origin: "http://localhost", "Content-Type": "application/json" },
+			body: JSON.stringify({ name: "workspace_tree", args: {} }),
+		});
+		expect((await handleOpenUIToolPost(request)).status).toBe(422);
+		expect(workspaceTreeGet).not.toHaveBeenCalled();
+	});
+	it.each(["./web//app/", "web///app//", "././web/app", "web/./app"])("normalizes workspace path %s", async (path) => {
+		workspaceTreeGet.mockResolvedValue(
+			Response.json({
+				nodes: [
+					{
+						name: "web",
+						path: "web",
+						type: "directory",
+						children: [
+							{
+								name: "app",
+								path: "web/app",
+								type: "directory",
+								children: [{ name: "src", path: "web/app/src", type: "directory" }],
+							},
+						],
+					},
+				],
+			}),
+		);
+		const response = await handleOpenUIToolPost(toolRequest({ name: "workspace_tree", args: { path } }));
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({ rows: [{ path: "web/app/src" }] });
+	});
+	it("treats an empty normalized path as the workspace root", async () => {
+		workspaceTreeGet.mockResolvedValue(Response.json({ nodes: [{ name: "web", path: "web", type: "directory" }] }));
+		const response = await handleOpenUIToolPost(toolRequest({ name: "workspace_tree", args: { path: "././" } }));
+		expect(await response.json()).toMatchObject({ rows: [{ path: "web" }] });
+	});
 	it("forwards headers and only the tool's own query parameters", async () => {
 		chatSessionsGet.mockImplementation(() => Response.json({ sessions: [] }));
 		const makeRequest = (args: object) =>

@@ -492,11 +492,18 @@ describe("PrimeBridge.forkSession", () => {
 		// session keeps answering with an outdated component catalogue.
 		created.openUIPrompt.prompt = "stale prompt";
 
-		await bridge.prompt(created.sessionId, "use tabs", { openUI: true });
+		await bridge.prompt(created.sessionId, "use tabs", { openUI: true, openUISyntaxVersion: "1.x" });
 
 		expect(prompts).toHaveLength(1);
 		expect(prompts[0]).not.toBe("stale prompt");
 		expect(prompts[0]).toContain("Tabs");
+		await bridge.prompt(created.sessionId, "legacy tab", { openUI: true });
+		expect(prompts).toHaveLength(2);
+		expect(prompts[1]).not.toContain("Tabs(");
+		expect(prompts[1]).toContain('Button("Apply Filters", Action([');
+		await bridge.prompt(created.sessionId, "current tab", { openUI: true, openUISyntaxVersion: "1.x" });
+		expect(prompts).toHaveLength(3);
+		expect(prompts[2]).toBe(prompts[0]);
 	});
 
 	it("serializes idle OpenUI transitions before admitting later prompts", async () => {

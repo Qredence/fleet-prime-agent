@@ -482,13 +482,12 @@ assertExcludes(unsafeImageHtml, "javascript:alert(1)\" ", "unsafe image src is n
 
 // Client functions must compute, not echo the call.
 const functionProgram = [
-	"root = Root([a, b, c, d, e, f])",
+	"root = Root([a, b, c, d, e])",
 	'a = Text("dur " + @Duration(5400000))',
 	'b = Text("size " + @Bytes(1572864))',
 	'c = Text("tok " + @Tokens(38200))',
 	'd = Text("pct " + @Percent(1, 3))',
 	'e = Text("path " + @ShortPath("web/app/src/components/openui/x.tsx", 2))',
-	'f = Text("rel " + @RelativeTime("2020-01-01T00:00:00.000Z"))',
 ].join("\n");
 const functionHtml = renderToStaticMarkup(
 	<MotionRuntime>
@@ -498,7 +497,6 @@ const functionHtml = renderToStaticMarkup(
 for (const expected of ["dur 1.5h", "size 1.5 MB", "tok 38.2k", "pct 33.3%", "path …/openui/x.tsx"]) {
 	assertIncludes(functionHtml, expected);
 }
-assertIncludes(functionHtml, "rel ");
 assertExcludes(functionHtml, "null", "client functions evaluate without runtime-error");
 assertExcludes(functionHtml, "OpenUI could not be rendered", "client functions render without diagnostics");
 

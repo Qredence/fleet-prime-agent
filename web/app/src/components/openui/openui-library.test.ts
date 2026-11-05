@@ -4,7 +4,7 @@ import {
 	encodeOpenPanelActionMessage,
 	openPanelActionFromParams,
 } from "@/components/openui/open-panel-action-message";
-import { openUILibrary } from "@/components/openui/openui-library";
+import { openPanelAction, openUILibrary } from "@/components/openui/openui-library";
 
 describe("OpenUI library contract", () => {
 	it("declares Root as its entry so the no-root fallback can resolve", () => {
@@ -18,6 +18,13 @@ describe("OpenUI library contract", () => {
 		});
 	});
 
+	it("checks the cross-field OpenPanel constraint before dispatch", () => {
+		for (const panel of ["workspace", "artifacts"])
+			expect(openPanelAction.params.safeParse({ panel, relativePath: "web/app" }).success).toBe(true);
+		const result = openPanelAction.params.safeParse({ panel: "repl", relativePath: "web/app" });
+		expect(result.success).toBe(false);
+		if (!result.success) expect(result.error.issues[0]?.path).toEqual(["relativePath"]);
+	});
 	it("registers the custom OpenPanel action", () => {
 		expect(Object.keys(openUILibrary.actions ?? {})).toEqual(["OpenPanel"]);
 	});
@@ -27,7 +34,6 @@ describe("OpenUI library contract", () => {
 			"Bytes",
 			"Duration",
 			"Percent",
-			"RelativeTime",
 			"ShortPath",
 			"Tokens",
 		]);

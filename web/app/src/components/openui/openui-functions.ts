@@ -59,15 +59,6 @@ function formatPercent(part: number, total: number, decimals: number): string {
 	return `${Math.round(value * factor) / factor}%`;
 }
 
-function formatRelativeTime(iso: string): string {
-	const then = Date.parse(iso);
-	if (Number.isNaN(then)) return iso;
-	return formatDuration(Date.now() - then)
-		.replace(/^(\d+(?:\.\d+)?)d$/, "$1d ago")
-		.replace(/^(\d+(?:\.\d+)?)(h|m|s|ms)$/, "$1$2 ago")
-		.replace(/^now$/, "just now");
-}
-
 function formatShortPath(path: string, segments: number): string {
 	const parts = path.split("/").filter(Boolean);
 	const keep = Math.max(1, Math.min(segments, 6));
@@ -118,16 +109,6 @@ const percentFunction = defineFunction({
 	fn: ({ part, total, decimals }) => formatPercent(part, total, decimals),
 });
 
-const relativeTimeFunction = defineFunction({
-	name: "RelativeTime",
-	description: "Turns an ISO timestamp into a short relative age, for example 3h ago.",
-	params: z.object({
-		iso: z.string().describe("ISO 8601 timestamp"),
-	}),
-	returns: z.string(),
-	fn: ({ iso }) => formatRelativeTime(iso),
-});
-
 const shortPathFunction = defineFunction({
 	name: "ShortPath",
 	description: "Shortens a workspace-relative path to its last N segments for narrow columns.",
@@ -139,11 +120,4 @@ const shortPathFunction = defineFunction({
 	fn: ({ path, segments }) => formatShortPath(path, segments),
 });
 
-export const openUIFunctions = [
-	durationFunction,
-	bytesFunction,
-	tokensFunction,
-	percentFunction,
-	relativeTimeFunction,
-	shortPathFunction,
-];
+export const openUIFunctions = [durationFunction, bytesFunction, tokensFunction, percentFunction, shortPathFunction];

@@ -1,5 +1,9 @@
 import { buildMessage, createParser, parseMessage } from "@openuidev/react-lang";
 import { openUILibrary } from "@/components/openui/openui-library";
+import {
+	openUIStateSessionPrefix,
+	OPENUI_STATE_PREFIX as STORAGE_PREFIX,
+} from "@/components/openui/openui-state-cleanup";
 
 /**
  * Durable form state for rendered OpenUI blocks.
@@ -14,7 +18,6 @@ import { openUILibrary } from "@/components/openui/openui-library";
  * on the wire.
  */
 
-const STORAGE_PREFIX = "fleet.openui.state:";
 const MAX_ENTRIES = 200;
 const parser = createParser(openUILibrary.toJSONSchema(), openUILibrary.root);
 
@@ -94,12 +97,12 @@ function storage(): Storage | undefined {
 }
 
 function keyFor(sessionKey: string, blockId: string): string {
-	return `${STORAGE_PREFIX}${sessionKey}:${blockId}`;
+	return `${openUIStateSessionPrefix(sessionKey)}${blockId}`;
 }
 
 /** Encodes form state in the OpenUI message format, so it round-trips through `parseMessage`. */
 export function encodeStoredState(program: string, formState: Record<string, unknown>): string {
-	return buildMessage({ content: program, context: { formState }, end: true });
+	return buildMessage({ content: program, context: { formState, savedAt: Date.now() }, end: true });
 }
 
 export function decodeStoredState(stored: string): Record<string, unknown> | undefined {
@@ -123,21 +126,30 @@ export function readStoredState(
 	try {
 		const state = decodeStoredState(stored);
 		if (!state) return undefined;
-		const savedState = withoutPasswordState(parseMessage(stored).content, state);
-		return savedState && withoutPasswordState(program, savedState);
+		if (parseMessage(stored).content !== program) return undefined;
+		return withoutPasswordState(program, state);
 	} catch {
 		return undefined;
 	}
 }
 
 function pruneOldest(store: Storage) {
-	const keys: string[] = [];
+	const keys: Array<{ key: string; savedAt: number }> = [];
 	for (let index = 0; index < store.length; index += 1) {
 		const key = store.key(index);
-		if (key?.startsWith(STORAGE_PREFIX)) keys.push(key);
+		if (!key || (!key.startsWith(STORAGE_PREFIX) && !key.startsWith("fleet.openui.state:"))) continue;
+		let savedAt = 0;
+		try {
+			const context = parseMessage(store.getItem(key) ?? "").context as { savedAt?: unknown } | undefined;
+			if (typeof context?.savedAt === "number" && Number.isFinite(context.savedAt)) savedAt = context.savedAt;
+		} catch {
+			// Legacy or corrupt entries are evicted before timestamped entries.
+		}
+		keys.push({ key, savedAt });
 	}
 	// Bounded so a long-running session cannot grow storage without limit.
-	for (const key of keys.slice(0, Math.max(0, keys.length - MAX_ENTRIES))) {
+	keys.sort((a, b) => a.savedAt - b.savedAt || a.key.localeCompare(b.key));
+	for (const { key } of keys.slice(0, Math.max(0, keys.length - MAX_ENTRIES))) {
 		store.removeItem(key);
 	}
 }

@@ -3,6 +3,7 @@ import {
 	OPENUI_TOOL_ROW_LIMIT,
 	type OpenUIToolName,
 	OpenUIToolRequestSchema,
+	ProjectIdSchema,
 	parseOpenUIToolArgs,
 	type ResourceRow,
 	type SessionRow,
@@ -65,8 +66,8 @@ async function requireOk(response: Response, tool: string): Promise<Record<strin
 }
 
 /**
- * Forwards the original request headers (so per-session cwd resolution still
- * works) while pinning the method and query string for an internal read.
+ * Forwards headers and explicitly selected read parameters, discarding all
+ * unrelated parameters from the original tool request.
  */
 function readRequest(request: Request, params?: Record<string, string>): Request {
 	const url = new URL(request.url);
@@ -75,10 +76,22 @@ function readRequest(request: Request, params?: Record<string, string>): Request
 	return new Request(url, { method: "GET", headers: request.headers });
 }
 
-async function workspaceTreeTool(request: Request, budget: ToolBudget, args: { depth?: number; path?: string }) {
-	const tree = await requireOk(await handleWorkspaceTreeGet(readRequest(request)), "workspace_tree");
+async function workspaceTreeTool(
+	request: Request,
+	budget: ToolBudget,
+	args: { depth?: number; path?: string },
+	projectId?: string,
+) {
+	const tree = await requireOk(
+		await handleWorkspaceTreeGet(readRequest(request, projectId ? { projectId } : undefined)),
+		"workspace_tree",
+	);
 	const allNodes = Array.isArray(tree.nodes) ? (tree.nodes as TreeNode[]) : [];
-	const nodes = args.path ? findSubtree(allNodes, args.path.replace(/\/+$/, "")) : allNodes;
+	const target = args.path
+		?.split("/")
+		.filter((part) => part !== "" && part !== ".")
+		.join("/");
+	const nodes = target ? findSubtree(allNodes, target) : allNodes;
 	const depth = Math.min(Math.max(args.depth ?? 2, 1), 4);
 	return { rows: flattenTree(nodes, depth).slice(0, budget.limit) };
 }
@@ -120,8 +133,11 @@ async function listSessionsTool(request: Request, budget: ToolBudget, args: { st
 	return { rows: rows.slice(0, budget.limit) };
 }
 
-async function listResourcesTool(request: Request, budget: ToolBudget, args: { kind?: string }) {
-	const payload = await requireOk(await handleChatResourcesGet(readRequest(request)), "list_resources");
+async function listResourcesTool(request: Request, budget: ToolBudget, args: { kind?: string }, projectId?: string) {
+	const payload = await requireOk(
+		await handleChatResourcesGet(readRequest(request, projectId ? { projectId } : undefined)),
+		"list_resources",
+	);
 	const rows: ResourceRow[] = [];
 	for (const kind of ["skills", "prompts", "themes", "extensions", "packages", "agentsFiles"] as const) {
 		if (args.kind && args.kind !== kind) continue;
@@ -158,15 +174,17 @@ export function handleOpenUIToolPost(request: Request): Promise<Response> {
 			return Response.json({ ok: false, message: "Unknown or malformed OpenUI tool request." }, { status: 400 });
 		}
 
+		const projectParam = new URL(request.url).searchParams.get("projectId");
+		const projectId = projectParam === null ? undefined : ProjectIdSchema.parse(projectParam);
 		const { name } = parsed.data;
 		const toolArgs = parseOpenUIToolArgs(name, parsed.data.args);
 		const args = toolArgs as Record<string, unknown>;
 		const budget: ToolBudget = { limit: clampLimit(args.limit as number | undefined) };
 
 		const dispatch: Record<OpenUIToolName, () => Promise<{ rows: unknown[] }>> = {
-			workspace_tree: () => workspaceTreeTool(request, budget, args),
+			workspace_tree: () => workspaceTreeTool(request, budget, args, projectId),
 			list_sessions: () => listSessionsTool(request, budget, args),
-			list_resources: () => listResourcesTool(request, budget, args),
+			list_resources: () => listResourcesTool(request, budget, args, projectId),
 			session_stats: () => sessionStatsTool(request),
 		};
 

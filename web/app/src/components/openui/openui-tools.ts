@@ -7,19 +7,19 @@ import { OPENUI_TOOL_NAMES, type OpenUIToolName, OpenUIToolResponseSchema } from
  * Fleet's own route, so the browser never talks to the runtime and the request
  * keeps Fleet's origin guard and error envelope.
  *
- * The map is built once at module scope: `Query` re-runs when its arguments
- * change, not when a provider identity changes, so a fresh map per render would
- * only add churn.
  */
 
 export const OPENUI_TOOL_ENDPOINT = "/api/chat/openui/tool";
 
-async function callTool(name: OpenUIToolName, args: Record<string, unknown>): Promise<unknown> {
-	const response = await fetch(OPENUI_TOOL_ENDPOINT, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ name, args }),
-	});
+async function callTool(name: OpenUIToolName, args: Record<string, unknown>, projectId?: string): Promise<unknown> {
+	const response = await fetch(
+		projectId ? `${OPENUI_TOOL_ENDPOINT}?${new URLSearchParams({ projectId })}` : OPENUI_TOOL_ENDPOINT,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ name, args }),
+		},
+	);
 
 	if (!response.ok) {
 		// Surfacing the status keeps a failing tool visible in OpenUI's diagnostics
@@ -34,7 +34,10 @@ async function callTool(name: OpenUIToolName, args: Record<string, unknown>): Pr
 	return { rows: parsed.data.rows ?? [] };
 }
 
-export const openUIToolProvider: Record<string, (args: Record<string, unknown>) => Promise<unknown>> =
-	Object.fromEntries(
-		OPENUI_TOOL_NAMES.map((name) => [name, (args: Record<string, unknown>) => callTool(name, args ?? {})]),
+export function createOpenUIToolProvider(
+	projectId?: string,
+): Record<string, (args: Record<string, unknown>) => Promise<unknown>> {
+	return Object.fromEntries(
+		OPENUI_TOOL_NAMES.map((name) => [name, (args: Record<string, unknown>) => callTool(name, args ?? {}, projectId)]),
 	);
+}

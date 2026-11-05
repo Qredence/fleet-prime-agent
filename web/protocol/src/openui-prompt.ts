@@ -1,4 +1,5 @@
 import { generatePrompt } from "@openuidev/lang-core";
+import { buildLegacyOpenUIPrompt } from "./openui-legacy-prompt";
 
 import { openUIPromptSpec } from "./openui-signatures";
 import { OPENUI_TOOL_DESCRIPTORS } from "./openui-tools";
@@ -203,8 +204,8 @@ submit = Button("Apply Filters", Action([@Set($searchQuery, ""), @ToAssistant("A
 const TOOL_EXAMPLES = [
 	`A session activity table fed by a Query:
 \`\`\`openui
-data = Query("list_sessions", {limit: 20}, {rows: []})
 root = Root([summary, sessions])
+data = Query("list_sessions", {limit: 20}, {rows: []})
 summary = Card("Sessions", Stack([count, note]))
 count = Text("" + @Count(@Filter(data.rows, "status", "==", "running")) + " running")
 note = Text("From the last 20 sessions.", "muted")
@@ -212,8 +213,8 @@ sessions = DataTable("Recent sessions", [{ key: "title", label: "Session" }, { k
 \`\`\``,
 	`A tabbed dashboard whose KPIs sum the aggregate rows:
 \`\`\`openui
-stats = Query("session_stats", {}, {rows: []})
 root = Root([heading, tabs])
+stats = Query("session_stats", {}, {rows: []})
 heading = Heading("Fleet sessions", 2)
 tabs = Tabs([{"label": "Overview", "content": kpis}, {"label": "By status", "content": detail}, {"label": "Pipeline", "content": pipeline}], 0)
 kpis = MetricGroup([{ label: "Sessions", value: "" + @Sum(stats.rows.sessions) }, { label: "Messages", value: "" + @Sum(stats.rows.messages) }])
@@ -222,14 +223,18 @@ pipeline = Steps([{"label": "Query", "state": "complete"}, {"label": "Aggregate"
 \`\`\``,
 	`A KPI row that aggregates on the client instead of re-fetching:
 \`\`\`openui
-stats = Query("session_stats", {}, {rows: []})
 root = Root([kpis, detail])
+stats = Query("session_stats", {}, {rows: []})
 kpis = MetricGroup([{ label: "Running", value: "" + @Sum(@Filter(stats.rows, "status", "==", "running").sessions) }])
 detail = DataTable("By status", [{ key: "status", label: "Status" }, { key: "sessions", label: "Sessions", type: "number" }, { key: "messages", label: "Messages", type: "number" }], stats.rows)
 \`\`\``,
 ];
 
-export function buildOpenUIPrompt(mode: OpenUIPromptMode, options?: { artifact?: boolean }) {
+export function buildOpenUIPrompt(
+	mode: OpenUIPromptMode,
+	options?: { artifact?: boolean; syntaxVersion?: "0.x" | "1.x" },
+) {
+	if (options?.syntaxVersion !== "1.x") return buildLegacyOpenUIPrompt(mode, options);
 	const artifact = options?.artifact === true;
 	const toolCalls = !artifact && (mode === "agent" || mode === "plan-execution");
 	const additionalRules = artifact

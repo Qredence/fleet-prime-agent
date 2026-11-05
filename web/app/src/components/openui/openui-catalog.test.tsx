@@ -10,6 +10,23 @@ function renderProgram(response: string) {
 }
 
 describe("OpenUI catalog rendering", () => {
+	it("filters non-object query rows before rendering and sorting", async () => {
+		renderProgram(
+			'root = Root([DataTable("Mixed", [{key: "name", label: "Name"}], [null, 3, "invalid", [], {name: "Zebra"}, {name: "Alpha"}])])',
+		);
+		expect(await screen.findByText("Zebra")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+		expect(
+			screen
+				.getAllByRole("row")
+				.slice(1)
+				.map((row) => row.textContent),
+		).toEqual(["Alpha", "Zebra"]);
+	});
+	it("shows the empty state when all rows are invalid", async () => {
+		renderProgram('root = Root([DataTable("Empty", [{key: "name", label: "Name"}], [null, 3])])');
+		expect(await screen.findByText(/No data/)).toBeTruthy();
+	});
 	it("persists ordinary renderer input while excluding password input", async () => {
 		const program =
 			'$pwd = ""\n$q = ""\nroot = Root([Input("Password", $pwd, null, "password"), Input("Query", $q)])';
@@ -24,7 +41,7 @@ describe("OpenUI catalog rendering", () => {
 		fireEvent.change(await screen.findByLabelText("Password"), { target: { value: "secret" } });
 		fireEvent.change(screen.getByLabelText("Query"), { target: { value: "hello" } });
 		await waitFor(() => expect(readStoredState("session", "block", program)).toMatchObject({ $q: "hello" }));
-		expect(window.localStorage.getItem("fleet.openui.state:session:block")).not.toContain("secret");
+		expect(window.localStorage.getItem("fleet.openui.state.v2:session:block")).not.toContain("secret");
 	});
 	it("ignores null list entries during partial rendering", () => {
 		const Tabs = TabsDef.component;

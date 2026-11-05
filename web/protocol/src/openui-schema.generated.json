@@ -1495,24 +1495,6 @@
 				"type": "string"
 			}
 		},
-		"RelativeTime": {
-			"description": "Turns an ISO timestamp into a short relative age, for example 3h ago.",
-			"params": {
-				"type": "object",
-				"properties": {
-					"iso": {
-						"type": "string"
-					}
-				},
-				"required": [
-					"iso"
-				],
-				"additionalProperties": false
-			},
-			"returns": {
-				"type": "string"
-			}
-		},
 		"ShortPath": {
 			"description": "Shortens a workspace-relative path to its last N segments for narrow columns.",
 			"params": {

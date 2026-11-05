@@ -209,10 +209,6 @@ const generatedOpenUIPromptSpec = {
 			signature: "Percent(part: number, total?: number, decimals?: number) → string",
 			description: "Formats part / total as a percentage. Use it instead of computing a ratio by hand.",
 		},
-		RelativeTime: {
-			signature: "RelativeTime(iso: string) → string",
-			description: "Turns an ISO timestamp into a short relative age, for example 3h ago.",
-		},
 		ShortPath: {
 			signature: "ShortPath(path: string, segments?: number) → string",
 			description: "Shortens a workspace-relative path to its last N segments for narrow columns.",
@@ -1449,22 +1445,6 @@ const generatedOpenUIPromptSpec = {
 						},
 					},
 					required: ["part", "total", "decimals"],
-					additionalProperties: false,
-				},
-				returns: {
-					type: "string",
-				},
-			},
-			RelativeTime: {
-				description: "Turns an ISO timestamp into a short relative age, for example 3h ago.",
-				params: {
-					type: "object",
-					properties: {
-						iso: {
-							type: "string",
-						},
-					},
-					required: ["iso"],
 					additionalProperties: false,
 				},
 				returns: {

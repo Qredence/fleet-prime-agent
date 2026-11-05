@@ -207,13 +207,23 @@ const PanelActionDef = defineComponent({
 export const openPanelAction = defineAction({
 	name: "OpenPanel",
 	description: "Opens one of Fleet's right-hand panels. Trusted local action; it never fetches remote data.",
-	params: z.object({
-		panel: RightPanelIdSchema,
-		relativePath: WorkspaceRelativePathSchema.optional().describe(
-			'Workspace-relative path; valid only when panel is "workspace" or "artifacts".',
-		),
-		focus: z.boolean().optional().describe("Move keyboard focus into the panel"),
-	}),
+	params: z
+		.object({
+			panel: RightPanelIdSchema,
+			relativePath: WorkspaceRelativePathSchema.optional().describe(
+				'Workspace-relative path; valid only when panel is "workspace" or "artifacts".',
+			),
+			focus: z.boolean().optional().describe("Move keyboard focus into the panel"),
+		})
+		.superRefine((value, ctx) => {
+			if (value.relativePath !== undefined && value.panel !== "workspace" && value.panel !== "artifacts") {
+				ctx.addIssue({
+					code: "custom",
+					path: ["relativePath"],
+					message: "relativePath is only valid for workspace and artifacts panels",
+				});
+			}
+		}),
 });
 
 const TextDef = defineComponent({

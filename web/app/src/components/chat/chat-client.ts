@@ -383,7 +383,10 @@ export const chatClient: ChatClient = {
 		const response = await fetch(resolveChatApiUrl("/api/chat"), {
 			method: "POST",
 			headers: new Headers({ "Content-Type": "application/json" }),
-			body: JSON.stringify(request),
+			body: JSON.stringify({
+				...request,
+				...(!request.childId && request.openUI ? { openUISyntaxVersion: "1.x" } : {}),
+			}),
 			signal,
 		});
 

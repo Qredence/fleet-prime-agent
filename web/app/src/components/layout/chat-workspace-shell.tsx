@@ -13,6 +13,7 @@ import { RightPanelShell } from "@/components/layout/right-panel-shell";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
 import { decodeOpenPanelActionMessage } from "@/components/openui/open-panel-action-message";
+import { OpenUISessionContext } from "@/components/openui/openui-session-context";
 import { agentTabPanelId, agentTabTriggerId } from "@/components/sessions/agent-tab-bar";
 import { SessionSidebar } from "@/components/sessions/session-sidebar";
 import { notify } from "@/lib/notify";
@@ -268,7 +269,11 @@ export function ChatWorkspaceShell() {
 								id={agentTabPanelId(agentTabs.activeTabId)}
 								role="tabpanel"
 							>
-								{activeConversationPanel}
+								<OpenUISessionContext
+									value={{ sessionId: session.activeSessionId, projectId: session.activeProjectId }}
+								>
+									{activeConversationPanel}
+								</OpenUISessionContext>
 							</div>
 						</ChatWorkspaceLayout>
 					</AnimatedSidebarInset>

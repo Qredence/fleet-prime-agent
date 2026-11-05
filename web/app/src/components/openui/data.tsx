@@ -159,7 +159,9 @@ function DataTableComponent({
 	// A Query renders its default value first and may pass `null` before data
 	// arrives (and always does when the query fails), so the table has to
 	// tolerate a missing array instead of throwing mid-render.
-	const safeRows = Array.isArray(rows) ? rows : [];
+	const safeRows = Array.isArray(rows)
+		? rows.filter((row) => typeof row === "object" && row !== null && !Array.isArray(row))
+		: [];
 	const safeColumns = (Array.isArray(columns) ? columns : []).filter(
 		(column): column is DataColumn => typeof column?.key === "string",
 	);
