@@ -196,8 +196,10 @@ export function buildAssistantElements(
 			flushText();
 			const run = [part];
 			let next = i + 1;
-			while (next < parts.length && isReasoningPart(parts[next])) {
-				run.push(parts[next]);
+			while (next < parts.length) {
+				const episode = parts[next];
+				if (!isReasoningPart(episode)) break;
+				run.push(episode);
 				next++;
 			}
 			const presentation = reasoningRunPresentation(run, isLast && isStreaming);
