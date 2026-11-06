@@ -1,0 +1,21 @@
+web/app/src/components/chat/transcript/chat-message-parts.ts
+  s_384a293e2b119e::t_631dc6d73ba54f 34-48
+web/app/src/components/chat/transcript/message-turns.tsx
+  s_384a293e2b119e::t_f167b22c0eacf4 199-202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6bc53a05d7b02c1779f8e4ab86d47d1ba8485408",
+  "prompts": {},
+  "sessions": {
+    "s_384a293e2b119e": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "d605e388-e302-442f-bd36-6a8513bd7d9f",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
