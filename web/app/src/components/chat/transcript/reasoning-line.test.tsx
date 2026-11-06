@@ -9,14 +9,15 @@ describe("reasoningRunPresentation", () => {
 			reasoningRunPresentation(
 				[
 					{ type: "reasoning", contentIndex: 0, text: "Orient.", state: "complete", durationMs: 1200 },
-					{ type: "reasoning", contentIndex: 1, text: "Plan the work.", state: "streaming" },
+					{ type: "reasoning", contentIndex: 1, text: "Plan the work.", state: "complete", durationMs: 800 },
+					{ type: "reasoning", contentIndex: 2, text: "Act.", state: "streaming" },
 				],
 				true,
 			),
 		).toEqual({
-			text: "Orient.\n\nPlan the work.",
+			text: "Orient.\n\nPlan the work.\n\nAct.",
 			streaming: true,
-			durationMs: 1200,
+			durationMs: 2000,
 		});
 	});
 
