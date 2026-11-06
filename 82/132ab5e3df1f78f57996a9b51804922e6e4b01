@@ -1,0 +1,19 @@
+.changeset/chat-thought-runs.md
+  s_384a293e2b119e::t_f3efb047b52e11 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "82132ab5e3df1f78f57996a9b51804922e6e4b01",
+  "prompts": {},
+  "sessions": {
+    "s_384a293e2b119e": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "d605e388-e302-442f-bd36-6a8513bd7d9f",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
