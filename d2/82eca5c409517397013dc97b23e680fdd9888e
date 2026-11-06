@@ -1,0 +1,33 @@
+web/app/src/components/chat/chat-stream-state.ts
+  s_384a293e2b119e::t_5ae5948da15884 259
+  s_384a293e2b119e::t_b053f4ef050afc 187
+  s_384a293e2b119e::t_e1cb21ac2615a9 123-136,138-156
+web/app/src/components/chat/transcript/user-message.tsx
+  s_384a293e2b119e::t_8e4e2dddbd4567 106-118
+  s_384a293e2b119e::t_80099eed81bb2f 129
+web/app/src/components/tools/image-lightbox.tsx
+  s_384a293e2b119e::t_1c4b62d288c1cb 168
+web/app/src/components/chat/transcript/message-turns.tsx
+  s_384a293e2b119e::t_2c1a627f6005ce 78
+web/app/src/components/chat/transcript/reasoning-line.test.tsx
+  s_384a293e2b119e::t_4f7b25a99848ca 24-35
+web/app/src/components/chat/chat-stream-state.test.ts
+  s_384a293e2b119e::t_bfa5a6b39aea0b 385-407,410-411
+  s_384a293e2b119e::t_9fcf481ce65e67 408-409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d282eca5c409517397013dc97b23e680fdd9888e",
+  "prompts": {},
+  "sessions": {
+    "s_384a293e2b119e": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "d605e388-e302-442f-bd36-6a8513bd7d9f",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
