@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.2
+
+### Patch Changes
+
+- 57fa51e: Refuse runtime downloads that are not on the pinned Fleet release host, and keep launcher static files inside the packaged client directory.
+
 ## 0.11.1
 
 ### Patch Changes
