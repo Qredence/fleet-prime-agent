@@ -434,7 +434,7 @@ export const ConversationTurnView = memo(
 		return (
 			<div
 				className={cn(
-					"flex flex-col gap-[var(--density-gap)] rounded-[var(--tracking-normal)] transition-colors",
+					"flex flex-col gap-[var(--density-gap)] rounded-lg transition-colors",
 					isHighlighted ? "bg-foreground/6 ring-1 ring-foreground/15" : undefined,
 				)}
 				style={windowed ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 400px" }}
