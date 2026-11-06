@@ -149,6 +149,79 @@ describe("applyChatStreamEvent", () => {
 			"text",
 		]);
 	});
+
+	it("keeps terminal text and tool interleaving when done omits streamed reasoning", () => {
+		const id = "run-terminal-interleaving";
+		let t = foldStreamEvents(baseTransition(), [
+			start(id),
+			...completeReasoningEpisode(id, 0, "Before the first tool", 800),
+			{
+				type: "tool",
+				messageId: id,
+				part: {
+					type: "tool-Bash",
+					toolCallId: "bash-1",
+					state: "output-available",
+					input: { command: "first" },
+				},
+			},
+			...completeReasoningEpisode(id, 1, "Between the tools", 600),
+			{
+				type: "tool",
+				messageId: id,
+				part: {
+					type: "tool-Bash",
+					toolCallId: "bash-2",
+					state: "output-available",
+					input: { command: "second" },
+				},
+			},
+		]);
+
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-1",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [
+				{ type: "text", text: "Intro" },
+				{
+					type: "tool-Bash",
+					toolCallId: "bash-1",
+					state: "output-available",
+					input: { command: "first" },
+					output: "first output",
+				},
+				{ type: "text", text: "Between terminal tools" },
+				{
+					type: "tool-Bash",
+					toolCallId: "bash-2",
+					state: "output-available",
+					input: { command: "second" },
+					output: "second output",
+				},
+				{ type: "text", text: "Answer" },
+			]),
+		});
+
+		const parts = assistantMessages(t)[0]!.parts;
+		const summarizePart = (part: (typeof parts)[number]) => {
+			if (part.type === "reasoning") return `reasoning:${part.text}`;
+			if (part.type === "text") return part.text;
+			if ("toolCallId" in part) return `${part.type}:${part.toolCallId}`;
+			return part.type;
+		};
+		expect(parts.map(summarizePart)).toEqual([
+			"Intro",
+			"reasoning:Before the first tool",
+			"tool-Bash:bash-1",
+			"Between terminal tools",
+			"reasoning:Between the tools",
+			"tool-Bash:bash-2",
+			"Answer",
+		]);
+		expect(parts.filter((part) => part.type === "reasoning").every((part) => part.state === "complete")).toBe(true);
+	});
+
 	it("single turn appends exactly one assistant message and nulls assistantId on done", () => {
 		const id = "run-1-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id));

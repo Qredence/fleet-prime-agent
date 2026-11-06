@@ -132,78 +132,91 @@ function partAlreadyPresentOnTerminal(part: ChatMessagePart, terminalParts: Arra
 }
 
 /**
- * Keep the streamed transcript order when a terminal `done` message omits
- * reasoning (or payload) parts. Prepending those parts collapsed tool-separated
- * Thought runs into one contiguous block.
+ * Keep terminal `done` ordering authoritative while carrying streamed-only parts
+ * forward at the position of the next streamed part represented in the terminal.
  */
 function mergeStreamedPartsOntoTerminal(
 	streamedParts: Array<ChatMessagePart>,
 	terminalParts: Array<ChatMessagePart>,
 ): Array<ChatMessagePart> {
 	const consumed = new Set<number>();
-	const takeTerminal = (matches: (candidate: ChatMessagePart) => boolean) => {
+	const streamedToTerminal = new Map<number, number>();
+	const terminalToStreamed = new Map<number, ChatMessagePart>();
+	const takeTerminalIndex = (matches: (candidate: ChatMessagePart) => boolean) => {
 		const index = terminalParts.findIndex((candidate, candidateIndex) => {
 			return !consumed.has(candidateIndex) && matches(candidate);
 		});
 		if (index < 0) return undefined;
 		consumed.add(index);
-		return terminalParts[index];
+		return index;
 	};
 
-	const merged: Array<ChatMessagePart> = [];
-	for (const part of streamedParts) {
+	for (let index = 0; index < streamedParts.length; index++) {
+		const part = streamedParts[index]!;
+		let terminalIndex: number | undefined;
 		if (part.type === "reasoning") {
-			const terminalPart = takeTerminal(
+			terminalIndex = takeTerminalIndex(
 				(candidate) => candidate.type === "reasoning" && candidate.contentIndex === part.contentIndex,
 			);
-			merged.push(
-				terminalPart?.type === "reasoning"
-					? { ...terminalPart, state: "complete" }
-					: { ...part, state: "complete" },
-			);
-			continue;
-		}
-		if (part.type === "payload") {
-			const terminalPart = takeTerminal((candidate) => {
+		} else if (part.type === "payload") {
+			terminalIndex = takeTerminalIndex((candidate) => {
 				if (candidate.type !== "payload") return false;
 				return part.id && candidate.id
 					? part.id === candidate.id
 					: part.kind === candidate.kind && part.title === candidate.title;
 			});
-			merged.push(terminalPart ?? part);
-			continue;
-		}
-		if (part.type === "tool-FleetReasoning") {
-			const terminalPart = takeTerminal((candidate) => candidate.type === "tool-FleetReasoning");
-			merged.push(terminalPart ?? part);
-			continue;
-		}
-		if (isChatToolPart(part)) {
-			const terminalPart = takeTerminal(
+		} else if (part.type === "tool-FleetReasoning") {
+			terminalIndex = takeTerminalIndex((candidate) => candidate.type === "tool-FleetReasoning");
+		} else if (isChatToolPart(part)) {
+			terminalIndex = takeTerminalIndex(
 				(candidate) =>
 					isChatToolPart(candidate) && candidate.toolCallId === part.toolCallId && candidate.type === part.type,
 			);
-			merged.push(terminalPart ?? part);
-			continue;
+		} else if (isChatTextPart(part)) {
+			terminalIndex = takeTerminalIndex(isChatTextPart);
 		}
-		if (isChatTextPart(part)) {
-			const terminalPart = takeTerminal(isChatTextPart);
-			if (terminalPart && isChatTextPart(terminalPart) && terminalPart.text.trim().length > 0) {
-				merged.push(terminalPart);
-			} else if (part.text.trim().length > 0) {
-				merged.push(part);
-			} else if (terminalPart) {
-				merged.push(terminalPart);
-			}
-			continue;
+
+		if (terminalIndex !== undefined) {
+			streamedToTerminal.set(index, terminalIndex);
+			terminalToStreamed.set(terminalIndex, part);
 		}
-		merged.push(part);
 	}
 
-	for (let index = 0; index < terminalParts.length; index++) {
-		if (consumed.has(index)) continue;
-		merged.push(terminalParts[index]!);
+	const insertions = new Map<number, Array<ChatMessagePart>>();
+	let nextTerminalIndex: number | undefined;
+	for (let index = streamedParts.length - 1; index >= 0; index--) {
+		const terminalIndex = streamedToTerminal.get(index);
+		if (terminalIndex !== undefined) {
+			nextTerminalIndex = terminalIndex;
+			continue;
+		}
+		const part = streamedParts[index]!;
+		if (part.type === "text" && part.text.trim().length === 0) continue;
+		const anchor = nextTerminalIndex ?? terminalParts.length;
+		const parts = insertions.get(anchor) ?? [];
+		parts.push(part.type === "reasoning" ? { ...part, state: "complete" } : part);
+		insertions.set(anchor, parts);
 	}
+
+	const merged: Array<ChatMessagePart> = [];
+	for (let index = 0; index < terminalParts.length; index++) {
+		const inserted = insertions.get(index);
+		if (inserted) merged.push(...inserted.reverse());
+
+		const terminalPart = terminalParts[index]!;
+		const streamedPart = terminalToStreamed.get(index);
+		if (terminalPart.type === "reasoning" && streamedPart?.type === "reasoning") {
+			merged.push({ ...terminalPart, state: "complete" });
+		} else if (terminalPart.type === "text" && streamedPart?.type === "text") {
+			if (terminalPart.text.trim().length > 0) merged.push(terminalPart);
+			else if (streamedPart.text.trim().length > 0) merged.push(streamedPart);
+			else merged.push(terminalPart);
+		} else {
+			merged.push(terminalPart);
+		}
+	}
+	const trailing = insertions.get(terminalParts.length);
+	if (trailing) merged.push(...trailing.reverse());
 	return merged;
 }
 

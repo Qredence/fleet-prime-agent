@@ -245,7 +245,7 @@ export function buildAssistantElements(
 
 		if (isPayloadPart(part)) {
 			flushText();
-			const payloadIdentity = part.id ?? `${part.kind}:${part.title}:${part.text ?? ""}`;
+			const payloadIdentity = part.id ?? `${part.kind}:${part.title}`;
 			const payloadOccurrence = (payloadOccurrences.get(payloadIdentity) ?? 0) + 1;
 			payloadOccurrences.set(payloadIdentity, payloadOccurrence);
 			elems.push(<PayloadPart key={`${messageId}-payload-${payloadIdentity}-${payloadOccurrence}`} part={part} />);
