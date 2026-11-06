@@ -4,7 +4,8 @@ import type {
 	FleetAdapterCapabilities,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
+import type { ChatMessage, ChatMessagePart } from "@prime-agent/web-protocol/chat-types";
+import { isChatTextPart, isChatToolPart } from "@prime-agent/web-protocol/chat-types";
 import type { QueueState } from "@/components/chat/chat-fetch";
 import { labelForState } from "@/components/chat/chat-fetch";
 import {
@@ -119,6 +120,93 @@ function replaceOrAppendMessage(messages: Array<ChatMessage>, nextMessage: ChatM
 		: [...messages, nextMessage];
 }
 
+function partAlreadyPresentOnTerminal(part: ChatMessagePart, terminalParts: Array<ChatMessagePart>): boolean {
+	return terminalParts.some((next) => {
+		if (next.type !== part.type) return false;
+		if (part.type === "reasoning" && next.type === "reasoning") return next.contentIndex === part.contentIndex;
+		if (part.type === "payload" && next.type === "payload") {
+			return part.id && next.id ? part.id === next.id : part.kind === next.kind && part.title === next.title;
+		}
+		return true;
+	});
+}
+
+/**
+ * Keep the streamed transcript order when a terminal `done` message omits
+ * reasoning (or payload) parts. Prepending those parts collapsed tool-separated
+ * Thought runs into one contiguous block.
+ */
+function mergeStreamedPartsOntoTerminal(
+	streamedParts: Array<ChatMessagePart>,
+	terminalParts: Array<ChatMessagePart>,
+): Array<ChatMessagePart> {
+	const consumed = new Set<number>();
+	const takeTerminal = (matches: (candidate: ChatMessagePart) => boolean) => {
+		const index = terminalParts.findIndex((candidate, candidateIndex) => {
+			return !consumed.has(candidateIndex) && matches(candidate);
+		});
+		if (index < 0) return undefined;
+		consumed.add(index);
+		return terminalParts[index];
+	};
+
+	const merged: Array<ChatMessagePart> = [];
+	for (const part of streamedParts) {
+		if (part.type === "reasoning") {
+			const terminalPart = takeTerminal(
+				(candidate) => candidate.type === "reasoning" && candidate.contentIndex === part.contentIndex,
+			);
+			merged.push(
+				terminalPart?.type === "reasoning"
+					? { ...terminalPart, state: "complete" }
+					: { ...part, state: "complete" },
+			);
+			continue;
+		}
+		if (part.type === "payload") {
+			const terminalPart = takeTerminal((candidate) => {
+				if (candidate.type !== "payload") return false;
+				return part.id && candidate.id
+					? part.id === candidate.id
+					: part.kind === candidate.kind && part.title === candidate.title;
+			});
+			merged.push(terminalPart ?? part);
+			continue;
+		}
+		if (part.type === "tool-FleetReasoning") {
+			const terminalPart = takeTerminal((candidate) => candidate.type === "tool-FleetReasoning");
+			merged.push(terminalPart ?? part);
+			continue;
+		}
+		if (isChatToolPart(part)) {
+			const terminalPart = takeTerminal(
+				(candidate) =>
+					isChatToolPart(candidate) && candidate.toolCallId === part.toolCallId && candidate.type === part.type,
+			);
+			merged.push(terminalPart ?? part);
+			continue;
+		}
+		if (isChatTextPart(part)) {
+			const terminalPart = takeTerminal(isChatTextPart);
+			if (terminalPart && isChatTextPart(terminalPart) && terminalPart.text.trim().length > 0) {
+				merged.push(terminalPart);
+			} else if (part.text.trim().length > 0) {
+				merged.push(part);
+			} else if (terminalPart) {
+				merged.push(terminalPart);
+			}
+			continue;
+		}
+		merged.push(part);
+	}
+
+	for (let index = 0; index < terminalParts.length; index++) {
+		if (consumed.has(index)) continue;
+		merged.push(terminalParts[index]!);
+	}
+	return merged;
+}
+
 /**
  * Merge a `done` frame into the transcript. When `done` arrives with an empty
  * body, keep renderable parts already streamed into this turn's bubble
@@ -133,29 +221,17 @@ function carryForwardReasoningPresentation(
 		assistantId ? messages.find((message) => message.id === assistantId && message.role === "assistant") : undefined,
 		messages.find((message) => message.id === nextMessage.id && message.role === "assistant"),
 	].filter(Boolean) as Array<ChatMessage>;
-	const preserved = candidates.slice(0, 1).flatMap((message) =>
-		message.parts.filter(
-			(part) =>
-				(part.type === "tool-FleetReasoning" || part.type === "payload" || part.type === "reasoning") &&
-				!nextMessage.parts.some((next) => {
-					if (next.type !== part.type) return false;
-					if (part.type === "reasoning" && next.type === "reasoning")
-						return next.contentIndex === part.contentIndex;
-					if (part.type === "payload" && next.type === "payload")
-						return part.id && next.id
-							? part.id === next.id
-							: part.kind === next.kind && part.title === next.title;
-					return true;
-				}),
-		),
+	const donor = candidates[0];
+	if (!donor) return nextMessage;
+	const preserved = donor.parts.filter(
+		(part) =>
+			(part.type === "tool-FleetReasoning" || part.type === "payload" || part.type === "reasoning") &&
+			!partAlreadyPresentOnTerminal(part, nextMessage.parts),
 	);
 	if (preserved.length === 0) return nextMessage;
 	return {
 		...nextMessage,
-		parts: [
-			...preserved.map((part) => (part.type === "reasoning" ? { ...part, state: "complete" as const } : part)),
-			...nextMessage.parts,
-		],
+		parts: mergeStreamedPartsOntoTerminal(donor.parts, nextMessage.parts),
 	};
 }
 

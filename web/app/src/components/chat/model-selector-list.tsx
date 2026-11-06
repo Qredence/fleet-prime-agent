@@ -79,7 +79,7 @@ export function ModelSelectorList({
 										if (model.disabled) return;
 										onModelChange?.(model.id);
 									}}
-									className="items-start gap-2 rounded-lg px-2.5 py-2"
+									className="items-start gap-2 rounded-md px-2.5 py-2"
 								>
 									<span className="mt-0.5 shrink-0 text-muted-foreground">
 										{model.icon ?? <Gauge aria-hidden="true" className="size-4" />}

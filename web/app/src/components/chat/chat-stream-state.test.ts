@@ -117,6 +117,38 @@ describe("applyChatStreamEvent", () => {
 			{ contentIndex: 0, text: "Second thought", state: "streaming" },
 		]);
 	});
+
+	it("keeps tool calls between reasoning episodes when done omits reasoning", () => {
+		const id = "run-reasoning-tool-split";
+		let t = foldStreamEvents(baseTransition(), [
+			start(id),
+			...completeReasoningEpisode(id, 0, "Before the shell", 800),
+			{
+				type: "tool",
+				messageId: id,
+				part: {
+					type: "tool-Bash",
+					toolCallId: "bash-1",
+					state: "output-available",
+					input: { command: "python" },
+				},
+			},
+			...completeReasoningEpisode(id, 1, "After the shell", 600),
+		]);
+		expect(assistantMessages(t)[0].parts.map((part) => part.type)).toEqual([
+			"reasoning",
+			"tool-Bash",
+			"reasoning",
+			"text",
+		]);
+		t = applyChatStreamEvent(t, done(id, "Answer"));
+		expect(assistantMessages(t)[0].parts.map((part) => (part.type === "reasoning" ? part.text : part.type))).toEqual([
+			"Before the shell",
+			"tool-Bash",
+			"After the shell",
+			"text",
+		]);
+	});
 	it("single turn appends exactly one assistant message and nulls assistantId on done", () => {
 		const id = "run-1-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id));

@@ -11,23 +11,26 @@ import {
 	TraceTitle,
 } from "@/components/ui/trace";
 
-/** Blank-line paragraphs → discrete Thought rows; last stays streaming when open. */
-export function splitReasoningSegments(text: string, streaming: boolean): Array<{ text: string; streaming: boolean }> {
-	const normalized = text.replace(/^(?:\r?\n)+/, "").trimEnd();
-	if (!normalized.trim()) return [];
-	const segments = normalized
-		.split(/\r?\n(?:[ \t]*\r?\n)+/)
-		.map((segment) => segment.replace(/\s+$/u, ""))
-		.filter(Boolean);
-	if (segments.length === 0) return [];
-	return segments.map((segment, index) => ({
-		text: segment,
-		streaming: streaming && index === segments.length - 1,
-	}));
+function reasoningBody(text: string) {
+	return text.replace(/^(?:\r?\n)+/, "").trimEnd();
 }
 
-function ReasoningSegment({ text, streaming, durationMs }: { text: string; streaming: boolean; durationMs?: number }) {
-	const [userOpen, setUserOpen] = useState<boolean | undefined>();
+/**
+ * Renders a contiguous reasoning run as one shadcn Trace row.
+ * Follows Trace open-state: open while streaming (`open ?? streaming`),
+ * TraceLine alone until text arrives, then TraceCollapsible with the line in the trigger.
+ */
+export function ReasoningLine({
+	text,
+	streaming,
+	durationMs,
+}: {
+	text: string;
+	streaming: boolean;
+	durationMs?: number;
+}) {
+	const [open, setOpen] = useState<boolean | undefined>();
+	const body = reasoningBody(text);
 	const line = (
 		<TraceLine status={streaming ? "running" : undefined}>
 			<TraceIcon>
@@ -39,43 +42,17 @@ function ReasoningSegment({ text, streaming, durationMs }: { text: string; strea
 			) : null}
 		</TraceLine>
 	);
+
+	if (!body.trim()) {
+		return <Trace data-testid="reasoning-line">{line}</Trace>;
+	}
+
 	return (
 		<Trace data-testid="reasoning-line">
-			{text ? (
-				<TraceCollapsible open={userOpen ?? streaming} onOpenChange={setUserOpen}>
-					<TraceCollapsibleTrigger>{line}</TraceCollapsibleTrigger>
-					<TraceCollapsibleContent className="whitespace-pre-wrap text-foreground">{text}</TraceCollapsibleContent>
-				</TraceCollapsible>
-			) : (
-				line
-			)}
+			<TraceCollapsible open={open ?? streaming} onOpenChange={setOpen}>
+				<TraceCollapsibleTrigger>{line}</TraceCollapsibleTrigger>
+				<TraceCollapsibleContent className="whitespace-pre-wrap">{body}</TraceCollapsibleContent>
+			</TraceCollapsible>
 		</Trace>
-	);
-}
-
-export function ReasoningLine({
-	text,
-	streaming,
-	durationMs,
-}: {
-	text: string;
-	streaming: boolean;
-	durationMs?: number;
-}) {
-	const segments = splitReasoningSegments(text, streaming);
-	if (segments.length === 0) {
-		return <ReasoningSegment text="" streaming={streaming} durationMs={durationMs} />;
-	}
-	return (
-		<div className="flex w-full min-w-0 flex-col gap-2">
-			{segments.map((segment, index) => (
-				<ReasoningSegment
-					key={`reasoning-segment-${index}`}
-					text={segment.text}
-					streaming={segment.streaming}
-					durationMs={!segment.streaming && index === segments.length - 1 ? durationMs : undefined}
-				/>
-			))}
-		</div>
 	);
 }

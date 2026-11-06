@@ -1,5 +1,5 @@
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationTurnView } from "@/components/chat/agent-chat";
 import { buildAssistantElements } from "@/components/chat/transcript/message-turns";
@@ -109,6 +109,27 @@ describe("conversation turn rendering", () => {
 		).toEqual(["text", "tool", "text"]);
 		expect(container.textContent).toContain("Before");
 		expect(container.textContent).toContain("After");
+	});
+
+	it("starts a new Thought run after a tool call between reasoning episodes", () => {
+		const parts = [
+			{ type: "reasoning", contentIndex: 0, text: "Before the shell", state: "complete", durationMs: 800 },
+			{ type: "tool-Bash", toolCallId: "bash-1", state: "output-available" },
+			{ type: "reasoning", contentIndex: 1, text: "After the shell", state: "complete", durationMs: 600 },
+		];
+		const elements = buildAssistantElements(parts, {
+			messageId: "split-thoughts",
+			isLast: false,
+			isStreaming: false,
+			ToolRendererComponent: ({ part }) => <div data-order="tool">{part.type}</div>,
+			TextRendererComponent: ({ content }) => <div data-order="text">{content}</div>,
+		});
+		const { container } = render(<>{elements}</>);
+		const thoughts = screen.getAllByRole("button", { name: /Thought/ });
+		expect(thoughts).toHaveLength(2);
+		expect(container.querySelectorAll("[data-testid='assistant-tool-trace']")).toHaveLength(1);
+		expect(thoughts[0]?.textContent).toContain("1s");
+		expect(thoughts[1]?.textContent).toContain("1s");
 	});
 
 	it("hides questionnaire tool parts from transcript presentation", () => {

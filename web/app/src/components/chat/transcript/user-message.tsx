@@ -3,7 +3,7 @@ import { memo, useState } from "react";
 import { FileAttachment } from "@/components/chat/composer/input/file-attachment";
 import { isTextPart } from "@/components/chat/transcript/chat-message-parts";
 import { ImageLightbox } from "@/components/tools/image-lightbox";
-import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { Bubble, BubbleContent, BubbleGroup } from "@/components/ui/bubble";
 import { cn } from "@/lib/utils";
 
 export type UserMessageProps = {
@@ -71,15 +71,7 @@ function getFileFromPart(part: unknown) {
 	};
 }
 
-export const UserMessage = memo(function UserMessage({
-	message,
-	className,
-	enableImagePreview = true,
-}: UserMessageProps) {
-	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-	const textParts = message.parts?.filter(isTextPart) ?? [];
-	const text = textParts.map((p) => p.text).join("");
-
+function collectUserMessageMedia(message: ChatMessage) {
 	const images: Array<string> = [];
 	const files: Array<{ filename: string; size?: number }> = [];
 	for (const part of message.parts ?? []) {
@@ -98,75 +90,105 @@ export const UserMessage = memo(function UserMessage({
 			}
 		}
 	}
+	return { images, files };
+}
 
-	if (!text && images.length === 0 && files.length === 0) return null;
-
-	const lightboxImages = images.map((url, i) => ({
-		id: `${message.id}-img-${i}`,
+function UserMessageImages({
+	messageId,
+	images,
+	enableImagePreview,
+}: {
+	messageId: string;
+	images: Array<string>;
+	enableImagePreview: boolean;
+}) {
+	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+	if (images.length === 0) return null;
+	const lightboxImages = images.map((url, imageIndex) => ({
+		id: `${messageId}-img-${imageIndex}`,
 		url,
-		filename: `image-${i + 1}`,
+		filename: `image-${imageIndex + 1}`,
 	}));
-
 	return (
-		<div className={cn("flex flex-col items-end gap-1", className)}>
-			{images.length > 0 &&
-				images.map((url, i) => (
-					<div
-						key={url}
-						className={cn(
-							"max-w-[200px] rounded-chat-message bg-foreground/4 p-1.5",
-							enableImagePreview && "cursor-pointer",
-						)}
-						onClick={enableImagePreview ? () => setLightboxIndex(i) : undefined}
-						role={enableImagePreview ? "button" : undefined}
-						tabIndex={enableImagePreview ? 0 : undefined}
-						onKeyDown={
-							enableImagePreview
-								? (event) => {
-										if (event.key === "Enter" || event.key === " ") {
-											event.preventDefault();
-											setLightboxIndex(i);
-										}
+		<>
+			{images.map((url, imageIndex) => (
+				<div
+					key={url}
+					className={cn(
+						"max-w-[200px] rounded-chat-message bg-foreground/4 p-1.5",
+						enableImagePreview && "cursor-pointer",
+					)}
+					onClick={enableImagePreview ? () => setLightboxIndex(imageIndex) : undefined}
+					role={enableImagePreview ? "button" : undefined}
+					tabIndex={enableImagePreview ? 0 : undefined}
+					onKeyDown={
+						enableImagePreview
+							? (event) => {
+									if (event.key === "Enter" || event.key === " ") {
+										event.preventDefault();
+										setLightboxIndex(imageIndex);
 									}
-								: undefined
-						}
-					>
-						<img
-							src={url}
-							alt="attachment"
-							width={184}
-							height={120}
-							className="block max-h-[120px] max-w-[184px] rounded-chat-message-inner object-cover"
-						/>
-					</div>
-				))}
-			{enableImagePreview && lightboxImages.length > 0 && (
+								}
+							: undefined
+					}
+				>
+					<img
+						src={url}
+						alt="attachment"
+						width={184}
+						height={120}
+						className="block max-h-[120px] max-w-[184px] rounded-chat-message-inner object-cover"
+					/>
+				</div>
+			))}
+			{enableImagePreview ? (
 				<ImageLightbox
 					open={lightboxIndex !== null}
 					onClose={() => setLightboxIndex(null)}
 					images={lightboxImages}
 					initialIndex={lightboxIndex ?? 0}
 				/>
-			)}
-			{files.length > 0 && (
-				<div className="flex flex-col items-end gap-2">
-					{files.map((file, i) => (
-						<FileAttachment
-							key={`${file.filename}-${file.size}`}
-							id={`${file.filename}-${i}`}
-							filename={file.filename}
-							size={file.size}
-						/>
-					))}
-				</div>
-			)}
-			{text && (
+			) : null}
+		</>
+	);
+}
+
+function UserMessageFiles({ files }: { files: Array<{ filename: string; size?: number }> }) {
+	if (files.length === 0) return null;
+	return (
+		<div className="flex flex-col items-end gap-2">
+			{files.map((file, fileIndex) => (
+				<FileAttachment
+					key={`${file.filename}-${file.size ?? "unknown"}-${fileIndex}`}
+					id={`${file.filename}-${fileIndex}`}
+					filename={file.filename}
+					size={file.size}
+				/>
+			))}
+		</div>
+	);
+}
+
+export const UserMessage = memo(function UserMessage({
+	message,
+	className,
+	enableImagePreview = true,
+}: UserMessageProps) {
+	const text = (message.parts?.filter(isTextPart) ?? []).map((part) => part.text).join("");
+	const { images, files } = collectUserMessageMedia(message);
+	if (!text && images.length === 0 && files.length === 0) return null;
+
+	return (
+		<BubbleGroup className={cn("w-full items-end gap-1", className)}>
+			<UserMessageImages messageId={message.id} images={images} enableImagePreview={enableImagePreview} />
+			<UserMessageFiles files={files} />
+			{text ? (
 				<Bubble align="end" variant="muted" className="max-w-[85%]">
 					<BubbleContent className="rounded-chat-message px-3.5 py-1.5 whitespace-pre-wrap text-pretty">
 						{text}
 					</BubbleContent>
 				</Bubble>
-			)}
-		</div>
+			) : null}
+		</BubbleGroup>
 	);
 });

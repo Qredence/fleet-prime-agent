@@ -39,6 +39,7 @@ import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
 import type { QueueLane } from "@/components/tools/message-queue";
 import { normalizeAssistantToolParts } from "@/components/tools/utils/tool-part-normalizer";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useUiPreferences } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
@@ -433,7 +434,7 @@ export const ConversationTurnView = memo(
 		return (
 			<div
 				className={cn(
-					"flex flex-col gap-[var(--density-gap)] rounded-lg transition-colors",
+					"flex flex-col gap-[var(--density-gap)] rounded-[var(--tracking-normal)] transition-colors",
 					isHighlighted ? "bg-foreground/6 ring-1 ring-foreground/15" : undefined,
 				)}
 				style={windowed ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 400px" }}
@@ -559,47 +560,7 @@ function getConversationTurnKey(turn: ConversationTurn, turnIndex: number) {
 	return turn.user?.id ?? turn.assistants[0]?.id ?? `assistant-turn-${turnIndex}`;
 }
 
-/**
- * Renders the Fleet Prime Agent chat interface with conversation turns, activity, suggestions, errors, and message input.
- *
- * @param messages - Conversation messages to display.
- * @param status - Current chat request status.
- * @param suggestions - Optional prompts shown after a completed conversation.
- * @param artifactRuns - Artifact runs associated with the current conversation turn.
- * @returns The Fleet Prime Agent chat interface.
- */
-export function AgentChat({
-	toolRenderers,
-	suggestions,
-	status,
-	onStop,
-	onSend,
-	inputBar,
-	className,
-	messages,
-	error,
-	onOpenUIAction,
-	activityLabel,
-	presentation,
-	artifactRuns,
-	onOpenArtifact,
-	onOpenUIArtifactReady,
-	queue,
-	onDeleteQueuedMessage,
-	onEditQueuedMessage,
-	highlightedMessageId,
-}: AgentChatViewProps) {
-	const draftSetterRef = useRef<((value: string) => void) | null>(null);
-	const viewportRef = useRef<HTMLElement | null>(null);
-	const seenTurnKeysRef = useRef(new Set<string>());
-	const { transcript } = useUiPreferences();
-	const setDraft = useCallback((value: string) => draftSetterRef.current?.(value), []);
-	const turns = useMemo(() => groupMessages(messages), [messages]);
-	const suggestionItems = resolveSuggestions(suggestions);
-	const suggestionTexts = useMemo(
-		() => suggestionItems.flatMap((item) => (item.disabled ? [] : [item.value ?? item.label])),
-		[suggestionItems],
-	);
+function useChatSuggestionSelection(suggestionTexts: Array<string>) {
 	const suggestionCycle = suggestionTexts.join("\u0000");
 	const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
 	const [prevSuggestionCycle, setPrevSuggestionCycle] = useState(suggestionCycle);
@@ -607,7 +568,44 @@ export function AgentChat({
 		setPrevSuggestionCycle(suggestionCycle);
 		setSelectedSuggestion(null);
 	}
-	const isStreaming = status === "streaming" || status === "submitted";
+	return { selectedSuggestion, setSelectedSuggestion };
+}
+
+function ChatErrorAlert({ error }: { error: Error }) {
+	const errorPresentation = getChatErrorPresentation(error);
+	return (
+		<Alert variant="destructive">
+			<AlertCircle />
+			<AlertTitle>{errorPresentation.title}</AlertTitle>
+			<AlertDescription>{errorPresentation.message}</AlertDescription>
+		</Alert>
+	);
+}
+
+function useConversationTurnRenderer({
+	turns,
+	isStreaming,
+	toolRenderers,
+	onOpenUIAction,
+	onOpenUIArtifactReady,
+	onOpenArtifact,
+	activityLabel,
+	presentation,
+	artifactRuns,
+	highlightedMessageId,
+}: {
+	turns: Array<ConversationTurn>;
+	isStreaming: boolean;
+	toolRenderers: AgentChatViewProps["toolRenderers"];
+	onOpenUIAction: AgentChatViewProps["onOpenUIAction"];
+	onOpenUIArtifactReady: AgentChatViewProps["onOpenUIArtifactReady"];
+	onOpenArtifact: AgentChatViewProps["onOpenArtifact"];
+	activityLabel: AgentChatViewProps["activityLabel"];
+	presentation: AgentChatViewProps["presentation"];
+	artifactRuns: AgentChatViewProps["artifactRuns"];
+	highlightedMessageId: AgentChatViewProps["highlightedMessageId"];
+}) {
+	const seenTurnKeysRef = useRef(new Set<string>());
 	const rendering = useMemo<ConversationTurnViewProps["rendering"]>(
 		() => ({ toolRenderers, onOpenUIAction, onOpenUIArtifactReady, onOpenArtifact }),
 		[onOpenArtifact, onOpenUIAction, onOpenUIArtifactReady, toolRenderers],
@@ -659,8 +657,66 @@ export function AgentChat({
 			windowed,
 		],
 	);
+	return renderTurn;
+}
+
+/**
+ * Renders the Fleet Prime Agent chat interface with conversation turns, activity, suggestions, errors, and message input.
+ *
+ * @param messages - Conversation messages to display.
+ * @param status - Current chat request status.
+ * @param suggestions - Optional prompts shown after a completed conversation.
+ * @param artifactRuns - Artifact runs associated with the current conversation turn.
+ * @returns The Fleet Prime Agent chat interface.
+ */
+export function AgentChat({
+	toolRenderers,
+	suggestions,
+	status,
+	onStop,
+	onSend,
+	inputBar,
+	className,
+	messages,
+	error,
+	onOpenUIAction,
+	activityLabel,
+	presentation,
+	artifactRuns,
+	onOpenArtifact,
+	onOpenUIArtifactReady,
+	queue,
+	onDeleteQueuedMessage,
+	onEditQueuedMessage,
+	highlightedMessageId,
+}: AgentChatViewProps) {
+	const draftSetterRef = useRef<((value: string) => void) | null>(null);
+	const viewportRef = useRef<HTMLElement | null>(null);
+	const { transcript } = useUiPreferences();
+	const setDraft = useCallback((value: string) => draftSetterRef.current?.(value), []);
+	const turns = useMemo(() => groupMessages(messages), [messages]);
+	const suggestionItems = resolveSuggestions(suggestions);
+	const suggestionTexts = useMemo(
+		() => suggestionItems.flatMap((item) => (item.disabled ? [] : [item.value ?? item.label])),
+		[suggestionItems],
+	);
+	const { selectedSuggestion, setSelectedSuggestion } = useChatSuggestionSelection(suggestionTexts);
+	const isStreaming = status === "streaming" || status === "submitted";
+	const renderTurn = useConversationTurnRenderer({
+		turns,
+		isStreaming,
+		toolRenderers,
+		onOpenUIAction,
+		onOpenUIArtifactReady,
+		onOpenArtifact,
+		activityLabel,
+		presentation,
+		artifactRuns,
+		highlightedMessageId,
+	});
 	const isEmpty = turns.length === 0 && !error;
-	const errorPresentation = error ? getChatErrorPresentation(error) : null;
+	const showSuggestions = turns.length > 0 && suggestionTexts.length > 0 && !isStreaming && !error;
+	const showQueue = Boolean(queue && (queue.steering.length > 0 || queue.followUp.length > 0));
 	const composerNode = (
 		<MemoChatComposerHost
 			inputBar={inputBar}
@@ -698,19 +754,8 @@ export function AgentChat({
 					renderItem={renderTurn}
 					viewportRef={viewportRef}
 				/>
-				{errorPresentation ? (
-					<div
-						role="alert"
-						className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
-					>
-						<AlertCircle className="mt-0.5 size-4 shrink-0" />
-						<div>
-							<p className="font-medium">{errorPresentation.title}</p>
-							<p className="mt-1 text-xs opacity-90">{errorPresentation.message}</p>
-						</div>
-					</div>
-				) : null}
-				{turns.length > 0 && suggestionTexts.length > 0 && !isStreaming && !error ? (
+				{error ? <ChatErrorAlert error={error} /> : null}
+				{showSuggestions ? (
 					<PromptSuggestions
 						suggestions={suggestionTexts}
 						selectedSuggestion={selectedSuggestion}
@@ -724,7 +769,7 @@ export function AgentChat({
 				) : null}
 			</MessageScroller>
 			{composerNode}
-			{queue && (queue.steering.length > 0 || queue.followUp.length > 0) ? (
+			{showQueue && queue ? (
 				<MessageQueue queue={queue} onDelete={onDeleteQueuedMessage} onEdit={onEditQueuedMessage} />
 			) : null}
 		</div>
