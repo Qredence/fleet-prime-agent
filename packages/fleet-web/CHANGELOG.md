@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.3
+
+### Patch Changes
+
+- 25a84fe: Thought stays split when a tool runs between reasoning steps. Consecutive reasoning in the same stretch still opens as one Thought.
+
 ## 0.11.2
 
 ### Patch Changes
