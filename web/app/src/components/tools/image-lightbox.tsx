@@ -165,7 +165,7 @@ export function ImageLightbox({ open, onClose, images, initialIndex = 0 }: Image
 					<div className="flex gap-2">
 						{images.map((image, idx) => (
 							<button
-								key={image.url}
+								key={image.id}
 								type="button"
 								onClick={(event) => {
 									event.stopPropagation();

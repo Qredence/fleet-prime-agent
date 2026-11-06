@@ -1,24 +1,43 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ReasoningLine, splitReasoningSegments } from "@/components/chat/transcript/reasoning-line";
+import { reasoningRunPresentation } from "@/components/chat/transcript/message-turns";
+import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 
-describe("splitReasoningSegments", () => {
-	it("keeps a single paragraph as one streaming segment", () => {
-		expect(splitReasoningSegments("First step", true)).toEqual([{ text: "First step", streaming: true }]);
+describe("reasoningRunPresentation", () => {
+	it("joins adjacent episodes with a blank line and sums their durations", () => {
+		expect(
+			reasoningRunPresentation(
+				[
+					{ type: "reasoning", contentIndex: 0, text: "Orient.", state: "complete", durationMs: 1200 },
+					{ type: "reasoning", contentIndex: 1, text: "Plan the work.", state: "complete", durationMs: 800 },
+					{ type: "reasoning", contentIndex: 2, text: "Act.", state: "streaming" },
+				],
+				true,
+			),
+		).toEqual({
+			text: "Orient.\n\nPlan the work.\n\nAct.",
+			streaming: true,
+			durationMs: 2000,
+		});
 	});
 
-	it("promotes completed paragraphs to Thought while the last stays Thinking", () => {
-		expect(splitReasoningSegments("First paragraph.\n\nSecond paragraph.", true)).toEqual([
-			{ text: "First paragraph.", streaming: false },
-			{ text: "Second paragraph.", streaming: true },
-		]);
+	it("stays streaming when an earlier episode is still open", () => {
+		expect(
+			reasoningRunPresentation(
+				[
+					{ type: "reasoning", contentIndex: 0, text: "Still open.", state: "streaming" },
+					{ type: "reasoning", contentIndex: 1, text: "Already closed.", state: "complete", durationMs: 400 },
+				],
+				true,
+			).streaming,
+		).toBe(true);
 	});
 
-	it("splits on whitespace-only blank lines and CRLF while keeping leading indentation", () => {
-		expect(splitReasoningSegments("First\r\n  \r\n\tindented\n", true)).toEqual([
-			{ text: "First", streaming: false },
-			{ text: "\tindented", streaming: true },
-		]);
+	it("omits the duration when no episode recorded one", () => {
+		expect(
+			reasoningRunPresentation([{ type: "reasoning", contentIndex: 0, text: "Orient.", state: "complete" }], false)
+				.durationMs,
+		).toBeUndefined();
 	});
 });
 
@@ -29,6 +48,7 @@ describe("ReasoningLine", () => {
 		expect(trigger.getAttribute("aria-expanded")).toBe("true");
 		rerender(<ReasoningLine text="First step" streaming={false} durationMs={2200} />);
 		expect(screen.getByRole("button", { name: /Thought/ }).getAttribute("aria-expanded")).toBe("false");
+		expect(screen.getByRole("button", { name: /Thought/ }).textContent).toContain("2s");
 		fireEvent.click(screen.getByRole("button", { name: /Thought/ }));
 		rerender(<ReasoningLine text="Next step" streaming />);
 		expect(screen.getByRole("button", { name: /Thinking/ }).getAttribute("aria-expanded")).toBe("true");
@@ -37,14 +57,13 @@ describe("ReasoningLine", () => {
 		expect(screen.getByRole("button", { name: /Thinking/ }).getAttribute("aria-expanded")).toBe("false");
 	});
 
-	it("renders discrete Thought rows as blank-line paragraphs complete", () => {
-		render(<ReasoningLine text={"Orient.\n\nPlan the work."} streaming />);
-		const thought = screen.getByRole("button", { name: /Thought/ });
-		const thinking = screen.getByRole("button", { name: /Thinking/ });
-		expect(thought.getAttribute("aria-expanded")).toBe("false");
-		expect(thinking.getAttribute("aria-expanded")).toBe("true");
-		fireEvent.click(thought);
-		expect(screen.getByText("Orient.")).toBeTruthy();
-		expect(screen.getByText("Plan the work.")).toBeTruthy();
+	it("keeps a multi-paragraph chain in one collapsible", () => {
+		render(<ReasoningLine text={"Orient.\n\nPlan the work."} streaming durationMs={1600} />);
+		const triggers = screen.getAllByRole("button", { name: /Thinking|Thought/ });
+		expect(triggers).toHaveLength(1);
+		expect(triggers[0]?.getAttribute("aria-expanded")).toBe("true");
+		expect(triggers[0]?.textContent).toContain("2s");
+		expect(screen.getByText(/Orient\./)).toBeTruthy();
+		expect(screen.getByText(/Plan the work\./)).toBeTruthy();
 	});
 });

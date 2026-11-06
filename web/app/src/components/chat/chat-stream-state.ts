@@ -4,7 +4,8 @@ import type {
 	FleetAdapterCapabilities,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
+import type { ChatMessage, ChatMessagePart } from "@prime-agent/web-protocol/chat-types";
+import { isChatTextPart, isChatToolPart } from "@prime-agent/web-protocol/chat-types";
 import type { QueueState } from "@/components/chat/chat-fetch";
 import { labelForState } from "@/components/chat/chat-fetch";
 import {
@@ -119,6 +120,126 @@ function replaceOrAppendMessage(messages: Array<ChatMessage>, nextMessage: ChatM
 		: [...messages, nextMessage];
 }
 
+function payloadPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {
+	if (left.type !== "payload" || right.type !== "payload") return false;
+	return left.id && right.id ? left.id === right.id : left.kind === right.kind && left.title === right.title;
+}
+
+/** True when a carried reasoning, payload, or Fleet reasoning part has no unused terminal match. */
+function hasUnmatchedCarriedPart(donorParts: Array<ChatMessagePart>, terminalParts: Array<ChatMessagePart>) {
+	const consumed = new Set<number>();
+	const take = (matches: (candidate: ChatMessagePart) => boolean) => {
+		const index = terminalParts.findIndex((candidate, candidateIndex) => {
+			return !consumed.has(candidateIndex) && matches(candidate);
+		});
+		if (index < 0) return false;
+		consumed.add(index);
+		return true;
+	};
+
+	for (const part of donorParts) {
+		if (part.type === "reasoning") {
+			const matched = take(
+				(candidate) => candidate.type === "reasoning" && candidate.contentIndex === part.contentIndex,
+			);
+			if (!matched) return true;
+			continue;
+		}
+		if (part.type === "payload") {
+			if (!take((candidate) => payloadPartsMatch(part, candidate))) return true;
+			continue;
+		}
+		if (part.type === "tool-FleetReasoning") {
+			if (!take((candidate) => candidate.type === "tool-FleetReasoning")) return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Keep terminal `done` ordering authoritative while carrying streamed-only parts
+ * forward at the position of the next streamed part represented in the terminal.
+ */
+function mergeStreamedPartsOntoTerminal(
+	streamedParts: Array<ChatMessagePart>,
+	terminalParts: Array<ChatMessagePart>,
+): Array<ChatMessagePart> {
+	const consumed = new Set<number>();
+	const streamedToTerminal = new Map<number, number>();
+	const terminalToStreamed = new Map<number, ChatMessagePart>();
+	const takeTerminalIndex = (matches: (candidate: ChatMessagePart) => boolean) => {
+		const index = terminalParts.findIndex((candidate, candidateIndex) => {
+			return !consumed.has(candidateIndex) && matches(candidate);
+		});
+		if (index < 0) return undefined;
+		consumed.add(index);
+		return index;
+	};
+
+	for (let index = 0; index < streamedParts.length; index++) {
+		const part = streamedParts[index]!;
+		let terminalIndex: number | undefined;
+		if (part.type === "reasoning") {
+			terminalIndex = takeTerminalIndex(
+				(candidate) => candidate.type === "reasoning" && candidate.contentIndex === part.contentIndex,
+			);
+		} else if (part.type === "payload") {
+			terminalIndex = takeTerminalIndex((candidate) => payloadPartsMatch(part, candidate));
+		} else if (part.type === "tool-FleetReasoning") {
+			terminalIndex = takeTerminalIndex((candidate) => candidate.type === "tool-FleetReasoning");
+		} else if (isChatToolPart(part)) {
+			terminalIndex = takeTerminalIndex(
+				(candidate) =>
+					isChatToolPart(candidate) && candidate.toolCallId === part.toolCallId && candidate.type === part.type,
+			);
+		} else if (isChatTextPart(part)) {
+			terminalIndex = takeTerminalIndex(isChatTextPart);
+		}
+
+		if (terminalIndex !== undefined) {
+			streamedToTerminal.set(index, terminalIndex);
+			terminalToStreamed.set(terminalIndex, part);
+		}
+	}
+
+	const insertions = new Map<number, Array<ChatMessagePart>>();
+	let nextTerminalIndex: number | undefined;
+	for (let index = streamedParts.length - 1; index >= 0; index--) {
+		const terminalIndex = streamedToTerminal.get(index);
+		if (terminalIndex !== undefined) {
+			nextTerminalIndex = terminalIndex;
+			continue;
+		}
+		const part = streamedParts[index]!;
+		if (part.type === "text" && part.text.trim().length === 0) continue;
+		const anchor = nextTerminalIndex ?? terminalParts.length;
+		const parts = insertions.get(anchor) ?? [];
+		parts.push(part.type === "reasoning" ? { ...part, state: "complete" } : part);
+		insertions.set(anchor, parts);
+	}
+
+	const merged: Array<ChatMessagePart> = [];
+	for (let index = 0; index < terminalParts.length; index++) {
+		const inserted = insertions.get(index);
+		if (inserted) merged.push(...inserted.reverse());
+
+		const terminalPart = terminalParts[index]!;
+		const streamedPart = terminalToStreamed.get(index);
+		if (terminalPart.type === "reasoning" && streamedPart?.type === "reasoning") {
+			merged.push({ ...terminalPart, state: "complete" });
+		} else if (terminalPart.type === "text" && streamedPart?.type === "text") {
+			if (terminalPart.text.trim().length > 0) merged.push(terminalPart);
+			else if (streamedPart.text.trim().length > 0) merged.push(streamedPart);
+			else merged.push(terminalPart);
+		} else {
+			merged.push(terminalPart);
+		}
+	}
+	const trailing = insertions.get(terminalParts.length);
+	if (trailing) merged.push(...trailing.reverse());
+	return merged;
+}
+
 /**
  * Merge a `done` frame into the transcript. When `done` arrives with an empty
  * body, keep renderable parts already streamed into this turn's bubble
@@ -133,29 +254,12 @@ function carryForwardReasoningPresentation(
 		assistantId ? messages.find((message) => message.id === assistantId && message.role === "assistant") : undefined,
 		messages.find((message) => message.id === nextMessage.id && message.role === "assistant"),
 	].filter(Boolean) as Array<ChatMessage>;
-	const preserved = candidates.slice(0, 1).flatMap((message) =>
-		message.parts.filter(
-			(part) =>
-				(part.type === "tool-FleetReasoning" || part.type === "payload" || part.type === "reasoning") &&
-				!nextMessage.parts.some((next) => {
-					if (next.type !== part.type) return false;
-					if (part.type === "reasoning" && next.type === "reasoning")
-						return next.contentIndex === part.contentIndex;
-					if (part.type === "payload" && next.type === "payload")
-						return part.id && next.id
-							? part.id === next.id
-							: part.kind === next.kind && part.title === next.title;
-					return true;
-				}),
-		),
-	);
-	if (preserved.length === 0) return nextMessage;
+	const donor = candidates[0];
+	if (!donor) return nextMessage;
+	if (!hasUnmatchedCarriedPart(donor.parts, nextMessage.parts)) return nextMessage;
 	return {
 		...nextMessage,
-		parts: [
-			...preserved.map((part) => (part.type === "reasoning" ? { ...part, state: "complete" as const } : part)),
-			...nextMessage.parts,
-		],
+		parts: mergeStreamedPartsOntoTerminal(donor.parts, nextMessage.parts),
 	};
 }
 

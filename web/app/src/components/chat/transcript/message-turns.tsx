@@ -1,4 +1,5 @@
 import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatReasoningPart } from "@prime-agent/web-protocol/chat-types";
 import type React from "react";
 import { memo } from "react";
 import type { ToolPartBase, ToolRendererProps } from "@/components/chat/transcript/chat-message-parts";
@@ -53,6 +54,31 @@ type TextRendererComponentProps = {
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
 	onOpenArtifact?: (artifactId: string) => void;
 };
+
+function isReasoningPart(part: unknown): part is ChatReasoningPart {
+	return (
+		typeof part === "object" &&
+		part !== null &&
+		"type" in part &&
+		part.type === "reasoning" &&
+		"text" in part &&
+		typeof part.text === "string" &&
+		"contentIndex" in part &&
+		typeof part.contentIndex === "number" &&
+		"state" in part &&
+		(part.state === "streaming" || part.state === "complete")
+	);
+}
+
+/** Contiguous reasoning episodes become one collapsible. A blank line keeps each episode distinct. */
+export function reasoningRunPresentation(parts: Array<ChatReasoningPart>, streaming: boolean) {
+	const durations = parts.flatMap((part) => (typeof part.durationMs === "number" ? [part.durationMs] : []));
+	return {
+		text: parts.map((part) => part.text).join("\n\n"),
+		streaming: streaming && parts.some((part) => part.state === "streaming"),
+		durationMs: durations.length > 0 ? durations.reduce((total, duration) => total + duration, 0) : undefined,
+	};
+}
 
 const TOOL_CALL_KEY_PREFIX = "tool-call:";
 const UNKEYED_TOOL_KEY_PREFIX = "unkeyed-tool:";
@@ -126,6 +152,8 @@ export function buildAssistantElements(
 	const nestedToolsMap = new Map<string, Array<ToolPartBase>>();
 	const nestedToolIds = new Set<string>();
 	const unkeyedToolOccurrences = new Map<string, number>();
+	const reasoningRunOccurrences = new Map<string, number>();
+	const payloadOccurrences = new Map<string, number>();
 	const flushText = () => {
 		const text = textChunks.splice(0).join("\n\n");
 		if (!text) return;
@@ -163,28 +191,29 @@ export function buildAssistantElements(
 	let i = 0;
 	while (i < parts.length) {
 		const part = parts[i]!;
-		if (
-			typeof part === "object" &&
-			part !== null &&
-			"type" in part &&
-			part.type === "reasoning" &&
-			"text" in part &&
-			typeof part.text === "string" &&
-			"contentIndex" in part &&
-			typeof part.contentIndex === "number" &&
-			"state" in part &&
-			typeof part.state === "string"
-		) {
+		if (isReasoningPart(part)) {
 			flushText();
+			const run = [part];
+			let next = i + 1;
+			while (next < parts.length) {
+				const episode = parts[next];
+				if (!isReasoningPart(episode)) break;
+				run.push(episode);
+				next++;
+			}
+			const presentation = reasoningRunPresentation(run, isLast && isStreaming);
+			const runIdentity = String(part.contentIndex);
+			const reasoningOccurrence = (reasoningRunOccurrences.get(runIdentity) ?? 0) + 1;
+			reasoningRunOccurrences.set(runIdentity, reasoningOccurrence);
 			elems.push(
 				<ReasoningLine
-					key={`${messageId}-reasoning-${part.contentIndex}-${i}`}
-					text={part.text}
-					streaming={isLast && isStreaming && part.state === "streaming"}
-					durationMs={"durationMs" in part && typeof part.durationMs === "number" ? part.durationMs : undefined}
+					key={`${messageId}-reasoning-${runIdentity}-${reasoningOccurrence}`}
+					text={presentation.text}
+					streaming={presentation.streaming}
+					durationMs={presentation.durationMs}
 				/>,
 			);
-			i++;
+			i = next;
 			continue;
 		}
 
@@ -215,7 +244,10 @@ export function buildAssistantElements(
 
 		if (isPayloadPart(part)) {
 			flushText();
-			elems.push(<PayloadPart key={`${messageId}-payload-${i}`} part={part} />);
+			const payloadIdentity = part.id ?? `${part.kind}:${part.title}`;
+			const payloadOccurrence = (payloadOccurrences.get(payloadIdentity) ?? 0) + 1;
+			payloadOccurrences.set(payloadIdentity, payloadOccurrence);
+			elems.push(<PayloadPart key={`${messageId}-payload-${payloadIdentity}-${payloadOccurrence}`} part={part} />);
 			i++;
 			continue;
 		}

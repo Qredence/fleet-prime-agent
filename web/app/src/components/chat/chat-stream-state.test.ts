@@ -117,6 +117,111 @@ describe("applyChatStreamEvent", () => {
 			{ contentIndex: 0, text: "Second thought", state: "streaming" },
 		]);
 	});
+
+	it("keeps tool calls between reasoning episodes when done omits reasoning", () => {
+		const id = "run-reasoning-tool-split";
+		let t = foldStreamEvents(baseTransition(), [
+			start(id),
+			...completeReasoningEpisode(id, 0, "Before the shell", 800),
+			{
+				type: "tool",
+				messageId: id,
+				part: {
+					type: "tool-Bash",
+					toolCallId: "bash-1",
+					state: "output-available",
+					input: { command: "python" },
+				},
+			},
+			...completeReasoningEpisode(id, 1, "After the shell", 600),
+		]);
+		expect(assistantMessages(t)[0].parts.map((part) => part.type)).toEqual([
+			"reasoning",
+			"tool-Bash",
+			"reasoning",
+			"text",
+		]);
+		t = applyChatStreamEvent(t, done(id, "Answer"));
+		expect(assistantMessages(t)[0].parts.map((part) => (part.type === "reasoning" ? part.text : part.type))).toEqual([
+			"Before the shell",
+			"tool-Bash",
+			"After the shell",
+			"text",
+		]);
+	});
+
+	it("keeps terminal text and tool interleaving when done omits streamed reasoning", () => {
+		const id = "run-terminal-interleaving";
+		let t = foldStreamEvents(baseTransition(), [
+			start(id),
+			...completeReasoningEpisode(id, 0, "Before the first tool", 800),
+			{
+				type: "tool",
+				messageId: id,
+				part: {
+					type: "tool-Bash",
+					toolCallId: "bash-1",
+					state: "output-available",
+					input: { command: "first" },
+				},
+			},
+			...completeReasoningEpisode(id, 1, "Between the tools", 600),
+			{
+				type: "tool",
+				messageId: id,
+				part: {
+					type: "tool-Bash",
+					toolCallId: "bash-2",
+					state: "output-available",
+					input: { command: "second" },
+				},
+			},
+		]);
+
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-1",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [
+				{ type: "text", text: "Intro" },
+				{
+					type: "tool-Bash",
+					toolCallId: "bash-1",
+					state: "output-available",
+					input: { command: "first" },
+					output: "first output",
+				},
+				{ type: "text", text: "Between terminal tools" },
+				{
+					type: "tool-Bash",
+					toolCallId: "bash-2",
+					state: "output-available",
+					input: { command: "second" },
+					output: "second output",
+				},
+				{ type: "text", text: "Answer" },
+			]),
+		});
+
+		const parts = assistantMessages(t)[0]!.parts;
+		const summarizePart = (part: (typeof parts)[number]) => {
+			if (part.type === "reasoning") return `reasoning:${part.text}`;
+			if (part.type === "text") return part.text;
+			if ("toolCallId" in part) return `${part.type}:${part.toolCallId}`;
+			return part.type;
+		};
+		expect(parts.map(summarizePart)).toEqual([
+			"Intro",
+			"reasoning:Before the first tool",
+			"tool-Bash:bash-1",
+			"Between terminal tools",
+			"reasoning:Between the tools",
+			"tool-Bash:bash-2",
+			"Answer",
+		]);
+		expect(parts.filter((part) => part.type === "reasoning").every((part) => part.state === "complete")).toBe(true);
+	});
+
 	it("single turn appends exactly one assistant message and nulls assistantId on done", () => {
 		const id = "run-1-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id));
@@ -275,6 +380,33 @@ describe("applyChatStreamEvent", () => {
 		const doneParts = assistantMessages(t)[0].parts;
 		expect(doneParts.some((part) => part.type === "tool-FleetReasoning")).toBe(true);
 		expect(JSON.stringify(doneParts)).not.toContain("fleet-web-ok");
+	});
+
+	it("keeps distinct streamed payloads when the terminal payload has no id", () => {
+		const id = "run-payload-same-kind";
+		let t = applyChatStreamEvent(baseTransition(), start(id, "run-payload-same-kind"));
+		t = applyChatStreamEvent(t, {
+			type: "payload",
+			messageId: id,
+			part: { type: "payload", id: "payload-a", kind: "note", title: "Note", text: "first" },
+		});
+		t = applyChatStreamEvent(t, {
+			type: "payload",
+			messageId: id,
+			part: { type: "payload", id: "payload-b", kind: "note", title: "Note", text: "second" },
+		});
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-payload-same-kind",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [
+				{ type: "payload", kind: "note", title: "Note", text: "first" },
+				{ type: "text", text: "Answer" },
+			]),
+		});
+		const payloads = assistantMessages(t)[0]?.parts.filter((part) => part.type === "payload") ?? [];
+		expect(payloads.map((part) => (part.type === "payload" ? part.text : ""))).toEqual(["first", "second"]);
+		expect(payloads).toContainEqual(expect.objectContaining({ id: "payload-b", text: "second" }));
 	});
 
 	it("preserves multiple runtime payload parts when the terminal message replaces the bubble", () => {
