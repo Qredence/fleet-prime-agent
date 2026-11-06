@@ -127,7 +127,11 @@ describe("conversation turn rendering", () => {
 		const { container } = render(<>{elements}</>);
 		const thoughts = screen.getAllByRole("button", { name: /Thought/ });
 		expect(thoughts).toHaveLength(2);
-		expect(container.querySelectorAll("[data-testid='assistant-tool-trace']")).toHaveLength(1);
+		expect(
+			Array.from(
+				container.querySelectorAll("[data-testid='reasoning-line'], [data-testid='assistant-tool-trace']"),
+			).map((node) => node.getAttribute("data-testid")),
+		).toEqual(["reasoning-line", "assistant-tool-trace", "reasoning-line"]);
 		expect(thoughts[0]?.textContent).toContain("1s");
 		expect(thoughts[1]?.textContent).toContain("1s");
 	});
