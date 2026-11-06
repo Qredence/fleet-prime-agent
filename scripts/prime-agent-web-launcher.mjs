@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, realpathSync, statSync } from "node:fs";
 import { createServer } from "node:http";
-import { extname, relative, resolve, sep } from "node:path";
+import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import webServer from "./server/server.js";
@@ -123,13 +123,24 @@ function resolveStaticPath(pathname) {
 	} catch {
 		return undefined;
 	}
+	if (decodedPath.includes("\0")) return undefined;
 	const candidate = resolve(clientRoot, `.${decodedPath}`);
-	const relativePath = relative(clientRoot, candidate);
-	if (relativePath.startsWith(`..${sep}`) || relativePath === ".." || relativePath.includes(`${sep}..${sep}`)) {
+	if (!isPathInsideRoot(clientRoot, candidate)) return undefined;
+	let resolvedFile;
+	try {
+		const canonicalRoot = realpathSync(clientRoot);
+		resolvedFile = realpathSync(candidate);
+		if (!isPathInsideRoot(canonicalRoot, resolvedFile)) return undefined;
+	} catch {
 		return undefined;
 	}
-	if (!existsSync(candidate) || !statSync(candidate).isFile()) return undefined;
-	return candidate;
+	if (!statSync(resolvedFile).isFile()) return undefined;
+	return resolvedFile;
+}
+
+function isPathInsideRoot(root, target) {
+	const rel = relative(root, target);
+	return rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
 function serveStaticFile(request, response, filePath) {

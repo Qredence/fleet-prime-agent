@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
 import { isReleaseVersionFile } from "./release-utils.mjs";
+import { execFileTrusted } from "./trusted-exec-env.mjs";
 
 const RELEASE_BRANCH_PREFIX = "release/fleet-";
 const PACKAGE_NAME = "@qredence/fleet";
@@ -38,7 +38,7 @@ const USER_FACING_FILES = new Set([
  * @return {string} The command's trimmed standard output.
  */
 function gitOutput(args) {
-	return execFileSync("git", args, { encoding: "utf8" }).trim();
+	return execFileTrusted("git", args, { encoding: "utf8" }).trim();
 }
 
 /**
@@ -172,7 +172,7 @@ function validateChangesetStatus(baseRef) {
 		if (isCiComparison()) statusArguments.push("--since", baseRef);
 		statusArguments.push("--output", outputPath);
 		const pnpm = pnpmInvocation(statusArguments);
-		execFileSync(pnpm.command, pnpm.args, {
+		execFileTrusted(pnpm.command, pnpm.args, {
 			cwd: process.cwd(),
 			stdio: "inherit",
 		});

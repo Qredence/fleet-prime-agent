@@ -51,6 +51,7 @@ function nonNegativeInt(value: string | undefined, fallback: number): number {
  * machine.
  */
 function isCredentialSafeBaseUrl(value: string): boolean {
+	if (/[?#]/.test(value)) return false;
 	let url: URL;
 	try {
 		url = new URL(value);
@@ -65,6 +66,23 @@ function isCredentialSafeBaseUrl(value: string): boolean {
 
 function isLogLevel(value: string | undefined): value is TypeSafeLogLevel {
 	return value !== undefined && (LOG_LEVELS as ReadonlyArray<string>).includes(value);
+}
+
+/**
+ * Builds a validated TypeSafe HTTP endpoint from configured base URL state.
+ */
+function trimTrailingSlashes(value: string): string {
+	let end = value.length;
+	while (end > 0 && value.charCodeAt(end - 1) === 47) end -= 1;
+	return end === value.length ? value : value.slice(0, end);
+}
+
+export function typeSafeEndpoint(config: TypeSafeRuntimeConfig, path: "/v1/systemone" | "/v1/models"): string {
+	const base = trimTrailingSlashes(config.baseUrl);
+	if (!isCredentialSafeBaseUrl(base)) {
+		throw new Error("TypeSafe base URL is not credential-safe");
+	}
+	return `${base}${path}`;
 }
 
 /**

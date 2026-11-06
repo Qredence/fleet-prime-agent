@@ -6,6 +6,12 @@ import { NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-pro
  * @param error - The error to present.
  * @returns An object containing the presentation title and message.
  */
+function stripDaemonDiagnostics(message: string): string {
+	const match = message.match(/\s(?:Socket|Daemon log):\s/i);
+	if (!match || match.index === undefined) return message;
+	return message.slice(0, match.index).trimEnd();
+}
+
 export function getChatErrorPresentation(error: Error) {
 	if (
 		(error as { code?: unknown }).code === "NETWORK_DISCONNECTED" ||
@@ -21,6 +27,6 @@ export function getChatErrorPresentation(error: Error) {
 
 	return {
 		title: "Request failed",
-		message: error.message.replace(/\s+(?:Socket|Daemon log):\s*[^\n]*(?:\s+(?:Socket|Daemon log):\s*[^\n]*)*/gi, ""),
+		message: stripDaemonDiagnostics(error.message),
 	};
 }

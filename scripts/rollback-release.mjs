@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { compareVersions, NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
+import { execFileTrusted } from "./trusted-exec-env.mjs";
 
 export const PACKAGE_NAME = "@qredence/fleet";
 
@@ -63,7 +63,7 @@ async function moveLatestTag({
 	targetVersion,
 	fetchImpl = fetch,
 	distTagAddImpl = (version) =>
-		execFileSync("npm", ["dist-tag", "add", `${PACKAGE_NAME}@${version}`, "latest"], { stdio: "inherit" }),
+		execFileTrusted("npm", ["dist-tag", "add", `${PACKAGE_NAME}@${version}`, "latest"], { stdio: "inherit" }),
 	requireOlder,
 	dryRun = false,
 	missingMessage,
@@ -102,7 +102,7 @@ export async function rollbackRelease({
 	targetVersion,
 	fetchImpl = fetch,
 	distTagAddImpl = (version) =>
-		execFileSync("npm", ["dist-tag", "add", `${PACKAGE_NAME}@${version}`, "latest"], { stdio: "inherit" }),
+		execFileTrusted("npm", ["dist-tag", "add", `${PACKAGE_NAME}@${version}`, "latest"], { stdio: "inherit" }),
 	dryRun = false,
 } = {}) {
 	return moveLatestTag({
@@ -121,7 +121,7 @@ export async function promoteRelease({
 	targetVersion,
 	fetchImpl = fetch,
 	distTagAddImpl = (version) =>
-		execFileSync("npm", ["dist-tag", "add", `${PACKAGE_NAME}@${version}`, "latest"], { stdio: "inherit" }),
+		execFileTrusted("npm", ["dist-tag", "add", `${PACKAGE_NAME}@${version}`, "latest"], { stdio: "inherit" }),
 	dryRun = false,
 } = {}) {
 	return moveLatestTag({

@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { trustedPathString } from "../../../scripts/trusted-exec-env.mjs";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -16,9 +17,10 @@ const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // through sh with the package .bin on PATH skips the per-group pnpm wrapper
 // process without duplicating command definitions here.
 const pkg = JSON.parse(readFileSync(join(appRoot, "package.json"), "utf8"));
+const nodeBinDir = dirname(process.execPath);
 const env = {
 	...process.env,
-	PATH: `${join(appRoot, "node_modules", ".bin")}${delimiter}${process.env.PATH ?? ""}`,
+	PATH: [join(appRoot, "node_modules", ".bin"), nodeBinDir, trustedPathString()].filter(Boolean).join(delimiter),
 };
 
 function runCheck(label, scriptName) {
@@ -36,7 +38,7 @@ function runCheck(label, scriptName) {
 					env,
 					stdio: ["ignore", "pipe", "pipe"],
 				})
-			: spawn("sh", ["-c", command], {
+			: spawn("/bin/sh", ["-c", command], {
 					cwd: appRoot,
 					env,
 					stdio: ["ignore", "pipe", "pipe"],

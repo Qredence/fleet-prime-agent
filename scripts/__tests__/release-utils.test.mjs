@@ -688,20 +688,23 @@ test("verifies a registry tarball with an injected fetch implementation", async 
 	const bytes = Buffer.from("published tarball");
 	const calls = [];
 	const checksum = await readRemoteChecksum({
-		metadata: { dist: { tarball: "https://registry.example.test/fleet.tgz" } },
+		metadata: { dist: { tarball: "https://registry.npmjs.org/@qredence/fleet/-/fleet-0.5.1.tgz" } },
 		fetchImpl: async (url) => {
 			calls.push(url);
 			return response(200, bytes);
 		},
 	});
 	assert.equal(checksum, "1d7164eca77a618c053944fada94250e17034176840053af8b02962792abd89a");
-	assert.deepEqual(calls, ["https://registry.example.test/fleet.tgz"]);
+	assert.deepEqual(calls, ["https://registry.npmjs.org/@qredence/fleet/-/fleet-0.5.1.tgz"]);
 });
 
 test("waits for registry visibility with deterministic polling", async () => {
 	let calls = 0;
 	const requestHeaders = [];
-	const metadata = { version: "0.5.1", dist: { tarball: "https://registry.example.test/fleet.tgz" } };
+	const metadata = {
+		version: "0.5.1",
+		dist: { tarball: "https://registry.npmjs.org/@qredence/fleet/-/fleet-0.5.1.tgz" },
+	};
 	const result = await waitForPublishedVersion({
 		version: "0.5.1",
 		fetchImpl: async (_url, options) => {
@@ -721,7 +724,10 @@ test("waits for registry visibility with deterministic polling", async () => {
 
 test("retries transient registry failures until the version becomes visible", async () => {
 	let calls = 0;
-	const metadata = { version: "0.5.1", dist: { tarball: "https://registry.example.test/fleet.tgz" } };
+	const metadata = {
+		version: "0.5.1",
+		dist: { tarball: "https://registry.npmjs.org/@qredence/fleet/-/fleet-0.5.1.tgz" },
+	};
 	const result = await waitForPublishedVersion({
 		version: "0.5.1",
 		fetchImpl: async () => {
@@ -795,7 +801,10 @@ test("publishes a new version once and verifies the post-publish tarball", async
 	let versionLookups = 0;
 	let npmPublishes = 0;
 	let githubReleaseEnvironment;
-	const publishedMetadata = { version: "0.5.1", dist: { tarball: "https://registry.example.test/fleet.tgz" } };
+	const publishedMetadata = {
+		version: "0.5.1",
+		dist: { tarball: "https://registry.npmjs.org/@qredence/fleet/-/fleet-0.5.1.tgz" },
+	};
 	try {
 		const result = await publishRelease({
 			manifest: {
@@ -841,7 +850,10 @@ test("resumes an already-published version without a second npm publish", async 
 	const artifact = join(directory, "qredence-fleet-0.5.1.tgz");
 	const bytes = Buffer.from("verified release artifact");
 	writeFileSync(artifact, bytes);
-	const publishedMetadata = { version: "0.5.1", dist: { tarball: "https://registry.example.test/fleet.tgz" } };
+	const publishedMetadata = {
+		version: "0.5.1",
+		dist: { tarball: "https://registry.npmjs.org/@qredence/fleet/-/fleet-0.5.1.tgz" },
+	};
 	let githubReleaseCalls = 0;
 	try {
 		const result = await publishRelease({

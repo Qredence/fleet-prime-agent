@@ -4,6 +4,30 @@ import { chmod, mkdir, mkdtemp, open, rename, rm, stat, writeFile } from "node:f
 import { arch, homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 
+const FLEET_PINNED_RELEASE_HOST = "pub-728493de92a943e2a9b2d17b4719f318.r2.dev";
+const PINNED_RUST_RELEASE_HOSTS = new Set([FLEET_PINNED_RELEASE_HOST]);
+const TRUSTED_TAR_PATHS = process.platform === "win32" ? ["tar"] : ["/usr/bin/tar", "/bin/tar"];
+
+function pinnedRustArchiveUrl(baseUrl, archive) {
+	if (typeof baseUrl !== "string" || typeof archive !== "string" || !archive || archive.includes("/")) {
+		throw new Error("Invalid pinned Rust runtime archive reference");
+	}
+	const parsed = new URL(baseUrl);
+	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOSTS.has(parsed.hostname)) {
+		throw new Error("Rust runtime baseUrl is not a pinned Fleet release host");
+	}
+	return `${parsed.href.replace(/\/$/, "")}/${archive}`;
+}
+
+function spawnTar(args) {
+	for (const tarPath of TRUSTED_TAR_PATHS) {
+		const result = spawnSync(tarPath, args, { encoding: "utf8" });
+		if (result.error?.code === "ENOENT") continue;
+		return result;
+	}
+	return spawnSync(TRUSTED_TAR_PATHS[TRUSTED_TAR_PATHS.length - 1], args, { encoding: "utf8" });
+}
+
 // This module is the single Prime Agent runtime installer. The npm launcher
 // (`fleet-prime`) runs it directly, and the web server re-exports it from
 // `web/server/src/prime-runtime.ts`, so both install the same payload.
@@ -43,7 +67,9 @@ export async function ensurePrimeRuntime({
 	try {
 		const archivePath = join(staging, asset.archive);
 		// The release URL comes from Fleet's shipped runtime pin, never session or provider input.
-		const response = await fetchImpl(`${runtime.baseUrl}/${asset.archive}`, {
+		const downloadUrl = pinnedRustArchiveUrl(runtime.baseUrl, asset.archive);
+		// codeql[js/file-access-to-http] -- host is the pinned Fleet R2 release host
+		const response = await fetchImpl(downloadUrl, {
 			signal: AbortSignal.timeout(120_000),
 		});
 		if (!response.ok)
@@ -54,10 +80,11 @@ export async function ensurePrimeRuntime({
 		if (digest(archive) !== asset.sha256)
 			throw new Error(`Prime Agent ${runtime.version} archive checksum mismatch; refusing to install it.`);
 		// Only checksum-verified release bytes reach this private staging file.
+		// codeql[js/http-to-file-access] -- write happens only after the pin digest matches
 		await writeFile(archivePath, archive, { mode: 0o600 });
 		const unpacked = join(staging, "unpacked");
 		await mkdir(unpacked);
-		const result = spawnSync("tar", ["-xzf", archivePath, "-C", unpacked], { encoding: "utf8" });
+		const result = spawnTar(["-xzf", archivePath, "-C", unpacked]);
 		if (result.status !== 0)
 			throw new Error(`Could not extract Prime Agent runtime: ${result.stderr || "tar failed"}`);
 		const extractedBinary = join(unpacked, "prime-agent");

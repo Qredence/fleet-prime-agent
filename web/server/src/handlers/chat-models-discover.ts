@@ -22,6 +22,12 @@ export function openAiModelsUrl(baseUrl: string): URL {
 	return parsed;
 }
 
+function assertDiscoveryFetchUrl(url: URL): void {
+	if (url.protocol === "https:") return;
+	if (url.protocol === "http:" && isLoopbackHostname(url.hostname)) return;
+	throw new Error("model discovery URL rejected");
+}
+
 export function handleChatModelsDiscoverPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const raw = await request.json().catch(() => ({}));
@@ -58,13 +64,7 @@ export function handleChatModelsDiscoverPost(request: Request): Promise<Response
 
 		try {
 			const modelsUrl = openAiModelsUrl(baseUrl);
-			// Stored provider credentials are sent to the user-configured provider
-			// endpoint; this is the model discovery auth flow. Plain http stays
-			// allowed only for loopback hosts (local providers such as Ollama on
-			// localhost); non-loopback endpoints must be https so the Bearer key
-			// is never sent in cleartext, and redirects are rejected so the key
-			// cannot be forwarded cross-origin via redirect TOCTOU.
-			// codeql[js/file-access-to-http]
+			assertDiscoveryFetchUrl(modelsUrl);
 			const response = await fetch(modelsUrl, {
 				headers: { Authorization: `Bearer ${apiKey}` },
 				redirect: "error",

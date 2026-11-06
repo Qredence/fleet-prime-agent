@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { isPackageVersionCommit } from "./publish-release.mjs";
+import { execFileTrusted } from "./trusted-exec-env.mjs";
 
 const packageManifest = JSON.parse(
 	readFileSync(new URL("../packages/fleet-web/package.json", import.meta.url), "utf8"),
@@ -41,7 +41,7 @@ export function runReleaseMarker(
 	options = {},
 	{
 		isVersionCommitImpl = isPackageVersionCommit,
-		execImpl = (args) => execFileSync("circleci", args, { stdio: "inherit" }),
+		execImpl = (args) => execFileTrusted("circleci", args, { stdio: "inherit" }),
 	} = {},
 ) {
 	if (!isVersionCommitImpl()) {

@@ -52,6 +52,7 @@ if (socketPath.length > 80) {
 
 // Isolate this process too: prime-agent reads the agent dir from env at import time.
 process.env.HOME = dirs.home;
+// Private scratch tmp (mode 0o700), not the host /tmp directory.
 process.env.TMPDIR = dirs.tmp;
 process.env.PRIME_AGENT_CODING_AGENT_DIR = dirs.agent;
 process.env.PRIME_AGENT_TELEMETRY = "0";
@@ -68,7 +69,7 @@ const sleep = (ms: number) => new Promise((resolveSleep) => setTimeout(resolveSl
 
 function prepareScratch(): void {
 	rmSync(runRoot, { recursive: true, force: true });
-	for (const dir of Object.values(dirs)) mkdirSync(dir, { recursive: true });
+	for (const dir of Object.values(dirs)) mkdirSync(dir, { recursive: true, mode: 0o700 });
 	mkdirSync(join(dirs.agent, "extensions"), { recursive: true });
 	copyFileSync(
 		join(here, "contract-fixtures/scripted-provider-extension.ts"),

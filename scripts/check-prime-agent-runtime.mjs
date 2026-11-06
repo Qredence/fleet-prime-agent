@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertPinnedLegacyTarballUrl } from "./network-guards.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
@@ -91,6 +92,7 @@ function assertLockfilePins(pnpmLock, familyTarballs) {
 
 async function verifyTarball(manifest, familyTarballs, pnpmLock) {
 	const expectedTarball = familyTarballs.prime;
+	assertPinnedLegacyTarballUrl(expectedTarball);
 	const response = await fetch(expectedTarball);
 	if (!response.ok) {
 		throw new Error(`Unable to download runtime tarball for verification: HTTP ${response.status}`);

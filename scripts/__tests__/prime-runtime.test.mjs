@@ -32,7 +32,7 @@ async function fixture(t) {
 	const manifest = {
 		rust: {
 			version: "1.2.3",
-			baseUrl: "https://runtime.invalid",
+			baseUrl: "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v1.2.3",
 			platforms: {
 				[target]: { archive: "runtime.tar.gz", sha256: sha256(archive), executableSha256: sha256(binary) },
 			},

@@ -115,6 +115,8 @@ async function acquireLock(lockPath: string): Promise<LockHandle> {
 			// restructured around a query limitation.
 			let raw: string;
 			try {
+				// The exclusive create already observed the lock. Re-open by descriptor so the
+				// pid read is bound to one inode; ENOENT means the holder released it.
 				// codeql[js/file-system-race]
 				const reader = openSync(lockPath, "r");
 				try {
