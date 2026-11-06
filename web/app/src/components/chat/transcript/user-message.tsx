@@ -103,6 +103,19 @@ function UserMessageImages({
 	enableImagePreview: boolean;
 }) {
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+	const imageKey = images.join("\u0000");
+	const [previousImageKey, setPreviousImageKey] = useState(imageKey);
+	if (previousImageKey !== imageKey) {
+		const previousImages = previousImageKey.length > 0 ? previousImageKey.split("\u0000") : [];
+		setPreviousImageKey(imageKey);
+		setLightboxIndex((current) => {
+			if (current === null) return null;
+			const selected = previousImages[current];
+			if (!selected) return null;
+			const nextIndex = images.indexOf(selected);
+			return nextIndex >= 0 ? nextIndex : null;
+		});
+	}
 	if (images.length === 0) return null;
 	const lightboxImages = images.map((url, imageIndex) => ({
 		id: `${messageId}-img-${imageIndex}`,
@@ -113,7 +126,7 @@ function UserMessageImages({
 		<>
 			{images.map((url, imageIndex) => (
 				<div
-					key={url}
+					key={`${messageId}-img-${imageIndex}`}
 					className={cn(
 						"max-w-[200px] rounded-chat-message bg-foreground/4 p-1.5",
 						enableImagePreview && "cursor-pointer",

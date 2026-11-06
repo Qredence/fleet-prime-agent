@@ -120,15 +120,40 @@ function replaceOrAppendMessage(messages: Array<ChatMessage>, nextMessage: ChatM
 		: [...messages, nextMessage];
 }
 
-function partAlreadyPresentOnTerminal(part: ChatMessagePart, terminalParts: Array<ChatMessagePart>): boolean {
-	return terminalParts.some((next) => {
-		if (next.type !== part.type) return false;
-		if (part.type === "reasoning" && next.type === "reasoning") return next.contentIndex === part.contentIndex;
-		if (part.type === "payload" && next.type === "payload") {
-			return part.id && next.id ? part.id === next.id : part.kind === next.kind && part.title === next.title;
-		}
+function payloadPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {
+	if (left.type !== "payload" || right.type !== "payload") return false;
+	return left.id && right.id ? left.id === right.id : left.kind === right.kind && left.title === right.title;
+}
+
+/** True when a carried reasoning, payload, or Fleet reasoning part has no unused terminal match. */
+function hasUnmatchedCarriedPart(donorParts: Array<ChatMessagePart>, terminalParts: Array<ChatMessagePart>) {
+	const consumed = new Set<number>();
+	const take = (matches: (candidate: ChatMessagePart) => boolean) => {
+		const index = terminalParts.findIndex((candidate, candidateIndex) => {
+			return !consumed.has(candidateIndex) && matches(candidate);
+		});
+		if (index < 0) return false;
+		consumed.add(index);
 		return true;
-	});
+	};
+
+	for (const part of donorParts) {
+		if (part.type === "reasoning") {
+			const matched = take(
+				(candidate) => candidate.type === "reasoning" && candidate.contentIndex === part.contentIndex,
+			);
+			if (!matched) return true;
+			continue;
+		}
+		if (part.type === "payload") {
+			if (!take((candidate) => payloadPartsMatch(part, candidate))) return true;
+			continue;
+		}
+		if (part.type === "tool-FleetReasoning") {
+			if (!take((candidate) => candidate.type === "tool-FleetReasoning")) return true;
+		}
+	}
+	return false;
 }
 
 /**
@@ -159,12 +184,7 @@ function mergeStreamedPartsOntoTerminal(
 				(candidate) => candidate.type === "reasoning" && candidate.contentIndex === part.contentIndex,
 			);
 		} else if (part.type === "payload") {
-			terminalIndex = takeTerminalIndex((candidate) => {
-				if (candidate.type !== "payload") return false;
-				return part.id && candidate.id
-					? part.id === candidate.id
-					: part.kind === candidate.kind && part.title === candidate.title;
-			});
+			terminalIndex = takeTerminalIndex((candidate) => payloadPartsMatch(part, candidate));
 		} else if (part.type === "tool-FleetReasoning") {
 			terminalIndex = takeTerminalIndex((candidate) => candidate.type === "tool-FleetReasoning");
 		} else if (isChatToolPart(part)) {
@@ -236,12 +256,7 @@ function carryForwardReasoningPresentation(
 	].filter(Boolean) as Array<ChatMessage>;
 	const donor = candidates[0];
 	if (!donor) return nextMessage;
-	const preserved = donor.parts.filter(
-		(part) =>
-			(part.type === "tool-FleetReasoning" || part.type === "payload" || part.type === "reasoning") &&
-			!partAlreadyPresentOnTerminal(part, nextMessage.parts),
-	);
-	if (preserved.length === 0) return nextMessage;
+	if (!hasUnmatchedCarriedPart(donor.parts, nextMessage.parts)) return nextMessage;
 	return {
 		...nextMessage,
 		parts: mergeStreamedPartsOntoTerminal(donor.parts, nextMessage.parts),

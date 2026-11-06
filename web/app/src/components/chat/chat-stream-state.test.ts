@@ -382,6 +382,33 @@ describe("applyChatStreamEvent", () => {
 		expect(JSON.stringify(doneParts)).not.toContain("fleet-web-ok");
 	});
 
+	it("keeps distinct streamed payloads when the terminal payload has no id", () => {
+		const id = "run-payload-same-kind";
+		let t = applyChatStreamEvent(baseTransition(), start(id, "run-payload-same-kind"));
+		t = applyChatStreamEvent(t, {
+			type: "payload",
+			messageId: id,
+			part: { type: "payload", id: "payload-a", kind: "note", title: "Note", text: "first" },
+		});
+		t = applyChatStreamEvent(t, {
+			type: "payload",
+			messageId: id,
+			part: { type: "payload", id: "payload-b", kind: "note", title: "Note", text: "second" },
+		});
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-payload-same-kind",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [
+				{ type: "payload", kind: "note", title: "Note", text: "first" },
+				{ type: "text", text: "Answer" },
+			]),
+		});
+		const payloads = assistantMessages(t)[0]?.parts.filter((part) => part.type === "payload") ?? [];
+		expect(payloads.map((part) => (part.type === "payload" ? part.text : ""))).toEqual(["first", "second"]);
+		expect(payloads).toContainEqual(expect.objectContaining({ id: "payload-b", text: "second" }));
+	});
+
 	it("preserves multiple runtime payload parts when the terminal message replaces the bubble", () => {
 		const id = "run-payload-a0";
 		let t = applyChatStreamEvent(baseTransition(), start(id, "run-payload"));

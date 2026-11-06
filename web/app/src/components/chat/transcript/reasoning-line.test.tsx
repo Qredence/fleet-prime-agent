@@ -21,6 +21,18 @@ describe("reasoningRunPresentation", () => {
 		});
 	});
 
+	it("stays streaming when an earlier episode is still open", () => {
+		expect(
+			reasoningRunPresentation(
+				[
+					{ type: "reasoning", contentIndex: 0, text: "Still open.", state: "streaming" },
+					{ type: "reasoning", contentIndex: 1, text: "Already closed.", state: "complete", durationMs: 400 },
+				],
+				true,
+			).streaming,
+		).toBe(true);
+	});
+
 	it("omits the duration when no episode recorded one", () => {
 		expect(
 			reasoningRunPresentation([{ type: "reasoning", contentIndex: 0, text: "Orient.", state: "complete" }], false)

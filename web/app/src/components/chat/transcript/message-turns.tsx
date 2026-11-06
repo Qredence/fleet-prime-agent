@@ -73,10 +73,9 @@ function isReasoningPart(part: unknown): part is ChatReasoningPart {
 /** Contiguous reasoning episodes become one collapsible. A blank line keeps each episode distinct. */
 export function reasoningRunPresentation(parts: Array<ChatReasoningPart>, streaming: boolean) {
 	const durations = parts.flatMap((part) => (typeof part.durationMs === "number" ? [part.durationMs] : []));
-	const last = parts.at(-1);
 	return {
 		text: parts.map((part) => part.text).join("\n\n"),
-		streaming: streaming && last?.state === "streaming",
+		streaming: streaming && parts.some((part) => part.state === "streaming"),
 		durationMs: durations.length > 0 ? durations.reduce((total, duration) => total + duration, 0) : undefined,
 	};
 }
