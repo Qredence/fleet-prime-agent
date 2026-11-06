@@ -203,7 +203,7 @@ export function buildAssistantElements(
 				next++;
 			}
 			const presentation = reasoningRunPresentation(run, isLast && isStreaming);
-			const runIdentity = run.map((episode) => String(episode.contentIndex)).join(":");
+			const runIdentity = String(part.contentIndex);
 			const reasoningOccurrence = (reasoningRunOccurrences.get(runIdentity) ?? 0) + 1;
 			reasoningRunOccurrences.set(runIdentity, reasoningOccurrence);
 			elems.push(

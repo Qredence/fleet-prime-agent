@@ -1,5 +1,5 @@
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationTurnView } from "@/components/chat/agent-chat";
 import { buildAssistantElements } from "@/components/chat/transcript/message-turns";
@@ -134,6 +134,34 @@ describe("conversation turn rendering", () => {
 		).toEqual(["reasoning-line", "assistant-tool-trace", "reasoning-line"]);
 		expect(thoughts[0]?.textContent).toContain("1s");
 		expect(thoughts[1]?.textContent).toContain("1s");
+	});
+
+	it("keeps a Thought run's open state when it gains another reasoning episode", () => {
+		const build = (parts: Array<Record<string, unknown>>) =>
+			buildAssistantElements(parts, {
+				messageId: "growing-thought",
+				isLast: true,
+				isStreaming: true,
+				ToolRendererComponent: ({ part }) => <div>{part.type}</div>,
+				TextRendererComponent: ({ content }) => <div>{content}</div>,
+			});
+		const { rerender } = render(
+			<>{build([{ type: "reasoning", contentIndex: 0, text: "First", state: "streaming" }])}</>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: /Thinking/ }));
+		expect(screen.getByRole("button", { name: /Thinking/ }).getAttribute("aria-expanded")).toBe("false");
+
+		rerender(
+			<>
+				{build([
+					{ type: "reasoning", contentIndex: 0, text: "First", state: "complete" },
+					{ type: "reasoning", contentIndex: 1, text: "Second", state: "streaming" },
+				])}
+			</>,
+		);
+
+		expect(screen.getAllByRole("button", { name: /Thinking/ })).toHaveLength(1);
+		expect(screen.getByRole("button", { name: /Thinking/ }).getAttribute("aria-expanded")).toBe("false");
 	});
 
 	it("hides questionnaire tool parts from transcript presentation", () => {
