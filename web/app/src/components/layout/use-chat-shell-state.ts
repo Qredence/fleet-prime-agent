@@ -132,16 +132,12 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 		[resourceCanvasWidth],
 	);
 
-	const reopenRightPanel = useCallback(() => {
-		setRightPanelState(lastRightPanelRef.current);
-	}, []);
+	const rightPanelRef = useRef<RightPanel>(null);
 
 	const setRightPanel = useCallback((panel: RightPanel) => {
-		let openingFromClosed = false;
-		setRightPanelState((current) => {
-			if (panel !== null && current === null) openingFromClosed = true;
-			return panel;
-		});
+		const openingFromClosed = panel !== null && rightPanelRef.current === null;
+		rightPanelRef.current = panel;
+		setRightPanelState(panel);
 		if (openingFromClosed) {
 			const initialWidth = getResourceCanvasInitialWidth();
 			setResourceCanvasWidth(initialWidth);
@@ -161,6 +157,10 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 			return null;
 		});
 	}, []);
+
+	const reopenRightPanel = useCallback(() => {
+		setRightPanel(lastRightPanelRef.current);
+	}, [setRightPanel]);
 
 	const openArtifact = useCallback(
 		(artifactId: string, target: ArtifactOpenTarget = "artifacts") => {

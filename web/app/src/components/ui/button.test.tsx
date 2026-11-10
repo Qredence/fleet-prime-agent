@@ -75,4 +75,13 @@ describe("Button", () => {
 		expect(buttonClick).toHaveBeenCalledTimes(1);
 		expect(ref.current).toBe(container.querySelector("a"));
 	});
+
+	it("forwards refs on mount and clears them on unmount for regular buttons", () => {
+		const ref = createRef<HTMLButtonElement>();
+		const { unmount } = render(<Button ref={ref}>Action</Button>);
+
+		expect(ref.current).toBe(screen.getByRole("button", { name: "Action" }));
+		unmount();
+		expect(ref.current).toBeNull();
+	});
 });

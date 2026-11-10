@@ -153,19 +153,17 @@ export function useSubagentChat({
 	const childId = child?.id;
 	const childStatusValue = child?.status;
 	const childError = child?.error;
-	const streamIdentity =
-		enabled && parentSessionId && childId && childStatusValue
-			? `${parentSessionId}:${childId}:${childStatusValue}`
-			: null;
-	const [boundStreamIdentity, setBoundStreamIdentity] = useState(streamIdentity);
-	if (streamIdentity !== boundStreamIdentity) {
-		setBoundStreamIdentity(streamIdentity);
-		if (!streamIdentity) setState(emptyState());
+	const childThreadIdentity =
+		enabled && parentSessionId && childId && childStatusValue ? `${parentSessionId}:${childId}` : null;
+	const [boundThreadIdentity, setBoundThreadIdentity] = useState(childThreadIdentity);
+	if (childThreadIdentity !== boundThreadIdentity) {
+		setBoundThreadIdentity(childThreadIdentity);
+		setState(emptyState());
 	}
 
 	useEffect(() => {
-		if (!streamIdentity) transitionRef.current = null;
-	}, [streamIdentity]);
+		transitionRef.current = null;
+	}, [childThreadIdentity]);
 
 	const refresh = useCallback(() => setReloadToken((value) => value + 1), []);
 

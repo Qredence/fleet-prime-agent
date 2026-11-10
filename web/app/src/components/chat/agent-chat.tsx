@@ -605,31 +605,43 @@ function useConversationTurnRenderer({
 	artifactRuns: AgentChatViewProps["artifactRuns"];
 	highlightedMessageId: AgentChatViewProps["highlightedMessageId"];
 }) {
-	const [seenTurnKeys, setSeenTurnKeys] = useState(() => new Set<string>());
-	const firstAppearanceForKey = useMemo(() => {
-		const appearances = new Map<string, boolean>();
-		for (let turnIndex = 0; turnIndex < turns.length; turnIndex += 1) {
-			const key = getConversationTurnKey(turns[turnIndex], turnIndex);
-			appearances.set(key, !seenTurnKeys.has(key));
+	const [turnAppearance, setTurnAppearance] = useState<{
+		turns: Array<ConversationTurn>;
+		seen: Set<string>;
+		firstAppearances: Set<string>;
+	}>(() => {
+		const initialKeys = turns.map((turn, turnIndex) => getConversationTurnKey(turn, turnIndex));
+		return {
+			turns,
+			seen: new Set(initialKeys),
+			firstAppearances: new Set(initialKeys),
+		};
+	});
+	if (turnAppearance.turns !== turns) {
+		if (turns.length === 0) {
+			setTurnAppearance({
+				turns,
+				seen: new Set(),
+				firstAppearances: new Set(),
+			});
+		} else {
+			const nextSeen = new Set(turnAppearance.seen);
+			const nextFirstAppearances = new Set<string>();
+			for (let turnIndex = 0; turnIndex < turns.length; turnIndex += 1) {
+				const key = getConversationTurnKey(turns[turnIndex], turnIndex);
+				if (!turnAppearance.seen.has(key)) {
+					nextFirstAppearances.add(key);
+					nextSeen.add(key);
+				}
+			}
+			setTurnAppearance({
+				turns,
+				seen: nextSeen,
+				firstAppearances: nextFirstAppearances,
+			});
 		}
-		return appearances;
-	}, [seenTurnKeys, turns]);
-	const keysToRemember = useMemo(
-		() =>
-			turns
-				.map((turn, turnIndex) => getConversationTurnKey(turn, turnIndex))
-				.filter((key) => !seenTurnKeys.has(key)),
-		[seenTurnKeys, turns],
-	);
-	if (turns.length === 0 && seenTurnKeys.size > 0) {
-		setSeenTurnKeys(new Set());
-	} else if (keysToRemember.length > 0) {
-		setSeenTurnKeys((current) => {
-			const next = new Set(current);
-			for (const key of keysToRemember) next.add(key);
-			return next;
-		});
 	}
+	const { firstAppearances } = turnAppearance;
 	const rendering = useMemo<ConversationTurnViewProps["rendering"]>(
 		() => ({ toolRenderers, onOpenUIAction, onOpenUIArtifactReady, onOpenArtifact }),
 		[onOpenArtifact, onOpenUIAction, onOpenUIArtifactReady, toolRenderers],
@@ -652,7 +664,7 @@ function useConversationTurnRenderer({
 		(turn: ConversationTurn, turnIndex: number) => {
 			const isLast = turnIndex === turns.length - 1;
 			const key = getConversationTurnKey(turn, turnIndex);
-			const firstAppearance = firstAppearanceForKey.get(key) ?? false;
+			const firstAppearance = firstAppearances.has(key);
 			return (
 				<ConversationTurnView
 					turn={turn}
@@ -668,7 +680,7 @@ function useConversationTurnRenderer({
 		[
 			activityForLast,
 			activityForRest,
-			firstAppearanceForKey,
+			firstAppearances,
 			highlightedMessageId,
 			isStreaming,
 			rendering,

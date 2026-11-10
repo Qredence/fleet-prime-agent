@@ -420,7 +420,7 @@ export function AISidebar({
 	const focusRow = useCallback((id: string) => {
 		setFocusedId(id);
 		requestAnimationFrame(() => {
-			document.querySelector<HTMLElement>(`[data-resource-row-id="${id}"]`)?.focus();
+			document.querySelector<HTMLElement>(`[data-resource-row-id="${CSS.escape(id)}"]`)?.focus();
 		});
 	}, []);
 

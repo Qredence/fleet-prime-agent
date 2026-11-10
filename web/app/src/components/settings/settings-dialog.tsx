@@ -134,7 +134,14 @@ function useSettingsForm() {
 	if (settings !== syncedSettingsSource) {
 		setSyncedSettingsSource(settings);
 		if (settings && (!draft || !hasUnsavedChanges)) {
-			const nextDraft = settings.effective;
+			const nextDraft: ChatPiSettings = {
+				...settings.effective,
+				enabledModels: settings.project.enabledModels ?? settings.effective.enabledModels,
+				defaultProvider: settings.project.defaultProvider ?? settings.effective.defaultProvider,
+				defaultModel: settings.project.defaultModel ?? settings.effective.defaultModel,
+				defaultThinkingLevel: settings.project.defaultThinkingLevel ?? settings.effective.defaultThinkingLevel,
+			};
+			resetCommittedModelBaseline();
 			if (!draft || !sameJson(draft, nextDraft)) {
 				setDraft(nextDraft);
 			}

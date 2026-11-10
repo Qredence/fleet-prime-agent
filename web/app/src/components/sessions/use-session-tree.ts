@@ -1,6 +1,6 @@
 import type { ChatSessionMetadata, SessionTreeSnapshot } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { chatClient } from "@/components/chat/chat-client";
 
 type UseSessionTreeArgs = {
@@ -18,6 +18,7 @@ export function useSessionTree({ sessionMetadata, status, resumeSession, rightPa
 	const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
 	const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 	const treeGenerationRef = useRef(0);
+	const activeSessionIdRef = useRef(sessionId);
 	const [boundSessionId, setBoundSessionId] = useState(sessionId);
 
 	if (sessionId !== boundSessionId) {
@@ -29,7 +30,8 @@ export function useSessionTree({ sessionMetadata, status, resumeSession, rightPa
 		setError(null);
 	}
 
-	useEffect(() => {
+	useLayoutEffect(() => {
+		activeSessionIdRef.current = sessionId;
 		treeGenerationRef.current += 1;
 	}, [sessionId]);
 
@@ -40,18 +42,21 @@ export function useSessionTree({ sessionMetadata, status, resumeSession, rightPa
 			setLoading(false);
 			return;
 		}
-		const refreshGeneration = treeGenerationRef.current;
+		const refreshSessionId = sessionId;
+		const refreshGeneration = ++treeGenerationRef.current;
+		const isCurrentRefresh = () =>
+			treeGenerationRef.current === refreshGeneration && activeSessionIdRef.current === refreshSessionId;
 		setLoading(true);
 		setError(null);
 		try {
-			const next = await chatClient.getSessionTree(sessionId);
-			if (treeGenerationRef.current !== refreshGeneration) return;
+			const next = await chatClient.getSessionTree(refreshSessionId);
+			if (!isCurrentRefresh()) return;
 			setSnapshot(next);
 		} catch (refreshError) {
-			if (treeGenerationRef.current !== refreshGeneration) return;
+			if (!isCurrentRefresh()) return;
 			setError(refreshError instanceof Error ? refreshError.message : String(refreshError));
 		} finally {
-			if (treeGenerationRef.current === refreshGeneration) setLoading(false);
+			if (isCurrentRefresh()) setLoading(false);
 		}
 	}, [sessionId]);
 

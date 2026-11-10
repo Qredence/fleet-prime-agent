@@ -55,10 +55,15 @@ export function SubagentsPanelContent({
 
 			const version = (requestVersions.current.get(agent.id) ?? 0) + 1;
 			requestVersions.current.set(agent.id, version);
+			setTranscripts((previous) => ({
+				...previous,
+				[agent.id]: { requestKey, status: "loading", messages: [] },
+			}));
 
 			try {
 				const response = await loadSession(parentSessionId, agent.id);
 				if (requestVersions.current.get(agent.id) !== version) return;
+				loadedTranscriptKeys.current.set(agent.id, requestKey);
 				setTranscripts((previous) => ({
 					...previous,
 					[agent.id]: {
@@ -87,17 +92,21 @@ export function SubagentsPanelContent({
 	useEffect(() => {
 		if (!selectedAgent || !parentSessionId) return;
 		const agent = selectedAgent;
+		const loadedKeys = loadedTranscriptKeys.current;
+		const versions = requestVersions.current;
 		const requestKey = `${parentSessionId}:${agent.id}:${agent.status}:${agent.timestamp}:${agent.activeSessionId ?? ""}`;
-		if (loadedTranscriptKeys.current.get(agent.id) === requestKey) return;
-		loadedTranscriptKeys.current.set(agent.id, requestKey);
+		if (loadedKeys.get(agent.id) === requestKey) return;
+		loadedKeys.set(agent.id, requestKey);
 
-		const version = (requestVersions.current.get(agent.id) ?? 0) + 1;
-		requestVersions.current.set(agent.id, version);
+		const version = (versions.get(agent.id) ?? 0) + 1;
+		versions.set(agent.id, version);
 		let cancelled = false;
+		let completed = false;
 
 		void loadSession(parentSessionId, agent.id)
 			.then((response) => {
-				if (cancelled || requestVersions.current.get(agent.id) !== version) return;
+				if (cancelled || versions.get(agent.id) !== version) return;
+				completed = true;
 				setTranscripts((previous) => ({
 					...previous,
 					[agent.id]: {
@@ -109,7 +118,8 @@ export function SubagentsPanelContent({
 				}));
 			})
 			.catch((error) => {
-				if (cancelled || requestVersions.current.get(agent.id) !== version) return;
+				if (cancelled || versions.get(agent.id) !== version) return;
+				completed = true;
 				setTranscripts((previous) => ({
 					...previous,
 					[agent.id]: {
@@ -123,6 +133,9 @@ export function SubagentsPanelContent({
 
 		return () => {
 			cancelled = true;
+			if (!completed && loadedKeys.get(agent.id) === requestKey) {
+				loadedKeys.delete(agent.id);
+			}
 		};
 	}, [loadSession, parentSessionId, selectedAgent]);
 

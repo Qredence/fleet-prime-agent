@@ -178,8 +178,12 @@ function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; 
 function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
 	const cardRef = useRef<HTMLElement>(null);
 	const initiallyOpen = selected || artifact.status === "running";
-	const [userOpen, setUserOpen] = useState(initiallyOpen);
-	const open = selected ? true : userOpen;
+	const [open, setOpen] = useState(initiallyOpen);
+	const [prevSelected, setPrevSelected] = useState(selected);
+	if (prevSelected !== selected) {
+		setPrevSelected(selected);
+		if (selected) setOpen(true);
+	}
 	useEffect(() => {
 		if (!selected) return;
 		requestAnimationFrame(() => {
@@ -221,7 +225,7 @@ function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifac
 					title={artifact.title}
 					status={artifactStatus(artifact.status)}
 					open={open}
-					onOpenChange={setUserOpen}
+					onOpenChange={setOpen}
 					defaultOpen={initiallyOpen}
 					kind={artifact.kind === "bash" || artifact.kind === "ipython" ? "terminal" : "custom"}
 				>

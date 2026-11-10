@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 type CachedToolState = {
 	state: string | undefined;
@@ -107,9 +107,8 @@ export function useToolComplete(isAnimating: boolean, duration: number, onComple
 
 export function useElapsedTime(startedAt: number | undefined, isPending: boolean): number {
 	const tickRef = useRef(0);
-
-	return useSyncExternalStore(
-		(onStoreChange) => {
+	const subscribe = useCallback(
+		(onStoreChange: () => void) => {
 			if (!isPending || startedAt === undefined) return () => undefined;
 			tickRef.current = Date.now();
 			onStoreChange();
@@ -119,6 +118,11 @@ export function useElapsedTime(startedAt: number | undefined, isPending: boolean
 			}, 1000);
 			return () => clearInterval(interval);
 		},
+		[isPending, startedAt],
+	);
+
+	return useSyncExternalStore(
+		subscribe,
 		() => (isPending && startedAt !== undefined ? tickRef.current - startedAt : 0),
 		() => 0,
 	);

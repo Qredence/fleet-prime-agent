@@ -80,7 +80,15 @@ export function useModelDefaultsForm({
 		return [...byId.values()];
 	}, [catalogModels, configuredProviderIds, discoveredModels, draft?.enabledModels]);
 
-	const settingsModelBaseline = settings ? comparableModelSettings(settings.effective) : null;
+	const settingsModelBaseline = settings
+		? comparableModelSettings({
+				...settings.effective,
+				enabledModels: settings.project.enabledModels ?? settings.effective.enabledModels,
+				defaultProvider: settings.project.defaultProvider ?? settings.effective.defaultProvider,
+				defaultModel: settings.project.defaultModel ?? settings.effective.defaultModel,
+				defaultThinkingLevel: settings.project.defaultThinkingLevel ?? settings.effective.defaultThinkingLevel,
+			})
+		: null;
 	const modelBaseline = committedModelBaseline ?? settingsModelBaseline;
 
 	const modelDirty = !!draft && !!modelBaseline && !sameJson(comparableModelSettings(draft), modelBaseline);

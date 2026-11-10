@@ -130,9 +130,9 @@ export function WorkspacePanelContent({
 	}, [selectedPath, scopePath, workspace]);
 
 	useEffect(() => {
-		if (selectedPath === null || effectiveSelectedPath !== null) return;
+		if (!workspace || loading || selectedPath === null || effectiveSelectedPath !== null) return;
 		queueMicrotask(() => setSelectedPath(null));
-	}, [effectiveSelectedPath, selectedPath, setSelectedPath]);
+	}, [effectiveSelectedPath, loading, selectedPath, setSelectedPath, workspace]);
 
 	const displayPreview = effectiveSelectedPath ? preview : null;
 	const displayPreviewError = effectiveSelectedPath ? previewError : null;

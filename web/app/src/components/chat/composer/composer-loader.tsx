@@ -52,5 +52,5 @@ export function ComposerLoader({
 }) {
 	if (!isActive || !label) return null;
 
-	return <ComposerLoaderActive key={label} label={label} className={className} />;
+	return <ComposerLoaderActive label={label} className={className} />;
 }

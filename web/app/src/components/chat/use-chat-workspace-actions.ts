@@ -115,13 +115,19 @@ export function useChatWorkspaceActions({
 				sessionId: targetSession?.sessionId,
 				projectId,
 			});
+			const previousProjectId = currentMetadata.projectId ?? activeProjectId;
 			setActiveProjectId(projectId);
 			setSelectedWorkspacePath(null);
 			const switched = await switchProject(projectId, targetSession?.sessionId);
-			if (switched && shouldClear) clearPendingAttachments();
+			if (!switched) {
+				setActiveProjectId(previousProjectId);
+			} else if (shouldClear) {
+				clearPendingAttachments();
+			}
 			await refetchProjects();
 		},
 		[
+			activeProjectId,
 			clearPendingAttachments,
 			getSessionMetadata,
 			refetchProjects,

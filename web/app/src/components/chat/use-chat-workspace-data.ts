@@ -133,8 +133,12 @@ export function useChatWorkspaceData() {
 
 	const storedProjectId = initialSessionMetadata.projectId;
 	const firstProjectId = projectsData?.projects[0]?.projectId;
-	if (storedProjectId && storedProjectId !== activeProjectId) {
-		setActiveProjectId(storedProjectId);
+	const [syncedStoredProjectId, setSyncedStoredProjectId] = useState(storedProjectId);
+	if (storedProjectId !== syncedStoredProjectId) {
+		setSyncedStoredProjectId(storedProjectId);
+		if (storedProjectId && storedProjectId !== activeProjectId) {
+			setActiveProjectId(storedProjectId);
+		}
 	} else if (!activeProjectId && firstProjectId) {
 		setActiveProjectId(firstProjectId);
 	}

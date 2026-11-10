@@ -13,8 +13,6 @@ import {
 	useCallback,
 	useId,
 	useLayoutEffect,
-	useRef,
-	type Ref,
 } from "react";
 import { assignRef } from "@/lib/ref";
 import { cn } from "@/lib/utils";
@@ -190,27 +188,20 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 					>)
 				: null;
 		const label = asChildElement ? asChildElement.props.children : children;
-		const forwardedRef = useRef<Ref<HTMLButtonElement> | null>(null);
-		useLayoutEffect(() => {
-			forwardedRef.current = ref;
-		});
-		const childRefHolder = useRef<Ref<HTMLButtonElement> | null>(null);
 		const asChildSlotId = useId();
 		useLayoutEffect(() => {
-			if (!asChildElement) {
-				childRefHolder.current = null;
-				return;
-			}
+			if (!asChildElement) return;
 			const childProps = asChildElement.props as { ref?: React.Ref<HTMLButtonElement> };
-			childRefHolder.current = childProps.ref ?? null;
-			const node = document.querySelector<HTMLButtonElement>(`[data-button-slot="${asChildSlotId}"]`);
-			assignRef(forwardedRef.current, node);
-			assignRef(childRefHolder.current, node);
-		}, [asChildElement, asChildSlotId]);
-		const assignForwardedRef = useCallback(
-			(node: HTMLButtonElement | null) => assignRef(forwardedRef.current, node),
-			[],
-		);
+			const childRef = childProps.ref;
+			const node = document.querySelector<HTMLButtonElement>(`[data-button-slot="${CSS.escape(asChildSlotId)}"]`);
+			assignRef(ref, node);
+			assignRef(childRef, node);
+			return () => {
+				assignRef(ref, null);
+				assignRef(childRef, null);
+			};
+		}, [asChildElement, asChildSlotId, ref]);
+		const assignForwardedRef = useCallback((node: HTMLButtonElement | null) => assignRef(ref, node), [ref]);
 		const resolvedSize: ButtonSizeCanonical = size
 			? (legacySizeAliases[size] ?? (size as ButtonSizeCanonical))
 			: "default";
