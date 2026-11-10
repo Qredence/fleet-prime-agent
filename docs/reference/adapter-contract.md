@@ -145,10 +145,10 @@ Durable rules:
 
 `session_outputs` is the one tool that reads Fleet's own conversation rather than runtime
 state. It returns `{ turn, role, kind, toolName, preview }` rows for the open session and
-is scoped to a session the caller already has access to. Detailed reasoning, internal
-lifecycle payloads, and raw tool output stay out of the rows; `preview` is a bounded,
-plain-text projection. This is what lets a generated dashboard summarize a session
-without gaining a broader read surface.
+is scoped to a session the caller already has access to. Detailed reasoning and internal
+lifecycle payloads stay out of the rows. `preview` is a bounded plain-text projection and
+may include a truncated slice of tool output. This is what lets a generated dashboard
+summarize a session without gaining a broader read surface.
 
 ## Generative UI dashboards
 
@@ -159,7 +159,8 @@ whether a Thesys key is configured, and a board keeps the mode that created it.
   message finishes, Fleet stores that program. The Dashboards tab draws it with the local
   renderer. There is no Cloud call.
 - **Key configured.** When the assistant message finishes, the server calls OpenUI Cloud
-  `create` or `edit` once. The Dashboards tab draws the stored opaque response with
+  `create` or `edit` once per settlement. An edit that is still generating returns 409, and
+  that call is retried within a bounded budget. The Dashboards tab draws the stored opaque response with
   `LiveArtifactRenderer` open. Data queries run through `POST /api/chat/dashboards/interpreter`,
   including the dashboard id so two boards in one session do not share one dataset.
   The browser gets a short-lived frontend token from `POST /api/chat/dashboards/token`.
@@ -182,10 +183,12 @@ Durable rules:
   fence. `session_outputs` is this chat's own activity, and it returns no rows when the
   fence already has figures, so truncated previews cannot replace them. A fence may include
   up to 12 columns and 200 rows. String cells are capped. A number column rejects a
-  non-numeric cell. An edit that omits rows keeps the stored rows. A subject with no stated
+  non-numeric cell. An edit that omits rows keeps the stored rows, including when the
+  fence repeats columns without rows. A subject with no stated
   figures and no session activity stays prose.
-- The browser does not start generation. The transcript shows one attachment per fence. The
-  attachment opens the Dashboards tab, which lists the session's boards and draws the selected
+- The browser does not start generation. The transcript shows one attachment for the first
+  dashboard fence in a message. Later fences in that message stay a notice, not another board.
+  The attachment opens the Dashboards tab, which lists the session's boards and draws the selected
   one. A board saved by an older version stays stored and shows an error attachment.
 - A Cloud create or edit response is opaque. It is stored and handed to the renderer
   verbatim; Fleet extracts the artifact id only to key its own record.

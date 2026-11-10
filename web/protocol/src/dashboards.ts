@@ -30,9 +30,12 @@ export type DashboardStatus = z.infer<typeof DashboardStatusSchema>;
  * Write-only dashboard settings. `null` clears a stored value and falls back to
  * the environment, then to the built-in default. Omitted fields are untouched.
  */
+const DASHBOARD_MODEL_ID = /^[^/\s]+\/[^/\s]+$/;
+
 export const DashboardSettingsUpdateSchema = z.object({
-	apiKey: z.string().nullable().optional(),
-	model: z.string().trim().min(1).max(200).nullable().optional(),
+	apiKey: z.string().trim().min(1).nullable().optional(),
+	/** Gateway ids are `{provider}/{model}`. A bare model name is rejected later, so refuse it here. */
+	model: z.string().trim().min(1).max(200).regex(DASHBOARD_MODEL_ID).nullable().optional(),
 });
 export type DashboardSettingsUpdate = z.infer<typeof DashboardSettingsUpdateSchema>;
 
@@ -76,10 +79,21 @@ export type DashboardColumn = z.infer<typeof DashboardColumnSchema>;
 
 const DashboardCellSchema = z.union([z.string(), z.number(), z.null()]);
 
+/** Column keys are trimmed. Row keys must be trimmed too, or the cell projects as null. */
+const DashboardRowSchema = z.record(z.string(), DashboardCellSchema).transform((row) => {
+	const normalized: Record<string, string | number | null> = {};
+	for (const [key, value] of Object.entries(row)) {
+		const trimmed = key.trim();
+		if (!trimmed) continue;
+		normalized[trimmed] = value;
+	}
+	return normalized;
+});
+
 export const DashboardDatasetSchema = z
 	.object({
 		columns: z.array(DashboardColumnSchema).min(1).max(DASHBOARD_COLUMN_LIMIT),
-		rows: z.array(z.record(z.string(), DashboardCellSchema)).max(DASHBOARD_ROW_LIMIT),
+		rows: z.array(DashboardRowSchema).max(DASHBOARD_ROW_LIMIT),
 	})
 	.superRefine((dataset, ctx) => {
 		const keys = dataset.columns.map((column) => column.key);
@@ -177,7 +191,53 @@ export const DASHBOARD_MODEL_SUGGESTIONS = [
 	"google/gemini-4-argon",
 ] as const;
 
-const DASHBOARD_FENCE = /```openui-dashboard[ \t]*\r?\n([\s\S]*?)```/g;
+const DASHBOARD_FENCE_OPEN = /```openui-dashboard[ \t]*\r?\n/g;
+
+/**
+ * Index of the closing fence, ignoring backticks inside JSON strings.
+ * Returns -1 when the fence is still incomplete.
+ */
+function indexOfUnquotedFence(content: string, start: number): number {
+	let inString = false;
+	let escaped = false;
+	for (let index = start; index < content.length; index += 1) {
+		const char = content[index];
+		if (inString) {
+			if (escaped) {
+				escaped = false;
+				continue;
+			}
+			if (char === "\\") {
+				escaped = true;
+				continue;
+			}
+			if (char === '"') inString = false;
+			continue;
+		}
+		if (char === '"') {
+			inString = true;
+			continue;
+		}
+		if (content.startsWith("```", index)) return index;
+	}
+	return -1;
+}
+
+function dashboardFenceSpans(content: string): Array<{ body: string; start: number; end: number }> {
+	const opener = new RegExp(DASHBOARD_FENCE_OPEN.source, "g");
+	const spans: Array<{ body: string; start: number; end: number }> = [];
+	for (let match = opener.exec(content); match; match = opener.exec(content)) {
+		const bodyStart = match.index + match[0].length;
+		const close = indexOfUnquotedFence(content, bodyStart);
+		if (close < 0) {
+			opener.lastIndex = bodyStart;
+			continue;
+		}
+		spans.push({ body: content.slice(bodyStart, close), start: match.index, end: close + 3 });
+		opener.lastIndex = close + 3;
+	}
+	return spans;
+}
 
 export type DashboardFence = {
 	title?: string;
@@ -198,7 +258,7 @@ const DashboardFenceSchema = z
 		id: z.string().trim().min(1).max(200).optional(),
 		program: z.string().trim().min(1).max(200_000).optional(),
 		columns: z.array(DashboardColumnSchema).max(DASHBOARD_COLUMN_LIMIT).optional(),
-		rows: z.array(z.record(z.string(), DashboardCellSchema)).max(DASHBOARD_ROW_LIMIT).optional(),
+		rows: z.array(DashboardRowSchema).max(DASHBOARD_ROW_LIMIT).optional(),
 	})
 	.superRefine((value, ctx) => {
 		if (!value.prompt && !value.program) {
@@ -219,15 +279,22 @@ const DashboardFenceSchema = z
 /** Completed dashboard fences in a message. Incomplete fences while streaming are skipped. */
 export function dashboardFences(content: string): DashboardFence[] {
 	const fences: DashboardFence[] = [];
-	for (const match of content.matchAll(DASHBOARD_FENCE)) {
-		const parsed = parseDashboardFence(match[1] ?? "");
+	for (const span of dashboardFenceSpans(content)) {
+		const parsed = parseDashboardFence(span.body);
 		if (parsed) fences.push(parsed);
 	}
 	return fences;
 }
 
 export function stripDashboardFences(content: string): string {
-	return content.replace(new RegExp(DASHBOARD_FENCE.source, "g"), "").trim();
+	let stripped = "";
+	let cursor = 0;
+	for (const span of dashboardFenceSpans(content)) {
+		stripped += content.slice(cursor, span.start);
+		cursor = span.end;
+	}
+	stripped += content.slice(cursor);
+	return stripped.trim();
 }
 
 export function parseDashboardFence(body: string): DashboardFence | undefined {
@@ -235,7 +302,8 @@ export function parseDashboardFence(body: string): DashboardFence | undefined {
 		const parsed = DashboardFenceSchema.safeParse(JSON.parse(body));
 		if (!parsed.success) return undefined;
 		const { columns, rows, title, prompt, id, program } = parsed.data;
-		const dataset = columns ? DashboardDatasetSchema.parse({ columns, rows: rows ?? [] }) : undefined;
+		// Omitted rows keep the stored dataset. An explicit empty array replaces it.
+		const dataset = columns && rows ? DashboardDatasetSchema.parse({ columns, rows }) : undefined;
 		return {
 			...(title ? { title } : {}),
 			...(prompt ? { prompt } : {}),

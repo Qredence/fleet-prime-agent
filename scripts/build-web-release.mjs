@@ -77,6 +77,12 @@ const buildResult = await build({
 	outdir: serverOutput,
 	logLevel: "info",
 	metafile: true,
+	// Dashboard text pulls in katex CSS, whose font urls esbuild otherwise rejects.
+	loader: {
+		".woff": "file",
+		".woff2": "file",
+		".ttf": "file",
+	},
 	external: [
 		...packageDependencies,
 		...[...packageDependencies]

@@ -5,6 +5,7 @@ import {
 	dashboardFenceKey,
 	dashboardFences,
 	dashboardIdFromResponse,
+	stripDashboardFences,
 } from "@prime-agent/web-protocol/dashboards";
 import { describe, expect, it } from "vitest";
 
@@ -14,6 +15,23 @@ describe("dashboard contract", () => {
 		expect(dashboardFences(complete)).toEqual([{ title: "Orders", prompt: "daily orders" }]);
 		expect(dashboardFences('```openui-dashboard\n{"prompt":"partial"')).toEqual([]);
 		expect(dashboardFences("```openui-dashboard\nnot json\n```")).toEqual([]);
+	});
+
+	it("keeps backticks that sit inside a JSON string", () => {
+		const fenced = [
+			"Intro",
+			"```openui-dashboard",
+			JSON.stringify({ title: "Orders", prompt: 'include ``` and she said "tick"' }),
+			"```",
+			"Outro",
+			"```openui-dashboard",
+			'{"prompt":"daily"}```',
+		].join("\n");
+		expect(dashboardFences(fenced)).toEqual([
+			{ title: "Orders", prompt: 'include ``` and she said "tick"' },
+			{ prompt: "daily" },
+		]);
+		expect(stripDashboardFences(fenced)).toBe("Intro\n\nOutro");
 	});
 
 	it("accepts a program fence and a cloud edit fence", () => {
@@ -51,6 +69,29 @@ describe("dashboard contract", () => {
 			{ key: "share", label: "Share", type: "number" },
 		]);
 		expect(fence?.dataset?.rows).toEqual([{ section: "Stars", spend: 54, share: 12 }]);
+	});
+
+	it("reads a padded row key as the trimmed column", () => {
+		const [fence] = dashboardFences(
+			`\`\`\`openui-dashboard\n${JSON.stringify({
+				prompt: "seats",
+				columns: [{ key: " seats ", label: "Seats", type: "number" }],
+				rows: [{ " seats ": 250 }],
+			})}\n\`\`\``,
+		);
+		expect(fence?.dataset?.rows).toEqual([{ seats: 250 }]);
+	});
+
+	it("omits the dataset when columns are repeated without rows", () => {
+		const [fence] = dashboardFences(
+			`\`\`\`openui-dashboard\n${JSON.stringify({
+				id: "art_1",
+				prompt: "add a filter",
+				columns: [{ key: "seats", label: "Seats", type: "number" }],
+			})}\n\`\`\``,
+		);
+		expect(fence).toMatchObject({ id: "art_1", prompt: "add a filter" });
+		expect(fence?.dataset).toBeUndefined();
 	});
 
 	it("defaults an omitted column type to string so label columns still settle", () => {

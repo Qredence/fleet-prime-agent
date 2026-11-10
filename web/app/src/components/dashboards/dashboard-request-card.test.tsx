@@ -216,7 +216,11 @@ describe("DashboardsPanel", () => {
 			title: "Local",
 		};
 		const { rerender } = render(
-			<DashboardsPanel artifacts={[cloud, local]} selectedArtifactId={cloud.id} sessionId="session-1" />,
+			<DashboardsPanel
+				artifactRuns={[{ id: "run", runId: "run", artifacts: [cloud, local] }]}
+				selectedArtifactId={cloud.id}
+				sessionId="session-1"
+			/>,
 		);
 		expect(screen.getByTestId("cloud-dashboard").textContent).toBe("opaque-response");
 		expect(mocks.cloudProps?.preview).toBe(false);
@@ -225,7 +229,7 @@ describe("DashboardsPanel", () => {
 
 		rerender(
 			<DashboardsPanel
-				artifacts={[cloud, local]}
+				artifactRuns={[{ id: "run", runId: "run", artifacts: [cloud, local] }]}
 				selectedArtifactId={local.id}
 				sessionId="session-1"
 				onOpenUIAction={onOpenUIAction}
@@ -238,5 +242,17 @@ describe("DashboardsPanel", () => {
 			humanFriendlyMessage: "Show the Senate",
 		});
 		expect(onOpenUIAction).toHaveBeenCalledWith("Show the Senate");
+	});
+
+	it("lists a board this version cannot read and shows the older-version notice", () => {
+		const unreadable = dashboardArtifact({ mode: "self-hosted", program: "old", fallbackReason: "old" });
+		render(
+			<DashboardsPanel
+				artifactRuns={[{ id: "run", runId: "run", artifacts: [unreadable] }]}
+				sessionId="session-1"
+			/>,
+		);
+		expect(screen.getByRole("button", { name: "Revenue" })).toBeTruthy();
+		expect(screen.getByText("Saved by an older version.")).toBeTruthy();
 	});
 });

@@ -2,4 +2,4 @@
 "@qredence/fleet": patch
 ---
 
-Report OpenUI render results to Reliability Monitoring when a browser client key is configured.
+Configuring a publishable OpenUI browser key sends render diagnostics to Reliability Monitoring.

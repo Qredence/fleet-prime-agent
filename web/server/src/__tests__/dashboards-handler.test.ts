@@ -1,5 +1,5 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
@@ -51,6 +51,7 @@ vi.mock("../singleton", () => ({
 
 import {
 	handleDashboardsGet,
+	handleDashboardsInterpreterPost,
 	handleDashboardsPut,
 	handleDashboardsTokenPost,
 	settleDashboardMessage,
@@ -146,6 +147,15 @@ describe("dashboard settings and creation", () => {
 		const body = await (await handleDashboardsGet(request("GET"))).json();
 		expect(body).toMatchObject({ configured: false, keySource: "none", mode: "self-hosted" });
 		expect(JSON.stringify(body)).not.toContain("alias-key");
+	});
+
+	it("rejects an empty key and a bare model before storing them", async () => {
+		const emptyKey = await handleDashboardsPut(request("PUT", { apiKey: "   " }));
+		expect(emptyKey.status).toBe(422);
+		const bareModel = await handleDashboardsPut(request("PUT", { model: "claude-sonnet" }));
+		expect(bareModel.status).toBe(422);
+		const saved = await (await handleDashboardsPut(request("PUT", { model: "openai/gpt-6-sol" }))).json();
+		expect(saved).toMatchObject({ model: "openai/gpt-6-sol", modelSource: "settings" });
 	});
 
 	it("stores and clears a dashboard model", async () => {
@@ -244,6 +254,12 @@ describe("dashboard settings and creation", () => {
 		} finally {
 			spy.mockRestore();
 		}
+	});
+
+	it("does not mint a user id when the legacy file cannot be read", async () => {
+		await mkdir(join(agentDir, "dashboard-user-id"));
+		await expect(dashboardUsers.dashboardUserId()).rejects.toThrow();
+		await expect(readFile(join(agentDir, "thesys.json"), "utf8")).rejects.toThrow();
 	});
 
 	it("keeps one cloud user id on thesys.json and copies a legacy file once", async () => {
@@ -436,6 +452,74 @@ describe("dashboard settings and creation", () => {
 		});
 		const stored = await settleDashboardMessage("session-1", "message-1", message({ prompt: "orders" }));
 		expect(JSON.stringify(stored)).not.toContain("sk-live-abcdef123456");
+	});
+
+	it("keeps a built board when the same create fence is repeated without a key", async () => {
+		process.env.THESYS_API_KEY = "env-key";
+		cloudService();
+		const content = message({ title: "Orders", prompt: "orders" });
+		const created = await settleDashboardMessage("session-1", "message-1", content);
+		delete process.env.THESYS_API_KEY;
+		const repeated = await settleDashboardMessage("session-1", "message-2", content);
+		expect(repeated?.id).toBe(created?.id);
+		expect(repeated?.output).toMatchObject({ response: cloudCreated("art_test") });
+		expect(repeated?.output).not.toHaveProperty("error");
+	});
+
+	it("creates one cloud board when the same fence settles twice at once", async () => {
+		process.env.THESYS_API_KEY = "env-key";
+		let calls = 0;
+		let release = (): void => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		cloudService({
+			create: async () => {
+				calls += 1;
+				await gate;
+				return cloudCreated("art_once");
+			},
+		});
+		const content = message({ prompt: "orders" });
+		const first = settleDashboardMessage("session-1", "message-1", content);
+		await vi.waitFor(() => expect(calls).toBe(1));
+		const second = settleDashboardMessage("session-1", "message-2", content);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(calls).toBe(1);
+		release();
+		const [created, again] = await Promise.all([first, second]);
+		expect(calls).toBe(1);
+		expect(again?.id).toBe(created?.id);
+		expect(again?.output).toMatchObject({ response: cloudCreated("art_once") });
+	});
+
+	it("keeps stored rows when an edit repeats columns without rows", async () => {
+		process.env.THESYS_API_KEY = "env-key";
+		cloudService();
+		const columns = [{ key: "seats", label: "Seats", type: "number" }];
+		await settleDashboardMessage(
+			"session-1",
+			"message-1",
+			message({ prompt: "orders", columns, rows: [{ seats: 250 }] }),
+		);
+		const edited = await settleDashboardMessage(
+			"session-1",
+			"message-2",
+			message({ id: "art_test", prompt: "add a filter", columns }),
+		);
+		expect(edited?.output).toMatchObject({ dataset: { rows: [{ seats: 250 }] } });
+	});
+
+	it("returns 400 when the interpreter body is not JSON", async () => {
+		const response = await handleDashboardsInterpreterPost(
+			new Request("http://127.0.0.1/api/chat/dashboards/interpreter?sessionId=session-1", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", Origin: "http://127.0.0.1" },
+				body: "{",
+			}),
+		);
+		expect(response.status).toBe(400);
+		expect(await response.json()).toMatchObject({ error: { code: "invalid_request" } });
 	});
 
 	it("keeps a cloud board when the key is removed", async () => {

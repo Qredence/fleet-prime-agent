@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
 	getMessages: vi.fn(async () => [] as unknown[]),
 	definitions: [] as Array<{
 		tools: Record<string, DataTool>;
-		promptOptions?: { preamble?: string; additionalRules?: string[] };
+		promptOptions?: { preamble?: string; additionalRules?: string[]; examples?: string[] };
 	}>,
 }));
 
@@ -54,7 +54,7 @@ vi.mock("@openuidev/server", () => {
 	class OpenUIClient {
 		defineDashboard(options: {
 			tools: Record<string, DataTool>;
-			promptOptions?: { preamble?: string; additionalRules?: string[] };
+			promptOptions?: { preamble?: string; additionalRules?: string[]; examples?: string[] };
 		}) {
 			mocks.definitions.push(options);
 			return {
@@ -119,6 +119,9 @@ describe("session_outputs abort handling", () => {
 		createDashboardService("sk-test");
 		const definition = mocks.definitions.at(-1);
 		expect(definition?.promptOptions?.additionalRules?.join("\n")).not.toMatch(/placeholder data/i);
+		const examples = definition?.promptOptions?.examples?.join("\n") ?? "";
+		expect(examples).toContain('Query("dashboard_rows"');
+		expect(examples).not.toMatch(/\d|\$/);
 		expect(definition?.promptOptions?.preamble).toMatch(/Lay out the figures Prime Agent already collected/);
 		expect(definition?.promptOptions?.additionalRules?.join("\n")).toMatch(/Do not research/);
 		const result = await definition?.tools.dashboard_rows?.execute(

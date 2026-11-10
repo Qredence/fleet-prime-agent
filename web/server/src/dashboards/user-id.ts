@@ -19,12 +19,17 @@ function stringFrom(record: Record<string, unknown>, field: string): string | un
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function isMissingFile(error: unknown): boolean {
+	return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
 async function readLegacyUserId(agentDir: string): Promise<string | undefined> {
 	try {
 		const existing = (await readFile(join(agentDir, LEGACY_FILE), "utf8")).trim();
 		return existing || undefined;
-	} catch {
-		return undefined;
+	} catch (error) {
+		if (isMissingFile(error)) return undefined;
+		throw error;
 	}
 }
 

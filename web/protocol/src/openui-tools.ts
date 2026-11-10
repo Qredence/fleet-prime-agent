@@ -175,6 +175,39 @@ export type OpenUIToolDescriptor = {
 	outputSchema: Record<string, unknown>;
 };
 
+const sessionOutputsOutputSchema = (): Record<string, unknown> => ({
+	type: "object",
+	properties: {
+		rows: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					turn: { type: "number" },
+					role: { type: "string", enum: ["user", "assistant"] },
+					kind: { type: "string", enum: ["text", "tool"] },
+					toolName: { type: "string" },
+					preview: { type: "string" },
+				},
+			},
+		},
+		columns: {
+			type: "object",
+			properties: {
+				turn: { type: "array", items: { type: "number" } },
+				role: { type: "array", items: { type: "string" } },
+				kind: { type: "array", items: { type: "string" } },
+				toolName: { type: "array", items: { type: "string" } },
+				preview: { type: "array", items: { type: "string" } },
+			},
+			required: ["turn", "role", "kind", "toolName", "preview"],
+		},
+		total: { type: "number" },
+		toolCalls: { type: "number" },
+	},
+	required: ["rows", "columns", "total", "toolCalls"],
+});
+
 const rowOutputSchema = (properties: Record<string, unknown>): Record<string, unknown> => ({
 	type: "object",
 	properties: {
@@ -196,7 +229,7 @@ const ROW_FIELDS = {
 	session_stats:
 		"Each row has exactly these fields: status, sessions, messages. Use those exact keys as DataTable column keys.",
 	session_outputs:
-		"Each row has exactly these fields: turn, role, kind, toolName, preview. Use those exact keys as DataTable column keys. kind is text or tool. Reasoning is not included. The response also carries `total`, the row count before the limit was applied; use `total` for a session-wide count and `rows` for what is displayed.",
+		"Each row has exactly these fields: turn, role, kind, toolName, preview. Use those exact keys as DataTable column keys. kind is text or tool. Reasoning is not included. The response also carries `columns` (one array per field, for Col), `total` (the row count before the limit), and `toolCalls`. Use `total` for a session-wide count and `columns` for what is displayed.",
 } as const;
 
 /** Tool descriptions are prompt text: they name the exact row fields, because a
@@ -252,13 +285,7 @@ export const OPENUI_TOOL_DESCRIPTORS: readonly OpenUIToolDescriptor[] = [
 		name: "session_outputs",
 		description: `Reads the open Fleet session's text and tool outputs, oldest first. ${ROW_FIELDS.session_outputs} The session is chosen by Fleet, not by an argument. Use it for a dashboard of this session.`,
 		inputSchema: z.toJSONSchema(SessionOutputsToolArgsSchema) as Record<string, unknown>,
-		outputSchema: rowOutputSchema({
-			turn: { type: "number" },
-			role: { type: "string", enum: ["user", "assistant"] },
-			kind: { type: "string", enum: ["text", "tool"] },
-			toolName: { type: "string" },
-			preview: { type: "string" },
-		}),
+		outputSchema: sessionOutputsOutputSchema(),
 	},
 ];
 

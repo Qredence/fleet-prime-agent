@@ -81,7 +81,7 @@ export function ThreadSearch({
 				onSelect?.(thread.id);
 			}}
 			className={cn(
-				"flex flex-col gap-0.5 rounded-md px-2 py-1 text-start transition-colors",
+				"flex flex-col gap-0.5 rounded-sm px-2 py-1 text-start transition-colors",
 				thread.id === focusId
 					? "bg-foreground/[0.05]"
 					: thread.id === activeId

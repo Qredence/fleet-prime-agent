@@ -1,4 +1,4 @@
-import { dashboardFences } from "@prime-agent/web-protocol/dashboards";
+import { dashboardFences, stripDashboardFences } from "@prime-agent/web-protocol/dashboards";
 import { lazy, Suspense, useMemo } from "react";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
@@ -10,7 +10,8 @@ const LazyGenerativeTextRenderer = lazy(() =>
 	})),
 );
 function PlainTextFallback({ className, content }: { className?: string; content: string }) {
-	return <div className={className ? `${className} whitespace-pre-wrap` : "whitespace-pre-wrap"}>{content}</div>;
+	const visible = stripDashboardFences(content);
+	return <div className={className ? `${className} whitespace-pre-wrap` : "whitespace-pre-wrap"}>{visible}</div>;
 }
 
 export type SessionGenerativeTextRendererProps = {

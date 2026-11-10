@@ -24,7 +24,7 @@ const BASE_RULES = [
 	"Use Markdown for prose, explanations, and code unless a visual card, table, metric, chart, or action row would be clearer.",
 	"Prefer compact UI blocks that fit inside a chat message.",
 	"Use Todo for read-only Prime checklists and plan items, Steps for ordered pipeline progress, Disclosure for optional detail, and Citation for ordinary external sources.",
-	"Use `PanelAction` only to open Resources, Workspace, Artifacts, or Session insights. Use a workspace-relative path only when selecting a Workspace or Artifact location; it cannot change the workspace root or access external paths.",
+	"Use `PanelAction` only to open Resources, Workspace, Artifacts, Session insights, or Dashboards. Use a workspace-relative path only when selecting a Workspace or Artifact location; it cannot change the workspace root or access external paths.",
 	"Citation links are external references only; never use them to access local files or trigger host actions.",
 	"Do not use `Button` for application navigation, settings, tabs, tool execution, or approvals.",
 	'Reactive State ($variables): Declare reactive variables with `$name = defaultValue`. Bind them to inputs such as `Input("search", $search)` or `Select("timeframe", $timeframe, [{ value: "7", label: "7 Days" }])`. Updating the input automatically recalculates all dependent expressions.',

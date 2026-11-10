@@ -1,6 +1,6 @@
 import { OpenUIApiError, ToolExecutionError } from "@openuidev/server";
 import { DashboardSettingsUpdateSchema, type DashboardStatus } from "@prime-agent/web-protocol/dashboards";
-import { configuredDashboardService } from "../dashboards/cloud";
+import { configuredDashboardService, type DashboardService } from "../dashboards/cloud";
 import {
 	clearStoredDashboardModel,
 	clearStoredThesysKey,
@@ -66,8 +66,16 @@ export function handleDashboardsInterpreterPost(request: Request): Promise<Respo
 		const dashboardId = url.searchParams.get("dashboardId") ?? "";
 		const session = await requireSession(sessionId);
 		if (!session) return Response.json({ message: "Unknown session." }, { status: 404 });
+		let body: Parameters<DashboardService["interpreter"]["execute"]>[0];
 		try {
-			const body = await request.json();
+			body = await request.json();
+		} catch {
+			return Response.json(
+				{ error: { code: "invalid_request", message: "Dashboard data failed." } },
+				{ status: 400 },
+			);
+		}
+		try {
 			const service = await configuredDashboardService();
 			if (!service) return Response.json({ message: "A Thesys API key is required." }, { status: 404 });
 			const artifact = dashboardId ? findEditableDashboard(session.sessionId, dashboardId) : undefined;

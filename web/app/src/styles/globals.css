@@ -9,6 +9,11 @@
 @custom-variant dark (&:is(.dark *));
 @source "../**/*.{ts,tsx}";
 
+@utility scroll-fade-x {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 1rem, #000 calc(100% - 1rem), transparent);
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Inter Variable", sans-serif;

@@ -35,7 +35,7 @@ const NOT_A_CLOUD_BOARD = "That dashboard was not built by OpenUI Cloud.";
 const EDIT_SETTLE_ATTEMPTS = 8;
 const EDIT_SETTLE_INTERVAL_MS = 1500;
 
-const settling = new Set<string>();
+const settling = new Map<string, Promise<PrimeAgentArtifact | undefined>>();
 
 function statusOf(error: unknown): number | undefined {
 	if (typeof error !== "object" || error === null || !("status" in error)) return undefined;
@@ -186,9 +186,28 @@ export async function settleDashboardMessage(
 ): Promise<PrimeAgentArtifact | undefined> {
 	const fence = dashboardFences(content)[0];
 	if (!fence) return undefined;
-	const claim = `${sessionId}:${messageId}`;
-	if (settling.has(claim)) return undefined;
-	settling.add(claim);
+	// One board per fence. Overlapping messages with the same fence must share
+	// this claim, or both call Cloud before either artifact is stored.
+	const claim = `${sessionId}:${dashboardFenceKey(fence)}`;
+	const inFlight = settling.get(claim);
+	if (inFlight) {
+		await inFlight;
+		return settleDashboardMessage(sessionId, messageId, content);
+	}
+	const run = settleFenceOrFailure(sessionId, messageId, fence);
+	settling.set(claim, run);
+	try {
+		return await run;
+	} finally {
+		if (settling.get(claim) === run) settling.delete(claim);
+	}
+}
+
+async function settleFenceOrFailure(
+	sessionId: string,
+	messageId: string,
+	fence: DashboardFence,
+): Promise<PrimeAgentArtifact | undefined> {
 	try {
 		return await settleFence(sessionId, messageId, fence);
 	} catch (error) {
@@ -198,8 +217,6 @@ export async function settleDashboardMessage(
 			logSettleFailure(storeError);
 			return undefined;
 		}
-	} finally {
-		settling.delete(claim);
 	}
 }
 
@@ -265,6 +282,8 @@ async function settleCreate(
 	const existing = findByFenceKey(sessionId, fenceKey);
 	if (alreadySettled(existing, messageId)) return existing;
 	const title = fence.title ?? existing?.title ?? "Dashboard";
+	// A missing key must not replace a board that was already built.
+	if (existing && storedRecord(existing)?.response) return existing;
 	if (mode !== "cloud") {
 		return storeDashboard(
 			sessionId,
@@ -277,7 +296,6 @@ async function settleCreate(
 			),
 		);
 	}
-	if (existing && storedRecord(existing)?.response) return existing;
 
 	const service = await configuredDashboardService();
 	if (!service) {

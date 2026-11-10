@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import { Activity, Bot, Folder, GitBranch, LayoutDashboard, Library, Package, SquareTerminal } from "lucide-react";
 import type { ComponentType } from "react";
 import { lazy, Suspense } from "react";
-import { mergeArtifactsById } from "@/components/dashboards/dashboard-artifacts";
 import type { RightPanel } from "@/components/layout/canvas-utils";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -92,7 +91,8 @@ function DashboardsContent() {
 	return (
 		<Suspense fallback={<PanelFallback />}>
 			<LazyDashboardsPanel
-				artifacts={mergeArtifactsById(data.artifactRuns, data.presentation?.artifactRuns)}
+				artifactRuns={data.artifactRuns}
+				presentationRuns={data.presentation?.artifactRuns}
 				selectedArtifactId={data.selectedArtifactId}
 				sessionId={data.sessionId}
 				onOpenUIAction={data.onOpenUIAction}

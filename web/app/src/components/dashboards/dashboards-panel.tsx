@@ -1,5 +1,6 @@
-import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
-import { DashboardBoard, dashboardRecord } from "@/components/dashboards/dashboard-view";
+import type { PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol";
+import { mergeArtifactsById } from "@/components/dashboards/dashboard-artifacts";
+import { DashboardBoard } from "@/components/dashboards/dashboard-view";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -7,19 +8,23 @@ import { Button } from "@/components/ui/button";
  * A button on the board sends its message through the chat action path.
  */
 export function DashboardsPanel({
-	artifacts,
+	artifactRuns,
+	presentationRuns,
 	selectedArtifactId,
 	sessionId,
 	onOpenUIAction,
 	onSelect,
 }: {
-	artifacts: readonly PrimeAgentArtifact[];
+	artifactRuns: readonly PrimeAgentArtifactRun[];
+	presentationRuns?: readonly PrimeAgentArtifactRun[];
 	selectedArtifactId?: string | null;
 	sessionId?: string;
 	onOpenUIAction?: (message: string) => void;
 	onSelect?: (artifactId: string) => void;
 }) {
-	const boards = artifacts.filter((artifact) => dashboardRecord(artifact) !== undefined);
+	const boards = mergeArtifactsById(artifactRuns, presentationRuns).filter(
+		(artifact) => artifact.kind === "openui-dashboard",
+	);
 	const selected = boards.find((board) => board.id === selectedArtifactId) ?? boards[0];
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-3">
