@@ -1,0 +1,150 @@
+web/server/src/handlers/chat-resume.ts
+  s_0c82f824885bf2::t_12d0b9353198cc 5,20
+web/app/src/components/tools/tool-output-normalizer.ts
+  s_0c82f824885bf2::t_6a24843d1997fb 92-142
+web/app/src/components/tools/session-tool-renderer.tsx
+  s_0c82f824885bf2::t_67f8882e599a31 87,93
+  s_0c82f824885bf2::t_cac0d675e7b0de 16-20
+web/app/src/components/chat/chat-client.ts
+  s_0c82f824885bf2::t_87e33e69d71187 386
+web/app/src/components/layout/use-right-panel-context-value.ts
+  s_0c82f824885bf2::t_e8693f5b03ee44 1,18-33,46-53,55,67,72,88,114,119,132,151,169-248,358-359,375,383-384,399
+web/app/src/components/tools/tool-renderer.tsx
+  s_0c82f824885bf2::t_c4e3e347d50160 2,16
+  s_0c82f824885bf2::t_997fd6dcfa05ec 27,32
+web/app/src/components/chat/agent-chat.tsx
+  s_0c82f824885bf2::t_7b5532fc4c55ad 310-323
+web/app/src/components/chat/use-pi-chat.ts
+  s_0c82f824885bf2::t_8ff071c8cab76a 65-75,85,90-91,93-95
+  s_0c82f824885bf2::t_e822d52f83ac8d 716
+  s_0c82f824885bf2::t_6b720960b61936 729
+  s_0c82f824885bf2::t_5606a717f3a747 16,31
+  s_0c82f824885bf2::t_4154c1e7d062f0 314
+web/app/src/components/chat/transcript/message-turns.tsx
+  s_0c82f824885bf2::t_665be5b8ff9591 12
+  s_0c82f824885bf2::t_1b2617d3a0e796 178-182,187-188,193
+  s_0c82f824885bf2::t_f78e1fb618fc66 256
+web/protocol/src/chat-protocol.zod.ts
+  s_0c82f824885bf2::t_89be97e012335a 1
+web/app/src/components/chat/plans/use-pi-chat-plan-decisions.ts
+  s_0c82f824885bf2::t_eb347180b16341 3,6-9
+web/protocol/src/openui-prompt.ts
+  s_0c82f824885bf2::t_5aaf2685e896f5 283
+web/app/src/components/openui/openui-renderer.tsx
+  s_0c82f824885bf2::t_d2b89c2dc6c389 4,10,22,25,28,30-34
+  s_0c82f824885bf2::t_b601f85776437a 119,141-145,149
+web/server/src/handlers/chat.ts
+  s_0c82f824885bf2::t_4774274e21afd2 138,154
+web/app/scripts/generate-openui-contract.ts
+  s_0c82f824885bf2::t_9a70998e924111 15
+  s_0c82f824885bf2::t_0e6929ec615948 16,26,28
+web/app/src/components/openui/openui-library.test.ts
+  s_0c82f824885bf2::t_a7f51f01a15214 60-64
+  s_0c82f824885bf2::t_d3be06f542f5ac 2
+web/protocol/src/schemas/settings.ts
+  s_0c82f824885bf2::t_ed28a83ace3214 50-74,94,119-121,123-132
+web/protocol/src/composer-completion.ts
+  s_0c82f824885bf2::t_6926bb6e5b75fb 23-30,55,63,77,86
+web/app/src/components/tools/plan-tool.tsx
+  s_0c82f824885bf2::t_f3c2873b0c3a98 52,62-84
+  s_0c82f824885bf2::t_5b97399dd70218 206,214,253
+  s_0c82f824885bf2::t_78178bba444a4e 4
+  s_0c82f824885bf2::t_dd687e225f3f6e 85
+.changeset/simplify-web-layers.md
+  s_0c82f824885bf2::t_c98d4157a8ffcf 1-5
+web/protocol/src/schemas/shared.ts
+  s_0c82f824885bf2::t_eccbc4643a8267 1,5,7,9,11,13
+web/protocol/src/chat-protocol.ts
+  s_0c82f824885bf2::t_3bcb09ea2c4e45 1-2,4-105,107,113-125,128-130,134,139-140,143-178,180-181,183-187,211-242
+web/protocol/tsconfig.json
+  s_0c82f824885bf2::t_c133d18d4a9571 7
+web/server/src/handlers/chat-session.ts
+  s_0c82f824885bf2::t_a46c47f511ec3c 3,8-19,77
+web/app/src/components/chat/chat-queries.ts
+  s_0c82f824885bf2::t_ff0504ef75bacf 113,117
+  s_0c82f824885bf2::t_b7989b7d885e6c 155,159
+web/protocol/src/openui-signatures.ts
+  s_0c82f824885bf2::t_520aac47bfb4c5 224,226
+web/server/src/rlm-child-stream-manager.ts
+  s_0c82f824885bf2::t_6cebeab0d3c73f 1-598
+web/protocol/src/schemas/chat.ts
+  s_0c82f824885bf2::t_54479f95bb477e 170-177
+  s_0c82f824885bf2::t_c748892eb6e24d 268
+  s_0c82f824885bf2::t_d840f3a48dec85 4-8,10-14,19,26-29,60,62-68,70-77,79-85,87-98,100-102,104-108,110-115,117-121,123-131,133-137,139-142,144-147,149-155,157-161,163-168,179-192,194-201,203-215,219,223-228,230-233,235-240,242-245,247-252,254-267,269,271-278,280-295,299-303,305-309,311-320,322-333,335-344,346-350,352-356,358-366,368-371,373-377,379-383,385-388,390-396,398-404,406-411,413-414,428-440,442-448,450-463,465-489,494,496-501,503-508,510-523,547-558,560-563,565-579,581-584,586-591,593-596,598-602,604-611,613-617,619-622,624-628,630-634,636-640,642-653,655-663,665-672,674-682,684-690,725-739,741-751,753-755
+web/protocol/src/mcp.ts
+  s_0c82f824885bf2::t_f05412fd4f869c 1-16,18,20,22,24,26,28,30,32,34,36,38,40-42
+web/app/src/components/openui/openui-session-context.tsx
+  s_0c82f824885bf2::t_d6398ac7d28e49 2,5-9
+web/app/src/components/layout/chat-workspace-shell.tsx
+  s_0c82f824885bf2::t_20fc44d6f92913 225-255,257-270
+  s_0c82f824885bf2::t_896648c1beed55 6
+web/app/src/components/chat/use-chat-workspace-data.ts
+  s_0c82f824885bf2::t_463fa29a020fdb 2,7
+  s_0c82f824885bf2::t_b3b90cb8318380 405,418,437,439,486
+web/protocol/src/composer-intent.ts
+  s_0c82f824885bf2::t_143b4359cd7b04 14-25
+  s_0c82f824885bf2::t_684112c54ab3a9 287,296,299,306,309,318
+  s_0c82f824885bf2::t_0361752a0da6aa 222,225
+web/server/src/__tests__/prime-bridge.test.ts
+  s_0c82f824885bf2::t_0026e21b91d857 496,501-502
+web/server/package.json
+  s_0c82f824885bf2::t_e3499b108f1503 21
+web/protocol/src/chat-types.ts
+  s_0c82f824885bf2::t_f54b182395056d 1-19,24,27-31,34-52,66
+web/app/src/components/chat/subagents/subagent-transcript.tsx
+  s_0c82f824885bf2::t_20d933698e6079 55-61
+web/protocol/src/schemas/intent.ts
+  s_0c82f824885bf2::t_ccf9830c3d93af 4-52
+web/app/src/components/openui/openui-prompt-examples.test.ts
+  s_0c82f824885bf2::t_c39b4205f3fcfb 103
+  s_0c82f824885bf2::t_8c6adb6a04d506 53,66-69
+web/protocol/src/schemas/session-tree.ts
+  s_0c82f824885bf2::t_fdf6fe1413e379 9-20,38-42,46-48,52-56,60-62
+web/server/src/prime-agent-presentation.ts
+  s_0c82f824885bf2::t_5365d748d267cb 144-220
+web/server/src/prime-bridge.ts
+  s_0c82f824885bf2::t_cdfd7e3e2ba969 201,204,217-243
+  s_0c82f824885bf2::t_ba3878fdf25e35 480,509,545
+  s_0c82f824885bf2::t_b517eba5798ac0 37,87,93-98,104
+  s_0c82f824885bf2::t_317bf39cc3e86d 642,654,682,684
+  s_0c82f824885bf2::t_9a1db9248d9b81 412-414
+  s_0c82f824885bf2::t_36711297d4665e 896,905
+  s_0c82f824885bf2::t_33b9238e75cba2 321,330
+  s_0c82f824885bf2::t_083fcc458c39ed 1241
+  s_0c82f824885bf2::t_dbf51e6c3e3492 796,816
+  s_0c82f824885bf2::t_ef40086225f167 752,781
+web/app/src/components/openui/openui-tools.test.ts
+  s_0c82f824885bf2::t_cb6619af951ca2 16,32
+web/app/package.json
+  s_0c82f824885bf2::t_224f9840f1623c 31,33
+web/server/src/prime-config.ts
+  s_0c82f824885bf2::t_e0a26cb37be40c 57,64-67,94
+web/protocol/src/schemas/completion.ts
+  s_0c82f824885bf2::t_c8bb10d2da6a4d 4,7,9-14,16-20
+pnpm-workspace.yaml
+  s_0c82f824885bf2::t_f346d70ef2ca81 9-10,12-15,19-21
+web/protocol/src/schemas/mcp.ts
+  s_0c82f824885bf2::t_8cde03a83fc614 22-52,61,71-74,76-78,82-88,96-118
+web/protocol/src/schemas/misc.ts
+  s_0c82f824885bf2::t_94acd2d6a8f5c9 3-5,7-9
+web/protocol/src/schemas/catalog.ts
+  s_0c82f824885bf2::t_ab7383e2c84337 3-63,74-78,80-87,89-188
+pnpm-lock.yaml
+  s_0c82f824885bf2::t_967ff348084073 108-109,114-115,263-264,1038-1039,1064-1065,1074-1075,6919,6952,6970,6973,6985,7019
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8fce5e36edca401a4225dfec4509bb53508f19cb",
+  "prompts": {},
+  "sessions": {
+    "s_0c82f824885bf2": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "40839486-1c60-496c-8c3e-10303ac2cbdc",
+        "model": "custom:Deepseek-V4.1-Flash-1017---Command-0"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
