@@ -136,6 +136,7 @@ export function createDashboardService(apiKey: string, model: string = DEFAULT_D
 			additionalRules: [
 				...(specFile.promptOptions.additionalRules ?? []).filter((rule) => !/placeholder data/i.test(rule)),
 				"Lay out dashboard_rows. Leave a section empty when those rows do not have the figure. Do not research. session_outputs is this chat's activity and is empty when dashboard_rows has figures.",
+				"In the example, label and value stand in for column keys. Bind each Col to a key dashboard_rows returns. Do not copy label or value unless that key is in the dataset.",
 			],
 		},
 	});

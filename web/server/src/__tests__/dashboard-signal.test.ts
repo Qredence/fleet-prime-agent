@@ -123,7 +123,9 @@ describe("session_outputs abort handling", () => {
 		expect(examples).toContain('Query("dashboard_rows"');
 		expect(examples).not.toMatch(/\d|\$/);
 		expect(definition?.promptOptions?.preamble).toMatch(/Lay out the figures Prime Agent already collected/);
-		expect(definition?.promptOptions?.additionalRules?.join("\n")).toMatch(/Do not research/);
+		const rules = definition?.promptOptions?.additionalRules?.join("\n");
+		expect(rules).toMatch(/Do not research/);
+		expect(rules).toMatch(/label and value stand in for column keys/);
 		const result = await definition?.tools.dashboard_rows?.execute(
 			{},
 			{

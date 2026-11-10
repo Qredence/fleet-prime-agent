@@ -154,6 +154,7 @@ describe("dashboard settings and creation", () => {
 		expect(emptyKey.status).toBe(422);
 		const bareModel = await handleDashboardsPut(request("PUT", { model: "claude-sonnet" }));
 		expect(bareModel.status).toBe(422);
+		await expect(readFile(join(agentDir, "thesys.json"), "utf8")).rejects.toThrow();
 		const saved = await (await handleDashboardsPut(request("PUT", { model: "openai/gpt-6-sol" }))).json();
 		expect(saved).toMatchObject({ model: "openai/gpt-6-sol", modelSource: "settings" });
 	});
