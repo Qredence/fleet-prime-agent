@@ -54,15 +54,17 @@ type PrimeConfigGlobal = { __primeConfig?: PrimeConfig };
 
 function createPrimeConfig(initialCwd: string): PrimeConfig {
 	const agentDir = resolveAgentDir();
-	const authStorage = createLegacyAuthStorage(join(agentDir, "auth.json"));
+	let authStorage: LegacyAuthStorage | undefined;
 	const projectRegistry = new ProjectRegistry(agentDir, initialCwd);
 
 	const currentDefaultCwd = resolve(initialCwd);
 	const settingsByCwd = new Map<string, LegacySettingsManager>();
-	settingsByCwd.set(currentDefaultCwd, createLegacySettingsManager(currentDefaultCwd, agentDir));
 
 	const config: PrimeConfig = {
-		authStorage,
+		get authStorage() {
+			authStorage ??= createLegacyAuthStorage(join(agentDir, "auth.json"));
+			return authStorage;
+		},
 		get defaultSettings() {
 			return this.settingsFor(currentDefaultCwd);
 		},
@@ -89,7 +91,7 @@ function createPrimeConfig(initialCwd: string): PrimeConfig {
 		},
 
 		reloadAuth(): void {
-			this.authStorage.reload();
+			authStorage?.reload();
 			// The daemon re-reads `auth.json` and `models.json` itself, so there is
 			// no registry to refresh. Fleet's own catalog snapshot is what goes
 			// stale after a write, so it is what gets dropped.

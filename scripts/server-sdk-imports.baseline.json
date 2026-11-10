@@ -55,7 +55,6 @@
 			"@earendil-works/pi-agent-core#AgentMessage",
 			"@earendil-works/pi-agent-core#ThinkingLevel",
 			"@earendil-works/pi-ai#ImageContent",
-			"prime-agent#AgentConnectionEvent",
 			"prime-agent#AgentSession",
 			"prime-agent#ExtensionUIContext"
 		],

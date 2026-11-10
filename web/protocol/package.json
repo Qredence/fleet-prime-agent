@@ -27,7 +27,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "^9.1.0",
     "@openuidev/lang-core": "^1.1.0",
     "zod": "^4.6.6"
   },

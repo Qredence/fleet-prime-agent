@@ -1,6 +1,4 @@
 import { generatePrompt } from "@openuidev/lang-core";
-import { buildLegacyOpenUIPrompt } from "./openui-legacy-prompt";
-
 import { openUIPromptSpec } from "./openui-signatures";
 import { OPENUI_TOOL_DESCRIPTORS } from "./openui-tools";
 
@@ -282,9 +280,8 @@ const LOCAL_DASHBOARD_RULES = [
 
 export function buildOpenUIPrompt(
 	mode: OpenUIPromptMode,
-	options?: { artifact?: boolean; syntaxVersion?: "0.x" | "1.x"; dashboards?: OpenUIDashboardPrompt },
+	options?: { artifact?: boolean; dashboards?: OpenUIDashboardPrompt },
 ) {
-	if (options?.syntaxVersion !== "1.x") return buildLegacyOpenUIPrompt(mode, options);
 	const artifact = options?.artifact === true;
 	const toolCalls = !artifact && (mode === "agent" || mode === "plan-execution");
 	const cloudDashboards = options?.dashboards?.mode === "cloud";

@@ -50,7 +50,7 @@ function isReferencedOutsideAssignment(program: string, id: string): boolean {
 }
 
 describe("OpenUI agent prompt examples", () => {
-	const prompt = buildOpenUIPrompt("agent", { syntaxVersion: "1.x" });
+	const prompt = buildOpenUIPrompt("agent");
 	const programs = extractOpenUIExamples(prompt);
 	const parser = createParser(openUILibrary.toJSONSchema(), openUILibrary.root);
 	// Dashboard programs render with the dashboard library, so they validate
@@ -63,13 +63,10 @@ describe("OpenUI agent prompt examples", () => {
 			expect(program.split("\n")[0]).toMatch(isDashboardProgram ? /^root = Dashboard/ : /^root = Root/);
 		}
 	});
-	it("defaults undeclared clients to the legacy catalog and wrapped actions", () => {
-		const legacy = buildOpenUIPrompt("agent");
-		expect(legacy).toBe(buildOpenUIPrompt("agent", { syntaxVersion: "0.x" }));
-		expect(legacy).toContain('Button("Apply Filters", Action([');
-		expect(legacy).not.toContain("@OpenPanel");
-		expect(legacy).not.toContain("Tabs(");
-		expect(legacy).not.toContain('Query("list_sessions"');
+	it("ships the current OpenUI catalog and read-only tools", () => {
+		expect(prompt).toContain('Button("Apply Filters", Action([');
+		expect(prompt).toContain("OpenPanel(");
+		expect(prompt).toContain("Tabs(");
 		expect(prompt).toContain('Query("list_sessions"');
 	});
 	it("ships at least one fenced openui example", () => {
@@ -103,9 +100,8 @@ describe("OpenUI agent prompt examples", () => {
 	});
 
 	it("teaches a local program and a cloud prompt, both bound to this session", () => {
-		const local = buildOpenUIPrompt("agent", { syntaxVersion: "1.x", dashboards: { mode: "self-hosted" } });
+		const local = buildOpenUIPrompt("agent", { dashboards: { mode: "self-hosted" } });
 		const cloud = buildOpenUIPrompt("agent", {
-			syntaxVersion: "1.x",
 			dashboards: { mode: "cloud", latestDashboardId: "art_1" },
 		});
 		const localPrograms = extractOpenUIExamples(local).filter((program) => program.startsWith("root = Dashboard("));
@@ -118,7 +114,6 @@ describe("OpenUI agent prompt examples", () => {
 			).toEqual([]);
 		}
 		const localWithId = buildOpenUIPrompt("agent", {
-			syntaxVersion: "1.x",
 			dashboards: { mode: "self-hosted", latestDashboardId: "dash_local" },
 		});
 		expect(localWithId).toContain("dash_local");

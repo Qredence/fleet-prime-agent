@@ -11,6 +11,18 @@
  * the existing `LocalSlashAction` union.
  */
 
+import type { z } from "zod/v4";
+import type {
+	ComposerIntentCredentialSchema,
+	ComposerIntentDispositionSchema,
+	ComposerIntentKeySourceSchema,
+	ComposerIntentReasonSchema,
+	ComposerIntentRequestSchema,
+	ComposerIntentResponseSchema,
+	ComposerIntentSettingsSchema,
+	ComposerIntentStatusSchema,
+} from "./schemas/intent";
+
 /** Where a routed command runs once the user accepts it. */
 export type ComposerIntentHandling =
 	/** Applied in the browser through the existing `resolveLocalSlashAction`. */
@@ -207,22 +219,10 @@ export const COMPOSER_INTENT_EXECUTE_GATE = 0.8;
 export const COMPOSER_INTENT_CODE_TASK_MAX = 0.3;
 
 /** Why a routing attempt produced no action. Never surfaces raw model output. */
-export type ComposerIntentReason =
-	| "disabled"
-	| "not_ready"
-	| "empty"
-	| "no_match"
-	| "code_task"
-	| "below_floor"
-	| "unavailable"
-	| "rate_limited";
+export type ComposerIntentReason = z.infer<typeof ComposerIntentReasonSchema>;
 
 /** How an accepted match is surfaced. */
-export type ComposerIntentDisposition =
-	/** Safe to run the instant the composer is submitted. */
-	| "execute"
-	/** Offer it; the user accepts explicitly. */
-	| "suggest";
+export type ComposerIntentDisposition = z.infer<typeof ComposerIntentDispositionSchema>;
 
 export type ComposerIntentDecision =
 	| { outcome: "none"; reason: ComposerIntentReason }
@@ -284,7 +284,7 @@ export function decideComposerIntent(input: {
 }
 
 /** Coarse readiness of the optional classifier, as shown in Settings. */
-export type ComposerIntentStatus = "unconfigured" | "unverified" | "ready" | "error";
+export type ComposerIntentStatus = z.infer<typeof ComposerIntentStatusSchema>;
 
 /**
  * Where the classifier's API key came from.
@@ -293,32 +293,20 @@ export type ComposerIntentStatus = "unconfigured" | "unverified" | "ready" | "er
  * wins over the environment one, matching the runtime's own credential order.
  * The key itself is never sent to the browser in any form.
  */
-export type ComposerIntentKeySource = "settings" | "environment" | "none";
+export type ComposerIntentKeySource = z.infer<typeof ComposerIntentKeySourceSchema>;
 
 /** Settings surface for the classifier. Write-only with respect to the key. */
-export type ComposerIntentSettings = {
-	/** The user's choice in Settings. Off until they turn it on. */
-	enabled: boolean;
-	/** Whether the resolved key can actually be used. */
-	status: ComposerIntentStatus;
-	keySource: ComposerIntentKeySource;
-};
+export type ComposerIntentSettings = z.infer<typeof ComposerIntentSettingsSchema>;
 
 /**
  * Body for `PUT /api/chat/intent`: set or clear the stored key.
  *
  * `null` removes it, which lets the environment variable take over again.
  */
-export type ComposerIntentCredential = {
-	apiKey: string | null;
-};
+export type ComposerIntentCredential = z.infer<typeof ComposerIntentCredentialSchema>;
 
 /** Request body for `POST /api/chat/intent`. */
-export type ComposerIntentRequest = {
-	/** The composer draft. Truncated server-side before it leaves the process. */
-	text: string;
-	projectId?: string;
-};
+export type ComposerIntentRequest = z.infer<typeof ComposerIntentRequestSchema>;
 
 /**
  * Response for `POST /api/chat/intent`.
@@ -327,14 +315,4 @@ export type ComposerIntentRequest = {
  * no error text. `enabled` tells the browser whether to keep asking; it never
  * explains why the classifier is unavailable.
  */
-export type ComposerIntentResponse = {
-	enabled: boolean;
-	outcome: "none" | "matched";
-	command?: string;
-	confidence?: number;
-	disposition?: ComposerIntentDisposition;
-	reason?: ComposerIntentReason;
-	/** Model id that answered, for diagnostics. */
-	model?: string;
-	latencyMs?: number;
-};
+export type ComposerIntentResponse = z.infer<typeof ComposerIntentResponseSchema>;

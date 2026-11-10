@@ -141,3 +141,80 @@ export async function writeManagedPrimePresentation(
 		await rm(temporaryPath, { force: true }).catch(() => undefined);
 	}
 }
+
+export class PresentationPersistenceQueue {
+	readonly #writes = new Map<string, Promise<void>>();
+	readonly #pending = new Map<
+		string,
+		{ sessionPath: string; presentation: PrimeAgentSessionPresentation; generation: number }
+	>();
+	readonly #generations = new Map<string, number>();
+	readonly #warnings = new Set<string>();
+	readonly #writePresentation: typeof writeManagedPrimePresentation;
+	readonly #isCurrentSessionPath: (sessionId: string, sessionPath: string) => boolean;
+	readonly #onWriteWarning: (sessionId: string) => void;
+
+	constructor(options: {
+		writePresentation?: typeof writeManagedPrimePresentation;
+		isCurrentSessionPath: (sessionId: string, sessionPath: string) => boolean;
+		onWriteWarning: (sessionId: string) => void;
+	}) {
+		this.#writePresentation = options.writePresentation ?? writeManagedPrimePresentation;
+		this.#isCurrentSessionPath = options.isCurrentSessionPath;
+		this.#onWriteWarning = options.onWriteWarning;
+	}
+
+	persist(sessionId: string, sessionPath: string, presentation: PrimeAgentSessionPresentation): Promise<void> {
+		const generation = this.#generations.get(sessionId) ?? 0;
+		this.#pending.set(sessionId, { sessionPath, presentation, generation });
+		const existing = this.#writes.get(sessionId);
+		if (existing) return existing;
+
+		const drain = (async () => {
+			while (true) {
+				const next = this.#pending.get(sessionId);
+				if (!next) break;
+				this.#pending.delete(sessionId);
+				if (
+					!this.#isCurrentSessionPath(sessionId, next.sessionPath) ||
+					(this.#generations.get(sessionId) ?? 0) !== next.generation
+				) {
+					continue;
+				}
+				try {
+					await this.#writePresentation({ sessionPath: next.sessionPath }, next.presentation);
+				} catch {
+					if (!this.#warnings.has(sessionId)) {
+						this.#warnings.add(sessionId);
+						this.#onWriteWarning(sessionId);
+					}
+				}
+			}
+		})();
+
+		this.#writes.set(sessionId, drain);
+		void drain.finally(() => {
+			if (this.#writes.get(sessionId) === drain) this.#writes.delete(sessionId);
+		});
+		return drain;
+	}
+
+	async cancelAndDrain(sessionId: string): Promise<void> {
+		this.#generations.set(sessionId, (this.#generations.get(sessionId) ?? 0) + 1);
+		this.#pending.delete(sessionId);
+		const pendingWrite = this.#writes.get(sessionId);
+		await pendingWrite?.catch(() => undefined);
+		if (this.#writes.get(sessionId) === pendingWrite) {
+			this.#writes.delete(sessionId);
+		}
+		this.#generations.delete(sessionId);
+		this.#warnings.delete(sessionId);
+	}
+
+	clear(): void {
+		this.#writes.clear();
+		this.#pending.clear();
+		this.#generations.clear();
+		this.#warnings.clear();
+	}
+}

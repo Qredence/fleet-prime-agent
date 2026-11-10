@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	decodeOpenPanelActionMessage,
-	encodeOpenPanelActionMessage,
-	openPanelActionFromParams,
-} from "@/components/openui/open-panel-action-message";
+import { openPanelActionFromParams } from "@/components/openui/open-panel-action-message";
 import { openPanelAction, openUILibrary } from "@/components/openui/openui-library";
 
 describe("OpenUI library contract", () => {
@@ -61,8 +57,10 @@ describe("openPanelActionFromParams", () => {
 		expect(openPanelActionFromParams("workspace")).toBeUndefined();
 	});
 
-	it("round-trips through the encoded message form", () => {
-		const encoded = encodeOpenPanelActionMessage({ panel: "artifacts", focus: true });
-		expect(decodeOpenPanelActionMessage(encoded)).toEqual({ panel: "artifacts", focus: true });
+	it("preserves optional focus flag when validated", () => {
+		expect(openPanelActionFromParams({ panel: "artifacts", focus: true })).toEqual({
+			panel: "artifacts",
+			focus: true,
+		});
 	});
 });

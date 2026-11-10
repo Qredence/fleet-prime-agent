@@ -1,8 +1,8 @@
 import { ChatSessionMetadataSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
-import { loadManagedPlanPresentations } from "../managed-plan-presentations";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+import { buildSessionResponse } from "./chat-session";
 
 const BodySchema = ChatSessionMetadataSchema.extend({ sessionId: SessionIdSchema });
 
@@ -17,15 +17,7 @@ export function handleChatResumePost(request: Request): Promise<Response> {
 			if (!session) {
 				return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
 			}
-			return Response.json({
-				session: {
-					sessionId: session.sessionId,
-					projectId: session.projectId,
-				},
-				messages: await bridge.getMessages(session.sessionId),
-				planPresentations: await loadManagedPlanPresentations(session),
-				presentation: bridge.getPresentation(session.sessionId),
-			});
+			return buildSessionResponse(session, bridge);
 		}
 		return Response.json({ message: "resume requires sessionId" }, { status: 400 });
 	}, request);

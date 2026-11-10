@@ -13,7 +13,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ChatAttachment, ProjectId } from "@prime-agent/web-protocol/fleet-contract";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import type { ChatClient } from "@/components/chat/chat-client";
 import { chatClient } from "@/components/chat/chat-client";
 import { notifyChatError } from "@/components/chat/chat-error-notify";
@@ -28,10 +28,7 @@ import {
 	planPresentationForToolCall,
 } from "@/components/chat/plans/plan-presentation";
 import { isPlanDecisionToolCall } from "@/components/chat/plans/plan-state";
-import {
-	enhancePlanDecisionMessages,
-	resolvePlanDecisionMessages,
-} from "@/components/chat/plans/use-pi-chat-plan-decisions";
+import { resolvePlanDecisionMessages } from "@/components/chat/plans/use-pi-chat-plan-decisions";
 import { usePiChatBootstrap } from "@/components/chat/use-pi-chat-bootstrap";
 import { usePiChatSessionEvents } from "@/components/chat/use-pi-chat-events";
 import {
@@ -65,6 +62,17 @@ export type UsePiChatOptions = {
 	persistSession: (metadata: ChatSessionMetadata) => void;
 };
 
+function useSyncedState<T>(initialValue: T | (() => T)): [T, RefObject<T>, (updater: T | ((current: T) => T)) => void] {
+	const [state, setState] = useState<T>(initialValue);
+	const ref = useRef<T>(state);
+	const setSynced = useCallback((updater: T | ((current: T) => T)) => {
+		const next = typeof updater === "function" ? (updater as (current: T) => T)(ref.current) : updater;
+		ref.current = next;
+		setState(next);
+	}, []);
+	return [state, ref, setSynced];
+}
+
 /**
  * Provides chat state and controls for managing Pi sessions, messages, streaming, queues, and presentations.
  *
@@ -74,25 +82,23 @@ export type UsePiChatOptions = {
  */
 export function usePiChat(model: ChatModelSelection | undefined, options: UsePiChatOptions) {
 	const { client = chatClient, initialSessionMetadata, persistSession, projectId } = options;
-	const [messages, setMessages] = useState<Array<ChatMessage>>([]);
+	const [messages, messagesRef, setMessagesSynced] = useSyncedState<Array<ChatMessage>>([]);
 	const [status, setStatus] = useState<ChatStatus>("ready");
 	const [error, setError] = useState<Error | null>(null);
 	const [sessionMetadata, setSessionMetadata] = useState<ChatSessionMetadata>(() => initialSessionMetadata);
 	const [sessions, setSessions] = useState<Array<ChatSessionInfo>>([]);
-	const [activityLabel, setActivityLabel] = useState<string | undefined>();
-	const [planLabel, setPlanLabel] = useState<string | undefined>();
+	const [activityLabel, activityLabelRef, setActivityLabelSynced] = useSyncedState<string | undefined>(undefined);
+	const [planLabel, planLabelRef, setPlanLabelSynced] = useSyncedState<string | undefined>(undefined);
 	const [queue, setQueue] = useState<QueueState>(EMPTY_QUEUE_STATE);
-	const [presentation, setPresentation] = useState<PrimeAgentSessionPresentation>(() => EMPTY_SESSION_PRESENTATION);
+	const [presentation, presentationRef, setPresentationSynced] = useSyncedState<PrimeAgentSessionPresentation>(
+		() => EMPTY_SESSION_PRESENTATION,
+	);
 	const initialSessionMetadataRef = useRef(initialSessionMetadata);
 	const projectIdRef = useRef(projectId);
-	const messagesRef = useRef(messages);
 	const sessionMetadataRef = useRef(sessionMetadata);
-	const activityLabelRef = useRef(activityLabel);
-	const planLabelRef = useRef(planLabel);
 	const queueRef = useRef(queue);
 	const queueRevisionRef = useRef(0);
 	const queuedMutationTailRef = useRef<Promise<unknown> | null>(null);
-	const presentationRef = useRef(presentation);
 	const pendingSendControllerRef = useRef<AbortController | null>(null);
 	const streamControllersRef = useRef(new Map<string, AbortController>());
 	const refreshSessionsPromiseRef = useRef<Promise<Array<ChatSessionInfo>> | null>(null);
@@ -100,14 +106,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	const statusRef = useRef(status);
 	const initializedRef = useRef(false);
 	const sendMessageRef = useRef<(input: SendMessageInput) => Promise<boolean>>(() => Promise.resolve(false));
-	const setMessagesSynced = useCallback(
-		(updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => {
-			const next = typeof updater === "function" ? updater(messagesRef.current) : updater;
-			messagesRef.current = next;
-			setMessages(next);
-		},
-		[],
-	);
 
 	// Append an assistant-role message from the web UI itself (never sent to
 	// prime-agent). Used by slash-command handlers (/session /context /logs
@@ -147,16 +145,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		[persistSession],
 	);
 
-	const setActivityLabelSynced = useCallback((nextLabel: string | undefined) => {
-		activityLabelRef.current = nextLabel;
-		setActivityLabel(nextLabel);
-	}, []);
-
-	const setPlanLabelSynced = useCallback((nextLabel: string | undefined) => {
-		planLabelRef.current = nextLabel;
-		setPlanLabel(nextLabel);
-	}, []);
-
 	const setQueueSynced = useCallback((nextQueue: QueueState) => {
 		queueRevisionRef.current += 1;
 		queueRef.current = nextQueue;
@@ -165,11 +153,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 	const invalidateQueueMutations = useCallback(() => {
 		queueRevisionRef.current += 1;
-	}, []);
-
-	const setPresentationSynced = useCallback((nextPresentation: PrimeAgentSessionPresentation) => {
-		presentationRef.current = nextPresentation;
-		setPresentation(nextPresentation);
 	}, []);
 
 	const persistOpenUIArtifact = useCallback(
@@ -328,17 +311,8 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 
 			return result;
 		},
-		[client, setMessagesSynced],
+		[client, messagesRef, setMessagesSynced],
 	);
-
-	const submitQuestionAnswerRef = useRef(submitQuestionAnswer);
-	useEffect(() => {
-		submitQuestionAnswerRef.current = submitQuestionAnswer;
-	}, [submitQuestionAnswer]);
-	const [enhancedMessages, setEnhancedMessages] = useState(messages);
-	useLayoutEffect(() => {
-		setEnhancedMessages(enhancePlanDecisionMessages(messages, (request) => submitQuestionAnswerRef.current(request)));
-	}, [messages, submitQuestionAnswer]);
 
 	useEffect(() => {
 		sessionMetadataRef.current = sessionMetadata;
@@ -739,7 +713,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 	);
 
 	const getSessionMetadata = useCallback(() => sessionMetadataRef.current, []);
-	const getMessages = useCallback(() => messagesRef.current, []);
+	const getMessages = useCallback(() => messagesRef.current, [messagesRef]);
 	const answerQuestion = submitQuestionAnswer;
 
 	return {
@@ -752,7 +726,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		error,
 		getMessages,
 		getSessionMetadata,
-		messages: enhancedMessages,
+		messages,
 		planLabel,
 		presentation,
 		persistOpenUIArtifact,

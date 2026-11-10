@@ -9,7 +9,7 @@ import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import type { CustomToolRendererProps } from "@/components/chat/types";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
 import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
-import { normalizeToolPart } from "@/components/tools/tool-output-normalizer";
+import { coerceStructuredToolPart, normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 import {
 	Trace,
 	TraceCollapsible,
@@ -175,22 +175,22 @@ export function buildAssistantElements(
 		);
 	};
 
-	for (const part of parts) {
-		if (!isV5ToolPart(part)) continue;
-		if (part.type === "tool-TaskOutput") continue;
-		if (!part.toolCallId || !part.toolCallId.includes(":")) continue;
-		const parentId = part.toolCallId.split(":")[0];
+	for (const rawPart of parts) {
+		if (!isV5ToolPart(rawPart)) continue;
+		if (rawPart.type === "tool-TaskOutput") continue;
+		if (!rawPart.toolCallId || !rawPart.toolCallId.includes(":")) continue;
+		const parentId = rawPart.toolCallId.split(":")[0];
 		if (!taskPartIds.has(parentId)) continue;
 		if (!nestedToolsMap.has(parentId)) {
 			nestedToolsMap.set(parentId, []);
 		}
-		nestedToolsMap.get(parentId)!.push(part);
-		nestedToolIds.add(part.toolCallId);
+		nestedToolsMap.get(parentId)!.push(coerceStructuredToolPart(rawPart));
+		nestedToolIds.add(rawPart.toolCallId);
 	}
 
 	let i = 0;
 	while (i < parts.length) {
-		const part = parts[i]!;
+		const part = coerceStructuredToolPart(parts[i]!);
 		if (isReasoningPart(part)) {
 			flushText();
 			const run = [part];
@@ -253,7 +253,7 @@ export function buildAssistantElements(
 		}
 
 		if (isV5ToolPart(part)) {
-			if (part.type === "tool-Question") {
+			if (part.type === "tool-Question" || part.type === "tool-Thinking" || part.type === "tool-FleetReasoning") {
 				i++;
 				continue;
 			}

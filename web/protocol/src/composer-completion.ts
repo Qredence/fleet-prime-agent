@@ -20,6 +20,14 @@
  * calibrated confidence.
  */
 
+import type { z } from "zod/v4";
+import type {
+	ComposerCompletionModeSchema,
+	ComposerCompletionRequestSchema,
+	ComposerCompletionResponseSchema,
+	ComposerCompletionSourceSchema,
+} from "./schemas/completion";
+
 /** Nothing is asked of the server below this many characters. */
 export const COMPOSER_COMPLETION_MIN_CHARS = 4;
 
@@ -44,11 +52,7 @@ export const COMPOSER_COMPLETION_FLOOR = 0.5;
 export const COMPOSER_COMPLETION_EXTEND_CONFIDENCE = 0.8;
 
 /** Where an offered suggestion came from. */
-export type ComposerCompletionSource =
-	/** An earlier prompt from the session being typed in. */
-	| "session"
-	/** An earlier prompt from any other session. */
-	| "corpus";
+export type ComposerCompletionSource = z.infer<typeof ComposerCompletionSourceSchema>;
 
 /**
  * What accepting the suggestion does to the draft.
@@ -56,7 +60,7 @@ export type ComposerCompletionSource =
  * Used by the browser's inline surface. History completions are always
  * `append`; `replace` is synthesised locally from the intent router.
  */
-export type ComposerCompletionMode = "append" | "replace";
+export type ComposerCompletionMode = z.infer<typeof ComposerCompletionModeSchema>;
 
 /**
  * True when a draft is already owned by another interaction, or is not prose.
@@ -70,16 +74,7 @@ export function composerCompletionIgnores(draft: string): boolean {
 }
 
 /** Request body for `POST /api/chat/completion`. */
-export type ComposerCompletionRequest = {
-	/** The composer draft. Truncated server-side before any matching runs. */
-	text: string;
-	/**
-	 * The session being typed in, so its own earlier prompts can be preferred
-	 * over the cross-session corpus. Absent in a session with no identity yet.
-	 */
-	sessionId?: string;
-	projectId?: string;
-};
+export type ComposerCompletionRequest = z.infer<typeof ComposerCompletionRequestSchema>;
 
 /**
  * Response for `POST /api/chat/completion`.
@@ -88,20 +83,7 @@ export type ComposerCompletionRequest = {
  * instructions, or transport error text. An absent `completion` is the ordinary
  * answer. There is no `mode`: this endpoint always extends the draft.
  */
-export type ComposerCompletionResponse = {
-	/** The full text the draft should become when accepted. */
-	completion?: string;
-	/**
-	 * `0`–`1`, always agreement-derived (see `completion/match.ts`).
-	 *
-	 * Deliberately not the router's calibrated model probability: that one is on a
-	 * different scale and never enters this payload, and the two are never compared
-	 * numerically. Preferring a command over a history completion is a rule about
-	 * provenance, not a max().
-	 */
-	confidence?: number;
-	source?: ComposerCompletionSource;
-};
+export type ComposerCompletionResponse = z.infer<typeof ComposerCompletionResponseSchema>;
 
 /**
  * The comparison form of a draft: trimmed, whitespace collapsed.
