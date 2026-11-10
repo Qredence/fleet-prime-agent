@@ -1,0 +1,46 @@
+web/server/src/prime-bridge.ts
+  s_4a64c1745e4d75::t_d694d4adc6d185 511-516
+  s_4a64c1745e4d75::t_0b7d25d9607e31 51
+  s_4a64c1745e4d75::t_ce0f6dbe996dc9 238-256
+  s_4a64c1745e4d75::t_f838877582578f 643-646,651-655,666-671
+  s_4a64c1745e4d75::t_8081fc2c79225d 710
+  s_4a64c1745e4d75::t_fdbdd679f0060d 706
+  s_4a64c1745e4d75::t_ee3ec7df7081ce 672
+web/server/src/bridge-helpers.ts
+  s_4a64c1745e4d75::t_20ba3bb0393f65 354-358
+  s_4a64c1745e4d75::t_e23816da223996 359
+web/server/src/__tests__/prime-bridge.test.ts
+  s_4a64c1745e4d75::t_898fbf473b16a3 1082-1105,1294-1316
+  s_4a64c1745e4d75::t_70c1181d1bdced 1317,1433-1440,1442,1444-1491
+  s_4a64c1745e4d75::t_a56117b9300444 1390
+  s_4a64c1745e4d75::t_ca916a9ef8e626 1441,1443
+  s_4a64c1745e4d75::t_b83c19ce1e9f7c 852
+  s_4a64c1745e4d75::t_1fd0d6a427c093 413
+  s_4a64c1745e4d75::t_0d27a9049abb58 1366
+.changeset/openui-reliability.md
+  s_4a64c1745e4d75::t_0804f99be5c2cd 5
+docs/reference/adapter-contract.md
+  s_4a64c1745e4d75::t_cb838e194d44f3 175-176
+web/server/src/project-registry.ts
+  s_4a64c1745e4d75::t_1f6a0f011a2847 303-314
+web/app/src/lib/openui-observability.ts
+  s_4a64c1745e4d75::t_43877a38c6a3be 13
+web/app/src/lib/openui-observability.test.ts
+  s_4a64c1745e4d75::t_67f9713c2f5d4a 39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aefe903b51fe75d01c81898bf348ceab6807a934",
+  "prompts": {},
+  "sessions": {
+    "s_4a64c1745e4d75": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "02466380-6a50-4c39-bd34-a201adb66962",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
