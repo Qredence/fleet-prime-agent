@@ -1,0 +1,45 @@
+web/app/src/components/openui/openui-renderer.tsx
+  s_4a64c1745e4d75::t_97ec2a7457e091 251
+web/app/src/components/chat/chat-runtime-url.test.ts
+  s_4a64c1745e4d75::t_a5de3d1b89b1f7 18-20
+web/app/src/components/settings/dashboards-section.tsx
+  s_4a64c1745e4d75::t_122f8bbc654b42 20
+web/app/src/components/settings/settings-dialog.tsx
+  s_4a64c1745e4d75::t_a730e63c9d7b45 437-438
+web/app/src/components/dashboards/dashboard-client.ts
+  s_4a64c1745e4d75::t_d1dcdcf544a458 9
+  s_4a64c1745e4d75::t_b1c62a1e05e52b 28
+  s_4a64c1745e4d75::t_857fb25f59b35f 2
+web/app/src/components/dashboards/dashboard-request-card.test.tsx
+  s_4a64c1745e4d75::t_fa2ec4eeadb346 125
+  s_4a64c1745e4d75::t_e1fbf597f23a05 162-171
+  s_4a64c1745e4d75::t_0f5530df642cd6 3
+  s_4a64c1745e4d75::t_bf349e85f6dfc5 117-124,126-128
+  s_4a64c1745e4d75::t_fa7637f8f4414f 129-155
+  s_4a64c1745e4d75::t_772ebee818f5d0 100-105
+web/app/src/components/dashboards/dashboard-view.tsx
+  s_4a64c1745e4d75::t_c2f2848940ba40 90
+  s_4a64c1745e4d75::t_5c27f10fca4f1c 55
+  s_4a64c1745e4d75::t_83385711b21e10 211,219
+  s_4a64c1745e4d75::t_b843723db22652 155-157
+  s_4a64c1745e4d75::t_0022b21cc79257 17
+  s_4a64c1745e4d75::t_e0a6acf78d806c 212-213,217,228-234,238-239
+  s_4a64c1745e4d75::t_a001b65251eb6f 235-237
+  s_4a64c1745e4d75::t_e391a20563cc4f 112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fe3f2b7a4bb100ef562cc014ce603afd920e2e0a",
+  "prompts": {},
+  "sessions": {
+    "s_4a64c1745e4d75": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "02466380-6a50-4c39-bd34-a201adb66962",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
