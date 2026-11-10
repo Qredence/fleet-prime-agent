@@ -1,0 +1,21 @@
+.circleci/config.yml
+  s_5c8b5bb47db0a7::t_a4ad5f56e1cb1b 227-228
+scripts/check-package.mjs
+  s_5c8b5bb47db0a7::t_c9e2904e5c001c 26,32,35-38,60-61,66,209,214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a8443673dadc3fe9894bc2084001ac62f7f25f9a",
+  "prompts": {},
+  "sessions": {
+    "s_5c8b5bb47db0a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1c422-3adc-76e3-9b48-7a0a936b64fd",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
