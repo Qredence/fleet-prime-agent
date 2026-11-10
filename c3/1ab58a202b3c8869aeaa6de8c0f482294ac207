@@ -1,0 +1,21 @@
+web/app/src/components/chat/subagents/subagents-panel.tsx
+  s_741d1412c858f7::t_182f5c64966e88 58-61,66,95-96,98-99,101-102,104,108-109,121-122,136-138
+web/app/src/components/tools/utils/format-tool.ts
+  s_741d1412c858f7::t_326b8f5d3744e3 1,110-111,121-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c31ab58a202b3c8869aeaa6de8c0f482294ac207",
+  "prompts": {},
+  "sessions": {
+    "s_741d1412c858f7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f1df313-3049-474a-9d9d-66123b1bb06b",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
