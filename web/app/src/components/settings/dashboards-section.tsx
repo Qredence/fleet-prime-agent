@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 const SOURCE_COPY: Record<DashboardKeySource, string> = {
 	settings: "Using the key saved here.",
 	environment: "Using an API key from the server environment.",
-	none: "No key is set. The assistant writes the dashboard, and Fleet draws it in the chat.",
+	none: "No key is set. The assistant writes the dashboard, and Fleet draws it in the Dashboards tab.",
 };
 
 const MODE_COPY: Record<DashboardStatus["mode"], string> = {

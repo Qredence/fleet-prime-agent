@@ -434,8 +434,8 @@ function SettingsDialogPaneContent({
 				<div>
 					<h3 className="text-lg font-medium">Dashboards</h3>
 					<p className="text-sm text-muted-foreground">
-						Without a key, the assistant writes the dashboard and Fleet draws it in the chat. With a Thesys key,
-						OpenUI Cloud builds it, using a model separate from the one you chat with.
+						Without a key, the assistant writes the dashboard and Fleet draws it in the Dashboards tab. With a
+						Thesys key, OpenUI Cloud builds it, using a model separate from the one you chat with.
 					</p>
 				</div>
 				<DashboardsSection />

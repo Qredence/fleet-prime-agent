@@ -248,9 +248,7 @@ export function GenerativeTextRenderer({
 		return (
 			<div className={`flex w-full flex-col gap-3 ${className ?? ""}`}>
 				{dashboardCard}
-				{visibleContent ? (
-					<Markdown className={className} content={visibleContent} isStreaming={isStreaming} />
-				) : null}
+				{visibleContent ? <Markdown content={visibleContent} isStreaming={isStreaming} /> : null}
 			</div>
 		);
 	}

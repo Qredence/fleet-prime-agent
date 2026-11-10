@@ -1,5 +1,6 @@
 import { BuiltinActionType } from "@openuidev/react-lang";
 import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
+import { dashboardFenceKey } from "@prime-agent/web-protocol/dashboards";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -96,7 +97,12 @@ describe("DashboardRequestCard", () => {
 		const openArtifact = vi.fn();
 		installPanel([
 			dashboardArtifact(
-				{ mode: "cloud", response: "opaque-response", dashboardId: "art_1", fenceKey: "abc" },
+				{
+					mode: "cloud",
+					response: "opaque-response",
+					dashboardId: "art_1",
+					fenceKey: dashboardFenceKey({ prompt: "revenue by day" }),
+				},
 				"message-1",
 			),
 		]);
@@ -108,13 +114,61 @@ describe("DashboardRequestCard", () => {
 		expect(openArtifact).toHaveBeenCalledWith("dashboard-1", "dashboards");
 	});
 
+	it("shows only the first fence when a message contains two", () => {
+		render(
+			<DashboardRequestCard
+				content={`${fence({ title: "First", prompt: "one" })}\n${fence({ title: "Second", prompt: "two" })}`}
+			/>,
+		);
+		expect(screen.getByText("First")).toBeTruthy();
+		expect(screen.queryByText("Second")).toBeNull();
+		expect(screen.getByText("This message asked for more than one dashboard. Fleet opens the first.")).toBeTruthy();
+		expect(screen.getAllByText("Building the dashboard…")).toHaveLength(1);
+	});
+
+	it("does not open a later fence's board from the first attachment", () => {
+		const openArtifact = vi.fn();
+		const second = { title: "Second", prompt: "two" };
+		installPanel([
+			dashboardArtifact(
+				{
+					mode: "cloud",
+					response: "second-board",
+					dashboardId: "art_2",
+					fenceKey: dashboardFenceKey(second),
+				},
+				"message-1",
+			),
+		]);
+		mocks.panel = { ...mocks.panel!, openArtifact };
+		render(
+			<DashboardRequestCard
+				content={`${fence({ title: "First", prompt: "one" })}\n${fence(second)}`}
+				messageId="message-1"
+			/>,
+		);
+		expect(screen.getByText("Building the dashboard…")).toBeTruthy();
+		expect(screen.queryByText("OpenUI Cloud")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Open First" }));
+		expect(openArtifact).not.toHaveBeenCalled();
+	});
+
 	it("says the dashboard is building until the response is stored", () => {
 		render(<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />);
 		expect(screen.getByText("Building the dashboard…")).toBeTruthy();
 	});
 
 	it("shows a cloud error without drawing another board", () => {
-		installPanel([dashboardArtifact({ mode: "cloud", fenceKey: "abc", error: "billing suspended" }, "message-1")]);
+		installPanel([
+			dashboardArtifact(
+				{
+					mode: "cloud",
+					fenceKey: dashboardFenceKey({ prompt: "revenue by day" }),
+					error: "billing suspended",
+				},
+				"message-1",
+			),
+		]);
 		render(<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />);
 		expect(screen.getByText("billing suspended")).toBeTruthy();
 		expect(screen.queryByTestId("cloud-dashboard")).toBeNull();

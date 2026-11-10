@@ -14,6 +14,7 @@ import {
 import { EMPTY_SESSION_OUTPUTS } from "@prime-agent/web-protocol/openui-tools";
 import { LayoutDashboard } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
 import { mergeArtifactsById } from "@/components/dashboards/dashboard-artifacts";
 import { useOptionalChatPanelDataContext } from "@/components/layout/right-panel-context";
 import { useOpenUISession } from "@/components/openui/openui-session-context";
@@ -23,7 +24,6 @@ import {
 	Attachment,
 	AttachmentContent,
 	AttachmentDescription,
-	AttachmentGroup,
 	AttachmentMedia,
 	AttachmentTitle,
 	AttachmentTrigger,
@@ -52,7 +52,7 @@ function interpreterUrl(sessionId: string | undefined, dashboardId: string): str
 	const params = new URLSearchParams();
 	if (sessionId) params.set("sessionId", sessionId);
 	params.set("dashboardId", dashboardId);
-	return `/api/chat/dashboards/interpreter?${params}`;
+	return resolveChatApiUrl(`/api/chat/dashboards/interpreter?${params}`);
 }
 
 function createDashboardToolProvider(
@@ -87,7 +87,7 @@ export function DashboardBoard({
 	sessionId?: string;
 	onOpenUIAction?: (message: string) => void;
 }) {
-	const record = dashboardRecord(artifact);
+	const record = useMemo(() => dashboardRecord(artifact), [artifact]);
 	const mode = useThemeMode();
 	const openUiSession = useOpenUISession();
 	const tools = useMemo(
@@ -109,7 +109,7 @@ export function DashboardBoard({
 	if (record.response) {
 		return (
 			<ThemeProvider mode={mode}>
-				<OpenUICloudProvider token="/api/chat/dashboards/token">
+				<OpenUICloudProvider token={resolveChatApiUrl("/api/chat/dashboards/token")}>
 					<LiveArtifactRenderer
 						response={record.response}
 						library={dashboardLibrary}
@@ -151,9 +151,10 @@ function artifactForFence(
 	const matches = artifacts.filter((artifact) => {
 		if (artifact.kind !== "openui-dashboard") return false;
 		const record = dashboardRecord(artifact);
-		if (messageId && artifact.sourceMessageId === messageId) return true;
 		if (record?.fenceKey === fenceKey) return true;
-		return fence.id !== undefined && (artifact.id === fence.id || record?.dashboardId === fence.id);
+		if (fence.id !== undefined && (artifact.id === fence.id || record?.dashboardId === fence.id)) return true;
+		// An unreadable board has no fence key. The message is the only link.
+		return !record && messageId !== undefined && artifact.sourceMessageId === messageId;
 	});
 	return (
 		matches.find((artifact) => {
@@ -207,13 +208,15 @@ function DashboardAttachment({
 }
 
 /**
- * One attachment per dashboard fence. The trigger opens the Dashboards tab.
- * The board itself is drawn in that tab.
+ * The first dashboard fence in a message becomes one attachment. The server
+ * settles that same fence. Later fences stay visible as a notice instead of
+ * another board. The trigger opens the Dashboards tab, which draws the board.
  */
 export function DashboardRequestCard({ content, messageId }: { content: string; messageId?: string }) {
 	const fences = dashboardFences(content);
+	const fence = fences[0];
 	const panel = useOptionalChatPanelDataContext();
-	if (fences.length === 0) return null;
+	if (!fence) return null;
 	const artifacts = panel ? mergeArtifactsById(panel.artifactRuns, panel.presentation?.artifactRuns) : [];
 	const open = (artifactId: string | undefined) => {
 		if (artifactId && panel?.openArtifact) {
@@ -222,14 +225,16 @@ export function DashboardRequestCard({ content, messageId }: { content: string; 
 		}
 		panel?.setRightPanel("dashboards");
 	};
-	const attachments = fences.map((fence) => (
-		<DashboardAttachment
-			key={dashboardFenceKey(fence)}
-			fence={fence}
-			artifact={artifactForFence(artifacts, fence, messageId)}
-			onOpen={open}
-		/>
-	));
-	if (attachments.length === 1) return attachments[0] ?? null;
-	return <AttachmentGroup>{attachments}</AttachmentGroup>;
+	const attachment = (
+		<DashboardAttachment fence={fence} artifact={artifactForFence(artifacts, fence, messageId)} onOpen={open} />
+	);
+	if (fences.length === 1) return attachment;
+	return (
+		<div className="flex flex-col gap-2">
+			{attachment}
+			<p className="text-xs text-muted-foreground">
+				This message asked for more than one dashboard. Fleet opens the first.
+			</p>
+		</div>
+	);
 }
