@@ -1,0 +1,25 @@
+web/server/src/__tests__/presentation-persistence-queue.test.ts
+  s_0c82f824885bf2::t_3c9c42616a6b85 15
+  s_0c82f824885bf2::t_75a783e1ece4c6 77
+  s_0c82f824885bf2::t_640dcdeee8ac49 1-6,11-14,16-39,41-48,50-51,53,90-91,96,98-99
+  s_0c82f824885bf2::t_8128e34ef283b6 7-10
+  s_0c82f824885bf2::t_aa37816cb10ae7 40,49,52,54-76,78-89,92-95,97
+web/server/src/prime-agent-presentation.ts
+  s_0c82f824885bf2::t_e98c333947b1f1 173-178,182-190,208-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0c2744b025bcd494004e71403460164fc87bd04b",
+  "prompts": {},
+  "sessions": {
+    "s_0c82f824885bf2": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "40839486-1c60-496c-8c3e-10303ac2cbdc",
+        "model": "custom:Deepseek-V4.1-Flash-1017---Command-0"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
