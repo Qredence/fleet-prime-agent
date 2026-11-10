@@ -23,11 +23,10 @@ import { Button } from "@/components/ui/button";
 import { SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
-export interface PromptInputProps
-	extends Omit<
-		TextareaHTMLAttributes<HTMLTextAreaElement>,
-		"value" | "defaultValue" | "onChange" | "onSubmit" | "children"
-	> {
+export interface PromptInputProps extends Omit<
+	TextareaHTMLAttributes<HTMLTextAreaElement>,
+	"value" | "defaultValue" | "onChange" | "onSubmit" | "children"
+> {
 	value?: string;
 	defaultValue?: string;
 	onValueChange?: (value: string) => void;

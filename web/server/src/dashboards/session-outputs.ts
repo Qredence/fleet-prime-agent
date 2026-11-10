@@ -34,7 +34,7 @@ function toolPreview(part: ChatToolPart): string {
  * Reasoning parts are omitted. They stay on the transcript's reasoning
  * surface and are not dashboard data.
  */
-export function sessionOutputRows(messages: readonly ChatMessage[]): SessionOutputRow[] {
+function sessionOutputRows(messages: readonly ChatMessage[]): SessionOutputRow[] {
 	const rows: SessionOutputRow[] = [];
 	messages.forEach((message, index) => {
 		for (const part of message.parts) {
@@ -99,7 +99,7 @@ export type SessionOutputColumns = {
  * Passing whole row objects renders blank cells. The tool therefore returns the
  * projection alongside the rows, already sliced to the page the caller sees.
  */
-export function sessionOutputColumns(rows: readonly SessionOutputRow[]): SessionOutputColumns {
+function sessionOutputColumns(rows: readonly SessionOutputRow[]): SessionOutputColumns {
 	return {
 		turn: rows.map((row) => row.turn),
 		role: rows.map((row) => row.role),

@@ -46,9 +46,10 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	const { sessionMetadata: storedSessionMetadata, setSessionMetadata: setStoredSessionMetadata } = storage;
 
 	const models = useMemo(() => modelsData?.models.map(toModelOption) ?? [], [modelsData]);
-	const [modelKey, setModelKey] = useState<string | undefined>();
-	const [modelSelectionRestored, setModelSelectionRestored] = useState(false);
-	const [thinkingLevel, setThinkingLevelState] = useState<ChatThinkingLevel | undefined>();
+	const [storedModelKey, setStoredModelKey] = useState<string | undefined>(
+		() => readStoredValue(MODEL_SELECTION_KEY, "session") ?? undefined,
+	);
+	const [thinkingLevelOverride, setThinkingLevelOverride] = useState<ChatThinkingLevel | undefined>();
 	const [rightPanel, setRightPanelState] = useState<RightPanel>(null);
 	const lastRightPanelRef = useRef<Exclude<RightPanel, null>>("workspace");
 	const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
@@ -57,41 +58,23 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 	const [themePreference, setThemePreference] = useState<ThemePreference>(() => readStoredThemePreference());
 	const [resourceCanvasWidth, setResourceCanvasWidth] = useState(() => readStoredResourceCanvasWidth());
 
+	const modelKey = useMemo(() => {
+		if (!modelsData || models.length === 0) return undefined;
+		const preferredKey = modelsData.selectedModelKey ?? models[0].id;
+		if (!storedModelKey) return preferredKey;
+		const selected = models.find((model) => model.id === storedModelKey);
+		if (!selected || selected.available === false) return preferredKey;
+		return storedModelKey;
+	}, [models, modelsData, storedModelKey]);
+
 	useEffect(() => {
-		setModelKey(readStoredValue(MODEL_SELECTION_KEY, "session") ?? undefined);
-		setModelSelectionRestored(true);
+		if (modelKey) writeStoredValue(MODEL_SELECTION_KEY, modelKey, "session");
+	}, [modelKey]);
+
+	const setModelKey = useCallback((key: string | undefined) => {
+		setStoredModelKey(key);
+		if (key) writeStoredValue(MODEL_SELECTION_KEY, key, "session");
 	}, []);
-
-	useEffect(() => {
-		if (!modelSelectionRestored || !modelsData) return;
-		if (models.length === 0) {
-			if (modelKey !== undefined) setModelKey(undefined);
-			return;
-		}
-
-		const preferredKey = modelsData?.selectedModelKey ?? models[0].id;
-
-		if (!modelKey) {
-			setModelKey(preferredKey);
-			return;
-		}
-
-		const selected = models.find((model) => model.id === modelKey);
-		if (!selected || selected.available === false) {
-			setModelKey(preferredKey);
-		}
-	}, [models, modelKey, modelsData, modelSelectionRestored]);
-
-	useEffect(() => {
-		if (modelSelectionRestored && modelKey) writeStoredValue(MODEL_SELECTION_KEY, modelKey, "session");
-	}, [modelKey, modelSelectionRestored]);
-
-	useEffect(() => {
-		const selected = models.find((model) => model.id === modelKey);
-		if (!selected) return;
-		const available = availableThinkingLevels(selected);
-		setThinkingLevelState((current) => clampThinkingLevel(current ?? modelsData?.defaultThinkingLevel, available));
-	}, [models, modelKey, modelsData?.defaultThinkingLevel]);
 
 	useEffect(() => {
 		applyThemePreference(themePreference);
@@ -102,24 +85,6 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 		media.addEventListener("change", handleChange);
 		return () => media.removeEventListener("change", handleChange);
 	}, [themePreference]);
-
-	const prevRightPanelRef = useRef<RightPanel>(null);
-
-	useEffect(() => {
-		const prevRightPanel = prevRightPanelRef.current;
-		prevRightPanelRef.current = rightPanel;
-
-		if (!rightPanel || prevRightPanel !== null) return;
-
-		const initialWidth = getResourceCanvasInitialWidth();
-		setResourceCanvasWidth(initialWidth);
-		storeResourceCanvasWidth(initialWidth);
-	}, [rightPanel]);
-
-	useEffect(() => {
-		if (rightPanel !== null) return;
-		setSelectedWorkspacePath(null);
-	}, [rightPanel]);
 
 	useEffect(() => {
 		if (!rightPanel) return;
@@ -167,16 +132,21 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 		[resourceCanvasWidth],
 	);
 
-	const reopenRightPanel = useCallback(() => {
-		setRightPanelState(lastRightPanelRef.current);
-	}, []);
+	const rightPanelRef = useRef<RightPanel>(null);
 
 	const setRightPanel = useCallback((panel: RightPanel) => {
-		if (panel !== null) lastRightPanelRef.current = panel;
+		const openingFromClosed = panel !== null && rightPanelRef.current === null;
+		rightPanelRef.current = panel;
 		setRightPanelState(panel);
-
+		if (openingFromClosed) {
+			const initialWidth = getResourceCanvasInitialWidth();
+			setResourceCanvasWidth(initialWidth);
+			storeResourceCanvasWidth(initialWidth);
+		}
+		if (panel !== null) lastRightPanelRef.current = panel;
 		if (panel === null) {
 			setSelectedArtifactId(null);
+			setSelectedWorkspacePath(null);
 			return;
 		}
 
@@ -187,6 +157,10 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 			return null;
 		});
 	}, []);
+
+	const reopenRightPanel = useCallback(() => {
+		setRightPanel(lastRightPanelRef.current);
+	}, [setRightPanel]);
 
 	const openArtifact = useCallback(
 		(artifactId: string, target: ArtifactOpenTarget = "artifacts") => {
@@ -231,13 +205,13 @@ export function useChatShellState(modelsData: ChatModelsResponse | undefined, st
 
 	const selectedModel = models.find((model) => model.id === modelKey);
 	const resolvedThinkingLevel = clampThinkingLevel(
-		thinkingLevel ?? modelsData?.defaultThinkingLevel,
+		thinkingLevelOverride ?? modelsData?.defaultThinkingLevel,
 		availableThinkingLevels(selectedModel),
 	);
 	const setThinkingLevel = useCallback(
 		(level: ChatThinkingLevel) => {
 			const selected = models.find((model) => model.id === modelKey);
-			setThinkingLevelState(clampThinkingLevel(level, availableThinkingLevels(selected)));
+			setThinkingLevelOverride(clampThinkingLevel(level, availableThinkingLevels(selected)));
 		},
 		[modelKey, models],
 	);

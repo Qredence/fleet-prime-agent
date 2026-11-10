@@ -231,12 +231,9 @@ export function ProjectFolder({
 		setIsClosing(true);
 		setOpen(false);
 		setExpanded(false);
-	}, [setExpanded, setOpen]);
+		if (reduce) finishClose();
+	}, [finishClose, reduce, setExpanded, setOpen]);
 	const closeOverlayEvent = useEffectEvent(closeOverlay);
-
-	useEffect(() => {
-		if (reduce && isClosing) finishClose();
-	}, [finishClose, isClosing, reduce]);
 
 	useEffect(() => {
 		if (!isExpanded) return;

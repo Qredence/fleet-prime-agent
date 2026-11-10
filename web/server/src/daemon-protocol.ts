@@ -13,7 +13,7 @@
 
 export const DAEMON_PROTOCOL_NAME = "prime-agent.daemon";
 export const DAEMON_PROTOCOL_VERSION = 7;
-export const DAEMON_SCHEMA_REVISION = 30;
+const DAEMON_SCHEMA_REVISION = 30;
 
 /** Schema ids that speak protocol 7 / schema revision 30. */
 export const KNOWN_DAEMON_SCHEMA_IDS = {
@@ -22,7 +22,7 @@ export const KNOWN_DAEMON_SCHEMA_IDS = {
 } as const;
 
 /** `runtime.buildId` prefix of the Rust daemon (`pa-daemon-rs-<version>`). */
-export const RUST_DAEMON_BUILD_ID_PREFIX = "pa-daemon-rs-";
+const RUST_DAEMON_BUILD_ID_PREFIX = "pa-daemon-rs-";
 
 export type DaemonProtocolInfo = { name: string; version: number };
 

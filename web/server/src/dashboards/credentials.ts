@@ -21,7 +21,7 @@ import { getPrimeConfig } from "../prime-config";
 const THESYS_FILE = "thesys.json";
 
 /** Server-only override, so a deployment can pin its BYOK provider's model. */
-export const DASHBOARD_MODEL_ENV = "FLEET_DASHBOARD_MODEL";
+const DASHBOARD_MODEL_ENV = "FLEET_DASHBOARD_MODEL";
 
 function thesysFile(agentDir: string): string {
 	return join(agentDir, THESYS_FILE);
@@ -37,7 +37,7 @@ async function readStoredThesys(agentDir: string): Promise<Record<string, unknow
 	return current.kind === "ok" ? current.value : undefined;
 }
 
-export async function readStoredThesysKey(agentDir = getPrimeConfig().agentDir): Promise<string | undefined> {
+async function readStoredThesysKey(agentDir = getPrimeConfig().agentDir): Promise<string | undefined> {
 	const stored = await readStoredThesys(agentDir);
 	return stored ? stringFrom(stored, "key") : undefined;
 }
@@ -66,7 +66,7 @@ export async function clearStoredThesysKey(agentDir = getPrimeConfig().agentDir)
 }
 
 /** The stored dashboard model, if an operator set one here. */
-export async function readStoredDashboardModel(agentDir = getPrimeConfig().agentDir): Promise<string | undefined> {
+async function readStoredDashboardModel(agentDir = getPrimeConfig().agentDir): Promise<string | undefined> {
 	const stored = await readStoredThesys(agentDir);
 	return stored ? stringFrom(stored, "model") : undefined;
 }

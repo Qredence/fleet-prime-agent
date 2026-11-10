@@ -153,6 +153,17 @@ export function useSubagentChat({
 	const childId = child?.id;
 	const childStatusValue = child?.status;
 	const childError = child?.error;
+	const childThreadIdentity =
+		enabled && parentSessionId && childId && childStatusValue ? `${parentSessionId}:${childId}` : null;
+	const [boundThreadIdentity, setBoundThreadIdentity] = useState(childThreadIdentity);
+	if (childThreadIdentity !== boundThreadIdentity) {
+		setBoundThreadIdentity(childThreadIdentity);
+		setState(emptyState());
+	}
+
+	useEffect(() => {
+		transitionRef.current = null;
+	}, [childThreadIdentity]);
 
 	const refresh = useCallback(() => setReloadToken((value) => value + 1), []);
 
@@ -242,7 +253,6 @@ export function useSubagentChat({
 
 		if (!enabled || !parentSessionId || !childId || !childStatusValue) {
 			transitionRef.current = null;
-			setState(emptyState());
 			return;
 		}
 

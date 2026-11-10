@@ -179,9 +179,13 @@ function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifac
 	const cardRef = useRef<HTMLElement>(null);
 	const initiallyOpen = selected || artifact.status === "running";
 	const [open, setOpen] = useState(initiallyOpen);
+	const [prevSelected, setPrevSelected] = useState(selected);
+	if (prevSelected !== selected) {
+		setPrevSelected(selected);
+		if (selected) setOpen(true);
+	}
 	useEffect(() => {
 		if (!selected) return;
-		setOpen(true);
 		requestAnimationFrame(() => {
 			cardRef.current?.focus({ preventScroll: true });
 			cardRef.current?.scrollIntoView({ block: "nearest" });

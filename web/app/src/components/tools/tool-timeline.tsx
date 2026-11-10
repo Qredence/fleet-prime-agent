@@ -5,7 +5,8 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import type { ReactNode } from "react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import type { ToolPartBase } from "@/components/chat/transcript/chat-message-parts";
-import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
+import { ToolActionIcon } from "@/components/tools/tool-action-icon-view";
+import { artifactDisplayTitle, toolPartDisplayName } from "@/components/tools/tool-action-icon";
 import { isAbortedToolPart, normalizeToolPart } from "@/components/tools/tool-output-normalizer";
 import {
 	Trace,
@@ -131,9 +132,9 @@ function toolStep(
 				: lower.includes("search") || lower.includes("grep") || lower.includes("glob")
 					? "Searched"
 					: lower.includes("bash") ||
-							lower.includes("shell") ||
-							lower.includes("python") ||
-							lower.includes("ipython")
+						  lower.includes("shell") ||
+						  lower.includes("python") ||
+						  lower.includes("ipython")
 						? "Ran"
 						: displayName;
 	const normalized = normalizeToolPart(part);
@@ -194,7 +195,7 @@ function TimelineStepRow({
 	onOpenArtifact?: ToolTimelineProps["onOpenArtifact"];
 	renderToolDetails?: ToolTimelineProps["renderToolDetails"];
 }) {
-	const Icon = toolActionIconForName(step.part?.type.replace(/^tool-/, "") ?? step.target);
+	const iconName = step.part?.type.replace(/^tool-/, "") ?? step.target;
 	const artifactId = step.artifactId;
 	const openLabel =
 		artifactId && step.artifactTitle
@@ -225,7 +226,8 @@ function TimelineStepRow({
 			}
 		>
 			<TraceIcon>
-				<Icon
+				<ToolActionIcon
+					name={iconName}
 					className={cn(
 						"size-3.5",
 						step.status === "running" && "animate-pulse text-primary",
@@ -361,7 +363,7 @@ export function ToolTimeline({
 	if (steps.length === 0) return null;
 
 	const active = [...steps].reverse().find((step) => step.status === "running") ?? steps.at(-1);
-	const StatusIcon = toolActionIconForName(active?.part?.type.replace(/^tool-/, "") ?? active?.target ?? "activity");
+	const statusIconName = active?.part?.type.replace(/^tool-/, "") ?? active?.target ?? "activity";
 	return (
 		<Trace className={cn("mb-2", className)} data-testid="tool-trace">
 			<TraceCollapsible open={open} onOpenChange={setOpen}>
@@ -370,7 +372,10 @@ export function ToolTimeline({
 						status={active?.status === "running" ? "running" : active?.status === "error" ? "error" : undefined}
 					>
 						<TraceIcon>
-							<StatusIcon className={cn("size-3.5", active?.status === "running" && "animate-spin")} />
+							<ToolActionIcon
+								name={statusIconName}
+								className={cn("size-3.5", active?.status === "running" && "animate-spin")}
+							/>
 						</TraceIcon>
 						<TraceTitle>
 							{streaming && active

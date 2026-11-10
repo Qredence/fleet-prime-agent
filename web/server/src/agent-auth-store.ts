@@ -13,7 +13,7 @@
 import { join } from "node:path";
 import { type JsonObject, RUNTIME_FILE_MODE, readJsonObjectFile, updateJsonObjectFile } from "./agent-file-writer";
 
-export const AUTH_FILE = "auth.json";
+const AUTH_FILE = "auth.json";
 
 /** Credentials Fleet may write. OAuth bundles are refreshed by the runtime. */
 export type StoredApiKeyCredential = { type: "api_key"; key: string; [field: string]: unknown };

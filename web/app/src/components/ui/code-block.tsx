@@ -169,23 +169,5 @@ function CodeBlockLine({
 		</span>
 	);
 }
-function CodeBlockFooter({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="code-block-footer"
-			className={cn("flex min-w-0 shrink-0 items-center gap-2 px-3 pb-3 text-muted-foreground", className)}
-			{...props}
-		/>
-	);
-}
 
-export {
-	CodeBlock,
-	CodeBlockActions,
-	CodeBlockContent,
-	CodeBlockCopyButton,
-	CodeBlockFooter,
-	CodeBlockHeader,
-	CodeBlockLine,
-	CodeBlockTitle,
-};
+export { CodeBlock, CodeBlockActions, CodeBlockContent, CodeBlockCopyButton, CodeBlockHeader, CodeBlockTitle };

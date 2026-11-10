@@ -29,19 +29,15 @@ function sidebarReducer(state: SidebarState, action: SidebarAction): SidebarStat
  * `activeProjectId` seeds the initially expanded projects once; later changes
  * to that argument do not reset this state. */
 export function useSessionSidebarState(activeProjectId: ProjectId | undefined) {
-	const [state, dispatch] = useReducer(
-		sidebarReducer,
-		activeProjectId,
-		(initialActiveProjectId): SidebarState => ({
-			brandMenuOpen: false,
-			projectActionsOpen: false,
-			searchOpen: false,
-			query: "",
-			expandedProjectIds: readExpandedProjects(initialActiveProjectId),
-			revealedProjectIds: new Set(),
-			activeDialog: null,
-		}),
-	);
+	const [state, dispatch] = useReducer(sidebarReducer, activeProjectId, (initialActiveProjectId): SidebarState => ({
+		brandMenuOpen: false,
+		projectActionsOpen: false,
+		searchOpen: false,
+		query: "",
+		expandedProjectIds: readExpandedProjects(initialActiveProjectId),
+		revealedProjectIds: new Set(),
+		activeDialog: null,
+	}));
 
 	const setField = useCallback(function setSidebarField<Key extends keyof SidebarState>(
 		key: Key,

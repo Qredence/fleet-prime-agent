@@ -23,20 +23,11 @@ export type ImageLightboxProps = {
 	initialIndex?: number;
 };
 
-/**
- * Portal-based fullscreen image preview. Renders to `document.body` so it
- * escapes any clipping/transform/stacking context. Adapted from the
- * 21st-private-1 desktop chat — without copy/save (those are
- * desktop-API-specific).
- */
-export function ImageLightbox({ open, onClose, images, initialIndex = 0 }: ImageLightboxProps) {
+type ImageLightboxOpenProps = Omit<ImageLightboxProps, "open">;
+
+function ImageLightboxOpen({ onClose, images, initialIndex = 0 }: ImageLightboxOpenProps) {
 	const [currentIndex, setCurrentIndex] = useState(initialIndex);
 	const hasMultipleImages = images.length > 1;
-
-	// Sync the active index whenever the consumer re-opens with a new initial.
-	useEffect(() => {
-		if (open) setCurrentIndex(initialIndex);
-	}, [open, initialIndex]);
 
 	const goToPrevious = useCallback(
 		(event?: React.MouseEvent) => {
@@ -71,21 +62,19 @@ export function ImageLightbox({ open, onClose, images, initialIndex = 0 }: Image
 	});
 
 	useEffect(() => {
-		if (!open) return;
 		const handler = (event: KeyboardEvent) => onLightboxKeyDown(event);
 		window.addEventListener("keydown", handler, true);
 		return () => window.removeEventListener("keydown", handler, true);
-	}, [open]);
+	}, []);
 
 	// Lock body scroll while open so the page underneath doesn't move.
 	useEffect(() => {
-		if (!open) return;
 		const previousOverflow = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
 		return () => {
 			document.body.style.overflow = previousOverflow;
 		};
-	}, [open]);
+	}, []);
 
 	const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -94,10 +83,7 @@ export function ImageLightbox({ open, onClose, images, initialIndex = 0 }: Image
 		if (dialogRef.current && event.target === dialogRef.current) onClose();
 	});
 
-	// The dialog is not in the tree while `open` is false, so these must rerun
-	// when it mounts: empty-deps effects see a null ref on the first render.
 	useEffect(() => {
-		if (!open) return;
 		const dialog = dialogRef.current;
 		if (!dialog) return;
 		if (!dialog.open) dialog.showModal();
@@ -107,10 +93,8 @@ export function ImageLightbox({ open, onClose, images, initialIndex = 0 }: Image
 			dialog.removeEventListener("click", handler);
 			if (dialog.open) dialog.close();
 		};
-	}, [open]);
+	}, []);
 
-	if (typeof document === "undefined") return null;
-	if (!open) return null;
 	const currentImage = images[currentIndex] ?? images[0];
 	if (!currentImage?.url) return null;
 
@@ -186,5 +170,27 @@ export function ImageLightbox({ open, onClose, images, initialIndex = 0 }: Image
 			)}
 		</dialog>,
 		document.body,
+	);
+}
+
+/**
+ * Portal-based fullscreen image preview. Renders to `document.body` so it
+ * escapes any clipping/transform/stacking context. Adapted from the
+ * 21st-private-1 desktop chat — without copy/save (those are
+ * desktop-API-specific).
+ */
+export function ImageLightbox({ open, onClose, images, initialIndex = 0 }: ImageLightboxProps) {
+	if (typeof document === "undefined") return null;
+	if (!open) return null;
+
+	const galleryKey = images.map((image) => image.id).join("\0");
+
+	return (
+		<ImageLightboxOpen
+			key={`${galleryKey}:${initialIndex}`}
+			images={images}
+			initialIndex={initialIndex}
+			onClose={onClose}
+		/>
 	);
 }

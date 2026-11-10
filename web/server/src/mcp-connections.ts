@@ -23,7 +23,7 @@ export type FleetMcpStdioConfig = {
 
 export type FleetMcpServerConfig = FleetMcpHttpConfig | FleetMcpStdioConfig;
 
-export const MCP_AUTH_PREFIX = "mcp:";
+const MCP_AUTH_PREFIX = "mcp:";
 
 export function mcpProviderId(name: string): string {
 	return `${MCP_AUTH_PREFIX}${name}`;
@@ -68,17 +68,17 @@ export function validateHttpMcpUrl(value: string): string {
 	return url.toString();
 }
 
-export function stdioCommandPreview(config: FleetMcpStdioConfig): string {
+function stdioCommandPreview(config: FleetMcpStdioConfig): string {
 	return [config.command, ...(config.args ?? [])].join(" ");
 }
 
-export function mcpEnvBindings(config: FleetMcpServerConfig): Array<McpEnvBinding> | undefined {
+function mcpEnvBindings(config: FleetMcpServerConfig): Array<McpEnvBinding> | undefined {
 	if (config.type !== "stdio" || !config.env) return undefined;
 	const bindings = Object.entries(config.env).map(([child, mapping]) => ({ child, source: mapping.env }));
 	return bindings.length > 0 ? bindings : undefined;
 }
 
-export function isMcpAuthed(server: McpListedServer, auth: McpAuthStore, env: NodeJS.Dict<string>): boolean {
+function isMcpAuthed(server: McpListedServer, auth: McpAuthStore, env: NodeJS.Dict<string>): boolean {
 	if (server.config.enabled === false) return false;
 	if (server.userDeclared && getCatalogEntry(server.name)) return false;
 	if (server.config.type === "stdio") return true;
@@ -93,7 +93,7 @@ export function isMcpAuthed(server: McpListedServer, auth: McpAuthStore, env: No
 	return typeof endpoint === "string" && server.config.type === "http" && endpoint === server.config.url;
 }
 
-export function mcpConnectionStatus(server: McpListedServer, authed: boolean): McpConnectionStatus {
+function mcpConnectionStatus(server: McpListedServer, authed: boolean): McpConnectionStatus {
 	if (server.config.enabled === false) return "disabled";
 	if (authed) {
 		const anonymousHttp =
@@ -103,11 +103,7 @@ export function mcpConnectionStatus(server: McpListedServer, authed: boolean): M
 	return "needs_auth";
 }
 
-export function toMcpConnectionInfo(
-	server: McpListedServer,
-	auth: McpAuthStore,
-	env: NodeJS.Dict<string>,
-): McpConnectionInfo {
+function toMcpConnectionInfo(server: McpListedServer, auth: McpAuthStore, env: NodeJS.Dict<string>): McpConnectionInfo {
 	const usesOAuth = server.config.type === "http" && server.config.oauth === true;
 	const catalogShadow = server.userDeclared && Boolean(getCatalogEntry(server.name));
 	const authed = isMcpAuthed(server, auth, env);
@@ -131,7 +127,7 @@ export function toMcpConnectionInfo(
 	};
 }
 
-export function listMcpServers(userServers: Record<string, FleetMcpServerConfig> | undefined): Array<McpListedServer> {
+function listMcpServers(userServers: Record<string, FleetMcpServerConfig> | undefined): Array<McpListedServer> {
 	const listed: Array<McpListedServer> = [];
 	for (const entry of BUILTIN_MCP_CATALOG) {
 		listed.push({

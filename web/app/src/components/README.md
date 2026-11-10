@@ -18,6 +18,7 @@ motion/    → motion-only helpers (no parallel Select/Combobox/Popover/Checkbox
 - Preserve the distinction between low-level design-system controls and higher-level compositions/adapters. Settings-specific rows belong to `settings/`; Recharts wrappers may remain in `ui/` as documented adapters; the responsive Fleet sidebar is a shell element, not a generic primitive.
 - New `@beui` installs that are interactive controls belong in `ui/`; motion-only chrome stays in `motion/`. Do **not** add parallel form/overlay controls under `motion/` or product areas.
 - `openui/` composes the shared UI layer for generated surfaces; product areas should not reimplement shared controls.
+- Product folders may contain many files. That is product structure, not a design-system violation. They compose `components/ui` and must not grow a parallel Button, Trace, Dialog, or Input. Single-caller primitives stay in `ui/`.
 - Put behavior tests beside the owning UI component. Test accessibility, interaction, state, and composition contracts rather than utility-class strings or broad snapshots.
 
 ```text
@@ -32,6 +33,9 @@ components/
   settings/    # settings dialog, sections, provider credentials, MCP connections
   tools/       # tool renderers + registry
   motion/      # motion-only helpers (action-swap, file-tree, preview-rail, runtime, shared-layout-bg)
+  agents/      # agents route page
+  connectors/  # connectors route page
+  dashboards/  # generative dashboard panel and request cards
 ```
 
 ## Rules

@@ -96,7 +96,7 @@ export function createMarkdownComponents(
 		h2: ({ children, ...props }) => <h2 {...props}>{children}</h2>,
 		h3: ({ children, ...props }) => <h3 {...props}>{children}</h3>,
 		h4: ({ children, ...props }) => <h4 {...props}>{children}</h4>,
-		p: ({ children, node, ...props }) => {
+		p: ({ children, node: _node, ...props }) => {
 			const child = (Array.isArray(children) ? children : [children]).filter(
 				(value) => value != null && value !== "",
 			);
@@ -158,8 +158,6 @@ export function createMarkdownComponents(
 		td: ({ children, ...props }) => <td {...props}>{children}</td>,
 	};
 }
-
-export const markdownComponents = createMarkdownComponents();
 
 function textContent(value: unknown): string {
 	if (typeof value === "string" || typeof value === "number") return String(value);

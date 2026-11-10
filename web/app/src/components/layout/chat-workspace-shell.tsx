@@ -36,11 +36,11 @@ export function ChatWorkspaceShell() {
 	const { session, conversation, composer, panels, dialogs, chrome, agentTabs } = useChatWorkspaceData();
 	const toggleCommandPalette = useCallback(() => {
 		dialogs.setCommandPaletteOpen((open) => !open);
-	}, [dialogs.setCommandPaletteOpen]);
+	}, [dialogs]);
 	const closeRightPanel = useCallback(() => {
 		panels.setRightPanel(null);
 		window.requestAnimationFrame(() => focusChatComposer());
-	}, [panels.setRightPanel]);
+	}, [panels]);
 	usePanelKeybindings({
 		onCommandPaletteToggle: toggleCommandPalette,
 		onClosePanel: closeRightPanel,
@@ -71,15 +71,7 @@ export function ChatWorkspaceShell() {
 				}
 			})();
 		},
-		[
-			composer.chatMode,
-			composer.clearUploadedAttachments,
-			composer.clearWorkspaceAttachments,
-			composer.restoreAttachments,
-			composer.uploadedAttachments,
-			composer.workspaceAttachments,
-			conversation.sendMessage,
-		],
+		[conversation, composer],
 	);
 	const handleOpenUIAction = useCallback(
 		(message: string) => {
@@ -90,7 +82,7 @@ export function ChatWorkspaceShell() {
 			}
 			void conversation.sendMessage({ text: message, altKey: false, mode: composer.chatMode, openUI: true });
 		},
-		[composer.chatMode, conversation.openPanelAction, conversation.sendMessage],
+		[conversation, composer],
 	);
 	const handleOpenUIArtifactReady = useCallback(
 		async (candidate: OpenUIArtifactCandidate) => {
@@ -101,7 +93,7 @@ export function ChatWorkspaceShell() {
 				return undefined;
 			}
 		},
-		[conversation.persistOpenUIArtifact],
+		[conversation],
 	);
 
 	const sidebarData = useMemo(
@@ -114,31 +106,28 @@ export function ChatWorkspaceShell() {
 		}),
 		[session.sessions, session.projects, session.projectSessions, session.activeProjectId, session.activeSessionId],
 	);
-	const onNewSession = useCallback(
-		() => runWorkspaceAction(() => session.startNewSession()),
-		[session.startNewSession],
-	);
+	const onNewSession = useCallback(() => runWorkspaceAction(() => session.startNewSession()), [session]);
 	const onResumeSession = useCallback(
 		(sessionToResume: ChatSessionInfo) => {
 			void session.resumeSession({ sessionId: sessionToResume.sessionId });
 		},
-		[session.resumeSession],
+		[session],
 	);
 	const onRenameSession = useCallback(
 		(sessionId: string, title: string) => {
 			void session.renameSession(sessionId, title);
 		},
-		[session.renameSession],
+		[session],
 	);
 	const onDeleteSession = useCallback(
 		(sessionId: string) => {
 			void session.deleteSession(sessionId);
 		},
-		[session.deleteSession],
+		[session],
 	);
 	const onOpenSettings = useCallback(() => {
 		dialogs.setSettingsDialogOpen(true);
-	}, [dialogs.setSettingsDialogOpen]);
+	}, [dialogs]);
 	const sessionActions = useMemo(
 		() => ({
 			onNewSession,

@@ -38,12 +38,12 @@ export function SubagentsPanelContent({
 	const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 	const [transcripts, setTranscripts] = useState<Record<string, TranscriptState>>({});
 	const requestVersions = useRef(new Map<string, number>());
-	const selectedAgent = ordered.find((agent) => agent.id === selectedAgentId) ?? ordered[0];
-
-	useEffect(() => {
-		if (selectedAgentId && ordered.some((agent) => agent.id === selectedAgentId)) return;
-		setSelectedAgentId(ordered[0]?.id ?? null);
-	}, [ordered, selectedAgentId]);
+	const loadedTranscriptKeys = useRef(new Map<string, string>());
+	const resolvedSelectedAgentId =
+		selectedAgentId && ordered.some((agent) => agent.id === selectedAgentId)
+			? selectedAgentId
+			: (ordered[0]?.id ?? null);
+	const selectedAgent = ordered.find((agent) => agent.id === resolvedSelectedAgentId) ?? ordered[0];
 
 	const loadTranscript = useCallback(
 		async (agent: PrimeAgentRlmChild, force = false) => {
@@ -51,6 +51,7 @@ export function SubagentsPanelContent({
 			const requestKey = `${parentSessionId}:${agent.id}:${agent.status}:${agent.timestamp}:${agent.activeSessionId ?? ""}`;
 			const current = transcripts[agent.id];
 			if (!force && current?.requestKey === requestKey) return;
+			if (force) loadedTranscriptKeys.current.delete(agent.id);
 
 			const version = (requestVersions.current.get(agent.id) ?? 0) + 1;
 			requestVersions.current.set(agent.id, version);
@@ -62,6 +63,7 @@ export function SubagentsPanelContent({
 			try {
 				const response = await loadSession(parentSessionId, agent.id);
 				if (requestVersions.current.get(agent.id) !== version) return;
+				loadedTranscriptKeys.current.set(agent.id, requestKey);
 				setTranscripts((previous) => ({
 					...previous,
 					[agent.id]: {
@@ -88,8 +90,54 @@ export function SubagentsPanelContent({
 	);
 
 	useEffect(() => {
-		if (selectedAgent) void loadTranscript(selectedAgent);
-	}, [loadTranscript, selectedAgent]);
+		if (!selectedAgent || !parentSessionId) return;
+		const agent = selectedAgent;
+		const loadedKeys = loadedTranscriptKeys.current;
+		const versions = requestVersions.current;
+		const requestKey = `${parentSessionId}:${agent.id}:${agent.status}:${agent.timestamp}:${agent.activeSessionId ?? ""}`;
+		if (loadedKeys.get(agent.id) === requestKey) return;
+		loadedKeys.set(agent.id, requestKey);
+
+		const version = (versions.get(agent.id) ?? 0) + 1;
+		versions.set(agent.id, version);
+		let cancelled = false;
+		let completed = false;
+
+		void loadSession(parentSessionId, agent.id)
+			.then((response) => {
+				if (cancelled || versions.get(agent.id) !== version) return;
+				completed = true;
+				setTranscripts((previous) => ({
+					...previous,
+					[agent.id]: {
+						requestKey,
+						status: "ready",
+						messages: response.messages,
+						presentation: response.presentation,
+					},
+				}));
+			})
+			.catch((error) => {
+				if (cancelled || versions.get(agent.id) !== version) return;
+				completed = true;
+				setTranscripts((previous) => ({
+					...previous,
+					[agent.id]: {
+						requestKey,
+						status: "error",
+						messages: [],
+						error: error instanceof Error ? error : new Error(String(error)),
+					},
+				}));
+			});
+
+		return () => {
+			cancelled = true;
+			if (!completed && loadedKeys.get(agent.id) === requestKey) {
+				loadedKeys.delete(agent.id);
+			}
+		};
+	}, [loadSession, parentSessionId, selectedAgent]);
 
 	if (ordered.length === 0) {
 		return (

@@ -59,7 +59,7 @@ or `npm exec pnpm@11.15.1`.
    pnpm --filter @prime-agent/web-server exec vitest run src/__tests__/prime-bridge.test.ts
    ~~~
 
-6. Run `pnpm run format` only when you intentionally want Biome to write formatting changes.
+6. Run `pnpm run format` only when you intentionally want Oxfmt and Oxlint to write formatting changes.
 
 Playwright smoke (`pnpm --filter @qredence/web test:e2e`) is local-only; CircleCI does not run it.
 

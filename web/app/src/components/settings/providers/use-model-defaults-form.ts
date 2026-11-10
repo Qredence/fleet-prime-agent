@@ -5,7 +5,7 @@ import type {
 	ChatSettingsResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ChatModelOption } from "@/components/chat/chat-helpers";
 import { isModelEnabled, nextEnabledModelPatterns } from "@/components/settings/providers/model-patterns";
 import { comparableModelSettings, modelSettings, sameJson } from "@/components/settings/settings-mappers";
@@ -42,7 +42,7 @@ export function useModelDefaultsForm({
 	const [modelFilter, setModelFilter] = useState("");
 	const [discoveredModels, setDiscoveredModels] = useState<Record<string, Array<ConfigModelInfo>>>({});
 	const [discoveringProviderId, setDiscoveringProviderId] = useState<string | null>(null);
-	const lastCommittedModelSettings = useRef<ChatPiSettingsUpdate | null>(null);
+	const [committedModelBaseline, setCommittedModelBaseline] = useState<ChatPiSettingsUpdate | null>(null);
 
 	const configuredProviderIds = useMemo(() => {
 		// Trust the server: the /api/chat/providers route is driven entirely by
@@ -80,13 +80,21 @@ export function useModelDefaultsForm({
 		return [...byId.values()];
 	}, [catalogModels, configuredProviderIds, discoveredModels, draft?.enabledModels]);
 
-	const modelBaseline =
-		lastCommittedModelSettings.current ?? (settings ? comparableModelSettings(settings.effective) : null);
+	const settingsModelBaseline = settings
+		? comparableModelSettings({
+				...settings.effective,
+				enabledModels: settings.project.enabledModels ?? settings.effective.enabledModels,
+				defaultProvider: settings.project.defaultProvider ?? settings.effective.defaultProvider,
+				defaultModel: settings.project.defaultModel ?? settings.effective.defaultModel,
+				defaultThinkingLevel: settings.project.defaultThinkingLevel ?? settings.effective.defaultThinkingLevel,
+			})
+		: null;
+	const modelBaseline = committedModelBaseline ?? settingsModelBaseline;
 
 	const modelDirty = !!draft && !!modelBaseline && !sameJson(comparableModelSettings(draft), modelBaseline);
 
 	const resetCommittedModelBaseline = useCallback(() => {
-		lastCommittedModelSettings.current = null;
+		setCommittedModelBaseline(null);
 	}, []);
 
 	const commitModelSettings = async (nextDraft: ChatPiSettings, options?: { silent?: boolean }): Promise<boolean> => {
@@ -106,7 +114,7 @@ export function useModelDefaultsForm({
 					nextDraft.defaultThinkingLevel ??
 					response.effective.defaultThinkingLevel,
 			};
-			lastCommittedModelSettings.current = comparableModelSettings(committed);
+			setCommittedModelBaseline(comparableModelSettings(committed));
 			setDraft(committed);
 			if (!options?.silent) {
 				toast.success("Pi settings saved");

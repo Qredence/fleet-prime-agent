@@ -20,7 +20,7 @@ import { readProviderApiKey, removeProviderCredential, setProviderApiKey } from 
 import { getPrimeConfig } from "../prime-config";
 
 /** Credential identifier. Not a model provider id, and never resolved as one. */
-export const TYPESAFE_CREDENTIAL_ID = "typesafe";
+const TYPESAFE_CREDENTIAL_ID = "typesafe";
 
 /** The stored key, or `undefined` when none is usable. */
 export async function readStoredTypeSafeKey(): Promise<string | undefined> {

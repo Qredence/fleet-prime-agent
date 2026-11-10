@@ -64,10 +64,12 @@ function resolveSavedModelKey(models: Array<ChatModelOption>, response: ChatSett
  */
 export function useChatWorkspaceData() {
 	const {
+		forkPickerDialogEverOpened,
 		forkPickerEntries,
 		setForkPickerEntries,
 		setSettingsDialogOpen,
 		setSettingsInitialTab,
+		settingsDialogEverOpened,
 		settingsDialogOpen,
 		settingsInitialTab,
 	} = useChatWorkspaceDialogs();
@@ -87,6 +89,7 @@ export function useChatWorkspaceData() {
 	const [activeProjectId, setActiveProjectId] = useState<ProjectId | undefined>(
 		storage.sessionMetadata.projectId ?? undefined,
 	);
+	const defaultedProjectRef = useRef(false);
 	const { data: providersData, isLoading: isLoadingProviders } = useChatProviders();
 	const { data: mcpData, isLoading: isLoadingMcp } = useChatMcpConnections();
 	const { data: projectsData, refetch: refetchProjects } = useChatProjects();
@@ -128,16 +131,25 @@ export function useChatWorkspaceData() {
 		thinkingLevel,
 	} = useChatShellState(modelsData, storage);
 
+	const storedProjectId = initialSessionMetadata.projectId;
+	const firstProjectId = projectsData?.projects[0]?.projectId;
+	const [syncedStoredProjectId, setSyncedStoredProjectId] = useState(storedProjectId);
+	if (storedProjectId !== syncedStoredProjectId) {
+		setSyncedStoredProjectId(storedProjectId);
+		if (storedProjectId && storedProjectId !== activeProjectId) {
+			setActiveProjectId(storedProjectId);
+		}
+	} else if (!activeProjectId && firstProjectId) {
+		setActiveProjectId(firstProjectId);
+	}
+
 	useEffect(() => {
-		if (initialSessionMetadata.projectId && initialSessionMetadata.projectId !== activeProjectId) {
-			setActiveProjectId(initialSessionMetadata.projectId);
-			return;
-		}
-		if (!activeProjectId && projectsData?.projects[0]) {
-			setActiveProjectId(projectsData.projects[0].projectId);
-			persistSession({ projectId: projectsData.projects[0].projectId });
-		}
-	}, [activeProjectId, initialSessionMetadata.projectId, persistSession, projectsData?.projects]);
+		if (storedProjectId || defaultedProjectRef.current) return;
+		const firstId = projectsData?.projects[0]?.projectId;
+		if (!activeProjectId || !firstId || activeProjectId !== firstId) return;
+		defaultedProjectRef.current = true;
+		persistSession({ projectId: activeProjectId });
+	}, [activeProjectId, persistSession, projectsData?.projects, storedProjectId]);
 
 	const {
 		data: resourcesData,
@@ -638,11 +650,13 @@ export function useChatWorkspaceData() {
 		dialogs: {
 			commandPaletteOpen,
 			forkFromEntry,
+			forkPickerDialogEverOpened,
 			forkPickerEntries,
 			setCommandPaletteOpen,
 			setForkPickerEntries,
 			setSettingsDialogOpen,
 			setSettingsInitialTab,
+			settingsDialogEverOpened,
 			settingsDialogOpen,
 			settingsInitialTab,
 		},

@@ -39,7 +39,7 @@ export type CustomProviderWriteInput = {
 };
 
 /** Convert the Settings API-family value to the engine's models.json value. */
-export function storedApiForCustomProvider(api: PiCustomProviderApi): string {
+function storedApiForCustomProvider(api: PiCustomProviderApi): string {
 	return api === "google-genai" ? "google-generative-ai" : api;
 }
 

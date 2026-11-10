@@ -25,10 +25,10 @@ export type TypeSafeRuntimeConfig = {
 	readonly logLevel: TypeSafeLogLevel;
 };
 
-export const DEFAULT_TYPESAFE_BASE_URL = "https://api.typesafe.ai";
-export const DEFAULT_TYPESAFE_MODEL = "jev-latest";
-export const DEFAULT_TYPESAFE_INTENT_TIMEOUT_MS = 1_500;
-export const DEFAULT_TYPESAFE_INTENT_MAX_RETRIES = 1;
+const DEFAULT_TYPESAFE_BASE_URL = "https://api.typesafe.ai";
+const DEFAULT_TYPESAFE_MODEL = "jev-latest";
+const DEFAULT_TYPESAFE_INTENT_TIMEOUT_MS = 1_500;
+const DEFAULT_TYPESAFE_INTENT_MAX_RETRIES = 1;
 
 const LOG_LEVELS: ReadonlyArray<TypeSafeLogLevel> = ["debug", "info", "warn", "error", "off"];
 

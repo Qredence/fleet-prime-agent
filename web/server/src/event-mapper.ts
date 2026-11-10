@@ -396,7 +396,7 @@ export function computeRlmExecutionTree(
  * @param override - Optional status and last-heard-from values to apply
  * @returns A sanitized RLM child record with a current timestamp
  */
-export function safeRlmChild(
+function safeRlmChild(
 	child: Extract<AgentSessionEvent, { type: "rlm_child_update" }>["child"],
 	override?: RlmChildStatusOverride,
 ): PrimeAgentRlmChild {
@@ -1650,17 +1650,6 @@ export function resyncAfterSequenceGap(
 	snapshot: Extract<AgentConnectionEvent, { type: "session_resynced" }>["snapshot"],
 ): ChatStreamEvent[] {
 	return mapAgentConnectionEvent(state, { type: "session_resynced", snapshot });
-}
-
-export function mapAgentConnectionEvents(
-	state: EventMapperState,
-	events: readonly MapperInputEvent[],
-): ChatStreamEvent[] {
-	const out: ChatStreamEvent[] = [];
-	for (const evt of events) {
-		out.push(...mapAgentConnectionEvent(state, evt));
-	}
-	return out;
 }
 
 // ---------------------------------------------------------------------------

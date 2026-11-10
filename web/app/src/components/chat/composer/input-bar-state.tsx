@@ -122,27 +122,35 @@ export function useInputBarState({
 	);
 	const slashMatch = value.match(/^\/([^\s/]*)$/);
 	const workspaceMentionMatch = value.match(/(?:^|\s)@([^\s@]*)$/);
-	const slashQuery = slashMatch?.[1]?.toLowerCase() ?? (slashMenuPinned ? "" : undefined);
+	const slashMenuActive = slashMenuPinned && !slashMatch && !isStreaming && !disabled;
+	const slashQuery = slashMatch?.[1]?.toLowerCase() ?? (slashMenuActive ? "" : undefined);
 	const workspaceQuery = workspaceMentionMatch?.[1]?.toLowerCase();
 	const triggerKind: "slash" | "mention" | undefined =
-		workspaceQuery !== undefined ? "mention" : slashMatch || slashMenuPinned ? "slash" : undefined;
+		workspaceQuery !== undefined ? "mention" : slashMatch || slashMenuActive ? "slash" : undefined;
 	const slashMatches = useSlashMatches(value, slashElementCommands);
 	const filteredCommands = useMemo(() => {
-		if (slashMenuPinned && !value.startsWith("/")) return commands;
+		if (slashMenuActive && !value.startsWith("/")) return commands;
 		const matchingNames = new Set(slashMatches.map((item) => item.name));
 		return commands.filter((item) => matchingNames.has(slashCommandName(item)));
-	}, [commands, slashMatches, slashMenuPinned, value]);
+	}, [commands, slashMatches, slashMenuActive, value]);
 	const mentionMatches = useMentionMatches(value, mentionElementPeople);
 	const filteredWorkspaceItems = useMemo(() => {
 		const matchingIds = new Set(mentionMatches.map((item) => item.id).filter((id): id is string => Boolean(id)));
 		return workspaceItems.filter((item) => matchingIds.has(item.id));
 	}, [mentionMatches, workspaceItems]);
 	const triggerItems = triggerKind === "slash" ? filteredCommands : filteredWorkspaceItems;
-	const [activeTriggerIndex, setActiveTriggerIndex] = useState(0);
-
-	useEffect(() => {
-		setActiveTriggerIndex(0);
-	}, [triggerKind, slashQuery, workspaceQuery, triggerItems.length]);
+	const triggerMenuEpoch = `${triggerKind ?? ""}\0${slashQuery ?? ""}\0${workspaceQuery ?? ""}\0${triggerItems.length}`;
+	const [triggerSelection, setTriggerSelection] = useState({ epoch: triggerMenuEpoch, index: 0 });
+	const activeTriggerIndex =
+		triggerSelection.epoch === triggerMenuEpoch
+			? Math.min(triggerSelection.index, Math.max(0, triggerItems.length - 1))
+			: 0;
+	const setActiveTriggerIndex = useCallback(
+		(index: number) => {
+			setTriggerSelection({ epoch: triggerMenuEpoch, index });
+		},
+		[triggerMenuEpoch],
+	);
 
 	const send = useCallback(
 		(content: string, altKey = false) => {
@@ -371,12 +379,12 @@ export function useInputBarState({
 				}
 				if (event.key === "ArrowDown") {
 					event.preventDefault();
-					setActiveTriggerIndex((index) => (index + 1) % triggerItems.length);
+					setActiveTriggerIndex((activeTriggerIndex + 1) % triggerItems.length);
 					return;
 				}
 				if (event.key === "ArrowUp") {
 					event.preventDefault();
-					setActiveTriggerIndex((index) => (index - 1 + triggerItems.length) % triggerItems.length);
+					setActiveTriggerIndex((activeTriggerIndex - 1 + triggerItems.length) % triggerItems.length);
 					return;
 				}
 				if (event.key === "Enter") {
@@ -424,6 +432,7 @@ export function useInputBarState({
 			selectCommand,
 			selectWorkspaceReference,
 			send,
+			setActiveTriggerIndex,
 			triggerItems,
 			triggerKind,
 			value,
@@ -502,15 +511,7 @@ export function useInputBarState({
 		setSlashMenuPinned(true);
 		setActiveTriggerIndex(0);
 		document.getElementById("composer-prompt")?.focus({ preventScroll: true });
-	}, [disabled, isStreaming]);
-
-	useEffect(() => {
-		if (slashMatch) setSlashMenuPinned(false);
-	}, [slashMatch]);
-
-	useEffect(() => {
-		if (isStreaming || disabled) setSlashMenuPinned(false);
-	}, [disabled, isStreaming]);
+	}, [disabled, isStreaming, setActiveTriggerIndex]);
 
 	useEffect(() => {
 		if (!triggerOpen) return;

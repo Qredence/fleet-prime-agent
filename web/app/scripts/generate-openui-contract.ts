@@ -41,9 +41,12 @@ const dashboardSpecSource = `${JSON.stringify({
 })}\n`;
 
 function format(source: string, path: string): string {
-	const biome = resolve(appRoot, "../../node_modules/.bin/biome");
-	const result = spawnSync(biome, ["format", "--stdin-file-path", path], { input: source, encoding: "utf8" });
-	if (result.status !== 0) throw new Error(result.stderr || `Biome formatting failed for ${path}`);
+	const oxfmt = resolve(appRoot, "../../node_modules/oxfmt/bin/oxfmt");
+	const result = spawnSync(process.execPath, [oxfmt, "--stdin-filepath", path], {
+		input: source,
+		encoding: "utf8",
+	});
+	if (result.status !== 0) throw new Error(result.stderr || `Oxfmt formatting failed for ${path}`);
 	return result.stdout;
 }
 

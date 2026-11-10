@@ -48,7 +48,7 @@ export const BUILT_IN_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 };
 
 /** `prime-agent-traces` is diagnostics, not a model provider. */
-export function isLlmsProviderId(providerId: string): boolean {
+function isLlmsProviderId(providerId: string): boolean {
 	return providerId !== "prime-agent-traces";
 }
 

@@ -248,9 +248,9 @@ const primeAgentDist = dirname(fileURLToPath(import.meta.resolve("prime-agent"))
 const { PrivateFrameDecoder } = (await import(
 	pathToFileURL(join(primeAgentDist, "modes/session-worker/private-framing.js")).href
 )) as {
-	PrivateFrameDecoder: new (
-		validate: (value: unknown) => boolean,
-	) => { push(chunk: Buffer): Iterable<{ header: unknown; payload: Buffer }> };
+	PrivateFrameDecoder: new (validate: (value: unknown) => boolean) => {
+		push(chunk: Buffer): Iterable<{ header: unknown; payload: Buffer }>;
+	};
 };
 
 function capture(sink: string[], text: string): void {

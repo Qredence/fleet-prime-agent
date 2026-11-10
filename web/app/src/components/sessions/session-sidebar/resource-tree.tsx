@@ -148,12 +148,17 @@ function ResourceRenameInput({
 	onCancel: () => void;
 }) {
 	const [draft, setDraft] = useState(label);
+	const [draftLabelSource, setDraftLabelSource] = useState(label);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const skipBlurRef = useRef(false);
 
+	if (label !== draftLabelSource) {
+		setDraftLabelSource(label);
+		setDraft(label);
+	}
+
 	useEffect(() => {
 		skipBlurRef.current = false;
-		setDraft(label);
 		requestAnimationFrame(() => {
 			inputRef.current?.focus();
 			inputRef.current?.select();
@@ -281,7 +286,7 @@ interface ResourceRowProps {
 	renderIcon?: (item: SidebarResource) => ReactNode;
 	renderSecondaryAction?: AISidebarProps["renderSecondaryAction"];
 	renderMenu?: AISidebarProps["renderMenu"];
-	setRef: (node: HTMLDivElement | null) => void;
+	rowId: string;
 }
 
 function ResourceRow(props: ResourceRowProps) {
@@ -306,7 +311,7 @@ function ResourceRow(props: ResourceRowProps) {
 
 	return (
 		<m.div
-			ref={props.setRef}
+			data-resource-row-id={props.rowId}
 			layout="position"
 			transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
 			role="treeitem"
@@ -378,22 +383,27 @@ export function AISidebar({
 	const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 	const [renamingId, setRenamingId] = useState<string | null>(null);
 	const [announcement, setAnnouncement] = useState("");
-	const rowRefs = useRef(new Map<string, HTMLDivElement>());
+	const [itemsSource, setItemsSource] = useState(items);
 	const expandedIds = useMemo(
 		() => (controlledExpandedIds === undefined ? internalExpandedIds : new Set(controlledExpandedIds)),
 		[controlledExpandedIds, internalExpandedIds],
 	);
 
-	useEffect(() => {
+	if (items !== itemsSource) {
+		setItemsSource(items);
 		setInternalItems(items);
-	}, [items]);
+	}
 
 	const flat = useMemo(() => flattenResources(internalItems, expandedIds), [expandedIds, internalItems]);
 
-	useEffect(() => {
-		if (focusedId && flat.some((row) => row.item.id === focusedId)) return;
-		setFocusedId(flat[0]?.item.id ?? null);
+	const resolvedFocusedId = useMemo(() => {
+		if (focusedId && flat.some((row) => row.item.id === focusedId)) return focusedId;
+		return flat[0]?.item.id ?? null;
 	}, [flat, focusedId]);
+
+	if (resolvedFocusedId !== focusedId) {
+		setFocusedId(resolvedFocusedId);
+	}
 
 	useEffect(() => {
 		if (!menuOpenId) return;
@@ -409,7 +419,9 @@ export function AISidebar({
 
 	const focusRow = useCallback((id: string) => {
 		setFocusedId(id);
-		requestAnimationFrame(() => rowRefs.current.get(id)?.focus());
+		requestAnimationFrame(() => {
+			document.querySelector<HTMLElement>(`[data-resource-row-id="${CSS.escape(id)}"]`)?.focus();
+		});
 	}, []);
 
 	const toggle = useCallback(
@@ -507,7 +519,7 @@ export function AISidebar({
 							active={activeId === row.item.id}
 							containerActive={activeContainerId === row.item.id}
 							expanded={expandedIds.has(row.item.id)}
-							focused={focusedId === row.item.id}
+							focused={resolvedFocusedId === row.item.id}
 							menuOpen={menuOpenId === row.item.id}
 							renaming={renamingId === row.item.id}
 							onFocus={() => setFocusedId(row.item.id)}
@@ -537,10 +549,7 @@ export function AISidebar({
 							renderIcon={renderIcon}
 							renderSecondaryAction={renderSecondaryAction}
 							renderMenu={renderMenu}
-							setRef={(node) => {
-								if (node) rowRefs.current.set(row.item.id, node);
-								else rowRefs.current.delete(row.item.id);
-							}}
+							rowId={row.item.id}
 						/>
 					))}
 				</AnimatePresence>

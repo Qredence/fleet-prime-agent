@@ -39,7 +39,7 @@ const CUSTOM_PROVIDER_PICKER_ROW: ChatProviderInfo = {
 };
 
 /** Trims and deduplicates model id entries while preserving order. */
-export function normalizeCustomProviderModelIds(modelIds: ReadonlyArray<string>): Array<string> {
+function normalizeCustomProviderModelIds(modelIds: ReadonlyArray<string>): Array<string> {
 	const seen = new Set<string>();
 	const normalized: Array<string> = [];
 	for (const entry of modelIds) {

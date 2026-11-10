@@ -1,0 +1,33 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc", "react"],
+	"categories": {
+		"correctness": "error"
+	},
+	"env": {
+		"builtin": true
+	},
+	"ignorePatterns": [
+		"**/node_modules/**",
+		"**/test-sessions.ts",
+		"**/models.generated.ts",
+		"**/routeTree.gen.ts",
+		".worktrees/**",
+		".claude/worktrees/**"
+	],
+	"rules": {
+		"no-non-null-assertion": "off",
+		"no-explicit-any": "off",
+		"typescript/no-explicit-any": "off",
+		"no-control-regex": "off",
+		"no-empty-interface": "off",
+		"typescript/no-empty-object-type": "off",
+		"no-unsafe-optional-chaining": "off",
+		"prefer-optional-chain": "off",
+		"unicorn/prefer-node-protocol": "off",
+		"unicorn/no-useless-spread": "off",
+		"unicorn/no-useless-fallback-in-spread": "off",
+		"typescript/prefer-as-const": "off",
+		"unicorn/prefer-string-starts-ends-with": "off"
+	}
+}

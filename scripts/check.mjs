@@ -3,8 +3,9 @@
 // Quality-gate orchestrator. Replaces the sequential `pnpm run check` chain.
 //
 // Phase 1 (sequential, fast): the runtime manifest check fails fast before any
-// other work, then Biome checks the repository. Formatting is read-only by
-// default; pass --write only from the explicit developer formatting command.
+// other work, then Oxfmt and Oxlint check the repository. Formatting is
+// read-only by default; pass --write only from the explicit developer
+// formatting command.
 //
 // Phase 2 (concurrent): boundary, installer, rendering, and typecheck stages
 // are independent read-only checks, so they run in parallel. Unlike the
@@ -25,10 +26,29 @@ if (unexpectedArguments.length > 0) {
 	process.exit(1);
 }
 
-// Spawn the package's bin/biome Node wrapper instead of the extensionless
-// .bin shim: the wrapper resolves the platform binary (including the win32
-// .exe) and process.execPath works on every OS.
-const biomeBin = resolve(root, "node_modules/@biomejs/biome/bin/biome");
+// Spawn the package bin Node wrappers instead of the extensionless .bin shims:
+// the wrappers resolve the platform binary (including the win32 .exe) and
+// process.execPath works on every OS.
+const oxfmtBin = resolve(root, "node_modules/oxfmt/bin/oxfmt");
+const oxlintBin = resolve(root, "node_modules/oxlint/bin/oxlint");
+// Oxfmt expands these globs. Oxlint does not, so lint uses directories instead.
+const formatPaths = [
+	"packages/fleet-web/bin/**/*.mjs",
+	"web/*/src/**/*.ts",
+	"web/*/src/**/*.tsx",
+	"web/server/scripts/**/*.ts",
+	"scripts/**/*.mjs",
+	"scripts/**/*.ts",
+];
+const lintPaths = [
+	"packages/fleet-web/bin",
+	"web/app/src",
+	"web/protocol/src",
+	"web/server/src",
+	"web/server/scripts",
+	"scripts",
+];
+
 if (existsSync(resolve(root, "package-lock.json"))) {
 	console.error("Root package-lock.json is not allowed; use the pnpm workspace lockfile.");
 	process.exit(1);
@@ -76,16 +96,26 @@ if (runtime.code !== 0) {
 	process.exit(1);
 }
 
-const biome = await runStage("biome", process.execPath, [
-	biomeBin,
-	"check",
-	...(write ? ["--write"] : []),
-	"--error-on-warnings",
-	".",
+const format = await runStage(
+	"format",
+	process.execPath,
+	write ? [oxfmtBin, ...formatPaths] : [oxfmtBin, "--check", ...formatPaths],
+);
+if (format.code !== 0) {
+	report([runtime, format]);
+	console.error("\ncheck:format failed; skipping remaining stages.");
+	process.exit(1);
+}
+
+const lint = await runStage("lint", process.execPath, [
+	oxlintBin,
+	...(write ? ["--fix"] : []),
+	"--deny-warnings",
+	...lintPaths,
 ]);
-if (biome.code !== 0) {
-	report([runtime, biome]);
-	console.error("\ncheck:biome failed; skipping remaining stages.");
+if (lint.code !== 0) {
+	report([runtime, format, lint]);
+	console.error("\ncheck:lint failed; skipping remaining stages.");
 	process.exit(1);
 }
 
@@ -101,6 +131,6 @@ const phase2 = await Promise.all([
 	runStage("typecheck", pnpmTypecheck.command, pnpmTypecheck.args),
 ]);
 
-const failed = report([runtime, biome, ...phase2]);
+const failed = report([runtime, format, lint, ...phase2]);
 console.log(failed ? "\ncheck failed." : "\nAll checks passed.");
 process.exit(failed ? 1 : 0);

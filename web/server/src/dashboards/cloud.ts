@@ -148,7 +148,7 @@ export function createDashboardService(apiKey: string, model: string = DEFAULT_D
 	};
 }
 
-export function dashboardServiceForKey(apiKey: string | undefined, model?: string): DashboardService | null {
+function dashboardServiceForKey(apiKey: string | undefined, model?: string): DashboardService | null {
 	if (override) return override;
 	if (!apiKey) return null;
 	return createDashboardService(apiKey, model);

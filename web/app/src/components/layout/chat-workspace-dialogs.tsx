@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { runWorkspaceAction } from "@/components/chat/chat-error-notify";
 import type { SettingsSlashTab } from "@/components/chat/composer/slash-commands";
 import type { ForkPickerEntry } from "@/components/chat/fork-picker-dialog";
@@ -10,15 +10,29 @@ type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
  * Owns settings and fork-picker dialog state for the chat workspace.
  */
 export function useChatWorkspaceDialogs() {
-	const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+	const [settingsDialogOpen, setSettingsDialogOpenState] = useState(false);
+	const [settingsDialogEverOpened, setSettingsDialogEverOpened] = useState(false);
 	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSlashTab | undefined>(undefined);
-	const [forkPickerEntries, setForkPickerEntries] = useState<Array<ForkPickerEntry> | null>(null);
+	const [forkPickerEntries, setForkPickerEntriesState] = useState<Array<ForkPickerEntry> | null>(null);
+	const [forkPickerDialogEverOpened, setForkPickerDialogEverOpened] = useState(false);
+
+	const setSettingsDialogOpen = useCallback((open: boolean) => {
+		if (open) setSettingsDialogEverOpened(true);
+		setSettingsDialogOpenState(open);
+	}, []);
+
+	const setForkPickerEntries = useCallback((entries: Array<ForkPickerEntry> | null) => {
+		if (entries !== null) setForkPickerDialogEverOpened(true);
+		setForkPickerEntriesState(entries);
+	}, []);
 
 	return {
+		forkPickerDialogEverOpened,
 		forkPickerEntries,
 		setForkPickerEntries,
 		setSettingsDialogOpen,
 		setSettingsInitialTab,
+		settingsDialogEverOpened,
 		settingsDialogOpen,
 		settingsInitialTab,
 	};
@@ -97,21 +111,15 @@ export function ChatCommandPaletteOverlay({
 export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceData["dialogs"] }) {
 	const {
 		forkFromEntry,
+		forkPickerDialogEverOpened,
 		forkPickerEntries,
 		setForkPickerEntries,
 		setSettingsDialogOpen,
 		setSettingsInitialTab,
+		settingsDialogEverOpened,
 		settingsDialogOpen,
 		settingsInitialTab,
 	} = dialogs;
-	const [hasOpenedSettingsDialog, setHasOpenedSettingsDialog] = useState(settingsDialogOpen);
-	const [hasOpenedForkPickerDialog, setHasOpenedForkPickerDialog] = useState(forkPickerEntries !== null);
-	useEffect(() => {
-		if (settingsDialogOpen) setHasOpenedSettingsDialog(true);
-	}, [settingsDialogOpen]);
-	useEffect(() => {
-		if (forkPickerEntries !== null) setHasOpenedForkPickerDialog(true);
-	}, [forkPickerEntries]);
 	const handleSettingsOpenChange = useCallback(
 		(open: boolean) => {
 			setSettingsDialogOpen(open);
@@ -122,7 +130,7 @@ export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceDat
 
 	return (
 		<>
-			{hasOpenedSettingsDialog ? (
+			{settingsDialogEverOpened ? (
 				<Suspense fallback={null}>
 					<LazySettingsDialog
 						open={settingsDialogOpen}
@@ -131,7 +139,7 @@ export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceDat
 					/>
 				</Suspense>
 			) : null}
-			{hasOpenedForkPickerDialog ? (
+			{forkPickerDialogEverOpened ? (
 				<Suspense fallback={null}>
 					<LazyForkPickerDialog
 						entries={forkPickerEntries}

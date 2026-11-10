@@ -64,18 +64,37 @@ export function SessionSidebarCreateDialog({
 		[onBrowseDirectories],
 	);
 
-	const initialBrowseRef = useRef(false);
+	const onBrowseDirectoriesRef = useRef(onBrowseDirectories);
 	useEffect(() => {
-		if (open && !initialBrowseRef.current) {
-			initialBrowseRef.current = true;
-			if (onBrowseDirectories) {
-				void loadDirectories({});
+		onBrowseDirectoriesRef.current = onBrowseDirectories;
+	}, [onBrowseDirectories]);
+	const hasBrowseDirectories = Boolean(onBrowseDirectories);
+
+	useEffect(() => {
+		if (!open || !hasBrowseDirectories) return;
+		let active = true;
+		void (async () => {
+			const browse = onBrowseDirectoriesRef.current;
+			if (!browse) return;
+			setDirectoryBrowseLoading(true);
+			setDirectoryBrowseError(null);
+			try {
+				const response = await browse({});
+				if (!active) return;
+				setDirectoryBrowser(response);
+				setDirectoryToken(response.directoryToken);
+				setCreatePath(response.pathLabel);
+			} catch (error) {
+				if (!active) return;
+				setDirectoryBrowseError(directoryErrorMessage(error, "Could not browse this directory."));
+			} finally {
+				if (active) setDirectoryBrowseLoading(false);
 			}
-		}
-		if (!open) {
-			initialBrowseRef.current = false;
-		}
-	}, [open, loadDirectories, onBrowseDirectories]);
+		})();
+		return () => {
+			active = false;
+		};
+	}, [hasBrowseDirectories, open]);
 
 	const selectedDirectoryPath = directoryBrowser?.pathLabel ?? createPath;
 	const canSubmit = Boolean(directoryToken || createPath.trim().startsWith("/"));

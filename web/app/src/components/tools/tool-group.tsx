@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { toolActionIconForName } from "@/components/tools/tool-action-icon";
+import { LucideIconView, ToolActionIcon } from "@/components/tools/tool-action-icon-view";
 import { toolRegistry } from "@/components/tools/tool-registry";
 import { ToolTextShimmer } from "@/components/tools/tool-text-shimmer";
 import { formatElapsedTime, getToolStatus, useElapsedTime } from "@/components/tools/utils/format-tool";
@@ -95,15 +95,24 @@ export const ToolGroup = memo(function ToolGroup({
 	const { isPending, isInterrupted } = getToolStatus(part, chatStatus);
 	const description = part.input?.description || "";
 	const [expanded, setExpanded] = useState(defaultOpen ?? false);
-	const [visibleCount, setVisibleCount] = useState(0);
 	const startedAt =
 		(part.callProviderMetadata?.custom?.startedAt as number | undefined) ?? (part.startedAt as number | undefined);
 	const hasNestedTools = nestedTools.length > 0;
 	const streamKey = part.toolCallId ?? part.id ?? "";
+	const [animatedVisibleCount, setAnimatedVisibleCount] = useState(0);
+	const [boundStreamKey, setBoundStreamKey] = useState(streamKey);
+	if (streamKey !== boundStreamKey) {
+		setBoundStreamKey(streamKey);
+		setAnimatedVisibleCount(isPending ? 1 : nestedTools.length);
+	}
+	if (isPending && animatedVisibleCount === 0 && nestedTools.length > 0) {
+		setAnimatedVisibleCount(1);
+	}
 	const outputDuration = part.output?.totalDurationMs || part.output?.duration || part.output?.duration_ms;
 	const maskThreshold = 4;
 	const streamHeight = Math.max(1, maxVisibleTools) * 28;
-	const visibleToolCount = isPending ? Math.max(visibleCount, 0) : nestedTools.length;
+	const visibleCount = isPending ? Math.max(animatedVisibleCount, 0) : nestedTools.length;
+	const visibleToolCount = visibleCount;
 	const wasPendingRef = useRef(isPending);
 	const userToggledRef = useRef(false);
 	const openTimerRef = useRef<number | null>(null);
@@ -143,15 +152,11 @@ export const ToolGroup = memo(function ToolGroup({
 	}, [defaultOpen, isPending]);
 
 	useEffect(() => {
-		if (!isPending || nestedTools.length === 0) {
-			setVisibleCount(nestedTools.length);
-			return;
-		}
+		if (!isPending || nestedTools.length === 0) return;
 		let index = 1;
-		setVisibleCount(Math.min(index, nestedTools.length));
 		const interval = setInterval(() => {
 			index += 1;
-			setVisibleCount(Math.min(index, nestedTools.length));
+			setAnimatedVisibleCount(Math.min(index, nestedTools.length));
 			if (index >= nestedTools.length) clearInterval(interval);
 		}, 450);
 		return () => clearInterval(interval);
@@ -176,13 +181,13 @@ export const ToolGroup = memo(function ToolGroup({
 		return description.length > 60 ? `${description.slice(0, 57)}…` : description;
 	})();
 	const elapsedTimeDisplay = formatElapsedTime(!isPending && outputDuration ? outputDuration : elapsedMs);
-	const TaskIcon = toolActionIconForName(part.type === "tool-Agent" ? "agent" : "task");
+	const taskIconName = part.type === "tool-Agent" ? "agent" : "task";
 	const statusText = isPending ? "running" : isInterrupted ? "interrupted" : "done";
 	const summary = isPending && shimmerLabel ? shimmerLabel : completeLabel;
 	const summaryLine = (
 		<TraceLine status={isPending ? "running" : undefined}>
 			<TraceIcon>
-				<TaskIcon />
+				<ToolActionIcon name={taskIconName} />
 			</TraceIcon>
 			<TraceTitle>
 				{isPending && shimmerLabel ? (
@@ -207,7 +212,6 @@ export const ToolGroup = memo(function ToolGroup({
 				const nestedMeta = toolRegistry[derivedPart.type];
 				if (!nestedMeta) return null;
 				const { isPending: nestedIsPending, isError: nestedIsError } = getToolStatus(derivedPart, chatStatus);
-				const NestedIcon = nestedMeta.icon;
 				return (
 					<TraceLine
 						key={
@@ -216,7 +220,7 @@ export const ToolGroup = memo(function ToolGroup({
 						status={nestedIsPending ? "running" : nestedIsError ? "error" : undefined}
 					>
 						<TraceIcon>
-							<NestedIcon />
+							<LucideIconView icon={nestedMeta.icon} />
 						</TraceIcon>
 						<TraceTitle>{nestedMeta.title(derivedPart)}</TraceTitle>
 						{nestedMeta.subtitle?.(derivedPart) ? (
@@ -235,7 +239,7 @@ export const ToolGroup = memo(function ToolGroup({
 			<Trace>
 				<TraceLine>
 					<TraceIcon>
-						<TaskIcon />
+						<ToolActionIcon name={taskIconName} />
 					</TraceIcon>
 					<TraceTitle>{interruptedLabel}</TraceTitle>
 					<TraceDescription>interrupted</TraceDescription>

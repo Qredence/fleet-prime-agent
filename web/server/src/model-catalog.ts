@@ -84,11 +84,11 @@ function hasAmbientCredential(provider: string, env: NodeJS.Dict<string>): boole
 	if (provider === "amazon-bedrock") {
 		return Boolean(
 			env.AWS_PROFILE ||
-				(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY) ||
-				env.AWS_BEARER_TOKEN_BEDROCK ||
-				env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI ||
-				env.AWS_CONTAINER_CREDENTIALS_FULL_URI ||
-				env.AWS_WEB_IDENTITY_TOKEN_FILE,
+			(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY) ||
+			env.AWS_BEARER_TOKEN_BEDROCK ||
+			env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI ||
+			env.AWS_CONTAINER_CREDENTIALS_FULL_URI ||
+			env.AWS_WEB_IDENTITY_TOKEN_FILE,
 		);
 	}
 	return false;
@@ -104,7 +104,7 @@ function hasAmbientCredential(provider: string, env: NodeJS.Dict<string>): boole
  * `amazon-bedrock` resolve through more than one variable or through ADC/AWS
  * credentials.
  */
-export function hasEnvironmentCredential(provider: string, env: NodeJS.Dict<string> = process.env): boolean {
+function hasEnvironmentCredential(provider: string, env: NodeJS.Dict<string> = process.env): boolean {
 	for (const envVar of providerEnvVarCandidates(provider)) {
 		if ((env[envVar] ?? "").length > 0) return true;
 	}
@@ -143,7 +143,7 @@ export async function providerAvailability(
 }
 
 /** Map one daemon model onto the wire shape, keeping the existing thinking-level rule. */
-export function toChatModelInfo(model: DaemonModel, available: boolean): ChatModelInfo {
+function toChatModelInfo(model: DaemonModel, available: boolean): ChatModelInfo {
 	const thinkingLevels = supportedThinkingLevels(model);
 	const fallback: ChatThinkingLevel = model.reasoning ? "medium" : "off";
 	return {

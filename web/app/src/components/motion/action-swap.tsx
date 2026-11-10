@@ -36,7 +36,7 @@ export function ActionSwapRollText({ value, children, className }: ActionSwapTex
 		const nextWidth = measureRef.current?.offsetWidth;
 		if (!nextWidth) return;
 		setWidth((currentWidth) => (currentWidth === nextWidth ? currentWidth : nextWidth));
-	});
+	}, [children, value]);
 
 	return (
 		<span

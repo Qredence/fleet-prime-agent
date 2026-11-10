@@ -145,7 +145,7 @@ export function daemonSpawnCommand(
  * The shared per-user daemon socket, identical for the TS and Rust daemons:
  * `$TMPDIR/prime-agent-<uid>/daemon.sock` (PA@v0.10.1 `crates/pa-daemon/src/platform/paths.rs`).
  */
-export function defaultDaemonSocketPath(): string {
+function defaultDaemonSocketPath(): string {
 	if (process.platform === "win32") return "\\\\.\\pipe\\prime-agent-daemon";
 	const suffix = typeof process.getuid === "function" ? String(process.getuid()) : "user";
 	return join(tmpdir(), `prime-agent-${suffix}`, "daemon.sock");
@@ -207,7 +207,7 @@ async function probeDaemon(socketPath: string): Promise<DaemonProbeResult> {
  * claim which it was. It names both candidates instead: blaming a binary that
  * exists and runs sends the operator after the wrong problem.
  */
-export function describeDaemonSpawnError(
+function describeDaemonSpawnError(
 	error: NodeJS.ErrnoException,
 	command: string,
 	options: { noun: string; cwd: string },
@@ -949,7 +949,7 @@ export async function listDaemonSessions(
 	);
 }
 
-export const SAVED_SESSION_PAGE_SIZE = 200;
+const SAVED_SESSION_PAGE_SIZE = 200;
 const SAVED_SESSION_LIST_TIMEOUT_MS = 120_000;
 
 /**
