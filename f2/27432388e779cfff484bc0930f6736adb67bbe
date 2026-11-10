@@ -25,6 +25,8 @@ web/app/src/lib/openui-observability.ts
   s_4a64c1745e4d75::t_43877a38c6a3be 13
 web/app/src/lib/openui-observability.test.ts
   s_4a64c1745e4d75::t_67f9713c2f5d4a 39
+.changeset/openui-reliability.md
+  s_4a64c1745e4d75::t_08e7abcfc15045 5
 ---
 {
   "schema_version": "authorship/3.0.0",
