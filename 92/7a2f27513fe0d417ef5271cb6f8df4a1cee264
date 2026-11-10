@@ -1,0 +1,28 @@
+web/app/src/router.tsx
+  s_9de5df39faec99::t_7c9866e4b7906f 4,7-8
+  s_9de5df39faec99::t_8a59d641cad512 9
+web/app/src/lib/openui-observability.test.ts
+  s_9de5df39faec99::t_b82206cfa164e8 1-41
+.changeset/openui-reliability.md
+  s_9de5df39faec99::t_f2f8eec416f0f1 1-5
+web/app/src/lib/openui-observability.ts
+  s_9de5df39faec99::t_d050fd920a41c3 1-14
+web/app/.env.example
+  s_9de5df39faec99::t_881af639e75a7a 14-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "927a2f27513fe0d417ef5271cb6f8df4a1cee264",
+  "prompts": {},
+  "sessions": {
+    "s_9de5df39faec99": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "515dcb70-9fca-4d47-8af0-2befaec37882",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
