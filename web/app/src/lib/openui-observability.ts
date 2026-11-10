@@ -10,5 +10,5 @@ import * as Observability from "@openuidev/observability-cloud";
 export function initOpenUIObservability(): void {
 	const apiKey = import.meta.env.VITE_OPENUI_CLIENT_KEY;
 	if (typeof apiKey !== "string" || !apiKey.startsWith("pk-th-")) return;
-	Observability.init({ apiKey });
+	Observability.init({ apiKey, capture: "minimal" });
 }

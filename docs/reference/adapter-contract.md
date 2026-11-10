@@ -173,7 +173,8 @@ Durable rules:
   environment. The environment name is `THESYS_API_KEY`.
 - Reliability Monitoring uses a different key, `VITE_OPENUI_CLIENT_KEY`. It is a browser
   client key (`pk-th-…`) and is read once at the client entry, before an OpenUI response
-  renders. It is not returned by the dashboard status projection.
+  renders. Capture is minimal, so events are sent without response text. It is not
+  returned by the dashboard status projection.
 - The model that builds Cloud dashboards is configurable, because a BYOK key covers only
   its own provider. Resolution order is a stored setting, then `FLEET_DASHBOARD_MODEL`,
   then OpenUI's recommended default. The resolved model and its source are reported in

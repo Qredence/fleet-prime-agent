@@ -300,6 +300,18 @@ export class ProjectRegistry {
 		return project?.status === "active" ? project.projectId : null;
 	}
 
+	/**
+	 * The active project a session would belong to, without writing an assignment.
+	 * An existing assignment wins when that project is still active; otherwise the
+	 * session directory's active project is used.
+	 */
+	async activeProjectIdForSession(sessionId: string, cwd: string): Promise<ProjectId | null> {
+		await this.#ensureLoaded();
+		const assigned = this.#sessionAssignments.get(sessionId);
+		if (assigned && this.#projects.get(assigned)?.status === "active") return assigned;
+		return this.projectIdForCwd(cwd);
+	}
+
 	async projectIdForSession(sessionId: string, cwd: string): Promise<ProjectId | null> {
 		await this.#ensureLoaded();
 		const assigned = this.#sessionAssignments.get(sessionId);

@@ -36,6 +36,6 @@ describe("initOpenUIObservability", () => {
 		initOpenUIObservability();
 
 		expect(init).toHaveBeenCalledTimes(1);
-		expect(init).toHaveBeenCalledWith({ apiKey: "pk-th-test" });
+		expect(init).toHaveBeenCalledWith({ apiKey: "pk-th-test", capture: "minimal" });
 	});
 });

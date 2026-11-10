@@ -48,6 +48,7 @@ import {
 	findSessionTreeEntry,
 	hasSessionLineage,
 	initialPresentationForSession,
+	isSessionNotInActiveProjectError,
 	isSessionNotResumableError,
 	isUnresolvedPlaceholderModel,
 	type OpenUIPromptSessionState,
@@ -233,6 +234,25 @@ type ManagedRlmChildStream = {
 // ---------------------------------------------------------------------------
 // PrimeBridge
 // ---------------------------------------------------------------------------
+
+/**
+ * A sequence-gap resync replaces the live `done` with an empty reset frame.
+ * The snapshot still holds the assistant message that finished during the gap,
+ * so dashboard settlement sees that message here and nowhere else.
+ */
+function settleRecoveredDashboardMessages(
+	listener: ((sessionId: string, messageId: string, content: string) => void) | undefined,
+	sessionId: string,
+	messages: readonly AgentMessage[],
+): void {
+	if (!listener) return;
+	for (const message of toChatMessagesFromAgentMessages(messages, sessionId)) {
+		if (message.role !== "assistant") continue;
+		const content = textFromChatParts(message.parts);
+		if (!content.includes("openui-dashboard")) continue;
+		listener(sessionId, message.id, content);
+	}
+}
 
 export class PrimeBridge {
 	readonly #sessions = new Map<string, BridgeSession>();
@@ -488,6 +508,12 @@ export class PrimeBridge {
 					/* ignore */
 				}
 			}
+			if (event.type === "session_resynced") {
+				const messages = event.snapshot.messages;
+				if (Array.isArray(messages)) {
+					settleRecoveredDashboardMessages(this.#assistantDoneListener, sessionId, messages);
+				}
+			}
 			const frames = mapAgentConnectionEvent(mapperState, event);
 			emitFrames(frames);
 			const done = frames.find((frame) => frame.type === "done" && frame.sessionReset !== true);
@@ -614,12 +640,19 @@ export class PrimeBridge {
 	}
 
 	/** Resume a persisted prime-agent session from its JSONL transcript. */
-	async resumeSessionByPath(sessionPath: string, options?: { readonly openUI?: boolean }): Promise<BridgeSession> {
+	async resumeSessionByPath(
+		sessionPath: string,
+		options?: { readonly openUI?: boolean; readonly requestedProjectId?: ProjectId | null },
+	): Promise<BridgeSession> {
 		const resolvedSessionPath = resolve(sessionPath);
 		// If a live session already owns this path, reuse it.
 		for (const [sessionId, session] of this.#sessions) {
 			if (resolve(session.sessionPath) === resolvedSessionPath) {
-				return this.#sessions.get(sessionId)!;
+				const live = this.#sessions.get(sessionId)!;
+				if (options?.requestedProjectId && live.projectId !== options.requestedProjectId) {
+					throw new Error("The requested session is not in an active project");
+				}
+				return live;
 			}
 		}
 		if (!existsSync(resolvedSessionPath)) throw new Error("The requested session transcript is unavailable");
@@ -629,6 +662,13 @@ export class PrimeBridge {
 		const expectedSessionDir = resolve(sessionDirectoryForCwd(sessionCwd));
 		if (dirname(resolvedSessionPath) !== expectedSessionDir) {
 			throw new Error("The requested session is outside the configured Prime session store");
+		}
+		const projectId = await getPrimeConfig().projectRegistry.activeProjectIdForSession(
+			transcript.sessionId,
+			sessionCwd,
+		);
+		if (!projectId || (options?.requestedProjectId && projectId !== options.requestedProjectId)) {
+			throw new Error("The requested session is not in an active project");
 		}
 		const webAgent = await this.#connectionFactory({
 			cwd: sessionCwd,
@@ -663,11 +703,11 @@ export class PrimeBridge {
 		if (!match.sessionFile) return undefined;
 		let resumed: BridgeSession;
 		try {
-			resumed = await this.resumeSessionByPath(match.sessionFile, options);
+			resumed = await this.resumeSessionByPath(match.sessionFile, { ...options, requestedProjectId });
 		} catch (error) {
 			// A listed transcript the runtime cannot resume is an unknown session
 			// for the caller, not a server failure.
-			if (isSessionNotResumableError(error)) return undefined;
+			if (isSessionNotInActiveProjectError(error) || isSessionNotResumableError(error)) return undefined;
 			throw error;
 		}
 		if (requestedProjectId && resumed.projectId !== requestedProjectId) return undefined;

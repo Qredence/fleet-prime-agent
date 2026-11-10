@@ -351,6 +351,12 @@ const SESSION_NOT_RESUMABLE_PATTERNS = [
 	/requested session transcript is unavailable/i,
 ];
 
+/** A listed session whose project is not the caller's active project. */
+export function isSessionNotInActiveProjectError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return /not in an active project/i.test(message);
+}
+
 export function isSessionNotResumableError(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error);
 	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
