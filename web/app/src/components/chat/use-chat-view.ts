@@ -44,7 +44,7 @@ export function buildContextSuggestions({
 	const mentionsFrontend = (text: string) => text.toLowerCase().includes("frontend");
 	const hasFrontendSkill = Boolean(
 		resources?.skills.some((skill) => mentionsFrontend(`${skill.name} ${skill.description ?? ""}`)) ||
-			workspaceTree?.nodes.some((node) => mentionsFrontend(JSON.stringify(node))),
+		workspaceTree?.nodes.some((node) => mentionsFrontend(JSON.stringify(node))),
 	);
 
 	// No messages — empty state (only used for centered empty suggestions)

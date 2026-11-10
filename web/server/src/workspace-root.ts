@@ -5,11 +5,10 @@
  * folder — not useful as the file-tree / session default. Prefer an explicit
  * env override, otherwise walk up to the nearest `.git` (dir or worktree file).
  */
-import { existsSync, type Stats } from "node:fs";
-import { stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-export const PRIME_AGENT_WORKSPACE_ROOT_ENV = "PRIME_AGENT_WORKSPACE_ROOT";
+const PRIME_AGENT_WORKSPACE_ROOT_ENV = "PRIME_AGENT_WORKSPACE_ROOT";
 
 export function resolveDefaultWorkspaceRoot(
 	startDir: string,
@@ -32,37 +31,4 @@ export function resolveDefaultWorkspaceRoot(
 		}
 		dir = parent;
 	}
-}
-
-export type SetWorkspaceRootResult = { kind: "ok"; root: string } | { kind: "error"; status: number; message: string };
-
-/** Validate and resolve a directory path that can become the agent root. */
-export async function resolveWorkspaceRootPath(rawPath: string): Promise<SetWorkspaceRootResult> {
-	const trimmed = rawPath.trim();
-	if (!trimmed) {
-		return { kind: "error", status: 400, message: "Path is required" };
-	}
-
-	const path = resolve(trimmed);
-
-	let info: Stats;
-	try {
-		info = await stat(path);
-	} catch (error) {
-		return {
-			kind: "error",
-			status: 404,
-			message: error instanceof Error ? error.message : `Path not found: ${path}`,
-		};
-	}
-
-	if (!info.isDirectory()) {
-		return {
-			kind: "error",
-			status: 400,
-			message: `Not a directory: ${path}`,
-		};
-	}
-
-	return { kind: "ok", root: path };
 }

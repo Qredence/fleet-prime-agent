@@ -93,12 +93,30 @@ function AgentProgress({
 	);
 }
 
+function TurnStatusKindIcon({ kind, className }: { kind: TurnStatusKind; className?: string }) {
+	switch (kind) {
+		case "queue":
+			return <ListRestart className={className} />;
+		case "retry":
+			return <RotateCcw className={className} />;
+		case "compaction":
+			return <Gauge className={className} />;
+		case "recovery":
+			return <AlertCircle className={className} />;
+		case "notice":
+			return <Clock3 className={className} />;
+		default: {
+			const exhaustive: never = kind;
+			return exhaustive;
+		}
+	}
+}
+
 /** Lifecycle copy around AgentProgress for turn-level status. */
 export function TurnStatus({ label, className }: { label?: string; className?: string }) {
 	const reduceMotion = useReducedMotion();
 	if (!label?.trim()) return null;
 	const { kind, title, detail } = describeTurnStatus(label);
-	const Icon = iconFor(kind);
 	const liveProgress = kind === "queue" || kind === "retry" || kind === "compaction";
 
 	return (
@@ -118,7 +136,10 @@ export function TurnStatus({ label, className }: { label?: string; className?: s
 				<AgentProgress label={title} running className="min-w-0 text-xs" />
 			) : (
 				<>
-					<Icon className={cn("mt-0.5 size-3.5 shrink-0", kind === "recovery" && "text-warning")} />
+					<TurnStatusKindIcon
+						kind={kind}
+						className={cn("mt-0.5 size-3.5 shrink-0", kind === "recovery" && "text-warning")}
+					/>
 					<strong className="font-medium text-foreground/90">{title}</strong>
 				</>
 			)}
@@ -147,23 +168,4 @@ function describeTurnStatus(label: string): {
 		return { kind: "recovery", title: "Run needs attention", detail: normalized };
 	}
 	return { kind: "notice", title: "Run update", detail: normalized };
-}
-
-function iconFor(kind: TurnStatusKind) {
-	switch (kind) {
-		case "queue":
-			return ListRestart;
-		case "retry":
-			return RotateCcw;
-		case "compaction":
-			return Gauge;
-		case "recovery":
-			return AlertCircle;
-		case "notice":
-			return Clock3;
-		default: {
-			const exhaustive: never = kind;
-			return exhaustive;
-		}
-	}
 }

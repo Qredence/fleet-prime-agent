@@ -69,9 +69,11 @@ export function useMessageScrollerRail({
 	const railIdRef = useRef(new WeakMap<HTMLElement, string>());
 	const railIdCounterRef = useRef(0);
 	const railTargetsRef = useRef(new Map<string, HTMLElement>());
-	const [railItems, setRailItems] = useState<PreviewRailItem[]>([]);
+	const [railItemsState, setRailItems] = useState<PreviewRailItem[]>([]);
 	const [activeRailId, setActiveRailId] = useState("");
-	const [railOverflowing, setRailOverflowing] = useState(false);
+	const [railOverflowingState, setRailOverflowing] = useState(false);
+	const railItems = navigation === "rail" ? railItemsState : [];
+	const railOverflowing = navigation === "rail" ? railOverflowingState : false;
 
 	const updateActiveRailItem = useCallback(() => {
 		if (navigation !== "rail") return;
@@ -165,8 +167,6 @@ export function useMessageScrollerRail({
 	useEffect(() => {
 		if (navigation !== "rail") {
 			railTargetsRef.current.clear();
-			setRailItems([]);
-			setRailOverflowing(false);
 			return;
 		}
 
@@ -205,7 +205,7 @@ export function useMessageScrollerRail({
 			const target = railTargetsRef.current.get(item.id);
 			if (!viewport || !target) return;
 
-			const lastItem = railItems.at(-1)?.id === item.id;
+			const lastItem = railItemsState.at(-1)?.id === item.id;
 			setActiveRailId(item.id);
 			if (lastItem) {
 				setFollowing(true);
@@ -226,7 +226,7 @@ export function useMessageScrollerRail({
 				viewport.scrollTop = top;
 			}
 		},
-		[markProgrammaticScroll, railItems, reduce, scrollToEnd, setFollowing, smooth, viewportRef],
+		[markProgrammaticScroll, railItemsState, reduce, scrollToEnd, setFollowing, smooth, viewportRef],
 	);
 
 	return {

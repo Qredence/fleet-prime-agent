@@ -54,12 +54,15 @@ export function CodeBlock({
 	const streaming = status === "streaming";
 	const tokens = useAgentCodeTokens(code, language);
 	const highlighted = useMemo(() => new Set(highlightLines), [highlightLines]);
-	let offset = 0;
-	const lines = code.split("\n").map((content) => {
-		const line = { content, offset };
-		offset += content.length + 1;
-		return line;
-	});
+	const lines = useMemo(
+		() =>
+			code.split("\n").reduce<Array<{ content: string; offset: number }>>((acc, content) => {
+				const offset = acc.length === 0 ? 0 : acc[acc.length - 1].offset + acc[acc.length - 1].content.length + 1;
+				acc.push({ content, offset });
+				return acc;
+			}, []),
+		[code],
+	);
 	const resolvedLanguageLabel =
 		languageLabel ??
 		(

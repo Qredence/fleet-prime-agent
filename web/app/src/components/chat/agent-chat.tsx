@@ -605,7 +605,31 @@ function useConversationTurnRenderer({
 	artifactRuns: AgentChatViewProps["artifactRuns"];
 	highlightedMessageId: AgentChatViewProps["highlightedMessageId"];
 }) {
-	const seenTurnKeysRef = useRef(new Set<string>());
+	const [seenTurnKeys, setSeenTurnKeys] = useState(() => new Set<string>());
+	const firstAppearanceForKey = useMemo(() => {
+		const appearances = new Map<string, boolean>();
+		for (let turnIndex = 0; turnIndex < turns.length; turnIndex += 1) {
+			const key = getConversationTurnKey(turns[turnIndex], turnIndex);
+			appearances.set(key, !seenTurnKeys.has(key));
+		}
+		return appearances;
+	}, [seenTurnKeys, turns]);
+	const keysToRemember = useMemo(
+		() =>
+			turns
+				.map((turn, turnIndex) => getConversationTurnKey(turn, turnIndex))
+				.filter((key) => !seenTurnKeys.has(key)),
+		[seenTurnKeys, turns],
+	);
+	if (turns.length === 0 && seenTurnKeys.size > 0) {
+		setSeenTurnKeys(new Set());
+	} else if (keysToRemember.length > 0) {
+		setSeenTurnKeys((current) => {
+			const next = new Set(current);
+			for (const key of keysToRemember) next.add(key);
+			return next;
+		});
+	}
 	const rendering = useMemo<ConversationTurnViewProps["rendering"]>(
 		() => ({ toolRenderers, onOpenUIAction, onOpenUIArtifactReady, onOpenArtifact }),
 		[onOpenArtifact, onOpenUIAction, onOpenUIArtifactReady, toolRenderers],
@@ -624,15 +648,11 @@ function useConversationTurnRenderer({
 		[],
 	);
 	const windowed = turns.length >= TRANSCRIPT_VIRTUALIZATION_THRESHOLD;
-	if (turns.length === 0 && seenTurnKeysRef.current.size > 0) {
-		seenTurnKeysRef.current.clear();
-	}
 	const renderTurn = useCallback(
 		(turn: ConversationTurn, turnIndex: number) => {
 			const isLast = turnIndex === turns.length - 1;
 			const key = getConversationTurnKey(turn, turnIndex);
-			const firstAppearance = !seenTurnKeysRef.current.has(key);
-			if (firstAppearance) seenTurnKeysRef.current.add(key);
+			const firstAppearance = firstAppearanceForKey.get(key) ?? false;
 			return (
 				<ConversationTurnView
 					turn={turn}
@@ -648,6 +668,7 @@ function useConversationTurnRenderer({
 		[
 			activityForLast,
 			activityForRest,
+			firstAppearanceForKey,
 			highlightedMessageId,
 			isStreaming,
 			rendering,

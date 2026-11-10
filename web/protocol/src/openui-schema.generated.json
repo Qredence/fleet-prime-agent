@@ -182,26 +182,15 @@
 				"direction": {
 					"default": "column",
 					"type": "string",
-					"enum": [
-						"row",
-						"column"
-					]
+					"enum": ["row", "column"]
 				},
 				"gap": {
 					"default": "md",
 					"type": "string",
-					"enum": [
-						"sm",
-						"md",
-						"lg",
-						"xl"
-					]
+					"enum": ["sm", "md", "lg", "xl"]
 				}
 			},
-			"required": [
-				"direction",
-				"gap"
-			],
+			"required": ["direction", "gap"],
 			"additionalProperties": false,
 			"description": "A flexbox layout component for stacking children vertically or horizontally."
 		},
@@ -218,18 +207,10 @@
 				"gap": {
 					"default": "md",
 					"type": "string",
-					"enum": [
-						"sm",
-						"md",
-						"lg",
-						"xl"
-					]
+					"enum": ["sm", "md", "lg", "xl"]
 				}
 			},
-			"required": [
-				"cols",
-				"gap"
-			],
+			"required": ["cols", "gap"],
 			"additionalProperties": false,
 			"description": "A CSS grid layout component."
 		},
@@ -240,17 +221,10 @@
 				"gap": {
 					"default": "md",
 					"type": "string",
-					"enum": [
-						"sm",
-						"md",
-						"lg",
-						"xl"
-					]
+					"enum": ["sm", "md", "lg", "xl"]
 				}
 			},
-			"required": [
-				"gap"
-			],
+			"required": ["gap"],
 			"additionalProperties": false,
 			"description": "A wrapping horizontal group for badges, buttons, or short items."
 		},
@@ -277,10 +251,7 @@
 					"maximum": 4
 				}
 			},
-			"required": [
-				"text",
-				"level"
-			],
+			"required": ["text", "level"],
 			"additionalProperties": false,
 			"description": "Section heading text."
 		},
@@ -293,29 +264,15 @@
 				"tone": {
 					"default": "default",
 					"type": "string",
-					"enum": [
-						"default",
-						"muted",
-						"success",
-						"warning",
-						"danger"
-					]
+					"enum": ["default", "muted", "success", "warning", "danger"]
 				},
 				"size": {
 					"default": "md",
 					"type": "string",
-					"enum": [
-						"sm",
-						"md",
-						"lg"
-					]
+					"enum": ["sm", "md", "lg"]
 				}
 			},
-			"required": [
-				"text",
-				"tone",
-				"size"
-			],
+			"required": ["text", "tone", "size"],
 			"additionalProperties": false,
 			"description": "Short body text for cards, captions, and summaries."
 		},
@@ -338,20 +295,10 @@
 				"variant": {
 					"default": "default",
 					"type": "string",
-					"enum": [
-						"default",
-						"destructive",
-						"outline",
-						"secondary",
-						"ghost",
-						"link"
-					]
+					"enum": ["default", "destructive", "outline", "secondary", "ghost", "link"]
 				}
 			},
-			"required": [
-				"label",
-				"variant"
-			],
+			"required": ["label", "variant"],
 			"additionalProperties": false,
 			"description": "A button that triggers interactive actions or conversational updates."
 		},
@@ -368,10 +315,7 @@
 							"type": "string"
 						}
 					},
-					"required": [
-						"type",
-						"url"
-					],
+					"required": ["type", "url"],
 					"additionalProperties": false
 				},
 				{
@@ -385,9 +329,7 @@
 							"type": "string"
 						}
 					},
-					"required": [
-						"type"
-					],
+					"required": ["type"],
 					"additionalProperties": false
 				},
 				{
@@ -404,9 +346,7 @@
 							"additionalProperties": {}
 						}
 					},
-					"required": [
-						"type"
-					],
+					"required": ["type"],
 					"additionalProperties": false
 				}
 			]
@@ -438,11 +378,7 @@
 					"type": "boolean"
 				}
 			},
-			"required": [
-				"label",
-				"panel",
-				"focus"
-			],
+			"required": ["label", "panel", "focus"],
 			"additionalProperties": false,
 			"description": "A trusted local action that opens a Fleet panel. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels."
 		},
@@ -460,24 +396,14 @@
 				},
 				"type": {
 					"type": "string",
-					"enum": [
-						"text",
-						"email",
-						"number",
-						"password",
-						"search"
-					]
+					"enum": ["text", "email", "number", "password", "search"]
 				},
 				"disabled": {
 					"default": false,
 					"type": "boolean"
 				}
 			},
-			"required": [
-				"name",
-				"value",
-				"disabled"
-			],
+			"required": ["name", "value", "disabled"],
 			"additionalProperties": false,
 			"description": "An interactive, state-bound text input."
 		},
@@ -491,30 +417,15 @@
 				"tone": {
 					"default": "default",
 					"type": "string",
-					"enum": [
-						"default",
-						"info",
-						"success",
-						"warning",
-						"danger"
-					]
+					"enum": ["default", "info", "success", "warning", "danger"]
 				},
 				"width": {
 					"default": "normal",
 					"type": "string",
-					"enum": [
-						"compact",
-						"normal",
-						"wide",
-						"full"
-					]
+					"enum": ["compact", "normal", "wide", "full"]
 				}
 			},
-			"required": [
-				"title",
-				"tone",
-				"width"
-			],
+			"required": ["title", "tone", "width"],
 			"additionalProperties": false,
 			"description": "A chat-sized card container for structured information."
 		},
@@ -527,19 +438,10 @@
 				"tone": {
 					"default": "default",
 					"type": "string",
-					"enum": [
-						"default",
-						"info",
-						"success",
-						"warning",
-						"danger"
-					]
+					"enum": ["default", "info", "success", "warning", "danger"]
 				}
 			},
-			"required": [
-				"label",
-				"tone"
-			],
+			"required": ["label", "tone"],
 			"additionalProperties": false,
 			"description": "Small status badge."
 		},
@@ -553,19 +455,10 @@
 				"tone": {
 					"default": "default",
 					"type": "string",
-					"enum": [
-						"default",
-						"info",
-						"success",
-						"warning",
-						"danger"
-					]
+					"enum": ["default", "info", "success", "warning", "danger"]
 				}
 			},
-			"required": [
-				"title",
-				"tone"
-			],
+			"required": ["title", "tone"],
 			"additionalProperties": false,
 			"description": "Highlighted note, warning, success, or error message."
 		},
@@ -579,10 +472,7 @@
 					"type": "string"
 				}
 			},
-			"required": [
-				"label",
-				"value"
-			],
+			"required": ["label", "value"],
 			"additionalProperties": false,
 			"description": "A single label/value row."
 		},
@@ -601,20 +491,10 @@
 				"tone": {
 					"default": "default",
 					"type": "string",
-					"enum": [
-						"default",
-						"info",
-						"success",
-						"warning",
-						"danger"
-					]
+					"enum": ["default", "info", "success", "warning", "danger"]
 				}
 			},
-			"required": [
-				"label",
-				"value",
-				"tone"
-			],
+			"required": ["label", "value", "tone"],
 			"additionalProperties": false,
 			"description": "A compact KPI metric card."
 		},
@@ -630,10 +510,7 @@
 					"maximum": 100
 				}
 			},
-			"required": [
-				"label",
-				"value"
-			],
+			"required": ["label", "value"],
 			"additionalProperties": false,
 			"description": "Progress indicator with a label."
 		},
@@ -651,10 +528,7 @@
 					"type": "boolean"
 				}
 			},
-			"required": [
-				"items",
-				"ordered"
-			],
+			"required": ["items", "ordered"],
 			"additionalProperties": false,
 			"description": "Bulleted or numbered text list."
 		},
@@ -668,9 +542,7 @@
 					"type": "string"
 				}
 			},
-			"required": [
-				"code"
-			],
+			"required": ["code"],
 			"additionalProperties": false,
 			"description": "Short preformatted code or command output."
 		},
@@ -693,10 +565,7 @@
 					}
 				}
 			},
-			"required": [
-				"columns",
-				"rows"
-			],
+			"required": ["columns", "rows"],
 			"additionalProperties": false,
 			"description": "Small data table for comparisons and summaries."
 		},
@@ -724,10 +593,7 @@
 								"type": "string"
 							}
 						},
-						"required": [
-							"dataKey",
-							"label"
-						],
+						"required": ["dataKey", "label"],
 						"additionalProperties": false
 					}
 				},
@@ -739,20 +605,12 @@
 							"type": "string"
 						},
 						"additionalProperties": {
-							"type": [
-								"string",
-								"number"
-							]
+							"type": ["string", "number"]
 						}
 					}
 				}
 			},
-			"required": [
-				"title",
-				"xAxisKey",
-				"series",
-				"data"
-			],
+			"required": ["title", "xAxisKey", "series", "data"],
 			"additionalProperties": false,
 			"description": "A bar chart for visualizing comparisons or trends using explicitly provided data points."
 		},
@@ -783,10 +641,7 @@
 								"type": "string"
 							}
 						},
-						"required": [
-							"dataKey",
-							"label"
-						],
+						"required": ["dataKey", "label"],
 						"additionalProperties": false
 					}
 				},
@@ -798,20 +653,12 @@
 							"type": "string"
 						},
 						"additionalProperties": {
-							"type": [
-								"string",
-								"number"
-							]
+							"type": ["string", "number"]
 						}
 					}
 				}
 			},
-			"required": [
-				"title",
-				"xAxisKey",
-				"series",
-				"data"
-			],
+			"required": ["title", "xAxisKey", "series", "data"],
 			"additionalProperties": false,
 			"description": "A line chart for trends over time or ordered categories."
 		},
@@ -839,10 +686,7 @@
 								"type": "string"
 							}
 						},
-						"required": [
-							"label",
-							"value"
-						],
+						"required": ["label", "value"],
 						"additionalProperties": false
 					}
 				},
@@ -850,10 +694,7 @@
 					"type": "string"
 				}
 			},
-			"required": [
-				"title",
-				"segments"
-			],
+			"required": ["title", "segments"],
 			"additionalProperties": false,
 			"description": "A donut/pie chart for part-of-whole composition."
 		},
@@ -876,25 +717,14 @@
 							},
 							"type": {
 								"type": "string",
-								"enum": [
-									"text",
-									"number",
-									"currency",
-									"percent"
-								]
+								"enum": ["text", "number", "currency", "percent"]
 							},
 							"align": {
 								"type": "string",
-								"enum": [
-									"left",
-									"right"
-								]
+								"enum": ["left", "right"]
 							}
 						},
-						"required": [
-							"key",
-							"label"
-						],
+						"required": ["key", "label"],
 						"additionalProperties": false
 					}
 				},
@@ -906,18 +736,12 @@
 							"type": "string"
 						},
 						"additionalProperties": {
-							"type": [
-								"string",
-								"number"
-							]
+							"type": ["string", "number"]
 						}
 					}
 				}
 			},
-			"required": [
-				"columns",
-				"rows"
-			],
+			"required": ["columns", "rows"],
 			"additionalProperties": false,
 			"description": "A data table with typed columns (text, number, currency, percent), formatted values, and click-to-sort headers."
 		},
@@ -940,11 +764,7 @@
 							},
 							"deltaTone": {
 								"type": "string",
-								"enum": [
-									"up",
-									"down",
-									"neutral"
-								]
+								"enum": ["up", "down", "neutral"]
 							},
 							"sparkline": {
 								"type": "array",
@@ -953,17 +773,12 @@
 								}
 							}
 						},
-						"required": [
-							"label",
-							"value"
-						],
+						"required": ["label", "value"],
 						"additionalProperties": false
 					}
 				}
 			},
-			"required": [
-				"metrics"
-			],
+			"required": ["metrics"],
 			"additionalProperties": false,
 			"description": "A compact group of KPI cards with optional deltas and trend sparklines."
 		},
@@ -991,10 +806,7 @@
 								"type": "boolean"
 							}
 						},
-						"required": [
-							"value",
-							"label"
-						],
+						"required": ["value", "label"],
 						"additionalProperties": false
 					}
 				},
@@ -1002,11 +814,7 @@
 					"type": "string"
 				}
 			},
-			"required": [
-				"name",
-				"value",
-				"options"
-			],
+			"required": ["name", "value", "options"],
 			"additionalProperties": false,
 			"description": "An interactive dropdown selector with reactive state binding."
 		},
@@ -1027,11 +835,7 @@
 					"type": "boolean"
 				}
 			},
-			"required": [
-				"name",
-				"checked",
-				"disabled"
-			],
+			"required": ["name", "checked", "disabled"],
 			"additionalProperties": false,
 			"description": "A toggle switch component bound to a boolean reactive state."
 		},
@@ -1049,11 +853,7 @@
 				},
 				"content": {}
 			},
-			"required": [
-				"name",
-				"open",
-				"title"
-			],
+			"required": ["name", "open", "title"],
 			"additionalProperties": false,
 			"description": "An overlay dialog container bound to a boolean reactive state."
 		},
@@ -1069,10 +869,7 @@
 					"type": "boolean"
 				}
 			},
-			"required": [
-				"title",
-				"open"
-			],
+			"required": ["title", "open"],
 			"additionalProperties": false,
 			"description": "A compact progressive-disclosure section for optional details."
 		},
@@ -1093,28 +890,18 @@
 							"status": {
 								"default": "pending",
 								"type": "string",
-								"enum": [
-									"pending",
-									"in-progress",
-									"completed",
-									"cancelled"
-								]
+								"enum": ["pending", "in-progress", "completed", "cancelled"]
 							},
 							"detail": {
 								"type": "string"
 							}
 						},
-						"required": [
-							"label",
-							"status"
-						],
+						"required": ["label", "status"],
 						"additionalProperties": false
 					}
 				}
 			},
-			"required": [
-				"items"
-			],
+			"required": ["items"],
 			"additionalProperties": false,
 			"description": "A read-only progress list for plans and task status."
 		},
@@ -1131,9 +918,7 @@
 							},
 							"content": {}
 						},
-						"required": [
-							"label"
-						],
+						"required": ["label"],
 						"additionalProperties": false
 					}
 				},
@@ -1143,9 +928,7 @@
 					"maximum": 9007199254740991
 				}
 			},
-			"required": [
-				"tabs"
-			],
+			"required": ["tabs"],
 			"additionalProperties": false,
 			"description": "A tabbed container. Each tab has a label and its own content, so several dense sections can share one chat card."
 		},
@@ -1165,16 +948,12 @@
 								"type": "boolean"
 							}
 						},
-						"required": [
-							"title"
-						],
+						"required": ["title"],
 						"additionalProperties": false
 					}
 				}
 			},
-			"required": [
-				"items"
-			],
+			"required": ["items"],
 			"additionalProperties": false,
 			"description": "Collapsible sections. Use it when several independent details would otherwise dominate the message."
 		},
@@ -1200,11 +979,7 @@
 					"type": "boolean"
 				}
 			},
-			"required": [
-				"name",
-				"value",
-				"disabled"
-			],
+			"required": ["name", "value", "disabled"],
 			"additionalProperties": false,
 			"description": "A multi-line, state-bound text input for longer free-form answers."
 		},
@@ -1233,13 +1008,7 @@
 					"type": "number"
 				}
 			},
-			"required": [
-				"name",
-				"value",
-				"min",
-				"max",
-				"step"
-			],
+			"required": ["name", "value", "min", "max", "step"],
 			"additionalProperties": false,
 			"description": "A numeric range input bound to reactive state, for thresholds and limits."
 		},
@@ -1260,25 +1029,15 @@
 							"state": {
 								"default": "pending",
 								"type": "string",
-								"enum": [
-									"complete",
-									"current",
-									"pending",
-									"failed"
-								]
+								"enum": ["complete", "current", "pending", "failed"]
 							}
 						},
-						"required": [
-							"label",
-							"state"
-						],
+						"required": ["label", "state"],
 						"additionalProperties": false
 					}
 				}
 			},
-			"required": [
-				"steps"
-			],
+			"required": ["steps"],
 			"additionalProperties": false,
 			"description": "An ordered multi-step progress list with an explicit current step. Prefer it over Todo when the order and the active step matter."
 		},
@@ -1297,17 +1056,12 @@
 								"type": "string"
 							}
 						},
-						"required": [
-							"label",
-							"value"
-						],
+						"required": ["label", "value"],
 						"additionalProperties": false
 					}
 				}
 			},
-			"required": [
-				"items"
-			],
+			"required": ["items"],
 			"additionalProperties": false,
 			"description": "Several label/value rows as one compact block, for facts that belong together."
 		},
@@ -1321,9 +1075,7 @@
 					"type": "string"
 				}
 			},
-			"required": [
-				"title"
-			],
+			"required": ["title"],
 			"additionalProperties": false,
 			"description": "An explicit empty state for a query or list that returned nothing."
 		},
@@ -1337,9 +1089,7 @@
 					"maximum": 8
 				}
 			},
-			"required": [
-				"lines"
-			],
+			"required": ["lines"],
 			"additionalProperties": false,
 			"description": "A neutral placeholder block. Use it while content is being prepared rather than describing the wait."
 		},
@@ -1358,19 +1108,10 @@
 				"width": {
 					"default": "normal",
 					"type": "string",
-					"enum": [
-						"compact",
-						"normal",
-						"wide",
-						"full"
-					]
+					"enum": ["compact", "normal", "wide", "full"]
 				}
 			},
-			"required": [
-				"src",
-				"alt",
-				"width"
-			],
+			"required": ["src", "alt", "width"],
 			"additionalProperties": false,
 			"description": "Displays an image from an http(s) URL or an inline data image. Local files and other schemes are refused."
 		},
@@ -1388,10 +1129,7 @@
 					"type": "string"
 				}
 			},
-			"required": [
-				"title",
-				"url"
-			],
+			"required": ["title", "url"],
 			"additionalProperties": false,
 			"description": "A safe external source citation rendered as a link."
 		},
@@ -1405,10 +1143,7 @@
 					"type": "string"
 				}
 			},
-			"required": [
-				"title",
-				"document"
-			],
+			"required": ["title", "document"],
 			"additionalProperties": false,
 			"description": "A durable, self-contained HTML artifact rendered in a sandboxed preview."
 		}
@@ -1423,9 +1158,7 @@
 						"type": "number"
 					}
 				},
-				"required": [
-					"ms"
-				],
+				"required": ["ms"],
 				"additionalProperties": false
 			},
 			"returns": {
@@ -1441,9 +1174,7 @@
 						"type": "number"
 					}
 				},
-				"required": [
-					"bytes"
-				],
+				"required": ["bytes"],
 				"additionalProperties": false
 			},
 			"returns": {
@@ -1459,9 +1190,7 @@
 						"type": "number"
 					}
 				},
-				"required": [
-					"count"
-				],
+				"required": ["count"],
 				"additionalProperties": false
 			},
 			"returns": {
@@ -1485,11 +1214,7 @@
 						"type": "number"
 					}
 				},
-				"required": [
-					"part",
-					"total",
-					"decimals"
-				],
+				"required": ["part", "total", "decimals"],
 				"additionalProperties": false
 			},
 			"returns": {
@@ -1509,10 +1234,7 @@
 						"type": "number"
 					}
 				},
-				"required": [
-					"path",
-					"segments"
-				],
+				"required": ["path", "segments"],
 				"additionalProperties": false
 			},
 			"returns": {
@@ -1546,9 +1268,7 @@
 						"type": "boolean"
 					}
 				},
-				"required": [
-					"panel"
-				],
+				"required": ["panel"],
 				"additionalProperties": false
 			}
 		}

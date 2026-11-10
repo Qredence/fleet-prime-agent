@@ -29,7 +29,7 @@ import { harvestPromptCandidates, sessionIdFromFile } from "./match";
  * incremental afterwards. The bound therefore only exists so that a store of
  * hundreds of thousands of sessions cannot make a rebuild unbounded.
  */
-export const PROMPT_INDEX_SESSION_LIMIT = 2_000;
+const PROMPT_INDEX_SESSION_LIMIT = 2_000;
 /**
  * Sessions with more entries than this are skipped on rebuild so a multi‑10k
  * transcript cannot dominate memory/CPU. Incremental reuse of a prior harvest
@@ -51,9 +51,9 @@ export const PROMPT_INDEX_RETRY_BACKOFF_MS = 60_000;
  * repeat tells them apart, so the first is treated as transient and the second
  * is trusted, which is what stops deleted prompts from being served forever.
  */
-export const PROMPT_INDEX_EMPTY_CONFIRMATIONS = 2;
+const PROMPT_INDEX_EMPTY_CONFIRMATIONS = 2;
 
-export const PROMPT_INDEX_FILE = "fleet-prompt-index.json";
+const PROMPT_INDEX_FILE = "fleet-prompt-index.json";
 
 /**
  * The persisted index's on-disk shape.

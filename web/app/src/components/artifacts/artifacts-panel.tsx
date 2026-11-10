@@ -178,10 +178,10 @@ function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; 
 function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; selected: boolean }) {
 	const cardRef = useRef<HTMLElement>(null);
 	const initiallyOpen = selected || artifact.status === "running";
-	const [open, setOpen] = useState(initiallyOpen);
+	const [userOpen, setUserOpen] = useState(initiallyOpen);
+	const open = selected ? true : userOpen;
 	useEffect(() => {
 		if (!selected) return;
-		setOpen(true);
 		requestAnimationFrame(() => {
 			cardRef.current?.focus({ preventScroll: true });
 			cardRef.current?.scrollIntoView({ block: "nearest" });
@@ -221,7 +221,7 @@ function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifac
 					title={artifact.title}
 					status={artifactStatus(artifact.status)}
 					open={open}
-					onOpenChange={setOpen}
+					onOpenChange={setUserOpen}
 					defaultOpen={initiallyOpen}
 					kind={artifact.kind === "bash" || artifact.kind === "ipython" ? "terminal" : "custom"}
 				>

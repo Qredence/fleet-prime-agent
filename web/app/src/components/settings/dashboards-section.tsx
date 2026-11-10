@@ -43,17 +43,22 @@ export function DashboardsSection() {
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
-	const refresh = useCallback(async () => {
-		const next = await fetchDashboardStatus();
-		setStatus(next);
-		setDraftModel(next.model);
-	}, []);
-
 	useEffect(() => {
-		void refresh().catch((cause: unknown) => {
-			setError(cause instanceof Error ? cause.message : "Could not read dashboard settings.");
-		});
-	}, [refresh]);
+		let active = true;
+		void fetchDashboardStatus()
+			.then((next) => {
+				if (!active) return;
+				setStatus(next);
+				setDraftModel(next.model);
+			})
+			.catch((cause: unknown) => {
+				if (!active) return;
+				setError(cause instanceof Error ? cause.message : "Could not read dashboard settings.");
+			});
+		return () => {
+			active = false;
+		};
+	}, []);
 
 	const save = useCallback(async () => {
 		if (!draftKey.trim()) return;

@@ -17,7 +17,9 @@ function isLiveStatus(status: ChatStatus) {
 export function useThrottledWhileLive<T>(value: T, status: ChatStatus, identityKey: string): T {
 	const live = isLiveStatus(status);
 	const valueRef = useRef(value);
-	valueRef.current = value;
+	useEffect(() => {
+		valueRef.current = value;
+	}, [value]);
 	const [snapshot, setSnapshot] = useState(value);
 	const [seenKey, setSeenKey] = useState(identityKey);
 	const [seenLive, setSeenLive] = useState(live);
@@ -56,7 +58,9 @@ export function useThrottledTranscriptSummary(
 ): ChatTranscriptSummary {
 	const live = isLiveStatus(status);
 	const messagesRef = useRef(messages);
-	messagesRef.current = messages;
+	useEffect(() => {
+		messagesRef.current = messages;
+	}, [messages]);
 	const [throttled, setThrottled] = useState(() => summarizeChatTranscript(messages));
 	const [seenKey, setSeenKey] = useState(transcriptKey);
 	const [seenLive, setSeenLive] = useState(live);

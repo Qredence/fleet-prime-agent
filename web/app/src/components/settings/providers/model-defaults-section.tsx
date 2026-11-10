@@ -85,7 +85,7 @@ export function ModelDefaultsSection({
 			!!draft?.defaultModel &&
 			model.provider === draft.defaultProvider &&
 			model.modelId === draft.defaultModel;
-	}, [draft?.defaultModel, draft?.defaultProvider]);
+	}, [draft]);
 
 	/** Preferred labels for custom/OCC instances, falling back to the catalog. */
 	const providerLabel = useMemo(() => {

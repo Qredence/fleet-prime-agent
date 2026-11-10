@@ -25,21 +25,14 @@ export { handleChatModelsDiscoverPost } from "./handlers/chat-models-discover";
 export { handleChatNewPost } from "./handlers/chat-new";
 export { handleChatOpenUIArtifactPut } from "./handlers/chat-openui-artifact";
 export { handleChatPlanPresentationPut } from "./handlers/chat-plan-presentation";
-export {
-	handleChatProvidersDelete,
-	handleChatProvidersGet,
-	handleChatProvidersPost,
-} from "./handlers/chat-providers";
+export { handleChatProvidersDelete, handleChatProvidersGet, handleChatProvidersPost } from "./handlers/chat-providers";
 export { handleChatProvidersOAuthPost } from "./handlers/chat-providers-oauth";
 export { handleChatQuestionPost } from "./handlers/chat-question";
 export { handleChatQueueMutationPost } from "./handlers/chat-queue";
 export { handleChatResourcesGet } from "./handlers/chat-resources";
 export { handleChatResumePost } from "./handlers/chat-resume";
 export { handleChatSessionGet } from "./handlers/chat-session";
-export {
-	handleChatSessionDelete,
-	handleChatSessionRenamePatch,
-} from "./handlers/chat-session-mutations";
+export { handleChatSessionDelete, handleChatSessionRenamePatch } from "./handlers/chat-session-mutations";
 export { handleChatSessionsGet } from "./handlers/chat-sessions";
 export { handleChatSettingsGet, handleChatSettingsPatch } from "./handlers/chat-settings";
 export {

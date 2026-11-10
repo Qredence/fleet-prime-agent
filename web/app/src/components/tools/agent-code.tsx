@@ -63,11 +63,7 @@ export function useAgentCodeTokens(code: string, language: AgentCodeLanguage) {
 	} | null>(cached ? { key, code, language, lines: cached } : null);
 
 	useEffect(() => {
-		const current = tokenCache.get(key);
-		if (current) {
-			setResult({ key, code, language, lines: current });
-			return;
-		}
+		if (tokenCache.has(key)) return;
 
 		let cancelled = false;
 		getAgentCodeHighlighter().then((highlighter) => {

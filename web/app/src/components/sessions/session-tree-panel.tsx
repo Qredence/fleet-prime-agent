@@ -91,7 +91,25 @@ export function SessionTreePanel({
 	const [confirmExpectedLeafId, setConfirmExpectedLeafId] = useState<string | null>(null);
 	const [confirming, setConfirming] = useState(false);
 	const [confirmError, setConfirmError] = useState<string | null>(null);
+	const [boundSessionId, setBoundSessionId] = useState(sessionId);
 	const confirmGenerationRef = useRef(0);
+
+	if (sessionId !== boundSessionId) {
+		setBoundSessionId(sessionId);
+		setConfirmEntryId(null);
+		setConfirmExpectedLeafId(null);
+		setConfirmError(null);
+		setConfirming(false);
+	}
+
+	useEffect(() => {
+		confirmGenerationRef.current += 1;
+	}, [sessionId]);
+
+	const confirmExpectedLeafIdForRewind =
+		confirmEntryId !== null && !confirming && confirmError !== null
+			? (snapshot?.leafId ?? confirmExpectedLeafId)
+			: confirmExpectedLeafId;
 	const rows = useMemo(() => (snapshot ? flattenVisibleNodes(snapshot.nodes) : []), [snapshot]);
 	const selectedNode = useMemo(
 		() => rows.find((row) => row.node.id === selectedEntryId)?.node,
@@ -100,15 +118,6 @@ export function SessionTreePanel({
 	const canRewind = Boolean(
 		selectedNode && snapshot && selectedEntryId && selectedEntryId !== snapshot.leafId && !isStreaming,
 	);
-
-	// After a partial rewind failure reconciles the tree, re-arm the lock so retry
-	// does not 409 against the open-time leaf while the dialog stays open.
-	useEffect(() => {
-		if (confirmEntryId === null || confirming || confirmError === null) return;
-		const nextLeaf = snapshot?.leafId ?? null;
-		if (nextLeaf === confirmExpectedLeafId) return;
-		setConfirmExpectedLeafId(nextLeaf);
-	}, [confirmEntryId, confirming, confirmError, confirmExpectedLeafId, snapshot?.leafId]);
 
 	const resolveMessageId = useCallback(
 		(node: SessionTreeNode) => {
@@ -126,15 +135,10 @@ export function SessionTreePanel({
 		setConfirming(false);
 	}, []);
 
-	// Drop stale confirm state when the panel follows a different session.
-	useEffect(() => {
-		clearConfirm();
-	}, [sessionId, clearConfirm]);
-
 	const handleConfirmRewind = useCallback(async () => {
 		// Capture before any dialog close/state clear — AlertDialogAction/Close must not race this.
 		const entryId = confirmEntryId;
-		const leafId = confirmExpectedLeafId;
+		const leafId = confirmExpectedLeafIdForRewind;
 		if (!entryId) return;
 		const generation = ++confirmGenerationRef.current;
 		const isCurrent = () => confirmGenerationRef.current === generation;
@@ -150,7 +154,7 @@ export function SessionTreePanel({
 		} finally {
 			if (isCurrent()) setConfirming(false);
 		}
-	}, [clearConfirm, confirmEntryId, confirmExpectedLeafId, onRewind]);
+	}, [clearConfirm, confirmEntryId, confirmExpectedLeafIdForRewind, onRewind]);
 
 	const openConfirm = useCallback(
 		(entryId: string) => {

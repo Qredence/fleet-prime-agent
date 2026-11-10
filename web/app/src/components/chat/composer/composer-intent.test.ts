@@ -189,7 +189,8 @@ describe("useComposerIntentRouting", () => {
 
 		rerender({ available: true });
 		await act(async () => {
-			vi.advanceTimersByTime(DEBOUNCE_MS);
+			// Flush the availability re-ask timeout (0ms) then the classify debounce.
+			vi.advanceTimersByTime(DEBOUNCE_MS + 1);
 		});
 		expect(mockFetch()).toHaveBeenCalledTimes(1);
 		expect(result.current.command).toEqual({ forValue: "make this shorter", command: "compact" });

@@ -10,7 +10,13 @@ import {
 	isValidElement,
 	type ReactElement,
 	type ReactNode,
+	useCallback,
+	useId,
+	useLayoutEffect,
+	useRef,
+	type Ref,
 } from "react";
+import { assignRef } from "@/lib/ref";
 import { cn } from "@/lib/utils";
 
 export type IconComponent = ComponentType<{
@@ -82,8 +88,7 @@ const legacySizeAliases: Partial<Record<ButtonSize, ButtonSizeCanonical>> = {
 };
 
 interface ButtonProps
-	extends ButtonHTMLAttributes<HTMLButtonElement>,
-		Omit<VariantProps<typeof buttonVariants>, "size"> {
+	extends ButtonHTMLAttributes<HTMLButtonElement>, Omit<VariantProps<typeof buttonVariants>, "size"> {
 	/** Omitted, the button follows the surrounding SizeProvider (default 36px,
 	 *  compact 28px). Legacy sm/md/lg values still resolve. */
 	size?: ButtonSize;
@@ -185,6 +190,27 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 					>)
 				: null;
 		const label = asChildElement ? asChildElement.props.children : children;
+		const forwardedRef = useRef<Ref<HTMLButtonElement> | null>(null);
+		useLayoutEffect(() => {
+			forwardedRef.current = ref;
+		});
+		const childRefHolder = useRef<Ref<HTMLButtonElement> | null>(null);
+		const asChildSlotId = useId();
+		useLayoutEffect(() => {
+			if (!asChildElement) {
+				childRefHolder.current = null;
+				return;
+			}
+			const childProps = asChildElement.props as { ref?: React.Ref<HTMLButtonElement> };
+			childRefHolder.current = childProps.ref ?? null;
+			const node = document.querySelector<HTMLButtonElement>(`[data-button-slot="${asChildSlotId}"]`);
+			assignRef(forwardedRef.current, node);
+			assignRef(childRefHolder.current, node);
+		}, [asChildElement, asChildSlotId]);
+		const assignForwardedRef = useCallback(
+			(node: HTMLButtonElement | null) => assignRef(forwardedRef.current, node),
+			[],
+		);
 		const resolvedSize: ButtonSizeCanonical = size
 			? (legacySizeAliases[size] ?? (size as ButtonSizeCanonical))
 			: "default";
@@ -292,7 +318,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 				asChildElement,
 				{
 					...composedProps,
-					ref,
+					"data-button-slot": asChildSlotId,
 					"data-slot": "button",
 					className: cn(rootClassName, childProps.className),
 					style: { ...style, ...childProps.style },
@@ -305,7 +331,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 			<ButtonPrimitive
 				// Base UI's `ButtonPrimitive` forwards to an HTMLButtonElement;
 				// keep the public ref type narrow so consumers see the right type.
-				ref={ref as React.Ref<HTMLButtonElement>}
+				ref={assignForwardedRef}
 				data-slot="button"
 				className={rootClassName}
 				disabled={disabled || loading}

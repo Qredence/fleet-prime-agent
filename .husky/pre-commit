@@ -5,17 +5,34 @@ if [ -z "$STAGED_FILES" ]; then
 	exit 0
 fi
 
-echo "Running Biome on staged files..."
-pnpm exec biome check --write --staged --error-on-warnings --no-errors-on-unmatched
+STYLE_FILES=$(printf '%s\n' "$STAGED_FILES" | grep -E \
+	'^(packages/fleet-web/bin/.*\.mjs|web/[^/]+/src/.*\.(ts|tsx)|web/server/scripts/.*\.ts|scripts/.*\.(mjs|ts))$' \
+	|| true)
+
+if [ -z "$STYLE_FILES" ]; then
+	exit 0
+fi
+
+echo "Running Oxfmt and Oxlint on staged style paths..."
+# Oxfmt has no --staged flag; pass the staged path list explicitly.
+# shellcheck disable=SC2086
+pnpm exec oxfmt --no-error-on-unmatched-pattern $STYLE_FILES
 if [ $? -ne 0 ]; then
-	echo "Biome checks failed. Please fix the errors before committing."
+	echo "Oxfmt failed. Please fix the errors before committing."
 	exit 1
 fi
 
-printf '%s\n' "$STAGED_FILES" | while IFS= read -r file; do
+# shellcheck disable=SC2086
+pnpm exec oxlint --deny-warnings --fix $STYLE_FILES
+if [ $? -ne 0 ]; then
+	echo "Oxlint failed. Please fix the errors before committing."
+	exit 1
+fi
+
+printf '%s\n' "$STYLE_FILES" | while IFS= read -r file; do
 	if [ -f "$file" ]; then
 		git add -- "$file"
 	fi
 done
 
-echo "Staged files passed Biome. Run pnpm run check before opening a pull request."
+echo "Staged files passed Oxfmt and Oxlint. Run pnpm run check before opening a pull request."

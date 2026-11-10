@@ -19,14 +19,14 @@ export type FleetSettings = {
  * Off by default. Composer drafts are user text and can contain anything, so
  * the feature is only ever enabled by an explicit user action in Settings.
  */
-export const DEFAULT_FLEET_SETTINGS: FleetSettings = {
+const DEFAULT_FLEET_SETTINGS: FleetSettings = {
 	version: 1,
 	composerIntentEnabled: false,
 };
 
-export const FLEET_SETTINGS_FILE = "fleet-settings.json";
+const FLEET_SETTINGS_FILE = "fleet-settings.json";
 
-export function fleetSettingsPath(agentDir: string): string {
+function fleetSettingsPath(agentDir: string): string {
 	return join(agentDir, FLEET_SETTINGS_FILE);
 }
 

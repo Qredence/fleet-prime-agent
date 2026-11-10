@@ -18,6 +18,20 @@ export function useSessionTree({ sessionMetadata, status, resumeSession, rightPa
 	const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
 	const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 	const treeGenerationRef = useRef(0);
+	const [boundSessionId, setBoundSessionId] = useState(sessionId);
+
+	if (sessionId !== boundSessionId) {
+		setBoundSessionId(sessionId);
+		setLoading(false);
+		setSelectedEntryId(null);
+		setHighlightedMessageId(null);
+		setSnapshot(null);
+		setError(null);
+	}
+
+	useEffect(() => {
+		treeGenerationRef.current += 1;
+	}, [sessionId]);
 
 	const refreshSessionTree = useCallback(async () => {
 		if (!sessionId) {
@@ -43,19 +57,16 @@ export function useSessionTree({ sessionMetadata, status, resumeSession, rightPa
 
 	useEffect(() => {
 		if (rightPanel !== "session-tree") return;
-		void refreshSessionTree();
+		let cancelled = false;
+		void (async () => {
+			await Promise.resolve();
+			if (cancelled) return;
+			await refreshSessionTree();
+		})();
+		return () => {
+			cancelled = true;
+		};
 	}, [refreshSessionTree, rightPanel]);
-
-	useEffect(() => {
-		// Invalidate in-flight refresh/rewind whenever the active session identity changes.
-		treeGenerationRef.current += 1;
-		setLoading(false);
-		setSelectedEntryId(null);
-		setHighlightedMessageId(null);
-		setSnapshot(null);
-		setError(null);
-		void sessionId;
-	}, [sessionId]);
 
 	const selectSessionTreeEntry = useCallback((entryId: string, messageId?: string) => {
 		setSelectedEntryId(entryId);

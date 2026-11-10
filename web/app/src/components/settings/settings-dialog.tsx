@@ -87,9 +87,9 @@ function useSettingsForm() {
 	} = useSettingsActionsContext();
 	const { models, resources } = useChatPanelDataContext();
 
-	const [draft, setDraft] = useState<ChatPiSettings | null>(null);
+	const [draft, setDraft] = useState<ChatPiSettings | null>(() => settings?.effective ?? null);
 	const [savingSection, setSavingSection] = useState<string | null>(null);
-	const syncedSettings = useRef<typeof settings>(undefined);
+	const [syncedSettingsSource, setSyncedSettingsSource] = useState(settings);
 
 	const resourceSummary = summarizeResources(resources);
 
@@ -131,24 +131,22 @@ function useSettingsForm() {
 
 	const hasUnsavedChanges = modelDirty || resourceDirty;
 
+	if (settings !== syncedSettingsSource) {
+		setSyncedSettingsSource(settings);
+		if (settings && (!draft || !hasUnsavedChanges)) {
+			const nextDraft = settings.effective;
+			if (!draft || !sameJson(draft, nextDraft)) {
+				setDraft(nextDraft);
+			}
+		}
+	}
+
 	const resetDraft = () => {
 		if (!settings) return;
 		// Only the draft is owned here; package rows/error reconcile in
 		// useResourcesForm's sync effect once draft settles.
 		setDraft(settings.effective);
 	};
-
-	useEffect(() => {
-		if (!settings || syncedSettings.current === settings) return;
-
-		const nextDraft = settings.effective;
-
-		if (draft && hasUnsavedChanges) return;
-		syncedSettings.current = settings;
-		if (draft && sameJson(draft, nextDraft)) return;
-
-		setDraft(nextDraft);
-	}, [draft, hasUnsavedChanges, settings]);
 
 	const saveSection = async (section: string, update: ChatPiSettingsUpdate) => {
 		if (section === "models" && draft) {
@@ -621,9 +619,11 @@ function SettingsDialogBody({
 		})();
 	};
 
-	onCloseAttemptRef.current = (eventDetails) => {
-		handleOpenChange(false, eventDetails);
-	};
+	useEffect(() => {
+		onCloseAttemptRef.current = (eventDetails) => {
+			handleOpenChange(false, eventDetails);
+		};
+	});
 
 	const handleDiscardChanges = () => {
 		revertResourceDraft();

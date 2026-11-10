@@ -19,7 +19,7 @@
 import type { DaemonModelCatalog } from "./daemon-protocol";
 
 /** How long a snapshot may be served without asking the daemon again. */
-export const MODEL_CATALOG_MAX_AGE_MS = 5_000;
+const MODEL_CATALOG_MAX_AGE_MS = 5_000;
 
 type CatalogSnapshot = { catalog: DaemonModelCatalog; fetchedAt: number };
 
@@ -46,7 +46,7 @@ function cacheState(): CatalogCacheState {
 }
 
 /** The cached snapshot when it is still within its max age, else `undefined`. */
-export function readModelCatalogSnapshot(maxAgeMs = MODEL_CATALOG_MAX_AGE_MS): DaemonModelCatalog | undefined {
+function readModelCatalogSnapshot(maxAgeMs = MODEL_CATALOG_MAX_AGE_MS): DaemonModelCatalog | undefined {
 	const { snapshot } = cacheState();
 	if (!snapshot) return undefined;
 	return Date.now() - snapshot.fetchedAt <= maxAgeMs ? snapshot.catalog : undefined;

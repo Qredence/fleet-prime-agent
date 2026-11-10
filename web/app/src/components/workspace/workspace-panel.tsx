@@ -5,7 +5,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import { CircleAlert, FileText, HardDrive } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isDaytonaNotConnectedError } from "@/components/chat/chat-helpers";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
 import { FileTree, FileTreeFile, FileTreeFolder } from "@/components/motion/file-tree";
@@ -70,13 +70,16 @@ export function WorkspacePanelContent({
 	const [internalSelectedPath, setInternalSelectedPath] = useState<string | null>(null);
 	const isControlled = onSelectedPathChange !== undefined;
 	const selectedPath = isControlled ? (selectedPathProp ?? null) : internalSelectedPath;
-	const setSelectedPath = (path: string | null) => {
-		if (isControlled) {
-			onSelectedPathChange(path);
-			return;
-		}
-		setInternalSelectedPath(path);
-	};
+	const setSelectedPath = useCallback(
+		(path: string | null) => {
+			if (isControlled) {
+				onSelectedPathChange(path);
+				return;
+			}
+			setInternalSelectedPath(path);
+		},
+		[isControlled, onSelectedPathChange],
+	);
 	const [preview, setPreview] = useState<WorkspaceFileResponse | null>(null);
 	const [previewError, setPreviewError] = useState<Error | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
@@ -119,41 +122,34 @@ export function WorkspacePanelContent({
 		};
 	}, [scopeLabel, scopePath, workspace]);
 
-	useEffect(() => {
-		if (!workspace || !selectedPath) return;
-
-		if (scopePath && !isPathWithinScope(selectedPath, scopePath)) {
-			setSelectedPath(null);
-			setPreview(null);
-			setPreviewError(null);
-			return;
-		}
-
-		if (findWorkspaceNode(workspace.nodes, selectedPath)?.type === "file") {
-			return;
-		}
-
-		setSelectedPath(null);
-		setPreview(null);
-		setPreviewError(null);
-	}, [onSelectedPathChange, scopePath, selectedPath, workspace]);
+	const effectiveSelectedPath = useMemo(() => {
+		if (!selectedPath || !workspace) return null;
+		if (scopePath && !isPathWithinScope(selectedPath, scopePath)) return null;
+		if (findWorkspaceNode(workspace.nodes, selectedPath)?.type === "file") return selectedPath;
+		return null;
+	}, [selectedPath, scopePath, workspace]);
 
 	useEffect(() => {
-		if (!selectedPath) {
-			setPreviewLoading(false);
-			return;
-		}
+		if (selectedPath === null || effectiveSelectedPath !== null) return;
+		queueMicrotask(() => setSelectedPath(null));
+	}, [effectiveSelectedPath, selectedPath, setSelectedPath]);
 
-		const selected = selectedPath;
+	const displayPreview = effectiveSelectedPath ? preview : null;
+	const displayPreviewError = effectiveSelectedPath ? previewError : null;
+	const displayPreviewLoading = effectiveSelectedPath ? previewLoading : false;
+
+	useEffect(() => {
+		if (!effectiveSelectedPath) return;
+
+		const selected = effectiveSelectedPath;
 		const controller = new AbortController();
 		const timeoutId = window.setTimeout(() => controller.abort(), WORKSPACE_PREVIEW_TIMEOUT_MS);
 		let cancelled = false;
 
-		setPreview((current) => (current?.path === selected ? current : null));
-		setPreviewLoading(true);
-		setPreviewError(null);
-
 		void (async () => {
+			setPreview((current) => (current?.path === selected ? current : null));
+			setPreviewLoading(true);
+			setPreviewError(null);
 			try {
 				const body = await Promise.race([
 					loadWorkspaceFile(selected, controller.signal),
@@ -183,10 +179,10 @@ export function WorkspacePanelContent({
 			window.clearTimeout(timeoutId);
 			controller.abort();
 		};
-	}, [loadWorkspaceFile, selectedPath, workspace]);
+	}, [effectiveSelectedPath, loadWorkspaceFile, workspace]);
 
 	useEffect(() => {
-		if (!selectedPath || typeof window === "undefined") return;
+		if (!effectiveSelectedPath || typeof window === "undefined") return;
 		if (window.matchMedia(`(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`).matches) {
 			return;
 		}
@@ -200,7 +196,7 @@ export function WorkspacePanelContent({
 		});
 
 		return () => window.cancelAnimationFrame(frame);
-	}, [selectedPath]);
+	}, [effectiveSelectedPath]);
 
 	if (error) {
 		if (isDaytonaNotConnectedError(error)) {
@@ -247,7 +243,7 @@ export function WorkspacePanelContent({
 						icon: "size-3.5 text-foreground/35",
 						label: "text-label",
 					}}
-					value={selectedPath}
+					value={effectiveSelectedPath}
 					onValueChange={(path) => {
 						if (findWorkspaceNode(workspace.nodes, path)?.type === "file") {
 							setSelectedPath(path);
@@ -288,11 +284,11 @@ export function WorkspacePanelContent({
 		<WorkspacePreview
 			emptyDescription={previewEmptyDescription}
 			emptyTitle={previewEmptyTitle}
-			error={previewError}
-			loading={previewLoading}
-			preview={preview}
+			error={displayPreviewError}
+			loading={displayPreviewLoading}
+			preview={displayPreview}
 			previewRef={previewRef}
-			selectedPath={selectedPath}
+			selectedPath={effectiveSelectedPath}
 			splitGridArea={isSplitLayout ? "preview" : undefined}
 		/>
 	);

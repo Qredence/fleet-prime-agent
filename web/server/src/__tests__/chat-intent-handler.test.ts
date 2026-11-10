@@ -13,9 +13,11 @@ const mocks = vi.hoisted(() => ({
 	agentDir: "",
 	reloadAuth: vi.fn(),
 	resetTypeSafeService: vi.fn(),
-	routeComposerIntent: vi.fn(
-		async (): Promise<ComposerIntentResponse> => ({ enabled: true, outcome: "none", reason: "no_match" }),
-	),
+	routeComposerIntent: vi.fn(async (): Promise<ComposerIntentResponse> => ({
+		enabled: true,
+		outcome: "none",
+		reason: "no_match",
+	})),
 	forceConfigured: undefined as boolean | undefined,
 }));
 

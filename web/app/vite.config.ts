@@ -64,7 +64,7 @@ const config = defineConfig(({ mode }) => {
         "prime-agent",
       ],
     },
-    plugins: [tailwindcss(), tanstackStart(), viteReact()],
+    plugins: [tailwindcss(), tanstackStart(), viteReact({ compiler: true })],
   }
 })
 

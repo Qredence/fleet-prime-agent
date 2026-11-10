@@ -410,16 +410,6 @@ function safeTraceText(value: string | undefined): string | undefined {
 	return safe.length > 96 ? `${safe.slice(0, 93)}…` : safe;
 }
 
-export function toolTraceDescription(part: unknown): string | undefined {
-	const normalized = normalizeToolPart(part);
-	if (!normalized) return undefined;
-	const input = normalized.input;
-	const target = getString(input, "path", "filePath", "filename", "file");
-	return safeTraceText(
-		target ?? normalized.command ?? getString(input, "query", "pattern", "url", "description", "task", "prompt"),
-	);
-}
-
 function normalizeToolPartUncached(part: unknown, chatStatus?: string): NormalizedToolPart | undefined {
 	const source = asRecord(part);
 	if (!source) return undefined;

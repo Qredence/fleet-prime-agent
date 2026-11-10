@@ -13,7 +13,7 @@ import { readProviderApiKey } from "./agent-auth-store";
 import { PRIME_PROVIDER_ENV_MAP } from "./prime-provider-env-map";
 
 /** The env var the runtime would consult for `providerId`, if any. */
-export function providerEnvVarName(providerId: string): string | undefined {
+function providerEnvVarName(providerId: string): string | undefined {
 	return PRIME_PROVIDER_ENV_MAP[providerId];
 }
 

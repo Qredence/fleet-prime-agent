@@ -458,13 +458,14 @@ export function usePiChatSessionEvents({
 			reconnectAttempt = 0;
 			connect();
 		};
-		activeRecoveryRef.current.requestReconnect = requestReconnect;
+		const activeRecovery = activeRecoveryRef.current;
+		activeRecovery.requestReconnect = requestReconnect;
 		connect();
 
 		return () => {
 			closedByEffect = true;
-			if (activeRecoveryRef.current.requestReconnect === requestReconnect) {
-				activeRecoveryRef.current.requestReconnect = undefined;
+			if (activeRecovery.requestReconnect === requestReconnect) {
+				activeRecovery.requestReconnect = undefined;
 			}
 			source?.close();
 			if (reconnectTimer) clearTimeout(reconnectTimer);

@@ -13,7 +13,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ChatAttachment, ProjectId } from "@prime-agent/web-protocol/fleet-contract";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ChatClient } from "@/components/chat/chat-client";
 import { chatClient } from "@/components/chat/chat-client";
 import { notifyChatError } from "@/components/chat/chat-error-notify";
@@ -331,10 +331,14 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		[client, setMessagesSynced],
 	);
 
-	const enhanceMessages = useCallback(
-		(currentMessages: Array<ChatMessage>) => enhancePlanDecisionMessages(currentMessages, submitQuestionAnswer),
-		[submitQuestionAnswer],
-	);
+	const submitQuestionAnswerRef = useRef(submitQuestionAnswer);
+	useEffect(() => {
+		submitQuestionAnswerRef.current = submitQuestionAnswer;
+	}, [submitQuestionAnswer]);
+	const [enhancedMessages, setEnhancedMessages] = useState(messages);
+	useLayoutEffect(() => {
+		setEnhancedMessages(enhancePlanDecisionMessages(messages, (request) => submitQuestionAnswerRef.current(request)));
+	}, [messages, submitQuestionAnswer]);
 
 	useEffect(() => {
 		sessionMetadataRef.current = sessionMetadata;
@@ -693,7 +697,6 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		statusRef,
 	});
 
-	const enhancedMessages = useMemo(() => enhanceMessages(messages), [messages, enhanceMessages]);
 	const renameSession = useCallback(
 		async (sessionId: string, title: string): Promise<boolean> => {
 			try {

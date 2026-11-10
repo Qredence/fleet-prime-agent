@@ -26,7 +26,7 @@ export function latestDashboardId(presentation: PrimeAgentSessionPresentation): 
 }
 
 /** Fleet artifact id of the newest local board. An edit fence sends this id back. */
-export function latestLocalDashboardId(presentation: PrimeAgentSessionPresentation): string | undefined {
+function latestLocalDashboardId(presentation: PrimeAgentSessionPresentation): string | undefined {
 	const artifacts = dashboardArtifacts(presentation);
 	for (let index = artifacts.length - 1; index >= 0; index -= 1) {
 		const artifact = artifacts[index];

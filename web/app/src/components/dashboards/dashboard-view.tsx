@@ -42,7 +42,7 @@ function useThemeMode(): "light" | "dark" {
 	return mode;
 }
 
-export function dashboardRecord(artifact: PrimeAgentArtifact): DashboardRecord | undefined {
+function dashboardRecord(artifact: PrimeAgentArtifact): DashboardRecord | undefined {
 	if (artifact.kind !== "openui-dashboard") return undefined;
 	const parsed = DashboardRecordSchema.safeParse(artifact.output);
 	return parsed.success ? parsed.data : undefined;

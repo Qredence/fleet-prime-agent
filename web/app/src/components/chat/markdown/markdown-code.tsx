@@ -15,36 +15,29 @@ const code = createCodePlugin({
 	themes: ["github-light", "github-dark"],
 });
 
-export function HighlightedCodeContent({ code: source, language }: MarkdownCodeContentProps) {
-	const languageToUse = useMemo<BundledLanguage | undefined>(
-		() => code.getSupportedLanguages().find((candidate) => candidate === language),
-		[language],
-	);
-	const [highlighted, setHighlighted] = useState<ReturnType<typeof code.highlight>>(null);
+function HighlightedCodeContentInner({
+	highlightOptions,
+	fallbackSource,
+}: {
+	highlightOptions: Parameters<typeof code.highlight>[0];
+	fallbackSource: string;
+}) {
+	const syncHighlighted = useMemo(() => code.highlight(highlightOptions), [highlightOptions]);
+	const [asyncHighlighted, setAsyncHighlighted] = useState<ReturnType<typeof code.highlight> | null>(null);
 
 	useEffect(() => {
 		let active = true;
-		if (!languageToUse) {
-			setHighlighted(null);
-			return () => {
-				active = false;
-			};
-		}
-		const options: Parameters<typeof code.highlight>[0] = {
-			code: source,
-			language: languageToUse,
-			themes: code.getThemes(),
-		};
-		const result = code.highlight(options, (next) => {
-			if (active) setHighlighted(next);
+		code.highlight(highlightOptions, (next) => {
+			if (active) setAsyncHighlighted(next);
 		});
-		setHighlighted(result);
 		return () => {
 			active = false;
 		};
-	}, [languageToUse, source]);
+	}, [highlightOptions]);
 
-	if (!highlighted) return <>{source}</>;
+	const highlighted = asyncHighlighted ?? syncHighlighted;
+
+	if (!highlighted) return <>{fallbackSource}</>;
 	return (
 		<>
 			{highlighted.tokens.map((line, lineIndex) => (
@@ -62,6 +55,26 @@ export function HighlightedCodeContent({ code: source, language }: MarkdownCodeC
 				</span>
 			))}
 		</>
+	);
+}
+
+function HighlightedCodeContent({ code: source, language }: MarkdownCodeContentProps) {
+	const languageToUse = useMemo<BundledLanguage | undefined>(
+		() => code.getSupportedLanguages().find((candidate) => candidate === language),
+		[language],
+	);
+	if (!languageToUse) return <>{source}</>;
+
+	return (
+		<HighlightedCodeContentInner
+			key={`${languageToUse}:${source}`}
+			highlightOptions={{
+				code: source,
+				language: languageToUse,
+				themes: code.getThemes(),
+			}}
+			fallbackSource={source}
+		/>
 	);
 }
 

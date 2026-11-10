@@ -5,7 +5,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { AlertCircle, Bot, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { derivePrimeAgentArtifactRuns } from "@/components/artifacts/prime-agent-artifacts";
 import { SessionGenerativeTextRenderer } from "@/components/chat/generative-text-renderer";
 import { transcriptStatus } from "@/components/chat/subagents/subagent-utils";
@@ -179,10 +179,7 @@ export function SubagentTranscriptView({
 		[artifactOnlyEvents, childStatus, presentation, turns.length],
 	);
 	const title = child.sessionName || child.label;
-	const [heartbeatLabel, setHeartbeatLabel] = useState<string | null>(null);
-	useEffect(() => {
-		setHeartbeatLabel(child.lastHeardFrom ? new Date(child.lastHeardFrom).toLocaleTimeString() : null);
-	}, [child.lastHeardFrom]);
+	const heartbeatLabel = child.lastHeardFrom ? new Date(child.lastHeardFrom).toLocaleTimeString() : null;
 	const viewportRef = useRef<HTMLElement | null>(null);
 
 	return (

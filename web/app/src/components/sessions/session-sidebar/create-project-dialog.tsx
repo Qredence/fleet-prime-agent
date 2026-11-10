@@ -1,6 +1,6 @@
 import type { ProjectDirectoryBrowseResponse } from "@prime-agent/web-protocol";
 import { ArrowUp, FolderOpen, FolderPlus, FolderTree, TriangleAlert } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import type { SessionSidebarDependencies } from "@/components/sessions/session-sidebar/types";
 import { directoryErrorMessage, pathEntryLabel } from "@/components/sessions/session-sidebar/types";
 import { Button } from "@/components/ui/button";
@@ -64,18 +64,26 @@ export function SessionSidebarCreateDialog({
 		[onBrowseDirectories],
 	);
 
-	const initialBrowseRef = useRef(false);
 	useEffect(() => {
-		if (open && !initialBrowseRef.current) {
-			initialBrowseRef.current = true;
-			if (onBrowseDirectories) {
-				void loadDirectories({});
+		if (!open || !onBrowseDirectories) return;
+		let active = true;
+		void (async () => {
+			try {
+				const response = await onBrowseDirectories({});
+				if (!active) return;
+				setDirectoryBrowser(response);
+				setDirectoryToken(response.directoryToken);
+				setCreatePath(response.pathLabel);
+				setDirectoryBrowseError(null);
+			} catch (error) {
+				if (!active) return;
+				setDirectoryBrowseError(directoryErrorMessage(error, "Could not browse this directory."));
 			}
-		}
-		if (!open) {
-			initialBrowseRef.current = false;
-		}
-	}, [open, loadDirectories, onBrowseDirectories]);
+		})();
+		return () => {
+			active = false;
+		};
+	}, [onBrowseDirectories, open]);
 
 	const selectedDirectoryPath = directoryBrowser?.pathLabel ?? createPath;
 	const canSubmit = Boolean(directoryToken || createPath.trim().startsWith("/"));

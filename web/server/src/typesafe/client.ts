@@ -97,9 +97,9 @@ export const TYPESAFE_RETRYABLE_STATUSES: ReadonlySet<number> = new Set([408, 42
 const NO_RETRY_STATUSES: ReadonlySet<number> = new Set();
 
 /** Base delay for a retry when the service gives no `Retry-After`. */
-export const RETRY_BASE_DELAY_MS = 250;
+const RETRY_BASE_DELAY_MS = 250;
 /** Ceiling for a single computed backoff. */
-export const RETRY_MAX_DELAY_MS = 5_000;
+const RETRY_MAX_DELAY_MS = 5_000;
 
 /**
  * How long to wait before the next attempt.
@@ -108,7 +108,7 @@ export const RETRY_MAX_DELAY_MS = 5_000;
  * throttled service worse, so an explicit `Retry-After` is honoured when present
  * and a bounded exponential backoff with jitter is used otherwise.
  */
-export function retryDelayMs(response: Response, attempt: number): number {
+function retryDelayMs(response: Response, attempt: number): number {
 	const header = response.headers.get("retry-after")?.trim();
 	if (header) {
 		const seconds = Number(header);

@@ -73,10 +73,10 @@ export function normalizeSessionListRow(source: SessionListSource): NormalizedSe
 			? raw.runtimeKind === "subagent"
 			: Boolean(
 					raw.rlmChildId ??
-						raw.rlmParentNodeId ??
-						raw.parentActiveSessionId ??
-						raw.parentSessionId ??
-						raw.parentSessionPath,
+					raw.rlmParentNodeId ??
+					raw.parentActiveSessionId ??
+					raw.parentSessionId ??
+					raw.parentSessionPath,
 				);
 
 	return {

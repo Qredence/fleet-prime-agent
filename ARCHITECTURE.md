@@ -211,7 +211,7 @@ Prohibited directions:
 Architectural correctness is protected through:
 
 * TypeScript;
-* Biome;
+* Oxfmt and Oxlint;
 * runtime-manifest verification;
 * the browser/runtime import-boundary check, plus the temporary `web/server` legacy-SDK guard (R1b);
 * deterministic Vitest tests;

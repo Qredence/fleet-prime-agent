@@ -206,7 +206,6 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 		inFlight.current = null;
 		cache.current.clear();
 		suppressedKey.current = undefined;
-		setCommand(undefined);
 	}, [available]);
 
 	// The mirror of the switch-off above, and the same gap `useComposerInlineCompletion`
@@ -214,9 +213,16 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 	// checked server-side) while the composer keeps whatever was already typed. No
 	// keystroke follows the flip, so a draft typed while the check was in flight
 	// would never be classified and would get no offer until it was edited again.
+	// Schedule via timeout (not a sync setState in the effect) so fake timers and
+	// React Compiler's set-state-in-effect rule both stay happy.
 	useEffect(() => {
 		if (!available) return;
-		if (latestDraft.current) onDraftChange(latestDraft.current);
+		const draft = latestDraft.current;
+		if (!draft) return;
+		const timerId = setTimeout(() => {
+			onDraftChange(draft);
+		}, 0);
+		return () => clearTimeout(timerId);
 	}, [available, onDraftChange]);
 
 	// Drop a pending debounce and any in-flight classification on unmount.
@@ -228,7 +234,7 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 		[],
 	);
 
-	return { onDraftChange, takeCached, command, dismissCommand };
+	return { onDraftChange, takeCached, command: available ? command : undefined, dismissCommand };
 }
 
 export type ComposerIntentAvailability = {

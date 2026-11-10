@@ -245,14 +245,16 @@ describe("normalizeToolPart", () => {
 		const codeDocument = new DOMParser().parseFromString(codeMarkup, "text/html");
 		expect(codeDocument.querySelector('[data-slot="code-block-code"]')?.textContent).toBe("first\n\nthird\n");
 
+		// ToolResultOutputProps requires `children`; in a `.ts` file JSX is unavailable,
+		// so pass children via props (oxlint no-children-prop waived for this createElement call).
 		const multiline = renderToStaticMarkup(
-			// biome-ignore lint/correctness/noChildrenProp: createElement requires children in props for this component type.
+			// oxlint-disable-next-line react/no-children-prop -- createElement in .ts; children is a required prop
 			createElement(ToolResultOutput, { label: "stdout", children: "first line\nsecond line" }),
 		);
 		expect(multiline).toContain("first line\nsecond line");
 		expect(multiline).toContain('data-wrap="true"');
 		const reportedErrorMarkup = renderToStaticMarkup(
-			// biome-ignore lint/correctness/noChildrenProp: createElement requires children in props for this component type.
+			// oxlint-disable-next-line react/no-children-prop -- createElement in .ts; children is a required prop
 			createElement(ToolResultOutput, { label: "reported-error", error: true, children: "command failed" }),
 		);
 		expect(reportedErrorMarkup).toContain("Reported error");

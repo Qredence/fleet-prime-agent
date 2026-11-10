@@ -362,25 +362,25 @@ export function isSessionNotResumableError(error: unknown): boolean {
 	return SESSION_NOT_RESUMABLE_PATTERNS.some((pattern) => pattern.test(message));
 }
 
-export function sessionSummaryIdentifiers(summary: SessionSummary): Array<string> {
+function sessionSummaryIdentifiers(summary: SessionSummary): Array<string> {
 	return [summary.id, summary.sessionId, summary.activeSessionId].flatMap((value) =>
 		typeof value === "string" && value.length > 0 ? [value] : [],
 	);
 }
 
-export function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string> {
+function sessionSummaryParentIdentifiers(summary: SessionSummary): Array<string> {
 	return [summary.parentSessionId, summary.parentActiveSessionId].flatMap((value) =>
 		typeof value === "string" && value.length > 0 ? [value] : [],
 	);
 }
 
-export function sessionSummaryPath(summary: SessionSummary): string | undefined {
+function sessionSummaryPath(summary: SessionSummary): string | undefined {
 	return typeof summary.sessionFile === "string" && summary.sessionFile.length > 0
 		? resolve(summary.sessionFile)
 		: undefined;
 }
 
-export function sessionSummaryParentPaths(summary: SessionSummary): Array<string> {
+function sessionSummaryParentPaths(summary: SessionSummary): Array<string> {
 	return [summary.parentSessionPath].flatMap((value) =>
 		typeof value === "string" && value.length > 0 ? [resolve(value)] : [],
 	);
@@ -413,7 +413,7 @@ export function hasSessionLineage(
 	return false;
 }
 
-export async function sessionLineagePaths(sessionPath: string): Promise<ReadonlySet<string>> {
+async function sessionLineagePaths(sessionPath: string): Promise<ReadonlySet<string>> {
 	const paths = new Set<string>();
 	let currentPath = resolve(sessionPath);
 	while (!paths.has(currentPath)) {

@@ -19,9 +19,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { EASE_DRAWER, EASE_OUT } from "@/lib/ease";
 import { SESSION_SIDEBAR_WIDTH_CSS } from "@/lib/layout-constants";
+import { assignRef } from "@/lib/ref";
 import { cn } from "@/lib/utils";
 
 type SidebarState = "expanded" | "collapsed";
@@ -71,6 +73,7 @@ interface AnimatedSidebarContextValue {
 	state: SidebarState;
 	toggleSidebar: () => void;
 	triggerRef: React.RefObject<HTMLButtonElement | null>;
+	registerTrigger: (node: HTMLButtonElement | null) => void;
 }
 
 const AnimatedSidebarContext = createContext<AnimatedSidebarContextValue | null>(null);
@@ -133,6 +136,9 @@ export function AnimatedSidebarProvider({
 	const reduce = useReducedMotion() ?? false;
 	const generatedId = useId();
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	const registerTrigger = useCallback((node: HTMLButtonElement | null) => {
+		triggerRef.current = node;
+	}, []);
 	const desktopOpen = open ?? internalOpen;
 	const mobileOpen = openMobile ?? internalOpenMobile;
 
@@ -169,8 +175,9 @@ export function AnimatedSidebarProvider({
 			state: desktopOpen ? "expanded" : "collapsed",
 			toggleSidebar,
 			triggerRef,
+			registerTrigger,
 		}),
-		[desktopOpen, generatedId, isMobile, mobileOpen, reduce, setOpen, setOpenMobile, toggleSidebar],
+		[desktopOpen, generatedId, isMobile, mobileOpen, reduce, registerTrigger, setOpen, setOpenMobile, toggleSidebar],
 	);
 
 	useEffect(() => {
@@ -241,10 +248,8 @@ function MobileSidebar({
 }) {
 	const context = useAnimatedSidebar();
 	const panelRef = useRef<HTMLDivElement>(null);
-	const [mounted, setMounted] = useState(false);
+	const mounted = useHydrated();
 	const mobilePanelContextValue = useMemo(() => ({ collapsed: false, collapsible: "none" as const, side }), [side]);
-
-	useEffect(() => setMounted(true), []);
 
 	useEffect(() => {
 		if (!context.openMobile) return;
@@ -474,9 +479,8 @@ export const AnimatedSidebarTrigger = forwardRef<HTMLButtonElement, AnimatedSide
 			<Button
 				{...props}
 				ref={(node) => {
-					context.triggerRef.current = node;
-					if (typeof forwardedRef === "function") forwardedRef(node);
-					else if (forwardedRef) forwardedRef.current = node;
+					context.registerTrigger(node);
+					assignRef(forwardedRef, node);
 				}}
 				type={type}
 				variant="ghost"

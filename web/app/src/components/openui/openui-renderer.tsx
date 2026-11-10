@@ -2,7 +2,7 @@ import type { ActionEvent, OpenUIError, ParseResult } from "@openuidev/react-lan
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang";
 import { dashboardFences, stripDashboardFences } from "@prime-agent/web-protocol/dashboards";
 import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Markdown } from "@/components/chat/markdown/markdown";
 import { DashboardRequestCard } from "@/components/dashboards/dashboard-view";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
@@ -206,41 +206,38 @@ export function GenerativeTextRenderer({
 	onOpenUIArtifactReady?: (candidate: OpenUIArtifactCandidate) => void | Promise<string | undefined>;
 	onOpenArtifact?: (artifactId: string) => void;
 }) {
-	const [stateByBlock, setStateByBlock] = useState<OpenUIStateByBlock>({});
+	const [userStateByBlock, setUserStateByBlock] = useState<OpenUIStateByBlock>({});
 	const fences = useMemo(() => dashboardFences(content), [content]);
 	const visibleContent = useMemo(() => stripDashboardFences(content), [content]);
 	const segments = useMemo(() => segmentOpenUIContent(visibleContent), [visibleContent]);
 	const { sessionId } = useOpenUISession();
 	const sessionKey = messageId ?? "message";
 
+	const storedStateByBlock = useMemo(() => {
+		const next: OpenUIStateByBlock = {};
+		for (const segment of segments) {
+			if (segment.type !== "openui") continue;
+			const blockId = `${sessionKey}:${segment.id}`;
+			const stored = sessionId ? readStoredState(sessionId, blockId, segment.content) : undefined;
+			if (stored) next[blockId] = stored;
+		}
+		return next;
+	}, [segments, sessionKey, sessionId]);
+
+	const stateByBlock = useMemo(
+		() => ({ ...storedStateByBlock, ...userStateByBlock }),
+		[storedStateByBlock, userStateByBlock],
+	);
+
 	const updateBlockState = useCallback(
 		(blockId: string, state: Record<string, unknown>) => {
-			setStateByBlock((previous) => ({ ...previous, [blockId]: state }));
+			setUserStateByBlock((previous) => ({ ...previous, [blockId]: state }));
 			const segment = segments.find((candidate) => `${sessionKey}:${candidate.id}` === blockId);
 			// Persist per block so a reload restores what the user selected.
 			if (segment && sessionId) writeStoredState(sessionId, blockId, segment.content, state);
 		},
 		[segments, sessionKey, sessionId],
 	);
-
-	// Hydrate stored form state once per block, before the renderer mounts.
-	useEffect(() => {
-		setStateByBlock((previous) => {
-			let changed = false;
-			const next = { ...previous };
-			for (const segment of segments) {
-				if (segment.type !== "openui") continue;
-				const blockId = `${sessionKey}:${segment.id}`;
-				if (next[blockId] !== undefined) continue;
-				const stored = sessionId ? readStoredState(sessionId, blockId, segment.content) : undefined;
-				if (stored) {
-					next[blockId] = stored;
-					changed = true;
-				}
-			}
-			return changed ? next : previous;
-		});
-	}, [segments, sessionKey, sessionId]);
 
 	const dashboardCard = fences.length > 0 ? <DashboardRequestCard content={content} messageId={messageId} /> : null;
 

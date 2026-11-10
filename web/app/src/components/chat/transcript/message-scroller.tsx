@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useMessageScrollerRail } from "@/components/chat/transcript/message-scroller-rail";
 import { PreviewRail } from "@/components/motion/preview-rail";
+import { assignRef } from "@/lib/ref";
 import { cn } from "@/lib/utils";
 
 export interface MessageScrollerProps extends ComponentPropsWithRef<"div"> {
@@ -76,11 +77,7 @@ export function MessageScroller({
 	const setViewportRef = useCallback(
 		(node: HTMLElement | null) => {
 			viewportRef.current = node;
-			if (typeof externalViewportRef === "function") {
-				externalViewportRef(node);
-			} else if (externalViewportRef) {
-				externalViewportRef.current = node;
-			}
+			assignRef(externalViewportRef, node);
 		},
 		[externalViewportRef],
 	);

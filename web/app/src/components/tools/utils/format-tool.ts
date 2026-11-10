@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 type CachedToolState = {
 	state: string | undefined;
@@ -106,17 +106,20 @@ export function useToolComplete(isAnimating: boolean, duration: number, onComple
 }
 
 export function useElapsedTime(startedAt: number | undefined, isPending: boolean): number {
-	const [elapsedMs, setElapsedMs] = useState(0);
+	const tickRef = useRef(0);
 
-	useEffect(() => {
-		if (isPending && startedAt) {
-			setElapsedMs(Date.now() - startedAt);
+	return useSyncExternalStore(
+		(onStoreChange) => {
+			if (!isPending || startedAt === undefined) return () => undefined;
+			tickRef.current = Date.now();
+			onStoreChange();
 			const interval = setInterval(() => {
-				setElapsedMs(Date.now() - startedAt);
+				tickRef.current = Date.now();
+				onStoreChange();
 			}, 1000);
 			return () => clearInterval(interval);
-		}
-	}, [isPending, startedAt]);
-
-	return elapsedMs;
+		},
+		() => (isPending && startedAt !== undefined ? tickRef.current - startedAt : 0),
+		() => 0,
+	);
 }

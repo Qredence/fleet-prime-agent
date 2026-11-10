@@ -215,7 +215,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 const PRIVATE_PAYLOAD_KEY =
 	/(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|authorization|sessionDir|fullOutputPath|harnessStatePath)/i;
 
-export function browserSafePayload(value: unknown, key?: string): unknown {
+function browserSafePayload(value: unknown, key?: string): unknown {
 	if (key && PRIVATE_PAYLOAD_KEY.test(key)) return "[redacted]";
 	if (Array.isArray(value)) return value.map((item) => browserSafePayload(item));
 	if (isRecord(value)) {

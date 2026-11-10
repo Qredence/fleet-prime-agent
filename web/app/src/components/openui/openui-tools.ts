@@ -9,7 +9,7 @@ import { OPENUI_TOOL_NAMES, type OpenUIToolName, OpenUIToolResponseSchema } from
  *
  */
 
-export const OPENUI_TOOL_ENDPOINT = "/api/chat/openui/tool";
+const OPENUI_TOOL_ENDPOINT = "/api/chat/openui/tool";
 
 async function callTool(
 	name: OpenUIToolName,

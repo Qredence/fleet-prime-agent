@@ -80,6 +80,7 @@ function EditToolDiffCard({
 	const isWrite = step.toolName === "Write";
 	const [themeType, setThemeType] = React.useState<"light" | "dark">("light");
 	const [isExpanded, setIsExpanded] = React.useState(!isCollapsible);
+	const effectiveExpanded = isCollapsible ? isExpanded : true;
 
 	React.useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -99,10 +100,6 @@ function EditToolDiffCard({
 			observer.disconnect();
 		};
 	}, []);
-
-	React.useEffect(() => {
-		setIsExpanded(!isCollapsible);
-	}, [isCollapsible]);
 
 	const diffFiles = React.useMemo(() => {
 		const fileLabel = fileName || "file";
@@ -234,7 +231,7 @@ function EditToolDiffCard({
 			{diffFiles ? (
 				<div className={`${diffClassName} text-label`} style={diffCssVars}>
 					<div className={isCollapsible ? "group/edit-diff relative" : "relative"}>
-						<div className={isCollapsible && !isExpanded ? "max-h-[260px] overflow-hidden" : undefined}>
+						<div className={isCollapsible && !effectiveExpanded ? "max-h-[260px] overflow-hidden" : undefined}>
 							<MultiFileDiff
 								key={themeType}
 								oldFile={diffFiles.oldFile}
@@ -255,16 +252,16 @@ function EditToolDiffCard({
 								<button
 									type="button"
 									onClick={() => setIsExpanded((prev) => !prev)}
-									aria-label={isExpanded ? "Hide" : "Show more"}
+									aria-label={effectiveExpanded ? "Hide" : "Show more"}
 									className={
 										"group absolute inset-x-0 bottom-0 flex h-16 items-end justify-center pb-2 text-muted-foreground " +
-										(isExpanded ? "bg-transparent" : "bg-linear-to-b from-transparent to-background")
+										(effectiveExpanded ? "bg-transparent" : "bg-linear-to-b from-transparent to-background")
 									}
 								>
 									<ChevronDown
 										className={
 											"h-4 w-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 " +
-											(isExpanded ? "rotate-180" : "rotate-0")
+											(effectiveExpanded ? "rotate-180" : "rotate-0")
 										}
 									/>
 								</button>

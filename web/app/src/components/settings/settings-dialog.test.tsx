@@ -16,7 +16,7 @@ type ModelDefaultsFormArgs = Parameters<typeof useModelDefaultsForm>[0];
 type ModelDefaultsSectionProps = Parameters<typeof ModelDefaultsSection>[0];
 
 vi.mock("@/components/settings/providers/use-model-defaults-form", () => ({
-	useModelDefaultsForm: ({ setDraft }: ModelDefaultsFormArgs) => ({
+	useModelDefaultsForm: ({ setDraft, settings }: ModelDefaultsFormArgs) => ({
 		modelFilter: "",
 		setModelFilter: () => {},
 		modelOptions: [],
@@ -30,9 +30,12 @@ vi.mock("@/components/settings/providers/use-model-defaults-form", () => ({
 		discoverProvider: async () => {},
 		discoveringProviderId: null,
 		commitModelSettings: async () => true,
+		// Match production: revert to the latest settings.effective, including
+		// remote updates that arrived while the draft was dirty.
 		revertModelDraft: () => {
 			state.dirty = false;
-			setDraft((current) => (current ? { ...current, enabledModels: ["baseline"] } : current));
+			if (!settings) return;
+			setDraft((current) => (current ? { ...current, enabledModels: settings.effective.enabledModels } : current));
 		},
 		resetCommittedModelBaseline: () => {},
 	}),
