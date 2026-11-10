@@ -1,8 +1,10 @@
 import type { ActionEvent, OpenUIError, ParseResult } from "@openuidev/react-lang";
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang";
+import { dashboardFences, stripDashboardFences } from "@prime-agent/web-protocol/dashboards";
 import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Markdown } from "@/components/chat/markdown/markdown";
+import { DashboardRequestCard } from "@/components/dashboards/dashboard-view";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import { type OpenUIArtifactCandidate, OpenUIArtifactProvider } from "@/components/openui/html-artifact";
 import {
@@ -119,8 +121,11 @@ function OpenUIBlock({
 	onOpenArtifact?: (artifactId: string) => void;
 	onStateUpdate: (blockId: string, state: Record<string, unknown>) => void;
 }) {
-	const { projectId } = useOpenUISession();
-	const openUIToolProvider = useMemo(() => createOpenUIToolProvider(projectId ?? undefined), [projectId]);
+	const { projectId, sessionId } = useOpenUISession();
+	const openUIToolProvider = useMemo(
+		() => createOpenUIToolProvider(projectId ?? undefined, sessionId),
+		[projectId, sessionId],
+	);
 	const [runtimeErrors, setRuntimeErrors] = useState<Array<OpenUIError>>([]);
 	const [parseResult, setParseResult] = useState<ParseResult | null>(null);
 
@@ -202,7 +207,9 @@ export function GenerativeTextRenderer({
 	onOpenArtifact?: (artifactId: string) => void;
 }) {
 	const [stateByBlock, setStateByBlock] = useState<OpenUIStateByBlock>({});
-	const segments = useMemo(() => segmentOpenUIContent(content), [content]);
+	const fences = useMemo(() => dashboardFences(content), [content]);
+	const visibleContent = useMemo(() => stripDashboardFences(content), [content]);
+	const segments = useMemo(() => segmentOpenUIContent(visibleContent), [visibleContent]);
 	const { sessionId } = useOpenUISession();
 	const sessionKey = messageId ?? "message";
 
@@ -235,12 +242,22 @@ export function GenerativeTextRenderer({
 		});
 	}, [segments, sessionKey, sessionId]);
 
+	const dashboardCard = fences.length > 0 ? <DashboardRequestCard content={content} messageId={messageId} /> : null;
+
 	if (segments.length === 1 && segments[0]?.type === "markdown") {
-		return <Markdown className={className} content={content} isStreaming={isStreaming} />;
+		return (
+			<div className={`flex w-full flex-col gap-3 ${className ?? ""}`}>
+				{dashboardCard}
+				{visibleContent ? (
+					<Markdown className={className} content={visibleContent} isStreaming={isStreaming} />
+				) : null}
+			</div>
+		);
 	}
 
 	return (
 		<div className={`flex w-full flex-col gap-3 ${className ?? ""}`}>
+			{dashboardCard}
 			{segments.map((segment) => {
 				if (segment.type === "markdown") {
 					return (

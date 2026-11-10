@@ -177,7 +177,8 @@ export type PrimeAgentArtifactKind =
 	| "recap"
 	| "refinement"
 	| "compaction"
-	| "openui-html";
+	| "openui-html"
+	| "openui-dashboard";
 
 export type PrimeAgentArtifactStatus = "running" | "success" | "error" | "cancelled";
 

@@ -8,6 +8,7 @@ import {
 	useSettingsActionsContext,
 } from "@/components/layout/right-panel-context";
 import { ComposerIntentSection } from "@/components/settings/composer-intent-section";
+import { DashboardsSection } from "@/components/settings/dashboards-section";
 import { McpConnectionsSection } from "@/components/settings/mcp/mcp-connections-section";
 import { PersonalizationSection } from "@/components/settings/personalization-section";
 import { ModelDefaultsSection } from "@/components/settings/providers/model-defaults-section";
@@ -426,6 +427,18 @@ function SettingsDialogPaneContent({
 						]}
 					/>
 				</SettingsRow>
+			</div>
+		),
+		dashboards: () => (
+			<div className="flex flex-col gap-4">
+				<div>
+					<h3 className="text-lg font-medium">Dashboards</h3>
+					<p className="text-sm text-muted-foreground">
+						Without a key, the assistant writes the dashboard and Fleet draws it in the chat. With a Thesys key,
+						OpenUI Cloud builds it, using a model separate from the one you chat with.
+					</p>
+				</div>
+				<DashboardsSection />
 			</div>
 		),
 		chat: () => (

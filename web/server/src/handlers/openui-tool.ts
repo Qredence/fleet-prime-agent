@@ -10,9 +10,12 @@ import {
 	type SessionStatsRow,
 	type WorkspaceTreeRow,
 } from "@prime-agent/web-protocol";
+import { pageSessionOutputs, type SessionOutputColumns } from "../dashboards/session-outputs";
+import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { handleChatResourcesGet } from "./chat-resources";
 import { handleChatSessionsGet } from "./chat-sessions";
+import { requireSession } from "./session-access";
 import { handleWorkspaceTreeGet } from "./workspace-tree";
 
 /**
@@ -22,6 +25,18 @@ import { handleWorkspaceTreeGet } from "./workspace-tree";
  */
 
 type ToolBudget = { readonly limit: number };
+
+/**
+ * A tool's response envelope. `rows` is always present; the rest is optional so
+ * a tool can return the shape its components need. `session_outputs` adds
+ * projected `columns` plus session-wide totals for its table and KPI cards.
+ */
+type OpenUIToolResult = {
+	rows: unknown[];
+	total?: number;
+	columns?: SessionOutputColumns;
+	toolCalls?: number;
+};
 
 type TreeNode = {
 	name: string;
@@ -153,6 +168,16 @@ async function listResourcesTool(request: Request, budget: ToolBudget, args: { k
 	return { rows: rows.slice(0, budget.limit) };
 }
 
+async function sessionOutputsTool(sessionId: string | undefined, limit: number) {
+	if (!sessionId) {
+		throw Object.assign(new Error("session_outputs requires the open session."), { status: 400 });
+	}
+	const session = await requireSession(sessionId);
+	if (!session) throw Object.assign(new Error(`Unknown session: ${sessionId}`), { status: 404 });
+	const messages = await getBridge().getMessages(sessionId);
+	return pageSessionOutputs(messages, limit);
+}
+
 async function sessionStatsTool(request: Request) {
 	const payload = await requireOk(await handleChatSessionsGet(readRequest(request)), "session_stats");
 	const sessions = Array.isArray(payload.sessions) ? (payload.sessions as Record<string, unknown>[]) : [];
@@ -169,26 +194,30 @@ async function sessionStatsTool(request: Request) {
 
 export function handleOpenUIToolPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		const parsed = OpenUIToolRequestSchema.safeParse(await request.json().catch(() => null));
+		const body = await request.json().catch(() => null);
+		const parsed = OpenUIToolRequestSchema.safeParse(body);
 		if (!parsed.success) {
 			return Response.json({ ok: false, message: "Unknown or malformed OpenUI tool request." }, { status: 400 });
 		}
 
 		const projectParam = new URL(request.url).searchParams.get("projectId");
 		const projectId = projectParam === null ? undefined : ProjectIdSchema.parse(projectParam);
-		const { name } = parsed.data;
+		const { name, sessionId } = parsed.data;
 		const toolArgs = parseOpenUIToolArgs(name, parsed.data.args);
 		const args = toolArgs as Record<string, unknown>;
 		const budget: ToolBudget = { limit: clampLimit(args.limit as number | undefined) };
-
-		const dispatch: Record<OpenUIToolName, () => Promise<{ rows: unknown[] }>> = {
+		const dispatch: Record<OpenUIToolName, () => Promise<OpenUIToolResult>> = {
 			workspace_tree: () => workspaceTreeTool(request, budget, args, projectId),
 			list_sessions: () => listSessionsTool(request, budget, args),
 			list_resources: () => listResourcesTool(request, budget, args, projectId),
 			session_stats: () => sessionStatsTool(request),
+			session_outputs: () => sessionOutputsTool(sessionId, budget.limit),
 		};
 
 		const result = await dispatch[name]();
-		return Response.json({ ok: true, rows: result.rows });
+		// Each tool decides its own payload: session_outputs adds projected
+		// columns and session-wide totals that a table needs, while the others
+		// return rows only. Spreading keeps those extras instead of dropping them.
+		return Response.json({ ok: true, ...result });
 	}, request);
 }

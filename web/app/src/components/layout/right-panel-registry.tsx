@@ -1,7 +1,8 @@
 import type { LucideIcon } from "lucide-react";
-import { Activity, Bot, Folder, GitBranch, Library, Package, SquareTerminal } from "lucide-react";
+import { Activity, Bot, Folder, GitBranch, LayoutDashboard, Library, Package, SquareTerminal } from "lucide-react";
 import type { ComponentType } from "react";
 import { lazy, Suspense } from "react";
+import { mergeArtifactsById } from "@/components/dashboards/dashboard-artifacts";
 import type { RightPanel } from "@/components/layout/canvas-utils";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,13 +28,19 @@ export type RightPanelDefinition = {
 };
 
 export type RightPanelGroup = {
-	id: "workspace" | "subagents" | "session";
+	id: "workspace" | "artifacts" | "dashboards" | "subagents" | "session";
 	title: string;
 	ariaLabel: string;
 	icon: LucideIcon;
 	defaultPanel: ActiveRightPanel;
 	panels: ReadonlyArray<ActiveRightPanel>;
 };
+
+const LazyDashboardsPanel = lazy(() =>
+	import("@/components/dashboards/dashboards-panel").then(({ DashboardsPanel }) => ({
+		default: DashboardsPanel,
+	})),
+);
 
 const LazyArtifactsPanel = lazy(() =>
 	import("@/components/artifacts/artifacts-panel").then(({ ArtifactsPanelContent }) => ({
@@ -77,6 +84,21 @@ function PanelFallback() {
 			<Skeleton className="h-5 w-32" />
 			<Skeleton className="h-20 w-full" />
 		</div>
+	);
+}
+
+function DashboardsContent() {
+	const data = useChatPanelDataContext();
+	return (
+		<Suspense fallback={<PanelFallback />}>
+			<LazyDashboardsPanel
+				artifacts={mergeArtifactsById(data.artifactRuns, data.presentation?.artifactRuns)}
+				selectedArtifactId={data.selectedArtifactId}
+				sessionId={data.sessionId}
+				onOpenUIAction={data.onOpenUIAction}
+				onSelect={(artifactId) => data.openArtifact?.(artifactId, "dashboards")}
+			/>
+		</Suspense>
 	);
 }
 
@@ -308,6 +330,21 @@ export const RIGHT_PANEL_REGISTRY = {
 		refreshSource: undefined,
 		component: SessionTreeContent,
 	},
+	dashboards: {
+		id: "dashboards",
+		order: 7,
+		title: "Dashboards",
+		ariaLabel: "Dashboards",
+		commandLabel: "Open Dashboards",
+		commandKeywords: ["dashboards", "dashboard", "openui", "panels"],
+		icon: LayoutDashboard,
+		dataTestid: "pi-dashboards-canvas",
+		mobileDataTestid: "pi-dashboards-mobile-panel",
+		badgeSource: undefined,
+		loadingSource: undefined,
+		refreshSource: undefined,
+		component: DashboardsContent,
+	},
 } satisfies Record<ActiveRightPanel, RightPanelDefinition>;
 
 export const RIGHT_PANEL_DEFINITIONS = Object.values(RIGHT_PANEL_REGISTRY).sort(
@@ -322,7 +359,23 @@ export const RIGHT_PANEL_GROUPS: ReadonlyArray<RightPanelGroup> = [
 		ariaLabel: "Workspace",
 		icon: Folder,
 		defaultPanel: "workspace",
-		panels: ["workspace", "artifacts"],
+		panels: ["workspace"],
+	},
+	{
+		id: "artifacts",
+		title: "Artifacts",
+		ariaLabel: "Artifacts",
+		icon: Package,
+		defaultPanel: "artifacts",
+		panels: ["artifacts"],
+	},
+	{
+		id: "dashboards",
+		title: "Dashboards",
+		ariaLabel: "Dashboards",
+		icon: LayoutDashboard,
+		defaultPanel: "dashboards",
+		panels: ["dashboards"],
 	},
 	{
 		id: "subagents",

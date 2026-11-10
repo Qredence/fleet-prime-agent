@@ -28,6 +28,7 @@ import {
 	type ChatQuestionAnswer,
 	type ChatStreamEvent,
 	type ChatThinkingLevel,
+	type OpenUIDashboardPrompt,
 	type OpenUIPromptMode,
 	type PrimeAgentArtifact,
 	type PrimeAgentRlmChild,
@@ -71,6 +72,7 @@ import {
 	type WebAgentConnection,
 	type WebAgentConnectionFactory,
 } from "./daemon-runtime";
+import { dashboardPromptContext } from "./dashboards/prompt-context";
 import {
 	applyRlmChildStatusOverrides,
 	createEventMapperState,
@@ -100,6 +102,7 @@ import { parseBackendSessionCommand } from "./session-commands";
 import { readSessionHeaderId } from "./session-header";
 import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./session-tree-errors";
 import { mapSessionTreeSnapshot } from "./session-tree-mapper";
+import { textFromChatParts } from "./transcript-hydrator";
 
 export { type OpenUIPromptSessionState, SessionExportPathError };
 
@@ -234,6 +237,7 @@ type ManagedRlmChildStream = {
 export class PrimeBridge {
 	readonly #sessions = new Map<string, BridgeSession>();
 	readonly #listeners = new Set<BridgeEventListener>();
+	#assistantDoneListener?: (sessionId: string, messageId: string, content: string) => void;
 	readonly #ringBuffers = new Map<string, RingBuffer>();
 	readonly #rlmChildStreams = new Map<string, ManagedRlmChildStream>();
 	readonly #rlmChildStreamInitializations = new Map<string, Promise<ManagedRlmChildStream | undefined>>();
@@ -269,6 +273,14 @@ export class PrimeBridge {
 	addEventListener(listener: BridgeEventListener): () => void {
 		this.#listeners.add(listener);
 		return () => this.#listeners.delete(listener);
+	}
+
+	/**
+	 * Called when a finished assistant message contains an `openui-dashboard` fence.
+	 * Dashboard settlement registers this. The bridge does not import that module.
+	 */
+	setAssistantDoneListener(listener: (sessionId: string, messageId: string, content: string) => void): void {
+		this.#assistantDoneListener = listener;
 	}
 
 	/** Emit a frame to ring buffer (SSE replay) and all live listeners. */
@@ -343,6 +355,7 @@ export class PrimeBridge {
 		}
 		this.#sessions.clear();
 		this.#listeners.clear();
+		this.#assistantDoneListener = undefined;
 		this.#ringBuffers.clear();
 		this.#presentationWrites.clear();
 		this.#presentationGenerations.clear();
@@ -475,7 +488,15 @@ export class PrimeBridge {
 					/* ignore */
 				}
 			}
-			emitFrames(mapAgentConnectionEvent(mapperState, event));
+			const frames = mapAgentConnectionEvent(mapperState, event);
+			emitFrames(frames);
+			const done = frames.find((frame) => frame.type === "done" && frame.sessionReset !== true);
+			if (done?.type === "done") {
+				const content = textFromChatParts(done.message.parts);
+				if (content.includes("openui-dashboard")) {
+					this.#assistantDoneListener?.(sessionId, done.message.id, content);
+				}
+			}
 			if (
 				event.type === "session_resynced" ||
 				(event.type === "session_event" && event.event.type === "rlm_child_update")
@@ -1185,14 +1206,19 @@ export class PrimeBridge {
 		const openUIEnabled = options?.openUI === true;
 		const openUIMode = resolveOpenUIPromptMode(options?.mode, options?.planAction);
 		const openUIArtifact = options?.openUIArtifact === true;
+		const dashboards = await dashboardPromptContext(this.getPresentation(session.sessionId));
+		const openUIPromptOptions = {
+			artifact: openUIArtifact,
+			syntaxVersion: options?.openUISyntaxVersion,
+			dashboards,
+		};
 		const openUIStateChanged =
 			session.openUIPrompt.enabled !== openUIEnabled ||
 			session.openUIPrompt.mode !== openUIMode ||
 			(session.openUIPrompt.artifact ?? false) !== openUIArtifact ||
 			// A changed prompt body (new components, functions, or tools) must reach
 			// an existing session, not only newly created ones.
-			session.openUIPrompt.prompt !==
-				buildOpenUIPrompt(openUIMode, { artifact: openUIArtifact, syntaxVersion: options?.openUISyntaxVersion });
+			session.openUIPrompt.prompt !== buildOpenUIPrompt(openUIMode, openUIPromptOptions);
 		const hasPendingOpenUITransition = this.#openUIPromptTransitions.has(sessionId);
 		const wasStreaming = session.isStreaming;
 		const promptOptions = {
@@ -1211,6 +1237,7 @@ export class PrimeBridge {
 				openUIMode,
 				openUIArtifact,
 				options?.openUISyntaxVersion,
+				dashboards,
 			);
 		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
@@ -1246,6 +1273,7 @@ export class PrimeBridge {
 				openUIMode,
 				openUIArtifact,
 				options?.openUISyntaxVersion,
+				dashboards,
 			);
 		}
 		if (promptFailed) throw promptError;
@@ -1257,11 +1285,12 @@ export class PrimeBridge {
 		mode: OpenUIPromptMode,
 		artifact: boolean,
 		syntaxVersion?: "0.x" | "1.x",
+		dashboards?: OpenUIDashboardPrompt,
 	): Promise<void> {
 		const previous = this.#openUIPromptTransitions.get(session.sessionId) ?? Promise.resolve();
 		const transition = previous
 			.catch(() => undefined)
-			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact, syntaxVersion));
+			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact, syntaxVersion, dashboards));
 		this.#openUIPromptTransitions.set(session.sessionId, transition);
 		void transition
 			.finally(() => {
@@ -1279,9 +1308,10 @@ export class PrimeBridge {
 		mode: OpenUIPromptMode,
 		artifact = false,
 		syntaxVersion?: "0.x" | "1.x",
+		dashboards?: OpenUIDashboardPrompt,
 	): Promise<void> {
 		const previousPrompt = session.openUIPrompt.prompt;
-		const nextPrompt = buildOpenUIPrompt(mode, { artifact, syntaxVersion });
+		const nextPrompt = buildOpenUIPrompt(mode, { artifact, syntaxVersion, dashboards });
 		// The prompt text is compared as well as the flags: `buildOpenUIPrompt`
 		// changes whenever the component catalog or tool surface changes, and a
 		// session must pick that up instead of keeping the prompt it was born with.

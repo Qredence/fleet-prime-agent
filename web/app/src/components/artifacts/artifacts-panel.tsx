@@ -332,7 +332,11 @@ export function ArtifactsPanelContent({
 		[technicalArtifacts],
 	);
 	const nonOpenUIArtifacts = useMemo(
-		() => technicalArtifacts.filter((artifact) => artifact.kind !== "openui-html" && artifact.kind !== "ipython"),
+		() =>
+			technicalArtifacts.filter(
+				(artifact) =>
+					artifact.kind !== "openui-html" && artifact.kind !== "ipython" && artifact.kind !== "openui-dashboard",
+			),
 		[technicalArtifacts],
 	);
 

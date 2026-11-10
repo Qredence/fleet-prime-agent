@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { library as dashboardLibrary, promptOptions as dashboardPromptOptions } from "@openuidev/dashboard-library";
 import { openUIComponentGroups } from "@prime-agent/web-protocol/openui-component-groups";
 import { openUILibrary } from "@/components/openui/openui-library";
 
@@ -9,6 +10,7 @@ const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const protocolRoot = resolve(appRoot, "../protocol/src");
 const signaturesPath = resolve(protocolRoot, "openui-signatures.ts");
 const schemaPath = resolve(protocolRoot, "openui-schema.generated.json");
+const dashboardSpecPath = resolve(appRoot, "../server/src/dashboards/library-spec.json");
 
 const librarySpec = openUILibrary.toSpec();
 const { componentGroups: _libraryGroups, ...specWithoutGroups } = librarySpec;
@@ -29,6 +31,14 @@ export const openUIPromptSpec = {
 };
 `;
 const rawSchemaSource = `${JSON.stringify(openUILibrary.toJSONSchema(), null, "\t")}\n`;
+const dashboardSpecSource = `${JSON.stringify({
+	spec: dashboardLibrary.toSpec(),
+	promptOptions: {
+		preamble: dashboardPromptOptions.preamble,
+		examples: dashboardPromptOptions.examples,
+		additionalRules: dashboardPromptOptions.additionalRules,
+	},
+})}\n`;
 
 function format(source: string, path: string): string {
 	const biome = resolve(appRoot, "../../node_modules/.bin/biome");
@@ -45,11 +55,15 @@ async function check(path: string, expected: string): Promise<boolean> {
 }
 
 if (process.argv.includes("--check")) {
-	const fresh = (await check(signaturesPath, signaturesSource)) && (await check(schemaPath, schemaSource));
+	const fresh =
+		(await check(signaturesPath, signaturesSource)) &&
+		(await check(schemaPath, schemaSource)) &&
+		(await check(dashboardSpecPath, dashboardSpecSource));
 	if (!fresh) {
 		throw new Error("OpenUI generated contract is stale. Run pnpm --filter @qredence/web generate:openui-contract");
 	}
 } else {
 	await writeFile(signaturesPath, signaturesSource, "utf8");
 	await writeFile(schemaPath, schemaSource, "utf8");
+	await writeFile(dashboardSpecPath, dashboardSpecSource, "utf8");
 }

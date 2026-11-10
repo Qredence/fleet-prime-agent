@@ -1,3 +1,4 @@
+import { dashboardFences } from "@prime-agent/web-protocol/dashboards";
 import { lazy, Suspense, useMemo } from "react";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
@@ -24,7 +25,9 @@ export type SessionGenerativeTextRendererProps = {
 
 export function SessionGenerativeTextRenderer(props: SessionGenerativeTextRendererProps) {
 	const containsOpenUI = useMemo(
-		() => segmentOpenUIContent(props.content).some((segment) => segment.type === "openui"),
+		() =>
+			dashboardFences(props.content).length > 0 ||
+			segmentOpenUIContent(props.content).some((segment) => segment.type === "openui"),
 		[props.content],
 	);
 

@@ -1,3 +1,5 @@
+import { registerDashboardSettlement } from "./dashboards/settle";
+
 export { handleChatPost } from "./handlers/chat";
 export { handleChatAbortPost } from "./handlers/chat-abort";
 export { handleChatAttachmentGet, handleChatAttachmentsPost } from "./handlers/chat-attachments";
@@ -40,6 +42,13 @@ export {
 } from "./handlers/chat-session-mutations";
 export { handleChatSessionsGet } from "./handlers/chat-sessions";
 export { handleChatSettingsGet, handleChatSettingsPatch } from "./handlers/chat-settings";
+export {
+	handleDashboardsGet,
+	handleDashboardsInterpreterPost,
+	handleDashboardsPut,
+	handleDashboardsTokenPost,
+	settleDashboardMessage,
+} from "./handlers/dashboards";
 export { handleHealthGet } from "./handlers/health";
 export { handleOpenUIToolPost } from "./handlers/openui-tool";
 export {
@@ -57,3 +66,5 @@ export { PrimeBridge } from "./prime-bridge";
 export type { PrimeConfig } from "./prime-config";
 export { getPrimeConfig } from "./prime-config";
 export { getBridge, resetBridgeForTests, setBridgeForTests } from "./singleton";
+
+registerDashboardSettlement();

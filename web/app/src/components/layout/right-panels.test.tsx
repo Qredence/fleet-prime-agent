@@ -12,6 +12,7 @@ import { collectSessionOpenUIBlocks } from "@/components/artifacts/artifacts-uti
 import { SubagentChatPanel } from "@/components/chat/subagents/subagent-chat-panel";
 import { SubagentTranscriptView } from "@/components/chat/subagents/subagent-transcript";
 import { SubagentsPanelContent } from "@/components/chat/subagents/subagents-panel";
+import type { RightPanel } from "@/components/layout/canvas-utils";
 import { RightPanelProvider } from "@/components/layout/right-panel-context";
 import { RightPanelLauncher } from "@/components/layout/right-panel-launcher";
 import { RightPanelShell } from "@/components/layout/right-panel-shell";
@@ -125,7 +126,7 @@ afterEach(() => {
 });
 
 describe("right-panel execution tabs", () => {
-	function renderPanelShell(matchesDesktop: boolean, rightPanel: "resources" | "workspace" = "resources") {
+	function renderPanelShell(matchesDesktop: boolean, rightPanel: RightPanel = "resources") {
 		vi.stubGlobal(
 			"matchMedia",
 			vi.fn((query: string) => ({
@@ -198,7 +199,7 @@ describe("right-panel execution tabs", () => {
 		expect(queryByTestId("pi-resources-canvas")).toBeNull();
 	});
 
-	it("exposes the three top-level panel groups and opens their default views", () => {
+	it("exposes the five top-level panel groups and opens their default views", () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(500, 400);
 		const { getByTestId, rerender } = render(
@@ -214,10 +215,14 @@ describe("right-panel execution tabs", () => {
 		layout(getByTestId("right-panel-inline-launcher"));
 
 		expect(getByTestId("right-panel-inline-launcher").getAttribute("data-panel-launcher-mode")).toBe("tabs");
-		expect(screen.getAllByRole("tab")).toHaveLength(3);
+		expect(screen.getAllByRole("tab")).toHaveLength(5);
 		expect(screen.queryByRole("tab", { name: "REPL" })).toBeNull();
 		expect(screen.getByRole("tab", { name: "Subagents" })).toBeTruthy();
-		expect(screen.getByRole("tab", { name: "Workspace" }).textContent).toContain("3");
+		expect(screen.getByRole("tab", { name: "Artifacts" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Dashboards" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Workspace" })).toBeTruthy();
+		// Generative-UI blocks badge the Artifacts group, which now owns them.
+		expect(screen.getByRole("tab", { name: "Artifacts" }).textContent).toContain("3");
 		fireEvent.click(screen.getByRole("tab", { name: "Session" }));
 		expect(onPanelChange).toHaveBeenCalledWith("session-insights");
 
@@ -243,7 +248,7 @@ describe("right-panel execution tabs", () => {
 		expect(onPanelChange).toHaveBeenCalledWith("session-insights");
 	});
 
-	it("exposes the three panel groups in the overflow-mode dropdown", async () => {
+	it("exposes the five panel groups in the overflow-mode dropdown", async () => {
 		const onPanelChange = vi.fn();
 		const layout = mockLauncherLayout(120, 400);
 		const { getByRole, getByTestId, rerender } = render(
@@ -257,8 +262,14 @@ describe("right-panel execution tabs", () => {
 		const select = getByRole("combobox", { name: "Select panel" });
 		fireEvent.click(select);
 		const options = await screen.findAllByRole("option");
-		expect(options).toHaveLength(3);
-		expect(options.map((option) => option.textContent?.trim())).toEqual(["Workspace", "Subagents", "Session"]);
+		expect(options).toHaveLength(5);
+		expect(options.map((option) => option.textContent?.trim())).toEqual([
+			"Workspace",
+			"Artifacts",
+			"Dashboards",
+			"Subagents",
+			"Session",
+		]);
 
 		rerender(
 			<RightPanelLauncher activePanel="subagents" onPanelChange={onPanelChange} resources={null} workspace={null} />,
@@ -268,11 +279,14 @@ describe("right-panel execution tabs", () => {
 		expect(screen.getByRole("option", { name: "Subagents" })).toBeTruthy();
 	});
 
-	it("keeps file and artifact views under Workspace and skills, insights, and tree under Session", () => {
+	it("keeps workspace views under Workspace, artifacts under Artifacts, and skills, insights, and tree under Session", () => {
 		const workspace = renderPanelShell(true, "workspace");
-		expect(screen.getByRole("tab", { name: "Files" })).toBeTruthy();
-		expect(screen.getByRole("tab", { name: "Artifacts" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Workspace" })).toBeTruthy();
 		workspace.unmount();
+
+		const artifacts = renderPanelShell(true, "artifacts");
+		expect(screen.getByRole("tab", { name: "Artifacts" })).toBeTruthy();
+		artifacts.unmount();
 
 		renderPanelShell(true, "resources");
 		expect(screen.getByRole("tab", { name: "Skills" })).toBeTruthy();

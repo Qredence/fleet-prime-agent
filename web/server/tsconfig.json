@@ -11,6 +11,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
     "types": ["node", "vitest/globals"],
     "paths": {
       "@prime-agent/web-protocol": ["../protocol/src/index.ts"],

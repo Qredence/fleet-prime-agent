@@ -6,6 +6,11 @@ import { OPENUI_TOOL_DESCRIPTORS } from "./openui-tools";
 
 export type OpenUIPromptMode = "agent" | "harness" | "plan" | "plan-execution";
 
+export type OpenUIDashboardPrompt = {
+	mode: "cloud" | "self-hosted";
+	latestDashboardId?: string;
+};
+
 const OPENUI_PREAMBLE = "You are an AI assistant that can include openui-lang blocks inside normal chat responses.";
 
 const OPENUI_FENCE_RULE =
@@ -230,16 +235,75 @@ detail = DataTable("By status", [{ key: "status", label: "Status" }, { key: "ses
 \`\`\``,
 ];
 
+const SESSION_DASHBOARD_PROGRAM = `root = Dashboard([header, section])
+$limit = "20"
+outputs = Query("session_outputs", {limit: $limit}, {rows: [], columns: {}, total: 0, toolCalls: 0})
+header = DashboardHeader("This session", "Live tool and text output from this session")
+filterBar = FilterBar([limitFilter], [], true)
+limitFilter = FilterSelect("limit", "Rows", [{ value: "20", label: "20 rows" }, { value: "40", label: "40 rows" }], $limit)
+kpis = CardRow([kpiOutputs, kpiTools], "stretch")
+kpiOutputs = SmallCard("Outputs", "" + outputs.total)
+kpiTools = SmallCard("Tool calls", "" + outputs.toolCalls)
+tableCard = LargeCard([tableHeader, table], false)
+tableHeader = DashboardCardHeader("Session outputs", "Oldest first", "text")
+table = Table([colTurn, colRole, colPreview])
+colTurn = Col("Turn", outputs.columns.turn, "number")
+colRole = Col("Role", outputs.columns.role)
+colPreview = Col("Preview", outputs.columns.preview)
+section = Section([kpis, tableCard], filterBar, "Activity")`;
+
+const SESSION_DASHBOARD_EXAMPLE = `A dashboard of the open session. The select refetches the query:
+\`\`\`openui-dashboard
+${JSON.stringify({ title: "This session", program: SESSION_DASHBOARD_PROGRAM })}
+\`\`\``;
+
+const DASHBOARD_RULES = [
+	"Dashboard programs render with the dashboard component library, whose root is Dashboard. Emit Dashboard([DashboardHeader(...), Section(...)]) and nothing else at the root. Do not use Root, Stack, MetricGroup, or DataTable: they belong to the chat library and will not render.",
+	"Layout inside a Section: Section(rows, filterBar?, title?) where rows are CardRow or card values, and a card is SmallCard(title, metric, trend?), MediumCard([...]), or LargeCard([...], collapsed). Tables are column-oriented: Table([Col(label, data, type?), ...]).",
+	'Col takes one column of primitive values, not rows: Col("Role", outputs.columns.role). session_outputs returns rows for counting and filtering plus a columns object holding one array per field. Passing whole row objects to Col renders blank cells, so bind each column to outputs.columns.<field>.',
+	'Stated figures come from Query("dashboard_rows"). It returns columns, rows, and columnValues, one array per column key. Bind Col and charts to columnValues.<key>. Query("session_outputs") is this chat\'s own activity.',
+	"Bind every number to a Query. Use outputs.total for session-wide counts and never the fetched page size. Do not bake numbers into a dashboard: it reloads its data every time it opens, so a literal goes stale while looking live.",
+];
+
+const CLOUD_DASHBOARD_RULES = [
+	"Research the subject in this turn with the normal tools, and write the findings in the reply first. OpenUI only lays those findings out. It does not search, browse, or fill gaps.",
+	'Then emit one fenced ```openui-dashboard block whose body is JSON {"title":"...","prompt":"...","columns":[{"key":"party","label":"Party","type":"string"},{"key":"seats","label":"Seats","type":"number"}],"rows":[{"party":"D","seats":250}]}. Fence column type is "string" or "number", not OpenUI DataTable "text", "currency", or "percent". The prompt names the sections, charts, tables, filters, and the column keys. Do not put numbers in the prompt. rows copies only figures that reply already stated, including their status. Leave a figure out when it was not stated. One fence per message.',
+	"Chart Query(\"dashboard_rows\"). That tool is the rows on the fence. Use session_outputs only for a dashboard of this chat's own activity, and omit columns and rows for that dashboard. If the subject is not this chat's activity and the reply stated no figures, say so in prose and do not emit the fence.",
+	'To change a dashboard, emit {"id":"<dashboard id>","prompt":"the change"} in an ```openui-dashboard block. Include columns and rows only when the figures change. Omit them to keep the stored rows. Create a new dashboard only when asked.',
+];
+
+const LOCAL_DASHBOARD_RULES = [
+	"Research the subject in this turn with the normal tools, and write the findings in the reply first. The dashboard program only lays those findings out. It does not search, browse, or fill gaps.",
+	'Then emit one fenced ```openui-dashboard block whose body is JSON {"title":"...","program":"...","columns":[...],"rows":[...]}. The program is a complete openui-lang dashboard written with the dashboard component library rules above. rows copies only figures that reply already stated, including their status. One fence per message.',
+	'Query("dashboard_rows") serves those rows. Bind every chart and table to columnValues.<key>. Query("session_outputs") is this chat\'s own activity. Omit columns and rows for a dashboard of this chat, and bind that program to session_outputs. Do not invent rows.',
+	"If the subject is not this chat's activity and the reply stated no figures, say so in prose and do not emit the fence.",
+	'To change a dashboard, emit {"id":"<dashboard id>","program":"the full updated dashboard"} in an ```openui-dashboard block. Include columns and rows only when the figures change. Omit them to keep the stored rows. Create a new dashboard only when asked.',
+];
+
 export function buildOpenUIPrompt(
 	mode: OpenUIPromptMode,
-	options?: { artifact?: boolean; syntaxVersion?: "0.x" | "1.x" },
+	options?: { artifact?: boolean; syntaxVersion?: "0.x" | "1.x"; dashboards?: OpenUIDashboardPrompt },
 ) {
 	if (options?.syntaxVersion !== "1.x") return buildLegacyOpenUIPrompt(mode, options);
 	const artifact = options?.artifact === true;
 	const toolCalls = !artifact && (mode === "agent" || mode === "plan-execution");
+	const cloudDashboards = options?.dashboards?.mode === "cloud";
+	const dashboardRules = options?.dashboards
+		? [
+				...(cloudDashboards ? CLOUD_DASHBOARD_RULES : [...DASHBOARD_RULES, ...LOCAL_DASHBOARD_RULES]),
+				...(options.dashboards.latestDashboardId
+					? [`The latest dashboard id is ${options.dashboards.latestDashboardId}.`]
+					: []),
+			]
+		: [];
 	const additionalRules = artifact
 		? [...BASE_RULES, ...ARTIFACT_RULES]
-		: [...BASE_RULES, ...(mode === "plan" ? PLAN_RULES : AGENT_RULES), ...(toolCalls ? TOOL_RULES : [])];
+		: [
+				...BASE_RULES,
+				...(mode === "plan" ? PLAN_RULES : AGENT_RULES),
+				...(toolCalls ? TOOL_RULES : []),
+				...dashboardRules,
+			];
 
 	const prompt = generatePrompt({
 		...openUIPromptSpec,
@@ -256,7 +320,13 @@ export function buildOpenUIPrompt(
 						inputSchema: tool.inputSchema,
 						outputSchema: tool.outputSchema,
 					})),
-					toolExamples: TOOL_EXAMPLES,
+					// The session-dashboard example is dashboard-library grammar, so it is only
+					// taught when dashboards are actually offered. Cloud is told to emit a
+					// fence with a prompt, and never a program.
+					toolExamples:
+						!options?.dashboards || cloudDashboards
+							? TOOL_EXAMPLES
+							: [...TOOL_EXAMPLES, SESSION_DASHBOARD_EXAMPLE],
 				}
 			: {}),
 		bindings: true,
