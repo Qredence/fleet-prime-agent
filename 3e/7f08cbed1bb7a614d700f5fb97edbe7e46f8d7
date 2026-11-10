@@ -1,0 +1,19 @@
+web/app/scripts/check-bundle-budget.mjs
+  s_741d1412c858f7::t_457ff2fdcb2674 1-3,5-10,12-13,16,19,21,24-25,27-30,32,34,36,38-40,42-43,45,48,52-59,61-67,71-73,75-77,83-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3e7f08cbed1bb7a614d700f5fb97edbe7e46f8d7",
+  "prompts": {},
+  "sessions": {
+    "s_741d1412c858f7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f1df313-3049-474a-9d9d-66123b1bb06b",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
