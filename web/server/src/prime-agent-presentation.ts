@@ -170,10 +170,24 @@ export class PresentationPersistenceQueue {
 		const existing = this.#writes.get(sessionId);
 		if (existing) return existing;
 
+		// The drain unregisters itself in the same tick it observes an empty
+		// pending slot. A persist that arrives after the loop returns therefore
+		// starts a new drain instead of receiving an already-settled promise and
+		// having its presentation silently dropped.
+		const registration: { drain?: Promise<void> } = {};
+		let finishedSynchronously = false;
 		const drain = (async () => {
 			while (true) {
 				const next = this.#pending.get(sessionId);
-				if (!next) break;
+				if (!next) {
+					const registered = registration.drain;
+					if (registered !== undefined && this.#writes.get(sessionId) === registered) {
+						this.#writes.delete(sessionId);
+					} else if (registered === undefined) {
+						finishedSynchronously = true;
+					}
+					return;
+				}
 				this.#pending.delete(sessionId);
 				if (
 					!this.#isCurrentSessionPath(sessionId, next.sessionPath) ||
@@ -191,11 +205,8 @@ export class PresentationPersistenceQueue {
 				}
 			}
 		})();
-
-		this.#writes.set(sessionId, drain);
-		void drain.finally(() => {
-			if (this.#writes.get(sessionId) === drain) this.#writes.delete(sessionId);
-		});
+		registration.drain = drain;
+		if (!finishedSynchronously) this.#writes.set(sessionId, drain);
 		return drain;
 	}
 
