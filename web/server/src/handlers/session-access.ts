@@ -1,5 +1,6 @@
 import type { ProjectId } from "@prime-agent/web-protocol";
 import { getPrimeConfig } from "../prime-config";
+import { getBridge } from "../singleton";
 
 /**
  * Project-membership gate for session-scoped chat handlers.
@@ -26,4 +27,11 @@ export async function requireProjectSession(
 		return false;
 	}
 	return true;
+}
+
+export async function requireSession(sessionId: string) {
+	const bridge = getBridge();
+	const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
+	if (!session || !(await requireProjectSession(session))) return undefined;
+	return session;
 }

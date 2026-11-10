@@ -132,7 +132,7 @@ export function RightPanelLauncher({
 			RIGHT_PANEL_GROUPS.map((definition) => ({
 				...definition,
 				badge:
-					definition.id === "workspace"
+					definition.id === "artifacts"
 						? totalArtifacts
 						: definition.id === "session"
 							? totalResources || undefined

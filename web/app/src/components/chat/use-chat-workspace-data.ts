@@ -525,6 +525,7 @@ export function useChatWorkspaceData() {
 		rightPanel,
 		saveSettings,
 		selectedArtifactId,
+		openArtifact,
 		sessionId: sessionMetadata.sessionId,
 		selectedWorkspacePath,
 		setRightPanel,

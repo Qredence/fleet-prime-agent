@@ -17,6 +17,30 @@ vi.mock("../handlers/chat-resources", () => ({
 	handleChatResourcesGet: (request: Request) => chatResourcesGet(request),
 }));
 
+const sessionBridge = vi.hoisted(() => ({
+	getSession: vi.fn(),
+	resumeSessionById: vi.fn(async () => undefined),
+	getMessages: vi.fn(async (_id: string): Promise<unknown> => []),
+}));
+
+vi.mock("../singleton", () => ({
+	getBridge: () => sessionBridge,
+}));
+
+vi.mock("../handlers/session-access", async () => {
+	const { getBridge } = await import("../singleton");
+	const requireProjectSession = async (session: unknown) => Boolean(session);
+	return {
+		requireProjectSession,
+		requireSession: async (sessionId: string) => {
+			const bridge = getBridge();
+			const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
+			if (!session || !(await requireProjectSession(session))) return undefined;
+			return session;
+		},
+	};
+});
+
 function toolRequest(body: unknown): Request {
 	return new Request("http://localhost/api/chat/openui/tool", {
 		method: "POST",
@@ -227,5 +251,88 @@ describe("handleOpenUIToolPost", () => {
 				{ status: "running", sessions: 1, messages: 5 },
 			],
 		});
+	});
+
+	it("reads only the requested session and leaves reasoning out", async () => {
+		sessionBridge.getSession.mockImplementation((id: string) =>
+			id === "session-a" || id === "session-b" ? { sessionId: id, projectId: "project-1" } : undefined,
+		);
+		sessionBridge.getMessages.mockImplementation(async (id: string) =>
+			id === "session-a"
+				? [
+						{
+							id: "m1",
+							role: "assistant",
+							parts: [
+								{ type: "reasoning", contentIndex: 0, text: "secret reasoning", state: "complete" },
+								{ type: "text", text: "Visible answer" },
+								{ type: "tool-read", toolName: "read", output: "file.ts" },
+							],
+						},
+					]
+				: [{ id: "m2", role: "user", parts: [{ type: "text", text: "Other session" }] }],
+		);
+
+		const response = await handleOpenUIToolPost(
+			toolRequest({ name: "session_outputs", args: {}, sessionId: "session-a" }),
+		);
+		expect(response.status).toBe(200);
+		const body = await response.json();
+		expect(body.rows).toEqual([
+			{ turn: 1, role: "assistant", kind: "text", toolName: "", preview: "Visible answer" },
+			{ turn: 1, role: "assistant", kind: "tool", toolName: "read", preview: "file.ts" },
+		]);
+		expect(JSON.stringify(body)).not.toContain("secret reasoning");
+		expect(body.total).toBe(2);
+		/**
+		 * The route forwards the whole tool envelope. Narrowing it to rows/total
+		 * left the table body blank, because `Col` binds `columns.<field>`.
+		 */
+		expect(body.columns).toEqual({
+			turn: [1, 1],
+			role: ["assistant", "assistant"],
+			kind: ["text", "tool"],
+			toolName: ["", "read"],
+			preview: ["Visible answer", "file.ts"],
+		});
+
+		const other = await handleOpenUIToolPost(
+			toolRequest({ name: "session_outputs", args: {}, sessionId: "session-b" }),
+		);
+		expect(await other.json()).toMatchObject({
+			rows: [{ preview: "Other session" }],
+			total: 1,
+		});
+	});
+
+	it("reports the session total independently of the page limit", async () => {
+		sessionBridge.getSession.mockImplementation((id: string) =>
+			id === "session-a" ? { sessionId: id, projectId: "project-1" } : undefined,
+		);
+		sessionBridge.getMessages.mockResolvedValue(
+			Array.from({ length: 5 }, (_, index) => ({
+				id: `m${index}`,
+				role: "assistant",
+				parts: [{ type: "text", text: `Line ${index}` }],
+			})),
+		);
+
+		const body = await (
+			await handleOpenUIToolPost(
+				toolRequest({ name: "session_outputs", args: { limit: 2 }, sessionId: "session-a" }),
+			)
+		).json();
+
+		expect(body.rows).toHaveLength(2);
+		expect(body.total).toBe(5);
+	});
+
+	it("rejects a session id supplied as a tool argument", async () => {
+		sessionBridge.getMessages.mockClear();
+		const response = await handleOpenUIToolPost(
+			toolRequest({ name: "session_outputs", args: { sessionId: "session-b" }, sessionId: "session-a" }),
+		);
+		expect(response.status).toBe(422);
+		expect(sessionBridge.getMessages).not.toHaveBeenCalled();
 	});
 });

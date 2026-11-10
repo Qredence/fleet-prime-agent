@@ -21,7 +21,7 @@ export function SettingsRow({ children, className, description, icon, label, tra
 		<Field
 			orientation="horizontal"
 			className={cn(
-				"items-center justify-between gap-6 rounded-xl border border-border/60 bg-card p-4 transition-colors",
+				"items-center justify-between gap-6 rounded-md border border-border/60 bg-card p-4 transition-colors",
 				className,
 			)}
 		>

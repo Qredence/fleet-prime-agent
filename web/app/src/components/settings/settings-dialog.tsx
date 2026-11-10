@@ -8,6 +8,7 @@ import {
 	useSettingsActionsContext,
 } from "@/components/layout/right-panel-context";
 import { ComposerIntentSection } from "@/components/settings/composer-intent-section";
+import { DashboardsSection } from "@/components/settings/dashboards-section";
 import { McpConnectionsSection } from "@/components/settings/mcp/mcp-connections-section";
 import { PersonalizationSection } from "@/components/settings/personalization-section";
 import { ModelDefaultsSection } from "@/components/settings/providers/model-defaults-section";
@@ -428,6 +429,18 @@ function SettingsDialogPaneContent({
 				</SettingsRow>
 			</div>
 		),
+		dashboards: () => (
+			<div className="flex flex-col gap-4">
+				<div>
+					<h3 className="text-lg font-medium">Dashboards</h3>
+					<p className="text-sm text-muted-foreground">
+						Without a key, the assistant writes the dashboard and Fleet draws it in the Dashboards tab. With a
+						Thesys key, OpenUI Cloud builds it, using a model separate from the one you chat with.
+					</p>
+				</div>
+				<DashboardsSection />
+			</div>
+		),
 		chat: () => (
 			<div className="flex flex-col gap-4">
 				<div>
@@ -517,7 +530,7 @@ function SettingsDialogPaneContent({
 						Every shortcut also has a visible control in the header, panel, or composer.
 					</p>
 				</div>
-				<div className="rounded-xl border p-4 font-mono text-xs leading-7">
+				<div className="rounded-md border p-4 font-mono text-xs leading-7">
 					<div>Command palette: Ctrl/Command K</div>
 					<div>Conversation sidebar: Ctrl/Command B</div>
 					<div>Toggle Resources: Ctrl/Command Shift 1</div>
@@ -639,7 +652,7 @@ function SettingsDialogBody({
 		// Nest AlertDialog under Dialog.Root so Base UI tracks nested open
 		// dialogs (Esc / isTopmost). Sibling roots fight Esc and re-prompt.
 		<>
-			<DialogContent className="flex h-[min(640px,calc(100dvh-4rem))] w-full max-w-[calc(100%-2rem)] overflow-hidden rounded-2xl p-0 sm:max-w-[min(860px,calc(100%-2rem))]">
+			<DialogContent className="flex h-[min(640px,calc(100dvh-4rem))] w-full max-w-[calc(100%-2rem)] overflow-hidden rounded-md p-0 sm:max-w-[min(860px,calc(100%-2rem))]">
 				<DialogTitle className="sr-only">Settings</DialogTitle>
 				<DialogDescription className="sr-only">Customize your settings here.</DialogDescription>
 

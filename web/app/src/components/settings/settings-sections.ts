@@ -3,6 +3,7 @@ import {
 	HardDrive,
 	Keyboard,
 	KeyRound,
+	LayoutDashboard,
 	MessageSquare,
 	Paintbrush,
 	Plug,
@@ -23,7 +24,8 @@ export type SettingsSectionId =
 	| "skills"
 	| "pi-harness"
 	| "keybindings"
-	| "sessions";
+	| "sessions"
+	| "dashboards";
 
 export type SettingsSectionGroup = "workspace" | "models" | "advanced";
 
@@ -102,6 +104,14 @@ export const SETTINGS_SECTION_REGISTRY = {
 		ariaLabel: "Session settings",
 		icon: Users,
 		group: "workspace",
+	},
+	dashboards: {
+		id: "dashboards",
+		order: 45,
+		title: "Dashboards",
+		ariaLabel: "Dashboard settings",
+		icon: LayoutDashboard,
+		group: "models",
 	},
 } satisfies Record<SettingsSectionId, SettingsSection>;
 

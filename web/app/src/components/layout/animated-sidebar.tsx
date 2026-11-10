@@ -221,7 +221,7 @@ export function ChatApp({
 		<AnimatedSidebarProvider
 			{...props}
 			style={{ ...style, "--sidebar-width": sidebarWidth }}
-			className={cn("min-h-0 w-full overflow-hidden rounded-2xl border border-border bg-background", className)}
+			className={cn("min-h-0 w-full overflow-hidden rounded-md border border-border bg-background", className)}
 		>
 			{children}
 		</AnimatedSidebarProvider>
@@ -450,8 +450,8 @@ export const AnimatedSidebar = forwardRef<HTMLElement, AnimatedSidebarProps>(fun
 					collapsible === "offcanvas" && "w-[var(--sidebar-width)]",
 					variant === "sidebar" &&
 						(side === "left" ? "border-border border-r bg-background" : "border-border border-l bg-background"),
-					variant === "floating" && "m-2 h-[calc(100svh-1rem)] rounded-2xl bg-sidebar shadow-surface-3",
-					variant === "inset" && "m-2 h-[calc(100svh-1rem)] rounded-2xl bg-background",
+					variant === "floating" && "m-2 h-[calc(100svh-1rem)] rounded-md bg-sidebar shadow-surface-3",
+					variant === "inset" && "m-2 h-[calc(100svh-1rem)] rounded-md bg-background",
 					panelClassName,
 				)}
 			>
@@ -543,7 +543,7 @@ export const AnimatedSidebarInset = forwardRef<HTMLElement, AnimatedSidebarInset
 			data-slot="sidebar-inset"
 			className={cn(
 				"relative flex min-h-svh min-w-0 flex-1 flex-col bg-background",
-				"md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-2xl md:peer-data-[variant=inset]:shadow-sm",
+				"md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-md md:peer-data-[variant=inset]:shadow-sm",
 				className,
 			)}
 		/>

@@ -410,6 +410,7 @@ describe("PrimeBridge.forkSession", () => {
 				},
 			]) as unknown as typeof listDaemonSessions,
 		});
+		await getPrimeConfig().projectRegistry.register(created.cwd, "OpenUI resume");
 
 		const resumed = await resumer.resumeSessionById(created.sessionId, undefined, { openUI: true });
 
@@ -848,6 +849,7 @@ describe("PrimeBridge.forkSession", () => {
 		configuredManager.flushNow();
 
 		const bridge = createTestBridge();
+		await getPrimeConfig().projectRegistry.register(workDir, "Configured store");
 		const resumed = await bridge.resumeSessionByPath(configuredPath);
 		expect(resumed.sessionId).toBe(configuredManager.getSessionId());
 
@@ -1077,6 +1079,30 @@ describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
 		expect(toolFrames[0]?.part?.toolName).toBe("bash");
 		expect(toolFrames[0]?.part?.input).toEqual({ command: "ls -la" });
 	});
+
+	it("settles a dashboard recovered in a resync snapshot and ignores the empty reset", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = createTrackedBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const settled: string[] = [];
+		bridge.setAssistantDoneListener((_sessionId, messageId) => {
+			settled.push(messageId);
+		});
+		const fence = '```openui-dashboard\n{"prompt":"orders"}\n```';
+		harness.emitEvent({
+			type: "session_resynced",
+			snapshot: {
+				messages: [{ role: "assistant", content: [{ type: "text", text: fence }] }],
+			},
+		} as unknown as AgentConnectionEvent);
+		expect(settled).toEqual([`${created.sessionId}-m0`]);
+
+		harness.emitEvent({
+			type: "session_resynced",
+			snapshot: { messages: [{ role: "assistant", content: "finished without a dashboard" }] },
+		} as unknown as AgentConnectionEvent);
+		expect(settled).toEqual([`${created.sessionId}-m0`]);
+	});
 });
 
 describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
@@ -1265,6 +1291,30 @@ describe("PrimeBridge daemon sequence gaps and attach seeding", () => {
 		expect(toolFrames[0]?.part?.toolName).toBe("bash");
 		expect(toolFrames[0]?.part?.input).toEqual({ command: "ls -la" });
 	});
+
+	it("settles a dashboard recovered in a resync snapshot and ignores the empty reset", async () => {
+		const harness = createGapAwareFactory({});
+		const bridge = createTrackedBridge({ sessionLister: async () => [], connectionFactory: harness.factory });
+		const created = await createTestSession(bridge);
+		const settled: string[] = [];
+		bridge.setAssistantDoneListener((_sessionId, messageId) => {
+			settled.push(messageId);
+		});
+		const fence = '```openui-dashboard\n{"prompt":"orders"}\n```';
+		harness.emitEvent({
+			type: "session_resynced",
+			snapshot: {
+				messages: [{ role: "assistant", content: [{ type: "text", text: fence }] }],
+			},
+		} as unknown as AgentConnectionEvent);
+		expect(settled).toEqual([`${created.sessionId}-m0`]);
+
+		harness.emitEvent({
+			type: "session_resynced",
+			snapshot: { messages: [{ role: "assistant", content: "finished without a dashboard" }] },
+		} as unknown as AgentConnectionEvent);
+		expect(settled).toEqual([`${created.sessionId}-m0`]);
+	});
 });
 
 describe("PrimeBridge.resumeSessionById", () => {
@@ -1313,6 +1363,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 
 	it("returns undefined when the runtime cannot resume a listed transcript", async () => {
 		const persisted = createPersistedTranscript();
+		await getPrimeConfig().projectRegistry.register(workDir, "Listed transcript");
 		const bridge = createTrackedBridge({
 			connectionFactory: async () => {
 				throw new Error("Session worker started without a root session");
@@ -1336,6 +1387,7 @@ describe("PrimeBridge.resumeSessionById", () => {
 
 	it("still rejects transport failures so handlers answer 500", async () => {
 		const persisted = createPersistedTranscript();
+		await getPrimeConfig().projectRegistry.register(workDir, "Transport failure");
 		const bridge = createTrackedBridge({
 			connectionFactory: async () => {
 				throw new Error("cannot send daemon command: connect ENOENT /tmp/prime.sock");
@@ -1377,6 +1429,65 @@ describe("PrimeBridge.resumeSessionById", () => {
 		expect(existsSync(attachmentDir)).toBe(false);
 		expect(existsSync(presentationDir)).toBe(false);
 		expect(unassign).toHaveBeenCalledWith(persisted.sessionId, null);
+	});
+
+	it("does not open a connection when the session project is not active", async () => {
+		const persisted = createPersistedTranscript();
+		const registry = getPrimeConfig().projectRegistry;
+		const project = await registry.register(workDir, "Inactive project");
+		await registry.unregister(project.projectId);
+		let opened = 0;
+		const bridge = createTrackedBridge({
+			connectionFactory: async (options) => {
+				opened += 1;
+				return createInProcessTestAgentConnection(options);
+			},
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.resumeSessionById(persisted.sessionId)).resolves.toBeUndefined();
+		expect(opened).toBe(0);
+		expect(bridge.getSession(persisted.sessionId)).toBeUndefined();
+		const saved = JSON.parse(readFileSync(join(agentDir, "fleet-projects.json"), "utf8")) as {
+			sessionAssignments?: Record<string, string>;
+		};
+		expect(saved.sessionAssignments?.[persisted.sessionId]).toBeUndefined();
+	});
+
+	it("resumes a session in an active project", async () => {
+		const persisted = createPersistedTranscript();
+		await getPrimeConfig().projectRegistry.register(workDir, "Active project");
+		let opened = 0;
+		const bridge = createTrackedBridge({
+			connectionFactory: async (options) => {
+				opened += 1;
+				return createInProcessTestAgentConnection(options);
+			},
+			sessionLister: listerFor(persisted),
+		});
+
+		const resumed = await bridge.resumeSessionById(persisted.sessionId);
+		expect(resumed?.sessionId).toBe(persisted.sessionId);
+		expect(opened).toBe(1);
+	});
+
+	it("does not open another project's session", async () => {
+		const persisted = createPersistedTranscript();
+		await getPrimeConfig().projectRegistry.register(workDir, "Home project");
+		const otherDir = join(workDir, "other");
+		mkdirSync(otherDir);
+		const other = await getPrimeConfig().projectRegistry.register(otherDir, "Other project");
+		let opened = 0;
+		const bridge = createTrackedBridge({
+			connectionFactory: async () => {
+				opened += 1;
+				throw new Error("connection should not open");
+			},
+			sessionLister: listerFor(persisted),
+		});
+
+		await expect(bridge.resumeSessionById(persisted.sessionId, other.projectId)).resolves.toBeUndefined();
+		expect(opened).toBe(0);
 	});
 });
 

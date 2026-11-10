@@ -103,7 +103,7 @@ export function ComposerIntentSection({
 					/>
 				}
 			/>
-			<div className="flex flex-col gap-2 rounded-xl border p-4">
+			<div className="flex flex-col gap-2 rounded-md border p-4">
 				<SecretCredentialField
 					attemptedSave={attemptedSave}
 					label="TypeSafe API key"

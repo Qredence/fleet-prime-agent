@@ -511,6 +511,7 @@ const PrimeAgentArtifactKindSchema = z.enum([
 	"refinement",
 	"compaction",
 	"openui-html",
+	"openui-dashboard",
 ]);
 
 export const PrimeAgentArtifactSchema = z

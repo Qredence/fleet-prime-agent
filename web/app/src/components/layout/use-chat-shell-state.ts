@@ -33,7 +33,7 @@ export type ChatShellStorage = {
 	setSessionMetadata: (metadata: ChatSessionMetadata) => void;
 };
 
-type ArtifactOpenTarget = "artifacts" | "repl";
+export type ArtifactOpenTarget = "artifacts" | "repl" | "dashboards";
 
 /**
  * Manages chat-shell state, including model selection, panels, navigation, themes, sessions, and resource-canvas sizing.

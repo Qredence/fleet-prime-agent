@@ -15,6 +15,9 @@ describe("resolveChatApiUrl", () => {
 
 	it.each([
 		"/api/chat/events?sessionId=session-1",
+		"/api/chat/dashboards",
+		"/api/chat/dashboards/token",
+		"/api/chat/dashboards/interpreter?sessionId=session-1&dashboardId=dashboard-1",
 		"/api/projects",
 		"/api/projects/browse?token=directory-token",
 		"/api/workspace/tree?projectId=project-1",

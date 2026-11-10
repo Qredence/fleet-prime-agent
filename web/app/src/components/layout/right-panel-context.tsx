@@ -30,6 +30,7 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
 import type { ChatModelOption } from "@/components/chat/chat-helpers";
 import type { RightPanel, ThemePreference } from "@/components/layout/canvas-utils";
+import type { ArtifactOpenTarget } from "@/components/layout/use-chat-shell-state";
 import type { ChatTranscriptSummary } from "@/components/sessions/transcript-summary";
 
 export type ChatPanelDataContextValue = {
@@ -53,6 +54,7 @@ export type ChatPanelDataContextValue = {
 	sessionId?: string;
 	status: ChatStatus;
 	selectedArtifactId?: string | null;
+	openArtifact?: (artifactId: string, target?: ArtifactOpenTarget) => void;
 	thinkingLevel?: ChatThinkingLevel;
 	reopenRightPanel: () => void;
 	rightPanel: RightPanel;
@@ -132,8 +134,12 @@ export function RightPanelProvider({
 	);
 }
 
+export function useOptionalChatPanelDataContext() {
+	return useContext(ChatPanelDataContext);
+}
+
 export function useChatPanelDataContext() {
-	const context = useContext(ChatPanelDataContext);
+	const context = useOptionalChatPanelDataContext();
 	if (!context) {
 		throw new Error("useChatPanelDataContext must be used within RightPanelProvider");
 	}

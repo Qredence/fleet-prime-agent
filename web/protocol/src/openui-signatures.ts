@@ -42,9 +42,9 @@ const generatedOpenUIPromptSpec = {
 		},
 		PanelAction: {
 			signature:
-				'PanelAction(label: string, panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights" | "session-tree", relativePath?: any, focus?: boolean)',
+				'PanelAction(label: string, panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights" | "session-tree" | "dashboards", relativePath?: any, focus?: boolean)',
 			description:
-				"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, Session insights, or Session tree. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+				"A trusted local action that opens a Fleet panel. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 		},
 		Input: {
 			signature:
@@ -217,7 +217,7 @@ const generatedOpenUIPromptSpec = {
 	actions: {
 		OpenPanel: {
 			signature:
-				'OpenPanel(panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights" | "session-tree", relativePath?: any, focus?: boolean)',
+				'OpenPanel(panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights" | "session-tree" | "dashboards", relativePath?: any, focus?: boolean)',
 			description: "Opens one of Fleet's right-hand panels. Trusted local action; it never fetches remote data.",
 		},
 	},
@@ -590,6 +590,7 @@ const generatedOpenUIPromptSpec = {
 							"subagents",
 							"session-insights",
 							"session-tree",
+							"dashboards",
 						],
 					},
 					relativePath: {
@@ -603,7 +604,7 @@ const generatedOpenUIPromptSpec = {
 				required: ["label", "panel", "focus"],
 				additionalProperties: false,
 				description:
-					"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, Session insights, or Session tree. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+					"A trusted local action that opens a Fleet panel. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 			},
 			Input: {
 				type: "object",
@@ -1488,6 +1489,7 @@ const generatedOpenUIPromptSpec = {
 								"subagents",
 								"session-insights",
 								"session-tree",
+								"dashboards",
 							],
 						},
 						relativePath: {

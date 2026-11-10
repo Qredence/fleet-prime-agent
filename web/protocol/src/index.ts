@@ -2,6 +2,7 @@ export * from "./chat-protocol";
 export * from "./chat-types";
 export * from "./composer-completion";
 export * from "./composer-intent";
+export * from "./dashboards";
 export type {
 	AttachmentUploadMetadata,
 	ChatAttachment,
@@ -51,7 +52,7 @@ export {
 } from "./fleet-contract";
 export * from "./model-patterns";
 export * from "./openui-artifact";
-export { buildOpenUIPrompt, type OpenUIPromptMode } from "./openui-prompt";
+export { buildOpenUIPrompt, type OpenUIDashboardPrompt, type OpenUIPromptMode } from "./openui-prompt";
 export * from "./openui-tools";
 export * from "./provider-catalog";
 export {

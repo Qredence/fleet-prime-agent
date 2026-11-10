@@ -20,6 +20,7 @@ import { Route as ApiChatArtifactsRouteImport } from './routes/api/chat/artifact
 import { Route as ApiChatCommandRouteImport } from './routes/api/chat/command'
 import { Route as ApiChatCommandsRouteImport } from './routes/api/chat/commands'
 import { Route as ApiChatCompletionRouteImport } from './routes/api/chat/completion'
+import { Route as ApiChatDashboardsRouteImport } from './routes/api/chat/dashboards'
 import { Route as ApiChatEventsRouteImport } from './routes/api/chat/events'
 import { Route as ApiChatIntentRouteImport } from './routes/api/chat/intent'
 import { Route as ApiChatMcpRouteImport } from './routes/api/chat/mcp'
@@ -37,6 +38,8 @@ import { Route as ApiProjectsBrowseRouteImport } from './routes/api/projects/bro
 import { Route as ApiProjectsForkRouteImport } from './routes/api/projects/fork'
 import { Route as ApiWorkspaceFileRouteImport } from './routes/api/workspace/file'
 import { Route as ApiWorkspaceTreeRouteImport } from './routes/api/workspace/tree'
+import { Route as ApiChatDashboardsInterpreterRouteImport } from './routes/api/chat/dashboards/interpreter'
+import { Route as ApiChatDashboardsTokenRouteImport } from './routes/api/chat/dashboards/token'
 import { Route as ApiChatMcpOauthRouteImport } from './routes/api/chat/mcp/oauth'
 import { Route as ApiChatMcpTokenRouteImport } from './routes/api/chat/mcp/token'
 import { Route as ApiChatModelsDiscoverRouteImport } from './routes/api/chat/models/discover'
@@ -96,6 +99,11 @@ const ApiChatCommandsRoute = ApiChatCommandsRouteImport.update({
 const ApiChatCompletionRoute = ApiChatCompletionRouteImport.update({
   id: '/completion',
   path: '/completion',
+  getParentRoute: () => ApiChatRoute,
+} as any)
+const ApiChatDashboardsRoute = ApiChatDashboardsRouteImport.update({
+  id: '/dashboards',
+  path: '/dashboards',
   getParentRoute: () => ApiChatRoute,
 } as any)
 const ApiChatEventsRoute = ApiChatEventsRouteImport.update({
@@ -183,6 +191,17 @@ const ApiWorkspaceTreeRoute = ApiWorkspaceTreeRouteImport.update({
   path: '/api/workspace/tree',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatDashboardsInterpreterRoute =
+  ApiChatDashboardsInterpreterRouteImport.update({
+    id: '/interpreter',
+    path: '/interpreter',
+    getParentRoute: () => ApiChatDashboardsRoute,
+  } as any)
+const ApiChatDashboardsTokenRoute = ApiChatDashboardsTokenRouteImport.update({
+  id: '/token',
+  path: '/token',
+  getParentRoute: () => ApiChatDashboardsRoute,
+} as any)
 const ApiChatMcpOauthRoute = ApiChatMcpOauthRouteImport.update({
   id: '/oauth',
   path: '/oauth',
@@ -221,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/completion': typeof ApiChatCompletionRoute
+  '/api/chat/dashboards': typeof ApiChatDashboardsRouteWithChildren
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
@@ -238,6 +258,8 @@ export interface FileRoutesByFullPath {
   '/api/projects/fork': typeof ApiProjectsForkRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
+  '/api/chat/dashboards/interpreter': typeof ApiChatDashboardsInterpreterRoute
+  '/api/chat/dashboards/token': typeof ApiChatDashboardsTokenRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
@@ -256,6 +278,7 @@ export interface FileRoutesByTo {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/completion': typeof ApiChatCompletionRoute
+  '/api/chat/dashboards': typeof ApiChatDashboardsRouteWithChildren
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
@@ -273,6 +296,8 @@ export interface FileRoutesByTo {
   '/api/projects/fork': typeof ApiProjectsForkRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
+  '/api/chat/dashboards/interpreter': typeof ApiChatDashboardsInterpreterRoute
+  '/api/chat/dashboards/token': typeof ApiChatDashboardsTokenRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
@@ -292,6 +317,7 @@ export interface FileRoutesById {
   '/api/chat/command': typeof ApiChatCommandRoute
   '/api/chat/commands': typeof ApiChatCommandsRoute
   '/api/chat/completion': typeof ApiChatCompletionRoute
+  '/api/chat/dashboards': typeof ApiChatDashboardsRouteWithChildren
   '/api/chat/events': typeof ApiChatEventsRoute
   '/api/chat/intent': typeof ApiChatIntentRoute
   '/api/chat/mcp': typeof ApiChatMcpRouteWithChildren
@@ -309,6 +335,8 @@ export interface FileRoutesById {
   '/api/projects/fork': typeof ApiProjectsForkRoute
   '/api/workspace/file': typeof ApiWorkspaceFileRoute
   '/api/workspace/tree': typeof ApiWorkspaceTreeRoute
+  '/api/chat/dashboards/interpreter': typeof ApiChatDashboardsInterpreterRoute
+  '/api/chat/dashboards/token': typeof ApiChatDashboardsTokenRoute
   '/api/chat/mcp/oauth': typeof ApiChatMcpOauthRoute
   '/api/chat/mcp/token': typeof ApiChatMcpTokenRoute
   '/api/chat/models/discover': typeof ApiChatModelsDiscoverRoute
@@ -329,6 +357,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/completion'
+    | '/api/chat/dashboards'
     | '/api/chat/events'
     | '/api/chat/intent'
     | '/api/chat/mcp'
@@ -346,6 +375,8 @@ export interface FileRouteTypes {
     | '/api/projects/fork'
     | '/api/workspace/file'
     | '/api/workspace/tree'
+    | '/api/chat/dashboards/interpreter'
+    | '/api/chat/dashboards/token'
     | '/api/chat/mcp/oauth'
     | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
@@ -364,6 +395,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/completion'
+    | '/api/chat/dashboards'
     | '/api/chat/events'
     | '/api/chat/intent'
     | '/api/chat/mcp'
@@ -381,6 +413,8 @@ export interface FileRouteTypes {
     | '/api/projects/fork'
     | '/api/workspace/file'
     | '/api/workspace/tree'
+    | '/api/chat/dashboards/interpreter'
+    | '/api/chat/dashboards/token'
     | '/api/chat/mcp/oauth'
     | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
@@ -399,6 +433,7 @@ export interface FileRouteTypes {
     | '/api/chat/command'
     | '/api/chat/commands'
     | '/api/chat/completion'
+    | '/api/chat/dashboards'
     | '/api/chat/events'
     | '/api/chat/intent'
     | '/api/chat/mcp'
@@ -416,6 +451,8 @@ export interface FileRouteTypes {
     | '/api/projects/fork'
     | '/api/workspace/file'
     | '/api/workspace/tree'
+    | '/api/chat/dashboards/interpreter'
+    | '/api/chat/dashboards/token'
     | '/api/chat/mcp/oauth'
     | '/api/chat/mcp/token'
     | '/api/chat/models/discover'
@@ -511,6 +548,13 @@ declare module '@tanstack/react-router' {
       path: '/completion'
       fullPath: '/api/chat/completion'
       preLoaderRoute: typeof ApiChatCompletionRouteImport
+      parentRoute: typeof ApiChatRoute
+    }
+    '/api/chat/dashboards': {
+      id: '/api/chat/dashboards'
+      path: '/dashboards'
+      fullPath: '/api/chat/dashboards'
+      preLoaderRoute: typeof ApiChatDashboardsRouteImport
       parentRoute: typeof ApiChatRoute
     }
     '/api/chat/events': {
@@ -632,6 +676,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWorkspaceTreeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat/dashboards/interpreter': {
+      id: '/api/chat/dashboards/interpreter'
+      path: '/interpreter'
+      fullPath: '/api/chat/dashboards/interpreter'
+      preLoaderRoute: typeof ApiChatDashboardsInterpreterRouteImport
+      parentRoute: typeof ApiChatDashboardsRoute
+    }
+    '/api/chat/dashboards/token': {
+      id: '/api/chat/dashboards/token'
+      path: '/token'
+      fullPath: '/api/chat/dashboards/token'
+      preLoaderRoute: typeof ApiChatDashboardsTokenRouteImport
+      parentRoute: typeof ApiChatDashboardsRoute
+    }
     '/api/chat/mcp/oauth': {
       id: '/api/chat/mcp/oauth'
       path: '/oauth'
@@ -669,6 +727,19 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ApiChatDashboardsRouteChildren {
+  ApiChatDashboardsInterpreterRoute: typeof ApiChatDashboardsInterpreterRoute
+  ApiChatDashboardsTokenRoute: typeof ApiChatDashboardsTokenRoute
+}
+
+const ApiChatDashboardsRouteChildren: ApiChatDashboardsRouteChildren = {
+  ApiChatDashboardsInterpreterRoute: ApiChatDashboardsInterpreterRoute,
+  ApiChatDashboardsTokenRoute: ApiChatDashboardsTokenRoute,
+}
+
+const ApiChatDashboardsRouteWithChildren =
+  ApiChatDashboardsRoute._addFileChildren(ApiChatDashboardsRouteChildren)
 
 interface ApiChatMcpRouteChildren {
   ApiChatMcpOauthRoute: typeof ApiChatMcpOauthRoute
@@ -713,6 +784,7 @@ interface ApiChatRouteChildren {
   ApiChatCommandRoute: typeof ApiChatCommandRoute
   ApiChatCommandsRoute: typeof ApiChatCommandsRoute
   ApiChatCompletionRoute: typeof ApiChatCompletionRoute
+  ApiChatDashboardsRoute: typeof ApiChatDashboardsRouteWithChildren
   ApiChatEventsRoute: typeof ApiChatEventsRoute
   ApiChatIntentRoute: typeof ApiChatIntentRoute
   ApiChatMcpRoute: typeof ApiChatMcpRouteWithChildren
@@ -735,6 +807,7 @@ const ApiChatRouteChildren: ApiChatRouteChildren = {
   ApiChatCommandRoute: ApiChatCommandRoute,
   ApiChatCommandsRoute: ApiChatCommandsRoute,
   ApiChatCompletionRoute: ApiChatCompletionRoute,
+  ApiChatDashboardsRoute: ApiChatDashboardsRouteWithChildren,
   ApiChatEventsRoute: ApiChatEventsRoute,
   ApiChatIntentRoute: ApiChatIntentRoute,
   ApiChatMcpRoute: ApiChatMcpRouteWithChildren,

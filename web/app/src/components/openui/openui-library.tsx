@@ -8,7 +8,11 @@ import {
 	useStateField,
 	useTriggerAction,
 } from "@openuidev/react-lang";
-import { RightPanelIdSchema, WorkspaceRelativePathSchema } from "@prime-agent/web-protocol/fleet-contract";
+import {
+	type RightPanelId,
+	RightPanelIdSchema,
+	WorkspaceRelativePathSchema,
+} from "@prime-agent/web-protocol/fleet-contract";
 import { openUIComponentGroups } from "@prime-agent/web-protocol/openui-component-groups";
 import { useId } from "react";
 import { Bar, CartesianGrid, BarChart as RechartsBarChart, XAxis, YAxis } from "recharts";
@@ -145,9 +149,9 @@ function PanelActionComponent({
 	props: { focus, label, panel, relativePath },
 }: {
 	props: {
-		focus?: boolean;
+		focus: boolean;
 		label: string;
-		panel: "resources" | "workspace" | "artifacts" | "repl" | "subagents" | "session-insights" | "session-tree";
+		panel: RightPanelId;
 		relativePath?: string;
 	};
 }) {
@@ -176,7 +180,7 @@ function PanelActionComponent({
 const PanelActionDef = defineComponent({
 	name: "PanelAction",
 	description:
-		"A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, Session insights, or Session tree. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
+		"A trusted local action that opens a Fleet panel. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels.",
 	props: z
 		.object({
 			label: z.string().describe("Visible action label"),

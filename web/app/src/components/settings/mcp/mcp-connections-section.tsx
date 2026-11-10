@@ -190,7 +190,7 @@ export function McpConnectionsSection({
 			) : null}
 
 			{adding ? (
-				<div className="flex flex-col gap-3 rounded-xl border p-4">
+				<div className="flex flex-col gap-3 rounded-md border p-4">
 					<Field>
 						<FieldLabel>Name</FieldLabel>
 						<Input value={name} onChange={(event) => setName(event.target.value)} aria-label="MCP server name" />

@@ -426,7 +426,8 @@
 						"repl",
 						"subagents",
 						"session-insights",
-						"session-tree"
+						"session-tree",
+						"dashboards"
 					]
 				},
 				"relativePath": {
@@ -443,7 +444,7 @@
 				"focus"
 			],
 			"additionalProperties": false,
-			"description": "A trusted local action that opens Resources, Workspace, Artifacts, REPL, Subagents, Session insights, or Session tree. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels."
+			"description": "A trusted local action that opens a Fleet panel. relativePath selects a contained workspace-relative path and is valid only for Workspace and Artifacts panels."
 		},
 		"Input": {
 			"type": "object",
@@ -1534,7 +1535,8 @@
 							"repl",
 							"subagents",
 							"session-insights",
-							"session-tree"
+							"session-tree",
+							"dashboards"
 						]
 					},
 					"relativePath": {

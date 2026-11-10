@@ -12,7 +12,7 @@ import {
 
 assert.deepEqual(
   RIGHT_PANEL_DEFINITIONS.map(({ id }) => id),
-  ["resources", "workspace", "artifacts", "repl", "subagents", "session-insights", "session-tree"],
+  ["resources", "workspace", "artifacts", "repl", "subagents", "session-insights", "session-tree", "dashboards"],
 )
 assert.equal(new Set(RIGHT_PANEL_DEFINITIONS.map(({ order }) => order)).size, RIGHT_PANEL_DEFINITIONS.length)
 for (const definition of RIGHT_PANEL_DEFINITIONS) {
@@ -28,7 +28,19 @@ assert.equal(RIGHT_PANEL_REGISTRY.workspace.refreshSource, "workspace")
 
 assert.deepEqual(
   SETTINGS_SECTIONS.map(({ id }) => id),
-  ["appearance", "chat", "mcp", "sandbox", "providers", "llm-models", "skills", "pi-harness", "keybindings", "sessions"],
+  [
+    "appearance",
+    "chat",
+    "mcp",
+    "sandbox",
+    "providers",
+    "dashboards",
+    "llm-models",
+    "skills",
+    "pi-harness",
+    "keybindings",
+    "sessions",
+  ],
 )
 assert.equal(new Set(SETTINGS_SECTIONS.map(({ order }) => order)).size, SETTINGS_SECTIONS.length)
 for (const section of SETTINGS_SECTIONS) {

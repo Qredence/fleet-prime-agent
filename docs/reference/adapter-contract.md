@@ -141,6 +141,76 @@ Durable rules:
   dispatch; workspace paths reject absolute paths, `..`, and backslashes.
 - `web/app` carries no runtime knowledge: the route delegates to `web/server`.
 
+### Session outputs source
+
+`session_outputs` is the one tool that reads Fleet's own conversation rather than runtime
+state. It returns `{ turn, role, kind, toolName, preview }` rows for the open session and
+is scoped to a session the caller already has access to. Detailed reasoning and internal
+lifecycle payloads stay out of the rows. `preview` is a bounded plain-text projection and
+may include a truncated slice of tool output. This is what lets a generated dashboard
+summarize a session without gaining a broader read surface.
+
+## Generative UI dashboards
+
+Dashboards use `@openuidev/dashboard-library`. The mode is resolved on the server from
+whether a Thesys key is configured, and a board keeps the mode that created it.
+
+- **No key.** The assistant writes a dashboard-library program in the message. When the
+  message finishes, Fleet stores that program. The Dashboards tab draws it with the local
+  renderer. There is no Cloud call.
+- **Key configured.** When the assistant message finishes, the server calls OpenUI Cloud
+  `create` or `edit` once per settlement. An edit that is still generating returns 409, and
+  that call is retried within a bounded budget. The Dashboards tab draws the stored opaque response with
+  `LiveArtifactRenderer` open. Data queries run through `POST /api/chat/dashboards/interpreter`,
+  including the dashboard id so two boards in one session do not share one dataset.
+  The browser gets a short-lived frontend token from `POST /api/chat/dashboards/token`.
+
+Durable rules:
+
+- The API key is server-only. `GET /api/chat/dashboards` returns `{ configured, keySource,
+  mode, model, modelSource }`; the key is never returned, logged, echoed, or sent to the
+  browser. A Settings write is write-only, and clearing it falls back to the server
+  environment. The environment name is `THESYS_API_KEY`.
+- Reliability Monitoring uses a different key, `VITE_OPENUI_CLIENT_KEY`. It is a browser
+  client key (`pk-th-…`) and is read once at the client entry, before an OpenUI response
+  renders. Capture is minimal, so events are sent without response text. It is not
+  returned by the dashboard status projection.
+- The model that builds Cloud dashboards is configurable, because a BYOK key covers only
+  its own provider. Resolution order is a stored setting, then `FLEET_DASHBOARD_MODEL`,
+  then OpenUI's recommended default. The resolved model and its source are reported in
+  the status projection; the key never is.
+- Prime Agent researches with its normal tools and writes the findings in the reply.
+  OpenUI only lays those findings out. `dashboard_rows` serves the figures copied into the
+  fence. `session_outputs` is this chat's own activity, and it returns no rows when the
+  fence already has figures, so truncated previews cannot replace them. A fence may include
+  up to 12 columns and 200 rows. String cells are capped. A number column rejects a
+  non-numeric cell. An edit that omits rows keeps the stored rows, including when the
+  fence repeats columns without rows. A subject with no stated
+  figures and no session activity stays prose.
+- The browser does not start generation. The transcript shows one attachment for the first
+  dashboard fence in a message. Later fences in that message stay a notice, not another board.
+  The attachment opens the Dashboards tab, which lists the session's boards and draws the selected
+  one. A board saved by an older version stays stored and shows an error attachment.
+- A Cloud create or edit response is opaque. It is stored and handed to the renderer
+  verbatim; Fleet extracts the artifact id only to key its own record.
+- A Cloud failure on create stores a scrubbed error and no board. A Cloud failure on edit
+  stores the scrubbed error and keeps the previous response. Provider text that looks like
+  a credential is replaced before it can reach the browser.
+- An edit that arrives while the board is still being built is refused with `409`. The
+  server retries that transient state within a bounded budget.
+- Cloud dashboards are stored as `openui-dashboard` artifacts in the session presentation
+  sidecar. They are Fleet presentation state, not upstream transcript entries. A local
+  program is stored the same way, with `mode: "local"`, and is not sent to Cloud.
+- Assistant text requests a dashboard through one completed `openui-dashboard` fence.
+  Without a key the body is `{ title?, program, id?, columns?, rows? }`. With a key the body is
+  `{ title?, prompt, id?, columns?, rows? }`. Incomplete fences while streaming are ignored,
+  and malformed JSON is dropped. A fence with an `id` and a prompt is a Cloud edit of that
+  dashboard. A fence with an `id` and a program updates that local board. A program fence
+  without an `id` is a new local board. Fleet reads the Cloud artifact id from `artifact_id`,
+  not from the first `art_` token in the response.
+- Settling a message is idempotent. Rendering a saved conversation does not call the
+  builder again. An edit updates the stored board in place.
+
 ## Sources of truth
 
 Use these sources when changing the contract:
@@ -149,6 +219,9 @@ Use these sources when changing the contract:
 - `web/protocol/src/chat-protocol.zod.ts`;
 - `web/protocol/src/schemas/chat.ts`;
 - `web/protocol/src/openui-tools.ts`;
+- `web/protocol/src/dashboards.ts`;
+- `web/server/src/dashboards/`;
+- `web/server/src/handlers/dashboards.ts`;
 - `web/server/src/event-mapper.ts`;
 - `web/server/src/prime-bridge.ts`;
 - `web/server/src/handlers/chat.ts`;
@@ -158,6 +231,6 @@ Use these sources when changing the contract:
 - `web/app/src/components/chat/chat-stream-state.ts`;
 - `web/app/src/components/chat/use-pi-chat.ts`.
 
-Relevant deterministic coverage includes the server event-mapper, chat, daemon-runtime, PrimeBridge, SSE replay, and chat-events suites, plus the browser stream/reducer and Plan presentation tests.
+Relevant deterministic coverage includes the server event-mapper, chat, daemon-runtime, PrimeBridge, SSE replay, and chat-events suites, the dashboard route/service suites, plus the browser stream/reducer, Plan presentation, and dashboard contract tests.
 
 Do not reproduce the full TypeScript unions or schemas here. Update code and tests first, then revise only the durable semantics that changed.

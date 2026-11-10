@@ -12,7 +12,7 @@ import { TabStrip } from "@/components/layout/tab-strip";
 import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
 
 /** Panels that manage their own scroll inside a fill-height body. */
-const FILL_BODY_PANELS = new Set<ActiveRightPanel>(["subagents"]);
+const FILL_BODY_PANELS = new Set<ActiveRightPanel>(["subagents", "dashboards"]);
 const FILL_BODY_CLASSNAME = "flex min-h-0 flex-col overflow-hidden py-3";
 
 const DESKTOP_PANEL_QUERY = `(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`;
@@ -26,6 +26,7 @@ const GROUP_VIEW_LABELS: Record<ActiveRightPanel, string> = {
 	subagents: "Subagents",
 	"session-insights": "Insights",
 	"session-tree": "Tree",
+	dashboards: "Dashboards",
 };
 
 function subscribeToDesktopPanel(onChange: () => void) {

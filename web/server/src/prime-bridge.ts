@@ -28,6 +28,7 @@ import {
 	type ChatQuestionAnswer,
 	type ChatStreamEvent,
 	type ChatThinkingLevel,
+	type OpenUIDashboardPrompt,
 	type OpenUIPromptMode,
 	type PrimeAgentArtifact,
 	type PrimeAgentRlmChild,
@@ -47,6 +48,7 @@ import {
 	findSessionTreeEntry,
 	hasSessionLineage,
 	initialPresentationForSession,
+	isSessionNotInActiveProjectError,
 	isSessionNotResumableError,
 	isUnresolvedPlaceholderModel,
 	type OpenUIPromptSessionState,
@@ -71,6 +73,7 @@ import {
 	type WebAgentConnection,
 	type WebAgentConnectionFactory,
 } from "./daemon-runtime";
+import { dashboardPromptContext } from "./dashboards/prompt-context";
 import {
 	applyRlmChildStatusOverrides,
 	createEventMapperState,
@@ -100,6 +103,7 @@ import { parseBackendSessionCommand } from "./session-commands";
 import { readSessionHeaderId } from "./session-header";
 import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./session-tree-errors";
 import { mapSessionTreeSnapshot } from "./session-tree-mapper";
+import { textFromChatParts } from "./transcript-hydrator";
 
 export { type OpenUIPromptSessionState, SessionExportPathError };
 
@@ -231,9 +235,29 @@ type ManagedRlmChildStream = {
 // PrimeBridge
 // ---------------------------------------------------------------------------
 
+/**
+ * A sequence-gap resync replaces the live `done` with an empty reset frame.
+ * The snapshot still holds the assistant message that finished during the gap,
+ * so dashboard settlement sees that message here and nowhere else.
+ */
+function settleRecoveredDashboardMessages(
+	listener: ((sessionId: string, messageId: string, content: string) => void) | undefined,
+	sessionId: string,
+	messages: readonly AgentMessage[],
+): void {
+	if (!listener) return;
+	for (const message of toChatMessagesFromAgentMessages(messages, sessionId)) {
+		if (message.role !== "assistant") continue;
+		const content = textFromChatParts(message.parts);
+		if (!content.includes("openui-dashboard")) continue;
+		listener(sessionId, message.id, content);
+	}
+}
+
 export class PrimeBridge {
 	readonly #sessions = new Map<string, BridgeSession>();
 	readonly #listeners = new Set<BridgeEventListener>();
+	#assistantDoneListener?: (sessionId: string, messageId: string, content: string) => void;
 	readonly #ringBuffers = new Map<string, RingBuffer>();
 	readonly #rlmChildStreams = new Map<string, ManagedRlmChildStream>();
 	readonly #rlmChildStreamInitializations = new Map<string, Promise<ManagedRlmChildStream | undefined>>();
@@ -269,6 +293,14 @@ export class PrimeBridge {
 	addEventListener(listener: BridgeEventListener): () => void {
 		this.#listeners.add(listener);
 		return () => this.#listeners.delete(listener);
+	}
+
+	/**
+	 * Called when a finished assistant message contains an `openui-dashboard` fence.
+	 * Dashboard settlement registers this. The bridge does not import that module.
+	 */
+	setAssistantDoneListener(listener: (sessionId: string, messageId: string, content: string) => void): void {
+		this.#assistantDoneListener = listener;
 	}
 
 	/** Emit a frame to ring buffer (SSE replay) and all live listeners. */
@@ -343,6 +375,7 @@ export class PrimeBridge {
 		}
 		this.#sessions.clear();
 		this.#listeners.clear();
+		this.#assistantDoneListener = undefined;
 		this.#ringBuffers.clear();
 		this.#presentationWrites.clear();
 		this.#presentationGenerations.clear();
@@ -475,7 +508,21 @@ export class PrimeBridge {
 					/* ignore */
 				}
 			}
-			emitFrames(mapAgentConnectionEvent(mapperState, event));
+			if (event.type === "session_resynced") {
+				const messages = event.snapshot.messages;
+				if (Array.isArray(messages)) {
+					settleRecoveredDashboardMessages(this.#assistantDoneListener, sessionId, messages);
+				}
+			}
+			const frames = mapAgentConnectionEvent(mapperState, event);
+			emitFrames(frames);
+			const done = frames.find((frame) => frame.type === "done" && frame.sessionReset !== true);
+			if (done?.type === "done") {
+				const content = textFromChatParts(done.message.parts);
+				if (content.includes("openui-dashboard")) {
+					this.#assistantDoneListener?.(sessionId, done.message.id, content);
+				}
+			}
 			if (
 				event.type === "session_resynced" ||
 				(event.type === "session_event" && event.event.type === "rlm_child_update")
@@ -593,12 +640,19 @@ export class PrimeBridge {
 	}
 
 	/** Resume a persisted prime-agent session from its JSONL transcript. */
-	async resumeSessionByPath(sessionPath: string, options?: { readonly openUI?: boolean }): Promise<BridgeSession> {
+	async resumeSessionByPath(
+		sessionPath: string,
+		options?: { readonly openUI?: boolean; readonly requestedProjectId?: ProjectId | null },
+	): Promise<BridgeSession> {
 		const resolvedSessionPath = resolve(sessionPath);
 		// If a live session already owns this path, reuse it.
 		for (const [sessionId, session] of this.#sessions) {
 			if (resolve(session.sessionPath) === resolvedSessionPath) {
-				return this.#sessions.get(sessionId)!;
+				const live = this.#sessions.get(sessionId)!;
+				if (options?.requestedProjectId && live.projectId !== options.requestedProjectId) {
+					throw new Error("The requested session is not in an active project");
+				}
+				return live;
 			}
 		}
 		if (!existsSync(resolvedSessionPath)) throw new Error("The requested session transcript is unavailable");
@@ -608,6 +662,13 @@ export class PrimeBridge {
 		const expectedSessionDir = resolve(sessionDirectoryForCwd(sessionCwd));
 		if (dirname(resolvedSessionPath) !== expectedSessionDir) {
 			throw new Error("The requested session is outside the configured Prime session store");
+		}
+		const projectId = await getPrimeConfig().projectRegistry.activeProjectIdForSession(
+			transcript.sessionId,
+			sessionCwd,
+		);
+		if (!projectId || (options?.requestedProjectId && projectId !== options.requestedProjectId)) {
+			throw new Error("The requested session is not in an active project");
 		}
 		const webAgent = await this.#connectionFactory({
 			cwd: sessionCwd,
@@ -642,11 +703,11 @@ export class PrimeBridge {
 		if (!match.sessionFile) return undefined;
 		let resumed: BridgeSession;
 		try {
-			resumed = await this.resumeSessionByPath(match.sessionFile, options);
+			resumed = await this.resumeSessionByPath(match.sessionFile, { ...options, requestedProjectId });
 		} catch (error) {
 			// A listed transcript the runtime cannot resume is an unknown session
 			// for the caller, not a server failure.
-			if (isSessionNotResumableError(error)) return undefined;
+			if (isSessionNotInActiveProjectError(error) || isSessionNotResumableError(error)) return undefined;
 			throw error;
 		}
 		if (requestedProjectId && resumed.projectId !== requestedProjectId) return undefined;
@@ -1185,14 +1246,19 @@ export class PrimeBridge {
 		const openUIEnabled = options?.openUI === true;
 		const openUIMode = resolveOpenUIPromptMode(options?.mode, options?.planAction);
 		const openUIArtifact = options?.openUIArtifact === true;
+		const dashboards = await dashboardPromptContext(this.getPresentation(session.sessionId));
+		const openUIPromptOptions = {
+			artifact: openUIArtifact,
+			syntaxVersion: options?.openUISyntaxVersion,
+			dashboards,
+		};
 		const openUIStateChanged =
 			session.openUIPrompt.enabled !== openUIEnabled ||
 			session.openUIPrompt.mode !== openUIMode ||
 			(session.openUIPrompt.artifact ?? false) !== openUIArtifact ||
 			// A changed prompt body (new components, functions, or tools) must reach
 			// an existing session, not only newly created ones.
-			session.openUIPrompt.prompt !==
-				buildOpenUIPrompt(openUIMode, { artifact: openUIArtifact, syntaxVersion: options?.openUISyntaxVersion });
+			session.openUIPrompt.prompt !== buildOpenUIPrompt(openUIMode, openUIPromptOptions);
 		const hasPendingOpenUITransition = this.#openUIPromptTransitions.has(sessionId);
 		const wasStreaming = session.isStreaming;
 		const promptOptions = {
@@ -1211,6 +1277,7 @@ export class PrimeBridge {
 				openUIMode,
 				openUIArtifact,
 				options?.openUISyntaxVersion,
+				dashboards,
 			);
 		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
@@ -1246,6 +1313,7 @@ export class PrimeBridge {
 				openUIMode,
 				openUIArtifact,
 				options?.openUISyntaxVersion,
+				dashboards,
 			);
 		}
 		if (promptFailed) throw promptError;
@@ -1257,11 +1325,12 @@ export class PrimeBridge {
 		mode: OpenUIPromptMode,
 		artifact: boolean,
 		syntaxVersion?: "0.x" | "1.x",
+		dashboards?: OpenUIDashboardPrompt,
 	): Promise<void> {
 		const previous = this.#openUIPromptTransitions.get(session.sessionId) ?? Promise.resolve();
 		const transition = previous
 			.catch(() => undefined)
-			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact, syntaxVersion));
+			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact, syntaxVersion, dashboards));
 		this.#openUIPromptTransitions.set(session.sessionId, transition);
 		void transition
 			.finally(() => {
@@ -1279,9 +1348,10 @@ export class PrimeBridge {
 		mode: OpenUIPromptMode,
 		artifact = false,
 		syntaxVersion?: "0.x" | "1.x",
+		dashboards?: OpenUIDashboardPrompt,
 	): Promise<void> {
 		const previousPrompt = session.openUIPrompt.prompt;
-		const nextPrompt = buildOpenUIPrompt(mode, { artifact, syntaxVersion });
+		const nextPrompt = buildOpenUIPrompt(mode, { artifact, syntaxVersion, dashboards });
 		// The prompt text is compared as well as the flags: `buildOpenUIPrompt`
 		// changes whenever the component catalog or tool surface changes, and a
 		// session must pick that up instead of keeping the prompt it was born with.

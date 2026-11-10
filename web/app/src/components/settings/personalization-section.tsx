@@ -17,7 +17,7 @@ export function PersonalizationSection({
 	themePreference: ThemePreference;
 }) {
 	return (
-		<Field orientation="horizontal" className="items-center justify-between gap-6 rounded-xl border p-4">
+		<Field orientation="horizontal" className="items-center justify-between gap-6 rounded-md border p-4">
 			<div className="min-w-0">
 				<FieldLabel>Theme</FieldLabel>
 				<FieldDescription>Match the system theme or pick light or dark.</FieldDescription>

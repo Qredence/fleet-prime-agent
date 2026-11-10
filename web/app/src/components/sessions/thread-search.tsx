@@ -81,7 +81,7 @@ export function ThreadSearch({
 				onSelect?.(thread.id);
 			}}
 			className={cn(
-				"flex flex-col gap-0.5 rounded-xl px-2 py-1 text-start transition-colors",
+				"flex flex-col gap-0.5 rounded-sm px-2 py-1 text-start transition-colors",
 				thread.id === focusId
 					? "bg-foreground/[0.05]"
 					: thread.id === activeId
@@ -100,10 +100,10 @@ export function ThreadSearch({
 	return (
 		<div
 			data-slot="thread-search"
-			className={cn(paper, "flex w-full max-w-sm flex-col gap-1.5 rounded-2xl p-3", className)}
+			className={cn(paper, "flex w-full max-w-sm flex-col gap-1.5 rounded-md p-3", className)}
 			{...props}
 		>
-			<div className={cn(field, "flex items-center gap-2 rounded-xl px-2.5 py-1.5")}>
+			<div className={cn(field, "flex items-center gap-2 rounded-md px-2.5 py-1.5")}>
 				<SearchIcon className="text-foreground/30 size-3.5 shrink-0" />
 				<input
 					value={query}
