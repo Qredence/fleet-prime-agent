@@ -224,7 +224,8 @@ jobs:
             NODE_OPTIONS: --max-old-space-size=4096
           command: |
             mkdir -p dist-release
-            node scripts/check-package.mjs --out-dir dist-release
+            # Verify the build-check workspace output instead of rebuilding it.
+            node scripts/check-package.mjs --skip-build --out-dir dist-release
       - store_artifacts:
           path: dist-release
           destination: dist-release/linux

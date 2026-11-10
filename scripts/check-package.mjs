@@ -23,14 +23,19 @@ const EXPECTED_FILES = ["bin", "dist", "CHANGELOG.md", "LICENSE", "README.md"];
 /**
  * Parses package verification command-line options.
  * @param {string[]} argv - Command-line arguments to parse.
- * @returns {{packagePath: string|undefined, outputDirectory: string|undefined}} The resolved tarball path and output directory.
+ * @returns {{packagePath: string|undefined, outputDirectory: string|undefined, skipBuild: boolean}} The resolved paths and build option.
  * @throws {Error} If an option is unknown or lacks a required path.
  */
 function parseArgs(argv) {
 	let packagePath;
 	let outputDirectory;
+	let skipBuild = false;
 	for (let index = 0; index < argv.length; index += 1) {
 		const arg = argv[index];
+		if (arg === "--skip-build") {
+			skipBuild = true;
+			continue;
+		}
 		if (arg === "--package") {
 			const value = argv[++index];
 			if (!value || value.startsWith("-")) throw new Error("--package requires a tarball path");
@@ -52,12 +57,13 @@ function parseArgs(argv) {
 			continue;
 		}
 		if (arg === "--help" || arg === "-h") {
-			console.log("Usage: node scripts/check-package.mjs [--package path] [--out-dir directory]");
+			console.log("Usage: node scripts/check-package.mjs [--package path] [--out-dir directory] [--skip-build]");
+			console.log("--skip-build packs an existing release build; all package and smoke checks still run.");
 			process.exit(0);
 		}
 		throw new Error(`Unknown option: ${arg}`);
 	}
-	return { packagePath, outputDirectory };
+	return { packagePath, outputDirectory, skipBuild };
 }
 
 /**
@@ -200,12 +206,12 @@ function runSmoke(tarball) {
  * Verifies the package manifest, contents, tarball, and web release smoke test.
  */
 function main() {
-	const { packagePath: requestedPackage, outputDirectory } = parseArgs(process.argv.slice(2));
+	const { packagePath: requestedPackage, outputDirectory, skipBuild } = parseArgs(process.argv.slice(2));
 	const temporaryDirectory = mkdtempSync(join(tmpdir(), "fleet-package-check-"));
 	const destination = outputDirectory ?? temporaryDirectory;
 	try {
 		mkdirSync(destination, { recursive: true });
-		if (!requestedPackage) {
+		if (!requestedPackage && !skipBuild) {
 			const pnpm = pnpmInvocation(["run", "build:web:release"]);
 			execFileTrusted(pnpm.command, pnpm.args, { cwd: root, stdio: "inherit" });
 		}
