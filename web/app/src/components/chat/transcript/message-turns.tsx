@@ -177,7 +177,16 @@ export function buildAssistantElements(
 
 	for (const rawPart of parts) {
 		if (!isV5ToolPart(rawPart)) continue;
-		if (rawPart.type === "tool-TaskOutput") continue;
+		// Reasoning parts never render as nested tools: the main loop below
+		// suppresses them, so collecting one here would leave an orphan entry
+		// that delays or corrupts the parent Task trace.
+		if (
+			rawPart.type === "tool-TaskOutput" ||
+			rawPart.type === "tool-Thinking" ||
+			rawPart.type === "tool-FleetReasoning"
+		) {
+			continue;
+		}
 		if (!rawPart.toolCallId || !rawPart.toolCallId.includes(":")) continue;
 		const parentId = rawPart.toolCallId.split(":")[0];
 		if (!taskPartIds.has(parentId)) continue;

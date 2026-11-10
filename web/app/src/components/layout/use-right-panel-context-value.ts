@@ -30,7 +30,6 @@ import {
 	useUpdateChatSettings,
 	useUpdateMcpConnection,
 } from "@/components/chat/chat-queries";
-import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
 import type { ComposerIntentAvailability } from "@/components/chat/composer/composer-intent";
 import {
 	useThrottledTranscriptSummary,
@@ -209,7 +208,7 @@ export function useRightPanelContextValue({
 	const onComposerIntentChange = useCallback(
 		async (enabled: boolean) => {
 			try {
-				await fetch(resolveChatApiUrl("/api/chat/intent"), {
+				await fetchJson<{ success?: boolean }>("/api/chat/intent", {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ enabled }),
