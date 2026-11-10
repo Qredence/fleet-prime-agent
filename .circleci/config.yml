@@ -42,8 +42,12 @@ commands:
       - run:
           name: Install system dependencies
           command: |
-            sudo apt-get update
-            sudo apt-get install -y \
+            set -euo pipefail
+            export DEBIAN_FRONTEND=noninteractive
+            # Retry apt operations to reduce flakiness from transient network/lock issues
+            retry() { for i in 1 2 3; do "$@" && break || { echo "Retry $i for: $*"; sleep $((i * 2)); }; done; }
+            retry sudo apt-get update -y -o Acquire::Retries=3
+            retry sudo apt-get install -y -qq \
               libcairo2-dev \
               libgif-dev \
               libjpeg-dev \
