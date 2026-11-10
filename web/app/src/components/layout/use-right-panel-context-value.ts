@@ -1,22 +1,12 @@
+import type { ProjectId } from "@prime-agent/web-protocol";
 import type {
-	ChatMcpDeleteRequest,
-	ChatMcpListResponse,
-	ChatMcpOAuthLoginRequest,
-	ChatMcpOAuthLoginResponse,
-	ChatMcpUpsertRequest,
 	ChatMode,
 	ChatPiSettingsUpdate,
-	ChatProviderInfo,
-	ChatProviderRemoveRequest,
-	ChatProviderRemoveResponse,
-	ChatProviderUpdateRequest,
-	ChatProviderUpdateResponse,
 	ChatResourcesResponse,
 	ChatSessionMetadata,
 	ChatSessionResponse,
 	ChatSettingsResponse,
 	ChatThinkingLevel,
-	McpConnectionInfo,
 	PrimeAgentArtifactRun,
 	PrimeAgentSessionPresentation,
 	QueueState,
@@ -25,8 +15,21 @@ import type {
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
-import { useMemo } from "react";
-import type { ChatModelOption } from "@/components/chat/chat-helpers";
+import { useCallback, useMemo } from "react";
+import { fetchJson } from "@/components/chat/chat-fetch";
+import { type ChatModelOption, toModelOption } from "@/components/chat/chat-helpers";
+import {
+	useChatMcpConnections,
+	useChatModelCatalog,
+	useChatProviders,
+	useDiscoverChatModels,
+	useMcpOAuth,
+	useRemoveChatProvider,
+	useRemoveMcpConnection,
+	useUpdateChatProvider,
+	useUpdateChatSettings,
+	useUpdateMcpConnection,
+} from "@/components/chat/chat-queries";
 import type { ComposerIntentAvailability } from "@/components/chat/composer/composer-intent";
 import {
 	useThrottledTranscriptSummary,
@@ -39,15 +42,20 @@ import type {
 	WorkspaceTreeContextValue,
 } from "@/components/layout/right-panel-context";
 
+function resolveSavedModelKey(models: Array<ChatModelOption>, response: ChatSettingsResponse): string | undefined {
+	const { defaultProvider, defaultModel } = response.effective;
+	return (
+		models.find((model) => model.provider === defaultProvider && model.modelId === defaultModel)?.id ??
+		(defaultProvider && defaultModel ? `${defaultProvider}/${defaultModel}` : undefined)
+	);
+}
+
 type UseRightPanelContextValueArgs = {
+	activeProjectId?: ProjectId;
 	activityLabel?: string;
 	artifactRuns: Array<PrimeAgentArtifactRun>;
 	chatMode: ChatMode;
 	handleThemePreferenceChange: (preference: ThemePreference) => void;
-	isLoadingMcp?: boolean;
-	isLoadingProviders?: boolean;
-	isUpdatingMcp?: boolean;
-	isUpdatingProvider?: boolean;
 	loadSession: (metadata: ChatSessionMetadata) => Promise<ChatSessionResponse>;
 	loadSubagentSession: (parentSessionId: string, childId: string) => Promise<ChatSessionResponse>;
 	loadWorkspaceFile: (path: string, signal?: AbortSignal) => Promise<WorkspaceFileResponse>;
@@ -55,23 +63,12 @@ type UseRightPanelContextValueArgs = {
 	onOpenSubagentTab?: (childId: string) => void;
 	modelKey?: string;
 	models: Array<ChatModelOption>;
-	mcpConnections?: Array<McpConnectionInfo>;
-	modelCatalog?: Array<ChatModelOption>;
-	onDiscoverModels?: (providerId: string) => Promise<Array<ChatModelOption>>;
-	onMcpOAuth?: (request: ChatMcpOAuthLoginRequest) => Promise<ChatMcpOAuthLoginResponse>;
-	onRemoveMcp?: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
-	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
-	onUpdateMcp?: (request: ChatMcpUpsertRequest) => Promise<ChatMcpListResponse>;
-	onUpdateProvider?: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
+	setModelKey: (key: string) => void;
 	openWorkspacePath: (rawPath: string) => void;
 	planLabel?: string;
 	presentation: PrimeAgentSessionPresentation;
-	providers?: Array<ChatProviderInfo>;
 	/** Composer command-routing availability, for the Settings toggle. */
-	composerIntent?: ComposerIntentAvailability;
-	onComposerIntentChange?: (enabled: boolean) => void;
-	/** Stores the classifier key, or clears it with `null`. */
-	onComposerIntentKeyChange?: (apiKey: string | null) => Promise<void> | void;
+	composerIntent?: ComposerIntentAvailability & { refresh?: () => void };
 	queue: QueueState;
 	refreshResources: () => void;
 	refreshWorkspace: () => void;
@@ -80,7 +77,6 @@ type UseRightPanelContextValueArgs = {
 	resourcesLoading: boolean;
 	rightPanel: RightPanel;
 	reopenRightPanel: () => void;
-	saveSettings: (settings: ChatPiSettingsUpdate) => Promise<ChatSettingsResponse>;
 	selectedArtifactId?: string | null;
 	openArtifact?: ChatPanelDataContextValue["openArtifact"];
 	sessionId?: string;
@@ -88,6 +84,7 @@ type UseRightPanelContextValueArgs = {
 	setRightPanel: (panel: RightPanel) => void;
 	setSelectedWorkspacePath: (path: string | null) => void;
 	settings: ChatSettingsResponse | null;
+	settingsDialogOpen?: boolean;
 	settingsError: Error | null;
 	settingsLoading: boolean;
 	status: ChatStatus;
@@ -113,22 +110,17 @@ type RightPanelContextSlices = {
 };
 
 /**
- * Assembles the memoized context values used by the right panel.
+ * Assembles the memoized context values used by the right panel and settings dialog.
  *
  * @returns The chat panel, workspace tree, and settings action context slices
  */
 export function useRightPanelContextValue({
+	activeProjectId,
 	activityLabel,
 	artifactRuns,
 	chatMode,
 	composerIntent,
-	onComposerIntentChange,
-	onComposerIntentKeyChange,
 	handleThemePreferenceChange,
-	isLoadingMcp,
-	isLoadingProviders,
-	isUpdatingMcp,
-	isUpdatingProvider,
 	loadSession,
 	loadSubagentSession,
 	loadWorkspaceFile,
@@ -136,18 +128,10 @@ export function useRightPanelContextValue({
 	onOpenSubagentTab,
 	modelKey,
 	models,
-	modelCatalog,
-	onDiscoverModels,
-	onMcpOAuth,
-	onRemoveMcp,
-	onRemoveProvider,
-	onUpdateMcp,
-	onUpdateProvider,
+	setModelKey,
 	openWorkspacePath,
 	planLabel,
 	presentation,
-	mcpConnections,
-	providers,
 	queue,
 	refreshResources,
 	refreshWorkspace,
@@ -156,7 +140,6 @@ export function useRightPanelContextValue({
 	resourcesLoading,
 	rightPanel,
 	reopenRightPanel,
-	saveSettings,
 	selectedArtifactId,
 	openArtifact,
 	sessionId,
@@ -164,6 +147,7 @@ export function useRightPanelContextValue({
 	setRightPanel,
 	setSelectedWorkspacePath,
 	settings,
+	settingsDialogOpen = false,
 	settingsError,
 	settingsLoading,
 	status,
@@ -181,6 +165,86 @@ export function useRightPanelContextValue({
 	selectSessionTreeEntry,
 	rewindSessionTree,
 }: UseRightPanelContextValueArgs): RightPanelContextSlices {
+	const { data: providersData, isLoading: isLoadingProviders } = useChatProviders({
+		enabled: settingsDialogOpen,
+	});
+	const { data: mcpData, isLoading: isLoadingMcp } = useChatMcpConnections({
+		enabled: settingsDialogOpen,
+	});
+	const { mutateAsync: onUpdateProvider, isPending: isUpdatingProvider } = useUpdateChatProvider();
+	const { mutateAsync: onRemoveProvider, isPending: isRemovingProvider } = useRemoveChatProvider();
+	const { mutateAsync: onUpdateMcp, isPending: isUpdatingMcp } = useUpdateMcpConnection();
+	const { mutateAsync: onRemoveMcp, isPending: isRemovingMcp } = useRemoveMcpConnection();
+	const { mutateAsync: onMcpOAuth } = useMcpOAuth();
+	const { data: modelCatalogData } = useChatModelCatalog({
+		enabled: settingsDialogOpen,
+		projectId: activeProjectId,
+	});
+	const discoverModelsMutation = useDiscoverChatModels();
+	const updateSettings = useUpdateChatSettings();
+
+	const saveSettings = useCallback(
+		async (nextSettings: ChatPiSettingsUpdate) => {
+			const response = await updateSettings.mutateAsync({
+				request: { settings: nextSettings },
+				projectId: activeProjectId,
+			});
+			const nextModelKey = resolveSavedModelKey(models, response);
+			if (nextModelKey) setModelKey(nextModelKey);
+			return response;
+		},
+		[activeProjectId, models, setModelKey, updateSettings],
+	);
+
+	const onDiscoverModels = useCallback(
+		async (providerId: string) => {
+			const response = await discoverModelsMutation.mutateAsync(providerId);
+			if (response.error) throw new Error(response.error);
+			return response.models.map(toModelOption);
+		},
+		[discoverModelsMutation],
+	);
+
+	const onComposerIntentChange = useCallback(
+		async (enabled: boolean) => {
+			try {
+				await fetchJson<{ success?: boolean }>("/api/chat/intent", {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ enabled }),
+				});
+			} finally {
+				composerIntent?.refresh?.();
+			}
+		},
+		[composerIntent],
+	);
+
+	const onComposerIntentKeyChange = useCallback(
+		async (apiKey: string | null) => {
+			try {
+				await fetchJson<{ success?: boolean }>("/api/chat/intent", {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ apiKey }),
+				});
+			} finally {
+				composerIntent?.refresh?.();
+			}
+		},
+		[composerIntent],
+	);
+
+	const modelCatalog = useMemo(
+		() => modelCatalogData?.models.map(toModelOption) ?? models,
+		[modelCatalogData, models],
+	);
+	const mcpConnections = useMemo(() => mcpData?.connections ?? [], [mcpData?.connections]);
+	const providers = useMemo(() => providersData?.providers ?? [], [providersData?.providers]);
+	const isUpdatingMcpCombined = isUpdatingMcp || isRemovingMcp;
+	const isUpdatingProviderCombined = isUpdatingProvider || isRemovingProvider;
+	const settingsLoadingCombined = settingsLoading || updateSettings.isPending;
+
 	const transcriptSummary = useThrottledTranscriptSummary(messages, status, sessionId ?? "");
 	const publishedArtifactRuns = useThrottledWhileLive(artifactRuns, status, sessionId ?? "");
 	const chatPanelData = useMemo<ChatPanelDataContextValue>(
@@ -290,8 +354,8 @@ export function useRightPanelContextValue({
 				: undefined,
 			isLoadingMcp,
 			isLoadingProviders,
-			isUpdatingMcp,
-			isUpdatingProvider,
+			isUpdatingMcp: isUpdatingMcpCombined,
+			isUpdatingProvider: isUpdatingProviderCombined,
 			mcpConnections,
 			modelCatalog,
 			onComposerIntentChange,
@@ -307,7 +371,7 @@ export function useRightPanelContextValue({
 			saveSettings,
 			settings,
 			settingsError,
-			settingsLoading,
+			settingsLoading: settingsLoadingCombined,
 			themePreference,
 		}),
 		[
@@ -315,8 +379,8 @@ export function useRightPanelContextValue({
 			handleThemePreferenceChange,
 			isLoadingMcp,
 			isLoadingProviders,
-			isUpdatingMcp,
-			isUpdatingProvider,
+			isUpdatingMcpCombined,
+			isUpdatingProviderCombined,
 			mcpConnections,
 			modelCatalog,
 			onComposerIntentChange,
@@ -331,7 +395,7 @@ export function useRightPanelContextValue({
 			saveSettings,
 			settings,
 			settingsError,
-			settingsLoading,
+			settingsLoadingCombined,
 			themePreference,
 		],
 	);

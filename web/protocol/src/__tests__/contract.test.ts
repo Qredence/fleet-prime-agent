@@ -276,13 +276,3 @@ describe("PrimeAgentSessionPresentationSchema kernelDiagnostics", () => {
 		);
 	});
 });
-
-describe("OpenUI syntax negotiation", () => {
-	it.each([undefined, "0.x", "1.x"])("accepts supported syntax %s", (openUISyntaxVersion) => {
-		expect(ChatRequestSchema.safeParse({ openUI: true, openUISyntaxVersion }).success).toBe(true);
-	});
-	it("rejects unsupported syntax and child-turn syntax overrides", () => {
-		expect(ChatRequestSchema.safeParse({ openUI: true, openUISyntaxVersion: "2.x" }).success).toBe(false);
-		expect(ChatRequestSchema.safeParse({ childId: "child", openUISyntaxVersion: "1.x" }).success).toBe(false);
-	});
-});

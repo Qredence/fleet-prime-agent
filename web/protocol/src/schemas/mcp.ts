@@ -19,43 +19,37 @@ export const McpConnectionSourceSchema = z.enum(["builtin", "user"]);
 export const McpConnectionTransportSchema = z.enum(["http", "stdio"]);
 export const McpConnectionStatusSchema = z.enum(["connected", "needs_auth", "disabled", "anonymous"]);
 
-export const McpEnvBindingSchema = z
-	.object({
-		child: mcpEnvNameSchema,
-		source: mcpEnvNameSchema,
-	})
-	.openapi({ description: "Stdio env mapping as CHILD=SOURCE variable names only" });
+export const McpEnvBindingSchema = z.object({
+	child: mcpEnvNameSchema,
+	source: mcpEnvNameSchema,
+});
 
-export const McpConnectionInfoSchema = z
-	.object({
-		name: mcpServerNameSchema,
-		label: nonEmptyStringSchema,
-		source: McpConnectionSourceSchema,
-		transport: McpConnectionTransportSchema,
-		url: z.string().optional(),
-		commandPreview: z.string().optional(),
-		cwdPreview: z.string().optional(),
-		usesOAuth: z.boolean(),
-		enabled: z.boolean(),
-		status: McpConnectionStatusSchema,
-		/**
-		 * The runtime accepts a pasted token for this server. Additive: older
-		 * payloads omit it and the UI falls back to the OAuth/terminal guidance.
-		 */
-		acceptsPastedToken: z.boolean().optional(),
-		bearerTokenEnvVar: z.string().optional(),
-		envBindings: z.array(McpEnvBindingSchema).optional(),
-		error: z.string().optional(),
-	})
-	.openapi({ description: "Browser-safe MCP connection row; never includes tokens or env values" });
+export const McpConnectionInfoSchema = z.object({
+	name: mcpServerNameSchema,
+	label: nonEmptyStringSchema,
+	source: McpConnectionSourceSchema,
+	transport: McpConnectionTransportSchema,
+	url: z.string().optional(),
+	commandPreview: z.string().optional(),
+	cwdPreview: z.string().optional(),
+	usesOAuth: z.boolean(),
+	enabled: z.boolean(),
+	status: McpConnectionStatusSchema,
+	/**
+	 * The runtime accepts a pasted token for this server. Additive: older
+	 * payloads omit it and the UI falls back to the OAuth/terminal guidance.
+	 */
+	acceptsPastedToken: z.boolean().optional(),
+	bearerTokenEnvVar: z.string().optional(),
+	envBindings: z.array(McpEnvBindingSchema).optional(),
+	error: z.string().optional(),
+});
 
-export const ChatMcpListResponseSchema = z
-	.object({
-		connections: z.array(McpConnectionInfoSchema),
-	})
-	.openapi({ description: "MCP connection list" });
+export const ChatMcpListResponseSchema = z.object({
+	connections: z.array(McpConnectionInfoSchema),
+});
 
-const ChatMcpHttpUpsertRequestSchema = z.object({
+export const ChatMcpHttpUpsertRequestSchema = z.object({
 	name: mcpServerNameSchema,
 	transport: z.literal("http"),
 	url: nonEmptyStringSchema,
@@ -64,7 +58,7 @@ const ChatMcpHttpUpsertRequestSchema = z.object({
 	force: z.boolean().optional(),
 });
 
-const ChatMcpStdioUpsertRequestSchema = z.object({
+export const ChatMcpStdioUpsertRequestSchema = z.object({
 	name: mcpServerNameSchema,
 	transport: z.literal("stdio"),
 	command: nonEmptyStringSchema,
@@ -74,27 +68,24 @@ const ChatMcpStdioUpsertRequestSchema = z.object({
 	force: z.boolean().optional(),
 });
 
-export const ChatMcpUpsertRequestSchema = z
-	.discriminatedUnion("transport", [ChatMcpHttpUpsertRequestSchema, ChatMcpStdioUpsertRequestSchema])
-	.openapi({ description: "Add or replace a user MCP server" });
+export const ChatMcpUpsertRequestSchema = z.discriminatedUnion("transport", [
+	ChatMcpHttpUpsertRequestSchema,
+	ChatMcpStdioUpsertRequestSchema,
+]);
 
-export const ChatMcpDeleteRequestSchema = z
-	.object({
-		name: mcpServerNameSchema,
-	})
-	.openapi({ description: "Remove a user MCP server" });
+export const ChatMcpDeleteRequestSchema = z.object({
+	name: mcpServerNameSchema,
+});
 
 export const ChatMcpOAuthActionSchema = z.enum(["login", "logout", "reconnect"]);
 
-export const ChatMcpOAuthLoginRequestSchema = z
-	.object({
-		name: mcpServerNameSchema,
-		action: ChatMcpOAuthActionSchema.optional(),
-		loginId: z.string().min(1).optional(),
-		promptAnswer: z.string().max(8192).optional(),
-		cancel: z.boolean().optional(),
-	})
-	.openapi({ description: "MCP OAuth login, logout, or reconnect" });
+export const ChatMcpOAuthLoginRequestSchema = z.object({
+	name: mcpServerNameSchema,
+	action: ChatMcpOAuthActionSchema.optional(),
+	loginId: z.string().min(1).optional(),
+	promptAnswer: z.string().max(8192).optional(),
+	cancel: z.boolean().optional(),
+});
 
 /**
  * Store a pasted token for an MCP server that accepts one.
@@ -102,32 +93,26 @@ export const ChatMcpOAuthLoginRequestSchema = z
  * The token is write-only: no response echoes it back, and the list endpoint
  * never includes it.
  */
-export const ChatMcpTokenRequestSchema = z
-	.object({
-		name: mcpServerNameSchema,
-		token: z.string().min(1).max(8192),
-	})
-	.openapi({ description: "Store an MCP server token" });
+export const ChatMcpTokenRequestSchema = z.object({
+	name: mcpServerNameSchema,
+	token: z.string().min(1).max(8192),
+});
 
-export const ChatMcpTokenResponseSchema = z
-	.object({
-		/** Stored even when verification failed; `verified` reports the outcome. */
-		verified: z.boolean(),
-		toolCount: z.number().int().nonnegative().nullable(),
-		error: z.string().optional(),
-		connections: z.array(McpConnectionInfoSchema),
-	})
-	.openapi({ description: "MCP token storage result" });
+export const ChatMcpTokenResponseSchema = z.object({
+	/** Stored even when verification failed; `verified` reports the outcome. */
+	verified: z.boolean(),
+	toolCount: z.number().int().nonnegative().nullable(),
+	error: z.string().optional(),
+	connections: z.array(McpConnectionInfoSchema),
+});
 
-export const ChatMcpOAuthLoginResponseSchema = z
-	.object({
-		status: ChatProviderOAuthLoginStatusSchema,
-		loginId: z.string().optional(),
-		authUrl: z.string().optional(),
-		userCode: z.string().optional(),
-		instructions: z.string().optional(),
-		prompt: ChatProviderOAuthPromptSchema.optional(),
-		error: z.string().optional(),
-		connections: z.array(McpConnectionInfoSchema).optional(),
-	})
-	.openapi({ description: "MCP OAuth login snapshot" });
+export const ChatMcpOAuthLoginResponseSchema = z.object({
+	status: ChatProviderOAuthLoginStatusSchema,
+	loginId: z.string().optional(),
+	authUrl: z.string().optional(),
+	userCode: z.string().optional(),
+	instructions: z.string().optional(),
+	prompt: ChatProviderOAuthPromptSchema.optional(),
+	error: z.string().optional(),
+	connections: z.array(McpConnectionInfoSchema).optional(),
+});

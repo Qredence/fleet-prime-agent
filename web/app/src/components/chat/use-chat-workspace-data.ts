@@ -1,34 +1,18 @@
 import type { ProjectId } from "@prime-agent/web-protocol";
-import type {
-	ChatPiSettingsUpdate,
-	ChatQuestionAnswer,
-	ChatSettingsResponse,
-} from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatQuestionAnswer } from "@prime-agent/web-protocol/chat-protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { derivePrimeAgentArtifactRuns } from "@/components/artifacts/prime-agent-artifacts";
 import { chatClient } from "@/components/chat/chat-client";
 import { notifyChatError, runWorkspaceAction } from "@/components/chat/chat-error-notify";
-import { fetchJson } from "@/components/chat/chat-fetch";
-import { type ChatModelOption, queueLabel, toModelOption } from "@/components/chat/chat-helpers";
+import { queueLabel } from "@/components/chat/chat-helpers";
 import {
 	useChatCommands,
-	useChatMcpConnections,
-	useChatModelCatalog,
 	useChatModels,
 	useChatProjects,
-	useChatProviders,
 	useChatResources,
 	useChatSettings,
-	useDiscoverChatModels,
-	useMcpOAuth,
-	useRemoveChatProvider,
-	useRemoveMcpConnection,
-	useUpdateChatProvider,
-	useUpdateChatSettings,
-	useUpdateMcpConnection,
 	useWorkspaceTree,
 } from "@/components/chat/chat-queries";
-import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
 import { useChatWorkspaceComposerState } from "@/components/chat/composer/chat-input-bar-props";
 import { useComposerInlineCompletion } from "@/components/chat/composer/composer-inline-completion";
 import { useComposerIntentAvailability, useComposerIntentRouting } from "@/components/chat/composer/composer-intent";
@@ -50,14 +34,6 @@ import { useAgentTabs } from "@/components/sessions/use-agent-tabs";
 import { useSessionTree } from "@/components/sessions/use-session-tree";
 import { loadWorkspaceFile } from "@/components/workspace/workspace-file";
 import { notify } from "@/lib/notify";
-
-function resolveSavedModelKey(models: Array<ChatModelOption>, response: ChatSettingsResponse): string | undefined {
-	const { defaultProvider, defaultModel } = response.effective;
-	return (
-		models.find((model) => model.provider === defaultProvider && model.modelId === defaultModel)?.id ??
-		(defaultProvider && defaultModel ? `${defaultProvider}/${defaultModel}` : undefined)
-	);
-}
 
 /**
  * Provides coordinated state, data, and actions for the chat workspace, including projects, sessions, conversations, attachments, panels, dialogs, and settings.
@@ -90,20 +66,8 @@ export function useChatWorkspaceData() {
 		storage.sessionMetadata.projectId ?? undefined,
 	);
 	const defaultedProjectRef = useRef(false);
-	const { data: providersData, isLoading: isLoadingProviders } = useChatProviders();
-	const { data: mcpData, isLoading: isLoadingMcp } = useChatMcpConnections();
 	const { data: projectsData, refetch: refetchProjects } = useChatProjects();
-	const { mutateAsync: onUpdateProvider, isPending: isUpdatingProvider } = useUpdateChatProvider();
-	const { mutateAsync: onRemoveProvider, isPending: isRemovingProvider } = useRemoveChatProvider();
-	const { mutateAsync: onUpdateMcp, isPending: isUpdatingMcp } = useUpdateMcpConnection();
-	const { mutateAsync: onRemoveMcp, isPending: isRemovingMcp } = useRemoveMcpConnection();
-	const { mutateAsync: onMcpOAuth } = useMcpOAuth();
 	const { data: modelsData } = useChatModels(activeProjectId);
-	const { data: modelCatalogData } = useChatModelCatalog({
-		enabled: settingsDialogOpen,
-		projectId: activeProjectId,
-	});
-	const discoverModelsMutation = useDiscoverChatModels();
 	const {
 		commandPaletteOpen,
 		handleResourceCanvasResizeStart,
@@ -159,7 +123,6 @@ export function useChatWorkspaceData() {
 	} = useChatResources(activeProjectId);
 	const { data: commandsData } = useChatCommands(activeProjectId);
 	const { data: settingsData, isLoading: settingsLoading, error: settingsError } = useChatSettings(activeProjectId);
-	const updateSettings = useUpdateChatSettings();
 	const shouldLoadWorkspaceTree = rightPanel === "workspace" || rightPanel === "resources";
 	const {
 		data: workspaceData,
@@ -174,16 +137,6 @@ export function useChatWorkspaceData() {
 	const refreshResources = useCallback(() => {
 		void refetchResources();
 	}, [refetchResources]);
-
-	const saveSettings = useCallback(
-		async (settings: ChatPiSettingsUpdate) => {
-			const response = await updateSettings.mutateAsync({ request: { settings }, projectId: activeProjectId });
-			const nextModelKey = resolveSavedModelKey(models, response);
-			if (nextModelKey) setModelKey(nextModelKey);
-			return response;
-		},
-		[activeProjectId, models, setModelKey, updateSettings],
-	);
 
 	const refreshWorkspace = useCallback(() => {
 		void refetchWorkspace();
@@ -420,46 +373,6 @@ export function useChatWorkspaceData() {
 		takeCachedIntent,
 	});
 
-	const setComposerIntentEnabled = useCallback(
-		async (enabled: boolean) => {
-			try {
-				await fetch(resolveChatApiUrl("/api/chat/intent"), {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ enabled }),
-				});
-			} finally {
-				composerIntentAvailability.refresh();
-			}
-		},
-		[composerIntentAvailability],
-	);
-
-	/**
-	 * Stores the classifier key, or clears it with `null`.
-	 *
-	 * The key is write-only: it goes up and never comes back, and the refresh
-	 * afterwards re-reads only whether a usable key exists and where it came from.
-	 */
-	const setComposerIntentKey = useCallback(
-		async (apiKey: string | null) => {
-			try {
-				await fetchJson<{ success?: boolean }>("/api/chat/intent", {
-					method: "PUT",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ apiKey }),
-				});
-			} finally {
-				composerIntentAvailability.refresh();
-			}
-		},
-		[composerIntentAvailability],
-	);
-
-	const modelCatalog = useMemo(
-		() => modelCatalogData?.models.map(toModelOption) ?? models,
-		[modelCatalogData, models],
-	);
 	const loadProjectWorkspaceFile = useCallback(
 		(path: string, signal?: AbortSignal) => loadWorkspaceFile(path, activeProjectId, signal),
 		[activeProjectId],
@@ -488,26 +401,13 @@ export function useChatWorkspaceData() {
 		rightPanel,
 	});
 
-	const onDiscoverModels = useCallback(
-		async (providerId: string) => {
-			const response = await discoverModelsMutation.mutateAsync(providerId);
-			if (response.error) throw new Error(response.error);
-			return response.models.map(toModelOption);
-		},
-		[discoverModelsMutation],
-	);
 	const { chatPanelData, settingsActions, workspaceTreeContext } = useRightPanelContextValue({
+		activeProjectId,
 		activityLabel,
 		artifactRuns,
 		chatMode,
 		composerIntent: composerIntentAvailability,
-		onComposerIntentChange: setComposerIntentEnabled,
-		onComposerIntentKeyChange: setComposerIntentKey,
 		handleThemePreferenceChange,
-		isLoadingMcp,
-		isLoadingProviders,
-		isUpdatingMcp: isUpdatingMcp || isRemovingMcp,
-		isUpdatingProvider: isUpdatingProvider || isRemovingProvider,
 		loadSession: loadChatSession,
 		loadSubagentSession,
 		loadWorkspaceFile: loadProjectWorkspaceFile,
@@ -515,18 +415,10 @@ export function useChatWorkspaceData() {
 		onOpenSubagentTab: agentTabs.openChildTab,
 		modelKey,
 		models,
-		modelCatalog,
-		onDiscoverModels,
-		onMcpOAuth,
-		onRemoveMcp,
-		onRemoveProvider,
-		onUpdateMcp,
-		onUpdateProvider,
+		setModelKey,
 		openWorkspacePath,
 		planLabel,
 		presentation,
-		mcpConnections: mcpData?.connections ?? [],
-		providers: providersData?.providers ?? [],
 		queue,
 		refreshResources,
 		refreshWorkspace,
@@ -535,7 +427,6 @@ export function useChatWorkspaceData() {
 		resourcesLoading,
 		reopenRightPanel,
 		rightPanel,
-		saveSettings,
 		selectedArtifactId,
 		openArtifact,
 		sessionId: sessionMetadata.sessionId,
@@ -543,8 +434,9 @@ export function useChatWorkspaceData() {
 		setRightPanel,
 		setSelectedWorkspacePath,
 		settings: settingsData ?? null,
+		settingsDialogOpen: settingsDialogOpen || settingsDialogEverOpened,
 		settingsError,
-		settingsLoading: settingsLoading || updateSettings.isPending,
+		settingsLoading,
 		status,
 		thinkingLevel,
 		themePreference,
@@ -591,6 +483,7 @@ export function useChatWorkspaceData() {
 		},
 		conversation: {
 			activityLabel,
+			answerQuestion,
 			artifactRuns,
 			deleteQueuedMessage,
 			editQueuedMessage,

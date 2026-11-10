@@ -47,33 +47,31 @@ export const ChatPackageSourceSettingsSchema = z.union([nonEmptyStringSchema, Ch
 const chatPackageSourceArraySchema = z.array(ChatPackageSourceSettingsSchema);
 const chatPackageSourceUpdateArraySchema = chatPackageSourceArraySchema.max(MAX_CHAT_RESOURCE_ENTRIES);
 
-export const ChatPiSettingsSchema = z
-	.object({
-		compaction: z.object({
-			enabled: z.boolean(),
-			reserveTokens: positiveIntSchema,
-			keepRecentTokens: positiveIntSchema,
-		}),
-		defaultModel: z.string().optional(),
-		defaultProvider: z.string().optional(),
-		defaultThinkingLevel: ChatThinkingLevelSchema.optional(),
-		enableSkillCommands: z.boolean(),
-		enabledModels: z.array(nonEmptyStringSchema).optional(),
-		extensions: chatResourcePathArraySchema,
-		followUpMode: ChatDeliveryModeSchema,
-		packages: chatPackageSourceArraySchema,
-		prompts: chatResourcePathArraySchema,
-		retry: z.object({
-			enabled: z.boolean(),
-			maxRetries: nonNegativeIntSchema,
-			baseDelayMs: nonNegativeIntSchema,
-		}),
-		skills: chatResourcePathArraySchema,
-		steeringMode: ChatDeliveryModeSchema,
-		themes: chatResourcePathArraySchema,
-		transport: ChatTransportSchema,
-	})
-	.openapi({ description: "Editable Pi settings" });
+export const ChatPiSettingsSchema = z.object({
+	compaction: z.object({
+		enabled: z.boolean(),
+		reserveTokens: positiveIntSchema,
+		keepRecentTokens: positiveIntSchema,
+	}),
+	defaultModel: z.string().optional(),
+	defaultProvider: z.string().optional(),
+	defaultThinkingLevel: ChatThinkingLevelSchema.optional(),
+	enableSkillCommands: z.boolean(),
+	enabledModels: z.array(nonEmptyStringSchema).optional(),
+	extensions: chatResourcePathArraySchema,
+	followUpMode: ChatDeliveryModeSchema,
+	packages: chatPackageSourceArraySchema,
+	prompts: chatResourcePathArraySchema,
+	retry: z.object({
+		enabled: z.boolean(),
+		maxRetries: nonNegativeIntSchema,
+		baseDelayMs: nonNegativeIntSchema,
+	}),
+	skills: chatResourcePathArraySchema,
+	steeringMode: ChatDeliveryModeSchema,
+	themes: chatResourcePathArraySchema,
+	transport: ChatTransportSchema,
+});
 
 export const ChatPiSettingsUpdateSchema = z
 	.object({
@@ -93,8 +91,7 @@ export const ChatPiSettingsUpdateSchema = z
 		themes: chatResourcePathUpdateArraySchema.optional(),
 		transport: ChatTransportSchema.optional(),
 	})
-	.strict()
-	.openapi({ description: "Pi settings update" });
+	.strict();
 
 // Project settings are read back from the runtime and may predate the
 // request limit above. Keep this response-only shape compatible with those
@@ -119,21 +116,17 @@ const chatPiSettingsProjectResponseSchema = z
 	})
 	.strict();
 
-export const ChatSettingsUpdateRequestSchema = z
-	.object({
-		settings: ChatPiSettingsUpdateSchema,
-	})
-	.openapi({ description: "Pi settings update request" });
+export const ChatSettingsUpdateRequestSchema = z.object({
+	settings: ChatPiSettingsUpdateSchema,
+});
 
-export const ChatSettingsResponseSchema = z
-	.object({
-		diagnostics: z.array(z.string()),
-		effective: ChatPiSettingsSchema,
-		project: chatPiSettingsProjectResponseSchema,
-		projectPath: z.string(),
-		updateImpact: z.object({
-			newSessionRecommended: z.boolean(),
-			resourceReloadRequired: z.boolean(),
-		}),
-	})
-	.openapi({ description: "Pi settings response" });
+export const ChatSettingsResponseSchema = z.object({
+	diagnostics: z.array(z.string()),
+	effective: ChatPiSettingsSchema,
+	project: chatPiSettingsProjectResponseSchema,
+	projectPath: z.string(),
+	updateImpact: z.object({
+		newSessionRecommended: z.boolean(),
+		resourceReloadRequired: z.boolean(),
+	}),
+});

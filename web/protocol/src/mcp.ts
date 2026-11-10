@@ -1,82 +1,42 @@
-export type McpConnectionSource = "builtin" | "user";
+import type { z } from "zod/v4";
+import type {
+	ChatMcpDeleteRequestSchema,
+	ChatMcpHttpUpsertRequestSchema,
+	ChatMcpListResponseSchema,
+	ChatMcpOAuthActionSchema,
+	ChatMcpOAuthLoginRequestSchema,
+	ChatMcpOAuthLoginResponseSchema,
+	ChatMcpStdioUpsertRequestSchema,
+	ChatMcpUpsertRequestSchema,
+	McpConnectionInfoSchema,
+	McpConnectionSourceSchema,
+	McpConnectionStatusSchema,
+	McpConnectionTransportSchema,
+	McpEnvBindingSchema,
+} from "./schemas/mcp";
 
-export type McpConnectionTransport = "http" | "stdio";
+export type McpConnectionSource = z.infer<typeof McpConnectionSourceSchema>;
 
-export type McpConnectionStatus = "connected" | "needs_auth" | "disabled" | "anonymous";
+export type McpConnectionTransport = z.infer<typeof McpConnectionTransportSchema>;
 
-export type McpEnvBinding = {
-	child: string;
-	source: string;
-};
+export type McpConnectionStatus = z.infer<typeof McpConnectionStatusSchema>;
 
-export type McpConnectionInfo = {
-	name: string;
-	label: string;
-	source: McpConnectionSource;
-	transport: McpConnectionTransport;
-	url?: string;
-	commandPreview?: string;
-	cwdPreview?: string;
-	usesOAuth: boolean;
-	enabled: boolean;
-	status: McpConnectionStatus;
-	/** The runtime accepts a pasted token for this server. */
-	acceptsPastedToken?: boolean;
-	bearerTokenEnvVar?: string;
-	envBindings?: Array<McpEnvBinding>;
-	error?: string;
-};
+export type McpEnvBinding = z.infer<typeof McpEnvBindingSchema>;
 
-export type ChatMcpListResponse = {
-	connections: Array<McpConnectionInfo>;
-};
+export type McpConnectionInfo = z.infer<typeof McpConnectionInfoSchema>;
 
-export type ChatMcpHttpUpsertRequest = {
-	name: string;
-	transport: "http";
-	url: string;
-	oauth?: boolean;
-	bearerTokenEnvVar?: string;
-	force?: boolean;
-};
+export type ChatMcpListResponse = z.infer<typeof ChatMcpListResponseSchema>;
 
-export type ChatMcpStdioUpsertRequest = {
-	name: string;
-	transport: "stdio";
-	command: string;
-	args?: Array<string>;
-	cwd?: string;
-	env?: Array<McpEnvBinding>;
-	force?: boolean;
-};
+export type ChatMcpHttpUpsertRequest = z.infer<typeof ChatMcpHttpUpsertRequestSchema>;
 
-export type ChatMcpUpsertRequest = ChatMcpHttpUpsertRequest | ChatMcpStdioUpsertRequest;
+export type ChatMcpStdioUpsertRequest = z.infer<typeof ChatMcpStdioUpsertRequestSchema>;
 
-export type ChatMcpDeleteRequest = {
-	name: string;
-};
+export type ChatMcpUpsertRequest = z.infer<typeof ChatMcpUpsertRequestSchema>;
 
-export type ChatMcpOAuthAction = "login" | "logout" | "reconnect";
+export type ChatMcpDeleteRequest = z.infer<typeof ChatMcpDeleteRequestSchema>;
 
-export type ChatMcpOAuthLoginRequest = {
-	name: string;
-	action?: ChatMcpOAuthAction;
-	loginId?: string;
-	promptAnswer?: string;
-	cancel?: boolean;
-};
+export type ChatMcpOAuthAction = z.infer<typeof ChatMcpOAuthActionSchema>;
 
-export type ChatMcpOAuthLoginResponse = {
-	status: "waiting" | "success" | "error";
-	loginId?: string;
-	authUrl?: string;
-	userCode?: string;
-	instructions?: string;
-	prompt?: {
-		message: string;
-		placeholder?: string;
-		allowEmpty?: boolean;
-	};
-	error?: string;
-	connections?: Array<McpConnectionInfo>;
-};
+export type ChatMcpOAuthLoginRequest = z.infer<typeof ChatMcpOAuthLoginRequestSchema>;
+
+export type ChatMcpOAuthLoginResponse = z.infer<typeof ChatMcpOAuthLoginResponseSchema>;

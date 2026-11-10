@@ -89,6 +89,57 @@ function parseRecord(value: unknown): ToolRecord | undefined {
 	}
 }
 
+function parseStructuredJson(value: unknown): unknown {
+	if (typeof value !== "string") return value;
+	const trimmed = value.trim();
+	if (!trimmed) return value;
+
+	try {
+		const parsed = JSON.parse(trimmed);
+		return (typeof parsed === "object" && parsed !== null) || Array.isArray(parsed) ? parsed : value;
+	} catch {
+		return value;
+	}
+}
+
+const structuredPartCache = new WeakMap<object, unknown>();
+
+/**
+ * Coerces stringified JSON `input`, `output`, and `result` fields on `tool-*` parts
+ * into structured objects/arrays once per part reference.
+ */
+export function coerceStructuredToolPart<T>(part: T): T {
+	if (typeof part !== "object" || part === null) return part;
+	if (structuredPartCache.has(part)) return structuredPartCache.get(part) as T;
+
+	const record = part as ToolRecord;
+	if (typeof record.type !== "string" || !record.type.startsWith("tool-")) {
+		structuredPartCache.set(part, part);
+		return part;
+	}
+
+	const normalizedInput = parseStructuredJson(record.input);
+	const normalizedOutput = parseStructuredJson(record.output);
+	const normalizedResult = parseStructuredJson(record.result);
+
+	const inputChanged = normalizedInput !== record.input;
+	const outputChanged = normalizedOutput !== record.output;
+	const resultChanged = normalizedResult !== record.result;
+
+	if (!inputChanged && !outputChanged && !resultChanged) {
+		structuredPartCache.set(part, part);
+		return part;
+	}
+
+	const next: ToolRecord = { ...record };
+	if (inputChanged) next.input = normalizedInput;
+	if (outputChanged) next.output = normalizedOutput;
+	if (resultChanged) next.result = normalizedResult;
+	structuredPartCache.set(part, next);
+	structuredPartCache.set(next, next);
+	return next as T;
+}
+
 function getString(record: ToolRecord | undefined, ...keys: string[]): string | undefined {
 	for (const key of keys) {
 		const value = record?.[key];

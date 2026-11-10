@@ -1,103 +1,55 @@
+import type { z } from "zod/v4";
+import type {
+	ChatBashToolInputSchema,
+	ChatEditToolInputSchema,
+	ChatErrorPartSchema,
+	ChatImagePartSchema,
+	ChatMessagePartSchema,
+	ChatMessageSchema,
+	ChatPayloadPartSchema,
+	ChatPlanToolInputSchema,
+	ChatQuestionToolInputSchema,
+	ChatReasoningPartSchema,
+	ChatTextPartSchema,
+	ChatTodoItemSchema,
+	ChatTodoStatusSchema,
+	ChatToolCategorySchema,
+	ChatToolPartSchema,
+} from "./schemas/chat";
+
 export type ChatStatus = "ready" | "submitted" | "streaming" | "error";
 
 export type ChatMessageRole = "user" | "assistant";
 
-export type ChatTextPart = {
-	type: "text";
-	text: string;
-};
+export type ChatTextPart = z.infer<typeof ChatTextPartSchema>;
 
 /** Typed model reasoning content, kept separate from ordinary assistant text. */
-export type ChatReasoningPart = {
-	type: "reasoning";
-	contentIndex: number;
-	text: string;
-	state: "streaming" | "complete";
-	durationMs?: number;
-};
+export type ChatReasoningPart = z.infer<typeof ChatReasoningPartSchema>;
 
-export type ChatErrorPart = {
-	type: "error";
-	title?: string;
-	message: string;
-};
+export type ChatErrorPart = z.infer<typeof ChatErrorPartSchema>;
 
-export type ChatImagePart = {
-	type: "image";
-	url: string;
-	mimeType?: string;
-	alt?: string;
-};
+export type ChatImagePart = z.infer<typeof ChatImagePartSchema>;
 
 /** Browser-safe representation of a payload the Prime Agent TUI renders inline. */
-export type ChatPayloadPart = {
-	type: "payload";
-	id?: string;
-	kind: string;
-	title: string;
-	text?: string;
-	payload?: unknown;
-};
+export type ChatPayloadPart = z.infer<typeof ChatPayloadPartSchema>;
 
-export type ChatToolCategory = "kernel" | "system" | "mcp" | "rlm" | "plan" | "question" | "custom";
+export type ChatToolCategory = z.infer<typeof ChatToolCategorySchema>;
 
-export type ChatTodoStatus = "pending" | "in-progress" | "completed" | "cancelled";
+export type ChatTodoStatus = z.infer<typeof ChatTodoStatusSchema>;
 
-export type ChatTodoItem = {
-	id?: string;
-	content?: string;
-	title?: string;
-	status?: ChatTodoStatus;
-};
+export type ChatTodoItem = z.infer<typeof ChatTodoItemSchema>;
 
-export type ChatBashToolInput = {
-	command?: string;
-	cmd?: string;
-};
+export type ChatBashToolInput = z.infer<typeof ChatBashToolInputSchema>;
 
-export type ChatEditToolInput = {
-	path?: string;
-	filePath?: string;
-	oldString?: string;
-	newString?: string;
-};
+export type ChatEditToolInput = z.infer<typeof ChatEditToolInputSchema>;
 
-export type ChatQuestionToolInput = {
-	header?: string;
-	questions?: unknown;
-};
+export type ChatQuestionToolInput = z.infer<typeof ChatQuestionToolInputSchema>;
 
-export type ChatPlanToolInput = {
-	executing?: boolean;
-	pendingDecision?: boolean;
-	plan?: unknown;
-	todos?: Array<ChatTodoItem>;
-};
+export type ChatPlanToolInput = z.infer<typeof ChatPlanToolInputSchema>;
 
-export type ChatToolPart = {
-	type: `tool-${string}`;
-	category?: ChatToolCategory;
-	toolName?: string;
-	serverName?: string;
-	toolCallId?: string;
-	state?: string;
-	input?: unknown;
-	args?: unknown;
-	id?: string;
-	output?: unknown;
-	result?: unknown;
-	backgroundOutput?: string;
-	durationMs?: number;
-	error?: unknown;
-};
+export type ChatToolPart = z.infer<typeof ChatToolPartSchema>;
 
-export type ChatMessagePart =
-	| ChatTextPart
-	| ChatReasoningPart
-	| ChatErrorPart
-	| ChatImagePart
-	| ChatPayloadPart
-	| ChatToolPart;
+export type ChatMessagePart = z.infer<typeof ChatMessagePartSchema>;
 
 export function isChatTextPart(part: ChatMessagePart): part is ChatTextPart {
 	return part.type === "text";
@@ -111,17 +63,4 @@ export function isChatToolPart(part: ChatMessagePart): part is ChatToolPart {
 	return part.type.startsWith("tool-");
 }
 
-export type ChatMessage = {
-	id: string;
-	role: ChatMessageRole;
-	parts: Array<ChatMessagePart>;
-	createdAt?: Date | string | number;
-	/** Web-only echo from slash handlers; never persisted or sent to the agent. */
-	source?: "local";
-	/** Web-only optimistic user echo; stripped once the server acks the turn. */
-	optimistic?: boolean;
-	experimental_attachments?: Array<{
-		contentType?: string;
-		url?: string;
-	}>;
-};
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;

@@ -1,8 +1,21 @@
 import { ProjectIdSchema, SessionIdSchema } from "@prime-agent/web-protocol";
 import { loadManagedPlanPresentations } from "../managed-plan-presentations";
+import type { BridgeSession, PrimeBridge } from "../prime-bridge";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { requireProjectSession } from "./session-access";
+
+export async function buildSessionResponse(session: BridgeSession, bridge: PrimeBridge): Promise<Response> {
+	return Response.json({
+		session: {
+			sessionId: session.sessionId,
+			projectId: session.projectId,
+		},
+		messages: await bridge.getMessages(session.sessionId),
+		planPresentations: await loadManagedPlanPresentations(session),
+		presentation: bridge.getPresentation(session.sessionId),
+	});
+}
 
 /**
  * Retrieves a chat session or subagent transcript based on the request query parameters.
@@ -61,14 +74,6 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 		if (!existing || !(await requireProjectSession(existing))) {
 			return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		}
-		return Response.json({
-			session: {
-				sessionId: existing.sessionId,
-				projectId: existing.projectId,
-			},
-			messages: await bridge.getMessages(existing.sessionId),
-			planPresentations: await loadManagedPlanPresentations(existing),
-			presentation: bridge.getPresentation(existing.sessionId),
-		});
+		return buildSessionResponse(existing, bridge);
 	}, request);
 }

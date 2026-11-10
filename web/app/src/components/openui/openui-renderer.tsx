@@ -1,17 +1,13 @@
 import type { ActionEvent, OpenUIError, ParseResult } from "@openuidev/react-lang";
 import { BuiltinActionType, Renderer } from "@openuidev/react-lang";
 import { dashboardFences, stripDashboardFences } from "@prime-agent/web-protocol/dashboards";
-import { OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
+import { type OpenPanelAction, OpenPanelActionSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { useCallback, useMemo, useState } from "react";
 import { Markdown } from "@/components/chat/markdown/markdown";
 import { DashboardRequestCard } from "@/components/dashboards/dashboard-view";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import { type OpenUIArtifactCandidate, OpenUIArtifactProvider } from "@/components/openui/html-artifact";
-import {
-	encodeOpenPanelActionMessage,
-	OPEN_PANEL_ACTION_NAME,
-	openPanelActionFromParams,
-} from "@/components/openui/open-panel-action-message";
+import { OPEN_PANEL_ACTION_NAME, openPanelActionFromParams } from "@/components/openui/open-panel-action-message";
 import { openUILibrary } from "@/components/openui/openui-library";
 import { buildOpenUIRepairRequest, toRepairableErrors } from "@/components/openui/openui-repair";
 import { useOpenUISession } from "@/components/openui/openui-session-context";
@@ -23,20 +19,19 @@ import { Button } from "@/components/ui/button";
 
 type OpenUIStateByBlock = Record<string, Record<string, unknown>>;
 
-function getActionMessage(event: ActionEvent) {
-	if (event.type === BuiltinActionType.OpenUrl) return null;
-
+function extractOpenPanelAction(event: ActionEvent): OpenPanelAction | null {
 	if (event.type === "fleet.open_panel") {
 		const action = OpenPanelActionSchema.safeParse(event.params);
-		return action.success ? encodeOpenPanelActionMessage(action.data) : null;
+		return action.success ? action.data : null;
 	}
-
-	// Library-defined `@OpenPanel(...)` step: params are schema-checked before
-	// they reach the panel layer, same as the positional component form.
 	if (event.type === OPEN_PANEL_ACTION_NAME) {
-		const action = openPanelActionFromParams(event.params);
-		return action ? encodeOpenPanelActionMessage(action) : null;
+		return openPanelActionFromParams(event.params) ?? null;
 	}
+	return null;
+}
+
+function getActionMessage(event: ActionEvent) {
+	if (event.type === BuiltinActionType.OpenUrl) return null;
 
 	if (event.type === BuiltinActionType.ContinueConversation) {
 		const message = event.params.message;
@@ -121,7 +116,7 @@ function OpenUIBlock({
 	onOpenArtifact?: (artifactId: string) => void;
 	onStateUpdate: (blockId: string, state: Record<string, unknown>) => void;
 }) {
-	const { projectId, sessionId } = useOpenUISession();
+	const { onOpenPanelAction, projectId, sessionId } = useOpenUISession();
 	const openUIToolProvider = useMemo(
 		() => createOpenUIToolProvider(projectId ?? undefined, sessionId),
 		[projectId, sessionId],
@@ -143,10 +138,15 @@ function OpenUIBlock({
 
 	const handleAction = useCallback(
 		(event: ActionEvent) => {
+			if (event.type === "fleet.open_panel" || event.type === OPEN_PANEL_ACTION_NAME) {
+				const panelAction = extractOpenPanelAction(event);
+				if (panelAction) onOpenPanelAction?.(panelAction);
+				return;
+			}
 			const message = getActionMessage(event);
 			if (message) onAction?.(message);
 		},
-		[onAction],
+		[onAction, onOpenPanelAction],
 	);
 
 	const artifactProviderValue = useMemo(

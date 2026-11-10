@@ -1,5 +1,5 @@
-import type React from "react";
 import { memo } from "react";
+import type { ToolRendererProps } from "@/components/chat/transcript/chat-message-parts";
 import type { CustomToolRendererProps } from "@/components/chat/types";
 import { BashTool } from "@/components/tools/bash-tool";
 import { CpythonTool } from "@/components/tools/cpython-tool";
@@ -13,13 +13,7 @@ import { ToolGroup } from "@/components/tools/tool-group";
 import { parseMcpToolType, toolRegistry } from "@/components/tools/tool-registry";
 import { getToolStatus } from "@/components/tools/utils/format-tool";
 
-export type ToolRendererProps = {
-	part: any;
-	nestedTools?: Array<any>;
-	chatStatus?: string;
-	toolRenderers?: Record<string, React.ComponentType<CustomToolRendererProps>>;
-	insideTrace?: boolean;
-};
+export type { ToolRendererProps };
 
 function deriveToolStatus(part: any, chatStatus?: string): CustomToolRendererProps["status"] {
 	if (part.state === "input-streaming") return "streaming";
@@ -30,11 +24,12 @@ function deriveToolStatus(part: any, chatStatus?: string): CustomToolRendererPro
 }
 
 export const ToolRenderer = memo(function ToolRenderer({
-	part,
+	part: rawPart,
 	nestedTools,
 	chatStatus,
 	toolRenderers,
 }: ToolRendererProps) {
+	const part = rawPart as any;
 	const partType = part.type as string;
 
 	// Specialized tool components with variant dispatch

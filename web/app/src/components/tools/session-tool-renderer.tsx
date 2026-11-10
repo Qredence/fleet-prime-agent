@@ -13,7 +13,11 @@ import {
 import { type TodoItem, TodoList } from "@/components/tools/todo-list";
 import { ToolApproval } from "@/components/tools/tool-approval";
 import { CodeBlock } from "@/components/tools/tool-code-block";
-import { normalizeToolPart, type ToolRecord } from "@/components/tools/tool-output-normalizer";
+import {
+	coerceStructuredToolPart,
+	normalizeToolPart,
+	type ToolRecord,
+} from "@/components/tools/tool-output-normalizer";
 import type { ToolRendererProps } from "@/components/tools/tool-renderer";
 import { ToolRenderer } from "@/components/tools/tool-renderer";
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "@/components/tools/tool-result";
@@ -80,12 +84,13 @@ function SourceBlock({
  * Hides private reasoning parts and dispatches tool parts to specialized or generic presentations.
  */
 export const SessionToolRenderer = memo(function SessionToolRenderer({
-	part,
+	part: rawPart,
 	nestedTools,
 	chatStatus,
 	toolRenderers,
 	insideTrace = false,
 }: ToolRendererProps) {
+	const part = coerceStructuredToolPart(rawPart);
 	const partType = part.type as string;
 	if (partType === "tool-Thinking" || partType === "tool-FleetReasoning") return null;
 
