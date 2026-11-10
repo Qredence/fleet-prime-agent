@@ -1,0 +1,515 @@
+web/app/src/components/settings/settings-sections.ts
+  s_99db5a999853c0::t_3dd969ad4510a7 27-28
+  s_99db5a999853c0::t_3ea78947a12584 6
+  s_99db5a999853c0::t_98344fed826c95 108-115
+web/app/src/routes/api/chat/dashboards/token.ts
+  s_99db5a999853c0::t_f72d0663f60059 1-10
+web/app/src/components/settings/dashboards-section.tsx
+  s_99db5a999853c0::t_e988bab4112131 6,12-14,16-18,21-23,26-27,34-40,42-46,50-83,103,118-129,131-141,192-198
+  s_9de5df39faec99::t_a427a9e0d49c17 20,24-25
+  s_d0688f93528be6::t_ce82badf201816 7-11,15,28-33,41,47-49,84-102,142-147,149,156-159,161-164,171-191
+  s_d0688f93528be6::t_d8b43ddcc6c659 148,152-153
+  s_d0688f93528be6::t_2853d00cabfb23 104-117
+  s_d0688f93528be6::t_50cbc09fdd022a 154-155
+  s_9de5df39faec99::t_722e2de3b6cee6 150-151,170
+  s_d0688f93528be6::t_e3a8cc5a8fbb4b 1-5,160,165-169
+  s_d0688f93528be6::t_43db668db6fc9c 19,130
+web/server/package.json
+  s_99db5a999853c0::t_e5d5faf55d14d3 21
+  s_99db5a999853c0::t_736bead0f9f67c 20
+web/app/src/components/openui/openui-dashboard-fence.test.tsx
+  s_9de5df39faec99::t_e34c955831810b 1-23
+web/protocol/src/dashboards.ts
+  s_9de5df39faec99::t_b940ff1cb0682b 142-143,151-155,166-168,171,176-177,184-186,188,194-199,202,248-260,262-270,272-273
+  s_99db5a999853c0::t_4dd99ed228062e 189
+  s_9de5df39faec99::t_d2cc407ed8bc3a 238
+  s_c3c0e0da1f039c::t_128aec032d16a5 47
+  s_9de5df39faec99::t_1817e219535de6 261
+  s_d0688f93528be6::t_14ac150658585f 159-165,169-170,172-175,178
+  s_9de5df39faec99::t_f9449c8bacefac 236-237,239-245
+  s_99db5a999853c0::t_0c50bdbfe2acb3 1-18,26-28,36,38,147-148,156-158,181-183,187,192-193,218-228,233-235,246-247,271,274-275,280,282
+  s_9de5df39faec99::t_b6cd152dfc8e49 44-46,48-63,72-73
+  s_d0688f93528be6::t_1278f2c67859cb 137,139,144-145
+  s_d0688f93528be6::t_985f297430e798 19-25,29-35,37
+  s_d0688f93528be6::t_d5ce001b8ae58e 179
+  s_9de5df39faec99::t_d98cc6c3314f33 39-43,64-71,74-136,138,140-141,146,149-150
+  s_c3c0e0da1f039c::t_7526058a012714 229-232
+  s_9de5df39faec99::t_883ccdf0101f42 190-191,200-201,203-217
+  s_c3c0e0da1f039c::t_1a70eba4b0c9d5 180
+  s_c3c0e0da1f039c::t_3e9bb4ce26c0e6 276-279,281
+web/app/src/routes/api/chat/dashboards.ts
+  s_99db5a999853c0::t_70e6f350f7fdcd 2-11
+  s_9de5df39faec99::t_8400af185b984a 1
+web/server/src/dashboards/user-id.ts
+  s_c3c0e0da1f039c::t_2c09e247d78ce2 33
+  s_99db5a999853c0::t_1ca675a21dc76b 1-3,7-8,10,12-13,16,23,26,28,45
+  s_c3c0e0da1f039c::t_4a3e253b39fa06 4-6,9,11,14-15,17-22,24-25,27,29-32,34-44
+web/app/scripts/component-registry-check.ts
+  s_99db5a999853c0::t_3e86c254349b10 31
+  s_9de5df39faec99::t_4e6b3d8c30cc7c 15
+  s_99db5a999853c0::t_872b88b88156df 32-43
+web/app/src/components/openui/openui-prompt-examples.test.ts
+  s_c3c0e0da1f039c::t_a8830abb7c9604 120-124
+  s_9de5df39faec99::t_fcc1ebf269d90b 127,132
+  s_c3c0e0da1f039c::t_a7754e1d0b01c5 7,15-22
+  s_99db5a999853c0::t_fd7fd3817fa564 1
+  s_9de5df39faec99::t_1d53da8ce868d5 105-114,119,125,128-130,133-136
+  s_99db5a999853c0::t_bddf6fe9412bf8 56-58,61-64
+  s_99db5a999853c0::t_0fe149eac9d309 87-88
+  s_9de5df39faec99::t_722e2de3b6cee6 115-118
+  s_9de5df39faec99::t_fec567ad473d87 126,131
+  s_b1507669b0ca88::t_d475c71d64ba1e 23
+web/app/scripts/generate-openui-contract.ts
+  s_99db5a999853c0::t_33a20ecc7f1717 58-61
+  s_99db5a999853c0::t_68ae85358e9e43 34-41
+  s_99db5a999853c0::t_219e4c4146e910 68
+  s_99db5a999853c0::t_f711dc2c029706 5
+  s_99db5a999853c0::t_15eb46532b25aa 13
+web/protocol/src/index.ts
+  s_99db5a999853c0::t_65c1f301e4d5f3 5
+  s_99db5a999853c0::t_bc1fea8e5d6b3e 55
+web/app/src/components/dashboards/dashboard-view.tsx
+  s_99db5a999853c0::t_e322e9f08e5c21 21
+  s_99db5a999853c0::t_f704fd86e90ba4 1
+  s_9de5df39faec99::t_d2cc407ed8bc3a 2,128,201-204
+  s_c3c0e0da1f039c::t_1d18edfc52bfa5 66
+  s_c3c0e0da1f039c::t_3f0698342248d6 121
+  s_c3c0e0da1f039c::t_0e95679cc4be61 217
+  s_c3c0e0da1f039c::t_24fe3ad8906e93 17
+  s_c3c0e0da1f039c::t_39d51198c294b1 67
+  s_99db5a999853c0::t_bc7f8e03d93086 208
+  s_9de5df39faec99::t_0fa18608b3f413 63,65,68
+  s_99db5a999853c0::t_0ad743562e333b 92
+  s_99db5a999853c0::t_f1f6c5658d303b 3-4,19,31-50,91,93,134-135,137,142-144,235
+  s_c3c0e0da1f039c::t_1c78f218eed832 16
+  s_c3c0e0da1f039c::t_5819ccc88dbda3 76-78
+  s_99db5a999853c0::t_a43fd40e304fd6 101
+  s_9de5df39faec99::t_82c3309fe07e82 5,7-11,13,18,20,56-57,79-80,136,138-141,145-157,207,209,212-213,215
+  s_9de5df39faec99::t_9b2925b91f1090 6,12,15,22-30,51-55,58-62,64,69-75,81-90,95-100,102-111,113-120,122-127,129-133,158-200,205-206,210-211,214,216,218-234
+  s_c3c0e0da1f039c::t_115df4ddaa4e8d 14
+  s_c3c0e0da1f039c::t_3313235048a0c6 112
+  s_9de5df39faec99::t_722e2de3b6cee6 94
+web/server/src/index.ts
+  s_99db5a999853c0::t_833859ed64bf66 45-49,51
+  s_9de5df39faec99::t_8b59900bc6ded3 50
+  s_c3c0e0da1f039c::t_652073b4addf9c 1-2
+  s_c3c0e0da1f039c::t_8940fdb4bf723f 69-70
+web/server/src/__tests__/dashboard-signal.test.ts
+  s_99db5a999853c0::t_cfb4ea947bbda2 11-17
+  s_99db5a999853c0::t_88b19b0fe222a8 93-97
+  s_9de5df39faec99::t_0a1c5383d91403 118-121,124-136,152-153
+  s_99db5a999853c0::t_913f8d34bc47a2 1-3,9-10,19-22,31-38,72,74,82,85-86,111,208
+  s_99db5a999853c0::t_b4a7a68fd14173 75,79
+  s_9de5df39faec99::t_46559601333451 122-123
+  s_99db5a999853c0::t_941741396f721a 112-117,154-171,173-176,178-200,202-204,206-207
+  s_99db5a999853c0::t_b4f63ec0f2c6d5 172,177,201,205
+  s_9de5df39faec99::t_fdbd3523601a0d 137-151
+  s_c3c0e0da1f039c::t_105bc4facfa066 23-30
+  s_9de5df39faec99::t_d167ced4aacee7 55-58
+  s_99db5a999853c0::t_d7eddf58d4edba 4,73,81,83,87-92,98-110
+  s_9de5df39faec99::t_657c04c549739c 5-8
+  s_99db5a999853c0::t_c442d617da8b7b 18,39-54,59-71,76-78,80,84
+web/app/src/components/dashboards/dashboard-client.ts
+  s_9de5df39faec99::t_7c4a6586a8f7fb 1
+  s_99db5a999853c0::t_1b622c0f67634f 2-15,27-29,31-33,35-36
+  s_d0688f93528be6::t_ea65a4b4fbd76e 16-26,30,34
+web/server/src/prime-bridge.ts
+  s_c3c0e0da1f039c::t_cc4f78cf103fc2 105
+  s_99db5a999853c0::t_a842d1525078d7 1276
+  s_c3c0e0da1f039c::t_aed3e37605042b 278-285
+  s_c3c0e0da1f039c::t_ca16cf3eaafa07 358
+  s_99db5a999853c0::t_c0a377ba853bac 1209-1214,1221
+  s_99db5a999853c0::t_54fe3353f2aab2 1288,1293
+  s_c3c0e0da1f039c::t_3a14edbc0ed9d8 497
+  s_99db5a999853c0::t_f3a6961d2693e1 1311,1314
+  s_c3c0e0da1f039c::t_b7aded564be825 240
+  s_99db5a999853c0::t_3abab2026088bd 1240
+  s_99db5a999853c0::t_65c1f301e4d5f3 31,75
+  s_9de5df39faec99::t_4d0acb82fc839a 491-494,496,498-499
+  s_c3c0e0da1f039c::t_97931f37862845 495
+web/app/src/components/layout/use-chat-shell-state.ts
+  s_9de5df39faec99::t_a06e30cdbf35a9 36
+web/protocol/src/schemas/chat.ts
+  s_99db5a999853c0::t_a82533533910c4 514
+web/app/src/components/dashboards/dashboards-contract.test.ts
+  s_99db5a999853c0::t_bf5ace640cb774 3,16,158
+  s_9de5df39faec99::t_fdc7b0ad9be2f8 5,12,19,23-25,28-29,110-114,126,136-157
+  s_99db5a999853c0::t_1c9a569b8f0017 11
+  s_c3c0e0da1f039c::t_5316ee1b7082be 130-132
+  s_9de5df39faec99::t_01eafbc786ca68 75-109
+  s_d0688f93528be6::t_0578b2dc193938 2,33-34,124-125,127-129
+  s_c3c0e0da1f039c::t_13f65fdd8c412a 133
+  s_9de5df39faec99::t_7c41ec6b3601c1 159-165
+  s_d0688f93528be6::t_1264d7ea7a9ecc 4
+  s_9de5df39faec99::t_722e2de3b6cee6 20-22,30-32
+  s_9de5df39faec99::t_5277893bbdeda0 35-55
+  s_9de5df39faec99::t_17d3b3fbc8b2af 115-123
+  s_99db5a999853c0::t_81e5bd7c2e1cd7 1,6-10,13-15,134-135,166-167
+  s_d0688f93528be6::t_8fad20bd23eaa6 17-18,26-27
+  s_9de5df39faec99::t_038133b82f8cf4 56-74
+web/server/tsconfig.json
+  s_463f488f6264f2::t_3e3f2bae6304a0 14
+web/server/src/handlers/dashboards.ts
+  s_c3c0e0da1f039c::t_c7667428df2563 21
+  s_c3c0e0da1f039c::t_f652d1810c427c 47
+  s_9de5df39faec99::t_d9e5a17a70cb17 48,72
+  s_99db5a999853c0::t_65c1f301e4d5f3 4,6,8,10-11,50-53
+  s_9de5df39faec99::t_9db8d430b5e9ed 64-66,73-74,77
+  s_d0688f93528be6::t_5f4c669bffad23 70,76
+  s_99db5a999853c0::t_1d099370690c4c 13-14,16,19-20,24-29,34-35,37,41-46,49,54-63,67-69,75,78-94
+  s_c3c0e0da1f039c::t_ab25441c052912 2,17-18
+  s_d0688f93528be6::t_77ebc6f2448a17 5,7,9,22-23,30-33,36,38-40
+  s_c3c0e0da1f039c::t_638137e02b4882 12
+  s_c3c0e0da1f039c::t_429c54287d4655 3
+  s_c3c0e0da1f039c::t_ec42c7d981fccb 15
+  s_c3c0e0da1f039c::t_a89513bd5e95ba 71
+  s_99db5a999853c0::t_14f3c5e71c45d3 1
+docs/reference/adapter-contract.md
+  s_9de5df39faec99::t_1e8798f52234be 199,202-203
+  s_9de5df39faec99::t_4a2876316ca016 155-156,161,165,172,176-179,190-198,200,207-208
+  s_99db5a999853c0::t_397c05128c4291 218-220
+  s_99db5a999853c0::t_ecbb0fcdb5f4d4 230
+  s_9de5df39faec99::t_ee77174fae7fd3 180-186
+  s_9de5df39faec99::t_ef2479f191ec33 173-175
+  s_9de5df39faec99::t_7acbe36e742a48 158-160,162-164
+  s_c3c0e0da1f039c::t_7203b180438599 201,204-206
+  s_9de5df39faec99::t_ef5ff5dfe6fc1d 187-189
+  s_99db5a999853c0::t_45653da9b76111 144-154,157,166-169,209
+  s_d0688f93528be6::t_f538475d30b296 170-171
+web/app/src/components/ui/attachment.tsx
+  s_9de5df39faec99::t_644268158b477a 1-54,56-157
+  s_9de5df39faec99::t_d2cc407ed8bc3a 55
+web/server/src/dashboards/settle.ts
+  s_c3c0e0da1f039c::t_6109bb02147ede 21
+  s_c3c0e0da1f039c::t_dd8cb211da3d89 343,345,359,382
+  s_c3c0e0da1f039c::t_1d33298629bdb5 377
+  s_c3c0e0da1f039c::t_fa3b1920a1844f 22
+  s_c3c0e0da1f039c::t_2ac8857aab57f3 282
+  s_c3c0e0da1f039c::t_f8774b16310550 18
+  s_c3c0e0da1f039c::t_3e202bc02aa3b6 404
+  s_c3c0e0da1f039c::t_41c8ee7448d1ef 1-17,19-20,23-281,283-342,344,346-358,360-376,378-381,383-403,405-406
+web/server/src/dashboards/credentials.ts
+  s_d0688f93528be6::t_6801629ce90992 97,99-100,107,130
+  s_d0688f93528be6::t_1264d7ea7a9ecc 16
+  s_d0688f93528be6::t_e4321a75084e2d 22-25,28-35,48-52,57-68,70-73,75-81,85-96,108-122
+  s_99db5a999853c0::t_735ff72a388522 1-7,11,19-21,26-27,38-40,43-47,53-56,82-84,101-106,123-129,131-137,139
+  s_d0688f93528be6::t_9413448407d64c 12
+  s_d0688f93528be6::t_278c1ee2c73060 69,74
+  s_d0688f93528be6::t_5832fd1e69a256 13-15,17
+  s_c3c0e0da1f039c::t_82c760d4cbdbf0 36-37,41-42
+  s_c3c0e0da1f039c::t_29e3ce92fc1965 138
+  s_99db5a999853c0::t_65c1f301e4d5f3 18
+  s_9de5df39faec99::t_1dafd99c745a16 98
+  s_9de5df39faec99::t_cdcdfbfc4b65b6 8-10
+web/server/src/dashboards/library-spec.json
+  s_99db5a999853c0::t_c9486182db8182 1
+web/server/src/dashboards/prompt-context.ts
+  s_99db5a999853c0::t_0bbdc78dda28ee 1-10,15,17-23,36-43,45-46
+  s_c3c0e0da1f039c::t_8d0bf371044ed5 11-14,16,24-35,44
+.changeset/generative-dashboards.md
+  s_9de5df39faec99::t_566c1418950af4 9
+  s_99db5a999853c0::t_f0588a1385257a 1-4,6,8
+  s_9de5df39faec99::t_ffe21373d699c1 5
+  s_9de5df39faec99::t_4e8a7cd29ecb8b 7
+web/app/src/components/layout/right-panel-shell.tsx
+  s_9de5df39faec99::t_7a6d8e5d992bfe 15
+  s_9de5df39faec99::t_234f75e67ef78d 29
+web/app/src/components/layout/right-panel-registry.tsx
+  s_9de5df39faec99::t_513a1a3f8fc95d 31
+  s_9de5df39faec99::t_7caeae2a8118ad 373-378
+  s_9de5df39faec99::t_7956d7fcf03b99 2
+  s_9de5df39faec99::t_8d5b55a7eda591 39-44
+  s_99db5a999853c0::t_1aa9b6dee79ceb 362-372
+  s_9de5df39faec99::t_134b53a8b96e81 333-347
+  s_c3c0e0da1f039c::t_745df2aff59912 95
+  s_c3c0e0da1f039c::t_a0c88c0f2c8309 5
+  s_9de5df39faec99::t_e4118b557556d9 90-94,96-104
+web/app/src/components/openui/openui-library.tsx
+  s_99db5a999853c0::t_a6e12711a33e15 183
+  s_99db5a999853c0::t_16fcdf8e5ba41f 11-15
+  s_99db5a999853c0::t_ee604573809099 152,154
+web/protocol/src/openui-signatures.ts
+  s_9de5df39faec99::t_d2cc407ed8bc3a 45,220,593,1492
+  s_99db5a999853c0::t_48dc8010dc7b09 47,607
+web/app/src/routes/api/chat/dashboards/interpreter.ts
+  s_99db5a999853c0::t_4ed3337b5149f9 1-10
+web/app/src/components/layout/use-right-panel-context-value.ts
+  s_9de5df39faec99::t_43e913d67c7775 161
+  s_9de5df39faec99::t_f00463d42cf1d1 85
+  s_9de5df39faec99::t_b973e627310173 241
+  s_9de5df39faec99::t_95389af6de755d 207
+web/server/src/__tests__/dashboards-handler.test.ts
+  s_d0688f93528be6::t_a4ec2f86c00823 120-126,133-139,183-189
+  s_c3c0e0da1f039c::t_76148cf0c14833 86
+  s_d0688f93528be6::t_7e06e0c1f0d86c 40
+  s_c3c0e0da1f039c::t_d3d39c8473c592 210-270
+  s_d0688f93528be6::t_84dd1ebe351b59 371-373,376-377,385,396-397,439-440,442,454
+  s_99db5a999853c0::t_037f83487440bf 416-417,419,421-424,428-429,431,433-436
+  s_c3c0e0da1f039c::t_41222a3ebdf60c 482
+  s_c3c0e0da1f039c::t_ffff4613e3573f 75-78
+  s_99db5a999853c0::t_88b19b0fe222a8 502
+  s_9de5df39faec99::t_85ba162f2b9981 14,41-46,67-74,85,87-92,101,144,147,151,153-154,162,165,173,176,201-205,333-335,341-350,352-357,359-370,374-375,378-384,386-395,398-400,402-406,412,414-415,418,420,425-427,430,432,437-438,441,443-445,451,453,460,468,475-476,479,481,489,495,497-499,501,503-505
+  s_d0688f93528be6::t_278c1ee2c73060 145
+  s_d0688f93528be6::t_73a279c45345e0 149-150,152,155-161,163-164,166-172,174-175
+  s_c3c0e0da1f039c::t_526ac8787945b8 2,5,8-9
+  s_9de5df39faec99::t_def5d36711fbb9 193-200,206-209,271-332
+  s_99db5a999853c0::t_0a661e42bc59dc 1,3-4,6-7,10-13,15-20,34-39,47-51,58-66,93-95,97-100,102,104,106-111,114-119,127-132,140-141,177-182,190-192,506-507
+  s_c3c0e0da1f039c::t_d0b291a45ecb4f 351
+  s_c3c0e0da1f039c::t_8f952ecd0c2f19 461
+  s_d0688f93528be6::t_db5fe927315208 457-459,462-467,474,477-478,480,483-488
+  s_c3c0e0da1f039c::t_143d2944091e63 21-33
+  s_9de5df39faec99::t_722e2de3b6cee6 52-57,79-84,336-340,407-411,446-450,469-473,490-494
+  s_c3c0e0da1f039c::t_a701e3d1048a6d 358,452
+  s_c3c0e0da1f039c::t_e6ce4b9084b3ee 401
+  s_d0688f93528be6::t_63a7482c96a197 500
+  s_d0688f93528be6::t_ed6d5772c80b68 96,103,105,112-113,142-143,146,148
+  s_c3c0e0da1f039c::t_e9b683016a8a84 496
+  s_c3c0e0da1f039c::t_25c593da1edd85 413
+  s_99db5a999853c0::t_2060e18257bc5e 455-456
+web/app/package.json
+  s_9de5df39faec99::t_1d6ee4a1a3d14c 30
+  s_99db5a999853c0::t_df7103e3797f08 29,31-33
+web/app/src/components/dashboards/dashboard-render.test.tsx
+  s_99db5a999853c0::t_066000e0d81913 26,28,38,42-60
+  s_9de5df39faec99::t_bd1ce060795603 25
+  s_9de5df39faec99::t_f82f5d85915590 7-9
+  s_99db5a999853c0::t_54fcabdaa0991b 1-2,4-6,10,12-13,15-18,62-63
+  s_99db5a999853c0::t_c448752d22900d 3
+  s_99db5a999853c0::t_36a8c98710df19 11,14
+  s_99db5a999853c0::t_ee8f6149c1690a 19-24,27,29-37,39-41,61
+web/app/src/components/layout/right-panels.test.tsx
+  s_9de5df39faec99::t_685eb3348d7b16 218
+  s_99db5a999853c0::t_2ea8b1966af40a 266-268,270-272
+  s_99db5a999853c0::t_5bfd53bb63a766 221
+  s_9de5df39faec99::t_890e74c65eff13 251
+  s_99db5a999853c0::t_78c3220b6cbab3 282,284,287-289
+  s_99db5a999853c0::t_487fc490ce8f09 15
+  s_9de5df39faec99::t_caded7aab7a619 265,269
+  s_99db5a999853c0::t_620812e8a613fc 223-225
+  s_9de5df39faec99::t_9cfb44625b21a0 202
+  s_99db5a999853c0::t_4f2f4b68c4fbc5 129
+  s_9de5df39faec99::t_575a2ebb83d87a 222
+  s_99db5a999853c0::t_3791e549e1938b 290
+web/protocol/src/openui-tools.ts
+  s_99db5a999853c0::t_485efc0eba4a86 268-269
+  s_99db5a999853c0::t_8827ef30caa0ab 145-152
+  s_c3c0e0da1f039c::t_420a3c465562bb 153-166
+  s_99db5a999853c0::t_6301fbb878f7c4 198
+  s_99db5a999853c0::t_e6d07f9b25278a 277-278
+  s_99db5a999853c0::t_55db2816a0168d 96-112
+  s_99db5a999853c0::t_18ed6db218e9d2 20-29
+  s_99db5a999853c0::t_40ae776ca2bd17 279-286
+  s_99db5a999853c0::t_9c24e83ec2e8f7 288
+  s_99db5a999853c0::t_6707adb40413eb 287
+  s_99db5a999853c0::t_b5f0a969cf1101 304
+  s_99db5a999853c0::t_21b8e6e90e4b69 199
+  s_99db5a999853c0::t_65c1f301e4d5f3 15,17
+  s_99db5a999853c0::t_faa3713e305383 251-262
+web/server/src/dashboards/session-outputs.ts
+  s_99db5a999853c0::t_ab70b4292a2769 85-110
+  s_99db5a999853c0::t_d439a7ef64a441 29,31-33,37
+  s_c3c0e0da1f039c::t_c3319693faad31 62-75,77,79-81
+  s_99db5a999853c0::t_4e25ba9035d756 1-28,30,34-36,38-58,84
+  s_99db5a999853c0::t_128b2752b62acf 59-61,76,78,82-83
+web/app/src/components/layout/right-panel-context.tsx
+  s_99db5a999853c0::t_be29c3e6ec68a0 137-140,142
+  s_9de5df39faec99::t_47457587005533 57
+  s_9de5df39faec99::t_53cd2d9b397c10 33
+web/app/src/components/chat/generative-text-renderer.tsx
+  s_99db5a999853c0::t_65c1f301e4d5f3 1
+  s_99db5a999853c0::t_539af72132d101 28-30
+web/app/src/components/dashboards/dashboard-request-card.test.tsx
+  s_9de5df39faec99::t_af868e05d03433 124,136-140,145-182,185-186
+  s_c3c0e0da1f039c::t_ac6b6cc6b2d496 13,15
+  s_c3c0e0da1f039c::t_0708f75345a2f0 37
+  s_c3c0e0da1f039c::t_aefae9204ab5e9 183-184
+  s_9de5df39faec99::t_9dae064d8eb096 84,87-89,95-96,103,105-108
+  s_9de5df39faec99::t_d2cc407ed8bc3a 2,35-36,38,53,141-144
+  s_d0688f93528be6::t_3e1f117753e2f3 4-6,17-33,42-45,50-51,54,56,58-69,72-74,78-81,93-94,109-110,114-115,122-123,187-188
+  s_9de5df39faec99::t_fa5a202ac1fe62 52,55,57,70-71,75-77,82-83,85-86,90-92,97-102,104,111-113,116,118-121,125-135
+  s_c3c0e0da1f039c::t_0662495711387e 14
+  s_9de5df39faec99::t_d9a7368f5a3ed7 34,39-41,46-49
+  s_9de5df39faec99::t_722e2de3b6cee6 117
+  s_9de5df39faec99::t_b8cc06b7081788 1,3,7-12,16
+web/app/src/components/dashboards/dashboard-artifacts.ts
+  s_c3c0e0da1f039c::t_5b69fb8e4bae6c 1-18
+web/app/vite.config.ts
+  s_c3c0e0da1f039c::t_18aa4ef7aba8fd 19-20,22
+  s_99db5a999853c0::t_4d5dacad5389c2 3
+  s_99db5a999853c0::t_b8862bce512054 14,16,21,24-27
+  s_d0688f93528be6::t_3801ed4e03bf52 15,17-18,23
+  s_99db5a999853c0::t_f4212111edfeb9 28-38,41-65,67-68
+web/server/src/handlers/openui-tool.ts
+  s_c3c0e0da1f039c::t_a018b4e402fdba 175-177
+  s_99db5a999853c0::t_0079d48ec05809 209,218-221
+  s_99db5a999853c0::t_03f553c08e2899 171-172
+  s_99db5a999853c0::t_4c14d87a41e5fc 197-198
+  s_99db5a999853c0::t_3764ebf3921b43 29-40
+  s_99db5a999853c0::t_73b025afdc2144 14
+  s_99db5a999853c0::t_52d77346a97c5a 205,214
+  s_c3c0e0da1f039c::t_6ae43128d9ccbf 178
+  s_c3c0e0da1f039c::t_c7f77158912a9b 13
+  s_c3c0e0da1f039c::t_a756557b676d87 18
+  s_99db5a999853c0::t_f4f33836c92468 173-174,179-180
+web/server/src/__tests__/openui-tool-handler.test.ts
+  s_99db5a999853c0::t_a29b99466d71e2 331
+  s_99db5a999853c0::t_a165662401da24 255-285,298-303,305,328-330,332-337
+  s_99db5a999853c0::t_3ab0fcd288d5b9 23
+  s_99db5a999853c0::t_fe2ee3f8e3051c 20-22,24-29,43
+  s_c3c0e0da1f039c::t_c473cfd3710e95 30-42
+  s_99db5a999853c0::t_eb5078ff06daf6 286,304,306-327
+  s_99db5a999853c0::t_76eeb71dd3285b 287-297
+web/server/src/handlers/session-access.ts
+  s_c3c0e0da1f039c::t_040a977cbc56b0 31-37
+  s_c3c0e0da1f039c::t_27e8bfd662b96b 3
+web/app/src/components/openui/openui-renderer.tsx
+  s_99db5a999853c0::t_65c1f301e4d5f3 7
+  s_9de5df39faec99::t_e051c72cd9d844 251-253
+  s_c3c0e0da1f039c::t_eb80924eb40a35 211
+  s_99db5a999853c0::t_fddf0acebff11a 246,248-250,254-255,260
+  s_99db5a999853c0::t_009c881761dd5d 124-128
+  s_99db5a999853c0::t_cb1656420b245c 210,212
+  s_9de5df39faec99::t_722e2de3b6cee6 245
+  s_c3c0e0da1f039c::t_6de8bca8f30a91 3
+web/app/src/components/layout/right-panel-launcher.tsx
+  s_99db5a999853c0::t_989edacf0e8d9c 135
+web/app/src/routeTree.gen.ts
+  s_99db5a999853c0::t_f25b41b3e7b7f7 23,41-42,104,200,731,734-736,739-740,743
+  s_99db5a999853c0::t_07d53001030c64 105-108,194-199,201-204,243,261-262,281,299-300,320,338-339,360,378-379,398,416-417,436,454-455,553-559,679-692,732-733,737-738,741-742,787,810
+web/protocol/src/fleet-contract.ts
+  s_9de5df39faec99::t_bc66df1a1fdb73 14
+web/app/src/components/settings/settings-dialog.tsx
+  s_99db5a999853c0::t_bec13d7cecc362 432-436,439-443
+  s_9de5df39faec99::t_f20e36798017d4 437-438
+  s_99db5a999853c0::t_6fe150240f8348 11
+web/protocol/package.json
+  s_99db5a999853c0::t_0c278e22475a9c 31
+  s_99db5a999853c0::t_7a9129f3cfd2c7 14
+web/protocol/src/chat-protocol.ts
+  s_99db5a999853c0::t_4669baa3b6990e 180-181
+web/server/src/dashboards/cloud.ts
+  s_9de5df39faec99::t_b885b5fc5e7f89 28-29
+  s_9de5df39faec99::t_37f84f11d49cd4 117,121
+  s_c3c0e0da1f039c::t_79c9628308488b 19,24
+  s_99db5a999853c0::t_abc097519de416 89,95,97
+  s_d0688f93528be6::t_5fb582779d9d71 113
+  s_99db5a999853c0::t_505578fc3ea6a0 82
+  s_c3c0e0da1f039c::t_56bbbec7732d53 20,22
+  s_9de5df39faec99::t_961ba10153b4cd 114,119-120,122
+  s_9de5df39faec99::t_cfa2868f50fc28 133,136
+  s_c3c0e0da1f039c::t_875314a2b79f5d 93-94,96
+  s_99db5a999853c0::t_2d222ae6318bfe 40-45
+  s_c3c0e0da1f039c::t_a62f70aeb8c7a4 92,98
+  s_c3c0e0da1f039c::t_f16eb9f1e6a257 138-143
+  s_99db5a999853c0::t_8c4cbbcd2e3e25 1-13,23,25,31-39,46-55,64-65,67-74,84,99-108,110-112,115,118,123-132,134-135,137
+  s_d0688f93528be6::t_8a1f61d12a5767 116
+  s_9de5df39faec99::t_6b8a4c6c50cec5 58
+  s_9de5df39faec99::t_200071ef1a7452 66
+  s_99db5a999853c0::t_ca1bad5f4de404 85-88
+  s_99db5a999853c0::t_65c1f301e4d5f3 21
+  s_9de5df39faec99::t_cfd0fe6931da70 56-57,59-63
+  s_9de5df39faec99::t_de816582acce01 14-18
+  s_9de5df39faec99::t_959ec7d63fc9e5 90-91
+  s_99db5a999853c0::t_9d2bdfa942429a 75-81,83
+  s_d0688f93528be6::t_7d105fa4b8e13f 26-27,30
+  s_9de5df39faec99::t_722e2de3b6cee6 109
+web/app/src/components/openui/openui-tools.ts
+  s_99db5a999853c0::t_4c55d43c1803ac 62,65-68
+  s_99db5a999853c0::t_bab96096925f0e 42-43,45,47
+  s_9de5df39faec99::t_43b73c543da495 50-57
+  s_99db5a999853c0::t_b2256f1e4e851f 39-41,44,46
+  s_99db5a999853c0::t_44e4ec361d34ef 14-19,25
+pnpm-workspace.yaml
+  s_99db5a999853c0::t_23aa337b37fe52 9-22
+  s_99db5a999853c0::t_eac782b7724bec 59-61
+web/protocol/src/openui-prompt.ts
+  s_99db5a999853c0::t_c55e34883e468b 263
+  s_99db5a999853c0::t_f7cd714dc07343 250-252
+  s_c3c0e0da1f039c::t_539d5965ed78ba 292-297
+  s_9de5df39faec99::t_b9a5568040eb9a 264,272
+  s_9de5df39faec99::t_47334dadc2fad8 241
+  s_9de5df39faec99::t_91e6f6b97130cd 271
+  s_99db5a999853c0::t_606bb0434409c7 285,290,298,301-304,306
+  s_c3c0e0da1f039c::t_8cb0df77719cd9 238,253-257
+  s_9de5df39faec99::t_e7e26f93acdf73 269,276-279
+  s_99db5a999853c0::t_fbea9c03fb3813 240,246
+  s_99db5a999853c0::t_8cb49be091f63d 242-245,247-249,260,266-267,273-274
+  s_9de5df39faec99::t_41401a597b8c1a 270
+  s_99db5a999853c0::t_97ee8dc72fea90 239,258-259,268,281-282
+  s_9de5df39faec99::t_efa36662f53899 275
+  s_c3c0e0da1f039c::t_3fe6caddcc0039 280
+  s_99db5a999853c0::t_4ebac85780a02e 323-329
+  s_99db5a999853c0::t_88b19b0fe222a8 261-262,265
+  s_99db5a999853c0::t_70994b26675624 291,305
+  s_99db5a999853c0::t_0d2bdb4c2c9041 9-12
+  s_b1507669b0ca88::t_e5309fcc7a1266 13
+web/app/src/components/chat/use-chat-workspace-data.ts
+  s_9de5df39faec99::t_f296aa8dd695f1 528
+web/app/src/components/dashboards/dashboards-panel.tsx
+  s_9de5df39faec99::t_9a781a9d9861dc 1,3-21,23-52
+  s_c3c0e0da1f039c::t_9423a0221b28ca 22
+  s_9de5df39faec99::t_d2cc407ed8bc3a 2
+web/app/src/components/artifacts/artifacts-panel.tsx
+  s_99db5a999853c0::t_37f0690ad850c6 335-336,339
+  s_99db5a999853c0::t_65c1f301e4d5f3 337-338
+pnpm-lock.yaml
+  s_c3c0e0da1f039c::t_3e47245e76f7a5 8-9,98-106,108-112,232-233,256-261,287-289,1055-1061,1066,1073-1074,1082-1084,1088-1108,1123-1144,1219-1221,1225-1305,1324-1332,1346-1354,1368-1393,1403-1411,1425-1437,1447-1485,1499-1511,1525-1537,1551-1552,1555,1557,1561-1562,1564-1565,1568,1570,1574-1575,1577-1578,1581,1583,1587-1588,1590-1591,1594,1596,1600-1601,1603-1604,1607,1609,1613-1614,1616-1617,1619-1622,1624,1626,1629-1824,1970-1973,2015-2018,2190-2196,2261-2264,2358-2360,2370-2372,2897-2900,2988-2991,3069-3072,3097-3099,3218-3223,3399-3401,3444-3447,3555-3559,3609-3617,3639-3641,3651-3653,3909-3912,4083-4085,4096-4098,4113-4117,4181-4183,4193-4195,4247-4249,4414-4417,4677-4680,4728-4733,4754-4759,4802-4807,4840-4842,4855-4857,4864-4870,4874-4876,5034-5037,5329-5332,5346-5348,5665-5679,5685-5688,6258,6566-6585,6592,6594,6601,6603-6661,6669-6725,6777-7091,7093-7100,7102,7104-7112,7114,7117,7119,7121-7131,7133,7136,7138,7140-7142,7144-7148,7150-7156,7158,7167,7169-7180,7182-7187,7194,7196,7201,7208,7210-7215,7217,7220,7222,7224-7231,7238,7240-7246,7253,7255-7257,7264,7266,7268-7279,7281,7284,7292-7298,7308-7316,7324-7329,7336-7360,7513-7514,7559-7560,7729-7734,7859-7860,7963-7964,7975-7976,8439-8440,8517-8518,8588-8589,8608-8610,8697-8700,8929-8932,8982-8983,9094-9097,9145-9166,9248-9251,9266-9267,9461-9464,9583-9584,9594-9598,9609-9612,9726-9737,9777-9781,9903-9912,10107-10113,10444-10445,10521-10528,10544-10561,10598-10607,10652-10658,10673-10682,10694-10707,10719-10727,10962-10965,11244-11245,11266-11270,11540-11547
+web/protocol/src/openui-schema.generated.json
+  s_9de5df39faec99::t_73c02ad1ba403a 429-430,447,1538-1539
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2627e66ca528746008c7d3921d94c184c12e8064",
+  "prompts": {},
+  "sessions": {
+    "s_463f488f6264f2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ce710ffc-edb1-43f7-8428-ef36b13e6a70",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_99db5a999853c0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a035b00e-e666-4ab1-8124-f10bf331735a",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_9de5df39faec99": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "515dcb70-9fca-4d47-8af0-2befaec37882",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_b1507669b0ca88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dfdd0103-8fc4-4ab5-9feb-0c201a6959aa",
+        "model": "deepseek-v4-1-flash-1017-on-sp-v1"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_c3c0e0da1f039c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a7899314-73e0-49ca-86ed-5773836fe0e5",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_d0688f93528be6": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a1b868-e611-76ca-81e2-9e8894c2d61b",
+        "model": "deepseek-v4.1-flash"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
