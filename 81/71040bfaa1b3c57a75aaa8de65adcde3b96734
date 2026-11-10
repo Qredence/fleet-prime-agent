@@ -1,0 +1,64 @@
+web/app/src/styles/globals.css
+  s_c3c0e0da1f039c::t_ee77c4b24dccc6 78
+  s_c3c0e0da1f039c::t_269fc934f35e51 173
+web/app/src/components/layout/animated-sidebar.tsx
+  s_c3c0e0da1f039c::t_f5b284fcbe9d47 224,453-454,546
+web/app/src/components/ui/card.tsx
+  s_c3c0e0da1f039c::t_ecdc0fbb8c584f 11
+  s_c3c0e0da1f039c::t_73d8ce5952caa6 24
+web/app/src/components/ui/command.tsx
+  s_c3c0e0da1f039c::t_7ca56425745c75 14,39
+web/app/src/components/ui/popover.tsx
+  s_c3c0e0da1f039c::t_50adcde5e83269 40
+web/app/src/components/chat/composer/composer-menu.tsx
+  s_c3c0e0da1f039c::t_921cafc4280b04 61
+web/app/LAYOUT.md
+  s_c3c0e0da1f039c::t_cd7f4ee02893ad 26,31-32,35
+web/app/src/components/settings/settings-row.tsx
+  s_c3c0e0da1f039c::t_7b97b425baf31b 24
+web/app/src/components/ui/dialog.tsx
+  s_c3c0e0da1f039c::t_02fb862c9e5f0f 94
+  s_c3c0e0da1f039c::t_b0faaac1c95538 57
+web/app/src/components/chat/composer/composer-trigger-popover.tsx
+  s_c3c0e0da1f039c::t_83093209ab1d13 131
+web/app/src/components/ui/alert-dialog.tsx
+  s_c3c0e0da1f039c::t_bdf4a5e4f44d9a 40
+web/app/src/components/settings/composer-intent-section.tsx
+  s_c3c0e0da1f039c::t_8f0d3c714a4040 106
+web/app/src/components/sessions/thread-search.tsx
+  s_c3c0e0da1f039c::t_ddd0bc0699c977 103
+  s_c3c0e0da1f039c::t_0453f9a551fe0e 106
+  s_c3c0e0da1f039c::t_29804174362dc8 84
+web/app/src/components/ui/toast.tsx
+  s_c3c0e0da1f039c::t_c5d79a8128b3ac 35
+web/app/src/components/settings/settings-dialog.tsx
+  s_c3c0e0da1f039c::t_53c03d05d4f727 655
+  s_c3c0e0da1f039c::t_85846023211f0a 533
+web/app/src/components/motion/preview-rail.tsx
+  s_c3c0e0da1f039c::t_aa9a667fb696e9 41
+web/app/src/components/settings/dashboards-section.tsx
+  s_c3c0e0da1f039c::t_dfa1aaa29aad35 124,146
+web/app/src/components/ui/attachment.tsx
+  s_c3c0e0da1f039c::t_75435253497f57 17
+  s_c3c0e0da1f039c::t_0489d2b550a63d 10
+web/app/src/components/settings/personalization-section.tsx
+  s_c3c0e0da1f039c::t_c7f93e75640c6b 20
+web/app/src/components/settings/mcp/mcp-connections-section.tsx
+  s_c3c0e0da1f039c::t_7ee07e55ae2cc2 193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8171040bfaa1b3c57a75aaa8de65adcde3b96734",
+  "prompts": {},
+  "sessions": {
+    "s_c3c0e0da1f039c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a7899314-73e0-49ca-86ed-5773836fe0e5",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
