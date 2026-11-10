@@ -121,7 +121,7 @@ export function DashboardsSection() {
 				label="Dashboards"
 				description={status ? `${MODE_COPY[status.mode]} ${SOURCE_COPY[status.keySource]}` : "Checking…"}
 			/>
-			<div className="flex flex-col gap-2 rounded-xl border p-4">
+			<div className="flex flex-col gap-2 rounded-md border p-4">
 				<SecretCredentialField
 					attemptedSave={false}
 					label="Thesys API key"
@@ -143,7 +143,7 @@ export function DashboardsSection() {
 					) : null}
 				</div>
 			</div>
-			<div className="flex flex-col gap-2 rounded-xl border p-4">
+			<div className="flex flex-col gap-2 rounded-md border p-4">
 				<div className="flex flex-col gap-1">
 					<h4 className="text-sm font-medium">Dashboard builder model</h4>
 					<p className="text-xs text-muted-foreground">

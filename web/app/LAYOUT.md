@@ -23,16 +23,16 @@ Base unit: **4px**. Structural layout and container spacing snap to a 4px base g
 
 ## Concentric radius
 
-Shell / card: **24px**. Nested surfaces step inward by 8px:
+Shell, cards, overlays, and dialogs: **16px** (`rounded-md`). Nested inner rows step inward to 8px:
 
 | Token / class | px | Use |
 | --- | --- | --- |
 | `--radius-sm` / `rounded-sm` | 8 | Inner rows (`rowSurface`), nested chips |
-| `--radius-md` / `rounded-md` | 16 | Mid chrome (header pills) |
-| `--radius` / `rounded-lg` … `rounded-4xl` | 24 | Shell, cards, overlays, dialogs |
+| `--radius-md` / `rounded-md` | 16 | Shell, cards, overlays, dialogs |
+| `--radius` / `rounded-lg` … `rounded-4xl` | 24 | Collapsed `--radius` step (controls, chat input) |
 | `--radius-pill` / `rounded-full` | pill | Circular / pill controls only |
 
-`--radius` is `1.5rem` (24px). Larger Tailwind radius steps collapse to the shell value so surfaces stay concentric.
+`--radius` is `1.5rem` (24px). Larger Tailwind radius steps collapse to that value. Shell, card, overlay, and dialog surfaces use `rounded-md` instead.
 
 Chat aliases: `--chat-input-radius` = 24px; `--chat-message-radius-inner` = 16px.
 

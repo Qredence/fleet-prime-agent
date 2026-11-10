@@ -128,7 +128,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 			data-kind={kind}
 			data-state="open"
 			className={cn(
-				"inset-x-0 z-50 mb-2 w-auto overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-xl",
+				"inset-x-0 z-50 mb-2 w-auto overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-xl",
 				className,
 			)}
 		>
