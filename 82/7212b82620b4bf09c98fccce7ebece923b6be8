@@ -1,0 +1,25 @@
+web/app/src/components/chat/transcript/message-turns.tsx
+  s_0c82f824885bf2::t_a90b517e41ac44 180-189
+pnpm-workspace.yaml
+  s_0c82f824885bf2::t_e89bedd3c43aba 9-16,20-21
+web/app/src/components/layout/use-right-panel-context-value.ts
+  s_0c82f824885bf2::t_68ac7eaf7771b1 211
+.changeset/simplify-web-layers.md
+  s_0c82f824885bf2::t_92a2d5a8536c37 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "827212b82620b4bf09c98fccce7ebece923b6be8",
+  "prompts": {},
+  "sessions": {
+    "s_0c82f824885bf2": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "40839486-1c60-496c-8c3e-10303ac2cbdc",
+        "model": "custom:Deepseek-V4.1-Flash-1017---Command-0"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
