@@ -1,7 +1,4 @@
-// Schemas are defined per-domain under ./schemas. `schemas/shared` registers
-// the zod-to-openapi `.openapi()` extension on the shared zod instance before
-// any other fragment module is evaluated, so these re-exports are safe. The
-// patched `z` helper is intentionally not re-exported (it is internal).
+// Schemas are defined per-domain under ./schemas and re-exported here.
 
 export {
 	ProjectCreateRequestSchema,

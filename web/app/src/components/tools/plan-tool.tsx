@@ -1,6 +1,7 @@
 import { ChevronsDown, ChevronsUp, FileText, Loader2 } from "lucide-react";
 import { memo, useState } from "react";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
+import { usePlanDecision } from "@/components/chat/plans/use-pi-chat-plan-decisions";
 import { areToolPropsEqual, getToolStatus } from "@/components/tools/utils/format-tool";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,7 @@ function getPlanFileName(plan: Plan) {
 
 export const PlanTool = memo(function PlanTool({ part, chatStatus }: PlanToolProps) {
 	const { isPending } = getToolStatus(part, chatStatus);
+	const submitPlanDecision = usePlanDecision();
 	const plan = part.input?.plan;
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [isApproved, setIsApproved] = useState(false);
@@ -56,6 +58,30 @@ export const PlanTool = memo(function PlanTool({ part, chatStatus }: PlanToolPro
 	const [refineText, setRefineText] = useState("");
 
 	if (!plan) return null;
+
+	const toolCallId = part.toolCallId;
+	const onExecute =
+		part.input?.onExecute ??
+		(submitPlanDecision && toolCallId
+			? () => submitPlanDecision({ toolCallId, answer: { kind: "single", selectedIds: ["execute"] } })
+			: undefined);
+	const onStay =
+		part.input?.onStay ??
+		(submitPlanDecision && toolCallId
+			? () => submitPlanDecision({ toolCallId, answer: { kind: "single", selectedIds: ["stay"] } })
+			: undefined);
+	const onRefine =
+		part.input?.onRefine ??
+		(submitPlanDecision && toolCallId
+			? (instructions?: string) =>
+					submitPlanDecision({
+						toolCallId,
+						answer:
+							instructions && instructions.trim().length > 0
+								? { kind: "text", text: instructions.trim() }
+								: { kind: "single", selectedIds: ["refine"] },
+					})
+			: undefined);
 
 	const fileName = getPlanFileName(plan);
 	const summary = plan.summary?.trim() ?? "";
@@ -177,7 +203,7 @@ export const PlanTool = memo(function PlanTool({ part, chatStatus }: PlanToolPro
 						<div className="flex flex-wrap gap-2">
 							<button
 								type="button"
-								onClick={() => runAction("execute", part.input?.onExecute)}
+								onClick={() => runAction("execute", onExecute)}
 								disabled={Boolean(isActing)}
 								className="h-7 rounded-[6px] bg-primary px-2.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
 							>
@@ -185,7 +211,7 @@ export const PlanTool = memo(function PlanTool({ part, chatStatus }: PlanToolPro
 							</button>
 							<button
 								type="button"
-								onClick={() => runAction("stay", part.input?.onStay)}
+								onClick={() => runAction("stay", onStay)}
 								disabled={Boolean(isActing)}
 								className="h-7 rounded-[6px] border border-border px-2.5 text-xs text-foreground disabled:opacity-60"
 							>
@@ -224,7 +250,7 @@ export const PlanTool = memo(function PlanTool({ part, chatStatus }: PlanToolPro
 									</button>
 									<button
 										type="button"
-										onClick={() => runAction("refine", part.input?.onRefine, refineText)}
+										onClick={() => runAction("refine", onRefine, refineText)}
 										disabled={Boolean(isActing)}
 										className="h-7 rounded-[6px] bg-primary px-2.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
 									>

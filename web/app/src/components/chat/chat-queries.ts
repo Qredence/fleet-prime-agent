@@ -110,10 +110,11 @@ export function useWorkspaceTree(projectId?: ProjectId, options?: { enabled?: bo
 	});
 }
 
-export function useChatMcpConnections() {
+export function useChatMcpConnections(options?: { enabled?: boolean }) {
 	return useQuery({
 		queryKey: keys.mcp,
 		queryFn: () => chatClient.getMcpConnections(),
+		enabled: options?.enabled !== false,
 	});
 }
 
@@ -151,10 +152,11 @@ export function useMcpOAuth() {
 	});
 }
 
-export function useChatProviders() {
+export function useChatProviders(options?: { enabled?: boolean }) {
 	return useQuery({
 		queryKey: keys.providers,
 		queryFn: () => chatClient.getProviders(),
+		enabled: options?.enabled !== false,
 	});
 }
 

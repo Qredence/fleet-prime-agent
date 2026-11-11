@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useMemo } from "react";
 import { ChatPanel } from "@/components/chat/agent-chat";
 import { notifyChatError, runWorkspaceAction } from "@/components/chat/chat-error-notify";
 import { useChatInputBarProps } from "@/components/chat/composer/chat-input-bar-props";
+import { PlanDecisionContext } from "@/components/chat/plans/use-pi-chat-plan-decisions";
 import { useChatWorkspaceData } from "@/components/chat/use-chat-workspace-data";
 import { AnimatedSidebarInset, ChatApp } from "@/components/layout/animated-sidebar";
 import { ChatCommandPaletteOverlay, ChatWorkspaceOverlayDialogs } from "@/components/layout/chat-workspace-dialogs";
@@ -12,7 +13,6 @@ import { RightPanelProvider } from "@/components/layout/right-panel-context";
 import { RightPanelShell } from "@/components/layout/right-panel-shell";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
-import { decodeOpenPanelActionMessage } from "@/components/openui/open-panel-action-message";
 import { OpenUISessionContext } from "@/components/openui/openui-session-context";
 import { agentTabPanelId, agentTabTriggerId } from "@/components/sessions/agent-tab-bar";
 import { SessionSidebar } from "@/components/sessions/session-sidebar";
@@ -75,11 +75,6 @@ export function ChatWorkspaceShell() {
 	);
 	const handleOpenUIAction = useCallback(
 		(message: string) => {
-			const panelAction = decodeOpenPanelActionMessage(message);
-			if (panelAction) {
-				conversation.openPanelAction(panelAction);
-				return;
-			}
 			void conversation.sendMessage({ text: message, altKey: false, mode: composer.chatMode, openUI: true });
 		},
 		[conversation, composer],
@@ -227,46 +222,52 @@ export function ChatWorkspaceShell() {
 				settingsActions={panels.settingsActions}
 				workspaceTree={panels.workspaceTreeContext}
 			>
-				<ChatApp className="h-svh min-h-0 rounded-none border-0">
-					<SessionSidebar
-						data={sidebarData}
-						sessionActions={sessionActions}
-						projectActions={projectActions}
-						navigationActions={navigationActions}
-						slots={sidebarSlots}
-					/>
-					<AnimatedSidebarInset className="h-svh min-h-0 overflow-hidden">
-						<ChatWorkspaceLayout
-							headerLeft={chrome.header.left}
-							headerCenter={chrome.header.center}
-							headerRight={chrome.header.right}
-							panel={
-								<UiErrorBoundary>
-									<RightPanelShell
-										handleResourceCanvasResizeStart={panels.handleResourceCanvasResizeStart}
-										onClose={closeRightPanel}
-										onResourceCanvasWidthChange={panels.handleResourceCanvasWidthChange}
-										resourceCanvasWidth={panels.resourceCanvasWidth}
-									/>
-								</UiErrorBoundary>
-							}
-						>
-							<div
-								aria-labelledby={agentTabTriggerId(agentTabs.activeTabId)}
-								className="flex min-h-0 min-w-0 flex-1 flex-col"
-								data-testid="agent-tab-panel"
-								id={agentTabPanelId(agentTabs.activeTabId)}
-								role="tabpanel"
-							>
-								<OpenUISessionContext
-									value={{ sessionId: session.activeSessionId, projectId: session.activeProjectId }}
+				<PlanDecisionContext value={conversation.answerQuestion}>
+					<OpenUISessionContext
+						value={{
+							sessionId: session.activeSessionId,
+							projectId: session.activeProjectId,
+							onOpenPanelAction: conversation.openPanelAction,
+						}}
+					>
+						<ChatApp className="h-svh min-h-0 rounded-none border-0">
+							<SessionSidebar
+								data={sidebarData}
+								sessionActions={sessionActions}
+								projectActions={projectActions}
+								navigationActions={navigationActions}
+								slots={sidebarSlots}
+							/>
+							<AnimatedSidebarInset className="h-svh min-h-0 overflow-hidden">
+								<ChatWorkspaceLayout
+									headerLeft={chrome.header.left}
+									headerCenter={chrome.header.center}
+									headerRight={chrome.header.right}
+									panel={
+										<UiErrorBoundary>
+											<RightPanelShell
+												handleResourceCanvasResizeStart={panels.handleResourceCanvasResizeStart}
+												onClose={closeRightPanel}
+												onResourceCanvasWidthChange={panels.handleResourceCanvasWidthChange}
+												resourceCanvasWidth={panels.resourceCanvasWidth}
+											/>
+										</UiErrorBoundary>
+									}
 								>
-									{activeConversationPanel}
-								</OpenUISessionContext>
-							</div>
-						</ChatWorkspaceLayout>
-					</AnimatedSidebarInset>
-				</ChatApp>
+									<div
+										aria-labelledby={agentTabTriggerId(agentTabs.activeTabId)}
+										className="flex min-h-0 min-w-0 flex-1 flex-col"
+										data-testid="agent-tab-panel"
+										id={agentTabPanelId(agentTabs.activeTabId)}
+										role="tabpanel"
+									>
+										{activeConversationPanel}
+									</div>
+								</ChatWorkspaceLayout>
+							</AnimatedSidebarInset>
+						</ChatApp>
+					</OpenUISessionContext>
+				</PlanDecisionContext>
 				<ChatWorkspaceOverlayDialogs dialogs={dialogs} />
 			</RightPanelProvider>
 		</>

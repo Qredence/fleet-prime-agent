@@ -18,7 +18,6 @@ import { VirtualizedTurnList } from "@/components/chat/transcript/virtualized-tu
 import { SessionToolRenderer } from "@/components/tools/session-tool-renderer";
 import { SubagentList } from "@/components/tools/subagent-list";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
-import { normalizeAssistantToolParts } from "@/components/tools/utils/tool-part-normalizer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -53,20 +52,13 @@ function SubagentTurnView({
 	const assistantElements = useMemo(
 		() =>
 			turn.assistants.flatMap((message, index) =>
-				buildAssistantElements(
-					normalizeAssistantToolParts(
-						(message.parts ?? []).filter(
-							(part) => part.type !== "tool-FleetReasoning" && part.type !== "tool-Thinking",
-						),
-					),
-					{
-						messageId: message.id,
-						isLast: isLast && index === turn.assistants.length - 1,
-						isStreaming,
-						ToolRendererComponent: SessionToolRenderer,
-						TextRendererComponent: SessionGenerativeTextRenderer,
-					},
-				),
+				buildAssistantElements(message.parts ?? [], {
+					messageId: message.id,
+					isLast: isLast && index === turn.assistants.length - 1,
+					isStreaming,
+					ToolRendererComponent: SessionToolRenderer,
+					TextRendererComponent: SessionGenerativeTextRenderer,
+				}),
 			),
 		[isLast, isStreaming, turn.assistants],
 	);

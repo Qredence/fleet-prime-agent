@@ -6,19 +6,25 @@ packages:
 
 # 7 days in minutes (was the root .npmrc min-release-age=7).
 minimumReleaseAge: 10080
-# User-directed OpenUI upgrade on 2026-11-07. Dashboards need @openuidev/server
-# 0.4.0, which requires lang-core ^1.1.0, and @openuidev/dashboard-library has no
-# release older than 7 days (package created 2026-11-03). Publish dates:
-# lang-core 1.1.0 and react-lang 1.1.0 on 2026-11-04; server 0.4.0 and
-# react-components 0.0.2 on 2026-11-05; react-ui 0.18.5, react-headless 0.18.5,
-# and dashboard-library 0.0.2 on 2026-11-06. Exclusions name those releases.
-# Do not lower the global age, and do not exclude the package names outright.
+# User-directed OpenUI upgrade on 2026-11-10. The pinned releases are younger
+# than the 7-day minimumReleaseAge, which AGENTS.md allows only with a reviewed
+# reason. The reason for each: @openuidev/server 0.4.1 is the release the
+# dashboard builder targets, and it requires lang-core ^1.1.0;
+# @openuidev/dashboard-library has no release older than 7 days (package created
+# 2026-11-03); react-ui and react-headless 0.18.6 are the peers that server
+# 0.4.1 and dashboard-library 0.0.2 were published against, so holding them back
+# would pair a new renderer with the previous headless runtime. Publish dates:
+# lang-core 1.1.0 and react-lang 1.1.0 on 2026-11-04; react-components 0.0.2 on
+# 2026-11-05; dashboard-library 0.0.2 on 2026-11-06; server 0.4.1 on 2026-11-09;
+# react-ui 0.18.6 and react-headless 0.18.6 on 2026-11-10. Exclusions name those
+# exact releases. Do not lower the global age, and do not exclude the package
+# names outright.
 minimumReleaseAgeExclude:
   - '@openuidev/lang-core@1.1.0'
   - '@openuidev/react-lang@1.1.0'
-  - '@openuidev/react-ui@0.18.5'
-  - '@openuidev/react-headless@0.18.5'
-  - '@openuidev/server@0.4.0'
+  - '@openuidev/react-ui@0.18.6'
+  - '@openuidev/react-headless@0.18.6'
+  - '@openuidev/server@0.4.1'
   - '@openuidev/dashboard-library@0.0.2'
   - '@openuidev/react-components@0.0.2'
 managePackageManagerVersions: false

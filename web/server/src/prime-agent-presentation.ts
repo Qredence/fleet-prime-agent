@@ -141,3 +141,91 @@ export async function writeManagedPrimePresentation(
 		await rm(temporaryPath, { force: true }).catch(() => undefined);
 	}
 }
+
+export class PresentationPersistenceQueue {
+	readonly #writes = new Map<string, Promise<void>>();
+	readonly #pending = new Map<
+		string,
+		{ sessionPath: string; presentation: PrimeAgentSessionPresentation; generation: number }
+	>();
+	readonly #generations = new Map<string, number>();
+	readonly #warnings = new Set<string>();
+	readonly #writePresentation: typeof writeManagedPrimePresentation;
+	readonly #isCurrentSessionPath: (sessionId: string, sessionPath: string) => boolean;
+	readonly #onWriteWarning: (sessionId: string) => void;
+
+	constructor(options: {
+		writePresentation?: typeof writeManagedPrimePresentation;
+		isCurrentSessionPath: (sessionId: string, sessionPath: string) => boolean;
+		onWriteWarning: (sessionId: string) => void;
+	}) {
+		this.#writePresentation = options.writePresentation ?? writeManagedPrimePresentation;
+		this.#isCurrentSessionPath = options.isCurrentSessionPath;
+		this.#onWriteWarning = options.onWriteWarning;
+	}
+
+	persist(sessionId: string, sessionPath: string, presentation: PrimeAgentSessionPresentation): Promise<void> {
+		const generation = this.#generations.get(sessionId) ?? 0;
+		this.#pending.set(sessionId, { sessionPath, presentation, generation });
+		const existing = this.#writes.get(sessionId);
+		if (existing) return existing;
+
+		// The drain unregisters itself in the same tick it observes an empty
+		// pending slot. A persist that arrives after the loop returns therefore
+		// starts a new drain instead of receiving an already-settled promise and
+		// having its presentation silently dropped.
+		const registration: { drain?: Promise<void> } = {};
+		let finishedSynchronously = false;
+		const drain = (async () => {
+			while (true) {
+				const next = this.#pending.get(sessionId);
+				if (!next) {
+					const registered = registration.drain;
+					if (registered !== undefined && this.#writes.get(sessionId) === registered) {
+						this.#writes.delete(sessionId);
+					} else if (registered === undefined) {
+						finishedSynchronously = true;
+					}
+					return;
+				}
+				this.#pending.delete(sessionId);
+				if (
+					!this.#isCurrentSessionPath(sessionId, next.sessionPath) ||
+					(this.#generations.get(sessionId) ?? 0) !== next.generation
+				) {
+					continue;
+				}
+				try {
+					await this.#writePresentation({ sessionPath: next.sessionPath }, next.presentation);
+				} catch {
+					if (!this.#warnings.has(sessionId)) {
+						this.#warnings.add(sessionId);
+						this.#onWriteWarning(sessionId);
+					}
+				}
+			}
+		})();
+		registration.drain = drain;
+		if (!finishedSynchronously) this.#writes.set(sessionId, drain);
+		return drain;
+	}
+
+	async cancelAndDrain(sessionId: string): Promise<void> {
+		this.#generations.set(sessionId, (this.#generations.get(sessionId) ?? 0) + 1);
+		this.#pending.delete(sessionId);
+		const pendingWrite = this.#writes.get(sessionId);
+		await pendingWrite?.catch(() => undefined);
+		if (this.#writes.get(sessionId) === pendingWrite) {
+			this.#writes.delete(sessionId);
+		}
+		this.#generations.delete(sessionId);
+		this.#warnings.delete(sessionId);
+	}
+
+	clear(): void {
+		this.#writes.clear();
+		this.#pending.clear();
+		this.#generations.clear();
+		this.#warnings.clear();
+	}
+}

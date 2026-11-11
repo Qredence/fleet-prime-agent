@@ -38,7 +38,6 @@ import { CHAT_COLUMN_CLASS } from "@/components/layout/tokens";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
 import type { QueueLane } from "@/components/tools/message-queue";
-import { normalizeAssistantToolParts } from "@/components/tools/utils/tool-part-normalizer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useUiPreferences } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
@@ -308,27 +307,20 @@ function AssistantMessage({
 	const elements = useMemo(
 		() =>
 			deduplicateAgentMessagePayloads(messages).flatMap((message, index) =>
-				buildAssistantElements(
-					normalizeAssistantToolParts(
-						(message.parts ?? []).filter(
-							(part) => part.type !== "tool-FleetReasoning" && part.type !== "tool-Thinking",
-						),
-					),
-					{
-						messageId: message.id,
-						isLast: isLast && index === messages.length - 1,
-						isStreaming: turnStreaming,
-						suppressTextWhenPlanWrite: true,
-						ToolRendererComponent: SessionToolRenderer,
-						TextRendererComponent: SessionGenerativeTextRenderer,
-						toolRenderers,
-						onOpenUIAction,
-						onOpenUIArtifactReady,
-						onOpenArtifact,
-						artifactByToolCallId,
-						onOpenToolArtifact: onOpenArtifact,
-					},
-				),
+				buildAssistantElements(message.parts ?? [], {
+					messageId: message.id,
+					isLast: isLast && index === messages.length - 1,
+					isStreaming: turnStreaming,
+					suppressTextWhenPlanWrite: true,
+					ToolRendererComponent: SessionToolRenderer,
+					TextRendererComponent: SessionGenerativeTextRenderer,
+					toolRenderers,
+					onOpenUIAction,
+					onOpenUIArtifactReady,
+					onOpenArtifact,
+					artifactByToolCallId,
+					onOpenToolArtifact: onOpenArtifact,
+				}),
 			),
 		[
 			isLast,

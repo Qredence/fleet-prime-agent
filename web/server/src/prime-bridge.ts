@@ -31,22 +31,19 @@ import {
 	type OpenUIDashboardPrompt,
 	type OpenUIPromptMode,
 	type PrimeAgentArtifact,
-	type PrimeAgentRlmChild,
 	type PrimeAgentSessionPresentation,
 	type SessionTreeSnapshot,
 } from "@prime-agent/web-protocol";
-import type { AgentConnectionEvent, AgentSession, ExtensionUIContext } from "prime-agent";
+import type { AgentSession, ExtensionUIContext } from "prime-agent";
 import type { FleetAgentConnection } from "./agent-connection-port";
 import {
 	type BridgeSessionCache,
 	confineSessionExportPath,
 	createOpenUIPromptSessionState,
 	createWebUIContext,
-	effectiveRlmChildStatus,
 	emptyCache,
 	fallbackSessionPath,
 	findSessionTreeEntry,
-	hasSessionLineage,
 	initialPresentationForSession,
 	isSessionNotInActiveProjectError,
 	isSessionNotResumableError,
@@ -55,16 +52,11 @@ import {
 	presentationArtifactsEqual,
 	refreshCache,
 	resolveOpenUIPromptMode,
-	resolveRlmLineage,
-	rlmChildStatusOverride,
 	SessionExportPathError,
 	selectedTextFromSessionEntry,
 } from "./bridge-helpers";
-import { CoalescingRefreshQueue } from "./coalescing-refresh-queue";
-import type { DaemonSessionSummary as SessionSummary } from "./daemon-protocol";
 import {
 	createDaemonWebAgentConnection,
-	type DaemonChildPromptHandle,
 	deleteDaemonSavedSession,
 	listDaemonSessions,
 	readDaemonModelCatalog,
@@ -75,10 +67,8 @@ import {
 } from "./daemon-runtime";
 import { dashboardPromptContext } from "./dashboards/prompt-context";
 import {
-	applyRlmChildStatusOverrides,
 	createEventMapperState,
 	mapAgentConnectionEvent,
-	type RlmChildStatusOverride,
 	resyncAfterSequenceGap,
 	toChatMessagesFromAgentMessages,
 } from "./event-mapper";
@@ -94,18 +84,24 @@ import {
 	createEmptyPrimeAgentSessionPresentation,
 	deleteManagedPrimePresentationForSession,
 	loadManagedPrimePresentation,
+	PresentationPersistenceQueue,
 	upsertArtifact,
 	writeManagedPrimePresentation,
 } from "./prime-agent-presentation";
 import { getPrimeConfig } from "./prime-config";
 import { RingBuffer } from "./ring-buffer";
+import {
+	RlmChildStreamManager,
+	type RlmChildStream,
+	type RlmChildStreamResume,
+	type RlmChildTranscript,
+} from "./rlm-child-stream-manager";
 import { parseBackendSessionCommand } from "./session-commands";
-import { readSessionHeaderId } from "./session-header";
 import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./session-tree-errors";
 import { mapSessionTreeSnapshot } from "./session-tree-mapper";
 import { textFromChatParts } from "./transcript-hydrator";
 
-export { type OpenUIPromptSessionState, SessionExportPathError };
+export { type OpenUIPromptSessionState, type RlmChildStream, type RlmChildTranscript, SessionExportPathError };
 
 // ---------------------------------------------------------------------------
 // Bridge types
@@ -152,27 +148,6 @@ export interface ForkSessionResult {
 	newSessionId: string;
 }
 
-export interface RlmChildTranscript {
-	readonly sessionId: string;
-	readonly projectId: ProjectId | null;
-	readonly messages: Array<ChatMessage>;
-	readonly presentation: PrimeAgentSessionPresentation;
-}
-
-export interface RlmChildStream {
-	readonly sessionId: string;
-	readonly projectId: ProjectId | null;
-	readonly snapshot: Extract<ChatStreamEvent, { type: "session_snapshot" }>;
-	readonly channelId: string;
-	readonly streamGeneration: string;
-	readonly mode: "live" | "snapshot-only";
-	readonly resumeAccepted: boolean;
-	readonly cursorReset: boolean;
-	readonly replayFrom: number;
-	readonly includeSnapshot: boolean;
-	release(): Promise<void>;
-}
-
 export interface PrimeBridgeOptions {
 	readonly ringBufferCapacity?: number;
 	readonly dialogTimeoutMs?: number;
@@ -187,19 +162,6 @@ export interface PrimeBridgeOptions {
 	readonly childPromptStarter?: typeof startDaemonChildPrompt;
 }
 
-type AuthorizedRlmChild = {
-	parent: BridgeSession;
-	child: PrimeAgentRlmChild;
-	summary: SessionSummary;
-};
-
-type AgentConnectionSessionWatcher = NonNullable<Awaited<ReturnType<FleetAgentConnection["watchSession"]>>>;
-
-type RlmChildStreamResume = {
-	streamGeneration?: string;
-	lastEventId?: number;
-};
-
 export interface MainSessionStream {
 	readonly sessionId: string;
 	readonly streamGeneration: string;
@@ -207,29 +169,6 @@ export interface MainSessionStream {
 	readonly cursorReset: boolean;
 	readonly replayFrom: number;
 }
-
-type ManagedRlmChildStream = {
-	key: string;
-	parentSessionId: string;
-	childId: string;
-	streamSessionId: string;
-	canonicalSessionId: string;
-	channelId: string;
-	streamGeneration: string;
-	projectId: ProjectId | null;
-	child: PrimeAgentRlmChild;
-	summary: SessionSummary;
-	watcher: AgentConnectionSessionWatcher;
-	mapperState: ReturnType<typeof createEventMapperState>;
-	snapshot: Extract<ChatStreamEvent, { type: "session_snapshot" }>;
-	replayFrom: number;
-	refs: number;
-	closed: boolean;
-	buffering: boolean;
-	bufferedEvents: AgentConnectionEvent[];
-	removeWatcherListener: () => void;
-	refreshTail: Promise<void>;
-};
 
 // ---------------------------------------------------------------------------
 // PrimeBridge
@@ -259,31 +198,49 @@ export class PrimeBridge {
 	readonly #listeners = new Set<BridgeEventListener>();
 	#assistantDoneListener?: (sessionId: string, messageId: string, content: string) => void;
 	readonly #ringBuffers = new Map<string, RingBuffer>();
-	readonly #rlmChildStreams = new Map<string, ManagedRlmChildStream>();
-	readonly #rlmChildStreamInitializations = new Map<string, Promise<ManagedRlmChildStream | undefined>>();
-	readonly #rlmChildMetadataRefreshQueue = new CoalescingRefreshQueue();
+	readonly #rlmChildManager: RlmChildStreamManager;
 	readonly #dialogs: PendingDialogRegistry;
 	readonly #ringBufferCapacity: number;
-	readonly #presentationWrites = new Map<string, Promise<void>>();
-	readonly #presentationGenerations = new Map<string, number>();
-	readonly #writePresentation: typeof writeManagedPrimePresentation;
+	readonly #presentationQueue: PresentationPersistenceQueue;
 	readonly #connectionFactory: WebAgentConnectionFactory;
 	readonly #sessionLister: typeof listDaemonSessions;
 	readonly #sessionFileDeleter: typeof deleteDaemonSavedSession;
-	readonly #childPromptStarter: typeof startDaemonChildPrompt;
-	readonly #childPrompts = new Map<string, Set<DaemonChildPromptHandle>>();
 	readonly #caches = new Map<string, BridgeSessionCache>();
 	readonly #sessionTreeNavigationQueues = new Map<string, Promise<void>>();
 	readonly #openUIPromptTransitions = new Map<string, Promise<void>>();
-	readonly #auxiliaryWarnings = new Set<string>();
 
 	constructor(options: PrimeBridgeOptions = {}) {
 		this.#ringBufferCapacity = options.ringBufferCapacity ?? 500;
-		this.#writePresentation = options.writePresentation ?? writeManagedPrimePresentation;
 		this.#connectionFactory = options.connectionFactory ?? createDaemonWebAgentConnection;
 		this.#sessionLister = options.sessionLister ?? listDaemonSessions;
 		this.#sessionFileDeleter = options.sessionFileDeleter ?? deleteDaemonSavedSession;
-		this.#childPromptStarter = options.childPromptStarter ?? startDaemonChildPrompt;
+		this.#presentationQueue = new PresentationPersistenceQueue({
+			writePresentation: options.writePresentation,
+			isCurrentSessionPath: (sessionId, sessionPath) => this.#sessions.get(sessionId)?.sessionPath === sessionPath,
+			onWriteWarning: (sessionId) => {
+				this.#dispatch(sessionId, {
+					type: "state",
+					state: {
+						name: "agent_start",
+						message:
+							"Some Fleet session details could not be saved. Your transcript is safe; they will be retried later.",
+					},
+				});
+			},
+		});
+		this.#rlmChildManager = new RlmChildStreamManager({
+			getSession: (sessionId) => this.#sessions.get(sessionId),
+			sessionLister: this.#sessionLister,
+			childPromptStarter: options.childPromptStarter ?? startDaemonChildPrompt,
+			ringBufferFor: (channelId) => this.#ringBufferFor(channelId),
+			deleteRingBuffer: (channelId) => {
+				this.#ringBuffers.delete(channelId);
+			},
+			dispatch: (channelId, frame) => this.#dispatch(channelId, frame),
+			persistPresentation: (sessionId, sessionPath, presentation) => {
+				void this.#presentationQueue.persist(sessionId, sessionPath, presentation);
+			},
+		});
 		this.#dialogs = new PendingDialogRegistry({
 			defaultTimeoutMs: options.dialogTimeoutMs ?? 60_000,
 			emitFrame: (sessionId, frame) => this.#dispatch(sessionId, frame),
@@ -361,14 +318,7 @@ export class PrimeBridge {
 
 	/** Test-only: reset state. */
 	resetForTests(): void {
-		for (const stream of this.#rlmChildStreams.values()) {
-			stream.closed = true;
-			stream.removeWatcherListener();
-			void stream.watcher.close().catch(() => undefined);
-		}
-		this.#rlmChildStreams.clear();
-		this.#rlmChildStreamInitializations.clear();
-		this.#rlmChildMetadataRefreshQueue.clear();
+		this.#rlmChildManager.resetForTests();
 		for (const session of this.#sessions.values()) {
 			session.unsubscribe();
 			void session.connection.dispose().catch(() => undefined);
@@ -377,12 +327,10 @@ export class PrimeBridge {
 		this.#listeners.clear();
 		this.#assistantDoneListener = undefined;
 		this.#ringBuffers.clear();
-		this.#presentationWrites.clear();
-		this.#presentationGenerations.clear();
+		this.#presentationQueue.clear();
 		this.#caches.clear();
 		this.#sessionTreeNavigationQueues.clear();
 		this.#openUIPromptTransitions.clear();
-		this.#auxiliaryWarnings.clear();
 	}
 
 	// -----------------------------------------------------------------------
@@ -461,7 +409,9 @@ export class PrimeBridge {
 
 		const emitFrames = (frames: readonly ChatStreamEvent[]): void => {
 			for (const frame of frames) {
-				if (frame.type === "presentation") this.#persistPresentation(sessionId, sessionPath, frame.presentation);
+				if (frame.type === "presentation") {
+					void this.#presentationQueue.persist(sessionId, sessionPath, frame.presentation);
+				}
 				this.#dispatch(sessionId, frame);
 			}
 		};
@@ -527,7 +477,7 @@ export class PrimeBridge {
 				event.type === "session_resynced" ||
 				(event.type === "session_event" && event.event.type === "rlm_child_update")
 			) {
-				this.#queueRlmChildMetadataRefresh(sessionId);
+				this.#rlmChildManager.queueMetadataRefresh(sessionId);
 			}
 		});
 
@@ -556,7 +506,7 @@ export class PrimeBridge {
 					if (gapSubscriptionClosed) return;
 					emitFrames(resyncAfterSequenceGap(mapperState, snapshot));
 					refreshCacheAfterRebuild();
-					this.#queueRlmChildMetadataRefresh(sessionId);
+					this.#rlmChildManager.queueMetadataRefresh(sessionId);
 				} while (resyncPending && !gapSubscriptionClosed);
 			} finally {
 				resyncInFlight = false;
@@ -592,46 +542,8 @@ export class PrimeBridge {
 
 		this.#sessions.set(sessionId, bridgeSession);
 		this.#ringBufferFor(sessionId); // Pre-create so SSE attaches safely.
-		this.#persistPresentation(sessionId, sessionPath, mapperState.presentation);
+		void this.#presentationQueue.persist(sessionId, sessionPath, mapperState.presentation);
 		return bridgeSession;
-	}
-
-	#persistPresentation(
-		sessionId: string,
-		sessionPath: string,
-		presentation: PrimeAgentSessionPresentation,
-	): Promise<void> {
-		const generation = this.#presentationGenerations.get(sessionId) ?? 0;
-		const previous = this.#presentationWrites.get(sessionId) ?? Promise.resolve();
-		const next = previous
-			.catch(() => undefined)
-			.then(() => {
-				const live = this.#sessions.get(sessionId);
-				if (
-					live?.sessionPath !== sessionPath ||
-					(this.#presentationGenerations.get(sessionId) ?? 0) !== generation
-				) {
-					return;
-				}
-				return this.#writePresentation({ sessionPath }, presentation);
-			})
-			.catch(() => {
-				if (this.#auxiliaryWarnings.has(sessionId)) return;
-				this.#auxiliaryWarnings.add(sessionId);
-				this.#dispatch(sessionId, {
-					type: "state",
-					state: {
-						name: "agent_start",
-						message:
-							"Some Fleet session details could not be saved. Your transcript is safe; they will be retried later.",
-					},
-				});
-			});
-		this.#presentationWrites.set(sessionId, next);
-		void next.finally(() => {
-			if (this.#presentationWrites.get(sessionId) === next) this.#presentationWrites.delete(sessionId);
-		});
-		return next;
 	}
 
 	/** Hot-lookup by id; reuse the live session if we already have one loaded. */
@@ -718,393 +630,6 @@ export class PrimeBridge {
 		return this.#sessionLister(cwd);
 	}
 
-	async #findAuthorizedRlmChild(parentSessionId: string, childId: string): Promise<AuthorizedRlmChild | undefined> {
-		const parent = this.#sessions.get(parentSessionId);
-		const child = parent?.mapperState.presentation.rlmChildren.find((entry) => entry.id === childId);
-		if (!parent || !child) return undefined;
-
-		const sessions = await this.#sessionLister();
-		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await resolveRlmLineage(
-			sessions,
-			parentSessionId,
-			parent.sessionPath,
-		);
-		const summary = sessions.find(
-			(candidate) =>
-				candidate.rlmChildId === childId &&
-				hasSessionLineage(candidate, rootIdentifiers, rootPaths, sessionsByIdentifier, sessionsByPath),
-		);
-		return summary ? { parent, child, summary } : undefined;
-	}
-
-	/**
-	 * Fleet's persistent session id for an RLM child: the stable key across
-	 * daemon `session_binding` re-points (which only change `activeSessionId`).
-	 * Daemon runtime ids are never returned: the summary's `id` *is* the
-	 * runtime id for active sessions (v0.9.8 summaryForActiveSession and the
-	 * Rust list), so it only counts when it differs from every known runtime id.
-	 * Order: summary.sessionId, the session file header, then summary.id.
-	 * Returns undefined (caller skips the stream / rejects the prompt and logs)
-	 * when nothing persistent is resolvable.
-	 */
-	async #persistentRlmChildSessionId(
-		{ child, summary }: AuthorizedRlmChild,
-		...knownRuntimeIds: readonly (string | undefined)[]
-	): Promise<string | undefined> {
-		const nonEmpty = (value: unknown): value is string => typeof value === "string" && value.length > 0;
-		const declaredRuntimeIds = new Set([summary.activeSessionId, child.activeSessionId].filter(nonEmpty));
-		// The daemon's own sessionId field is authoritative unless it is a declared
-		// runtime id. The id we happened to watch through (which may be the
-		// persistent id on runtimes that accept it) is only excluded below.
-		if (nonEmpty(summary.sessionId) && !declaredRuntimeIds.has(summary.sessionId)) return summary.sessionId;
-		const runtimeIds = new Set([...declaredRuntimeIds, ...knownRuntimeIds.filter(nonEmpty)]);
-		const persistent = (value: unknown): value is string => nonEmpty(value) && !runtimeIds.has(value);
-		if (summary.sessionFile) {
-			// Read-only header read: SessionManager.openAsync may repair or rewrite the file.
-			const fromFile = await readSessionHeaderId(summary.sessionFile);
-			if (persistent(fromFile)) return fromFile;
-		}
-		if (persistent(summary.id)) return summary.id;
-		process.stderr.write(
-			`[bridge] RLM child ${child.id}: no persistent session id in the daemon summary; not keying it by the runtime id\n`,
-		);
-		return undefined;
-	}
-
-	#queueRlmChildMetadataRefresh(rootSessionId: string): void {
-		this.#rlmChildMetadataRefreshQueue.request(rootSessionId, () => this.#refreshRlmChildMetadata(rootSessionId));
-	}
-
-	async #refreshRlmChildMetadata(rootSessionId: string): Promise<void> {
-		const parent = this.#sessions.get(rootSessionId);
-		if (!parent) return;
-		let sessions: SessionSummary[];
-		try {
-			sessions = await this.#sessionLister();
-		} catch {
-			for (const child of parent.mapperState.presentation.rlmChildren) {
-				parent.mapperState.rlmChildOverrides.delete(child.id);
-			}
-			for (const frame of applyRlmChildStatusOverrides(parent.mapperState, new Map())) {
-				this.#dispatch(rootSessionId, frame);
-			}
-			return;
-		}
-
-		const { sessionsByIdentifier, sessionsByPath, rootIdentifiers, rootPaths } = await resolveRlmLineage(
-			sessions,
-			rootSessionId,
-			parent.sessionPath,
-		);
-
-		const overrides = new Map<string, RlmChildStatusOverride>();
-		for (const child of parent.mapperState.presentation.rlmChildren) {
-			const summary = sessions.find(
-				(candidate) =>
-					candidate.rlmChildId === child.id &&
-					hasSessionLineage(candidate, rootIdentifiers, rootPaths, sessionsByIdentifier, sessionsByPath),
-			);
-			if (summary) overrides.set(child.id, rlmChildStatusOverride(summary));
-			else parent.mapperState.rlmChildOverrides.delete(child.id);
-		}
-		const frames = applyRlmChildStatusOverrides(parent.mapperState, overrides);
-		for (const frame of frames) {
-			if (frame.type === "presentation") {
-				this.#persistPresentation(rootSessionId, parent.sessionPath, frame.presentation);
-			}
-			this.#dispatch(rootSessionId, frame);
-		}
-	}
-
-	#childStreamStatus(
-		child: PrimeAgentRlmChild,
-		summary?: SessionSummary,
-	): Extract<ChatStreamEvent, { type: "session_snapshot" }>["status"] {
-		const status = summary ? effectiveRlmChildStatus(child, summary) : child.status;
-		if (status === "error" || status === "failed") return "error";
-		if (status === "running" || status === "recovering") return "streaming";
-		return "ready";
-	}
-
-	async #closeRlmChildStream(stream: ManagedRlmChildStream): Promise<void> {
-		if (stream.closed) return;
-		stream.closed = true;
-		if (this.#rlmChildStreams.get(stream.key) === stream) this.#rlmChildStreams.delete(stream.key);
-		stream.buffering = false;
-		stream.bufferedEvents.length = 0;
-		stream.removeWatcherListener();
-		await stream.watcher.close().catch(() => undefined);
-		this.#ringBuffers.delete(stream.channelId);
-	}
-
-	async #publicRlmChildStream(stream: ManagedRlmChildStream, resume?: RlmChildStreamResume): Promise<RlmChildStream> {
-		const requestedCursor = resume?.lastEventId && resume.lastEventId > 0 ? resume.lastEventId : 0;
-		const generationMatches = resume?.streamGeneration === stream.streamGeneration;
-		const buffer = this.#ringBufferFor(stream.channelId);
-		const latest = buffer.latestSequence();
-		const cursorOverflowed =
-			generationMatches && requestedCursor > 0 ? buffer.replaySince(requestedCursor).overflowed : false;
-		const cursorInRange = requestedCursor === 0 || requestedCursor <= latest;
-		const canResume = generationMatches && requestedCursor > 0 && cursorInRange && !cursorOverflowed;
-
-		if (!canResume && !stream.snapshot.terminal && (resume?.streamGeneration !== undefined || requestedCursor > 0)) {
-			await this.#refreshRlmChildSnapshot(stream);
-		}
-
-		const refreshedLatest = buffer.latestSequence();
-		const includeSnapshot = !canResume || stream.snapshot.terminal === true;
-		const cursorReset = (resume?.streamGeneration !== undefined || requestedCursor > 0) && !canResume;
-		const replayFrom = canResume ? requestedCursor : stream.snapshot.terminal ? refreshedLatest : stream.replayFrom;
-
-		let released = false;
-		return {
-			// Fleet's persistent id, never the daemon runtime id (streamSessionId).
-			sessionId: stream.canonicalSessionId,
-			projectId: stream.projectId,
-			snapshot: stream.snapshot,
-			channelId: stream.channelId,
-			streamGeneration: stream.streamGeneration,
-			mode: "live",
-			resumeAccepted: canResume,
-			cursorReset,
-			replayFrom,
-			includeSnapshot,
-			release: async () => {
-				if (released) return;
-				released = true;
-				stream.refs = Math.max(0, stream.refs - 1);
-				if (stream.refs === 0) await this.#closeRlmChildStream(stream);
-			},
-		};
-	}
-
-	async #refreshRlmChildSnapshot(stream: ManagedRlmChildStream): Promise<void> {
-		if (stream.closed) return;
-		stream.buffering = true;
-		const previous = stream.refreshTail;
-		const next = previous
-			.catch(() => undefined)
-			.then(async () => {
-				if (stream.closed) return;
-				const messages = toChatMessagesFromAgentMessages(
-					await stream.watcher.getMessages(),
-					stream.canonicalSessionId,
-				);
-				if (stream.closed) return;
-				stream.snapshot = {
-					...stream.snapshot,
-					messages,
-					presentation: stream.mapperState.presentation,
-				};
-				this.#dispatch(stream.channelId, stream.snapshot);
-				stream.replayFrom = this.#ringBufferFor(stream.channelId).latestSequence();
-			});
-		const tracked = next.catch(() => undefined);
-		stream.refreshTail = tracked;
-		await tracked;
-		if (stream.refreshTail === tracked) {
-			stream.buffering = false;
-			for (const event of stream.bufferedEvents.splice(0)) this.#handleRlmChildEvent(stream, event);
-		}
-	}
-
-	#queueRlmChildSnapshot(stream: ManagedRlmChildStream): void {
-		void this.#refreshRlmChildSnapshot(stream);
-	}
-
-	#handleRlmChildEvent(stream: ManagedRlmChildStream, event: AgentConnectionEvent): void {
-		if (stream.closed) return;
-		if (event.type === "session_event") {
-			if (event.event.type === "agent_start" || event.event.type === "turn_start") {
-				stream.snapshot = { ...stream.snapshot, status: "streaming", terminal: false };
-			}
-			if (event.event.type === "agent_end" || event.event.type === "turn_end") {
-				stream.snapshot = { ...stream.snapshot, status: "ready" };
-			}
-		}
-		if (event.type === "closed") {
-			stream.snapshot = {
-				...stream.snapshot,
-				status: event.error ? "error" : "ready",
-				terminal: true,
-			};
-		}
-		const frames = mapAgentConnectionEvent(stream.mapperState, event);
-		for (const frame of frames) {
-			if (frame.type === "error") stream.snapshot = { ...stream.snapshot, status: "error" };
-			this.#dispatch(stream.channelId, frame);
-		}
-		if (event.type === "session_event" && event.event.type === "rlm_child_update") {
-			this.#queueRlmChildMetadataRefresh(stream.parentSessionId);
-		}
-		if (
-			event.type === "session_replaced" ||
-			event.type === "session_resynced" ||
-			event.type === "closed" ||
-			(event.type === "session_event" && (event.event.type === "agent_end" || event.event.type === "turn_end"))
-		) {
-			this.#queueRlmChildSnapshot(stream);
-		}
-	}
-
-	async #loadAuthorizedRlmChildTranscript(authorized: AuthorizedRlmChild): Promise<RlmChildTranscript | undefined> {
-		const { summary: childSummary } = authorized;
-		if (!childSummary.sessionFile) return undefined;
-		const snapshot = await readLegacySession(childSummary.sessionFile);
-		if (!snapshot) return undefined;
-		const sessionId = snapshot.sessionId;
-		if (sessionId !== childSummary.sessionId && sessionId !== childSummary.id) return undefined;
-
-		const agentMessages = snapshot.messages();
-		const messages = toChatMessagesFromAgentMessages(agentMessages, sessionId);
-		const persistedPresentation = await loadManagedPrimePresentation({ sessionPath: childSummary.sessionFile });
-		const presentation = initialPresentationForSession(
-			agentMessages,
-			undefined,
-			undefined,
-			undefined,
-			undefined,
-			sessionId,
-			persistedPresentation,
-		);
-		const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(sessionId, snapshot.cwd);
-
-		return { sessionId, projectId, messages, presentation };
-	}
-
-	async #snapshotOnlyRlmChildStream(
-		authorized: AuthorizedRlmChild,
-		resume?: RlmChildStreamResume,
-	): Promise<RlmChildStream | undefined> {
-		const transcript = await this.#loadAuthorizedRlmChildTranscript(authorized).catch(() => undefined);
-		if (!transcript) return undefined;
-		const streamGeneration = crypto.randomUUID();
-		const snapshot: Extract<ChatStreamEvent, { type: "session_snapshot" }> = {
-			type: "session_snapshot",
-			session: { sessionId: transcript.sessionId, projectId: transcript.projectId },
-			messages: transcript.messages,
-			presentation: transcript.presentation,
-			status: this.#childStreamStatus(authorized.child, authorized.summary),
-			terminal: true,
-		};
-		return {
-			sessionId: transcript.sessionId,
-			projectId: transcript.projectId,
-			snapshot,
-			channelId: `snapshot:${authorized.parent.sessionId}:${authorized.child.id}:${streamGeneration}`,
-			streamGeneration,
-			mode: "snapshot-only",
-			resumeAccepted: false,
-			cursorReset: resume?.streamGeneration !== undefined || (resume?.lastEventId ?? 0) > 0,
-			replayFrom: 0,
-			includeSnapshot: true,
-			release: async () => undefined,
-		};
-	}
-
-	async #initializeRlmChildStream(authorized: AuthorizedRlmChild): Promise<ManagedRlmChildStream | undefined> {
-		const { child, summary, parent } = authorized;
-		const runtimeIds = [
-			summary.activeSessionId,
-			child.activeSessionId,
-			summary.sessionId,
-			summary.id,
-			child.id,
-		].filter((value): value is string => typeof value === "string" && value.length > 0);
-		let watcher: AgentConnectionSessionWatcher | undefined;
-		let streamSessionId: string | undefined;
-		for (const runtimeId of [...new Set(runtimeIds)]) {
-			try {
-				watcher = await parent.connection.watchSession(runtimeId);
-			} catch {
-				watcher = undefined;
-			}
-			if (watcher) {
-				streamSessionId = runtimeId;
-				break;
-			}
-		}
-		if (!watcher || !streamSessionId) return undefined;
-
-		const pendingEvents: AgentConnectionEvent[] = [];
-		let buffering = true;
-		let removeWatcherListener: () => void = () => undefined;
-		try {
-			removeWatcherListener = watcher.subscribe((event) => {
-				if (buffering) pendingEvents.push(event);
-				else {
-					const stream = this.#rlmChildStreams.get(`${parent.sessionId}:${child.id}`);
-					if (!stream) return;
-					if (stream.buffering) stream.bufferedEvents.push(event);
-					else this.#handleRlmChildEvent(stream, event);
-				}
-			});
-
-			const canonicalSessionId = await this.#persistentRlmChildSessionId(authorized, streamSessionId);
-			if (!canonicalSessionId) throw new Error("no persistent session id");
-			const agentMessages = await watcher.getMessages();
-			const persistedPresentation = summary.sessionFile
-				? await loadManagedPrimePresentation({ sessionPath: summary.sessionFile })
-				: undefined;
-			const override = rlmChildStatusOverride(summary);
-			const presentation = initialPresentationForSession(
-				agentMessages,
-				summary.sessionName ?? child.sessionName ?? child.label,
-				summary.thinkingLevel as ChatThinkingLevel | undefined,
-				undefined,
-				child.recap ?? summary.summary,
-				canonicalSessionId,
-				persistedPresentation,
-			);
-			const mapperState = createEventMapperState({
-				sessionId: canonicalSessionId,
-				presentation,
-				rlmChildOverrides: new Map([[child.id, override]]),
-			});
-			const projectId = await getPrimeConfig().projectRegistry.projectIdForSession(canonicalSessionId, summary.cwd);
-			const channelId = `child:${parent.sessionId}:${child.id}:${crypto.randomUUID()}`;
-			const streamGeneration = this.#ringBufferFor(channelId).streamGeneration;
-			const stream: ManagedRlmChildStream = {
-				key: `${parent.sessionId}:${child.id}`,
-				parentSessionId: parent.sessionId,
-				childId: child.id,
-				streamSessionId,
-				canonicalSessionId,
-				channelId,
-				streamGeneration,
-				projectId,
-				child,
-				summary,
-				watcher,
-				mapperState,
-				snapshot: {
-					type: "session_snapshot",
-					session: { sessionId: canonicalSessionId, projectId },
-					messages: toChatMessagesFromAgentMessages(agentMessages, canonicalSessionId),
-					presentation,
-					status: this.#childStreamStatus(child, summary),
-				},
-				replayFrom: 0,
-				refs: 1,
-				closed: false,
-				buffering: false,
-				bufferedEvents: [],
-				removeWatcherListener,
-				refreshTail: Promise.resolve(),
-			};
-			this.#rlmChildStreams.set(stream.key, stream);
-			this.#ringBufferFor(stream.channelId);
-			buffering = false;
-			for (const event of pendingEvents.splice(0)) this.#handleRlmChildEvent(stream, event);
-			return stream;
-		} catch {
-			buffering = false;
-			removeWatcherListener();
-			await watcher.close().catch(() => undefined);
-			return undefined;
-		}
-	}
-
 	/**
 	 * Open a read-only stream for an authorized RLM child. Completed and cold
 	 * children use a one-shot snapshot and never resume a runtime session.
@@ -1114,37 +639,7 @@ export class PrimeBridge {
 		childId: string,
 		resume?: RlmChildStreamResume,
 	): Promise<RlmChildStream | undefined> {
-		const authorized = await this.#findAuthorizedRlmChild(parentSessionId, childId);
-		if (!authorized) return undefined;
-		const key = `${parentSessionId}:${childId}`;
-		const existing = this.#rlmChildStreams.get(key);
-		if (existing) {
-			existing.refs += 1;
-			return this.#publicRlmChildStream(existing, resume);
-		}
-
-		const status = effectiveRlmChildStatus(authorized.child, authorized.summary);
-		if (status !== "running" && status !== "recovering") return this.#snapshotOnlyRlmChildStream(authorized, resume);
-
-		const pending = this.#rlmChildStreamInitializations.get(key);
-		if (pending) {
-			const stream = await pending;
-			if (!stream) return undefined;
-			stream.refs += 1;
-			return this.#publicRlmChildStream(stream, resume);
-		}
-
-		const initialization = this.#initializeRlmChildStream(authorized);
-		this.#rlmChildStreamInitializations.set(key, initialization);
-		try {
-			const stream = await initialization;
-			if (!stream) return undefined;
-			return this.#publicRlmChildStream(stream, resume);
-		} finally {
-			if (this.#rlmChildStreamInitializations.get(key) === initialization) {
-				this.#rlmChildStreamInitializations.delete(key);
-			}
-		}
+		return this.#rlmChildManager.openStream(parentSessionId, childId, resume);
 	}
 
 	/**
@@ -1156,8 +651,7 @@ export class PrimeBridge {
 	 * supplied filesystem path.
 	 */
 	async loadRlmChildTranscript(parentSessionId: string, childId: string): Promise<RlmChildTranscript | undefined> {
-		const authorized = await this.#findAuthorizedRlmChild(parentSessionId, childId);
-		return authorized ? this.#loadAuthorizedRlmChildTranscript(authorized) : undefined;
+		return this.#rlmChildManager.loadTranscript(parentSessionId, childId);
 	}
 
 	async deleteSession(sessionId: string): Promise<boolean> {
@@ -1185,21 +679,9 @@ export class PrimeBridge {
 			}
 		}
 		const sessionPath = existing.sessionPath;
-		this.#presentationGenerations.set(
-			existing.sessionId,
-			(this.#presentationGenerations.get(existing.sessionId) ?? 0) + 1,
-		);
-		const pendingPresentationWrite = this.#presentationWrites.get(existing.sessionId);
-		await pendingPresentationWrite?.catch(() => undefined);
-		if (this.#presentationWrites.get(existing.sessionId) === pendingPresentationWrite) {
-			this.#presentationWrites.delete(existing.sessionId);
-		}
+		await this.#presentationQueue.cancelAndDrain(existing.sessionId);
 		this.#dialogs.cancelAll(existing.sessionId, "server-shutdown");
-		for (const childStream of [...this.#rlmChildStreams.values()]) {
-			if (childStream.parentSessionId !== existing.sessionId) continue;
-			childStream.refs = 0;
-			await this.#closeRlmChildStream(childStream);
-		}
+		await this.#rlmChildManager.closeStreamsForParent(existing.sessionId);
 		existing.unsubscribe();
 		await existing.connection.abort().catch(() => undefined);
 		await this.#openUIPromptTransitions.get(existing.sessionId)?.catch(() => undefined);
@@ -1214,8 +696,6 @@ export class PrimeBridge {
 			this.#ringBuffers.delete(existing.sessionId);
 			this.#caches.delete(existing.sessionId);
 			this.#openUIPromptTransitions.delete(existing.sessionId);
-			this.#presentationGenerations.delete(existing.sessionId);
-			this.#auxiliaryWarnings.delete(existing.sessionId);
 		}
 		await deleteManagedAttachmentsForSession(existing.sessionId, sessionPath);
 		await deleteManagedPlanPresentationsForSession(existing.sessionId, sessionPath);
@@ -1237,7 +717,6 @@ export class PrimeBridge {
 			mode?: ChatMode;
 			openUI?: boolean;
 			openUIArtifact?: boolean;
-			openUISyntaxVersion?: "0.x" | "1.x";
 			planAction?: ChatPlanAction;
 		},
 	): Promise<void> {
@@ -1249,7 +728,6 @@ export class PrimeBridge {
 		const dashboards = await dashboardPromptContext(this.getPresentation(session.sessionId));
 		const openUIPromptOptions = {
 			artifact: openUIArtifact,
-			syntaxVersion: options?.openUISyntaxVersion,
 			dashboards,
 		};
 		const openUIStateChanged =
@@ -1271,14 +749,7 @@ export class PrimeBridge {
 			// Preserve the idle ordering: commit the prompt state before admitting
 			// the next prompt. The transition queue also waits for an earlier active
 			// prompt's safe-boundary reconfiguration.
-			await this.#scheduleOpenUIPromptState(
-				session,
-				openUIEnabled,
-				openUIMode,
-				openUIArtifact,
-				options?.openUISyntaxVersion,
-				dashboards,
-			);
+			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact, dashboards);
 		}
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			void (async () => {
@@ -1307,14 +778,7 @@ export class PrimeBridge {
 			promptError = error;
 		}
 		if (wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
-			await this.#scheduleOpenUIPromptState(
-				session,
-				openUIEnabled,
-				openUIMode,
-				openUIArtifact,
-				options?.openUISyntaxVersion,
-				dashboards,
-			);
+			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact, dashboards);
 		}
 		if (promptFailed) throw promptError;
 	}
@@ -1324,13 +788,12 @@ export class PrimeBridge {
 		enabled: boolean,
 		mode: OpenUIPromptMode,
 		artifact: boolean,
-		syntaxVersion?: "0.x" | "1.x",
 		dashboards?: OpenUIDashboardPrompt,
 	): Promise<void> {
 		const previous = this.#openUIPromptTransitions.get(session.sessionId) ?? Promise.resolve();
 		const transition = previous
 			.catch(() => undefined)
-			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact, syntaxVersion, dashboards));
+			.then(() => this.#setOpenUIPromptState(session, enabled, mode, artifact, dashboards));
 		this.#openUIPromptTransitions.set(session.sessionId, transition);
 		void transition
 			.finally(() => {
@@ -1347,11 +810,10 @@ export class PrimeBridge {
 		enabled: boolean,
 		mode: OpenUIPromptMode,
 		artifact = false,
-		syntaxVersion?: "0.x" | "1.x",
 		dashboards?: OpenUIDashboardPrompt,
 	): Promise<void> {
 		const previousPrompt = session.openUIPrompt.prompt;
-		const nextPrompt = buildOpenUIPrompt(mode, { artifact, syntaxVersion, dashboards });
+		const nextPrompt = buildOpenUIPrompt(mode, { artifact, dashboards });
 		// The prompt text is compared as well as the flags: `buildOpenUIPrompt`
 		// changes whenever the component catalog or tool surface changes, and a
 		// session must pick that up instead of keeping the prompt it was born with.
@@ -1431,29 +893,7 @@ export class PrimeBridge {
 		text: string,
 		streamingBehavior: "steer" | "followUp" = "steer",
 	): Promise<{ canonicalSessionId: string; activeSessionId: string }> {
-		const authorized = await this.#findAuthorizedRlmChild(parentSessionId, childId);
-		if (!authorized) throw new Error(`Unknown subagent thread: ${childId}`);
-		const activeSessionId = authorized.summary.activeSessionId ?? authorized.child.activeSessionId;
-		if (!activeSessionId) throw new Error(`Subagent thread is not attached: ${childId}`);
-		const canonicalSessionId = await this.#persistentRlmChildSessionId(authorized, activeSessionId);
-		if (!canonicalSessionId) throw new Error(`Subagent thread has no persistent session id: ${childId}`);
-		const key = `${parentSessionId}:${childId}`;
-		const handle = this.#childPromptStarter({
-			cwd: authorized.parent.cwd,
-			activeSessionId,
-			text,
-			streamingBehavior,
-		});
-		const handles = this.#childPrompts.get(key) ?? new Set<DaemonChildPromptHandle>();
-		handles.add(handle);
-		this.#childPrompts.set(key, handles);
-		try {
-			await handle.settled;
-		} finally {
-			handles.delete(handle);
-			if (handles.size === 0 && this.#childPrompts.get(key) === handles) this.#childPrompts.delete(key);
-		}
-		return { canonicalSessionId, activeSessionId };
+		return this.#rlmChildManager.promptChild(parentSessionId, childId, text, streamingBehavior);
 	}
 
 	/**
@@ -1462,10 +902,7 @@ export class PrimeBridge {
 	 * owned by the parent tab, not the child tab).
 	 */
 	async abortRlmChild(parentSessionId: string, childId: string): Promise<boolean> {
-		const handle = this.#childPrompts.get(`${parentSessionId}:${childId}`)?.values().next().value;
-		if (!handle) return false;
-		await handle.abort();
-		return true;
+		return this.#rlmChildManager.abortChild(parentSessionId, childId);
 	}
 
 	async setModel(
@@ -1801,7 +1238,7 @@ export class PrimeBridge {
 			revision: current.revision + 1,
 		};
 		session.mapperState.presentation = next;
-		await this.#persistPresentation(sessionId, session.sessionPath, next);
+		await this.#presentationQueue.persist(sessionId, session.sessionPath, next);
 		this.#dispatch(sessionId, { type: "presentation", sessionId, presentation: next });
 		return next;
 	}

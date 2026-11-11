@@ -1,23 +1,16 @@
-import { z } from "./z";
+import { z } from "zod/v4";
 
-// Re-export the patched zod instance so dependent schema modules import it from
-// here; importing shared guarantees the `.openapi()` extension is registered
-// before any other fragment module is evaluated.
 export { z };
 
-export const ChatModeSchema = z.enum(["agent", "plan", "harness"]).openapi({ description: "Chat mode" });
+export const ChatModeSchema = z.enum(["agent", "plan", "harness"]);
 
-export const ChatPlanActionSchema = z.enum(["execute", "refine"]).openapi({ description: "Plan action" });
+export const ChatPlanActionSchema = z.enum(["execute", "refine"]);
 
-export const ChatThinkingLevelSchema = z
-	.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"])
-	.openapi({ description: "Thinking level" });
+export const ChatThinkingLevelSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
-export const ChatTransportSchema = z
-	.enum(["auto", "sse", "websocket"])
-	.openapi({ description: "Preferred provider transport" });
+export const ChatTransportSchema = z.enum(["auto", "sse", "websocket"]);
 
-export const ChatDeliveryModeSchema = z.enum(["all", "one-at-a-time"]).openapi({ description: "Prompt delivery mode" });
+export const ChatDeliveryModeSchema = z.enum(["all", "one-at-a-time"]);
 
 export const nonEmptyStringSchema = z.string().trim().min(1);
 export const nonNegativeIntSchema = z.number().int().min(0);

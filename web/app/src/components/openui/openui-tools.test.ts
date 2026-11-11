@@ -13,7 +13,7 @@ describe("OpenUI browser requests", () => {
 		await createOpenUIToolProvider("project:b")[name]({});
 		expect(fetch.mock.calls[0]?.[0]).toBe("/api/chat/openui/tool?projectId=project%3Ab");
 	});
-	it("declares 1.x on current OpenUI turns, including queued stream requests", async () => {
+	it("sends OpenUI turns, including queued stream requests", async () => {
 		const fetch = vi.fn(
 			async (_input: RequestInfo | URL, _init?: RequestInit) =>
 				new Response(
@@ -29,6 +29,6 @@ describe("OpenUI browser requests", () => {
 		for (const streamingBehavior of [undefined, "steer", "followUp"] as const) {
 			await chatClient.streamMessage({ message: "show data", openUI: true, streamingBehavior }, () => {});
 		}
-		for (const [, init] of fetch.mock.calls) expect(JSON.parse(String(init?.body)).openUISyntaxVersion).toBe("1.x");
+		for (const [, init] of fetch.mock.calls) expect(JSON.parse(String(init?.body)).openUI).toBe(true);
 	});
 });
