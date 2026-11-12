@@ -1,0 +1,125 @@
+web/app/src/components/sessions/session-sidebar/project-list.tsx
+  s_aae5261e957a6d::t_dc9f550b319db7 38
+  s_aae5261e957a6d::t_35a04f803bd8e9 103-132,137,141-142,144
+web/app/src/components/sessions/session-sidebar/navigation.tsx
+  s_aae5261e957a6d::t_5dad39f0446204 9
+  s_aae5261e957a6d::t_c86479272f4b77 180-202,204-205,208,211-214,217-263,265-281,284
+web/app/src/components/chat/model-selector.tsx
+  s_aae5261e957a6d::t_1858be3d146c6c 3
+  s_aae5261e957a6d::t_be4bd62c98c9a0 102-135
+  s_aae5261e957a6d::t_42b16892dff0c8 5
+  s_aae5261e957a6d::t_081aa5d6e32f57 4
+  s_aae5261e957a6d::t_e1cdabb4e52aaf 6-7
+  s_aae5261e957a6d::t_7f6c1f7406e62b 136-138
+  s_e59570c06df4a7::t_34299a66541f0a 139-144
+web/app/src/components/chat/composer/__tests__/composer-selector-trigger.test.tsx
+  s_aae5261e957a6d::t_683d08eccfb668 17-21,29
+  s_aae5261e957a6d::t_1c65495114c842 22
+  s_aae5261e957a6d::t_b024cb7a205171 30-32
+  s_e59570c06df4a7::t_fde2a885a3433f 3-4,6-7,9-14,24-26,33-34
+web/app/src/components/chat/composer/__tests__/composer-triggers.test.tsx
+  s_aae5261e957a6d::t_2fd68080788693 1-3,5-39,41-43,45-47,49,51-52,54-55,57-61,63-65,67,69,71-75,77-103,105-131,133-134,136-186
+  s_aae5261e957a6d::t_b1e0933ede0d3b 187-189
+web/app/src/test/react-doctor-regressions.test.tsx
+  s_aae5261e957a6d::t_385bad716b7153 2
+  s_aae5261e957a6d::t_58748562b5f396 7,16-20,36-41
+  s_aae5261e957a6d::t_4430fe40fa920f 35,49-50
+web/app/src/components/ui/radio-group.tsx
+  s_aae5261e957a6d::t_4b35bf3e994076 1-2,5,12,14,17,19,21-22,25-31,34,37
+  s_aae5261e957a6d::t_f0b83a51e5a69a 6
+  s_aae5261e957a6d::t_a84d655f04d87a 35
+  s_aae5261e957a6d::t_ec983e423f98c7 9,11,20,24,36
+  s_aae5261e957a6d::t_fea583ab108c5f 18
+web/app/src/components/chat/composer/__tests__/mode-selector.test.tsx
+  s_aae5261e957a6d::t_775eae36d837f3 1
+  s_aae5261e957a6d::t_f0b83a51e5a69a 56
+  s_aae5261e957a6d::t_33c1bbc95b7ce2 29,38-39,42,61-63,66,81-84
+  s_aae5261e957a6d::t_c75953ba9f313a 13,23,55,58-60,64-65,67-80
+  s_aae5261e957a6d::t_40ba1759a7b4e7 57
+  s_e59570c06df4a7::t_d9eaa18b90bbe4 4
+web/app/src/components/chat/composer/prompt-input.tsx
+  s_aae5261e957a6d::t_7eb738638a0bdf 253-260,262,270-272,275-277,283,285-290,295,299
+  s_aae5261e957a6d::t_5e3f525329468e 212,219,248-252,263-269,273-274,291,297-298
+  s_aae5261e957a6d::t_9be2a7636a57de 261
+  s_aae5261e957a6d::t_5c0168529c3521 209-211
+  s_aae5261e957a6d::t_aa674c17252cec 213-215
+  s_aae5261e957a6d::t_135f1110fcbc29 218
+  s_aae5261e957a6d::t_d07e3a21ef9804 220-222
+  s_aae5261e957a6d::t_a2076277f9c932 245-247
+  s_aae5261e957a6d::t_69e07473cb6fe6 292-294
+  s_aae5261e957a6d::t_42e535b931be59 296
+.changeset/composer-attach-and-pickers.md
+  s_aae5261e957a6d::t_9d2646450ec59c 1-9
+web/app/src/components/chat/composer/composer-draft-cache.test.ts
+  s_aae5261e957a6d::t_7153a5e42b7325 1-92
+web/app/doctor.config.jsonc
+  s_aae5261e957a6d::t_8e8ea89d851d41 38
+  s_aae5261e957a6d::t_6b5e99ffb7af18 74
+  s_aae5261e957a6d::t_ede87f0a3c18a0 82
+  s_aae5261e957a6d::t_5eeda759282ff5 102,104
+web/app/src/components/chat/composer/input-bar.tsx
+  s_aae5261e957a6d::t_51462d3e4893d0 2,5,14,216,225-227,248-271,273-276,280-281,286-290,293-296,298-305,308,313,321,323-324,326-327,330,333-334,337,341-353
+  s_aae5261e957a6d::t_fdba8d686b3779 9-10
+  s_aae5261e957a6d::t_41a79a972e7630 17
+  s_aae5261e957a6d::t_7e038a8b981dad 6-8
+  s_aae5261e957a6d::t_6590a6d0ef03b4 11-13
+  s_aae5261e957a6d::t_3c436d4d7724ad 15-16
+  s_aae5261e957a6d::t_13cd0ca7347b61 18-20
+  s_aae5261e957a6d::t_e4154bfd4017ec 213-215
+  s_aae5261e957a6d::t_454062c3d78d32 217-219,222-224
+  s_aae5261e957a6d::t_c4981c8c53cd5c 228-230,245-247
+  s_aae5261e957a6d::t_7d5c16e5a81c9e 354-355
+web/app/src/components/chat/composer/__tests__/input-bar-state.test.tsx
+  s_aae5261e957a6d::t_1f5c4967b9ac6b 7-23
+  s_aae5261e957a6d::t_76d407768a913b 4-6
+  s_aae5261e957a6d::t_c725e1a62d6543 24-26
+  s_e59570c06df4a7::t_addafddf853c52 1,3,27-31,33-42,44-48
+web/app/src/components/chat/composer/__tests__/input-bar.test.tsx
+  s_aae5261e957a6d::t_65c2358305db65 104-438
+web/app/src/components/ui/popover.tsx
+  s_aae5261e957a6d::t_8f53f16e02a76b 23,26,36
+  s_aae5261e957a6d::t_9d910bb1cb3a1a 57
+web/app/src/components/layout/chat-header.tsx
+  s_aae5261e957a6d::t_1722b6e6c03316 49-80
+  s_aae5261e957a6d::t_fc796151503c8d 7
+web/app/src/components/chat/file-attachment.tsx
+  s_aae5261e957a6d::t_d81a878c2f210e 5-11,23-24,37-57,60-62,66-68,70,72,74,76,80-86,99,101-106,109-111,115-116,118,120,122,124-128,130-131,135,140-141,147-148
+web/app/src/components/chat/composer/composer-inline-completion.test.ts
+  s_e59570c06df4a7::t_25078bab9c9e90 4
+web/app/src/components/chat/composer/inline-completion.ts
+  s_e59570c06df4a7::t_a25bbe83330e37 1,49,167-256
+web/app/src/components/chat/transcript/user-message.tsx
+  s_e59570c06df4a7::t_002db13cdb26a3 3
+web/app/src/components/chat/use-chat-workspace-data.test.ts
+  s_e59570c06df4a7::t_4380301f2862b6 160
+web/app/src/components/chat/use-chat-workspace-data.ts
+  s_e59570c06df4a7::t_0a7d018b8599d7 17-21
+web/app/src/components/layout/use-right-panel-context-value.ts
+  s_e59570c06df4a7::t_abe971c209f57d 33
+web/app/src/components/ui/input-group.tsx
+  s_e59570c06df4a7::t_9fafa8aa047826 6,114-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "944605372efb2347d18577a6b1ac286993673e89",
+  "prompts": {},
+  "sessions": {
+    "s_aae5261e957a6d": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "257544e1-bd32-4a19-bf0a-500e45fbc1d8",
+        "model": "custom:Deepseek-V4.1-Flash-1017---Command-0"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_e59570c06df4a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1cfca-5a5e-7a62-a0dd-b8fb00027fad",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
