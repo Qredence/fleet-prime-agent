@@ -22,7 +22,7 @@ executors:
 
   macos-release-smoke:
     macos:
-      xcode: 26.6.0
+      xcode: 16.2.0
     resource_class: m4pro.medium
     working_directory: ~/prime-agent
 
@@ -371,15 +371,6 @@ workflows:
           context:
             - github-release
           serial-group: fleet-release-operations
-          filters:
-            branches:
-              only: main
-            tags:
-              ignore: /.*/
-      - cancel-release-marker:
-          requires:
-            - release-publish:
-                - canceled
           filters:
             branches:
               only: main
