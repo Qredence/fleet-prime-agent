@@ -66,9 +66,6 @@ workflows:
           context:
             - npm-dist-tag-rollback
           serial-group: fleet-release-operations
-          filters: pipeline.git.branch == "main"
-      - cancel-rollback-marker:
-          requires:
-            - rollback-fleet:
-                - canceled
-          filters: pipeline.git.branch == "main"
+          filters:
+            branches:
+              only: main

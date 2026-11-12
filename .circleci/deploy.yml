@@ -103,12 +103,3 @@ workflows:
               only: main
             tags:
               ignore: /.*/
-      - cancel-deploy-marker:
-          requires:
-            - deploy-fleet:
-                - canceled
-          filters:
-            branches:
-              only: main
-            tags:
-              ignore: /.*/
