@@ -1,0 +1,21 @@
+.changeset/simplify-web-layers.md
+  s_b6e688464f2a91::t_326b410fe33f8a 5-9
+.changeset/react-compiler-oxc.md
+  s_b6e688464f2a91::t_500fcff3cf477b 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6690ff867956b1f65298fd08e74df5fea876f305",
+  "prompts": {},
+  "sessions": {
+    "s_b6e688464f2a91": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e3b0e5e6-25ca-4404-a139-1a689d881d8c",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
