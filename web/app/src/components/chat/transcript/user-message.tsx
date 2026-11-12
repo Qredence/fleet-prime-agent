@@ -1,6 +1,6 @@
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { memo, useState } from "react";
-import { FileAttachment } from "@/components/chat/composer/input/file-attachment";
+import { FileAttachment } from "@/components/chat/file-attachment";
 import { isTextPart } from "@/components/chat/transcript/chat-message-parts";
 import { ImageLightbox } from "@/components/tools/image-lightbox";
 import { Bubble, BubbleContent, BubbleGroup } from "@/components/ui/bubble";

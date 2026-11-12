@@ -1,3 +1,4 @@
+import { type SyntheticEvent, useCallback, useLayoutEffect, useRef, useState } from "react";
 /**
  * Inline completion (ghost text) for the composer.
  *
@@ -45,7 +46,7 @@ export type InlineCompletion = {
 	onDismiss?: () => void;
 };
 
-/** Live textarea editing state, published by native listeners on the element. */
+/** Live textarea editing state, published by React handlers on the element. */
 export type EditingState = {
 	focused: boolean;
 	composing: boolean;
@@ -162,4 +163,94 @@ export function ghostPaintText(
 	if (!completion) return undefined;
 	if (completion.mode === "append") return completion.text;
 	return /\s$/.test(value) ? completion.text : ` ${completion.text}`;
+}
+
+/** Caret updates use React handlers, after the controlled draft's onChange. */
+export function useComposerGhost({
+	value,
+	setValue,
+	completion,
+	streaming,
+	disabled,
+	triggerOpen,
+}: {
+	value: string;
+	setValue: (next: string) => void;
+	completion: InlineCompletion | undefined;
+	streaming: boolean;
+	disabled: boolean | undefined;
+	triggerOpen: boolean;
+}) {
+	const [textarea, setTextarea] = useState<HTMLTextAreaElement | null>(null);
+	const [editing, setEditing] = useState<EditingState>(INITIAL_EDITING_STATE);
+	const composingRef = useRef(false);
+	const pendingCaretRef = useRef<number | null>(null);
+	const [dismissed, setDismissed] = useState<{ forValue: string; text: string }>();
+
+	const publishEditing = useCallback((event: SyntheticEvent<HTMLTextAreaElement>) => {
+		// Publishing during composition can replace the browser's unfinished input.
+		if (composingRef.current) return;
+		const element = event.currentTarget;
+		const next: EditingState = {
+			focused: document.activeElement === element,
+			composing: false,
+			caretStart: element.selectionStart,
+			caretEnd: element.selectionEnd,
+		};
+		setEditing((previous) => (sameEditingState(previous, next) ? previous : next));
+	}, []);
+
+	const offered = resolveInlineCompletion({
+		completion,
+		value,
+		editing,
+		streaming,
+		disabled: Boolean(disabled),
+		triggerOpen,
+		dismissed,
+	});
+	const dismiss = () => {
+		if (offered) setDismissed({ forValue: value, text: offered.text });
+		completion?.onDismiss?.();
+	};
+	const accept = () => {
+		if (!offered || !textarea || composingRef.current) return;
+		// Read the DOM again: the caret may have moved since the offer was painted.
+		if (textarea.selectionStart !== textarea.selectionEnd || textarea.selectionStart !== value.length) return;
+		const next = spliceCompletion(value, offered.text, offered.mode);
+		setValue(next);
+		pendingCaretRef.current = next.length;
+		completion?.onAccept?.(next);
+	};
+	useLayoutEffect(() => {
+		const caret = pendingCaretRef.current;
+		if (caret === null) return;
+		pendingCaretRef.current = null;
+		textarea?.setSelectionRange(caret, caret);
+	}, [textarea, value]);
+
+	return {
+		attachTextarea: setTextarea,
+		textarea,
+		text: ghostPaintText(value, offered),
+		accept,
+		dismiss,
+		editingHandlers: {
+			onKeyUp: publishEditing,
+			onClick: publishEditing,
+			onMouseUp: publishEditing,
+			onSelect: publishEditing,
+			onFocus: publishEditing,
+			onBlur: publishEditing,
+			onScroll: publishEditing,
+			onCompositionStart: () => {
+				composingRef.current = true;
+				setEditing((previous) => (previous.composing ? previous : { ...previous, composing: true }));
+			},
+			onCompositionEnd: (event: SyntheticEvent<HTMLTextAreaElement>) => {
+				composingRef.current = false;
+				publishEditing(event);
+			},
+		},
+	};
 }

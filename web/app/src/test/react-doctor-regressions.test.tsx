@@ -1,10 +1,10 @@
 import type { ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
-import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/components/chat/chat-client";
-import { Popover } from "@/components/chat/composer/input/input-popover";
 import { usePiChat } from "@/components/chat/use-pi-chat";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 describe("React Doctor lifecycle and accessibility regressions", () => {
 	afterEach(() => {
@@ -13,8 +13,11 @@ describe("React Doctor lifecycle and accessibility regressions", () => {
 
 	it("connects a Popover trigger to its popup with aria-controls", () => {
 		const { getByRole } = render(
-			<Popover trigger={<button type="button">Choose model</button>} defaultOpen>
-				<div>Models</div>
+			<Popover defaultOpen>
+				<PopoverTrigger render={<button type="button">Choose model</button>} />
+				<PopoverContent>
+					<div>Models</div>
+				</PopoverContent>
 			</Popover>,
 		);
 
@@ -29,20 +32,22 @@ describe("React Doctor lifecycle and accessibility regressions", () => {
 		expect(popup?.className).toContain("shadow-lg");
 	});
 
-	it("opens a Popover from a shared product button", () => {
-		const { container, getByRole, queryByText } = render(
-			<Popover overlay trigger={<ChromePillButton ariaLabel="Open account menu">Account</ChromePillButton>}>
-				<div>Account settings</div>
+	it("opens a Popover from a shared product button", async () => {
+		const { getByRole, queryByText } = render(
+			<Popover>
+				<PopoverTrigger render={<ChromePillButton ariaLabel="Open account menu">Account</ChromePillButton>} />
+				<PopoverContent>
+					<div>Account settings</div>
+				</PopoverContent>
 			</Popover>,
 		);
 
 		expect(queryByText("Account settings")).toBeNull();
-		expect(container.querySelector(".fixed.inset-0.z-40")).toBeNull();
 		fireEvent.click(getByRole("button", { name: "Open account menu" }));
 		expect(getByRole("dialog").textContent).toContain("Account settings");
-		expect(container.querySelector(".fixed.inset-0.z-40")).not.toBeNull();
 		fireEvent.click(getByRole("button", { name: "Open account menu" }));
-		expect(container.querySelector(".fixed.inset-0.z-40")).toBeNull();
+		// The popup stays mounted through its exit animation.
+		await waitFor(() => expect(queryByText("Account settings")).toBeNull());
 	});
 
 	it("closes the EventSource owned by the visible session on unmount", async () => {

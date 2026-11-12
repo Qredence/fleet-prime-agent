@@ -3,6 +3,7 @@ import { cva } from "class-variance-authority";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
@@ -110,4 +111,17 @@ function InputGroupInput({ className, ...props }: React.ComponentProps<"input">)
 	);
 }
 
-export { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput };
+function InputGroupTextarea({ className, ...props }: React.ComponentProps<typeof Textarea>) {
+	return (
+		<Textarea
+			data-slot="input-group-control"
+			className={cn(
+				"flex-1 resize-none rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0 dark:bg-transparent dark:disabled:bg-transparent",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
+
+export { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput, InputGroupTextarea };

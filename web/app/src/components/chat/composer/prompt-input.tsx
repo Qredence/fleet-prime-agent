@@ -19,7 +19,7 @@ import {
 	PROMPT_GHOST_PREFIX_CLASS,
 	PROMPT_TEXT_METRICS,
 } from "@/components/chat/composer/inline-completion";
-import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
 import { SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +42,7 @@ export interface PromptInputProps extends Omit<
 	/**
 	 * Ghost text painted after the caret, already decided by the host. This
 	 * component only paints it: whether a completion should be shown depends on
-	 * live editing state that lives in `useInputBarState`.
+	 * live editing state supplied by the host.
 	 */
 	ghostText?: string;
 	/** Lets the host read the textarea's caret without a `getElementById` lookup. */
@@ -169,123 +169,134 @@ export function PromptInput({
 	};
 
 	return (
-		<form
-			aria-label="Message composer"
-			onSubmit={submit}
-			className={cn(
-				"relative w-full rounded-chat-input border border-border/70 bg-sidebar p-2 text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-2 focus-within:ring-chat-input-focus-outline/25",
-				disabled && "opacity-60",
-				className,
-			)}
-		>
-			<div
-				ref={measurementRef}
-				data-slot="composer-measure"
-				aria-hidden="true"
-				className={cn("pointer-events-none invisible absolute inset-x-2 top-0", PROMPT_TEXT_METRICS)}
+		<form aria-label="Message composer" onSubmit={submit} className="w-full rounded-chat-input">
+			<InputGroup
+				className={cn(
+					"relative h-auto w-full flex-col rounded-chat-input border border-border/70 bg-sidebar p-2 dark:bg-sidebar has-disabled:bg-sidebar has-disabled:opacity-100 dark:has-disabled:bg-sidebar text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-2 focus-within:ring-chat-input-focus-outline/25 has-[[data-slot=input-group-control]:focus-visible]:border-chat-input-focus-outline/45 has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-chat-input-focus-outline/25",
+					disabled && "has-disabled:opacity-60",
+					className,
+				)}
 			>
-				{`${currentValue}\u200b`}
-			</div>
-			<p id={descriptionId} className="sr-only">
-				Enter to send. Shift+Enter for a new line. Tab accepts an inline suggestion or menu item. Escape dismisses
-				suggestions.
-			</p>
-			<p id={ghostStatusId} className="sr-only" aria-live="polite">
-				{ghostText ? "Suggestion available. Press Tab to accept." : ""}
-			</p>
-			<div className="relative">
-				{/* Ghost layer. A sibling of the measurement div, never a child: the
+				<div
+					ref={measurementRef}
+					data-slot="composer-measure"
+					aria-hidden="true"
+					className={cn("pointer-events-none invisible absolute inset-x-2 top-0", PROMPT_TEXT_METRICS)}
+				>
+					{`${currentValue}\u200b`}
+				</div>
+				<p id={descriptionId} className="sr-only">
+					Enter to send. Shift+Enter for a new line. Tab accepts an inline suggestion or menu item. Escape
+					dismisses suggestions.
+				</p>
+				<p id={ghostStatusId} className="sr-only" aria-live="polite">
+					{ghostText ? "Suggestion available. Press Tab to accept." : ""}
+				</p>
+				<div className="relative w-full">
+					{/* Ghost layer. A sibling of the measurement div, never a child: the
 				    measurement drives the composer's height, so ghost text there would
 				    grow the box while typing. Absolutely positioned over the textarea's
 				    border box so it needs no arithmetic against the form's padding. */}
-				{ghostText ? (
-					<div
-						data-slot="composer-ghost-layer"
-						aria-hidden="true"
-						className="pointer-events-none absolute inset-0 select-none overflow-hidden"
-					>
+					{ghostText ? (
 						<div
-							ref={ghostMirrorRef}
-							data-slot="composer-ghost-mirror"
-							className={cn("h-full overflow-hidden pt-1.5", PROMPT_TEXT_METRICS, PROMPT_GHOST_PREFIX_CLASS)}
-							style={mirrorWidth === undefined ? undefined : { width: `${mirrorWidth}px` }}
+							data-slot="composer-ghost-layer"
+							aria-hidden="true"
+							className="pointer-events-none absolute inset-0 select-none overflow-hidden"
 						>
-							{currentValue}
-							<span data-slot="composer-ghost" className={PROMPT_GHOST_CLASS}>
-								{ghostText}
-							</span>
+							<div
+								ref={ghostMirrorRef}
+								data-slot="composer-ghost-mirror"
+								className={cn("h-full overflow-hidden pt-1.5", PROMPT_TEXT_METRICS, PROMPT_GHOST_PREFIX_CLASS)}
+								style={mirrorWidth === undefined ? undefined : { width: `${mirrorWidth}px` }}
+							>
+								{currentValue}
+								<span data-slot="composer-ghost" className={PROMPT_GHOST_CLASS}>
+									{ghostText}
+								</span>
+							</div>
 						</div>
-					</div>
-				) : null}
-				<textarea
-					ref={textareaRef}
-					value={currentValue}
-					disabled={disabled}
-					placeholder={placeholder}
-					aria-label={ariaLabel}
-					aria-describedby={describedBy}
-					autoComplete="off"
-					rows={minRows}
-					{...textareaProps}
-					onChange={(event) => setValue(event.target.value)}
-					onKeyDown={handleKeyDown}
-					onScroll={(event) => {
-						onScroll?.(event);
-						syncGhostLayer();
-					}}
-					className={cn(
-						"block w-full resize-none overflow-y-auto bg-transparent pt-1.5 text-foreground outline-none placeholder:text-foreground/70",
-						PROMPT_TEXT_METRICS,
-					)}
-				/>
-			</div>
-
-			<div className="mt-1 flex min-h-8 items-center gap-1.5">
-				{leadingAction ? (
-					<div role="group" aria-label="Composer options" className="flex min-w-0 items-center gap-1.5">
-						{leadingAction}
-					</div>
-				) : null}
-
-				{loading && onStop ? (
-					<Button
-						type="button"
-						size="icon"
-						aria-label="Stop generating"
-						onClick={onStop}
-						className="ms-auto size-8 rounded-full"
-					>
-						<Square aria-hidden="true" className="size-3 fill-current" />
-					</Button>
-				) : null}
-				{!loading || canSubmit || submitWhileLoading ? (
-					<Button
-						type="submit"
-						size="icon"
-						disabled={sendDisabled || !currentValue.trim()}
-						aria-label={loading ? "Send follow-up" : "Send prompt"}
+					) : null}
+					<InputGroupTextarea
+						ref={textareaRef}
+						value={currentValue}
+						disabled={disabled}
+						placeholder={placeholder}
+						aria-label={ariaLabel}
+						aria-describedby={describedBy}
+						autoComplete="off"
+						rows={minRows}
+						{...textareaProps}
+						onChange={(event) => setValue(event.target.value)}
+						onKeyDown={handleKeyDown}
+						onScroll={(event) => {
+							onScroll?.(event);
+							syncGhostLayer();
+						}}
 						className={cn(
-							"size-8 rounded-full",
-							!loading && "ms-auto",
-							canSubmit &&
-								"border-transparent bg-chat-input-accent text-white hover:bg-chat-input-accent/90 focus-visible:border-chat-input-accent focus-visible:ring-chat-input-accent/40",
+							"block min-h-0 w-full field-sizing-fixed resize-none overflow-y-auto rounded-none border-0 bg-transparent px-2 py-0 pt-1.5 text-foreground outline-none placeholder:text-foreground/70 disabled:opacity-100",
+							PROMPT_TEXT_METRICS,
 						)}
-					>
-						<AnimatePresence initial={false} mode="popLayout">
-							<m.span
+					/>
+				</div>
+
+				<InputGroupAddon align="block-end" className="mt-1 min-h-8 gap-1.5 px-0 py-0 font-normal">
+					{leadingAction ? (
+						<div role="group" aria-label="Composer options" className="flex min-w-0 items-center gap-1.5">
+							{leadingAction}
+						</div>
+					) : null}
+
+					{/* One always-mounted animation root: Stop while a turn is running,
+				    Send otherwise (and alongside Stop when follow-ups are allowed).
+				    Hoisting `AnimatePresence` out of the conditional buttons keeps it
+				    mounted for the lifetime of each child, so an exiting action can
+				    finish animating instead of being torn down with its parent. */}
+					<AnimatePresence initial={false} mode="popLayout">
+						{loading && onStop ? (
+							<m.div
+								key="stop"
+								initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
+								animate={{ opacity: 1, y: 0, scale: 1 }}
+								exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
+								transition={reduce ? { duration: 0 } : SPRING_SWAP}
+								className={cn(loading && canSubmit ? undefined : "ms-auto")}
+							>
+								<InputGroupButton
+									variant="primary"
+									type="button"
+									size="icon-sm"
+									aria-label="Stop generating"
+									onClick={onStop}
+									className="size-8 rounded-full"
+								>
+									<Square aria-hidden="true" className="size-3 fill-current" />
+								</InputGroupButton>
+							</m.div>
+						) : null}
+						{!loading || canSubmit || submitWhileLoading ? (
+							<m.div
 								key="send"
 								initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
 								animate={{ opacity: 1, y: 0, scale: 1 }}
 								exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
 								transition={reduce ? { duration: 0 } : SPRING_SWAP}
-								className="grid place-items-center"
+								className={cn(!loading && "ms-auto")}
 							>
-								<ArrowUp aria-hidden="true" className="size-4" />
-							</m.span>
-						</AnimatePresence>
-					</Button>
-				) : null}
-			</div>
+								<InputGroupButton
+									variant="primary"
+									type="submit"
+									size="icon-sm"
+									disabled={sendDisabled || !currentValue.trim()}
+									aria-label={loading ? "Send follow-up" : "Send prompt"}
+									className="size-8 rounded-full"
+								>
+									<ArrowUp aria-hidden="true" className="size-4" />
+								</InputGroupButton>
+							</m.div>
+						) : null}
+					</AnimatePresence>
+				</InputGroupAddon>
+			</InputGroup>
 		</form>
 	);
 }

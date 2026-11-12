@@ -46,9 +46,6 @@ export const paper =
 /** Opaque elevated menu for chrome popovers (mode, search, attach) on dark surfaces. */
 export const elevatedMenu = "border border-border bg-popover text-popover-foreground shadow-lg";
 
-export const floating =
-	"bg-background shadow-[0_2px_8px_rgba(0,0,0,0.05),0_20px_48px_-16px_rgba(0,0,0,0.18)] dark:bg-popover dark:shadow-[0_20px_48px_-16px_rgba(0,0,0,0.55)]";
-
 export const field = "bg-foreground/[0.04] dark:bg-foreground/[0.06]";
 
 export const mono = "font-mono text-caption tracking-tight";

@@ -1,29 +1,31 @@
 import type { ChatMode, ChatThinkingLevel } from "@prime-agent/web-protocol/chat-protocol";
+import { ChatModeSchema, ChatThinkingLevelSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
-import { FileCode2, Plus, X } from "lucide-react";
-import { useCallback } from "react";
-import type { ChatModelOption } from "@/components/chat/chat-helpers";
-import { ComposerLoader } from "@/components/chat/composer/composer-loader";
-import { type ComposerTriggerItem, ComposerTriggerPopover } from "@/components/chat/composer/composer-trigger-popover";
-import type { InlineCompletion } from "@/components/chat/composer/inline-completion";
-import { FileAttachment } from "@/components/chat/composer/input/file-attachment";
-import { AGENT_CHAT_MODES, ModeSelector } from "@/components/chat/composer/input/mode-selector";
-import { useInputBarState } from "@/components/chat/composer/input-bar-state";
+import { Paperclip, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type ChatModelOption,
+	availableThinkingLevels,
+	clampThinkingLevel,
+	thinkingLevelLabel,
+} from "@/components/chat/chat-helpers";
+import {
+	AGENT_CHAT_MODES,
+	ComposerAttachments,
+	ComposerLoader,
+	ModeSelector,
+} from "@/components/chat/composer/composer-controls";
+import { ComposerTriggerPopover, useComposerTriggers } from "@/components/chat/composer/composer-triggers";
+import { type InlineCompletion, useComposerGhost } from "@/components/chat/composer/inline-completion";
+import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
+import { formatProviderLabel } from "@/components/settings/providers/provider-label";
 import { PromptInput } from "@/components/chat/composer/prompt-input";
-import { ModelSelector } from "@/components/chat/model-selector";
-import type { SuggestionItem } from "@/components/chat/types";
-import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS, HIT_AREA_EXPAND_CLASS } from "@/components/layout/tokens";
-import { Button } from "@/components/ui/button";
+import { type ModelSelectorModel, ModelSelector } from "@/components/chat/model-selector";
+import type { InputSuggestions, SuggestionItem } from "@/components/chat/types";
+import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS } from "@/components/layout/tokens";
+import { InputGroupButton } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
-
-type SuggestionConfig =
-	| Array<SuggestionItem>
-	| {
-			items: Array<SuggestionItem>;
-			className?: string;
-			itemClassName?: string;
-	  };
 
 export type AttachedImage = {
 	id: string;
@@ -45,8 +47,6 @@ export type InputBarAttachmentsConfig = {
 	onRemoveImage?: (id: string) => void;
 	onRemoveFile?: (id: string) => void;
 	onPaste?: (e: React.ClipboardEvent) => void;
-	isDragOver?: boolean;
-	enableImagePreview?: boolean;
 };
 
 export type InputBarControlledConfig = {
@@ -64,8 +64,7 @@ export type InputBarProps = {
 	controlled?: InputBarControlledConfig;
 	disabled?: boolean;
 	autoFocus?: boolean;
-	suggestions?: SuggestionConfig;
-	slashCommands?: SuggestionConfig;
+	slashCommands?: InputSuggestions;
 	onSlashCommandSelect?: (item: SuggestionItem) => boolean | void;
 	modelKey: string | undefined;
 	models: Array<ChatModelOption>;
@@ -89,19 +88,38 @@ export type InputBarProps = {
 	effortPickerOpen?: boolean;
 	onEffortPickerOpenChange?: (open: boolean) => void;
 	workspaceReferences?: Array<WorkspaceAttachment>;
-	workspaceSuggestions?: InputBarProps["slashCommands"];
+	workspaceSuggestions?: InputSuggestions;
 	onWorkspaceReferenceSelect?: (item: SuggestionItem) => void;
 	onRemoveWorkspaceReference?: (relativePath: string) => void;
 };
 
 const EMPTY_WORKSPACE_REFERENCES: Array<WorkspaceAttachment> = [];
 const CHAT_MODES = [...AGENT_CHAT_MODES];
+const DRAFT_REPORT_DEBOUNCE_MS = 300;
 
-export function InputBar(props: InputBarProps) {
-	return <InputBarContent {...props} />;
+function selectorModelsFor(models: Array<ChatModelOption>): Array<ModelSelectorModel> {
+	const selectable: Array<ModelSelectorModel> = [];
+	for (const model of models) {
+		if (model.available === false) continue;
+		selectable.push({
+			id: model.id,
+			name: model.name,
+			provider: model.provider,
+			providerLabel: formatProviderLabel(model.provider),
+			modelId: model.modelId,
+			icon: <ProviderBrandIcon provider={model.provider} className="size-4" />,
+			reasoning: model.reasoning,
+			keywords: [model.provider, model.modelId, model.id],
+			efforts: availableThinkingLevels(model).map((level) => ({
+				id: level,
+				name: thinkingLevelLabel(level),
+			})),
+		});
+	}
+	return selectable;
 }
 
-function InputBarContent({
+export function InputBar({
 	modelKey,
 	models,
 	status,
@@ -133,153 +151,166 @@ function InputBarContent({
 	slashCommands,
 	className,
 }: InputBarProps) {
-	const {
-		activeTriggerIndex,
-		attachTextarea,
-		combinedPickerOpen,
-		commandGroups,
-		files,
-		ghostText,
-		handleCombinedPickerOpenChange,
-		handlePromptKeyDown,
-		handleSelectorModelChange,
-		images,
-		isStreaming,
-		openSlashMenu,
-		filteredWorkspaceItems,
-		selectCommand,
-		selectWorkspaceReference,
-		selectorModels,
-		send,
-		setActiveTriggerIndex,
-		setValue,
-		slashQuery,
-		triggerItems,
-		triggerKind,
-		triggerOpen,
-		value,
-		workspaceQuery,
-	} = useInputBarState({
-		models,
-		status,
-		thinkingLevel,
-		onModelChange,
-		onThinkingLevelChange,
-		onSend,
-		onSlashCommandSelect,
-		onLocalSlashSubmit,
-		onDraftChange,
-		inlineCompletion,
-		modelPickerOpen,
-		onModelPickerOpenChange,
-		effortPickerOpen,
-		onEffortPickerOpenChange,
-		workspaceReferences,
-		workspaceSuggestions,
-		onWorkspaceReferenceSelect,
-		onRemoveWorkspaceReference,
-		controlled,
-		disabled,
-		attachments,
-		slashCommands,
-	});
+	const isStreaming = status === "streaming" || status === "submitted";
+	const [internalValue, setInternalValue] = useState("");
+	const value = controlled?.value ?? internalValue;
+	const setValue = controlled?.onChange ?? setInternalValue;
 
-	const handleChatModeChange = useCallback((id: string) => onChatModeChange?.(id as ChatMode), [onChatModeChange]);
+	const send = useCallback(
+		(content: string, altKey = false) => {
+			if (onLocalSlashSubmit?.(content) === true) {
+				setValue("");
+				return;
+			}
+			onSend({ role: "user", content, altKey });
+			setValue("");
+		},
+		[onLocalSlashSubmit, onSend, setValue],
+	);
+
+	useEffect(() => {
+		if (!onDraftChange) return;
+		const timer = setTimeout(() => onDraftChange(value), DRAFT_REPORT_DEBOUNCE_MS);
+		return () => clearTimeout(timer);
+	}, [onDraftChange, value]);
+
+	const triggers = useComposerTriggers({
+		value,
+		setValue,
+		slashCommands,
+		workspaceSuggestions,
+		onSlashCommandSelect,
+		onWorkspaceReferenceSelect,
+		disabled,
+		streaming: isStreaming,
+		onOpen: () => ghost.textarea?.focus({ preventScroll: true }),
+	});
+	const ghost = useComposerGhost({
+		value,
+		setValue,
+		completion: inlineCompletion,
+		streaming: isStreaming,
+		disabled,
+		triggerOpen: triggers.open,
+	});
+	const selectorModels = useMemo(() => selectorModelsFor(models), [models]);
+
+	const pickerOpen =
+		modelPickerOpen === undefined && effortPickerOpen === undefined
+			? undefined
+			: Boolean(modelPickerOpen || effortPickerOpen);
+	const handlePickerOpenChange = useCallback(
+		(open: boolean) => {
+			onModelPickerOpenChange?.(open);
+			onEffortPickerOpenChange?.(open);
+		},
+		[onEffortPickerOpenChange, onModelPickerOpenChange],
+	);
+
+	const handleModelChange = useCallback(
+		(nextModelKey: string) => {
+			const nextModel = models.find((model) => model.id === nextModelKey);
+			onModelChange(nextModelKey);
+			if (nextModel) {
+				onThinkingLevelChange?.(clampThinkingLevel(thinkingLevel, availableThinkingLevels(nextModel)));
+			}
+		},
+		[models, onModelChange, onThinkingLevelChange, thinkingLevel],
+	);
+
+	const handlePromptKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if (event.nativeEvent.isComposing) return;
+		if (event.key === "Backspace" && value.length === 0 && workspaceReferences.length > 0) {
+			const lastReference = workspaceReferences[workspaceReferences.length - 1];
+			if (lastReference) {
+				event.preventDefault();
+				onRemoveWorkspaceReference?.(lastReference.relativePath);
+				return;
+			}
+		}
+		if (triggers.open && triggers.items.length > 0) {
+			if ((event.key === "Tab" || event.key === "Enter") && !event.shiftKey) {
+				event.preventDefault();
+				const item = triggers.items[triggers.activeIndex];
+				if (item) triggers.selectItem(item);
+				return;
+			}
+			if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+				event.preventDefault();
+				const step = event.key === "ArrowDown" ? 1 : -1;
+				triggers.setActiveIndex((triggers.activeIndex + step + triggers.items.length) % triggers.items.length);
+				return;
+			}
+		}
+		// Escape dismisses the popover while open; otherwise it dismisses the ghost.
+		if (event.key === "Tab" && !event.shiftKey && ghost.text) {
+			event.preventDefault();
+			ghost.accept();
+			return;
+		}
+		if (event.key === "Escape" && !triggers.open && ghost.text) {
+			event.preventDefault();
+			ghost.dismiss();
+			return;
+		}
+		if (event.key === "Enter" && event.altKey && !event.shiftKey) {
+			event.preventDefault();
+			const content = value.trim();
+			if (content && !disabled) send(content, true);
+		}
+	};
+
+	// Both pickers are parsed against the protocol rather than cast: an unknown
+	// value is a no-op instead of reaching the transport as a bogus mode.
+	const handleChatModeChange = useCallback(
+		(id: string) => {
+			const parsed = ChatModeSchema.safeParse(id);
+			if (parsed.success) onChatModeChange?.(parsed.data);
+		},
+		[onChatModeChange],
+	);
 	const handleEffortChange = useCallback(
-		(level: string) => onThinkingLevelChange?.(level as ChatThinkingLevel),
+		(level: string) => {
+			const parsed = ChatThinkingLevelSchema.safeParse(level);
+			if (parsed.success) onThinkingLevelChange?.(parsed.data);
+		},
 		[onThinkingLevelChange],
 	);
+
+	const actionsDisabled = disabled || isStreaming;
 
 	return (
 		<div className={cn("shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]", CHAT_COLUMN_CLASS, className)}>
 			<div className="relative flex w-full flex-col gap-3">
 				<ComposerLoader label={infoDescription ?? undefined} isActive={isStreaming} />
-				{images.length > 0 || files.length > 0 ? (
-					<div className="flex flex-wrap gap-2 rounded-xl border bg-muted/40 p-2">
-						{images.map((image) => (
-							<div key={image.id} className="group relative">
-								<img
-									src={image.url}
-									alt={image.filename}
-									width={64}
-									height={64}
-									loading="lazy"
-									className="size-16 rounded-lg border object-cover"
-								/>
-								<Button
-									type="button"
-									variant="outline"
-									size="icon-compact"
-									aria-label={`Remove ${image.filename}`}
-									onClick={() => attachments?.onRemoveImage?.(image.id)}
-									className={cn(
-										HIT_AREA_EXPAND_CLASS,
-										"absolute -end-1 -top-1 size-6 rounded-full bg-background opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
-									)}
-								>
-									<X data-icon="inline-start" aria-hidden="true" className="size-3" />
-								</Button>
-							</div>
-						))}
-						{files.map((file) => (
-							<FileAttachment
-								key={file.id}
-								id={file.id}
-								filename={file.filename}
-								size={file.size}
-								onRemove={attachments?.onRemoveFile ? () => attachments.onRemoveFile?.(file.id) : undefined}
-							/>
-						))}
-					</div>
-				) : null}
-				{workspaceReferences.length > 0 ? (
-					<div className="flex flex-wrap gap-1.5 rounded-xl border bg-muted/40 p-2">
-						{workspaceReferences.map((attachment) => (
-							<div
-								key={attachment.relativePath}
-								className="inline-flex max-w-full items-center gap-1.5 rounded-lg border bg-background px-2 py-1 text-xs text-foreground/75"
-							>
-								<FileCode2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-								<span className="max-w-[min(28rem,70vw)] truncate" title={`@${attachment.relativePath}`}>
-									@{attachment.relativePath}
-								</span>
-								<button
-									type="button"
-									aria-label={`Remove workspace reference ${attachment.relativePath}`}
-									onClick={() => onRemoveWorkspaceReference?.(attachment.relativePath)}
-									className={cn(
-										HIT_AREA_EXPAND_CLASS,
-										"grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-									)}
-								>
-									<X aria-hidden="true" className="size-3" />
-								</button>
-							</div>
-						))}
-					</div>
-				) : null}
+				<ComposerAttachments
+					attachments={attachments}
+					workspaceReferences={workspaceReferences}
+					onRemoveWorkspaceReference={onRemoveWorkspaceReference}
+				/>
 				<div className="relative w-full">
 					<ComposerTriggerPopover
-						open={triggerOpen}
-						kind={triggerKind ?? "slash"}
-						query={triggerKind === "slash" ? slashQuery : workspaceQuery}
-						items={triggerKind === "mention" ? filteredWorkspaceItems : undefined}
-						groups={triggerKind === "slash" ? commandGroups : undefined}
-						activeIndex={activeTriggerIndex}
-						onActiveIndexChange={setActiveTriggerIndex}
-						onSelect={(item: ComposerTriggerItem) => {
-							if (triggerKind === "slash") selectCommand(item);
-							else selectWorkspaceReference(item);
+						open={triggers.open}
+						kind={triggers.kind ?? "slash"}
+						onOpenChange={(open) => {
+							if (!open) triggers.close();
 						}}
-						title={triggerKind === "slash" ? "Commands" : "Workspace references"}
-						listId="composer-trigger-list"
+						anchor={ghost.textarea}
+						query={triggers.query}
+						items={triggers.items}
+						groups={triggers.kind === "slash" ? triggers.commandGroups : undefined}
+						activeIndex={triggers.activeIndex}
+						onActiveIndexChange={triggers.setActiveIndex}
+						onSelect={triggers.selectItem}
+						listId={triggers.listId}
 					/>
 					<PromptInput
+						{...ghost.editingHandlers}
 						id="composer-prompt"
 						name="prompt"
 						value={value}
 						onValueChange={setValue}
-						onSubmit={(content) => send(content)}
+						onSubmit={send}
 						loading={isStreaming}
 						submitWhileLoading
 						onStop={onStop}
@@ -287,40 +318,50 @@ function InputBarContent({
 						autoFocus={autoFocus}
 						placeholder={placeholder ?? "Send a message…"}
 						onPaste={attachments?.onPaste}
-						aria-controls={triggerOpen ? "composer-trigger-list" : undefined}
-						aria-expanded={triggerOpen}
+						aria-controls={triggers.open ? triggers.listId : undefined}
 						aria-haspopup="listbox"
-						aria-activedescendant={
-							triggerOpen && triggerItems[activeTriggerIndex]
-								? `composer-trigger-list-${triggerItems[activeTriggerIndex].id.replace(/[^a-zA-Z0-9_-]/g, "-")}`
-								: undefined
-						}
+						aria-autocomplete="list"
+						aria-activedescendant={triggers.open ? triggers.activeDescendant : undefined}
 						onKeyDown={handlePromptKeyDown}
-						onTextareaRef={attachTextarea}
-						ghostText={ghostText}
+						onTextareaRef={ghost.attachTextarea}
+						ghostText={ghost.text}
 						leadingAction={
 							<>
-								<Button
+								<InputGroupButton
 									type="button"
 									variant="outline"
-									size="icon"
-									disabled={disabled || isStreaming}
+									size="icon-sm"
+									disabled={actionsDisabled}
 									aria-label="Open slash commands"
 									data-slot="composer-add"
-									onClick={openSlashMenu}
+									onClick={triggers.openSlashMenu}
 									className={COMPOSER_ADD_BUTTON_CLASS}
 								>
 									<Plus aria-hidden="true" className="size-4" />
-								</Button>
+								</InputGroupButton>
+								{attachments?.onAttach ? (
+									<InputGroupButton
+										type="button"
+										variant="outline"
+										size="icon-sm"
+										disabled={actionsDisabled}
+										aria-label="Attach files"
+										data-slot="composer-attach"
+										onClick={attachments.onAttach}
+										className={COMPOSER_ADD_BUTTON_CLASS}
+									>
+										<Paperclip aria-hidden="true" className="size-4" />
+									</InputGroupButton>
+								) : null}
 								<ModeSelector modes={CHAT_MODES} value={chatMode} onChange={handleChatModeChange} />
 								<ModelSelector
 									models={selectorModels}
 									value={modelKey}
 									effort={thinkingLevel}
-									onModelChange={handleSelectorModelChange}
+									onModelChange={handleModelChange}
 									onEffortChange={handleEffortChange}
-									open={combinedPickerOpen}
-									onOpenChange={handleCombinedPickerOpenChange}
+									open={pickerOpen}
+									onOpenChange={handlePickerOpenChange}
 									placeholder="Model"
 								/>
 							</>

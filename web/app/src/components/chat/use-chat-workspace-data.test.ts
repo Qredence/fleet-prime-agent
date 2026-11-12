@@ -157,7 +157,7 @@ vi.mock("@/components/chat/question/use-skip-pending-question", () => ({
 	useSkipPendingQuestion: vi.fn(),
 }));
 
-vi.mock("@/components/chat/composer/composer-inline-completion", () => ({
+vi.mock("@/components/chat/composer/composer-assistance", () => ({
 	useComposerInlineCompletion: () => ({
 		inlineCompletion:
 			harness.completion.inlineCompletion === undefined
@@ -165,9 +165,6 @@ vi.mock("@/components/chat/composer/composer-inline-completion", () => ({
 				: { ...harness.completion.inlineCompletion, onDismiss: harness.historyDismiss },
 		onDraftChange: harness.completion.onDraftChange,
 	}),
-}));
-
-vi.mock("@/components/chat/composer/composer-intent", () => ({
 	useComposerIntentAvailability: () => ({
 		available: true,
 		enabled: true,

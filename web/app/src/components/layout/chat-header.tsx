@@ -1,10 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 import { BookOpenText, ChevronDown, Settings } from "lucide-react";
-import { Popover } from "@/components/chat/composer/input/input-popover";
 import { AnimatedSidebarTrigger } from "@/components/layout/animated-sidebar";
 import { ChromePillButton } from "@/components/layout/chrome-pill";
 import { RightPanelLauncherFromContext } from "@/components/layout/right-panel-launcher";
 import { AgentTabBar, type AgentTabItem } from "@/components/sessions/agent-tab-bar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 const DOCUMENTATION_URL = "https://docs.qredence.ai";
@@ -46,35 +46,38 @@ function AccountMenu({
 
 	return (
 		<div className={cn("flex min-w-0 items-center gap-2", className)}>
-			<Popover
-				side="bottom"
-				align="start"
-				trigger={
-					<ChromePillButton
-						ariaLabel="Open account menu"
-						className={cn(
-							"min-w-0 border-transparent shadow-none",
-							compact ? "size-8 justify-center px-2" : "w-full justify-start px-2 text-start",
-						)}
-					>
-						<QredenceLogo className="size-3.5 shrink-0" />
-						<span className={compact ? "sr-only" : "text-body font-medium tracking-[-0.01em] whitespace-nowrap"}>
-							{label}
-						</span>
-						<ChevronDown className="size-3.5 shrink-0 text-foreground/35" />
-					</ChromePillButton>
-				}
-			>
-				<a href={DOCUMENTATION_URL} target="_blank" rel="noreferrer" className={menuItemClass}>
-					<BookOpenText className="size-3.5 shrink-0 text-foreground/50" />
-					<span className="truncate">Documentation</span>
-				</a>
-				{onOpenSettings && (
-					<button type="button" className={menuItemClass} onClick={onOpenSettings}>
-						<Settings className="size-3.5 shrink-0 text-foreground/50" />
-						<span className="truncate">Settings</span>
-					</button>
-				)}
+			<Popover>
+				<PopoverTrigger
+					render={
+						<ChromePillButton
+							ariaLabel="Open account menu"
+							className={cn(
+								"min-w-0 border-transparent shadow-none",
+								compact ? "size-8 justify-center px-2" : "w-full justify-start px-2 text-start",
+							)}
+						>
+							<QredenceLogo className="size-3.5 shrink-0" />
+							<span
+								className={compact ? "sr-only" : "text-body font-medium tracking-[-0.01em] whitespace-nowrap"}
+							>
+								{label}
+							</span>
+							<ChevronDown className="size-3.5 shrink-0 text-foreground/35" />
+						</ChromePillButton>
+					}
+				/>
+				<PopoverContent side="bottom" align="start" sideOffset={6} className="w-56 gap-0 p-1">
+					<a href={DOCUMENTATION_URL} target="_blank" rel="noreferrer" className={menuItemClass}>
+						<BookOpenText className="size-3.5 shrink-0 text-foreground/50" />
+						<span className="truncate">Documentation</span>
+					</a>
+					{onOpenSettings && (
+						<button type="button" className={menuItemClass} onClick={onOpenSettings}>
+							<Settings className="size-3.5 shrink-0 text-foreground/50" />
+							<span className="truncate">Settings</span>
+						</button>
+					)}
+				</PopoverContent>
 			</Popover>
 		</div>
 	);

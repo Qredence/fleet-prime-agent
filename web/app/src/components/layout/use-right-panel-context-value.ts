@@ -30,7 +30,7 @@ import {
 	useUpdateChatSettings,
 	useUpdateMcpConnection,
 } from "@/components/chat/chat-queries";
-import type { ComposerIntentAvailability } from "@/components/chat/composer/composer-intent";
+import type { ComposerIntentAvailability } from "@/components/chat/composer/composer-assistance";
 import {
 	useThrottledTranscriptSummary,
 	useThrottledWhileLive,

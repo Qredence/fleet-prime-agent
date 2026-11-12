@@ -505,7 +505,6 @@ function resolveSuggestions(suggestions: AgentChatViewProps["suggestions"]) {
 function ChatComposerHost({
 	inputBar,
 	status,
-	suggestions,
 	onSend,
 	onStop,
 	isEmpty,
@@ -513,7 +512,6 @@ function ChatComposerHost({
 }: {
 	inputBar: AgentChatViewProps["inputBar"];
 	status: AgentChatViewProps["status"];
-	suggestions: AgentChatViewProps["suggestions"];
 	onSend: AgentChatViewProps["onSend"];
 	onStop: AgentChatViewProps["onStop"];
 	isEmpty: boolean;
@@ -530,7 +528,6 @@ function ChatComposerHost({
 			placeholder={isEmpty ? "Ask Prime to build, investigate, or change something…" : inputBar.placeholder}
 			controlled={{ value: draft, onChange: setDraft }}
 			status={status}
-			suggestions={suggestions}
 			onSend={onSend}
 			onStop={onStop}
 		/>
@@ -746,7 +743,6 @@ export function AgentChat({
 		<MemoChatComposerHost
 			inputBar={inputBar}
 			status={status}
-			suggestions={suggestions}
 			onSend={onSend}
 			onStop={onStop}
 			isEmpty={isEmpty}

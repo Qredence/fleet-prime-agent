@@ -12,7 +12,6 @@ import {
 	SquarePen,
 	TriangleAlert,
 } from "lucide-react";
-import { Popover } from "@/components/chat/composer/input/input-popover";
 import {
 	AnimatedSidebarContent,
 	AnimatedSidebarGroup,
@@ -36,6 +35,7 @@ import {
 	sessionResourceId,
 } from "@/components/sessions/session-sidebar/types";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 type SidebarProjectListProps = {
@@ -100,50 +100,48 @@ export function SessionSidebarProjectList({
 						Projects
 					</AnimatedSidebarGroupLabel>
 					<div className="absolute inset-y-0 left-auto flex items-center gap-0.5 [inset-inline-start:auto] [inset-inline-end:0]">
-						<Popover
-							open={projectActionsOpen}
-							onOpenChange={setProjectActionsOpen}
-							side="bottom"
-							align="end"
-							className="w-44 p-1"
-							trigger={
-								<button
-									type="button"
-									aria-label="Project actions"
-									title="Project actions"
-									className={cn(
-										HIT_AREA_EXPAND_DENSE_CLASS,
-										"inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-									)}
-								>
-									<MoreHorizontal aria-hidden="true" className="size-3.5" />
-								</button>
-							}
-						>
-							{onCreateProject ? (
+						<Popover open={projectActionsOpen} onOpenChange={setProjectActionsOpen}>
+							<PopoverTrigger
+								render={
+									<button
+										type="button"
+										aria-label="Project actions"
+										title="Project actions"
+										className={cn(
+											HIT_AREA_EXPAND_DENSE_CLASS,
+											"inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+										)}
+									>
+										<MoreHorizontal aria-hidden="true" className="size-3.5" />
+									</button>
+								}
+							/>
+							<PopoverContent side="bottom" align="end" sideOffset={6} className="w-44 gap-0 p-1">
+								{onCreateProject ? (
+									<button
+										type="button"
+										onClick={() => {
+											setProjectActionsOpen(false);
+											onOpenCreateProject();
+										}}
+										className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs outline-none hover:bg-muted focus-visible:bg-muted"
+									>
+										<FolderPlus aria-hidden="true" className="size-3.5" />
+										Add project
+									</button>
+								) : null}
 								<button
 									type="button"
 									onClick={() => {
 										setProjectActionsOpen(false);
-										onOpenCreateProject();
+										setExpandedProjectIds([]);
 									}}
 									className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs outline-none hover:bg-muted focus-visible:bg-muted"
 								>
-									<FolderPlus aria-hidden="true" className="size-3.5" />
-									Add project
+									<ChevronDown aria-hidden="true" className="size-3.5" />
+									Collapse all
 								</button>
-							) : null}
-							<button
-								type="button"
-								onClick={() => {
-									setProjectActionsOpen(false);
-									setExpandedProjectIds([]);
-								}}
-								className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs outline-none hover:bg-muted focus-visible:bg-muted"
-							>
-								<ChevronDown aria-hidden="true" className="size-3.5" />
-								Collapse all
-							</button>
+							</PopoverContent>
 						</Popover>
 						{onCreateProject ? (
 							<button

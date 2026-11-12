@@ -7,11 +7,6 @@
       "reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
     },
     {
-      "path": "src/components/chat/composer/composer-trigger-popover.tsx",
-      "type": "ComposerTriggerPopoverProps",
-      "reason": "Absorbed first-party composer trigger popover; existing public prop contract retained."
-    },
-    {
       "path": "src/components/chat/composer/input-bar.tsx",
       "type": "InputBarProps",
       "reason": "Absorbed first-party composer contract; existing public prop contract retained."
@@ -54,7 +49,6 @@
   ],
   "nativeControlExceptions": [
     "src/components/chat/agent-chat.tsx",
-    "src/components/chat/composer/input-bar.tsx",
     "src/components/chat/fork-picker-dialog.tsx",
     "src/components/layout/animated-sidebar.tsx",
     "src/components/layout/chat-header.tsx",

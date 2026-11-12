@@ -1,7 +1,7 @@
 import { COMPOSER_COMPLETION_MAX_CHARS, composerCompletionGhost } from "@prime-agent/web-protocol/composer-completion";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useComposerInlineCompletion } from "@/components/chat/composer/composer-inline-completion";
+import { useComposerInlineCompletion } from "@/components/chat/composer/composer-assistance";
 
 function jsonResponse(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

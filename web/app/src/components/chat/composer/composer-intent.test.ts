@@ -1,7 +1,7 @@
 import type { ComposerIntentResponse } from "@prime-agent/web-protocol/composer-intent";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useComposerIntentRouting } from "@/components/chat/composer/composer-intent";
+import { useComposerIntentRouting } from "@/components/chat/composer/composer-assistance";
 
 /** The hook's debounce window. */
 const DEBOUNCE_MS = 300;
@@ -82,6 +82,28 @@ describe("useComposerIntentRouting", () => {
 			release?.();
 		});
 		expect(result.current.command).toBeUndefined();
+	});
+
+	it("does not restore cached execution from a response cancelled by disabling routing", async () => {
+		let finish: ((response: Response) => void) | undefined;
+		mockFetch().mockImplementation(
+			() =>
+				new Promise<Response>((resolve) => {
+					finish = resolve;
+				}),
+		);
+		const { result, rerender } = renderHook(
+			({ available }: { available: boolean }) => useComposerIntentRouting(available),
+			{ initialProps: { available: true } },
+		);
+		await settle(result, "make this shorter");
+		rerender({ available: false });
+		await act(async () => {
+			finish?.(jsonResponse(intentResponse({ disposition: "execute" })));
+		});
+		rerender({ available: true });
+		expect(result.current.command).toBeUndefined();
+		expect(result.current.takeCached("make this shorter")).toBeNull();
 	});
 
 	it("waits for the debounce before asking", async () => {

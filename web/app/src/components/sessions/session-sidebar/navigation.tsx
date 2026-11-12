@@ -6,7 +6,7 @@ import { BookOpenText, ChevronDown, CircleHelp, Folder, FolderPlus, Search, Sett
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { normalizeSessionLabel } from "@/components/chat/chat-helpers";
-import { Popover } from "@/components/chat/composer/input/input-popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
 	AnimatedSidebar,
 	AnimatedSidebarFooter,
@@ -177,115 +177,111 @@ export function SessionSidebarNavigation({
 			<SurfaceProvider value={2}>
 				<AnimatedSidebarHeader className="gap-2 border-0 px-2.5 pb-2 pt-2.5">
 					<div className="relative flex h-9 min-w-0 items-center justify-between gap-1">
-						<Popover
-							open={brandMenuOpen}
-							onOpenChange={setBrandMenuOpen}
-							side="bottom"
-							align="start"
-							trigger={
-								<button
-									type="button"
-									className="flex h-8 w-fit shrink-0 items-center gap-1 rounded-lg px-2 text-start text-body font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-								>
-									<span className="truncate">Qredence Fleet</span>
-									<ChevronDown className="size-3.5 text-muted-foreground" />
-								</button>
-							}
-							className="w-52 p-1"
-						>
-							{onCreateProject ? (
+						<Popover open={brandMenuOpen} onOpenChange={setBrandMenuOpen}>
+							<PopoverTrigger
+								render={
+									<button
+										type="button"
+										className="flex h-8 w-fit shrink-0 items-center gap-1 rounded-lg px-2 text-start text-body font-medium outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+									>
+										<span className="truncate">Qredence Fleet</span>
+										<ChevronDown className="size-3.5 text-muted-foreground" />
+									</button>
+								}
+							/>
+							<PopoverContent side="bottom" align="start" sideOffset={6} className="w-52 gap-0 p-1">
+								{onCreateProject ? (
+									<SidebarMenuItem
+										icon={FolderPlus}
+										label="Add project"
+										onClick={() => {
+											setBrandMenuOpen(false);
+											onOpenCreateProject();
+										}}
+									/>
+								) : null}
 								<SidebarMenuItem
-									icon={FolderPlus}
-									label="Add project"
+									icon={Settings}
+									label="Settings"
 									onClick={() => {
 										setBrandMenuOpen(false);
-										onOpenCreateProject();
+										onOpenSettings?.();
 									}}
 								/>
-							) : null}
-							<SidebarMenuItem
-								icon={Settings}
-								label="Settings"
-								onClick={() => {
-									setBrandMenuOpen(false);
-									onOpenSettings?.();
-								}}
-							/>
-							<SidebarMenuItem label="Agents" to="/agents" />
-							<SidebarMenuItem label="Connectors" to="/connectors" />
-							<SidebarMenuItem icon={BookOpenText} label="Documentation" href={DOCUMENTATION_URL} />
+								<SidebarMenuItem label="Agents" to="/agents" />
+								<SidebarMenuItem label="Connectors" to="/connectors" />
+								<SidebarMenuItem icon={BookOpenText} label="Documentation" href={DOCUMENTATION_URL} />
+							</PopoverContent>
 						</Popover>
 
-						<Popover
-							open={searchOpen}
-							onOpenChange={setSearchOpen}
-							side="bottom"
-							align="end"
-							className="w-64 p-0"
-							trigger={
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									aria-label="Search projects and sessions"
-									title="Search projects and sessions"
-									className="shrink-0 text-muted-foreground hover:bg-sidebar-accent"
-								>
-									<Search data-icon="inline-start" className="size-4" />
-								</Button>
-							}
-						>
-							<div className="max-h-[min(32rem,calc(100dvh-5rem))] overflow-y-auto overscroll-contain">
-								<ThreadSearch
-									threads={searchThreads}
-									query={query}
-									activeId={activeSessionId ?? ""}
-									onQueryChange={setQuery}
-									onSelect={(sessionId) => selectSearchResult(`search-session:${sessionId}`)}
-									className="max-w-none rounded-none border-0 p-2 shadow-none"
-								/>
-								<div className="border-t border-border/60 px-2 pb-2 pt-1.5">
-									<span className="px-2 pb-1 font-mono text-micro uppercase tracking-[0.14em] text-muted-foreground/60">
-										Projects
-									</span>
-									<div className="mt-1 flex flex-col gap-0.5">
-										{matchingProjects.map((project) => (
-											<button
-												key={project.projectId}
-												type="button"
-												onClick={() => selectSearchResult(`search-project:${project.projectId}`)}
-												className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-start text-label outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
-											>
-												<Folder className="size-3.5 shrink-0 text-muted-foreground/60" />
-												<span className="min-w-0 flex-1 truncate">{project.name}</span>
-												<span className="max-w-24 truncate text-micro text-muted-foreground/55">
-													{project.pathLabel}
+						<Popover open={searchOpen} onOpenChange={setSearchOpen}>
+							<PopoverTrigger
+								render={
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon"
+										aria-label="Search projects and sessions"
+										title="Search projects and sessions"
+										className="shrink-0 text-muted-foreground hover:bg-sidebar-accent"
+									>
+										<Search data-icon="inline-start" className="size-4" />
+									</Button>
+								}
+							/>
+							<PopoverContent side="bottom" align="end" sideOffset={6} className="w-64 gap-0 p-0">
+								<div className="max-h-[min(32rem,calc(100dvh-5rem))] overflow-y-auto overscroll-contain">
+									<ThreadSearch
+										threads={searchThreads}
+										query={query}
+										activeId={activeSessionId ?? ""}
+										onQueryChange={setQuery}
+										onSelect={(sessionId) => selectSearchResult(`search-session:${sessionId}`)}
+										className="max-w-none rounded-none border-0 p-2 shadow-none"
+									/>
+									<div className="border-t border-border/60 px-2 pb-2 pt-1.5">
+										<span className="px-2 pb-1 font-mono text-micro uppercase tracking-[0.14em] text-muted-foreground/60">
+											Projects
+										</span>
+										<div className="mt-1 flex flex-col gap-0.5">
+											{matchingProjects.map((project) => (
+												<button
+													key={project.projectId}
+													type="button"
+													onClick={() => selectSearchResult(`search-project:${project.projectId}`)}
+													className="flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-start text-label outline-none transition-colors hover:bg-foreground/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
+												>
+													<Folder className="size-3.5 shrink-0 text-muted-foreground/60" />
+													<span className="min-w-0 flex-1 truncate">{project.name}</span>
+													<span className="max-w-24 truncate text-micro text-muted-foreground/55">
+														{project.pathLabel}
+													</span>
+												</button>
+											))}
+											{matchingProjects.length === 0 ? (
+												<span className="p-2 text-center text-caption text-muted-foreground/60">
+													No project matches “{query}”
 												</span>
-											</button>
-										))}
-										{matchingProjects.length === 0 ? (
-											<span className="p-2 text-center text-caption text-muted-foreground/60">
-												No project matches “{query}”
-											</span>
-										) : null}
+											) : null}
+										</div>
+									</div>
+									<div className="flex items-center justify-end gap-3 border-t border-border/60 px-3 py-2 text-micro text-muted-foreground/70">
+										<span className="flex items-center gap-1">
+											<KbdHint>↑</KbdHint>
+											<KbdHint>↓</KbdHint>
+											navigate
+										</span>
+										<span className="flex items-center gap-1">
+											<KbdHint>↵</KbdHint>
+											open
+										</span>
+										<span className="flex items-center gap-1">
+											<KbdHint>esc</KbdHint>
+											close
+										</span>
 									</div>
 								</div>
-								<div className="flex items-center justify-end gap-3 border-t border-border/60 px-3 py-2 text-micro text-muted-foreground/70">
-									<span className="flex items-center gap-1">
-										<KbdHint>↑</KbdHint>
-										<KbdHint>↓</KbdHint>
-										navigate
-									</span>
-									<span className="flex items-center gap-1">
-										<KbdHint>↵</KbdHint>
-										open
-									</span>
-									<span className="flex items-center gap-1">
-										<KbdHint>esc</KbdHint>
-										close
-									</span>
-								</div>
-							</div>
+							</PopoverContent>
 						</Popover>
 					</div>
 					<button type="button" onClick={onNewSession} className={SIDEBAR_ITEM_BUTTON_CLASS}>

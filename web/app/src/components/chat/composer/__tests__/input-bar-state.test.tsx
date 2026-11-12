@@ -1,103 +1,50 @@
-import { act, renderHook } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useInputBarState } from "@/components/chat/composer/input-bar-state";
+import { InputBar } from "@/components/chat/composer/input-bar";
 
-const slashCommands = [{ id: "settings", label: "/settings", value: "/settings" }];
+function renderComposer(status: "ready" | "streaming" = "ready") {
+	render(
+		<InputBar
+			models={[]}
+			modelKey={undefined}
+			status={status}
+			onModelChange={vi.fn()}
+			onSend={vi.fn()}
+			onStop={vi.fn()}
+			slashCommands={[{ id: "settings", label: "/settings", value: "/settings" }]}
+			workspaceSuggestions={[{ id: "src/a.ts", label: "a.ts", value: "src/a.ts" }]}
+		/>,
+	);
+	return screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement;
+}
 
-describe("useInputBarState", () => {
-	it("opens the slash menu from plus without inserting a slash", () => {
-		const onSend = vi.fn();
-		const { result } = renderHook(() =>
-			useInputBarState({
-				models: [],
-				status: "ready",
-				onModelChange: vi.fn(),
-				onSend,
-				slashCommands,
-			}),
-		);
-
-		expect(result.current.triggerOpen).toBe(false);
-		expect(result.current.value).toBe("");
-
-		act(() => {
-			result.current.openSlashMenu();
-		});
-
-		expect(result.current.value).toBe("");
-		expect(result.current.triggerKind).toBe("slash");
-		expect(result.current.triggerOpen).toBe(true);
+describe("composer draft and trigger integration", () => {
+	it("opens from plus without inserting a slash, then dismisses without changing the draft", async () => {
+		const prompt = renderComposer();
+		fireEvent.change(prompt, { target: { value: "keep this draft" } });
+		fireEvent.click(screen.getByRole("button", { name: "Open slash commands" }));
+		expect(screen.getByRole("listbox", { name: "Commands" })).toBeTruthy();
+		expect(prompt.value).toBe("keep this draft");
+		expect(document.activeElement).toBe(prompt);
+		fireEvent.keyDown(prompt, { key: "Escape" });
+		await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+		expect(prompt.value).toBe("keep this draft");
 	});
-
-	it("opens the slash menu when the prompt value starts with a slash", () => {
-		const { result, rerender } = renderHook(
-			({ controlledValue }: { controlledValue: string }) =>
-				useInputBarState({
-					models: [],
-					status: "ready",
-					onModelChange: vi.fn(),
-					onSend: vi.fn(),
-					slashCommands,
-					controlled: { value: controlledValue, onChange: vi.fn() },
-				}),
-			{ initialProps: { controlledValue: "" } },
-		);
-
-		rerender({ controlledValue: "/" });
-
-		expect(result.current.value).toBe("/");
-		expect(result.current.triggerKind).toBe("slash");
-		expect(result.current.triggerOpen).toBe(true);
+	it.each([
+		["/sett", "", "Commands"],
+		["read src/a.ts and @src/", "read src/a.ts and ", "Workspace references"],
+	])("removes the typed trigger on dismissal: %s", async (value, remaining, label) => {
+		const prompt = renderComposer();
+		fireEvent.change(prompt, { target: { value } });
+		expect(screen.getByRole("listbox", { name: label })).toBeTruthy();
+		fireEvent.keyDown(prompt, { key: "Escape" });
+		await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+		expect(prompt.value).toBe(remaining);
 	});
-
-	it("closes the pinned slash menu on outside click", () => {
-		const { result } = renderHook(() =>
-			useInputBarState({
-				models: [],
-				status: "ready",
-				onModelChange: vi.fn(),
-				onSend: vi.fn(),
-				slashCommands,
-			}),
-		);
-
-		act(() => {
-			result.current.openSlashMenu();
-		});
-		expect(result.current.triggerOpen).toBe(true);
-
-		act(() => {
-			document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-		});
-
-		expect(result.current.triggerOpen).toBe(false);
-		expect(result.current.value).toBe("");
-	});
-
-	it("keeps the slash menu open when clicking the prompt textarea", () => {
-		const prompt = document.createElement("textarea");
-		prompt.id = "composer-prompt";
-		document.body.appendChild(prompt);
-
-		const { result } = renderHook(() =>
-			useInputBarState({
-				models: [],
-				status: "ready",
-				onModelChange: vi.fn(),
-				onSend: vi.fn(),
-				slashCommands,
-			}),
-		);
-
-		act(() => {
-			result.current.openSlashMenu();
-		});
-
-		act(() => {
-			prompt.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-		});
-
-		expect(result.current.triggerOpen).toBe(true);
-		prompt.remove();
+	it("keeps trigger menus closed while streaming", () => {
+		const prompt = renderComposer("streaming");
+		fireEvent.change(prompt, { target: { value: "/" } });
+		expect(screen.queryByRole("listbox")).toBeNull();
+		expect((screen.getByRole("button", { name: "Open slash commands" }) as HTMLButtonElement).disabled).toBe(true);
 	});
 });

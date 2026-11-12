@@ -35,10 +35,7 @@
         "rules": ["react-doctor/prefer-dynamic-import"]
       },
       {
-        "files": [
-          "src/components/chat/plans/plan-state.ts",
-          "src/components/chat/composer/composer-menu.tsx"
-        ],
+        "files": ["src/components/chat/plans/plan-state.ts"],
         "rules": ["deslop/unused-export"]
       },
       {
@@ -74,10 +71,7 @@
         ]
       },
       {
-        "files": [
-          "src/components/chat/composer/input-bar-state.tsx",
-          "src/components/artifacts/artifacts-panel.tsx"
-        ],
+        "files": ["src/components/artifacts/artifacts-panel.tsx"],
         "rules": ["react-doctor/no-adjust-state-on-prop-change"]
       },
       {
@@ -85,10 +79,7 @@
         "rules": ["react-doctor/prefer-html-dialog"]
       },
       {
-        "files": [
-          "src/components/chat/composer/composer-menu.tsx",
-          "src/components/chat/transcript/session-reasoning-panel.tsx"
-        ],
+        "files": ["src/components/chat/transcript/session-reasoning-panel.tsx"],
         "rules": [
           "react-doctor/no-transition-all",
           "react-doctor/no-array-index-as-key"
@@ -108,11 +99,9 @@
       },
       {
         "files": [
-          "src/components/chat/composer/prompt-input.tsx"
+          "src/components/chat/composer/composer-controls.tsx"
         ],
-        "rules": [
-          "react-doctor/motion-animate-presence-must-outlive-child"
-        ]
+        "rules": ["react-doctor/only-export-components"]
       },
       {
         "files": [
@@ -129,7 +118,6 @@
           "src/components/chat/markdown/markdown.tsx",
           "src/components/chat/transcript/message-turns.tsx",
           "src/components/tools/mcp-tool.tsx",
-          "src/components/chat/composer/composer-menu.tsx",
           "src/components/tools/session-agent-plan.tsx"
         ],
         "rules": ["react-doctor/only-export-components"]

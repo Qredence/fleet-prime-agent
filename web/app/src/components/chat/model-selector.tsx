@@ -1,8 +1,10 @@
 "use client";
 
-import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useId, useState } from "react";
-import { ComposerSelectorTrigger } from "@/components/chat/composer/input/composer-selector-trigger";
-import { Popover } from "@/components/chat/composer/input/input-popover";
+import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { COMPOSER_SELECTOR_TRIGGER_CLASS } from "@/components/layout/tokens";
+import { InputGroupButton } from "@/components/ui/input-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 const LazyModelSelectorList = lazy(() =>
@@ -83,7 +85,6 @@ export const ModelSelector = memo(function ModelSelector({
 	contentClassName,
 }: ModelSelectorProps) {
 	const [internalOpen, setInternalOpen] = useState(false);
-	const popupId = useId();
 	const open = controlledOpen ?? internalOpen;
 	const handleOpenChange = (next: boolean) => {
 		if (controlledOpen === undefined) setInternalOpen(next);
@@ -97,44 +98,50 @@ export const ModelSelector = memo(function ModelSelector({
 		? `Select model and reasoning effort, ${modelName}, ${effortName}`
 		: `Select model and reasoning effort, ${modelName}`;
 
-	const trigger = (
-		<ComposerSelectorTrigger
-			ariaLabel={modelAriaLabel}
-			label={modelName}
-			leadingIcon={selectedModel?.icon}
-			suffix={
-				effortName ? <span className="hidden shrink-0 text-foreground/70 xl:inline">· {effortName}</span> : null
-			}
-			open={open}
-			combobox
-			popupId={popupId}
-			className={className}
-		/>
-	);
-
 	return (
-		<Popover
-			contentId={popupId}
-			open={open}
-			onOpenChange={handleOpenChange}
-			side="top"
-			align="start"
-			className={cn(
-				"w-[min(24rem,calc(100vw-2rem))] max-h-[min(55dvh,28rem)] overflow-hidden p-0",
-				contentClassName,
-			)}
-			trigger={trigger}
-		>
-			{open ? (
-				<ModelSelectorList
-					models={models}
-					selectedModel={selectedModel}
-					selectedEffort={selectedEffort}
-					effortLabel={effortLabel}
-					onModelChange={onModelChange}
-					onEffortChange={onEffortChange}
-				/>
-			) : null}
+		<Popover open={open} onOpenChange={handleOpenChange}>
+			<PopoverTrigger
+				render={
+					<InputGroupButton
+						variant="ghost"
+						size="sm"
+						aria-label={modelAriaLabel}
+						title={modelName}
+						className={cn(COMPOSER_SELECTOR_TRIGGER_CLASS, className)}
+					>
+						{selectedModel?.icon ? (
+							<span aria-hidden="true" className="shrink-0 [&_svg]:size-3.5">
+								{selectedModel.icon}
+							</span>
+						) : null}
+						<span className="min-w-0 truncate font-medium">{modelName}</span>
+						{effortName ? (
+							<span className="hidden shrink-0 text-foreground/70 xl:inline">· {effortName}</span>
+						) : null}
+						<ChevronDown aria-hidden="true" className="size-3 shrink-0 text-foreground/70" />
+					</InputGroupButton>
+				}
+			/>
+			<PopoverContent
+				side="top"
+				align="start"
+				sideOffset={6}
+				className={cn(
+					"w-[min(24rem,calc(100vw-2rem))] max-h-[min(55dvh,28rem)] overflow-hidden p-0",
+					contentClassName,
+				)}
+			>
+				{open ? (
+					<ModelSelectorList
+						models={models}
+						selectedModel={selectedModel}
+						selectedEffort={selectedEffort}
+						effortLabel={effortLabel}
+						onModelChange={onModelChange}
+						onEffortChange={onEffortChange}
+					/>
+				) : null}
+			</PopoverContent>
 		</Popover>
 	);
 });

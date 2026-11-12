@@ -14,8 +14,11 @@ import {
 	useWorkspaceTree,
 } from "@/components/chat/chat-queries";
 import { useChatWorkspaceComposerState } from "@/components/chat/composer/chat-input-bar-props";
-import { useComposerInlineCompletion } from "@/components/chat/composer/composer-inline-completion";
-import { useComposerIntentAvailability, useComposerIntentRouting } from "@/components/chat/composer/composer-intent";
+import { useComposerInlineCompletion } from "@/components/chat/composer/composer-assistance";
+import {
+	useComposerIntentAvailability,
+	useComposerIntentRouting,
+} from "@/components/chat/composer/composer-assistance";
 import type { InlineCompletion } from "@/components/chat/composer/inline-completion";
 import type { SettingsSlashTab } from "@/components/chat/composer/slash-commands";
 import { buildSlashCommands } from "@/components/chat/composer/slash-commands";

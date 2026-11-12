@@ -1,7 +1,88 @@
-import type { ComposerIntentKeySource, ComposerIntentResponse } from "@prime-agent/web-protocol/composer-intent";
-import { composerIntentCommand } from "@prime-agent/web-protocol/composer-intent";
+import {
+	COMPOSER_COMPLETION_MIN_CHARS,
+	type ComposerCompletionResponse,
+	composerCompletionGhost,
+	composerCompletionIgnores,
+	normalizeCompletionDraft,
+} from "@prime-agent/web-protocol/composer-completion";
+import {
+	type ComposerIntentKeySource,
+	type ComposerIntentResponse,
+	composerIntentCommand,
+} from "@prime-agent/web-protocol/composer-intent";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
+import type { InlineCompletion } from "@/components/chat/composer/inline-completion";
+
+/**
+ * Draft-keyed cache shared by the composer's speculative request hooks.
+ *
+ * Intent routing and history completion each own an instance of this bounded,
+ * expiring cache. Shared normalization keeps client and server lookups aligned.
+ */
+
+/** Entries kept before the least recently read one is evicted. */
+export const COMPOSER_DRAFT_CACHE_LIMIT = 32;
+
+/** How long an answer stays usable. */
+export const COMPOSER_DRAFT_CACHE_TTL_MS = 5 * 60_000;
+
+/**
+ * Cache key for a draft.
+ *
+ * `normalizeCompletionDraft` collapses whitespace exactly as the server does;
+ * lowercasing on top matches the intent router's `normalizeIntentText`. A draft
+ * that differs only in spacing or case is the same question, so it is the same
+ * key.
+ */
+export function draftCacheKey(text: string): string {
+	return normalizeCompletionDraft(text).toLowerCase();
+}
+
+export type DraftCache<T> = {
+	/** The entry for `key`, or `undefined` when absent or expired. */
+	read: (key: string) => T | undefined;
+	remember: (key: string, value: T) => void;
+	clear: () => void;
+};
+
+/**
+ * Creates a bounded cache that expires entries after `ttlMs` and evicts the
+ * least recently read entry once `limit` is reached.
+ *
+ * @param options - Override the defaults; `now` exists for deterministic tests.
+ */
+export function createDraftCache<T>(options?: { limit?: number; ttlMs?: number; now?: () => number }): DraftCache<T> {
+	const limit = options?.limit ?? COMPOSER_DRAFT_CACHE_LIMIT;
+	const ttlMs = options?.ttlMs ?? COMPOSER_DRAFT_CACHE_TTL_MS;
+	const now = options?.now ?? Date.now;
+	const entries = new Map<string, { value: T; at: number }>();
+
+	const read = (key: string): T | undefined => {
+		const entry = entries.get(key);
+		if (!entry) return undefined;
+		if (now() - entry.at > ttlMs) {
+			entries.delete(key);
+			return undefined;
+		}
+		// Re-insert so the least recently read key is the one evicted next.
+		entries.delete(key);
+		entries.set(key, entry);
+		return entry.value;
+	};
+
+	const remember = (key: string, value: T) => {
+		entries.delete(key);
+		entries.set(key, { value, at: now() });
+		while (entries.size > limit) {
+			const oldest = entries.keys().next();
+			if (oldest.done) break;
+			entries.delete(oldest.value);
+		}
+	};
+
+	return { read, remember, clear: () => entries.clear() };
+}
 
 /**
  * Speculative composer intent routing.
@@ -14,15 +95,8 @@ import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
  */
 
 const DEBOUNCE_MS = 300;
-const CACHE_LIMIT = 32;
-const CACHE_TTL_MS = 5 * 60_000;
 /** Below this a draft cannot be describing a command. */
 const MIN_DRAFT_CHARS = 4;
-
-/** Cache key for a draft. Matches the server's own normalisation. */
-function normalizeIntentDraft(text: string): string {
-	return text.trim().replace(/\s+/g, " ").toLowerCase();
-}
 
 /**
  * A command the router recognised behind the draft.
@@ -35,8 +109,6 @@ export type ComposerIntentCommandOffer = {
 	forValue: string;
 	command: string;
 };
-
-type CacheEntry = { response: ComposerIntentResponse; at: number };
 
 /** True when a draft is worth classifying at all. */
 function isClassifiable(draft: string): boolean {
@@ -87,32 +159,13 @@ export type UseComposerIntentRoutingResult = {
  *   is not, no request is ever made and every draft falls through.
  */
 export function useComposerIntentRouting(available: boolean): UseComposerIntentRoutingResult {
-	const cache = useRef(new Map<string, CacheEntry>());
+	const [cache] = useState(() => createDraftCache<ComposerIntentResponse>());
 	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const inFlight = useRef<AbortController | null>(null);
 	const latestDraft = useRef("");
 	/** Normalized draft Escape dismissed; execute stays suppressed until the draft changes. */
 	const suppressedKey = useRef<string | undefined>(undefined);
 	const [command, setCommand] = useState<ComposerIntentCommandOffer | undefined>(undefined);
-
-	const readCache = useCallback((key: string): ComposerIntentResponse | undefined => {
-		const entry = cache.current.get(key);
-		if (!entry) return undefined;
-		if (Date.now() - entry.at > CACHE_TTL_MS) {
-			cache.current.delete(key);
-			return undefined;
-		}
-		return entry.response;
-	}, []);
-
-	const remember = useCallback((key: string, response: ComposerIntentResponse) => {
-		cache.current.set(key, { response, at: Date.now() });
-		while (cache.current.size > CACHE_LIMIT) {
-			const oldest = cache.current.keys().next();
-			if (oldest.done) break;
-			cache.current.delete(oldest.value);
-		}
-	}, []);
 
 	const offerFor = useCallback((response: ComposerIntentResponse, forValue: string, key: string) => {
 		if (suppressedKey.current === key) return undefined;
@@ -121,7 +174,7 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 
 	const classify = useCallback(
 		async (draft: string) => {
-			const key = normalizeIntentDraft(draft);
+			const key = draftCacheKey(draft);
 			inFlight.current?.abort();
 			const controller = new AbortController();
 			inFlight.current = controller;
@@ -134,7 +187,8 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 				});
 				if (!response.ok) return;
 				const parsed = (await response.json()) as ComposerIntentResponse;
-				remember(key, parsed);
+				if (controller.signal.aborted) return;
+				cache.remember(key, parsed);
 				// Only offer a command for the draft still in the composer.
 				if (latestDraft.current !== draft) return;
 				setCommand(offerFor(parsed, draft, key));
@@ -142,7 +196,7 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 				// Aborted or offline: leave the cache empty so submit falls through.
 			}
 		},
-		[offerFor, remember],
+		[cache, offerFor],
 	);
 
 	const onDraftChange = useCallback(
@@ -152,7 +206,7 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 				clearTimeout(timer.current);
 				timer.current = undefined;
 			}
-			const key = normalizeIntentDraft(text);
+			const key = draftCacheKey(text);
 			// Editing away from a dismissed draft lifts the suppress for later returns.
 			if (suppressedKey.current !== undefined && suppressedKey.current !== key) {
 				suppressedKey.current = undefined;
@@ -161,7 +215,7 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 				setCommand(undefined);
 				return;
 			}
-			const cached = readCache(key);
+			const cached = cache.read(key);
 			if (cached) {
 				setCommand(offerFor(cached, text, key));
 				return;
@@ -172,23 +226,23 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 				void classify(text);
 			}, DEBOUNCE_MS);
 		},
-		[available, classify, offerFor, readCache],
+		[available, cache, classify, offerFor],
 	);
 
 	const takeCached = useCallback(
 		(text: string): ComposerIntentResponse | null => {
 			if (!available) return null;
-			const key = normalizeIntentDraft(text);
+			const key = draftCacheKey(text);
 			if (suppressedKey.current === key) return null;
-			const entry = readCache(key);
+			const entry = cache.read(key);
 			if (!entry || entry.outcome !== "matched" || entry.disposition !== "execute") return null;
 			return entry;
 		},
-		[available, readCache],
+		[available, cache],
 	);
 
 	const dismissCommand = useCallback(() => {
-		suppressedKey.current = normalizeIntentDraft(latestDraft.current);
+		suppressedKey.current = draftCacheKey(latestDraft.current);
 		setCommand(undefined);
 	}, []);
 
@@ -204,9 +258,9 @@ export function useComposerIntentRouting(available: boolean): UseComposerIntentR
 		}
 		inFlight.current?.abort();
 		inFlight.current = null;
-		cache.current.clear();
+		cache.clear();
 		suppressedKey.current = undefined;
-	}, [available]);
+	}, [available, cache]);
 
 	// The mirror of the switch-off above, and the same gap `useComposerInlineCompletion`
 	// closes with its re-ask: availability is resolved asynchronously (the key is
@@ -299,4 +353,163 @@ export function useComposerIntentAvailability(): ComposerIntentAvailability {
 	// A fresh object here would invalidate every memo downstream of this hook on
 	// each render, including the settings context values it feeds.
 	return useMemo(() => ({ ...state, refresh }), [refresh, state]);
+}
+
+/**
+ * Ghost-text completions from the developer's own prompt history.
+ *
+ * Deliberately does **not** debounce: `InputBar` already publishes the
+ * draft on a 300 ms pause (`onDraftChange`), so adding a second timer here would
+ * only delay the offer and risk the two windows disagreeing.
+ *
+ * The returned `forValue` is the draft the completion was computed against. The
+ * composer compares it to its live value and drops the ghost the moment they
+ * differ, which is what keeps a completion for an older draft from being painted
+ * onto a newer one.
+ *
+ * Command replacements are not produced here — the host coalesces a router offer
+ * over this history completion. This endpoint is append-only by contract.
+ */
+
+/** An offer waiting to be painted. */
+type Offer = { key: string; forValue: string; text: string };
+
+/**
+ * A draft shorter than this is not worth a request. Mirrors the intent floor.
+ *
+ * The trigger-token check duplicates the server's, deliberately: the server is
+ * still the authority, but without it a slash or `@mention` draft would spend a
+ * request per typing pause only to be rejected.
+ */
+function isCompletable(text: string): boolean {
+	const trimmed = text.trim();
+	if (trimmed.length < COMPOSER_COMPLETION_MIN_CHARS) return false;
+	return !composerCompletionIgnores(text);
+}
+
+/**
+ * Cache key for an offer.
+ *
+ * The session is part of the key because it is part of the question: the same
+ * prefix resolves to a different completion depending on which session is being
+ * typed in. Keyed on the draft alone, a draft cached in one session would be
+ * replayed verbatim in the next — including in a brand-new chat, which would
+ * show another session's history as though it were the corpus.
+ */
+function cacheKey(sessionId: string | undefined, text: string): string {
+	return `${sessionId ?? ""}\u0000${draftCacheKey(text)}`;
+}
+
+export type UseComposerInlineCompletionOptions = {
+	/** Whether history completions are wanted at all. */
+	available: boolean;
+	/** The session being typed in, so its own prompts are preferred. */
+	sessionId?: string;
+};
+
+export type UseComposerInlineCompletionResult = {
+	/** Feed the published draft here. */
+	onDraftChange: (text: string) => void;
+	/** Pass straight to the composer's `inlineCompletion` prop, or coalesce with a command. */
+	inlineCompletion: InlineCompletion | undefined;
+};
+
+/**
+ * @param available - Whether history completions are wanted at all. When false,
+ *   no request is ever made and no history ghost is painted.
+ */
+export function useComposerInlineCompletion({
+	available,
+	sessionId,
+}: UseComposerInlineCompletionOptions): UseComposerInlineCompletionResult {
+	const [cache] = useState(() => createDraftCache<{ completion: string | undefined }>());
+	const latestDraft = useRef("");
+	const inFlight = useRef<AbortController | null>(null);
+	const [offer, setOffer] = useState<Offer | undefined>(undefined);
+
+	const fetchCompletion = useCallback(
+		async (draft: string) => {
+			const key = cacheKey(sessionId, draft);
+			inFlight.current?.abort();
+			const controller = new AbortController();
+			inFlight.current = controller;
+			try {
+				const response = await fetch(resolveChatApiUrl("/api/chat/completion"), {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(sessionId ? { text: draft, sessionId } : { text: draft }),
+					signal: controller.signal,
+				});
+				if (!response.ok) return;
+				const body = (await response.json()) as ComposerCompletionResponse;
+				// Only positives are cached. A negative can simply mean the server's
+				// corpus was still being read, and caching that for the TTL would keep
+				// a perfectly completable draft silent.
+				// History completions are always append — never honor a wire `mode`.
+				if (body.completion) cache.remember(key, { completion: body.completion });
+				// Only the latest request may publish. An aborted fetch can still resolve
+				// when its implementation ignores the signal, including after a session switch.
+				if (inFlight.current !== controller || latestDraft.current !== draft) return;
+				setOffer(body.completion ? { key, forValue: draft, text: body.completion } : undefined);
+			} catch {
+				// Aborted or offline: leaving the previous offer absent is the safe
+				// outcome, and the composer falls back to plain typing.
+			}
+		},
+		[cache, sessionId],
+	);
+
+	const onDraftChange = useCallback(
+		(text: string) => {
+			latestDraft.current = text;
+			if (!available || !isCompletable(text)) {
+				inFlight.current?.abort();
+				inFlight.current = null;
+				setOffer(undefined);
+				return;
+			}
+			const key = cacheKey(sessionId, text);
+			const cached = cache.read(key);
+			if (cached) {
+				inFlight.current?.abort();
+				inFlight.current = null;
+				setOffer(cached.completion ? { key, forValue: text, text: cached.completion } : undefined);
+				return;
+			}
+			setOffer(undefined);
+			void fetchCompletion(text);
+		},
+		[available, cache, fetchCompletion, sessionId],
+	);
+
+	useEffect(
+		() => () => {
+			inFlight.current?.abort();
+			inFlight.current = null;
+		},
+		[],
+	);
+
+	// The answer depends on the session as well as the draft, so a session switch
+	// has to re-ask. The composer keeps its draft across a switch, and no keystroke
+	// follows one, so without this the ghost would stay blank until the user typed.
+	useEffect(() => {
+		if (latestDraft.current) onDraftChange(latestDraft.current);
+	}, [onDraftChange]);
+
+	// Uses the protocol's own rule rather than slicing here, so the suffix the
+	// composer paints and the one the ghost check validates can never disagree.
+	const currentOffer = offer && offer.key === cacheKey(sessionId, offer.forValue) ? offer : undefined;
+	const ghost = currentOffer ? composerCompletionGhost(currentOffer.forValue, currentOffer.text, "append") : undefined;
+	const inlineCompletion: InlineCompletion | undefined =
+		currentOffer && ghost
+			? {
+					forValue: currentOffer.forValue,
+					text: ghost,
+					mode: "append",
+					onDismiss: () => setOffer(undefined),
+				}
+			: undefined;
+
+	return { onDraftChange, inlineCompletion };
 }
