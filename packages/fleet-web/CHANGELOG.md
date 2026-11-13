@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.3
+
+### Patch Changes
+
+- 91dda3c: Update hono, @hono/node-server, and basic-ftp to patched releases that address dependency security vulnerabilities.
+
 ## 0.12.2
 
 ### Patch Changes
