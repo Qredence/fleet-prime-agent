@@ -359,7 +359,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 							{group.items.map((item, index) => renderItem(item, (groupOffsets.get(group.id) ?? 0) + index))}
 						</div>
 					))}
-					{groups && groups.length > 0 ? null : items.map(renderItem)}
+					{groups && groups.length > 0 ? null : items.map((item, index) => renderItem(item, index))}
 				</div>
 			</PopoverContent>
 		</Popover>

@@ -79,20 +79,16 @@ overrides:
   # Dependabot high: undici 7.x < 7.30.1 (alerts 94/93/92/87; GHSA-4w7w-5xrc-9h26 and related).
   # Pin exact 7.30.1: 7.30.2 is still inside minimumReleaseAge.
   undici: 7.30.1
-  # Dependabot high (#213 / GHSA-c475-qrg2-pj4r): basic-ftp <= 6.2.0 (alert 39).
-  # get-uri still declares ^5.x; 6.2.1 is the first patched release and clears the
-  # 7-day minimumReleaseAge window (6.2.2 published 2026-10-04 is still too young).
-  basic-ftp: 6.2.1
+  # Dependabot security update: basic-ftp < 6.2.4, via get-uri (^5.x).
+  basic-ftp: 6.2.4
   # Dependabot high (#213): fast-uri < 3.1.7 (alerts 10–13 / 22; first patched 3.1.7).
   # Via ajv@8.20.0. Raised to 3.1.9 (first patched for the newer alert; past the 7-day window).
   fast-uri: 3.1.9
   # Dependabot high (#213 / GHSA-2883-xcg3-v3hh): js-yaml < 4.3.2 (alert 18).
   # Via cosmiconfig / xmlbuilder2.
   js-yaml: 4.3.2
-  # Dependabot medium (#213): hono < 4.13.7 (alerts 15/17 first patched 4.13.5; alert 38 first patched 4.13.7).
-  # Via @modelcontextprotocol/sdk / @hono/node-server. Superseded below (#265).
-  # Dependabot medium (#265 / alert 67): hono < 4.13.11. 4.13.13 is past the 7-day window.
-  hono: 4.13.13
+  # Dependabot security update: hono < 4.13.16, via @modelcontextprotocol/sdk / @hono/node-server.
+  hono: 4.13.16
   # Dependabot medium (#213): ip-address <= 10.7.0 (alerts 20/21 first patched 10.5.1; alert 36 first patched 10.7.1).
   # Via express-rate-limit and socks. Pin 10.7.2 (latest mature; 10.7.3 published 2026-10-01 is still too young).
   ip-address: 10.7.2
@@ -125,9 +121,9 @@ overrides:
   # qs medium (GHSA-6pq8 / GHSA-x5fp / GHSA-4mjr, <= 6.16.0), via express /
   # body-parser (^6.14.0). 6.17.1 is still too young.
   qs: 6.17.0
-  # @hono/node-server medium (GHSA-rmxm-3fg6-px4f, < 2.1.3), via
-  # @modelcontextprotocol/sdk (^1.19.9 || ^2.0.5). 2.1.6 is still too young.
-  "@hono/node-server": 2.1.5
+  # Dependabot security update: @hono/node-server < 2.1.6, via
+  # @modelcontextprotocol/sdk (^1.19.9 || ^2.0.5).
+  "@hono/node-server": 2.1.6
   # Dependabot low (alert #60 / GHSA-238p-pmpm-9mq7): katex < 0.18.2 prototype
   # pollution can bypass trust restrictions. Via @openuidev/react-ui ->
   # rehype-katex@7 / remark-math (declare katex ^0.16.0, so no in-range fix).
