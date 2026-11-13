@@ -1,0 +1,33 @@
+pnpm-lock.yaml
+  s_741d1412c858f7::t_ed898351c59de2 17,20,31,829-830,833,3113-3114,3961-3962,6692,6694,6794,6804,6816,6826,8815,9547,9742
+.changeset/secure-server-dependencies.md
+  s_9116232cd004e9::t_775b4c22b29f2d 1-5
+pnpm-workspace.yaml
+  s_9116232cd004e9::t_bbf0fc1714be76 82-83,90-91,124-126
+web/app/src/components/chat/composer/composer-triggers.tsx
+  s_9116232cd004e9::t_4275132c4f7943 362
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5d0d101f2f9e086db2e2a65409c13806891792fa",
+  "prompts": {},
+  "sessions": {
+    "s_741d1412c858f7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6f1df313-3049-474a-9d9d-66123b1bb06b",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_9116232cd004e9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d639-ff7a-76b0-880c-61eba4d897e8",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
