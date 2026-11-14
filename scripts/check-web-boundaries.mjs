@@ -182,7 +182,9 @@ function sourceFiles(directory) {
 }
 
 const arbitraryTypeScalePattern = /text-\[0\./;
+const legacyTypeScalePattern = /(?<![-\w])text-(?:micro|caption|label|body|headline|title|display)(?![-\w])/;
 const typeScaleRoots = ["web/app"];
+const legacyTypeScaleRoot = "web/app/src";
 
 export function findArbitraryTypeScaleLines(source) {
 	const lines = [];
@@ -193,8 +195,31 @@ export function findArbitraryTypeScaleLines(source) {
 	return lines;
 }
 
-export function isTypeScaleExemptPath(relativePath) {
-	return relativePath.split(/[/\\]/).includes("openui");
+/**
+ * Finds string/template literals in JS/TS source that still reference legacy
+ * custom type-scale classes instead of stock Tailwind `text-xs/sm/base/lg`.
+ */
+export function findLegacyTypeScaleLines(source, fileName = "source.tsx") {
+	const lines = new Set();
+
+	function visit(node) {
+		if (!node || typeof node !== "object") return;
+		if (node.type === "StringLiteral" && legacyTypeScalePattern.test(node.value)) {
+			lines.add(node.loc.start.line);
+		} else if (node.type === "TemplateElement" && legacyTypeScalePattern.test(node.value?.raw ?? "")) {
+			lines.add(node.loc.start.line);
+		}
+		for (const value of Object.values(node)) {
+			if (Array.isArray(value)) {
+				for (const child of value) visit(child);
+			} else if (value && typeof value === "object" && typeof value.type === "string") {
+				visit(value);
+			}
+		}
+	}
+
+	visit(parseModule(source, fileName).program);
+	return [...lines].sort((a, b) => a - b);
 }
 
 function main() {
@@ -217,19 +242,25 @@ function main() {
 	const typeScaleViolations = [];
 	for (const sourceRoot of typeScaleRoots) {
 		for (const file of sourceFiles(resolve(root, sourceRoot))) {
-			const relativePath = relative(root, file);
-			if (isTypeScaleExemptPath(relativePath)) continue;
+			const relativePath = relative(root, file).split(sep).join("/");
 			const source = readFileSync(file, "utf8");
 			for (const line of findArbitraryTypeScaleLines(source)) {
 				typeScaleViolations.push(
-					`${relativePath}:${line} uses arbitrary text-[0. size (use text-micro/caption/label/body)`,
+					`${relativePath}:${line} uses arbitrary text-[0. size (use stock text-xs/sm/base/lg)`,
 				);
+			}
+			if (relativePath === legacyTypeScaleRoot || relativePath.startsWith(`${legacyTypeScaleRoot}/`)) {
+				for (const line of findLegacyTypeScaleLines(source, file)) {
+					typeScaleViolations.push(
+						`${relativePath}:${line} uses removed legacy type-scale class (use stock text-xs/sm/base/lg)`,
+					);
+				}
 			}
 		}
 	}
 
 	if (typeScaleViolations.length > 0) {
-		console.error("Fleet UI must use the named type scale outside openui/:");
+		console.error("Fleet UI must use stock Tailwind text sizes (text-xs/sm/base/lg):");
 		for (const violation of typeScaleViolations) console.error(`- ${violation}`);
 		process.exit(1);
 	}

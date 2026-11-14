@@ -1,0 +1,8 @@
+export function InvalidStaticInlineStyles() {
+  return (
+    <div style={{ backgroundColor: "#fff", position: "relative" }}>
+      <span style={{ gridArea: "title", fontSize: 12, marginTop: 4 }} />
+      <div style={{ width: "240px" }} />
+    </div>
+  );
+}

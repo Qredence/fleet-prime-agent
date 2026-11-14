@@ -1,69 +1,31 @@
 {
-  "schemaVersion": 1,
-  "widePropExceptions": [
-    {
-      "path": "src/components/workspace/workspace-panel.tsx",
-      "type": "WorkspacePanelContentProps",
-      "reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
-    },
-    {
-      "path": "src/components/chat/composer/input-bar.tsx",
-      "type": "InputBarProps",
-      "reason": "Absorbed first-party composer contract; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/chat/transcript/message-scroller.tsx",
-      "type": "MessageScrollerProps",
-      "reason": "Absorbed first-party transcript scroller; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/chat/composer/prompt-input.tsx",
-      "type": "PromptInputProps",
-      "reason": "Absorbed first-party composer widget; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/chat/question/question-prompt.tsx",
-      "type": "QuestionPromptProps",
-      "reason": "Absorbed first-party question prompt; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/sessions/project-folder.tsx",
-      "type": "ProjectFolderProps",
-      "reason": "Absorbed first-party project folder widget; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/tools/approval-card/types.ts",
-      "type": "ApprovalCardProps",
-      "reason": "Absorbed first-party approval card; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/tools/code-block.tsx",
-      "type": "CodeBlockProps",
-      "reason": "Absorbed first-party code block; existing public prop contract retained."
-    },
-    {
-      "path": "src/components/tools/image-generation.tsx",
-      "type": "ImageGenerationProps",
-      "reason": "Absorbed first-party image generation widget; existing public prop contract retained."
-    }
-  ],
-  "nativeControlExceptions": [
-    "src/components/chat/agent-chat.tsx",
-    "src/components/chat/fork-picker-dialog.tsx",
-    "src/components/layout/animated-sidebar.tsx",
-    "src/components/layout/chat-header.tsx",
-    "src/components/layout/resizable-canvas.tsx",
-    "src/components/layout/right-panel-launcher.tsx",
-    "src/components/layout/ui-error-boundary.tsx",
-    "src/components/sessions/project-folder.tsx",
-    "src/components/sessions/session-sidebar/navigation.tsx",
-    "src/components/sessions/session-sidebar/project-list.tsx",
-    "src/components/sessions/session-sidebar/resource-tree.tsx",
-    "src/components/sessions/session-sidebar/view-model.tsx",
-    "src/components/sessions/thread-search.tsx",
-    "src/components/settings/providers/add-models-dialog.tsx",
-    "src/components/settings/providers/provider-credentials-editor.tsx",
-    "src/components/settings/settings-dialog.tsx",
-    "src/components/workspace/workspace-panel.tsx"
-  ]
+	"schemaVersion": 1,
+	"widePropExceptions": [
+		{
+			"path": "src/components/workspace/workspace-panel.tsx",
+			"type": "WorkspacePanelContentProps",
+			"reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
+		},
+		{
+			"path": "src/components/chat/composer/input-bar.tsx",
+			"type": "InputBarProps",
+			"reason": "Absorbed first-party composer contract; existing public prop contract retained."
+		},
+		{
+			"path": "src/components/chat/transcript/message-scroller.tsx",
+			"type": "MessageScrollerProps",
+			"reason": "Absorbed first-party transcript scroller; existing public prop contract retained."
+		},
+		{
+			"path": "src/components/chat/composer/prompt-input.tsx",
+			"type": "PromptInputProps",
+			"reason": "Absorbed first-party composer widget; existing public prop contract retained."
+		},
+		{
+			"path": "src/components/tools/image-generation.tsx",
+			"type": "ImageGenerationProps",
+			"reason": "Absorbed first-party image generation widget; existing public prop contract retained."
+		}
+	],
+	"nativeControlExceptions": []
 }

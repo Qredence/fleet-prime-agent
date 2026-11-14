@@ -68,9 +68,7 @@ const groups = [
 	["registries", "check:registries"],
 ];
 
-const results = await Promise.all(
-	groups.map(([label, scriptName]) => runCheck(label, scriptName)),
-);
+const results = await Promise.all(groups.map(([label, scriptName]) => runCheck(label, scriptName)));
 
 let failed = false;
 for (const { label, code, output } of results) {

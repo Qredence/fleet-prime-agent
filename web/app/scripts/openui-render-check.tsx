@@ -20,7 +20,7 @@ import { createParser, Renderer } from "@openuidev/react-lang";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MotionRuntime } from "@/components/motion/runtime";
+import { FluidRoot } from "@/components/fluid-root";
 import {
 	DataTableDef,
 	buildSortComparator,
@@ -30,11 +30,8 @@ import {
 } from "@/components/openui/data";
 import { CitationDef, openUILibrary } from "@/components/openui/openui-library";
 import { validateAndNormalizeOpenUIHtmlArtifact } from "@prime-agent/web-protocol/openui-artifact";
-import {
-	segmentOpenUIContent,
-	stripOpenUIWrapper,
-} from "@/components/openui/openui-utils";
-import type { OpenUIContentSegment } from "@/components/openui/openui-utils";
+import { segmentOpenUIContent, stripOpenUIWrapper } from "@/lib/openui/openui-utils";
+import type { OpenUIContentSegment } from "@/lib/openui/openui-utils";
 import { sanitizeChartColor } from "@/components/ui/chart";
 import { isSafeExternalUrl } from "@/lib/safe-external-url";
 
@@ -146,9 +143,7 @@ function assertIncludes(html: string, expected: string) {
 }
 
 function styleTagContents(html: string): string {
-	return [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)]
-		.map((match) => match[1] ?? "")
-		.join("\n");
+	return [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((match) => match[1] ?? "").join("\n");
 }
 
 function assertExcludes(html: string, unexpected: string, label: string) {
@@ -173,22 +168,12 @@ function assertEqual(actual: unknown, expected: unknown, label: string) {
 console.log("UNIT ASSERTS (OpenUI segment identities + data.tsx helpers):");
 
 const completedPrefix = "Intro\n```openui\nroot = Root([])\n```";
-const appendedResponse = [
-	completedPrefix,
-	"Outro",
-	"```openui",
-	"root = Root([])",
-	"```",
-].join("\n");
+const appendedResponse = [completedPrefix, "Outro", "```openui", "root = Root([])", "```"].join("\n");
 const legacySegment: OpenUIContentSegment = {
 	type: "markdown",
 	content: "legacy source-compatible segment",
 };
-assertEqual(
-	legacySegment.id,
-	undefined,
-	"legacy OpenUI segment literals do not require an id",
-);
+assertEqual(legacySegment.id, undefined, "legacy OpenUI segment literals do not require an id");
 
 const completedPrefixSegments = segmentOpenUIContent(completedPrefix);
 const appendedSegments = segmentOpenUIContent(appendedResponse);
@@ -243,13 +228,13 @@ assertEqual(cycleSortState("a", null), { key: "a", dir: "asc" }, 'cycleSortState
 assertEqual(
 	cycleSortState("a", { key: "a", dir: "asc" }),
 	{ key: "a", dir: "desc" },
-	'cycleSortState("a", {key:"a",dir:"asc"})'
+	'cycleSortState("a", {key:"a",dir:"asc"})',
 );
 assertEqual(cycleSortState("a", { key: "a", dir: "desc" }), null, 'cycleSortState("a", {key:"a",dir:"desc"})');
 assertEqual(
 	cycleSortState("b", { key: "a", dir: "desc" }),
 	{ key: "b", dir: "asc" },
-	'cycleSortState("b", ...) starts the new key on asc'
+	'cycleSortState("b", ...) starts the new key on asc',
 );
 
 const numericComparator = buildSortComparator({ key: "points", type: "number" });
@@ -257,7 +242,7 @@ const sortedPoints = [{ points: 12 }, { points: 7 }, { points: "n/a" }].sort(num
 assertEqual(
 	sortedPoints.map((row) => row.points),
 	[7, 12, "n/a"],
-	"buildSortComparator(number): ascending, non-numerics last"
+	"buildSortComparator(number): ascending, non-numerics last",
 );
 
 // Task 2 finding 2: desc must keep non-numeric rows LAST (was: arg-swap put them first)
@@ -266,16 +251,12 @@ const descSortedPoints = [{ points: 7 }, { points: "n/a" }, { points: 12 }].sort
 assertEqual(
 	descSortedPoints.map((row) => row.points),
 	[12, 7, "n/a"],
-	"buildSortComparator(number, desc): descending, non-numerics last"
+	"buildSortComparator(number, desc): descending, non-numerics last",
 );
 
 // Task 2 finding 1: align zod enum admits exactly left/right (no "center" leak into prompt schema)
 const alignEnum = DataTableDef.props.shape.columns.element.shape.align.unwrap();
-assertEqual(
-	alignEnum.options,
-	["left", "right"],
-	'DataTable align zod enum is exactly ["left","right"]'
-);
+assertEqual(alignEnum.options, ["left", "right"], 'DataTable align zod enum is exactly ["left","right"]');
 assertEqual(isSafeExternalUrl("https://example.com/source"), true, "Citation accepts HTTPS URLs");
 assertEqual(isSafeExternalUrl("http://example.com/source"), true, "Citation accepts HTTP URLs");
 for (const unsafeUrl of ["javascript:alert(1)", "data:text/html,unsafe", "file:///etc/passwd"]) {
@@ -360,9 +341,9 @@ if (!result.root) {
 let staticHtml = "";
 try {
 	staticHtml = renderToStaticMarkup(
-		<MotionRuntime>
+		<FluidRoot>
 			<Renderer response={payload} library={openUILibrary} />
-		</MotionRuntime>,
+		</FluidRoot>,
 	);
 } catch (error) {
 	console.error("RENDER THREW (static):", error);
@@ -378,52 +359,52 @@ console.log("RENDER OK (static)");
 // The entry fallback must render, not merely parse: a program with no `root`
 // statement still paints the first root-component call.
 const fallbackStaticHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer response={fallbackProgram} library={openUILibrary} />
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 assertIncludes(fallbackStaticHtml, "Orders");
 assertExcludes(fallbackStaticHtml, "OpenUI could not be rendered", "root-less program renders without diagnostics");
 
 const artifactStaticHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer response={artifactProgram} library={openUILibrary} />
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 assertIncludes(artifactStaticHtml, "Fleet Agent architecture");
-assertIncludes(artifactStaticHtml, "sandbox=\"allow-scripts\"");
+assertIncludes(artifactStaticHtml, 'sandbox="allow-scripts"');
 assertIncludes(artifactStaticHtml, "srcDoc");
 assertExcludes(artifactStaticHtml, "https://example.com/app.js", "valid HtmlArtifact preview has no external script");
 
 const streamingArtifactHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer response={artifactProgram} library={openUILibrary} isStreaming />
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 assertIncludes(streamingArtifactHtml, "Generating artifact");
 
 const unsafeArtifactHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer
 			response={`root = Root([artifact])\nartifact = HtmlArtifact(${JSON.stringify("Unsafe")}, ${JSON.stringify('<script src="https://example.com/app.js"></script>')})`}
 			library={openUILibrary}
 		/>
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 assertIncludes(unsafeArtifactHtml, "OpenUI artifact was not rendered");
-assertExcludes(unsafeArtifactHtml, "sandbox=\"allow-scripts\"", "unsafe HtmlArtifact never renders an iframe");
+assertExcludes(unsafeArtifactHtml, 'sandbox="allow-scripts"', "unsafe HtmlArtifact never renders an iframe");
 
 const unsafeCitationHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer response={'root = Citation("Source", "javascript:alert(1)")'} library={openUILibrary} />
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 assertExcludes(unsafeCitationHtml, "<a ", "unsafe Citation URLs never render an anchor");
 
 // --- Wave: new catalog components and client functions ---
 const expandProgram = [
 	'$q = ""',
-	'root = Root([tabs, acc, ta, sl, steps, kv, empty, skel, img, fn])',
+	"root = Root([tabs, acc, ta, sl, steps, kv, empty, skel, img, fn])",
 	'tabs = Tabs([{"label":"One","content":"first panel"},{"label":"Two","content":"second panel"}], 1)',
 	'acc = Accordion([{"title":"Details","content":"hidden text","open":true}])',
 	'ta = TextArea("q", $q, "Write here")',
@@ -431,16 +412,28 @@ const expandProgram = [
 	'steps = Steps([{"label":"Fetch","state":"complete"},{"label":"Render","state":"current","detail":"in progress"},{"label":"Verify","state":"pending"}])',
 	'kv = KeyValueList([{"label":"Runtime","value":"0.10.1"},{"label":"Status","value":"ready"}])',
 	'empty = Empty("No sessions", "Start a chat to see activity.")',
-	'skel = Skeleton(2)',
+	"skel = Skeleton(2)",
 	'img = Image("https://example.com/chart.png", "A chart")',
 	'fn = Text("ecosystem xyz", "muted")',
 ].join("\n");
 const expandHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer response={expandProgram} library={openUILibrary} />
-	</MotionRuntime>,
+	</FluidRoot>,
 );
-for (const expected of ["second panel", "hidden text", "Write here", "Limit", "Render", "in progress", "Runtime", "0.10.1", "No sessions", "A chart", "ecosystem xyz"]) {
+for (const expected of [
+	"second panel",
+	"hidden text",
+	"Write here",
+	"Limit",
+	"Render",
+	"in progress",
+	"Runtime",
+	"0.10.1",
+	"No sessions",
+	"A chart",
+	"ecosystem xyz",
+]) {
 	assertIncludes(expandHtml, expected);
 }
 // defaultIndex selects the second tab, so the first panel must stay unmounted.
@@ -450,35 +443,37 @@ assertExcludes(expandHtml, "OpenUI could not be rendered", "new components rende
 
 // A column key the rows do not carry must not render as an indistinguishable blank.
 const missingKeyHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer
-			response={'root = Root([t])\nt = DataTable("T", [{"key": "missingField", "label": "Missing"}], [{"present": "x"}])'}
+			response={
+				'root = Root([t])\nt = DataTable("T", [{"key": "missingField", "label": "Missing"}], [{"present": "x"}])'
+			}
 			library={openUILibrary}
 		/>
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 assertIncludes(missingKeyHtml, "—");
 assertExcludes(missingKeyHtml, "OpenUI could not be rendered", "a missing column field does not crash the table");
 
 // A Query still loading passes null rows; the table must survive that.
 const nullRowsHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer
 			response={'root = Root([t])\nt = DataTable("T", [{"key": "a", "label": "A"}], null)'}
 			library={openUILibrary}
 		/>
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 assertExcludes(nullRowsHtml, "OpenUI could not be rendered", "null rows render an empty table instead of throwing");
 
 // Unsafe image sources are refused rather than fetched.
 const unsafeImageHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer response={'root = Root([img])\nimg = Image("javascript:alert(1)", "bad")'} library={openUILibrary} />
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 assertIncludes(unsafeImageHtml, "Image blocked");
-assertExcludes(unsafeImageHtml, "javascript:alert(1)\" ", "unsafe image src is not placed in a src attribute");
+assertExcludes(unsafeImageHtml, 'javascript:alert(1)" ', "unsafe image src is not placed in a src attribute");
 
 // Client functions must compute, not echo the call.
 const functionProgram = [
@@ -490,9 +485,9 @@ const functionProgram = [
 	'e = Text("path " + @ShortPath("web/app/src/components/openui/x.tsx", 2))',
 ].join("\n");
 const functionHtml = renderToStaticMarkup(
-	<MotionRuntime>
+	<FluidRoot>
 		<Renderer response={functionProgram} library={openUILibrary} />
-	</MotionRuntime>,
+	</FluidRoot>,
 );
 for (const expected of ["dur 1.5h", "size 1.5 MB", "tok 38.2k", "pct 33.3%", "path …/openui/x.tsx"]) {
 	assertIncludes(functionHtml, expected);
@@ -500,14 +495,25 @@ for (const expected of ["dur 1.5h", "size 1.5 MB", "tok 38.2k", "pct 33.3%", "pa
 assertExcludes(functionHtml, "null", "client functions evaluate without runtime-error");
 assertExcludes(functionHtml, "OpenUI could not be rendered", "client functions render without diagnostics");
 
-for (const expected of ["Open workspace", "Traffic", "Weekly visits", "Share", "100%", "Scores", "Ada", "Bo", "Points", "Users", "12,403", "+4.2%", "Errors", "var(--chart-1)"]) {
+for (const expected of [
+	"Open workspace",
+	"Traffic",
+	"Weekly visits",
+	"Share",
+	"100%",
+	"Scores",
+	"Ada",
+	"Bo",
+	"Points",
+	"Users",
+	"12,403",
+	"+4.2%",
+	"Errors",
+	"var(--chart-1)",
+]) {
 	assertIncludes(staticHtml, expected);
 }
-assertExcludes(
-	styleTagContents(staticHtml),
-	"</style><img",
-	"malicious chart color does not break out of <style>",
-);
+assertExcludes(styleTagContents(staticHtml), "</style><img", "malicious chart color does not break out of <style>");
 
 // --- Stage 3: DOM render in happy-dom (flushes effects; recharts SVG paints) ---
 let domHtml = "";
@@ -517,9 +523,9 @@ try {
 	const root = createRoot(container as unknown as Element);
 	await act(async () => {
 		root.render(
-			<MotionRuntime>
+			<FluidRoot>
 				<Renderer response={payload} library={openUILibrary} />
-			</MotionRuntime>,
+			</FluidRoot>,
 		);
 	});
 	domHtml = win.document.body.innerHTML;
@@ -553,27 +559,48 @@ try {
 	const root = createRoot(container as unknown as Element);
 	await act(async () => {
 		root.render(
-			<MotionRuntime>
+			<FluidRoot>
 				<Renderer
 					response={queryProgram}
 					library={openUILibrary}
 					toolProvider={{
 						session_stats: async () => {
 							toolCalls.push({ name: "session_stats", args: {} });
-							return { rows: [{ status: "running", sessions: 7, messages: 70 }, { status: "idle", sessions: 3, messages: 30 }] };
+							return {
+								rows: [
+									{ status: "running", sessions: 7, messages: 70 },
+									{ status: "idle", sessions: 3, messages: 30 },
+								],
+							};
 						},
 						list_sessions: async (args) => {
 							toolCalls.push({ name: "list_sessions", args });
 							return {
 								rows: [
-									{ sessionId: "s1", title: "Alpha session", projectId: "p", status: "running", messageCount: 12, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" },
-									{ sessionId: "s2", title: "Beta session", projectId: "p", status: "idle", messageCount: 34, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-03T00:00:00.000Z" },
+									{
+										sessionId: "s1",
+										title: "Alpha session",
+										projectId: "p",
+										status: "running",
+										messageCount: 12,
+										createdAt: "2026-01-01T00:00:00.000Z",
+										updatedAt: "2026-01-02T00:00:00.000Z",
+									},
+									{
+										sessionId: "s2",
+										title: "Beta session",
+										projectId: "p",
+										status: "idle",
+										messageCount: 34,
+										createdAt: "2026-01-01T00:00:00.000Z",
+										updatedAt: "2026-01-03T00:00:00.000Z",
+									},
 								],
 							};
 						},
 					}}
 				/>
-			</MotionRuntime>,
+			</FluidRoot>,
 		);
 	});
 	// The tools resolve asynchronously, then the renderer has to commit the
@@ -596,8 +623,16 @@ try {
 	process.exit(1);
 }
 
-assertEqual(toolCalls.some((call) => call.name === "session_stats"), true, "a Query statement invokes the tool provider");
-assertEqual(toolCalls.some((call) => call.name === "list_sessions"), true, "each declared Query invokes its own tool");
+assertEqual(
+	toolCalls.some((call) => call.name === "session_stats"),
+	true,
+	"a Query statement invokes the tool provider",
+);
+assertEqual(
+	toolCalls.some((call) => call.name === "list_sessions"),
+	true,
+	"each declared Query invokes its own tool",
+);
 assertEqual(
 	toolCalls.find((call) => call.name === "list_sessions")?.args?.limit,
 	5,
@@ -607,11 +642,7 @@ assertIncludes(queryHtml, "Alpha session");
 assertIncludes(queryHtml, "Beta session");
 assertIncludes(queryHtml, "34");
 // @Sum over the aggregate rows: 7 + 3 sessions, 70 + 30 messages.
-assertEqual(
-	queryHtml.includes("10"),
-	true,
-	"aggregate KPIs sum the tool rows (7 + 3 sessions)",
-);
+assertEqual(queryHtml.includes("10"), true, "aggregate KPIs sum the tool rows (7 + 3 sessions)");
 assertExcludes(queryHtml, "OpenUI could not be rendered", "Query-backed programs render without diagnostics");
 assertExcludes(queryHtml, "—", "real tool rows populate every declared column");
 
@@ -636,11 +667,7 @@ for (const expected of [
 ]) {
 	assertIncludes(domHtml, expected);
 }
-assertExcludes(
-	styleTagContents(domHtml),
-	"</style><img",
-	"malicious chart color does not break out of <style> (dom)",
-);
+assertExcludes(styleTagContents(domHtml), "</style><img", "malicious chart color does not break out of <style> (dom)");
 
 if (failures > 0) {
 	console.error(`${failures} assertion(s) failed`);

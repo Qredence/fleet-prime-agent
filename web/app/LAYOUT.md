@@ -1,68 +1,64 @@
-# Fleet layout tokens
+# Fleet layout & Fluid tokens
 
-## Grid
+## Fluid provider root & surface system
 
-Base unit: **4px**. Structural layout and container spacing snap to a 4px base grid with a preferred scale of **4 / 8 / 12 / 16 / 24 / 32 / 48** px. Narrow optical adjustments (such as 6px / `gap-1.5` or 10px / `px-2.5`) are permitted inside compact control primitives.
+The app root (`src/routes/__root.tsx`) mounts `<FluidRoot>` (`src/components/fluid-root.tsx`), which configures:
 
-## Space & Density scale
+- `<LazyMotion features={domMax} strict>` and `<MotionConfig reducedMotion={...}>`
+- `<ShapeProvider defaultShape="rounded">` (`src/lib/fluid/shape-context.tsx`)
+- `<SizeProvider size="default" | "compact">` (`src/lib/fluid/size-context.tsx`, synced with UI density preferences)
+- `<IconProvider>` (`src/lib/fluid/icon-context.tsx`)
 
-| Token | Value | Role |
-| --- | --- | --- |
-| `--density-header-height` | 44px (`2.75rem`) | Header height across chat and desktop panels |
-| `--density-control-height` | 36px (`2.25rem`) | Standard button/control height in headers |
-| `--density-gap` | 16px (`1rem`) | Header / stack gaps |
-| `--density-pad-x` | 24px (`1.5rem`) | Shell inset (chat column, panels, dialogs) |
-| compact `--density-header-height` | 40px (`2.5rem`) | Compact header height across adjacent panes |
-| compact `--density-control-height` | 32px (`2rem`) | Compact button/control height in headers |
-| compact `--density-gap` | 16px (`1rem`) | Compact gap |
-| compact `--density-pad-x` | 16px (`1rem`) | Compact inset |
+Visual elevation uses the `@fluid` 8-step surface and shadow ladder in `src/styles/globals.css` (`--surface-1`..`--surface-8`, `--shadow-1`..`--shadow-8`) paired with `SurfaceProvider` / `surfaceClasses` (`src/lib/fluid/surface-context.tsx`, `src/lib/fluid/surface-classes.ts`).
 
-## Shell inset
+Interactive focus and selection accent uses `--fluid-accent: #3b82f6` (`--focus-ring: var(--fluid-accent)`).
 
-**24px** horizontal inset on panels, dialogs, and the chat column (`CHAT_COLUMN_CLASS` → `--density-pad-x`).
+## Grid & density scale
+
+Base unit: **4px**. Structural layout and container spacing snap to a 4px base grid (**4 / 8 / 12 / 16 / 24 / 32 / 48** px). Narrow optical adjustments (`gap-1.5`, `px-2.5`) are permitted inside compact controls.
+
+| Token                      | Value (default)    | Value (`[data-density="compact"]`) | Role                                       |
+| -------------------------- | ------------------ | ---------------------------------- | ------------------------------------------ |
+| `--density-header-height`  | `44px` (`2.75rem`) | `40px` (`2.5rem`)                  | Header height across chat and panels       |
+| `--density-control-height` | `36px` (`2.25rem`) | `28px` (`1.75rem`)                 | Standard control height in headers         |
+| `--density-gap`            | `16px` (`1rem`)    | `16px` (`1rem`)                    | Header / stack gaps                        |
+| `--density-pad-x`          | `24px` (`1.5rem`)  | `16px` (`1rem`)                    | Shell inset (chat column, panels, dialogs) |
+
+Shell density tokens and Fluid `SizeProvider` follow the same preference: `comfortable` maps to `default` (36px controls), and `compact` maps to `compact` (28px controls). Headers retain space around controls (44px default, 40px compact). Local explicit primitive size overrides remain supported. Chat chrome offsets derive from the active header height in CSS.
+
+## Shared CSS `@utility` classes (`src/styles/globals.css`)
+
+- `chat-column`: centers the chat thread/composer measure (`max-width: var(--chat-measure)` = `768px`, `padding-inline: var(--density-pad-x)`).
+- `hit-area-expand`: `position: relative` with a centered `40px × 40px` invisible `::after` hit target for visually compact controls.
+- `hit-area-expand-dense`: vertical-only `::after` hit expander (`top: -0.375rem; bottom: -0.375rem; inset-inline: 0`) for adjacent dense items.
+- `no-scrollbar`: provided by `shadcn/tailwind.css` for horizontally/vertically scrollable strips without visible scrollbars.
 
 ## Concentric radius
 
-Shell, cards, overlays, and dialogs: **16px** (`rounded-md`). Nested inner rows step inward to 8px:
+| Token / class                             | Value             | Use                                            |
+| ----------------------------------------- | ----------------- | ---------------------------------------------- |
+| `--radius-sm` / `rounded-sm`              | `8px` (`0.5rem`)  | Inner rows, nested chips                       |
+| `--radius-md` / `rounded-md`              | `16px` (`1rem`)   | Shell, cards, overlays, dialogs                |
+| `--radius` / `rounded-lg` … `rounded-4xl` | `24px` (`1.5rem`) | Collapsed outer step (composer, pill controls) |
+| `--radius-pill` / `rounded-full`          | `9999px`          | Circular / pill controls only                  |
 
-| Token / class | px | Use |
-| --- | --- | --- |
-| `--radius-sm` / `rounded-sm` | 8 | Inner rows (`rowSurface`), nested chips |
-| `--radius-md` / `rounded-md` | 16 | Shell, cards, overlays, dialogs |
-| `--radius` / `rounded-lg` … `rounded-4xl` | 24 | Collapsed `--radius` step (controls, chat input) |
-| `--radius-pill` / `rounded-full` | pill | Circular / pill controls only |
+Chat aliases: `--chat-measure` (`768px`), `--chat-input-radius` (`1.5rem`), `--chat-message-radius-inner` (`1rem`), `--chat-tool-radius` (`calc(var(--radius) * 0.8)`).
 
-`--radius` is `1.5rem` (24px). Larger Tailwind radius steps collapse to that value. Shell, card, overlay, and dialog surfaces use `rounded-md` instead.
+## Typography
 
-Chat aliases: `--chat-input-radius` = 24px; `--chat-message-radius-inner` = 16px.
-
-## Type
-
-Font: **Inter Variable** only.
-
-Default trio:
-
-| Role | Size | Token |
-| --- | --- | --- |
-| Label | ~12px | `--text-label` (`0.75rem`) |
-| Body | ~14px | `--text-body` (`0.875rem`) |
-| Headline | ~18px | `--text-headline` (`1.125rem`) |
-
-Caption (`--text-caption`) only in dense tools.
-
-## Weight
-
-Per component: **400 / 500 / 600** max. No 700+.
+- **Font**: **Inter Variable** (`@fontsource-variable/inter/opsz.css`) with optical sizing enabled; weights **400 / 500 / 600** max.
+- **Scale**: Product components use stock Tailwind typography classes (`text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl`). Arbitrary `text-[0.*]` sizes and legacy custom classes (`text-micro`, `text-caption`, `text-label`, `text-body`, `text-headline`) are disallowed.
+- `@fluid` primitives in `src/components/ui/` may also consume the `--fs-*` / `--lh-*` ladder via `src/lib/fluid/type-scale.ts` so controls adapt cleanly between `default` and `compact` density modes.
 
 ## Chat Typeset
 
-Chat markdown uses shadcn Typeset (`src/styles/typeset.css`) with Fleet preset `.typeset-chat`:
+Chat markdown uses `src/styles/typeset.css` with `.typeset.typeset-chat`:
 
-| Token | Value | Role |
-| --- | --- | --- |
-| `--typeset-font-body` / heading | `var(--font-sans)` (Inter Variable) | Matches Type section |
-| `--typeset-size` | `0.875rem` | Body 14 |
-| `--typeset-leading` | `1.6` | Chat reading rhythm |
-| `--typeset-flow` | `1em` | Tighter block spacing than docs |
+| Token                           | Value                               | Role                              |
+| ------------------------------- | ----------------------------------- | --------------------------------- |
+| `--typeset-font-body` / heading | `var(--font-sans)` (Inter Variable) | Matches Inter Variable font stack |
+| `--typeset-size`                | `0.875rem`                          | 14px prose reading size           |
+| `--typeset-leading`             | `1.6`                               | Chat reading rhythm               |
+| `--typeset-flow`                | `1em`                               | Block spacing inside messages     |
 
-Wrapper classes: `typeset typeset-chat`. Nested UI chrome inside markdown should use `not-typeset` / `data-not-typeset` when needed. Streamdown code-block chrome stays in `agent-ui.css` under `.typeset`.
+Use `not-typeset` / `data-not-typeset` on embedded UI controls inside markdown so prose spacing rules do not leak into interactive widgets.

@@ -678,6 +678,29 @@ test.describe("chat shell", () => {
 		expect(browserErrors).toEqual([])
 	})
 
+	test("density keeps shell headers and shared controls on the agreed scale", async ({ page }) => {
+		await mockEmptyWelcomeChat(page, "density-smoke-session")
+		await page.setViewportSize({ width: 1400, height: 900 })
+		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"))
+		await page.goto("/")
+		await commandsResponse
+		const prompt = page.getByRole("textbox", { name: "Prompt" })
+		await expect(prompt).toBeVisible({ timeout: 15_000 })
+		await prompt.fill("/settings")
+		await prompt.press("Enter")
+		const dialog = page.getByRole("dialog", { name: "Settings", exact: true })
+		await expect(dialog).toBeVisible()
+		await dialog.getByRole("button", { name: "Appearance", exact: true }).click()
+		const density = dialog.getByRole("combobox", { name: "Density", exact: true })
+		for (const [label, headerHeight, controlHeight] of [["Comfortable", 44, 36], ["Compact", 40, 28]] as const) {
+			await density.click()
+			await page.getByRole("option", { name: label, exact: true }).click()
+			await expect(page.getByRole("listbox")).toHaveCount(0)
+			await expect(page.getByTestId("chat-header")).toHaveCSS("height", `${headerHeight}px`)
+			await expect(density).toHaveCSS("height", `${controlHeight}px`)
+		}
+	})
+
 	test("Settings keeps the original sidebar and Prime configuration sections", async ({ page }) => {
 		await mockEmptyWelcomeChat(page, "settings-smoke-session")
 		await page.setViewportSize({ width: 1400, height: 900 })

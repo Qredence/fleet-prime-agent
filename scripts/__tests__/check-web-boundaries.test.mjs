@@ -4,9 +4,9 @@ import test from "node:test";
 import {
 	findArbitraryTypeScaleLines,
 	findForbiddenImports,
+	findLegacyTypeScaleLines,
 	findServerSdkImports,
 	findServerSdkViolations,
-	isTypeScaleExemptPath,
 } from "../check-web-boundaries.mjs";
 
 test("detects comment-separated runtime imports", () => {
@@ -50,13 +50,19 @@ import "prime-agent-compatible";
 
 test("flags arbitrary type-scale utilities in product UI", () => {
 	assert.deepEqual(findArbitraryTypeScaleLines('className="text-[0.625rem] text-muted-foreground"'), [1]);
-	assert.deepEqual(findArbitraryTypeScaleLines('className="text-caption text-muted-foreground"'), []);
+	assert.deepEqual(findArbitraryTypeScaleLines('className="text-xs text-muted-foreground"'), []);
 });
 
-test("exempts only openui paths from the type-scale lint", () => {
-	assert.equal(isTypeScaleExemptPath("web/app/src/components/openui/charts.tsx"), true);
-	assert.equal(isTypeScaleExemptPath("web/app/src/components/tools/code-block.tsx"), false);
-	assert.equal(isTypeScaleExemptPath("web/app/src/components/chat/plans/plan-state.ts"), false);
+test("flags legacy custom type-scale classes while ignoring comments and custom properties", () => {
+	const source = `
+// bare \`text-caption\` in comment should be ignored
+const cssVar = "--text-caption";
+const valid = "text-xs text-sm text-body-sm";
+const bad1 = <span className="text-micro text-muted-foreground" />;
+const bad2 = cn("px-2", active ? "text-label" : "text-body");
+const bad3 = \`flex \${dense && "text-headline"}\`;
+`;
+	assert.deepEqual(findLegacyTypeScaleLines(source), [5, 6, 7]);
 });
 
 const bridge = "web/server/src/legacy/prime-agent-sdk.ts";
