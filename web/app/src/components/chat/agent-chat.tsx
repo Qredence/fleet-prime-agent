@@ -17,12 +17,13 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { getChatErrorPresentation } from "@/components/chat/chat-error-presentation";
+import { getChatErrorPresentation } from "@/lib/chat/chat-error-presentation";
 import { ChatWelcome } from "@/components/chat/chat-welcome";
 import type { InputBarProps } from "@/components/chat/composer/input-bar";
 import { InputBar } from "@/components/chat/composer/input-bar";
 import { SessionGenerativeTextRenderer } from "@/components/chat/generative-text-renderer";
-import { type ConversationTurn, groupMessages } from "@/components/chat/transcript/conversation-turns";
+import { PromptSuggestions } from "@/components/chat/prompt-suggestions";
+import { type ConversationTurn, groupMessages } from "@/lib/chat/conversation-turns";
 import { Message, MessageBubble, MessageBubbleContent, MessageContent } from "@/components/chat/transcript/message";
 import { MessageScroller } from "@/components/chat/transcript/message-scroller";
 import { buildAssistantElements } from "@/components/chat/transcript/message-turns";
@@ -33,11 +34,10 @@ import {
 	TRANSCRIPT_VIRTUALIZATION_THRESHOLD,
 	VirtualizedTurnList,
 } from "@/components/chat/transcript/virtualized-turn-list";
-import type { AgentChatProps } from "@/components/chat/types";
-import { CHAT_COLUMN_CLASS } from "@/components/layout/tokens";
+import type { AgentChatProps } from "@/lib/chat/types";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
-import type { QueueLane } from "@/components/tools/message-queue";
+import type { QueueLane } from "@/components/chat/composer/message-queue";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useUiPreferences } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
@@ -94,40 +94,8 @@ function SessionReasoningPanel(props: ComponentProps<typeof LazySessionReasoning
 	);
 }
 
-const LazyPromptSuggestions = lazy(() =>
-	import("@/components/chat/prompt-suggestions").then(({ PromptSuggestions }) => ({
-		default: PromptSuggestions,
-	})),
-);
-
-/**
- * Lazy-loaded wrapper for prompt suggestions with loading skeleton.
- * Defers loading until first conversation turn to keep the component out of
- * the welcome route eager bundle.
- *
- * @param props - Props forwarded to the PromptSuggestions component
- * @returns Suspense-wrapped PromptSuggestions with loading fallback
- */
-function PromptSuggestions(props: ComponentProps<typeof LazyPromptSuggestions>) {
-	return (
-		<div className="min-h-8">
-			<Suspense
-				fallback={
-					<div
-						className="h-8 animate-pulse rounded-full bg-muted/40"
-						role="status"
-						aria-label="Loading suggestions"
-					/>
-				}
-			>
-				<LazyPromptSuggestions {...props} />
-			</Suspense>
-		</div>
-	);
-}
-
 const LazyMessageQueue = lazy(() =>
-	import("@/components/tools/message-queue").then(({ MessageQueue }) => ({
+	import("@/components/chat/composer/message-queue").then(({ MessageQueue }) => ({
 		default: MessageQueue,
 	})),
 );
@@ -427,9 +395,9 @@ export const ConversationTurnView = memo(
 			<div
 				className={cn(
 					"flex flex-col gap-[var(--density-gap)] rounded-lg transition-colors",
+					!windowed && "[content-visibility:auto] [contain-intrinsic-size:auto_400px]",
 					isHighlighted ? "bg-foreground/6 ring-1 ring-foreground/15" : undefined,
 				)}
-				style={windowed ? undefined : { contentVisibility: "auto", containIntrinsicSize: "auto 400px" }}
 			>
 				{turn.user ? (
 					<Message from="user" animateIn={shouldAnimate}>
@@ -759,8 +727,7 @@ export function AgentChat({
 				viewportRef={viewportRef}
 				smooth={!isStreaming}
 				contentClassName={cn(
-					CHAT_COLUMN_CLASS,
-					"flex flex-col gap-[var(--density-gap)]",
+					"chat-column flex flex-col gap-[var(--density-gap)]",
 					isEmpty ? "min-h-full items-center justify-center py-8" : "py-6",
 				)}
 			>

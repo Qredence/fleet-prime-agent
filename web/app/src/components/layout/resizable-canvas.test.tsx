@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Folder } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
-import { getResourceCanvasMaxWidth } from "@/components/layout/canvas-utils";
+import { getResourceCanvasMaxWidth } from "@/lib/layout/canvas-utils";
 import { ResizableCanvas } from "@/components/layout/resizable-canvas";
 
 describe("ResizableCanvas", () => {

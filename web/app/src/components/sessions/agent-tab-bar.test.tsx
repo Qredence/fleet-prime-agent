@@ -76,6 +76,6 @@ describe("AgentTabBar", () => {
 		expect(screen.queryByRole("tab", { name: "Research worker, streaming" })).toBeNull();
 		expect(screen.getByRole("tab", { name: "Main agent, ready" })).toBeTruthy();
 		expect(onNewSession).toHaveBeenCalledOnce();
-		expect(screen.getByTestId("new-chat-tab").className).toContain("after:inset-x-0");
+		expect(screen.getByTestId("new-chat-tab").className).toContain("hit-area-expand-dense");
 	});
 });

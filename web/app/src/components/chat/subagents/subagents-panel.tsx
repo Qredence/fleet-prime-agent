@@ -4,9 +4,10 @@ import type {
 	PrimeAgentRlmTree,
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Bot } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type SubagentTranscriptState, SubagentTranscriptView } from "@/components/chat/subagents/subagent-transcript";
-import { orderedRlmChildren, rlmStatusIcon } from "@/components/chat/subagents/subagent-utils";
+import { rlmStatusIcon } from "@/components/chat/subagents/subagent-list";
+import { orderedRlmChildren } from "@/lib/chat/subagent-utils";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -143,7 +144,7 @@ export function SubagentsPanelContent({
 		return (
 			<section
 				aria-label="Subagents"
-				className="flex min-h-36 flex-1 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-label leading-5 text-foreground/45"
+				className="flex min-h-36 flex-1 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-sm leading-5 text-foreground/45"
 			>
 				Subagent threads will appear here when Prime delegates work.
 			</section>
@@ -154,8 +155,8 @@ export function SubagentsPanelContent({
 		<section aria-label="Subagents" className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3">
 			<header className="flex shrink-0 items-center gap-2 px-0.5">
 				<Bot className="size-3.5 shrink-0 text-foreground/45" />
-				<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Invoked</span>
-				<span className="shrink-0 tabular-nums text-micro text-foreground/40">{ordered.length}</span>
+				<span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/70">Invoked</span>
+				<span className="shrink-0 tabular-nums text-xs text-foreground/40">{ordered.length}</span>
 			</header>
 
 			<div
@@ -172,10 +173,10 @@ export function SubagentsPanelContent({
 							size="compact"
 							aria-pressed={selected}
 							className={cn(
-								"flex h-auto w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+								"flex h-auto w-full min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 pl-[calc(0.5rem+var(--tree-depth,0)*0.75rem)] text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 								selected && "bg-foreground/8",
 							)}
-							style={{ paddingLeft: `${8 + Math.max(0, agent.depth ?? 0) * 12}px` }}
+							style={{ "--tree-depth": Math.max(0, agent.depth ?? 0) } as CSSProperties}
 							onClick={() => {
 								setSelectedAgentId(agent.id);
 								onOpenTab?.(agent.id);
@@ -183,7 +184,7 @@ export function SubagentsPanelContent({
 						>
 							<span className="shrink-0">{rlmStatusIcon(agent.status)}</span>
 							<span className="min-w-0 flex-1 truncate text-xs text-foreground/80">{agent.label}</span>
-							<span className="shrink-0 text-micro capitalize text-foreground/45">{agent.status}</span>
+							<span className="shrink-0 text-xs capitalize text-foreground/45">{agent.status}</span>
 						</Button>
 					);
 				})}

@@ -12,11 +12,9 @@ import {
 	SquareTerminal,
 	Wrench,
 } from "lucide-react";
-import { m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { ActionSwapRollText } from "@/components/motion/action-swap";
-import type { AgentCodeLanguage } from "@/components/tools/agent-code";
-import { AgentDisclosure } from "@/components/tools/agent-disclosure";
+import { Button } from "@/components/ui/button";
 import {
 	CodeBlockActions,
 	CodeBlockContent,
@@ -25,7 +23,10 @@ import {
 	CodeBlockTitle,
 	CodeBlock as UiCodeBlock,
 } from "@/components/ui/code-block";
-import { SPRING_PRESS, SPRING_SWAP } from "@/lib/ease";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { SPRING_SWAP } from "@/lib/ease";
+import { spring } from "@/lib/fluid/springs";
+import type { AgentCodeLanguage } from "@/lib/shiki-highlight";
 import { cn } from "@/lib/utils";
 
 export type ToolResultStatus = "running" | "success" | "error" | "cancelled";
@@ -89,21 +90,37 @@ function StatusIcon({ status, reduce }: { status: ToolResultStatus; reduce: bool
 	return <Ban className="size-3" />;
 }
 
-function ToolResultAction({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+function StatusSwapText({ value, children }: { value: string; children: ReactNode }) {
 	const reduce = useReducedMotion() ?? false;
-
 	return (
-		<m.button
+		<AnimatePresence initial={false} mode="popLayout">
+			<m.span
+				key={value}
+				initial={reduce ? false : { opacity: 0, y: 4 }}
+				animate={{ opacity: 1, y: 0 }}
+				exit={reduce ? undefined : { opacity: 0, y: -4 }}
+				transition={reduce ? { duration: 0 } : spring.fast}
+				className="inline-block whitespace-nowrap"
+			>
+				{children}
+			</m.span>
+		</AnimatePresence>
+	);
+}
+
+function ToolResultAction({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+	return (
+		<Button
 			type="button"
+			variant="ghost"
+			size="icon-compact"
 			aria-label={label}
 			title={label}
 			onClick={onClick}
-			whileTap={reduce ? undefined : { scale: 0.96 }}
-			transition={SPRING_PRESS}
-			className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+			className="size-7 text-muted-foreground hover:bg-muted hover:text-foreground enabled:active:scale-[0.96]"
 		>
 			{children}
-		</m.button>
+		</Button>
 	);
 }
 
@@ -125,7 +142,7 @@ export function ToolResultOutput({
 				{label ? (
 					<CodeBlockTitle
 						className={cn(
-							"text-micro uppercase tracking-[0.12em]",
+							"text-xs uppercase tracking-[0.12em]",
 							error ? "text-destructive" : "text-muted-foreground/60",
 						)}
 					>
@@ -225,14 +242,22 @@ export function ToolResult({
 	}, [copyText]);
 
 	return (
-		<div data-state={status} aria-busy={running} className="w-full text-sm">
-			<button
-				id={triggerId}
-				type="button"
-				aria-expanded={currentOpen}
-				aria-controls={contentId}
-				onClick={() => setOpen(!currentOpen)}
-				className="group flex min-h-9 w-full items-center gap-2 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+		<Collapsible
+			open={currentOpen}
+			onOpenChange={setOpen}
+			data-state={status}
+			aria-busy={running}
+			className="w-full text-sm"
+		>
+			<CollapsibleTrigger
+				render={
+					<Button
+						id={triggerId}
+						type="button"
+						variant="ghost"
+						className="group flex h-auto min-h-9 w-full justify-start gap-2 rounded-md px-0 py-1 text-left font-normal text-foreground hover:bg-transparent [&>span]:w-full [&>span>span]:w-full"
+					/>
+				}
 			>
 				<span aria-hidden="true" className="grid size-4 shrink-0 place-items-center text-muted-foreground">
 					<KindIcon kind={kind} />
@@ -240,18 +265,13 @@ export function ToolResult({
 				<span className="flex min-w-0 flex-1 items-baseline gap-2">
 					<span className="min-w-0 truncate font-medium text-foreground/90">{title}</span>
 					{meta ? <span className="shrink-0 text-xs tabular-nums text-muted-foreground/60">{meta}</span> : null}
-					<span className="hidden min-w-0 truncate font-mono text-caption text-muted-foreground/55 sm:inline">
+					<span className="hidden min-w-0 truncate font-mono text-xs text-muted-foreground/55 sm:inline">
 						{tool}
 					</span>
 				</span>
-				<span
-					className={cn(
-						"inline-flex shrink-0 items-center gap-1 text-caption font-medium",
-						getStatusClass(status),
-					)}
-				>
+				<span className={cn("inline-flex shrink-0 items-center gap-1 text-xs font-medium", getStatusClass(status))}>
 					<StatusIcon status={status} reduce={reduce} />
-					<ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
+					<StatusSwapText value={status}>{statusLabel}</StatusSwapText>
 				</span>
 				<m.span
 					aria-hidden="true"
@@ -261,16 +281,22 @@ export function ToolResult({
 				>
 					<ChevronDown className="size-3.5" />
 				</m.span>
-			</button>
+			</CollapsibleTrigger>
 
-			<AgentDisclosure id={contentId} role="region" aria-labelledby={triggerId} open={currentOpen}>
+			<CollapsibleContent
+				id={contentId}
+				keepMounted
+				role="region"
+				aria-labelledby={triggerId}
+				className="overflow-hidden"
+			>
 				<div className="pl-6 pt-1.5">
 					<div>
 						<div
 							ref={viewportRef}
 							role="log"
 							aria-live="polite"
-							className="scrollbar-hide overflow-y-auto overscroll-contain"
+							className="no-scrollbar overflow-y-auto overscroll-contain"
 							style={{ maxHeight }}
 						>
 							{children}
@@ -281,14 +307,14 @@ export function ToolResult({
 								<ToolResultAction label={copied ? "Copied" : "Copy result"} onClick={handleCopy}>
 									{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
 								</ToolResultAction>
-								<span className="ml-auto text-caption text-muted-foreground/55">
-									<ActionSwapRollText value={status}>{statusLabel}</ActionSwapRollText>
+								<span className="ml-auto text-xs text-muted-foreground/55">
+									<StatusSwapText value={status}>{statusLabel}</StatusSwapText>
 								</span>
 							</div>
 						) : null}
 					</div>
 				</div>
-			</AgentDisclosure>
-		</div>
+			</CollapsibleContent>
+		</Collapsible>
 	);
 }

@@ -6,18 +6,20 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ArtifactsPanelContent } from "@/components/artifacts/artifacts-panel";
-import { collectSessionOpenUIBlocks } from "@/components/artifacts/artifacts-utils";
+import { collectSessionOpenUIBlocks } from "@/lib/artifacts/artifacts-utils";
 import { SubagentChatPanel } from "@/components/chat/subagents/subagent-chat-panel";
 import { SubagentTranscriptView } from "@/components/chat/subagents/subagent-transcript";
 import { SubagentsPanelContent } from "@/components/chat/subagents/subagents-panel";
-import type { RightPanel } from "@/components/layout/canvas-utils";
+import { Button } from "@/components/ui/button";
+import type { RightPanel } from "@/lib/layout/canvas-utils";
 import { RightPanelProvider } from "@/components/layout/right-panel-context";
-import { RightPanelLauncher } from "@/components/layout/right-panel-launcher";
+import { MobilePanel, RightPanelLauncher } from "@/components/layout/right-panel-launcher";
 import { RightPanelShell } from "@/components/layout/right-panel-shell";
-import { useChatShellState } from "@/components/layout/use-chat-shell-state";
-import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@/components/sessions/transcript-summary";
+import { useChatShellState } from "@/hooks/layout/use-chat-shell-state";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@/lib/sessions/transcript-summary";
 import { ReplPanelContent } from "@/components/workspace/repl-panel";
 
 vi.mock("@/components/chat/generative-text-renderer", () => ({
@@ -48,9 +50,9 @@ function ChatShellStateProbe() {
 
 	return (
 		<div>
-			<button type="button" onClick={() => openArtifact("repl-1", "repl")}>
+			<Button type="button" onClick={() => openArtifact("repl-1", "repl")}>
 				Open REPL cell
-			</button>
+			</Button>
 			<span data-testid="probe-panel">{rightPanel ?? "closed"}</span>
 			<span data-testid="probe-selection">{selectedArtifactId ?? "none"}</span>
 		</div>
@@ -679,5 +681,43 @@ describe("right-panel execution tabs", () => {
 
 		expect(await screen.findByText("Last known answer")).toBeTruthy();
 		expect(screen.getByRole("alert").textContent).toContain("ended with an error");
+	});
+
+	it("renders MobilePanel with chrome-top fallback sizing and preserves focus on X and Escape close", async () => {
+		function Harness() {
+			const [open, setOpen] = useState(true);
+			const focusTargetRef = useRef<HTMLButtonElement>(null);
+			const close = () => {
+				setOpen(false);
+				window.requestAnimationFrame(() => focusTargetRef.current?.focus());
+			};
+			return (
+				<div>
+					<Button ref={focusTargetRef} type="button">
+						Composer focus target
+					</Button>
+					<MobilePanel open={open} onClose={close} title="Workspace">
+						<div>Panel body</div>
+					</MobilePanel>
+				</div>
+			);
+		}
+
+		const first = render(<Harness />);
+		const dialog = screen.getByRole("dialog", { name: "Workspace" });
+		expect(dialog.className).toContain("top-[var(--chat-chrome-top,52px)]");
+		expect(dialog.className).toContain(
+			"h-[calc(100dvh-var(--chat-chrome-top,52px)-max(0.75rem,env(safe-area-inset-bottom)))]",
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Close panel" }));
+		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Workspace" })).toBeNull());
+		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Composer focus target" }));
+		first.unmount();
+
+		render(<Harness />);
+		const escapeDialog = screen.getByRole("dialog", { name: "Workspace" });
+		fireEvent.keyDown(escapeDialog, { key: "Escape", code: "Escape" });
+		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Workspace" })).toBeNull());
+		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Composer focus target" }));
 	});
 });

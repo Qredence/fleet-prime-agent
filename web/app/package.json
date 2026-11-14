@@ -31,7 +31,6 @@
     "@openuidev/react-headless": "^0.18.6",
     "@openuidev/react-lang": "^1.1.0",
     "@openuidev/react-ui": "^0.18.6",
-    "@pierre/diffs": "^1.5.2",
     "@prime-agent/web-protocol": "workspace:*",
     "@prime-agent/web-server": "workspace:*",
     "@streamdown/code": "^2.0.0",

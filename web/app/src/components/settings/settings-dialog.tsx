@@ -1,36 +1,16 @@
-import type { ChatPiSettings, ChatPiSettingsUpdate } from "@prime-agent/web-protocol/chat-protocol";
-import type { LucideIcon } from "lucide-react";
+import { type LucideIcon, Monitor, Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { type MutableRefObject, useEffect, useRef, useState } from "react";
-import {
-	type SettingsActionsContextValue,
-	useChatPanelDataContext,
-	useSettingsActionsContext,
-} from "@/components/layout/right-panel-context";
+import { McpConnectionsSection } from "@/components/connectors/mcp-connections-section";
+import { type SettingsActionsContextValue, useSettingsActionsContext } from "@/components/layout/right-panel-context";
 import { ComposerIntentSection } from "@/components/settings/composer-intent-section";
 import { DashboardsSection } from "@/components/settings/dashboards-section";
-import { McpConnectionsSection } from "@/components/settings/mcp/mcp-connections-section";
-import { PersonalizationSection } from "@/components/settings/personalization-section";
 import { ModelDefaultsSection } from "@/components/settings/providers/model-defaults-section";
 import { ProviderCredentialsSection } from "@/components/settings/providers/provider-credentials-section";
-import { useModelDefaultsForm } from "@/components/settings/providers/use-model-defaults-form";
 import { ResourcesSection } from "@/components/settings/resources-section";
 import { SandboxProviderSection } from "@/components/settings/sandbox-provider-section";
-import {
-	harnessSettings,
-	modelSettings,
-	resourceSettings,
-	sameJson,
-	summarizeResources,
-} from "@/components/settings/settings-mappers";
+import { SettingsPane } from "@/components/settings/settings-pane";
 import { SettingsRow } from "@/components/settings/settings-row";
-import {
-	isSettingsSectionId,
-	SETTINGS_SECTION_GROUPS,
-	SETTINGS_SECTIONS,
-	type SettingsSectionId,
-} from "@/components/settings/settings-sections";
-import { useResourcesForm } from "@/components/settings/use-resources-form";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -47,11 +27,21 @@ import {
 	BreadcrumbPage,
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useSettingsForm } from "@/hooks/settings/use-settings-form";
+import type { ThemePreference } from "@/lib/layout/canvas-utils";
 import { notify as toast } from "@/lib/notify";
+import { harnessSettings, modelSettings, resourceSettings } from "@/lib/settings/settings-mappers";
+import {
+	isSettingsSectionId,
+	SETTINGS_SECTION_GROUPS,
+	SETTINGS_SECTIONS,
+	type SettingsSectionId,
+} from "@/lib/settings/settings-sections";
 import {
 	applyUiPreferencesToDocument,
 	readUiPreferences,
@@ -60,173 +50,11 @@ import {
 } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
-/**
- * Thin composer over the per-section form hooks; keeps the dialog-level
- * draft core, tab state, saving orchestration, and the discard flow.
- */
-function useSettingsForm() {
-	const {
-		isLoadingMcp,
-		isLoadingProviders,
-		isUpdatingMcp,
-		isUpdatingProvider,
-		mcpConnections = [],
-		modelCatalog,
-		onDiscoverModels,
-		onMcpOAuth,
-		onRemoveMcp,
-		onRemoveProvider,
-		onThemePreferenceChange,
-		onUpdateMcp,
-		onUpdateProvider,
-		providers = [],
-		saveSettings,
-		settings,
-		settingsLoading,
-		themePreference,
-	} = useSettingsActionsContext();
-	const { models, resources } = useChatPanelDataContext();
-
-	const [draft, setDraft] = useState<ChatPiSettings | null>(() => settings?.effective ?? null);
-	const [savingSection, setSavingSection] = useState<string | null>(null);
-	const [syncedSettingsSource, setSyncedSettingsSource] = useState(settings);
-
-	const resourceSummary = summarizeResources(resources);
-
-	const updateDraft = (updater: (current: ChatPiSettings) => ChatPiSettings) => {
-		setDraft((current: ChatPiSettings | null) => (current ? updater(current) : current));
-	};
-
-	const { packageRows, packageError, resourceDirty, handlePackageRowsChange, revertResourceDraft } = useResourcesForm({
-		draft,
-		settings,
-		updateDraft,
-	});
-
-	const {
-		modelFilter,
-		setModelFilter,
-		modelOptions,
-		modelDirty,
-		addModels,
-		removeModel,
-		setDefaultModel,
-		discoverProvider,
-		discoveringProviderId,
-		commitModelSettings,
-		revertModelDraft,
-		resetCommittedModelBaseline,
-	} = useModelDefaultsForm({
-		draft,
-		setDraft,
-		updateDraft,
-		settings,
-		providers,
-		models,
-		modelCatalog,
-		onDiscoverModels,
-		saveSettings,
-		setSavingSection,
-	});
-
-	const hasUnsavedChanges = modelDirty || resourceDirty;
-
-	if (settings !== syncedSettingsSource) {
-		setSyncedSettingsSource(settings);
-		if (settings && (!draft || !hasUnsavedChanges)) {
-			const nextDraft: ChatPiSettings = {
-				...settings.effective,
-				enabledModels: settings.project.enabledModels ?? settings.effective.enabledModels,
-				defaultProvider: settings.project.defaultProvider ?? settings.effective.defaultProvider,
-				defaultModel: settings.project.defaultModel ?? settings.effective.defaultModel,
-				defaultThinkingLevel: settings.project.defaultThinkingLevel ?? settings.effective.defaultThinkingLevel,
-			};
-			resetCommittedModelBaseline();
-			if (!draft || !sameJson(draft, nextDraft)) {
-				setDraft(nextDraft);
-			}
-		}
-	}
-
-	const resetDraft = () => {
-		if (!settings) return;
-		// Only the draft is owned here; package rows/error reconcile in
-		// useResourcesForm's sync effect once draft settles.
-		setDraft(settings.effective);
-	};
-
-	const saveSection = async (section: string, update: ChatPiSettingsUpdate) => {
-		if (section === "models" && draft) {
-			const saved = await commitModelSettings(draft);
-			if (!saved) {
-				throw new Error("Settings save failed");
-			}
-			return;
-		}
-
-		setSavingSection(section);
-		try {
-			await saveSettings(update);
-			toast.success("Pi settings saved");
-		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Settings save failed");
-			throw error;
-		} finally {
-			setSavingSection(null);
-		}
-	};
-
-	const requestCloseSettings = async (): Promise<"close" | "discard-prompt" | "wait"> => {
-		if (savingSection === "models") return "wait";
-		if (resourceDirty) return "discard-prompt";
-		// modelDirty already requires a non-null draft
-		if (modelDirty && draft) {
-			return (await commitModelSettings(draft, { silent: true })) ? "close" : "discard-prompt";
-		}
-		return "close";
-	};
-
-	return {
-		isLoadingMcp,
-		isLoadingProviders,
-		isUpdatingMcp,
-		isUpdatingProvider,
-		mcpConnections,
-		onMcpOAuth,
-		onRemoveMcp,
-		onRemoveProvider,
-		onThemePreferenceChange,
-		onUpdateMcp,
-		onUpdateProvider,
-		providers,
-		resources,
-		settingsLoading,
-		themePreference,
-		draft,
-		savingSection,
-		packageRows,
-		packageError,
-		modelFilter,
-		setModelFilter,
-		resourceSummary,
-		modelOptions,
-		modelDirty,
-		resourceDirty,
-		revertResourceDraft,
-		revertModelDraft,
-		resetDraft,
-		updateDraft,
-		handlePackageRowsChange,
-		addModels,
-		removeModel,
-		setDefaultModel,
-		discoverProvider,
-		discoveringProviderId,
-		saveSection,
-		requestCloseSettings,
-		resetCommittedModelBaseline,
-	};
-}
+const THEME_OPTIONS = [
+	{ value: "system", label: "System", icon: Monitor },
+	{ value: "light", label: "Light", icon: Sun },
+	{ value: "dark", label: "Dark", icon: Moon },
+] as const;
 
 function SettingsNavItem({
 	active,
@@ -240,11 +68,13 @@ function SettingsNavItem({
 	label: string;
 }) {
 	return (
-		<button
+		<Button
 			type="button"
+			variant="ghost"
+			size="compact"
 			onClick={onClick}
 			className={cn(
-				"flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-label transition-colors",
+				"h-auto w-full justify-start gap-2 rounded-lg px-2 py-1.5 text-left text-xs font-normal transition-colors",
 				active
 					? "bg-background text-foreground shadow-sm"
 					: "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -252,7 +82,7 @@ function SettingsNavItem({
 		>
 			<Icon className="size-4 shrink-0" />
 			<span>{label}</span>
-		</button>
+		</Button>
 	);
 }
 
@@ -401,15 +231,16 @@ function SettingsDialogPaneContent({
 
 	const panes: Record<SettingsSectionId, () => ReactNode> = {
 		appearance: () => (
-			<div className="flex flex-col gap-4">
-				<div>
-					<h3 className="text-lg font-medium">Appearance</h3>
-					<p className="text-sm text-muted-foreground">Customize the look and feel of the interface.</p>
-				</div>
-				<PersonalizationSection
-					onThemePreferenceChange={onThemePreferenceChange}
-					themePreference={themePreference}
-				/>
+			<SettingsPane title="Appearance" description="Customize the look and feel of the interface.">
+				<SettingsRow label="Theme" description="Match the system theme or pick light or dark.">
+					<Select
+						aria-label="Theme"
+						className="w-[160px]"
+						onValueChange={(value) => onThemePreferenceChange(value as ThemePreference)}
+						options={[...THEME_OPTIONS]}
+						value={themePreference}
+					/>
+				</SettingsRow>
 				<SettingsRow label="Density" description="Adjust spacing across chat and panels.">
 					<Select
 						aria-label="Density"
@@ -432,26 +263,18 @@ function SettingsDialogPaneContent({
 						]}
 					/>
 				</SettingsRow>
-			</div>
+			</SettingsPane>
 		),
 		dashboards: () => (
-			<div className="flex flex-col gap-4">
-				<div>
-					<h3 className="text-lg font-medium">Dashboards</h3>
-					<p className="text-sm text-muted-foreground">
-						Without a key, the assistant writes the dashboard and Fleet draws it in the Dashboards tab. With a
-						Thesys key, OpenUI Cloud builds it, using a model separate from the one you chat with.
-					</p>
-				</div>
+			<SettingsPane
+				title="Dashboards"
+				description="Without a key, the assistant writes the dashboard and Fleet draws it in the Dashboards tab. With a Thesys key, OpenUI Cloud builds it, using a model separate from the one you chat with."
+			>
 				<DashboardsSection />
-			</div>
+			</SettingsPane>
 		),
 		chat: () => (
-			<div className="flex flex-col gap-4">
-				<div>
-					<h3 className="text-lg font-medium">Chat</h3>
-					<p className="text-sm text-muted-foreground">Control transcript behavior.</p>
-				</div>
+			<SettingsPane title="Chat" description="Control transcript behavior.">
 				<SettingsRow label="Streaming transcript" description="Follow new output or preserve the reading position.">
 					<Select
 						aria-label="Streaming transcript"
@@ -471,7 +294,7 @@ function SettingsDialogPaneContent({
 					onEnabledChange={onComposerIntentChange}
 					onSaveKey={(apiKey) => onComposerIntentKeyChange?.(apiKey)}
 				/>
-			</div>
+			</SettingsPane>
 		),
 		mcp: () => (
 			<McpConnectionsSection
@@ -528,13 +351,10 @@ function SettingsDialogPaneContent({
 		skills: () => resourcesPane("skills"),
 		"pi-harness": () => resourcesPane("harness"),
 		keybindings: () => (
-			<div className="flex flex-col gap-4 text-sm">
-				<div>
-					<h3 className="text-lg font-medium">Keybindings</h3>
-					<p className="text-sm text-muted-foreground">
-						Every shortcut also has a visible control in the header, panel, or composer.
-					</p>
-				</div>
+			<SettingsPane
+				title="Keybindings"
+				description="Every shortcut also has a visible control in the header, panel, or composer."
+			>
 				<div className="rounded-md border p-4 font-mono text-xs leading-7">
 					<div>Command palette: Ctrl/Command K</div>
 					<div>Conversation sidebar: Ctrl/Command B</div>
@@ -545,16 +365,13 @@ function SettingsDialogPaneContent({
 					<div>Return focus to chat: Ctrl/Command Shift C</div>
 					<div>Close active panel: Escape</div>
 				</div>
-			</div>
+			</SettingsPane>
 		),
 		sessions: () => (
-			<div className="flex flex-col gap-4">
-				<div>
-					<h3 className="text-lg font-medium">Sessions</h3>
-					<p className="text-sm text-muted-foreground">
-						Set local conversation preferences. Provider and workspace configuration remains Fleet Prime-owned.
-					</p>
-				</div>
+			<SettingsPane
+				title="Sessions"
+				description="Set local conversation preferences. Provider and workspace configuration remains Fleet Prime-owned."
+			>
 				<SettingsRow
 					label="Confirm session deletion"
 					description="Require confirmation before deleting a saved conversation."
@@ -569,7 +386,7 @@ function SettingsDialogPaneContent({
 					Provider credentials, OAuth, models, sandbox configuration, and workspace selection are managed by Fleet
 					Prime and its CLI.
 				</p>
-			</div>
+			</SettingsPane>
 		),
 	};
 
@@ -668,11 +485,11 @@ function SettingsDialogBody({
 						aria-label="Settings sections"
 						className="hidden h-full w-52 shrink-0 flex-col border-r border-border bg-sidebar sm:flex"
 					>
-						<div className="px-6 pt-6 pb-2 text-label font-semibold">Settings</div>
+						<div className="px-6 pt-6 pb-2 text-xs font-semibold">Settings</div>
 						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-6">
 							{SETTINGS_SECTION_GROUPS.map((group) => (
 								<div key={group.id} className="py-2">
-									<p className="px-2 pb-1 text-caption font-medium uppercase tracking-wide text-muted-foreground">
+									<p className="px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
 										{group.label}
 									</p>
 									<div className="flex flex-col gap-0.5">

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export type ForkPickerEntry = {
@@ -23,18 +24,20 @@ export function ForkPickerDialog({ entries, onOpenChange, onPick }: ForkPickerDi
 				</DialogHeader>
 				<div className="flex max-h-[min(420px,60dvh)] flex-col gap-1 overflow-y-auto overscroll-contain">
 					{(entries ?? []).map((entry) => (
-						<button
+						<Button
 							key={entry.id}
 							type="button"
-							className="flex w-full cursor-pointer flex-col gap-0.5 rounded-md p-2 text-left text-body leading-5 hover:bg-foreground/6"
+							variant="ghost"
+							size="compact"
+							className="flex h-auto w-full flex-col items-start justify-start gap-0.5 rounded-md p-2 text-left text-sm leading-5 hover:bg-foreground/6"
 							onClick={() => {
 								onPick(entry.id);
 								onOpenChange(false);
 							}}
 						>
 							<span className="truncate font-medium">{entry.preview}</span>
-							<span className="truncate font-mono text-caption text-foreground/40">{entry.id}</span>
-						</button>
+							<span className="truncate font-mono text-xs text-foreground/40">{entry.id}</span>
+						</Button>
 					))}
 				</div>
 			</DialogContent>

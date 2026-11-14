@@ -8,14 +8,15 @@ import type {
 } from "@/components/layout/right-panel-context";
 import { RightPanelProvider } from "@/components/layout/right-panel-context";
 import type { ModelDefaultsSection } from "@/components/settings/providers/model-defaults-section";
-import type { useModelDefaultsForm } from "@/components/settings/providers/use-model-defaults-form";
+import type { useModelDefaultsForm } from "@/hooks/settings/use-model-defaults-form";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
+import { Button } from "@/components/ui/button";
 
 const state = vi.hoisted(() => ({ dirty: false }));
 type ModelDefaultsFormArgs = Parameters<typeof useModelDefaultsForm>[0];
 type ModelDefaultsSectionProps = Parameters<typeof ModelDefaultsSection>[0];
 
-vi.mock("@/components/settings/providers/use-model-defaults-form", () => ({
+vi.mock("@/hooks/settings/use-model-defaults-form", () => ({
 	useModelDefaultsForm: ({ setDraft, settings }: ModelDefaultsFormArgs) => ({
 		modelFilter: "",
 		setModelFilter: () => {},
@@ -41,7 +42,7 @@ vi.mock("@/components/settings/providers/use-model-defaults-form", () => ({
 	}),
 }));
 
-vi.mock("@/components/settings/use-resources-form", () => ({
+vi.mock("@/hooks/settings/use-resources-form", () => ({
 	useResourcesForm: () => ({
 		packageRows: [],
 		packageError: undefined,
@@ -56,12 +57,12 @@ vi.mock("@/components/settings/providers/model-defaults-section", () => ({
 		<section>
 			<output data-testid="enabled-models">{draft?.enabledModels?.join(",") ?? ""}</output>
 			<output data-testid="model-dirty">{String(modelDirty)}</output>
-			<button type="button" onClick={() => onAddModels([])}>
+			<Button type="button" onClick={() => onAddModels([])}>
 				Make local edit
-			</button>
-			<button type="button" onClick={onRevert}>
+			</Button>
+			<Button type="button" onClick={onRevert}>
 				Clear local edit
-			</button>
+			</Button>
 		</section>
 	),
 }));

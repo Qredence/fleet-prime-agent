@@ -4,11 +4,14 @@ import {
 	type OpenUIHtmlArtifactValidation,
 	validateAndNormalizeOpenUIHtmlArtifact,
 } from "@prime-agent/web-protocol";
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { CodeBlock, CodeBlockContent, CodeBlockHeader, CodeBlockTitle } from "@/components/ui/code-block";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export type OpenUIArtifactCandidate = {
@@ -48,7 +51,7 @@ function OpenUIHtmlFrame({ document, className = "", title }: { document: string
 			referrerPolicy="no-referrer"
 			title={title}
 			loading="lazy"
-			className={`block w-full min-w-0 overflow-hidden rounded-md border border-border/60 bg-white ${className}`}
+			className={`block w-full min-w-0 overflow-hidden rounded-md border border-border/60 bg-document-canvas ${className}`}
 		/>
 	);
 }
@@ -56,17 +59,34 @@ function OpenUIHtmlFrame({ document, className = "", title }: { document: string
 function ArtifactDiagnostic({ validation, document }: { validation: OpenUIHtmlArtifactValidation; document: string }) {
 	if (validation.ok) return null;
 	return (
-		<div
-			role="alert"
-			className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
-		>
-			<p className="font-medium">OpenUI artifact was not rendered</p>
-			<p className="mt-1">{validationMessage(validation)}</p>
-			<details className="mt-2">
-				<summary className="cursor-pointer font-medium">Raw document</summary>
-				<pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words">{document}</pre>
-			</details>
-		</div>
+		<Alert variant="destructive" className="w-full">
+			<AlertTitle>OpenUI artifact was not rendered</AlertTitle>
+			<AlertDescription>
+				<p>{validationMessage(validation)}</p>
+				<Collapsible className="mt-2">
+					<CollapsibleTrigger
+						render={
+							<Button
+								type="button"
+								variant="ghost"
+								size="compact"
+								className="group h-auto px-0 py-0 text-xs font-medium text-destructive hover:bg-transparent"
+							>
+								<ChevronDown className="size-3.5 transition-transform group-data-open:rotate-180" />
+								<span>Raw document</span>
+							</Button>
+						}
+					/>
+					<CollapsibleContent className="mt-2">
+						<CodeBlock size="sm" variant="destructive">
+							<CodeBlockContent wrap className="max-h-48 text-xs">
+								{document}
+							</CodeBlockContent>
+						</CodeBlock>
+					</CollapsibleContent>
+				</Collapsible>
+			</AlertDescription>
+		</Alert>
 	);
 }
 

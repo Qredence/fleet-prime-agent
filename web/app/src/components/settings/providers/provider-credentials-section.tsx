@@ -5,25 +5,32 @@ import type {
 	ChatProviderUpdateRequest,
 	ChatProviderUpdateResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
-import { Plus, Search } from "lucide-react";
-import { SettingsPane } from "@/components/layout/settings-pane";
+import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
+import { Info, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
 import {
 	AddProviderEditorPanel,
 	AddProviderOAuthPanel,
 	AddProviderPickerPanel,
+	ProviderCredentialFields,
+	ProviderOAuthTerminalFallback,
 	RemoveProviderConfirmDialog,
 } from "@/components/settings/providers/provider-credentials-editor";
-import { ActiveProviderList } from "@/components/settings/providers/provider-credentials-list";
+import { SettingsPane } from "@/components/settings/settings-pane";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 import {
 	isOAuthProvider,
 	type ProviderCredentialActions,
 	type ProviderCredentialForm,
 	type ProviderOperationState,
-} from "@/components/settings/providers/provider-credentials-types";
-import { useProviderCredentialsController } from "@/components/settings/providers/use-provider-credentials-controller";
-import { Button } from "@/components/ui/button";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Spinner } from "@/components/ui/spinner";
+	supportsOAuth,
+	useProviderCredentialsController,
+} from "@/hooks/settings/use-provider-credentials-controller";
+import { PROVIDER_METADATA } from "@/lib/settings/provider-metadata";
 
 /**
  * Manages provider credential configuration, including adding, updating, searching, and removing providers.
@@ -123,9 +130,9 @@ export function ProviderCredentialsSection({
 			description={
 				<>
 					Provider credentials are stored in Prime Agent’s{" "}
-					<code className="rounded bg-muted px-1 py-0.5 font-mono text-caption text-foreground">auth.json</code>.
-					Custom providers and model definitions are stored in models.json. Enabled models and defaults are saved
-					in settings.json, or the existing project settings file.
+					<code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">auth.json</code>. Custom
+					providers and model definitions are stored in models.json. Enabled models and defaults are saved in
+					settings.json, or the existing project settings file.
 				</>
 			}
 		>
@@ -248,5 +255,163 @@ export function ProviderCredentialsSection({
 				}}
 			/>
 		</SettingsPane>
+	);
+}
+
+function ActiveProviderList({
+	providers,
+	editingProvider,
+	form,
+	operation,
+	actions,
+	onEdit,
+	onCancelEdit,
+	onSave,
+	onRemove,
+}: {
+	providers: Array<ChatProviderInfo>;
+	editingProvider: string | null;
+	form: ProviderCredentialForm;
+	operation: ProviderOperationState;
+	actions: ProviderCredentialActions;
+	onEdit: (providerId: string) => void;
+	onCancelEdit: () => void;
+	onSave: (providerId: string) => void;
+	onRemove: (provider: ChatProviderInfo) => void;
+}) {
+	const { api, apiKey, baseUrl, modelId, modelIds, displayName, showPassword, attemptedSave, canSave } = form;
+	const { isPending, canRemove } = operation;
+	const {
+		onApiKeyChange,
+		onApiChange,
+		onBaseUrlChange,
+		onModelIdChange,
+		onModelIdsChange,
+		onDisplayNameChange,
+		onTogglePassword,
+	} = actions;
+
+	return (
+		<div className="flex flex-col gap-1.5">
+			{providers.map((provider) => {
+				const isEditing = editingProvider === provider.id;
+				const isCustom = isCustomProviderId(provider.id);
+				const meta =
+					PROVIDER_METADATA[provider.id] ?? PROVIDER_METADATA[isCustom ? "custom" : "openai-chat-completions"];
+				const openAiChat = isOccProviderId(provider.id);
+				const oauthOnly = isOAuthProvider(provider);
+				const oauthAvailable = supportsOAuth(provider);
+				const subtitle = oauthOnly
+					? "OAuth sign-in"
+					: oauthAvailable
+						? "API key or OAuth"
+						: isCustom
+							? "Custom provider · API key + base URL + models"
+							: openAiChat
+								? "OpenAI-compatible · API key + base URL + model name"
+								: provider.envVarName;
+
+				return (
+					<div
+						key={provider.id}
+						className="flex flex-col overflow-hidden rounded-lg border border-border/50 bg-muted/20"
+					>
+						<Item size="sm" className="flex-nowrap gap-3 border-0 bg-transparent px-2.5 py-2">
+							<ItemMedia className="size-8 shrink-0 rounded-md border border-border/40 bg-background/60 text-foreground/80">
+								<ProviderBrandIcon provider={provider.id} api={provider.api} className="text-foreground/80" />
+							</ItemMedia>
+							<ItemContent className="min-w-0 gap-0.5">
+								<ItemTitle className="w-full truncate text-sm font-medium text-foreground">
+									{provider.name}
+								</ItemTitle>
+								<ItemDescription className="truncate text-xs text-muted-foreground">{subtitle}</ItemDescription>
+							</ItemContent>
+							<ItemActions className="shrink-0 gap-0.5">
+								<Button
+									type="button"
+									variant="ghost"
+									size="compact"
+									className="hit-area-expand-dense h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-destructive active:scale-[0.96]"
+									disabled={isPending || !canRemove}
+									aria-label={`Remove ${provider.name}`}
+									onClick={() => onRemove(provider)}
+								>
+									<Trash2 data-icon="inline-start" />
+									Remove
+								</Button>
+								<Button
+									type="button"
+									variant="ghost"
+									size="compact"
+									className="hit-area-expand-dense h-7 px-2 text-xs transition-[background-color,transform] duration-150 active:scale-[0.96]"
+									disabled={isPending}
+									onClick={() => {
+										if (isEditing) {
+											onCancelEdit();
+											return;
+										}
+										onEdit(provider.id);
+									}}
+								>
+									{!isEditing ? <Pencil data-icon="inline-start" /> : null}
+									{isEditing ? "Cancel" : "Update"}
+								</Button>
+							</ItemActions>
+						</Item>
+
+						{isEditing ? (
+							<div className="flex flex-col gap-2 border-t border-border/30 bg-muted/30 p-2.5">
+								{oauthOnly ? (
+									<ProviderOAuthTerminalFallback provider={provider} />
+								) : (
+									<>
+										<ProviderCredentialFields
+											attemptedSave={attemptedSave}
+											api={provider.api ?? api}
+											apiKey={apiKey}
+											baseUrl={baseUrl}
+											modelId={modelId}
+											modelIds={modelIds}
+											displayName={displayName}
+											isCustom={isCustom}
+											openAiChat={openAiChat}
+											placeholder={meta.placeholder}
+											showPassword={showPassword}
+											onApiKeyChange={onApiKeyChange}
+											onApiChange={onApiChange}
+											onBaseUrlChange={onBaseUrlChange}
+											onModelIdChange={onModelIdChange}
+											onModelIdsChange={onModelIdsChange}
+											onDisplayNameChange={
+												isCustom || provider.providerFamily !== undefined ? onDisplayNameChange : undefined
+											}
+											onTogglePassword={onTogglePassword}
+										/>
+
+										<Alert className="px-3 py-2">
+											<Info />
+											<AlertDescription className="text-xs text-pretty">{meta.help}</AlertDescription>
+										</Alert>
+
+										<div className="flex items-center justify-end">
+											<Button
+												type="button"
+												size="compact"
+												disabled={isPending || !canSave}
+												onClick={() => onSave(provider.id)}
+											>
+												{isPending ? <Spinner data-icon="inline-start" /> : null}
+												Save
+											</Button>
+										</div>
+										{oauthAvailable ? <ProviderOAuthTerminalFallback provider={provider} /> : null}
+									</>
+								)}
+							</div>
+						) : null}
+					</div>
+				);
+			})}
+		</div>
 	);
 }

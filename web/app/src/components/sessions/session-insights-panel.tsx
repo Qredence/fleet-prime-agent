@@ -1,10 +1,6 @@
 import type { PrimeAgentGoal } from "@prime-agent/web-protocol/chat-protocol";
 import type { ReactNode } from "react";
-import {
-	deriveSessionInsights,
-	RLM_CHILD_STATUSES,
-	type SessionInsightsInput,
-} from "@/components/sessions/session-insights";
+import { deriveSessionInsights, RLM_CHILD_STATUSES, type SessionInsightsInput } from "@/lib/sessions/session-insights";
 
 /**
  * Replaces underscores in a string with spaces.
@@ -30,10 +26,10 @@ function DetailList({ children, label }: { children: ReactNode; label: string })
 	return (
 		<section
 			aria-label={label}
-			className="rounded-md border border-border/60 bg-background px-3 py-2.5 shadow-[0_1px_4px_-1px_rgba(0,0,0,0.06)]"
+			className="rounded-md border border-border/60 bg-background px-3 py-2.5 shadow-surface-2"
 		>
-			<h3 className="mb-2 text-caption font-medium uppercase tracking-wide text-foreground/45">{label}</h3>
-			<dl className="space-y-1.5 text-label">{children}</dl>
+			<h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground/45">{label}</h3>
+			<dl className="space-y-1.5 text-xs">{children}</dl>
 		</section>
 	);
 }
@@ -85,7 +81,7 @@ export function SessionInsightsPanel({
 		return (
 			<section
 				aria-label="Session insights"
-				className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-label leading-5 text-foreground/45"
+				className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-xs leading-5 text-foreground/45"
 			>
 				Start or open a session to view its live insights.
 			</section>

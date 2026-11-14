@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { SuggestionItem } from "@/components/chat/types";
+import type { SuggestionItem } from "@/lib/chat/types";
 import { useComposerTriggers } from "@/components/chat/composer/composer-triggers";
 
 const COMMANDS: Array<SuggestionItem> = [

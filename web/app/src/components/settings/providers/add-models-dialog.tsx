@@ -1,11 +1,12 @@
 import type { ChatPiSettings } from "@prime-agent/web-protocol/chat-protocol";
 import { RefreshCw, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isModelEnabled } from "@/components/settings/providers/model-patterns";
+import { isModelEnabled } from "@/lib/settings/model-patterns";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
-import { formatProviderLabel } from "@/components/settings/providers/provider-label";
-import type { ConfigModelInfo } from "@/components/settings/types";
+import { formatProviderLabel } from "@/lib/settings/provider-metadata";
+import type { ConfigModelInfo } from "@/lib/settings/types";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
@@ -203,7 +204,7 @@ export function AddModelsDialog({
 						<div className="flex flex-col gap-3">
 							{groupedCandidates.map(([provider, models]) => (
 								<div key={provider} className="flex flex-col gap-1">
-									<div className="px-2 text-caption font-medium tracking-wide text-muted-foreground uppercase">
+									<div className="px-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
 										{providerLabel(provider)}
 										{(activeCountByProvider.get(provider) ?? 0) > 0 ? (
 											<span className="ml-1 font-normal normal-case tabular-nums">
@@ -214,16 +215,13 @@ export function AddModelsDialog({
 									{models.map((model) => {
 										const checked = selectedKeys.has(model.id);
 										return (
-											<button
+											<label
 												key={model.id}
-												type="button"
 												className={cn(
-													"flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-[background-color,transform] duration-150",
-													"hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.96]",
+													"flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-left transition-[background-color,transform] duration-150",
+													"hover:bg-muted/60 has-focus-visible:ring-2 has-focus-visible:ring-ring active:scale-[0.98]",
 													checked && "bg-muted/70",
 												)}
-												aria-pressed={checked}
-												onClick={() => toggleSelected(model)}
 											>
 												<div className="flex size-8 shrink-0 items-center justify-center rounded-[4px] border border-border/40 bg-background/60">
 													<ProviderBrandIcon provider={model.provider} className="text-foreground/70" />
@@ -232,14 +230,12 @@ export function AddModelsDialog({
 													<div className="truncate text-sm font-medium">{model.name}</div>
 													<div className="truncate text-xs text-muted-foreground">{model.modelId}</div>
 												</div>
-												<span
-													className={cn(
-														"size-4 rounded border border-border/60",
-														checked && "border-foreground bg-foreground",
-													)}
-													aria-hidden
+												<Checkbox
+													checked={checked}
+													aria-label={`Select ${model.name}`}
+													onCheckedChange={() => toggleSelected(model)}
 												/>
-											</button>
+											</label>
 										);
 									})}
 								</div>

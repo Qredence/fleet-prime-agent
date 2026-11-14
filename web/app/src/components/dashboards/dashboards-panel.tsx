@@ -1,5 +1,5 @@
 import type { PrimeAgentArtifactRun } from "@prime-agent/web-protocol/chat-protocol";
-import { mergeArtifactsById } from "@/components/dashboards/dashboard-artifacts";
+import { mergeArtifactsById } from "@/lib/dashboards/dashboard-artifacts";
 import { DashboardBoard } from "@/components/dashboards/dashboard-view";
 import { Button } from "@/components/ui/button";
 

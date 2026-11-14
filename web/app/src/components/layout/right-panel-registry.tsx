@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { Activity, Bot, Folder, GitBranch, LayoutDashboard, Library, Package, SquareTerminal } from "lucide-react";
 import type { ComponentType } from "react";
 import { lazy, Suspense } from "react";
-import type { RightPanel } from "@/components/layout/canvas-utils";
+import type { RightPanel } from "@/lib/layout/canvas-utils";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
 import { Skeleton } from "@/components/ui/skeleton";
 

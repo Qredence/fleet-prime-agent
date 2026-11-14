@@ -1,7 +1,7 @@
 import { FileCode, FileJson, FileText, ImageIcon, X } from "lucide-react";
 import { useState } from "react";
-import { HIT_AREA_EXPAND_CLASS } from "@/components/layout/tokens";
-import { ImageLightbox } from "@/components/tools/image-lightbox";
+import { Button } from "@/components/ui/button";
+import { ImageLightbox } from "@/components/ui/lightbox";
 import {
 	Attachment,
 	AttachmentContent,
@@ -109,14 +109,16 @@ export function FileAttachment({
 		<Attachment size="sm" className={cn("max-w-[min(12.5rem,100%)]", className)}>
 			{canPreview ? (
 				<AttachmentMedia variant="image">
-					<button
+					<Button
 						type="button"
+						variant="ghost"
+						size="compact"
 						aria-label={`Preview ${filename}`}
 						onClick={() => setIsLightboxOpen(true)}
-						className="block h-full w-full cursor-pointer focus-visible:ring-2 focus-visible:ring-ring"
+						className="block h-full w-full rounded-none p-0 focus-visible:ring-2 focus-visible:ring-ring"
 					>
 						{media}
-					</button>
+					</Button>
 				</AttachmentMedia>
 			) : (
 				<AttachmentMedia variant={isImage && url ? "image" : "icon"}>{media}</AttachmentMedia>
@@ -126,17 +128,16 @@ export function FileAttachment({
 				{size !== undefined && <AttachmentDescription>{formatFileSize(size)}</AttachmentDescription>}
 			</AttachmentContent>
 			{onRemove ? (
-				<button
+				<Button
 					type="button"
+					variant="ghost"
+					size="icon-compact"
 					onClick={onRemove}
 					aria-label={`Remove ${filename}`}
-					className={cn(
-						HIT_AREA_EXPAND_CLASS,
-						"absolute -top-1.5 -end-1.5 z-10 flex size-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring enabled:active:scale-[0.96] group-hover/attachment:opacity-100 group-focus-within/attachment:opacity-100 [@media(hover:none)]:opacity-100",
-					)}
+					className="hit-area-expand absolute -top-1.5 -end-1.5 z-10 flex size-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-[opacity,transform] duration-150 ease-out hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring enabled:active:scale-[0.96] group-hover/attachment:opacity-100 group-focus-within/attachment:opacity-100 [@media(hover:none)]:opacity-100"
 				>
 					<X aria-hidden="true" className="size-3" />
-				</button>
+				</Button>
 			) : null}
 			{canPreview && url ? (
 				<ImageLightbox

@@ -6,7 +6,7 @@ import {
 	WorkspacePanelContent,
 	type WorkspacePanelContentProps,
 } from "@/components/workspace/workspace-panel";
-import { resolveWorkspacePanelTarget } from "@/components/workspace/workspace-path-nav";
+import { resolveWorkspacePanelTarget } from "@/lib/workspace/workspace-path-nav";
 
 const workspace: WorkspaceTreeResponse = {
 	root: "/workspace/prime-agent",

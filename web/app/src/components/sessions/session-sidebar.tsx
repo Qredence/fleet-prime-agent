@@ -1,11 +1,10 @@
 import { lazy, Suspense, useCallback } from "react";
 import { SessionSidebarActionDialogs } from "@/components/sessions/session-sidebar/action-dialogs";
 import { SessionSidebarNavigation } from "@/components/sessions/session-sidebar/navigation";
-import { useSessionSidebarState } from "@/components/sessions/session-sidebar/state";
-import { EMPTY_PROJECTS, type SessionSidebarProps } from "@/components/sessions/session-sidebar/types";
-import { useSessionSidebarViewModel } from "@/components/sessions/session-sidebar/view-model";
+import { useSessionSidebarState, useSessionSidebarViewModel } from "@/hooks/sessions/use-session-sidebar";
+import { EMPTY_PROJECTS, type SessionSidebarProps } from "@/lib/sessions/sidebar-types";
 
-export type { SessionSidebarProps } from "@/components/sessions/session-sidebar/types";
+export type { SessionSidebarProps } from "@/lib/sessions/sidebar-types";
 
 // Keep cmdk (via ui/command) out of the welcome-route eager graph — same budget
 // contract as the lazy model-selector / command-palette chunks.
@@ -29,32 +28,23 @@ export function SessionSidebar({
 	const { accountMenu } = slots;
 	const state = useSessionSidebarState(activeProjectId);
 
-	const {
-		projectById,
-		sortedProjects,
-		sidebarItems,
-		resumeResource,
-		toggleProjectResource,
-		selectSearchResult,
-		renderMenu,
-	} = useSessionSidebarViewModel({
-		sessions,
-		projects,
-		projectSessions,
-		activeProjectId,
-		activeSessionId,
-		onNewSession,
-		onNewSessionInProject,
-		onProjectSelect,
-		onResumeSession,
-		onOpenPanelAction,
-		expandedProjectIds: state.expandedProjectIds,
-		revealedProjectIds: state.revealedProjectIds,
-		setExpandedProjectIds: state.setExpandedProjectIds,
-		setRevealedProjectIds: state.setRevealedProjectIds,
-		setSearchOpen: state.setSearchOpen,
-		setActiveDialog: state.setActiveDialog,
-	});
+	const { projectById, sortedProjects, sidebarItems, resumeResource, toggleProjectResource, selectSearchResult } =
+		useSessionSidebarViewModel({
+			sessions,
+			projects,
+			projectSessions,
+			activeProjectId,
+			activeSessionId,
+			onNewSession,
+			onNewSessionInProject,
+			onProjectSelect,
+			onResumeSession,
+			expandedProjectIds: state.expandedProjectIds,
+			revealedProjectIds: state.revealedProjectIds,
+			setExpandedProjectIds: state.setExpandedProjectIds,
+			setRevealedProjectIds: state.setRevealedProjectIds,
+			setSearchOpen: state.setSearchOpen,
+		});
 
 	const setActiveDialog = state.setActiveDialog;
 	const handleOpenCreateProject = useCallback(() => {
@@ -90,11 +80,12 @@ export function SessionSidebar({
 				onRenameSession={onRenameSession}
 				onCreateProject={onCreateProject}
 				onOpenSettings={onOpenSettings}
+				onOpenPanelAction={onOpenPanelAction}
+				setActiveDialog={state.setActiveDialog}
 				accountMenu={accountMenu}
 				resumeResource={resumeResource}
 				toggleProjectResource={toggleProjectResource}
 				selectSearchResult={selectSearchResult}
-				renderMenu={renderMenu}
 			/>
 
 			{isCreateOpen ? (

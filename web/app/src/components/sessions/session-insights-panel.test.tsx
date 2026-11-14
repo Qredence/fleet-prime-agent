@@ -3,9 +3,9 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { RightPanelLauncher, RightPanelTrigger } from "@/components/layout/right-panel-launcher";
-import { deriveSessionInsights } from "@/components/sessions/session-insights";
+import { deriveSessionInsights } from "@/lib/sessions/session-insights";
 import { SessionInsightsPanel } from "@/components/sessions/session-insights-panel";
-import { EMPTY_CHAT_TRANSCRIPT_SUMMARY, summarizeChatTranscript } from "@/components/sessions/transcript-summary";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY, summarizeChatTranscript } from "@/lib/sessions/transcript-summary";
 
 const presentation: PrimeAgentSessionPresentation = {
 	revision: 1,

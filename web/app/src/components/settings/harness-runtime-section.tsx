@@ -1,5 +1,5 @@
 import type { ChatDeliveryMode, ChatPiSettings, ChatTransport } from "@prime-agent/web-protocol/chat-protocol";
-import { ItemRow } from "@/components/layout/item-row";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
@@ -25,10 +25,18 @@ export function HarnessRuntimeSection({
 
 	return (
 		<div className="flex flex-col gap-2">
-			<ItemRow
-				title="Compaction"
-				subtitle="Summarize old turns when context fills up"
-				trailing={
+			<Item
+				variant="outline"
+				size="sm"
+				className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+			>
+				<ItemContent className="min-w-0 gap-0.5">
+					<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Compaction</ItemTitle>
+					<ItemDescription className="truncate text-xs text-muted-foreground">
+						Summarize old turns when context fills up
+					</ItemDescription>
+				</ItemContent>
+				<ItemActions className="shrink-0">
 					<Switch
 						aria-label="Compaction"
 						checked={draft?.compaction.enabled ?? false}
@@ -40,12 +48,20 @@ export function HarnessRuntimeSection({
 							}))
 						}
 					/>
-				}
-			/>
-			<ItemRow
-				title="Auto-retry"
-				subtitle="Retry failed provider requests"
-				trailing={
+				</ItemActions>
+			</Item>
+			<Item
+				variant="outline"
+				size="sm"
+				className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+			>
+				<ItemContent className="min-w-0 gap-0.5">
+					<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Auto-retry</ItemTitle>
+					<ItemDescription className="truncate text-xs text-muted-foreground">
+						Retry failed provider requests
+					</ItemDescription>
+				</ItemContent>
+				<ItemActions className="shrink-0">
 					<Switch
 						aria-label="Auto-retry"
 						checked={draft?.retry.enabled ?? false}
@@ -57,11 +73,17 @@ export function HarnessRuntimeSection({
 							}))
 						}
 					/>
-				}
-			/>
-			<ItemRow
-				title="Transport"
-				trailing={
+				</ItemActions>
+			</Item>
+			<Item
+				variant="outline"
+				size="sm"
+				className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+			>
+				<ItemContent className="min-w-0 gap-0.5">
+					<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Transport</ItemTitle>
+				</ItemContent>
+				<ItemActions className="shrink-0">
 					<Select
 						aria-label="Transport"
 						className="w-[160px]"
@@ -75,12 +97,20 @@ export function HarnessRuntimeSection({
 						options={[...TRANSPORT_OPTIONS]}
 						value={draft?.transport ?? "auto"}
 					/>
-				}
-			/>
-			<ItemRow
-				title="Steering"
-				subtitle="How queued steers are delivered mid-turn"
-				trailing={
+				</ItemActions>
+			</Item>
+			<Item
+				variant="outline"
+				size="sm"
+				className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+			>
+				<ItemContent className="min-w-0 gap-0.5">
+					<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Steering</ItemTitle>
+					<ItemDescription className="truncate text-xs text-muted-foreground">
+						How queued steers are delivered mid-turn
+					</ItemDescription>
+				</ItemContent>
+				<ItemActions className="shrink-0">
 					<Select
 						aria-label="Steering"
 						className="w-[160px]"
@@ -94,12 +124,20 @@ export function HarnessRuntimeSection({
 						options={[...DELIVERY_OPTIONS]}
 						value={draft?.steeringMode ?? "all"}
 					/>
-				}
-			/>
-			<ItemRow
-				title="Follow-up"
-				subtitle="How queued follow-ups run after the turn"
-				trailing={
+				</ItemActions>
+			</Item>
+			<Item
+				variant="outline"
+				size="sm"
+				className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+			>
+				<ItemContent className="min-w-0 gap-0.5">
+					<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Follow-up</ItemTitle>
+					<ItemDescription className="truncate text-xs text-muted-foreground">
+						How queued follow-ups run after the turn
+					</ItemDescription>
+				</ItemContent>
+				<ItemActions className="shrink-0">
 					<Select
 						aria-label="Follow-up"
 						className="w-[160px]"
@@ -113,8 +151,8 @@ export function HarnessRuntimeSection({
 						options={[...DELIVERY_OPTIONS]}
 						value={draft?.followUpMode ?? "all"}
 					/>
-				}
-			/>
+				</ItemActions>
+			</Item>
 		</div>
 	);
 }

@@ -4,12 +4,8 @@ import {
 	type DashboardStatus,
 } from "@prime-agent/web-protocol/dashboards";
 import { useCallback, useEffect, useState } from "react";
-import {
-	fetchDashboardStatus,
-	saveDashboardKey,
-	saveDashboardSettings,
-} from "@/components/dashboards/dashboard-client";
-import { SecretCredentialField } from "@/components/settings/providers/credential-fields";
+import { fetchDashboardStatus, saveDashboardKey, saveDashboardSettings } from "@/lib/dashboards/dashboard-client";
+import { SecretCredentialField } from "@/components/settings/credential-fields";
 import { SettingsRow } from "@/components/settings/settings-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

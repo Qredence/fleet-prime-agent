@@ -1,8 +1,8 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { AddModelsDialog } from "./add-models-dialog";
-import { useModelDefaultsForm } from "./use-model-defaults-form";
-import { useProviderCredentialsController } from "./use-provider-credentials-controller";
+import { useModelDefaultsForm } from "@/hooks/settings/use-model-defaults-form";
+import { useProviderCredentialsController } from "@/hooks/settings/use-provider-credentials-controller";
 
 afterEach(cleanup);
 const provider = { id: "command", name: "Command", isConfigured: true, envVarName: "COMMAND_API_KEY" };

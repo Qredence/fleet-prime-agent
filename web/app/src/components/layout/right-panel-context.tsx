@@ -28,10 +28,10 @@ import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ComposerIntentKeySource, ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
 import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
-import type { ChatModelOption } from "@/components/chat/chat-helpers";
-import type { RightPanel, ThemePreference } from "@/components/layout/canvas-utils";
-import type { ArtifactOpenTarget } from "@/components/layout/use-chat-shell-state";
-import type { ChatTranscriptSummary } from "@/components/sessions/transcript-summary";
+import type { ChatModelOption } from "@/lib/chat/chat-helpers";
+import type { RightPanel, ThemePreference } from "@/lib/layout/canvas-utils";
+import type { ArtifactOpenTarget } from "@/hooks/layout/use-chat-shell-state";
+import type { ChatTranscriptSummary } from "@/lib/sessions/transcript-summary";
 
 export type ChatPanelDataContextValue = {
 	activityLabel?: string;

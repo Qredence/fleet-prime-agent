@@ -3,7 +3,9 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 import { Area, AreaChart } from "recharts";
 import { z } from "zod";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartContainer } from "@/components/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
@@ -138,7 +140,7 @@ function CellValue({ row, column }: { row: Record<string, unknown>; column: Data
 	const value = row[column.key];
 	if (value === undefined || value === null) {
 		return (
-			<span className="text-foreground/30" title={`No "${column.key}" field in this row`}>
+			<span className="text-muted-foreground" title={`No "${column.key}" field in this row`}>
 				—
 			</span>
 		);
@@ -190,13 +192,15 @@ function DataTableComponent({
 									const isActive = sort?.key === column.key;
 									return (
 										<TableHead key={column.key} className={alignClasses[align]}>
-											<button
+											<Button
 												type="button"
+												variant="ghost"
+												size="compact"
 												onClick={() => setSort((current) => cycleSortState(column.key, current))}
 												className={cn(
-													"inline-flex items-center gap-1 font-medium",
+													"h-auto px-0 py-0 font-medium hover:bg-transparent",
 													align === "right" && "flex-row-reverse",
-													isActive ? "text-foreground" : "text-foreground/60 hover:text-foreground",
+													isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
 												)}
 											>
 												{column.label}
@@ -206,7 +210,7 @@ function DataTableComponent({
 													) : (
 														<ChevronDown className="size-3.5" />
 													))}
-											</button>
+											</Button>
 										</TableHead>
 									);
 								})}
@@ -217,7 +221,7 @@ function DataTableComponent({
 								<TableRow>
 									<TableCell
 										colSpan={Math.max(safeColumns.length, 1)}
-										className="text-center text-foreground/40"
+										className="text-center text-muted-foreground"
 									>
 										No data
 									</TableCell>
@@ -283,7 +287,7 @@ export const DataTableDef = defineComponent({
 const deltaToneClasses = {
 	up: "bg-success/10 text-success",
 	down: "bg-destructive/10 text-destructive",
-	neutral: "bg-foreground/10 text-foreground/50",
+	neutral: "bg-muted text-muted-foreground",
 } as const;
 
 const SPARKLINE_COLORS = [1, 2, 3, 4, 5].map((n) => `var(--chart-${n})`);
@@ -299,45 +303,52 @@ type MetricGroupItem = {
 function MetricGroupComponent({ props: { metrics } }: { props: { metrics: Array<MetricGroupItem> } }) {
 	return (
 		<div className="grid w-full grid-cols-2 gap-2">
-			{metrics.map((metric, index) => (
-				<Card key={metric.label} className="gap-1 py-3">
-					<CardContent className="flex flex-col gap-1 px-3">
-						<span className="text-[0.6875rem] font-medium text-foreground/50">{metric.label}</span>
-						<div className="flex items-baseline gap-2">
-							<span className="text-lg font-semibold text-foreground">{metric.value}</span>
-							{metric.delta ? (
-								<span
-									className={cn(
-										"rounded px-1.5 py-0.5 text-[0.625rem] font-medium",
-										deltaToneClasses[metric.deltaTone ?? "neutral"],
-									)}
+			{metrics.map((metric, index) => {
+				const sparklineColor = SPARKLINE_COLORS[index % SPARKLINE_COLORS.length]!;
+				return (
+					<Card key={metric.label} className="gap-1 py-3">
+						<CardContent className="flex flex-col gap-1 px-3">
+							<span className="text-xs font-medium text-muted-foreground">{metric.label}</span>
+							<div className="flex items-baseline gap-2">
+								<span className="text-lg font-semibold text-foreground">{metric.value}</span>
+								{metric.delta ? (
+									<span
+										className={cn(
+											"rounded px-1.5 py-0.5 text-xs font-medium",
+											deltaToneClasses[metric.deltaTone ?? "neutral"],
+										)}
+									>
+										{metric.delta}
+									</span>
+								) : null}
+							</div>
+							{metric.sparkline && metric.sparkline.length >= 2 ? (
+								<ChartContainer
+									config={{ v: { label: metric.label, color: sparklineColor } }}
+									initialDimension={{ width: 48, height: 16 }}
+									className="aspect-auto h-4 w-12"
 								>
-									{metric.delta}
-								</span>
+									<AreaChart
+										data={metric.sparkline.map((point, i) => ({ i, v: point }))}
+										margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+									>
+										<Area
+											type="monotone"
+											dataKey="v"
+											stroke="var(--color-v)"
+											strokeWidth={1}
+											fill="var(--color-v)"
+											fillOpacity={0.15}
+											dot={false}
+											isAnimationActive={false}
+										/>
+									</AreaChart>
+								</ChartContainer>
 							) : null}
-						</div>
-						{metric.sparkline && metric.sparkline.length >= 2 ? (
-							<AreaChart
-								width={48}
-								height={16}
-								data={metric.sparkline.map((point, i) => ({ i, v: point }))}
-								margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-							>
-								<Area
-									type="monotone"
-									dataKey="v"
-									stroke={SPARKLINE_COLORS[index % SPARKLINE_COLORS.length]}
-									strokeWidth={1}
-									fill={SPARKLINE_COLORS[index % SPARKLINE_COLORS.length]}
-									fillOpacity={0.15}
-									dot={false}
-									isAnimationActive={false}
-								/>
-							</AreaChart>
-						) : null}
-					</CardContent>
-				</Card>
-			))}
+						</CardContent>
+					</Card>
+				);
+			})}
 		</div>
 	);
 }

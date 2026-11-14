@@ -1,9 +1,9 @@
 import type { ChatPiSettings, ChatResourcesResponse } from "@prime-agent/web-protocol/chat-protocol";
 import type { ReactNode } from "react";
-import { ItemRow } from "@/components/layout/item-row";
-import { SettingsCommitActions, SettingsPane } from "@/components/layout/settings-pane";
 import { HarnessRuntimeSection } from "@/components/settings/harness-runtime-section";
 import { CatalogValueList } from "@/components/settings/lists";
+import { SettingsCommitActions, SettingsPane } from "@/components/settings/settings-pane";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Switch } from "@/components/ui/switch";
 
 export type ResourcesSectionScope = "skills" | "harness";
@@ -80,17 +80,25 @@ export function ResourcesSection({
 		>
 			{scope === "skills" ? (
 				<>
-					<ItemRow
-						title="Skill slash commands"
-						trailing={
+					<Item
+						variant="outline"
+						size="sm"
+						className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+					>
+						<ItemContent className="min-w-0 gap-0.5">
+							<ItemTitle className="w-full truncate text-sm font-medium text-foreground">
+								Skill slash commands
+							</ItemTitle>
+						</ItemContent>
+						<ItemActions className="shrink-0">
 							<Switch
 								aria-label="Skill slash commands"
 								checked={draft?.enableSkillCommands ?? true}
 								disabled={!draft}
 								onCheckedChange={onEnableSkillCommandsChange}
 							/>
-						}
-					/>
+						</ItemActions>
+					</Item>
 					<ResourceGroup label="Skills" count={draft?.skills.length ?? 0}>
 						<CatalogValueList
 							addLabel="Add skill"
@@ -104,11 +112,18 @@ export function ResourcesSection({
 			) : (
 				<>
 					<HarnessRuntimeSection draft={draft} updateDraft={updateDraft} />
-					<ItemRow
-						interactive={false}
-						title="Catalog"
-						subtitle={<span className="tabular-nums">{catalogSubtitle}</span>}
-					/>
+					<Item
+						variant="outline"
+						size="sm"
+						className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+					>
+						<ItemContent className="min-w-0 gap-0.5">
+							<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Catalog</ItemTitle>
+							<ItemDescription className="truncate text-xs text-muted-foreground tabular-nums">
+								{catalogSubtitle}
+							</ItemDescription>
+						</ItemContent>
+					</Item>
 
 					<ResourceGroup label="Packages" count={packageRows.length}>
 						<CatalogValueList

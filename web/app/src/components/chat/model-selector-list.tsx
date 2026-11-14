@@ -88,7 +88,7 @@ export function ModelSelectorList({
 										<span className="flex items-center gap-2">
 											<span className="truncate text-sm font-medium">{model.name}</span>
 											{model.disabled ? (
-												<span className="shrink-0 text-micro uppercase tracking-wide text-muted-foreground">
+												<span className="shrink-0 text-xs uppercase tracking-wide text-muted-foreground">
 													Unavailable
 												</span>
 											) : null}

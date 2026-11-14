@@ -1,6 +1,6 @@
 import type { ComposerIntentKeySource, ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
 import { useCallback, useState } from "react";
-import { SecretCredentialField } from "@/components/settings/providers/credential-fields";
+import { SecretCredentialField } from "@/components/settings/credential-fields";
 import { SettingsRow } from "@/components/settings/settings-row";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";

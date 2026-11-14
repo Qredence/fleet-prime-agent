@@ -70,7 +70,7 @@ overrides:
   gaxios>rimraf: 6.1.2
   # Dependabot critical (#265): shell-quote < 1.11.0 (via launch-editor / @changesets/cli).
   shell-quote: 1.11.0
-  # Unify highlighter types across streamdown, @streamdown/code, and @pierre/diffs.
+  # Unify highlighter types across streamdown and @streamdown/code.
   shiki: 4.5.0
   # GHSA-2v37-7h3g-55p8: nanoid < 3.3.18 can loop indefinitely (via postcss).
   nanoid: ^3.3.18

@@ -1,0 +1,55 @@
+import type { ComponentType } from "react";
+
+import type { CustomToolRendererProps } from "@/lib/chat/types";
+
+export type ToolPartBase = {
+	type: string;
+	toolCallId?: string;
+	state?: string;
+	input?: unknown;
+	output?: unknown;
+	result?: unknown;
+};
+
+export type ToolRendererProps = {
+	part: ToolPartBase;
+	nestedTools?: Array<ToolPartBase>;
+	chatStatus?: string;
+	toolRenderers?: Record<string, ComponentType<CustomToolRendererProps>>;
+	insideTrace?: boolean;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+export function isTextPart(part: unknown): part is { type: "text"; text: string } {
+	return isRecord(part) && part.type === "text" && typeof part.text === "string";
+}
+
+export function isErrorPart(part: unknown): part is { type: "error"; title?: string; message: string } {
+	return isRecord(part) && part.type === "error" && typeof part.message === "string";
+}
+
+export function isPayloadPart(part: unknown): part is {
+	type: "payload";
+	id?: string;
+	kind: string;
+	title: string;
+	text?: string;
+	payload?: unknown;
+} {
+	return (
+		isRecord(part) &&
+		part.type === "payload" &&
+		typeof part.kind === "string" &&
+		typeof part.title === "string" &&
+		(part.id === undefined || typeof part.id === "string")
+	);
+}
+
+export function isV5ToolPart(part: unknown): part is ToolPartBase {
+	if (!isRecord(part)) return false;
+	const partType = part.type;
+	return partType === "dynamic-tool" || (typeof partType === "string" && partType.startsWith("tool-"));
+}

@@ -1,14 +1,13 @@
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { lazy, Suspense, useCallback, useMemo } from "react";
 import { ChatPanel } from "@/components/chat/agent-chat";
-import { notifyChatError, runWorkspaceAction } from "@/components/chat/chat-error-notify";
-import { useChatInputBarProps } from "@/components/chat/composer/chat-input-bar-props";
-import { PlanDecisionContext } from "@/components/chat/plans/use-pi-chat-plan-decisions";
-import { useChatWorkspaceData } from "@/components/chat/use-chat-workspace-data";
+import { notifyChatError, runWorkspaceAction } from "@/lib/chat/chat-error-notify";
+import { useChatInputBarProps } from "@/hooks/chat/chat-input-bar-props";
+import { PlanDecisionContext } from "@/hooks/chat/use-pi-chat-plan-decisions";
+import { useChatWorkspaceData } from "@/hooks/chat/use-chat-workspace-data";
 import { AnimatedSidebarInset, ChatApp } from "@/components/layout/animated-sidebar";
 import { ChatCommandPaletteOverlay, ChatWorkspaceOverlayDialogs } from "@/components/layout/chat-workspace-dialogs";
-import { ChatWorkspaceLayout } from "@/components/layout/chat-workspace-layout";
-import { focusChatComposer, usePanelKeybindings } from "@/components/layout/panel-keybindings";
+import { focusChatComposer, usePanelKeybindings } from "@/hooks/layout/panel-keybindings";
 import { RightPanelProvider } from "@/components/layout/right-panel-context";
 import { RightPanelShell } from "@/components/layout/right-panel-shell";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
@@ -239,31 +238,48 @@ export function ChatWorkspaceShell() {
 								slots={sidebarSlots}
 							/>
 							<AnimatedSidebarInset className="h-svh min-h-0 overflow-hidden">
-								<ChatWorkspaceLayout
-									headerLeft={chrome.header.left}
-									headerCenter={chrome.header.center}
-									headerRight={chrome.header.right}
-									panel={
-										<UiErrorBoundary>
-											<RightPanelShell
-												handleResourceCanvasResizeStart={panels.handleResourceCanvasResizeStart}
-												onClose={closeRightPanel}
-												onResourceCanvasWidthChange={panels.handleResourceCanvasWidthChange}
-												resourceCanvasWidth={panels.resourceCanvasWidth}
-											/>
-										</UiErrorBoundary>
-									}
-								>
+								<div className="flex h-svh min-w-0 overflow-hidden" data-testid="chat-shell">
 									<div
-										aria-labelledby={agentTabTriggerId(agentTabs.activeTabId)}
-										className="flex min-h-0 min-w-0 flex-1 flex-col"
-										data-testid="agent-tab-panel"
-										id={agentTabPanelId(agentTabs.activeTabId)}
-										role="tabpanel"
+										className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+										data-testid="chat-column"
 									>
-										{activeConversationPanel}
+										<header
+											className="relative z-10 grid h-[var(--chat-header-height)] min-h-[var(--chat-header-height)] shrink-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 overflow-visible border-b border-border/70 px-[var(--density-pad-x)] py-1 min-[960px]:grid-cols-[auto_minmax(0,1fr)_auto]"
+											data-testid="chat-header"
+										>
+											<div className="min-w-0 justify-self-start">{chrome.header.left}</div>
+											<div className="flex min-w-0 items-center justify-start gap-1 overflow-visible justify-self-stretch">
+												{chrome.header.center}
+											</div>
+											{/* Below the panel breakpoint the right slot holds the panel launcher, so it
+											    gets a definite share of the row: an auto column would size to the
+											    launcher's tabs, never let it switch to its dropdown, and push the
+											    center tabs' New chat button over it. */}
+											<div className="min-w-0 justify-self-stretch min-[960px]:justify-self-end">
+												{chrome.header.right}
+											</div>
+										</header>
+										<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+											<div
+												aria-labelledby={agentTabTriggerId(agentTabs.activeTabId)}
+												className="flex min-h-0 min-w-0 flex-1 flex-col"
+												data-testid="agent-tab-panel"
+												id={agentTabPanelId(agentTabs.activeTabId)}
+												role="tabpanel"
+											>
+												{activeConversationPanel}
+											</div>
+										</div>
 									</div>
-								</ChatWorkspaceLayout>
+									<UiErrorBoundary>
+										<RightPanelShell
+											handleResourceCanvasResizeStart={panels.handleResourceCanvasResizeStart}
+											onClose={closeRightPanel}
+											onResourceCanvasWidthChange={panels.handleResourceCanvasWidthChange}
+											resourceCanvasWidth={panels.resourceCanvasWidth}
+										/>
+									</UiErrorBoundary>
+								</div>
 							</AnimatedSidebarInset>
 						</ChatApp>
 					</OpenUISessionContext>

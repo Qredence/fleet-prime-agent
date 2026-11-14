@@ -1,7 +1,7 @@
 import type { PiCustomProviderApi } from "@prime-agent/web-protocol/chat-protocol";
 import { isCustomProviderId, isOccProviderId } from "@prime-agent/web-protocol/provider-catalog";
 import { Cpu } from "lucide-react";
-import { PROVIDER_METADATA } from "@/components/settings/providers/provider-metadata";
+import { PROVIDER_METADATA } from "@/lib/settings/provider-metadata";
 import { cn } from "@/lib/utils";
 
 const BRAND_CLASS = "size-4";

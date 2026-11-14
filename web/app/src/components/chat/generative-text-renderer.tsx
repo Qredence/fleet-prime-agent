@@ -2,7 +2,7 @@ import { dashboardFences, stripDashboardFences } from "@prime-agent/web-protocol
 import { lazy, Suspense, useMemo } from "react";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
-import { segmentOpenUIContent } from "@/components/openui/openui-utils";
+import { segmentOpenUIContent } from "@/lib/openui/openui-utils";
 
 const LazyGenerativeTextRenderer = lazy(() =>
 	import("@/components/openui/openui-renderer").then(({ GenerativeTextRenderer }) => ({

@@ -1,11 +1,11 @@
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { runWorkspaceAction } from "@/components/chat/chat-error-notify";
-import type { useChatWorkspaceData } from "@/components/chat/use-chat-workspace-data";
+import { runWorkspaceAction } from "@/lib/chat/chat-error-notify";
+import type { useChatWorkspaceData } from "@/hooks/chat/use-chat-workspace-data";
 import { ChatWorkspaceShell } from "@/components/layout/chat-workspace-shell";
 import { AgentTabBar } from "@/components/sessions/agent-tab-bar";
-import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@/components/sessions/transcript-summary";
+import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@/lib/sessions/transcript-summary";
 import { notify } from "@/lib/notify";
 
 vi.mock("@/lib/notify", () => ({
@@ -29,7 +29,7 @@ vi.mock("@/components/layout/right-panel-shell", () => ({
 	RightPanelShell: () => null,
 }));
 
-vi.mock("@/components/layout/panel-keybindings", () => ({
+vi.mock("@/hooks/layout/panel-keybindings", () => ({
 	focusChatComposer: vi.fn(),
 	usePanelKeybindings: vi.fn(),
 }));
@@ -38,7 +38,7 @@ const { useChatWorkspaceDataMock } = vi.hoisted(() => ({
 	useChatWorkspaceDataMock: vi.fn(),
 }));
 
-vi.mock("@/components/chat/use-chat-workspace-data", () => ({
+vi.mock("@/hooks/chat/use-chat-workspace-data", () => ({
 	useChatWorkspaceData: () => useChatWorkspaceDataMock(),
 }));
 

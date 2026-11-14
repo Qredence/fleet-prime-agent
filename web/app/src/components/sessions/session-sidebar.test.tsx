@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AnimatedSidebarProvider } from "@/components/layout/animated-sidebar";
 import { SessionSidebar } from "@/components/sessions/session-sidebar";
-import type { SessionSidebarDependencies } from "@/components/sessions/session-sidebar/types";
+import { fleetVersion } from "@/lib/fleet-version";
+import type { SessionSidebarDependencies } from "@/lib/sessions/sidebar-types";
 
 function SidebarHarness({
 	sessions,
@@ -461,7 +462,7 @@ describe("SessionSidebar draft sessions", () => {
 		expect(getByRole("treeitem", { name: /Tighten the plan · bbbb/i })).toBeTruthy();
 	});
 
-	it("opens search on an opaque elevated surface", () => {
+	it("opens search on an opaque elevated surface", async () => {
 		const { getByRole } = render(
 			<AnimatedSidebarProvider>
 				<SidebarHarness
@@ -478,10 +479,34 @@ describe("SessionSidebar draft sessions", () => {
 		);
 
 		fireEvent.click(getByRole("button", { name: "Search projects and sessions" }));
-		const popup = document.querySelector("[data-slot='popover-content']");
-		const search = document.querySelector("[data-slot='thread-search']");
-		expect(popup).not.toBeNull();
-		expect(popup?.className).toContain("bg-popover");
-		expect(search?.className).not.toContain("bg-transparent");
+		await waitFor(() => {
+			const popup = document.querySelector("[data-slot='popover-content']");
+			const search = document.querySelector("[data-slot='thread-search']");
+			expect(popup).not.toBeNull();
+			expect(search).not.toBeNull();
+			expect(popup?.className).toContain("bg-popover");
+			expect(search?.className).not.toContain("bg-transparent");
+		});
+	});
+
+	it("renders the current Fleet version badge in the sidebar footer", () => {
+		expect(fleetVersion()).toBeTruthy();
+		render(
+			<AnimatedSidebarProvider>
+				<SidebarHarness
+					sessions={[]}
+					projects={[project("alpha")]}
+					projectSessions={[]}
+					activeProjectId="alpha"
+					onNewSession={vi.fn()}
+					onResumeSession={vi.fn()}
+					onRenameSession={vi.fn()}
+					onDeleteSession={vi.fn()}
+				/>
+			</AnimatedSidebarProvider>,
+		);
+
+		expect(screen.getByLabelText(`Fleet version ${fleetVersion()}`)).toBeTruthy();
+		expect(screen.getByText(`v${fleetVersion()}`)).toBeTruthy();
 	});
 });

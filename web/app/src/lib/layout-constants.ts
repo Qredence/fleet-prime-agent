@@ -4,12 +4,6 @@ export const WORKSPACE_SPLIT_MIN_WIDTH_PX = 640;
 const CHROME_MOBILE_BREAKPOINT_PX = 768;
 export const CHROME_MOBILE_MAX_WIDTH_QUERY = `(max-width: ${CHROME_MOBILE_BREAKPOINT_PX - 1}px)`;
 
-export const CHAT_HEADER_OFFSET_PX = 0;
-export const CHAT_HEADER_HEIGHT_PX = 44;
-const CHAT_MOBILE_PANEL_GAP_PX = 8;
-
-export const CHAT_CHROME_TOP_PX = CHAT_HEADER_OFFSET_PX + CHAT_HEADER_HEIGHT_PX + CHAT_MOBILE_PANEL_GAP_PX;
-
 /**
  * Default open width for the desktop right panel (fraction of the viewport).
  * Replaces the former `RESOURCE_CANVAS_VIEWPORT_RATIO`, which incorrectly

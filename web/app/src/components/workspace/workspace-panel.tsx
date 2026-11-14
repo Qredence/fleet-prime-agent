@@ -3,22 +3,64 @@ import type {
 	WorkspaceTreeNode,
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
-import { CircleAlert, FileText, HardDrive } from "lucide-react";
-import type { ReactNode, RefObject } from "react";
+import { CircleAlert, FileText, HardDrive, type LucideIcon } from "lucide-react";
+import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isDaytonaNotConnectedError } from "@/components/chat/chat-helpers";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
-import { FileTree, FileTreeFile, FileTreeFolder } from "@/components/motion/file-tree";
-import { findWorkspaceNode } from "@/components/workspace/resource-helpers";
-import { ResourceChipSection, ResourceNotice } from "@/components/workspace/shared";
-import { WorkspacePreviewSkeleton, WorkspaceSkeleton } from "@/components/workspace/skeleton-loaders";
-import { useWorkspaceSplitLayout } from "@/components/workspace/use-workspace-split-layout";
-import { isPathWithinScope } from "@/components/workspace/workspace-path-nav";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FileTree, FileTreeFile, FileTreeFolder } from "@/components/workspace/file-tree";
+import { ResourceChipSection } from "@/components/workspace/resources-panel";
+import { useWorkspaceSplitLayout } from "@/hooks/workspace/use-workspace-split-layout";
+import { isDaytonaNotConnectedError } from "@/lib/chat/chat-helpers";
 import {
 	CHAT_PANEL_BREAKPOINT_PX,
 	WORKSPACE_SPLIT_GAP_RESET,
 	WORKSPACE_SPLIT_HIDDEN_BLOCK,
 } from "@/lib/layout-constants";
+import { cn } from "@/lib/utils";
+import { findWorkspaceNode } from "@/lib/workspace/resource-helpers";
+import { isPathWithinScope } from "@/lib/workspace/workspace-path-nav";
+
+function WorkspaceNotice({ description, icon: Icon, title }: { description: string; icon: LucideIcon; title: string }) {
+	return (
+		<Alert className="my-1.5">
+			<Icon />
+			<AlertTitle>{title}</AlertTitle>
+			<AlertDescription>{description}</AlertDescription>
+		</Alert>
+	);
+}
+
+function WorkspaceSkeleton() {
+	return (
+		<div className="flex flex-col gap-2 p-1">
+			<Skeleton className="h-7 w-full rounded-sm" />
+			<Skeleton className="h-6 w-[90%]" />
+			<Skeleton className="h-6 w-[85%]" />
+			<Skeleton className="h-6 w-[70%]" />
+			<Skeleton className="h-6 w-[80%]" />
+			<Skeleton className="h-6 w-[60%]" />
+			<Skeleton className="h-6 w-[75%]" />
+			<Skeleton className="h-6 w-[55%]" />
+		</div>
+	);
+}
+
+function WorkspacePreviewSkeleton() {
+	return (
+		<div className="flex flex-col gap-3 p-2">
+			<Skeleton className="h-4 w-3/4" />
+			<Skeleton className="h-4 w-full" />
+			<Skeleton className="h-4 w-[95%]" />
+			<Skeleton className="h-4 w-[80%]" />
+			<Skeleton className="h-4 w-full" />
+			<Skeleton className="h-4 w-[70%]" />
+			<Skeleton className="h-4 w-[90%]" />
+			<Skeleton className="h-4 w-[60%]" />
+		</div>
+	);
+}
 
 export const WORKSPACE_PREVIEW_TIMEOUT_MS = 15_000;
 
@@ -201,14 +243,14 @@ export function WorkspacePanelContent({
 	if (error) {
 		if (isDaytonaNotConnectedError(error)) {
 			return (
-				<ResourceNotice
+				<WorkspaceNotice
 					icon={CircleAlert}
 					title="Daytona not connected"
 					description="Connect a Daytona API key for your account to browse and preview your agent workspace."
 				/>
 			);
 		}
-		return <ResourceNotice icon={CircleAlert} title="Unable to load workspace" description={error.message} />;
+		return <WorkspaceNotice icon={CircleAlert} title="Unable to load workspace" description={error.message} />;
 	}
 
 	if (loading && !workspace) {
@@ -216,22 +258,19 @@ export function WorkspacePanelContent({
 	}
 
 	if (!workspace) {
-		return <ResourceNotice icon={HardDrive} title={emptyTitle} description={emptyDescription} />;
+		return <WorkspaceNotice icon={HardDrive} title={emptyTitle} description={emptyDescription} />;
 	}
 
 	if (scopePath && scopedView.nodes.length === 0) {
-		return <ResourceNotice icon={HardDrive} title={emptyTitle} description={emptyDescription} />;
+		return <WorkspaceNotice icon={HardDrive} title={emptyTitle} description={emptyDescription} />;
 	}
 
 	const treePane = (
-		<div
-			className="flex min-h-0 min-w-0 flex-col overflow-hidden"
-			style={isSplitLayout ? { gridArea: "tree" } : undefined}
-		>
+		<div className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden", isSplitLayout && "[grid-area:tree]")}>
 			<div data-testid={treeTestId} className="min-h-0 min-w-0 flex-1 overflow-y-auto">
 				<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 					<HardDrive className="size-3.5 shrink-0 text-foreground/45" />
-					<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
+					<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/70">
 						{scopedView.headerLabel}
 					</span>
 				</div>
@@ -239,9 +278,9 @@ export function WorkspacePanelContent({
 					ariaLabel={scopePath ? `Files in ${scopedView.headerLabel}` : "Workspace files"}
 					className="gap-0.5"
 					classNames={{
-						item: "h-8 gap-1.5 rounded-sm text-label font-normal text-foreground/65 hover:bg-foreground/5 hover:text-foreground/80 aria-selected:bg-foreground/8 aria-selected:text-foreground/80",
+						item: "h-8 gap-1.5 rounded-sm text-xs font-normal text-foreground/65 hover:bg-foreground/5 hover:text-foreground/80 aria-selected:bg-foreground/8 aria-selected:text-foreground/80",
 						icon: "size-3.5 text-foreground/35",
-						label: "text-label",
+						label: "text-xs",
 					}}
 					value={effectiveSelectedPath}
 					onValueChange={(path) => {
@@ -270,13 +309,18 @@ export function WorkspacePanelContent({
 	);
 
 	const resizeHandle = (
-		<button
-			type="button"
+		<div
+			role="separator"
+			aria-orientation="vertical"
 			aria-label="Resize workspace tree"
-			className={`min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10 ${WORKSPACE_SPLIT_HIDDEN_BLOCK}`}
+			tabIndex={0}
+			className={cn(
+				"min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10",
+				WORKSPACE_SPLIT_HIDDEN_BLOCK,
+				isSplitLayout && "[grid-area:handle]",
+			)}
 			data-testid="workspace-tree-resize-handle"
-			style={isSplitLayout ? { gridArea: "handle" } : undefined}
-			onPointerDown={handleTreeResizeStart}
+			onPointerDown={(event) => handleTreeResizeStart(event as unknown as ReactPointerEvent<HTMLButtonElement>)}
 		/>
 	);
 
@@ -296,7 +340,7 @@ export function WorkspacePanelContent({
 	return (
 		<div
 			ref={splitRef}
-			className={`relative grid h-full min-h-0 grid-cols-1 gap-2 overflow-hidden ${WORKSPACE_SPLIT_GAP_RESET}`}
+			className={`relative grid h-full min-h-0 grid-cols-1 gap-2 overflow-hidden ${WORKSPACE_SPLIT_GAP_RESET} ${isSplitLayout ? "[grid-template-areas:'preview_handle_tree']" : ""}`}
 			style={splitStyle}
 		>
 			{/* Stable DOM order avoids remounting tree/preview across the split breakpoint;
@@ -342,39 +386,41 @@ function WorkspacePreview({
 }) {
 	return (
 		<div
-			className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background"
+			className={cn(
+				"flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background",
+				splitGridArea && "[grid-area:preview]",
+			)}
 			data-testid="workspace-preview"
 			ref={previewRef}
-			style={splitGridArea ? { gridArea: splitGridArea } : undefined}
 		>
 			<div className="flex min-h-9 min-w-0 shrink-0 items-center gap-2 border-b border-border/60 px-2.5">
 				<FileText className="size-3.5 shrink-0 text-foreground/35" />
-				<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
+				<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/70">
 					{preview?.name ?? selectedPath ?? "Preview"}
 				</span>
 			</div>
 			<div className="flex-1 overflow-y-auto px-3 py-2">
-				{!selectedPath && <ResourceNotice icon={FileText} title={emptyTitle} description={emptyDescription} />}
+				{!selectedPath && <WorkspaceNotice icon={FileText} title={emptyTitle} description={emptyDescription} />}
 				{selectedPath && loading && !preview && <WorkspacePreviewSkeleton />}
 				{selectedPath && error && (
-					<ResourceNotice icon={CircleAlert} title="Unable to load preview" description={error.message} />
+					<WorkspaceNotice icon={CircleAlert} title="Unable to load preview" description={error.message} />
 				)}
 				{selectedPath && !error && preview?.status === "too-large" && (
-					<ResourceNotice
+					<WorkspaceNotice
 						icon={CircleAlert}
 						title="Preview too large"
 						description={`${preview.name} is too large to preview safely.`}
 					/>
 				)}
 				{selectedPath && !error && preview?.status === "unsupported" && (
-					<ResourceNotice
+					<WorkspaceNotice
 						icon={CircleAlert}
 						title="Unsupported preview"
 						description={`${preview.name} is not a supported text file.`}
 					/>
 				)}
 				{selectedPath && !error && preview && (preview.status === undefined || preview.status === "ok") && (
-					<LazyMarkdown className="text-label leading-relaxed" content={preview.content} />
+					<LazyMarkdown className="text-xs leading-relaxed" content={preview.content} />
 				)}
 			</div>
 		</div>

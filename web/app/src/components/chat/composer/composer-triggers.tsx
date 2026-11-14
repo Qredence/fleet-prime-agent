@@ -1,7 +1,8 @@
 import { Command as CommandIcon, File, Folder } from "lucide-react";
 import { memo, useCallback, useId, useMemo, useState } from "react";
 import type { InputBarProps } from "@/components/chat/composer/input-bar";
-import type { SuggestionItem } from "@/components/chat/types";
+import type { SuggestionItem } from "@/lib/chat/types";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, type PopoverOpenChangeDetails } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -296,10 +297,12 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 	const renderItem = (item: SuggestionItem, index: number) => {
 		const selected = index === activeIndex;
 		return (
-			<button
+			<Button
 				key={item.id}
 				id={composerOptionId(listId, item.id)}
 				type="button"
+				variant="ghost"
+				size="compact"
 				role="option"
 				tabIndex={-1}
 				aria-selected={selected}
@@ -311,7 +314,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 					if (!item.disabled) onSelect(item);
 				}}
 				className={cn(
-					"flex min-h-10 w-full cursor-pointer items-start gap-2 rounded-lg px-3 py-2 text-start text-body transition-colors",
+					"flex h-auto min-h-10 w-full cursor-pointer items-start justify-start gap-2 rounded-lg px-3 py-2 text-start text-sm font-normal transition-colors",
 					selected ? "bg-accent text-accent-foreground" : "hover:bg-foreground/[0.04]",
 					item.disabled && "pointer-events-none opacity-50",
 				)}
@@ -323,7 +326,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 						<span className="mt-0.5 block truncate text-xs text-muted-foreground">{item.description}</span>
 					) : null}
 				</span>
-			</button>
+			</Button>
 		);
 	};
 
@@ -345,7 +348,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 			>
 				<div className="flex items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
 					<span className="font-medium">{title}</span>
-					{query ? <span className="ms-auto max-w-[50%] truncate font-mono text-caption">{query}</span> : null}
+					{query ? <span className="ms-auto max-w-[50%] truncate font-mono text-xs">{query}</span> : null}
 				</div>
 				<div className="max-h-[min(42dvh,360px)] overflow-y-auto overscroll-contain p-1.5">
 					{items.length === 0 ? (
@@ -353,7 +356,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 					) : null}
 					{(groups && groups.length > 0 ? groups : undefined)?.map((group) => (
 						<div key={group.id} role="group" aria-label={group.label}>
-							<div className="px-3 pb-1 pt-2 text-micro font-medium uppercase tracking-wide text-muted-foreground">
+							<div className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 								{group.label}
 							</div>
 							{group.items.map((item, index) => renderItem(item, (groupOffsets.get(group.id) ?? 0) + index))}

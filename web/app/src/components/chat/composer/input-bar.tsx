@@ -9,7 +9,7 @@ import {
 	availableThinkingLevels,
 	clampThinkingLevel,
 	thinkingLevelLabel,
-} from "@/components/chat/chat-helpers";
+} from "@/lib/chat/chat-helpers";
 import {
 	AGENT_CHAT_MODES,
 	ComposerAttachments,
@@ -17,15 +17,17 @@ import {
 	ModeSelector,
 } from "@/components/chat/composer/composer-controls";
 import { ComposerTriggerPopover, useComposerTriggers } from "@/components/chat/composer/composer-triggers";
-import { type InlineCompletion, useComposerGhost } from "@/components/chat/composer/inline-completion";
+import { type InlineCompletion, useComposerGhost } from "@/hooks/chat/inline-completion";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
-import { formatProviderLabel } from "@/components/settings/providers/provider-label";
+import { formatProviderLabel } from "@/lib/settings/provider-metadata";
 import { PromptInput } from "@/components/chat/composer/prompt-input";
 import { type ModelSelectorModel, ModelSelector } from "@/components/chat/model-selector";
-import type { InputSuggestions, SuggestionItem } from "@/components/chat/types";
-import { CHAT_COLUMN_CLASS, COMPOSER_ADD_BUTTON_CLASS } from "@/components/layout/tokens";
+import type { InputSuggestions, SuggestionItem } from "@/lib/chat/types";
 import { InputGroupButton } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
+
+const COMPOSER_ADD_BUTTON_CLASS =
+	"size-8 shrink-0 rounded-full border-border/70 bg-background text-foreground/80 shadow-sm hover:bg-muted hover:text-foreground";
 
 export type AttachedImage = {
 	id: string;
@@ -280,7 +282,7 @@ export function InputBar({
 	const actionsDisabled = disabled || isStreaming;
 
 	return (
-		<div className={cn("shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]", CHAT_COLUMN_CLASS, className)}>
+		<div className={cn("chat-column shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]", className)}>
 			<div className="relative flex w-full flex-col gap-3">
 				<ComposerLoader label={infoDescription ?? undefined} isActive={isStreaming} />
 				<ComposerAttachments

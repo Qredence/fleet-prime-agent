@@ -1,10 +1,10 @@
-import interWoff2 from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
+import interWoff2 from "@fontsource-variable/inter/files/inter-latin-opsz-normal.woff2?url";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import { useEffect, useLayoutEffect } from "react";
-import { NotFoundPage } from "@/components/layout/not-found-page";
-import { MotionRuntime } from "@/components/motion/runtime";
+import { FluidRoot } from "@/components/fluid-root";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/toast";
 import { initAnalytics } from "@/lib/analytics-stub";
 import { getQueryClient } from "@/lib/query-client";
@@ -57,7 +57,19 @@ export const Route = createRootRoute({
 		],
 	}),
 	component: RootComponent,
-	notFoundComponent: () => <NotFoundPage />,
+	notFoundComponent: () => (
+		<main className="container mx-auto flex min-h-svh items-center justify-center p-4">
+			<Card className="w-full max-w-md">
+				<CardHeader>
+					<CardTitle>404</CardTitle>
+					<CardDescription>The requested page could not be found.</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<p className="text-sm text-muted-foreground">Check the URL or return to the home page.</p>
+				</CardContent>
+			</Card>
+		</main>
+	),
 	shellComponent: RootDocument,
 });
 
@@ -73,14 +85,15 @@ function RootComponent() {
 	}, []);
 
 	return (
-		<MotionRuntime>
+		<FluidRoot>
 			<QueryClientProvider client={getQueryClient()}>
 				<Outlet />
 				{import.meta.env.DEV && import.meta.env.VITE_FLEET_DISABLE_AGENTATION !== "1" ? (
 					<Agentation endpoint="http://localhost:4747" />
 				) : null}
 			</QueryClientProvider>
-		</MotionRuntime>
+			<Toaster />
+		</FluidRoot>
 	);
 }
 
@@ -97,7 +110,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			</head>
 			<body className="antialiased">
 				{children}
-				<Toaster />
 				<Scripts />
 			</body>
 		</html>

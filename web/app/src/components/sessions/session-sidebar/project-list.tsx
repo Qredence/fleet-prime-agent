@@ -18,25 +18,23 @@ import {
 	AnimatedSidebarGroupContent,
 	AnimatedSidebarGroupLabel,
 } from "@/components/layout/animated-sidebar";
-import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
-import { ProjectFolder } from "@/components/sessions/project-folder";
 import {
 	AISidebar,
 	type AISidebarProps,
 	type SidebarResource,
 } from "@/components/sessions/session-sidebar/resource-tree";
-import type { SidebarStateView } from "@/components/sessions/session-sidebar/state";
-import type { SessionSidebarDependencies } from "@/components/sessions/session-sidebar/types";
+import type { SidebarStateView } from "@/hooks/sessions/use-session-sidebar";
+import type { SessionSidebarDependencies } from "@/lib/sessions/sidebar-types";
 import {
 	idValue,
 	PROJECT_PREFIX,
 	projectResourceId,
 	SESSION_PREFIX,
 	sessionResourceId,
-} from "@/components/sessions/session-sidebar/types";
+} from "@/lib/sessions/sidebar-types";
 import { Button } from "@/components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 
 type SidebarProjectListProps = {
 	projectActionsOpen: SidebarStateView["projectActionsOpen"];
@@ -103,80 +101,89 @@ export function SessionSidebarProjectList({
 						<Popover open={projectActionsOpen} onOpenChange={setProjectActionsOpen}>
 							<PopoverTrigger
 								render={
-									<button
+									<Button
 										type="button"
+										variant="ghost"
+										size="icon-compact"
 										aria-label="Project actions"
 										title="Project actions"
-										className={cn(
-											HIT_AREA_EXPAND_DENSE_CLASS,
-											"inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-										)}
+										className="hit-area-expand-dense text-muted-foreground hover:bg-muted hover:text-foreground"
 									>
 										<MoreHorizontal aria-hidden="true" className="size-3.5" />
-									</button>
+									</Button>
 								}
 							/>
 							<PopoverContent side="bottom" align="end" sideOffset={6} className="w-44 gap-0 p-1">
 								{onCreateProject ? (
-									<button
+									<Button
 										type="button"
+										variant="ghost"
+										size="compact"
 										onClick={() => {
 											setProjectActionsOpen(false);
 											onOpenCreateProject();
 										}}
-										className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs outline-none hover:bg-muted focus-visible:bg-muted"
+										className="w-full justify-start gap-2 rounded-md px-2 text-xs font-normal shadow-none hover:bg-muted focus-visible:bg-muted"
 									>
 										<FolderPlus aria-hidden="true" className="size-3.5" />
 										Add project
-									</button>
+									</Button>
 								) : null}
-								<button
+								<Button
 									type="button"
+									variant="ghost"
+									size="compact"
 									onClick={() => {
 										setProjectActionsOpen(false);
 										setExpandedProjectIds([]);
 									}}
-									className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs outline-none hover:bg-muted focus-visible:bg-muted"
+									className="w-full justify-start gap-2 rounded-md px-2 text-xs font-normal shadow-none hover:bg-muted focus-visible:bg-muted"
 								>
 									<ChevronDown aria-hidden="true" className="size-3.5" />
 									Collapse all
-								</button>
+								</Button>
 							</PopoverContent>
 						</Popover>
 						{onCreateProject ? (
-							<button
+							<Button
 								type="button"
+								variant="ghost"
+								size="icon-compact"
 								aria-label="Add project"
 								title="Add project"
 								onClick={onOpenCreateProject}
-								className={cn(
-									HIT_AREA_EXPAND_DENSE_CLASS,
-									"inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-								)}
+								className="hit-area-expand-dense text-muted-foreground hover:bg-muted hover:text-foreground"
 							>
 								<Plus aria-hidden="true" className="size-3.5" />
-							</button>
+							</Button>
 						) : null}
 					</div>
 				</div>
 				<AnimatedSidebarGroupContent>
 					{projects.length === 0 ? (
 						<div className="px-2 py-4">
-							<ProjectFolder
-								title="Add a project"
-								description="Choose a local directory for Fleet Prime."
-								count={0}
-								itemLabel="session"
-								previews={[
-									{
-										id: "empty-project",
-										content: <FolderPlus className="size-5 text-muted-foreground" />,
-									},
-								]}
-								onClick={onOpenCreateProject}
-								ariaLabel="Add a project"
-								className="w-full"
-							/>
+							<Card size="sm" className="gap-2 bg-muted/30">
+								<CardHeader className="gap-1">
+									<div className="flex items-center gap-2 text-muted-foreground">
+										<FolderPlus className="size-4 shrink-0" />
+										<CardTitle className="text-sm font-medium text-foreground">Add a project</CardTitle>
+									</div>
+									<CardDescription className="text-xs">
+										Choose a local directory for Fleet Prime.
+									</CardDescription>
+								</CardHeader>
+								<div className="px-4 pb-3">
+									<Button
+										type="button"
+										variant="outline"
+										size="compact"
+										className="w-full"
+										onClick={onOpenCreateProject}
+									>
+										Add a project
+									</Button>
+								</div>
+							</Card>
 						</div>
 					) : (
 						<AISidebar

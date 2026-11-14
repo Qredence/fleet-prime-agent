@@ -1,9 +1,18 @@
 "use client";
 
 import { Check, Copy, FileCode2, LoaderCircle } from "lucide-react";
-import { m, useReducedMotion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { type AgentCodeLanguage, AgentCodeLine, useAgentCodeTokens } from "@/components/tools/agent-code";
+import { useReducedMotion } from "motion/react";
+import {
+	type CSSProperties,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import { Button } from "@/components/ui/button";
 import {
 	CodeBlockActions,
 	CodeBlockContent,
@@ -11,8 +20,39 @@ import {
 	CodeBlockTitle,
 	CodeBlock as UiCodeBlock,
 } from "@/components/ui/code-block";
-import { SPRING_PRESS } from "@/lib/ease";
+import { type AgentCodeLanguage, type AgentCodeToken, useAgentCodeTokens } from "@/lib/shiki-highlight";
 import { cn } from "@/lib/utils";
+
+export interface AgentCodeLineProps {
+	code: string;
+	tokens?: AgentCodeToken[];
+	suffix?: string;
+	className?: string;
+}
+
+export function AgentCodeLine({ code, tokens, suffix, className }: AgentCodeLineProps) {
+	return (
+		<span className={className}>
+			{tokens
+				? tokens.map((token) => (
+						<span
+							key={`${token.offset}-${token.content}`}
+							style={
+								{
+									"--agent-code-light": token.light ?? "currentColor",
+									"--agent-code-dark": token.dark ?? token.light ?? "currentColor",
+								} as CSSProperties
+							}
+							className="text-[var(--agent-code-light)] dark:text-[var(--agent-code-dark)]"
+						>
+							{token.content}
+						</span>
+					))
+				: code}
+			{suffix}
+		</span>
+	);
+}
 
 const EMPTY_HIGHLIGHT_LINES: number[] = [];
 
@@ -118,14 +158,14 @@ export function CodeBlock({
 				{filename ? (
 					<CodeBlockTitle className="font-mono text-xs text-foreground/80">{filename}</CodeBlockTitle>
 				) : null}
-				<span className="text-micro font-medium uppercase tracking-wide text-muted-foreground/55">
+				<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/55">
 					{resolvedLanguageLabel}
 				</span>
 				{showStatus ? (
 					<span
 						className={cn(
 							!copyable && !onCopy && "ml-auto",
-							"inline-flex shrink-0 items-center gap-1 text-micro font-medium",
+							"inline-flex shrink-0 items-center gap-1 text-xs font-medium",
 							streaming ? "text-info" : "text-success",
 						)}
 					>
@@ -139,17 +179,17 @@ export function CodeBlock({
 				) : null}
 				{copyable || onCopy ? (
 					<CodeBlockActions className={cn("-my-0 -me-0", showStatus ? "ms-0" : "ms-auto")}>
-						<m.button
+						<Button
 							type="button"
+							variant="ghost"
+							size="icon-compact"
 							aria-label={copied ? "Copied" : "Copy code"}
 							title={copied ? "Copied" : "Copy code"}
 							onClick={handleCopy}
-							whileTap={reduce ? undefined : { scale: 0.96 }}
-							transition={SPRING_PRESS}
-							className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+							className="size-7 rounded-full text-muted-foreground hover:bg-background/70 hover:text-foreground enabled:active:scale-[0.96]"
 						>
 							{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-						</m.button>
+						</Button>
 					</CodeBlockActions>
 				) : null}
 			</CodeBlockHeader>

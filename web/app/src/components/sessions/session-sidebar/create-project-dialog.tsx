@@ -1,8 +1,8 @@
 import type { ProjectDirectoryBrowseResponse } from "@prime-agent/web-protocol";
 import { ArrowUp, FolderOpen, FolderPlus, FolderTree, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { SessionSidebarDependencies } from "@/components/sessions/session-sidebar/types";
-import { directoryErrorMessage, pathEntryLabel } from "@/components/sessions/session-sidebar/types";
+import type { SessionSidebarDependencies } from "@/lib/sessions/sidebar-types";
+import { directoryErrorMessage, pathEntryLabel } from "@/lib/sessions/sidebar-types";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
@@ -234,7 +234,7 @@ export function SessionSidebarCreateDialog({
 										{selectedDirectoryPath}
 									</p>
 								</div>
-								<span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-caption font-medium text-primary">
+								<span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
 									Selected
 								</span>
 							</div>
@@ -303,7 +303,7 @@ export function SessionSidebarCreateDialog({
 																{pathEntryLabel(entry)}
 															</span>
 															<span
-																className="block truncate text-caption text-muted-foreground"
+																className="block truncate text-xs text-muted-foreground"
 																title={entry.pathLabel}
 															>
 																{entry.pathLabel}

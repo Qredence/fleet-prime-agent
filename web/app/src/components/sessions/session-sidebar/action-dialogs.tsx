@@ -1,7 +1,7 @@
 import type { ProjectId, ProjectSummary } from "@prime-agent/web-protocol";
 import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { useState } from "react";
-import { type SessionDialog, sessionLabel } from "@/components/sessions/session-sidebar/types";
+import { type SessionDialog, sessionLabel } from "@/lib/sessions/sidebar-types";
 import {
 	AlertDialog,
 	AlertDialogAction,

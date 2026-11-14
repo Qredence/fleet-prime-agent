@@ -2,7 +2,7 @@
 
 import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { COMPOSER_SELECTOR_TRIGGER_CLASS } from "@/components/layout/tokens";
+import { COMPOSER_SELECTOR_TRIGGER_CLASS } from "@/components/chat/composer/composer-controls";
 import { InputGroupButton } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -103,6 +103,7 @@ export const ModelSelector = memo(function ModelSelector({
 			<PopoverTrigger
 				render={
 					<InputGroupButton
+						role="combobox"
 						variant="ghost"
 						size="sm"
 						aria-label={modelAriaLabel}

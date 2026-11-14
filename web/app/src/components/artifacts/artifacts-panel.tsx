@@ -3,8 +3,8 @@ import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { OpenUIHtmlArtifactPayload } from "@prime-agent/web-protocol/openui-artifact";
 import { ChevronRight, LayoutTemplate, Package } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { SessionOpenUIBlock } from "@/components/artifacts/artifacts-utils";
-import { primeAgentArtifactDiff } from "@/components/artifacts/prime-agent-artifacts";
+import type { SessionOpenUIBlock } from "@/lib/artifacts/artifacts-utils";
+import { primeAgentArtifactDiff } from "@/lib/artifacts/prime-agent-artifacts";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import { OpenUIHtmlArtifactView } from "@/components/openui/html-artifact";
 import { GenerativeTextRenderer } from "@/components/openui/openui-renderer";
@@ -153,7 +153,7 @@ function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; 
 				<span className="min-w-0 flex-1 truncate text-xs font-medium" title={artifact.title}>
 					{artifact.title || "OpenUI artifact"}
 				</span>
-				<span className="shrink-0 text-micro text-foreground/40">{artifact.status}</span>
+				<span className="shrink-0 text-xs text-foreground/40">{artifact.status}</span>
 			</div>
 			{payload ? (
 				<OpenUIHtmlArtifactView artifact={payload} />
@@ -281,7 +281,7 @@ function GenerativeUiBlockRow({
 					<Button
 						variant="ghost"
 						size="compact"
-						className="group w-full justify-start gap-1.5 text-left text-label font-normal text-foreground/65 transition-none hover:bg-foreground/5 hover:text-foreground/80"
+						className="group w-full justify-start gap-1.5 text-left text-xs font-normal text-foreground/65 transition-none hover:bg-foreground/5 hover:text-foreground/80"
 					/>
 				}
 			>
@@ -290,7 +290,7 @@ function GenerativeUiBlockRow({
 				<span className="min-w-0 flex-1 truncate" title={block.component}>
 					{block.component}
 				</span>
-				<span className="shrink-0 text-micro text-foreground/40">#{block.ordinal}</span>
+				<span className="shrink-0 text-xs text-foreground/40">#{block.ordinal}</span>
 			</CollapsibleTrigger>
 			<CollapsibleContent>
 				<div className="mb-1 mt-0.5 flex min-w-0 flex-col overflow-hidden rounded-md border border-border/60 bg-background px-2.5 py-2">
@@ -350,10 +350,10 @@ export function ArtifactsPanelContent({
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 						<LayoutTemplate className="size-3.5 shrink-0 text-foreground/45" />
-						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
+						<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/70">
 							OpenUI artifacts
 						</span>
-						<span className="shrink-0 text-micro text-foreground/40">{openUIArtifacts.length}</span>
+						<span className="shrink-0 text-xs text-foreground/40">{openUIArtifacts.length}</span>
 					</div>
 					<div className="space-y-1">
 						{openUIArtifacts.map((artifact) => (
@@ -370,10 +370,10 @@ export function ArtifactsPanelContent({
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 						<Package className="size-3.5 shrink-0 text-foreground/45" />
-						<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">
+						<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/70">
 							Technical artifacts
 						</span>
-						<span className="shrink-0 text-micro text-foreground/40">{nonOpenUIArtifacts.length}</span>
+						<span className="shrink-0 text-xs text-foreground/40">{nonOpenUIArtifacts.length}</span>
 					</div>
 					<div className="space-y-1">
 						{nonOpenUIArtifacts.map((artifact) => (
@@ -389,13 +389,13 @@ export function ArtifactsPanelContent({
 			<div className="flex min-h-0 flex-col">
 				<div className="mb-2 flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 					<LayoutTemplate className="size-3.5 shrink-0 text-foreground/45" />
-					<span className="min-w-0 flex-1 truncate text-label font-medium text-foreground/70">Generative UI</span>
-					<span className="shrink-0 text-micro text-foreground/40">
+					<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/70">Generative UI</span>
+					<span className="shrink-0 text-xs text-foreground/40">
 						{blocks.length > 0 ? `${blocks.length}` : "none yet"}
 					</span>
 				</div>
 				{blocks.length === 0 ? (
-					<p className="px-2 pb-1 text-caption leading-4 text-foreground/40">
+					<p className="px-2 pb-1 text-xs leading-4 text-foreground/40">
 						OpenUI interfaces the agent generates in this session appear here, and can be re-opened without
 						scrolling the conversation.
 					</p>

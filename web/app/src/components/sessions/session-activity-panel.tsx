@@ -2,7 +2,7 @@ import type { PrimeAgentArtifactRun, PrimeAgentRlmChild } from "@prime-agent/web
 import type { ChatMessage, ChatReasoningPart } from "@prime-agent/web-protocol/chat-types";
 import { ArrowUpRight, CircleCheck, CircleDashed, CircleX, LoaderCircle } from "lucide-react";
 import { useState } from "react";
-import { groupMessages } from "@/components/chat/transcript/conversation-turns";
+import { groupMessages } from "@/lib/chat/conversation-turns";
 import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
 import { Button } from "@/components/ui/button";
@@ -123,7 +123,7 @@ export function SessionActivityPanel({
 		if (!text) return null;
 		return (
 			<div className="rounded-md border border-border/60 bg-background/60 px-3 py-2" key={message.id}>
-				<div className="mb-1 text-micro font-medium uppercase tracking-wide text-muted-foreground">
+				<div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 					{message.role === "user" ? "You" : "Assistant"}
 				</div>
 				<p className="line-clamp-2 whitespace-pre-wrap break-words text-xs text-foreground/80">{text}</p>
@@ -229,7 +229,7 @@ export function SessionActivityPanel({
 											<span className="block truncate text-xs font-medium">
 												{child.sessionName || child.label}
 											</span>
-											<span className="block truncate text-micro text-muted-foreground">
+											<span className="block truncate text-xs text-muted-foreground">
 												{[child.status, child.model, child.progressNote || child.answerPreview]
 													.filter(Boolean)
 													.join(" · ")}

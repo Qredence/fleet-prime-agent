@@ -3,9 +3,10 @@
 import { ChevronDown, ListTodo } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { ActionSwapRollText } from "@/components/motion/action-swap";
-import { AgentDisclosure } from "@/components/tools/agent-disclosure";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EASE_OUT, SPRING_LAYOUT, SPRING_SWAP } from "@/lib/ease";
+import { spring } from "@/lib/fluid/springs";
 import { cn } from "@/lib/utils";
 
 export type TodoItemStatus = "pending" | "in-progress" | "completed" | "cancelled";
@@ -133,7 +134,7 @@ function TodoStatusIcon({ status, progress }: { status: TodoItemStatus; progress
 							? { duration: 0 }
 							: SPRING_LAYOUT
 				}
-				style={{ transformOrigin: "12px 12px" }}
+				className="origin-[12px_12px]"
 			/>
 			<m.path
 				d="M7.5 12.25 10.5 15.25 16.75 8.75"
@@ -225,107 +226,128 @@ export function TodoList({
 	}, [itemCount, reduce]);
 
 	return (
-		<section
-			aria-label="Agent task list"
-			className={cn("w-full overflow-hidden rounded-2xl border border-border/70", className)}
-		>
-			<button
-				id={triggerId}
-				type="button"
-				aria-expanded={currentOpen}
-				aria-controls={contentId}
-				onClick={() => setOpen(!currentOpen)}
-				className="group flex h-11 w-full items-center gap-2.5 rounded-2xl px-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+		<Collapsible open={currentOpen} onOpenChange={setOpen}>
+			<section
+				aria-label="Agent task list"
+				className={cn("w-full overflow-hidden rounded-2xl border border-border/70", className)}
 			>
-				<TodoHeaderIcon complete={allComplete} />
-				<h3 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/90">{title}</h3>
-				<span
-					className={cn(
-						"shrink-0 text-xs font-medium tabular-nums text-muted-foreground",
-						allComplete && "text-success",
-					)}
+				<CollapsibleTrigger
+					render={
+						<Button
+							id={triggerId}
+							type="button"
+							variant="ghost"
+							className="group flex h-11 w-full justify-start gap-2.5 rounded-2xl px-3.5 text-left font-normal text-foreground hover:bg-transparent [&>span]:w-full [&>span>span]:w-full"
+						/>
+					}
 				>
-					<span className="sr-only">
-						{completed} of {items.length} tasks completed
+					<TodoHeaderIcon complete={allComplete} />
+					<h3 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/90">{title}</h3>
+					<span
+						className={cn(
+							"shrink-0 text-xs font-medium tabular-nums text-muted-foreground",
+							allComplete && "text-success",
+						)}
+					>
+						<span className="sr-only">
+							{completed} of {items.length} tasks completed
+						</span>
+						<span aria-hidden="true" className="inline-flex">
+							<AnimatePresence initial={false} mode="popLayout">
+								<m.span
+									key={completed}
+									initial={reduce ? false : { opacity: 0, y: 4 }}
+									animate={{ opacity: 1, y: 0 }}
+									exit={reduce ? undefined : { opacity: 0, y: -4 }}
+									transition={reduce ? { duration: 0 } : spring.fast}
+									className="inline-block"
+								>
+									{completed}
+								</m.span>
+							</AnimatePresence>
+							<span>/</span>
+							<span>{items.length}</span>
+						</span>
 					</span>
-					<span aria-hidden="true" className="inline-flex">
-						<ActionSwapRollText value={String(completed)}>{completed}</ActionSwapRollText>
-						<span>/</span>
-						<span>{items.length}</span>
-					</span>
-				</span>
-				<m.span
-					aria-hidden="true"
-					animate={{ rotate: currentOpen ? 180 : 0 }}
-					transition={reduce ? { duration: 0 } : SPRING_SWAP}
-					className="text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
-				>
-					<ChevronDown className="size-3.5" />
-				</m.span>
-			</button>
+					<m.span
+						aria-hidden="true"
+						animate={{ rotate: currentOpen ? 180 : 0 }}
+						transition={reduce ? { duration: 0 } : SPRING_SWAP}
+						className="text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
+					>
+						<ChevronDown className="size-3.5" />
+					</m.span>
+				</CollapsibleTrigger>
 
-			<AgentDisclosure id={contentId} role="region" aria-labelledby={triggerId} open={currentOpen}>
-				<div ref={viewportRef} className="scrollbar-hide overflow-y-auto px-2 pb-2" style={{ maxHeight }}>
-					<ol aria-live={allComplete ? "polite" : "off"} className="space-y-0">
-						<AnimatePresence initial={false} mode="popLayout">
-							{items.map((item) => {
-								const status = item.status ?? "pending";
-								return (
-									<m.li
-										layout="position"
-										key={item.id}
-										initial={reduce ? { opacity: 1 } : { opacity: 0, y: 6 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
-										transition={
-											reduce
-												? { duration: 0 }
-												: {
-														opacity: { duration: 0.18, ease: EASE_OUT },
-														y: SPRING_LAYOUT,
-														layout: SPRING_LAYOUT,
-													}
-										}
-										className="flex min-h-9 items-center gap-2.5 rounded-xl px-1.5 py-1"
-									>
-										<TodoStatusIcon status={status} progress={item.progress} />
-										<span className="sr-only">{statusLabel(status)}: </span>
-										<span
-											className={cn(
-												"min-w-0 flex-1 truncate text-sm leading-5",
-												status === "pending" && "text-muted-foreground/65",
-												status === "in-progress" && "text-foreground",
-												status === "completed" && "text-muted-foreground/60",
-												status === "cancelled" && "text-muted-foreground/55",
-											)}
+				<CollapsibleContent
+					id={contentId}
+					keepMounted
+					role="region"
+					aria-labelledby={triggerId}
+					className="overflow-hidden"
+				>
+					<div ref={viewportRef} className="no-scrollbar overflow-y-auto px-2 pb-2" style={{ maxHeight }}>
+						<ol aria-live={allComplete ? "polite" : "off"} className="space-y-0">
+							<AnimatePresence initial={false} mode="popLayout">
+								{items.map((item) => {
+									const status = item.status ?? "pending";
+									return (
+										<m.li
+											layout="position"
+											key={item.id}
+											initial={reduce ? { opacity: 1 } : { opacity: 0, y: 6 }}
+											animate={{ opacity: 1, y: 0 }}
+											exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3 }}
+											transition={
+												reduce
+													? { duration: 0 }
+													: {
+															opacity: { duration: 0.18, ease: EASE_OUT },
+															y: SPRING_LAYOUT,
+															layout: SPRING_LAYOUT,
+														}
+											}
+											className="flex min-h-9 items-center gap-2.5 rounded-xl px-1.5 py-1"
 										>
-											<span className="relative inline-block max-w-full">
-												{item.title}
-												<m.span
-													aria-hidden="true"
-													initial={false}
-													animate={{
-														scaleX: status === "completed" ? 1 : 0,
-														opacity: status === "completed" ? 1 : 0,
-													}}
-													transition={
-														reduce ? { duration: 0 } : { duration: 0.28, ease: EASE_OUT, delay: 0.06 }
-													}
-													className="absolute inset-x-0 top-1/2 h-px origin-left bg-current"
-												/>
+											<TodoStatusIcon status={status} progress={item.progress} />
+											<span className="sr-only">{statusLabel(status)}: </span>
+											<span
+												className={cn(
+													"min-w-0 flex-1 truncate text-sm leading-5",
+													status === "pending" && "text-muted-foreground/65",
+													status === "in-progress" && "text-foreground",
+													status === "completed" && "text-muted-foreground/60",
+													status === "cancelled" && "text-muted-foreground/55",
+												)}
+											>
+												<span className="relative inline-block max-w-full">
+													{item.title}
+													<m.span
+														aria-hidden="true"
+														initial={false}
+														animate={{
+															scaleX: status === "completed" ? 1 : 0,
+															opacity: status === "completed" ? 1 : 0,
+														}}
+														transition={
+															reduce ? { duration: 0 } : { duration: 0.28, ease: EASE_OUT, delay: 0.06 }
+														}
+														className="absolute inset-x-0 top-1/2 h-px origin-left bg-current"
+													/>
+												</span>
 											</span>
-										</span>
-										{item.detail ? (
-											<span className="shrink-0 text-sm text-muted-foreground/55">{item.detail}</span>
-										) : null}
-									</m.li>
-								);
-							})}
-						</AnimatePresence>
-					</ol>
-					{!items.length && <p className="px-1.5 py-2 text-sm text-muted-foreground">No tasks yet</p>}
-				</div>
-			</AgentDisclosure>
-		</section>
+											{item.detail ? (
+												<span className="shrink-0 text-sm text-muted-foreground/55">{item.detail}</span>
+											) : null}
+										</m.li>
+									);
+								})}
+							</AnimatePresence>
+						</ol>
+						{!items.length && <p className="px-1.5 py-2 text-sm text-muted-foreground">No tasks yet</p>}
+					</div>
+				</CollapsibleContent>
+			</section>
+		</Collapsible>
 	);
 }

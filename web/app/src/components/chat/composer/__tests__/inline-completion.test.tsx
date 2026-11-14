@@ -10,7 +10,7 @@ import {
 	resolveInlineCompletion,
 	sameEditingState,
 	spliceCompletion,
-} from "@/components/chat/composer/inline-completion";
+} from "@/hooks/chat/inline-completion";
 import { InputBar } from "@/components/chat/composer/input-bar";
 
 const READY: EditingState = { focused: true, composing: false, caretStart: 4, caretEnd: 4 };

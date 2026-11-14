@@ -5,16 +5,14 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Globe, HardDrive, Info } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ItemRow, RowSurface } from "@/components/layout/item-row";
-import { SettingsPane } from "@/components/layout/settings-pane";
-import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
-import { SecretCredentialField, TextCredentialField } from "@/components/settings/providers/credential-fields";
+import { SecretCredentialField, TextCredentialField } from "@/components/settings/credential-fields";
+import { SettingsPane } from "@/components/settings/settings-pane";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { notify as toast } from "@/lib/notify";
-import { cn } from "@/lib/utils";
 
 export function SandboxProviderSection({
 	isLoading,
@@ -86,21 +84,23 @@ export function SandboxProviderSection({
 					<span>Loading…</span>
 				</div>
 			) : (
-				<div className="flex flex-col">
-					<ItemRow
-						interactive={false}
-						icon={<HardDrive className="size-4 text-foreground/80" />}
-						title="Daytona"
-						subtitle="DAYTONA_API_KEY · DAYTONA_TARGET"
-						trailing={
+				<div className="flex flex-col overflow-hidden rounded-lg border border-border/50 bg-muted/20">
+					<Item size="sm" className="flex-nowrap gap-3 border-0 bg-transparent px-2.5 py-2">
+						<ItemMedia className="size-8 shrink-0 rounded-md border border-border/40 bg-background/60 text-foreground/70">
+							<HardDrive className="size-4 text-foreground/80" />
+						</ItemMedia>
+						<ItemContent className="min-w-0 gap-0.5">
+							<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Daytona</ItemTitle>
+							<ItemDescription className="truncate text-xs text-muted-foreground">
+								DAYTONA_API_KEY · DAYTONA_TARGET
+							</ItemDescription>
+						</ItemContent>
+						<ItemActions className="shrink-0">
 							<Button
 								type="button"
 								variant="ghost"
 								size="compact"
-								className={cn(
-									HIT_AREA_EXPAND_DENSE_CLASS,
-									"h-7 px-2 text-xs transition-[background-color,transform] duration-150 active:scale-[0.96]",
-								)}
+								className="hit-area-expand-dense h-7 px-2 text-xs transition-[background-color,transform] duration-150 active:scale-[0.96]"
 								onClick={() => {
 									if (editing) {
 										closeEditor();
@@ -112,11 +112,11 @@ export function SandboxProviderSection({
 							>
 								{editing ? "Cancel" : isConfigured ? "Update" : "Configure"}
 							</Button>
-						}
-					/>
+						</ItemActions>
+					</Item>
 
 					{editing ? (
-						<RowSurface tone="inset" padding="md" className="flex flex-col gap-2 border-t border-border/30">
+						<div className="flex flex-col gap-2 border-t border-border/30 bg-muted/30 p-2.5">
 							<FieldGroup className="gap-2">
 								<SecretCredentialField
 									attemptedSave={attemptedSave}
@@ -158,7 +158,7 @@ export function SandboxProviderSection({
 									Save
 								</Button>
 							</div>
-						</RowSurface>
+						</div>
 					) : null}
 				</div>
 			)}

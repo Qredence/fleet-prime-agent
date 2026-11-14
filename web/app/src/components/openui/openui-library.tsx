@@ -14,6 +14,7 @@ import {
 	WorkspaceRelativePathSchema,
 } from "@prime-agent/web-protocol/fleet-contract";
 import { openUIComponentGroups } from "@prime-agent/web-protocol/openui-component-groups";
+import { ChevronDown } from "lucide-react";
 import { useId } from "react";
 import { Bar, CartesianGrid, BarChart as RechartsBarChart, XAxis, YAxis } from "recharts";
 import { z } from "zod/v4";
@@ -31,26 +32,7 @@ import {
 	TabsDef,
 	TextAreaDef,
 } from "@/components/openui/openui-extra-components";
-import { openUIFunctions } from "@/components/openui/openui-functions";
-
-const HtmlArtifactDef = defineComponent({
-	name: "HtmlArtifact",
-	description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
-	props: z.object({
-		title: z.string().describe("Short artifact title"),
-		document: z.string().describe("Complete self-contained HTML document"),
-	}),
-	component: HtmlArtifactComponent,
-});
-
-import {
-	badgeToneClasses,
-	badgeVariantsByTone,
-	openUITextToneSchema,
-	openUIToneSchema,
-	textToneClasses,
-	toneClasses,
-} from "@/components/openui/tones";
+import { openUIFunctions } from "@/lib/openui/openui-functions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,6 +45,15 @@ import {
 	ChartTooltipContent,
 	getChartColorVarName,
 } from "@/components/ui/chart";
+import {
+	CodeBlock,
+	CodeBlockActions,
+	CodeBlockContent,
+	CodeBlockCopyButton,
+	CodeBlockHeader,
+	CodeBlockTitle,
+} from "@/components/ui/code-block";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -73,6 +64,35 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { isSafeExternalUrl } from "@/lib/safe-external-url";
 import { cn } from "@/lib/utils";
+
+const HtmlArtifactDef = defineComponent({
+	name: "HtmlArtifact",
+	description: "A durable, self-contained HTML artifact rendered in a sandboxed preview.",
+	props: z.object({
+		title: z.string().describe("Short artifact title"),
+		document: z.string().describe("Complete self-contained HTML document"),
+	}),
+	component: HtmlArtifactComponent,
+});
+
+const openUIToneSchema = ["default", "info", "success", "warning", "danger"] as const;
+const openUITextToneSchema = ["default", "muted", "success", "warning", "danger"] as const;
+
+const toneClasses = {
+	default: "border-border bg-card text-card-foreground",
+	info: "border-info/35 bg-info/10 text-foreground",
+	success: "border-success/35 bg-success/10 text-foreground",
+	warning: "border-warning/35 bg-warning/10 text-foreground",
+	danger: "border-destructive/35 bg-destructive/10 text-foreground",
+} as const;
+
+const textToneClasses = {
+	default: "text-foreground",
+	muted: "text-muted-foreground",
+	success: "text-success",
+	warning: "text-warning",
+	danger: "text-destructive",
+} as const;
 
 const gapClasses = {
 	sm: "gap-2",
@@ -274,11 +294,8 @@ const BadgeDef = defineComponent({
 		tone: commonTone,
 	}),
 	component: ({ props: { label, tone } }) => {
-		return (
-			<Badge variant={badgeVariantsByTone[tone]} className={badgeToneClasses[tone]}>
-				{label}
-			</Badge>
-		);
+		const variant = tone === "danger" ? "destructive" : tone === "default" ? "secondary" : tone;
+		return <Badge variant={variant}>{label}</Badge>;
 	},
 });
 
@@ -356,11 +373,9 @@ const CalloutDef = defineComponent({
 		tone: commonTone,
 	}),
 	component: ({ props: { title, content, tone }, renderNode }) => {
+		const variant = tone === "danger" ? "destructive" : tone;
 		return (
-			<Alert
-				variant={tone === "danger" ? "destructive" : "default"}
-				className={cn("w-full", tone !== "danger" && toneClasses[tone])}
-			>
+			<Alert variant={variant} className="w-full">
 				<AlertTitle>{title}</AlertTitle>
 				<AlertDescription>{renderNode(content)}</AlertDescription>
 			</Alert>
@@ -456,10 +471,15 @@ const CodeBlockDef = defineComponent({
 	}),
 	component: ({ props: { code, language } }) => {
 		return (
-			<pre className="w-full overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-				{language && <div className="mb-2 text-[0.625rem] text-muted-foreground uppercase">{language}</div>}
-				<code>{code}</code>
-			</pre>
+			<CodeBlock size="sm">
+				<CodeBlockHeader>
+					<CodeBlockTitle className="text-xs text-muted-foreground uppercase">{language ?? "Code"}</CodeBlockTitle>
+					<CodeBlockActions>
+						<CodeBlockCopyButton value={code} />
+					</CodeBlockActions>
+				</CodeBlockHeader>
+				<CodeBlockContent className="text-xs">{code}</CodeBlockContent>
+			</CodeBlock>
 		);
 	},
 });
@@ -775,12 +795,22 @@ const DisclosureDef = defineComponent({
 		open: z.boolean().optional().default(false),
 	}),
 	component: ({ props: { title, content, open }, renderNode }) => (
-		<details open={open} className="w-full rounded-lg border px-3 py-2">
-			<summary className="cursor-pointer text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-				{title}
-			</summary>
-			<div className="pt-3 text-sm">{renderNode(content)}</div>
-		</details>
+		<Collapsible defaultOpen={open} className="w-full rounded-lg border px-3 py-2">
+			<CollapsibleTrigger
+				render={
+					<Button
+						type="button"
+						variant="ghost"
+						size="compact"
+						className="group h-auto w-full justify-between px-0 py-0 text-sm font-medium text-foreground hover:bg-transparent"
+					>
+						<span>{title}</span>
+						<ChevronDown className="size-4 text-muted-foreground transition-transform group-data-open:rotate-180" />
+					</Button>
+				}
+			/>
+			<CollapsibleContent className="pt-3 text-sm">{renderNode(content)}</CollapsibleContent>
+		</Collapsible>
 	),
 });
 
