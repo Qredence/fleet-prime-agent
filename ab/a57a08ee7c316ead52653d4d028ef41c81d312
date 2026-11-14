@@ -1,0 +1,23 @@
+web/app/src/components/ui/lightbox.tsx
+  s_f0c0c099bd375c::t_26e76a294e9a49 1-179
+web/app/src/components/ui/slider.tsx
+  s_f0c0c099bd375c::t_96c74a574c6552 3-21,24-32,36-41,44-90,92-106,108-125,128-138,140-216,218-223,226-284,286-702,704-705,707-710,712,714-715,717-741,743-841,843-844,846-916,918-1196,1198-1222,1224-1233,1235,1237-1251,1253-1400,1402-1405,1409-1436,1438-1495,1498-1504
+web/app/src/styles/globals.css
+  s_f0c0c099bd375c::t_54011db2014fb6 5,11-42,46-128,132,134-258,262,264-353,357-361,365-372,378-382,386-389,392-401,404-424,427-519,526,530-562
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aba57a08ee7c316ead52653d4d028ef41c81d312",
+  "prompts": {},
+  "sessions": {
+    "s_f0c0c099bd375c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1dbb9-d23e-7320-abbb-061e96713770",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
