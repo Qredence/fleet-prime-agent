@@ -1,20 +1,11 @@
 "use client";
 
-// Scroll area built on Base UI — shape-system scrollbar, native overflow
-// fallback on touch-primary devices. Scrollbar
-// machinery adapted from Lina by SameerJS6 (https://lina.sameer.sh); built on
-// @base-ui/react/scroll-area, whose scrollbars stay mounted while scrollable
-// and expose hover/scroll state as data attributes instead of Radix's
-// show/hide presence animation.
-
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
-import { type ComponentPropsWithoutRef, type ComponentRef, createContext, forwardRef, useContext } from "react";
+import { createContext, forwardRef, useContext, type ComponentPropsWithoutRef, type ComponentRef } from "react";
 import { useTouchPrimary } from "@/hooks/use-touch-primary";
+import { useShape } from "@/lib/fluid/shape-context";
 import { cn } from "@/lib/utils";
 
-// On touch-primary devices the Base UI machinery is skipped entirely in
-// favour of native overflow scrolling (better physics, momentum,
-// rubber-banding); the context lets the exported ScrollBar no-op there.
 const ScrollAreaContext = createContext<boolean>(false);
 
 type Orientation = "vertical" | "horizontal" | "both";
@@ -25,9 +16,6 @@ interface ScrollAreaProps extends ComponentPropsWithoutRef<"div"> {
 	orientation?: Orientation;
 }
 
-/** Renders a scroll viewport with scrollbars on the requested axes.
- * Touch-primary devices use native overflow scrolling; other devices use
- * Base UI scrollbars. The forwarded ref points to the outer root. */
 const ScrollArea = forwardRef<ComponentRef<typeof ScrollAreaPrimitive.Root>, ScrollAreaProps>(
 	({ className, children, viewportClassName, orientation = "vertical", ...props }, ref) => {
 		const isTouch = useTouchPrimary();
@@ -46,7 +34,7 @@ const ScrollArea = forwardRef<ComponentRef<typeof ScrollAreaPrimitive.Root>, Scr
 						<div
 							data-slot="scroll-area-viewport"
 							className={cn(
-								"size-full overscroll-contain rounded-[inherit]",
+								"size-full rounded-[inherit] focus-visible:outline-offset-[-1px]",
 								orientation === "vertical" && "overflow-y-auto",
 								orientation === "horizontal" && "overflow-x-auto",
 								orientation === "both" && "overflow-auto",
@@ -66,12 +54,13 @@ const ScrollArea = forwardRef<ComponentRef<typeof ScrollAreaPrimitive.Root>, Scr
 					>
 						<ScrollAreaPrimitive.Viewport
 							data-slot="scroll-area-viewport"
-							className={cn("size-full rounded-[inherit]", viewportClassName)}
+							className={cn(
+								"size-full rounded-[inherit] focus-visible:outline-offset-[-1px]",
+								viewportClassName,
+							)}
 						>
-							{/* Content gives Base UI an intrinsic size to measure
-                  horizontal overflow against. */}
 							<ScrollAreaPrimitive.Content
-								className={cn(orientation === "vertical" && "block! w-full min-w-0! max-w-full")}
+								className={orientation === "vertical" ? "block! w-full min-w-0! max-w-full" : undefined}
 							>
 								{children}
 							</ScrollAreaPrimitive.Content>
@@ -88,12 +77,12 @@ const ScrollArea = forwardRef<ComponentRef<typeof ScrollAreaPrimitive.Root>, Scr
 
 ScrollArea.displayName = "ScrollArea";
 
-/** Renders a shaped Base UI scrollbar, or nothing inside a touch-primary ScrollArea. */
 const ScrollBar = forwardRef<
 	ComponentRef<typeof ScrollAreaPrimitive.Scrollbar>,
 	ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Scrollbar>
 >(({ className, orientation = "vertical", ...props }, ref) => {
 	const isTouch = useContext(ScrollAreaContext);
+	const shape = useShape();
 
 	if (isTouch) return null;
 
@@ -117,8 +106,9 @@ const ScrollBar = forwardRef<
 			<ScrollAreaPrimitive.Thumb
 				data-slot="scroll-area-thumb"
 				className={cn(
-					"relative rounded-lg bg-[rgb(var(--overlay)/0.08)] transition-[background-color,width,height] duration-160 ease-in-out",
+					"relative bg-[rgb(var(--overlay)/0.08)] transition-[background-color,width,height] duration-160 ease-in-out",
 					"group-hover/scrollbar:bg-[rgb(var(--overlay)/0.12)] active:!bg-[rgb(var(--overlay)/0.16)]",
+					shape.bg,
 					orientation === "vertical" &&
 						"mx-auto my-1 w-1 -translate-x-0.5 h-[var(--scroll-area-thumb-height)] group-hover/scrollbar:w-1.5",
 					orientation === "horizontal" &&
@@ -131,5 +121,5 @@ const ScrollBar = forwardRef<
 
 ScrollBar.displayName = "ScrollBar";
 
+export { ScrollArea, ScrollBar };
 export type { ScrollAreaProps };
-export { ScrollArea };

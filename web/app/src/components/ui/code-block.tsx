@@ -3,20 +3,20 @@ import { Check, Copy } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { fontWeights } from "@/lib/fluid/font-weight";
+import { useShape } from "@/lib/fluid/shape-context";
+import { typeClass, useSize } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
 
-const codeBlockVariants = cva(
-	"group/code-block relative flex w-full min-w-0 flex-col overflow-hidden rounded-lg text-sm",
-	{
-		variants: {
-			variant: {
-				default: "border border-input text-foreground dark:bg-input/30",
-				destructive: "border border-destructive/30 text-destructive dark:border-destructive/40",
-			},
+const codeBlockVariants = cva("group/code-block relative flex w-full min-w-0 flex-col overflow-hidden", {
+	variants: {
+		variant: {
+			default: "border border-border/60 text-foreground dark:bg-input/30",
+			destructive: "border border-destructive/30 text-destructive dark:border-destructive/40",
 		},
-		defaultVariants: { variant: "default" },
 	},
-);
+	defaultVariants: { variant: "default" },
+});
 
 function CodeBlock({
 	className,
@@ -24,12 +24,20 @@ function CodeBlock({
 	size = "default",
 	...props
 }: React.ComponentProps<"div"> & VariantProps<typeof codeBlockVariants> & { size?: "default" | "sm" }) {
+	const shape = useShape();
+	const resolvedCompact = useSize().variant === "compact" || size === "sm";
 	return (
 		<div
 			data-slot="code-block"
 			data-variant={variant}
 			data-size={size}
-			className={cn(codeBlockVariants({ variant }), size === "sm" && "text-xs", className)}
+			className={cn(
+				codeBlockVariants({ variant }),
+				shape.container,
+				typeClass(resolvedCompact ? "caption" : "body", resolvedCompact ? "compact" : "default"),
+				size === "sm" && "text-xs",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -43,11 +51,17 @@ function CodeBlockHeader({ className, ...props }: React.ComponentProps<"div">) {
 		/>
 	);
 }
-function CodeBlockTitle({ className, ...props }: React.ComponentProps<"div">) {
+function CodeBlockTitle({ className, style, ...props }: React.ComponentProps<"div">) {
+	const compact = useSize().variant === "compact";
 	return (
 		<div
 			data-slot="code-block-title"
-			className={cn("min-w-0 truncate font-sans text-sm font-medium text-foreground", className)}
+			className={cn(
+				"min-w-0 truncate font-sans text-foreground",
+				typeClass("body", compact ? "compact" : "default"),
+				className,
+			)}
+			style={{ fontVariationSettings: fontWeights.semibold, ...style }}
 			{...props}
 		/>
 	);
