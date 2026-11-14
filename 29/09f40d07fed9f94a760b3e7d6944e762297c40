@@ -1,0 +1,33 @@
+.changeset/align-density-and-styling.md
+  s_f0c0c099bd375c::t_56e2dbe633fbb9 1-5
+pnpm-workspace.yaml
+  s_f0c0c099bd375c::t_1e07b512bce5f9 73
+web/app/src/components/layout/chat-workspace-shell.tsx
+  s_f0c0c099bd375c::t_10c5dd1666408a 4-7,10,241,243-244,246-272,274-282
+web/app/src/components/openui/html-artifact.tsx
+  s_f0c0c099bd375c::t_95614486176e16 7,10,14,54,62-89
+web/app/src/components/sessions/session-insights-panel.tsx
+  s_f0c0c099bd375c::t_27d48595bd5da7 3,29,31-32,84
+web/app/src/components/workspace/workspace-panel.tsx
+  s_f0c0c099bd375c::t_1139c8da84b02b 6-7,10-15,21-63,246,253,261,265,269,273,281,283,312-314,316-321,323,343,389-392,398,403,406,409,416,423
+web/app/src/hooks/workspace/use-workspace-split-layout.test.ts
+  s_f0c0c099bd375c::t_abd8489b3657e7 8
+web/app/src/hooks/workspace/use-workspace-split-layout.ts
+  s_f0c0c099bd375c::t_f27d0a6c659d94 1,5-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2909f40d07fed9f94a760b3e7d6944e762297c40",
+  "prompts": {},
+  "sessions": {
+    "s_f0c0c099bd375c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1dbb9-d23e-7320-abbb-061e96713770",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
