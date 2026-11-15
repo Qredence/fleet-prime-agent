@@ -9,11 +9,9 @@ describe("Switch pointer activation", () => {
 		const onCheckedChange = vi.fn();
 		render(<Switch aria-label="Enable feature" onCheckedChange={onCheckedChange} />);
 		const control = screen.getByRole("switch", { name: "Enable feature" });
-		const field = control.parentElement!;
 		fireEvent.pointerDown(control, { pointerType, pointerId: 1, button: 0, clientX: 0 });
-		fireEvent.pointerUp(field, { pointerType, pointerId: 1, clientX: 0 });
-		// Pointer capture retargets the browser's click to the field.
-		fireEvent.click(field);
+		fireEvent.pointerUp(control, { pointerType, pointerId: 1, clientX: 0 });
+		fireEvent.click(control);
 		expect(control.getAttribute("aria-checked")).toBe("true");
 		expect(onCheckedChange).toHaveBeenCalledExactlyOnceWith(true);
 	});
@@ -22,11 +20,10 @@ describe("Switch pointer activation", () => {
 		const onCheckedChange = vi.fn();
 		render(<Switch aria-label="Enable feature" onCheckedChange={onCheckedChange} />);
 		const control = screen.getByRole("switch");
-		const field = control.parentElement!;
 		fireEvent.pointerDown(control, { pointerType: "mouse", button: 0, clientX: 0 });
-		fireEvent.pointerMove(field, { clientX: 30 });
-		fireEvent.pointerUp(field, { clientX: 30 });
-		fireEvent.click(field);
+		fireEvent.pointerMove(control, { clientX: 30 });
+		fireEvent.pointerUp(control, { clientX: 30 });
+		fireEvent.click(control);
 		expect(control.getAttribute("aria-checked")).toBe("true");
 		expect(onCheckedChange).toHaveBeenCalledExactlyOnceWith(true);
 	});
@@ -34,7 +31,16 @@ describe("Switch pointer activation", () => {
 	it("ignores captured clicks when disabled", () => {
 		const onCheckedChange = vi.fn();
 		render(<Switch disabled aria-label="Enable feature" onCheckedChange={onCheckedChange} />);
-		fireEvent.click(screen.getByRole("switch").parentElement!);
+		fireEvent.click(screen.getByRole("switch"));
 		expect(onCheckedChange).not.toHaveBeenCalled();
+	});
+
+	it("activates a labeled switch when its visible label is clicked", () => {
+		const onCheckedChange = vi.fn();
+		render(<Switch label="Enable feature" onCheckedChange={onCheckedChange} />);
+		const control = screen.getByRole("switch", { name: "Enable feature" });
+		fireEvent.click(screen.getByText("Enable feature"));
+		expect(control.getAttribute("aria-checked")).toBe("true");
+		expect(onCheckedChange).toHaveBeenCalledExactlyOnceWith(true);
 	});
 });

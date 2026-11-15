@@ -57,27 +57,31 @@ export function useAgentCodeTokens(code: string, language: AgentCodeLanguage) {
 		if (tokenCache.has(key)) return;
 
 		let cancelled = false;
-		getAgentCodeHighlighter().then((highlighter) => {
-			if (cancelled) return;
-			const lines = highlighter
-				.codeToTokensWithThemes(code, {
-					lang: language,
-					themes: {
-						light: LIGHT_THEME,
-						dark: DARK_THEME,
-					},
-				})
-				.map((line) =>
-					line.map((token) => ({
-						content: token.content,
-						offset: token.offset,
-						light: token.variants.light?.color,
-						dark: token.variants.dark?.color,
-					})),
-				);
-			setCachedTokens(key, lines);
-			setResult({ key, code, language, lines });
-		});
+		void getAgentCodeHighlighter()
+			.then((highlighter) => {
+				if (cancelled) return;
+				const lines = highlighter
+					.codeToTokensWithThemes(code, {
+						lang: language,
+						themes: {
+							light: LIGHT_THEME,
+							dark: DARK_THEME,
+						},
+					})
+					.map((line) =>
+						line.map((token) => ({
+							content: token.content,
+							offset: token.offset,
+							light: token.variants.light?.color,
+							dark: token.variants.dark?.color,
+						})),
+					);
+				setCachedTokens(key, lines);
+				setResult({ key, code, language, lines });
+			})
+			.catch(() => {
+				// Keep the plain-text fallback when optional syntax highlighting cannot load.
+			});
 		return () => {
 			cancelled = true;
 		};

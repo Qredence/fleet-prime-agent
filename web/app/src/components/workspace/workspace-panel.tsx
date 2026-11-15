@@ -4,14 +4,18 @@ import type {
 	WorkspaceTreeResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import { CircleAlert, FileText, HardDrive, type LucideIcon } from "lucide-react";
-import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileTree, FileTreeFile, FileTreeFolder } from "@/components/workspace/file-tree";
 import { ResourceChipSection } from "@/components/workspace/resources-panel";
-import { useWorkspaceSplitLayout } from "@/hooks/workspace/use-workspace-split-layout";
+import {
+	nextWorkspaceTreeWidthFromKey,
+	WORKSPACE_TREE_MIN_WIDTH_PX,
+	useWorkspaceSplitLayout,
+} from "@/hooks/workspace/use-workspace-split-layout";
 import { isDaytonaNotConnectedError } from "@/lib/chat/chat-helpers";
 import {
 	CHAT_PANEL_BREAKPOINT_PX,
@@ -126,7 +130,16 @@ export function WorkspacePanelContent({
 	const [previewError, setPreviewError] = useState<Error | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
 	const previewRef = useRef<HTMLDivElement | null>(null);
-	const { handleTreeResizeStart, isSplitLayout, splitRef, splitStyle } = useWorkspaceSplitLayout();
+	const {
+		handleTreeResizeBy,
+		handleTreeResizeStart,
+		isSplitLayout,
+		containerWidth,
+		splitRef,
+		splitStyle,
+		treeWidth,
+		treeWidthMax,
+	} = useWorkspaceSplitLayout();
 
 	const scopedView = useMemo(() => {
 		if (!workspace) {
@@ -313,6 +326,9 @@ export function WorkspacePanelContent({
 			role="separator"
 			aria-orientation="vertical"
 			aria-label="Resize workspace tree"
+			aria-valuemin={WORKSPACE_TREE_MIN_WIDTH_PX}
+			aria-valuemax={treeWidthMax}
+			aria-valuenow={treeWidth}
 			tabIndex={0}
 			className={cn(
 				"min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10",
@@ -320,7 +336,13 @@ export function WorkspacePanelContent({
 				isSplitLayout && "[grid-area:handle]",
 			)}
 			data-testid="workspace-tree-resize-handle"
-			onPointerDown={(event) => handleTreeResizeStart(event as unknown as ReactPointerEvent<HTMLButtonElement>)}
+			onPointerDown={handleTreeResizeStart}
+			onKeyDown={(event) => {
+				if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+				event.preventDefault();
+				const nextWidth = nextWorkspaceTreeWidthFromKey(event.key, event.shiftKey, treeWidth, containerWidth);
+				handleTreeResizeBy(nextWidth - treeWidth);
+			}}
 		/>
 	);
 

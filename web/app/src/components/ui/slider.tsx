@@ -157,7 +157,7 @@ function ValueDisplay({
 
 	const commitEdit = useCallback(
 		(index: number) => {
-			const parsed = parseFloat(inputValue);
+			const parsed = Number.parseFloat(inputValue);
 			if (!Number.isNaN(parsed)) {
 				const clamped = clampNumber(parsed, min, max);
 				const snapped = stepValues
@@ -217,9 +217,14 @@ function ValueDisplay({
 		}
 
 		return (
-			<span className="cursor-text select-none" onClick={() => onStartEdit(index)}>
+			<button
+				type="button"
+				className="cursor-text select-none border-0 bg-transparent p-0 text-inherit"
+				aria-label={`Edit ${label || "slider value"}${isRange ? (index === 0 ? " (start)" : " (end)") : ""}`}
+				onClick={() => onStartEdit(index)}
+			>
 				{formatValue(values[index])}
-			</span>
+			</button>
 		);
 	};
 

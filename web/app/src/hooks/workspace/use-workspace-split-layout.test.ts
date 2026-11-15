@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	clampWorkspaceTreeWidth,
+	nextWorkspaceTreeWidthFromKey,
 	nextWorkspaceTreeWidthFromPointer,
 	WORKSPACE_PREVIEW_MIN_WIDTH_PX,
 	WORKSPACE_SPLIT_HANDLE_WIDTH_PX,
@@ -20,6 +21,11 @@ describe("workspace split layout helpers", () => {
 		const startWidth = 200;
 		expect(nextWorkspaceTreeWidthFromPointer(100, 140, startWidth, containerWidth)).toBe(240);
 		expect(nextWorkspaceTreeWidthFromPointer(180, 140, startWidth, containerWidth)).toBe(160);
+	});
+
+	it("resizes the right-side tree with standard and accelerated keyboard steps", () => {
+		expect(nextWorkspaceTreeWidthFromKey("ArrowLeft", false, 200, 800)).toBe(210);
+		expect(nextWorkspaceTreeWidthFromKey("ArrowRight", true, 200, 800)).toBe(160);
 	});
 
 	it("clamps tree width so the preview keeps a minimum", () => {

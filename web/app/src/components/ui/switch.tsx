@@ -118,7 +118,13 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 		}, [thumbX, motionX, thumbTransition]);
 
 		const handlePointerDown = useCallback(
-			(e: React.PointerEvent<HTMLDivElement>) => {
+			(e: {
+				button: number;
+				clientX: number;
+				currentTarget: { setPointerCapture?: (pointerId: number) => void };
+				pointerId: number;
+				pointerType: string;
+			}) => {
 				if (disabled) return;
 				if (e.pointerType === "mouse" && e.button !== 0) return;
 				setPressed(true);
@@ -136,7 +142,7 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 		);
 
 		const handlePointerMove = useCallback(
-			(e: React.PointerEvent<HTMLDivElement>) => {
+			(e: { clientX: number }) => {
 				if (!pointerStart.current) return;
 				const delta = e.clientX - pointerStart.current.clientX;
 
@@ -201,26 +207,7 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 			<div
 				ref={ref}
 				data-slot="switch-field"
-				className={cn(
-					"relative z-10 inline-flex items-center cursor-pointer select-none touch-none",
-					label
-						? cn("w-fit", sizeClasses.gap, sizeClasses.px, sizeClasses.variant === "compact" ? "py-1" : "py-2")
-						: "",
-					disabled && "opacity-50 pointer-events-none",
-					className,
-				)}
-				onPointerEnter={(e) => {
-					if (e.pointerType === "mouse") setHovered(true);
-				}}
-				onPointerLeave={() => setHovered(false)}
-				onPointerDown={handlePointerDown}
-				onPointerMove={handlePointerMove}
-				onPointerUp={handlePointerUp}
-				onPointerCancel={handlePointerCancel}
-				onClick={() => {
-					if (disabled || didDrag.current) return;
-					commitToggle();
-				}}
+				className={cn("inline-flex items-center", disabled && "opacity-50", className)}
 				{...props}
 			>
 				<SwitchPrimitive.Root
@@ -233,74 +220,91 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 						if (didDrag.current) return;
 						commitToggle(next);
 					}}
+					onPointerEnter={(e) => {
+						if (e.pointerType === "mouse") setHovered(true);
+					}}
+					onPointerLeave={() => setHovered(false)}
+					onPointerDown={handlePointerDown}
+					onPointerMove={handlePointerMove}
+					onPointerUp={handlePointerUp}
+					onPointerCancel={handlePointerCancel}
 					disabled={disabled}
 					tabIndex={0}
 					className={cn(
-						"relative shrink-0 outline-none cursor-pointer transition-colors duration-80",
+						"relative z-10 inline-flex items-center outline-none cursor-pointer select-none touch-none transition-colors duration-80",
+						label &&
+							cn("w-fit", sizeClasses.gap, sizeClasses.px, sizeClasses.variant === "compact" ? "py-1" : "py-2"),
 						sharp ? "rounded-none" : "rounded-full",
 						"focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 					)}
-					style={{
-						width: metrics.trackWidth,
-						height: metrics.trackHeight,
-						backgroundColor: checked
-							? hovered
-								? "color-mix(in oklab, var(--fluid-accent, #6B97FF), black 8%)"
-								: "var(--fluid-accent, #6B97FF)"
-							: hovered
-								? "color-mix(in oklab, var(--accent), rgb(var(--overlay)) 10%)"
-								: "var(--accent)",
-					}}
 					onClick={(e) => e.stopPropagation()}
 				>
-					<SwitchPrimitive.Thumb
-						data-slot="switch-thumb"
-						render={(thumbProps) => {
-							const { style: baseStyle, ...baseProps } = thumbProps as React.HTMLAttributes<HTMLSpanElement>;
-							const rest = omit(baseProps, [
-								"onDrag",
-								"onDragStart",
-								"onDragEnd",
-								"onAnimationStart",
-								"onAnimationEnd",
-								"onAnimationIteration",
-							]);
-							return (
-								<m.span
-									{...rest}
-									className={cn(
-										"absolute top-0 left-0 block bg-white shadow-sm",
-										sharp ? "rounded-none" : "rounded-full",
-									)}
-									initial={false}
-									style={{
-										...(baseStyle as React.CSSProperties | undefined),
-										x: motionX,
-									}}
-									animate={{
-										y: thumbY,
-										width: thumbWidth,
-										height: thumbHeight,
-									}}
-									transition={hasMounted.current ? (thumbTransition ?? spring.moderate) : { duration: 0 }}
-								/>
-							);
-						}}
-					/>
-				</SwitchPrimitive.Root>
-
-				{label ? (
 					<span
-						id={labelId}
+						aria-hidden="true"
 						className={cn(
-							"[text-box:trim-both_cap_alphabetic] transition-[color] duration-80",
-							sizeClasses.text,
-							checked ? "text-foreground" : "text-muted-foreground",
+							"relative block shrink-0 transition-colors duration-80",
+							sharp ? "rounded-none" : "rounded-full",
 						)}
+						style={{
+							width: metrics.trackWidth,
+							height: metrics.trackHeight,
+							backgroundColor: checked
+								? hovered
+									? "color-mix(in oklab, var(--fluid-accent, #6B97FF), black 8%)"
+									: "var(--fluid-accent, #6B97FF)"
+								: hovered
+									? "color-mix(in oklab, var(--accent), rgb(var(--overlay)) 10%)"
+									: "var(--accent)",
+						}}
 					>
-						{label}
+						<SwitchPrimitive.Thumb
+							data-slot="switch-thumb"
+							render={(thumbProps) => {
+								const { style: baseStyle, ...baseProps } = thumbProps as React.HTMLAttributes<HTMLSpanElement>;
+								const rest = omit(baseProps, [
+									"onDrag",
+									"onDragStart",
+									"onDragEnd",
+									"onAnimationStart",
+									"onAnimationEnd",
+									"onAnimationIteration",
+								]);
+								return (
+									<m.span
+										{...rest}
+										className={cn(
+											"absolute top-0 left-0 block bg-white shadow-sm",
+											sharp ? "rounded-none" : "rounded-full",
+										)}
+										initial={false}
+										style={{
+											...(baseStyle as React.CSSProperties | undefined),
+											x: motionX,
+										}}
+										animate={{
+											y: thumbY,
+											width: thumbWidth,
+											height: thumbHeight,
+										}}
+										transition={hasMounted.current ? (thumbTransition ?? spring.moderate) : { duration: 0 }}
+									/>
+								);
+							}}
+						/>
 					</span>
-				) : null}
+					{label ? (
+						<span
+							id={labelId}
+							className={cn(
+								"[text-box:trim-both_cap_alphabetic] transition-[color] duration-80",
+								sizeClasses.text,
+								checked ? "text-foreground" : "text-muted-foreground",
+							)}
+						>
+							{label}
+						</span>
+					) : null}
+				</SwitchPrimitive.Root>
 			</div>
 		);
 	},

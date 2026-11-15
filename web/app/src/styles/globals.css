@@ -11,27 +11,29 @@
 /** Invisible 40x40 centered hit-area expander for visually dense isolated controls. */
 @utility hit-area-expand {
 	position: relative;
-	&::after {
-		content: "";
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 2.5rem;
-		height: 2.5rem;
-		transform: translate(-50%, -50%);
-	}
+}
+
+.hit-area-expand::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 2.5rem;
+	height: 2.5rem;
+	transform: translate(-50%, -50%);
 }
 
 /** Vertical-only hit-area expander for adjacent dense controls (no horizontal overlap). */
 @utility hit-area-expand-dense {
 	position: relative;
-	&::after {
-		content: "";
-		position: absolute;
-		inset-inline: 0;
-		top: -0.375rem;
-		bottom: -0.375rem;
-	}
+}
+
+.hit-area-expand-dense::after {
+	content: "";
+	position: absolute;
+	inset-inline: 0;
+	top: -0.375rem;
+	bottom: -0.375rem;
 }
 
 /** Shared chat thread and composer column measure. */

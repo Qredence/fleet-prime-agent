@@ -800,7 +800,6 @@ function SettingsDialogBody({
 								id={`panel-${activeTab}`}
 								role="region"
 								aria-label={activeSection.title}
-								tabIndex={0}
 								className="min-w-0 w-full max-w-full p-4 outline-none [overflow-wrap:anywhere] sm:p-6"
 							>
 								{visited.map((id) => (

@@ -133,7 +133,6 @@ const CardGroup = forwardRef<HTMLDivElement, CardGroupProps>(
 					onMouseEnter={fluidHover ? handlers.onMouseEnter : undefined}
 					onMouseMove={fluidHover ? handlers.onMouseMove : undefined}
 					onMouseLeave={fluidHover ? handlers.onMouseLeave : undefined}
-					onClick={fluidHover ? handlers.onClick : undefined}
 				>
 					<FluidHoverHighlight hover={hover} hidden={!fluidHover} className={cn("z-0", shape.container)} />
 					{indexed}

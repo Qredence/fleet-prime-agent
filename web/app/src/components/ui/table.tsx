@@ -121,20 +121,6 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 				? headHover.itemRects[headHover.activeIndex]
 				: undefined;
 		const headRect = headCell ? { ...headCell, height: headCell.height - 1 } : null;
-		const [pressedHead, setPressedHead] = useState<number | null>(null);
-		const headPressed = pressedHead !== null && pressedHead === headHover.activeIndex;
-		const setHeadPressed = (on: boolean) => setPressedHead(on ? headHover.activeIndex : null);
-		useEffect(() => {
-			if (pressedHead === null) return;
-			const release = () => setPressedHead(null);
-			window.addEventListener("pointerup", release);
-			window.addEventListener("pointercancel", release);
-			return () => {
-				window.removeEventListener("pointerup", release);
-				window.removeEventListener("pointercancel", release);
-			};
-		}, [pressedHead]);
-
 		const contextValue = useMemo(
 			() => ({ registerItem, activeStore, selected, registerHead }),
 			[registerItem, activeStore, selected, registerHead],
@@ -145,6 +131,8 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 				<div
 					ref={containerRef}
 					data-slot="table-container"
+					role="group"
+					tabIndex={-1}
 					className="relative"
 					onMouseEnter={(e) => {
 						headHover.handlers.onMouseEnter();
@@ -158,12 +146,6 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 						headHover.handlers.onMouseLeave();
 						if (fromPointer(e)) handlers.onMouseLeave();
 					}}
-					onPointerDown={(e) => {
-						if (e.button !== 0) return;
-						const th = (e.target as HTMLElement).closest("th[data-head-hover]");
-						if (th && containerRef.current?.contains(th)) setHeadPressed(true);
-					}}
-					onClick={handlers.onClick}
 					onKeyDown={(e) => {
 						if (e.repeat && !repeating && e.key.startsWith("Arrow")) setRepeating(true);
 					}}
@@ -194,7 +176,7 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 					<FluidHoverHighlight
 						rect={headRect}
 						session={headHover.session}
-						className={cn(shape.bg, "transition-[background-color] duration-80", headPressed && "bg-active")}
+						className={cn(shape.bg, "transition-[background-color] duration-80")}
 					/>
 
 					<table
