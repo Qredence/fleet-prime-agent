@@ -30,9 +30,15 @@ describe("Switch pointer activation", () => {
 
 	it("ignores captured clicks when disabled", () => {
 		const onCheckedChange = vi.fn();
-		render(<Switch disabled aria-label="Enable feature" onCheckedChange={onCheckedChange} />);
-		fireEvent.click(screen.getByRole("switch"));
+		const { container } = render(<Switch disabled aria-label="Enable feature" onCheckedChange={onCheckedChange} />);
+		const control = screen.getByRole("switch");
+		fireEvent.pointerEnter(control, { pointerType: "mouse" });
+		fireEvent.click(control);
 		expect(onCheckedChange).not.toHaveBeenCalled();
+		expect(control.className).toContain("cursor-not-allowed");
+		expect(container.querySelector('[aria-hidden="true"]')?.getAttribute("style")).toContain(
+			"background-color: var(--accent)",
+		);
 	});
 
 	it("activates a labeled switch when its visible label is clicked", () => {

@@ -131,8 +131,6 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 				<div
 					ref={containerRef}
 					data-slot="table-container"
-					role="group"
-					tabIndex={-1}
 					className="relative"
 					onMouseEnter={(e) => {
 						headHover.handlers.onMouseEnter();

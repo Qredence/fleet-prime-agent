@@ -121,6 +121,7 @@ interface ValueDisplayProps {
 	stepValues: number[] | null;
 	formatValue: (v: number) => string;
 	label?: string;
+	disabled: boolean;
 	isRange: boolean;
 	isInteracting: boolean;
 }
@@ -137,6 +138,7 @@ function ValueDisplay({
 	stepValues,
 	formatValue,
 	label,
+	disabled,
 	isRange,
 	isInteracting,
 }: ValueDisplayProps) {
@@ -193,6 +195,7 @@ function ValueDisplay({
 								ref={inputRef}
 								type="number"
 								value={inputValue}
+								disabled={disabled}
 								min={min}
 								max={max}
 								step={stepValues ? "any" : step}
@@ -219,8 +222,9 @@ function ValueDisplay({
 		return (
 			<button
 				type="button"
+				disabled={disabled}
 				className="cursor-text select-none border-0 bg-transparent p-0 text-inherit"
-				aria-label={`Edit ${label || "slider value"}${isRange ? (index === 0 ? " (start)" : " (end)") : ""}`}
+				aria-label={`${label ? `${label}: ` : ""}${formatValue(values[index])} (edit${isRange ? (index === 0 ? " start" : " end") : ""})`}
 				onClick={() => onStartEdit(index)}
 			>
 				{formatValue(values[index])}
@@ -653,6 +657,7 @@ const CompactSlider = forwardRef<HTMLDivElement, SliderEngineProps>(
 				stepValues={stepValues}
 				formatValue={formatValue}
 				label={label}
+				disabled={disabled}
 				isRange={isRange}
 				isInteracting={isInteracting}
 			/>

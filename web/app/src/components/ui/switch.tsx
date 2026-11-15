@@ -98,13 +98,15 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 			[checked, checkedProp, onCheckedChange, onToggle],
 		);
 
-		const thumbWidth = pressed
+		const isHovered = hovered && !disabled;
+		const isPressed = pressed && !disabled;
+		const thumbWidth = isPressed
 			? metrics.thumbSize + metrics.pressExtend
-			: hovered
+			: isHovered
 				? metrics.thumbSize + metrics.pillExtend
 				: metrics.thumbSize;
-		const thumbHeight = pressed ? metrics.thumbSize - metrics.pressShrink : metrics.thumbSize;
-		const thumbY = pressed ? THUMB_OFFSET + metrics.pressShrink / 2 : THUMB_OFFSET;
+		const thumbHeight = isPressed ? metrics.thumbSize - metrics.pressShrink : metrics.thumbSize;
+		const thumbY = isPressed ? THUMB_OFFSET + metrics.pressShrink / 2 : THUMB_OFFSET;
 		const extraWidth = thumbWidth - metrics.thumbSize;
 		const thumbX = checked ? THUMB_OFFSET + thumbTravel - extraWidth : THUMB_OFFSET;
 
@@ -221,7 +223,7 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 						commitToggle(next);
 					}}
 					onPointerEnter={(e) => {
-						if (e.pointerType === "mouse") setHovered(true);
+						if (!disabled && e.pointerType === "mouse") setHovered(true);
 					}}
 					onPointerLeave={() => setHovered(false)}
 					onPointerDown={handlePointerDown}
@@ -231,7 +233,8 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 					disabled={disabled}
 					tabIndex={0}
 					className={cn(
-						"relative z-10 inline-flex items-center outline-none cursor-pointer select-none touch-none transition-colors duration-80",
+						"relative z-10 inline-flex items-center outline-none select-none touch-none transition-colors duration-80",
+						disabled ? "cursor-not-allowed" : "cursor-pointer",
 						label &&
 							cn("w-fit", sizeClasses.gap, sizeClasses.px, sizeClasses.variant === "compact" ? "py-1" : "py-2"),
 						sharp ? "rounded-none" : "rounded-full",
@@ -249,10 +252,10 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 							width: metrics.trackWidth,
 							height: metrics.trackHeight,
 							backgroundColor: checked
-								? hovered
+								? isHovered
 									? "color-mix(in oklab, var(--fluid-accent, #6B97FF), black 8%)"
 									: "var(--fluid-accent, #6B97FF)"
-								: hovered
+								: isHovered
 									? "color-mix(in oklab, var(--accent), rgb(var(--overlay)) 10%)"
 									: "var(--accent)",
 						}}

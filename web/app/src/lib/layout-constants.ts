@@ -31,5 +31,3 @@ export const RESOURCE_CANVAS_MAIN_CONTENT_MIN_WIDTH_PX = 360;
  */
 export const DESKTOP_PANEL_HIDDEN_FLEX = "hidden min-[960px]:flex";
 export const DESKTOP_PANEL_ONLY = "min-[960px]:hidden";
-export const WORKSPACE_SPLIT_HIDDEN_BLOCK = "hidden min-[640px]:block";
-export const WORKSPACE_SPLIT_GAP_RESET = "min-[640px]:gap-0";

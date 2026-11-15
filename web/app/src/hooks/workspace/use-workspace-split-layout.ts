@@ -85,11 +85,12 @@ export function useWorkspaceSplitLayout() {
 	const [containerWidth, setContainerWidth] = useState(0);
 	const splitElementRef = useRef<HTMLDivElement | null>(null);
 	const observerRef = useRef<ResizeObserver | null>(null);
-	const isSplitLayout = useSyncExternalStore(
+	const viewportAllowsSplit = useSyncExternalStore(
 		subscribeWorkspaceSplit,
 		getWorkspaceSplitSnapshot,
 		getServerWorkspaceSplitSnapshot,
 	);
+	const isSplitLayout = viewportAllowsSplit && containerWidth >= WORKSPACE_SPLIT_MIN_WIDTH_PX;
 	const splitRef = useCallback((split: HTMLDivElement | null) => {
 		observerRef.current?.disconnect();
 		observerRef.current = null;

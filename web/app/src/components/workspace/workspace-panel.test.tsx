@@ -83,6 +83,26 @@ function renderPanel(overrides: Partial<WorkspacePanelContentProps> = {}) {
 	};
 }
 
+function setWorkspaceSplitMetrics(containerWidth: number) {
+	Object.defineProperty(window, "matchMedia", {
+		configurable: true,
+		value: (query: string) => ({
+			matches: true,
+			media: query,
+			onchange: null,
+			addListener: vi.fn(),
+			removeListener: vi.fn(),
+			addEventListener: vi.fn(),
+			removeEventListener: vi.fn(),
+			dispatchEvent: vi.fn(),
+		}),
+	});
+	Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+		configurable: true,
+		get: () => containerWidth,
+	});
+}
+
 beforeEach(() => {
 	window.localStorage.clear();
 	Object.defineProperty(window, "matchMedia", {
@@ -105,6 +125,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	Reflect.deleteProperty(HTMLElement.prototype, "clientWidth");
 	vi.useRealTimers();
 });
 
@@ -128,6 +149,36 @@ describe("WorkspacePanelContent file tree", () => {
 		expect(docs.getAttribute("aria-expanded")).toBe("false");
 		expect(queryByRole("treeitem", { name: "README.md" })).toBeNull();
 		expect(getByRole("treeitem", { name: "notes.md" })).toBeTruthy();
+	});
+
+	it("resizes the workspace tree from the keyboard without intercepting browser shortcuts", () => {
+		setWorkspaceSplitMetrics(800);
+		const { getByTestId } = renderPanel();
+		const handle = getByTestId("workspace-tree-resize-handle");
+
+		expect(handle.classList.contains("hidden")).toBe(false);
+		expect(handle.getAttribute("aria-valuenow")).toBe("200");
+		fireEvent.keyDown(handle, { key: "ArrowLeft" });
+		expect(handle.getAttribute("aria-valuenow")).toBe("210");
+		fireEvent.keyDown(handle, { key: "ArrowRight", shiftKey: true });
+		expect(handle.getAttribute("aria-valuenow")).toBe("170");
+
+		for (const modifier of ["altKey", "ctrlKey", "metaKey"] as const) {
+			fireEvent.keyDown(handle, { key: "ArrowLeft", [modifier]: true });
+			expect(handle.getAttribute("aria-valuenow")).toBe("170");
+		}
+	});
+
+	it("keeps the workspace stacked when its container is narrower than the split breakpoint", () => {
+		setWorkspaceSplitMetrics(500);
+		const { getByTestId } = renderPanel();
+		const handle = getByTestId("workspace-tree-resize-handle");
+		const container = handle.parentElement;
+
+		expect(handle.classList.contains("hidden")).toBe(true);
+		expect(container?.style.gridTemplateColumns).toBe("");
+		fireEvent.keyDown(handle, { key: "ArrowLeft" });
+		expect(handle.getAttribute("aria-valuenow")).toBe("200");
 	});
 
 	it("expands folders without selecting them", () => {

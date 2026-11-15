@@ -17,11 +17,7 @@ import {
 	useWorkspaceSplitLayout,
 } from "@/hooks/workspace/use-workspace-split-layout";
 import { isDaytonaNotConnectedError } from "@/lib/chat/chat-helpers";
-import {
-	CHAT_PANEL_BREAKPOINT_PX,
-	WORKSPACE_SPLIT_GAP_RESET,
-	WORKSPACE_SPLIT_HIDDEN_BLOCK,
-} from "@/lib/layout-constants";
+import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
 import { cn } from "@/lib/utils";
 import { findWorkspaceNode } from "@/lib/workspace/resource-helpers";
 import { isPathWithinScope } from "@/lib/workspace/workspace-path-nav";
@@ -332,12 +328,12 @@ export function WorkspacePanelContent({
 			tabIndex={0}
 			className={cn(
 				"min-h-0 cursor-col-resize touch-none bg-transparent transition-colors outline-none hover:bg-foreground/10 focus-visible:bg-foreground/10",
-				WORKSPACE_SPLIT_HIDDEN_BLOCK,
-				isSplitLayout && "[grid-area:handle]",
+				isSplitLayout ? "[grid-area:handle]" : "hidden",
 			)}
 			data-testid="workspace-tree-resize-handle"
 			onPointerDown={handleTreeResizeStart}
 			onKeyDown={(event) => {
+				if (!isSplitLayout || event.altKey || event.ctrlKey || event.metaKey) return;
 				if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
 				event.preventDefault();
 				const nextWidth = nextWorkspaceTreeWidthFromKey(event.key, event.shiftKey, treeWidth, containerWidth);
@@ -362,7 +358,10 @@ export function WorkspacePanelContent({
 	return (
 		<div
 			ref={splitRef}
-			className={`relative grid h-full min-h-0 grid-cols-1 gap-2 overflow-hidden ${WORKSPACE_SPLIT_GAP_RESET} ${isSplitLayout ? "[grid-template-areas:'preview_handle_tree']" : ""}`}
+			className={cn(
+				"relative grid h-full min-h-0 grid-cols-1 overflow-hidden",
+				isSplitLayout ? "gap-0 [grid-template-areas:'preview_handle_tree']" : "gap-2",
+			)}
 			style={splitStyle}
 		>
 			{/* Stable DOM order avoids remounting tree/preview across the split breakpoint;
