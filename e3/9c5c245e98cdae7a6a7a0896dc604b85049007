@@ -1,0 +1,26 @@
+web/app/src/components/ui/slider.test.tsx
+  h_f276322eb5eb9f 44,49-58
+web/app/src/components/ui/slider.tsx
+  h_f276322eb5eb9f 124,141,198,225,227,660
+web/app/src/components/ui/switch.test.tsx
+  h_f276322eb5eb9f 33-36,38-41
+web/app/src/components/ui/switch.tsx
+  h_f276322eb5eb9f 101-103,105,108-109,226,236-237,255,258
+web/app/src/components/workspace/workspace-panel.test.tsx
+  h_f276322eb5eb9f 86-105,128,154-183
+web/app/src/components/workspace/workspace-panel.tsx
+  h_f276322eb5eb9f 20,331,336,361-364
+web/app/src/hooks/workspace/use-workspace-split-layout.ts
+  h_f276322eb5eb9f 88,93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e39c5c245e98cdae7a6a7a0896dc604b85049007",
+  "prompts": {},
+  "humans": {
+    "h_f276322eb5eb9f": {
+      "author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
