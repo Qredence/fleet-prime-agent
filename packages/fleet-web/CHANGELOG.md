@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.2
+
+### Patch Changes
+
+- 0424f78: Refresh bundled React and web dependencies. The minimum supported Node.js version remains 22.12.0.
+
 ## 0.13.1
 
 ### Patch Changes
