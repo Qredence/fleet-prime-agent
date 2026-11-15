@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { GenerativeTextRenderer } from "@/components/openui/openui-renderer";
 
 // Isolate diagnostics from the segmenter's root-first admission rule.
-vi.mock("@/components/openui/openui-utils", () => ({
+vi.mock("@/lib/openui/openui-utils", () => ({
 	segmentOpenUIContent: (content: string) => [{ id: "openui-0", type: "openui", content }],
 }));
 

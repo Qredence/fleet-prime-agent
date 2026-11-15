@@ -1,29 +1,32 @@
 import type { ChatResourceInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { ItemRow } from "@/components/layout/item-row";
+import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
+import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { Select } from "@/components/ui/select";
 import {
 	addUniqueSettingsResource,
 	resourceOptionValue,
 	settingsResourceListIncludes,
 	toSettingsResourcePath,
-} from "@/components/settings/settings-resource-path";
-import { Button } from "@/components/ui/button";
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
-import { Select } from "@/components/ui/select";
+} from "@/lib/settings/settings-resource-path";
 
 /**
  * List editor that prefers Select when catalog entries exist (e.g. detected
- * agent-workspace skills). Existing values are always ItemRows; free-text is
+ * agent-workspace skills). Existing values are always rows; free-text is
  * only for adding when no catalog options remain.
  */
 export function CatalogValueList({
+	sectionId = "resource-paths",
 	addLabel,
 	catalog,
 	onChange,
 	placeholder,
 	values,
 }: {
+	sectionId?: string;
 	addLabel: string;
 	catalog: Array<ChatResourceInfo>;
 	onChange: (values: Array<string>) => void;
@@ -31,6 +34,12 @@ export function CatalogValueList({
 	values: Array<string>;
 }) {
 	const [custom, setCustom] = useState("");
+	const resetVersion = useSettingsDraft(sectionId, { dirty: custom.length > 0, busy: false });
+	const [syncedResetVersion, setSyncedResetVersion] = useState(resetVersion);
+	if (resetVersion !== syncedResetVersion) {
+		setSyncedResetVersion(resetVersion);
+		setCustom("");
+	}
 
 	const seenValues = new Set<string>();
 	const options: Array<{ value: string; label: string }> = [];
@@ -63,13 +72,25 @@ export function CatalogValueList({
 			) : (
 				values.map((value) => {
 					const catalogLabel = catalogLabelFor(value);
+					const subtitle = catalogLabel && catalogLabel !== value ? value : undefined;
 					return (
-						<ItemRow
+						<Item
 							key={value}
-							interactive={false}
-							title={catalogLabel ?? value}
-							subtitle={catalogLabel && catalogLabel !== value ? value : undefined}
-							trailing={
+							variant="outline"
+							size="sm"
+							className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+						>
+							<ItemContent className="min-w-0 gap-0.5">
+								<ItemTitle className="w-full truncate text-sm font-medium text-foreground">
+									{catalogLabel ?? value}
+								</ItemTitle>
+								{subtitle ? (
+									<ItemDescription className="truncate text-xs text-muted-foreground">
+										{subtitle}
+									</ItemDescription>
+								) : null}
+							</ItemContent>
+							<ItemActions className="shrink-0">
 								<Button
 									type="button"
 									variant="ghost"
@@ -79,8 +100,8 @@ export function CatalogValueList({
 								>
 									<Trash2 />
 								</Button>
-							}
-						/>
+							</ItemActions>
+						</Item>
 					);
 				})
 			)}
@@ -96,28 +117,27 @@ export function CatalogValueList({
 						onChange(addUniqueSettingsResource(values, next));
 					}}
 				/>
-			) : (
-				<InputGroup>
-					<InputGroupInput
-						aria-label={addLabel}
-						value={custom}
-						onChange={(event) => setCustom(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault();
-								addCustom();
-							}
-						}}
-						placeholder={placeholder}
-					/>
-					<InputGroupAddon align="inline-end">
-						<InputGroupButton onClick={addCustom} disabled={!custom.trim()}>
-							<Plus data-icon="inline-start" />
-							Add
-						</InputGroupButton>
-					</InputGroupAddon>
-				</InputGroup>
-			)}
+			) : null}
+			<InputGroup>
+				<InputGroupInput
+					aria-label={addLabel}
+					value={custom}
+					onChange={(event) => setCustom(event.target.value)}
+					onKeyDown={(event) => {
+						if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+							event.preventDefault();
+							addCustom();
+						}
+					}}
+					placeholder={placeholder}
+				/>
+				<InputGroupAddon align="inline-end">
+					<InputGroupButton onClick={addCustom} disabled={!custom.trim()}>
+						<Plus data-icon="inline-start" />
+						Add
+					</InputGroupButton>
+				</InputGroupAddon>
+			</InputGroup>
 		</div>
 	);
 }

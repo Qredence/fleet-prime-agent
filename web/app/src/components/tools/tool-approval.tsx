@@ -3,9 +3,10 @@
 import { Check, ChevronDown, CircleAlert, LoaderCircle, ShieldCheck, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
-import { AgentDisclosure } from "@/components/tools/agent-disclosure";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
-import { EASE_OUT, SPRING_PRESS, SPRING_SWAP } from "@/lib/ease";
+import { EASE_OUT, SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
 export type ToolApprovalStatus = "pending" | "approving" | "approved" | "denied" | "running" | "complete" | "error";
@@ -128,7 +129,7 @@ export function ToolApproval({
 					</div>
 					<span
 						className={cn(
-							"shrink-0 rounded-full border px-2 py-0.5 text-caption font-medium transition-colors",
+							"shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors",
 							getStatusBadgeClass(status),
 						)}
 					>
@@ -138,36 +139,41 @@ export function ToolApproval({
 				{description ? <ItemDescription className="mt-1 leading-5">{description}</ItemDescription> : null}
 
 				{parameters.length ? (
-					<button
-						type="button"
-						aria-expanded={currentOpen}
-						aria-controls={detailsId}
-						onClick={() => setOpen(!currentOpen)}
-						className="mt-2 inline-flex items-center gap-1 rounded-md text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-					>
-						View details
-						<m.span
-							aria-hidden="true"
-							animate={{ rotate: currentOpen ? 180 : 0 }}
-							transition={reduce ? { duration: 0 } : SPRING_SWAP}
+					<Collapsible open={currentOpen} onOpenChange={setOpen}>
+						<CollapsibleTrigger
+							render={
+								<Button
+									type="button"
+									variant="ghost"
+									size="compact"
+									className="mt-2 h-auto gap-1 px-0 py-0.5 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-foreground"
+								/>
+							}
 						>
-							<ChevronDown className="size-3.5" />
-						</m.span>
-					</button>
-				) : null}
-				<AgentDisclosure id={detailsId} open={currentOpen}>
-					<dl className="mt-3 grid gap-2 rounded-xl border border-border/50 bg-background/70 p-3">
-						{parameters.map((parameter) => (
-							<div
-								key={parameter.id}
-								className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] items-center gap-3 text-xs"
+							View details
+							<m.span
+								aria-hidden="true"
+								animate={{ rotate: currentOpen ? 180 : 0 }}
+								transition={reduce ? { duration: 0 } : SPRING_SWAP}
 							>
-								<dt className="text-muted-foreground">{parameter.label}</dt>
-								<dd className="min-w-0 break-words font-mono text-foreground/85">{parameter.value}</dd>
-							</div>
-						))}
-					</dl>
-				</AgentDisclosure>
+								<ChevronDown className="size-3.5" />
+							</m.span>
+						</CollapsibleTrigger>
+						<CollapsibleContent id={detailsId} keepMounted className="overflow-hidden">
+							<dl className="mt-3 grid gap-2 rounded-xl border border-border/50 bg-background/70 p-3">
+								{parameters.map((parameter) => (
+									<div
+										key={parameter.id}
+										className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] items-center gap-3 text-xs"
+									>
+										<dt className="text-muted-foreground">{parameter.label}</dt>
+										<dd className="min-w-0 break-words font-mono text-foreground/85">{parameter.value}</dd>
+									</div>
+								))}
+							</dl>
+						</CollapsibleContent>
+					</Collapsible>
+				) : null}
 
 				<AnimatePresence initial={false}>
 					{pending ? (
@@ -179,33 +185,29 @@ export function ToolApproval({
 							className="mt-2"
 						>
 							<ItemActions className="flex-wrap">
-								<m.button
+								<Button
 									type="button"
+									variant="primary"
+									size="compact"
 									onClick={onApprove}
-									whileTap={reduce ? undefined : { scale: 0.96 }}
-									transition={SPRING_PRESS}
-									className="rounded-xl bg-foreground px-3 py-1.5 text-xs font-medium text-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+									className="rounded-xl enabled:active:scale-[0.96]"
 								>
 									Allow once
-								</m.button>
+								</Button>
 								{onAlwaysAllow ? (
-									<m.button
+									<Button
 										type="button"
+										variant="outline"
+										size="compact"
 										onClick={onAlwaysAllow}
-										whileTap={reduce ? undefined : { scale: 0.96 }}
-										transition={SPRING_PRESS}
-										className="rounded-xl border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+										className="rounded-xl enabled:active:scale-[0.96]"
 									>
 										Always allow
-									</m.button>
+									</Button>
 								) : null}
-								<button
-									type="button"
-									onClick={onDeny}
-									className="rounded-xl px-3 py-1.5 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-								>
+								<Button type="button" variant="ghost" size="compact" onClick={onDeny} className="rounded-xl">
 									Deny
-								</button>
+								</Button>
 							</ItemActions>
 						</m.div>
 					) : null}

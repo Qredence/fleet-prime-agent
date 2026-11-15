@@ -3,9 +3,11 @@
 import { Ban, Check, ChevronDown, CircleX, Copy, FileCode2, LoaderCircle } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { type AgentCodeLanguage, AgentCodeLine, useAgentCodeTokens } from "@/components/tools/agent-code";
-import { AgentDisclosure } from "@/components/tools/agent-disclosure";
-import { SPRING_PRESS, SPRING_SWAP } from "@/lib/ease";
+import { AgentCodeLine } from "@/components/tools/tool-code-block";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { SPRING_SWAP } from "@/lib/ease";
+import { type AgentCodeLanguage, useAgentCodeTokens } from "@/lib/shiki-highlight";
 import { cn } from "@/lib/utils";
 
 export type FileDiffStatus = "streaming" | "complete" | "error" | "cancelled";
@@ -133,14 +135,22 @@ export function FileDiff({
 	}, [copyText, onCopy]);
 
 	return (
-		<div data-state={status} aria-busy={streaming} className={cn("w-full text-sm", className)}>
-			<button
-				id={triggerId}
-				type="button"
-				aria-expanded={currentOpen}
-				aria-controls={contentId}
-				onClick={() => setOpen(!currentOpen)}
-				className="group flex min-h-9 w-full items-center gap-2 rounded-md py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+		<Collapsible
+			open={currentOpen}
+			onOpenChange={setOpen}
+			data-state={status}
+			aria-busy={streaming}
+			className={cn("w-full text-sm", className)}
+		>
+			<CollapsibleTrigger
+				render={
+					<Button
+						id={triggerId}
+						type="button"
+						variant="ghost"
+						className="group flex h-auto min-h-9 w-full justify-start gap-2 rounded-md px-0 py-1 text-left font-normal text-foreground hover:bg-transparent [&>span]:w-full [&>span>span]:w-full"
+					/>
+				}
 			>
 				<FileCode2 aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 				<span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground/80">{file}</span>
@@ -167,16 +177,22 @@ export function FileDiff({
 				>
 					<ChevronDown className="size-3.5" />
 				</m.span>
-			</button>
+			</CollapsibleTrigger>
 
-			<AgentDisclosure id={contentId} role="region" aria-labelledby={triggerId} open={currentOpen}>
+			<CollapsibleContent
+				id={contentId}
+				keepMounted
+				role="region"
+				aria-labelledby={triggerId}
+				className="overflow-hidden"
+			>
 				<div className="pl-6 pt-1.5">
 					<div className="overflow-hidden rounded-xl bg-muted/80">
 						<div
 							ref={viewportRef}
 							data-slot="file-diff-viewport"
 							aria-live={streaming ? "off" : "polite"}
-							className="scrollbar-hide overflow-auto"
+							className="no-scrollbar overflow-auto"
 							style={{ maxHeight }}
 						>
 							<div className="font-mono text-xs leading-5">
@@ -220,22 +236,22 @@ export function FileDiff({
 
 						{canCopy ? (
 							<div className="flex justify-end px-2 pb-1.5 pt-1">
-								<m.button
+								<Button
 									type="button"
+									variant="ghost"
+									size="icon-compact"
 									aria-label={copied ? "Copied" : "Copy diff"}
 									title={copied ? "Copied" : "Copy diff"}
 									onClick={handleCopy}
-									whileTap={reduce ? undefined : { scale: 0.96 }}
-									transition={SPRING_PRESS}
-									className="grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-background/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+									className="size-7 text-muted-foreground hover:bg-background/70 hover:text-foreground enabled:active:scale-[0.96]"
 								>
 									{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-								</m.button>
+								</Button>
 							</div>
 						) : null}
 					</div>
 				</div>
-			</AgentDisclosure>
-		</div>
+			</CollapsibleContent>
+		</Collapsible>
 	);
 }

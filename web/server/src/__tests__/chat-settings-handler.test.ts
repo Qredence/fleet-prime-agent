@@ -298,6 +298,41 @@ describe("provider availability", () => {
 });
 
 describe("chat settings writes", () => {
+	it("honors explicit project and global destinations", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "fleet-explicit-scope-"));
+		const agentDir = join(dir, "user");
+		mocks.cwdForRequest.mockResolvedValue(dir);
+		mocks.getPrimeConfig.mockReturnValue({ agentDir, invalidateSettings: vi.fn() } as never);
+		try {
+			for (const scope of ["project", "global"] as const) {
+				const response = await handleChatSettingsPatch(
+					new Request("http://localhost/api/chat/settings", {
+						method: "PATCH",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({ scope, settings: { defaultModel: scope } }),
+					}),
+				);
+				expect(response.status).toBe(200);
+				const body = (await response.json()) as {
+					effective: { defaultModel: string };
+					globalEffective: { defaultModel: string };
+					writeScope: string;
+				};
+				expect(body.writeScope).toBe(scope);
+				if (scope === "global") {
+					expect(body.effective.defaultModel).toBe("project");
+					expect(body.globalEffective.defaultModel).toBe("global");
+				}
+			}
+			expect(JSON.parse(readFileSync(join(dir, ".prime", "agent", "settings.json"), "utf8")).defaultModel).toBe(
+				"project",
+			);
+			expect(JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf8")).defaultModel).toBe("global");
+		} finally {
+			mocks.cwdForRequest.mockResolvedValue("/workspace/project");
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
 	it("writes the patch to the global settings file and reports the consequences", async () => {
 		const agentDir = mkdtempSync(join(tmpdir(), "fleet-settings-handler-"));
 		writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ transport: "auto", agentTraces: true }), "utf8");

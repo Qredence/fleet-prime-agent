@@ -4,8 +4,9 @@ import { Check, CircleAlert, RotateCcw } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
 import { useHoverCapable } from "@/hooks/use-hover-capable";
-import { EASE_IN_OUT, EASE_OUT, SPRING_PRESS } from "@/lib/ease";
+import { EASE_IN_OUT, EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
 export type ImageGenerationStatus = "queued" | "generating" | "refining" | "complete" | "error";
@@ -288,7 +289,7 @@ export function ImageGeneration({
 					</AnimatePresence>
 
 					{resolution ? (
-						<span className="absolute top-2 right-2 z-10 rounded-full bg-background/75 px-2 py-0.5 font-mono text-micro tabular-nums text-muted-foreground">
+						<span className="absolute top-2 right-2 z-10 rounded-full bg-background/75 px-2 py-0.5 font-mono text-xs tabular-nums text-muted-foreground">
 							{resolution}
 						</span>
 					) : null}
@@ -330,16 +331,15 @@ export function ImageGeneration({
 				</AnimatePresence>
 
 				{status === "error" && onRetry ? (
-					<m.button
+					<Button
 						type="button"
+						variant="ghost"
 						onClick={onRetry}
-						whileTap={reduce ? undefined : { scale: 0.96 }}
-						transition={SPRING_PRESS}
-						className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+						className="mt-3 min-h-10 gap-2 rounded-full px-3 text-sm font-medium text-foreground hover:bg-muted enabled:active:scale-[0.96]"
 					>
 						<RotateCcw aria-hidden="true" className="size-4" />
 						Try again
-					</m.button>
+					</Button>
 				) : null}
 			</div>
 		</div>

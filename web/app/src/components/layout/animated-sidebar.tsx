@@ -17,9 +17,8 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { useHydrated } from "@/hooks/use-hydrated";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { EASE_DRAWER, EASE_OUT } from "@/lib/ease";
 import { SESSION_SIDEBAR_WIDTH_CSS } from "@/lib/layout-constants";
@@ -52,15 +51,6 @@ const REDUCED_TRANSITION = {
 	duration: 0.16,
 	ease: EASE_OUT,
 } as const;
-
-const FOCUSABLE_SELECTOR = [
-	"a[href]",
-	"button:not([disabled])",
-	"input:not([disabled])",
-	"select:not([disabled])",
-	"textarea:not([disabled])",
-	"[tabindex]:not([tabindex='-1'])",
-].join(",");
 
 interface AnimatedSidebarContextValue {
 	isMobile: boolean;
@@ -197,14 +187,13 @@ export function AnimatedSidebarProvider({
 			<div
 				{...props}
 				data-slot="sidebar-wrapper"
+				data-mobile={isMobile ? "true" : undefined}
 				data-state={desktopOpen ? "expanded" : "collapsed"}
-				style={{
-					"--sidebar-width": "16rem",
-					"--sidebar-width-icon": "4.25rem",
-					"--sidebar-width-mobile": "18rem",
-					...style,
-				}}
-				className={cn("group/sidebar-wrapper flex min-h-svh w-full min-w-0", className)}
+				style={style}
+				className={cn(
+					"group/sidebar-wrapper flex min-h-svh w-full min-w-0 [--sidebar-width:16rem] [--sidebar-width-icon:4.25rem] [--sidebar-width-mobile:18rem]",
+					className,
+				)}
 			>
 				{children}
 			</div>
@@ -247,131 +236,31 @@ function MobileSidebar({
 	side: SidebarSide;
 }) {
 	const context = useAnimatedSidebar();
-	const panelRef = useRef<HTMLDivElement>(null);
-	const mounted = useHydrated();
 	const mobilePanelContextValue = useMemo(() => ({ collapsed: false, collapsible: "none" as const, side }), [side]);
 
-	useEffect(() => {
-		if (!context.openMobile) return;
-
-		const panel = panelRef.current;
-		if (!panel) return;
-		const trigger = context.triggerRef.current;
-		const body = document.body;
-		const scrollY = window.scrollY;
-		const previousBodyStyles = {
-			left: body.style.left,
-			overflow: body.style.overflow,
-			position: body.style.position,
-			right: body.style.right,
-			top: body.style.top,
-		};
-
-		body.style.position = "fixed";
-		body.style.top = `-${scrollY}px`;
-		body.style.left = "0";
-		body.style.right = "0";
-		body.style.overflow = "hidden";
-
-		const focusFrame = requestAnimationFrame(() => {
-			const firstFocusable = panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-			(firstFocusable ?? panel).focus({ preventScroll: true });
-		});
-
-		return () => {
-			cancelAnimationFrame(focusFrame);
-			body.style.position = previousBodyStyles.position;
-			body.style.top = previousBodyStyles.top;
-			body.style.left = previousBodyStyles.left;
-			body.style.right = previousBodyStyles.right;
-			body.style.overflow = previousBodyStyles.overflow;
-			window.scrollTo(0, scrollY);
-			trigger?.focus({ preventScroll: true });
-		};
-	}, [context.openMobile, context.triggerRef, mounted]);
-
-	if (!mounted) return null;
-
-	return createPortal(
-		<div
+	return (
+		<MobileDrawer
+			open={context.openMobile}
+			onClose={() => context.setOpenMobile(false)}
+			side={side}
+			modal={false}
+			triggerRef={context.triggerRef}
+			ariaLabel={ariaLabel}
 			className={cn(
-				"pointer-events-none fixed inset-0 z-50 md:hidden",
-				context.openMobile ? "visible" : "invisible",
+				"[--sidebar-width-mobile:18rem] w-(--sidebar-width-mobile) max-w-[88vw] p-0 md:hidden",
+				className,
 			)}
 		>
-			<m.button
-				type="button"
-				aria-label="Close sidebar"
-				tabIndex={context.openMobile ? 0 : -1}
-				initial={false}
-				animate={{ opacity: context.openMobile ? 1 : 0 }}
-				transition={context.reduce ? REDUCED_TRANSITION : PANEL_TRANSITION}
-				onClick={() => context.setOpenMobile(false)}
-				className={cn(
-					"absolute inset-0 bg-black/40",
-					context.openMobile ? "pointer-events-auto" : "pointer-events-none",
-				)}
-			/>
-
-			<m.div
-				ref={panelRef}
-				role="dialog"
-				aria-modal="true"
-				aria-label={ariaLabel}
-				aria-hidden={!context.openMobile}
-				inert={!context.openMobile}
-				tabIndex={-1}
-				data-mobile="true"
+			<div
 				data-state={context.openMobile ? "expanded" : "collapsed"}
 				data-side={side}
-				initial={false}
-				animate={{
-					opacity: context.reduce ? (context.openMobile ? 1 : 0) : 1,
-					x: context.reduce ? 0 : context.openMobile ? "0%" : side === "left" ? "-100%" : "100%",
-				}}
-				transition={context.reduce ? REDUCED_TRANSITION : PANEL_TRANSITION}
-				onKeyDown={(event) => {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						context.setOpenMobile(false);
-						return;
-					}
-
-					if (event.key !== "Tab") return;
-					const focusable = panelRef.current
-						? Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-						: [];
-
-					if (focusable.length === 0) {
-						event.preventDefault();
-						panelRef.current?.focus();
-						return;
-					}
-
-					const first = focusable[0];
-					const last = focusable[focusable.length - 1];
-					if (event.shiftKey && document.activeElement === first) {
-						event.preventDefault();
-						last.focus();
-					} else if (!event.shiftKey && document.activeElement === last) {
-						event.preventDefault();
-						first.focus();
-					}
-				}}
-				className={cn(
-					"pointer-events-auto absolute inset-y-0 flex h-dvh w-(--sidebar-width-mobile) max-w-[88vw] flex-col overflow-hidden",
-					"border-border bg-background shadow-2xl will-change-transform",
-					side === "left" ? "left-0 border-r" : "right-0 border-l",
-					!context.openMobile && "pointer-events-none",
-					className,
-				)}
+				className="flex h-full min-h-0 flex-col overflow-hidden"
 			>
 				<AnimatedSidebarPanelContext.Provider value={mobilePanelContextValue}>
 					{children}
 				</AnimatedSidebarPanelContext.Provider>
-			</m.div>
-		</div>,
-		document.body,
+			</div>
+		</MobileDrawer>
 	);
 }
 
@@ -512,10 +401,12 @@ export const AnimatedSidebarRail = forwardRef<HTMLButtonElement, AnimatedSidebar
 	const panel = useAnimatedSidebarPanel();
 
 	return (
-		<button
+		<Button
 			{...props}
 			ref={forwardedRef}
 			type={type}
+			variant="ghost"
+			size="icon-compact"
 			data-side={panel.side}
 			aria-label={props["aria-label"] ?? "Toggle sidebar"}
 			title="Toggle sidebar"
@@ -525,7 +416,7 @@ export const AnimatedSidebarRail = forwardRef<HTMLButtonElement, AnimatedSidebar
 				if (!event.defaultPrevented) context.toggleSidebar();
 			}}
 			className={cn(
-				"absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 outline-none md:block",
+				"!absolute !inset-y-0 !z-20 !hidden !h-auto !w-4 !-translate-x-1/2 !rounded-none !p-0 !shadow-none outline-none md:!block",
 				"after:absolute after:inset-y-0 after:left-1/2 after:w-px after:bg-transparent after:transition-colors hover:after:bg-border",
 				"data-[side=right]:right-0 data-[side=right]:translate-x-1/2 data-[side=left]:left-full",
 				className,
@@ -623,7 +514,7 @@ export const AnimatedSidebarGroupLabel = forwardRef<HTMLDivElement, HTMLAttribut
 				aria-hidden={collapsed}
 				data-slot="sidebar-group-label"
 				className={cn(
-					"mb-1 flex h-7 items-center overflow-hidden px-2 text-micro font-medium uppercase tracking-[0.14em] text-muted-foreground transition-opacity",
+					"mb-1 flex h-7 items-center overflow-hidden px-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground transition-opacity",
 					collapsed ? "opacity-0" : "opacity-100",
 					className,
 				)}

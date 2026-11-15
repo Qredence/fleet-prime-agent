@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useState } from "react";
-import { runWorkspaceAction } from "@/components/chat/chat-error-notify";
-import type { SettingsSlashTab } from "@/components/chat/composer/slash-commands";
+import { runWorkspaceAction } from "@/lib/chat/chat-error-notify";
+import type { SettingsSlashTab } from "@/lib/chat/slash-commands";
 import type { ForkPickerEntry } from "@/components/chat/fork-picker-dialog";
-import type { useChatWorkspaceData } from "@/components/chat/use-chat-workspace-data";
+import type { useChatWorkspaceData } from "@/hooks/chat/use-chat-workspace-data";
 
 type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
 

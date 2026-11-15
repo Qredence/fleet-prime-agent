@@ -1,18 +1,49 @@
-import type * as React from "react";
+"use client";
 
+import { forwardRef, type TextareaHTMLAttributes } from "react";
+import { fontWeights } from "@/lib/fluid/font-weight";
+import { useShape } from "@/lib/fluid/shape-context";
+import { useSize, type SizeVariant } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+	/** Pins the text and padding to one step of the size ladder. */
+	size?: SizeVariant;
+}
+
+const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, size, style, ...props }, ref) => {
+	const shape = useShape();
+	const sizeClasses = useSize(size);
+	const compact = sizeClasses.variant === "compact";
+
 	return (
 		<textarea
+			ref={ref}
 			data-slot="textarea"
 			className={cn(
-				"flex field-sizing-content min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+				"w-full min-w-0 border border-border bg-transparent text-foreground outline-none",
+				"field-sizing-content resize-none",
+				"transition-[background-color,border-color] duration-80",
+				"placeholder:text-muted-foreground",
+				"hover:bg-hover",
+				"aria-invalid:border-destructive/50",
+				"focus:border-foreground/40 aria-invalid:focus:border-foreground/40 focus:hover:bg-transparent",
+				"disabled:opacity-50 disabled:pointer-events-none",
+				compact ? "min-h-[64px] py-1" : "min-h-[76px] py-[7px]",
+				compact ? "max-h-[190px]" : "max-h-[216px]",
+				shape.variant === "pill" ? shape.mergedBg : shape.input,
+				sizeClasses.px,
+				sizeClasses.field,
 				className,
 			)}
+			style={{ fontVariationSettings: fontWeights.normal, ...style }}
 			{...props}
 		/>
 	);
-}
+});
+
+Textarea.displayName = "Textarea";
 
 export { Textarea };
+export type { TextareaProps };
+export default Textarea;

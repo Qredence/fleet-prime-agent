@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Plus, X } from "lucide-react";
 import { useRef } from "react";
-import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -93,6 +92,7 @@ export function TabStrip({
 				onValueChange={(next) => {
 					if (typeof next === "string") onValueChange(next);
 				}}
+				size={density}
 				value={value}
 			>
 				<TabsList
@@ -128,9 +128,9 @@ export function TabStrip({
 									aria-controls={panelId}
 									aria-label={accessibleName}
 									className={cn(
-										"h-7 w-full min-w-0 justify-start text-start text-label font-medium leading-none",
-										"rounded-[7px] !shadow-none after:hidden",
-										compact ? "gap-0.5 !px-1.5" : "gap-1.5 !px-2",
+										"h-7 w-full min-w-0 justify-start text-start text-xs font-medium leading-none",
+										"rounded-[7px] !border-0 !shadow-none after:hidden",
+										compact ? "gap-0.5 !px-1" : "gap-1.5 !px-2",
 										// The `ui/tabs` data-active variants outrank plain utilities,
 										// so state colors have to be important to win.
 										active
@@ -156,7 +156,7 @@ export function TabStrip({
 										<span className={cn("flex shrink-0 items-center", compact ? "gap-0.5" : "gap-1")}>
 											<Icon aria-hidden="true" className="size-3.5 shrink-0" />
 											{tab.badge !== undefined ? (
-												<span className="text-caption tabular-nums">{tab.badge}</span>
+												<span className="text-xs tabular-nums">{tab.badge}</span>
 											) : null}
 										</span>
 									) : tab.dotClassName ? (
@@ -193,10 +193,7 @@ export function TabStrip({
 			{onNewSession ? (
 				<Button
 					aria-label="New chat"
-					className={cn(
-						HIT_AREA_EXPAND_DENSE_CLASS,
-						"relative z-10 size-7 shrink-0 rounded-[7px] text-foreground/50 hover:bg-foreground/7 hover:text-foreground/85",
-					)}
+					className="hit-area-expand-dense relative z-10 size-7 shrink-0 rounded-[7px] text-foreground/50 hover:bg-foreground/7 hover:text-foreground/85"
 					data-testid="new-chat-tab"
 					onClick={(event) => {
 						event.preventDefault();

@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 
 export function ProductPageHeader({ active }: { active: "agents" | "connectors" }) {
 	return (
-		<header className="flex h-14 items-center justify-between border-b border-border/70 px-5 sm:px-8">
+		<header className="flex h-[var(--density-header-height)] items-center justify-between border-b border-border/70 px-[var(--density-pad-x)]">
 			<Link to="/" className="text-sm font-semibold tracking-tight">
 				Fleet Prime
 			</Link>
@@ -31,7 +32,12 @@ function NavLink({
 		<Link
 			to={to}
 			aria-current={active ? "page" : undefined}
-			className={`rounded-md px-3 py-1.5 text-sm transition-colors ${active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"}`}
+			className={cn(
+				"rounded-md px-3 py-1.5 text-sm transition-colors",
+				active
+					? "bg-muted font-medium text-foreground"
+					: "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+			)}
 		>
 			{children}
 		</Link>

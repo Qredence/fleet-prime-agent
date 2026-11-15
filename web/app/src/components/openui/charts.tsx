@@ -2,7 +2,7 @@ import { defineComponent } from "@openuidev/react-lang";
 import { CartesianGrid, Cell, Line, Pie, PieChart, LineChart as RechartsLineChart, XAxis } from "recharts";
 import { z } from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, sanitizeChartColor } from "@/components/ui/chart";
 
 const CHART_FALLBACK_COLORS = [1, 2, 3, 4, 5].map((n) => `var(--chart-${n})`);
 
@@ -11,7 +11,9 @@ function buildChartConfig(series: Array<{ dataKey: string; label: string; color?
 	series.forEach((entry, index) => {
 		config[entry.dataKey] = {
 			label: entry.label,
-			color: entry.color ?? CHART_FALLBACK_COLORS[index % CHART_FALLBACK_COLORS.length]!,
+			color:
+				(entry.color ? sanitizeChartColor(entry.color) : undefined) ??
+				CHART_FALLBACK_COLORS[index % CHART_FALLBACK_COLORS.length]!,
 		};
 	});
 	return config;
@@ -19,7 +21,7 @@ function buildChartConfig(series: Array<{ dataKey: string; label: string; color?
 
 function EmptyChartNotice() {
 	return (
-		<div className="flex min-h-[120px] w-full items-center justify-center rounded-md border border-border/50 text-[0.75rem] text-foreground/40">
+		<div className="flex min-h-[120px] w-full items-center justify-center rounded-md border border-border/50 text-xs text-muted-foreground">
 			No data
 		</div>
 	);
@@ -138,7 +140,13 @@ function DonutChartComponent({
 									strokeWidth={0}
 								>
 									{valid.map((segment, index) => (
-										<Cell key={segment.label} fill={segment.color ?? CHART_FALLBACK_COLORS[index % 5]} />
+										<Cell
+											key={segment.label}
+											fill={
+												(segment.color ? sanitizeChartColor(segment.color) : undefined) ??
+												CHART_FALLBACK_COLORS[index % 5]
+											}
+										/>
 									))}
 								</Pie>
 							</PieChart>

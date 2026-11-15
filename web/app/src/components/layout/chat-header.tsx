@@ -1,9 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
 import { BookOpenText, ChevronDown, Settings } from "lucide-react";
 import { AnimatedSidebarTrigger } from "@/components/layout/animated-sidebar";
-import { ChromePillButton } from "@/components/layout/chrome-pill";
 import { RightPanelLauncherFromContext } from "@/components/layout/right-panel-launcher";
 import { AgentTabBar, type AgentTabItem } from "@/components/sessions/agent-tab-bar";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -42,28 +42,30 @@ function AccountMenu({
 	className?: string;
 }) {
 	const menuItemClass =
-		"flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label leading-4 text-foreground transition-colors hover:bg-foreground/6";
+		"flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs leading-4 text-foreground transition-colors hover:bg-foreground/6";
 
 	return (
 		<div className={cn("flex min-w-0 items-center gap-2", className)}>
 			<Popover>
 				<PopoverTrigger
 					render={
-						<ChromePillButton
-							ariaLabel="Open account menu"
+						<Button
+							type="button"
+							variant="ghost"
+							size="compact"
+							aria-label="Open account menu"
+							title="Open account menu"
 							className={cn(
-								"min-w-0 border-transparent shadow-none",
+								"relative inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-transparent bg-sidebar text-xs font-medium whitespace-nowrap text-foreground/55 shadow-none backdrop-blur transition-colors hover:bg-background hover:text-foreground/75",
 								compact ? "size-8 justify-center px-2" : "w-full justify-start px-2 text-start",
 							)}
 						>
 							<QredenceLogo className="size-3.5 shrink-0" />
-							<span
-								className={compact ? "sr-only" : "text-body font-medium tracking-[-0.01em] whitespace-nowrap"}
-							>
+							<span className={compact ? "sr-only" : "text-sm font-medium tracking-[-0.01em] whitespace-nowrap"}>
 								{label}
 							</span>
 							<ChevronDown className="size-3.5 shrink-0 text-foreground/35" />
-						</ChromePillButton>
+						</Button>
 					}
 				/>
 				<PopoverContent side="bottom" align="start" sideOffset={6} className="w-56 gap-0 p-1">
@@ -72,10 +74,16 @@ function AccountMenu({
 						<span className="truncate">Documentation</span>
 					</a>
 					{onOpenSettings && (
-						<button type="button" className={menuItemClass} onClick={onOpenSettings}>
+						<Button
+							type="button"
+							variant="ghost"
+							size="compact"
+							className="h-auto w-full justify-start gap-2 rounded-sm px-2 py-1.5 text-left text-xs font-normal leading-4 text-foreground shadow-none hover:bg-foreground/6"
+							onClick={onOpenSettings}
+						>
 							<Settings className="size-3.5 shrink-0 text-foreground/50" />
 							<span className="truncate">Settings</span>
-						</button>
+						</Button>
 					)}
 				</PopoverContent>
 			</Popover>

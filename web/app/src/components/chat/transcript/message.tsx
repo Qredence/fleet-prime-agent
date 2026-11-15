@@ -96,13 +96,10 @@ export function Message({
 							})
 				}
 				transition={transition ?? (reduce ? { duration: 0.12 } : MESSAGE_POP_UP)}
-				style={{
-					transformOrigin: from === "user" ? "100% 100%" : "0% 100%",
-					...style,
-				}}
+				style={style}
 				className={cn(
 					"group/message flex w-full items-start gap-2",
-					from === "user" ? "flex-row-reverse" : "flex-row",
+					from === "user" ? "origin-bottom-right flex-row-reverse" : "origin-bottom-left flex-row",
 					className,
 				)}
 				{...props}

@@ -6,17 +6,17 @@ import type {
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { AlertCircle, Bot, RefreshCw } from "lucide-react";
 import { useCallback, useMemo, useRef } from "react";
-import { derivePrimeAgentArtifactRuns } from "@/components/artifacts/prime-agent-artifacts";
+import { derivePrimeAgentArtifactRuns } from "@/lib/artifacts/prime-agent-artifacts";
 import { SessionGenerativeTextRenderer } from "@/components/chat/generative-text-renderer";
-import { transcriptStatus } from "@/components/chat/subagents/subagent-utils";
-import { type ConversationTurn, groupMessages } from "@/components/chat/transcript/conversation-turns";
+import { transcriptStatus } from "@/lib/chat/subagent-utils";
+import { type ConversationTurn, groupMessages } from "@/lib/chat/conversation-turns";
 import { Message, MessageBubble, MessageBubbleContent, MessageContent } from "@/components/chat/transcript/message";
 import { MessageScroller } from "@/components/chat/transcript/message-scroller";
 import { buildAssistantElements } from "@/components/chat/transcript/message-turns";
 import { UserMessage } from "@/components/chat/transcript/user-message";
 import { VirtualizedTurnList } from "@/components/chat/transcript/virtualized-turn-list";
 import { SessionToolRenderer } from "@/components/tools/session-tool-renderer";
-import { SubagentList } from "@/components/tools/subagent-list";
+import { SubagentList } from "@/components/chat/subagents/subagent-list";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -192,21 +192,21 @@ export function SubagentTranscriptView({
 				<div className="min-w-0 flex-1">
 					<div className="flex min-w-0 items-center gap-2">
 						<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/80">{title}</span>
-						<span className="shrink-0 text-micro capitalize text-foreground/45">{child.status}</span>
+						<span className="shrink-0 text-xs capitalize text-foreground/45">{child.status}</span>
 					</div>
-					{child.model ? <p className="truncate font-mono text-micro text-foreground/40">{child.model}</p> : null}
+					{child.model ? <p className="truncate font-mono text-xs text-foreground/40">{child.model}</p> : null}
 					{heartbeatLabel ? (
-						<p className="truncate text-micro text-foreground/40">Heartbeat: {heartbeatLabel}</p>
+						<p className="truncate text-xs text-foreground/40">Heartbeat: {heartbeatLabel}</p>
 					) : null}
 					{child.progressNote && child.status === "running" ? (
-						<p className="truncate text-micro text-foreground/50" title={child.progressNote}>
+						<p className="truncate text-xs text-foreground/50" title={child.progressNote}>
 							Progress: {child.progressNote}
 						</p>
 					) : null}
 					{child.answerPreview ? (
 						<p
 							className={cn(
-								"mt-1 whitespace-pre-wrap text-caption leading-4 text-foreground/55",
+								"mt-1 whitespace-pre-wrap text-xs leading-4 text-foreground/55",
 								fullWidth ? "line-clamp-3" : "line-clamp-2",
 							)}
 						>
@@ -230,23 +230,23 @@ export function SubagentTranscriptView({
 			</div>
 
 			{!parentSessionId ? (
-				<p className="rounded-md border border-dashed border-border/70 p-3 text-caption leading-4 text-foreground/45">
+				<p className="rounded-md border border-dashed border-border/70 p-3 text-xs leading-4 text-foreground/45">
 					This subagent thread is unavailable until the parent session is active.
 				</p>
 			) : transcript?.status === "loading" ? (
-				<div className="flex min-h-32 flex-1 items-center justify-center text-caption text-foreground/45">
+				<div className="flex min-h-32 flex-1 items-center justify-center text-xs text-foreground/45">
 					Loading subagent thread…
 				</div>
 			) : transcript?.status === "error" && turns.length === 0 ? (
 				<div
 					role="alert"
-					className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption leading-4 text-destructive"
+					className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs leading-4 text-destructive"
 				>
 					<AlertCircle className="mt-0.5 size-3.5 shrink-0" />
 					<span>{transcript.error?.message ?? "Unable to load this subagent thread."}</span>
 				</div>
 			) : turns.length === 0 ? (
-				<p className="rounded-md border border-dashed border-border/70 p-3 text-caption leading-4 text-foreground/45">
+				<p className="rounded-md border border-dashed border-border/70 p-3 text-xs leading-4 text-foreground/45">
 					This subagent thread has no messages yet.
 				</p>
 			) : (
@@ -255,7 +255,7 @@ export function SubagentTranscriptView({
 						<div
 							role="alert"
 							className={cn(
-								"mb-2 flex shrink-0 items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-caption leading-4 text-destructive",
+								"mb-2 flex shrink-0 items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs leading-4 text-destructive",
 								fullWidth && "mx-4 mt-2 sm:mx-6",
 							)}
 						>

@@ -10,8 +10,8 @@ import {
 	useLayoutEffect,
 	useRef,
 } from "react";
-import { useMessageScrollerRail } from "@/components/chat/transcript/message-scroller-rail";
-import { PreviewRail } from "@/components/motion/preview-rail";
+import { useMessageScrollerRail } from "@/hooks/chat/message-scroller-rail";
+import { PreviewRail } from "@/components/chat/transcript/preview-rail";
 import { assignRef } from "@/lib/ref";
 import { cn } from "@/lib/utils";
 

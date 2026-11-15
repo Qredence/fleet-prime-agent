@@ -1,7 +1,10 @@
 import type { ComponentRenderProps, StateField } from "@openuidev/react-lang";
 import { defineComponent, reactive, useStateField } from "@openuidev/react-lang";
+import { ChevronDown } from "lucide-react";
 import { useId } from "react";
 import { z } from "zod/v4";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
@@ -72,14 +75,26 @@ function AccordionComponent({
 	return (
 		<div className="flex w-full flex-col gap-2">
 			{asList(items).map((item, index) => (
-				<details
+				<Collapsible
 					key={`${item.title}-${index}`}
-					open={item.open ?? false}
-					className="group w-full rounded-lg border bg-card px-3 py-2"
+					defaultOpen={item.open ?? false}
+					className="w-full rounded-lg border bg-card px-3 py-2"
 				>
-					<summary className="cursor-pointer list-none text-sm font-medium">{item.title}</summary>
-					<div className="flex flex-col gap-2 pt-2">{renderNode(item.content)}</div>
-				</details>
+					<CollapsibleTrigger
+						render={
+							<Button
+								type="button"
+								variant="ghost"
+								size="compact"
+								className="group h-auto w-full justify-between px-0 py-0 text-sm font-medium text-foreground hover:bg-transparent"
+							>
+								<span>{item.title}</span>
+								<ChevronDown className="size-4 text-muted-foreground transition-transform group-data-open:rotate-180" />
+							</Button>
+						}
+					/>
+					<CollapsibleContent className="flex flex-col gap-2 pt-2">{renderNode(item.content)}</CollapsibleContent>
+				</Collapsible>
 			))}
 		</div>
 	);

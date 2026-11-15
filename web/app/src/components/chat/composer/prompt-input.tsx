@@ -14,11 +14,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import {
-	PROMPT_GHOST_CLASS,
-	PROMPT_GHOST_PREFIX_CLASS,
-	PROMPT_TEXT_METRICS,
-} from "@/components/chat/composer/inline-completion";
+import { PROMPT_GHOST_CLASS, PROMPT_GHOST_PREFIX_CLASS, PROMPT_TEXT_METRICS } from "@/hooks/chat/inline-completion";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
 import { SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
@@ -172,7 +168,7 @@ export function PromptInput({
 		<form aria-label="Message composer" onSubmit={submit} className="w-full rounded-chat-input">
 			<InputGroup
 				className={cn(
-					"relative h-auto w-full flex-col rounded-chat-input border border-border/70 bg-sidebar p-2 dark:bg-sidebar has-disabled:bg-sidebar has-disabled:opacity-100 dark:has-disabled:bg-sidebar text-[color:var(--foreground)] shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-2 focus-within:ring-chat-input-focus-outline/25 has-[[data-slot=input-group-control]:focus-visible]:border-chat-input-focus-outline/45 has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-chat-input-focus-outline/25",
+					"relative h-auto w-full flex-col rounded-chat-input border border-border/70 bg-sidebar p-2 has-disabled:bg-sidebar has-disabled:opacity-100 text-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-2 focus-within:ring-chat-input-focus-outline/25 has-[[data-slot=input-group-control]:focus-visible]:border-chat-input-focus-outline/45 has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-chat-input-focus-outline/25",
 					disabled && "has-disabled:opacity-60",
 					className,
 				)}

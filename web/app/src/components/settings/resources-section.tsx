@@ -1,76 +1,59 @@
 import type { ChatPiSettings, ChatResourcesResponse } from "@prime-agent/web-protocol/chat-protocol";
-import type { ReactNode } from "react";
-import { ItemRow } from "@/components/layout/item-row";
-import { SettingsCommitActions, SettingsPane } from "@/components/layout/settings-pane";
-import { HarnessRuntimeSection } from "@/components/settings/harness-runtime-section";
+import { useState, type ReactNode } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useSettingsDraftState } from "@/hooks/settings/use-settings-draft-state";
+import { Input } from "@/components/ui/input";
 import { CatalogValueList } from "@/components/settings/lists";
+import { SettingsCommitActions, SettingsPane } from "@/components/settings/settings-pane";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Switch } from "@/components/ui/switch";
 
-export type ResourcesSectionScope = "skills" | "harness";
-
 export function ResourcesSection({
+	resourcesLoading,
+	resourcesError,
+	onRefresh,
 	draft,
 	onEnableSkillCommandsChange,
-	onExtensionsChange,
-	onPackageRowsChange,
-	onPromptsChange,
+	onSkillsChange,
 	onRevert,
 	onSave,
-	onSkillsChange,
-	onThemesChange,
-	packageError,
-	packageRows,
 	resourceDirty,
 	resources,
-	resourceSummary,
 	saving,
-	scope = "harness",
 	settingsLoading,
-	updateDraft,
 }: {
+	resourcesLoading?: boolean;
+	resourcesError?: Error | null;
+	onRefresh?: () => void;
 	draft: ChatPiSettings | null;
 	onEnableSkillCommandsChange: (enabled: boolean) => void;
-	onExtensionsChange: (extensions: Array<string>) => void;
-	onPackageRowsChange: (rows: Array<string>) => void;
-	onPromptsChange: (prompts: Array<string>) => void;
+	onSkillsChange: (skills: string[]) => void;
 	onRevert: () => void;
 	onSave: () => void;
-	onSkillsChange: (skills: Array<string>) => void;
-	onThemesChange: (themes: Array<string>) => void;
-	packageError?: string;
-	packageRows: Array<string>;
 	resourceDirty: boolean;
 	resources: ChatResourcesResponse | null;
-	resourceSummary: {
-		total: number;
-		reloadRequired: number;
-	};
 	saving: boolean;
-	scope?: ResourcesSectionScope;
 	settingsLoading: boolean;
-	updateDraft: (updater: (current: ChatPiSettings) => ChatPiSettings) => void;
 }) {
-	const disabled = !draft || settingsLoading || !!packageError;
-	const catalogSubtitle =
-		resourceSummary.total === 0
-			? "Empty"
-			: resourceSummary.reloadRequired > 0
-				? `${resourceSummary.total} · ${resourceSummary.reloadRequired} reload`
-				: `${resourceSummary.total}`;
-
-	const title = scope === "skills" ? "Skills" : "Pi Harness";
-	const description =
-		scope === "skills"
-			? "Pick detected workspace skills and slash-command discovery."
-			: "Runtime (compaction, retry, transport) plus packages, extensions, prompts, and themes.";
-
+	const localDrafts = useSettingsDraftState();
+	const [skillSearch, setSkillSearch] = useState("");
+	const visibleSkills = (resources?.skills ?? []).filter((skill) =>
+		`${skill.name} ${skill.description ?? ""} ${skill.path ?? ""} ${skill.scope ?? ""} ${skill.source ?? ""}`
+			.toLowerCase()
+			.includes(skillSearch.toLowerCase()),
+	);
+	const disabled = !draft || settingsLoading;
 	return (
 		<SettingsPane
-			title={title}
-			description={description}
+			title="Skills"
+			description="Browse discovered skills and configure additional skill paths."
 			actions={
 				<SettingsCommitActions
 					dirty={resourceDirty}
+					saveDisabled={localDrafts.dirtySections.includes("skills")}
 					disabled={disabled}
 					onRevert={onRevert}
 					onSave={onSave}
@@ -78,80 +61,121 @@ export function ResourcesSection({
 				/>
 			}
 		>
-			{scope === "skills" ? (
-				<>
-					<ItemRow
-						title="Skill slash commands"
-						trailing={
-							<Switch
-								aria-label="Skill slash commands"
-								checked={draft?.enableSkillCommands ?? true}
-								disabled={!draft}
-								onCheckedChange={onEnableSkillCommandsChange}
-							/>
-						}
+			<Item
+				variant="outline"
+				size="sm"
+				className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+			>
+				<ItemContent className="min-w-0 gap-0.5">
+					<ItemTitle className="w-full truncate text-sm font-medium text-foreground">
+						Skill slash commands
+					</ItemTitle>
+				</ItemContent>
+				<ItemActions className="shrink-0">
+					<Switch
+						aria-label="Skill slash commands"
+						checked={draft?.enableSkillCommands ?? true}
+						disabled={!draft}
+						onCheckedChange={onEnableSkillCommandsChange}
 					/>
-					<ResourceGroup label="Skills" count={draft?.skills.length ?? 0}>
-						<CatalogValueList
-							addLabel="Add skill"
-							catalog={resources?.skills ?? []}
-							placeholder="../agent-workspace/pi/skills"
-							values={draft?.skills ?? []}
-							onChange={onSkillsChange}
-						/>
-					</ResourceGroup>
-				</>
-			) : (
-				<>
-					<HarnessRuntimeSection draft={draft} updateDraft={updateDraft} />
-					<ItemRow
-						interactive={false}
-						title="Catalog"
-						subtitle={<span className="tabular-nums">{catalogSubtitle}</span>}
-					/>
-
-					<ResourceGroup label="Packages" count={packageRows.length}>
-						<CatalogValueList
-							addLabel="Add package"
-							catalog={resources?.packages ?? []}
-							placeholder='npm:pi-skills or {"source":"npm:pkg"}'
-							values={packageRows}
-							onChange={onPackageRowsChange}
-						/>
-						{packageError ? <p className="px-1 text-xs text-destructive">{packageError}</p> : null}
-					</ResourceGroup>
-
-					<ResourceGroup label="Extensions" count={draft?.extensions.length ?? 0}>
-						<CatalogValueList
-							addLabel="Add extension"
-							catalog={resources?.extensions ?? []}
-							placeholder="../agent-workspace/pi/extensions"
-							values={draft?.extensions ?? []}
-							onChange={onExtensionsChange}
-						/>
-					</ResourceGroup>
-
-					<ResourceGroup label="Prompts" count={draft?.prompts.length ?? 0}>
-						<CatalogValueList
-							addLabel="Add prompt"
-							catalog={resources?.prompts ?? []}
-							placeholder="../agent-workspace/pi/prompts"
-							values={draft?.prompts ?? []}
-							onChange={onPromptsChange}
-						/>
-					</ResourceGroup>
-
-					<ResourceGroup label="Themes" count={draft?.themes.length ?? 0}>
-						<CatalogValueList
-							addLabel="Add theme"
-							catalog={resources?.themes ?? []}
-							placeholder="../agent-workspace/pi/themes"
-							values={draft?.themes ?? []}
-							onChange={onThemesChange}
-						/>
-					</ResourceGroup>
-				</>
-			)}
+				</ItemActions>
+			</Item>
+			<div className="flex items-center gap-2">
+				<Button variant="outline" size="compact" disabled={resourcesLoading || !onRefresh} onClick={onRefresh}>
+					Refresh discovered skills
+				</Button>
+			</div>
+			{resourcesError ? (
+				<Alert variant="destructive">
+					<AlertDescription>Could not load skill discovery. Refresh to try again.</AlertDescription>
+				</Alert>
+			) : null}
+			{resourcesLoading ? <Skeleton className="h-12 w-full" aria-label="Loading skills" /> : null}
+			<p className="text-sm text-muted-foreground">
+				Additional search paths supplement Prime Agent’s default discovery. Removing a path does not uninstall a
+				skill.
+			</p>
+			<ResourceGroup label="Additional skill paths" count={draft?.skills.length ?? 0}>
+				<CatalogValueList
+					sectionId="skills"
+					addLabel="Add skill"
+					catalog={resources?.skills ?? []}
+					placeholder="../agent-workspace/pi/skills"
+					values={draft?.skills ?? []}
+					onChange={onSkillsChange}
+				/>
+			</ResourceGroup>
+			<Input
+				aria-label="Search discovered skills"
+				placeholder="Search discovered skills"
+				value={skillSearch}
+				onChange={(event) => setSkillSearch(event.target.value)}
+			/>
+			<p className="text-xs text-muted-foreground">
+				{resources?.snapshotState === "available"
+					? "Loaded in session marks skills reported by the active Prime Agent daemon. Other results come from configuration discovery."
+					: resources?.snapshotState === "empty"
+						? "The session snapshot is empty. Prime Agent initializes resources lazily; discovered skills below are not confirmed as loaded."
+						: "Showing configuration discovery. Session loading status is unavailable."}
+			</p>
+			<ResourceGroup label="Discovered skills" count={visibleSkills.length}>
+				{visibleSkills.map((skill) => (
+					<Collapsible key={skill.path ?? skill.name}>
+						<Item variant="outline">
+							<ItemContent>
+								<ItemTitle>{skill.name}</ItemTitle>
+								<ItemDescription>
+									{skill.loadedInSession ? "Loaded in session · Daemon snapshot" : "Configuration discovery"}
+								</ItemDescription>
+								{skill.description ? (
+									<ItemDescription className="line-clamp-2">{skill.description}</ItemDescription>
+								) : null}
+								<ItemDescription>
+									{skill.scope === "user"
+										? "User account"
+										: skill.scope === "project"
+											? "Project"
+											: skill.scope === "temporary"
+												? "Temporary"
+												: "Scope unavailable"}
+									{skill.origin === "package"
+										? " · Package"
+										: skill.origin === "top-level"
+											? " · Directory"
+											: ""}
+									{skill.source ? ` · ${skill.source}` : ""}
+								</ItemDescription>
+							</ItemContent>
+							<CollapsibleTrigger
+								render={
+									<Button variant="ghost" size="compact" aria-label={`Details for skill ${skill.name}`} />
+								}
+							>
+								Details
+							</CollapsibleTrigger>
+						</Item>
+						<CollapsibleContent className="flex flex-col gap-2 p-3 text-sm">
+							<p>{skill.description}</p>
+							<p className="break-all text-xs text-muted-foreground">{skill.path ?? "Path unavailable"}</p>
+						</CollapsibleContent>
+					</Collapsible>
+				))}
+				{visibleSkills.length === 0 ? (
+					<p className="text-sm text-muted-foreground">
+						{skillSearch ? "No matching discovered skills." : "No discovered skill metadata is available."}
+					</p>
+				) : null}
+			</ResourceGroup>
+			{resources?.diagnostics.length ? (
+				<div role="status" className="rounded-md border p-3 text-sm">
+					<p className="font-medium">Resource discovery diagnostics</p>
+					<ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
+						{resources.diagnostics.map((message, index) => (
+							<li key={`${index}:${message}`}>{message}</li>
+						))}
+					</ul>
+				</div>
+			) : null}
 		</SettingsPane>
 	);
 }

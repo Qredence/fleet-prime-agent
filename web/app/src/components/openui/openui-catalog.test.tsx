@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AccordionDef, KeyValueListDef, StepsDef, TabsDef } from "@/components/openui/openui-extra-components";
 import { openUILibrary } from "@/components/openui/openui-library";
-import { readStoredState, writeStoredState } from "@/components/openui/openui-state-store";
+import { readStoredState, writeStoredState } from "@/lib/openui/openui-state-store";
 
 function renderProgram(response: string) {
 	return render(<Renderer library={openUILibrary} response={response} />);

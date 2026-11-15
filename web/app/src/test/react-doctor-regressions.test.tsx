@@ -1,9 +1,9 @@
 import type { ChatSessionMetadata } from "@prime-agent/web-protocol/chat-protocol";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ChatClient } from "@/components/chat/chat-client";
-import { usePiChat } from "@/components/chat/use-pi-chat";
-import { ChromePillButton } from "@/components/layout/chrome-pill";
+import type { ChatClient } from "@/lib/chat/chat-client";
+import { usePiChat } from "@/hooks/chat/use-pi-chat";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 describe("React Doctor lifecycle and accessibility regressions", () => {
@@ -14,7 +14,7 @@ describe("React Doctor lifecycle and accessibility regressions", () => {
 	it("connects a Popover trigger to its popup with aria-controls", () => {
 		const { getByRole } = render(
 			<Popover defaultOpen>
-				<PopoverTrigger render={<button type="button">Choose model</button>} />
+				<PopoverTrigger render={<Button type="button">Choose model</Button>} />
 				<PopoverContent>
 					<div>Models</div>
 				</PopoverContent>
@@ -29,13 +29,19 @@ describe("React Doctor lifecycle and accessibility regressions", () => {
 		expect(popup).not.toBeNull();
 		expect(popup?.className).toContain("bg-popover");
 		expect(popup?.className).toContain("border");
-		expect(popup?.className).toContain("shadow-lg");
+		expect(popup?.className).toContain("shadow-surface-3");
 	});
 
 	it("opens a Popover from a shared product button", async () => {
 		const { getByRole, queryByText } = render(
 			<Popover>
-				<PopoverTrigger render={<ChromePillButton ariaLabel="Open account menu">Account</ChromePillButton>} />
+				<PopoverTrigger
+					render={
+						<Button type="button" variant="ghost" size="compact" aria-label="Open account menu">
+							Account
+						</Button>
+					}
+				/>
 				<PopoverContent>
 					<div>Account settings</div>
 				</PopoverContent>

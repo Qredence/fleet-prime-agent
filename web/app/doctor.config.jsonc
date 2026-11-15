@@ -1,138 +1,111 @@
 {
-  "$schema": "https://react.doctor/schema/config.json",
-  "ignore": {
-    "files": [
-      "**/prime-agent-visualization.html"
-    ],
-    "overrides": [
-      {
-        "files": ["src/components/openui/openui-library.tsx", "src/components/openui/charts.tsx"],
-        "rules": [
-          "react-doctor/no-multi-component-file",
-          "react-doctor/no-multi-comp",
-          "react-doctor/prefer-dynamic-import",
-          "react-doctor/no-array-index-as-key"
-        ]
-      },
-      {
-        "files": ["src/components/chat/use-pi-chat.ts"],
-        "rules": ["react-doctor/effect-needs-cleanup"]
-      },
-      {
-        "files": ["src/components/settings/providers/add-models-dialog.tsx"],
-        "rules": ["react-doctor/js-set-map-lookups"]
-      },
-      {
-        "files": ["src/components/workspace/workspace-panel.tsx"],
-        "rules": [
-          "react-doctor/no-adjust-state-on-prop-change",
-          "react-doctor/exhaustive-deps",
-          "react-doctor/no-loading-flag-reset-outside-finally"
-        ]
-      },
-      {
-        "files": ["src/components/ui/chart.tsx", "src/components/openui/data.tsx"],
-        "rules": ["react-doctor/prefer-dynamic-import"]
-      },
-      {
-        "files": ["src/components/chat/plans/plan-state.ts"],
-        "rules": ["deslop/unused-export"]
-      },
-      {
-        "files": ["src/components/sessions/session-sidebar/resource-tree.tsx"],
-        "rules": [
-          "react-doctor/no-render-prop-children",
-          "react-doctor/no-pass-live-state-to-parent",
-          "react-doctor/no-pass-data-to-parent",
-          "react-doctor/no-giant-component"
-        ]
-      },
-      {
-        "files": ["src/components/sessions/session-sidebar/project-list.tsx"],
-        "rules": ["react-doctor/no-render-prop-children"]
-      },
-      {
-        "files": ["src/components/sessions/session-sidebar/view-model.tsx"],
-        "rules": [
-          "react-doctor/no-pass-live-state-to-parent",
-          "react-doctor/no-pass-data-to-parent"
-        ]
-      },
-      {
-        "files": [
-          "src/components/tools/file-diff.tsx",
-          "src/components/tools/todo-list.tsx",
-          "src/components/tools/tool-approval.tsx",
-          "src/components/tools/tool-result.tsx"
-        ],
-        "rules": [
-          "react-doctor/no-adjust-state-on-prop-change",
-          "react-doctor/no-pass-data-to-parent"
-        ]
-      },
-      {
-        "files": ["src/components/artifacts/artifacts-panel.tsx"],
-        "rules": ["react-doctor/no-adjust-state-on-prop-change"]
-      },
-      {
-        "files": ["src/components/sessions/project-folder.tsx"],
-        "rules": ["react-doctor/prefer-html-dialog"]
-      },
-      {
-        "files": ["src/components/chat/transcript/session-reasoning-panel.tsx"],
-        "rules": [
-          "react-doctor/no-transition-all",
-          "react-doctor/no-array-index-as-key"
-        ]
-      },
-      {
-        "files": [
-          "src/components/tools/agent-disclosure.tsx",
-          "src/components/tools/tool-result.tsx",
-          "src/components/motion/file-tree.tsx"
-        ],
-        "rules": [
-          "react-doctor/use-lazy-motion",
-          "react-doctor/prefer-module-scope-static-value",
-          "react-doctor/motion-animate-presence-must-outlive-child"
-        ]
-      },
-      {
-        "files": [
-          "src/components/chat/composer/composer-controls.tsx"
-        ],
-        "rules": ["react-doctor/only-export-components"]
-      },
-      {
-        "files": [
-          "package.json"
-        ],
-        "rules": [
-          "deslop/unused-dependency"
-        ]
-      },
-      {
-        "files": [
-          "src/components/ui/chart.tsx",
-          "src/components/ui/toast.tsx",
-          "src/components/chat/markdown/markdown.tsx",
-          "src/components/chat/transcript/message-turns.tsx",
-          "src/components/tools/mcp-tool.tsx",
-          "src/components/tools/session-agent-plan.tsx"
-        ],
-        "rules": ["react-doctor/only-export-components"]
-      },
-      {
-        "files": ["src/components/layout/right-panel-registry.tsx"],
-        "rules": [
-          "react-doctor/no-multi-component-file",
-          "react-doctor/no-multi-comp"
-        ]
-      },
-      {
-        "files": ["src/components/chat/use-pi-chat.ts"],
-        "rules": ["react-doctor/no-set-state-after-await-in-effect"]
-      }
-    ]
-  }
+	"$schema": "https://react.doctor/schema/config.json",
+	"ignore": {
+		"overrides": [
+			{
+				"files": ["src/components/openui/openui-library.tsx", "src/components/openui/charts.tsx"],
+				"rules": [
+					"react-doctor/no-multi-component-file",
+					"react-doctor/no-multi-comp",
+					"react-doctor/prefer-dynamic-import",
+					"react-doctor/no-array-index-as-key",
+				],
+			},
+			{
+				"files": ["src/hooks/chat/use-pi-chat.ts"],
+				"rules": ["react-doctor/effect-needs-cleanup"],
+			},
+			{
+				"files": ["src/components/settings/providers/add-models-dialog.tsx"],
+				"rules": ["react-doctor/js-set-map-lookups"],
+			},
+			{
+				"files": ["src/components/workspace/workspace-panel.tsx"],
+				"rules": [
+					"react-doctor/no-adjust-state-on-prop-change",
+					"react-doctor/exhaustive-deps",
+					"react-doctor/no-loading-flag-reset-outside-finally",
+				],
+			},
+			{
+				"files": ["src/components/ui/chart.tsx", "src/components/openui/data.tsx"],
+				"rules": ["react-doctor/prefer-dynamic-import"],
+			},
+			{
+				"files": ["src/lib/chat/plan-state.ts"],
+				"rules": ["deslop/unused-export"],
+			},
+			{
+				"files": ["src/components/sessions/session-sidebar/resource-tree.tsx"],
+				"rules": [
+					"react-doctor/no-render-prop-children",
+					"react-doctor/no-pass-live-state-to-parent",
+					"react-doctor/no-pass-data-to-parent",
+					"react-doctor/no-giant-component",
+				],
+			},
+			{
+				"files": ["src/components/sessions/session-sidebar/project-list.tsx"],
+				"rules": ["react-doctor/no-render-prop-children"],
+			},
+			{
+				"files": [
+					"src/hooks/sessions/use-session-sidebar.ts",
+					"src/components/sessions/session-sidebar/navigation.tsx",
+				],
+				"rules": ["react-doctor/no-pass-live-state-to-parent", "react-doctor/no-pass-data-to-parent"],
+			},
+			{
+				"files": [
+					"src/components/tools/file-diff.tsx",
+					"src/components/tools/todo-list.tsx",
+					"src/components/tools/tool-approval.tsx",
+					"src/components/tools/tool-result.tsx",
+				],
+				"rules": ["react-doctor/no-adjust-state-on-prop-change", "react-doctor/no-pass-data-to-parent"],
+			},
+			{
+				"files": ["src/components/artifacts/artifacts-panel.tsx"],
+				"rules": ["react-doctor/no-adjust-state-on-prop-change"],
+			},
+			{
+				"files": ["src/components/chat/transcript/session-reasoning-panel.tsx"],
+				"rules": ["react-doctor/no-transition-all", "react-doctor/no-array-index-as-key"],
+			},
+			{
+				"files": ["src/components/tools/tool-result.tsx", "src/components/workspace/file-tree.tsx"],
+				"rules": [
+					"react-doctor/use-lazy-motion",
+					"react-doctor/prefer-module-scope-static-value",
+					"react-doctor/motion-animate-presence-must-outlive-child",
+				],
+			},
+			{
+				"files": ["src/components/chat/composer/composer-controls.tsx"],
+				"rules": ["react-doctor/only-export-components"],
+			},
+			{
+				"files": ["package.json"],
+				"rules": ["deslop/unused-dependency"],
+			},
+			{
+				"files": [
+					"src/components/ui/chart.tsx",
+					"src/components/ui/toast.tsx",
+					"src/components/chat/markdown/markdown.tsx",
+					"src/components/chat/transcript/message-turns.tsx",
+					"src/components/tools/session-agent-plan.tsx",
+				],
+				"rules": ["react-doctor/only-export-components"],
+			},
+			{
+				"files": ["src/components/layout/right-panel-registry.tsx"],
+				"rules": ["react-doctor/no-multi-component-file", "react-doctor/no-multi-comp"],
+			},
+			{
+				"files": ["src/hooks/chat/use-pi-chat.ts"],
+				"rules": ["react-doctor/no-set-state-after-await-in-effect"],
+			},
+		],
+	},
 }

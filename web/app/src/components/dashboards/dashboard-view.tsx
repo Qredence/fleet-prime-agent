@@ -14,11 +14,11 @@ import {
 import { EMPTY_SESSION_OUTPUTS } from "@prime-agent/web-protocol/openui-tools";
 import { LayoutDashboard } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { resolveChatApiUrl } from "@/components/chat/chat-runtime-url";
-import { mergeArtifactsById } from "@/components/dashboards/dashboard-artifacts";
+import { resolveChatApiUrl } from "@/lib/chat/chat-runtime-url";
+import { mergeArtifactsById } from "@/lib/dashboards/dashboard-artifacts";
 import { useOptionalChatPanelDataContext } from "@/components/layout/right-panel-context";
 import { useOpenUISession } from "@/components/openui/openui-session-context";
-import { createSessionOutputsToolProvider } from "@/components/openui/openui-tools";
+import { createSessionOutputsToolProvider } from "@/lib/openui/openui-tools";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
 	Attachment,

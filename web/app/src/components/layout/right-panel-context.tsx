@@ -28,10 +28,10 @@ import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ComposerIntentKeySource, ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
 import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
-import type { ChatModelOption } from "@/components/chat/chat-helpers";
-import type { RightPanel, ThemePreference } from "@/components/layout/canvas-utils";
-import type { ArtifactOpenTarget } from "@/components/layout/use-chat-shell-state";
-import type { ChatTranscriptSummary } from "@/components/sessions/transcript-summary";
+import type { ChatModelOption } from "@/lib/chat/chat-helpers";
+import type { RightPanel, ThemePreference } from "@/lib/layout/canvas-utils";
+import type { ArtifactOpenTarget } from "@/hooks/layout/use-chat-shell-state";
+import type { ChatTranscriptSummary } from "@/lib/sessions/transcript-summary";
 
 export type ChatPanelDataContextValue = {
 	activityLabel?: string;
@@ -92,14 +92,14 @@ export type SettingsActionsContextValue = {
 	onMcpOAuth?: (request: ChatMcpOAuthLoginRequest) => Promise<ChatMcpOAuthLoginResponse>;
 	onRemoveMcp?: (request: ChatMcpDeleteRequest) => Promise<ChatMcpListResponse>;
 	onRemoveProvider?: (request: ChatProviderRemoveRequest) => Promise<ChatProviderRemoveResponse>;
-	onComposerIntentChange?: (enabled: boolean) => void;
+	onComposerIntentChange?: (enabled: boolean) => Promise<void> | void;
 	/** Stores the classifier key, or clears it with `null`. Write-only. */
 	onComposerIntentKeyChange?: (apiKey: string | null) => Promise<void> | void;
 	onThemePreferenceChange: (preference: ThemePreference) => void;
 	onUpdateMcp?: (request: ChatMcpUpsertRequest) => Promise<ChatMcpListResponse>;
 	onUpdateProvider?: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
 	providers?: Array<ChatProviderInfo>;
-	saveSettings: (settings: ChatPiSettingsUpdate) => Promise<ChatSettingsResponse>;
+	saveSettings: (settings: ChatPiSettingsUpdate, scope?: "global" | "project") => Promise<ChatSettingsResponse>;
 	settings: ChatSettingsResponse | null;
 	settingsError: Error | null;
 	settingsLoading: boolean;

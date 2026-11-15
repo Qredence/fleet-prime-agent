@@ -1011,6 +1011,13 @@ export class PrimeBridge {
 		return cached ?? "";
 	}
 
+	/** Read an existing session without initializing its engine or making a turn. */
+	async getResourceSnapshot(sessionId: string, cwd: string) {
+		const session = this.#sessions.get(sessionId);
+		if (!session || resolve(session.cwd) !== resolve(cwd)) return null;
+		return (await session.connection.getFleetResourceSnapshot?.()) ?? null;
+	}
+
 	/** /name — set or show the session display name. */
 	setSessionName(sessionId: string, name: string | undefined): void {
 		const session = this.#requireSession(sessionId);

@@ -1,6 +1,8 @@
 import * as React from "react";
 import type { TooltipValueType } from "recharts";
 import * as RechartsPrimitive from "recharts";
+import { useShape } from "@/lib/fluid/shape-context";
+import { surfaceClasses } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
@@ -191,6 +193,7 @@ function ChartTooltipContent({
 		labelKey?: string;
 	} & Omit<RechartsPrimitive.DefaultTooltipContentProps<TooltipValueType, TooltipNameType>, "accessibilityLayer">) {
 	const { config } = useChart();
+	const shape = useShape();
 
 	if (!active || !payload?.length) {
 		return null;
@@ -202,7 +205,9 @@ function ChartTooltipContent({
 	return (
 		<div
 			className={cn(
-				"grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+				"grid min-w-32 items-start gap-1.5 border border-border/60 px-2.5 py-1.5 text-xs text-popover-foreground",
+				shape.item,
+				surfaceClasses(3),
 				className,
 			)}
 		>

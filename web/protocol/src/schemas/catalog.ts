@@ -41,11 +41,16 @@ export const ChatResourceInfoSchema = z.object({
 	installedInWorkspace: z.boolean().optional(),
 	path: z.string().optional(),
 	source: z.string().optional(),
+	scope: z.enum(["user", "project", "temporary"]).optional(),
+	origin: z.enum(["package", "top-level"]).optional(),
+	loadedInSession: z.boolean().optional(),
+	discoverySource: z.enum(["daemon", "legacy-discovery"]).optional(),
 	workspacePath: z.string().optional(),
 	argumentHint: z.string().optional(),
 });
 
 export const ChatResourcesResponseSchema = z.object({
+	snapshotState: z.enum(["unavailable", "empty", "available"]).optional(),
 	packages: z.array(ChatResourceInfoSchema),
 	skills: z.array(ChatResourceInfoSchema),
 	prompts: z.array(ChatResourceInfoSchema),
