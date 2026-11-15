@@ -1,0 +1,14 @@
+web/app/src/components/ui/table.tsx
+  h_f276322eb5eb9f 131,156-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "435fa4f0ef99b539041e123b7f82436bf86ad153",
+  "prompts": {},
+  "humans": {
+    "h_f276322eb5eb9f": {
+      "author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
