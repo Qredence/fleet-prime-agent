@@ -92,7 +92,8 @@ describe("Connectors page", () => {
 				transport: "http",
 				url: "https://docs.example.test/mcp",
 				bearerTokenEnvVar: "DOCS_TOKEN",
-				force: true,
+				oauth: false,
+				force: false,
 			}),
 		);
 	});

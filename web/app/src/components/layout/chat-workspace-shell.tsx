@@ -41,6 +41,7 @@ export function ChatWorkspaceShell() {
 		window.requestAnimationFrame(() => focusChatComposer());
 	}, [panels]);
 	usePanelKeybindings({
+		enabled: !dialogs.settingsDialogOpen,
 		onCommandPaletteToggle: toggleCommandPalette,
 		onClosePanel: closeRightPanel,
 		rightPanel: panels.rightPanel,
@@ -273,6 +274,7 @@ export function ChatWorkspaceShell() {
 									</div>
 									<UiErrorBoundary>
 										<RightPanelShell
+											suspendMobile={dialogs.settingsDialogOpen}
 											handleResourceCanvasResizeStart={panels.handleResourceCanvasResizeStart}
 											onClose={closeRightPanel}
 											onResourceCanvasWidthChange={panels.handleResourceCanvasWidthChange}

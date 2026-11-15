@@ -1,3 +1,4 @@
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
 	ChatReasoningPresentation,
 	PrimeAgentArtifactRun,
@@ -56,9 +57,7 @@ const LazySessionToolRenderer = lazy(() =>
  */
 function SessionToolRenderer(props: ComponentProps<typeof LazySessionToolRenderer>) {
 	return (
-		<Suspense
-			fallback={<div className="h-7 animate-pulse rounded-md bg-muted/40" role="status" aria-label="Loading tool" />}
-		>
+		<Suspense fallback={<Skeleton className="h-7 rounded-md" role="status" aria-label="Loading tool" />}>
 			<LazySessionToolRenderer {...props} />
 		</Suspense>
 	);
@@ -80,15 +79,7 @@ const LazySessionReasoningPanel = lazy(() =>
  */
 function SessionReasoningPanel(props: ComponentProps<typeof LazySessionReasoningPanel>) {
 	return (
-		<Suspense
-			fallback={
-				<div
-					className="mb-2 h-6 animate-pulse rounded-md bg-muted/40"
-					role="status"
-					aria-label="Loading reasoning"
-				/>
-			}
-		>
+		<Suspense fallback={<Skeleton className="mb-2 h-6 rounded-md" role="status" aria-label="Loading reasoning" />}>
 			<LazySessionReasoningPanel {...props} />
 		</Suspense>
 	);

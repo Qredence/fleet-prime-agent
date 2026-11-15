@@ -1,6 +1,7 @@
 import type { ChatResourceInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -18,12 +19,14 @@ import {
  * only for adding when no catalog options remain.
  */
 export function CatalogValueList({
+	sectionId = "resource-paths",
 	addLabel,
 	catalog,
 	onChange,
 	placeholder,
 	values,
 }: {
+	sectionId?: string;
 	addLabel: string;
 	catalog: Array<ChatResourceInfo>;
 	onChange: (values: Array<string>) => void;
@@ -31,6 +34,12 @@ export function CatalogValueList({
 	values: Array<string>;
 }) {
 	const [custom, setCustom] = useState("");
+	const resetVersion = useSettingsDraft(sectionId, { dirty: custom.length > 0, busy: false });
+	const [syncedResetVersion, setSyncedResetVersion] = useState(resetVersion);
+	if (resetVersion !== syncedResetVersion) {
+		setSyncedResetVersion(resetVersion);
+		setCustom("");
+	}
 
 	const seenValues = new Set<string>();
 	const options: Array<{ value: string; label: string }> = [];
@@ -108,28 +117,27 @@ export function CatalogValueList({
 						onChange(addUniqueSettingsResource(values, next));
 					}}
 				/>
-			) : (
-				<InputGroup>
-					<InputGroupInput
-						aria-label={addLabel}
-						value={custom}
-						onChange={(event) => setCustom(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault();
-								addCustom();
-							}
-						}}
-						placeholder={placeholder}
-					/>
-					<InputGroupAddon align="inline-end">
-						<InputGroupButton onClick={addCustom} disabled={!custom.trim()}>
-							<Plus data-icon="inline-start" />
-							Add
-						</InputGroupButton>
-					</InputGroupAddon>
-				</InputGroup>
-			)}
+			) : null}
+			<InputGroup>
+				<InputGroupInput
+					aria-label={addLabel}
+					value={custom}
+					onChange={(event) => setCustom(event.target.value)}
+					onKeyDown={(event) => {
+						if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+							event.preventDefault();
+							addCustom();
+						}
+					}}
+					placeholder={placeholder}
+				/>
+				<InputGroupAddon align="inline-end">
+					<InputGroupButton onClick={addCustom} disabled={!custom.trim()}>
+						<Plus data-icon="inline-start" />
+						Add
+					</InputGroupButton>
+				</InputGroupAddon>
+			</InputGroup>
 		</div>
 	);
 }

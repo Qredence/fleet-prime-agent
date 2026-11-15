@@ -287,7 +287,7 @@ export function TodoList({
 					className="overflow-hidden"
 				>
 					<div ref={viewportRef} className="no-scrollbar overflow-y-auto px-2 pb-2" style={{ maxHeight }}>
-						<ol aria-live={allComplete ? "polite" : "off"} className="space-y-0">
+						<ol aria-live={allComplete ? "polite" : "off"}>
 							<AnimatePresence initial={false} mode="popLayout">
 								{items.map((item) => {
 									const status = item.status ?? "pending";

@@ -302,14 +302,14 @@ type MetricGroupItem = {
 
 function MetricGroupComponent({ props: { metrics } }: { props: { metrics: Array<MetricGroupItem> } }) {
 	return (
-		<div className="grid w-full grid-cols-2 gap-2">
+		<div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
 			{metrics.map((metric, index) => {
 				const sparklineColor = SPARKLINE_COLORS[index % SPARKLINE_COLORS.length]!;
 				return (
 					<Card key={metric.label} className="gap-1 py-3">
 						<CardContent className="flex flex-col gap-1 px-3">
 							<span className="text-xs font-medium text-muted-foreground">{metric.label}</span>
-							<div className="flex items-baseline gap-2">
+							<div className="flex flex-wrap items-baseline gap-2">
 								<span className="text-lg font-semibold text-foreground">{metric.value}</span>
 								{metric.delta ? (
 									<span

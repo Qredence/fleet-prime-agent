@@ -56,6 +56,7 @@ export function ProviderCredentialsSection({
 }) {
 	const {
 		activeProviders,
+		busy,
 		addPickerOpen,
 		addPickerQuery,
 		api,
@@ -111,7 +112,7 @@ export function ProviderCredentialsSection({
 		canSave,
 	};
 	const operation: ProviderOperationState = {
-		isPending,
+		isPending: isPending || busy,
 		canRemove: Boolean(onRemoveProvider),
 	};
 	const actions: ProviderCredentialActions = {
@@ -164,7 +165,7 @@ export function ProviderCredentialsSection({
 					displayName={displayName}
 					showPassword={showPassword}
 					attemptedSave={attemptedSave}
-					isPending={isPending}
+					isPending={isPending || busy}
 					canSave={canSave}
 					onApiKeyChange={setApiKey}
 					onApiChange={setApi}
@@ -248,7 +249,7 @@ export function ProviderCredentialsSection({
 
 			<RemoveProviderConfirmDialog
 				confirmRemoveProvider={confirmRemoveProvider}
-				isPending={isPending}
+				isPending={isPending || busy}
 				onClose={() => setConfirmRemoveProvider(null)}
 				onConfirm={(provider) => {
 					void handleRemove(provider);

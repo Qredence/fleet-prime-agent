@@ -13,6 +13,7 @@ import {
 	OPENAI_CHAT_COMPLETIONS_PROVIDER_ID,
 } from "@prime-agent/web-protocol/provider-catalog";
 import { useMemo, useState } from "react";
+import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
 import { notify as toast } from "@/lib/notify";
 
 export function isOAuthProvider(provider: ChatProviderInfo): boolean {
@@ -104,6 +105,11 @@ export function useProviderCredentialsController({
 	const [addPickerOpen, setAddPickerOpen] = useState(false);
 	const [addPickerQuery, setAddPickerQuery] = useState("");
 	const [confirmRemoveProvider, setConfirmRemoveProvider] = useState<ChatProviderInfo | null>(null);
+	const [busy, setBusy] = useState(false);
+	const [editorBaseline, setEditorBaseline] = useState("");
+	const editorValues = JSON.stringify({ baseUrl, modelId, modelIds, api, displayName });
+	const dirty = editingProvider !== null && (apiKey.length > 0 || editorValues !== editorBaseline);
+	useSettingsDraft("providers", { dirty, busy });
 
 	// Named OCC instances (`openai-chat-completions+…`), general custom
 	// providers (`custom+…`), the custom-provider template row, AND every
@@ -184,6 +190,11 @@ export function useProviderCredentialsController({
 	};
 
 	const openEditor = (providerId: string, opts?: { newOccInstance?: boolean }) => {
+		if (busy) return;
+		if (dirty) {
+			toast.message("Save or cancel the current provider changes before opening another provider.");
+			return;
+		}
 		setAddPickerOpen(false);
 		setAddPickerQuery("");
 		setEditingProvider(providerId);
@@ -195,9 +206,23 @@ export function useProviderCredentialsController({
 		setApi(existing?.api ?? "openai-completions");
 		setModelIds(existing?.modelIds ?? []);
 		setModelId(isCustomProviderId(providerId) ? "" : (existing?.modelIds?.[0] ?? ""));
+		setEditorBaseline(
+			JSON.stringify({
+				baseUrl: existing?.baseUrl ?? "",
+				modelId: isCustomProviderId(providerId) ? "" : (existing?.modelIds?.[0] ?? ""),
+				modelIds: existing?.modelIds ?? [],
+				api: existing?.api ?? "openai-completions",
+				displayName: existing?.displayName ?? (isCustomProviderId(providerId) ? (existing?.name ?? "") : ""),
+			}),
+		);
 	};
 
 	const openAddPicker = () => {
+		if (busy) return;
+		if (dirty) {
+			toast.message("Save or cancel the current provider changes before adding another provider.");
+			return;
+		}
 		closeEditor();
 		setAddPickerQuery("");
 		setAddPickerOpen(true);
@@ -216,7 +241,7 @@ export function useProviderCredentialsController({
 	};
 
 	const handleSave = async (providerId: string) => {
-		if (!onUpdateProvider) return;
+		if (!onUpdateProvider || busy) return;
 
 		setAttemptedSave(true);
 
@@ -228,6 +253,7 @@ export function useProviderCredentialsController({
 			if (!apiKey.trim() || !baseUrl.trim() || !displayName.trim()) return;
 			if (modelList.length === 0) return;
 
+			setBusy(true);
 			try {
 				await onUpdateProvider({
 					providerId,
@@ -243,6 +269,8 @@ export function useProviderCredentialsController({
 				closeAddPicker();
 			} catch (error) {
 				toast.error(error instanceof Error ? error.message : "Failed to update provider");
+			} finally {
+				setBusy(false);
 			}
 			return;
 		}
@@ -253,6 +281,7 @@ export function useProviderCredentialsController({
 		if (openAiChat && (!baseUrl.trim() || !modelId.trim())) return;
 		if (isOccLike && !displayName.trim()) return;
 
+		setBusy(true);
 		try {
 			await onUpdateProvider({
 				providerId,
@@ -273,12 +302,15 @@ export function useProviderCredentialsController({
 			closeAddPicker();
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to update provider");
+		} finally {
+			setBusy(false);
 		}
 	};
 
 	const handleRemove = async (provider: ChatProviderInfo) => {
-		if (!onRemoveProvider) return;
+		if (!onRemoveProvider || busy) return;
 
+		setBusy(true);
 		try {
 			await onRemoveProvider({ providerId: provider.id });
 			if (editingProvider === provider.id) {
@@ -288,6 +320,8 @@ export function useProviderCredentialsController({
 			setConfirmRemoveProvider(null);
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to remove provider");
+		} finally {
+			setBusy(false);
 		}
 	};
 
@@ -309,6 +343,7 @@ export function useProviderCredentialsController({
 	}, [apiKey, baseUrl, modelId, modelIds, displayName, editingProvider, editingIsNewOccInstance]);
 
 	return {
+		busy,
 		activeProviders,
 		addPickerOpen,
 		addPickerQuery,

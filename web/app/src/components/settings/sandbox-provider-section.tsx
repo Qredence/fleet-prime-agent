@@ -1,10 +1,11 @@
+import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
 import type {
 	ChatProviderInfo,
 	ChatProviderUpdateRequest,
 	ChatProviderUpdateResponse,
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Globe, HardDrive, Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SecretCredentialField, TextCredentialField } from "@/components/settings/credential-fields";
 import { SettingsPane } from "@/components/settings/settings-pane";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,21 +16,46 @@ import { Spinner } from "@/components/ui/spinner";
 import { notify as toast } from "@/lib/notify";
 
 export function SandboxProviderSection({
+	focusField,
+	onFocusComplete,
 	isLoading,
 	isPending,
 	onUpdateProvider,
 	providers,
 }: {
+	focusField?: string;
+	onFocusComplete?: () => void;
 	isLoading: boolean;
 	isPending: boolean;
 	onUpdateProvider?: (request: ChatProviderUpdateRequest) => Promise<ChatProviderUpdateResponse>;
 	providers: Array<ChatProviderInfo>;
 }) {
-	const [editing, setEditing] = useState(false);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [editing, setEditing] = useState(Boolean(focusField));
+	const [lastFocusField, setLastFocusField] = useState(focusField);
+	if (focusField !== lastFocusField) {
+		setLastFocusField(focusField);
+		if (focusField) setEditing(true);
+	}
 	const [apiKey, setApiKey] = useState("");
 	const [target, setTarget] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [attemptedSave, setAttemptedSave] = useState(false);
+	const [saving, setSaving] = useState(false);
+	useSettingsDraft("sandbox", { dirty: apiKey.length > 0 || target.length > 0, busy: saving || isPending });
+
+	useEffect(() => {
+		if (!focusField) return;
+		if (!editing) return;
+		const control = Array.from(containerRef.current?.querySelectorAll<HTMLElement>("[aria-label]") ?? []).find(
+			(element) => element.getAttribute("aria-label") === focusField,
+		);
+		if (control) {
+			control.focus();
+			control.scrollIntoView({ block: "center" });
+			onFocusComplete?.();
+		}
+	}, [focusField, editing, onFocusComplete]);
 
 	const daytonaProvider = useMemo(() => providers.find((p) => p.id === "daytona"), [providers]);
 	const daytonaTargetProvider = useMemo(() => providers.find((p) => p.id === "daytona-target"), [providers]);
@@ -49,10 +75,11 @@ export function SandboxProviderSection({
 	};
 
 	const handleSave = async () => {
-		if (!onUpdateProvider) return;
+		if (!onUpdateProvider || saving || isPending) return;
 		setAttemptedSave(true);
 		if (!apiKey.trim() && !target.trim()) return;
 
+		setSaving(true);
 		try {
 			if (apiKey.trim()) {
 				await onUpdateProvider({
@@ -71,97 +98,102 @@ export function SandboxProviderSection({
 			closeEditor();
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Failed to update provider");
+		} finally {
+			setSaving(false);
 		}
 	};
 
 	const canSave = apiKey.trim().length > 0 || target.trim().length > 0;
 
 	return (
-		<SettingsPane title="Sandbox" description="Configure isolated execution environments.">
-			{isLoading ? (
-				<div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
-					<Spinner />
-					<span>Loading…</span>
-				</div>
-			) : (
-				<div className="flex flex-col overflow-hidden rounded-lg border border-border/50 bg-muted/20">
-					<Item size="sm" className="flex-nowrap gap-3 border-0 bg-transparent px-2.5 py-2">
-						<ItemMedia className="size-8 shrink-0 rounded-md border border-border/40 bg-background/60 text-foreground/70">
-							<HardDrive className="size-4 text-foreground/80" />
-						</ItemMedia>
-						<ItemContent className="min-w-0 gap-0.5">
-							<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Daytona</ItemTitle>
-							<ItemDescription className="truncate text-xs text-muted-foreground">
-								DAYTONA_API_KEY · DAYTONA_TARGET
-							</ItemDescription>
-						</ItemContent>
-						<ItemActions className="shrink-0">
-							<Button
-								type="button"
-								variant="ghost"
-								size="compact"
-								className="hit-area-expand-dense h-7 px-2 text-xs transition-[background-color,transform] duration-150 active:scale-[0.96]"
-								onClick={() => {
-									if (editing) {
-										closeEditor();
-										return;
-									}
-									setEditing(true);
-									resetEditor();
-								}}
-							>
-								{editing ? "Cancel" : isConfigured ? "Update" : "Configure"}
-							</Button>
-						</ItemActions>
-					</Item>
-
-					{editing ? (
-						<div className="flex flex-col gap-2 border-t border-border/30 bg-muted/30 p-2.5">
-							<FieldGroup className="gap-2">
-								<SecretCredentialField
-									attemptedSave={attemptedSave}
-									label="Daytona API key"
-									placeholder="Enter Daytona API Key…"
-									value={apiKey}
-									showPassword={showPassword}
-									required={false}
-									onChange={setApiKey}
-									onToggleVisibility={() => setShowPassword((current) => !current)}
-								/>
-								<TextCredentialField
-									attemptedSave={attemptedSave}
-									icon={Globe}
-									label="Region / target"
-									placeholder="e.g. us-east"
-									value={target}
-									required={false}
-									onChange={setTarget}
-								/>
-							</FieldGroup>
-
-							<Alert className="px-3 py-2">
-								<Info />
-								<AlertDescription className="text-xs text-pretty">
-									Settings are stored securely in your local environment overrides. Provide at least one value
-									to save.
-								</AlertDescription>
-							</Alert>
-
-							<div className="flex items-center justify-end">
+		<div ref={containerRef}>
+			<SettingsPane title="Sandbox" description="Configure isolated execution environments.">
+				{isLoading ? (
+					<div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+						<Spinner />
+						<span>Loading…</span>
+					</div>
+				) : (
+					<div className="flex flex-col overflow-hidden rounded-lg border border-border/50 bg-muted/20">
+						<Item size="sm" className="flex-nowrap gap-3 border-0 bg-transparent px-2.5 py-2">
+							<ItemMedia className="size-8 shrink-0 rounded-md border border-border/40 bg-background/60 text-foreground/70">
+								<HardDrive className="size-4 text-foreground/80" />
+							</ItemMedia>
+							<ItemContent className="min-w-0 gap-0.5">
+								<ItemTitle className="w-full truncate text-sm font-medium text-foreground">Daytona</ItemTitle>
+								<ItemDescription className="truncate text-xs text-muted-foreground">
+									DAYTONA_API_KEY · DAYTONA_TARGET
+								</ItemDescription>
+							</ItemContent>
+							<ItemActions className="shrink-0">
 								<Button
 									type="button"
+									variant="ghost"
 									size="compact"
-									disabled={isPending || !canSave}
-									onClick={() => void handleSave()}
+									disabled={saving || isPending}
+									className="hit-area-expand-dense h-7 px-2 text-xs transition-[background-color,transform] duration-150 active:scale-[0.96]"
+									onClick={() => {
+										if (editing) {
+											closeEditor();
+											return;
+										}
+										setEditing(true);
+										resetEditor();
+									}}
 								>
-									{isPending ? <Spinner data-icon="inline-start" /> : null}
-									Save
+									{editing ? "Cancel" : isConfigured ? "Update" : "Configure"}
 								</Button>
+							</ItemActions>
+						</Item>
+
+						{editing ? (
+							<div className="flex flex-col gap-2 border-t border-border/30 bg-muted/30 p-2.5">
+								<FieldGroup className="gap-2">
+									<SecretCredentialField
+										attemptedSave={attemptedSave}
+										label="Daytona API key"
+										placeholder="Enter Daytona API Key…"
+										value={apiKey}
+										showPassword={showPassword}
+										required={false}
+										onChange={setApiKey}
+										onToggleVisibility={() => setShowPassword((current) => !current)}
+									/>
+									<TextCredentialField
+										attemptedSave={attemptedSave}
+										icon={Globe}
+										label="Region / target"
+										placeholder="e.g. us-east"
+										value={target}
+										required={false}
+										onChange={setTarget}
+									/>
+								</FieldGroup>
+
+								<Alert className="px-3 py-2">
+									<Info />
+									<AlertDescription className="text-xs text-pretty">
+										Settings are stored securely in your local environment overrides. Provide at least one
+										value to save.
+									</AlertDescription>
+								</Alert>
+
+								<div className="flex items-center justify-end">
+									<Button
+										type="button"
+										size="compact"
+										disabled={isPending || saving || !canSave}
+										onClick={() => void handleSave()}
+									>
+										{isPending ? <Spinner data-icon="inline-start" /> : null}
+										Save
+									</Button>
+								</div>
 							</div>
-						</div>
-					) : null}
-				</div>
-			)}
-		</SettingsPane>
+						) : null}
+					</div>
+				)}
+			</SettingsPane>
+		</div>
 	);
 }

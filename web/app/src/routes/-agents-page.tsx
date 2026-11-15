@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Activity, ArrowUpRight, Bot, CalendarClock, Clock3, LoaderCircle } from "lucide-react";
+import { Activity, ArrowUpRight, Bot, CalendarClock, Clock3 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { chatClient } from "@/lib/chat/chat-client";
@@ -9,6 +9,7 @@ import { ProductPageHeader } from "@/components/layout/product-page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function AgentsPage() {
@@ -27,16 +28,16 @@ export function AgentsPage() {
 	return (
 		<main className="min-h-svh bg-background">
 			<ProductPageHeader active="agents" />
-			<div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-5 py-10 sm:px-8">
+			<div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-[var(--density-pad-x)] py-8">
 				<div className="max-w-2xl">
 					<div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
 						<Bot className="size-5" />
 					</div>
-					<h1 className="text-2xl font-semibold tracking-tight">Agents</h1>
+					<h1 className="text-xl font-semibold tracking-tight">Agents</h1>
 					<p className="mt-2 text-sm leading-6 text-muted-foreground">Review conversations and schedules.</p>
 				</div>
 
-				<section aria-labelledby="schedule-heading" className="space-y-3">
+				<section aria-labelledby="schedule-heading" className="flex flex-col gap-3">
 					<div>
 						<h2 id="schedule-heading" className="text-base font-medium">
 							Heartbeat and cron
@@ -49,7 +50,7 @@ export function AgentsPage() {
 					</div>
 				</section>
 
-				<section aria-labelledby="saved-sessions-heading" className="space-y-3">
+				<section aria-labelledby="saved-sessions-heading" className="flex flex-col gap-3">
 					<div className="flex items-end justify-between gap-3">
 						<div>
 							<h2 id="saved-sessions-heading" className="text-base font-medium">
@@ -65,7 +66,7 @@ export function AgentsPage() {
 					</div>
 					{sessions.isLoading ? (
 						<div className="flex items-center gap-2 py-5 text-sm text-muted-foreground">
-							<LoaderCircle className="size-4 animate-spin" /> Loading saved sessions…
+							<Spinner /> Loading saved sessions…
 						</div>
 					) : sessions.isError ? (
 						<Alert variant="destructive">

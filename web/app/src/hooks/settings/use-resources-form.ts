@@ -26,6 +26,26 @@ export function useResourcesForm({
 	const [editedPackageRows, setEditedPackageRows] = useState<Array<string> | null>(null);
 	const [packageError, setPackageError] = useState<string | undefined>();
 
+	const [syncedPackages, setSyncedPackages] = useState(settings?.effective.packages);
+	if (settings?.effective.packages !== syncedPackages) {
+		const previousRows = formatPackageSourceRows(syncedPackages ?? []);
+		const nextRows = formatPackageSourceRows(settings?.effective.packages ?? []);
+		setSyncedPackages(settings?.effective.packages);
+		if (
+			editedPackageRows &&
+			!packageError &&
+			(sameJson(
+				editedPackageRows.filter((row) => row.trim()),
+				previousRows,
+			) ||
+				sameJson(
+					editedPackageRows.filter((row) => row.trim()),
+					nextRows,
+				))
+		)
+			setEditedPackageRows(null);
+	}
+
 	const derivedPackageRows = useMemo(
 		() => formatPackageSourceRows(settings?.effective.packages ?? []),
 		[settings?.effective.packages],
@@ -74,6 +94,10 @@ export function useResourcesForm({
 	};
 
 	return {
+		resetPackageRows: () => {
+			setEditedPackageRows(null);
+			setPackageError(undefined);
+		},
 		packageRows,
 		packageError,
 		resourceDirty,

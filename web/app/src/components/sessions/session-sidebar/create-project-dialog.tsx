@@ -155,8 +155,8 @@ export function SessionSidebarCreateDialog({
 						paste an absolute path.
 					</DialogDescription>
 				</DialogHeader>
-				<div className="space-y-4">
-					<div className="space-y-1.5">
+				<div className="flex flex-col gap-4">
+					<div className="flex flex-col gap-1.5">
 						<div className="flex items-center justify-between gap-2">
 							<label className="text-sm font-medium" htmlFor={projectNameId}>
 								Project name
@@ -172,7 +172,7 @@ export function SessionSidebarCreateDialog({
 						/>
 					</div>
 
-					<div className="space-y-1.5">
+					<div className="flex flex-col gap-1.5">
 						<div className="flex items-center justify-between gap-2">
 							<label className="text-sm font-medium" htmlFor={directoryId}>
 								Local directory
@@ -239,7 +239,7 @@ export function SessionSidebarCreateDialog({
 								</span>
 							</div>
 
-							<div className="space-y-2 border-t p-3">
+							<div className="flex flex-col gap-2 border-t p-3">
 								<div className="flex items-center justify-between gap-2">
 									<div>
 										<p className="text-sm font-medium">Browse child directories</p>

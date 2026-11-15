@@ -7,6 +7,7 @@ import { FluidRoot } from "@/components/fluid-root";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/toast";
 import { initAnalytics } from "@/lib/analytics-stub";
+import { applyThemePreference, readStoredThemePreference } from "@/lib/layout/canvas-utils";
 import { getQueryClient } from "@/lib/query-client";
 import { applyUiPreferencesToDocument, DEFAULT_UI_PREFERENCES, readUiPreferences } from "@/lib/ui-preferences";
 import appCss from "@/styles/globals.css?url";
@@ -79,6 +80,17 @@ export const Route = createRootRoute({
 function RootComponent() {
 	useLayoutEffect(() => {
 		applyUiPreferencesToDocument(readUiPreferences());
+		applyThemePreference(readStoredThemePreference());
+	}, []);
+	useEffect(() => {
+		const media = window.matchMedia("(prefers-color-scheme: dark)");
+		const syncTheme = () => applyThemePreference(readStoredThemePreference());
+		media.addEventListener("change", syncTheme);
+		window.addEventListener("storage", syncTheme);
+		return () => {
+			media.removeEventListener("change", syncTheme);
+			window.removeEventListener("storage", syncTheme);
+		};
 	}, []);
 	useEffect(() => {
 		initAnalytics();

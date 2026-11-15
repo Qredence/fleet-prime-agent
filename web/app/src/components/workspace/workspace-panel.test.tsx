@@ -188,7 +188,8 @@ describe("WorkspacePanelContent file tree", () => {
 		fireEvent.click(readme);
 
 		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledWith("docs/README.md", expect.any(AbortSignal)));
-		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy());
+		// Markdown loads lazily; allow cold imports during the full parallel workspace suite.
+		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy(), { timeout: 5000 });
 		expect(readme.getAttribute("aria-selected")).toBe("true");
 		expect(getByTestId("workspace-preview").textContent).toContain("README.md");
 	});
@@ -285,7 +286,8 @@ describe("WorkspacePanelContent file tree", () => {
 		expect(queryByText("Preview body", { exact: true })).toBeNull();
 
 		resolvePreview?.(fileResponse("docs/README.md"));
-		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy());
+		// Markdown loads lazily; allow cold imports during the full parallel workspace suite.
+		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy(), { timeout: 5000 });
 		expect(getByTestId("workspace-preview").querySelector('[data-slot="skeleton"]')).toBeNull();
 		expect(getByTestId("workspace-preview").textContent).toContain("README.md");
 	});
@@ -299,7 +301,8 @@ describe("WorkspacePanelContent file tree", () => {
 		});
 
 		await waitFor(() => expect(loadWorkspaceFile).toHaveBeenCalledTimes(1));
-		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy());
+		// Markdown loads lazily; allow cold imports during the full parallel workspace suite.
+		await waitFor(() => expect(getByText("Preview body", { exact: true })).toBeTruthy(), { timeout: 5000 });
 
 		const refreshedWorkspace: WorkspaceTreeResponse = {
 			...workspace,

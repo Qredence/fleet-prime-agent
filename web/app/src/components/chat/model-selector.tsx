@@ -1,5 +1,7 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 import { type ComponentProps, lazy, memo, type ReactNode, Suspense, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { COMPOSER_SELECTOR_TRIGGER_CLASS } from "@/components/chat/composer/composer-controls";
@@ -22,15 +24,7 @@ const LazyModelSelectorList = lazy(() =>
  */
 function ModelSelectorList(props: ComponentProps<typeof LazyModelSelectorList>) {
 	return (
-		<Suspense
-			fallback={
-				<div
-					className="h-24 animate-pulse rounded-md bg-muted/40 p-1.5"
-					aria-label="Loading models"
-					role="status"
-				/>
-			}
-		>
+		<Suspense fallback={<Skeleton className="h-24 rounded-md p-1.5" aria-label="Loading models" role="status" />}>
 			<LazyModelSelectorList {...props} />
 		</Suspense>
 	);

@@ -89,7 +89,7 @@ export function MessageQueue({ queue, onDelete, onEdit, className }: MessageQueu
 					<span>{count} queued</span>
 					<span>Sent when the run reaches its lane</span>
 				</div>
-				<div className="space-y-1">
+				<div className="flex flex-col gap-1">
 					{LANES.flatMap(({ key, label }) =>
 						queue[key].map((text, index) => {
 							const itemKey = queueItemKey(key, index);

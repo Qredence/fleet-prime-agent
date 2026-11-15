@@ -36,7 +36,7 @@ export function useModelDefaultsForm({
 	models: Array<ChatModelOption>;
 	modelCatalog?: Array<ChatModelOption>;
 	onDiscoverModels?: (providerId: string) => Promise<Array<ChatModelOption>>;
-	saveSettings: (settings: ChatPiSettingsUpdate) => Promise<ChatSettingsResponse>;
+	saveSettings: (settings: ChatPiSettingsUpdate, scope?: "global" | "project") => Promise<ChatSettingsResponse>;
 	setSavingSection: Dispatch<SetStateAction<string | null>>;
 }) {
 	const [modelFilter, setModelFilter] = useState("");
@@ -115,7 +115,17 @@ export function useModelDefaultsForm({
 					response.effective.defaultThinkingLevel,
 			};
 			setCommittedModelBaseline(comparableModelSettings(committed));
-			setDraft(committed);
+			setDraft((current) =>
+				current
+					? {
+							...current,
+							defaultProvider: committed.defaultProvider,
+							defaultModel: committed.defaultModel,
+							defaultThinkingLevel: committed.defaultThinkingLevel,
+							enabledModels: committed.enabledModels,
+						}
+					: committed,
+			);
 			if (!options?.silent) {
 				toast.success("Pi settings saved");
 			}
@@ -129,7 +139,7 @@ export function useModelDefaultsForm({
 	};
 
 	const persistModelSettings = (nextDraft: ChatPiSettings) => {
-		void commitModelSettings(nextDraft);
+		setDraft(nextDraft);
 	};
 
 	const setModelEnabled = (model: ConfigModelInfo, enabled: boolean) => {
@@ -167,7 +177,7 @@ export function useModelDefaultsForm({
 	/** Promote an enabled model to the session default (engine settings.json). */
 	const setDefaultModel = (model: ConfigModelInfo) => {
 		if (!draft) return;
-		void commitModelSettings({
+		setDraft({
 			...draft,
 			defaultProvider: model.provider,
 			defaultModel: model.modelId,

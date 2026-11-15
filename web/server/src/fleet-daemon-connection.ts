@@ -733,6 +733,10 @@ export class FleetDaemonAgentConnection {
 		return typeof data.systemPrompt === "string" ? data.systemPrompt : "";
 	}
 
+	getFleetResourceSnapshot() {
+		return this.client.getResourceSnapshot(this.#activeSessionId);
+	}
+
 	async mutateQueuedMessage(
 		lane: "steering" | "followUp",
 		index: number,

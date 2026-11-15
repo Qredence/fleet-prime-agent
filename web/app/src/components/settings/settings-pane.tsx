@@ -20,7 +20,7 @@ export function SettingsPane({
 }) {
 	return (
 		<div className="flex min-w-0 max-w-full flex-col gap-4 [overflow-wrap:anywhere]">
-			<div className="flex items-start justify-between gap-3">
+			<div className="flex items-start justify-between gap-3 max-sm:flex-col">
 				<div className="min-w-0 flex-1">
 					<h3 className="text-lg font-medium text-balance">{title}</h3>
 					<p className="mt-1 text-sm text-pretty text-muted-foreground">{description}</p>
@@ -36,12 +36,14 @@ export function SettingsPane({
  * Renders the revert and commit action buttons inside a settings pane header.
  */
 export function SettingsCommitActions({
+	saveDisabled = false,
 	dirty,
 	disabled,
 	onRevert,
 	onSave,
 	saving,
 }: {
+	saveDisabled?: boolean;
 	dirty: boolean;
 	disabled: boolean;
 	onRevert: () => void;
@@ -58,7 +60,7 @@ export function SettingsCommitActions({
 					className="text-muted-foreground transition-transform active:scale-[0.96]"
 					disabled={disabled || saving}
 					onClick={onRevert}
-					aria-label="Revert changes"
+					aria-label="Cancel changes"
 				>
 					<RotateCcw />
 				</Button>
@@ -68,11 +70,11 @@ export function SettingsCommitActions({
 				variant="outline"
 				size="compact"
 				className={cn("transition-transform active:scale-[0.96]", dirty && "border-primary/30 text-primary")}
-				disabled={!dirty || disabled || saving}
+				disabled={!dirty || disabled || saving || saveDisabled}
 				onClick={onSave}
 			>
 				{saving ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Save data-icon="inline-start" />}
-				Commit
+				Save changes
 			</Button>
 		</>
 	);

@@ -63,10 +63,10 @@ export function useDiscoverChatModels() {
 	});
 }
 
-export function useChatResources(projectId?: ProjectId) {
+export function useChatResources(projectId?: ProjectId, sessionId?: string) {
 	return useQuery({
-		queryKey: keys.resources(projectId),
-		queryFn: () => chatClient.getResources(projectId),
+		queryKey: [...keys.resources(projectId), sessionId],
+		queryFn: () => chatClient.getResources(projectId, sessionId),
 		enabled: Boolean(projectId),
 	});
 }
@@ -122,8 +122,8 @@ export function useUpdateMcpConnection() {
 	const queryClient = useQueryClient();
 	return useMutation<ChatMcpListResponse, Error, ChatMcpUpsertRequest>({
 		mutationFn: (request) => chatClient.upsertMcpConnection(request),
-		onSuccess: (data) => {
-			queryClient.setQueryData(keys.mcp, data);
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: keys.mcp });
 			void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
 		},
 	});
@@ -133,8 +133,8 @@ export function useRemoveMcpConnection() {
 	const queryClient = useQueryClient();
 	return useMutation<ChatMcpListResponse, Error, ChatMcpDeleteRequest>({
 		mutationFn: (request) => chatClient.removeMcpConnection(request),
-		onSuccess: (data) => {
-			queryClient.setQueryData(keys.mcp, data);
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: keys.mcp });
 			void queryClient.invalidateQueries({ queryKey: ["chat", "resources"] });
 		},
 	});

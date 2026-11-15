@@ -51,6 +51,7 @@ function useIsDesktopPanel() {
 }
 
 export type RightPanelShellProps = {
+	suspendMobile?: boolean;
 	handleResourceCanvasResizeStart: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 	onClose: () => void;
 	resourceCanvasWidth: number;
@@ -66,6 +67,7 @@ export type RightPanelShellProps = {
  * @param onResourceCanvasWidthChange - Updates the desktop panel width (for keyboard resizing).
  */
 export function RightPanelShell({
+	suspendMobile = false,
 	handleResourceCanvasResizeStart,
 	onClose,
 	resourceCanvasWidth,
@@ -137,7 +139,7 @@ export function RightPanelShell({
 					onRefresh={onRefresh}
 					onResizeStart={handleResourceCanvasResizeStart}
 					onWidthChange={onResourceCanvasWidthChange}
-					open={panelOpen}
+					open={panelOpen && !suspendMobile}
 					title={definition?.title ?? ""}
 					titleIcon={definition?.icon ?? Library}
 					width={resourceCanvasWidth}
@@ -150,7 +152,7 @@ export function RightPanelShell({
 					dataTestid={definition?.mobileDataTestid}
 					icon={definition?.icon}
 					onClose={onClose}
-					open={panelOpen}
+					open={panelOpen && !suspendMobile}
 					title={definition?.title ?? ""}
 				>
 					{content}

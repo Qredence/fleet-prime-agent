@@ -103,7 +103,7 @@ function ReplCell({ artifact, index, selected }: { artifact: PrimeAgentArtifact;
 					{details?.kernelRestarted ? " · kernel restarted" : ""}
 				</span>
 			</div>
-			<div className="space-y-2 p-2">
+			<div className="flex flex-col gap-2 p-2">
 				<CodeBlock
 					code={code}
 					language={isBashCell ? "bash" : "python"}
@@ -129,7 +129,7 @@ export function ReplPanelContent({ artifactRuns = [], selectedArtifactId, kernel
 	const cells = artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "ipython");
 
 	return (
-		<section aria-label="REPL runs" className="space-y-2 pb-1">
+		<section aria-label="REPL runs" className="flex flex-col gap-2 pb-1">
 			<div className="flex min-w-0 items-center gap-2 rounded-sm bg-foreground/5 px-2 py-1.5">
 				<SquareTerminal className="size-3.5 shrink-0 text-foreground/45" />
 				<span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/70">CPython cells</span>
@@ -170,7 +170,7 @@ export function ReplPanelContent({ artifactRuns = [], selectedArtifactId, kernel
 					Executed CPython cells and their output will appear here.
 				</p>
 			) : (
-				<div className="space-y-2" data-testid="repl-run-list">
+				<div className="flex flex-col gap-2" data-testid="repl-run-list">
 					{cells.map((artifact, index) => (
 						<ReplCell
 							key={artifact.id}

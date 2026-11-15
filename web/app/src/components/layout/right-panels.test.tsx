@@ -128,7 +128,7 @@ afterEach(() => {
 });
 
 describe("right-panel execution tabs", () => {
-	function renderPanelShell(matchesDesktop: boolean, rightPanel: RightPanel = "resources") {
+	function renderPanelShell(matchesDesktop: boolean, rightPanel: RightPanel = "resources", suspendMobile = false) {
 		vi.stubGlobal(
 			"matchMedia",
 			vi.fn((query: string) => ({
@@ -182,7 +182,12 @@ describe("right-panel execution tabs", () => {
 					workspaceTree: null,
 				}}
 			>
-				<RightPanelShell handleResourceCanvasResizeStart={vi.fn()} onClose={vi.fn()} resourceCanvasWidth={400} />
+				<RightPanelShell
+					suspendMobile={suspendMobile}
+					handleResourceCanvasResizeStart={vi.fn()}
+					onClose={vi.fn()}
+					resourceCanvasWidth={400}
+				/>
 			</RightPanelProvider>,
 		);
 	}
@@ -199,6 +204,11 @@ describe("right-panel execution tabs", () => {
 
 		expect(getByTestId("pi-resources-mobile-panel")).toBeTruthy();
 		expect(queryByTestId("pi-resources-canvas")).toBeNull();
+	});
+
+	it("suspends the mobile drawer while settings owns modal focus", () => {
+		const { queryByTestId } = renderPanelShell(false, "resources", true);
+		expect(queryByTestId("pi-resources-mobile-panel")).toBeNull();
 	});
 
 	it("exposes the five top-level panel groups and opens their default views", () => {

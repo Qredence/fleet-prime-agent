@@ -1,3 +1,4 @@
+import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
 import {
 	DASHBOARD_MODEL_SUGGESTIONS,
 	type DashboardKeySource,
@@ -38,6 +39,10 @@ export function DashboardsSection() {
 	const [showKey, setShowKey] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	useSettingsDraft("services", {
+		dirty: draftKey.length > 0 || (status !== null && draftModel !== status.model),
+		busy,
+	});
 
 	useEffect(() => {
 		let active = true;
@@ -134,6 +139,18 @@ export function DashboardsSection() {
 				/>
 				{error ? <p className="text-xs text-destructive">{error}</p> : null}
 				<div className="flex items-center gap-2">
+					<Button
+						type="button"
+						variant="ghost"
+						size="compact"
+						disabled={busy || !draftKey}
+						onClick={() => {
+							setDraftKey("");
+							setShowKey(false);
+						}}
+					>
+						Cancel
+					</Button>
 					<Button type="button" size="compact" disabled={busy || !draftKey.trim()} onClick={() => void save()}>
 						Save key
 					</Button>
@@ -180,6 +197,15 @@ export function DashboardsSection() {
 						onClick={() => void saveModel()}
 					>
 						Save model
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						size="compact"
+						disabled={busy || !status || draftModel === status.model}
+						onClick={() => setDraftModel(status?.model ?? "")}
+					>
+						Cancel
 					</Button>
 					{status?.modelSource === "settings" ? (
 						<Button

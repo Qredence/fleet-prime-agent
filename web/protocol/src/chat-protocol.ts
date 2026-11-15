@@ -130,6 +130,7 @@ export type ChatPiSettingsUpdate = Omit<z.infer<typeof ChatPiSettingsUpdateSchem
 };
 export type ChatSettingsUpdateRequest = {
 	settings: ChatPiSettingsUpdate;
+	scope?: "global" | "project";
 };
 export type ChatSettingsResponse = Omit<z.infer<typeof ChatSettingsResponseSchema>, "effective" | "project"> & {
 	effective: ChatPiSettings;

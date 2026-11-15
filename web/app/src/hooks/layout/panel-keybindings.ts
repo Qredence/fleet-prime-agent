@@ -32,7 +32,7 @@ const DEFAULT_FLEET_PANEL_KEYBINDINGS: Record<FleetPanelKeybindingAction, FleetK
 	focusChat: { code: "KeyC", ctrlOrMeta: true, shift: true },
 };
 
-function readKeybindings(): Record<FleetPanelKeybindingAction, FleetKeybinding> {
+export function readKeybindings(): Record<FleetPanelKeybindingAction, FleetKeybinding> {
 	try {
 		const value = readStoredValue(FLEET_PANEL_KEYBINDINGS_STORAGE_KEY);
 		if (!value) return DEFAULT_FLEET_PANEL_KEYBINDINGS;
@@ -76,17 +76,20 @@ export function focusChatComposer(): void {
  * @param onClosePanel - Optional callback invoked when the close-panel shortcut is pressed while a panel is active
  */
 export function usePanelKeybindings({
+	enabled = true,
 	onCommandPaletteToggle,
 	onClosePanel,
 	rightPanel,
 	setRightPanel,
 }: {
+	enabled?: boolean;
 	onCommandPaletteToggle?: () => void;
 	onClosePanel?: () => void;
 	rightPanel: RightPanelState;
 	setRightPanel: (panel: RightPanelState) => void;
 }): void {
 	useEffect(() => {
+		if (!enabled) return;
 		const keybindings = readKeybindings();
 		const handleKeyDown = (event: KeyboardEvent) => {
 			const match = (action: FleetPanelKeybindingAction) => matches(event, keybindings[action]);
@@ -115,5 +118,5 @@ export function usePanelKeybindings({
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [onCommandPaletteToggle, onClosePanel, rightPanel, setRightPanel]);
+	}, [enabled, onCommandPaletteToggle, onClosePanel, rightPanel, setRightPanel]);
 }

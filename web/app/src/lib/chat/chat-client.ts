@@ -107,7 +107,7 @@ export type ChatClient = {
 	browseProjectDirectories: (options?: { path?: string; token?: string }) => Promise<ProjectDirectoryBrowseResponse>;
 	getModels: (options?: { scope?: "enabled" | "all"; projectId?: ProjectId }) => Promise<ChatModelsResponse>;
 	discoverModels: (request: ChatModelsDiscoverRequest) => Promise<ChatModelsDiscoverResponse>;
-	getResources: (projectId?: ProjectId) => Promise<ChatResourcesResponse>;
+	getResources: (projectId?: ProjectId, sessionId?: string) => Promise<ChatResourcesResponse>;
 	getCommands: (projectId?: ProjectId) => Promise<ChatCommandsResponse>;
 	getSettings: (projectId?: ProjectId) => Promise<ChatSettingsResponse>;
 	getWorkspaceTree: (projectId?: ProjectId) => Promise<WorkspaceTreeResponse>;
@@ -256,8 +256,11 @@ export const chatClient: ChatClient = {
 		});
 	},
 
-	async getResources(projectId) {
-		const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+	async getResources(projectId, sessionId) {
+		const params = new URLSearchParams();
+		if (projectId) params.set("projectId", projectId);
+		if (sessionId) params.set("sessionId", sessionId);
+		const query = params.size ? `?${params}` : "";
 		return fetchValidatedJson(`/api/chat/resources${query}`, ChatResourcesResponseSchema);
 	},
 

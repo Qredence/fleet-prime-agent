@@ -141,7 +141,7 @@ export function SessionActivityPanel({
 					Conversation activity
 				</h2>
 				{turns.length ? (
-					<ol className="space-y-4">
+					<ol className="flex flex-col gap-4">
 						{turns.map((turn, index) => {
 							const assistantIds = new Set(turn.assistants.map((message) => message.id));
 							const toolCallIds = new Set(
@@ -166,7 +166,7 @@ export function SessionActivityPanel({
 							});
 							return (
 								<li
-									className="space-y-2 border-b border-border/50 pb-4 last:border-b-0"
+									className="flex flex-col gap-2 border-b border-border/50 pb-4 last:border-b-0"
 									key={turn.user?.id ?? turn.assistants[0]?.id ?? index}
 								>
 									{turn.user ? renderMessage(turn.user) : null}
@@ -211,7 +211,7 @@ export function SessionActivityPanel({
 					Child agents
 				</h2>
 				{childAgents.length ? (
-					<ul className="space-y-1.5">
+					<ul className="flex flex-col gap-1.5">
 						{childAgents.map((child) => {
 							const StatusIcon = childStatusIcon(child.status);
 							return (

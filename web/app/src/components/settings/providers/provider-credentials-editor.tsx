@@ -508,6 +508,7 @@ export function AddProviderEditorPanel({
 					variant="ghost"
 					size="icon-compact"
 					aria-label="Back to provider list"
+					disabled={isPending}
 					onClick={onBack}
 				>
 					<ArrowLeft />
@@ -551,7 +552,7 @@ export function AddProviderEditorPanel({
 			</Alert>
 
 			<div className="flex items-center justify-end gap-1.5">
-				<Button type="button" variant="ghost" size="compact" onClick={onCancel}>
+				<Button type="button" variant="ghost" size="compact" disabled={isPending} onClick={onCancel}>
 					Cancel
 				</Button>
 				<Button type="button" size="compact" disabled={isPending || !canSave} onClick={onSave}>

@@ -120,7 +120,7 @@ export function useChatWorkspaceData() {
 		isLoading: resourcesLoading,
 		error: resourcesError,
 		refetch: refetchResources,
-	} = useChatResources(activeProjectId);
+	} = useChatResources(activeProjectId, storage.sessionMetadata.sessionId ?? undefined);
 	const { data: commandsData } = useChatCommands(activeProjectId);
 	const { data: settingsData, isLoading: settingsLoading, error: settingsError } = useChatSettings(activeProjectId);
 	const shouldLoadWorkspaceTree = rightPanel === "workspace" || rightPanel === "resources";

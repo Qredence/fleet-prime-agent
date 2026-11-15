@@ -38,11 +38,11 @@ export function DashboardsPanel({
 							type="button"
 							variant={board.id === selected?.id ? "secondary" : "ghost"}
 							size="compact"
-							className="justify-start"
+							className="min-w-0 justify-start"
 							aria-pressed={board.id === selected?.id}
 							onClick={() => onSelect?.(board.id)}
 						>
-							{board.title || "Dashboard"}
+							<span className="truncate">{board.title || "Dashboard"}</span>
 						</Button>
 					))}
 				</div>

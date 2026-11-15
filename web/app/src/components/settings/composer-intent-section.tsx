@@ -1,3 +1,4 @@
+import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
 import type { ComposerIntentKeySource, ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
 import { useCallback, useState } from "react";
 import { SecretCredentialField } from "@/components/settings/credential-fields";
@@ -42,14 +43,18 @@ export function ComposerIntentSection({
 	keySource: ComposerIntentKeySource;
 	status: ComposerIntentStatus;
 	onClearKey?: () => Promise<void> | void;
-	onEnabledChange?: (enabled: boolean) => void;
+	onEnabledChange?: (enabled: boolean) => Promise<void> | void;
 	onSaveKey?: (apiKey: string) => Promise<void> | void;
 }) {
+	const [enabledDraft, setEnabledDraft] = useState<boolean | null>(null);
+	const displayedEnabled = enabledDraft ?? enabled;
+	const enabledDirty = displayedEnabled !== enabled;
 	const [draftKey, setDraftKey] = useState("");
 	const [showKey, setShowKey] = useState(false);
 	const [attemptedSave, setAttemptedSave] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
+	useSettingsDraft("services", { dirty: draftKey.length > 0 || enabledDirty, busy });
 
 	const save = useCallback(async () => {
 		setAttemptedSave(true);
@@ -94,15 +99,39 @@ export function ComposerIntentSection({
 				trailing={
 					<Switch
 						aria-label="Describe a command"
-						checked={enabled}
+						checked={displayedEnabled}
 						// Disabled only when it cannot be turned *on*. An already-enabled
 						// setting stays switchable while the key is missing or broken, or
 						// the user would be stuck with it on until they fixed the key.
-						disabled={!onEnabledChange || (!enabled && unavailable)}
-						onCheckedChange={onEnabledChange}
+						disabled={busy || !onEnabledChange || (!displayedEnabled && unavailable)}
+						onCheckedChange={setEnabledDraft}
 					/>
 				}
 			/>
+			{enabledDirty ? (
+				<div className="flex gap-2">
+					<Button disabled={busy} variant="ghost" onClick={() => setEnabledDraft(null)}>
+						Cancel preference
+					</Button>
+					<Button
+						disabled={busy}
+						onClick={() => {
+							setBusy(true);
+							setSaveError(null);
+							void Promise.resolve()
+								.then(() => onEnabledChange?.(displayedEnabled))
+								.then(() => setEnabledDraft(null))
+								.catch((error: unknown) =>
+									setSaveError(error instanceof Error ? error.message : "Could not save preference"),
+								)
+								.finally(() => setBusy(false));
+						}}
+					>
+						Save preference
+					</Button>
+				</div>
+			) : null}
+
 			<div className="flex flex-col gap-2 rounded-md border p-4">
 				<SecretCredentialField
 					attemptedSave={attemptedSave}
@@ -119,6 +148,20 @@ export function ComposerIntentSection({
 				{saveError ? <p className="text-xs text-destructive">{saveError}</p> : null}
 				<p className="text-xs text-muted-foreground">{KEY_SOURCE_COPY[keySource]}</p>
 				<div className="flex items-center gap-2">
+					<Button
+						type="button"
+						variant="ghost"
+						size="compact"
+						disabled={busy || !draftKey}
+						onClick={() => {
+							setDraftKey("");
+							setShowKey(false);
+							setAttemptedSave(false);
+							setSaveError(null);
+						}}
+					>
+						Cancel
+					</Button>
 					<Button type="button" size="compact" disabled={busy || !draftKey.trim()} onClick={() => void save()}>
 						Save key
 					</Button>

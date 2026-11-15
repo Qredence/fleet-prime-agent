@@ -185,7 +185,7 @@
 	--info-foreground: oklch(0.4 0.06 240);
 	--border: oklch(0.922 0 0);
 	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
+	--ring: var(--fluid-accent);
 	--chart-1: oklch(0.87 0 0);
 	--chart-2: oklch(0.556 0 0);
 	--chart-3: oklch(0.439 0 0);
@@ -203,7 +203,7 @@
 	--sidebar-accent: oklch(0.955 0 0);
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
-	--sidebar-ring: oklch(0.708 0 0);
+	--sidebar-ring: var(--focus-ring);
 	--hover: rgb(0 0 0 / 0.04);
 	--active: rgb(0 0 0 / 0.07);
 	--selected: #d4d4d4;
@@ -252,7 +252,7 @@
 	--chat-input-radius: 1.5rem;
 	--chat-tool-radius: calc(var(--radius) * 0.8);
 	--chat-context-padding: 12px;
-	--chat-input-focus-outline: #0169cc;
+	--chat-input-focus-outline: var(--focus-ring);
 	--chat-header-top: 0px;
 	--chat-header-height: var(--density-header-height);
 	--chat-chrome-top: calc(var(--chat-header-top) + var(--chat-header-height) + 8px);
@@ -326,7 +326,7 @@
 	--info-foreground: oklch(0.85 0.06 240);
 	--border: oklch(1 0 0 / 10%);
 	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.556 0 0);
+	--ring: var(--fluid-accent);
 	--chart-1: oklch(0.87 0 0);
 	--chart-2: oklch(0.556 0 0);
 	--chart-3: oklch(0.439 0 0);
@@ -339,7 +339,7 @@
 	--sidebar-accent: oklch(0.269 0 0);
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(1 0 0 / 10%);
-	--sidebar-ring: oklch(0.556 0 0);
+	--sidebar-ring: var(--focus-ring);
 	--hover: rgb(255 255 255 / 0.06);
 	--active: rgb(255 255 255 / 0.1);
 	--selected: #525252;
@@ -350,7 +350,7 @@
 	/* Temporary bridge for remaining chat/diff consumers until Phase 3 migration */
 	--product-diff-added-foreground: #4ade80;
 	--product-diff-removed-foreground: #f87171;
-	--chat-input-focus-outline: #2a64c0;
+	--chat-input-focus-outline: var(--focus-ring);
 }
 
 @media (max-width: 767px) {

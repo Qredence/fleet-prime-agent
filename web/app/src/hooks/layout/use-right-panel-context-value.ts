@@ -181,9 +181,9 @@ export function useRightPanelContextValue({
 	const updateSettings = useUpdateChatSettings();
 
 	const saveSettings = useCallback(
-		async (nextSettings: ChatPiSettingsUpdate) => {
+		async (nextSettings: ChatPiSettingsUpdate, scope?: "global" | "project") => {
 			const response = await updateSettings.mutateAsync({
-				request: { settings: nextSettings },
+				request: { settings: nextSettings, scope },
 				projectId: activeProjectId,
 			});
 			const nextModelKey = resolveSavedModelKey(models, response);

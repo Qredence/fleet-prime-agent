@@ -160,7 +160,7 @@ export function SubagentsPanelContent({
 			</header>
 
 			<div
-				className="max-h-[min(9.5rem,32%)] shrink-0 space-y-0.5 overflow-y-auto overscroll-contain"
+				className="max-h-[min(9.5rem,32%)] shrink-0 flex flex-col gap-0.5 overflow-y-auto overscroll-contain"
 				data-testid="subagent-thread-list"
 			>
 				{ordered.map((agent) => {

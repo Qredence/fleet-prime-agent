@@ -9,7 +9,12 @@ import {
 	FleetErrorEnvelopeSchema,
 	PrimeAgentSessionPresentationSchema,
 } from "../schemas/chat";
-import { ChatPiSettingsSchema, ChatPiSettingsUpdateSchema, ChatSettingsResponseSchema } from "../schemas/settings";
+import {
+	ChatPiSettingsSchema,
+	ChatPiSettingsUpdateSchema,
+	ChatSettingsResponseSchema,
+	ChatSettingsUpdateRequestSchema,
+} from "../schemas/settings";
 
 const SESSION_ID = "session-01";
 
@@ -274,5 +279,14 @@ describe("PrimeAgentSessionPresentationSchema kernelDiagnostics", () => {
 		expect(PrimeAgentSessionPresentationSchema.safeParse({ ...base, kernelDiagnostics: { tail: "x" } }).success).toBe(
 			false,
 		);
+	});
+});
+
+describe("explicit settings destinations", () => {
+	it("accepts explicit scope and preserves legacy callers", () => {
+		expect(ChatSettingsUpdateRequestSchema.parse({ settings: {}, scope: "project" }).scope).toBe("project");
+		expect(ChatSettingsUpdateRequestSchema.parse({ settings: {}, scope: "global" }).scope).toBe("global");
+		expect(ChatSettingsUpdateRequestSchema.parse({ settings: {} }).scope).toBeUndefined();
+		expect(ChatSettingsUpdateRequestSchema.safeParse({ settings: {}, scope: "other" }).success).toBe(false);
 	});
 });

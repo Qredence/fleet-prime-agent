@@ -27,12 +27,15 @@ assert.deepEqual(
 		"mcp",
 		"sandbox",
 		"providers",
-		"dashboards",
 		"llm-models",
 		"skills",
-		"pi-harness",
 		"keybindings",
 		"sessions",
+		"context",
+		"retry-delivery",
+		"prompts",
+		"extensions-packages",
+		"services",
 	],
 );
 assert.equal(new Set(SETTINGS_SECTIONS.map(({ order }) => order)).size, SETTINGS_SECTIONS.length);

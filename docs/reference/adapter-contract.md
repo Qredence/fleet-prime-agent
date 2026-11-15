@@ -234,3 +234,11 @@ Use these sources when changing the contract:
 Relevant deterministic coverage includes the server event-mapper, chat, daemon-runtime, PrimeBridge, SSE replay, and chat-events suites, the dashboard route/service suites, plus the browser stream/reducer, Plan presentation, and dashboard contract tests.
 
 Do not reproduce the full TypeScript unions or schemas here. Update code and tests first, then revise only the durable semantics that changed.
+
+## Settings and resource projections
+
+`PATCH /api/chat/settings` accepts an optional `scope: "global" | "project"` alongside `settings`. Explicit scope selects the user settings file or the current request's project settings file. Omitting scope retains the existing automatic destination behavior for older clients. Responses add optional `globalEffective` (user settings plus runtime defaults), `global` (configured user overrides), and `writeScope` fields; `effective` continues to include project precedence. A successful persistence response can still carry reload diagnostics and `updateImpact` recommendations. It does not prove that a running session has applied the change.
+
+`GET /api/chat/resources` accepts an optional `sessionId` alongside the project context. Fleet reads a snapshot only from an existing managed session with the same workspace; it does not initialize the engine or make a model turn. Optional skill provenance and `loadedInSession` distinguish daemon-reported loaded resources from configuration discovery. `snapshotState` distinguishes unavailable, cold/empty, and available snapshots. Discovery fallback remains usable when a session snapshot cannot be obtained.
+
+MCP connection rows may include an additive `runtimeStatus`, description, setup hint, and tool count. Clients should use the daemon status to distinguish setup, pending, disconnected, and error states rather than treating every unavailable connection as an authentication failure. Mutation responses are followed by an authoritative list refresh.

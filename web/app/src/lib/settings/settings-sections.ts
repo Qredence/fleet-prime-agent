@@ -25,9 +25,14 @@ export type SettingsSectionId =
 	| "pi-harness"
 	| "keybindings"
 	| "sessions"
-	| "dashboards";
+	| "dashboards"
+	| "context"
+	| "retry-delivery"
+	| "prompts"
+	| "extensions-packages"
+	| "services";
 
-export type SettingsSectionGroup = "workspace" | "models" | "advanced";
+export type SettingsSectionGroup = "workspace" | "models" | "advanced" | "integrations";
 
 export type SettingsSection = {
 	id: SettingsSectionId;
@@ -54,7 +59,7 @@ export const SETTINGS_SECTION_REGISTRY = {
 		title: "MCP",
 		ariaLabel: "MCP connection settings",
 		icon: Plug,
-		group: "workspace",
+		group: "integrations",
 	},
 	sandbox: {
 		id: "sandbox",
@@ -62,7 +67,7 @@ export const SETTINGS_SECTION_REGISTRY = {
 		title: "Sandbox",
 		ariaLabel: "Sandbox settings",
 		icon: HardDrive,
-		group: "advanced",
+		group: "integrations",
 	},
 	providers: {
 		id: "providers",
@@ -84,7 +89,7 @@ export const SETTINGS_SECTION_REGISTRY = {
 	"pi-harness": {
 		id: "pi-harness",
 		order: 70,
-		title: "Pi Harness",
+		title: "Runtime & resources",
 		ariaLabel: "Pi harness settings",
 		icon: Settings,
 		group: "advanced",
@@ -92,10 +97,10 @@ export const SETTINGS_SECTION_REGISTRY = {
 	keybindings: {
 		id: "keybindings",
 		order: 80,
-		title: "Keybindings",
+		title: "Keyboard shortcuts",
 		ariaLabel: "Keybinding settings",
 		icon: Keyboard,
-		group: "advanced",
+		group: "workspace",
 	},
 	sessions: {
 		id: "sessions",
@@ -111,20 +116,104 @@ export const SETTINGS_SECTION_REGISTRY = {
 		title: "Dashboards",
 		ariaLabel: "Dashboard settings",
 		icon: LayoutDashboard,
-		group: "models",
+		group: "workspace",
+	},
+	context: {
+		id: "context",
+		order: 100,
+		title: "Context & compaction",
+		ariaLabel: "Context & compaction settings",
+		icon: Settings,
+		group: "advanced",
+	},
+	"retry-delivery": {
+		id: "retry-delivery",
+		order: 110,
+		title: "Retry & delivery",
+		ariaLabel: "Retry & delivery settings",
+		icon: Settings,
+		group: "advanced",
+	},
+	prompts: {
+		id: "prompts",
+		order: 120,
+		title: "Prompt templates",
+		ariaLabel: "Prompt templates settings",
+		icon: Settings,
+		group: "advanced",
+	},
+	"extensions-packages": {
+		id: "extensions-packages",
+		order: 130,
+		title: "Extensions & packages",
+		ariaLabel: "Extensions & packages settings",
+		icon: Settings,
+		group: "advanced",
+	},
+	services: {
+		id: "services",
+		order: 140,
+		title: "Optional services",
+		ariaLabel: "Optional services settings",
+		icon: Settings,
+		group: "workspace",
 	},
 } satisfies Record<SettingsSectionId, SettingsSection>;
 
 export const SETTINGS_SECTION_GROUPS: ReadonlyArray<{ id: SettingsSectionGroup; label: string }> = [
-	{ id: "workspace", label: "Workspace" },
-	{ id: "models", label: "Models" },
-	{ id: "advanced", label: "Advanced" },
+	{ id: "workspace", label: "Fleet preferences" },
+	{ id: "models", label: "Prime Agent models" },
+	{ id: "advanced", label: "Prime Agent runtime" },
+	{ id: "integrations", label: "Integrations" },
 ];
 
-export const SETTINGS_SECTIONS = Object.values(SETTINGS_SECTION_REGISTRY).sort(
-	(left, right) => left.order - right.order,
-);
+export const SETTINGS_SECTIONS = Object.values(SETTINGS_SECTION_REGISTRY)
+	.filter((section) => section.id !== "pi-harness" && section.id !== "dashboards")
+	.sort((left, right) => left.order - right.order);
 
 export function isSettingsSectionId(value: string): value is SettingsSectionId {
-	return SETTINGS_SECTIONS.some((section) => section.id === value);
+	return Object.hasOwn(SETTINGS_SECTION_REGISTRY, value);
 }
+
+export function canonicalSettingsSection(id: SettingsSectionId): SettingsSectionId {
+	return id === "pi-harness" ? "context" : id === "dashboards" ? "services" : id;
+}
+export const SETTINGS_SEARCH_ENTRIES: ReadonlyArray<{ section: SettingsSectionId; label: string; target: string }> = [
+	{ section: "providers", label: "Provider credentials · API keys · authentication", target: "Search credentials" },
+	{
+		section: "llm-models",
+		label: "Default model · enabled models · reasoning effort",
+		target: "Search listed models",
+	},
+	{ section: "sandbox", label: "Daytona API key", target: "Daytona API key" },
+	{ section: "sandbox", label: "Region / target", target: "Region / target" },
+	{ section: "keybindings", label: "Keyboard shortcuts · command palette · panels", target: "" },
+	{ section: "appearance", label: "Theme", target: "Theme" },
+	{ section: "appearance", label: "Density", target: "Density" },
+	{ section: "appearance", label: "Motion", target: "Motion" },
+	{ section: "chat", label: "Streaming transcript", target: "Streaming transcript" },
+	{ section: "sessions", label: "Confirm session deletion", target: "Confirm session deletion" },
+	{ section: "services", label: "Describe a command", target: "Describe a command" },
+	{ section: "services", label: "TypeSafe API key", target: "TypeSafe API key" },
+	{ section: "services", label: "Dashboard builder model", target: "Dashboard model" },
+	{ section: "services", label: "Thesys API key", target: "Thesys API key" },
+	{ section: "context", label: "Compaction", target: "Compaction" },
+	{ section: "context", label: "Reserved context tokens", target: "Reserved context tokens" },
+	{ section: "context", label: "Recent context tokens", target: "Recent context tokens" },
+	{ section: "retry-delivery", label: "Auto-retry", target: "Auto-retry" },
+	{ section: "retry-delivery", label: "Maximum retries", target: "Maximum retries" },
+	{ section: "retry-delivery", label: "Retry delay (milliseconds)", target: "Retry delay (milliseconds)" },
+	{ section: "retry-delivery", label: "Steering", target: "Steering" },
+	{ section: "retry-delivery", label: "Follow-up", target: "Follow-up" },
+	{ section: "llm-models", label: "Provider inference transport", target: "Provider inference transport" },
+	{ section: "skills", label: "Skill slash commands", target: "Skill slash commands" },
+	{ section: "skills", label: "Additional skill paths", target: "Add skill" },
+	{ section: "prompts", label: "Prompt template paths", target: "Add prompt" },
+	{ section: "extensions-packages", label: "Packages", target: "Add package" },
+	{ section: "extensions-packages", label: "Extensions", target: "Add extension" },
+	{
+		section: "mcp",
+		label: "MCP servers · HTTP · stdio · OAuth · environment variables",
+		target: "Search MCP servers",
+	},
+];

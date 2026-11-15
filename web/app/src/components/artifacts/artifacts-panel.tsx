@@ -158,7 +158,7 @@ function OpenUIArtifact({ artifact, selected }: { artifact: PrimeAgentArtifact; 
 			{payload ? (
 				<OpenUIHtmlArtifactView artifact={payload} />
 			) : (
-				<div role="alert" className="space-y-2 text-xs text-destructive">
+				<div role="alert" className="flex flex-col gap-2 text-xs text-destructive">
 					<p>OpenUI artifact data is unavailable.</p>
 					<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-foreground/5 p-2 text-foreground/70">
 						{textValue(artifact.output)}
@@ -229,7 +229,7 @@ function TechnicalArtifact({ artifact, selected }: { artifact: PrimeAgentArtifac
 					defaultOpen={initiallyOpen}
 					kind={artifact.kind === "bash" || artifact.kind === "ipython" ? "terminal" : "custom"}
 				>
-					<div className="space-y-3">
+					<div className="flex flex-col gap-3">
 						{source ? (
 							<CodeBlock
 								code={source.code}
@@ -355,7 +355,7 @@ export function ArtifactsPanelContent({
 						</span>
 						<span className="shrink-0 text-xs text-foreground/40">{openUIArtifacts.length}</span>
 					</div>
-					<div className="space-y-1">
+					<div className="flex flex-col gap-1">
 						{openUIArtifacts.map((artifact) => (
 							<OpenUIArtifact
 								key={artifact.id}
@@ -375,7 +375,7 @@ export function ArtifactsPanelContent({
 						</span>
 						<span className="shrink-0 text-xs text-foreground/40">{nonOpenUIArtifacts.length}</span>
 					</div>
-					<div className="space-y-1">
+					<div className="flex flex-col gap-1">
 						{nonOpenUIArtifacts.map((artifact) => (
 							<TechnicalArtifact
 								key={artifact.id}

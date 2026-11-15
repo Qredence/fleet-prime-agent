@@ -25,6 +25,7 @@ describe("McpConnectionsSection OAuth fallback", () => {
 			/>,
 		);
 
+		fireEvent.click(screen.getByRole("button", { name: "Details for Linear" }));
 		expect(screen.getByText(/Sign-in has to run inside Prime Agent/)).toBeTruthy();
 		// The guidance must name the command that actually exists: the CLI has no
 		// `mcp login` subcommand, and only the interactive TUI dispatches this.
@@ -66,7 +67,68 @@ describe("McpConnectionsSection OAuth fallback", () => {
 			transport: "http",
 			url: "https://mcp.example.com/mcp",
 			oauth: true,
-			force: true,
+			force: false,
 		});
 	});
+});
+
+it("preserves exact argument rows and validates environment names before saving", async () => {
+	const onUpsert = vi.fn().mockResolvedValue({ connections: [] });
+	render(<McpConnectionsSection connections={[]} isLoading={false} isPending={false} onUpsert={onUpsert} />);
+	fireEvent.click(screen.getByRole("button", { name: /add server/i }));
+	fireEvent.change(screen.getByLabelText("MCP server name"), { target: { value: "local" } });
+	fireEvent.click(screen.getByRole("combobox", { name: /transport/i }));
+	fireEvent.keyDown(await screen.findByRole("option", { name: "stdio" }), { key: "Enter" });
+	fireEvent.change(await screen.findByLabelText("MCP command"), { target: { value: "node" } });
+	fireEvent.click(screen.getByRole("button", { name: "Add argument" }));
+	fireEvent.change(screen.getByLabelText("MCP argument 1"), { target: { value: "/path with spaces/server.js" } });
+	fireEvent.click(screen.getByRole("button", { name: "Add environment mapping" }));
+	fireEvent.change(screen.getByLabelText("Child variable 1"), { target: { value: "INVALID NAME" } });
+	fireEvent.change(screen.getByLabelText("Source variable 1"), { target: { value: "SERVER_TOKEN" } });
+	fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+	await vi.waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+	expect(onUpsert).not.toHaveBeenCalled();
+	fireEvent.change(screen.getByLabelText("Child variable 1"), { target: { value: "TOKEN" } });
+	fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+	await vi.waitFor(() =>
+		expect(onUpsert).toHaveBeenCalledWith({
+			name: "local",
+			transport: "stdio",
+			command: "node",
+			args: ["/path with spaces/server.js"],
+			env: [{ child: "TOKEN", source: "SERVER_TOKEN" }],
+			force: false,
+		}),
+	);
+});
+
+it("requires explicit confirmation before replacing a duplicate user server", async () => {
+	const onUpsert = vi.fn().mockResolvedValue({ connections: [] });
+	render(
+		<McpConnectionsSection
+			connections={[
+				{
+					name: "docs",
+					label: "Docs",
+					source: "user",
+					transport: "http",
+					usesOAuth: false,
+					enabled: true,
+					status: "anonymous",
+				},
+			]}
+			isLoading={false}
+			isPending={false}
+			onUpsert={onUpsert}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("button", { name: /add server/i }));
+	fireEvent.change(screen.getByLabelText("MCP server name"), { target: { value: "docs" } });
+	fireEvent.change(screen.getByLabelText("MCP server URL"), { target: { value: "https://docs.example/mcp" } });
+	expect(screen.getByRole("button", { name: /^save$/i }).hasAttribute("disabled")).toBe(true);
+	fireEvent.click(screen.getByRole("button", { name: "Confirm replacement" }));
+	fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+	await vi.waitFor(() =>
+		expect(onUpsert).toHaveBeenCalledWith(expect.objectContaining({ name: "docs", force: true })),
+	);
 });

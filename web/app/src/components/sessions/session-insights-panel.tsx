@@ -29,7 +29,7 @@ function DetailList({ children, label }: { children: ReactNode; label: string })
 			className="rounded-md border border-border/60 bg-background px-3 py-2.5 shadow-surface-2"
 		>
 			<h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-foreground/45">{label}</h3>
-			<dl className="space-y-1.5 text-xs">{children}</dl>
+			<dl className="flex flex-col gap-1.5 text-xs">{children}</dl>
 		</section>
 	);
 }
@@ -99,7 +99,7 @@ export function SessionInsightsPanel({
 	const rlmSummary = RLM_CHILD_STATUSES.map((state) => `${insights.rlmChildren[state]}\u00A0${state}`).join(" · ");
 
 	return (
-		<section aria-label="Session insights" className="space-y-2.5 pb-1">
+		<section aria-label="Session insights" className="flex flex-col gap-2.5 pb-1">
 			<DetailList label="Current state">
 				<Detail label="Run status" value={status} />
 				<Detail label="Activity" value={<span className="block max-w-56 text-pretty">{insights.activity}</span>} />
