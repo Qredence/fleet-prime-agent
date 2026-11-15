@@ -26,8 +26,7 @@ import type { InputSuggestions, SuggestionItem } from "@/lib/chat/types";
 import { InputGroupButton } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 
-const COMPOSER_ADD_BUTTON_CLASS =
-	"size-8 shrink-0 rounded-full border-border/70 bg-background text-foreground/80 shadow-sm hover:bg-muted hover:text-foreground";
+const COMPOSER_ADD_BUTTON_CLASS = "size-8 shrink-0 text-foreground/80 hover:text-foreground";
 
 export type AttachedImage = {
 	id: string;
@@ -331,7 +330,7 @@ export function InputBar({
 							<>
 								<InputGroupButton
 									type="button"
-									variant="outline"
+									variant="ghost"
 									size="icon-sm"
 									disabled={actionsDisabled}
 									aria-label="Open slash commands"
@@ -344,7 +343,7 @@ export function InputBar({
 								{attachments?.onAttach ? (
 									<InputGroupButton
 										type="button"
-										variant="outline"
+										variant="ghost"
 										size="icon-sm"
 										disabled={actionsDisabled}
 										aria-label="Attach files"

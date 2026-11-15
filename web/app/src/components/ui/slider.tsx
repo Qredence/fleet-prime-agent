@@ -943,7 +943,6 @@ interface SliderComfortableProps extends Omit<
 	min?: number;
 	max?: number;
 	step?: number;
-	variant?: "pips" | "scrubber";
 	label?: string;
 	formatValue?: (v: number) => string;
 	disabled?: boolean;
@@ -957,7 +956,6 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 			min: minProp = 0,
 			max: maxProp = 100,
 			step: stepProp = 1,
-			variant = "pips",
 			label,
 			formatValue = String,
 			disabled = false,
@@ -975,7 +973,6 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 		const valueCh = Math.max(String(formatValue(min)).length, String(formatValue(max)).length);
 		const containerRef = useRef<HTMLDivElement>(null);
 		const dragging = useRef(false);
-		const handleDragging = useRef(false);
 		const [isHovered, setIsHovered] = useState(false);
 		const [isPressed, setIsPressed] = useState(false);
 		const [isFocused, setIsFocused] = useState(false);
@@ -1009,18 +1006,9 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 		const pipCount = pipSteps.length;
 
 		const fillPercent = useMotionValue(max === min ? 0 : clampNumber((value - min) / (max - min), 0, 1));
-		const zeroTarget = variant === "pips" ? 8 : 17;
+		const zeroTarget = 8;
 		const zeroOffset = useMotionValue(value === min ? zeroTarget : 0);
 
-		const fillWidthStyle = useTransform(fillPercent, (p) => `${p * 100}%`);
-		const handleLeftStyle = useTransform(
-			[fillPercent, zeroOffset] as MotionValue<number>[],
-			([p, zo]) => `calc(${(p as number) * 100}% - 8px + ${zo as number}px)`,
-		);
-		const handleLineLeftStyle = useTransform(
-			[fillPercent, zeroOffset] as MotionValue<number>[],
-			([p, zo]) => `calc(${(p as number) * 100}% - 9px + ${zo as number}px)`,
-		);
 		const pipsFillWidthStyle = useTransform(
 			[fillPercent, zeroOffset] as MotionValue<number>[],
 			([p, zo]) => `calc(${(p as number) * 100}% + ${20 - 20 * (p as number) - (zo as number) * 2.5}px)`,
@@ -1045,7 +1033,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 				const clamped = Math.max(0, Math.min(w, layoutX));
 
 				let snappedVal: number;
-				if (variant === "pips" && pipCount >= 2) {
+				if (pipCount >= 2) {
 					const index = Math.max(0, Math.min(pipCount - 1, Math.round((clamped / w) * (pipCount - 1))));
 					snappedVal = pipSteps[index];
 				} else {
@@ -1056,28 +1044,23 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 				const snappedX = snappedPercent * w;
 
 				const currentPercent = fillPercent.get();
-				let handleX: number;
-				if (variant === "pips") {
-					const zo = zeroOffset.get();
-					handleX = currentPercent * w + (20 - 20 * currentPercent - zo * 2.5);
-				} else {
-					handleX = currentPercent * w;
-				}
+				const zo = zeroOffset.get();
+				const handleX = currentPercent * w + (20 - 20 * currentPercent - zo * 2.5);
 
 				const edgeX = snappedVal === min ? 0 : snappedVal === max ? w : snappedX;
 				const left = Math.min(handleX, edgeX);
 				const width = Math.abs(edgeX - handleX);
 				setHoverPreview({ left, width, snappedValue: snappedVal, cursorX: snappedX });
 			},
-			[variant, pipSteps, pipCount, min, max, step, fillPercent, zeroOffset],
+			[pipSteps, pipCount, min, max, step, fillPercent, zeroOffset],
 		);
 
 		useEffect(() => {
-			if (dragging.current || handleDragging.current) return;
+			if (dragging.current) return;
 			const percent = max === min ? 0 : clampNumber((value - min) / (max - min), 0, 1);
 			animate(fillPercent, percent, spring.fast);
 			animate(zeroOffset, value === min ? zeroTarget : 0, spring.fast);
-		}, [value, min, max, variant, fillPercent, zeroOffset, zeroTarget]);
+		}, [value, min, max, fillPercent, zeroOffset, zeroTarget]);
 
 		const getValueFromX = useCallback(
 			(clientX: number) => {
@@ -1085,7 +1068,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 				if (!rect || rect.width <= 0) return min;
 				const x = clientX - rect.left;
 				const clamped = Math.max(0, Math.min(rect.width, x));
-				if (variant === "pips" && pipCount >= 2) {
+				if (pipCount >= 2) {
 					const index = Math.max(0, Math.min(pipCount - 1, Math.round((clamped / rect.width) * (pipCount - 1))));
 					return pipSteps[index];
 				}
@@ -1093,7 +1076,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 				const snapped = Math.round((raw - min) / step) * step + min;
 				return clampNumber(snapped, min, max);
 			},
-			[variant, pipSteps, pipCount, min, max, step],
+			[pipSteps, pipCount, min, max, step],
 		);
 
 		const handlePointerDown = useCallback(
@@ -1121,51 +1104,14 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 				const newVal = getValueFromX(e.clientX);
 				onChange(newVal);
 				const newPercent = max === min ? 0 : clampNumber((newVal - min) / (max - min), 0, 1);
-				if (variant === "scrubber") fillPercent.set(newPercent);
-				else animate(fillPercent, newPercent, spring.fast);
-				animate(zeroOffset, newVal === min ? zeroTarget : 0, spring.fast);
-			},
-			[getValueFromX, onChange, variant, fillPercent, zeroOffset, zeroTarget, min, max],
-		);
-
-		const handlePointerUp = useCallback(() => {
-			dragging.current = false;
-			setIsPressed(false);
-			setHoverPreview(null);
-		}, []);
-
-		const handleResizePointerDown = useCallback(
-			(e: React.PointerEvent<HTMLDivElement>) => {
-				if (disabled) return;
-				if (e.pointerType === "mouse" && e.button !== 0) return;
-				e.preventDefault();
-				e.stopPropagation();
-				handleDragging.current = true;
-				setIsPressed(true);
-				const newVal = getValueFromX(e.clientX);
-				onChange(newVal);
-				fillPercent.set(max === min ? 0 : clampNumber((newVal - min) / (max - min), 0, 1));
-				animate(zeroOffset, newVal === min ? zeroTarget : 0, spring.fast);
-				if (typeof e.currentTarget.setPointerCapture === "function") {
-					e.currentTarget.setPointerCapture(e.pointerId);
-				}
-			},
-			[disabled, getValueFromX, onChange, fillPercent, zeroOffset, zeroTarget, min, max],
-		);
-
-		const handleResizePointerMove = useCallback(
-			(e: React.PointerEvent<HTMLDivElement>) => {
-				if (!handleDragging.current) return;
-				const newVal = getValueFromX(e.clientX);
-				onChange(newVal);
-				fillPercent.set(max === min ? 0 : clampNumber((newVal - min) / (max - min), 0, 1));
+				animate(fillPercent, newPercent, spring.fast);
 				animate(zeroOffset, newVal === min ? zeroTarget : 0, spring.fast);
 			},
 			[getValueFromX, onChange, fillPercent, zeroOffset, zeroTarget, min, max],
 		);
 
-		const handleResizePointerUp = useCallback(() => {
-			handleDragging.current = false;
+		const handlePointerUp = useCallback(() => {
+			dragging.current = false;
 			setIsPressed(false);
 			setHoverPreview(null);
 		}, []);
@@ -1194,7 +1140,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 					}
 				}}
 				onMouseMove={(e) => {
-					if (disabled || dragging.current || handleDragging.current) return;
+					if (disabled || dragging.current) return;
 					computeHoverPreview(e.clientX);
 				}}
 			>
@@ -1234,8 +1180,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 					ref={mergedRef}
 					data-slot="slider"
 					className={cn(
-						"relative w-full h-8 select-none touch-none border border-border overflow-hidden outline-offset-2",
-						variant === "scrubber" ? "flex items-center gap-3 px-4 cursor-ew-resize" : "cursor-ew-resize",
+						"relative w-full h-8 select-none touch-none border border-border overflow-hidden outline-offset-2 cursor-ew-resize",
 						shape.bg,
 						disabled && "opacity-50 pointer-events-none",
 						className,
@@ -1289,7 +1234,7 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 						}}
 					/>
 
-					{variant === "pips" && pipSteps.length > 0 && (
+					{pipSteps.length > 0 && (
 						<m.div
 							className="absolute inset-0 flex justify-between items-center px-3 pointer-events-none z-[1]"
 							style={{ WebkitMaskImage: pipsMaskStyle, maskImage: pipsMaskStyle }}
@@ -1317,132 +1262,62 @@ const ComfortableSlider = forwardRef<HTMLDivElement, SliderComfortableProps>(
 						</m.div>
 					)}
 
-					{variant === "pips" && (
-						<div className="absolute inset-0 flex items-center px-2 z-[2] pointer-events-none" aria-hidden>
-							{label && (
-								<span className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] px-2 bg-background text-transparent select-none">
-									{label}
-								</span>
-							)}
-							<span
-								className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] tabular-nums ml-auto px-2 bg-background text-transparent select-none"
-								style={{ minWidth: `${valueCh}ch` }}
-							>
-								{formatValue(value)}
+					<div className="absolute inset-0 flex items-center px-2 z-[2] pointer-events-none" aria-hidden>
+						{label && (
+							<span className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] px-2 bg-background text-transparent select-none">
+								{label}
 							</span>
-						</div>
-					)}
+						)}
+						<span
+							className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] tabular-nums ml-auto px-2 bg-background text-transparent select-none"
+							style={{ minWidth: `${valueCh}ch` }}
+						>
+							{formatValue(value)}
+						</span>
+					</div>
 
-					{variant === "pips" && (
-						<m.div
-							className="absolute left-0 top-0 bottom-0 pointer-events-none z-[3] bg-active"
-							style={{ width: pipsFillWidthStyle }}
-						/>
-					)}
+					<m.div
+						className="absolute left-0 top-0 bottom-0 pointer-events-none z-[3] bg-active"
+						style={{ width: pipsFillWidthStyle }}
+					/>
 
-					{variant === "pips" && (
-						<m.div
-							className="absolute rounded-full pointer-events-none z-[3] w-0.5"
-							initial={false}
-							animate={{
-								top: isActive ? 7 : 8,
-								bottom: isActive ? 7 : 8,
-								backgroundColor: isFocused
-									? "var(--foreground)"
-									: isHovered
-										? "color-mix(in srgb, var(--foreground) 50%, transparent)"
-										: "color-mix(in srgb, var(--foreground) 25%, transparent)",
-							}}
-							transition={spring.fast}
-							style={{ left: pipsHandleLineLeftStyle }}
-						/>
-					)}
+					<m.div
+						className="absolute rounded-full pointer-events-none z-[3] w-0.5"
+						initial={false}
+						animate={{
+							top: isActive ? 7 : 8,
+							bottom: isActive ? 7 : 8,
+							backgroundColor: isFocused
+								? "var(--foreground)"
+								: isHovered
+									? "color-mix(in srgb, var(--foreground) 50%, transparent)"
+									: "color-mix(in srgb, var(--foreground) 25%, transparent)",
+						}}
+						transition={spring.fast}
+						style={{ left: pipsHandleLineLeftStyle }}
+					/>
 
-					{variant === "pips" && (
-						<div className="absolute inset-0 flex items-center px-2 z-[4] pointer-events-none">
-							{label && (
-								<m.span
-									className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] px-2"
-									initial={false}
-									animate={{ color: isActive ? "var(--foreground)" : "var(--muted-foreground)" }}
-									transition={spring.fast}
-								>
-									{label}
-								</m.span>
-							)}
+					<div className="absolute inset-0 flex items-center px-2 z-[4] pointer-events-none">
+						{label && (
 							<m.span
-								className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] tabular-nums ml-auto px-2 text-right"
+								className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] px-2"
 								initial={false}
 								animate={{ color: isActive ? "var(--foreground)" : "var(--muted-foreground)" }}
 								transition={spring.fast}
-								style={{ minWidth: `${valueCh}ch` }}
 							>
-								{formatValue(value)}
+								{label}
 							</m.span>
-						</div>
-					)}
-
-					{variant === "scrubber" && (
-						<m.div
-							className="absolute left-0 top-0 bottom-0 pointer-events-none bg-active"
-							style={{ width: fillWidthStyle }}
-						/>
-					)}
-
-					{variant === "scrubber" && (
-						<m.div
-							className="absolute rounded-full pointer-events-none z-10 w-0.5"
-							initial={false}
-							animate={{
-								top: isActive ? 7 : 8,
-								bottom: isActive ? 7 : 8,
-								backgroundColor: isFocused
-									? "var(--foreground)"
-									: isHovered
-										? "color-mix(in srgb, var(--foreground) 50%, transparent)"
-										: "color-mix(in srgb, var(--foreground) 25%, transparent)",
-							}}
-							transition={spring.fast}
-							style={{ left: handleLineLeftStyle }}
-						/>
-					)}
-
-					{variant === "scrubber" && label && (
+						)}
 						<m.span
-							className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] shrink-0 z-10"
+							className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] tabular-nums ml-auto px-2 text-right"
 							initial={false}
 							animate={{ color: isActive ? "var(--foreground)" : "var(--muted-foreground)" }}
 							transition={spring.fast}
+							style={{ minWidth: `${valueCh}ch` }}
 						>
-							{label}
+							{formatValue(value)}
 						</m.span>
-					)}
-
-					{variant === "scrubber" && (
-						<>
-							<div className="flex-1" />
-							<m.span
-								className="text-[length:var(--fs-body,13px)] leading-[var(--lh-body,20px)] shrink-0 tabular-nums text-right z-10"
-								initial={false}
-								animate={{ color: isActive ? "var(--foreground)" : "var(--muted-foreground)" }}
-								transition={spring.fast}
-								style={{ minWidth: `${valueCh}ch` }}
-							>
-								{formatValue(value)}
-							</m.span>
-						</>
-					)}
-
-					{variant === "scrubber" && (
-						<m.div
-							className="absolute top-0 bottom-0 w-2 cursor-ew-resize z-20"
-							style={{ left: handleLeftStyle }}
-							onPointerDown={handleResizePointerDown}
-							onPointerMove={handleResizePointerMove}
-							onPointerUp={handleResizePointerUp}
-							onPointerCancel={handleResizePointerUp}
-						/>
-					)}
+					</div>
 				</m.div>
 			</div>
 		);
@@ -1466,15 +1341,12 @@ const COMPACT_ENGINE_PROPS = [
 ] as const;
 
 interface SliderProps<V extends SliderValue = SliderValue> extends SliderEngineProps<V> {
-	/** Default-step layout: value pips along the track, or an edge-to-edge scrubber. */
-	variant?: "pips" | "scrubber";
 	/** Pins the slider to one step of the size ladder. */
 	size?: SizeVariant;
 }
 
 function Slider<V extends SliderValue = number>({
 	size,
-	variant = "pips",
 	ref,
 	...props
 }: SliderProps<V> & { ref?: Ref<HTMLDivElement> }) {
@@ -1497,7 +1369,6 @@ function Slider<V extends SliderValue = number>({
 			min={min}
 			max={max}
 			step={step}
-			variant={variant}
 			label={label}
 			formatValue={formatValue}
 			disabled={disabled}
@@ -1508,7 +1379,5 @@ function Slider<V extends SliderValue = number>({
 
 Slider.displayName = "Slider";
 
-const SliderComfortable = ComfortableSlider;
-
-export { Slider, SliderComfortable };
-export type { SliderComfortableProps, SliderProps, SliderValue, ValuePosition };
+export { Slider };
+export type { SliderProps };

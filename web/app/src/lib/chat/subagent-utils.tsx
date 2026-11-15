@@ -1,5 +1,7 @@
 import type { PrimeAgentRlmChild, PrimeAgentRlmTree } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatStatus } from "@prime-agent/web-protocol/chat-types";
+import { CheckCircle2, CircleAlert, CircleX, RotateCw } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Maps a subagent's lifecycle state to the corresponding chat status.
@@ -8,6 +10,19 @@ export function transcriptStatus(child: PrimeAgentRlmChild): ChatStatus {
 	if (child.status === "running" || child.status === "recovering") return "streaming";
 	if (child.status === "error" || child.status === "failed") return "error";
 	return "ready";
+}
+
+/**
+ * Maps an RLM child status to its corresponding status icon.
+ */
+export function rlmStatusIcon(status: PrimeAgentRlmChild["status"]) {
+	if (status === "done") return <CheckCircle2 className="size-3.5 text-success" />;
+	if (status === "error" || status === "failed") return <CircleAlert className="size-3.5 text-destructive" />;
+	if (status === "cancelled") return <CircleX className="size-3.5 text-muted-foreground" />;
+	if (status === "recovering") {
+		return <RotateCw className="size-3.5 animate-spin text-warning motion-reduce:animate-none" />;
+	}
+	return <Spinner aria-hidden="true" className="size-3.5 text-primary" />;
 }
 
 /**

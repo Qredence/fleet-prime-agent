@@ -17,6 +17,7 @@ import type { IconComponent } from "@/lib/fluid/icon-context";
 import { omit } from "@/lib/fluid/omit";
 import { useShape } from "@/lib/fluid/shape-context";
 import { useSizeVariant } from "@/lib/fluid/size-context";
+import { FOCUS_RING } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -29,7 +30,7 @@ const buttonVariants = cva(
 		// A loading button is disabled too, but stays at full strength: aria-busy
 		// marks it as working, not unavailable.
 		"disabled:not-aria-busy:opacity-50 disabled:pointer-events-none",
-		"focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+		FOCUS_RING,
 	],
 	{
 		variants: {
@@ -237,7 +238,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 			typeof label === "string" || typeof label === "number" ? (
 				<span className="[text-box:trim-both_cap_alphabetic]">{label}</span>
 			) : (
-				<span className="inline-flex items-center gap-[inherit] [&_svg]:shrink-0">{label}</span>
+				<span className="inline-flex min-w-0 items-center gap-[inherit] [&_svg]:shrink-0">{label}</span>
 			);
 
 		const internals = (
@@ -249,7 +250,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 						bgClass,
 					)}
 				/>
-				<span className="relative inline-flex items-center justify-center gap-[inherit]">
+				<span className="relative inline-flex min-w-0 items-center justify-center gap-[inherit]">
 					{loading ? (
 						<>
 							<span className="flex items-center justify-center gap-[inherit] opacity-0">
@@ -346,5 +347,5 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
 Button.displayName = "Button";
 
-export { Button, buttonVariants };
-export type { ButtonProps, ButtonSize };
+export { Button };
+export type { ButtonProps };

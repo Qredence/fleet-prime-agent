@@ -6,6 +6,7 @@ import { forwardRef, type SVGProps, useState } from "react";
 import { omit } from "@/lib/fluid/omit";
 import { useShape } from "@/lib/fluid/shape-context";
 import { type SizeVariant, useSize } from "@/lib/fluid/size-context";
+import { FOCUS_RING } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 type MotionSafeSvgProps = Omit<
@@ -70,7 +71,7 @@ const Checkbox = forwardRef<HTMLElement, CheckboxProps>(
 					"data-checked:border-transparent data-indeterminate:border-transparent",
 					"hover:data-checked:border-foreground/40 group-hover/field:not-data-disabled:data-checked:border-foreground/40",
 					"aria-invalid:not-data-checked:border-destructive/50",
-					"focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+					FOCUS_RING,
 					"data-disabled:pointer-events-none data-disabled:opacity-50",
 					compact ? "size-[14px]" : "size-4",
 					sharp ? "rounded-none" : compact ? "rounded-[4px]" : "rounded-[5px]",
@@ -130,4 +131,3 @@ const Checkbox = forwardRef<HTMLElement, CheckboxProps>(
 Checkbox.displayName = "Checkbox";
 
 export { Checkbox };
-export type { CheckboxProps };

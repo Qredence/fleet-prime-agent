@@ -19,6 +19,7 @@ import { SessionToolRenderer } from "@/components/tools/session-tool-renderer";
 import { SubagentList } from "@/components/chat/subagents/subagent-list";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 export type SubagentTranscriptState = {
@@ -224,7 +225,11 @@ export function SubagentTranscriptView({
 						type="button"
 						variant="ghost"
 					>
-						<RefreshCw className={cn("size-3.5", transcript?.status === "loading" && "animate-spin")} />
+						{transcript?.status === "loading" ? (
+							<Spinner aria-hidden="true" className="size-3.5" />
+						) : (
+							<RefreshCw className="size-3.5" />
+						)}
 					</Button>
 				) : null}
 			</div>

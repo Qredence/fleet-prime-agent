@@ -223,7 +223,7 @@ export function AddModelsDialog({
 													checked && "bg-muted/70",
 												)}
 											>
-												<div className="flex size-8 shrink-0 items-center justify-center rounded-[4px] border border-border/40 bg-background/60">
+												<div className="flex size-8 shrink-0 items-center justify-center rounded-sm border border-border/40 bg-background/60">
 													<ProviderBrandIcon provider={model.provider} className="text-foreground/70" />
 												</div>
 												<div className="min-w-0 flex-1">

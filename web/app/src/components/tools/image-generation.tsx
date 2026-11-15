@@ -5,6 +5,7 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useHoverCapable } from "@/hooks/use-hover-capable";
 import { EASE_IN_OUT, EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
@@ -289,9 +290,13 @@ export function ImageGeneration({
 					</AnimatePresence>
 
 					{resolution ? (
-						<span className="absolute top-2 right-2 z-10 rounded-full bg-background/75 px-2 py-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+						<Badge
+							variant="secondary"
+							size="compact"
+							className="absolute top-2 right-2 z-10 font-mono tabular-nums"
+						>
 							{resolution}
-						</span>
+						</Badge>
 					) : null}
 				</div>
 
@@ -335,7 +340,7 @@ export function ImageGeneration({
 						type="button"
 						variant="ghost"
 						onClick={onRetry}
-						className="mt-3 min-h-10 gap-2 rounded-full px-3 text-sm font-medium text-foreground hover:bg-muted enabled:active:scale-[0.96]"
+						className="mt-3 min-h-10 gap-2 px-3 text-sm font-medium text-foreground hover:bg-muted enabled:active:scale-[0.96]"
 					>
 						<RotateCcw aria-hidden="true" className="size-4" />
 						Try again

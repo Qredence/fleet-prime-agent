@@ -5,10 +5,11 @@ import type * as React from "react";
 import { fontWeights } from "@/lib/fluid/font-weight";
 import { useShape } from "@/lib/fluid/shape-context";
 import { typeClass, useSize } from "@/lib/fluid/size-context";
+import { FOCUS_RING } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 const itemVariants = cva(
-	"group/item flex w-full flex-wrap items-center border transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+	["group/item flex w-full flex-wrap items-center border transition-colors duration-80 outline-none", FOCUS_RING],
 	{
 		variants: {
 			variant: {

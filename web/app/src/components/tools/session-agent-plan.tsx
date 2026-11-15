@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronsDown, ChevronsUp, Circle, CircleCheck, CircleDot, FileText, Loader2, Route } from "lucide-react";
+import { ChevronsDown, ChevronsUp, Circle, CircleCheck, CircleDot, FileText, Route } from "lucide-react";
 import { useState } from "react";
 import { LazyMarkdown } from "@/components/chat/markdown/lazy-markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import {
 	Trace,
@@ -270,7 +271,7 @@ export function SessionAgentPlanDecision({
 			<div className="flex h-8 items-center justify-between pr-2 pl-3">
 				<div className="flex min-w-0 items-center gap-1.5">
 					{isPending ? (
-						<Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+						<Spinner className="size-3.5 shrink-0 text-muted-foreground" />
 					) : (
 						<FileText className="size-3.5 shrink-0 text-muted-foreground" />
 					)}

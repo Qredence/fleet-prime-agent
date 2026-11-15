@@ -8,6 +8,7 @@ import { COMPOSER_SELECTOR_TRIGGER_CLASS } from "@/components/chat/composer/comp
 import { InputGroupButton } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useSize } from "@/lib/fluid/size-context";
 
 const LazyModelSelectorList = lazy(() =>
 	import("@/components/chat/model-selector-list").then(({ ModelSelectorList }) => ({
@@ -78,6 +79,7 @@ export const ModelSelector = memo(function ModelSelector({
 	className,
 	contentClassName,
 }: ModelSelectorProps) {
+	const { type } = useSize();
 	const [internalOpen, setInternalOpen] = useState(false);
 	const open = controlledOpen ?? internalOpen;
 	const handleOpenChange = (next: boolean) => {
@@ -102,13 +104,8 @@ export const ModelSelector = memo(function ModelSelector({
 						size="sm"
 						aria-label={modelAriaLabel}
 						title={modelName}
-						className={cn(COMPOSER_SELECTOR_TRIGGER_CLASS, className)}
+						className={cn(COMPOSER_SELECTOR_TRIGGER_CLASS, "shrink", type.body, className)}
 					>
-						{selectedModel?.icon ? (
-							<span aria-hidden="true" className="shrink-0 [&_svg]:size-3.5">
-								{selectedModel.icon}
-							</span>
-						) : null}
 						<span className="min-w-0 truncate font-medium">{modelName}</span>
 						{effortName ? (
 							<span className="hidden shrink-0 text-foreground/70 xl:inline">· {effortName}</span>

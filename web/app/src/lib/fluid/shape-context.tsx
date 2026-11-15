@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 
-type ShapeVariant = "pill" | "rounded" | "sharp";
+type ShapeVariant = "rounded" | "sharp";
 
 interface ShapeClasses {
 	/** The variant these classes belong to — handy for conditionals. */
@@ -10,17 +10,14 @@ interface ShapeClasses {
 	item: string;
 	bg: string;
 	focusRing: string;
-	mergedBg: string;
 	container: string;
 	button: string;
 	input: string;
-	// Numeric counterparts of `bg` / `mergedBg`, in px. Needed where individual
-	// corners are animated (e.g. the selected-background merge/split animation),
-	// which requires per-corner numeric border-radii rather than a class.
+	// Numeric counterpart of `bg`, in px. Needed where individual corners are
+	// animated (e.g. the selected-background merge/split animation), which
+	// requires per-corner numeric border-radii rather than a class.
 	bgRadius: number;
-	/** Numeric counterpart of `container`. Popup shells use a 4px inset, so
-	 *  containerRadius = bgRadius + 4 keeps their curves concentric. */
-	containerRadius: number;
+	/** Radius of an item background merged with its neighbors. */
 	mergedRadius: number;
 }
 
@@ -36,33 +33,21 @@ function nestedRadius(outerRadius: number, inset: number, borderWidth = 0) {
 }
 
 const shapeMap: Record<ShapeVariant, ShapeClasses> = {
-	pill: {
-		variant: "pill",
-		item: "rounded-[20px]",
-		bg: "rounded-[20px]",
-		// +2px over `item` because the focus ring sits 2px outside the element
-		// (top/left -2, width/height +4); this keeps the corners concentric so a
-		// pill element gets a pill ring (matches the rounded-mode 8px→10px bump).
-		focusRing: "rounded-[22px]",
-		mergedBg: "rounded-2xl",
-		container: "rounded-3xl",
-		button: "rounded-[20px]",
-		input: "rounded-[20px]",
-		bgRadius: 20,
-		containerRadius: 24,
-		mergedRadius: 16,
-	},
+	// Concentric with the theme's radius ladder (see LAYOUT.md): items and
+	// controls take the 8px inner step (rounded-sm), cards/dialogs/popovers
+	// the 16px shell step (rounded-md). The composer keeps the 24px outer
+	// step via its own --radius-chat-input token.
 	rounded: {
 		variant: "rounded",
-		item: "rounded-lg",
-		bg: "rounded-lg",
+		item: "rounded-sm",
+		bg: "rounded-sm",
+		// +2px over `item` because the focus ring sits 2px outside the element
+		// (top/left -2, width/height +4); this keeps the corners concentric.
 		focusRing: "rounded-[10px]",
-		mergedBg: "rounded-lg",
-		container: "rounded-xl",
-		button: "rounded-lg",
-		input: "rounded-lg",
+		container: "rounded-md",
+		button: "rounded-sm",
+		input: "rounded-sm",
 		bgRadius: 8,
-		containerRadius: 12,
 		mergedRadius: 8,
 	},
 	// Sharp keeps a 1px radius rather than 0 so corners still anti-alias softly.
@@ -72,14 +57,20 @@ const shapeMap: Record<ShapeVariant, ShapeClasses> = {
 		item: "rounded-[1px]",
 		bg: "rounded-[1px]",
 		focusRing: "rounded-[3px]",
-		mergedBg: "rounded-[1px]",
 		container: "rounded-[1px]",
 		button: "rounded-[1px]",
 		input: "rounded-[1px]",
 		bgRadius: 1,
-		containerRadius: 1,
 		mergedRadius: 1,
 	},
+};
+
+// Popup shells (menus, select and combobox lists) inset their items by 4px,
+// so the shell takes the concentric 8px + 4px = 12px radius instead of the
+// 16px card step. Sharp carries over, so a sharp UI gets sharp menus.
+const popupShapeMap: Record<ShapeVariant, ShapeClasses> = {
+	rounded: { ...shapeMap.rounded, container: "rounded-[12px]" },
+	sharp: shapeMap.sharp,
 };
 
 interface ShapeContextValue {
@@ -90,27 +81,17 @@ interface ShapeContextValue {
 
 const ShapeContext = createContext<ShapeContextValue | null>(null);
 
-// Rounded is the default on every path: the site demos render under
-// <ShapeProvider defaultShape="rounded">, the shipped :focus-visible fallback
-// ring assumes its 8px radius, and the preset generators only emit a provider
-// for pill. A consumer with no provider gets the corners the docs show.
+// Rounded is the default on every path: the shipped :focus-visible fallback
+// ring assumes its 8px radius, and a consumer with no provider gets the
+// default corners.
 function useShape(): ShapeClasses {
 	const ctx = useContext(ShapeContext);
 	if (!ctx) return shapeMap.rounded;
 	return ctx.classes;
 }
 
-// Popup surfaces (menus, select and combobox lists) cap at rounded: pill
-// corners distort their padding at this scale and skew the corner shadows.
-// Sharp carries over, so a sharp UI gets sharp menus.
 function usePopupShape(): ShapeClasses {
-	return useShape().variant === "sharp" ? shapeMap.sharp : shapeMap.rounded;
-}
-
-function useShapeContext() {
-	const ctx = useContext(ShapeContext);
-	if (!ctx) throw new Error("useShapeContext must be used within a ShapeProvider");
-	return ctx;
+	return popupShapeMap[useShape().variant];
 }
 
 function ShapeProvider({ children, defaultShape = "rounded" }: { children: ReactNode; defaultShape?: ShapeVariant }) {
@@ -149,5 +130,5 @@ function ShapeProvider({ children, defaultShape = "rounded" }: { children: React
 	return <ShapeContext.Provider value={value}>{children}</ShapeContext.Provider>;
 }
 
-export { ShapeProvider, useShape, usePopupShape, useShapeContext, shapeMap, nestedRadius };
-export type { ShapeVariant, ShapeClasses };
+export { ShapeProvider, useShape, usePopupShape, nestedRadius };
+export type { ShapeVariant };

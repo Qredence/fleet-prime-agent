@@ -74,3 +74,9 @@ export function surfaceHoverClasses(bgLevel: number, shadowLevel: number = bgLev
 	const shadow = Math.round(Math.max(1, Math.min(8, shadowLevel)));
 	return `${SURFACE_HOVER_BG[bg]} ${SURFACE_HOVER_SHADOW[shadow]}`;
 }
+
+export const FOCUS_RING = "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]";
+export const FOCUS_RING_CLASSES = "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]";
+
+export const HOVER_HIGHLIGHT = "absolute bg-active pointer-events-none";
+export const HOVER_HIGHLIGHT_CLASSES = "absolute bg-active pointer-events-none";

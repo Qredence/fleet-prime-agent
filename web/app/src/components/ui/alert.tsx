@@ -75,15 +75,5 @@ function AlertDescription({ className, ...props }: React.ComponentProps<"div">) 
 	);
 }
 
-function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
-	return (
-		<div
-			data-slot="alert-action"
-			className={cn("relative z-10 col-start-2 mt-2 flex items-center gap-2", className)}
-			{...props}
-		/>
-	);
-}
-
-export { Alert, AlertAction, AlertDescription, AlertTitle };
+export { Alert, AlertDescription, AlertTitle };
 export type AlertProps = React.ComponentProps<"div"> & VariantProps<typeof alertVariants>;

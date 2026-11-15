@@ -1,11 +1,13 @@
 import type { PrimeAgentArtifactRun, PrimeAgentRlmChild } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatReasoningPart } from "@prime-agent/web-protocol/chat-types";
-import { ArrowUpRight, CircleCheck, CircleDashed, CircleX, LoaderCircle } from "lucide-react";
+import { ArrowUpRight, CircleCheck } from "lucide-react";
 import { useState } from "react";
 import { groupMessages } from "@/lib/chat/conversation-turns";
+import { rlmStatusIcon } from "@/lib/chat/subagent-utils";
 import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
 	Trace,
 	TraceCollapsible,
@@ -27,12 +29,6 @@ function messageText(message: ChatMessage): string {
 
 function isReasoningPart(part: ChatMessage["parts"][number]): part is ChatReasoningPart {
 	return part.type === "reasoning";
-}
-
-function childStatusIcon(status: PrimeAgentRlmChild["status"]) {
-	if (status === "done") return CircleCheck;
-	if (status === "error" || status === "failed" || status === "cancelled") return CircleX;
-	return CircleDashed;
 }
 
 function reasoningPreview(text: string): string {
@@ -70,9 +66,7 @@ function TurnReasoningSummary({ parts, streaming }: { parts: Array<ChatReasoning
 			<TraceCollapsible open={userOpen ?? active} onOpenChange={setUserOpen}>
 				<TraceCollapsibleTrigger>
 					<TraceLine status={active ? "running" : undefined}>
-						<TraceIcon>
-							{active ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : <CircleCheck />}
-						</TraceIcon>
+						<TraceIcon>{active ? <Spinner aria-hidden="true" /> : <CircleCheck />}</TraceIcon>
 						<TraceTitle>{active ? "Thinking" : "Thought"}</TraceTitle>
 						<TraceDescription>
 							{parts.length}
@@ -212,34 +206,33 @@ export function SessionActivityPanel({
 				</h2>
 				{childAgents.length ? (
 					<ul className="flex flex-col gap-1.5">
-						{childAgents.map((child) => {
-							const StatusIcon = childStatusIcon(child.status);
-							return (
-								<li key={child.id}>
-									<Button
-										aria-label={`Open ${child.sessionName || child.label} agent tab`}
-										className="h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-2 text-left text-foreground hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring"
-										onClick={() => onSelectChild(child.id)}
-										size="compact"
-										type="button"
-										variant="ghost"
-									>
-										<StatusIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-										<span className="min-w-0 flex-1">
-											<span className="block truncate text-xs font-medium">
-												{child.sessionName || child.label}
-											</span>
-											<span className="block truncate text-xs text-muted-foreground">
-												{[child.status, child.model, child.progressNote || child.answerPreview]
-													.filter(Boolean)
-													.join(" · ")}
-											</span>
+						{childAgents.map((child) => (
+							<li key={child.id}>
+								<Button
+									aria-label={`Open ${child.sessionName || child.label} agent tab`}
+									className="h-auto min-h-7 w-full min-w-0 justify-start gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-2 text-left text-foreground hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring"
+									onClick={() => onSelectChild(child.id)}
+									size="compact"
+									type="button"
+									variant="ghost"
+								>
+									<span aria-hidden="true" className="shrink-0">
+										{rlmStatusIcon(child.status)}
+									</span>
+									<span className="min-w-0 flex-1">
+										<span className="block truncate text-xs font-medium">
+											{child.sessionName || child.label}
 										</span>
-										<ArrowUpRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-									</Button>
-								</li>
-							);
-						})}
+										<span className="block truncate text-xs text-muted-foreground">
+											{[child.status, child.model, child.progressNote || child.answerPreview]
+												.filter(Boolean)
+												.join(" · ")}
+										</span>
+									</span>
+									<ArrowUpRight aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+								</Button>
+							</li>
+						))}
 					</ul>
 				) : (
 					<p className="text-xs text-muted-foreground">No child agents in this session.</p>

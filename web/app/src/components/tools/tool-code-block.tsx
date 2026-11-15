@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, FileCode2, LoaderCircle } from "lucide-react";
+import { Check, Copy, FileCode2 } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
@@ -20,6 +20,7 @@ import {
 	CodeBlockTitle,
 	CodeBlock as UiCodeBlock,
 } from "@/components/ui/code-block";
+import { Spinner } from "@/components/ui/spinner";
 import { type AgentCodeLanguage, type AgentCodeToken, useAgentCodeTokens } from "@/lib/shiki-highlight";
 import { cn } from "@/lib/utils";
 
@@ -169,11 +170,7 @@ export function CodeBlock({
 							streaming ? "text-info" : "text-success",
 						)}
 					>
-						{streaming ? (
-							<LoaderCircle className={cn("size-3", !reduce && "animate-spin")} />
-						) : (
-							<Check className="size-3" />
-						)}
+						{streaming ? <Spinner aria-hidden="true" className="size-3" /> : <Check className="size-3" />}
 						{streaming ? "Writing" : "Ready"}
 					</span>
 				) : null}

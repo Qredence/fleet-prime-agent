@@ -380,7 +380,10 @@ export function ToolTimeline({
 						<TraceIcon>
 							<ToolActionIcon
 								name={statusIconName}
-								className={cn("size-3.5", active?.status === "running" && "animate-spin")}
+								className={cn(
+									"size-3.5",
+									active?.status === "running" && "animate-spin motion-reduce:animate-none",
+								)}
 							/>
 						</TraceIcon>
 						<TraceTitle>

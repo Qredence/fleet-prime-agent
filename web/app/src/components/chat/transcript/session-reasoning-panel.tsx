@@ -1,8 +1,9 @@
 "use client";
 
 import type { ChatReasoningPresentation } from "@prime-agent/web-protocol/chat-protocol";
-import { CircleCheck, LoaderCircle } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import { useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import {
 	Trace,
 	TraceCollapsible,
@@ -36,13 +37,7 @@ export function SessionReasoningPanel({
 			<TraceCollapsible open={open} onOpenChange={setOpen}>
 				<TraceCollapsibleTrigger>
 					<TraceLine status={streaming ? "running" : undefined}>
-						<TraceIcon>
-							{streaming ? (
-								<LoaderCircle className="animate-spin motion-reduce:animate-none" />
-							) : (
-								<CircleCheck />
-							)}
-						</TraceIcon>
+						<TraceIcon>{streaming ? <Spinner aria-hidden="true" /> : <CircleCheck />}</TraceIcon>
 						<TraceTitle>{streaming ? "Preparing response" : presentation.restingLabel}</TraceTitle>
 						{presentation.elapsedMs !== undefined ? (
 							<TraceDescription>{Math.max(0, Math.round(presentation.elapsedMs / 1000))}s</TraceDescription>

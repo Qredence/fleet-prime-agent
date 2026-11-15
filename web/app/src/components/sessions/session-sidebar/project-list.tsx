@@ -6,7 +6,6 @@ import {
 	CircleStop,
 	Folder,
 	FolderPlus,
-	LoaderCircle,
 	MoreHorizontal,
 	Plus,
 	SquarePen,
@@ -35,6 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Spinner } from "@/components/ui/spinner";
 
 type SidebarProjectListProps = {
 	projectActionsOpen: SidebarStateView["projectActionsOpen"];
@@ -59,7 +59,7 @@ type SidebarProjectListProps = {
 
 function sessionStatusIcon(session: ChatSessionInfo | undefined) {
 	if (session?.status === "running") {
-		return <LoaderCircle className="size-3.5 animate-spin" />;
+		return <Spinner className="size-3.5" />;
 	}
 	if (session?.status === "failed") {
 		return <TriangleAlert className="size-3.5 text-destructive" />;
@@ -162,7 +162,7 @@ export function SessionSidebarProjectList({
 				<AnimatedSidebarGroupContent>
 					{projects.length === 0 ? (
 						<div className="px-2 py-4">
-							<Card size="sm" className="gap-2 bg-muted/30">
+							<Card size="compact" className="gap-2 bg-muted/30">
 								<CardHeader className="gap-1">
 									<div className="flex items-center gap-2 text-muted-foreground">
 										<FolderPlus className="size-4 shrink-0" />

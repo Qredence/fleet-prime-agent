@@ -11,6 +11,7 @@ import {
 	CodeBlock as UiCodeBlock,
 } from "@/components/ui/code-block";
 import { cn } from "@/lib/utils";
+import { useSizeVariant } from "@/lib/fluid/size-context";
 
 const LazyHighlightedMarkdown = lazy(() =>
 	import("@/components/chat/markdown/markdown-code").then(({ HighlightedMarkdown }) => ({
@@ -96,6 +97,8 @@ export function createMarkdownComponents(
 		h2: ({ children, ...props }) => <h2 {...props}>{children}</h2>,
 		h3: ({ children, ...props }) => <h3 {...props}>{children}</h3>,
 		h4: ({ children, ...props }) => <h4 {...props}>{children}</h4>,
+		h5: ({ children, ...props }) => <h5 {...props}>{children}</h5>,
+		h6: ({ children, ...props }) => <h6 {...props}>{children}</h6>,
 		p: ({ children, node: _node, ...props }) => {
 			const child = (Array.isArray(children) ? children : [children]).filter(
 				(value) => value != null && value !== "",
@@ -111,6 +114,7 @@ export function createMarkdownComponents(
 		ol: ({ children, ...props }) => <ol {...props}>{children}</ol>,
 		li: ({ children, ...props }) => <li {...props}>{children}</li>,
 		strong: ({ children, ...props }) => <strong {...props}>{children}</strong>,
+		code: ({ children, node: _node, ...props }) => <code {...props}>{children}</code>,
 		a: ({ href, children, ...props }) => {
 			if (typeof href !== "string" || !SAFE_HREF_PATTERN.test(href)) {
 				return <span>{children}</span>;
@@ -200,7 +204,7 @@ function MarkdownCodeBlock({
 		window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 	};
 	return (
-		<UiCodeBlock className="my-3 bg-muted/60">
+		<UiCodeBlock className="not-typeset bg-muted/60">
 			<CodeBlockHeader className="h-9 gap-2 border-b border-foreground/[0.06] px-3 pt-0">
 				<FileCode2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground/70" />
 				<CodeBlockTitle className="font-mono text-xs text-muted-foreground">{language}</CodeBlockTitle>
@@ -228,9 +232,14 @@ function MarkdownCodeBlock({
 	);
 }
 
-/** Wraps rendered Markdown in the Typeset chat preset and merges optional container classes. */
+/** Applies Fluid prose typography at the surrounding density step. */
 export function MarkdownFrame({ children, className }: { children: React.ReactNode; className?: string }) {
-	return <div className={cn("typeset typeset-chat", "overflow-hidden wrap-break-word", className)}>{children}</div>;
+	const compact = useSizeVariant() === "compact";
+	return (
+		<div className={cn("typeset overflow-hidden wrap-break-word", compact && "typeset-compact", className)}>
+			{children}
+		</div>
+	);
 }
 
 /**

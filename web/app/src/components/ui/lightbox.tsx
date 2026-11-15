@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-export type LightboxImage = {
+type LightboxImage = {
 	/** Stable identifier — used for keys and to know which image is active. */
 	id: string;
 	/** Resolvable image URL (https / data: / blob:). */

@@ -1,10 +1,12 @@
 "use client";
 
-import { Check, Gauge } from "lucide-react";
+import { Check } from "lucide-react";
 import { useMemo } from "react";
 import type { ModelSelectorEffort, ModelSelectorModel } from "@/components/chat/model-selector";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Slider } from "@/components/ui/slider";
+import { useSize } from "@/lib/fluid/size-context";
+import { cn } from "@/lib/utils";
 
 export interface ModelSelectorListProps {
 	models: readonly ModelSelectorModel[];
@@ -32,6 +34,20 @@ function groupModels(models: readonly ModelSelectorModel[]) {
 }
 
 /**
+ * Searchable text for a model item. Doubles as the cmdk item value, so the
+ * same string passed to `Command value` highlights the selected model and
+ * scrolls it into view when the picker opens.
+ *
+ * @param model - Model to build the search value for
+ * @returns Space-joined id/name/provider/keyword string
+ */
+function modelSearchValue(model: ModelSelectorModel) {
+	return [model.id, model.name, model.provider, model.providerLabel, model.modelId, ...(model.keywords ?? [])]
+		.filter(Boolean)
+		.join(" ");
+}
+
+/**
  * Searchable model/effort list. Split from `model-selector` so the cmdk
  * dependency stays out of the welcome-route eager graph (see
  * web/app/scripts/check-bundle-budget.mjs) — this module only loads when the
@@ -46,9 +62,14 @@ export function ModelSelectorList({
 	onEffortChange,
 }: ModelSelectorListProps) {
 	const groups = useMemo(() => groupModels(models), [models]);
+	const { type } = useSize();
 
 	return (
-		<Command className="min-h-0 max-h-[min(55dvh,28rem)] bg-transparent" shouldFilter>
+		<Command
+			className="min-h-0 max-h-[min(55dvh,28rem)] bg-transparent"
+			shouldFilter
+			value={selectedModel ? modelSearchValue(selectedModel) : undefined}
+		>
 			<CommandInput placeholder="Search models…" aria-label="Search models" />
 			<CommandList className="max-h-48 min-h-0 flex-1 p-1.5">
 				<CommandEmpty>
@@ -59,51 +80,20 @@ export function ModelSelectorList({
 				{groups.map(([provider, providerModels]) => (
 					<CommandGroup key={provider} heading={providerModels[0]?.providerLabel ?? provider}>
 						{providerModels.map((model) => {
-							const searchValue = [
-								model.id,
-								model.name,
-								model.provider,
-								model.providerLabel,
-								model.modelId,
-								...(model.keywords ?? []),
-							]
-								.filter(Boolean)
-								.join(" ");
 							const selected = model.id === selectedModel?.id;
 							return (
 								<CommandItem
 									key={model.id}
-									value={searchValue}
+									value={modelSearchValue(model)}
 									disabled={model.disabled}
 									onSelect={() => {
 										if (model.disabled) return;
 										onModelChange?.(model.id);
 									}}
-									className="items-start gap-2 rounded-md px-2.5 py-2"
+									className="items-center gap-2 rounded-md px-2.5 py-2"
 								>
-									<span className="mt-0.5 shrink-0 text-muted-foreground">
-										{model.icon ?? <Gauge aria-hidden="true" className="size-4" />}
-									</span>
-									<span className="min-w-0 flex-1">
-										<span className="flex items-center gap-2">
-											<span className="truncate text-sm font-medium">{model.name}</span>
-											{model.disabled ? (
-												<span className="shrink-0 text-xs uppercase tracking-wide text-muted-foreground">
-													Unavailable
-												</span>
-											) : null}
-										</span>
-										<span className="mt-0.5 block truncate text-xs text-muted-foreground">
-											{model.modelId ?? model.id}
-											{model.reasoning ? " · reasoning" : ""}
-										</span>
-										{model.description ? (
-											<span className="mt-0.5 block truncate text-xs text-muted-foreground/80">
-												{model.description}
-											</span>
-										) : null}
-									</span>
-									{selected ? <Check aria-hidden="true" className="mt-1 size-4 shrink-0" /> : null}
+									<span className={cn("min-w-0 flex-1 font-medium", type.body)}>{model.name}</span>
+									{selected ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}
 								</CommandItem>
 							);
 						})}
@@ -125,6 +115,7 @@ export function ModelSelectorList({
 						min={0}
 						max={Math.max(0, selectedModel.efforts.length - 1)}
 						formatValue={(nextValue) => selectedModel.efforts?.[Math.round(nextValue)]?.name ?? ""}
+						className="[&_.bg-background]:bg-popover"
 					/>
 				</div>
 			) : null}

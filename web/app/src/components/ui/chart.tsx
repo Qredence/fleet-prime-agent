@@ -30,12 +30,12 @@ export function getChartColorVarName(key: string) {
 	return `--color-${sanitizeChartToken(key)}`;
 }
 
-export type ChartConfig = Record<
+type ChartConfig = Record<
 	string,
-	{
-		label?: React.ReactNode;
-		icon?: React.ComponentType;
-	} & ({ color?: string; theme?: never } | { color?: never; theme: Record<keyof typeof THEMES, string> })
+	{ label?: React.ReactNode; icon?: React.ComponentType } & (
+		| { color?: string; theme?: never }
+		| { color?: never; theme: Record<keyof typeof THEMES, string> }
+	)
 >;
 
 type ChartContextProps = {

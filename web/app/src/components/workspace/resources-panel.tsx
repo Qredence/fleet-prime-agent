@@ -6,6 +6,7 @@ import type {
 import { CircleAlert, type LucideIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Item, ItemContent, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getResourceChipTitle, getResourceGroups, resourceKey } from "@/lib/workspace/resource-helpers";
 
@@ -47,19 +48,19 @@ export function ResourceChipSection({
 					items.map((item) => {
 						const title = getResourceChipTitle(item);
 						return (
-							<li
+							<Item
 								key={resourceKey(item)}
-								className="flex min-h-9 w-full max-w-full min-w-0 items-center gap-2 rounded-lg border border-border/70 bg-background px-2.5 py-1.5 text-sm text-foreground/80 shadow-xs"
-								aria-label={title}
-								data-testid="resource-chip"
-								title={title}
+								variant="outline"
+								size="xs"
+								render={<li aria-label={title} data-testid="resource-chip" title={title} />}
+								className="min-h-9 bg-background text-foreground/80 shadow-xs"
 							>
-								<div className="flex min-w-0 flex-1 items-center gap-2">
-									<span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-										<Icon className="size-3.5" />
-									</span>
-									<span className="min-w-0 truncate">{item.name}</span>
-								</div>
+								<ItemMedia className="size-5 rounded-full bg-muted text-muted-foreground">
+									<Icon aria-hidden="true" />
+								</ItemMedia>
+								<ItemContent>
+									<ItemTitle className="truncate">{item.name}</ItemTitle>
+								</ItemContent>
 								{item.source ? (
 									<Badge variant="secondary" className="max-w-20 shrink-0 truncate px-1.5 py-0.5 text-xs">
 										{item.source}
@@ -70,7 +71,7 @@ export function ResourceChipSection({
 										{item.activationStatus}
 									</Badge>
 								) : null}
-							</li>
+							</Item>
 						);
 					})
 				)}

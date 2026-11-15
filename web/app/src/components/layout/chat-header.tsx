@@ -120,7 +120,7 @@ export function useChatWorkspaceHeader({
 		left: (
 			<AnimatedSidebarTrigger
 				aria-label="Toggle conversations"
-				className="!size-7 !rounded-[7px] border border-border/70 bg-background shadow-sm"
+				className="!size-7 border border-border/70 bg-background shadow-sm"
 			>
 				<span
 					aria-hidden="true"

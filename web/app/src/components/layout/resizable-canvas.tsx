@@ -8,6 +8,7 @@ import {
 	RESOURCE_CANVAS_MIN_WIDTH,
 } from "@/lib/layout/canvas-utils";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { DESKTOP_PANEL_HIDDEN_FLEX } from "@/lib/layout-constants";
 import { cn } from "@/lib/utils";
 
@@ -133,10 +134,11 @@ export function ResizableCanvas({
 									aria-label={`Refresh ${title}`}
 									title={`Refresh ${title}`}
 								>
-									<RefreshCw
-										data-icon="inline-start"
-										className={`size-3.5 ${loading ? "animate-spin" : ""}`}
-									/>
+									{loading ? (
+										<Spinner aria-hidden="true" className="size-3.5" data-icon="inline-start" />
+									) : (
+										<RefreshCw data-icon="inline-start" className="size-3.5" />
+									)}
 								</Button>
 								<Button
 									type="button"

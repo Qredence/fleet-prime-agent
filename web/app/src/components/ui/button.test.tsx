@@ -41,7 +41,7 @@ describe("Button", () => {
 		const button = screen.getByRole("button", { name: "Add item" });
 		const label = button.querySelector("span:has(> svg)");
 		expect(button.className).toContain("[&_svg:not([class*='size-'])]:size-4");
-		expect(label?.className).toContain("inline-flex items-center gap-[inherit]");
+		expect(label?.className).toContain("inline-flex min-w-0 items-center gap-[inherit]");
 		expect(label?.className).toContain("[&_svg]:shrink-0");
 
 		rerender(

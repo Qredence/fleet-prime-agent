@@ -3,6 +3,8 @@ import { ArrowUp, FolderOpen, FolderPlus, FolderTree, TriangleAlert } from "luci
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { SessionSidebarDependencies } from "@/lib/sessions/sidebar-types";
 import { directoryErrorMessage, pathEntryLabel } from "@/lib/sessions/sidebar-types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
@@ -205,7 +207,7 @@ export function SessionSidebarCreateDialog({
 
 					{directoryBrowseLoading && !directoryBrowser ? (
 						<div
-							className="flex items-center gap-2 rounded-xl border border-dashed px-3 py-4 text-sm text-muted-foreground"
+							className="flex items-center gap-2 rounded-sm border border-dashed px-3 py-4 text-sm text-muted-foreground"
 							role="status"
 							aria-live="polite"
 						>
@@ -216,11 +218,11 @@ export function SessionSidebarCreateDialog({
 
 					{directoryBrowser ? (
 						<div
-							className="overflow-hidden rounded-xl border bg-muted/20"
+							className="overflow-hidden rounded-md border bg-muted/20"
 							data-testid="project-directory-browser"
 						>
 							<div className="flex items-start gap-3 p-3">
-								<div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+								<div className="grid size-9 shrink-0 place-items-center rounded-sm bg-primary/10 text-primary">
 									<FolderOpen className="size-4" />
 								</div>
 								<div className="min-w-0 flex-1">
@@ -234,9 +236,9 @@ export function SessionSidebarCreateDialog({
 										{selectedDirectoryPath}
 									</p>
 								</div>
-								<span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+								<Badge variant="secondary" size="compact" className="shrink-0">
 									Selected
-								</span>
+								</Badge>
 							</div>
 
 							<div className="flex flex-col gap-2 border-t p-3">
@@ -267,7 +269,7 @@ export function SessionSidebarCreateDialog({
 
 								{directoryBrowseLoading ? (
 									<div
-										className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground"
+										className="flex items-center gap-2 rounded-sm border border-dashed px-3 py-4 text-sm text-muted-foreground"
 										role="status"
 										aria-live="polite"
 									>
@@ -275,11 +277,11 @@ export function SessionSidebarCreateDialog({
 										Loading directories…
 									</div>
 								) : directoryBrowser.entries.length === 0 ? (
-									<p className="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+									<p className="rounded-sm border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
 										No child directories here.
 									</p>
 								) : (
-									<Command className="overflow-hidden rounded-lg border bg-background" shouldFilter>
+									<Command className="overflow-hidden rounded-md border bg-background" shouldFilter>
 										<CommandInput
 											aria-label="Search child directories"
 											placeholder="Choose a child directory…"
@@ -331,13 +333,10 @@ export function SessionSidebarCreateDialog({
 					) : null}
 
 					{directoryBrowseError ? (
-						<div
-							className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-							role="alert"
-						>
+						<Alert variant="destructive" className="text-sm">
 							<TriangleAlert className="mt-0.5 size-4 shrink-0" />
-							<div className="min-w-0 flex-1">
-								<p>{directoryBrowseError}</p>
+							<div className="min-w-0">
+								<AlertDescription>{directoryBrowseError}</AlertDescription>
 								<Button
 									type="button"
 									variant="link"
@@ -350,7 +349,7 @@ export function SessionSidebarCreateDialog({
 									Try again
 								</Button>
 							</div>
-						</div>
+						</Alert>
 					) : null}
 
 					{createSubmitError ? (

@@ -1,65 +1,11 @@
 "use client";
 
-import {
-	forwardRef,
-	useEffect,
-	useId,
-	useMemo,
-	useRef,
-	type FieldsetHTMLAttributes,
-	type HTMLAttributes,
-	type LabelHTMLAttributes,
-	type ReactNode,
-} from "react";
+import { forwardRef, useEffect, useId, useRef, type HTMLAttributes, type LabelHTMLAttributes } from "react";
 import { Label } from "@/components/ui/label";
 import { fontWeights } from "@/lib/fluid/font-weight";
-import { useIcons } from "@/lib/fluid/icon-context";
 import { useShape } from "@/lib/fluid/shape-context";
 import { useSize } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
-
-const FieldSet = forwardRef<HTMLFieldSetElement, FieldsetHTMLAttributes<HTMLFieldSetElement>>(
-	({ className, ...props }, ref) => (
-		<fieldset
-			ref={ref}
-			data-slot="field-set"
-			className={cn("m-0 flex min-w-0 flex-col gap-3 border-0 p-0", className)}
-			{...props}
-		/>
-	),
-);
-FieldSet.displayName = "FieldSet";
-
-interface FieldLegendProps extends HTMLAttributes<HTMLLegendElement> {
-	/** `legend` titles a section; `label` matches FieldLabel. */
-	variant?: "legend" | "label";
-}
-
-const FieldLegend = forwardRef<HTMLLegendElement, FieldLegendProps>(
-	({ className, variant = "legend", style, ...props }, ref) => {
-		const sizeClasses = useSize();
-		return (
-			<legend
-				ref={ref}
-				data-slot="field-legend"
-				data-variant={variant}
-				className={cn(
-					"mb-1 p-0",
-					variant === "legend"
-						? cn(sizeClasses.type.subtitle, "text-foreground")
-						: cn(sizeClasses.type.body, "text-muted-foreground"),
-					className,
-				)}
-				style={{
-					fontVariationSettings: variant === "legend" ? fontWeights.semibold : fontWeights.normal,
-					...style,
-				}}
-				{...props}
-			/>
-		);
-	},
-);
-FieldLegend.displayName = "FieldLegend";
 
 const FieldGroup = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
 	<div
@@ -89,7 +35,7 @@ function linkDescriptions(root: HTMLElement) {
 	const find = (selector: string) => Array.from(root.querySelectorAll<HTMLElement>(selector)).find(own);
 	const control = find(LIBRARY_CONTROL) ?? find(NATIVE_CONTROL);
 	if (!control) return;
-	const ids = Array.from(root.querySelectorAll<HTMLElement>("[data-slot=field-description], [data-slot=field-error]"))
+	const ids = Array.from(root.querySelectorAll<HTMLElement>("[data-slot=field-description]"))
 		.filter(own)
 		.map((el) => el.id)
 		.filter(Boolean);
@@ -142,16 +88,6 @@ const Field = forwardRef<HTMLDivElement, FieldProps>(({ className, orientation =
 });
 Field.displayName = "Field";
 
-const FieldContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-	<div
-		ref={ref}
-		data-slot="field-content"
-		className={cn("flex min-w-0 flex-1 flex-col gap-1", className)}
-		{...props}
-	/>
-));
-FieldContent.displayName = "FieldContent";
-
 const FieldLabel = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelElement>>(
 	({ className, style, ...props }, ref) => {
 		const sizeClasses = useSize();
@@ -167,8 +103,7 @@ const FieldLabel = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelEle
 					"group-data-[invalid=true]/field:text-destructive",
 					"has-[>[data-slot=field]]:block has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:border has-[>[data-slot=field]]:border-border",
 					{
-						pill: "has-[>[data-slot=field]]:rounded-3xl",
-						rounded: "has-[>[data-slot=field]]:rounded-xl",
+						rounded: "has-[>[data-slot=field]]:rounded-md",
 						sharp: "has-[>[data-slot=field]]:rounded-[1px]",
 					}[shape.variant],
 					sizeClasses.variant === "compact" ? "has-[>[data-slot=field]]:p-2.5" : "has-[>[data-slot=field]]:p-3",
@@ -186,20 +121,6 @@ const FieldLabel = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelEle
 	},
 );
 FieldLabel.displayName = "FieldLabel";
-
-const FieldTitle = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className, style, ...props }, ref) => {
-	const sizeClasses = useSize();
-	return (
-		<div
-			ref={ref}
-			data-slot="field-title"
-			className={cn(sizeClasses.type.body, "text-foreground", className)}
-			style={{ fontVariationSettings: fontWeights.normal, ...style }}
-			{...props}
-		/>
-	);
-});
-FieldTitle.displayName = "FieldTitle";
 
 const FieldDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
 	({ className, style, id, ...props }, ref) => {
@@ -219,93 +140,5 @@ const FieldDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLPar
 );
 FieldDescription.displayName = "FieldDescription";
 
-const FieldSeparator = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-	({ className, children, ...props }, ref) => {
-		const sizeClasses = useSize();
-		return (
-			<div
-				ref={ref}
-				data-slot="field-separator"
-				data-content={children ? true : undefined}
-				className={cn("relative flex h-5 items-center", className)}
-				{...props}
-			>
-				<div aria-hidden className="absolute inset-x-0 top-1/2 h-px bg-border" />
-				{children && (
-					<span
-						className={cn("relative mx-auto bg-background px-2 text-muted-foreground", sizeClasses.type.caption)}
-						style={{ fontVariationSettings: fontWeights.normal }}
-					>
-						{children}
-					</span>
-				)}
-			</div>
-		);
-	},
-);
-FieldSeparator.displayName = "FieldSeparator";
-
-interface FieldErrorProps extends HTMLAttributes<HTMLDivElement> {
-	/** Error objects from a form library or schema validator. */
-	errors?: Array<{ message?: string } | undefined>;
-	children?: ReactNode;
-}
-
-const FieldError = forwardRef<HTMLDivElement, FieldErrorProps>(
-	({ className, errors, children, style, id, ...props }, ref) => {
-		const sizeClasses = useSize();
-		const AlertIcon = useIcons()["circle-alert"];
-		const autoId = useId();
-		const compact = sizeClasses.variant === "compact";
-
-		const messages = useMemo(
-			() => [...new Set((errors ?? []).map((e) => e?.message).filter((msg): msg is string => Boolean(msg)))],
-			[errors],
-		);
-
-		const hasChildren = children != null && children !== false && children !== "";
-		const content = hasChildren ? (
-			children
-		) : messages.length > 1 ? (
-			<ul className="m-0 flex list-none flex-col gap-1 p-0">
-				{messages.map((msg) => (
-					<li key={msg}>{msg}</li>
-				))}
-			</ul>
-		) : (
-			messages[0]
-		);
-
-		if (!content) return null;
-
-		return (
-			<div
-				ref={ref}
-				id={id ?? autoId}
-				role="alert"
-				data-slot="field-error"
-				className={cn("flex items-start text-destructive", sizeClasses.gap, sizeClasses.type.caption, className)}
-				style={{ fontVariationSettings: fontWeights.normal, ...style }}
-				{...props}
-			>
-				<AlertIcon size={compact ? 12 : 14} strokeWidth={1.75} className="mt-px shrink-0" aria-hidden />
-				<div className="min-w-0">{content}</div>
-			</div>
-		);
-	},
-);
-FieldError.displayName = "FieldError";
-
-export {
-	Field,
-	FieldContent,
-	FieldDescription,
-	FieldError,
-	FieldGroup,
-	FieldLabel,
-	FieldLegend,
-	FieldSeparator,
-	FieldSet,
-	FieldTitle,
-};
-export type { FieldErrorProps, FieldLegendProps, FieldOrientation, FieldProps };
+export { Field, FieldDescription, FieldGroup, FieldLabel };
+export type { FieldProps };

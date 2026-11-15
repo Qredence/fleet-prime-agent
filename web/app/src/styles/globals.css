@@ -110,7 +110,6 @@
 	--radius-2xl: var(--radius);
 	--radius-3xl: var(--radius);
 	--radius-4xl: var(--radius);
-	--radius-pill: 9999px;
 	--color-hover: var(--hover);
 	--color-active: var(--active);
 	--color-selected: var(--selected);

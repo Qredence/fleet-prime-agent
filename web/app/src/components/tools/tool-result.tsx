@@ -1,17 +1,6 @@
 "use client";
 
-import {
-	Ban,
-	Braces,
-	Check,
-	ChevronDown,
-	CircleCheck,
-	CircleX,
-	Copy,
-	LoaderCircle,
-	SquareTerminal,
-	Wrench,
-} from "lucide-react";
+import { Ban, Braces, Check, ChevronDown, CircleCheck, CircleX, Copy, SquareTerminal, Wrench } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +13,7 @@ import {
 	CodeBlock as UiCodeBlock,
 } from "@/components/ui/code-block";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Spinner } from "@/components/ui/spinner";
 import { SPRING_SWAP } from "@/lib/ease";
 import { spring } from "@/lib/fluid/springs";
 import type { AgentCodeLanguage } from "@/lib/shiki-highlight";
@@ -81,9 +71,9 @@ function KindIcon({ kind }: { kind: ToolResultKind }) {
 	return <Wrench className="size-4" />;
 }
 
-function StatusIcon({ status, reduce }: { status: ToolResultStatus; reduce: boolean }) {
+function StatusIcon({ status }: { status: ToolResultStatus }) {
 	if (status === "running") {
-		return <LoaderCircle className={cn("size-3", !reduce && "animate-spin")} />;
+		return <Spinner aria-hidden="true" className="size-3" />;
 	}
 	if (status === "success") return <CircleCheck className="size-3" />;
 	if (status === "error") return <CircleX className="size-3" />;
@@ -270,7 +260,7 @@ export function ToolResult({
 					</span>
 				</span>
 				<span className={cn("inline-flex shrink-0 items-center gap-1 text-xs font-medium", getStatusClass(status))}>
-					<StatusIcon status={status} reduce={reduce} />
+					<StatusIcon status={status} />
 					<StatusSwapText value={status}>{statusLabel}</StatusSwapText>
 				</span>
 				<m.span

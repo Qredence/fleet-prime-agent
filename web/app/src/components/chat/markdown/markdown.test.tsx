@@ -1,7 +1,67 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Markdown } from "@/components/chat/markdown/markdown";
+import { Markdown, MarkdownFrame } from "@/components/chat/markdown/markdown";
 import { HighlightedMarkdown } from "@/components/chat/markdown/markdown-code";
+import { SizeProvider } from "@/lib/fluid/size-context";
+
+describe("Fluid markdown typography", () => {
+	it("follows density changes without replacing rendered content", () => {
+		const content = (
+			<p>
+				Reply with an inline <code>value</code>.
+			</p>
+		);
+		const { container, rerender } = render(
+			<SizeProvider size="default">
+				<MarkdownFrame>{content}</MarkdownFrame>
+			</SizeProvider>,
+		);
+		const paragraph = container.querySelector("p");
+		expect(container.querySelector(".typeset")).toBeTruthy();
+		expect(container.querySelector(".typeset-compact")).toBeNull();
+
+		rerender(
+			<SizeProvider size="compact">
+				<MarkdownFrame>{content}</MarkdownFrame>
+			</SizeProvider>,
+		);
+		expect(container.querySelector(".typeset.typeset-compact")).toBeTruthy();
+		expect(container.querySelector("p")).toBe(paragraph);
+
+		rerender(
+			<SizeProvider size="default">
+				<MarkdownFrame>{content}</MarkdownFrame>
+			</SizeProvider>,
+		);
+		expect(container.querySelector(".typeset-compact")).toBeNull();
+	});
+
+	it("renders prose semantics and wide tables in a default frame without a provider", () => {
+		const { container } = render(
+			<Markdown
+				content={[
+					"# Display",
+					"## Title",
+					"### Subtitle",
+					"#### Fourth",
+					"##### Fifth",
+					"###### Sixth",
+					"Paragraph with `inline code`.",
+					"- Parent\n  - Nested",
+					"- [ ] Pending\n- [x] Done",
+					"| Column | Value |\n| --- | --- |\n| Wide table | 42 |",
+				].join("\n\n")}
+				isStreaming
+			/>,
+		);
+		expect(container.querySelector(".typeset-compact")).toBeNull();
+		expect(container.querySelectorAll("h1, h2, h3, h4, h5, h6")).toHaveLength(6);
+		expect(container.querySelector("p code")?.textContent).toBe("inline code");
+		expect(container.querySelector("ul ul")).toBeTruthy();
+		expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
+		expect(container.querySelector(".typeset-scroll > table")).toBeTruthy();
+	});
+});
 
 describe("assistant markdown code blocks", () => {
 	it("renders a shadcn code surface with copy and download controls while streaming", () => {
@@ -11,6 +71,7 @@ describe("assistant markdown code blocks", () => {
 
 		expect(screen.getByText("const answer = 42;")).toBeTruthy();
 		expect(container.querySelector('[data-slot="code-block"]')).toBeTruthy();
+		expect(container.querySelector('[data-slot="code-block"].not-typeset')).toBeTruthy();
 		fireEvent.click(screen.getByRole("button", { name: "Copy code" }));
 		expect(writeText).toHaveBeenCalledWith("const answer = 42;\n");
 		expect(screen.getByRole("button", { name: "Download code" })).toBeTruthy();
