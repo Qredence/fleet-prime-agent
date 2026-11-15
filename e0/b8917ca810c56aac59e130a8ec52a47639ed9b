@@ -1,0 +1,115 @@
+web/app/scripts/component-registry-check.ts
+  s_c4e72d063349a1::t_a8e292bcad2b36 34-38
+web/app/src/components/artifacts/artifacts-panel.tsx
+  s_c4e72d063349a1::t_4042eada3a7a23 161,232,358,378
+web/app/src/components/chat/agent-chat.tsx
+  s_5ec6fad2334089::t_0cd2aeb25e4080 1,60,82
+web/app/src/components/chat/composer/message-queue.tsx
+  s_28b3c506dea2e2::t_98cfc9394710fa 92
+web/app/src/components/chat/composer/prompt-input.tsx
+  s_28b3c506dea2e2::t_0a3813eeb52968 171
+web/app/src/components/chat/model-selector.tsx
+  s_5ec6fad2334089::t_04b7213fde350a 3-4,27
+web/app/src/components/chat/subagents/subagents-panel.tsx
+  s_28b3c506dea2e2::t_da95b1ab7b3311 163
+web/app/src/components/dashboards/dashboards-panel.tsx
+  s_28b3c506dea2e2::t_ac9060a4db4597 41,45
+web/app/src/components/layout/product-page-header.tsx
+  s_5ec6fad2334089::t_2824b487ba9df6 2,6,35-40
+web/app/src/components/layout/ui-error-boundary.tsx
+  s_5ec6fad2334089::t_7d70af0e83060b 3,9-11,15
+web/app/src/components/openui/data.tsx
+  s_28b3c506dea2e2::t_a3cbe798f01e42 305,312
+web/app/src/components/sessions/session-activity-panel.tsx
+  s_c4e72d063349a1::t_87f3535eceb208 144,169,214
+web/app/src/components/sessions/session-insights-panel.tsx
+  s_c4e72d063349a1::t_749040a2809d81 32,102
+web/app/src/components/sessions/session-sidebar/create-project-dialog.tsx
+  s_c4e72d063349a1::t_e0e60ecbf77139 158-159,175,242
+web/app/src/components/settings/dashboards-section.tsx
+  s_28b3c506dea2e2::t_2d3fd3f15a55bf 1,42-45,142-153,201-209
+web/app/src/components/settings/harness-runtime-section.tsx
+  s_7fcb277dacb917::t_d404d588bbf728 2-3,6,11,15,19-121,123,126-130,132,135-137
+web/app/src/components/settings/providers/provider-credentials-editor.tsx
+  s_28b3c506dea2e2::t_da5ae0a61ef0c1 511,555
+web/app/src/components/settings/providers/provider-credentials-section.tsx
+  s_28b3c506dea2e2::t_fd712c97bbc7bf 59,115,168,252
+web/app/src/components/settings/settings-draft-provider.test.tsx
+  s_28b3c506dea2e2::t_03fa48e9969fd9 1-84
+web/app/src/components/settings/settings-row.tsx
+  s_c4e72d063349a1::t_6aae0632933c2f 24
+web/app/src/components/workspace/repl-panel.tsx
+  s_c4e72d063349a1::t_b0f1d78958a7f8 106,132,173
+web/app/src/hooks/chat/chat-queries.ts
+  s_7fcb277dacb917::t_8027adeea73fcb 66,68-69,125-126,136-137
+web/app/src/hooks/chat/use-chat-workspace-data.ts
+  s_c4e72d063349a1::t_29f4a09664d331 123
+web/app/src/hooks/layout/use-right-panel-context-value.ts
+  s_c4e72d063349a1::t_d9c2fcb1d29163 184,186
+web/app/src/hooks/settings/use-provider-credentials-controller.ts
+  s_28b3c506dea2e2::t_ae3ff417d37cea 16,108-112,193-197,209-217,221-225,244,256,272-273,284,305-306,311,313,323-324,346
+web/app/src/lib/chat/chat-client.ts
+  s_7fcb277dacb917::t_fc76e355a906c1 110,259-263
+web/app/src/routes/-agents-page.tsx
+  s_28b3c506dea2e2::t_8727fc0f2f55f1 3,12,31,36,40,53,69
+web/protocol/src/__tests__/contract.test.ts
+  s_c4e72d063349a1::t_fc3f0d6b0bf9de 12-17,284-292
+web/protocol/src/chat-protocol.ts
+  s_c4e72d063349a1::t_3b3773f0f6a26c 133
+web/protocol/src/schemas/catalog.ts
+  s_5ec6fad2334089::t_f05a2546e369b7 44-47,53
+web/protocol/src/schemas/mcp.ts
+  s_c4e72d063349a1::t_67726906a278b7 30-33
+web/protocol/src/schemas/settings.ts
+  s_7fcb277dacb917::t_df29e52238d0f1 121,126-127,129
+web/server/src/__tests__/chat-resources-handler.test.ts
+  s_7fcb277dacb917::t_9c677503836f36 1-104
+web/server/src/agent-connection-port.ts
+  s_c4e72d063349a1::t_376e0d7fa22804 16,68
+web/server/src/fleet-daemon-connection.ts
+  s_c4e72d063349a1::t_509bb8df092894 736-739
+web/server/src/mcp-daemon-list.ts
+  s_c4e72d063349a1::t_e8f9ca25932eb0 46-49
+web/server/src/prime-bridge.ts
+  s_c4e72d063349a1::t_f9da10e51d4990 1014-1020
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e0b8917ca810c56aac59e130a8ec52a47639ed9b",
+  "prompts": {},
+  "sessions": {
+    "s_28b3c506dea2e2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1dc85-e4c3-7712-8cf3-26e366e6b36e",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_5ec6fad2334089": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1dc85-b7a7-7441-b470-923d7b614dd1",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_7fcb277dacb917": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1dc73-9525-70a3-b968-5281d06a701a",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_c4e72d063349a1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1dc72-d174-7fd2-a747-e07c8c342e24",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
