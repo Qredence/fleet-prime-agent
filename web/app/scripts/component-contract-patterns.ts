@@ -92,7 +92,7 @@ function collectStyleObjectLiterals(expr: ts.Expression, out: ts.ObjectLiteralEx
 					for (const declaration of statement.declarationList.declarations) {
 						if (!ts.isIdentifier(declaration.name) || declaration.name.text !== unwrapped.text) continue;
 						if (
-							(statement.declarationList.flags & ts.NodeFlags.Const) !== 0 &&
+							statement.declarationList.getFirstToken()?.kind === ts.SyntaxKind.ConstKeyword &&
 							declaration.initializer &&
 							declaration.getStart() < unwrapped.getStart()
 						) {
