@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.13.0
+
+### Minor Changes
+
+- 8df272c: Reorganize settings around Fleet preferences, Prime Agent configuration, and integrations. Search individual controls, preserve unsaved drafts between sections, and choose whether runtime configuration saves to user defaults or the current project. Configuration saves and cancellation now operate within their section, with clear reload and new-session guidance.
+
+   Browse skill descriptions, provenance, and available session loading status. Configure MCP servers with validated argument and environment rows, explicit duplicate replacement, readable connection states, and terminal sign-in guidance shared with Connectors.
+
+   Unify focus colors, density, loading and error components, and responsive spacing across chat, sessions, workspace, artifacts, Agents, dashboards, and generated UI. Apply the saved theme consistently when opening standalone product pages.
+
+### Patch Changes
+
+- 8df272c: Align compact shell headers with Fluid controls, keep chat panel offsets responsive to density, and consolidate workspace and media styling around shared CSS tokens. Remove the unused legacy diff-rendering dependency.
+- 8df272c: Consolidate the web UI around Fluid Functionalism (`@fluid`) and Base UI primitives with standard Tailwind typography tokens, remove legacy component wrappers and duplicate tool renderers, and move non-UI hooks and helpers into `src/hooks/` and `src/lib/`.
+
+   Keep switches responsive to clicks and taps, and preserve readable destructive button colors when switching between light and dark themes.
+
+- 91dda3c: Update hono, @hono/node-server, and basic-ftp to patched releases that address dependency security vulnerabilities.
+
 ## 0.12.2
 
 ### Patch Changes
