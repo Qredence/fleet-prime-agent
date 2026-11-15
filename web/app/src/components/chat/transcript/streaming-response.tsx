@@ -3,7 +3,8 @@
 import { Check, Copy, ThumbsDown, ThumbsUp } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { EASE_OUT, SPRING_PRESS } from "@/lib/ease";
+import { Button } from "@/components/ui/button";
+import { EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
 export type StreamingResponseStatus = "streaming" | "complete";
@@ -35,24 +36,22 @@ function ResponseAction({
 	label: string;
 	onClick?: () => void;
 }) {
-	const reduce = useReducedMotion() ?? false;
-
 	return (
-		<m.button
+		<Button
 			type="button"
+			variant="ghost"
+			size="icon-compact"
 			aria-label={label}
 			aria-pressed={active || undefined}
 			title={label}
 			onClick={onClick}
-			whileTap={reduce ? undefined : { scale: 0.96 }}
-			transition={SPRING_PRESS}
 			className={cn(
 				"relative grid size-7 place-items-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
 				active && "text-foreground",
 			)}
 		>
 			{children}
-		</m.button>
+		</Button>
 	);
 }
 

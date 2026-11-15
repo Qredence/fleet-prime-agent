@@ -27,6 +27,10 @@ export const McpEnvBindingSchema = z.object({
 export const McpConnectionInfoSchema = z.object({
 	name: mcpServerNameSchema,
 	label: nonEmptyStringSchema,
+	runtimeStatus: z.enum(["connected", "disabled", "pending", "not_connected", "setup_required", "error"]).optional(),
+	description: z.string().optional(),
+	setupHint: z.string().optional(),
+	toolCount: z.number().nullable().optional(),
 	source: McpConnectionSourceSchema,
 	transport: McpConnectionTransportSchema,
 	url: z.string().optional(),

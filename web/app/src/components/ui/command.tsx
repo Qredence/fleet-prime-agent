@@ -3,15 +3,19 @@ import { Check, Search } from "lucide-react";
 import type * as React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
+import { useShape } from "@/lib/fluid/shape-context";
+import { typeClass, useSize } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
+	const shape = useShape();
 	return (
 		<CommandPrimitive
 			data-slot="command"
 			className={cn(
 				// Background comes from the enclosing surface (dialog/popover).
-				"flex size-full flex-col overflow-hidden !rounded-md p-1 text-popover-foreground",
+				"flex size-full flex-col overflow-hidden p-1 text-popover-foreground",
+				shape.container,
 				className,
 			)}
 			{...props}
@@ -36,7 +40,8 @@ function CommandDialog({
 	return (
 		<Dialog {...props}>
 			<DialogContent
-				className={cn("top-1/3 translate-y-0 overflow-hidden !rounded-md p-0", className)}
+				position="top"
+				className={cn("overflow-hidden p-0", className)}
 				showCloseButton={showCloseButton}
 			>
 				<DialogHeader className="sr-only">
@@ -50,13 +55,21 @@ function CommandDialog({
 }
 
 function CommandInput({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Input>) {
+	const shape = useShape();
+	const compact = useSize().variant === "compact";
 	return (
 		<div data-slot="command-input-wrapper" className="p-1 pb-0">
-			<InputGroup className="!h-8 !rounded-lg border-input/30 bg-input/30 !shadow-none *:data-[slot=input-group-addon]:!pl-2">
+			<InputGroup
+				className={cn(
+					"!h-8 border-border/60 bg-input/30 !shadow-none *:data-[slot=input-group-addon]:!pl-2",
+					shape.input,
+				)}
+			>
 				<CommandPrimitive.Input
 					data-slot="command-input"
 					className={cn(
-						"w-full text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+						"w-full outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+						typeClass("body", compact ? "compact" : "default"),
 						className,
 					)}
 					{...props}
@@ -116,11 +129,15 @@ function CommandSeparator({ className, ...props }: React.ComponentProps<typeof C
 }
 
 function CommandItem({ className, children, ...props }: React.ComponentProps<typeof CommandPrimitive.Item>) {
+	const shape = useShape();
+	const compact = useSize().variant === "compact";
 	return (
 		<CommandPrimitive.Item
 			data-slot="command-item"
 			className={cn(
-				"group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:!rounded-lg data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
+				"group/command-item relative flex cursor-default items-center gap-2 px-2 py-1.5 outline-hidden select-none transition-colors duration-80 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 hover:bg-hover data-selected:bg-active data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
+				shape.item,
+				typeClass("body", compact ? "compact" : "default"),
 				className,
 			)}
 			{...props}

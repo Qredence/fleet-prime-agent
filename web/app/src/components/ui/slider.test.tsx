@@ -41,10 +41,20 @@ describe("Slider", () => {
 	});
 
 	it("clamps out-of-range controlled values and disables the native range", () => {
-		render(<Slider label="Level" min={0} max={10} value={20} onChange={vi.fn()} disabled />);
+		render(<Slider size="compact" label="Level" min={0} max={10} value={20} onChange={vi.fn()} disabled />);
 
 		const slider = screen.getByRole("slider", { name: "Level" });
 		expect(slider.getAttribute("aria-valuetext")).toBe("10");
 		expect(slider.hasAttribute("disabled")).toBe(true);
+		const value = screen.getByRole("button", { name: /Level: 10/ });
+		expect(value.hasAttribute("disabled")).toBe(true);
+	});
+
+	it("includes the visible value in the value editor's accessible name", () => {
+		render(<Slider size="compact" label="Level" min={0} max={10} value={7} onChange={vi.fn()} />);
+
+		const value = screen.getByRole("button", { name: /Level: 7/ });
+		fireEvent.click(value);
+		expect(screen.getByRole("spinbutton", { name: "Edit slider value" })).toBeTruthy();
 	});
 });

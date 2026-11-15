@@ -2,17 +2,16 @@ import type { ChatResourcesResponse, WorkspaceTreeResponse } from "@prime-agent/
 import type { LucideIcon } from "lucide-react";
 import { PanelRight, X } from "lucide-react";
 import type { HTMLAttributes, ReactNode } from "react";
-import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { RightPanel } from "@/components/layout/canvas-utils";
-import { ChromePillButton } from "@/components/layout/chrome-pill";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { RightPanel } from "@/lib/layout/canvas-utils";
 import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
 import { RIGHT_PANEL_GROUPS } from "@/components/layout/right-panel-registry";
 import { TabStrip } from "@/components/layout/tab-strip";
-import { HIT_AREA_EXPAND_CLASS, PANEL_OVERLAY_CLASS } from "@/components/layout/tokens";
 import { Button } from "@/components/ui/button";
+import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { Select, type SelectOption } from "@/components/ui/select";
-import { getResourceGroups } from "@/components/workspace/resource-helpers";
-import { CHAT_PANEL_BREAKPOINT_PX, DESKTOP_PANEL_ONLY } from "@/lib/layout-constants";
+import { getResourceGroups } from "@/lib/workspace/resource-helpers";
+import { DESKTOP_PANEL_ONLY } from "@/lib/layout-constants";
 import { cn } from "@/lib/utils";
 
 /**
@@ -76,13 +75,20 @@ export function RightPanelTabsFromContext({
  */
 export function RightPanelTrigger({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
 	return (
-		<ChromePillButton
-			ariaLabel="Open side panel"
-			className={compact ? "!size-7 !rounded-[7px] !px-0" : "size-9 justify-center px-0"}
+		<Button
+			type="button"
+			variant="ghost"
+			size="compact"
+			aria-label="Open side panel"
+			title="Open side panel"
+			className={cn(
+				"relative inline-flex items-center justify-center rounded-md border border-border/70 bg-sidebar text-foreground/55 shadow-sm backdrop-blur transition-colors hover:bg-background hover:text-foreground/75",
+				compact ? "!size-7 !rounded-[7px] !px-0" : "size-9 px-0",
+			)}
 			onClick={onOpen}
 		>
 			<PanelRight className="size-4" />
-		</ChromePillButton>
+		</Button>
 	);
 }
 
@@ -329,103 +335,22 @@ export function MobilePanel({
 	open: boolean;
 	title?: string;
 }) {
-	const panelRef = useRef<HTMLDialogElement>(null);
-	const panelTitleId = useId();
-	// When the desktop ResizableCanvas owns the panel, we must keep this dialog
-	// out of the browser top layer. Closing it for that reason must not bubble
-	// into the shared `onClose` (which would also dismiss the desktop panel).
-	const suppressCloseRef = useRef(false);
-
-	// Light dismiss — the full-viewport ::backdrop region maps clicks onto the
-	// dialog element, matching the previous bottom sheet-style backdrop button.
-	// Close the native dialog (instead of notifying directly) so the browser
-	// runs modal focus restoration; the dialog onClose handler notifies.
-	const onLightDismiss = useEffectEvent((event: MouseEvent) => {
-		if (panelRef.current && event.target === panelRef.current) panelRef.current.close();
-	});
-
-	// Header X-close must close the native dialog first so the browser restores
-	// focus to the previously focused element (the Esc path already closes
-	// natively); the dialog onClose handler then notifies the parent. When the
-	// native dialog is already closed (desktop mode), notify directly.
-	const handleHeaderClose = () => {
-		const dialog = panelRef.current;
-		if (dialog && dialog.open) dialog.close();
-		else onClose?.();
-	};
-
-	useEffect(() => {
-		if (!open) return;
-		const dialog = panelRef.current;
-		if (!dialog) return;
-		const handler = (event: MouseEvent) => onLightDismiss(event);
-		dialog.addEventListener("click", handler);
-		return () => dialog.removeEventListener("click", handler);
-	}, [open]);
-
-	useEffect(() => {
-		const dialog = panelRef.current;
-		if (!dialog) return;
-
-		if (!open) {
-			if (dialog.open) {
-				suppressCloseRef.current = true;
-				dialog.close();
-				suppressCloseRef.current = false;
-			}
-			return;
-		}
-
-		const media = window.matchMedia(`(min-width: ${CHAT_PANEL_BREAKPOINT_PX}px)`);
-
-		const syncMode = () => {
-			// Desktop (>=960px): ResizableCanvas renders the panel. A CSS-hidden
-			// showModal() dialog still occupies the top layer and intercepts clicks
-			// on the header tabs / chat chrome — so close it without notifying.
-			if (media.matches) {
-				if (dialog.open) {
-					suppressCloseRef.current = true;
-					dialog.close();
-					// HTMLDialogElement.close() fires the `close` event asynchronously
-					// (queued task per the WHATWG spec), so leave the flag set — the
-					// onClose handler consumes it to avoid dismissing the desktop panel.
-				}
-				return;
-			}
-			if (!dialog.open) {
-				dialog.showModal();
-				dialog.focus();
-			}
-		};
-
-		syncMode();
-		media.addEventListener("change", syncMode);
-		return () => media.removeEventListener("change", syncMode);
-	}, [open]);
-
-	if (!open) return null;
-
 	return (
-		<dialog
-			ref={panelRef}
-			data-testid={dataTestid}
-			className={`fixed top-[var(--chat-chrome-top)] left-auto m-0 max-h-[calc(100dvh-var(--chat-chrome-top)-max(0.75rem,env(safe-area-inset-bottom)))] h-[calc(100dvh-var(--chat-chrome-top)-max(0.75rem,env(safe-area-inset-bottom)))] [inset-inline-start:auto] [inset-inline-end:max(0.75rem,env(safe-area-inset-right))] ${PANEL_OVERLAY_CLASS} backdrop:bg-black/20 ${DESKTOP_PANEL_ONLY}`}
-			aria-labelledby={panelTitleId}
-			onClose={() => {
-				if (suppressCloseRef.current) {
-					suppressCloseRef.current = false;
-					return;
-				}
-				onClose?.();
-			}}
+		<MobileDrawer
+			open={open}
+			onClose={() => onClose?.()}
+			side="right"
+			modal={false}
+			ariaLabel={title ?? "Panel"}
+			className={cn(
+				"top-[var(--chat-chrome-top,52px)] right-[max(0.75rem,env(safe-area-inset-right))] bottom-auto left-auto h-[calc(100dvh-var(--chat-chrome-top,52px)-max(0.75rem,env(safe-area-inset-bottom)))] min-h-0 w-[min(360px,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-border/70 p-0 shadow-lg backdrop-blur",
+				DESKTOP_PANEL_ONLY,
+			)}
 		>
-			<div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-				<span id={panelTitleId} className="sr-only">
-					{title ?? "Panel"}
-				</span>
+			<div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden" data-testid={dataTestid}>
 				{title && (
 					<div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border/60 px-[var(--density-pad-x)]">
-						<div className="flex min-w-0 items-center gap-2 text-label font-medium text-foreground/80">
+						<div className="flex min-w-0 items-center gap-2 text-xs font-medium text-foreground/80">
 							{Icon && <Icon className="size-3.5 shrink-0" />}
 							<span className="truncate">{title}</span>
 						</div>
@@ -434,10 +359,10 @@ export function MobilePanel({
 							{onClose && (
 								<Button
 									type="button"
-									onClick={handleHeaderClose}
+									onClick={onClose}
 									variant="ghost"
 									size="icon-compact"
-									className={`${HIT_AREA_EXPAND_CLASS} text-foreground/40 hover:text-foreground/70`}
+									className="hit-area-expand text-foreground/40 hover:text-foreground/70"
 									aria-label="Close panel"
 									title="Close panel"
 								>
@@ -456,6 +381,6 @@ export function MobilePanel({
 					{children}
 				</div>
 			</div>
-		</dialog>
+		</MobileDrawer>
 	);
 }

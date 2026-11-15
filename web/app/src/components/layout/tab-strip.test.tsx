@@ -207,4 +207,14 @@ describe("TabStrip", () => {
 			expect(value).toBe(CHAT_PANEL_BREAKPOINT_PX);
 		}
 	});
+
+	it("removes trigger borders so compact panel tabs fit narrow headers cleanly", () => {
+		render(<TabStrip density="compact" onValueChange={vi.fn()} tabs={tabs} value="first" width="fit" />);
+
+		const first = screen.getByRole("tab", { name: "First" });
+		const second = screen.getByRole("tab", { name: "Second" });
+		expect(first.className).toContain("!border-0");
+		expect(first.className).toContain("!px-1");
+		expect(second.textContent).toContain("3");
+	});
 });

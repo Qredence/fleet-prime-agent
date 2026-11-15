@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AgentChat } from "@/components/chat/agent-chat";
 import { PromptInput } from "@/components/chat/composer/prompt-input";
-import { SubagentComposer } from "@/components/chat/subagents/subagent-composer";
+import { SubagentComposer } from "@/components/chat/subagents/subagent-chat-panel";
 import { InputBar } from "@/components/chat/composer/input-bar";
 
 describe("InputBar slash menu control", () => {
@@ -328,7 +328,7 @@ describe("shared composer submission and editing", () => {
 	);
 	it("opens the model picker without optional controlled open state", async () => {
 		setup();
-		fireEvent.click(screen.getByRole("button", { name: /Select model and reasoning effort/ }));
+		fireEvent.click(screen.getByRole("combobox", { name: /Select model and reasoning effort/ }));
 		expect(await screen.findByPlaceholderText("Search models…")).toBeTruthy();
 	});
 	it("executes the highlighted command in grouped display order", () => {

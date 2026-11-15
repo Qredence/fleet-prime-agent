@@ -1,5 +1,5 @@
-import type { SuggestionItem } from "@/components/chat/types";
-import { SUGGESTION_ITEM_CLASS } from "@/components/layout/tokens";
+import type { SuggestionItem } from "@/lib/chat/types";
+import { SUGGESTION_ITEM_CLASS } from "@/components/chat/prompt-suggestions";
 import { Button } from "@/components/ui/button";
 
 const WELCOME_TASKS: SuggestionItem[] = [

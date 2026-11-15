@@ -250,7 +250,8 @@ export function VirtualizedTurnList<T>({
 			data-rendered-turn-count={lastVisible - firstVisible + 1}
 			data-total-turn-count={items.length}
 			data-virtualized-transcript="true"
-			style={{ height: totalHeight, position: "relative", width: "100%" }}
+			className="relative w-full"
+			style={{ height: totalHeight }}
 		>
 			{items.slice(firstVisible, lastVisible + 1).map((item, index) => {
 				const itemIndex = firstVisible + index;
@@ -260,7 +261,8 @@ export function VirtualizedTurnList<T>({
 						key={key}
 						ref={(node) => setRowRef(key, node)}
 						data-virtualized-turn-index={itemIndex}
-						style={{ left: 0, position: "absolute", right: 0, top: offsets[itemIndex] }}
+						className="absolute inset-x-0"
+						style={{ top: offsets[itemIndex] }}
 					>
 						{renderItem(item, itemIndex)}
 					</div>

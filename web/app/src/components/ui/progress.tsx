@@ -1,5 +1,5 @@
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
-
+import { typeClass, useSize } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
 
 function Progress({ className, children, value, ...props }: ProgressPrimitive.Root.Props) {
@@ -39,15 +39,25 @@ function ProgressIndicator({ className, ...props }: ProgressPrimitive.Indicator.
 }
 
 function ProgressLabel({ className, ...props }: ProgressPrimitive.Label.Props) {
+	const compact = useSize().variant === "compact";
 	return (
-		<ProgressPrimitive.Label className={cn("text-sm font-medium", className)} data-slot="progress-label" {...props} />
+		<ProgressPrimitive.Label
+			className={cn("font-medium", typeClass("body", compact ? "compact" : "default"), className)}
+			data-slot="progress-label"
+			{...props}
+		/>
 	);
 }
 
 function ProgressValue({ className, ...props }: ProgressPrimitive.Value.Props) {
+	const compact = useSize().variant === "compact";
 	return (
 		<ProgressPrimitive.Value
-			className={cn("ml-auto text-sm text-muted-foreground tabular-nums", className)}
+			className={cn(
+				"ml-auto text-muted-foreground tabular-nums",
+				typeClass("body", compact ? "compact" : "default"),
+				className,
+			)}
 			data-slot="progress-value"
 			{...props}
 		/>

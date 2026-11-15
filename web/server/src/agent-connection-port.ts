@@ -13,6 +13,7 @@
  * `legacy/prime-agent-sdk.ts`, the single module allowed to import the SDK.
  */
 import type { LegacyAgentConnection as AgentConnection } from "./legacy/prime-agent-sdk";
+import type { DaemonResourceSnapshot } from "./daemon-protocol";
 
 type Port<T extends keyof AgentConnection> = AgentConnection[T];
 type PortEvent = Parameters<Port<"subscribe">>[0] extends (event: infer E) => unknown ? E : never;
@@ -64,6 +65,7 @@ export type FleetAgentConnection = {
 	getSessionTree: Port<"getSessionTree">;
 	getState: Port<"getState">;
 	getSystemPrompt: Port<"getSystemPrompt">;
+	getFleetResourceSnapshot?: () => Promise<DaemonResourceSnapshot>;
 	mutateQueuedMessage: Port<"mutateQueuedMessage">;
 	navigateTree: Port<"navigateTree">;
 	onBeforeSessionInvalidate: Port<"onBeforeSessionInvalidate">;

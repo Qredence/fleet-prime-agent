@@ -99,7 +99,7 @@ function CitationRow({ citation, index, idPrefix }: { citation: CitationItem; in
 				{safeUrl ? <span className="sr-only"> (opens in a new tab)</span> : null}
 			</TraceTitle>
 			{citation.domain ? <TraceDescription className="max-w-40 truncate">{citation.domain}</TraceDescription> : null}
-			<TraceDescription className="rounded-md bg-foreground/[0.05] px-1.5 py-0.5 text-micro font-semibold">
+			<TraceDescription className="rounded-md bg-foreground/[0.05] px-1.5 py-0.5 text-xs font-semibold">
 				{index}
 			</TraceDescription>
 			{safeUrl ? (

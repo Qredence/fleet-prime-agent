@@ -118,11 +118,15 @@ const chatPiSettingsProjectResponseSchema = z
 
 export const ChatSettingsUpdateRequestSchema = z.object({
 	settings: ChatPiSettingsUpdateSchema,
+	scope: z.enum(["global", "project"]).optional(),
 });
 
 export const ChatSettingsResponseSchema = z.object({
 	diagnostics: z.array(z.string()),
+	global: chatPiSettingsProjectResponseSchema.optional(),
+	writeScope: z.enum(["global", "project"]).optional(),
 	effective: ChatPiSettingsSchema,
+	globalEffective: ChatPiSettingsSchema.optional(),
 	project: chatPiSettingsProjectResponseSchema,
 	projectPath: z.string(),
 	updateImpact: z.object({

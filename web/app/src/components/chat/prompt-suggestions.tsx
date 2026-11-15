@@ -1,8 +1,11 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { SUGGESTION_ITEM_CLASS } from "@/components/layout/tokens";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+export const SUGGESTION_ITEM_CLASS =
+	"h-auto justify-start rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-pretty text-sm font-normal text-foreground/65 shadow-sm transition-colors hover:border-border hover:bg-foreground/6 hover:text-foreground";
 
 export interface PromptSuggestionsProps extends Omit<ComponentProps<"div">, "children"> {
 	suggestions: readonly string[];
@@ -34,9 +37,11 @@ export function PromptSuggestions({
 			{...props}
 		>
 			{suggestions.map((suggestion, index) => (
-				<button
+				<Button
 					key={suggestion}
 					type="button"
+					variant="outline"
+					size="compact"
 					aria-pressed={selectedSuggestion === suggestion}
 					onClick={() => onSuggestion(suggestion)}
 					className={cn(
@@ -49,7 +54,7 @@ export function PromptSuggestions({
 					style={{ animationDelay: `${index * 70}ms` }}
 				>
 					{suggestion}
-				</button>
+				</Button>
 			))}
 		</div>
 	);

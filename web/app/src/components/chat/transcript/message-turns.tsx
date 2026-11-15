@@ -2,14 +2,15 @@ import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol
 import type { ChatReasoningPart } from "@prime-agent/web-protocol/chat-types";
 import type React from "react";
 import { memo } from "react";
-import type { ToolPartBase, ToolRendererProps } from "@/components/chat/transcript/chat-message-parts";
-import { isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "@/components/chat/transcript/chat-message-parts";
+import type { ToolPartBase, ToolRendererProps } from "@/lib/chat/chat-message-parts";
+import { isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "@/lib/chat/chat-message-parts";
 import { PayloadPart } from "@/components/chat/transcript/payload-part";
 import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
-import type { CustomToolRendererProps } from "@/components/chat/types";
+import type { CustomToolRendererProps } from "@/lib/chat/types";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
-import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/components/tools/tool-action-icon";
-import { coerceStructuredToolPart, normalizeToolPart } from "@/components/tools/tool-output-normalizer";
+import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/lib/tools/tool-action-icon";
+import { coerceStructuredToolPart, normalizeToolPart } from "@/lib/tools/tool-output-normalizer";
+import { Button } from "@/components/ui/button";
 import {
 	Trace,
 	TraceCollapsible,
@@ -160,7 +161,7 @@ export function buildAssistantElements(
 		elems.push(
 			<div
 				key={`${messageId}-text-${elems.length}`}
-				className="group/assistant-text text-body [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-4 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+				className="group/assistant-text text-sm [&_a]:font-medium [&_a]:underline [&_a]:underline-offset-4 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
 			>
 				<TextRendererComponent
 					content={text}
@@ -349,14 +350,16 @@ export function buildAssistantElements(
 						</TraceCollapsibleContent>
 					</TraceCollapsible>
 					{artifact && onOpenToolArtifact ? (
-						<button
+						<Button
 							type="button"
-							className="shrink-0 text-micro underline"
+							variant="link"
+							size="compact"
+							className="h-auto shrink-0 p-0 text-xs underline"
 							aria-label={`Open ${artifactDisplayTitle(artifact.title)} in ${artifact.kind === "ipython" ? "REPL" : "artifacts"}`}
 							onClick={() => onOpenToolArtifact(artifact.id, artifact.kind === "ipython" ? "repl" : "artifacts")}
 						>
 							Open
-						</button>
+						</Button>
 					) : null}
 				</Trace>,
 			);

@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import type * as React from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { typeClass, useSize } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
 
 function Trace({ className, ...props }: React.ComponentProps<"div">) {
@@ -12,12 +13,14 @@ function TraceLine({
 	status,
 	...props
 }: React.ComponentProps<"span"> & { status?: "running" | "error" | "pending" }) {
+	const compact = useSize().variant === "compact";
 	return (
 		<span
 			data-slot="trace-line"
 			data-status={status}
 			className={cn(
-				"flex w-fit max-w-full min-w-0 items-center gap-2 text-sm text-muted-foreground transition-colors in-[a,button]:cursor-pointer in-[a:hover,button:hover]:text-foreground data-[status=error]:text-destructive data-[status=error]:in-[a:hover,button:hover]:text-destructive data-[status=pending]:opacity-60 data-[status=running]:*:data-[slot=trace-title]:shimmer",
+				"flex w-fit max-w-full min-w-0 items-center gap-2 text-muted-foreground transition-colors in-[a,button]:cursor-pointer in-[a:hover,button:hover]:text-foreground data-[status=error]:text-destructive data-[status=error]:in-[a:hover,button:hover]:text-destructive data-[status=pending]:opacity-60 data-[status=running]:*:data-[slot=trace-title]:shimmer",
+				typeClass("body", compact ? "compact" : "default"),
 				className,
 			)}
 			{...props}
@@ -70,7 +73,7 @@ function TraceCollapsibleTrigger({ className, children, ...props }: React.Compon
 		<CollapsibleTrigger
 			data-slot="trace-collapsible-trigger"
 			className={cn(
-				"group/trace-collapsible-trigger flex w-fit max-w-full min-w-0 cursor-pointer items-center gap-1 text-left text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 has-[[data-status=error]]:text-destructive",
+				"group/trace-collapsible-trigger flex w-fit max-w-full min-w-0 cursor-pointer items-center gap-1 text-left text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] has-[[data-status=error]]:text-destructive",
 				className,
 			)}
 			{...props}
@@ -93,7 +96,7 @@ function TraceCollapsibleContent({ className, children, ...props }: React.Compon
 			<div
 				data-slot="trace-collapsible-content-inner"
 				className={cn(
-					"mt-2 mb-1 ml-[calc(--spacing(2)-1px)] min-w-0 border-l pr-1 pl-4 leading-relaxed wrap-break-word text-muted-foreground",
+					"mt-2 mb-1 ml-[calc(--spacing(2)-1px)] min-w-0 border-l border-border/60 pr-1 pl-4 leading-relaxed wrap-break-word text-muted-foreground",
 					className,
 				)}
 			>

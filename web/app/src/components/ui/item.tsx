@@ -2,15 +2,18 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
+import { fontWeights } from "@/lib/fluid/font-weight";
+import { useShape } from "@/lib/fluid/shape-context";
+import { typeClass, useSize } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
 
 const itemVariants = cva(
-	"group/item flex w-full flex-wrap items-center rounded-lg border text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+	"group/item flex w-full flex-wrap items-center border transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
 	{
 		variants: {
 			variant: {
 				default: "border-transparent",
-				outline: "border-border",
+				outline: "border-border/60",
 				muted: "border-transparent bg-muted/50",
 			},
 			size: {
@@ -30,9 +33,21 @@ function Item({
 	render,
 	...props
 }: useRender.ComponentProps<"div"> & VariantProps<typeof itemVariants>) {
+	const shape = useShape();
+	const compact = useSize().variant === "compact";
 	return useRender({
 		defaultTagName: "div",
-		props: mergeProps<"div">({ className: cn(itemVariants({ variant, size, className })) }, props),
+		props: mergeProps<"div">(
+			{
+				className: cn(
+					itemVariants({ variant, size }),
+					shape.container,
+					typeClass("body", compact ? "compact" : "default"),
+					className,
+				),
+			},
+			props,
+		),
 		render,
 		state: { slot: "item", variant, size },
 	});
@@ -52,15 +67,28 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
 	return <div data-slot="item-content" className={cn("flex min-w-0 flex-1 flex-col gap-1", className)} {...props} />;
 }
 
-function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
-	return <div data-slot="item-title" className={cn("text-sm font-medium leading-snug", className)} {...props} />;
+function ItemTitle({ className, style, ...props }: React.ComponentProps<"div">) {
+	const compact = useSize().variant === "compact";
+	return (
+		<div
+			data-slot="item-title"
+			className={cn("leading-snug", typeClass("body", compact ? "compact" : "default"), className)}
+			style={{ fontVariationSettings: fontWeights.semibold, ...style }}
+			{...props}
+		/>
+	);
 }
 
 function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
+	const compact = useSize().variant === "compact";
 	return (
 		<p
 			data-slot="item-description"
-			className={cn("text-sm leading-normal text-muted-foreground", className)}
+			className={cn(
+				"leading-normal text-muted-foreground",
+				typeClass("caption", compact ? "compact" : "default"),
+				className,
+			)}
 			{...props}
 		/>
 	);

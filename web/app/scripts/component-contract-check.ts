@@ -23,7 +23,11 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import ts from "typescript";
-import { relativeUiImportPattern } from "./component-contract-patterns";
+import {
+	findStaticInlineStyleViolations,
+	nativeControlPattern,
+	relativeUiImportPattern,
+} from "./component-contract-patterns";
 
 const APP_ROOT = resolve(import.meta.dirname, "..");
 const REPO_ROOT = resolve(APP_ROOT, "..", "..");
@@ -95,17 +99,14 @@ function loadWaivedPaths(): Set<string> {
 	try {
 		const config = JSON.parse(stripJsonc(readFileSync(DOCTOR_CONFIG_PATH, "utf8"))) as unknown;
 		const overrides =
-			(config as { ignore?: { overrides?: Array<{ files?: unknown; rules?: unknown }> } })?.ignore
-				?.overrides ?? [];
+			(config as { ignore?: { overrides?: Array<{ files?: unknown; rules?: unknown }> } })?.ignore?.overrides ?? [];
 		if (!Array.isArray(overrides)) return waived;
 		for (const block of overrides) {
 			const rules = Array.isArray(block?.rules) ? (block.rules as unknown[]) : [];
 			const isUnusedFileWaiver = rules.some(
 				(rule) =>
 					typeof rule === "string" &&
-					(rule === "deslop/unused-file" ||
-						rule === "react-doctor/unused-file" ||
-						rule === "unused-file"),
+					(rule === "deslop/unused-file" || rule === "react-doctor/unused-file" || rule === "unused-file"),
 			);
 			if (!isUnusedFileWaiver) continue;
 			const files = Array.isArray(block?.files) ? (block.files as unknown[]) : [];
@@ -168,7 +169,10 @@ const IMPORT_PATTERN = /(?:from\s+|import\s+|require\(\s*|import\(\s*)(['"])([^'
 
 const isFrameworkEntry = (file: string) => {
 	const relativePath = relative(APP_ROOT, file).replaceAll("\\", "/");
-	return FRAMEWORK_ENTRY_PATHS.some((prefix) => relativePath.startsWith(prefix)) || relativePath.endsWith("routeTree.gen.ts");
+	return (
+		FRAMEWORK_ENTRY_PATHS.some((prefix) => relativePath.startsWith(prefix)) ||
+		relativePath.endsWith("routeTree.gen.ts")
+	);
 };
 const componentSources = collectFiles(APP_SRC).filter((file) => !isFrameworkEntry(file));
 const importerFiles = [...collectFiles(APP_SRC), ...collectFiles(APP_SCRIPTS)];
@@ -222,71 +226,58 @@ const directBaseUiImports: string[] = [];
 const unsupportedIconImports: string[] = [];
 const nativeControlViolations: string[] = [];
 const relativeUiImports: string[] = [];
+const staticInlineStyleViolations: Array<{ file: string; line: number; properties: string[] }> = [];
 const widePropViolations: Array<{ file: string; type: string; count: number }> = [];
 const nativeControlExceptions = new Set(sourceManifest.nativeControlExceptions);
-const widePropExceptions = new Set(
-	sourceManifest.widePropExceptions.map((entry) => `${entry.path}:${entry.type}`),
-);
-const nativeControlPattern = /<(?:button|input|select|textarea)\b/;
-const nativeControlRoots = [
-	"src/components/layout/",
-	"src/components/settings/",
-	"src/components/sessions/",
-	"src/components/workspace/",
-	"src/components/artifacts/",
-	"src/components/chat/subagents/",
-	"src/components/chat/agent-chat",
-	"src/components/chat/composer/input-bar",
-	"src/components/chat/fork-picker-dialog",
-];
+const widePropExceptions = new Set(sourceManifest.widePropExceptions.map((entry) => `${entry.path}:${entry.type}`));
+const nativeControlRoots = ["src/components/"];
 for (const file of componentSources) {
 	const source = readFileSync(file, "utf8");
 	const relativePath = relative(APP_ROOT, file).replaceAll("\\", "/");
+	const isProductComponent =
+		relativePath.startsWith("src/components/") && !relativePath.startsWith("src/components/ui/");
+	const isTestFile = /\.test\.tsx?$/.test(relativePath);
 	if (/from ["']@base-ui\/react/.test(source) && !relativePath.startsWith("src/components/ui/")) {
 		directBaseUiImports.push(file);
 	}
 	if (/from ["'](?:@tabler\/icons-react|@heroicons\/|react-icons)/.test(source)) {
 		unsupportedIconImports.push(file);
 	}
-	if (
-		relativePath.startsWith("src/components/") &&
-		!relativePath.startsWith("src/components/ui/") &&
-		relativeUiImportPattern.test(source)
-	) {
+	if (isProductComponent && relativeUiImportPattern.test(source)) {
 		relativeUiImports.push(file);
 	}
 	if (
+		isProductComponent &&
 		nativeControlRoots.some((root) => relativePath.startsWith(root)) &&
-		!/\.test\.tsx?$/.test(relativePath) &&
+		!isTestFile &&
 		nativeControlPattern.test(source) &&
 		!nativeControlExceptions.has(relativePath)
 	) {
 		nativeControlViolations.push(file);
 	}
-	if (!relativePath.startsWith("src/components/motion/")) {
-		const syntaxKind = file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-		const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, syntaxKind);
-		for (const statement of sourceFile.statements) {
-			const isExported = ts.canHaveModifiers(statement)
-				? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
-				: false;
-			if (!isExported) continue;
-			let typeName: string | undefined;
-			let count = 0;
-			if (ts.isTypeAliasDeclaration(statement) && ts.isTypeLiteralNode(statement.type)) {
-				typeName = statement.name.text;
-				count = statement.type.members.length;
-			} else if (ts.isInterfaceDeclaration(statement)) {
-				typeName = statement.name.text;
-				count = statement.members.length;
-			}
-			if (
-				typeName?.endsWith("Props") &&
-				count > 12 &&
-				!widePropExceptions.has(`${relativePath}:${typeName}`)
-			) {
-				widePropViolations.push({ file, type: typeName, count });
-			}
+	const syntaxKind = file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+	const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, syntaxKind);
+	if (isProductComponent && !isTestFile) {
+		for (const violation of findStaticInlineStyleViolations(sourceFile)) {
+			staticInlineStyleViolations.push({ file, ...violation });
+		}
+	}
+	for (const statement of sourceFile.statements) {
+		const isExported = ts.canHaveModifiers(statement)
+			? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+			: false;
+		if (!isExported) continue;
+		let typeName: string | undefined;
+		let count = 0;
+		if (ts.isTypeAliasDeclaration(statement) && ts.isTypeLiteralNode(statement.type)) {
+			typeName = statement.name.text;
+			count = statement.type.members.length;
+		} else if (ts.isInterfaceDeclaration(statement)) {
+			typeName = statement.name.text;
+			count = statement.members.length;
+		}
+		if (typeName?.endsWith("Props") && count > 12 && !widePropExceptions.has(`${relativePath}:${typeName}`)) {
+			widePropViolations.push({ file, type: typeName, count });
 		}
 	}
 }
@@ -329,11 +320,27 @@ for (const [label, files] of [
 	for (const file of files) console.error(`    - ${relative(APP_ROOT, file).replaceAll("\\", "/")}`);
 }
 
+if (staticInlineStyleViolations.length > 0) {
+	failures += staticInlineStyleViolations.length;
+	console.error(
+		`\n[check:components] ${staticInlineStyleViolations.length} static inline style literal(s) outside components/ui:`,
+	);
+	for (const violation of staticInlineStyleViolations) {
+		console.error(
+			`    - ${relative(APP_ROOT, violation.file).replaceAll("\\", "/")}:${violation.line} (${violation.properties.join(", ")})`,
+		);
+	}
+}
+
 if (widePropViolations.length > 0) {
 	failures += widePropViolations.length;
-	console.error(`\n[check:components] ${widePropViolations.length} public prop contract(s) exceed 12 top-level fields:`);
+	console.error(
+		`\n[check:components] ${widePropViolations.length} public prop contract(s) exceed 12 top-level fields:`,
+	);
 	for (const violation of widePropViolations) {
-		console.error(`    - ${relative(APP_ROOT, violation.file).replaceAll("\\", "/")}:${violation.type} (${violation.count})`);
+		console.error(
+			`    - ${relative(APP_ROOT, violation.file).replaceAll("\\", "/")}:${violation.type} (${violation.count})`,
+		);
 	}
 }
 

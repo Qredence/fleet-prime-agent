@@ -13,6 +13,7 @@ import {
 	useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SPRING_LAYOUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
@@ -166,8 +167,9 @@ function ResourceRenameInput({
 	}, [label]);
 
 	return (
-		<input
+		<Input
 			ref={inputRef}
+			size="compact"
 			value={draft}
 			aria-label={`Rename ${label}`}
 			onChange={(event) => setDraft(event.target.value)}
@@ -187,7 +189,7 @@ function ResourceRenameInput({
 					onCancel();
 				}
 			}}
-			className="mx-1 h-7 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
+			className="mx-1 h-7 min-w-0 flex-1 rounded-md px-2 text-base md:text-sm"
 		/>
 	);
 }
@@ -212,17 +214,19 @@ function ResourceActionMenu({
 			onRenameStart();
 		},
 	}) ?? (
-		<button
+		<Button
 			type="button"
+			variant="ghost"
+			size="compact"
 			onClick={() => {
 				onMenuOpenChange(false);
 				onRenameStart();
 			}}
-			className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-start text-xs text-foreground outline-none transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
+			className="w-full justify-start gap-2 rounded-lg px-2.5 text-start text-xs font-normal text-foreground shadow-none hover:bg-muted focus-visible:bg-muted"
 		>
 			<Pencil aria-hidden="true" className="size-3.5" />
 			Rename
-		</button>
+		</Button>
 	);
 
 	return (
@@ -256,7 +260,7 @@ function getResourceRowClassName(
 	disabled?: boolean,
 ) {
 	return cn(
-		"group/resource relative flex min-h-8 min-w-0 cursor-pointer items-center gap-2 rounded-sm pe-0 text-body outline-none",
+		"group/resource relative flex min-h-8 min-w-0 cursor-pointer items-center gap-2 rounded-sm pe-0 text-sm outline-none",
 		"text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
 		"focus-visible:bg-muted/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
 		"data-[menu-open=true]:bg-muted data-[menu-open=true]:text-foreground",

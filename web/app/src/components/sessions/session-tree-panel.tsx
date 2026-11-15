@@ -1,6 +1,6 @@
 import type { SessionTreeNode, SessionTreeSnapshot } from "@prime-agent/web-protocol/chat-protocol";
 import { GitBranch } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	AlertDialog,
 	AlertDialogCancel,
@@ -54,13 +54,13 @@ function SessionTreeRow({
 			data-testid={`session-tree-node-${node.id}`}
 			onClick={onSelect}
 			className={cn(
-				"h-auto w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left font-normal",
+				"ml-[calc(var(--tree-depth)*12px)] h-auto w-[calc(100%-var(--tree-depth)*12px)] flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left font-normal",
 				isSelected ? "bg-foreground/10 ring-1 ring-foreground/15" : "hover:bg-foreground/6",
 				node.isOnActiveBranch ? "text-foreground/90" : "text-foreground/55",
 			)}
-			style={{ marginLeft: `${depth * 12}px`, width: `calc(100% - ${depth * 12}px)` }}
+			style={{ "--tree-depth": depth } as CSSProperties}
 		>
-			<span className="flex items-center gap-1.5 text-label leading-5">
+			<span className="flex items-center gap-1.5 text-xs leading-5">
 				{node.isLeaf ? (
 					<span aria-hidden="true" className="font-semibold text-foreground">
 						*
@@ -68,7 +68,7 @@ function SessionTreeRow({
 				) : null}
 				<span className="truncate font-medium">{node.preview}</span>
 			</span>
-			<span className="truncate font-mono text-caption text-foreground/40">{node.id}</span>
+			<span className="truncate font-mono text-xs text-foreground/40">{node.id}</span>
 		</Button>
 	);
 }
@@ -170,7 +170,7 @@ export function SessionTreePanel({
 		return (
 			<section
 				aria-label="Session tree"
-				className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-label leading-5 text-foreground/45"
+				className="flex min-h-36 items-center rounded-md border border-dashed border-border/70 px-4 text-center text-xs leading-5 text-foreground/45"
 			>
 				Start or open a session to browse its branch history.
 			</section>
@@ -180,7 +180,7 @@ export function SessionTreePanel({
 	return (
 		<section aria-label="Session tree" className="flex min-h-0 flex-1 flex-col gap-3">
 			<div className="flex items-center justify-between gap-2">
-				<div className="flex items-center gap-2 text-label text-foreground/70">
+				<div className="flex items-center gap-2 text-xs text-foreground/70">
 					<GitBranch className="size-4" aria-hidden="true" />
 					<span>Branch history</span>
 				</div>
@@ -190,13 +190,13 @@ export function SessionTreePanel({
 			</div>
 
 			{error ? (
-				<p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-label text-destructive">
+				<p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
 					{error}
 				</p>
 			) : null}
 
 			{isStreaming ? (
-				<p className="rounded-md border border-border/60 bg-background px-3 py-2 text-label text-foreground/60">
+				<p className="rounded-md border border-border/60 bg-background px-3 py-2 text-xs text-foreground/60">
 					Finish or stop the current turn before rewinding.
 				</p>
 			) : null}
@@ -206,10 +206,10 @@ export function SessionTreePanel({
 				className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto rounded-md border border-border/60 bg-background p-2"
 			>
 				{loading && rows.length === 0 ? (
-					<p className="px-2 py-3 text-label text-foreground/45">Loading session tree…</p>
+					<p className="px-2 py-3 text-xs text-foreground/45">Loading session tree…</p>
 				) : null}
 				{!loading && rows.length === 0 ? (
-					<p className="px-2 py-3 text-label text-foreground/45">No branch entries yet.</p>
+					<p className="px-2 py-3 text-xs text-foreground/45">No branch entries yet.</p>
 				) : null}
 				{rows.map(({ node, depth }) => (
 					<SessionTreeRow
@@ -223,7 +223,7 @@ export function SessionTreePanel({
 			</div>
 
 			<div className="flex items-center justify-between gap-2">
-				<p className="text-caption text-foreground/45">
+				<p className="text-xs text-foreground/45">
 					<span aria-hidden="true">*</span> marks the current leaf on the active branch.
 				</p>
 				<Button
@@ -250,7 +250,7 @@ export function SessionTreePanel({
 						there.
 					</AlertDialogDescription>
 					{confirmError ? (
-						<p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-label text-destructive">
+						<p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
 							{confirmError}
 						</p>
 					) : null}

@@ -2,12 +2,9 @@
 
 import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import type { ReactNode } from "react";
-import { lazy, Suspense, useMemo, useState } from "react";
-import type { ToolPartBase } from "@/components/chat/transcript/chat-message-parts";
-import { ToolActionIcon } from "@/components/tools/tool-action-icon-view";
-import { artifactDisplayTitle, toolPartDisplayName } from "@/components/tools/tool-action-icon";
-import { isAbortedToolPart, normalizeToolPart } from "@/components/tools/tool-output-normalizer";
+import type { LucideIcon } from "lucide-react";
+import { type ComponentProps, createElement, lazy, type ReactNode, Suspense, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Trace,
 	TraceCollapsible,
@@ -18,7 +15,14 @@ import {
 	TraceLine,
 	TraceTitle,
 } from "@/components/ui/trace";
+import type { ToolPartBase } from "@/lib/chat/chat-message-parts";
+import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/lib/tools/tool-action-icon";
+import { isAbortedToolPart, normalizeToolPart } from "@/lib/tools/tool-output-normalizer";
 import { cn } from "@/lib/utils";
+
+function ToolActionIcon({ name, ...props }: { name: string } & ComponentProps<LucideIcon>) {
+	return createElement(toolActionIconForName(name), props);
+}
 
 const LazySessionToolRenderer = lazy(() =>
 	import("@/components/tools/session-tool-renderer").then(({ SessionToolRenderer }) => ({
@@ -274,14 +278,16 @@ function TimelineStepRow({
 				<div className="min-w-0 flex-1">{line}</div>
 			)}
 			{openLabel && artifactId && onOpenArtifact ? (
-				<button
+				<Button
 					type="button"
-					className="shrink-0 text-micro underline"
+					variant="link"
+					size="compact"
+					className="h-auto shrink-0 p-0 text-xs underline"
 					aria-label={openLabel}
 					onClick={() => onOpenArtifact(artifactId, step.artifactTarget)}
 				>
 					Open
-				</button>
+				</Button>
 			) : null}
 		</div>
 	);

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 
 const ConnectorsPage = lazy(() =>
-	import("@/components/connectors/connectors-page").then(({ ConnectorsPage: page }) => ({ default: page })),
+	import("@/routes/-connectors-page").then(({ ConnectorsPage: page }) => ({ default: page })),
 );
 
 export const Route = createFileRoute("/connectors")({

@@ -43,6 +43,10 @@ export function toMcpConnectionInfoList(payload: DaemonMcpConnections): McpConne
 		rows.set(service.serviceId, {
 			name: service.serviceId,
 			label: service.label,
+			runtimeStatus: service.connectionStatus,
+			description: service.description ?? undefined,
+			setupHint: service.setupHint ?? undefined,
+			toolCount: service.toolCount,
 			source: service.source === "user" ? "user" : "builtin",
 			transport: entry?.transport === "stdio" ? "stdio" : "http",
 			usesOAuth: service.usesOauth,

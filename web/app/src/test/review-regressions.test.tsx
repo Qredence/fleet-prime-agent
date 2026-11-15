@@ -3,12 +3,12 @@ import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ArtifactsPanelContent } from "@/components/artifacts/artifacts-panel";
-import { collectSessionOpenUIBlocks } from "@/components/artifacts/artifacts-utils";
+import { collectSessionOpenUIBlocks } from "@/lib/artifacts/artifacts-utils";
 import { AgentChat } from "@/components/chat/agent-chat";
 import { Markdown } from "@/components/chat/markdown/markdown";
 import { PayloadPart } from "@/components/chat/transcript/payload-part";
-import { MessageQueue } from "@/components/tools/message-queue";
-import { SubagentList } from "@/components/tools/subagent-list";
+import { MessageQueue } from "@/components/chat/composer/message-queue";
+import { SubagentList } from "@/components/chat/subagents/subagent-list";
 import { ToolTimeline } from "@/components/tools/tool-timeline";
 import { notify } from "@/lib/notify";
 

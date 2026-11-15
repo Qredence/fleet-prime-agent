@@ -7,7 +7,7 @@ export function startHorizontalResize({
 	startWidth,
 	startX,
 }: {
-	event: ReactPointerEvent<HTMLButtonElement>;
+	event: ReactPointerEvent<HTMLElement>;
 	getNextWidth: (clientX: number, startX: number, startWidth: number) => number;
 	onWidthChange: (width: number) => void;
 	startWidth: number;

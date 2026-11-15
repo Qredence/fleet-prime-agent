@@ -1,0 +1,168 @@
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { startHorizontalResize } from "@/lib/horizontal-resize";
+import { WORKSPACE_SPLIT_MIN_WIDTH_PX } from "@/lib/layout-constants";
+import { readStoredWidth, storeStoredWidth } from "@/lib/stored-width";
+
+const WORKSPACE_TREE_WIDTH_STORAGE_KEY = "fleet-prime:v1:workspace-tree-width";
+export const WORKSPACE_TREE_MIN_WIDTH_PX = 120;
+const WORKSPACE_TREE_DEFAULT_WIDTH = 200;
+
+/** Minimum preview column width in the workspace split — shared by clamp + grid style. */
+export const WORKSPACE_PREVIEW_MIN_WIDTH_PX = 160;
+/** Resize handle column width — shared by clamp + grid style. */
+export const WORKSPACE_SPLIT_HANDLE_WIDTH_PX = 8;
+/** Keyboard resize step for the workspace tree. */
+export const WORKSPACE_TREE_KEYBOARD_STEP_PX = 10;
+
+/** Clamps a workspace-tree width so the split preview retains its minimum width. */
+export function clampWorkspaceTreeWidth(width: number, containerWidth: number) {
+	const maxWidth = Math.max(
+		WORKSPACE_TREE_MIN_WIDTH_PX,
+		containerWidth - WORKSPACE_PREVIEW_MIN_WIDTH_PX - WORKSPACE_SPLIT_HANDLE_WIDTH_PX,
+	);
+	return Math.min(maxWidth, Math.max(WORKSPACE_TREE_MIN_WIDTH_PX, Math.round(width)));
+}
+
+/** Tree sits on the right of the preview: drag the handle left to grow the tree. */
+export function nextWorkspaceTreeWidthFromPointer(
+	clientX: number,
+	startX: number,
+	width: number,
+	containerWidth: number,
+) {
+	return clampWorkspaceTreeWidth(width + (startX - clientX), containerWidth);
+}
+
+/** Resizes the right-side workspace tree with the keyboard. */
+export function nextWorkspaceTreeWidthFromKey(
+	key: "ArrowLeft" | "ArrowRight",
+	shiftKey: boolean,
+	width: number,
+	containerWidth: number,
+) {
+	const step = WORKSPACE_TREE_KEYBOARD_STEP_PX * (shiftKey ? 4 : 1);
+	return clampWorkspaceTreeWidth(width + (key === "ArrowLeft" ? step : -step), containerWidth);
+}
+
+/** Returns preview-left/tree-right grid styles in split mode, or `undefined` for the default stacked flow. */
+export function workspaceSplitGridStyle(isSplitLayout: boolean, treeWidth: number): CSSProperties | undefined {
+	if (!isSplitLayout) return undefined;
+	return {
+		gridTemplateColumns: `minmax(${WORKSPACE_PREVIEW_MIN_WIDTH_PX}px, 1fr) ${WORKSPACE_SPLIT_HANDLE_WIDTH_PX}px ${treeWidth}px`,
+	};
+}
+
+export function readStoredWorkspaceTreeWidth(containerWidth?: number) {
+	return readStoredWidth(WORKSPACE_TREE_WIDTH_STORAGE_KEY, WORKSPACE_TREE_DEFAULT_WIDTH, (width) =>
+		containerWidth === undefined
+			? Math.max(WORKSPACE_TREE_MIN_WIDTH_PX, Math.round(width))
+			: clampWorkspaceTreeWidth(width, containerWidth),
+	);
+}
+
+export function storeWorkspaceTreeWidth(width: number) {
+	storeStoredWidth(WORKSPACE_TREE_WIDTH_STORAGE_KEY, width);
+}
+
+const subscribeWorkspaceSplit = (onChange: () => void) => {
+	const media = window.matchMedia(`(min-width: ${WORKSPACE_SPLIT_MIN_WIDTH_PX}px)`);
+	media.addEventListener("change", onChange);
+	return () => media.removeEventListener("change", onChange);
+};
+const getWorkspaceSplitSnapshot = () => window.matchMedia(`(min-width: ${WORKSPACE_SPLIT_MIN_WIDTH_PX}px)`).matches;
+// Server/initial-hydration value: stacked. Keeps SSR HTML and the hydration
+// render identical; the post-hydration flip carries no mismatch recovery.
+const getServerWorkspaceSplitSnapshot = () => false;
+
+/**
+ * Tracks the responsive workspace split and its persisted tree width.
+ *
+ * @returns The split state, container ref, resize handler, and active grid style.
+ */
+export function useWorkspaceSplitLayout() {
+	const [treeWidth, setTreeWidth] = useState(readStoredWorkspaceTreeWidth);
+	const [containerWidth, setContainerWidth] = useState(0);
+	const splitElementRef = useRef<HTMLDivElement | null>(null);
+	const observerRef = useRef<ResizeObserver | null>(null);
+	const viewportAllowsSplit = useSyncExternalStore(
+		subscribeWorkspaceSplit,
+		getWorkspaceSplitSnapshot,
+		getServerWorkspaceSplitSnapshot,
+	);
+	const isSplitLayout = viewportAllowsSplit && containerWidth >= WORKSPACE_SPLIT_MIN_WIDTH_PX;
+	const splitRef = useCallback((split: HTMLDivElement | null) => {
+		observerRef.current?.disconnect();
+		observerRef.current = null;
+		splitElementRef.current = split;
+		if (!split) return;
+
+		const updateWidth = () => {
+			const nextContainerWidth = split.clientWidth;
+			setContainerWidth((currentWidth) => (currentWidth === nextContainerWidth ? currentWidth : nextContainerWidth));
+			if (nextContainerWidth < WORKSPACE_SPLIT_MIN_WIDTH_PX) return;
+			setTreeWidth((currentWidth) => {
+				const nextWidth = clampWorkspaceTreeWidth(currentWidth, nextContainerWidth);
+				if (nextWidth === currentWidth) return currentWidth;
+				storeWorkspaceTreeWidth(nextWidth);
+				return nextWidth;
+			});
+		};
+
+		updateWidth();
+		if (typeof ResizeObserver !== "undefined") {
+			observerRef.current = new ResizeObserver(updateWidth);
+			observerRef.current.observe(split);
+		}
+	}, []);
+	const treeWidthMax = Math.max(
+		treeWidth,
+		WORKSPACE_TREE_MIN_WIDTH_PX,
+		containerWidth - WORKSPACE_PREVIEW_MIN_WIDTH_PX - WORKSPACE_SPLIT_HANDLE_WIDTH_PX,
+	);
+
+	const handleTreeResizeStart = useCallback(
+		(event: ReactPointerEvent<HTMLDivElement>) => {
+			const containerWidth = splitElementRef.current?.clientWidth ?? 0;
+			if (containerWidth === 0) return;
+
+			const startWidth = clampWorkspaceTreeWidth(treeWidth, containerWidth);
+
+			startHorizontalResize({
+				event,
+				startWidth,
+				getNextWidth: (clientX, startX, width) =>
+					nextWorkspaceTreeWidthFromPointer(clientX, startX, width, containerWidth),
+				onWidthChange: (nextWidth) => {
+					setTreeWidth(nextWidth);
+					storeWorkspaceTreeWidth(nextWidth);
+				},
+			});
+		},
+		[treeWidth],
+	);
+	const handleTreeResizeBy = useCallback(
+		(amount: number) => {
+			const width = splitElementRef.current?.clientWidth ?? containerWidth;
+			if (width === 0) return;
+			setTreeWidth((currentWidth) => {
+				const nextWidth = clampWorkspaceTreeWidth(currentWidth + amount, width);
+				if (nextWidth === currentWidth) return currentWidth;
+				storeWorkspaceTreeWidth(nextWidth);
+				return nextWidth;
+			});
+		},
+		[containerWidth],
+	);
+
+	return {
+		handleTreeResizeBy,
+		handleTreeResizeStart,
+		isSplitLayout,
+		splitRef,
+		containerWidth,
+		treeWidth,
+		treeWidthMax,
+		splitStyle: workspaceSplitGridStyle(isSplitLayout, treeWidth),
+	};
+}

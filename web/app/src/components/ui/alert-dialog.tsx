@@ -1,7 +1,10 @@
 import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
-import { SurfaceProvider, surfaceClasses, useSurface } from "@/lib/surfaces";
+import { useShape } from "@/lib/fluid/shape-context";
+import { typeClass, useSize } from "@/lib/fluid/size-context";
+import { surfaceClasses } from "@/lib/fluid/surface-classes";
+import { SurfaceProvider, useSurface } from "@/lib/fluid/surface-context";
 import { cn } from "@/lib/utils";
 
 /** Conventional elevation offset for a dialog off its substrate (Fluid surfaces). */
@@ -29,6 +32,7 @@ function AlertDialogBackdrop({ className, ...props }: AlertDialogPrimitive.Backd
 }
 
 function AlertDialogContent({ className, children, ...props }: AlertDialogPrimitive.Popup.Props) {
+	const shape = useShape();
 	const substrate = useSurface();
 	const level = Math.min(substrate + DIALOG_SURFACE_OFFSET, 8);
 	return (
@@ -37,7 +41,8 @@ function AlertDialogContent({ className, children, ...props }: AlertDialogPrimit
 			<AlertDialogPrimitive.Popup
 				data-slot="alert-dialog-content"
 				className={cn(
-					"fixed top-1/2 left-1/2 z-[60] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-md p-6 text-sm text-popover-foreground outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+					"fixed top-1/2 left-1/2 z-[60] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 border border-border/60 p-6 text-sm text-popover-foreground outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+					shape.container,
 					surfaceClasses(level),
 					className,
 				)}
@@ -50,20 +55,30 @@ function AlertDialogContent({ className, children, ...props }: AlertDialogPrimit
 }
 
 function AlertDialogTitle({ className, ...props }: AlertDialogPrimitive.Title.Props) {
+	const compact = useSize().variant === "compact";
 	return (
 		<AlertDialogPrimitive.Title
 			data-slot="alert-dialog-title"
-			className={cn("font-heading text-base leading-none font-medium", className)}
+			className={cn(
+				"font-heading leading-none font-medium text-foreground",
+				typeClass("title", compact ? "compact" : "default"),
+				className,
+			)}
 			{...props}
 		/>
 	);
 }
 
 function AlertDialogDescription({ className, ...props }: AlertDialogPrimitive.Description.Props) {
+	const compact = useSize().variant === "compact";
 	return (
 		<AlertDialogPrimitive.Description
 			data-slot="alert-dialog-description"
-			className={cn("text-sm text-pretty text-muted-foreground", className)}
+			className={cn(
+				"text-pretty text-muted-foreground",
+				typeClass("body", compact ? "compact" : "default"),
+				className,
+			)}
 			{...props}
 		/>
 	);

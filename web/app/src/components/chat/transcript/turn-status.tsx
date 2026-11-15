@@ -4,7 +4,6 @@ import { AlertCircle, Clock3, Gauge, ListRestart, RotateCcw } from "lucide-react
 import { m, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { EASE_IN_OUT } from "@/lib/ease";
-import { mono } from "@/lib/surfaces";
 import { cn } from "@/lib/utils";
 
 export type TurnStatusKind = "queue" | "retry" | "compaction" | "recovery" | "notice";
@@ -86,7 +85,7 @@ function AgentProgress({
 				))}
 			</span>
 			<span className="font-medium text-foreground/80">{label}</span>
-			<span aria-hidden="true" className={cn(mono, "tabular-nums text-muted-foreground/70")}>
+			<span aria-hidden="true" className="font-mono text-xs tracking-tight tabular-nums text-muted-foreground/70">
 				{formatElapsed(elapsed)}
 			</span>
 		</span>

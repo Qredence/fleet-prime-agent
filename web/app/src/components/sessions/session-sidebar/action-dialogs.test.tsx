@@ -2,7 +2,7 @@ import type { ChatSessionInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SessionSidebarActionDialogs } from "@/components/sessions/session-sidebar/action-dialogs";
-import { sessionLabel, UNTITLED_SESSION_LABEL } from "@/components/sessions/session-sidebar/types";
+import { sessionLabel, UNTITLED_SESSION_LABEL } from "@/lib/sessions/sidebar-types";
 
 const session = { sessionId: "abcdef1234567890", title: "Old title" } as ChatSessionInfo;
 

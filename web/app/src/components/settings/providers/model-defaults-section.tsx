@@ -1,17 +1,15 @@
 import type { ChatPiSettings } from "@prime-agent/web-protocol/chat-protocol";
 import { Plus, Search, Star, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ItemRow } from "@/components/layout/item-row";
-import { SettingsCommitActions, SettingsPane } from "@/components/layout/settings-pane";
-import { HIT_AREA_EXPAND_DENSE_CLASS } from "@/components/layout/tokens";
 import { AddModelsDialog } from "@/components/settings/providers/add-models-dialog";
-import { isModelEnabled } from "@/components/settings/providers/model-patterns";
 import { ProviderBrandIcon } from "@/components/settings/providers/provider-brand-icon";
-import { formatProviderLabel } from "@/components/settings/providers/provider-label";
-import type { ConfigModelInfo } from "@/components/settings/types";
+import { SettingsCommitActions, SettingsPane } from "@/components/settings/settings-pane";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { cn } from "@/lib/utils";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { isModelEnabled } from "@/lib/settings/model-patterns";
+import { formatProviderLabel } from "@/lib/settings/provider-metadata";
+import type { ConfigModelInfo } from "@/lib/settings/types";
 
 export function ModelDefaultsSection({
 	draft,
@@ -196,12 +194,24 @@ export function ModelDefaultsSection({
 						<div key={provider} className="flex flex-col gap-1.5">
 							<div className="px-1 text-xs font-medium text-muted-foreground">{providerLabel(provider)}</div>
 							{models.map((model) => (
-								<ItemRow
+								<Item
 									key={model.id}
-									icon={<ProviderBrandIcon provider={model.provider} />}
-									title={model.name}
-									subtitle={`${providerLabel(model.provider)} · ${model.modelId}`}
-									trailing={
+									variant="outline"
+									size="sm"
+									className="flex-nowrap gap-3 rounded-lg border-border/50 bg-muted/20 px-2.5 py-2"
+								>
+									<ItemMedia className="size-8 shrink-0 rounded-md border border-border/40 bg-background/60 text-foreground/70">
+										<ProviderBrandIcon provider={model.provider} />
+									</ItemMedia>
+									<ItemContent className="min-w-0 gap-0.5">
+										<ItemTitle className="w-full truncate text-sm font-medium text-foreground">
+											{model.name}
+										</ItemTitle>
+										<ItemDescription className="truncate text-xs text-muted-foreground">
+											{`${providerLabel(model.provider)} · ${model.modelId}`}
+										</ItemDescription>
+									</ItemContent>
+									<ItemActions className="shrink-0">
 										<div className="flex items-center">
 											{isDefaultModel(model) ? (
 												<span className="px-2 text-xs font-medium text-muted-foreground">Default</span>
@@ -210,10 +220,7 @@ export function ModelDefaultsSection({
 													type="button"
 													variant="ghost"
 													size="compact"
-													className={cn(
-														HIT_AREA_EXPAND_DENSE_CLASS,
-														"h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 active:scale-[0.96]",
-													)}
+													className="hit-area-expand-dense h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 active:scale-[0.96]"
 													disabled={disabled}
 													aria-label={`Set ${model.name} as default`}
 													onClick={() => onSetDefaultModel(model)}
@@ -226,10 +233,7 @@ export function ModelDefaultsSection({
 												type="button"
 												variant="ghost"
 												size="compact"
-												className={cn(
-													HIT_AREA_EXPAND_DENSE_CLASS,
-													"h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-destructive active:scale-[0.96]",
-												)}
+												className="hit-area-expand-dense h-7 px-2 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-destructive active:scale-[0.96]"
 												disabled={disabled}
 												aria-label={`Remove ${model.name}`}
 												onClick={() => onRemoveModel(model)}
@@ -238,8 +242,8 @@ export function ModelDefaultsSection({
 												Remove
 											</Button>
 										</div>
-									}
-								/>
+									</ItemActions>
+								</Item>
 							))}
 						</div>
 					))
