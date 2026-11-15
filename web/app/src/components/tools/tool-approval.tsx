@@ -1,11 +1,13 @@
 "use client";
 
-import { Check, ChevronDown, CircleAlert, LoaderCircle, ShieldCheck, X } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, ShieldCheck, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 import { EASE_OUT, SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
@@ -42,17 +44,11 @@ function getStatusCopy(status: ToolApprovalStatus) {
 	return "Approval required";
 }
 
-function getStatusBadgeClass(status: ToolApprovalStatus) {
-	if (status === "pending") {
-		return "border-warning/30 bg-warning/10 text-warning";
-	}
-	if (status === "approving" || status === "running") {
-		return "border-primary/30 bg-primary/10 text-primary";
-	}
-	if (status === "approved" || status === "complete") {
-		return "border-success/30 bg-success/10 text-success";
-	}
-	return "border-destructive/30 bg-destructive/10 text-destructive";
+function getStatusBadgeVariant(status: ToolApprovalStatus) {
+	if (status === "pending") return "warning" as const;
+	if (status === "approving" || status === "running") return "info" as const;
+	if (status === "approved" || status === "complete") return "success" as const;
+	return "destructive" as const;
 }
 
 export function ToolApproval({
@@ -99,17 +95,17 @@ export function ToolApproval({
 			size="sm"
 			data-state={status}
 			aria-busy={busy}
-			className={cn("items-start rounded-2xl bg-muted/20 p-4", className)}
+			className={cn("items-start rounded-md bg-muted/20 p-4", className)}
 		>
 			<ItemMedia
 				aria-hidden="true"
 				className={cn(
-					"mt-0.5 grid size-8 place-items-center rounded-xl border border-border/60 bg-background text-muted-foreground",
+					"mt-0.5 grid size-8 place-items-center rounded-sm border border-border/60 bg-background text-muted-foreground",
 					error && "text-destructive",
 				)}
 			>
 				{busy ? (
-					<LoaderCircle className={cn("size-4", !reduce && "animate-spin")} />
+					<Spinner aria-hidden="true" />
 				) : error ? (
 					<CircleAlert className="size-4" />
 				) : status === "denied" ? (
@@ -127,14 +123,9 @@ export function ToolApproval({
 						<ItemTitle className="text-foreground">{title}</ItemTitle>
 						<div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{tool}</div>
 					</div>
-					<span
-						className={cn(
-							"shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors",
-							getStatusBadgeClass(status),
-						)}
-					>
+					<Badge variant={getStatusBadgeVariant(status)} size="compact" className="shrink-0">
 						{getStatusCopy(status)}
-					</span>
+					</Badge>
 				</div>
 				{description ? <ItemDescription className="mt-1 leading-5">{description}</ItemDescription> : null}
 

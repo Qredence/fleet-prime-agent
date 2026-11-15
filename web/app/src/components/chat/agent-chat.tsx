@@ -458,7 +458,7 @@ function resolveSuggestions(suggestions: AgentChatViewProps["suggestions"]) {
  * Owns the composer draft state so that keystrokes re-render only the input
  * bar instead of the whole chat (including the MessageScroller subtree).
  * Suggestion clicks reach the draft via `draftSetterRef`. The composer always
- * mounts as sticky chrome below the scroller (welcome and active session share
+ * mounts as floating chrome over the scroller (welcome and active session share
  * one host), and the draft is cleared on send.
  */
 function ChatComposerHost({
@@ -673,6 +673,20 @@ export function AgentChat({
 }: AgentChatViewProps) {
 	const draftSetterRef = useRef<((value: string) => void) | null>(null);
 	const viewportRef = useRef<HTMLElement | null>(null);
+	const composerOverlayRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const overlay = composerOverlayRef.current;
+		if (!overlay) return;
+		const update = () =>
+			overlay.parentElement?.style.setProperty(
+				"--composer-overlay-height",
+				`${overlay.getBoundingClientRect().height}px`,
+			);
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(overlay);
+		return () => observer.disconnect();
+	}, []);
 	const { transcript } = useUiPreferences();
 	const setDraft = useCallback((value: string) => draftSetterRef.current?.(value), []);
 	const turns = useMemo(() => groupMessages(messages), [messages]);
@@ -710,7 +724,7 @@ export function AgentChat({
 	);
 
 	return (
-		<div className={cn("agent-chat flex h-full min-h-0 flex-col bg-background", className)}>
+		<div className={cn("agent-chat relative flex h-full min-h-0 flex-col bg-transparent", className)}>
 			<MessageScroller
 				className="flex-1"
 				busy={isStreaming}
@@ -718,8 +732,8 @@ export function AgentChat({
 				viewportRef={viewportRef}
 				smooth={!isStreaming}
 				contentClassName={cn(
-					"chat-column flex flex-col gap-[var(--density-gap)]",
-					isEmpty ? "min-h-full items-center justify-center py-8" : "py-6",
+					"chat-column flex flex-col gap-[var(--density-gap)] pb-[calc(var(--composer-overlay-height,120px)+1.5rem)]",
+					isEmpty ? "min-h-full items-center justify-center pt-8" : "pt-6",
 				)}
 			>
 				{isEmpty ? (
@@ -747,10 +761,15 @@ export function AgentChat({
 					/>
 				) : null}
 			</MessageScroller>
-			{composerNode}
-			{showQueue && queue ? (
-				<MessageQueue queue={queue} onDelete={onDeleteQueuedMessage} onEdit={onEditQueuedMessage} />
-			) : null}
+			<div
+				ref={composerOverlayRef}
+				className="pointer-events-none absolute inset-x-0 bottom-0 z-10 [&>*]:pointer-events-auto"
+			>
+				{composerNode}
+				{showQueue && queue ? (
+					<MessageQueue queue={queue} onDelete={onDeleteQueuedMessage} onEdit={onEditQueuedMessage} />
+				) : null}
+			</div>
 		</div>
 	);
 }

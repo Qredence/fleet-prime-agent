@@ -39,26 +39,29 @@ Shell density tokens and Fluid `SizeProvider` follow the same preference: `comfo
 | ----------------------------------------- | ----------------- | ---------------------------------------------- |
 | `--radius-sm` / `rounded-sm`              | `8px` (`0.5rem`)  | Inner rows, nested chips                       |
 | `--radius-md` / `rounded-md`              | `16px` (`1rem`)   | Shell, cards, overlays, dialogs                |
-| `--radius` / `rounded-lg` … `rounded-4xl` | `24px` (`1.5rem`) | Collapsed outer step (composer, pill controls) |
-| `--radius-pill` / `rounded-full`          | `9999px`          | Circular / pill controls only                  |
+| `--radius` / `rounded-lg` … `rounded-4xl` | `24px` (`1.5rem`) | Collapsed outer step (composer, hero surfaces) |
+| `rounded-full`                            | `9999px`          | Circular dots, knobs, switch tracks only         |
 
 Chat aliases: `--chat-measure` (`768px`), `--chat-input-radius` (`1.5rem`), `--chat-message-radius-inner` (`1rem`), `--chat-tool-radius` (`calc(var(--radius) * 0.8)`).
 
 ## Typography
 
-- **Font**: **Inter Variable** (`@fontsource-variable/inter/opsz.css`) with optical sizing enabled; weights **400 / 500 / 600** max.
+- **Font**: **Inter Variable** (`@fontsource-variable/inter/opsz.css`) with optical sizing enabled; product UI weights **400 / 500 / 600**. Fluid prose pairs weight with optical size: body **400 / 14**, headings **550 / 18**, and display **700 / 25**.
 - **Scale**: Product components use stock Tailwind typography classes (`text-xs`, `text-sm`, `text-base`, `text-lg`, `text-xl`). Arbitrary `text-[0.*]` sizes and legacy custom classes (`text-micro`, `text-caption`, `text-label`, `text-body`, `text-headline`) are disallowed.
 - `@fluid` primitives in `src/components/ui/` may also consume the `--fs-*` / `--lh-*` ladder via `src/lib/fluid/type-scale.ts` so controls adapt cleanly between `default` and `compact` density modes.
 
 ## Chat Typeset
 
-Chat markdown uses `src/styles/typeset.css` with `.typeset.typeset-chat`:
+Chat markdown uses Fluid Functionalism in `src/styles/typeset.css`. `MarkdownFrame` applies `.typeset` and follows the surrounding `SizeProvider`, adding `.typeset-compact` for compact density.
 
-| Token                           | Value                               | Role                              |
-| ------------------------------- | ----------------------------------- | --------------------------------- |
-| `--typeset-font-body` / heading | `var(--font-sans)` (Inter Variable) | Matches Inter Variable font stack |
-| `--typeset-size`                | `0.875rem`                          | 14px prose reading size           |
-| `--typeset-leading`             | `1.6`                               | Chat reading rhythm               |
-| `--typeset-flow`                | `1em`                               | Block spacing inside messages     |
+| Role                     | Default size / leading | Compact size / leading |
+| ------------------------ | ---------------------- | ---------------------- |
+| Display (h1)             | 28 / 34px              | 24 / 30px              |
+| Title (h2)               | 16 / 22px              | 15 / 20px              |
+| Subtitle (h3–h6)         | 14 / 20px              | 13 / 18px              |
+| Body                     | 13 / 20px              | 12 / 18px              |
+| Caption (code, captions) | 12 / 16px              | 11 / 14px              |
 
-Use `not-typeset` / `data-not-typeset` on embedded UI controls inside markdown so prose spacing rules do not leak into interactive widgets.
+Prose shares the existing `--fs-*` / `--lh-*` scale with controls. Use `typeClass(role, variant)` from `@/lib/fluid/type-scale` for explicit roles, or `useSize().type` and `useTypeScale()` from `@/lib/fluid/size-context` for density-aware classes and numeric sizes. The sixth role, micro, is for single-line counters and key caps rather than prose.
+
+Fluid prose uses muted body text, foreground headings, and fixed spacing above blocks (12px default, 8px compact). Wrapping stays plain so appending streamed text does not rebalance earlier lines. Wide tables use `.typeset-scroll`. Use `not-typeset` / `data-not-typeset` on embedded UI controls to exclude their subtree while preserving outer prose spacing.

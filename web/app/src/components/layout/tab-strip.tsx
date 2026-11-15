@@ -129,7 +129,7 @@ export function TabStrip({
 									aria-label={accessibleName}
 									className={cn(
 										"h-7 w-full min-w-0 justify-start text-start text-xs font-medium leading-none",
-										"rounded-[7px] !border-0 !shadow-none after:hidden",
+										"!border-0 !shadow-none after:hidden",
 										compact ? "gap-0.5 !px-1" : "gap-1.5 !px-2",
 										// The `ui/tabs` data-active variants outrank plain utilities,
 										// so state colors have to be important to win.
@@ -172,7 +172,7 @@ export function TabStrip({
 								{tab.closable && onClose ? (
 									<Button
 										aria-label={`Close ${tab.label} tab`}
-										className="absolute top-1/2 left-auto size-5 -translate-y-1/2 rounded-[5px] p-0 text-foreground/35 opacity-0 transition-opacity motion-reduce:transition-none hover:bg-foreground/10 hover:text-foreground/75 focus-visible:opacity-100 group-hover/tab:opacity-100 [inset-inline-start:auto] [inset-inline-end:0.25rem]"
+										className="absolute top-1/2 left-auto size-5 -translate-y-1/2 p-0 text-foreground/35 opacity-0 transition-opacity motion-reduce:transition-none hover:bg-foreground/10 hover:text-foreground/75 focus-visible:opacity-100 group-hover/tab:opacity-100 [inset-inline-start:auto] [inset-inline-end:0.25rem]"
 										onClick={(event) => {
 											event.stopPropagation();
 											onClose(tab.id);
@@ -193,7 +193,7 @@ export function TabStrip({
 			{onNewSession ? (
 				<Button
 					aria-label="New chat"
-					className="hit-area-expand-dense relative z-10 size-7 shrink-0 rounded-[7px] text-foreground/50 hover:bg-foreground/7 hover:text-foreground/85"
+					className="hit-area-expand-dense relative z-10 size-7 shrink-0 text-foreground/50 hover:bg-foreground/7 hover:text-foreground/85"
 					data-testid="new-chat-tab"
 					onClick={(event) => {
 						event.preventDefault();

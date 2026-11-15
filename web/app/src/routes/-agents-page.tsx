@@ -82,7 +82,7 @@ export function AgentsPage() {
 							{visibleSessions.map((session) => {
 								const sessionTitle = session.title || session.firstMessage || "Untitled session";
 								return (
-									<Card key={session.sessionId} size="sm" className="min-w-0 overflow-hidden">
+									<Card key={session.sessionId} size="compact" className="min-w-0 overflow-hidden">
 										<CardHeader className="min-w-0">
 											<div className="flex min-w-0 items-start justify-between gap-3">
 												<div className="min-w-0 flex-1">
@@ -130,7 +130,7 @@ export function AgentsPage() {
 
 function UnavailableScheduleCard({ icon, title }: { icon: ReactNode; title: string }) {
 	return (
-		<Card size="sm" className="opacity-80">
+		<Card size="compact" className="opacity-80">
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2">
 					{icon}

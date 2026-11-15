@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import type * as React from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { typeClass, useSize } from "@/lib/fluid/size-context";
+import { FOCUS_RING } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 function Trace({ className, ...props }: React.ComponentProps<"div">) {
@@ -73,7 +74,8 @@ function TraceCollapsibleTrigger({ className, children, ...props }: React.Compon
 		<CollapsibleTrigger
 			data-slot="trace-collapsible-trigger"
 			className={cn(
-				"group/trace-collapsible-trigger flex w-fit max-w-full min-w-0 cursor-pointer items-center gap-1 text-left text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] has-[[data-status=error]]:text-destructive",
+				"group/trace-collapsible-trigger flex w-fit max-w-full min-w-0 cursor-pointer items-center gap-1 text-left text-muted-foreground transition-colors outline-none hover:text-foreground has-[[data-status=error]]:text-destructive",
+				FOCUS_RING,
 				className,
 			)}
 			{...props}

@@ -82,8 +82,8 @@ export function RightPanelTrigger({ compact = false, onOpen }: { compact?: boole
 			aria-label="Open side panel"
 			title="Open side panel"
 			className={cn(
-				"relative inline-flex items-center justify-center rounded-md border border-border/70 bg-sidebar text-foreground/55 shadow-sm backdrop-blur transition-colors hover:bg-background hover:text-foreground/75",
-				compact ? "!size-7 !rounded-[7px] !px-0" : "size-9 px-0",
+				"relative inline-flex items-center justify-center border border-border/70 bg-sidebar text-foreground/55 shadow-sm backdrop-blur transition-colors hover:bg-background hover:text-foreground/75",
+				compact ? "!size-7 !px-0" : "size-9 px-0",
 			)}
 			onClick={onOpen}
 		>

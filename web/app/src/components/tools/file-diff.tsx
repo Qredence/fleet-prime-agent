@@ -1,11 +1,12 @@
 "use client";
 
-import { Ban, Check, ChevronDown, CircleX, Copy, FileCode2, LoaderCircle } from "lucide-react";
+import { Ban, Check, ChevronDown, CircleX, Copy, FileCode2 } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { AgentCodeLine } from "@/components/tools/tool-code-block";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Spinner } from "@/components/ui/spinner";
 import { SPRING_SWAP } from "@/lib/ease";
 import { type AgentCodeLanguage, useAgentCodeTokens } from "@/lib/shiki-highlight";
 import { cn } from "@/lib/utils";
@@ -160,7 +161,7 @@ export function FileDiff({
 				</span>
 				<span className="grid size-4 shrink-0 place-items-center text-muted-foreground/60">
 					{streaming ? (
-						<LoaderCircle aria-label="Applying changes" className={cn("size-3.5", !reduce && "animate-spin")} />
+						<Spinner aria-label="Applying changes" className="size-3.5" />
 					) : status === "error" ? (
 						<CircleX aria-label="Changes failed" className="size-3.5" />
 					) : status === "cancelled" ? (

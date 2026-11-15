@@ -7,6 +7,7 @@ import { useShape } from "@/lib/fluid/shape-context";
 import { useSize, type SizeVariant } from "@/lib/fluid/size-context";
 import { spring } from "@/lib/fluid/springs";
 import { omit } from "@/lib/fluid/omit";
+import { FOCUS_RING } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 interface SwitchProps extends HTMLAttributes<HTMLDivElement> {
@@ -238,7 +239,8 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 						label &&
 							cn("w-fit", sizeClasses.gap, sizeClasses.px, sizeClasses.variant === "compact" ? "py-1" : "py-2"),
 						sharp ? "rounded-none" : "rounded-full",
-						"focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+						FOCUS_RING,
+						"focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 					)}
 					onClick={(e) => e.stopPropagation()}
 				>
@@ -316,4 +318,3 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 Switch.displayName = "Switch";
 
 export { Switch };
-export type { SwitchProps };

@@ -1,6 +1,7 @@
-import { Loader2, RotateCcw, Save } from "lucide-react";
+import { RotateCcw, Save } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 /**
@@ -73,7 +74,7 @@ export function SettingsCommitActions({
 				disabled={!dirty || disabled || saving || saveDisabled}
 				onClick={onSave}
 			>
-				{saving ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Save data-icon="inline-start" />}
+				{saving ? <Spinner aria-hidden="true" data-icon="inline-start" /> : <Save data-icon="inline-start" />}
 				Save changes
 			</Button>
 		</>

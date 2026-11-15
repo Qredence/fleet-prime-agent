@@ -121,5 +121,4 @@ const ScrollBar = forwardRef<
 
 ScrollBar.displayName = "ScrollBar";
 
-export { ScrollArea, ScrollBar };
-export type { ScrollAreaProps };
+export { ScrollArea };

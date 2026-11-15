@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { fontWeights } from "@/lib/fluid/font-weight";
 import { useShape } from "@/lib/fluid/shape-context";
 import { typeClass, useSize } from "@/lib/fluid/size-context";
-import { surfaceClasses } from "@/lib/fluid/surface-classes";
+import { FOCUS_RING, surfaceClasses } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 const toast = ToastPrimitive.createToastManager();
@@ -37,7 +37,8 @@ function Toast({ className, ...props }: ToastPrimitive.Root.Props) {
 		<ToastPrimitive.Root
 			data-slot="toast"
 			className={cn(
-				"group/toast pointer-events-auto absolute right-0 bottom-0 z-[calc(1000-var(--toast-index))] w-full origin-bottom border border-border/60 text-popover-foreground will-change-transform outline-none select-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+				"group/toast pointer-events-auto absolute right-0 bottom-0 z-[calc(1000-var(--toast-index))] w-full origin-bottom border border-border/60 text-popover-foreground will-change-transform outline-none select-none",
+				FOCUS_RING,
 				shape.container,
 				// Toasts always float above the root surface (Fluid ladder).
 				surfaceClasses(3),

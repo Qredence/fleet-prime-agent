@@ -1,8 +1,9 @@
 "use client";
 
 import type { PrimeAgentRlmChild, PrimeAgentRlmTree } from "@prime-agent/web-protocol/chat-protocol";
-import { CheckCircle2, CircleAlert, CircleX, LoaderCircle, RotateCw } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { type CSSProperties, useMemo, useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import {
 	Trace,
 	TraceCollapsible,
@@ -13,19 +14,8 @@ import {
 	TraceLine,
 	TraceTitle,
 } from "@/components/ui/trace";
-import { orderedRlmChildren } from "@/lib/chat/subagent-utils";
+import { orderedRlmChildren, rlmStatusIcon } from "@/lib/chat/subagent-utils";
 import { cn } from "@/lib/utils";
-
-/**
- * Maps an RLM child status to its corresponding status icon.
- */
-export function rlmStatusIcon(status: PrimeAgentRlmChild["status"]) {
-	if (status === "done") return <CheckCircle2 className="size-3.5 text-success" />;
-	if (status === "error" || status === "failed") return <CircleAlert className="size-3.5 text-destructive" />;
-	if (status === "cancelled") return <CircleX className="size-3.5 text-muted-foreground" />;
-	if (status === "recovering") return <RotateCw className="size-3.5 animate-spin text-warning" />;
-	return <LoaderCircle className="size-3.5 animate-spin text-primary" />;
-}
 
 type SubagentListProps = {
 	children: readonly PrimeAgentRlmChild[];
@@ -53,7 +43,7 @@ export function SubagentList({ children, tree, className }: SubagentListProps) {
 			<TraceCollapsible open={open || active} onOpenChange={setOpen}>
 				<TraceCollapsibleTrigger aria-label={active ? "Subagents working" : "Subagents completed"}>
 					<TraceLine status={active ? "running" : undefined}>
-						<TraceIcon>{active ? <LoaderCircle className="animate-spin" /> : <CheckCircle2 />}</TraceIcon>
+						<TraceIcon>{active ? <Spinner aria-hidden="true" /> : <CheckCircle2 />}</TraceIcon>
 						<TraceTitle>{active ? "Subagents working" : "Subagents completed"}</TraceTitle>
 						<TraceDescription>{agents.length}</TraceDescription>
 					</TraceLine>

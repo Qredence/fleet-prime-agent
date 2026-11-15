@@ -411,7 +411,7 @@ const MetricDef = defineComponent({
 	}),
 	component: ({ props: { label, value, trend, tone } }) => {
 		return (
-			<Card size="sm" className={toneClasses[tone]}>
+			<Card size="compact" className={toneClasses[tone]}>
 				<CardHeader>
 					<CardDescription>{label}</CardDescription>
 					<CardTitle className="text-2xl">{value}</CardTitle>

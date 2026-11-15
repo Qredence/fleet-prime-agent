@@ -1,5 +1,6 @@
-import { CircleCheck, LoaderCircle } from "lucide-react";
+import { CircleCheck } from "lucide-react";
 import { useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import {
 	Trace,
 	TraceCollapsible,
@@ -33,9 +34,7 @@ export function ReasoningLine({
 	const body = reasoningBody(text);
 	const line = (
 		<TraceLine status={streaming ? "running" : undefined}>
-			<TraceIcon>
-				{streaming ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : <CircleCheck />}
-			</TraceIcon>
+			<TraceIcon>{streaming ? <Spinner aria-hidden="true" /> : <CircleCheck />}</TraceIcon>
 			<TraceTitle>{streaming ? "Thinking" : "Thought"}</TraceTitle>
 			{durationMs !== undefined ? (
 				<TraceDescription>{Math.max(0, Math.round(durationMs / 1000))}s</TraceDescription>

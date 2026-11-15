@@ -111,18 +111,6 @@ const DialogTrigger = forwardRef<HTMLButtonElement, DialogSlotProps>(({ render, 
 });
 DialogTrigger.displayName = "DialogTrigger";
 
-const DialogClose = forwardRef<HTMLButtonElement, DialogSlotProps>(({ render, asChild, children, ...props }, ref) => {
-	const el = slotRender(render, asChild, children);
-	return el ? (
-		<DialogPrimitive.Close ref={ref} data-slot="dialog-close" render={el} {...props} />
-	) : (
-		<DialogPrimitive.Close ref={ref} data-slot="dialog-close" {...props}>
-			{children}
-		</DialogPrimitive.Close>
-	);
-});
-DialogClose.displayName = "DialogClose";
-
 interface DialogContentProps extends HTMLAttributes<HTMLDivElement> {
 	/** Max width preset at the default size step. */
 	size?: "sm" | "lg" | "xl";
@@ -321,20 +309,5 @@ const DialogDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLPa
 );
 DialogDescription.displayName = "DialogDescription";
 
-export {
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-};
-export type {
-	DialogContentProps,
-	DialogFooterProps,
-	DialogProps,
-	DialogSlotProps as DialogCloseProps,
-	DialogSlotProps as DialogTriggerProps,
-};
+export { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger };
+export type { DialogContentProps, DialogFooterProps, DialogProps };

@@ -177,5 +177,4 @@ export function MobileDrawer({
 	);
 }
 
-export default MobileDrawer;
-export type { MobileDrawerProps, MobileDrawerSide };
+export type { MobileDrawerProps };

@@ -4,12 +4,10 @@ import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { cva, type VariantProps } from "class-variance-authority";
 import { AnimatePresence, m } from "motion/react";
 import {
-	Children,
 	type ComponentType,
 	createContext,
 	forwardRef,
 	type HTMLAttributes,
-	isValidElement,
 	type ReactNode,
 	useCallback,
 	useContext,
@@ -30,8 +28,9 @@ import { useKeyboardNavGate } from "@/hooks/use-keyboard-nav-gate";
 import { Elevated } from "@/lib/fluid/elevated";
 import { isDisabledRow, popupMotionClass, popupScrollAreaClass, popupViewportClass } from "@/lib/fluid/popup";
 import { usePopupShape, useShape } from "@/lib/fluid/shape-context";
-import { SizeProvider, type SizeVariant, typeClass, useSize } from "@/lib/fluid/size-context";
+import { SizeProvider, type SizeVariant, useSize } from "@/lib/fluid/size-context";
 import { exitFallbackMs, spring } from "@/lib/fluid/springs";
+import { FOCUS_RING, HOVER_HIGHLIGHT } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 const selectionAckMs = 300;
@@ -68,9 +67,8 @@ interface SelectContentContextValue {
 const SelectContentContext = createContext<SelectContentContextValue | null>(null);
 
 interface SelectProps extends Pick<HTMLAttributes<HTMLButtonElement>, "aria-label" | "className"> {
-	children?: ReactNode;
 	/** Shorthand option list rendered as SelectTrigger + SelectContent. */
-	options?: Array<SelectOption>;
+	options: Array<SelectOption>;
 	value?: string | null;
 	defaultValue?: string | null;
 	onValueChange?: (value: string) => void;
@@ -83,24 +81,7 @@ interface SelectProps extends Pick<HTMLAttributes<HTMLButtonElement>, "aria-labe
 	size?: SizeVariant;
 }
 
-function collectSelectItems(node: ReactNode, out: { value: string; label: ReactNode }[] = []) {
-	Children.forEach(node, (child) => {
-		if (!isValidElement(child)) return;
-		const props = child.props as { value?: unknown; children?: ReactNode };
-		if (typeof props.value === "string") {
-			out.push({
-				value: props.value,
-				label: typeof props.children === "string" ? props.children : props.value,
-			});
-		} else if (props.children) {
-			collectSelectItems(props.children, out);
-		}
-	});
-	return out;
-}
-
 function Select({
-	children,
 	options,
 	value,
 	defaultValue,
@@ -119,10 +100,7 @@ function Select({
 	const actionsRef = useRef<{ unmount: () => void; close: () => void } | null>(null);
 	const currentValue = value !== undefined ? value : internalValue;
 
-	const items = useMemo(
-		() => (options ? options.map((opt) => ({ value: opt.value, label: opt.label })) : collectSelectItems(children)),
-		[options, children],
-	);
+	const items = useMemo(() => options.map((opt) => ({ value: opt.value, label: opt.label })), [options]);
 
 	const handleValueChange = useCallback(
 		(next: string | null) => {
@@ -158,7 +136,7 @@ function Select({
 	);
 
 	const ctx = useMemo(() => ({ value: currentValue, open, actionsRef }), [currentValue, open]);
-	const selectedOption = options?.find((option) => option.value === currentValue);
+	const selectedOption = options.find((option) => option.value === currentValue);
 
 	const root = (
 		<SelectContext.Provider value={ctx}>
@@ -175,32 +153,26 @@ function Select({
 				required={required}
 				modal={false}
 			>
-				{options ? (
-					<>
-						<SelectTrigger
-							id={triggerId}
-							aria-label={ariaLabel}
-							icon={selectedOption?.icon}
-							placeholder={placeholder}
-							className={className}
-						/>
-						<SelectContent>
-							{options.map((option, index) => (
-								<SelectItem
-									key={option.value}
-									value={option.value}
-									index={index}
-									disabled={option.disabled}
-									icon={option.icon}
-								>
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</>
-				) : (
-					children
-				)}
+				<SelectTrigger
+					id={triggerId}
+					aria-label={ariaLabel}
+					icon={selectedOption?.icon}
+					placeholder={placeholder}
+					className={className}
+				/>
+				<SelectContent>
+					{options.map((option, index) => (
+						<SelectItem
+							key={option.value}
+							value={option.value}
+							index={index}
+							disabled={option.disabled}
+							icon={option.icon}
+						>
+							{option.label}
+						</SelectItem>
+					))}
+				</SelectContent>
 			</SelectPrimitive.Root>
 		</SelectContext.Provider>
 	);
@@ -215,7 +187,7 @@ const triggerVariants = cva(
 		"group inline-flex items-center justify-between outline-none cursor-pointer",
 		"transition-[color,background-color,border-radius,box-shadow,opacity] duration-80",
 		"disabled:opacity-50 disabled:pointer-events-none",
-		"focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
+		FOCUS_RING,
 	],
 	{
 		variants: {
@@ -442,7 +414,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(({ classNam
 										<AnimatePresence>
 											{checkedRect && (
 												<m.div
-													className={cn("absolute bg-active pointer-events-none", shape.bg)}
+													className={cn(HOVER_HIGHLIGHT, shape.bg)}
 													initial={false}
 													animate={{
 														top: checkedRect.top,
@@ -603,45 +575,5 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
 
 SelectItem.displayName = "SelectItem";
 
-function SelectGroup({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) {
-	return (
-		<div role="group" data-slot="select-group" className={className} {...props}>
-			{children}
-		</div>
-	);
-}
-
-SelectGroup.displayName = "SelectGroup";
-
-const SelectLabel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => {
-	const compact = useSize().variant === "compact";
-	return (
-		<div
-			ref={ref}
-			data-slot="select-label"
-			className={cn(
-				"px-2 py-1.5 shrink-0 text-muted-foreground",
-				typeClass("caption", compact ? "compact" : "default"),
-				className,
-			)}
-			{...props}
-		/>
-	);
-});
-
-SelectLabel.displayName = "SelectLabel";
-
-const SelectSeparator = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-	<div
-		ref={ref}
-		data-slot="select-separator"
-		role="separator"
-		className={cn("my-1 -mx-1 h-px shrink-0 bg-border/60", className)}
-		{...props}
-	/>
-));
-
-SelectSeparator.displayName = "SelectSeparator";
-
-export { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, triggerVariants };
-export type { SelectContentProps, SelectItemProps, SelectOption, SelectProps, SelectTriggerProps };
+export { Select };
+export type { SelectOption };

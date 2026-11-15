@@ -2,14 +2,16 @@ import { Bot, Check, ChevronDown, FileCode2, ListTodo, Settings2, X } from "luci
 import { type ComponentType, memo, useCallback, useEffect, useState } from "react";
 import type { InputBarProps } from "@/components/chat/composer/input-bar";
 import { FileAttachment } from "@/components/chat/file-attachment";
+import { Attachment, AttachmentContent, AttachmentMedia, AttachmentTitle } from "@/components/ui/attachment";
 import { Button } from "@/components/ui/button";
 import { InputGroupButton } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Radio, RadioGroup, RadioIndicator } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
+import { useSize } from "@/lib/fluid/size-context";
 
 export const COMPOSER_SELECTOR_TRIGGER_CLASS =
-	"relative inline-flex h-8 max-w-[18rem] min-w-0 cursor-pointer items-center gap-1.5 rounded-full px-2 text-sm leading-4 text-foreground/70 transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-1 after:-bottom-1 hover:bg-foreground/6 hover:text-foreground/85 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] data-[popup-open]:bg-foreground/6 data-[popup-open]:text-foreground/85";
+	"relative inline-flex h-8 max-w-[12rem] min-w-0 cursor-pointer items-center gap-1.5 px-2 text-sm leading-4 text-foreground/70 transition-[background-color,transform] duration-150 after:absolute after:inset-x-0 after:-top-1 after:-bottom-1 hover:bg-foreground/6 hover:text-foreground/85 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.96] data-[popup-open]:bg-foreground/6 data-[popup-open]:text-foreground/85";
 
 export const AGENT_CHAT_MODES = [
 	{ id: "agent", label: "Agent", icon: Bot, description: "Default coding agent" },
@@ -46,6 +48,7 @@ export const ModeSelector = memo(function ModeSelector({
 	onChange,
 	className,
 }: ModeSelectorProps) {
+	const { type } = useSize();
 	const isControlled = value !== undefined;
 	const [internalValue, setInternalValue] = useState(defaultValue);
 	const activeId = isControlled ? value : internalValue;
@@ -81,7 +84,7 @@ export const ModeSelector = memo(function ModeSelector({
 						title={modeLabel}
 						disabled={!hasMultiple}
 						tabIndex={hasMultiple ? undefined : -1}
-						className={cn(COMPOSER_SELECTOR_TRIGGER_CLASS, className)}
+						className={cn(COMPOSER_SELECTOR_TRIGGER_CLASS, type.body, className)}
 					>
 						{ActiveIcon ? <ActiveIcon aria-hidden="true" className="size-3.5 shrink-0" /> : null}
 						<span className="min-w-0 truncate font-medium">{modeLabel}</span>
@@ -198,7 +201,7 @@ export function ComposerAttachments({
 	return (
 		<>
 			{images.length > 0 || files.length > 0 ? (
-				<div className="flex flex-wrap items-center gap-2 rounded-xl border bg-muted/40 p-2">
+				<div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-2">
 					{images.map((image) => (
 						<FileAttachment
 							key={image.id}
@@ -222,27 +225,32 @@ export function ComposerAttachments({
 				</div>
 			) : null}
 			{workspaceReferences.length > 0 ? (
-				<div className="flex flex-wrap gap-1.5 rounded-xl border bg-muted/40 p-2">
+				<div className="flex flex-wrap gap-1.5 rounded-md border bg-muted/40 p-2">
 					{workspaceReferences.map((attachment) => (
-						<div
+						<Attachment
 							key={attachment.relativePath}
-							className="inline-flex max-w-full items-center gap-1.5 rounded-lg border bg-background px-2 py-1 text-xs text-foreground/75"
+							size="xs"
+							className="max-w-[min(28rem,70vw)] text-foreground/75"
 						>
-							<FileCode2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-							<span className="max-w-[min(28rem,70vw)] truncate" title={`@${attachment.relativePath}`}>
-								@{attachment.relativePath}
-							</span>
+							<AttachmentMedia variant="icon">
+								<FileCode2 aria-hidden="true" className="size-3.5 text-muted-foreground" />
+							</AttachmentMedia>
+							<AttachmentContent>
+								<AttachmentTitle title={`@${attachment.relativePath}`}>
+									@{attachment.relativePath}
+								</AttachmentTitle>
+							</AttachmentContent>
 							<Button
 								variant="ghost"
 								size="icon-compact"
 								type="button"
 								aria-label={`Remove workspace reference ${attachment.relativePath}`}
 								onClick={() => onRemoveWorkspaceReference?.(attachment.relativePath)}
-								className="hit-area-expand grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+								className="hit-area-expand grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 							>
 								<X aria-hidden="true" className="size-3" />
 							</Button>
-						</div>
+						</Attachment>
 					))}
 				</div>
 			) : null}

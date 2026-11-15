@@ -2,7 +2,6 @@
 
 import {
 	createContext,
-	type CSSProperties,
 	forwardRef,
 	type HTMLAttributes,
 	type ReactNode,
@@ -318,36 +317,4 @@ const TableCell = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTableCel
 );
 TableCell.displayName = "TableCell";
 
-interface TableEmptyProps extends Omit<HTMLAttributes<HTMLTableRowElement>, "title"> {
-	columns: number;
-	title?: ReactNode;
-	description?: ReactNode;
-	action?: ReactNode;
-	rows?: number;
-}
-
-const TableEmpty = forwardRef<HTMLTableRowElement, TableEmptyProps>(
-	({ columns, title, description, action, rows = 3, children, className, ...props }, ref) => (
-		<tr ref={ref} data-slot="table-empty" className={className} {...props}>
-			<td colSpan={columns} className="p-0">
-				<div
-					className="sticky left-0 flex w-(--table-view-w,100%) min-h-[calc(var(--table-empty-rows)*(1lh+2*var(--table-cell-py)+1px))] flex-col items-center justify-center gap-1 px-3 py-4 text-center"
-					style={{ "--table-empty-rows": rows } as CSSProperties}
-				>
-					{title && (
-						<span className="text-foreground" style={{ fontVariationSettings: fontWeights.semibold }}>
-							{title}
-						</span>
-					)}
-					{description && <span className="text-muted-foreground">{description}</span>}
-					{children}
-					{action && <div className="mt-2">{action}</div>}
-				</div>
-			</td>
-		</tr>
-	),
-);
-TableEmpty.displayName = "TableEmpty";
-
-export { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow };
-export type { TableEmptyProps, TableHeadProps, TableProps, TableRowProps };
+export { Table, TableBody, TableCell, TableHead, TableHeader, TableRow };

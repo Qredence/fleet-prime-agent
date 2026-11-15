@@ -31,7 +31,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, si
 				"disabled:opacity-50 disabled:pointer-events-none",
 				compact ? "min-h-[64px] py-1" : "min-h-[76px] py-[7px]",
 				compact ? "max-h-[190px]" : "max-h-[216px]",
-				shape.variant === "pill" ? shape.mergedBg : shape.input,
+				shape.input,
 				sizeClasses.px,
 				sizeClasses.field,
 				className,
@@ -45,5 +45,3 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, si
 Textarea.displayName = "Textarea";
 
 export { Textarea };
-export type { TextareaProps };
-export default Textarea;

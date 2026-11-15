@@ -4,6 +4,7 @@ import type { InputBarProps } from "@/components/chat/composer/input-bar";
 import type { SuggestionItem } from "@/lib/chat/types";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, type PopoverOpenChangeDetails } from "@/components/ui/popover";
+import { useSize } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
 
 /**
@@ -257,7 +258,6 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 	kind,
 	onOpenChange,
 	anchor,
-	query,
 	items,
 	groups,
 	activeIndex = 0,
@@ -265,6 +265,7 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 	onSelect,
 	listId,
 }: ComposerTriggerPopoverProps) {
+	const { type } = useSize();
 	const title = kind === "slash" ? "Commands" : "Workspace references";
 	// Each group's position in the flattened list, so a grouped render and the
 	// keyboard walk agree on what index an item has.
@@ -314,16 +315,17 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 					if (!item.disabled) onSelect(item);
 				}}
 				className={cn(
-					"flex h-auto min-h-10 w-full cursor-pointer items-start justify-start gap-2 rounded-lg px-3 py-2 text-start text-sm font-normal transition-colors",
+					"flex w-full cursor-pointer items-center justify-start gap-2 rounded-lg px-2 py-1 text-start font-normal transition-colors",
+					type.body,
 					selected ? "bg-accent text-accent-foreground" : "hover:bg-foreground/[0.04]",
 					item.disabled && "pointer-events-none opacity-50",
 				)}
 			>
-				<span className="mt-0.5 shrink-0 text-muted-foreground">{defaultIcon(kind, item)}</span>
-				<span className="min-w-0 flex-1">
-					<span className="block truncate text-sm font-medium">{item.label}</span>
+				<span className="shrink-0 text-muted-foreground">{defaultIcon(kind, item)}</span>
+				<span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+					<span className="shrink-0 font-medium">{item.label}</span>
 					{item.description ? (
-						<span className="mt-0.5 block truncate text-xs text-muted-foreground">{item.description}</span>
+						<span className="min-w-0 truncate text-muted-foreground">{item.description}</span>
 					) : null}
 				</span>
 			</Button>
@@ -346,19 +348,13 @@ export const ComposerTriggerPopover = memo(function ComposerTriggerPopover({
 				data-kind={kind}
 				className="max-h-[min(42dvh,360px)] w-(--anchor-width) min-w-[16rem] gap-0 overflow-hidden p-0"
 			>
-				<div className="flex items-center gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
-					<span className="font-medium">{title}</span>
-					{query ? <span className="ms-auto max-w-[50%] truncate font-mono text-xs">{query}</span> : null}
-				</div>
 				<div className="max-h-[min(42dvh,360px)] overflow-y-auto overscroll-contain p-1.5">
 					{items.length === 0 ? (
 						<div className="px-3 py-6 text-center text-sm text-muted-foreground">No matching items</div>
 					) : null}
 					{(groups && groups.length > 0 ? groups : undefined)?.map((group) => (
 						<div key={group.id} role="group" aria-label={group.label}>
-							<div className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-								{group.label}
-							</div>
+							<div className="px-3 pb-1 pt-2 text-xs text-muted-foreground">{group.label}</div>
 							{group.items.map((item, index) => renderItem(item, (groupOffsets.get(group.id) ?? 0) + index))}
 						</div>
 					))}

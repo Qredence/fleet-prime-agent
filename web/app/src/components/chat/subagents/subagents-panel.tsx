@@ -6,8 +6,7 @@ import type {
 import { Bot } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type SubagentTranscriptState, SubagentTranscriptView } from "@/components/chat/subagents/subagent-transcript";
-import { rlmStatusIcon } from "@/components/chat/subagents/subagent-list";
-import { orderedRlmChildren } from "@/lib/chat/subagent-utils";
+import { orderedRlmChildren, rlmStatusIcon } from "@/lib/chat/subagent-utils";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 

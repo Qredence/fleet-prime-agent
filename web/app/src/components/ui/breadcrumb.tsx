@@ -1,23 +1,16 @@
 "use client";
 
 import {
-	type AnchorHTMLAttributes,
-	type ButtonHTMLAttributes,
 	Children,
 	createContext,
-	type CSSProperties,
-	type ElementType,
 	forwardRef,
 	type HTMLAttributes,
-	isValidElement,
 	type LiHTMLAttributes,
 	type OlHTMLAttributes,
-	type ReactElement,
 	type ReactNode,
 	type Ref,
 	useCallback,
 	useContext,
-	useEffect,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -44,99 +37,10 @@ function wrapLabels(children: ReactNode): ReactNode {
 	);
 }
 
-type SlotProps = {
-	className?: string;
-	style?: CSSProperties;
-	children?: ReactNode;
-} & Record<string, unknown>;
-
 function assignRef<T>(target: Ref<T> | undefined, node: T | null) {
 	if (typeof target === "function") target(node);
 	else if (target) (target as React.RefObject<T | null>).current = node;
 }
-
-function mergeSlotProps(inner: SlotProps, outer: SlotProps): SlotProps {
-	const merged: SlotProps = {
-		...inner,
-		...outer,
-		className: cn(inner.className, outer.className),
-		style: { ...inner.style, ...(outer.style as CSSProperties | undefined) },
-	};
-	for (const key of Object.keys(inner)) {
-		if (!/^on[A-Z]/.test(key)) continue;
-		const a = inner[key];
-		const b = outer[key];
-		if (typeof a === "function" && typeof b === "function") {
-			merged[key] = (...args: unknown[]) => {
-				(b as (...x: unknown[]) => void)(...args);
-				(a as (...x: unknown[]) => void)(...args);
-			};
-		}
-	}
-	return merged;
-}
-
-interface SlotOwnProps {
-	trailing?: ReactNode;
-	render?: ReactElement;
-	asChild?: boolean;
-	defaultTag: ElementType;
-	elementRef?: Ref<HTMLElement>;
-	props: SlotProps;
-	children?: ReactNode;
-	[key: string]: unknown;
-}
-
-const Slot = forwardRef<HTMLElement, Record<string, unknown>>(function Slot(rawProps, outerRef): ReactElement {
-	const {
-		render,
-		asChild,
-		defaultTag: DefaultTag,
-		elementRef,
-		props: ownProps,
-		trailing,
-		children,
-		...extra
-	} = rawProps as SlotOwnProps;
-	const props = mergeSlotProps(ownProps, extra as SlotProps);
-	let template: ReactElement<SlotProps> | null = null;
-	let content = children;
-	if (render && isValidElement(render)) {
-		template = render as ReactElement<SlotProps>;
-	} else if (asChild) {
-		const only = Children.toArray(children)[0];
-		if (isValidElement(only)) {
-			template = only as ReactElement<SlotProps>;
-			content = (only.props as SlotProps).children;
-		}
-	}
-	const ownRef = (node: HTMLElement | null) => {
-		assignRef(elementRef, node);
-		assignRef(outerRef, node);
-	};
-	if (!template) {
-		return (
-			<DefaultTag {...props} ref={ownRef}>
-				{wrapLabels(children)}
-				{trailing}
-			</DefaultTag>
-		);
-	}
-	const Tag = template.type as ElementType;
-	const theirs = template.props;
-	const merged = mergeSlotProps(props, theirs);
-	const templateRef = (theirs as { ref?: Ref<HTMLElement> }).ref;
-	const composedRef = (node: HTMLElement | null) => {
-		ownRef(node);
-		assignRef(templateRef, node);
-	};
-	return (
-		<Tag {...merged} ref={composedRef}>
-			{wrapLabels(content ?? theirs.children)}
-			{trailing}
-		</Tag>
-	);
-});
 
 interface BreadcrumbProps extends HTMLAttributes<HTMLElement> {
 	/** Pins the trail to one step of the size ladder ("default" or "compact"). */
@@ -165,7 +69,7 @@ const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
 				if (previous[i] !== element) registerItem(i, element);
 			});
 			registered.current = next;
-		});
+		}, [children, registerItem]);
 
 		const setRef = useCallback(
 			(node: HTMLElement | null) => {
@@ -296,97 +200,6 @@ function useCrumbClasses() {
 	);
 }
 
-function useTargetClasses() {
-	const compact = useSize().variant === "compact";
-	return cn(
-		useCrumbClasses(),
-		compact ? "max-w-40" : "max-w-48",
-		"cursor-pointer text-muted-foreground outline-none transition-colors duration-80",
-		"data-[fluid-hover-active]:text-foreground",
-		"[&[aria-haspopup][data-state=open]]:text-foreground [&[aria-haspopup][data-popup-open]]:text-foreground",
-		"focus-visible:text-foreground focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]",
-		"disabled:pointer-events-none disabled:opacity-50",
-	);
-}
-
-interface BreadcrumbLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
-	/** Element to render instead of `<a>`. */
-	render?: ReactElement;
-	/** Composes props onto the single child element. */
-	asChild?: boolean;
-}
-
-const BreadcrumbLink = forwardRef<HTMLAnchorElement, BreadcrumbLinkProps>(
-	({ className, style, render, asChild, children, onPointerEnter, onFocus, ...props }, ref) => {
-		const classes = useTargetClasses();
-		const { cut, check } = useCutLabel();
-		const text = textOf(
-			asChild && isValidElement(children) ? (children.props as { children?: ReactNode }).children : children,
-		);
-		return (
-			<Slot
-				render={render}
-				asChild={asChild}
-				defaultTag="a"
-				elementRef={ref as Ref<HTMLElement>}
-				props={{
-					...props,
-					[TARGET_ATTR]: "",
-					"data-slot": "breadcrumb-link",
-					title: cut ? text : undefined,
-					className: cn(classes, className),
-					style: { fontVariationSettings: fontWeights.normal, ...style },
-					onPointerEnter: (e: React.PointerEvent<HTMLAnchorElement>) => {
-						onPointerEnter?.(e);
-						check(e.currentTarget);
-					},
-					onFocus: (e: React.FocusEvent<HTMLAnchorElement>) => {
-						onFocus?.(e);
-						check(e.currentTarget);
-					},
-				}}
-				trailing={<CrumbSeparator />}
-			>
-				{children}
-			</Slot>
-		);
-	},
-);
-BreadcrumbLink.displayName = "BreadcrumbLink";
-
-const BreadcrumbButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
-	({ className, style, type = "button", children, onPointerEnter, onFocus, ...props }, ref) => {
-		const classes = useTargetClasses();
-		const { cut, check } = useCutLabel();
-		const onlyEllipsis = isValidElement(children) && children.type === BreadcrumbEllipsis;
-		return (
-			<button
-				ref={ref}
-				type={type}
-				{...{ [TARGET_ATTR]: "" }}
-				data-slot="breadcrumb-button"
-				title={cut ? textOf(children) : undefined}
-				className={cn(classes, className)}
-				style={{ fontVariationSettings: fontWeights.normal, ...style }}
-				aria-label={onlyEllipsis ? "Show hidden steps" : undefined}
-				{...props}
-				onPointerEnter={(e) => {
-					onPointerEnter?.(e);
-					check(e.currentTarget);
-				}}
-				onFocus={(e) => {
-					onFocus?.(e);
-					check(e.currentTarget);
-				}}
-			>
-				{wrapLabels(children)}
-				<CrumbSeparator />
-			</button>
-		);
-	},
-);
-BreadcrumbButton.displayName = "BreadcrumbButton";
-
 const BreadcrumbPage = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElement>>(
 	({ className, style, children, onPointerEnter, ...props }, ref) => {
 		const classes = useCrumbClasses();
@@ -415,140 +228,5 @@ const BreadcrumbPage = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElemen
 );
 BreadcrumbPage.displayName = "BreadcrumbPage";
 
-function CrumbSeparator() {
-	const custom = useContext(SeparatorContext);
-	const icons = useIcons();
-	const sizeClasses = useSize();
-	if (custom === null) return null;
-	const ChevronRight = icons["chevron-right"];
-	const isDefault = custom === undefined;
-	return (
-		<span
-			aria-hidden="true"
-			data-slot="breadcrumb-separator"
-			className={cn(
-				"inline-flex select-none items-center justify-center text-muted-foreground",
-				"[li:last-child_&]:hidden",
-				sizeClasses.variant === "compact" ? "[&>svg]:!size-3" : "[&>svg]:!size-3.5",
-				isDefault &&
-					"transition-transform duration-150 ease-out motion-reduce:transition-none [[aria-haspopup][data-state=open]>&]:rotate-90 [[aria-haspopup][data-popup-open]>&]:rotate-90",
-				isDefault &&
-					"[[aria-haspopup][data-fluid-hover-active]>&]:rotate-90 [[aria-haspopup]:focus-visible>&]:rotate-90",
-			)}
-		>
-			{isDefault ? <ChevronRight size={sizeClasses.icon - 2} /> : custom}
-		</span>
-	);
-}
-
-const BreadcrumbEllipsis = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElement>>(
-	({ className, ...props }, ref) => {
-		const icons = useIcons();
-		const sizeClasses = useSize();
-		const More = icons["more-horizontal"];
-		return (
-			<span
-				ref={ref}
-				role="presentation"
-				data-slot="breadcrumb-ellipsis"
-				className={cn("inline-flex items-center justify-center", className)}
-				{...props}
-			>
-				<More size={sizeClasses.icon} />
-				<span className="sr-only">More</span>
-			</span>
-		);
-	},
-);
-BreadcrumbEllipsis.displayName = "BreadcrumbEllipsis";
-
-function naturalWidth(item: HTMLElement) {
-	let width = item.getBoundingClientRect().width;
-	if (item.querySelector("[data-slot=breadcrumb-page]")) {
-		item.querySelectorAll<HTMLElement>("[data-slot=breadcrumb-label]").forEach((label) => {
-			width += label.scrollWidth - label.clientWidth;
-		});
-	}
-	return width;
-}
-
-interface UseBreadcrumbCollapseOptions {
-	/** Steps in the full trail, the current page included. */
-	count: number;
-	/** Off, nothing hides. */
-	enabled?: boolean;
-}
-
-function useBreadcrumbCollapse({ count, enabled = true }: UseBreadcrumbCollapseOptions) {
-	const listNode = useRef<HTMLOListElement | null>(null);
-	const [list, setList] = useState<HTMLOListElement | null>(null);
-	const listRef = useCallback((node: HTMLOListElement | null) => {
-		listNode.current = node;
-		setList(node);
-	}, []);
-	const widths = useRef<number[]>([]);
-	const ellipsisWidth = useRef(0);
-	const [hidden, setHidden] = useState(0);
-	const [, setResized] = useState(0);
-
-	// Re-measure after render so dynamically changing labels collapse cleanly.
-	// oxlint-disable-next-line react-hooks/exhaustive-deps
-	useLayoutEffect(() => {
-		const ol = listNode.current;
-		const nav = ol?.parentElement;
-		if (!ol || !nav) return;
-		const items = Array.from(ol.children).filter((child): child is HTMLElement =>
-			child.matches("[data-slot=breadcrumb-item]"),
-		);
-		const isEllipsis = (item: HTMLElement) => !!item.querySelector("[data-slot=breadcrumb-ellipsis]");
-		const steps = items.filter((item) => !isEllipsis(item));
-		const ellipsis = items.find(isEllipsis);
-		if (ellipsis) ellipsisWidth.current = naturalWidth(ellipsis);
-		steps.forEach((item, i) => {
-			const index = hidden > 0 && i > 0 ? i + hidden : i;
-			if (index < count) widths.current[index] = naturalWidth(item);
-		});
-
-		let next = 0;
-		if (enabled) {
-			const available = nav.clientWidth;
-			const width = (i: number) => widths.current[i] ?? 0;
-			let total = 0;
-			for (let i = 0; i < count; i++) total += width(i);
-			const maxHidden = Math.max(0, count - 3);
-			const ellipsisCost = ellipsisWidth.current || 44;
-			if (total > available + 0.5) {
-				let shown = total + ellipsisCost;
-				while (next < maxHidden && shown > available + 0.5) {
-					shown -= width(1 + next);
-					next++;
-				}
-			}
-		}
-		if (next !== hidden) setHidden(next);
-	});
-
-	useEffect(() => {
-		const nav = list?.parentElement;
-		if (!nav || typeof ResizeObserver === "undefined") return;
-		const ro = new ResizeObserver(() => setResized((n) => n + 1));
-		ro.observe(nav);
-		return () => ro.disconnect();
-	}, [list]);
-
-	return { listRef, hidden: enabled ? hidden : 0 };
-}
-
-export {
-	Breadcrumb,
-	BreadcrumbButton,
-	BreadcrumbEllipsis,
-	BreadcrumbItem,
-	BreadcrumbLink,
-	BreadcrumbList,
-	BreadcrumbPage,
-	BreadcrumbSeparator,
-	useBreadcrumbCollapse,
-};
-export type { BreadcrumbLinkProps, BreadcrumbProps, UseBreadcrumbCollapseOptions };
-export default Breadcrumb;
+export { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator };
+export type { BreadcrumbProps };

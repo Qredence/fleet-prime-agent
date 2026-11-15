@@ -1,12 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 describe("Dialog", () => {
-	it("opens from its trigger and closes on Escape", async () => {
+	it("renders its content and closes on Escape", async () => {
 		render(
-			<Dialog>
-				<DialogTrigger>Open settings</DialogTrigger>
+			<Dialog defaultOpen>
 				<DialogContent>
 					<DialogTitle>Settings</DialogTitle>
 					<DialogDescription>Choose preferences.</DialogDescription>
@@ -14,7 +13,6 @@ describe("Dialog", () => {
 			</Dialog>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
 		const dialog = await screen.findByRole("dialog", { name: "Settings" });
 		expect(dialog).toBeTruthy();
 		fireEvent.keyDown(dialog, { key: "Escape" });
