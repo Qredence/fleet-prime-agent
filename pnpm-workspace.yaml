@@ -35,8 +35,10 @@ blockExoticSubdeps: false
 # Excluded: lockfile entries with a trust downgrade — published without
 # provenance where earlier versions had it (@pierre/theme@2.0.0 via
 # @pierre/diffs@1.3.4, the npm re-published semver 5.7.2/6.3.1 releases,
-# undici-types@6.21.0 via the root @types/node toolchain). Revisit after
-# upstream restores provenance or entries are bumped.
+# undici-types@6.21.0 via any remaining @types/node 22.x). Revisit after
+# upstream restores provenance or entries are bumped. The @types/node 24
+# bump pulls attested undici-types 7.24.x for the workspace pin; remove
+# undici-types@6.21.0 from this list once the lockfile no longer resolves it.
 trustPolicyExclude:
   - '@pierre/theme@2.0.0'
   - semver@6.3.1
@@ -71,7 +73,7 @@ overrides:
   # Dependabot critical (#265): shell-quote < 1.11.0 (via launch-editor / @changesets/cli).
   shell-quote: 1.11.0
   # Unify highlighter types across streamdown and @streamdown/code.
-  shiki: 4.5.0
+  shiki: 4.6.0
   # GHSA-2v37-7h3g-55p8: nanoid < 3.3.18 can loop indefinitely (via postcss).
   nanoid: ^3.3.18
   # Dependabot high (#213): brace-expansion < 5.0.11 (GHSA via alerts 32/33).
@@ -103,11 +105,14 @@ overrides:
   # All targets clear the 7-day minimumReleaseAge window.
   # critical: proxy-addr < 2.0.8 (via express / @modelcontextprotocol/sdk).
   proxy-addr: 2.0.8
-  # high (alerts 68/69/70): @modelcontextprotocol/sdk < 1.32.0 (via @google/genai, @openuidev/lang-core).
+  # high (alerts 68/69/70): @modelcontextprotocol/sdk < 1.32.0 (via
+  # @google/genai, @openuidev/lang-core, agentation-mcp). shadcn 4.23.0
+  # moved onto @modelcontextprotocol/server and no longer pulls this package.
   "@modelcontextprotocol/sdk": 1.32.1
   # high: source-map-js < 1.2.2 (via postcss / @tailwindcss/node).
   source-map-js: 1.2.2
-  # postcss-selector-parser 7.x < 7.1.6 (via shadcn; 7.1.7 is still too young).
+  # postcss-selector-parser 7.x < 7.1.6 (via shadcn; 7.1.8 clears the age
+  # window but keep the attested 7.1.6 pin until a deliberate bump).
   postcss-selector-parser@7: 7.1.6
   # In-range transitive security fixes that `pnpm up --depth Infinity` would not
   # apply on its own (parents pinned via overrides / already-installed preference).
