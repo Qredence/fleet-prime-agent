@@ -128,41 +128,7 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 
 		const table = (
 			<TableContext.Provider value={contextValue}>
-				<div
-					ref={containerRef}
-					data-slot="table-container"
-					className="relative"
-					onMouseEnter={(e) => {
-						headHover.handlers.onMouseEnter();
-						if (fromPointer(e)) handlers.onMouseEnter();
-					}}
-					onMouseMove={(e) => {
-						headHover.handlers.onMouseMove(e);
-						if (fromPointer(e)) handlers.onMouseMove(e);
-					}}
-					onMouseLeave={(e) => {
-						headHover.handlers.onMouseLeave();
-						if (fromPointer(e)) handlers.onMouseLeave();
-					}}
-					onKeyDown={(e) => {
-						if (e.repeat && !repeating && e.key.startsWith("Arrow")) setRepeating(true);
-					}}
-					onKeyUp={() => repeating && setRepeating(false)}
-					onFocus={(e) => {
-						const target = e.target as HTMLElement;
-						if (!target.matches(":focus-visible")) return;
-						const index = target.closest("[data-fluid-hover-index]")?.getAttribute("data-fluid-hover-index");
-						if (index == null) return;
-						keyboardOwns.current = true;
-						setActiveIndex(Number(index));
-					}}
-					onBlur={(e) => {
-						const container = containerRef.current;
-						if (!container || container.contains(e.relatedTarget as Node)) return;
-						if (!container.matches(":hover")) setActiveIndex(null);
-						setRepeating(false);
-					}}
-				>
+				<div ref={containerRef} data-slot="table-container" className="relative">
 					<SelectionBackgrounds key={String(snap.key ?? "")} blocks={blocks} />
 
 					<FluidHoverHighlight
@@ -187,6 +153,50 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 							className,
 						)}
 						{...props}
+						onMouseEnter={(e) => {
+							headHover.handlers.onMouseEnter();
+							if (fromPointer(e)) handlers.onMouseEnter();
+							props.onMouseEnter?.(e);
+						}}
+						onMouseMove={(e) => {
+							headHover.handlers.onMouseMove(e);
+							if (fromPointer(e)) handlers.onMouseMove(e);
+							props.onMouseMove?.(e);
+						}}
+						onMouseLeave={(e) => {
+							headHover.handlers.onMouseLeave();
+							if (fromPointer(e)) handlers.onMouseLeave();
+							props.onMouseLeave?.(e);
+						}}
+						onKeyDown={(e) => {
+							if (e.repeat && !repeating && e.key.startsWith("Arrow")) setRepeating(true);
+							props.onKeyDown?.(e);
+						}}
+						onKeyUp={(e) => {
+							if (repeating) setRepeating(false);
+							props.onKeyUp?.(e);
+						}}
+						onFocus={(e) => {
+							const target = e.target as HTMLElement;
+							if (target.matches(":focus-visible")) {
+								const index = target
+									.closest("[data-fluid-hover-index]")
+									?.getAttribute("data-fluid-hover-index");
+								if (index != null) {
+									keyboardOwns.current = true;
+									setActiveIndex(Number(index));
+								}
+							}
+							props.onFocus?.(e);
+						}}
+						onBlur={(e) => {
+							const container = containerRef.current;
+							if (container && !container.contains(e.relatedTarget as Node)) {
+								if (!container.matches(":hover")) setActiveIndex(null);
+								setRepeating(false);
+							}
+							props.onBlur?.(e);
+						}}
 					>
 						{children}
 					</table>
