@@ -1,0 +1,36 @@
+web/app/scripts/component-contract-patterns.ts
+  h_f276322eb5eb9f 95
+web/app/src/components/ui/radio-group.tsx
+  h_f276322eb5eb9f 170
+web/app/src/components/ui/slider.tsx
+  h_f276322eb5eb9f 160,220-225,227
+web/app/src/components/ui/switch.test.tsx
+  h_f276322eb5eb9f 13-14,24-26,34,37-45
+web/app/src/components/ui/switch.tsx
+  h_f276322eb5eb9f 121-127,145,210,223-230,234-236,243,245-246,248-258,260-293,295-307
+web/app/src/components/ui/table.tsx
+  h_f276322eb5eb9f 134-135,179
+web/app/src/components/workspace/workspace-panel.tsx
+  h_f276322eb5eb9f 7,14-18,133-142,329-331,339-345
+web/app/src/hooks/workspace/use-workspace-split-layout.test.ts
+  h_f276322eb5eb9f 4,26-30
+web/app/src/hooks/workspace/use-workspace-split-layout.ts
+  h_f276322eb5eb9f 2,8,15-16,21,24,37-47,59,85-87,93-121,124-125,143-155,158,162-164
+web/app/src/lib/horizontal-resize.ts
+  h_f276322eb5eb9f 10
+web/app/src/lib/shiki-highlight.ts
+  h_f276322eb5eb9f 60-84
+web/app/src/styles/globals.css
+  h_f276322eb5eb9f 14-23,29-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9b88e1701860a07ab2c6226924ae78b341850a49",
+  "prompts": {},
+  "humans": {
+    "h_f276322eb5eb9f": {
+      "author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
