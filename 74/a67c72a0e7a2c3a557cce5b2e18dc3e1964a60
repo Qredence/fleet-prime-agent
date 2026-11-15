@@ -1,0 +1,23 @@
+packages/fleet-web/package.json
+  s_b6e688464f2a91::t_27afaf079d87c2 3
+packages/fleet-web/CHANGELOG.md
+  s_b6e688464f2a91::t_27afaf079d87c2 8-11
+  s_b6e688464f2a91::t_c87743132f455e 5-7
+  s_b6e688464f2a91::t_3d9aecd9cb17ea 12-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "74a67c72a0e7a2c3a557cce5b2e18dc3e1964a60",
+  "prompts": {},
+  "sessions": {
+    "s_b6e688464f2a91": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e3b0e5e6-25ca-4404-a139-1a689d881d8c",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
