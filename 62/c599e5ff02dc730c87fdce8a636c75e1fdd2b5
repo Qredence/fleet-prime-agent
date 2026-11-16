@@ -1,0 +1,94 @@
+web/server/src/handlers/chat-abort.ts
+  s_bdfa47343b3db4::t_6a59f78a3ae3c2 5,21-22
+web/server/src/__tests__/dashboard-signal.test.ts
+  s_bdfa47343b3db4::t_2e1e1c63a17a36 28
+  s_bdfa47343b3db4::t_03bece2d6e68dc 20-27,29
+web/server/src/__tests__/project-registry.test.ts
+  s_bdfa47343b3db4::t_03bece2d6e68dc 199-205,244-250
+web/server/src/handlers/chat-openui-artifact.ts
+  s_bdfa47343b3db4::t_e664b5ebac5e60 6,31-32
+web/server/src/__tests__/dashboards-handler.test.ts
+  s_bdfa47343b3db4::t_03bece2d6e68dc 18-25,27
+  s_bdfa47343b3db4::t_6a858daae7f039 28
+web/server/src/handlers/session-tree.ts
+  s_bdfa47343b3db4::t_aa300bef277510 26-27,39-43
+  s_bdfa47343b3db4::t_79dcbd9c19e379 10
+web/server/src/__tests__/wrap-api-handler.test.ts
+  s_bdfa47343b3db4::t_03bece2d6e68dc 44-57,61-67,80-86
+  s_bdfa47343b3db4::t_d28bbc1a7c238d 2,13,27,39,59-60,69-79,87-89
+  s_bdfa47343b3db4::t_e1c428c0a91464 58,68,90
+web/server/src/handlers/chat.ts
+  s_bdfa47343b3db4::t_6271db12ce28ed 11,45-46,162-163
+web/server/src/handlers/chat-attachments.ts
+  s_bdfa47343b3db4::t_86055f5a93f711 10,43,71
+web/server/src/handlers/projects.ts
+  s_bdfa47343b3db4::t_674dc2175a2071 18,123-124
+web/server/src/__tests__/session-http-access.test.ts
+  s_bdfa47343b3db4::t_03be8ae4175626 1-13,30-38,60-61,69,79,85-89,93-111,119-121,134-153,157-165
+  s_bdfa47343b3db4::t_03bece2d6e68dc 14-29,39-59,62-68,70-78,80-84,90-92,112-118,122-133,154-156
+web/server/src/__tests__/chat-resources-handler.test.ts
+  s_bdfa47343b3db4::t_50958f9c74a234 22,31-33,53
+  s_bdfa47343b3db4::t_03bece2d6e68dc 5-11,13-19,109-123
+  s_bdfa47343b3db4::t_8c5de2d0f50dad 124
+web/server/src/handlers/chat-events.ts
+  s_bdfa47343b3db4::t_a1e16740048678 7,221-222,259-260
+web/server/src/__tests__/openui-tool-handler.test.ts
+  s_bdfa47343b3db4::t_22425d333774ad 30-36,38-39
+web/server/src/handlers/chat-command.ts
+  s_bdfa47343b3db4::t_0314ff903a2b76 5,16-17
+web/server/src/handlers/chat-resume.ts
+  s_bdfa47343b3db4::t_00e0bbc3e77c28 6,16-18,20
+web/server/src/handlers/chat-queue.ts
+  s_bdfa47343b3db4::t_16944ec7bd3b22 7,18-19
+web/server/src/__tests__/prime-bridge.test.ts
+  s_bdfa47343b3db4::t_06467f0b5c8b5c 14
+  s_bdfa47343b3db4::t_03bece2d6e68dc 1430-1444,1446-1470
+.changeset/checked-session-access.md
+  s_bdfa47343b3db4::t_bba1ce8c0ba7f7 1-5
+web/server/src/handlers/chat-session-mutations.ts
+  s_bdfa47343b3db4::t_d9218d83a257e1 5,18-19,31-32
+web/server/src/__tests__/session-access.test.ts
+  s_bdfa47343b3db4::t_afe522257bb8e1 1-52,56-84
+  s_bdfa47343b3db4::t_03bece2d6e68dc 53-55
+web/server/src/handlers/session-access.ts
+  s_bdfa47343b3db4::t_6da439754c20e6 1-2,7-11,13-24,28
+web/server/src/handlers/chat-resources.ts
+  s_bdfa47343b3db4::t_34c41d2675c799 6,23-24,51,53
+web/server/src/handlers/chat-session.ts
+  s_bdfa47343b3db4::t_63f5579aecdb99 6,44-46,70-71
+web/server/src/handlers/chat-question.ts
+  s_bdfa47343b3db4::t_32043bcd2cbcba 4,16-17
+scripts/__tests__/check-web-boundaries.test.mjs
+  s_bdfa47343b3db4::t_76208acfa67a17 79,109,126-128,134-151
+  s_bdfa47343b3db4::t_6ec314ba63006c 129-133
+  s_bdfa47343b3db4::t_2856ed49bf2836 5,69-78,80-90,93-96,102-103,108,110-120,125
+  s_bdfa47343b3db4::t_03bece2d6e68dc 91-92,97-101,104-107,121-124
+  s_bdfa47343b3db4::t_ccfc52ba792ba2 152
+scripts/check-web-boundaries.mjs
+  s_bdfa47343b3db4::t_069f83cc700165 205,223-225
+  s_bdfa47343b3db4::t_03bece2d6e68dc 209-214,216-218,229-231,235-240,251-257,260-261,265-266,271-276,281-283,286-288,290-293,295-296,298-300
+  s_bdfa47343b3db4::t_1201b49d273777 172,174-175,178-194,196,206-207,219-220,222,226,234,241-246,285,289,294,297,301-306,417-429
+  s_bdfa47343b3db4::t_6ec314ba63006c 197-204
+  s_bdfa47343b3db4::t_037d52464e8ce5 221,247-250,259,262-264,267-269,280
+  s_bdfa47343b3db4::t_2190f5abb586b2 171,173,176-177,195,208,215,227-228,232-233,258,270,277-279,284
+web/server/src/wrap-api-handler.ts
+  s_bdfa47343b3db4::t_a8dba4bf5bcba2 94-95
+web/server/src/handlers/chat-plan-presentation.ts
+  s_bdfa47343b3db4::t_41f97b30185132 5,11-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "62c599e5ff02dc730c87fdce8a636c75e1fdd2b5",
+  "prompts": {},
+  "sessions": {
+    "s_bdfa47343b3db4": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a1e22f-0c18-76c7-ac6d-906cdda6351e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
