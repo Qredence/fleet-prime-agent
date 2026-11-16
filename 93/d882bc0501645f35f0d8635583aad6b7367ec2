@@ -1,0 +1,46 @@
+web/server/src/__tests__/session-list.test.ts
+  s_bdfa47343b3db4::t_55e1c68f5fb03a 3-4,7,14-16,47-82
+  s_bdfa47343b3db4::t_1beeafe334faa2 83-92
+web/server/src/session-list.ts
+  s_bdfa47343b3db4::t_eef264ef5ff65a 1,4-54
+  s_bdfa47343b3db4::t_a3f94a9160dbb5 55-61,212-215
+scripts/check-web-boundaries.mjs
+  s_bdfa47343b3db4::t_4e51e5c3fd5ad5 204,225
+web/server/src/__tests__/session-catalog-readonly.test.ts
+  s_bdfa47343b3db4::t_9a6131dfb69fe2 1-55
+  s_bdfa47343b3db4::t_b57b3c66970b8f 56-71
+web/server/src/project-registry.ts
+  s_bdfa47343b3db4::t_da123da6049c39 176
+  s_bdfa47343b3db4::t_fa113441363d40 1,167-168
+web/server/src/__tests__/project-registry.test.ts
+  s_bdfa47343b3db4::t_3c625eba1fc55b 63-72,74-79
+  s_bdfa47343b3db4::t_01892ad706b247 73
+web/server/src/handlers/projects.ts
+  s_bdfa47343b3db4::t_5247e23a7ad51a 8,18,20-21,23-24,26-27
+web/server/src/__tests__/prime-agent-presentation.test.ts
+  s_bdfa47343b3db4::t_2deba66c168406 74-77,79-84
+  s_bdfa47343b3db4::t_7f01c1b540dc24 71-73,78,85-90
+scripts/__tests__/check-web-boundaries.test.mjs
+  s_bdfa47343b3db4::t_0bae1577f0b537 134
+.changeset/read-only-catalogs-bounded-retention.md
+  s_bdfa47343b3db4::t_1269d0c821e007 5
+  s_bdfa47343b3db4::t_1180fcf09a2eb9 1-4
+web/server/src/handlers/chat-sessions.ts
+  s_bdfa47343b3db4::t_8ff8a060a62bec 3,7-8,10,12-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "93d882bc0501645f35f0d8635583aad6b7367ec2",
+  "prompts": {},
+  "sessions": {
+    "s_bdfa47343b3db4": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a1e22f-0c18-76c7-ac6d-906cdda6351e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
