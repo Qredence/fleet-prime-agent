@@ -2,6 +2,7 @@ import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
 import { z } from "zod";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+import { requireSession } from "./session-access";
 
 const BodySchema = z.object({
 	sessionId: SessionIdSchema,
@@ -12,6 +13,8 @@ const BodySchema = z.object({
 export function handleChatCommandPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = BodySchema.parse(await request.json().catch(() => ({})));
+		const session = await requireSession(body.sessionId);
+		if (!session) return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
 		const bridge = getBridge();
 		const args = body.args?.trim() ?? "";
 

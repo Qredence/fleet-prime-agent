@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+	findApiHandlerViolations,
 	findArbitraryTypeScaleLines,
 	findForbiddenImports,
 	findLegacyTypeScaleLines,
@@ -63,6 +64,90 @@ const bad2 = cn("px-2", active ? "text-label" : "text-body");
 const bad3 = \`flex \${dense && "text-headline"}\`;
 `;
 	assert.deepEqual(findLegacyTypeScaleLines(source), [5, 6, 7]);
+});
+
+const handlerPath = "web/server/src/handlers/example.ts";
+
+test("requires every HTTP handler to defer work to the wrapper with its actual request", () => {
+	for (const declaration of [
+		"export function handlePost(request: Request) { return wrapApiHandler(async () => Response.json({})); }",
+		"export function handlePost(request: Request) { return wrapApiHandler(async () => Response.json({}), undefined); }",
+		"export function handlePost(request: Request) { return wrapApiHandler(async () => Response.json({}), anotherRequest); }",
+		"export function handlePost(request: Request) { return Response.json({}); }",
+		"export function handlePost(request: Request) { mutate(); return wrapApiHandler(async () => Response.json({}), request); }",
+		"export const handlePost = (request: Request) => Response.json({});",
+		"export default function handlePost(request: Request) { return Response.json({}); }",
+		"export { unguarded as handlePost };",
+	]) {
+		assert.notEqual(findApiHandlerViolations(handlerPath, declaration).length, 0, declaration);
+	}
+});
+
+test("allows guarded function and arrow handlers, including comment-separated calls", () => {
+	for (const declaration of [
+		"export function handlePost(request: Request) { return wrapApiHandler /* guard */ (async () => Response.json({}), request); }",
+		"export const handlePost = (request: Request) => wrapApiHandler(async () => Response.json({}), request);",
+		"export function handlePost(_request: Request) { return wrapApiHandler(async () => Response.json({}), _request); }",
+	])
+		assert.deepEqual(findApiHandlerViolations(handlerPath, declaration), []);
+});
+
+test("prevents raw session lookup from escaping the access module", () => {
+	for (const expression of [
+		"bridge.getSession(id)",
+		"bridge.resumeSessionById(id)",
+		"bridge.resumeSessionByPath(path)",
+		'bridge["getSession"](id)',
+		"bridge.getSession",
+	]) {
+		assert.notEqual(findApiHandlerViolations(handlerPath, `const session = ${expression};`).length, 0);
+		assert.deepEqual(
+			findApiHandlerViolations("web/server/src/handlers/session-access.ts", `const session = ${expression};`),
+			[],
+		);
+	}
+	assert.notEqual(findApiHandlerViolations(handlerPath, "const { getSession: lookup } = bridge;").length, 0);
+	for (const path of ["web/server/src/handlers/projects.ts", "web/server/src/handlers/chat-sessions.ts"]) {
+		assert.deepEqual(findApiHandlerViolations(path, "const live = bridge.getSession(session.sessionId);"), []);
+		assert.notEqual(findApiHandlerViolations(path, "const live = bridge.getSession(body.sessionId);").length, 0);
+	}
+});
+
+test("catches direct session commands that never resolve checked access", () => {
+	const unguarded = `export function handlePost(request: Request) {
+		return wrapApiHandler(async () => { await bridge.exportSession(body.sessionId); return Response.json({}); }, request);
+	}`;
+	assert.match(findApiHandlerViolations(handlerPath, unguarded)[0], /must await requireSession/);
+	const guarded = unguarded.replace(
+		"await bridge.exportSession",
+		"const session = await requireSession(body.sessionId); if (!session) return new Response(null, { status: 404 }); await bridge.exportSession",
+	);
+	assert.deepEqual(findApiHandlerViolations(handlerPath, guarded), []);
+});
+
+test("rejects session work before the access check and protects new bridge methods by default", () => {
+	for (const operation of [
+		"bridge.exportSession(id)",
+		"getBridge().newSessionOperation(id)",
+		"adapter.newSessionOperation(id)",
+	]) {
+		const source = `export function handlePost(request: Request) {
+			return wrapApiHandler(async () => {
+				const adapter = getBridge();
+				await ${operation};
+				await requireSession(id);
+				return Response.json({});
+			}, request);
+		}`;
+		assert.match(findApiHandlerViolations(handlerPath, source)[0], /must await requireSession/);
+	}
+});
+
+test("allows global configuration reloads without treating them as session-id operations", () => {
+	const source = `export function handlePost(request: Request) {
+		return wrapApiHandler(async () => { await getBridge().reloadResources(); return Response.json({}); }, request);
+	}`;
+	assert.deepEqual(findApiHandlerViolations(handlerPath, source), []);
 });
 
 const bridge = "web/server/src/legacy/prime-agent-sdk.ts";

@@ -4,7 +4,7 @@ import type { PrimeBridge, RlmChildStream } from "../prime-bridge";
 import { getBridge } from "../singleton";
 import { normalizeSseReplayEvent, shouldReplaySseEvent } from "../sse-replay";
 import { wrapApiHandler } from "../wrap-api-handler";
-import { requireProjectSession } from "./session-access";
+import { requireSession } from "./session-access";
 
 type SseSource = {
 	sessionId: string;
@@ -218,9 +218,8 @@ export function handleChatEventsGet(request: Request): Promise<Response> {
 				return Response.json({ message: "Invalid child stream generation" }, { status: 400 });
 			}
 			const bridge = getBridge();
-			const parent =
-				bridge.getSession(parentSessionId.data) ?? (await bridge.resumeSessionById(parentSessionId.data));
-			if (!parent || !(await requireProjectSession(parent))) {
+			const parent = await requireSession(parentSessionId.data);
+			if (!parent) {
 				return Response.json({ message: "Unknown live subagent stream" }, { status: 404 });
 			}
 			const childStream: RlmChildStream | undefined = await bridge.openRlmChildStream(
@@ -257,8 +256,8 @@ export function handleChatEventsGet(request: Request): Promise<Response> {
 			return Response.json({ message: "Invalid stream generation" }, { status: 400 });
 		}
 		const bridge = getBridge();
-		const session = bridge.getSession(sessionId.data) ?? (await bridge.resumeSessionById(sessionId.data));
-		if (!session || !(await requireProjectSession(session))) {
+		const session = await requireSession(sessionId.data);
+		if (!session) {
 			return Response.json({ message: `Unknown session: ${sessionId.data}` }, { status: 404 });
 		}
 		const requestedCursor = lastEventIdFor(request, url);

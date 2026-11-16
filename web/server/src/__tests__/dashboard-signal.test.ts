@@ -17,17 +17,17 @@ type DataTool = {
 };
 
 vi.mock("../prime-config", () => ({
-	getPrimeConfig: () => ({ agentDir: "/tmp/fleet-test", reloadAuth: vi.fn() }),
+	getPrimeConfig: () => ({
+		agentDir: "/tmp/fleet-test",
+		reloadAuth: vi.fn(),
+		projectRegistry: {
+			get: async (projectId: string) => {
+				if (projectId !== "project-1") throw new Error("Unknown project");
+				return { projectId };
+			},
+		},
+	}),
 }));
-
-vi.mock("../handlers/session-access", async () => {
-	const { getBridge } = await import("../singleton");
-	return {
-		requireProjectSession: async () => true,
-		requireSession: async (sessionId: string) =>
-			getBridge().getSession(sessionId) ?? (await getBridge().resumeSessionById(sessionId)),
-	};
-});
 
 vi.mock("../singleton", () => ({
 	getBridge: () => ({

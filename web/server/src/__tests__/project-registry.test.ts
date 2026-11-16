@@ -196,10 +196,13 @@ describe("ProjectRegistry", () => {
 		const failure = new Error(`EPERM: operation not permitted, open '${join(root, "fleet-projects.json.123.tmp")}'`);
 		harness.failNextWrite(failure);
 
-		const response = await wrapApiHandler(async () => {
-			await registry.assignSession("session-1", project.projectId);
-			return Response.json({ ok: true });
-		});
+		const response = await wrapApiHandler(
+			async () => {
+				await registry.assignSession("session-1", project.projectId);
+				return Response.json({ ok: true });
+			},
+			new Request("http://localhost/api/projects", { method: "POST" }),
+		);
 		const failedTemporaryPath = harness.writePaths.at(-1)!;
 
 		expect(response.status).toBe(500);
@@ -238,10 +241,13 @@ describe("ProjectRegistry", () => {
 		const renameFailure = new Error("rename failed");
 		harness.failNextRename(renameFailure);
 
-		const response = await wrapApiHandler(async () => {
-			await registry.assignSession("session-1", project.projectId);
-			return Response.json({ ok: true });
-		});
+		const response = await wrapApiHandler(
+			async () => {
+				await registry.assignSession("session-1", project.projectId);
+				return Response.json({ ok: true });
+			},
+			new Request("http://localhost/api/projects", { method: "POST" }),
+		);
 		const failedTemporaryPath = harness.writePaths.at(-1)!;
 		await expect(registry.assignSession("session-1", project.projectId)).resolves.toBeUndefined();
 

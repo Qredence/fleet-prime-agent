@@ -91,8 +91,8 @@ function isOriginAllowed(request: Request): boolean {
 	}
 }
 
-export function wrapApiHandler(handler: () => Promise<Response>, request?: Request): Promise<Response> {
-	if (request && request.method.toUpperCase() !== "GET" && !isOriginAllowed(request)) {
+export function wrapApiHandler(handler: () => Promise<Response>, request: Request): Promise<Response> {
+	if (request.method.toUpperCase() !== "GET" && !isOriginAllowed(request)) {
 		const envelope: FleetErrorEnvelope = { code: "UNKNOWN_ERROR", message: "Cross-origin request rejected." };
 		return Promise.resolve(Response.json(envelope, { status: 403 }));
 	}

@@ -15,22 +15,17 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../prime-config", () => ({
-	getPrimeConfig: () => ({ agentDir: mocks.agentDir, reloadAuth: vi.fn() }),
-}));
-
-vi.mock("../handlers/session-access", async () => {
-	const { getBridge } = await import("../singleton");
-	const requireProjectSession = async (session: unknown) => Boolean(session);
-	return {
-		requireProjectSession,
-		requireSession: async (sessionId: string) => {
-			const bridge = getBridge();
-			const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
-			if (!session || !(await requireProjectSession(session))) return undefined;
-			return session;
+	getPrimeConfig: () => ({
+		agentDir: mocks.agentDir,
+		reloadAuth: vi.fn(),
+		projectRegistry: {
+			get: async (projectId: string) => {
+				if (projectId !== "project-1") throw new Error("Unknown project");
+				return { projectId };
+			},
 		},
-	};
-});
+	}),
+}));
 
 vi.mock("../singleton", () => ({
 	getBridge: () => ({

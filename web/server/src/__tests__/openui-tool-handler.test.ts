@@ -27,19 +27,16 @@ vi.mock("../singleton", () => ({
 	getBridge: () => sessionBridge,
 }));
 
-vi.mock("../handlers/session-access", async () => {
-	const { getBridge } = await import("../singleton");
-	const requireProjectSession = async (session: unknown) => Boolean(session);
-	return {
-		requireProjectSession,
-		requireSession: async (sessionId: string) => {
-			const bridge = getBridge();
-			const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
-			if (!session || !(await requireProjectSession(session))) return undefined;
-			return session;
+vi.mock("../prime-config", () => ({
+	getPrimeConfig: () => ({
+		projectRegistry: {
+			get: async (projectId: string) => {
+				if (projectId !== "project-1") throw new Error("Unknown project");
+				return { projectId };
+			},
 		},
-	};
-});
+	}),
+}));
 
 function toolRequest(body: unknown): Request {
 	return new Request("http://localhost/api/chat/openui/tool", {

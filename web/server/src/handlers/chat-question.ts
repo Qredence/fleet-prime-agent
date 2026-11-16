@@ -1,7 +1,7 @@
 import { ChatQuestionAnswerRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
-import { requireProjectSession } from "./session-access";
+import { requireSession } from "./session-access";
 
 export function handleChatQuestionPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
@@ -13,8 +13,8 @@ export function handleChatQuestionPost(request: Request): Promise<Response> {
 			return Response.json({ ok: false, message: "answer requires sessionId and toolCallId" }, { status: 400 });
 		}
 		const bridge = getBridge();
-		const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
-		if (!(await requireProjectSession(session))) {
+		const session = await requireSession(sessionId);
+		if (!session) {
 			return Response.json({ ok: false, message: `Unknown session: ${sessionId}` }, { status: 404 });
 		}
 		const answered = bridge.answerDialog(sessionId, toolCallId, body.answer);

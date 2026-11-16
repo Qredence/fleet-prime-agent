@@ -15,6 +15,7 @@ import {
 } from "../session-list";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+import { requireSession } from "./session-access";
 
 export function sessionStatus(
 	info: Pick<SessionListSource, "activity" | "isSessionActive" | "isStreaming" | "hasRunningRlmChildren" | "state">,
@@ -119,6 +120,8 @@ export function handleProjectDelete(request: Request): Promise<Response> {
 export function handleProjectSessionFork(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = ProjectForkRequestSchema.parse(await request.json().catch(() => ({})));
+		const source = await requireSession(body.sessionId);
+		if (!source) return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
 		const sessionId = await getBridge().forkSessionIntoProject(body.sessionId, body.targetProjectId);
 		return Response.json({ sessionId, projectId: body.targetProjectId }, { status: 201 });
 	}, request);

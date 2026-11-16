@@ -3,7 +3,7 @@ import { loadManagedPlanPresentations } from "../managed-plan-presentations";
 import type { BridgeSession, PrimeBridge } from "../prime-bridge";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
-import { requireProjectSession } from "./session-access";
+import { requireSession } from "./session-access";
 
 export async function buildSessionResponse(session: BridgeSession, bridge: PrimeBridge): Promise<Response> {
 	return Response.json({
@@ -41,10 +41,9 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 				return Response.json({ message: "Invalid subagent session identifiers" }, { status: 400 });
 			}
 			const bridge = getBridge();
-			// The child loader authorizes through the live parent, so only gate
-			// a live parent here; cold or unknown parents keep the loader's 404.
-			const liveParent = bridge.getSession(parsedParentSessionId.data);
-			if (liveParent && !(await requireProjectSession(liveParent))) {
+			// Child hydration requires a live, authorized parent but must not resume it.
+			const parent = await requireSession(parsedParentSessionId.data, { resume: false });
+			if (!parent) {
 				return Response.json({ message: `Unknown session: ${parsedParentSessionId.data}` }, { status: 404 });
 			}
 			const child = await bridge.loadRlmChildTranscript(parsedParentSessionId.data, parsedChildId.data);
@@ -68,10 +67,8 @@ export function handleChatSessionGet(request: Request): Promise<Response> {
 		}
 		const bridge = getBridge();
 		const projectId = requestedProjectId ? ProjectIdSchema.parse(requestedProjectId) : undefined;
-		const existing = projectId
-			? await bridge.resumeSessionById(sessionId, projectId, { openUI })
-			: (bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId, undefined, { openUI })));
-		if (!existing || !(await requireProjectSession(existing))) {
+		const existing = await requireSession(sessionId, { projectId, openUI });
+		if (!existing) {
 			return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		}
 		return buildSessionResponse(existing, bridge);

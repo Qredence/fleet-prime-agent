@@ -2,14 +2,14 @@ import { ChatPlanPresentationUpsertRequestSchema } from "@prime-agent/web-protoc
 import { loadManagedPlanPresentations, upsertManagedPlanPresentation } from "../managed-plan-presentations";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
-import { requireProjectSession } from "./session-access";
+import { requireSession } from "./session-access";
 
 export function handleChatPlanPresentationPut(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = ChatPlanPresentationUpsertRequestSchema.parse(await request.json().catch(() => ({})));
 		const bridge = getBridge();
-		const session = bridge.getSession(body.sessionId) ?? (await bridge.resumeSessionById(body.sessionId));
-		if (!session || !(await requireProjectSession(session))) {
+		const session = await requireSession(body.sessionId);
+		if (!session) {
 			return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
 		}
 		const messages = await bridge.getMessages(body.sessionId);

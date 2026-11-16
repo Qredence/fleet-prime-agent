@@ -1,37 +1,31 @@
-import type { ProjectId } from "@prime-agent/web-protocol";
+import { type ProjectId, SessionIdSchema } from "@prime-agent/web-protocol";
+import type { BridgeSession } from "../prime-bridge";
 import { getPrimeConfig } from "../prime-config";
 import { getBridge } from "../singleton";
 
 /**
- * Project-membership gate for session-scoped chat handlers.
- *
- * Session ids are bearer-equivalent and enumerable via
- * `GET /api/chat/sessions`, so every handler that dereferences a
- * caller-supplied session id must confirm the session belongs to an
- * actively registered project before reading or mutating it. Single-user
- * flows are unaffected: sessions created or resumed through the bridge
- * always carry the project they were claimed by.
- *
- * NOTE (merge pass): `prime-bridge.ts` is owned by a parallel agent which
- * may add `requireProjectSession` there. This module intentionally shares
- * that name so call sites read the same; if the bridge gains the helper,
- * prefer importing it from `../prime-bridge` and delete this file.
+ * The HTTP access path for caller-supplied session ids. Cache hits must recheck
+ * project membership: a project can be unregistered while its session is live.
+ * Cold resume validates transcript metadata before attaching a daemon connection.
+ * `resume: false` keeps discovery and child-transcript reads from starting one.
+ * Project membership is a product restriction, not user authentication.
  */
-export async function requireProjectSession(
-	session: { sessionId: string; projectId: ProjectId | null } | undefined,
-): Promise<boolean> {
-	if (!session?.projectId) return false;
+export async function requireSession(
+	sessionId: string,
+	options?: { projectId?: ProjectId | null; openUI?: boolean; resume?: boolean },
+): Promise<BridgeSession | undefined> {
+	if (!SessionIdSchema.safeParse(sessionId).success) return undefined;
+	const bridge = getBridge();
+	const session =
+		bridge.getSession(sessionId) ??
+		(options?.resume === false
+			? undefined
+			: await bridge.resumeSessionById(sessionId, options?.projectId, { openUI: options?.openUI }));
+	if (!session?.projectId || (options?.projectId && session.projectId !== options.projectId)) return undefined;
 	try {
 		await getPrimeConfig().projectRegistry.get(session.projectId);
 	} catch {
-		return false;
+		return undefined;
 	}
-	return true;
-}
-
-export async function requireSession(sessionId: string) {
-	const bridge = getBridge();
-	const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
-	if (!session || !(await requireProjectSession(session))) return undefined;
 	return session;
 }

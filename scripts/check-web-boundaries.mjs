@@ -168,6 +168,142 @@ export function findServerSdkViolations(relativePath, source, baseline) {
 	return violations;
 }
 
+function walkNodes(node, visit, parent) {
+	if (!node || typeof node !== "object" || typeof node.type !== "string") return;
+	visit(node, parent);
+	for (const value of Object.values(node)) {
+		if (Array.isArray(value)) {
+			for (const child of value) walkNodes(child, visit, node);
+		} else walkNodes(value, visit, node);
+	}
+}
+
+/**
+ * HTTP handlers must defer all work to the request-aware wrapper. Raw session
+ * lookup belongs in session-access; only the two catalog projections may peek
+ * at cached metadata without authorizing a caller-supplied session id.
+ * This is a structural guard, not a substitute for behavioral access tests.
+ */
+export function findApiHandlerViolations(relativePath, source) {
+	const violations = [];
+	const program = parseModule(source, relativePath).program;
+	const accessModule = relativePath === "web/server/src/handlers/session-access.ts";
+	const catalogModule = ["web/server/src/handlers/chat-sessions.ts", "web/server/src/handlers/projects.ts"].includes(
+		relativePath,
+	);
+	const rawLookups = new Set(["getSession", "resumeSessionById", "resumeSessionByPath"]);
+	walkNodes(program, (node, parent) => {
+		if (accessModule) return;
+		if (
+			node.type === "ObjectProperty" &&
+			parent?.type === "ObjectPattern" &&
+			rawLookups.has(node.key.name ?? node.key.value)
+		) {
+			violations.push(
+				`${relativePath}:${node.loc.start.line} must not destructure raw session lookups; use requireSession`,
+			);
+		}
+		if (node.type !== "MemberExpression" && node.type !== "OptionalMemberExpression") return;
+		const name = node.computed ? node.property.value : node.property.name;
+		const argument = parent?.type === "CallExpression" ? parent.arguments[0] : undefined;
+		const catalogPeek =
+			catalogModule &&
+			name === "getSession" &&
+			argument?.type === "MemberExpression" &&
+			argument.object.name === "session" &&
+			argument.property.name === "sessionId";
+		if (!rawLookups.has(name) || catalogPeek) return;
+		violations.push(
+			`${relativePath}:${node.loc.start.line} must resolve sessions through requireSession, not ${name}`,
+		);
+	});
+
+	const metadataOperations = new Set(["getSession", "listSessions"]);
+	for (const exported of program.body) {
+		if (exported.type === "ExportDefaultDeclaration") {
+			violations.push(`${relativePath}:${exported.loc.start.line} HTTP modules must use named handler exports`);
+		}
+		if (exported.type !== "ExportNamedDeclaration") continue;
+		for (const specifier of exported.specifiers ?? []) {
+			if (specifier.exported?.name?.startsWith("handle")) {
+				violations.push(
+					`${relativePath}:${exported.loc.start.line} declare HTTP handlers inline so their guards can be checked`,
+				);
+			}
+		}
+		const declaration = exported.declaration;
+		const handlers =
+			declaration?.type === "FunctionDeclaration"
+				? [[declaration.id.name, declaration]]
+				: declaration?.type === "VariableDeclaration"
+					? declaration.declarations.map((entry) => [entry.id.name, entry.init])
+					: [];
+		for (const [name, handler] of handlers) {
+			if (!name?.startsWith("handle")) continue;
+			const body = handler?.body;
+			const statement = body?.type === "BlockStatement" && body.body.length === 1 ? body.body[0] : undefined;
+			const call = body?.type === "BlockStatement" ? statement?.argument : body;
+			const request = handler?.params?.[0];
+			let firstSessionOperation = Infinity;
+			let firstSessionCheck = Infinity;
+			const bridgeNames = new Set(["bridge"]);
+			walkNodes(body, (node, parent) => {
+				if (
+					node.type === "VariableDeclarator" &&
+					node.init?.type === "CallExpression" &&
+					node.init.callee.name === "getBridge" &&
+					node.id.type === "Identifier"
+				)
+					bridgeNames.add(node.id.name);
+				if (node.type === "MemberExpression" || node.type === "OptionalMemberExpression") {
+					const receiver = node.object;
+					const isBridge =
+						(receiver.type === "Identifier" && bridgeNames.has(receiver.name)) ||
+						(receiver.type === "CallExpression" && receiver.callee.name === "getBridge");
+					const method = node.computed ? node.property.value : node.property.name;
+					// Configuration mutations reload all sessions, without a caller-supplied id.
+					const globalReload =
+						method === "reloadResources" && parent?.type === "CallExpression" && parent.arguments.length === 0;
+					if (isBridge && !metadataOperations.has(method) && !globalReload) {
+						firstSessionOperation = Math.min(firstSessionOperation, node.start);
+					}
+				}
+				if (
+					node.type === "AwaitExpression" &&
+					node.argument.type === "CallExpression" &&
+					node.argument.callee.name === "requireSession"
+				)
+					firstSessionCheck = Math.min(firstSessionCheck, node.end);
+			});
+			// New sessions are authorized through the active project before creation.
+			const createsSession = relativePath === "web/server/src/handlers/chat-new.ts" && name === "handleChatNewPost";
+			if (firstSessionOperation !== Infinity && firstSessionCheck >= firstSessionOperation && !createsSession) {
+				violations.push(
+					`${relativePath}:${exported.loc.start.line} ${name} must await requireSession before session operations`,
+				);
+			}
+			if (
+				!request ||
+				request.type !== "Identifier" ||
+				request.optional ||
+				(statement && statement.type !== "ReturnStatement") ||
+				call?.type !== "CallExpression" ||
+				call.callee.name !== "wrapApiHandler" ||
+				call.arguments.length !== 2 ||
+				call.arguments[1].type !== "Identifier" ||
+				call.arguments[1].name !== request.name ||
+				call.arguments[0].type !== "ArrowFunctionExpression" ||
+				!call.arguments[0].async
+			) {
+				violations.push(
+					`${relativePath}:${exported.loc.start.line} ${name} must return wrapApiHandler(async () => ..., request)`,
+				);
+			}
+		}
+	}
+	return violations;
+}
+
 function sourceFiles(directory) {
 	const files = [];
 	for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -278,7 +414,19 @@ function main() {
 		process.exit(1);
 	}
 
-	console.log("Browser/runtime import boundary passed.");
+	const handlerViolations = [];
+	for (const file of sourceFiles(resolve(root, "web/server/src/handlers"))) {
+		if (isServerTestPath(file)) continue;
+		const relativePath = relative(root, file).split(sep).join("/");
+		handlerViolations.push(...findApiHandlerViolations(relativePath, readFileSync(file, "utf8")));
+	}
+	if (handlerViolations.length > 0) {
+		console.error("HTTP handlers must guard requests and use checked session access:");
+		for (const violation of handlerViolations) console.error(`- ${violation}`);
+		process.exit(1);
+	}
+
+	console.log("Browser/runtime import boundary and HTTP handler guards passed.");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
