@@ -1,0 +1,121 @@
+web/server/src/__tests__/openui-tool-handler.test.ts
+  s_bdfa47343b3db4::t_e2867e8e90d3d3 21
+web/server/src/__tests__/session-tree-handler.test.ts
+  s_bdfa47343b3db4::t_18cdff509eda04 56,75,94,116,143,172
+web/server/src/daemon-protocol.ts
+  s_bdfa47343b3db4::t_8d20b9515e5048 187-191,194-204
+  s_bdfa47343b3db4::t_dc8b0a0c188556 192-193
+web/server/src/__tests__/chat.test.ts
+  s_bdfa47343b3db4::t_f757b89f49ebdc 40,155,213,274,341,456,480,505,537
+  s_bdfa47343b3db4::t_7ec12061af9e82 8
+web/server/src/handlers/chat.ts
+  s_bdfa47343b3db4::t_6590abf38983a7 259
+web/server/src/__tests__/chat-events.test.ts
+  s_bdfa47343b3db4::t_0eef819c5c85d0 28
+web/server/src/__tests__/openui-artifact.test.ts
+  s_bdfa47343b3db4::t_9d7d12a3d71fa9 220
+web/server/src/handlers/session-access.ts
+  s_bdfa47343b3db4::t_8ee32ae101eb80 5,26
+docs/reference/adapter-contract.md
+  s_bdfa47343b3db4::t_8e78af23923c9a 37,41
+  s_bdfa47343b3db4::t_ae750c4781ec1b 42
+web/server/src/__tests__/session-retention.test.ts
+  s_bdfa47343b3db4::t_c825daa9662ede 3
+  s_bdfa47343b3db4::t_dc8b0a0c188556 16-28
+  s_bdfa47343b3db4::t_64dfca156ef523 45-46,52
+  s_bdfa47343b3db4::t_e770599da1964b 9-15,29-30
+  s_bdfa47343b3db4::t_84106aef922591 1-2,4-8,31-44,47-51,53-77
+web/server/src/__tests__/dashboard-signal.test.ts
+  s_bdfa47343b3db4::t_de419599064ad1 34
+ARCHITECTURE.md
+  s_bdfa47343b3db4::t_70102ae64f351d 164-169
+web/server/src/prime-bridge.ts
+  s_bdfa47343b3db4::t_e6b18f349b9849 66,305
+  s_bdfa47343b3db4::t_a41e3437df3a93 314,484,487-489,584,626-627,638-639,641-643,645-652,654-659,675,1081-1085,1160,1184-1188
+  s_bdfa47343b3db4::t_1485e67b59364c 92,152,154,206-207,219-220,257-259,261-304,306-313,315,328,344,385,610,706,709,1414
+  s_bdfa47343b3db4::t_d94fbd4238ee5e 747-749,761-763,767,818,837,899,973-992,996-1000,1016-1018,1027-1029,1036,1146-1150,1170-1179,1193-1203,1240-1245,1254-1268,1292,1366-1372,1387-1403
+  s_bdfa47343b3db4::t_4164d4aace77f7 208,628-631,635-637,640,644
+  s_bdfa47343b3db4::t_06c9dfef7d558c 354-356
+  s_99db5a999853c0::t_c0a377ba853bac 843-854,861
+  s_bdfa47343b3db4::t_2deba66c168406 1341-1347
+  s_bdfa47343b3db4::t_dc8b0a0c188556 632-634
+  s_bdfa47343b3db4::t_2d1c3629f90450 93,611,653
+  s_bdfa47343b3db4::t_977737e4fc3b24 790-791
+  s_bdfa47343b3db4::t_a960f5e92d2dc7 1053,1330,1340,1348
+  s_bdfa47343b3db4::t_eecb0d4517786e 768-789,792-799,801-803,805-811,813-817,838-842,855-860,862-898,1037-1052,1054-1071,1073,1075-1076,1293-1297,1300-1306,1308-1311,1313-1329,1331-1339
+web/server/src/wrap-api-handler.ts
+  s_bdfa47343b3db4::t_c647e82b4181a8 6,140
+web/server/src/__tests__/chat-resources-handler.test.ts
+  s_bdfa47343b3db4::t_ebea47e860b7d6 15
+web/server/src/handlers/chat-events.ts
+  s_bdfa47343b3db4::t_054cb06e827757 100,102
+  s_bdfa47343b3db4::t_1a0490b20047e5 136
+web/server/src/dashboards/settle.ts
+  s_bdfa47343b3db4::t_219a2e623d5c54 21,198
+.changeset/safe-idle-session-retention.md
+  s_bdfa47343b3db4::t_e8d56ebd56aa8e 1-5
+web/server/src/__tests__/session-http-access.test.ts
+  s_bdfa47343b3db4::t_957ae04d72535b 10
+web/server/src/__tests__/prime-bridge-retention.test.ts
+  s_bdfa47343b3db4::t_dc8b0a0c188556 55-62,97-104,122-123
+  s_bdfa47343b3db4::t_af2bbdfb9b2306 11,195-196
+  s_bdfa47343b3db4::t_4f8394144b2725 9-10,19,33,53,84,157-177
+  s_bdfa47343b3db4::t_8480bc0171f343 73-79,286-292
+  s_bdfa47343b3db4::t_9a123d86a48a47 1-4,6-8,12-18,20-32,34-52,54,63-72,80-83,85-94,109,142-155,178-194,197-285,293-300,302-335
+  s_bdfa47343b3db4::t_9591160adc6e73 5,95-96,105-108,110-121,124-141,301
+  s_bdfa47343b3db4::t_9e11587ee7410b 156
+web/server/src/coalescing-refresh-queue.ts
+  s_bdfa47343b3db4::t_41de07c719ed6d 29-32
+web/server/src/__tests__/chat-queue.test.ts
+  s_bdfa47343b3db4::t_1b53e3c89bd1c0 28,62,98
+web/server/src/session-lease-scope.ts
+  s_bdfa47343b3db4::t_98243abda707be 6
+  s_bdfa47343b3db4::t_ea3127c7098ecc 7-12
+  s_bdfa47343b3db4::t_f48021780564db 3-5
+  s_bdfa47343b3db4::t_86329210530463 13-15
+  s_bdfa47343b3db4::t_6527d1d0832493 1-2,16-23
+web/server/src/rlm-child-stream-manager.ts
+  s_bdfa47343b3db4::t_2563464c150c19 142-148
+  s_bdfa47343b3db4::t_b62d11baace892 149-150
+web/server/src/__tests__/chat-attachments-handler.test.ts
+  s_bdfa47343b3db4::t_7bfa1e33706dfd 7
+web/server/src/ring-buffer.ts
+  s_bdfa47343b3db4::t_1fd0aef5133532 1,8,10-11,15,17,26-43,51,53-55,57-58
+  s_bdfa47343b3db4::t_34aecb061cbb16 59,66-68,70,75
+web/server/src/__tests__/daemon-idle-state.test.ts
+  s_bdfa47343b3db4::t_dc8b0a0c188556 7-16,20,22-23,27-32
+  s_bdfa47343b3db4::t_cbdeac3788f076 1-6,17-19,21,24-26,33-35
+web/server/src/__tests__/dashboards-handler.test.ts
+  s_bdfa47343b3db4::t_ada0700e1b26ad 32
+web/server/src/__tests__/ring-buffer.test.ts
+  s_bdfa47343b3db4::t_2d72cfe5903119 1-39
+  s_bdfa47343b3db4::t_75df0a01a2626a 40-46
+web/server/src/session-retention.ts
+  s_bdfa47343b3db4::t_1d76c704d5552e 24-26
+  s_bdfa47343b3db4::t_dc8b0a0c188556 90-92
+  s_bdfa47343b3db4::t_a5953be129bbfa 1-23,27-89,93-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0a789c58f4204cbac56a6589f7f54f187446d770",
+  "prompts": {},
+  "sessions": {
+    "s_99db5a999853c0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "a035b00e-e666-4ab1-8124-f10bf331735a",
+        "model": "deepseek/deepseek-v4.1-flash"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_bdfa47343b3db4": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a1e22f-0c18-76c7-ac6d-906cdda6351e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
