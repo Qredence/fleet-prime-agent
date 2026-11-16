@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.4
+
+### Patch Changes
+
+- 0c430df: Remove unused internal exports, types, and helpers identified during Knip cleanup. No user-facing runtime behavior changes.
+
 ## 0.13.3
 
 ### Patch Changes
