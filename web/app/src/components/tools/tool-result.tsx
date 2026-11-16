@@ -20,7 +20,7 @@ import type { AgentCodeLanguage } from "@/lib/shiki-highlight";
 import { cn } from "@/lib/utils";
 
 export type ToolResultStatus = "running" | "success" | "error" | "cancelled";
-export type ToolResultKind = "terminal" | "request" | "custom";
+type ToolResultKind = "terminal" | "request" | "custom";
 
 export interface ToolResultProps {
 	tool: ReactNode;

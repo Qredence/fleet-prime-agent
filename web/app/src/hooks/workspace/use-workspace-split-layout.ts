@@ -13,7 +13,7 @@ export const WORKSPACE_PREVIEW_MIN_WIDTH_PX = 160;
 /** Resize handle column width — shared by clamp + grid style. */
 export const WORKSPACE_SPLIT_HANDLE_WIDTH_PX = 8;
 /** Keyboard resize step for the workspace tree. */
-export const WORKSPACE_TREE_KEYBOARD_STEP_PX = 10;
+const WORKSPACE_TREE_KEYBOARD_STEP_PX = 10;
 
 /** Clamps a workspace-tree width so the split preview retains its minimum width. */
 export function clampWorkspaceTreeWidth(width: number, containerWidth: number) {
@@ -53,7 +53,7 @@ export function workspaceSplitGridStyle(isSplitLayout: boolean, treeWidth: numbe
 	};
 }
 
-export function readStoredWorkspaceTreeWidth(containerWidth?: number) {
+function readStoredWorkspaceTreeWidth(containerWidth?: number) {
 	return readStoredWidth(WORKSPACE_TREE_WIDTH_STORAGE_KEY, WORKSPACE_TREE_DEFAULT_WIDTH, (width) =>
 		containerWidth === undefined
 			? Math.max(WORKSPACE_TREE_MIN_WIDTH_PX, Math.round(width))
@@ -61,7 +61,7 @@ export function readStoredWorkspaceTreeWidth(containerWidth?: number) {
 	);
 }
 
-export function storeWorkspaceTreeWidth(width: number) {
+function storeWorkspaceTreeWidth(width: number) {
 	storeStoredWidth(WORKSPACE_TREE_WIDTH_STORAGE_KEY, width);
 }
 

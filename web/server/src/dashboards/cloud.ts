@@ -23,7 +23,7 @@ import { resolveDashboardModel, resolveThesysApiKey } from "./credentials";
 import librarySpec from "./library-spec.json" with { type: "json" };
 import { pageSessionOutputs } from "./session-outputs";
 
-export type DashboardContext = ExecutionContext & {
+type DashboardContext = ExecutionContext & {
 	sessionId: string;
 	dashboardId?: string;
 	dataset?: DashboardDataset;

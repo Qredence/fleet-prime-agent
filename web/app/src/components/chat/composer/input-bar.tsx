@@ -28,20 +28,20 @@ import { cn } from "@/lib/utils";
 
 const COMPOSER_ADD_BUTTON_CLASS = "size-8 shrink-0 text-foreground/80 hover:text-foreground";
 
-export type AttachedImage = {
+type AttachedImage = {
 	id: string;
 	filename: string;
 	url: string;
 	size?: number;
 };
 
-export type AttachedFile = {
+type AttachedFile = {
 	id: string;
 	filename: string;
 	size?: number;
 };
 
-export type InputBarAttachmentsConfig = {
+type InputBarAttachmentsConfig = {
 	onAttach?: () => void;
 	images?: Array<AttachedImage>;
 	files?: Array<AttachedFile>;
@@ -50,7 +50,7 @@ export type InputBarAttachmentsConfig = {
 	onPaste?: (e: React.ClipboardEvent) => void;
 };
 
-export type InputBarControlledConfig = {
+type InputBarControlledConfig = {
 	value: string;
 	onChange: (value: string) => void;
 };

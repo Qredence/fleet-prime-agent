@@ -141,4 +141,3 @@ const FieldDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLPar
 FieldDescription.displayName = "FieldDescription";
 
 export { Field, FieldDescription, FieldGroup, FieldLabel };
-export type { FieldProps };

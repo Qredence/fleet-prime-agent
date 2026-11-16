@@ -12,7 +12,7 @@ import { type AgentCodeLanguage, useAgentCodeTokens } from "@/lib/shiki-highligh
 import { cn } from "@/lib/utils";
 
 export type FileDiffStatus = "streaming" | "complete" | "error" | "cancelled";
-export type FileDiffLineType = "added" | "removed" | "context";
+type FileDiffLineType = "added" | "removed" | "context";
 
 export interface FileDiffLine {
 	id: string;

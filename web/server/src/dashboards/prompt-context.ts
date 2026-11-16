@@ -12,7 +12,7 @@ function dashboardArtifacts(presentation: PrimeAgentSessionPresentation) {
 	return presentation.artifactRuns.flatMap((run) => run.artifacts);
 }
 
-export function latestDashboardId(presentation: PrimeAgentSessionPresentation): string | undefined {
+function latestDashboardId(presentation: PrimeAgentSessionPresentation): string | undefined {
 	const artifacts = dashboardArtifacts(presentation);
 	for (let index = artifacts.length - 1; index >= 0; index -= 1) {
 		const artifact = artifacts[index];

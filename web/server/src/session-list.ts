@@ -199,7 +199,7 @@ export function sessionNeedsPresentationJoin(row: NormalizedSessionListRow): boo
 	return row.messageCount === 0 || !row.title || !row.firstMessage;
 }
 
-export async function loadSessionListPresentation(
+async function loadSessionListPresentation(
 	row: NormalizedSessionListRow,
 	source: SessionListSource,
 	livePresentation: PrimeAgentSessionPresentation | undefined,

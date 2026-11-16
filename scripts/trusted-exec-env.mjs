@@ -34,7 +34,7 @@ export function trustedPathString() {
  * @param {NodeJS.ProcessEnv} [overrides] - Extra environment entries merged on top of the current process env.
  * @returns {NodeJS.ProcessEnv} Environment with a fixed PATH on Unix.
  */
-export function trustedProcessEnv(overrides = {}) {
+function trustedProcessEnv(overrides = {}) {
 	const env = { ...process.env, ...overrides };
 	if (TRUSTED_PATH_ENTRIES.length > 0) env.PATH = trustedPathString();
 	return env;

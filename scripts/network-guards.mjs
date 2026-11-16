@@ -33,22 +33,6 @@ export function assertNpmRegistryTarballUrl(url) {
 }
 
 /**
- * @param {string} baseUrl - Rust runtime base URL from the pinned manifest.
- * @param {string} archive - Archive file name from the pinned manifest.
- * @returns {string} Verified download URL for the archive.
- */
-export function pinnedRustArchiveUrl(baseUrl, archive) {
-	if (typeof baseUrl !== "string" || typeof archive !== "string" || !archive || archive.includes("/")) {
-		throw new Error("Invalid pinned Rust runtime archive reference");
-	}
-	const parsed = new URL(baseUrl);
-	if (parsed.protocol !== "https:" || !PINNED_RUST_RELEASE_HOSTS.has(parsed.hostname)) {
-		throw new Error("Rust runtime baseUrl is not a pinned Fleet release host");
-	}
-	return `${parsed.href.replace(/\/$/, "")}/${archive}`;
-}
-
-/**
  * @param {string} tarballUrl - Legacy TypeScript runtime tarball URL from the manifest.
  */
 export function assertPinnedLegacyTarballUrl(tarballUrl) {

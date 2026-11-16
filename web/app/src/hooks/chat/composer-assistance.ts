@@ -24,7 +24,7 @@ import type { InlineCompletion } from "@/hooks/chat/inline-completion";
 export const COMPOSER_DRAFT_CACHE_LIMIT = 32;
 
 /** How long an answer stays usable. */
-export const COMPOSER_DRAFT_CACHE_TTL_MS = 5 * 60_000;
+const COMPOSER_DRAFT_CACHE_TTL_MS = 5 * 60_000;
 
 /**
  * Cache key for a draft.
@@ -104,7 +104,7 @@ const MIN_DRAFT_CHARS = 4;
  * its live value and drops the offer the moment they differ, so Tab can never
  * run a command against text the user has since edited.
  */
-export type ComposerIntentCommandOffer = {
+type ComposerIntentCommandOffer = {
 	forValue: string;
 	command: string;
 };

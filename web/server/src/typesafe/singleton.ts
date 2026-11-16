@@ -31,7 +31,3 @@ export async function getTypeSafeService(): Promise<TypeSafeService> {
 export function resetTypeSafeService(): void {
 	globalStore.__fleetTypeSafe = undefined;
 }
-
-export function setTypeSafeServiceForTests(next: TypeSafeService | undefined): void {
-	globalStore.__fleetTypeSafe = next;
-}

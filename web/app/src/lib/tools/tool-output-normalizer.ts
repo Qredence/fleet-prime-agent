@@ -7,7 +7,7 @@ import { isSafeExternalUrl } from "@/lib/safe-external-url";
 
 export type ToolRecord = Record<string, unknown>;
 
-export interface ToolOutputSummary {
+interface ToolOutputSummary {
 	record?: ToolRecord;
 	details?: ToolRecord;
 	stdout?: string;
@@ -20,13 +20,13 @@ export interface ToolOutputSummary {
 	structured: boolean;
 }
 
-export type ToolOutputSection = {
+type ToolOutputSection = {
 	label: "stdout" | "stderr" | "result" | "reported-error" | "output";
 	content: string;
 	language: AgentCodeLanguage;
 };
 
-export type ToolDetail =
+type ToolDetail =
 	| {
 			kind: "output";
 			content: string;

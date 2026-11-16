@@ -13,8 +13,8 @@ function sanitizeMarkerReason(reason) {
 		.slice(0, 500);
 }
 
-export const ROLLBACK_DEPLOY_NAME = "fleet-rollback";
-export const ROLLBACK_MARKER_STATE_PATH = ".circleci/rollback-marker.state.json";
+const ROLLBACK_DEPLOY_NAME = "fleet-rollback";
+const ROLLBACK_MARKER_STATE_PATH = ".circleci/rollback-marker.state.json";
 
 const TERMINAL_STATUSES = new Set(["SUCCESS", "FAILED", "CANCELED"]);
 

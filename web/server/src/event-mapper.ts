@@ -37,8 +37,6 @@ import {
 	upsertArtifact,
 } from "./prime-agent-presentation";
 import {
-	type DaemonQuestionOption,
-	type NormalizedDaemonQuestion,
 	normalizeDaemonQuestions,
 	normalizedQuestionsToClarification,
 	normalizedQuestionsToWire,
@@ -66,14 +64,10 @@ import {
 export {
 	categorizeTool,
 	createFleetErrorEnvelope,
-	type DaemonQuestionOption,
-	type NormalizedDaemonQuestion,
 	normalizeDaemonQuestions,
 	normalizedQuestionsToClarification,
 	normalizedQuestionsToWire,
 	toChatMessageFromAssistant,
-	toChatMessageFromRuntimeMessage,
-	toChatMessageFromUser,
 	toChatMessagesFromAgentMessages,
 };
 
@@ -157,17 +151,14 @@ export interface EventMapperState {
 	rlmChildRuntimeOverrides: Map<string, RlmChildStatusOverride>;
 }
 
-export type ToolCallStart = { toolName: string; args: unknown };
+type ToolCallStart = { toolName: string; args: unknown };
 
 /**
  * Protocol-7 top-level frames the v0.10.1 Rust daemon sends outside
  * `session_event` (no `meta`). Types and guards come from the R1 socket
  * client's daemon-protocol.ts.
  */
-export type DaemonTopLevelFrame =
-	| DaemonSessionBindingFrame
-	| DaemonModelCatalogChangedFrame
-	| DaemonHeartbeatsChangedFrame;
+type DaemonTopLevelFrame = DaemonSessionBindingFrame | DaemonModelCatalogChangedFrame | DaemonHeartbeatsChangedFrame;
 
 /**
  * Everything the mapper accepts: stock connection events, the Fleet adapter's

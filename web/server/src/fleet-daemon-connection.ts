@@ -62,7 +62,7 @@ type FlatSessionTree = {
 };
 const LONG_RUNNING_REQUEST_TIMEOUT_MS = 24 * 60 * 60 * 1_000;
 
-export class FleetQueueMutationOutcomeUnknownError extends Error {
+class FleetQueueMutationOutcomeUnknownError extends Error {
 	readonly code = "DAEMON_COMMAND_OUTCOME_UNKNOWN";
 	readonly command = "mutate_queued_message";
 	readonly activeSessionId: string;

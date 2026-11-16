@@ -1,6 +1,6 @@
 import type { ChatClarificationQuestion } from "@prime-agent/web-protocol";
 
-export interface DaemonQuestionOption {
+interface DaemonQuestionOption {
 	value: string;
 	label: string;
 	description?: string;

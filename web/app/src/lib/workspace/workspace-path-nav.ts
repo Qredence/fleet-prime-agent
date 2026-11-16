@@ -29,7 +29,7 @@ export function isPathWithinScope(path: string, scopePath: string | null | undef
 	return path === scopePath || path.startsWith(`${scopePath}/`);
 }
 
-export function stripSandboxPrefixes(filePath: string): string {
+function stripSandboxPrefixes(filePath: string): string {
 	const prefixes = ["/project/sandbox/repo/", "/project/sandbox/", "/project/", "/workspace/"];
 	for (const prefix of prefixes) {
 		if (filePath.startsWith(prefix)) return filePath.slice(prefix.length);

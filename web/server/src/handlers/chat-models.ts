@@ -41,7 +41,7 @@ export type ChatModelsHandlerDeps = {
 	customProvidersMissingApiKey: (modelsJsonPath: string) => string[];
 };
 
-export function defaultChatModelsDeps(): ChatModelsHandlerDeps {
+function defaultChatModelsDeps(): ChatModelsHandlerDeps {
 	const config = getPrimeConfig();
 	return {
 		resolveCwd: cwdForRequest,

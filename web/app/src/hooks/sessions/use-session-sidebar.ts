@@ -36,7 +36,7 @@ type SidebarField = {
 	[Key in keyof SidebarState]: { key: Key; value: SidebarState[Key] };
 }[keyof SidebarState];
 
-export type SidebarAction =
+type SidebarAction =
 	| { type: "set"; field: SidebarField }
 	| { type: "update"; update: (state: SidebarState) => SidebarState };
 
@@ -108,7 +108,7 @@ export function useSessionSidebarState(activeProjectId: ProjectId | undefined) {
 
 export type SidebarStateView = ReturnType<typeof useSessionSidebarState>;
 
-export type SidebarViewModelState = {
+type SidebarViewModelState = {
 	expandedProjectIds: string[];
 	revealedProjectIds: Set<ProjectId>;
 	setExpandedProjectIds: (value: string[] | ((current: string[]) => string[])) => void;

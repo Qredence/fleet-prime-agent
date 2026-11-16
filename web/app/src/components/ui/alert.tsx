@@ -76,4 +76,3 @@ function AlertDescription({ className, ...props }: React.ComponentProps<"div">) 
 }
 
 export { Alert, AlertDescription, AlertTitle };
-export type AlertProps = React.ComponentProps<"div"> & VariantProps<typeof alertVariants>;

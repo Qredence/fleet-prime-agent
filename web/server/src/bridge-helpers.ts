@@ -275,7 +275,7 @@ export function fallbackSessionPath(
  * directory. The 400 status lets `wrapApiHandler` answer Bad Request; the
  * message carries no paths (API errors are scrubbed for paths anyway).
  */
-export class SessionExportPathError extends Error {
+class SessionExportPathError extends Error {
 	readonly status: 400 = 400;
 
 	constructor() {

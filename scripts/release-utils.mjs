@@ -67,15 +67,3 @@ export function assertReleaseVersion({ packageName, packageVersion, publishedLat
 		);
 	}
 }
-
-/**
- * Builds the registry URL for a specific package version.
- * @param {string} registry - The package registry base URL.
- * @param {string} packageName - The package name to encode in the URL.
- * @param {string} version - The package version.
- * @return {string} The package-version registry URL.
- */
-export function registryPackageUrl(registry, packageName, version) {
-	const encodedName = encodeURIComponent(packageName);
-	return `${registry.replace(/\/$/, "")}/${encodedName}/${version}`;
-}

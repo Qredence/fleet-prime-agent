@@ -46,7 +46,7 @@ export interface FileTreeFileProps {
 	className?: string;
 }
 
-export type FileTreeClassNames = {
+type FileTreeClassNames = {
 	tree?: string;
 	item?: string;
 	icon?: string;

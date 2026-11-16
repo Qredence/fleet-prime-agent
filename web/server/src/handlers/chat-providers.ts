@@ -196,16 +196,6 @@ function buildProviders(configuredFromDisk?: ReadonlySet<string>): Array<ChatPro
 		.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/**
- * Providers with credentials read from `auth.json`.
- *
- * Async and disk-backed so a caller can never observe the stale in-memory view
- * the runtime registry would have returned.
- */
-export async function listChatProviders(): Promise<Array<ChatProviderInfo>> {
-	return buildProviders(await configuredProviderIds(getPrimeConfig().agentDir));
-}
-
 export function handleChatProvidersGet(_request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const configured = await configuredProviderIds(getPrimeConfig().agentDir);

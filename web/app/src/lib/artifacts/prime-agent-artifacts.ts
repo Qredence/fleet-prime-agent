@@ -8,7 +8,7 @@ import type {
 } from "@prime-agent/web-protocol";
 import { toolPartDisplayName } from "@/lib/tools/tool-action-icon";
 
-export type PrimeAgentArtifactDiffLine = {
+type PrimeAgentArtifactDiffLine = {
 	id: string;
 	type: "added" | "removed" | "context";
 	content: string;

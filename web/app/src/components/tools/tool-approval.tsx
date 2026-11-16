@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 export type ToolApprovalStatus = "pending" | "approving" | "approved" | "denied" | "running" | "complete" | "error";
 
-export interface ToolApprovalParameter {
+interface ToolApprovalParameter {
 	id: string;
 	label: ReactNode;
 	value: ReactNode;

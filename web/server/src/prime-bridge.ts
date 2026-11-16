@@ -49,7 +49,6 @@ import {
 	presentationArtifactsEqual,
 	refreshCache,
 	resolveOpenUIPromptMode,
-	SessionExportPathError,
 	selectedTextFromSessionEntry,
 } from "./bridge-helpers";
 import {
@@ -102,7 +101,7 @@ import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./sessio
 import { mapSessionTreeSnapshot } from "./session-tree-mapper";
 import { textFromChatParts } from "./transcript-hydrator";
 
-export { type OpenUIPromptSessionState, type RlmChildStream, type RlmChildTranscript, SessionExportPathError };
+export { type RlmChildStream, type RlmChildTranscript };
 
 // ---------------------------------------------------------------------------
 // Bridge types

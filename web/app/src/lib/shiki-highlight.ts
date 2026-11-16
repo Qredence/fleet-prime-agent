@@ -27,7 +27,7 @@ function setCachedTokens(key: string, lines: AgentCodeTokenLines) {
 }
 const loadShiki = () => import("shiki");
 
-export function getAgentCodeHighlighter() {
+function getAgentCodeHighlighter() {
 	if (!agentCodeHighlighter) {
 		agentCodeHighlighter = loadShiki().then(({ createHighlighter }) =>
 			createHighlighter({

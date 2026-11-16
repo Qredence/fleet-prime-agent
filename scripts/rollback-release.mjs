@@ -3,7 +3,7 @@
 import { compareVersions, NPM_REGISTRY, parseStableVersion } from "./release-utils.mjs";
 import { execFileTrusted } from "./trusted-exec-env.mjs";
 
-export const PACKAGE_NAME = "@qredence/fleet";
+const PACKAGE_NAME = "@qredence/fleet";
 
 function registryUrl() {
 	return `${NPM_REGISTRY}${encodeURIComponent(PACKAGE_NAME)}`;
@@ -27,13 +27,7 @@ export async function readRegistryMetadata({ fetchImpl = fetch } = {}) {
  * @param {object|undefined} options.targetMetadata - Published npm metadata for the target version.
  * @returns {{currentVersion: string, targetVersion: string}}
  */
-export function validateLatestTagMove({
-	currentVersion,
-	targetVersion,
-	latestVersion,
-	targetMetadata,
-	requireOlder = false,
-}) {
+function validateLatestTagMove({ currentVersion, targetVersion, latestVersion, targetMetadata, requireOlder = false }) {
 	parseStableVersion(currentVersion);
 	parseStableVersion(targetVersion);
 	parseStableVersion(latestVersion);

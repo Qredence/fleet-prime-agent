@@ -1,6 +1,6 @@
 import { readStoredValue, removeStoredValue, writeStoredValue } from "@/lib/safe-storage";
 
-export type SseCursor = {
+type SseCursor = {
 	generation?: string;
 	lastEventId: number;
 };

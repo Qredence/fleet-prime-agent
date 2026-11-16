@@ -309,5 +309,4 @@ const DialogDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLPa
 );
 DialogDescription.displayName = "DialogDescription";
 
-export { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger };
-export type { DialogContentProps, DialogFooterProps, DialogProps };
+export { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle };
