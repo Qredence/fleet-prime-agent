@@ -1,0 +1,93 @@
+web/protocol/src/chat-protocol.zod.ts
+  s_bdfa47343b3db4::t_39161bcb380238 97
+  s_bdfa47343b3db4::t_0bb12a1599e55d 88
+web/server/src/__tests__/session-tree-handler.test.ts
+  s_bdfa47343b3db4::t_58a8811379b10b 159,183
+web/app/scripts/generate-openui-contract.ts
+  s_bdfa47343b3db4::t_db6092984b99c2 10,22
+  s_bdfa47343b3db4::t_be740165f90af7 58
+web/server/src/prime-bridge.ts
+  s_bdfa47343b3db4::t_6629a1bf6fe7cc 89
+web/app/src/hooks/chat/use-pi-chat-events.ts
+  s_bdfa47343b3db4::t_b3efc8c9200bdf 7,137
+web/protocol/src/__tests__/contract.test.ts
+  s_bdfa47343b3db4::t_f7b05afaec8046 12,153-161,166-170,176-178
+  s_bdfa47343b3db4::t_0be7c301526934 8-9,55-60,64-67,93
+  s_bdfa47343b3db4::t_be740165f90af7 91-92,162-165,171-175
+  s_bdfa47343b3db4::t_ea424cd3379d78 179-180
+web/app/scripts/__tests__/openui-prompt-examples.test.tsx
+  s_bdfa47343b3db4::t_93b820fc063509 3
+web/server/src/wrap-api-handler.ts
+  s_bdfa47343b3db4::t_f688f87032525b 2,105-108,111-119,124-126,132-133
+  s_bdfa47343b3db4::t_bc2528e798d746 40-41
+  s_bdfa47343b3db4::t_ea8eb909a33172 120-123
+  s_bdfa47343b3db4::t_aee177d42abc61 127
+  s_bdfa47343b3db4::t_d8f30114f2c919 3,28-29,37-39,42-44
+  s_bdfa47343b3db4::t_be740165f90af7 109-110,128-131,139-148
+docs/reference/adapter-contract.md
+  s_bdfa47343b3db4::t_9095c5f9edebe5 18,41-48,144
+.changeset/browser-safe-protocol.md
+  s_bdfa47343b3db4::t_4561ea4350c28d 1-5
+web/app/src/lib/chat/chat-fetch.test.ts
+  s_bdfa47343b3db4::t_61e831061d3f79 2-6,12-20,29-34
+  s_bdfa47343b3db4::t_be740165f90af7 7-11,21-28,61-64,69-71
+  s_bdfa47343b3db4::t_0f4ac3d52b5c8a 59-60,65-68,72-77
+web/app/vitest.config.ts
+  s_bdfa47343b3db4::t_0cc2a134478b67 13
+web/app/src/lib/chat/chat-fetch.ts
+  s_bdfa47343b3db4::t_e30ebfe5f62878 5,31-32,41,43-44,46
+  s_bdfa47343b3db4::t_0e827438b19bf7 134,136-137,139
+  s_bdfa47343b3db4::t_be740165f90af7 8-11,135
+web/server/src/__tests__/wrap-api-handler.test.ts
+  s_bdfa47343b3db4::t_f603acbb8bb71c 117
+  s_bdfa47343b3db4::t_be740165f90af7 102-109,121-130,163-166
+  s_bdfa47343b3db4::t_3c5cdc8da12e7a 3-4,93-101,110-116,118-120,131-135,156-162,167-169
+  s_bdfa47343b3db4::t_1f4c3c26d7bd14 5,136-137,150-151,155
+  s_bdfa47343b3db4::t_bc2528e798d746 138-149,152-154
+  s_bdfa47343b3db4::t_8fab01fa469dab 170
+web/protocol/src/schemas/chat.ts
+  s_bdfa47343b3db4::t_12255780f37699 313-320,719-746
+  s_bdfa47343b3db4::t_abd201418572b4 192,218-220,223-227,231
+  s_bdfa47343b3db4::t_1eaad74657f1a5 221-222
+  s_bdfa47343b3db4::t_be740165f90af7 228-230
+  s_bdfa47343b3db4::t_aab42c72a195a9 232
+web/server/src/daemon-runtime.ts
+  s_bdfa47343b3db4::t_c8672d65f918ce 5
+web/server/src/bridge-helpers.ts
+  s_bdfa47343b3db4::t_1a48be354ecee5 17
+ARCHITECTURE.md
+  s_bdfa47343b3db4::t_29e19098bb6ec3 76,78
+web/app/src/hooks/chat/use-subagent-chat.ts
+  s_bdfa47343b3db4::t_74b687d92b2ab7 7,329
+web/server/src/openui-prompt.ts
+  s_bdfa47343b3db4::t_84e159c9576b12 3
+web/server/src/openui-signatures.ts
+  s_bdfa47343b3db4::t_96ed193aeee365 1-229
+web/server/src/__tests__/session-http-access.test.ts
+  s_bdfa47343b3db4::t_4e31f1bc05a576 160-168
+scripts/check-browser-smoke.mjs
+  s_bdfa47343b3db4::t_aa9e367167d7dd 15,20-21,27-31
+web/server/src/dashboards/prompt-context.ts
+  s_bdfa47343b3db4::t_90a9d9859a551d 1
+scripts/browser-smoke-entry.ts
+  s_bdfa47343b3db4::t_521b4c34f2789f 2,5
+web/protocol/src/chat-protocol.ts
+  s_bdfa47343b3db4::t_3f4e5e28307f9a 2
+  s_bdfa47343b3db4::t_d07b848d5ddfa1 190,193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "878a2c3c1ff911b94a5fab7c10e7eaff90b6b1a7",
+  "prompts": {},
+  "sessions": {
+    "s_bdfa47343b3db4": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a1e22f-0c18-76c7-ac6d-906cdda6351e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
