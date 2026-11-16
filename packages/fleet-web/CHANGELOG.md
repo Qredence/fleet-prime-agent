@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.3
+
+### Patch Changes
+
+- 878a2c3: Keep OpenUI prompt generation on the server and validate streamed event shapes without rejecting future additive fields. Standardize API error messages and codes while retaining compatibility with older error payloads, dashboard interpreter errors, and terminal sign-in guidance.
+- 62c599e: Reject session commands, resume requests, and other session-scoped operations when their project is no longer registered, including sessions already open in Fleet. Resource discovery no longer reads runtime snapshots from inaccessible sessions. Require request-aware origin guarding for API handlers while preserving existing local-client access.
+- b917d3a: Make session and project listing read-only, share consistent session summaries, and limit concurrent sidecar reads without loading kernel diagnostics.
+- 0a789c5: Reclaim idle Fleet connections and cap replay payloads while preserving active work and saved conversations. Reopening a detached session hydrates its saved messages and presentation; replay gaps trigger recovery instead of retaining oversized frames.
+
 ## 0.13.2
 
 ### Patch Changes
