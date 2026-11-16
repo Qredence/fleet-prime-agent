@@ -63,6 +63,7 @@ import {
 	type WebAgentConnectionFactory,
 } from "./daemon-runtime";
 import { dashboardPromptContext } from "./dashboards/prompt-context";
+import { isIdleConnectionState } from "./daemon-protocol";
 import {
 	createEventMapperState,
 	mapAgentConnectionEvent,
@@ -88,6 +89,8 @@ import {
 import { getPrimeConfig } from "./prime-config";
 import { buildOpenUIPrompt, type OpenUIDashboardPrompt, type OpenUIPromptMode } from "./openui-prompt";
 import { RingBuffer } from "./ring-buffer";
+import { SessionRetention, type SessionRetentionOptions } from "./session-retention";
+import { retainSessionInScope } from "./session-lease-scope";
 import {
 	RlmChildStreamManager,
 	type RlmChildStream,
@@ -146,8 +149,9 @@ export interface ForkSessionResult {
 	newSessionId: string;
 }
 
-export interface PrimeBridgeOptions {
+export interface PrimeBridgeOptions extends SessionRetentionOptions {
 	readonly ringBufferCapacity?: number;
+	readonly ringBufferMaxBytes?: number;
 	readonly dialogTimeoutMs?: number;
 	readonly writePresentation?: typeof writeManagedPrimePresentation;
 	/** Test seam; production always uses the shared Prime daemon. */
@@ -199,6 +203,9 @@ export class PrimeBridge {
 	readonly #rlmChildManager: RlmChildStreamManager;
 	readonly #dialogs: PendingDialogRegistry;
 	readonly #ringBufferCapacity: number;
+	readonly #ringBufferMaxBytes: number;
+	readonly #retention: SessionRetention;
+	readonly #sessionOpenings = new Map<string, { promise: Promise<BridgeSession>; projectId: ProjectId | undefined }>();
 	readonly #presentationQueue: PresentationPersistenceQueue;
 	readonly #connectionFactory: WebAgentConnectionFactory;
 	readonly #sessionLister: typeof listDaemonSessions;
@@ -209,6 +216,8 @@ export class PrimeBridge {
 
 	constructor(options: PrimeBridgeOptions = {}) {
 		this.#ringBufferCapacity = options.ringBufferCapacity ?? 500;
+		this.#ringBufferMaxBytes = options.ringBufferMaxBytes ?? 1024 * 1024;
+		this.#retention = new SessionRetention(options, (id, stillIdle) => this.#detachIdleSession(id, stillIdle));
 		this.#connectionFactory = options.connectionFactory ?? createDaemonWebAgentConnection;
 		this.#sessionLister = options.sessionLister ?? listDaemonSessions;
 		this.#sessionFileDeleter = options.sessionFileDeleter ?? deleteDaemonSavedSession;
@@ -245,9 +254,65 @@ export class PrimeBridge {
 		});
 	}
 
-	addEventListener(listener: BridgeEventListener): () => void {
+	/** Scoped user subscriptions retain their session; unscoped listeners are internal observers. */
+	addEventListener(listener: BridgeEventListener, sessionId?: string): () => void {
+		const release = sessionId ? this.retainSession(sessionId) : () => {};
 		this.#listeners.add(listener);
-		return () => this.#listeners.delete(listener);
+		return () => {
+			this.#listeners.delete(listener);
+			release();
+		};
+	}
+
+	retainSession(sessionId: string): () => void {
+		return this.#retention.retain(sessionId);
+	}
+
+	/** Deterministic maintenance entry point; the unref'd retention timer also calls this. */
+	evictIdleSessions(): Promise<void> {
+		return this.#retention.sweep();
+	}
+
+	async #withSessionLease<T>(sessionId: string, operation: () => Promise<T>): Promise<T> {
+		const release = this.retainSession(sessionId);
+		try {
+			return await operation();
+		} finally {
+			release();
+		}
+	}
+
+	#hasSessionWork(session: BridgeSession): boolean {
+		return (
+			session.isStreaming ||
+			session.mapperState.inRun ||
+			this.#dialogs.list(session.sessionId).length > 0 ||
+			this.#presentationQueue.hasPending(session.sessionId) ||
+			this.#rlmChildManager.hasWorkForParent(session.sessionId) ||
+			this.#openUIPromptTransitions.has(session.sessionId) ||
+			this.#sessionTreeNavigationQueues.has(session.sessionId) ||
+			session.mapperState.presentation.rlmChildren.some(
+				(child) => child.status === "running" || child.status === "recovering",
+			)
+		);
+	}
+
+	async #detachIdleSession(sessionId: string, stillIdle: () => boolean): Promise<boolean> {
+		const session = this.#sessions.get(sessionId);
+		if (!session || !stillIdle() || this.#hasSessionWork(session)) return false;
+		// Ask the supported connection, not cached UI flags, about external/TUI work.
+		const state = await session.connection.getState();
+		if (!isIdleConnectionState(state)) return false;
+		if (!stillIdle() || this.#sessions.get(sessionId) !== session || this.#hasSessionWork(session)) return false;
+		// Remove synchronously before awaiting transport disposal. A concurrent resume
+		// waits for disposal below; never abort, terminate, delete, or unassign here.
+		session.unsubscribe();
+		this.#sessions.delete(sessionId);
+		this.#ringBuffers.delete(sessionId);
+		this.#caches.delete(sessionId);
+		await this.#presentationQueue.cancelAndDrain(sessionId);
+		await session.connection.dispose().catch(() => undefined);
+		return true;
 	}
 
 	/**
@@ -260,6 +325,7 @@ export class PrimeBridge {
 
 	/** Emit a frame to ring buffer (SSE replay) and all live listeners. */
 	#dispatch(sessionId: string, frame: ChatStreamEvent): void {
+		this.#retention.touch(sessionId);
 		const next = frame.type === "done" && !(frame.sessionId ?? "").trim() ? { ...frame, sessionId } : frame;
 		const buffer = this.#ringBufferFor(sessionId);
 		const entry = buffer.push(next, (sequence, generation) => ({
@@ -275,7 +341,7 @@ export class PrimeBridge {
 	#ringBufferFor(sessionId: string): RingBuffer {
 		let existing = this.#ringBuffers.get(sessionId);
 		if (!existing) {
-			existing = new RingBuffer(this.#ringBufferCapacity);
+			existing = new RingBuffer(this.#ringBufferCapacity, this.#ringBufferMaxBytes);
 			this.#ringBuffers.set(sessionId, existing);
 		}
 		return existing;
@@ -285,9 +351,9 @@ export class PrimeBridge {
 	replaySince(
 		sessionId: string,
 		lastEventId: number,
-	): { replayed: readonly { seq: number; event: unknown }[]; overflowed: boolean } {
-		const buffer = this.#ringBufferFor(sessionId);
-		return buffer.replaySince(lastEventId);
+	): { replayed: readonly { seq: number; event: unknown }[]; overflowed: boolean; latestSequence?: number } {
+		const buffer = this.#ringBuffers.get(sessionId);
+		return buffer?.replaySince(lastEventId) ?? { replayed: [], overflowed: lastEventId > 0, latestSequence: 0 };
 	}
 
 	/**
@@ -316,6 +382,7 @@ export class PrimeBridge {
 
 	/** Test-only: reset state. */
 	resetForTests(): void {
+		this.#retention.clear();
 		this.#rlmChildManager.resetForTests();
 		for (const session of this.#sessions.values()) {
 			session.unsubscribe();
@@ -414,11 +481,12 @@ export class PrimeBridge {
 			}
 		};
 		const refreshCacheAfterRebuild = (): void => {
-			void refreshCache(connection)
+			void this.#withSessionLease(sessionId, () => refreshCache(connection))
 				.then((next) => {
-					this.#caches.set(sessionId, next);
 					const current = this.#sessions.get(sessionId);
-					if (current) current.isStreaming = next.isStreaming;
+					if (current?.connection !== connection) return;
+					this.#caches.set(sessionId, next);
+					current.isStreaming = next.isStreaming;
 				})
 				.catch(() => undefined);
 		};
@@ -513,7 +581,7 @@ export class PrimeBridge {
 		const unsubscribeGaps =
 			webAgent.onSequenceGap?.(() => {
 				if (gapSubscriptionClosed) return;
-				void resyncAfterGap();
+				void this.#withSessionLease(sessionId, () => resyncAfterGap());
 			}) ?? (() => undefined);
 		const unsubscribe = (): void => {
 			gapSubscriptionClosed = true;
@@ -539,6 +607,8 @@ export class PrimeBridge {
 		};
 
 		this.#sessions.set(sessionId, bridgeSession);
+		this.#retention.register(sessionId);
+		retainSessionInScope(sessionId, () => this.retainSession(sessionId));
 		this.#ringBufferFor(sessionId); // Pre-create so SSE attaches safely.
 		void this.#presentationQueue.persist(sessionId, sessionPath, mapperState.presentation);
 		return bridgeSession;
@@ -551,6 +621,40 @@ export class PrimeBridge {
 
 	/** Resume a persisted prime-agent session from its JSONL transcript. */
 	async resumeSessionByPath(
+		sessionPath: string,
+		options?: { readonly openUI?: boolean; readonly requestedProjectId?: ProjectId | null },
+	): Promise<BridgeSession> {
+		const path = resolve(sessionPath);
+		const pendingOpening = this.#sessionOpenings.get(path);
+		const requestedProjectId = options?.requestedProjectId ?? undefined;
+		if (pendingOpening && pendingOpening.projectId !== requestedProjectId) {
+			// A denied project-scoped opener must not deny a concurrent valid caller.
+			await pendingOpening.promise.catch((error) => {
+				if (!isSessionNotInActiveProjectError(error)) throw error;
+			});
+			return this.resumeSessionByPath(path, options);
+		}
+		let opening = pendingOpening?.promise;
+		if (!opening) {
+			opening = this.#resumeSessionByPath(path, options);
+			this.#sessionOpenings.set(path, { promise: opening, projectId: requestedProjectId });
+			const pending = opening;
+			void pending
+				.finally(() => {
+					if (this.#sessionOpenings.get(path)?.promise === pending) this.#sessionOpenings.delete(path);
+				})
+				.catch(() => undefined);
+		}
+		const session = await opening;
+		if (options?.requestedProjectId && session.projectId !== options.requestedProjectId) {
+			throw new Error("The requested session is not in an active project");
+		}
+		this.#retention.touch(session.sessionId);
+		retainSessionInScope(session.sessionId, () => this.retainSession(session.sessionId));
+		return session;
+	}
+
+	async #resumeSessionByPath(
 		sessionPath: string,
 		options?: { readonly openUI?: boolean; readonly requestedProjectId?: ProjectId | null },
 	): Promise<BridgeSession> {
@@ -568,6 +672,7 @@ export class PrimeBridge {
 		if (!existsSync(resolvedSessionPath)) throw new Error("The requested session transcript is unavailable");
 		const transcript = await readLegacySession(resolvedSessionPath);
 		if (!transcript) throw new Error("The requested session transcript is unavailable");
+		await this.#retention.waitForDetach(transcript.sessionId);
 		const sessionCwd = transcript.cwd;
 		const expectedSessionDir = resolve(sessionDirectoryForCwd(sessionCwd));
 		if (dirname(resolvedSessionPath) !== expectedSessionDir) {
@@ -598,8 +703,10 @@ export class PrimeBridge {
 		requestedProjectId?: ProjectId | null,
 		options?: { readonly openUI?: boolean },
 	): Promise<BridgeSession | undefined> {
+		await this.#retention.waitForDetach(sessionId);
 		const live = this.#sessions.get(sessionId);
 		if (live) {
+			this.#retention.touch(sessionId);
 			// Project-scoped callers only see sessions linked to their project.
 			// A linked-but-foreign session is unknown to the caller: reads must
 			// never fork or expose its transcript (copies go through the
@@ -637,7 +744,9 @@ export class PrimeBridge {
 		childId: string,
 		resume?: RlmChildStreamResume,
 	): Promise<RlmChildStream | undefined> {
-		return this.#rlmChildManager.openStream(parentSessionId, childId, resume);
+		return this.#withSessionLease(parentSessionId, async () => {
+			return this.#rlmChildManager.openStream(parentSessionId, childId, resume);
+		});
 	}
 
 	/**
@@ -649,57 +758,64 @@ export class PrimeBridge {
 	 * supplied filesystem path.
 	 */
 	async loadRlmChildTranscript(parentSessionId: string, childId: string): Promise<RlmChildTranscript | undefined> {
-		return this.#rlmChildManager.loadTranscript(parentSessionId, childId);
+		return this.#withSessionLease(parentSessionId, async () => {
+			return this.#rlmChildManager.loadTranscript(parentSessionId, childId);
+		});
 	}
 
 	async deleteSession(sessionId: string): Promise<boolean> {
-		let existing = this.#sessions.get(sessionId);
-		if (!existing) {
-			const sessions = await this.#sessionLister();
-			const listed = sessions.find((session) => session.sessionId === sessionId || session.id === sessionId);
-			const sessionPath = listed?.sessionFile;
-			if (!sessionPath) return false;
-			try {
-				existing = await this.resumeSessionByPath(sessionPath);
-			} catch (error) {
-				if (!isSessionNotResumableError(error)) throw error;
-				// The transcript is listed but cannot be resumed. Delete it through
-				// the daemon catalog so a broken entry never becomes undeletable.
-				const result = await this.#sessionFileDeleter(getPrimeConfig().defaultCwd, sessionPath);
-				if (!result.ok) throw new Error(result.error);
-				// Mirror the managed-session cleanup from the live path below.
-				const listedSessionId = listed?.sessionId ?? sessionId;
-				await deleteManagedAttachmentsForSession(listedSessionId, sessionPath);
-				await deleteManagedPlanPresentationsForSession(listedSessionId, sessionPath);
-				await deleteManagedPrimePresentationForSession(sessionPath);
-				await getPrimeConfig().projectRegistry.assignSession(listedSessionId, null);
-				return true;
+		return this.#withSessionLease(sessionId, async () => {
+			let existing = this.#sessions.get(sessionId);
+			if (!existing) {
+				const sessions = await this.#sessionLister();
+				const listed = sessions.find((session) => session.sessionId === sessionId || session.id === sessionId);
+				const sessionPath = listed?.sessionFile;
+				if (!sessionPath) return false;
+				try {
+					existing = await this.resumeSessionByPath(sessionPath);
+				} catch (error) {
+					if (!isSessionNotResumableError(error)) throw error;
+					// The transcript is listed but cannot be resumed. Delete it through
+					// the daemon catalog so a broken entry never becomes undeletable.
+					const result = await this.#sessionFileDeleter(getPrimeConfig().defaultCwd, sessionPath);
+					if (!result.ok) throw new Error(result.error);
+					// Mirror the managed-session cleanup from the live path below.
+					const listedSessionId = listed?.sessionId ?? sessionId;
+					await deleteManagedAttachmentsForSession(listedSessionId, sessionPath);
+					await deleteManagedPlanPresentationsForSession(listedSessionId, sessionPath);
+					await deleteManagedPrimePresentationForSession(sessionPath);
+					await getPrimeConfig().projectRegistry.assignSession(listedSessionId, null);
+					return true;
+				}
+				// The cold opener just registered this id; enter again with a real lease.
+				return this.deleteSession(existing.sessionId);
 			}
-		}
-		const sessionPath = existing.sessionPath;
-		await this.#presentationQueue.cancelAndDrain(existing.sessionId);
-		this.#dialogs.cancelAll(existing.sessionId, "server-shutdown");
-		await this.#rlmChildManager.closeStreamsForParent(existing.sessionId);
-		existing.unsubscribe();
-		await existing.connection.abort().catch(() => undefined);
-		await this.#openUIPromptTransitions.get(existing.sessionId)?.catch(() => undefined);
-		try {
-			await existing.terminate?.();
-			const result = await (existing.deleteSessionFile?.(sessionPath) ??
-				existing.connection.deleteSavedSession(sessionPath));
-			if (!result.ok) throw new Error(result.error);
-		} finally {
-			await existing.connection.dispose().catch(() => undefined);
-			this.#sessions.delete(existing.sessionId);
-			this.#ringBuffers.delete(existing.sessionId);
-			this.#caches.delete(existing.sessionId);
-			this.#openUIPromptTransitions.delete(existing.sessionId);
-		}
-		await deleteManagedAttachmentsForSession(existing.sessionId, sessionPath);
-		await deleteManagedPlanPresentationsForSession(existing.sessionId, sessionPath);
-		await deleteManagedPrimePresentationForSession(sessionPath);
-		await getPrimeConfig().projectRegistry.assignSession(existing.sessionId, null);
-		return true;
+			const sessionPath = existing.sessionPath;
+			await this.#presentationQueue.cancelAndDrain(existing.sessionId);
+			this.#dialogs.cancelAll(existing.sessionId, "server-shutdown");
+			await this.#rlmChildManager.closeStreamsForParent(existing.sessionId);
+			existing.unsubscribe();
+			await existing.connection.abort().catch(() => undefined);
+			await this.#openUIPromptTransitions.get(existing.sessionId)?.catch(() => undefined);
+			try {
+				await existing.terminate?.();
+				const result = await (existing.deleteSessionFile?.(sessionPath) ??
+					existing.connection.deleteSavedSession(sessionPath));
+				if (!result.ok) throw new Error(result.error);
+			} finally {
+				await existing.connection.dispose().catch(() => undefined);
+				this.#sessions.delete(existing.sessionId);
+				this.#retention.forget(existing.sessionId);
+				this.#ringBuffers.delete(existing.sessionId);
+				this.#caches.delete(existing.sessionId);
+				this.#openUIPromptTransitions.delete(existing.sessionId);
+			}
+			await deleteManagedAttachmentsForSession(existing.sessionId, sessionPath);
+			await deleteManagedPlanPresentationsForSession(existing.sessionId, sessionPath);
+			await deleteManagedPrimePresentationForSession(sessionPath);
+			await getPrimeConfig().projectRegistry.assignSession(existing.sessionId, null);
+			return true;
+		});
 	}
 
 	// -----------------------------------------------------------------------
@@ -718,67 +834,69 @@ export class PrimeBridge {
 			planAction?: ChatPlanAction;
 		},
 	): Promise<void> {
-		const session = this.#requireSession(sessionId);
-		const backendSessionCommand = parseBackendSessionCommand(text);
-		const openUIEnabled = options?.openUI === true;
-		const openUIMode = resolveOpenUIPromptMode(options?.mode, options?.planAction);
-		const openUIArtifact = options?.openUIArtifact === true;
-		const dashboards = await dashboardPromptContext(this.getPresentation(session.sessionId));
-		const openUIPromptOptions = {
-			artifact: openUIArtifact,
-			dashboards,
-		};
-		const openUIStateChanged =
-			session.openUIPrompt.enabled !== openUIEnabled ||
-			session.openUIPrompt.mode !== openUIMode ||
-			(session.openUIPrompt.artifact ?? false) !== openUIArtifact ||
-			// A changed prompt body (new components, functions, or tools) must reach
-			// an existing session, not only newly created ones.
-			session.openUIPrompt.prompt !== buildOpenUIPrompt(openUIMode, openUIPromptOptions);
-		const hasPendingOpenUITransition = this.#openUIPromptTransitions.has(sessionId);
-		const wasStreaming = session.isStreaming;
-		const promptOptions = {
-			images: options?.images,
-			streamingBehavior: options?.streamingBehavior,
-			queueIfBusy: true,
-		};
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			const backendSessionCommand = parseBackendSessionCommand(text);
+			const openUIEnabled = options?.openUI === true;
+			const openUIMode = resolveOpenUIPromptMode(options?.mode, options?.planAction);
+			const openUIArtifact = options?.openUIArtifact === true;
+			const dashboards = await dashboardPromptContext(this.getPresentation(session.sessionId));
+			const openUIPromptOptions = {
+				artifact: openUIArtifact,
+				dashboards,
+			};
+			const openUIStateChanged =
+				session.openUIPrompt.enabled !== openUIEnabled ||
+				session.openUIPrompt.mode !== openUIMode ||
+				(session.openUIPrompt.artifact ?? false) !== openUIArtifact ||
+				// A changed prompt body (new components, functions, or tools) must reach
+				// an existing session, not only newly created ones.
+				session.openUIPrompt.prompt !== buildOpenUIPrompt(openUIMode, openUIPromptOptions);
+			const hasPendingOpenUITransition = this.#openUIPromptTransitions.has(sessionId);
+			const wasStreaming = session.isStreaming;
+			const promptOptions = {
+				images: options?.images,
+				streamingBehavior: options?.streamingBehavior,
+				queueIfBusy: true,
+			};
 
-		if (!wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
-			// Preserve the idle ordering: commit the prompt state before admitting
-			// the next prompt. The transition queue also waits for an earlier active
-			// prompt's safe-boundary reconfiguration.
-			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact, dashboards);
-		}
-		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
-			void (async () => {
-				const state = await session.connection.getState().catch(() => undefined);
-				process.stderr.write(
-					`[bridge:${sessionId.slice(0, 8)}] prompt model=${state?.model?.provider ?? "?"}/${state?.model?.id ?? "?"} thinkingLevel=${state?.thinkingLevel ?? "?"}\n`,
-				);
-			})();
-		}
-		// `promptAndWait` mirrors the legacy `session.prompt(...)` semantics:
-		// resolves when the turn settles (including any queued session commands).
-		// The `queueIfBusy` flag keeps steer/followUp admission behavior
-		// identical to the previous bridge. When a prompt is already streaming,
-		// admit it before waiting for the OpenUI transition; the transition then
-		// runs at the next safe idle boundary.
-		let promptError: unknown;
-		let promptFailed = false;
-		try {
-			await session.connection.promptAndWait(text, promptOptions);
-			// For a session command (e.g. /refine) queued behind an active turn, wait
-			// until input is idle so the HTTP stream can emit its terminal frame
-			// after the command has actually run.
-			if (backendSessionCommand) await session.connection.waitForIdle();
-		} catch (error) {
-			promptFailed = true;
-			promptError = error;
-		}
-		if (wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
-			await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact, dashboards);
-		}
-		if (promptFailed) throw promptError;
+			if (!wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
+				// Preserve the idle ordering: commit the prompt state before admitting
+				// the next prompt. The transition queue also waits for an earlier active
+				// prompt's safe-boundary reconfiguration.
+				await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact, dashboards);
+			}
+			if (process.env.PRIME_BRIDGE_DEBUG === "1") {
+				void (async () => {
+					const state = await session.connection.getState().catch(() => undefined);
+					process.stderr.write(
+						`[bridge:${sessionId.slice(0, 8)}] prompt model=${state?.model?.provider ?? "?"}/${state?.model?.id ?? "?"} thinkingLevel=${state?.thinkingLevel ?? "?"}\n`,
+					);
+				})();
+			}
+			// `promptAndWait` mirrors the legacy `session.prompt(...)` semantics:
+			// resolves when the turn settles (including any queued session commands).
+			// The `queueIfBusy` flag keeps steer/followUp admission behavior
+			// identical to the previous bridge. When a prompt is already streaming,
+			// admit it before waiting for the OpenUI transition; the transition then
+			// runs at the next safe idle boundary.
+			let promptError: unknown;
+			let promptFailed = false;
+			try {
+				await session.connection.promptAndWait(text, promptOptions);
+				// For a session command (e.g. /refine) queued behind an active turn, wait
+				// until input is idle so the HTTP stream can emit its terminal frame
+				// after the command has actually run.
+				if (backendSessionCommand) await session.connection.waitForIdle();
+			} catch (error) {
+				promptFailed = true;
+				promptError = error;
+			}
+			if (wasStreaming && (openUIStateChanged || hasPendingOpenUITransition)) {
+				await this.#scheduleOpenUIPromptState(session, openUIEnabled, openUIMode, openUIArtifact, dashboards);
+			}
+			if (promptFailed) throw promptError;
+		});
 	}
 
 	#scheduleOpenUIPromptState(
@@ -852,30 +970,34 @@ export class PrimeBridge {
 		status: "applied" | "rejected" | "invalid" | "unsupported";
 		queue: { steering: string[]; followUp: string[] };
 	}> {
-		const session = this.#requireSession(sessionId);
-		const upstreamMutation =
-			mutation.type === "delete"
-				? { type: "delete" as const }
-				: {
-						type: "replace" as const,
-						text: mutation.text,
-						lane: mutation.lane ?? lane,
-					};
-		const status = await session.connection.mutateQueuedMessage(lane, index, expectedText, upstreamMutation);
-		const queue = await session.connection.getQueue();
-		return {
-			status,
-			queue: {
-				steering: [...queue.steering],
-				followUp: [...queue.followUp],
-			},
-		};
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			const upstreamMutation =
+				mutation.type === "delete"
+					? { type: "delete" as const }
+					: {
+							type: "replace" as const,
+							text: mutation.text,
+							lane: mutation.lane ?? lane,
+						};
+			const status = await session.connection.mutateQueuedMessage(lane, index, expectedText, upstreamMutation);
+			const queue = await session.connection.getQueue();
+			return {
+				status,
+				queue: {
+					steering: [...queue.steering],
+					followUp: [...queue.followUp],
+				},
+			};
+		});
 	}
 
 	async abort(sessionId: string): Promise<void> {
-		const session = this.#requireSession(sessionId);
-		this.#dialogs.cancelAll(sessionId, "user-abort");
-		await session.connection.abort();
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			this.#dialogs.cancelAll(sessionId, "user-abort");
+			await session.connection.abort();
+		});
 	}
 
 	/**
@@ -891,7 +1013,9 @@ export class PrimeBridge {
 		text: string,
 		streamingBehavior: "steer" | "followUp" = "steer",
 	): Promise<{ canonicalSessionId: string; activeSessionId: string }> {
-		return this.#rlmChildManager.promptChild(parentSessionId, childId, text, streamingBehavior);
+		return this.#withSessionLease(parentSessionId, async () => {
+			return this.#rlmChildManager.promptChild(parentSessionId, childId, text, streamingBehavior);
+		});
 	}
 
 	/**
@@ -900,57 +1024,65 @@ export class PrimeBridge {
 	 * owned by the parent tab, not the child tab).
 	 */
 	async abortRlmChild(parentSessionId: string, childId: string): Promise<boolean> {
-		return this.#rlmChildManager.abortChild(parentSessionId, childId);
+		return this.#withSessionLease(parentSessionId, async () => {
+			return this.#rlmChildManager.abortChild(parentSessionId, childId);
+		});
 	}
 
 	async setModel(
 		sessionId: string,
 		model: { provider: string; id: string },
 	): Promise<{ provider: string; id: string }> {
-		const session = this.#requireSession(sessionId);
-		// Resolution is catalog-sourced and therefore async: the daemon owns the
-		// model list, and Fleet reads it through its cached snapshot.
-		//
-		// A failure here is logged, not swallowed silently: it covers both an
-		// unreachable daemon and a `get_model_catalog` response that fails the
-		// protocol guard, and the second case would otherwise disable the stale-id
-		// fallback below forever with no trace — while `/api/chat/models` returns a
-		// 500 for the very same cause. Behaviour is unchanged; only observability.
-		const catalog = await readDaemonModelCatalog(session.cwd).catch((error: unknown) => {
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			// Resolution is catalog-sourced and therefore async: the daemon owns the
+			// model list, and Fleet reads it through its cached snapshot.
+			//
+			// A failure here is logged, not swallowed silently: it covers both an
+			// unreachable daemon and a `get_model_catalog` response that fails the
+			// protocol guard, and the second case would otherwise disable the stale-id
+			// fallback below forever with no trace — while `/api/chat/models` returns a
+			// 500 for the very same cause. Behaviour is unchanged; only observability.
+			const catalog = await readDaemonModelCatalog(session.cwd).catch((error: unknown) => {
+				process.stderr.write(
+					`[bridge:${sessionId.slice(0, 8)}] model catalog unavailable, passing ${model.provider}/${model.id} through: ${
+						error instanceof Error ? error.message : String(error)
+					}\n`,
+				);
+				return undefined;
+			});
+			if (!catalog) {
+				// The catalog could not be read. Today's failure mode for this case is
+				// the connection's own error, not `Unknown model`, so hand the request
+				// to the connection unchanged rather than reporting a missing model.
+				await session.connection.setModel(model.provider, model.id);
+				return { provider: model.provider, id: model.id };
+			}
+			if (catalogHasModel(catalog, model.provider, model.id)) {
+				await session.connection.setModel(model.provider, model.id);
+				return { provider: model.provider, id: model.id };
+			}
+			// Stale persisted default (e.g. a catalog id removed upstream): when the
+			// provider itself still resolves available models, fall back to its first
+			// available model instead of failing the turn. Unknown providers still
+			// throw: that signals missing credentials, not a stale id.
+			const isProviderAvailable = await providerAvailability(getPrimeConfig().agentDir);
+			const fallback = firstAvailableModelId(catalog, isProviderAvailable, model.provider);
+			if (!fallback) throw new Error(`Unknown model: ${model.provider}/${model.id}`);
 			process.stderr.write(
-				`[bridge:${sessionId.slice(0, 8)}] model catalog unavailable, passing ${model.provider}/${model.id} through: ${
-					error instanceof Error ? error.message : String(error)
-				}\n`,
+				`[bridge:${sessionId.slice(0, 8)}] model fallback ${model.provider}/${model.id} -> ${model.provider}/${fallback}\n`,
 			);
-			return undefined;
+			await session.connection.setModel(model.provider, fallback);
+			return { provider: model.provider, id: fallback };
 		});
-		if (!catalog) {
-			// The catalog could not be read. Today's failure mode for this case is
-			// the connection's own error, not `Unknown model`, so hand the request
-			// to the connection unchanged rather than reporting a missing model.
-			await session.connection.setModel(model.provider, model.id);
-			return { provider: model.provider, id: model.id };
-		}
-		if (catalogHasModel(catalog, model.provider, model.id)) {
-			await session.connection.setModel(model.provider, model.id);
-			return { provider: model.provider, id: model.id };
-		}
-		// Stale persisted default (e.g. a catalog id removed upstream): when the
-		// provider itself still resolves available models, fall back to its first
-		// available model instead of failing the turn. Unknown providers still
-		// throw: that signals missing credentials, not a stale id.
-		const isProviderAvailable = await providerAvailability(getPrimeConfig().agentDir);
-		const fallback = firstAvailableModelId(catalog, isProviderAvailable, model.provider);
-		if (!fallback) throw new Error(`Unknown model: ${model.provider}/${model.id}`);
-		process.stderr.write(
-			`[bridge:${sessionId.slice(0, 8)}] model fallback ${model.provider}/${model.id} -> ${model.provider}/${fallback}\n`,
-		);
-		await session.connection.setModel(model.provider, fallback);
-		return { provider: model.provider, id: fallback };
 	}
 
 	async setThinkingLevel(level: ThinkingLevel): Promise<void> {
-		await Promise.all([...this.#sessions.values()].map((session) => session.connection.setThinkingLevel(level)));
+		await Promise.all(
+			[...this.#sessions.values()].map((session) =>
+				this.#withSessionLease(session.sessionId, () => session.connection.setThinkingLevel(level)),
+			),
+		);
 	}
 
 	// -----------------------------------------------------------------------
@@ -1011,9 +1143,11 @@ export class PrimeBridge {
 
 	/** Read an existing session without initializing its engine or making a turn. */
 	async getResourceSnapshot(sessionId: string, cwd: string) {
-		const session = this.#sessions.get(sessionId);
-		if (!session || resolve(session.cwd) !== resolve(cwd)) return null;
-		return (await session.connection.getFleetResourceSnapshot?.()) ?? null;
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#sessions.get(sessionId);
+			if (!session || resolve(session.cwd) !== resolve(cwd)) return null;
+			return (await session.connection.getFleetResourceSnapshot?.()) ?? null;
+		});
 	}
 
 	/** /name — set or show the session display name. */
@@ -1023,7 +1157,7 @@ export class PrimeBridge {
 		const cache = this.#caches.get(sessionId) ?? emptyCache();
 		cache.sessionName = name;
 		this.#caches.set(sessionId, cache);
-		void session.connection.setSessionName(name).catch(() => undefined);
+		void this.#withSessionLease(sessionId, () => session.connection.setSessionName(name)).catch(() => undefined);
 	}
 
 	getSessionName(sessionId: string): string | undefined {
@@ -1033,32 +1167,40 @@ export class PrimeBridge {
 
 	/** /export — write the session to HTML (default) or JSONL (path ends with .jsonl). */
 	async exportSession(sessionId: string, outputPath?: string): Promise<{ path: string; format: "html" | "jsonl" }> {
-		const session = this.#requireSession(sessionId);
-		const confinedPath = await confineSessionExportPath(session.connection, outputPath);
-		if (outputPath?.endsWith(".jsonl")) {
-			const path = await session.connection.exportToJsonl(confinedPath);
-			return { path, format: "jsonl" };
-		}
-		const path = await session.connection.exportToHtml(confinedPath);
-		return { path, format: "html" };
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			const confinedPath = await confineSessionExportPath(session.connection, outputPath);
+			if (outputPath?.endsWith(".jsonl")) {
+				const path = await session.connection.exportToJsonl(confinedPath);
+				return { path, format: "jsonl" };
+			}
+			const path = await session.connection.exportToHtml(confinedPath);
+			return { path, format: "html" };
+		});
 	}
 
 	/** /reload — re-scan keybindings, extensions, skills, prompts, themes. */
 	async reloadResources(_sessionId?: string): Promise<void> {
-		await Promise.all([...this.#sessions.values()].map((session) => session.connection.reload?.()));
+		await Promise.all(
+			[...this.#sessions.values()].map((session) =>
+				this.#withSessionLease(session.sessionId, () => session.connection.reload()),
+			),
+		);
 	}
 
 	/** /tree — session-tree navigation via navigateTree (requires entry id). */
 	async navigateTree(sessionId: string, targetId: string): Promise<void> {
-		const session = this.#requireSession(sessionId);
-		await this.#withSessionTreeNavigationLock(sessionId, async () => {
-			await session.connection.waitForIdle();
-			await session.connection.navigateTree(targetId, {});
-			await this.#refreshSessionTreeCache(sessionId, session.connection);
-			// Hydrated message ids are positional (${sessionId}-mN): branch navigation
-			// rewrites the transcript branch, so any existing plan records now point at
-			// unrelated messages. Invalidate instead of rendering the wrong card.
-			await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			await this.#withSessionTreeNavigationLock(sessionId, async () => {
+				await session.connection.waitForIdle();
+				await session.connection.navigateTree(targetId, {});
+				await this.#refreshSessionTreeCache(sessionId, session.connection);
+				// Hydrated message ids are positional (${sessionId}-mN): branch navigation
+				// rewrites the transcript branch, so any existing plan records now point at
+				// unrelated messages. Invalidate instead of rendering the wrong card.
+				await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
+			});
 		});
 	}
 
@@ -1095,10 +1237,12 @@ export class PrimeBridge {
 
 	/** Reads a browser-safe session tree snapshot from the live connection. */
 	async readSessionTreeSnapshot(sessionId: string): Promise<SessionTreeSnapshot> {
-		const session = this.#requireSession(sessionId);
-		await this.#refreshSessionTreeCache(sessionId, session.connection);
-		const cached = this.getSessionTree(sessionId);
-		return mapSessionTreeSnapshot(sessionId, cached.tree, cached.leafId);
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			await this.#refreshSessionTreeCache(sessionId, session.connection);
+			const cached = this.getSessionTree(sessionId);
+			return mapSessionTreeSnapshot(sessionId, cached.tree, cached.leafId);
+		});
 	}
 
 	/** Navigates the live session tree and returns the authoritative browser-safe snapshot. */
@@ -1107,19 +1251,21 @@ export class PrimeBridge {
 		targetEntryId: string,
 		expectedLeafId?: string,
 	): Promise<SessionTreeSnapshot> {
-		const session = this.#requireSession(sessionId);
-		return this.#withSessionTreeNavigationLock(sessionId, async () => {
-			await session.connection.waitForIdle();
-			const before = await session.connection.getSessionTree();
-			if (expectedLeafId && before.leafId !== expectedLeafId) {
-				throw new SessionTreeConcurrencyError();
-			}
-			const navigation = await session.connection.navigateTree(targetEntryId, {});
-			if (navigation.cancelled) {
-				throw new SessionTreeCancelledError();
-			}
-			await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
-			return this.readSessionTreeSnapshot(sessionId);
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			return this.#withSessionTreeNavigationLock(sessionId, async () => {
+				await session.connection.waitForIdle();
+				const before = await session.connection.getSessionTree();
+				if (expectedLeafId && before.leafId !== expectedLeafId) {
+					throw new SessionTreeConcurrencyError();
+				}
+				const navigation = await session.connection.navigateTree(targetEntryId, {});
+				if (navigation.cancelled) {
+					throw new SessionTreeCancelledError();
+				}
+				await deleteManagedPlanPresentationsForSession(sessionId, session.sessionPath);
+				return this.readSessionTreeSnapshot(sessionId);
+			});
 		});
 	}
 
@@ -1143,59 +1289,64 @@ export class PrimeBridge {
 		entryId: string,
 		position: "before" | "at" = "before",
 	): Promise<ForkSessionResult> {
-		const bridge = this.#requireSession(sessionId);
-		await bridge.connection.waitForIdle();
-		const sourceState = await bridge.connection.getState();
-		const selectedEntry = findSessionTreeEntry((await bridge.connection.getSessionTree()).tree, entryId);
-		if (!selectedEntry) {
-			throw new Error("Invalid entry ID for forking");
-		}
-		let selectedText: string | undefined;
-		if (position === "before") {
-			selectedText = selectedTextFromSessionEntry(selectedEntry);
-			if (selectedText === undefined) {
+		return this.#withSessionLease(sessionId, async () => {
+			const bridge = this.#requireSession(sessionId);
+			await bridge.connection.waitForIdle();
+			const sourceState = await bridge.connection.getState();
+			const selectedEntry = findSessionTreeEntry((await bridge.connection.getSessionTree()).tree, entryId);
+			if (!selectedEntry) {
 				throw new Error("Invalid entry ID for forking");
 			}
-		}
+			let selectedText: string | undefined;
+			if (position === "before") {
+				selectedText = selectedTextFromSessionEntry(selectedEntry);
+				if (selectedText === undefined) {
+					throw new Error("Invalid entry ID for forking");
+				}
+			}
 
-		const currentFile = sourceState.sessionFile;
-		if (!currentFile) {
-			throw new Error("Cannot fork an unpersisted session");
-		}
+			const currentFile = sourceState.sessionFile;
+			if (!currentFile) {
+				throw new Error("Cannot fork an unpersisted session");
+			}
 
-		if (!bridge.forkToNewSession) throw new Error("Forking is unavailable without a Prime Agent daemon connection");
-		const forked = await bridge.forkToNewSession(entryId, position);
-		if (forked.cancelled) throw new Error("The Prime Agent daemon cancelled the fork");
-		const forkedPath = forked.sessionPath;
-		selectedText = forked.selectedText ?? selectedText;
-		if (!forkedPath) throw new Error("Failed to create forked session");
+			if (!bridge.forkToNewSession)
+				throw new Error("Forking is unavailable without a Prime Agent daemon connection");
+			const forked = await bridge.forkToNewSession(entryId, position);
+			if (forked.cancelled) throw new Error("The Prime Agent daemon cancelled the fork");
+			const forkedPath = forked.sessionPath;
+			selectedText = forked.selectedText ?? selectedText;
+			if (!forkedPath) throw new Error("Failed to create forked session");
 
-		const webAgent = await this.#connectionFactory({
-			cwd: bridge.cwd,
-			sessionPath: forkedPath,
-			thinkingLevel: sourceState.thinkingLevel,
-			openUIPrompt: createOpenUIPromptSessionState(
-				bridge.openUIPrompt.mode,
-				bridge.openUIPrompt.enabled,
-				bridge.openUIPrompt.artifact ?? false,
-			),
+			const webAgent = await this.#connectionFactory({
+				cwd: bridge.cwd,
+				sessionPath: forkedPath,
+				thinkingLevel: sourceState.thinkingLevel,
+				openUIPrompt: createOpenUIPromptSessionState(
+					bridge.openUIPrompt.mode,
+					bridge.openUIPrompt.enabled,
+					bridge.openUIPrompt.artifact ?? false,
+				),
+			});
+			// Carry the source session's model/thinking/service-tier over so the fork
+			// doesn't silently fall back to defaults (provider/settings may differ).
+			if (sourceState.model && !isUnresolvedPlaceholderModel(sourceState.model)) {
+				await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
+			}
+			await webAgent.connection.setThinkingLevel(sourceState.thinkingLevel);
+			await webAgent.connection.setServiceTier(sourceState.serviceTier ?? "default");
+
+			const forkedBridge = await this.#registerConnection(webAgent, bridge.cwd, forkedPath, bridge.projectId);
+			return this.#withSessionLease(forkedBridge.sessionId, async () => {
+				const forkedMessages = await this.getMessages(forkedBridge.sessionId);
+				await copyManagedPlanPresentationsForFork(bridge, forkedBridge, forkedMessages.length);
+				return {
+					cancelled: false,
+					selectedText,
+					newSessionId: forkedBridge.sessionId,
+				};
+			});
 		});
-		// Carry the source session's model/thinking/service-tier over so the fork
-		// doesn't silently fall back to defaults (provider/settings may differ).
-		if (sourceState.model && !isUnresolvedPlaceholderModel(sourceState.model)) {
-			await webAgent.connection.setModel(sourceState.model.provider, sourceState.model.id);
-		}
-		await webAgent.connection.setThinkingLevel(sourceState.thinkingLevel);
-		await webAgent.connection.setServiceTier(sourceState.serviceTier ?? "default");
-
-		const forkedBridge = await this.#registerConnection(webAgent, bridge.cwd, forkedPath, bridge.projectId);
-		const forkedMessages = await this.getMessages(forkedBridge.sessionId);
-		await copyManagedPlanPresentationsForFork(bridge, forkedBridge, forkedMessages.length);
-		return {
-			cancelled: false,
-			selectedText,
-			newSessionId: forkedBridge.sessionId,
-		};
 	}
 
 	/** The stock daemon cannot safely fork a transcript into another project. */
@@ -1212,11 +1363,13 @@ export class PrimeBridge {
 
 	/** Reads message history from a live session, or from the JSONL transcript for a cold session. */
 	async getMessages(sessionId: string): Promise<readonly ChatMessage[]> {
-		const live = this.#sessions.get(sessionId);
-		const messages: readonly AgentMessage[] = live
-			? await live.connection.getMessages()
-			: await this.#loadColdMessages(sessionId);
-		return toChatMessagesFromAgentMessages(messages, sessionId);
+		return this.#withSessionLease(sessionId, async () => {
+			const live = this.#sessions.get(sessionId);
+			const messages: readonly AgentMessage[] = live
+				? await live.connection.getMessages()
+				: await this.#loadColdMessages(sessionId);
+			return toChatMessagesFromAgentMessages(messages, sessionId);
+		});
 	}
 
 	getPresentation(sessionId: string): PrimeAgentSessionPresentation {
@@ -1231,21 +1384,23 @@ export class PrimeBridge {
 		sessionId: string,
 		artifact: PrimeAgentArtifact,
 	): Promise<PrimeAgentSessionPresentation> {
-		const session = this.#requireSession(sessionId);
-		const current = session.mapperState.presentation;
-		const existing = current.artifactRuns
-			.flatMap((run) => run.artifacts)
-			.find((candidate) => candidate.id === artifact.id);
-		if (existing && presentationArtifactsEqual(existing, artifact)) return current;
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#requireSession(sessionId);
+			const current = session.mapperState.presentation;
+			const existing = current.artifactRuns
+				.flatMap((run) => run.artifacts)
+				.find((candidate) => candidate.id === artifact.id);
+			if (existing && presentationArtifactsEqual(existing, artifact)) return current;
 
-		const next = {
-			...upsertArtifact(current, artifact),
-			revision: current.revision + 1,
-		};
-		session.mapperState.presentation = next;
-		await this.#presentationQueue.persist(sessionId, session.sessionPath, next);
-		this.#dispatch(sessionId, { type: "presentation", sessionId, presentation: next });
-		return next;
+			const next = {
+				...upsertArtifact(current, artifact),
+				revision: current.revision + 1,
+			};
+			session.mapperState.presentation = next;
+			await this.#presentationQueue.persist(sessionId, session.sessionPath, next);
+			this.#dispatch(sessionId, { type: "presentation", sessionId, presentation: next });
+			return next;
+		});
 	}
 
 	async #loadColdMessages(sessionId: string): Promise<readonly AgentMessage[]> {
@@ -1256,6 +1411,7 @@ export class PrimeBridge {
 	}
 
 	#requireSession(sessionId: string): BridgeSession {
+		this.#retention.touch(sessionId);
 		const session = this.#sessions.get(sessionId);
 		if (!session) {
 			throw new Error(`Unknown session: ${sessionId}`);

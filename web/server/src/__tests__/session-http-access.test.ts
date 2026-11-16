@@ -7,6 +7,7 @@ import { handleChatSessionDelete, handleChatSessionRenamePatch } from "../handle
 import { handleProjectSessionFork } from "../handlers/projects";
 
 const mocks = vi.hoisted(() => ({
+	retainSession: () => () => {},
 	getSession: vi.fn(),
 	resumeSessionById: vi.fn(),
 	getProject: vi.fn(),

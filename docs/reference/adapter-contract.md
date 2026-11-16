@@ -34,9 +34,11 @@ The active NDJSON response is authoritative for the submitted turn. It carries t
 
 Replayable SSE frames have a monotonically increasing sequence within the current server-side session stream. A reconnect supplies the last received cursor through `Last-Event-ID` or the equivalent resume query, together with the stream generation when available. The server registers the listener before bootstrapping and replays frames newer than the cursor in sequence order.
 
-The replay buffer is bounded and in memory. It is not a durable event log. A process restart, session disposal, buffer clear, generation change, or cursor older than the retained range can make replay unavailable. In those cases the server emits an explicit resync state and the browser rehydrates the session before continuing.
+The replay buffer is bounded by frame count and estimated serialized bytes, and is in memory. It is not a durable event log. A frame larger than the byte budget clears older retained frames, advances the sequence high-water mark, and forces hydration rather than retaining an unbounded payload. A process restart, session disposal, buffer clear, generation change, or cursor older than the retained range can make replay unavailable. In those cases the server emits an explicit resync state and the browser rehydrates the session before continuing.
 
 The browser stores its last accepted cursor per session and reconnects its SSE channel. Hydration reads the session snapshot and Fleet sidecars; it does not reconstruct missing runtime events from arbitrary browser text.
+
+Fleet may detach an idle connection after its retention TTL or under idle-cache pressure. Active requests, scoped subscriptions, ongoing operations, dialogs, child work, and unsettled presentation writes prevent detachment. The runtime's authoritative work flags are checked before detach; unavailable or malformed required state fails closed. Detachment does not abort the daemon worker or remove saved state. Concurrent reattaches wait for disposal and share an opening; the new stream generation invalidates cursors from the old attachment.
 
 ## Validation and HTTP errors
 

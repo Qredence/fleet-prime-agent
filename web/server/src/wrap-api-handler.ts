@@ -3,6 +3,7 @@ import { FleetErrorEnvelopeDecodeSchema } from "@prime-agent/web-protocol/chat-p
 import { COMPOSER_INTENT_COMMANDS } from "@prime-agent/web-protocol/composer-intent";
 import { ZodError } from "zod";
 import { isLoopbackHostname } from "./net";
+import { withSessionLeaseScope } from "./session-lease-scope";
 
 function getResponseStatus(error: unknown): number {
 	// Zod carries no .status; surface schema/parse failures as 422, not 500.
@@ -136,7 +137,7 @@ export function wrapApiHandler(handler: () => Promise<Response>, request: Reques
 		const envelope: FleetErrorEnvelope = { code: "UNKNOWN_ERROR", message: "Cross-origin request rejected." };
 		return Promise.resolve(Response.json(envelope, { status: 403 }));
 	}
-	return handler()
+	return withSessionLeaseScope(handler)
 		.then(normalizeApiErrorResponse)
 		.catch((error) => {
 			const envelope = chatErrorEnvelope(error);

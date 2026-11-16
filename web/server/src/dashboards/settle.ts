@@ -18,6 +18,7 @@ import {
 import { requireSession } from "../handlers/session-access";
 import { stablePresentationId } from "../prime-agent-presentation";
 import { getBridge } from "../singleton";
+import { withSessionLeaseScope } from "../session-lease-scope";
 import { configuredDashboardService } from "./cloud";
 import { dashboardMode } from "./credentials";
 import { dashboardUserId } from "./user-id";
@@ -194,7 +195,7 @@ export async function settleDashboardMessage(
 		await inFlight;
 		return settleDashboardMessage(sessionId, messageId, content);
 	}
-	const run = settleFenceOrFailure(sessionId, messageId, fence);
+	const run = withSessionLeaseScope(() => settleFenceOrFailure(sessionId, messageId, fence));
 	settling.set(claim, run);
 	try {
 		return await run;

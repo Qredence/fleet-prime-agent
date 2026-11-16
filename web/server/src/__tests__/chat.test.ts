@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleChatPost } from "../handlers/chat";
 import { handleChatNewPost } from "../handlers/chat-new";
 import { handleChatSessionGet } from "../handlers/chat-session";
-import { sessionStatus } from "../handlers/projects";
+import { sessionStatus } from "../session-list";
 import type { BridgeSession, PrimeBridge } from "../prime-bridge";
 import { sessionCommandResultText } from "../session-commands";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
@@ -37,6 +37,7 @@ describe("handleChatPost attachment validation", () => {
 		} as unknown as BridgeSession;
 		prompt = vi.fn();
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => session),
 			resumeSessionById: vi.fn(),
 			prompt,
@@ -151,6 +152,7 @@ describe("handleChatPost attachment validation", () => {
 		} as unknown as BridgeSession;
 		let listener: ((sessionId: string, frame: unknown) => void) | undefined;
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => streamSession),
 			addEventListener: vi.fn((next) => {
 				listener = next;
@@ -208,6 +210,7 @@ describe("handleChatPost attachment validation", () => {
 				}),
 		);
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => streamSession),
 			addEventListener: vi.fn((next) => {
 				listener = next;
@@ -268,6 +271,7 @@ describe("handleChatPost attachment validation", () => {
 		let listener: ((sessionId: string, frame: unknown) => void) | undefined;
 		let finishPrompt!: () => void;
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => streamSession),
 			addEventListener: vi.fn((next) => {
 				listener = next;
@@ -334,6 +338,7 @@ describe("handleChatPost attachment validation", () => {
 		};
 		const getMessages = vi.fn(async () => [persistedMessage]);
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => streamSession),
 			addEventListener: vi.fn(() => () => undefined),
 			getPresentation: vi.fn(() => streamSession.mapperState.presentation),
@@ -448,6 +453,7 @@ describe("handleChatNewPost", () => {
 				}) as unknown as BridgeSession,
 		);
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => undefined),
 			resumeSessionById,
 			getMessages: vi.fn(async () => []),
@@ -471,6 +477,7 @@ describe("handleChatNewPost", () => {
 
 	it("rejects session reads for sessions outside registered projects", async () => {
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: null })),
 			resumeSessionById: vi.fn(async () => undefined),
 			resetForTests: vi.fn(),
@@ -495,6 +502,7 @@ describe("handleChatNewPost", () => {
 			},
 		}));
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "parent-session", projectId: "project-1" })),
 			loadRlmChildTranscript,
 		} as unknown as PrimeBridge);
@@ -526,6 +534,7 @@ describe("handleChatNewPost", () => {
 
 	it("keeps child-loader failures free of local transcript paths", async () => {
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "parent-session", projectId: "project-1" })),
 			loadRlmChildTranscript: vi.fn(async () => {
 				throw new Error("failed to read /tmp/private/child.jsonl");

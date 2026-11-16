@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../project-request", () => ({ cwdForRequest: async () => "/workspace" }));
 vi.mock("../singleton", () => ({
 	getBridge: () => ({
+		retainSession: () => () => {},
 		getResourceSnapshot: mocks.snapshot,
 		getSession: mocks.getSession,
 		resumeSessionById: mocks.resumeSessionById,

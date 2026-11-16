@@ -2,6 +2,7 @@ import { type ProjectId, SessionIdSchema } from "@prime-agent/web-protocol";
 import type { BridgeSession } from "../prime-bridge";
 import { getPrimeConfig } from "../prime-config";
 import { getBridge } from "../singleton";
+import { retainSessionInScope } from "../session-lease-scope";
 
 /**
  * The HTTP access path for caller-supplied session ids. Cache hits must recheck
@@ -22,6 +23,7 @@ export async function requireSession(
 			? undefined
 			: await bridge.resumeSessionById(sessionId, options?.projectId, { openUI: options?.openUI }));
 	if (!session?.projectId || (options?.projectId && session.projectId !== options.projectId)) return undefined;
+	retainSessionInScope(session.sessionId, () => bridge.retainSession(session.sessionId));
 	try {
 		await getPrimeConfig().projectRegistry.get(session.projectId);
 	} catch {

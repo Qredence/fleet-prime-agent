@@ -31,6 +31,7 @@ vi.mock("../prime-config", () => ({
 
 vi.mock("../singleton", () => ({
 	getBridge: () => ({
+		retainSession: () => () => {},
 		getSession: () => ({ sessionId: "session-1", projectId: "project-1" }),
 		resumeSessionById: async () => undefined,
 		getMessages: mocks.getMessages,

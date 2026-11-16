@@ -26,6 +26,10 @@ export class CoalescingRefreshQueue {
 			.catch(() => undefined);
 	}
 
+	has(key: string): boolean {
+		return this.#inFlight.has(key) || this.#pending.has(key);
+	}
+
 	clear(): void {
 		this.#inFlight.clear();
 		this.#pending.clear();

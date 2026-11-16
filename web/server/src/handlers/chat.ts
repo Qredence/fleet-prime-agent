@@ -256,7 +256,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 					if (nextFrame.type === "error" || (nextFrame.type === "done" && !nextFrame.sessionReset)) {
 						close();
 					}
-				});
+				}, session.sessionId);
 
 				const streamingBehavior = resolveChatStreamingBehavior(body.streamingBehavior);
 				const startId = chooseChatStartId(session.mapperState, streamingBehavior, session.isStreaming);

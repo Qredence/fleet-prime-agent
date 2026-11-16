@@ -184,6 +184,24 @@ export type DaemonOutboundFrame =
 	| DaemonSessionClosedFrame
 	| DaemonClosingFrame;
 
+/**
+ * Idle admission for detaching Fleet's client, not terminating the daemon worker.
+ * Rust omits legacy retryAttempt; optional Rust work flags must still veto detach.
+ */
+export function isIdleConnectionState(value: unknown): boolean {
+	if (!isRecord(value) || value.isStreaming !== false || value.isCompacting !== false || value.isBashRunning !== false)
+		return false;
+	if (!isRecord(value.sessionActions) || value.sessionActions.queuedCount !== 0) return false;
+	for (const flag of ["isRunningTools", "hasRunningSubagents", "isQuotaParked"]) {
+		if (value[flag] !== undefined && value[flag] !== false) return false;
+	}
+	for (const count of ["retryAttempt", "unfinishedActionCount"]) {
+		if (value[count] !== undefined && value[count] !== 0) return false;
+	}
+	if (isRecord(value.goal) && value.goal.status === "active") return false;
+	return value.activity === undefined || value.activity === "idle";
+}
+
 /** Session summary row returned by `create`, `get_state`, and `list`. */
 export type DaemonSessionSummary = {
 	id: string;

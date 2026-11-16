@@ -25,6 +25,7 @@ const emptyPresentation = {
 
 function bridgeWith(overrides: Partial<PrimeBridge>): PrimeBridge {
 	return {
+		retainSession: () => () => {},
 		addEventListener: vi.fn(() => () => undefined),
 		pendingDialogsFor: vi.fn(() => []),
 		replaySince: vi.fn(() => ({ replayed: [], overflowed: false })),

@@ -25,6 +25,7 @@ describe("handleChatQueueMutationPost", () => {
 			queue: { steering: [], followUp: ["after"] },
 		});
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1" })),
 			resumeSessionById: vi.fn(),
 			mutateQueuedMessage,
@@ -58,6 +59,7 @@ describe("handleChatQueueMutationPost", () => {
 			queue: { steering: ["updated"], followUp: [] },
 		});
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1" })),
 			resumeSessionById: vi.fn(),
 			mutateQueuedMessage,
@@ -93,6 +95,7 @@ describe("handleChatQueueMutationPost", () => {
 	it("rejects queued mutations for sessions outside registered projects", async () => {
 		const mutateQueuedMessage = vi.fn();
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: null })),
 			resumeSessionById: vi.fn(async () => undefined),
 			mutateQueuedMessage,

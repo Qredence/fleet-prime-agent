@@ -18,6 +18,7 @@ vi.mock("../handlers/chat-resources", () => ({
 }));
 
 const sessionBridge = vi.hoisted(() => ({
+	retainSession: () => () => {},
 	getSession: vi.fn(),
 	resumeSessionById: vi.fn(async () => undefined),
 	getMessages: vi.fn(async (_id: string): Promise<unknown> => []),

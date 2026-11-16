@@ -97,9 +97,9 @@ function createSseResponse(request: Request, bridge: PrimeBridge, source: SseSou
 					: null;
 			const flush = () => {
 				if (!readyToFlush || closed) return;
-				const { replayed, overflowed } = bridge.replaySince(channelId, liveCursor);
+				const { replayed, overflowed, latestSequence } = bridge.replaySince(channelId, liveCursor);
 				if (overflowed) {
-					const latestSeq = replayed.at(-1)?.seq ?? 0;
+					const latestSeq = latestSequence ?? replayed.at(-1)?.seq ?? liveCursor;
 					liveCursor = latestSeq;
 					write({
 						...(latestSeq > 0 ? { id: latestSeq } : {}),
@@ -133,7 +133,7 @@ function createSseResponse(request: Request, bridge: PrimeBridge, source: SseSou
 			// response is being assembled is replayed after the snapshot.
 			removeListener = bridge.addEventListener((sessionId) => {
 				if (sessionId === channelId) flush();
-			});
+			}, channelId);
 			write({
 				data: {
 					type: "connected",
