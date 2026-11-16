@@ -217,6 +217,7 @@ describe("handleChatOpenUIArtifactPut", () => {
 			sessionPath: "/tmp/session-1.jsonl",
 		} as unknown as BridgeSession;
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => session),
 			resumeSessionById: vi.fn(),
 			resetForTests: vi.fn(),

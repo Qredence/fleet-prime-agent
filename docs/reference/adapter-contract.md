@@ -15,7 +15,7 @@ This document explains durable semantics. Code, schemas, and tests remain author
 
 ## Compatibility
 
-The adapter advertises a protocol version, schema revision, and optional feature names in connection/start metadata. The currently implemented optional feature is `reasoning-summary-v1`.
+The adapter advertises a protocol version, schema revision, and known feature names in connection/start metadata. `FleetAdapterFeatureSchema` is the catalog for Fleet's own advertisements; incoming capability metadata deliberately accepts unknown future names. Feature support does not imply that an optional external service is configured. The browser capability-gates reasoning presentation; existing MCP, session-tree, and composer endpoints retain their baseline behavior.
 
 Clients must ignore unknown feature names and treat absent or unsupported optional features as unavailable. The server keeps baseline event and session behavior usable without an optional feature; the browser uses its fallback presentation.
 
@@ -34,9 +34,19 @@ The active NDJSON response is authoritative for the submitted turn. It carries t
 
 Replayable SSE frames have a monotonically increasing sequence within the current server-side session stream. A reconnect supplies the last received cursor through `Last-Event-ID` or the equivalent resume query, together with the stream generation when available. The server registers the listener before bootstrapping and replays frames newer than the cursor in sequence order.
 
-The replay buffer is bounded and in memory. It is not a durable event log. A process restart, session disposal, buffer clear, generation change, or cursor older than the retained range can make replay unavailable. In those cases the server emits an explicit resync state and the browser rehydrates the session before continuing.
+The replay buffer is bounded by frame count and estimated serialized bytes, and is in memory. It is not a durable event log. A frame larger than the byte budget clears older retained frames, advances the sequence high-water mark, and forces hydration rather than retaining an unbounded payload. A process restart, session disposal, buffer clear, generation change, or cursor older than the retained range can make replay unavailable. In those cases the server emits an explicit resync state and the browser rehydrates the session before continuing.
 
 The browser stores its last accepted cursor per session and reconnects its SSE channel. Hydration reads the session snapshot and Fleet sidecars; it does not reconstruct missing runtime events from arbitrary browser text.
+
+Fleet may detach an idle connection after its retention TTL or under idle-cache pressure. Active requests, scoped subscriptions, ongoing operations, dialogs, child work, and unsettled presentation writes prevent detachment. The runtime's authoritative work flags are checked before detach; unavailable or malformed required state fails closed. Detachment does not abort the daemon worker or remove saved state. Concurrent reattaches wait for disposal and share an opening; the new stream generation invalidates cursors from the old attachment.
+
+## Validation and HTTP errors
+
+`ChatStreamEventSchema` is the strict producer contract used by daemon-frame replay and mapper tests: unknown top-level keys, including misspelled optional fields, fail validation. Each frame composes its replay cursor before strictness is applied. Browser transports use `ChatStreamEventDecodeSchema`, which validates known frame shapes and strips unknown additive top-level fields. Cursor metadata remains strictly validated.
+
+HTTP failures carry a top-level `FleetErrorEnvelope` (`code`, `message`, and optional validated remediation). The API wrapper normalizes explicit handler errors as well as exceptions, preserving HTTP status, response headers, and endpoint-specific metadata. Dashboard interpreter errors also retain the SDK's nested `error` field for compatibility. Successful streams are not consumed or rewritten.
+
+Browser error decoding accepts current envelopes and older message-only, nested-error, and string-error payloads. Unknown future codes map to `UNKNOWN_ERROR`; invalid remediation is discarded rather than asserted to a trusted type. Known terminal sign-in commands remain readable while local paths and credential-shaped values are scrubbed from server error messages.
 
 ## Event mapping
 
@@ -133,6 +143,7 @@ Durable rules:
 
 - The surface is **read-only**. There is no `Mutation` tool and no write path.
   The browser must not gain a write capability through generated UI.
+- Prompt generation and generated prompt signatures belong to `web/server` (`openui-prompt.ts` and `openui-signatures.ts`), never to the browser-safe protocol barrel. The app's contract generator derives signatures from the actual UI libraries, and a tooling-only integration test validates the examples against those libraries.
 - Tool names, argument schemas, and row field names are owned by
   `web/protocol/src/openui-tools.ts`. Row field names are prompt text: a
   generated table that invents column keys renders placeholders, so keep the

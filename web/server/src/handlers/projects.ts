@@ -3,93 +3,28 @@ import {
 	ProjectForkRequestSchema,
 	ProjectIdSchema,
 	ProjectRenameRequestSchema,
-	redactSessionLabelSecrets,
 } from "@prime-agent/web-protocol";
-import type { BridgeSession } from "../prime-bridge";
 import { getPrimeConfig } from "../prime-config";
-import {
-	applyPresentationToSessionRow,
-	loadSessionListPresentation,
-	normalizeSessionListRow,
-	type SessionListSource,
-} from "../session-list";
+import { listSessionRows } from "../session-list";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
-
-export function sessionStatus(
-	info: Pick<SessionListSource, "activity" | "isSessionActive" | "isStreaming" | "hasRunningRlmChildren" | "state">,
-	live: BridgeSession | undefined,
-) {
-	if (live?.isStreaming || live?.session?.isStreaming || info.isStreaming) {
-		return "running" as const;
-	}
-	// Daemon sessions stay busy while active or while background RLM subagents
-	// keep the parent "working" after its own turn ends. Restored never-activated
-	// workers report "working" with both flags false; nothing runs in that state.
-	if (info.activity === "working" && (info.isSessionActive || info.hasRunningRlmChildren === true)) {
-		return "running" as const;
-	}
-	if (info.state?.status === "crash") return "failed" as const;
-	return live || info.isSessionActive ? ("idle" as const) : ("interrupted" as const);
-}
-
-async function sessionProjectIds() {
-	const bridge = getBridge();
-	const sessions = await bridge.listSessions();
-	const registry = getPrimeConfig().projectRegistry;
-	const assignmentEntries = await Promise.all(
-		sessions.map(async (source) => {
-			const session = normalizeSessionListRow(source);
-			return [
-				session.sessionId,
-				await registry.projectIdForSession(
-					session.sessionId,
-					bridge.getSession(session.sessionId)?.cwd ?? session.cwd,
-				),
-			] as const;
-		}),
-	);
-	const assignments = new Map(assignmentEntries);
-	return { bridge, sessions, assignments };
-}
+import { requireSession } from "./session-access";
 
 /**
  * Lists registered projects and their associated session metadata.
  *
  * @returns A response containing project records with session counts and normalized session details.
  */
-export function handleProjectsGet(_request: Request): Promise<Response> {
+export function handleProjectsGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
-		const { sessions, assignments } = await sessionProjectIds();
+		const registry = getPrimeConfig().projectRegistry;
+		const sessions = await listSessionRows(getBridge(), registry);
 		const counts = new Map<string, number>();
-		for (const projectId of assignments.values()) {
-			if (projectId) counts.set(projectId, (counts.get(projectId) ?? 0) + 1);
+		for (const session of sessions) {
+			if (session.projectId) counts.set(session.projectId, (counts.get(session.projectId) ?? 0) + 1);
 		}
-		return Response.json({
-			projects: await getPrimeConfig().projectRegistry.list(counts),
-			sessions: await Promise.all(
-				sessions.map(async (source) => {
-					const session = normalizeSessionListRow(source);
-					const liveSession = getBridge().getSession(session.sessionId);
-					const fields = applyPresentationToSessionRow(
-						session,
-						await loadSessionListPresentation(session, source, liveSession?.mapperState?.presentation),
-					);
-					return {
-						sessionId: session.sessionId,
-						projectId: assignments.get(session.sessionId) ?? null,
-						title: redactSessionLabelSecrets(fields.title),
-						createdAt: session.createdAt,
-						updatedAt: session.updatedAt,
-						status: sessionStatus(session.source, liveSession),
-						messageCount: fields.messageCount,
-						firstMessage: fields.firstMessage ? redactSessionLabelSecrets(fields.firstMessage) : "",
-						...(session.isSubagent ? { isSubagent: true } : {}),
-					};
-				}),
-			),
-		});
-	}, _request);
+		return Response.json({ projects: await registry.list(counts), sessions });
+	}, request);
 }
 
 export function handleProjectsPost(request: Request): Promise<Response> {
@@ -119,6 +54,8 @@ export function handleProjectDelete(request: Request): Promise<Response> {
 export function handleProjectSessionFork(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const body = ProjectForkRequestSchema.parse(await request.json().catch(() => ({})));
+		const source = await requireSession(body.sessionId);
+		if (!source) return Response.json({ message: `Unknown session: ${body.sessionId}` }, { status: 404 });
 		const sessionId = await getBridge().forkSessionIntoProject(body.sessionId, body.targetProjectId);
 		return Response.json({ sessionId, projectId: body.targetProjectId }, { status: 201 });
 	}, request);

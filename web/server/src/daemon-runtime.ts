@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { OpenUIPromptMode } from "@prime-agent/web-protocol";
+import type { OpenUIPromptMode } from "./openui-prompt";
 import type { AgentSession, AgentSessionRuntimeConfig, ExtensionUIContext } from "prime-agent";
 import type { FleetAgentConnection } from "./agent-connection-port";
 import { AGENT_DIR_ENV } from "./agent-dir";

@@ -11,6 +11,7 @@ import type { DaemonModel, DaemonModelCatalog } from "../daemon-protocol";
 import type { listDaemonSessions } from "../daemon-runtime";
 import type { DaemonSequenceGap } from "../daemon-sequence-gap";
 import { createInProcessTestAgentConnection } from "../in-process-test-connection";
+import { handleChatCommandPost } from "../handlers/chat-command";
 import { invalidateModelCatalog, resetModelCatalogCacheForTests } from "../model-catalog-cache";
 import { loadManagedPrimePresentation, writeManagedPrimePresentation } from "../prime-agent-presentation";
 import { PrimeBridge, type PrimeBridgeOptions } from "../prime-bridge";
@@ -1426,28 +1427,47 @@ describe("PrimeBridge.resumeSessionById", () => {
 		expect(unassign).toHaveBeenCalledWith(persisted.sessionId, null);
 	});
 
-	it("does not open a connection when the session project is not active", async () => {
-		const persisted = createPersistedTranscript();
-		const registry = getPrimeConfig().projectRegistry;
-		const project = await registry.register(workDir, "Inactive project");
-		await registry.unregister(project.projectId);
-		let opened = 0;
-		const bridge = createTrackedBridge({
-			connectionFactory: async (options) => {
-				opened += 1;
-				return createInProcessTestAgentConnection(options);
-			},
-			sessionLister: listerFor(persisted),
-		});
+	it.each(["export", "fork", "name", "reload"])(
+		"does not attach or execute /%s for a cold session in an inactive project",
+		async (command) => {
+			const persisted = createPersistedTranscript();
+			const registry = getPrimeConfig().projectRegistry;
+			const project = await registry.register(workDir, "Inactive project");
+			await registry.unregister(project.projectId);
+			let opened = 0;
+			const bridge = createTrackedBridge({
+				connectionFactory: async (options) => {
+					opened += 1;
+					return createInProcessTestAgentConnection(options);
+				},
+				sessionLister: listerFor(persisted),
+			});
 
-		await expect(bridge.resumeSessionById(persisted.sessionId)).resolves.toBeUndefined();
-		expect(opened).toBe(0);
-		expect(bridge.getSession(persisted.sessionId)).toBeUndefined();
-		const saved = JSON.parse(readFileSync(join(agentDir, "fleet-projects.json"), "utf8")) as {
-			sessionAssignments?: Record<string, string>;
-		};
-		expect(saved.sessionAssignments?.[persisted.sessionId]).toBeUndefined();
-	});
+			setBridgeForTests(bridge);
+			const operations = [
+				vi.spyOn(bridge, "exportSession"),
+				vi.spyOn(bridge, "forkSession"),
+				vi.spyOn(bridge, "setSessionName"),
+				vi.spyOn(bridge, "reloadResources"),
+			];
+			const response = await handleChatCommandPost(
+				new Request("http://localhost/api/chat/command", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ sessionId: persisted.sessionId, command, args: "entry-or-name" }),
+				}),
+			);
+			expect(response.status).toBe(404);
+			for (const operation of operations) expect(operation).not.toHaveBeenCalled();
+			await expect(bridge.resumeSessionById(persisted.sessionId)).resolves.toBeUndefined();
+			expect(opened).toBe(0);
+			expect(bridge.getSession(persisted.sessionId)).toBeUndefined();
+			const saved = JSON.parse(readFileSync(join(agentDir, "fleet-projects.json"), "utf8")) as {
+				sessionAssignments?: Record<string, string>;
+			};
+			expect(saved.sessionAssignments?.[persisted.sessionId]).toBeUndefined();
+		},
+	);
 
 	it("resumes a session in an active project", async () => {
 		const persisted = createPersistedTranscript();

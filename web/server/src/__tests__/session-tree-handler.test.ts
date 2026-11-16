@@ -53,6 +53,7 @@ describe("session tree handlers", () => {
 	it("reads a browser-safe snapshot for a registered session", async () => {
 		const readSessionTreeSnapshot = vi.fn().mockResolvedValue(snapshot);
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1", isStreaming: false })),
 			resumeSessionById: vi.fn(),
 			readSessionTreeSnapshot,
@@ -71,6 +72,7 @@ describe("session tree handlers", () => {
 	it("allows reading the session tree while the session is streaming", async () => {
 		const readSessionTreeSnapshot = vi.fn().mockResolvedValue(snapshot);
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1", isStreaming: true })),
 			resumeSessionById: vi.fn(),
 			readSessionTreeSnapshot,
@@ -89,6 +91,7 @@ describe("session tree handlers", () => {
 	it("rejects navigate while the session is streaming", async () => {
 		const navigateSessionTree = vi.fn();
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1", isStreaming: true })),
 			resumeSessionById: vi.fn(),
 			navigateSessionTree,
@@ -110,6 +113,7 @@ describe("session tree handlers", () => {
 	it("navigates the tree and returns the authoritative snapshot", async () => {
 		const navigateSessionTree = vi.fn().mockResolvedValue(snapshot);
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1", isStreaming: false })),
 			resumeSessionById: vi.fn(),
 			navigateSessionTree,
@@ -136,6 +140,7 @@ describe("session tree handlers", () => {
 	it("maps concurrency conflicts to 409", async () => {
 		const navigateSessionTree = vi.fn().mockRejectedValue(new SessionTreeConcurrencyError());
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1", isStreaming: false })),
 			resumeSessionById: vi.fn(),
 			navigateSessionTree,
@@ -156,6 +161,7 @@ describe("session tree handlers", () => {
 
 		expect(response.status).toBe(409);
 		await expect(response.json()).resolves.toEqual({
+			code: "UNKNOWN_ERROR",
 			message: "The session tree changed while you were selecting a rewind target. Refresh and try again.",
 		});
 	});
@@ -163,6 +169,7 @@ describe("session tree handlers", () => {
 	it("maps cancelled navigation to 409", async () => {
 		const navigateSessionTree = vi.fn().mockRejectedValue(new SessionTreeCancelledError());
 		setBridgeForTests({
+			retainSession: () => () => {},
 			getSession: vi.fn(() => ({ sessionId: "session-1", projectId: "project-1", isStreaming: false })),
 			resumeSessionById: vi.fn(),
 			navigateSessionTree,
@@ -179,6 +186,7 @@ describe("session tree handlers", () => {
 
 		expect(response.status).toBe(409);
 		await expect(response.json()).resolves.toEqual({
+			code: "UNKNOWN_ERROR",
 			message: "Session tree navigation was cancelled. Refresh and try again.",
 		});
 	});

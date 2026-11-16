@@ -4,7 +4,7 @@ import type {
 	FleetAdapterCapabilities,
 	PrimeAgentRlmChild,
 } from "@prime-agent/web-protocol/chat-protocol";
-import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { ChatStreamEventDecodeSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -326,7 +326,7 @@ export function useSubagentChat({
 
 						let frame: ChatStreamEvent;
 						try {
-							frame = parseWithSchema(ChatStreamEventSchema, raw, "Subagent chat stream event");
+							frame = parseWithSchema(ChatStreamEventDecodeSchema, raw, "Subagent chat stream event");
 						} catch (error) {
 							subscription?.close();
 							setState((current) => ({

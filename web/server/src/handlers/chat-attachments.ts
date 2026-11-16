@@ -6,9 +6,8 @@ import {
 	readManagedAttachment,
 	storeManagedAttachment,
 } from "../managed-attachments";
-import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
-import { requireProjectSession } from "./session-access";
+import { requireSession } from "./session-access";
 
 const AttachmentIdSchema = z.uuid();
 const ATTACHMENT_WRITE_CONCURRENCY = 8;
@@ -32,13 +31,6 @@ function isSafeRasterImage(mimeType: string, data: Uint8Array) {
 	);
 }
 
-async function resolveSession(sessionId: string) {
-	const bridge = getBridge();
-	const session = bridge.getSession(sessionId) ?? (await bridge.resumeSessionById(sessionId));
-	if (!(await requireProjectSession(session))) return undefined;
-	return session;
-}
-
 export function handleChatAttachmentsPost(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
 		const form = await request.formData();
@@ -48,7 +40,7 @@ export function handleChatAttachmentsPost(request: Request): Promise<Response> {
 		if (files.reduce((total, file) => total + file.size, 0) > MAX_TURN_ATTACHMENT_BYTES) {
 			return Response.json({ message: "Attachments exceed the 100 MiB per-turn limit" }, { status: 413 });
 		}
-		const session = await resolveSession(sessionId);
+		const session = await requireSession(sessionId);
 		if (!session) return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		const settled: PromiseSettledResult<UploadedAttachment>[] = [];
 		for (let index = 0; index < files.length; index += ATTACHMENT_WRITE_CONCURRENCY) {
@@ -76,7 +68,7 @@ export function handleChatAttachmentGet(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		const sessionId = SessionIdSchema.parse(url.searchParams.get("sessionId"));
 		const attachmentId = AttachmentIdSchema.parse(url.searchParams.get("attachmentId"));
-		const session = await resolveSession(sessionId);
+		const session = await requireSession(sessionId);
 		if (!session) return Response.json({ message: `Unknown session: ${sessionId}` }, { status: 404 });
 		const attachment = await readManagedAttachment(session, attachmentId).catch(() => undefined);
 		if (!attachment) return Response.json({ message: "Attachment not found" }, { status: 404 });

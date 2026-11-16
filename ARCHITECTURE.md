@@ -73,9 +73,9 @@ Prime Agent-specific runtime knowledge should terminate here.
 
 ### `web/protocol`
 
-Owns browser/server transport types and compatibility vocabulary.
+Owns browser/server transport types, schemas, and compatibility vocabulary. OpenUI prompt generation and generated prompt signatures belong to `web/server`; the shared package must not pull prompt-generation code into browser imports.
 
-The browser and server should share these types instead of reproducing wire shapes independently.
+The browser and server should share these types instead of reproducing wire shapes independently. Producer frame schemas are strict; browser decoding tolerates additive optional fields while validating known shapes.
 
 ### `packages/fleet-web`
 
@@ -160,6 +160,12 @@ Prime Agent owns the runtime session, transcript, model/provider state, queue, a
 Fleet owns the product association and server-side presentation layers. These include process-local bridge listeners, replay buffers, pending interactions, and connection state, plus validated persisted presentation sidecars for artifacts, RLM/user-bash/refinement state, and explicit Plan-mode presentations.
 
 Hydration loads upstream messages and Fleet sidecars separately. Plan presentations are keyed to assistant message identity and are joined to browser messages without being rewritten as upstream transcript/runtime state. Sidecars are removed or re-keyed through the corresponding session deletion and fork flows.
+
+Session/project catalogs share a read-only, bounded-concurrency projection. Resolving an inferred project association for a list does not persist it. The initial workspace project is derived in memory with a stable opaque ID until an explicit mutation persists the registry; listing does not create the registry directory or file. Summary joins skip kernel stderr diagnostics.
+
+Fleet periodically detaches least-recently-used idle connections, targeting 64 retained sessions and expiring idle attachments after 30 minutes (maintenance runs every minute). Requests, scoped stream subscriptions, runtime operations, background dashboard settlement, pending dialogs, child activity, and unsettled/failed presentation writes retain their sessions. The daemon's supported state is checked before detaching; unknown or busy state prevents eviction. These are an idle-cache target and TTL, not an admission limit on active work or a daemon-worker limit. Detachment never aborts or terminates the upstream session and never deletes transcripts, sidecars, or project assignments. A later attach hydrates saved state with a new stream generation.
+
+Replay buffers retain at most 500 frames and an estimated 1 MiB of serialized UTF-8 payload per channel. This estimate is not a total JavaScript heap limit. Oversized frames invalidate older replay and require hydration; the sequence high-water mark still advances so SSE clients can recover without repeating the same overflow.
 
 ## Configuration and credentials
 

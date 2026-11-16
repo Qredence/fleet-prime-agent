@@ -1,6 +1,6 @@
-import { rmSync } from "node:fs"
-import { SMOKE_STATE_DIR_ENV, SMOKE_STATE_OWNED_ENV } from "./hermetic-state"
-import { listProcesses, processesUnder, terminateProcesses } from "./smoke-processes"
+import { rmSync } from "node:fs";
+import { SMOKE_STATE_DIR_ENV, SMOKE_STATE_OWNED_ENV } from "./hermetic-state";
+import { listProcesses, processesUnder, terminateProcesses } from "./smoke-processes";
 
 /**
  * The dev server spawns the pinned Prime daemon detached, so it outlives the
@@ -13,12 +13,12 @@ import { listProcesses, processesUnder, terminateProcesses } from "./smoke-proce
  * the state dir: the daemon, its workers and their kernels.
  */
 export default async function globalTeardown() {
-	const stateDir = process.env[SMOKE_STATE_DIR_ENV]
-	if (!stateDir) return
-	const devServer = listProcesses().filter((info) => info.ppid === process.pid && info.command.includes("vite dev"))
-	await terminateProcesses(devServer)
-	await terminateProcesses(processesUnder(stateDir))
+	const stateDir = process.env[SMOKE_STATE_DIR_ENV];
+	if (!stateDir) return;
+	const devServer = listProcesses().filter((info) => info.ppid === process.pid && info.command.includes("vite dev"));
+	await terminateProcesses(devServer);
+	await terminateProcesses(processesUnder(stateDir));
 	if (process.env[SMOKE_STATE_OWNED_ENV] === "1" && process.env.FLEET_SMOKE_KEEP_STATE !== "1") {
-		rmSync(stateDir, { recursive: true, force: true })
+		rmSync(stateDir, { recursive: true, force: true });
 	}
 }

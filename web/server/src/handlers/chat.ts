@@ -8,7 +8,7 @@ import type { PrimeBridge } from "../prime-bridge";
 import { parseBackendSessionCommand, sessionCommandResultText } from "../session-commands";
 import { getBridge } from "../singleton";
 import { chatErrorEnvelope, wrapApiHandler } from "../wrap-api-handler";
-import { requireProjectSession } from "./session-access";
+import { requireSession } from "./session-access";
 
 export function resolveChatStreamingBehavior(streamingBehavior?: "steer" | "followUp"): "steer" | "followUp" {
 	return streamingBehavior ?? "steer";
@@ -42,9 +42,8 @@ async function handleChatChildPost(
 	message: string,
 	streamingBehavior: "steer" | "followUp" | undefined,
 ): Promise<Response> {
-	const session =
-		bridge.getSession(parentSessionId) ?? (await bridge.resumeSessionById(parentSessionId, undefined, {}));
-	if (!session || !(await requireProjectSession(session))) {
+	const session = await requireSession(parentSessionId);
+	if (!session) {
 		return Response.json({ message: `Unknown session: ${parentSessionId}` }, { status: 404 });
 	}
 
@@ -160,9 +159,8 @@ export function handleChatPost(request: Request): Promise<Response> {
 		if (process.env.PRIME_BRIDGE_DEBUG === "1") {
 			process.stderr.write(`[chat] received session=${targetSessionId.slice(0, 8)} bytes=${message.length}\n`);
 		}
-		const session =
-			bridge.getSession(targetSessionId) ?? (await bridge.resumeSessionById(targetSessionId, undefined, { openUI }));
-		if (!session || !(await requireProjectSession(session))) {
+		const session = await requireSession(targetSessionId, { openUI });
+		if (!session) {
 			return Response.json({ message: `Unknown session: ${targetSessionId}` }, { status: 404 });
 		}
 		const uploadAttachments = (body.attachments ?? []).filter(
@@ -258,7 +256,7 @@ export function handleChatPost(request: Request): Promise<Response> {
 					if (nextFrame.type === "error" || (nextFrame.type === "done" && !nextFrame.sessionReset)) {
 						close();
 					}
-				});
+				}, session.sessionId);
 
 				const streamingBehavior = resolveChatStreamingBehavior(body.streamingBehavior);
 				const startId = chooseChatStartId(session.mapperState, streamingBehavior, session.isStreaming);

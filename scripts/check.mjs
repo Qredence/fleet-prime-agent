@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pnpmInvocation } from "./pnpm-command.mjs";
+import { formatPaths, lintPaths } from "./check-paths.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const write = process.argv.includes("--write");
@@ -31,23 +32,6 @@ if (unexpectedArguments.length > 0) {
 // process.execPath works on every OS.
 const oxfmtBin = resolve(root, "node_modules/oxfmt/bin/oxfmt");
 const oxlintBin = resolve(root, "node_modules/oxlint/bin/oxlint");
-// Oxfmt expands these globs. Oxlint does not, so lint uses directories instead.
-const formatPaths = [
-	"packages/fleet-web/bin/**/*.mjs",
-	"web/*/src/**/*.ts",
-	"web/*/src/**/*.tsx",
-	"web/server/scripts/**/*.ts",
-	"scripts/**/*.mjs",
-	"scripts/**/*.ts",
-];
-const lintPaths = [
-	"packages/fleet-web/bin",
-	"web/app/src",
-	"web/protocol/src",
-	"web/server/src",
-	"web/server/scripts",
-	"scripts",
-];
 
 if (existsSync(resolve(root, "package-lock.json"))) {
 	console.error("Root package-lock.json is not allowed; use the pnpm workspace lockfile.");
@@ -111,7 +95,7 @@ const lint = await runStage("lint", process.execPath, [
 	oxlintBin,
 	...(write ? ["--fix"] : []),
 	"--deny-warnings",
-	...lintPaths,
+	...lintPaths(root),
 ]);
 if (lint.code !== 0) {
 	report([runtime, format, lint]);

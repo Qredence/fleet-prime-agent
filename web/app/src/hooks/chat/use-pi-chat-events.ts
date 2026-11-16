@@ -4,7 +4,7 @@ import type {
 	FleetAdapterCapabilities,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
-import { ChatStreamEventCursorSchema, ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { ChatStreamEventCursorSchema, ChatStreamEventDecodeSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { type MutableRefObject, useEffect, useRef } from "react";
 import { createReconnectingEventSource, createSseCursorStore } from "@/hooks/chat/chat-sse";
@@ -134,7 +134,7 @@ export function usePiChatSessionEvents({
 				}
 				return;
 			}
-			const validation = ChatStreamEventSchema.safeParse(parsed);
+			const validation = ChatStreamEventDecodeSchema.safeParse(parsed);
 			if (!validation.success) {
 				const recovery = activeRecoveryRef.current;
 				if (

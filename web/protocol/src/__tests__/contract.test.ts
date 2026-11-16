@@ -5,8 +5,11 @@ import {
 	ChatReasoningPresentationSchema,
 	ChatRequestSchema,
 	ChatStreamEventSchema,
+	ChatStreamEventDecodeSchema,
+	FleetAdapterFeatureSchema,
 	FleetAdapterCapabilitiesSchema,
 	FleetErrorEnvelopeSchema,
+	FleetErrorEnvelopeDecodeSchema,
 	PrimeAgentSessionPresentationSchema,
 } from "../schemas/chat";
 import {
@@ -49,7 +52,17 @@ describe("ChatStreamEventSchema", () => {
 		];
 		for (const frame of frames) {
 			expect(ChatStreamEventSchema.safeParse(frame).success, JSON.stringify(frame)).toBe(true);
+			expect(ChatStreamEventSchema.safeParse({ ...frame, unknownTopLevelKey: true }).success).toBe(false);
+			const withCursor = { ...frame, eventCursor: { generation: "g1", sequence: 1 } };
+			expect(ChatStreamEventSchema.safeParse(withCursor).success, JSON.stringify(withCursor)).toBe(true);
+			expect(ChatStreamEventDecodeSchema.parse({ ...withCursor, futureOptionalField: true })).toEqual(
+				ChatStreamEventSchema.parse(withCursor),
+			);
 		}
+	});
+
+	it("rejects misspelled optional fields on producer frames", () => {
+		expect(ChatStreamEventSchema.safeParse({ type: "delta", text: "hi", messageID: "m1" }).success).toBe(false);
 	});
 
 	it("rejects unknown frame types and malformed deltas", () => {
@@ -75,6 +88,9 @@ describe("ChatStreamEventSchema", () => {
 describe("FleetAdapterCapabilitiesSchema", () => {
 	it("accepts the pinned capabilities", () => {
 		expect(FleetAdapterCapabilitiesSchema.safeParse(FLEET_ADAPTER_CAPABILITIES).success).toBe(true);
+		for (const feature of FLEET_ADAPTER_CAPABILITIES.features)
+			expect(FleetAdapterFeatureSchema.safeParse(feature).success).toBe(true);
+		expect(FLEET_ADAPTER_CAPABILITIES.features).toEqual(FleetAdapterFeatureSchema.options);
 	});
 
 	it("is forward-tolerant to unknown future features", () => {
@@ -131,6 +147,34 @@ describe("FleetErrorEnvelopeSchema", () => {
 			true,
 		);
 		expect(FleetErrorEnvelopeSchema.safeParse({ code: "NOPE", message: "x" }).success).toBe(false);
+	});
+});
+
+describe("HTTP error envelope decoding", () => {
+	it("validates current codes and preserves compatibility with older payloads", () => {
+		expect(FleetErrorEnvelopeSchema.safeParse({ code: "UNWRITABLE", message: "Refused" }).success).toBe(true);
+		for (const body of [
+			{ message: "Failure" },
+			{ error: { code: "internal_error", message: "Failure" } },
+			{ error: "Failure", status: "error" },
+			{ code: "future-error-v2", message: "Failure", remediation: { action: "future", label: "Unknown" } },
+		]) {
+			expect(FleetErrorEnvelopeDecodeSchema.parse(body)).toMatchObject({
+				code: "UNKNOWN_ERROR",
+				message: "Failure",
+			});
+		}
+	});
+
+	it("rejects malformed messages and discards invalid optional remediation", () => {
+		expect(FleetErrorEnvelopeDecodeSchema.safeParse({ message: 42 }).success).toBe(false);
+		const decoded = FleetErrorEnvelopeDecodeSchema.parse({
+			code: "RATE_LIMIT",
+			message: "Slow down",
+			remediation: { action: "future", label: "Unknown" },
+		});
+		expect(decoded.code).toBe("RATE_LIMIT");
+		expect(decoded.remediation).toBeUndefined();
 	});
 });
 

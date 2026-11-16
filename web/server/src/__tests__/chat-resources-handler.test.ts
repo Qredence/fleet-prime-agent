@@ -2,11 +2,25 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { ChatResourcesResponseSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { DaemonResourceSnapshot } from "../daemon-protocol";
 
-const mocks = vi.hoisted(() => ({ snapshot: vi.fn(), loader: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+	snapshot: vi.fn(),
+	loader: vi.fn(),
+	getSession: vi.fn(),
+	resumeSessionById: vi.fn(),
+	getProject: vi.fn(),
+}));
 vi.mock("../project-request", () => ({ cwdForRequest: async () => "/workspace" }));
-vi.mock("../singleton", () => ({ getBridge: () => ({ getResourceSnapshot: mocks.snapshot }) }));
+vi.mock("../singleton", () => ({
+	getBridge: () => ({
+		retainSession: () => () => {},
+		getResourceSnapshot: mocks.snapshot,
+		getSession: mocks.getSession,
+		resumeSessionById: mocks.resumeSessionById,
+	}),
+}));
 vi.mock("../prime-config", () => ({
 	getPrimeConfig: () => ({
+		projectRegistry: { get: mocks.getProject },
 		settingsFor: () => ({ getPackages: () => [] }),
 		resourceLoaderFor: mocks.loader,
 	}),
@@ -15,6 +29,9 @@ import { handleChatResourcesGet } from "../handlers/chat-resources";
 
 beforeEach(() => {
 	mocks.snapshot.mockReset();
+	mocks.getSession.mockReset().mockImplementation((sessionId: string) => ({ sessionId, projectId: "project-1" }));
+	mocks.resumeSessionById.mockReset();
+	mocks.getProject.mockReset().mockResolvedValue({ projectId: "project-1" });
 	mocks.loader.mockResolvedValue({
 		getSkills: () => ({
 			skills: [
@@ -34,7 +51,7 @@ beforeEach(() => {
 	});
 });
 
-it("keeps cold discovery separate from loaded session resources", async () => {
+it("keeps discovery separate from an empty live session snapshot", async () => {
 	mocks.snapshot.mockResolvedValue({
 		skills: [],
 		prompts: [],
@@ -89,6 +106,22 @@ it("prefers daemon provenance for loaded skills and retains discovery-only entri
 	});
 	expect(body.diagnostics).toContain("warning: Check skill (/project/skill.md)");
 });
+
+it.each(["unknown", "unassigned", "unregistered"])(
+	"does not attach or read a resource snapshot for an %s session",
+	async (state) => {
+		if (state === "unknown") mocks.getSession.mockReturnValue(undefined);
+		if (state === "unassigned") mocks.getSession.mockReturnValue({ sessionId: "session-1", projectId: null });
+		if (state === "unregistered") mocks.getProject.mockRejectedValue(new Error("Unknown project"));
+		const response = await handleChatResourcesGet(
+			new Request("http://localhost/api/chat/resources?sessionId=session-1"),
+		);
+		expect(response.status).toBe(200);
+		expect((await response.json()).snapshotState).toBe("unavailable");
+		expect(mocks.snapshot).not.toHaveBeenCalled();
+		expect(mocks.resumeSessionById).not.toHaveBeenCalled();
+	},
+);
 
 it("does not request a daemon snapshot without a session and preserves discovery on failure", async () => {
 	const request = new Request("http://localhost/api/chat/resources");

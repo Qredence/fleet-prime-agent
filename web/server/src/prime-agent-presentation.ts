@@ -107,6 +107,7 @@ export async function readKernelStderrTail(
 
 export async function loadManagedPrimePresentation(
 	session: ManagedPresentationSession,
+	options?: { includeKernelDiagnostics?: boolean },
 ): Promise<PrimeAgentSessionPresentation | undefined> {
 	const path = presentationPath(session);
 	if (!path) return undefined;
@@ -114,7 +115,8 @@ export async function loadManagedPrimePresentation(
 		const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
 		const validated = PrimeAgentSessionPresentationSchema.safeParse(parsed);
 		if (!validated.success) return undefined;
-		const kernelDiagnostics = await readKernelStderrTail(session);
+		const kernelDiagnostics =
+			options?.includeKernelDiagnostics === false ? undefined : await readKernelStderrTail(session);
 		return kernelDiagnostics ? { ...validated.data, kernelDiagnostics } : validated.data;
 	} catch {
 		return undefined;
@@ -197,6 +199,7 @@ export class PresentationPersistenceQueue {
 				}
 				try {
 					await this.#writePresentation({ sessionPath: next.sessionPath }, next.presentation);
+					this.#warnings.delete(sessionId);
 				} catch {
 					if (!this.#warnings.has(sessionId)) {
 						this.#warnings.add(sessionId);
@@ -208,6 +211,10 @@ export class PresentationPersistenceQueue {
 		registration.drain = drain;
 		if (!finishedSynchronously) this.#writes.set(sessionId, drain);
 		return drain;
+	}
+
+	hasPending(sessionId: string): boolean {
+		return this.#writes.has(sessionId) || this.#pending.has(sessionId) || this.#warnings.has(sessionId);
 	}
 
 	async cancelAndDrain(sessionId: string): Promise<void> {

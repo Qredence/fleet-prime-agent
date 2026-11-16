@@ -1,5 +1,37 @@
 import { describe, expect, it, vi } from "vitest";
-import { ChatStreamContractError, readChatStream } from "@/lib/chat/chat-fetch";
+import { ChatRequestError, ChatStreamContractError, readChatStream } from "@/lib/chat/chat-fetch";
+
+describe("HTTP error decoding", () => {
+	it.each([
+		[{ message: "Legacy message" }, "UNKNOWN_ERROR", "Legacy message"],
+		[
+			{ error: { code: "invalid_request", message: "Dashboard data failed." } },
+			"UNKNOWN_ERROR",
+			"Dashboard data failed.",
+		],
+		[{ error: "Run /login", status: "error" }, "UNKNOWN_ERROR", "Run /login"],
+		[{ code: "UNWRITABLE", message: "Refused" }, "UNWRITABLE", "Refused"],
+		[{ code: "FUTURE_CODE", message: "Future failure" }, "UNKNOWN_ERROR", "Future failure"],
+	])("decodes %j without trusting arbitrary codes", (body, code, message) => {
+		const error = new ChatRequestError(409, JSON.stringify(body));
+		expect(error.code).toBe(code);
+		expect(error.message).toBe(message);
+	});
+	it("discards unsupported remediation and retains plain HTTP error fallback", () => {
+		const error = new ChatRequestError(
+			429,
+			JSON.stringify({
+				code: "RATE_LIMIT",
+				message: "Limited",
+				remediation: { action: "unknown", label: "Unknown" },
+			}),
+		);
+		expect(error.code).toBe("RATE_LIMIT");
+		expect(error.remediation).toBeUndefined();
+		expect(new ChatRequestError(500, "Proxy unavailable").message).toBe("Proxy unavailable");
+		expect(new ChatRequestError(500, "").message).toBe("Request failed (500)");
+	});
+});
 
 describe("chat stream contract", () => {
 	it("preserves delivered events and safely reports a malformed structural event", async () => {
@@ -22,6 +54,25 @@ describe("chat stream contract", () => {
 		expect(diagnostic).toContain("durationMs");
 		expect(diagnostic).not.toContain(sensitive);
 		log.mockRestore();
+	});
+
+	it("ignores additive frame fields but validates deltas and unknown frame types", async () => {
+		const events: unknown[] = [];
+		await readChatStream(
+			new Response(JSON.stringify({ type: "delta", text: "hi", futureOptionalField: 1 })),
+			(event) => events.push(event),
+		);
+		expect(events).toEqual([{ type: "delta", text: "hi" }]);
+		const log = vi.spyOn(console, "error").mockImplementation(() => {});
+		try {
+			for (const frame of [{ type: "delta" }, { type: "telepathy", text: "hi" }]) {
+				await expect(readChatStream(new Response(JSON.stringify(frame)), () => undefined)).rejects.toBeInstanceOf(
+					ChatStreamContractError,
+				);
+			}
+		} finally {
+			log.mockRestore();
+		}
 	});
 
 	it("classifies malformed NDJSON as a contract error and cancels the reader", async () => {

@@ -2,9 +2,13 @@ import type {
 	ChatSessionMetadata,
 	ChatStreamEvent,
 	FleetErrorCode,
+	FleetErrorEnvelope,
 	FleetErrorRemediation,
 } from "@prime-agent/web-protocol/chat-protocol";
-import { ChatStreamEventSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import {
+	ChatStreamEventDecodeSchema,
+	FleetErrorEnvelopeDecodeSchema,
+} from "@prime-agent/web-protocol/chat-protocol.zod";
 import type { ZodType } from "zod";
 import { resolveChatApiUrl } from "@/lib/chat/chat-runtime-url";
 
@@ -24,54 +28,23 @@ export class ChatRequestError extends Error {
 	readonly remediation: FleetErrorRemediation | undefined;
 
 	constructor(status: number, body: string) {
-		super(formatChatRequestErrorMessage(status, body));
+		const envelope = parseErrorEnvelope(body);
+		super(envelope?.message || body.trim() || `Request failed (${status})`);
 		this.name = "ChatRequestError";
 		this.status = status;
 		this.body = body;
-		const envelope = parseErrorEnvelope(body);
 		this.code = envelope?.code;
 		this.remediation = envelope?.remediation;
 	}
 }
 
-function isFleetErrorRemediation(value: unknown): value is FleetErrorRemediation {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		typeof (value as { action?: unknown }).action === "string" &&
-		typeof (value as { label?: unknown }).label === "string"
-	);
-}
-
-function parseErrorEnvelope(body: string): { code: FleetErrorCode; remediation?: FleetErrorRemediation } | null {
-	const trimmed = body.trim();
-	if (!trimmed) return null;
+function parseErrorEnvelope(body: string): FleetErrorEnvelope | null {
 	try {
-		const parsed = JSON.parse(trimmed) as { code?: unknown; remediation?: unknown };
-		if (typeof parsed.code === "string") {
-			return {
-				code: parsed.code as FleetErrorCode,
-				remediation: isFleetErrorRemediation(parsed.remediation) ? parsed.remediation : undefined,
-			};
-		}
+		const parsed = FleetErrorEnvelopeDecodeSchema.safeParse(JSON.parse(body));
+		return parsed.success ? parsed.data : null;
 	} catch {
-		// Server did not return a JSON error envelope.
+		return null;
 	}
-	return null;
-}
-
-function formatChatRequestErrorMessage(status: number, body: string) {
-	const trimmed = body.trim();
-	if (!trimmed) return `Request failed (${status})`;
-	try {
-		const parsed = JSON.parse(trimmed) as { message?: unknown };
-		if (typeof parsed.message === "string" && parsed.message.length > 0) {
-			return parsed.message;
-		}
-	} catch {
-		// Keep raw body when the server did not return JSON.
-	}
-	return trimmed;
 }
 
 export function isForbiddenSessionError(error: unknown) {
@@ -147,7 +120,6 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 		expectedSequenceNumbers.set(`${sessionId}:${eventType}`, seq);
 	}
 
-	// Fast path: JSON.parse without Zod for high-frequency delta events
 	const handleLine = (line: string) => {
 		const trimmed = line.trim();
 		if (!trimmed) return;
@@ -159,47 +131,12 @@ export async function readChatStream(response: Response, onEvent: (event: ChatSt
 			console.error('[chat-stream] Invalid NDJSON event {"type":"unknown","issues":["invalid_json:[root]"]}');
 			throw new ChatStreamContractError();
 		}
-		const eventType =
-			typeof data === "object" && data !== null
-				? "type" in data && (data as Record<string, unknown>).type
-				: undefined;
-
-		// Extract session ID and sequence number for tracking
-		const sessionId =
-			typeof data === "object" && data !== null && "sessionId" in data ? String((data as any).sessionId) : undefined;
-		const sequenceNumber =
-			typeof data === "object" && data !== null && "sequenceNumber" in data
-				? Number((data as any).sequenceNumber)
-				: undefined;
-
-		// Validate only low-frequency events that carry schema-critical structure
-		if (
-			eventType === "start" ||
-			eventType === "done" ||
-			eventType === "error" ||
-			eventType === "plan" ||
-			eventType === "state" ||
-			eventType === "tool" ||
-			eventType === "queue" ||
-			eventType === "reasoning" ||
-			eventType === "reasoning_text" ||
-			eventType === "compaction" ||
-			eventType === "retry" ||
-			eventType === "payload" ||
-			eventType === "session_snapshot"
-		) {
-			const validatedEvent = parseWithSchema(ChatStreamEventSchema, data, "Chat stream event");
-
-			// Track sequence for critical structural events
-			if (sessionId && sequenceNumber !== undefined) {
-				trackSequence(sessionId, String(validatedEvent.type), sequenceNumber);
-			}
-
-			onEvent(validatedEvent);
-		} else {
-			// Fast path: assume delta and legacy compatibility events are well-formed NDJSON
-			onEvent(data as ChatStreamEvent);
+		const event = parseWithSchema(ChatStreamEventDecodeSchema, data, "Chat stream event");
+		const metadata = typeof data === "object" && data !== null ? (data as Record<string, unknown>) : undefined;
+		if (typeof metadata?.sessionId === "string" && typeof metadata.sequenceNumber === "number") {
+			trackSequence(metadata.sessionId, event.type, metadata.sequenceNumber);
 		}
+		onEvent(event);
 	};
 
 	try {

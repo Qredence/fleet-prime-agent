@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const bridgeMock = vi.hoisted(() => ({
+	retainSession: () => () => {},
 	getSession: vi.fn(),
 	resumeSessionById: vi.fn(),
 }));

@@ -139,6 +139,15 @@ export class RlmChildStreamManager {
 		this.#childPrompts.clear();
 	}
 
+	hasWorkForParent(parentSessionId: string): boolean {
+		const prefix = `${parentSessionId}:`;
+		return (
+			[...this.#streams.values()].some((stream) => stream.parentSessionId === parentSessionId) ||
+			[...this.#initializations.keys(), ...this.#childPrompts.keys()].some((key) => key.startsWith(prefix)) ||
+			this.#metadataRefreshQueue.has(parentSessionId)
+		);
+	}
+
 	async closeStreamsForParent(parentSessionId: string): Promise<void> {
 		for (const childStream of [...this.#streams.values()]) {
 			if (childStream.parentSessionId !== parentSessionId) continue;

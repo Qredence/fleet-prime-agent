@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
@@ -135,7 +136,6 @@ export class ProjectRegistry {
 	}
 
 	async #load(): Promise<void> {
-		await mkdir(dirname(this.#filePath), { recursive: true });
 		try {
 			const raw = JSON.parse(await readFile(this.#filePath, "utf8")) as Partial<PersistedProjects>;
 			if (raw.version === 1 && Array.isArray(raw.projects)) {
@@ -164,7 +164,8 @@ export class ProjectRegistry {
 		if (initial && !this.#findByPath(initial)) {
 			const timestamp = now();
 			const project: ProjectRecord = {
-				projectId: crypto.randomUUID(),
+				// Stable across read-only restarts without encoding the local path in the id.
+				projectId: createHash("sha256").update(`fleet-initial-project\0${initial}`).digest("hex"),
 				name: basename(initial) || initial,
 				canonicalPath: initial,
 				createdAt: timestamp,
@@ -172,7 +173,7 @@ export class ProjectRegistry {
 				status: "active",
 			};
 			this.#projects.set(project.projectId, project);
-			await this.#persist("initialize the project registry");
+			// Bootstrap in memory; only an explicit mutation creates or rewrites the registry.
 		}
 	}
 

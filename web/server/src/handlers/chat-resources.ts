@@ -3,6 +3,7 @@ import { cwdForRequest } from "../project-request";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { getBridge } from "../singleton";
 import type { ChatResourceInfo } from "@prime-agent/web-protocol/chat-protocol";
+import { requireSession } from "./session-access";
 
 function packageSourceToString(source: string | { source: string; [key: string]: unknown }): {
 	name: string;
@@ -19,6 +20,8 @@ function packageSourceToString(source: string | { source: string; [key: string]:
 
 export function handleChatResourcesGet(request: Request): Promise<Response> {
 	return wrapApiHandler(async () => {
+		const sessionId = new URL(request.url).searchParams.get("sessionId");
+		const session = sessionId ? await requireSession(sessionId, { resume: false }) : undefined;
 		const cwd = await cwdForRequest(request);
 		const config = getPrimeConfig();
 		const settings = config.settingsFor(cwd);
@@ -45,10 +48,9 @@ export function handleChatResourcesGet(request: Request): Promise<Response> {
 			origin: skill.sourceInfo?.origin,
 			discoverySource: "legacy-discovery",
 		}));
-		const sessionId = new URL(request.url).searchParams.get("sessionId");
-		const snapshot = sessionId
+		const snapshot = session
 			? await getBridge()
-					.getResourceSnapshot?.(sessionId, cwd)
+					.getResourceSnapshot(session.sessionId, cwd)
 					.catch(() => {
 						diagnostics.push("The session resource snapshot could not be read; showing discovery results.");
 						return null;

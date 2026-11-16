@@ -189,6 +189,7 @@ export const FleetErrorCodeSchema = z.enum([
 	"EXTENSION_ERROR",
 	"SESSION_ABORTED",
 	"UNKNOWN_ERROR",
+	"UNWRITABLE",
 ]);
 
 export const FleetErrorRemediationActionSchema = z.enum([
@@ -213,6 +214,21 @@ export const FleetErrorEnvelopeSchema = z.object({
 	isTerminal: z.boolean().optional(),
 	remediation: FleetErrorRemediationSchema.optional(),
 });
+
+/** Decode current envelopes and legacy HTTP payloads without trusting arbitrary codes. */
+const compatibleErrorEnvelopeSchema = FleetErrorEnvelopeSchema.extend({
+	code: FleetErrorCodeSchema.catch("UNKNOWN_ERROR"),
+	provider: FleetErrorEnvelopeSchema.shape.provider.catch(undefined),
+	isTerminal: FleetErrorEnvelopeSchema.shape.isTerminal.catch(undefined),
+	remediation: FleetErrorRemediationSchema.optional().catch(undefined),
+});
+export const FleetErrorEnvelopeDecodeSchema = z.union([
+	compatibleErrorEnvelopeSchema,
+	z.object({ error: compatibleErrorEnvelopeSchema }).transform(({ error }) => error),
+	z
+		.object({ error: z.string() })
+		.transform(({ error }): z.infer<typeof FleetErrorEnvelopeSchema> => ({ code: "UNKNOWN_ERROR", message: error })),
+]);
 
 export const ChatErrorEnvelopeSchema = FleetErrorEnvelopeSchema;
 
@@ -294,7 +310,14 @@ export const ChatMessageSchema = z.object({
 		.optional(),
 });
 
-export const FleetAdapterFeatureSchema = z.enum(["reasoning-summary-v1", "mcp-connections-v1"]);
+/** Known names constrain our advertisements, not what a newer peer may send. */
+export const FleetAdapterFeatureSchema = z.enum([
+	"reasoning-summary-v1",
+	"mcp-connections-v1",
+	"session-tree-v1",
+	"composer-intent-v1",
+	"composer-completion-v1",
+]);
 
 export const FleetAdapterCapabilitiesSchema = z.object({
 	protocolVersion: z.number().int().positive(),
@@ -693,36 +716,34 @@ export const ChatStreamEventCursorSchema = z
 	.object({ generation: z.string().min(1), sequence: z.number().int().min(1) })
 	.strict();
 
-export const ChatStreamEventSchema = z
-	.union([
-		ChatStartEventSchema,
-		ChatDeltaEventSchema,
-		ChatToolEventSchema,
-		ChatRlmStreamEventSchema,
-		ChatPlanEventSchema,
-		ChatStateStreamEventSchema,
-		ChatQueueEventSchema,
-		ChatThinkingEventSchema,
-		ChatReasoningTextEventSchema,
-		ChatPresentationEventSchema,
-		ChatSessionSnapshotEventSchema,
-		ChatMessageEventSchema,
-		ChatPayloadEventSchema,
-		ChatReasoningEventSchema,
-		ChatCompactionStartEventSchema,
-		ChatCompactionEndEventSchema,
-		ChatRetryStartEventSchema,
-		ChatRetryEndEventSchema,
-		ChatDoneEventSchema,
-		ChatErrorEventSchema,
-	])
-	.and(
-		z
-			.object({
-				eventCursor: ChatStreamEventCursorSchema.optional(),
-			})
-			.strict(),
-	);
+const chatStreamEventVariants = [
+	ChatStartEventSchema,
+	ChatDeltaEventSchema,
+	ChatToolEventSchema,
+	ChatRlmStreamEventSchema,
+	ChatPlanEventSchema,
+	ChatStateStreamEventSchema,
+	ChatQueueEventSchema,
+	ChatThinkingEventSchema,
+	ChatReasoningTextEventSchema,
+	ChatPresentationEventSchema,
+	ChatSessionSnapshotEventSchema,
+	ChatMessageEventSchema,
+	ChatPayloadEventSchema,
+	ChatReasoningEventSchema,
+	ChatCompactionStartEventSchema,
+	ChatCompactionEndEventSchema,
+	ChatRetryStartEventSchema,
+	ChatRetryEndEventSchema,
+	ChatDoneEventSchema,
+	ChatErrorEventSchema,
+].map((schema) => schema.extend({ eventCursor: ChatStreamEventCursorSchema.optional() }));
+
+/** Strict producer contract: misspelled top-level fields must fail fixture replay. */
+export const ChatStreamEventSchema = z.union(chatStreamEventVariants.map((schema) => schema.strict()));
+
+/** Browser decoding deliberately strips unknown additive fields from newer servers. */
+export const ChatStreamEventDecodeSchema = z.union(chatStreamEventVariants);
 
 export const ChatSessionResponseSchema = z.object({
 	session: ChatSessionMetadataSchema,

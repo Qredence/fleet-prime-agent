@@ -1,6 +1,6 @@
 import { library as dashboardLibrary } from "@openuidev/dashboard-library";
 import { createParser } from "@openuidev/react-lang";
-import { buildOpenUIPrompt } from "@prime-agent/web-protocol";
+import { buildOpenUIPrompt } from "../../../server/src/openui-prompt";
 import { describe, expect, it } from "vitest";
 import { openUILibrary } from "@/components/openui/openui-library";
 
