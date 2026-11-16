@@ -1,0 +1,144 @@
+web/server/src/daemon-runtime.ts
+  s_df78afed8a4ff8::t_d46e07431513f9 83
+web/app/src/hooks/workspace/use-workspace-split-layout.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 16,56,64
+web/app/src/lib/fluid/icon-context.tsx
+  s_df78afed8a4ff8::t_173641f23f2290 270
+  s_df78afed8a4ff8::t_d5f5d490cbff22 94,105,175
+web/app/src/lib/fluid/surface-classes.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 17,28
+web/server/src/handlers/chat-models.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 44
+web/server/src/session-list.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 202
+web/server/src/legacy/prime-agent-sdk.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 51-52,54
+web/server/src/completion/prompt-index.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 67
+web/server/src/__tests__/daemon-frame-replay.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 43,58
+web/server/src/managed-attachments.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 19
+web/server/src/session-commands.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 5
+web/server/src/typesafe/intent-router.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 34
+web/server/src/typesafe/client.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 33,50,58,60
+web/app/src/components/chat/composer/input-bar.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 31,38,44,53
+web/app/src/components/tools/file-diff.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 15
+web/app/src/hooks/use-fluid-hover.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 131,158,226,233,235
+web/app/src/components/tools/image-generation.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 13
+web/app/src/components/layout/right-panel-registry.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 10-11
+web/app/src/lib/tools/tool-output-normalizer.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 10,23,29
+knip.json
+  s_df78afed8a4ff8::t_f0aeb844f66047 2-3,34-87
+  s_df78afed8a4ff8::t_2c7f048f17deae 6-15,24
+  s_df78afed8a4ff8::t_e7229ba4eaa7df 25,27,29,31-33
+  s_df78afed8a4ff8::t_ac28d95fe4891a 4-5,16-23,26,28,30
+  s_df78afed8a4ff8::t_bd34ad26695394 1,88
+web/app/src/lib/artifacts/prime-agent-artifacts.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 11
+scripts/trusted-exec-env.mjs
+  s_df78afed8a4ff8::t_d5f5d490cbff22 37
+web/app/src/hooks/sessions/use-session-sidebar.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 39,111
+web/app/src/lib/workspace/workspace-path-nav.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 32
+web/app/LAYOUT.md
+  s_df78afed8a4ff8::t_c9e42d6a1fee95 65
+web/server/src/daemon-protocol.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 27,56,94,96,106,163,170,255,258,288,296,307,316-318,328-330,332,334,341,562,564,602,612,621,629,638,641,670,711
+  s_df78afed8a4ff8::t_173641f23f2290 683
+web/app/src/hooks/chat/composer-assistance.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 27,107
+web/server/src/dashboards/prompt-context.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 15
+web/server/src/event-mapper.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 154
+  s_df78afed8a4ff8::t_173641f23f2290 161
+web/server/src/prime-bridge.ts
+  s_df78afed8a4ff8::t_173641f23f2290 104
+scripts/check-web-boundaries.mjs
+  s_df78afed8a4ff8::t_d5f5d490cbff22 150
+web/app/src/components/sessions/session-sidebar/resource-tree.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 21,33
+web/app/src/hooks/chat/chat-sse.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 3
+web/server/src/mcp-connections.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 7,15,40,50
+web/app/src/lib/fluid/size-context.tsx
+  s_df78afed8a4ff8::t_7e91f5d783114a 4
+  s_df78afed8a4ff8::t_173641f23f2290 135-136
+web/app/src/components/ui/dialog.tsx
+  s_df78afed8a4ff8::t_173641f23f2290 312
+web/server/src/dashboards/cloud.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 26
+scripts/rollback-marker.mjs
+  s_df78afed8a4ff8::t_d5f5d490cbff22 16-17
+web/app/src/components/chat/transcript/streaming-response.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 10
+web/server/src/openui-prompt.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 73
+web/server/src/bridge-helpers.ts
+  s_df78afed8a4ff8::t_fac28e61948440 278
+web/server/src/question-normalizer.ts
+  s_df78afed8a4ff8::t_73a53f12175626 3
+web/server/src/fleet-daemon-connection.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 65
+web/app/src/components/workspace/file-tree.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 49
+web/app/src/components/tools/session-agent-plan.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 23
+web/app/src/lib/sessions/sidebar-types.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 18,26,34,41,47
+package.json
+  s_df78afed8a4ff8::t_bd34ad26695394 34-35,45
+web/app/src/components/tools/citations.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 45
+.changeset/tidy-knip-exports.md
+  s_df78afed8a4ff8::t_4eabbe3120a4c7 1-5
+web/app/src/lib/shiki-highlight.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 30
+web/server/src/agent-settings-writer.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 41
+web/app/src/components/tools/tool-code-block.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 60
+web/app/src/components/tools/tool-result.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 23
+web/app/src/lib/fluid/type-scale.ts
+  s_df78afed8a4ff8::t_871832eeeb509a 90-91
+web/server/src/typesafe/config.ts
+  s_df78afed8a4ff8::t_d5f5d490cbff22 13
+scripts/rollback-release.mjs
+  s_df78afed8a4ff8::t_d5f5d490cbff22 6
+  s_df78afed8a4ff8::t_173641f23f2290 30
+web/app/src/components/chat/composer/composer-controls.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 22
+web/app/src/components/tools/tool-approval.tsx
+  s_df78afed8a4ff8::t_d5f5d490cbff22 16
+pnpm-lock.yaml
+  s_df78afed8a4ff8::t_7b40308a6518f2 59-61,246,283,643-651,975-981,1104-1225,1229-1334,2802-2804,3925-3927,3974-3978,4071-4073,4448-4452,4965-4971,5402-5404,5541-5544,5635-5638,5833-5836,6076-6079,6166-6170,6780-6795,7006,7057-7063,7255-7311,7314-7376,8518,8532,8665-8669,8889,8906-8914,9731-9734,9786-9790,9878-9881,10207,10275-10289,10969-11014,11643-11644,11848-11849,11950-11951,12126-12127,12279-12294,12322-12346,12371,12443-12444
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0c430dfc8530c6d754b7f0dfa6e38d7c60f7ffcc",
+  "prompts": {},
+  "sessions": {
+    "s_df78afed8a4ff8": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a1e384-994a-73de-8a2a-13639c099744",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
