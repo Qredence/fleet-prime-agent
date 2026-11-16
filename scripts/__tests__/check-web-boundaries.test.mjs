@@ -8,6 +8,7 @@ import {
 	findLegacyTypeScaleLines,
 	findServerSdkImports,
 	findServerSdkViolations,
+	findWebServerImportViolations,
 } from "../check-web-boundaries.mjs";
 
 test("detects comment-separated runtime imports", () => {
@@ -47,6 +48,28 @@ import "prime-agent-compatible";
 `;
 
 	assert.deepEqual(findForbiddenImports(source), []);
+});
+
+test("restricts server imports to API routes, including types, re-exports and dynamic imports", () => {
+	for (const source of [
+		'import { handler } from "@prime-agent/web-server";',
+		'import type { PrimeBridge } from "@prime-agent/web-server";',
+		'export * from "@prime-agent/web-server/private";',
+		'const server = import /* server */ ("@prime-agent/web-server");',
+		'const server = require("@prime-agent/web-server");',
+		'import { PrimeBridge } from "../../../../server/src/prime-bridge";',
+	]) {
+		assert.notEqual(
+			findWebServerImportViolations("web/app/src/components/chat/example.ts", source).length,
+			0,
+			source,
+		);
+		assert.deepEqual(findWebServerImportViolations("web/app/src/routes/api/chat.ts", source), []);
+	}
+	assert.deepEqual(
+		findWebServerImportViolations("web/app/src/lib/example.ts", 'import { X } from "@prime-agent/web-protocol";'),
+		[],
+	);
 });
 
 test("flags arbitrary type-scale utilities in product UI", () => {

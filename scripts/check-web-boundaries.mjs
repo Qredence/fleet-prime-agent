@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readdirSync, readFileSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "@babel/parser";
 
@@ -96,6 +96,27 @@ export function findForbiddenImports(source, fileName = "source.ts") {
 		if (packageName) imports.push({ line, packageName });
 	}
 	return imports;
+}
+
+/** Product source may reach the server only through server-only API routes. */
+export function findWebServerImportViolations(relativePath, source) {
+	if (!relativePath.startsWith("web/app/src/") || relativePath.startsWith("web/app/src/routes/api/")) return [];
+	const violations = [];
+	for (const { line, specifier } of moduleReferences(source, relativePath)) {
+		const resolved = specifier.startsWith(".")
+			? relative(root, resolve(root, dirname(relativePath), specifier))
+					.split(sep)
+					.join("/")
+			: specifier;
+		if (
+			specifier === "@prime-agent/web-server" ||
+			specifier.startsWith("@prime-agent/web-server/") ||
+			resolved === "web/server" ||
+			resolved.startsWith("web/server/")
+		)
+			violations.push(`${relativePath}:${line} imports server implementation outside API route delegation`);
+	}
+	return violations;
 }
 
 // R1b legacy bridge (docs/plans/prime-agent-v0.10.1.md). Temporary: delete this
@@ -363,6 +384,8 @@ function main() {
 	for (const sourceRoot of browserSourceRoots) {
 		for (const file of sourceFiles(resolve(root, sourceRoot))) {
 			const source = readFileSync(file, "utf8");
+			const relativePath = relative(root, file).split(sep).join("/");
+			violations.push(...findWebServerImportViolations(relativePath, source));
 			for (const { line, packageName } of findForbiddenImports(source, file)) {
 				violations.push(`${relative(root, file)}:${line} imports ${packageName}`);
 			}
@@ -370,7 +393,7 @@ function main() {
 	}
 
 	if (violations.length > 0) {
-		console.error("Browser packages must not import Prime Agent runtime packages directly:");
+		console.error("Browser packages must respect runtime and server-only import boundaries:");
 		for (const violation of violations) console.error(`- ${violation}`);
 		process.exit(1);
 	}
