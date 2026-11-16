@@ -98,7 +98,6 @@ export function ComposerIntentSection({
 				description={`Recognise when a message is really asking for a built-in command, like "compact this" or "show the shortcuts". Messages you send are shared with TypeSafe for classification only when this is on. ${STATUS_COPY[status]}`}
 				trailing={
 					<Switch
-						aria-label="Describe a command"
 						checked={displayedEnabled}
 						// Disabled only when it cannot be turned *on*. An already-enabled
 						// setting stays switchable while the key is missing or broken, or

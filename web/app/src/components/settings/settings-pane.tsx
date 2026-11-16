@@ -1,37 +1,7 @@
 import { RotateCcw, Save } from "lucide-react";
-import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-
-/**
- * Shared Settings content chrome: title + description left, actions right.
- * Keeps Commit with the pane header instead of an orphaned toolbar.
- */
-export function SettingsPane({
-	actions,
-	children,
-	description,
-	title,
-}: {
-	actions?: ReactNode;
-	children: ReactNode;
-	description: ReactNode;
-	title: string;
-}) {
-	return (
-		<div className="flex min-w-0 max-w-full flex-col gap-4 [overflow-wrap:anywhere]">
-			<div className="flex items-start justify-between gap-3 max-sm:flex-col">
-				<div className="min-w-0 flex-1">
-					<h3 className="text-lg font-medium text-balance">{title}</h3>
-					<p className="mt-1 text-sm text-pretty text-muted-foreground">{description}</p>
-				</div>
-				{actions ? <div className="flex shrink-0 items-center gap-1.5 pt-0.5">{actions}</div> : null}
-			</div>
-			<div className="flex flex-col gap-3">{children}</div>
-		</div>
-	);
-}
 
 /**
  * Renders the revert and commit action buttons inside a settings pane header.

@@ -23,6 +23,8 @@ import {
 	CUSTOM_PROVIDER_PICKER_ID,
 	isOAuthProvider,
 	supportsOAuth,
+	type ProviderCredentialActions,
+	type ProviderCredentialForm,
 } from "@/hooks/settings/use-provider-credentials-controller";
 import { PROVIDER_METADATA } from "@/lib/settings/provider-metadata";
 import { cn } from "@/lib/utils";
@@ -231,60 +233,49 @@ function ApiSelector({
  * model list) when `isCustom` is enabled.
  */
 export function ProviderCredentialFields({
-	attemptedSave,
-	apiKey,
-	api,
-	baseUrl,
-	modelId,
-	modelIds,
-	displayName,
+	actions,
+	form,
 	isCustom,
-	onApiKeyChange,
-	onApiChange,
-	onBaseUrlChange,
-	onModelIdChange,
-	onModelIdsChange,
-	onDisplayNameChange,
-	onTogglePassword,
 	openAiChat,
 	placeholder,
-	showPassword,
+	apiOverride,
+	canEditDisplayName = true,
 }: {
-	attemptedSave: boolean;
-	apiKey: string;
-	api?: PiCustomProviderApi;
-	baseUrl: string;
-	modelId: string;
-	modelIds?: Array<string>;
-	displayName?: string;
+	actions: ProviderCredentialActions;
+	form: ProviderCredentialForm;
 	isCustom?: boolean;
-	onApiKeyChange: (value: string) => void;
-	onApiChange?: (value: PiCustomProviderApi) => void;
-	onBaseUrlChange: (value: string) => void;
-	onModelIdChange: (value: string) => void;
-	onModelIdsChange?: (value: Array<string>) => void;
-	onDisplayNameChange?: (value: string) => void;
-	onTogglePassword: () => void;
 	openAiChat: boolean;
 	placeholder: string;
-	showPassword: boolean;
+	apiOverride?: PiCustomProviderApi;
+	canEditDisplayName?: boolean;
 }) {
+	const { api, apiKey, attemptedSave, baseUrl, displayName, modelId, modelIds, showPassword } = form;
+	const {
+		onApiChange,
+		onApiKeyChange,
+		onBaseUrlChange,
+		onDisplayNameChange,
+		onModelIdChange,
+		onModelIdsChange,
+		onTogglePassword,
+	} = actions;
 	const showApiSelector = isCustom && onApiChange;
 	const showMultiModels = isCustom && onModelIdsChange;
+	const displayNameChange = canEditDisplayName ? onDisplayNameChange : undefined;
 
 	return (
 		<FieldGroup className="gap-2">
-			{(openAiChat || isCustom) && onDisplayNameChange ? (
+			{(openAiChat || isCustom) && displayNameChange ? (
 				<TextCredentialField
 					attemptedSave={attemptedSave}
 					icon={Tag}
 					label="Provider name"
 					placeholder={OPENAI_CHAT_NAME_PLACEHOLDER}
-					value={displayName ?? ""}
-					onChange={onDisplayNameChange}
+					value={displayName}
+					onChange={displayNameChange}
 				/>
 			) : null}
-			{showApiSelector ? <ApiSelector value={api ?? "openai-completions"} onChange={onApiChange} /> : null}
+			{showApiSelector ? <ApiSelector value={apiOverride ?? api} onChange={onApiChange} /> : null}
 			<SecretCredentialField
 				attemptedSave={attemptedSave}
 				label="API key"
@@ -445,45 +436,17 @@ export function AddProviderOAuthPanel({ onBack, provider }: { onBack: () => void
 
 export function AddProviderEditorPanel({
 	provider,
-	api,
-	apiKey,
-	baseUrl,
-	modelId,
-	modelIds,
-	displayName,
-	showPassword,
-	attemptedSave,
+	form,
+	actions,
 	isPending,
-	canSave,
-	onApiKeyChange,
-	onApiChange,
-	onBaseUrlChange,
-	onModelIdChange,
-	onModelIdsChange,
-	onDisplayNameChange,
-	onTogglePassword,
 	onBack,
 	onCancel,
 	onSave,
 }: {
 	provider: ChatProviderInfo;
-	api: PiCustomProviderApi;
-	apiKey: string;
-	baseUrl: string;
-	modelId: string;
-	modelIds: Array<string>;
-	displayName?: string;
-	showPassword: boolean;
-	attemptedSave: boolean;
+	form: ProviderCredentialForm;
+	actions: ProviderCredentialActions;
 	isPending: boolean;
-	canSave: boolean;
-	onApiKeyChange: (value: string) => void;
-	onApiChange: (value: PiCustomProviderApi) => void;
-	onBaseUrlChange: (value: string) => void;
-	onModelIdChange: (value: string) => void;
-	onModelIdsChange: (value: Array<string>) => void;
-	onDisplayNameChange?: (value: string) => void;
-	onTogglePassword: () => void;
 	onBack: () => void;
 	onCancel: () => void;
 	onSave: () => void;
@@ -526,24 +489,11 @@ export function AddProviderEditorPanel({
 			</div>
 
 			<ProviderCredentialFields
-				attemptedSave={attemptedSave}
-				api={api}
-				apiKey={apiKey}
-				baseUrl={baseUrl}
-				modelId={modelId}
-				modelIds={modelIds}
-				displayName={displayName}
+				form={form}
+				actions={actions}
 				isCustom={isCustomTemplate}
 				openAiChat={openAiChat}
 				placeholder={meta.placeholder}
-				showPassword={showPassword}
-				onApiKeyChange={onApiKeyChange}
-				onApiChange={onApiChange}
-				onBaseUrlChange={onBaseUrlChange}
-				onModelIdChange={onModelIdChange}
-				onModelIdsChange={onModelIdsChange}
-				onDisplayNameChange={onDisplayNameChange}
-				onTogglePassword={onTogglePassword}
 			/>
 
 			<Alert className="px-3 py-2">
@@ -555,7 +505,7 @@ export function AddProviderEditorPanel({
 				<Button type="button" variant="ghost" size="compact" disabled={isPending} onClick={onCancel}>
 					Cancel
 				</Button>
-				<Button type="button" size="compact" disabled={isPending || !canSave} onClick={onSave}>
+				<Button type="button" size="compact" disabled={isPending || !form.canSave} onClick={onSave}>
 					{isPending ? <Spinner data-icon="inline-start" /> : null}
 					Save
 				</Button>

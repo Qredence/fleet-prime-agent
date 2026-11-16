@@ -81,7 +81,7 @@ describe("Connectors page", () => {
 		fireEvent.click(await screen.findByRole("button", { name: "Add server" }));
 		fireEvent.change(screen.getByLabelText("MCP server name"), { target: { value: "docs" } });
 		fireEvent.change(screen.getByLabelText("MCP server URL"), { target: { value: "https://docs.example.test/mcp" } });
-		fireEvent.click(screen.getByRole("switch", { name: "Use OAuth" }));
+		fireEvent.click(screen.getByRole("switch", { name: "OAuth" }));
 		fireEvent.change(screen.getByLabelText("Bearer token environment variable"), {
 			target: { value: "DOCS_TOKEN" },
 		});

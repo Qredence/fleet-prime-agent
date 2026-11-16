@@ -52,11 +52,11 @@ describe("McpConnectionsSection OAuth fallback", () => {
 		// Enter a token with OAuth off, then turn OAuth back on. The token field
 		// disappears; submitting must not resurrect it, because the server rejects
 		// OAuth combined with a bearer-token variable.
-		fireEvent.click(screen.getByLabelText("Use OAuth"));
+		fireEvent.click(screen.getByRole("switch", { name: "OAuth" }));
 		fireEvent.change(screen.getByLabelText("Bearer token environment variable"), {
 			target: { value: "DOCS_TOKEN" },
 		});
-		fireEvent.click(screen.getByLabelText("Use OAuth"));
+		fireEvent.click(screen.getByRole("switch", { name: "OAuth" }));
 		expect(screen.queryByLabelText("Bearer token environment variable")).toBeNull();
 
 		fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
