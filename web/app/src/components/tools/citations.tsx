@@ -42,15 +42,7 @@ export interface CitationsProps {
 	className?: string;
 }
 
-export interface CitationProps {
-	citationId: string;
-	index: number;
-	/** Must match the related Citations idPrefix. */
-	idPrefix: string;
-	className?: string;
-}
-
-export interface CitationListProps {
+interface CitationListProps {
 	citations: CitationItem[];
 	idPrefix?: string;
 	className?: string;

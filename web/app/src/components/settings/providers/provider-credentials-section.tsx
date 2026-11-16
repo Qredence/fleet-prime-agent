@@ -16,7 +16,7 @@ import {
 	ProviderOAuthTerminalFallback,
 	RemoveProviderConfirmDialog,
 } from "@/components/settings/providers/provider-credentials-editor";
-import { SettingsPane } from "@/components/settings/settings-pane";
+import { SectionPanel as SettingsPane } from "@/components/ui/section-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -157,23 +157,9 @@ export function ProviderCredentialsSection({
 			) : editingUnconfiguredProvider ? (
 				<AddProviderEditorPanel
 					provider={editingUnconfiguredProvider}
-					api={api}
-					apiKey={apiKey}
-					baseUrl={baseUrl}
-					modelId={modelId}
-					modelIds={modelIds}
-					displayName={displayName}
-					showPassword={showPassword}
-					attemptedSave={attemptedSave}
+					form={form}
+					actions={actions}
 					isPending={isPending || busy}
-					canSave={canSave}
-					onApiKeyChange={setApiKey}
-					onApiChange={setApi}
-					onBaseUrlChange={setBaseUrl}
-					onModelIdChange={setModelId}
-					onModelIdsChange={setModelIds}
-					onDisplayNameChange={setDisplayName}
-					onTogglePassword={() => setShowPassword((current) => !current)}
 					onBack={openAddPicker}
 					onCancel={closeEditor}
 					onSave={() => {
@@ -280,17 +266,8 @@ function ActiveProviderList({
 	onSave: (providerId: string) => void;
 	onRemove: (provider: ChatProviderInfo) => void;
 }) {
-	const { api, apiKey, baseUrl, modelId, modelIds, displayName, showPassword, attemptedSave, canSave } = form;
+	const { api } = form;
 	const { isPending, canRemove } = operation;
-	const {
-		onApiKeyChange,
-		onApiChange,
-		onBaseUrlChange,
-		onModelIdChange,
-		onModelIdsChange,
-		onDisplayNameChange,
-		onTogglePassword,
-	} = actions;
 
 	return (
 		<div className="flex flex-col gap-1.5">
@@ -367,26 +344,13 @@ function ActiveProviderList({
 								) : (
 									<>
 										<ProviderCredentialFields
-											attemptedSave={attemptedSave}
-											api={provider.api ?? api}
-											apiKey={apiKey}
-											baseUrl={baseUrl}
-											modelId={modelId}
-											modelIds={modelIds}
-											displayName={displayName}
+											form={form}
+											actions={actions}
 											isCustom={isCustom}
 											openAiChat={openAiChat}
 											placeholder={meta.placeholder}
-											showPassword={showPassword}
-											onApiKeyChange={onApiKeyChange}
-											onApiChange={onApiChange}
-											onBaseUrlChange={onBaseUrlChange}
-											onModelIdChange={onModelIdChange}
-											onModelIdsChange={onModelIdsChange}
-											onDisplayNameChange={
-												isCustom || provider.providerFamily !== undefined ? onDisplayNameChange : undefined
-											}
-											onTogglePassword={onTogglePassword}
+											apiOverride={provider.api ?? api}
+											canEditDisplayName={isCustom || provider.providerFamily !== undefined}
 										/>
 
 										<Alert className="px-3 py-2">
@@ -398,7 +362,7 @@ function ActiveProviderList({
 											<Button
 												type="button"
 												size="compact"
-												disabled={isPending || !canSave}
+												disabled={isPending || !form.canSave}
 												onClick={() => onSave(provider.id)}
 											>
 												{isPending ? <Spinner data-icon="inline-start" /> : null}

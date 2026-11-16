@@ -1,8 +1,9 @@
 "use client";
 
-import { forwardRef, useEffect, useId, useRef, type HTMLAttributes, type LabelHTMLAttributes } from "react";
+import { forwardRef, useEffect, useId, useRef, useState, type HTMLAttributes, type LabelHTMLAttributes } from "react";
 import { Label } from "@/components/ui/label";
 import { fontWeights } from "@/lib/fluid/font-weight";
+import { FieldLabelIdContext } from "@/components/ui/field-context";
 import { useShape } from "@/lib/fluid/shape-context";
 import { useSize } from "@/lib/fluid/size-context";
 import { cn } from "@/lib/utils";
@@ -27,26 +28,59 @@ const orientationClasses: Record<FieldOrientation, string> = {
 		"flex-col gap-1 @md/field-group:flex-row @md/field-group:items-center @md/field-group:*:w-auto @md/field-group:has-[>[data-slot=field-content]]:items-start @md/field-group:has-[>[data-slot=field-content]]:[&>[data-slot=checkbox]]:mt-0.5",
 };
 
-const LIBRARY_CONTROL = "[data-slot=input], [data-slot=textarea], [data-slot=checkbox], [role=combobox]";
+const LIBRARY_CONTROL =
+	"[data-slot=input], [data-slot=input-group-control], [data-slot=textarea], [data-slot=checkbox], [data-slot=switch], [role=combobox]";
 const NATIVE_CONTROL = "input:not([type=hidden]):not([aria-hidden=true]), textarea, select";
+const CONTROL_SELECTOR = `${LIBRARY_CONTROL}, ${NATIVE_CONTROL}`;
 
-function linkDescriptions(root: HTMLElement) {
+function mergeManagedIds(element: HTMLElement, attribute: "aria-describedby" | "aria-labelledby", managed: string) {
+	const datasetKey = attribute === "aria-describedby" ? "fieldDescribedby" : "fieldLabelledby";
+	const previous = new Set((element.dataset[datasetKey] ?? "").split(" ").filter(Boolean));
+	const existing = (element.getAttribute(attribute) ?? "").split(" ").filter((id) => id && !previous.has(id));
+	const next = [...existing, ...managed.split(" ").filter(Boolean)];
+	if (next.length) element.setAttribute(attribute, next.join(" "));
+	else element.removeAttribute(attribute);
+	element.dataset[datasetKey] = managed;
+}
+
+function linkFieldSemantics(root: HTMLElement, generatedId: string) {
 	const own = (el: Element) => el.closest("[data-slot=field]") === root;
-	const find = (selector: string) => Array.from(root.querySelectorAll<HTMLElement>(selector)).find(own);
-	const control = find(LIBRARY_CONTROL) ?? find(NATIVE_CONTROL);
-	if (!control) return;
-	const ids = Array.from(root.querySelectorAll<HTMLElement>("[data-slot=field-description]"))
-		.filter(own)
-		.map((el) => el.id)
-		.filter(Boolean);
-	const linked = (control.dataset.fieldDescribedby ?? "").split(" ");
-	const theirs = (control.getAttribute("aria-describedby") ?? "")
-		.split(" ")
-		.filter((id) => id && !linked.includes(id));
-	const next = [...theirs, ...ids].join(" ");
-	if (next) control.setAttribute("aria-describedby", next);
-	else control.removeAttribute("aria-describedby");
-	control.dataset.fieldDescribedby = ids.join(" ");
+	const controls = Array.from(root.querySelectorAll<HTMLElement>(CONTROL_SELECTOR)).filter(own);
+	const labels = Array.from(root.querySelectorAll<HTMLLabelElement>("[data-slot=field-label]")).filter(own);
+	const label = labels[0];
+
+	if (label && controls.length === 1) {
+		const control = controls[0];
+		if (control) {
+			if (!label.id) label.id = `${generatedId}-label`;
+			if (control.matches("input, textarea, select, button")) {
+				if (!label.htmlFor || label.htmlFor === control.id) {
+					if (!control.id) control.id = generatedId;
+					label.htmlFor = control.id;
+					mergeManagedIds(control, "aria-labelledby", label.id);
+				}
+			} else {
+				label.removeAttribute("for");
+				mergeManagedIds(control, "aria-labelledby", label.id);
+			}
+		}
+	} else if (label && controls.length > 1 && !label.htmlFor) {
+		if (!label.id) label.id = `${generatedId}-label`;
+		if (!root.hasAttribute("role")) root.setAttribute("role", "group");
+		mergeManagedIds(root, "aria-labelledby", label.id);
+	}
+
+	const descriptionIds: Array<string> = [];
+	for (const element of root.querySelectorAll<HTMLElement>("[data-slot=field-description]")) {
+		if (own(element) && element.id) descriptionIds.push(element.id);
+	}
+	const describedBy = descriptionIds.join(" ");
+	if (controls.length === 1) {
+		const control = controls[0];
+		if (control) mergeManagedIds(control, "aria-describedby", describedBy);
+	} else if (controls.length > 1) {
+		mergeManagedIds(root, "aria-describedby", describedBy);
+	}
 }
 
 interface FieldProps extends HTMLAttributes<HTMLDivElement> {
@@ -57,33 +91,44 @@ interface FieldProps extends HTMLAttributes<HTMLDivElement> {
 const Field = forwardRef<HTMLDivElement, FieldProps>(({ className, orientation = "vertical", ...props }, ref) => {
 	const sizeClasses = useSize();
 	const rootRef = useRef<HTMLDivElement | null>(null);
+	const fieldId = useId();
+	const children = props.children;
+	const [linkedLabelId, setLinkedLabelId] = useState<string>();
 
 	useEffect(() => {
-		if (rootRef.current) linkDescriptions(rootRef.current);
-	});
+		const root = rootRef.current;
+		if (!root) return;
+		linkFieldSemantics(root, fieldId);
+		const labelId = Array.from(root.querySelectorAll<HTMLLabelElement>("[data-slot=field-label]")).find(
+			(label) => label.closest("[data-slot=field]") === root,
+		)?.id;
+		setLinkedLabelId((current) => (current === labelId ? current : labelId));
+	}, [children, fieldId]);
 
 	const named = props["aria-label"] || props["aria-labelledby"];
 
 	return (
-		<div
-			ref={(node) => {
-				rootRef.current = node;
-				if (typeof ref === "function") ref(node);
-				else if (ref) ref.current = node;
-			}}
-			role={named ? "group" : undefined}
-			data-slot="field"
-			data-orientation={orientation}
-			className={cn(
-				"group/field flex w-full",
-				orientationClasses[orientation],
-				orientation === "horizontal" && sizeClasses.gap,
-				orientation === "responsive" &&
-					(sizeClasses.variant === "compact" ? "@md/field-group:gap-1" : "@md/field-group:gap-2"),
-				className,
-			)}
-			{...props}
-		/>
+		<FieldLabelIdContext.Provider value={linkedLabelId}>
+			<div
+				ref={(node) => {
+					rootRef.current = node;
+					if (typeof ref === "function") ref(node);
+					else if (ref) ref.current = node;
+				}}
+				role={named ? "group" : undefined}
+				data-slot="field"
+				data-orientation={orientation}
+				className={cn(
+					"group/field flex w-full",
+					orientationClasses[orientation],
+					orientation === "horizontal" && sizeClasses.gap,
+					orientation === "responsive" &&
+						(sizeClasses.variant === "compact" ? "@md/field-group:gap-1" : "@md/field-group:gap-2"),
+					className,
+				)}
+				{...props}
+			/>
+		</FieldLabelIdContext.Provider>
 	);
 });
 Field.displayName = "Field";
@@ -141,4 +186,3 @@ const FieldDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLPar
 FieldDescription.displayName = "FieldDescription";
 
 export { Field, FieldDescription, FieldGroup, FieldLabel };
-export type { FieldProps };

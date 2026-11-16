@@ -8,11 +8,11 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import { Copy, Plug, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { SettingsPane } from "@/components/settings/settings-pane";
+import { SectionPanel as SettingsPane } from "@/components/ui/section-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Select } from "@/components/ui/select";
@@ -244,176 +244,179 @@ export function McpConnectionsSection({
 
 			{adding ? (
 				<div className="flex flex-col gap-3 rounded-md border p-4">
-					<Field>
-						<FieldLabel>Name</FieldLabel>
-						<Input
-							value={name}
-							onChange={(event) => {
-								setName(event.target.value);
-								setReplaceConfirmed(false);
-							}}
-							aria-label="MCP server name"
-						/>
-					</Field>
-					<Field>
-						<FieldLabel>Transport</FieldLabel>
-						<Select
-							aria-label="Transport"
-							value={transport}
-							onValueChange={(value) => setTransport(value as "http" | "stdio")}
-							options={[
-								{ label: "HTTP", value: "http" },
-								{ label: "stdio", value: "stdio" },
-							]}
-						/>
-					</Field>
-					{transport === "http" ? (
-						<>
-							<Field>
-								<FieldLabel>URL</FieldLabel>
-								<Input
-									value={url}
-									onChange={(event) => setUrl(event.target.value)}
-									aria-label="MCP server URL"
-								/>
-							</Field>
-							<Field orientation="horizontal" className="items-center justify-between">
-								<div>
-									<FieldLabel>OAuth</FieldLabel>
-									<FieldDescription>
-										Sign in from Prime Agent's terminal after saving this server.
-									</FieldDescription>
-								</div>
-								<Switch
-									checked={oauth}
-									onCheckedChange={(checked) => {
-										setOauth(checked);
-										// A hidden token must not survive the toggle: OAuth and a
-										// static bearer token are mutually exclusive upstream.
-										if (checked) setBearerTokenEnvVar("");
-									}}
-									aria-label="Use OAuth"
-								/>
-							</Field>
-							{!oauth ? (
+					<FieldGroup className="gap-3">
+						<Field>
+							<FieldLabel>Name</FieldLabel>
+							<Input
+								value={name}
+								onChange={(event) => {
+									setName(event.target.value);
+									setReplaceConfirmed(false);
+								}}
+								aria-label="MCP server name"
+							/>
+						</Field>
+						<Field>
+							<FieldLabel>Transport</FieldLabel>
+							<Select
+								aria-label="Transport"
+								value={transport}
+								onValueChange={(value) => setTransport(value as "http" | "stdio")}
+								options={[
+									{ label: "HTTP", value: "http" },
+									{ label: "stdio", value: "stdio" },
+								]}
+							/>
+						</Field>
+						{transport === "http" ? (
+							<>
 								<Field>
-									<FieldLabel>Bearer token environment variable</FieldLabel>
+									<FieldLabel>URL</FieldLabel>
 									<Input
-										value={bearerTokenEnvVar}
-										onChange={(event) => setBearerTokenEnvVar(event.target.value)}
-										aria-label="Bearer token environment variable"
-										placeholder="MCP_BEARER_TOKEN"
+										value={url}
+										onChange={(event) => setUrl(event.target.value)}
+										aria-label="MCP server URL"
 									/>
 								</Field>
-							) : null}
-						</>
-					) : (
-						<>
-							<Field>
-								<FieldLabel>Command</FieldLabel>
-								<Input
-									value={command}
-									onChange={(event) => setCommand(event.target.value)}
-									aria-label="MCP command"
-								/>
-							</Field>
-							<Field>
-								<FieldLabel>Arguments</FieldLabel>
-								<FieldDescription>
-									Each row is one exact argument. Spaces stay inside that argument; shell quotes are
-									unnecessary.
-								</FieldDescription>
-								{args.map((argument, index) => (
-									<div key={index} className="flex gap-2">
-										<Input
-											aria-label={`MCP argument ${index + 1}`}
-											value={argument}
-											onChange={(event) =>
-												setArgs((current) =>
-													current.map((value, row) => (row === index ? event.target.value : value)),
-												)
-											}
-										/>
-										<Button
-											variant="ghost"
-											size="icon-compact"
-											aria-label={`Remove argument ${index + 1}`}
-											onClick={() => setArgs((current) => current.filter((_, row) => row !== index))}
-										>
-											<Trash2 />
-										</Button>
+								<Field orientation="horizontal" className="items-center justify-between">
+									<div>
+										<FieldLabel>OAuth</FieldLabel>
+										<FieldDescription>
+											Sign in from Prime Agent's terminal after saving this server.
+										</FieldDescription>
 									</div>
-								))}
-								<Button
-									variant="outline"
-									size="compact"
-									disabled={args.length >= 32}
-									onClick={() => setArgs((current) => [...current, ""])}
-								>
-									Add argument
-								</Button>
-							</Field>
-							<Field>
-								<FieldLabel>Working directory</FieldLabel>
-								<Input
-									value={cwd}
-									onChange={(event) => setCwd(event.target.value)}
-									aria-label="MCP working directory"
-								/>
-								<FieldDescription>Must stay inside the current workspace.</FieldDescription>
-							</Field>
-							<Field>
-								<FieldLabel>Environment mappings</FieldLabel>
-								<FieldDescription>
-									Map a child variable to a server environment variable name. Never paste secret values.
-								</FieldDescription>
-								{envBindings.map((binding, index) => (
-									<div key={index} className="flex gap-2">
+									<Switch
+										checked={oauth}
+										onCheckedChange={(checked) => {
+											setOauth(checked);
+											// A hidden token must not survive the toggle: OAuth and a
+											// static bearer token are mutually exclusive upstream.
+											if (checked) setBearerTokenEnvVar("");
+										}}
+									/>
+								</Field>
+								{!oauth ? (
+									<Field>
+										<FieldLabel>Bearer token environment variable</FieldLabel>
 										<Input
-											aria-label={`Child variable ${index + 1}`}
-											placeholder="CHILD_NAME"
-											value={binding.child}
-											onChange={(event) =>
-												setEnvBindings((current) =>
-													current.map((value, row) =>
-														row === index ? { ...value, child: event.target.value } : value,
-													),
-												)
-											}
+											value={bearerTokenEnvVar}
+											onChange={(event) => setBearerTokenEnvVar(event.target.value)}
+											aria-label="Bearer token environment variable"
+											placeholder="MCP_BEARER_TOKEN"
 										/>
-										<Input
-											aria-label={`Source variable ${index + 1}`}
-											placeholder="SERVER_VARIABLE"
-											value={binding.source}
-											onChange={(event) =>
-												setEnvBindings((current) =>
-													current.map((value, row) =>
-														row === index ? { ...value, source: event.target.value } : value,
-													),
-												)
-											}
-										/>
-										<Button
-											variant="ghost"
-											size="icon-compact"
-											aria-label={`Remove environment mapping ${index + 1}`}
-											onClick={() => setEnvBindings((current) => current.filter((_, row) => row !== index))}
-										>
-											<Trash2 />
-										</Button>
-									</div>
-								))}
-								<Button
-									variant="outline"
-									size="compact"
-									disabled={envBindings.length >= 32}
-									onClick={() => setEnvBindings((current) => [...current, { child: "", source: "" }])}
-								>
-									Add environment mapping
-								</Button>
-							</Field>
-						</>
-					)}
+									</Field>
+								) : null}
+							</>
+						) : (
+							<>
+								<Field>
+									<FieldLabel>Command</FieldLabel>
+									<Input
+										value={command}
+										onChange={(event) => setCommand(event.target.value)}
+										aria-label="MCP command"
+									/>
+								</Field>
+								<Field>
+									<FieldLabel>Arguments</FieldLabel>
+									<FieldDescription>
+										Each row is one exact argument. Spaces stay inside that argument; shell quotes are
+										unnecessary.
+									</FieldDescription>
+									{args.map((argument, index) => (
+										<div key={index} className="flex gap-2">
+											<Input
+												aria-label={`MCP argument ${index + 1}`}
+												value={argument}
+												onChange={(event) =>
+													setArgs((current) =>
+														current.map((value, row) => (row === index ? event.target.value : value)),
+													)
+												}
+											/>
+											<Button
+												variant="ghost"
+												size="icon-compact"
+												aria-label={`Remove argument ${index + 1}`}
+												onClick={() => setArgs((current) => current.filter((_, row) => row !== index))}
+											>
+												<Trash2 />
+											</Button>
+										</div>
+									))}
+									<Button
+										variant="outline"
+										size="compact"
+										disabled={args.length >= 32}
+										onClick={() => setArgs((current) => [...current, ""])}
+									>
+										Add argument
+									</Button>
+								</Field>
+								<Field>
+									<FieldLabel>Working directory</FieldLabel>
+									<Input
+										value={cwd}
+										onChange={(event) => setCwd(event.target.value)}
+										aria-label="MCP working directory"
+									/>
+									<FieldDescription>Must stay inside the current workspace.</FieldDescription>
+								</Field>
+								<Field>
+									<FieldLabel>Environment mappings</FieldLabel>
+									<FieldDescription>
+										Map a child variable to a server environment variable name. Never paste secret values.
+									</FieldDescription>
+									{envBindings.map((binding, index) => (
+										<div key={index} className="flex gap-2">
+											<Input
+												aria-label={`Child variable ${index + 1}`}
+												placeholder="CHILD_NAME"
+												value={binding.child}
+												onChange={(event) =>
+													setEnvBindings((current) =>
+														current.map((value, row) =>
+															row === index ? { ...value, child: event.target.value } : value,
+														),
+													)
+												}
+											/>
+											<Input
+												aria-label={`Source variable ${index + 1}`}
+												placeholder="SERVER_VARIABLE"
+												value={binding.source}
+												onChange={(event) =>
+													setEnvBindings((current) =>
+														current.map((value, row) =>
+															row === index ? { ...value, source: event.target.value } : value,
+														),
+													)
+												}
+											/>
+											<Button
+												variant="ghost"
+												size="icon-compact"
+												aria-label={`Remove environment mapping ${index + 1}`}
+												onClick={() =>
+													setEnvBindings((current) => current.filter((_, row) => row !== index))
+												}
+											>
+												<Trash2 />
+											</Button>
+										</div>
+									))}
+									<Button
+										variant="outline"
+										size="compact"
+										disabled={envBindings.length >= 32}
+										onClick={() => setEnvBindings((current) => [...current, { child: "", source: "" }])}
+									>
+										Add environment mapping
+									</Button>
+								</Field>
+							</>
+						)}
+					</FieldGroup>
 					{duplicate ? (
 						<Alert>
 							<AlertDescription>

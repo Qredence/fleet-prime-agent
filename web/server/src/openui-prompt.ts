@@ -70,7 +70,7 @@ const READ_ONLY_REWRITES: ReadonlyArray<readonly [RegExp, string]> = [
  * The `@Run(...)` step itself stays documented, because `@Run(query)` is how a
  * button re-fetches a read-only query.
  */
-export function stripMutationGuidance(prompt: string): string {
+function stripMutationGuidance(prompt: string): string {
 	const lines = prompt.split("\n");
 	const kept: string[] = [];
 	const droppedMutationRefs = new Set<string>();

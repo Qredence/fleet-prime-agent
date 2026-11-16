@@ -4,7 +4,7 @@ import { BUILTIN_MCP_CATALOG, getCatalogEntry } from "@earendil-works/pi-ai/mcp"
 import type { McpConnectionInfo, McpConnectionStatus, McpEnvBinding } from "@prime-agent/web-protocol/mcp";
 import { safePathLabel } from "./project-registry";
 
-export type FleetMcpHttpConfig = {
+type FleetMcpHttpConfig = {
 	type: "http";
 	url: string;
 	bearerTokenEnvVar?: string;
@@ -12,7 +12,7 @@ export type FleetMcpHttpConfig = {
 	enabled?: boolean;
 };
 
-export type FleetMcpStdioConfig = {
+type FleetMcpStdioConfig = {
 	type: "stdio";
 	command: string;
 	args?: Array<string>;
@@ -37,7 +37,7 @@ export class McpRequestError extends Error {
 	}
 }
 
-export type McpAuthRecord = {
+type McpAuthRecord = {
 	type?: string;
 	endpoint?: unknown;
 };
@@ -47,7 +47,7 @@ export type McpAuthStore = {
 	removeVerified(provider: string): void;
 };
 
-export type McpListedServer = {
+type McpListedServer = {
 	name: string;
 	label: string;
 	source: McpConnectionInfo["source"];

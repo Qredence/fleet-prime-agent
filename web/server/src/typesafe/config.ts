@@ -10,7 +10,7 @@
  * switch that can turn it on without one.
  */
 
-export type TypeSafeLogLevel = "debug" | "info" | "warn" | "error" | "off";
+type TypeSafeLogLevel = "debug" | "info" | "warn" | "error" | "off";
 
 export type TypeSafeRuntimeConfig = {
 	/** True when a key is present and the operator has not disabled the feature. */

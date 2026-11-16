@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
-export type StreamingResponseStatus = "streaming" | "complete";
+type StreamingResponseStatus = "streaming" | "complete";
 export type StreamingResponseFeedback = "up" | "down" | null;
 
 export interface StreamingResponseProps {

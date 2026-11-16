@@ -15,9 +15,6 @@ import { type JsonObject, RUNTIME_FILE_MODE, readJsonObjectFile, updateJsonObjec
 
 const AUTH_FILE = "auth.json";
 
-/** Credentials Fleet may write. OAuth bundles are refreshed by the runtime. */
-export type StoredApiKeyCredential = { type: "api_key"; key: string; [field: string]: unknown };
-
 export type CredentialWriteOutcome = { status: "written" } | { status: "refused"; reason: string };
 
 function isJsonObject(value: unknown): value is JsonObject {

@@ -229,4 +229,3 @@ const BreadcrumbPage = forwardRef<HTMLSpanElement, HTMLAttributes<HTMLSpanElemen
 BreadcrumbPage.displayName = "BreadcrumbPage";
 
 export { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator };
-export type { BreadcrumbProps };

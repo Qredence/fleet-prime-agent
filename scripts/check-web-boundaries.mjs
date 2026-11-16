@@ -147,7 +147,7 @@ function serverSdkPackage(specifier) {
 	return serverSdkPackages.find((packageName) => specifier === packageName || specifier.startsWith(`${packageName}/`));
 }
 
-export function isServerTestPath(relativePath) {
+function isServerTestPath(relativePath) {
 	const parts = relativePath.split(/[/\\]/);
 	return parts.includes("__tests__") || /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(relativePath);
 }

@@ -57,7 +57,7 @@ export function AgentCodeLine({ code, tokens, suffix, className }: AgentCodeLine
 
 const EMPTY_HIGHLIGHT_LINES: number[] = [];
 
-export type CodeBlockStatus = "streaming" | "complete";
+type CodeBlockStatus = "streaming" | "complete";
 
 export interface CodeBlockProps {
 	code: string;

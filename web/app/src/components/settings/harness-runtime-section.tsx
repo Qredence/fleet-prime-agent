@@ -21,7 +21,6 @@ export function HarnessRuntimeSection({
 				<>
 					<SettingsRow label="Compaction" description="Summarize earlier turns when the context fills up.">
 						<Switch
-							aria-label="Compaction"
 							disabled={disabled}
 							checked={draft?.compaction.enabled ?? false}
 							onCheckedChange={(enabled) =>
@@ -61,7 +60,6 @@ export function HarnessRuntimeSection({
 				<>
 					<SettingsRow label="Auto-retry" description="Retry failed provider requests.">
 						<Switch
-							aria-label="Auto-retry"
 							disabled={disabled}
 							checked={draft?.retry.enabled ?? false}
 							onCheckedChange={(enabled) =>

@@ -1,16 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from "react";
-import {
-	typeStyles,
-	typeScale,
-	typeClasses,
-	typeClass,
-	fieldTouchClass,
-	type TypeScaleRole,
-	type TypeScalePair,
-	type TypeScaleStep,
-} from "@/lib/fluid/type-scale";
+import { typeClasses, typeClass, fieldTouchClass, type TypeScaleRole } from "@/lib/fluid/type-scale";
 
 type SizeVariant = "default" | "compact";
 
@@ -91,21 +82,6 @@ const sizeMap: Record<SizeVariant, SizeClasses> = {
 	},
 };
 
-/** The type scale resolved for the active ladder step (font size in px per
- *  role): explicit override > surrounding SizeProvider > "default". Line
- *  heights live in `typeStyles` and the --lh-* tokens. */
-function useTypeScale(override?: SizeVariant | null): Record<TypeScaleRole, number> {
-	const variant = useSizeVariant(override);
-	return {
-		display: typeScale.display[variant],
-		title: typeScale.title[variant],
-		subtitle: typeScale.subtitle[variant],
-		body: typeScale.body[variant],
-		caption: typeScale.caption[variant],
-		micro: typeScale.micro[variant],
-	};
-}
-
 interface SizeContextValue {
 	size: SizeVariant;
 	setSize: (size: SizeVariant) => void;
@@ -123,12 +99,6 @@ function useSizeVariant(override?: SizeVariant | null): SizeVariant {
 /** Resolve size classes: explicit prop > provider > "default". */
 function useSize(override?: SizeVariant | null): SizeClasses {
 	return sizeMap[useSizeVariant(override)];
-}
-
-function useSizeContext() {
-	const ctx = useContext(SizeContext);
-	if (!ctx) throw new Error("useSizeContext must be used within a SizeProvider");
-	return ctx;
 }
 
 function SizeProvider({
@@ -162,17 +132,5 @@ function SizeProvider({
 	return <SizeContext.Provider value={value}>{children}</SizeContext.Provider>;
 }
 
-export {
-	SizeProvider,
-	useSize,
-	useSizeVariant,
-	useSizeContext,
-	useTypeScale,
-	sizeMap,
-	typeStyles,
-	typeScale,
-	typeClasses,
-	typeClass,
-	fieldTouchClass,
-};
-export type { SizeVariant, SizeClasses, TypeScaleRole, TypeScalePair, TypeScaleStep };
+export { SizeProvider, useSize, useSizeVariant, typeClass, fieldTouchClass };
+export type { SizeVariant };

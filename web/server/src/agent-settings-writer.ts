@@ -38,7 +38,7 @@ const RESOURCE_FIELDS = new Set(["extensions", "packages", "prompts", "skills", 
 /** Grouped fields that merge field-by-field instead of replacing wholesale. */
 const MERGED_FIELDS = new Set(["compaction", "retry"]);
 
-export type SettingsWriteImpact = {
+type SettingsWriteImpact = {
 	readonly changedKeys: string[];
 	readonly newSessionRecommended: boolean;
 	readonly resourceReloadRequired: boolean;

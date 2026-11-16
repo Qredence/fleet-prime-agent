@@ -2,7 +2,7 @@ import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/ch
 
 const BACKEND_SESSION_COMMAND_NAMES = ["compact", "refine", "goal", "autonomous"] as const;
 
-export type BackendSessionCommandName = (typeof BACKEND_SESSION_COMMAND_NAMES)[number];
+type BackendSessionCommandName = (typeof BACKEND_SESSION_COMMAND_NAMES)[number];
 
 export type BackendSessionCommand = {
 	name: BackendSessionCommandName;

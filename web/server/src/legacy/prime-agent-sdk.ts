@@ -30,7 +30,6 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type {
 	AgentConnection,
-	ApiKeyCredential,
 	FileEntry,
 	SessionContext,
 	SessionEntry,
@@ -49,11 +48,10 @@ import {
 export type LegacyAuthStorage = AuthStorage;
 export type LegacySettingsManager = SettingsManager;
 export type LegacyResourceLoader = DefaultResourceLoader;
-export type LegacyApiKeyCredential = ApiKeyCredential;
-export type LegacySessionHeader = SessionHeader;
-export type LegacySessionEntry = SessionEntry;
+type LegacySessionHeader = SessionHeader;
+type LegacySessionEntry = SessionEntry;
 export type LegacySessionMessageEntry = SessionMessageEntry;
-export type LegacySessionMessages = SessionContext["messages"];
+type LegacySessionMessages = SessionContext["messages"];
 
 /**
  * The upstream connection interface, exported for type derivation only.

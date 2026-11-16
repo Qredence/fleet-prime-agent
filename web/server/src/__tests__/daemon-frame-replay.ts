@@ -40,7 +40,7 @@ import {
 export const DAEMON_FRAMES_ROOT = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "daemon-frames");
 
 /** Frozen clock used while mapping, so run ids and timestamps are stable. */
-export const CONTRACT_FIXED_NOW = 1_767_225_600_000;
+const CONTRACT_FIXED_NOW = 1_767_225_600_000;
 const CONTRACT_FIXED_RANDOM = 0.5;
 
 export type DaemonFrame = { type: string } & Record<string, unknown>;
@@ -55,7 +55,7 @@ export type DaemonFrameScenario = {
 	activeSessionId: string;
 };
 
-export function parseJsonl(text: string): DaemonFrame[] {
+function parseJsonl(text: string): DaemonFrame[] {
 	return text
 		.split("\n")
 		.filter((line) => line.trim().length > 0)

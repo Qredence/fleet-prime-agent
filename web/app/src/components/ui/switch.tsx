@@ -2,7 +2,8 @@
 
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
 import { animate, m, type Transition, useMotionValue } from "motion/react";
-import { forwardRef, type HTMLAttributes, useCallback, useEffect, useId, useRef, useState } from "react";
+import { forwardRef, type HTMLAttributes, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
+import { FieldLabelIdContext } from "@/components/ui/field-context";
 import { useShape } from "@/lib/fluid/shape-context";
 import { useSize, type SizeVariant } from "@/lib/fluid/size-context";
 import { spring } from "@/lib/fluid/springs";
@@ -66,6 +67,7 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 		ref,
 	) => {
 		const labelId = useId();
+		const fieldLabelId = useContext(FieldLabelIdContext);
 		const hasMounted = useRef(false);
 		const [hovered, setHovered] = useState(false);
 		const [pressed, setPressed] = useState(false);
@@ -218,7 +220,7 @@ const Switch = forwardRef<HTMLDivElement, SwitchProps>(
 					data-slot="switch"
 					checked={checked}
 					aria-label={ariaLabel}
-					aria-labelledby={label ? labelId : ariaLabelledBy}
+					aria-labelledby={label ? labelId : (ariaLabelledBy ?? fieldLabelId)}
 					onCheckedChange={(next) => {
 						if (didDrag.current) return;
 						commitToggle(next);

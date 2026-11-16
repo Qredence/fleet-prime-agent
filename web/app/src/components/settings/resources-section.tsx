@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSettingsDraftState } from "@/hooks/settings/use-settings-draft-state";
 import { Input } from "@/components/ui/input";
 import { CatalogValueList } from "@/components/settings/lists";
-import { SettingsCommitActions, SettingsPane } from "@/components/settings/settings-pane";
+import { SettingsCommitActions } from "@/components/settings/settings-pane";
+import { SectionPanel as SettingsPane } from "@/components/ui/section-panel";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Switch } from "@/components/ui/switch";
 

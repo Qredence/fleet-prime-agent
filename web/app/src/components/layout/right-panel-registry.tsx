@@ -7,8 +7,8 @@ import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/l
 import { Skeleton } from "@/components/ui/skeleton";
 
 export type ActiveRightPanel = Exclude<RightPanel, null>;
-export type RightPanelBadgeSource = "resources" | "artifacts" | "repl";
-export type RightPanelLoadingSource = "resources" | "workspace";
+type RightPanelBadgeSource = "resources" | "artifacts" | "repl";
+type RightPanelLoadingSource = "resources" | "workspace";
 
 export type RightPanelDefinition = {
 	id: ActiveRightPanel;

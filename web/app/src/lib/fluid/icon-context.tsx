@@ -91,7 +91,7 @@ import {
 // also animate stroke width through `className` (1.5 → 2 on hover is a
 // common cue), so an icon from another library should forward both to its
 // `<svg>`. A filled icon set ignores them and simply loses that cue.
-export interface IconComponentProps {
+interface IconComponentProps {
 	size?: number;
 	strokeWidth?: number;
 	className?: string;
@@ -102,7 +102,7 @@ export type IconComponent = ComponentType<IconComponentProps>;
 // Names describe the role, not the glyph, so a library whose icon is called
 // something else still fills the same slot (`more-horizontal` is Lucide's
 // Ellipsis).
-export type IconName =
+type IconName =
 	| "chevron-right"
 	| "chevron-down"
 	| "x"
@@ -172,7 +172,7 @@ export type IconName =
 	| "tag"
 	| "filter";
 
-export const defaultIcons: Record<IconName, IconComponent> = {
+const defaultIcons: Record<IconName, IconComponent> = {
 	"chevron-right": ChevronRight,
 	"chevron-down": ChevronDown,
 	pipette: Pipette,
@@ -246,19 +246,6 @@ export const defaultIcons: Record<IconName, IconComponent> = {
 const IconContext = createContext<Record<IconName, IconComponent> | null>(null);
 
 /**
- * Returns a single icon component for the given name.
- * Falls back to the default (Lucide) set if no provider is present, so a
- * component works on its own before any IconProvider is set up.
- *
- * Fine for passing an icon on as a prop. To render it as `<Icon />`, take it
- * from `useIcons()` instead (see the note at the top of this file).
- */
-function useIcon(name: IconName): IconComponent {
-	const icons = useContext(IconContext);
-	return (icons ?? defaultIcons)[name];
-}
-
-/**
  * Returns the full icon map.
  * Falls back to the default (Lucide) set if no provider is present.
  */
@@ -280,4 +267,4 @@ function IconProvider({ children, icons }: { children: ReactNode; icons?: Partia
 	return <IconContext.Provider value={value}>{children}</IconContext.Provider>;
 }
 
-export { IconProvider, useIcon, useIcons };
+export { IconProvider, useIcons };

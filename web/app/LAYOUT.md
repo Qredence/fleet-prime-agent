@@ -62,6 +62,6 @@ Chat markdown uses Fluid Functionalism in `src/styles/typeset.css`. `MarkdownFra
 | Body                     | 13 / 20px              | 12 / 18px              |
 | Caption (code, captions) | 12 / 16px              | 11 / 14px              |
 
-Prose shares the existing `--fs-*` / `--lh-*` scale with controls. Use `typeClass(role, variant)` from `@/lib/fluid/type-scale` for explicit roles, or `useSize().type` and `useTypeScale()` from `@/lib/fluid/size-context` for density-aware classes and numeric sizes. The sixth role, micro, is for single-line counters and key caps rather than prose.
+Prose shares the existing `--fs-*` / `--lh-*` scale with controls. Use `typeClass(role, variant)` from `@/lib/fluid/type-scale` for explicit roles, or `useSize().type` from `@/lib/fluid/size-context` for density-aware classes. The sixth role, micro, is for single-line counters and key caps rather than prose.
 
 Fluid prose uses muted body text, foreground headings, and fixed spacing above blocks (12px default, 8px compact). Wrapping stays plain so appending streamed text does not rebalance earlier lines. Wide tables use `.typeset-scroll`. Use `not-typeset` / `data-not-typeset` on embedded UI controls to exclude their subtree while preserving outer prose spacing.

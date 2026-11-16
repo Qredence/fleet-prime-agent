@@ -16,7 +16,7 @@ export type ManagedAttachmentInspection = {
 	dataPath: string;
 };
 
-export class ManagedAttachmentValidationError extends Error {
+class ManagedAttachmentValidationError extends Error {
 	readonly status: 400 | 413;
 
 	constructor(message: string, status: 400 | 413) {

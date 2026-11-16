@@ -11,12 +11,6 @@ interface TypeScalePair {
 	leading: number;
 }
 
-/** One role's font size at each ladder step, in px. */
-interface TypeScaleStep {
-	default: number;
-	compact: number;
-}
-
 const typeStyles = {
 	/** Page titles. */
 	display: {
@@ -52,17 +46,6 @@ const typeStyles = {
 } as const satisfies Record<string, Record<TypeScaleVariant, TypeScalePair>>;
 
 type TypeScaleRole = keyof typeof typeStyles;
-
-const typeScaleRoles = Object.keys(typeStyles) as TypeScaleRole[];
-
-/** Font sizes alone, per role and step: the shape `typeScale` has always
- *  had, for code that reads it as numbers. */
-const typeScale = Object.fromEntries(
-	typeScaleRoles.map((role) => [
-		role,
-		{ default: typeStyles[role].default.size, compact: typeStyles[role].compact.size },
-	]),
-) as Record<TypeScaleRole, TypeScaleStep>;
 
 // Class strings per role and step (size + leading). Arbitrary values over the CSS variables,
 // with the px values as fallbacks, so a component renders the right size even
@@ -104,5 +87,5 @@ function typeClass(role: TypeScaleRole, variant: TypeScaleVariant = "default"): 
  *  desktop keeps the role. `useSize().field` is body plus this. */
 const fieldTouchClass = "pointer-coarse:text-[16px]";
 
-export { typeStyles, typeScale, typeScaleRoles, typeClasses, typeClass, fieldTouchClass };
-export type { TypeScaleRole, TypeScaleVariant, TypeScalePair, TypeScaleStep };
+export { typeClasses, typeClass, fieldTouchClass };
+export type { TypeScaleRole };

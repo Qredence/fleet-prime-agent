@@ -7,7 +7,7 @@ import type {
 import { Globe, HardDrive, Info } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SecretCredentialField, TextCredentialField } from "@/components/settings/credential-fields";
-import { SettingsPane } from "@/components/settings/settings-pane";
+import { SectionPanel as SettingsPane } from "@/components/ui/section-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";

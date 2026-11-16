@@ -64,7 +64,7 @@ const PROMPT_INDEX_FILE = "fleet-prompt-index.json";
  * drift from this one, and an evaluation that measures a corpus the product never
  * builds is worth nothing.
  */
-export type PersistedSession = {
+type PersistedSession = {
 	sessionFile: string;
 	/** The runtime's own "last modified" for the session file. */
 	modified: string;

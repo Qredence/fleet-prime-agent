@@ -10,10 +10,3 @@ export type ConfigModelInfo = {
 	available?: boolean;
 	thinkingLevel?: ChatThinkingLevel;
 };
-
-export type ProviderSummary = {
-	active: number;
-	available: number;
-	provider: string;
-	total: number;
-};

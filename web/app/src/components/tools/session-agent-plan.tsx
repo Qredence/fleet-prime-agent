@@ -20,7 +20,7 @@ import {
 import { usePlanDecision } from "@/hooks/chat/use-pi-chat-plan-decisions";
 import { cn } from "@/lib/utils";
 
-export type SessionPlanItemState = "pending" | "in_progress" | "completed" | "cancelled";
+type SessionPlanItemState = "pending" | "in_progress" | "completed" | "cancelled";
 
 export type SessionPlanItem = {
 	id: string;

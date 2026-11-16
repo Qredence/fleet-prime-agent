@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { SPRING_LAYOUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
-export type SidebarResourceKind = "folder" | "project" | "file" | "action";
+type SidebarResourceKind = "folder" | "project" | "file" | "action";
 
 export interface SidebarResource {
 	id: string;
@@ -30,7 +30,7 @@ export interface SidebarResource {
 	indent?: number;
 }
 
-export interface SidebarResourceMenuControls {
+interface SidebarResourceMenuControls {
 	close: () => void;
 	rename: () => void;
 }

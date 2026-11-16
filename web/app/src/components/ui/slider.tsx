@@ -1380,4 +1380,3 @@ function Slider<V extends SliderValue = number>({
 Slider.displayName = "Slider";
 
 export { Slider };
-export type { SliderProps };

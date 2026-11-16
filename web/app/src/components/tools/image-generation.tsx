@@ -10,7 +10,7 @@ import { useHoverCapable } from "@/hooks/use-hover-capable";
 import { EASE_IN_OUT, EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
-export type ImageGenerationStatus = "queued" | "generating" | "refining" | "complete" | "error";
+type ImageGenerationStatus = "queued" | "generating" | "refining" | "complete" | "error";
 
 export interface ImageGenerationProps {
 	/** The completed media. Pass an img, Next Image, canvas, video, or custom preview. */

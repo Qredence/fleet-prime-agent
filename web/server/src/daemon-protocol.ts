@@ -24,7 +24,7 @@ export const KNOWN_DAEMON_SCHEMA_IDS = {
 /** `runtime.buildId` prefix of the Rust daemon (`pa-daemon-rs-<version>`). */
 const RUST_DAEMON_BUILD_ID_PREFIX = "pa-daemon-rs-";
 
-export type DaemonProtocolInfo = { name: string; version: number };
+type DaemonProtocolInfo = { name: string; version: number };
 
 /** Capabilities advertised by protocol-7 daemons supported by Fleet. */
 export type DaemonServerCapability =
@@ -53,7 +53,7 @@ export type DaemonServerCapability =
 	| "direct_peer_transport"
 	| "abort_and_send_queued";
 
-export type DaemonRuntimeInfo = {
+type DaemonRuntimeInfo = {
 	buildId?: string;
 	executablePath?: string;
 	entrypointPath?: string;
@@ -91,9 +91,9 @@ export type DaemonResponseFrame<T = unknown> = {
 	errorInfo?: DaemonErrorInfo;
 };
 
-export type DaemonEventCursor = { generation: string; sequence: number };
+type DaemonEventCursor = { generation: string; sequence: number };
 
-export type DaemonEventMeta = {
+type DaemonEventMeta = {
 	id?: string;
 	activeSessionId?: string;
 	sequence?: number;
@@ -103,7 +103,7 @@ export type DaemonEventMeta = {
 };
 
 /** Wrapper for every per-session agent event. */
-export type DaemonSessionEventFrame = {
+type DaemonSessionEventFrame = {
 	type: "session_event";
 	activeSessionId: string;
 	event: { type: string; [key: string]: unknown };
@@ -160,14 +160,14 @@ export type DaemonSessionSnapshotEndFrame = {
 	lastEventCursor?: DaemonEventCursor;
 };
 
-export type DaemonSessionClosedFrame = {
+type DaemonSessionClosedFrame = {
 	type: "session_closed";
 	activeSessionId: string;
 	reason: string;
 	meta?: DaemonEventMeta;
 };
 
-export type DaemonClosingFrame = { type: "daemon_closing"; reason?: string };
+type DaemonClosingFrame = { type: "daemon_closing"; reason?: string };
 
 /** Any frame Fleet does not model is kept as an opaque typed record. */
 export type DaemonUnknownFrame = { type: string; [key: string]: unknown };
@@ -252,10 +252,10 @@ export type DaemonSavedSessionPage = {
 	nextCursor?: string;
 };
 
-export type DaemonSessionLifecycle = "resident" | "client_owned";
+type DaemonSessionLifecycle = "resident" | "client_owned";
 
 /** Create-time session config: only the keys the Rust worker reads. */
-export type DaemonCreateConfig = {
+type DaemonCreateConfig = {
 	cwd: string;
 	sessionDir?: string;
 	thinking?: string;
@@ -285,7 +285,7 @@ export type DaemonCreateCommand = {
 	launchEnv?: Record<string, string>;
 };
 
-export type DaemonListCommand = {
+type DaemonListCommand = {
 	type: "list";
 	all?: boolean;
 	cwd?: string;
@@ -293,7 +293,7 @@ export type DaemonListCommand = {
 	includeClientOwned?: boolean;
 };
 
-export type DaemonListSavedSessionsCommand = {
+type DaemonListSavedSessionsCommand = {
 	type: "list_saved_sessions";
 	cwd: string;
 	sessionDir?: string;
@@ -304,7 +304,7 @@ export type DaemonListSavedSessionsCommand = {
 	cursor?: string;
 };
 
-export type DaemonForkCommand = {
+type DaemonForkCommand = {
 	type: "fork";
 	activeSessionId: string;
 	entryId: string;
@@ -313,15 +313,9 @@ export type DaemonForkCommand = {
 
 export type DaemonForkResult = { cancelled: boolean; selectedText?: string };
 
-export type DaemonKillCommand = { type: "kill"; activeSessionId: string };
-export type DaemonDeleteSavedSessionCommand = { type: "delete_saved_session"; sessionPath: string };
-export type DaemonAckResultCommand = { type: "ack_result"; commandId: string };
-
-/**
- * `cancel_prompt_admission` outcome. Since v0.10.1 an admission that already
- * became session-owned reports `owned` instead of `cancelled`.
- */
-export type DaemonPromptAdmissionCancelStatus = "cancelled" | "owned" | (string & {});
+type DaemonKillCommand = { type: "kill"; activeSessionId: string };
+type DaemonDeleteSavedSessionCommand = { type: "delete_saved_session"; sessionPath: string };
+type DaemonAckResultCommand = { type: "ack_result"; commandId: string };
 
 /**
  * Session-routed catalog, resource and MCP commands. Every one of them is a
@@ -331,20 +325,20 @@ export type DaemonPromptAdmissionCancelStatus = "cancelled" | "owned" | (string 
  * initializing" until the session is created.
  * PA@v0.10.1 `crates/pa-types/src/daemon/command.rs:696-752`.
  */
-export type DaemonGetModelCatalogCommand = { type: "get_model_catalog"; activeSessionId: string };
-export type DaemonGetAvailableModelsCommand = { type: "get_available_models"; activeSessionId: string };
-export type DaemonGetResourceSnapshotCommand = { type: "get_resource_snapshot"; activeSessionId: string };
+type DaemonGetModelCatalogCommand = { type: "get_model_catalog"; activeSessionId: string };
+type DaemonGetAvailableModelsCommand = { type: "get_available_models"; activeSessionId: string };
+type DaemonGetResourceSnapshotCommand = { type: "get_resource_snapshot"; activeSessionId: string };
 /** Rust only (no TS v0.9.8 counterpart). */
-export type DaemonGetMcpConnectionsCommand = { type: "get_mcp_connections"; activeSessionId: string };
+type DaemonGetMcpConnectionsCommand = { type: "get_mcp_connections"; activeSessionId: string };
 /** Rust only: the inline paste flow; `server` must be a pasteable catalog service. */
-export type DaemonSetMcpStaticTokenCommand = {
+type DaemonSetMcpStaticTokenCommand = {
 	type: "set_mcp_static_token";
 	activeSessionId: string;
 	server: string;
 	token: string;
 };
 /** Rust only: drop one connection's credential and record together. */
-export type DaemonRemoveMcpConnectionCommand = {
+type DaemonRemoveMcpConnectionCommand = {
 	type: "remove_mcp_connection";
 	activeSessionId: string;
 	server: string;
@@ -565,9 +559,9 @@ export function describeDaemonIncompatibility(hello: DaemonHelloFrame): string |
 // ---------------------------------------------------------------------------
 
 /** $/million tokens. PA@v0.10.1 `crates/pa-types/src/ai/mod.rs:656-664`. */
-export type DaemonModelCost = { input: number; output: number; cacheRead: number; cacheWrite: number };
+type DaemonModelCost = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
-export type DaemonModelInput = "text" | "image";
+type DaemonModelInput = "text" | "image";
 
 /**
  * One model descriptor, `pa_types::ai::Model` (`crates/pa-types/src/ai/mod.rs:692-725`).
@@ -605,7 +599,7 @@ export type DaemonModelCatalog = { models: DaemonModel[]; configuredProviders: s
 export type DaemonAvailableModels = { models: DaemonModel[] };
 
 /** `pa_core::skills::SourceInfo` (`crates/pa-core/src/skills/mod.rs:28-50`). */
-export type DaemonResourceSourceInfo = {
+type DaemonResourceSourceInfo = {
 	path: string;
 	/** `auto` (discovered), `builtin`, or a package/CLI source label. */
 	source: string;
@@ -615,7 +609,7 @@ export type DaemonResourceSourceInfo = {
 };
 
 /** `crates/pa-daemon/src/agent_engine/artifacts.rs:7-37`. */
-export type DaemonResourceArtifact = {
+type DaemonResourceArtifact = {
 	id: string;
 	sessionId: string;
 	type: "skill" | "prompt" | "context_file";
@@ -624,7 +618,7 @@ export type DaemonResourceArtifact = {
 	relativePath?: string;
 };
 
-export type DaemonResourceSkill = {
+type DaemonResourceSkill = {
 	name: string;
 	filePath: string;
 	sourceInfo: DaemonResourceSourceInfo;
@@ -632,7 +626,7 @@ export type DaemonResourceSkill = {
 	artifact?: DaemonResourceArtifact;
 };
 
-export type DaemonResourcePrompt = {
+type DaemonResourcePrompt = {
 	name: string;
 	filePath: string;
 	sourceInfo: DaemonResourceSourceInfo;
@@ -641,10 +635,10 @@ export type DaemonResourcePrompt = {
 	artifact?: DaemonResourceArtifact;
 };
 
-export type DaemonResourceContextFile = { path: string; artifact?: DaemonResourceArtifact };
+type DaemonResourceContextFile = { path: string; artifact?: DaemonResourceArtifact };
 
 /** `pa_core::skills::ResourceDiagnostic` (`crates/pa-core/src/skills/diagnostics.rs:5-32`). */
-export type DaemonResourceDiagnostic =
+type DaemonResourceDiagnostic =
 	| { type: "warning" | "error"; message: string; path?: string }
 	| {
 			type: "collision";
@@ -673,7 +667,7 @@ export type DaemonResourceSnapshot = {
 };
 
 /** One `/mcp` roster row, `McpConnectionEntry` (`crates/pa-core/src/mcp/mod.rs:973-995`). */
-export type DaemonMcpConnectionEntry = {
+type DaemonMcpConnectionEntry = {
 	server: string;
 	label: string;
 	connected: boolean;
@@ -686,13 +680,7 @@ export type DaemonMcpConnectionEntry = {
 };
 
 /** `crates/pa-core/src/mcp/catalog_status_views.rs:12-21`. */
-export type DaemonMcpConnectionStatus =
-	| "connected"
-	| "pending"
-	| "not_connected"
-	| "setup_required"
-	| "disabled"
-	| "error";
+type DaemonMcpConnectionStatus = "connected" | "pending" | "not_connected" | "setup_required" | "disabled" | "error";
 
 /** One service-catalog card, `McpPluginView` (`crates/pa-core/src/mcp/catalog_plugin_views.rs:25-59`). */
 export type DaemonMcpServiceView = {
@@ -720,7 +708,7 @@ export type DaemonMcpServiceView = {
 };
 
 /** A stored api-key slot the `/mcp` view manages (`catalog_plugin_views.rs:486-498`). */
-export type DaemonMcpCredentialView = { id: string; label: string; configured: boolean };
+type DaemonMcpCredentialView = { id: string; label: string; configured: boolean };
 
 /** `get_mcp_connections` (`crates/pa-daemon/src/mcp_connections.rs:28-87`). */
 export type DaemonMcpConnections = {

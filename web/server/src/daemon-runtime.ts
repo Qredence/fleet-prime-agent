@@ -80,7 +80,7 @@ export type WebAgentConnection = {
 	onSequenceGap?: (listener: (gap: DaemonSequenceGap) => void) => () => void;
 };
 
-export type DaemonForkToNewSessionResult =
+type DaemonForkToNewSessionResult =
 	| { cancelled: true; selectedText?: string }
 	| { cancelled: false; selectedText?: string; sessionPath: string };
 

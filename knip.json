@@ -1,0 +1,88 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"tags": ["-lintignore"],
+	// Enable the full issue set now that the initial file, dependency, export,
+	// and type cleanup is complete.
+	"include": [
+		"files",
+		"dependencies",
+		"devDependencies",
+		"optionalPeerDependencies",
+		"unlisted",
+		"binaries",
+		"unresolved",
+		"catalog",
+		"catalogReferences",
+		"duplicates",
+		"exports",
+		"types",
+		"nsExports",
+		"nsTypes",
+		"enumMembers",
+		"namespaceMembers",
+		"cycles"
+	],
+	"ignoreIssues": {
+		// Cross-workspace dependency intentionally used by the repo-level esbuild smoke harness.
+		"scripts/browser-smoke-entry.ts": ["unlisted"],
+		// This generated bundle path exists only after build-web-release.
+		"scripts/prime-agent-web-launcher.mjs": ["unresolved"],
+		// These aliases deliberately expose two names for identical API schemas.
+		"web/protocol/src/schemas/catalog.ts": ["duplicates"],
+		"web/protocol/src/schemas/chat.ts": ["duplicates"]
+	},
+	"workspaces": {
+		".": {
+			"entry": [
+				// Invoked directly by CircleCI (`.circleci/deploy.yml`).
+				"scripts/deploy-release.mjs",
+				// Spawned via `execFileTrusted` by `scripts/publish-release.mjs`.
+				"scripts/publish-github-release.mjs",
+				// Copied into the fleet-web release bundle as `dist/web/launcher.mjs`
+				// by `scripts/build-web-release.mjs` and lint-audited by
+				// `scripts/check-changeset.mjs`. Its `./server/server.js` import is
+				// produced at build time.
+				"scripts/prime-agent-web-launcher.mjs",
+				// esbuild entry point compiled by `scripts/check-browser-smoke.mjs`.
+				"scripts/browser-smoke-entry.ts",
+				// Manual eval CLIs; the corpora they measure are referenced from
+				// `web/server/src/completion/match.ts` and
+				// `web/protocol/src/composer-intent.ts`.
+				"scripts/eval-composer-intent.ts",
+				"scripts/eval-composer-completion.ts",
+				// Loaded by the Amp editor via the `.amp/plugins` convention.
+				".amp/plugins/frontend-performance.ts"
+			],
+			// `check:web` runs `pnpm -r --if-present typecheck`; knip parses the
+			// script-name argument as a binary name.
+			"ignoreBinaries": ["typecheck"],
+			// Provided by the Amp runtime itself, not declared in any package.json.
+			"ignoreDependencies": ["@ampcode/plugin"]
+		},
+		"packages/fleet-web": {
+			// Type declaration paired with `bin/prime-runtime.mjs`.
+			"entry": ["bin/prime-runtime.d.mts"],
+			// Runtime dependencies of the *published* artifact. Knip only sees the
+			// repo sources, but `scripts/build-web-release.mjs` bundles the web
+			// server/app with these as rollup externals and audits that every
+			// external import is declared here (see its `external` list and the
+			// bundled-server dependency audit). Do not remove.
+			"ignoreDependencies": [
+				"@earendil-works/pi-agent-core",
+				"@earendil-works/pi-ai",
+				"prime-agent",
+				"react",
+				"react-dom",
+				"use-sync-external-store"
+			]
+		},
+		"web/app": {},
+		"web/protocol": {},
+		"web/server": {
+			// Resolved through a `join()`-built dynamic path by
+			// `scripts/record-contract-fixtures.ts` (the `record:contract-fixtures`
+			// script). Also keeps the `typebox` devDependency visible as used.
+			"entry": ["scripts/contract-fixtures/**/*.ts"]
+		}
+	}
+}

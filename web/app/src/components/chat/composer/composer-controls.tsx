@@ -19,7 +19,7 @@ export const AGENT_CHAT_MODES = [
 	{ id: "harness", label: "Harness", icon: Settings2, description: "Harness-aware turn" },
 ] as const;
 
-export type ModeOption = {
+type ModeOption = {
 	id: string;
 	label: string;
 	icon?: ComponentType<{ className?: string }>;

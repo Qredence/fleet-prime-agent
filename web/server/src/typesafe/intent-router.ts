@@ -31,7 +31,7 @@ export const INTENT_ROUTE_QUESTION_ID = "route";
 export const INTENT_CODE_TASK_QUESTION_ID = "is_code_task";
 
 /** Draft characters forwarded as state. Nothing longer informs the judgment. */
-export const MAX_INTENT_STATE_CHARS = 1_000;
+const MAX_INTENT_STATE_CHARS = 1_000;
 
 const ROUTE_INSTRUCTIONS = [
 	"`utterance` is free text a developer typed into the message composer of a coding-agent chat app.",

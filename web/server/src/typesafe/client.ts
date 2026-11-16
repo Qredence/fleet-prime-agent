@@ -30,7 +30,7 @@ export type ChoiceQuestion = {
 	criteria: Record<string, TypeSafeEntry>;
 };
 
-export type ScoreQuestion = {
+type ScoreQuestion = {
 	type: "score";
 	instructions?: TypeSafeEntry;
 	criteria: ReadonlyArray<TypeSafeEntry>;
@@ -47,7 +47,7 @@ export type ChoiceAnswer = {
 	probabilities: Record<string, number>;
 };
 
-export type ScoreAnswer = {
+type ScoreAnswer = {
 	type: "score";
 	score: number;
 	confidence: number;
@@ -55,9 +55,9 @@ export type ScoreAnswer = {
 	probabilities: Record<string, number>;
 };
 
-export type SystemOneAnswer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
+type SystemOneAnswer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
 
-export type SystemOneUsage = { input_tokens: number; output_tokens: number };
+type SystemOneUsage = { input_tokens: number; output_tokens: number };
 
 export type SystemOneResult = {
 	model: string;
@@ -131,10 +131,6 @@ export function noul(instructions: TypeSafeEntry, criteria?: NoulQuestion["crite
 
 export function choice(instructions: TypeSafeEntry, criteria: Record<string, TypeSafeEntry>): ChoiceQuestion {
 	return { type: "choice", instructions, criteria };
-}
-
-export function score(instructions: TypeSafeEntry, criteria: ReadonlyArray<TypeSafeEntry>): ScoreQuestion {
-	return { type: "score", instructions, criteria };
 }
 
 /** Narrows a result to its Choice answer, or `undefined` when the shape differs. */

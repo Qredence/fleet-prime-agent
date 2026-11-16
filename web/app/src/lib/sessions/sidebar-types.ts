@@ -15,7 +15,7 @@ import type { ReactNode } from "react";
 import { normalizeSessionLabel } from "@/lib/chat/chat-helpers";
 import { readStoredValue } from "@/lib/safe-storage";
 
-export type SessionSidebarData = {
+type SessionSidebarData = {
 	sessions: Array<ChatSessionInfo>;
 	projects?: Array<ProjectSummary>;
 	projectSessions?: Array<ChatSessionInfo>;
@@ -23,7 +23,7 @@ export type SessionSidebarData = {
 	activeSessionId?: string;
 };
 
-export type SessionActions = {
+type SessionActions = {
 	onNewSession: () => void;
 	onNewSessionInProject?: (projectId: ProjectId) => void | Promise<void>;
 	onResumeSession: (session: ChatSessionInfo) => void;
@@ -31,20 +31,20 @@ export type SessionActions = {
 	onDeleteSession: (sessionId: string) => void;
 };
 
-export type ProjectActions = {
+type ProjectActions = {
 	onProjectSelect?: (projectId: ProjectId) => void | Promise<void>;
 	onCreateProject?: (request: { path?: string; directoryToken?: string; name?: string }) => void | Promise<void>;
 	onRenameProject?: (projectId: ProjectId, name: string) => void | Promise<void>;
 	onUnregisterProject?: (projectId: ProjectId) => void | Promise<void>;
 };
 
-export type SidebarNavigationActions = {
+type SidebarNavigationActions = {
 	onOpenPanelAction?: (action: OpenPanelAction) => void;
 	onBrowseDirectories?: (input: { path?: string; token?: string }) => Promise<ProjectDirectoryBrowseResponse>;
 	onOpenSettings?: () => void;
 };
 
-export type SessionSidebarSlots = {
+type SessionSidebarSlots = {
 	accountMenu?: ReactNode;
 };
 
