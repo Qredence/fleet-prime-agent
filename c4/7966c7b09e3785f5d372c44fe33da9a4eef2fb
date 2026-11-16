@@ -1,0 +1,33 @@
+package.json
+  s_bdfa47343b3db4::t_62aa7dd95acbb5 20
+scripts/check.mjs
+  s_bdfa47343b3db4::t_14aeeaf0305e2a 20,98
+scripts/__tests__/check-web-boundaries.test.mjs
+  s_bdfa47343b3db4::t_3913da9ec54b94 11,53-61,67-68
+  s_bdfa47343b3db4::t_82e3d4e8d89720 62-66,69-72
+  s_bdfa47343b3db4::t_41be180bcfa932 73-74
+scripts/check-web-boundaries.mjs
+  s_bdfa47343b3db4::t_839f48ef7b373d 4,101-106,110-111,118-121,387-388,396
+  s_bdfa47343b3db4::t_82e3d4e8d89720 107-109,112-117
+scripts/check-paths.mjs
+  s_bdfa47343b3db4::t_b539d5ef1d4135 1-38
+scripts/__tests__/check-paths.test.mjs
+  s_bdfa47343b3db4::t_23a4de4e59f6d6 1-8,16-25,34,45-50
+  s_bdfa47343b3db4::t_82e3d4e8d89720 9-15,26-33,35-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c47966c7b09e3785f5d372c44fe33da9a4eef2fb",
+  "prompts": {},
+  "sessions": {
+    "s_bdfa47343b3db4": {
+      "agent_id": {
+        "tool": "pi",
+        "id": "01a1e22f-0c18-76c7-ac6d-906cdda6351e",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
