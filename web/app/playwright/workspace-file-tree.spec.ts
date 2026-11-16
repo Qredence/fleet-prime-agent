@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test";
 
 const workspace = {
 	root: "/workspace/prime-agent",
@@ -46,7 +46,7 @@ const workspace = {
 		},
 	],
 	diagnostics: [],
-} as const
+} as const;
 
 async function mockWorkspaceApis(page: Page) {
 	await page.route("**/api/workspace/tree**", async (route) => {
@@ -54,11 +54,11 @@ async function mockWorkspaceApis(page: Page) {
 			status: 200,
 			contentType: "application/json",
 			body: JSON.stringify(workspace),
-		})
-	})
+		});
+	});
 	await page.route("**/api/workspace/file**", async (route) => {
-		const path = new URL(route.request().url()).searchParams.get("path") ?? ""
-		const name = path.split("/").at(-1) ?? path
+		const path = new URL(route.request().url()).searchParams.get("path") ?? "";
+		const name = path.split("/").at(-1) ?? path;
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
@@ -69,146 +69,142 @@ async function mockWorkspaceApis(page: Page) {
 				mediaType: "text/markdown",
 				status: "ok",
 			}),
-		})
-	})
+		});
+	});
 }
 
 async function clickCenter(page: Page, locator: ReturnType<Page["locator"]>) {
-	const box = await locator.boundingBox()
-	expect(box).not.toBeNull()
-	if (!box) return
-	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+	const box = await locator.boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
 async function openWorkspaceFromLauncher(page: Page) {
-	const launcher = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
-	await expect(launcher).toBeVisible()
-	const combo = launcher.getByRole("combobox", { name: "Select panel", exact: true })
+	const launcher = page.locator('[data-testid="right-panel-inline-launcher"]:visible');
+	await expect(launcher).toBeVisible();
+	const combo = launcher.getByRole("combobox", { name: "Select panel", exact: true });
 	if (await combo.isVisible()) {
-		await combo.click()
-		await page.getByRole("option", { name: /^Workspace/ }).click()
-		return
+		await combo.click();
+		await page.getByRole("option", { name: /^Workspace/ }).click();
+		return;
 	}
-	await launcher.getByRole("tab", { name: "Workspace", exact: true }).click()
+	await launcher.getByRole("tab", { name: "Workspace", exact: true }).click();
 }
 
 function collectBrowserErrors(page: Page) {
-	const errors: Array<string> = []
+	const errors: Array<string> = [];
 	page.on("console", (message) => {
-		if (message.type() === "error") errors.push(message.text())
-	})
-	page.on("pageerror", (error) => errors.push(error.message))
-	return errors
+		if (message.type() === "error") errors.push(message.text());
+	});
+	page.on("pageerror", (error) => errors.push(error.message));
+	return errors;
 }
 
 test.describe("workspace file tree", () => {
 	test("supports desktop folder, file, and keyboard interactions", async ({ page }) => {
-		const browserErrors = collectBrowserErrors(page)
-		await page.setViewportSize({ width: 1400, height: 900 })
-		await mockWorkspaceApis(page)
-		await page.goto("/")
-		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
-		await page.waitForLoadState("networkidle")
+		const browserErrors = collectBrowserErrors(page);
+		await page.setViewportSize({ width: 1400, height: 900 });
+		await mockWorkspaceApis(page);
+		await page.goto("/");
+		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 });
+		await page.waitForLoadState("networkidle");
 
-		await clickCenter(page, page.getByRole("button", { name: "Open side panel", exact: true }))
-		const canvas = page.getByTestId("pi-workspace-canvas")
-		await expect(canvas).toBeVisible()
-		await expect(canvas).toHaveCSS("transform", "none")
-		const tree = canvas.getByRole("tree", { name: "Workspace files" })
-		await expect(tree).toBeVisible()
+		await clickCenter(page, page.getByRole("button", { name: "Open side panel", exact: true }));
+		const canvas = page.getByTestId("pi-workspace-canvas");
+		await expect(canvas).toBeVisible();
+		await expect(canvas).toHaveCSS("transform", "none");
+		const tree = canvas.getByRole("tree", { name: "Workspace files" });
+		await expect(tree).toBeVisible();
 
-		const docs = tree.getByRole("treeitem", { name: "docs", exact: true })
-		await expect(docs).toHaveAttribute("aria-expanded", "false")
-		await docs.click()
-		await expect(docs).toHaveAttribute("aria-expanded", "true")
-		await expect(docs).toHaveAttribute("aria-selected", "false")
-		const guides = tree.getByRole("treeitem", { name: "guides", exact: true })
-		await guides.click()
-		await expect(guides).toHaveAttribute("aria-expanded", "true")
-		await expect(guides).toHaveAttribute("aria-selected", "false")
-		await expect(tree.getByRole("treeitem", { name: "intro.md", exact: true })).toBeVisible()
+		const docs = tree.getByRole("treeitem", { name: "docs", exact: true });
+		await expect(docs).toHaveAttribute("aria-expanded", "false");
+		await docs.click();
+		await expect(docs).toHaveAttribute("aria-expanded", "true");
+		await expect(docs).toHaveAttribute("aria-selected", "false");
+		const guides = tree.getByRole("treeitem", { name: "guides", exact: true });
+		await guides.click();
+		await expect(guides).toHaveAttribute("aria-expanded", "true");
+		await expect(guides).toHaveAttribute("aria-selected", "false");
+		await expect(tree.getByRole("treeitem", { name: "intro.md", exact: true })).toBeVisible();
 
-		const readme = tree.getByRole("treeitem", { name: "README.md", exact: true })
-		await readme.click()
-		await expect(readme).toHaveAttribute("aria-selected", "true")
-		await expect(canvas.getByTestId("workspace-preview")).toContainText("README.md")
-		await expect(canvas.getByTestId("workspace-preview")).toContainText("Mock README preview")
+		const readme = tree.getByRole("treeitem", { name: "README.md", exact: true });
+		await readme.click();
+		await expect(readme).toHaveAttribute("aria-selected", "true");
+		await expect(canvas.getByTestId("workspace-preview")).toContainText("README.md");
+		await expect(canvas.getByTestId("workspace-preview")).toContainText("Mock README preview");
 
-		await docs.focus()
-		await docs.press("ArrowRight")
-		await expect(readme).toBeFocused()
-		await readme.press("ArrowLeft")
-		await expect(docs).toBeFocused()
-		await docs.press(" ")
-		await expect(docs).toHaveAttribute("aria-expanded", "false")
-		await expect(readme).toBeHidden()
-		await docs.press("ArrowRight")
-		await docs.press("ArrowRight")
-		await expect(readme).toBeFocused()
-		await readme.press("Enter")
+		await docs.focus();
+		await docs.press("ArrowRight");
+		await expect(readme).toBeFocused();
+		await readme.press("ArrowLeft");
+		await expect(docs).toBeFocused();
+		await docs.press(" ");
+		await expect(docs).toHaveAttribute("aria-expanded", "false");
+		await expect(readme).toBeHidden();
+		await docs.press("ArrowRight");
+		await docs.press("ArrowRight");
+		await expect(readme).toBeFocused();
+		await readme.press("Enter");
 
-		const artifactsFolder = tree.getByRole("treeitem", { name: "artifacts", exact: true })
-		await artifactsFolder.click()
-		const trace = tree.getByRole("treeitem", { name: "trace.md", exact: true })
-		await trace.click()
-		await expect(trace).toHaveAttribute("aria-selected", "true")
-		await expect(canvas.getByTestId("workspace-preview")).toContainText("trace.md")
+		const artifactsFolder = tree.getByRole("treeitem", { name: "artifacts", exact: true });
+		await artifactsFolder.click();
+		const trace = tree.getByRole("treeitem", { name: "trace.md", exact: true });
+		await trace.click();
+		await expect(trace).toHaveAttribute("aria-selected", "true");
+		await expect(canvas.getByTestId("workspace-preview")).toContainText("trace.md");
 
-		expect(
-			await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth),
-		).toBe(true)
-		expect(browserErrors).toEqual([])
-	})
+		expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+		expect(browserErrors).toEqual([]);
+	});
 
 	test("keeps the tree usable in the stacked mobile panel", async ({ page }) => {
-		const browserErrors = collectBrowserErrors(page)
-		await page.setViewportSize({ width: 390, height: 844 })
-		await mockWorkspaceApis(page)
-		await page.goto("/")
-		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
-		await page.waitForLoadState("networkidle")
+		const browserErrors = collectBrowserErrors(page);
+		await page.setViewportSize({ width: 390, height: 844 });
+		await mockWorkspaceApis(page);
+		await page.goto("/");
+		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 });
+		await page.waitForLoadState("networkidle");
 
-		await openWorkspaceFromLauncher(page)
-		const dialog = page.getByRole("dialog", { name: "Workspace", exact: true })
-		await expect(dialog).toBeVisible()
-		const mobileLauncher = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
+		await openWorkspaceFromLauncher(page);
+		const dialog = page.getByRole("dialog", { name: "Workspace", exact: true });
+		await expect(dialog).toBeVisible();
+		const mobileLauncher = page.locator('[data-testid="right-panel-inline-launcher"]:visible');
 		const launcherGeometry = await mobileLauncher.evaluate((element) => {
-			const measurement = element.querySelector<HTMLElement>("[data-panel-launcher-measurement]")
+			const measurement = element.querySelector<HTMLElement>("[data-panel-launcher-measurement]");
 			return {
 				availableWidth: element.clientWidth,
 				mode: element.getAttribute("data-panel-launcher-mode"),
 				requiredWidth: measurement?.getBoundingClientRect().width ?? 0,
-			}
-		})
+			};
+		});
 		expect(launcherGeometry.mode).toBe(
 			launcherGeometry.requiredWidth > launcherGeometry.availableWidth + 1 ? "dropdown" : "tabs",
-		)
-		const newChatBox = await page.getByTestId("new-chat-tab").boundingBox()
-		const launcherBox = await mobileLauncher.boundingBox()
-		expect(newChatBox && launcherBox && newChatBox.x + newChatBox.width <= launcherBox.x).toBe(true)
+		);
+		const newChatBox = await page.getByTestId("new-chat-tab").boundingBox();
+		const launcherBox = await mobileLauncher.boundingBox();
+		expect(newChatBox && launcherBox && newChatBox.x + newChatBox.width <= launcherBox.x).toBe(true);
 		if (launcherGeometry.mode === "dropdown") {
-			await expect(mobileLauncher.getByRole("combobox", { name: "Select panel", exact: true })).toBeVisible()
+			await expect(mobileLauncher.getByRole("combobox", { name: "Select panel", exact: true })).toBeVisible();
 		} else {
-			await expect(mobileLauncher.getByRole("tab", { name: "Workspace", exact: true })).toBeVisible()
+			await expect(mobileLauncher.getByRole("tab", { name: "Workspace", exact: true })).toBeVisible();
 		}
-		const tree = dialog.getByRole("tree", { name: "Workspace files" })
-		await expect(tree).toBeVisible()
-		await expect(dialog.getByTestId("workspace-tree-resize-handle")).toBeHidden()
+		const tree = dialog.getByRole("tree", { name: "Workspace files" });
+		await expect(tree).toBeVisible();
+		await expect(dialog.getByTestId("workspace-tree-resize-handle")).toBeHidden();
 
-		const split = dialog.locator("div.relative.grid").first()
+		const split = dialog.locator("div.relative.grid").first();
 		expect(
 			await split.evaluate((element) => getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length),
-		).toBe(1)
+		).toBe(1);
 
-		await tree.getByRole("treeitem", { name: "docs", exact: true }).click()
-		await tree.getByRole("treeitem", { name: "README.md", exact: true }).click()
-		await expect(dialog.getByTestId("workspace-preview")).toContainText("Mock README preview")
-		expect(
-			await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth),
-		).toBe(true)
-		await dialog.press("Escape")
-		await expect(dialog).toHaveCount(0)
-		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused()
-		expect(browserErrors).toEqual([])
-	})
-})
+		await tree.getByRole("treeitem", { name: "docs", exact: true }).click();
+		await tree.getByRole("treeitem", { name: "README.md", exact: true }).click();
+		await expect(dialog.getByTestId("workspace-preview")).toContainText("Mock README preview");
+		expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+		await dialog.press("Escape");
+		await expect(dialog).toHaveCount(0);
+		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused();
+		expect(browserErrors).toEqual([]);
+	});
+});

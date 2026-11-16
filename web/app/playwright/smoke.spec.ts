@@ -1,73 +1,73 @@
-import { test, expect, type Locator, type Page, type Route } from "@playwright/test"
+import { test, expect, type Locator, type Page, type Route } from "@playwright/test";
 
 async function clickCenter(page: Page, locator: Locator) {
-	const box = await locator.boundingBox()
-	expect(box).not.toBeNull()
-	if (!box) return
-	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+	const box = await locator.boundingBox();
+	expect(box).not.toBeNull();
+	if (!box) return;
+	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
 async function openWorkspaceFromLauncher(page: Page) {
-	const launcher = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
-	await expect(launcher).toBeVisible()
-	const combo = launcher.getByRole("combobox", { name: "Select panel", exact: true })
+	const launcher = page.locator('[data-testid="right-panel-inline-launcher"]:visible');
+	await expect(launcher).toBeVisible();
+	const combo = launcher.getByRole("combobox", { name: "Select panel", exact: true });
 	if (await combo.isVisible()) {
-		await combo.click()
-		await page.getByRole("option", { name: /^Workspace/ }).click()
-		return
+		await combo.click();
+		await page.getByRole("option", { name: /^Workspace/ }).click();
+		return;
 	}
-	await launcher.getByRole("tab", { name: "Workspace", exact: true }).click()
+	await launcher.getByRole("tab", { name: "Workspace", exact: true }).click();
 }
 
 async function fulfillEmptyChatEvents(route: Route, pathname: string) {
-	if (pathname !== "/api/chat/events") return false
+	if (pathname !== "/api/chat/events") return false;
 	await route.fulfill({
 		status: 200,
 		headers: { "content-type": "text/event-stream" },
 		body: "",
-	})
-	return true
+	});
+	return true;
 }
 
 async function fulfillEmptyChatSession(route: Route, pathname: string, method: string, sessionId: string) {
-	if (pathname !== "/api/chat/session" || method !== "GET") return false
+	if (pathname !== "/api/chat/session" || method !== "GET") return false;
 	await route.fulfill({
 		status: 200,
 		contentType: "application/json",
 		body: JSON.stringify({ session: { sessionId }, messages: [] }),
-	})
-	return true
+	});
+	return true;
 }
 
 function isGetPath(response: { url(): string; request(): { method(): string } }, pathname: string) {
-	return new URL(response.url()).pathname === pathname && response.request().method() === "GET"
+	return new URL(response.url()).pathname === pathname && response.request().method() === "GET";
 }
 
 /** Keep welcome/settings smokes off persisted Prime transcripts and live POSTs. */
 async function mockEmptyWelcomeChat(page: Page, sessionId: string) {
 	await page.route("**/api/chat**", async (route) => {
-		const request = route.request()
-		const pathname = new URL(request.url()).pathname
-		if (await fulfillEmptyChatEvents(route, pathname)) return
-		if (await fulfillEmptyChatSession(route, pathname, request.method(), sessionId)) return
+		const request = route.request();
+		const pathname = new URL(request.url()).pathname;
+		if (await fulfillEmptyChatEvents(route, pathname)) return;
+		if (await fulfillEmptyChatSession(route, pathname, request.method(), sessionId)) return;
 		if (pathname === "/api/chat/new" && request.method() === "POST") {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({ session: { sessionId }, messages: [] }),
-			})
-			return
+			});
+			return;
 		}
 		if (pathname === "/api/chat" && request.method() === "POST") {
 			await route.fulfill({
 				status: 200,
 				headers: { "content-type": "application/x-ndjson" },
 				body: "",
-			})
-			return
+			});
+			return;
 		}
-		await route.continue()
-	})
+		await route.continue();
+	});
 }
 
 /**
@@ -77,7 +77,7 @@ async function mockEmptyWelcomeChat(page: Page, sessionId: string) {
  */
 async function mockReasoningModel(page: Page) {
 	await page.route("**/api/chat/models**", async (route) => {
-		if (new URL(route.request().url()).pathname !== "/api/chat/models") return route.continue()
+		if (new URL(route.request().url()).pathname !== "/api/chat/models") return route.continue();
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
@@ -98,8 +98,8 @@ async function mockReasoningModel(page: Page) {
 				selectedModelKey: "smoke/reasoning-model",
 				diagnostics: [],
 			}),
-		})
-	})
+		});
+	});
 }
 
 // Smoke: prove the chat shell boots and the composer is interactive.
@@ -113,202 +113,218 @@ async function mockReasoningModel(page: Page) {
 //      which is what we expect in CI without a kernel).
 test.describe("chat shell", () => {
 	test("home page loads with chat input", async ({ page }) => {
-		await page.goto("/")
-		await expect(page).toHaveTitle(/fleet prime|chat/i, { timeout: 15_000 })
+		await page.goto("/");
+		await expect(page).toHaveTitle(/fleet prime|chat/i, { timeout: 15_000 });
 		// The chat surface renders a composer. We accept any plausible
 		// textarea/contenteditable that holds a placeholder.
-		const composer = page.locator(
-			'textarea, [contenteditable="true"], [data-chat-input]'
-		)
-		await expect(composer.first()).toBeVisible({ timeout: 10_000 })
-	})
+		const composer = page.locator('textarea, [contenteditable="true"], [data-chat-input]');
+		await expect(composer.first()).toBeVisible({ timeout: 10_000 });
+	});
 
 	test("empty welcome state launches developer tasks without submitting", async ({ page }) => {
-		await mockEmptyWelcomeChat(page, "welcome-task-session")
-		await mockReasoningModel(page)
-		await page.setViewportSize({ width: 1400, height: 900 })
-		await page.goto("/")
+		await mockEmptyWelcomeChat(page, "welcome-task-session");
+		await mockReasoningModel(page);
+		await page.setViewportSize({ width: 1400, height: 900 });
+		await page.goto("/");
 
-		const prompt = page.getByRole("textbox", { name: "Prompt" })
-		const welcome = page.locator('section[aria-labelledby="welcome-title"]')
-		await expect(prompt).toBeVisible({ timeout: 15_000 })
-		await expect(page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })).toBeVisible()
-		await expect(welcome.getByText("Qredence", { exact: true })).toHaveCount(0)
-		await expect(welcome.getByText("fleet-rlm", { exact: true })).toHaveCount(0)
-		await expect(welcome.getByText("Working in fleet-rlm", { exact: true })).toHaveCount(0)
-		await expect(welcome.locator("img")).toHaveCount(0)
-		await expect(page.getByText(/Explore the codebase, make changes, and run Fleet Prime tools/)).toHaveCount(0)
-		await expect(page.getByRole("heading", { name: "Welcome to your workspace", exact: true })).toHaveCount(0)
+		const prompt = page.getByRole("textbox", { name: "Prompt" });
+		const welcome = page.locator('section[aria-labelledby="welcome-title"]');
+		await expect(prompt).toBeVisible({ timeout: 15_000 });
+		await expect(
+			page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true }),
+		).toBeVisible();
+		await expect(welcome.getByText("Qredence", { exact: true })).toHaveCount(0);
+		await expect(welcome.getByText("fleet-rlm", { exact: true })).toHaveCount(0);
+		await expect(welcome.getByText("Working in fleet-rlm", { exact: true })).toHaveCount(0);
+		await expect(welcome.locator("img")).toHaveCount(0);
+		await expect(page.getByText(/Explore the codebase, make changes, and run Fleet Prime tools/)).toHaveCount(0);
+		await expect(page.getByRole("heading", { name: "Welcome to your workspace", exact: true })).toHaveCount(0);
 
 		for (const label of ["Explore codebase", "Review changes", "Fix an issue", "Plan a feature"]) {
-			await expect(page.getByRole("button", { name: label, exact: true })).toBeVisible()
+			await expect(page.getByRole("button", { name: label, exact: true })).toBeVisible();
 		}
 		for (const label of ["Summarize this project", "Explore the workspace", "Find a good next step"]) {
-			await expect(page.getByRole("button", { name: label, exact: true })).toHaveCount(0)
+			await expect(page.getByRole("button", { name: label, exact: true })).toHaveCount(0);
 		}
 
-		await expect(prompt).toHaveAttribute(
-			"placeholder",
-			"Ask Prime to build, investigate, or change something…",
-		)
-		await expect(prompt).toHaveCount(1)
-		await expect(page.getByRole("button", { name: "Open slash commands" })).toBeVisible()
-		await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible()
-		const modelSelector = page.getByRole("combobox", { name: "Select model and reasoning effort" })
-		await expect(modelSelector).toBeVisible()
-		await expect(page.getByRole("button", { name: /Enable OpenUI|Disable OpenUI/ })).toHaveCount(0)
-		await expect(page.getByRole("button", { name: "Send prompt" })).toBeVisible()
-		await page.waitForLoadState("networkidle")
-		await modelSelector.click()
-		const effortSlider = page.getByRole("slider", { name: "Reasoning effort" })
-		await expect(effortSlider).toBeVisible()
-		await effortSlider.focus()
-		await effortSlider.press("Home")
-		await expect(effortSlider).toHaveValue("0")
-		await effortSlider.press("ArrowRight")
-		await expect(effortSlider).toHaveValue("1")
-		const effortLabel = await effortSlider.getAttribute("aria-valuetext")
-		expect(effortLabel).toBeTruthy()
-		await expect(modelSelector).toContainText(effortLabel ?? "")
-		await effortSlider.press("Escape")
-		await expect(effortSlider).toHaveCount(0)
+		await expect(prompt).toHaveAttribute("placeholder", "Ask Prime to build, investigate, or change something…");
+		await expect(prompt).toHaveCount(1);
+		await expect(page.getByRole("button", { name: "Open slash commands" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible();
+		const modelSelector = page.getByRole("combobox", { name: "Select model and reasoning effort" });
+		await expect(modelSelector).toBeVisible();
+		await expect(page.getByRole("button", { name: /Enable OpenUI|Disable OpenUI/ })).toHaveCount(0);
+		await expect(page.getByRole("button", { name: "Send prompt" })).toBeVisible();
+		await page.waitForLoadState("networkidle");
+		await modelSelector.click();
+		const effortSlider = page.getByRole("slider", { name: "Reasoning effort" });
+		await expect(effortSlider).toBeVisible();
+		await effortSlider.focus();
+		await effortSlider.press("Home");
+		await expect(effortSlider).toHaveValue("0");
+		await effortSlider.press("ArrowRight");
+		await expect(effortSlider).toHaveValue("1");
+		const effortLabel = await effortSlider.getAttribute("aria-valuetext");
+		expect(effortLabel).toBeTruthy();
+		await expect(modelSelector).toContainText(effortLabel ?? "");
+		await effortSlider.press("Escape");
+		await expect(effortSlider).toHaveCount(0);
 		expect(
-			await page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })
+			await page
+				.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })
 				.evaluate((element) => getComputedStyle(element).fontWeight),
-		).toBe("400")
-		expect(await page.getByRole("form", { name: "Message composer" }).evaluate((element) => getComputedStyle(element).borderRadius)).toBe("24px")
-		expect(await page.getByRole("log").evaluate((element) => getComputedStyle(element).justifyContent)).toBe("center")
+		).toBe("400");
+		expect(
+			await page
+				.getByRole("form", { name: "Message composer" })
+				.evaluate((element) => getComputedStyle(element).borderRadius),
+		).toBe("24px");
+		expect(await page.getByRole("log").evaluate((element) => getComputedStyle(element).justifyContent)).toBe(
+			"center",
+		);
 
-		const chatColumn = page.getByTestId("chat-column")
-		const welcomeBox = await welcome.boundingBox()
-		const chatColumnBox = await chatColumn.boundingBox()
-		const headingBox = await page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true }).boundingBox()
-		const formBox = await page.getByRole("form", { name: "Message composer" }).boundingBox()
-		expect(welcomeBox).not.toBeNull()
-		expect(chatColumnBox).not.toBeNull()
-		expect(headingBox).not.toBeNull()
-		expect(formBox).not.toBeNull()
+		const chatColumn = page.getByTestId("chat-column");
+		const welcomeBox = await welcome.boundingBox();
+		const chatColumnBox = await chatColumn.boundingBox();
+		const headingBox = await page
+			.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })
+			.boundingBox();
+		const formBox = await page.getByRole("form", { name: "Message composer" }).boundingBox();
+		expect(welcomeBox).not.toBeNull();
+		expect(chatColumnBox).not.toBeNull();
+		expect(headingBox).not.toBeNull();
+		expect(formBox).not.toBeNull();
 		if (welcomeBox && chatColumnBox && headingBox && formBox) {
 			// Classic scrollbars inset the scroller by ~15px; half of that is 7.5px.
-			expect(Math.abs(welcomeBox.x + welcomeBox.width / 2 - (chatColumnBox.x + chatColumnBox.width / 2))).toBeLessThanOrEqual(8)
-			expect(Math.abs(headingBox.x + headingBox.width / 2 - (formBox.x + formBox.width / 2))).toBeLessThanOrEqual(8)
-			expect(welcomeBox.x).toBeGreaterThanOrEqual(chatColumnBox.x - 1)
-			expect(welcomeBox.x + welcomeBox.width).toBeLessThanOrEqual(chatColumnBox.x + chatColumnBox.width + 1)
+			expect(
+				Math.abs(welcomeBox.x + welcomeBox.width / 2 - (chatColumnBox.x + chatColumnBox.width / 2)),
+			).toBeLessThanOrEqual(8);
+			expect(Math.abs(headingBox.x + headingBox.width / 2 - (formBox.x + formBox.width / 2))).toBeLessThanOrEqual(8);
+			expect(welcomeBox.x).toBeGreaterThanOrEqual(chatColumnBox.x - 1);
+			expect(welcomeBox.x + welcomeBox.width).toBeLessThanOrEqual(chatColumnBox.x + chatColumnBox.width + 1);
 		}
-		expect(await welcome.evaluate((element) => getComputedStyle(element).textAlign)).toBe("center")
+		expect(await welcome.evaluate((element) => getComputedStyle(element).textAlign)).toBe("center");
 
-		let chatPostCount = 0
+		let chatPostCount = 0;
 		page.on("request", (request) => {
-			if (request.method() === "POST" && new URL(request.url()).pathname === "/api/chat") chatPostCount += 1
-		})
-		await page.getByRole("button", { name: "Explore codebase", exact: true }).click()
+			if (request.method() === "POST" && new URL(request.url()).pathname === "/api/chat") chatPostCount += 1;
+		});
+		await page.getByRole("button", { name: "Explore codebase", exact: true }).click();
 		await expect(prompt).toHaveValue(
 			"Explore this codebase and explain its architecture, important modules, and main entry points.",
-		)
-		expect(chatPostCount).toBe(0)
-	})
+		);
+		expect(chatPostCount).toBe(0);
+	});
 
 	test("empty welcome state wraps prompt pills on a narrow viewport", async ({ page }) => {
-		await page.setViewportSize({ width: 700, height: 850 })
-		await page.goto("/")
+		await page.setViewportSize({ width: 700, height: 850 });
+		await page.goto("/");
 
-		await expect(page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })).toBeVisible({ timeout: 15_000 })
-		const welcome = page.locator('section[aria-labelledby="welcome-title"]')
-		const actions = welcome.locator('[aria-label="Suggested prompts"]')
-		const chatColumn = page.getByTestId("chat-column")
-		const actionButtons = actions.getByRole("button")
-		await expect(actionButtons).toHaveCount(4)
-		expect(await actions.evaluate((element) => getComputedStyle(element).display)).toBe("flex")
-		expect(await actions.evaluate((element) => getComputedStyle(element).flexWrap)).toBe("wrap")
+		await expect(
+			page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true }),
+		).toBeVisible({ timeout: 15_000 });
+		const welcome = page.locator('section[aria-labelledby="welcome-title"]');
+		const actions = welcome.locator('[aria-label="Suggested prompts"]');
+		const chatColumn = page.getByTestId("chat-column");
+		const actionButtons = actions.getByRole("button");
+		await expect(actionButtons).toHaveCount(4);
+		expect(await actions.evaluate((element) => getComputedStyle(element).display)).toBe("flex");
+		expect(await actions.evaluate((element) => getComputedStyle(element).flexWrap)).toBe("wrap");
 
-		const welcomeBox = await welcome.boundingBox()
-		const chatColumnBox = await chatColumn.boundingBox()
-		const formBox = await page.getByRole("form", { name: "Message composer" }).boundingBox()
-		expect(welcomeBox).not.toBeNull()
-		expect(chatColumnBox).not.toBeNull()
-		expect(formBox).not.toBeNull()
+		const welcomeBox = await welcome.boundingBox();
+		const chatColumnBox = await chatColumn.boundingBox();
+		const formBox = await page.getByRole("form", { name: "Message composer" }).boundingBox();
+		expect(welcomeBox).not.toBeNull();
+		expect(chatColumnBox).not.toBeNull();
+		expect(formBox).not.toBeNull();
 		if (welcomeBox && chatColumnBox && formBox) {
-			expect(welcomeBox.x).toBeGreaterThanOrEqual(chatColumnBox.x - 1)
-			expect(welcomeBox.x + welcomeBox.width).toBeLessThanOrEqual(chatColumnBox.x + chatColumnBox.width + 1)
-			expect(Math.abs(welcomeBox.x - formBox.x)).toBeLessThanOrEqual(2)
+			expect(welcomeBox.x).toBeGreaterThanOrEqual(chatColumnBox.x - 1);
+			expect(welcomeBox.x + welcomeBox.width).toBeLessThanOrEqual(chatColumnBox.x + chatColumnBox.width + 1);
+			expect(Math.abs(welcomeBox.x - formBox.x)).toBeLessThanOrEqual(2);
 		}
-		expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
-	})
+		expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+	});
 
 	test("first empty-state submit switches to the normal docked composer", async ({ page }) => {
-		let chatPostCount = 0
-		let submittedOpenUI: boolean | undefined
+		let chatPostCount = 0;
+		let submittedOpenUI: boolean | undefined;
 		await page.route("**/api/chat**", async (route) => {
-			const request = route.request()
-			const pathname = new URL(request.url()).pathname
-			if (await fulfillEmptyChatEvents(route, pathname)) return
-			if (await fulfillEmptyChatSession(route, pathname, request.method(), "welcome-smoke-session")) return
+			const request = route.request();
+			const pathname = new URL(request.url()).pathname;
+			if (await fulfillEmptyChatEvents(route, pathname)) return;
+			if (await fulfillEmptyChatSession(route, pathname, request.method(), "welcome-smoke-session")) return;
 			if (pathname === "/api/chat/new" && request.method() === "POST") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({ session: { sessionId: "welcome-smoke-session" }, messages: [] }),
-				})
-				return
+				});
+				return;
 			}
 			if (pathname === "/api/chat" && request.method() === "POST") {
-				chatPostCount += 1
-				submittedOpenUI = (request.postDataJSON() as { openUI?: boolean }).openUI
+				chatPostCount += 1;
+				submittedOpenUI = (request.postDataJSON() as { openUI?: boolean }).openUI;
 				await route.fulfill({
 					status: 200,
 					headers: { "content-type": "application/x-ndjson" },
 					body: "",
-				})
-				return
+				});
+				return;
 			}
-			await route.continue()
-		})
+			await route.continue();
+		});
 
-		await page.setViewportSize({ width: 1400, height: 900 })
-		await page.goto("/")
-		const emptyPrompt = page.getByRole("textbox", { name: "Prompt" })
-		await expect(page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })).toBeVisible({ timeout: 15_000 })
-		await expect(emptyPrompt).toBeVisible({ timeout: 15_000 })
-		await page.waitForLoadState("networkidle")
-		await emptyPrompt.fill("Inspect the current implementation")
-		await expect(emptyPrompt).toHaveValue("Inspect the current implementation")
-		await expect(emptyPrompt).toBeEditable()
-		const sendPrompt = page.getByRole("button", { name: "Send prompt" })
-		await expect(sendPrompt).toBeEnabled({ timeout: 15_000 })
-		await sendPrompt.click()
+		await page.setViewportSize({ width: 1400, height: 900 });
+		await page.goto("/");
+		const emptyPrompt = page.getByRole("textbox", { name: "Prompt" });
+		await expect(
+			page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true }),
+		).toBeVisible({ timeout: 15_000 });
+		await expect(emptyPrompt).toBeVisible({ timeout: 15_000 });
+		await page.waitForLoadState("networkidle");
+		await emptyPrompt.fill("Inspect the current implementation");
+		await expect(emptyPrompt).toHaveValue("Inspect the current implementation");
+		await expect(emptyPrompt).toBeEditable();
+		const sendPrompt = page.getByRole("button", { name: "Send prompt" });
+		await expect(sendPrompt).toBeEnabled({ timeout: 15_000 });
+		await sendPrompt.click();
 
-		await expect(page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true })).toHaveCount(0)
-		await expect(page.getByPlaceholder("Ask Prime to build, investigate, or change something…")).toHaveCount(0)
-		const normalPrompt = page.getByPlaceholder("Send a message…")
-		await expect(normalPrompt).toBeVisible()
-		await expect(page.getByTestId("chat-column").getByText("Inspect the current implementation", { exact: true })).toBeVisible()
-		await expect(page.getByRole("button", { name: "Open slash commands" })).toBeVisible()
-		await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible()
-		await expect(page.getByRole("combobox", { name: "Select model and reasoning effort" })).toBeVisible()
-		await expect(page.getByRole("button", { name: /Enable OpenUI|Disable OpenUI/ })).toHaveCount(0)
-		await expect(page.getByRole("button", { name: "Send prompt" })).toBeVisible()
-		await expect.poll(() => chatPostCount).toBe(1)
-		await expect.poll(() => submittedOpenUI).toBe(true)
-	})
+		await expect(
+			page.getByRole("heading", { name: "What should Fleet Prime Agent work on?", exact: true }),
+		).toHaveCount(0);
+		await expect(page.getByPlaceholder("Ask Prime to build, investigate, or change something…")).toHaveCount(0);
+		const normalPrompt = page.getByPlaceholder("Send a message…");
+		await expect(normalPrompt).toBeVisible();
+		await expect(
+			page.getByTestId("chat-column").getByText("Inspect the current implementation", { exact: true }),
+		).toBeVisible();
+		await expect(page.getByRole("button", { name: "Open slash commands" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Select mode" })).toBeVisible();
+		await expect(page.getByRole("combobox", { name: "Select model and reasoning effort" })).toBeVisible();
+		await expect(page.getByRole("button", { name: /Enable OpenUI|Disable OpenUI/ })).toHaveCount(0);
+		await expect(page.getByRole("button", { name: "Send prompt" })).toBeVisible();
+		await expect.poll(() => chatPostCount).toBe(1);
+		await expect.poll(() => submittedOpenUI).toBe(true);
+	});
 
 	test("Activity keeps chronological tool traces with compact and error details", async ({ page }) => {
-		const browserErrors: string[] = []
-		const assistantReport = `Trace complete. ${"Detailed report section describing the completed inspection. ".repeat(50)}\n\n\`\`\`ts\nconst fixture = 42\n\`\`\``
+		const browserErrors: string[] = [];
+		const assistantReport = `Trace complete. ${"Detailed report section describing the completed inspection. ".repeat(50)}\n\n\`\`\`ts\nconst fixture = 42\n\`\`\``;
 		page.on("console", (message) => {
-			if (message.type() === "error") browserErrors.push(message.text())
-		})
-		page.on("pageerror", (error) => browserErrors.push(error.message))
+			if (message.type() === "error") browserErrors.push(message.text());
+		});
+		page.on("pageerror", (error) => browserErrors.push(error.message));
 
 		const ipythonStart = {
 			type: "tool-IPython",
 			toolCallId: "python-trace-1",
 			state: "input-streaming",
 			input: { code: "print('trace ok')" },
-		}
+		};
 		const ipythonUpdate = {
 			...ipythonStart,
 			result: { details: { stdout: "trace ok" } },
-		}
+		};
 		const ipythonEnd = {
 			...ipythonStart,
 			state: "output-available",
@@ -320,21 +336,21 @@ test.describe("chat shell", () => {
 					kernelRestarted: false,
 				},
 			},
-		}
+		};
 		const terminalParts = Array.from({ length: 12 }, (_, index) => ({
 			type: "tool-Bash",
 			toolCallId: `bash-trace-${index}`,
 			state: index === 11 ? "output-error" : "output-available",
 			input: { command: `echo trace-${index}` },
 			output: index === 11 ? { stderr: "trace command failed", exitCode: 1 } : { stdout: `trace-${index}` },
-		}))
+		}));
 		const editPart = {
 			type: "tool-Edit",
 			toolCallId: "edit-trace-1",
 			state: "output-available",
 			input: { path: "src/trace.ts" },
 			output: { diff: "@@\n-old\n+new" },
-		}
+		};
 		const citationPart = {
 			type: "tool-WebSearch",
 			toolCallId: "search-trace-1",
@@ -346,464 +362,503 @@ test.describe("chat shell", () => {
 					{ title: "Unsafe source", url: "javascript:alert(1)" },
 				],
 			},
-		}
-		const terminalPartsWithRichDetails = [ipythonEnd, ...terminalParts, editPart, citationPart]
+		};
+		const terminalPartsWithRichDetails = [ipythonEnd, ...terminalParts, editPart, citationPart];
 
 		await page.route("**/api/chat**", async (route) => {
-			const request = route.request()
-			const pathname = new URL(request.url()).pathname
-			if (await fulfillEmptyChatEvents(route, pathname)) return
-			if (await fulfillEmptyChatSession(route, pathname, request.method(), "trace-smoke-session")) return
+			const request = route.request();
+			const pathname = new URL(request.url()).pathname;
+			if (await fulfillEmptyChatEvents(route, pathname)) return;
+			if (await fulfillEmptyChatSession(route, pathname, request.method(), "trace-smoke-session")) return;
 			if (pathname === "/api/chat/new" && request.method() === "POST") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({ session: { sessionId: "trace-smoke-session" }, messages: [] }),
-				})
-				return
+				});
+				return;
 			}
 			if (pathname !== "/api/chat" || request.method() !== "POST") {
-				await route.continue()
-				return
+				await route.continue();
+				return;
 			}
 
-			const messageId = "trace-run-a0"
-			const stream = [
-				{ type: "start", id: messageId, runId: "trace-run", sessionId: "trace-smoke-session" },
-				{ type: "thinking", phase: "start", text: "", messageId },
-				{ type: "thinking", phase: "delta", text: "Preparing trace", messageId },
-				{ type: "thinking", phase: "end", text: "", messageId },
-				{ type: "reasoning_text", phase: "start", contentIndex: 0, text: "", messageId },
-				{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "Inspecting the fixture", messageId },
-				{ type: "reasoning_text", phase: "end", contentIndex: 0, text: "Inspecting the fixture", messageId },
-				{ type: "tool", messageId, part: ipythonStart },
-				{ type: "tool", messageId, part: ipythonUpdate },
-				{ type: "tool", messageId, part: ipythonEnd },
-				...terminalPartsWithRichDetails.map((part) => ({ type: "tool", messageId, part })),
-				{
-					type: "done",
-					runId: "trace-run",
-					sessionId: "trace-smoke-session",
-					message: {
-						id: messageId,
-						role: "assistant",
-						parts: [
-							{ type: "text", text: assistantReport },
-							{
-								type: "tool-FleetReasoning",
-								state: "output-available",
-								input: {
-									runId: "trace-run",
-									phase: "complete",
-									steps: [{ title: "Writing response", body: "Preparing the response." }],
-									visibleSteps: 1,
-									streaming: false,
-									startedAt: 0,
-									restingLabel: "Completed",
+			const messageId = "trace-run-a0";
+			const stream =
+				[
+					{ type: "start", id: messageId, runId: "trace-run", sessionId: "trace-smoke-session" },
+					{ type: "thinking", phase: "start", text: "", messageId },
+					{ type: "thinking", phase: "delta", text: "Preparing trace", messageId },
+					{ type: "thinking", phase: "end", text: "", messageId },
+					{ type: "reasoning_text", phase: "start", contentIndex: 0, text: "", messageId },
+					{ type: "reasoning_text", phase: "delta", contentIndex: 0, text: "Inspecting the fixture", messageId },
+					{ type: "reasoning_text", phase: "end", contentIndex: 0, text: "Inspecting the fixture", messageId },
+					{ type: "tool", messageId, part: ipythonStart },
+					{ type: "tool", messageId, part: ipythonUpdate },
+					{ type: "tool", messageId, part: ipythonEnd },
+					...terminalPartsWithRichDetails.map((part) => ({ type: "tool", messageId, part })),
+					{
+						type: "done",
+						runId: "trace-run",
+						sessionId: "trace-smoke-session",
+						message: {
+							id: messageId,
+							role: "assistant",
+							parts: [
+								{ type: "text", text: assistantReport },
+								{
+									type: "tool-FleetReasoning",
+									state: "output-available",
+									input: {
+										runId: "trace-run",
+										phase: "complete",
+										steps: [{ title: "Writing response", body: "Preparing the response." }],
+										visibleSteps: 1,
+										streaming: false,
+										startedAt: 0,
+										restingLabel: "Completed",
+									},
 								},
-							},
-							{ type: "tool-Thinking", toolCallId: `${messageId}-thinking-0`, state: "output-available", input: { thought: "Preparing trace" }, output: "Preparing trace" },
-							...terminalPartsWithRichDetails,
-						],
+								{
+									type: "tool-Thinking",
+									toolCallId: `${messageId}-thinking-0`,
+									state: "output-available",
+									input: { thought: "Preparing trace" },
+									output: "Preparing trace",
+								},
+								...terminalPartsWithRichDetails,
+							],
+						},
 					},
-				},
-			].map((event) => JSON.stringify(event)).join("\n") + "\n"
+				]
+					.map((event) => JSON.stringify(event))
+					.join("\n") + "\n";
 
 			await route.fulfill({
 				status: 200,
 				headers: { "content-type": "application/x-ndjson" },
 				body: stream,
-			})
-		})
+			});
+		});
 
-		await page.setViewportSize({ width: 1400, height: 900 })
-		await page.goto("/")
-		const prompt = page.getByRole("textbox", { name: "Prompt" })
-		await expect(prompt).toBeVisible({ timeout: 15_000 })
-		await page.waitForLoadState("networkidle")
-		await prompt.fill("Run the trace fixture")
-		await page.getByRole("button", { name: "Send prompt" }).click()
+		await page.setViewportSize({ width: 1400, height: 900 });
+		await page.goto("/");
+		const prompt = page.getByRole("textbox", { name: "Prompt" });
+		await expect(prompt).toBeVisible({ timeout: 15_000 });
+		await page.waitForLoadState("networkidle");
+		await prompt.fill("Run the trace fixture");
+		await page.getByRole("button", { name: "Send prompt" }).click();
 
-		await expect(page.getByText("Trace complete", { exact: false }).first()).toBeVisible({ timeout: 15_000 })
-		await expect(page.getByPlaceholder("Send a message…")).toBeVisible()
-		const markdownCode = page.locator('[data-slot="code-block"]').filter({ hasText: "const fixture = 42" })
-		await expect(markdownCode).toBeVisible()
-		await expect(markdownCode.getByRole("button", { name: "Copy code" })).toBeVisible()
-		await expect(markdownCode.locator("pre")).toHaveCount(1)
-		await expect(markdownCode.locator('[data-streamdown="code-block"]')).toHaveCount(0)
-		await expect(page.getByText("Preparing trace", { exact: true })).toHaveCount(0)
-		const reasoning = page.getByTestId("reasoning-line")
-		await expect(reasoning.getByRole("button", { name: /Thought/ })).toHaveAttribute("aria-expanded", "false")
-		await reasoning.getByRole("button", { name: /Thought/ }).click()
-		await expect(reasoning.getByText("Inspecting the fixture")).toBeVisible()
-		const mainTool = page.getByTestId("assistant-tool-trace").filter({ has: page.getByRole("button", { name: /Details for CPython.*python-trace-1/ }) })
-		await mainTool.getByRole("button", { name: /Details for CPython/ }).click()
-		await expect(mainTool.locator('[data-slot="code-block"]')).toHaveCount(2)
+		await expect(page.getByText("Trace complete", { exact: false }).first()).toBeVisible({ timeout: 15_000 });
+		await expect(page.getByPlaceholder("Send a message…")).toBeVisible();
+		const markdownCode = page.locator('[data-slot="code-block"]').filter({ hasText: "const fixture = 42" });
+		await expect(markdownCode).toBeVisible();
+		await expect(markdownCode.getByRole("button", { name: "Copy code" })).toBeVisible();
+		await expect(markdownCode.locator("pre")).toHaveCount(1);
+		await expect(markdownCode.locator('[data-streamdown="code-block"]')).toHaveCount(0);
+		await expect(page.getByText("Preparing trace", { exact: true })).toHaveCount(0);
+		const reasoning = page.getByTestId("reasoning-line");
+		await expect(reasoning.getByRole("button", { name: /Thought/ })).toHaveAttribute("aria-expanded", "false");
+		await reasoning.getByRole("button", { name: /Thought/ }).click();
+		await expect(reasoning.getByText("Inspecting the fixture")).toBeVisible();
+		const mainTool = page
+			.getByTestId("assistant-tool-trace")
+			.filter({ has: page.getByRole("button", { name: /Details for CPython.*python-trace-1/ }) });
+		await mainTool.getByRole("button", { name: /Details for CPython/ }).click();
+		await expect(mainTool.locator('[data-slot="code-block"]')).toHaveCount(2);
 		for (const content of await mainTool.locator('[data-slot="code-block-content"]').all()) {
 			const style = await content.evaluate((element) => {
-				const css = getComputedStyle(element)
-				return { radius: css.borderRadius, background: css.backgroundColor, leftBorder: css.borderLeftWidth, margin: css.marginTop }
-			})
-			expect(style).toEqual({ radius: "0px", background: "rgba(0, 0, 0, 0)", leftBorder: "0px", margin: "0px" })
+				const css = getComputedStyle(element);
+				return {
+					radius: css.borderRadius,
+					background: css.backgroundColor,
+					leftBorder: css.borderLeftWidth,
+					margin: css.marginTop,
+				};
+			});
+			expect(style).toEqual({ radius: "0px", background: "rgba(0, 0, 0, 0)", leftBorder: "0px", margin: "0px" });
 		}
-		await expect(mainTool.getByRole("button", { name: "Copy code" })).toBeVisible()
-		await expect(mainTool.getByRole("button", { name: "Copy result" })).toBeVisible()
-		await expect(mainTool.getByRole("button", { name: /^CPython\b/ })).toHaveCount(0)
-		await expect(page.locator('[data-slot="bubble"][data-align="end"]').first()).toBeVisible()
+		await expect(mainTool.getByRole("button", { name: "Copy code" })).toBeVisible();
+		await expect(mainTool.getByRole("button", { name: "Copy result" })).toBeVisible();
+		await expect(mainTool.getByRole("button", { name: /^CPython\b/ })).toHaveCount(0);
+		await expect(page.locator('[data-slot="bubble"][data-align="end"]').first()).toBeVisible();
 
-		const progress = page.getByTestId("turn-progress")
-		await expect(progress).toHaveCount(1)
-		await expect(page.locator("[data-testid='agent-activity']")).toHaveCount(0)
+		const progress = page.getByTestId("turn-progress");
+		await expect(progress).toHaveCount(1);
+		await expect(page.locator("[data-testid='agent-activity']")).toHaveCount(0);
 
-		await page.getByRole("tab", { name: "Activity, ready" }).click()
-		const activity = page.getByTestId("session-activity")
-		await expect(activity).toBeVisible()
-		await expect(activity.getByText("Run the trace fixture", { exact: true })).toBeVisible()
-		const assistantPreview = activity.locator("p").filter({ hasText: "Trace complete." })
-		await expect(assistantPreview).toContainText("Trace complete.")
-		expect(await assistantPreview.evaluate((element) => getComputedStyle(element).webkitLineClamp)).toBe("2")
-		const trace = activity.getByTestId("tool-trace")
-		const timeline = trace.getByRole("button", { name: "15 tool actions" })
-		await expect(timeline).toHaveAttribute("aria-expanded", "true")
-		await expect(timeline).toBeInViewport()
-		await expect(trace.getByText("Ran Bash", { exact: true }).first()).toBeVisible()
-		await expect(trace.getByText("Edited Edit", { exact: true })).toBeVisible()
-		await expect(trace.getByText("Searched WebSearch", { exact: true })).toBeVisible()
-		await expect(trace.locator('[data-slot="trace-line"][data-status="error"]')).toHaveCount(1)
+		await page.getByRole("tab", { name: "Activity, ready" }).click();
+		const activity = page.getByTestId("session-activity");
+		await expect(activity).toBeVisible();
+		await expect(activity.getByText("Run the trace fixture", { exact: true })).toBeVisible();
+		const assistantPreview = activity.locator("p").filter({ hasText: "Trace complete." });
+		await expect(assistantPreview).toContainText("Trace complete.");
+		expect(await assistantPreview.evaluate((element) => getComputedStyle(element).webkitLineClamp)).toBe("2");
+		const trace = activity.getByTestId("tool-trace");
+		const timeline = trace.getByRole("button", { name: "15 tool actions" });
+		await expect(timeline).toHaveAttribute("aria-expanded", "true");
+		await expect(timeline).toBeInViewport();
+		await expect(trace.getByText("Ran Bash", { exact: true }).first()).toBeVisible();
+		await expect(trace.getByText("Edited Edit", { exact: true })).toBeVisible();
+		await expect(trace.getByText("Searched WebSearch", { exact: true })).toBeVisible();
+		await expect(trace.locator('[data-slot="trace-line"][data-status="error"]')).toHaveCount(1);
 
-		const ipythonDetails = trace.getByRole("button", { name: /Details for CPython.*python-trace-1/ })
-		await expect(ipythonDetails).toBeVisible()
-		await expect(ipythonDetails).toHaveAttribute("aria-expanded", "false")
-		await ipythonDetails.click()
-		await expect(ipythonDetails).toHaveAttribute("aria-expanded", "true")
-		await expect(trace.getByText(/stdout/).first()).toBeVisible()
-		await expect(trace.getByRole("button", { name: /^CPython\b/ })).toHaveCount(0)
-		const failedDetails = trace.getByRole("button", { name: /Details for Bash.*bash-trace-11/ })
-		await failedDetails.click()
-		await expect(trace.getByText("trace command failed", { exact: true })).toBeVisible()
+		const ipythonDetails = trace.getByRole("button", { name: /Details for CPython.*python-trace-1/ });
+		await expect(ipythonDetails).toBeVisible();
+		await expect(ipythonDetails).toHaveAttribute("aria-expanded", "false");
+		await ipythonDetails.click();
+		await expect(ipythonDetails).toHaveAttribute("aria-expanded", "true");
+		await expect(trace.getByText(/stdout/).first()).toBeVisible();
+		await expect(trace.getByRole("button", { name: /^CPython\b/ })).toHaveCount(0);
+		const failedDetails = trace.getByRole("button", { name: /Details for Bash.*bash-trace-11/ });
+		await failedDetails.click();
+		await expect(trace.getByText("trace command failed", { exact: true })).toBeVisible();
 
-		await trace.getByRole("button", { name: /Details for WebSearch.*search-trace-1/ }).click()
-		const sourcesButton = trace.getByRole("button", { name: /Sources/ }).first()
-		if (await sourcesButton.getAttribute("aria-expanded") === "false") await sourcesButton.click()
-		await expect(trace.getByRole("link", { name: /Safe source/ })).toBeVisible()
-		await expect(trace.getByText(/Unsafe source/)).toBeVisible()
-		expect(await page.locator('a[href^="javascript:"]').count()).toBe(0)
-		await page.setViewportSize({ width: 390, height: 844 })
-		await expect(page.getByRole("tab", { name: "Activity, ready" })).toHaveAttribute("aria-selected", "true")
-		await expect(activity.getByRole("heading", { name: "Conversation activity" })).toBeVisible()
-		expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
-		expect(browserErrors).toEqual([])
-	})
+		await trace.getByRole("button", { name: /Details for WebSearch.*search-trace-1/ }).click();
+		const sourcesButton = trace.getByRole("button", { name: /Sources/ }).first();
+		if ((await sourcesButton.getAttribute("aria-expanded")) === "false") await sourcesButton.click();
+		await expect(trace.getByRole("link", { name: /Safe source/ })).toBeVisible();
+		await expect(trace.getByText(/Unsafe source/)).toBeVisible();
+		expect(await page.locator('a[href^="javascript:"]').count()).toBe(0);
+		await page.setViewportSize({ width: 390, height: 844 });
+		await expect(page.getByRole("tab", { name: "Activity, ready" })).toHaveAttribute("aria-selected", "true");
+		await expect(activity.getByRole("heading", { name: "Conversation activity" })).toBeVisible();
+		expect(await page.locator("html").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+		expect(browserErrors).toEqual([]);
+	});
 
 	test("Codex-style sidebar preserves the project hierarchy and chrome", async ({ page }) => {
-		await page.setViewportSize({ width: 1400, height: 900 })
-		await page.goto("/")
-		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
+		await page.setViewportSize({ width: 1400, height: 900 });
+		await page.goto("/");
+		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 });
 
-		const sidebar = page.getByRole("complementary", { name: "Fleet projects and sessions" })
-		await expect(sidebar).toBeVisible()
-		const sidebarWidth = await sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width))
-		expect(sidebarWidth).toBeGreaterThanOrEqual(240)
-		expect(sidebarWidth).toBeLessThanOrEqual(320)
-		const brandButton = sidebar.getByRole("button", { name: "Qredence Fleet", exact: true })
-		await expect(brandButton).toBeVisible()
+		const sidebar = page.getByRole("complementary", { name: "Fleet projects and sessions" });
+		await expect(sidebar).toBeVisible();
+		const sidebarWidth = await sidebar.evaluate((element) => Math.round(element.getBoundingClientRect().width));
+		expect(sidebarWidth).toBeGreaterThanOrEqual(240);
+		expect(sidebarWidth).toBeLessThanOrEqual(320);
+		const brandButton = sidebar.getByRole("button", { name: "Qredence Fleet", exact: true });
+		await expect(brandButton).toBeVisible();
 		const brandLayout = await brandButton.evaluate((element) => {
-			const buttonStyle = getComputedStyle(element)
-			const buttonBox = element.getBoundingClientRect()
-			const rowBox = element.parentElement?.getBoundingClientRect()
+			const buttonStyle = getComputedStyle(element);
+			const buttonBox = element.getBoundingClientRect();
+			const rowBox = element.parentElement?.getBoundingClientRect();
 			return {
 				flexGrow: buttonStyle.flexGrow,
 				flexShrink: buttonStyle.flexShrink,
 				buttonWidth: buttonBox.width,
 				rowWidth: rowBox?.width ?? 0,
-			}
-		})
-		expect(brandLayout.flexGrow).toBe("0")
-		expect(brandLayout.flexShrink).toBe("0")
-		expect(brandLayout.buttonWidth).toBeLessThan(brandLayout.rowWidth)
-		await expect(sidebar.getByRole("button", { name: "New chat", exact: true })).toBeVisible()
-		await expect(sidebar.getByText("Projects", { exact: true })).toBeVisible()
-		await expect(sidebar.getByText("Recents", { exact: true })).toHaveCount(0)
-		const accountButton = sidebar.getByRole("button", { name: "Open account menu" })
-		await expect(accountButton).toContainText("Qredence")
+			};
+		});
+		expect(brandLayout.flexGrow).toBe("0");
+		expect(brandLayout.flexShrink).toBe("0");
+		expect(brandLayout.buttonWidth).toBeLessThan(brandLayout.rowWidth);
+		await expect(sidebar.getByRole("button", { name: "New chat", exact: true })).toBeVisible();
+		await expect(sidebar.getByText("Projects", { exact: true })).toBeVisible();
+		await expect(sidebar.getByText("Recents", { exact: true })).toHaveCount(0);
+		const accountButton = sidebar.getByRole("button", { name: "Open account menu" });
+		await expect(accountButton).toContainText("Qredence");
 		expect(await accountButton.evaluate((element) => getComputedStyle(element).borderTopColor)).toMatch(
 			/transparent|rgba\(0, 0, 0, 0\)/,
-		)
-		await expect(
-			page.locator('[data-openui-devtools-root] > div > button[aria-label^="Open OpenUI"]'),
-		).toBeHidden()
+		);
+		await expect(page.locator('[data-openui-devtools-root] > div > button[aria-label^="Open OpenUI"]')).toBeHidden();
 
-		await expect(
-			sidebar.getByRole("button", { name: "Search projects and sessions" }),
-		).toBeVisible()
-	})
+		await expect(sidebar.getByRole("button", { name: "Search projects and sessions" })).toBeVisible();
+	});
 
 	test("/api/workspace/tree responds", async ({ request }) => {
-		const response = await request.get("/api/workspace/tree")
-		expect(response.ok()).toBeTruthy()
+		const response = await request.get("/api/workspace/tree");
+		expect(response.ok()).toBeTruthy();
 		const body = (await response.json()) as {
-			root?: string
-			nodes?: Array<{ name: string; type: string }>
-		}
-		expect(typeof body.root).toBe("string")
-		expect(Array.isArray(body.nodes)).toBe(true)
-	})
+			root?: string;
+			nodes?: Array<{ name: string; type: string }>;
+		};
+		expect(typeof body.root).toBe("string");
+		expect(Array.isArray(body.nodes)).toBe(true);
+	});
 
 	test("/api/workspace/file previews ARCHITECTURE.md", async ({ request }) => {
 		// Default cwd is the git repo root (prime-agent/), not web/app.
-		const response = await request.get("/api/workspace/file?path=ARCHITECTURE.md")
-		expect(response.ok()).toBeTruthy()
+		const response = await request.get("/api/workspace/file?path=ARCHITECTURE.md");
+		expect(response.ok()).toBeTruthy();
 		const body = (await response.json()) as {
-			status?: string
-			mediaType?: string
-			content?: string
-			name?: string
-		}
-		expect(body.status).toBe("ok")
-		expect(body.mediaType).toBe("text/markdown")
-		expect(body.name).toBe("ARCHITECTURE.md")
-		expect(body.content).toMatch(/Fleet Prime Architecture/i)
-	})
+			status?: string;
+			mediaType?: string;
+			content?: string;
+			name?: string;
+		};
+		expect(body.status).toBe("ok");
+		expect(body.mediaType).toBe("text/markdown");
+		expect(body.name).toBe("ARCHITECTURE.md");
+		expect(body.content).toMatch(/Fleet Prime Architecture/i);
+	});
 
 	test("BEUI chat preserves the desktop panel tabs and toggle behavior", async ({ page }) => {
-		const browserErrors: string[] = []
+		const browserErrors: string[] = [];
 		page.on("console", (message) => {
-			if (message.type() === "error") browserErrors.push(message.text())
-		})
-		page.on("pageerror", (error) => browserErrors.push(error.message))
-		await page.setViewportSize({ width: 1400, height: 900 })
-		await page.goto("/")
-		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
-		await page.waitForLoadState("networkidle")
-		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/)
-		const panelToggle = page.getByRole("button", { name: "Open side panel", exact: true })
-		const visiblePanelTabs = page.locator('[data-testid="right-panel-inline-launcher"]:visible')
-		await expect(panelToggle).toBeVisible()
-		await expect(visiblePanelTabs).toHaveCount(0)
+			if (message.type() === "error") browserErrors.push(message.text());
+		});
+		page.on("pageerror", (error) => browserErrors.push(error.message));
+		await page.setViewportSize({ width: 1400, height: 900 });
+		await page.goto("/");
+		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 });
+		await page.waitForLoadState("networkidle");
+		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/);
+		const panelToggle = page.getByRole("button", { name: "Open side panel", exact: true });
+		const visiblePanelTabs = page.locator('[data-testid="right-panel-inline-launcher"]:visible');
+		await expect(panelToggle).toBeVisible();
+		await expect(visiblePanelTabs).toHaveCount(0);
 
-		await clickCenter(page, panelToggle)
-		const workspaceCanvas = page.getByTestId("pi-workspace-canvas")
-		await expect(workspaceCanvas).toBeVisible()
-		await expect(workspaceCanvas).toHaveCSS("transform", "none")
-		const panelBox = await workspaceCanvas.boundingBox()
-		expect(panelBox?.y).toBeLessThanOrEqual(1)
-		expect(panelBox?.height).toBeGreaterThanOrEqual(899)
-		const panelTabs = workspaceCanvas.getByTestId("right-panel-inline-launcher")
-		await expect(panelTabs).toBeVisible()
-		const panelTabsBox = await panelTabs.boundingBox()
-		const panelTabsParentBox = await panelTabs.locator("xpath=..").boundingBox()
-		expect(panelTabsBox).not.toBeNull()
-		expect(panelTabsParentBox).not.toBeNull()
+		await clickCenter(page, panelToggle);
+		const workspaceCanvas = page.getByTestId("pi-workspace-canvas");
+		await expect(workspaceCanvas).toBeVisible();
+		await expect(workspaceCanvas).toHaveCSS("transform", "none");
+		const panelBox = await workspaceCanvas.boundingBox();
+		expect(panelBox?.y).toBeLessThanOrEqual(1);
+		expect(panelBox?.height).toBeGreaterThanOrEqual(899);
+		const panelTabs = workspaceCanvas.getByTestId("right-panel-inline-launcher");
+		await expect(panelTabs).toBeVisible();
+		const panelTabsBox = await panelTabs.boundingBox();
+		const panelTabsParentBox = await panelTabs.locator("xpath=..").boundingBox();
+		expect(panelTabsBox).not.toBeNull();
+		expect(panelTabsParentBox).not.toBeNull();
 		if (panelTabsBox && panelTabsParentBox) {
-			expect(panelTabsBox.width).toBeLessThan(panelTabsParentBox.width)
+			expect(panelTabsBox.width).toBeLessThan(panelTabsParentBox.width);
 		}
-		await expect(page.getByTestId("chat-header").getByTestId("right-panel-inline-launcher")).toBeHidden()
+		await expect(page.getByTestId("chat-header").getByTestId("right-panel-inline-launcher")).toBeHidden();
 
-		const session = visiblePanelTabs.getByRole("tab", { name: "Session", exact: true })
-		const workspace = visiblePanelTabs.getByRole("tab", { name: "Workspace", exact: true })
-		const subagents = visiblePanelTabs.getByRole("tab", { name: "Subagents", exact: true })
-		const repl = visiblePanelTabs.getByRole("tab", { name: "REPL", exact: true })
-		await expect(session).toBeVisible()
-		await expect(workspace).toBeVisible()
-		await expect(subagents).toBeVisible()
-		await expect(repl).toBeVisible()
-		await expect(visiblePanelTabs).toHaveAttribute("data-panel-launcher-mode", "tabs")
+		const session = visiblePanelTabs.getByRole("tab", { name: "Session", exact: true });
+		const workspace = visiblePanelTabs.getByRole("tab", { name: "Workspace", exact: true });
+		const subagents = visiblePanelTabs.getByRole("tab", { name: "Subagents", exact: true });
+		const repl = visiblePanelTabs.getByRole("tab", { name: "REPL", exact: true });
+		await expect(session).toBeVisible();
+		await expect(workspace).toBeVisible();
+		await expect(subagents).toBeVisible();
+		await expect(repl).toBeVisible();
+		await expect(visiblePanelTabs).toHaveAttribute("data-panel-launcher-mode", "tabs");
 
-		await clickCenter(page, repl)
-		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl")
-		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible()
-		await expect(page.getByRole("region", { name: "REPL runs" })).toBeVisible()
+		await clickCenter(page, repl);
+		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl");
+		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible();
+		await expect(page.getByRole("region", { name: "REPL runs" })).toBeVisible();
 
-		await clickCenter(page, session)
-		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "session-insights")
-		const sessionInsightsCanvas = page.getByTestId("pi-session-insights-canvas")
-		await expect(sessionInsightsCanvas).toBeVisible()
-		await expect(sessionInsightsCanvas).toHaveCSS("transform", "none")
-		await clickCenter(page, session)
-		await expect(page.getByTestId("pi-session-insights-canvas")).toHaveCount(0)
-		await expect(panelToggle).toBeVisible()
-		await clickCenter(page, panelToggle)
-		await expect(sessionInsightsCanvas).toBeVisible()
-		await expect(sessionInsightsCanvas).toHaveCSS("transform", "none")
+		await clickCenter(page, session);
+		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "session-insights");
+		const sessionInsightsCanvas = page.getByTestId("pi-session-insights-canvas");
+		await expect(sessionInsightsCanvas).toBeVisible();
+		await expect(sessionInsightsCanvas).toHaveCSS("transform", "none");
+		await clickCenter(page, session);
+		await expect(page.getByTestId("pi-session-insights-canvas")).toHaveCount(0);
+		await expect(panelToggle).toBeVisible();
+		await clickCenter(page, panelToggle);
+		await expect(sessionInsightsCanvas).toBeVisible();
+		await expect(sessionInsightsCanvas).toHaveCSS("transform", "none");
 
-		await clickCenter(page, subagents)
-		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "subagents")
-		await expect(page.getByTestId("pi-subagents-canvas")).toBeVisible()
-		await clickCenter(page, workspace)
-		await expect(workspaceCanvas).toBeVisible()
-		await expect(workspaceCanvas).toHaveCSS("transform", "none")
-		await expect(page.getByTestId("pi-resources-canvas")).toHaveCount(0)
+		await clickCenter(page, subagents);
+		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "subagents");
+		await expect(page.getByTestId("pi-subagents-canvas")).toBeVisible();
+		await clickCenter(page, workspace);
+		await expect(workspaceCanvas).toBeVisible();
+		await expect(workspaceCanvas).toHaveCSS("transform", "none");
+		await expect(page.getByTestId("pi-resources-canvas")).toHaveCount(0);
 
-		const resizeHandle = page.getByRole("separator", { name: "Resize Workspace panel", exact: true })
-		const beforeResize = await page.getByTestId("pi-workspace-canvas").boundingBox()
-		const resizeHandleBox = await resizeHandle.boundingBox()
-		expect(beforeResize?.width).toBeTruthy()
-		expect(resizeHandleBox).toBeTruthy()
+		const resizeHandle = page.getByRole("separator", { name: "Resize Workspace panel", exact: true });
+		const beforeResize = await page.getByTestId("pi-workspace-canvas").boundingBox();
+		const resizeHandleBox = await resizeHandle.boundingBox();
+		expect(beforeResize?.width).toBeTruthy();
+		expect(resizeHandleBox).toBeTruthy();
 		if (beforeResize && resizeHandleBox) {
-			expect(Math.abs(resizeHandleBox.x - beforeResize.x)).toBeLessThanOrEqual(8)
+			expect(Math.abs(resizeHandleBox.x - beforeResize.x)).toBeLessThanOrEqual(8);
 		}
-		await page.mouse.move(resizeHandleBox!.x + 1, resizeHandleBox!.y + 24)
-		await page.mouse.down()
-		await page.mouse.move(resizeHandleBox!.x + 81, resizeHandleBox!.y + 24)
-		await page.mouse.up()
-		await expect.poll(async () => (await page.getByTestId("pi-workspace-canvas").boundingBox())?.width ?? 0).toBeLessThan(beforeResize!.width)
+		await page.mouse.move(resizeHandleBox!.x + 1, resizeHandleBox!.y + 24);
+		await page.mouse.down();
+		await page.mouse.move(resizeHandleBox!.x + 81, resizeHandleBox!.y + 24);
+		await page.mouse.up();
+		await expect
+			.poll(async () => (await page.getByTestId("pi-workspace-canvas").boundingBox())?.width ?? 0)
+			.toBeLessThan(beforeResize!.width);
 
-		const narrowResizeHandleBox = await page.getByRole("separator", { name: "Resize Workspace panel", exact: true }).boundingBox()
-		expect(narrowResizeHandleBox).not.toBeNull()
+		const narrowResizeHandleBox = await page
+			.getByRole("separator", { name: "Resize Workspace panel", exact: true })
+			.boundingBox();
+		expect(narrowResizeHandleBox).not.toBeNull();
 		if (narrowResizeHandleBox) {
-			await page.mouse.move(narrowResizeHandleBox.x + 1, narrowResizeHandleBox.y + 24)
-			await page.mouse.down()
-			await page.mouse.move(narrowResizeHandleBox.x + 500, narrowResizeHandleBox.y + 24)
-			await page.mouse.up()
+			await page.mouse.move(narrowResizeHandleBox.x + 1, narrowResizeHandleBox.y + 24);
+			await page.mouse.down();
+			await page.mouse.move(narrowResizeHandleBox.x + 500, narrowResizeHandleBox.y + 24);
+			await page.mouse.up();
 		}
-		await expect.poll(async () => (await page.getByTestId("pi-workspace-canvas").boundingBox())?.width ?? 0).toBeLessThanOrEqual(320)
-		await expect(panelTabs).toHaveAttribute("data-panel-launcher-mode", "dropdown")
-		const panelSelect = panelTabs.getByRole("combobox", { name: "Select panel", exact: true })
-		await expect(panelSelect).toBeVisible()
-		await panelSelect.click()
-		await expect(page.locator('[role="option"]:visible')).toHaveCount(4)
-		await page.getByRole("option", { name: "REPL", exact: true }).click()
-		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl")
-		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible()
-		await visiblePanelTabs.getByRole("combobox", { name: "Select panel", exact: true }).click()
-		await page.getByRole("option", { name: "REPL", exact: true }).click()
-		await expect(page.getByTestId("pi-repl-canvas")).toHaveCount(0)
-		await expect(panelToggle).toBeVisible()
+		await expect
+			.poll(async () => (await page.getByTestId("pi-workspace-canvas").boundingBox())?.width ?? 0)
+			.toBeLessThanOrEqual(320);
+		await expect(panelTabs).toHaveAttribute("data-panel-launcher-mode", "dropdown");
+		const panelSelect = panelTabs.getByRole("combobox", { name: "Select panel", exact: true });
+		await expect(panelSelect).toBeVisible();
+		await panelSelect.click();
+		await expect(page.locator('[role="option"]:visible')).toHaveCount(4);
+		await page.getByRole("option", { name: "REPL", exact: true }).click();
+		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl");
+		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible();
+		await visiblePanelTabs.getByRole("combobox", { name: "Select panel", exact: true }).click();
+		await page.getByRole("option", { name: "REPL", exact: true }).click();
+		await expect(page.getByTestId("pi-repl-canvas")).toHaveCount(0);
+		await expect(panelToggle).toBeVisible();
 
-		await page.keyboard.press("Control+Shift+Digit3")
-		await expect(page.getByTestId("pi-artifacts-canvas")).toBeVisible()
-		await page.keyboard.press("Escape")
-		await expect(page.getByTestId("pi-artifacts-canvas")).toHaveCount(0)
-		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused()
-		expect(browserErrors).toEqual([])
-	})
+		await page.keyboard.press("Control+Shift+Digit3");
+		await expect(page.getByTestId("pi-artifacts-canvas")).toBeVisible();
+		await page.keyboard.press("Escape");
+		await expect(page.getByTestId("pi-artifacts-canvas")).toHaveCount(0);
+		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused();
+		expect(browserErrors).toEqual([]);
+	});
 
 	test("density keeps shell headers and shared controls on the agreed scale", async ({ page }) => {
-		await mockEmptyWelcomeChat(page, "density-smoke-session")
-		await page.setViewportSize({ width: 1400, height: 900 })
-		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"))
-		await page.goto("/")
-		await commandsResponse
-		const prompt = page.getByRole("textbox", { name: "Prompt" })
-		await expect(prompt).toBeVisible({ timeout: 15_000 })
-		await prompt.fill("/settings")
-		await prompt.press("Enter")
-		const dialog = page.getByRole("dialog", { name: "Settings", exact: true })
-		await expect(dialog).toBeVisible()
-		await dialog.getByRole("button", { name: "Appearance", exact: true }).click()
-		const density = dialog.getByRole("combobox", { name: "Density", exact: true })
-		for (const [label, headerHeight, controlHeight] of [["Comfortable", 44, 36], ["Compact", 40, 28]] as const) {
-			await density.click()
-			await page.getByRole("option", { name: label, exact: true }).click()
-			await expect(page.getByRole("listbox")).toHaveCount(0)
-			await expect(page.getByTestId("chat-header")).toHaveCSS("height", `${headerHeight}px`)
-			await expect(density).toHaveCSS("height", `${controlHeight}px`)
+		await mockEmptyWelcomeChat(page, "density-smoke-session");
+		await page.setViewportSize({ width: 1400, height: 900 });
+		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"));
+		await page.goto("/");
+		await commandsResponse;
+		const prompt = page.getByRole("textbox", { name: "Prompt" });
+		await expect(prompt).toBeVisible({ timeout: 15_000 });
+		await prompt.fill("/settings");
+		await prompt.press("Enter");
+		const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole("button", { name: "Appearance", exact: true }).click();
+		const density = dialog.getByRole("combobox", { name: "Density", exact: true });
+		for (const [label, headerHeight, controlHeight] of [
+			["Comfortable", 44, 36],
+			["Compact", 40, 28],
+		] as const) {
+			await density.click();
+			await page.getByRole("option", { name: label, exact: true }).click();
+			await expect(page.getByRole("listbox")).toHaveCount(0);
+			await expect(page.getByTestId("chat-header")).toHaveCSS("height", `${headerHeight}px`);
+			await expect(density).toHaveCSS("height", `${controlHeight}px`);
 		}
-	})
+	});
 
 	test("Settings keeps the original sidebar and Prime configuration sections", async ({ page }) => {
-		await mockEmptyWelcomeChat(page, "settings-smoke-session")
-		await page.setViewportSize({ width: 1400, height: 900 })
-		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"))
-		await page.goto("/")
-		await commandsResponse
-		const prompt = page.getByRole("textbox", { name: "Prompt" })
-		await expect(prompt).toBeVisible({ timeout: 15_000 })
-		await prompt.fill("/settings")
-		await prompt.press("Enter")
+		await mockEmptyWelcomeChat(page, "settings-smoke-session");
+		await page.setViewportSize({ width: 1400, height: 900 });
+		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"));
+		await page.goto("/");
+		await commandsResponse;
+		const prompt = page.getByRole("textbox", { name: "Prompt" });
+		await expect(prompt).toBeVisible({ timeout: 15_000 });
+		await prompt.fill("/settings");
+		await prompt.press("Enter");
 
-		const dialog = page.getByRole("dialog", { name: "Settings", exact: true })
-		await expect(dialog).toBeVisible()
-		for (const label of ["Appearance", "Sandbox", "Providers", "LLM Models", "Skills", "Pi Harness", "Chat", "Keybindings", "Sessions"]) {
-			await expect(dialog.getByRole("button", { name: label, exact: true })).toBeVisible()
+		const dialog = page.getByRole("dialog", { name: "Settings", exact: true });
+		await expect(dialog).toBeVisible();
+		for (const label of [
+			"Appearance",
+			"Sandbox",
+			"Providers",
+			"LLM Models",
+			"Skills",
+			"Pi Harness",
+			"Chat",
+			"Keybindings",
+			"Sessions",
+		]) {
+			await expect(dialog.getByRole("button", { name: label, exact: true })).toBeVisible();
 		}
 
-		await dialog.getByRole("button", { name: "Providers", exact: true }).click()
-		await expect(dialog.getByRole("heading", { name: "Providers", exact: true })).toBeVisible()
-		await dialog.getByRole("button", { name: "LLM Models", exact: true }).click()
-		await expect(dialog.getByRole("heading", { name: "LLM Models", exact: true })).toBeVisible()
-		await dialog.getByRole("button", { name: "Close", exact: true }).click()
-		await expect(dialog).toHaveCount(0)
-	})
+		await dialog.getByRole("button", { name: "Providers", exact: true }).click();
+		await expect(dialog.getByRole("heading", { name: "Providers", exact: true })).toBeVisible();
+		await dialog.getByRole("button", { name: "LLM Models", exact: true }).click();
+		await expect(dialog.getByRole("heading", { name: "LLM Models", exact: true })).toBeVisible();
+		await dialog.getByRole("button", { name: "Close", exact: true }).click();
+		await expect(dialog).toHaveCount(0);
+	});
 
 	test("composer shows vertical slash and workspace reference menus", async ({ page }) => {
-		await mockEmptyWelcomeChat(page, "slash-menu-session")
-		await page.setViewportSize({ width: 1400, height: 900 })
-		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"))
-		await page.goto("/")
-		await commandsResponse
-		await page.waitForLoadState("networkidle")
-		const prompt = page.getByRole("textbox", { name: "Prompt" })
-		await expect(prompt).toBeVisible({ timeout: 15_000 })
+		await mockEmptyWelcomeChat(page, "slash-menu-session");
+		await page.setViewportSize({ width: 1400, height: 900 });
+		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"));
+		await page.goto("/");
+		await commandsResponse;
+		await page.waitForLoadState("networkidle");
+		const prompt = page.getByRole("textbox", { name: "Prompt" });
+		await expect(prompt).toBeVisible({ timeout: 15_000 });
 
-		const workspaceTreeResponse = page.waitForResponse((response) => isGetPath(response, "/api/workspace/tree"))
-		await page.getByRole("button", { name: "Open side panel", exact: true }).click()
-		await expect(page.getByTestId("pi-workspace-canvas")).toBeVisible()
-		await workspaceTreeResponse
+		const workspaceTreeResponse = page.waitForResponse((response) => isGetPath(response, "/api/workspace/tree"));
+		await page.getByRole("button", { name: "Open side panel", exact: true }).click();
+		await expect(page.getByTestId("pi-workspace-canvas")).toBeVisible();
+		await workspaceTreeResponse;
 
-		await prompt.fill("/")
-		const slashList = page.getByRole("listbox")
-		await expect(slashList).toBeVisible()
-		expect(await slashList.evaluate((element) => getComputedStyle(element).flexDirection)).toBe("column")
-		expect(await slashList.getByRole("option").count()).toBeGreaterThan(0)
+		await prompt.fill("/");
+		const slashList = page.getByRole("listbox");
+		await expect(slashList).toBeVisible();
+		expect(await slashList.evaluate((element) => getComputedStyle(element).flexDirection)).toBe("column");
+		expect(await slashList.getByRole("option").count()).toBeGreaterThan(0);
 
-		await prompt.fill("@")
-		const workspaceList = page.getByRole("listbox")
-		await expect(workspaceList).toBeVisible()
-		await expect(workspaceList.getByRole("option").first()).toBeVisible()
-		const firstWorkspacePath = (await workspaceList.getByRole("option").first().innerText()).split("\n", 1)[0]?.trim()
-		expect(firstWorkspacePath).toBeTruthy()
-		await prompt.press("Enter")
+		await prompt.fill("@");
+		const workspaceList = page.getByRole("listbox");
+		await expect(workspaceList).toBeVisible();
+		await expect(workspaceList.getByRole("option").first()).toBeVisible();
+		const firstWorkspacePath = (await workspaceList.getByRole("option").first().innerText())
+			.split("\n", 1)[0]
+			?.trim();
+		expect(firstWorkspacePath).toBeTruthy();
+		await prompt.press("Enter");
 		// The trigger token is replaced by a removable chip; the raw path is not
 		// duplicated into the free-form prompt text.
-		await expect(prompt).toHaveValue("")
-		await expect(page.getByRole("button", { name: `Remove workspace reference ${firstWorkspacePath}` })).toBeVisible()
-	})
+		await expect(prompt).toHaveValue("");
+		await expect(
+			page.getByRole("button", { name: `Remove workspace reference ${firstWorkspacePath}` }),
+		).toBeVisible();
+	});
 
 	test("narrow layout opens an accessible panel dialog", async ({ page }) => {
-		await page.setViewportSize({ width: 700, height: 850 })
-		await page.goto("/")
-		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 })
-		await expect.poll(() => page.evaluate(() => window.matchMedia("(max-width: 767px)").matches)).toBe(true)
-		await expect(page.locator('[data-mobile="true"]')).toHaveCount(1)
-		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/)
-		const sidebarToggle = page.getByRole("button", { name: "Toggle conversations" })
-		await sidebarToggle.click()
-		await expect(sidebarToggle).toHaveAttribute("aria-expanded", "true")
-		const sidebarDialog = page.getByRole("dialog", { name: "Fleet projects and sessions" })
-		await expect(sidebarDialog).toBeVisible()
-		const sidebarBox = await sidebarDialog.boundingBox()
-		expect(sidebarBox?.width).toBeLessThanOrEqual(700 * 0.88)
-		await expect(sidebarDialog.getByRole("button", { name: "Open account menu" })).toContainText("Qredence")
-		await page.keyboard.press("Escape")
-		await expect(sidebarDialog).toHaveCount(0)
-		await openWorkspaceFromLauncher(page)
-		const dialog = page.getByRole("dialog", { name: "Workspace", exact: true })
-		await expect(dialog).toBeVisible()
-		await dialog.getByRole("button", { name: "Close panel" }).click()
-		await expect(dialog).toHaveCount(0)
-	})
+		await page.setViewportSize({ width: 700, height: 850 });
+		await page.goto("/");
+		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible({ timeout: 15_000 });
+		await expect.poll(() => page.evaluate(() => window.matchMedia("(max-width: 767px)").matches)).toBe(true);
+		await expect(page.locator('[data-mobile="true"]')).toHaveCount(1);
+		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/);
+		const sidebarToggle = page.getByRole("button", { name: "Toggle conversations" });
+		await sidebarToggle.click();
+		await expect(sidebarToggle).toHaveAttribute("aria-expanded", "true");
+		const sidebarDialog = page.getByRole("dialog", { name: "Fleet projects and sessions" });
+		await expect(sidebarDialog).toBeVisible();
+		const sidebarBox = await sidebarDialog.boundingBox();
+		expect(sidebarBox?.width).toBeLessThanOrEqual(700 * 0.88);
+		await expect(sidebarDialog.getByRole("button", { name: "Open account menu" })).toContainText("Qredence");
+		await page.keyboard.press("Escape");
+		await expect(sidebarDialog).toHaveCount(0);
+		await openWorkspaceFromLauncher(page);
+		const dialog = page.getByRole("dialog", { name: "Workspace", exact: true });
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole("button", { name: "Close panel" }).click();
+		await expect(dialog).toHaveCount(0);
+	});
 
 	test("provider-backed Prime turn streams through the BEUI composer", async ({ page }) => {
-		test.skip(process.env.PRIME_REAL_ACCEPTANCE !== "1", "Run explicitly when local Prime provider credentials are available")
-		const browserErrors: string[] = []
+		test.skip(
+			process.env.PRIME_REAL_ACCEPTANCE !== "1",
+			"Run explicitly when local Prime provider credentials are available",
+		);
+		const browserErrors: string[] = [];
 		page.on("console", (message) => {
-			if (message.type() === "error") browserErrors.push(message.text())
-		})
-		page.on("pageerror", (error) => browserErrors.push(error.message))
-		await page.goto("/")
-		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/)
+			if (message.type() === "error") browserErrors.push(message.text());
+		});
+		page.on("pageerror", (error) => browserErrors.push(error.message));
+		await page.goto("/");
+		await expect(page.locator("html")).toHaveAttribute("data-density", /.+/);
 		const newSessionResponse = page.waitForResponse(
 			(response) => response.url().endsWith("/api/chat/new") && response.request().method() === "POST",
-		)
-		await page.getByRole("button", { name: "New chat", exact: true }).click()
-		const sessionId = ((await (await newSessionResponse).json()) as { session: { sessionId: string } }).session.sessionId
-		const prompt = page.getByRole("textbox", { name: "Prompt" })
-		await prompt.fill("Reply with exactly fleet-prime-live-ok and no other text.")
-		await prompt.press("Enter")
-		await expect(page.getByText("fleet-prime-live-ok", { exact: true })).toBeVisible({ timeout: 120_000 })
-		expect(browserErrors).toEqual([])
-		const deleteResponse = await page.request.delete("/api/chat/sessions", { data: { sessionId } })
-		expect(deleteResponse.ok()).toBe(true)
-	})
-})
+		);
+		await page.getByRole("button", { name: "New chat", exact: true }).click();
+		const sessionId = ((await (await newSessionResponse).json()) as { session: { sessionId: string } }).session
+			.sessionId;
+		const prompt = page.getByRole("textbox", { name: "Prompt" });
+		await prompt.fill("Reply with exactly fleet-prime-live-ok and no other text.");
+		await prompt.press("Enter");
+		await expect(page.getByText("fleet-prime-live-ok", { exact: true })).toBeVisible({ timeout: 120_000 });
+		expect(browserErrors).toEqual([]);
+		const deleteResponse = await page.request.delete("/api/chat/sessions", { data: { sessionId } });
+		expect(deleteResponse.ok()).toBe(true);
+	});
+});

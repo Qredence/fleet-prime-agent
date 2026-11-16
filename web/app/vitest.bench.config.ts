@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config"
-import viteReact from "@vitejs/plugin-react"
+import { defineConfig } from "vitest/config";
+import viteReact from "@vitejs/plugin-react";
 
 // Dedicated bench config: `vitest run` must never pick up *.bench files, so
 // they are matched only by `benchmark.include` here (Vitest 5 runs them in a
@@ -18,4 +18,4 @@ export default defineConfig({
 			include: ["src/**/*.bench.{ts,tsx}"],
 		},
 	},
-})
+});
