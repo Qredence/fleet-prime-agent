@@ -10,7 +10,7 @@ export default defineConfig({
 		environment: "happy-dom",
 		execArgv: ["--no-experimental-webstorage"],
 		globals: true,
-		include: ["src/**/*.{test,spec}.{ts,tsx}"],
+		include: ["src/**/*.{test,spec}.{ts,tsx}", "scripts/__tests__/**/*.{test,spec}.{ts,tsx}"],
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "html"],

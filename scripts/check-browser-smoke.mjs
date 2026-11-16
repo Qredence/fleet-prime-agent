@@ -12,16 +12,23 @@ const errorLogPath = join(outputDir, "errors.log");
 const serverModules = resolve(import.meta.dirname, "..", "web", "server", "node_modules");
 
 try {
-	await build({
+	const result = await build({
 		entryPoints: ["scripts/browser-smoke-entry.ts"],
 		bundle: true,
 		platform: "browser",
 		format: "esm",
+		treeShaking: false,
+		metafile: true,
 		external: ["@opentelemetry/api"],
 		nodePaths: [serverModules],
 		logLevel: "silent",
 		outfile: outputPath,
 	});
+	// The public protocol barrel must stay browser-safe even without tree shaking.
+	const leaks = Object.keys(result.metafile.inputs).filter((file) =>
+		/(?:^|\/)web\/server\/src\/|@openuidev(?:\+|\/)lang-core/.test(file),
+	);
+	if (leaks.length > 0) throw new Error(`Browser protocol imports server/prompt implementation: ${leaks.join(", ")}`);
 	process.exit(0);
 } catch (error) {
 	let detailedErrors = "";

@@ -52,7 +52,6 @@ export {
 } from "./fleet-contract";
 export * from "./model-patterns";
 export * from "./openui-artifact";
-export { buildOpenUIPrompt, type OpenUIDashboardPrompt, type OpenUIPromptMode } from "./openui-prompt";
 export * from "./openui-tools";
 export * from "./provider-catalog";
 export {

@@ -1,6 +1,6 @@
 import { generatePrompt } from "@openuidev/lang-core";
 import { openUIPromptSpec } from "./openui-signatures";
-import { OPENUI_TOOL_DESCRIPTORS } from "./openui-tools";
+import { OPENUI_TOOL_DESCRIPTORS } from "@prime-agent/web-protocol/openui-tools";
 
 export type OpenUIPromptMode = "agent" | "harness" | "plan" | "plan-execution";
 

@@ -1,4 +1,5 @@
 import type { z } from "zod/v4";
+import { FleetAdapterFeatureSchema } from "./schemas/chat";
 import type { ChatToolCategory } from "./chat-types";
 import type { OpenUIHtmlArtifactPayload } from "./openui-artifact";
 import type {
@@ -63,7 +64,6 @@ import type {
 	ChatStreamEventSchema,
 	ChatThinkingEventSchema,
 	FleetAdapterCapabilitiesSchema,
-	FleetAdapterFeatureSchema,
 	FleetErrorCodeSchema,
 	FleetErrorEnvelopeSchema,
 	FleetErrorRemediationActionSchema,
@@ -187,16 +187,10 @@ export type ChatPayloadEvent = z.infer<typeof ChatPayloadEventSchema>;
 export type ChatRlmStreamEvent = z.infer<typeof ChatRlmStreamEventSchema>;
 export type ChatSessionSnapshotEvent = z.infer<typeof ChatSessionSnapshotEventSchema>;
 
-export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities = {
+export const FLEET_ADAPTER_CAPABILITIES: FleetAdapterCapabilities & { features: FleetAdapterFeature[] } = {
 	protocolVersion: 1,
 	schemaRevision: 4,
-	features: [
-		"reasoning-summary-v1",
-		"mcp-connections-v1",
-		"session-tree-v1",
-		"composer-intent-v1",
-		"composer-completion-v1",
-	],
+	features: FleetAdapterFeatureSchema.options,
 };
 
 /** First frame of the SSE replay channel; carries optional adapter capabilities. */

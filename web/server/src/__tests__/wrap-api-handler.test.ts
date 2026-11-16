@@ -1,6 +1,8 @@
 import { NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-protocol";
 import { describe, expect, it, vi } from "vitest";
-import { chatErrorEnvelope, isDaemonDisconnectError, wrapApiHandler } from "../wrap-api-handler";
+import { chatErrorEnvelope, isDaemonDisconnectError, safeErrorMessage, wrapApiHandler } from "../wrap-api-handler";
+import { FleetErrorEnvelopeSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { COMPOSER_INTENT_COMMANDS } from "@prime-agent/web-protocol/composer-intent";
 
 const DAEMON_DISCONNECT_ERROR = new Error(
 	'Cannot send daemon command "get_messages" because the Prime Agent daemon is not connected. Socket: /tmp/prime.sock Daemon log: /Users/example/prime.log',
@@ -86,6 +88,84 @@ describe("wrapApiHandler", () => {
 		);
 		expect(response.status).toBe(200);
 		expect(handler).toHaveBeenCalledOnce();
+	});
+
+	it.each([
+		{ message: "Invalid request" },
+		{ ok: false, message: "Unknown session" },
+		{ error: { code: "invalid_request", message: "Dashboard data failed." } },
+		{ status: "error", error: "In Prime Agent, run /mcp login linear or /login to sign in." },
+		{ code: "UNWRITABLE", message: "Change settings in the terminal." },
+		{ code: "FUTURE_CODE", message: "Future error", remediation: { action: "unknown", label: "Unknown" } },
+		{ code: "RATE_LIMIT", message: "Limited", provider: 123, remediation: "invalid" },
+	])("normalizes explicit HTTP failures into a valid envelope: %j", async (body) => {
+		const response = await wrapApiHandler(
+			async () =>
+				Response.json(body, {
+					status: 409,
+					headers: { "Retry-After": "5", "Content-Length": "999" },
+				}),
+			new Request("http://localhost/api/chat"),
+		);
+		const result = await response.json();
+		expect(response.status).toBe(409);
+		expect(FleetErrorEnvelopeSchema.safeParse(result).success).toBe(true);
+		expect(response.headers.get("Retry-After")).toBe("5");
+		expect(response.headers.has("Content-Length")).toBe(false);
+		if ("ok" in body) expect(result.ok).toBe(false);
+		if ("error" in body) expect(result.error).toEqual(body.error);
+		if ("code" in body && body.code === "UNWRITABLE") expect(result.code).toBe("UNWRITABLE");
+	});
+
+	it("scrubs paths and secrets in explicit errors while retaining public terminal commands", async () => {
+		const response = await wrapApiHandler(
+			async () =>
+				Response.json(
+					{
+						message: "Cannot read /tmp/private.json api_key=synthetic-secret; run /login",
+					},
+					{ status: 500 },
+				),
+			new Request("http://localhost/api/chat"),
+		);
+		const body = await response.json();
+		expect(body.message).not.toContain("/tmp/private.json");
+		expect(body.message).not.toContain("synthetic-secret");
+		expect(body.message).toContain("/login");
+		expect(safeErrorMessage("Cannot read /login/private or /mcp/private")).not.toContain("/private");
+	});
+
+	it.each(COMPOSER_INTENT_COMMANDS.map((command) => command.id))(
+		"preserves /%s in explicit command guidance without exposing subpaths",
+		async (command) => {
+			const message = `/${command} requires an argument.`;
+			const response = await wrapApiHandler(
+				async () => Response.json({ message }, { status: 400 }),
+				new Request("http://localhost/api/chat"),
+			);
+			expect((await response.json()).message).toBe(message);
+			expect(safeErrorMessage(`Cannot read /${command}/private`)).not.toContain("/private");
+		},
+	);
+
+	it("preserves public API guidance only in an HTTP-method context", () => {
+		expect(safeErrorMessage("GET /api/chat/session requires ?sessionId=")).toBe(
+			"GET /api/chat/session requires ?sessionId=",
+		);
+		expect(safeErrorMessage("Cannot read /api/private")).not.toContain("/api/private");
+	});
+
+	it("does not consume successful streams and normalizes non-JSON error bodies safely", async () => {
+		const stream = new Response("stream", { headers: { "Content-Type": "application/x-ndjson" } });
+		const request = new Request("http://localhost/api/chat");
+		expect(await wrapApiHandler(async () => stream, request)).toBe(stream);
+		expect(stream.bodyUsed).toBe(false);
+		const error = await wrapApiHandler(
+			async () => new Response("private server diagnostic", { status: 502 }),
+			request,
+		);
+		expect(await error.json()).toEqual({ code: "UNKNOWN_ERROR", message: "Request failed (502)" });
+		expect(error.headers.get("Content-Type")).toBe("application/json");
 	});
 
 	it("classifies daemon disconnects by message shape", () => {

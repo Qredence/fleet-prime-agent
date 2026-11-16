@@ -1,4 +1,4 @@
-import type { OpenUIDashboardPrompt } from "@prime-agent/web-protocol";
+import type { OpenUIDashboardPrompt } from "../openui-prompt";
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { dashboardMode } from "./credentials";
 

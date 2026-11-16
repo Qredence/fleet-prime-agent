@@ -156,6 +156,7 @@ describe("session tree handlers", () => {
 
 		expect(response.status).toBe(409);
 		await expect(response.json()).resolves.toEqual({
+			code: "UNKNOWN_ERROR",
 			message: "The session tree changed while you were selecting a rewind target. Refresh and try again.",
 		});
 	});
@@ -179,6 +180,7 @@ describe("session tree handlers", () => {
 
 		expect(response.status).toBe(409);
 		await expect(response.json()).resolves.toEqual({
+			code: "UNKNOWN_ERROR",
 			message: "Session tree navigation was cancelled. Refresh and try again.",
 		});
 	});

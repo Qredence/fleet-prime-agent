@@ -2,13 +2,11 @@ import { realpath } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import {
-	buildOpenUIPrompt,
 	type ChatMode,
 	type ChatPlanAction,
 	type ChatServiceTier,
 	type ChatStreamEvent,
 	type ChatThinkingLevel,
-	type OpenUIPromptMode,
 	type PrimeAgentArtifact,
 	type PrimeAgentRlmChild,
 	type PrimeAgentSessionPresentation,
@@ -16,6 +14,7 @@ import {
 } from "@prime-agent/web-protocol";
 import type { AgentConnectionModel, ExtensionUIContext, ExtensionUIDialogOptions } from "prime-agent";
 import type { FleetAgentConnection } from "./agent-connection-port";
+import { buildOpenUIPrompt, type OpenUIPromptMode } from "./openui-prompt";
 import type { DaemonSessionSummary as SessionSummary } from "./daemon-protocol";
 import { sessionDirectoryForCwd } from "./daemon-runtime";
 import type { RlmChildStatusOverride } from "./event-mapper";

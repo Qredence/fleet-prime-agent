@@ -228,9 +228,6 @@ importers:
 
   web/protocol:
     dependencies:
-      '@openuidev/lang-core':
-        specifier: 1.1.0
-        version: 1.1.0(@modelcontextprotocol/sdk@1.32.1(supports-color@8.1.1)(zod@4.6.7))(zod@4.6.7)
       zod:
         specifier: ^4.6.7
         version: 4.6.7

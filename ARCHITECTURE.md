@@ -73,9 +73,9 @@ Prime Agent-specific runtime knowledge should terminate here.
 
 ### `web/protocol`
 
-Owns browser/server transport types and compatibility vocabulary.
+Owns browser/server transport types, schemas, and compatibility vocabulary. OpenUI prompt generation and generated prompt signatures belong to `web/server`; the shared package must not pull prompt-generation code into browser imports.
 
-The browser and server should share these types instead of reproducing wire shapes independently.
+The browser and server should share these types instead of reproducing wire shapes independently. Producer frame schemas are strict; browser decoding tolerates additive optional fields while validating known shapes.
 
 ### `packages/fleet-web`
 

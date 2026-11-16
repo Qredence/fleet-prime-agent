@@ -20,7 +20,6 @@ import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core"
 import type { ImageContent } from "@earendil-works/pi-ai";
 import type { ProjectId } from "@prime-agent/web-protocol";
 import {
-	buildOpenUIPrompt,
 	type ChatMessage,
 	type ChatMode,
 	type ChatPendingDialog,
@@ -28,8 +27,6 @@ import {
 	type ChatQuestionAnswer,
 	type ChatStreamEvent,
 	type ChatThinkingLevel,
-	type OpenUIDashboardPrompt,
-	type OpenUIPromptMode,
 	type PrimeAgentArtifact,
 	type PrimeAgentSessionPresentation,
 	type SessionTreeSnapshot,
@@ -89,6 +86,7 @@ import {
 	writeManagedPrimePresentation,
 } from "./prime-agent-presentation";
 import { getPrimeConfig } from "./prime-config";
+import { buildOpenUIPrompt, type OpenUIDashboardPrompt, type OpenUIPromptMode } from "./openui-prompt";
 import { RingBuffer } from "./ring-buffer";
 import {
 	RlmChildStreamManager,

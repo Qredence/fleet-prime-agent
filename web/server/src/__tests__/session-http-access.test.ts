@@ -157,6 +157,15 @@ it("does not resolve an expired question or abort an unknown child", async () =>
 	expect((await handleChatAbortPost(request({ childId: "unknown-child" }, "POST"))).status).toBe(404);
 });
 
+it.each(["name", "fork", "clone"])("keeps /%s validation guidance readable over HTTP", async (command) => {
+	mocks.operations.getSessionTree.mockReturnValue({ leafId: null });
+	const response = await handleChatCommandPost(request({ command }, "POST"));
+	expect(response.status).toBe(400);
+	expect((await response.json()).message).toContain(`/${command} requires`);
+	expect(mocks.operations.setSessionName).not.toHaveBeenCalled();
+	expect(mocks.operations.forkSession).not.toHaveBeenCalled();
+});
+
 it("rejects mismatched project-scoped resume before reading the session", async () => {
 	const response = await handleChatResumePost(request({ projectId: "another-project" }, "POST"));
 	expect(response.status).toBe(404);

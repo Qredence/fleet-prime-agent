@@ -1,4 +1,6 @@
 import { type FleetErrorEnvelope, NETWORK_DISCONNECTED_MESSAGE } from "@prime-agent/web-protocol/chat-protocol";
+import { FleetErrorEnvelopeDecodeSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
+import { COMPOSER_INTENT_COMMANDS } from "@prime-agent/web-protocol/composer-intent";
 import { ZodError } from "zod";
 import { isLoopbackHostname } from "./net";
 
@@ -23,6 +25,8 @@ function getErrorMessage(error: unknown): string {
 	}
 }
 
+const PUBLIC_SLASH_COMMANDS = new Set(COMPOSER_INTENT_COMMANDS.map((command) => `/${command.id}`));
+
 /** Keep local filesystem details and secrets out of API errors rendered by the browser. */
 export function safeErrorMessage(error: unknown): string {
 	const message = getErrorMessage(error);
@@ -30,7 +34,14 @@ export function safeErrorMessage(error: unknown): string {
 		(scrubbed, [pattern, replacement]) => scrubbed.replace(pattern, replacement),
 		message
 			.replace(/(['"])(\/(?!\/)[^'"\n]*|[A-Za-z]:\\[^'"\n]*)\1/g, "$1[local path]$1")
-			.replace(/(^|[\s'"(])\/(?!\/)[^'"\s)]+/g, "$1[local path]")
+			.replace(/(^|[\s'"(])\/(?!\/)[^'"\s)]+/g, (path: string, prefix: string, offset: number, source: string) => {
+				const token = path.slice(prefix.length);
+				// Public commands and method-qualified API routes are not filesystem paths.
+				const apiRoute =
+					/^\/api\/[a-z0-9/-]+$/.test(token) &&
+					/\b(?:GET|POST|PATCH|PUT|DELETE) $/.test(source.slice(0, offset + prefix.length));
+				return PUBLIC_SLASH_COMMANDS.has(token) || apiRoute ? path : `${prefix}[local path]`;
+			})
 			.replace(/[A-Za-z]:\\[^'"\s)]+/g, "[local path]"),
 	);
 }
@@ -91,17 +102,48 @@ function isOriginAllowed(request: Request): boolean {
 	}
 }
 
+/** Add the canonical envelope to explicit HTTP failures without changing endpoint metadata. */
+async function normalizeApiErrorResponse(response: Response): Promise<Response> {
+	if (response.status < 400) return response;
+	const body: unknown = await response.json().catch(() => undefined);
+	const fields =
+		typeof body === "object" && body !== null && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
+	const parsed = FleetErrorEnvelopeDecodeSchema.safeParse(body);
+	const envelope: FleetErrorEnvelope = parsed.success
+		? { ...parsed.data, message: safeErrorMessage(parsed.data.message) }
+		: { code: "UNKNOWN_ERROR", message: `Request failed (${response.status})` };
+	// Preserve the interpreter SDK's legacy error field while normalizing the top level.
+	if (typeof fields.error === "string") fields.error = safeErrorMessage(fields.error);
+	else if (typeof fields.error === "object" && fields.error !== null && "message" in fields.error) {
+		fields.error = { ...fields.error, message: safeErrorMessage(fields.error.message) };
+	}
+	// Canonical optional fields may only come from the validated envelope.
+	delete fields.provider;
+	delete fields.isTerminal;
+	delete fields.remediation;
+	const headers = new Headers(response.headers);
+	headers.delete("content-length");
+	headers.delete("content-encoding");
+	headers.set("Content-Type", "application/json");
+	return Response.json(
+		{ ...fields, ...envelope },
+		{ status: response.status, statusText: response.statusText, headers },
+	);
+}
+
 export function wrapApiHandler(handler: () => Promise<Response>, request: Request): Promise<Response> {
 	if (request.method.toUpperCase() !== "GET" && !isOriginAllowed(request)) {
 		const envelope: FleetErrorEnvelope = { code: "UNKNOWN_ERROR", message: "Cross-origin request rejected." };
 		return Promise.resolve(Response.json(envelope, { status: 403 }));
 	}
-	return handler().catch((error) => {
-		const envelope = chatErrorEnvelope(error);
-		if (envelope.code === "NETWORK_DISCONNECTED") {
-			// Raw transport detail stays server-side; scrub secrets before logging.
-			process.stderr.write(`[api] daemon transport failure: ${safeErrorMessage(error)}\n`);
-		}
-		return Response.json(envelope, { status: getResponseStatus(error) });
-	});
+	return handler()
+		.then(normalizeApiErrorResponse)
+		.catch((error) => {
+			const envelope = chatErrorEnvelope(error);
+			if (envelope.code === "NETWORK_DISCONNECTED") {
+				// Raw transport detail stays server-side; scrub secrets before logging.
+				process.stderr.write(`[api] daemon transport failure: ${safeErrorMessage(error)}\n`);
+			}
+			return Response.json(envelope, { status: getResponseStatus(error) });
+		});
 }
