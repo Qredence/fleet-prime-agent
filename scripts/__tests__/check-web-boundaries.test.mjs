@@ -131,7 +131,7 @@ test("prevents raw session lookup from escaping the access module", () => {
 	}
 	assert.notEqual(findApiHandlerViolations(handlerPath, "const { getSession: lookup } = bridge;").length, 0);
 	for (const path of ["web/server/src/handlers/projects.ts", "web/server/src/handlers/chat-sessions.ts"]) {
-		assert.deepEqual(findApiHandlerViolations(path, "const live = bridge.getSession(session.sessionId);"), []);
+		assert.notEqual(findApiHandlerViolations(path, "const live = bridge.getSession(session.sessionId);").length, 0);
 		assert.notEqual(findApiHandlerViolations(path, "const live = bridge.getSession(body.sessionId);").length, 0);
 	}
 });

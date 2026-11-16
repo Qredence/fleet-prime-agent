@@ -201,17 +201,13 @@ function walkNodes(node, visit, parent) {
 
 /**
  * HTTP handlers must defer all work to the request-aware wrapper. Raw session
- * lookup belongs in session-access; only the two catalog projections may peek
- * at cached metadata without authorizing a caller-supplied session id.
+ * lookup belongs in session-access; catalog projections live outside handlers.
  * This is a structural guard, not a substitute for behavioral access tests.
  */
 export function findApiHandlerViolations(relativePath, source) {
 	const violations = [];
 	const program = parseModule(source, relativePath).program;
 	const accessModule = relativePath === "web/server/src/handlers/session-access.ts";
-	const catalogModule = ["web/server/src/handlers/chat-sessions.ts", "web/server/src/handlers/projects.ts"].includes(
-		relativePath,
-	);
 	const rawLookups = new Set(["getSession", "resumeSessionById", "resumeSessionByPath"]);
 	walkNodes(program, (node, parent) => {
 		if (accessModule) return;
@@ -226,14 +222,7 @@ export function findApiHandlerViolations(relativePath, source) {
 		}
 		if (node.type !== "MemberExpression" && node.type !== "OptionalMemberExpression") return;
 		const name = node.computed ? node.property.value : node.property.name;
-		const argument = parent?.type === "CallExpression" ? parent.arguments[0] : undefined;
-		const catalogPeek =
-			catalogModule &&
-			name === "getSession" &&
-			argument?.type === "MemberExpression" &&
-			argument.object.name === "session" &&
-			argument.property.name === "sessionId";
-		if (!rawLookups.has(name) || catalogPeek) return;
+		if (!rawLookups.has(name)) return;
 		violations.push(
 			`${relativePath}:${node.loc.start.line} must resolve sessions through requireSession, not ${name}`,
 		);

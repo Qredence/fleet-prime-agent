@@ -68,6 +68,26 @@ describe("readKernelStderrTail", () => {
 	});
 });
 
+it("omits kernel diagnostics for summary joins while preserving them for hydration", async () => {
+	const { workDir, sessionPath } = sessionLayout();
+	try {
+		await writeManagedPrimePresentation(
+			{ sessionPath },
+			createEmptyPrimeAgentSessionPresentation({ sessionName: "Summary" }),
+		);
+		writeFileSync(join(workDir, "session-artifacts", "abc123", "kernel-stderr.log"), "kernel diagnostic");
+		expect(await loadManagedPrimePresentation({ sessionPath }, { includeKernelDiagnostics: false })).toMatchObject({
+			sessionName: "Summary",
+		});
+		expect(
+			(await loadManagedPrimePresentation({ sessionPath }, { includeKernelDiagnostics: false }))?.kernelDiagnostics,
+		).toBeUndefined();
+		expect((await loadManagedPrimePresentation({ sessionPath }))?.kernelDiagnostics?.tail).toBe("kernel diagnostic");
+	} finally {
+		rmSync(workDir, { recursive: true, force: true });
+	}
+});
+
 describe("deleteManagedPrimePresentationForSession", () => {
 	it("removes the session-artifacts directory for a deleted session", async () => {
 		const { workDir, sessionPath } = sessionLayout();

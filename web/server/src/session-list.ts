@@ -1,6 +1,64 @@
-import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatSessionInfo, PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { fallbackSessionLabel, meaningfulSessionLabel } from "@prime-agent/web-protocol/session-label";
 import { loadManagedPrimePresentation } from "./prime-agent-presentation";
+import type { BridgeSession, PrimeBridge } from "./prime-bridge";
+import type { ProjectRegistry } from "./project-registry";
+
+export function sessionStatus(
+	info: Pick<SessionListSource, "activity" | "isSessionActive" | "isStreaming" | "hasRunningRlmChildren" | "state">,
+	live: BridgeSession | undefined,
+) {
+	if (live?.isStreaming || live?.session?.isStreaming || info.isStreaming) {
+		return "running" as const;
+	}
+	// Daemon sessions stay busy while active or while background RLM subagents
+	// keep the parent "working" after its own turn ends. Restored never-activated
+	// workers report "working" with both flags false; nothing runs in that state.
+	if (info.activity === "working" && (info.isSessionActive || info.hasRunningRlmChildren === true)) {
+		return "running" as const;
+	}
+	if (info.state?.status === "crash") return "failed" as const;
+	return live || info.isSessionActive ? ("idle" as const) : ("interrupted" as const);
+}
+
+/** One bounded, read-only projection shared by the session and project catalogs. */
+export async function listSessionRows(
+	bridge: Pick<PrimeBridge, "listSessions" | "getSession">,
+	registry: Pick<ProjectRegistry, "activeProjectIdForSession">,
+	projectId?: string,
+): Promise<ChatSessionInfo[]> {
+	const sources = await bridge.listSessions();
+	const rows: ChatSessionInfo[] = [];
+	// Bound both sidecar reads and registry directory resolution; keep catalog order.
+	for (let start = 0; start < sources.length; start += 8) {
+		const batch = await Promise.all(
+			sources.slice(start, start + 8).map(async (source) => {
+				const session = normalizeSessionListRow(source);
+				const live = bridge.getSession(session.sessionId);
+				const assignedProjectId = await registry.activeProjectIdForSession(
+					session.sessionId,
+					live?.cwd ?? session.cwd,
+				);
+				if (projectId && assignedProjectId !== projectId) return undefined;
+				const fields = applyPresentationToSessionRow(
+					session,
+					await loadSessionListPresentation(session, source, live?.mapperState?.presentation),
+				);
+				return {
+					sessionId: session.sessionId,
+					projectId: assignedProjectId,
+					...fields,
+					createdAt: session.createdAt,
+					updatedAt: session.updatedAt,
+					status: sessionStatus(source, live),
+					...(session.isSubagent ? { isSubagent: true } : {}),
+				};
+			}),
+		);
+		for (const row of batch) if (row) rows.push(row);
+	}
+	return rows;
+}
 
 /** Session listing accepts both daemon summaries and saved-session rows. */
 export type SessionListSource = {
@@ -151,5 +209,8 @@ export async function loadSessionListPresentation(
 	if (!sessionNeedsPresentationJoin(row)) return livePresentation;
 	const path = sessionSourcePath(source);
 	if (!path) return livePresentation;
-	return (await loadManagedPrimePresentation({ sessionPath: path })) ?? livePresentation;
+	return (
+		(await loadManagedPrimePresentation({ sessionPath: path }, { includeKernelDiagnostics: false })) ??
+		livePresentation
+	);
 }

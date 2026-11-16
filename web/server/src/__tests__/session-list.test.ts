@@ -1,13 +1,18 @@
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import { EMPTY_SESSION_FIRST_MESSAGE } from "@prime-agent/web-protocol/session-label";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { PrimeBridge } from "../prime-bridge";
 import {
 	applyPresentationToSessionRow,
+	listSessionRows,
 	normalizeSessionListRow,
 	presentationListActivity,
 	type SessionListSource,
 	sessionNeedsPresentationJoin,
 } from "../session-list";
+
+const presentationLoader = vi.hoisted(() => vi.fn());
+vi.mock("../prime-agent-presentation", () => ({ loadManagedPrimePresentation: presentationLoader }));
 
 function listSource(row: {
 	sessionId: string;
@@ -38,6 +43,52 @@ const refinementPresentation: PrimeAgentSessionPresentation = {
 	],
 	artifactRuns: [],
 };
+
+describe("read-only catalog projection", () => {
+	it("bounds sidecar I/O, preserves order and omits kernel diagnostics", async () => {
+		let active = 0;
+		let peak = 0;
+		presentationLoader.mockReset().mockImplementation(async (_session, options) => {
+			expect(options).toEqual({ includeKernelDiagnostics: false });
+			peak = Math.max(peak, ++active);
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			active--;
+			return refinementPresentation;
+		});
+		const sources = Array.from({ length: 25 }, (_, index) => ({
+			id: `session-${index}`,
+			cwd: "/workspace",
+			path: `/sessions/${index}.jsonl`,
+		}));
+		const bridge = { listSessions: async () => sources, getSession: () => undefined } as unknown as Pick<
+			PrimeBridge,
+			"listSessions" | "getSession"
+		>;
+		const registry = { activeProjectIdForSession: vi.fn(async () => "project-1") };
+		const rows = await listSessionRows(bridge, registry);
+		expect(rows.map((row) => row.sessionId)).toEqual(sources.map((row) => row.id));
+		expect(peak).toBe(8);
+		expect(presentationLoader).toHaveBeenCalledTimes(25);
+	});
+
+	it("filters projects before reading sidecars and skips complete summaries", async () => {
+		presentationLoader.mockReset();
+		const bridge = {
+			listSessions: async () => [
+				{ id: "foreign", cwd: "/foreign", path: "/sessions/foreign.jsonl" },
+				{ id: "complete", cwd: "/workspace", sessionName: "Named", firstMessage: "Hello", messageCount: 1 },
+			],
+			getSession: () => undefined,
+		} as unknown as Pick<PrimeBridge, "listSessions" | "getSession">;
+		const rows = await listSessionRows(
+			bridge,
+			{ activeProjectIdForSession: async (id) => (id === "foreign" ? "foreign-project" : "project-1") },
+			"project-1",
+		);
+		expect(rows.map((row) => row.sessionId)).toEqual(["complete"]);
+		expect(presentationLoader).not.toHaveBeenCalled();
+	});
+});
 
 describe("normalizeSessionListRow", () => {
 	it("strips the upstream empty-session placeholder", () => {

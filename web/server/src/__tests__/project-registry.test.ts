@@ -60,6 +60,23 @@ afterEach(async () => {
 });
 
 describe("ProjectRegistry", () => {
+	it("keeps cold-start reads in memory until an explicit mutation persists them", async () => {
+		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
+		temporaryDirectories.push(root);
+		const agentDir = join(root, ".prime-agent");
+		const harness = createPersistenceHarness();
+		const registry = new ProjectRegistry(agentDir, root, harness.persistence);
+		const [project] = await registry.list();
+		expect(await registry.activeProjectIdForSession("legacy", root)).toBe(project?.projectId);
+		expect(harness.writePaths).toEqual([]);
+		expect(await pathExists(agentDir)).toBe(false);
+		expect((await new ProjectRegistry(agentDir, root).list())[0]?.projectId).toBe(project!.projectId);
+		await registry.assignSession("legacy", project!.projectId);
+		expect(harness.writePaths).toHaveLength(1);
+		const reopened = new ProjectRegistry(agentDir, root);
+		expect((await reopened.list())[0]?.projectId).toBe(project!.projectId);
+	});
+
 	it("serializes concurrent cold-start loads", async () => {
 		const root = await mkdtemp(join(tmpdir(), "fleet-project-registry-"));
 		temporaryDirectories.push(root);
