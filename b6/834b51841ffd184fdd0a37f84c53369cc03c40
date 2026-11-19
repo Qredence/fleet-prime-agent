@@ -1,0 +1,107 @@
+.changeset/tidy-fleet-workspace.md
+  s_90c87a159f963b::t_22a321c9c7741a 1-5
+AGENTS.md
+  s_90c87a159f963b::t_a029b8843a5d4a 74
+ARCHITECTURE.md
+  s_90c87a159f963b::t_4b3461f39cb9fa 50
+scripts/check.mjs
+  s_90c87a159f963b::t_803afe6dda16ba 107,116
+web/app/playwright/perf-smoke.spec.ts
+  s_90c87a159f963b::t_d51e23a621520f 59,72
+web/app/scripts/component-contract-check.ts
+  s_90c87a159f963b::t_20e9a6581f4bcd 1-3,37,40,61,104
+web/app/src/components/README.md
+  s_90c87a159f963b::t_98fc428d8bf7d1 10,16,21,45,49
+web/app/src/components/chat/composer/tests/input-bar.test.tsx
+  s_90c87a159f963b::t_b4ecbec6166ac9 323-324
+web/app/src/components/connectors/mcp-connections-section.tsx
+  s_90c87a159f963b::t_16aca38b9cad46 22
+web/app/src/components/dashboards/dashboard-request-context.ts
+  s_90c87a159f963b::t_cf76fe65ced83c 1-7
+web/app/src/components/dashboards/dashboard-view.tsx
+  s_90c87a159f963b::t_e4c8e122e61203 16,19,218
+web/app/src/components/dashboards/tests/dashboard-request-card.test.tsx
+  s_90c87a159f963b::t_72ccb312a52cde 1-2,22-34,98-102,125-129,138-142,166-171,180-184,199-203,219-223,235-239
+web/app/src/components/layout/chat-workspace-dialogs.tsx
+  s_90c87a159f963b::t_765040ce0b7e09 135-136
+web/app/src/components/layout/chat-workspace-shell.tsx
+  s_90c87a159f963b::t_a3458f712c4cb7 10-12,220-226,263-267,284-286,300
+web/app/src/components/layout/right-panel-data.ts
+  s_90c87a159f963b::t_1c4c0ffab45384 14-15,18,52
+web/app/src/components/layout/right-panel-launcher.tsx
+  s_90c87a159f963b::t_e6e103aa76c3b4 7,18,22-31,36,46,52-54,60-61,63,74
+web/app/src/components/layout/right-panel-registry.tsx
+  s_90c87a159f963b::t_2aafdab8d14f7c 5,87-98,100-196
+web/app/src/components/layout/right-panel-shell.tsx
+  s_90c87a159f963b::t_ccb9ccbe2389b8 4-5,10,55-57,74-76,87-89,114,135-142
+web/app/src/components/layout/tests/chat-workspace-shell.test.tsx
+  s_90c87a159f963b::t_4eafc93732979f 32,174
+web/app/src/components/layout/tests/right-panels.test.tsx
+  s_90c87a159f963b::t_638caa1d657e0b 20,141-168,170-171,180-184
+web/app/src/components/layout/tests/use-chat-shell-state.test.tsx
+  s_90c87a159f963b::t_5507aedd9c62ab 4
+web/app/src/components/settings/composer-intent-section.tsx
+  s_90c87a159f963b::t_0ec6d244a51ccd 1
+web/app/src/components/settings/dashboards-section.tsx
+  s_90c87a159f963b::t_8a139e5af179e2 1
+web/app/src/components/settings/lists.tsx
+  s_90c87a159f963b::t_7f23d4d51bd016 4
+web/app/src/components/settings/providers/provider-credentials-editor.tsx
+  s_90c87a159f963b::t_932d018e73cfa7 28
+web/app/src/components/settings/providers/provider-credentials-section.tsx
+  s_90c87a159f963b::t_3dfc04c2b572a8 32
+web/app/src/components/settings/providers/tests/model-discovery.test.tsx
+  s_90c87a159f963b::t_79866541c909ae 4-5
+web/app/src/components/settings/resources-section.tsx
+  s_90c87a159f963b::t_2b116ae2945062 7
+web/app/src/components/settings/sandbox-provider-section.tsx
+  s_90c87a159f963b::t_c09abca705bc38 1
+web/app/src/components/settings/settings-dialog.tsx
+  s_90c87a159f963b::t_38d20431a2f660 3,5,28,75-76,78-79,83,93-101,105-106,110,133-134,146-147,151,156,158
+web/app/src/components/settings/settings-pane-content.tsx
+  s_90c87a159f963b::t_fd653d30e580e0 18-21,62
+web/app/src/components/settings/tests/settings-dialog.test.tsx
+  s_90c87a159f963b::t_3fc870688ffe7e 4,6-7,23,94,103-109,127-134,141-142,150-153
+web/app/src/components/settings/tests/settings-draft-provider.test.tsx
+  s_90c87a159f963b::t_d37edf9b868d54 5
+web/app/src/components/settings/use-provider-credentials-controller.ts
+  s_90c87a159f963b::t_fe5f8c00fab402 16
+web/app/src/components/settings/use-settings-actions.ts
+  s_90c87a159f963b::t_61213b5d006704 3-13,17,21-22,35-60,70,81-92,173
+web/app/src/components/settings/use-settings-form.ts
+  s_90c87a159f963b::t_73b169f2c3dda8 3-7,15-23,43-44
+web/app/src/components/ui/slider.tsx
+  s_90c87a159f963b::t_c37ec2ff891e75 22,24,26-27,39,61-81,88,92,96-99,111-112,129,132-142,144-145,169,171,173,176,195-199,201,235-236,259,267,271,278,285,297,305,309,316,326,329,338,341,346,352-354,374,376,378,380,386,401,403,405,407,409,420-421,423,428,430-437,441,445,450,458,472,483,499,505,510,531,533-535,545-546,550,552,559,576,616-619,639,649,666,736,814,871,1019-1021
+web/app/src/components/ui/tests/slider.test.tsx
+  s_90c87a159f963b::t_95a2e1fbd8b227 6-21
+web/app/src/hooks/chat/use-chat-workspace-data.test.ts
+  s_90c87a159f963b::t_b550cc3a9d7c81 190,222
+web/app/src/hooks/chat/use-chat-workspace-data.ts
+  s_90c87a159f963b::t_cacc97c425a0eb 31-34,401,407-429,453-463,539,542-543
+web/app/src/hooks/chat/use-pi-chat-messaging.ts
+  s_90c87a159f963b::t_d5069748d1b064 90,102,238,250,681
+web/app/src/hooks/chat/use-pi-chat.ts
+  s_90c87a159f963b::t_968f50bef0eb89 11-12,23-28,355-386,390,392,395,398-419
+web/app/src/hooks/use-merge-split.tsx
+  s_90c87a159f963b::t_0f79ac46f8d9a3 204-209,215-218
+web/app/src/routes/agents.tsx
+  s_90c87a159f963b::t_19c17c51f005c3 2,5-8
+web/app/src/routes/connectors.tsx
+  s_90c87a159f963b::t_9316596da97b0e 2,5-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b6834b51841ffd184fdd0a37f84c53369cc03c40",
+  "prompts": {},
+  "sessions": {
+    "s_90c87a159f963b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1f58d-e194-7033-ba8c-462aa839e97c",
+        "model": "unknown"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
