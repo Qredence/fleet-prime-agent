@@ -1,0 +1,29 @@
+web/app/src/components/settings/providers/tests/model-discovery.test.tsx
+  s_1fc1d9e82fd9b2::t_afa4c3cc5480ec 3
+web/app/src/components/README.md
+  s_1fc1d9e82fd9b2::t_e1e0cb59268af6 10
+  s_1fc1d9e82fd9b2::t_f658989b01c233 16
+  s_1fc1d9e82fd9b2::t_1b2572f3696b2f 21
+.changeset/colocated-component-tests.md
+  s_1fc1d9e82fd9b2::t_e1bcbfd462082a 1-5
+ARCHITECTURE.md
+  s_1fc1d9e82fd9b2::t_e875dcbec8cb1e 50
+web/app/src/components/settings/providers/tests/provider-credentials-editor.test.tsx
+  s_1fc1d9e82fd9b2::t_f13f707c369b76 8-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "777142eb52bcf29912fc245aa3e37c4f0ce9f76c",
+  "prompts": {},
+  "sessions": {
+    "s_1fc1d9e82fd9b2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6f9120ee-4b9b-45aa-b5b1-bb7a56efac7e",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
