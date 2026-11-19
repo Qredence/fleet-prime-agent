@@ -629,6 +629,38 @@ test("treats no pending Changesets as a release-preparation no-op", async () => 
 	assert.deepEqual(result, { prepared: false });
 });
 
+test("treats Changesets for other packages as a release-preparation no-op", async () => {
+	const webChangeset = '---\n"@qredence/web": patch\n---\n\nPrivate package note.\n';
+	assert.equal(
+		releaseVersionFromStatus({ releases: [{ name: "@qredence/web", oldVersion: "0.0.1", newVersion: "0.0.2" }] }, [
+			webChangeset,
+		]),
+		undefined,
+	);
+	const result = await prepareRelease({
+		status: { releases: [{ name: "@qredence/web", oldVersion: "0.0.1", newVersion: "0.0.2" }] },
+		changesetSources: [webChangeset],
+		branch: "main",
+	});
+	assert.deepEqual(result, { prepared: false });
+});
+
+test("fails when a @qredence/fleet Changeset is missing from the release plan", async () => {
+	const fleetChangeset = '---\n"@qredence/fleet": patch\n---\n\nMissing from the plan.\n';
+	assert.throws(
+		() => releaseVersionFromStatus({ releases: [] }, [fleetChangeset]),
+		/no release plan for @qredence\/fleet/,
+	);
+	await assert.rejects(
+		prepareRelease({
+			status: { releases: [] },
+			changesetSources: [fleetChangeset],
+			branch: "main",
+		}),
+		/no release plan for @qredence\/fleet/,
+	);
+});
+
 test("prints no version for an empty release plan and the planned version for a patch plan", async () => {
 	const noVersionOutput = [];
 	await runPrepareRelease(["--print-version"], {

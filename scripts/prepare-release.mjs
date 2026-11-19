@@ -98,6 +98,32 @@ function readChangesetNames() {
 }
 
 /**
+ * Reads the pending Changeset documents.
+ * @returns {string[]} Changeset markdown, excluding `README.md`.
+ */
+function readChangesetSources() {
+	return readChangesetNames().map((name) => readFileSync(join(root, ".changeset", name), "utf8"));
+}
+
+/**
+ * Reports whether a Changeset document releases a package.
+ * @param {string} markdown - Changeset markdown, including its front matter.
+ * @param {string} name - Package name to look for.
+ * @returns {boolean} `true` when the front matter names the package.
+ */
+function changesetDeclaresPackage(markdown, name) {
+	const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
+	if (!match) return false;
+	return match[1].split(/\r?\n/).some((line) => {
+		const key = line
+			.split(":")[0]
+			?.trim()
+			.replace(/^["']|["']$/g, "");
+		return key === name;
+	});
+}
+
+/**
  * Reads the current Changesets release status.
  * @return {object|undefined} The parsed release status, or `undefined` when no Changesets are present.
  * @throws {Error} If the Changesets status command fails or produces no output.
@@ -168,12 +194,24 @@ export function releaseTargetBaselineVersion(targetVersion) {
 }
 
 /**
- * Returns the planned package version, or `undefined` when no Changesets are pending.
+ * Returns the planned package version, or `undefined` when no `@qredence/fleet` release is pending.
+ * A Changeset that names the package but is absent from the status still fails.
  * @param {object|undefined|null} status - Changesets status data, when available.
+ * @param {string[]} [changesetSources] - Changeset documents. Read from disk when omitted and the status has no fleet release.
  * @returns {string|undefined} The planned stable version.
+ * @throws {Error} If a Changeset names the package but the status has no release plan for it.
  */
-export function releaseVersionFromStatus(status) {
-	return status ? releasePlanFromStatus(status).version : undefined;
+export function releaseVersionFromStatus(status, changesetSources) {
+	if (!status) return undefined;
+	const release = status.releases?.find((entry) => entry.name === packageName);
+	if (!release) {
+		const sources = changesetSources ?? readChangesetSources();
+		if (sources.some((source) => changesetDeclaresPackage(source, packageName))) {
+			throw new Error(`Changesets contain no release plan for ${packageName}`);
+		}
+		return undefined;
+	}
+	return releasePlanFromStatus(status).version;
 }
 
 /**
@@ -442,6 +480,7 @@ export async function createVersionPullRequest(
  * @param {Object} [options] - Release preparation options.
  * @param {string} [options.baseSha] - Commit to use as the release base.
  * @param {Object} [options.status] - Changeset status data.
+ * @param {string[]} [options.changesetSources] - Changeset documents used to tell an unrelated Changeset from a missing fleet plan.
  * @param {boolean} [options.dryRun=false] - Whether to report the planned release without creating changes.
  * @param {string} [options.branch] - Current branch name, which must be `main`.
  * @returns {Promise<Object>} Preparation result, including the release plan when applicable.
@@ -451,12 +490,18 @@ export async function prepareRelease({
 	token,
 	baseSha,
 	status = readChangesetStatus(),
+	changesetSources,
 	dryRun = false,
 	branch = process.env.CIRCLE_BRANCH ??
 		execFileTrusted("git", ["branch", "--show-current"], { cwd: root, encoding: "utf8" }).trim(),
 } = {}) {
-	if (!status) {
-		console.log("No pending Changesets; release preparation is a no-op.");
+	const version = releaseVersionFromStatus(status, changesetSources);
+	if (!version) {
+		console.log(
+			status
+				? `No pending ${packageName} release in Changesets; release preparation is a no-op.`
+				: "No pending Changesets; release preparation is a no-op.",
+		);
 		return { prepared: false };
 	}
 	const plan = releasePlanFromStatus(status);
