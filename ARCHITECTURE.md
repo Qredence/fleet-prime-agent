@@ -47,7 +47,7 @@ The browser never receives upstream runtime objects. TanStack Start route module
 
 Owns the TanStack Start browser product: routes, browser state, client behavior, all frontend components and styles, and product composition.
 
-Presentation lives under `src/components/`: `ui` (Base UI primitives), `openui` (generative UI), `layout` (app chrome), and the product areas `chat`, `sessions`, `workspace`, `artifacts`, `settings`, `tools`, and `connectors`. Components contain UI and co-located UI tests. Domain hooks live in `src/hooks/<area>`, pure logic, queries and clients in `src/lib/<area>`, and route-only pages in `src/routes`. Shared Fluid motion helpers live in `src/lib/fluid`; animated product UI stays in its owning area.
+Presentation lives under `src/components/`: `ui` (Base UI primitives), `openui` (generative UI), `layout` (app chrome), and the product areas `chat`, `sessions`, `workspace`, `artifacts`, `settings`, `tools`, and `connectors`. Components contain UI, with UI tests in a `tests/` directory beside the owning component. Domain hooks live in `src/hooks/<area>`, pure logic, queries and clients in `src/lib/<area>`, and route-only pages in `src/routes`. Shared Fluid motion helpers live in `src/lib/fluid`; animated product UI stays in its owning area.
 
 It consumes Fleet browser-safe contracts. Server-only route wrappers may depend on `web/server`, but browser code must not import Prime Agent execution-runtime packages.
 
