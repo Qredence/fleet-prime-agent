@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.5
+
+### Patch Changes
+
+- 777142e: Move component tests into a `tests` directory next to each component. No user-facing runtime behavior changes.
+
 ## 0.13.4
 
 ### Patch Changes
