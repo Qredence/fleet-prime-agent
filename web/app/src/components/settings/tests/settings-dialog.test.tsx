@@ -106,40 +106,25 @@ it("applies settings that arrived during a dirty draft after the local edit is c
 		settingsLoading: false,
 		themePreference: "system",
 	});
-	const view = render(
+	const modelsDialog = (currentSettings: ChatSettingsResponse) => (
 		<RightPanelProvider
 			chatPanelData={chatPanelData}
 			workspaceTree={workspaceTree}
-			settingsActions={settingsActions(initialSettings)}
+			settingsActions={settingsActions(currentSettings)}
 		>
 			<SettingsDialog open onOpenChange={() => {}} initialTab="llm-models" />
-		</RightPanelProvider>,
+		</RightPanelProvider>
 	);
+	const view = render(modelsDialog(initialSettings));
 
 	await waitFor(() => expect(screen.getByTestId("enabled-models").textContent).toBe("baseline"));
-	view.rerender(
-		<RightPanelProvider
-			chatPanelData={chatPanelData}
-			workspaceTree={workspaceTree}
-			settingsActions={settingsActions(settings(["fresh"]))}
-		>
-			<SettingsDialog open onOpenChange={() => {}} initialTab="llm-models" />
-		</RightPanelProvider>,
-	);
+	view.rerender(modelsDialog(settings(["fresh"])));
 	await waitFor(() => expect(screen.getByTestId("enabled-models").textContent).toBe("fresh"));
 
 	fireEvent.click(screen.getByRole("button", { name: "Make local edit" }));
 	await waitFor(() => expect(screen.getByTestId("model-dirty").textContent).toBe("true"));
 
-	view.rerender(
-		<RightPanelProvider
-			chatPanelData={chatPanelData}
-			workspaceTree={workspaceTree}
-			settingsActions={settingsActions(settings(["remote"]))}
-		>
-			<SettingsDialog open onOpenChange={() => {}} initialTab="llm-models" />
-		</RightPanelProvider>,
-	);
+	view.rerender(modelsDialog(settings(["remote"])));
 	await waitFor(() => expect(screen.getByTestId("enabled-models").textContent).toBe("local"));
 
 	fireEvent.click(screen.getByRole("button", { name: "Clear local edit" }));

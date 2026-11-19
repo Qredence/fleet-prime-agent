@@ -5,8 +5,8 @@ import {
 	CUSTOM_PROVIDER_MODELS_PAGE_SIZE,
 	CustomProviderModelsEditor,
 	ProviderOAuthTerminalFallback,
-} from "./provider-credentials-editor";
-import { ProviderCredentialsSection } from "./provider-credentials-section";
+} from "../provider-credentials-editor";
+import { ProviderCredentialsSection } from "../provider-credentials-section";
 
 afterEach(cleanup);
 

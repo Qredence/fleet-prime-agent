@@ -7,18 +7,18 @@ The Fleet Prime web application owns its UI source. React UI components live und
 ```text
 ui/        → @fluid Base UI primitives, AI Elements compositions, and adapters
 openui/    → generative UI component catalog and renderers composed from ui/
-<areas>/   → product UI (.tsx + co-located *.test.tsx only); composes @/components/ui/*
+<areas>/   → product UI (.tsx, with *.test.tsx in a sibling tests/ directory); composes @/components/ui/*
 src/hooks/ → reusable and domain-scoped React hooks (.ts/.tsx)
 src/lib/   → pure domain logic, transport clients, stores, and fluid tokens/contexts
 src/routes → TanStack Router route modules and route-only page entry components
 ```
 
-- **Strict UI-only `components/`**: Keep `web/app/src/components/` strictly for `.tsx` UI components and co-located UI tests (`*.test.tsx`). Pure helpers, stores, state machines, and schemas belong in `src/lib/<area>/`; React hooks belong in `src/hooks/<area>/`; route-only page modules belong in `src/routes/`.
+- **Strict UI-only `components/`**: Keep `web/app/src/components/` strictly for `.tsx` UI components and UI tests (`*.test.tsx`) in a `tests/` directory beside the owning component. Pure helpers, stores, state machines, and schemas belong in `src/lib/<area>/`; React hooks belong in `src/hooks/<area>/`; route-only page modules belong in `src/routes/`.
 - **`motion/` is dissolved**: Motion springs and Fluid primitives live in `src/lib/fluid/` and `src/components/ui/`, while area-specific animated components (`workspace/file-tree.tsx`, `chat/transcript/preview-rail.tsx`) live inside their owning product folders.
 - **Exact `ui/` imports**: Import shared controls from their exact `@/components/ui/<file>` path. Do **not** relative-import into `ui/` or add catch-all barrel files.
 - **No parallel controls or raw native controls**: Product areas compose `@/components/ui/*` (`Button`, `Input`, `Textarea`, `Select`, `Checkbox`, `Switch`, `Dialog`, `MobileDrawer`, `Collapsible`, `Tabs`, `Card`, `Item`, `CodeBlock`, etc.) instead of growing parallel controls or rendering raw `<button>`, `<input>`, `<select>`, `<textarea>`, or `<dialog>` elements (beyond explicitly documented exceptions in `web/app/component-sources.json`).
 - **No static inline `style={{...}}`**: Use Tailwind utilities, CSS custom properties, or `@utility` helpers in `src/styles/globals.css` rather than static/themeable inline style objects outside `ui/`.
-- **Behavior tests beside components**: Co-locate `*.test.tsx` beside the owning component and test accessibility, interactions, state, and composition contracts rather than snapshots.
+- **Behavior tests beside components**: Put `*.test.tsx` in a `tests/` directory next to the owning component and test accessibility, interactions, state, and composition contracts rather than snapshots.
 
 ```text
 web/app/src/
