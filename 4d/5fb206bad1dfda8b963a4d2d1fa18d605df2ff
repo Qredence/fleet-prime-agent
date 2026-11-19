@@ -1,0 +1,29 @@
+docs/guides/releasing.md
+  s_b230ea84dc843d::t_2c77ca64f7b9fd 30
+scripts/prepare-release.mjs
+  s_b230ea84dc843d::t_414a54dc23384f 100-117,122-125
+  s_b230ea84dc843d::t_563006ecc2feeb 118-121
+  s_b230ea84dc843d::t_50aa04d148b8d8 493
+  s_b230ea84dc843d::t_3a29d775931bb0 498-504
+  s_b230ea84dc843d::t_ee19efe7865ff3 197-198,200,202,204-214
+  s_b230ea84dc843d::t_ef73d6459f7f97 483
+scripts/__tests__/release-utils.test.mjs
+  s_b230ea84dc843d::t_563006ecc2feeb 650-653
+  s_b230ea84dc843d::t_aa78943871ce81 632-649,654-663
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4d5fb206bad1dfda8b963a4d2d1fa18d605df2ff",
+  "prompts": {},
+  "sessions": {
+    "s_b230ea84dc843d": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "7207c63c-6588-4fb2-bd1b-dafb7396c1a1",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
