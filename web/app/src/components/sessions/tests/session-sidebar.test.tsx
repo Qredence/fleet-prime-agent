@@ -73,6 +73,24 @@ function session(sessionId: string, projectId: string): ChatSessionInfo {
 	};
 }
 
+function renderAlphaProjectSidebar(overrides: Partial<SessionSidebarDependencies> = {}) {
+	return render(
+		<AnimatedSidebarProvider>
+			<SidebarHarness
+				sessions={[]}
+				projects={[project("alpha")]}
+				projectSessions={[]}
+				activeProjectId="alpha"
+				onNewSession={vi.fn()}
+				onResumeSession={vi.fn()}
+				onRenameSession={vi.fn()}
+				onDeleteSession={vi.fn()}
+				{...overrides}
+			/>
+		</AnimatedSidebarProvider>,
+	);
+}
+
 describe("SessionSidebar project rows", () => {
 	beforeEach(() => {
 		window.localStorage.clear();
@@ -184,22 +202,10 @@ describe("SessionSidebar project rows", () => {
 		};
 		const browseDirectories = vi.fn(async (input: { token?: string }) => (input.token ? child : root));
 
-		const { getByRole, getByText } = render(
-			<AnimatedSidebarProvider>
-				<SidebarHarness
-					sessions={[]}
-					projects={[project("alpha")]}
-					projectSessions={[]}
-					activeProjectId="alpha"
-					onNewSession={vi.fn()}
-					onResumeSession={vi.fn()}
-					onRenameSession={vi.fn()}
-					onDeleteSession={vi.fn()}
-					onCreateProject={vi.fn()}
-					onBrowseDirectories={browseDirectories}
-				/>
-			</AnimatedSidebarProvider>,
-		);
+		const { getByRole, getByText } = renderAlphaProjectSidebar({
+			onCreateProject: vi.fn(),
+			onBrowseDirectories: browseDirectories,
+		});
 
 		fireEvent.click(getByRole("button", { name: /^Add project$/ }));
 		await waitFor(() => expect(browseDirectories).toHaveBeenCalledWith({}));
@@ -214,22 +220,10 @@ describe("SessionSidebar project rows", () => {
 	it("keeps browse failures visible and offers a retry", async () => {
 		const browseDirectories = vi.fn().mockRejectedValue(new Error("Directory service unavailable"));
 
-		const { getByRole, getByText } = render(
-			<AnimatedSidebarProvider>
-				<SidebarHarness
-					sessions={[]}
-					projects={[project("alpha")]}
-					projectSessions={[]}
-					activeProjectId="alpha"
-					onNewSession={vi.fn()}
-					onResumeSession={vi.fn()}
-					onRenameSession={vi.fn()}
-					onDeleteSession={vi.fn()}
-					onCreateProject={vi.fn()}
-					onBrowseDirectories={browseDirectories}
-				/>
-			</AnimatedSidebarProvider>,
-		);
+		const { getByRole, getByText } = renderAlphaProjectSidebar({
+			onCreateProject: vi.fn(),
+			onBrowseDirectories: browseDirectories,
+		});
 
 		fireEvent.click(getByRole("button", { name: /^Add project$/ }));
 		await waitFor(() => expect(getByText("Directory service unavailable")).toBeTruthy());
@@ -242,21 +236,7 @@ describe("SessionSidebar project rows", () => {
 	it("closes and resets the dialog after project registration succeeds", async () => {
 		const createProject = vi.fn().mockResolvedValue(undefined);
 
-		const { getByRole, queryByRole } = render(
-			<AnimatedSidebarProvider>
-				<SidebarHarness
-					sessions={[]}
-					projects={[project("alpha")]}
-					projectSessions={[]}
-					activeProjectId="alpha"
-					onNewSession={vi.fn()}
-					onResumeSession={vi.fn()}
-					onRenameSession={vi.fn()}
-					onDeleteSession={vi.fn()}
-					onCreateProject={createProject}
-				/>
-			</AnimatedSidebarProvider>,
-		);
+		const { getByRole, queryByRole } = renderAlphaProjectSidebar({ onCreateProject: createProject });
 
 		fireEvent.click(getByRole("button", { name: /^Add project$/ }));
 		await waitFor(() => expect(getByRole("dialog", { name: "Add project" })).toBeTruthy());
@@ -279,21 +259,7 @@ describe("SessionSidebar project rows", () => {
 	it("keeps the dialog open when project registration fails", async () => {
 		const createProject = vi.fn().mockRejectedValue(new Error("Project is already registered"));
 
-		const { getByRole, getByText } = render(
-			<AnimatedSidebarProvider>
-				<SidebarHarness
-					sessions={[]}
-					projects={[project("alpha")]}
-					projectSessions={[]}
-					activeProjectId="alpha"
-					onNewSession={vi.fn()}
-					onResumeSession={vi.fn()}
-					onRenameSession={vi.fn()}
-					onDeleteSession={vi.fn()}
-					onCreateProject={createProject}
-				/>
-			</AnimatedSidebarProvider>,
-		);
+		const { getByRole, getByText } = renderAlphaProjectSidebar({ onCreateProject: createProject });
 
 		fireEvent.click(getByRole("button", { name: /^Add project$/ }));
 		await waitFor(() => expect(getByRole("dialog", { name: "Add project" })).toBeTruthy());
