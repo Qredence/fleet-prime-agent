@@ -1,7 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { BookOpenText, ChevronDown, Settings } from "lucide-react";
 import { AnimatedSidebarTrigger } from "@/components/layout/animated-sidebar";
-import { RightPanelLauncherFromContext } from "@/components/layout/right-panel-launcher";
 import { AgentTabBar, type AgentTabItem } from "@/components/sessions/agent-tab-bar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -139,6 +138,5 @@ export function useChatWorkspaceHeader({
 				onNewSession={onNewSession}
 			/>
 		),
-		right: <RightPanelLauncherFromContext compact />,
 	};
 }

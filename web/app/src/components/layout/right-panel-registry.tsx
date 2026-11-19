@@ -1,9 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import { Activity, Bot, Folder, GitBranch, LayoutDashboard, Library, Package, SquareTerminal } from "lucide-react";
-import type { ComponentType } from "react";
 import { lazy, Suspense } from "react";
 import type { RightPanel } from "@/lib/layout/canvas-utils";
-import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
+import type { RightPanelData, WorkspacePanelData } from "@/components/layout/right-panel-data";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export type ActiveRightPanel = Exclude<RightPanel, null>;
@@ -23,7 +22,6 @@ export type RightPanelDefinition = {
 	badgeSource?: RightPanelBadgeSource;
 	loadingSource?: RightPanelLoadingSource;
 	refreshSource?: RightPanelLoadingSource;
-	component: ComponentType;
 };
 
 export type RightPanelGroup = {
@@ -86,142 +84,116 @@ function PanelFallback() {
 	);
 }
 
-function DashboardsContent() {
-	const data = useChatPanelDataContext();
-	return (
-		<Suspense fallback={<PanelFallback />}>
-			<LazyDashboardsPanel
-				artifactRuns={data.artifactRuns}
-				presentationRuns={data.presentation?.artifactRuns}
-				selectedArtifactId={data.selectedArtifactId}
-				sessionId={data.sessionId}
-				onOpenUIAction={data.onOpenUIAction}
-				onSelect={(artifactId) => data.openArtifact?.(artifactId, "dashboards")}
-			/>
-		</Suspense>
-	);
+export function RightPanelContent({
+	panel,
+	data,
+	workspace,
+	onOpenUIAction,
+}: {
+	panel: ActiveRightPanel;
+	data: RightPanelData;
+	workspace: WorkspacePanelData;
+	onOpenUIAction?: RightPanelData["onOpenUIAction"];
+}) {
+	return <Suspense fallback={<PanelFallback />}>{renderPanel(panel, data, workspace, onOpenUIAction)}</Suspense>;
 }
-
-function SessionInsightsContent() {
-	const data = useChatPanelDataContext();
-	return (
-		<Suspense fallback={<PanelFallback />}>
-			<LazySessionInsightsPanel
-				activityLabel={data.activityLabel}
-				artifactRuns={data.artifactRuns}
-				chatMode={data.chatMode}
-				transcriptSummary={data.transcriptSummary}
-				planLabel={data.planLabel}
-				presentation={data.presentation}
-				queue={data.queue}
-				selectedModelKey={data.selectedModelKey}
-				sessionId={data.sessionId}
-				status={data.status}
-				thinkingLevel={data.thinkingLevel}
-			/>
-		</Suspense>
-	);
-}
-
-function ResourcesContent() {
-	const data = useChatPanelDataContext();
-	const workspace = useWorkspaceTreeContext();
-	return (
-		<Suspense fallback={<PanelFallback />}>
-			<LazyResourcesPanel
-				error={data.resourcesError}
-				loading={data.resourcesLoading}
-				resources={data.resources}
-				workspace={workspace.workspaceTree}
-			/>
-		</Suspense>
-	);
-}
-
-function WorkspaceContent() {
-	const workspace = useWorkspaceTreeContext();
-	return (
-		<Suspense fallback={<PanelFallback />}>
-			<LazyWorkspacePanel
-				error={workspace.workspaceError}
-				loadWorkspaceFile={workspace.loadWorkspaceFile}
-				loading={workspace.workspaceLoading}
-				onSelectedPathChange={workspace.setSelectedWorkspacePath}
-				selectedPath={workspace.selectedWorkspacePath}
-				workspace={workspace.workspaceTree}
-			/>
-		</Suspense>
-	);
-}
-
-function ArtifactsContent() {
-	const data = useChatPanelDataContext();
-	return (
-		<Suspense fallback={<PanelFallback />}>
-			<LazyArtifactsPanel
-				artifactRuns={data.artifactRuns}
-				openUIBlocks={data.transcriptSummary.openUIBlocks}
-				onOpenUIAction={data.onOpenUIAction}
-				selectedArtifactId={data.selectedArtifactId}
-				status={data.status}
-			/>
-		</Suspense>
-	);
-}
-
-/**
- * Renders the REPL panel with current artifact run data and selection.
- *
- * @returns The REPL panel content
- */
-function ReplContent() {
-	const data = useChatPanelDataContext();
-	return (
-		<Suspense fallback={<PanelFallback />}>
-			<LazyReplPanel
-				artifactRuns={data.artifactRuns}
-				selectedArtifactId={data.selectedArtifactId}
-				kernelDiagnostics={data.presentation.kernelDiagnostics}
-			/>
-		</Suspense>
-	);
-}
-
-/**
- * Renders the subagents panel with the current session's agent data.
- */
-function SubagentsContent() {
-	const data = useChatPanelDataContext();
-	return (
-		<Suspense fallback={<PanelFallback />}>
-			<LazySubagentsPanel
-				agents={data.presentation.rlmChildren}
-				loadSession={data.loadSubagentSession}
-				onOpenTab={data.onOpenSubagentTab}
-				parentSessionId={data.sessionId}
-				tree={data.presentation.rlmTree}
-			/>
-		</Suspense>
-	);
-}
-
-function SessionTreeContent() {
-	const data = useChatPanelDataContext();
-	return (
-		<Suspense fallback={<PanelFallback />}>
-			<LazySessionTreePanel
-				sessionId={data.sessionId}
-				snapshot={data.sessionTreeSnapshot}
-				loading={data.sessionTreeLoading}
-				error={data.sessionTreeError}
-				isStreaming={data.isSessionTreeStreaming}
-				selectedEntryId={data.selectedSessionTreeEntryId}
-				onSelectEntry={data.selectSessionTreeEntry}
-				onRefresh={data.refreshSessionTree}
-				onRewind={data.rewindSessionTree}
-			/>
-		</Suspense>
-	);
+function renderPanel(
+	panel: ActiveRightPanel,
+	data: RightPanelData,
+	workspace: WorkspacePanelData,
+	onOpenUIAction?: RightPanelData["onOpenUIAction"],
+) {
+	switch (panel) {
+		case "dashboards":
+			return (
+				<LazyDashboardsPanel
+					artifactRuns={data.artifactRuns}
+					presentationRuns={data.presentation?.artifactRuns}
+					selectedArtifactId={data.selectedArtifactId}
+					sessionId={data.sessionId}
+					onOpenUIAction={onOpenUIAction}
+					onSelect={(artifactId) => data.openArtifact?.(artifactId, "dashboards")}
+				/>
+			);
+		case "session-insights":
+			return (
+				<LazySessionInsightsPanel
+					activityLabel={data.activityLabel}
+					artifactRuns={data.artifactRuns}
+					chatMode={data.chatMode}
+					transcriptSummary={data.transcriptSummary}
+					planLabel={data.planLabel}
+					presentation={data.presentation}
+					queue={data.queue}
+					selectedModelKey={data.selectedModelKey}
+					sessionId={data.sessionId}
+					status={data.status}
+					thinkingLevel={data.thinkingLevel}
+				/>
+			);
+		case "resources":
+			return (
+				<LazyResourcesPanel
+					error={data.resourcesError}
+					loading={data.resourcesLoading}
+					resources={data.resources}
+					workspace={workspace.workspaceTree}
+				/>
+			);
+		case "workspace":
+			return (
+				<LazyWorkspacePanel
+					error={workspace.workspaceError}
+					loadWorkspaceFile={workspace.loadWorkspaceFile}
+					loading={workspace.workspaceLoading}
+					onSelectedPathChange={workspace.setSelectedWorkspacePath}
+					selectedPath={workspace.selectedWorkspacePath}
+					workspace={workspace.workspaceTree}
+				/>
+			);
+		case "artifacts":
+			return (
+				<LazyArtifactsPanel
+					artifactRuns={data.artifactRuns}
+					openUIBlocks={data.transcriptSummary.openUIBlocks}
+					onOpenUIAction={onOpenUIAction}
+					selectedArtifactId={data.selectedArtifactId}
+					status={data.status}
+				/>
+			);
+		case "repl":
+			return (
+				<LazyReplPanel
+					artifactRuns={data.artifactRuns}
+					selectedArtifactId={data.selectedArtifactId}
+					kernelDiagnostics={data.presentation.kernelDiagnostics}
+				/>
+			);
+		case "subagents":
+			return (
+				<LazySubagentsPanel
+					agents={data.presentation.rlmChildren}
+					loadSession={data.loadSubagentSession}
+					onOpenTab={data.onOpenSubagentTab}
+					parentSessionId={data.sessionId}
+					tree={data.presentation.rlmTree}
+				/>
+			);
+		case "session-tree":
+			return (
+				<LazySessionTreePanel
+					sessionId={data.sessionId}
+					snapshot={data.sessionTreeSnapshot}
+					loading={data.sessionTreeLoading}
+					error={data.sessionTreeError}
+					isStreaming={data.isSessionTreeStreaming}
+					selectedEntryId={data.selectedSessionTreeEntryId}
+					onSelectEntry={data.selectSessionTreeEntry}
+					onRefresh={data.refreshSessionTree}
+					onRewind={data.rewindSessionTree}
+				/>
+			);
+	}
 }
 
 export const RIGHT_PANEL_REGISTRY = {
@@ -238,7 +210,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		badgeSource: "resources",
 		loadingSource: "resources",
 		refreshSource: "resources",
-		component: ResourcesContent,
 	},
 	workspace: {
 		id: "workspace",
@@ -253,7 +224,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		badgeSource: undefined,
 		loadingSource: "workspace",
 		refreshSource: "workspace",
-		component: WorkspaceContent,
 	},
 	artifacts: {
 		id: "artifacts",
@@ -268,7 +238,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		badgeSource: "artifacts",
 		loadingSource: undefined,
 		refreshSource: undefined,
-		component: ArtifactsContent,
 	},
 	repl: {
 		id: "repl",
@@ -283,7 +252,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		badgeSource: "repl",
 		loadingSource: undefined,
 		refreshSource: undefined,
-		component: ReplContent,
 	},
 	subagents: {
 		id: "subagents",
@@ -298,7 +266,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		badgeSource: undefined,
 		loadingSource: undefined,
 		refreshSource: undefined,
-		component: SubagentsContent,
 	},
 	"session-insights": {
 		id: "session-insights",
@@ -313,7 +280,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		badgeSource: undefined,
 		loadingSource: undefined,
 		refreshSource: undefined,
-		component: SessionInsightsContent,
 	},
 	"session-tree": {
 		id: "session-tree",
@@ -328,7 +294,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		badgeSource: undefined,
 		loadingSource: undefined,
 		refreshSource: undefined,
-		component: SessionTreeContent,
 	},
 	dashboards: {
 		id: "dashboards",
@@ -343,7 +308,6 @@ export const RIGHT_PANEL_REGISTRY = {
 		badgeSource: undefined,
 		loadingSource: undefined,
 		refreshSource: undefined,
-		component: DashboardsContent,
 	},
 } satisfies Record<ActiveRightPanel, RightPanelDefinition>;
 

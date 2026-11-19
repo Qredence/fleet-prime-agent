@@ -104,6 +104,7 @@ if (lint.code !== 0) {
 }
 
 const pnpmTypecheck = pnpmInvocation(["run", "check:web"]);
+const knipFiles = pnpmInvocation(["exec", "knip", "--include", "files"]);
 const phase2 = await Promise.all([
 	runStage("boundaries", process.execPath, ["scripts/check-web-boundaries.mjs"]),
 	// Resolves the real browser import graph. The boundary check only scans
@@ -112,6 +113,7 @@ const phase2 = await Promise.all([
 	runStage("browser-smoke", process.execPath, ["scripts/check-browser-smoke.mjs"]),
 	runStage("installer", process.execPath, ["scripts/check-source-installer.mjs", "--static"]),
 	runStage("rendering", process.execPath, ["web/app/scripts/render-checks.mjs"]),
+	runStage("unused-files", knipFiles.command, knipFiles.args),
 	runStage("typecheck", pnpmTypecheck.command, pnpmTypecheck.args),
 ]);
 

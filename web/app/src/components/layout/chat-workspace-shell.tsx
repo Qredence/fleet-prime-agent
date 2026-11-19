@@ -7,8 +7,9 @@ import { PlanDecisionContext } from "@/hooks/chat/use-pi-chat-plan-decisions";
 import { useChatWorkspaceData } from "@/hooks/chat/use-chat-workspace-data";
 import { AnimatedSidebarInset, ChatApp } from "@/components/layout/animated-sidebar";
 import { ChatCommandPaletteOverlay, ChatWorkspaceOverlayDialogs } from "@/components/layout/chat-workspace-dialogs";
-import { focusChatComposer, usePanelKeybindings } from "@/hooks/layout/panel-keybindings";
-import { RightPanelProvider } from "@/components/layout/right-panel-context";
+import { focusChatComposer, usePanelKeybindings } from "@/components/layout/panel-keybindings";
+import { DashboardRequestContext } from "@/components/dashboards/dashboard-request-context";
+import { RightPanelHeaderLauncher } from "@/components/layout/right-panel-launcher";
 import { RightPanelShell } from "@/components/layout/right-panel-shell";
 import { UiErrorBoundary } from "@/components/layout/ui-error-boundary";
 import type { OpenUIArtifactCandidate } from "@/components/openui/html-artifact";
@@ -216,11 +217,13 @@ export function ChatWorkspaceShell() {
 				panels={panels}
 				session={session}
 			/>
-			<RightPanelProvider
-				chatPanelData={panels.chatPanelData}
-				onOpenUIAction={handleOpenUIAction}
-				settingsActions={panels.settingsActions}
-				workspaceTree={panels.workspaceTreeContext}
+			<DashboardRequestContext
+				value={{
+					artifactRuns: panels.chatPanelData.artifactRuns,
+					presentation: conversation.presentation,
+					openArtifact: conversation.openArtifact,
+					setRightPanel: panels.setRightPanel,
+				}}
 			>
 				<PlanDecisionContext value={conversation.answerQuestion}>
 					<OpenUISessionContext
@@ -257,7 +260,11 @@ export function ChatWorkspaceShell() {
 											    launcher's tabs, never let it switch to its dropdown, and push the
 											    center tabs' New chat button over it. */}
 											<div className="min-w-0 justify-self-stretch min-[960px]:justify-self-end">
-												{chrome.header.right}
+												<RightPanelHeaderLauncher
+													compact
+													data={panels.chatPanelData}
+													workspace={panels.workspacePanelData.workspaceTree}
+												/>
 											</div>
 										</header>
 										<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -274,6 +281,9 @@ export function ChatWorkspaceShell() {
 									</div>
 									<UiErrorBoundary>
 										<RightPanelShell
+											data={panels.chatPanelData}
+											workspace={panels.workspacePanelData}
+											onOpenUIAction={handleOpenUIAction}
 											suspendMobile={dialogs.settingsDialogOpen}
 											handleResourceCanvasResizeStart={panels.handleResourceCanvasResizeStart}
 											onClose={closeRightPanel}
@@ -287,7 +297,7 @@ export function ChatWorkspaceShell() {
 					</OpenUISessionContext>
 				</PlanDecisionContext>
 				<ChatWorkspaceOverlayDialogs dialogs={dialogs} />
-			</RightPanelProvider>
+			</DashboardRequestContext>
 		</>
 	);
 }

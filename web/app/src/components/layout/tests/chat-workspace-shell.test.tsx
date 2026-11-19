@@ -29,7 +29,7 @@ vi.mock("@/components/layout/right-panel-shell", () => ({
 	RightPanelShell: () => null,
 }));
 
-vi.mock("@/hooks/layout/panel-keybindings", () => ({
+vi.mock("@/components/layout/panel-keybindings", () => ({
 	focusChatComposer: vi.fn(),
 	usePanelKeybindings: vi.fn(),
 }));
@@ -171,7 +171,7 @@ function createWorkspaceData(startNewSession: () => Promise<unknown>): Workspace
 				settingsLoading: false,
 				themePreference: "system",
 			},
-			workspaceTreeContext: {
+			workspacePanelData: {
 				loadWorkspaceFile: vi.fn(),
 				openWorkspacePath: vi.fn(),
 				refreshWorkspace: vi.fn(),

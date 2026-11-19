@@ -1,7 +1,7 @@
 import type { ChatModelsResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useChatShellState } from "@/hooks/layout/use-chat-shell-state";
+import { useChatShellState } from "@/components/layout/use-chat-shell-state";
 
 const models: ChatModelsResponse = {
 	models: [

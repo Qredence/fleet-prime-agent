@@ -54,7 +54,6 @@ const LazyForkPickerDialog = lazy(() =>
 	})),
 );
 
-// The settings dialog reads RightPanelProvider context, so ChatWorkspaceOverlayDialogs
 /**
  * Renders the command palette overlay when it is open.
  *
@@ -133,6 +132,8 @@ export function ChatWorkspaceOverlayDialogs({ dialogs }: { dialogs: WorkspaceDat
 			{settingsDialogEverOpened ? (
 				<Suspense fallback={null}>
 					<LazySettingsDialog
+						actions={dialogs.settingsActions}
+						resources={dialogs.settingsResources}
 						open={settingsDialogOpen}
 						onOpenChange={handleSettingsOpenChange}
 						initialTab={settingsInitialTab}

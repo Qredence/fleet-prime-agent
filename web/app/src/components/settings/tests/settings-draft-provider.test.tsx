@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ComposerIntentSection } from "@/components/settings/composer-intent-section";
 import { SettingsDraftProvider } from "@/components/settings/settings-draft-provider";
-import { useSettingsDraft, useSettingsDraftState } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraft, useSettingsDraftState } from "@/components/settings/use-settings-draft-state";
 
 function DraftState() {
 	const { dirtySections, busy } = useSettingsDraftState();

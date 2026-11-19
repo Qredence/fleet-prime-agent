@@ -56,6 +56,7 @@ test.describe("performance smoke", () => {
 	test("welcome scopes project requests and refreshes sessions once", async ({ page }) => {
 		const projectRequests: Array<URL> = [];
 		let sessionListRequests = 0;
+		await page.route("**/api/chat/sessions", (route) => route.fulfill({ json: { sessions: [] } }));
 		page.on("request", (request) => {
 			if (request.method() !== "GET") return;
 			const url = new URL(request.url());
@@ -68,6 +69,7 @@ test.describe("performance smoke", () => {
 		await page.goto("/");
 		const composer = page.locator('textarea, [contenteditable="true"], [data-chat-input]');
 		await expect(composer.first()).toBeVisible({ timeout: 15_000 });
+		await expect.poll(() => sessionListRequests, { timeout: 15_000 }).toBe(1);
 		await page.waitForTimeout(2_000);
 
 		expect(sessionListRequests).toBe(1);

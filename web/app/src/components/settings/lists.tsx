@@ -1,7 +1,7 @@
 import type { ChatResourceInfo } from "@prime-agent/web-protocol/chat-protocol";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraft } from "@/components/settings/use-settings-draft-state";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";

@@ -4,7 +4,6 @@ import type {
 	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatStreamEvent,
-	FleetAdapterCapabilities,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
@@ -20,17 +19,11 @@ import {
 	settleOptimisticUserMessage,
 } from "@/lib/chat/chat-message-helpers";
 import type { ChatStreamRecoveryState } from "@/lib/chat/chat-stream-recovery";
-import { applyChatStreamEvent } from "@/lib/chat/chat-stream-state";
 import { hydratePlanPresentationMessages } from "@/lib/chat/plan-presentation";
 import type { SendMessageInput } from "@/hooks/chat/use-pi-chat";
 import { tryRecoverForbiddenSession, tryRecoverUnknownSession } from "@/lib/chat/forbidden-session-recovery";
 
 type PiChatMessagingRefs = {
-	activityLabelRef: MutableRefObject<string | undefined>;
-	messagesRef: MutableRefObject<Array<ChatMessage>>;
-	presentationRef: MutableRefObject<PrimeAgentSessionPresentation>;
-	planLabelRef: MutableRefObject<string | undefined>;
-	queueRef: MutableRefObject<QueueState>;
 	sessionMetadataRef: MutableRefObject<ChatSessionMetadata>;
 	pendingSendControllerRef: MutableRefObject<AbortController | null>;
 	streamControllersRef: MutableRefObject<Map<string, AbortController>>;
@@ -94,6 +87,7 @@ function waitForRecovery(signal: AbortSignal): Promise<void> {
 
 export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 	PiChatMessagingSetters & {
+		applyConversationEvent: (assistantId: string | null, event: ChatStreamEvent) => string | null;
 		client: ChatClient;
 		model: ChatModelSelection | undefined;
 		projectId?: ProjectId;
@@ -105,15 +99,11 @@ export type UsePiChatMessagingOptions = PiChatMessagingRefs &
 const RESOLVED_PROMISE: Promise<void> = Promise.resolve();
 
 export function usePiChatMessaging({
-	activityLabelRef,
+	applyConversationEvent,
 	client,
-	messagesRef,
-	presentationRef,
 	model,
 	pendingSendControllerRef,
 	projectId,
-	planLabelRef,
-	queueRef,
 	recoverFromForbiddenSession,
 	refreshSessions,
 	sessionMetadataRef,
@@ -136,7 +126,6 @@ export function usePiChatMessaging({
 	const sessionCreatePromiseRef = useRef<Promise<ChatSessionMetadata> | null>(null);
 	const streamAdmissionsRef = useRef(new Set<StreamAdmission>());
 	const queuedSubmissionTailRef = useRef(RESOLVED_PROMISE);
-	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
 	const projectIdRef = useRef(projectId);
 	const recoveryGenerationRef = useRef(0);
 	// Recovery owns its abort handle. The POST that failed is already aborted, so
@@ -177,9 +166,6 @@ export function usePiChatMessaging({
 			streamAdmissionsRef.current.delete(admission);
 			admission.reject(new Error("Chat stream stopped before admission"));
 		}
-	}, []);
-	const setAdapterCapabilities = useCallback((next: FleetAdapterCapabilities | undefined) => {
-		adapterCapabilitiesRef.current = next;
 	}, []);
 	const reconcileSession = useCallback(
 		async (sessionId: string): Promise<boolean> => {
@@ -249,30 +235,7 @@ export function usePiChatMessaging({
 				return;
 			}
 
-			const next = applyChatStreamEvent(
-				{
-					assistantId: assistantIdRef.current,
-					snapshot: {
-						adapterCapabilities: adapterCapabilitiesRef.current,
-						activityLabel: activityLabelRef.current,
-						messages: messagesRef.current,
-						presentation: presentationRef.current,
-						planLabel: planLabelRef.current,
-						queue: queueRef.current,
-						sessionMetadata: sessionMetadataRef.current,
-					},
-				},
-				event,
-			);
-
-			assistantIdRef.current = next.assistantId;
-			adapterCapabilitiesRef.current = next.snapshot.adapterCapabilities;
-			setMessagesSynced(next.snapshot.messages);
-			if (next.snapshot.presentation) setPresentationSynced(next.snapshot.presentation);
-			setSessionMetadataSynced(next.snapshot.sessionMetadata);
-			setQueueSynced(next.snapshot.queue);
-			setActivityLabelSynced(next.snapshot.activityLabel);
-			setPlanLabelSynced(next.snapshot.planLabel);
+			assistantIdRef.current = applyConversationEvent(assistantIdRef.current, event);
 
 			if (event.type === "start") {
 				setStatus("streaming");
@@ -284,23 +247,7 @@ export function usePiChatMessaging({
 			}
 			if (event.eventCursor) streamRecoveryRef.current.cursor = event.eventCursor;
 		},
-		[
-			activityLabelRef,
-			findStreamAdmission,
-			messagesRef,
-			presentationRef,
-			planLabelRef,
-			queueRef,
-			refreshSessions,
-			sessionMetadataRef,
-			setActivityLabelSynced,
-			setMessagesSynced,
-			setPresentationSynced,
-			setPlanLabelSynced,
-			setQueueSynced,
-			setSessionMetadataSynced,
-			setStatus,
-		],
+		[applyConversationEvent, findStreamAdmission, refreshSessions, sessionMetadataRef, setStatus],
 	);
 	const recoverInvalidStream = useCallback(
 		async (sessionId: string, error: ChatStreamContractError, mode?: ChatMode): Promise<boolean> => {
@@ -731,7 +678,7 @@ export function usePiChatMessaging({
 		handleStreamEvent,
 		resetStreamAdmission,
 		sendMessage,
-		setAdapterCapabilities,
+
 		streamRecoveryRef,
 	};
 }

@@ -31,9 +31,6 @@ const config = defineConfig(({ mode }) => {
 		resolve: {
 			tsconfigPaths: true,
 		},
-		optimizeDeps: {
-			include: ["@tanstack/react-router", "@tanstack/router-core", "@tanstack/history"],
-		},
 		server: {
 			port: 3000,
 			strictPort: false,

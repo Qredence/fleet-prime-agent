@@ -187,7 +187,7 @@ vi.mock("@/lib/chat/chat-client", () => ({
 	chatClient: { loadSession: vi.fn(), loadSubagentSession: vi.fn() },
 }));
 
-vi.mock("@/hooks/layout/use-chat-shell-state", () => ({
+vi.mock("@/components/layout/use-chat-shell-state", () => ({
 	useChatShellState: (_modelsData: unknown, storage: { sessionMetadata: StoredMetadata }) => ({
 		commandPaletteOpen: false,
 		handleResourceCanvasResizeStart: vi.fn(),
@@ -219,13 +219,7 @@ vi.mock("@/hooks/layout/use-chat-shell-state", () => ({
 	}),
 }));
 
-vi.mock("@/hooks/layout/use-right-panel-context-value", () => ({
-	useRightPanelContextValue: () => ({
-		chatPanelData: { marker: "chat-panel" },
-		settingsActions: { marker: "settings" },
-		workspaceTreeContext: { marker: "workspace-tree" },
-	}),
-}));
+vi.mock("@/components/settings/use-settings-actions", () => ({ useSettingsActions: () => ({}) }));
 
 vi.mock("@/components/layout/chat-header", () => ({
 	useChatWorkspaceHeader: () => ({ accountMenu: null, center: null, left: null, right: null }),

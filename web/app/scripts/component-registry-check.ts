@@ -13,7 +13,6 @@ for (const definition of RIGHT_PANEL_DEFINITIONS) {
 	assert.ok(definition.title && definition.ariaLabel && definition.commandLabel);
 	assert.ok(definition.commandKeywords.length > 0);
 	assert.ok(definition.dataTestid && definition.mobileDataTestid);
-	assert.equal(typeof definition.component, "function");
 }
 assert.equal(RIGHT_PANEL_REGISTRY.resources.badgeSource, "resources");
 assert.equal(RIGHT_PANEL_REGISTRY.artifacts.badgeSource, "artifacts");
