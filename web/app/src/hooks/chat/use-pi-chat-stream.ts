@@ -256,7 +256,7 @@ export function usePiChatSessionEvents({
 				return;
 			}
 			if (frame.type === "start") activeAssistantId = frame.id;
-			if (frame.type === "done") activeAssistantId = undefined;
+			if (frame.type === "done" && !frame.sessionReset) activeAssistantId = undefined;
 			const ownsTurn = statusRef.current === "streaming" || statusRef.current === "submitted";
 			const questionDuringTurn = frame.type === "tool" && frame.part.type === "tool-Question";
 			const visibleWhileStreaming = frame.type === "presentation" || frame.type === "rlm" || questionDuringTurn;

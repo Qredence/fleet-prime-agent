@@ -1,3 +1,4 @@
+import { ProjectIdSchema } from "@prime-agent/web-protocol";
 import { getPrimeConfig } from "../prime-config";
 import { cwdForRequest } from "../project-request";
 import { getBridge } from "../singleton";
@@ -78,7 +79,15 @@ export function handleChatCommandsGet(request: Request): Promise<Response> {
 		const enableSkillCommands = config.settingsFor(cwd).getEnableSkillCommands();
 
 		const sessionId = new URL(request.url).searchParams.get("sessionId") ?? undefined;
-		const session = sessionId ? await requireSession(sessionId) : undefined;
+		const projectIdParam = new URL(request.url).searchParams.get("projectId");
+		const projectId = projectIdParam ? ProjectIdSchema.parse(projectIdParam) : undefined;
+		let session: Awaited<ReturnType<typeof requireSession>>;
+		try {
+			session = sessionId ? await requireSession(sessionId, { projectId }) : undefined;
+		} catch {
+			// Discovery remains available when a saved session cannot resume.
+			session = undefined;
+		}
 		const daemonCommands =
 			session && sessionId
 				? await getBridge()

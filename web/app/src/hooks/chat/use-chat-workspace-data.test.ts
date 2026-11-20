@@ -1,4 +1,5 @@
 import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
+import type { UploadedAttachment, WorkspaceAttachment } from "@prime-agent/web-protocol/fleet-contract";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,6 +30,15 @@ const harness = vi.hoisted(() => {
 	};
 
 	return {
+		uploaded: [] as Array<UploadedAttachment>,
+		workspace: [] as Array<WorkspaceAttachment>,
+		commands: [] as Array<{ name: string; source: "builtin" | "prompt" }>,
+		runChatCommand: vi.fn(async () => ({}) as Record<string, unknown>),
+		getSessionTree: vi.fn(async () => ({ nodes: [] as Array<Record<string, unknown>> })),
+		setForkPickerEntries: vi.fn(),
+		restoreAttachments: vi.fn(),
+		clearUploadedAttachments: vi.fn(),
+		clearWorkspaceAttachments: vi.fn(),
 		storedMetadata: {} as StoredMetadata,
 		persistSession: vi.fn(),
 		openPanelAction: vi.fn(),
@@ -86,6 +96,18 @@ vi.mock("@/lib/notify", () => ({
 	notify: { error: harness.notifyError, message: vi.fn(), success: vi.fn() },
 }));
 
+vi.mock("@/hooks/chat/chat-input-bar-props", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/hooks/chat/chat-input-bar-props")>();
+	return {
+		...actual,
+		useChatWorkspaceComposerState: () => ({
+			...actual.useChatWorkspaceComposerState(),
+			uploadedAttachments: harness.uploaded,
+			workspaceAttachments: harness.workspace,
+		}),
+	};
+});
+
 vi.mock("@/hooks/chat/use-chat-storage", () => ({
 	useChatStorage: () => ({
 		sessionMetadata: harness.storedMetadata,
@@ -94,7 +116,7 @@ vi.mock("@/hooks/chat/use-chat-storage", () => ({
 }));
 
 vi.mock("@/hooks/chat/chat-queries", () => ({
-	useChatCommands: () => ({ data: undefined }),
+	useChatCommands: () => ({ data: { commands: harness.commands } }),
 	useChatMcpConnections: () => ({ data: undefined, isLoading: false }),
 	useChatModelCatalog: () => ({ data: undefined }),
 	useChatModels: () => ({ data: undefined }),
@@ -123,15 +145,15 @@ vi.mock("@/hooks/chat/use-chat-workspace-actions", () => ({
 	useChatWorkspaceActions: () => ({
 		addWorkspaceAttachment: vi.fn(),
 		browseProjectDirectories: vi.fn(),
-		clearUploadedAttachments: vi.fn(),
-		clearWorkspaceAttachments: vi.fn(),
+		clearUploadedAttachments: harness.clearUploadedAttachments,
+		clearWorkspaceAttachments: harness.clearWorkspaceAttachments,
 		createProject: vi.fn(),
 		deleteSessionForWorkspace: vi.fn(),
 		handleAttach: vi.fn(),
 		removeUploadedAttachment: vi.fn(),
 		removeWorkspaceAttachment: vi.fn(),
 		renameProject: vi.fn(),
-		restoreAttachments: vi.fn(),
+		restoreAttachments: harness.restoreAttachments,
 		resumeSessionForWorkspace: vi.fn(),
 		resumeSessionForWorkspaceWithResult: vi.fn(),
 		selectProject: harness.selectProject,
@@ -174,7 +196,10 @@ vi.mock("@/lib/chat/runtime-commands", () => ({
 	commandSuggestions: () => [],
 	isLocalUiCommand: () => false,
 	isSessionTransportCommand: () => false,
-	parseSlashInput: () => null,
+	parseSlashInput: (text: string) => {
+		const [command, ...args] = text.slice(1).split(" ");
+		return { command, args: args.join(" ") };
+	},
 }));
 
 vi.mock("@/lib/workspace/workspace-file", () => ({
@@ -182,7 +207,12 @@ vi.mock("@/lib/workspace/workspace-file", () => ({
 }));
 
 vi.mock("@/lib/chat/chat-client", () => ({
-	chatClient: { loadSession: vi.fn(), loadSubagentSession: vi.fn() },
+	chatClient: {
+		loadSession: vi.fn(),
+		loadSubagentSession: vi.fn(),
+		runChatCommand: harness.runChatCommand,
+		getSessionTree: harness.getSessionTree,
+	},
 }));
 
 vi.mock("@/components/layout/use-chat-shell-state", () => ({
@@ -226,7 +256,7 @@ vi.mock("@/components/layout/chat-header", () => ({
 vi.mock("@/components/layout/chat-workspace-dialogs", () => ({
 	useChatWorkspaceDialogs: () => ({
 		forkPickerEntries: null,
-		setForkPickerEntries: vi.fn(),
+		setForkPickerEntries: harness.setForkPickerEntries,
 		setSettingsDialogOpen: vi.fn(),
 		setSettingsInitialTab: vi.fn(),
 		settingsDialogOpen: false,
@@ -283,6 +313,10 @@ function project(projectId: string, name: string) {
 }
 
 function resetHarness() {
+	harness.commands = [];
+	harness.uploaded = [];
+	harness.workspace = [];
+	harness.piChat.getSessionMetadata.mockReturnValue({ sessionId: "session-a" });
 	harness.storedMetadata = {};
 	harness.projectsData = { projects: [] };
 	harness.piChatCalls = [];
@@ -584,5 +618,94 @@ describe("panel actions", () => {
 
 		expect(harness.selectProject).toHaveBeenCalledWith("project-b");
 		expect(harness.openPanelAction).toHaveBeenCalledWith({ panel: "workspace", projectId: "project-b" });
+	});
+});
+
+describe("slash command routing", () => {
+	it("leaves prompt commands as turns even when a builtin shares the name", () => {
+		harness.commands = [
+			{ name: "new", source: "builtin" },
+			{ name: "new", source: "prompt" },
+		];
+		const { result } = renderHook(() => useChatWorkspaceData());
+		expect(result.current.composer.handleLocalSlashSubmit("/new")).toBe(false);
+		expect(result.current.composer.handleSlashCommandSelect({ id: "new" })).toBe(false);
+		expect(harness.piChat.startNewSession).not.toHaveBeenCalled();
+	});
+	it("reports new-session failures", async () => {
+		harness.piChat.startNewSession.mockRejectedValueOnce(new Error("create failed"));
+		const { result } = renderHook(() => useChatWorkspaceData());
+		await act(async () => {
+			result.current.composer.handleLocalSlashSubmit("/new");
+		});
+		expect(harness.notifyError).toHaveBeenCalledWith("create failed");
+	});
+	it("restores openui attachments after failed submission", async () => {
+		harness.uploaded = [
+			{
+				kind: "upload",
+				attachmentId: "00000000-0000-4000-8000-000000000001",
+				name: "file.txt",
+				mimeType: "text/plain",
+				size: 4,
+			},
+		];
+		harness.workspace = [{ kind: "workspace", relativePath: "README.md", name: "README.md" }];
+		harness.piChat.sendMessage.mockResolvedValueOnce(false);
+		const { result } = renderHook(() => useChatWorkspaceData());
+		await act(async () => {
+			result.current.composer.handleLocalSlashSubmit("/openui draw a chart");
+		});
+		expect(harness.clearUploadedAttachments).toHaveBeenCalled();
+		expect(harness.clearWorkspaceAttachments).toHaveBeenCalled();
+		expect(harness.piChat.sendMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ text: "draw a chart", attachments: [...harness.workspace, ...harness.uploaded] }),
+		);
+		expect(harness.restoreAttachments).toHaveBeenCalledWith(harness.uploaded, harness.workspace);
+	});
+	it("copies assistant text locally", async () => {
+		const writeText = vi.fn(async () => {});
+		vi.stubGlobal("navigator", { clipboard: { writeText } });
+		harness.piChat.messages = [assistantMessage("a", "reply"), userMessage("u", "question")];
+		const { result } = renderHook(() => useChatWorkspaceData());
+		await act(async () => {
+			result.current.composer.handleLocalSlashSubmit("/copy");
+		});
+		expect(writeText).toHaveBeenCalledWith("reply");
+		expect(harness.runChatCommand).not.toHaveBeenCalled();
+		vi.unstubAllGlobals();
+	});
+	it("does not publish context in a different session", async () => {
+		let resolve!: (payload: Record<string, unknown>) => void;
+		harness.runChatCommand.mockImplementationOnce(
+			() =>
+				new Promise((done) => {
+					resolve = done;
+				}),
+		);
+		const { result } = renderHook(() => useChatWorkspaceData());
+		act(() => {
+			result.current.composer.handleLocalSlashSubmit("/context");
+		});
+		harness.piChat.getSessionMetadata.mockReturnValue({ sessionId: "session-b" });
+		await act(async () => {
+			resolve({ message: "context" });
+		});
+		expect(harness.piChat.appendLocalMessage).not.toHaveBeenCalled();
+	});
+	it("opens fork candidates and resumes a successful fork", async () => {
+		harness.getSessionTree.mockResolvedValueOnce({
+			nodes: [{ id: "entry", kind: "message", role: "user", preview: "question", children: [] }],
+		});
+		const { result } = renderHook(() => useChatWorkspaceData());
+		await act(async () => {
+			result.current.composer.handleLocalSlashSubmit("/fork");
+		});
+		expect(harness.setForkPickerEntries).toHaveBeenCalledWith([{ id: "entry", preview: "question" }]);
+		harness.runChatCommand.mockResolvedValueOnce({ newSessionId: "forked" });
+		await act(async () => {
+			result.current.dialogs.forkFromEntry("entry");
+		});
+		expect(harness.piChat.resumeSession).toHaveBeenCalledWith({ sessionId: "forked" });
 	});
 });

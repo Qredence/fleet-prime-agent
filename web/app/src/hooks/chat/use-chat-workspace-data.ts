@@ -1,3 +1,4 @@
+import type { SessionTreeNode } from "@prime-agent/web-protocol/chat-protocol";
 import type { ProjectId } from "@prime-agent/web-protocol";
 import type { ChatQuestionAnswer } from "@prime-agent/web-protocol/chat-protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -296,6 +297,7 @@ export function useChatWorkspaceData() {
 	const runRuntimeCommand = useCallback(
 		(command: string, args: string) => {
 			const name = canonicalCommandName(command);
+			if (commandsData?.commands.some((item) => item.name === command && item.source === "prompt")) return false;
 			if (TUI_ONLY_COMMANDS.has(name) || TUI_ONLY_COMMANDS.has(command)) return true;
 			if (name === "settings") {
 				openSettings();
@@ -310,21 +312,73 @@ export function useChatWorkspaceData() {
 				return true;
 			}
 			if (name === "new") {
-				void startNewSession();
+				runWorkspaceAction(() => startNewSession());
 				return true;
 			}
 			if (name === "openui") {
 				if (args) {
-					void sendMessage({ text: args, mode: chatMode, openUI: true, openUIArtifact: true });
+					const uploaded = [...uploadedAttachments];
+					const workspace = [...workspaceAttachments];
+					clearUploadedAttachments();
+					clearWorkspaceAttachments();
+					runWorkspaceAction(async () => {
+						try {
+							const sent = await sendMessage({
+								text: args,
+								mode: chatMode,
+								openUI: true,
+								openUIArtifact: true,
+								attachments: [...workspace, ...uploaded],
+							});
+							if (!sent) restoreAttachments(uploaded, workspace);
+						} catch (error) {
+							restoreAttachments(uploaded, workspace);
+							throw error;
+						}
+					});
 				}
+				return true;
+			}
+			if (name === "copy") {
+				const reply = [...messages].reverse().find((message) => message.role === "assistant");
+				const text =
+					reply?.parts
+						.filter((part) => part.type === "text")
+						.map((part) => part.text)
+						.join("\n") ?? "";
+				if (text) runWorkspaceAction(() => navigator.clipboard.writeText(text));
 				return true;
 			}
 			if (isSessionTransportCommand(name)) return false;
 			const sessionId = getSessionMetadata().sessionId;
 			if (!sessionId) return false;
+			if (name === "fork" && !args) {
+				runWorkspaceAction(async () => {
+					const tree = await chatClient.getSessionTree(sessionId);
+					if (getSessionMetadata().sessionId !== sessionId) return;
+					const entries: Array<{ id: string; preview: string }> = [];
+					const visit = (nodes: Array<SessionTreeNode>) => {
+						for (const node of nodes) {
+							if (node.kind === "message" && node.role === "user")
+								entries.push({ id: node.id, preview: node.preview });
+							visit(node.children);
+						}
+					};
+					visit(tree.nodes);
+					if (entries.length) setForkPickerEntries(entries);
+					else appendLocalMessage("No fork points available.");
+				});
+				return true;
+			}
 			void chatClient
 				.runChatCommand({ sessionId, command: name, args })
-				.then((payload) => {
+				.then(async (payload) => {
+					if (getSessionMetadata().sessionId !== sessionId) return;
+					if (name === "fork" && typeof payload.newSessionId === "string") {
+						setForkPickerEntries(null);
+						await resumeSession({ ...getSessionMetadata(), sessionId: payload.newSessionId });
+						return;
+					}
 					const message = typeof payload.message === "string" ? payload.message : `/${name} completed.`;
 					appendLocalMessage(message);
 				})
@@ -334,6 +388,15 @@ export function useChatWorkspaceData() {
 		[
 			appendLocalMessage,
 			chatMode,
+			commandsData,
+			messages,
+			clearUploadedAttachments,
+			clearWorkspaceAttachments,
+			restoreAttachments,
+			uploadedAttachments,
+			workspaceAttachments,
+			resumeSession,
+			setForkPickerEntries,
 			getSessionMetadata,
 			openSettings,
 			sendMessage,

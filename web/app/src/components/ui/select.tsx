@@ -406,7 +406,7 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
 							shape.item,
 							sizeClasses.itemPx,
 							sizeClasses.text,
-							"hover:bg-accent/40",
+							"hover:bg-accent/40 data-highlighted:bg-accent/40",
 							isChecked ? "text-foreground" : "text-muted-foreground",
 							disabled && "opacity-50 pointer-events-none",
 							className,

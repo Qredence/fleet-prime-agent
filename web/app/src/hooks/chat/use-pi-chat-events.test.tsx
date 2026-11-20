@@ -12,6 +12,54 @@ describe("usePiChatSessionEvents", () => {
 		vi.unstubAllGlobals();
 	});
 
+	it("keeps the active reply across a nonterminal session reset", async () => {
+		class Source {
+			static current: Source;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			onerror = null;
+			close = vi.fn();
+			constructor() {
+				Source.current = this;
+			}
+		}
+		vi.stubGlobal("EventSource", Source);
+		let messages: Array<ChatMessage> = [];
+		const { unmount } = renderHook(() =>
+			usePiChatSessionEvents({
+				client: {} as ChatClient,
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
+				sessionId: "reset-session",
+				sessionMetadataRef: { current: { sessionId: "reset-session" } },
+				setActivityLabelSynced: vi.fn(),
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced: (update) => {
+					messages = typeof update === "function" ? update(messages) : update;
+				},
+				setPresentationSynced: vi.fn(),
+				setQueueSynced: vi.fn(),
+				setSessionMetadataSynced: vi.fn(),
+				statusRef: { current: "ready" },
+			}),
+		);
+		const send = (frame: unknown) =>
+			Source.current.onmessage?.(new MessageEvent("message", { data: JSON.stringify(frame) }));
+		await act(async () => {
+			send({ type: "start", id: "reply", runId: "run", sessionId: "reset-session" });
+			send({ type: "delta", text: "before " });
+			send({
+				type: "done",
+				runId: "run",
+				sessionId: "reset-session",
+				sessionReset: true,
+				message: { id: "reset", role: "assistant", parts: [] },
+			});
+			send({ type: "delta", text: "after" });
+		});
+		expect(messages).toHaveLength(1);
+		expect(messages[0]).toMatchObject({ id: "reply", parts: [{ type: "text", text: "before after" }] });
+		unmount();
+	});
+
 	it("merges question updates into the active assistant bubble", async () => {
 		class EventSourceStub {
 			static instances: EventSourceStub[] = [];
