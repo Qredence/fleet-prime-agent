@@ -576,6 +576,25 @@ describe("applyChatStreamEvent", () => {
 		expect(t.snapshot.messages[0]?.parts).toContainEqual(expect.objectContaining({ type: "image" }));
 	});
 
+	it("applies a replayed user message once when the first copy kept the optimistic id", () => {
+		const optimistic = {
+			...toChatMessage("optimistic", "user", [{ type: "text", text: "Write the integers from 1 to 40." }]),
+			optimistic: true,
+		};
+		let t: ChatStreamTransition = {
+			assistantId: null,
+			snapshot: { ...baseTransition().snapshot, messages: [optimistic] },
+		};
+		const serverMessage = toChatMessage("run-1-u0", "user", [
+			{ type: "text", text: "Write the integers from 1 to 40." },
+		]);
+		t = applyChatStreamEvent(t, { type: "message", message: serverMessage });
+		t = applyChatStreamEvent(t, { type: "message", message: serverMessage });
+
+		expect(t.snapshot.messages).toHaveLength(1);
+		expect(t.snapshot.messages[0]).toMatchObject({ id: "optimistic", role: "user" });
+	});
+
 	it("reconciles attachment-enriched user text with the optimistic turn", () => {
 		const optimistic = {
 			...toChatMessage("optimistic", "user", [{ type: "text", text: "Inspect this" }]),
@@ -653,6 +672,37 @@ describe("applyChatStreamEvent", () => {
 			},
 		});
 		expect(assistantMessages(t)[0]?.parts.some((part) => part.type === "tool-FleetReasoning")).toBe(false);
+	});
+
+	it("keeps one abort error when done merges a streamed message that already has it", () => {
+		const id = "run-abort-a0";
+		let t = applyChatStreamEvent(baseTransition(), start(id));
+		t = foldStreamEvents(t, completeReasoningEpisode(id, 0, "Looking up the range", 20));
+		t = applyChatStreamEvent(t, delta(id, "200 201 202"));
+		t = applyChatStreamEvent(t, {
+			type: "message",
+			message: toChatMessage(id, "assistant", [
+				{ type: "reasoning", contentIndex: 0, text: "Looking up the range", state: "complete" },
+				{ type: "text", text: "200 201 202" },
+				{ type: "error", title: "Operation aborted", message: "Request was aborted" },
+			]),
+		});
+		t = applyChatStreamEvent(t, {
+			type: "done",
+			runId: "run-1",
+			sessionId: "session-1",
+			message: toChatMessage(id, "assistant", [
+				{ type: "reasoning", contentIndex: 2, text: "Looking up the range", state: "complete" },
+				{ type: "text", text: "200 201 202" },
+				{ type: "error", title: "Operation aborted", message: "Request was aborted" },
+			]),
+		});
+
+		const parts = assistantMessages(t)[0]?.parts ?? [];
+		expect(parts.filter((part) => part.type === "error")).toEqual([
+			{ type: "error", title: "Operation aborted", message: "Request was aborted" },
+		]);
+		expect(parts.some((part) => part.type === "text" && part.text === "200 201 202")).toBe(true);
 	});
 
 	it("keeps terminal tool parts when done reconciles the streamed assistant bubble", () => {

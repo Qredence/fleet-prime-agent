@@ -645,6 +645,10 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 			setQueueSynced(EMPTY_QUEUE_STATE);
 			setActivityLabelSynced(undefined);
 			setPlanLabelSynced(undefined);
+			// A turn started on the previous session can mark this composer streaming
+			// while createSession is in flight. The new session is idle unless its
+			// own stream controller is already registered.
+			setStatus(streamControllersRef.current.has(result.session.sessionId ?? "") ? "streaming" : "ready");
 			notify.success("New session started");
 			await refreshSessions();
 		},

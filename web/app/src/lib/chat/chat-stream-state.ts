@@ -132,12 +132,30 @@ function replaceOrAppendMessage(messages: Array<ChatMessage>, nextMessage: ChatM
 		: [...messages, nextMessage];
 }
 
+type TrackedChatMessage = ChatMessage & { serverId?: string };
+
+function userMessageIndex(messages: Array<ChatMessage>, serverId: string) {
+	return messages.findIndex(
+		(message) => message.id === serverId || (message as TrackedChatMessage).serverId === serverId,
+	);
+}
+
+function withServerId(message: ChatMessage, localId: string, serverId: string): TrackedChatMessage {
+	return { ...message, id: localId, serverId };
+}
+
 function payloadPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {
 	if (left.type !== "payload" || right.type !== "payload") return false;
 	return left.id && right.id ? left.id === right.id : left.kind === right.kind && left.title === right.title;
 }
 
-/** True when a carried reasoning, payload, or Fleet reasoning part has no unused terminal match. */
+function errorPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {
+	return (
+		left.type === "error" && right.type === "error" && left.title === right.title && left.message === right.message
+	);
+}
+
+/** True when a carried reasoning, payload, error, or Fleet reasoning part has no unused terminal match. */
 function hasUnmatchedCarriedPart(donorParts: Array<ChatMessagePart>, terminalParts: Array<ChatMessagePart>) {
 	const consumed = new Set<number>();
 	const take = (matches: (candidate: ChatMessagePart) => boolean) => {
@@ -163,6 +181,10 @@ function hasUnmatchedCarriedPart(donorParts: Array<ChatMessagePart>, terminalPar
 		}
 		if (part.type === "tool-FleetReasoning") {
 			if (!take((candidate) => candidate.type === "tool-FleetReasoning")) return true;
+			continue;
+		}
+		if (part.type === "error") {
+			if (!take((candidate) => errorPartsMatch(part, candidate))) return true;
 		}
 	}
 	return false;
@@ -199,6 +221,8 @@ function mergeStreamedPartsOntoTerminal(
 			terminalIndex = takeTerminalIndex((candidate) => payloadPartsMatch(part, candidate));
 		} else if (part.type === "tool-FleetReasoning") {
 			terminalIndex = takeTerminalIndex((candidate) => candidate.type === "tool-FleetReasoning");
+		} else if (part.type === "error") {
+			terminalIndex = takeTerminalIndex((candidate) => errorPartsMatch(part, candidate));
 		} else if (isChatToolPart(part)) {
 			terminalIndex = takeTerminalIndex(
 				(candidate) =>
@@ -378,26 +402,24 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 
 	if (event.type === "message") {
 		if (event.message.role === "user") {
-			const existingIndex = transition.snapshot.messages.findIndex((message) => message.id === event.message.id);
+			const existingIndex = userMessageIndex(transition.snapshot.messages, event.message.id);
 			const optimisticIndex =
 				existingIndex >= 0
 					? existingIndex
 					: transition.snapshot.messages.findIndex(
 							(message) => message.role === "user" && message.optimistic === true,
 						);
-			const message =
-				optimisticIndex >= 0
-					? { ...event.message, id: transition.snapshot.messages[optimisticIndex]!.id }
-					: event.message;
+			const current = optimisticIndex >= 0 ? transition.snapshot.messages[optimisticIndex] : undefined;
+			const message = current
+				? withServerId(event.message, current.id, event.message.id)
+				: withServerId(event.message, event.message.id, event.message.id);
 			return {
 				...transition,
 				snapshot: {
 					...transition.snapshot,
 					messages:
 						optimisticIndex >= 0
-							? transition.snapshot.messages.map((current, index) =>
-									index === optimisticIndex ? message : current,
-								)
+							? transition.snapshot.messages.map((entry, index) => (index === optimisticIndex ? message : entry))
 							: [...transition.snapshot.messages, message],
 				},
 			};

@@ -155,6 +155,7 @@ export function buildAssistantElements(
 	const unkeyedToolOccurrences = new Map<string, number>();
 	const reasoningRunOccurrences = new Map<string, number>();
 	const payloadOccurrences = new Map<string, number>();
+	const errorOccurrences = new Map<string, number>();
 	const flushText = () => {
 		const text = textChunks.splice(0).join("\n\n");
 		if (!text) return;
@@ -241,9 +242,12 @@ export function buildAssistantElements(
 
 		if (isErrorPart(part)) {
 			flushText();
+			const errorIdentity = `${part.title ?? ""}:${part.message}`;
+			const errorOccurrence = (errorOccurrences.get(errorIdentity) ?? 0) + 1;
+			errorOccurrences.set(errorIdentity, errorOccurrence);
 			elems.push(
 				<ErrorMessage
-					key={`${messageId}-error-${part.title}-${part.message}`}
+					key={`${messageId}-error-${errorIdentity}-${errorOccurrence}`}
 					title={part.title}
 					message={part.message}
 				/>,
