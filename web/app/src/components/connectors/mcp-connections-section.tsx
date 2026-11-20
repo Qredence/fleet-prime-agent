@@ -19,7 +19,7 @@ import { Select } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { ChatMcpUpsertRequestSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
-import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraft } from "@/components/settings/use-settings-draft-state";
 import { notify as toast } from "@/lib/notify";
 
 function statusLabel(connection: McpConnectionInfo): string {

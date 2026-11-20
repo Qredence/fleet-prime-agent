@@ -1,14 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
-
-const AgentsPage = lazy(() => import("@/routes/-agents-page").then(({ AgentsPage: page }) => ({ default: page })));
+import { AgentsPage } from "@/routes/-agents-page";
 
 export const Route = createFileRoute("/agents")({
-	component: () => (
-		<Suspense fallback={<PageLoading />}>
-			<AgentsPage />
-		</Suspense>
-	),
+	component: AgentsPage,
+	pendingComponent: PageLoading,
+	pendingMs: 0,
+	pendingMinMs: 0,
 });
 
 function PageLoading() {

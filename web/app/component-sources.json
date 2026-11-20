@@ -1,31 +1,3 @@
 {
-	"schemaVersion": 1,
-	"widePropExceptions": [
-		{
-			"path": "src/components/workspace/workspace-panel.tsx",
-			"type": "WorkspacePanelContentProps",
-			"reason": "Boundary adapter for file loading, selection, and workspace state; consumed only by the typed panel registry."
-		},
-		{
-			"path": "src/components/chat/composer/input-bar.tsx",
-			"type": "InputBarProps",
-			"reason": "Absorbed first-party composer contract; existing public prop contract retained."
-		},
-		{
-			"path": "src/components/chat/transcript/message-scroller.tsx",
-			"type": "MessageScrollerProps",
-			"reason": "Absorbed first-party transcript scroller; existing public prop contract retained."
-		},
-		{
-			"path": "src/components/chat/composer/prompt-input.tsx",
-			"type": "PromptInputProps",
-			"reason": "Absorbed first-party composer widget; existing public prop contract retained."
-		},
-		{
-			"path": "src/components/tools/image-generation.tsx",
-			"type": "ImageGenerationProps",
-			"reason": "Absorbed first-party image generation widget; existing public prop contract retained."
-		}
-	],
 	"nativeControlExceptions": []
 }

@@ -1,12 +1,13 @@
 import { Library } from "lucide-react";
 import { type PointerEvent as ReactPointerEvent, useMemo, useSyncExternalStore } from "react";
 import { ResizableCanvas } from "@/components/layout/resizable-canvas";
-import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
-import { MobilePanel, RightPanelTabsFromContext } from "@/components/layout/right-panel-launcher";
+import type { RightPanelData, WorkspacePanelData } from "@/components/layout/right-panel-data";
+import { MobilePanel, RightPanelTabs } from "@/components/layout/right-panel-launcher";
 import {
 	type ActiveRightPanel,
 	getRightPanelDefinition,
 	getRightPanelGroup,
+	RightPanelContent,
 } from "@/components/layout/right-panel-registry";
 import { TabStrip } from "@/components/layout/tab-strip";
 import { CHAT_PANEL_BREAKPOINT_PX } from "@/lib/layout-constants";
@@ -51,6 +52,9 @@ function useIsDesktopPanel() {
 }
 
 export type RightPanelShellProps = {
+	data: RightPanelData;
+	workspace: WorkspacePanelData;
+	onOpenUIAction?: RightPanelData["onOpenUIAction"];
 	suspendMobile?: boolean;
 	handleResourceCanvasResizeStart: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 	onClose: () => void;
@@ -67,19 +71,22 @@ export type RightPanelShellProps = {
  * @param onResourceCanvasWidthChange - Updates the desktop panel width (for keyboard resizing).
  */
 export function RightPanelShell({
+	data: chat,
+	workspace,
+	onOpenUIAction,
 	suspendMobile = false,
 	handleResourceCanvasResizeStart,
 	onClose,
 	resourceCanvasWidth,
 	onResourceCanvasWidthChange,
 }: RightPanelShellProps) {
-	const chat = useChatPanelDataContext();
-	const workspace = useWorkspaceTreeContext();
 	const { rightPanel, setRightPanel } = chat;
 	const panelOpen = rightPanel !== null;
 	const isDesktop = useIsDesktopPanel();
 	const definition = rightPanel ? getRightPanelDefinition(rightPanel) : null;
-	const PanelContent = definition?.component;
+	const panelContent = rightPanel && (
+		<RightPanelContent panel={rightPanel} data={chat} workspace={workspace} onOpenUIAction={onOpenUIAction} />
+	);
 	const panelGroup = rightPanel ? getRightPanelGroup(rightPanel) : undefined;
 	const groupTabs = useMemo(
 		() =>
@@ -104,15 +111,7 @@ export function RightPanelShell({
 					width="fit"
 				/>
 			) : null}
-			{PanelContent ? (
-				fillBody ? (
-					<div className="flex min-h-0 min-w-0 flex-1 flex-col">
-						<PanelContent />
-					</div>
-				) : (
-					<PanelContent />
-				)
-			) : null}
+			{fillBody ? <div className="flex min-h-0 min-w-0 flex-1 flex-col">{panelContent}</div> : panelContent}
 		</>
 	);
 	const loading =
@@ -133,7 +132,14 @@ export function RightPanelShell({
 				<ResizableCanvas
 					bodyClassName={fillBody ? FILL_BODY_CLASSNAME : undefined}
 					dataTestid={definition?.dataTestid}
-					headerLeading={<RightPanelTabsFromContext compact idPrefix="right-panel-desktop" />}
+					headerLeading={
+						<RightPanelTabs
+							data={chat}
+							workspace={workspace.workspaceTree}
+							compact
+							idPrefix="right-panel-desktop"
+						/>
+					}
 					loading={loading}
 					onClose={onClose}
 					onRefresh={onRefresh}

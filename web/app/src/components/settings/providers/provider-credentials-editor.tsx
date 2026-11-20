@@ -25,7 +25,7 @@ import {
 	supportsOAuth,
 	type ProviderCredentialActions,
 	type ProviderCredentialForm,
-} from "@/hooks/settings/use-provider-credentials-controller";
+} from "@/components/settings/use-provider-credentials-controller";
 import { PROVIDER_METADATA } from "@/lib/settings/provider-metadata";
 import { cn } from "@/lib/utils";
 

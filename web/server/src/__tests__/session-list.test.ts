@@ -71,6 +71,26 @@ describe("read-only catalog projection", () => {
 		expect(presentationLoader).toHaveBeenCalledTimes(25);
 	});
 
+	it("omits a recovering session that has no directory yet", async () => {
+		presentationLoader.mockReset();
+		const bridge = {
+			listSessions: async () => [
+				{
+					id: "recovering-session",
+					lifecycle: "recovering",
+					activity: "idle",
+					sessionId: "",
+					cwd: "",
+				},
+				{ id: "ready-session", cwd: "/workspace", sessionName: "Ready", firstMessage: "Hello", messageCount: 1 },
+			],
+			getSession: () => undefined,
+		} as unknown as Pick<PrimeBridge, "listSessions" | "getSession">;
+		const rows = await listSessionRows(bridge, { activeProjectIdForSession: async () => "project-1" });
+		expect(rows.map((row) => row.sessionId)).toEqual(["ready-session"]);
+		expect(presentationLoader).not.toHaveBeenCalled();
+	});
+
 	it("filters projects before reading sidecars and skips complete summaries", async () => {
 		presentationLoader.mockReset();
 		const bridge = {

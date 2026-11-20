@@ -1,4 +1,4 @@
-import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraft } from "@/components/settings/use-settings-draft-state";
 import {
 	DASHBOARD_MODEL_SUGGESTIONS,
 	type DashboardKeySource,

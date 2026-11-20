@@ -1,15 +1,10 @@
 import type { ChatSettingsResponse } from "@prime-agent/web-protocol/chat-protocol";
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import type {
-	ChatPanelDataContextValue,
-	SettingsActionsContextValue,
-	WorkspaceTreeContextValue,
-} from "@/components/layout/right-panel-context";
-import { RightPanelProvider } from "@/components/layout/right-panel-context";
+import type { SettingsActions } from "@/components/settings/use-settings-actions";
 import type { ModelDefaultsSection } from "@/components/settings/providers/model-defaults-section";
-import type { useModelDefaultsForm } from "@/hooks/settings/use-model-defaults-form";
-import { useResourcesForm } from "@/hooks/settings/use-resources-form";
+import type { useModelDefaultsForm } from "@/components/settings/use-model-defaults-form";
+import { useResourcesForm } from "@/components/settings/use-resources-form";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import { Button } from "@/components/ui/button";
 
@@ -25,7 +20,7 @@ const state = vi.hoisted(() => ({ dirty: false }));
 type ModelDefaultsFormArgs = Parameters<typeof useModelDefaultsForm>[0];
 type ModelDefaultsSectionProps = Parameters<typeof ModelDefaultsSection>[0];
 
-vi.mock("@/hooks/settings/use-model-defaults-form", () => ({
+vi.mock("@/components/settings/use-model-defaults-form", () => ({
 	useModelDefaultsForm: ({ setDraft, settings }: ModelDefaultsFormArgs) => ({
 		modelFilter: "",
 		setModelFilter: () => {},
@@ -96,9 +91,7 @@ function settings(enabledModels: Array<string>): ChatSettingsResponse {
 
 it("applies settings that arrived during a dirty draft after the local edit is cleared", async () => {
 	const initialSettings = settings(["baseline"]);
-	const chatPanelData = { models: [], resources: null } as unknown as ChatPanelDataContextValue;
-	const workspaceTree = {} as unknown as WorkspaceTreeContextValue;
-	const settingsActions = (currentSettings: ChatSettingsResponse): SettingsActionsContextValue => ({
+	const settingsActions = (currentSettings: ChatSettingsResponse): SettingsActions => ({
 		onThemePreferenceChange: () => {},
 		saveSettings: async () => currentSettings,
 		settings: currentSettings,
@@ -107,13 +100,13 @@ it("applies settings that arrived during a dirty draft after the local edit is c
 		themePreference: "system",
 	});
 	const modelsDialog = (currentSettings: ChatSettingsResponse) => (
-		<RightPanelProvider
-			chatPanelData={chatPanelData}
-			workspaceTree={workspaceTree}
-			settingsActions={settingsActions(currentSettings)}
-		>
-			<SettingsDialog open onOpenChange={() => {}} initialTab="llm-models" />
-		</RightPanelProvider>
+		<SettingsDialog
+			actions={settingsActions(currentSettings)}
+			resources={resources}
+			open
+			onOpenChange={() => {}}
+			initialTab="llm-models"
+		/>
 	);
 	const view = render(modelsDialog(initialSettings));
 
@@ -131,16 +124,22 @@ it("applies settings that arrived during a dirty draft after the local edit is c
 	await waitFor(() => expect(screen.getByTestId("enabled-models").textContent).toBe("remote"));
 });
 
+const resources = {
+	models: [],
+	resources: null,
+	resourcesLoading: false,
+	resourcesError: null,
+	refreshResources: vi.fn(),
+};
+
 function renderSettingsDialog(onOpenChange = vi.fn(), saveSettings = vi.fn(async () => settings(["baseline"]))) {
 	const value = settings(["baseline"]);
 	return {
 		onOpenChange,
 		saveSettings,
 		...render(
-			<RightPanelProvider
-				chatPanelData={{ models: [], resources: null } as unknown as ChatPanelDataContextValue}
-				workspaceTree={{} as WorkspaceTreeContextValue}
-				settingsActions={{
+			<SettingsDialog
+				actions={{
 					onThemePreferenceChange: vi.fn(),
 					saveSettings,
 					settings: value,
@@ -148,9 +147,10 @@ function renderSettingsDialog(onOpenChange = vi.fn(), saveSettings = vi.fn(async
 					settingsLoading: false,
 					themePreference: "system",
 				}}
-			>
-				<SettingsDialog open onOpenChange={onOpenChange} />
-			</RightPanelProvider>,
+				resources={resources}
+				open
+				onOpenChange={onOpenChange}
+			/>,
 		),
 	};
 }

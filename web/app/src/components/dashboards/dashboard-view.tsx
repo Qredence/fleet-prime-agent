@@ -13,10 +13,10 @@ import {
 } from "@prime-agent/web-protocol/dashboards";
 import { EMPTY_SESSION_OUTPUTS } from "@prime-agent/web-protocol/openui-tools";
 import { LayoutDashboard } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { resolveChatApiUrl } from "@/lib/chat/chat-runtime-url";
 import { mergeArtifactsById } from "@/lib/dashboards/dashboard-artifacts";
-import { useOptionalChatPanelDataContext } from "@/components/layout/right-panel-context";
+import { DashboardRequestContext } from "@/components/dashboards/dashboard-request-context";
 import { useOpenUISession } from "@/components/openui/openui-session-context";
 import { createSessionOutputsToolProvider } from "@/lib/openui/openui-tools";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -215,7 +215,7 @@ function DashboardAttachment({
 export function DashboardRequestCard({ content, messageId }: { content: string; messageId?: string }) {
 	const fences = dashboardFences(content);
 	const fence = fences[0];
-	const panel = useOptionalChatPanelDataContext();
+	const panel = useContext(DashboardRequestContext);
 	if (!fence) return null;
 	const artifacts = panel ? mergeArtifactsById(panel.artifactRuns, panel.presentation?.artifactRuns) : [];
 	const open = (artifactId: string | undefined) => {

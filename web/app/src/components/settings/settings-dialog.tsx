@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import { type MutableRefObject, useEffect, useRef, useState } from "react";
-import { useSettingsActionsContext } from "@/components/layout/right-panel-context";
+import type { SettingsActions } from "@/components/settings/use-settings-actions";
 import { SettingsDraftProvider } from "@/components/settings/settings-draft-provider";
-import { useSettingsDraftState } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraftState } from "@/components/settings/use-settings-draft-state";
 import { SettingsPaneContent } from "@/components/settings/settings-pane-content";
 import {
 	AlertDialog,
@@ -25,7 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select } from "@/components/ui/select";
-import { useSettingsForm } from "@/hooks/settings/use-settings-form";
+import { useSettingsForm, type SettingsResources } from "@/components/settings/use-settings-form";
 import { notify as toast } from "@/lib/notify";
 import {
 	canonicalSettingsSection,
@@ -72,11 +72,15 @@ function SettingsNavItem({
 
 type CloseAttemptDetails = { cancel: () => void };
 
+type SettingsDialogInputs = { actions: SettingsActions; resources: SettingsResources };
+
 export function SettingsDialog({
+	actions,
+	resources,
 	open,
 	onOpenChange,
 	initialTab,
-}: {
+}: SettingsDialogInputs & {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	/** When provided, selects this nav tab each time the dialog opens. */
@@ -86,14 +90,24 @@ export function SettingsDialog({
 		applyUiPreferencesToDocument(readUiPreferences());
 	}, []);
 
-	return <SettingsDialogSession initialTab={initialTab} onOpenChange={onOpenChange} open={open} />;
+	return (
+		<SettingsDialogSession
+			actions={actions}
+			resources={resources}
+			initialTab={initialTab}
+			onOpenChange={onOpenChange}
+			open={open}
+		/>
+	);
 }
 
 function SettingsDialogSession({
+	actions,
+	resources,
 	initialTab,
 	onOpenChange,
 	open,
-}: {
+}: SettingsDialogInputs & {
 	initialTab?: SettingsSectionId;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
@@ -116,6 +130,8 @@ function SettingsDialogSession({
 			{open ? (
 				<SettingsDraftProvider>
 					<SettingsDialogBody
+						actions={actions}
+						resources={resources}
 						initialTab={initialTab}
 						onCloseAttemptRef={onCloseAttemptRef}
 						onOpenChange={onOpenChange}
@@ -127,17 +143,19 @@ function SettingsDialogSession({
 }
 
 function SettingsDialogBody({
+	actions,
+	resources,
 	initialTab,
 	onCloseAttemptRef,
 	onOpenChange,
-}: {
+}: SettingsDialogInputs & {
 	initialTab?: SettingsSectionId;
 	onCloseAttemptRef: MutableRefObject<(eventDetails?: CloseAttemptDetails) => void>;
 	onOpenChange: (open: boolean) => void;
 }) {
-	const form = useSettingsForm();
+	const form = useSettingsForm(actions, resources);
 	const localDrafts = useSettingsDraftState();
-	const { composerIntent, onComposerIntentChange, onComposerIntentKeyChange } = useSettingsActionsContext();
+	const { composerIntent, onComposerIntentChange, onComposerIntentKeyChange } = actions;
 	const { revertResourceDraft, resetDraft, requestCloseSettings, resetCommittedModelBaseline } = form;
 
 	const [activeTab, setActiveTab] = useState<SettingsSectionId>(() =>

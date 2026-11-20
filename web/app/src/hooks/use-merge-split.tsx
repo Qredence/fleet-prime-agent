@@ -201,26 +201,21 @@ export function useMergeSplitBlocks(runs: Run[], itemRects: ItemRect[], R: numbe
 				? cur.some((c) => c.id === b.survivorId && b.gapIndex > c.start && b.gapIndex < c.end)
 				: cur.some((c) => c.id === b.survivorId && c.end === b.gapIndex - 1) &&
 					cur.some((c) => c.id === b.otherId && c.start === b.gapIndex + 1);
-		setBoundaries((active) => {
-			// Cancel the resolve timer of any boundary the latest selection
-			// invalidated — otherwise it sits in timersRef until firing as a no-op.
-			// Clearing is idempotent, so a double-invoked updater is harmless.
-			for (const b of active) {
-				if (stillValid(b)) continue;
-				const timer = timersRef.current.get(b.tid);
-				if (timer !== undefined) {
-					clearTimeout(timer);
-					timersRef.current.delete(b.tid);
-				}
-			}
-			return [...active.filter(stillValid), ...found];
-		});
+		for (const boundary of boundaries) {
+			if (stillValid(boundary)) continue;
+			clearTimeout(timersRef.current.get(boundary.tid));
+			timersRef.current.delete(boundary.tid);
+		}
+		setBoundaries((active) => [...active.filter(stillValid), ...found]);
 	}, [runsSig]);
 
 	// Clear any pending timers on unmount.
 	useEffect(() => {
 		const timers = timersRef.current;
-		return () => timers.forEach(clearTimeout);
+		return () => {
+			timers.forEach(clearTimeout);
+			timers.clear();
+		};
 	}, []);
 
 	// Follow-up frame: a fresh split holds its abutting frame once then

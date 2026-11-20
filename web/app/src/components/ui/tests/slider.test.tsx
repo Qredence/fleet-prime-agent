@@ -3,6 +3,22 @@ import { describe, expect, it, vi } from "vitest";
 import { Slider } from "@/components/ui/slider";
 
 describe("Slider", () => {
+	it.each(["compact", "default"] as const)("handles mouse and touch input at %s density", (size) => {
+		const onChange = vi.fn();
+		const { container } = render(<Slider size={size} label="Level" min={0} max={10} value={0} onChange={onChange} />);
+		const track = container.querySelector<HTMLElement>('[data-slot="slider-track"], [data-slider-track]')!;
+		Object.defineProperty(track, "offsetWidth", { value: 120 });
+		vi.spyOn(track, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 120, 36));
+		fireEvent.pointerDown(track, { pointerType: "mouse", button: 0, clientX: 60 });
+		expect(onChange).toHaveBeenLastCalledWith(5);
+		fireEvent.pointerMove(track, { pointerType: "mouse", clientX: 120 });
+		expect(onChange).toHaveBeenLastCalledWith(10);
+		fireEvent.pointerUp(track, { pointerType: "mouse" });
+		fireEvent.pointerDown(track, { pointerType: "touch", clientX: 0 });
+		expect(onChange).toHaveBeenLastCalledWith(0);
+		fireEvent.pointerCancel(track, { pointerType: "touch" });
+	});
+
 	it.each([0, -1, 1e-10])("renders fine/non-positive step %s without allocating decorative pips", (step) => {
 		const onChange = vi.fn();
 		const { container } = render(<Slider label="Fine" min={0} max={100} value={0} step={step} onChange={onChange} />);

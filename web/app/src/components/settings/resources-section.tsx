@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSettingsDraftState } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraftState } from "@/components/settings/use-settings-draft-state";
 import { Input } from "@/components/ui/input";
 import { CatalogValueList } from "@/components/settings/lists";
 import { SettingsCommitActions } from "@/components/settings/settings-pane";

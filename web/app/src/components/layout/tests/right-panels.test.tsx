@@ -15,10 +15,9 @@ import { SubagentTranscriptView } from "@/components/chat/subagents/subagent-tra
 import { SubagentsPanelContent } from "@/components/chat/subagents/subagents-panel";
 import { Button } from "@/components/ui/button";
 import type { RightPanel } from "@/lib/layout/canvas-utils";
-import { RightPanelProvider } from "@/components/layout/right-panel-context";
 import { MobilePanel, RightPanelLauncher } from "@/components/layout/right-panel-launcher";
 import { RightPanelShell } from "@/components/layout/right-panel-shell";
-import { useChatShellState } from "@/hooks/layout/use-chat-shell-state";
+import { useChatShellState } from "@/components/layout/use-chat-shell-state";
 import { EMPTY_CHAT_TRANSCRIPT_SUMMARY } from "@/lib/sessions/transcript-summary";
 import { ReplPanelContent } from "@/components/workspace/repl-panel";
 
@@ -139,41 +138,38 @@ describe("right-panel execution tabs", () => {
 		);
 
 		return render(
-			<RightPanelProvider
-				chatPanelData={
-					{
-						artifactRuns: [],
-						chatMode: "agent",
-						loadSession: vi.fn(),
-						loadSubagentSession: vi.fn(),
-						models: [],
-						transcriptSummary: EMPTY_CHAT_TRANSCRIPT_SUMMARY,
-						presentation: emptyPresentation,
-						queue: { steering: [], followUp: [] },
-						refreshResources: vi.fn(),
-						resources: null,
-						resourcesError: null,
-						resourcesLoading: false,
-						reopenRightPanel: vi.fn(),
-						rightPanel,
-						selectedArtifactId: null,
-						sessionId: "session-1",
-						setRightPanel: vi.fn(),
-						status: "ready",
-					} as never
-				}
-				onOpenUIAction={vi.fn()}
-				settingsActions={{
-					onThemePreferenceChange: vi.fn(),
-					saveSettings: vi.fn(),
-					settings: null,
-					settingsError: null,
-					settingsLoading: false,
-					themePreference: "system",
+			<RightPanelShell
+				data={{
+					artifactRuns: [],
+					chatMode: "agent",
+
+					loadSubagentSession: vi.fn(),
+
+					transcriptSummary: EMPTY_CHAT_TRANSCRIPT_SUMMARY,
+					presentation: emptyPresentation,
+					queue: { steering: [], followUp: [] },
+					refreshResources: vi.fn(),
+					resources: null,
+					resourcesError: null,
+					resourcesLoading: false,
+					reopenRightPanel: vi.fn(),
+					rightPanel,
+					selectedArtifactId: null,
+					sessionId: "session-1",
+					setRightPanel: vi.fn(),
+					status: "ready",
+					sessionTreeSnapshot: null,
+					sessionTreeLoading: false,
+					sessionTreeError: null,
+					selectedSessionTreeEntryId: null,
+					isSessionTreeStreaming: false,
+					refreshSessionTree: vi.fn(),
+					selectSessionTreeEntry: vi.fn(),
+					rewindSessionTree: vi.fn(),
 				}}
-				workspaceTree={{
+				onOpenUIAction={vi.fn()}
+				workspace={{
 					loadWorkspaceFile: vi.fn(),
-					openWorkspacePath: vi.fn(),
 					refreshWorkspace: vi.fn(),
 					selectedWorkspacePath: null,
 					setSelectedWorkspacePath: vi.fn(),
@@ -181,14 +177,11 @@ describe("right-panel execution tabs", () => {
 					workspaceLoading: false,
 					workspaceTree: null,
 				}}
-			>
-				<RightPanelShell
-					suspendMobile={suspendMobile}
-					handleResourceCanvasResizeStart={vi.fn()}
-					onClose={vi.fn()}
-					resourceCanvasWidth={400}
-				/>
-			</RightPanelProvider>,
+				suspendMobile={suspendMobile}
+				handleResourceCanvasResizeStart={vi.fn()}
+				onClose={vi.fn()}
+				resourceCanvasWidth={400}
+			/>,
 		);
 	}
 

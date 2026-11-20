@@ -1,3 +1,5 @@
+import { EMPTY_SESSION_PRESENTATION as emptyPresentation } from "@/lib/chat/chat-stream-state";
+import { DashboardRequestContext } from "@/components/dashboards/dashboard-request-context";
 import { BuiltinActionType } from "@openuidev/react-lang";
 import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
 import { dashboardFenceKey } from "@prime-agent/web-protocol/dashboards";
@@ -17,10 +19,19 @@ const mocks = vi.hoisted(() => ({
 	cloudProps: null as { preview?: boolean; interpreter?: { url: string } } | null,
 }));
 
-vi.mock("@/components/layout/right-panel-context", () => ({
-	useChatPanelDataContext: () => mocks.panel,
-	useOptionalChatPanelDataContext: () => mocks.panel,
-}));
+function DashboardRequestTestContext({ children }: { children: React.ReactNode }) {
+	const panel = mocks.panel;
+	const value = panel
+		? {
+				...panel,
+				presentation: emptyPresentation,
+				setRightPanel: (next: string | null) => {
+					if (next) panel.setRightPanel?.(next);
+				},
+			}
+		: null;
+	return <DashboardRequestContext value={value}>{children}</DashboardRequestContext>;
+}
 
 vi.mock("@/components/openui/openui-session-context", () => ({
 	useOpenUISession: () => ({ sessionId: "session-1", projectId: "project-1" }),
@@ -84,7 +95,11 @@ describe("DashboardRequestCard", () => {
 
 	it("shows a program fence as an attachment and does not draw the board in the message", () => {
 		const fetchSpy = vi.spyOn(globalThis, "fetch");
-		render(<DashboardRequestCard content={fence({ title: "Revenue", program: "root = Dashboard([])" })} />);
+		render(
+			<DashboardRequestTestContext>
+				<DashboardRequestCard content={fence({ title: "Revenue", program: "root = Dashboard([])" })} />
+			</DashboardRequestTestContext>,
+		);
 		expect(screen.getByText("Revenue")).toBeTruthy();
 		expect(screen.getByText("Dashboard")).toBeTruthy();
 		expect(screen.queryByTestId("local-dashboard")).toBeNull();
@@ -107,7 +122,11 @@ describe("DashboardRequestCard", () => {
 			),
 		]);
 		mocks.panel = { ...mocks.panel!, openArtifact };
-		render(<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />);
+		render(
+			<DashboardRequestTestContext>
+				<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />
+			</DashboardRequestTestContext>,
+		);
 		expect(screen.getByText("OpenUI Cloud")).toBeTruthy();
 		expect(screen.queryByTestId("cloud-dashboard")).toBeNull();
 		fireEvent.click(screen.getByRole("button", { name: "Open Revenue" }));
@@ -116,9 +135,11 @@ describe("DashboardRequestCard", () => {
 
 	it("shows only the first fence when a message contains two", () => {
 		render(
-			<DashboardRequestCard
-				content={`${fence({ title: "First", prompt: "one" })}\n${fence({ title: "Second", prompt: "two" })}`}
-			/>,
+			<DashboardRequestTestContext>
+				<DashboardRequestCard
+					content={`${fence({ title: "First", prompt: "one" })}\n${fence({ title: "Second", prompt: "two" })}`}
+				/>
+			</DashboardRequestTestContext>,
 		);
 		expect(screen.getByText("First")).toBeTruthy();
 		expect(screen.queryByText("Second")).toBeNull();
@@ -142,10 +163,12 @@ describe("DashboardRequestCard", () => {
 		]);
 		mocks.panel = { ...mocks.panel!, openArtifact };
 		render(
-			<DashboardRequestCard
-				content={`${fence({ title: "First", prompt: "one" })}\n${fence(second)}`}
-				messageId="message-1"
-			/>,
+			<DashboardRequestTestContext>
+				<DashboardRequestCard
+					content={`${fence({ title: "First", prompt: "one" })}\n${fence(second)}`}
+					messageId="message-1"
+				/>
+			</DashboardRequestTestContext>,
 		);
 		expect(screen.getByText("Building the dashboard…")).toBeTruthy();
 		expect(screen.queryByText("OpenUI Cloud")).toBeNull();
@@ -154,7 +177,11 @@ describe("DashboardRequestCard", () => {
 	});
 
 	it("says the dashboard is building until the response is stored", () => {
-		render(<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />);
+		render(
+			<DashboardRequestTestContext>
+				<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />
+			</DashboardRequestTestContext>,
+		);
 		expect(screen.getByText("Building the dashboard…")).toBeTruthy();
 	});
 
@@ -169,7 +196,11 @@ describe("DashboardRequestCard", () => {
 				"message-1",
 			),
 		]);
-		render(<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />);
+		render(
+			<DashboardRequestTestContext>
+				<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />
+			</DashboardRequestTestContext>,
+		);
 		expect(screen.getByText("billing suspended")).toBeTruthy();
 		expect(screen.queryByTestId("cloud-dashboard")).toBeNull();
 		expect(screen.queryByTestId("local-dashboard")).toBeNull();
@@ -185,7 +216,11 @@ describe("DashboardRequestCard", () => {
 				error: "edit failed",
 			}),
 		]);
-		render(<DashboardRequestCard content={fence({ id: "art_1", prompt: "add a filter" })} messageId="message-2" />);
+		render(
+			<DashboardRequestTestContext>
+				<DashboardRequestCard content={fence({ id: "art_1", prompt: "add a filter" })} messageId="message-2" />
+			</DashboardRequestTestContext>,
+		);
 		expect(screen.getByText("edit failed")).toBeTruthy();
 		expect(screen.queryByTestId("cloud-dashboard")).toBeNull();
 	});
@@ -197,7 +232,11 @@ describe("DashboardRequestCard", () => {
 				"message-1",
 			),
 		]);
-		render(<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />);
+		render(
+			<DashboardRequestTestContext>
+				<DashboardRequestCard content={fence({ prompt: "revenue by day" })} messageId="message-1" />
+			</DashboardRequestTestContext>,
+		);
 		expect(screen.getByText("Saved by an older version.")).toBeTruthy();
 		expect(screen.queryByTestId("cloud-dashboard")).toBeNull();
 	});

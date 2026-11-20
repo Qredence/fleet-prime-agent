@@ -13,7 +13,7 @@ import {
 	OPENAI_CHAT_COMPLETIONS_PROVIDER_ID,
 } from "@prime-agent/web-protocol/provider-catalog";
 import { useMemo, useState } from "react";
-import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraft } from "@/components/settings/use-settings-draft-state";
 import { notify as toast } from "@/lib/notify";
 
 export function isOAuthProvider(provider: ChatProviderInfo): boolean {
