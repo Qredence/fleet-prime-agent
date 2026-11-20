@@ -32,7 +32,7 @@ const harness = vi.hoisted(() => {
 	return {
 		uploaded: [] as Array<UploadedAttachment>,
 		workspace: [] as Array<WorkspaceAttachment>,
-		commands: [] as Array<{ name: string; source: "builtin" | "prompt" }>,
+		commands: [] as Array<{ name: string; source: "builtin" | "prompt" | "skill" | "extension" }>,
 		runChatCommand: vi.fn(async () => ({}) as Record<string, unknown>),
 		getSessionTree: vi.fn(async () => ({ nodes: [] as Array<Record<string, unknown>> })),
 		setForkPickerEntries: vi.fn(),
@@ -187,19 +187,6 @@ vi.mock("@/hooks/chat/composer-assistance", () => ({
 		status: "ready",
 	}),
 	useComposerIntentRouting: () => harness.composerIntent,
-}));
-
-vi.mock("@/lib/chat/runtime-commands", () => ({
-	TUI_ONLY_COMMANDS: new Set(),
-	canonicalCommandName: (command: string) => command,
-	commandInsertsPrefix: () => false,
-	commandSuggestions: () => [],
-	isLocalUiCommand: () => false,
-	isSessionTransportCommand: () => false,
-	parseSlashInput: (text: string) => {
-		const [command, ...args] = text.slice(1).split(" ");
-		return { command, args: args.join(" ") };
-	},
 }));
 
 vi.mock("@/lib/workspace/workspace-file", () => ({
@@ -632,6 +619,65 @@ describe("slash command routing", () => {
 		expect(result.current.composer.handleSlashCommandSelect({ id: "new" })).toBe(false);
 		expect(harness.piChat.startNewSession).not.toHaveBeenCalled();
 	});
+	it.each(["/skill:review changes", "/extension-action now", "/usr/bin/foo is missing", "/unknown"])(
+		"leaves unsupported slash input as a turn: %s",
+		(input) => {
+			const { result } = renderHook(() => useChatWorkspaceData());
+			expect(result.current.composer.handleLocalSlashSubmit(input)).toBe(false);
+			expect(harness.runChatCommand).not.toHaveBeenCalled();
+		},
+	);
+	it("leaves selected skill and extension commands as turns", () => {
+		harness.commands = [
+			{ name: "skill:review", source: "skill" },
+			{ name: "extension-action", source: "extension" },
+		];
+		const { result } = renderHook(() => useChatWorkspaceData());
+		for (const id of ["skill:review", "extension-action"]) {
+			expect(result.current.composer.handleSlashCommandSelect({ id })).toBe(false);
+		}
+		expect(harness.runChatCommand).not.toHaveBeenCalled();
+	});
+	it.each([
+		"session",
+		"name",
+		"context",
+		"system-prompt",
+		"export",
+		"reload",
+		"tree",
+		"fork",
+		"clone",
+		"rename",
+		"usage",
+	])("preserves the server command route for %s", async (command) => {
+		const { result } = renderHook(() => useChatWorkspaceData());
+		await act(async () => {
+			expect(result.current.composer.handleLocalSlashSubmit(`/${command} argument`)).toBe(true);
+		});
+		expect(harness.runChatCommand).toHaveBeenCalledWith({
+			sessionId: "session-a",
+			command: command === "rename" ? "name" : command === "usage" ? "context" : command,
+			args: "argument",
+		});
+	});
+	it("resumes a fork created with an explicit entry id", async () => {
+		harness.runChatCommand.mockResolvedValueOnce({ newSessionId: "forked" });
+		const { result } = renderHook(() => useChatWorkspaceData());
+		await act(async () => {
+			result.current.composer.handleLocalSlashSubmit("/fork entry");
+		});
+		expect(harness.piChat.resumeSession).toHaveBeenCalledWith({ sessionId: "forked" });
+	});
+	it("reports an empty fork candidate list", async () => {
+		const { result } = renderHook(() => useChatWorkspaceData());
+		await act(async () => {
+			result.current.composer.handleLocalSlashSubmit("/fork");
+		});
+		expect(harness.piChat.appendLocalMessage).toHaveBeenCalledWith("No fork points available.");
+		expect(harness.setForkPickerEntries).not.toHaveBeenCalled();
+	});
+
 	it("reports new-session failures", async () => {
 		harness.piChat.startNewSession.mockRejectedValueOnce(new Error("create failed"));
 		const { result } = renderHook(() => useChatWorkspaceData());
@@ -666,7 +712,12 @@ describe("slash command routing", () => {
 	it("copies assistant text locally", async () => {
 		const writeText = vi.fn(async () => {});
 		vi.stubGlobal("navigator", { clipboard: { writeText } });
-		harness.piChat.messages = [assistantMessage("a", "reply"), userMessage("u", "question")];
+		harness.piChat.messages = [
+			assistantMessage("older", "old reply"),
+			assistantMessage("a", "reply"),
+			userMessage("u", "question"),
+			{ ...assistantMessage("local", "context report"), source: "local" },
+		];
 		const { result } = renderHook(() => useChatWorkspaceData());
 		await act(async () => {
 			result.current.composer.handleLocalSlashSubmit("/copy");

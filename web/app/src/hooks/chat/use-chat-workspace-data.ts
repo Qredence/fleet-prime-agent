@@ -340,7 +340,9 @@ export function useChatWorkspaceData() {
 				return true;
 			}
 			if (name === "copy") {
-				const reply = [...messages].reverse().find((message) => message.role === "assistant");
+				const reply = [...messages]
+					.reverse()
+					.find((message) => message.role === "assistant" && message.source !== "local");
 				const text =
 					reply?.parts
 						.filter((part) => part.type === "text")
@@ -350,6 +352,12 @@ export function useChatWorkspaceData() {
 				return true;
 			}
 			if (isSessionTransportCommand(name)) return false;
+			// Only these names are owned by /api/chat/command. All other slash
+			// input (including skills and extensions) follows the normal turn path.
+			if (
+				!["session", "name", "context", "system-prompt", "export", "reload", "tree", "fork", "clone"].includes(name)
+			)
+				return false;
 			const sessionId = getSessionMetadata().sessionId;
 			if (!sessionId) return false;
 			if (name === "fork" && !args) {
