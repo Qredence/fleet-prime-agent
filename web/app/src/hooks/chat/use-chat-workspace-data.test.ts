@@ -141,14 +141,6 @@ vi.mock("@/hooks/chat/use-chat-workspace-actions", () => ({
 	}),
 }));
 
-vi.mock("@/hooks/chat/use-local-slash-actions", () => ({
-	useLocalSlashActions: () => ({
-		forkFromEntry: vi.fn(),
-		handleLocalSlashSubmit: vi.fn(),
-		handleSlashCommandSelect: vi.fn(),
-	}),
-}));
-
 vi.mock("@/hooks/chat/use-chat-view", () => ({
 	useChatSuggestions: () => harness.suggestions,
 }));
@@ -175,8 +167,14 @@ vi.mock("@/hooks/chat/composer-assistance", () => ({
 	useComposerIntentRouting: () => harness.composerIntent,
 }));
 
-vi.mock("@/lib/chat/slash-commands", () => ({
-	buildSlashCommands: () => [],
+vi.mock("@/lib/chat/runtime-commands", () => ({
+	TUI_ONLY_COMMANDS: new Set(),
+	canonicalCommandName: (command: string) => command,
+	commandInsertsPrefix: () => false,
+	commandSuggestions: () => [],
+	isLocalUiCommand: () => false,
+	isSessionTransportCommand: () => false,
+	parseSlashInput: () => null,
 }));
 
 vi.mock("@/lib/workspace/workspace-file", () => ({

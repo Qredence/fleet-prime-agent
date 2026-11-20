@@ -1,6 +1,8 @@
 import { getPrimeConfig } from "../prime-config";
 import { cwdForRequest } from "../project-request";
+import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
+import { TUI_ONLY_COMMANDS } from "./command-visibility";
 
 const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 	name: string;
@@ -25,7 +27,6 @@ const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 	{ name: "session", description: "Show session info" },
 	{ name: "system-prompt", description: "Show the exact system prompt sent to the model" },
 	{ name: "logs", description: "Show where daemon and client logs are saved" },
-	{ name: "traces", description: "Preview, upload, or configure Prime Agent traces" },
 	{ name: "context", description: "Show token, cost, and context usage" },
 	{ name: "changelog", description: "Show changelog entries" },
 	{ name: "hotkeys", description: "Show keyboard shortcuts" },
@@ -62,9 +63,6 @@ const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 	{ name: "heartbeat", description: "Set or view a persistent heartbeat" },
 	{ name: "heartbeats", description: "View and manage all user and agent heartbeats" },
 	{ name: "reload", description: "Reload keybindings, extensions, skills, prompts, and themes" },
-	{ name: "update", description: "Update Prime Agent (TUI-only)" },
-	{ name: "fullscreen", description: "Toggle fullscreen (TUI-only)" },
-	{ name: "quit", description: "Quit (TUI-only)" },
 ];
 
 export function handleChatCommandsGet(request: Request): Promise<Response> {
@@ -78,12 +76,24 @@ export function handleChatCommandsGet(request: Request): Promise<Response> {
 		const extensionsResult = loader.getExtensions();
 		const enableSkillCommands = config.settingsFor(cwd).getEnableSkillCommands();
 
-		const builtin = BUILTIN_SLASH_COMMANDS.map((cmd) => ({
-			name: cmd.name,
-			description: cmd.description,
-			argumentHint: cmd.argumentHint,
-			source: "builtin" as const,
-		}));
+		const sessionId = new URL(request.url).searchParams.get("sessionId") ?? undefined;
+		const daemonCommands = sessionId
+			? await getBridge()
+					.listDaemonCommands(sessionId)
+					.catch(() => [])
+			: [];
+		const advertised =
+			daemonCommands.length > 0
+				? daemonCommands
+				: BUILTIN_SLASH_COMMANDS.filter((cmd) => !TUI_ONLY_COMMANDS.has(cmd.name));
+		const builtin = advertised
+			.filter((cmd) => !TUI_ONLY_COMMANDS.has(cmd.name))
+			.map((cmd) => ({
+				name: cmd.name,
+				description: cmd.description,
+				argumentHint: cmd.argumentHint,
+				source: "builtin" as const,
+			}));
 
 		const skillCommands = enableSkillCommands
 			? skillsResult.skills.map((skill) => ({

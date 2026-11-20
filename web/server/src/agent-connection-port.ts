@@ -65,6 +65,7 @@ export type FleetAgentConnection = {
 	getSessionTree: Port<"getSessionTree">;
 	getState: Port<"getState">;
 	getSystemPrompt: Port<"getSystemPrompt">;
+	getCommands?: () => Promise<unknown[]>;
 	getFleetResourceSnapshot?: () => Promise<DaemonResourceSnapshot>;
 	mutateQueuedMessage: Port<"mutateQueuedMessage">;
 	navigateTree: Port<"navigateTree">;

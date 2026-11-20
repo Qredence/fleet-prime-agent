@@ -1127,6 +1127,30 @@ export class PrimeBridge {
 	// Slash-command surface (TUI parity)
 	// -----------------------------------------------------------------------
 
+	/** Slash commands advertised by the attached daemon session. */
+	async listDaemonCommands(
+		sessionId: string,
+	): Promise<Array<{ name: string; description?: string; argumentHint?: string }>> {
+		return this.#withSessionLease(sessionId, async () => {
+			const session = this.#sessions.get(sessionId);
+			const raw = await session?.connection.getCommands?.();
+			if (!Array.isArray(raw)) return [];
+			return raw.flatMap((entry) => {
+				if (!entry || typeof entry !== "object") return [];
+				const record = entry as Record<string, unknown>;
+				const name = typeof record.name === "string" ? record.name : undefined;
+				if (!name) return [];
+				return [
+					{
+						name,
+						description: typeof record.description === "string" ? record.description : undefined,
+						argumentHint: typeof record.argumentHint === "string" ? record.argumentHint : undefined,
+					},
+				];
+			});
+		});
+	}
+
 	/** /context — context-window usage for the session's current branch. */
 	getContextUsage(sessionId: string): unknown {
 		this.#requireSession(sessionId);

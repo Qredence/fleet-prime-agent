@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useState } from "react";
 import { runWorkspaceAction } from "@/lib/chat/chat-error-notify";
-import type { SettingsSlashTab } from "@/lib/chat/slash-commands";
+import type { SettingsSectionId } from "@/lib/settings/settings-sections";
 import type { ForkPickerEntry } from "@/components/chat/fork-picker-dialog";
 import type { useChatWorkspaceData } from "@/hooks/chat/use-chat-workspace-data";
 
@@ -12,7 +12,7 @@ type WorkspaceData = ReturnType<typeof useChatWorkspaceData>;
 export function useChatWorkspaceDialogs() {
 	const [settingsDialogOpen, setSettingsDialogOpenState] = useState(false);
 	const [settingsDialogEverOpened, setSettingsDialogEverOpened] = useState(false);
-	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSlashTab | undefined>(undefined);
+	const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsSectionId | undefined>(undefined);
 	const [forkPickerEntries, setForkPickerEntriesState] = useState<Array<ForkPickerEntry> | null>(null);
 	const [forkPickerDialogEverOpened, setForkPickerDialogEverOpened] = useState(false);
 
