@@ -16,21 +16,14 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-	useFluidHover,
-	useFluidHoverSelect,
-	useRegisterFluidHoverItem,
-	type FluidHoverActiveStore,
-} from "@/hooks/use-fluid-hover";
 import { useKeyboardNavGate } from "@/hooks/use-keyboard-nav-gate";
 import { Elevated } from "@/lib/fluid/elevated";
-import { isDisabledRow, popupMotionClass, popupScrollAreaClass, popupViewportClass } from "@/lib/fluid/popup";
+import { popupMotionClass, popupScrollAreaClass, popupViewportClass } from "@/lib/fluid/popup";
 import { usePopupShape, useShape } from "@/lib/fluid/shape-context";
 import { SizeProvider, type SizeVariant, useSize } from "@/lib/fluid/size-context";
 import { exitFallbackMs, spring } from "@/lib/fluid/springs";
-import { FOCUS_RING, HOVER_HIGHLIGHT } from "@/lib/fluid/surface-classes";
+import { FOCUS_RING } from "@/lib/fluid/surface-classes";
 import { cn } from "@/lib/utils";
 
 const selectionAckMs = 300;
@@ -59,8 +52,6 @@ function useSelectContext() {
 }
 
 interface SelectContentContextValue {
-	registerItem: (index: number, element: HTMLElement | null) => void;
-	activeStore: FluidHoverActiveStore;
 	checkedIndex?: number;
 }
 
@@ -292,11 +283,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(({ classNam
 	const shape = usePopupShape();
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	const hover = useFluidHover(containerRef, { isItemDisabled: isDisabledRow });
-	const { activeStore, setActiveIndex, itemRects, isMeasured, handlers, registerItem, remeasure } = hover;
-
-	const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-	const { keyboardNavRef, trackKeyboardNav } = useKeyboardNavGate(open);
+	const { trackKeyboardNav } = useKeyboardNavGate(open);
 	const [checkedIndex, setCheckedIndex] = useState<number | undefined>(undefined);
 
 	useEffect(() => {
@@ -304,11 +291,6 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(({ classNam
 		const id = setTimeout(() => actionsRef.current?.unmount(), exitFallbackMs(spring.fast));
 		return () => clearTimeout(id);
 	}, [open, actionsRef]);
-
-	useEffect(() => {
-		if (!open) return;
-		remeasure();
-	}, [open, remeasure]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -334,18 +316,10 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(({ classNam
 		setOverlaysOpen(open);
 		if (!open) {
 			setCheckedIndex(undefined);
-			setActiveIndex(null);
-			setFocusedIndex(null);
 		}
 	}
 
-	const checkedRect = isMeasured && checkedIndex != null ? itemRects[checkedIndex] : null;
-	const focusRect = isMeasured && focusedIndex !== null ? itemRects[focusedIndex] : null;
-
-	const contentCtx = useMemo(
-		() => ({ registerItem, activeStore, checkedIndex }),
-		[registerItem, activeStore, checkedIndex],
-	);
+	const contentCtx = useMemo(() => ({ checkedIndex }), [checkedIndex]);
 
 	return (
 		<SelectPrimitive.Portal>
@@ -373,32 +347,6 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(({ classNam
 							data-slot="select-content"
 							render={<Elevated offset={2} shadowLevel={3} ref={ref} />}
 							onKeyDownCapture={trackKeyboardNav}
-							onMouseEnter={() => {
-								handlers.onMouseEnter();
-								setFocusedIndex(null);
-							}}
-							onMouseMove={handlers.onMouseMove}
-							onMouseLeave={handlers.onMouseLeave}
-							onClick={handlers.onClick}
-							onFocus={(e) => {
-								const indexAttr = (e.target as HTMLElement)
-									.closest("[data-fluid-hover-index]")
-									?.getAttribute("data-fluid-hover-index");
-								if (indexAttr != null) {
-									const idx = Number(indexAttr);
-									setActiveIndex(idx);
-									setFocusedIndex(
-										keyboardNavRef.current && (e.target as HTMLElement).matches(":focus-visible")
-											? idx
-											: null,
-									);
-								}
-							}}
-							onBlur={(e) => {
-								if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-								setFocusedIndex(null);
-								setActiveIndex(null);
-							}}
 							className={cn(
 								"flex flex-col min-w-[var(--anchor-width)] max-h-[min(300px,var(--available-height))] overflow-hidden select-none outline-none",
 								shape.container,
@@ -410,56 +358,6 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(({ classNam
 								viewportClassName={cn(popupViewportClass, "scroll-fade")}
 							>
 								<div ref={containerRef} className="relative flex flex-col p-1">
-									{open && (
-										<AnimatePresence>
-											{checkedRect && (
-												<m.div
-													className={cn(HOVER_HIGHLIGHT, shape.bg)}
-													initial={false}
-													animate={{
-														top: checkedRect.top,
-														left: checkedRect.left,
-														width: checkedRect.width,
-														height: checkedRect.height,
-														opacity: 1,
-													}}
-													exit={{ opacity: 0, transition: spring.moderate.exit }}
-													transition={{
-														...spring.moderate,
-														opacity: { duration: 0.08 },
-													}}
-												/>
-											)}
-										</AnimatePresence>
-									)}
-
-									<FluidHoverHighlight hover={hover} hidden={!open} className={shape.bg} />
-
-									{open && (
-										<AnimatePresence>
-											{focusRect && (
-												<m.div
-													className={cn(
-														"absolute pointer-events-none z-20 border border-[color:var(--focus-ring,#6B97FF)]",
-														shape.focusRing,
-													)}
-													initial={false}
-													animate={{
-														left: focusRect.left - 2,
-														top: focusRect.top - 2,
-														width: focusRect.width + 4,
-														height: focusRect.height + 4,
-													}}
-													exit={{ opacity: 0, transition: spring.fast.exit }}
-													transition={{
-														...spring.fast,
-														opacity: { duration: 0.08 },
-													}}
-												/>
-											)}
-										</AnimatePresence>
-									)}
-
 									{children}
 								</div>
 							</ScrollArea>
@@ -482,18 +380,12 @@ interface SelectItemProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
-	({ className, children, icon: Icon, value, index, disabled = false, ...props }, ref) => {
+	({ className, children, icon: Icon, value, index: _index, disabled = false, ...props }, ref) => {
 		const selectCtx = useSelectContext();
-		const contentCtx = useContext(SelectContentContext);
-		const internalRef = useRef<HTMLDivElement>(null);
 		const shape = usePopupShape();
 		const sizeClasses = useSize();
 		const compact = sizeClasses.variant === "compact";
 
-		const registerItem = contentCtx?.registerItem;
-		useRegisterFluidHoverItem(registerItem, index, internalRef);
-
-		const isActive = useFluidHoverSelect(contentCtx?.activeStore, (i) => i === index);
 		const isChecked = selectCtx.value === value;
 
 		return (
@@ -503,13 +395,9 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
 				label={typeof children === "string" ? children : undefined}
 				render={
 					<div
-						ref={(node: HTMLDivElement | null) => {
-							internalRef.current = node;
-							if (typeof ref === "function") ref(node);
-							else if (ref) ref.current = node;
-						}}
+						ref={ref}
 						data-slot="select-item"
-						data-fluid-hover-index={index}
+						data-fluid-hover-index={_index}
 						data-value={value}
 						className={cn(
 							"relative z-10 flex shrink-0 items-center cursor-pointer outline-none select-none transition-[color] duration-80",
@@ -518,7 +406,8 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
 							shape.item,
 							sizeClasses.itemPx,
 							sizeClasses.text,
-							isActive || isChecked ? "text-foreground" : "text-muted-foreground",
+							"hover:bg-accent/40",
+							isChecked ? "text-foreground" : "text-muted-foreground",
 							disabled && "opacity-50 pointer-events-none",
 							className,
 						)}

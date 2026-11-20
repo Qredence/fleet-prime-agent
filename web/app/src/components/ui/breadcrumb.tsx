@@ -11,12 +11,8 @@ import {
 	type Ref,
 	useCallback,
 	useContext,
-	useLayoutEffect,
-	useRef,
 	useState,
 } from "react";
-import { FluidHoverHighlight } from "@/components/ui/fluid-hover-highlight";
-import { useFluidHover } from "@/hooks/use-fluid-hover";
 import { fontWeights } from "@/lib/fluid/font-weight";
 import { useIcons } from "@/lib/fluid/icon-context";
 import { useShape } from "@/lib/fluid/shape-context";
@@ -53,27 +49,8 @@ const SeparatorContext = createContext<ReactNode>(undefined);
 
 const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
 	({ className, size, separator, children, onMouseMove, onMouseEnter, onMouseLeave, onClick, ...props }, ref) => {
-		const navRef = useRef<HTMLElement | null>(null);
-		const shape = useShape();
-		const hover = useFluidHover(navRef, { axis: "xy", gapClick: false });
-		const { registerItem } = hover;
-		const registered = useRef<HTMLElement[]>([]);
-
-		useLayoutEffect(() => {
-			const nav = navRef.current;
-			if (!nav) return;
-			const next = Array.from(nav.querySelectorAll<HTMLElement>(`[${TARGET_ATTR}]`));
-			const previous = registered.current;
-			for (let i = next.length; i < previous.length; i++) registerItem(i, null);
-			next.forEach((element, i) => {
-				if (previous[i] !== element) registerItem(i, element);
-			});
-			registered.current = next;
-		}, [children, registerItem]);
-
 		const setRef = useCallback(
 			(node: HTMLElement | null) => {
-				navRef.current = node;
 				assignRef(ref, node);
 			},
 			[ref],
@@ -86,24 +63,11 @@ const Breadcrumb = forwardRef<HTMLElement, BreadcrumbProps>(
 				data-slot="breadcrumb"
 				className={cn("relative", className)}
 				{...props}
-				onMouseMove={(e) => {
-					onMouseMove?.(e);
-					hover.handlers.onMouseMove(e);
-				}}
-				onMouseEnter={(e) => {
-					onMouseEnter?.(e);
-					hover.handlers.onMouseEnter();
-				}}
-				onMouseLeave={(e) => {
-					onMouseLeave?.(e);
-					hover.handlers.onMouseLeave();
-				}}
-				onClick={(e) => {
-					onClick?.(e);
-					hover.handlers.onClick(e);
-				}}
+				onMouseMove={onMouseMove}
+				onMouseEnter={onMouseEnter}
+				onMouseLeave={onMouseLeave}
+				onClick={onClick}
 			>
-				<FluidHoverHighlight hover={hover} className={shape.bg} />
 				<SeparatorContext.Provider value={separator}>{children}</SeparatorContext.Provider>
 			</nav>
 		);
