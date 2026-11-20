@@ -17,6 +17,7 @@ import {
 	upsertAssistantPayloadPart,
 	upsertAssistantReasoningPresentation,
 	upsertAssistantToolPart,
+	upsertToolPart,
 } from "@/lib/chat/chat-helpers";
 
 /** Shared handoff state between the POST stream reducer and session SSE replay. */
@@ -483,6 +484,16 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 		};
 	}
 
+	if (event.type === "tool" && event.part.type === "tool-Question") {
+		return {
+			assistantId,
+			snapshot: {
+				...snapshot,
+				messages: placeQuestionTool(snapshot.messages, event, assistantId),
+			},
+		};
+	}
+
 	if (event.type === "tool" && assistantId) {
 		return {
 			assistantId,
@@ -582,4 +593,66 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 	}
 
 	return reconciled;
+}
+
+/** Attach a clarification prompt to one assistant bubble and drop duplicates. */
+function placeQuestionTool(
+	messages: Array<ChatMessage>,
+	event: Extract<ChatStreamEvent, { type: "tool" }>,
+	assistantId: string | null,
+): Array<ChatMessage> {
+	const toolCallId = event.part.toolCallId ?? "";
+	if (!toolCallId) return messages;
+	const hasToolCall = (message: ChatMessage) =>
+		message.parts.some(
+			(part) =>
+				part.type !== "text" && part.type !== "error" && "toolCallId" in part && part.toolCallId === toolCallId,
+		);
+	let targetIndex = event.messageId
+		? messages.findIndex((message) => message.id === event.messageId && message.role === "assistant")
+		: -1;
+	if (targetIndex < 0 && assistantId) {
+		targetIndex = messages.findIndex((message) => message.id === assistantId && message.role === "assistant");
+	}
+	if (targetIndex < 0) {
+		let latestAssistantWithoutToolCall = -1;
+		let latestMatchingToolCall = -1;
+		for (let index = messages.length - 1; index >= 0; index -= 1) {
+			const message = messages[index];
+			if (!message || message.role !== "assistant") continue;
+			if (hasToolCall(message) && latestMatchingToolCall < 0) latestMatchingToolCall = index;
+			else if (latestAssistantWithoutToolCall < 0) latestAssistantWithoutToolCall = index;
+		}
+		const streaming = event.part.state === "input-streaming";
+		targetIndex = streaming
+			? latestAssistantWithoutToolCall >= 0
+				? latestAssistantWithoutToolCall
+				: latestMatchingToolCall
+			: latestMatchingToolCall >= 0
+				? latestMatchingToolCall
+				: latestAssistantWithoutToolCall;
+	}
+	const questionPart: ChatMessagePart = { ...event.part, type: "tool-Question" };
+	if (targetIndex < 0) {
+		return [
+			...messages,
+			{
+				id: event.messageId ?? crypto.randomUUID(),
+				role: "assistant",
+				parts: [questionPart],
+				createdAt: Date.now(),
+			},
+		];
+	}
+	return messages.flatMap((message, index) => {
+		if (index === targetIndex) {
+			return [{ ...message, parts: upsertToolPart(message.parts, questionPart) }];
+		}
+		if (!hasToolCall(message)) return [message];
+		const parts = message.parts.filter(
+			(part) =>
+				!(part.type !== "text" && part.type !== "error" && "toolCallId" in part && part.toolCallId === toolCallId),
+		);
+		return parts.length > 0 ? [{ ...message, parts }] : [];
+	});
 }

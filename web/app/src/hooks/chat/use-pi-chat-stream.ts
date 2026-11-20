@@ -17,13 +17,9 @@ import type { ChatClient } from "@/lib/chat/chat-client";
 import { notifyChatError } from "@/lib/chat/chat-error-notify";
 import { ChatStreamContractError, chatErrorFromStreamEvent, type QueueState } from "@/lib/chat/chat-fetch";
 import {
-	applyAssistantReasoningText,
 	createOptimisticUserMessage,
-	createTextMessage,
 	removeOptimisticUserMessage,
 	settleOptimisticUserMessage,
-	upsertAssistantReasoningPresentation,
-	upsertToolPart,
 } from "@/lib/chat/chat-helpers";
 import { buildChatEventsUrl } from "@/lib/chat/chat-runtime-url";
 import { applyChatStreamEvent, EMPTY_QUEUE_STATE, type ChatStreamRecoveryState } from "@/lib/chat/chat-stream-state";
@@ -43,6 +39,7 @@ type SessionEventsOptions = {
 	setQueueSynced: (queue: QueueState) => void;
 	setSessionMetadataSynced: (metadata: ChatSessionMetadata) => void;
 	statusRef: MutableRefObject<ChatStatus>;
+	queueRef?: MutableRefObject<QueueState>;
 };
 
 /**
@@ -63,8 +60,11 @@ export function usePiChatSessionEvents({
 	setQueueSynced,
 	setSessionMetadataSynced,
 	statusRef,
+	queueRef: queueRefProp,
 }: SessionEventsOptions) {
 	const internalRecoveryRef = useRef<ChatStreamRecoveryState>({ active: false, needsSnapshot: false });
+	const internalQueueRef = useRef<QueueState>(EMPTY_QUEUE_STATE);
+	const queueRef = queueRefProp ?? internalQueueRef;
 	const activeRecoveryRef = recoveryRef ?? internalRecoveryRef;
 	useEffect(() => {
 		if (!sessionId || typeof window === "undefined") return;
@@ -216,161 +216,66 @@ export function usePiChatSessionEvents({
 			}
 			if (frame.type === "start") activeAssistantId = frame.id;
 			if (frame.type === "done") activeAssistantId = undefined;
-			// Snapshot for dispatch-time checks below the streaming guard, where the
-			// narrowed type no longer includes the in-flight statuses.
-			const statusAtFrame = statusRef.current;
-			if (frame.type === "presentation") {
-				if (frame.presentation.revision > (presentationRef.current?.revision ?? -1)) {
-					setPresentationSynced(frame.presentation);
-				}
+			const ownsTurn = statusRef.current === "streaming" || statusRef.current === "submitted";
+			const questionDuringTurn = frame.type === "tool" && frame.part.type === "tool-Question";
+			const visibleWhileStreaming = frame.type === "presentation" || frame.type === "rlm" || questionDuringTurn;
+			if (ownsTurn && !visibleWhileStreaming) return;
+			if (frame.type === "rlm" && seq !== undefined) {
+				if (seq <= lastAppliedRlmSeq) return;
+				lastAppliedRlmSeq = seq;
+			}
+			if (frame.type === "state" && frame.state.name === "agent_settled") {
+				setActivityLabelSynced(undefined);
+				if (ownsTurn) return;
+				const metadataSessionIdAtFrame = sessionMetadataRef.current.sessionId;
+				void client
+					.loadSession({ sessionId })
+					.then((result) => {
+						if (closedByEffect || sessionMetadataRef.current.sessionId !== sessionId) return;
+						if (sessionMetadataRef.current.sessionId !== metadataSessionIdAtFrame) return;
+						if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
+						setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
+						setPresentationSynced(result.presentation);
+						setSessionMetadataSynced(result.session);
+						queueRef.current = EMPTY_QUEUE_STATE;
+						setQueueSynced(EMPTY_QUEUE_STATE);
+					})
+					.catch(() => undefined);
 				return;
 			}
-			if (frame.type === "rlm") {
-				// ChatRlmStreamEvent carries no revision, so order frames by the SSE
-				// stream sequence: drop redelivered sequences so a stale replay cannot
-				// clobber newer child state.
-				if (seq !== undefined) {
-					if (seq <= lastAppliedRlmSeq) return;
-					lastAppliedRlmSeq = seq;
-				}
-				const current = presentationRef.current;
-				const existing = current.rlmChildren.find((child) => child.id === frame.child.id);
-				if (existing && existing.timestamp > frame.child.timestamp) return;
-				setPresentationSynced({
-					...current,
-					rlmChildren: [...current.rlmChildren.filter((child) => child.id !== frame.child.id), frame.child],
-					...(frame.tree ? { rlmTree: frame.tree } : {}),
-				});
-				return;
-			}
-			// Clarification questions surface even while a turn is streaming: the
-			// POST stream owns state/queue frames during streaming, but a pending
-			// tool-Question blocks progress until answered. Dedupe by toolCallId
-			// keeps redeliveries from duplicating the prompt.
-			if (frame.type === "tool" && frame.part?.type === "tool-Question") {
-				setMessagesSynced((current) => {
-					const toolCallId = frame.part.toolCallId ?? "";
-					if (!toolCallId) return current;
-					const hasToolCall = (message: ChatMessage) =>
-						message.parts.some(
-							(part) =>
-								part.type !== "text" &&
-								part.type !== "error" &&
-								"toolCallId" in part &&
-								part.toolCallId === toolCallId,
-						);
-					let targetIndex = frame.messageId
-						? current.findIndex((message) => message.id === frame.messageId && message.role === "assistant")
-						: -1;
-					if (targetIndex < 0 && activeAssistantId) {
-						targetIndex = current.findIndex(
-							(message) => message.id === activeAssistantId && message.role === "assistant",
-						);
-					}
-					if (targetIndex < 0) {
-						let latestAssistantWithoutToolCall = -1;
-						let latestMatchingToolCall = -1;
-						for (let index = current.length - 1; index >= 0; index -= 1) {
-							const message = current[index]!;
-							if (message.role !== "assistant") continue;
-							if (hasToolCall(message) && latestMatchingToolCall < 0) latestMatchingToolCall = index;
-							else if (latestAssistantWithoutToolCall < 0) latestAssistantWithoutToolCall = index;
-						}
-						// The first question frame normally races the POST stream's start
-						// frame, so attach it to the newest assistant bubble that has not
-						// seen this tool call yet. Later output frames update the existing
-						// matching part instead.
-						targetIndex =
-							frame.part.state === "input-streaming"
-								? latestAssistantWithoutToolCall >= 0
-									? latestAssistantWithoutToolCall
-									: latestMatchingToolCall
-								: latestMatchingToolCall >= 0
-									? latestMatchingToolCall
-									: latestAssistantWithoutToolCall;
-					}
-					const questionPart: ChatMessage["parts"][number] = { ...frame.part, type: "tool-Question" };
-					if (targetIndex < 0) {
-						return [
-							...current,
-							{
-								id: frame.messageId ?? crypto.randomUUID(),
-								role: "assistant",
-								parts: [questionPart],
-								createdAt: new Date().toISOString(),
-							},
-						];
-					}
-					return current.flatMap((message, index) => {
-						if (index === targetIndex) {
-							return [{ ...message, parts: upsertToolPart(message.parts, questionPart) }];
-						}
-						if (!hasToolCall(message)) return [message];
-						const parts = message.parts.filter(
-							(part) =>
-								!(
-									part.type !== "text" &&
-									part.type !== "error" &&
-									"toolCallId" in part &&
-									part.toolCallId === toolCallId
-								),
-						);
-						return parts.length > 0 ? [{ ...message, parts }] : [];
-					});
-				});
-				return;
-			}
-			if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
-			if (frame.type === "reasoning_text" && frame.messageId) {
-				const messageId = frame.messageId;
-				setMessagesSynced((current) =>
-					applyAssistantReasoningText(
-						current.some((message) => message.id === messageId)
-							? current
-							: [...current, createTextMessage("assistant", "", messageId)],
-						messageId,
-						frame,
-					),
+
+			setMessagesSynced((current) => {
+				const next = applyChatStreamEvent(
+					{
+						assistantId: activeAssistantId ?? null,
+						snapshot: {
+							adapterCapabilities: sseCapabilitiesRef.current,
+							messages: current,
+							presentation: presentationRef.current,
+							queue: queueRef.current,
+							sessionMetadata: sessionMetadataRef.current,
+						},
+					},
+					frame,
 				);
-				return;
-			}
-			if (frame.type === "reasoning") {
-				const messageId = frame.messageId;
-				if (!sseCapabilitiesRef.current?.features.includes("reasoning-summary-v1") || !messageId) return;
-				setMessagesSynced((current) =>
-					upsertAssistantReasoningPresentation(current, messageId, frame.presentation),
-				);
-				return;
-			}
-			if (frame.type === "state") {
-				const nextActivityLabel =
-					frame.state?.name === "agent_settled" || frame.state?.message === "resync-required"
-						? undefined
-						: typeof frame.state?.message === "string"
-							? frame.state.message
-							: undefined;
-				setActivityLabelSynced(nextActivityLabel);
-				if (frame.state?.name === "agent_settled") {
-					// Hydration replays the full session snapshot: skip while a turn
-					// is in flight so it cannot clobber optimistic or streamed state.
-					if (statusAtFrame === "streaming" || statusAtFrame === "submitted") return;
-					const metadataSessionIdAtFrame = sessionMetadataRef.current.sessionId;
-					void client
-						.loadSession({ sessionId })
-						.then((result) => {
-							if (closedByEffect || sessionMetadataRef.current.sessionId !== sessionId) return;
-							if (sessionMetadataRef.current.sessionId !== metadataSessionIdAtFrame) return;
-							if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
-							setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
-							setPresentationSynced(result.presentation);
-							setSessionMetadataSynced(result.session);
-							setQueueSynced(EMPTY_QUEUE_STATE);
-						})
-						.catch(() => undefined);
+				activeAssistantId = next.assistantId ?? undefined;
+				if (next.snapshot.presentation && next.snapshot.presentation !== presentationRef.current) {
+					presentationRef.current = next.snapshot.presentation;
+					setPresentationSynced(next.snapshot.presentation);
 				}
-				return;
-			}
-			if (frame.type === "queue") setQueueSynced({ steering: frame.steering, followUp: frame.followUp });
+				if (next.snapshot.adapterCapabilities && next.snapshot.adapterCapabilities !== sseCapabilitiesRef.current) {
+					sseCapabilitiesRef.current = next.snapshot.adapterCapabilities;
+					setAdapterCapabilities(next.snapshot.adapterCapabilities);
+				}
+				if (next.snapshot.queue !== queueRef.current) {
+					queueRef.current = next.snapshot.queue;
+					setQueueSynced(next.snapshot.queue);
+				}
+				if (next.snapshot.activityLabel !== undefined || frame.type === "done" || frame.type === "state") {
+					setActivityLabelSynced(next.snapshot.activityLabel);
+				}
+				return next.snapshot.messages;
+			});
 		};
 
 		const subscription = createReconnectingEventSource({
@@ -441,6 +346,7 @@ export function usePiChatSessionEvents({
 		setQueueSynced,
 		setSessionMetadataSynced,
 		statusRef,
+		queueRef,
 	]);
 }
 

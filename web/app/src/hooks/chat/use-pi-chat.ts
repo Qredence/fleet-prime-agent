@@ -769,6 +769,7 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setQueueSynced,
 		setSessionMetadataSynced,
 		statusRef,
+		queueRef,
 	});
 
 	const renameSession = useCallback(
