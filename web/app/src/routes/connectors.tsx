@@ -1,16 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
-
-const ConnectorsPage = lazy(() =>
-	import("@/routes/-connectors-page").then(({ ConnectorsPage: page }) => ({ default: page })),
-);
+import { ConnectorsPage } from "@/routes/-connectors-page";
 
 export const Route = createFileRoute("/connectors")({
-	component: () => (
-		<Suspense fallback={<PageLoading />}>
-			<ConnectorsPage />
-		</Suspense>
-	),
+	component: ConnectorsPage,
+	pendingComponent: PageLoading,
+	pendingMs: 0,
+	pendingMinMs: 0,
 });
 
 function PageLoading() {

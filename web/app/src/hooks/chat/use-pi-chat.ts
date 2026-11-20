@@ -8,6 +8,8 @@ import type {
 	ChatQueueMutationRequest,
 	ChatSessionInfo,
 	ChatSessionMetadata,
+	ChatStreamEvent,
+	FleetAdapterCapabilities,
 	OpenUIHtmlArtifactPayload,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -18,7 +20,12 @@ import type { ChatClient } from "@/lib/chat/chat-client";
 import { chatClient } from "@/lib/chat/chat-client";
 import { notifyChatError } from "@/lib/chat/chat-error-notify";
 import type { QueueState } from "@/lib/chat/chat-fetch";
-import { EMPTY_QUEUE_STATE, EMPTY_SESSION_PRESENTATION, normalizeSessionMetadata } from "@/lib/chat/chat-stream-state";
+import {
+	applyChatStreamEvent,
+	EMPTY_QUEUE_STATE,
+	EMPTY_SESSION_PRESENTATION,
+	normalizeSessionMetadata,
+} from "@/lib/chat/chat-stream-state";
 import { hydratePlanPresentationMessages, planPresentationForToolCall } from "@/lib/chat/plan-presentation";
 import { isPlanDecisionToolCall } from "@/lib/chat/plan-state";
 import { resolvePlanDecisionMessages } from "@/hooks/chat/use-pi-chat-plan-decisions";
@@ -452,31 +459,71 @@ export function usePiChat(model: ChatModelSelection | undefined, options: UsePiC
 		setStatus,
 	});
 
-	const { cancelStreamRecovery, resetStreamAdmission, sendMessage, setAdapterCapabilities, streamRecoveryRef } =
-		usePiChatMessaging({
+	const adapterCapabilitiesRef = useRef<FleetAdapterCapabilities | undefined>(undefined);
+	const setAdapterCapabilities = useCallback((capabilities: FleetAdapterCapabilities | undefined) => {
+		adapterCapabilitiesRef.current = capabilities;
+	}, []);
+	const applyConversationEvent = useCallback(
+		(assistantId: string | null, event: ChatStreamEvent) => {
+			const next = applyChatStreamEvent(
+				{
+					assistantId,
+					snapshot: {
+						adapterCapabilities: adapterCapabilitiesRef.current,
+						activityLabel: activityLabelRef.current,
+						messages: messagesRef.current,
+						presentation: presentationRef.current,
+						planLabel: planLabelRef.current,
+						queue: queueRef.current,
+						sessionMetadata: sessionMetadataRef.current,
+					},
+				},
+				event,
+			);
+			const { snapshot } = next;
+			setAdapterCapabilities(snapshot.adapterCapabilities);
+			setMessagesSynced(snapshot.messages);
+			if (snapshot.presentation) setPresentationSynced(snapshot.presentation);
+			setSessionMetadataSynced(snapshot.sessionMetadata);
+			setQueueSynced(snapshot.queue);
+			setActivityLabelSynced(snapshot.activityLabel);
+			setPlanLabelSynced(snapshot.planLabel);
+			return next.assistantId;
+		},
+		[
 			activityLabelRef,
-			client,
 			messagesRef,
-			presentationRef,
-			model,
-			pendingSendControllerRef,
-			projectId,
 			planLabelRef,
-			queueRef,
-			recoverFromForbiddenSession,
-			refreshSessions,
-			sessionMetadataRef,
+			presentationRef,
 			setActivityLabelSynced,
-			setError,
+			setAdapterCapabilities,
 			setMessagesSynced,
-			setPresentationSynced,
 			setPlanLabelSynced,
+			setPresentationSynced,
 			setQueueSynced,
 			setSessionMetadataSynced,
-			setStatus,
-			streamControllersRef,
-			status,
-		});
+		],
+	);
+	const { cancelStreamRecovery, resetStreamAdmission, sendMessage, streamRecoveryRef } = usePiChatMessaging({
+		applyConversationEvent,
+		client,
+		model,
+		pendingSendControllerRef,
+		projectId,
+		recoverFromForbiddenSession,
+		refreshSessions,
+		sessionMetadataRef,
+		setActivityLabelSynced,
+		setError,
+		setMessagesSynced,
+		setPresentationSynced,
+		setPlanLabelSynced,
+		setQueueSynced,
+		setSessionMetadataSynced,
+		setStatus,
+		streamControllersRef,
+		status,
+	});
 
 	const stop = useCallback(() => {
 		cancelStreamRecovery();

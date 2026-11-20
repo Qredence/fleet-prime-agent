@@ -1,4 +1,4 @@
-import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraft } from "@/components/settings/use-settings-draft-state";
 import type {
 	ChatProviderInfo,
 	ChatProviderUpdateRequest,

@@ -7,18 +7,18 @@ The Fleet Prime web application owns its UI source. React UI components live und
 ```text
 ui/        → @fluid Base UI primitives, AI Elements compositions, and adapters
 openui/    → generative UI component catalog and renderers composed from ui/
-<areas>/   → product UI (.tsx, with *.test.tsx in a sibling tests/ directory); composes @/components/ui/*
+<areas>/   → product UI and private feature code, with tests/ at the owning directory
 src/hooks/ → reusable and domain-scoped React hooks (.ts/.tsx)
 src/lib/   → pure domain logic, transport clients, stores, and fluid tokens/contexts
 src/routes → TanStack Router route modules and route-only page entry components
 ```
 
-- **Strict UI-only `components/`**: Keep `web/app/src/components/` strictly for `.tsx` UI components and UI tests (`*.test.tsx`) in a `tests/` directory beside the owning component. Pure helpers, stores, state machines, and schemas belong in `src/lib/<area>/`; React hooks belong in `src/hooks/<area>/`; route-only page modules belong in `src/routes/`.
+- **Feature ownership**. Keep private hooks and helpers beside their owning product UI when this removes a separate dependency layer. Share hooks and clients through `src/hooks/` and `src/lib/`. Keep `ui/` for shared components and their implementation.
 - **`motion/` is dissolved**: Motion springs and Fluid primitives live in `src/lib/fluid/` and `src/components/ui/`, while area-specific animated components (`workspace/file-tree.tsx`, `chat/transcript/preview-rail.tsx`) live inside their owning product folders.
 - **Exact `ui/` imports**: Import shared controls from their exact `@/components/ui/<file>` path. Do **not** relative-import into `ui/` or add catch-all barrel files.
 - **No parallel controls or raw native controls**: Product areas compose `@/components/ui/*` (`Button`, `Input`, `Textarea`, `Select`, `Checkbox`, `Switch`, `Dialog`, `MobileDrawer`, `Collapsible`, `Tabs`, `Card`, `Item`, `CodeBlock`, etc.) instead of growing parallel controls or rendering raw `<button>`, `<input>`, `<select>`, `<textarea>`, or `<dialog>` elements (beyond explicitly documented exceptions in `web/app/component-sources.json`).
 - **No static inline `style={{...}}`**: Use Tailwind utilities, CSS custom properties, or `@utility` helpers in `src/styles/globals.css` rather than static/themeable inline style objects outside `ui/`.
-- **Behavior tests beside components**: Put `*.test.tsx` in a `tests/` directory next to the owning component and test accessibility, interactions, state, and composition contracts rather than snapshots.
+- **Behavior tests beside their owners**. Put `*.test.ts` and `*.test.tsx` in the `tests/` folder inside the directory that owns the component, private hook, or helper under test. Apply the same rule in nested areas. For example, keep composer tests in `chat/composer/tests/` and layout tests in `layout/tests/`. Cover accessibility, interactions, state, and composition contracts.
 
 ```text
 web/app/src/
@@ -42,11 +42,11 @@ web/app/src/
 
 ## Area & contract rules
 
-1. Each product area imports shared UI from `@/components/ui/<file>` and keeps its non-UI helpers/hooks in `src/lib/<area>/` and `src/hooks/<area>/`.
+1. Each product area imports shared UI from `@/components/ui/<file>` and owns its private helpers and hooks.
 2. Cross-area imports go through intentional entry components or hooks rather than another area's private sub-files.
 3. `components/layout/` coordinates cross-area shell chrome (`ChatWorkspaceShell`, `RightPanelShell`, `ChatHeader`); it does not own feature state stores.
 4. Wire contracts stay in `@prime-agent/web-protocol`; browser code never imports the Prime Agent runtime.
-5. `web/app/scripts/component-contract-check.ts` and `scripts/check-web-boundaries.mjs` enforce basename uniqueness ("one name, one home"), dead-file checks, Base UI / `ui/` import boundaries, native control restrictions, narrow `*Props` interfaces, static inline-style hygiene, and stock Tailwind typography.
+5. `web/app/scripts/component-contract-check.ts` and `scripts/check-web-boundaries.mjs` enforce Base UI / `ui/` import boundaries, native control restrictions, static inline-style hygiene, and stock Tailwind typography. Knip checks for unused files.
 
 ## Intentional deviations
 

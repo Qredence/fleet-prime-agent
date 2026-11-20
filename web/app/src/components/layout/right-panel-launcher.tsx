@@ -4,7 +4,7 @@ import { PanelRight, X } from "lucide-react";
 import type { HTMLAttributes, ReactNode } from "react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RightPanel } from "@/lib/layout/canvas-utils";
-import { useChatPanelDataContext, useWorkspaceTreeContext } from "@/components/layout/right-panel-context";
+import type { RightPanelData } from "@/components/layout/right-panel-data";
 import { RIGHT_PANEL_GROUPS } from "@/components/layout/right-panel-registry";
 import { TabStrip } from "@/components/layout/tab-strip";
 import { Button } from "@/components/ui/button";
@@ -15,17 +15,25 @@ import { DESKTOP_PANEL_ONLY } from "@/lib/layout-constants";
 import { cn } from "@/lib/utils";
 
 /**
- * Renders responsive controls for opening or navigating the right panel based on context state.
+ * Renders responsive controls for opening or navigating the right panel based on viewport and panel state.
  *
  * @param compact - Whether to use compact control styling
  */
-export function RightPanelLauncherFromContext({ compact = false }: { compact?: boolean } = {}) {
-	const { reopenRightPanel, rightPanel } = useChatPanelDataContext();
+export function RightPanelHeaderLauncher({
+	compact = false,
+	data,
+	workspace,
+}: {
+	compact?: boolean;
+	data: RightPanelData;
+	workspace: WorkspaceTreeResponse | null;
+}) {
+	const { reopenRightPanel, rightPanel } = data;
 
 	return (
 		<>
 			<div className="flex min-w-0 justify-end min-[960px]:hidden">
-				<RightPanelTabsFromContext compact={compact} idPrefix="right-panel-mobile" />
+				<RightPanelTabs data={data} workspace={workspace} compact={compact} idPrefix="right-panel-mobile" />
 			</div>
 			<div className="hidden min-[960px]:block">
 				{rightPanel === null ? <RightPanelTrigger compact={compact} onOpen={reopenRightPanel} /> : null}
@@ -35,21 +43,24 @@ export function RightPanelLauncherFromContext({ compact = false }: { compact?: b
 }
 
 /**
- * Renders the right-panel launcher using application context state and data.
+ * Renders the right-panel launcher using current panel data.
  *
  * @param compact - Whether to use compact launcher styling
  * @param idPrefix - Prefix used for generated right-panel element IDs
  * @returns The right-panel launcher
  */
-export function RightPanelTabsFromContext({
+export function RightPanelTabs({
+	data,
+	workspace,
 	compact = false,
 	idPrefix = "right-panel",
 }: {
 	compact?: boolean;
 	idPrefix?: string;
+	data: RightPanelData;
+	workspace: WorkspaceTreeResponse | null;
 }) {
-	const { artifactRuns, transcriptSummary, rightPanel, setRightPanel, resources } = useChatPanelDataContext();
-	const { workspaceTree } = useWorkspaceTreeContext();
+	const { artifactRuns, transcriptSummary, rightPanel, setRightPanel, resources } = data;
 
 	return (
 		<RightPanelLauncher
@@ -60,7 +71,7 @@ export function RightPanelTabsFromContext({
 			openUIArtifacts={
 				artifactRuns.flatMap((run) => run.artifacts).filter((artifact) => artifact.kind === "openui-html").length
 			}
-			workspace={workspaceTree}
+			workspace={workspace}
 			idPrefix={idPrefix}
 			compact={compact}
 		/>

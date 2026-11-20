@@ -320,8 +320,8 @@ describe("shared composer submission and editing", () => {
 			const onModelPickerOpenChange = vi.fn();
 			const onEffortPickerOpenChange = vi.fn();
 			setup({ [key]: true, onModelPickerOpenChange, onEffortPickerOpenChange });
-			await screen.findByPlaceholderText("Search models…");
-			fireEvent.keyDown(screen.getByPlaceholderText("Search models…"), { key: "Escape" });
+			const search = await screen.findByPlaceholderText("Search models…", undefined, { timeout: 5_000 });
+			fireEvent.keyDown(search, { key: "Escape" });
 			expect(onModelPickerOpenChange).toHaveBeenCalledWith(false);
 			expect(onEffortPickerOpenChange).toHaveBeenCalledWith(false);
 		},

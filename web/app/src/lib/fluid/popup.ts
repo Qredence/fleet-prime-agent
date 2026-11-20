@@ -48,11 +48,3 @@ export const POPUP_NAV_KEYS = [
 	"PageDown",
 	"Tab",
 ];
-
-/**
- * Rows the fluid hover must skip: a disabled row is neither a target
- * nor a hover stop, whichever attribute the primitive marks it with.
- */
-export function isDisabledRow(el: HTMLElement): boolean {
-	return el.getAttribute("aria-disabled") === "true" || el.hasAttribute("data-disabled");
-}

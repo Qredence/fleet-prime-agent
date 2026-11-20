@@ -29,7 +29,7 @@ import {
 	type ProviderOperationState,
 	supportsOAuth,
 	useProviderCredentialsController,
-} from "@/hooks/settings/use-provider-credentials-controller";
+} from "@/components/settings/use-provider-credentials-controller";
 import { PROVIDER_METADATA } from "@/lib/settings/provider-metadata";
 
 /**

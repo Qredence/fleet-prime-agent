@@ -111,6 +111,17 @@ async function mockReasoningModel(page: Page) {
 //   2. typing a message and submitting it fires a POST to /api/chat (or a
 //      graceful error toast when the server can't actually create a session,
 //      which is what we expect in CI without a kernel).
+test("Agents and Connectors support direct loads and browser history", async ({ page }) => {
+	await page.goto("/connectors");
+	await expect(page.getByRole("heading", { name: "Connectors", exact: true })).toBeVisible();
+	await page.getByRole("link", { name: "Agents", exact: true }).click();
+	await expect(page.getByRole("heading", { name: "Agents", exact: true })).toBeVisible();
+	await page.goBack();
+	await expect(page.getByRole("heading", { name: "Connectors", exact: true })).toBeVisible();
+	await page.goto("/agents");
+	await expect(page.getByRole("heading", { name: "Agents", exact: true })).toBeVisible();
+});
+
 test.describe("chat shell", () => {
 	test("home page loads with chat input", async ({ page }) => {
 		await page.goto("/");
@@ -593,7 +604,7 @@ test.describe("chat shell", () => {
 		expect(body.content).toMatch(/Fleet Prime Architecture/i);
 	});
 
-	test("BEUI chat preserves the desktop panel tabs and toggle behavior", async ({ page }) => {
+	test("chat preserves the desktop panel tabs and close behavior", async ({ page }) => {
 		const browserErrors: string[] = [];
 		page.on("console", (message) => {
 			if (message.type() === "error") browserErrors.push(message.text());
@@ -630,24 +641,23 @@ test.describe("chat shell", () => {
 		const session = visiblePanelTabs.getByRole("tab", { name: "Session", exact: true });
 		const workspace = visiblePanelTabs.getByRole("tab", { name: "Workspace", exact: true });
 		const subagents = visiblePanelTabs.getByRole("tab", { name: "Subagents", exact: true });
-		const repl = visiblePanelTabs.getByRole("tab", { name: "REPL", exact: true });
+		const artifacts = visiblePanelTabs.getByRole("tab", { name: /^Artifacts/ });
 		await expect(session).toBeVisible();
 		await expect(workspace).toBeVisible();
 		await expect(subagents).toBeVisible();
-		await expect(repl).toBeVisible();
+		await expect(artifacts).toBeVisible();
 		await expect(visiblePanelTabs).toHaveAttribute("data-panel-launcher-mode", "tabs");
 
-		await clickCenter(page, repl);
-		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl");
-		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible();
-		await expect(page.getByRole("region", { name: "REPL runs" })).toBeVisible();
+		await clickCenter(page, artifacts);
+		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "artifacts");
+		await expect(page.getByTestId("pi-artifacts-canvas")).toBeVisible();
 
 		await clickCenter(page, session);
 		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "session-insights");
 		const sessionInsightsCanvas = page.getByTestId("pi-session-insights-canvas");
 		await expect(sessionInsightsCanvas).toBeVisible();
 		await expect(sessionInsightsCanvas).toHaveCSS("transform", "none");
-		await clickCenter(page, session);
+		await sessionInsightsCanvas.getByRole("button", { name: "Close panel", exact: true }).click();
 		await expect(page.getByTestId("pi-session-insights-canvas")).toHaveCount(0);
 		await expect(panelToggle).toBeVisible();
 		await clickCenter(page, panelToggle);
@@ -695,21 +705,30 @@ test.describe("chat shell", () => {
 		const panelSelect = panelTabs.getByRole("combobox", { name: "Select panel", exact: true });
 		await expect(panelSelect).toBeVisible();
 		await panelSelect.click();
-		await expect(page.locator('[role="option"]:visible')).toHaveCount(4);
-		await page.getByRole("option", { name: "REPL", exact: true }).click();
-		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "repl");
-		await expect(page.getByTestId("pi-repl-canvas")).toBeVisible();
-		await visiblePanelTabs.getByRole("combobox", { name: "Select panel", exact: true }).click();
-		await page.getByRole("option", { name: "REPL", exact: true }).click();
-		await expect(page.getByTestId("pi-repl-canvas")).toHaveCount(0);
+		await expect(page.locator('[role="option"]:visible')).toHaveCount(5);
+		await page.getByRole("option", { name: "Artifacts", exact: true }).click();
+		await expect(visiblePanelTabs).toHaveAttribute("data-active-panel", "artifacts");
+		await expect(page.getByTestId("pi-artifacts-canvas")).toBeVisible();
+		await page.getByTestId("pi-artifacts-canvas").getByRole("button", { name: "Close panel", exact: true }).click();
+		await expect(page.getByTestId("pi-artifacts-canvas")).toHaveCount(0);
 		await expect(panelToggle).toBeVisible();
 
+		expect(browserErrors).toEqual([]);
+	});
+
+	test("Escape closes the desktop Artifacts panel and returns focus to the composer", async ({ page }) => {
+		await page.setViewportSize({ width: 1400, height: 900 });
+		await page.route("**/api/chat/sessions", (route) => route.fulfill({ json: { sessions: [] } }));
+		const sessionsLoaded = page.waitForResponse((response) => isGetPath(response, "/api/chat/sessions"));
+		await page.goto("/");
+		await sessionsLoaded;
+		await page.getByRole("textbox", { name: "Prompt" }).focus();
 		await page.keyboard.press("Control+Shift+Digit3");
-		await expect(page.getByTestId("pi-artifacts-canvas")).toBeVisible();
-		await page.keyboard.press("Escape");
+		const artifactsCanvas = page.getByTestId("pi-artifacts-canvas");
+		await expect(artifactsCanvas).toBeFocused();
+		await artifactsCanvas.press("Escape");
 		await expect(page.getByTestId("pi-artifacts-canvas")).toHaveCount(0);
 		await expect(page.getByRole("textbox", { name: "Prompt" })).toBeFocused();
-		expect(browserErrors).toEqual([]);
 	});
 
 	test("density keeps shell headers and shared controls on the agreed scale", async ({ page }) => {
@@ -738,7 +757,7 @@ test.describe("chat shell", () => {
 		}
 	});
 
-	test("Settings keeps the original sidebar and Prime configuration sections", async ({ page }) => {
+	test("Settings opens and navigates between Prime configuration sections", async ({ page }) => {
 		await mockEmptyWelcomeChat(page, "settings-smoke-session");
 		await page.setViewportSize({ width: 1400, height: 900 });
 		const commandsResponse = page.waitForResponse((response) => isGetPath(response, "/api/chat/commands"));
@@ -757,9 +776,9 @@ test.describe("chat shell", () => {
 			"Providers",
 			"LLM Models",
 			"Skills",
-			"Pi Harness",
+			"MCP",
 			"Chat",
-			"Keybindings",
+			"Keyboard shortcuts",
 			"Sessions",
 		]) {
 			await expect(dialog.getByRole("button", { name: label, exact: true })).toBeVisible();

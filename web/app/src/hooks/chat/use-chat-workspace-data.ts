@@ -35,8 +35,10 @@ import { useChatWorkspaceActions } from "@/hooks/chat/use-chat-workspace-actions
 import { usePiChat } from "@/hooks/chat/use-pi-chat";
 import { useChatWorkspaceHeader } from "@/components/layout/chat-header";
 import { useChatWorkspaceDialogs } from "@/components/layout/chat-workspace-dialogs";
-import { useChatShellState } from "@/hooks/layout/use-chat-shell-state";
-import { useRightPanelContextValue } from "@/hooks/layout/use-right-panel-context-value";
+import { useChatShellState } from "@/components/layout/use-chat-shell-state";
+import { useSettingsActions } from "@/components/settings/use-settings-actions";
+import { useThrottledTranscriptSummary, useThrottledWhileLive } from "@/hooks/chat/use-throttled-transcript-summary";
+import type { RightPanelData, WorkspacePanelData } from "@/components/layout/right-panel-data";
 import { useAgentTabs } from "@/hooks/sessions/use-agent-tabs";
 import { useSessionTree } from "@/hooks/sessions/use-session-tree";
 import { loadWorkspaceFile } from "@/lib/workspace/workspace-file";
@@ -85,7 +87,6 @@ export function useChatWorkspaceData() {
 		modelSelection,
 		models,
 		openArtifact,
-		openWorkspacePath,
 		openPanelAction,
 		persistSession,
 		reopenRightPanel,
@@ -408,10 +409,6 @@ export function useChatWorkspaceData() {
 		(path: string, signal?: AbortSignal) => loadWorkspaceFile(path, activeProjectId, signal),
 		[activeProjectId],
 	);
-	const loadChatSession = useCallback(
-		(metadata: Parameters<typeof chatClient.loadSession>[0]) => chatClient.loadSession(metadata),
-		[],
-	);
 	const loadSubagentSession = useCallback(
 		(parentSessionId: string, childId: string) => chatClient.loadSubagentSession(parentSessionId, childId),
 		[],
@@ -432,56 +429,17 @@ export function useChatWorkspaceData() {
 		rightPanel,
 	});
 
-	const { chatPanelData, settingsActions, workspaceTreeContext } = useRightPanelContextValue({
+	const settingsActions = useSettingsActions({
 		activeProjectId,
-		activityLabel,
-		artifactRuns,
-		chatMode,
 		composerIntent: composerIntentAvailability,
 		handleThemePreferenceChange,
-		loadSession: loadChatSession,
-		loadSubagentSession,
-		loadWorkspaceFile: loadProjectWorkspaceFile,
-		messages,
-		onOpenSubagentTab: agentTabs.openChildTab,
-		modelKey,
 		models,
 		setModelKey,
-		openWorkspacePath,
-		planLabel,
-		presentation,
-		queue,
-		refreshResources,
-		refreshWorkspace,
-		resources,
-		resourcesError,
-		resourcesLoading,
-		reopenRightPanel,
-		rightPanel,
-		selectedArtifactId,
-		openArtifact,
-		sessionId: sessionMetadata.sessionId,
-		selectedWorkspacePath,
-		setRightPanel,
-		setSelectedWorkspacePath,
 		settings: settingsData ?? null,
 		settingsDialogOpen: settingsDialogOpen || settingsDialogEverOpened,
 		settingsError,
 		settingsLoading,
-		status,
-		thinkingLevel,
 		themePreference,
-		workspaceError,
-		workspaceLoading,
-		workspaceTree,
-		sessionTreeSnapshot: sessionTree.sessionTreeSnapshot,
-		sessionTreeLoading: sessionTree.sessionTreeLoading,
-		sessionTreeError: sessionTree.sessionTreeError,
-		selectedSessionTreeEntryId: sessionTree.selectedSessionTreeEntryId,
-		isSessionTreeStreaming: sessionTree.isSessionTreeStreaming,
-		refreshSessionTree: () => void sessionTree.refreshSessionTree(),
-		selectSessionTreeEntry: sessionTree.selectSessionTreeEntry,
-		rewindSessionTree: sessionTree.rewindSessionTree,
 	});
 
 	const header = useChatWorkspaceHeader({
@@ -493,6 +451,47 @@ export function useChatWorkspaceData() {
 		onOpenSettings: () => openSettings(),
 	});
 
+	const chatPanelData: RightPanelData = {
+		activityLabel,
+		artifactRuns: useThrottledWhileLive(artifactRuns, status, sessionMetadata.sessionId ?? ""),
+		chatMode,
+		loadSubagentSession,
+		onOpenSubagentTab: agentTabs.openChildTab,
+		selectedModelKey: modelKey,
+		planLabel,
+		presentation,
+		queue,
+		refreshResources,
+		resources,
+		resourcesError,
+		resourcesLoading,
+		reopenRightPanel,
+		rightPanel,
+		selectedArtifactId,
+		openArtifact,
+		sessionId: sessionMetadata.sessionId,
+		setRightPanel,
+		status,
+		thinkingLevel,
+		sessionTreeSnapshot: sessionTree.sessionTreeSnapshot,
+		sessionTreeLoading: sessionTree.sessionTreeLoading,
+		sessionTreeError: sessionTree.sessionTreeError,
+		selectedSessionTreeEntryId: sessionTree.selectedSessionTreeEntryId,
+		isSessionTreeStreaming: sessionTree.isSessionTreeStreaming,
+		refreshSessionTree: () => void sessionTree.refreshSessionTree(),
+		selectSessionTreeEntry: sessionTree.selectSessionTreeEntry,
+		rewindSessionTree: sessionTree.rewindSessionTree,
+		transcriptSummary: useThrottledTranscriptSummary(messages, status, sessionMetadata.sessionId ?? ""),
+	};
+	const workspacePanelData: WorkspacePanelData = {
+		loadWorkspaceFile: loadProjectWorkspaceFile,
+		refreshWorkspace,
+		selectedWorkspacePath,
+		setSelectedWorkspacePath,
+		workspaceError,
+		workspaceLoading,
+		workspaceTree,
+	};
 	return {
 		session: {
 			activeSessionId: sessionMetadata.sessionId,
@@ -568,10 +567,11 @@ export function useChatWorkspaceData() {
 			resourceCanvasWidth,
 			rightPanel,
 			setRightPanel,
-			settingsActions,
-			workspaceTreeContext,
+			workspacePanelData,
 		},
 		dialogs: {
+			settingsActions,
+			settingsResources: { models, resources, resourcesLoading, resourcesError, refreshResources },
 			commandPaletteOpen,
 			forkFromEntry,
 			forkPickerDialogEverOpened,

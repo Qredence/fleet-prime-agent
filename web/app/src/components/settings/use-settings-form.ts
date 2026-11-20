@@ -1,8 +1,10 @@
 import type { ChatPiSettings, ChatPiSettingsUpdate } from "@prime-agent/web-protocol/chat-protocol";
 import { useState } from "react";
-import { useChatPanelDataContext, useSettingsActionsContext } from "@/components/layout/right-panel-context";
-import { useModelDefaultsForm } from "@/hooks/settings/use-model-defaults-form";
-import { useResourcesForm } from "@/hooks/settings/use-resources-form";
+import type { SettingsActions } from "@/components/settings/use-settings-actions";
+import type { ChatResourcesResponse } from "@prime-agent/web-protocol/chat-protocol";
+import type { ChatModelOption } from "@/lib/chat/chat-helpers";
+import { useModelDefaultsForm } from "@/components/settings/use-model-defaults-form";
+import { useResourcesForm } from "@/components/settings/use-resources-form";
 import { notify as toast } from "@/lib/notify";
 import { sameJson, summarizeResources } from "@/lib/settings/settings-mappers";
 
@@ -10,7 +12,15 @@ import { sameJson, summarizeResources } from "@/lib/settings/settings-mappers";
  * Thin composer over the per-section form hooks; keeps the dialog-level
  * draft core, saving orchestration, and the discard flow.
  */
-export function useSettingsForm() {
+export type SettingsResources = {
+	models: ChatModelOption[];
+	resources: ChatResourcesResponse | null;
+	resourcesLoading: boolean;
+	resourcesError: Error | null;
+	refreshResources: () => void;
+};
+
+export function useSettingsForm(actions: SettingsActions, source: SettingsResources) {
 	const {
 		isLoadingMcp,
 		isLoadingProviders,
@@ -30,8 +40,8 @@ export function useSettingsForm() {
 		settings,
 		settingsLoading,
 		themePreference,
-	} = useSettingsActionsContext();
-	const { models, resources, resourcesLoading, resourcesError, refreshResources } = useChatPanelDataContext();
+	} = actions;
+	const { models, resources, resourcesLoading, resourcesError, refreshResources } = source;
 
 	const [saveScope, setSaveScopeState] = useState<"global" | "project">("project");
 	const sourceSettings =

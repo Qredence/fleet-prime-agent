@@ -1,4 +1,4 @@
-import { useSettingsDraft } from "@/hooks/settings/use-settings-draft-state";
+import { useSettingsDraft } from "@/components/settings/use-settings-draft-state";
 import type { ComposerIntentKeySource, ComposerIntentStatus } from "@prime-agent/web-protocol/composer-intent";
 import { useCallback, useState } from "react";
 import { SecretCredentialField } from "@/components/settings/credential-fields";
