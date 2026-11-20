@@ -1,0 +1,31 @@
+web/server/src/session-list.ts
+  s_738484948789bc::t_ef855152ecf112 36-39
+  s_738484948789bc::t_5b0dd82ee83134 67-71
+.changeset/tidy-fleet-workspace.md
+  s_738484948789bc::t_bc92fbc574bec1 5
+web/app/src/components/layout/resizable-canvas.tsx
+  s_738484948789bc::t_cddeb82bfa27eb 58-63,71,74
+  s_738484948789bc::t_7b927eade0916d 79-80,89
+  s_738484948789bc::t_93b7f3aa05d13e 52,54-57,70,73
+  s_738484948789bc::t_4e24ac39c9c9d7 72
+  s_738484948789bc::t_34582e47698f29 4
+  s_738484948789bc::t_5163efb25d69dc 75
+web/server/src/__tests__/session-list.test.ts
+  s_738484948789bc::t_0eb7843a66a1af 74-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cdee4b86b0d191fffa6e3d5b3d7328d9e7465da2",
+  "prompts": {},
+  "sessions": {
+    "s_738484948789bc": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9702f811-a775-470f-9ce5-9ce73b1f5433",
+        "model": "grok-4.7"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
