@@ -7,7 +7,7 @@ import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useHoverCapable } from "@/hooks/use-hover-capable";
-import { EASE_IN_OUT, EASE_OUT } from "@/lib/ease";
+import { EASE_IN_OUT, EASE_OUT } from "@/lib/fluid/ease";
 import { cn } from "@/lib/utils";
 
 type ImageGenerationStatus = "queued" | "generating" | "refining" | "complete" | "error";

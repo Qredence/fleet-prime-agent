@@ -7,7 +7,7 @@ import { AgentCodeLine } from "@/components/tools/tool-code-block";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Spinner } from "@/components/ui/spinner";
-import { SPRING_SWAP } from "@/lib/ease";
+import { SPRING_SWAP } from "@/lib/fluid/ease";
 import { type AgentCodeLanguage, useAgentCodeTokens } from "@/lib/shiki-highlight";
 import { cn } from "@/lib/utils";
 

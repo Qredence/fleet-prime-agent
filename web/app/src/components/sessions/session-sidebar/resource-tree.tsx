@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SPRING_LAYOUT } from "@/lib/ease";
+import { SPRING_LAYOUT } from "@/lib/fluid/ease";
 import { cn } from "@/lib/utils";
 
 type SidebarResourceKind = "folder" | "project" | "file" | "action";

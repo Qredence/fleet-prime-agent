@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { EASE_DRAWER, EASE_OUT } from "@/lib/ease";
+import { EASE_DRAWER, EASE_OUT } from "@/lib/fluid/ease";
 import { SESSION_SIDEBAR_WIDTH_CSS } from "@/lib/layout-constants";
 import { assignRef } from "@/lib/ref";
 import { cn } from "@/lib/utils";

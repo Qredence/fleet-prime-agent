@@ -71,10 +71,10 @@ export function useChatResources(projectId?: ProjectId, sessionId?: string) {
 	});
 }
 
-export function useChatCommands(projectId?: ProjectId) {
+export function useChatCommands(projectId?: ProjectId, sessionId?: string) {
 	return useQuery({
-		queryKey: keys.commands(projectId),
-		queryFn: () => chatClient.getCommands(projectId),
+		queryKey: [...keys.commands(projectId), sessionId ?? ""],
+		queryFn: () => chatClient.getCommands(projectId, sessionId),
 		enabled: Boolean(projectId),
 	});
 }

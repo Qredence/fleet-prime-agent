@@ -108,7 +108,7 @@ export type ChatClient = {
 	getModels: (options?: { scope?: "enabled" | "all"; projectId?: ProjectId }) => Promise<ChatModelsResponse>;
 	discoverModels: (request: ChatModelsDiscoverRequest) => Promise<ChatModelsDiscoverResponse>;
 	getResources: (projectId?: ProjectId, sessionId?: string) => Promise<ChatResourcesResponse>;
-	getCommands: (projectId?: ProjectId) => Promise<ChatCommandsResponse>;
+	getCommands: (projectId?: ProjectId, sessionId?: string) => Promise<ChatCommandsResponse>;
 	getSettings: (projectId?: ProjectId) => Promise<ChatSettingsResponse>;
 	getWorkspaceTree: (projectId?: ProjectId) => Promise<WorkspaceTreeResponse>;
 	getWorkspaceFile: (path: string, projectId?: ProjectId, signal?: AbortSignal) => Promise<WorkspaceFileResponse>;
@@ -264,8 +264,11 @@ export const chatClient: ChatClient = {
 		return fetchValidatedJson(`/api/chat/resources${query}`, ChatResourcesResponseSchema);
 	},
 
-	async getCommands(projectId) {
-		const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+	async getCommands(projectId, sessionId) {
+		const params = new URLSearchParams();
+		if (projectId) params.set("projectId", projectId);
+		if (sessionId) params.set("sessionId", sessionId);
+		const query = params.size ? `?${params}` : "";
 		return fetchValidatedJson(`/api/chat/commands${query}`, ChatCommandsResponseSchema);
 	},
 

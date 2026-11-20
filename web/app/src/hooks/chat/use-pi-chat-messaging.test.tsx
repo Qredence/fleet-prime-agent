@@ -12,7 +12,7 @@ import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { ChatRequestError, ChatStreamContractError } from "@/lib/chat/chat-fetch";
-import { toChatMessage } from "@/lib/chat/chat-message-helpers";
+import { toChatMessage } from "@/lib/chat/chat-helpers";
 import { usePiChat } from "@/hooks/chat/use-pi-chat";
 
 const presentation: PrimeAgentSessionPresentation = {
@@ -234,6 +234,76 @@ describe("usePiChat stream admission", () => {
 	afterEach(() => {
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
+	});
+
+	it("ignores bootstrap after an explicit selection", async () => {
+		let resolveLoad!: (value: ChatSessionResponse) => void;
+		const client = {
+			listSessions: vi.fn().mockResolvedValue([discoveredSession("old")]),
+			loadSession: vi.fn(
+				() =>
+					new Promise<ChatSessionResponse>((resolve) => {
+						resolveLoad = resolve;
+					}),
+			),
+			resumeSession: vi.fn().mockResolvedValue(sessionResponse({ sessionId: "new" })),
+		} as unknown as ChatClient;
+		const persistSession = vi.fn();
+		const { result } = renderHook(() => usePiChat(undefined, { client, initialSessionMetadata: {}, persistSession }));
+		await act(async () => flush());
+		await act(async () => {
+			await result.current.resumeSession({ sessionId: "new" });
+		});
+		persistSession.mockClear();
+		await act(async () => {
+			resolveLoad(sessionResponse({ sessionId: "old" }));
+			await flush();
+		});
+		expect(result.current.sessionMetadata.sessionId).toBe("new");
+		expect(persistSession).not.toHaveBeenCalled();
+	});
+
+	it("allows bootstrap recovery while it still owns selection", async () => {
+		const client = {
+			listSessions: vi.fn().mockResolvedValue([discoveredSession("old")]),
+			loadSession: vi.fn().mockRejectedValue(new ChatRequestError(403, "Session belongs to another user")),
+			createSession: vi.fn().mockResolvedValue(sessionResponse({ sessionId: "replacement" })),
+		} as unknown as ChatClient;
+		const persistSession = vi.fn();
+		const { result } = renderHook(() => usePiChat(undefined, { client, initialSessionMetadata: {}, persistSession }));
+		await act(async () => flush());
+		expect(result.current.sessionMetadata.sessionId).toBe("replacement");
+		expect(persistSession).toHaveBeenCalledWith({ sessionId: "replacement" });
+	});
+
+	it.each([false, true])("ignores superseded recovery completion (reject=%s)", async (reject) => {
+		let resolveRecovery!: (value: ChatSessionResponse) => void;
+		let rejectRecovery!: (error: Error) => void;
+		const client = {
+			listSessions: vi.fn().mockResolvedValue([discoveredSession("old")]),
+			loadSession: vi.fn().mockRejectedValue(new ChatRequestError(403, "Session belongs to another user")),
+			createSession: vi.fn(
+				() =>
+					new Promise<ChatSessionResponse>((resolve, reject) => {
+						resolveRecovery = resolve;
+						rejectRecovery = reject;
+					}),
+			),
+			resumeSession: vi.fn().mockResolvedValue(sessionResponse({ sessionId: "new" })),
+		} as unknown as ChatClient;
+		const persistSession = vi.fn();
+		const { result } = renderHook(() => usePiChat(undefined, { client, initialSessionMetadata: {}, persistSession }));
+		await act(async () => flush());
+		await act(async () => {
+			await result.current.resumeSession({ sessionId: "new" });
+		});
+		await act(async () => {
+			if (reject) rejectRecovery(new Error("failed"));
+			else resolveRecovery(sessionResponse({ sessionId: "replacement" }));
+			await flush();
+		});
+		expect(result.current.sessionMetadata.sessionId).toBe("new");
+		expect(result.current.error).toBeNull();
 	});
 
 	it("refreshes the session list once during bootstrap", async () => {

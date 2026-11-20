@@ -13,7 +13,7 @@ import {
 	TraceLine,
 	TraceTitle,
 } from "@/components/ui/trace";
-import { EASE_OUT, SPRING_LAYOUT } from "@/lib/ease";
+import { EASE_OUT, SPRING_LAYOUT } from "@/lib/fluid/ease";
 import { isSafeExternalUrl } from "@/lib/safe-external-url";
 import { cn } from "@/lib/utils";
 

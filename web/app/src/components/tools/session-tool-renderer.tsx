@@ -16,7 +16,7 @@ import { ToolApproval } from "@/components/tools/tool-approval";
 import { CodeBlock } from "@/components/tools/tool-code-block";
 import { ToolResult, ToolResultOutput, type ToolResultStatus } from "@/components/tools/tool-result";
 import { Trace, TraceDescription, TraceLine, TraceTitle } from "@/components/ui/trace";
-import type { ToolRendererProps } from "@/lib/chat/chat-message-parts";
+import type { ToolRendererProps } from "@/lib/chat/chat-helpers";
 import type { CustomToolRendererProps } from "@/lib/chat/types";
 import type { AgentCodeLanguage } from "@/lib/shiki-highlight";
 import { toolPartDisplayName } from "@/lib/tools/tool-action-icon";

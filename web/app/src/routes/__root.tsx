@@ -1,8 +1,9 @@
 import interWoff2 from "@fontsource-variable/inter/files/inter-latin-opsz-normal.woff2?url";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
-import { Agentation } from "agentation";
-import { useEffect, useLayoutEffect } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
+
+const Agentation = lazy(() => import("agentation").then((module) => ({ default: module.Agentation })));
 import { FluidRoot } from "@/components/fluid-root";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/toast";
@@ -101,7 +102,9 @@ function RootComponent() {
 			<QueryClientProvider client={getQueryClient()}>
 				<Outlet />
 				{import.meta.env.DEV && import.meta.env.VITE_FLEET_DISABLE_AGENTATION !== "1" ? (
-					<Agentation endpoint="http://localhost:4747" />
+					<Suspense fallback={null}>
+						<Agentation endpoint="http://localhost:4747" />
+					</Suspense>
 				) : null}
 			</QueryClientProvider>
 			<Toaster />

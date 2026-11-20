@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/code-block";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Spinner } from "@/components/ui/spinner";
-import { SPRING_SWAP } from "@/lib/ease";
+import { SPRING_SWAP } from "@/lib/fluid/ease";
 import { spring } from "@/lib/fluid/springs";
 import type { AgentCodeLanguage } from "@/lib/shiki-highlight";
 import { cn } from "@/lib/utils";

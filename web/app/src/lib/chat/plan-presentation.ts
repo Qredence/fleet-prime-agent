@@ -1,6 +1,6 @@
 import type { ChatPlanPresentation } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
-import { upsertToolPart } from "@/lib/chat/chat-message-helpers";
+import { upsertToolPart } from "@/lib/chat/chat-helpers";
 import { createPlanToolPartFromChatPlanState } from "@/lib/chat/plan-state";
 
 export function hydratePlanPresentationMessages(

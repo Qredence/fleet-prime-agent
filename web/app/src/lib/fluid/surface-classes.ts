@@ -45,5 +45,3 @@ export function surfaceClasses(bgLevel: number, shadowLevel: number = bgLevel): 
 }
 
 export const FOCUS_RING = "focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)]";
-
-export const HOVER_HIGHLIGHT = "absolute bg-active pointer-events-none";

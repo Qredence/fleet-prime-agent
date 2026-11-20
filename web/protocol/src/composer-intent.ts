@@ -25,7 +25,7 @@ import type {
 
 /** Where a routed command runs once the user accepts it. */
 export type ComposerIntentHandling =
-	/** Applied in the browser through the existing `resolveLocalSlashAction`. */
+	/** Applied in the browser when it opens product UI; otherwise posted to the runtime. */
 	| "local"
 	/** Sent through the chat transport as `/<id>`, exactly as if typed. */
 	| "session";

@@ -9,6 +9,7 @@ import { EMPTY_QUEUE_STATE, EMPTY_SESSION_PRESENTATION } from "@/lib/chat/chat-s
 
 export type ForbiddenSessionRecoveryDeps = {
 	client: ChatClient;
+	isCurrent?: () => boolean;
 	projectId?: ProjectId;
 	refreshSessions: () => Promise<unknown>;
 	setActivityLabelSynced: (label: string | undefined) => void;
@@ -22,6 +23,7 @@ export type ForbiddenSessionRecoveryDeps = {
 };
 
 export async function runForbiddenSessionRecovery(deps: ForbiddenSessionRecoveryDeps) {
+	if (deps.isCurrent && !deps.isCurrent()) return;
 	deps.setSessionMetadataSynced({});
 	deps.setMessagesSynced([]);
 	deps.setQueueSynced(EMPTY_QUEUE_STATE);
@@ -32,6 +34,7 @@ export async function runForbiddenSessionRecovery(deps: ForbiddenSessionRecovery
 	deps.setStatus("ready");
 
 	const result = await deps.client.createSession(deps.projectId);
+	if (deps.isCurrent && !deps.isCurrent()) return;
 	deps.setSessionMetadataSynced(result.session);
 	deps.setMessagesSynced(result.messages);
 	deps.setPresentationSynced(result.presentation);
@@ -43,7 +46,7 @@ async function tryRecoverMatchingSessionError(
 	error: unknown,
 	matches: (error: unknown) => boolean,
 	recover: () => Promise<void>,
-	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus">,
+	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus" | "isCurrent">,
 ) {
 	if (!matches(error)) {
 		return false;
@@ -52,6 +55,7 @@ async function tryRecoverMatchingSessionError(
 	try {
 		await recover();
 	} catch (recoveryError) {
+		if (deps.isCurrent && !deps.isCurrent()) return true;
 		const nextError = recoveryError instanceof Error ? recoveryError : new Error(String(recoveryError));
 		deps.setError(nextError);
 		deps.setStatus("error");
@@ -64,7 +68,7 @@ async function tryRecoverMatchingSessionError(
 export async function tryRecoverForbiddenSession(
 	error: unknown,
 	recover: () => Promise<void>,
-	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus">,
+	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus" | "isCurrent">,
 ) {
 	return tryRecoverMatchingSessionError(error, isForbiddenSessionError, recover, deps);
 }
@@ -73,7 +77,7 @@ export async function tryRecoverForbiddenSession(
 export async function tryRecoverUnknownSession(
 	error: unknown,
 	recover: () => Promise<void>,
-	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus">,
+	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus" | "isCurrent">,
 ) {
 	return tryRecoverMatchingSessionError(error, isUnknownSessionError, recover, deps);
 }

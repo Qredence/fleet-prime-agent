@@ -1,6 +1,7 @@
 import type {
 	ChatSessionMetadata,
 	ChatStreamEvent,
+	ChatStreamEventCursor,
 	FleetAdapterCapabilities,
 	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
@@ -16,7 +17,18 @@ import {
 	upsertAssistantPayloadPart,
 	upsertAssistantReasoningPresentation,
 	upsertAssistantToolPart,
-} from "@/lib/chat/chat-message-helpers";
+	upsertToolPart,
+} from "@/lib/chat/chat-helpers";
+
+/** Shared handoff state between the POST stream reducer and session SSE replay. */
+export type ChatStreamRecoveryState = {
+	sessionId?: string;
+	active: boolean;
+	cursor?: ChatStreamEventCursor;
+	needsSnapshot: boolean;
+	applyEvent?: (event: ChatStreamEvent) => void;
+	requestReconnect?: () => void;
+};
 
 export type ChatStreamSnapshot = {
 	adapterCapabilities?: FleetAdapterCapabilities;
@@ -120,12 +132,38 @@ function replaceOrAppendMessage(messages: Array<ChatMessage>, nextMessage: ChatM
 		: [...messages, nextMessage];
 }
 
-function payloadPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {
-	if (left.type !== "payload" || right.type !== "payload") return false;
-	return left.id && right.id ? left.id === right.id : left.kind === right.kind && left.title === right.title;
+type TrackedChatMessage = ChatMessage & { serverId?: string };
+
+function userMessageIndex(messages: Array<ChatMessage>, serverId: string) {
+	return messages.findIndex(
+		(message) => message.id === serverId || (message as TrackedChatMessage).serverId === serverId,
+	);
 }
 
-/** True when a carried reasoning, payload, or Fleet reasoning part has no unused terminal match. */
+function withServerId(message: ChatMessage, localId: string, serverId: string): TrackedChatMessage {
+	return { ...message, id: localId, serverId };
+}
+
+function payloadPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {
+	if (left.type !== "payload" || right.type !== "payload") return false;
+	if (left.id !== undefined && right.id !== undefined) return left.id === right.id;
+	// Id-less payloads are separate executions. Only reconcile an exact copy,
+	// consuming each terminal match once so repeated outputs retain multiplicity.
+	return (
+		left.kind === right.kind &&
+		left.title === right.title &&
+		left.text === right.text &&
+		JSON.stringify(left.payload) === JSON.stringify(right.payload)
+	);
+}
+
+function errorPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {
+	return (
+		left.type === "error" && right.type === "error" && left.title === right.title && left.message === right.message
+	);
+}
+
+/** True when a carried reasoning, payload, error, or Fleet reasoning part has no unused terminal match. */
 function hasUnmatchedCarriedPart(donorParts: Array<ChatMessagePart>, terminalParts: Array<ChatMessagePart>) {
 	const consumed = new Set<number>();
 	const take = (matches: (candidate: ChatMessagePart) => boolean) => {
@@ -151,6 +189,10 @@ function hasUnmatchedCarriedPart(donorParts: Array<ChatMessagePart>, terminalPar
 		}
 		if (part.type === "tool-FleetReasoning") {
 			if (!take((candidate) => candidate.type === "tool-FleetReasoning")) return true;
+			continue;
+		}
+		if (part.type === "error") {
+			if (!take((candidate) => errorPartsMatch(part, candidate))) return true;
 		}
 	}
 	return false;
@@ -187,6 +229,8 @@ function mergeStreamedPartsOntoTerminal(
 			terminalIndex = takeTerminalIndex((candidate) => payloadPartsMatch(part, candidate));
 		} else if (part.type === "tool-FleetReasoning") {
 			terminalIndex = takeTerminalIndex((candidate) => candidate.type === "tool-FleetReasoning");
+		} else if (part.type === "error") {
+			terminalIndex = takeTerminalIndex((candidate) => errorPartsMatch(part, candidate));
 		} else if (isChatToolPart(part)) {
 			terminalIndex = takeTerminalIndex(
 				(candidate) =>
@@ -366,26 +410,24 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 
 	if (event.type === "message") {
 		if (event.message.role === "user") {
-			const existingIndex = transition.snapshot.messages.findIndex((message) => message.id === event.message.id);
+			const existingIndex = userMessageIndex(transition.snapshot.messages, event.message.id);
 			const optimisticIndex =
 				existingIndex >= 0
 					? existingIndex
 					: transition.snapshot.messages.findIndex(
 							(message) => message.role === "user" && message.optimistic === true,
 						);
-			const message =
-				optimisticIndex >= 0
-					? { ...event.message, id: transition.snapshot.messages[optimisticIndex]!.id }
-					: event.message;
+			const current = optimisticIndex >= 0 ? transition.snapshot.messages[optimisticIndex] : undefined;
+			const message = current
+				? withServerId(event.message, current.id, event.message.id)
+				: withServerId(event.message, event.message.id, event.message.id);
 			return {
 				...transition,
 				snapshot: {
 					...transition.snapshot,
 					messages:
 						optimisticIndex >= 0
-							? transition.snapshot.messages.map((current, index) =>
-									index === optimisticIndex ? message : current,
-								)
+							? transition.snapshot.messages.map((entry, index) => (index === optimisticIndex ? message : entry))
 							: [...transition.snapshot.messages, message],
 				},
 			};
@@ -468,6 +510,16 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 			snapshot: {
 				...snapshot,
 				messages: upsertAssistantReasoningPresentation(snapshot.messages, assistantId, event.presentation),
+			},
+		};
+	}
+
+	if (event.type === "tool" && event.part.type === "tool-Question") {
+		return {
+			assistantId,
+			snapshot: {
+				...snapshot,
+				messages: placeQuestionTool(snapshot.messages, event, assistantId),
 			},
 		};
 	}
@@ -571,4 +623,66 @@ export function applyChatStreamEvent(transition: ChatStreamTransition, event: Ch
 	}
 
 	return reconciled;
+}
+
+/** Attach a clarification prompt to one assistant bubble and drop duplicates. */
+function placeQuestionTool(
+	messages: Array<ChatMessage>,
+	event: Extract<ChatStreamEvent, { type: "tool" }>,
+	assistantId: string | null,
+): Array<ChatMessage> {
+	const toolCallId = event.part.toolCallId ?? "";
+	if (!toolCallId) return messages;
+	const hasToolCall = (message: ChatMessage) =>
+		message.parts.some(
+			(part) =>
+				part.type !== "text" && part.type !== "error" && "toolCallId" in part && part.toolCallId === toolCallId,
+		);
+	let targetIndex = event.messageId
+		? messages.findIndex((message) => message.id === event.messageId && message.role === "assistant")
+		: -1;
+	if (targetIndex < 0 && assistantId) {
+		targetIndex = messages.findIndex((message) => message.id === assistantId && message.role === "assistant");
+	}
+	if (targetIndex < 0) {
+		let latestAssistantWithoutToolCall = -1;
+		let latestMatchingToolCall = -1;
+		for (let index = messages.length - 1; index >= 0; index -= 1) {
+			const message = messages[index];
+			if (!message || message.role !== "assistant") continue;
+			if (hasToolCall(message) && latestMatchingToolCall < 0) latestMatchingToolCall = index;
+			else if (latestAssistantWithoutToolCall < 0) latestAssistantWithoutToolCall = index;
+		}
+		const streaming = event.part.state === "input-streaming";
+		targetIndex = streaming
+			? latestAssistantWithoutToolCall >= 0
+				? latestAssistantWithoutToolCall
+				: latestMatchingToolCall
+			: latestMatchingToolCall >= 0
+				? latestMatchingToolCall
+				: latestAssistantWithoutToolCall;
+	}
+	const questionPart: ChatMessagePart = { ...event.part, type: "tool-Question" };
+	if (targetIndex < 0) {
+		return [
+			...messages,
+			{
+				id: event.messageId ?? crypto.randomUUID(),
+				role: "assistant",
+				parts: [questionPart],
+				createdAt: Date.now(),
+			},
+		];
+	}
+	return messages.flatMap((message, index) => {
+		if (index === targetIndex) {
+			return [{ ...message, parts: upsertToolPart(message.parts, questionPart) }];
+		}
+		if (!hasToolCall(message)) return [message];
+		const parts = message.parts.filter(
+			(part) =>
+				!(part.type !== "text" && part.type !== "error" && "toolCallId" in part && part.toolCallId === toolCallId),
+		);
+		return parts.length > 0 ? [{ ...message, parts }] : [];
+	});
 }

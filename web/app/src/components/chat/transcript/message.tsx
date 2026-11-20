@@ -2,7 +2,7 @@
 
 import { type HTMLMotionProps, m, useReducedMotion } from "motion/react";
 import { type ComponentPropsWithRef, createContext, type ReactNode, useContext, useMemo } from "react";
-import { EASE_OUT, SPRING_LAYOUT } from "@/lib/ease";
+import { EASE_OUT, SPRING_LAYOUT } from "@/lib/fluid/ease";
 import { cn } from "@/lib/utils";
 
 type MessageFrom = "user" | "assistant";

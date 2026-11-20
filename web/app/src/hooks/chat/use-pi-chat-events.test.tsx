@@ -4,12 +4,60 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { EMPTY_SESSION_PRESENTATION } from "@/lib/chat/chat-stream-state";
-import { usePiChatSessionEvents } from "@/hooks/chat/use-pi-chat-events";
+import { usePiChatSessionEvents } from "@/hooks/chat/use-pi-chat-stream";
 
 describe("usePiChatSessionEvents", () => {
 	afterEach(() => {
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
+	});
+
+	it("keeps the active reply across a nonterminal session reset", async () => {
+		class Source {
+			static current: Source;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			onerror = null;
+			close = vi.fn();
+			constructor() {
+				Source.current = this;
+			}
+		}
+		vi.stubGlobal("EventSource", Source);
+		let messages: Array<ChatMessage> = [];
+		const { unmount } = renderHook(() =>
+			usePiChatSessionEvents({
+				client: {} as ChatClient,
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
+				sessionId: "reset-session",
+				sessionMetadataRef: { current: { sessionId: "reset-session" } },
+				setActivityLabelSynced: vi.fn(),
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced: (update) => {
+					messages = typeof update === "function" ? update(messages) : update;
+				},
+				setPresentationSynced: vi.fn(),
+				setQueueSynced: vi.fn(),
+				setSessionMetadataSynced: vi.fn(),
+				statusRef: { current: "ready" },
+			}),
+		);
+		const send = (frame: unknown) =>
+			Source.current.onmessage?.(new MessageEvent("message", { data: JSON.stringify(frame) }));
+		await act(async () => {
+			send({ type: "start", id: "reply", runId: "run", sessionId: "reset-session" });
+			send({ type: "delta", text: "before " });
+			send({
+				type: "done",
+				runId: "run",
+				sessionId: "reset-session",
+				sessionReset: true,
+				message: { id: "reset", role: "assistant", parts: [] },
+			});
+			send({ type: "delta", text: "after" });
+		});
+		expect(messages).toHaveLength(1);
+		expect(messages[0]).toMatchObject({ id: "reply", parts: [{ type: "text", text: "before after" }] });
+		unmount();
 	});
 
 	it("merges question updates into the active assistant bubble", async () => {
@@ -393,6 +441,75 @@ describe("usePiChatSessionEvents", () => {
 
 		expect(EventSourceStub.instances).toHaveLength(2);
 		expect(setActivityLabelSynced).not.toHaveBeenCalled();
+	});
+
+	it("retries failed snapshots without advancing the durable cursor", async () => {
+		vi.useFakeTimers();
+		class EventSourceStub {
+			static instances: EventSourceStub[] = [];
+			readonly close = vi.fn();
+			onerror: (() => void) | null = null;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			constructor() {
+				EventSourceStub.instances.push(this);
+			}
+		}
+		vi.stubGlobal("EventSource", EventSourceStub);
+		const key = "pi:sse:last-event-id:resync-test";
+		window.sessionStorage.removeItem(key);
+		let resolveLoad!: (value: unknown) => void;
+		const loadSession = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("temporary"))
+			.mockImplementation(
+				() =>
+					new Promise((resolve) => {
+						resolveLoad = resolve;
+					}),
+			);
+		const setMessagesSynced = vi.fn();
+		const { unmount } = renderHook(() =>
+			usePiChatSessionEvents({
+				client: { loadSession } as unknown as ChatClient,
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
+				sessionId: "resync-test",
+				sessionMetadataRef: { current: { sessionId: "resync-test" } },
+				setActivityLabelSynced: vi.fn(),
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced,
+				setPresentationSynced: vi.fn(),
+				setQueueSynced: vi.fn(),
+				setSessionMetadataSynced: vi.fn(),
+				statusRef: { current: "ready" },
+			}),
+		);
+		const send = (data: unknown, sequence = "") =>
+			EventSourceStub.instances[0]!.onmessage?.(
+				new MessageEvent("message", { data: JSON.stringify(data), lastEventId: sequence }),
+			);
+		await act(async () => {
+			send({ type: "connected", streamGeneration: "g" });
+			send({ type: "queue", steering: [], followUp: [] }, "4");
+			send({ type: "state", state: { name: "agent_settled", message: "resync-required" } }, "10");
+		});
+		expect(JSON.parse(window.sessionStorage.getItem(key)!).lastEventId).toBe(4);
+		await act(async () => {
+			send({ type: "queue", steering: [], followUp: [] }, "11");
+			await vi.advanceTimersByTimeAsync(2_000);
+		});
+		expect(loadSession).toHaveBeenCalledTimes(2);
+		expect(JSON.parse(window.sessionStorage.getItem(key)!).lastEventId).toBe(4);
+		await act(async () => {
+			resolveLoad({
+				session: { sessionId: "resync-test" },
+				messages: [],
+				planPresentations: [],
+				presentation: EMPTY_SESSION_PRESENTATION,
+			});
+		});
+		expect(JSON.parse(window.sessionStorage.getItem(key)!).lastEventId).toBe(10);
+		expect(setMessagesSynced).toHaveBeenCalledWith([]);
+		unmount();
 	});
 
 	it("persists streamGeneration with lastEventId and resets the stored cursor on cursorReset", async () => {

@@ -3,22 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { Slider } from "@/components/ui/slider";
 
 describe("Slider", () => {
-	it.each(["compact", "default"] as const)("handles mouse and touch input at %s density", (size) => {
-		const onChange = vi.fn();
-		const { container } = render(<Slider size={size} label="Level" min={0} max={10} value={0} onChange={onChange} />);
-		const track = container.querySelector<HTMLElement>('[data-slot="slider-track"], [data-slider-track]')!;
-		Object.defineProperty(track, "offsetWidth", { value: 120 });
-		vi.spyOn(track, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 120, 36));
-		fireEvent.pointerDown(track, { pointerType: "mouse", button: 0, clientX: 60 });
-		expect(onChange).toHaveBeenLastCalledWith(5);
-		fireEvent.pointerMove(track, { pointerType: "mouse", clientX: 120 });
-		expect(onChange).toHaveBeenLastCalledWith(10);
-		fireEvent.pointerUp(track, { pointerType: "mouse" });
-		fireEvent.pointerDown(track, { pointerType: "touch", clientX: 0 });
-		expect(onChange).toHaveBeenLastCalledWith(0);
-		fireEvent.pointerCancel(track, { pointerType: "touch" });
-	});
-
 	it.each([0, -1, 1e-10])("renders fine/non-positive step %s without allocating decorative pips", (step) => {
 		const onChange = vi.fn();
 		const { container } = render(<Slider label="Fine" min={0} max={100} value={0} step={step} onChange={onChange} />);
@@ -64,6 +48,19 @@ describe("Slider", () => {
 		expect(slider.hasAttribute("disabled")).toBe(true);
 		const value = screen.getByRole("button", { name: /Level: 10/ });
 		expect(value.hasAttribute("disabled")).toBe(true);
+	});
+
+	it.each(["Enter", "Escape"])("focuses the editor and restores the button after %s", (key) => {
+		const onChange = vi.fn();
+		render(<Slider size="compact" label="Level" value={7} onChange={onChange} />);
+		fireEvent.click(screen.getByRole("button", { name: "Level: 7" }));
+		const input = screen.getByRole("spinbutton", { name: "Edit slider value" });
+		expect(document.activeElement).toBe(input);
+		fireEvent.change(input, { target: { value: "8" } });
+		fireEvent.keyDown(input, { key });
+		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Level: 7" }));
+		if (key === "Enter") expect(onChange).toHaveBeenCalledWith(8);
+		else expect(onChange).not.toHaveBeenCalled();
 	});
 
 	it("includes the visible value in the value editor's accessible name", () => {

@@ -1,3 +1,4 @@
+import type { SessionTreeNode } from "@prime-agent/web-protocol/chat-protocol";
 import type { ProjectId } from "@prime-agent/web-protocol";
 import type { ChatQuestionAnswer } from "@prime-agent/web-protocol/chat-protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -17,14 +18,21 @@ import { useChatWorkspaceComposerState } from "@/hooks/chat/chat-input-bar-props
 import { useComposerInlineCompletion } from "@/hooks/chat/composer-assistance";
 import { useComposerIntentAvailability, useComposerIntentRouting } from "@/hooks/chat/composer-assistance";
 import type { InlineCompletion } from "@/hooks/chat/inline-completion";
-import type { SettingsSlashTab } from "@/lib/chat/slash-commands";
-import { buildSlashCommands } from "@/lib/chat/slash-commands";
+import type { SettingsSectionId } from "@/lib/settings/settings-sections";
+import {
+	canonicalCommandName,
+	commandInsertsPrefix,
+	commandSuggestions,
+	isLocalUiCommand,
+	isSessionTransportCommand,
+	parseSlashInput,
+	TUI_ONLY_COMMANDS,
+} from "@/lib/chat/runtime-commands";
 import { buildWorkspaceReferenceSuggestions } from "@/lib/chat/workspace-suggestions";
 import { useSkipPendingQuestion } from "@/hooks/chat/use-skip-pending-question";
 import { useChatStorage } from "@/hooks/chat/use-chat-storage";
 import { useChatSuggestions } from "@/hooks/chat/use-chat-view";
 import { useChatWorkspaceActions } from "@/hooks/chat/use-chat-workspace-actions";
-import { useLocalSlashActions } from "@/hooks/chat/use-local-slash-actions";
 import { usePiChat } from "@/hooks/chat/use-pi-chat";
 import { useChatWorkspaceHeader } from "@/components/layout/chat-header";
 import { useChatWorkspaceDialogs } from "@/components/layout/chat-workspace-dialogs";
@@ -122,7 +130,7 @@ export function useChatWorkspaceData() {
 		error: resourcesError,
 		refetch: refetchResources,
 	} = useChatResources(activeProjectId, storage.sessionMetadata.sessionId ?? undefined);
-	const { data: commandsData } = useChatCommands(activeProjectId);
+	const { data: commandsData } = useChatCommands(activeProjectId, storage.sessionMetadata.sessionId ?? undefined);
 	const { data: settingsData, isLoading: settingsLoading, error: settingsError } = useChatSettings(activeProjectId);
 	const shouldLoadWorkspaceTree = rightPanel === "workspace" || rightPanel === "resources";
 	const {
@@ -151,7 +159,6 @@ export function useChatWorkspaceData() {
 		editQueuedMessage,
 		deleteSession,
 		error,
-		getMessages,
 		getSessionMetadata,
 		messages,
 		planLabel,
@@ -252,10 +259,7 @@ export function useChatWorkspaceData() {
 		() => (shouldShowInputSuggestions ? suggestions : []),
 		[shouldShowInputSuggestions, suggestions],
 	);
-	const slashCommands = useMemo(
-		() => buildSlashCommands(resources, settingsData?.effective.enableSkillCommands ?? false, commandsData),
-		[commandsData, resources, settingsData],
-	);
+	const slashCommands = useMemo(() => commandSuggestions(commandsData), [commandsData]);
 	const workspaceReferenceSuggestions = useMemo(
 		() => buildWorkspaceReferenceSuggestions(workspaceTree),
 		[workspaceTree],
@@ -284,38 +288,131 @@ export function useChatWorkspaceData() {
 	);
 
 	const openSettings = useCallback(
-		(tab?: SettingsSlashTab) => {
+		(tab?: SettingsSectionId) => {
 			setSettingsInitialTab(tab);
 			setSettingsDialogOpen(true);
 		},
 		[setSettingsDialogOpen, setSettingsInitialTab],
 	);
-	const handleOpenUIRequest = useCallback(
-		async (request: string) => {
-			const attachments = [...workspaceAttachments, ...uploadedAttachments];
-			clearUploadedAttachments();
-			clearWorkspaceAttachments();
-			const sent = await sendMessage({
-				text: request,
-				altKey: false,
-				mode: chatMode,
-				openUI: true,
-				openUIArtifact: true,
-				attachments,
-			});
-			if (!sent) restoreAttachments(uploadedAttachments, workspaceAttachments);
+	const runRuntimeCommand = useCallback(
+		(command: string, args: string) => {
+			const name = canonicalCommandName(command);
+			if (commandsData?.commands.some((item) => item.name === command && item.source === "prompt")) return false;
+			if (TUI_ONLY_COMMANDS.has(name) || TUI_ONLY_COMMANDS.has(command)) return true;
+			if (name === "settings") {
+				openSettings();
+				return true;
+			}
+			if (name === "model") {
+				setModelPickerOpen(true);
+				return true;
+			}
+			if (name === "effort") {
+				setEffortPickerOpen(true);
+				return true;
+			}
+			if (name === "new") {
+				runWorkspaceAction(() => startNewSession());
+				return true;
+			}
+			if (name === "openui") {
+				if (args) {
+					const uploaded = [...uploadedAttachments];
+					const workspace = [...workspaceAttachments];
+					clearUploadedAttachments();
+					clearWorkspaceAttachments();
+					runWorkspaceAction(async () => {
+						try {
+							const sent = await sendMessage({
+								text: args,
+								mode: chatMode,
+								openUI: true,
+								openUIArtifact: true,
+								attachments: [...workspace, ...uploaded],
+							});
+							if (!sent) restoreAttachments(uploaded, workspace);
+						} catch (error) {
+							restoreAttachments(uploaded, workspace);
+							throw error;
+						}
+					});
+				}
+				return true;
+			}
+			if (name === "copy") {
+				const reply = [...messages]
+					.reverse()
+					.find((message) => message.role === "assistant" && message.source !== "local");
+				const text =
+					reply?.parts
+						.filter((part) => part.type === "text")
+						.map((part) => part.text)
+						.join("\n") ?? "";
+				if (text) runWorkspaceAction(() => navigator.clipboard.writeText(text));
+				return true;
+			}
+			if (isSessionTransportCommand(name)) return false;
+			// Only these names are owned by /api/chat/command. All other slash
+			// input (including skills and extensions) follows the normal turn path.
+			if (
+				!["session", "name", "context", "system-prompt", "export", "reload", "tree", "fork", "clone"].includes(name)
+			)
+				return false;
+			const sessionId = getSessionMetadata().sessionId;
+			if (!sessionId) return false;
+			if (name === "fork" && !args) {
+				runWorkspaceAction(async () => {
+					const tree = await chatClient.getSessionTree(sessionId);
+					if (getSessionMetadata().sessionId !== sessionId) return;
+					const entries: Array<{ id: string; preview: string }> = [];
+					const visit = (nodes: Array<SessionTreeNode>) => {
+						for (const node of nodes) {
+							if (node.kind === "message" && node.role === "user")
+								entries.push({ id: node.id, preview: node.preview });
+							visit(node.children);
+						}
+					};
+					visit(tree.nodes);
+					if (entries.length) setForkPickerEntries(entries);
+					else appendLocalMessage("No fork points available.");
+				});
+				return true;
+			}
+			void chatClient
+				.runChatCommand({ sessionId, command: name, args })
+				.then(async (payload) => {
+					if (getSessionMetadata().sessionId !== sessionId) return;
+					if (name === "fork" && typeof payload.newSessionId === "string") {
+						setForkPickerEntries(null);
+						await resumeSession({ ...getSessionMetadata(), sessionId: payload.newSessionId });
+						return;
+					}
+					const message = typeof payload.message === "string" ? payload.message : `/${name} completed.`;
+					appendLocalMessage(message);
+				})
+				.catch((error: unknown) => notifyChatError(error));
+			return true;
 		},
 		[
+			appendLocalMessage,
 			chatMode,
+			commandsData,
+			messages,
 			clearUploadedAttachments,
 			clearWorkspaceAttachments,
 			restoreAttachments,
-			sendMessage,
 			uploadedAttachments,
 			workspaceAttachments,
+			resumeSession,
+			setForkPickerEntries,
+			getSessionMetadata,
+			openSettings,
+			sendMessage,
+			setEffortPickerOpen,
+			setModelPickerOpen,
+			startNewSession,
 		],
 	);
-
 	const composerIntentAvailability = useComposerIntentAvailability();
 	const {
 		onDraftChange: onComposerDraftChange,
@@ -355,24 +452,29 @@ export function useChatWorkspaceData() {
 		[onComposerDraftChange, onCompletionDraftChange],
 	);
 
-	const { forkFromEntry, handleLocalSlashSubmit, handleSlashCommandSelect } = useLocalSlashActions({
-		appendLocalMessage,
-		getMessages,
-		getSessionMetadata,
-		modelKey,
-		models,
-		onForkPicker: setForkPickerEntries,
-		onOpenUIRequest: handleOpenUIRequest,
-		openSettings,
-		resumeSession: resumeSessionForWorkspace,
-		sessions,
-		setEffortPickerOpen,
-		setModelKey,
-		setModelPickerOpen,
-		setThinkingLevel,
-		startNewSession: startNewSessionForWorkspace,
-		takeCachedIntent,
-	});
+	const handleLocalSlashSubmit = useCallback(
+		(message: string) => {
+			const parsed = parseSlashInput(message);
+			if (parsed) return runRuntimeCommand(parsed.command, parsed.args);
+			const intent = takeCachedIntent(message);
+			if (!intent?.command || !isLocalUiCommand(intent.command)) return false;
+			return runRuntimeCommand(intent.command, "");
+		},
+		[runRuntimeCommand, takeCachedIntent],
+	);
+	const handleSlashCommandSelect = useCallback(
+		(item: { id: string; metadata?: Record<string, string | undefined>; value?: string }) => {
+			if (commandInsertsPrefix(item)) return false;
+			return runRuntimeCommand(item.id, "");
+		},
+		[runRuntimeCommand],
+	);
+	const forkFromEntry = useCallback(
+		(entryId: string) => {
+			runRuntimeCommand("fork", entryId);
+		},
+		[runRuntimeCommand],
+	);
 
 	const loadProjectWorkspaceFile = useCallback(
 		(path: string, signal?: AbortSignal) => loadWorkspaceFile(path, activeProjectId, signal),

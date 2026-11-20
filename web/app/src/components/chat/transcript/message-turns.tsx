@@ -2,8 +2,8 @@ import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol
 import type { ChatReasoningPart } from "@prime-agent/web-protocol/chat-types";
 import type React from "react";
 import { memo } from "react";
-import type { ToolPartBase, ToolRendererProps } from "@/lib/chat/chat-message-parts";
-import { isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "@/lib/chat/chat-message-parts";
+import type { ToolPartBase, ToolRendererProps } from "@/lib/chat/chat-helpers";
+import { isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "@/lib/chat/chat-helpers";
 import { PayloadPart } from "@/components/chat/transcript/payload-part";
 import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import type { CustomToolRendererProps } from "@/lib/chat/types";
@@ -155,6 +155,7 @@ export function buildAssistantElements(
 	const unkeyedToolOccurrences = new Map<string, number>();
 	const reasoningRunOccurrences = new Map<string, number>();
 	const payloadOccurrences = new Map<string, number>();
+	const errorOccurrences = new Map<string, number>();
 	const flushText = () => {
 		const text = textChunks.splice(0).join("\n\n");
 		if (!text) return;
@@ -241,9 +242,12 @@ export function buildAssistantElements(
 
 		if (isErrorPart(part)) {
 			flushText();
+			const errorIdentity = `${part.title ?? ""}:${part.message}`;
+			const errorOccurrence = (errorOccurrences.get(errorIdentity) ?? 0) + 1;
+			errorOccurrences.set(errorIdentity, errorOccurrence);
 			elems.push(
 				<ErrorMessage
-					key={`${messageId}-error-${part.title}-${part.message}`}
+					key={`${messageId}-error-${errorIdentity}-${errorOccurrence}`}
 					title={part.title}
 					message={part.message}
 				/>,

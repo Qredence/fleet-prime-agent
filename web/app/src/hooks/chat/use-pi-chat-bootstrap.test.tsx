@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { EMPTY_SESSION_PRESENTATION } from "@/lib/chat/chat-stream-state";
-import { usePiChatBootstrap } from "@/hooks/chat/use-pi-chat-bootstrap";
+import { usePiChatBootstrap } from "@/hooks/chat/use-pi-chat";
 
 describe("usePiChatBootstrap", () => {
 	it("does not hydrate after unmount while the initial session list is still pending", async () => {
@@ -30,6 +30,7 @@ describe("usePiChatBootstrap", () => {
 				} as unknown as ChatClient,
 				initialSessionMetadataRef: { current: { sessionId: "session-a" } },
 				initializedRef,
+				resumeRequestRef: { current: 0 },
 				recoverFromForbiddenSession: vi.fn(),
 				refreshSessions,
 				setActivityLabelSynced: vi.fn(),

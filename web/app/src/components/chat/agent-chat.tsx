@@ -18,7 +18,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { getChatErrorPresentation } from "@/lib/chat/chat-error-presentation";
+import { getChatErrorPresentation } from "@/lib/chat/chat-error-notify";
 import { ChatWelcome } from "@/components/chat/chat-welcome";
 import type { InputBarProps } from "@/components/chat/composer/input-bar";
 import { InputBar } from "@/components/chat/composer/input-bar";

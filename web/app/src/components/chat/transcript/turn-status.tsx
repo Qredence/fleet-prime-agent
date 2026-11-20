@@ -3,7 +3,7 @@
 import { AlertCircle, Clock3, Gauge, ListRestart, RotateCcw } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
-import { EASE_IN_OUT } from "@/lib/ease";
+import { EASE_IN_OUT } from "@/lib/fluid/ease";
 import { cn } from "@/lib/utils";
 
 export type TurnStatusKind = "queue" | "retry" | "compaction" | "recovery" | "notice";

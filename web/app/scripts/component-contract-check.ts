@@ -1,7 +1,11 @@
 /** Checks the shared primitive and style contracts for first-party UI. */
+import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import ts from "typescript";
+import { RIGHT_PANEL_DEFINITIONS, RIGHT_PANEL_REGISTRY } from "@/components/layout/right-panel-registry";
+import { sessionAgentPlanPresentation } from "@/components/tools/session-agent-plan";
+import { SETTINGS_SECTIONS, SETTINGS_SECTION_REGISTRY, isSettingsSectionId } from "@/lib/settings/settings-sections";
 import {
 	findStaticInlineStyleViolations,
 	nativeControlPattern,
@@ -70,10 +74,6 @@ for (const file of componentSources) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// Report
-// ---------------------------------------------------------------------------
-
 let failures = 0;
 
 for (const [label, files] of [
@@ -100,9 +100,159 @@ if (staticInlineStyleViolations.length > 0) {
 	}
 }
 
-if (failures === 0) {
-	console.log("Component contract checks passed.");
-} else {
+if (failures > 0) {
 	console.error(`\n[check:components] ${failures} violation(s) found.`);
 	process.exitCode = 1;
+} else {
+	console.log("Component contract checks passed.");
+
+	const fixtureRoot = resolve(import.meta.dirname, "fixtures", "component-contract");
+	const readFixture = (name: string) => readFileSync(join(fixtureRoot, name), "utf8");
+	const parseTsx = (source: string) =>
+		ts.createSourceFile("fixture.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+	assert.match(readFixture("direct-base-ui.tsx.fixture"), /from ["']@base-ui\/react/);
+	assert.match(readFixture("native-product-button.tsx.fixture"), nativeControlPattern);
+	assert.match("<dialog open />", nativeControlPattern);
+	assert.match('<m.button type="button" />', nativeControlPattern);
+	assert.doesNotMatch('<Button type="button" />', nativeControlPattern);
+	assert.match(
+		readFixture("unsupported-icon-library.tsx.fixture"),
+		/from ["'](?:@tabler\/icons-react|@heroicons\/|react-icons)/,
+	);
+	for (const invalidImport of readFixture("relative-ui-imports.tsx.fixture").trim().split("\n")) {
+		assert.match(invalidImport, relativeUiImportPattern);
+	}
+	assert.doesNotMatch('import { utility } from "../utility"', relativeUiImportPattern);
+	assert.doesNotMatch('const uiKit = import("../../ui-kit")', relativeUiImportPattern);
+	const staticStyleViolations = findStaticInlineStyleViolations(
+		parseTsx(readFixture("static-inline-style.tsx.fixture")),
+	);
+	assert.equal(staticStyleViolations.length, 3);
+	assert.deepEqual(
+		staticStyleViolations.map((entry) => entry.properties),
+		[["backgroundColor", "position"], ["gridArea", "fontSize", "marginTop"], ["width"]],
+	);
+	const dynamicStyleSample = `
+export function DynamicStyles() {
+  return (
+    <>
+      <div style={{ "--tree-depth": depth }} />
+      <aside style={{ ...style, "--sidebar-width": sidebarWidth }} />
+      <div style={{ height: totalHeight }} />
+      <div style={{ top: offsets[itemIndex] }} />
+      <div style={{ maxHeight }} />
+      <div style={{ aspectRatio }} />
+      <div style={{ animationDelay: \`\${index * 70}ms\` }} />
+      <div style={chatLayoutStyle} />
+      <div style={splitStyle} />
+      <div style={rowStyle} />
+      <span style={token.htmlStyle} />
+    </>
+  );
+}
+`;
+	assert.deepEqual(findStaticInlineStyleViolations(parseTsx(dynamicStyleSample)), []);
+	const aliasedStyles = parseTsx(`
+const chromeStyle = { position: "fixed", top: 0 } as const;
+function Shell() {
+  const gridStyle = { gridTemplateAreas: '"preview handle tree"', width: measuredWidth };
+  return <><div style={chromeStyle} /><div style={gridStyle} /></>;
+}
+`);
+	assert.deepEqual(
+		findStaticInlineStyleViolations(aliasedStyles).map((entry) => entry.properties),
+		[["position", "top"], ["gridTemplateAreas"]],
+	);
+	assert.deepEqual(
+		findStaticInlineStyleViolations(
+			parseTsx(`
+const style = { position: "fixed" };
+function Dynamic({ style }) { return <div style={style} />; }
+`),
+		),
+		[],
+	);
+	console.log("Negative component contract fixtures passed.");
+
+	assert.deepEqual(
+		RIGHT_PANEL_DEFINITIONS.map(({ id }) => id),
+		["resources", "workspace", "artifacts", "repl", "subagents", "session-insights", "session-tree", "dashboards"],
+	);
+	assert.equal(new Set(RIGHT_PANEL_DEFINITIONS.map(({ order }) => order)).size, RIGHT_PANEL_DEFINITIONS.length);
+	for (const definition of RIGHT_PANEL_DEFINITIONS) {
+		assert.equal(RIGHT_PANEL_REGISTRY[definition.id], definition);
+		assert.ok(definition.title && definition.ariaLabel && definition.commandLabel);
+		assert.ok(definition.commandKeywords.length > 0);
+		assert.ok(definition.dataTestid && definition.mobileDataTestid);
+	}
+	assert.equal(RIGHT_PANEL_REGISTRY.resources.badgeSource, "resources");
+	assert.equal(RIGHT_PANEL_REGISTRY.artifacts.badgeSource, "artifacts");
+	assert.equal(RIGHT_PANEL_REGISTRY.workspace.refreshSource, "workspace");
+	assert.deepEqual(
+		SETTINGS_SECTIONS.map(({ id }) => id),
+		[
+			"appearance",
+			"chat",
+			"mcp",
+			"sandbox",
+			"providers",
+			"llm-models",
+			"skills",
+			"keybindings",
+			"sessions",
+			"context",
+			"retry-delivery",
+			"prompts",
+			"extensions-packages",
+			"services",
+		],
+	);
+	assert.equal(new Set(SETTINGS_SECTIONS.map(({ order }) => order)).size, SETTINGS_SECTIONS.length);
+	for (const section of SETTINGS_SECTIONS) {
+		assert.equal(SETTINGS_SECTION_REGISTRY[section.id], section);
+		assert.ok(section.title && section.ariaLabel);
+		assert.equal(isSettingsSectionId(section.id), true);
+	}
+	assert.equal(isSettingsSectionId("unknown"), false);
+	console.log("Component registry checks passed.");
+
+	const pending = [
+		{ id: "1", title: "Inspect the request", status: "pending" as const },
+		{ id: "2", title: "Build the change", status: "pending" as const },
+	];
+	assert.deepEqual(sessionAgentPlanPresentation(pending), {
+		steps: ["Inspect the request", "Build the change"],
+		activeIndex: 0,
+	});
+	assert.deepEqual(
+		sessionAgentPlanPresentation([
+			{ id: "1", title: "Inspect the request", status: "completed" },
+			{ id: "2", title: "Build the change", status: "in_progress" },
+			{ id: "3", title: "Validate the result", status: "pending" },
+		]),
+		{
+			steps: ["Inspect the request", "Build the change", "Validate the result"],
+			activeIndex: 1,
+		},
+	);
+	assert.deepEqual(
+		sessionAgentPlanPresentation([
+			{ id: "1", title: "Inspect the request", status: "completed" },
+			{ id: "2", title: "Build the change", status: "completed" },
+		]),
+		{
+			steps: ["Inspect the request", "Build the change"],
+			activeIndex: 2,
+		},
+	);
+	assert.equal(
+		sessionAgentPlanPresentation([
+			{ id: "1", title: "Inspect the request", status: "pending" },
+			{ id: "2", title: "Build the change", status: "completed" },
+		]),
+		undefined,
+	);
+	assert.equal(sessionAgentPlanPresentation([{ id: "1", title: "   ", status: "pending" }]), undefined);
+	console.log("Fleet Agent Plan adapter checks passed.");
 }

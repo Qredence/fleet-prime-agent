@@ -132,5 +132,5 @@ function SizeProvider({
 	return <SizeContext.Provider value={value}>{children}</SizeContext.Provider>;
 }
 
-export { SizeProvider, useSize, useSizeVariant, typeClass, fieldTouchClass };
+export { SizeProvider, useSize, useSizeVariant, typeClass };
 export type { SizeVariant };

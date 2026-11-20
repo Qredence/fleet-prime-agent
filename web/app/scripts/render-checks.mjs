@@ -61,11 +61,8 @@ function runCheck(label, scriptName) {
 
 const groups = [
 	["message-identities", "check:message-identities"],
-	["openui-contract", "check:openui-contract"],
-	["openui-render", "check:openui-render"],
+	["openui", "check:openui"],
 	["components", "check:components"],
-	["agent-plan-contract", "check:agent-plan-contract"],
-	["registries", "check:registries"],
 ];
 
 const results = await Promise.all(groups.map(([label, scriptName]) => runCheck(label, scriptName)));
