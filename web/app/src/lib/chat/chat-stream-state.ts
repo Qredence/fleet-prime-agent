@@ -146,7 +146,15 @@ function withServerId(message: ChatMessage, localId: string, serverId: string): 
 
 function payloadPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {
 	if (left.type !== "payload" || right.type !== "payload") return false;
-	return left.id && right.id ? left.id === right.id : left.kind === right.kind && left.title === right.title;
+	if (left.id !== undefined && right.id !== undefined) return left.id === right.id;
+	// Id-less payloads are separate executions. Only reconcile an exact copy,
+	// consuming each terminal match once so repeated outputs retain multiplicity.
+	return (
+		left.kind === right.kind &&
+		left.title === right.title &&
+		left.text === right.text &&
+		JSON.stringify(left.payload) === JSON.stringify(right.payload)
+	);
 }
 
 function errorPartsMatch(left: ChatMessagePart, right: ChatMessagePart) {

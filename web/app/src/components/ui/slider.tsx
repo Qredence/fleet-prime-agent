@@ -1,7 +1,7 @@
 "use client";
 
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
-import { forwardRef, useState, type HTMLAttributes } from "react";
+import { forwardRef, useRef, useState, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
 interface SliderProps extends Omit<HTMLAttributes<HTMLDivElement>, "onChange" | "defaultValue"> {
@@ -45,6 +45,11 @@ const Slider = forwardRef<HTMLDivElement, SliderProps>(function Slider(
 	const current = clamp(value, min, max);
 	const accessibleName = ariaLabel ?? label;
 	const [editing, setEditing] = useState(false);
+	const restoreValueFocus = useRef(false);
+	const finishEditing = () => {
+		restoreValueFocus.current = true;
+		setEditing(false);
+	};
 
 	return (
 		<div ref={ref} className={cn("flex min-w-0 items-center gap-3", className)} {...rest}>
@@ -68,13 +73,14 @@ const Slider = forwardRef<HTMLDivElement, SliderProps>(function Slider(
 					<SliderPrimitive.Thumb
 						aria-label={accessibleName}
 						getAriaValueText={() => formatValue(current)}
-						className="block size-4 rounded-full border border-border bg-background shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className="block size-4 rounded-full border border-border bg-background shadow-sm outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
 					/>
 				</SliderPrimitive.Control>
 			</SliderPrimitive.Root>
 			{size === "compact" ? (
 				editing ? (
 					<input
+						autoFocus
 						aria-label="Edit slider value"
 						className="w-16 rounded-md border bg-background px-2 py-1 text-sm"
 						defaultValue={current}
@@ -84,15 +90,21 @@ const Slider = forwardRef<HTMLDivElement, SliderProps>(function Slider(
 						onBlur={(event) => {
 							const next = Number(event.currentTarget.value);
 							if (Number.isFinite(next)) onChange(clamp(next, min, max));
-							setEditing(false);
+							finishEditing();
 						}}
 						onKeyDown={(event) => {
 							if (event.key === "Enter") event.currentTarget.blur();
-							if (event.key === "Escape") setEditing(false);
+							if (event.key === "Escape") finishEditing();
 						}}
 					/>
 				) : (
 					<button
+						ref={(button) => {
+							if (button && restoreValueFocus.current) {
+								restoreValueFocus.current = false;
+								button.focus();
+							}
+						}}
 						type="button"
 						className="shrink-0 text-sm tabular-nums"
 						disabled={disabled}

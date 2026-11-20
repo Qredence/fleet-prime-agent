@@ -382,6 +382,32 @@ describe("applyChatStreamEvent", () => {
 		expect(JSON.stringify(doneParts)).not.toContain("fleet-web-ok");
 	});
 
+	it("preserves separate id-less Bash payloads in live reduction and replay", () => {
+		const payloads = ["first", "second"].map((text) => ({
+			type: "payload" as const,
+			kind: "bash",
+			title: "Bash",
+			text,
+		}));
+		const events: ChatStreamEvent[] = [
+			start("bash-run"),
+			...payloads.map((part) => ({ type: "payload" as const, messageId: "bash-run", part })),
+		];
+		let live = baseTransition();
+		for (const event of events) live = applyChatStreamEvent(live, event);
+		const replay = foldStreamEvents(baseTransition(), events);
+		for (const transition of [live, replay]) {
+			expect(assistantMessages(transition)[0]?.parts.filter((part) => part.type === "payload")).toEqual(payloads);
+			const terminal = applyChatStreamEvent(transition, {
+				type: "done",
+				runId: "run-1",
+				sessionId: "session-1",
+				message: toChatMessage("bash-run", "assistant", [payloads[0]!, { type: "text", text: "done" }]),
+			});
+			expect(assistantMessages(terminal)[0]?.parts.filter((part) => part.type === "payload")).toEqual(payloads);
+		}
+	});
+
 	it("keeps distinct streamed payloads when the terminal payload has no id", () => {
 		const id = "run-payload-same-kind";
 		let t = applyChatStreamEvent(baseTransition(), start(id, "run-payload-same-kind"));

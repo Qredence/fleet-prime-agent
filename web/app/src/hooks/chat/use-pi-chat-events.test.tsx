@@ -395,6 +395,75 @@ describe("usePiChatSessionEvents", () => {
 		expect(setActivityLabelSynced).not.toHaveBeenCalled();
 	});
 
+	it("retries failed snapshots without advancing the durable cursor", async () => {
+		vi.useFakeTimers();
+		class EventSourceStub {
+			static instances: EventSourceStub[] = [];
+			readonly close = vi.fn();
+			onerror: (() => void) | null = null;
+			onmessage: ((event: MessageEvent<string>) => void) | null = null;
+			constructor() {
+				EventSourceStub.instances.push(this);
+			}
+		}
+		vi.stubGlobal("EventSource", EventSourceStub);
+		const key = "pi:sse:last-event-id:resync-test";
+		window.sessionStorage.removeItem(key);
+		let resolveLoad!: (value: unknown) => void;
+		const loadSession = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("temporary"))
+			.mockImplementation(
+				() =>
+					new Promise((resolve) => {
+						resolveLoad = resolve;
+					}),
+			);
+		const setMessagesSynced = vi.fn();
+		const { unmount } = renderHook(() =>
+			usePiChatSessionEvents({
+				client: { loadSession } as unknown as ChatClient,
+				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
+				sessionId: "resync-test",
+				sessionMetadataRef: { current: { sessionId: "resync-test" } },
+				setActivityLabelSynced: vi.fn(),
+				setAdapterCapabilities: vi.fn(),
+				setMessagesSynced,
+				setPresentationSynced: vi.fn(),
+				setQueueSynced: vi.fn(),
+				setSessionMetadataSynced: vi.fn(),
+				statusRef: { current: "ready" },
+			}),
+		);
+		const send = (data: unknown, sequence = "") =>
+			EventSourceStub.instances[0]!.onmessage?.(
+				new MessageEvent("message", { data: JSON.stringify(data), lastEventId: sequence }),
+			);
+		await act(async () => {
+			send({ type: "connected", streamGeneration: "g" });
+			send({ type: "queue", steering: [], followUp: [] }, "4");
+			send({ type: "state", state: { name: "agent_settled", message: "resync-required" } }, "10");
+		});
+		expect(JSON.parse(window.sessionStorage.getItem(key)!).lastEventId).toBe(4);
+		await act(async () => {
+			send({ type: "queue", steering: [], followUp: [] }, "11");
+			await vi.advanceTimersByTimeAsync(2_000);
+		});
+		expect(loadSession).toHaveBeenCalledTimes(2);
+		expect(JSON.parse(window.sessionStorage.getItem(key)!).lastEventId).toBe(4);
+		await act(async () => {
+			resolveLoad({
+				session: { sessionId: "resync-test" },
+				messages: [],
+				planPresentations: [],
+				presentation: EMPTY_SESSION_PRESENTATION,
+			});
+		});
+		expect(JSON.parse(window.sessionStorage.getItem(key)!).lastEventId).toBe(10);
+		expect(setMessagesSynced).toHaveBeenCalledWith([]);
+		unmount();
+	});
+
 	it("persists streamGeneration with lastEventId and resets the stored cursor on cursorReset", async () => {
 		vi.useFakeTimers();
 		class EventSourceStub {

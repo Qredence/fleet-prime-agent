@@ -50,6 +50,19 @@ describe("Slider", () => {
 		expect(value.hasAttribute("disabled")).toBe(true);
 	});
 
+	it.each(["Enter", "Escape"])("focuses the editor and restores the button after %s", (key) => {
+		const onChange = vi.fn();
+		render(<Slider size="compact" label="Level" value={7} onChange={onChange} />);
+		fireEvent.click(screen.getByRole("button", { name: "Level: 7" }));
+		const input = screen.getByRole("spinbutton", { name: "Edit slider value" });
+		expect(document.activeElement).toBe(input);
+		fireEvent.change(input, { target: { value: "8" } });
+		fireEvent.keyDown(input, { key });
+		expect(document.activeElement).toBe(screen.getByRole("button", { name: "Level: 7" }));
+		if (key === "Enter") expect(onChange).toHaveBeenCalledWith(8);
+		else expect(onChange).not.toHaveBeenCalled();
+	});
+
 	it("includes the visible value in the value editor's accessible name", () => {
 		render(<Slider size="compact" label="Level" min={0} max={10} value={7} onChange={vi.fn()} />);
 

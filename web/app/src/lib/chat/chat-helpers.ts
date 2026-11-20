@@ -45,7 +45,12 @@ export function isTextPart(part: unknown): part is { type: "text"; text: string 
 }
 
 export function isErrorPart(part: unknown): part is { type: "error"; title?: string; message: string } {
-	return isRecord(part) && part.type === "error" && typeof part.message === "string";
+	return (
+		isRecord(part) &&
+		part.type === "error" &&
+		typeof part.message === "string" &&
+		(part.title === undefined || typeof part.title === "string")
+	);
 }
 
 export function isPayloadPart(part: unknown): part is {
@@ -61,14 +66,19 @@ export function isPayloadPart(part: unknown): part is {
 		part.type === "payload" &&
 		typeof part.kind === "string" &&
 		typeof part.title === "string" &&
-		(part.id === undefined || typeof part.id === "string")
+		(part.id === undefined || typeof part.id === "string") &&
+		(part.text === undefined || typeof part.text === "string")
 	);
 }
 
 export function isV5ToolPart(part: unknown): part is ToolPartBase {
 	if (!isRecord(part)) return false;
 	const partType = part.type;
-	return partType === "dynamic-tool" || (typeof partType === "string" && partType.startsWith("tool-"));
+	return (
+		(partType === "dynamic-tool" || (typeof partType === "string" && partType.startsWith("tool-"))) &&
+		(part.toolCallId === undefined || typeof part.toolCallId === "string") &&
+		(part.state === undefined || typeof part.state === "string")
+	);
 }
 
 type ToolQuestionPart = {
@@ -170,9 +180,7 @@ export function upsertToolPart(parts: Array<ChatMessagePart>, part: ChatToolPart
 
 function upsertPayloadPart(parts: Array<ChatMessagePart>, part: ChatPayloadPart): Array<ChatMessagePart> {
 	const index = parts.findIndex(
-		(current) =>
-			isChatPayloadPart(current) &&
-			(current.id && part.id ? current.id === part.id : current.kind === part.kind && current.title === part.title),
+		(current) => isChatPayloadPart(current) && part.id !== undefined && current.id === part.id,
 	);
 
 	if (index === -1) return [...parts, part];

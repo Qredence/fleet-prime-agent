@@ -30,6 +30,7 @@ describe("usePiChatBootstrap", () => {
 				} as unknown as ChatClient,
 				initialSessionMetadataRef: { current: { sessionId: "session-a" } },
 				initializedRef,
+				resumeRequestRef: { current: 0 },
 				recoverFromForbiddenSession: vi.fn(),
 				refreshSessions,
 				setActivityLabelSynced: vi.fn(),

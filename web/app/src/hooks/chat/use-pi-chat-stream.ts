@@ -91,6 +91,46 @@ export function usePiChatSessionEvents({
 		let lastAppliedRlmSeq = 0;
 		let closedByEffect = false;
 		let activeAssistantId: string | undefined;
+		let pendingResync: { sequence?: number; generation?: string } | undefined;
+		let resyncTimer: ReturnType<typeof setTimeout> | undefined;
+		const retryResync = () => {
+			resyncTimer = setTimeout(() => {
+				void loadResync();
+			}, 2_000);
+		};
+		const loadResync = async () => {
+			const pending = pendingResync;
+			if (!pending || closedByEffect) return;
+			try {
+				const generation = cursorStore.current().generation;
+				const result = await client.loadSession({ sessionId });
+				if (closedByEffect || sessionMetadataRef.current.sessionId !== sessionId || pendingResync !== pending)
+					return;
+				if (
+					cursorStore.current().generation !== generation ||
+					statusRef.current === "streaming" ||
+					statusRef.current === "submitted"
+				) {
+					retryResync();
+					return;
+				}
+				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
+				setPresentationSynced(result.presentation);
+				setSessionMetadataSynced(result.session);
+				queueRef.current = EMPTY_QUEUE_STATE;
+				setQueueSynced(EMPTY_QUEUE_STATE);
+				if (pending.sequence !== undefined && cursorStore.current().generation === pending.generation) {
+					cursorStore.persist(pending.sequence, pending.generation);
+					if (pending.generation)
+						activeRecoveryRef.current.cursor = { generation: pending.generation, sequence: pending.sequence };
+				}
+				pendingResync = undefined;
+				// Replay frames received while the canonical snapshot was loading.
+				subscription.reconnectNow();
+			} catch {
+				if (!closedByEffect && pendingResync === pending) retryResync();
+			}
+		};
 
 		const clearReconnectNotice = () => {
 			if (!reconnectNoticeShown) return;
@@ -143,6 +183,7 @@ export function usePiChatSessionEvents({
 				}
 				return;
 			}
+			if (pendingResync) return;
 			const validation = ChatStreamEventDecodeSchema.safeParse(parsed);
 			if (!validation.success) {
 				const recovery = activeRecoveryRef.current;
@@ -226,21 +267,11 @@ export function usePiChatSessionEvents({
 			}
 			if (frame.type === "state" && frame.state.name === "agent_settled") {
 				setActivityLabelSynced(undefined);
-				if (ownsTurn) return;
-				const metadataSessionIdAtFrame = sessionMetadataRef.current.sessionId;
-				void client
-					.loadSession({ sessionId })
-					.then((result) => {
-						if (closedByEffect || sessionMetadataRef.current.sessionId !== sessionId) return;
-						if (sessionMetadataRef.current.sessionId !== metadataSessionIdAtFrame) return;
-						if (statusRef.current === "streaming" || statusRef.current === "submitted") return;
-						setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
-						setPresentationSynced(result.presentation);
-						setSessionMetadataSynced(result.session);
-						queueRef.current = EMPTY_QUEUE_STATE;
-						setQueueSynced(EMPTY_QUEUE_STATE);
-					})
-					.catch(() => undefined);
+				if (ownsTurn && frame.state.message !== "resync-required") return;
+				if (!pendingResync) {
+					pendingResync = { sequence: seq, generation: cursorStore.current().generation };
+					void loadResync();
+				}
 				return;
 			}
 
@@ -296,6 +327,7 @@ export function usePiChatSessionEvents({
 				clearReconnectNotice();
 				handleEvent(parsed, seq);
 				if (
+					!pendingResync &&
 					!activeRecoveryRef.current.active &&
 					statusRef.current !== "streaming" &&
 					statusRef.current !== "submitted" &&
@@ -328,6 +360,7 @@ export function usePiChatSessionEvents({
 
 		return () => {
 			closedByEffect = true;
+			clearTimeout(resyncTimer);
 			if (activeRecovery.requestReconnect === requestReconnect) {
 				activeRecovery.requestReconnect = undefined;
 			}
