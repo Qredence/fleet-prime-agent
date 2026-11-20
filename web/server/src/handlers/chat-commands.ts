@@ -3,6 +3,7 @@ import { cwdForRequest } from "../project-request";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { TUI_ONLY_COMMANDS } from "./command-visibility";
+import { requireSession } from "./session-access";
 
 const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 	name: string;
@@ -20,7 +21,7 @@ const BUILTIN_SLASH_COMMANDS: ReadonlyArray<{
 		argumentHint: "[path]",
 	},
 	{ name: "import", description: "Import and resume a session from a JSONL file", argumentHint: "<path.jsonl>" },
-	{ name: "share", description: "Copy the transcript (Gist upload is TUI-only)" },
+	{ name: "share", description: "Copy the transcript" },
 	{ name: "copy", description: "Copy last agent message to clipboard" },
 	{ name: "btw", description: "Ask a side question without adding it to the session", argumentHint: "<question>" },
 	{ name: "name", description: "Set or show the session display name", argumentHint: "[name]" },
@@ -77,11 +78,13 @@ export function handleChatCommandsGet(request: Request): Promise<Response> {
 		const enableSkillCommands = config.settingsFor(cwd).getEnableSkillCommands();
 
 		const sessionId = new URL(request.url).searchParams.get("sessionId") ?? undefined;
-		const daemonCommands = sessionId
-			? await getBridge()
-					.listDaemonCommands(sessionId)
-					.catch(() => [])
-			: [];
+		const session = sessionId ? await requireSession(sessionId) : undefined;
+		const daemonCommands =
+			session && sessionId
+				? await getBridge()
+						.listDaemonCommands(sessionId)
+						.catch(() => [])
+				: [];
 		const advertised =
 			daemonCommands.length > 0
 				? daemonCommands

@@ -67,7 +67,7 @@ Shared package: the request and event schemas both sides validate.
 
 2. **Chat state is a cluster of coordinated hooks and refs, not one reducer.** `usePiChat` owns a dozen refs and setters, `usePiChatStream` applies SSE frames by hand _and_ calls `applyChatStreamEvent` for the POST stream, and `useChatWorkspaceData` stitches actions, slash commands, and panel context into one object the shell immediately destructures. Recovery (`forbidden-session-recovery`, SSE cursor store, stream admission promises) stacks three retry policies on one disconnect.
 
-3. **A second slash-command runtime.** `lib/chat/slash-commands.ts` plus `use-local-slash-actions.ts` reimplement the Prime Agent TUI command list in the browser, including commands that only reply that they are TUI-only. The daemon already executes session commands. The web list is a product feature today, so this pass does not delete it, but it is the wrong long-term home.
+3. **A second slash-command runtime.** Removed. The menu now comes from `GET /api/chat/commands`, which asks the daemon's `get_commands` when a session is attached. The browser only opens settings, the model picker, the effort picker, and a new session itself.
 
 4. **Parallel protocol types.** `chat-protocol.ts` is a `z.infer` mirror of `schemas/*`, and `chat-protocol.zod.ts` re-exports the same schemas for the browser bundle boundary. The split (types vs zod runtime) is justified so the browser can import schemas without pulling server code. The alias file is not a second schema, but it is a second name for every schema.
 
@@ -85,8 +85,19 @@ Keep three packages. The browser must not import the daemon client; that is the 
 - **`web/server`**: `daemon-runtime` + `fleet-daemon-connection` + `prime-bridge` + `event-mapper`, then handlers grouped by resource (`chat`, `projects`, `workspace`, `settings`) instead of one module per route. OpenUI prompt generation, TypeSafe intent, and the legacy read-only SDK bridge stay as features until the daemon replaces the cold reads.
 - **`web/app`**: one `useChat` that owns messages, status, and the stream reducer; SSE and POST both call that reducer. Components for transcript, composer, sessions, and settings own their local state. `lib/` keeps the fetch client, tool-output normalization, and OpenUI parsing — not a second command runtime and not a layout engine. Primitives stay thin wrappers over Base UI.
 
-## This pass
+## Completed after the size map
 
-Deleted the slider motion engine and the table selection-merge animator. Those were subsystems with no second product behavior. Chat streaming, OpenUI, and TypeSafe are unchanged: rewriting them in the same change would risk the session view without a smaller intermediate that still typechecks.
+1. SSE replay and POST streaming both call `applyChatStreamEvent`. Reconnect cursors and agent-settled hydration stay as effects.
+2. Slash commands come from the runtime endpoint. `update`, `fullscreen`, `quit`, and `traces` are not offered.
+3. `use-fluid-hover.ts` and the measured highlight overlay are gone. Select, table, and breadcrumbs use CSS hover.
 
-A tens-of-percent cut of `hooks/` and `lib/` without dropping slash commands, stream recovery, settings forms, or tool rendering is not available. Those folders are the feature code, not a wrapper around it. The next cuts that preserve behavior are: one stream reducer (delete the hand-rolled SSE branches), and moving TUI-only slash replies behind the daemon’s own command list.
+| Area | At the size map | Now |
+| --- | ---: | ---: |
+| `hooks/` | 13,587 | 11,768 |
+| `lib/` | 10,166 | 9,765 |
+| `components/` | 37,424 | 35,701 |
+| `server/src` | 38,060 | 38,100 |
+| `protocol/src` | 5,114 | 5,114 |
+| `web/app/src` | 65,205 | 60,117 |
+
+Fluid size and shape contexts remain. They are the density ladder for the primitives, not the hover hit-tester.
