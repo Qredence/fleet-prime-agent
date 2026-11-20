@@ -97,7 +97,7 @@ import {
 	type RlmChildTranscript,
 } from "./rlm-child-stream-manager";
 import { parseBackendSessionCommand } from "./session-commands";
-import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./session-tree-errors";
+import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "./session-tree-mapper";
 import { mapSessionTreeSnapshot } from "./session-tree-mapper";
 import { textFromChatParts } from "./transcript-hydrator";
 

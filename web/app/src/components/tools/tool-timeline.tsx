@@ -15,7 +15,7 @@ import {
 	TraceLine,
 	TraceTitle,
 } from "@/components/ui/trace";
-import type { ToolPartBase } from "@/lib/chat/chat-message-parts";
+import type { ToolPartBase } from "@/lib/chat/chat-message-helpers";
 import { artifactDisplayTitle, toolActionIconForName, toolPartDisplayName } from "@/lib/tools/tool-action-icon";
 import { isAbortedToolPart, normalizeToolPart } from "@/lib/tools/tool-output-normalizer";
 import { cn } from "@/lib/utils";

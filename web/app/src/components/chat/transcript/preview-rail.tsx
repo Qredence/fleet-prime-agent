@@ -4,7 +4,7 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useHoverCapable } from "@/hooks/use-hover-capable";
-import { EASE_OUT } from "@/lib/ease";
+import { EASE_OUT } from "@/lib/fluid/ease";
 import { spring } from "@/lib/fluid/springs";
 import { cn } from "@/lib/utils";
 

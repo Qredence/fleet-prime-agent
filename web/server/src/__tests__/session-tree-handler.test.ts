@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleChatSessionTreeGet, handleChatSessionTreeNavigatePost } from "../handlers/session-tree";
 import type { PrimeBridge } from "../prime-bridge";
-import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "../session-tree-errors";
+import { SessionTreeCancelledError, SessionTreeConcurrencyError } from "../session-tree-mapper";
 import { resetBridgeForTests, setBridgeForTests } from "../singleton";
 
 vi.mock("../prime-config", () => ({

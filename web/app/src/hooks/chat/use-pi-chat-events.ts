@@ -17,7 +17,7 @@ import {
 	upsertToolPart,
 } from "@/lib/chat/chat-message-helpers";
 import { buildChatEventsUrl } from "@/lib/chat/chat-runtime-url";
-import type { ChatStreamRecoveryState } from "@/lib/chat/chat-stream-recovery";
+import type { ChatStreamRecoveryState } from "@/lib/chat/chat-stream-state";
 import { EMPTY_QUEUE_STATE } from "@/lib/chat/chat-stream-state";
 import { hydratePlanPresentationMessages } from "@/lib/chat/plan-presentation";
 

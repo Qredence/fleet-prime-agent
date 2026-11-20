@@ -16,7 +16,7 @@ import {
 } from "react";
 import { PROMPT_GHOST_CLASS, PROMPT_GHOST_PREFIX_CLASS, PROMPT_TEXT_METRICS } from "@/hooks/chat/inline-completion";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group";
-import { SPRING_SWAP } from "@/lib/ease";
+import { SPRING_SWAP } from "@/lib/fluid/ease";
 import { cn } from "@/lib/utils";
 
 export interface PromptInputProps extends Omit<

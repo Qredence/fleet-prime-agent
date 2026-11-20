@@ -4,7 +4,7 @@ import {
 	SessionTreeSnapshotResponseSchema,
 } from "@prime-agent/web-protocol/chat-protocol.zod";
 import { SessionIdSchema } from "@prime-agent/web-protocol/fleet-contract";
-import { SessionTreeBusyError, SessionTreeCancelledError, SessionTreeConcurrencyError } from "../session-tree-errors";
+import { SessionTreeBusyError, SessionTreeCancelledError, SessionTreeConcurrencyError } from "../session-tree-mapper";
 import { getBridge } from "../singleton";
 import { wrapApiHandler } from "../wrap-api-handler";
 import { requireSession } from "./session-access";

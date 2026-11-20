@@ -106,6 +106,10 @@
 				"files": ["src/hooks/chat/use-pi-chat.ts"],
 				"rules": ["react-doctor/no-set-state-after-await-in-effect"],
 			},
+			{
+				"files": ["src/components/chat/perf/chat-render.bench.tsx"],
+				"rules": ["deslop/unused-file"],
+			},
 		],
 	},
 }

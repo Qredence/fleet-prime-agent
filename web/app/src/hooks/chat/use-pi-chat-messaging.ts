@@ -19,7 +19,7 @@ import {
 	removeOptimisticUserMessage,
 	settleOptimisticUserMessage,
 } from "@/lib/chat/chat-message-helpers";
-import type { ChatStreamRecoveryState } from "@/lib/chat/chat-stream-recovery";
+import type { ChatStreamRecoveryState } from "@/lib/chat/chat-stream-state";
 import { applyChatStreamEvent } from "@/lib/chat/chat-stream-state";
 import { hydratePlanPresentationMessages } from "@/lib/chat/plan-presentation";
 import type { SendMessageInput } from "@/hooks/chat/use-pi-chat";

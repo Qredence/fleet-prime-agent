@@ -4,7 +4,7 @@ import { Check, Copy, ThumbsDown, ThumbsUp } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { EASE_OUT } from "@/lib/ease";
+import { EASE_OUT } from "@/lib/fluid/ease";
 import { cn } from "@/lib/utils";
 
 type StreamingResponseStatus = "streaming" | "complete";
