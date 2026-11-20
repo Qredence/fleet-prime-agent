@@ -33,6 +33,10 @@ export async function listSessionRows(
 	for (let start = 0; start < sources.length; start += 8) {
 		const batch = await Promise.all(
 			sources.slice(start, start + 8).map(async (source) => {
+				// A daemon can list a session before recovery fills its directory.
+				// That row cannot be placed in a project yet, and failing the whole
+				// catalog turns the welcome screen into an error.
+				if (isPendingRecovery(source)) return undefined;
 				const session = normalizeSessionListRow(source);
 				const live = bridge.getSession(session.sessionId);
 				const assignedProjectId = await registry.activeProjectIdForSession(
@@ -58,6 +62,11 @@ export async function listSessionRows(
 		for (const row of batch) if (row) rows.push(row);
 	}
 	return rows;
+}
+
+function isPendingRecovery(source: SessionListSource): boolean {
+	const raw = source as unknown as { cwd?: unknown; lifecycle?: unknown };
+	return raw.lifecycle === "recovering" && !(typeof raw.cwd === "string" && raw.cwd.length > 0);
 }
 
 /** Session listing accepts both daemon summaries and saved-session rows. */

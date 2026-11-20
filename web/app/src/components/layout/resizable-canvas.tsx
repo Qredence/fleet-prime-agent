@@ -1,7 +1,7 @@
 import { RefreshCw, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
 	clampResourceCanvasWidth,
 	getResourceCanvasMaxWidth,
@@ -49,16 +49,34 @@ export function ResizableCanvas({
 	titleIcon: React.ElementType;
 	width: number;
 }) {
-	const reduceMotion = useReducedMotion();
+	const reduceMotion = useReducedMotion() ?? false;
 	const panelRef = useRef<HTMLElement | null>(null);
+	// Exit can reach its final transform without Motion notifying presence. Hold
+	// the panel for the transition, then drop it so a finished slide cannot keep
+	// its layout space.
+	const exitMs = reduceMotion ? 0 : 200;
+	const [prevOpen, setPrevOpen] = useState(open);
+	const [holdExit, setHoldExit] = useState(false);
+	if (open !== prevOpen) {
+		setPrevOpen(open);
+		setHoldExit(!open);
+	}
 
 	useEffect(() => {
 		if (!open) return;
 		panelRef.current?.focus({ preventScroll: true });
 	}, [open]);
 
+	useEffect(() => {
+		if (open || !holdExit) return;
+		const timer = window.setTimeout(() => setHoldExit(false), exitMs + 50);
+		return () => window.clearTimeout(timer);
+	}, [exitMs, holdExit, open]);
+
 	const minWidth = RESOURCE_CANVAS_MIN_WIDTH;
 	const maxWidth = getResourceCanvasMaxWidth();
+
+	if (!open && !holdExit) return null;
 
 	return (
 		<AnimatePresence>
@@ -68,7 +86,7 @@ export function ResizableCanvas({
 					initial={reduceMotion ? false : { x: width, opacity: 0.8 }}
 					animate={{ x: 0, opacity: 1 }}
 					exit={reduceMotion ? { opacity: 0 } : { x: width, opacity: 0.8 }}
-					transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: "easeInOut" }}
+					transition={reduceMotion ? { duration: 0 } : { duration: exitMs / 1000, ease: "easeInOut" }}
 					className={`relative h-full shrink-0 border-l border-border/70 bg-background/95 outline-none ${DESKTOP_PANEL_HIDDEN_FLEX}`}
 					data-fleet-panel-focus
 					data-testid={dataTestid}
