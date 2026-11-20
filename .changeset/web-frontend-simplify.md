@@ -3,4 +3,4 @@
 "@prime-agent/web-server": patch
 ---
 
-Consolidate chat helpers, streaming hooks, and component-check scripts in the browser app, and co-locate session tree error types with the server mapper. No user-visible behavior change.
+Consolidate chat helpers and check scripts, and replace the custom slider motion engine and table selection-merge animator with the shared range control and a simple selected-row style. Chat, OpenUI, and TypeSafe behavior is unchanged; the effort slider and table selection highlight are visually simpler.

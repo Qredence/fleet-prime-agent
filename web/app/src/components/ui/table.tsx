@@ -7,9 +7,7 @@ import {
 	type ReactNode,
 	type TdHTMLAttributes,
 	type ThHTMLAttributes,
-	useCallback,
 	useContext,
-	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -22,7 +20,6 @@ import {
 	useFluidHoverSelect,
 	useRegisterFluidHoverItem,
 } from "@/hooks/use-fluid-hover";
-import { SelectionBackgrounds, useMergeSplitBlocks, useSelectionRuns } from "@/hooks/use-merge-split";
 import { fontWeights } from "@/lib/fluid/font-weight";
 import { useShape } from "@/lib/fluid/shape-context";
 import { SizeProvider, type SizeVariant, useSize } from "@/lib/fluid/size-context";
@@ -62,26 +59,12 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 		const hover = useFluidHover(containerRef);
 		const headHover = useFluidHover(containerRef, { axis: "x" });
 		const registerHead = headHover.registerItem;
-		const { activeStore, handlers, registerItem, itemRects, setActiveIndex } = hover;
+		const { activeStore, handlers, registerItem, setActiveIndex, measureItems } = hover;
 
 		const shape = useShape();
-		const runs = useSelectionRuns(selectedIndices);
-		const mergedBlocks = useMergeSplitBlocks(runs, itemRects, shape.mergedRadius);
-		const [snap, setSnap] = useState({ key: snapKey, on: false });
-		if (snap.key !== snapKey) setSnap({ key: snapKey, on: true });
-		useEffect(() => {
-			if (!snap.on) return;
-			const id = requestAnimationFrame(() => setSnap((s) => ({ ...s, on: false })));
-			return () => cancelAnimationFrame(id);
-		}, [snap.on]);
-
-		const { measureItems } = hover;
 		useLayoutEffect(() => {
-			if (snap.on) measureItems();
-		}, [snap.on, measureItems]);
-		const blocks = snap.on
-			? mergedBlocks.map((b) => ({ ...b, instant: true, exitInstant: true, enterFrom: undefined }))
-			: mergedBlocks;
+			measureItems();
+		}, [snapKey, measureItems]);
 
 		const keyboardOwns = useRef(false);
 		const lastPointer = useRef<{ x: number; y: number } | null>(null);
@@ -102,19 +85,6 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 		const selectedKey = selectedIndices.join(",");
 		const selected = useMemo(() => new Set(selectedKey ? selectedKey.split(",").map(Number) : []), [selectedKey]);
 
-		const hideCoveredRules = useCallback((box: { y: number; height: number; opacity: number }) => {
-			const container = containerRef.current;
-			if (!container) return;
-			const top = container.getBoundingClientRect().top;
-			const rows = Array.from(container.querySelectorAll<HTMLTableRowElement>("thead > tr, tbody > tr"));
-			const covered = rows.map((tr) => {
-				if (box.opacity < 0.5) return false;
-				const bottom = tr.getBoundingClientRect().bottom - top;
-				return bottom >= box.y - 1.5 && bottom <= box.y + box.height + 1.5;
-			});
-			rows.forEach((tr, i) => tr.toggleAttribute("data-under-highlight", covered[i]));
-		}, []);
-
 		const headCell =
 			!hideHeadHighlight && headHover.isMeasured && headHover.activeIndex !== null
 				? headHover.itemRects[headHover.activeIndex]
@@ -128,14 +98,7 @@ const Table = forwardRef<HTMLTableElement, TableProps>(
 		const table = (
 			<TableContext.Provider value={contextValue}>
 				<div ref={containerRef} data-slot="table-container" className="relative">
-					<SelectionBackgrounds key={String(snap.key ?? "")} blocks={blocks} />
-
-					<FluidHoverHighlight
-						hover={hover}
-						className={shape.bg}
-						transition={repeating || snap.on ? false : undefined}
-						onFrame={hideCoveredRules}
-					/>
+					<FluidHoverHighlight hover={hover} className={shape.bg} transition={repeating ? false : undefined} />
 					<FluidHoverHighlight
 						rect={headRect}
 						session={headHover.session}
@@ -233,6 +196,7 @@ const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(({ index, classN
 	const lit = useFluidHoverSelect(ctx?.activeStore, (active) => isBodyRow && active === index);
 	const selected = ctx?.selected;
 	const nextIndex = isBodyRow ? index + 1 : 0;
+	const rowSelected = Boolean(isBodyRow && selected?.has(index));
 	const bySelection = Boolean(selected && ((isBodyRow && selected.has(index)) || selected.has(nextIndex)));
 
 	return (
@@ -244,8 +208,10 @@ const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(({ index, classN
 			}}
 			data-slot="table-row"
 			data-fluid-hover-index={index}
+			data-selected={rowSelected || undefined}
 			className={cn(
 				"group/row relative z-10 *:border-b *:transition-[border-color] *:duration-80",
+				rowSelected && "bg-accent/40",
 				!isBodyRow && "hover:bg-hover/60",
 				bySelection
 					? "*:border-transparent"
