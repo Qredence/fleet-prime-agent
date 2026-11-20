@@ -13,7 +13,7 @@ import type {
 } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ChatAttachment, ProjectId } from "@prime-agent/web-protocol/fleet-contract";
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type MutableRefObject, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { chatClient } from "@/lib/chat/chat-client";
 import { notifyChatError } from "@/lib/chat/chat-error-notify";
@@ -22,14 +22,12 @@ import { EMPTY_QUEUE_STATE, EMPTY_SESSION_PRESENTATION, normalizeSessionMetadata
 import { hydratePlanPresentationMessages, planPresentationForToolCall } from "@/lib/chat/plan-presentation";
 import { isPlanDecisionToolCall } from "@/lib/chat/plan-state";
 import { resolvePlanDecisionMessages } from "@/hooks/chat/use-pi-chat-plan-decisions";
-import { usePiChatBootstrap } from "@/hooks/chat/use-pi-chat-bootstrap";
-import { usePiChatSessionEvents } from "@/hooks/chat/use-pi-chat-events";
+import { usePiChatMessaging, usePiChatSessionEvents } from "@/hooks/chat/use-pi-chat-stream";
 import {
 	runForbiddenSessionRecovery,
 	tryRecoverForbiddenSession,
 	tryRecoverUnknownSession,
 } from "@/lib/chat/forbidden-session-recovery";
-import { usePiChatMessaging } from "@/hooks/chat/use-pi-chat-messaging";
 import { notify } from "@/lib/notify";
 import { removeSessionOpenUIState } from "@/lib/openui/openui-state-cleanup";
 
@@ -54,6 +52,115 @@ export type UsePiChatOptions = {
 	projectId?: string;
 	persistSession: (metadata: ChatSessionMetadata) => void;
 };
+
+type PiChatBootstrapOptions = {
+	client: ChatClient;
+	initialSessionMetadataRef: MutableRefObject<ChatSessionMetadata>;
+	initializedRef: MutableRefObject<boolean>;
+	recoverFromForbiddenSession: (projectIdOverride?: ProjectId | null) => Promise<void>;
+	refreshSessions: () => Promise<Array<ChatSessionInfo>>;
+	setActivityLabelSynced: (label: string | undefined) => void;
+	setError: (error: Error | null) => void;
+	setMessagesSynced: (updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => void;
+	setPlanLabelSynced: (label: string | undefined) => void;
+	setPresentationSynced: (presentation: PrimeAgentSessionPresentation) => void;
+	setQueueSynced: (queue: QueueState) => void;
+	setSessionMetadataSynced: (metadata: ChatSessionMetadata) => void;
+	setStatus: (status: ChatStatus) => void;
+};
+
+/** Initial session list + load; exported for focused tests. */
+export function usePiChatBootstrap({
+	client,
+	initialSessionMetadataRef,
+	initializedRef,
+	recoverFromForbiddenSession,
+	refreshSessions,
+	setActivityLabelSynced,
+	setError,
+	setMessagesSynced,
+	setPlanLabelSynced,
+	setPresentationSynced,
+	setQueueSynced,
+	setSessionMetadataSynced,
+	setStatus,
+}: PiChatBootstrapOptions) {
+	useEffect(() => {
+		if (initializedRef.current) return;
+		initializedRef.current = true;
+		const controller = new AbortController();
+		let completed = false;
+		setStatus("ready");
+		setError(null);
+		setQueueSynced(EMPTY_QUEUE_STATE);
+		setActivityLabelSynced(undefined);
+		setPlanLabelSynced(undefined);
+		setMessagesSynced([]);
+
+		const storedSession = initialSessionMetadataRef.current;
+		void refreshSessions()
+			.then((availableSessions) => {
+				if (controller.signal.aborted) return undefined;
+				const selected = storedSession.sessionId
+					? availableSessions.find((candidate) => candidate.sessionId === storedSession.sessionId)
+					: undefined;
+				const fallback =
+					selected ??
+					(storedSession.projectId
+						? availableSessions.find((candidate) => candidate.projectId === storedSession.projectId)
+						: availableSessions[0]);
+				if (!fallback) {
+					setSessionMetadataSynced(storedSession.projectId ? { projectId: storedSession.projectId } : {});
+					return undefined;
+				}
+				const metadata = selected
+					? storedSession
+					: { sessionId: fallback.sessionId, projectId: fallback.projectId };
+				return client.loadSession(metadata);
+			})
+			.then((result) => {
+				if (!result || controller.signal.aborted) return;
+				setSessionMetadataSynced(result.session);
+				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
+				setPresentationSynced(result.presentation);
+				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
+			})
+			.catch(async (err) => {
+				if (controller.signal.aborted) return;
+				const recoveryDeps = { setError, setStatus };
+				const recovered =
+					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
+					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
+				if (recovered || controller.signal.aborted) return;
+				const nextError = err instanceof Error ? err : new Error(String(err));
+				setError(nextError);
+				setStatus("error");
+				notifyChatError(nextError);
+			})
+			.finally(() => {
+				completed = true;
+			});
+
+		return () => {
+			controller.abort();
+			if (!completed) initializedRef.current = false;
+		};
+	}, [
+		client,
+		initialSessionMetadataRef,
+		initializedRef,
+		recoverFromForbiddenSession,
+		refreshSessions,
+		setActivityLabelSynced,
+		setError,
+		setMessagesSynced,
+		setPlanLabelSynced,
+		setPresentationSynced,
+		setQueueSynced,
+		setSessionMetadataSynced,
+		setStatus,
+	]);
+}
 
 function useSyncedState<T>(initialValue: T | (() => T)): [T, RefObject<T>, (updater: T | ((current: T) => T)) => void] {
 	const [state, setState] = useState<T>(initialValue);

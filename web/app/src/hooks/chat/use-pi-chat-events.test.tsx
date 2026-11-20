@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { EMPTY_SESSION_PRESENTATION } from "@/lib/chat/chat-stream-state";
-import { usePiChatSessionEvents } from "@/hooks/chat/use-pi-chat-events";
+import { usePiChatSessionEvents } from "@/hooks/chat/use-pi-chat-stream";
 
 describe("usePiChatSessionEvents", () => {
 	afterEach(() => {

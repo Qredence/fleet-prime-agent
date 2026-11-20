@@ -12,7 +12,7 @@ import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { ChatRequestError, ChatStreamContractError } from "@/lib/chat/chat-fetch";
-import { toChatMessage } from "@/lib/chat/chat-message-helpers";
+import { toChatMessage } from "@/lib/chat/chat-helpers";
 import { usePiChat } from "@/hooks/chat/use-pi-chat";
 
 const presentation: PrimeAgentSessionPresentation = {

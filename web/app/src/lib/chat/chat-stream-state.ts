@@ -17,7 +17,7 @@ import {
 	upsertAssistantPayloadPart,
 	upsertAssistantReasoningPresentation,
 	upsertAssistantToolPart,
-} from "@/lib/chat/chat-message-helpers";
+} from "@/lib/chat/chat-helpers";
 
 /** Shared handoff state between the POST stream reducer and session SSE replay. */
 export type ChatStreamRecoveryState = {

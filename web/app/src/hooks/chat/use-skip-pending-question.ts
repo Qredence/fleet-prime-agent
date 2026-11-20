@@ -1,7 +1,7 @@
 import type { ChatQuestionAnswer } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import { useEffect, useRef } from "react";
-import { isQuestionToolPartPending } from "@/lib/chat/chat-message-helpers";
+import { isQuestionToolPartPending } from "@/lib/chat/chat-helpers";
 
 type QuestionMessage = {
 	role?: string;

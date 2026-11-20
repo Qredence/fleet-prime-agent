@@ -2,8 +2,8 @@ import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol
 import type { ChatReasoningPart } from "@prime-agent/web-protocol/chat-types";
 import type React from "react";
 import { memo } from "react";
-import type { ToolPartBase, ToolRendererProps } from "@/lib/chat/chat-message-helpers";
-import { isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "@/lib/chat/chat-message-helpers";
+import type { ToolPartBase, ToolRendererProps } from "@/lib/chat/chat-helpers";
+import { isErrorPart, isPayloadPart, isTextPart, isV5ToolPart } from "@/lib/chat/chat-helpers";
 import { PayloadPart } from "@/components/chat/transcript/payload-part";
 import { ReasoningLine } from "@/components/chat/transcript/reasoning-line";
 import type { CustomToolRendererProps } from "@/lib/chat/types";

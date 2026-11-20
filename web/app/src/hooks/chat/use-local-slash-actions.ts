@@ -5,7 +5,7 @@ import { useCallback } from "react";
 import { chatClient } from "@/lib/chat/chat-client";
 import { runWorkspaceAction } from "@/lib/chat/chat-error-notify";
 import { availableThinkingLevels, type ChatModelOption, thinkingLevelLabel } from "@/lib/chat/chat-helpers";
-import { assistantTextFromMessage } from "@/lib/chat/chat-message-helpers";
+import { assistantTextFromMessage } from "@/lib/chat/chat-helpers";
 import { chatQueryKeys } from "@/hooks/chat/chat-queries";
 import type { LocalSlashAction, SettingsSlashTab } from "@/lib/chat/slash-commands";
 import {

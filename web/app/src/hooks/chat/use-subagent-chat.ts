@@ -14,7 +14,7 @@ import {
 } from "@/hooks/chat/chat-sse";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { chatErrorFromStreamEvent, isUnknownSessionError, parseWithSchema } from "@/lib/chat/chat-fetch";
-import { createOptimisticUserMessage, removeOptimisticUserMessage } from "@/lib/chat/chat-message-helpers";
+import { createOptimisticUserMessage, removeOptimisticUserMessage } from "@/lib/chat/chat-helpers";
 import {
 	applyChatStreamEvent,
 	type ChatStreamSnapshot,

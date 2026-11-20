@@ -47,7 +47,7 @@ export function useChatWorkspaceActions({
 	}, [setUploadedAttachments, setWorkspaceAttachments]);
 
 	// In-flight session-creation memo mirroring sessionCreatePromiseRef in
-	// use-pi-chat-messaging.ts. startNewSession is fire-and-forget from several
+	// use-pi-chat-stream.ts. startNewSession is fire-and-forget from several
 	// call sites (header/sidebar new-session buttons, attachment upload), so two
 	// concurrent invocations would otherwise create two sessions. Concurrent
 	// callers reuse the in-flight creation and share its result.

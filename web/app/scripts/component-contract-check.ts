@@ -20,6 +20,7 @@
  *
  * Fails with exit code 1 and a violation report otherwise.
  */
+import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import ts from "typescript";
@@ -28,6 +29,9 @@ import {
 	nativeControlPattern,
 	relativeUiImportPattern,
 } from "./component-contract-patterns";
+import { RIGHT_PANEL_DEFINITIONS, RIGHT_PANEL_REGISTRY } from "@/components/layout/right-panel-registry";
+import { sessionAgentPlanPresentation } from "@/components/tools/session-agent-plan";
+import { SETTINGS_SECTIONS, SETTINGS_SECTION_REGISTRY, isSettingsSectionId } from "@/lib/settings/settings-sections";
 
 const APP_ROOT = resolve(import.meta.dirname, "..");
 const REPO_ROOT = resolve(APP_ROOT, "..", "..");
@@ -344,11 +348,70 @@ if (widePropViolations.length > 0) {
 	}
 }
 
-if (failures === 0) {
+if (failures > 0) {
+	console.error(`\n[check:components] ${failures} violation(s) found.`);
+	process.exitCode = 1;
+} else {
 	console.log(
 		`Component contract checks passed (${byBasename.size} basenames unique, ${componentSources.length} files referenced).`,
 	);
-} else {
-	console.error(`\n[check:components] ${failures} violation(s) found.`);
-	process.exitCode = 1;
+
+	const fixtureRoot = resolve(import.meta.dirname, "fixtures", "component-contract");
+	const readFixture = (name: string) => readFileSync(join(fixtureRoot, name), "utf8");
+	const parseTsx = (source: string) =>
+		ts.createSourceFile("fixture.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+	assert.match(readFixture("direct-base-ui.tsx.fixture"), /from ["']@base-ui\/react/);
+	assert.match(readFixture("native-product-button.tsx.fixture"), nativeControlPattern);
+	assert.doesNotMatch('<Button type="button" />', nativeControlPattern);
+	assert.match(
+		readFixture("unsupported-icon-library.tsx.fixture"),
+		/from ["'](?:@tabler\/icons-react|@heroicons\/|react-icons)/,
+	);
+	for (const invalidImport of readFixture("relative-ui-imports.tsx.fixture").trim().split("\n")) {
+		assert.match(invalidImport, relativeUiImportPattern);
+	}
+	const staticStyleViolations = findStaticInlineStyleViolations(
+		parseTsx(readFixture("static-inline-style.tsx.fixture")),
+	);
+	assert.equal(staticStyleViolations.length, 3);
+	console.log("Negative component contract fixtures passed.");
+
+	assert.deepEqual(
+		RIGHT_PANEL_DEFINITIONS.map(({ id }) => id),
+		["resources", "workspace", "artifacts", "repl", "subagents", "session-insights", "session-tree", "dashboards"],
+	);
+	for (const definition of RIGHT_PANEL_DEFINITIONS) {
+		assert.equal(RIGHT_PANEL_REGISTRY[definition.id], definition);
+	}
+	assert.deepEqual(
+		SETTINGS_SECTIONS.map(({ id }) => id),
+		[
+			"appearance",
+			"chat",
+			"mcp",
+			"sandbox",
+			"providers",
+			"llm-models",
+			"skills",
+			"keybindings",
+			"sessions",
+			"context",
+			"retry-delivery",
+			"prompts",
+			"extensions-packages",
+			"services",
+		],
+	);
+	for (const section of SETTINGS_SECTIONS) {
+		assert.equal(SETTINGS_SECTION_REGISTRY[section.id], section);
+		assert.equal(isSettingsSectionId(section.id), true);
+	}
+	console.log("Component registry checks passed.");
+
+	assert.deepEqual(sessionAgentPlanPresentation([{ id: "1", title: "Step", status: "pending" }]), {
+		steps: ["Step"],
+		activeIndex: 0,
+	});
+	console.log("Fleet Agent Plan adapter checks passed.");
 }

@@ -1,7 +1,7 @@
 import type { ChatStreamEvent } from "@prime-agent/web-protocol/chat-protocol";
 import type { ChatMessage } from "@prime-agent/web-protocol/chat-types";
 import { describe, expect, it } from "vitest";
-import { assistantTextFromMessage, toChatMessage } from "@/lib/chat/chat-message-helpers";
+import { assistantTextFromMessage, toChatMessage } from "@/lib/chat/chat-helpers";
 import {
 	applyChatStreamEvent,
 	type ChatStreamSnapshot,
