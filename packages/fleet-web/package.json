@@ -1,6 +1,6 @@
 {
   "name": "@qredence/fleet",
-  "version": "0.13.6",
+  "version": "0.13.7",
   "description": "Fleet Prime: local web interface and launcher using the pinned Prime Agent Rust runtime",
   "license": "MIT",
   "type": "module",
