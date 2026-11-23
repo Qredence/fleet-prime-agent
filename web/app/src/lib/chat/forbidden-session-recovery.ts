@@ -1,52 +1,46 @@
-import type { PrimeAgentSessionPresentation } from "@prime-agent/web-protocol/chat-protocol";
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
+import type { ChatStore } from "@/hooks/chat/chat-store";
+import { CLEARED_CONVERSATION } from "@/hooks/chat/chat-store";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { notifyChatError } from "@/lib/chat/chat-error-notify";
-import type { QueueState } from "@/lib/chat/chat-fetch";
 import { isForbiddenSessionError, isUnknownSessionError } from "@/lib/chat/chat-fetch";
-import { EMPTY_QUEUE_STATE, EMPTY_SESSION_PRESENTATION } from "@/lib/chat/chat-stream-state";
 
 export type ForbiddenSessionRecoveryDeps = {
 	client: ChatClient;
 	isCurrent?: () => boolean;
 	projectId?: ProjectId;
 	refreshSessions: () => Promise<unknown>;
-	setActivityLabelSynced: (label: string | undefined) => void;
-	setError: (error: Error | null) => void;
-	setMessagesSynced: (updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => void;
-	setPlanLabelSynced: (label: string | undefined) => void;
-	setPresentationSynced: (presentation: PrimeAgentSessionPresentation) => void;
-	setQueueSynced: (queue: QueueState) => void;
-	setSessionMetadataSynced: (metadata: { sessionId?: string; projectId?: ProjectId | null }) => void;
-	setStatus: (status: ChatStatus) => void;
+	store: ChatStore;
 };
 
-export async function runForbiddenSessionRecovery(deps: ForbiddenSessionRecoveryDeps) {
-	if (deps.isCurrent && !deps.isCurrent()) return;
-	deps.setSessionMetadataSynced({});
-	deps.setMessagesSynced([]);
-	deps.setQueueSynced(EMPTY_QUEUE_STATE);
-	deps.setActivityLabelSynced(undefined);
-	deps.setPlanLabelSynced(undefined);
-	deps.setPresentationSynced(EMPTY_SESSION_PRESENTATION);
-	deps.setError(null);
-	deps.setStatus("ready");
+export async function runForbiddenSessionRecovery({
+	client,
+	isCurrent,
+	projectId,
+	refreshSessions,
+	store,
+}: ForbiddenSessionRecoveryDeps) {
+	if (isCurrent && !isCurrent()) return;
+	store.patch({ ...CLEARED_CONVERSATION, error: null, sessionMetadata: {}, status: "ready" });
 
-	const result = await deps.client.createSession(deps.projectId);
-	if (deps.isCurrent && !deps.isCurrent()) return;
-	deps.setSessionMetadataSynced(result.session);
-	deps.setMessagesSynced(result.messages);
-	deps.setPresentationSynced(result.presentation);
-	deps.setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
-	await deps.refreshSessions();
+	const result = await client.createSession(projectId);
+	if (isCurrent && !isCurrent()) return;
+	store.patch({
+		activityLabel: result.sessionReset ? "Started a fresh Pi session" : undefined,
+		messages: result.messages,
+		presentation: result.presentation,
+		sessionMetadata: result.session,
+	});
+	await refreshSessions();
 }
+
+export type SessionRecoveryContext = Pick<ForbiddenSessionRecoveryDeps, "store" | "isCurrent">;
 
 async function tryRecoverMatchingSessionError(
 	error: unknown,
 	matches: (error: unknown) => boolean,
 	recover: () => Promise<void>,
-	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus" | "isCurrent">,
+	{ isCurrent, store }: SessionRecoveryContext,
 ) {
 	if (!matches(error)) {
 		return false;
@@ -55,10 +49,9 @@ async function tryRecoverMatchingSessionError(
 	try {
 		await recover();
 	} catch (recoveryError) {
-		if (deps.isCurrent && !deps.isCurrent()) return true;
+		if (isCurrent && !isCurrent()) return true;
 		const nextError = recoveryError instanceof Error ? recoveryError : new Error(String(recoveryError));
-		deps.setError(nextError);
-		deps.setStatus("error");
+		store.patch({ error: nextError, status: "error" });
 		notifyChatError(nextError);
 	}
 
@@ -68,16 +61,16 @@ async function tryRecoverMatchingSessionError(
 export async function tryRecoverForbiddenSession(
 	error: unknown,
 	recover: () => Promise<void>,
-	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus" | "isCurrent">,
+	context: SessionRecoveryContext,
 ) {
-	return tryRecoverMatchingSessionError(error, isForbiddenSessionError, recover, deps);
+	return tryRecoverMatchingSessionError(error, isForbiddenSessionError, recover, context);
 }
 
 /** 404 twin of the forbidden-session recovery: a listed transcript the daemon can no longer resume. */
 export async function tryRecoverUnknownSession(
 	error: unknown,
 	recover: () => Promise<void>,
-	deps: Pick<ForbiddenSessionRecoveryDeps, "setError" | "setStatus" | "isCurrent">,
+	context: SessionRecoveryContext,
 ) {
-	return tryRecoverMatchingSessionError(error, isUnknownSessionError, recover, deps);
+	return tryRecoverMatchingSessionError(error, isUnknownSessionError, recover, context);
 }

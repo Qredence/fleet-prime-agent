@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { EMPTY_SESSION_PRESENTATION } from "@/lib/chat/chat-stream-state";
+import { createChatStoreFixture } from "@/test/chat-store-fixture";
 import { usePiChatBootstrap } from "@/hooks/chat/use-pi-chat";
 
 describe("usePiChatBootstrap", () => {
@@ -14,9 +15,7 @@ describe("usePiChatBootstrap", () => {
 					resolveSessions = resolve;
 				}),
 		);
-		const setSessionMetadataSynced = vi.fn();
-		const setMessagesSynced = vi.fn();
-		const setPresentationSynced = vi.fn();
+		const { store, changes } = createChatStoreFixture({ sessionMetadata: { sessionId: "session-a" } });
 		const initializedRef = { current: false };
 		const { unmount } = renderHook(() =>
 			usePiChatBootstrap({
@@ -33,20 +32,11 @@ describe("usePiChatBootstrap", () => {
 				resumeRequestRef: { current: 0 },
 				recoverFromForbiddenSession: vi.fn(),
 				refreshSessions,
-				setActivityLabelSynced: vi.fn(),
-				setError: vi.fn(),
-				setMessagesSynced,
-				setPlanLabelSynced: vi.fn(),
-				setPresentationSynced,
-				setQueueSynced: vi.fn(),
-				setSessionMetadataSynced,
-				setStatus: vi.fn(),
+				store,
 			}),
 		);
 
-		setSessionMetadataSynced.mockClear();
-		setMessagesSynced.mockClear();
-		setPresentationSynced.mockClear();
+		changes.length = 0;
 		unmount();
 		expect(initializedRef.current).toBe(false);
 		await act(async () => {
@@ -54,8 +44,6 @@ describe("usePiChatBootstrap", () => {
 			await Promise.resolve();
 		});
 
-		expect(setSessionMetadataSynced).not.toHaveBeenCalled();
-		expect(setMessagesSynced).not.toHaveBeenCalled();
-		expect(setPresentationSynced).not.toHaveBeenCalled();
+		expect(changes).toEqual([]);
 	});
 });

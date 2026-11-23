@@ -1,70 +1,49 @@
 import type {
-	ChatMode,
 	ChatModelSelection,
 	ChatSessionInfo,
 	ChatSessionMetadata,
 	ChatStreamEvent,
 	FleetAdapterCapabilities,
-	PrimeAgentSessionPresentation,
 } from "@prime-agent/web-protocol/chat-protocol";
 import { ChatStreamEventCursorSchema, ChatStreamEventDecodeSchema } from "@prime-agent/web-protocol/chat-protocol.zod";
-import type { ChatMessage, ChatStatus } from "@prime-agent/web-protocol/chat-types";
 import type { ProjectId } from "@prime-agent/web-protocol/fleet-contract";
 import { type MutableRefObject, useCallback, useEffect, useRef } from "react";
 import { createReconnectingEventSource, createSseCursorStore } from "@/hooks/chat/chat-sse";
+import type { ChatStore } from "@/hooks/chat/chat-store";
 import type { SendMessageInput } from "@/hooks/chat/use-pi-chat";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { notifyChatError } from "@/lib/chat/chat-error-notify";
-import { ChatStreamContractError, chatErrorFromStreamEvent, type QueueState } from "@/lib/chat/chat-fetch";
+import { ChatStreamContractError, chatErrorFromStreamEvent } from "@/lib/chat/chat-fetch";
 import {
 	createOptimisticUserMessage,
 	removeOptimisticUserMessage,
 	settleOptimisticUserMessage,
 } from "@/lib/chat/chat-helpers";
 import { buildChatEventsUrl } from "@/lib/chat/chat-runtime-url";
-import { applyChatStreamEvent, EMPTY_QUEUE_STATE, type ChatStreamRecoveryState } from "@/lib/chat/chat-stream-state";
+import { EMPTY_QUEUE_STATE, type ChatStreamRecoveryState } from "@/lib/chat/chat-stream-state";
 import { tryRecoverForbiddenSession, tryRecoverUnknownSession } from "@/lib/chat/forbidden-session-recovery";
 import { hydratePlanPresentationMessages } from "@/lib/chat/plan-presentation";
 
 type SessionEventsOptions = {
 	client: ChatClient;
 	recoveryRef?: MutableRefObject<ChatStreamRecoveryState>;
-	presentationRef: MutableRefObject<PrimeAgentSessionPresentation>;
 	sessionId?: string;
-	sessionMetadataRef: MutableRefObject<ChatSessionMetadata>;
-	setActivityLabelSynced: (label: string | undefined) => void;
-	setAdapterCapabilities: (capabilities: FleetAdapterCapabilities | undefined) => void;
-	setMessagesSynced: (updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => void;
-	setPresentationSynced: (presentation: PrimeAgentSessionPresentation) => void;
-	setQueueSynced: (queue: QueueState) => void;
-	setSessionMetadataSynced: (metadata: ChatSessionMetadata) => void;
-	statusRef: MutableRefObject<ChatStatus>;
-	queueRef?: MutableRefObject<QueueState>;
+	store: ChatStore;
 };
+
+/** True while this browser owns the turn, so out-of-turn frames must not be applied. */
+function ownsTurn(store: ChatStore) {
+	const { status } = store.read();
+	return status === "streaming" || status === "submitted";
+}
 
 /**
  * Manages the visible chat session's SSE connection, event resume cursor, state synchronization, reconnection, and cleanup.
  *
- * @param options - Session event handling dependencies and state setters.
+ * @param options - Session event handling dependencies and the chat store.
  */
-export function usePiChatSessionEvents({
-	client,
-	recoveryRef,
-	presentationRef,
-	sessionId,
-	sessionMetadataRef,
-	setActivityLabelSynced,
-	setAdapterCapabilities,
-	setMessagesSynced,
-	setPresentationSynced,
-	setQueueSynced,
-	setSessionMetadataSynced,
-	statusRef,
-	queueRef: queueRefProp,
-}: SessionEventsOptions) {
+export function usePiChatSessionEvents({ client, recoveryRef, sessionId, store }: SessionEventsOptions) {
 	const internalRecoveryRef = useRef<ChatStreamRecoveryState>({ active: false, needsSnapshot: false });
-	const internalQueueRef = useRef<QueueState>(EMPTY_QUEUE_STATE);
-	const queueRef = queueRefProp ?? internalQueueRef;
 	const activeRecoveryRef = recoveryRef ?? internalRecoveryRef;
 	useEffect(() => {
 		if (!sessionId || typeof window === "undefined") return;
@@ -74,7 +53,6 @@ export function usePiChatSessionEvents({
 			activeRecoveryRef.current.needsSnapshot = false;
 		}
 
-		const sseCapabilitiesRef = { current: undefined as FleetAdapterCapabilities | undefined };
 		const cursorStore = createSseCursorStore({
 			key: `pi:sse:last-event-id:${sessionId}`,
 			allowLegacyInteger: true,
@@ -90,7 +68,7 @@ export function usePiChatSessionEvents({
 		let reconnectNoticeShown = false;
 		let lastAppliedRlmSeq = 0;
 		let closedByEffect = false;
-		let activeAssistantId: string | undefined;
+		let activeAssistantId: string | null = null;
 		let pendingResync: { sequence?: number; generation?: string } | undefined;
 		let resyncTimer: ReturnType<typeof setTimeout> | undefined;
 		const retryResync = () => {
@@ -104,21 +82,18 @@ export function usePiChatSessionEvents({
 			try {
 				const generation = cursorStore.current().generation;
 				const result = await client.loadSession({ sessionId });
-				if (closedByEffect || sessionMetadataRef.current.sessionId !== sessionId || pendingResync !== pending)
+				if (closedByEffect || store.read().sessionMetadata.sessionId !== sessionId || pendingResync !== pending)
 					return;
-				if (
-					cursorStore.current().generation !== generation ||
-					statusRef.current === "streaming" ||
-					statusRef.current === "submitted"
-				) {
+				if (cursorStore.current().generation !== generation || ownsTurn(store)) {
 					retryResync();
 					return;
 				}
-				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
-				setPresentationSynced(result.presentation);
-				setSessionMetadataSynced(result.session);
-				queueRef.current = EMPTY_QUEUE_STATE;
-				setQueueSynced(EMPTY_QUEUE_STATE);
+				store.patch({
+					messages: hydratePlanPresentationMessages(result.messages, result.planPresentations),
+					presentation: result.presentation,
+					queue: EMPTY_QUEUE_STATE,
+					sessionMetadata: result.session,
+				});
 				if (pending.sequence !== undefined && cursorStore.current().generation === pending.generation) {
 					cursorStore.persist(pending.sequence, pending.generation);
 					if (pending.generation)
@@ -135,9 +110,7 @@ export function usePiChatSessionEvents({
 		const clearReconnectNotice = () => {
 			if (!reconnectNoticeShown) return;
 			reconnectNoticeShown = false;
-			if (statusRef.current !== "streaming" && statusRef.current !== "submitted") {
-				setActivityLabelSynced(undefined);
-			}
+			if (!ownsTurn(store)) store.patch({ activityLabel: undefined });
 		};
 
 		const handleEvent = (parsed: unknown, seq: number | undefined) => {
@@ -147,8 +120,7 @@ export function usePiChatSessionEvents({
 					cursorReset?: boolean;
 					streamGeneration?: string;
 				};
-				sseCapabilitiesRef.current = connected.adapterCapabilities;
-				setAdapterCapabilities(connected.adapterCapabilities);
+				store.patch({ adapterCapabilities: connected.adapterCapabilities });
 				if (typeof connected.streamGeneration === "string" && connected.streamGeneration.length > 0) {
 					if (
 						activeRecoveryRef.current.active &&
@@ -179,7 +151,7 @@ export function usePiChatSessionEvents({
 					}
 				}
 				if (activeRecoveryRef.current.active && !activeRecoveryRef.current.needsSnapshot) {
-					setActivityLabelSynced(undefined);
+					store.patch({ activityLabel: undefined });
 				}
 				return;
 			}
@@ -248,7 +220,7 @@ export function usePiChatSessionEvents({
 					cursorStore.persist(cursor.sequence, cursor.generation);
 					if (reconnectNoticeShown) {
 						reconnectNoticeShown = false;
-						setActivityLabelSynced(undefined);
+						store.patch({ activityLabel: undefined });
 					}
 				} catch {
 					activeRecoveryRef.current.needsSnapshot = true;
@@ -256,18 +228,18 @@ export function usePiChatSessionEvents({
 				return;
 			}
 			if (frame.type === "start") activeAssistantId = frame.id;
-			if (frame.type === "done" && !frame.sessionReset) activeAssistantId = undefined;
-			const ownsTurn = statusRef.current === "streaming" || statusRef.current === "submitted";
+			if (frame.type === "done" && !frame.sessionReset) activeAssistantId = null;
+			const turnIsOurs = ownsTurn(store);
 			const questionDuringTurn = frame.type === "tool" && frame.part.type === "tool-Question";
 			const visibleWhileStreaming = frame.type === "presentation" || frame.type === "rlm" || questionDuringTurn;
-			if (ownsTurn && !visibleWhileStreaming) return;
+			if (turnIsOurs && !visibleWhileStreaming) return;
 			if (frame.type === "rlm" && seq !== undefined) {
 				if (seq <= lastAppliedRlmSeq) return;
 				lastAppliedRlmSeq = seq;
 			}
 			if (frame.type === "state" && frame.state.name === "agent_settled") {
-				setActivityLabelSynced(undefined);
-				if (ownsTurn && frame.state.message !== "resync-required") return;
+				store.patch({ activityLabel: undefined });
+				if (turnIsOurs && frame.state.message !== "resync-required") return;
 				if (!pendingResync) {
 					pendingResync = { sequence: seq, generation: cursorStore.current().generation };
 					void loadResync();
@@ -275,38 +247,7 @@ export function usePiChatSessionEvents({
 				return;
 			}
 
-			setMessagesSynced((current) => {
-				const next = applyChatStreamEvent(
-					{
-						assistantId: activeAssistantId ?? null,
-						snapshot: {
-							adapterCapabilities: sseCapabilitiesRef.current,
-							messages: current,
-							presentation: presentationRef.current,
-							queue: queueRef.current,
-							sessionMetadata: sessionMetadataRef.current,
-						},
-					},
-					frame,
-				);
-				activeAssistantId = next.assistantId ?? undefined;
-				if (next.snapshot.presentation && next.snapshot.presentation !== presentationRef.current) {
-					presentationRef.current = next.snapshot.presentation;
-					setPresentationSynced(next.snapshot.presentation);
-				}
-				if (next.snapshot.adapterCapabilities && next.snapshot.adapterCapabilities !== sseCapabilitiesRef.current) {
-					sseCapabilitiesRef.current = next.snapshot.adapterCapabilities;
-					setAdapterCapabilities(next.snapshot.adapterCapabilities);
-				}
-				if (next.snapshot.queue !== queueRef.current) {
-					queueRef.current = next.snapshot.queue;
-					setQueueSynced(next.snapshot.queue);
-				}
-				if (next.snapshot.activityLabel !== undefined || frame.type === "done" || frame.type === "state") {
-					setActivityLabelSynced(next.snapshot.activityLabel);
-				}
-				return next.snapshot.messages;
-			});
+			activeAssistantId = store.applyEvent(activeAssistantId, frame);
 		};
 
 		const subscription = createReconnectingEventSource({
@@ -326,13 +267,7 @@ export function usePiChatSessionEvents({
 			onMessage: (parsed, seq) => {
 				clearReconnectNotice();
 				handleEvent(parsed, seq);
-				if (
-					!pendingResync &&
-					!activeRecoveryRef.current.active &&
-					statusRef.current !== "streaming" &&
-					statusRef.current !== "submitted" &&
-					seq !== undefined
-				) {
+				if (!pendingResync && !activeRecoveryRef.current.active && !ownsTurn(store) && seq !== undefined) {
 					cursorStore.persist(seq);
 					const generation = cursorStore.current().generation;
 					if (generation) {
@@ -343,9 +278,9 @@ export function usePiChatSessionEvents({
 			onError: ({ attempt, scheduleReconnect }) => {
 				// The first failure reconnects silently; persistent failures escalate
 				// the activity label so a dead stream stays visible. Retries never stop.
-				if (attempt > 1 && statusRef.current !== "streaming" && statusRef.current !== "submitted") {
+				if (attempt > 1 && !ownsTurn(store)) {
 					reconnectNoticeShown = true;
-					setActivityLabelSynced(attempt > 2 ? `Reconnecting… (attempt ${attempt})` : "Reconnecting…");
+					store.patch({ activityLabel: attempt > 2 ? `Reconnecting… (attempt ${attempt})` : "Reconnecting…" });
 				}
 				scheduleReconnect();
 			},
@@ -366,41 +301,10 @@ export function usePiChatSessionEvents({
 			}
 			subscription.close();
 		};
-	}, [
-		client,
-		activeRecoveryRef,
-		presentationRef,
-		sessionId,
-		sessionMetadataRef,
-		setActivityLabelSynced,
-		setAdapterCapabilities,
-		setMessagesSynced,
-		setPresentationSynced,
-		setQueueSynced,
-		setSessionMetadataSynced,
-		statusRef,
-		queueRef,
-	]);
+	}, [client, activeRecoveryRef, sessionId, store]);
 }
 
 // --- messaging (send/stream) ---
-
-type PiChatMessagingRefs = {
-	sessionMetadataRef: MutableRefObject<ChatSessionMetadata>;
-	pendingSendControllerRef: MutableRefObject<AbortController | null>;
-	streamControllersRef: MutableRefObject<Map<string, AbortController>>;
-};
-
-type PiChatMessagingSetters = {
-	setActivityLabelSynced: (label: string | undefined) => void;
-	setError: (error: Error | null) => void;
-	setMessagesSynced: (updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => void;
-	setPresentationSynced: (presentation: PrimeAgentSessionPresentation) => void;
-	setPlanLabelSynced: (label: string | undefined) => void;
-	setQueueSynced: (queue: QueueState) => void;
-	setSessionMetadataSynced: (metadata: ChatSessionMetadata) => void;
-	setStatus: (status: ChatStatus) => void;
-};
 
 type StreamAdmission = {
 	sessionId?: string;
@@ -447,38 +351,28 @@ function waitForRecovery(signal: AbortSignal): Promise<void> {
 	});
 }
 
-export type UsePiChatMessagingOptions = PiChatMessagingRefs &
-	PiChatMessagingSetters & {
-		applyConversationEvent: (assistantId: string | null, event: ChatStreamEvent) => string | null;
-		client: ChatClient;
-		model: ChatModelSelection | undefined;
-		projectId?: ProjectId;
-		recoverFromForbiddenSession: () => Promise<void>;
-		refreshSessions: () => Promise<Array<ChatSessionInfo>>;
-		status: ChatStatus;
-	};
+export type UsePiChatMessagingOptions = {
+	client: ChatClient;
+	model: ChatModelSelection | undefined;
+	pendingSendControllerRef: MutableRefObject<AbortController | null>;
+	projectId?: ProjectId;
+	recoverFromForbiddenSession: () => Promise<void>;
+	refreshSessions: () => Promise<Array<ChatSessionInfo>>;
+	store: ChatStore;
+	streamControllersRef: MutableRefObject<Map<string, AbortController>>;
+};
 
 const RESOLVED_PROMISE: Promise<void> = Promise.resolve();
 
 export function usePiChatMessaging({
-	applyConversationEvent,
 	client,
 	model,
 	pendingSendControllerRef,
 	projectId,
 	recoverFromForbiddenSession,
 	refreshSessions,
-	sessionMetadataRef,
+	store,
 	streamControllersRef,
-	setActivityLabelSynced,
-	setError,
-	setMessagesSynced,
-	setPresentationSynced,
-	setPlanLabelSynced,
-	setQueueSynced,
-	setSessionMetadataSynced,
-	setStatus,
-	status,
 }: UsePiChatMessagingOptions) {
 	// Lazily materialize a prime-agent session the first time the user sends a
 	// message without one — previously the composer POSTed with `sessionId:
@@ -532,44 +426,31 @@ export function usePiChatMessaging({
 	const reconcileSession = useCallback(
 		async (sessionId: string): Promise<boolean> => {
 			const [result, sessions] = await Promise.all([client.loadSession({ sessionId }), refreshSessions()]);
-			if (sessionMetadataRef.current.sessionId !== sessionId) return false;
+			if (store.read().sessionMetadata.sessionId !== sessionId) return false;
 
-			// A runtime reset can briefly return an empty transcript while the
-			// completed stream already contains the visible answer. Never replace
-			// that live answer with an empty snapshot; the next non-empty snapshot
-			// will still reconcile the full canonical transcript.
-			if (result.messages.length > 0) {
-				setMessagesSynced(hydratePlanPresentationMessages(result.messages, result.planPresentations));
-			}
-			setPresentationSynced(result.presentation);
-			setSessionMetadataSynced(result.session);
-			setQueueSynced({ steering: [], followUp: [] });
-			setPlanLabelSynced(undefined);
 			const sessionStillRunning = sessions.find((session) => session.sessionId === sessionId)?.status === "running";
-			if (!sessionStillRunning) {
-				setActivityLabelSynced(result.sessionReset ? "Started a fresh Pi session" : undefined);
-			}
+			store.patch({
+				// A runtime reset can briefly return an empty transcript while the
+				// completed stream already contains the visible answer. Never replace
+				// that live answer with an empty snapshot; the next non-empty snapshot
+				// will still reconcile the full canonical transcript.
+				...(result.messages.length > 0
+					? { messages: hydratePlanPresentationMessages(result.messages, result.planPresentations) }
+					: {}),
+				...(sessionStillRunning
+					? {}
+					: { activityLabel: result.sessionReset ? "Started a fresh Pi session" : undefined }),
+				planLabel: undefined,
+				presentation: result.presentation,
+				queue: EMPTY_QUEUE_STATE,
+				sessionMetadata: result.session,
+			});
 			return sessionStillRunning;
 		},
-		[
-			client,
-			refreshSessions,
-			sessionMetadataRef,
-			setActivityLabelSynced,
-			setMessagesSynced,
-			setPlanLabelSynced,
-			setPresentationSynced,
-			setQueueSynced,
-			setSessionMetadataSynced,
-		],
+		[client, refreshSessions, store],
 	);
 	const handleStreamEvent = useCallback(
-		(
-			event: ChatStreamEvent,
-			assistantIdRef: { current: string | null },
-			streamSessionId: string,
-			_mode?: ChatMode,
-		) => {
+		(event: ChatStreamEvent, assistantIdRef: { current: string | null }, streamSessionId: string) => {
 			if (event.type === "error") {
 				throw chatErrorFromStreamEvent(event);
 			}
@@ -577,7 +458,7 @@ export function usePiChatMessaging({
 				// A reconnect/reset is not completion of the active POST stream.
 				// Keep status and assistantId intact so subsequent frames continue
 				// the visible answer instead of replacing it with an empty message.
-				if (streamSessionId !== sessionMetadataRef.current.sessionId) void refreshSessions();
+				if (streamSessionId !== store.read().sessionMetadata.sessionId) void refreshSessions();
 				return;
 			}
 
@@ -589,7 +470,7 @@ export function usePiChatMessaging({
 				}
 			}
 
-			const streamIsVisible = streamSessionId === sessionMetadataRef.current.sessionId;
+			const streamIsVisible = streamSessionId === store.read().sessionMetadata.sessionId;
 			if (!streamIsVisible) {
 				if (event.type === "done") {
 					void refreshSessions();
@@ -597,22 +478,19 @@ export function usePiChatMessaging({
 				return;
 			}
 
-			assistantIdRef.current = applyConversationEvent(assistantIdRef.current, event);
+			assistantIdRef.current = store.applyEvent(assistantIdRef.current, event);
 
-			if (event.type === "start") {
-				setStatus("streaming");
-			}
-
+			if (event.type === "start") store.patch({ status: "streaming" });
 			if (event.type === "done") {
-				setStatus("ready");
+				store.patch({ status: "ready" });
 				void refreshSessions();
 			}
 			if (event.eventCursor) streamRecoveryRef.current.cursor = event.eventCursor;
 		},
-		[applyConversationEvent, findStreamAdmission, refreshSessions, sessionMetadataRef, setStatus],
+		[findStreamAdmission, refreshSessions, store],
 	);
 	const recoverInvalidStream = useCallback(
-		async (sessionId: string, error: ChatStreamContractError, mode?: ChatMode): Promise<boolean> => {
+		async (sessionId: string, error: ChatStreamContractError): Promise<boolean> => {
 			releaseRecovery();
 			const generation = recoveryGenerationRef.current;
 			const controller = new AbortController();
@@ -629,20 +507,19 @@ export function usePiChatMessaging({
 			streamRecoveryRef.current.needsSnapshot = streamRecoveryRef.current.cursor === undefined;
 			streamRecoveryRef.current.applyEvent = (replayedEvent) => {
 				if (streamRecoveryRef.current.sessionId !== sessionId) return;
-				handleStreamEvent(replayedEvent, assistantIdRef, sessionId, mode);
+				handleStreamEvent(replayedEvent, assistantIdRef, sessionId);
 				if (replayedEvent.type === "done") {
-					setStatus("streaming");
-					setActivityLabelSynced("Reconnecting…");
+					store.patch({ activityLabel: "Reconnecting…", status: "streaming" });
 				}
 			};
 			streamRecoveryRef.current.requestReconnect?.();
 
-			setError(null);
+			store.patch({ error: null });
 			let consecutiveFailures = 0;
 			const isCurrent = () =>
 				recoveryGenerationRef.current === generation &&
 				recoveryContextRef.current === controller &&
-				sessionMetadataRef.current.sessionId === sessionId &&
+				store.read().sessionMetadata.sessionId === sessionId &&
 				!signal.aborted;
 
 			try {
@@ -655,33 +532,28 @@ export function usePiChatMessaging({
 						if (!isCurrent()) return false;
 						consecutiveFailures = 0;
 						const runtimeStatus = sessions.find((session) => session.sessionId === sessionId)?.status;
-						setPresentationSynced(snapshot.presentation);
-						setSessionMetadataSynced(snapshot.session);
+						// A runtime reset can briefly return an empty transcript while the
+						// recovered stream still holds the visible answer.
+						const recoveredMessages =
+							snapshot.messages.length > 0
+								? { messages: hydratePlanPresentationMessages(snapshot.messages, snapshot.planPresentations) }
+								: {};
+						store.patch({ presentation: snapshot.presentation, sessionMetadata: snapshot.session });
 
 						if (runtimeStatus === "running") {
-							setStatus("streaming");
-							setActivityLabelSynced("Reconnecting…");
+							store.patch({ activityLabel: "Reconnecting…", status: "streaming" });
 						} else if (runtimeStatus === "idle") {
-							if (snapshot.messages.length > 0) {
-								setMessagesSynced(
-									hydratePlanPresentationMessages(snapshot.messages, snapshot.planPresentations),
-								);
-							}
-							setQueueSynced({ steering: [], followUp: [] });
-							setPlanLabelSynced(undefined);
-							setActivityLabelSynced(snapshot.sessionReset ? "Started a fresh Pi session" : undefined);
-							setError(null);
-							setStatus("ready");
+							store.patch({
+								...recoveredMessages,
+								activityLabel: snapshot.sessionReset ? "Started a fresh Pi session" : undefined,
+								error: null,
+								planLabel: undefined,
+								queue: EMPTY_QUEUE_STATE,
+								status: "ready",
+							});
 							return true;
 						} else {
-							if (snapshot.messages.length > 0) {
-								setMessagesSynced(
-									hydratePlanPresentationMessages(snapshot.messages, snapshot.planPresentations),
-								);
-							}
-							setActivityLabelSynced(undefined);
-							setError(error);
-							setStatus("error");
+							store.patch({ ...recoveredMessages, activityLabel: undefined, error, status: "error" });
 							return false;
 						}
 						await waitForRecovery(signal);
@@ -689,14 +561,12 @@ export function usePiChatMessaging({
 						if (!isCurrent()) return false;
 						consecutiveFailures += 1;
 						if (consecutiveFailures >= 3) break;
-						setActivityLabelSynced("Refreshing conversation…");
+						store.patch({ activityLabel: "Refreshing conversation…" });
 						await waitForRecovery(signal);
 					}
 				}
 				if (!isCurrent()) return false;
-				setActivityLabelSynced(undefined);
-				setError(error);
-				setStatus("error");
+				store.patch({ activityLabel: undefined, error, status: "error" });
 				return false;
 			} finally {
 				// Only tear down state this attempt still owns. A newer attempt
@@ -706,26 +576,12 @@ export function usePiChatMessaging({
 				}
 			}
 		},
-		[
-			client,
-			handleStreamEvent,
-			refreshSessions,
-			releaseRecovery,
-			sessionMetadataRef,
-			setActivityLabelSynced,
-			setError,
-			setMessagesSynced,
-			setPlanLabelSynced,
-			setPresentationSynced,
-			setQueueSynced,
-			setSessionMetadataSynced,
-			setStatus,
-		],
+		[client, handleStreamEvent, refreshSessions, releaseRecovery, store],
 	);
 	const ensureSession = useCallback(
 		async (signal?: AbortSignal): Promise<ChatSessionMetadata> => {
 			if (signal?.aborted) throw new Error("Session creation was aborted");
-			const existing = sessionMetadataRef.current;
+			const existing = store.read().sessionMetadata;
 			if (existing.sessionId) return existing;
 			const inFlight = sessionCreatePromiseRef.current;
 			if (inFlight) return inFlight;
@@ -733,11 +589,9 @@ export function usePiChatMessaging({
 				.createSession(projectIdRef.current, signal)
 				.then((created) => {
 					if (signal?.aborted) throw new Error("Session creation was aborted");
-					setSessionMetadataSynced(created.session);
-					setPresentationSynced(created.presentation);
-					sessionMetadataRef.current = created.session;
+					store.patch({ presentation: created.presentation, sessionMetadata: created.session });
 					void refreshSessions();
-					return created.session;
+					return store.read().sessionMetadata;
 				})
 				.finally(() => {
 					if (sessionCreatePromiseRef.current === promise) {
@@ -747,7 +601,7 @@ export function usePiChatMessaging({
 			sessionCreatePromiseRef.current = promise;
 			return promise;
 		},
-		[client, refreshSessions, sessionMetadataRef, setPresentationSynced, setSessionMetadataSynced],
+		[client, refreshSessions, store],
 	);
 	const enqueueDuringStream = useCallback(
 		async (
@@ -755,12 +609,11 @@ export function usePiChatMessaging({
 			streamingBehavior: "steer" | "followUp" = "steer",
 			options?: Pick<SendMessageInput, "attachments" | "mode" | "openUI" | "openUIArtifact" | "planAction">,
 		) => {
-			const originatingSessionId = sessionMetadataRef.current.sessionId ?? (await ensureSession()).sessionId;
+			const originatingSessionId = store.read().sessionMetadata.sessionId ?? (await ensureSession()).sessionId;
 			if (!originatingSessionId) throw new Error("Unable to queue a message without a session");
 
 			const userMessage = createOptimisticUserMessage(trimmed);
-			setMessagesSynced((current) => [...current, userMessage]);
-			setError(null);
+			store.patch((current) => ({ error: null, messages: [...current.messages, userMessage] }));
 
 			const previousAcceptance = queuedSubmissionTailRef.current;
 			const acceptance = createStreamAdmission();
@@ -787,27 +640,26 @@ export function usePiChatMessaging({
 									acceptance.resolve();
 								}
 								if (event.type === "done" && event.requestKind === "session-command") {
-									if (sessionMetadataRef.current.sessionId !== originatingSessionId) return;
+									if (store.read().sessionMetadata.sessionId !== originatingSessionId) return;
 									// The command POST owns this local completion. Do not feed it
 									// through the active turn reducer, which would settle or replace
 									// the assistant message belonging to the main stream.
-									setMessagesSynced((current) =>
-										settleOptimisticUserMessage(
-											current.some((message) => message.id === event.message.id)
-												? current
-												: [...current, event.message],
+									store.patch((current) => ({
+										messages: settleOptimisticUserMessage(
+											current.messages.some((message) => message.id === event.message.id)
+												? current.messages
+												: [...current.messages, event.message],
 											userMessage.id,
 										),
-									);
+									}));
 									return;
 								}
 								if (event.type === "queue") {
 									acceptance.resolve();
-									setQueueSynced({
-										steering: event.steering,
-										followUp: event.followUp,
+									store.patch({
+										activityLabel: streamingBehavior === "steer" ? "Steered" : "Follow-up queued",
+										queue: { steering: event.steering, followUp: event.followUp },
 									});
-									setActivityLabelSynced(streamingBehavior === "steer" ? "Steered" : "Follow-up queued");
 								}
 								if (event.type === "error") {
 									throw chatErrorFromStreamEvent(event);
@@ -817,7 +669,9 @@ export function usePiChatMessaging({
 						acceptance.resolve();
 					} catch (err) {
 						acceptance.reject(err);
-						setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
+						store.patch((current) => ({
+							messages: removeOptimisticUserMessage(current.messages, userMessage.id),
+						}));
 						throw err;
 					}
 
@@ -836,18 +690,7 @@ export function usePiChatMessaging({
 			queuedSubmissionTailRef.current = acceptance.promise.catch(() => undefined);
 			await submission;
 		},
-		[
-			client,
-			ensureSession,
-			findStreamAdmission,
-			model,
-			refreshSessions,
-			sessionMetadataRef,
-			setActivityLabelSynced,
-			setError,
-			setMessagesSynced,
-			setQueueSynced,
-		],
+		[client, ensureSession, findStreamAdmission, model, refreshSessions, store],
 	);
 
 	const sendMessage = useCallback(
@@ -869,10 +712,11 @@ export function usePiChatMessaging({
 			// are independent, and the recovery loop's own controller is what
 			// `stop()` aborts.
 
+			const { sessionMetadata, status } = store.read();
 			if (
 				status === "submitted" ||
 				status === "streaming" ||
-				findStreamAdmission(sessionMetadataRef.current.sessionId) !== undefined
+				findStreamAdmission(sessionMetadata.sessionId) !== undefined
 			) {
 				try {
 					// Enter during stream = steer into the current turn.
@@ -887,21 +731,22 @@ export function usePiChatMessaging({
 					return true;
 				} catch (err) {
 					const nextError = err instanceof Error ? err : new Error(String(err));
-					setError(nextError);
+					store.patch({ error: nextError });
 					notifyChatError(nextError);
 					return false;
 				}
 			}
 
-			setError(null);
-			setActivityLabelSynced(undefined);
-			setStatus("submitted");
-
 			const userMessage = createOptimisticUserMessage(trimmed);
-			setMessagesSynced((current) => [...current, userMessage]);
+			store.patch((current) => ({
+				activityLabel: undefined,
+				error: null,
+				messages: [...current.messages, userMessage],
+				status: "submitted",
+			}));
 			const assistantIdRef = { current: null as string | null };
 			const streamAdmission = createStreamAdmission();
-			streamAdmission.sessionId = sessionMetadataRef.current.sessionId;
+			streamAdmission.sessionId = sessionMetadata.sessionId;
 			streamAdmissionsRef.current.add(streamAdmission);
 			const controller = new AbortController();
 			pendingSendControllerRef.current = controller;
@@ -931,13 +776,15 @@ export function usePiChatMessaging({
 					},
 					(event) => {
 						if (event.type === "done" && !event.sessionReset) terminalDoneSeen = true;
-						handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId, mode);
+						handleStreamEvent(event, assistantIdRef, ensuredStreamSessionId);
 						if (
 							event.type === "done" &&
 							event.requestKind === "session-command" &&
-							sessionMetadataRef.current.sessionId === ensuredStreamSessionId
+							store.read().sessionMetadata.sessionId === ensuredStreamSessionId
 						) {
-							setMessagesSynced((current) => settleOptimisticUserMessage(current, userMessage.id));
+							store.patch((current) => ({
+								messages: settleOptimisticUserMessage(current.messages, userMessage.id),
+							}));
 						}
 					},
 					controller.signal,
@@ -955,23 +802,25 @@ export function usePiChatMessaging({
 					// refresh fails; the next session refresh can recover it.
 				}
 				if (
-					sessionMetadataRef.current.sessionId === ensuredStreamSessionId &&
+					store.read().sessionMetadata.sessionId === ensuredStreamSessionId &&
 					(terminalDoneSeen || !sessionStillRunning)
 				) {
-					setStatus("ready");
+					store.patch({ status: "ready" });
 				}
 				return true;
 			} catch (err) {
 				if (streamAdmissionsRef.current.delete(streamAdmission)) {
 					streamAdmission.reject(err);
 				}
-				if (!(err instanceof ChatStreamContractError)) {
-					setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
-				} else {
+				if (err instanceof ChatStreamContractError) {
 					streamContractFailed = true;
+				} else {
+					store.patch((current) => ({
+						messages: removeOptimisticUserMessage(current.messages, userMessage.id),
+					}));
 				}
 				if (controller.signal.aborted) return false;
-				if (streamSessionId && sessionMetadataRef.current.sessionId !== streamSessionId) {
+				if (streamSessionId && store.read().sessionMetadata.sessionId !== streamSessionId) {
 					void refreshSessions();
 					return false;
 				}
@@ -983,18 +832,17 @@ export function usePiChatMessaging({
 					if (streamRecoveryRef.current.sessionId !== streamSessionId) {
 						streamRecoveryRef.current.cursor = undefined;
 					}
-					return await recoverInvalidStream(streamSessionId, err, mode);
+					return await recoverInvalidStream(streamSessionId, err);
 				}
-				const recoveryDeps = { setError, setStatus };
+				const context = { store };
 				const recovered =
-					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, recoveryDeps)) ||
-					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, recoveryDeps));
+					(await tryRecoverForbiddenSession(err, recoverFromForbiddenSession, context)) ||
+					(await tryRecoverUnknownSession(err, recoverFromForbiddenSession, context));
 				if (recovered) {
 					return false;
 				}
 				const nextError = err instanceof Error ? err : new Error(String(err));
-				setError(nextError);
-				setStatus("error");
+				store.patch({ error: nextError, status: "error" });
 				notifyChatError(nextError);
 				return false;
 			} finally {
@@ -1002,20 +850,22 @@ export function usePiChatMessaging({
 					streamAdmission.reject(new Error("Chat stream ended before admission"));
 				}
 				if (controller.signal.aborted && !streamContractFailed) {
-					setMessagesSynced((current) => removeOptimisticUserMessage(current, userMessage.id));
+					store.patch((current) => ({
+						messages: removeOptimisticUserMessage(current.messages, userMessage.id),
+					}));
 				}
 				if (pendingSendControllerRef.current === controller) {
 					pendingSendControllerRef.current = null;
 				}
-				if (streamSessionId && controller && streamControllersRef.current.get(streamSessionId) === controller) {
+				if (streamSessionId && streamControllersRef.current.get(streamSessionId) === controller) {
 					streamControllersRef.current.delete(streamSessionId);
 				}
 			}
 		},
 		[
 			client,
-			ensureSession,
 			enqueueDuringStream,
+			ensureSession,
 			findStreamAdmission,
 			handleStreamEvent,
 			model,
@@ -1024,13 +874,8 @@ export function usePiChatMessaging({
 			recoverInvalidStream,
 			reconcileSession,
 			refreshSessions,
-			sessionMetadataRef,
-			setActivityLabelSynced,
-			setError,
-			setMessagesSynced,
-			setStatus,
+			store,
 			streamControllersRef,
-			status,
 		],
 	);
 
@@ -1040,7 +885,6 @@ export function usePiChatMessaging({
 		handleStreamEvent,
 		resetStreamAdmission,
 		sendMessage,
-
 		streamRecoveryRef,
 	};
 }

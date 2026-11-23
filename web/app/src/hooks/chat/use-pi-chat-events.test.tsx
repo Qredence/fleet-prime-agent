@@ -4,7 +4,36 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient } from "@/lib/chat/chat-client";
 import { EMPTY_SESSION_PRESENTATION } from "@/lib/chat/chat-stream-state";
+import { createChatStoreFixture } from "@/test/chat-store-fixture";
 import { usePiChatSessionEvents } from "@/hooks/chat/use-pi-chat-stream";
+
+type Stub = {
+	readonly url: string;
+	close: ReturnType<typeof vi.fn>;
+	onerror: (() => void) | null;
+	onmessage: ((event: MessageEvent<string>) => void) | null;
+};
+
+/** Install an EventSource double and return the list it records instances into. */
+function stubEventSource(): Array<Stub> {
+	const instances: Array<Stub> = [];
+	class EventSourceStub {
+		readonly url: string;
+		readonly close = vi.fn();
+		onerror: (() => void) | null = null;
+		onmessage: ((event: MessageEvent<string>) => void) | null = null;
+		constructor(url: string) {
+			this.url = url;
+			instances.push(this);
+		}
+	}
+	vi.stubGlobal("EventSource", EventSourceStub);
+	return instances;
+}
+
+function sendTo(stub: Stub, frame: unknown, lastEventId = "") {
+	stub.onmessage?.(new MessageEvent("message", { data: JSON.stringify(frame), lastEventId }));
+}
 
 describe("usePiChatSessionEvents", () => {
 	afterEach(() => {
@@ -13,150 +42,81 @@ describe("usePiChatSessionEvents", () => {
 	});
 
 	it("keeps the active reply across a nonterminal session reset", async () => {
-		class Source {
-			static current: Source;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			onerror = null;
-			close = vi.fn();
-			constructor() {
-				Source.current = this;
-			}
-		}
-		vi.stubGlobal("EventSource", Source);
-		let messages: Array<ChatMessage> = [];
+		const sources = stubEventSource();
+		const { store, get } = createChatStoreFixture({ sessionMetadata: { sessionId: "reset-session" } });
 		const { unmount } = renderHook(() =>
-			usePiChatSessionEvents({
-				client: {} as ChatClient,
-				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
-				sessionId: "reset-session",
-				sessionMetadataRef: { current: { sessionId: "reset-session" } },
-				setActivityLabelSynced: vi.fn(),
-				setAdapterCapabilities: vi.fn(),
-				setMessagesSynced: (update) => {
-					messages = typeof update === "function" ? update(messages) : update;
-				},
-				setPresentationSynced: vi.fn(),
-				setQueueSynced: vi.fn(),
-				setSessionMetadataSynced: vi.fn(),
-				statusRef: { current: "ready" },
-			}),
+			usePiChatSessionEvents({ client: {} as ChatClient, sessionId: "reset-session", store }),
 		);
-		const send = (frame: unknown) =>
-			Source.current.onmessage?.(new MessageEvent("message", { data: JSON.stringify(frame) }));
+		const source = sources[0]!;
 		await act(async () => {
-			send({ type: "start", id: "reply", runId: "run", sessionId: "reset-session" });
-			send({ type: "delta", text: "before " });
-			send({
+			sendTo(source, { type: "start", id: "reply", runId: "run", sessionId: "reset-session" });
+			sendTo(source, { type: "delta", text: "before " });
+			sendTo(source, {
 				type: "done",
 				runId: "run",
 				sessionId: "reset-session",
 				sessionReset: true,
 				message: { id: "reset", role: "assistant", parts: [] },
 			});
-			send({ type: "delta", text: "after" });
+			sendTo(source, { type: "delta", text: "after" });
 		});
-		expect(messages).toHaveLength(1);
-		expect(messages[0]).toMatchObject({ id: "reply", parts: [{ type: "text", text: "before after" }] });
+		expect(get().messages).toHaveLength(1);
+		expect(get().messages[0]).toMatchObject({ id: "reply", parts: [{ type: "text", text: "before after" }] });
 		unmount();
 	});
 
 	it("merges question updates into the active assistant bubble", async () => {
-		class EventSourceStub {
-			static instances: EventSourceStub[] = [];
-			readonly close = vi.fn();
-			onerror: (() => void) | null = null;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			constructor() {
-				EventSourceStub.instances.push(this);
-			}
-		}
-		vi.stubGlobal("EventSource", EventSourceStub);
-		let messages: Array<ChatMessage> = [
-			{ id: "active-assistant", role: "assistant", parts: [{ type: "text", text: "" }] },
-		];
-		const setMessagesSynced = vi.fn(
-			(updater: Array<ChatMessage> | ((current: Array<ChatMessage>) => Array<ChatMessage>)) => {
-				messages = typeof updater === "function" ? updater(messages) : updater;
-			},
-		);
-		const statusRef = { current: "streaming" as const };
-		renderHook(() =>
-			usePiChatSessionEvents({
-				client: {} as ChatClient,
-				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
-				sessionId: "session-a",
-				sessionMetadataRef: { current: { sessionId: "session-a" } },
-				setActivityLabelSynced: vi.fn(),
-				setAdapterCapabilities: vi.fn(),
-				setMessagesSynced,
-				setPresentationSynced: vi.fn(),
-				setQueueSynced: vi.fn(),
-				setSessionMetadataSynced: vi.fn(),
-				statusRef,
-			}),
-		);
-		const source = EventSourceStub.instances[0]!;
-		await act(async () => {
-			source.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({
-						type: "tool",
-						part: {
-							type: "tool-Question",
-							toolCallId: "question-1",
-							state: "input-streaming",
-							input: { title: "Choose" },
-						},
-					}),
-				}),
-			);
+		const sources = stubEventSource();
+		const { store, get } = createChatStoreFixture({
+			messages: [{ id: "active-assistant", role: "assistant", parts: [{ type: "text", text: "" }] }],
+			sessionMetadata: { sessionId: "session-a" },
+			status: "streaming",
 		});
-		expect(messages).toHaveLength(1);
-		expect(messages[0]?.parts).toContainEqual(
+		renderHook(() => usePiChatSessionEvents({ client: {} as ChatClient, sessionId: "session-a", store }));
+		const source = sources[0]!;
+		await act(async () => {
+			sendTo(source, {
+				type: "tool",
+				part: {
+					type: "tool-Question",
+					toolCallId: "question-1",
+					state: "input-streaming",
+					input: { title: "Choose" },
+				},
+			});
+		});
+		expect(get().messages).toHaveLength(1);
+		expect(get().messages[0]?.parts).toContainEqual(
 			expect.objectContaining({ toolCallId: "question-1", state: "input-streaming" }),
 		);
-		messages = [
-			{
-				id: "duplicate-question",
-				role: "assistant",
-				parts: [{ type: "tool-Question", toolCallId: "question-1", state: "input-streaming" }],
-			},
-			...messages,
-		];
+
+		const duplicate: ChatMessage = {
+			id: "duplicate-question",
+			role: "assistant",
+			parts: [{ type: "tool-Question", toolCallId: "question-1", state: "input-streaming" }],
+		};
+		store.patch((current) => ({ messages: [duplicate, ...current.messages] }));
 
 		await act(async () => {
-			source.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({
-						type: "tool",
-						part: {
-							type: "tool-Question",
-							toolCallId: "question-1",
-							state: "output-available",
-							output: { choice: "yes" },
-						},
-					}),
-				}),
-			);
+			sendTo(source, {
+				type: "tool",
+				part: {
+					type: "tool-Question",
+					toolCallId: "question-1",
+					state: "output-available",
+					output: { choice: "yes" },
+				},
+			});
 		});
-		expect(messages).toHaveLength(1);
-		expect(messages[0]?.id).toBe("active-assistant");
-		expect(messages[0]?.parts).toContainEqual(
+		expect(get().messages).toHaveLength(1);
+		expect(get().messages[0]?.id).toBe("active-assistant");
+		expect(get().messages[0]?.parts).toContainEqual(
 			expect.objectContaining({ toolCallId: "question-1", state: "output-available" }),
 		);
 	});
 
 	it("applies ordered replay once and stops at gaps or malformed frames", async () => {
-		class EventSourceStub {
-			static instances: EventSourceStub[] = [];
-			readonly close = vi.fn();
-			onerror: (() => void) | null = null;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			constructor() {
-				EventSourceStub.instances.push(this);
-			}
-		}
-		vi.stubGlobal("EventSource", EventSourceStub);
+		const sources = stubEventSource();
 		const applyEvent = vi.fn();
 		const recoveryRef = {
 			current: {
@@ -167,45 +127,31 @@ describe("usePiChatSessionEvents", () => {
 				applyEvent,
 			},
 		};
+		const { store } = createChatStoreFixture({
+			sessionMetadata: { sessionId: "session-recovery" },
+			status: "streaming",
+		});
 		renderHook(() =>
 			usePiChatSessionEvents({
 				client: {} as ChatClient,
 				recoveryRef,
-				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-recovery",
-				sessionMetadataRef: { current: { sessionId: "session-recovery" } },
-				setActivityLabelSynced: vi.fn(),
-				setAdapterCapabilities: vi.fn(),
-				setMessagesSynced: vi.fn(),
-				setPresentationSynced: vi.fn(),
-				setQueueSynced: vi.fn(),
-				setSessionMetadataSynced: vi.fn(),
-				statusRef: { current: "streaming" },
+				store,
 			}),
 		);
-		const source = EventSourceStub.instances[0]!;
+		const source = sources[0]!;
 		const send = (sequence: number, text = "replayed") =>
-			source.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({
-						type: "delta",
-						text,
-						eventCursor: { generation: "gen-1", sequence },
-					}),
-					lastEventId: String(sequence),
-				}),
-			);
+			sendTo(source, { type: "delta", text, eventCursor: { generation: "gen-1", sequence } }, String(sequence));
 		await act(async () => {
-			source.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({
-						type: "reasoning_text",
-						phase: "delta",
-						text: "invalid index",
-						eventCursor: { generation: "gen-1", sequence: 5 },
-					}),
-					lastEventId: "5",
-				}),
+			sendTo(
+				source,
+				{
+					type: "reasoning_text",
+					phase: "delta",
+					text: "invalid index",
+					eventCursor: { generation: "gen-1", sequence: 5 },
+				},
+				"5",
 			);
 			send(6);
 			send(6);
@@ -231,45 +177,21 @@ describe("usePiChatSessionEvents", () => {
 					},
 				),
 		);
-		class EventSourceStub {
-			static instances: EventSourceStub[] = [];
-			readonly close = vi.fn();
-			onerror: (() => void) | null = null;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			constructor() {
-				EventSourceStub.instances.push(this);
-			}
-		}
-		vi.stubGlobal("EventSource", EventSourceStub);
-
-		const sessionMetadataRef = { current: { sessionId: "session-a" } };
-		const setMessagesSynced = vi.fn();
-		const setPresentationSynced = vi.fn();
-		const setSessionMetadataSynced = vi.fn();
+		const sources = stubEventSource();
+		const { store, changes } = createChatStoreFixture({ sessionMetadata: { sessionId: "session-a" } });
 		renderHook(() =>
 			usePiChatSessionEvents({
 				client: { loadSession } as unknown as ChatClient,
-				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-a",
-				sessionMetadataRef,
-				setActivityLabelSynced: vi.fn(),
-				setAdapterCapabilities: vi.fn(),
-				setMessagesSynced,
-				setPresentationSynced,
-				setQueueSynced: vi.fn(),
-				setSessionMetadataSynced,
-				statusRef: { current: "ready" },
+				store,
 			}),
 		);
 
 		await act(async () => {
-			EventSourceStub.instances[0]?.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({ type: "state", state: { name: "agent_settled" } }),
-				}),
-			);
+			sendTo(sources[0]!, { type: "state", state: { name: "agent_settled" } });
 		});
-		sessionMetadataRef.current = { sessionId: "session-b" };
+		store.patch({ sessionMetadata: { sessionId: "session-b" } });
+		changes.length = 0;
 		await act(async () => {
 			resolveSession({
 				messages: [],
@@ -279,9 +201,7 @@ describe("usePiChatSessionEvents", () => {
 			await Promise.resolve();
 		});
 
-		expect(setMessagesSynced).not.toHaveBeenCalled();
-		expect(setPresentationSynced).not.toHaveBeenCalled();
-		expect(setSessionMetadataSynced).not.toHaveBeenCalled();
+		expect(changes).toEqual([]);
 	});
 
 	it("ignores an agent-settled hydration that resolves after effect teardown", async () => {
@@ -298,45 +218,21 @@ describe("usePiChatSessionEvents", () => {
 					},
 				),
 		);
-		class EventSourceStub {
-			static instances: EventSourceStub[] = [];
-			readonly close = vi.fn();
-			onerror: (() => void) | null = null;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			constructor() {
-				EventSourceStub.instances.push(this);
-			}
-		}
-		vi.stubGlobal("EventSource", EventSourceStub);
-
-		const setMessagesSynced = vi.fn();
-		const setPresentationSynced = vi.fn();
-		const setSessionMetadataSynced = vi.fn();
-		const setQueueSynced = vi.fn();
+		const sources = stubEventSource();
+		const { store, changes } = createChatStoreFixture({ sessionMetadata: { sessionId: "session-a" } });
 		const { unmount } = renderHook(() =>
 			usePiChatSessionEvents({
 				client: { loadSession } as unknown as ChatClient,
-				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-a",
-				sessionMetadataRef: { current: { sessionId: "session-a" } },
-				setActivityLabelSynced: vi.fn(),
-				setAdapterCapabilities: vi.fn(),
-				setMessagesSynced,
-				setPresentationSynced,
-				setQueueSynced,
-				setSessionMetadataSynced,
-				statusRef: { current: "ready" },
+				store,
 			}),
 		);
 
 		await act(async () => {
-			EventSourceStub.instances[0]?.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({ type: "state", state: { name: "agent_settled" } }),
-				}),
-			);
+			sendTo(sources[0]!, { type: "state", state: { name: "agent_settled" } });
 		});
 		unmount();
+		changes.length = 0;
 		await act(async () => {
 			resolveSession({
 				messages: [],
@@ -346,115 +242,52 @@ describe("usePiChatSessionEvents", () => {
 			await Promise.resolve();
 		});
 
-		expect(setMessagesSynced).not.toHaveBeenCalled();
-		expect(setPresentationSynced).not.toHaveBeenCalled();
-		expect(setSessionMetadataSynced).not.toHaveBeenCalled();
-		expect(setQueueSynced).not.toHaveBeenCalled();
+		expect(changes).toEqual([]);
 	});
 
 	it("ignores queued frames from a closed session stream after a session switch", async () => {
-		class EventSourceStub {
-			static instances: EventSourceStub[] = [];
-			readonly close = vi.fn();
-			onerror: (() => void) | null = null;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			constructor() {
-				EventSourceStub.instances.push(this);
-			}
-		}
-		vi.stubGlobal("EventSource", EventSourceStub);
-
-		const setActivityLabelSynced = vi.fn();
+		const sources = stubEventSource();
+		const { store, changes } = createChatStoreFixture({ sessionMetadata: { sessionId: "session-a" } });
 		const { rerender } = renderHook(
-			({ sessionId }) =>
-				usePiChatSessionEvents({
-					client: {} as ChatClient,
-					presentationRef: { current: EMPTY_SESSION_PRESENTATION },
-					sessionId,
-					sessionMetadataRef: { current: { sessionId } },
-					setActivityLabelSynced,
-					setAdapterCapabilities: vi.fn(),
-					setMessagesSynced: vi.fn(),
-					setPresentationSynced: vi.fn(),
-					setQueueSynced: vi.fn(),
-					setSessionMetadataSynced: vi.fn(),
-					statusRef: { current: "ready" },
-				}),
+			({ sessionId }) => usePiChatSessionEvents({ client: {} as ChatClient, sessionId, store }),
 			{ initialProps: { sessionId: "session-a" } },
 		);
 
-		const staleSource = EventSourceStub.instances[0]!;
+		const staleSource = sources[0]!;
 		rerender({ sessionId: "session-b" });
+		store.patch({ sessionMetadata: { sessionId: "session-b" } });
+		changes.length = 0;
 		await act(async () => {
-			staleSource.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({ type: "state", state: { message: "stale state" } }),
-				}),
-			);
+			sendTo(staleSource, { type: "state", state: { message: "stale state" } });
 		});
 
 		expect(staleSource.close).toHaveBeenCalledOnce();
-		expect(setActivityLabelSynced).not.toHaveBeenCalled();
+		expect(changes).toEqual([]);
 	});
 
 	it("ignores a queued frame from a stream superseded by reconnect", async () => {
 		vi.useFakeTimers();
-		class EventSourceStub {
-			static instances: EventSourceStub[] = [];
-			readonly close = vi.fn();
-			onerror: (() => void) | null = null;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			constructor() {
-				EventSourceStub.instances.push(this);
-			}
-		}
-		vi.stubGlobal("EventSource", EventSourceStub);
-		const setActivityLabelSynced = vi.fn();
-		renderHook(() =>
-			usePiChatSessionEvents({
-				client: {} as ChatClient,
-				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
-				sessionId: "session-a",
-				sessionMetadataRef: { current: { sessionId: "session-a" } },
-				setActivityLabelSynced,
-				setAdapterCapabilities: vi.fn(),
-				setMessagesSynced: vi.fn(),
-				setPresentationSynced: vi.fn(),
-				setQueueSynced: vi.fn(),
-				setSessionMetadataSynced: vi.fn(),
-				statusRef: { current: "ready" },
-			}),
-		);
+		const sources = stubEventSource();
+		const { store, changes } = createChatStoreFixture({ sessionMetadata: { sessionId: "session-a" } });
+		renderHook(() => usePiChatSessionEvents({ client: {} as ChatClient, sessionId: "session-a", store }));
 
-		const staleSource = EventSourceStub.instances[0]!;
+		const staleSource = sources[0]!;
 		await act(async () => {
 			staleSource.onerror?.();
 			await vi.advanceTimersByTimeAsync(2_000);
 		});
+		changes.length = 0;
 		await act(async () => {
-			staleSource.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({ type: "state", state: { message: "stale state" } }),
-				}),
-			);
+			sendTo(staleSource, { type: "state", state: { message: "stale state" } });
 		});
 
-		expect(EventSourceStub.instances).toHaveLength(2);
-		expect(setActivityLabelSynced).not.toHaveBeenCalled();
+		expect(sources).toHaveLength(2);
+		expect(changes).toEqual([]);
 	});
 
 	it("retries failed snapshots without advancing the durable cursor", async () => {
 		vi.useFakeTimers();
-		class EventSourceStub {
-			static instances: EventSourceStub[] = [];
-			readonly close = vi.fn();
-			onerror: (() => void) | null = null;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			constructor() {
-				EventSourceStub.instances.push(this);
-			}
-		}
-		vi.stubGlobal("EventSource", EventSourceStub);
+		const sources = stubEventSource();
 		const key = "pi:sse:last-event-id:resync-test";
 		window.sessionStorage.removeItem(key);
 		let resolveLoad!: (value: unknown) => void;
@@ -467,26 +300,20 @@ describe("usePiChatSessionEvents", () => {
 						resolveLoad = resolve;
 					}),
 			);
-		const setMessagesSynced = vi.fn();
+		// A non-empty transcript makes the resync observable: the reloaded snapshot
+		// is empty, so clearing proves the canonical snapshot was applied.
+		const { store, get } = createChatStoreFixture({
+			messages: [{ id: "stale", role: "assistant", parts: [{ type: "text", text: "stale" }] }],
+			sessionMetadata: { sessionId: "resync-test" },
+		});
 		const { unmount } = renderHook(() =>
 			usePiChatSessionEvents({
 				client: { loadSession } as unknown as ChatClient,
-				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "resync-test",
-				sessionMetadataRef: { current: { sessionId: "resync-test" } },
-				setActivityLabelSynced: vi.fn(),
-				setAdapterCapabilities: vi.fn(),
-				setMessagesSynced,
-				setPresentationSynced: vi.fn(),
-				setQueueSynced: vi.fn(),
-				setSessionMetadataSynced: vi.fn(),
-				statusRef: { current: "ready" },
+				store,
 			}),
 		);
-		const send = (data: unknown, sequence = "") =>
-			EventSourceStub.instances[0]!.onmessage?.(
-				new MessageEvent("message", { data: JSON.stringify(data), lastEventId: sequence }),
-			);
+		const send = (data: unknown, sequence = "") => sendTo(sources[0]!, data, sequence);
 		await act(async () => {
 			send({ type: "connected", streamGeneration: "g" });
 			send({ type: "queue", steering: [], followUp: [] }, "4");
@@ -508,65 +335,33 @@ describe("usePiChatSessionEvents", () => {
 			});
 		});
 		expect(JSON.parse(window.sessionStorage.getItem(key)!).lastEventId).toBe(10);
-		expect(setMessagesSynced).toHaveBeenCalledWith([]);
+		expect(get().messages).toEqual([]);
 		unmount();
 	});
 
 	it("persists streamGeneration with lastEventId and resets the stored cursor on cursorReset", async () => {
 		vi.useFakeTimers();
-		class EventSourceStub {
-			static instances: EventSourceStub[] = [];
-			readonly url: string;
-			readonly close = vi.fn();
-			onerror: (() => void) | null = null;
-			onmessage: ((event: MessageEvent<string>) => void) | null = null;
-			constructor(url: string) {
-				this.url = url;
-				EventSourceStub.instances.push(this);
-			}
-		}
-		vi.stubGlobal("EventSource", EventSourceStub);
+		const sources = stubEventSource();
 		window.sessionStorage.removeItem("pi:sse:last-event-id:session-gen");
 
-		const setActivityLabelSynced = vi.fn();
 		const loadSession = vi.fn(async () => ({
 			messages: [],
 			presentation: EMPTY_SESSION_PRESENTATION,
 			session: { sessionId: "session-gen" },
 		}));
+		const { store, changes } = createChatStoreFixture({ sessionMetadata: { sessionId: "session-gen" } });
 		renderHook(() =>
 			usePiChatSessionEvents({
 				client: { loadSession } as unknown as ChatClient,
-				presentationRef: { current: EMPTY_SESSION_PRESENTATION },
 				sessionId: "session-gen",
-				sessionMetadataRef: { current: { sessionId: "session-gen" } },
-				setActivityLabelSynced,
-				setAdapterCapabilities: vi.fn(),
-				setMessagesSynced: vi.fn(),
-				setPresentationSynced: vi.fn(),
-				setQueueSynced: vi.fn(),
-				setSessionMetadataSynced: vi.fn(),
-				statusRef: { current: "ready" },
+				store,
 			}),
 		);
 
-		const first = EventSourceStub.instances[0]!;
+		const first = sources[0]!;
 		await act(async () => {
-			first.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({
-						type: "connected",
-						sessionId: "session-gen",
-						streamGeneration: "gen-1",
-					}),
-				}),
-			);
-			first.onmessage?.(
-				new MessageEvent("message", {
-					lastEventId: "14",
-					data: JSON.stringify({ type: "queue", steering: ["hi"], followUp: [] }),
-				}),
-			);
+			sendTo(first, { type: "connected", sessionId: "session-gen", streamGeneration: "gen-1" });
+			sendTo(first, { type: "queue", steering: ["hi"], followUp: [] }, "14");
 		});
 
 		expect(window.sessionStorage.getItem("pi:sse:last-event-id:session-gen")).toBe(
@@ -578,35 +373,24 @@ describe("usePiChatSessionEvents", () => {
 			await vi.advanceTimersByTimeAsync(2_000);
 		});
 
-		const second = EventSourceStub.instances[1]!;
+		const second = sources[1]!;
 		expect(second.url).toContain("streamGeneration=gen-1");
 		expect(second.url).toContain("lastEventId=14");
 
 		await act(async () => {
-			second.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({
-						type: "connected",
-						sessionId: "session-gen",
-						streamGeneration: "gen-2",
-						cursorReset: true,
-					}),
-				}),
-			);
-			second.onmessage?.(
-				new MessageEvent("message", {
-					data: JSON.stringify({
-						type: "state",
-						state: { name: "agent_settled", message: "resync-required" },
-					}),
-				}),
-			);
+			sendTo(second, {
+				type: "connected",
+				sessionId: "session-gen",
+				streamGeneration: "gen-2",
+				cursorReset: true,
+			});
+			sendTo(second, { type: "state", state: { name: "agent_settled", message: "resync-required" } });
 		});
 
 		expect(window.sessionStorage.getItem("pi:sse:last-event-id:session-gen")).toBe(
 			JSON.stringify({ generation: "gen-2", lastEventId: 0 }),
 		);
-		expect(setActivityLabelSynced).not.toHaveBeenCalledWith("resync-required");
+		expect(changes.map((change) => change.activityLabel)).not.toContain("resync-required");
 		expect(loadSession).toHaveBeenCalledWith({ sessionId: "session-gen" });
 	});
 });
