@@ -1,0 +1,19 @@
+web/app/scripts/__tests__/openui-prompt-examples.test.tsx
+  s_a4d215107ddff0::t_e8adcd406d7670 132-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb141cee41e8db894c4a299afd319015862e6866",
+  "prompts": {},
+  "sessions": {
+    "s_a4d215107ddff0": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "22e3f92d-4539-4067-bb1b-07551959bb1e",
+        "model": "custom:chatgpt/gpt-6.2-sol"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
