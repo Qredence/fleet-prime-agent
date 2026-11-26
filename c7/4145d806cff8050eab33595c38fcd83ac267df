@@ -1,0 +1,105 @@
+web/server/src/openui-prompt.ts
+  s_fe120b22660305::t_18d054b86a631e 250
+  s_fe120b22660305::t_babf424457036f 248-249,251,253
+  s_fe120b22660305::t_71b35267788c6b 236,239-240
+.changeset/composer-hover-fill.md
+  s_fe120b22660305::t_9669f0dfcbc58f 1-5
+web/server/src/dashboards/library-spec.json
+  s_fe120b22660305::t_45feac5f3e0788 1
+web/app/src/components/chat/composer/prompt-input.tsx
+  s_fe120b22660305::t_840b818245d574 171-173
+  s_fe120b22660305::t_5b1ab05c37836e 174
+web/protocol/src/dashboards.ts
+  s_fe120b22660305::t_7f2b7aeeaf423d 136
+web/app/package.json
+  s_fe120b22660305::t_f6f9e1d746681c 58
+  s_fe120b22660305::t_d1745e162269ca 48
+  s_fe120b22660305::t_64b3b20090de11 27-28,30-32
+  s_fe120b22660305::t_499d1b05a93db8 43-44
+  s_fe120b22660305::t_0b92dff9f41c78 37,39
+  s_fe120b22660305::t_aa42e5a6ad60be 70-71
+  s_fe120b22660305::t_b1e9a96d9e0f22 51
+  s_fe120b22660305::t_a939d508ead56e 35
+  s_fe120b22660305::t_cbd339804398fb 64
+web/app/src/components/ui/checkbox.tsx
+  s_fe120b22660305::t_b7fb17de26cc58 91
+  s_fe120b22660305::t_1d95cd59b7542d 16
+.changeset/dashboard-library-1.md
+  s_fe120b22660305::t_4e573f15a20679 1-4,6-7
+  s_55d36d86b58ad0::t_4a0f0912d10960 5
+pnpm-workspace.yaml
+  s_fe120b22660305::t_3646424cf6d99d 63-65
+  s_fe120b22660305::t_565a8d4b1e3272 51-55
+  s_fe120b22660305::t_f9d6a0f203c9cd 9-13
+web/app/src/components/dashboards/tests/dashboard-render.test.tsx
+  s_fe120b22660305::t_69a666572d22c1 46
+  s_fe120b22660305::t_6263d2c333d498 61
+  s_a4d215107ddff0::t_a77945639df7a9 1-12,14-24,28-31,39-45,47,49,51,60,62,64,68-102,104
+web/server/src/__tests__/openui-tool-handler.test.ts
+  s_fe120b22660305::t_b52e8f70555dfb 287
+web/server/src/dashboards/cloud.ts
+  s_fe120b22660305::t_533315ff0de8c6 55,57
+  s_fe120b22660305::t_dfffa1498eb3ec 130-132,134
+web/protocol/src/openui-tools.ts
+  s_fe120b22660305::t_095000ae81dbf4 232
+  s_0013f30890577c::t_523d4cd85ef2bb 307-308
+web/server/package.json
+  s_fe120b22660305::t_e43b23a9f915e3 20-21
+  s_0013f30890577c::t_ff3fc1820bfc54 30
+pnpm-lock.yaml
+  s_0013f30890577c::t_e889d50f9050c8 8-9,14,106-110,115-116,118-119,121-122,130-131,134,136-137,142-143,154-155,157-158,169-170,178-179,194-195,210,212-213,230-231,233-234,249-250,261-262,264-265,286-287,1025-1032,1037,1044-1045,1068-1069,1078-1079,1094-1095,1098,1104-1105,1713-1714,2523-2524,2630-2631,2633-2634,2656-2657,2661,2664,2680-2681,2751-2752,3110-3111,3113-3114,3127-3128,3138-3139,3589-3592,4003-4004,4179-4181,4273-4275,4600-4601,4619-4621,4633-4637,4848-4849,4854-4855,5135-5136,5140-5141,5353-5354,5357,5361-5363,5385-5386,5419-5420,5621-5622,5683-5685,5700-5701,5775-5776,5807-5810,5914-5916,5920-5922,5979-5981,6034-6035,6085-6086,6093-6094,6096-6098,6177-6179,7151,7167-7190,7197,7199,7247,7256,7263,7265-7266,7274,7277-7278,7323,7325,7624,7626,8401,8469,8474,8478,8480,8482,8504,8511,8537,8541,8545,8551,8598,8607,8611,8645,8653,8665,8667,8669,8948,8951,8955,8965,8973,8976,8978,8980,8982,9382,9436-9439,9867,9869,10114-10133,10224-10225,10479,10495-10498,10509-10510,10678,10936,10942,10944,11275,11277,11279,11377,11606,11622-11623,11650,11732,11984,11987,11989,11992,11998-11999,12001-12002,12063-12066,12078,12130,12155-12158,12266,12277-12281,12288-12293,12298,12307,12322-12323,12383,12399,12401,12403,12406,12410,12414,12417,12421,12496-12497
+web/app/src/components/dashboards/dashboard-board.tsx
+  s_a4d215107ddff0::t_8570b7106dc625 1-168
+web/app/src/components/dashboards/dashboard-view.tsx
+  s_55d36d86b58ad0::t_65ee0c4f817180 9-10
+web/app/src/components/dashboards/dashboards-panel.tsx
+  s_55d36d86b58ad0::t_18b1007d4204e1 3
+web/app/src/lib/dashboards/dashboard-artifacts.ts
+  s_55d36d86b58ad0::t_94f93ae85d99bb 2,6-11
+web/protocol/package.json
+  s_0013f30890577c::t_ce76c0faf95abf 35
+web/server/src/__tests__/dashboard-signal.test.ts
+  s_0013f30890577c::t_ec98fbb6fbd90f 115-116,121-123
+web/server/src/dashboards/session-outputs.ts
+  s_0013f30890577c::t_341b3a45a81ba1 97-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c74145d806cff8050eab33595c38fcd83ac267df",
+  "prompts": {},
+  "sessions": {
+    "s_0013f30890577c": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "75a972be-7224-456d-8d8c-e7199d22a901",
+        "model": "custom:droidproxy:gemini-3.8-flash-high"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_55d36d86b58ad0": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "51d9aa90-6c2c-4d91-a21c-cfaeded985f0",
+        "model": "custom:droidproxy:gemini-3.8-flash-high"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_a4d215107ddff0": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "22e3f92d-4539-4067-bb1b-07551959bb1e",
+        "model": "custom:chatgpt/gpt-6.2-sol"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    },
+    "s_fe120b22660305": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8011f217-adbe-4931-922a-ceb7c7d5aef8",
+        "model": "headless"
+      },
+      "human_author": "Zachary BENSALEM <zachary@qredence.ai>"
+    }
+  }
+}
