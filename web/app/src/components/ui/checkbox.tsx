@@ -13,6 +13,7 @@ type MotionSafeSvgProps = Omit<
 	SVGProps<SVGSVGElement>,
 	| "style"
 	| "values"
+	| "fx"
 	| "onDrag"
 	| "onDragStart"
 	| "onDragEnd"
@@ -87,6 +88,7 @@ const Checkbox = forwardRef<HTMLElement, CheckboxProps>(
 								const rest = omit(indicatorProps as SVGProps<SVGSVGElement>, [
 									"style",
 									"values",
+									"fx",
 									"onDrag",
 									"onDragStart",
 									"onDragEnd",

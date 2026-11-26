@@ -1,6 +1,13 @@
 import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
+import { type DashboardRecord, DashboardRecordSchema } from "@prime-agent/web-protocol/dashboards";
 
 type ArtifactRun = { artifacts: readonly PrimeAgentArtifact[] };
+
+export function dashboardRecord(artifact: PrimeAgentArtifact): DashboardRecord | undefined {
+	if (artifact.kind !== "openui-dashboard") return undefined;
+	const parsed = DashboardRecordSchema.safeParse(artifact.output);
+	return parsed.success ? parsed.data : undefined;
+}
 
 /** Presentation artifacts replace live-run copies of the same id. */
 export function mergeArtifactsById(

@@ -168,10 +168,10 @@ export function PromptInput({
 		<form aria-label="Message composer" onSubmit={submit} className="w-full rounded-chat-input">
 			<InputGroup
 				className={cn(
-					// Arbitrary value (not the rounded-chat-input utility) so tailwind-merge
-					// treats it as a border-radius override of shape.input instead of letting
-					// both classes reach the cascade, where order is undefined.
-					"relative h-auto w-full flex-col rounded-[var(--chat-input-radius)] border border-border/70 bg-sidebar p-2 has-disabled:bg-sidebar has-disabled:opacity-100 text-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-2 focus-within:ring-chat-input-focus-outline/25 has-[[data-slot=input-group-control]:focus-visible]:border-chat-input-focus-outline/45 has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-chat-input-focus-outline/25",
+					// Arbitrary radius so tailwind-merge overrides shape.input. The hover
+					// fills override InputGroup's hover:bg-hover and focus-within:hover:bg-transparent,
+					// which otherwise let the transcript show through this overlay.
+					"relative h-auto w-full flex-col rounded-[var(--chat-input-radius)] border border-border/70 bg-sidebar p-2 hover:bg-sidebar focus-within:hover:bg-sidebar has-disabled:bg-sidebar has-disabled:opacity-100 text-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-chat-input-focus-outline/45 focus-within:ring-2 focus-within:ring-chat-input-focus-outline/25 has-[[data-slot=input-group-control]:focus-visible]:border-chat-input-focus-outline/45 has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-chat-input-focus-outline/25",
 					disabled && "has-disabled:opacity-60",
 					className,
 				)}

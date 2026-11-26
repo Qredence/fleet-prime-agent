@@ -17,8 +17,8 @@
   "dependencies": {
     "@earendil-works/pi-agent-core": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-core-0.9.8.tgz",
     "@earendil-works/pi-ai": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-ai-0.9.8.tgz",
-    "@openuidev/lang-core": "^1.1.0",
-    "@openuidev/server": "^0.4.1",
+    "@openuidev/lang-core": "^1.1.1",
+    "@openuidev/server": "^0.4.3",
     "@prime-agent/web-protocol": "workspace:*",
     "prime-agent": "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/releases/v0.9.8/prime-agent-0.9.8.tgz",
     "zod": "^4.6.7"
@@ -27,6 +27,6 @@
     "@types/node": "^24.19.2",
     "typebox": "1.3.18",
     "typescript": "^6.0.3",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   }
 }

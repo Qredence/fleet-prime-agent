@@ -129,6 +129,15 @@ describe("OpenUI agent prompt examples", () => {
 		expect(cloud).not.toContain("dashboard_dataset");
 	});
 
+	it("distinguishes dashboard layout and table bindings from chat components", () => {
+		const local = buildOpenUIPrompt("agent", { dashboards: { mode: "self-hosted" } });
+		expect.soft(local).toContain("Row([Card(...), ...])");
+		expect.soft(local).toContain("Card(title, [content, ...], width?, subtitle?)");
+		expect
+			.soft(local)
+			.not.toMatch(/turn, role, kind, toolName, preview\. Use those exact keys as DataTable column keys/);
+	});
+
 	it("aggregates session_stats by sessions, not by counting status rows", () => {
 		const statsExamples = programs.filter((program) => program.includes('Query("session_stats"'));
 		expect(statsExamples.length).toBeGreaterThan(0);

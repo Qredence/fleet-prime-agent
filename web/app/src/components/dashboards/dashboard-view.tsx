@@ -1,25 +1,14 @@
-import { library as dashboardLibrary, ThemeProvider } from "@openuidev/dashboard-library";
-import { type ActionEvent, BuiltinActionType, Renderer } from "@openuidev/react-lang";
-import { LiveArtifactRenderer, OpenUICloudProvider } from "@openuidev/react-ui/cloud";
 import type { PrimeAgentArtifact } from "@prime-agent/web-protocol/chat-protocol";
 import {
-	type DashboardDataset,
 	type DashboardFence,
 	type DashboardRecord,
-	DashboardRecordSchema,
 	dashboardFenceKey,
 	dashboardFences,
-	projectDashboardDataset,
 } from "@prime-agent/web-protocol/dashboards";
-import { EMPTY_SESSION_OUTPUTS } from "@prime-agent/web-protocol/openui-tools";
 import { LayoutDashboard } from "lucide-react";
-import { useContext, useEffect, useMemo, useState } from "react";
-import { resolveChatApiUrl } from "@/lib/chat/chat-runtime-url";
-import { mergeArtifactsById } from "@/lib/dashboards/dashboard-artifacts";
+import { useContext } from "react";
+import { dashboardRecord, mergeArtifactsById } from "@/lib/dashboards/dashboard-artifacts";
 import { DashboardRequestContext } from "@/components/dashboards/dashboard-request-context";
-import { useOpenUISession } from "@/components/openui/openui-session-context";
-import { createSessionOutputsToolProvider } from "@/lib/openui/openui-tools";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
 	Attachment,
 	AttachmentContent,
@@ -28,119 +17,6 @@ import {
 	AttachmentTitle,
 	AttachmentTrigger,
 } from "@/components/ui/attachment";
-
-function useThemeMode(): "light" | "dark" {
-	const [mode, setMode] = useState<"light" | "dark">("light");
-	useEffect(() => {
-		const root = document.documentElement;
-		const read = () => setMode(root.classList.contains("dark") ? "dark" : "light");
-		read();
-		const observer = new MutationObserver(read);
-		observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-		return () => observer.disconnect();
-	}, []);
-	return mode;
-}
-
-function dashboardRecord(artifact: PrimeAgentArtifact): DashboardRecord | undefined {
-	if (artifact.kind !== "openui-dashboard") return undefined;
-	const parsed = DashboardRecordSchema.safeParse(artifact.output);
-	return parsed.success ? parsed.data : undefined;
-}
-
-function interpreterUrl(sessionId: string | undefined, dashboardId: string): string {
-	const params = new URLSearchParams();
-	if (sessionId) params.set("sessionId", sessionId);
-	params.set("dashboardId", dashboardId);
-	return resolveChatApiUrl(`/api/chat/dashboards/interpreter?${params}`);
-}
-
-function createDashboardToolProvider(
-	dataset: DashboardDataset | undefined,
-	projectId: string | undefined,
-	sessionId: string | undefined,
-) {
-	const sessionOutputs = createSessionOutputsToolProvider(projectId, sessionId).session_outputs;
-	return {
-		session_outputs: async (args: Record<string, unknown>) => {
-			if ((dataset?.rows.length ?? 0) > 0) return EMPTY_SESSION_OUTPUTS;
-			return sessionOutputs(args);
-		},
-		dashboard_rows: async () => projectDashboardDataset(dataset),
-	};
-}
-
-function boardActionMessage(event: ActionEvent): string | null {
-	if (event.type !== BuiltinActionType.ContinueConversation) return null;
-	const message = event.params.message;
-	if (typeof message === "string" && message.trim()) return message;
-	const friendly = event.humanFriendlyMessage.trim();
-	return friendly || null;
-}
-
-export function DashboardBoard({
-	artifact,
-	sessionId,
-	onOpenUIAction,
-}: {
-	artifact: PrimeAgentArtifact;
-	sessionId?: string;
-	onOpenUIAction?: (message: string) => void;
-}) {
-	const record = useMemo(() => dashboardRecord(artifact), [artifact]);
-	const mode = useThemeMode();
-	const openUiSession = useOpenUISession();
-	const tools = useMemo(
-		() =>
-			createDashboardToolProvider(
-				record?.dataset,
-				openUiSession.projectId ?? undefined,
-				sessionId ?? openUiSession.sessionId,
-			),
-		[openUiSession.projectId, openUiSession.sessionId, record?.dataset, sessionId],
-	);
-	const onAction = (event: ActionEvent) => {
-		const message = boardActionMessage(event);
-		if (message) onOpenUIAction?.(message);
-	};
-	if (!record) {
-		return <DashboardNotice title="Dashboard" message="Saved by an older version." />;
-	}
-	if (record.response) {
-		return (
-			<ThemeProvider mode={mode}>
-				<OpenUICloudProvider token={resolveChatApiUrl("/api/chat/dashboards/token")}>
-					<LiveArtifactRenderer
-						response={record.response}
-						library={dashboardLibrary}
-						interpreter={{ url: interpreterUrl(sessionId, artifact.id) }}
-						preview={false}
-						onAction={onAction}
-						className="w-full"
-					/>
-				</OpenUICloudProvider>
-			</ThemeProvider>
-		);
-	}
-	if (record.program) {
-		return (
-			<ThemeProvider mode={mode}>
-				<Renderer response={record.program} library={dashboardLibrary} toolProvider={tools} onAction={onAction} />
-			</ThemeProvider>
-		);
-	}
-	if (record.error) return <DashboardNotice title="Dashboard" message={record.error} />;
-	return null;
-}
-
-function DashboardNotice({ title, message }: { title: string; message: string }) {
-	return (
-		<Alert>
-			<AlertTitle>{title}</AlertTitle>
-			<AlertDescription>{message}</AlertDescription>
-		</Alert>
-	);
-}
 
 function artifactForFence(
 	artifacts: readonly PrimeAgentArtifact[],
