@@ -229,7 +229,7 @@ const ROW_FIELDS = {
 	session_stats:
 		"Each row has exactly these fields: status, sessions, messages. Use those exact keys as DataTable column keys.",
 	session_outputs:
-		"Each row has exactly these fields: turn, role, kind, toolName, preview. Use those exact keys as DataTable column keys. kind is text or tool. Reasoning is not included. The response also carries `columns` (one array per field, for Column), `total` (the row count before the limit), and `toolCalls`. Use `total` for a session-wide count and `columns` for what is displayed.",
+		"Each row has exactly these fields: turn, role, kind, toolName, preview. kind is text or tool. Reasoning is not included. The response also carries `columns` (one array per field), `total` (the row count before the limit), and `toolCalls`. Use `total` for a session-wide count. For a dashboard table, bind each Column to its field in `columns`, not the whole rows.",
 } as const;
 
 /** Tool descriptions are prompt text: they name the exact row fields, because a
