@@ -133,7 +133,7 @@ export const DashboardDatasetSchema = z
 	}));
 export type DashboardDataset = z.infer<typeof DashboardDatasetSchema>;
 
-/** The shape `dashboard_rows` returns. `columnValues` is one array per column key, which `Col` can bind. */
+/** The shape `dashboard_rows` returns. `columnValues` is one array per column key, which `Column` can bind. */
 export function projectDashboardDataset(dataset: DashboardDataset | undefined): {
 	columns: DashboardColumn[];
 	rows: Array<Record<string, string | number | null>>;

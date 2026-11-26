@@ -52,16 +52,9 @@ const specFile = librarySpec as SpecFile;
  * figures are not in `dashboard_rows`, so the builder is shown structure only.
  */
 const DASHBOARD_EXAMPLES = [
-	`root = Dashboard([header, section])
+	`root = Dashboard([stated])
 figures = Query("dashboard_rows", {}, {columns: [], rows: [], columnValues: {}})
-header = DashboardHeader("Subject", "Figures already stated")
-section = Section([tableRow])
-tableRow = CardRow([tableCard], "stretch")
-tableCard = LargeCard([tableHeader, table], false)
-tableHeader = DashboardCardHeader("Stated figures")
-table = Table([labelCol, valueCol])
-labelCol = Col("Label", figures.columnValues.label)
-valueCol = Col("Value", figures.columnValues.value, "number")`,
+stated = Section("Subject", [Row([Card("Stated figures", [Table([Column("Label", figures.columnValues.label, "text"), Column("Value", figures.columnValues.value, "number")])], "full", "Figures already stated")])])`,
 ];
 
 function clampLimit(value: unknown): number {
@@ -134,9 +127,11 @@ export function createDashboardService(apiKey: string, model: string = DEFAULT_D
 				`${specFile.promptOptions.preamble ?? ""} Lay out the figures Prime Agent already collected. Chart dashboard_rows. Leave a section empty when those rows do not have the figure. Do not research, and do not treat session_outputs as subject data. Use session_outputs only when dashboard_rows is empty, for a dashboard of this chat.`.trim(),
 			examples: DASHBOARD_EXAMPLES,
 			additionalRules: [
-				...(specFile.promptOptions.additionalRules ?? []).filter((rule) => !/placeholder data/i.test(rule)),
+				...(specFile.promptOptions.additionalRules ?? []).filter(
+					(rule) => !/placeholder data|write realistic, professional data/i.test(rule),
+				),
 				"Lay out dashboard_rows. Leave a section empty when those rows do not have the figure. Do not research. session_outputs is this chat's activity and is empty when dashboard_rows has figures.",
-				"In the example, label and value stand in for column keys. Bind each Col to a key dashboard_rows returns. Do not copy label or value unless that key is in the dataset.",
+				"In the example, label and value stand in for column keys. Bind each Column to a key dashboard_rows returns. Do not copy label or value unless that key is in the dataset.",
 			],
 		},
 	});

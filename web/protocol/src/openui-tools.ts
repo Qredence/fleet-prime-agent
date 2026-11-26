@@ -229,7 +229,7 @@ const ROW_FIELDS = {
 	session_stats:
 		"Each row has exactly these fields: status, sessions, messages. Use those exact keys as DataTable column keys.",
 	session_outputs:
-		"Each row has exactly these fields: turn, role, kind, toolName, preview. Use those exact keys as DataTable column keys. kind is text or tool. Reasoning is not included. The response also carries `columns` (one array per field, for Col), `total` (the row count before the limit), and `toolCalls`. Use `total` for a session-wide count and `columns` for what is displayed.",
+		"Each row has exactly these fields: turn, role, kind, toolName, preview. Use those exact keys as DataTable column keys. kind is text or tool. Reasoning is not included. The response also carries `columns` (one array per field, for Column), `total` (the row count before the limit), and `toolCalls`. Use `total` for a session-wide count and `columns` for what is displayed.",
 } as const;
 
 /** Tool descriptions are prompt text: they name the exact row fields, because a
@@ -304,11 +304,8 @@ export const OpenUIToolResponseSchema = z.object({
 	/** Row count before paging. Absent when a tool truncates rather than pages. */
 	total: z.number().int().nonnegative().optional(),
 	/**
-	 * Per-column primitive arrays for `Table([Col(...)])`.
-	 *
-	 * `Col` binds one column of values, and openui-lang has no projection
-	 * builtin, so a component cannot derive a column from `rows`. Tools that feed
-	 * a table return this projection alongside the rows.
+	 * Per-column primitive arrays for `Table([Column(...)])`. Bind to a field of
+	 * this projection rather than passing whole row objects as cell values.
 	 */
 	columns: z.record(z.string(), z.array(z.unknown())).optional(),
 	/** Session-wide count, independent of the page size a table displays. */

@@ -233,22 +233,11 @@ detail = DataTable("By status", [{ key: "status", label: "Status" }, { key: "ses
 \`\`\``,
 ];
 
-const SESSION_DASHBOARD_PROGRAM = `root = Dashboard([header, section])
+const SESSION_DASHBOARD_PROGRAM = `root = Dashboard([filters, activity])
 $limit = "20"
 outputs = Query("session_outputs", {limit: $limit}, {rows: [], columns: {}, total: 0, toolCalls: 0})
-header = DashboardHeader("This session", "Live tool and text output from this session")
-filterBar = FilterBar([limitFilter], [], true)
-limitFilter = FilterSelect("limit", "Rows", [{ value: "20", label: "20 rows" }, { value: "40", label: "40 rows" }], $limit)
-kpis = CardRow([kpiOutputs, kpiTools], "stretch")
-kpiOutputs = SmallCard("Outputs", "" + outputs.total)
-kpiTools = SmallCard("Tool calls", "" + outputs.toolCalls)
-tableCard = LargeCard([tableHeader, table], false)
-tableHeader = DashboardCardHeader("Session outputs", "Oldest first", "text")
-table = Table([colTurn, colRole, colPreview])
-colTurn = Col("Turn", outputs.columns.turn, "number")
-colRole = Col("Role", outputs.columns.role)
-colPreview = Col("Preview", outputs.columns.preview)
-section = Section([kpis, tableCard], filterBar, "Activity")`;
+filters = FilterBar([SelectFilter($limit, [{value: "20", label: "20 rows"}, {value: "40", label: "40 rows"}], "Rows")])
+activity = Section("This session", [Kpis([Kpi("Outputs", outputs.total, "number"), Kpi("Tool calls", outputs.toolCalls, "number")]), Row([Card("Session outputs", [Table([Column("Turn", outputs.columns.turn, "number"), Column("Role", outputs.columns.role, "text"), Column("Preview", outputs.columns.preview, "text")])], "full", "Oldest first")])], "Live tool and text output from this session")`;
 
 const SESSION_DASHBOARD_EXAMPLE = `A dashboard of the open session. The select refetches the query:
 \`\`\`openui-dashboard
@@ -256,11 +245,12 @@ ${JSON.stringify({ title: "This session", program: SESSION_DASHBOARD_PROGRAM })}
 \`\`\``;
 
 const DASHBOARD_RULES = [
-	"Dashboard programs render with the dashboard component library, whose root is Dashboard. Emit Dashboard([DashboardHeader(...), Section(...)]) and nothing else at the root. Do not use Root, Stack, MetricGroup, or DataTable: they belong to the chat library and will not render.",
-	"Layout inside a Section: Section(rows, filterBar?, title?) where rows are CardRow or card values, and a card is SmallCard(title, metric, trend?), MediumCard([...]), or LargeCard([...], collapsed). Tables are column-oriented: Table([Col(label, data, type?), ...]).",
-	'Col takes one column of primitive values, not rows: Col("Role", outputs.columns.role). session_outputs returns rows for counting and filtering plus a columns object holding one array per field. Passing whole row objects to Col renders blank cells, so bind each column to outputs.columns.<field>.',
-	'Stated figures come from Query("dashboard_rows"). It returns columns, rows, and columnValues, one array per column key. Bind Col and charts to columnValues.<key>. Query("session_outputs") is this chat\'s own activity.',
+	"Dashboard programs render with the dashboard component library, whose root is Dashboard. Emit Dashboard([FilterBar(...), Section(...)]) and nothing else at the root. FilterBar is optional and comes first. Do not use Root, Stack, MetricGroup, DataTable, DashboardHeader, CardRow, SmallCard, LargeCard, or Col: the chat library and the previous dashboard library will not render.",
+	"Section(title, rows, description?) holds Kpis and Row values. Row(items) holds Card values. Card(title, content, width?, subtitle?) holds the Table. Kpis([Kpi(label, value, format?), ...]) is a strip, not a card. Table([Column(label, values, kind?), ...]) is column-oriented.",
+	'Column takes one array of primitive values, not rows: Column("Role", outputs.columns.role, "text"). session_outputs returns rows for counting and filtering plus a columns object holding one array per field. Passing whole row objects to Column renders [object Object], so bind each column to outputs.columns.<field>.',
+	'Stated figures come from Query("dashboard_rows"). It returns columns, rows, and columnValues, one array per column key. Bind Column and charts to columnValues.<key>. Query("session_outputs") is this chat\'s own activity.',
 	"Bind every number to a Query. Use outputs.total for session-wide counts and never the fetched page size. Do not bake numbers into a dashboard: it reloads its data every time it opens, so a literal goes stale while looking live.",
+	'Connect a filter through its first argument: FilterBar([SelectFilter($limit, [{value: "20", label: "20 rows"}, {value: "40", label: "40 rows"}], "Rows")]). Declare the starting value first ($limit = "20"). A literal in that argument leaves the filter disconnected.',
 ];
 
 const CLOUD_DASHBOARD_RULES = [

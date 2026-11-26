@@ -132,6 +132,91 @@ test.describe("chat shell", () => {
 		await expect(composer.first()).toBeVisible({ timeout: 10_000 });
 	});
 
+	test("composer keeps its fill when hovered and focused", async ({ page }) => {
+		await mockEmptyWelcomeChat(page, "composer-fill-session");
+		await page.goto("/");
+
+		const prompt = page.getByRole("textbox", { name: "Prompt" });
+		const composer = page.getByRole("form", { name: "Message composer" }).locator('[data-slot="input-group"]');
+		await expect(prompt).toBeVisible();
+		await expect(composer).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+		const fill = await composer.evaluate((element) => getComputedStyle(element).backgroundColor);
+		await prompt.hover();
+		await expect(composer).toHaveCSS("background-color", fill);
+		await prompt.click();
+		await expect(prompt).toBeFocused();
+		await expect(composer).toHaveCSS("background-color", fill);
+	});
+
+	test("opens saved and current dashboards in the same panel", async ({ page }) => {
+		const sessionId = "dashboard-smoke-session";
+		const messageId = "dashboard-smoke-message";
+		const runId = "dashboard-smoke-run";
+		const savedProgram = `root = Dashboard([header, section])
+header = DashboardHeader("Saved session")
+section = Section([card], null, "Activity")
+card = LargeCard([Table([Col("Status", ["Previous result"])])], false)`;
+		const currentProgram = `root = Dashboard([Section("Activity", [Row([Card("Current session", [Table([Column("Status", ["Current result"])])])])])])`;
+		const artifacts = [
+			{ id: "saved-board", title: "Saved board", program: savedProgram },
+			{ id: "current-board", title: "Current board", program: currentProgram },
+		].map(({ id, title, program }) => ({
+			id,
+			title,
+			runId,
+			sourceMessageId: messageId,
+			kind: "openui-dashboard",
+			status: "success",
+			timestamp: 1,
+			output: { mode: "local", program, fenceKey: id },
+		}));
+		const presentation = {
+			revision: 1,
+			userBash: [],
+			rlmChildren: [],
+			refinements: [],
+			artifactRuns: [{ id: runId, runId, artifacts }],
+		};
+		const fence = JSON.stringify({ id: "saved-board", title: "Saved board", program: savedProgram });
+		const message = {
+			id: messageId,
+			role: "assistant",
+			parts: [{ type: "text", text: `\`\`\`openui-dashboard\n${fence}\n\`\`\`` }],
+		};
+		let submitted = false;
+		await mockEmptyWelcomeChat(page, sessionId);
+		await mockReasoningModel(page);
+		await page.route("**/api/chat/session?*", async (route) => {
+			if (!submitted || route.request().method() !== "GET") return route.fallback();
+			await route.fulfill({ json: { session: { sessionId }, messages: [message], presentation } });
+		});
+		await page.route("**/api/chat", async (route) => {
+			if (route.request().method() !== "POST") return route.fallback();
+			submitted = true;
+			await route.fulfill({
+				contentType: "application/x-ndjson",
+				body:
+					[
+						{ type: "start", id: messageId, runId, sessionId },
+						{ type: "done", runId, sessionId, message, presentation },
+					]
+						.map((event) => JSON.stringify(event))
+						.join("\n") + "\n",
+			});
+		});
+
+		await page.goto("/");
+		await page.waitForLoadState("networkidle");
+		await page.getByRole("textbox", { name: "Prompt" }).fill("Show my dashboards");
+		await page.getByRole("button", { name: "Send prompt" }).click();
+		await page.getByRole("button", { name: "Open Saved board" }).click();
+		await expect(page.getByRole("cell", { name: "Previous result" })).toBeVisible();
+		await page.getByRole("button", { name: "Current board", exact: true }).click();
+		await expect(page.getByRole("cell", { name: "Current result" })).toBeVisible();
+		await page.getByRole("button", { name: "Saved board", exact: true }).click();
+		await expect(page.getByRole("cell", { name: "Previous result" })).toBeVisible();
+	});
+
 	test("empty welcome state launches developer tasks without submitting", async ({ page }) => {
 		await mockEmptyWelcomeChat(page, "welcome-task-session");
 		await mockReasoningModel(page);

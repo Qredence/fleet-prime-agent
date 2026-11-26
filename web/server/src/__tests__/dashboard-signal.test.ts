@@ -112,14 +112,15 @@ describe("session_outputs abort handling", () => {
 	});
 
 	/**
-	 * `Table([Col(...)])` takes one primitive array per column and openui-lang
-	 * has no projection builtin, so the tool returns the projection itself.
-	 * Without it a dashboard renders a header over blank cells.
+	 * `Table([Column(...)])` takes one array of cell values per column, not
+	 * whole rows. Verify the Cloud tool returns the same projection as Fleet.
 	 */
 	it("serves stated figures from dashboard_rows and drops placeholder data", async () => {
 		createDashboardService("sk-test");
 		const definition = mocks.definitions.at(-1);
-		expect(definition?.promptOptions?.additionalRules?.join("\n")).not.toMatch(/placeholder data/i);
+		expect(definition?.promptOptions?.additionalRules?.join("\n")).not.toMatch(
+			/placeholder data|write realistic, professional data/i,
+		);
 		const examples = definition?.promptOptions?.examples?.join("\n") ?? "";
 		expect(examples).toContain('Query("dashboard_rows"');
 		expect(examples).not.toMatch(/\d|\$/);

@@ -284,7 +284,7 @@ describe("handleOpenUIToolPost", () => {
 		expect(body.total).toBe(2);
 		/**
 		 * The route forwards the whole tool envelope. Narrowing it to rows/total
-		 * left the table body blank, because `Col` binds `columns.<field>`.
+		 * left the table body blank, because `Column` binds `columns.<field>`.
 		 */
 		expect(body.columns).toEqual({
 			turn: [1, 1],

@@ -94,10 +94,9 @@ export type SessionOutputColumns = {
 /**
  * The same rows, projected field-by-field.
  *
- * `Table([Col(...)])` takes one primitive array per column, and openui-lang has
- * no projection builtin, so a component cannot derive a column from `rows`.
- * Passing whole row objects renders blank cells. The tool therefore returns the
- * projection alongside the rows, already sliced to the page the caller sees.
+ * `Table([Column(...)])` takes one array of cell values per column. The tool
+ * returns this projection alongside the rows, already sliced to the page the
+ * caller sees.
  */
 function sessionOutputColumns(rows: readonly SessionOutputRow[]): SessionOutputColumns {
 	return {
