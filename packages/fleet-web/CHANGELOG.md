@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.8
+
+### Patch Changes
+
+- c74145d: The message field keeps its background when the pointer is over it, so the conversation no longer shows through the composer.
+- c74145d: New dashboards use the OpenUI dashboard library 1.0 and still chart the figures already in the reply. Previously saved dashboards reopen without needing to be recreated.
+
+   The web app also picks up current Vite, Vitest, TanStack Query and Start, Motion, Lucide, Recharts, Streamdown, and Playwright releases.
+
 ## 0.13.7
 
 ### Patch Changes
